@@ -18,9 +18,14 @@ def test_undeclared_capability_is_named():
     assert c.learning == 1
     with pytest.raises(AttributeError, match="'graph' used capability 'tutor'"): c.tutor
 
+def test_speech_capability():
+    c = Ctx('voice', ('speech',), speech=1)
+    assert c.speech == 1
+    with pytest.raises(AttributeError, match="'voice' used capability 'pool'"): c.pool
+
 def test_every_get_page_answers(mk):
     cl = mk()
-    for path in ('/', '/concepts', '/c/ranking', '/graph', '/graph.json', '/search?q=rank', '/add', '/health'):
+    for path in ('/', '/concepts', '/c/ranking', '/graph', '/graph.json', '/search?q=rank', '/add', '/settings', '/health'):
         r = cl.get(path)
         assert r.status_code == 200, path
 

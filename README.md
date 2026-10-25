@@ -50,7 +50,7 @@ The app listens on the loopback address only. These variables change the default
 |----|----|----|
 | `ABHYASA_VAULT` | the vault file | the vault of vishalakshi |
 | `ABHYASA_MODEL` | the rishi model for questions, grades, hints and lessons | `claude/sonnet` |
-| `ABHYASA_STT` | the speech-to-text engine: `gemma` or `whisper` | `gemma` |
+| `ABHYASA_STT` | the speech-to-text engine: `gemma`, `whisper`, `parakeet`, `openai` or `mlx:<repo>`. It is stronger than the Settings page. | the Settings page, then `gemma` |
 
 ## Surfaces
 
@@ -64,7 +64,8 @@ The web app is made from blocks under `abhyasa/blocks`:
 |----|----|
 | `today` | the home page: what is due and what to do now |
 | `session` | one sitting with the tutor: one question at a time, with hints, confidence and “I don’t know” |
-| `voice` | a mic button for each text box; it turns speech into text on this machine |
+| `voice` | a mic button for each text box; it listens until you stop it, and the text comes in at each pause |
+| [`settings`](https://vedicreader.github.io/abhyasa/voice.html#settings) | the speech model: pick, look up and get one; the OpenAI key; the tutor model |
 | `concepts` | the list of concepts, and one page for each concept with its state |
 | `graph` | the concept graph: a color for each floor, a ring when a review is due, arrows for prereqs |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |
