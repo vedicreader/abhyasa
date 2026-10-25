@@ -242,7 +242,7 @@
   let raf = 0; const stats = {frames: 0, draw: 0, max: 0, sum: 0};
   function dirty() { if (!raf) raf = requestAnimationFrame(frame); }
   function frame(ts) { raf = 0; const more = tween && glideStep(ts); draw(); if (more) dirty(); }
-  const region = document.createElement('canvas'), rctx = region.getContext('2d');
+  const region = document.createElement('canvas'), rctx = region.getContext('2d'), soft = document.createElement('canvas'), sctx = soft.getContext('2d');
   const widths = new Map(); const width = n => widths.get(n) ?? (widths.set(n, ctx.measureText(n.name).width), widths.get(n));
   const lit = () => {   // the nodes in full colour: what you point at and its neighbours, or what you find; null for all
     if (hover) return new Set([hover, ...[...hover.nb].filter(m => visSet.has(m))]);
@@ -293,13 +293,14 @@
   }
   function regions() {   // a soft tint under each subject in the Groups layout; one colour does not add up where it overlaps
     const q = 4, w = Math.ceil(W / q), h = Math.ceil(H / q);
-    if (region.width !== w || region.height !== h) { region.width = w; region.height = h; }
+    if (region.width !== w || region.height !== h) { region.width = soft.width = w; region.height = soft.height = h; }
     rctx.setTransform(1, 0, 0, 1, 0, 0); rctx.clearRect(0, 0, w, h);
     rctx.setTransform(t.k / q, 0, 0, t.k / q, t.x / q, t.y / q);
     const R = 30 * sp();
     for (const n of vis) { rctx.beginPath(); rctx.arc(n.x, n.y, R, 0, 2 * Math.PI); rctx.fillStyle = subCol(n.subject); rctx.fill(); }
-    ctx.save(); ctx.globalAlpha = C.dark ? .16 : .12; ctx.filter = `blur(${Math.max(4, 10 * t.k)}px)`; ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(region, 0, 0, w * q, h * q); ctx.restore();
+    // blur at a quarter of the size, where it costs little, then scale it up; the scale-up smooths it too
+    sctx.clearRect(0, 0, w, h); sctx.filter = `blur(${Math.max(1, 2.5 * t.k)}px)`; sctx.drawImage(region, 0, 0); sctx.filter = 'none';
+    ctx.save(); ctx.globalAlpha = C.dark ? .16 : .12; ctx.imageSmoothingEnabled = true; ctx.drawImage(soft, 0, 0, w * q, h * q); ctx.restore();
     const groups = d3.groups(vis, n => n.subject);
     captions = groups.map(([s, ns]) => [d3.mean(ns, n => n.x), d3.min(ns, n => n.y) - R * .9, s, 'group']);
   }
