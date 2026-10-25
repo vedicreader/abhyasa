@@ -18,9 +18,9 @@ def QuestionCard(sid, q):
     if q.get('options'):
         opts = [Button(Md(o), name='answer', value=str(i), cls='opt', hx_post=at(Routes.answer), hx_target='#fb',
                        hx_include='#conf', hx_indicator='#sp') for i, o in enumerate(q.options)]
-        return Div(Head(q), Md(q.question, cls='q'), *opts,
-                   Label('Confidence', Input(type='range', name='confidence', min=0, max=100, value=50, id='conf')),
-                   Div(Spin(), id='sp'), Div(id='fb'), id='card')
+        return Div(Head(q), Md(q.question, cls='q'),
+                   Label('Confidence: set it first, then pick an answer', Input(type='range', name='confidence', min=0, max=100, value=50, id='conf')),
+                   *opts, Div(Spin(), id='sp'), Div(id='fb'), id='card')
     form = Form(
         Label('Your answer', fr='ans'), Textarea(name='answer', id='ans', rows=3, autofocus=True),
         Label('Think aloud: how you got there, and what you are unsure of', fr='think'), Textarea(name='thinking', id='think', rows=4),

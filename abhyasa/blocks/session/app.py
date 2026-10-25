@@ -54,7 +54,7 @@ def connect(app, ctx):
         if (f := pre.pop(sid, None)): f.cancel()
         return Page('Session', H1('Session'), P(s.summary() if s else 'This session is over.'), A('Back to today', href='/'))
 
-    @hook('today')
+    @hook('today_next')
     def start_here(subject=None):
         p = pick(ctx.learning.concepts(), subject=subject)
         nxt_ = P(f"Next: {p[0].name} at {DEPTHS[p[1]]}. ", Span(p[2], cls='why')) if p else P('Nothing due. Add a source, or pick a concept.')

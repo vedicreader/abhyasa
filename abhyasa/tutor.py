@@ -33,7 +33,9 @@ Rules:
 - Never give the answer, or a hint that names the answer, before the learner tries.
 - Ask questions that need reasoning, not recitation. Prefer new cases over the textbook example.
 - Keep it short and plain. Use LaTeX between $...$ for maths. Use the learner's subject terms correctly.
-- The learner is an adult expert-learner; never be patronising, never praise effort, never pad."""
+- The learner is an adult expert-learner; never be patronising, never praise effort, never pad.
+- Write in ASD-STE100 Simplified Technical English at a US grade 9 reading level: short sentences (at most 20 words),
+  active voice, one instruction per sentence, simple words. Technical terms of the subject are allowed."""
 
 # %% ../nbs/03_tutor.ipynb #c007
 def _concept_block(c, ctx=''):
@@ -62,7 +64,8 @@ GRADE_SP = """You grade one answer. Judge the reasoning, including the think-alo
 - `misconception`: the wrong mental model behind the error, in under 12 words, or empty.
 - `feedback`: when correct, confirm in one line and add one deeper link or consequence. When wrong, name the first error and give
   one nudge that makes them think; never give the answer.
-- `grade`: 0-10."""
+- `grade`: 0-10.
+- Write `feedback` and `first_error` in ASD-STE100 Simplified Technical English, grade 9: short sentences, active voice."""
 
 def grade_prompt(q, answer, thinking='', confidence=50):
     "The prompt that grades one answer to question `q`."
