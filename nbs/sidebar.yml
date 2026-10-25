@@ -1,0 +1,13 @@
+website:
+  sidebar:
+    contents:
+      - index.ipynb
+      - 00_store.ipynb
+      - 01_model.ipynb
+      - 02_llm.ipynb
+      - 03_tutor.ipynb
+      - 04_sources.ipynb
+      - 05_voice.ipynb
+      - 07_rama.ipynb
+      - 08_nb.ipynb
+      - 09_ground.ipynb
