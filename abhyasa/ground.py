@@ -199,5 +199,4 @@ def index_main(argv=None):
     t = time.time()
     n = (index_ramabana(v, a.cfg, dry_run=a.dry_run) if a.what == 'ramabana'
          else index_notebooks(v, a.roots, only_agent=a.agent_only, dry_run=a.dry_run))
-    print(f"{a.what}: {n} in {time.time() - t:.0f} s -> {v.path}")
-    return n
+    print(f"{a.what}: {n} in {time.time() - t:.0f} s -> {v.path}")   # no return: a console script exits with what it returns
