@@ -1,0 +1,8 @@
+.q { font-size: 24px; line-height: 1.5; margin: 6px 0 22px; }
+.opt { display: block; width: 100%; text-align: left; margin: 8px 0; font: 18px/1.5 ui-serif, Georgia, serif; padding: 12px 14px; }
+.fb { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }
+.fb:empty { display: none; }
+.fb.ok .tag { color: var(--acc); } .fb.no .tag { color: var(--warn); }
+.tag { font: 600 13px var(--ui); letter-spacing: .06em; text-transform: uppercase; }
+.hints { padding-left: 20px; } .hints li { margin: 6px 0; }
+.mic.on { background: var(--bad); color: var(--bg); border-color: var(--bad); }

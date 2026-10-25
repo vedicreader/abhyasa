@@ -54,3 +54,6 @@ path = "abhyasa/__init__.py"
 
 [dependency-groups]
 dev = ["abhyasa[dev]"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

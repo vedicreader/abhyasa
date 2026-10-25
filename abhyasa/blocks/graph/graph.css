@@ -1,0 +1,3 @@
+#graph { width: 100%; height: 74vh; }
+#graph text { font: 11px var(--ui); fill: var(--mute); pointer-events: none; }
+#graph text.focus { fill: var(--fg); font-weight: 600; }

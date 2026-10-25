@@ -111,7 +111,7 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='') -> AttrDict:
     "Write a question on concept `c` at `depth`, keep it open, and return it without its answer fields."
     asked = self.learning.attempts(c['slug'], limit=20).attrgot('question')
     q = AttrDict(id=uuid.uuid4().hex[:10], concept=c['slug'], name=c['name'], statement=c.get('statement', ''),
-                 subject=c.get('subject', ''), depth=depth, kind=KIND_AT[depth], why=why, session=session,
+                 subject=c.get('subject', ''), floor=c.get('floor', 0), depth=depth, kind=KIND_AT[depth], why=why, session=session,
                  hints=[], tries=[], at=time.time())
     if (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
