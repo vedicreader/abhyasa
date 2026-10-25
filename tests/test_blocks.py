@@ -43,3 +43,10 @@ def test_vendor_served_offline(mk):
     assert cl.get('/vendor/marked.min.js').status_code == 200
     assert cl.get('/vendor/fonts/KaTeX_Main-Regular.woff2').status_code == 200
     assert 'cdn.jsdelivr' not in cl.get('/graph').text
+
+def test_pages_are_not_cached(mk):
+    cl = mk()
+    assert cl.get('/').headers['cache-control'] == 'no-store'          # Back shows the page as it is now
+    assert 'immutable' in cl.get('/assets/base.css').headers['cache-control']
+
+def test_favicon(mk): assert mk().get('/favicon.ico').status_code == 200
