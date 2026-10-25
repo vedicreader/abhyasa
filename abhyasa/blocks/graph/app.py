@@ -1,8 +1,9 @@
-"The concept graph: colour by floor, a ring when a review is due, arrows for prereqs, dashes for related."
+"The concept graph on a canvas, with levers to arrange it. The arrangement stays in the browser."
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, hook, asset_js, asset_css
 from .cfg import Routes
+from .ui import Stage
 
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning',)
@@ -12,9 +13,8 @@ def connect(app, ctx):
     lr = ctx.learning
 
     def page(subject:str='', focus:str=''):
-        pick = Select(Option('all subjects', value=''), *[Option(r['subject'], selected=r['subject'] == subject)
-                      for r in lr.subjects() if r['subject']], onchange=f"location='{Routes.base}?subject='+this.value")
-        return Page('Graph', Div(pick, cls='row'), Svg(id='graph', data_url=f'{Routes.data}?subject={subject}', data_focus=focus),
+        subs = [r['subject'] for r in lr.subjects() if r['subject']]
+        return Page('Graph', Stage(Routes.data, subs, subject, focus),
                     Script(src='/vendor/d3.min.js'), asset_js(_P/'graph.js', defer=True),
                     on='Graph', wide=True, extra=(asset_css(_P/'graph.css'),))
 
