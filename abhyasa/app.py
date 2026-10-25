@@ -16,13 +16,14 @@ FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle c
 
 def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=None):
     "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect."
+    from abhyasa.voice import Speech
     if transcribe is None: from abhyasa.voice import transcribe
     ask = ask or rishi_ask()
     hooks.clear(); RouteOverrides.nav.clear()
     app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False)   # htmx and fasthtml.js come from core/vendor
     if sources is None: sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else [])]
     svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources), ask=ask, transcribe=transcribe,
-               pool=ThreadPoolExecutor(2), sessions={}, sources=sources)
+               speech=Speech(transcribe), pool=ThreadPoolExecutor(2), sessions={}, sources=sources)
     app.state.blocks = connect_all(app, blocks(*([names] if names else [])), **svc)
     app.state.svc = svc
     serve_assets(app)

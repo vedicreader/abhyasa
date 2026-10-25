@@ -1,0 +1,14 @@
+/* The mic button: quiet while it listens. A thin bar under the word shows the level; a dot shows speech and work. */
+.mic { position: relative; }
+.mic .say { transition: color .2s; }
+.mic .lvl { position: absolute; left: 10%; right: 10%; bottom: 3px; height: 2px; border-radius: 1px; background: var(--acc);
+            transform: scaleX(var(--lvl, 0)); transform-origin: left; opacity: 0; transition: transform 60ms linear, opacity .2s; }
+.mic.on, .mic.busy { background: transparent; color: var(--fg); border-color: var(--acc); }
+.mic.on kbd, .mic.busy kbd { color: var(--mute); }
+.mic.on .lvl { opacity: .8; }
+.mic.on .say::before, .mic.busy .say::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%;
+                                               vertical-align: 1px; background: var(--mute); }
+.mic.on.talk .say::before { background: var(--bad); }
+.mic.busy .say::before { animation: mic-pulse 1.2s ease-in-out infinite; }
+@keyframes mic-pulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .mic .lvl { transition: none; } .mic.busy .say::before { animation: none; } }
