@@ -2,7 +2,7 @@
 import time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides, Spin
+from abhyasa.core import Page, RouteOverrides
 from abhyasa.ground import VedicSource, index_ramabana, index_notebooks, RAMA_CFG
 from .cfg import Routes
 
@@ -27,8 +27,8 @@ def connect(app, ctx):
             P(f"{len(vs.dbs())} verse databases in {vs.dir}." if vs.dbs() else 'Not found. Set VEDICREADER_ROOT to the vedicreader repo.', cls='mute'),
             H2('Add your sessions'),
             P('These add a shelf to your vault, so every tool can search it. They change no other shelf. A second run skips what did not change.', cls='mute'),
-            *[Div(Button(f'Index {t}', hx_post=Routes.index.format(what=k), hx_target=f'#ix-{k}', hx_indicator=f'#ix-{k}-sp'),
-                  Span(d, cls='mute'), Span(Spin('indexing…'), id=f'ix-{k}-sp'), Div(id=f'ix-{k}'), cls='row') for k, (t, d) in INDEXERS.items()],
+            *[Div(Button(f'Index {t}', hx_post=Routes.index.format(what=k), hx_target=f'#ix-{k}', data_wait='Indexing…', data_skel=f'#ix-{k}'),
+                  Span(d, cls='mute'), Div(id=f'ix-{k}', cls='ix'), cls='row') for k, (t, d) in INDEXERS.items()],
             on='Sources')
 
     def index(what:str):

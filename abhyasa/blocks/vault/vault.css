@@ -5,3 +5,4 @@
 .doc.session h2 { padding-left: 14px; border-left: 2px solid var(--acc); font-weight: 500; color: var(--ink2); }
 .doc pre { overflow-x: auto; padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .doc table { border-collapse: collapse; font-size: 15px; } .doc td, .doc th { padding: 4px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.thread-doc li.you { padding-left: 18%; text-align: right; } .thread-doc li.you .md { text-align: left; display: inline-block; }

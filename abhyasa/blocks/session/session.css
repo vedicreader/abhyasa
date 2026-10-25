@@ -1,36 +1,79 @@
-/* The session page: the question is the loudest thing; the boxes under it are calm; the tutor's notes sit at the margin. */
-#card .head { margin: 0 0 18px; }
-#card .head .lbl { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
-#card .head .why { margin: 2px 0 0; }
-.q { font-size: 25px; line-height: 1.5; margin: 0 0 30px; color: var(--fg); }
+/* The session page as a conversation, in the vedicreader look: the tutor writes at the margin, your messages sit quietly
+   at the right, each question starts after a hairline, and the composer stays at the bottom of the window. */
+main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* this file can stay in <head> after a boosted page change */
+
+/* each question: a quiet rule, the concept and why, then its thread */
+.qa { padding: 26px 0 8px; border-top: 1px solid var(--line); }
+.qa:first-child { border-top: 0; padding-top: 0; }
+.qa .head { margin: 0 0 14px; }
+.qa .head .lbl { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.qa .head .why { margin: 2px 0 0; }
+.qa.done { padding-top: 30px; }
+
+.thread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 22px; }
+.thread .lbl { margin-bottom: 2px; }
+.thread .md > :last-child { margin-bottom: 0; }
+
+/* the tutor: margin notes, a hairline at the left, its kind as a small label */
+.m.tutor { padding-left: 18px; border-left: 2px solid var(--line); font-size: 17px; line-height: 1.65; color: var(--ink2); max-width: 680px; }
+.m.tutor.ask { border-left-color: var(--acc); color: var(--fg); }
+.m.tutor.hint { border-left-style: dotted; border-left-color: var(--acc); font-size: 16px; }
+.m.tutor.no { border-left-color: color-mix(in srgb, var(--no) 55%, transparent); }
+.m.tutor.ok { border-left-color: color-mix(in srgb, var(--ok) 55%, transparent); }
+.q { font-size: 24px; line-height: 1.5; margin: 0; color: var(--fg); }
 .q > :last-child { margin-bottom: 0; }
-
-/* hints: margin notes, numbered by the page */
-.hints { list-style: none; counter-reset: hint; padding: 0 0 0 18px; margin: 0 0 8px; border-left: 2px solid var(--line); font-size: 16px; line-height: 1.6; color: var(--ink2); }
-.hints:empty { display: none; }
-.hints li { counter-increment: hint; margin: 0 0 14px; }
-.hints li::before { content: 'Hint ' counter(hint); display: block; font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
-.hints .md > :last-child { margin-bottom: 0; }
-
-/* the form: quiet rules for boxes; the thinking box a little quieter than the answer */
-#ans { font-size: 19px; }
-#think { font-size: 17px; color: var(--ink2); }
-.conf .ends { display: flex; justify-content: space-between; max-width: 340px; font: italic 13px/1.4 var(--serif); letter-spacing: 0; text-transform: none; margin-top: 2px; }
-
-/* choices: rows on hairlines, not boxes */
-.opts { margin-top: 20px; border-bottom: 1px solid var(--line); }
-.opt { display: block; width: 100%; text-align: left; margin: 0; font: 18px/1.55 var(--serif); padding: 12px 6px; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
-.opt .md > :last-child { margin-bottom: 0; }
-
-/* the tutor's reply: a margin note, with the outcome as its label */
-.fb { margin-top: 40px; padding: 2px 0 2px 18px; border-left: 2px solid var(--line); font-size: 17px; line-height: 1.65; color: var(--ink2); }
-.fb:empty { display: none; }
-.fb.ok { border-left-color: color-mix(in srgb, var(--ok) 55%, transparent); } .fb.no { border-left-color: color-mix(in srgb, var(--no) 55%, transparent); }
 .fb.ok .tag { color: var(--ok); } .fb.no .tag { color: var(--no); }
-.tag { display: block; font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 8px; }
-.fb .lesson { margin-top: 18px; }
-.fb .md > :last-child { margin-bottom: 0; }
-.fb > p.mute { margin: 14px 0 0; }
-.fb .row { margin-top: 22px; }
+.tag { display: block; font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 4px; }
+.m .err { margin: 8px 0 0; font-size: 15px; }
+.m .k { font-style: normal; letter-spacing: .08em; text-transform: uppercase; font-size: 11px; color: var(--mute); }
+.fb .lesson { margin-top: 16px; }
+.m .now { margin: 12px 0 0; }
+
+/* you: set off at the right, quieter than the tutor, no box */
+.m.you { align-self: flex-end; max-width: 78%; padding-right: 16px; border-right: 2px solid var(--rule); display: flex; flex-direction: column; align-items: flex-end; }
+.m.you .lbl { margin-bottom: 2px; }
+.m.you .said { margin: 0; font-size: 17px; line-height: 1.55; color: var(--fg); white-space: pre-wrap; }
+.m.you .said.none { font-style: italic; color: var(--mute); }
+.m.you .thought { margin: 4px 0 0; font: italic 15px/1.5 var(--serif); color: var(--mute); }
+.m.you .thought .pre { white-space: pre-wrap; }
+.thread > .pending { padding-left: 18px; border-left: 2px solid var(--line); }
+
+/* choices: rows on hairlines inside the question, each with its key */
+.opts { margin-top: 16px; border-bottom: 1px solid var(--line); }
+.opt { display: flex; width: 100%; justify-content: space-between; align-items: baseline; gap: 14px; text-align: left; margin: 0;
+       font: 18px/1.55 var(--serif); padding: 11px 6px; border: 0; border-top: 1px solid var(--line); border-radius: 0; color: var(--fg); }
+.opt .md > :last-child { margin-bottom: 0; }
+.opt.tried { color: var(--mute); text-decoration: line-through; text-decoration-color: var(--no); }
+.opt.right { box-shadow: inset 2px 0 0 var(--ok); color: var(--fg); }
+.opt:disabled { cursor: default; } .opt:disabled:hover { background: transparent; }
+
+/* the composer: fixed at the bottom, paper ground, a hairline above; two boxes that grow, then one row of actions */
+.composer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--bg); border-top: 1px solid var(--line);
+            padding: 12px max(24px, calc((100vw - 740px) / 2)) 14px; box-shadow: 0 -10px 24px -18px color-mix(in srgb, var(--fg) 30%, transparent); }
+.composer:empty { display: none; }
+.composer textarea { display: block; padding: 4px 2px; }
+#ans { font-size: 18px; min-height: calc(2lh + 10px); max-height: 32vh; }
+#think { font-size: 15px; color: var(--ink2); min-height: calc(1lh + 10px); max-height: 20vh; margin-top: 6px; }
+.composer .bar { margin-top: 10px; gap: 8px 10px; }
+.composer button, .composer .btn { padding: 8px 12px; font-size: 14px; }
+.composer button.quiet, .composer .btn.quiet { border-color: transparent; color: var(--mute); }
+.composer button.quiet:hover, .composer .btn.quiet:hover { color: var(--fg); }
+.composer .grow { flex: 1; }
+.composer .ready { font-size: 15px; }
+.composer .ready + .btn { margin-left: auto; }
+.left { font-style: italic; font-size: 14px; } .left:empty { display: none; }
+.ready.wait::after { content: ''; display: inline-block; width: 1.2em; text-align: left; animation: dots 1.2s steps(4) infinite; }
+@keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+
+/* how sure: five steps as small text, the chosen one underlined in umber */
+.steps { display: inline-flex; align-items: baseline; gap: 2px; }
+.steps .lbl { margin: 0 6px 0 0; display: inline; }
+.steps label { margin: 0; display: inline-block; font: 14px/1 var(--serif); letter-spacing: 0; text-transform: none; color: var(--mute); cursor: pointer; }
+.steps label span { display: inline-block; padding: 6px 5px 5px; border-bottom: 2px solid transparent; }
+.steps label:hover span { color: var(--fg); }
+.steps input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.steps input:checked + span { color: var(--fg); border-bottom-color: var(--acc); }
+.steps input:focus-visible + span { outline: 2px solid var(--acc); outline-offset: 1px; }
 .mic.on { background: var(--bad); color: var(--bg); border-color: var(--bad); }
 .mic.on kbd { color: var(--bg); }
+@media (max-width: 640px) { .m.you { max-width: 92%; } .composer .bar kbd { display: none; } }

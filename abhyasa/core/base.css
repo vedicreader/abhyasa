@@ -54,6 +54,8 @@ label .note { font: italic 15px/1.4 var(--serif); letter-spacing: 0; text-transf
 
 textarea, input[type=text], input[type=search], select { width: 100%; font: 18px/1.6 var(--serif); color: var(--fg);
   background: transparent; border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; padding: 6px 2px; outline: none; resize: vertical; }
+/* text boxes grow with their text, from two lines to half the window; then they scroll inside (core.js does it where CSS cannot) */
+textarea { field-sizing: content; resize: none; min-height: calc(2lh + 12px); max-height: 50vh; overflow-y: auto; }
 textarea:focus, input:focus, select:focus { border-bottom-color: var(--fg); }
 textarea:focus-visible, input:focus-visible, select:focus-visible { outline: none; box-shadow: 0 1px 0 var(--fg); }
 ::placeholder { color: var(--mute); opacity: 1; font-style: italic; }
@@ -83,3 +85,35 @@ ul.plain li .md :is(h1, h2, h3) { font: 600 17px/1.5 var(--serif); letter-spacin
 .spin { color: var(--mute); font-size: 15px; font-style: italic; }
 pre, code { font-family: var(--mono); font-size: 15px; }
 @media (max-width: 640px) { nav { gap: 16px; flex-wrap: wrap; } nav form { margin-left: 0; width: 100%; } nav input[type=search] { width: 100%; } main { padding-top: 28px; } }
+
+/* Smoothness. A thin umber bar at the top for each request; a pressed button says what the app does and counts the seconds;
+   a placeholder holds the place of what comes; new content rises in. With reduced motion, nothing moves. */
+#pbar { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 1000; background: var(--acc); transform-origin: 0 50%;
+        transform: scaleX(0); opacity: 0; transition: transform .25s ease-out, opacity .3s ease; pointer-events: none; }
+#pbar.on { opacity: 1; }
+button:disabled { cursor: progress; }
+button.busy { opacity: .78; font-style: italic; }
+button.busy .secs, .pending .secs, .skeleton .secs { font: 12px/1 var(--mono); font-style: normal; letter-spacing: .04em; color: inherit; opacity: .8; }
+button.busy .secs:empty, .secs:empty { display: none; }
+.req-err { color: var(--bad); font-size: 15px; font-style: italic; margin: 10px 0 0; width: 100%; }
+
+.pending .lbl { color: var(--mute); }
+.skel { display: grid; gap: 9px; padding: 6px 0 2px; }
+.skel i { display: block; height: 10px; border-radius: 2px; max-width: 520px;
+          background: linear-gradient(90deg, var(--line) 0%, color-mix(in srgb, var(--line) 40%, transparent) 50%, var(--line) 100%);
+          background-size: 200% 100%; animation: shimmer 1.6s ease-in-out infinite; }
+.skel i.short { max-width: 300px; }
+.skel.q i { height: 16px; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } }
+/* main only fades: a transform on it would hold the fixed composer of the session page inside it */
+main { animation: fade .2s ease-out; }
+.pending, .thread > li, .qa, #out > *, #vr > *, #learned > *, .ix > * { animation: rise .28s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .skel i { background: var(--line); }
+}
+.row > .ix:not(:empty) { flex-basis: 100%; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; } @media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }

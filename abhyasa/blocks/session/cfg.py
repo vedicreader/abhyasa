@@ -5,5 +5,7 @@ class Routes:
     giveup = '/s/{sid}/giveup'
     hint = '/s/{sid}/hint'
     next = '/s/{sid}/next'
+    card = '/s/{sid}/card'
+    ready = '/s/{sid}/ready'
     end = '/s/{sid}/end'
     def at(route, sid): return route.replace('{sid}', sid)
