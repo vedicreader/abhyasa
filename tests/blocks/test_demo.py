@@ -68,7 +68,7 @@ def test_two_misses_make_a_demo_under_the_lesson(mk, lr):
     assert 'Lesson' in first and 'demo-card' not in first
     cl.post(f'/s/{sid}/next')
     second = miss(cl, sid)
-    assert 'A demo is being made' in second and '/demo/wait/ranking' in second
+    assert 'A demo is being made' in second and '/demo/wait/ranking' in second and 'm tutor extra' in second   # a tutor message in the thread
     wait_job(cl, 'ranking')
     card = cl.get('/demo/wait/ranking').text
     assert 'data-rupaka' in card
