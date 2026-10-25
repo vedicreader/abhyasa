@@ -24,7 +24,11 @@ dev = [
     { name = "ipykernel" },
     { name = "nbdev" },
     { name = "notebook" },
+    { name = "pobblebonk" },
     { name = "pytest" },
+]
+tick = [
+    { name = "pobblebonk" },
 ]
 whisper = [
     { name = "mlx-audio" },
@@ -43,12 +47,14 @@ requires-dist = [
     { name = "mlx-audio", marker = "extra == 'whisper'", specifier = ">=0.5" },
     { name = "nbdev", marker = "extra == 'dev'", specifier = ">=3.3.25" },
     { name = "notebook", marker = "extra == 'dev'", specifier = ">=7.6.3" },
+    { name = "pobblebonk", marker = "extra == 'dev'", specifier = ">=0.0.5" },
+    { name = "pobblebonk", marker = "extra == 'tick'", specifier = ">=0.0.5" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "python-fasthtml", specifier = ">=0.14" },
     { name = "rishi", specifier = ">=0.1.56" },
     { name = "vishalakshi", specifier = ">=0.1.35" },
 ]
-provides-extras = ["dev", "whisper"]
+provides-extras = ["dev", "tick", "whisper"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "abhyasa", extras = ["dev"] }]

@@ -28,7 +28,8 @@ dependencies = [
 
 [project.optional-dependencies]
 whisper = ["mlx-audio>=0.5"]
-dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8"]
+tick = ["pobblebonk>=0.0.5"]
+dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.5"]
 
 [project.scripts]
 abhyasa = "abhyasa.app:main"
@@ -37,6 +38,9 @@ abhyasa-index = "abhyasa.ground:index_main"
 [project.urls]
 Repository = "https://github.com/vedicreader/abhyasa"
 Documentation = "https://vedicreader.github.io/abhyasa/"
+
+[project.entry-points."ramabana.ticks"]
+abhyasa-index = "abhyasa.ground:tick"
 
 [project.entry-points.nbdev]
 abhyasa = "abhyasa._modidx:d"

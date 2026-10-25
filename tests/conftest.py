@@ -1,3 +1,5 @@
+import os, tempfile
+os.environ['VISHALAKSHI_VAULT'] = os.environ['ABHYASA_VAULT'] = os.path.join(tempfile.mkdtemp(), 'vault.db')   # never the real vault
 import pytest
 from starlette.testclient import TestClient
 from abhyasa.store import temp_learning
