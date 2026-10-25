@@ -22,6 +22,9 @@ The web app is made from blocks, as in lego, leela and vedicreader. A block is a
 ## Rules
 
 - Never open the user's real vault (`~/.vishalakshi/vault.db`) in tests. Use `temp_learning()`.
+- Browser checks use Playwright's bundled Chromium (`p.chromium.launch(headless=True)`, no `executable_path`), or `$FASTCDP_CHROME`
+  for fastcdp. Never automate `/Applications/Google Chrome.app`, port 9223 or `~/.cache/fastcdp/cdp-chrome`: they are the
+  user's own browsers. Run one browser at a time and close it in a `finally`.
 - Prose (notebooks, docs, UI text, commit messages, release notes) is ASD-STE100 Simplified Technical English, US grade 9.
 - Notebooks read as documents: an intro, short sections, a one-line lead before each code cell, small cells, tests in small
   steps with a line on what each checks.
