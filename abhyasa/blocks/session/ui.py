@@ -10,7 +10,13 @@ OUTCOME = {'solid': 'Solid', 'fragile': 'Right, but shaky', 'misconception': 'A 
 def assets(): return asset_css(_P/'session.css'), asset_js(_P/'session.js')
 
 def Head(q):
-    return P(f"{q.name} · {DEPTHS[q.depth]}", DepthBar(q.get('floor', 0), asked=q.depth), Br(), Span(q.why, cls='why'), cls='mute')
+    "The concept and depth as a small label, then why the tutor chose it."
+    return Div(Span(f"{q.name} · {DEPTHS[q.depth]}", DepthBar(q.get('floor', 0), asked=q.depth), cls='lbl'), P(q.why, cls='why'), cls='head')
+
+def Confidence(note='', **kw):
+    "The confidence slider, with its two ends named."
+    return Label('Confidence', Span(note, cls='note') if note else '', Input(type='range', name='confidence', min=0, max=100, value=50, **kw),
+                 Span(Span('Guess'), Span('Sure'), cls='ends'), cls='conf')
 
 def QuestionCard(sid, q):
     "One question: why it was chosen, the question, and the answer form."
@@ -19,13 +25,13 @@ def QuestionCard(sid, q):
         opts = [Button(Md(o), name='answer', value=str(i), cls='opt', hx_post=at(Routes.answer), hx_target='#fb',
                        hx_include='#conf', hx_indicator='#sp') for i, o in enumerate(q.options)]
         return Div(Head(q), Md(q.question, cls='q'),
-                   Label('Confidence: set it first, then pick an answer', Input(type='range', name='confidence', min=0, max=100, value=50, id='conf')),
-                   *opts, Div(Spin(), id='sp'), Div(id='fb'), id='card')
+                   Confidence('Set it first. Then pick an answer.', id='conf'), Div(*opts, cls='opts'), Div(Spin(), id='sp'), Div(id='fb'), id='card')
     form = Form(
         Label('Your answer', fr='ans'), Textarea(name='answer', id='ans', rows=3, autofocus=True),
-        Label('Think aloud: how you got there, and what you are unsure of', fr='think'), Textarea(name='thinking', id='think', rows=4),
+        Label('Think aloud', Span('How did you get there? What are you not sure of?', cls='note'), fr='think'),
+        Textarea(name='thinking', id='think', rows=3),
         Div(*run('answer_tools', q, 'think'), cls='row'),
-        Label('Confidence', Input(type='range', name='confidence', min=0, max=100, value=50)),
+        Confidence(),
         Div(Button('Send ', Kbd('⌥S'), cls='go', id='send'),
             Button('Hint ', Kbd('⌥W'), type='button', id='hint', hx_post=at(Routes.hint), hx_target='#hints', hx_swap='beforeend', hx_indicator='#sp'),
             Button("I don't know", type='button', hx_post=at(Routes.giveup), hx_vals='{"dont_know": 1}', hx_target='#fb', hx_indicator='#sp'),
@@ -40,7 +46,8 @@ def Feedback(sid, r):
         return Div(Span('Not yet', cls='tag'), Md(r.feedback),
                    P(f'{r.tries_left} more tries. Or ', A('teach me', href='#', hx_post=at(Routes.giveup), hx_target='#fb'), '.', cls='mute'),
                    cls='fb no')
-    return Div(Span(OUTCOME[r.outcome], cls='tag'), Md(r.feedback) if r.feedback else '', Md(r.lesson) if r.lesson else '',
+    return Div(Span(OUTCOME[r.outcome], cls='tag'), Md(r.feedback) if r.feedback else '',
+               Div(Span('Lesson', cls='lbl'), Md(r.lesson), cls='lesson') if r.lesson else '',
                P(f"Now: floor {DEPTHS[r.floor]}, next review {when(r.due)}.", cls='mute'),
                Div(Button('Next ', Kbd('⌥S'), cls='go', id='send', hx_post=at(Routes.next), hx_target='#card', hx_swap='outerHTML',
                           hx_indicator='#sp2', autofocus=True),

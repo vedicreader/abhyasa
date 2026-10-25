@@ -1,0 +1,8 @@
+/* Concept pages and the list: names first, the meta quiet beside them. */
+.statement { margin: 18px 0 0; }
+ul.concepts li { display: flex; align-items: baseline; gap: 0 14px; padding: 8px 0; }
+ul.concepts li .mute { margin-left: auto; order: 2; white-space: nowrap; }
+ul.concepts li .depth { order: 3; }
+ul.attempts li p.mute { margin: 4px 0 0; }
+ul.attempts .ok, ul.attempts .no { font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; margin-right: 10px; }
+ul.attempts .ok { color: var(--ok); } ul.attempts .no { color: var(--no); }

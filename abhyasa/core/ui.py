@@ -16,6 +16,8 @@ def _asset(path, mime):
     ASSETS[p.name] = (txt, mime)
     return f'/assets/{p.name}?v={hashlib.sha1(txt.encode()).hexdigest()[:10]}'
 
+for _f in (_here/'fonts').glob('*.woff2'): ASSETS[_f.name] = (_f.read_bytes(), 'font/woff2')   # base.css names them; local, so it works offline
+
 def asset_js(path, **kw):
     "A `Script` for a block's own .js file."
     return Script(src=_asset(path, 'text/javascript'), **kw)

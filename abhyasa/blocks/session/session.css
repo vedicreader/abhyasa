@@ -1,8 +1,36 @@
-.q { font-size: 24px; line-height: 1.5; margin: 6px 0 22px; }
-.opt { display: block; width: 100%; text-align: left; margin: 8px 0; font: 18px/1.5 ui-serif, Georgia, serif; padding: 12px 14px; }
-.fb { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); }
+/* The session page: the question is the loudest thing; the boxes under it are calm; the tutor's notes sit at the margin. */
+#card .head { margin: 0 0 18px; }
+#card .head .lbl { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+#card .head .why { margin: 2px 0 0; }
+.q { font-size: 25px; line-height: 1.5; margin: 0 0 30px; color: var(--fg); }
+.q > :last-child { margin-bottom: 0; }
+
+/* hints: margin notes, numbered by the page */
+.hints { list-style: none; counter-reset: hint; padding: 0 0 0 18px; margin: 0 0 8px; border-left: 2px solid var(--line); font-size: 16px; line-height: 1.6; color: var(--ink2); }
+.hints:empty { display: none; }
+.hints li { counter-increment: hint; margin: 0 0 14px; }
+.hints li::before { content: 'Hint ' counter(hint); display: block; font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.hints .md > :last-child { margin-bottom: 0; }
+
+/* the form: quiet rules for boxes; the thinking box a little quieter than the answer */
+#ans { font-size: 19px; }
+#think { font-size: 17px; color: var(--ink2); }
+.conf .ends { display: flex; justify-content: space-between; max-width: 340px; font: italic 13px/1.4 var(--serif); letter-spacing: 0; text-transform: none; margin-top: 2px; }
+
+/* choices: rows on hairlines, not boxes */
+.opts { margin-top: 20px; border-bottom: 1px solid var(--line); }
+.opt { display: block; width: 100%; text-align: left; margin: 0; font: 18px/1.55 var(--serif); padding: 12px 6px; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+.opt .md > :last-child { margin-bottom: 0; }
+
+/* the tutor's reply: a margin note, with the outcome as its label */
+.fb { margin-top: 40px; padding: 2px 0 2px 18px; border-left: 2px solid var(--line); font-size: 17px; line-height: 1.65; color: var(--ink2); }
 .fb:empty { display: none; }
-.fb.ok .tag { color: var(--acc); } .fb.no .tag { color: var(--warn); }
-.tag { font: 600 13px var(--ui); letter-spacing: .06em; text-transform: uppercase; }
-.hints { padding-left: 20px; } .hints li { margin: 6px 0; }
+.fb.ok { border-left-color: color-mix(in srgb, var(--ok) 55%, transparent); } .fb.no { border-left-color: color-mix(in srgb, var(--no) 55%, transparent); }
+.fb.ok .tag { color: var(--ok); } .fb.no .tag { color: var(--no); }
+.tag { display: block; font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 8px; }
+.fb .lesson { margin-top: 18px; }
+.fb .md > :last-child { margin-bottom: 0; }
+.fb > p.mute { margin: 14px 0 0; }
+.fb .row { margin-top: 22px; }
 .mic.on { background: var(--bad); color: var(--bg); border-color: var(--bad); }
+.mic.on kbd { color: var(--bg); }
