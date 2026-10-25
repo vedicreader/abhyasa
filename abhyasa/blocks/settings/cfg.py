@@ -8,3 +8,6 @@ class Routes:
     status = '/settings/status'      # the state of the model in use
     remove = '/settings/remove'      # delete a model that this page downloaded
     key = '/settings/key'            # set or clear the OpenAI key
+    model = '/settings/model'        # the model for one tutor task
+    test = '/settings/model/test'    # time one short call to a model
+    catalog = '/settings/catalog'    # the models that can run here, for the pickers

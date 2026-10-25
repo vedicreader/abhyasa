@@ -13,7 +13,7 @@ import json, random, time, uuid
 from fastcore.utils import *
 from .store import Learning
 from .model import DEPTHS, KIND_AT, GOAL, update, pick, recall, outcome
-from .llm import ask_json
+from .llm import ask_json, for_task
 from .ground import VaultSource, ground, ground_text
 
 # %% ../nbs/03_tutor.ipynb #c006
@@ -152,7 +152,7 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='') -> AttrDict:
         q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, why=f'{why}; the check from the lesson'.lstrip('; '))
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
-        r = ask_json(self.ask, question_prompt(c, depth, asked[:8], q.ctx), TUTOR_SP)
+        r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx), TUTOR_SP)
         q.update(question=r['question'], answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))
@@ -183,7 +183,7 @@ def hint(self:Tutor, qid:str) -> str:
     "The next hint on the ladder, from the least to the most revealing."
     q = self.open[qid]
     if len(q.hints) >= len(HINTS): return q.hints[-1]
-    h = self.ask(hint_prompt(q, len(q.hints)), TUTOR_SP).strip()
+    h = for_task(self.ask, 'hint')(hint_prompt(q, len(q.hints)), TUTOR_SP).strip()
     q.hints.append(h)
     q.setdefault('turns', []).append(dict(who='tutor', kind='hint', text=h))
     return h
@@ -198,7 +198,7 @@ def _grade(self:Tutor, q, answer, thinking, confidence):
         mis = '' if ok or not (0 <= i < len(q.options)) else q.options[i].get('misconception', '')
         return AttrDict(correct=ok, grade=10 if ok else 0, misconception=mis, first_error=mis and f'This option assumes: {mis}',
                         feedback='Correct.' if ok else 'Not this one either. Which option is left?' if q.tries else 'Not this one. Look again at what each option assumes.')
-    return AttrDict(ask_json(self.ask, grade_prompt(q, answer, thinking, confidence), GRADE_SP))
+    return AttrDict(ask_json(for_task(self.ask, 'grade'), grade_prompt(q, answer, thinking, confidence), GRADE_SP))
 
 # %% ../nbs/03_tutor.ipynb #c031
 @patch
@@ -241,7 +241,7 @@ def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinki
     u = update(c, q.depth, correct, confidence, hints, dont_know, g.get('misconception', ''))
     kind = u.pop('kind')
     self.learning.update(q.concept, **u)
-    lesson = self.ask(teach_prompt(q, g.get('first_error', '')), TUTOR_SP).strip() if teach else ''
+    lesson = for_task(self.ask, 'lesson')(teach_prompt(q, g.get('first_error', '')), TUTOR_SP).strip() if teach else ''
     if 'Check:' in lesson: self.checks[q.concept] = (lesson.rsplit('Check:', 1)[1].strip(), lesson)
     q.setdefault('turns', []).append(dict(who='tutor', kind='close', text=g.get('feedback', ''), lesson=lesson, outcome=kind))
     self.learning.record(q.concept, q.question, answer or (q.tries[-1]['answer'] if q.tries else ''), thinking, correct, confidence,

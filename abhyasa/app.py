@@ -8,7 +8,7 @@ from abhyasa.core import hooks
 from abhyasa.blocks import blocks
 from abhyasa.store import Learning
 from abhyasa.tutor import Tutor
-from abhyasa.llm import rishi_ask
+from abhyasa.llm import rishi_ask, Router
 from abhyasa.ground import VaultSource, VedicSource
 
 __all__ = ['mk_app', 'main']
@@ -25,7 +25,7 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect."
     from abhyasa.voice import Speech
     if transcribe is None: from abhyasa.voice import transcribe
-    ask = ask or rishi_ask()
+    ask = ask if isinstance(ask, Router) else Router(ask or rishi_ask())   # a model for each task, from the settings
     hooks.clear(); RouteOverrides.nav.clear()
     app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False, bodykw=dict(hx_boost='true'))   # htmx and fasthtml.js come from core/vendor; links load in place
     if sources is None: sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else [])]
