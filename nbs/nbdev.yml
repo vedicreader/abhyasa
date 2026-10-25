@@ -1,0 +1,14 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "abhyasa"
+  site-url: "https://vedicreader.github.io/abhyasa"
+  description: "A learning harness that makes you think"
+  repo-branch: main
+  repo-url: "https://github.com/vedicreader/abhyasa"
+
+format-links:
+  - html
+  - format: commonmark
+    text: Markdown
