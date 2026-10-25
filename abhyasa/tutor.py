@@ -190,7 +190,7 @@ def give_up(self:Tutor, qid:str, confidence:int=0, dont_know:bool=False) -> Attr
 @patch
 def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinking='', dont_know=False):
     c = self.learning.concept(q.concept)
-    hints = len(q.hints) + len(q.tries)   # a pass after wrong tries is not a clean pass
+    hints = len(q.hints) + 2 * bool(q.tries)   # a pass after a wrong try is never a clean pass
     u = update(c, q.depth, correct, confidence, hints, dont_know, g.get('misconception', ''))
     kind = u.pop('kind')
     self.learning.update(q.concept, **u)
