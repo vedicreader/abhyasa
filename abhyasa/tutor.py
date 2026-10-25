@@ -81,7 +81,8 @@ together, including the think-aloud, not the wording.
   message: say in a few words what in it is right, if anything, then ask one question that points at the next gap.
   Never repeat an earlier tutor turn. Never give the answer.
 - `grade`: 0-10.
-- Write `feedback` and `first_error` in ASD-STE100 Simplified Technical English, grade 9: short sentences, active voice."""
+- Write `feedback` and `first_error` in ASD-STE100 Simplified Technical English, grade 9: short sentences, active voice.
+  Speak to the learner as "you"; never say "the learner"."""
 
 def grade_prompt(q, answer, thinking='', confidence=50):
     "The prompt that grades the conversation on question `q`, with `answer` as the latest message of the learner."
