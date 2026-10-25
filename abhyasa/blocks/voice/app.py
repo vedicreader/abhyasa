@@ -5,13 +5,21 @@ from abhyasa.core import hook, asset_js
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect', 'MicButton']
-CAPS = ('transcribe',)
+CAPS = ('transcribe', 'pool')
 _P = Path(__file__).parent
 
 def MicButton(into:str, hint:str=''):
     "A toggle that records, sends WAV to `Routes.stt`, and appends the text to the element with id `into`. ⌥D presses it."
     return (Button('Speak ', Kbd('⌥D'), type='button', id='mic', cls='mic', onclick='abhyasaMic(this)',
                    data_into=into, data_hint=hint, data_url=Routes.stt), asset_js(_P/'voice.js'))
+
+def _warm(transcribe):
+    "Load the speech model with half a second of silence; a failure here only means the first clip loads it."
+    import io, wave
+    b = io.BytesIO()
+    with wave.open(b, 'wb') as w: w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(b'\0\0' * 8000)
+    try: transcribe(b.getvalue())
+    except Exception: pass
 
 def connect(app, ctx):
     async def stt(req, hint:str=''):
@@ -22,4 +30,5 @@ def connect(app, ctx):
     @hook('answer_tools')
     def mic(q, into): return MicButton(into, q.name)
 
+    ctx.pool.submit(_warm, ctx.transcribe)   # the first clip should not wait for the model to load
     app.post(Routes.stt)(stt)
