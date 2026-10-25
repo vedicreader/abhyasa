@@ -12,7 +12,7 @@ import json, time
 from concurrent.futures import ThreadPoolExecutor
 from fastcore.utils import *
 import rupaka
-from rupaka.spec import validate, upgrade, gallery
+from rupaka.spec import upgrade, gallery
 from rupaka.agent import author
 from .store import Learning, slugify, _src
 from .tutor import CLOSE_HOOKS
@@ -33,6 +33,7 @@ def put_demo(self:Learning, spec:dict, concept:str, by:str='hand', checked:float
     spec = upgrade(spec)
     slug = slugify(spec['id'])
     old = self.demo(slug) or {}
+    if old and old.get('concept') != concept: slug = slugify(f"{concept}-{spec['id']}"); old = self.demo(slug) or {}   # a model picks the id
     m = dict(slug=slug, concept=concept, spec=spec, schema=spec['rupaka'], rupaka=rupaka.__version__, by=by,
              checked=checked, at=time.time(), stats=old.get('stats') or dict(shown=0, right=0))
     r = self.v.add(f'{demo_text(spec)}\n\nDemo {slug} for {concept}', title=spec.get('title') or slug, source=_src('demo', slug), kind='demo', meta=m)
@@ -59,7 +60,7 @@ def demo_for(self:Learning, concept:str) -> AttrDict|None:
     "The newest demo of `concept`, or None."
     return first(self.demos(concept))
 
-# %% ../nbs/10_demo.ipynb #c019
+# %% ../nbs/10_demo.ipynb #c021
 def _gate(spec, gid):
     def walk(bs):
         for b in bs or []:
@@ -78,14 +79,14 @@ def record_prediction(self:Learning, slug:str, gate:str, picked, ans, ok:bool, w
     return self.record(d.concept, q, str(picked), why, bool(ok), kind='demo', depth=1, session=session, final=True,
                        feedback=f'The answer is {ans}.', demo=slug, gate=gate, expected=str(ans))
 
-# %% ../nbs/10_demo.ipynb #c024
+# %% ../nbs/10_demo.ipynb #c026
 DEMO_MISSES = 2
 
 def want_demo(c) -> bool:
     "True when concept `c` should get a demo."
     return bool(c and (c.get('visual') or (c.get('misses', 0) >= DEMO_MISSES and c.get('misconceptions'))))
 
-# %% ../nbs/10_demo.ipynb #c027
+# %% ../nbs/10_demo.ipynb #c029
 def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, log:list=None) -> AttrDict|None:
     "A new checked demo for concept `slug`, stored on the shelf; None when the model fails."
     c = learning.concept(slug)
@@ -97,7 +98,7 @@ def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, 
     if spec is None: return None
     return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", checked=time.time() if check else None)
 
-# %% ../nbs/10_demo.ipynb #c033
+# %% ../nbs/10_demo.ipynb #c035
 _POOL = ThreadPoolExecutor(1)
 
 def queue_demo(tutor, slug:str, first_error:str=''):
@@ -114,7 +115,7 @@ def job_state(tutor, slug:str) -> str:
     if not j.done(): return 'running'
     return 'done' if not j.exception() and j.result() else 'failed'
 
-# %% ../nbs/10_demo.ipynb #c035
+# %% ../nbs/10_demo.ipynb #c037
 def on_close(tutor, q, r):
     "After a miss: attach the newest demo of the concept to the result, or queue a job when the concept wants a demo."
     if r.correct: return r
@@ -124,7 +125,7 @@ def on_close(tutor, q, r):
 
 CLOSE_HOOKS[:] = [f for f in CLOSE_HOOKS if getattr(f, '__name__', '') != 'on_close'] + [on_close]
 
-# %% ../nbs/10_demo.ipynb #c047
+# %% ../nbs/10_demo.ipynb #c049
 def import_gallery(learning:Learning, links:dict=None) -> L:
     "Store the rupaka gallery demos for the matching concepts; return the stored demos."
     links, out = links or {}, L()
