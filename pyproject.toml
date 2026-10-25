@@ -30,6 +30,9 @@ dependencies = [
 whisper = ["mlx-audio>=0.5"]
 tick = ["pobblebonk>=0.0.5"]
 dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.5"]
+models = [
+    "ramabana>=0.2.78",
+]
 
 [project.scripts]
 abhyasa = "abhyasa.app:main"

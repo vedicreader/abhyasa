@@ -113,9 +113,29 @@ def Key():
         P(f'abhyasa keeps the key in {voice.cfg_dir()/"keys.env"}, with mode 0600. It never writes it to the vault.', cls='mute'),
         id='key')
 
-def Tutor(model):
-    "The tutor's model, read only. Routing by task comes later."
+TASK_NOTE = dict(question='writes each question and its hidden answer', grade='reads the conversation and grades it',
+                 hint='gives the next hint', lesson='teaches the smallest step after a miss', extract='finds the concepts in a text')
+
+def TaskRow(task, name, dflt):
+    "One tutor task: its model (empty means the default), and a test."
+    return Tr(Td(Span(task, cls='task'), Br(), Span(TASK_NOTE[task], cls='mute')),
+              Td(Input(type='text', name='model', value=name, list='models-list', placeholder=f'default: {dflt or "claude/sonnet"}',
+                       hx_post=Routes.model, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#tm-{task}', hx_swap='outerHTML',
+                       autocomplete='off', spellcheck='false')),
+              Td(Button('Test', type='button', hx_post=Routes.test, hx_vals={'task': task}, hx_include='closest tr', hx_target=f'#tt-{task}',
+                        data_wait='Testing…'), Span(id=f'tt-{task}', cls='mute')),
+              id=f'tm-{task}')
+
+def Catalog(rows):
+    "The model names for the pickers, grouped by provider in the order they came."
+    return Datalist(*[Option(value=r['value'], label=f"{r['provider']} · {r.get('source', '')}") for r in rows], id='models-list')
+
+def Tutor(router):
+    "The model for each tutor task. A quick model can grade and hint; a strong one can write questions and lessons."
+    from abhyasa.llm import TASKS
     ms = voice.settings()['models']
     return Section(H2('Tutor models'),
-        P('The tutor uses ', Code(model or 'its default model'), ' for all tasks. You cannot change it here yet.', cls='mute'),
-        Table(Tbody(*[Tr(Td(t), Td(Code(ms.get(t) or model or 'default'))) for t in ('question', 'grade', 'hint', 'lesson')]), cls='models small'))
+        P('Pick a model for each task, or leave it empty for the default. Type to search the models that can run here: '
+          'Claude, Codex, OpenAI, Copilot, Gemini, and models on this Mac. A change works at once. Test times one short call.', cls='mute'),
+        Table(Tbody(*[TaskRow(t, ms.get(t, ''), router.model) for t in TASKS]), cls='models tasks'),
+        Div(hx_get=Routes.catalog, hx_trigger='load', hx_swap='outerHTML', data_quiet='1'), id='tutor-models')

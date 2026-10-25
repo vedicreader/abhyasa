@@ -94,3 +94,31 @@ def test_own_download_listed_with_remove(mk, monkeypatch):
     assert 'whisper-tiny-asr-fp16' in t and 'downloaded by this page' in t and 'Remove' in t
     cl.post('/settings/remove', data=dict(model=m))
     assert removed == [m]
+
+
+# tutor models: a model for each task, saved in the settings, used at once, with a test and a catalogue
+import abhyasa.llm as llm
+
+def test_tutor_model_saved_and_routed(mk, fake):
+    cl = mk(['settings'])
+    assert 'Tutor models' in cl.get('/settings').text
+    fast = llm.Fake(dflt='quick'); fast.model = 'fast/model'
+    llm._asks['fast/model'] = fast
+    r = cl.post('/settings/model', data=dict(task='grade', model='fast/model'))
+    assert r.status_code == 200 and 'value="fast/model"' in r.text
+    router = cl.app.state.svc['ask']
+    assert router.for_('grade') is fast and router.for_('question') is router.dflt
+    assert cl.post('/settings/model', data=dict(task='nope', model='x')).status_code == 400
+
+def test_tutor_model_test_reports_time_and_failures(mk):
+    cl = mk(['settings'])
+    ok = llm.Fake(dflt='ready'); ok.model = 'ok/model'; llm._asks['ok/model'] = ok
+    def boom(p, sp=''): raise RuntimeError('model does not exist')
+    llm._asks['bad/model'] = boom
+    assert ' s: “ready”' in cl.post('/settings/model/test', data=dict(task='grade', model='ok/model')).text
+    assert 'Failed: model does not exist' in cl.post('/settings/model/test', data=dict(task='grade', model='bad/model')).text
+
+def test_catalog_lists_models_for_the_pickers(mk, monkeypatch):
+    monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [dict(value='codex/gpt-x', label='gpt-x', provider='codex', source='login')])
+    t = mk(['settings']).get('/settings/catalog').text
+    assert 'id="models-list"' in t and 'codex/gpt-x' in t

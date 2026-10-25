@@ -15,7 +15,7 @@ def connect(app, ctx):
     speech = lambda oob=False: ui.Speech(sp, has_key(), oob)
 
     def page():
-        return Page('Settings', H1('Settings'), speech(), ui.Jobs(jobs), ui.Lookup(), ui.Key(), ui.Tutor(getattr(ctx.ask, 'model', '')),
+        return Page('Settings', H1('Settings'), speech(), ui.Jobs(jobs), ui.Lookup(), ui.Key(), ui.Tutor(ctx.ask),
                     on='Settings', extra=ui.assets())
 
     def use(engine:str, model:str=''):
@@ -69,6 +69,24 @@ def connect(app, ctx):
         voice.set_openai_key(key)
         return ui.Key(), speech(oob=True)
 
+    def model(task:str, model:str=''):
+        from abhyasa.llm import TASKS
+        if task not in TASKS: return Response('unknown task', status_code=400)
+        voice.update_settings('models', **{task: model.strip()})
+        return ui.TaskRow(task, model.strip(), ctx.ask.model)
+
+    def test(task:str, model:str=''):
+        import time
+        from abhyasa.llm import model_ask
+        ask, t = (model_ask(model.strip()) if model.strip() else ctx.ask.dflt), time.time()
+        try: out = ask('Reply with the one word: ready.', '')
+        except Exception as e: return Span(f'Failed: {str(e)[:160]}', cls='no')
+        return Span(f"{time.time() - t:.1f} s: “{(out or '').strip()[:40]}”" if out else 'No answer.', cls='ok' if out else 'no')
+
+    def catalog():
+        from abhyasa.llm import catalog as cat
+        return ui.Catalog(cat())
+
     RouteOverrides.nav.append(('Settings', Routes.base, 9))
     app.get(Routes.base)(page)
     app.post(Routes.use)(use)
@@ -79,3 +97,6 @@ def connect(app, ctx):
     app.get(Routes.search)(search)
     app.post(Routes.remove)(remove)
     app.post(Routes.key)(key)
+    app.post(Routes.model)(model)
+    app.post(Routes.test)(test)
+    app.get(Routes.catalog)(catalog)
