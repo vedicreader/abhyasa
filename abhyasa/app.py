@@ -11,6 +11,8 @@ from abhyasa.llm import rishi_ask
 
 __all__ = ['mk_app', 'main']
 
+FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#3d6b5a"/></svg>'
+
 def mk_app(learning:Learning, ask=None, transcribe=None, names=None):
     "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `names` the blocks to connect."
     if transcribe is None: from abhyasa.voice import transcribe
@@ -23,6 +25,7 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None):
     app.state.svc = svc
     serve_assets(app)
     app.get('/health')(lambda: JSONResponse(dict(status='ok')))
+    app.get('/favicon.ico')(lambda: Response(FAVICON, media_type='image/svg+xml'))
     return app
 
 def main():
