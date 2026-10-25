@@ -44,6 +44,7 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
        font: 18px/1.55 var(--serif); padding: 11px 6px; border: 0; border-top: 1px solid var(--line); border-radius: 0; color: var(--fg); }
 .opt .md > :last-child { margin-bottom: 0; }
 .opt.tried { color: var(--mute); text-decoration: line-through; text-decoration-color: var(--no); }
+.opt.right { box-shadow: inset 2px 0 0 var(--ok); color: var(--fg); }
 .opt:disabled { cursor: default; } .opt:disabled:hover { background: transparent; }
 
 /* the composer: fixed at the bottom, paper ground, a hairline above; two boxes that grow, then one row of actions */

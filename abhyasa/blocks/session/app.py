@@ -33,6 +33,8 @@ def connect(app, ctx):
 
     def past(sid, but=None): return [(q, tl.get(q.id, ())) for q in shown.get(sid, ()) if q is not but]
 
+    def you_said(q): return next((t['text'] for t in reversed(q.get('turns') or []) if t['who'] == 'you'), '')
+
     def chosen(q): return {t['text'] for t in q.get('turns') or () if t['who'] == 'you'}
 
     def start(subject:str='', focus:str=''):
@@ -63,8 +65,8 @@ def connect(app, ctx):
         s, q = live(sid)
         if not q: return Response(status_code=204)
         r = s.answer(answer, thinking, confidence)
-        you = ui.You(next((t['text'] for t in reversed(q.get('turns') or []) if t['who'] == 'you'), answer), thinking, confidence)
-        opts = (ui.Options(sid, q, chosen(q), done=r.done, oob=True),) if q.get('options') else ()
+        you = ui.You(you_said(q) or answer, thinking, confidence)
+        opts = (ui.Options(sid, q, chosen(q), done=r.done, oob=True, right=r.correct and you_said(q)),) if q.get('options') else ()
         if not r.done:
             return (*keep(q, you, ui.Nudge(r)), *opts, ui.Left(r.tries_left, hx_swap_oob='true'),
                     ui.Out(sid, q, oob=True))

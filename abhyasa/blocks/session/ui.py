@@ -23,12 +23,12 @@ def Head(q):
     "The concept and depth as a small label, then why the tutor chose it: the quiet rule between questions."
     return Div(Span(f"{q.name} · {DEPTHS[q.depth]}", DepthBar(q.get('floor', 0), asked=q.depth), cls='lbl'), P(q.why, cls='why'), cls='head')
 
-def Options(sid, q, chosen=(), done=False, oob=False):
-    "The options of a choice question, inline in the question. A wrong pick is struck; all go off when the question closes."
+def Options(sid, q, chosen=(), done=False, oob=False, right=None):
+    "The options of a choice question, inline in the question. A wrong pick is struck, a right pick marked; all go off when the question closes."
     def opt(i, o):
         k = OPT_KEYS[i] if i < len(OPT_KEYS) else ''
         return Button(Md(o), Kbd(f'⌥{k}') if k and not done else '', name='answer', value=str(i), id=f'o{i}' if not done else None,
-                      cls='opt' + (' tried' if o in chosen else ''), disabled=done or o in chosen,
+                      cls='opt' + (' right' if o == right else ' tried' if o in chosen else ''), disabled=done or o in chosen,
                       hx_post=Routes.at(Routes.answer, sid), hx_include='#composer', hx_target=f'#{tl_id(q)}', hx_swap='beforeend',
                       data_wait=GRADING, data_skel=f'#{tl_id(q)}')
     return Div(*[opt(i, o) for i, o in enumerate(q.options)], cls='opts', id=f'opts-{q.id}', hx_swap_oob='true' if oob else None)
@@ -63,7 +63,8 @@ def Hint(n, text):
 
 def Close(r, said=''):
     "The last message on a question: the outcome, the lesson and the next review."
-    return Li(Span(OUTCOME[r.outcome] + (f' · {said}' if said else ''), cls='tag'), Md(r.feedback) if r.feedback else '',
+    fb = r.feedback if r.correct or not r.lesson else ''   # after a miss the lesson speaks; the last nudge would ask a question nobody answers
+    return Li(Span(OUTCOME[r.outcome] + (f' · {said}' if said else ''), cls='tag'), Md(fb) if fb else '',
               Div(Span('Lesson', cls='lbl'), Md(r.lesson), cls='lesson') if r.lesson else '',
               Cites(r.get('grounds')),
               P(f"Now: floor {DEPTHS[r.floor]}, next review {when(r.due)}.", cls='mute now'),
@@ -96,7 +97,7 @@ def Composer(sid, q=None, ready=None, oob=False):
     if q is None:   # closed, or the first question is not written yet
         nxt = Button('Next ', Kbd('⌥S'), cls='go', id='send', hx_post=at(Routes.next), hx_target='#chat', hx_swap='beforeend',
                      data_wait=NEXT, data_skel='#chat', autofocus=True) if ready is not None else ''
-        return Div(Div(Ready(sid, ready) if ready is not None else Span('Writing the first question…', cls='ready mute wait'),
+        return Div(Div(Ready(sid, ready) if ready is not None else Span('Writing the first question', cls='ready mute wait'),
                        A('End session', href=at(Routes.end), cls='btn quiet'), nxt, cls='row bar'), **kw)
     tl = dict(hx_target=f'#{tl_id(q)}', hx_swap='beforeend', data_skel=f'#{tl_id(q)}')
     tried, out = bool(q.get('tries')), Out(sid, q)
@@ -121,7 +122,7 @@ def Out(sid, q, oob=False):
 def Ready(sid, ready):
     "Whether the next question is written yet; it asks again each second, out of the progress bar."
     if ready: return Span('The next question is ready.', cls='ready mute', id='ready')
-    return Span('Writing the next question…', cls='ready mute wait', id='ready', data_quiet='1',
+    return Span('Writing the next question', cls='ready mute wait', id='ready', data_quiet='1',
                 hx_get=Routes.at(Routes.ready, sid), hx_trigger='load delay:1s', hx_swap='outerHTML')
 
 def Done(summary):

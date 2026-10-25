@@ -102,3 +102,20 @@ def test_viewer_shows_the_conversation_of_an_attempt(mk, lr):
     final = next(r for r in lr._docs('attempt') if json.loads(r['meta']).get('final'))
     t = cl.get(f"/v/learning/{final['id']}").text
     assert 'The conversation' in t and t.index('add the scores') < t.index('the rank position')
+
+def test_choice_options_sit_in_the_question(mk, lr, fake):
+    import random
+    random.seed(0)
+    fake.dflt = dict(question='Which keeps its scale?', options=[dict(text='the rank', misconception=''),
+                     dict(text='the raw score', misconception='scores are comparable')], correct=0, answer='', rubric=[])
+    lr.update('ranking', floor=0, ceiling=2)
+    cl = mk()
+    sid = start(cl, focus='ranking')
+    page = cl.get(f'/s/{sid}').text
+    assert 'class="opt"' in page and 'id="ans"' not in page and 'id="think"' in page   # options in the chat; the composer keeps thinking
+    wrong = page.split('the raw score')[0].rsplit('value="', 1)[1].split('"')[0]
+    right = str(1 - int(wrong))
+    r = cl.post(f'/s/{sid}/answer', data=dict(answer=wrong, confidence=50)).text
+    assert 'class="opt tried"' in r and 'Not yet' in r
+    r = cl.post(f'/s/{sid}/answer', data=dict(answer=right, confidence=50)).text
+    assert 'class="opt right"' in r and 'disabled' in r
