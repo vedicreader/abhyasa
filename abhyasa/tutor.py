@@ -116,7 +116,8 @@ class Tutor:
     def _ground(self, c) -> L:
         "Up to three passages on concept `c` from the sources of the learner, so a question can use what they read and did."
         if not (self.context and self.sources): return L()
-        try: return ground(f"{c['name']} {c.get('statement', '')}"[:300], self.sources, 3)
+        terms = [c['name'], *(c.get('aliases') or [])]
+        try: return ground(' '.join(terms[:4]), self.sources, 3, must=terms)
         except Exception: return L()
 
 # %% ../nbs/03_tutor.ipynb #c023
