@@ -32,6 +32,7 @@ dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8"]
 
 [project.scripts]
 abhyasa = "abhyasa.app:main"
+abhyasa-index = "abhyasa.ground:index_main"
 
 [project.urls]
 Repository = "https://github.com/vedicreader/abhyasa"

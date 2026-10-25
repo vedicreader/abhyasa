@@ -14,6 +14,7 @@ from fastcore.utils import *
 from .store import Learning
 from .model import DEPTHS, KIND_AT, GOAL, update, pick, recall, outcome
 from .llm import ask_json
+from .ground import VaultSource, ground, ground_text
 
 # %% ../nbs/03_tutor.ipynb #c006
 MAX_TRIES = 3
@@ -77,7 +78,8 @@ def grade_prompt(q, answer, thinking='', confidence=50):
     return (f"Concept: {q.name}\nDepth asked: {DEPTHS[q.depth]}\nQuestion: {q.question}\nModel answer (hidden from learner): {q.answer}\n"
             f"Rubric: {json.dumps(q.rubric)}\nEarlier wrong tries on this question: {json.dumps(q.tries)}\n\n"
             f"Learner's answer: {answer or '(none)'}\nLearner's think-aloud: {thinking or '(none)'}\nLearner's confidence: {confidence}/100\n\n"
-            'Return JSON: {"correct": bool, "grade": int, "first_error": str, "misconception": str, "feedback": str}')
+            + (f"Passages from the learner's own sources (judge against these too, where they apply):\n{q.ctx}\n\n" if q.get('ctx') else '')
+            + 'Return JSON: {"correct": bool, "grade": int, "first_error": str, "misconception": str, "feedback": str}')
 
 # %% ../nbs/03_tutor.ipynb #c017
 def hint_prompt(q, level):
@@ -92,7 +94,8 @@ def teach_prompt(q, first_error):
     "The prompt that teaches the smallest step after a miss."
     return (f"Concept: {q.name}\nStatement: {q.statement}\nQuestion: {q.question}\nModel answer: {q.answer}\n"
             f"Their tries: {json.dumps(q.tries)}\nTheir first error: {first_error or 'they did not know'}\n\n"
-            "Teach the smallest step that fixes that first error, in under 120 words. Build on what they got right. "
+            + (f"Passages from their own sources; build on one and name it, if it fits:\n{q.ctx}\n\n" if q.get('ctx') else '')
+            + "Teach the smallest step that fixes that first error, in under 120 words. Build on what they got right. "
             "Then show the model answer briefly. End with one line that starts 'Check:' and asks them to predict "
             "something new that the fixed idea implies (they will answer it next).")
 
@@ -104,17 +107,17 @@ def _ready_q(c, depth, asked):
 
 class Tutor:
     "The learning loop over a `Learning` store with an `ask(prompt, sp)` model."
-    def __init__(self, learning:Learning, ask, goal:int=GOAL, context:bool=True):
+    def __init__(self, learning:Learning, ask, goal:int=GOAL, context:bool=True, sources=None):
         store_attr()
+        if sources is None: self.sources = [VaultSource(learning)]
         self.open = {}     # question id -> question, while the learner works on it
         self.checks = {}   # concept -> (the check question of the lesson, the lesson), asked next on that concept
 
-    def _ctx(self, c):
-        "Two short passages from the other shelves of the learner, so a question can use what they read."
-        if not self.context: return ''
-        try: hs = self.learning.v.elsewhere(f"{c['name']} {c.get('statement', '')}"[:300], limit=1, max_read=400)
-        except Exception: return ''
-        return '\n'.join(f"- [{h.breadcrumb}] {h.text}" for h in hs[:2])
+    def _ground(self, c) -> L:
+        "Up to three passages on concept `c` from the sources of the learner, so a question can use what they read and did."
+        if not (self.context and self.sources): return L()
+        try: return ground(f"{c['name']} {c.get('statement', '')}"[:300], self.sources, 3)
+        except Exception: return L()
 
 # %% ../nbs/03_tutor.ipynb #c023
 @patch
@@ -124,11 +127,13 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='') -> AttrDict:
     q = AttrDict(id=uuid.uuid4().hex[:10], concept=c['slug'], name=c['name'], statement=c.get('statement', ''),
                  subject=c.get('subject', ''), floor=c.get('floor', 0), depth=depth, kind=KIND_AT[depth], why=why, session=session,
                  hints=[], tries=[], at=time.time())
+    ps = self._ground(c)
+    q.update(ctx=ground_text(ps), grounds=[dict(src=p.src, ref=p.ref, title=p.title, url=p.url) for p in ps])
     if (ck := self.checks.pop(c['slug'], None)):
         q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, why=f'{why}; the check from the lesson'.lstrip('; '))
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
-        r = ask_json(self.ask, question_prompt(c, depth, asked[:8], self._ctx(c)), TUTOR_SP)
+        r = ask_json(self.ask, question_prompt(c, depth, asked[:8], q.ctx), TUTOR_SP)
         q.update(question=r['question'], answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))
@@ -141,7 +146,7 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='') -> AttrDict:
 
 def public(q) -> AttrDict:
     "A question as the learner can see it: no model answer, no rubric, no correct option, no misconception tags."
-    out = AttrDict({k: v for k, v in q.items() if k not in ('answer', 'rubric', 'correct', 'options', 'statement')})
+    out = AttrDict({k: v for k, v in q.items() if k not in ('answer', 'rubric', 'correct', 'options', 'statement', 'ctx', 'grounds')})
     if q.get('options'): out.options = [o['text'] for o in q.options]
     return out
 
@@ -220,7 +225,7 @@ def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinki
     del self.open[q.id]
     return AttrDict(done=True, correct=correct, outcome=kind, feedback=g.get('feedback', ''), first_error=g.get('first_error', ''),
                     lesson=lesson, answer=q.answer if not correct else '', floor=u.floor, ceiling=u.ceiling,
-                    due=u.due, depth=q.depth)
+                    due=u.due, depth=q.depth, grounds=q.get('grounds', []))
 
 # %% ../nbs/03_tutor.ipynb #c036
 class Session:
