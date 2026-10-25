@@ -1,0 +1,3 @@
+Abhyasa.app includes uv 0.12.3 from Astral Software Inc. (https://github.com/astral-sh/uv).
+uv has two licenses: MIT and Apache-2.0. You can use it under either one.
+The license texts are in uv-LICENSE-MIT and uv-LICENSE-APACHE in this folder.

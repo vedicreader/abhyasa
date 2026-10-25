@@ -1,0 +1,91 @@
+import AppKit
+import Observation
+import AbhyasaCore
+
+/// The state of the app: the supervisor, the web view, the Dock badge and the settings.
+@MainActor @Observable
+final class AppModel {
+    static let shared = AppModel()
+
+    let supervisor: Supervisor
+    let web = WebController()
+    /// a page from an abhyasa:// link that came before the server was ready
+    @ObservationIgnored private var pending: String?
+    @ObservationIgnored private var badgeTimer: Timer?
+
+    init() {
+        let res = Bundle.main.resourceURL
+        let uv = Bundle.main.executableURL?.deletingLastPathComponent().appending(path: "uv")
+        supervisor = Supervisor(paths: .user, uv: uv, pin: res?.appending(path: "Pin"), settings: Prefs.load())
+        supervisor.onReady = { [weak self] base in self?.ready(base) }
+        web.onLoad = { [weak self] in self?.refreshBadge() }
+    }
+
+    func start() {
+        Task { await supervisor.start() }
+    }
+
+    private func ready(_ base: URL) {
+        web.port = supervisor.port
+        web.go(pending ?? "/")
+        pending = nil
+        refreshBadge()
+        badgeTimer?.invalidate()
+        badgeTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { _ in
+            Task { @MainActor in AppModel.shared.refreshBadge() }
+        }
+    }
+
+    func refreshBadge() {
+        guard case .ready(let base) = supervisor.phase else { return NSApp.dockTile.badgeLabel = nil }
+        Task {
+            let n = await Health.due(base)
+            NSApp.dockTile.badgeLabel = (n ?? 0) > 0 ? String(n!) : nil
+        }
+    }
+
+    /// opens an abhyasa:// link, now or when the server is ready
+    func open(_ url: URL) {
+        guard let path = Links.path(url) else { return }
+        if case .ready = supervisor.phase { web.go(path) } else { pending = path }
+    }
+
+    func apply(_ s: ServerSettings) {
+        Prefs.save(s)
+        supervisor.settings = s
+        start()
+    }
+
+    func quit() {
+        badgeTimer?.invalidate()
+        supervisor.stop()
+    }
+
+    // the menu commands
+    func newSession() { web.post("/start") }
+    func today() { web.go("/") }
+    func graph() { web.go("/graph") }
+    func addSource() { web.go("/add") }
+    /// puts the focus in the search box at the top of the page, or opens the search page
+    func search() {
+        web.run("(() => { const q = document.querySelector('input[name=q]'); if (q) { q.focus(); q.select(); return true } return false })()") {
+            [weak self] found in if !found { self?.web.go("/search") }
+        }
+    }
+}
+
+/// The settings in UserDefaults.
+enum Prefs {
+    static let d = UserDefaults.standard
+
+    static func load() -> ServerSettings {
+        ServerSettings(model: d.string(forKey: "model") ?? "", stt: d.string(forKey: "stt") ?? "gemma",
+                 vault: d.string(forKey: "vault") ?? ServerSettings.defaultVault)
+    }
+
+    static func save(_ s: ServerSettings) {
+        d.set(s.model, forKey: "model")
+        d.set(s.stt, forKey: "stt")
+        d.set(s.vault, forKey: "vault")
+    }
+}
