@@ -34,13 +34,18 @@ def serve_assets(app):
         txt, mime = ASSETS[name]
         return Response(txt, media_type=mime, headers={'Cache-Control': 'public, max-age=31536000, immutable'})
     app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's own `/{fname}.{ext:static}` route
+    from starlette.staticfiles import StaticFiles
+    app.mount('/vendor', StaticFiles(directory=_here/'vendor'), name='vendor')   # marked, KaTeX and d3, pinned, so the app works offline
+    app.router.routes.insert(0, app.router.routes.pop())
 
 def HDRS():
     "Headers for every page: the base theme, markdown and KaTeX, and the core script."
-    return (asset_css(_here/'base.css'), Script(src='https://cdn.jsdelivr.net/npm/marked@14/marked.min.js'),
-            Link(rel='stylesheet', href='https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css'),
-            Script(src='https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js', defer=True),
-            Script(src='https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/auto-render.min.js', defer=True),
+    return (Meta(charset='utf-8'), Meta(name='viewport', content='width=device-width, initial-scale=1'),
+            Script(src='/vendor/htmx.min.js'), Script(src='/vendor/fasthtml.js'),
+            asset_css(_here/'base.css'), Script(src='/vendor/marked.min.js'),
+            Link(rel='stylesheet', href='/vendor/katex.min.css'),
+            Script(src='/vendor/katex.min.js', defer=True),
+            Script(src='/vendor/auto-render.min.js', defer=True),
             asset_js(_here/'core.js'))
 
 def Page(title, *c, on='', wide=False, extra=()):
