@@ -20,3 +20,12 @@ def test_add_text(mk, lr):
 
 def test_add_needs_input(mk):
     assert 'Paste text' in mk(['add']).post('/add', data=dict(subject='ml')).text
+
+def test_sources_page(mk):
+    t = mk(['sources']).get('/sources').text
+    assert 'Vault shelves' in t and 'Index ramabana sessions' in t
+
+def test_concept_seen_in_your_work(mk, lr):
+    t = mk(['concepts']).get('/c/ranking').text
+    assert 'Seen in your work' in t and 'My ranking notes' in t and 'https://example.org/notes' in t
+    assert lr.concept('ranking').seen_in[0]['src'] == 'vault:notes'

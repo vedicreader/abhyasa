@@ -1,6 +1,6 @@
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, DepthBar, Spin, when, run, asset_css, asset_js
+from abhyasa.core import Cites, Md, DepthBar, Spin, when, run, asset_css, asset_js
 from abhyasa.model import DEPTHS
 from .cfg import Routes
 
@@ -48,6 +48,7 @@ def Feedback(sid, r):
                    cls='fb no')
     return Div(Span(OUTCOME[r.outcome], cls='tag'), Md(r.feedback) if r.feedback else '',
                Div(Span('Lesson', cls='lbl'), Md(r.lesson), cls='lesson') if r.lesson else '',
+               Cites(r.get('grounds')),
                P(f"Now: floor {DEPTHS[r.floor]}, next review {when(r.due)}.", cls='mute'),
                Div(Button('Next ', Kbd('⌥S'), cls='go', id='send', hx_post=at(Routes.next), hx_target='#card', hx_swap='outerHTML',
                           hx_indicator='#sp2', autofocus=True),

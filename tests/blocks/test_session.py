@@ -43,3 +43,10 @@ def test_mic_on_card_from_voice_block(mk):
     cl2 = mk(names=['concepts', 'session', 'today'])   # without the voice block: no mic, nothing breaks
     sid = start(cl2)
     assert 'abhyasaMic' not in cl2.get(f'/s/{sid}').text
+
+def test_feedback_cites_sources_after_close(mk):
+    cl = mk()
+    sid = start(cl)
+    assert 'My ranking notes' not in cl.get(f'/s/{sid}').text          # hidden while you work
+    r = cl.post(f'/s/{sid}/answer', data=dict(answer='its rank position', confidence=80)).text
+    assert 'From your sources' in r and 'My ranking notes' in r

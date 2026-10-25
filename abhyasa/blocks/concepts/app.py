@@ -4,7 +4,7 @@ from . import ui
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
-CAPS = ('learning',)
+CAPS = ('learning', 'sources')
 
 def connect(app, ctx):
     lr = ctx.learning
@@ -16,6 +16,9 @@ def connect(app, ctx):
     def one(slug:str):
         c = lr.concept(slug)
         if not c: return Page('Concept', ui.P('No such concept.'))
+        if lr.stale_links(c):
+            try: lr.connect(slug, ctx.sources); c = lr.concept(slug)
+            except Exception: pass
         return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=10)))
 
     @hook('today')

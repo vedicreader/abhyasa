@@ -3,9 +3,15 @@ from starlette.testclient import TestClient
 from abhyasa.store import temp_learning
 from abhyasa.llm import Fake
 from abhyasa.app import mk_app
+from abhyasa.ground import passage
+
+class Notes:
+    "A source with one passage that names Ranking."
+    name = 'notes'
+    def search(self, q, k=4): return [passage('vault:notes', 'n1', 'My ranking notes', 'Ranking orders items by score.', url='https://example.org/notes')]
 
 def grader(p, sp):
-    ans = p.split("Learner's answer:")[1]
+    ans = p.split("Learner's answer:")[1].split("Learner's think-aloud:")[0]
     return dict(correct='rank' in ans, grade=8, first_error='You add raw scores.', misconception='scores are comparable', feedback='Look at positions.')
 
 @pytest.fixture
@@ -25,5 +31,5 @@ def lr():
 @pytest.fixture
 def mk(lr, fake):
     "A client for an app with some blocks, or all of them."
-    def f(names=None): return TestClient(mk_app(lr, fake, transcribe=lambda a, hint='': f'{len(a)} bytes about {hint}', names=names))
+    def f(names=None): return TestClient(mk_app(lr, fake, transcribe=lambda a, hint='': f'{len(a)} bytes about {hint}', names=names, sources=[Notes()]))
     return f

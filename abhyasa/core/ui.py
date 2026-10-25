@@ -5,7 +5,7 @@ from fasthtml.common import *
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.model import DEPTHS, GOAL
 
-__all__ = ['ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'Page', 'Md', 'DepthBar', 'Spin', 'when']
+__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'Page', 'Md', 'DepthBar', 'Spin', 'when']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -67,3 +67,9 @@ def when(t):
     d = (t - time.time()) / 86400
     if d <= 0: return 'due now'
     return f'in {d*24:.0f} h' if d < 1 else f'in {d:.0f} d'
+
+def Cites(links, label='From your sources'):
+    "Links to passages in your own sources: a vault document, a session, a notebook, a verse."
+    if not links: return ''
+    item = lambda l: Li(A(l['title'], href=l['url']) if l.get('url', '').startswith('http') else Span(l['title']), ' ', Span(l['src'], cls='mute'))
+    return Div(Span(label, cls='lbl'), Ul(*map(item, links), cls='plain cites'), cls='cites')

@@ -1,6 +1,6 @@
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, DepthBar, when, run, asset_css
+from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css
 from abhyasa.model import DEPTHS, recall
 from .cfg import Routes
 
@@ -29,6 +29,7 @@ def ConceptPage(c, by, attempts):
             Ul(*[Li(Md(a.question), P(Span('Right' if a.correct else 'Not right', cls='ok' if a.correct else 'no'), a.answer or 'no answer', cls='mute'))
                  for a in attempts], cls='plain attempts')
             if attempts else P('none yet', cls='mute'),
+            *([H2('Seen in your work'), Cites(c.seen_in, label='')] if c.get('seen_in') else []),
             *([H2('Source'), Ul(*[Li(_src(p)) for p in c.provenance], cls='plain')] if c.provenance else []))
 
 def Subjects(subs):

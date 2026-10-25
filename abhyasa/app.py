@@ -8,19 +8,21 @@ from abhyasa.blocks import blocks
 from abhyasa.store import Learning
 from abhyasa.tutor import Tutor
 from abhyasa.llm import rishi_ask
+from abhyasa.ground import VaultSource, VedicSource
 
 __all__ = ['mk_app', 'main']
 
-FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#3d6b5a"/></svg>'
+FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#7a4a2e"/></svg>'
 
-def mk_app(learning:Learning, ask=None, transcribe=None, names=None):
-    "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `names` the blocks to connect."
+def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=None):
+    "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect."
     if transcribe is None: from abhyasa.voice import transcribe
     ask = ask or rishi_ask()
     hooks.clear(); RouteOverrides.nav.clear()
     app, rt = fast_app(hdrs=HDRS(), pico=False)
-    svc = dict(learning=learning, tutor=Tutor(learning, ask), ask=ask, transcribe=transcribe,
-               pool=ThreadPoolExecutor(2), sessions={})
+    if sources is None: sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else [])]
+    svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources), ask=ask, transcribe=transcribe,
+               pool=ThreadPoolExecutor(2), sessions={}, sources=sources)
     app.state.blocks = connect_all(app, blocks(*([names] if names else [])), **svc)
     app.state.svc = svc
     serve_assets(app)

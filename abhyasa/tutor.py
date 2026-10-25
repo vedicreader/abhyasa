@@ -56,7 +56,7 @@ def question_prompt(c, depth, avoid=(), ctx=''):
              if kind == 'choice' else '{"question": str, "answer": str, "rubric": [str]}')
     av = '\n'.join(f'- {q}' for q in avoid)
     return (f"{_concept_block(c, ctx)}\n\nWrite ONE question that makes the learner {DEPTH_ASK[depth]}.\n"
-            f"Aim it just past what they reliably know, so they must struggle a little. Ask ONE thing, in under 60 words.\n"
+            f"Aim it just past what they reliably know, so they must struggle a little. Ask ONE thing, in under 60 words. Write only the final question: no drafts, no corrections, no 'no: take'.\n"
             + (f"Target this misconception if it fits: {c['misconceptions'][-1]}\n" if c.get('misconceptions') else '')
             + (f"Do not repeat these earlier questions:\n{av}\n" if av else '')
             + f"`answer` is a model answer the learner will not see; `rubric` lists the 1-4 points a correct answer must have."
