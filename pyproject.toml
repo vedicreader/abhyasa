@@ -24,12 +24,14 @@ dependencies = [
     "rishi>=0.1.56",
     "python-fasthtml>=0.14",
     "ipywidgets>=8.1",
+    "rupaka>=0.0.1",
 ]
 
 [project.optional-dependencies]
 whisper = ["mlx-audio>=0.5"]
 tick = ["pobblebonk>=0.0.5"]
-dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.5"]
+demo = ["rupaka[check]>=0.0.1"]
+dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.5", "rupaka[check]>=0.0.1"]
 
 [project.scripts]
 abhyasa = "abhyasa.app:main"
@@ -56,6 +58,10 @@ include = ["/abhyasa", "/README.md", "/pyproject.toml"]
 
 [tool.hatch.version]
 path = "abhyasa/__init__.py"
+
+# rupaka is not on PyPI yet: use the local checkout beside this repo. Remove this when rupaka 0.0.1 is released.
+[tool.uv.sources]
+rupaka = { path = "../../rupaka", editable = true }
 
 [dependency-groups]
 dev = ["abhyasa[dev]"]

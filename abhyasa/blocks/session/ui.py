@@ -48,6 +48,7 @@ def Feedback(sid, r):
                    cls='fb no')
     return Div(Span(OUTCOME[r.outcome], cls='tag'), Md(r.feedback) if r.feedback else '',
                Div(Span('Lesson', cls='lbl'), Md(r.lesson), cls='lesson') if r.lesson else '',
+               *run('lesson_extra', r),
                Cites(r.get('grounds')),
                P(f"Now: floor {DEPTHS[r.floor]}, next review {when(r.due)}.", cls='mute'),
                Div(Button('Next ', Kbd('⌥S'), cls='go', id='send', hx_post=at(Routes.next), hx_target='#card', hx_swap='outerHTML',

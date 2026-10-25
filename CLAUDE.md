@@ -2,7 +2,7 @@
 
 nbdev 3 on hatchling. Two kinds of code live here:
 
-- The engine (`store`, `model`, `llm`, `tutor`, `sources`, `voice`, `ground`, `rama`, `nb`): the notebooks under `nbs/` are the
+- The engine (`store`, `model`, `llm`, `tutor`, `sources`, `voice`, `ground`, `rama`, `nb`, `demo`): the notebooks under `nbs/` are the
   source, and `abhyasa/*.py` is generated. Edit the notebook. Run `uv run nbdev-prepare` (with a hyphen). Never edit a generated file.
 - The web app (`abhyasa/app.py`, `abhyasa/core/`, `abhyasa/blocks/`): plain Python written by hand, tested with `uv run pytest`.
 
@@ -13,7 +13,7 @@ The web app is made from blocks, as in lego, leela and vedicreader. A block is a
 
 - `NAMES` in `blocks/__init__.py` sets the connect order. `tests/test_blocks.py` checks that it matches the folders.
 - A block uses only the capabilities in its `CAPS`. `Ctx` refuses the others by name.
-- Blocks add to each other's pages through hooks (`core/hooks.py`): `today_next`, `today`, `concept_actions`, `answer_tools`.
+- Blocks add to each other's pages through hooks (`core/hooks.py`): `today_next`, `today`, `concept_actions`, `answer_tools`, `lesson_extra`.
   A block never imports another block.
 - `connect` registers every route in one place at its end, so one read shows the whole route surface.
 - Shared style is in `core/base.css`. Block style is in the block's own `.css`. htmx, marked, KaTeX and d3 are in

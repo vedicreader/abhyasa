@@ -21,8 +21,9 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     hooks.clear(); RouteOverrides.nav.clear()
     app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False)   # htmx and fasthtml.js come from core/vendor
     if sources is None: sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else [])]
-    svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources), ask=ask, transcribe=transcribe,
-               pool=ThreadPoolExecutor(2), sessions={}, sources=sources)
+    pool = ThreadPoolExecutor(2)
+    svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources, pool=pool), ask=ask, transcribe=transcribe,
+               pool=pool, sessions={}, sources=sources)
     app.state.blocks = connect_all(app, blocks(*([names] if names else [])), **svc)
     app.state.svc = svc
     serve_assets(app)
