@@ -146,6 +146,8 @@ d = { 'settings': { 'branch': 'main',
                                'abhyasa.tutor.question_prompt': ('tutor.html#question_prompt', 'abhyasa/tutor.py'),
                                'abhyasa.tutor.teach_prompt': ('tutor.html#teach_prompt', 'abhyasa/tutor.py')},
             'abhyasa.voice': { 'abhyasa.voice._gemma': ('voice.html#_gemma', 'abhyasa/voice.py'),
+                               'abhyasa.voice._mlx_model': ('voice.html#_mlx_model', 'abhyasa/voice.py'),
                                'abhyasa.voice._mlx_whisper': ('voice.html#_mlx_whisper', 'abhyasa/voice.py'),
+                               'abhyasa.voice._parakeet': ('voice.html#_parakeet', 'abhyasa/voice.py'),
                                'abhyasa.voice.transcribe': ('voice.html#transcribe', 'abhyasa/voice.py'),
                                'abhyasa.voice.wav_seconds': ('voice.html#wav_seconds', 'abhyasa/voice.py')}}}
