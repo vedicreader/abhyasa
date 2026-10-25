@@ -49,7 +49,7 @@ def question_prompt(c, depth, avoid=(), ctx=''):
              if kind == 'choice' else '{"question": str, "answer": str, "rubric": [str]}')
     av = '\n'.join(f'- {q}' for q in avoid)
     return (f"{_concept_block(c, ctx)}\n\nWrite ONE question that makes the learner {DEPTH_ASK[depth]}.\n"
-            f"Aim it just past what they reliably know, so they must struggle a little.\n"
+            f"Aim it just past what they reliably know, so they must struggle a little. Ask ONE thing, in under 60 words.\n"
             + (f"Target this misconception if it fits: {c['misconceptions'][-1]}\n" if c.get('misconceptions') else '')
             + (f"Do not repeat these earlier questions:\n{av}\n" if av else '')
             + f"`answer` is a model answer the learner will not see; `rubric` lists the 1-4 points a correct answer must have."
@@ -96,7 +96,8 @@ class Tutor:
     "The learning loop over a `Learning` store with an `ask(prompt, sp)` model."
     def __init__(self, learning:Learning, ask, goal:int=GOAL, context:bool=True):
         store_attr()
-        self.open = {}   # question id -> question, while the learner works on it
+        self.open = {}     # question id -> question, while the learner works on it
+        self.checks = {}   # concept -> (the lesson's check question, the lesson), asked next on that concept
 
     def _ctx(self, c):
         "Two short passages from the learner's other shelves, so a question can use what they read."
@@ -113,7 +114,9 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='') -> AttrDict:
     q = AttrDict(id=uuid.uuid4().hex[:10], concept=c['slug'], name=c['name'], statement=c.get('statement', ''),
                  subject=c.get('subject', ''), floor=c.get('floor', 0), depth=depth, kind=KIND_AT[depth], why=why, session=session,
                  hints=[], tries=[], at=time.time())
-    if (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
+    if (ck := self.checks.pop(c['slug'], None)):
+        q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, why=f'{why}; the check from the lesson'.lstrip('; '))
+    elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
         r = ask_json(self.ask, question_prompt(c, depth, asked[:8], self._ctx(c)), TUTOR_SP)
         q.update(question=r['question'], answer=r.get('answer', ''), rubric=r.get('rubric', []))
@@ -195,6 +198,7 @@ def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinki
     kind = u.pop('kind')
     self.learning.update(q.concept, **u)
     lesson = self.ask(teach_prompt(q, g.get('first_error', '')), TUTOR_SP).strip() if teach else ''
+    if 'Check:' in lesson: self.checks[q.concept] = (lesson.rsplit('Check:', 1)[1].strip(), lesson)
     self.learning.record(q.concept, q.question, answer or (q.tries[-1]['answer'] if q.tries else ''), thinking, correct, confidence,
                          q.depth, q.kind, hints, dont_know, g.get('grade'), g.get('feedback', '') or lesson,
                          g.get('first_error', ''), g.get('misconception', ''), session=q.session, final=True, outcome=kind)
