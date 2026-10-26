@@ -17,6 +17,7 @@ dependencies = [
     { name = "python-fasthtml" },
     { name = "rishi" },
     { name = "rupaka" },
+    { name = "vidyut" },
     { name = "vishalakshi" },
 ]
 
@@ -64,6 +65,7 @@ requires-dist = [
     { name = "rupaka", specifier = ">=0.0.1" },
     { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.1" },
     { name = "rupaka", extras = ["check"], marker = "extra == 'dev'", specifier = ">=0.0.1" },
+    { name = "vidyut", specifier = ">=0.4" },
     { name = "vishalakshi", specifier = ">=0.1.35" },
 ]
 provides-extras = ["demo", "dev", "models", "tick", "whisper"]

@@ -25,6 +25,7 @@ dependencies = [
     "python-fasthtml>=0.14",
     "ipywidgets>=8.1",
     "rupaka>=0.0.1",
+    "vidyut>=0.4",
 ]
 
 [project.optional-dependencies]
