@@ -6,6 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from fasthtml.common import *
 from abhyasa.core import cfg, RouteOverrides, connect_all, serve_assets, HDRS, look_before
 from abhyasa.core import hooks
+from abhyasa.core.keys import write_sanketa_pack
 from abhyasa.blocks import blocks
 from abhyasa.store import Learning
 from abhyasa.tutor import Tutor
@@ -82,4 +83,6 @@ def main():
     a = p.parse_args()
     lr = Learning(a.vault)
     print(f'abhyasa on http://{cfg.host}:{a.port}  ({lr})')
+    try: write_sanketa_pack()   # Sanketa shows abhyasa's keys when abhyasa is in front
+    except OSError: pass
     uvicorn.run(mk_app(lr, rishi_ask(a.model)), host=cfg.host, port=a.port, log_level='warning')
