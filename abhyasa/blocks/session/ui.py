@@ -74,13 +74,26 @@ def Hint(n, text):
     "A hint, at the time you asked for it."
     return Li(Span(f'Hint {n}', cls='lbl'), Md(text), cls='m tutor hint')
 
-def Close(r, said=''):
-    "The last message on a question: the outcome, the lesson and the next review."
+def Lesson(text):
+    "A lesson under the outcome."
+    return Div(Span('Lesson', cls='lbl'), Md(text), cls='lesson')
+
+def Now(r):
+    "Your level on the concept now, and the next review, in plain words."
+    return P(f"{f'Your level: {DEPTHS[r.floor]}.' if r.floor else 'Not at a level yet.'} Next review {when(r.due)}.", cls='mute now')
+
+def TeachMe(sid, qid):
+    "After a shaky pass: a lesson only when you ask for it. ⌥X asks."
+    return Button('Teach me this ', Kbd('⌥X'), id='teach', type='button', hx_post=Routes.at(Routes.teach, sid), hx_vals={'qid': qid},
+                  hx_target='this', hx_swap='outerHTML', data_wait=TEACHING)
+
+def Close(r, said='', sid=None, qid=None):
+    "The last message on a question: the outcome, the lesson and the next review. A shaky pass can ask for a lesson."
     fb = r.feedback if r.correct or not r.lesson else ''   # after a miss the lesson speaks; the last nudge would ask a question nobody answers
     return Li(Span(OUTCOME[r.outcome] + (f' · {said}' if said else ''), cls='tag'), Md(fb) if fb else '',
-              Div(Span('Lesson', cls='lbl'), Md(r.lesson), cls='lesson') if r.lesson else '',
-              Cites(r.get('grounds')),
-              P(f"Now: floor {DEPTHS[r.floor]}, next review {when(r.due)}.", cls='mute now'),
+              Lesson(r.lesson) if r.lesson else '',
+              TeachMe(sid, qid) if sid and r.outcome == 'fragile' and not r.lesson else '',
+              Cites(r.get('grounds')), Now(r),
               cls=f"m tutor fb close {'ok' if r.correct else 'no'}")
 
 def Turns(turns):
@@ -90,10 +103,11 @@ def Turns(turns):
         if t['who'] == 'you': out.append(You(t.get('text', ''), t.get('thinking', ''), t.get('confidence')))
         elif t.get('kind') == 'nudge': out.append(Nudge(AttrDict(feedback=t.get('text', ''), first_error=t.get('first_error', ''))))
         elif t.get('kind') == 'hint': n += 1; out.append(Hint(n, t.get('text', '')))
+        elif t.get('kind') == 'lesson': out.append(Li(Lesson(t.get('text', '')), cls='m tutor fb close ok'))
         elif t.get('kind') == 'close':
             ok = t.get('outcome') in ('solid', 'fragile')
             out.append(Li(Span(OUTCOME.get(t.get('outcome'), 'Closed'), cls='tag'), Md(t['text']) if t.get('text') and (ok or not t.get('lesson')) else '',
-                          Div(Span('Lesson', cls='lbl'), Md(t['lesson']), cls='lesson') if t.get('lesson') else '', cls=f"m tutor fb close {'ok' if ok else 'no'}"))
+                          Lesson(t['lesson']) if t.get('lesson') else '', cls=f"m tutor fb close {'ok' if ok else 'no'}"))
     return out
 
 def Extras(r):

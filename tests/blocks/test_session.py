@@ -14,6 +14,23 @@ def test_struggle_then_pass(mk):
     assert 'Right, but shaky' in r
     assert 'What does a rank tell you?' in cl.post(f'/s/{sid}/next').text        # fetched ahead
 
+def test_shaky_pass_can_ask_for_a_lesson(mk, lr):
+    "A shaky pass offers 'Teach me this'; the lesson comes on request and the outcome stays."
+    import re, json
+    cl = mk()
+    sid = start(cl)
+    cl.get(f'/s/{sid}')
+    cl.post(f'/s/{sid}/answer', data=dict(answer='a score', confidence=70))
+    r = cl.post(f'/s/{sid}/answer', data=dict(answer='its rank position', confidence=70)).text
+    assert 'Right, but shaky' in r and 'Teach me this' in r and 'floor unseen' not in r
+    assert 'Not at a level yet. Next review' in r
+    qid = json.loads(re.search(r'hx-vals=\'([^\']+)\'', r)[1])['qid']
+    before = dict(lr.concept('ranking'))
+    t = cl.post(f'/s/{sid}/teach', data=dict(qid=qid)).text
+    assert 'Lesson' in t and 'Teach me this' not in t
+    assert dict(lr.concept('ranking')) == before
+    assert cl.post(f'/s/{sid}/teach', data=dict(qid='nope')).status_code == 204
+
 def test_no_confidence_counts_the_answer_only(mk):
     "An untouched picker (or a spoken answer) sends no confidence; a clean pass is then solid."
     cl = mk()

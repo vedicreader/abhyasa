@@ -1,6 +1,6 @@
 // The session keys, all for the left hand: ⌥S sends (or goes to the next question), ⌥W asks for a hint, ⌥X is "I don't know"
-// (or "Teach me"), ⌥1 to ⌥5 set how sure you are, ⌥Q ⌥W ⌥E ⌥R pick an option. ⌘↵ sends from either box.
-Object.assign(abhyasaKeys, {KeyW: '#hint, #o1', KeyX: '#idk', KeyQ: '#o0', KeyE: '#o2', KeyR: '#o3',   // ⌥↑ ⌥↓ step through the earlier questions
+// (or "Teach me", or after a shaky pass "Teach me this"), ⌥1 to ⌥5 set how sure you are, ⌥Q ⌥W ⌥E ⌥R pick an option. ⌘↵ sends from either box.
+Object.assign(abhyasaKeys, {KeyW: '#hint, #o1', KeyX: '#idk, #teach', KeyQ: '#o0', KeyE: '#o2', KeyR: '#o3',   // ⌥↑ ⌥↓ step through the earlier questions
                             Digit1: '#c1', Digit2: '#c2', Digit3: '#c3', Digit4: '#c4', Digit5: '#c5'});
 
 // A boosted page loads this file again, so the listeners go on once.

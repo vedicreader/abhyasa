@@ -102,7 +102,7 @@ def connect(app, ctx):
             return (*keep(q, you, ui.Nudge(r)), *opts, ui.Left(r.tries_left, hx_swap_oob='true'),
                     ui.Out(sid, q, oob=True))
         ahead(sid); outcomes[q.id] = r.outcome
-        return (*keep(q, you, ui.Close(r), *ui.Extras(r)), *opts, ui.Composer(sid, ready=False, oob=True))
+        return (*keep(q, you, ui.Close(r, sid=sid, qid=q.id), *ui.Extras(r)), *opts, ui.Composer(sid, ready=False, oob=True))
 
     def giveup(sid:str, dont_know:int=0, confidence:int=None):
         s, q = live(sid)
@@ -120,6 +120,15 @@ def connect(app, ctx):
         if len(q.hints) >= len(HINTS): return Li(Span('No more hints', cls='lbl'), P('Send your best answer, or ask to be taught.'), cls='m tutor hint')
         h = s.hint()
         return keep(q, ui.Hint(len(q.hints), h))
+
+    def teach(sid:str, qid:str):
+        "A lesson on a shaky pass, when you ask for it; the outcome stays as it is."
+        s = get(sid)
+        if not s or qid not in tutor.shut: return Response(status_code=204)
+        lesson = s.teach(qid)
+        q = next((x for x in shown.get(sid, ()) if x.id == qid), None)
+        if q: keep(q, Li(ui.Lesson(lesson), cls='m tutor fb close ok'))   # a new draw of the page shows it as its own message
+        return ui.Lesson(lesson)
 
     def ready(sid:str):
         f = pre.get(sid)
@@ -169,5 +178,6 @@ def connect(app, ctx):
     app.post(Routes.answer)(answer)
     app.post(Routes.giveup)(giveup)
     app.post(Routes.hint)(hint)
+    app.post(Routes.teach)(teach)
     app.post(Routes.next)(next_)
     app.get(Routes.end)(end)
