@@ -77,3 +77,27 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 .mic.on { background: var(--bad); color: var(--bg); border-color: var(--bad); }
 .mic.on kbd { color: var(--bg); }
 @media (max-width: 640px) { .m.you { max-width: 92%; } .composer .bar kbd { display: none; } }
+
+/* one question at a time: the earlier questions in a quiet list at the left, the open question and the composer at the right */
+.session-layout { display: grid; grid-template-columns: 230px minmax(0, 740px); gap: 40px; justify-content: center; }
+.session-layout .main { min-width: 0; }
+.rail { position: sticky; top: 24px; align-self: start; max-height: calc(100vh - var(--composer-h, 190px) - 60px); overflow: auto; font-size: 14px; }
+.rail summary { font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); list-style: none; margin: 0 0 8px; }
+.rail summary::-webkit-details-marker { display: none; }
+.rail-list { list-style: none; padding: 0; margin: 0; }
+.rail-list a { display: block; padding: 6px 0 6px 12px; border-left: 2px solid var(--line); text-decoration: none; color: var(--ink2); line-height: 1.35; }
+.rail-list a .n { display: block; color: inherit; }
+.rail-list a .mute { font-size: 12.5px; }
+.rail-list a:hover { color: var(--fg); border-left-color: var(--rule); }
+.rail-list li.on a { color: var(--fg); border-left-color: var(--acc); }
+.rail-list li.now a .mute { font-style: italic; }
+#chat.viewing .back { margin: 0 0 18px; }
+@media (min-width: 1040px) {
+  .rail summary { pointer-events: none; }   /* always open beside the question */
+  .composer { padding-left: calc(max(24px, (100vw - 1010px) / 2) + 270px); padding-right: max(24px, (100vw - 1010px) / 2); }
+}
+@media (max-width: 1039px) {
+  .session-layout { grid-template-columns: minmax(0, 740px); gap: 0; }
+  .rail { position: static; max-height: none; margin: 0 0 18px; }
+  .rail summary { cursor: pointer; }
+}

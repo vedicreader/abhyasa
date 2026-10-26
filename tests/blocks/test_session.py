@@ -64,12 +64,18 @@ def test_chat_keeps_each_turn_in_order(mk):
     assert 'Hint 1' in h1 and 'Hint 2' in h2
     r3 = cl.post(f'/s/{sid}/answer', data=dict(answer='the rank position', confidence=90)).text
     assert 'Right, but shaky' in r3 and 'id="composer"' in r3 and 'hx-swap-oob' in r3   # the composer now holds Next
-    page = cl.get(f'/s/{sid}').text                    # a reload keeps the closed thread, then the next question
+    page = cl.get(f'/s/{sid}').text                    # a reload shows one question: the next one; the closed one is in the list
+    assert page.count('class="qa"') == 1 and 'Earlier questions (1)' in page and 'add the scores' not in page
+    import re
+    old = re.search(r'href="(/s/[^"?]+\?q=[0-9a-f]+)"', page).group(1)
+    view = cl.get(old).text                            # the closed question opens read only, its turns in order
+    assert 'Right, but shaky' in view.split('id="chat"')[0]   # the list shows each outcome
+    view = view.split('id="chat"')[1]
     order = ['add the scores', 'Not yet', 'Hint 1', 'scale them first', 'Hint 2', 'the rank position', 'Right, but shaky']
-    at = [page.index(x) for x in order]
+    at = [view.index(x) for x in order]
     assert at == sorted(at), dict(zip(order, at))
-    assert page.count('class="m you"') == 3 and page.count('class="m tutor fb no"') == 2
-    assert page.count('class="qa"') == 2               # the next question follows in the same scroll
+    assert view.count('class="m you"') == 3 and view.count('class="m tutor fb no"') == 2
+    assert 'Back to the current question' in view and 'id="composer"></div>' in view   # no composer on a past question
 
 def test_follow_up_only_and_composer_empties(mk, fake):
     cl = mk()

@@ -41,10 +41,22 @@ def Section_(sid, q, entries=()):
     "One question and its thread so far."
     return Section(Head(q), Ol(Asked(sid, q), *entries, id=tl_id(q), cls='thread'), cls='qa', id=f'q-{q.id}')
 
-def Chat(sid, past=(), cur=None, waiting=False):
-    "Every question of this sitting in one scroll; the open one last."
-    return Div(*[Section_(sid, q, es) for q, es in past], Section_(sid, *cur) if cur else '',
-               Waiting(sid) if waiting else '', id='chat', data_sid=sid)
+def Chat(sid, cur=None, waiting=False, viewing=None):
+    "One question at a time: the open one, or a past one that you opened from the list (read only)."
+    if viewing: return Div(P(A('← Back to the current question', href=Routes.at(Routes.page, sid)), cls='mute back'), Section_(sid, *viewing),
+                           id='chat', data_sid=sid, cls='viewing')
+    return Div(Section_(sid, *cur) if cur else '', Waiting(sid) if waiting else '', id='chat', data_sid=sid)
+
+def Rail(sid, past=(), outcomes=None, current=None, viewing=None, oob=False):
+    "The earlier questions of this sitting, one quiet line each; a click opens one. ⌥↑ and ⌥↓ step through them."
+    outcomes = outcomes or {}
+    def row(q):
+        oc = OUTCOME.get(outcomes.get(q.id, ''), '')
+        return Li(A(Span(q.name, cls='n'), Span(' · '.join(x for x in (DEPTHS[q.depth], oc) if x), cls='mute'),
+                    href=f"{Routes.at(Routes.page, sid)}?q={q.id}"), cls='on' if viewing == q.id else None, data_q=q.id)
+    cur = Li(A(Span(current.name, cls='n'), Span('now', cls='mute'), href=Routes.at(Routes.page, sid)), cls='now' + (' on' if not viewing else '')) if current else ''
+    return Details(Summary(f'Earlier questions ({len(past)})'), Ol(*map(row, past), cur, cls='rail-list'),
+                   open=True, id='rail', cls='rail', hx_swap_oob='true' if oob else None)
 
 def You(text, thinking='', confidence=None):
     "One message of yours: what you said this time, quoted quietly at the right."
@@ -99,7 +111,7 @@ def Composer(sid, q=None, ready=None, oob=False):
     at = lambda r: Routes.at(r, sid)
     kw = dict(id='composer', cls='composer', hx_swap_oob='true' if oob else None)
     if q is None:   # closed, or the first question is not written yet
-        nxt = Button('Next ', Kbd('⌥S'), cls='go', id='send', hx_post=at(Routes.next), hx_target='#chat', hx_swap='beforeend',
+        nxt = Button('Next ', Kbd('⌥S'), cls='go', id='send', hx_post=at(Routes.next), hx_target='#chat', hx_swap='innerHTML',
                      data_wait=NEXT, data_skel='#chat', autofocus=True) if ready is not None else ''
         return Div(Div(Ready(sid, ready) if ready is not None else Span('Writing the first question', cls='ready mute wait'),
                        A('End session', href=at(Routes.end), cls='btn quiet'), nxt, cls='row bar'), **kw)

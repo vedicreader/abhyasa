@@ -2,6 +2,13 @@
 
 <!-- do not remove -->
 
+## 0.0.4
+
+- A session shows one question at a time. The earlier questions are a quiet list at the left, with the outcome of each. A click, or ⌥↑ and ⌥↓, opens one to read. On a narrow window the list folds.
+- A session on one concept stays in its subject, and goes next to the concepts linked to it.
+- Vault text shows raw HTML as text. A saved web page can no longer play a video or run code in the app.
+- The app icon, the favicon and the docs icon.
+
 ## 0.0.3
 
 - The session is a chat. Each question is one conversation: you send only your follow-up, and the tutor grades the whole conversation and answers your last point. Hints and the lesson sit in the conversation, and the composer stays at the bottom.

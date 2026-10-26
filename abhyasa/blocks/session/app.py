@@ -12,7 +12,7 @@ CAPS = ('learning', 'tutor', 'pool', 'sessions')
 
 def connect(app, ctx):
     tutor, sessions, pre = ctx.tutor, ctx.sessions, {}
-    tl, shown = {}, {}   # question id -> its messages after the question; session id -> its questions in order, so a reload keeps the chat
+    tl, shown, outcomes = {}, {}, {}   # question id -> its messages; session id -> its questions in order; question id -> its outcome
     at = Routes.at
 
     def nxt(sid):
@@ -43,16 +43,22 @@ def connect(app, ctx):
         ahead(s.id)   # the model writes the first question while the page loads
         return Redirect(at(Routes.page, s.id))
 
-    def page(sid:str):
-        s, q = live(sid)
+    def layout(sid, chat, composer, cur=None, viewing=None):
+        "The page: the earlier questions on the left, and one question with the composer on the right."
+        rail = ui.Rail(sid, [x for x, _ in past(sid, cur)], outcomes, cur, viewing)
+        return Page('Learn', Div(rail, Div(chat, composer, cls='main'), cls='session-layout'), wide=True, extra=ui.assets())
+
+    def page(sid:str, q:str=''):
+        s, cur = live(sid)
         if not s: return Redirect('/')
-        if not q or sid in pre:   # the question fetched ahead is not on the page yet
+        if q and (old := next((x for x in shown.get(sid, ()) if x.id == q and x is not cur), None)):
+            return layout(sid, ui.Chat(sid, viewing=(old, tl.get(old.id, ()))), Div(id='composer'), cur, viewing=q)
+        if not cur or sid in pre:   # the question fetched ahead is not on the page yet
             if sid not in pre: ahead(sid)
             wait([pre[sid]], timeout=.5)
-            if not pre[sid].done():
-                return Page('Learn', ui.Chat(sid, past(sid), waiting=True), ui.Composer(sid), extra=ui.assets())
-            if not (q := nxt(sid)): return Redirect(at(Routes.end, sid))
-        return Page('Learn', ui.Chat(sid, past(sid, q), (q, tl.get(q.id, ()))), ui.Composer(sid, q), extra=ui.assets())
+            if not pre[sid].done(): return layout(sid, ui.Chat(sid, waiting=True), ui.Composer(sid))
+            if not (cur := nxt(sid)): return Redirect(at(Routes.end, sid))
+        return layout(sid, ui.Chat(sid, (cur, tl.get(cur.id, ()))), ui.Composer(sid, cur), cur)
 
     def card(sid:str):
         "The section that `Waiting` loads; it waits for the question that is fetched ahead."
@@ -70,7 +76,7 @@ def connect(app, ctx):
         if not r.done:
             return (*keep(q, you, ui.Nudge(r)), *opts, ui.Left(r.tries_left, hx_swap_oob='true'),
                     ui.Out(sid, q, oob=True))
-        ahead(sid)
+        ahead(sid); outcomes[q.id] = r.outcome
         return (*keep(q, you, ui.Close(r), *ui.Extras(r)), *opts, ui.Composer(sid, ready=False, oob=True))
 
     def giveup(sid:str, dont_know:int=0, confidence:int=50):
@@ -78,7 +84,7 @@ def connect(app, ctx):
         if not q: return Response(status_code=204)
         tried = bool(q.tries)
         r = s.answer(dont_know=True, confidence=confidence) if dont_know and not tried else s.give_up()
-        ahead(sid)
+        ahead(sid); outcomes[q.id] = r.outcome
         opts = (ui.Options(sid, q, chosen(q), done=True, oob=True),) if q.get('options') else ()
         you = ui.You('Teach me.' if tried else "I don't know.")
         return (*keep(q, you, ui.Close(r), *ui.Extras(r)), *opts, ui.Composer(sid, ready=False, oob=True))
@@ -99,7 +105,8 @@ def connect(app, ctx):
         s, q = live(sid)
         if q and sid not in pre: return Response(status_code=204)   # a second press: this question is on the page
         q = nxt(sid)
-        return (ui.Section_(sid, q), ui.Composer(sid, q, oob=True)) if q else ui.Done(s.summary())
+        rail = ui.Rail(sid, [x for x, _ in past(sid, q)], outcomes, q, oob=True)
+        return (ui.Section_(sid, q), ui.Composer(sid, q, oob=True), rail) if q else (ui.Done(s.summary()), rail)
 
     def end(sid:str):
         s = sessions.pop(sid, None)
