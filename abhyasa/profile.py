@@ -15,14 +15,15 @@ from fastcore.utils import *
 from .store import Learning, _src
 from .llm import ask_json
 from .model import HIGH
+from .method import methods_text, EXPLORE
 
 # %% ../nbs/12_profile.ipynb #2269e644
-PROFILE = dict(background=[], goals=[], interests=[], examples=[], pace='steady', session_len=12, confuses=[], notes='')
+PROFILE = dict(background=[], goals=[], interests=[], examples=[], pace='steady', session_len=12, confuses=[], notes='', explore='sometimes')
 LIST_FIELDS = ('background', 'goals', 'interests', 'examples', 'confuses')
 EXAMPLES = ('code', 'maths', 'analogies', 'stories', 'diagrams', 'real cases')
 PACES = dict(gentle='small steps: at most one depth above what you know', steady='the usual steps', fast='bigger steps, further past what you know')
 LABELS = dict(background='Background', goals='Goals', interests='Interests', examples='Examples that help', pace='Pace',
-              session_len='Questions in a session', confuses='What confuses you', notes='Notes')
+              session_len='Questions in a session', confuses='What confuses you', notes='Notes', explore='How often to try a new way')
 _SRC = _src('profile', 'me')
 
 # %% ../nbs/12_profile.ipynb #24956444
@@ -43,6 +44,7 @@ def clean(k, v):
         try: return max(3, min(40, int(v)))
         except (TypeError, ValueError): return PROFILE['session_len']
     if k == 'pace': return v if v in PACES else 'steady'
+    if k == 'explore': return v if v in EXPLORE else 'sometimes'
     return str(v or '').strip()
 
 # %% ../nbs/12_profile.ipynb #36168b5e
@@ -109,26 +111,34 @@ quick solid passes: fast), background that their answers show. Each `why` names 
 learner as "you", in ASD-STE100 Simplified Technical English."""
 
 def evidence(lr:Learning, n:int=12) -> str:
-    "The last `n` final answers as short lines for a prompt."
+    "The last `n` final answers as short lines for a prompt: the outcome, the method, the first error, gaps you named, lessons you asked for, and what you said."
     def line(a):
         c = lr.concept(a.concept)
+        th = a.get('thread') or []
+        first_err = first(t.get('first_error') for t in th if t.get('kind') == 'nudge' and t.get('first_error'))
+        said = [t['text'][:160] for t in th if t.get('who') == 'you' and t.get('text')]
         bits = [f"{c.name if c else a.concept} at depth {a.depth}: {a.get('outcome') or ('right' if a.correct else 'wrong')}",
-                f"confidence {a.confidence}", f"{a.hints} hints" if a.hints else '', a.misconception and f"misconception: {a.misconception}",
-                a.answer and f"answer: {a.answer[:160]}", a.thinking and f"think-aloud: {a.thinking[:160]}"]
+                a.get('method') and f"taught with {a.method}", f"confidence {a.confidence}", f"{a.hints} hints" if a.hints else '',
+                first_err and f"first error: {first_err}", a.get('gaps') and f"said they did not know: {', '.join(a.gaps)}",
+                a.get('taught') and f"asked for a lesson after it ({a.get('teach_method') or 'same way'})",
+                a.misconception and f"misconception: {a.misconception}",
+                f"what they said: {' / '.join(said)}" if said else a.answer and f"answer: {a.answer[:160]}", a.thinking and f"think-aloud: {a.thinking[:160]}"]
         return '- ' + '; '.join(b for b in bits if b)
     return '\n'.join([line(a) for a in lr.attempts(limit=n * 3) if a.get('final') and a.get('kind') != 'demo'][:n])
 
-def observe_prompt(p, ev:str) -> str:
-    "The prompt that proposes changes to profile `p` from the evidence `ev`."
+def observe_prompt(p, ev:str, st=None) -> str:
+    "The prompt that proposes changes to profile `p` from the evidence `ev` and the method counts in the stats `st`."
     return (f"The profile now:\n{profile_text(p) or '(empty)'}\n\nTheir recent answers, newest first:\n{ev}\n\n"
-            'Return JSON: {"changes": [{"field": "background" | "interests" | "examples" | "pace" | "confuses", '
+            + (f"{mt}\n\n" if (mt := methods_text(st or {})) else '')
+            + 'Return JSON: {"changes": [{"field": "background" | "interests" | "examples" | "pace" | "confuses", '
             '"add": str or null, "remove": str or null, "value": str or null (for pace), "why": str}]}')
 
 # %% ../nbs/12_profile.ipynb #fc3b3102
 def observe(lr:Learning, ask, n:int=12) -> list:
     "Change the profile from the recent answers. Return the changes, each with its reason."
     if not (ev := evidence(lr, n)): return []
-    r = ask_json(ask, observe_prompt(lr.profile(), ev), OBSERVE_SP)
+    lr.set_stats(calib=dict(calibration(lr)))   # cached here, every few closes, so a question does not read all attempts
+    r = ask_json(ask, observe_prompt(lr.profile(), ev, lr.stats()), OBSERVE_SP)
     out = []
     for c in (r.get('changes') or [])[:3] if isinstance(r, dict) else []:
         f, p = c.get('field'), lr.profile()
