@@ -27,7 +27,10 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     if transcribe is None: from abhyasa.voice import transcribe
     ask = ask if isinstance(ask, Router) else Router(ask or rishi_ask())   # a model for each task, from the settings
     hooks.clear(); RouteOverrides.nav.clear()
-    app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False, bodykw=dict(hx_boost='true'))   # htmx and fasthtml.js come from core/vendor; links load in place
+    from abhyasa.voice import cfg_dir
+    cfg_dir().mkdir(parents=True, exist_ok=True)
+    app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False, bodykw=dict(hx_boost='true'),
+                       key_fname=str(cfg_dir()/'.sesskey'))   # not the working folder: an app may start in /, which is read only   # htmx and fasthtml.js come from core/vendor; links load in place
     if sources is None: sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else [])]
     svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources), ask=ask, transcribe=transcribe,
                speech=Speech(transcribe), pool=ThreadPoolExecutor(2), sessions={}, sources=sources)
