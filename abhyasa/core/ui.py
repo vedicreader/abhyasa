@@ -52,7 +52,7 @@ def Page(title, *c, on='', wide=False, extra=()):
     "A whole page: the header with the blocks' nav links and a search box, then `c`."
     nav = [A(t, href=h, cls='on' if t == on else '') for t, h, _ in sorted(RouteOverrides.nav, key=lambda x: x[2])]
     return (Title(f'{title} · abhyasa'), *extra, Nav(A('abhyasa', href='/', cls='brand'), *nav,
-            Form(Input(type='search', name='q', placeholder='Search what you learned'), action='/search')),
+            Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search')),
             Main(*c, cls='wide' if wide else ''))
 
 def Md(s, cls='', **kw):
@@ -76,5 +76,8 @@ def when(t):
 def Cites(links, label='From your sources'):
     "Links to passages in your own sources: a vault document, a session, a notebook, a verse."
     if not links: return ''
-    item = lambda l: Li(A(l['title'], href=l['url']) if l.get('url', '').startswith('http') else Span(l['title']), ' ', Span(l['src'], cls='mute'))
+    def href(l):
+        if l.get('url', '').startswith('http'): return l['url']
+        if l.get('src', '').startswith('vault:'): return f"/v/{l['src'][6:]}/{str(l.get('ref', '')).split('#')[0]}"
+    item = lambda l: Li(A(l['title'], href=h) if (h := href(l)) else Span(l['title']), ' ', Span(l['src'], cls='mute'))
     return Div(Span(label, cls='lbl'), Ul(*map(item, links), cls='plain cites'), cls='cites')

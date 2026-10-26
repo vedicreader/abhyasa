@@ -2,6 +2,13 @@
 
 <!-- do not remove -->
 
+## 0.0.2
+
+- A ramabana tick indexes your sessions on its own. `abhyasa-index schedule` adds the `abhyasa-index` schedule to pobblebonk, and ramabana's beat runs it every 15 minutes.
+- The index also takes ramabana's memory: each project's `MEMORY.md`, and the learned `AGENTS.md` and skills, with kind `memory`.
+- `abhyasa-index` exits with code 0.
+- Tests set the vault to a temporary file, so no test can open your real vault.
+
 ## 0.0.1
 
 - First release. abhyasa asks you questions, grades your reasoning and never gives the answer before you try.

@@ -18,9 +18,14 @@ def test_undeclared_capability_is_named():
     assert c.learning == 1
     with pytest.raises(AttributeError, match="'graph' used capability 'tutor'"): c.tutor
 
+def test_speech_capability():
+    c = Ctx('voice', ('speech',), speech=1)
+    assert c.speech == 1
+    with pytest.raises(AttributeError, match="'voice' used capability 'pool'"): c.pool
+
 def test_every_get_page_answers(mk):
     cl = mk()
-    for path in ('/', '/concepts', '/c/ranking', '/graph', '/graph.json', '/search?q=rank', '/add', '/health'):
+    for path in ('/', '/concepts', '/c/ranking', '/graph', '/graph.json', '/search?q=rank', '/add', '/settings', '/health'):
         r = cl.get(path)
         assert r.status_code == 200, path
 
@@ -43,3 +48,10 @@ def test_vendor_served_offline(mk):
     assert cl.get('/vendor/marked.min.js').status_code == 200
     assert cl.get('/vendor/fonts/KaTeX_Main-Regular.woff2').status_code == 200
     assert 'cdn.jsdelivr' not in cl.get('/graph').text
+
+def test_pages_are_not_cached(mk):
+    cl = mk()
+    assert cl.get('/').headers['cache-control'] == 'no-store'          # Back shows the page as it is now
+    assert 'immutable' in cl.get('/assets/base.css').headers['cache-control']
+
+def test_favicon(mk): assert mk().get('/favicon.ico').status_code == 200

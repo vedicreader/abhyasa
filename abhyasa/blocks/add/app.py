@@ -1,26 +1,29 @@
 "Grow the graph: paste text, name a vault document, or import vedicreader."
 import time
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides, Spin
+from abhyasa.core import Page, RouteOverrides
 from abhyasa.sources import extract, from_vault, from_vedicreader
+from abhyasa.llm import for_task
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask')
 
 def connect(app, ctx):
-    lr, ask = ctx.learning, ctx.ask
+    lr = ctx.learning
+    ask = lambda prompt, sp='': for_task(ctx.ask, 'extract')(prompt, sp)   # looked up on each call, so a settings change works at once
 
     def page():
         return Page('Add', H1('Add a source'),
             P('Paste text, or name a vault document by id, source or title. The tutor finds its core ideas.', cls='mute'),
-            Form(Label('Subject', Input(type='text', name='subject', placeholder='e.g. ml, sanskrit, philosophy')),
-                 Label('Text', Textarea(name='text', rows=8)), Label('Or a vault document', Input(type='text', name='ref')),
-                 Div(Button('Find concepts', cls='go'), Spin('reading…'), cls='row'),
-                 hx_post=Routes.base, hx_target='#out', hx_indicator='.spin'),
+            Form(Label('Text', Textarea(name='text', rows=4, autofocus=True, placeholder='Paste a text. ⌘↵ finds its concepts.')),
+                 Div(Label('Subject', Input(type='text', name='subject', placeholder='e.g. ml, sanskrit, philosophy')),
+                     Label('Or a vault document', Input(type='text', name='ref', placeholder='an id, a source or a title')), cls='pair'),
+                 Div(Button('Find concepts ', Kbd('⌥S'), cls='go', data_wait='Reading and finding concepts…', data_skel='#out'), cls='row'),
+                 hx_post=Routes.base, hx_target='#out'),
             Div(id='out'),
             H2('vedicreader'), P('Sanskrit lessons and terms, and the jyotiṣa grahas, rāśis and nakṣatras, from the repo files.', cls='mute'),
-            Button('Import vedicreader', hx_post=Routes.vedicreader, hx_target='#vr'), Div(id='vr'), on='Add')
+            Button('Import vedicreader', hx_post=Routes.vedicreader, hx_target='#vr', data_wait='Importing…', data_skel='#vr'), Div(id='vr'), on='Add')
 
     def add(subject:str='', text:str='', ref:str=''):
         if not (text.strip() or ref.strip()): return P('Paste text or name a document.', cls='mute')

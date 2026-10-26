@@ -1,9 +1,16 @@
+import os, tempfile
+os.environ['VISHALAKSHI_VAULT'] = os.environ['ABHYASA_VAULT'] = os.path.join(tempfile.mkdtemp(), 'vault.db')   # never the real vault
+os.environ['ABHYASA_CONFIG'] = tempfile.mkdtemp()   # nor the real settings and keys
+for k in ('ABHYASA_STT', 'OPENAI_API_KEY'): os.environ.pop(k, None)
 import pytest
 from starlette.testclient import TestClient
 from abhyasa.store import temp_learning
 from abhyasa.llm import Fake
 from abhyasa.app import mk_app
 from abhyasa.ground import passage
+from pathlib import Path
+import abhyasa.voice
+abhyasa.voice.RAMABANA_KEYS = Path(tempfile.mkdtemp())/'keys.env'   # never read the real ramabana keys
 
 class Notes:
     "A source with one passage that names Ranking."
