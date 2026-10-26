@@ -11,7 +11,7 @@ def test_resume_after_a_restart(mk, lr, fake):
     sid = start(cl)
     cl.get(f'/s/{sid}')
     cl.post(f'/s/{sid}/answer', data=dict(answer='add the scores', thinking='numbers', confidence=70))   # a wrong try: still open
-    cl2 = TestClient(mk_app(lr, fake, transcribe=lambda a, hint='': '', sources=[Notes()]))             # a restart: nothing in memory
+    cl2 = TestClient(mk_app(lr, fake, transcribe=lambda a, hint='': '', sources=[Notes()], hosts=('testserver',)))             # a restart: nothing in memory
     page = cl2.get(f'/s/{sid}').text
     assert 'What does a rank tell you?' in page and 'add the scores' in page and 'Not yet' in page      # the same question, its thread
     assert 'Continue: Ranking' not in page and 'id="continue"' in page

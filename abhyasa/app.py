@@ -22,8 +22,34 @@ async def _fresh(req, call_next):
     if r.headers.get('content-type', '').startswith('text/html'): r.headers['Cache-Control'] = 'no-store'
     return r
 
-def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=None):
-    "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect."
+
+LOCAL_HOSTS = ('127.0.0.1', 'localhost', '::1')
+SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
+
+class LocalOnly:
+    """The app answers only itself. A Host that is not loopback is refused, so a DNS-rebinding page cannot read the vault. A request
+    that the browser marks cross-site (`Sec-Fetch-Site`) is refused, so an `<img>` on another page cannot start a session. A POST
+    whose `Origin` is not this app is refused, so another page cannot change settings, keys or the vault. Pure ASGI, so streams pass."""
+    def __init__(self, app, hosts=LOCAL_HOSTS): self.app, self.hosts = app, tuple(hosts)
+    async def __call__(self, scope, receive, send):
+        if scope['type'] == 'http' and (why := self.refuse(scope)):
+            await send(dict(type='http.response.start', status=403, headers=[(b'content-type', b'text/plain; charset=utf-8')]))
+            return await send(dict(type='http.response.body', body=why.encode()))
+        return await self.app(scope, receive, send)
+    def refuse(self, scope) -> str:
+        "Why to refuse this request, or ''."
+        from urllib.parse import urlsplit
+        h = {k.decode('latin-1').lower(): v.decode('latin-1') for k, v in scope.get('headers', [])}
+        host = h.get('host', '')
+        name = urlsplit(f'//{host}').hostname or ''
+        if name not in self.hosts: return f'abhyasa answers only on this Mac, not for the host {host!r}.'
+        if h.get('sec-fetch-site') == 'cross-site': return 'abhyasa does not answer requests from other web sites.'
+        if scope['method'] not in SAFE_METHODS and (o := h.get('origin')) and o != 'null':
+            if urlsplit(o).netloc != host: return 'abhyasa does not take changes from other web sites.'
+        return ''
+
+def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=None, hosts=LOCAL_HOSTS):
+    "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect, `hosts` the Host names it answers."
     from abhyasa.voice import Speech
     if transcribe is None: from abhyasa.voice import transcribe
     ask = ask if isinstance(ask, Router) else Router(ask or rishi_ask())   # a model for each task, from the settings
@@ -40,6 +66,7 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     app.state.svc = svc
     serve_assets(app)
     app.add_middleware(BaseHTTPMiddleware, dispatch=_fresh)
+    app.add_middleware(LocalOnly, hosts=hosts)   # added last, so it runs first
     app.get('/health')(lambda: JSONResponse(dict(status='ok')))
     app.get('/favicon.ico')(lambda: Response(FAVICON, media_type='image/svg+xml'))
     app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's static route, which answers 404 for it

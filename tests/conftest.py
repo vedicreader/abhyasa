@@ -40,5 +40,5 @@ def lr():
 @pytest.fixture
 def mk(lr, fake):
     "A client for an app with some blocks, or all of them."
-    def f(names=None): return TestClient(mk_app(lr, fake, transcribe=lambda a, hint='': f'{len(a)} bytes about {hint}', names=names, sources=[Notes()]))
+    def f(names=None): return TestClient(mk_app(lr, fake, transcribe=lambda a, hint='': f'{len(a)} bytes about {hint}', names=names, sources=[Notes()], hosts=('testserver', '127.0.0.1', 'localhost')))
     return f
