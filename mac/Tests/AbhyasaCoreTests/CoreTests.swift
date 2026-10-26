@@ -186,6 +186,13 @@ import Testing
         let s = ServerSettings()
         #expect(s.vault == "~/.vishalakshi/vault.db" && s.stt == "gemma" && s.model.isEmpty)
     }
+
+    @Test func theModelListHasNamesAndTheDefault() {
+        let ids = ServerSettings.models.map(\.id)
+        #expect(Set(ids).count == ids.count && ids.contains(ServerSettings.defaultModel))
+        #expect(ServerSettings.models.allSatisfy { !$0.name.isEmpty && $0.name != $0.id })
+        #expect(ServerSettings.isListed("") && ServerSettings.isListed("claude/opus") && !ServerSettings.isListed("openai/gpt-5.5"))
+    }
 }
 
 @Suite struct LinkTests {

@@ -87,11 +87,28 @@ struct FailedView: View {
 struct SettingsView: View {
     let model: AppModel
     @State private var s = Prefs.load()
+    @State private var typing = false
+    private static let other = "\u{1}other"
+
+    /// the list item: the model, or "Type another model id" for an id that the list does not have
+    private var pick: Binding<String> {
+        Binding(get: { typing || !ServerSettings.isListed(s.model) ? Self.other : s.model },
+                set: { v in typing = v == Self.other; if !typing { s.model = v } })
+    }
 
     var body: some View {
         Form {
-            TextField("Model", text: $s.model, prompt: Text(ServerSettings.defaultModel))
-            Text("A rishi model name. The default, claude/sonnet, uses the claude command.").font(.caption).foregroundStyle(.secondary)
+            Picker("Model", selection: pick) {
+                Text("Default: Claude Sonnet").tag("")
+                ForEach(ServerSettings.models, id: \.id) { Text($0.name).tag($0.id) }
+                Divider()
+                Text("Type another model id…").tag(Self.other)
+            }
+            if pick.wrappedValue == Self.other {
+                TextField("Model id", text: $s.model, prompt: Text(ServerSettings.defaultModel))
+            }
+            Text("The default model for the tutor. The Claude models use the claude command. Settings in the app can choose a model for each task.")
+                .font(.caption).foregroundStyle(.secondary)
             Picker("Speech engine", selection: $s.stt) {
                 ForEach(ServerSettings.engines, id: \.self) { Text($0) }
             }
@@ -102,7 +119,7 @@ struct SettingsView: View {
             }
             HStack {
                 Spacer()
-                Button("Default Values") { s = ServerSettings() }
+                Button("Default Values") { s = ServerSettings(); typing = false }
                 Button("Apply") { model.apply(s) }.keyboardShortcut(.defaultAction).disabled(s == model.supervisor.settings)
             }
         }

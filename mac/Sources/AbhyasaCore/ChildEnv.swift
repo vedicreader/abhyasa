@@ -1,8 +1,14 @@
 import Foundation
 
+/// One item of the model list in Settings: a name that people know, and the model id that the server reads.
+public struct ModelChoice: Hashable, Sendable {
+    public let name: String
+    public let id: String
+}
+
 /// The settings that the server reads: the model, the speech engine and the vault.
 public struct ServerSettings: Equatable, Sendable {
-    /// a rishi model name; empty gives the server default
+    /// the model id; empty gives the server default
     public var model: String
     /// `gemma` or `whisper`
     public var stt: String
@@ -16,6 +22,12 @@ public struct ServerSettings: Equatable, Sendable {
 
     public static let defaultVault = "~/.vishalakshi/vault.db"
     public static let defaultModel = "claude/sonnet"
+    /// the models in the Settings list; the web Settings page lists all the models that can run here
+    public static let models = [ModelChoice(name: "Claude Sonnet", id: "claude/sonnet"),
+                                ModelChoice(name: "Claude Haiku", id: "claude/haiku"),
+                                ModelChoice(name: "Claude Opus", id: "claude/opus")]
+    /// true when `model` is empty or in `models`
+    public static func isListed(_ model: String) -> Bool { model.isEmpty || models.contains { $0.id == model } }
     public static let engines = ["gemma", "whisper"]
 }
 
