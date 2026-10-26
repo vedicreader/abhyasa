@@ -1,5 +1,6 @@
 "The Settings page: pick and get speech models, cut at pauses, the OpenAI key. No test uses the network or the real cache."
 import os, time
+from pathlib import Path
 import pytest
 from abhyasa import voice
 
@@ -122,3 +123,53 @@ def test_catalog_lists_models_for_the_pickers(mk, monkeypatch):
     monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [dict(value='codex/gpt-x', label='gpt-x', provider='codex', source='login')])
     t = mk(['settings']).get('/settings/catalog').text
     assert 'id="models-list"' in t and 'codex/gpt-x' in t
+
+def test_theme_on_html(mk):
+    "Each page has the theme and the mode from the settings on <html>; the Settings page has the Theme section."
+    voice.update_settings('look', theme='paper', mode='auto')
+    cl = mk()
+    t = cl.get('/settings').text
+    assert '<html data-theme="paper" data-mode="auto">' in t and '>Theme<' in t and 'value="sage"' in t
+    assert '/assets/themes.css' in t
+
+def test_theme_switch(mk):
+    "The look route saves the theme and the mode; the next page has them. An unknown name changes nothing."
+    cl = mk(['settings', 'today'])
+    assert cl.post('/settings/look', data=dict(theme='ink', mode='dark')).status_code == 204
+    assert voice.settings()['look'] == dict(theme='ink', mode='dark')
+    assert 'data-theme="ink" data-mode="dark"' in cl.get('/').text
+    assert cl.post('/settings/look', data=dict(theme='neon', mode='dark')).status_code == 400
+    assert voice.settings()['look']['theme'] == 'ink'
+    voice.update_settings('look', theme='paper', mode='auto')
+
+def _lum(h, s, l):
+    import colorsys
+    rgb = colorsys.hls_to_rgb(h / 360, l / 100, s / 100)
+    return sum(w * (c / 12.92 if c <= .04045 else ((c + .055) / 1.055) ** 2.4) for w, c in zip((.2126, .7152, .0722), rgb))
+
+def contrast(a, b):
+    la, lb = sorted((_lum(*a), _lum(*b)), reverse=True)
+    return (la + .05) / (lb + .05)
+
+def palettes():
+    "From themes.css: theme -> {var: (light hsl, dark hsl)}."
+    import re
+    from abhyasa.core import THEMES
+    css = (Path(voice.__file__).parent/'core'/'themes.css').read_text()
+    hsl = r'hsl\((\d+) (\d+)% (\d+)%\)'
+    out = {}
+    for t in THEMES:
+        body = re.search(r'\[data-theme=' + t + r'\] \{(.*?)\}', css, re.S)[1]
+        out[t] = {k: (tuple(map(int, a)), tuple(map(int, b))) for k, *ab in re.findall(rf'--(\w+):\s*light-dark\({hsl},\s*{hsl}\)', body)
+                  for a, b in [(ab[:3], ab[3:])]}
+    return out
+
+def test_theme_contrast():
+    "Each text colour of each theme has a contrast of 4.5:1 or more on its bg, in light and in dark. acc is also the bg of the main button."
+    low = []
+    for t, p in palettes().items():
+        assert set(p) >= {'bg', 'fg', 'ink2', 'mute', 'line', 'acc', 'ok', 'no', 'bad'}, t
+        for i, mode in enumerate(('light', 'dark')):
+            for k in ('fg', 'ink2', 'mute', 'acc', 'ok', 'no', 'bad'):
+                if (c := contrast(p[k][i], p['bg'][i])) < 4.5: low.append((t, mode, k, round(c, 2)))
+    assert not low, low

@@ -4,7 +4,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from starlette.middleware.base import BaseHTTPMiddleware
 from fasthtml.common import *
-from abhyasa.core import cfg, RouteOverrides, connect_all, serve_assets, HDRS
+from abhyasa.core import cfg, RouteOverrides, connect_all, serve_assets, HDRS, look_before
 from abhyasa.core import hooks
 from abhyasa.blocks import blocks
 from abhyasa.store import Learning
@@ -30,7 +30,7 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     hooks.clear(); RouteOverrides.nav.clear()
     from abhyasa.voice import cfg_dir
     cfg_dir().mkdir(parents=True, exist_ok=True)
-    app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False, bodykw=dict(hx_boost='true'),
+    app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False, bodykw=dict(hx_boost='true'), before=look_before,
                        key_fname=str(cfg_dir()/'.sesskey'))   # not the working folder: an app may start in /, which is read only   # htmx and fasthtml.js come from core/vendor; links load in place
     if sources is None: sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else [])]
     pool = ThreadPoolExecutor(2)

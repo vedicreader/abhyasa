@@ -40,7 +40,8 @@
   const v = name => { probe.style.color = `var(${name})`; return getComputedStyle(probe).color; };
   const themed = () => {
     C = {bg: v('--bg'), fg: v('--fg'), mute: v('--mute'), rule: v('--rule'), line: v('--line'), acc: v('--acc'), no: v('--no'), ok: v('--ok'),
-         subs: [1, 2, 3, 4, 5, 6].map(i => v(`--g${i}`)), serif: getComputedStyle(root).getPropertyValue('--serif'), dark: matchMedia('(prefers-color-scheme: dark)').matches};
+         subs: [1, 2, 3, 4, 5, 6].map(i => v(`--g${i}`)), serif: getComputedStyle(root).getPropertyValue('--serif')};
+    C.dark = d3.hsl(C.bg).l < .5;   // the theme and the mode are on <html>, so the page bg says which
     C.floor = d3.interpolateRgb(d3.interpolateRgb(C.bg, C.acc)(.4), C.acc);
     C.due = d3.interpolateRgb(C.no, C.ok);
   };
@@ -498,7 +499,7 @@
 
   // ---- start ------------------------------------------------------------------------------------------------------
   new ResizeObserver(resize).observe(stage); resize();
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { themed(); legend(); dirty(); });
+  document.addEventListener('abhyasa:theme', () => { themed(); legend(); dirty(); });   // core.js sends it for a new theme or mode
   show(); layout();
   const cam = store.cam[S.mode];
   if (cam && !picked) sel.call(zoom.transform, d3.zoomIdentity.translate(cam.x, cam.y).scale(cam.k));

@@ -34,6 +34,7 @@ def cfg_dir() -> Path:
 
 DFLT_SETTINGS = dict(stt=dict(engine='gemma', model='', segment=True),
                      models=dict(question='', grade='', hint='', lesson=''),   # rishi model names for the tutor; empty: the app's model
+                     look=dict(theme='paper', mode='auto'),                    # the colour theme, and light, dark or auto (as the Mac)
                      downloaded=[])                                            # the models that the Settings page downloaded
 
 def settings() -> dict:

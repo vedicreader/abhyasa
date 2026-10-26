@@ -189,3 +189,18 @@ const abhyasaQ = () => {
 };
 window.addEventListener('load', abhyasaQ);
 document.addEventListener('htmx:afterSettle', abhyasaQ);
+
+// The theme and the mode are data-theme and data-mode on <html>. A choice in #look (the Settings page) shows at once; its form
+// saves it. Then 'abhyasa:theme' tells the parts that read colours from CSS (the graph) to read them again. So does a change of
+// the Mac between light and dark.
+function abhyasaTheme(theme, mode) {
+  const h = document.documentElement;
+  if (theme) h.dataset.theme = theme;
+  if (mode) h.dataset.mode = mode;
+  document.dispatchEvent(new CustomEvent('abhyasa:theme', {detail: {theme: h.dataset.theme, mode: h.dataset.mode}}));
+}
+document.addEventListener('change', e => {
+  const i = e.target;
+  if (i.closest && i.closest('#look') && i.type === 'radio') abhyasaTheme(i.name === 'theme' && i.value, i.name === 'mode' && i.value);
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => abhyasaTheme());
