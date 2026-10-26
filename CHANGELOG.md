@@ -2,6 +2,18 @@
 
 <!-- do not remove -->
 
+## 0.0.8
+
+- Strengths and weak spots (⌥G): each subject, your weak concepts with the reasons, your strong concepts, and the ways you learn. "Practice my weak spots" starts a drill session.
+- Ways to learn: each question uses code, maths, an analogy, a worked example, a picture or plain words, and the outcome counts for it. A weak concept gets your best way. Sometimes a concept gets a new way, first a way that you got better at. You set how often.
+- Say "show me with code" or "with an equation", and the tutor switches. "Another way" (⌥A) under a lesson teaches the same idea in a different way.
+- A gap that you name ("I don't know what the loop means") becomes a concept, linked to the one you learn. It comes first next time, and it does not block.
+- The graph can colour each concept by how well you know it, and its tip gives the reasons.
+- The profile reads the whole conversation of each question, the lessons you asked for, your method counts and your calibration.
+- A session gets easier after two misses and harder after three clean passes, and it retests each miss before the end.
+- About you shows how often you are right when you feel sure.
+- A transfer question can connect to an idea that you know well from another subject.
+
 ## 0.0.7
 
 - After a shaky pass, "Teach me this" (⌥X) gives a short lesson from your first error. Your outcome does not change.
