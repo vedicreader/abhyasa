@@ -2,6 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, hook, asset_js, asset_css
+from abhyasa.model import understanding
 from .cfg import Routes
 from .ui import Stage
 
@@ -18,7 +19,12 @@ def connect(app, ctx):
                     Script(src='/vendor/d3.min.js'), asset_js(_P/'graph.js', defer=True),
                     on='Graph', wide=True, extra=(asset_css(_P/'graph.css'),))
 
-    def data(subject:str=''): return JSONResponse(lr.graph(subject or None))
+    def data(subject:str=''):
+        "The graph, with how well you know each concept: its state and the reasons."
+        g, by = lr.graph(subject or None), {c.slug: c for c in lr.concepts(subject or None)}
+        for n in g['nodes']:
+            u = understanding(by[n['id']]); n.update(state=u.state, reasons=u.reasons)
+        return JSONResponse(g)
 
     @hook('concept_actions')
     def see(c): return A('See in the graph', href=f'{Routes.base}?subject={c.subject}&focus={c.slug}', cls='btn')

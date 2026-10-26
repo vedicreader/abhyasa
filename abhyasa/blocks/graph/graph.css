@@ -12,6 +12,7 @@ main.wide:has(#graph) { padding-top: 20px; padding-bottom: 24px; }
               box-shadow: 0 1px 6px color-mix(in srgb, var(--fg) 16%, transparent); max-width: 320px; line-height: 1.35; z-index: 2; }
 #graph .tip b { display: block; font-weight: 600; font-size: 15px; color: var(--fg); }
 #graph .tip span { font-size: 13px; color: var(--mute); }
+#graph .tip span.why { display: block; color: var(--fg); }
 
 #levers { height: calc(100vh - 120px); min-height: 460px; overflow-y: auto; border-left: 1px solid var(--line); padding: 2px 4px 12px 22px;
           font-size: 14px; line-height: 1.4; scrollbar-width: thin; }

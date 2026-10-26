@@ -26,7 +26,7 @@
 
   // ---- the data ---------------------------------------------------------------------------------------------------
   const now = Date.now() / 1000, nodes = g.nodes, byId = new Map(nodes.map(n => [n.id, n]));
-  const links = g.links.map(l => ({kind: l.kind, s: byId.get(l.source), t: byId.get(l.target)})).filter(l => l.s && l.t).map(l => ({...l, source: l.s, target: l.t}));
+  const links = g.links.map(l => ({kind: l.kind === 'gap' ? 'prereq' : l.kind, s: byId.get(l.source), t: byId.get(l.target)})).filter(l => l.s && l.t).map(l => ({...l, source: l.s, target: l.t}));
   const subjects = [...new Set(nodes.map(n => n.subject || 'general'))];
   nodes.forEach(n => { n.subject ||= 'general'; n.days = n.seen && n.due ? (n.due - now) / DAY : null; n.nb = new Set(); });
   links.forEach(l => { l.s.nb.add(l.t); l.t.nb.add(l.s); });
@@ -44,13 +44,15 @@
     C.dark = d3.hsl(C.bg).l < .5;   // the theme and the mode are on <html>, so the page bg says which
     C.floor = d3.interpolateRgb(d3.interpolateRgb(C.bg, C.acc)(.4), C.acc);
     C.due = d3.interpolateRgb(C.no, C.ok);
+    C.state = {strong: C.ok, learning: C.floor(.3), fading: C.due(.5), weak: C.no, gap: C.acc};
   };
   themed();
   const subCol = s => C.subs[subjects.indexOf(s) % C.subs.length];
   const fill = n => S.colorBy === 'subject' ? subCol(n.subject)
+    : S.colorBy === 'understanding' ? (C.state[n.state] || C.bg)
     : S.colorBy === 'due' ? (n.days === null ? C.bg : C.due(Math.min(1, Math.max(0, n.days / 14))))
     : n.floor ? C.floor((n.floor - 1) / 4) : C.bg;
-  const hollow = n => S.colorBy === 'subject' ? false : S.colorBy === 'due' ? n.days === null : !n.floor;
+  const hollow = n => S.colorBy === 'subject' ? false : S.colorBy === 'understanding' ? !C.state[n.state] : S.colorBy === 'due' ? n.days === null : !n.floor;
   const rad = n => sz() * (4.5 + (S.sizeBy === 'seen' ? 1.6 * Math.sqrt(Math.min(n.seen, 16))
     : S.sizeBy === 'due' ? 6 * dueness(n) : S.sizeBy === 'depth' ? 1.6 * Math.min(n.depth || 0, 6) : 1));
 
@@ -363,7 +365,8 @@
   const showTip = (n, px, py) => {
     const due = n.days === null ? 'new' : n.days <= 0 ? 'due now' : n.days < 1 ? `due in ${Math.round(n.days * 24)} h` : `due in ${Math.round(n.days)} d`;
     tip.textContent = ''; tip.append(Object.assign(document.createElement('b'), {textContent: n.name}),
-      Object.assign(document.createElement('span'), {textContent: `${n.subject} · ${DEPTHS[n.floor]} · ${due} · ${n.nb.size} links`}));
+      Object.assign(document.createElement('span'), {textContent: `${n.subject} · ${DEPTHS[n.floor]} · ${due} · ${n.nb.size} links`}),
+      ...(n.reasons || []).slice(0, 3).map(r => Object.assign(document.createElement('span'), {textContent: r, className: 'why'})));
     tip.hidden = false; tip.style.left = Math.min(px + 14, W - tip.offsetWidth - 4) + 'px'; tip.style.top = Math.max(4, py - tip.offsetHeight - 10) + 'px';
   };
   cv.addEventListener('pointermove', e => {
@@ -406,6 +409,7 @@
     const el = panel.querySelector('.legend'), sw = (c, t, ring, w = 1) => { const s = document.createElement('span'), i = document.createElement('i');
       i.style.background = c; if (ring) i.style.boxShadow = `inset 0 0 0 ${w}px ${ring}`; s.append(i, t); return s; };
     el.replaceChildren(...(S.colorBy === 'subject' ? subjects.map(s => sw(subCol(s), s))
+      : S.colorBy === 'understanding' ? [['strong', 'strong'], ['learning', 'learning'], ['fading', 'fading'], ['weak', 'weak'], ['gap', 'a gap you named']].map(([k, t]) => sw(C.state[k], t)).concat([sw(C.bg, 'unseen', C.mute)])
       : S.colorBy === 'due' ? [sw(C.no, 'due now'), sw(C.due(.5), 'in a week'), sw(C.ok, 'later'), sw(C.bg, 'new', C.mute)]
       : [sw(C.bg, 'unseen', C.mute), ...[1, 3, 5].map(f => sw(C.floor((f - 1) / 4), DEPTHS[f]))]),
       ...(S.colorBy !== 'due' ? [sw(C.bg, 'due', C.no, 2)] : []));
