@@ -17,12 +17,12 @@ def go(j): return f"{Routes.start}?journey={j.id}"
 def Bar(done, total): return Span(I(style=f"width:{100 * done // max(total, 1)}%"), cls='prog', role='progressbar', aria_valuenow=str(done), aria_valuemax=str(total))
 
 def GoalForm(compact=False):
-    "The box where a journey starts: say or type a goal. The planner proposes a path that you can change."
+    "The box where a journey starts: say or type a goal. The planner suggests a path that you can change."
     return Form(Label('What do you want to learn?', fr='goal'),
                 Textarea(name='goal', id='goal', rows=1 if compact else 2, data_mic='1', aria_label='Your goal',
                          placeholder='For example: how LLMs work, from tokens to training. ⌘↵ plans a path.'),
                 Div(Button('Plan a path', cls='plan', data_wait=PLANNING, data_skel='#plan-out'),
-                    Span('The tutor proposes the steps. You can change each one.', cls='mute'), cls='row'),
+                    Span('The tutor suggests the steps. You can change each one.', cls='mute'), cls='row'),
                 Div(id='plan-out'), hx_post=Routes.new, hx_target='#plan-out', cls='goal-form')
 
 def Row(j, pg):
@@ -33,7 +33,7 @@ def Row(j, pg):
               A('Continue', href=go(j), cls='btn small') if pg.current else A('See what comes after', href=at(Routes.one, j), cls='btn small quiet'),
               cls='jrow')
 
-def JourneyList(js, empty='No journeys yet. Say what you want to learn, and the tutor proposes a path.'):
+def JourneyList(js, empty='No journeys yet. Say what you want to learn, and the tutor suggests a path.'):
     return Ul(*[Row(j, pg) for j, pg in js], cls='plain journeys') if js else P(empty, cls='mute')
 
 def Act(j, s, act, label, title):

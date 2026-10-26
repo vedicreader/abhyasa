@@ -22,11 +22,11 @@ def DemoCard(d, session='', lead=True, link=True):
 
 def Pending(concept):
     "A note that asks the server again in two seconds, until the demo is ready."
-    return Div(Span('Demo', cls='lbl'), P('A demo is being made for this concept. It can take a minute.', cls='mute making'),
+    return Div(Span('Demo', cls='lbl'), P('The tutor is making a demo for this concept. This can take a minute.', cls='mute making'),
                hx_get=Routes.of(Routes.wait, concept=concept), hx_trigger='load delay:2s', hx_swap='outerHTML', cls='demo-card pending')
 
 def Failed():
-    return Div(Span('Demo', cls='lbl'), P('No demo this time: the model could not make one that passes the checks. The lesson stays.', cls='mute'),
+    return Div(Span('Demo', cls='lbl'), P('No demo this time. The model did not make a demo that passes the checks. The lesson stays.', cls='mute'),
                cls='demo-card')
 
 def ShowButton(c):

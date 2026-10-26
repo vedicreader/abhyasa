@@ -125,7 +125,7 @@ def connect(app, ctx):
     def hint(sid:str):
         s, q = live(sid)
         if not q: return Response(status_code=204)
-        if len(q.hints) >= len(HINTS): return Li(Span('No more hints', cls='lbl'), P('Send your best answer, or ask to be taught.'), cls='m tutor hint')
+        if len(q.hints) >= len(HINTS): return Li(Span('No more hints', cls='lbl'), P('Send your best answer, or ask the tutor to teach you.'), cls='m tutor hint')
         h = s.hint()
         return keep(q, ui.Hint(len(q.hints), h))
 

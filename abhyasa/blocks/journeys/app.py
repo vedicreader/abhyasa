@@ -26,8 +26,8 @@ def connect(app, ctx):
 
     def index():
         return Page('Journeys', H1('Journeys'),
-                    P('A journey is a goal and a path of steps to it. The tutor proposes the path from your concepts and what it knows '
-                      'about you. You change it: move, skip, add or split a step.', cls='mute'),
+                    P('A journey is a goal and a path of steps to it. The tutor suggests the path from your concepts and what it knows '
+                      'about you. You can move, skip, add or split a step.', cls='mute'),
                     ui.GoalForm(), H2('Your journeys'), ui.JourneyList(listed()), on='Journeys', crumbs=[('Today', '/')], extra=ui.assets())
 
     def new(goal:str=''):

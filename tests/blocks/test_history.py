@@ -44,7 +44,7 @@ def test_continue_on_today_and_top_bar(mk):
     sid = start(cl)
     cl.get(f'/s/{sid}')
     today = cl.get('/').text
-    assert 'Continue where you left off' in today and f'href="/s/{sid}"' in today and 'id="continue"' in today
+    assert 'Continue where you stopped' in today and f'href="/s/{sid}"' in today and 'id="continue"' in today
 
 def test_old_summary_still_shows(mk, lr):
     lr.log_session('old1', '2 of 3 passed. Concepts: ranking.', start=1e9, end=1e9 + 60, concepts=['ranking'], passed=2, asked=3)

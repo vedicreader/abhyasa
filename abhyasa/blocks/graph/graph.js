@@ -417,7 +417,7 @@
   const showFocus = () => {
     const el = panel.querySelector('#focus-name');
     el.textContent = focus ? `Shows ${focus.name} and what is ${S.steps} ${S.steps > 1 ? 'steps' : 'step'} away. ⎋ stops it.`
-      : picked ? `Push E to show only ${picked.name} and its neighbours.` : 'Point at a concept and push E, or find one.';
+      : picked ? `Press E to show only ${picked.name} and its neighbours.` : 'Point at a concept and press E, or find a concept.';
   };
   const relayout = ['mode', 'spacing', 'floorLo', 'floorHi', 'dueOnly', 'hideUnseen', 'related', 'steps'];
   panel.addEventListener('input', e => {

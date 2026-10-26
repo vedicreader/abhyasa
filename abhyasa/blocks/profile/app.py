@@ -17,8 +17,8 @@ def connect(app, ctx):
     def page(new:str=''):
         p = lr.profile()
         return Page('About you', ui.css(), H1('What abhyasa knows about you'),
-                    P('The tutor uses this to choose examples, paths and pace. It is all here, and you can change any of it. '
-                      'The tutor adds to it from your answers, and each change shows below with its reason.', cls='mute'),
+                    P('The tutor uses this to choose examples, paths and pace. All of it is here, and you can change any of it. '
+                      'The tutor adds to it from your answers. Each change shows below with its reason.', cls='mute'),
                     P('This is what abhyasa took from what you said. Change what is wrong.', cls='fresh') if new else '',
                     '' if p.known else P(A('Tell abhyasa about you', href=Routes.start), ': four short questions, by voice or text.'),
                     ui.Form_(p),
@@ -28,7 +28,7 @@ def connect(app, ctx):
                     P('The tutor reads your recent answers after every sixth question. You can ask it to do that now.', cls='mute'),
                     Div(Button('Look at my recent answers', hx_post=Routes.observe, hx_target='#observed', data_wait='Reading your answers…'),
                         Div(id='observed', cls='ix'), cls='row'),
-                    Div(H2('Privacy'), P('This stays in your vault on this machine. Nothing goes anywhere else, other than to the model that writes your questions.', cls='mute'),
+                    Div(H2('Privacy'), P('This stays in your vault on this Mac. Only the model that writes your questions gets it.', cls='mute'),
                         Form(Button('Clear what abhyasa knows about you', cls='small quiet danger'), action=Routes.clear, method='post',
                              hx_confirm='Clear the whole profile and its changes?'), cls='privacy'),
                     crumbs=up)

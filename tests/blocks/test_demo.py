@@ -33,7 +33,7 @@ def test_failed_job_says_so(mk, fake):
     cl = mk()
     cl.post('/demo/make', data=dict(concept='ranking'))
     wait_job(cl, 'ranking')
-    assert 'could not make one' in cl.get('/demo/wait/ranking').text
+    assert 'did not make a demo that passes' in cl.get('/demo/wait/ranking').text
 
 def test_demo_page_and_json(mk, lr):
     lr.put_demo(gallery()['reciprocal-rank-fusion'], 'reciprocal-rank-fusion')
@@ -70,7 +70,7 @@ def test_two_misses_make_a_demo_under_the_lesson(mk, lr):
     assert 'Lesson' in first and 'demo-card' not in first
     cl.post(f'/s/{sid}/next')
     second = miss(cl, sid)
-    assert 'A demo is being made' in second and '/demo/wait/ranking' in second and 'm tutor extra' in second   # a tutor message in the thread
+    assert 'The tutor is making a demo' in second and '/demo/wait/ranking' in second and 'm tutor extra' in second   # a tutor message in the thread
     wait_job(cl, 'ranking')
     card = cl.get('/demo/wait/ranking').text
     assert 'data-rupaka' in card

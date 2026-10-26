@@ -24,9 +24,9 @@ def Move(m):
 def Continue(s, title, big=False):
     "The way back into an open session, one key away."
     href = Routes.of(Routes.page, sid=s['id'])
-    if not big: return A(f'Continue: {title}', Kbd('⌥C'), href=href, id='continue', title='Continue where you left off')
+    if not big: return A(f'Continue: {title}', Kbd('⌥C'), href=href, id='continue', title='Continue where you stopped')
     n = len(s.get('log') or [])
-    return Div(Span('Continue where you left off', cls='lbl'),
+    return Div(Span('Continue where you stopped', cls='lbl'),
                P(A(title, href=href), Span(f"  · {n} question{'s' if n != 1 else ''} done · {ago(s.get('updated'))}", cls='mute')),
                Div(A('Continue ', Kbd('⌥S'), href=href, cls='btn go'), cls='row'), cls='continue-card')
 

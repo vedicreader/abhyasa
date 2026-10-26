@@ -72,11 +72,11 @@ def Speech(sp, key, oob=False):
     return Section(
         H2('Speech to text'),
         P(Strong(known), ' ', Span(f'{cur[0]} · {cur[1]}', cls='mute'), ' ', Status(sp), cls='inuse-line'),
-        P(f'$ABHYASA_STT is set to {env!r}. It is stronger than the choice on this page.', cls='warn') if env else '',
+        P(f'$ABHYASA_STT is set to {env!r}. It has priority over the choice on this page.', cls='warn') if env else '',
         Label(Input(type='checkbox', name='on', checked=s['stt']['segment'], hx_post=Routes.segment, hx_trigger='change', hx_swap='none',
                     hx_vals='js:{on: event.target.checked ? 1 : 0}'),
-              ' Cut at pauses', Span('The text comes after each pause. Off: it comes every 10 seconds.', cls='note'), cls='check'),
-        P('Clip A is English speech. Clip B has Nyāya terms in IAST and maths words, and the model gets them as a hint. The numbers are word errors, warm, on this Mac. Terms: the key terms written correctly. '
+              ' Cut at pauses', Span('The text comes after each pause. When this is off, the text comes every 10 seconds.', cls='note'), cls='check'),
+        P('Clip A is English speech. Clip B has Nyāya terms in IAST and maths words. The model gets these terms as a hint. The numbers are word error rates on this Mac, with the model already loaded. Terms: the number of key terms written correctly. '
           '"5 s" is the time for one 5-second segment. Only one model is in memory at a time.', cls='mute'),
         Known(cur, s, key), Span(Spin('switching…'), id='use-sp'), id='speech', **(dict(hx_swap_oob='true') if oob else {}))
 

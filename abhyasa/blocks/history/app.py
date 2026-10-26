@@ -68,7 +68,7 @@ def connect(app, ctx):
         wk = week()
         ups = sum(len(ms) for w, ms in weeks([s for s in ss if (s.get('start') or 0) > time.time() - 7 * DAY], by))
         return Page('Your learning', ui.css(), H1('Your learning'),
-                    P('Each session is kept here, with what moved. Open one to read its questions again, or continue it.', cls='mute'),
+                    P('This page keeps each session, with what moved. Open a session to read its questions again, or to continue it.', cls='mute'),
                     H2('This week'), ui.Week(wk),
                     P(f"{sum(n for _, n in wk)} questions in the last seven days · {ups} concept{'s' if ups != 1 else ''} moved up.", cls='mute week-sum'),
                     H2('What you learned'), ui.Learned(weeks(ss, by)),
@@ -93,7 +93,7 @@ def connect(app, ctx):
 
     @hook('nav_extra')
     def continue_link():
-        "Continue where you left off: the newest open session, else the newest journey that is not finished."
+        "Continue where you stopped: the newest open session, else the newest journey that is not finished."
         if (s := latest_open()):
             by, js = names()
             return ui.Continue(s, title(s, by, js))

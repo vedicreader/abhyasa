@@ -23,7 +23,7 @@ document.addEventListener('htmx:oobAfterSwap', e => render(e.target));
 
 // A block adds keys with `abhyasaKeys.KeyX = '#selector'`. ⌥S presses the main button of any page.
 window.abhyasaKeys = window.abhyasaKeys || {KeyS: '#send, main .go'};
-// ⌥T goes to Today and ⌥C continues where you left off, from any page.
+// ⌥T goes to Today and ⌥C continues where you stopped, from any page.
 Object.assign(abhyasaKeys, {KeyT: 'nav a[href="/"]:not(.brand)', KeyC: '#continue'});
 document.addEventListener('keydown', e => {
   if (!e.altKey) return;

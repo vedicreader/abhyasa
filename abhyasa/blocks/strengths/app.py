@@ -33,7 +33,7 @@ def connect(app, ctx):
                     H2('Strong'), Ul(*[ui.Concept(*x) for x in strong], cls='plain concepts') if strong else P('Nothing is strong yet: that takes depth 3 and good recall.', cls='mute'),
                     H2('Ways you learn' + (f' {subject}' if subject else '')), ui.Ways(st, subject, prior),
                     H3('How often to try a new way'),
-                    P('The tutor drills a weak concept with your best way. When a concept is not weak, it sometimes uses another way, to make you better at it.', cls='mute'),
+                    P('The tutor teaches a weak concept in your best way. For a concept that is not weak, it sometimes uses a different way. This makes you better at that way too.', cls='mute'),
                     ui.Explore(p.get('explore', 'sometimes')),
                     crumbs=[('Today', '/'), ('About you', '/you')])
 

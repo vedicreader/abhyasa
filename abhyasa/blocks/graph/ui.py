@@ -29,7 +29,7 @@ def Levers(subjects):
         _sec('Layout', modes, keys='1–4'),
         Div(Button('Freeze', Kbd('␣'), type='button', name='freeze'), Button('Fit', Kbd('F'), type='button', name='fit'),
             Button('Lay out again', Kbd('R'), type='button', name='reset'), cls='acts'),
-        _sec('Focus', P('Point at a concept and push E, or find one.', cls='hint', id='focus-name'),
+        _sec('Focus', P('Point at a concept and press E, or find a concept.', cls='hint', id='focus-name'),
              _slide('steps', 'Steps out', 1, 4, 1), keys='E'),
         _sec('Space', _slide('spacing', 'Spacing'), _slide('link', 'Link length'), _slide('push', 'Push apart'),
              _slide('size', 'Node size')),
@@ -41,8 +41,8 @@ def Levers(subjects):
              Label(Span('Floor from'), _pick('floorLo', floors, '0'), cls='pick'),
              Label(Span('Floor to'), _pick('floorHi', floors, '5'), cls='pick'),
              _tick('dueOnly', 'Due only'), _tick('hideUnseen', 'Hide unseen'), _tick('related', 'Related links', True)),
-        Div(Button('Put all levers back', type='button', name='levers'), cls='acts'),
-        P('Click a concept to open it. Shift-click to pick it. Drag a concept to put it where you want; it stays there. '
+        Div(Button('Reset all levers', type='button', name='levers'), cls='acts'),
+        P('Click a concept to open it. Shift-click to pick it. Drag a concept to move it. It stays where you put it. '
           'D shows only what is due. ⎋ stops the find and the focus.', cls='hint'),
         id='levers')
 
