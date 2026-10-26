@@ -87,7 +87,8 @@ zip:
 	$(ZIP_APP)
 
 # opens the app: it shows a window, so run it only when you want to use it
-run:
+# builds and signs the bundle first, so the app runs the pinned abhyasa in Resources/Pin
+run: app
 	open $(APP)
 
 # move the old bundle aside, then copy a fresh one: cp -R over a signed bundle overwrites the executable in place
