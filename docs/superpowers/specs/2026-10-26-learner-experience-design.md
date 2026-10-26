@@ -13,7 +13,7 @@ machine learning techniques. Right now it's hard to switch and restart and know 
 
 What the app did before this change:
 
-- A session lived only in memory (the `sessions` dict). A restart lost it. The summary was filed only at the end.
+- A session lived only in memory (the `sessions` dict). A restart lost it. The app filed the summary only at the end.
 - No page listed past sessions. No page showed what moved. You could not resume.
 - Today showed "Next: X" and one Start button. The app had no idea of a goal, or of a path across topics.
 - The learner model held one state for each concept. Nothing modelled the person.
@@ -23,7 +23,7 @@ What the app did before this change:
 ## Principles
 
 1. You always know where you are, and you can always get out. Each page names its parent. Esc goes up one level.
-2. Nothing is lost. A session is saved after each move, with its open question. A restart continues where you stopped.
+2. Nothing is lost. The app saves a session after each move, with its open question. A restart continues where you stopped.
 3. The plan is visible and yours. The tutor proposes a path. You change it.
 4. The app shows what it believes about you, and why. You can change or clear all of it.
 5. Speak anywhere you can type.
@@ -57,9 +57,9 @@ abhyasa   Today  Journeys  Your learning  Graph  Concepts  Add  Sources        C
 
 - A breadcrumb line sits above the title on each page except Today: `Today › Journeys › Learn LLMs`. The last link is the parent.
 - Esc goes to the parent. In a text box, the first Esc leaves the box, so a stray key does not lose your words.
-  The session is saved, so Esc on the session page loses nothing.
+  The app saves the session, so Esc on the session page loses nothing.
 - ⌥T goes to Today from anywhere. ⌥C continues the newest open session, or the newest journey.
-- Browser Back and Forward work. Each page is a real URL. htmx boost pushes each page change. Pages are never cached, so Back
+- Browser Back and Forward work. Each page is a real URL. htmx boost pushes each page change. The app never caches a page, so Back
   shows the session as it is now. Start goes through a redirect, so Back from a new session goes to the page that started it.
 - The Mac app keeps its own Back (⌘[), Forward (⌘]) and Today (⇧⌘H). They use the same history.
 - No dead ends. An ended session opens its summary. A session that is not in memory loads from the shelf. A lost page links
@@ -77,15 +77,15 @@ You type or say a goal in the box on Today or on Journeys: "I want to learn how 
 - what abhyasa knows about you (background, goals, the examples that help you),
 - the concepts on your shelf, with the depth that you know each one.
 
-It returns 4 to 9 steps in order. Each step has a name, a short true statement, the reason it is in the path, and the steps
-it needs first. A step that matches a concept on the shelf uses that concept, and keeps its learner state. A step that has no
+It returns 4 to 9 steps in order. Each step has a name, a short true statement, the reason that it is in the path, and the
+steps that it needs first. A step that matches a concept on the shelf uses that concept, and keeps its learner state. A step that has no
 concept becomes a new concept, with the statement as its first text. abhyasa then links the new concept to your own sources
 (`ground.py`), so its page shows where your vault names it.
 
 For "LLMs", a plan looks like this: tokenizers, embeddings, attention, the transformer block, state-space models and Mamba,
 PyTorch or JAX, training techniques.
 
-A step that is too big can be split. "Split into smaller steps" runs `sources.extract` over the statement of the step and the
+You can split a step that is too big. "Split into smaller steps" runs `sources.extract` over the statement of the step and the
 passages from your sources. The concepts that it finds go before the step, as its prereqs.
 
 ### The path page
@@ -101,9 +101,9 @@ The path is a vertical line of steps, as a subway map is. Each step shows:
 The step to do now has the accent color. One button continues the journey (⌥S).
 
 You change the path in place: move a step up or down, skip it, mark it known, remove it, add a topic, or split a step.
-Each change is one click and saves at once. A changed path does not need a new plan.
+Each change is one click, and the app saves it at once. A changed path does not need a new plan.
 
-Progress comes from the learner model, not from the journey (after learnharness: the status is derived, never written). A step is
+Progress comes from the learner model, not from the journey. This follows learnharness: the app derives the status and never writes it. A step is
 learned when the floor of its concept reaches the goal depth (apply). So a concept that you learn in another journey counts here too.
 
 "Mark known" changes the journey only. It does not change the learner model, because the app has no evidence yet (my call).
@@ -112,7 +112,7 @@ learned when the floor of its concept reaches the goal depth (apply). So a conce
 
 Continue starts a session on the current step: the first step that is not learned, known or skipped. When the step is learned,
 the session moves to the next step with no stop. A note in the thread says so: "Step done: Attention. Next: the transformer block."
-A due review from another subject does not break into a journey session.
+A due review from another subject does not interrupt a journey session.
 
 ### After a topic, and related topics
 
@@ -138,8 +138,8 @@ You can stop one journey and continue another at any time. Nothing is lost.
 
 ## Resume
 
-A session is a document on the learning shelf, `kind='session'`. It is saved when a question opens, after each answer, after each
-hint, and at the end. It keeps:
+A session is a document on the learning shelf, `kind='session'`. The app saves it when a question opens, after each answer, after
+each hint, and at the end. It keeps:
 
 - the journey, the focus, the subject and the limit,
 - the log of each closed question: the concept, the depth, the outcome, the floor before and after, the misconception, the thread,
@@ -173,8 +173,9 @@ It fills in three ways:
    what kind of explanation works for you, and how long you like to study. One model call turns the answers into the fields.
    Today shows one quiet line until you do it, and never asks again after that.
 2. You change any field on the "About you" page.
-3. The tutor learns from evidence. After every sixth closed question, a small model call in the background reads your recent
-   answers, think-aloud, hints and misconceptions, and proposes changes. Each change is applied and listed with its reason:
+3. The tutor learns from evidence. After every sixth closed question, a small model call runs in the background. It reads your
+   recent answers, think-aloud, hints and misconceptions, and proposes changes. The tutor applies each change and lists it with
+   its reason:
    "The tutor added 'indices in attention shapes' to what confuses you, because you missed two shape questions in a row."
    You can undo each change.
 
@@ -191,7 +192,7 @@ Privacy: the profile stays in your vault on this machine. The page shows all of 
 
 - The mic is on each text box where you answer or write a goal: the answer and think-aloud of a question, the "why" line of a choice
   question, the goal box, the onboarding answers, the profile fields, and "Add a topic".
-- ⌥D dictates into the text box that has focus, on any page, also in a demo prediction. With no box in focus, it uses the main mic
+- ⌥D dictates into the text box that has focus, on any page. This includes a demo prediction. With no box in focus, it uses the main mic
   of the page.
 - A block asks for a mic with `data-mic` on its box. The voice block adds the button. Without the voice block, nothing breaks.
 
@@ -229,13 +230,13 @@ New hooks: `today_top` (above the next step on Today), `nav_extra` (the right of
 2. The planner and the profile observer use the model of the `extract` task. Another option: a new `plan` task in Settings.
 3. The observer runs after every sixth closed question. It applies changes at once and shows them, with undo. Another option:
    it proposes, and you accept.
-4. "About you" is linked from Today and not in the top bar.
+4. Today links to "About you". It is not in the top bar.
 5. A step is learned at the goal depth (apply, depth 4). That needs about two solid answers for a new concept.
 6. A session saves its open question, with the model answer, in the meta of its vault document.
 
 ## Build plan
 
-Each task ends with its tests green.
+Each task ends when all its tests pass.
 
 1. Store: `log_session` updates the meta; `sessions()`, `session(sid)`. Notebook tests.
 2. Profile notebook: the document, `set_profile` with changes, `profile_text`, onboarding, the observer. Notebook tests with `Fake`.

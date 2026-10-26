@@ -7,7 +7,7 @@ Date: 26 October 2026. From the user's request:
 > quite getting. but also expand me to learn in different ways sometimes, as in with equations if my understanding of math equations
 > has gotten better.
 
-## Decisions (the main session's calls; the user can change them)
+## Decisions (made by the main session; the user can change them)
 
 1. A named gap comes first, but it does not block its parent.
 2. Credit is the raw outcome: solid 1, shaky 0.5, a miss 0.
@@ -27,14 +27,17 @@ Date: 26 October 2026. From the user's request:
 
 ## Rules
 
-- Credit on close: add `s` to `a` and `1 - s` to `b`, for the subject and for `*`. "I don't know" before a try gives none. A lesson's check
-  credits the lesson's method. A demo prediction credits `diagram`. A teach request changes no counts.
+- Credit on close: add `s` to `a` and `1 - s` to `b`, for the subject and for `*`. "I don't know" before a try gives no credit. A lesson's
+  check credits the lesson's method. A demo prediction credits `diagram`. A teach request changes no counts.
 - Prior: Beta(1, 1), plus 2 on `a` for each way in `profile.examples`.
-- `choose`: drill a weak concept with the best mean. For a concept that is not weak: first a method that got better (its last 5 at least
-  0.2 above its mean, with 4 or more credits), else with chance epsilon a Thompson sample over the other methods, else the best. The
-  choice and its reason go in the question's "why" line.
-- `understanding(c)`: floor, ceiling, recall and reasons (named gap, misconception, misses, shaky, fading, not located). Strong: floor 3
-  or more, recall 0.8 or more, no misses, no reasons.
+- `choose`: drill a weak concept with the method that has the best mean. For a concept that is not weak, use this order:
+  1. A method that got better: its last 5 are at least 0.2 above its mean, with 4 or more credits.
+  2. Else, with chance epsilon, a Thompson sample over the other methods.
+  3. Else, the best method.
+
+  The question's "why" line shows the choice and its reason.
+- `understanding(c)`: floor, ceiling, recall and reasons (named gap, misconception, misses, shaky, fading, not located). Strong means:
+  floor 3 or more, recall 0.8 or more, no misses, no reasons.
 
 ## Build order
 

@@ -6,7 +6,7 @@ The text "(my call)" marks a decision that I made. Check these decisions first.
 ## Why
 
 The user learns many subjects: jyotiṣa, Sanskrit, math papers, LLMs and transformers, sales, philosophy and spirituality.
-The material exists (vedicreader, papers, vishalakshi vaults, ramabana sessions). But the tools only show it.
+The material exists (vedicreader, papers, your vaults, ramabana sessions). But the tools only show it.
 No tool knows how deep the knowledge of the user is. No tool makes the user work to get to the answer.
 The user gets flow only when they write code.
 
@@ -21,10 +21,11 @@ Prior art: [learnharness](https://github.com/amosblomqvist/learnharness). The us
 1. An active loop: the tool asks, and the user answers by text or by voice. The tool grades the answer and decides what comes next.
 2. A learner model: for each concept, how deep the user knows it and when to review it.
 3. A concept graph: ideas and their links, across all subjects and sources, with the mastery on each node.
-4. Difficulty at the edge of what the user knows: hard enough to struggle, but not so hard that they stop. The target is about 85% success.
+4. Difficulty at the edge of what the user knows: hard enough to make the user struggle, but not so hard that they stop.
+   The target is about 85% success.
 5. Hints in steps, from the least to the most revealing. The tool never gives the answer before the user tries.
 6. Voice input on the machine, for think-aloud answers.
-7. All learning data in the shared vishalakshi vault, on its own shelf, so that any tool (Sanketa, leela, ramabana) can search it.
+7. All learning data goes in the shared vault, on its own shelf. Thus any tool (Sanketa, leela, ramabana) can search it.
 8. Learn by code: a concept can become a code exercise in a notebook (leela). The tool runs the code to check it.
 9. Seed concepts from vedicreader (Sanskrit lessons, terms, jyotiṣa glossary) and from any document in the vault.
 
@@ -46,8 +47,8 @@ Prior art: [learnharness](https://github.com/amosblomqvist/learnharness). The us
 ## Constraints
 
 - Python, nbdev 3 on hatchling, fastcore style, `uv`. The notebooks under `nbs/` are the source.
-- Use the stack that the user already has: vishalakshi (vault), rishi (models, local audio), FastHTML (web), ipywidgets (notebooks), ramabana
-  (agent, extensions).
+- Use the stack that the user already has: `vishalakshi` (the vault), `rishi` (the model layer: models, local audio), FastHTML (web),
+  ipywidgets (notebooks), ramabana (agent, extensions).
 - The web app listens on loopback only. Port 5077 (my call). Never touch :5001, :5010, :5055 or :9000.
 - Prose in ASD-STE100, grade 9.
 
@@ -65,13 +66,13 @@ A new package, `abhyasa` (अभ्यास, steady practice; Yoga Sūtra 1.12)
 | Sanketa (later phase) | search learnings beside vaults and ramabana sessions |
 
 Why a new package, and not a part of ramabana or leela? The user does not want to put more load on leela.
-The ramabana study showed that an extension (`setup(reg)` with commands and tools) is the clean seam.
+The ramabana study showed that an extension (`setup(reg)` with commands and tools) is the correct boundary.
 It also showed that a real "learn mode" can copy plan mode later.
 All four surfaces must use the engine, so the engine must not be inside one of them.
 
 ### Storage: the `learning` shelf
 
-One shelf, `learning`, in the vishalakshi vault (default `~/.vishalakshi/vault.db`, or `$VISHALAKSHI_VAULT`).
+One shelf, `learning`, in your vault (default `~/.vishalakshi/vault.db`, or `$VISHALAKSHI_VAULT`).
 Each item is a vault document. Thus keyword search and vector search find it, as they find all other documents.
 
 | kind | source | text (searchable) | meta (state) |
@@ -81,7 +82,7 @@ Each item is a vault document. Thus keyword search and vector search find it, as
 | `session` | `learning://session/<id>` | a short summary of the session | concepts, counts, start, end |
 
 State changes use `Vault.set_meta`, which does not embed the text again. Edges are lists in the concept meta (`prereqs`, `related`).
-This needs no new tables and no change to vishalakshi (my call).
+This needs no new tables and no change to the vault package, `vishalakshi` (my call).
 
 ### Learner model
 
@@ -126,7 +127,7 @@ The LLM writes the question for the concept and the depth that the algorithm cho
 ### Grading
 
 An LLM grader gets the concept, the depth, the question and the reference answer. The tool writes the reference answer with the
-question, and never shows it to the user. The grader also gets the answer and the think-aloud of the user.
+question. It never shows the reference answer to the user. The grader also gets the answer and the think-aloud of the user.
 It returns structured JSON: `correct` (bool), `grade` 0–10, `first_error`, `misconception` (or empty) and `feedback`.
 `first_error` tells where the reasoning first goes wrong, without the fix.
 For code exercises, the tests grade the code first. The LLM only adds comments.
@@ -147,7 +148,7 @@ step. It does not give a lecture.
 - `extract(text, subject)`: the LLM lists the core ideas as concepts (name, aliases, and a true statement that is complete by
   itself). It also lists the prereq links between them.
 - Dedupe: for each new concept, search the `learning` shelf for near matches. The same slug or a very close match is "the same
-  concept". Merge its aliases and provenance. Plain code does the merge (my call).
+  concept". Merge the aliases and provenance. Plain code does the merge (my call).
 - Sources: any text, any vault document (by doc id), and vedicreader (below).
 
 ### vedicreader import
@@ -164,21 +165,21 @@ Read only the repo files. `$VEDICREADER_ROOT` gives the path, and the default is
 
 The browser records audio (MediaRecorder) and sends it to the app. The app transcribes the audio on the machine:
 
-1. Default: Gemma 4 E2B on LiteRT through rishi (`Chat(gemma4_e2b)(['Transcribe this clip.', wav])`). The model is already in
-   the Hugging Face cache (my call).
+1. Default: Gemma 4 E2B on LiteRT through the model layer (`Chat(gemma4_e2b)(['Transcribe this clip.', wav])`). The model is
+   already in the Hugging Face cache (my call).
 2. Option: mlx-audio Whisper, with `ABHYASA_STT=whisper`.
 
 The transcript goes into the think-aloud box. The user can edit it before they send it.
 
 ### Models
 
-`abhyasa.llm` uses one call shape: `ask(prompt, sp) -> str` and `ask_json(prompt, sp) -> dict`. The default is the rishi `Chat`
-with the model in `$ABHYASA_MODEL` (default `claude/sonnet`) (my call). In ramabana, the extension uses `agent.oneshot`, so
-the routing of ramabana applies. Tests use a fake.
+`abhyasa.llm` uses one call shape: `ask(prompt, sp) -> str` and `ask_json(prompt, sp) -> dict`. The default is the `Chat` of the model layer,
+with the model in `$ABHYASA_MODEL` (default `claude/sonnet`) (my call). In ramabana, the extension uses `agent.oneshot`.
+Thus the routing of ramabana applies. Tests use a fake.
 
 ### Web app
 
-FastHTML + HTMX, on 127.0.0.1:5077 (my call). Muted and easy to read, with no boxes inside boxes (from the Sanketa feedback). Pages:
+FastHTML + HTMX, on 127.0.0.1:5077 (my call). The design is muted and easy to read, with no boxes inside boxes (from the Sanketa feedback). Pages:
 
 - Today: the due count, the frontier and the subjects. "Start" starts a session.
 - Session: one question at a time. A big think-aloud box with a mic button, a confidence slider, "I don't know" and "Hint".
