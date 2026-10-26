@@ -19,16 +19,17 @@ Each question goes through one loop:
 5.  Update. Correctness and confidence move the floor, the ceiling and the next review date of the concept.
 6.  Teach. After a miss, the tutor teaches the smallest step that fixes the first error. Then it asks a check question.
 
-| term    | meaning                                                           |
-|---------|-------------------------------------------------------------------|
-| concept | one idea that you can be asked about                              |
-| depth   | 0 unseen, 1 recognise, 2 recall, 3 explain, 4 apply, 5 transfer   |
-| floor   | the highest depth that you pass reliably                          |
-| ceiling | the lowest depth that you failed                                  |
-| attempt | one answer, kept as a vault document                              |
-| session | one sitting of questions, with a summary                          |
-| hint    | one rung of a ladder of six, from the least to the most revealing |
-| lesson  | the smallest step that the tutor teaches after a miss             |
+| term | meaning |
+|----|----|
+| concept | one idea that you can be asked about |
+| depth | 0 unseen, 1 recognise, 2 recall, 3 explain, 4 apply, 5 transfer |
+| floor | the highest depth that you pass reliably |
+| ceiling | the lowest depth that you failed |
+| attempt | one answer, kept as a vault document |
+| session | one sitting of questions, with a summary |
+| hint | one rung of a ladder of six, from the least to the most revealing |
+| lesson | the smallest step that the tutor teaches after a miss |
+| demo | an interactive figure for one concept: you predict, lock in, and then change the inputs |
 
 ## Install and run
 
@@ -70,6 +71,7 @@ The web app is made from blocks under `abhyasa/blocks`:
 | `graph` | the concept graph: a color for each floor, a ring when a review is due, arrows for prereqs |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |
 | `add` | add concepts from a text, a vault document or vedicreader |
+| `demo` | interactive demos from rupaka: “Show me a demo” on a concept page, a demo under the lesson after a miss, and one page for each demo |
 
 ### ramabana
 
@@ -95,6 +97,18 @@ ex = exercise('reciprocal-rank-fusion')
 All data is on the `learning` shelf of the vishalakshi vault.
 Each concept, attempt and session is one vault document, so other tools can search it.
 Tests use a vault in a temporary folder and never open your real vault.
+
+## Demos
+
+Some ideas are easier to see than to read. A demo is one interactive figure from [rupaka](https://github.com/vedicreader/rupaka).
+It asks you to predict first, and it hides the result until you lock in (⌘↩). Then the controls are live, and the last line asks a new question.
+
+- After two misses on a concept with the same kind of error, or for a concept with `visual: true` in its meta, the tutor makes a demo in the background. A model writes it as data, and rupaka checks it in a headless browser. You never wait.
+- After a miss on a concept that has a demo, the session shows the demo under the lesson.
+- “Show me a demo” (⌥E) on a concept page shows the newest demo, or makes one.
+- Each prediction is kept as an attempt with `kind='demo'`. It does not change the learner model.
+
+`abhyasa.demo.import_gallery(learning)` stores the rupaka gallery demos (vowel sandhi and others) for the concepts that match.
 
 ## Example
 

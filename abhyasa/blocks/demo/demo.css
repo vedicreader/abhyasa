@@ -1,0 +1,9 @@
+/* A demo sits in the page flow: a label, a rule above, no box around it. */
+.demo-card { margin: 28px 0 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+.demo-card .lead { margin: 0 0 4px; }
+.demo-card .rk { max-width: 640px; }
+.demo-card .rk .rk-title { margin-top: 4px; }
+.demo-card.pending .making { font-style: italic; }
+.demo-slot { flex-basis: 100%; }
+.demo-slot:empty { display: none; }
+.row > .demo-slot .demo-card { margin-top: 4px; }

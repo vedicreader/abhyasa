@@ -71,7 +71,7 @@ def connect(app, ctx):
             return (*keep(q, you, ui.Nudge(r)), *opts, ui.Left(r.tries_left, hx_swap_oob='true'),
                     ui.Out(sid, q, oob=True))
         ahead(sid)
-        return (*keep(q, you, ui.Close(r)), *opts, ui.Composer(sid, ready=False, oob=True))
+        return (*keep(q, you, ui.Close(r), *ui.Extras(r)), *opts, ui.Composer(sid, ready=False, oob=True))
 
     def giveup(sid:str, dont_know:int=0, confidence:int=50):
         s, q = live(sid)
@@ -81,7 +81,7 @@ def connect(app, ctx):
         ahead(sid)
         opts = (ui.Options(sid, q, chosen(q), done=True, oob=True),) if q.get('options') else ()
         you = ui.You('Teach me.' if tried else "I don't know.")
-        return (*keep(q, you, ui.Close(r)), *opts, ui.Composer(sid, ready=False, oob=True))
+        return (*keep(q, you, ui.Close(r), *ui.Extras(r)), *opts, ui.Composer(sid, ready=False, oob=True))
 
     def hint(sid:str):
         s, q = live(sid)

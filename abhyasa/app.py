@@ -32,8 +32,9 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False, bodykw=dict(hx_boost='true'),
                        key_fname=str(cfg_dir()/'.sesskey'))   # not the working folder: an app may start in /, which is read only   # htmx and fasthtml.js come from core/vendor; links load in place
     if sources is None: sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else [])]
-    svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources), ask=ask, transcribe=transcribe,
-               speech=Speech(transcribe), pool=ThreadPoolExecutor(2), sessions={}, sources=sources)
+    pool = ThreadPoolExecutor(2)
+    svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources, pool=pool), ask=ask, transcribe=transcribe,
+               speech=Speech(transcribe), pool=pool, sessions={}, sources=sources)
     app.state.blocks = connect_all(app, blocks(*([names] if names else [])), **svc)
     app.state.svc = svc
     serve_assets(app)

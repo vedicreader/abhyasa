@@ -9,6 +9,7 @@ from abhyasa.llm import Fake
 from abhyasa.app import mk_app
 from abhyasa.ground import passage
 from pathlib import Path
+from rupaka.spec import gallery
 import abhyasa.voice
 abhyasa.voice.RAMABANA_KEYS = Path(tempfile.mkdtemp())/'keys.env'   # never read the real ramabana keys
 
@@ -25,7 +26,8 @@ def grader(p, sp):
 def fake():
     return Fake({'You grade one answer': grader, 'Give hint level': 'Think about positions.',
                  'Teach the smallest step': 'Positions are shared. Check: what if k = 0?',
-                 'Return JSON: {"concepts"': dict(concepts=[dict(name='Rank', statement='A position in a list.', aliases=[], prereqs=[])])},
+                 'Return JSON: {"concepts"': dict(concepts=[dict(name='Rank', statement='A position in a list.', aliases=[], prereqs=[])]),
+                 'You design one interactive demo': gallery()['reciprocal-rank-fusion']},
                 dflt=dict(question='What does a rank tell you?', answer='Its position.', rubric=['position']))
 
 @pytest.fixture

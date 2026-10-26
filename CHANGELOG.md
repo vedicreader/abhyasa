@@ -2,6 +2,16 @@
 
 <!-- do not remove -->
 
+## Unreleased
+
+- Interactive demos from rupaka. A demo asks you to predict first, and it shows the result only after you lock in.
+- After two misses with a saved misconception, or for a concept with `visual: true`, the tutor makes a demo in the background. rupaka validates and checks it in a headless browser first.
+- The new `demo` block: "Show me a demo" (⌥E) on each concept page, the demo under the lesson after a miss, and a page for each demo. rupaka's runtime is served by the app, so it works offline.
+- Each prediction in a demo is kept as an attempt with `kind='demo'`. It does not change the learner model.
+- The notebook card shows the demo after a miss.
+- `CLOSE_HOOKS` in the tutor lets a module add to the result of a closed question.
+- rupaka comes from the local checkout (`[tool.uv.sources]`) until it is on PyPI.
+
 ## 0.0.2
 
 - A ramabana tick indexes your sessions on its own. `abhyasa-index schedule` adds the `abhyasa-index` schedule to pobblebonk, and ramabana's beat runs it every 15 minutes.

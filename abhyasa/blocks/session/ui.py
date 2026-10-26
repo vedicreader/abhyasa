@@ -70,6 +70,10 @@ def Close(r, said=''):
               P(f"Now: floor {DEPTHS[r.floor]}, next review {when(r.due)}.", cls='mute now'),
               cls=f"m tutor fb close {'ok' if r.correct else 'no'}")
 
+def Extras(r):
+    "What other blocks add after the close, such as a demo under the lesson: each one is a tutor message in the thread."
+    return [Li(x, cls='m tutor extra') for x in run('lesson_extra', r)]
+
 def Skeleton(label):
     "A placeholder question while the model writes it."
     return Div(Div(Span(label, cls='lbl'), cls='head'), Div(I(), I(), I(cls='short'), cls='skel q'), cls='skeleton')
