@@ -22,7 +22,7 @@ def _src(p):
 def ConceptPage(c, by, attempts):
     head = P(c.subject, ' · floor ', DEPTHS[c.floor], DepthBar(c.floor), ' · ',
              f"recall {recall(c):.0%} · {when(c.due)}" if c.seen else 'new', cls='mute')
-    return (css(), H1(c.name), head, Md(c.statement or '', cls='statement'), Div(*run('concept_actions', c), cls='row'),
+    return (css(), H1(c.name), head, Md(c.statement or '', cls='statement'), Div(*run('concept_actions', c), cls='row'), *run('concept_more', c),
             *([H2('Misconceptions seen'), Ul(*map(Li, c.misconceptions))] if c.misconceptions else []),
             H2('Needs first'), Refs(c.prereqs, by), H2('Related'), Refs(c.related, by),
             H2('Your attempts'),

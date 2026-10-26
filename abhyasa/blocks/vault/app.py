@@ -29,9 +29,9 @@ def connect(app, ctx):
 
     def doc(shelf:str, doc_id:str):
         sh, d = _get(shelf, doc_id)
-        if d is None: return Page('Not found', H1('No such document'), P(f'The {shelf} shelf has no document {doc_id}.', cls='mute'))
+        if d is None: return Page('Not found', H1('No such document'), P(f'The {shelf} shelf has no document {doc_id}.', cls='mute'), crumbs=[('Today', '/')])
         text = sh.document(doc_id, max_chars=200000).text
-        return Page(d['title'] or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id)))
+        return Page(d['title'] or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id)), crumbs=[('Today', '/')])
 
     def learn(shelf:str, doc_id:str):
         sh, d = _get(shelf, doc_id)

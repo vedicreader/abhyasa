@@ -23,7 +23,7 @@ def connect(app, ctx):
                  hx_post=Routes.base, hx_target='#out'),
             Div(id='out'),
             H2('vedicreader'), P('Sanskrit lessons and terms, and the jyotiṣa grahas, rāśis and nakṣatras, from the repo files.', cls='mute'),
-            Button('Import vedicreader', hx_post=Routes.vedicreader, hx_target='#vr', data_wait='Importing…', data_skel='#vr'), Div(id='vr'), on='Add')
+            Button('Import vedicreader', hx_post=Routes.vedicreader, hx_target='#vr', data_wait='Importing…', data_skel='#vr'), Div(id='vr'), on='Add', crumbs=[('Today', '/')])
 
     def add(subject:str='', text:str='', ref:str=''):
         if not (text.strip() or ref.strip()): return P('Paste text or name a document.', cls='mute')

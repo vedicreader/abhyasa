@@ -29,7 +29,7 @@ def connect(app, ctx):
             P('These add a shelf to your vault, so every tool can search it. They change no other shelf. A second run skips what did not change.', cls='mute'),
             *[Div(Button(f'Index {t}', hx_post=Routes.index.format(what=k), hx_target=f'#ix-{k}', data_wait='Indexing…', data_skel=f'#ix-{k}'),
                   Span(d, cls='mute'), Div(id=f'ix-{k}', cls='ix'), cls='row') for k, (t, d) in INDEXERS.items()],
-            on='Sources')
+            on='Sources', crumbs=[('Today', '/')])
 
     def index(what:str):
         t = time.time()

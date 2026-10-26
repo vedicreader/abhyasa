@@ -83,7 +83,7 @@ def InJourneys(c, rows, js):
     pick = [j for j in js if j.id not in have]
     return Div(*([Span('In your journeys', cls='lbl'),
                   Ul(*[Li(A(j.title, href=at(Routes.one, j)), Span(f"  step {i + 1} of {len(j.steps)}", cls='mute')) for j, i in rows], cls='plain')] if rows else []),
-               Form(Select(*[Option(j.title, value=j.id) for j in pick], name='jid', aria_label='A journey'), Input(type='hidden', name='slug', value=c.slug),
+               Form(Select(*[Option(j.title, value=j.id) for j in pick], name='jid', aria_label='A journey'), Input(type='hidden', name='slug', value=c.slug), Input(type='hidden', name='src', value='concept'),
                     Button('Add to the journey', cls='small'), hx_post=Routes.attach, hx_target='this', hx_swap='outerHTML', cls='attach row') if pick else '',
                cls='in-journeys')
 

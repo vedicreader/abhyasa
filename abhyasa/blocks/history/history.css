@@ -1,0 +1,28 @@
+/* Your learning: quiet columns for the week, rows for sessions on hairlines, the moves in the ok colour. */
+.week { display: flex; gap: 14px; align-items: flex-end; margin: 14px 0 6px; height: 92px; }
+.week .col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 34px; height: 100%; }
+.week .col i { display: block; width: 14px; border-radius: 2px 2px 0 0; background: color-mix(in srgb, var(--acc) 70%, var(--bg)); }
+.week .col .n { font: 12px/1 var(--mono); color: var(--mute); margin-bottom: 4px; }
+.week .col .d { font-size: 12px; color: var(--mute); margin-top: 6px; border-top: 1px solid var(--line); width: 100%; text-align: center; padding-top: 4px; }
+.week .col.none .d { opacity: .7; }
+.week-sum { margin: 4px 0 0; }
+.continue-card { margin: 4px 0 8px; padding: 2px 0 0 16px; border-left: 2px solid var(--acc); }
+.continue-card p { margin: 2px 0 0; font-size: 19px; }
+.continue-card .row { margin-top: 10px; }
+.runs .rh { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.runs .t { font: 13px/1 var(--mono); color: var(--mute); min-width: 44px; }
+.runs .tt { font-size: 18px; }
+.runs .run.open .t { color: var(--acc); }
+.moves { margin: 4px 0 0 54px; font-size: 15px; color: var(--ink2); }
+.mv { color: var(--ok); } .mv a { color: var(--fg); }
+.runs .mis { margin: 2px 0 0 54px; font-style: italic; }
+.runs .acts { margin: 6px 0 0 50px; display: flex; gap: 4px; flex-wrap: wrap; }
+.learned .wk { font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); }
+.learned .moves { margin-left: 0; }
+.days h2 { margin-top: 30px; }
+.pq { padding: 22px 0 6px; border-top: 1px solid var(--line); }
+.pq .q { font-size: 20px; margin: 4px 0 10px; }
+.turns { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.turns .tutor { padding-left: 14px; border-left: 2px solid var(--line); color: var(--ink2); font-size: 16px; }
+.turns .you { align-self: flex-end; max-width: 80%; padding-right: 14px; border-right: 2px solid var(--rule); text-align: right; font-size: 16px; }
+.turns .said { margin: 0; white-space: pre-wrap; }

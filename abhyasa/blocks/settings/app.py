@@ -16,7 +16,7 @@ def connect(app, ctx):
 
     def page():
         return Page('Settings', H1('Settings'), ui.Look(), speech(), ui.Jobs(jobs), ui.Lookup(), ui.Key(), ui.Tutor(ctx.ask),
-                    on='Settings', extra=ui.assets())
+                    on='Settings', extra=ui.assets(), crumbs=[('Today', '/')])
 
     def use(engine:str, model:str=''):
         if engine == 'openai' and not has_key(): return speech()

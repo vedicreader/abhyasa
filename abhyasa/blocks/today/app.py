@@ -1,4 +1,4 @@
-"The home page: what is due, then `today_next` (what to do now), then the `today` hook (what other blocks add)."
+"The home page: `today_top` (continue, your journeys), then `today_next` (review and practice), then `today` (this week, subjects)."
 import time
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, run
@@ -18,7 +18,7 @@ def connect(app, ctx):
 
     def today(subject:str=''):
         cs = lr.concepts()
-        parts = [*run('today_next', subject or None), *run('today', subject or None)]
+        parts = [*run('today_top', subject or None), *run('today_next', subject or None), *run('today', subject or None)]
         return Page('Today', H1(f'Today · {subject}' if subject else 'Today'),
                     P(f"{n_due(cs)} due for review · {sum(learned(c) for c in cs)} of {len(cs)} concepts learned", cls='mute'),
                     *parts, on='Today')

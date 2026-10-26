@@ -11,7 +11,8 @@ def connect(app, ctx):
 
     def index(subject:str=''):
         cs = sorted(lr.concepts(subject or None), key=lambda c: (c.subject, c.get('order', 1e9), c.name))
-        return Page('Concepts', ui.H1(subject or 'Concepts'), ui.ConceptList(cs), on='Concepts')
+        return Page('Concepts', ui.H1(subject or 'Concepts'), ui.ConceptList(cs), on='Concepts',
+                    crumbs=[('Today', '/'), *([('Concepts', Routes.base)] if subject else [])])
 
     def one(slug:str):
         c = lr.concept(slug)
@@ -19,7 +20,8 @@ def connect(app, ctx):
         if lr.stale_links(c):
             try: lr.connect(slug, ctx.sources); c = lr.concept(slug)
             except Exception: pass
-        return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=10)))
+        return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=10)),
+                    crumbs=[('Today', '/'), ('Concepts', Routes.base)])
 
     @hook('today')
     def subjects(subject=None): return ui.Subjects(lr.subjects())
