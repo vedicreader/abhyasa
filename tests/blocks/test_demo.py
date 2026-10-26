@@ -1,3 +1,4 @@
+import abhyasa.demo   # patches Learning with put_demo and record_prediction
 "The demo block: rupaka served offline, the concept-page action, the demo page, the prediction log, and a demo after two misses."
 import json
 from rupaka.spec import gallery
@@ -51,7 +52,8 @@ def test_predict_writes_an_attempt(mk, lr):
     a = lr.attempts('reciprocal-rank-fusion')[0]
     assert (a.kind, a.correct, a.answer, a.expected, a.thinking, a.session, a.demo) == ('demo', False, 'A', 'B', 'A is first in BM25', 's9', 'reciprocal-rank-fusion')
     assert lr.demo('reciprocal-rank-fusion').stats == dict(shown=1, right=0)
-    assert lr.concept('reciprocal-rank-fusion').misses == c0.misses   # the learner model does not change
+    c1 = lr.concept('reciprocal-rank-fusion')
+    assert (c1.misses, c1.seen, c1.ceiling) == (c0.misses + 1, c0.seen + 1, 3)   # a wrong pick with a reason counts at depth 3
 
 def start(cl, **data): return cl.post('/start', data=data, follow_redirects=False).headers['location'].split('/')[-1]
 

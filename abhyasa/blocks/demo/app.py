@@ -40,8 +40,8 @@ def connect(app, ctx):
 
     def wait(concept:str, session:str=''): return made(concept, session)
 
-    def predict(slug:str, gate:str, picked:str, ans:str='', ok:str='', why:str='', context:str='', session:str=''):
-        try: lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, session)
+    def predict(slug:str, gate:str, picked:str, ans:str='', ok:str='', why:str='', context:str='', session:str='', confidence:int=50):
+        try: lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, session, confidence)
         except KeyError: return JSONResponse(dict(ok=False), status_code=404)
         return JSONResponse(dict(ok=True))
 

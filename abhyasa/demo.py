@@ -16,6 +16,8 @@ from rupaka.spec import upgrade, gallery
 from rupaka.agent import author
 from .store import Learning, slugify, _src
 from .tutor import CLOSE_HOOKS
+from .model import update
+
 
 # %% ../nbs/10_demo.ipynb #c007
 def demo_text(spec) -> str:
@@ -69,15 +71,20 @@ def _gate(spec, gid):
     return walk(spec.get('blocks')) or {}
 
 @patch
-def record_prediction(self:Learning, slug:str, gate:str, picked, ans, ok:bool, why:str='', context:str='', session:str='') -> AttrDict:
-    "File one prediction in demo `slug` as an attempt, and count it in the stats of the demo."
+def record_prediction(self:Learning, slug:str, gate:str, picked, ans, ok:bool, why:str='', context:str='', session:str='', confidence:int=50) -> AttrDict:
+    "File one prediction in demo `slug` as an attempt, count it in the stats of the demo, and update the learner model of its concept."
     d = self.demo(slug)
     if d is None: raise KeyError(f'no demo {slug!r}')
     st = d.get('stats') or {}
     self.v.set_meta(d.doc_id, stats=dict(shown=st.get('shown', 0) + 1, right=st.get('right', 0) + bool(ok)))
     q = f"{context} {_gate(d.spec, gate).get('prompt', gate)}".strip()
-    return self.record(d.concept, q, str(picked), why, bool(ok), kind='demo', depth=1, session=session, final=True,
-                       feedback=f'The answer is {ans}.', demo=slug, gate=gate, expected=str(ans))
+    depth = 3 if why.strip() else 2
+    if (c := self.concept(d.concept)) is not None:
+        u = update(c, depth, bool(ok), confidence)
+        kind = u.pop('kind'); self.update(d.concept, **u)
+    else: kind = ''
+    return self.record(d.concept, q, str(picked), why, bool(ok), confidence, depth, kind='demo', session=session, final=True,
+                       feedback=f'The answer is {ans}.', demo=slug, gate=gate, expected=str(ans), outcome=kind)
 
 # %% ../nbs/10_demo.ipynb #c026
 DEMO_MISSES = 2
