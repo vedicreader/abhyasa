@@ -7,13 +7,13 @@ Docs: https://vedicreader.github.io/abhyasa/tutor.html.md"""
 # %% auto #0
 __all__ = ['MAX_TRIES', 'HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'GRADE_SP', 'CLOSE_HOOKS', 'MISSES', 'SHAKY', 'question_prompt',
            'thread_text', 'grade_prompt', 'hint_prompt', 'teach_prompt', 'Tutor', 'public', 'paced', 'flow', 'Session',
-           'moved']
+           'retests', 'moved']
 
 # %% ../nbs/03_tutor.ipynb #c004
 import json, random, time, uuid
 from fastcore.utils import *
 from .store import Learning
-from .model import DEPTHS, KIND_AT, GOAL, update, pick, recall, outcome
+from .model import DEPTHS, KIND_AT, GOAL, update, pick, recall, outcome, next_depth, learned
 from .llm import ask_json, for_task
 from .ground import VaultSource, ground, ground_text
 from .profile import PACES, profile_text, observe
@@ -339,7 +339,8 @@ class Session:
         "The next question, or None when the session is over (or its journey is done)."
         if self.ended or len(self.log) >= self.limit: return None
         skip, (pace, note) = self._skip(), flow(self.log, self.tutor.learning.profile().pace)
-        if self.journey:
+        if (q := self._retest(pace)): self.q = q
+        elif self.journey:
             j = self.tutor.learning.journey(self.journey)
             if not (f := current(self.tutor.learning, j, skip, self.tutor.goal) if j else None): return None
             self.q = self.tutor.next(focus=f, session=self.id, skip=skip, near=self.near, pace=pace)
@@ -349,6 +350,26 @@ class Session:
         if self.q and note: self.q.why = self.tutor.open[self.q.id].why = f'{self.q.why}; {note}'
         self.save()
         return self.q
+
+# %% ../nbs/03_tutor.ipynb #rt02
+def retests(log, gap:int=2) -> dict:
+    "The concepts missed in a session log, with no pass at least `gap` questions after the miss: concept -> its last miss, oldest first."
+    miss = {}
+    for i, r in enumerate(log):
+        k = r['concept']
+        if r.get('outcome') in MISSES: miss.pop(k, None); miss[k] = i
+        elif k in miss and i - miss[k] > gap: del miss[k]
+    return miss
+
+# %% ../nbs/03_tutor.ipynb #rt04
+@patch
+def _retest(self:Session, pace:str='steady', gap:int=2) -> AttrDict|None:
+    "A retest of a miss from this session, when the questions left are only enough for the retests; else None."
+    rt, n = retests(self.log, gap), len(self.log)
+    if not rt or self.limit - n > len(rt): return None
+    if not (k := first(k for k, i in rt.items() if n - 1 - i >= gap)) or (c := self.tutor.learning.concept(k)) is None: return None
+    d = c.get('floor', 0) if learned(c, self.tutor.goal) else next_depth(c)
+    return self.tutor.ask_on(c, paced(c, d, pace), 'a retest: you missed this earlier in this session', session=self.id)
 
 # %% ../nbs/03_tutor.ipynb #ts02
 @patch
