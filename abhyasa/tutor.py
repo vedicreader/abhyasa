@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/tutor.html.md"""
 
 # %% auto #0
 __all__ = ['MAX_TRIES', 'HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'GRADE_SP', 'CLOSE_HOOKS', 'MISSES', 'SHAKY', 'question_prompt',
-           'thread_text', 'grade_prompt', 'hint_prompt', 'teach_prompt', 'Tutor', 'public', 'paced', 'flow', 'Session',
-           'retests', 'moved']
+           'bridges', 'thread_text', 'grade_prompt', 'hint_prompt', 'teach_prompt', 'Tutor', 'public', 'paced', 'flow',
+           'Session', 'retests', 'moved']
 
 # %% ../nbs/03_tutor.ipynb #c004
 import json, random, time, uuid
@@ -53,8 +53,8 @@ def _concept_block(c, ctx='', who=''):
             f"misconceptions seen: {mis}" + (f"\nFrom the learner's own vault (use only if relevant):\n{ctx}" if ctx else '')
             + (f"\nAbout the learner (set the question in their world: use the kinds of example that help them):\n{who}" if who else ''))
 
-def question_prompt(c, depth, avoid=(), ctx='', who=''):
-    "The prompt that writes one question on `c` at `depth`."
+def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=()):
+    "The prompt that writes one question on `c` at `depth`; `bridge` names known ideas that a transfer question can connect to."
     kind = KIND_AT[depth]
     shape = ('{"question": str, "options": [{"text": str, "misconception": str}], "correct": int, "answer": str, "rubric": [str]}'
              if kind == 'choice' else '{"question": str, "answer": str, "rubric": [str]}')
@@ -62,10 +62,18 @@ def question_prompt(c, depth, avoid=(), ctx='', who=''):
     return (f"{_concept_block(c, ctx, who)}\n\nWrite ONE question that makes the learner {DEPTH_ASK[depth]}.\n"
             f"Aim it just past what they reliably know, so they must struggle a little. Ask ONE thing, in under 60 words. Write only the final question: no drafts, no corrections, no 'no: take'.\n"
             + (f"Target this misconception if it fits: {c['misconceptions'][-1]}\n" if c.get('misconceptions') else '')
+            + (f"Ideas that the learner knows well (connect to one only if the link is real): {'; '.join(bridge)}\n" if bridge else '')
             + (f"Do not repeat these earlier questions:\n{av}\n" if av else '')
             + f"`answer` is a model answer the learner will not see; `rubric` lists the 1-4 points a correct answer must have."
             + (" For options: 3 or 4, one correct (index in `correct`), each wrong one tied to a named misconception." if kind == 'choice' else '')
             + f"\nReturn JSON: {shape}")
+
+# %% ../nbs/03_tutor.ipynb #br02
+def bridges(c, concepts, n:int=3) -> list:
+    "The names of up to `n` concepts known to depth 3 or more, for a transfer question on `c`: other subjects first, then linked ones."
+    links = {*(c.get('prereqs') or ()), *(c.get('related') or ())}
+    ks = [x for x in concepts if x['slug'] != c['slug'] and x.get('floor', 0) >= 3]
+    return [x['name'] for x in sorted(ks, key=lambda x: (x.get('subject') == c.get('subject'), x['slug'] not in links, -x.get('floor', 0)))[:n]]
 
 # %% ../nbs/03_tutor.ipynb #c015
 def thread_text(q) -> str:
@@ -165,7 +173,7 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='') -> AttrDict:
         q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, why=f'{why}; the check from the lesson'.lstrip('; '))
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
-        r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx, q.who), TUTOR_SP)
+        r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else ()), TUTOR_SP)
         q.update(question=r['question'], answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))
