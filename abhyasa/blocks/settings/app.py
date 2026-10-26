@@ -1,4 +1,4 @@
-"Settings: the speech to text engine and model (pick, look up, get, remove), cut at pauses, the OpenAI key, the tutor's model, and the theme."
+"Settings: the speech to text engine and model (pick, look up, get, remove), cut at pauses, the OpenAI key, the model for each tutor task, and the theme."
 from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, THEMES, MODES
@@ -71,22 +71,25 @@ def connect(app, ctx):
         return ui.Key(), speech(oob=True)
 
     def model(task:str, model:str=''):
-        from abhyasa.llm import TASKS
+        from abhyasa.llm import TASKS, catalog
         if task not in TASKS: return Response('unknown task', status_code=400)
+        cur = voice.settings()['models'].get(task, '')
+        if model == ui.OTHER: return ui.TaskRow(task, cur, ctx.ask.model, [], typing=True)
         voice.update_settings('models', **{task: model.strip()})
-        return ui.TaskRow(task, model.strip(), ctx.ask.model)
+        return ui.TaskRow(task, model.strip(), ctx.ask.model, catalog())
 
     def test(task:str, model:str=''):
         import time
         from abhyasa.llm import model_ask
-        ask, t = (model_ask(model.strip()) if model.strip() else ctx.ask.dflt), time.time()
+        model = '' if model == ui.OTHER else model.strip()
+        ask, t = (model_ask(model) if model else ctx.ask.dflt), time.time()
         try: out = ask('Reply with the one word: ready.', '')
         except Exception as e: return Span(f'Failed: {str(e)[:160]}', cls='no')
         return Span(f"{time.time() - t:.1f} s: “{(out or '').strip()[:40]}”" if out else 'No answer.', cls='ok' if out else 'no')
 
     def catalog():
         from abhyasa.llm import catalog as cat
-        return ui.Catalog(cat())
+        return ui.Tasks(ctx.ask, cat())
 
     def look_(theme:str='', mode:str=''):
         "Save the theme and the mode; core.js already shows them."

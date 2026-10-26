@@ -76,10 +76,10 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
 def main():
     "Serve the app on loopback."
     import uvicorn
-    p = argparse.ArgumentParser(description='abhyasa: a learning harness that makes you think')
-    p.add_argument('--port', type=int, default=cfg.port)
-    p.add_argument('--vault', default=cfg.vault, help='the vault file; default $ABHYASA_VAULT, then vishalakshi\'s')
-    p.add_argument('--model', default=None, help='a rishi model name; default $ABHYASA_MODEL or claude/sonnet')
+    p = argparse.ArgumentParser(description='abhyasa: a tutor that asks you questions. It starts the web app on this Mac.')
+    p.add_argument('--port', type=int, default=cfg.port, help='the port of the web app; default $ABHYASA_PORT, then 5077')
+    p.add_argument('--vault', default=cfg.vault, help='the vault file; default $ABHYASA_VAULT, then your vault in ~/.vishalakshi')
+    p.add_argument('--model', default=None, help='the model id; choose it in Settings. Default $ABHYASA_MODEL, then claude/sonnet')
     a = p.parse_args()
     lr = Learning(a.vault)
     print(f'abhyasa on http://{cfg.host}:{a.port}  ({lr})')

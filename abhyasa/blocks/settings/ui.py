@@ -129,26 +129,48 @@ def Key(err=''):
 TASK_NOTE = dict(question='writes each question and its hidden answer', grade='reads the conversation and grades it',
                  hint='gives the next hint', lesson='teaches the smallest step after a miss', extract='finds the concepts in a text')
 
-def TaskRow(task, name, dflt):
+OTHER = '__other__'   # the list item that shows a text box for a model id
+
+def Pick(task, name, dflt, rows):
+    "The model list for one task: the default, then the models grouped by provider, then 'Type another model id'."
+    from abhyasa.llm import model_label, PROVIDERS, DFLT_MODEL
+    groups, ids = {}, {r['value'] for r in rows}
+    for r in rows: groups.setdefault(r.get('provider', ''), []).append(r)
+    opt = lambda v, n: Option(n, value=v, selected=v == name, title=v)
+    return Select(Option(f'Default: {model_label(dflt or DFLT_MODEL)}', value='', selected=not name),
+                  Optgroup(opt(name, model_label(name)), label='Saved') if name and name not in ids else '',
+                  *[Optgroup(*[opt(r['value'], r.get('name') or model_label(r['value'], p)) for r in rs], label=PROVIDERS.get(p, p.capitalize() or 'Other'))
+                    for p, rs in groups.items()],
+                  Option('Type another model id…', value=OTHER),
+                  name='model', aria_label=f'The model for {task}', hx_post=Routes.model, hx_vals={'task': task}, hx_trigger='change',
+                  hx_target=f'#tm-{task}', hx_swap='outerHTML')
+
+def Typed(task, name):
+    "A text box for a model id that the list does not have."
+    return Span(Input(type='text', name='model', value=name, placeholder='a model id, such as claude/sonnet', autofocus=True,
+                      hx_post=Routes.model, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#tm-{task}', hx_swap='outerHTML',
+                      autocomplete='off', spellcheck='false', aria_label=f'The model id for {task}'),
+                Button('Back to the list', type='button', hx_post=Routes.model, hx_vals={'task': task, 'model': name},
+                       hx_target=f'#tm-{task}', hx_swap='outerHTML'), cls='acts')
+
+def TaskRow(task, name, dflt, rows, typing=False):
     "One tutor task: its model (empty means the default), and a test."
     return Tr(Td(Span(task, cls='task'), Br(), Span(TASK_NOTE[task], cls='mute')),
-              Td(Input(type='text', name='model', value=name, list='models-list', placeholder=f'default: {dflt or "claude/sonnet"}',
-                       hx_post=Routes.model, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#tm-{task}', hx_swap='outerHTML',
-                       autocomplete='off', spellcheck='false')),
+              Td(Typed(task, name) if typing else Pick(task, name, dflt, rows)),
               Td(Button('Test', type='button', hx_post=Routes.test, hx_vals={'task': task}, hx_include='closest tr', hx_target=f'#tt-{task}',
                         data_wait='Testing…'), Span(id=f'tt-{task}', cls='mute')),
               id=f'tm-{task}')
 
-def Catalog(rows):
-    "The model names for the pickers, grouped by provider in the order they came."
-    return Datalist(*[Option(value=r['value'], label=f"{r['provider']} · {r.get('source', '')}") for r in rows], id='models-list')
-
-def Tutor(router):
-    "The model for each tutor task. A quick model can grade and hint; a strong one can write questions and lessons."
+def Tasks(router, rows):
+    "The table of tutor tasks, each with its model list."
     from abhyasa.llm import TASKS
     ms = voice.settings()['models']
+    return Table(Tbody(*[TaskRow(t, ms.get(t, ''), router.model, rows) for t in TASKS]), cls='models tasks', id='tasks')
+
+def Tutor(router):
+    "The model for each tutor task. A quick model can grade and give hints. A strong model can write questions and lessons."
     return Section(H2('Tutor models'),
-        P('Pick a model for each task, or leave it empty for the default. Type to search the models that can run here: '
-          'Claude, Codex, OpenAI, Copilot, Gemini, and models on this Mac. A change works at once. Test times one short call.', cls='mute'),
-        Table(Tbody(*[TaskRow(t, ms.get(t, ''), router.model) for t in TASKS]), cls='models tasks'),
-        Div(hx_get=Routes.catalog, hx_trigger='load', hx_swap='outerHTML', data_quiet='1'), id='tutor-models')
+        P('Choose a model for each task. "Default" uses the model that the app started with. '
+          'The list shows the models that can run here. A change works at once. "Test" times one short call.', cls='mute'),
+        Div(Spin('getting the list of models…'), hx_get=Routes.catalog, hx_trigger='load', hx_swap='outerHTML', id='tasks'),
+        id='tutor-models')

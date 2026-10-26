@@ -125,10 +125,32 @@ def test_tutor_model_test_reports_time_and_failures(mk):
     assert ' s: “ready”' in cl.post('/settings/model/test', data=dict(task='grade', model='ok/model')).text
     assert 'Failed: model does not exist' in cl.post('/settings/model/test', data=dict(task='grade', model='bad/model')).text
 
-def test_catalog_lists_models_for_the_pickers(mk, monkeypatch):
-    monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [dict(value='codex/gpt-x', label='gpt-x', provider='codex', source='login')])
+def test_catalog_gives_a_list_with_plain_names(mk, monkeypatch):
+    "The list shows names that people know, grouped by provider. The value of each item is the model id."
+    monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [dict(value='codex/gpt-6-astra', name='GPT-6 Astra', label='gpt-6-astra', provider='codex', source='login'),
+                                                         dict(value='claude/sonnet', name='Claude Sonnet', label='sonnet', provider='claude', source='cli')])
     t = mk(['settings']).get('/settings/catalog').text
-    assert 'id="models-list"' in t and 'codex/gpt-x' in t
+    assert t.count('<select') == len(llm.TASKS) and '<optgroup label="Codex">' in t and '<optgroup label="Claude">' in t
+    assert '<option value="codex/gpt-6-astra" title="codex/gpt-6-astra">GPT-6 Astra</option>' in t
+    assert 'Default: Claude Sonnet' in t and 'Type another model id' in t
+
+def test_a_saved_id_that_is_not_in_the_list_stays(mk, monkeypatch):
+    "A saved id that the list does not have shows as the selected item, so old settings keep working."
+    monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [])
+    voice.update_settings('models', grade='openai/gpt-5.4-mini')
+    t = mk(['settings']).get('/settings/catalog').text
+    assert '<optgroup label="Saved"><option value="openai/gpt-5.4-mini" selected title="openai/gpt-5.4-mini">GPT-5.4 Mini</option>' in t
+    voice.update_settings('models', grade='')
+
+def test_type_another_model_id(mk, monkeypatch):
+    "The last item shows a text box and saves nothing. The typed id is saved and shows in the list."
+    monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [])
+    cl = mk(['settings'])
+    t = cl.post('/settings/model', data=dict(task='hint', model='__other__')).text
+    assert 'type="text"' in t and 'Back to the list' in t and voice.settings()['models'].get('hint', '') == ''
+    t = cl.post('/settings/model', data=dict(task='hint', model=' my/model ')).text
+    assert '<select' in t and 'value="my/model" selected' in t and voice.settings()['models']['hint'] == 'my/model'
+    voice.update_settings('models', hint='')
 
 def test_theme_on_html(mk):
     "Each page has the theme and the mode from the settings on <html>; the Settings page has the Theme section."
