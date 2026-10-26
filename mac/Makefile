@@ -39,9 +39,9 @@ endif
 ifeq ($(origin ZIP),undefined)
 ZIP := dist/Abhyasa-$(VERSION).zip
 endif
-# the uv binary to bundle (MIT or Apache-2.0, so the app can include it)
+# the uv for make lock; the app does not bundle uv, it uses the uv that the cask installs (depends_on formula: "uv")
 ifeq ($(origin UV),undefined)
-UV := $(HOME)/.local/bin/uv
+UV := /opt/homebrew/bin/uv
 endif
 NOTES := dist/notes-$(VERSION).md
 TAP ?= ../../homebrew-tap
@@ -68,20 +68,16 @@ bundle:
 	swift build -c release --arch arm64
 	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources /tmp/abhyasa-trash
 	# a fresh inode: overwriting an executable in place can get it killed at exec on its cached signature
-	for f in Abhyasa uv; do if [ -e $(APP)/Contents/MacOS/$$f ]; then mv $(APP)/Contents/MacOS/$$f /tmp/abhyasa-trash/$$f-$$$$; fi; done
+	if [ -e $(APP)/Contents/MacOS/Abhyasa ]; then mv $(APP)/Contents/MacOS/Abhyasa /tmp/abhyasa-trash/Abhyasa-$$$$; fi
 	cp "$$(swift build -c release --arch arm64 --show-bin-path)/Abhyasa" $(APP)/Contents/MacOS/Abhyasa
-	# uv is a helper tool, so it goes in Contents/MacOS with its own signature
-	cp "$$UV" $(APP)/Contents/MacOS/uv
 	cp Resources/Info.plist $(APP)/Contents/Info.plist
 	# old folders move aside, so no stale file breaks the sealed-resource signature
-	for d in Pin Licenses; do if [ -e $(APP)/Contents/Resources/$$d ]; then mv $(APP)/Contents/Resources/$$d /tmp/abhyasa-trash/$$d-$$$$; fi; done
+	if [ -e $(APP)/Contents/Resources/Pin ]; then mv $(APP)/Contents/Resources/Pin /tmp/abhyasa-trash/Pin-$$$$; fi
 	cp -R Resources/Pin $(APP)/Contents/Resources/Pin
-	cp -R Resources/Licenses $(APP)/Contents/Resources/Licenses
 	if [ -f Resources/AppIcon.icns ]; then cp Resources/AppIcon.icns $(APP)/Contents/Resources/; fi
 
-# uv first, then the app, because a signature covers the code inside it. SIGN_ID=- gives an ad-hoc signature, for CI only
+# SIGN_ID=- gives an ad-hoc signature, for CI only
 app: bundle
-	codesign --force --options runtime --timestamp=none --sign "$$SIGN_ID" $(APP)/Contents/MacOS/uv
 	codesign --force --options runtime --timestamp=none --entitlements $(ENTITLEMENTS) --sign "$$SIGN_ID" $(APP)
 
 # release (notarized, stapled and checked) and publish (GitHub release), with ZIP_APP
@@ -100,17 +96,20 @@ install:
 	if [ -e "$$INSTALL_DIR/Abhyasa.app" ]; then mv "$$INSTALL_DIR/Abhyasa.app" /tmp/abhyasa-trash/Abhyasa.app-$$$$; fi
 	ditto $(APP) "$$INSTALL_DIR/Abhyasa.app"
 
-# writes this version and the hash of its release zip into the Homebrew cask in $TAP; it does not commit or push
+# writes this version and the hash of its release zip into the Homebrew cask in $TAP; it does not commit or push.
+# The first time, it copies cask/abhyasa.rb (with depends_on formula: "uv") into the tap.
 cask:
 	test -f "dist/Abhyasa-$(VERSION).zip"
-	test -f "$$TAP/Casks/abhyasa.rb"
+	test -d "$$TAP/Casks"
+	if [ ! -e "$$TAP/Casks/abhyasa.rb" ]; then cp cask/abhyasa.rb "$$TAP/Casks/abhyasa.rb"; fi
 	sum=$$(shasum -a 256 "dist/Abhyasa-$(VERSION).zip" | cut -d ' ' -f 1) && \
 	sed -i '' -e 's/^  version ".*"/  version "$(VERSION)"/' -e "s/^  sha256 \".*\"/  sha256 \"$$sum\"/" "$$TAP/Casks/abhyasa.rb"
 	grep -E '^  (version|sha256) ' "$$TAP/Casks/abhyasa.rb"
 
 # checks the bundle without opening it
 verify:
-	@python3 -c "import plistlib,sys,os; a=sys.argv[1]; p=plistlib.load(open(a+'/Contents/Info.plist','rb')); assert p['CFBundleIdentifier']=='dev.vedicreader.abhyasa'; assert p['CFBundleURLTypes'][0]['CFBundleURLSchemes']==['abhyasa']; assert p['NSMicrophoneUsageDescription']; [os.access(a+'/Contents/MacOS/'+f,os.X_OK) or sys.exit('no '+f) for f in ('Abhyasa','uv')]; [os.path.isfile(a+'/Contents/Resources/Pin/'+f) or sys.exit('no '+f) for f in ('pyproject.toml','uv.lock')]; print('bundle ok')" $(APP)
+	@python3 -c "import plistlib,sys,os; a=sys.argv[1]; p=plistlib.load(open(a+'/Contents/Info.plist','rb')); assert p['CFBundleIdentifier']=='dev.vedicreader.abhyasa'; assert p['CFBundleURLTypes'][0]['CFBundleURLSchemes']==['abhyasa']; assert p['NSMicrophoneUsageDescription']; os.access(a+'/Contents/MacOS/Abhyasa',os.X_OK) or sys.exit('no Abhyasa'); os.path.exists(a+'/Contents/MacOS/uv') and sys.exit('uv must not be in the bundle'); [os.path.isfile(a+'/Contents/Resources/Pin/'+f) or sys.exit('no '+f) for f in ('pyproject.toml','uv.lock')]; print('bundle ok')" $(APP)
+	@grep -q 'depends_on formula: "uv"' cask/abhyasa.rb || { echo "cask/abhyasa.rb does not depend on uv"; exit 1; }
 	codesign --verify --deep --strict $(APP)
 	@codesign -d --entitlements - $(APP) 2>/dev/null | grep -q audio-input || { echo "no audio-input entitlement"; exit 1; }
 	@codesign -dvv $(APP) 2>&1 | grep Authority

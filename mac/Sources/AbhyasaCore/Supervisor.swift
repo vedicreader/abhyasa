@@ -6,10 +6,14 @@ public enum Phase: Equatable, Sendable {
     case idle
     /// `uv sync` runs; the text is the last line that uv wrote
     case syncing(String)
+    /// no uv on this Mac; the app shows `brew install uv` and Retry
+    case needsUV
     case starting
     case ready(URL)
     case failed(String)
 }
+
+enum SyncError: Error { case noUV }
 
 /// One command to run.
 public struct Launch: Sendable {
@@ -44,8 +48,10 @@ public final class Supervisor {
     public var tries = 3
     /// the server command for a port; tests replace it
     @ObservationIgnored public var serverLaunch: (Int, ServerSettings) -> Launch
-    /// the uv command; nil skips the sync, for tests
+    /// the sync command; nil finds uv with `findUV` at each start, so Retry sees a uv that you installed since
     @ObservationIgnored public var syncLaunch: Launch?
+    @ObservationIgnored public var findUV: () -> URL?
+    @ObservationIgnored let uvEnv: [String: String]
     @ObservationIgnored public var onReady: ((URL) -> Void)?
 
     @ObservationIgnored let pin: URL?
@@ -54,13 +60,14 @@ public final class Supervisor {
     @ObservationIgnored private var stopping = false
     @ObservationIgnored private var generation = 0
 
-    /// `uv` is the bundled uv, `pin` the bundled folder with pyproject.toml and uv.lock
-    public init(paths: Paths, uv: URL?, pin: URL?, settings: ServerSettings,
+    /// `pin` is the bundled folder with pyproject.toml and uv.lock; nil skips the sync, for tests
+    public init(paths: Paths, pin: URL?, settings: ServerSettings,
                 parent: [String: String] = ProcessInfo.processInfo.environment, home: String = NSHomeDirectory()) {
         self.paths = paths
         self.pin = pin
         self.settings = settings
-        syncLaunch = uv.map { Launch(executable: $0, args: ChildEnv.uvArgs(paths), env: ChildEnv.uv(parent, home: home, paths: paths)) }
+        uvEnv = ChildEnv.uv(parent, home: home, paths: paths)
+        findUV = { ChildEnv.findUV(home: home, path: parent["PATH"]) }
         serverLaunch = { port, s in
             Launch(executable: paths.server, args: ChildEnv.serverArgs(port: port, settings: s, home: home),
                    env: ChildEnv.server(parent, home: home, paths: paths, settings: s))
@@ -77,6 +84,9 @@ public final class Supervisor {
         let gen = generation
         do {
             try await syncIfNeeded()
+        } catch SyncError.noUV {
+            if gen == generation, !stopping { phase = .needsUV }
+            return
         } catch {
             if gen == generation, !stopping {
                 phase = .failed("Setup did not complete. Make sure that this Mac can connect to the internet, then start again.\n\n"
@@ -126,10 +136,12 @@ public final class Supervisor {
     }
 
     func syncIfNeeded() async throws {
-        guard let launch = syncLaunch, let pin else { return }
+        guard let pin else { return }
         try Lock.copyProject(from: pin, paths: paths)
         let hash = try Lock.hash(dir: paths.project)
         guard Lock.needsSync(hash: hash, paths: paths) else { return }
+        guard let launch = syncLaunch ?? findUV().map({ Launch(executable: $0, args: ChildEnv.uvArgs(paths), env: uvEnv) })
+        else { throw SyncError.noUV }
         phase = .syncing("Getting Python and the packages")
         let code = try await runSync(launch)
         guard code == 0 else { throw HealthError.exited }

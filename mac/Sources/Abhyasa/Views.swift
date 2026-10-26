@@ -18,6 +18,8 @@ struct MainView: View {
             WebView(web: model.web)
         case .syncing(let line):
             FirstRunView(line: line)
+        case .needsUV:
+            NeedsUVView { model.start() }
         case .starting, .idle:
             VStack(spacing: 12) {
                 ProgressView()
@@ -41,6 +43,27 @@ struct FirstRunView: View {
             ProgressView().progressViewStyle(.linear).frame(width: 320)
             Text(line).font(.callout.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 .frame(maxWidth: 480)
+        }.padding(40).frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// No uv on this Mac. The cask installs it; this is for a copy of the app from the zip.
+struct NeedsUVView: View {
+    let retry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("abhyasa needs uv").font(.title2)
+            Text("The app uses uv to get Python and the abhyasa packages. Install uv in Terminal, then click Retry.")
+                .multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 420)
+            HStack {
+                Text(ChildEnv.uvInstall).font(.body.monospaced()).textSelection(.enabled)
+                Button("Copy") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(ChildEnv.uvInstall, forType: .string)
+                }
+            }
+            Button("Retry", action: retry).keyboardShortcut(.defaultAction)
         }.padding(40).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -72,7 +95,7 @@ struct SettingsView: View {
             Picker("Speech engine", selection: $s.stt) {
                 ForEach(ServerSettings.engines, id: \.self) { Text($0) }
             }
-            Text("whisper needs mlx-audio, which the app does not install.").font(.caption).foregroundStyle(.secondary)
+            Text("whisper runs on this Mac with mlx-audio.").font(.caption).foregroundStyle(.secondary)
             HStack {
                 TextField("Vault", text: $s.vault)
                 Button("Choose…") { choose() }

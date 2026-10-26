@@ -35,7 +35,7 @@ public enum Health {
         throw HealthError.timedOut
     }
 
-    /// the number of due reviews, or nil when the server has no `/due.json` (abhyasa 0.0.1 does not)
+    /// the number of due reviews, or nil when the server has no `/due.json` (abhyasa 0.0.2 does not)
     public static func due(_ base: URL) async -> Int? {
         await json(base.appending(path: "due.json"))?["due"] as? Int
     }

@@ -15,8 +15,7 @@ final class AppModel {
 
     init() {
         let res = Bundle.main.resourceURL
-        let uv = Bundle.main.executableURL?.deletingLastPathComponent().appending(path: "uv")
-        supervisor = Supervisor(paths: .user, uv: uv, pin: res?.appending(path: "Pin"), settings: Prefs.load())
+        supervisor = Supervisor(paths: .user, pin: res?.appending(path: "Pin"), settings: Prefs.load())
         supervisor.onReady = { [weak self] base in self?.ready(base) }
         web.onLoad = { [weak self] in self?.refreshBadge() }
     }

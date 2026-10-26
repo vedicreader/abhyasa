@@ -110,8 +110,8 @@ import Testing
         let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "../../Resources/Pin").standardized
         let py = try String(contentsOf: dir.appending(path: "pyproject.toml"), encoding: .utf8)
         let lock = try String(contentsOf: dir.appending(path: "uv.lock"), encoding: .utf8)
-        #expect(py.contains(#""abhyasa==0.0.1""#))
-        #expect(lock.contains("name = \"abhyasa\"\nversion = \"0.0.1\"\nsource = { registry = \"https://pypi.org/simple\" }"))
+        #expect(py.contains(#""abhyasa[whisper,tick]==0.0.2""#))
+        #expect(lock.contains("name = \"abhyasa\"\nversion = \"0.0.2\"\nsource = { registry = \"https://pypi.org/simple\" }"))
     }
 }
 
@@ -167,6 +167,15 @@ import Testing
         #expect(e["UV_PYTHON_PREFERENCE"] == "only-managed")
         #expect(e["UV_INDEX_URL"] == nil && e["VIRTUAL_ENV"] == nil)
         #expect(ChildEnv.uvArgs(paths) == ["sync", "--frozen", "--no-install-project", "--project", "/S/abhyasa/project"])
+    }
+
+    @Test func findUVLooksInHomebrewThenTheInstallerThenPath() {
+        let found = { (have: Set<String>) in ChildEnv.findUV(home: home, path: "/p1:/p2", isCommand: have.contains)?.path }
+        #expect(found(["/opt/homebrew/bin/uv", "/usr/local/bin/uv"]) == "/opt/homebrew/bin/uv")
+        #expect(found(["/usr/local/bin/uv", "/Users/me/.local/bin/uv"]) == "/usr/local/bin/uv")
+        #expect(found(["/Users/me/.local/bin/uv", "/p1/uv"]) == "/Users/me/.local/bin/uv")
+        #expect(found(["/p2/uv"]) == "/p2/uv")
+        #expect(found([]) == nil)
     }
 
     @Test func defaultSettings() {

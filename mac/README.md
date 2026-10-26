@@ -5,8 +5,11 @@ server when you quit. It is for macOS 26 on Apple Silicon.
 
 ## How it works
 
-The bundle holds a copy of `uv` (in `Contents/MacOS/uv`) and a small pinned project (`Contents/Resources/Pin`). The
-only dependency of the project is `abhyasa==0.0.1` from PyPI, and `uv.lock` locks all of its packages.
+The bundle holds a small pinned project (`Contents/Resources/Pin`). The only dependency of the project is
+`abhyasa[whisper,tick]==0.0.2` from PyPI, and `uv.lock` locks all of its packages. The app does not hold a copy of uv.
+It uses the uv from Homebrew: the cask has `depends_on formula: "uv"`. The app looks for uv in `/opt/homebrew/bin`,
+then `/usr/local/bin`, then `~/.local/bin`, then the folders in `PATH`. If it finds no uv, it shows
+`brew install uv`, a Copy button and a Retry button.
 
 1. The app copies the pinned project to `~/Library/Application Support/abhyasa/project`.
 2. When the hash of `pyproject.toml` and `uv.lock` is different from the hash of the last good sync, the app runs
@@ -32,7 +35,7 @@ Open Abhyasa > Settings (Command-comma). Apply saves the values and starts the s
 | Speech engine | `ABHYASA_STT` | `gemma` |
 | Vault | `--vault` and `ABHYASA_VAULT` | `~/.vishalakshi/vault.db` |
 
-The `whisper` engine needs `mlx-audio`. The pinned project does not install it.
+The `whisper` extra installs `mlx-audio` for the whisper engine, and the `tick` extra installs `pobblebonk`.
 
 ## Native parts
 
@@ -40,7 +43,7 @@ The `whisper` engine needs `mlx-audio`. The pinned project does not install it.
   microphone only to `http://127.0.0.1:<the server port>`.
 - Keys: no menu item uses Option and a letter, so Option-D, Option-S and Option-W go to the page.
 - Menu: File > New Session (Command-N), and Go > Today, Graph, Search (Command-F) and Add a Source.
-- Dock badge: the number of due reviews, from `/due.json`, each 5 minutes and after each page load. abhyasa 0.0.1 does
+- Dock badge: the number of due reviews, from `/due.json`, each 5 minutes and after each page load. abhyasa 0.0.2 does
   not have `/due.json`, so the badge shows after the next release of the Python package.
 - Links: `abhyasa://concept/<slug>` opens the page of that concept. `abhyasa://` and `abhyasa://today` open Today.
   Links to other sites open in your browser.
@@ -55,8 +58,7 @@ make verify   # checks the bundle and its signature, without opening it
 make run      # opens the app
 ```
 
-`UV=<path>` sets the uv binary to bundle. The default is `~/.local/bin/uv`. uv has the MIT and Apache-2.0 licenses.
-Their texts are in `Resources/Licenses`.
+`make lock` uses `UV` (default `/opt/homebrew/bin/uv`). To build and run the app, install uv first: `brew install uv`.
 
 To change the abhyasa version, edit the pin in `Resources/Pin/pyproject.toml`, run `make lock`, then bump
 `CFBundleShortVersionString` in `Resources/Info.plist`.
@@ -64,5 +66,6 @@ To change the abhyasa version, edit the pin in `Resources/Pin/pyproject.toml`, r
 ## Release
 
 The release targets are the same as Sanketa's. `make release` signs with the Developer ID, notarizes and staples.
-`make publish` makes the GitHub release `mac-v<version>`. `make cask` writes the version and hash into
-`Casks/abhyasa.rb` in `TAP` (default `../../homebrew-tap`). `make -n` and `make -i` do not run `release` or `publish`.
+`make publish` makes the GitHub release `mac-v<version>`. `make cask` copies `cask/abhyasa.rb` into `Casks/` in `TAP`
+(default `../../homebrew-tap`) if it is not there, then writes the version and hash into it. It does not commit or
+push. The cask depends on the `uv` formula. `make -n` and `make -i` do not run `release` or `publish`.

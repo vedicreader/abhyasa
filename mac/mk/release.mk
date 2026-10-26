@@ -26,10 +26,9 @@ override ZIP_APP = mkdir -p "$$(dirname "$$ZIP")" /tmp/abhyasa-trash && \
 	{ if [ -e "$$ZIP" ]; then mv "$$ZIP" "/tmp/abhyasa-trash/$$(basename "$$ZIP")-$$$$"; fi; } && \
 	ditto -c -k --keepParent $(APP) "$$ZIP"
 
-# Developer ID signature with a secure timestamp: uv first, then the app. Notarized and stapled. Without notary
+# Developer ID signature with a secure timestamp. Notarized and stapled. Without notary
 # credentials release stops; make app and make zip give a local build that is not notarized.
 release: bundle
-	$(CODESIGN) --force --options runtime --timestamp --sign "$$RELEASE_ID" $(APP)/Contents/MacOS/uv
 	$(CODESIGN) --force --options runtime --timestamp --entitlements $(ENTITLEMENTS) --sign "$$RELEASE_ID" $(APP)
 	$(CODESIGN) --verify --deep --strict --verbose=2 $(APP)
 	$(ZIP_APP)
@@ -47,7 +46,7 @@ publish: release
 	printf '%s\n\n%s\n\n%s\n\n%s\n' "Abhyasa $(VERSION) for macOS 26 on Apple Silicon. The app has a Developer ID signature, and Apple notarized it." \
 		"To install it, unzip the file and move Abhyasa.app to Applications. Or run: brew install --cask vedicreader/tap/abhyasa" \
 		"Abhyasa-$(VERSION).zip and Abhyasa.zip are the same file. Abhyasa.zip has a name that does not change, so the download link always gets the latest release." \
-		"On the first launch, the app downloads Python and the abhyasa packages one time. Then it works on this Mac. The tutor model can use the network." > $(NOTES)
+		"The app needs uv (brew install uv; the cask installs it). On the first launch, uv downloads Python and the abhyasa packages one time. The tutor model can use the network." > $(NOTES)
 	mkdir -p /tmp/abhyasa-trash
 	if [ -e $(STABLE_ZIP) ]; then mv $(STABLE_ZIP) /tmp/abhyasa-trash/Abhyasa.zip-$$$$; fi
 	cp "$$ZIP" $(STABLE_ZIP)

@@ -33,7 +33,7 @@ func py(_ code: String, _ args: [String] = []) -> Launch {
 }
 
 @MainActor func fake(die: Double, paths: Paths = tempPaths()) -> Supervisor {
-    let s = Supervisor(paths: paths, uv: nil, pin: nil, settings: ServerSettings())
+    let s = Supervisor(paths: paths, pin: nil, settings: ServerSettings())
     s.healthTimeout = .seconds(15)
     s.serverLaunch = { port, _ in py(fakeAbhyasa, [String(port), String(die)]) }
     return s
@@ -97,7 +97,7 @@ func py(_ code: String, _ args: [String] = []) -> Launch {
 
     @Test func syncRunsWhenTheLockChangedThenWritesTheStamp() async throws {
         let paths = tempPaths(), dir = try pin()
-        let s = Supervisor(paths: paths, uv: nil, pin: dir, settings: ServerSettings())
+        let s = Supervisor(paths: paths, pin: dir, settings: ServerSettings())
         s.syncLaunch = py("print('Installed 3 packages')")
         s.serverLaunch = { port, _ in py(fakeAbhyasa, [String(port), "0"]) }
         await s.start()
@@ -111,12 +111,35 @@ func py(_ code: String, _ args: [String] = []) -> Launch {
 
     @Test func aFailedSyncGivesTheSetupMessage() async throws {
         let paths = tempPaths()
-        let s = Supervisor(paths: paths, uv: nil, pin: try pin(), settings: ServerSettings())
+        let s = Supervisor(paths: paths, pin: try pin(), settings: ServerSettings())
         s.syncLaunch = py("import sys; print('no network here'); sys.exit(1)")
         await s.start()
         guard case .failed(let msg) = s.phase else { Issue.record("phase \(s.phase)"); return }
         #expect(msg.hasPrefix("Setup did not complete."))
         #expect(msg.contains("no network here"))
         #expect(!FileManager.default.fileExists(atPath: paths.stamp.path))
+    }
+
+    @Test func noUVGivesTheInstallScreenAndRetryFindsIt() async throws {
+        let paths = tempPaths()
+        let s = Supervisor(paths: paths, pin: try pin(), settings: ServerSettings())
+        s.findUV = { nil }
+        s.serverLaunch = { port, _ in py(fakeAbhyasa, [String(port), "0"]) }
+        await s.start()
+        #expect(s.phase == .needsUV)
+        s.syncLaunch = py("print('Installed 1 package')")
+        await s.start()
+        guard case .ready = s.phase else { Issue.record("phase \(s.phase)"); return }
+        s.stop()
+    }
+
+    @Test func aFoundUVRunsWithTheSyncArguments() async throws {
+        let paths = tempPaths()
+        let s = Supervisor(paths: paths, pin: try pin(), settings: ServerSettings())
+        // the system Python gets the uv arguments, so it fails on "sync": that shows the found command ran
+        s.findUV = { python }
+        await s.start()
+        guard case .failed(let msg) = s.phase else { Issue.record("phase \(s.phase)"); return }
+        #expect(msg.contains("sync"))
     }
 }

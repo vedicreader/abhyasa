@@ -50,6 +50,18 @@ public enum ChildEnv {
         return e
     }
 
+    /// the places to look for uv, in order: Homebrew on Apple Silicon, Homebrew on Intel, the uv installer
+    public static let uvPlaces = ["/opt/homebrew/bin/uv", "/usr/local/bin/uv", "~/.local/bin/uv"]
+
+    /// the first uv in `uvPlaces`, then in the folders of `path`; nil when there is no uv
+    public static func findUV(home: String, path: String?,
+                              isCommand: (String) -> Bool = FileManager.default.isExecutableFile(atPath:)) -> URL? {
+        let dirs = (path ?? "").split(separator: ":").map { "\($0)/uv" }
+        return (uvPlaces.map { expand($0, home: home) } + dirs).first(where: isCommand).map { URL(fileURLWithPath: $0) }
+    }
+
+    public static let uvInstall = "brew install uv"
+
     public static func uvArgs(_ paths: Paths) -> [String] {
         ["sync", "--frozen", "--no-install-project", "--project", paths.project.path]
     }
