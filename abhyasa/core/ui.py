@@ -5,7 +5,7 @@ from fasthtml.common import *
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.model import DEPTHS, GOAL
 
-__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'Page', 'Md', 'DepthBar', 'Spin', 'when']
+__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Md', 'DepthBar', 'Spin', 'when']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -42,13 +42,33 @@ def HDRS():
     "Headers for every page: the base theme, markdown and KaTeX, and the core script."
     return (Meta(charset='utf-8'), Meta(name='viewport', content='width=device-width, initial-scale=1'),
             Script(src='/vendor/htmx.min.js'), Script(src='/vendor/fasthtml.js'),
-            asset_css(_here/'base.css'), Script(src='/vendor/marked.min.js'),
+            asset_css(_here/'base.css'), asset_css(_here/'themes.css'), Script(src='/vendor/marked.min.js'),
             Link(rel='stylesheet', href='/vendor/katex.min.css'),
             Script(src='/vendor/katex.min.js', defer=True),
             Script(src='/vendor/auto-render.min.js', defer=True),
             asset_js(_here/'core.js'))
 
-def Page(title, *c, on='', wide=False, extra=()):
+THEMES = dict(paper='Warm paper, umber accent', ink='Calm, high contrast, dark first', manuscript='Palm leaf, saffron accent',
+              clear='System font, plain and bright', sage='Soft green-grey, low glare')   # themes.css has the colours
+MODES = ('auto', 'light', 'dark')
+
+def look() -> tuple:
+    "The theme and the mode from the settings; an unknown name gives the default."
+    from abhyasa.voice import settings
+    s = settings().get('look') or {}
+    t, m = s.get('theme'), s.get('mode')
+    return t if t in THEMES else 'paper', m if m in MODES else 'auto'
+
+def look_attrs() -> dict:
+    "The attributes on <html> that set the theme and the mode."
+    t, m = look()
+    return {'data-theme': t, 'data-mode': m}
+
+def look_before(req):
+    "Beforeware: each page starts in the theme from the settings."
+    req.htmlkw.update(look_attrs())
+
+def Page(title,*c, on='', wide=False, extra=()):
     "A whole page: the header with the blocks' nav links and a search box, then `c`."
     nav = [A(t, href=h, cls='on' if t == on else '') for t, h, _ in sorted(RouteOverrides.nav, key=lambda x: x[2])]
     return (Title(f'{title} · abhyasa'), *extra, Nav(A('abhyasa', href='/', cls='brand'), *nav,

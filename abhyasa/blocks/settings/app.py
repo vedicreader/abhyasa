@@ -1,7 +1,7 @@
-"Settings: the speech to text engine and model (pick, look up, get, remove), cut at pauses, the OpenAI key, and the tutor's model."
+"Settings: the speech to text engine and model (pick, look up, get, remove), cut at pauses, the OpenAI key, the tutor's model, and the theme."
 from fasthtml.common import *
 from fastcore.basics import AttrDict
-from abhyasa.core import Page, RouteOverrides
+from abhyasa.core import Page, RouteOverrides, THEMES, MODES
 from abhyasa import voice
 from . import ui
 from .cfg import Routes
@@ -15,7 +15,7 @@ def connect(app, ctx):
     speech = lambda oob=False: ui.Speech(sp, has_key(), oob)
 
     def page():
-        return Page('Settings', H1('Settings'), speech(), ui.Jobs(jobs), ui.Lookup(), ui.Key(), ui.Tutor(ctx.ask),
+        return Page('Settings', H1('Settings'), ui.Look(), speech(), ui.Jobs(jobs), ui.Lookup(), ui.Key(), ui.Tutor(ctx.ask),
                     on='Settings', extra=ui.assets())
 
     def use(engine:str, model:str=''):
@@ -87,6 +87,12 @@ def connect(app, ctx):
         from abhyasa.llm import catalog as cat
         return ui.Catalog(cat())
 
+    def look_(theme:str='', mode:str=''):
+        "Save the theme and the mode; core.js already shows them."
+        if theme not in THEMES or mode not in MODES: return Response('unknown theme or mode', status_code=400)
+        voice.update_settings('look', theme=theme, mode=mode)
+        return Response(status_code=204)
+
     RouteOverrides.nav.append(('Settings', Routes.base, 9))
     app.get(Routes.base)(page)
     app.post(Routes.use)(use)
@@ -100,3 +106,4 @@ def connect(app, ctx):
     app.post(Routes.model)(model)
     app.post(Routes.test)(test)
     app.get(Routes.catalog)(catalog)
+    app.post(Routes.look)(look_)

@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Spin, asset_css
+from abhyasa.core import Spin, asset_css, THEMES, MODES, look
 from abhyasa import voice
 from .cfg import Routes
 
@@ -13,6 +13,19 @@ def size(n:int) -> str:
     return '' if not n else f'{n / 2**30:.1f} GB' if n >= 2**30 else f'{n / 2**20:.0f} MB'
 
 def pct(x): return '' if x is None else f'{x:.0%}'
+
+def Look():
+    "The theme and the mode. A click changes the page at once (core.js), and the form saves the choice."
+    t, m = look()
+    def theme(k, note):
+        return Label(Input(type='radio', name='theme', value=k, checked=k == t), Span(I(), I(), I(), cls='sw', data_theme=k),
+                     Span(Span(k.capitalize(), cls='nm', data_theme=k), Small(note)))
+    return Section(H2('Theme'),
+        Form(Div(*[theme(k, n) for k, n in THEMES.items()], cls='themes', role='radiogroup', aria_label='Theme'),
+             Div(*[Label(Input(type='radio', name='mode', value=k, checked=k == m), 'Auto, as the Mac' if k == 'auto' else k.capitalize())
+                   for k in MODES], cls='modes-pick', role='radiogroup', aria_label='Light or dark'),
+             hx_post=Routes.look, hx_trigger='change', hx_swap='none', data_quiet='1'),
+        id='look')
 
 def Status(sp):
     "The state of the model in use; it asks again each second while the model loads."

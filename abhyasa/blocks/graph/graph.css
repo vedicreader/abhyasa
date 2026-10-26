@@ -1,9 +1,7 @@
 /* The graph: a canvas on the left, a quiet column of levers on the right. No boxes: the column has one rule beside it. */
-#graph { --g1: hsl(22 45% 36%); --g2: hsl(205 34% 36%); --g3: hsl(82 34% 29%); --g4: hsl(320 24% 40%); --g5: hsl(175 36% 27%); --g6: hsl(40 70% 32%);
-         display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 0 28px; outline: none; }
-@media (prefers-color-scheme: dark) {
-  #graph { --g1: hsl(28 55% 68%); --g2: hsl(205 40% 70%); --g3: hsl(82 32% 64%); --g4: hsl(320 30% 74%); --g5: hsl(175 32% 62%); --g6: hsl(44 62% 64%); }
-}
+#graph { --g1: light-dark(hsl(22 45% 36%), hsl(28 55% 68%)); --g2: light-dark(hsl(205 34% 36%), hsl(205 40% 70%)); --g3: light-dark(hsl(82 34% 29%), hsl(82 32% 64%));
+         --g4: light-dark(hsl(320 24% 40%), hsl(320 30% 74%)); --g5: light-dark(hsl(175 36% 27%), hsl(175 32% 62%)); --g6: light-dark(hsl(40 70% 32%), hsl(44 62% 64%));
+         display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 0 28px; outline: none; }   /* the subject colours; light-dark() follows data-mode */
 main.wide:has(#graph) { padding-top: 20px; padding-bottom: 24px; }
 #graph .stage { position: relative; height: calc(100vh - 120px); min-height: 460px; }
 #graph canvas { position: absolute; inset: 0; display: block; cursor: grab; touch-action: none; }
