@@ -8,7 +8,7 @@
 .phead { margin: 26px 0 4px; } .phead .prog { max-width: 420px; }
 .goal { font-style: italic; color: var(--ink2); }
 .path { list-style: none; padding: 0; margin: 28px 0 10px; }
-.path .step { position: relative; padding: 0 0 22px 36px; }
+.path .step { position: relative; padding: 0 0 18px 36px; }
 .path .step::before { content: ''; position: absolute; left: 7px; top: 22px; bottom: 2px; width: 2px; background: var(--line); }
 .path .step:last-child::before { display: none; }
 .path .step.learned::before, .path .step.known::before { background: color-mix(in srgb, var(--acc) 55%, var(--line)); }
@@ -24,9 +24,10 @@
 .step .why { margin: 2px 0 0; }
 .step.skipped .name, .step.missing .name { text-decoration: line-through; color: var(--mute); }
 .step.skipped .why { opacity: .7; }
-.step .acts { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 4px; opacity: 0; transition: opacity .15s; }
-.step:hover .acts, .step:focus-within .acts { opacity: 1; }
-@media (hover: none) { .step .acts { opacity: 1; } }
+/* the changes to a step show for the step to do now, and on hover or focus for the others */
+.step .acts { display: flex; flex-wrap: wrap; gap: 2px; max-height: 0; overflow: hidden; opacity: 0; transition: opacity .15s, max-height .15s; }
+.step.now .acts, .step:hover .acts, .step:focus-within .acts { max-height: 80px; opacity: 1; margin-top: 4px; }
+@media (hover: none) { .step .acts { max-height: none; opacity: 1; } }
 .add-topic { display: flex; gap: 10px; align-items: flex-end; margin: 6px 0 0 36px; }
 .add-topic .micbox { flex: 1; }
 .add-topic input { font-size: 16px; }

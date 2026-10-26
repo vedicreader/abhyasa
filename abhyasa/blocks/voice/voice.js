@@ -78,7 +78,7 @@ function abhyasaWav(pcm) {
 // Voice anywhere. A box with `data-mic` (and each box in a demo) gets a small mic of its own. ⌥D speaks into the box in focus,
 // on any page: with its own mic, or with the floating one. With no box in focus, ⌥D presses the main mic of the page.
 // A second ⌥D stops the dictation.
-const abhyasaBox = 'textarea, input[type=text], input[type=search], input:not([type])';
+var abhyasaBox = 'textarea, input[type=text], input[type=search], input:not([type])';
 function abhyasaMics(root) {
   const tpl = document.getElementById('mic-float');
   if (!tpl) return;

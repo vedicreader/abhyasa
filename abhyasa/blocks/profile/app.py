@@ -71,7 +71,7 @@ def connect(app, ctx):
         return P(A('Tell abhyasa about you', href=Routes.start), '. Four short questions, by voice or text, so the tutor can use examples from your world.',
                  cls='meet mute')
 
-    @hook('today')
+    @hook('today_end')
     def about(subject=None):
         return P(A('What abhyasa knows about you', href=Routes.base), cls='mute') if lr.profile().known else None
 

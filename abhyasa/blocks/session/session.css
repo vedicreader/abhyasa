@@ -108,3 +108,5 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 .moved-list li .mis { margin: 2px 0 0; font-style: italic; }
 .next-step { margin: 14px 0 0; font-size: 19px; }
 .related .btn.small { margin-left: 6px; }
+main:has(.session-layout) > .crumbs { max-width: 1010px; margin-left: auto; margin-right: auto; }
+@media (max-width: 1039px) { main:has(.session-layout) > .crumbs { max-width: 740px; } }
