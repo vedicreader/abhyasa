@@ -30,13 +30,14 @@ def rishi_ask(model:str=None):
 def parse_json(s:str):
     "The first JSON object or array in `s`, also inside a ``` fence. Raise `ValueError` when there is none."
     s = s.strip()
-    if (m := re.search(r'```(?:json)?\s*(.*?)```', s, re.S)): s = m.group(1).strip()
-    try: return json.loads(s)
-    except json.JSONDecodeError: pass
-    for o, cl in ('{}', '[]'):
-        i, j = s.find(o), s.rfind(cl)
-        if 0 <= i < j:
-            try: return json.loads(s[i:j+1])
+    dec = json.JSONDecoder()
+    # the whole reply first, then each fence, then the first object or array in the text: a fence inside a JSON string stays whole
+    for t in [s, *(m.strip() for m in re.findall(r'```(?:json)?\s*(.*?)```', s, re.S))]:
+        try: return json.loads(t)
+        except json.JSONDecodeError: pass
+    for i, ch in enumerate(s):
+        if ch in '{[':
+            try: return dec.raw_decode(s, i)[0]
             except json.JSONDecodeError: continue
     raise ValueError(f'no JSON in the reply: {s[:200]!r}')
 
