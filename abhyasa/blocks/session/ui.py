@@ -5,6 +5,7 @@ from fastcore.utils import AttrDict
 from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, asset_js
 from abhyasa.model import DEPTHS, GOAL
 from abhyasa.tutor import MAX_TRIES
+from abhyasa.method import LABELS as WAYS
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -22,7 +23,8 @@ def tl_id(q): return f'tl-{q.id}'
 
 def Head(q):
     "The concept and depth as a small label, then why the tutor chose it: the quiet rule between questions."
-    return Div(Span(f"{q.name} · {DEPTHS[q.depth]}", DepthBar(q.get('floor', 0), asked=q.depth), cls='lbl'), P(q.why, cls='why'), cls='head')
+    way = Span(f" · {WAYS[q.method].lower()}", cls='way', title='the way the tutor teaches this question') if q.get('method') in WAYS else ''
+    return Div(Span(f"{q.name} · {DEPTHS[q.depth]}", way, DepthBar(q.get('floor', 0), asked=q.depth), cls='lbl'), P(q.why, cls='why'), cls='head')
 
 def Options(sid, q, chosen=(), done=False, oob=False, right=None):
     "The options of a choice question, inline in the question. A wrong pick is struck, a right pick marked; all go off when the question closes."
@@ -74,9 +76,9 @@ def Hint(n, text):
     "A hint, at the time you asked for it."
     return Li(Span(f'Hint {n}', cls='lbl'), Md(text), cls='m tutor hint')
 
-def Lesson(text):
-    "A lesson under the outcome."
-    return Div(Span('Lesson', cls='lbl'), Md(text), cls='lesson')
+def Lesson(text, way=''):
+    "A lesson under the outcome; `way` names the method of a lesson that you asked for in another way."
+    return Div(Span('Lesson' + (f' · {WAYS[way].lower()}' if way in WAYS else ''), cls='lbl'), Md(text), cls='lesson')
 
 def Now(r):
     "Your level on the concept now, and the next review, in plain words."
@@ -87,11 +89,17 @@ def TeachMe(sid, qid):
     return Button('Teach me this ', Kbd('⌥X'), id='teach', type='button', hx_post=Routes.at(Routes.teach, sid), hx_vals={'qid': qid},
                   hx_target='this', hx_swap='outerHTML', data_wait=TEACHING)
 
+def AnotherWay(sid, qid):
+    "Under a lesson: the same idea in a different way. ⌥A asks."
+    return Button('Another way ', Kbd('⌥A'), id='another', type='button', hx_post=Routes.at(Routes.teach, sid), hx_vals={'qid': qid, 'another': 1},
+                  hx_target='this', hx_swap='outerHTML', data_wait=TEACHING)
+
 def Close(r, said='', sid=None, qid=None):
     "The last message on a question: the outcome, the lesson and the next review. A shaky pass can ask for a lesson."
     fb = r.feedback if r.correct or not r.lesson else ''   # after a miss the lesson speaks; the last nudge would ask a question nobody answers
     return Li(Span(OUTCOME[r.outcome] + (f' · {said}' if said else ''), cls='tag'), Md(fb) if fb else '',
               Lesson(r.lesson) if r.lesson else '',
+              AnotherWay(sid, qid) if sid and r.lesson else '',
               TeachMe(sid, qid) if sid and r.outcome == 'fragile' and not r.lesson else '',
               Cites(r.get('grounds')), Now(r),
               cls=f"m tutor fb close {'ok' if r.correct else 'no'}")

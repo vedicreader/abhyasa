@@ -59,8 +59,8 @@ def connect(app, ctx):
         j = lr.journey(s.journey) if s and s.journey else None
         return [('Today', '/'), *([(j.title, f'/j/{j.id}')] if j else [])]
 
-    def start(subject:str='', focus:str='', journey:str=''):
-        s = Session(tutor, focus=focus or None, subject=subject or None, journey=journey or None)
+    def start(subject:str='', focus:str='', journey:str='', drill:str=''):
+        s = Session(tutor, focus=focus or None, subject=subject or None, journey=journey or None, drill=bool(drill))
         sessions[s.id] = s
         ahead(s.id)   # the model writes the first question while the page loads
         return Redirect(at(Routes.page, s.id))
@@ -112,7 +112,7 @@ def connect(app, ctx):
         ahead(sid); outcomes[q.id] = r.outcome
         opts = (ui.Options(sid, q, chosen(q), done=True, oob=True),) if q.get('options') else ()
         you = ui.You('Teach me.' if tried else "I don't know.")
-        return (*keep(q, you, ui.Close(r), *ui.Extras(r)), *opts, ui.Composer(sid, ready=False, oob=True))
+        return (*keep(q, you, ui.Close(r, sid=sid, qid=q.id), *ui.Extras(r)), *opts, ui.Composer(sid, ready=False, oob=True))
 
     def hint(sid:str):
         s, q = live(sid)
@@ -121,14 +121,14 @@ def connect(app, ctx):
         h = s.hint()
         return keep(q, ui.Hint(len(q.hints), h))
 
-    def teach(sid:str, qid:str):
-        "A lesson on a shaky pass, when you ask for it; the outcome stays as it is."
+    def teach(sid:str, qid:str, another:int=0):
+        "A lesson when you ask for it, or the same idea in another way; the outcome stays as it is."
         s = get(sid)
         if not s or qid not in tutor.shut: return Response(status_code=204)
-        lesson = s.teach(qid)
+        lesson = s.teach(qid, bool(another))
         q = next((x for x in shown.get(sid, ()) if x.id == qid), None)
         if q: keep(q, Li(ui.Lesson(lesson), cls='m tutor fb close ok'))   # a new draw of the page shows it as its own message
-        return ui.Lesson(lesson)
+        return ui.Lesson(lesson, tutor.shut[qid].get('method', '') if another else ''), ui.AnotherWay(sid, qid)
 
     def ready(sid:str):
         f = pre.get(sid)

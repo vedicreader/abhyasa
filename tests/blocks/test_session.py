@@ -31,6 +31,19 @@ def test_shaky_pass_can_ask_for_a_lesson(mk, lr):
     assert dict(lr.concept('ranking')) == before
     assert cl.post(f'/s/{sid}/teach', data=dict(qid='nope')).status_code == 204
 
+def test_another_way_after_a_lesson(mk):
+    "A lesson after a miss offers 'Another way'; it writes a new lesson and offers one more."
+    import re, json
+    cl = mk()
+    sid = start(cl)
+    page = cl.get(f'/s/{sid}').text
+    assert 'class="way"' in page                                      # the question says its method
+    r = cl.post(f'/s/{sid}/giveup', data=dict(dont_know=1)).text
+    assert 'Another way' in r
+    qid = json.loads(re.search(r'hx-vals=\'([^\']+another[^\']+)\'', r)[1])['qid']
+    t = cl.post(f'/s/{sid}/teach', data=dict(qid=qid, another=1)).text
+    assert 'Lesson' in t and 'Another way' in t
+
 def test_no_confidence_counts_the_answer_only(mk):
     "An untouched picker (or a spoken answer) sends no confidence; a clean pass is then solid."
     cl = mk()
