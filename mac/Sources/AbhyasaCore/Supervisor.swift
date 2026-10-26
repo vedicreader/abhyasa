@@ -155,6 +155,8 @@ public final class Supervisor {
         p.executableURL = launch.executable
         p.arguments = launch.args
         p.environment = launch.env
+        // a writable working folder: a GUI app starts in /, which is read only, and the server writes files beside itself (.sesskey)
+        p.currentDirectoryURL = paths.support
         p.standardInput = FileHandle.nullDevice
         p.standardOutput = pipe
         p.standardError = pipe
@@ -183,6 +185,8 @@ public final class Supervisor {
         p.executableURL = launch.executable
         p.arguments = launch.args
         p.environment = launch.env
+        // a writable working folder: a GUI app starts in /, which is read only, and the server writes files beside itself (.sesskey)
+        p.currentDirectoryURL = paths.support
         p.standardInput = FileHandle.nullDevice
         p.standardOutput = log
         p.standardError = log
