@@ -3,6 +3,7 @@ from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, ago
 from abhyasa.profile import LABELS, LIST_FIELDS, EXAMPLES, PACES, ONBOARD_QS, calibration_text
+from abhyasa.method import EXPLORE
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -24,8 +25,10 @@ def Form_(p):
                                             for k, d in PACES.items()], cls='paces'))
     n = Div(Label(LABELS['session_len'], fr='pf-len'), Select(*[Option(str(x), value=str(x), selected=p.session_len == x) for x in sorted({*LENS, p.session_len})],
                                                               name='session_len', id='pf-len'))
+    ex2 = Div(Label(LABELS['explore']), Div(*[Label(Input(type='radio', name='explore', value=k, checked=p.get('explore', 'sometimes') == k), Span(k))
+                                              for k in EXPLORE], cls='paces'))
     return Form(Box('background', p, 'what you do and know; one on each line'), Box('goals', p, 'what you want to learn, and why'),
-                Box('interests', p), ex, Box('confuses', p, 'the tutor adds to this from your answers'), pace, n, Box('notes', p, 'anything else', rows=2),
+                Box('interests', p), ex, Box('confuses', p, 'the tutor adds to this from your answers'), pace, ex2, n, Box('notes', p, 'anything else', rows=2),
                 Div(Button('Save ', Kbd('⌥S'), cls='go', data_wait='Saving…'), Span(id='saved', cls='mute'), cls='row'),
                 hx_post=Routes.base, hx_target='#saved', cls='profile')
 
