@@ -97,7 +97,8 @@ install:
 	if [ -e "$$INSTALL_DIR/Abhyasa.app" ]; then mv "$$INSTALL_DIR/Abhyasa.app" /tmp/abhyasa-trash/Abhyasa.app-$$$$; fi
 	ditto $(APP) "$$INSTALL_DIR/Abhyasa.app"
 
-# writes this version and the hash of its release zip into the Homebrew cask in $TAP; it does not commit or push.
+# writes this version and the hash of its release zip into the Homebrew cask in $TAP, and the download link into the README;
+# it does not commit or push.
 # The first time, it copies cask/abhyasa.rb (with depends_on formula: "uv") into the tap.
 cask:
 	test -f "dist/Abhyasa-$(VERSION).zip"
@@ -106,6 +107,9 @@ cask:
 	sum=$$(shasum -a 256 "dist/Abhyasa-$(VERSION).zip" | cut -d ' ' -f 1) && \
 	sed -i '' -e 's/^  version ".*"/  version "$(VERSION)"/' -e "s/^  sha256 \".*\"/  sha256 \"$$sum\"/" "$$TAP/Casks/abhyasa.rb"
 	grep -E '^  (version|sha256) ' "$$TAP/Casks/abhyasa.rb"
+	# the Download for macOS button links to this release; a Python release takes the "latest" label, so the link names the tag
+	sed -i '' -E 's#releases/download/mac-v[0-9.]+/Abhyasa.zip#releases/download/mac-v$(VERSION)/Abhyasa.zip#' ../nbs/index.ipynb ../README.md
+	grep -o 'releases/download/mac-v[0-9.]*/Abhyasa.zip' ../README.md
 
 # checks the bundle without opening it
 verify:
