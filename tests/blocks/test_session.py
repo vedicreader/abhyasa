@@ -30,6 +30,8 @@ def test_shaky_pass_can_ask_for_a_lesson(mk, lr):
     assert 'Lesson' in t and 'Teach me this' not in t
     assert dict(lr.concept('ranking')) == before
     assert cl.post(f'/s/{sid}/teach', data=dict(qid='nope')).status_code == 204
+    page = cl.get(f'/s/{sid}?q={qid}').text                         # the page drawn again: the lesson once, no old button
+    assert page.count('Teach me this') == 0 and page.count('class="lesson"') == 1 and page.count('Another way') == 1
 
 def test_another_way_after_a_lesson(mk):
     "A lesson after a miss offers 'Another way'; it writes a new lesson and offers one more."

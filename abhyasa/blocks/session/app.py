@@ -48,6 +48,14 @@ def connect(app, ctx):
 
     def entries(q): return tl.get(q.id, ())
 
+    def redraw_close(q, add):
+        "Put `add` in the close message of `q` in place of its lesson buttons, so a new draw of the page shows the lesson once and no old button."
+        for e in tl.get(q.id, ()):
+            if 'close' in (getattr(e, 'attrs', {}).get('class') or ''):
+                kids = [c for c in e.children if getattr(c, 'attrs', {}).get('id') not in ('teach', 'another')]
+                at = next((i for i, c in enumerate(kids) if 'now' in (getattr(c, 'attrs', {}).get('class') or '')), len(kids))
+                e.children = (*kids[:at], *add, *kids[at:])
+
     def past(sid, but=None): return [q for q in shown.get(sid, ()) if q is not but]
 
     def you_said(q): return next((t['text'] for t in reversed(q.get('turns') or []) if t['who'] == 'you'), '')
@@ -126,9 +134,9 @@ def connect(app, ctx):
         s = get(sid)
         if not s or qid not in tutor.shut: return Response(status_code=204)
         lesson = s.teach(qid, bool(another))
-        q = next((x for x in shown.get(sid, ()) if x.id == qid), None)
-        if q: keep(q, Li(ui.Lesson(lesson), cls='m tutor fb close ok'))   # a new draw of the page shows it as its own message
-        return ui.Lesson(lesson, tutor.shut[qid].get('method', '') if another else ''), ui.AnotherWay(sid, qid)
+        out = ui.Lesson(lesson, tutor.shut[qid].get('method', '') if another else ''), ui.AnotherWay(sid, qid)
+        if (q := next((x for x in shown.get(sid, ()) if x.id == qid), None)): redraw_close(q, out)
+        return out
 
     def ready(sid:str):
         f = pre.get(sid)
