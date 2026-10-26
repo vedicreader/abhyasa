@@ -2,15 +2,18 @@
 
 <!-- do not remove -->
 
-## Unreleased
+## 0.0.3
 
-- Interactive demos from rupaka. A demo asks you to predict first, and it shows the result only after you lock in.
-- After two misses with a saved misconception, or for a concept with `visual: true`, the tutor makes a demo in the background. rupaka validates and checks it in a headless browser first.
-- The new `demo` block: "Show me a demo" (⌥E) on each concept page, the demo under the lesson after a miss, and a page for each demo. rupaka's runtime is served by the app, so it works offline.
-- Each prediction in a demo is kept as an attempt with `kind='demo'`. It does not change the learner model.
-- The notebook card shows the demo after a miss.
-- `CLOSE_HOOKS` in the tutor lets a module add to the result of a closed question.
-- rupaka comes from the local checkout (`[tool.uv.sources]`) until it is on PyPI.
+- The session is a chat. Each question is one conversation: you send only your follow-up, and the tutor grades the whole conversation and answers your last point. Hints and the lesson sit in the conversation, and the composer stays at the bottom.
+- Waits are clear: a progress bar, the task and its seconds on the button you pressed, and placeholders. Text boxes grow with their text.
+- A model for each tutor task (question, grade, hint, lesson, extract), set in Settings from ramabana's catalogue: Claude, Codex, OpenAI, Copilot, Gemini and local models. A test times one call. Install the catalogue with `abhyasa[models]`.
+- Speech: dictation stays on and cuts your speech at pauses, and the text comes in as you talk. Gemma 4 E4B is the default; Whisper, Parakeet, Qwen3-ASR and OpenAI are options. Settings finds, gets and switches speech models.
+- The graph has levers: four layouts (free, path, rings, groups), spacing, size, colour, filters, find and focus. It keeps your arrangement.
+- A vault viewer shows any vault document, with the resume command for a session and "Learn from this".
+- Interactive demos from rupaka. A demo asks you to predict first, and it shows the result only after you lock in. The tutor makes one after two misses with a saved misconception, or for a concept with `visual: true`, and "Show me a demo" (⌥E) makes one on request.
+- A prediction in a demo counts in the learner model: at depth 2, or at depth 3 when you write why.
+- `/due.json` gives the count of due reviews, for the Mac app's Dock badge.
+- The session key is kept in the config folder, so the app starts from any folder.
 
 ## 0.0.2
 
