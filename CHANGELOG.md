@@ -2,6 +2,14 @@
 
 <!-- do not remove -->
 
+## 0.0.7
+
+- After a shaky pass, "Teach me this" (⌥X) gives a short lesson from your first error. Your outcome does not change.
+- When you say you do not know a term, the next nudge explains it first.
+- The grader reads past speech-to-text noise, and judges a restated point with the earlier one.
+- The close says your level in plain words: "Not at a level yet. Next review in 12 h."
+- The index tick needs pobblebonk 0.0.6, so a quiet tick leaves no empty note.
+
 ## 0.0.6
 
 - The app answers only this Mac. It refuses a request with a foreign Host, a cross-site request, and a change from a foreign Origin, so a web page cannot start a session or set your key.
