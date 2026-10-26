@@ -2,9 +2,9 @@
 # project. To change the version, edit the pin, then run `make lock`.
 [project]
 name = "abhyasa-app"
-version = "0.0.4"
+version = "0.0.5"
 requires-python = ">=3.12,<3.13"
-dependencies = ["abhyasa[whisper,tick,models]==0.0.4"]
+dependencies = ["abhyasa[whisper,tick,models]==0.0.5"]
 
 [tool.uv]
 package = false
