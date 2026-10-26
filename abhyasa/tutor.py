@@ -172,9 +172,9 @@ def public(q) -> AttrDict:
 
 # %% ../nbs/03_tutor.ipynb #c025
 @patch
-def next(self:Tutor, focus:str=None, subject:str=None, session:str='', skip=()) -> AttrDict|None:
+def next(self:Tutor, focus:str=None, subject:str=None, session:str='', skip=(), near=()) -> AttrDict|None:
     "The next question, chosen by `pick`, or None when there is nothing to learn or review."
-    r = pick(self.learning.concepts(), focus=focus, subject=subject, goal=self.goal, skip=skip)
+    r = pick(self.learning.concepts(), focus=focus, subject=subject, goal=self.goal, skip=skip, near=near)
     return self.ask_on(*r, session=session) if r else None
 
 # %% ../nbs/03_tutor.ipynb #c027
@@ -260,6 +260,11 @@ class Session:
     def __init__(self, tutor:Tutor, focus:str=None, subject:str=None, limit:int=12, run:int=3):
         store_attr()
         self.id, self.start, self.log, self.q = uuid.uuid4().hex[:10], time.time(), [], None
+        self.near = set()
+        if focus and (c := tutor.learning.concept(focus)) is not None:
+            # a session on one concept stays in its subject, and goes next to its neighbours: links in either direction
+            self.subject = subject or c.get('subject') or None
+            self.near = {*c.get('prereqs', ()), *c.get('related', ())} | {x.slug for x in tutor.learning.concepts(self.subject) if focus in (*(x.get('prereqs') or ()), *(x.get('related') or ()))}
 
     def _skip(self):
         last = [r['concept'] for r in self.log[-self.run:]]
@@ -269,7 +274,7 @@ class Session:
         "The next question, or None when the session is over."
         if len(self.log) >= self.limit: return None
         skip = self._skip()
-        self.q = self.tutor.next(focus=self.focus if self.focus not in skip else None, subject=self.subject, session=self.id, skip=skip)
+        self.q = self.tutor.next(focus=self.focus if self.focus not in skip else None, subject=self.subject, session=self.id, skip=skip, near=self.near)
         return self.q
 
     def answer(self, *args, **kw) -> AttrDict:

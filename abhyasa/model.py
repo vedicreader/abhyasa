@@ -82,8 +82,8 @@ def _back(c, by, goal):
     return p, f"two misses on {c['name']}; step back to {p['name']}"
 
 # %% ../nbs/01_model.ipynb #c039
-def pick(concepts, focus:str=None, subject:str=None, goal:int=GOAL, now:float=None, skip=()):
-    "The next `(concept, depth, why)`, or None when no review is due and the frontier is empty."
+def pick(concepts, focus:str=None, subject:str=None, goal:int=GOAL, now:float=None, skip=(), near=()):
+    "The next `(concept, depth, why)`, or None when no review is due and the frontier is empty. Concepts in `near` come first on the frontier."
     now = ifnone(now, time.time())
     by = {c['slug']: c for c in concepts}
     pool = [c for c in concepts if c['slug'] not in skip and (not subject or c.get('subject') == subject)]
@@ -98,5 +98,6 @@ def pick(concepts, focus:str=None, subject:str=None, goal:int=GOAL, now:float=No
         return out(c, f"due for review: recall about {recall(c, now):.0%}")
     front = [c for c in pool if not learned(c, goal) and ready(c, by)]
     if not front: return None
-    c = min(front, key=lambda c: (-bool(c.get('seen')), c.get('order', 1e9), -c.get('floor', 0)))
-    return out(c, f"next on the frontier: {'you started it' if c.get('seen') else 'its prereqs are in place'}")
+    c = min(front, key=lambda c: (c['slug'] not in near, -bool(c.get('seen')), c.get('order', 1e9), -c.get('floor', 0)))
+    why = 'it is next to the concept you chose' if c['slug'] in near else 'you started it' if c.get('seen') else 'its prereqs are in place'
+    return out(c, f'next on the frontier: {why}')
