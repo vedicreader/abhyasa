@@ -111,7 +111,7 @@ def Lookup():
              hx_get=Routes.search, hx_target='#found', cls='row lookup'),
         Div(id='found'))
 
-def Key():
+def Key(err=''):
     "The OpenAI key: where it is from and its last 4 characters. The key itself is never on the page."
     k, src = voice.openai_key()
     own = src == str(voice.cfg_dir()/'keys.env')
@@ -119,7 +119,7 @@ def Key():
               '' if own or src == 'environment' else ' (read only)', '.', cls='mute') if k else P('There is no key. The OpenAI engine is off.', cls='mute'))
     return Section(H2('OpenAI key'),
         P(Strong('The OpenAI engine sends your audio off this machine.'), ' The other engines keep it here.', cls='warn'),
-        have,
+        have, P(err, cls='warn', role='alert') if err else '',
         Form(Input(type='password', name='key', placeholder='sk-…', autocomplete='off'), Button('Save key'),
              Button('Remove key', type='button', hx_post=Routes.key, hx_vals={'key': ''}, hx_target='#key', hx_swap='outerHTML') if own else '',
              hx_post=Routes.key, hx_target='#key', hx_swap='outerHTML', cls='row'),

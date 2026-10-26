@@ -12,7 +12,7 @@ __all__ = ['STT_SP', 'DFLT_GEMMA', 'GEMMA_E2B', 'DFLT_WHISPER', 'DFLT_PARAKEET',
            'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'Dictation', 'Speech']
 
 # %% ../nbs/05_voice.ipynb #v005
-import os, gc, json, time, uuid, inspect, tempfile, threading, wave
+import os, re, gc, json, time, uuid, inspect, tempfile, threading, wave
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from fastcore.utils import *
@@ -157,7 +157,8 @@ def openai_key() -> tuple:
     return '', ''
 
 def set_openai_key(key:str=''):
-    "Write `key` to abhyasa's `keys.env` (mode 0600); an empty key removes it."
+    "Write `key` to abhyasa's `keys.env` (mode 0600); an empty key removes it. A key with other than letters, digits, `-` and `_` raises `ValueError`."
+    if key.strip() and not re.fullmatch(r'[A-Za-z0-9_-]{8,300}', key.strip()): raise ValueError('An API key has only letters, digits, - and _.')
     p = cfg_dir()/'keys.env'
     p.parent.mkdir(parents=True, exist_ok=True)
     keep = [l for l in (p.read_text().splitlines() if p.exists() else []) if l.strip().removeprefix('export ').partition('=')[0].strip() != 'OPENAI_API_KEY']

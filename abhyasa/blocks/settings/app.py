@@ -66,7 +66,8 @@ def connect(app, ctx):
         return speech()
 
     def key(key:str=''):
-        voice.set_openai_key(key)
+        try: voice.set_openai_key(key)
+        except ValueError as e: return ui.Key(err=str(e))
         return ui.Key(), speech(oob=True)
 
     def model(task:str, model:str=''):

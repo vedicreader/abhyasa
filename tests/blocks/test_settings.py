@@ -42,6 +42,12 @@ def test_key_masked_and_private(mk):
     assert 'sk-secret-value' not in cl.get('/settings').text
     assert 'There is no key' in cl.post('/settings/key', data=dict(key='')).text
 
+def test_key_with_a_newline_is_refused(mk):
+    cl = mk()
+    t = cl.post('/settings/key', data=dict(key='sk-abc12345\nOTHER=1')).text
+    assert 'only letters, digits' in t and 'There is no key' in t
+    assert not (voice.cfg_dir()/'keys.env').exists() or 'OTHER' not in (voice.cfg_dir()/'keys.env').read_text()
+
 def test_openai_needs_a_key(mk):
     cl = mk(['settings'])
     cl.post('/settings/use', data=dict(engine='openai', model='gpt-4o-transcribe'))
