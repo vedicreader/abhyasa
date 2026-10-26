@@ -89,7 +89,7 @@ public final class Supervisor {
             return
         } catch {
             if gen == generation, !stopping {
-                phase = .failed("Setup did not complete. Make sure that this Mac can connect to the internet, then start again.\n\n"
+                phase = .failed("Setup did not complete. Make sure that this Mac can connect to the internet. Then start again.\n\n"
                                 + Self.tail(paths.syncLog))
             }
             return

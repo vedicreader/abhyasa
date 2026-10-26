@@ -38,7 +38,7 @@ struct FirstRunView: View {
     var body: some View {
         VStack(spacing: 16) {
             Text("Setting up abhyasa").font(.title2)
-            Text("The app gets Python and the abhyasa packages one time. This needs the internet and can take some minutes.")
+            Text("The app gets Python and the abhyasa packages one time. This step needs the internet. It can take some minutes.")
                 .multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 420)
             ProgressView().progressViewStyle(.linear).frame(width: 320)
             Text(line).font(.callout.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
@@ -54,7 +54,7 @@ struct NeedsUVView: View {
     var body: some View {
         VStack(spacing: 16) {
             Text("abhyasa needs uv").font(.title2)
-            Text("The app uses uv to get Python and the abhyasa packages. Install uv in Terminal, then click Retry.")
+            Text("The app uses uv to get Python and the abhyasa packages. Install uv in Terminal. Then click Retry.")
                 .multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 420)
             HStack {
                 Text(ChildEnv.uvInstall).font(.body.monospaced()).textSelection(.enabled)
@@ -107,7 +107,7 @@ struct SettingsView: View {
             if pick.wrappedValue == Self.other {
                 TextField("Model id", text: $s.model, prompt: Text(ServerSettings.defaultModel))
             }
-            Text("The default model for the tutor. The Claude models use the claude command. Settings in the app can choose a model for each task.")
+            Text("The default model for the tutor. The Claude models use the claude command. The Settings page in the app can set a model for each task.")
                 .font(.caption).foregroundStyle(.secondary)
             Picker("Speech engine", selection: $s.stt) {
                 ForEach(ServerSettings.engines, id: \.self) { Text($0) }
