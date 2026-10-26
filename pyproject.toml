@@ -62,9 +62,6 @@ include = ["/abhyasa", "/README.md", "/pyproject.toml"]
 [tool.hatch.version]
 path = "abhyasa/__init__.py"
 
-# rupaka is not on PyPI yet: use the local checkout beside this repo. Remove this when rupaka 0.0.1 is released.
-[tool.uv.sources]
-rupaka = { path = "../../rupaka", editable = true }
 
 [dependency-groups]
 dev = ["abhyasa[dev]"]
