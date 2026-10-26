@@ -1,4 +1,4 @@
-"""`/learn` in ramabana: the same tutor, in the terminal, beside your code.
+"""The `/learn` commands in the ramabana terminal agent: the same tutor, in the terminal, next to your code.
 
 Docs: https://vedicreader.github.io/abhyasa/rama.html.md"""
 

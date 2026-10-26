@@ -16,7 +16,7 @@ from fastcore.utils import *
 DFLT_MODEL = 'claude/sonnet'
 
 def rishi_ask(model:str=None):
-    "An `ask(prompt, sp='')` on a rishi `Chat` for `model`, else `$ABHYASA_MODEL`, else `DFLT_MODEL`."
+    "An `ask(prompt, sp='')` on a `rishi.Chat` (the model layer) for `model`, else `$ABHYASA_MODEL`, else `DFLT_MODEL`."
     from rishi import Chat, resp_text
     model = model or os.getenv('ABHYASA_MODEL') or DFLT_MODEL
     def ask(prompt, sp=''):
@@ -120,7 +120,7 @@ FALLBACK = ['claude/sonnet', 'claude/haiku', 'claude/opus']
 _cat = {}
 
 def _repos():
-    "The download of each local model in ramabana's catalogue, for the names."
+    "The download of each local model in the full model list, for the names."
     try:
         from ramabana.core import LOCAL as lr, MLX, LLAMA
         return {**lr, **MLX, **LLAMA}

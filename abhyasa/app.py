@@ -78,7 +78,7 @@ def main():
     import uvicorn
     p = argparse.ArgumentParser(description='abhyasa: a tutor that asks you questions. It starts the web app on this Mac.')
     p.add_argument('--port', type=int, default=cfg.port, help='the port of the web app; default $ABHYASA_PORT, then 5077')
-    p.add_argument('--vault', default=cfg.vault, help='the vault file; default $ABHYASA_VAULT, then your vault in ~/.vishalakshi')
+    p.add_argument('--vault', default=cfg.vault, help='the vault file; default $ABHYASA_VAULT, then your vault ($VISHALAKSHI_VAULT, then ~/.vishalakshi/vault.db)')
     p.add_argument('--model', default=None, help='the model id; choose it in Settings. Default $ABHYASA_MODEL, then claude/sonnet')
     a = p.parse_args()
     lr = Learning(a.vault)

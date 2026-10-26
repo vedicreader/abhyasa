@@ -1,4 +1,4 @@
-"""Learn by code in a notebook (leela or Jupyter): question cards and code exercises checked in the kernel.
+"""Learn with code in a notebook (leela or Jupyter): question cards, and code exercises that the kernel checks.
 
 Docs: https://vedicreader.github.io/abhyasa/nb.html.md"""
 

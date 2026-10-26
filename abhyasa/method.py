@@ -1,4 +1,4 @@
-"""The ways you learn: code, maths, analogies, worked examples, diagrams and plain words. Which work for you, and when to try a new one.
+"""The ways you learn: code, maths, analogies, worked examples, diagrams and plain words. This module finds which ways work for you, and when to try a new one.
 
 Docs: https://vedicreader.github.io/abhyasa/method.html.md"""
 

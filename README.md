@@ -9,11 +9,11 @@
 
 [![](https://github.com/vedicreader/abhyasa/actions/workflows/test.yaml/badge.svg)](https://github.com/vedicreader/abhyasa/actions/workflows/test.yaml)
 
-abhyasa (अभ्यास) is Sanskrit for “steady practice”. It is a tutor for people who want to learn well and keep their minds sharp. It asks you questions, and it never gives the answer first. You answer by voice or in text, and you can think aloud. The tutor grades your reasoning, not only the result.
+abhyasa (अभ्यास) is Sanskrit for “steady practice”. It is a tutor for people who want to learn well and keep their minds active. It asks you questions, and it never gives the answer first. You answer by voice or in text, and you can think aloud. The tutor grades your reasoning, not only the result.
 
-abhyasa keeps a learner model for each concept: how deep you know it, how well you recall it now, and when you must review it. It also learns how you learn. If code helps you more than equations, it uses code to drill a weak concept. Sometimes it uses a different way on purpose, so that you get better at that way too.
+abhyasa keeps a learner model for each concept: how deep you know it, how well you recall it now, and when you must review it. It also learns how you learn. If code helps you more than equations, it uses code to teach a weak concept again. Sometimes it uses a different way on purpose, so that you get better at that way too.
 
-The app needs macOS 26 on Apple Silicon. The tutor uses a language model that you choose, such as Claude, Codex, OpenAI or a local model. Your answers go to that model. Speech to text runs on your Mac by default. All other data stays in your vault on your Mac.
+The app needs macOS 26 on Apple Silicon. The tutor uses a language model. You choose it from a list in Settings, for example Claude, GPT or a local model. Your answers go to that model. Speech to text runs on your Mac by default. All other data stays in your vault on your Mac.
 
 ## Download
 
@@ -22,9 +22,9 @@ Click the Download for macOS button at the top. Then do these steps:
 1.  Unzip `Abhyasa.zip`.
 2.  Move `Abhyasa.app` to Applications.
 3.  Open Abhyasa.
-4.  Wait for the first start. The app uses uv to get Python and the abhyasa package one time. This takes a few minutes.
+4.  Wait for the first start. The app uses uv to get Python and the abhyasa package one time. This step takes some minutes.
 
-The app needs uv. If you do not have uv, install it with `brew install uv`. Each release has a Developer ID signature, and Apple notarized it.
+The app needs uv. If you do not have uv, install it with `brew install uv`. Each release has a Developer ID signature. Apple notarized each release.
 
 ### Homebrew
 
@@ -39,8 +39,8 @@ The cask also installs uv. To get a new version, run `brew upgrade --cask abhyas
 Each question goes through the same six steps:
 
 1.  Pick. The code chooses the next concept and the depth. A due review comes first. Then a new concept comes, if you know its prerequisites. The app shows the reason.
-2.  Ask. A model writes one question at that depth, in one way to learn, such as code or an analogy. It also writes a model answer and a rubric. You do not see them.
-3.  Struggle. You answer. If your answer is wrong, the tutor shows your first error and gives a nudge, but not the fix. You can ask for hints, one at a time.
+2.  Ask. A model writes one question at that depth, in one way to learn, such as code or an analogy. It also writes a correct answer and a rubric. You do not see them.
+3.  Struggle. You answer. If your answer is wrong, the tutor shows your first error. It gives a small hint, but not the fix. You can ask for hints, one at a time.
 4.  Grade. The model grades your answer and your think-aloud. The code grades choice questions and code exercises.
 5.  Update. The result and your confidence change the floor, the ceiling and the next review date of the concept.
 6.  Teach. After a miss, the tutor teaches the smallest step that fixes your first error. Then it asks a check question.
@@ -87,8 +87,8 @@ The app answers only requests from this Mac. These variables change the defaults
 
 | variable | what it sets | default |
 |----|----|----|
-| `ABHYASA_VAULT` | the vault file | the vault of vishalakshi |
-| `ABHYASA_MODEL` | the rishi model for questions, grades, hints and lessons | `claude/sonnet` |
+| `ABHYASA_VAULT` | the vault file | your vault: `$VISHALAKSHI_VAULT`, then `~/.vishalakshi/vault.db` |
+| `ABHYASA_MODEL` | the model id for questions, grades, hints and lessons. Choose the model in Settings. | `claude/sonnet` (Claude Sonnet) |
 | `ABHYASA_STT` | the speech-to-text engine: `gemma`, `whisper`, `parakeet`, `openai` or `mlx:<repo>`. It has priority over the Settings page. | the Settings page, then `gemma` |
 
 ## Other ways to use it
@@ -103,12 +103,12 @@ The web app is made from blocks in `abhyasa/blocks`:
 |----|----|
 | `today` | the home page: continue, your journeys, the next review and this week |
 | `journeys` | say a goal, and the tutor makes a path of steps. You can move, skip, add or split a step |
-| `history` | Your learning: each past session with what changed, and what you learned each week. Continue (⌥C) is in the top bar |
+| `history` | your learning: each past session with what changed, and what you learned each week. Continue (⌥C) is in the top bar |
 | `profile` | what abhyasa knows about you: a short first conversation, your edits, and the changes that the tutor makes, each with its reason |
 | `strengths` | your strong concepts, your weak spots and the ways that you learn best (⌥G) |
 | `session` | one sitting with the tutor: one question at a time, with hints, confidence and “I don’t know” |
 | `voice` | a microphone for each text box. ⌥D speaks into the box that has the focus, on any page |
-| [`settings`](https://vedicreader.github.io/abhyasa/voice.html#settings) | the speech model, the OpenAI key and the model for each tutor task |
+| [`settings`](https://vedicreader.github.io/abhyasa/voice.html#settings) | the speech model, the OpenAI key and the model for each tutor task. You choose each model from a list of names |
 | `concepts` | the list of concepts, and one page for each concept with its state |
 | `graph` | the concept graph. You can color it by depth, by how well you know each concept, by subject or by due date |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |
@@ -120,7 +120,7 @@ Each page shows where you are, above its title. Esc goes up one level, ⌥T goes
 
 ### ramabana
 
-The `/learn` extension gives you the tutor in the terminal, next to your code. To turn it on, make the file `~/.config/ramabana/extensions/abhyasa.py` with this line:
+In the ramabana terminal agent, the `/learn` extension gives you the tutor next to your code. To turn it on, make the file `~/.config/ramabana/extensions/abhyasa.py` with this line:
 
 ``` python
 from abhyasa.rama import setup
@@ -138,13 +138,13 @@ ex = exercise('reciprocal-rank-fusion')
 
 ## Where the data is
 
-All data is on the `learning` shelf of your vishalakshi vault. Each concept, attempt and session is one document in the vault, so your other tools can search it. The tests use a vault in a temporary folder. They never open your real vault.
+All data is on the `learning` shelf of your vault. Each concept, attempt and session is one document in the vault. Thus your other tools can search it. The tests use a vault in a temporary folder. They never open your real vault.
 
 ## Demos
 
 Some ideas are easier to see than to read. A demo is one interactive figure from [rupaka](https://github.com/vedicreader/rupaka). It asks you to predict first. It hides the result until you lock in (⌘↩). Then the controls work, and the last line asks a new question.
 
-- The tutor makes a demo after two misses on a concept with the same kind of error. It also makes one for a concept with `visual: true` in its meta. A model writes the demo as data, and rupaka checks it in a headless browser. You do not wait for it.
+- The tutor makes a demo after two misses on a concept with the same kind of error. It also makes one for a concept with `visual: true` in its meta. The model writes the demo as data. rupaka checks it in a headless browser. You do not wait for it.
 - After a miss on a concept that has a demo, the session shows the demo under the lesson.
 - “Show me a demo” (⌥E) on a concept page shows the newest demo, or makes one.
 - abhyasa keeps each prediction as an attempt with `kind='demo'`. A prediction changes the learner model of the concept, as an answer does. A prediction with a reason counts at depth 3 (explain). A prediction without a reason counts at depth 2 (recall).

@@ -57,7 +57,7 @@ def concept_text(c) -> str:
 
 # %% ../nbs/00_store.ipynb #c013
 class Learning:
-    "Concepts, attempts and sessions on one shelf of a vishalakshi vault."
+    "Concepts, attempts and sessions on one shelf of your vault."
     def __init__(self, vault=None, shelf:str=SHELF):
         if not isinstance(vault, Vault): vault = Vault(vault)
         self.vault, self.v = vault, vault.shelf(shelf)

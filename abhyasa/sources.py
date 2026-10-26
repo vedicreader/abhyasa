@@ -1,4 +1,4 @@
-"""Grow the concept graph: from any text, from a vault document, and from vedicreader.
+"""Add concepts to the concept graph from any text, from a vault document and from vedicreader.
 
 Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 

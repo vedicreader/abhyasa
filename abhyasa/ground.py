@@ -229,7 +229,7 @@ def index_main(argv=None):
     from vishalakshi import Vault
     p = argparse.ArgumentParser(description='Put your ramabana sessions or notebooks on vault shelves, so every tool can search them.')
     p.add_argument('what', choices=['ramabana', 'notebooks', 'schedule'], help='what to index; `schedule` makes ramabana index sessions on its own')
-    p.add_argument('--vault', default=os.getenv('ABHYASA_VAULT') or os.getenv('VISHALAKSHI_VAULT'))
+    p.add_argument('--vault', default=os.getenv('ABHYASA_VAULT') or os.getenv('VISHALAKSHI_VAULT'), help='the vault file; default your vault')
     p.add_argument('--cfg', default=None, help='the ramabana config folder; default ~/.config/ramabana')
     p.add_argument('--roots', nargs='*', default=[str(Path.home()/'code')], help='folders to look for notebooks in')
     p.add_argument('--agent-only', action='store_true', help='only leela agent sessions (_leela_agent_sessions)')
