@@ -110,8 +110,12 @@ import Testing
         let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appending(path: "../../Resources/Pin").standardized
         let py = try String(contentsOf: dir.appending(path: "pyproject.toml"), encoding: .utf8)
         let lock = try String(contentsOf: dir.appending(path: "uv.lock"), encoding: .utf8)
-        #expect(py.contains(#""abhyasa[whisper,tick]==0.0.2""#))
-        #expect(lock.contains("name = \"abhyasa\"\nversion = \"0.0.2\"\nsource = { registry = \"https://pypi.org/simple\" }"))
+        // the pin names one released abhyasa with the app's extras, and the lock holds that same version from PyPI
+        let key = "abhyasa[whisper,tick,models]=="
+        let at = try #require(py.range(of: key))
+        let v = py[at.upperBound...].prefix { $0.isNumber || $0 == "." }
+        #expect(!v.isEmpty)
+        #expect(lock.contains("name = \"abhyasa\"\nversion = \"\(v)\"\nsource = { registry = \"https://pypi.org/simple\" }"))
     }
 }
 
