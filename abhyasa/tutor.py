@@ -6,7 +6,7 @@ Docs: https://vedicreader.github.io/abhyasa/tutor.html.md"""
 
 # %% auto #0
 __all__ = ['MAX_TRIES', 'HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'GRADE_SP', 'CLOSE_HOOKS', 'question_prompt', 'thread_text',
-           'grade_prompt', 'hint_prompt', 'teach_prompt', 'Tutor', 'public', 'Session']
+           'grade_prompt', 'hint_prompt', 'teach_prompt', 'Tutor', 'public', 'paced', 'Session']
 
 # %% ../nbs/03_tutor.ipynb #c004
 import json, random, time, uuid
@@ -15,6 +15,8 @@ from .store import Learning
 from .model import DEPTHS, KIND_AT, GOAL, update, pick, recall, outcome
 from .llm import ask_json, for_task
 from .ground import VaultSource, ground, ground_text
+from .profile import profile_text, observe
+from .journey import current
 
 # %% ../nbs/03_tutor.ipynb #c006
 MAX_TRIES = 3
@@ -43,19 +45,20 @@ Rules:
   active voice, one instruction per sentence, simple words. Technical terms of the subject are allowed."""
 
 # %% ../nbs/03_tutor.ipynb #c013
-def _concept_block(c, ctx=''):
+def _concept_block(c, ctx='', who=''):
     mis = '; '.join(c.get('misconceptions') or []) or 'none known'
     return (f"Concept: {c['name']} (subject: {c.get('subject') or 'general'})\nStatement: {c.get('statement') or '(none given)'}\n"
             f"Learner: floor {DEPTHS[c.get('floor', 0)]}, ceiling {DEPTHS[c['ceiling']] if c.get('ceiling', 6) < 6 else 'not found yet'}; "
-            f"misconceptions seen: {mis}" + (f"\nFrom the learner's own vault (use only if relevant):\n{ctx}" if ctx else ''))
+            f"misconceptions seen: {mis}" + (f"\nFrom the learner's own vault (use only if relevant):\n{ctx}" if ctx else '')
+            + (f"\nAbout the learner (set the question in their world: use the kinds of example that help them):\n{who}" if who else ''))
 
-def question_prompt(c, depth, avoid=(), ctx=''):
+def question_prompt(c, depth, avoid=(), ctx='', who=''):
     "The prompt that writes one question on `c` at `depth`."
     kind = KIND_AT[depth]
     shape = ('{"question": str, "options": [{"text": str, "misconception": str}], "correct": int, "answer": str, "rubric": [str]}'
              if kind == 'choice' else '{"question": str, "answer": str, "rubric": [str]}')
     av = '\n'.join(f'- {q}' for q in avoid)
-    return (f"{_concept_block(c, ctx)}\n\nWrite ONE question that makes the learner {DEPTH_ASK[depth]}.\n"
+    return (f"{_concept_block(c, ctx, who)}\n\nWrite ONE question that makes the learner {DEPTH_ASK[depth]}.\n"
             f"Aim it just past what they reliably know, so they must struggle a little. Ask ONE thing, in under 60 words. Write only the final question: no drafts, no corrections, no 'no: take'.\n"
             + (f"Target this misconception if it fits: {c['misconceptions'][-1]}\n" if c.get('misconceptions') else '')
             + (f"Do not repeat these earlier questions:\n{av}\n" if av else '')
@@ -109,6 +112,7 @@ def teach_prompt(q, first_error):
             + (f"The conversation:\n{thread_text(q)}\n" if q.get('turns') else f"Their tries: {json.dumps(q.tries)}\n")
             + f"Their first error: {first_error or 'they did not know'}\n\n"
             + (f"Passages from their own sources; build on one and name it, if it fits:\n{q.ctx}\n\n" if q.get('ctx') else '')
+            + (f"About the learner (explain in their world, with the kinds of example that help them):\n{q.who}\n\n" if q.get('who') else '')
             + "Teach the smallest step that fixes that first error, in under 120 words. Build on what they got right. "
             "Then show the model answer briefly. End with one line that starts 'Check:' and asks them to predict "
             "something new that the fixed idea implies (they will answer it next).")
@@ -124,8 +128,9 @@ CLOSE_HOOKS = []
 
 class Tutor:
     "The learning loop over a `Learning` store with an `ask(prompt, sp)` model; `pool` runs background jobs."
-    def __init__(self, learning:Learning, ask, goal:int=GOAL, context:bool=True, sources=None, pool=None):
+    def __init__(self, learning:Learning, ask, goal:int=GOAL, context:bool=True, sources=None, pool=None, observe_every:int=6):
         store_attr()
+        self.closed = 0    # questions closed; each `observe_every` closes, the profile learns from the answers
         if sources is None: self.sources = [VaultSource(learning)]
         self.open = {}     # question id -> question, while the learner works on it
         self.checks = {}   # concept -> (the check question of the lesson, the lesson), asked next on that concept
@@ -147,12 +152,13 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='') -> AttrDict:
                  subject=c.get('subject', ''), floor=c.get('floor', 0), depth=depth, kind=KIND_AT[depth], why=why, session=session,
                  hints=[], tries=[], at=time.time())
     ps = self._ground(c)
+    q.who = profile_text(self.learning.profile())
     q.update(ctx=ground_text(ps), grounds=[dict(src=p.src, ref=p.ref, title=p.title, url=p.url) for p in ps])
     if (ck := self.checks.pop(c['slug'], None)):
         q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, why=f'{why}; the check from the lesson'.lstrip('; '))
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
-        r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx), TUTOR_SP)
+        r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx, q.who), TUTOR_SP)
         q.update(question=r['question'], answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))
@@ -166,16 +172,25 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='') -> AttrDict:
 
 def public(q) -> AttrDict:
     "A question as the learner can see it: no model answer, no rubric, no correct option, no misconception tags."
-    out = AttrDict({k: v for k, v in q.items() if k not in ('answer', 'rubric', 'correct', 'options', 'statement', 'ctx', 'grounds')})
+    out = AttrDict({k: v for k, v in q.items() if k not in ('answer', 'rubric', 'correct', 'options', 'statement', 'ctx', 'grounds', 'who')})
     if q.get('options'): out.options = [o['text'] for o in q.options]
     return out
 
 # %% ../nbs/03_tutor.ipynb #c025
+def paced(c, depth:int, pace:str='steady') -> int:
+    "The depth for the pace of the learner: at `gentle`, at most one above the floor; at `fast`, one more than `pick` gives."
+    if c.get('shaky'): return depth
+    if pace == 'gentle': return max(1, min(depth, c.get('floor', 0) + 1))
+    if pace == 'fast': return min(5, depth + 1)
+    return depth
+
 @patch
 def next(self:Tutor, focus:str=None, subject:str=None, session:str='', skip=(), near=()) -> AttrDict|None:
-    "The next question, chosen by `pick`, or None when there is nothing to learn or review."
+    "The next question, chosen by `pick` at the pace of the learner, or None when there is nothing to learn or review."
     r = pick(self.learning.concepts(), focus=focus, subject=subject, goal=self.goal, skip=skip, near=near)
-    return self.ask_on(*r, session=session) if r else None
+    if not r: return None
+    c, d, why = r
+    return self.ask_on(c, paced(c, d, self.learning.profile().pace), why, session=session)
 
 # %% ../nbs/03_tutor.ipynb #c027
 @patch
@@ -248,20 +263,29 @@ def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinki
                          q.depth, q.kind, hints, dont_know, g.get('grade'), g.get('feedback', '') or lesson,
                          g.get('first_error', ''), g.get('misconception', ''), session=q.session, final=True, outcome=kind, thread=q.turns)
     del self.open[q.id]
+    self.closed += 1
+    if self.observe_every and self.pool and self.closed % self.observe_every == 0: self.pool.submit(self._observe)
     r = AttrDict(done=True, correct=correct, outcome=kind, feedback=g.get('feedback', ''), first_error=g.get('first_error', ''),
-                 lesson=lesson, answer=q.answer if not correct else '', floor=u.floor, ceiling=u.ceiling,
+                 lesson=lesson, answer=q.answer if not correct else '', misconception=g.get('misconception', ''), floor=u.floor, ceiling=u.ceiling,
                  due=u.due, depth=q.depth, grounds=q.get('grounds', []), concept=q.concept, session=q.session)
     for f in CLOSE_HOOKS: r = f(self, q, r) or r
     return r
 
+@patch
+def _observe(self:Tutor):
+    "Update the profile from the recent answers; a failure changes nothing."
+    try: return observe(self.learning, for_task(self.ask, 'extract'))
+    except Exception: return []
+
 # %% ../nbs/03_tutor.ipynb #c036
 class Session:
-    "One sitting: questions, answers and a summary filed at the end."
-    def __init__(self, tutor:Tutor, focus:str=None, subject:str=None, limit:int=12, run:int=3):
-        store_attr()
-        self.id, self.start, self.log, self.q = uuid.uuid4().hex[:10], time.time(), [], None
-        self.near = set()
-        if focus and (c := tutor.learning.concept(focus)) is not None:
+    "One sitting: questions and answers, saved on the shelf after each move, so that a restart can continue it."
+    def __init__(self, tutor:Tutor, focus:str=None, subject:str=None, limit:int=None, run:int=3, journey:str=None, sid:str=None):
+        store_attr('tutor,focus,subject,run,journey')
+        self.limit = limit or tutor.learning.profile().session_len
+        self.id, self.start, self.log, self.q, self.ended, self.near = sid or uuid.uuid4().hex[:10], time.time(), [], None, None, set()
+        if journey and (j := tutor.learning.journey(journey)) is not None: self.near = {s['slug'] for s in j.steps}
+        elif focus and (c := tutor.learning.concept(focus)) is not None:
             # a session on one concept stays in its subject, and goes next to its neighbours: links in either direction
             self.subject = subject or c.get('subject') or None
             self.near = {*c.get('prereqs', ()), *c.get('related', ())} | {x.slug for x in tutor.learning.concepts(self.subject) if focus in (*(x.get('prereqs') or ()), *(x.get('related') or ()))}
@@ -271,28 +295,80 @@ class Session:
         return {last[0]} if len(last) == self.run and len(set(last)) == 1 else set()
 
     def next(self) -> AttrDict|None:
-        "The next question, or None when the session is over."
-        if len(self.log) >= self.limit: return None
+        "The next question, or None when the session is over (or its journey is done)."
+        if self.ended or len(self.log) >= self.limit: return None
         skip = self._skip()
-        self.q = self.tutor.next(focus=self.focus if self.focus not in skip else None, subject=self.subject, session=self.id, skip=skip, near=self.near)
+        if self.journey:
+            j = self.tutor.learning.journey(self.journey)
+            if not (f := current(self.tutor.learning, j, skip, self.tutor.goal) if j else None): return None
+            self.q = self.tutor.next(focus=f, session=self.id, skip=skip, near=self.near)
+        else: self.q = self.tutor.next(focus=self.focus if self.focus not in skip else None, subject=self.subject, session=self.id, skip=skip, near=self.near)
+        self.save()
         return self.q
 
-    def answer(self, *args, **kw) -> AttrDict:
-        r = self.tutor.answer(self.q.id, *args, **kw)
-        if r.done: self.log.append(dict(concept=self.q.concept, depth=self.q.depth, correct=r.correct, outcome=r.outcome))
-        return r
+# %% ../nbs/03_tutor.ipynb #ts02
+@patch
+def _logged(self:Session, r, full):
+    q = self.q
+    self.log.append(dict(qid=q.id, concept=q.concept, name=q.name, depth=q.depth, why=q.get('why', ''), question=q.question,
+                         correct=r.correct, outcome=r.outcome, floor0=q.get('floor', 0), floor=r.floor, misconception=r.get('misconception', ''),
+                         turns=list((full or {}).get('turns') or []), at=time.time()))
 
-    def give_up(self, **kw) -> AttrDict:
-        r = self.tutor.give_up(self.q.id, **kw)
-        self.log.append(dict(concept=self.q.concept, depth=self.q.depth, correct=False, outcome=r.outcome))
-        return r
+@patch
+def answer(self:Session, *args, **kw) -> AttrDict:
+    full = self.tutor.open.get(self.q.id)
+    r = self.tutor.answer(self.q.id, *args, **kw)
+    if r.done: self._logged(r, full)
+    self.save()
+    return r
 
-    def hint(self) -> str: return self.tutor.hint(self.q.id)
+@patch
+def give_up(self:Session, **kw) -> AttrDict:
+    full = self.tutor.open.get(self.q.id)
+    r = self.tutor.give_up(self.q.id, **kw)
+    self._logged(r, full)
+    self.save()
+    return r
 
-    def summary(self) -> str:
-        "A short summary, filed on the shelf as a `session` document."
-        n, ok = len(self.log), sum(r['correct'] for r in self.log)
-        cs = sorted({r['concept'] for r in self.log})
-        s = f"{ok} of {n} passed. Concepts: {', '.join(cs) or 'none'}."
-        if n: self.tutor.learning.log_session(self.id, s, start=self.start, end=time.time(), concepts=cs, passed=ok, asked=n)
-        return s
+@patch
+def hint(self:Session) -> str:
+    h = self.tutor.hint(self.q.id)
+    self.save()
+    return h
+
+# %% ../nbs/03_tutor.ipynb #ts04
+@patch
+def summary(self:Session) -> str:
+    "A short summary, and the text of the session document."
+    n, ok = len(self.log), sum(r['correct'] for r in self.log)
+    return f"{ok} of {n} passed. Concepts: {', '.join(sorted({r['concept'] for r in self.log})) or 'none'}."
+
+@patch
+def save(self:Session):
+    "File the session on the shelf, with its log and its open question. A session with nothing in it is not filed."
+    if not (self.log or self.q): return
+    full = self.tutor.open.get(self.q.id) if self.q and not self.ended else None
+    self.tutor.learning.log_session(self.id, self.summary(), start=self.start, updated=time.time(), focus=self.focus, subject=self.subject,
+                                    journey=self.journey, limit=self.limit, log=self.log, open=dict(full) if full else None, ended=self.ended,
+                                    asked=len(self.log), passed=sum(r['correct'] for r in self.log), concepts=sorted({r['concept'] for r in self.log}))
+
+@patch
+def end(self:Session) -> str:
+    "Close the session and file it. Return its summary."
+    self.ended = time.time()
+    if self.q: self.tutor.open.pop(self.q.id, None)
+    self.save()
+    return self.summary()
+
+@patch(cls_method=True)
+def load(cls:Session, tutor:Tutor, sid:str):
+    "The session `sid` from the shelf, with its open question open again; None for an unknown id or an old summary."
+    m = tutor.learning.session(sid)
+    if m is None or 'log' not in m: return None
+    s = cls(tutor, m.get('focus'), m.get('subject'), m.get('limit'), journey=m.get('journey'), sid=sid)
+    s.start, s.log, s.ended = m.get('start') or s.start, list(m.get('log') or []), m.get('ended')
+    if (o := m.get('open')) and not s.ended:
+        q = AttrDict(o)
+        tutor.open[q.id] = q
+        s.q = public(q)
+    return s

@@ -161,8 +161,23 @@ def attempts(self:Learning, concept:str=None, session:str=None, limit:int=50) ->
 # %% ../nbs/00_store.ipynb #c027
 @patch
 def log_session(self:Learning, sid:str, summary:str, **meta):
-    "File a session summary, and replace an earlier one with the same id."
-    return self.v.add(summary, title=f'Session {sid}', source=_src('session', sid), kind='session', meta=dict(id=sid, **meta))
+    "File a session, and replace an earlier one with the same id. The meta changes also when the summary text does not."
+    m = dict(id=sid, summary=summary, **meta)
+    r = self.v.add(summary, title=f'Session {sid}', source=_src('session', sid), kind='session', meta=m)
+    if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
+    return r
+
+@patch
+def session(self:Learning, sid:str) -> AttrDict|None:
+    "One filed session by id, as its meta."
+    r = first(self.v.t.docs(where='source=?', where_args=[_src('session', sid)]))
+    return AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']}) if r else None
+
+@patch
+def sessions(self:Learning, limit:int=100) -> L:
+    "The filed sessions, the most recently changed first."
+    rs = L(self._docs('session')).map(lambda r: AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']}))
+    return L(sorted(rs, key=lambda s: -(s.get('updated') or s.get('end') or s.get('start') or 0))[:limit])
 
 # %% ../nbs/00_store.ipynb #c029
 @patch
