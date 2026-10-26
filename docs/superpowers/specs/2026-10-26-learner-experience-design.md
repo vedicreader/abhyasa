@@ -90,7 +90,7 @@ passages from your sources. The concepts that it finds go before the step, as it
 
 ### The path page
 
-![a journey](../../../design/screens/journey-light.png)
+![a journey that a real model planned](../../../design/screens/real-journey-light.png)
 
 The path is a vertical line of steps, as a subway map is. Each step shows:
 
@@ -152,7 +152,7 @@ The model answer of an open question is in the meta of the session document, not
 
 ## About you: the learner profile
 
-![about you](../../../design/screens/you-light.png)
+![about you, after the first conversation and one change by the tutor](../../../design/screens/you-changes-light.png)
 
 The app keeps one `profile` document on the learning shelf. It has:
 
@@ -251,3 +251,18 @@ Each task ends with its tests green.
 10. Profile block: About you, onboarding, the line on Today.
 11. Route tests for each block (pytest). Browser checks in headless Chromium against a copy of a test vault, light and dark,
     with a fake model; one short run with a real model for the planner and the onboarding.
+
+## Screenshots and checks
+
+All screenshots are in `design/screens`, each in the paper theme (light) and the ink theme (dark): `today-first`, `onboard`, `you`,
+`journey`, `journey-edited`, `session`, `session-step-done`, `summary`, `learning`, `learning-one`, `today`, `concept`, `journeys`,
+`you-changes`, and from a real model (`claude/sonnet`) `real-you` and `real-journey`.
+
+The browser check (`/tmp/abh/flow.py`, headless Chromium, a copy of a test vault, a fake model) walks the first conversation, a plan,
+the path edits (split, mark known, add), a journey session to "Step done", Esc to the journey, Back and Forward, ⌥T, ⌥C, the end
+summary, Your learning, one past session, Esc up from it, "In your journeys" on a concept page, ⌥D into the search box, and "Look at
+my recent answers". 29 of 29 checks pass, with no page errors.
+
+With a real model, the first conversation took 10 s and the plan took 15 s. The plan for "LLMs: transformers, then Mamba, then JAX
+or PyTorch, then training techniques" had nine steps, from "Tokens and embeddings" to "Fine-tuning and alignment". It used the
+profile: "Attention is the core operation of a transformer, like a retrieval step that you already know from your tools."
