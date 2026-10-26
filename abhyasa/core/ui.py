@@ -3,9 +3,10 @@ import hashlib, time
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core.cfg import RouteOverrides
+from abhyasa.core.hooks import run
 from abhyasa.model import DEPTHS, GOAL
 
-__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'Page', 'Md', 'DepthBar', 'Spin', 'when']
+__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'Page', 'Crumbs', 'Md', 'DepthBar', 'Spin', 'when', 'ago']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -48,12 +49,21 @@ def HDRS():
             Script(src='/vendor/auto-render.min.js', defer=True),
             asset_js(_here/'core.js'))
 
-def Page(title, *c, on='', wide=False, extra=()):
-    "A whole page: the header with the blocks' nav links and a search box, then `c`."
+def Crumbs(crumbs):
+    "Where you are: the links up to this page. The last one is the parent, where Esc goes."
+    if not crumbs: return ''
+    out = []
+    for i, (t, h) in enumerate(crumbs):
+        last = i == len(crumbs) - 1
+        out += [A(('← ' if last and len(crumbs) == 1 else '') + t, href=h, cls='up' if last else None, title='Esc' if last else None), Span('›', cls='sep')]
+    return Div(*out[:-1], cls='crumbs', role='navigation', aria_label='Where you are')
+
+def Page(title, *c, on='', wide=False, extra=(), crumbs=()):
+    "A whole page: the header with the blocks' nav links, what other blocks add (`nav_extra`), a search box, the crumbs, then `c`."
     nav = [A(t, href=h, cls='on' if t == on else '') for t, h, _ in sorted(RouteOverrides.nav, key=lambda x: x[2])]
-    return (Title(f'{title} · abhyasa'), *extra, Nav(A('abhyasa', href='/', cls='brand'), *nav,
+    return (Title(f'{title} · abhyasa'), *extra, Nav(A('abhyasa', href='/', cls='brand'), *nav, Span(cls='nav-gap'), *run('nav_extra'),
             Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search')),
-            Main(*c, cls='wide' if wide else ''))
+            Main(Crumbs(crumbs), *c, cls='wide' if wide else ''), *run('page_extra'))
 
 def Md(s, cls='', **kw):
     "Markdown with maths, rendered in the browser by `core.js`."
@@ -72,6 +82,15 @@ def when(t):
     d = (t - time.time()) / 86400
     if d <= 0: return 'due now'
     return f'in {d*24:.0f} h' if d < 1 else f'in {d:.0f} d'
+
+def ago(t):
+    "A short time since `t`: today at 14:05, yesterday, Mon 20 Oct."
+    if not t: return ''
+    lt, now = time.localtime(t), time.localtime()
+    days = (time.mktime(now[:3] + (0, 0, 0) + now[6:]) - time.mktime(lt[:3] + (0, 0, 0) + lt[6:])) / 86400
+    if days < 1: return time.strftime('today at %H:%M', lt)
+    if days < 2: return time.strftime('yesterday at %H:%M', lt)
+    return time.strftime('%a %d %b' if days < 300 else '%d %b %Y', lt)
 
 def Cites(links, label='From your sources'):
     "Links to passages in your own sources: a vault document, a session, a notebook, a verse."

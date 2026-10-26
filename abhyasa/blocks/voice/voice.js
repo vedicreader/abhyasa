@@ -1,8 +1,7 @@
 // Continuous dictation. One press starts it, and it listens until the next press, or until its text box closes.
 // vad.js cuts the mic stream at your pauses. Each segment goes to the server as a 16 kHz WAV with its number.
 // The server sends the text back in order over server-sent events, and it goes at the end of the box.
-abhyasaKeys.KeyD = '#mic';
-var abhyasaDict = null;   // var: htmx may load this file again with each card
+var abhyasaDict = window.abhyasaDict || null;   // var: htmx may load this file again with each page; a running dictation stays
 async function abhyasaMic(btn) {
   if (abhyasaDict) { const same = abhyasaDict.btn === btn; await abhyasaDict.stop(!same); if (same) return; }
   const box = document.getElementById(btn.dataset.into), d = abhyasaDict = {btn, sent: 0, got: 0, sends: [], ended: false};
@@ -74,4 +73,50 @@ function abhyasaWav(pcm) {
   h.setUint32(24, 16000, true); h.setUint32(28, 32000, true); h.setUint16(32, 2, true); h.setUint16(34, 16, true); w(36, 'data'); h.setUint32(40, m * 2, true);
   for (let i = 0; i < m; i++) { const s = Math.max(-1, Math.min(1, pcm[i])); h.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true); }
   return new Blob([h], {type: 'audio/wav'});
+}
+
+// Voice anywhere. A box with `data-mic` (and each box in a demo) gets a small mic of its own. ⌥D speaks into the box in focus,
+// on any page: with its own mic, or with the floating one. With no box in focus, ⌥D presses the main mic of the page.
+// A second ⌥D stops the dictation.
+const abhyasaBox = 'textarea, input[type=text], input[type=search], input:not([type])';
+function abhyasaMics(root) {
+  const tpl = document.getElementById('mic-float');
+  if (!tpl) return;
+  (root && root.querySelectorAll ? root : document).querySelectorAll('textarea[data-mic], input[data-mic], .demo-card textarea').forEach(box => {
+    if (box.dataset.micDone) return;
+    box.dataset.micDone = 1;
+    if (!box.id) box.id = 'box-' + Math.random().toString(36).slice(2, 8);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'mic mini'; b.title = 'Speak into this box. ⌥D does it too, when the box has focus.';
+    for (const k of ['vad', 'start', 'seg', 'stop', 'events']) b.dataset[k] = tpl.dataset[k];
+    b.dataset.into = box.id;
+    b.innerHTML = '<span class="say">Speak</span><i class="lvl"></i>';
+    b.addEventListener('click', () => abhyasaMic(b));
+    const wrap = document.createElement('span');
+    wrap.className = 'micbox';
+    box.replaceWith(wrap); wrap.append(box, b);
+  });
+}
+if (!window.abhyasaVoiceOn) {
+  window.abhyasaVoiceOn = true;
+  window.addEventListener('load', () => abhyasaMics());
+  document.addEventListener('htmx:afterSettle', e => abhyasaMics());
+  document.addEventListener('rupaka:ready', () => abhyasaMics());
+  document.addEventListener('keydown', e => {
+    if (!e.altKey || e.code !== 'KeyD') return;
+    e.preventDefault();
+    if (abhyasaDict) return abhyasaMic(abhyasaDict.btn);
+    const a = document.activeElement, box = a && a.matches && a.matches(abhyasaBox) ? a : null;
+    if (box) {
+      const own = box.id && document.querySelector(`.mic[data-into="${box.id}"]`);
+      if (own) return abhyasaMic(own);
+      const f = document.getElementById('mic-float');
+      if (!f) return;
+      if (!box.id) box.id = 'box-' + Math.random().toString(36).slice(2, 8);
+      f.dataset.into = box.id;
+      return abhyasaMic(f);
+    }
+    const m = document.querySelector('#mic') || document.querySelector('.mic.mini');
+    if (m) abhyasaMic(m);
+  });
 }

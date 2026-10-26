@@ -1,0 +1,93 @@
+"A journey as a path: a vertical line of steps, each with its state, its depth and why it is there; the current step in the accent."
+import json
+from pathlib import Path
+from fasthtml.common import *
+from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago
+from .cfg import Routes
+
+_P = Path(__file__).parent
+STATE = dict(new='new', started='started', learned='learned', known='you know it', skipped='skipped', missing='not on the shelf')
+PLANNING = 'Planning a path. This takes about half a minute…'
+
+def assets(): return asset_css(_P/'journeys.css'), asset_js(_P/'journeys.js')
+
+def at(r, j): return Routes.of(r, jid=j.id)
+def go(j): return f"{Routes.start}?journey={j.id}"
+
+def Bar(done, total): return Span(I(style=f"width:{100 * done // max(total, 1)}%"), cls='prog', role='progressbar', aria_valuenow=str(done), aria_valuemax=str(total))
+
+def GoalForm(compact=False):
+    "The box where a journey starts: say or type a goal. The planner proposes a path that you can change."
+    return Form(Label('What do you want to learn?', fr='goal'),
+                Textarea(name='goal', id='goal', rows=1 if compact else 2, data_mic='1', aria_label='Your goal',
+                         placeholder='For example: how LLMs work, from tokens to training. ⌘↵ plans a path.'),
+                Div(Button('Plan a path', cls='plan', data_wait=PLANNING, data_skel='#plan-out'),
+                    Span('The tutor proposes the steps. You can change each one.', cls='mute'), cls='row'),
+                Div(id='plan-out'), hx_post=Routes.new, hx_target='#plan-out', cls='goal-form')
+
+def Row(j, pg):
+    "One journey in a list: its title, its progress, the step to do now, and Continue."
+    now = f"Now: {pg.current.name}" if pg.current else 'Finished'
+    return Li(Div(A(j.title, href=at(Routes.one, j), cls='jt'), Span(f"  {pg.done} of {pg.total} steps · {now}", cls='mute'), cls='jrow-head'),
+              Bar(pg.done, pg.total),
+              A('Continue', href=go(j), cls='btn small') if pg.current else A('See what comes after', href=at(Routes.one, j), cls='btn small quiet'),
+              cls='jrow')
+
+def JourneyList(js, empty='No journeys yet. Say what you want to learn, and the tutor proposes a path.'):
+    return Ul(*[Row(j, pg) for j, pg in js], cls='plain journeys') if js else P(empty, cls='mute')
+
+def Act(j, s, act, label, title):
+    return Button(label, type='button', cls='small quiet', title=title, hx_post=at(Routes.step, j), hx_vals=json.dumps(dict(slug=s.slug, act=act)),
+                  hx_target='#path', hx_swap='outerHTML')
+
+def Step(j, s, i, n, now):
+    "One step: a dot on the line, the concept, its state, why it is in the path, and the changes you can make."
+    acts = [Act(j, s, 'up', '↑', 'Move up') if i else '', Act(j, s, 'down', '↓', 'Move down') if i < n - 1 else '',
+            Act(j, s, 'todo', 'Learn it', 'Put it back in the path') if s.state in ('known', 'skipped') else Act(j, s, 'known', 'I know it', 'Mark it known: the path goes on'),
+            Act(j, s, 'skip', 'Skip', 'Leave it out for now') if s.state not in ('skipped', 'known') else '',
+            Button('Split', type='button', cls='small quiet', title='Split it into smaller steps', hx_post=at(Routes.split, j), hx_vals=json.dumps(dict(slug=s.slug)),
+                   hx_target='#path', hx_swap='outerHTML', data_wait='Splitting…') if s.state in ('new', 'started') else '',
+            Act(j, s, 'remove', 'Remove', 'Take it out of the path')]
+    head = Div(A(s.name, href=f'/c/{s.slug}', cls='name') if s.c else Span(s.name, cls='name'), DepthBar(s.c.floor) if s.c else '',
+               Span(STATE[s.state] + (' · now' if now else ''), cls='st'), cls='step-head')
+    learn = A('Learn this step', href=f"{Routes.start}?focus={s.slug}", cls='btn small quiet') if s.state in ('new', 'started') and not now else ''
+    return Li(Span(cls='dot', aria_hidden='true'), head, P(s.why, cls='why') if s.get('why') else '', Div(learn, *acts, cls='acts'),
+              cls=f"step {s.state}" + (' now' if now else ''), id=f'step-{s.slug}')
+
+def Path_(j, pg):
+    "The progress, the way on, the steps, and a box to add a topic. Each change returns this whole part."
+    cur = pg.current.slug if pg.current else None
+    way = (A(f'Continue: {pg.current.name} ', Kbd('⌥S'), href=go(j), cls='btn go') if pg.current
+           else P('You finished this journey. See what comes after it, below.', cls='done-note'))
+    return Div(Div(Span(f"{pg.done} of {pg.total} steps", cls='lbl'), Bar(pg.done, pg.total), cls='phead'), Div(way, cls='row'),
+               Ol(*[Step(j, s, i, len(pg.steps), s.slug == cur) for i, s in enumerate(pg.steps)], cls='path'),
+               Form(Input(type='text', name='name', id='add-topic', data_mic='1', aria_label='Add a topic',
+                          placeholder='Add a topic, for example: rotary position embeddings'),
+                    Button('Add', data_wait='Adding…'), hx_post=at(Routes.add, j), hx_target='#path', hx_swap='outerHTML', cls='add-topic'),
+               id='path')
+
+def JourneyPage(j, pg, after=(), others=()):
+    return (H1(j.title), P('Your goal: ', Span(j.get('goal', ''), cls='goal'), Span(f"  · changed {ago(j.get('updated'))}", cls='mute'), cls='mute'),
+            Path_(j, pg),
+            *([H2('After this' if pg.finished else 'Next to this path'),
+               Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
+                       Button('Add to the path', type='button', cls='small quiet', hx_post=Routes.attach, hx_vals=json.dumps(dict(jid=j.id, slug=c.slug)),
+                              hx_target='#path', hx_swap='outerHTML')) for c in after], cls='plain')] if after else []),
+            *([H2('Your other journeys'), JourneyList(others)] if others else []),
+            Form(Button('Remove this journey', cls='small quiet danger'), action=at(Routes.drop, j), method='post',
+                 hx_confirm='Remove this journey? Its concepts and what you learned stay.', cls='drop'))
+
+def InJourneys(c, rows, js):
+    "On a concept page: the journeys that have this concept, and a way to add it to one."
+    have = {j.id for j, _ in rows}
+    pick = [j for j in js if j.id not in have]
+    return Div(*([Span('In your journeys', cls='lbl'),
+                  Ul(*[Li(A(j.title, href=at(Routes.one, j)), Span(f"  step {i + 1} of {len(j.steps)}", cls='mute')) for j, i in rows], cls='plain')] if rows else []),
+               Form(Select(*[Option(j.title, value=j.id) for j in pick], name='jid', aria_label='A journey'), Input(type='hidden', name='slug', value=c.slug),
+                    Button('Add to the journey', cls='small'), hx_post=Routes.attach, hx_target='this', hx_swap='outerHTML', cls='attach row') if pick else '',
+               cls='in-journeys')
+
+def StepDone(c, nxt):
+    "A note in the thread when a step of the journey is learned."
+    return Div(Span('Step done', cls='lbl'), P(f"You learned {c.name}. " + (f"Next in the journey: {nxt}." if nxt else 'That was the last step of the journey.')),
+               cls='step-done')

@@ -6,7 +6,7 @@ Docs: https://vedicreader.github.io/abhyasa/tutor.html.md"""
 
 # %% auto #0
 __all__ = ['MAX_TRIES', 'HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'GRADE_SP', 'CLOSE_HOOKS', 'question_prompt', 'thread_text',
-           'grade_prompt', 'hint_prompt', 'teach_prompt', 'Tutor', 'public', 'paced', 'Session']
+           'grade_prompt', 'hint_prompt', 'teach_prompt', 'Tutor', 'public', 'paced', 'Session', 'moved']
 
 # %% ../nbs/03_tutor.ipynb #c004
 import json, random, time, uuid
@@ -372,3 +372,14 @@ def load(cls:Session, tutor:Tutor, sid:str):
         tutor.open[q.id] = q
         s.q = public(q)
     return s
+
+# %% ../nbs/03_tutor.ipynb #ts11
+def moved(log) -> list:
+    "For each concept in a session log, in order: its name, the floor before and after, and the misconceptions found."
+    out = {}
+    for r in log:
+        m = out.setdefault(r['concept'], dict(concept=r['concept'], name=r.get('name') or r['concept'], before=r.get('floor0', 0), after=r.get('floor0', 0),
+                                              asked=0, passed=0, misconceptions=[]))
+        m['after'], m['asked'], m['passed'] = r.get('floor', m['after']), m['asked'] + 1, m['passed'] + bool(r.get('correct'))
+        if r.get('misconception') and r['misconception'] not in m['misconceptions']: m['misconceptions'].append(r['misconception'])
+    return list(out.values())

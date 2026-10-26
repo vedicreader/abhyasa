@@ -11,10 +11,10 @@ __all__ = ['CAPS', 'connect', 'MicButton', 'hint_for']
 CAPS = ('speech', 'learning')
 _P = Path(__file__).parent
 
-def MicButton(into:str, concept:str=''):
+def MicButton(into:str, concept:str='', id:str='mic', cls:str='mic'):
     "A toggle that listens, sends each spoken segment, and appends the text to the element with id `into`. ⌥D presses it."
     vad = asset_js(_P/'vad.js').attrs['src']   # the AudioWorklet loads it by URL
-    return (Button(Span('Speak', cls='say'), I(cls='lvl'), ' ', Kbd('⌥D'), type='button', id='mic', cls='mic', onclick='abhyasaMic(this)',
+    return (Button(Span('Speak', cls='say'), I(cls='lvl'), ' ', Kbd('⌥D'), type='button', id=id, cls=cls, onclick='abhyasaMic(this)',
                    title='Speak your thinking. The text goes into the box while you talk. Press again to stop.',
                    data_into=into, data_concept=concept, data_vad=vad, data_start=Routes.start,
                    data_seg=Routes.seg.format(did=''), data_stop=Routes.stop.format(did=''), data_events=Routes.events.format(did='')),
@@ -62,6 +62,11 @@ def connect(app, ctx):
 
     @hook('answer_tools')
     def mic(q, into): return MicButton(into, q.get('concept', ''))
+
+    @hook('page_extra')
+    def anywhere():
+        "On each page: a mic for each box with `data-mic`, and ⌥D into the box in focus. The floating mic shows while it listens."
+        return MicButton('', id='mic-float', cls='mic mic-float')
 
     sp.warm()   # the first segment should not wait for the model to load
     app.post(Routes.stt)(stt)

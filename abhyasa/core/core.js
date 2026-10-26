@@ -23,6 +23,8 @@ document.addEventListener('htmx:oobAfterSwap', e => render(e.target));
 
 // A block adds keys with `abhyasaKeys.KeyX = '#selector'`. ⌥S presses the main button of any page.
 window.abhyasaKeys = window.abhyasaKeys || {KeyS: '#send, main .go'};
+// ⌥T goes to Today and ⌥C continues where you left off, from any page.
+Object.assign(abhyasaKeys, {KeyT: 'nav a[href="/"]:not(.brand)', KeyC: '#continue'});
 document.addEventListener('keydown', e => {
   if (!e.altKey) return;
   const sel = abhyasaKeys[e.code], el = sel && document.querySelector(sel);
@@ -37,6 +39,17 @@ document.addEventListener('keydown', e => {
     const q = document.querySelector('nav input[type=search]');
     if (q) { e.preventDefault(); q.focus(); q.select(); }
   }
+});
+
+// Esc goes up one level, to the parent in the crumbs. In a text box the first Esc only leaves the box, so no words are lost.
+// A part of a page with its own Esc (the graph) has the focus, so this does nothing there.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+  const t = e.target;
+  if (t.matches && t.matches('textarea, input, select, [contenteditable]')) { t.blur(); return; }
+  if (t !== document.body && !(t.matches && t.matches('a, button, summary'))) return;
+  const up = document.querySelector('main .crumbs a.up');
+  if (up) { e.preventDefault(); up.click(); }
 });
 
 // Text boxes grow with their text (CSS `field-sizing`, or this for a browser without it), up to a limit; then they scroll inside.

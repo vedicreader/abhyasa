@@ -1,8 +1,9 @@
 "The session page as a conversation: each question is a short thread in one scroll, and the composer stays at the bottom."
 from pathlib import Path
 from fasthtml.common import *
+from fastcore.utils import AttrDict
 from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, asset_js
-from abhyasa.model import DEPTHS
+from abhyasa.model import DEPTHS, GOAL
 from abhyasa.tutor import MAX_TRIES
 from .cfg import Routes
 
@@ -82,6 +83,19 @@ def Close(r, said=''):
               P(f"Now: floor {DEPTHS[r.floor]}, next review {when(r.due)}.", cls='mute now'),
               cls=f"m tutor fb close {'ok' if r.correct else 'no'}")
 
+def Turns(turns):
+    "The messages of a question drawn again from its thread: after a restart, or for a question of an earlier run."
+    out, n = [], 0
+    for t in turns:
+        if t['who'] == 'you': out.append(You(t.get('text', ''), t.get('thinking', ''), t.get('confidence')))
+        elif t.get('kind') == 'nudge': out.append(Nudge(AttrDict(feedback=t.get('text', ''), first_error=t.get('first_error', ''))))
+        elif t.get('kind') == 'hint': n += 1; out.append(Hint(n, t.get('text', '')))
+        elif t.get('kind') == 'close':
+            ok = t.get('outcome') in ('solid', 'fragile')
+            out.append(Li(Span(OUTCOME.get(t.get('outcome'), 'Closed'), cls='tag'), Md(t['text']) if t.get('text') and (ok or not t.get('lesson')) else '',
+                          Div(Span('Lesson', cls='lbl'), Md(t['lesson']), cls='lesson') if t.get('lesson') else '', cls=f"m tutor fb close {'ok' if ok else 'no'}"))
+    return out
+
 def Extras(r):
     "What other blocks add after the close, such as a demo under the lesson: each one is a tutor message in the thread."
     return [Li(x, cls='m tutor extra') for x in run('lesson_extra', r)]
@@ -141,5 +155,40 @@ def Ready(sid, ready):
     return Span('Writing the next question', cls='ready mute wait', id='ready', data_quiet='1',
                 hx_get=Routes.at(Routes.ready, sid), hx_trigger='load delay:1s', hx_swap='outerHTML')
 
-def Done(summary):
-    return Section(H1('Done for now'), P(summary), A('Back to today', href='/'), cls='qa done'), Div(id='composer', hx_swap_oob='true')
+def Done():
+    "A session that is not here any more: the ways out."
+    return (Section(H1('This session is over'), P(A('Your learning', href='/learning'), ' · ', A('Today', href='/')), cls='qa done'),
+            Div(id='composer', hx_swap_oob='true'))
+
+def Moved(m):
+    "One concept of the session: from what depth to what depth, and how many passed."
+    up, down = m['after'] > m['before'], m['after'] < m['before']
+    said = (f"{DEPTHS[m['before']]} → {DEPTHS[m['after']]}" if up or down else f"stays at {DEPTHS[m['after']]}")
+    return Li(A(m['name'], href=f"/c/{m['concept']}"), DepthBar(m['after']), ' ',
+              Span(said, cls='moved up' if up else 'moved down' if down else 'moved'),
+              Span(f"  · {m['passed']} of {m['asked']} passed", cls='mute'),
+              *([P('Misconception: ', ', '.join(m['misconceptions']), cls='mute mis')] if m['misconceptions'] else []))
+
+def EndPage(s, ms, j=None, pg=None, rel=()):
+    "The end of a session: what moved, in plain words; then what comes next, one key away."
+    n, ok = len(s.log), sum(r['correct'] for r in s.log)
+    up = [m for m in ms if m['after'] > m['before']]
+    mis = sum(len(m['misconceptions']) for m in ms)
+    mins = max(1, round(((s.ended or s.start) - s.start) / 60))
+    lead = ' '.join(x for x in (
+        f"{len(up)} concept{'s' if len(up) != 1 else ''} moved up." if up else 'Nothing moved up this time. The misses show what to work on next.' if n else 'No questions this time.',
+        f"You found {mis} misconception{'s' if mis != 1 else ''}." if mis else '') if x)
+    nxt = []
+    if j and pg:
+        nxt = [H2('Your journey'), P(A(j.title, href=f'/j/{j.id}'), Span(f"  {pg.done} of {pg.total} steps", cls='mute')),
+               Span(I(style=f"width:{100 * pg.done // max(pg.total, 1)}%"), cls='prog'),
+               P(f"Next step: {pg.current.name}." if pg.current else 'You finished this journey.', cls='next-step'),
+               Div(A('Continue the journey ', Kbd('⌥S'), href=f'/start?journey={j.id}', cls='btn go') if pg.current else
+                   A('See what comes after ', Kbd('⌥S'), href=f'/j/{j.id}', cls='btn go'), cls='row')]
+    elif rel:
+        nxt = [H2('Related topics'), Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
+                                             A('Learn', href=f'/start?focus={c.slug}', cls='btn small quiet')) for c in rel], cls='plain related')]
+    return (H1('Done for now' if n else 'Session'), P(f"{ok} of {n} passed · about {mins} min. ", lead, cls='lead-sum'),
+            *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []),
+            *nxt,
+            Div(A('Your learning', href='/learning', cls='btn quiet'), A('Today ', Kbd('⌥T'), href='/', cls='btn quiet'), cls='row'))

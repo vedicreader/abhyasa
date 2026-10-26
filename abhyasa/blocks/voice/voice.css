@@ -12,3 +12,13 @@
 .mic.busy .say::before { animation: mic-pulse 1.2s ease-in-out infinite; }
 @keyframes mic-pulse { 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .mic .lvl { transition: none; } .mic.busy .say::before { animation: none; } }
+
+/* the floating mic: out of sight until ⌥D starts it for a box that has no mic of its own */
+.mic-float { display: none; position: fixed; right: 24px; bottom: calc(var(--composer-h, 0px) + 20px); z-index: 40; background: var(--bg); }
+.mic-float.on, .mic-float.busy { display: inline-flex; }
+/* a small mic at the bottom right of a box that asks for one */
+.micbox { position: relative; display: block; }
+.micbox > textarea, .micbox > input { padding-right: 76px; }
+.mic.mini { position: absolute; right: 0; bottom: 6px; padding: 3px 8px; font-size: 13px; border-color: transparent; color: var(--mute); }
+.mic.mini:hover { color: var(--fg); border-color: var(--rule); }
+.mic.mini.on, .mic.mini.busy { border-color: var(--acc); color: var(--fg); }

@@ -1,4 +1,8 @@
-"Blocks add to each other's pages without importing each other (vedicreader's `vr/core/hooks.py`)."
+"""Blocks add to each other's pages without importing each other (vedicreader's `vr/core/hooks.py`).
+
+The hooks: `today_top`, `today_next`, `today` (the parts of Today, in that order); `nav_extra` (the right of the top bar);
+`page_extra` (once at the end of each page); `concept_actions` and `concept_more` (a concept page); `answer_tools` (the session
+composer); `lesson_extra` (under a lesson)."""
 from collections import defaultdict
 
 __all__ = ['HOOKS', 'hook', 'run', 'clear']

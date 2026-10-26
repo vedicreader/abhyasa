@@ -101,3 +101,10 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
   .rail { position: static; max-height: none; margin: 0 0 18px; }
   .rail summary { cursor: pointer; }
 }
+
+/* the end of a session: what moved, then what comes next */
+.lead-sum { font-size: 19px; color: var(--ink2); }
+.moved { font-size: 15px; color: var(--mute); } .moved.up { color: var(--ok); } .moved.down { color: var(--no); }
+.moved-list li .mis { margin: 2px 0 0; font-style: italic; }
+.next-step { margin: 14px 0 0; font-size: 19px; }
+.related .btn.small { margin-left: 6px; }

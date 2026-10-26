@@ -32,7 +32,9 @@ nav a { color: var(--mute); text-decoration: none; padding-bottom: 12px; border-
 nav a:hover { color: var(--fg); }
 nav a.on { color: var(--fg); border-bottom-color: var(--acc); }
 nav .brand { font: 19px/1 var(--head); color: var(--fg); margin-right: 8px; letter-spacing: .01em; }
-nav form { margin-left: auto; }
+nav .nav-gap { margin-left: auto; }
+nav #continue { color: var(--fg); white-space: nowrap; max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
+nav #continue kbd { margin-left: 6px; }
 nav input[type=search] { width: 240px; font-size: 15px; padding: 4px 2px; }
 
 h1, h2 { font-family: var(--head); font-weight: 400; letter-spacing: -.01em; }
@@ -117,3 +119,14 @@ main { animation: fade .2s ease-out; }
 }
 .row > .ix:not(:empty) { flex-basis: 100%; }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; } @media (max-width: 640px) { .pair { grid-template-columns: 1fr; } }
+
+/* where you are: quiet links over the title; the last one is the parent, where Esc goes */
+.crumbs { font-size: 14px; color: var(--mute); margin: -16px 0 18px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.crumbs a { color: var(--mute); text-decoration: none; } .crumbs a:hover { color: var(--fg); text-decoration: underline; }
+.crumbs .sep { opacity: .6; }
+/* a thin progress line: a journey, a week */
+.prog { display: block; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; max-width: 360px; margin: 6px 0 0; }
+.prog i { display: block; height: 100%; background: var(--acc); border-radius: 2px; transition: width .4s ease-out; }
+button.quiet, .btn.quiet { border-color: transparent; color: var(--mute); } button.quiet:hover, .btn.quiet:hover { color: var(--fg); }
+button.small, .btn.small { padding: 5px 9px; font-size: 13px; }
+@media (max-width: 640px) { nav .nav-gap { display: none; } }
