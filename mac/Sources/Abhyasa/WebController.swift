@@ -28,6 +28,9 @@ final class WebController: NSObject, WKUIDelegate, WKNavigationDelegate {
     }
 
     /// a form post with no fields, as the "Start" button sends
+    func back() { if view.canGoBack { view.goBack() } }
+    func forward() { if view.canGoForward { view.goForward() } }
+
     func post(_ path: String) {
         guard let u = url(path) else { return }
         var r = URLRequest(url: u)

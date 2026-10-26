@@ -21,7 +21,11 @@ struct AbhyasaApp: App {
                 Button("New Session") { model.newSession() }.keyboardShortcut("n")
             }
             CommandMenu("Go") {
-                Button("Today") { model.today() }
+                // a wrong click is never a dead end: back, forward, and home from anywhere (also a two-finger swipe)
+                Button("Back") { model.back() }.keyboardShortcut("[")
+                Button("Forward") { model.forward() }.keyboardShortcut("]")
+                Divider()
+                Button("Today") { model.today() }.keyboardShortcut("h", modifiers: [.command, .shift])
                 Button("Graph") { model.graph() }
                 Button("Search") { model.search() }.keyboardShortcut("f")
                 Button("Add a Source") { model.addSource() }

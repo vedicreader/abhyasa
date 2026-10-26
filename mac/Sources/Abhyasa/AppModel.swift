@@ -63,6 +63,8 @@ final class AppModel {
     // the menu commands
     func newSession() { web.post("/start") }
     func today() { web.go("/") }
+    func back() { web.back() }
+    func forward() { web.forward() }
     func graph() { web.go("/graph") }
     func addSource() { web.go("/add") }
     /// puts the focus in the search box at the top of the page, or opens the search page
