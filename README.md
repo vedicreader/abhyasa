@@ -69,6 +69,7 @@ The web app is made from blocks under `abhyasa/blocks`:
 | `journeys` | journeys: say a goal, and the tutor proposes a path of steps; move, skip, add or split a step; continue any journey |
 | `history` | Your learning: each past session with what moved, what you learned each week, and Continue in the top bar (⌥C) |
 | `profile` | What abhyasa knows about you: a short first conversation, your edits, and the changes that the tutor makes, each with its reason |
+| `method` | The ways you learn (code, maths, analogies, worked examples, pictures, plain words): which work for you, and when to try a new one |
 | `session` | one sitting with the tutor: one question at a time, with hints, confidence and “I don’t know” |
 | `voice` | a mic for each text box where you answer or write; ⌥D speaks into the box in focus, on any page |
 | [`settings`](https://vedicreader.github.io/abhyasa/voice.html#settings) | the speech model: pick, look up and get one; the OpenAI key; the tutor model |
