@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, ago
-from abhyasa.profile import LABELS, LIST_FIELDS, EXAMPLES, PACES, ONBOARD_QS
+from abhyasa.profile import LABELS, LIST_FIELDS, EXAMPLES, PACES, ONBOARD_QS, calibration_text
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -46,6 +46,11 @@ def Changes(cs):
                   P('Why: ', c['why'], cls='mute why-line') if c.get('why') else '',
                   Form(Input(type='hidden', name='at', value=repr(c['at'])), Button('Undo', cls='small quiet'), action=Routes.undo, method='post'))
     return Ul(*map(row, cs[:40]), cls='plain changes')
+
+def Calibration(r):
+    "How often you were right when you felt sure, and when you felt unsure."
+    t = calibration_text(r)
+    return P(t, cls='calib') if t else P('After five answers with a “Sure?” choice, this shows how often you are right when you feel sure.', cls='mute')
 
 def Onboard():
     "The first conversation: four questions in the tutor's voice, each answered by voice or text."

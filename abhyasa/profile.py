@@ -6,13 +6,15 @@ Docs: https://vedicreader.github.io/abhyasa/profile.html.md"""
 
 # %% auto #0
 __all__ = ['PROFILE', 'LIST_FIELDS', 'EXAMPLES', 'PACES', 'LABELS', 'ONBOARD_QS', 'ONBOARD_SP', 'OBSERVE_SP', 'profile_text',
-           'clean', 'onboard_prompt', 'onboard', 'evidence', 'observe_prompt', 'observe']
+           'clean', 'onboard_prompt', 'onboard', 'evidence', 'observe_prompt', 'observe', 'calibration',
+           'calibration_text']
 
 # %% ../nbs/12_profile.ipynb #f8e3e421
 import json, time
 from fastcore.utils import *
 from .store import Learning, _src
 from .llm import ask_json
+from .model import HIGH
 
 # %% ../nbs/12_profile.ipynb #2269e644
 PROFILE = dict(background=[], goals=[], interests=[], examples=[], pace='steady', session_len=12, confuses=[], notes='')
@@ -135,3 +137,27 @@ def observe(lr:Learning, ask, n:int=12) -> list:
         else: continue
         out += lr.set_profile(by='tutor', why=c.get('why', ''), **{f: new})
     return out
+
+# %% ../nbs/12_profile.ipynb #ca02
+def calibration(lr:Learning, n:int=300) -> AttrDict:
+    "How often the first try of a question was right, when you felt sure and when you felt unsure."
+    seen, r = set(), AttrDict(sure=0, sure_right=0, unsure=0, unsure_right=0)
+    for a in reversed(lr.attempts(limit=n)):   # oldest first, so the first try of each question counts
+        k = (a.get('session'), a.question)
+        if k in seen: continue
+        seen.add(k)
+        if a.get('kind') == 'demo' or a.get('dont_know') or a.get('confidence') is None: continue
+        b = 'sure' if a.confidence >= HIGH else 'unsure'
+        r[b], r[f'{b}_right'] = r[b] + 1, r[f'{b}_right'] + bool(a.correct)
+    return r
+
+# %% ../nbs/12_profile.ipynb #ca04
+def calibration_text(r) -> str:
+    "The calibration `r` in plain words; empty with fewer than five answers."
+    if r.sure + r.unsure < 5: return ''
+    out = [f'When you felt sure, you were right in {r.sure_right} of {r.sure}.' if r.sure else '',
+           f'When you felt unsure, you were right in {r.unsure_right} of {r.unsure}.' if r.unsure else '']
+    if r.sure >= 3 and r.sure_right / r.sure < .7: out.append('You are often sure and wrong. Before you answer, ask: how could this be wrong?')
+    elif r.unsure >= 3 and r.unsure_right / r.unsure > .7: out.append('You know more than you think. Trust your first idea a little more.')
+    elif r.sure >= 3: out.append('When you feel sure, you are usually right. Your sense of what you know is good.')
+    return ' '.join(o for o in out if o)

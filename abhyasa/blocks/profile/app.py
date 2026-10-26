@@ -2,7 +2,7 @@
 from fasthtml.common import *
 from abhyasa.core import Page, hook
 from abhyasa.llm import for_task
-from abhyasa.profile import PROFILE, LIST_FIELDS, ONBOARD_QS, onboard, observe
+from abhyasa.profile import PROFILE, LIST_FIELDS, ONBOARD_QS, onboard, observe, calibration
 from . import ui
 from .cfg import Routes
 
@@ -23,6 +23,7 @@ def connect(app, ctx):
                     '' if p.known else P(A('Tell abhyasa about you', href=Routes.start), ': four short questions, by voice or text.'),
                     ui.Form_(p),
                     H2('What changed, and why'), ui.Changes(p.changes),
+                    H2('How well you know what you know'), ui.Calibration(calibration(lr)),
                     H2('Learn about me now'),
                     P('The tutor reads your recent answers after every sixth question. You can ask it to do that now.', cls='mute'),
                     Div(Button('Look at my recent answers', hx_post=Routes.observe, hx_target='#observed', data_wait='Reading your answers…'),

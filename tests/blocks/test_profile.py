@@ -52,3 +52,11 @@ def test_voice_everywhere(mk):
     js = cl.get('/assets/voice.js').text
     assert 'abhyasaMics' in js and "e.code !== 'KeyD'" in js
     assert 'mic-float' not in mk(names=['journeys', 'today']).get('/journeys').text   # without the voice block nothing breaks
+
+def test_calibration(mk, lr):
+    cl = mk()
+    assert 'How well you know what you know' in cl.get('/you').text and 'After five answers' in cl.get('/you').text
+    for i, (ok, conf) in enumerate([(False, 90), (False, 90), (True, 90), (False, 70), (True, 30)]):
+        lr.record('ranking', f'q{i}', correct=ok, confidence=conf, depth=3, session='s', final=True)
+    t = cl.get('/you').text
+    assert 'you were right in 1 of 4' in t and 'how could this be wrong?' in t
