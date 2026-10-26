@@ -45,8 +45,9 @@ The `whisper` extra installs `mlx-audio` for the whisper engine, and the `tick` 
 - Menu: File > New Session (Command-N), and Go > Today, Graph, Search (Command-F) and Add a Source.
 - Dock badge: the number of due reviews, from `/due.json`, each 5 minutes and after each page load. abhyasa 0.0.2 does
   not have `/due.json`, so the badge shows after the next release of the Python package.
-- Links: `abhyasa://concept/<slug>` opens the page of that concept. `abhyasa://` and `abhyasa://today` open Today.
-  Links to other sites open in your browser.
+- Links: `abhyasa://concept/<slug>` opens the page of that concept. `abhyasa://vault/<shelf>/<doc_id>` opens that
+  document of your vault. `abhyasa://` and `abhyasa://today` open Today. Links to other sites open in your browser.
+  A shelf or a document id has only letters, digits, `-`, `_` and `.`, and it is not only dots.
 
 ## Build
 

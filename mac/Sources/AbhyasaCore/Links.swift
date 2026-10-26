@@ -9,7 +9,14 @@ public enum Links {
         !s.isEmpty && s.count <= 200 && s.allSatisfy { ("a"..."z").contains($0) || ("0"..."9").contains($0) || $0 == "-" }
     }
 
-    /// the server path for a link: `abhyasa://concept/<slug>` gives `/c/<slug>`, `abhyasa://` and
+    /// a vault shelf or document id: ASCII letters, digits, `-`, `_` and `.`, not only dots, at most `max` characters
+    public static func isVaultID(_ s: String, max: Int) -> Bool {
+        !s.isEmpty && s.count <= max && !s.allSatisfy { $0 == "." }
+            && s.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "-_.".contains($0)) }
+    }
+
+    /// the server path for a link: `abhyasa://concept/<slug>` gives `/c/<slug>`,
+    /// `abhyasa://vault/<shelf>/<doc_id>` gives `/v/<shelf>/<doc_id>`, and `abhyasa://` and
     /// `abhyasa://today` give `/`. Other links give nil.
     public static func path(_ url: URL) -> String? {
         guard url.scheme?.lowercased() == scheme else { return nil }
@@ -18,6 +25,9 @@ public enum Links {
         case "concept":
             guard parts.count == 1, isSlug(parts[0].lowercased()) else { return nil }
             return "/c/\(parts[0].lowercased())"
+        case "vault":
+            guard parts.count == 2, isVaultID(parts[0], max: 100), isVaultID(parts[1], max: 200) else { return nil }
+            return "/v/\(parts[0])/\(parts[1])"
         case "", "today":
             return parts.isEmpty ? "/" : nil
         default:

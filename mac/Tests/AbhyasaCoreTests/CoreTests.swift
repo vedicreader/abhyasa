@@ -202,6 +202,27 @@ import Testing
         #expect(path("abhyasa://today") == "/")
     }
 
+    @Test func vaultLinksOpenTheVaultViewer() {
+        #expect(path("abhyasa://vault/learning/reciprocal-rank-fusion") == "/v/learning/reciprocal-rank-fusion")
+        #expect(path("abhyasa://vault/notes/Meeting_2026.10.27") == "/v/notes/Meeting_2026.10.27")
+        #expect(path("abhyasa://vault/a/" + String(repeating: "x", count: 200)) == "/v/a/" + String(repeating: "x", count: 200))
+    }
+
+    @Test func badVaultLinksGiveNil() {
+        #expect(path("abhyasa://vault/learning") == nil)
+        #expect(path("abhyasa://vault/learning/") == nil)
+        #expect(path("abhyasa://vault/a/b/c") == nil)
+        #expect(path("abhyasa://vault/../x") == nil)
+        #expect(path("abhyasa://vault/a/..") == nil)
+        #expect(path("abhyasa://vault/a/...") == nil)
+        #expect(path("abhyasa://vault/a/b%2Fc") == nil)
+        #expect(path("abhyasa://vault/a/b%20c") == nil)
+        #expect(path("abhyasa://vault/a/b%3Fc") == nil)
+        #expect(path("abhyasa://vault/a/caf%C3%A9") == nil)
+        #expect(path("abhyasa://vault/a/" + String(repeating: "x", count: 201)) == nil)
+        #expect(path("abhyasa://vault/" + String(repeating: "s", count: 101) + "/x") == nil)
+    }
+
     @Test func otherLinksGiveNil() {
         #expect(path("abhyasa://concept/") == nil)
         #expect(path("abhyasa://concept/a/b") == nil)
