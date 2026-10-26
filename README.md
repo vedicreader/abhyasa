@@ -113,7 +113,7 @@ It asks you to predict first, and it hides the result until you lock in (⌘↩)
 - After two misses on a concept with the same kind of error, or for a concept with `visual: true` in its meta, the tutor makes a demo in the background. A model writes it as data, and rupaka checks it in a headless browser. You never wait.
 - After a miss on a concept that has a demo, the session shows the demo under the lesson.
 - “Show me a demo” (⌥E) on a concept page shows the newest demo, or makes one.
-- Each prediction is kept as an attempt with `kind='demo'`. It does not change the learner model.
+- Each prediction is kept as an attempt with `kind='demo'`, and it updates the learner model of the concept, as an answer does. A prediction with a reason counts at depth 3 (explain), and one without a reason at depth 2 (recall).
 
 `abhyasa.demo.import_gallery(learning)` stores the rupaka gallery demos (vowel sandhi and others) for the concepts that match.
 
