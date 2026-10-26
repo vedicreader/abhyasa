@@ -132,8 +132,9 @@ def ramabana_sessions(cfg=None, history='agent', max_turn:int=2000, max_doc:int=
     "Each ramabana session as `(id, title, text, meta)`, from the history file."
     cfg = Path(cfg or RAMA_CFG)
     idx = json.loads((cfg/f'{history}-sessions.json').read_text()).get('sessions', {}) if (cfg/f'{history}-sessions.json').exists() else {}
-    turns = {}
-    with open(cfg/f'{history}-history.jsonl', encoding='utf-8', errors='replace') as f:
+    turns, hp = {}, cfg/f'{history}-history.jsonl'
+    if not hp.exists(): return
+    with open(hp, encoding='utf-8', errors='replace') as f:
         for line in f:
             try: r = json.loads(line)
             except json.JSONDecodeError: continue
@@ -185,11 +186,14 @@ def nb_text(p, max_out:int=1000, max_doc:int=60000) -> str:
     return '\n\n'.join(p for p in parts if p.strip())[:max_doc]
 
 def index_notebooks(vault, roots, shelf:str='notebooks', only_agent:bool=False, dry_run:bool=False) -> dict:
-    "Put each notebook under `roots` on the vault shelf `shelf`. Returns counts."
-    sh, n = (None if dry_run else vault.shelf(shelf)), dict(notebooks=0, changed=0, failed=0)
+    "Put each notebook under `roots` that is new or changed on the vault shelf `shelf`. Returns counts."
+    sh, n = (None if dry_run else vault.shelf(shelf)), dict(notebooks=0, changed=0, failed=0, same=0)
+    # a notebook with the same mtime as its copy on the shelf is not read again
+    had = {} if dry_run else {d['meta'].get('path'): d['meta'].get('mtime') for d in sh.sources(kind='notebook')}
     for p in find_notebooks(roots, only_agent):
         n['notebooks'] += 1
         if dry_run: continue
+        if had.get(str(p)) == p.stat().st_mtime: n['same'] += 1; continue
         try: txt = nb_text(p)
         except Exception: n['failed'] += 1; continue
         if not txt.strip(): continue
