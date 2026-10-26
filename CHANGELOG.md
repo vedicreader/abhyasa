@@ -2,6 +2,18 @@
 
 <!-- do not remove -->
 
+## 0.0.6
+
+- The app answers only this Mac. It refuses a request with a foreign Host, a cross-site request, and a change from a foreign Origin, so a web page cannot start a session or set your key.
+- Exercises that a model writes are checked first. Their tests run with safe builtins and a time limit.
+- If the lesson model fails, the question still closes, the miss counts one time, and you see the model answer.
+- "Sure?" starts with no step picked. With no confidence given, a clean pass is solid and a wrong answer is a gap, so a spoken answer can count as solid.
+- Slugs read Indic scripts: `संधि` gives `samdhi`. C, C++ and C# get different slugs. `Learning.reslug` moves concepts with old slugs, and every link to them.
+- A JSON reply with a code fence inside a string no longer fails.
+- Settings refuses an API key with a newline or a space, and says why.
+- The index tick works with no ramabana history yet, and reads only notebooks that changed.
+- `/a` and `/ans` answer in ramabana, and `/learn` stays on the newest agent.
+
 ## 0.0.5
 
 - Journeys. Say a goal, such as "learn LLMs", and the tutor plans a path of topics from your graph, with new concepts for the gaps. You can move, skip, mark known, split, add or remove a step. A journey session asks about the current step, and the path fills in as you learn.
