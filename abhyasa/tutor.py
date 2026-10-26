@@ -13,7 +13,7 @@ __all__ = ['MAX_TRIES', 'HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'GRADE_SP', 'CLOSE_HOO
 import json, random, time, uuid
 from fastcore.utils import *
 from .store import Learning
-from .model import DEPTHS, KIND_AT, GOAL, update, pick, recall, outcome, next_depth, learned, weak
+from .model import DEPTHS, KIND_AT, GOAL, update, pick, recall, outcome, next_depth, learned, weak, understanding
 from .llm import ask_json, for_task
 from .ground import VaultSource, ground, ground_text
 from .profile import PACES, profile_text, observe, calibration_text
@@ -363,8 +363,8 @@ def teach(self:Tutor, qid:str, another:bool=False) -> str:
 # %% ../nbs/03_tutor.ipynb #c036
 class Session:
     "One sitting: questions and answers, saved on the shelf after each move, so that a restart can continue it."
-    def __init__(self, tutor:Tutor, focus:str=None, subject:str=None, limit:int=None, run:int=3, journey:str=None, sid:str=None):
-        store_attr('tutor,focus,subject,run,journey')
+    def __init__(self, tutor:Tutor, focus:str=None, subject:str=None, limit:int=None, run:int=3, journey:str=None, sid:str=None, drill:bool=False):
+        store_attr('tutor,focus,subject,run,journey,drill')
         self.limit = limit or tutor.learning.profile().session_len
         self.id, self.start, self.log, self.q, self.ended, self.near = sid or uuid.uuid4().hex[:10], time.time(), [], None, None, set()
         if journey and (j := tutor.learning.journey(journey)) is not None: self.near = {s['slug'] for s in j.steps}
@@ -382,7 +382,7 @@ class Session:
         if self.ended or len(self.log) >= self.limit: return None
         skip, (pace, note) = self._skip(), flow(self.log, self.tutor.learning.profile().pace)
         mode = 'drill' if note.startswith('easier') else None   # after two misses: your best way, not a new one
-        if (q := self._retest(pace)): self.q = q
+        if (q := self._retest(pace) or self._drill(pace)): self.q = q
         elif self.journey:
             j = self.tutor.learning.journey(self.journey)
             if not (f := current(self.tutor.learning, j, skip, self.tutor.goal) if j else None): return None
@@ -413,6 +413,18 @@ def _retest(self:Session, pace:str='steady', gap:int=2) -> AttrDict|None:
     if not (k := first(k for k, i in rt.items() if n - 1 - i >= gap)) or (c := self.tutor.learning.concept(k)) is None: return None
     d = c.get('floor', 0) if learned(c, self.tutor.goal) else next_depth(c)
     return self.tutor.ask_on(c, paced(c, d, pace), 'a retest: you missed this earlier in this session', session=self.id, mode='drill')
+
+# %% ../nbs/03_tutor.ipynb #aeb65e63
+@patch
+def _drill(self:Session, pace:str='steady') -> AttrDict|None:
+    "In a drill session, the weakest concept not asked yet in this session, with your best method; else None."
+    if not self.drill: return None
+    asked = {r['concept'] for r in self.log}
+    us = {c.slug: (c, understanding(c)) for c in self.tutor.learning.concepts(self.subject) if c.slug not in asked}
+    if not (ws := sorted((x for x in us.values() if x[1].weak), key=lambda x: x[1].score)): return None
+    c, u = ws[0]
+    d = c.get('floor', 0) if learned(c, self.tutor.goal) else next_depth(c)
+    return self.tutor.ask_on(c, paced(c, d, pace), f"a weak spot: {u.reasons[0] if u.reasons else 'you missed it'}", session=self.id, mode='drill')
 
 # %% ../nbs/03_tutor.ipynb #ts02
 @patch
@@ -457,7 +469,7 @@ def save(self:Session):
     if not (self.log or self.q): return
     full = self.tutor.open.get(self.q.id) if self.q and not self.ended else None
     self.tutor.learning.log_session(self.id, self.summary(), start=self.start, updated=time.time(), focus=self.focus, subject=self.subject,
-                                    journey=self.journey, limit=self.limit, log=self.log, open=dict(full) if full else None, ended=self.ended,
+                                    journey=self.journey, drill=self.drill, limit=self.limit, log=self.log, open=dict(full) if full else None, ended=self.ended,
                                     asked=len(self.log), passed=sum(r['correct'] for r in self.log), concepts=sorted({r['concept'] for r in self.log}))
 
 @patch
@@ -473,7 +485,7 @@ def load(cls:Session, tutor:Tutor, sid:str):
     "The session `sid` from the shelf, with its open question open again; None for an unknown id or an old summary."
     m = tutor.learning.session(sid)
     if m is None or 'log' not in m: return None
-    s = cls(tutor, m.get('focus'), m.get('subject'), m.get('limit'), journey=m.get('journey'), sid=sid)
+    s = cls(tutor, m.get('focus'), m.get('subject'), m.get('limit'), journey=m.get('journey'), sid=sid, drill=bool(m.get('drill')))
     s.start, s.log, s.ended = m.get('start') or s.start, list(m.get('log') or []), m.get('ended')
     if (o := m.get('open')) and not s.ended:
         q = AttrDict(o)

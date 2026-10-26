@@ -112,7 +112,7 @@ def pick(concepts, focus:str=None, subject:str=None, goal:int=GOAL, now:float=No
 def _is_gap(c): return any(p.get('src') == 'gap' for p in c.get('provenance') or ())
 
 def understanding(c, now:float=None) -> AttrDict:
-    "How well you know concept `c`: floor, ceiling, recall, the reasons it is weak, `weak`, `strong`, and a score to sort by."
+    "How well you know concept `c`: floor, ceiling, recall, the reasons it is weak, `weak`, `strong`, one `state`, and a score to sort by."
     r, fl, mi, mis = recall(c, now), c.get('floor', 0), c.get('misses', 0), c.get('misconceptions') or []
     why = [*(['you said you did not know it'] if _is_gap(c) and fl < 3 else []),
            *([f'a misconception: {mis[-1]}'] if mis else []),
@@ -121,7 +121,10 @@ def understanding(c, now:float=None) -> AttrDict:
            *([f'fading: recall {r:.0%}'] if c.get('seen') and r < .6 else [])]
     weak = bool(why) or mi > 0
     if c.get('seen', 0) >= 3 and min(c.get('ceiling', 6), 6) - fl >= 3: why.append('its level is not clear yet')
-    return AttrDict(floor=fl, ceiling=c.get('ceiling', 6), recall=r, reasons=why, weak=weak,
-                    strong=fl >= 3 and r >= .8 and not mi and not why, score=fl / 5 * r - .2 * len(mis) - .1 * mi)
+    strong = fl >= 3 and r >= .8 and not mi and not why
+    state = ('gap' if _is_gap(c) and fl < 3 else 'strong' if strong else 'weak' if mis or mi or c.get('shaky') else
+             'fading' if weak else 'learning' if c.get('seen') else 'unseen')
+    return AttrDict(floor=fl, ceiling=c.get('ceiling', 6), recall=r, reasons=why, weak=weak, strong=strong, state=state,
+                    score=fl / 5 * r - .2 * len(mis) - .1 * mi)
 
 def weak(c, now:float=None) -> bool: return understanding(c, now).weak
