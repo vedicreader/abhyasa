@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>dev.vedicreader.abhyasa</string>
+	<key>CFBundleName</key>
+	<string>Abhyasa</string>
+	<key>CFBundleDisplayName</key>
+	<string>Abhyasa</string>
+	<key>CFBundleExecutable</key>
+	<string>Abhyasa</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.0.1</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.education</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Abhyasa uses the microphone when you answer by voice. The speech changes to text on this Mac.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>dev.vedicreader.abhyasa</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>abhyasa</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

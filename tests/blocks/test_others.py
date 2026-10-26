@@ -36,3 +36,10 @@ def test_concept_seen_in_your_work(mk, lr):
     t = mk(['concepts']).get('/c/ranking').text
     assert 'Seen in your work' in t and 'My ranking notes' in t and 'https://example.org/notes' in t
     assert lr.concept('ranking').seen_in[0]['src'] == 'vault:notes'
+
+def test_due_json(mk, lr):
+    cl = mk(['today'])
+    assert cl.get('/due.json').json() == dict(due=0)
+    lr.update('ranking', seen=1, due=1.)
+    lr.update('reciprocal-rank-fusion', seen=1, due=4e9)
+    assert cl.get('/due.json').json() == dict(due=1)
