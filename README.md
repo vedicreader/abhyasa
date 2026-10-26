@@ -134,11 +134,11 @@ fake = Fake({'You grade one answer': dict(correct=True, grade=8, first_error='',
 t = Tutor(lr, fake, context=False)
 ```
 
-Ask the first question. `why` gives the reason for the choice. A new concept starts at depth 3 (explain).
+Ask the first question. `why` gives the reason for the choice, and `method` the way it teaches (code, maths, an analogy and so on). A new concept starts at depth 3 (explain).
 
 ``` python
 q = t.next()
-assert q.why == 'next on the frontier: its prereqs are in place'
+assert q.why.startswith('next on the frontier: its prereqs are in place')   # a note on the way to learn can follow
 assert q.depth == 3
 print(q.question)
 ```
