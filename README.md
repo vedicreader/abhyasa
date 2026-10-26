@@ -26,7 +26,9 @@ Each question goes through one loop:
 | floor | the highest depth that you pass reliably |
 | ceiling | the lowest depth that you failed |
 | attempt | one answer, kept as a vault document |
-| session | one sitting of questions, with a summary |
+| session | one sitting of questions; saved after each move, so you can continue it after a restart |
+| journey | a goal and a path of steps to it, one concept each; you can see and change the path |
+| profile | what abhyasa knows about you: background, goals, the examples that help you, pace; you see and change all of it |
 | hint | one rung of a ladder of six, from the least to the most revealing |
 | lesson | the smallest step that the tutor teaches after a miss |
 | demo | an interactive figure for one concept: you predict, lock in, and then change the inputs |
@@ -63,15 +65,20 @@ The web app is made from blocks under `abhyasa/blocks`:
 
 | block | what it does |
 |----|----|
-| `today` | the home page: what is due and what to do now |
+| `today` | the home page: continue, your journeys, the next review, this week |
+| `journeys` | journeys: say a goal, and the tutor proposes a path of steps; move, skip, add or split a step; continue any journey |
+| `history` | Your learning: each past session with what moved, what you learned each week, and Continue in the top bar (⌥C) |
+| `profile` | What abhyasa knows about you: a short first conversation, your edits, and the changes that the tutor makes, each with its reason |
 | `session` | one sitting with the tutor: one question at a time, with hints, confidence and “I don’t know” |
-| `voice` | a mic button for each text box; it listens until you stop it, and the text comes in at each pause |
+| `voice` | a mic for each text box where you answer or write; ⌥D speaks into the box in focus, on any page |
 | [`settings`](https://vedicreader.github.io/abhyasa/voice.html#settings) | the speech model: pick, look up and get one; the OpenAI key; the tutor model |
 | `concepts` | the list of concepts, and one page for each concept with its state |
 | `graph` | the concept graph: a color for each floor, a ring when a review is due, arrows for prereqs |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |
 | `add` | add concepts from a text, a vault document or vedicreader |
 | `demo` | interactive demos from rupaka: “Show me a demo” on a concept page, a demo under the lesson after a miss, and one page for each demo |
+
+Each page shows where you are, over its title. Esc goes up one level, ⌥T goes to Today, and browser Back and Forward work.
 
 ### ramabana
 
