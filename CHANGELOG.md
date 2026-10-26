@@ -2,6 +2,12 @@
 
 <!-- do not remove -->
 
+## 0.0.9
+
+- Keyboard shortcuts page (⌥F, or ? outside a text box). It lists every key, by where it works.
+- Sanketa shows abhyasa's keys when abhyasa is in front: abhyasa writes `~/.config/sanketa/packs/abhyasa.toml` when it starts. It does not write over a pack that you made.
+- A page that is drawn again shows a lesson that you asked for one time, with no old button.
+
 ## 0.0.8
 
 - Strengths and weak spots (⌥G): each subject, your weak concepts with the reasons, your strong concepts, and the ways you learn. "Practice my weak spots" starts a drill session.
