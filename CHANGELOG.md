@@ -2,6 +2,16 @@
 
 <!-- do not remove -->
 
+## 0.0.5
+
+- Journeys. Say a goal, such as "learn LLMs", and the tutor plans a path of topics from your graph, with new concepts for the gaps. You can move, skip, mark known, split, add or remove a step. A journey session asks about the current step, and the path fills in as you learn.
+- Your learning: a week view, what moved each week, and each session with what moved and the misconceptions found. You can continue a session, review its misses, or read its questions again.
+- Sessions are kept as you go, so a restart continues the same question.
+- About you: a short first conversation, your own edits, and changes from the tutor, each with its reason and an Undo. The tutor uses it in questions, lessons and plans.
+- Never stuck: a line above each title shows where you are, Esc goes up one level, ⌥T goes to Today, and "Continue" (⌥C) is always in the top bar.
+- Voice everywhere: each answer box has a Speak button, and ⌥D dictates into the box that has focus, on any page.
+- Five themes (Paper, Ink, Manuscript, Clear, Sage), each with light and dark, set in Settings.
+
 ## 0.0.4
 
 - A session shows one question at a time. The earlier questions are a quiet list at the left, with the outcome of each. A click, or ⌥↑ and ⌥↓, opens one to read. On a narrow window the list folds.
