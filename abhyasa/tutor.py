@@ -87,12 +87,12 @@ together, including the think-aloud, not the wording.
 - Write `feedback` and `first_error` in ASD-STE100 Simplified Technical English, grade 9: short sentences, active voice.
   Speak to the learner as "you"; never say "the learner"."""
 
-def grade_prompt(q, answer, thinking='', confidence=50):
+def grade_prompt(q, answer, thinking='', confidence=None):
     "The prompt that grades the conversation on question `q`, with `answer` as the latest message of the learner."
     return (f"Concept: {q.name}\nDepth asked: {DEPTHS[q.depth]}\nQuestion: {q.question}\nModel answer (hidden from learner): {q.answer}\n"
             f"Rubric: {json.dumps(q.rubric)}\n\nThe conversation so far, in order:\n{thread_text(q) or 'Tutor (question): ' + q.question}\n\n"
             f"Their latest message follows; it may be only a follow-up to the last tutor turn.\n"
-            f"Learner's answer: {answer or '(none)'}\nLearner's think-aloud: {thinking or '(none)'}\nLearner's confidence: {confidence}/100\n\n"
+            f"Learner's answer: {answer or '(none)'}\nLearner's think-aloud: {thinking or '(none)'}\nLearner's confidence: {'not given' if confidence is None else f'{confidence}/100'}\n\n"
             + (f"Passages from the learner's own sources (judge against these too, where they apply):\n{q.ctx}\n\n" if q.get('ctx') else '')
             + 'Return JSON: {"correct": bool, "grade": int, "first_error": str, "misconception": str, "feedback": str}')
 
@@ -217,7 +217,7 @@ def _grade(self:Tutor, q, answer, thinking, confidence):
 
 # %% ../nbs/03_tutor.ipynb #c031
 @patch
-def answer(self:Tutor, qid:str, answer:str='', thinking:str='', confidence:int=50, dont_know:bool=False) -> AttrDict:
+def answer(self:Tutor, qid:str, answer:str='', thinking:str='', confidence:int=None, dont_know:bool=False) -> AttrDict:
     "Grade an answer. A wrong try keeps the question open with a nudge. A pass or the last try closes it and updates the concept."
     q = self.open[qid]
     if dont_know: return self.give_up(qid, confidence=confidence, dont_know=True)
@@ -251,12 +251,16 @@ def give_up(self:Tutor, qid:str, confidence:int=0, dont_know:bool=False) -> Attr
 # %% ../nbs/03_tutor.ipynb #c034
 @patch
 def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinking='', dont_know=False):
+    # the lesson comes first: if the model fails here, nothing is saved yet, so a retry cannot count the same miss twice
+    lesson = ''
+    if teach:
+        try: lesson = for_task(self.ask, 'lesson')(teach_prompt(q, g.get('first_error', '')), TUTOR_SP).strip()
+        except Exception as e: lesson = f"The tutor could not write the lesson ({type(e).__name__}). The model answer is: {q.answer or 'not given'}"
     c = self.learning.concept(q.concept)
     hints = len(q.hints) + 2 * bool(q.tries)   # a pass after a wrong try is never a clean pass
     u = update(c, q.depth, correct, confidence, hints, dont_know, g.get('misconception', ''))
     kind = u.pop('kind')
     self.learning.update(q.concept, **u)
-    lesson = for_task(self.ask, 'lesson')(teach_prompt(q, g.get('first_error', '')), TUTOR_SP).strip() if teach else ''
     if 'Check:' in lesson: self.checks[q.concept] = (lesson.rsplit('Check:', 1)[1].strip(), lesson)
     q.setdefault('turns', []).append(dict(who='tutor', kind='close', text=g.get('feedback', ''), lesson=lesson, outcome=kind))
     self.learning.record(q.concept, q.question, answer or (q.tries[-1]['answer'] if q.tries else ''), thinking, correct, confidence,

@@ -112,7 +112,7 @@ def Waiting(sid):
 
 def Confidence():
     "Five steps for how sure you are; ⌥1 to ⌥5 pick one."
-    steps = [Label(Input(type='radio', name='confidence', value=v, id=f'c{i + 1}', checked=v == 50), Span(f'{v}%'), title=f'⌥{i + 1}')
+    steps = [Label(Input(type='radio', name='confidence', value=v, id=f'c{i + 1}'), Span(f'{v}%'), title=f'⌥{i + 1}')
              for i, v in enumerate(STEPS)]
     return Div(Span('Sure?', cls='lbl'), *steps, cls='steps', id='conf', role='radiogroup', aria_label='How sure you are')
 

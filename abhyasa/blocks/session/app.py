@@ -92,7 +92,7 @@ def connect(app, ctx):
         if not (q and sid not in pre): q = nxt(sid)
         return (ui.Section_(sid, q, entries(q)), ui.Composer(sid, q, oob=True)) if q else over(sid)
 
-    def answer(sid:str, answer:str='', thinking:str='', confidence:int=50):
+    def answer(sid:str, answer:str='', thinking:str='', confidence:int=None):
         s, q = live(sid)
         if not q: return Response(status_code=204)
         r = s.answer(answer, thinking, confidence)
@@ -104,7 +104,7 @@ def connect(app, ctx):
         ahead(sid); outcomes[q.id] = r.outcome
         return (*keep(q, you, ui.Close(r), *ui.Extras(r)), *opts, ui.Composer(sid, ready=False, oob=True))
 
-    def giveup(sid:str, dont_know:int=0, confidence:int=50):
+    def giveup(sid:str, dont_know:int=0, confidence:int=None):
         s, q = live(sid)
         if not q: return Response(status_code=204)
         tried = bool(q.tries)
@@ -141,6 +141,7 @@ def connect(app, ctx):
         if not s: return Page('Session', H1('No such session'), P('It is not on the shelf.', cls='mute'), crumbs=[('Today', '/')])
         if not s.ended: s.end()
         sessions.pop(sid, None)
+        for q in shown.pop(sid, ()): tl.pop(q.id, None); outcomes.pop(q.id, None)   # get() builds them again from the shelf
         j = lr.journey(s.journey) if s.journey else None
         by = {c.slug: c for c in lr.concepts()}
         nxt_ = progress(lr, j, by=by) if j else None

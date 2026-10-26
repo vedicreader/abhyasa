@@ -14,6 +14,14 @@ def test_struggle_then_pass(mk):
     assert 'Right, but shaky' in r
     assert 'What does a rank tell you?' in cl.post(f'/s/{sid}/next').text        # fetched ahead
 
+def test_no_confidence_counts_the_answer_only(mk):
+    "An untouched picker (or a spoken answer) sends no confidence; a clean pass is then solid."
+    cl = mk()
+    sid = start(cl)
+    page = cl.get(f'/s/{sid}').text
+    assert 'checked' not in page.split('id="conf"')[1].split('</div>')[0]
+    assert 'Solid' in cl.post(f'/s/{sid}/answer', data=dict(answer='its rank position')).text
+
 def test_dont_know_teaches(mk):
     cl = mk()
     sid = start(cl)

@@ -20,11 +20,12 @@ HIGH = 60     # confidence at or above this is "high"
 DAY = 86400.
 
 # %% ../nbs/01_model.ipynb #c009
-def outcome(correct:bool, confidence:int=50, hints:int=0, dont_know:bool=False) -> str:
-    "One of `solid`, `fragile`, `misconception` or `gap`."
+def outcome(correct:bool, confidence:int=None, hints:int=0, dont_know:bool=False) -> str:
+    "One of `solid`, `fragile`, `misconception` or `gap`. With no `confidence`, only the answer and the hints count."
     if dont_know: return 'gap'
-    if correct: return 'solid' if confidence >= HIGH and hints < 2 else 'fragile'
-    return 'misconception' if confidence >= HIGH else 'gap'
+    sure = confidence is not None and confidence >= HIGH
+    if correct: return 'solid' if (sure or confidence is None) and hints < 2 else 'fragile'
+    return 'misconception' if sure else 'gap'
 
 # %% ../nbs/01_model.ipynb #c016
 def recall(c, now:float=None) -> float:
@@ -41,7 +42,7 @@ def grow(s:float, r:float, kind:str) -> float:
     return max(.2, s * .3)
 
 # %% ../nbs/01_model.ipynb #c022
-def update(c, depth:int, correct:bool, confidence:int=50, hints:int=0, dont_know:bool=False,
+def update(c, depth:int, correct:bool, confidence:int=None, hints:int=0, dont_know:bool=False,
            misconception:str='', now:float=None) -> AttrDict:
     "The state changes for concept `c` after one answer at `depth`, with the outcome in `kind`."
     now, k = ifnone(now, time.time()), outcome(correct, confidence, hints, dont_know)

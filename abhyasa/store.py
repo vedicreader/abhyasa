@@ -142,7 +142,7 @@ def attempt_text(a) -> str:
 # %% ../nbs/00_store.ipynb #c023
 @patch
 def record(self:Learning, concept:str, question:str, answer:str='', thinking:str='', correct:bool=False,
-           confidence:int=50, depth:int=1, kind:str='explain', hints:int=0, dont_know:bool=False, grade:int=None,
+           confidence:int=None, depth:int=1, kind:str='explain', hints:int=0, dont_know:bool=False, grade:int=None,
            feedback:str='', first_error:str='', misconception:str='', session:str='', **meta) -> AttrDict:
     "File one attempt as a vault document, so the learner can search what they said."
     a = AttrDict(id=uuid.uuid4().hex[:12], concept=concept, question=question, answer=answer, thinking=thinking,

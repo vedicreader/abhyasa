@@ -71,7 +71,7 @@ def _gate(spec, gid):
     return walk(spec.get('blocks')) or {}
 
 @patch
-def record_prediction(self:Learning, slug:str, gate:str, picked, ans, ok:bool, why:str='', context:str='', session:str='', confidence:int=50) -> AttrDict:
+def record_prediction(self:Learning, slug:str, gate:str, picked, ans, ok:bool, why:str='', context:str='', session:str='', confidence:int=None) -> AttrDict:
     "File one prediction in demo `slug` as an attempt, count it in the stats of the demo, and update the learner model of its concept."
     d = self.demo(slug)
     if d is None: raise KeyError(f'no demo {slug!r}')
