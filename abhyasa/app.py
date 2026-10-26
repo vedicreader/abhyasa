@@ -1,5 +1,6 @@
 "The web app: `fast_app`, the services, and `connect_all` over the blocks in `NAMES` order. Loopback only."
 import argparse
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from starlette.middleware.base import BaseHTTPMiddleware
 from fasthtml.common import *
@@ -13,7 +14,7 @@ from abhyasa.ground import VaultSource, VedicSource
 
 __all__ = ['mk_app', 'main']
 
-FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#7a4a2e"/></svg>'
+FAVICON = (Path(__file__).parent/'core'/'favicon.svg').read_text()   # design/logo/abhyasa-icon.svg
 
 async def _fresh(req, call_next):
     "Pages are never cached, so Back and Forward show the session as it is now; assets keep their long cache."

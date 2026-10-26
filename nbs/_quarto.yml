@@ -10,6 +10,7 @@ format:
   commonmark: default
 
 website:
+  favicon: favicon.svg
   twitter-card: true
   open-graph: true
   repo-actions: [issue]
