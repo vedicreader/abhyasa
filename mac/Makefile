@@ -8,7 +8,7 @@ ENTITLEMENTS := entitlements.plist
 # the same zip with a name that does not change, so releases/latest/download/Abhyasa.zip always works
 STABLE_ZIP := dist/Abhyasa.zip
 
-.PHONY: test build lock bundle app release zip publish run install cask verify gatekeeper
+.PHONY: test build lock bundle app release unpublished zip publish run install cask verify gatekeeper
 
 # Values from the command line go to recipes only through the environment ("$$FILTER"), so the shell never parses
 # them. Each value must also pass this check, which reads the raw text with $(value) and so never expands it.
@@ -100,11 +100,13 @@ install:
 # writes this version and the hash of its release zip into the Homebrew cask in $TAP, and the download link into the README;
 # it does not commit or push.
 # The first time, it copies cask/abhyasa.rb (with depends_on formula: "uv") into the tap.
+# The hash comes from the zip on GitHub, not from dist/: a second make release makes a new zip with another hash.
 cask:
-	test -f "dist/Abhyasa-$(VERSION).zip"
 	test -d "$$TAP/Casks"
 	if [ ! -e "$$TAP/Casks/abhyasa.rb" ]; then cp cask/abhyasa.rb "$$TAP/Casks/abhyasa.rb"; fi
-	sum=$$(shasum -a 256 "dist/Abhyasa-$(VERSION).zip" | cut -d ' ' -f 1) && \
+	mkdir -p /tmp/abhyasa-trash
+	curl -fsSL -o /tmp/abhyasa-trash/cask-$$$$.zip "https://github.com/vedicreader/abhyasa/releases/download/mac-v$(VERSION)/Abhyasa-$(VERSION).zip" && \
+	sum=$$(shasum -a 256 /tmp/abhyasa-trash/cask-$$$$.zip | cut -d ' ' -f 1) && \
 	sed -i '' -e 's/^  version ".*"/  version "$(VERSION)"/' -e "s/^  sha256 \".*\"/  sha256 \"$$sum\"/" "$$TAP/Casks/abhyasa.rb"
 	grep -E '^  (version|sha256) ' "$$TAP/Casks/abhyasa.rb"
 	# the Download for macOS button links to this release; a Python release takes the "latest" label, so the link names the tag
