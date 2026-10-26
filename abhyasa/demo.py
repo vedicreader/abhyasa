@@ -82,8 +82,9 @@ def record_prediction(self:Learning, slug:str, gate:str, picked, ans, ok:bool, w
     if (c := self.concept(d.concept)) is not None:
         u = update(c, depth, bool(ok), confidence)
         kind = u.pop('kind'); self.update(d.concept, **u)
+        self.credit_method('diagram', c.get('subject', ''), kind)   # a demo is a way to learn: a picture that moves
     else: kind = ''
-    return self.record(d.concept, q, str(picked), why, bool(ok), confidence, depth, kind='demo', session=session, final=True,
+    return self.record(d.concept, q, str(picked), why, bool(ok), confidence, depth, kind='demo', session=session, final=True, method='diagram',
                        feedback=f'The answer is {ans}.', demo=slug, gate=gate, expected=str(ans), outcome=kind)
 
 # %% ../nbs/10_demo.ipynb #c026

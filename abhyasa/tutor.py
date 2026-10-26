@@ -13,11 +13,12 @@ __all__ = ['MAX_TRIES', 'HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'GRADE_SP', 'CLOSE_HOO
 import json, random, time, uuid
 from fastcore.utils import *
 from .store import Learning
-from .model import DEPTHS, KIND_AT, GOAL, update, pick, recall, outcome, next_depth, learned
+from .model import DEPTHS, KIND_AT, GOAL, update, pick, recall, outcome, next_depth, learned, weak
 from .llm import ask_json, for_task
 from .ground import VaultSource, ground, ground_text
-from .profile import PACES, profile_text, observe
-from .journey import current
+from .profile import PACES, profile_text, observe, calibration_text
+from .journey import current, name_gaps
+from .method import METHODS, EXAMPLES_TO, choose, methods_text, posterior, mean
 
 # %% ../nbs/03_tutor.ipynb #c006
 MAX_TRIES = 3
@@ -53,8 +54,10 @@ def _concept_block(c, ctx='', who=''):
             f"misconceptions seen: {mis}" + (f"\nFrom the learner's own vault (use only if relevant):\n{ctx}" if ctx else '')
             + (f"\nAbout the learner (set the question in their world: use the kinds of example that help them):\n{who}" if who else ''))
 
-def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=()):
-    "The prompt that writes one question on `c` at `depth`; `bridge` names known ideas that a transfer question can connect to."
+def _way(m): return f"The way to teach this time: {METHODS[m]}\n" if m in METHODS else ''
+
+def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=(), method=''):
+    "The prompt that writes one question on `c` at `depth` in `method`; `bridge` names known ideas that a transfer question can connect to."
     kind = KIND_AT[depth]
     shape = ('{"question": str, "options": [{"text": str, "misconception": str}], "correct": int, "answer": str, "rubric": [str]}'
              if kind == 'choice' else '{"question": str, "answer": str, "rubric": [str]}')
@@ -62,7 +65,7 @@ def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=()):
     return (f"{_concept_block(c, ctx, who)}\n\nWrite ONE question that makes the learner {DEPTH_ASK[depth]}.\n"
             f"Aim it just past what they reliably know, so they must struggle a little. Ask ONE thing, in under 60 words. Write only the final question: no drafts, no corrections, no 'no: take'.\n"
             + (f"Target this misconception if it fits: {c['misconceptions'][-1]}\n" if c.get('misconceptions') else '')
-            + (f"Ideas that the learner knows well (connect to one only if the link is real): {'; '.join(bridge)}\n" if bridge else '')
+            + (f"Ideas that the learner knows well (connect to one only if the link is real): {'; '.join(bridge)}\n" if bridge else '') + _way(method)
             + (f"Do not repeat these earlier questions:\n{av}\n" if av else '')
             + f"`answer` is a model answer the learner will not see; `rubric` lists the 1-4 points a correct answer must have."
             + (" For options: 3 or 4, one correct (index in `correct`), each wrong one tied to a named misconception." if kind == 'choice' else '')
@@ -97,6 +100,9 @@ together, including the think-aloud, not the wording.
 - Their messages often come from speech to text. Read past transcription noise: repeated words, a wrong homophone, a garbled
   term or formula, when the meaning is clear. When the latest message restates an earlier point, judge them together.
   Never mark them wrong for the transcription alone.
+- `gaps`: each idea they say they do not know, as a short concept name in the subject ("weighted sum as a loop", not "the loop"); else [].
+- `asks_for`: when they ask to be shown in a certain way ("show me with code", "with an equation"), one of code, maths, analogy,
+  example, diagram, words; else "".
 - `grade`: 0-10.
 - Write `feedback` and `first_error` in ASD-STE100 Simplified Technical English, grade 9: short sentences, active voice.
   Speak to the learner as "you"; never say "the learner"."""
@@ -108,7 +114,8 @@ def grade_prompt(q, answer, thinking='', confidence=None):
             f"Their latest message follows; it may be only a follow-up to the last tutor turn.\n"
             f"Learner's answer: {answer or '(none)'}\nLearner's think-aloud: {thinking or '(none)'}\nLearner's confidence: {'not given' if confidence is None else f'{confidence}/100'}\n\n"
             + (f"Passages from the learner's own sources (judge against these too, where they apply):\n{q.ctx}\n\n" if q.get('ctx') else '')
-            + 'Return JSON: {"correct": bool, "grade": int, "first_error": str, "misconception": str, "feedback": str}')
+            + (f"Write `feedback` in this way. {_way(q.get('method'))}" if q.get('method') in METHODS else '')
+            + 'Return JSON: {"correct": bool, "grade": int, "first_error": str, "misconception": str, "feedback": str, "gaps": [str], "asks_for": str}')
 
 # %% ../nbs/03_tutor.ipynb #c017
 def hint_prompt(q, level):
@@ -117,7 +124,8 @@ def hint_prompt(q, level):
     return (f"Concept: {q.name}\nQuestion: {q.question}\nModel answer (hidden): {q.answer}\n"
             + (f"The conversation so far:\n{thread_text(q)}\n" if q.get('turns') else f"Wrong tries so far: {json.dumps(q.tries)}\n")
             + (f"Hints already given:\n{given}\n" if given else '')
-            + f"\nGive hint level {level + 1} of 6: {HINTS[level]}\nOne or two sentences. Do not reveal the answer. Reply with the hint only.")
+            + f"\nGive hint level {level + 1} of 6: {HINTS[level]}\n" + _way(q.get('method'))
+            + "One or two sentences. Do not reveal the answer. Reply with the hint only.")
 
 # %% ../nbs/03_tutor.ipynb #c019
 def teach_prompt(q, first_error):
@@ -127,7 +135,7 @@ def teach_prompt(q, first_error):
             + f"Their first error: {first_error or 'they did not know'}\n\n"
             + (f"Passages from their own sources; build on one and name it, if it fits:\n{q.ctx}\n\n" if q.get('ctx') else '')
             + (f"About the learner (explain in their world, with the kinds of example that help them):\n{q.who}\n\n" if q.get('who') else '')
-            + "Teach the smallest step that fixes that first error, in under 120 words. Build on what they got right. "
+            + _way(q.get('method')) + "Teach the smallest step that fixes that first error, in under 120 words. Build on what they got right. "
             "Then show the model answer briefly. End with one line that starts 'Check:' and asks them to predict "
             "something new that the fixed idea implies (they will answer it next).")
 
@@ -150,6 +158,7 @@ class Tutor:
         self.shut = {}     # question id -> question, for the last 20 closed questions, so you can ask for a lesson later
         self.checks = {}   # concept -> (the check question of the lesson, the lesson), asked next on that concept
         self.jobs = {}     # concept -> a background job, for example a demo that a model makes
+        self.rng = random.Random()   # the method draws; a test sets a seed
 
     def _ground(self, c) -> L:
         "Up to three passages on concept `c` from the sources of the learner, so a question can use what they read and did."
@@ -160,20 +169,23 @@ class Tutor:
 
 # %% ../nbs/03_tutor.ipynb #c023
 @patch
-def ask_on(self:Tutor, c, depth:int, why:str='', session:str='') -> AttrDict:
-    "Write a question on concept `c` at `depth`, keep it open, and return it without its answer fields."
+def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None) -> AttrDict:
+    "Write a question on concept `c` at `depth` in a method from `choose`, keep it open, and return it without its answer fields. `mode='drill'` uses your best method."
     asked = self.learning.attempts(c['slug'], limit=20).attrgot('question')
     q = AttrDict(id=uuid.uuid4().hex[:10], concept=c['slug'], name=c['name'], statement=c.get('statement', ''),
                  subject=c.get('subject', ''), floor=c.get('floor', 0), depth=depth, kind=KIND_AT[depth], why=why, session=session,
                  hints=[], tries=[], at=time.time())
-    ps = self._ground(c)
-    q.who = profile_text(self.learning.profile())
+    ps, p, st = self._ground(c), self.learning.profile(), self.learning.stats()
+    q.method, note = choose(st, c.get('subject', ''), mode == 'drill' or weak(c), self.rng, p.get('explore', 'sometimes'),
+                            [EXAMPLES_TO[e] for e in p.examples if e in EXAMPLES_TO])
+    if note: q.why = f'{why}; {note}'.lstrip('; ')
+    q.who = '\n'.join(x for x in (profile_text(p), calibration_text(AttrDict(st.calib)) if st.calib else '', methods_text(st, c.get('subject', ''))) if x)
     q.update(ctx=ground_text(ps), grounds=[dict(src=p.src, ref=p.ref, title=p.title, url=p.url) for p in ps])
-    if (ck := self.checks.pop(c['slug'], None)):
-        q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, why=f'{why}; the check from the lesson'.lstrip('; '))
+    if (ck := self.checks.pop(c['slug'], None)):   # the check of a lesson counts for the method of the lesson
+        q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, method=ck[2], why=f'{why}; the check from the lesson'.lstrip('; '))
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
-        r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else ()), TUTOR_SP)
+        r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else (), q.method), TUTOR_SP)
         q.update(question=r['question'], answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))
@@ -200,12 +212,12 @@ def paced(c, depth:int, pace:str='steady') -> int:
     return depth
 
 @patch
-def next(self:Tutor, focus:str=None, subject:str=None, session:str='', skip=(), near=(), pace:str=None) -> AttrDict|None:
+def next(self:Tutor, focus:str=None, subject:str=None, session:str='', skip=(), near=(), pace:str=None, mode:str=None) -> AttrDict|None:
     "The next question, chosen by `pick` at `pace` (by default the pace in the profile), or None when there is nothing to learn or review."
     r = pick(self.learning.concepts(), focus=focus, subject=subject, goal=self.goal, skip=skip, near=near)
     if not r: return None
     c, d, why = r
-    return self.ask_on(c, paced(c, d, pace or self.learning.profile().pace), why, session=session)
+    return self.ask_on(c, paced(c, d, pace or self.learning.profile().pace), why, session=session, mode=mode)
 
 # %% ../nbs/03_tutor.ipynb #fl02
 MISSES = ('gap', 'misconception')
@@ -244,11 +256,24 @@ def _grade(self:Tutor, q, answer, thinking, confidence):
 
 # %% ../nbs/03_tutor.ipynb #c031
 @patch
+def _heard(self:Tutor, q, g):
+    "Act on what the grader heard: keep each idea you say you do not know as a gap, and switch to the way you ask for."
+    if (gs := [x for x in g.get('gaps') or [] if isinstance(x, str) and x.strip()]):
+        q.gaps = [*q.get('gaps', []), *gs]
+        job = lambda: name_gaps(self.learning, for_task(self.ask, 'extract'), q.concept, gs, self.sources)
+        if self.pool: self.pool.submit(job)
+        else:
+            try: job()
+            except Exception: pass
+    if g.get('asks_for') in METHODS: q.method = g['asks_for']
+
+@patch
 def answer(self:Tutor, qid:str, answer:str='', thinking:str='', confidence:int=None, dont_know:bool=False) -> AttrDict:
     "Grade an answer. A wrong try keeps the question open with a nudge. A pass or the last try closes it and updates the concept."
     q = self.open[qid]
     if dont_know: return self.give_up(qid, confidence=confidence, dont_know=True)
     g = self._grade(q, answer, thinking, confidence)
+    self._heard(q, g)
     said = q.options[int(answer)]['text'] if q.get('options') and str(answer).isdigit() and int(answer) < len(q.options) else answer
     q.setdefault('turns', []).append(dict(who='you', text=said, thinking=thinking, confidence=confidence))
     if not g.get('correct') and len(q.tries) + 1 < MAX_TRIES:
@@ -256,7 +281,7 @@ def answer(self:Tutor, qid:str, answer:str='', thinking:str='', confidence:int=N
                             misconception=g.get('misconception', '')))
         self.learning.record(q.concept, q.question, answer, thinking, False, confidence, q.depth, q.kind, len(q.hints),
                              grade=g.get('grade'), feedback=g.get('feedback', ''), first_error=g.get('first_error', ''),
-                             misconception=g.get('misconception', ''), session=q.session, final=False)
+                             misconception=g.get('misconception', ''), session=q.session, final=False, method=q.get('method', ''), gaps=g.get('gaps') or [])
         q.turns.append(dict(who='tutor', kind='nudge', text=g.get('feedback', ''), first_error=g.get('first_error', '')))
         return AttrDict(done=False, correct=False, feedback=g.get('feedback', ''), first_error=g.get('first_error', ''),
                         tries_left=MAX_TRIES - len(q.tries))
@@ -281,7 +306,7 @@ def _lesson(self:Tutor, q, first_error:str='') -> str:
     "A short lesson on `q` from its first error. When the model fails, a note with the model answer."
     try: lesson = for_task(self.ask, 'lesson')(teach_prompt(q, first_error), TUTOR_SP).strip()
     except Exception as e: return f"The tutor could not write the lesson ({type(e).__name__}). The model answer is: {q.answer or 'not given'}"
-    if 'Check:' in lesson: self.checks[q.concept] = (lesson.rsplit('Check:', 1)[1].strip(), lesson)
+    if 'Check:' in lesson: self.checks[q.concept] = (lesson.rsplit('Check:', 1)[1].strip(), lesson, q.get('method', ''))
     return lesson
 
 @patch
@@ -294,9 +319,11 @@ def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinki
     kind = u.pop('kind')
     self.learning.update(q.concept, **u)
     q.setdefault('turns', []).append(dict(who='tutor', kind='close', text=g.get('feedback', ''), lesson=lesson, outcome=kind))
-    self.learning.record(q.concept, q.question, answer or (q.tries[-1]['answer'] if q.tries else ''), thinking, correct, confidence,
+    q.aid = self.learning.record(q.concept, q.question, answer or (q.tries[-1]['answer'] if q.tries else ''), thinking, correct, confidence,
                          q.depth, q.kind, hints, dont_know, g.get('grade'), g.get('feedback', '') or lesson,
-                         g.get('first_error', ''), g.get('misconception', ''), session=q.session, final=True, outcome=kind, thread=q.turns)
+                         g.get('first_error', ''), g.get('misconception', ''), session=q.session, final=True, outcome=kind, thread=q.turns,
+                         method=q.get('method', ''), gaps=q.get('gaps', [])).id
+    if q.get('method') and not dont_know: self.learning.credit_method(q.method, q.subject, kind)   # "I don't know" used no method
     del self.open[q.id]
     self.shut[q.id] = q
     if len(self.shut) > 20: del self.shut[next(iter(self.shut))]
@@ -318,12 +345,19 @@ def _observe(self:Tutor):
 SHAKY = 'They passed, but only after nudges or hints. Make the idea solid.'
 
 @patch
-def teach(self:Tutor, qid:str) -> str:
-    "A lesson on request for the closed question `qid`, kept in its thread. The learner state does not change."
+def teach(self:Tutor, qid:str, another:bool=False) -> str:
+    "A lesson on request for the closed question `qid`, kept in its thread and on its attempt. `another` uses a different method. The learner state does not change."
     q = self.shut[qid]
-    if (t := first(t for t in q.get('turns') or () if t.get('kind') == 'lesson')): return t['text']
+    done = [t for t in q.get('turns') or () if t.get('kind') == 'lesson']
+    if done and not another: return done[-1]['text']
+    if another:
+        used = {q.get('method'), *(t.get('method') for t in done)}
+        left = [m for m in METHODS if m not in used] or ['words']
+        st = self.learning.stats()
+        q.method = max(left, key=lambda m: mean(posterior(st, m, q.subject)))
     lesson = self._lesson(q, (q.tries[0].get('first_error') if q.tries else '') or SHAKY)
-    q.setdefault('turns', []).append(dict(who='tutor', kind='lesson', text=lesson))
+    q.setdefault('turns', []).append(dict(who='tutor', kind='lesson', text=lesson, method=q.get('method', '')))
+    if q.get('aid'): self.learning.mark_attempt(q.aid, taught=len(done) + 1, teach_method=q.get('method', ''))
     return lesson
 
 # %% ../nbs/03_tutor.ipynb #c036
@@ -347,14 +381,15 @@ class Session:
         "The next question, or None when the session is over (or its journey is done)."
         if self.ended or len(self.log) >= self.limit: return None
         skip, (pace, note) = self._skip(), flow(self.log, self.tutor.learning.profile().pace)
+        mode = 'drill' if note.startswith('easier') else None   # after two misses: your best way, not a new one
         if (q := self._retest(pace)): self.q = q
         elif self.journey:
             j = self.tutor.learning.journey(self.journey)
             if not (f := current(self.tutor.learning, j, skip, self.tutor.goal) if j else None): return None
-            self.q = self.tutor.next(focus=f, session=self.id, skip=skip, near=self.near, pace=pace)
+            self.q = self.tutor.next(focus=f, session=self.id, skip=skip, near=self.near, pace=pace, mode=mode)
             if self.q and self.q.why.startswith('you chose'):   # the learner chose the journey, not the concept: say so
                 self.q.why = self.tutor.open[self.q.id].why = self.q.why.replace(f'you chose {self.q.name}', f'the next step of your journey "{j.title}"', 1)
-        else: self.q = self.tutor.next(focus=self.focus if self.focus not in skip else None, subject=self.subject, session=self.id, skip=skip, near=self.near, pace=pace)
+        else: self.q = self.tutor.next(focus=self.focus if self.focus not in skip else None, subject=self.subject, session=self.id, skip=skip, near=self.near, pace=pace, mode=mode)
         if self.q and note: self.q.why = self.tutor.open[self.q.id].why = f'{self.q.why}; {note}'
         self.save()
         return self.q
@@ -377,13 +412,13 @@ def _retest(self:Session, pace:str='steady', gap:int=2) -> AttrDict|None:
     if not rt or self.limit - n > len(rt): return None
     if not (k := first(k for k, i in rt.items() if n - 1 - i >= gap)) or (c := self.tutor.learning.concept(k)) is None: return None
     d = c.get('floor', 0) if learned(c, self.tutor.goal) else next_depth(c)
-    return self.tutor.ask_on(c, paced(c, d, pace), 'a retest: you missed this earlier in this session', session=self.id)
+    return self.tutor.ask_on(c, paced(c, d, pace), 'a retest: you missed this earlier in this session', session=self.id, mode='drill')
 
 # %% ../nbs/03_tutor.ipynb #ts02
 @patch
 def _logged(self:Session, r, full):
     q = self.q
-    self.log.append(dict(qid=q.id, concept=q.concept, name=q.name, depth=q.depth, why=q.get('why', ''), question=q.question,
+    self.log.append(dict(qid=q.id, concept=q.concept, name=q.name, depth=q.depth, why=q.get('why', ''), question=q.question, method=q.get('method', ''),
                          correct=r.correct, outcome=r.outcome, floor0=q.get('floor', 0), floor=r.floor, misconception=r.get('misconception', ''),
                          turns=list((full or {}).get('turns') or []), at=time.time()))
 
@@ -448,9 +483,9 @@ def load(cls:Session, tutor:Tutor, sid:str):
 
 # %% ../nbs/03_tutor.ipynb #3cc3a5d6
 @patch
-def teach(self:Session, qid:str) -> str:
+def teach(self:Session, qid:str, another:bool=False) -> str:
     "A lesson on request for `qid`, a closed question of this session; the log keeps it."
-    lesson = self.tutor.teach(qid)
+    lesson = self.tutor.teach(qid, another)
     for r in self.log:
         if r.get('qid') == qid: r['turns'] = list(self.tutor.shut[qid].turns)
     self.save()
