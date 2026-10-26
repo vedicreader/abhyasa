@@ -144,7 +144,7 @@ def drop(self:Learning, slug:str):
     if (c := self.concept(slug)): self.v.forget(c.doc_id)
 
 # %% ../nbs/00_store.ipynb #e0246b3d
-SLUG_KEYS = ('concept', 'slug', 'focus', 'prereqs', 'related', 'concepts', 'split')
+SLUG_KEYS = ('concept', 'slug', 'focus', 'prereqs', 'related', 'concepts', 'split', 'gaps', 'of')
 
 def _old_slug(s:str) -> str:
     "The slug that abhyasa 0.0.5 made from `s`; empty where it used a random one."
@@ -211,6 +211,21 @@ def attempts(self:Learning, concept:str=None, session:str=None, limit:int=50) ->
     rs = L(self._docs('attempt', ' and '.join(w), args)).map(lambda r: AttrDict(json.loads(r['meta'])))
     return L(sorted(rs, key=lambda a: -a.at)[:limit]).map(lambda a: AttrDict({k: v for k, v in a.items() if k not in _SKIP}))
 
+# %% ../nbs/00_store.ipynb #b4b26f27
+@patch
+def mark_attempt(self:Learning, aid:str, **kv) -> dict:
+    "Merge `kv` into the meta of attempt `aid`."
+    r = first(self.v.t.docs(where='source=?', where_args=[_src('attempt', aid)]))
+    if r is None: raise KeyError(f'no attempt {aid!r}')
+    return self.v.set_meta(r['id'], **kv)
+
+@patch
+def add_gap(self:Learning, slug:str, gap:str):
+    "Record that you said you do not know concept `gap` while you learned `slug`."
+    c = self.concept(slug)
+    if c is None: raise KeyError(f'no concept {slug!r}')
+    if gap != slug and gap not in (c.get('gaps') or []): self.update(slug, gaps=[*(c.get('gaps') or []), gap])
+
 # %% ../nbs/00_store.ipynb #c027
 @patch
 def log_session(self:Learning, sid:str, summary:str, **meta):
@@ -240,12 +255,13 @@ def search(self:Learning, q:str, kind:str=None, limit:int=10) -> L:
 
 @patch
 def graph(self:Learning, subject:str=None) -> dict:
-    "Nodes and links for a graph view. A link to a slug that has no concept is dropped."
+    "Nodes and links (prereq, related, gap) for a graph view. A link to a slug that has no concept is dropped."
     cs = self.concepts(subject)
     have = set(cs.attrgot('slug'))
     nodes = [dict(id=c.slug, name=c.name, subject=c.subject, floor=c.floor, ceiling=c.ceiling, due=c.due, seen=c.seen) for c in cs]
     links = [dict(source=p, target=c.slug, kind='prereq') for c in cs for p in c.prereqs if p in have]
     links += [dict(source=c.slug, target=r, kind='related') for c in cs for r in c.related if r in have and c.slug < r]
+    links += [dict(source=g, target=c.slug, kind='gap') for c in cs for g in c.get('gaps') or () if g in have]
     return dict(nodes=nodes, links=links)
 
 # %% ../nbs/00_store.ipynb #c031

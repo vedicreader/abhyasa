@@ -6,7 +6,7 @@ Docs: https://vedicreader.github.io/abhyasa/model.html.md"""
 
 # %% auto #0
 __all__ = ['DEPTHS', 'KIND_AT', 'GOAL', 'HIGH', 'DAY', 'outcome', 'recall', 'grow', 'update', 'next_depth', 'learned', 'ready',
-           'pick']
+           'pick', 'understanding', 'weak']
 
 # %% ../nbs/01_model.ipynb #c004
 import time
@@ -82,6 +82,10 @@ def _back(c, by, goal):
     p = min(ps, key=lambda x: x.get('floor', 0))
     return p, f"two misses on {c['name']}; step back to {p['name']}"
 
+def _gap(c, by):
+    "The first gap you named on `c` that is not passed yet, for at most two questions; else None. A gap never blocks `c`."
+    return first(by[g] for g in c.get('gaps') or () if g in by and not by[g].get('floor') and by[g].get('seen', 0) < 2)
+
 # %% ../nbs/01_model.ipynb #c039
 def pick(concepts, focus:str=None, subject:str=None, goal:int=GOAL, now:float=None, skip=(), near=()):
     "The next `(concept, depth, why)`, or None when no review is due and the frontier is empty. Concepts in `near` come first on the frontier."
@@ -90,6 +94,7 @@ def pick(concepts, focus:str=None, subject:str=None, goal:int=GOAL, now:float=No
     pool = [c for c in concepts if c['slug'] not in skip and (not subject or c.get('subject') == subject)]
     def out(c, why):
         c, back = _back(c, by, goal)
+        if (g := _gap(c, by)): return g, min(next_depth(g), g.get('floor', 0) + 1), f"you said you did not know {g['name']}; it comes before {c['name']}"
         return c, next_depth(c) if not learned(c, goal) else c.get('floor', 0), back or why
     if focus and (f := by.get(focus)) and (not learned(f, goal) or (f.get('due') or 0) <= now):
         return out(f, f"you chose {f['name']}")
@@ -102,3 +107,21 @@ def pick(concepts, focus:str=None, subject:str=None, goal:int=GOAL, now:float=No
     c = min(front, key=lambda c: (c['slug'] not in near, -bool(c.get('seen')), c.get('order', 1e9), -c.get('floor', 0)))
     why = 'it is next to the concept you chose' if c['slug'] in near else 'you started it' if c.get('seen') else 'its prereqs are in place'
     return out(c, f'next on the frontier: {why}')
+
+# %% ../nbs/01_model.ipynb #a8e9b128
+def _is_gap(c): return any(p.get('src') == 'gap' for p in c.get('provenance') or ())
+
+def understanding(c, now:float=None) -> AttrDict:
+    "How well you know concept `c`: floor, ceiling, recall, the reasons it is weak, `weak`, `strong`, and a score to sort by."
+    r, fl, mi, mis = recall(c, now), c.get('floor', 0), c.get('misses', 0), c.get('misconceptions') or []
+    why = [*(['you said you did not know it'] if _is_gap(c) and fl < 3 else []),
+           *([f'a misconception: {mis[-1]}'] if mis else []),
+           *([f'missed the last {mi} times'] if mi >= 2 else []),
+           *([f'right, but shaky at {DEPTHS[c["shaky"]]}'] if c.get('shaky') else []),
+           *([f'fading: recall {r:.0%}'] if c.get('seen') and r < .6 else [])]
+    weak = bool(why) or mi > 0
+    if c.get('seen', 0) >= 3 and min(c.get('ceiling', 6), 6) - fl >= 3: why.append('its level is not clear yet')
+    return AttrDict(floor=fl, ceiling=c.get('ceiling', 6), recall=r, reasons=why, weak=weak,
+                    strong=fl >= 3 and r >= .8 and not mi and not why, score=fl / 5 * r - .2 * len(mis) - .1 * mi)
+
+def weak(c, now:float=None) -> bool: return understanding(c, now).weak

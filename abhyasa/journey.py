@@ -6,7 +6,7 @@ Docs: https://vedicreader.github.io/abhyasa/journey.html.md"""
 
 # %% auto #0
 __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'PRIMER_SP', 'step_state', 'progress', 'current', 'plan_prompt', 'near_goal', 'plan',
-           'add_topic', 'split', 'related', 'with_step', 'beyond']
+           'add_topic', 'name_gaps', 'split', 'related', 'with_step', 'beyond']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, time, uuid
@@ -159,6 +159,23 @@ def add_topic(lr:Learning, ask, jid:str, name:str, before:str=None, sources=None
             try: lr.connect(slug, sources)
             except Exception: pass
     return lr.journey_add(jid, slug, before, why='you added it')
+
+# %% ../nbs/11_journey.ipynb #17219547
+def name_gaps(lr:Learning, ask, slug:str, terms, sources=None) -> L:
+    "Find or add a concept for each idea in `terms`, and keep it as a gap of `slug`. Return the gap slugs."
+    c, idx, out = lr.concept(slug), _index(lr), L()
+    for t in dict.fromkeys(str(t).strip() for t in terms or () if str(t).strip()):
+        if not (g := idx.get(t.lower())):
+            r = ask_json(ask, f"The idea: {t}\nIt comes up in: {c.name} ({c.get('subject') or 'general'})\n\n"
+                              'Return JSON: {"name": str, "statement": str}', PRIMER_SP)
+            name = r.get('name') or t
+            g = lr.put(name, r.get('statement', ''), c.get('subject', ''), aliases=[t] if t.lower() != name.lower() else [],
+                       provenance=[dict(src='gap', of=slug, said=t, at=time.time())]).slug
+            if sources:
+                try: lr.connect(g, sources)
+                except Exception: pass
+        lr.add_gap(slug, g); out.append(g)
+    return out
 
 # %% ../nbs/11_journey.ipynb #d3754943
 def split(lr:Learning, ask, jid:str, slug:str, sources=None) -> L:
