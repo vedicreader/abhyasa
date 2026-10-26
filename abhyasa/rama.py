@@ -15,14 +15,16 @@ from .model import DEPTHS
 from .tutor import Tutor, Session
 
 # %% ../nbs/07_rama.ipynb #c007
-_st = AttrDict(lr=None, tutor=None, sess=None)
+_st = AttrDict(lr=None, tutor=None, sess=None, agent=None)
 
 def _learning():
     if _st.lr is None: _st.lr = Learning(os.getenv('ABHYASA_VAULT') or os.getenv('VISHALAKSHI_VAULT'))
     return _st.lr
 
 def _tutor(agent):
-    if _st.tutor is None: _st.tutor = Tutor(_learning(), lambda p, sp='': agent.oneshot(p, sp, job='oneshot'))
+    "The tutor, made once. Its model is the agent of the latest command, so `/reload` or a new model takes effect."
+    _st.agent = agent
+    if _st.tutor is None: _st.tutor = Tutor(_learning(), lambda p, sp='': _st.agent.oneshot(p, sp, job='oneshot'))
     return _st.tutor
 
 # %% ../nbs/07_rama.ipynb #c009
@@ -30,7 +32,7 @@ def show_q(q) -> str:
     "A question as terminal text."
     if q is None: return 'Nothing to learn or review right now. `/learn <topic>` names one.'
     opts = ''.join(f'\n  {i}. {o}' for i, o in enumerate(q.options)) if q.get('options') else ''
-    return f"**{q.name}** · {DEPTHS[q.depth]} · _{q.why}_\n\n{q.question}{opts}\n\n`/a <answer>` · `/hint` · `/idk`"
+    return f"**{q.name}** · {DEPTHS[q.depth]} · _{q.why}_\n\n{q.question}{opts}\n\n`/a <answer>` or `/ans <answer>` · `/hint` · `/idk`"
 
 def show_r(r) -> str:
     "A result as terminal text."
@@ -44,9 +46,8 @@ def find(lr, arg) -> str|None:
     if not arg: return None
     if lr.concept(arg): return arg
     hs = lr.search(arg, kind='concept', limit=1)
-    if not hs: return None
-    r = first(lr.v.t.docs(where='id=?', where_args=[hs[0]['doc_id']]))
-    return r['source'].rsplit('/', 1)[-1] if r else None
+    c = lr.concept_by_doc(hs[0]['doc_id']) if hs else None
+    return c.slug if c else None
 
 def learn(agent, arg=''):
     t = _tutor(agent)
@@ -88,10 +89,12 @@ def learning_due() -> str:
 def _safe(fn, agent, arg):
     try: return fn(agent, arg)
     except ValueError as e: return str(e)
+    except Exception as e: return f'abhyasa could not do that: {type(e).__name__}: {e}'   # one line, not a traceback in the terminal
 
 def setup(reg):
     "Register the commands and tools of abhyasa with ramabana."
-    for nm, fn, h in (('learn', learn, 'start a learning session'), ('a', answer, 'answer the open question'),
+    # ramabana takes a bare `/a` itself; `/a <answer>` and `/ans <answer>` both reach abhyasa
+    for nm, fn, h in (('learn', learn, 'start a learning session'), ('a', answer, 'answer the open question'), ('ans', answer, 'answer the open question'),
                       ('hint', hint, 'the next hint'), ('idk', idk, "say you don't know"),
                       ('teach', teach, 'give up and be taught'), ('due', due, 'what is due for review')):
         reg.command(nm, lambda agent, arg='', fn=fn: _safe(fn, agent, arg), help=h)

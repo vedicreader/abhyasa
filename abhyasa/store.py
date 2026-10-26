@@ -69,6 +69,12 @@ def concept(self:Learning, slug:str) -> AttrDict|None:
     return self._row(r) if r else None
 
 @patch
+def concept_by_doc(self:Learning, doc_id:str) -> AttrDict|None:
+    "The concept that a search hit (its `doc_id`) belongs to, or None when the hit is not a concept."
+    r = first(self.v.t.docs(where="id=? and kind='concept'", where_args=[doc_id]))
+    return self._row(r) if r else None
+
+@patch
 def concepts(self:Learning, subject:str=None) -> L:
     "All concepts, or the concepts of one subject."
     rs = self._docs('concept', *(("json_extract(meta, '$.subject')=?", [subject]) if subject else ()))
