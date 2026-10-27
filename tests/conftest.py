@@ -42,3 +42,11 @@ def mk(lr, fake):
     "A client for an app with some blocks, or all of them."
     def f(names=None): return TestClient(mk_app(lr, fake, transcribe=lambda a, hint='': f'{len(a)} bytes about {hint}', names=names, sources=[Notes()], hosts=('testserver', '127.0.0.1', 'localhost')))
     return f
+
+@pytest.fixture
+def walk_fake(fake):
+    "The `fake` that `mk` uses, with the replies for a walk: the extract of the paper, the tutor note, and the code exercise."
+    from walk_data import EXTRACT_REPLY, EXERCISE
+    fake.rules.update({'Return JSON: {"concepts"': EXTRACT_REPLY, 'You write a short note': 'Softmax makes weights from scores. Look at what a large score does.',
+                       'You write one small Python exercise': EXERCISE})
+    return fake

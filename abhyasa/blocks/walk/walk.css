@@ -1,0 +1,65 @@
+/* The walk: the plan as sections of ideas; a step as one column with the outline at its left, and the check on the raised surface. */
+
+/* the plan */
+.plan { list-style: none; padding: 0; margin: 10px 0 0; }
+.plan > li { padding: 10px 0 12px; border-top: 1px solid var(--line); }
+.plan > li:last-child { border-bottom: 1px solid var(--line); }
+.plan .sh { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.plan .sh b { font-weight: 500; font-size: 18px; }
+.plan .sh small { white-space: nowrap; }
+.plan ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 2px; }
+.plan ul li { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; font-size: 16px; color: var(--ink2); }
+.plan ul li.known .n { color: var(--mute); }
+.plan ul li .w { font-size: 13px; color: var(--mute); text-align: right; }
+.plan select { width: auto; font-size: 13px; padding: 2px 4px; color: var(--mute); background: transparent; border: 0; border-bottom: 1px solid var(--line); }
+.plan ul li button { opacity: 0; } .plan ul li:hover button, .plan ul li:focus-within button { opacity: 1; }
+@media (hover: none) { .plan ul li button { opacity: 1; } }
+
+/* the step: the outline, then one column */
+.walk-layout { display: grid; grid-template-columns: 240px minmax(0, 720px); gap: 48px; justify-content: center; }
+.outline { position: sticky; top: 24px; align-self: start; font-size: 14px; }
+.outline .lbl { margin-bottom: 8px; }
+.outline .prog { margin: 4px 0 16px; }
+.outline ol { list-style: none; padding: 0; margin: 0; }
+.outline li { padding: 4px 0 4px 14px; border-left: 2px solid var(--line); color: var(--mute); line-height: 1.35; }
+.outline li.sec { color: var(--ink2); padding-top: 10px; }
+.outline li.c { padding-left: 26px; position: relative; }
+.outline li.c a { color: inherit; text-decoration: none; } .outline li.c a:hover { color: var(--fg); }
+.outline li.c::before { content: ''; position: absolute; left: 12px; top: 10px; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--rule); }
+.outline li.c.done::before, .outline li.c.known::before { background: var(--acc); border-color: var(--acc); }
+.outline li.c.shaky::before { background: color-mix(in srgb, var(--no) 40%, var(--bg)); border-color: var(--no); }
+.outline li.c.skipped a { text-decoration: line-through; }
+.outline li.on { border-left-color: var(--acc); color: var(--fg); }
+.outline li.c.on::before { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 20%, transparent); }
+.outline .k { font-size: 12px; font-style: italic; }
+@media (max-width: 900px) { .walk-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; } .outline { position: static; } }
+
+.sec-lbl { font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: 0 0 4px; display: flex; gap: 10px; flex-wrap: wrap; }
+.sec-lbl span + span::before { content: '·'; margin-right: 10px; }
+h1.idea { font-size: 28px; margin-bottom: 14px; }
+.quote { margin: 0 0 18px; padding: 0 0 0 18px; border-left: 2px solid var(--rule); color: var(--fg); font-size: 18px; }
+.quote .src { display: block; font-size: 13px; color: var(--mute); font-style: italic; margin-top: -2px; }
+.stated { margin: 0 0 18px; padding: 0 0 0 18px; border-left: 2px dashed var(--line); color: var(--ink2); }
+#figure { margin: 0 0 18px; } #figure img { max-width: 100%; border-radius: var(--r-s); background: var(--sunken); }
+.note { color: var(--ink2); font-size: 17px; }
+
+/* the check card */
+.check { background: var(--raised); --bg: var(--raised); box-shadow: var(--lift); border-radius: var(--r); padding: 18px 24px; margin: 22px 0 18px; }
+.check > .lbl { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.check > .lbl .why { text-transform: none; letter-spacing: 0; font-size: 13px; font-style: italic; }
+.check .q { font-size: 21px; line-height: 1.45; margin: 4px 0 12px; }
+.check .thread { list-style: none; padding: 0; margin: 0 0 12px; }
+.check .thread .m { padding: 8px 0; border-top: 1px solid var(--line); }
+.check .thread .you { color: var(--ink2); }
+.check .tag { font: 500 12px/1.4 var(--serif); letter-spacing: .1em; text-transform: uppercase; }
+.check .tag.ok { color: var(--ok); } .check .tag.no { color: var(--no); }
+.check .err .k { color: var(--no); }
+.check textarea { font-size: 16px; margin-bottom: 10px; }
+.check .row { margin-top: 8px; }
+.check .steps { display: flex; gap: 6px; align-items: center; } .check .steps .lbl { margin: 0 4px 0 0; }
+.check .steps label { display: inline-flex; gap: 2px; align-items: center; margin: 0; text-transform: none; letter-spacing: 0; font-size: 13px; }
+.check.done { background: transparent; box-shadow: none; padding: 4px 0 4px 18px; border-left: 2px solid color-mix(in srgb, var(--ok) 55%, transparent); border-radius: 0; }
+.check .skel i { display: block; height: 14px; margin: 10px 0; border-radius: 4px; background: var(--sunken); } .check .skel i.short { width: 60%; }
+
+.next-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: 26px; padding-top: 16px; }
+.next-bar .row { margin-top: 0; } .next-bar .mute { margin: 0; }
