@@ -300,3 +300,16 @@ def test_run_isolated():
     started = time.monotonic()
     assert check.run_isolated('assert', 'f', 'while True: pass', [], total=.1) == {'timeout': True}
     assert time.monotonic() - started < 3.1
+
+
+def test_public_hides_a_passing_hidden_tests_expected_value():
+    def double(n): return n * 2
+    page = json.dumps(public(run_asserts(double, 'double', [dict(test='assert double(-123) == -246', say='Negative', hidden=True)])))
+    assert '-246' not in page and '-123' not in page
+
+
+def test_system_exit_in_the_learners_function_is_an_error_not_an_escape():
+    def quits(n): raise SystemExit(3)
+    report = run_asserts(quits, 'quits', ['assert quits(1) == 1', dict(test='assert quits(2) == 2', hidden=True)])
+    assert [c.status for c in report.checks] == ['error', 'error']
+    assert report.checks[1].error == 'SystemExit'

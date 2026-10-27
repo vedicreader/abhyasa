@@ -99,7 +99,8 @@ def public(report) -> dict:
     checks = []
     for c in report.checks:
         error = c.error.split(':', 1)[0] if c.hidden else c.error
-        checks.append(dict(i=c.i, label=c.label, status=c.status, got=c.got, error=error, hidden=c.hidden, ms=c.ms))
+        got = None if c.hidden and c.status == 'pass' else c.got   # a hidden test that passes returned its expected value
+        checks.append(dict(i=c.i, label=c.label, status=c.status, got=got, error=error, hidden=c.hidden, ms=c.ms))
     return dict(v=1, found=report.found, timeout=report.timeout, checks=checks)
 
 # %% ../nbs/06_check.ipynb #8ef44808
@@ -130,7 +131,7 @@ def run_asserts(fn, fname, tests, *, secs=2., total=10.) -> Report:
                         ast.fix_missing_locations(tree)
                     try: exec(compile(tree, '<learner test>', 'exec'), env)
                     except (TimeoutError, KeyboardInterrupt): raise
-                    except Exception as e:
+                    except (Exception, SystemExit) as e:
                         check.status = 'fail' if isinstance(e, AssertionError) else 'error'
                         check.error = type(e).__name__ if hidden else f'{type(e).__name__}: {e}'[:200]
                     if capture and '_abhyasa_actual' in env: check.got = repr(env['_abhyasa_actual'])[:200]
@@ -139,7 +140,7 @@ def run_asserts(fn, fname, tests, *, secs=2., total=10.) -> Report:
                 check.status, check.error = 'timeout', 'KeyboardInterrupt' if hidden else 'KeyboardInterrupt: the run stopped'
             except TimeoutError:
                 check.status, check.error = 'timeout', 'TimeoutError' if hidden else 'TimeoutError: the test ran out of time'
-            except Exception as e:
+            except (Exception, SystemExit) as e:
                 check.status = 'error'
                 check.error = type(e).__name__ if hidden else f'{type(e).__name__}: {e}'[:200]
         check.ms = (time.monotonic() - started) * 1000
