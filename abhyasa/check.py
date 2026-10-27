@@ -6,12 +6,13 @@ Docs: https://vedicreader.github.io/abhyasa/check.html.md"""
 
 # %% auto #0
 __all__ = ['SAFE_NAMES', 'SAFE_BUILTINS', 'SAFE_NODES', 'TEST_SECONDS', 'safe_test', 'validate_exercise', 'time_limit', 'Report',
-           'public', 'run_asserts']
+           'public', 'run_asserts', 'load_tests', 'run_cells', 'snippet', 'parse', 'run_isolated']
 
 # %% ../nbs/06_check.ipynb #7ddc814d
-import ast, builtins, ctypes, io, signal, threading, time
+import ast, builtins, ctypes, inspect, io, json, os, signal, subprocess, sys, threading, time
 from contextlib import contextmanager, redirect_stdout, redirect_stderr
-from fastcore.basics import AttrDict
+from fastcore.basics import AttrDict, adict, stop
+from fastcore.nbio import read_nb, dict2nb
 
 # %% ../nbs/06_check.ipynb #12393563
 SAFE_NAMES = ('abs', 'all', 'any', 'bool', 'dict', 'enumerate', 'float', 'int', 'isinstance', 'len', 'list', 'max', 'min',
@@ -145,3 +146,132 @@ def run_asserts(fn, fname, tests, *, secs=2., total=10.) -> Report:
         report.timeout |= check.status == 'timeout'
         report.checks.append(check)
     return report
+
+# %% ../nbs/06_check.ipynb #64adf240
+def load_tests(nb) -> tuple:
+    "Return ordered setup sources and labelled test cells from a notebook."
+    nb = read_nb(nb) if isinstance(nb, (str, os.PathLike)) else dict2nb(nb)
+    setup, tests = [], []
+    for cell in nb.cells:
+        if cell.cell_type != 'code': continue
+        directives = cell.directives
+        meta = cell.get('metadata', {}).get('abhyasa', {})
+        if 'setup' in directives: setup.append(cell.source)
+        if 'test' not in directives and not meta.get('test', False): continue
+        label = directives['test'] if 'test' in directives else meta.get('say', '')
+        tests.append(dict(source=cell.source, say=label or f'Test {len(tests) + 1}',
+                          hidden=True if 'hidden' in directives else meta.get('hidden', False)))
+    return setup, tests
+
+# %% ../nbs/06_check.ipynb #c2692292
+def run_cells(tests, ns, *, setup=(), secs=2., total=10.) -> Report:
+    "Run trusted test cells in separate shallow copies of one setup namespace."
+    report = Report(found=True, timeout=False, checks=[])
+    deadline, stopped, setup_error = time.monotonic() + total, False, ''
+    base = dict(ns)
+    base['__builtins__'] = builtins.__dict__
+    try:
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            for source in setup:
+                with time_limit(min(secs, deadline - time.monotonic())): exec(source, base)
+    except KeyboardInterrupt: stopped = True
+    except TimeoutError: stopped = True
+    except (Exception, SystemExit) as e: setup_error = f'SetupError: {type(e).__name__}'
+    for i, spec in enumerate(tests):
+        hidden = spec.get('hidden', False)
+        check = AttrDict(i=i, label=spec.get('say') or f'Test {i + 1}', status='pass', got=None,
+                         error='', hidden=hidden, ms=0.)
+        started = time.monotonic()
+        remaining = deadline - started
+        if setup_error:
+            check.status, check.error = 'error', 'SetupError' if hidden else setup_error
+        elif stopped or remaining <= 0:
+            check.status, check.error = 'timeout', 'TimeoutError' if hidden else 'TimeoutError: the run stopped or spent its budget'
+        else:
+            env = dict(base)
+            try:
+                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()), time_limit(min(secs, remaining)):
+                    tree = ast.parse(spec['source'])
+                    name = '_abhyasa_actual'
+                    used = set(env) | {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+                    captures = {}
+                    for statement in tree.body:
+                        if not isinstance(statement, ast.Assert): continue
+                        condition = statement.test
+                        if (isinstance(condition, ast.Compare) and len(condition.ops) == 1
+                            and isinstance(condition.ops[0], ast.Eq) and isinstance(condition.left, ast.Call)):
+                            while name in used: name += '_'
+                            used.add(name)
+                            captures[(statement.lineno, statement.col_offset), (statement.end_lineno, statement.end_col_offset)] = name
+                            condition.left = ast.NamedExpr(target=ast.Name(id=name, ctx=ast.Store()), value=condition.left)
+                    code = compile(ast.fix_missing_locations(tree), '<notebook test>', 'exec')
+                    try: exec(code, env)
+                    except AssertionError as e:
+                        check.status = 'fail'
+                        check.error = type(e).__name__ if hidden else f'{type(e).__name__}: {e}'[:200]
+                        tb = e.__traceback__
+                        while tb and tb.tb_frame.f_code is not code: tb = tb.tb_next
+                        position = list(code.co_positions())[tb.tb_lasti // 2] if tb else (None, None, None, None)
+                        captured = next((name for (start, end), name in captures.items()
+                                         if position[0] is not None and start <= (position[0], position[2]) < end), None)
+                        if captured in env: check.got = repr(env[captured])[:200]
+            except KeyboardInterrupt:
+                stopped = True
+                check.status, check.error = 'timeout', 'KeyboardInterrupt' if hidden else 'KeyboardInterrupt: the run stopped'
+            except TimeoutError:
+                check.status, check.error = 'timeout', 'TimeoutError' if hidden else 'TimeoutError: the test ran out of time'
+            except (Exception, SystemExit) as e:
+                check.status = 'error'
+                check.error = type(e).__name__ if hidden else f'{type(e).__name__}: {e}'[:200]
+        check.ms = (time.monotonic() - started) * 1000
+        report.timeout |= check.status == 'timeout'
+        report.checks.append(check)
+    report.timeout |= stopped
+    return report
+
+# %% ../nbs/06_check.ipynb #6bc8717a
+def snippet(kind, fname, tests, *, secs=2., total=10., setup=()) -> str:
+    "Build a standalone kernel check that prints one public JSON result."
+    if kind not in ('assert', 'cell'): raise ValueError("kind must be 'assert' or 'cell'")
+    dependencies = [stop, adict, AttrDict, time_limit, public]
+    runners = [safe_test, run_asserts] if kind == 'assert' else [run_cells]
+    data = json.dumps(dict(fname=fname, tests=tests, secs=secs, total=total, setup=list(setup), safe_names=SAFE_NAMES))
+    parts = [
+        'import ast, builtins, ctypes, io, json, signal, threading, time',
+        'from contextlib import contextmanager, redirect_stdout, redirect_stderr',
+        f'data = json.loads({data!r})',
+        'SAFE_NAMES = tuple(data["safe_names"])',
+        'SAFE_BUILTINS = {n: getattr(builtins, n) for n in SAFE_NAMES if hasattr(builtins, n)}',
+        'SAFE_NODES = (' + ', '.join(f'ast.{node.__name__}' for node in SAFE_NODES) + ',)',
+        f'TEST_SECONDS = {TEST_SECONDS!r}',
+        *(inspect.getsource(obj) for obj in dependencies),
+        'class Report(AttrDict):\n' + inspect.getsource(Report.passed.fget),
+        *(inspect.getsource(obj) for obj in runners),
+    ]
+    if kind == 'assert':
+        parts.append('result = run_asserts(_ns.get(data["fname"]), data["fname"], data["tests"], secs=data["secs"], total=data["total"])')
+    else:
+        parts.append('result = run_cells(data["tests"], _ns, setup=data["setup"], secs=data["secs"], total=data["total"])')
+    parts.append('print(json.dumps(public(result)))')
+    return f'exec({chr(10).join(parts)!r}, {{"_ns": globals()}})'
+
+
+# %% ../nbs/06_check.ipynb #0b115444
+def parse(text) -> dict:
+    "Read the last public check JSON line, or return a missing-result error."
+    for line in reversed(text.splitlines()):
+        try: result = json.loads(line)
+        except (ValueError, TypeError): continue
+        if (isinstance(result, dict) and result.get('v') == 1
+            and isinstance(result.get('found'), bool) and isinstance(result.get('timeout'), bool)
+            and isinstance(result.get('checks'), list)): return result
+        return {'error': 'no check result'}
+    return {'error': 'no check result'}
+
+def run_isolated(kind, fname, source, tests, *, total=10., setup=()) -> dict:
+    "Run a reference solution and checks in an isolated Python subprocess."
+    code = source + '\n' + snippet(kind, fname, tests, total=total, setup=setup)
+    try:
+        result = subprocess.run([sys.executable, '-I'], input=code, capture_output=True, text=True, timeout=total + 2)
+    except subprocess.TimeoutExpired: return {'timeout': True}
+    return parse(result.stdout)

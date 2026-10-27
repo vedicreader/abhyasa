@@ -1,4 +1,5 @@
 """Checks for the light learner-code runner."""
+import builtins
 import json
 import subprocess
 import sys
@@ -7,6 +8,8 @@ import time
 
 import pytest
 
+import abhyasa.check as check
+from fastcore.nbio import mk_cell, new_nb, write_nb
 from abhyasa.check import SAFE_BUILTINS, Report, public, run_asserts, safe_test, time_limit, validate_exercise
 
 
@@ -159,3 +162,141 @@ def test_keyboard_interrupt_stops_run():
     assert calls == [1]
     assert report.timeout and not report.passed
     assert [c.status for c in report.checks] == ['timeout'] * 3
+
+
+def test_load_tests(tmp_path):
+    nb = new_nb([
+        mk_cell('#| setup\nfixture = 3'),
+        mk_cell('#| test: Triples\nassert f(fixture) == 6', metadata={'abhyasa': {'test': True, 'say': 'ignored'}}),
+        mk_cell("assert f(4) == 8", metadata={'abhyasa': {'test': True, 'say': 'Secret', 'hidden': True}}),
+        mk_cell('#| test\n#| hidden\nassert f(5) == 10'),
+        mk_cell('#| test: Not code', cell_type='markdown'),
+        mk_cell('ordinary = 1'),
+    ])
+    setup, tests = check.load_tests(nb)
+    assert setup == ['#| setup\nfixture = 3']
+    assert [t['say'] for t in tests] == ['Triples', 'Secret', 'Test 3']
+    assert [t['hidden'] for t in tests] == [False, True, True]
+    assert all(set(t) == {'source', 'say', 'hidden'} for t in tests)
+    path = tmp_path / 'checks.ipynb'
+    write_nb(nb, path)
+    assert check.load_tests(path) == (setup, tests)
+
+
+def test_run_cells_isolation_and_capture(capsys):
+    tests = [
+        dict(source='local = fixture + 1\nprint(local)\nassert f(local) == 8', say='Fixture'),
+        dict(source="assert 'local' not in globals()\nassert fixture == 3", say='Fresh names'),
+        dict(source='assert f(3) == 7', say='Wrong result'),
+        dict(source="assert f(4) == 918273, 'secret-918273'", say='Private', hidden=True),
+        dict(source="raise ValueError('secret-918273')", hidden=True),
+    ]
+    ns = {'f': lambda n: n * 2, '__builtins__': {}}
+    report = check.run_cells(tests, ns, setup=['fixture = 3\nprint("setup output")'])
+    assert report.found and not report.timeout
+    assert [c.status for c in report.checks] == ['pass', 'pass', 'fail', 'fail', 'error']
+    assert report.checks[2].got == '6'
+    assert report.checks[3].error == 'AssertionError'
+    assert report.checks[4].error == 'ValueError'
+    assert '918273' not in json.dumps(public(report))
+    assert set(ns) == {'f', '__builtins__'}
+    assert capsys.readouterr().out == ''
+
+
+def test_run_cells_capture_failing_statement_once():
+    calls = []
+    def once(n):
+        calls.append(n)
+        return n * 2
+    tests = [dict(source='assert f(1) == 2\nassert f(3) == 7\nassert f(5) == 10')]
+    report = check.run_cells(tests, {'f': once})
+    assert report.checks[0].got == '6'
+    assert calls == [1, 3]
+    report = check.run_cells([dict(source='assert f(1) == 2\nassert False')], {'f': once})
+    assert report.checks[0].got is None
+    def fails(n):
+        if n == 3: raise AssertionError('inside the function')
+        return n * 2
+    report = check.run_cells([dict(source='assert f(1) == 2\nassert f(3) == 7')], {'f': fails})
+    assert report.checks[0].status == 'fail' and report.checks[0].got is None
+    for source, got in ((r'assert f(3) == 7; assert f(5) == 10', '6'),
+                        (r'assert f(1) == 2; assert f(3) == 7', '6'),
+                        (r'assert f(1) == 2; assert False', None),
+                        ('assert f(\n3) == 7; assert f(5) == 10', '6')):
+        report = check.run_cells([dict(source=source)], {'f': once})
+        assert report.checks[0].got == got
+
+
+def test_run_cells_setup_failure():
+    tests = [dict(source='assert True'), dict(source='assert True', hidden=True)]
+    report = check.run_cells(tests, {}, setup=["raise ValueError('private-918273')"])
+    assert [c.status for c in report.checks] == ['error', 'error']
+    assert report.checks[0].error == 'SetupError: ValueError'
+    assert report.checks[1].error == 'SetupError'
+    assert '918273' not in json.dumps(public(report))
+    for setup in ((), [r'raise SystemExit("private-918273")']):
+        report = check.run_cells([dict(source=r'raise SystemExit("private-918273")', hidden=True)], {}, setup=setup)
+        assert report.checks[0].status == 'error'
+        assert report.checks[0].error == ('SetupError' if setup else 'SystemExit')
+        assert '918273' not in json.dumps(public(report))
+
+
+def test_run_cells_budget_and_interrupt():
+    tests = [dict(source='while True: pass')] * 10
+    started = time.monotonic()
+    report = check.run_cells(tests, {}, secs=.06, total=.16)
+    assert .1 <= time.monotonic() - started < .8
+    assert report.timeout and all(c.status == 'timeout' for c in report.checks)
+    report = check.run_cells([dict(source='raise KeyboardInterrupt'), dict(source='assert True')], {})
+    assert report.timeout and [c.status for c in report.checks] == ['timeout', 'timeout']
+    started = time.monotonic()
+    report = check.run_cells([dict(source='assert True')], {}, setup=['while True: pass'], total=.06)
+    assert time.monotonic() - started < .8
+    assert report.timeout
+
+
+@pytest.mark.parametrize('kind', ['assert', 'cell'])
+def test_snippet_matches_runner_and_preserves_names(kind, capsys):
+    def noisy(n):
+        print('learner output')
+        print('learner stderr', file=sys.stderr)
+        return n * 2
+    asserts = ['assert f(2) == 4', dict(test='assert f(3) == 7', say='Wrong'),
+               dict(test='assert f(4) == 918273', say='Private', hidden=True)]
+    tests = asserts if kind == 'assert' else [dict(source=t if isinstance(t, str) else t['test'],
+                                                     say='' if isinstance(t, str) else t['say'],
+                                                     hidden=False if isinstance(t, str) else t.get('hidden', False)) for t in asserts]
+    ns = {'f': noisy, '_abhyasa_check': 'keep', '__name__': 'kernel', '__builtins__': builtins.__dict__}
+    before = ns.copy()
+    expected = public(run_asserts(noisy, 'f', tests) if kind == 'assert' else check.run_cells(tests, ns))
+    source = check.snippet(kind, 'f', tests)
+    exec(source, ns)
+    assert ns == before
+    captured = capsys.readouterr()
+    assert captured.err == '' and len(captured.out.splitlines()) == 1
+    actual = check.parse(captured.out)
+    for result in (expected, actual):
+        for c in result['checks']: c.pop('ms')
+    assert actual == expected
+
+
+def test_parse():
+    for text in ('', 'not JSON', '[]', 'null', '{"other": 1}'):
+        assert check.parse(text) == {'error': 'no check result'}
+    result = {'v': 1, 'found': True, 'timeout': False, 'checks': []}
+    assert check.parse('noise\n' + json.dumps(result) + '\nmore noise\n') == result
+    assert check.parse(json.dumps(result) + '\n' + json.dumps(dict(result, found=False)))['found'] is False
+
+
+def test_run_isolated():
+    tests = ['assert f(3) == 6']
+    result = check.run_isolated('assert', 'f', 'def f(n):\n print("noise")\n return n * 2', tests)
+    assert result['found'] and result['checks'][0]['status'] == 'pass'
+    result = check.run_isolated('assert', 'f', 'def f(n): return n', tests)
+    assert result['checks'][0]['status'] == 'fail' and result['checks'][0]['got'] == '3'
+    tests = [dict(source='assert f(fixture) == 6', say='Fixture')]
+    result = check.run_isolated('cell', 'f', 'def f(n): return n * 2', tests, setup=['fixture = 3'])
+    assert result['checks'][0]['status'] == 'pass'
+    started = time.monotonic()
+    assert check.run_isolated('assert', 'f', 'while True: pass', [], total=.1) == {'timeout': True}
+    assert time.monotonic() - started < 3.1
