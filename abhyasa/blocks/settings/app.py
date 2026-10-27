@@ -81,7 +81,7 @@ def connect(app, ctx):
     def test(task:str, model:str=''):
         import time
         model = '' if model == ui.OTHER else model.strip()
-        ask, t = ctx.ask.for_(task, model), time.time()   # the same route as the task's calls
+        ask, t = ctx.ask.for_(task, model, job=f'test:{task}'), time.time()   # its own job, so a test does not move the task's route
         try: out = ask('Reply with the one word: ready.', '')
         except Exception as e: return Span(f'Failed: {str(e)[:160]}', cls='no')
         return Span(f"{time.time() - t:.1f} s: “{(out or '').strip()[:40]}”" if out else 'No answer.', cls='ok' if out else 'no')

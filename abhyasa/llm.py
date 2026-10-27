@@ -157,10 +157,10 @@ class Router:
         "The reply cap of `task`: the saved value, else `TOKENS[task]`. A bad saved value gives the default."
         try: return check_tokens((self.tokens() or {}).get(task, '')) or TOKENS[task]
         except ValueError: return TOKENS[task]
-    def for_(self, task:str, name:str=None):
-        "The `ask` for `task` on `name`, else on the model of the settings, else on the default."
+    def for_(self, task:str, name:str=None, job:str=None):
+        "The `ask` for `task` on `name`, else on the model of the settings, else on the default. A routed call goes to the job `job`, else `task`."
         n = self.name(task) if name is None else name
-        if hasattr(self.dflt, 'via'): return self.dflt.via(task, n, self.cap(task))
+        if hasattr(self.dflt, 'via'): return self.dflt.via(job or task, n, self.cap(task))
         return model_ask(n) if n else self.dflt
     def warm(self):
         "Start the backend of each task in a background thread, with no model call. Returns the thread, or None."
@@ -198,10 +198,9 @@ def _point(a, job:str, name:str):
         try: a.routing.set(name, job=job)
         except Exception as e: raise RuntimeError(f'The {job} task: ramabana does not know the model {name!r} ({e}).') from e
 
-def _lock(a, job:str, name:str):
-    "The lock of the backend that `job` goes to now: one call at a time on each backend."
-    s = a.spec_or_none(job)
-    with _ra_lock: return _locks.setdefault((s.backend, s.model_id) if s else name, threading.Lock())
+def _lock(b):
+    "The abhyasa lock of the backend `b`: one call at a time on each backend."
+    with _ra_lock: return _locks.setdefault((b.spec.backend, b.spec.model_id), threading.Lock())
 
 def _why(a, job:str, since:float) -> str:
     "The notes of ramabana on why `job` got no answer: the models it put aside since `since`, else the note of the route."
@@ -211,12 +210,17 @@ def _why(a, job:str, since:float) -> str:
 # %% ../nbs/02_llm.ipynb #8bfc31b2
 def ramabana_oneshot(job:str, name:str, prompt:str, sp:str='', max_tokens:int=MAX_TOKENS) -> str:
     "Ask `prompt` on the ramabana job `job`, pointed at the model `name`. Wait for a busy backend. Raise when no route answers."
-    a, since, tried = ramabana_agent(name), time.time(), set()
+    a, since, held = ramabana_agent(name), time.time(), []
     _point(a, job, name)
-    while (lock := _lock(a, job, name)) not in tried:
-        tried.add(lock)
-        with lock: out = a.oneshot(prompt, sp, job=job, max_tokens=max_tokens)
-        if out: return out
+    def fits(b):
+        "Let go of the lock of the route before, then wait for the lock of `b`: one lock at a time, so no deadlock."
+        if held: held.pop().release()
+        lk = _lock(b); lk.acquire(); held.append(lk)
+        return True
+    try: out = a.oneshot(prompt, sp, job=job, max_tokens=max_tokens, fits=fits)
+    finally:
+        if held: held.pop().release()
+    if out: return out
     raise RuntimeError(f'The {job} task got no answer from {name} through ramabana: {_why(a, job, since)}')
 
 # %% ../nbs/02_llm.ipynb #4129a0e0

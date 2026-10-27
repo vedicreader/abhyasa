@@ -126,7 +126,7 @@ def test_tutor_model_test_reports_time_and_failures(mk):
     assert 'Failed: model does not exist' in cl.post('/settings/model/test', data=dict(task='grade', model='bad/model')).text
 
 def test_tutor_model_test_uses_the_task_route(mk):
-    "With a default that routes by task, as `RouteAsk` does, the Test button asks on the job of its task, the chosen model and the reply cap of the task."
+    "With a default that routes by task, as `RouteAsk` does, the Test button asks on its own job `test:<task>`, with the chosen model and the reply cap of the task. The job of the task does not change."
     seen = []
     class Routed:
         model = 'claude/sonnet'
@@ -138,7 +138,7 @@ def test_tutor_model_test_uses_the_task_route(mk):
     cl.app.state.svc['ask'].dflt = Routed()
     assert ' s: “ready”' in cl.post('/settings/model/test', data=dict(task='hint', model='claude/haiku')).text
     assert ' s: “ready”' in cl.post('/settings/model/test', data=dict(task='grade', model='')).text
-    assert seen == [('hint', 'claude/haiku', llm.TOKENS['hint']), ('grade', '', llm.TOKENS['grade'])]
+    assert seen == [('test:hint', 'claude/haiku', llm.TOKENS['hint']), ('test:grade', '', llm.TOKENS['grade'])]
 
 def test_reply_cap_saved_loaded_and_checked(mk, monkeypatch):
     "The reply cap of a task: saved in settings.json, shown on the page, empty for the default, and a bad value is refused."
