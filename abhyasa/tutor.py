@@ -317,7 +317,7 @@ def _heard(self:Tutor, q, g):
         else:
             try: job()
             except Exception: pass
-    if g.get('asks_for') in METHODS: q.method = g['asks_for']
+    if g.get('asks_for') in TEXT_WAYS: q.method = g['asks_for']
 
 @patch
 def answer(self:Tutor, qid:str, answer:str='', thinking:str='', confidence:int=None, dont_know:bool=False) -> AttrDict:
