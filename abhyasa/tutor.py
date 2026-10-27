@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/tutor.html.md"""
 
 # %% auto #0
 __all__ = ['MAX_TRIES', 'NEAR', 'HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'GRADE_SP', 'CLOSE_HOOKS', 'MISSES', 'SHAKY', 'question_prompt',
-           'bridges', 'thread_text', 'grade_prompt', 'hint_prompt', 'teach_prompt', 'Tutor', 'public', 'paced', 'flow',
-           'Session', 'retests', 'moved']
+           'with_code', 'bridges', 'thread_text', 'grade_prompt', 'hint_prompt', 'teach_prompt', 'Tutor', 'public',
+           'paced', 'flow', 'Session', 'retests', 'moved']
 
 # %% ../nbs/03_tutor.ipynb #c004
 import json, random, time, uuid
@@ -61,8 +61,8 @@ def _way(m): return f"The way to teach this time: {METHODS[m]}\n" if m in METHOD
 def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=(), method=''):
     "The prompt that writes one question on `c` at `depth` in `method`; `bridge` names known ideas that a transfer question can connect to."
     kind = KIND_AT[depth]
-    shape = ('{"question": str, "options": [{"text": str, "misconception": str}], "correct": int, "answer": str, "rubric": [str]}'
-             if kind == 'choice' else '{"question": str, "answer": str, "rubric": [str]}')
+    shape = ('{"question": str, "code": str, "options": [{"text": str, "misconception": str}], "correct": int, "answer": str, "rubric": [str]}'
+             if kind == 'choice' else '{"question": str, "code": str, "answer": str, "rubric": [str]}')
     av = '\n'.join(f'- {q}' for q in avoid)
     return (f"{_concept_block(c, ctx, who)}\n\nWrite ONE question that makes the learner {DEPTH_ASK[depth]}.\n"
             f"Aim it just past what they reliably know, so they must struggle a little. Ask ONE thing, in under 60 words. Write only the final question: no drafts, no corrections, no 'no: take'.\n"
@@ -72,7 +72,12 @@ def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=(), method=''):
             + f"`answer` is a model answer the learner will not see; `rubric` lists the 1-4 ideas that a correct answer must contain. "
             "Never make a rubric point a required word, a phrase or a step of a named method. The question can name a method; the idea counts without the name."
             + (" For options: 3 or 4, one correct (index in `correct`), each wrong one tied to a named misconception." if kind == 'choice' else '')
+            + " When the question shows code, put the code only in `code`, with its line breaks and indents, and write `question` as the words after the code. Else `code` is ''."
             + f"\nReturn JSON: {shape}")
+
+def with_code(text:str, code:str='', lang:str='python') -> str:
+    "`text` after `code` in a fenced block, so the code keeps its lines; `text` alone when there is no code."
+    return f"```{lang}\n{code.strip(chr(10))}\n```\n\n{text}" if code.strip() else text
 
 # %% ../nbs/03_tutor.ipynb #br02
 def bridges(c, concepts, n:int=3) -> list:
@@ -194,7 +199,7 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None) 
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
         r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else (), q.method), TUTOR_SP)
-        q.update(question=r['question'], answer=r.get('answer', ''), rubric=r.get('rubric', []))
+        q.update(question=with_code(r['question'], r.get('code') or ''), answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))
             random.shuffle(opts)
