@@ -30,7 +30,10 @@ def test_one_ask():
               "What does it return for 2100 and for 2400, and why do the results differ?",
               "On which days does the spike of 40 raise the average, and why does it affect that many days?"): assert not ask(q), q
     for q in ('Why does it print 7, not 8?', 'What does s hold just before the return line?',
-              'You add one very large value to a list. Why does the median move less than the mean?'): assert ask(q), q
+              'You add one very large value to a list. Why does the median move less than the mean?',
+              'The code keeps a list, which holds the last 3 values. What does it print?',
+              'A user, who types fast, sends two lines. Which line arrives first?'): assert ask(q), q
+    assert not ask('Which file opens first, and which one closes last?')
 
 def test_session_cases():
     "The real session gives three cases: turn 1 alone, turns 1 and 2, and turns 1 to 3; only the last is correct."
