@@ -19,6 +19,6 @@
 /* a small mic at the bottom right of a box that asks for one */
 .micbox { position: relative; display: block; }
 .micbox > textarea, .micbox > input { padding-right: 76px; }
-.mic.mini { position: absolute; right: 0; bottom: 6px; padding: 3px 8px; font-size: 13px; border-color: transparent; color: var(--mute); }
-.mic.mini:hover { color: var(--fg); border-color: var(--rule); }
+.mic.mini { background: transparent; box-shadow: none; position: absolute; right: 0; bottom: 6px; padding: 3px 8px; font-size: 13px; border-color: transparent; color: var(--mute); }
+.mic.mini:hover { color: var(--fg); border-color: var(--rule); background: transparent; box-shadow: none; }
 .mic.mini.on, .mic.mini.busy { border-color: var(--acc); color: var(--fg); }

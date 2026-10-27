@@ -16,8 +16,8 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 
 /* the tutor: margin notes, a hairline at the left, its kind as a small label */
 .m.tutor { padding-left: 18px; border-left: 2px solid var(--line); font-size: 17px; line-height: 1.65; color: var(--ink2); max-width: 680px; }
-.m.tutor.ask { border-left-color: var(--acc); color: var(--fg); }
-.m.tutor.hint { border-left-style: dotted; border-left-color: var(--acc); font-size: 16px; }
+.m.tutor.ask { border-left-color: var(--rule); color: var(--fg); }
+.m.tutor.hint { border-left-style: dotted; border-left-color: var(--rule); font-size: 16px; }
 .m.tutor.no { border-left-color: color-mix(in srgb, var(--no) 55%, transparent); }
 .m.tutor.ok { border-left-color: color-mix(in srgb, var(--ok) 55%, transparent); }
 .q { font-size: 24px; line-height: 1.5; margin: 0; color: var(--fg); }
@@ -26,7 +26,10 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 .tag { display: block; font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 4px; }
 .m .err { margin: 8px 0 0; font-size: 15px; }
 .m .k { font-style: normal; letter-spacing: .08em; text-transform: uppercase; font-size: 11px; color: var(--mute); }
-.fb .lesson { margin-top: 16px; }
+/* the lesson comes forward on a raised surface; the sources under the feedback sit back in a sunken one */
+.fb .lesson { margin: 16px 0 4px; padding: 16px 22px 14px; background: var(--raised); --bg: var(--raised); box-shadow: var(--lift); border-radius: var(--r); color: var(--fg); }
+.m div.cites { margin: 14px 0 4px; padding: 12px 20px 8px; background: var(--sunken); --bg: var(--sunken); border-radius: var(--r); }
+.m .cites ul.plain li { padding: 6px 0; } .m .cites ul.plain li:first-child { border-top: 0; } .m .cites ul.plain li:last-child { border-bottom: 0; }
 .m .now { margin: 12px 0 0; }
 
 /* you: set off at the right, quieter than the tutor, no box */
@@ -41,15 +44,18 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 /* choices: rows on hairlines inside the question, each with its key */
 .opts { margin-top: 16px; border-bottom: 1px solid var(--line); }
 .opt { display: flex; width: 100%; justify-content: space-between; align-items: baseline; gap: 14px; text-align: left; margin: 0;
-       font: 18px/1.55 var(--serif); padding: 11px 6px; border: 0; border-top: 1px solid var(--line); border-radius: 0; color: var(--fg); }
+       font: 18px/1.55 var(--serif); padding: 11px 6px; border: 0; border-top: 1px solid var(--line); border-radius: 0; color: var(--fg);
+       background: transparent; box-shadow: none; }
+.opt:hover { background: color-mix(in srgb, var(--fg) 4%, transparent); box-shadow: none; }
 .opt .md > :last-child { margin-bottom: 0; }
 .opt.tried { color: var(--mute); text-decoration: line-through; text-decoration-color: var(--no); }
 .opt.right { box-shadow: inset 2px 0 0 var(--ok); color: var(--fg); }
 .opt:disabled { cursor: default; } .opt:disabled:hover { background: transparent; }
 
 /* the composer: fixed at the bottom, paper ground, a hairline above; two boxes that grow, then one row of actions */
-.composer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--bg); border-top: 1px solid var(--line);
-            padding: 12px max(24px, calc((100vw - 740px) / 2)) 14px; box-shadow: 0 -10px 24px -18px color-mix(in srgb, var(--fg) 30%, transparent); }
+.composer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--raised); --bg: var(--raised);
+            padding: 14px max(24px, calc((100vw - 740px) / 2)) 14px;
+            box-shadow: 0 -1px 0 light-dark(rgb(60 40 20 / .06), rgb(255 255 255 / .05)), 0 -14px 34px -18px light-dark(rgb(60 40 20 / .22), rgb(0 0 0 / .6)); }
 .composer:empty { display: none; }
 .composer textarea { display: block; padding: 4px 2px; }
 #ans { font-size: 18px; min-height: calc(2lh + 10px); max-height: 32vh; }

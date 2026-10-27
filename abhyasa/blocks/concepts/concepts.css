@@ -1,5 +1,9 @@
 /* Concept pages and the list: names first, the meta quiet beside them. */
-.statement { margin: 18px 0 0; }
+.statement { margin: 18px 0 0; font-size: 19px; }
+/* in the quiet group, the strengths summary has a label as the other sections do */
+.refs .known h3 { font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: 0 0 8px; }
+.refs .known p.mute { margin: 0 0 6px; }
+.refs .in-journeys { margin: 28px 0 0; }
 ul.concepts li { display: flex; align-items: baseline; gap: 0 14px; padding: 8px 0; }
 ul.concepts li .mute { margin-left: auto; order: 2; white-space: nowrap; }
 ul.concepts li .depth { order: 3; }

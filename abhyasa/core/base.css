@@ -1,4 +1,4 @@
-/* The shared style, after vedicreader: serif text, small spaced labels, no boxes and no pills. The theme is in themes.css.
+/* The shared style, after vedicreader: serif text, small spaced labels, three quiet surfaces (see Layers at the end). The theme is in themes.css.
    Fonts are OFL subsets from vedicreader, served from core/fonts so the app works offline. */
 @font-face { font-family: 'Literata'; font-style: normal; font-display: swap; font-weight: 200 600; src: url(/assets/literata-latin-wght-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
 @font-face { font-family: 'Literata'; font-style: normal; font-display: swap; font-weight: 200 600; src: url(/assets/literata-latin-ext-wght-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
@@ -44,7 +44,7 @@ label, .lbl { display: block; font: 500 12px/1.4 var(--serif); letter-spacing: .
 label { margin: 28px 0 4px; }
 label .note { font: italic 15px/1.4 var(--serif); letter-spacing: 0; text-transform: none; margin-left: 10px; }
 
-textarea, input[type=text], input[type=search], select { width: 100%; font: 18px/1.6 var(--serif); color: var(--fg);
+textarea, input[type=text], input[type=search], input[type=number], select { width: 100%; font: 18px/1.6 var(--serif); color: var(--fg);
   background: transparent; border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; padding: 6px 2px; outline: none; resize: vertical; }
 /* text boxes grow with their text, from two lines to half the window; then they scroll inside (core.js does it where CSS cannot) */
 textarea { field-sizing: content; resize: none; min-height: calc(2lh + 12px); max-height: 50vh; overflow-y: auto; }
@@ -124,3 +124,36 @@ main { animation: fade .2s ease-out; }
 button.quiet, .btn.quiet { border-color: transparent; color: var(--mute); } button.quiet:hover, .btn.quiet:hover { color: var(--fg); }
 button.small, .btn.small { padding: 5px 9px; font-size: 13px; }
 @media (max-width: 640px) { nav .nav-gap { display: none; } }
+
+/* Layers (docs/design-layers.md): the page for reading, raised for what you do, sunken for what you look up. Each surface comes
+   from the theme colours and sets --bg to itself, so a go button, a journey dot or a demo agrees with the surface under it. */
+:root, [data-theme] {
+  --page: var(--bg);
+  --raised: light-dark(color-mix(in oklab, var(--bg) 50%, white), color-mix(in oklab, var(--bg) 93%, var(--fg)));
+  --sunken: light-dark(color-mix(in oklab, var(--bg) 96%, var(--fg)), color-mix(in oklab, var(--bg) 84%, black));
+  --lift: 0 0 0 1px light-dark(rgb(60 40 20 / .05), rgb(255 255 255 / .04)), 0 1px 2px light-dark(rgb(60 40 20 / .05), rgb(0 0 0 / .25)),
+          0 14px 34px -16px light-dark(rgb(60 40 20 / .20), rgb(0 0 0 / .6));
+  --r: 10px; --r-s: 8px; }
+.raised { background: var(--raised); --bg: var(--raised); box-shadow: var(--lift); border-radius: var(--r); padding: 20px 24px; }
+.sunken, .refs { background: var(--sunken); --bg: var(--sunken); border-radius: var(--r); padding: 22px 24px; }
+/* the quiet group of reference sections at the end of a page */
+.refs { margin: 52px 0 0; }
+.refs h2, .refs > .lbl, .refs .in-journeys > .lbl { margin: 28px 0 8px; }
+.refs > :first-child, .refs > :first-child > :first-child, .refs > :first-child > :first-child > :first-child { margin-top: 0; }
+:is(.refs, .sunken) ul.plain li:first-child { border-top: 0; padding-top: 4px; }
+:is(.refs, .sunken) ul.plain li:last-child { border-bottom: 0; padding-bottom: 2px; }
+.refs .pair > div > p.mute { margin: 0; }
+.refs ul:not(.plain) { margin: 0; padding-left: 20px; font-size: 16px; color: var(--ink2); } .refs ul:not(.plain) .md > :last-child { margin-bottom: 4px; }
+/* code is a small well, a little deeper than the surface under it */
+.md pre { background: light-dark(color-mix(in oklab, var(--bg) 94%, var(--fg)), color-mix(in oklab, var(--bg) 72%, black));
+          border: 0; border-radius: var(--r-s); padding: 10px 14px; }
+/* secondary buttons are a little raised; quiet ones stay flat. Hover fades and lifts the shadow, nothing more. */
+button, .btn { border-color: color-mix(in srgb, var(--fg) 14%, transparent); background: var(--raised);
+  box-shadow: 0 1px 1px light-dark(rgb(60 40 20 / .06), rgb(0 0 0 / .2));
+  transition: background-color .14s ease-out, color .14s ease-out, box-shadow .14s ease-out, border-color .14s ease-out; }
+button:hover, .btn:hover { background: var(--raised); border-color: color-mix(in srgb, var(--fg) 22%, transparent);
+  box-shadow: 0 1px 2px light-dark(rgb(60 40 20 / .08), rgb(0 0 0 / .3)), 0 6px 14px -8px light-dark(rgb(60 40 20 / .25), rgb(0 0 0 / .5)); }
+button.quiet, .btn.quiet { background: transparent; box-shadow: none; }
+button.quiet:hover, .btn.quiet:hover { background: color-mix(in srgb, var(--fg) 5%, transparent); box-shadow: none; border-color: transparent; }
+button:disabled, button:disabled:hover { box-shadow: none; }
+a { transition: color .14s ease-out, text-decoration-color .14s ease-out; }

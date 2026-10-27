@@ -1,5 +1,6 @@
 /* A journey: a path of steps on one vertical line, as a subway map is. Done steps are filled; the step to do now has a ring. */
 .goal-form label { margin-top: 8px; }
+.goal-form.raised { margin: 20px 0 8px; padding: 18px 24px 20px; } .goal-form.raised label { margin-top: 0; }
 .goal-form .row { margin-top: 12px; }
 .journeys .jrow { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; align-items: center; }
 .journeys .jrow .prog { grid-column: 1; margin: 2px 0 0; }

@@ -23,7 +23,7 @@ def GoalForm(compact=False):
                          placeholder='For example: how LLMs work, from tokens to training. ⌘↵ plans a path.'),
                 Div(Button('Plan a path', cls='plan', data_wait=PLANNING, data_skel='#plan-out'),
                     Span('The tutor suggests the steps. You can change each one.', cls='mute'), cls='row'),
-                Div(id='plan-out'), hx_post=Routes.new, hx_target='#plan-out', cls='goal-form')
+                Div(id='plan-out'), hx_post=Routes.new, hx_target='#plan-out', cls='goal-form' if compact else 'goal-form raised')
 
 def Row(j, pg):
     "One journey in a list: its title, its progress, the step to do now, and Continue."
@@ -67,13 +67,13 @@ def Path_(j, pg):
                id='path')
 
 def JourneyPage(j, pg, after=(), others=()):
-    return (H1(j.title), P('Your goal: ', Span(j.get('goal', ''), cls='goal'), Span(f"  · changed {ago(j.get('updated'))}", cls='mute'), cls='mute'),
-            Path_(j, pg),
-            *([H2('After this' if pg.finished else 'Next to this path'),
+    near = [*([H2('After this' if pg.finished else 'Next to this path'),
                Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
                        Button('Add to the path', type='button', cls='small quiet', hx_post=Routes.attach, hx_vals=json.dumps(dict(jid=j.id, slug=c.slug)),
                               hx_target='#path', hx_swap='outerHTML')) for c in after], cls='plain')] if after else []),
-            *([H2('Your other journeys'), JourneyList(others)] if others else []),
+            *([H2('Your other journeys'), JourneyList(others)] if others else [])]
+    return (H1(j.title), P('Your goal: ', Span(j.get('goal', ''), cls='goal'), Span(f"  · changed {ago(j.get('updated'))}", cls='mute'), cls='mute'),
+            Path_(j, pg), Div(*near, cls='refs') if near else '',
             Form(Button('Remove this journey', cls='small quiet danger'), action=at(Routes.drop, j), method='post',
                  hx_confirm='Remove this journey? Its concepts and what you learned stay.', cls='drop'))
 
