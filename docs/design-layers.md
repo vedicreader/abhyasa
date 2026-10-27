@@ -12,7 +12,7 @@ themes get the surfaces. `light-dark()` gives one value for light and one value 
 |---|---|---|---|---|
 | Page | `--page` | the theme `--bg` | the theme `--bg` | the reading text |
 | Raised | `--raised` | `--bg` mixed with 50% white | `--bg` mixed with 7% `--fg` | the things that you do |
-| Sunken | `--sunken` | `--bg` mixed with 4.5% `--fg` | `--bg` mixed with 30% black | the things that you look up |
+| Sunken | `--sunken` | `--bg` mixed with 4% `--fg` | `--bg` mixed with 16% black | the things that you look up |
 
 - A raised surface has a soft shadow (`--lift`): low opacity, large blur, and a hairline ring of 5% or less. In dark mode the
   surface is lighter than the page, because a shadow does not show well on a dark page.
@@ -64,5 +64,5 @@ continue card, no longer have an accent line at the left. A neutral line or a su
 
 Each text colour (`--fg`, `--ink2`, `--mute`, and the outcome colours) must have a contrast of 4.5:1 or more on each surface,
 in light and in dark, for each theme. A raised surface in light mode is lighter than the page, so the contrast increases. A sunken
-surface in light mode is only 4.5% darker, so `--mute` stays above 4.5:1. A browser check measures the contrast of each text
-element on each surface for all five themes in both modes.
+surface in light mode is only 4% darker, so `--mute` stays above 4.5:1. A browser check measures the contrast of each text
+element on each surface for all five themes in both modes. The lowest result is 5.47:1 (Clear, light).
