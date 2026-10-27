@@ -157,3 +157,10 @@ button.quiet, .btn.quiet { background: transparent; box-shadow: none; }
 button.quiet:hover, .btn.quiet:hover { background: color-mix(in srgb, var(--fg) 5%, transparent); box-shadow: none; border-color: transparent; }
 button:disabled, button:disabled:hover { box-shadow: none; }
 a { transition: color .14s ease-out, text-decoration-color .14s ease-out; }
+
+[data-theme=signal] { --r: 2px; --r-s: 2px; --lift: 0 0 0 1px var(--line); }
+[data-theme=signal] :is(h1, nav .brand) { font-weight: 600; letter-spacing: 0; }
+[data-theme=signal] :is(h2, label, .lbl) { font-family: var(--head); font-size: 14px; letter-spacing: 0; text-transform: none; }
+[data-theme=signal] body > nav { border-bottom: 3px solid var(--acc); }
+[data-theme=signal] :is(button, .btn) { border-radius: 2px; }
+[data-theme=signal] .md pre { border-left: 3px solid var(--acc); }

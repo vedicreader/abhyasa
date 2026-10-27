@@ -83,6 +83,22 @@
   --serif: 'Literata', 'Tiro Devanagari Sanskrit', ui-serif, Georgia, serif;
   --head: 'Literata', 'Tiro Devanagari Sanskrit', ui-serif, Georgia, serif; }
 
+/* Signal: silver panels, graphite text, and orange controls. */
+[data-theme=signal] {
+  --bg:   light-dark(hsl(200 10% 90%), hsl(200 12% 11%));
+  --fg:   light-dark(hsl(200 20% 12%), hsl(190 12% 92%));
+  --ink2: light-dark(hsl(200 16% 24%), hsl(190 10% 81%));
+  --mute: light-dark(hsl(200 12% 32%), hsl(190 8% 71%));
+  --line: light-dark(hsl(200 12% 72%), hsl(200 10% 30%));
+  --rule: light-dark(hsl(200 12% 58%), hsl(200 10% 44%));
+  --acc:  light-dark(hsl(16 76% 34%), hsl(24 78% 68%));
+  --ok:   light-dark(hsl(152 48% 25%), hsl(152 40% 69%));
+  --no:   light-dark(hsl(24 70% 30%), hsl(42 66% 70%));
+  --bad:  light-dark(hsl(354 62% 34%), hsl(354 64% 76%));
+  --serif: 'Avenir Next', Avenir, 'Segoe UI', 'Tiro Devanagari Sanskrit', sans-serif;
+  --head: ui-monospace, 'SF Mono', Menlo, Consolas, 'Tiro Devanagari Sanskrit', monospace;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
+
 /* The Theme section of the Settings page: each theme as three dots and its name in its own font; the mode as three words. No boxes. */
 .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 16px; margin: 8px -12px 0; }
 .themes label, .modes-pick label { display: flex; align-items: center; gap: 12px; margin: 0; padding: 8px 12px; cursor: pointer; border-radius: var(--r-s);

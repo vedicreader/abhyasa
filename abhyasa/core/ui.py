@@ -49,7 +49,7 @@ def HDRS():
             asset_js(_here/'core.js'))
 
 THEMES = dict(paper='Warm paper, umber accent', ink='Calm, high contrast, dark first', manuscript='Palm leaf, saffron accent',
-              clear='System font, plain and bright', sage='Soft green-grey, low glare')   # themes.css has the colours
+              clear='System font, plain and bright', sage='Soft green-grey, low glare', signal='Silver panels, orange controls')   # themes.css has the colours
 MODES = ('auto', 'light', 'dark')
 
 def look() -> tuple:
