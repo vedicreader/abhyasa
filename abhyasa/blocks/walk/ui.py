@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 from fasthtml.common import *
+from rupaka.render import Demo, version
 from abhyasa.core import Md, DepthBar, asset_css, asset_js
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
@@ -14,6 +15,7 @@ OUTCOME = dict(solid='Solid', fragile='Right, but shaky', misconception='A misco
 KIND = dict(short='short answer', code='code', demo='predict · demo', order='predict · order')
 STEPS = (10, 30, 50, 70, 90)
 GRADING, HINTING, TEACHING, WRITING = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'Writing the check…'
+LEAD = dict(demo='Predict first. Then the demo shows the rest.', order='Put the steps in order first. Then the demo shows the right order.')
 
 def assets(): return asset_css(_P/'walk.css'), asset_js(_P/'walk.js')
 
@@ -174,7 +176,27 @@ def Short(jid, i, s, q):
                     hx_post=at(Routes.answer, jid, i), **tgt)
     return Section(CardHead(s, q), Md(q['question'], cls='q'), Thread(q), foot, cls='check' + (' shut' if shut else ''))
 
-CHECKS = dict(short=Short)   # check kind -> card; Tasks 6 and 8 add demo, order and code
+# --- the demo and order checks ---------------------------------------------------------------------------------------
+
+def rk_assets():
+    "The rupaka runtime, which the demo block serves."
+    v = version()
+    return Link(rel='stylesheet', href=f'/rupaka/rupaka.css?v={v}'), Script(src=f'/rupaka/rupaka.js?v={v}')
+
+def DemoCheck(jid, i, s, d):
+    "A demo or an order check: the rupaka demo of the step. walk.js sends each prediction, and K keeps the state."
+    if d is None: return Done(jid, i, s)
+    k = s['check']['kind']
+    keep = Button('Keep this state ', Kbd('K'), type='button', id='keep', cls='small quiet', title='Save the inputs of the demo with your last prediction')
+    return Section(CardHead(s), P(LEAD[k], cls='mute'), Demo(d.spec), *rk_assets(), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts'),
+                   cls='check walk-demo', data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
+
+def Pending(jid, i, s):
+    "The demo of the step is not ready: the card asks the server again in 2 seconds."
+    return Section(CardHead(s), P('The tutor is making the demo for this idea. This can take a minute. You can read the passage while you wait.', cls='mute'),
+                   cls='check pending', hx_get=at(Routes.check, jid, i), hx_trigger='load delay:2s', hx_target='#check', hx_swap='innerHTML')
+
+CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck)   # check kind -> card; Task 8 adds code
 
 # --- the end of a section --------------------------------------------------------------------------------------------
 

@@ -1,4 +1,5 @@
 from walk_data import *
+from fastcore.utils import first
 from abhyasa.method import TEXT_WAYS
 
 def test_plan_then_start(mk, walk_fake, lr):
@@ -69,15 +70,59 @@ def test_miss_hint_and_dont_know(mk, walk_fake, lr):
     assert lr.journey(jid).steps[1]['done']['outcome'] in ('gap', 'misconception') and lr.journey(jid).steps[1]['done']['aid']
     assert 'Next idea' in cl.post(f'/w/{jid}/1/answer', data=dict(answer='late')).text               # a closed check takes no more answers
 
-def test_demo_and_code_checks_fall_back_to_a_text_way(mk, walk_fake, lr):
+def test_code_check_falls_back_to_a_text_way(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    assert 'What does a rank tell you?' in cl.get(f'/w/{jid}/1/check').text                      # a short card until the code card comes
+    cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank'))
+    assert lr.attempts('softmax', limit=1)[0].method in TEXT_WAYS                                  # the record and the credit name a text way
+    assert lr.journey(jid).steps[1]['check']['kind'] == 'code'                                     # the plan keeps its check
+
+def test_demo_check_is_made_ahead_and_logged(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why='a demo fits'))
+    cl.get(f'/w/{jid}/1')                                                          # opening step 1 makes the demo of step 2
+    d = wait_for(lambda: lr.demo_for('scaling-by-the-root-of-dk'))
+    assert d is not None
+    card = cl.get(f'/w/{jid}/2/check').text
+    assert 'walk-demo' in card and 'demo-card' not in card and f'/w/{jid}/2/predict' in card
+    g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    assert cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='1', ans='1', ok='true', why='bigger dot products')).json()['ok']
+    a = lr.attempts('scaling-by-the-root-of-dk', limit=1)[0]
+    assert (a.kind, a.method, a.walk, a.step, a.depth) == ('demo', 'demo', jid, 2, 3)
+    assert lr.journey(jid).steps[2]['done']['outcome'] in ('solid', 'fragile')
+    cl.post(f'/w/{jid}/2/keep', data=dict(state='{"dk": 256, "scale": false}'))
+    assert lr.attempts('scaling-by-the-root-of-dk', limit=1)[0].keep == {'dk': 256, 'scale': False}
+
+def test_order_check_logs_order(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='order', kind='order', depth=2, why=''))
+    cl.get(f'/w/{jid}/0')
+    d = wait_for(lambda: lr.demo_for('softmax', aim='order')); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    cl.post(f'/w/{jid}/1/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false'))
+    assert lr.attempts('softmax', limit=1)[0].kind == 'order'
+
+def test_demo_failure_falls_back_to_short_answer(mk, walk_fake, lr):
+    walk_fake.rules['You design one interactive demo'] = '{}'                     # every author try fails the checks
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
-    for i, slug in ((1, 'softmax'), (2, 'scaling-by-the-root-of-dk')):
-        assert 'What does a rank tell you?' in cl.get(f'/w/{jid}/{i}/check').text                  # a short card until the demo and code cards come
-        cl.post(f'/w/{jid}/{i}/answer', data=dict(answer=f'the rank, step {i}'))                     # two same texts would file as one attempt
-        assert lr.attempts(slug, limit=1)[0].method in TEXT_WAYS                                   # the record and the credit name a text way
-    assert lr.journey(jid).steps[2]['check']['kind'] == 'demo'                                     # the plan keeps its check
+    cl.get(f'/w/{jid}/1')
+    card = wait_for(lambda: t if 'pending' not in (t := cl.get(f'/w/{jid}/2/check').text) else None, secs=10)
+    assert 'What does a rank tell you?' in card and lr.journey(jid).steps[2]['check']['kind'] == 'short'
+    assert cl.post(f'/w/{jid}/2/next').status_code in (200, 303)
+
+def test_demo_routes_refuse_bad_input(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = wait_for(lambda: lr.demo_for('scaling-by-the-root-of-dk'))
+    other = lr.put_demo({**d.spec, 'id': 'another'}, 'softmax')
+    assert cl.post(f'/w/{jid}/2/predict', data=dict(slug=other.slug, gate='g', picked='1', ans='1')).status_code == 404   # a demo of another idea
+    assert cl.post(f'/w/{jid}/2/keep', data=dict(state='{}')).status_code == 409                                   # no prediction yet
+    g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='1', ans='1', ok='true'))
+    assert cl.post(f'/w/{jid}/2/keep', data=dict(state='not json')).status_code == 400
+    assert cl.post(f'/w/{jid}/2/keep', data=dict(state='[' + '0,' * 10000 + '0]')).status_code == 400            # more than 20 000 chars
 
 def test_no_open_check_is_refused(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')

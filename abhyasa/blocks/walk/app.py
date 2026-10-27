@@ -1,6 +1,6 @@
 """The guided walk: a paper, a text or a topic as one idea at a time, in reading order. The plan, the step page, its check,
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
-import time
+import json, time
 from collections import defaultdict
 from threading import Lock
 from pathlib import Path
@@ -8,10 +8,11 @@ from fasthtml.common import *
 from abhyasa.core import Page
 from abhyasa.llm import for_task
 from abhyasa.profile import profile_text
-from abhyasa.method import WALK_WAYS, TEXT_WAYS, CHECK_KIND, DEPTH
+from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
-from abhyasa.journey import journey_from_source, journey_from_text, walk_from_topic, walk_state, _check
-from abhyasa.walk import tutor_note, open_short
+from abhyasa.journey import journey_from_source, journey_from_text, walk_from_topic, walk_state, short_check
+from abhyasa.walk import tutor_note, open_short, step_meta
+from abhyasa.demo import queue_demo, job_state, job_age
 from . import ui
 from .cfg import Routes
 
@@ -19,6 +20,9 @@ __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'tutor', 'ask', 'pool', 'sessions', 'sources')
 FIGURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a step (spec 6.3), empty until the step is used
+AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
+DEMO_WAIT = 90                       # seconds to wait for a demo; then the step uses a short answer
+MAX_STATE = 20_000                   # the most chars of a kept demo state
 
 def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
@@ -51,17 +55,34 @@ def connect(app, ctx):
         qid = j.steps[i].get('qid')
         return qid and (tutor.open.get(qid) or tutor.shut.get(qid))
 
+    def demo(s):
+        "The demo of step `s` when its check is a demo or an order, else None."
+        k = s['check']['kind']
+        return lr.demo_for(s['slug'], AIM[k]) if k in AIM else None
+
     def card(j, i):
         s = j.steps[i]
-        return ui.CHECKS.get(s['check']['kind'], ui.Short)(j.id, i, s, question(j, i))
+        k = s['check']['kind']
+        return ui.CHECKS.get(k, ui.Short)(j.id, i, s, demo(s) if k in AIM else question(j, i))
 
     def as_short(j, i):
         "Walk `j` with the check of step `i` as a short answer in a text way, while its own kind has no card (spec 6.5)."
         s = j.steps[i]
         if s['check']['kind'] in ui.CHECKS: return j
-        c = lr.concept(s['slug'])
-        ck = _check(lr, {**c, 'ways': [w for w in c.get('ways') or () if w in TEXT_WAYS]})
-        return AttrDict({**j, 'steps': [*j.steps[:i], {**s, 'check': dict(ck)}, *j.steps[i + 1:]]})
+        return AttrDict({**j, 'steps': [*j.steps[:i], {**s, 'check': dict(short_check(lr, lr.concept(s['slug'])))}, *j.steps[i + 1:]]})
+
+    def ahead(j, i):
+        "Start the demo of step `i` when its check is a demo or an order, it has no outcome, and it has no demo yet (spec 6.5)."
+        if not 0 <= i < len(j.steps) or (s := j.steps[i]).get('done') or s['check']['kind'] not in AIM or demo(s): return
+        queue_demo(tutor, s['slug'], aim=AIM[s['check']['kind']])
+
+    def no_demo(j, i):
+        "The pending card while the demo of step `i` is made; None when the wait is over, so the step uses a short answer."
+        s = j.steps[i]
+        slug, aim = s['slug'], AIM[s['check']['kind']]
+        if job_state(tutor, slug, aim) == 'none': ahead(j, i)
+        if job_state(tutor, slug, aim) == 'running' and job_age(tutor, slug, aim) < DEMO_WAIT: return ui.Pending(j.id, i, s)
+        lr.walk_step(j.id, i, check=dict(short_check(lr, lr.concept(slug))))
 
     def no_check(j, i):
         "The reply to a move on a check that is not open: the closed card, or 409 when the check was never loaded."
@@ -117,6 +138,7 @@ def connect(app, ctx):
     def step(jid:str, i:int):
         if not (j := walk_of(jid, i)): return missing()
         if not j.steps[i].get('read_at'): j = lr.walk_step(jid, i, read_at=time.time())
+        ahead(j, i + 1)
         return Page(ui.name(b := by(), j.steps[i]), ui.StepPage(j, walk_state(j), b, i), wide=True, extra=ui.assets(),
                     crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
 
@@ -130,7 +152,11 @@ def connect(app, ctx):
     def check(jid:str, i:int):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         with writing[jid, i]:
-            if not (j := lr.journey(jid)).steps[i].get('done') and j.steps[i].get('qid') not in tutor.open:
+            j = lr.journey(jid)
+            if not j.steps[i].get('done') and j.steps[i]['check']['kind'] in AIM and not demo(j.steps[i]):
+                if (wait := no_demo(j, i)): return wait
+                j = lr.journey(jid)
+            if not j.steps[i].get('done') and j.steps[i]['check']['kind'] not in AIM and j.steps[i].get('qid') not in tutor.open:
                 s = sitting(j)
                 s.q = open_short(tutor, as_short(j, i), i, s.id)
                 s.save()
@@ -153,6 +179,30 @@ def connect(app, ctx):
         if not s: return no_check(j, i)
         r = s.give_up(confidence=confidence or 0) if tutor.open[s.q.id].tries else s.answer(dont_know=True, confidence=confidence)
         return closed(j, i, r)
+
+    def predict(jid:str, i:int, slug:str, gate:str, picked:str, ans:str='', ok:str='', why:str='', context:str='', confidence:int=None):
+        "Log one prediction in the demo of step `i` with the walk; the first one closes the step (spec 6.5)."
+        j = walk_of(jid, i)
+        if not j or (s := j.steps[i])['check']['kind'] not in AIM or not (d := lr.demo(slug)) or d.concept != s['slug']:
+            return JSONResponse(dict(ok=False), status_code=404)
+        st, floor0 = sitting(j), lr.concept(s['slug']).get('floor') or 0
+        a = lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, st.id, confidence,
+                                 kind=s['check']['kind'], method=s['check']['way'], **step_meta(j, i))
+        st.noted(a, floor0)
+        with writing[jid, i]:
+            if not lr.journey(jid).steps[i].get('done'): lr.walk_step(jid, i, done=dict(outcome=a.outcome, aid=a.id, at=time.time()))
+        return JSONResponse(dict(ok=True))
+
+    def keep(jid:str, i:int, state:str=''):
+        "Keep the state of the demo on the newest prediction of step `i`."
+        if not (j := walk_of(jid, i)): return Response(status_code=404)
+        try: kept = json.loads(state) if len(state) <= MAX_STATE else None
+        except ValueError: kept = None
+        if kept is None: return Response('The state is not valid.', status_code=400)
+        a = first(a for a in lr.attempts(j.steps[i]['slug']) if a.get('walk') == jid and a.get('step') == i and a.get('demo'))
+        if not a: return Response('Make a prediction first.', status_code=409)
+        lr.mark_attempt(a.id, keep=kept)
+        return JSONResponse(dict(ok=True))
 
     def next_(jid:str, i:int):
         "Skip step `i` when it has no outcome yet, then go to the next step, or to the summary at the end of a section."
@@ -195,6 +245,8 @@ def connect(app, ctx):
     app.post(Routes.answer)(answer)
     app.post(Routes.hint)(hint)
     app.post(Routes.giveup)(giveup)
+    app.post(Routes.predict)(predict)
+    app.post(Routes.keep)(keep)
     app.post(Routes.next)(next_)
     app.get(Routes.done)(done)
     app.get(Routes.img)(img)
