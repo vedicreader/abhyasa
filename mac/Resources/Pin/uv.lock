@@ -10,7 +10,7 @@ supported-markers = [
 
 [[package]]
 name = "abhyasa"
-version = "0.0.9"
+version = "0.0.10"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
@@ -21,9 +21,9 @@ dependencies = [
     { name = "vidyut" },
     { name = "vishalakshi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4f/16/a1588be857a9bb08725cabae1ff1b30b5a6dcc0f608556f2af0322f58bfa/abhyasa-0.0.9.tar.gz", hash = "sha256:2c8b76385d351779f74a6b6431f69bdc4c5f3cef98c54540a1830638372cdd34", size = 1065640, upload-time = "2026-10-26T10:04:12.061Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/05/aa/762c090d0d933eca4b9c1fb7a33764bafffa5ce3e069acff7d220a72c2a1/abhyasa-0.0.10.tar.gz", hash = "sha256:b70eae0e81c42864f3a08c551c08a583ef58dad48ddb4d4c04a0ef0281bdcb1a", size = 1068209, upload-time = "2026-10-27T02:11:52.995Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/10/f7/5cb81b81929e82f36678428a8d542a0b6a2f8fd8f679e5ace29eba499aca/abhyasa-0.0.9-py3-none-any.whl", hash = "sha256:33c1ae60e9e43785b2e0ccd2eae54fe68575ee704db1f0349fa666d537be7861", size = 1106806, upload-time = "2026-10-26T10:04:10.556Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/d2/7e8bbb404b0b5a0f710d383604ef99ef35ec3b7adcd9b0b906fe1820ed43/abhyasa-0.0.10-py3-none-any.whl", hash = "sha256:20d98bb580653adc5cc36f869c7fcbdb32d972cce0e6073f76f188e3d0db6bc2", size = 1109637, upload-time = "2026-10-27T02:11:50.942Z" },
 ]
 
 [package.optional-dependencies]
@@ -46,7 +46,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models"], specifier = "==0.0.9" }]
+requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models"], specifier = "==0.0.10" }]
 
 [[package]]
 name = "adhara"
