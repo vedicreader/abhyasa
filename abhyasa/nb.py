@@ -126,25 +126,35 @@ class Exercise:
                          f"Write `{self.fname}` in a cell, then run `ex.check({self.fname})`."))
 
     def run(self, fn):
-        "Run the tests on `fn`, and return the failures as `(test, error)`."
+        "Keep the shared `report` and return `(test, error)` failures; hidden tests use only label and status."
+        from abhyasa.check import run_asserts
+        self.report = run_asserts(fn, self.fname, self.tests)
         fails = []
-        for t in self.tests:
-            try:
-                with time_limit(): exec(t, {'__builtins__': SAFE_BUILTINS, self.fname: fn})
-            except Exception as e: fails.append((t, f'{type(e).__name__}: {e}'.strip()))
+        for c in self.report.checks:
+            if c.status == 'pass': continue
+            t = self.tests[c.i]
+            text = c.label if c.hidden else t if isinstance(t, str) else t['test']
+            error = c.status if c.hidden else c.error.rstrip(': ') + (f'; got {c.got}' if c.got is not None else '')
+            fails.append((text, error))
         return fails
 
     def check(self, fn, confidence:int=70):
-        "Run the tests. A fail shows the first failing test. After the last try, the tutor teaches."
+        "Grade the shared report. Hidden failures show only their label and status."
         if self.q.id not in self.t.open: return 'This exercise is closed. Make a new one with `exercise(...)`.'
         fails = self.run(fn)
-        g = AttrDict(correct=not fails, grade=10 * (len(self.tests) - len(fails)) // len(self.tests),
-                     first_error=f'This test fails: `{fails[0][0]}` ({fails[0][1]})' if fails else '', misconception='', feedback='')
+        passed = sum(c.status == 'pass' for c in self.report.checks)
+        first = next((c for c in self.report.checks if c.status != 'pass'), None)
+        first_error = ''
+        if first is not None:
+            first_error = (f'{first.label}: {first.status}' if first.hidden else
+                           f'This test fails: `{fails[0][0]}` ({fails[0][1]})')
+        g = AttrDict(correct=self.report.passed, grade=10 * passed // len(self.report.checks),
+                     first_error=first_error, misconception='', feedback='')
         if fails and len(self.q.tries) + 1 < MAX_TRIES:
             self.q.tries.append(dict(answer=f'{len(fails)} failing', first_error=g.first_error, confidence=confidence))
-            return f"{len(self.tests) - len(fails)} of {len(self.tests)} tests pass. {g.first_error}"
+            return f"{passed} of {len(self.report.checks)} tests pass. {g.first_error}"
         if fails: self.q.tries.append(dict(answer=f'{len(fails)} failing', first_error=g.first_error, confidence=confidence))
-        r = self.t._close(self.q, not fails, self.q.tries[0]['confidence'] if fails else confidence, g, teach=bool(fails))
+        r = self.t._close(self.q, g.correct, self.q.tries[0]['confidence'] if fails else confidence, g, teach=bool(fails))
         return fb_text(r)
 
     def hint(self) -> str: return self.t.hint(self.q.id)
