@@ -347,4 +347,9 @@ d = { 'settings': { 'branch': 'main',
                                'abhyasa.voice.transcribe': ('voice.html#transcribe', 'abhyasa/voice.py'),
                                'abhyasa.voice.unload': ('voice.html#unload', 'abhyasa/voice.py'),
                                'abhyasa.voice.update_settings': ('voice.html#update_settings', 'abhyasa/voice.py'),
-                               'abhyasa.voice.wav_seconds': ('voice.html#wav_seconds', 'abhyasa/voice.py')}}}
+                               'abhyasa.voice.wav_seconds': ('voice.html#wav_seconds', 'abhyasa/voice.py')},
+            'abhyasa.walk': { 'abhyasa.walk.Session.noted': ('walk.html#session.noted', 'abhyasa/walk.py'),
+                              'abhyasa.walk._trim': ('walk.html#_trim', 'abhyasa/walk.py'),
+                              'abhyasa.walk.open_short': ('walk.html#open_short', 'abhyasa/walk.py'),
+                              'abhyasa.walk.step_meta': ('walk.html#step_meta', 'abhyasa/walk.py'),
+                              'abhyasa.walk.tutor_note': ('walk.html#tutor_note', 'abhyasa/walk.py')}}}

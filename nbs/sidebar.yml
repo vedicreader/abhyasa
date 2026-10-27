@@ -16,3 +16,4 @@ website:
       - 12_profile.ipynb
       - 13_method.ipynb
       - 14_prompts.ipynb
+      - 15_walk.ipynb

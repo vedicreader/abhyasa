@@ -76,7 +76,7 @@ def _concept_block(c, ctx='', who=''):
 
 def _way(m): return f"The way to teach this time: {way(m)}\n" if m in METHODS else ''
 
-def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=(), method=''):
+def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=(), method='', read=''):
     "The prompt that writes one question on `c` at `depth` in `method`; `bridge` names known ideas that a transfer question can connect to."
     kind = KIND_AT[depth]
     shape = ('{"question": str, "code": str, "options": [{"text": str, "misconception": str}], "correct": int, "answer": str, "rubric": [str]}'
@@ -86,6 +86,7 @@ def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=(), method=''):
             f"Aim it just past what they reliably know, so they must struggle a little.\n{prompt('question')}\n"
             + (f"Target this misconception if it fits: {c['misconceptions'][-1]}\n" if c.get('misconceptions') else '')
             + (f"Ideas that the learner knows well (connect to one only if the link is real): {'; '.join(bridge)}\n" if bridge else '') + _way(method)
+            + (f"The learner just read this. Ask past it; do not ask them to repeat a sentence of it:\n{read}\n" if read else '')
             + (f"Do not repeat these earlier questions:\n{av}\n" if av else '')
             + f"`answer` is a model answer the learner will not see; `rubric` lists the 1-4 ideas that a correct answer must contain. "
             "Never make a rubric point a required word, a phrase or a step of a named method. The question can name a method; the idea counts without the name."
@@ -221,15 +222,18 @@ class Tutor:
 
 # %% ../nbs/03_tutor.ipynb #c023
 @patch
-def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None) -> AttrDict:
-    "Write a question on concept `c` at `depth` in a method from `choose`, keep it open, and return it without its answer fields. `mode='drill'` uses your best method."
+def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, method:str=None, meta:dict=None, read:str='') -> AttrDict:
+    "Write a question on concept `c` at `depth` in a method from `choose` (or `method`), keep it open, and return it without its answer fields. `mode='drill'` uses your best method. `meta` goes in each attempt record; `read` is the text that the learner just read."
     asked = self.learning.attempts(c['slug'], limit=20).attrgot('question')
     q = AttrDict(id=uuid.uuid4().hex[:10], concept=c['slug'], name=c['name'], statement=c.get('statement', ''),
                  subject=c.get('subject', ''), floor=c.get('floor', 0), depth=depth, kind=KIND_AT[depth], why=why, session=session,
-                 hints=[], tries=[], at=time.time())
+                 hints=[], tries=[], meta=dict(meta or {}), at=time.time())
     ps, p, st = self._ground(c), self.learning.profile(), self.learning.stats()
-    q.method, note = choose(st, c.get('subject', ''), mode == 'drill' or weak(c), self.rng, p.get('explore', 'sometimes'),
-                            [EXAMPLES_TO[e] for e in p.examples if e in EXAMPLES_TO])
+    last = first(self.learning.attempts(c['slug'], limit=5).filter(lambda a: a.get('final')))
+    allowed = [w for w in TEXT_WAYS if w != last.get('method')] if mode != 'drill' and last and last.get('walk') else None   # review: not the way of the last walk check
+    if method: q.method, note = method, ''
+    else: q.method, note = choose(st, c.get('subject', ''), mode == 'drill' or weak(c), self.rng, p.get('explore', 'sometimes'),
+                                  [EXAMPLES_TO[e] for e in p.examples if e in EXAMPLES_TO], allowed)
     if note: q.why = f'{why}; {note}'.lstrip('; ')
     q.who = '\n'.join(x for x in (profile_text(p), calibration_text(AttrDict(st.calib)) if st.calib else '', methods_text(st, c.get('subject', ''))) if x)
     q.update(ctx=ground_text(ps), grounds=[dict(src=p.src, ref=p.ref, title=p.title, url=p.url) for p in ps])
@@ -237,7 +241,7 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None) 
         q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, method=ck[2], why=f'{why}; the check from the lesson'.lstrip('; '))
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
-        r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else (), q.method), prompt('tutor'))
+        r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else (), q.method, read), prompt('tutor'))
         q.update(question=with_code(r['question'], r.get('code') or ''), answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))
@@ -333,7 +337,7 @@ def answer(self:Tutor, qid:str, answer:str='', thinking:str='', confidence:int=N
                             misconception=g.get('misconception', ''), grade=g.get('grade')))
         self.learning.record(q.concept, q.question, answer, thinking, False, confidence, q.depth, q.kind, len(q.hints),
                              grade=g.get('grade'), feedback=g.get('feedback', ''), first_error=g.get('first_error', ''),
-                             misconception=g.get('misconception', ''), session=q.session, final=False, method=q.get('method', ''), gaps=g.get('gaps') or [])
+                             misconception=g.get('misconception', ''), session=q.session, final=False, method=q.get('method', ''), gaps=g.get('gaps') or [], **q.get('meta', {}))
         q.turns.append(dict(who='tutor', kind='nudge', text=g.get('feedback', ''), first_error=g.get('first_error', '')))
         return AttrDict(done=False, correct=False, feedback=g.get('feedback', ''), first_error=g.get('first_error', ''),
                         tries_left=MAX_TRIES - len(q.tries))
@@ -376,7 +380,7 @@ def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinki
     q.aid = self.learning.record(q.concept, q.question, answer or (q.tries[-1]['answer'] if q.tries else ''), thinking, correct, confidence,
                          q.depth, q.kind, hints, dont_know, g.get('grade'), g.get('feedback', '') or lesson,
                          g.get('first_error', ''), g.get('misconception', ''), session=q.session, final=True, outcome=kind, thread=q.turns,
-                         method=q.get('method', ''), gaps=q.get('gaps', [])).id
+                         method=q.get('method', ''), gaps=q.get('gaps', []), **q.get('meta', {})).id
     if q.get('method') and not dont_know: self.learning.credit_method(q.method, q.subject, kind)   # "I don't know" used no method
     del self.open[q.id]
     self.shut[q.id] = q
