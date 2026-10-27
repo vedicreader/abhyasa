@@ -20,7 +20,7 @@ class Notes:
 
 def grader(p, sp):
     ans = p.split("Learner's answer:")[1].split("Learner's think-aloud:")[0]
-    return dict(correct='rank' in ans, grade=8, first_error='You add raw scores.', misconception='scores are comparable', feedback='Look at positions.')
+    return dict(correct='rank' in ans, grade=8 if 'rank' in ans else 3, first_error='You add raw scores.', misconception='scores are comparable', feedback='Look at positions.')
 
 @pytest.fixture
 def fake():

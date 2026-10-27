@@ -165,3 +165,15 @@ def test_choice_options_sit_in_the_question(mk, lr, fake):
     assert 'class="opt tried"' in r and 'Not yet' in r
     r = cl.post(f'/s/{sid}/answer', data=dict(answer=right, confidence=50)).text
     assert 'class="opt right"' in r and 'disabled' in r
+
+def test_teach_me_after_a_near_try_is_shaky(mk, fake, lr):
+    "A try graded 8 is the best try: 'Teach me.' closes as shaky with a lesson, not as a miss, and the concept keeps its ceiling."
+    fake.rules['You grade one answer'] = dict(correct=False, grade=8, first_error='You name no method.', misconception='', feedback='Say it in words.')
+    cl = mk()
+    sid = start(cl)
+    cl.get(f'/s/{sid}')
+    assert 'Not yet' in cl.post(f'/s/{sid}/answer', data=dict(answer='x1 w1 + b, so z = b', confidence=70)).text
+    r = cl.post(f'/s/{sid}/giveup').text
+    assert 'Right, but shaky' in r and 'Lesson' in r and 'A gap' not in r
+    c = lr.concept('ranking')
+    assert (c.ceiling, c.misses) == (6, 0)
