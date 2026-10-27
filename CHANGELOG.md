@@ -2,6 +2,15 @@
 
 <!-- do not remove -->
 
+## 0.0.10
+
+- Settings: choose the model for each tutor task from a list of known names, in groups by provider. A saved choice stays. "Type another model id…" gives a text box.
+- The app, the docs and the help text say "your vault" and "the model", in place of package names.
+- The Mac app: the Settings page in the app chooses the speech model. Before, the Mac app always set the speech engine to gemma, so a choice on the Settings page had no effect.
+- The Mac app opens `abhyasa://vault/<shelf>/<id>` links in the vault viewer. Sanketa uses them to open vault results.
+- The Mac app: choose the default model from a list.
+- The README has a Download for macOS button and Homebrew steps. All docs use plain English.
+
 ## 0.0.9
 
 - Keyboard shortcuts page (⌥F, or ? outside a text box). It lists every key, by where it works.
