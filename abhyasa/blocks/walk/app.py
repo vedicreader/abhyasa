@@ -1,14 +1,16 @@
 """The guided walk: a paper, a text or a topic as one idea at a time, in reading order. The plan, the step page, its check,
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
 import time
+from collections import defaultdict
+from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import Page
 from abhyasa.llm import for_task
 from abhyasa.profile import profile_text
-from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
+from abhyasa.method import WALK_WAYS, TEXT_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
-from abhyasa.journey import journey_from_source, journey_from_text, walk_from_topic, walk_state
+from abhyasa.journey import journey_from_source, journey_from_text, walk_from_topic, walk_state, _check
 from abhyasa.walk import tutor_note, open_short
 from . import ui
 from .cfg import Routes
@@ -22,6 +24,7 @@ def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
     ask = lambda prompt, sp='': for_task(ctx.ask, 'extract')(prompt, sp)   # looked up on each call, so a settings change works at once
     up = [('Today', '/'), ('Journeys', '/journeys')]
+    writing = defaultdict(Lock)   # (walk, step) -> a lock, so the note and the check of one step do not write the note twice
 
     def by(): return {c.slug: c for c in lr.concepts()}
     def go(jid, i): return Redirect(ui.at(Routes.step, jid, i))
@@ -51,6 +54,20 @@ def connect(app, ctx):
     def card(j, i):
         s = j.steps[i]
         return ui.CHECKS.get(s['check']['kind'], ui.Short)(j.id, i, s, question(j, i))
+
+    def as_short(j, i):
+        "Walk `j` with the check of step `i` as a short answer in a text way, while its own kind has no card (spec 6.5)."
+        s = j.steps[i]
+        if s['check']['kind'] in ui.CHECKS: return j
+        c = lr.concept(s['slug'])
+        ck = _check(lr, {**c, 'ways': [w for w in c.get('ways') or () if w in TEXT_WAYS]})
+        return AttrDict({**j, 'steps': [*j.steps[:i], {**s, 'check': dict(ck)}, *j.steps[i + 1:]]})
+
+    def no_check(j, i):
+        "The reply to a move on a check that is not open: the closed card, or 409 when the check was never loaded."
+        if not j: return Response(status_code=404)
+        if j.steps[i].get('done'): return card(j, i)
+        return Response('No check is open on this idea. Load the page again.', status_code=409)
 
     def live(jid, i):
         "The sitting with the open question of step `i` as its question, or None when the check is not open."
@@ -100,34 +117,40 @@ def connect(app, ctx):
     def step(jid:str, i:int):
         if not (j := walk_of(jid, i)): return missing()
         if not j.steps[i].get('read_at'): j = lr.walk_step(jid, i, read_at=time.time())
-        try: note = tutor_note(lr, ctx.ask, j, i)
-        except Exception: note = ''   # the note is a help; the step shows without it
-        return Page(ui.name(b := by(), j.steps[i]), ui.StepPage(j, walk_state(j), b, i, note), wide=True, extra=ui.assets(),
+        return Page(ui.name(b := by(), j.steps[i]), ui.StepPage(j, walk_state(j), b, i), wide=True, extra=ui.assets(),
                     crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
+
+    def note(jid:str, i:int):
+        "The tutor note of step `i`, loaded after the page; a failed note shows nothing."
+        if not (j := walk_of(jid, i)): return Response(status_code=404)
+        try:
+            with writing[jid, i]: return ui.Note(tutor_note(lr, ctx.ask, j, i))
+        except Exception: return ''
 
     def check(jid:str, i:int):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
-        if not j.steps[i].get('done') and j.steps[i].get('qid') not in tutor.open:
-            s = sitting(j)
-            s.q = open_short(tutor, j, i, s.id)
-            s.save()
+        with writing[jid, i]:
+            if not (j := lr.journey(jid)).steps[i].get('done') and j.steps[i].get('qid') not in tutor.open:
+                s = sitting(j)
+                s.q = open_short(tutor, as_short(j, i), i, s.id)
+                s.save()
         return card(lr.journey(jid), i)
 
     def answer(jid:str, i:int, answer:str='', thinking:str='', confidence:int=None):
         j, s = live(jid, i)
-        if not s: return card(j, i) if j else Response(status_code=404)
+        if not s: return no_check(j, i)
         r = s.answer(answer, thinking, confidence)
         return closed(j, i, r) if r.done else card(j, i)
 
     def hint(jid:str, i:int):
         j, s = live(jid, i)
-        if not s: return card(j, i) if j else Response(status_code=404)
+        if not s: return no_check(j, i)
         if len(tutor.open[s.q.id].hints) < len(HINTS): s.hint()
         return card(j, i)
 
     def giveup(jid:str, i:int, confidence:int=None):
         j, s = live(jid, i)
-        if not s: return card(j, i) if j else Response(status_code=404)
+        if not s: return no_check(j, i)
         r = s.give_up(confidence=confidence or 0) if tutor.open[s.q.id].tries else s.answer(dont_know=True, confidence=confidence)
         return closed(j, i, r)
 
@@ -167,6 +190,7 @@ def connect(app, ctx):
     app.post(Routes.plan)(plan)
     app.post(Routes.start)(start)
     app.get(Routes.step)(step)
+    app.get(Routes.note)(note)
     app.get(Routes.check)(check)
     app.post(Routes.answer)(answer)
     app.post(Routes.hint)(hint)

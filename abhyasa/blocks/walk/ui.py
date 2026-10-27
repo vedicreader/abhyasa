@@ -96,7 +96,9 @@ def NextBar(jid, i, st, by):
     return Div(back, Span(Span(say, cls='mute'), Form(Button('Next idea ', Kbd('⌥F'), id='next', cls='small'), action=at(Routes.next, jid, i), method='post'),
                           cls='row'), cls='next-bar')
 
-def StepPage(j, st, by, i, note):
+def Note(text): return Md(text, cls='note') if text else ''
+
+def StepPage(j, st, by, i):
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
     head = Div(*[Span(x) for x in (r.get('section'), r.get('page') and f"p. {r['page']}") if x], cls='sec-lbl')
@@ -104,7 +106,7 @@ def StepPage(j, st, by, i, note):
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING)
     return Div(Rail(j, st, by, i),
                Div(head, H1(name(by, s), cls='idea'), Passage(j, s, c), Figure_(j['id'], i, s, c),
-                   Div(Md(note), id='note', cls='note') if note else Div(id='note'), slot, NextBar(j['id'], i, st, by), cls='walk-main'),
+                   Div(id='note', hx_get=at(Routes.note, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1'), slot, NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 
 # --- the short-answer check ------------------------------------------------------------------------------------------
@@ -137,18 +139,19 @@ def Confidence():
                cls='steps', role='radiogroup', aria_label='How sure you are')
 
 def GoOn(jid, i):
-    return Form(Button('Next idea ', Kbd('⌥S'), cls='go', autofocus=True), action=at(Routes.next, jid, i), method='post', cls='row')
+    return Form(Button('Next idea ', Kbd('⌥F'), cls='go', autofocus=True), action=at(Routes.next, jid, i), method='post', cls='row')
 
 def CardHead(s, q=None):
     ck = s.get('check') or {}
     depth = DEPTHS[q.depth] if q else DEPTHS[ck.get('depth', 2)]
-    way = LABELS.get(ck.get('way'), '')
+    way = LABELS.get(q.get('method') if q else ck.get('way'), '')
     return Div(Span(' · '.join(x for x in ('Check', way.lower(), depth) if x)), Span(ck.get('why', ''), cls='why') if ck.get('why') else '', cls='lbl')
 
 def Done(jid, i, s):
     "A check that is done, when its thread is not in memory any more."
     o = (s.get('done') or {}).get('outcome')
-    say = 'You skipped this check.' if o == 'skipped' else f"You did this check: {OUTCOME.get(o, o).lower()}."
+    say = ('You skipped this check.' if o == 'skipped' else f"You did this check: {OUTCOME[o].lower()}." if o in OUTCOME
+           else 'This check is not open. Load the page again.')
     return Section(CardHead(s), P(say), GoOn(jid, i), cls='check done')
 
 def Short(jid, i, s, q):

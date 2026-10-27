@@ -4,6 +4,7 @@ class Routes:
     plan = '/w/{jid}/plan'            # one change to the plan: the check of a step, or drop a step
     start = '/w/{jid}/start'          # start the walk and open a sitting
     step = '/w/{jid}/{i}'             # one idea: the passage, the figure, the note and the check
+    note = '/w/{jid}/{i}/note'        # the tutor note, loaded after the page
     check = '/w/{jid}/{i}/check'      # the check card, loaded after the page
     answer = '/w/{jid}/{i}/answer'
     hint = '/w/{jid}/{i}/hint'

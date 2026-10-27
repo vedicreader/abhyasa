@@ -1,4 +1,5 @@
 from walk_data import *
+from abhyasa.method import TEXT_WAYS
 
 def test_plan_then_start(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr)
@@ -17,12 +18,13 @@ def test_step_page_and_short_check(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why='plain words fit'))
     page = cl.get(f'/w/{jid}/1').text
-    assert 'apply a softmax function' in page and f'src="/w/{jid}/1/img"' in page and 'Softmax makes weights' in page
+    assert 'apply a softmax function' in page and f'src="/w/{jid}/1/img"' in page and f'hx-get="/w/{jid}/1/note"' in page
+    assert 'Softmax makes weights' not in page and 'Softmax makes weights' in cl.get(f'/w/{jid}/1/note').text   # the note loads after the page
     assert lr.journey(jid).steps[1]['read_at']
     card = cl.get(f'/w/{jid}/1/check').text
     assert 'What does a rank tell you?' in card and 'Its position.' not in card and 'rubric' not in card   # no answer in the HTML
     r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position', confidence=70)).text
-    assert 'Next idea' in r and lr.attempts('softmax', limit=1)[0].walk == jid
+    assert 'Next idea' in r and '⌥F' in r and '⌥S' not in r and lr.attempts('softmax', limit=1)[0].walk == jid
     assert cl.get(f'/w/{jid}/1/img').headers['content-type'] == 'image/png'
 
 def test_next_skips_and_moves_on(mk, walk_fake, lr):
@@ -66,3 +68,19 @@ def test_miss_hint_and_dont_know(mk, walk_fake, lr):
     assert 'Next idea' in r and 'Positions are shared.' in r                                       # Teach me closes with a lesson
     assert lr.journey(jid).steps[1]['done']['outcome'] in ('gap', 'misconception') and lr.journey(jid).steps[1]['done']['aid']
     assert 'Next idea' in cl.post(f'/w/{jid}/1/answer', data=dict(answer='late')).text               # a closed check takes no more answers
+
+def test_demo_and_code_checks_fall_back_to_a_text_way(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    for i, slug in ((1, 'softmax'), (2, 'scaling-by-the-root-of-dk')):
+        assert 'What does a rank tell you?' in cl.get(f'/w/{jid}/{i}/check').text                  # a short card until the demo and code cards come
+        cl.post(f'/w/{jid}/{i}/answer', data=dict(answer=f'the rank, step {i}'))                     # two same texts would file as one attempt
+        assert lr.attempts(slug, limit=1)[0].method in TEXT_WAYS                                   # the record and the credit name a text way
+    assert lr.journey(jid).steps[2]['check']['kind'] == 'demo'                                     # the plan keeps its check
+
+def test_no_open_check_is_refused(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    for r in ('answer', 'hint', 'giveup'):
+        assert cl.post(f'/w/{jid}/1/{r}', data=dict(answer='x')).status_code == 409                # the check was never loaded
+    assert cl.post(f'/w/{jid}/9/answer').status_code == 404
