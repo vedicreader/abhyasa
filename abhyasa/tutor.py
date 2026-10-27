@@ -52,6 +52,7 @@ Rules:
 # %% ../nbs/03_tutor.ipynb #qr00b
 QUESTION_RULES = """Rules for the question:
 - Ask ONE thing. Use one question mark. Do not add a second part with "Then" or "Also".
+- One ask means one question word. Never join a second ask with "and why", "and what", "and how", "and which", or ", and ...?".
 - Keep the question under 60 words.
 - Ask for reasoning, not recitation. Use a new case, not the textbook example.
 - Write `question`, `options` and `answer` in ASD-STE100 Simplified Technical English at a US grade 9 reading level:
@@ -59,6 +60,7 @@ QUESTION_RULES = """Rules for the question:
 - Write only the final question: no drafts, no corrections, no 'no: take'.
 Pairs of a BAD and a GOOD question, on other subjects. Do not copy them:
 - One ask, not two. BAD: "State what f computes. Then say what s holds before return." GOOD: "What does s hold just before the return line?"
+- One question word. BAD: "What does it print, and why?" GOOD: "Why does it print 7, not 8?"
 - A new case. BAD: "Explain the example of the apple that falls from the tree." GOOD: "A hammer and a feather fall on the Moon. Why do they land at the same time?"
 - Reasoning, not recitation. BAD: "What is the definition of the median?" GOOD: "You add one very large value to a list. Why does the median move less than the mean?"
 - Short and plain. BAD: "Considering the multifaceted implications of compounding over extended periods, elucidate why a debt grows nonlinearly." GOOD: "A debt of 100 grows by 10% each year. Why is it 121, not 120, after two years?"

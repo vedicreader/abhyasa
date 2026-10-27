@@ -62,11 +62,12 @@ def feedback_checks(fb:str) -> list:
             ('code at most 4 lines', all(len(b.strip('\n').splitlines()) <= 4 for b in blocks))]
 
 def question_checks(r) -> list:
-    "`(label, ok)` for a written question: one ?, no second instruction, under 60 words, code only in `code`."
+    "`(label, ok)` for a written question: one ?, no second instruction, under 60 words, one ask, code only in `code`."
     q = (r.get('question') or '').strip()
     return [('one ?', q.count('?') == 1),
             ('no "Then"/"Also" part', not re.search(r'(?:^|[.!?:;]\s+)(?:Then|Also)\b', q)),
             ('under 60 words', len(q.split()) < 60),
+            ('one ask', not re.search(r'(?:\b(?:and|or)|,)\s+(?:why|what|how|which|when|where|who)\b', q, re.I)),
             ('code only in `code`', '```' not in q and '\n' not in q and not re.search(r'\bdef \w+\(', q))]
 
 def _verdict(cs): return ', '.join(f"{'PASS' if ok else 'FAIL'} {label}" for label, ok in cs)
