@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, DepthBar
-from abhyasa.method import METHODS, LABELS, EXPLORE, posterior, mean, improving
+from abhyasa.method import METHODS, WALK_WAYS, LABELS, EXPLORE, posterior, mean, improving
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -28,14 +28,15 @@ def Concept(c, u):
 def Ways(st, subject='', prior=()):
     "Each way to learn with its count, best first: the best way, and a way that got better."
     ms = (st.get('methods') or {}).get(subject or '*') or {}
-    if not ms: return P('After a few questions, this shows which ways work for you: code, maths, analogies, worked examples, pictures or plain words.', cls='mute')
     ps = {m: posterior(st, m, subject, prior) for m in METHODS}
-    order = sorted(ms, key=lambda m: -mean(ps[m]))
+    order = sorted((m for m in METHODS if m in ms or m in WALK_WAYS), key=lambda m: -mean(ps[m]))
+    best = first(m for m in order if m in ms)
     def row(m):
-        a, b = ms[m]
-        tag = 'Your best way.' if m == order[0] else 'Getting better.' if improving(st, m) else ''
-        return Li(Span(LABELS[m], cls='n'), Span(f'{round(a)} of {round(a + b)}', cls='k'), Span(tag, cls='tag') if tag else '')
-    return Ul(*map(row, order), cls='plain ways')
+        a, b = ms.get(m, (0, 0))
+        tag = 'Your best way.' if m == best else 'Getting better.' if improving(st, m) else ''
+        return Li(Span(LABELS[m], cls='n'), Span(f'{round(a)} of {round(a + b)}' if a + b else 'not tried', cls='k'), Span(tag, cls='tag') if tag else '')
+    hint = P('After a few questions, this shows which ways work for you.', cls='mute') if not ms else ''
+    return Div(hint, Ul(*map(row, order), cls='plain ways'))
 
 def Explore(v):
     "How often the tutor tries a new way."

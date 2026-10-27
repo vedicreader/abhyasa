@@ -18,7 +18,7 @@ from .llm import ask_json, for_task
 from .ground import VaultSource, ground, ground_text
 from .profile import PACES, profile_text, observe, calibration_text
 from .journey import current, name_gaps
-from .method import METHODS, EXAMPLES_TO, choose, methods_text, posterior, mean, way
+from .method import METHODS, TEXT_WAYS, EXAMPLES_TO, choose, methods_text, posterior, mean, way
 from .prompts import register, prompt, lines, need_lines
 
 # %% ../nbs/03_tutor.ipynb #c006
@@ -406,7 +406,7 @@ def teach(self:Tutor, qid:str, another:bool=False) -> str:
     if done and not another: return done[-1]['text']
     if another:
         used = {q.get('method'), *(t.get('method') for t in done)}
-        left = [m for m in METHODS if m not in used] or ['words']
+        left = [m for m in TEXT_WAYS if m not in used] or ['words']
         st = self.learning.stats()
         q.method = max(left, key=lambda m: mean(posterior(st, m, q.subject)))
     lesson = self._lesson(q, (q.tries[0].get('first_error') if q.tries else '') or SHAKY)

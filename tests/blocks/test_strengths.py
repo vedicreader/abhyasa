@@ -27,3 +27,7 @@ def test_concept_line_and_graph_state(mk, lr):
 
 def test_key_on_every_page(mk):
     assert "abhyasaKeys.KeyG = '#strengths-key'" in mk().get('/').text
+
+def test_ways_with_no_view_stay_hidden(mk):
+    page = mk().get('/you/strengths').text
+    assert 'Demos' in page and 'Timelines' not in page and 'Boards' not in page

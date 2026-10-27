@@ -70,9 +70,13 @@ def _gate(spec, gid):
             if (g := walk(b.get('blocks'))): return g
     return walk(spec.get('blocks')) or {}
 
+_OWN = {'concept', 'question', 'answer', 'thinking', 'correct', 'confidence', 'depth', 'kind', 'session', 'final', 'method', 'feedback', 'demo', 'gate', 'expected', 'outcome', 'hints', 'dont_know', 'grade', 'first_error', 'misconception', 'id', 'at'}
+
 @patch
-def record_prediction(self:Learning, slug:str, gate:str, picked, ans, ok:bool, why:str='', context:str='', session:str='', confidence:int=None) -> AttrDict:
-    "File one prediction in demo `slug` as an attempt, count it in the stats of the demo, and update the learner model of its concept."
+def record_prediction(self:Learning, slug:str, gate:str, picked, ans, ok:bool, why:str='', context:str='', session:str='', confidence:int=None,
+                      kind:str='demo', method:str='demo', **meta) -> AttrDict:
+    "File one prediction in demo `slug` as an attempt, count it for `method`, and update the learner model of its concept. `meta` goes on the attempt."
+    if (bad := _OWN & meta.keys()): raise ValueError(f'meta cannot use {sorted(bad)}')
     d = self.demo(slug)
     if d is None: raise KeyError(f'no demo {slug!r}')
     st = d.get('stats') or {}
@@ -81,11 +85,11 @@ def record_prediction(self:Learning, slug:str, gate:str, picked, ans, ok:bool, w
     depth = 3 if why.strip() else 2
     if (c := self.concept(d.concept)) is not None:
         u = update(c, depth, bool(ok), confidence)
-        kind = u.pop('kind'); self.update(d.concept, **u)
-        self.credit_method('diagram', c.get('subject', ''), kind)   # a demo is a way to learn: a picture that moves
-    else: kind = ''
-    return self.record(d.concept, q, str(picked), why, bool(ok), confidence, depth, kind='demo', session=session, final=True, method='diagram',
-                       feedback=f'The answer is {ans}.', demo=slug, gate=gate, expected=str(ans), outcome=kind)
+        out = u.pop('kind'); self.update(d.concept, **u)
+        self.credit_method(method, c.get('subject', ''), out)   # a demo is a way to learn
+    else: out = ''
+    return self.record(d.concept, q, str(picked), why, bool(ok), confidence, depth, kind=kind, session=session, final=True, method=method,
+                       feedback=f'The answer is {ans}.', demo=slug, gate=gate, expected=str(ans), outcome=out, **meta)
 
 # %% ../nbs/10_demo.ipynb #c026
 DEMO_MISSES = 2
