@@ -187,3 +187,14 @@ def test_your_answer_shows_markdown_and_math(mk):
     for html in (cl.post(f'/s/{sid}/answer', data=data).text, cl.get(f'/s/{sid}').text):   # as sent, and drawn again from the thread
         assert 'class="md said"' in html and r'<span class="math inline">z = 2\cdot4 + 1</span>' in html
         assert '<code>b</code>' in html and 'onerror' not in html and 'alert(2)</script>' not in html
+
+def test_text_cannot_make_the_page_fetch(mk, fake):
+    "A relative, protocol-relative or remote URL in the question or in your answer makes no request: no src, no href."
+    bad = '![](/s/start?subject=x) [x](//evil.com) ![t](https://tracker.example/p.png)'
+    fake.dflt = dict(question=f'What does a rank tell you? {bad}', answer='Its position.', rubric=['position'])
+    cl = mk()
+    sid = start(cl)
+    cl.get(f'/s/{sid}')
+    for html in (cl.post(f'/s/{sid}/answer', data=dict(answer=f'a score {bad}', confidence=50)).text, cl.get(f'/s/{sid}').text):
+        assert 'subject=x' not in html and 'evil.com' not in html and 'tracker.example' not in html
+    assert '<img alt="t">' in html

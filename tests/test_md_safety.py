@@ -1,5 +1,5 @@
 "Learner, model and vault text are not trusted: `md_html` renders markdown with maths and code, and keeps no raw HTML that can run."
-from abhyasa.core import md_html, Md
+from abhyasa.core import md_html, clean_html, Md
 from fasthtml.common import to_xml
 
 def test_dollar_math_becomes_math_carriers():
@@ -25,6 +25,23 @@ def test_raw_html_cannot_run():
     h = md_html(MD).lower()
     for bad in ('<iframe', '<video', '<script', 'onerror', 'onclick', 'style=', 'javascript:', 'class="md', 'go"'): assert bad not in h, bad
     assert '<table>' in h and '<strong>bold</strong>' in h and 'href="https://example.org"' in h
+
+def test_htmx_ids_targets_and_svg_are_removed():
+    h = md_html('<div id="send" hx-get="/s/start" hx-trigger="load" data-hx-post="/x">a</div>\n\n'
+                '<a href="https://example.org" target="_top" name="chat">b</a>\n\n<svg onload="alert(1)"><circle r="9"/></svg>\n\nc').lower()
+    for bad in ('id=', 'hx-', '/s/start', 'target=', 'name=', '<svg', '<circle'): assert bad not in h, bad   # mdhtml shows the svg as text
+    assert '<div>a</div>' in h and 'href="https://example.org"' in h
+    assert clean_html('<p><svg onload="alert(1)"><circle r="9"/></svg>c</p>') == '<p>c</p>'   # svg inline in a paragraph too
+
+def test_relative_urls_are_removed():
+    h = md_html('![](/s/start?subject=x) [x](//evil.com) [y](/s/1) [z](#send) <a href=" /s/start">w</a>')
+    assert 'src=' not in h and 'href=' not in h and '<img alt="">' in h
+
+def test_images_are_inline_data_only():
+    dot = 'data:image/png;base64,iVBORw0KGgo='
+    h = md_html(f'![dot]({dot}) ![far](https://tracker.example/p.png) ![svg](data:image/svg+xml;base64,PHN2Zz4=) [d](data:text/html;base64,PHNjcmlwdD4=)')
+    assert f'<img src="{dot}" alt="dot">' in h and '<img alt="far">' in h and '<img alt="svg">' in h
+    assert 'tracker' not in h and 'svg+xml' not in h and 'text/html' not in h
 
 def test_md_wraps_the_safe_html():
     x = to_xml(Md('$x$ <script>1</script>', cls='said'))

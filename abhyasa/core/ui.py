@@ -1,5 +1,5 @@
 "The page frame, shared pieces, and block assets served with a content hash."
-import hashlib, html, time, nh3
+import hashlib, html, re, time, nh3
 from pathlib import Path
 from fasthtml.common import *
 from mdhtml import md2mdhtml, mdhtml2html
@@ -90,15 +90,21 @@ _TAGS = set('a b blockquote br code del div em h1 h2 h3 h4 h5 h6 hr i img li ol 
 _DROP = set('script style iframe frame object embed video audio form button meta base link noscript template svg math select textarea title'.split())
 _ATTRS = {'*': {'class'}, 'a': {'href', 'title'}, 'img': {'src', 'alt', 'title'}, 'td': {'align'}, 'th': {'align'}, 'ol': {'start'}}
 
+_IMG = re.compile(r'^data:image/(png|jpeg|gif|webp|avif);base64,', re.I)
+
 def _attr(tag, attr, val):
-    "Only the classes that the renderer gives (maths and code language), so raw HTML cannot borrow the classes of the UI."
+    "The value of `attr` to keep, or None: images from inline data only, no data: link, and only the classes the renderer gives."
+    if attr in ('src', 'href'):
+        v = re.sub(r'[\x00-\x20]+', '', val)
+        if attr == 'src': return v if _IMG.match(v) else None   # no request from text: an image is inline data only, else its alt text
+        if v.lower().startswith('data:'): return None
     if attr != 'class': return val
     return ' '.join(t for t in val.split() if t in ('math', 'inline', 'display') or t.startswith('language-')) or None
 
 def clean_html(h):
-    "`h` cut to what markdown means: no scripts, frames, media, forms, handlers or styles; links only to http, https and mailto."
+    "`h` cut to what markdown means: no scripts, frames, media, forms, handlers or styles; links only to http, https and mailto; no relative URL."
     return nh3.clean(h, tags=_TAGS, clean_content_tags=_DROP, attributes=_ATTRS, attribute_filter=_attr,
-                     url_schemes={'http', 'https', 'mailto'}, link_rel='noopener noreferrer')
+                     url_schemes={'http', 'https', 'mailto', 'data'}, url_relative='deny', link_rel='noopener noreferrer')
 
 def md_html(s):
     "Safe HTML for markdown `s`: `$…$` is a `span.math`, `$$…$$` a `.math.display`, and a code fence a `pre` that keeps its lines."
