@@ -187,3 +187,34 @@ def Tutor(router):
           'Claude Code models do not use this limit.', cls='mute'),
         Div(Spin('getting the list of models…'), hx_get=Routes.catalog, hx_trigger='load', hx_swap='outerHTML', id='tasks'),
         id='tutor-models')
+
+
+def registry() -> dict:
+    "The editable prompts. The tutor and the method add theirs when they load."
+    import abhyasa.tutor
+    from abhyasa.prompts import PROMPTS
+    return PROMPTS
+
+def PromptItem(p, text=None, err='', said=''):
+    "One prompt: its label, a note on what it changes, and a raised editor with the text in use. `err` says why a text was refused."
+    from abhyasa.prompts import saved, prompt
+    mine, pid = p.name in saved(), 'pr-' + p.name.replace('.', '-')
+    return Details(Summary(Span(p.label, cls='nm'), Span('Your text' if mine else 'The default', cls='mute state')),
+                   P(p.note, cls='mute note'),
+                   Form(Textarea(prompt(p.name) if text is None else text, name='text', spellcheck='false', autocomplete='off',
+                                 aria_label=f'The text of {p.label}'),
+                        P(err, cls='no', role='alert') if err else '',
+                        Div(Button('Save'), Button('Use the default', type='button', hx_post=Routes.prompt_default, hx_vals={'name': p.name},
+                                                   hx_target=f'#{pid}', hx_swap='outerHTML'),
+                            Span(said, cls='ok') if said else '', cls='acts'),
+                        hx_post=Routes.prompt, hx_vals={'name': p.name}, hx_target=f'#{pid}', hx_swap='outerHTML', cls='raised'),
+                   id=pid, cls='prompt', open=bool(err or said))
+
+def Prompts():
+    "The instruction text of the tutor: one item for each prompt, the ways last."
+    ps = sorted(registry().values(), key=lambda p: p.name.startswith('way.'))
+    return Section(H2('Prompts'),
+        P('These texts tell the model how to ask, grade, hint and teach. A change works on the next question. '
+          'To go back to the text that comes with abhyasa, click "Use the default", or save an empty box. '
+          'The concept, the conversation and the reply format stay in code.', cls='mute'),
+        Div(*map(PromptItem, ps), cls='prompts'), id='prompts')

@@ -13,3 +13,5 @@ class Routes:
     tokens = '/settings/model/tokens'  # the reply cap of one tutor task
     catalog = '/settings/catalog'    # the models that can run here, for the pickers
     look = '/settings/look'          # the theme and the mode: light, dark or auto
+    prompt = '/settings/prompt'      # save the text of one tutor prompt; empty: the default
+    prompt_default = '/settings/prompt/default'   # use the default text of one tutor prompt

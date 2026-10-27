@@ -25,3 +25,12 @@ table.tasks select, table.tasks input[type=text] { font-size: 16px; min-width: 2
 table.tasks .acts input[type=text] { flex: 1; }
 table.tasks label.cap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-top: 8px; }
 table.tasks label.cap input { width: 8em; font-size: 16px; }
+/* The prompts: each one opens to a raised editor. The box is monospace, so code-like text keeps its shape. */
+.prompts details.prompt { border-top: 1px solid var(--line); padding: 10px 0; }
+.prompts details.prompt:first-child { border-top: 0; }
+.prompts summary { cursor: pointer; font: 17px/1.5 var(--serif); }
+.prompts summary .state { font-size: 13px; margin-left: 10px; }
+.prompts p.note { font-size: 14px; margin: 4px 0 8px; }
+.prompts form.raised { margin-top: 4px; }
+.prompts textarea { font: 14px/1.55 var(--mono); min-height: calc(10lh + 12px); max-height: 70vh; white-space: pre-wrap; tab-size: 4; }
+.prompts .acts { margin-top: 10px; align-items: baseline; }

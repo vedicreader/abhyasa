@@ -15,3 +15,4 @@ website:
       - 11_journey.ipynb
       - 12_profile.ipynb
       - 13_method.ipynb
+      - 14_prompts.ipynb

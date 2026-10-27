@@ -1,4 +1,4 @@
-"Settings: the speech to text engine and model (pick, look up, get, remove), cut at pauses, the OpenAI key, the model and the reply cap of each tutor task, and the theme."
+"Settings: the speech to text engine and model (pick, look up, get, remove), cut at pauses, the OpenAI key, the model and the reply cap of each tutor task, the theme, and the text of the tutor prompts."
 from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, THEMES, MODES
@@ -15,7 +15,7 @@ def connect(app, ctx):
     speech = lambda oob=False: ui.Speech(sp, has_key(), oob)
 
     def page():
-        return Page('Settings', H1('Settings'), ui.Look(), speech(), ui.Jobs(jobs), ui.Lookup(), ui.Key(), ui.Tutor(ctx.ask),
+        return Page('Settings', H1('Settings'), ui.Look(), speech(), ui.Jobs(jobs), ui.Lookup(), ui.Key(), ui.Tutor(ctx.ask), ui.Prompts(),
                     on='Settings', extra=ui.assets(), crumbs=[('Today', '/')])
 
     def use(engine:str, model:str=''):
@@ -105,6 +105,16 @@ def connect(app, ctx):
         voice.update_settings('look', theme=theme, mode=mode)
         return Response(status_code=204)
 
+    def prompt_(name:str, text:str=''):
+        "Save the text of one prompt. A text that fails its check is not saved: the box keeps it, with the reason."
+        from abhyasa.prompts import set_prompt, saved
+        if (p := ui.registry().get(name)) is None: return Response('unknown prompt', status_code=400)
+        try: set_prompt(name, text)
+        except ValueError as e: return ui.PromptItem(p, text, err=str(e))
+        return ui.PromptItem(p, said='Saved.' if name in saved() else 'The default is in use.')
+
+    def prompt_default(name:str): return prompt_(name, '')
+
     RouteOverrides.nav.append(('Settings', Routes.base, 9))
     app.get(Routes.base)(page)
     app.post(Routes.use)(use)
@@ -120,3 +130,5 @@ def connect(app, ctx):
     app.post(Routes.tokens)(tokens)
     app.get(Routes.catalog)(catalog)
     app.post(Routes.look)(look_)
+    app.post(Routes.prompt)(prompt_)
+    app.post(Routes.prompt_default)(prompt_default)

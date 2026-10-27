@@ -108,7 +108,7 @@ The web app is made from blocks in `abhyasa/blocks`:
 | `strengths` | your strong concepts, your weak spots and the ways that you learn best (⌥G) |
 | `session` | one sitting with the tutor: one question at a time, with hints, confidence and “I don’t know” |
 | `voice` | a microphone for each text box. ⌥D speaks into the box that has the focus, on any page |
-| [`settings`](https://vedicreader.github.io/abhyasa/voice.html#settings) | the speech model, the OpenAI key and the model for each tutor task. You choose each model from a list of names |
+| [`settings`](https://vedicreader.github.io/abhyasa/voice.html#settings) | the speech model, the OpenAI key and the model for each tutor task. You choose each model from a list of names. Under Prompts, you can change the text of the tutor prompts. A change works on the next question |
 | `concepts` | the list of concepts, and one page for each concept with its state |
 | `graph` | the concept graph. You can color it by depth, by how well you know each concept, by subject or by due date |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |

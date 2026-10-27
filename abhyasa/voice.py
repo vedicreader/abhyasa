@@ -36,6 +36,7 @@ DFLT_SETTINGS = dict(stt=dict(engine='gemma', model='', segment=True),
                      models=dict(question='', grade='', hint='', lesson=''),   # model ids for the tutor tasks; empty: the app's model
                      tokens=dict(question='', grade='', hint='', lesson='', extract=''),   # the reply cap of each task; empty: `llm.TOKENS`
                      look=dict(theme='paper', mode='auto'),                    # the colour theme, and light, dark or auto (as the Mac)
+                     prompts={},                                               # your text for a tutor prompt, by name (see `prompts`); else the default
                      downloaded=[])                                            # the models that the Settings page downloaded
 
 def settings() -> dict:

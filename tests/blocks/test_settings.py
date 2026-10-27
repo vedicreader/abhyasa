@@ -6,7 +6,7 @@ from abhyasa import voice
 
 @pytest.fixture(autouse=True)
 def clean():
-    voice.save_settings(voice.settings() | dict(stt=dict(engine='gemma', model='', segment=True), downloaded=[]))
+    voice.save_settings(voice.settings() | dict(stt=dict(engine='gemma', model='', segment=True), downloaded=[], prompts={}))
     voice.set_openai_key('')
     yield
     voice.set_openai_key('')
@@ -235,3 +235,35 @@ def test_theme_contrast():
             for k in ('fg', 'ink2', 'mute', 'acc', 'ok', 'no', 'bad'):
                 if (c := contrast(p[k][i], p['bg'][i])) < 4.5: low.append((t, mode, k, round(c, 2)))
     assert not low, low
+
+
+# prompts: the instruction text of the tutor, saved in the settings, used on the next call
+from abhyasa.prompts import PROMPTS, prompt
+from abhyasa.tutor import TUTOR_SP, HINTS, hints
+
+def test_prompts_section(mk):
+    "The page has one item for each prompt: its label, its note, and a box with the text in use."
+    t = mk(['settings']).get('/settings').text
+    assert '>Prompts<' in t and t.count('name="text"') == len(PROMPTS)
+    for p in PROMPTS.values(): assert p.label in t and p.note.split("'")[0] in t
+    assert 'Use the default' in t and 'You never think for them.' in t   # the default text of the tutor rules
+
+def test_prompt_save_and_use_the_default(mk):
+    "Save keeps the text and the tutor uses it. 'Use the default' and an empty save both clear it."
+    cl = mk(['settings'])
+    r = cl.post('/settings/prompt', data=dict(name='tutor', text='Be brief.'))
+    assert r.status_code == 200 and 'Saved.' in r.text and 'Be brief.' in r.text and 'Your text' in r.text
+    assert prompt('tutor') == 'Be brief.' and 'Be brief.' in cl.get('/settings').text
+    r = cl.post('/settings/prompt/default', data=dict(name='tutor'))
+    assert prompt('tutor') == TUTOR_SP and 'The default is in use.' in r.text
+    cl.post('/settings/prompt', data=dict(name='tutor', text='Be brief.'))
+    assert 'The default is in use.' in cl.post('/settings/prompt', data=dict(name='tutor', text=' \n ')).text
+    assert prompt('tutor') == TUTOR_SP and voice.settings()['prompts'] == {}
+    assert cl.post('/settings/prompt', data=dict(name='nope', text='x')).status_code == 400
+    assert cl.post('/settings/prompt/default', data=dict(name='nope')).status_code == 400
+
+def test_bad_hint_ladder_is_refused(mk):
+    "A hint ladder without 6 lines is refused with a plain message. The box keeps what you typed, and the ladder does not change."
+    t = mk(['settings']).post('/settings/prompt', data=dict(name='hints', text='One.\nTwo.')).text
+    assert 'needs 6 lines' in t and 'role="alert"' in t and 'One.\nTwo.' in t
+    assert hints() == HINTS and voice.settings()['prompts'] == {}

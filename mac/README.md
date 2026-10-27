@@ -31,6 +31,8 @@ The logs are `server.log` and `sync.log` in `~/Library/Application Support/abhya
 Open Abhyasa > Settings (Command-comma). Apply saves the values and starts the server again. You choose the model
 from a list of names. The last item, "Type another model id", shows a text box for an id that the list does not have.
 The Settings page of the web app can set a different model for each tutor task.
+It can also change the prompts of the tutor: the rules, the hint ladder and the text of each way to teach.
+A change works on the next question. "Use the default" goes back to the text that comes with abhyasa.
 
 | setting | variable | default |
 |---|---|---|
