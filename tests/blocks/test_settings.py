@@ -126,19 +126,38 @@ def test_tutor_model_test_reports_time_and_failures(mk):
     assert 'Failed: model does not exist' in cl.post('/settings/model/test', data=dict(task='grade', model='bad/model')).text
 
 def test_tutor_model_test_uses_the_task_route(mk):
-    "With a default that routes by task, as `RouteAsk` does, the Test button asks on the job of its task and the chosen model."
+    "With a default that routes by task, as `RouteAsk` does, the Test button asks on the job of its task, the chosen model and the reply cap of the task."
     seen = []
     class Routed:
         model = 'claude/sonnet'
         def __call__(self, p, sp=''): return ''
-        def via(self, task, name=''):
-            seen.append((task, name))
+        def via(self, task, name='', max_tokens=None):
+            seen.append((task, name, max_tokens))
             return lambda p, sp='': 'ready'
     cl = mk(['settings'])
     cl.app.state.svc['ask'].dflt = Routed()
     assert ' s: “ready”' in cl.post('/settings/model/test', data=dict(task='hint', model='claude/haiku')).text
     assert ' s: “ready”' in cl.post('/settings/model/test', data=dict(task='grade', model='')).text
-    assert seen == [('hint', 'claude/haiku'), ('grade', '')]
+    assert seen == [('hint', 'claude/haiku', llm.TOKENS['hint']), ('grade', '', llm.TOKENS['grade'])]
+
+def test_reply_cap_saved_loaded_and_checked(mk, monkeypatch):
+    "The reply cap of a task: saved in settings.json, shown on the page, empty for the default, and a bad value is refused."
+    from abhyasa.llm import TOKENS
+    monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [])
+    cl = mk(['settings'])
+    t = cl.get('/settings/catalog').text
+    assert f'placeholder="{TOKENS["hint"]}"' in t and 'name="tokens"' in t
+    r = cl.post('/settings/model/tokens', data=dict(task='hint', tokens='300'))
+    assert r.status_code == 200 and 'value="300"' in r.text
+    assert voice.settings()['tokens']['hint'] == 300
+    assert 'value="300"' in cl.get('/settings/catalog').text
+    assert cl.app.state.svc['ask'].cap('hint') == 300
+    r = cl.post('/settings/model/tokens', data=dict(task='hint', tokens='0'))
+    assert 'whole number' in r.text and voice.settings()['tokens']['hint'] == 300
+    assert 'whole number' in cl.post('/settings/model/tokens', data=dict(task='hint', tokens='lots')).text
+    cl.post('/settings/model/tokens', data=dict(task='hint', tokens=''))
+    assert voice.settings()['tokens']['hint'] == '' and cl.app.state.svc['ask'].cap('hint') == TOKENS['hint']
+    assert cl.post('/settings/model/tokens', data=dict(task='nope', tokens='5')).status_code == 400
 
 def test_catalog_gives_a_list_with_plain_names(mk, monkeypatch):
     "The list shows names that people know, grouped by provider. The value of each item is the model id."

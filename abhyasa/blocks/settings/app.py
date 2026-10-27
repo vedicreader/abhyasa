@@ -1,4 +1,4 @@
-"Settings: the speech to text engine and model (pick, look up, get, remove), cut at pauses, the OpenAI key, the model for each tutor task, and the theme."
+"Settings: the speech to text engine and model (pick, look up, get, remove), cut at pauses, the OpenAI key, the model and the reply cap of each tutor task, and the theme."
 from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, THEMES, MODES
@@ -86,6 +86,15 @@ def connect(app, ctx):
         except Exception as e: return Span(f'Failed: {str(e)[:160]}', cls='no')
         return Span(f"{time.time() - t:.1f} s: “{(out or '').strip()[:40]}”" if out else 'No answer.', cls='ok' if out else 'no')
 
+    def tokens(task:str, tokens:str=''):
+        "Save the reply cap of `task`; a bad value is not saved, and the box says what to type."
+        from abhyasa.llm import TASKS, check_tokens
+        if task not in TASKS: return Response('unknown task', status_code=400)
+        try: n = check_tokens(tokens)
+        except ValueError as e: return ui.Cap(task, tokens, err=str(e))
+        voice.update_settings('tokens', **{task: n})
+        return ui.Cap(task, n)
+
     def catalog():
         from abhyasa.llm import catalog as cat
         return ui.Tasks(ctx.ask, cat())
@@ -108,5 +117,6 @@ def connect(app, ctx):
     app.post(Routes.key)(key)
     app.post(Routes.model)(model)
     app.post(Routes.test)(test)
+    app.post(Routes.tokens)(tokens)
     app.get(Routes.catalog)(catalog)
     app.post(Routes.look)(look_)

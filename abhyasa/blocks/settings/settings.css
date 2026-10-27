@@ -21,3 +21,5 @@ label.check input { accent-color: var(--acc); }
 #key input[type=password] { flex: 1; min-width: 200px; font: 16px/1.6 var(--mono); background: transparent; border: 0; border-bottom: 1px solid var(--rule); color: var(--fg); padding: 6px 2px; }
 table.tasks select, table.tasks input[type=text] { font-size: 16px; min-width: 220px; }
 table.tasks .acts input[type=text] { flex: 1; }
+table.tasks label.cap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-top: 8px; }
+table.tasks label.cap input { width: 8em; font-size: 16px; }

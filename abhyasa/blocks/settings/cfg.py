@@ -10,5 +10,6 @@ class Routes:
     key = '/settings/key'            # set or clear the OpenAI key
     model = '/settings/model'        # the model for one tutor task
     test = '/settings/model/test'    # time one short call to a model
+    tokens = '/settings/model/tokens'  # the reply cap of one tutor task
     catalog = '/settings/catalog'    # the models that can run here, for the pickers
     look = '/settings/look'          # the theme and the mode: light, dark or auto

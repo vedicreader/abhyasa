@@ -154,10 +154,20 @@ def Typed(task, name):
                 Button('Back to the list', type='button', hx_post=Routes.model, hx_vals={'task': task, 'model': name},
                        hx_target=f'#tm-{task}', hx_swap='outerHTML'), cls='acts')
 
+def Cap(task, value=None, err=''):
+    "The reply cap of one task, in tokens: empty means the default, which shows in the box. `err` says why a value was refused."
+    from abhyasa.llm import TOKENS, TOKENS_MAX
+    if value is None: value = voice.settings()['tokens'].get(task, '')
+    return Label(Span('Most tokens in a reply', cls='mute'),
+                 Input(type='number', name='tokens', value=value, placeholder=str(TOKENS[task]), min='1', max=str(TOKENS_MAX), step='1',
+                       inputmode='numeric', hx_post=Routes.tokens, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#tc-{task}',
+                       hx_swap='outerHTML', aria_label=f'The most tokens in a reply for {task}'),
+                 Span(err, cls='no', role='alert') if err else '', id=f'tc-{task}', cls='cap')
+
 def TaskRow(task, name, dflt, rows, typing=False):
-    "One tutor task: its model (empty means the default), and a test."
+    "One tutor task: its model (empty means the default), its reply cap, and a test."
     return Tr(Td(Span(task, cls='task'), Br(), Span(TASK_NOTE[task], cls='mute')),
-              Td(Typed(task, name) if typing else Pick(task, name, dflt, rows)),
+              Td(Typed(task, name) if typing else Pick(task, name, dflt, rows), Cap(task)),
               Td(Button('Test', type='button', hx_post=Routes.test, hx_vals={'task': task}, hx_include='closest tr', hx_target=f'#tt-{task}',
                         data_wait='Testing…'), Span(id=f'tt-{task}', cls='mute')),
               id=f'tm-{task}')
@@ -172,6 +182,8 @@ def Tutor(router):
     "The model for each tutor task. A quick model can grade and give hints. A strong model can write questions and lessons."
     return Section(H2('Tutor models'),
         P('Choose a model for each task. "Default" uses the model that the app started with. '
-          'The list shows the models that can run here. A change works at once. "Test" times one short call.', cls='mute'),
+          'The list shows the models that can run here. A change works at once. "Test" times one short call. '
+          '"Most tokens in a reply" stops a long reply. Make it empty to use the default, which shows in the box. '
+          'Claude Code models do not use this limit.', cls='mute'),
         Div(Spin('getting the list of models…'), hx_get=Routes.catalog, hx_trigger='load', hx_swap='outerHTML', id='tasks'),
         id='tutor-models')
