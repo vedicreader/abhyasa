@@ -64,13 +64,13 @@ def Rail(sid, past=(), outcomes=None, current=None, viewing=None, oob=False):
 def You(text, thinking='', confidence=None):
     "One message of yours: what you said this time, quoted quietly at the right."
     return Li(Span('You' + (f' · {confidence}% sure' if confidence is not None else ''), cls='lbl'),
-              P(text, cls='said') if text else P('No answer.', cls='said none'),
-              P(Span('Thinking: ', cls='k'), Span(thinking, cls='pre'), cls='thought') if thinking else '', cls='m you')
+              Md(text, cls='said') if text else P('No answer.', cls='said none'),
+              Div(Span('Thinking: ', cls='k'), Md(thinking), cls='thought') if thinking else '', cls='m you')
 
 def Nudge(r):
     "The tutor's reply to a wrong try: what to look at next, and the first error."
     return Li(Span('Not yet', cls='tag'), Md(r.feedback) if r.feedback else '',
-              P(Span('First error: ', cls='k'), r.first_error, cls='err') if r.first_error else '', cls='m tutor fb no')
+              Div(Span('First error: ', cls='k'), Md(r.first_error), cls='err') if r.first_error else '', cls='m tutor fb no')
 
 def Hint(n, text):
     "A hint, at the time you asked for it."

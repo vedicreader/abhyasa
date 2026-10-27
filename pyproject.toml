@@ -26,6 +26,8 @@ dependencies = [
     "ipywidgets>=8.1",
     "rupaka>=0.0.1",
     "vidyut>=0.4",
+    "mdhtml>=0.1.38",
+    "nh3>=0.3.7",
 ]
 
 [project.optional-dependencies]

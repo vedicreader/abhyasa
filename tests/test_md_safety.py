@@ -1,27 +1,31 @@
-"Vault text is not trusted: abhyasa's markdown render must show raw HTML as text and run nothing."
-from pathlib import Path
-import pytest
-pw = pytest.importorskip('playwright.sync_api')
-core = Path(__file__).parents[1]/'abhyasa'/'core'
+"Learner, model and vault text are not trusted: `md_html` renders markdown with maths and code, and keeps no raw HTML that can run."
+from abhyasa.core import md_html, Md
+from fasthtml.common import to_xml
+
+def test_dollar_math_becomes_math_carriers():
+    h = md_html(r'So $z = 2\cdot4 + 3\cdot5 + 1 = 24$.' + '\n\n$$\na^2 + b^2\n$$')
+    assert r'<span class="math inline">z = 2\cdot4 + 3\cdot5 + 1 = 24</span>' in h
+    assert '<div class="math display">a^2 + b^2</div>' in h
+
+def test_prices_are_not_math():
+    assert 'math' not in md_html('It costs $5 and $6 in all.')
+
+def test_code_fence_keeps_its_lines():
+    h = md_html('Read this code:\n\n```python\nw = [2, 3]\nfor i in range(2):\n    z = z + w[i]\n```\n\nWhat is z?')
+    assert '<pre><code class="language-python">w = [2, 3]\nfor i in range(2):\n    z = z + w[i]\n</code></pre>' in h
+    assert '<p>What is z?</p>' in h
 
 MD = '\n\n'.join(['# Saved page', 'Some **bold** text and a table:', '| a | b |\n|---|---|\n| 1 | 2 |',
                   '<iframe src="https://www.youtube.com/embed/x?autoplay=1"></iframe>',
-                  '<video autoplay src="https://example.org/v.mp4"></video>',
-                  'inline <img src=x onerror="window.pwned=1"> image',
+                  '<video autoplay src="https://example.org/v.mp4"></video>', '<script>window.pwned=1</script>',
+                  'inline <img src=x onerror="window.pwned=1"> image', '<div class="md opt go" style="color:red" onclick="x()">hi</div>',
                   '[bad link](javascript:window.pwned=2) and [good link](https://example.org)'])
 
-def test_markdown_shows_raw_html_as_text_and_runs_nothing(tmp_path):
-    (tmp_path/'t.html').write_text(f'''<!doctype html><meta charset=utf-8><script src="{(core/'vendor/marked.min.js').as_uri()}"></script>
-<script src="{(core/'core.js').as_uri()}"></script><div class="md" id="m">{MD.replace('&', '&amp;').replace('<', '&lt;')}</div>''')
-    with pw.sync_playwright() as p:
-        try: br = p.chromium.launch(headless=True)   # Playwright's own Chromium, never the user's Chrome
-        except Exception as e: pytest.skip(f'no Chromium for Playwright: {e}')
-        try:
-            pg = br.new_page(); pg.goto((tmp_path/'t.html').as_uri()); pg.wait_for_timeout(300)
-            r = pg.evaluate('''() => { const m = document.getElementById('m');
-              return {media: m.querySelectorAll('iframe, video, audio, object, embed, script').length,
-                      onerror: m.querySelectorAll('[onerror]').length,
-                      jslinks: [...m.querySelectorAll('a')].filter(a => /^javascript/i.test(a.getAttribute('href') || '')).length,
-                      goodlink: !!m.querySelector('a[href="https://example.org"]'), table: !!m.querySelector('table'), pwned: window.pwned || 0} }''')
-        finally: br.close()
-    assert r == dict(media=0, onerror=0, jslinks=0, goodlink=True, table=True, pwned=0)
+def test_raw_html_cannot_run():
+    h = md_html(MD).lower()
+    for bad in ('<iframe', '<video', '<script', 'onerror', 'onclick', 'style=', 'javascript:', 'class="md', 'go"'): assert bad not in h, bad
+    assert '<table>' in h and '<strong>bold</strong>' in h and 'href="https://example.org"' in h
+
+def test_md_wraps_the_safe_html():
+    x = to_xml(Md('$x$ <script>1</script>', cls='said'))
+    assert 'class="md said"' in x and '<span class="math inline">x</span>' in x and '<script' not in x

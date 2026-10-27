@@ -1,12 +1,13 @@
 "The page frame, shared pieces, and block assets served with a content hash."
-import hashlib, time
+import hashlib, html, time, nh3
 from pathlib import Path
 from fasthtml.common import *
+from mdhtml import md2mdhtml, mdhtml2html
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
 from abhyasa.model import DEPTHS, GOAL
 
-__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Crumbs', 'Md', 'DepthBar', 'Spin', 'when', 'ago']
+__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -36,17 +37,15 @@ def serve_assets(app):
         return Response(txt, media_type=mime, headers={'Cache-Control': 'public, max-age=31536000, immutable'})
     app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's own `/{fname}.{ext:static}` route
     from starlette.staticfiles import StaticFiles
-    app.mount('/vendor', StaticFiles(directory=_here/'vendor'), name='vendor')   # marked, KaTeX and d3, pinned, so the app works offline
+    app.mount('/vendor', StaticFiles(directory=_here/'vendor'), name='vendor')   # htmx, KaTeX and d3, pinned, so the app works offline
     app.router.routes.insert(0, app.router.routes.pop())
 
 def HDRS():
-    "Headers for every page: the base theme, markdown and KaTeX, and the core script."
+    "Headers for every page: the base theme, KaTeX, and the core script."
     return (Meta(charset='utf-8'), Meta(name='viewport', content='width=device-width, initial-scale=1'),
             Script(src='/vendor/htmx.min.js'), Script(src='/vendor/fasthtml.js'),
-            asset_css(_here/'base.css'), asset_css(_here/'themes.css'), Script(src='/vendor/marked.min.js'),
-            Link(rel='stylesheet', href='/vendor/katex.min.css'),
-            Script(src='/vendor/katex.min.js', defer=True),
-            Script(src='/vendor/auto-render.min.js', defer=True),
+            asset_css(_here/'base.css'), asset_css(_here/'themes.css'),
+            Link(rel='stylesheet', href='/vendor/katex.min.css'), Script(src='/vendor/katex.min.js', defer=True),
             asset_js(_here/'core.js'))
 
 THEMES = dict(paper='Warm paper, umber accent', ink='Calm, high contrast, dark first', manuscript='Palm leaf, saffron accent',
@@ -85,9 +84,32 @@ def Page(title, *c, on='', wide=False, extra=(), crumbs=()):
             Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search')),
             Main(Crumbs(crumbs), *c, cls='wide' if wide else ''), *run('page_extra'))
 
+# Learner text, model text and vault text are not trusted. Markdown is rendered here as Leela does it (mdhtml with dollar maths),
+# then nh3 keeps only the tags and attributes that markdown can mean. `core.js` draws each `.math` with KaTeX.
+_TAGS = set('a b blockquote br code del div em h1 h2 h3 h4 h5 h6 hr i img li ol p pre s span strong sub sup table tbody td th thead tr ul'.split())
+_DROP = set('script style iframe frame object embed video audio form button meta base link noscript template svg math select textarea title'.split())
+_ATTRS = {'*': {'class'}, 'a': {'href', 'title'}, 'img': {'src', 'alt', 'title'}, 'td': {'align'}, 'th': {'align'}, 'ol': {'start'}}
+
+def _attr(tag, attr, val):
+    "Only the classes that the renderer gives (maths and code language), so raw HTML cannot borrow the classes of the UI."
+    if attr != 'class': return val
+    return ' '.join(t for t in val.split() if t in ('math', 'inline', 'display') or t.startswith('language-')) or None
+
+def clean_html(h):
+    "`h` cut to what markdown means: no scripts, frames, media, forms, handlers or styles; links only to http, https and mailto."
+    return nh3.clean(h, tags=_TAGS, clean_content_tags=_DROP, attributes=_ATTRS, attribute_filter=_attr,
+                     url_schemes={'http', 'https', 'mailto'}, link_rel='noopener noreferrer')
+
+def md_html(s):
+    "Safe HTML for markdown `s`: `$…$` is a `span.math`, `$$…$$` a `.math.display`, and a code fence a `pre` that keeps its lines."
+    s = str(s or '')
+    try: h = str(mdhtml2html(md2mdhtml(s, math='dollars', frontmatter=False), refs='ids', auto_ids=False, hl=None))
+    except Exception: h = f'<p>{html.escape(s)}</p>'
+    return clean_html(h)
+
 def Md(s, cls='', **kw):
-    "Markdown with maths, rendered in the browser by `core.js`."
-    return Div(s, cls=f'md {cls}'.strip(), **kw)
+    "Markdown with maths, rendered and cleaned here; `core.js` draws the maths."
+    return Div(NotStr(md_html(s)), cls=f'md {cls}'.strip(), **kw)
 
 def DepthBar(floor, asked=None):
     "Five marks: filled to the floor, the asked depth marked."

@@ -44,8 +44,8 @@ def test_assets_served_with_hash(mk):
 def test_vendor_served_offline(mk):
     cl = mk()
     page = cl.get('/').text
-    assert 'cdn.jsdelivr' not in page and '/vendor/marked.min.js' in page
-    assert cl.get('/vendor/marked.min.js').status_code == 200
+    assert 'cdn.jsdelivr' not in page and '/vendor/katex.min.js' in page and '/vendor/marked' not in page
+    assert cl.get('/vendor/katex.min.js').status_code == 200
     assert cl.get('/vendor/fonts/KaTeX_Main-Regular.woff2').status_code == 200
     assert 'cdn.jsdelivr' not in cl.get('/graph').text
 

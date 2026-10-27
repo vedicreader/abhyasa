@@ -17,7 +17,7 @@ The web app is made from blocks, as in lego, leela and vedicreader. A block is a
   `concept_more`, `answer_tools`, `lesson_extra`, `nav_extra`, `page_extra`.
   A block never imports another block.
 - `connect` registers every route in one place at its end, so one read shows the whole route surface.
-- Shared style is in `core/base.css`. Block style is in the block's own `.css`. htmx, marked, KaTeX and d3 are in
+- Shared style is in `core/base.css`. Block style is in the block's own `.css`. htmx, KaTeX and d3 are in
   `core/vendor`, and fonts in `core/fonts`, so the app works offline.
 
 ## Rules

@@ -32,10 +32,10 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 /* you: set off at the right, quieter than the tutor, no box */
 .m.you { align-self: flex-end; max-width: 78%; padding-right: 16px; border-right: 2px solid var(--rule); display: flex; flex-direction: column; align-items: flex-end; }
 .m.you .lbl { margin-bottom: 2px; }
-.m.you .said { margin: 0; font-size: 17px; line-height: 1.55; color: var(--fg); white-space: pre-wrap; }
+.m.you .said { margin: 0; font-size: 17px; line-height: 1.55; color: var(--fg); }
+.m.you .said p, .m.you .thought p { white-space: pre-wrap; }
 .m.you .said.none { font-style: italic; color: var(--mute); }
 .m.you .thought { margin: 4px 0 0; font: italic 15px/1.5 var(--serif); color: var(--mute); }
-.m.you .thought .pre { white-space: pre-wrap; }
 .thread > .pending { padding-left: 18px; border-left: 2px solid var(--line); }
 
 /* choices: rows on hairlines inside the question, each with its key */

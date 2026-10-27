@@ -54,7 +54,7 @@ def Thread(turns):
     def turn(t):
         who = 'You' if t['who'] == 'you' else {'question': 'Question', 'nudge': 'Not yet', 'hint': 'Hint', 'close': (t.get('outcome') or 'Outcome').title()}.get(t.get('kind'), 'Tutor')
         return Li(Span(who, cls='lbl'), Md('\n\n'.join(x for x in (t.get('text'), t.get('lesson')) if x)),
-                  P(Span('Thinking: '), t['thinking'], cls='mute') if t.get('thinking') else '', cls=f"turn {t['who']}")
+                  Div(Span('Thinking: ', cls='k'), Md(t['thinking']), cls='mute') if t.get('thinking') else '', cls=f"turn {t['who']}")
     return H2('The conversation'), Ul(*map(turn, turns), cls='plain thread-doc')
 
 def DocPage(d, meta, text, shelf, linked):

@@ -1,25 +1,15 @@
-// Markdown and maths for `.md` elements, and the left-hand keys: ⌥ + a letter clicks the element a block names.
-// Vault text is not trusted: a saved web page can hold an <iframe> or a <video autoplay>. Raw HTML in markdown shows as
-// text, and a pass after the render removes media, scripts, event attributes and javascript: links that got through.
-const abhyasaEsc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-if (window.marked) marked.use({renderer: {html: tok => abhyasaEsc(typeof tok === 'string' ? tok : tok.raw || tok.text || '')}});
-function abhyasaClean(el) {
-  el.querySelectorAll('iframe, frame, video, audio, object, embed, script, style, link, meta, base, form').forEach(n => n.remove());
-  el.querySelectorAll('*').forEach(n => [...n.attributes].forEach(a => {
-    const v = a.value.trim().toLowerCase();
-    if (a.name.startsWith('on') || a.name === 'srcdoc' || a.name === 'autoplay' || /^(javascript|vbscript|data:text\/html)/.test(v)) n.removeAttribute(a.name);
-  }));
-}
+// Maths for `.md` elements, and the left-hand keys: ⌥ + a letter clicks the element a block names.
+// The server renders markdown and removes raw HTML that is not safe (`Md` in core/ui.py). Here KaTeX draws each `span.math` and
+// `div.math` in place, as Leela does: once, with no trust and no throw, so bad TeX stays as red text.
 function render(root) {
-  (root || document).querySelectorAll('.md:not([data-done])').forEach(el => {
-    if (window.marked) { el.innerHTML = marked.parse(el.textContent); abhyasaClean(el); }
-    el.dataset.done = 1;
-    if (window.renderMathInElement) renderMathInElement(el, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}]});
+  if (!window.katex) return;
+  (root || document).querySelectorAll('span.math:not([data-mathed]), div.math:not([data-mathed])').forEach(m => {
+    m.dataset.mathed = '1';
+    katex.render(m.textContent, m, {displayMode: m.classList.contains('display'), throwOnError: false, trust: false});
   });
 }
 window.addEventListener('load', () => render());
-document.addEventListener('htmx:afterSwap', e => render(e.target));
-document.addEventListener('htmx:oobAfterSwap', e => render(e.target));
+for (const ev of ['htmx:afterSwap', 'htmx:oobAfterSwap']) document.addEventListener(ev, () => render());   // the whole page: an outerHTML swap takes e.target out
 
 // A block adds keys with `abhyasaKeys.KeyX = '#selector'`. ⌥S presses the main button of any page.
 window.abhyasaKeys = window.abhyasaKeys || {KeyS: '#send, main .go'};

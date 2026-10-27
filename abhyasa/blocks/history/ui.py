@@ -60,8 +60,8 @@ def Learned(weeks):
 def Turn(t):
     "One turn of a past question, compact."
     if t['who'] == 'you':
-        return Li(Span('You' + (f" · {t['confidence']}% sure" if t.get('confidence') is not None else ''), cls='lbl'), P(t.get('text') or 'No answer.', cls='said'),
-                  P('Thinking: ', t['thinking'], cls='mute') if t.get('thinking') else '', cls='you')
+        return Li(Span('You' + (f" · {t['confidence']}% sure" if t.get('confidence') is not None else ''), cls='lbl'), Md(t['text'], cls='said') if t.get('text') else P('No answer.', cls='said'),
+                  Div(Span('Thinking: ', cls='k'), Md(t['thinking']), cls='mute') if t.get('thinking') else '', cls='you')
     lbl = dict(nudge='Not yet', hint='Hint', close=OUTCOME.get(t.get('outcome'), 'Closed')).get(t.get('kind'), 'Tutor')
     return Li(Span(lbl, cls='lbl'), Md(t['text']) if t.get('text') else '', Div(Span('Lesson', cls='lbl'), Md(t['lesson'])) if t.get('lesson') else '', cls='tutor')
 

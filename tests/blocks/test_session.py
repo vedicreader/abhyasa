@@ -177,3 +177,13 @@ def test_teach_me_after_a_near_try_is_shaky(mk, fake, lr):
     assert 'Right, but shaky' in r and 'Lesson' in r and 'A gap' not in r
     c = lr.concept('ranking')
     assert (c.ceiling, c.misses) == (6, 0)
+
+def test_your_answer_shows_markdown_and_math(mk):
+    "The YOU bubble uses the same renderer as the tutor: dollar maths becomes a maths carrier, and raw HTML cannot run."
+    cl = mk()
+    sid = start(cl)
+    cl.get(f'/s/{sid}')
+    data = dict(answer=r'$z = 2\cdot4 + 1$ <img src=x onerror="alert(1)">', thinking='I add `b` first. <script>alert(2)</script>', confidence=50)
+    for html in (cl.post(f'/s/{sid}/answer', data=data).text, cl.get(f'/s/{sid}').text):   # as sent, and drawn again from the thread
+        assert 'class="md said"' in html and r'<span class="math inline">z = 2\cdot4 + 1</span>' in html
+        assert '<code>b</code>' in html and 'onerror' not in html and 'alert(2)</script>' not in html
