@@ -72,7 +72,8 @@ def Speech(sp, key, oob=False):
     return Section(
         H2('Speech to text'),
         P(Strong(known), ' ', Span(f'{cur[0]} · {cur[1]}', cls='mute'), ' ', Status(sp), cls='inuse-line'),
-        P(f'$ABHYASA_STT is set to {env!r}. It has priority over the choice on this page.', cls='warn') if env else '',
+        P(f'The speech engine is set to {env} outside this page ($ABHYASA_STT), so a choice here has no effect. '
+          'In Abhyasa.app, open Abhyasa, then Settings, and set Speech engine to "From the Settings page".', cls='warn') if env else '',
         Label(Input(type='checkbox', name='on', checked=s['stt']['segment'], hx_post=Routes.segment, hx_trigger='change', hx_swap='none',
                     hx_vals='js:{on: event.target.checked ? 1 : 0}'),
               ' Cut at pauses', Span('The text comes after each pause. When this is off, the text comes every 10 seconds.', cls='note'), cls='check'),

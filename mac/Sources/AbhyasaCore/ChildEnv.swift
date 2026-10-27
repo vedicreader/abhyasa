@@ -10,11 +10,11 @@ public struct ModelChoice: Hashable, Sendable {
 public struct ServerSettings: Equatable, Sendable {
     /// the model id; empty gives the server default
     public var model: String
-    /// `gemma` or `whisper`
+    /// empty: the speech model from the Settings page in the app; `gemma` or `whisper` overrides it
     public var stt: String
     public var vault: String
 
-    public init(model: String = "", stt: String = "gemma", vault: String = ServerSettings.defaultVault) {
+    public init(model: String = "", stt: String = "", vault: String = ServerSettings.defaultVault) {
         self.model = model
         self.stt = stt
         self.vault = vault
@@ -98,7 +98,7 @@ public enum ChildEnv {
         var e = base(parent, home: home, first: [paths.env.appending(path: "bin").path])
         let model = settings.model.trimmingCharacters(in: .whitespaces)
         if !model.isEmpty { e["ABHYASA_MODEL"] = model }
-        e["ABHYASA_STT"] = settings.stt
+        if !settings.stt.isEmpty { e["ABHYASA_STT"] = settings.stt }   // else the Settings page in the app decides
         e["ABHYASA_VAULT"] = expand(settings.vault, home: home)
         e["VIRTUAL_ENV"] = paths.env.path
         e["PYTHONUNBUFFERED"] = "1"

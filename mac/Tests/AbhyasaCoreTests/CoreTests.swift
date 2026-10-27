@@ -155,7 +155,7 @@ import Testing
     @Test func emptyModelGivesTheServerDefault() {
         let e = ChildEnv.server(parent, home: home, paths: paths, settings: ServerSettings(model: "  "))
         #expect(e["ABHYASA_MODEL"] == nil)
-        #expect(e["ABHYASA_STT"] == "gemma")
+        #expect(e["ABHYASA_STT"] == nil, "the Settings page in the app chooses the speech model")
     }
 
     @Test func serverArgs() {
@@ -184,7 +184,7 @@ import Testing
 
     @Test func defaultSettings() {
         let s = ServerSettings()
-        #expect(s.vault == "~/.vishalakshi/vault.db" && s.stt == "gemma" && s.model.isEmpty)
+        #expect(s.vault == "~/.vishalakshi/vault.db" && s.stt.isEmpty && s.model.isEmpty)
     }
 
     @Test func theModelListHasNamesAndTheDefault() {

@@ -80,7 +80,7 @@ enum Prefs {
     static let d = UserDefaults.standard
 
     static func load() -> ServerSettings {
-        ServerSettings(model: d.string(forKey: "model") ?? "", stt: d.string(forKey: "stt") ?? "gemma",
+        ServerSettings(model: d.string(forKey: "model") ?? "", stt: d.string(forKey: "stt") ?? "",
                  vault: d.string(forKey: "vault") ?? ServerSettings.defaultVault)
     }
 

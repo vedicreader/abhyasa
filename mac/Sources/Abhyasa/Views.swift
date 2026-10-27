@@ -110,9 +110,10 @@ struct SettingsView: View {
             Text("The default model for the tutor. The Claude models use the claude command. The Settings page in the app can set a model for each task.")
                 .font(.caption).foregroundStyle(.secondary)
             Picker("Speech engine", selection: $s.stt) {
+                Text("From the Settings page").tag("")
                 ForEach(ServerSettings.engines, id: \.self) { Text($0) }
             }
-            Text("whisper runs on this Mac with mlx-audio.").font(.caption).foregroundStyle(.secondary)
+            Text("Choose the speech model on the Settings page in the app. An engine here takes its place.").font(.caption).foregroundStyle(.secondary)
             HStack {
                 TextField("Vault", text: $s.vault)
                 Button("Choose…") { choose() }
