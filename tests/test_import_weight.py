@@ -10,3 +10,11 @@ def test_engine_import_is_light():
     mods = json.loads(subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, check=True).stdout)
     bad = [m for m in mods if m.split('.')[0] in HEAVY or m.startswith(('abhyasa.app', 'abhyasa.blocks', 'abhyasa.core'))]
     assert not bad, bad
+
+
+def test_nb_import_is_light():
+    "Importing the notebook tutor loads no model layer: `route_ask` is imported, but ramabana loads on the first call."
+    code = "import sys, json, abhyasa.nb; print(json.dumps(sorted(sys.modules)))"
+    mods = json.loads(subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, check=True).stdout)
+    bad = [m for m in mods if m.split('.')[0] in ('ramabana', 'rishi')]
+    assert not bad, bad
