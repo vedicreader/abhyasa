@@ -95,7 +95,7 @@ def NextBar(jid, i, st, by):
     back = A(f"← {name(by, st.steps[i - 1])}", href=at(Routes.step, jid, i - 1), cls='mute') if i else Span()
     done = (st.steps[i].get('done') or {}).get('outcome')
     say = '' if done else 'Do the check, or skip it, to go on.'
-    return Div(back, Span(Span(say, cls='mute'), Form(Button('Next idea ', Kbd('⌥F'), id='next', cls='small'), action=at(Routes.next, jid, i), method='post'),
+    return Div(back, Span(Span(say, cls='mute'), Form(Button('Next idea ', Kbd('⌥S'), id='next', cls='small go'), action=at(Routes.next, jid, i), method='post'),
                           cls='row'), cls='next-bar')
 
 def Note(text): return Md(text, cls='note') if text else ''
@@ -141,7 +141,7 @@ def Confidence():
                cls='steps', role='radiogroup', aria_label='How sure you are')
 
 def GoOn(jid, i):
-    return Form(Button('Next idea ', Kbd('⌥F'), cls='go', autofocus=True), action=at(Routes.next, jid, i), method='post', cls='row')
+    return Form(Button('Next idea ', Kbd('⌥S'), cls='go', autofocus=True), action=at(Routes.next, jid, i), method='post', cls='row')
 
 def CardHead(s, q=None):
     ck = s.get('check') or {}
@@ -184,8 +184,8 @@ def rk_assets():
     return Link(rel='stylesheet', href=f'/rupaka/rupaka.css?v={v}'), Script(src=f'/rupaka/rupaka.js?v={v}')
 
 def DemoCheck(jid, i, s, d):
-    "A demo or an order check: the rupaka demo of the step. walk.js sends each prediction, and K keeps the state."
-    if d is None: return Done(jid, i, s)
+    "A demo or an order check: the rupaka demo of the step, closed when you skipped it. walk.js sends each prediction, and K keeps the state."
+    if d is None or (s.get('done') or {}).get('outcome') == 'skipped': return Done(jid, i, s)
     k = s['check']['kind']
     keep = Button('Keep this state ', Kbd('K'), type='button', id='keep', cls='small quiet', title='Save the inputs of the demo with your last prediction')
     return Section(CardHead(s), P(LEAD[k], cls='mute'), Demo(d.spec), *rk_assets(), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts'),

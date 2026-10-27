@@ -153,7 +153,7 @@ def job_age(tutor, slug:str, aim:str='') -> float:
 def on_close(tutor, q, r):
     "After a miss: attach the newest demo of the concept to the result, or queue a job when the concept wants a demo."
     if r.correct: return r
-    if (d := tutor.learning.demo_for(q.concept)): r.demo = d.slug
+    if (d := tutor.learning.demo_for(q.concept, aim='')): r.demo = d.slug   # a plain demo, not an order check
     elif want_demo(tutor.learning.concept(q.concept)): queue_demo(tutor, q.concept, r.get('first_error', '')); r.demo_pending = True
     return r
 

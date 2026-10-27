@@ -181,10 +181,13 @@ def connect(app, ctx):
         return closed(j, i, r)
 
     def predict(jid:str, i:int, slug:str, gate:str, picked:str, ans:str='', ok:str='', why:str='', context:str='', confidence:int=None):
-        "Log one prediction in the demo of step `i` with the walk; the first one closes the step (spec 6.5)."
+        "Log the first prediction on each gate in the demo of step `i` with the walk; the first one closes the step (spec 6.5)."
         j = walk_of(jid, i)
         if not j or (s := j.steps[i])['check']['kind'] not in AIM or not (d := lr.demo(slug)) or d.concept != s['slug']:
             return JSONResponse(dict(ok=False), status_code=404)
+        if (s.get('done') or {}).get('outcome') == 'skipped': return JSONResponse(dict(ok=False), status_code=409)
+        if first(a for a in lr.attempts(s['slug']) if (a.get('walk'), a.get('step'), a.get('gate')) == (jid, i, gate)):
+            return JSONResponse(dict(ok=True, again=True))   # one record for each gate: a second try comes after the answer showed
         st, floor0 = sitting(j), lr.concept(s['slug']).get('floor') or 0
         a = lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, st.id, confidence,
                                  kind=s['check']['kind'], method=s['check']['way'], **step_meta(j, i))

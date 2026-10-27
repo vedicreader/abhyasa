@@ -30,12 +30,12 @@ def connect(app, ctx):
 
     def made(concept, session=''):
         "The newest demo of `concept`, or the state of its job."
-        if (d := lr.demo_for(concept)): return ui.DemoCard(d, session=session)
+        if (d := lr.demo_for(concept, aim='')): return ui.DemoCard(d, session=session)   # a plain demo, not a walk order check
         return ui.Pending(concept) if job_state(tutor, concept) == 'running' else ui.Failed()
 
     def make(concept:str):
         if not lr.concept(concept): return P('No such concept.', cls='mute')
-        if not lr.demo_for(concept): queue_demo(tutor, concept)
+        if not lr.demo_for(concept, aim=''): queue_demo(tutor, concept)
         return made(concept)
 
     def wait(concept:str, session:str=''): return made(concept, session)

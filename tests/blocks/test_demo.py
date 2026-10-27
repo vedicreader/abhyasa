@@ -77,3 +77,11 @@ def test_two_misses_make_a_demo_under_the_lesson(mk, lr):
     cl.post(f'/s/{sid}/next')
     third = miss(cl, sid)
     assert 'data-rupaka' in third and f'data-session="{sid}"' in third   # a miss on a concept with a demo shows it at once
+
+def test_an_order_demo_is_not_the_plain_demo(mk, lr):
+    lr.put_demo(gallery()['reciprocal-rank-fusion'], 'reciprocal-rank-fusion', aim='order')
+    cl = mk()
+    assert 'Show me a demo' in cl.get('/c/reciprocal-rank-fusion').text
+    cl.post('/demo/make', data=dict(concept='reciprocal-rank-fusion'))           # the order demo does not count: a plain demo job starts
+    d = svc(cl)['tutor'].jobs['reciprocal-rank-fusion'].result(timeout=120)
+    assert d.aim == '' and lr.demo_for('reciprocal-rank-fusion', aim='') is not None

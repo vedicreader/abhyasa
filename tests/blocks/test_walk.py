@@ -1,5 +1,9 @@
 from walk_data import *
 from fastcore.utils import first
+from pathlib import Path
+import abhyasa.blocks.walk
+
+def made(cl, key): return cl.app.state.svc['tutor'].jobs[key].result(timeout=30)   # wait on the demo job, not on the clock
 from abhyasa.method import TEXT_WAYS
 
 def test_plan_then_start(mk, walk_fake, lr):
@@ -20,12 +24,14 @@ def test_step_page_and_short_check(mk, walk_fake, lr):
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why='plain words fit'))
     page = cl.get(f'/w/{jid}/1').text
     assert 'apply a softmax function' in page and f'src="/w/{jid}/1/img"' in page and f'hx-get="/w/{jid}/1/note"' in page
+    assert 'Next idea <kbd>⌥S</kbd>' in page and '⌥F' not in page                    # Next idea is the main button; ⌥F stays the shortcuts panel
+    assert 'KeyF' not in (Path(abhyasa.blocks.walk.__file__).parent/'walk.js').read_text()
     assert 'Softmax makes weights' not in page and 'Softmax makes weights' in cl.get(f'/w/{jid}/1/note').text   # the note loads after the page
     assert lr.journey(jid).steps[1]['read_at']
     card = cl.get(f'/w/{jid}/1/check').text
     assert 'What does a rank tell you?' in card and 'Its position.' not in card and 'rubric' not in card   # no answer in the HTML
     r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position', confidence=70)).text
-    assert 'Next idea' in r and '⌥F' in r and '⌥S' not in r and lr.attempts('softmax', limit=1)[0].walk == jid
+    assert 'Next idea' in r and '⌥S' in r and '⌥F' not in r and lr.attempts('softmax', limit=1)[0].walk == jid
     assert cl.get(f'/w/{jid}/1/img').headers['content-type'] == 'image/png'
 
 def test_next_skips_and_moves_on(mk, walk_fake, lr):
@@ -82,8 +88,8 @@ def test_demo_check_is_made_ahead_and_logged(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why='a demo fits'))
     cl.get(f'/w/{jid}/1')                                                          # opening step 1 makes the demo of step 2
-    d = wait_for(lambda: lr.demo_for('scaling-by-the-root-of-dk'))
-    assert d is not None
+    d = made(cl, 'scaling-by-the-root-of-dk')
+    assert d is not None and d.checked is None                                     # no browser check in the tests
     card = cl.get(f'/w/{jid}/2/check').text
     assert 'walk-demo' in card and 'demo-card' not in card and f'/w/{jid}/2/predict' in card
     g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
@@ -98,7 +104,7 @@ def test_order_check_logs_order(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='order', kind='order', depth=2, why=''))
     cl.get(f'/w/{jid}/0')
-    d = wait_for(lambda: lr.demo_for('softmax', aim='order')); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    d = made(cl, 'softmax:order'); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
     cl.post(f'/w/{jid}/1/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false'))
     assert lr.attempts('softmax', limit=1)[0].kind == 'order'
 
@@ -107,7 +113,8 @@ def test_demo_failure_falls_back_to_short_answer(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
     cl.get(f'/w/{jid}/1')
-    card = wait_for(lambda: t if 'pending' not in (t := cl.get(f'/w/{jid}/2/check').text) else None, secs=10)
+    assert made(cl, 'scaling-by-the-root-of-dk') is None
+    card = cl.get(f'/w/{jid}/2/check').text
     assert 'What does a rank tell you?' in card and lr.journey(jid).steps[2]['check']['kind'] == 'short'
     assert cl.post(f'/w/{jid}/2/next').status_code in (200, 303)
 
@@ -115,7 +122,7 @@ def test_demo_routes_refuse_bad_input(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
     cl.get(f'/w/{jid}/1')
-    d = wait_for(lambda: lr.demo_for('scaling-by-the-root-of-dk'))
+    d = made(cl, 'scaling-by-the-root-of-dk')
     other = lr.put_demo({**d.spec, 'id': 'another'}, 'softmax')
     assert cl.post(f'/w/{jid}/2/predict', data=dict(slug=other.slug, gate='g', picked='1', ans='1')).status_code == 404   # a demo of another idea
     assert cl.post(f'/w/{jid}/2/keep', data=dict(state='{}')).status_code == 409                                   # no prediction yet
@@ -129,3 +136,19 @@ def test_no_open_check_is_refused(mk, walk_fake, lr):
     for r in ('answer', 'hint', 'giveup'):
         assert cl.post(f'/w/{jid}/1/{r}', data=dict(answer='x')).status_code == 409                # the check was never loaded
     assert cl.post(f'/w/{jid}/9/answer').status_code == 404
+
+def test_a_gate_logs_once_and_a_skipped_demo_is_closed(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    for i in (1, 2): lr.walk_step(jid, i, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/0'); cl.get(f'/w/{jid}/1')
+    d = made(cl, 'scaling-by-the-root-of-dk'); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false'))
+    cl.get(f'/w/{jid}/2/check')                                                    # a reload shows the demo again
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='1', ans='1', ok='true')).json()
+    assert r['ok'] and r['again'] and len(lr.attempts('scaling-by-the-root-of-dk')) == 1   # the second try on a gate is not logged
+    assert lr.journey(jid).steps[2]['done']['outcome'] not in ('solid', 'fragile')
+    cl.post(f'/w/{jid}/1/next')                                                    # skip step 1, then come back to it
+    s = made(cl, 'softmax')
+    assert 'walk-demo' not in cl.get(f'/w/{jid}/1/check').text                     # a skipped demo shows as closed
+    assert cl.post(f'/w/{jid}/1/predict', data=dict(slug=s.slug, gate=g, picked='1', ans='1', ok='true')).status_code == 409
+    assert not lr.attempts('softmax')

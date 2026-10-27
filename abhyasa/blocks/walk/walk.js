@@ -1,5 +1,5 @@
-// The walk keys, for the left hand: ⌥F goes to the next idea, ⌥W asks for a hint. ⌥S presses the main button (core.js), and ⌘↵ sends the answer.
-Object.assign(abhyasaKeys, {KeyF: '#next', KeyW: '#hint'});
+// The walk keys, for the left hand: ⌥S presses the main button (core.js): Send while a check is open, else Next idea. ⌥W asks for a hint, and ⌘↵ sends the answer.
+abhyasaKeys.KeyW = '#hint';
 
 if (!window.abhyasaWalk) {
   window.abhyasaWalk = true;
