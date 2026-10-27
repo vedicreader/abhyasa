@@ -125,6 +125,21 @@ def test_tutor_model_test_reports_time_and_failures(mk):
     assert ' s: “ready”' in cl.post('/settings/model/test', data=dict(task='grade', model='ok/model')).text
     assert 'Failed: model does not exist' in cl.post('/settings/model/test', data=dict(task='grade', model='bad/model')).text
 
+def test_tutor_model_test_uses_the_task_route(mk):
+    "With a default that routes by task, as `RouteAsk` does, the Test button asks on the job of its task and the chosen model."
+    seen = []
+    class Routed:
+        model = 'claude/sonnet'
+        def __call__(self, p, sp=''): return ''
+        def via(self, task, name=''):
+            seen.append((task, name))
+            return lambda p, sp='': 'ready'
+    cl = mk(['settings'])
+    cl.app.state.svc['ask'].dflt = Routed()
+    assert ' s: “ready”' in cl.post('/settings/model/test', data=dict(task='hint', model='claude/haiku')).text
+    assert ' s: “ready”' in cl.post('/settings/model/test', data=dict(task='grade', model='')).text
+    assert seen == [('hint', 'claude/haiku'), ('grade', '')]
+
 def test_catalog_gives_a_list_with_plain_names(mk, monkeypatch):
     "The list shows names that people know, grouped by provider. The value of each item is the model id."
     monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [dict(value='codex/gpt-6-astra', name='GPT-6 Astra', label='gpt-6-astra', provider='codex', source='login'),

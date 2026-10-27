@@ -10,7 +10,7 @@ from abhyasa.core.keys import write_sanketa_pack
 from abhyasa.blocks import blocks
 from abhyasa.store import Learning
 from abhyasa.tutor import Tutor
-from abhyasa.llm import rishi_ask, Router
+from abhyasa.llm import route_ask, Router
 from abhyasa.ground import VaultSource, VedicSource
 
 __all__ = ['mk_app', 'main']
@@ -53,7 +53,7 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect, `hosts` the Host names it answers."
     from abhyasa.voice import Speech
     if transcribe is None: from abhyasa.voice import transcribe
-    ask = ask if isinstance(ask, Router) else Router(ask or rishi_ask())   # a model for each task, from the settings
+    ask = ask if isinstance(ask, Router) else Router(ask or route_ask())   # a model for each task, from the settings
     hooks.clear(); RouteOverrides.nav.clear()
     from abhyasa.voice import cfg_dir
     cfg_dir().mkdir(parents=True, exist_ok=True)
@@ -85,4 +85,6 @@ def main():
     print(f'abhyasa on http://{cfg.host}:{a.port}  ({lr})')
     try: write_sanketa_pack()   # Sanketa shows abhyasa's keys when abhyasa is in front
     except OSError: pass
-    uvicorn.run(mk_app(lr, rishi_ask(a.model)), host=cfg.host, port=a.port, log_level='warning')
+    ask = Router(route_ask(a.model))
+    ask.warm()   # makes the ramabana Agent and starts the backends in the background, so the server starts at once
+    uvicorn.run(mk_app(lr, ask), host=cfg.host, port=a.port, log_level='warning')
