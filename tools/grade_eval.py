@@ -16,10 +16,6 @@ SOFTMAX = AttrDict(name='Softmax', depth=3, method='words', kind='explain',
     question='Why do the outputs of softmax always add up to 1? Explain in your own words.',
     answer='Each output is e^zi divided by the sum of all e^zj. The sum of the outputs is that sum divided by itself, so it is 1.',
     rubric=['Each output is its exponential divided by the sum of all the exponentials', 'The outputs share one denominator, so they add up to 1'])
-SLOPE = AttrDict(name='Derivative of x squared', depth=3, method='words', kind='explain',
-    question='Use the limit definition of the derivative. Why is the derivative of x^2 equal to 2x?',
-    answer='(x+h)^2 - x^2 = 2xh + h^2. Divide by h and let h go to 0. Only 2x is left.',
-    rubric=['The slope is found from the change of x^2 over a small step', 'The result of the slope is 2x'])
 T1 = ("And. Okay, so it's x one w one plus. Y one w two. Or x two w two, plus b equals. Said. Then, if x one and x two are zero, "
       "then all that's left is the constant b. So z=b")
 T2 = ("Sorry, it's in the running some. X one square, w one square plus x two square, w two square. Plus b squared the whole of root, "
@@ -36,7 +32,7 @@ CASES = [   # (label, question, earlier turns, latest answer, confidence, expect
     ('noisy speech to text, right idea', SOFTMAX, [], 'Uh. So each. Output is e to the z i, over the some of all the e to the z j. So when you add them. The top and the bottom, are the same. So one.', None, True),
     ('right result, wrong reasoning', NEURON, [], 'z equals b because the weights are random, so they cancel each other out, and only b is left.', 80, False),
     ('bare "I don\'t know"', SOFTMAX, [], "I don't know.", 10, False),
-    ('right answer, other method than asked', SLOPE, [], 'Use the power rule. The derivative of x to the n is n times x to the n minus one. With n = 2, that is 2x.', 80, True),
+    ('right answer, dot product instead of the loop', NEURON, [], 'z is w dot x plus b. x is the zero vector, so w dot x is 0 whatever w is. So z = b.', 80, True),
     ('plain right answer', SOFTMAX, [], 'Each output is exp(z_i) divided by the sum of exp(z_j) over all j. All outputs share that one sum as the denominator, so together they give 1.', 90, True),
     ('plain wrong answer', SOFTMAX, [], 'Softmax gives 1 to the biggest score and 0 to the others, so the total is 1.', 80, False)]
 

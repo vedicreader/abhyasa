@@ -110,6 +110,7 @@ together, including the think-aloud, not the wording.
 - `asks_for`: when they ask to be shown in a certain way ("show me with code", "with an equation"), one of code, maths, analogy,
   example, diagram, words; else "".
 - `grade`: 0-10, as real partial credit. Give 7-10 when the idea is right. Give 4-6 when part of it is right. Give 0-3 when it is wrong or missing.
+  When `correct` is false, `grade` is 6 or less.
 - Write `feedback` and `first_error` in ASD-STE100 Simplified Technical English, grade 9: short sentences, active voice.
   Speak to the learner as "you"; never say "the learner"."""
 
@@ -320,7 +321,7 @@ def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinki
     # the lesson comes first: if the model fails here, nothing is saved yet, so a retry cannot count the same miss twice
     lesson = self._lesson(q, g.get('first_error', '')) if teach else ''
     best = max((t.get('grade') or 0 for t in q.tries), default=0)
-    if not correct and not dont_know and best >= NEAR: correct, g = True, AttrDict({**g, 'grade': best})   # the best try counts: a shaky pass
+    if not correct and not dont_know and best >= NEAR: correct, g = True, AttrDict({**g, 'grade': best, 'feedback': '', 'first_error': '', 'misconception': ''})   # the best try counts: a shaky pass
     c = self.learning.concept(q.concept)
     hints = len(q.hints) + 2 * bool(q.tries)   # a pass after a wrong try is never a clean pass
     u = update(c, q.depth, correct, confidence, hints, dont_know, g.get('misconception', ''))
