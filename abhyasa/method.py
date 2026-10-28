@@ -133,7 +133,7 @@ def check_for(c, st, rng=None, explore:str='sometimes', prior=(), last:str='', h
     way, note = choose(st, c.get('subject', ''), False, rng, explore, prior, allowed=hand or text)
     kind = CHECK_KIND.get(way, 'short')
     depth = (2 if (c.get('floor') or 0) < 2 else 3) if kind == 'short' else DEPTH[kind]
-    return AttrDict(way=way, kind=kind, depth=depth, why=note or f'{LABELS[way].lower()} fits this idea')
+    return AttrDict(way=way, kind=kind, depth=depth, why=note or f"{LABELS[way].lower()} {'fit' if way == 'words' else 'fits'} this idea")
 
 # %% ../nbs/13_method.ipynb #e15cb74a
 def methods_text(st, subject:str='', n:int=3) -> str:
