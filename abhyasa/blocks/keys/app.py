@@ -21,7 +21,7 @@ def connect(app, ctx):
 
     @hook('page_extra')
     def key():   # ⌥F, or ? outside a text box, opens the page from any page
-        return A(href=Routes.base, id='keys-key', hidden=True, aria_hidden='true'), Script("""abhyasaKeys.KeyF = '#keys-key';
+        return A(href=Routes.base, id='keys-key', tabindex='-1', aria_hidden='true', style='position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)'), Script("""abhyasaKeys.KeyF = '#keys-key';
 if (!window.abhyasaHelp) { window.abhyasaHelp = true; document.addEventListener('keydown', e => {
   const t = e.target; if (e.key !== '?' || e.metaKey || e.ctrlKey || e.altKey || (t.matches && t.matches('textarea, input, select, [contenteditable]'))) return;
   e.preventDefault(); location.href = '/keys'; }); }""")
