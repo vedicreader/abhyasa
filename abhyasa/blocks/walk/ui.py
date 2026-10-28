@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet
+from abhyasa.core import n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, in_talk
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -136,8 +136,18 @@ def BackFoot(b, pace=''):
     It tells the pane bar the trail and the pace (`Side walk · 1 of 1`); the bar reads the progress line from the outline."""
     return A(f"← Back to the paper: {b.here} ", Kbd('⌥Z'), href=b.href, cls='rh-back walk-back', data_rh_trail=json.dumps(b.trail), data_rh_pace=pace)
 
+def TalkStep(j, st, by, i):
+    """One idea in the side pane of a talk (`in_talk`), for the room to read: a line that says where it is, the title, the passage,
+    the figure and the note, in the talk type (pane.css). It has no check, no outline and no skip, so no question opens and nothing is logged."""
+    s, c, n = st.steps[i], by.get(st.steps[i]['slug']), len(st.steps)
+    said = 'a quick primer' if n == 1 else f'idea {i + 1} of {n}'
+    return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea'), Passage(j, s, c), Figure_(j['id'], i, s, c),
+               Div(id='note', hx_get=at(Routes.note, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1'),
+               P('Back to the slide: ', Kbd('⌥Z'), cls='talk-back'), cls='walk-main talk-step')
+
 def StepPage(j, st, by, i, needs=(), back=None):
     "One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title."
+    if in_talk(): return TalkStep(j, st, by, i)
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
     head = Div(*[Span(x) for x in (r.get('section'), r.get('page') and f"p. {r['page']}") if x], cls='sec-lbl')

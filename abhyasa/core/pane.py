@@ -11,6 +11,7 @@ The contract for a host (abhyasa here, Leela too):
   all other messages. A URL in a message must pass `is_local`.
 - `rh:at {url, title, trail}`: the pane is now at `url`. The host updates `rh` with `replaceState`. `trail` is a list of
   `[title, url]` from the main page to the parent of `url`.
+- In a talk, the pane URL also has `talk=1` (`pane_url(url, talk=True)`): the page draws in the talk type, in big text and with no check.
 - `rh:open {url}`: open `url` in the same pane (a nested side page).
 - `rh:close`: close the pane. `rh:close {level: 1}` goes back one level only: to the last part of the trail, or, when there is
   no part in the pane, the pane closes (⌥Z).
@@ -28,11 +29,12 @@ def is_local(url) -> bool:
     "Whether `url` is a path in this app: one `/` at the start, no scheme, no host, no backslash and no control character."
     return isinstance(url, str) and url.startswith('/') and not url.startswith('//') and not _BAD.search(url)
 
-def pane_url(url) -> str|None:
-    "`url` with `pane=1` in its query, when it is a local path; else None."
+def pane_url(url, talk:bool=False) -> str|None:
+    "`url` with `pane=1` in its query (and `talk=1` with `talk`, for the talk type), when it is a local path; else None."
     if not is_local(url): return None
     p = urlsplit(url)
-    q = [x for x in p.query.split('&') if x and not x.startswith('pane=')] + ['pane=1']
+    drop = ('pane=', 'talk=') if talk else ('pane=',)
+    q = [x for x in p.query.split('&') if x and not x.startswith(drop)] + ['pane=1'] + (['talk=1'] if talk else [])
     return urlunsplit(('', '', p.path, '&'.join(q), p.fragment))
 
 def pane_link(label, href:str, title:str='', cls:str='pane-link', **kw):
