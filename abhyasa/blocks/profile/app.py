@@ -87,15 +87,10 @@ def connect(app, ctx):
         lr.clear_profile()
         return Redirect(Routes.base)
 
-    @hook('today_top')
-    def meet(subject=None):
-        if lr.profile().known: return None
-        return P(A('Tell abhyasa about you', href=Routes.start), '. Four short questions, by voice or text, so the tutor can use examples from your world.',
-                 cls='meet mute')
-
     @hook('today_end')
     def about(subject=None):
-        return A('What abhyasa knows about you', href=Routes.base) if lr.profile().known else None
+        "In the foot line of Today: the first conversation until you have a profile, then the profile."
+        return A('What abhyasa knows about you', href=Routes.base) if lr.profile().known else A('Tell abhyasa about you', href=Routes.start)
 
     app.get(Routes.base)(page)
     app.post(Routes.base)(save)

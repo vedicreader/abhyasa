@@ -124,16 +124,6 @@ def connect(app, ctx):
         if not (r := found(t)): return None
         return dict(r, url=f"{Routes.term}?{urlencode(dict(t=r.slug, at=at))}")
 
-    @hook('today_top')
-    def unfinished(subject=None):
-        "The newest side walk that is not finished, with its pane open beside the step that opened it."
-        for j in lr.journeys():
-            if not side(j) or (k := walk_state(j).current) is None: continue
-            pj, i = parent_of(j)
-            if pj:
-                return P(A(f"Unfinished side walk: {j.title} (for {pj.title}, {here(pj, i)})",
-                           href=f"{ui.step_url(pj.id, i)}?rh={ui.step_url(j.id, k)}"), cls='rh-next')
-
     @hook('lesson_extra')
     def first_met(r):
         "Under a lesson on an idea that you first met in a side walk: the step that you were on."

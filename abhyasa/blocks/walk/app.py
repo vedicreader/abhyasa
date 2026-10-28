@@ -319,13 +319,6 @@ def connect(app, ctx):
         "`(walk, index)` for each walk that has a step on concept `slug`."
         return [(j, i) for j, i in with_step(lr, slug) if j.get('mode') == 'walk']
 
-    @hook('today_top')
-    def on_today(subject=None):
-        "Continue the newest walk that is started and not finished."
-        for j in lr.journeys():
-            if j.get('mode') == 'walk' and j.get('started') and not j.get('depth') and (st := walk_state(j)).current is not None:   # a side walk shows under its parent
-                return P(A(f"Continue the walk: {j.title} · idea {st.current + 1} of {len(j.steps)}", href=ui.at(Routes.one, j.id)), cls='walk-next')
-
     @hook('pane_title')
     def pane_title(url):
         "The title of the walk at `url` (`/w/<id>/<step>`) in the side pane; None for another page."

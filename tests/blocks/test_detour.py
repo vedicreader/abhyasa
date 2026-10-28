@@ -20,7 +20,8 @@ def test_needs_line_and_side_walk_beside(mk, walk_fake, lr):
     assert f'src="/w/{sid}/0?pane=1"' in cl.get(f'/w/{jid}/2?rh=/w/{sid}/0').text        # a reload keeps the pane open
     for bad in ('https://evil.example/', '//evil.example/', '/\\evil.example/'):
         assert 'rh-pane' not in cl.get(f'/w/{jid}/2', params=dict(rh=bad)).text         # no pane for a URL off the app
-    assert 'Unfinished side walk' in cl.get('/').text
+    today = cl.get('/').text   # the side walk shows under its walk in Your journeys, with no line of its own
+    assert 'Unfinished side walk' not in today and 'class="side-walks"' in today and 'Derivatives' in today
 
 def test_side_walk_logs_from_and_comes_back(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)

@@ -269,7 +269,6 @@ details.more[open] > summary { margin-bottom: var(--s1); }
 .review { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; margin: var(--s5) 0 var(--s4); }
 .review p { margin: 0; }
 p.foot { margin-top: var(--s7); }
-p:is(.walk-next, .rh-next) { font-size: var(--t-small); margin: var(--s2) 0; }
 
 /* Search: each hit by its kind, a plain title, a short line and a quiet meta line. */
 ul.hits li > p { margin: 2px 0 0; }

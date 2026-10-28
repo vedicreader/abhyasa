@@ -192,3 +192,11 @@ def test_session_rail_names_this_session():
     q = AttrDict(id='q1', name='Ranking', depth=2)
     assert '<summary>This session</summary>' in to_xml(Rail('s1', current=q))
     assert '<summary>Earlier questions · 1</summary>' in to_xml(Rail('s1', past=[AttrDict(id='q0', name='Softmax', depth=1)], current=q))
+
+def test_today_has_one_way_to_continue_a_walk(mk, walk_fake, lr):
+    "No walk line and no side walk line over the journeys; the profile line is in the foot, not over the card."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    h = cl.get('/').text
+    assert 'Continue the walk:' not in h and 'Unfinished side walk' not in h and 'walk-next' not in h
+    assert re.search(r'<p class="mute foot">\s*<a href="/you/start">Tell abhyasa about you</a> · ', h)
+    assert h.count('Tell abhyasa about you') == 1
