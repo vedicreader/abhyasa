@@ -235,6 +235,12 @@ button.quiet:hover { color: var(--fg); }
 .check textarea { font-size: var(--t-list); margin-bottom: var(--s3); }
 .check .row { margin-top: var(--s2); }
 .check.done { background: transparent; box-shadow: none; padding: var(--s1) 0 var(--s1) var(--s4); border-left: 2px solid color-mix(in srgb, var(--ok) 55%, transparent); border-radius: 0; }
+/* the check answers in place: when it closes, the outcome tag fades in and a 2 px line in the outcome colour grows under the question */
+.check .close > .tag, #code-out > .tag { animation: fade var(--dur-2) var(--ease) both; }
+.check:has(.thread > .close > .tag, #code-out > .tag) > .q::after { content: ''; display: block; height: 2px; margin-top: var(--s2); border-radius: 1px;
+  background: var(--ok); transform-origin: left; animation: grow var(--dur-3) var(--ease) both; }
+.check:has(.close > .tag.no, #code-out > .tag.no) > .q::after { background: var(--no); }
+@keyframes grow { from { transform: scaleX(0); } }
 .check .skel i { display: block; height: 14px; margin: var(--s3) 0; border-radius: 4px; background: var(--sunken); } .check .skel i.short { width: 60%; }
 
 /* how sure you are (`Confidence`): five steps as small text, the one you chose underlined in the accent */

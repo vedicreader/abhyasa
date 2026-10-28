@@ -285,9 +285,21 @@ def m1_next_idea_comes_in_gently(pg, w):
     assert pg.evaluate("getComputedStyle(document.querySelector('.walk-main')).viewTransitionName") == 'idea'
     assert abs(pg.eval_on_selector('#rail', 'e => e.getBoundingClientRect().left') - x0) < 1
 
+ACC = "c => { const d = document.createElement('i'); d.style.color = `var(${c})`; document.querySelector('#check .check').append(d); const v = getComputedStyle(d).color; d.remove(); return v; }"
+
+def m2_check_answers_in_place(pg, w):
+    "When a check closes, the tag fades in and a line in the outcome colour grows under the question."
+    jid = new_walk(w)
+    pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check #ans'); settle(pg)
+    assert pg.eval_on_selector('#check .check > .q', "q => getComputedStyle(q, '::after').content") in ('none', 'normal')   # no line while it is open
+    pg.fill('#ans', 'it is the rank'); pg.click('#send'); pg.wait_for_selector('#check .check.shut'); settle(pg, 100)
+    line = pg.eval_on_selector('#check .check > .q', "q => { const s = getComputedStyle(q, '::after'); return [s.animationName, s.height, s.backgroundColor]; }")
+    assert line[:2] == ['grow', '2px'] and line[2] == pg.evaluate(f"({ACC})('--ok')"), line
+    assert pg.eval_on_selector('#check .close > .tag', 'e => getComputedStyle(e).animationName') == 'fade'
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
-          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently]
+          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

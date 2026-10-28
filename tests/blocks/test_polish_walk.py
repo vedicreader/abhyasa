@@ -195,3 +195,11 @@ def test_m1_the_next_idea_comes_in_gently():
     assert '.walk-main { view-transition-name: idea; }' in w and '::view-transition-old(root), ::view-transition-new(root) { animation: none; }' in w
     assert re.search(r'::view-transition-old\(idea\) \{ animation: idea-out 120ms', w) and re.search(r'::view-transition-new\(idea\) \{ animation: idea-in var\(--dur-2\)', w)
     assert re.search(r'@keyframes idea-in \{ from \{ opacity: 0; transform: translateY\(8px\); \} \}', w)
+
+def test_m2_the_check_answers_in_place():
+    "When a check closes, its tag fades in and a 2 px line in the outcome colour grows under the question, in the walk and the session."
+    b = css('core/base.css')
+    assert re.search(r'\.check \.close > \.tag, #code-out > \.tag \{ animation: fade var\(--dur-2\)', b)
+    assert re.search(r'\.check:has\(\.thread > \.close > \.tag, #code-out > \.tag\) > \.q::after \{[^}]*height: 2px[^}]*background: var\(--ok\)[^}]*transform-origin: left[^}]*animation: grow var\(--dur-3\)', b)
+    assert re.search(r':has\(\.close > \.tag\.no, #code-out > \.tag\.no\) > \.q::after \{ background: var\(--no\); \}', b)
+    assert '@keyframes grow { from { transform: scaleX(0); } }' in b
