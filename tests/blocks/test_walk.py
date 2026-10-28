@@ -171,7 +171,7 @@ def test_code_check_in_the_browser(mk, walk_fake, lr):
     assert cl.get(f'/w/{jid}/1/check').text.count('code-editor') == card.count('code-editor')   # a reload keeps one task
     assert lr.journey(jid).steps[1]['code']['fname'] == 'softmax'
     r = cl.post(f'/w/{jid}/1/run', data=dict(source='def softmax(x\n')).text
-    assert 'line 1' in r and 'Try 1 of 3 · a syntax error uses no try' in r                                          # a syntax error uses no try
+    assert 'line 1' in r and 'Try 1 of 3. A syntax error does not count as a try.' in r                                          # a syntax error uses no try
     r = cl.post(f'/w/{jid}/1/run', data=dict(source=NAIVE)).text
     assert '2 of 3 tests pass' in r and 'It does not fail on large scores' in r and 'm = max(x)' not in r
     assert 'code-editor' not in r and 'max(softmax([1000.0, 1001.0]))' not in r   # only the results part comes back

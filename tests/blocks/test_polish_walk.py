@@ -160,6 +160,8 @@ def test_code_check_counts_tries_in_one_place(mk, walk_fake, lr):
     assert 'tries left' not in card
     out = cl.post(f'/w/{jid}/1/run', data=dict(source=NAIVE)).text
     assert re.search(r'Try 1 of 3 · \d of 3 tests pass', out) and 'try 1 ·' not in out
+    syn = cl.post(f'/w/{jid}/1/run', data=dict(source='def softmax(:')).text
+    assert 'Try 2 of 3. A syntax error does not count as a try.' in syn
 
 def test_concept_page_copy(mk, walk_fake, lr):
     "The journey select has a label, and a source on a vault shelf says in your vault, not its machine name."

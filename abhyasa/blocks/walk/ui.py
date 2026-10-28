@@ -251,7 +251,7 @@ def CodeOut(jid, i, q, r=None, oob=True):
     close = closed(q)
     out = [Div(Span(f'Hint {n}', cls='lbl'), Md(h), cls='hint') for n, h in enumerate(q.get('hints') or (), 1)]
     if r and r.get('syntax'):
-        out += [Div(Span('Syntax error: ', cls='k'), f'{r.syntax}.', cls='err'), P(f"Try {val('checks.tries') - r.tries_left + 1} of {val('checks.tries')} · a syntax error uses no try", cls='mute')]
+        out += [Div(Span('Syntax error: ', cls='k'), f'{r.syntax}.', cls='err'), P(f"Try {val('checks.tries') - r.tries_left + 1} of {val('checks.tries')}. A syntax error does not count as a try.", cls='mute')]
     elif r and 'checks' in r:
         n = val('checks.tries') - r.tries_left + bool(r.done and r.get('correct'))
         out += [Ul(*[Result(c, texts) for c in r.checks], cls='results') if r.checks else '',
