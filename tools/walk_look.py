@@ -389,11 +389,17 @@ def f9_add_asks_for_one_thing(pg, w):
     shown = lambda: pg.eval_on_selector_all('.add-form fieldset', 'fs => fs.filter(f => f.checkVisibility()).map(f => f.className)')
     assert shown() == ['add-doc'], shown()
     assert not pg.is_visible('input[name=tool]') and visible_gos(pg) == ['Make a walk ⌥S']
+    pg.focus('.add-form input[name=kind][value=doc]'); pg.keyboard.press('ArrowRight'); pg.keyboard.press('ArrowRight')   # the arrow keys move through the choice
+    got = pg.evaluate("[document.querySelector('.add-form input[name=kind]:checked').value, document.activeElement.name]")
+    assert got == ['link', 'kind'], got
+    assert shown() == ['add-link'], shown()
+    pg.click('.add-form .modes-pick label:has-text("A paper or document")')
+    assert shown() == ['add-doc'] and pg.is_visible('.add-doc input[name=subject]') and pg.is_visible('.add-doc >> text=Find concepts only')
     pg.click('.add-form .modes-pick label:has-text("A link")')
     assert shown() == ['add-link'] and pg.is_visible('input[name=tool]')
     assert pg.evaluate('document.activeElement.name') == 'url'
     pg.click('.add-form .modes-pick label:has-text("A text")')
-    assert shown() == ['add-text'] and pg.is_visible('text=Find concepts only') and not pg.is_visible('input[name=tool]')
+    assert shown() == ['add-text'] and pg.is_visible('.add-text >> text=Find concepts only') and not pg.is_visible('input[name=tool]')
     pg.fill('.add-text textarea', 'Ranking orders items. A rank is a position.')
     with pg.expect_request(lambda r: r.url.endswith('/walk/new') and r.method == 'POST') as rq: pg.click('main .go')
     body = rq.value.post_data or ''
@@ -519,7 +525,7 @@ def main():
                 look(pg.request, B, 'paper', 'light')
                 for c in [c for c in CHECKS if a.only is None or c.__name__ in a.only]:
                     try: c(pg, w); print('PASS', c.__name__, flush=True)
-                    except Exception as e: bad += 1; print('FAIL', c.__name__, '-', str(e)[:300], flush=True)
+                    except Exception as e: bad += 1; print('FAIL', c.__name__, f'(line {e.__traceback__.tb_next.tb_lineno if e.__traceback__.tb_next else "?"})', '-', str(e)[:300], flush=True)
                 if a.shots: print(len(screens(pg, w, Path(a.out), a.pages, looks=a.looks)), 'screens in', a.out)
             finally: b.close()
     finally: srv.should_exit = True

@@ -21,20 +21,24 @@ def connect(app, ctx):
         "The fields of one choice. Only the chosen one shows and sends (add.js)."
         return Fieldset(*c, cls=f'add-{k}', **({} if k == 'doc' else dict(disabled=True, hidden=True)))
 
+    def Find():
+        "Find the core ideas only, with no walk: a Subject for them and the quiet button. A paper and a text use it."
+        return (Label('Subject', Input(type='text', name='subject', placeholder='optional, for example: ml, sanskrit')),
+                Div(Quiet('Find concepts only', hx_post=Routes.base, hx_target='#walk-out', data_wait='Reading and finding concepts…', data_skel='#walk-out'),
+                    Span('The tutor adds the core ideas to your graph and makes no walk.', cls='mute'), cls='row find'))
+
     def page():
         return Page('Add', H1('Add a source'),
             P('Pick what you have. The tutor makes a walk from it: one idea at a time, in reading order, with a check after each passage.', cls='mute'),
             Form(Choice('kind', KINDS, 'doc', aria_label='What you have'),
-                 Kind('doc', Label('A document in your vault', Input(type='text', name='ref', placeholder='an id, a source or a title'))),
+                 Kind('doc', Label('A document in your vault', Input(type='text', name='ref', placeholder='an id, a source or a title')), *Find()),
                  Kind('topic', Label('A topic', Input(type='text', name='topic', placeholder='for example: how attention works'))),
                  Kind('link', Div(Label('A link', Input(type='text', name='url', placeholder='an arXiv id, a PDF, a docs page or a GitHub repo')),
                                   Label('Pages to read', Input(type='number', name='pages', min=1, max=val('links.cap'), value=val('links.pages'))), cls='pair'),
                       Label(Input(type='checkbox', name='tool'), ' It is a library or a command-line tool. Code opens in Leela.', cls='tick'),
                       P('abhyasa gets the pages of a link only when you send this form. It reads only the pages in the folder of the link.', cls='mute')),
                  Kind('text', Label('A text', Textarea(name='text', rows=4, placeholder='Paste a text.')),
-                      Label('Its title', Input(type='text', name='title', placeholder='for a pasted text')),
-                      Div(Quiet('Find concepts only', hx_post=Routes.base, hx_target='#walk-out', data_wait='Reading and finding concepts…', data_skel='#walk-out'),
-                          Span('The tutor adds the core ideas to your graph and makes no walk.', cls='mute'), cls='row find')),
+                      Label('Its title', Input(type='text', name='title', placeholder='for a pasted text')), *Find()),
                  Div(Primary('Make a walk', data_wait='Making the walk…', data_skel='#walk-out'), cls='row'),
                  hx_post='/walk/new', hx_target='#walk-out', cls='add-form'),
             Div(id='walk-out'),

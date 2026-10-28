@@ -27,12 +27,17 @@ def test_add_asks_for_one_choice(mk):
     assert re.search(r'<details class="more"><summary>More sources</summary>.*Import vedicreader', h, re.S)
     assert 'add.js' in h
 
-def test_add_finds_concepts_from_the_text(mk):
-    "Find concepts only posts the text of the choice to the old route."
+def test_add_finds_concepts_from_the_text(mk, walk_fake, lr):
+    "Find concepts only is in A paper and in A text, each with a Subject box; it posts to /add, and the concepts get that subject."
     h = mk().get('/add').text
-    assert re.search(r'<button[^>]*hx-post="/add"[^>]*>Find concepts only', h) or re.search(r'hx-post="/add"', h[h.index('Find concepts only') - 300:])
-    t = mk(['add']).post('/add', data=dict(text='A rank is a position.')).text
-    assert '<li>' in t or 'Paste' in t
+    for k in ('doc', 'text'):
+        f = h[h.index(f'class="add-{k}"'):]; f = f[:f.index('</fieldset>')]
+        assert 'Find concepts only' in f and 'name="subject"' in f and 'hx-post="/add"' in f, k
+    t = mk(['add']).post('/add', data=dict(text='A rank is a position.', subject='ranks')).text
+    assert '<li>' in t and all(c.subject == 'ranks' for c in lr.concepts() if c.slug not in ('ranking', 'reciprocal-rank-fusion'))
+    did = add_paper(lr)
+    t = mk(['add']).post('/add', data=dict(ref=did, subject='papers')).text
+    assert '<li>' in t and any(c.subject == 'papers' for c in lr.concepts())
 
 # F10: the Graph page has fewer controls than graph
 
