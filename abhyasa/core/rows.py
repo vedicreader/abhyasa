@@ -12,11 +12,16 @@ def shown(r, v):
 
 def _num(r, v) -> str: return f'{round(v * 100)}%' if r.pct else f'{v:,}' if isinstance(v, int) and v >= 10_000 else f'{v:g}'
 
+def unit(r, v) -> str:
+    "The unit of row `r` for the value `v`, with the plural rule of `n_of`: `1 day`, `2 days`. A short unit (`min`, `s`, `MB`) stays as it is."
+    u = r.unit
+    return u[:-1] if v == 1 and len(u) > 2 and u.isalpha() and u.islower() and u.endswith('s') else u
+
 def say(r, v) -> str:
-    "The value `v` of row `r` in words: `12`, `33%`, `400,000 characters`, `on`."
+    "The value `v` of row `r` in words: `12`, `33%`, `400,000 characters`, `1 day`, `on`."
     if r.kind == 'bool': return 'on' if v else 'off'
     if r.kind in ('choice', 'str'): return str(v) or 'none'
-    return f'{_num(r, v)} {r.unit}' if r.unit and not r.pct else _num(r, v)
+    return f'{_num(r, v)} {unit(r, v)}' if r.unit and not r.pct else _num(r, v)
 
 def parse_value(r, s):
     "The value that a form sent for row `r`, before `settings.fit`. Raise `ValueError` for text that is not a number."

@@ -53,10 +53,10 @@ def test_graph_keeps_find_layout_and_legend_open(mk):
     assert '<details class="adjust" open' not in h
 
 def test_graph_unseen_nodes_and_labels(mk):
-    "Unseen nodes are filled with --sunken and ringed with --rule; labels are 13 px in --ink2."
+    "Unseen nodes are filled with --raised (19d: --sunken read as a hole in dark) and ringed with --rule; labels are 13 px in --ink2."
     js = src('blocks/graph/graph.js')
-    assert "sunken: v('--sunken')" in js and "ink2: v('--ink2')" in js
-    assert "n.floor ? C.floor((n.floor - 1) / 4) : C.sunken;" in js and 'hollow(n) ? C.rule' in js
+    assert "raised: v('--raised')" in js and "ink2: v('--ink2')" in js
+    assert "n.floor ? C.floor((n.floor - 1) / 4) : C.raised;" in js and 'hollow(n) ? C.rule' in js
     assert "'13px ' + C.serif" in js and "'12px ' + C.serif" not in js and 'C.ink2' in js
 
 def test_empty_graph_says_what_shows_here():

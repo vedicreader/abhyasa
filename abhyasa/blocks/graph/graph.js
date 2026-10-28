@@ -54,7 +54,7 @@
   const probe = root.appendChild(document.createElement('i'));
   const v = name => { probe.style.color = `var(${name})`; return getComputedStyle(probe).color; };
   const themed = () => {
-    C = {bg: v('--bg'), fg: v('--fg'), ink2: v('--ink2'), mute: v('--mute'), sunken: v('--sunken'), rule: v('--rule'), line: v('--line'), acc: v('--acc'), no: v('--no'), ok: v('--ok'),
+    C = {bg: v('--bg'), fg: v('--fg'), ink2: v('--ink2'), mute: v('--mute'), raised: v('--raised'), rule: v('--rule'), line: v('--line'), acc: v('--acc'), no: v('--no'), ok: v('--ok'),
          subs: [1, 2, 3, 4, 5, 6].map(i => v(`--g${i}`)), serif: getComputedStyle(root).getPropertyValue('--serif')};
     C.dark = d3.hsl(C.bg).l < .5;   // the theme and the mode are on <html>, so the page bg says which
     C.floor = d3.interpolateRgb(d3.interpolateRgb(C.bg, C.acc)(.4), C.acc);
@@ -64,9 +64,9 @@
   themed();
   const subCol = s => C.subs[subjects.indexOf(s) % C.subs.length];
   const fill = n => S.colorBy === 'subject' ? subCol(n.subject)
-    : S.colorBy === 'understanding' ? (C.state[n.state] || C.sunken)
-    : S.colorBy === 'due' ? (n.days === null ? C.sunken : C.due(Math.min(1, Math.max(0, n.days / 14))))
-    : n.floor ? C.floor((n.floor - 1) / 4) : C.sunken;
+    : S.colorBy === 'understanding' ? (C.state[n.state] || C.raised)
+    : S.colorBy === 'due' ? (n.days === null ? C.raised : C.due(Math.min(1, Math.max(0, n.days / 14))))
+    : n.floor ? C.floor((n.floor - 1) / 4) : C.raised;
   const hollow = n => S.colorBy === 'subject' ? false : S.colorBy === 'understanding' ? !C.state[n.state] : S.colorBy === 'due' ? n.days === null : !n.floor;
   const rad = n => sz() * (4.5 + (S.sizeBy === 'seen' ? 1.6 * Math.sqrt(Math.min(n.seen, 16))
     : S.sizeBy === 'due' ? 6 * dueness(n) : S.sizeBy === 'depth' ? 1.6 * Math.min(n.depth || 0, 6) : 1));
@@ -434,9 +434,9 @@
     const el = panel.querySelector('.legend'), sw = (c, t, ring, w = 1) => { const s = document.createElement('span'), i = document.createElement('i');
       i.style.background = c; if (ring) i.style.boxShadow = `inset 0 0 0 ${w}px ${ring}`; s.append(i, t); return s; };
     el.replaceChildren(...(S.colorBy === 'subject' ? subjects.map(s => sw(subCol(s), s))
-      : S.colorBy === 'understanding' ? [['strong', 'strong'], ['learning', 'learning'], ['fading', 'fading'], ['weak', 'weak'], ['gap', 'a gap you named']].map(([k, t]) => sw(C.state[k], t)).concat([sw(C.sunken, 'unseen', C.rule)])
-      : S.colorBy === 'due' ? [sw(C.no, 'due now'), sw(C.due(.5), 'in a week'), sw(C.ok, 'later'), sw(C.sunken, 'new', C.rule)]
-      : [sw(C.sunken, 'unseen', C.rule), ...[1, 3, 5].map(f => sw(C.floor((f - 1) / 4), DEPTHS[f]))]),
+      : S.colorBy === 'understanding' ? [['strong', 'strong'], ['learning', 'learning'], ['fading', 'fading'], ['weak', 'weak'], ['gap', 'a gap you named']].map(([k, t]) => sw(C.state[k], t)).concat([sw(C.raised, 'unseen', C.rule)])
+      : S.colorBy === 'due' ? [sw(C.no, 'due now'), sw(C.due(.5), 'in a week'), sw(C.ok, 'later'), sw(C.raised, 'new', C.rule)]
+      : [sw(C.raised, 'unseen', C.rule), ...[1, 3, 5].map(f => sw(C.floor((f - 1) / 4), DEPTHS[f]))]),
       ...(S.colorBy !== 'due' ? [sw(C.bg, 'due', C.no, 2)] : []));
   };
   const showFocus = () => {

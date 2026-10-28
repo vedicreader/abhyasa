@@ -21,7 +21,8 @@ def _src(p):
 
 def ConceptPage(c, by, attempts):
     "The concept, its actions, then the reference sections in one quiet group (`.refs`)."
-    head = P(meta(c.subject, f'floor {DEPTHS[c.floor]}'), DepthBar(c.floor), ' · ', meta(f"recall {recall(c):.0%}", when(c.due)) if c.seen else 'new', cls='mute')
+    level = f'level: {DEPTHS[c.floor]}' if c.floor else 'not learned yet'   # the words of the needs line in a walk
+    head = P(meta(c.subject, level), DepthBar(c.floor), *((' · ', meta(f"recall {recall(c):.0%}", when(c.due))) if c.seen else ()), cls='mute')
     refs = (*run('concept_more', c),
             *([H2('Misconceptions seen'), Ul(*[Li(Md(m)) for m in c.misconceptions])] if c.misconceptions else []),
             Div(Div(H2('Needs first'), Refs(c.prereqs, by)), Div(H2('Related'), Refs(c.related, by)), cls='pair')

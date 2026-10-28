@@ -145,7 +145,7 @@ def Md(s, cls='', **kw):
 def DepthBar(floor, asked=None):
     "Five marks: filled to the floor, the asked depth marked."
     return Span(*[I(cls='f' if d <= floor else 'a' if d == asked else '') for d in range(1, 6)], cls='depth',
-                title=f'floor {DEPTHS[floor]}' + (f', asked at {DEPTHS[asked]}' if asked else ''))
+                title=(f'level: {DEPTHS[floor]}' if floor else 'not learned yet') + (f', asked at {DEPTHS[asked]}' if asked else ''))
 
 def Spin(txt='thinking…'): return Span(txt, cls='spin htmx-indicator')
 

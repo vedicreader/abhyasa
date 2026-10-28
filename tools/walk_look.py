@@ -6,7 +6,7 @@ bundled Chromium (headless, one browser, closed at the end). Each check prints P
 `--shots` also takes the screens `polish-<page>-<theme>-<mode>-<width>.png` at 1280 and 1000 px, light and dark, Paper and Signal.
 `--only` runs only the checks that it names.
 Task 16 adds its own checks to `CHECKS`."""
-import argparse, os, socket, sys, tempfile, threading, time
+import argparse, os, re, socket, sys, tempfile, threading, time
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
@@ -335,7 +335,7 @@ def m6_words_point_at_the_demo(pg, w):
     pg.hover('#passage .mv >> nth=0')
     hot = pg.eval_on_selector_all('.walk-demo .rk-b.mv-hot', 'ns => ns.map(n => n.dataset.rkType)')
     assert hot == ['ranklist'], hot
-    assert pg.eval_on_selector('.walk-demo .rk-b.mv-hot', 'n => getComputedStyle(n).boxShadow') != 'none'
+    assert pg.eval_on_selector('.walk-demo .rk-b.mv-hot', 'n => getComputedStyle(n).outlineStyle + getComputedStyle(n).outlineOffset') == 'solid4px'
     pg.mouse.move(5, 5)
     assert not pg.query_selector('.walk-demo .rk-b.mv-hot')
     pg.hover('.walk-demo .rk-ranklist >> nth=1')
@@ -408,14 +408,14 @@ def f9_add_asks_for_one_thing(pg, w):
     pg.wait_for_url(lambda u: '/w/' in u, timeout=30000); settle(pg, 200)   # the walk opens; wait, so the next check's page load is not cut off
 
 def f10_graph_has_more_graph(pg, w):
-    "Graph: Find, the layout and the legend show; the other levers are in a closed Adjust the view; an unseen node has the sunken fill in the legend."
+    "Graph: Find, the layout and the legend show; the other levers are in a closed Adjust the view; an unseen node has the raised fill in the legend."
     pg.goto(w.B + '/graph'); pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 300)
     assert pg.is_visible('#levers input[name=q]') and pg.is_visible('#levers .modes') and pg.is_visible('#levers .legend')
     assert not pg.is_visible('#levers input[name=spacing]') and not pg.is_visible('#levers select[name=colorBy]')
     assert pg.eval_on_selector('#levers details.adjust', 'd => d.open') is False
     assert pg.is_visible('#focus-name')   # the E hint changes on E, so it shows outside the fold
-    sunk = pg.evaluate("(() => { const i = document.createElement('i'); i.style.color = 'var(--sunken)'; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; })()")
-    assert pg.eval_on_selector('#levers .legend i', 'i => getComputedStyle(i).backgroundColor') == sunk
+    fill = pg.evaluate("(() => { const i = document.createElement('i'); i.style.color = 'var(--raised)'; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; })()")
+    assert pg.eval_on_selector('#levers .legend i', 'i => getComputedStyle(i).backgroundColor') == fill
     pg.click('#levers details.adjust > summary')
     assert pg.is_visible('#levers input[name=spacing]')
     pg.click('#levers details.adjust > summary')
@@ -627,13 +627,36 @@ def d4_session_bar_one_row(pg, w):
         assert max(y for y, *_ in r) - min(y for y, *_ in r) <= 8 and r[-1][2] <= edge + 1, ('the row with the tries left', r, edge)
     finally: pg.set_viewport_size(dict(width=1280, height=900))
 
+LUM = "c => { const x = document.createElement('canvas').getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 1, 1); const [r, g, b] = x.getImageData(0, 0, 1, 1).data; return .2126 * r + .7152 * g + .0722 * b; }"   # any CSS colour, as sRGB
+
+def d5_small_faults(pg, w):
+    "Settings says 1 day; the concept page says not learned yet; a weak spot gives a reason, not its recall; in dark, an unseen graph node is lighter than the page."
+    pg.goto(w.B + '/settings'); settle(pg, 200)
+    assert 'default 1 days' not in pg.inner_text('main') and 'default 1 day' in pg.inner_text('main')
+    pg.goto(w.B + '/c/ranking'); settle(pg, 200)
+    head = pg.inner_text('main h1 + p')
+    assert 'floor' not in head and ('not learned yet' in head or 'level:' in head), head
+    w.lr.update('reciprocal-rank-fusion', misses=1, seen=1, last=time.time(), stability=30.)   # one miss and a high recall
+    pg.goto(w.B + '/you/strengths'); settle(pg, 200)
+    assert pg.query_selector_all('.weak .concepts > li'), 'no weak spot'
+    for li in pg.query_selector_all('.weak .concepts > li'):
+        t = li.inner_text()
+        assert li.query_selector('.why li') and not re.search(r'^\s*recall \d+%', t, re.M), t
+    try:
+        look(w.rq, w.B, 'paper', 'dark')
+        pg.goto(w.B + '/graph'); pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 300)
+        node = pg.eval_on_selector('#levers .legend i', f"i => ({LUM})(getComputedStyle(i).backgroundColor)")
+        page = pg.evaluate(f"({LUM})(getComputedStyle(document.body).backgroundColor)")
+        assert node > page, ('an unseen node is darker than the page', node, page)
+    finally: look(w.rq, w.B, 'paper', 'light')
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
-          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row]
+          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

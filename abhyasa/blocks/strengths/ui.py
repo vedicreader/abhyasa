@@ -21,9 +21,11 @@ def Subject(name, rows):
               Span(', '.join(f'{n[k]} {PLURAL.get(k, STATES[k]) if n[k] > 1 else STATES[k]}' for k in ('strong', 'weak', 'fading', 'gap') if n[k]) or f"{len(rows)} not started", cls='mute'))
 
 def Concept(c, u):
-    "One concept with the reasons for its state."
-    return Li(A(c.name, href=f'/c/{c.slug}', cls='n'), DepthBar(u.floor), Span(f'recall {u.recall:.0%}', cls='mute') if c.get('seen') else '',
-              Ul(*[Li(r) for r in u.reasons], cls='plain why') if u.reasons else '', cls=f'st-{u.state}')
+    """One concept with the reasons for its state. A weak spot always says why (one miss is a reason too), and it does not
+    show its recall: a high recall on a weak spot reads as a strength. A fading spot names its recall in its reason."""
+    why = u.reasons or (['missed the last time'] if u.weak and c.get('misses') else [])
+    return Li(A(c.name, href=f'/c/{c.slug}', cls='n'), DepthBar(u.floor), Span(f'recall {u.recall:.0%}', cls='mute') if c.get('seen') and not u.weak else '',
+              Ul(*[Li(r) for r in why], cls='plain why') if why else '', cls=f'st-{u.state}')
 
 def Ways(st, subject='', prior=()):
     "Each way to learn with its count, best first: the best way, and a way that got better."

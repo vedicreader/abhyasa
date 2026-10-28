@@ -84,3 +84,40 @@ def test_session_answer_bar_is_one_row(mk, lr):
     assert re.search(r'id="mic" class="mic quiet', bar) and '<kbd>⌥S</kbd>' in bar[at[-1]:]
     c = src('blocks/session/session.css')
     assert re.search(r'@media \(min-width: 641px\) \{ \.composer \.bar \{ flex-wrap: nowrap;', c)
+
+# 5. Small faults
+
+def test_settings_say_one_day(mk):
+    "A count unit takes the plural rule: `default 1 day`, `0.5 days`; a short unit (min, s, MB) stays as it is."
+    from abhyasa.core.rows import say
+    from abhyasa.settings import SETTINGS as ROWS
+    r = ROWS['review.solid']
+    assert say(r, 1.) == '1 day' and say(r, .5) == '0.5 days' and say(r, 2) == '2 days' and say(ROWS['walks.fresh'], 1) == '1 min'
+    assert 'default 1 days' not in mk().get('/settings').text and 'default 1 day' in mk().get('/settings').text
+
+def test_concept_meta_uses_the_walk_words(mk, lr):
+    "The concept page says `not learned yet` for an idea with no level, as the needs line does, and not `floor unseen` or `new`."
+    t = mk().get('/c/ranking').text
+    head = t[t.index('<h1'):]; head = head[:head.index('</p>')]
+    assert 'not learned yet' in head and 'floor' not in head and '· new' not in head, head
+    lr.update('ranking', floor=2, seen=1, last=__import__('time').time(), stability=3.)
+    t = mk().get('/c/ranking').text
+    head = t[t.index('<h1'):]; head = head[:head.index('</p>')]
+    assert 'level: recall' in head and 'floor' not in head, head
+
+def test_weak_spot_says_why(mk, lr):
+    "A weak spot always gives its reason; it does not show its recall, which can read as a strength."
+    lr.update('reciprocal-rank-fusion', misses=1, seen=1, last=__import__('time').time(), stability=30.)
+    t = mk().get('/you/strengths').text
+    weak = t[t.index('Weak spots'):t.index('Practice my weak spots')]
+    assert 'missed the last time' in weak and 'recall 100%' not in weak and 'recall ' not in weak.replace('fading: recall', ''), weak
+
+def test_demo_ring_keeps_off_the_label():
+    "The ring on a demo block that the passage points at sits 4 px out, so it does not cut the block label."
+    w = src('blocks/walk/walk.css')
+    assert re.search(r'\.walk-demo \.rk-b\.mv-hot \{[^}]*outline: 2px solid[^}]*outline-offset: 4px', w) and 'box-shadow: 0 0 0 2px' not in w
+
+def test_unseen_graph_node_is_raised():
+    "An unseen idea on the graph has the raised fill, so in dark mode it does not read as a hole; the legend matches."
+    js = src('blocks/graph/graph.js')
+    assert "raised: v('--raised')" in js and 'C.sunken' not in js and "n.floor ? C.floor((n.floor - 1) / 4) : C.raised;" in js

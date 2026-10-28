@@ -63,8 +63,8 @@ h1.idea { font-size: var(--t-idea); margin-bottom: var(--s4); }
 /* words in the passage that point at a part of the demo (walk.js): a dotted line; pointing at one rings the part, and back */
 #passage .mv { text-decoration: underline dotted; text-decoration-color: color-mix(in srgb, var(--acc) 70%, transparent); text-underline-offset: .2em; cursor: help; }
 #passage .mv:hover, #passage .mv:focus-visible, #passage .mv.hot { color: var(--acc); }
-.walk-demo .rk-b { border-radius: var(--r-s); transition: box-shadow var(--dur-1) var(--ease); }
-.walk-demo .rk-b.mv-hot { box-shadow: 0 0 0 2px color-mix(in srgb, var(--acc) 45%, transparent); }
+.walk-demo .rk-b { border-radius: var(--r-s); outline: 2px solid transparent; outline-offset: 4px; transition: outline-color var(--dur-1) var(--ease); }
+.walk-demo .rk-b.mv-hot { outline: 2px solid color-mix(in srgb, var(--acc) 45%, transparent); outline-offset: 4px; }   /* 4 px out, so it does not cut the block label */
 
 .next-bar { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: var(--s5); padding-top: var(--s4); }
 .next-bar .row { margin-top: 0; } .next-bar .mute { margin: 0; }
