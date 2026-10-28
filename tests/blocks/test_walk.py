@@ -20,6 +20,12 @@ def test_plan_then_start(mk, walk_fake, lr):
     r = cl.post(f'/w/{jid}/start', follow_redirects=False)
     assert r.headers['location'] == f'/w/{jid}/0' and lr.journey(jid).started and lr.journey(jid).sitting
 
+def test_plan_says_how_many_more_ideas(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr)
+    assert 'more idea' not in cl.get(f'/w/{jid}').text                                  # all the ideas are steps
+    lr.put_journey({**lr.journey(jid), 'more': ['a', 'b']})
+    assert 'The source has 2 more ideas.' in cl.get(f'/w/{jid}').text
+
 def test_step_page_and_short_check(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why='plain words fit'))

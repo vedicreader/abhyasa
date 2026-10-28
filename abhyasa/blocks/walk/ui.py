@@ -60,8 +60,11 @@ def Plan(j, st, by):
         if (t := page_of(j, ix[0])) and t != page: secs.append(Li(H3(t), cls='page')); page = t
         secs.append(Li(Div(B(sec or 'The ideas'), Small(' · '.join(x for x in (pages([j['steps'][i] for i in ix]), f"{sum(minutes(j['steps'][i]) for i in ix)} min") if x)), cls='sh'),
                        Ul(*[PlanIdea(j['id'], i, j['steps'][i], by, ways) for i in ix])))
+    n = len(j.get('more') or ())
     return Div(Span(f"The walk · {len(st.sections)} section{'s' * (len(st.sections) != 1)} · {len(j['steps'])} ideas · about {mins} min", cls='lbl'),
                P('Each idea has one check. The tutor picks the check from the idea and from the ways that work for you. You can change any check.', cls='mute'),
+               P(f"The tutor picked the main ideas. The source has {n} more idea{'s' * (n != 1)}. They are in your concepts. "
+                 'When a step needs one of them, you can open it beside the walk.', cls='mute') if n else '',
                Ol(*secs, cls='plan') if secs else P('The tutor found no ideas in this source.', cls='mute'), id='plan')
 
 def PlanPage(j, st, by):
