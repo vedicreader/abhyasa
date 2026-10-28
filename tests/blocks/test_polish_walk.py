@@ -122,3 +122,53 @@ def test_a_section_with_no_checks_says_how_to_come_back(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); cl.post(f'/w/{jid}/0/next')
     t = cl.get(f'/w/{jid}/0/done').text
     assert 'You skipped the checks in this section. You can come back to them from the outline.' in t and 'Section done' in t
+
+# F8: the small copy faults
+
+def test_meta_lines_have_no_stray_dot(mk, lr):
+    "A concept with no subject: no line starts with a dot, on the concept page and in the list."
+    cl = mk(); lr.put('Loose idea', 'An idea with no subject.', '')
+    page, lst = cl.get('/c/loose-idea').text, cl.get('/concepts').text
+    for t in (page, lst): assert not re.search(r'class="mute">\s*·', t), re.findall(r'class="mute">\s*·[^<]{0,30}', t)
+
+def test_counts_have_the_right_plural(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr)
+    assert '1 documents' not in cl.get('/sources').text and ' 1 document' in cl.get('/sources').text
+    assert not re.search(r'\b1 concepts\b', cl.get('/concepts').text + cl.get('/').text)
+    assert not re.search(r'of 1 (ideas|steps)\b', cl.get('/journeys').text + cl.get(f'/j/{jid}').text)
+
+def test_leaving_a_side_walk_early_says_so_plainly(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    sid = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url'].split('/')[2]
+    cl.post(f'/rh/back/{sid}')
+    strip = cl.get(f'/w/{jid}/2').text.split('class="rh-strip"')[1].split('class="rh-line"')[0]
+    assert 'You looked at <b>Derivatives and gradients</b> on the way. You did not do its check yet.' in strip
+    assert 'Finish the side walk' in strip and '0 ideas' not in strip and 'See the side walk' not in strip
+
+def test_best_way_needs_two_passes():
+    from fasthtml.common import to_xml
+    from abhyasa.blocks.strengths.ui import Ways
+    assert 'Your best way' not in to_xml(Ways(dict(methods={'*': {'example': (0, 1)}})))
+    assert 'Your best way' in to_xml(Ways(dict(methods={'*': {'example': (2, 0)}})))
+
+def test_code_check_counts_tries_in_one_place(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'tries left' not in card
+    out = cl.post(f'/w/{jid}/1/run', data=dict(source=NAIVE)).text
+    assert re.search(r'Try 1 of 3 · \d of 3 tests pass', out) and 'try 1 ·' not in out
+
+def test_concept_page_copy(mk, walk_fake, lr):
+    "The journey select has a label, and a source on a vault shelf says in your vault, not its machine name."
+    from fasthtml.common import to_xml
+    from abhyasa.core import Cites
+    cl = mk(); walk(cl, lr)
+    t = cl.get('/c/ranking').text
+    assert 'Add this idea to a journey' in t
+    assert 'in your vault' in to_xml(Cites([dict(title='Notes', src='vault:store', ref='d1')])) and 'vault:store' not in to_xml(Cites([dict(title='Notes', src='vault:store', ref='d1')]))
+
+def test_today_says_next_as_a_verb(mk, lr):
+    lr.put('Ranking', 'Order items by a score.', 'ml')
+    t = mk().get('/').text
+    assert not re.search(r'Next: [^<]+ at (recognise|recall|explain|apply|transfer)\.', t) and re.search(r'Next: (recognise|recall|explain|apply|transfer) Ranking\.', t)

@@ -229,6 +229,10 @@ def Result(c, texts):
 
 def closed(q): return first(t for t in q.get('turns') or () if t.get('kind') == 'close')
 
+def passing(ok, n):
+    "How many tests pass, as people say it: `2 of 3 tests pass`, `the test passes`."
+    return f"{ok} of {n} tests pass" if n != 1 else 'the test passes' if ok else 'the test fails'
+
 def CodeOut(jid, i, q, r=None, oob=True):
     """The results part of a code check: hints, the results of the last run, the first error, and the close. The editor is not in it.
     After a run that closes the check, `oob` also turns off Run the tests, so Next idea is the one main button."""
@@ -236,12 +240,12 @@ def CodeOut(jid, i, q, r=None, oob=True):
     close = closed(q)
     out = [Div(Span(f'Hint {n}', cls='lbl'), Md(h), cls='hint') for n, h in enumerate(q.get('hints') or (), 1)]
     if r and r.get('syntax'):
-        out += [Div(Span('Syntax error: ', cls='k'), f'{r.syntax}.', cls='err'), P(f'try {val('checks.tries') - r.tries_left + 1} · no try used', cls='mute')]
+        out += [Div(Span('Syntax error: ', cls='k'), f'{r.syntax}.', cls='err'), P(f"Try {val('checks.tries') - r.tries_left + 1} of {val('checks.tries')} · a syntax error uses no try", cls='mute')]
     elif r and 'checks' in r:
         n = val('checks.tries') - r.tries_left + bool(r.done and r.get('correct'))
         out += [Ul(*[Result(c, texts) for c in r.checks], cls='results') if r.checks else '',
                 FirstError(r.first_error),
-                P(f'try {n} · {r.passed} of {r.total} pass', cls='mute')]
+                P(f"Try {n} of {val('checks.tries')} · {passing(r.passed, r.total)}", cls='mute')]
     if close:
         out += [Tag(close.get('outcome')),
                 Div(Span('Lesson', cls='lbl'), Md(close['lesson']), cls='lesson') if close.get('lesson') else '', GoOn(jid, i),
@@ -259,7 +263,6 @@ def CodeCheck(jid, i, s, q, after=()):
     c = s['code']
     draft = q['tries'][-1]['answer'] if q.get('tries') else c['stub']
     tgt = dict(hx_target='#code-out', hx_swap='innerHTML')
-    left = val('checks.tries') - len(q.get('tries') or ())
     hint = Button('Hint ', Kbd('⌥W'), type='button', id='hint', cls='quiet', hx_post=at(Routes.hint, jid, i), data_wait=HINTING, **tgt,
                   disabled=len(q.get('hints') or ()) >= len(HINTS))
     idk = Button('Teach me' if q.get('tries') else "I don't know", type='button', id='idk', cls='quiet', hx_post=at(Routes.giveup, jid, i),
@@ -270,7 +273,7 @@ def CodeCheck(jid, i, s, q, after=()):
                 id='run-form', hx_post=at(Routes.run, jid, i), **tgt)
     # Run is outside the form, so the results can hold Next idea with no nested form. On a closed check, Next idea is the main button.
     run = RunOff() if closed(q) else Primary('Run the tests', type='submit', form='run-form', id='run', data_wait=RUNNING, title='⌘↵ runs them too')
-    return Check(CardHead(s, q), q['question'], foot=(form, CodeOut(jid, i, q, oob=False), Div(run, hint, idk, Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'),
+    return Check(CardHead(s, q), q['question'], foot=(form, CodeOut(jid, i, q, oob=False), Div(run, hint, idk, cls='row acts'),
                                                    leela_line(AttrDict(id=jid), i, say='Go further with real code in Leela', quiet=True)), cls='code-check')
 
 CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card

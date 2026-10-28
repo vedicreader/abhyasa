@@ -1,6 +1,6 @@
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css
+from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, meta, n_of
 from abhyasa.model import DEPTHS, recall
 from .cfg import Routes
 
@@ -8,7 +8,7 @@ _P = Path(__file__).parent
 def css(): return asset_css(_P/'concepts.css')
 
 def ConceptList(cs):
-    return Ul(*[Li(A(c.name, href=Routes.of(c.slug)), DepthBar(c.floor), Span(f"  {c.subject} · {when(c.due) if c.seen else 'new'}", cls='mute'))
+    return Ul(*[Li(A(c.name, href=Routes.of(c.slug)), DepthBar(c.floor), Span('  ' + meta(c.subject, when(c.due) if c.seen else 'new'), cls='mute'))
                 for c in cs], cls='plain concepts'), css()
 
 def Refs(slugs, by):
@@ -21,8 +21,7 @@ def _src(p):
 
 def ConceptPage(c, by, attempts):
     "The concept, its actions, then the reference sections in one quiet group (`.refs`)."
-    head = P(c.subject, ' · floor ', DEPTHS[c.floor], DepthBar(c.floor), ' · ',
-             f"recall {recall(c):.0%} · {when(c.due)}" if c.seen else 'new', cls='mute')
+    head = P(meta(c.subject, f'floor {DEPTHS[c.floor]}'), DepthBar(c.floor), ' · ', meta(f"recall {recall(c):.0%}", when(c.due)) if c.seen else 'new', cls='mute')
     refs = (*run('concept_more', c),
             *([H2('Misconceptions seen'), Ul(*[Li(Md(m)) for m in c.misconceptions])] if c.misconceptions else []),
             Div(Div(H2('Needs first'), Refs(c.prereqs, by)), Div(H2('Related'), Refs(c.related, by)), cls='pair'),
@@ -36,4 +35,4 @@ def ConceptPage(c, by, attempts):
 
 def Subjects(subs):
     return (H2('Subjects'), Ul(*[Li(A(r['subject'] or 'general', href=f"{Routes.base}?subject={r['subject'] or ''}"),
-                                     Span(f"  {r['n']} concepts", cls='mute')) for r in subs], cls='plain'))
+                                     Span(f"  {n_of(r['n'], 'concept')}", cls='mute')) for r in subs], cls='plain'))

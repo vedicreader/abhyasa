@@ -169,7 +169,7 @@ def connect(app, ctx):
     @hook('today_next')
     def start_here(subject=None):
         p = pick(ctx.learning.concepts(), subject=subject)
-        nxt_ = P(f"Next: {p[0].name} at {DEPTHS[p[1]]}. ", Span(p[2], cls='why')) if p else P('Nothing due. Add a source, start a journey, or pick a concept.')
+        nxt_ = P(f"Next: {DEPTHS[p[1]]} {p[0].name}. ", Span(p[2], cls='why')) if p else P('Nothing due. Add a source, start a journey, or pick a concept.')
         return (H2('Review and practice'), nxt_,
                 Form(Input(type='hidden', name='subject', value=subject or ''),
                      Primary(f"Start{' ' + subject if subject else ''}", data_wait='Starting…', focus=True, rank=3), action=Routes.start, method='post'))

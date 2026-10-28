@@ -33,7 +33,7 @@ def Ways(st, subject='', prior=()):
     best = first(m for m in order if m in ms)
     def row(m):
         a, b = ms.get(m, (0, 0))
-        tag = 'Your best way.' if m == best else 'Getting better.' if improving(st, m) else ''
+        tag = 'Your best way.' if m == best and a >= 2 else 'Getting better.' if improving(st, m) else ''
         return Li(Span(LABELS[m], cls='n'), Span(f'{round(a)} of {round(a + b)}' if a + b else 'not tried', cls='k'), Span(tag, cls='tag') if tag else '')
     hint = P('After a few questions, this shows which ways work for you.', cls='mute') if not ms else ''
     return Div(hint, Ul(*map(row, order), cls='plain ways'))

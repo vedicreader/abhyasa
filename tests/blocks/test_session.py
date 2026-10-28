@@ -1,3 +1,5 @@
+import re
+
 def start(cl, **data):
     r = cl.post('/start', data=data, follow_redirects=False)
     return r.headers['location'].split('/')[-1]
@@ -72,7 +74,7 @@ def test_focus_and_end(mk, lr):
 def test_today_and_concept_hooks(mk):
     cl = mk()
     today = cl.get('/').text
-    assert 'Next: Ranking' in today and 'action="/start"' in today and 'Subjects' in today
+    assert re.search(r'Next: \w+ Ranking\.', today) and 'action="/start"' in today and 'Subjects' in today
     c = cl.get('/c/ranking').text
     assert 'Learn this' in c and 'See in the graph' in c
 

@@ -171,9 +171,9 @@ def test_code_check_in_the_browser(mk, walk_fake, lr):
     assert cl.get(f'/w/{jid}/1/check').text.count('code-editor') == card.count('code-editor')   # a reload keeps one task
     assert lr.journey(jid).steps[1]['code']['fname'] == 'softmax'
     r = cl.post(f'/w/{jid}/1/run', data=dict(source='def softmax(x\n')).text
-    assert 'line 1' in r and 'try 1' in r                                          # a syntax error uses no try
+    assert 'line 1' in r and 'Try 1 of 3 · a syntax error uses no try' in r                                          # a syntax error uses no try
     r = cl.post(f'/w/{jid}/1/run', data=dict(source=NAIVE)).text
-    assert '2 of 3 pass' in r and 'It does not fail on large scores' in r and 'm = max(x)' not in r
+    assert '2 of 3 tests pass' in r and 'It does not fail on large scores' in r and 'm = max(x)' not in r
     assert 'code-editor' not in r and 'max(softmax([1000.0, 1001.0]))' not in r   # only the results part comes back
     r = cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text
     assert 'Next idea' in r and lr.attempts('softmax', limit=1)[0].kind == 'code'
@@ -186,7 +186,7 @@ def test_code_check_hides_a_failing_hidden_test(mk, walk_fake, lr):
     lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
     cl.get(f'/w/{jid}/1/check')
     r = cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text
-    assert 'A secret weight check' in r and 'fail' in r and '2 of 3 pass' in r
+    assert 'A secret weight check' in r and 'fail' in r and '2 of 3 tests pass' in r
     for leak in ('0.123456', '0.876544', 'softmax([0.0, 1.0])', '0.2689', '0.7310'): assert leak not in r
 
 def test_code_run_refuses_a_closed_or_missing_check(mk, walk_fake, lr):

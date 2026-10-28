@@ -198,7 +198,7 @@ def EndPage(s, ms, j=None, pg=None, rel=()):
         f"You found {n_of(mis, 'misconception')}." if mis else '') if x)
     nxt = []
     if j and pg:
-        nxt = [H2('Your journey'), P(A(j.title, href=f'/j/{j.id}'), Span(f"  {pg.done} of {pg.total} steps", cls='mute')),
+        nxt = [H2('Your journey'), P(A(j.title, href=f'/j/{j.id}'), Span(f"  {pg.done} of {n_of(pg.total, 'step')}", cls='mute')),
                Span(I(style=f"width:{100 * pg.done // max(pg.total, 1)}%"), cls='prog'),
                P(f"Next step: {pg.current.name}." if pg.current else 'You finished this journey.', cls='next-step'),
                Div(Primary('Continue the journey', href=f'/start?journey={j.id}') if pg.current else

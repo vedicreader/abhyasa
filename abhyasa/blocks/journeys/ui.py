@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago, Primary
+from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago, Primary, n_of
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -28,12 +28,12 @@ def GoalForm(compact=False):
 def SideWalk(j, pg):
     "One side walk under the walk that opened it: its title, the idea it was for, and its progress."
     i = (j.get('parent') or {}).get('step')
-    return Li(A(j.title, href=go(j)), Span(f"  for idea {i + 1} · {pg.done} of {pg.total} ideas" if isinstance(i, int) else f"  {pg.done} of {pg.total} ideas", cls='mute'))
+    return Li(A(j.title, href=go(j)), Span(f"  for idea {i + 1} · {pg.done} of {n_of(pg.total, 'idea')}" if isinstance(i, int) else f"  {pg.done} of {n_of(pg.total, 'idea')}", cls='mute'))
 
 def Row(j, pg, sides=()):
     "One journey in a list: its title, its progress, the step to do now, Continue, and its side walks."
     now = f"Now: {pg.current.name}" if pg.current else 'Finished'
-    return Li(Div(A(j.title, href=at(Routes.one, j), cls='jt'), Span(f"  {pg.done} of {pg.total} steps · {now}", cls='mute'), cls='jrow-head'),
+    return Li(Div(A(j.title, href=at(Routes.one, j), cls='jt'), Span(f"  {pg.done} of {n_of(pg.total, 'step')} · {now}", cls='mute'), cls='jrow-head'),
               Bar(pg.done, pg.total),
               A('Continue the walk' if j.get('mode') == 'walk' else 'Continue', href=go(j), cls='btn small') if pg.current else A('See what comes after', href=at(Routes.one, j), cls='btn small quiet'),
               Div(Span('Side walks', cls='lbl'), Ul(*[SideWalk(*x) for x in sides], cls='plain'), cls='side-walks') if sides else '',
@@ -79,7 +79,7 @@ def Path_(j, pg):
     cur = pg.current.slug if pg.current else None
     way = (Primary('Continue the walk' if j.get('mode') == 'walk' else f'Continue: {pg.current.name}', href=go(j)) if pg.current
            else P('You finished this journey. See what comes after it, below.', cls='done-note'))
-    return Div(Div(Span(f"{pg.done} of {pg.total} steps", cls='lbl'), Bar(pg.done, pg.total), cls='phead'), Div(way, cls='row'),
+    return Div(Div(Span(f"{pg.done} of {n_of(pg.total, 'step')}", cls='lbl'), Bar(pg.done, pg.total), cls='phead'), Div(way, cls='row'),
                Ol(*[Step(j, s, i, len(pg.steps), s.slug == cur) for i, s in enumerate(pg.steps)], cls='path'),
                Form(Input(type='text', name='name', id='add-topic', data_mic='1', aria_label='Add a topic',
                           placeholder='Add a topic, for example: rotary position embeddings'),
@@ -103,7 +103,7 @@ def InJourneys(c, rows, js):
     pick = [j for j in js if j.id not in have]
     return Div(*([Span('In your journeys', cls='lbl'),
                   Ul(*[Li(A(j.title, href=at(Routes.one, j)), Span(f"  step {i + 1} of {len(j.steps)}", cls='mute')) for j, i in rows], cls='plain')] if rows else []),
-               Form(Select(*[Option(j.title, value=j.id) for j in pick], name='jid', aria_label='A journey'), Input(type='hidden', name='slug', value=c.slug), Input(type='hidden', name='src', value='concept'),
+               Form(Span('Add this idea to a journey', cls='lbl'), Select(*[Option(j.title, value=j.id) for j in pick], name='jid', aria_label='Add this idea to a journey'), Input(type='hidden', name='slug', value=c.slug), Input(type='hidden', name='src', value='concept'),
                     Button('Add to the journey', cls='small'), hx_post=Routes.attach, hx_target='this', hx_swap='outerHTML', cls='attach row') if pick else '',
                cls='in-journeys')
 

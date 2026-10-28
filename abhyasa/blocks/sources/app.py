@@ -2,7 +2,7 @@
 import time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides
+from abhyasa.core import Page, RouteOverrides, n_of
 from abhyasa.ground import VedicSource, index_ramabana, index_notebooks, RAMA_CFG
 from .cfg import Routes
 
@@ -22,7 +22,7 @@ def connect(app, ctx):
         return Page('Sources', H1('Sources'),
             P('The tutor uses these sources for its questions. It links each concept to the places that name it. It reads the sources and does not change them.', cls='mute'),
             H2('Vault shelves'),
-            Ul(*[Li(Span(s['store']), Span(f"  {s['docs']} documents", cls='mute')) for s in shelves], cls='plain'),
+            Ul(*[Li(Span(s['store']), Span(f"  {n_of(s['docs'], 'document')}", cls='mute')) for s in shelves], cls='plain'),
             H2('vedicreader library'),
             P(f"{len(vs.dbs())} verse databases in {vs.dir}." if vs.dbs() else 'Not found. Set VEDICREADER_ROOT to the vedicreader repo.', cls='mute'),
             H2('Add your sessions'),

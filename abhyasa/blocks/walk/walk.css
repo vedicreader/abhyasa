@@ -70,7 +70,6 @@ p.well { font-style: italic; color: var(--ink2); margin: var(--s5) 0 0; }
 .code-check .results .pass .st { color: var(--ok); } .code-check .results .fail .st, .code-check .results .error .st, .code-check .results .timeout .st { color: var(--no); }
 .code-check code { font: var(--t-small) var(--mono); }
 .code-check .err { margin: var(--s2) 0; } .code-check .lesson { margin: var(--s3) 0; }
-.code-check .acts .mute { margin-left: auto; }
 
 /* rabbit holes: with the side pane open, the step drops its outline and keeps one column; in the pane, the way back is at the foot */
 @media (min-width: 1100px) { html.rh-open .walk-layout { grid-template-columns: minmax(0, 720px); } html.rh-open .walk-layout > .outline { display: none; }

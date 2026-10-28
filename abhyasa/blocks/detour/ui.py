@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import asset_css, asset_js, Primary
+from abhyasa.core import asset_css, asset_js, Primary, meta, n_of, pane_link
 from abhyasa.settings import val
 from .cfg import Routes
 
@@ -23,11 +23,15 @@ def Need(n, state, first):
     return Span(A(n.name, href=f'/c/{n.slug}', cls='n'), Span(f' · {STATE[state]}', cls=f'st {state}'), go, cls='need')
 
 def Strip(name, ok, sid, outs):
-    "The strip after a side walk: what you learned on the way, and how the checks went."
+    "The strip after a side walk: what you learned on the way, and how the checks went. When you left before a check, the way to finish it."
+    url = Routes.of(Routes.walk, jid=sid)
+    if not outs:
+        return Div(P('Back on the paper. You looked at ', B(name), ' on the way. You did not do its check yet.'),
+                   P(pane_link('Finish the side walk', url, name), cls='mute'), cls='rh-strip')
     solid, shaky = sum(o == 'solid' for o in outs), sum(o in ('fragile', 'gap', 'misconception') for o in outs)
-    counts = [f"{len(outs)} {'idea' if len(outs) == 1 else 'ideas'}", ', '.join(x for x in (solid and f'{solid} solid', shaky and f'{shaky} shaky') if x)]
+    counts = meta(n_of(len(outs), 'idea'), ', '.join(x for x in (solid and f'{solid} solid', shaky and f'{shaky} shaky') if x))
     return Div(P('Back on the paper. You ', 'learned ' if ok else 'looked at ', B(name), ' on the way.'),
-               P(' · '.join(x for x in counts if x), ' · ', A('See the side walk', href=Routes.of(Routes.walk, jid=sid)), cls='mute'), cls='rh-strip')
+               P(counts, ' · ', A('See the side walk', href=url), cls='mute'), cls='rh-strip')
 
 def Needs(at, rows, strip=None):
     "The needs line, the strip when you just came back, and the place for the offer. `rows` is `(need, state)`."
