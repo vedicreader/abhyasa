@@ -125,4 +125,5 @@ if (!window.abhyasaDetour) {
     try { const v = JSON.parse(d.dataset.rhDone); parent.postMessage({type: 'rh:done', slug: v.slug, outcome: v.outcome}, location.origin); } catch {}
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', done); else done();
+  document.addEventListener('htmx:afterSettle', e => { if (e.detail.target === document.body) done(); });   // Next idea swaps the page in place
 }

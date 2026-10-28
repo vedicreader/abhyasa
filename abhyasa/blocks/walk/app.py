@@ -284,7 +284,8 @@ def connect(app, ctx):
                 if (s := sessions.get(j.get('sitting') or '')) and s.q and s.q.id == qid: s.q = None; s.save()
             lr.walk_step(jid, i, done=dict(outcome='skipped', at=time.time()))
         ends = any(ix[-1] == i for _, ix in st.sections)
-        return Redirect(ui.at(Routes.done, jid, i)) if ends else go(jid, i + 1)
+        # a plain 303, not HX-Redirect: htmx follows it and swaps the page in place, so the next idea comes in with a view transition
+        return RedirectResponse(ui.at(Routes.done, jid, i) if ends else ui.at(Routes.step, jid, i + 1), status_code=303)
 
     def done(jid:str, i:int):
         "The summary of the section of step `i`; it ends the sitting, and the next step opens a new one."

@@ -55,6 +55,17 @@ h1.idea { font-size: var(--t-idea); margin-bottom: var(--s4); }
 .walk-main:has(.check.shut, .check.done, #code-out .tag) .next-bar .skip { display: none; }
 .next-bar .skip button { margin-left: auto; }
 
+/* the next idea comes in gently (a view transition, core.js): the old idea fades out and up in 120 ms, the new one fades in
+   from 8 px below. The rest of the page, with the outline, does not move. */
+.walk-main { view-transition-name: idea; }
+main:has(.walk-layout) { animation: none; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition-group(idea) { animation-duration: var(--dur-2); animation-timing-function: var(--ease); }
+::view-transition-old(idea) { animation: idea-out 120ms var(--ease) both; }
+::view-transition-new(idea) { animation: idea-in var(--dur-2) var(--ease) both; }
+@keyframes idea-out { to { opacity: 0; transform: translateY(-8px); } }
+@keyframes idea-in { from { opacity: 0; transform: translateY(8px); } }
+
 /* the end of a walk: the row of dots, the sum, and one quiet line at the end */
 .walk-dots { display: flex; flex-wrap: wrap; gap: var(--s2); margin: var(--s2) 0 var(--s5); }
 .walk-sum .lead-sum { font-size: var(--t-body); }

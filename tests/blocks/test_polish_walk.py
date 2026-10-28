@@ -187,3 +187,11 @@ def test_m4_the_dots_fill_one_by_one_then_the_sum_fades_in(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr)
     t = finish(cl, lr, jid)
     assert 'class="walk-sum" style="--n:3"' in t and 'style="--i:2"' in t
+
+def test_m1_the_next_idea_comes_in_gently():
+    "htmx swaps a whole page in a view transition, only with motion; a part of a page swaps with none. Only the idea moves."
+    js, w = css('core/core.js'), css('blocks/walk/walk.css')
+    assert 'htmx.config.globalViewTransitions = abhyasaMotion()' in js and "'htmx:beforeTransition'" in js and 'document.body' in js
+    assert '.walk-main { view-transition-name: idea; }' in w and '::view-transition-old(root), ::view-transition-new(root) { animation: none; }' in w
+    assert re.search(r'::view-transition-old\(idea\) \{ animation: idea-out 120ms', w) and re.search(r'::view-transition-new\(idea\) \{ animation: idea-in var\(--dur-2\)', w)
+    assert re.search(r'@keyframes idea-in \{ from \{ opacity: 0; transform: translateY\(8px\); \} \}', w)

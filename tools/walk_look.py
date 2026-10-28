@@ -238,13 +238,19 @@ def f5_way_beside(pg, w):
     pg.goto(w.step(2)); pg.wait_for_selector('.rh-line'); settle(pg)
     assert not pg.query_selector('.rh-tip'), 'the tip shows twice'
 
+def new_walk(w):
+    "A new walk on the paper, started, with a short check on each idea. Its id."
+    r = w.rq.post(f'{w.B}/walk/new', form=dict(ref=add_paper(w.lr)), headers={'HX-Request': 'true'}, max_redirects=0)
+    jid = r.headers['hx-redirect'].split('/')[-1]
+    for i in range(3): w.lr.walk_step(jid, i, check=dict(way='words', kind='short', depth=2, why='plain words fit this idea'))
+    w.rq.post(f'{w.B}/w/{jid}/start', max_redirects=0)
+    return jid
+
 def walk_to_end(w):
     "A second walk on the paper, walked to the end: idea 1 skipped, idea 2 passed, idea 3 skipped. The URL of its last page."
     if not getattr(w, 'end', None):
-        r = w.rq.post(f'{w.B}/walk/new', form=dict(ref=add_paper(w.lr)), headers={'HX-Request': 'true'}, max_redirects=0)
-        jid = r.headers['hx-redirect'].split('/')[-1]
-        w.lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why='plain words fit this idea'))
-        w.rq.post(f'{w.B}/w/{jid}/start', max_redirects=0); w.rq.post(f'{w.B}/w/{jid}/0/next', max_redirects=0)
+        jid = new_walk(w)
+        w.rq.post(f'{w.B}/w/{jid}/0/next', max_redirects=0)
         w.rq.get(f'{w.B}/w/{jid}/1/check'); w.rq.post(f'{w.B}/w/{jid}/1/answer', form=dict(answer='the rank is a position', confidence='70'))
         w.rq.post(f'{w.B}/w/{jid}/2/next', max_redirects=0)
         w.end = f'{w.B}/w/{jid}/2/done'
@@ -265,9 +271,23 @@ def m4_calm_finish(pg, w):
     assert d[1] == ['dot-fill', '0.06s'] and d[0][0] == 'none', d
     assert pg.eval_on_selector('.walk-sum', "e => [getComputedStyle(e).animationName, getComputedStyle(e).animationDelay]") == ['fade', '0.48s']
 
+def m1_next_idea_comes_in_gently(pg, w):
+    "Next idea swaps the page in a view transition and the outline does not move; a check answer swaps with no transition."
+    jid = new_walk(w)
+    pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check #ans'); settle(pg)
+    pg.evaluate("""() => { window.vt = 0; const o = document.startViewTransition.bind(document);
+                           document.startViewTransition = f => { window.vt++; return o(f); }; }""")
+    x0 = pg.eval_on_selector('#rail', 'e => e.getBoundingClientRect().left')
+    pg.fill('#ans', 'it is the rank'); pg.click('#send'); pg.wait_for_selector('#check .check.shut'); settle(pg)
+    assert pg.evaluate('window.vt') == 0, 'a check answer made a view transition'
+    pg.click('#check .go'); pg.wait_for_url(lambda u: u.endswith(f'/w/{jid}/2'), timeout=10000); settle(pg)
+    assert pg.evaluate('window.vt') >= 1, 'Next idea made no view transition'
+    assert pg.evaluate("getComputedStyle(document.querySelector('.walk-main')).viewTransitionName") == 'idea'
+    assert abs(pg.eval_on_selector('#rail', 'e => e.getBoundingClientRect().left') - x0) < 1
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
-          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish]
+          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

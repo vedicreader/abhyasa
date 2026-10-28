@@ -78,6 +78,12 @@ function abhyasaMotion() { return !matchMedia('(prefers-reduced-motion: reduce)'
 
 // Every page link and the search box load in place (hx-boost on <body>); a fresh fetch on Back, so a page is never stale.
 if (window.htmx) { htmx.config.historyCacheSize = 0; htmx.config.refreshOnHistoryMiss = false; }
+// A new page comes in with a view transition, only with motion (the walk names the idea that moves, walk.css). A part of a
+// page (a check card, a hint) changes in place, with no transition.
+if (window.htmx) {
+  htmx.config.globalViewTransitions = abhyasaMotion();
+  document.addEventListener('htmx:beforeTransition', e => { if (!e.detail || e.detail.target !== document.body) e.preventDefault(); });
+}
 
 // A thin bar at the top for each request, as nprogress does. It creeps toward 90 % and fills when the last request ends.
 const abhyasaBar = (() => {
