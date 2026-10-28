@@ -6,7 +6,7 @@
 .mic.on, .mic.busy { background: transparent; color: var(--fg); border-color: var(--acc); }
 .mic.on kbd, .mic.busy kbd { color: var(--mute); }
 .mic.on .lvl { opacity: .8; }
-.mic.on .say::before, .mic.busy .say::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%;
+.mic.on .say::before, .mic.busy .say::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: var(--s2); border-radius: 50%;
                                                vertical-align: 1px; background: var(--mute); }
 .mic.on.talk .say::before { background: var(--bad); }
 .mic.busy .say::before { animation: mic-pulse 1.2s ease-in-out infinite; }
@@ -19,6 +19,6 @@
 /* a small mic at the bottom right of a box that asks for one */
 .micbox { position: relative; display: block; }
 .micbox > textarea, .micbox > input { padding-right: 76px; }
-.mic.mini { background: transparent; box-shadow: none; position: absolute; right: 0; bottom: 6px; padding: 3px 8px; font-size: 13px; border-color: transparent; color: var(--mute); }
+.mic.mini { background: transparent; box-shadow: none; position: absolute; right: 0; bottom: 6px; padding: 3px var(--s2); font-size: var(--t-meta); border-color: transparent; color: var(--mute); }
 .mic.mini:hover { color: var(--fg); border-color: var(--rule); background: transparent; box-shadow: none; }
 .mic.mini.on, .mic.mini.busy { border-color: var(--acc); color: var(--fg); }

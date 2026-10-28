@@ -1,8 +1,8 @@
 /* One vault document: a quiet header, the actions, then the text. A session reads as prompt, reply, prompt, reply. */
-.actions code.cmd { font: 13px var(--mono); color: var(--mute); }
-.doc { font-size: 17px; line-height: 1.65; }
-.doc h1, .doc h2, .doc h3 { font: 600 17px/1.5 var(--serif); letter-spacing: 0; text-transform: none; color: var(--fg); margin: 28px 0 6px; }
-.doc.session h2 { padding-left: 14px; border-left: 2px solid var(--acc); font-weight: 500; color: var(--ink2); }
-.doc pre { overflow-x: auto; padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.doc table { border-collapse: collapse; font-size: 15px; } .doc td, .doc th { padding: 4px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.actions code.cmd { font: var(--t-meta) var(--mono); color: var(--mute); }
+.doc { font-size: var(--t-body); line-height: 1.65; }
+.doc h1, .doc h2, .doc h3 { font: 600 var(--t-body)/1.5 var(--serif); letter-spacing: 0; text-transform: none; color: var(--fg); margin: var(--s6) 0 var(--s2); }
+.doc.session h2 { padding-left: var(--s4); border-left: 2px solid var(--acc); font-weight: 500; color: var(--ink2); }
+.doc pre { overflow-x: auto; padding: var(--s3) 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.doc table { border-collapse: collapse; font-size: var(--t-small); } .doc td, .doc th { padding: var(--s1) var(--s3); border-bottom: 1px solid var(--line); text-align: left; }
 .thread-doc li.you { padding-left: 18%; text-align: right; } .thread-doc li.you .md { text-align: left; display: inline-block; }

@@ -9,7 +9,8 @@ from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local
 from abhyasa.model import DEPTHS
 
-__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago']
+__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago',
+           'meta', 'n_of', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -152,6 +153,81 @@ def ago(t):
     if days < 1: return time.strftime('today at %H:%M', lt)
     if days < 2: return time.strftime('yesterday at %H:%M', lt)
     return time.strftime('%a %d %b' if days < 300 else '%d %b %Y', lt)
+
+# --- shared pieces (design review, section 5): a block uses these and does not make its own copy -----------------------
+
+def meta(*parts) -> str:
+    "A meta line: the parts that are not empty, joined with ` · `."
+    return ' · '.join(str(p) for p in parts if p not in (None, '', 0, False))
+
+def n_of(n:int, word:str, plural:str=None) -> str:
+    "A count with the right plural: `1 idea`, `3 ideas`, `0 ideas`."
+    return f"{n} {word if n == 1 else plural or word + 's'}"
+
+def _first_primary() -> bool:
+    "True for the first `Primary` of this request. Each request (a page or an htmx part) has its own count."
+    req = _req.get()
+    if req is None: return True
+    st = req.scope.setdefault('abhyasa', {})
+    first_ = not st.get('primary')
+    st['primary'] = True
+    return first_
+
+def _btn(c, cls, href=None, **kw):
+    cls = ' '.join(x for x in (cls, kw.pop('cls', '')) if x)
+    return A(*c, href=href, cls=f'btn {cls}'.strip(), **kw) if href else Button(*c, cls=cls or None, **kw)
+
+def Primary(label, key='⌥S', href=None, focus=False, **kw):
+    """The main action of a view: the one filled button, with its key (⌥S). A link when `href` is given. `focus` puts the cursor
+    on it when the page loads, with no focus ring until you use a key (core.js). A second `Primary` in the same reply is drawn
+    as a `Secondary` with no key, so a view never has two filled buttons."""
+    if not _first_primary(): return Secondary(label, href=href, **kw)
+    return _btn((label + ' ', Kbd(key)) if key else (label,), 'go', href, **({'data_focus': '1'} if focus else {}), **kw)
+
+def Secondary(label, *c, href=None, **kw):
+    "A second action: a raised button with no fill. `c` can hold the one key that the page names."
+    return _btn((label, *c), '', href, **kw)
+
+def Quiet(label, *c, href=None, small=False, **kw):
+    "A third action: flat and muted, such as `Skip this idea`."
+    return _btn((label, *c), 'quiet small' if small else 'quiet', href, **kw)
+
+OUTCOMES = dict(solid=('Solid', 'ok'), fragile=('Right, but shaky', 'ok'), misconception=('A misconception', 'no'), gap=('A gap', 'no'),
+                skipped=('Skipped', 'skip'), nudge=('Not yet', 'no'))   # the outcome of a check -> its word and its colour
+
+def Tag(outcome, said='', **kw):
+    "The outcome of a check as one small word, in one colour map: `ok` for a pass, `no` for a miss, muted for a skip."
+    t, k = OUTCOMES.get(outcome, ('Closed', 'no'))
+    return Span(t + (f' · {said}' if said else ''), cls=f'tag {k}', **kw)
+
+def Msg(label, *c, cls='', **kw):
+    "One message in the thread of a check: a small label, then its text."
+    return Li(label if not isinstance(label, str) else Span(label, cls='lbl'), *c, cls=f'm {cls}'.strip(), **kw)
+
+def FirstError(text):
+    "The first error in an answer, in one style for the walk and the session."
+    return Div(Span('First error: ', cls='k'), Md(text), cls='err') if text else ''
+
+def Confidence(keys=False):
+    "Five steps for how sure you are. With `keys`, ⌥1 to ⌥5 pick one (the session binds them)."
+    return Div(Span('Sure?', cls='lbl'), *[Label(Input(type='radio', name='confidence', value=v, **({'id': f'c{i + 1}'} if keys else {})), Span(f'{v}%'),
+                                                 **({'title': f'⌥{i + 1}'} if keys else {})) for i, v in enumerate((10, 30, 50, 70, 90))],
+               cls='steps', role='radiogroup', aria_label='How sure you are', **({'id': 'conf'} if keys else {}))
+
+def Check(head, q=None, *thread, foot='', thread_id=None, shut=False, cls='', **kw):
+    """The check card of the walk and the session: one raised card with the head (what is checked, and why), the question,
+    the thread so far (`Msg` items), and the foot (the answer box, or Next). `thread_id` keeps an empty thread as a swap target."""
+    q = Md(q, cls='q') if isinstance(q, str) else q
+    th = Ol(*thread, cls='thread', id=thread_id) if thread or thread_id else ''
+    return Section(head, q if q is not None else '', th, foot, cls=' '.join(x for x in ('check', 'shut' if shut else '', cls) if x), **kw)
+
+def Empty(text, action=None):
+    "The one empty state: a muted line and at most one link. Never a box."
+    return P(text, *((' ', action) if action is not None else ()), cls='mute empty')
+
+def Part(label, *c, more=None, more_label='More', **kw):
+    "A section of a page: the small H2 label, the content, and an optional closed `More` part in one style."
+    return Section(H2(label), *c, Details(Summary(more_label), *more, cls='more') if more else '', **kw)
 
 def Cites(links, label='From your sources'):
     "Links to passages in your own sources: a vault document, a session, a notebook, a verse."

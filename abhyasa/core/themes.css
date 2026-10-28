@@ -66,7 +66,7 @@
   --bad:  light-dark(hsl(356 66% 42%), hsl(356 86% 72%));
   --serif: -apple-system, BlinkMacSystemFont, system-ui, 'Tiro Devanagari Sanskrit', sans-serif;
   --head: -apple-system, BlinkMacSystemFont, system-ui, 'Tiro Devanagari Sanskrit', sans-serif; }
-:root[data-theme=clear] body { font-size: 17px; }
+:root[data-theme=clear] body { font-size: var(--t-body); }
 :root[data-theme=clear] :is(h1, nav .brand) { font-weight: 600; letter-spacing: -.02em; }
 
 /* Sage: a soft green-grey with low glare, for long sessions. */
@@ -100,18 +100,18 @@
   --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; }
 
 /* The Theme section of the Settings page: each theme as three dots and its name in its own font; the mode as three words. No boxes. */
-.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 16px; margin: 8px -12px 0; }
-.themes label, .modes-pick label { display: flex; align-items: center; gap: 12px; margin: 0; padding: 8px 12px; cursor: pointer; border-radius: var(--r-s);
-  font: 16px/1.4 var(--serif); letter-spacing: 0; text-transform: none; color: var(--mute); transition: background-color .14s ease-out, box-shadow .14s ease-out, color .14s ease-out; }
+.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--s2) var(--s4); margin: var(--s2) calc(-1 * var(--s3)) 0; }
+.themes label, .modes-pick label { display: flex; align-items: center; gap: var(--s3); margin: 0; padding: var(--s2) var(--s3); cursor: pointer; border-radius: var(--r-s);
+  font: var(--t-list)/1.4 var(--serif); letter-spacing: 0; text-transform: none; color: var(--mute); transition: background-color .14s ease-out, box-shadow .14s ease-out, color .14s ease-out; }
 .themes label:hover, .modes-pick label:hover { color: var(--fg); }
 /* the theme and the mode in force are raised, as a card that you picked up */
 .themes label:has(input:checked), .modes-pick label:has(input:checked) { color: var(--fg); background: var(--raised); box-shadow: var(--lift); }
 .themes label:has(input:focus-visible), .modes-pick label:has(input:focus-visible) { outline: 2px solid var(--acc); outline-offset: 2px; }
 .themes input, .modes-pick input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .themes .sw { display: inline-flex; flex: none; }
-.themes .sw i { width: 16px; height: 16px; border-radius: 50%; margin-right: -5px; box-shadow: 0 0 0 1.5px var(--line); }
+.themes .sw i { width: 16px; height: 16px; border-radius: 50%; margin-right: calc(-1 * var(--s1)); box-shadow: 0 0 0 1.5px var(--line); }
 .themes .sw i:nth-child(1) { background: var(--bg); } .themes .sw i:nth-child(2) { background: var(--fg); } .themes .sw i:nth-child(3) { background: var(--acc); }
-.themes .nm { font: 17px/1.3 var(--head); color: inherit; }
+.themes .nm { font: var(--t-body)/1.3 var(--head); color: inherit; }
 .themes .nm { display: block; }
-.themes label small { display: block; font: 13px/1.4 var(--serif); color: var(--mute); }
-.modes-pick { display: flex; gap: 8px; margin: 12px -12px 0; }
+.themes label small { display: block; font: var(--t-meta)/1.4 var(--serif); color: var(--mute); }
+.modes-pick { display: flex; gap: var(--s2); margin: var(--s3) calc(-1 * var(--s3)) 0; }

@@ -1,12 +1,12 @@
 /* Concept pages and the list: names first, the meta quiet beside them. */
-.statement { margin: 18px 0 0; font-size: 19px; }
+.statement { margin: var(--s4) 0 0; font-size: var(--t-body); }
 /* in the quiet group, the strengths summary has a label as the other sections do */
-.refs .known h3 { font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: 0 0 8px; }
-.refs .known p.mute { margin: 0 0 6px; }
-.refs .in-journeys { margin: 28px 0 0; }
-ul.concepts li { display: flex; align-items: baseline; gap: 0 14px; padding: 8px 0; }
+.refs .known h3 { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: 0 0 var(--s2); }
+.refs .known p.mute { margin: 0 0 var(--s2); }
+.refs .in-journeys { margin: var(--s6) 0 0; }
+ul.concepts li { display: flex; align-items: baseline; gap: 0 var(--s4); padding: var(--s2) 0; }
 ul.concepts li .mute { margin-left: auto; order: 2; white-space: nowrap; }
 ul.concepts li .depth { order: 3; }
-ul.attempts li p.mute { margin: 4px 0 0; }
-ul.attempts .ok, ul.attempts .no { font: 500 12px/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; margin-right: 10px; }
+ul.attempts li p.mute { margin: var(--s1) 0 0; }
+ul.attempts .ok, ul.attempts .no { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; margin-right: var(--s3); }
 ul.attempts .ok { color: var(--ok); } ul.attempts .no { color: var(--no); }

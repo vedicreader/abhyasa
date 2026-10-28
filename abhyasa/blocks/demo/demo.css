@@ -1,10 +1,10 @@
 /* A demo is the one raised surface of a concept page: you work with it, so it comes forward. */
-.demo-card { margin: 28px 0 8px; padding: 20px 26px 18px; background: var(--raised); --bg: var(--raised); box-shadow: var(--lift); border-radius: var(--r); }
+.demo-card { margin: var(--s6) 0 var(--s2); padding: var(--s5) var(--s5) var(--s4); background: var(--raised); --bg: var(--raised); box-shadow: var(--lift); border-radius: var(--r); }
 .demo-card.pending { box-shadow: none; background: var(--sunken); --bg: var(--sunken); }
-.demo-card .lead { margin: 0 0 4px; }
+.demo-card .lead { margin: 0 0 var(--s1); }
 .demo-card .rk { max-width: 640px; }
-.demo-card .rk .rk-title { margin-top: 4px; }
+.demo-card .rk .rk-title { margin-top: var(--s1); }
 .demo-card.pending .making { font-style: italic; }
 .demo-slot { flex-basis: 100%; }
 .demo-slot:empty { display: none; }
-.row > .demo-slot .demo-card { margin-top: 12px; }
+.row > .demo-slot .demo-card { margin-top: var(--s3); }

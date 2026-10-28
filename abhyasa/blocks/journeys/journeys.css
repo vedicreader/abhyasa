@@ -1,15 +1,15 @@
 /* A journey: a path of steps on one vertical line, as a subway map is. Done steps are filled; the step to do now has a ring. */
-.goal-form label { margin-top: 8px; }
-.goal-form.raised { margin: 20px 0 8px; padding: 18px 24px 20px; } .goal-form.raised label { margin-top: 0; }
-.goal-form .row { margin-top: 12px; }
-.journeys .jrow { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; align-items: center; }
+.goal-form label { margin-top: var(--s2); }
+.goal-form.raised { margin: var(--s5) 0 var(--s2); padding: var(--s4) var(--s5) var(--s5); } .goal-form.raised label { margin-top: 0; }
+.goal-form .row { margin-top: var(--s3); }
+.journeys .jrow { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--s4); align-items: center; }
 .journeys .jrow .prog { grid-column: 1; margin: 2px 0 0; }
 .journeys .jrow .btn { grid-column: 2; grid-row: 1 / span 2; }
-.journeys .jt { font-size: 18px; }
-.phead { margin: 26px 0 4px; } .phead .prog { max-width: 420px; }
+.journeys .jt { font-size: var(--t-body); }
+.phead { margin: var(--s5) 0 var(--s1); } .phead .prog { max-width: 420px; }
 .goal { font-style: italic; color: var(--ink2); }
-.path { list-style: none; padding: 0; margin: 28px 0 10px; }
-.path .step { position: relative; padding: 0 0 18px 36px; }
+.path { list-style: none; padding: 0; margin: var(--s6) 0 var(--s3); }
+.path .step { position: relative; padding: 0 0 var(--s4) var(--s6); }
 .path .step::before { content: ''; position: absolute; left: 7px; top: 22px; bottom: 2px; width: 2px; background: var(--line); }
 .path .step:last-child::before { display: none; }
 .path .step.learned::before, .path .step.known::before { background: color-mix(in srgb, var(--acc) 55%, var(--line)); }
@@ -17,23 +17,23 @@
 .step.learned .dot, .step.known .dot { background: var(--acc); border-color: var(--acc); }
 .step.started .dot { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 30%, var(--bg)); }
 .step.now .dot { border-color: var(--acc); box-shadow: 0 0 0 5px color-mix(in srgb, var(--acc) 18%, transparent); }
-.step-head { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
-.step .name { font-size: 19px; }
+.step-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s1) var(--s2); }
+.step .name { font-size: var(--t-body); }
 .step.now .name { font-weight: 500; }
-.step .st { font-size: 13px; color: var(--mute); letter-spacing: .04em; margin-left: 6px; }
+.step .st { font-size: var(--t-meta); color: var(--mute); letter-spacing: .04em; margin-left: var(--s2); }
 .step.now .st { color: var(--acc); }
 .step .why { margin: 2px 0 0; }
 .step.skipped .name, .step.missing .name { text-decoration: line-through; color: var(--mute); }
 .step.skipped .why { opacity: .7; }
 /* the changes to a step show for the step to do now, and on hover or focus for the others */
 .step .acts { display: flex; flex-wrap: wrap; gap: 2px; max-height: 0; overflow: hidden; opacity: 0; transition: opacity .15s, max-height .15s; }
-.step.now .acts, .step:hover .acts, .step:focus-within .acts { max-height: 80px; opacity: 1; margin-top: 4px; }
+.step.now .acts, .step:hover .acts, .step:focus-within .acts { max-height: 80px; opacity: 1; margin-top: var(--s1); }
 @media (hover: none) { .step .acts { max-height: none; opacity: 1; } }
-.add-topic { display: flex; gap: 10px; align-items: flex-end; margin: 6px 0 0 36px; }
+.add-topic { display: flex; gap: var(--s3); align-items: flex-end; margin: var(--s2) 0 0 var(--s6); }
 .add-topic .micbox { flex: 1; }
-.add-topic input { font-size: 16px; }
+.add-topic input { font-size: var(--t-list); }
 .done-note { color: var(--ok); }
-.drop { margin-top: 48px; } .danger:hover { color: var(--bad); }
-.in-journeys { margin: 24px 0 0; } .in-journeys .attach { margin-top: 10px; } .in-journeys select { width: auto; font-size: 15px; }
+.drop { margin-top: var(--s8); } .danger:hover { color: var(--bad); }
+.in-journeys { margin: var(--s5) 0 0; } .in-journeys .attach { margin-top: var(--s3); } .in-journeys select { width: auto; font-size: var(--t-small); }
 .step-done { padding: 2px 0; } .step-done .lbl { color: var(--ok); } .step-done p { margin: 0; }
-.side-walks { margin: 8px 0 0 14px; font-size: 14px; } .side-walks ul { margin: 2px 0 0; }
+.side-walks { margin: var(--s2) 0 0 var(--s4); font-size: var(--t-small); } .side-walks ul { margin: 2px 0 0; }

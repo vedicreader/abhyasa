@@ -20,23 +20,23 @@ html.rh-drag, html.rh-drag * { cursor: col-resize !important; user-select: none 
 html.rh-drag #rh-pane iframe { pointer-events: none; }
 
 /* the bar: where you are, Own session, and close */
-.rh-bar { padding: 10px 24px; border-bottom: 1px solid var(--line); font-size: 13px; }
-.rh-top { display: flex; gap: 14px; align-items: center; min-height: 26px; }
-.rh-trail { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; letter-spacing: .12em;
+.rh-bar { padding: var(--s3) var(--s5); border-bottom: 1px solid var(--line); font-size: var(--t-meta); }
+.rh-top { display: flex; gap: var(--s4); align-items: center; min-height: 26px; }
+.rh-trail { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-lbl); letter-spacing: .12em;
   text-transform: uppercase; color: var(--mute); }
 .rh-trail a { color: var(--mute); text-decoration: none; } .rh-trail a:hover { color: var(--fg); }
 .rh-trail b { font-weight: 500; color: var(--acc); }
-.rh-trail .sep { margin: 0 6px; opacity: .6; }
+.rh-trail .sep { margin: 0 var(--s2); opacity: .6; }
 .rh-top .rh-own { flex: none; color: var(--ink2); text-decoration: none; white-space: nowrap; } .rh-top .rh-own:hover { color: var(--acc); }
-.rh-top .rh-x { flex: none; font-size: 20px; line-height: 1; color: var(--ink2); padding: 0 4px; background: none; border: 0; box-shadow: none; }
+.rh-top .rh-x { flex: none; font-size: var(--t-q); line-height: 1; color: var(--ink2); padding: 0 var(--s1); background: none; border: 0; box-shadow: none; }
 .rh-top .rh-x:hover { color: var(--acc); background: none; box-shadow: none; }
 [data-theme=signal] .rh-bar { border-bottom: 3px solid var(--acc); }
-[data-theme=signal] .rh-trail { font-family: var(--head); letter-spacing: 0; text-transform: none; font-size: 13px; }
+[data-theme=signal] .rh-trail { font-family: var(--head); letter-spacing: 0; text-transform: none; font-size: var(--t-meta); }
 
 /* a page in the pane: no nav and no crumbs (also for a page that htmx puts in), and less space at the top */
 html.in-pane body > nav, html.in-pane main .crumbs { display: none; }
-html.in-pane main { padding-top: 24px; }
+html.in-pane main { padding-top: var(--s5); }
 
 /* under 1100 px, the side page in the same tab: the way back */
-main > a.rh-back { display: inline-block; margin: 0 0 16px; font-size: 15px; color: var(--ink2); text-decoration: none; }
+main > a.rh-back { display: inline-block; margin: 0 0 var(--s4); font-size: var(--t-small); color: var(--ink2); text-decoration: none; }
 main > a.rh-back:hover { color: var(--acc); }
