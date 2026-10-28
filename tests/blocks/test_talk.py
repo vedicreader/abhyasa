@@ -292,6 +292,31 @@ def test_run_posts_are_local_only(mk, talk_fake, lr):
         assert cl.post(path, data=data, headers=evil).status_code == 403, path
     assert lr.run(run['id'])['at'] == dict(slide='s1', beat=1, blank=False, pane=None, ask=None)
 
+def test_room_spec_takes_out_each_gate_answer():
+    "room_spec takes `answer` out of a gate at any depth, and keeps the rest; a state-path gate keeps its state, where the value stays."
+    from abhyasa.blocks.talk.app import room_spec
+    gate = dict(type='gate', id='g', prompt='Which?', options=['a', 'b'], answer={'is': 'b'})
+    spec = dict(id='d', state=dict(best='b'), blocks=[dict(type='row', blocks=[dict(type='stack', blocks=[gate])]),
+                                                       dict(type='gate', id='h', prompt='Best?', options={'from': 'opts'}, answer='best'),
+                                                       dict(type='caption', answer='not a gate', text='x')])
+    out = room_spec(spec)
+    assert 'answer' not in out['blocks'][0]['blocks'][0]['blocks'][0] and out['blocks'][0]['blocks'][0]['blocks'][0]['options'] == ['a', 'b']
+    assert 'answer' not in out['blocks'][1] and out['state'] == dict(best='b')   # the state path is gone; the state is the demo's own
+    assert out['blocks'][2]['answer'] == 'not a gate' and spec['blocks'][1]['answer'] == 'best' and gate['answer'] == {'is': 'b'}   # a copy
+
+def test_result_and_pair_stay_for_a_reload(mk, talk_fake, lr):
+    "The result, the pair prompt and the slides whose answer showed are in the run log; the presenter page has them; a new slide clears them."
+    cl = mk(); tid, run = started(cl, lr)
+    post = lambda **kw: cl.post(f'/t/{tid}/ask', data=dict(slide='s3', **kw))
+    cl.post(f'/t/{tid}/at', data=dict(slide='s3', beat=1))
+    post(act='open'); post(act='main', main=0); res = post(act='reveal').json(); pair = post(act='pair', on=1).json()
+    assert lr.run(run['id'])['stage'] == dict(result=res, pair=pair, revealed=['s3'])
+    cl.post(f'/t/{tid}/at', data=dict(slide='s3', beat=2))
+    page = cl.get(f'/t/{tid}/present').text
+    assert 'data-result="null"' not in page and 'data-pair="null"' not in page and 'class="shaky"' in page   # most hands chose a wrong option
+    cl.post(f'/t/{tid}/at', data=dict(slide='s4', beat=1))
+    assert lr.run(run['id'])['stage'] == dict(result=None, pair=None, revealed=['s3']) and 'class="shaky"' in cl.get(f'/t/{tid}/present').text
+
 def serve(cl):
     "Run the app of `cl` on a free port in a thread; return (server, base URL)."
     import threading, time, uvicorn
@@ -344,12 +369,21 @@ def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
                 au.wait_for_function("document.getElementById('stage').dataset.slide === 's3'")
                 pr.keyboard.press('d'); au.wait_for_function("document.querySelector('section[data-sid=s3] .demo:not([hidden]) [data-rk-ready]')")
                 # the presenter picks at the gate: the talk settles it, so nothing goes to the learner; the audience copy follows
+                why = pr.locator('section[data-sid=s3] .rk-gate textarea'); why.click(); pr.keyboard.type('a/b')
+                assert why.input_value() == 'a/b'   # a / in a text box of the demo stays in the box
                 pr.evaluate("""() => { const h = document.querySelector('section[data-sid=s3] [data-rupaka]');
                   h.querySelector('.rk-gate .opts button').click(); h.querySelector('.rk-gate button.go').click(); h.rupaka.set('t', 2); }""")
                 au.wait_for_function("document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka.st.t === 2")
                 assert au.evaluate("document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka.st.gate.hot") == 'done'
                 assert au.evaluate("document.querySelector('section[data-sid=s3] .rk-gate').inert") is True
                 au.screenshot(path=str(tmp_path/'audience-demo.png'))
+                pr.wait_for_timeout(100)   # the demo fits its part in both windows, with no scroll, and at the same place on the slide
+                box = "(() => { const st = document.getElementById('stage').getBoundingClientRect(), d = document.querySelector('section[data-sid=s3] .demo'), " \
+                      "s = d.querySelector('.rk-slider').getBoundingClientRect(), h = d.querySelector('[data-rupaka]').getBoundingClientRect(), b = d.getBoundingClientRect(); " \
+                      "return {fits: h.bottom <= b.bottom + 1 && h.right <= b.right + 1 && s.bottom <= innerHeight && d.scrollHeight <= d.clientHeight + 1, " \
+                      "page: document.documentElement.scrollHeight <= innerHeight, x: (s.left - st.left) / st.width, y: (s.top - st.top) / st.height}; })()"
+                fa, fp = au.evaluate(box), pr.evaluate(box)
+                assert fa['fits'] and fa['page'] and fp['fits'] and abs(fa['x'] - fp['x']) < .01 and abs(fa['y'] - fp['y']) < .01, (fa, fp)
                 pr.keyboard.press('e'); assert pr.evaluate("!!document.activeElement.closest('[data-rupaka]')")   # E goes into the demo
                 pr.keyboard.press('d'); pr.wait_for_timeout(150); assert at()['beat'] == 2   # there the demo's own keys win
                 pr.keyboard.press('Escape'); assert pr.evaluate("!document.activeElement.closest('[data-rupaka]')") and at()['slide'] == 's3'
@@ -364,6 +398,10 @@ def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
                 assert au.locator('#stage .stage-ask li.right').inner_text().startswith('BIt falls') or 'It falls' in au.locator('#stage .stage-ask li.right').inner_text()
                 assert lr.run(run['id'])['asks']['s3']['main'] == 0
                 pr.screenshot(path=str(tmp_path/'presenter.png')); au.screenshot(path=str(tmp_path/'audience.png'))
+                pr.reload(); pr.wait_for_load_state('networkidle')   # the run log keeps the result: a reload of both windows shows it again
+                assert pr.locator('#rail i.shaky').count() == 1 and pr.locator('#stage .stage-ask li.right').count() == 1
+                au.reload(); au.wait_for_selector('#stage .stage-ask li.right')
+                pr.bring_to_front()
                 pr.keyboard.press('Escape'); au.wait_for_selector('#stage .stage-ask', state='hidden')
                 assert at()['ask'] is None
                 pr.keyboard.press('b'); au.wait_for_function("document.getElementById('stage').classList.contains('blank')")
@@ -376,5 +414,9 @@ def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
                 assert shown(pr)[0] == 's3' and pr.locator('#ask-card .ask-q:not([hidden])').count() == 1
                 au.bring_to_front(); au.keyboard.press('d'); au.wait_for_selector('#keys-note:not([hidden])')   # keys work in the presenter window
                 assert at()['beat'] == 2 and len(lr.attempts(limit=1000)) == n0 and not errs, errs
+                ua = pr.evaluate('navigator.userAgent') + ' Abhyasa/0.0.12'   # Abhyasa.app: the presenter page shows its address, and opens no window
+                c2 = b.new_context(user_agent=ua); ap = c2.new_page(); ap.goto(f'{base}/t/{tid}/present'); ap.wait_for_load_state('networkidle')
+                ap.wait_for_selector('#aud-app:not([hidden])'); ap.mouse.click(5, 5); ap.wait_for_timeout(200)
+                assert ap.locator('#app-url').inner_text() == ap.url and len(c2.pages) == 1 and ap.locator('#aud-open').is_hidden()
             finally: b.close()
     finally: srv.should_exit = True

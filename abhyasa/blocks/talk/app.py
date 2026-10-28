@@ -135,6 +135,10 @@ def room_spec(spec):
         return {k: strip(v) for k, v in x.items() if not (k == 'answer' and x.get('type') == 'gate')}
     return strip(deepcopy(spec))
 
+def stage_log(r):
+    "The room parts of run `r` that a reload must show again: the result that shows, the pair prompt, and the slides whose answer was shown."
+    return r.setdefault('stage', dict(result=None, pair=None, revealed=[]))
+
 def place_msgs(at, old):
     "The stage messages for the place `at`; a question of the slide before closes."
     pane = f"{at['pane']}?pane=1&talk=1" if at['pane'] else None
@@ -284,7 +288,8 @@ def connect(app, ctx):
         old = dict(r['at']); new = s['id'] != old['slide']
         log_go(r, s['id'], beat, time.time())
         a = r['at']
-        if new: a.update(blank=False, pane=None, ask=None)   # a new slide opens clean: no blank screen, no pane, no question
+        if new:   # a new slide opens clean: no blank screen, no pane, no question, no result and no pair prompt
+            a.update(blank=False, pane=None, ask=None); stage_log(r).update(result=None, pair=None)
         if blank is not None: a['blank'] = blank == '1'
         if pane is not None: a['pane'] = pane or None
         lr.put_run(r)
@@ -299,10 +304,11 @@ def connect(app, ctx):
         if not (a := s.get('ask')) or a.get('kind') == 'none': return text(NO_ASK)
         sid, act = s['id'], f.get('act', '')
         if act == 'open':
-            r['at']['ask'] = sid; lr.put_run(r)
+            r['at']['ask'] = sid; stage_log(r).update(result=None, pair=None); lr.put_run(r)
             return JSONResponse(dict(v=1, t='ask', slide=sid, ask=public_ask(a)))
         if act == 'close':
-            if r['at']['ask'] == sid: r['at']['ask'] = None; lr.put_run(r)
+            if r['at']['ask'] == sid: r['at']['ask'] = None
+            stage_log(r).update(result=None, pair=None); lr.put_run(r)
             return JSONResponse(dict(v=1, t='ask', slide=sid, ask=None))
         if act == 'main':
             opts = a.get('options') or []
@@ -315,10 +321,16 @@ def connect(app, ctx):
             lg = r['asks'].get(sid) or {}
             rounds = [{k: v for k, v in x.items() if k in ('counts', 'n')} for x in lg.get('rounds') or []]
             right = a.get('answer') if a['kind'] in ('choice', 'order') else None
-            return JSONResponse(dict(v=1, t='result', slide=sid, kind=a['kind'], rounds=rounds, right=right, main=lg.get('main')))
+            m = dict(v=1, t='result', slide=sid, kind=a['kind'], rounds=rounds, right=right, main=lg.get('main'))
+            st = stage_log(r); st['result'] = m
+            if sid not in st['revealed']: st['revealed'].append(sid)
+            lr.put_run(r)
+            return JSONResponse(m)
         if act == 'pair':
             if (on := f.get('on', '1')) not in ('0', '1'): return text('on is 0 or 1.')
-            return JSONResponse(dict(v=1, t='pair', on=on == '1', prompt=f"Talk to your neighbour for {n_of(val('talks.pair_min'), 'minute')}."))
+            m = dict(v=1, t='pair', on=on == '1', prompt=f"Talk to your neighbour for {n_of(val('talks.pair_min'), 'minute')}.")
+            stage_log(r)['pair'] = m if m['on'] else None; lr.put_run(r)
+            return JSONResponse(m)
         return text(f'Unknown act: {act}.')
 
     @hook('walk_actions')

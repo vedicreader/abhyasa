@@ -100,7 +100,8 @@ window.abhyasaTalkWindows = true;
 const root = document.documentElement;
 if (!root.classList.contains('present') && !root.classList.contains('audience')) return;
 addEventListener('keydown', e => {
-  if ((e.altKey && ['KeyT', 'KeyC', 'KeyG', 'KeyD'].includes(e.code)) || (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey)) {
+  const typing = e.target?.matches?.('textarea, input, select, [contenteditable]:not([contenteditable="false"])');
+  if ((e.altKey && ['KeyT', 'KeyC', 'KeyG', 'KeyD'].includes(e.code)) || (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey)) {
     e.preventDefault(); e.stopImmediatePropagation();
   }
 }, true);
@@ -199,15 +200,37 @@ function mounted(host, fn, left = 200) {
   if (left > 0) setTimeout(() => mounted(host, fn, left - 1), 50);
 }
 
+// The demo fits the free space of its part as one picture, with no scroll. rupaka lays it out at the width in talk.css, and `zoom`
+// scales it to min(box width / its width, box height / its height). Both windows do the same, so the laser points at the same place.
+function fit(host) {
+  const box = host.parentElement;
+  const go = () => {
+    const bw = box.clientWidth, bh = box.clientHeight;
+    if (!bw || !bh) return;   // a part that does not show yet: the observer calls again when it shows
+    host.style.zoom = '1';
+    // 2% less: text at a small zoom does not scale in a straight line, so the demo stays inside its box
+    const z = .98 * Math.min(bw / Math.max(1, host.offsetWidth), bh / Math.max(1, host.offsetHeight));
+    host.style.zoom = String(Math.floor(z * 1000) / 1000);
+  };
+  const ro = new ResizeObserver(go);
+  ro.observe(box);
+  if (host.firstElementChild) ro.observe(host.firstElementChild);   // the blocks after a gate show: the demo gets taller
+  go();
+}
+
 // --- the presenter window ----------------------------------------------------------------------------------------------
 function presenterView(st) {
   const box = document.getElementById('talk'), base = `/t/${box.dataset.tid}/`, ch = abhyasaStage.channel(box.dataset.channel);
   const $ = id => document.getElementById(id), sayLine = $('say');
-  let at = JSON.parse(box.dataset.at), result = null, pair = null, seen = 0, opened = false, goWait = null;
+  // the result and the pair prompt that show now come from the run log, so a reload of this window can give them to a hello again
+  let at = JSON.parse(box.dataset.at), result = JSON.parse(box.dataset.result || 'null'), pair = JSON.parse(box.dataset.pair || 'null');
+  let seen = 0, opened = false, goWait = null;
   const slides = sectionsOf(st).map(s => ({sid: s.dataset.sid, n: +s.dataset.n, beats: JSON.parse(s.dataset.beats || '[]')}));
   const idx = () => slides.findIndex(s => s.sid === at.slide);
   const say = t => { sayLine.textContent = t || ''; };
-  const app = /AppleWebKit/.test(navigator.userAgent) && !/Safari\//.test(navigator.userAgent);   // Abhyasa.app: one window only (spec 9.4)
+  // Abhyasa.app opens a second window in the same view (spec 9.4). The app puts `Abhyasa/<version>` in its user agent; an older app
+  // is WebKit with no `Safari/`.
+  const ua = navigator.userAgent, app = /\bAbhyasa\//.test(ua) || (/AppleWebKit/.test(ua) && !/Safari\//.test(ua));
 
   // Each message goes to the audience window and is drawn here too, so the presenter sees what the room sees.
   function send(m, here = true) {
@@ -277,6 +300,7 @@ function presenterView(st) {
   const demos = () => [...(sectionOf(st, at.slide)?.querySelectorAll('[data-rupaka][data-demo]') || [])];
   function sendDemo() { demos().forEach(h => h._mirror && send({t: 'demo', slug: h.dataset.demo, ...h._mirror.snapshot()}, false)); }
   st.querySelectorAll('[data-rupaka][data-demo]').forEach(h => mounted(h, () => {
+    fit(h);
     h._mirror = abhyasaStage.mirror(h);
     h._mirror.watch(s => { if (h.closest('section.stage')?.dataset.sid === at.slide) send({t: 'demo', slug: h.dataset.demo, ...s}, false); });
   }));
@@ -379,14 +403,17 @@ function presenterView(st) {
   };
   tick(); setInterval(tick, 1000);
   if (at.ask) { const b = block(); if (b) drawAsk(st, {t: 'ask', ...JSON.parse(b.dataset.ask)}); }
+  if (result) drawResult(st, result);
+  if (pair) drawPair(st, pair);
   show(st, at.slide, at.beat);
+  paint();
 }
 
 // --- the audience window -----------------------------------------------------------------------------------------------
 function audienceView(st) {
   const ch = abhyasaStage.channel(st.dataset.channel), note = document.getElementById('keys-note');
   const mirrors = new Map();
-  st.querySelectorAll('[data-rupaka][data-demo]').forEach(h => mounted(h, () => { const m = abhyasaStage.mirror(h); m.apply({}, {}); mirrors.set(h, m); }));
+  st.querySelectorAll('[data-rupaka][data-demo]').forEach(h => mounted(h, () => { fit(h); const m = abhyasaStage.mirror(h); m.apply({}, {}); mirrors.set(h, m); }));
   function draw(m) {
     if (m.t === 'go') show(st, m.slide, m.beat);
     else if (m.t === 'ask') drawAsk(st, m);

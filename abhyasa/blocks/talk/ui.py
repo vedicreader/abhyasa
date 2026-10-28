@@ -245,10 +245,20 @@ def NextRow(s):
     title = 'Pause: ' + (s.get('prompt') or 'talk to your neighbour') if s.get('kind') == 'pause' else s.get('title') or ''
     return Div(Mini(s), Div(B(title), Span(n_of(s.get('mins') or 0, 'min', 'min'), cls='mute')), cls='next-row')
 
+def shaky_slides(t, run):
+    "The slides whose answer was shown and where most hands chose a wrong option (the rail marks them)."
+    shown = (run.get('stage') or {}).get('revealed') or []
+    out = set()
+    for s in t['slides']:
+        a, m = s.get('ask') or {}, ((run.get('asks') or {}).get(s['id']) or {}).get('main')
+        if s['id'] in shown and a.get('kind') == 'choice' and isinstance(m, int) and not isinstance(m, bool) and m != a.get('answer'): out.add(s['id'])
+    return out
+
 def Presenter(t, deck, run, demos):
     """The presenter window (shots/a2-presenter.png): the slide now with its beat, the rail, the notes, the next slide, the question
     card and the clock, with the keys at the foot. The audience window opens on the first key press or click."""
-    tid, a, ss = t['id'], run['at'], t['slides']
+    tid, a, ss, log = t['id'], run['at'], t['slides'], run.get('stage') or {}
+    shaky = shaky_slides(t, run)
     url = f"{Routes.of(Routes.audience, tid=tid)}?{urlencode(dict(k=run['key']))}"
     win = f'abhyasa-audience-{tid}'
     aud = Span(A('Open the audience window', href=url, target=win, id='aud-open', hx_boost='false'),
@@ -262,7 +272,8 @@ def Presenter(t, deck, run, demos):
                    Span('0:00', id='clock', data_started=str(run['started']), data_slot=str(t['minutes'])), Small(f"of {t['minutes']} min"), cls='pv-top'),
                Div(Div(Span(id='now'), Span(id='beats', cls='beats'), cls='mini-lbl'),
                    Stage(t, deck, run, demos, presenter=True),
-                   Div(*[I(data_sid=s['id'], data_mins=str(s.get('mins') or 0), title=s.get('title') or '') for s in ss], id='rail', cls='rail'),
+                   Div(*[I(data_sid=s['id'], data_mins=str(s.get('mins') or 0), title=s.get('title') or '', cls='shaky' if s['id'] in shaky else None) for s in ss],
+                       id='rail', cls='rail'),
                    P(id='say', cls='say', role='status'), cls='pv-main'),
                Div(Div(Span('Your notes', cls='lbl'),
                        Div(*[Div(Md(s['notes']) if s.get('notes') else P('This slide has no note.', cls='mute'), data_sid=s['id'], hidden=s['id'] != a['slide']) for s in ss], id='notes', cls='notes')),
@@ -272,4 +283,4 @@ def Presenter(t, deck, run, demos):
                    AskCard(t, run), cls='pv-side'),
                Div(*[Span(Kbd(k), w) for k, w in keys], cls='pv-foot'),
                id='talk', cls='pv', data_tid=tid, data_channel=f"{tid}:{run['key']}", data_audience=url, data_window=win,
-               data_at=json.dumps(a))
+               data_at=json.dumps(a), data_result=json.dumps(log.get('result')), data_pair=json.dumps(log.get('pair')))
