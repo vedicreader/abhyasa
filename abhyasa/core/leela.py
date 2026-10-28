@@ -22,7 +22,9 @@ def _local(url) -> bool:
     except (ValueError, TypeError, AttributeError): return False
 
 def _alive(pid) -> bool:
-    try: os.kill(int(pid), 0)
+    "True when `pid` is a process that runs. A pid of 0 or less names a process group, so it is not one."
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0: return False
+    try: os.kill(pid, 0)
     except (OSError, ValueError, TypeError): return False
     return True
 
