@@ -213,6 +213,7 @@ def f6_pane_layout(pg, w):
             look(w.rq, w.B, theme, 'light')
             pg.goto(u); pg.wait_for_selector('#rh-pane iframe'); settle(pg, 900)
             assert rows(pg) == 1, (theme, rows(pg))
+            assert pg.is_visible('body > nav a.nav-search') and not pg.is_visible('body > nav form'), 'no short Search link beside the pane'
             fr = pg.frame_locator('#rh-pane iframe'); fr.locator('#check .check').wait_for()
             assert not fr.locator('.outline').is_visible() and '1 of 1' not in fr.locator('main').inner_text()
             assert not pg.is_visible('main > a.rh-narrow'), 'the line for a narrow window shows beside the pane'
@@ -285,10 +286,10 @@ def m1_next_idea_comes_in_gently(pg, w):
     assert pg.evaluate('window.vt') >= 1, 'Next idea made no view transition'
     assert pg.evaluate("getComputedStyle(document.querySelector('.walk-main')).viewTransitionName") == 'idea'
     assert abs(pg.eval_on_selector('#rail', 'e => e.getBoundingClientRect().left') - x0) < 1
-
     root = "() => getComputedStyle(document.documentElement, '::view-transition-old(root)').animationName"
     pg.goto(w.B + '/'); settle(pg); pg.click('nav a[href="/graph"]'); pg.wait_for_url('**/graph'); settle(pg)
     assert pg.evaluate(root) == 'none', 'another page crossfades'
+
 ACC = "c => { const d = document.createElement('i'); d.style.color = `var(${c})`; document.querySelector('#check .check').append(d); const v = getComputedStyle(d).color; d.remove(); return v; }"
 
 def m2_check_answers_in_place(pg, w):

@@ -99,6 +99,7 @@ def Page(title, *c, on='', wide=False, extra=(), crumbs=(), pane=False):
         side = next(iter(run('pane_title', rh)), '')
     nav = [A(t, href=h, cls='on' if t == on else '') for t, h, _ in sorted(RouteOverrides.nav, key=lambda x: x[2])]
     return (Title(f'{title} · abhyasa'), *extra, Nav(A('abhyasa', href='/', cls='brand'), *nav, Span(cls='nav-gap'), *run('nav_extra'),
+            A('Search ', Kbd('/'), href='/search', cls='nav-search'),   # beside the side pane, in place of the box (pane.css)
             Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search')),
             Main(Crumbs(crumbs), Narrow(rh, side), *c, cls='wide' if wide else ''), PaneHost(rh, side), *run('page_extra'))
 

@@ -26,8 +26,10 @@ def test_top_bar_fits_beside_the_pane():
     p, b, js = css('core/pane.css'), css('core/base.css'), css('core/core.js')
     assert re.search(r'html\.rh-open body > nav \{[^}]*gap: var\(--s3\)', p) and 'html.rh-open body > nav :is(#continue, form) { display: none; }' in p
     assert 'flex-wrap: wrap; }   /* the narrower page' not in p
-    assert re.search(r'@media \(max-width: 1099px\) \{ body > nav \{ gap: var\(--s4\); \} body > nav #continue \{ display: none; \} \}', b)
-    assert "e.code === 'KeyC'" in js and "location.assign('/search')" in js
+    assert '@media (max-width: 1099px) { body > nav { gap: var(--s4); } }' in b
+    assert "e.code === 'KeyC'" in js
+    assert 'html.rh-open body > nav a.nav-search { display: inline; }' in p and 'nav a.nav-search { display: none; }' in b   # a short Search link beside the pane
+    assert 'body > nav #continue { display: none; }' not in b                         # without the pane, Continue truncates as before
 
 def test_pane_does_not_repeat_the_outline_and_its_bar_lines_up():
     w, p = css('blocks/walk/walk.css'), css('core/pane.css')
