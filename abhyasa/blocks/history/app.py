@@ -4,7 +4,7 @@ from fasthtml.common import *
 from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago
 from abhyasa.settings import val
 from abhyasa.tutor import moved
-from abhyasa.journey import progress
+from abhyasa.journey import progress, parent_step
 from . import ui
 from .cfg import Routes
 
@@ -32,9 +32,7 @@ def connect(app, ctx):
 
     def opener(j, js):
         "For a side walk: the walk and the step that opened it, so Continue goes back to the paper. Else (None, None)."
-        p = (j or {}).get('parent') or {}
-        pj = js.get(p.get('walk')) if j and j.get('depth') else None
-        return (pj, p.get('step')) if pj and isinstance(p.get('step'), int) else (None, None)
+        return parent_step(lr, j, js) if j and j.get('depth') else (None, None)
 
     def title(s, by, js):
         "What a session was about: its journey (for a side walk, the walk that opened it), its concept, its subject, or its concepts."

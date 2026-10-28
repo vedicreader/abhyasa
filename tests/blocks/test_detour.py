@@ -161,3 +161,22 @@ def test_a_failed_side_walk_or_term_shows_a_plain_line_and_logs_the_error(mk, wa
     assert r.status_code == 502 and 'Try again' in r.text and 'litellm' not in r.text and 'upstream' not in r.text
     assert 'req-err' in t.text and 'Try again' in t.text and 'litellm' not in t.text
     assert caplog.text.count('litellm.APIError') >= 2
+
+def test_parent_step_is_the_one_check_for_the_parent(mk, walk_fake, lr):
+    "`parent_step` gives the parent walk and step of a side walk while they are there, else (None, None)."
+    from abhyasa.journey import parent_step
+    cl = mk(); jid = walk(cl, lr); pj = lr.journey(jid)
+    side = lambda p: dict(id='side', title='Side', mode='walk', depth=1, steps=[], parent=p)
+    assert parent_step(lr, side(dict(walk=jid, step=2))) == (pj, 2)
+    for p in (dict(walk=jid, step=len(pj.steps)), dict(walk=jid, step=-1), dict(walk=jid, step='2'), dict(walk='gone', step=0), dict(step=0), None):
+        assert parent_step(lr, side(p)) == (None, None), p
+    assert parent_step(lr, None) == (None, None)
+
+def test_history_continue_does_not_open_a_gone_parent_step(mk, walk_fake, lr):
+    "A side walk whose parent step was dropped: Your learning shows the side walk itself, not a step that is not there."
+    cl = mk(); jid = walk(cl, lr); pj = lr.journey(jid)
+    lr.put_journey(dict(id='side-1', title='Side walk on softmax', mode='walk', depth=1, steps=[dict(slug='softmax', check=dict(kind='short'))],
+                        parent=dict(walk=jid, step=len(pj.steps) + 3)))
+    lr.log_session('s-side', '0 of 1 passed.', start=1., updated=1., journey='side-1', log=[], open=dict(id='q'))
+    page = cl.get('/learning').text
+    assert f'/w/{jid}/{len(pj.steps) + 3}' not in page

@@ -12,7 +12,7 @@ from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError
-from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail
+from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo
 from . import ui
@@ -75,11 +75,10 @@ def connect(app, ctx):
 
     def back_to(j):
         "The way back from side walk `j` to the step that opened it, and the trail for the side pane; None for a walk with no parent."
-        p = j.get('parent') or {}
-        pj = lr.journey(p['walk']) if isinstance(p.get('walk'), str) else None
-        if not pj or not isinstance(p.get('step'), int) or not 0 <= p['step'] < len(pj.steps): return None
+        pj, i = parent_step(lr, j)
+        if not pj: return None
         parts = [[f"Idea {t.step + 1}", ui.at(Routes.step, t.walk, t.step)] for t in trail(lr, j.id)[:-1] if t.step is not None]
-        return AttrDict(href=ui.at(Routes.step, pj.id, p['step']), here=f"idea {p['step'] + 1} of {len(pj.steps)}", trail=parts)
+        return AttrDict(href=ui.at(Routes.step, pj.id, i), here=f"idea {i + 1} of {len(pj.steps)}", trail=parts)
 
     def as_short(j, i):
         "Walk `j` with the check of step `i` as a short answer in a text way, when its code task could not be made (spec 6.5)."
