@@ -214,6 +214,7 @@ def f6_pane_layout(pg, w):
             pg.goto(u); pg.wait_for_selector('#rh-pane iframe'); settle(pg, 900)
             assert rows(pg) == 1, (theme, rows(pg))
             assert pg.is_visible('body > nav a.nav-search') and not pg.is_visible('body > nav form'), 'no short Search link beside the pane'
+            assert pg.evaluate("() => document.querySelector('body > nav a.nav-search').getBoundingClientRect().right <= document.querySelector('#rh-pane').getBoundingClientRect().left"), 'the Search link goes under the pane'
             fr = pg.frame_locator('#rh-pane iframe'); fr.locator('#check .check').wait_for()
             assert not fr.locator('.outline').is_visible() and '1 of 1' not in fr.locator('main').inner_text()
             assert not pg.is_visible('main > a.rh-narrow'), 'the line for a narrow window shows beside the pane'

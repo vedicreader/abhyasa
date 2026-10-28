@@ -28,7 +28,7 @@ def test_top_bar_fits_beside_the_pane():
     assert 'flex-wrap: wrap; }   /* the narrower page' not in p
     assert '@media (max-width: 1099px) { body > nav { gap: var(--s4); } }' in b
     assert "e.code === 'KeyC'" in js
-    assert 'html.rh-open body > nav a.nav-search { display: inline; }' in p and 'nav a.nav-search { display: none; }' in b   # a short Search link beside the pane
+    assert 'html.rh-open body > nav a.nav-search { display: inline; margin-left: auto; }' in p and 'nav a.nav-search { display: none; }' in b   # a short Search link beside the pane
     assert 'body > nav #continue { display: none; }' not in b                         # without the pane, Continue truncates as before
 
 def test_pane_does_not_repeat_the_outline_and_its_bar_lines_up():

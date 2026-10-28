@@ -10,7 +10,9 @@
   /* the top bar keeps one row beside the pane: no Continue (⌥C still works), and a short Search link in place of the box */
   html.rh-open body > nav { gap: var(--s3); }
   html.rh-open body > nav :is(#continue, form) { display: none; }
-  html.rh-open body > nav a.nav-search { display: inline; }
+  html.rh-open body > nav a.nav-search { display: inline; margin-left: auto; }
+  html.rh-open body > nav :is(.nav-gap, .brand) { margin: 0; } html.rh-open body > nav .nav-gap { display: none; }   /* room for the link */
+  html.rh-open body > nav a.nav-search kbd { margin-left: var(--s1); }
   html.rh-open #rh-pane { display: flex; flex-direction: column; position: fixed; top: 0; right: 0; bottom: 0; width: var(--rh-w); z-index: 60;
     background: var(--page); color: var(--fg); border-left: 1px solid var(--line); }
 }
