@@ -1322,6 +1322,634 @@ git commit -m "Document the room for phones, and add a browser check and screens
 
 ---
 
+# The Group Talk Plan, Option C: board slides and timeline slides
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. These tasks follow Tasks 1 to 13 of `docs/superpowers/plans/2026-10-29-group-talk.md` and start after Task 13.
+
+**Goal:** Add two slide kinds inside a talk. On a **board** slide, the room adds short cards (from phones, or the presenter types what people say), the presenter groups them, and then "Show what the tutor sees" puts the tutor's model over the board: the expected cards, the cards that the room got wrong, and the cards that the room missed. On a **timeline** slide, the room puts events or steps in order (on phones, or the presenter orders them for the room), with pictures from the vault, and the reveal shows the right order and where the room was different. Both feed the run log and the recap. Room cards and orders never go into the presenter's learner model.
+
+**Ruling (owner, from `design.md` section 7):** Option C is not a separate mode. It adds the slide kinds `board` and `timeline` (already in `SLIDE_KINDS`) on top of A's deck and channel and B's room server.
+
+**Architecture:** The engine (`nbs/17_talk.ipynb`, `abhyasa.talk`) gets the slide shapes, their checks, their public part, the tutor's model of a board (two registered prompts), the overlay, the order tally and the timeline result, and the run log and recap parts. The stage bundle gets three message types (`board`, `overlay`, `order`) and the board keys. The talk block draws the board and the timeline in the editor, the presenter view, the audience view and "After the talk". `sabha` gets one route for cards (`POST /c`) with its own limits, and an order tally that the host can count. In the presenter view, a timeline is ordered with the rupaka `ranklist` block (the block of the walk's order check), mounted as a control. On phones, a timeline is the `order` question of Task 10.
+
+**Spec:** `docs/superpowers/specs/2026-10-29-group-talk-design.md` (sections 7, 9.2, 11, 14, 17). Design: `abhyasa-designs/presentation/design.md` section 5, the mockups `mock/c1-board.html` and `mock/c2-timeline.html`, the screens `shots/c1-board.png` and `shots/c2-timeline.png`, and `leela-reuse.md` section 3.9.
+
+## Constraints for Option C (in addition to the Global Constraints of the plan)
+
+- All Global Constraints of the plan apply. Engine code only in `nbs/17_talk.ipynb`, then `uv run nbdev-prepare`.
+- The board is drawn by the talk block, as columns (one for each group) and an inbox. It is not the JSON Canvas renderer of the modality design (rupaka `canvas` is not shipped). There are no links between cards. The data shape keeps the names of JSON Canvas where it can (`text`, `group`, `by`), so a later move to rupaka `canvas` is a map, not a new shape.
+- The tutor's model of a board (`slide['ref']`) and the true order and the dates of a timeline (`ask['answer']`, `items[i]['date']`) are private, the same as `answer`. They never go into the public deck, the audience HTML, a `board` message, an `order` message before R, the phone page or `/events`.
+- Text of a card, from a phone or typed by the presenter, goes through `sabha.clean_text(s, 80)` and is set as text (`textContent`, or an FT text node). Never `Md`, `NotStr` or `innerHTML`. The recap file escapes it with `html.escape`.
+- Cards and orders from phones are anonymous. The run log keeps the card texts and the counts. It keeps no token, no address and no order of one phone.
+- New prompts: `talk.board` and `talk.match`, registered with `prompts.register`. They use the model task `talk` (`for_task(ask, 'talk')`). No new model task and no new setting.
+- Keys: left hand only. The new rows are `BOARD_KEYS` in `core/stage.py`: S, ⇧S, 1–6 (on a board or a timeline only), ⇧A, ⇧X. Q, R, E, ⌥S and Esc keep their talk meanings and get a board and timeline action. No new ⌥ key. No key of the spec talk list (D, space, A, Q, R, E, X, B, G, F, W, C, ⇧C, T, V) changes its meaning on another slide kind. No clash with `abhyasa/core/keys.py`: those are ⌥ and ⌘ keys, `/`, `?` and Esc, and the plain Graph keys work only on the Graph page.
+
+## Review Focus for Option C
+
+1. **The tutor's cards, the true order or a date before R** in the public deck, the audience HTML, a `board` message or the phone page. Tests: `public deck: no tutor cards and no dates` (Task 14), `test_audience_has_no_tutor_cards_and_no_dates` (Task 15), the `board` and `order` cases in `STAGE_CASES` (Task 15).
+2. **Room cards that reach the learner model.** Tests: the attempts checks in Tasks 14, 15 and 16, and in `tools/talk_look.py` (Task 17).
+3. **Hostile cards** (HTML, a flood, a 3 kB body, no cookie, a foreign Origin, a card with no open board). Tests: `test_cards_from_phones` and the new `HOSTILE` cases (Task 16), `test_board_cards_from_phones` (Task 16).
+
+---
+
+## Shared test data for Option C
+
+Task 14 adds this to `tests/talk_data.py`. Task 15 adds `board_talk` (below the line) and adds `BOARD_RULES` to the `talk_fake` fixture in `tests/conftest.py` (`walk_fake.rules.update({**TALK_RULES, **BOARD_RULES})`).
+
+```python
+BOARD_PROMPT = 'What does attention give a model that a recurrent network does not?'
+BOARD_GROUPS = ['Speed', 'Long range', 'Not sure yet']
+BOARD_SEED = ['All positions at once, not one by one']
+GROUPS = [dict(id='g1', label='Speed'), dict(id='g2', label='Long range'), dict(id='g3', label='Not sure yet')]
+BOARD_REF = dict(cards=[dict(text='All positions at once, not one by one', group='Speed'),
+                        dict(text='Word 1 can see word 50 in one step', group='Long range'),
+                        dict(text='No memory that fades along the sentence', group='Long range'),
+                        dict(text='Costs memory that grows with the square of the length', group='Later')])   # 'Later' is no group
+BOARD_CARDS = [dict(id='c1', text='All positions at once, not one by one', group='g1', by='seed'),
+               dict(id='c2', text='Trains on GPUs in parallel', group='g1', by='room'),
+               dict(id='c3', text='Word 1 can see word 50 in one step', group='g2', by='room'),
+               dict(id='c4', text='It reads the words from left to right', group=None, by='you')]
+BOARD_PAIRS = dict(pairs=[dict(card='c1', ref=0, verdict='match'), dict(card='c3', ref=1, verdict='match'),
+                          dict(card='c4', ref=None, verdict='wrong'), dict(card='c9', ref=2, verdict='match'),   # c9: no such card
+                          dict(card='c2', ref=7, verdict='match')])                                             # ref 7: no such tutor card
+BOARD_RULES = {'You list the cards that a good answer has': BOARD_REF, 'You match the cards of a room': BOARD_PAIRS}
+TIMELINE = [dict(text='Sequence to sequence with RNNs', figure='asset:attention/images/fig2.png', date='2014'),
+            dict(text='Attention to align and translate', figure=None, date='2015'),
+            dict(text='The Transformer', figure=None, date='2017'),
+            dict(text='BERT: pre-train, then fine-tune', figure=None, date='2018')]          # the right order
+TIMELINE_TITLE = 'Put the ideas in the order they came'
+TIMELINE_LINES = '\n'.join(f"{i['text']} | {i['figure'] or ''} | {i['date']}" for i in TIMELINE)
+ORDERS = [[[1, 3, 0, 2], 3], [[3, 1, 0, 2], 1], [[1, 3, 2, 0], 1]]       # five phones, for the timeline shown as [2, 0, 3, 1]
+PLACES = [[0, 0, 4, 1], [4, 1, 0, 0], [0, 0, 1, 4], [1, 4, 0, 0]]        # PLACES[option][place]: how many phones put it there
+```
+
+```python
+def board_talk(cl, lr):
+    "A talk on the prepared walk with a board after s3 and a timeline after the board, started; return (tid, run)."
+    tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s3', act='board', prompt=BOARD_PROMPT, groups='\n'.join(BOARD_GROUPS), seed=BOARD_SEED[0]))
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s6', act='timeline', title=TIMELINE_TITLE, items=TIMELINE_LINES))
+    cl.post(f'/t/{tid}/start')
+    return tid, lr.run(lr.talk(tid).live)
+```
+
+The talk made by `board_talk`: slides `s1, s2, s3, s6` (board), `s7` (timeline), `s4, s5`. The timeline's shown order is mixed, so block tests read `ask['answer']` from the saved slide. The engine tests use `shown=[2, 0, 3, 1]`, which gives the options `['The Transformer', 'Sequence to sequence with RNNs', 'BERT: pre-train, then fine-tune', 'Attention to align and translate']` and the answer `[1, 3, 0, 2]`.
+
+---
+
+### Task 14: The engine for board and timeline slides: shapes, checks, the public part, the tutor's model, the overlay and the recap
+
+Spec 7.2, 7.5, 7.7 to 7.9, 17.1 to 17.3. Design 5.1, 5.3.
+
+**Files:**
+- Modify: `nbs/17_talk.ipynb` (new section "Board and timeline slides", with the sub-sections "The shape of a board", "The tutor's model of a board", "The shape of a timeline", "The room's order", "In the run log and the recap"), `tests/talk_data.py` (the data above, not `board_talk`)
+- Generated: `abhyasa/talk.py`, `abhyasa/_modidx.py`
+
+**Interfaces:**
+- Consumes: Task 1 `check_talk`, `TALK_CASES`, `public_ask`, `ask_for_concept` (for the passage of a concept), `prompts.register`, `llm.ask_json`, `for_task`; Task 2 `public_deck`, `asset_resolver`, `image_type`, `new_run`, `log_go`, `log_main`, `log_round`, `end_run`, `weak`, `recap`, `recap_html`, `share_right`.
+- Produces (in `abhyasa.talk`):
+  - `BOARD_MIN = 8`; `CARD_MOST = 80`; `CARDS_MOST = 120`; `GROUPS_MOST = 6`; `REF_MOST = 8`; `ITEMS_MIN, ITEMS_MOST = 3, 6`; `DATE_MOST = 20`.
+  - A board slide: `dict(id, kind='board', title=<prompt>, section='', notes='', mins=BOARD_MIN, show=dict(passage='', figure=None, demo=None), beats=[], ask=None, board=dict(prompt, groups=[dict(id='g1', label)...], cards=[dict(id='c1', text, group=None|'g<n>', by='seed'|'room'|'you')]), ref=[dict(text, group=None|'g<n>')])`, plus `concept` when the presenter names one.
+  - `board_slide(sid, prompt, groups:list[str], seed=(), ref=(), concept=None) -> dict`: group ids `g1`... in order; seed cards `c1`... with `group=None`, `by='seed'`.
+  - A timeline slide: `dict(id, kind='timeline', title, section='', notes='', mins=4 + val('talks.ask_min'), show=dict(passage='', figure=None, demo=None), beats=[], items=[dict(text, figure, date)], ask=dict(kind='order', q=<title>, options=<item texts>, answer=<the right order>))`. `items` are stored in the shown order, so `items[i]` is `options[i]`.
+  - `timeline_slide(sid, title, items:list[dict], shown:list[int]=None) -> dict`: `items` come in the right order; `shown[k]` is the index of the item at place `k`; with `shown=None`, `random.Random(sid).sample` until it is not the right order. A shown order that is the right order raises `ValueError('the shown order is the right order')`.
+  - `timeline_spec(s) -> dict`: a rupaka spec that the presenter view mounts as its order control: `dict(rupaka=1, id=f'timeline-{sid}', title=title, state=dict(order=['i0', ...]), blocks=[dict(type='ranklist', bind='order', items={'i0': text, ...}, label="The room's order")])`. It has no gate, because it is a control and not a lesson.
+  - `check_talk` gets these problem texts, slide by slide, in this order inside a slide: board: `f'{sid}: a board needs a prompt'`, `f'{sid}: a board needs 1 to 6 groups'`, then for each card `f'{sid}: the card id {cid!r} is not c and a number'`, `f'{sid}: the card {cid!r} is in a group that is not on the board'`, `f'{sid}: the card {cid!r} has more than 80 characters'`, then `f'{sid}: a board has at most 120 cards'`, then `f'{sid}: a tutor card is in a group that is not on the board'` (once); timeline: `f'{sid}: a timeline needs 3 to 6 items'`, then for each item the figure rule of Task 1 (`f'{sid}: the figure {f!r} is not an image id'`) and `f'{sid}: the date {d!r} has more than 20 characters'`, then `f'{sid}: a timeline needs an order question'` or `f'{sid}: the options of a timeline are not its items'`. Card ids match `^c[0-9]{1,4}$`.
+  - `TALK_CASES` gains the 13 cases of Step 1.
+  - `public_deck`: a board slide gets one more key, `board=dict(prompt, groups, cards=[dict(id, text, group, by)])` (the seed cards); a timeline slide gets `items=[dict(text, figure)]`, with `figure` as the sha256 hash or None. No `ref`, no `date`. The other slide kinds keep exactly the 7 keys of Task 2.
+  - `BOARD_SP = register('talk.board', 'Talk board cards', 'How the tutor lists the cards that a good answer to a board prompt has.', ...)`, its text starts "You list the cards that a good answer has." The reply: `{"cards": [{"text": ..., "group": <a group label>}]}`, at most 8 cards of at most 80 characters.
+  - `MATCH_SP = register('talk.match', 'Talk board check', 'How the tutor matches the cards of the room to its own cards.', ...)`, its text starts "You match the cards of a room to the cards of a model answer." The reply: `{"pairs": [{"card": <card id>, "ref": <tutor card index or null>, "verdict": "match" | "wrong"}]}`.
+  - `board_ref(lr, ask, prompt, groups:list[dict], concept=None) -> list[dict(text, group)]`: one call through `for_task(ask, 'talk')`; the concept's statement goes into the prompt when `concept` is given; a group label that is not a group gives `group=None`; texts are cut to 80; at most 8; a bad reply or a failed call gives `[]`.
+  - `word_pairs(cards, ref) -> list[dict(card, ref, verdict='match')]`: a card matches the first tutor card when the card has at least half of the tutor card's words of 4 or more letters (lower case, letters and digits only). It finds no wrong card.
+  - `match_board(lr, ask, slide, cards) -> list[dict(card, ref, verdict)]`: one call; pairs with an unknown card id, a `ref` out of range or another verdict are dropped; a bad reply or a failed call gives `word_pairs(cards, slide['ref'])`. It never calls `Learning.record`.
+  - `board_overlay(slide, cards, pairs) -> dict(marks={cid: 'match'|'wrong'}, ghosts=[dict(text, group)], found:int, missed:int)`: `ghosts` are the tutor cards with no match, in tutor order.
+  - `order_tally(orders:list, answer:list) -> dict(counts=[right, not right], n, swap, places)`: `orders` is `[[order, count], ...]` from the room. `swap` is the pair of options (sorted) that most phones put the wrong way round, the smallest pair on a tie, or None when all are right. `places[i][p]` counts the phones that put option `i` at place `p`.
+  - `order_spread(places) -> list[dict(lo, mid, hi)|None]`: for each option, the places at the ranks `ceil(n/4)`, `ceil(n/2)` and `ceil(3n/4)` (1-based) of its `n` phones; None when `n == 0`.
+  - `timeline_result(slide, order=None, places=None) -> dict(order, right, spread, dates, off)`: with `places`, `order` is the options sorted by (`mid`, index) and `spread` is `order_spread(places)`; with `order`, the presenter's order and `spread=None`; with neither, the shown order. `dates` follow the options. `off` is the sorted options whose place in `order` is not their right place.
+  - `log_board(run, slide, cards, overlay=None, open=False)`: `run.setdefault('boards', {})[slide] = dict(cards=deepcopy(cards), overlay=overlay, open=open)`.
+  - `log_main(run, slide, kind, main)` also takes a list (the presenter's order on a timeline).
+  - `weak`: a board slide with an overlay is weak when `found / (found + missed)` is below `below`: `dict(slide, title, share, top_wrong=<the text of the first wrong card or None>, n=<the number of cards>, main=None)`. A timeline with a `main` list that is not the answer is weak: `dict(slide, title, share=None, top_wrong=None, n=0, main=<the list>)`. A timeline with rounds uses the rule of Task 2.
+  - `recap(t, run)` gains `boards=[dict(slide, title, found, missed, ghosts=[texts], wrong=[texts])]` and `orders=[dict(slide, title, right=[f'{text} ({date})'], room=[texts], off=[texts])]`. When a date is empty, the text has no brackets.
+  - `recap_html`: for a board, each group with its cards, "✓ The tutor has this" beside a match, "✗ Not right" beside a wrong card, then "What the room missed" with the ghosts; for a timeline, "The right order" with the dates, then "The room's order". All text through `html.escape`.
+
+- [ ] **Step 1: Write the failing tests** (test cells after the tests of Task 2 in `nbs/17_talk.ipynb`, each with a one-line lead)
+
+```python
+# a board slide: groups in order, seed cards in the inbox, the tutor's cards from one call
+lr = temp_learning(); jid = talk_walk(lr); t = talk_from_walk(lr, Fake(TALK_RULES), jid)
+ref = board_ref(lr, Fake(BOARD_RULES), BOARD_PROMPT, GROUPS)
+assert ref == [dict(text='All positions at once, not one by one', group='g1'), dict(text='Word 1 can see word 50 in one step', group='g2'),
+               dict(text='No memory that fades along the sentence', group='g2'), dict(text='Costs memory that grows with the square of the length', group=None)]
+assert board_ref(lr, Fake({}), BOARD_PROMPT, GROUPS) == []          # a bad reply gives no tutor cards
+s6 = board_slide('s6', BOARD_PROMPT, BOARD_GROUPS, BOARD_SEED, ref=ref)
+assert s6['board'] == dict(prompt=BOARD_PROMPT, groups=GROUPS, cards=[dict(id='c1', text=BOARD_SEED[0], group=None, by='seed')])
+assert (s6['kind'], s6['title'], s6['mins'], s6['ask'], s6['beats']) == ('board', BOARD_PROMPT, 8, None, [])
+```
+
+```python
+# a timeline slide: the items in the shown order, and an order question with the right order
+s7 = timeline_slide('s7', TIMELINE_TITLE, TIMELINE, shown=[2, 0, 3, 1])
+opts = ['The Transformer', 'Sequence to sequence with RNNs', 'BERT: pre-train, then fine-tune', 'Attention to align and translate']
+assert [i['text'] for i in s7['items']] == opts and s7['ask'] == dict(kind='order', q=TIMELINE_TITLE, options=opts, answer=[1, 3, 0, 2])
+assert s7['mins'] == 5 and s7['items'][1]['figure'] == 'asset:attention/images/fig2.png'
+test_fail(lambda: timeline_slide('s8', 'T', TIMELINE, shown=[0, 1, 2, 3]), contains='the shown order is the right order')
+mixed = timeline_slide('s8', 'T', TIMELINE)
+assert mixed['ask']['answer'] != [0, 1, 2, 3] and [mixed['items'][i]['text'] for i in mixed['ask']['answer']] == [i['text'] for i in TIMELINE]
+```
+
+```python
+# the order control for the presenter is a rupaka ranklist; its only problem is that it has no gate
+from rupaka.spec import validate
+sp = timeline_spec(s7)
+assert sp == dict(rupaka=1, id='timeline-s7', title=TIMELINE_TITLE, state=dict(order=['i0', 'i1', 'i2', 'i3']),
+                  blocks=[dict(type='ranklist', bind='order', items=dict(i0=opts[0], i1=opts[1], i2=opts[2], i3=opts[3]), label="The room's order")])
+assert list(validate(sp)) == ['blocks: needs at least one gate: the learner predicts first']
+```
+
+```python
+# TALK_CASES: each board and timeline case gives exactly its problems
+for case, want in TALK_CASES: assert check_talk(case) == want, (case, want)
+wants = [w for _, w in TALK_CASES]
+assert ['s1: a board needs a prompt'] in wants and ['s1: a board needs 1 to 6 groups'] in wants
+assert ["s1: the card id 'x1' is not c and a number"] in wants and ["s1: the card 'c1' is in a group that is not on the board"] in wants
+assert ["s1: the card 'c1' has more than 80 characters"] in wants and ['s1: a board has at most 120 cards'] in wants
+assert ['s1: a tutor card is in a group that is not on the board'] in wants
+assert ['s2: a timeline needs 3 to 6 items', 's2: the options of a timeline are not its items'] in wants
+assert ["s2: the figure '/Users/k/fig.png' is not an image id"] in wants and ["s2: the date '" + '1' * 21 + "' has more than 20 characters"] in wants
+assert ['s2: a timeline needs an order question'] in wants and ['s2: the options of a timeline are not its items'] in wants
+```
+
+Write the 13 new cases in the notebook as `BGOOD = dict(GOOD, slides=[board_slide('s1', BOARD_PROMPT, BOARD_GROUPS, BOARD_SEED, ref=[dict(text='Word 1 can see word 50 in one step', group='g2')]), timeline_slide('s2', TIMELINE_TITLE, TIMELINE, shown=[2, 0, 3, 1])])` (it gives `[]`) and one changed copy for each problem: the prompt `''`; the groups `[]`; the card id `x1`; the card group `g9`; a card of 81 characters; 121 cards; a tutor card in `g9`; the items cut to 2 (the ask not changed); an item figure `/Users/k/fig.png`; a date of 21 characters; `ask=None`; the first option changed to `'Something else'`.
+
+```python
+# public deck: no tutor cards and no dates; a board shows its seed cards, a timeline its pictures by hash
+t2 = deepcopy(t); t2.slides[3:3] = [s6, s7]
+pub, h = public_deck(t2, asset_resolver(lr)), hashlib.sha256(PNG).hexdigest()
+b, tl = pub.slides[3], pub.slides[4]
+assert set(b) == {'id', 'kind', 'title', 'section', 'passage', 'figure', 'ask', 'board'} and b['board'] == s6['board']
+assert set(tl) == {'id', 'kind', 'title', 'section', 'passage', 'figure', 'ask', 'items'} and tl['items'][1] == dict(text=opts[1], figure=h)
+assert tl['ask'] == dict(kind='order', q=TIMELINE_TITLE, options=opts)
+js = json.dumps(pub.slides)
+assert 'No memory that fades' not in js and '2014' not in js and '"ref"' not in js and '"date"' not in js and 'asset:' not in js
+assert all(len(s) == 7 for s in pub.slides if s['kind'] not in ('board', 'timeline'))
+```
+
+```python
+# the overlay: the model pairs the cards; an unknown card or tutor card is dropped; a bad reply falls back to the word match
+pairs = match_board(lr, Fake(BOARD_RULES), s6, BOARD_CARDS)
+assert pairs == [dict(card='c1', ref=0, verdict='match'), dict(card='c3', ref=1, verdict='match'), dict(card='c4', ref=None, verdict='wrong')]
+ov = board_overlay(s6, BOARD_CARDS, pairs)
+assert ov == dict(marks={'c1': 'match', 'c3': 'match', 'c4': 'wrong'}, found=2, missed=2,
+                  ghosts=[dict(text='No memory that fades along the sentence', group='g2'), dict(text='Costs memory that grows with the square of the length', group=None)])
+assert match_board(lr, Fake({}), s6, BOARD_CARDS) == word_pairs(BOARD_CARDS, ref) == [dict(card='c1', ref=0, verdict='match'), dict(card='c3', ref=1, verdict='match')]
+```
+
+```python
+# the room's order: counts, the pair most swapped, the places, the spread and the result
+assert order_tally(ORDERS, [1, 3, 0, 2]) == dict(counts=[3, 2], n=5, swap=[0, 2], places=PLACES)
+assert order_spread([[1, 1, 1, 1]]) == [dict(lo=0, mid=1, hi=2)] and order_spread([[0, 0, 0]]) == [None]
+spread = [dict(lo=2, mid=2, hi=2), dict(lo=0, mid=0, hi=0), dict(lo=3, mid=3, hi=3), dict(lo=1, mid=1, hi=1)]
+dates = ['2017', '2014', '2018', '2015']
+assert timeline_result(s7, places=PLACES) == dict(order=[1, 3, 0, 2], right=[1, 3, 0, 2], spread=spread, dates=dates, off=[])
+assert timeline_result(s7, order=[3, 1, 0, 2]) == dict(order=[3, 1, 0, 2], right=[1, 3, 0, 2], spread=None, dates=dates, off=[1, 3])
+assert timeline_result(s7)['order'] == [0, 1, 2, 3]
+```
+
+```python
+# the run log and the recap: what the room missed, and the room's order against the right order
+r2 = new_run(t2, now=100.); log_go(r2, 's6', 1, now=200.); log_go(r2, 's7', 1, now=500.)
+cards = BOARD_CARDS + [dict(id='c5', text='<img src=x onerror=alert(1)>', group=None, by='room')]
+log_board(r2, 's6', cards, ov); log_main(r2, 's7', 'order', [3, 1, 0, 2]); end_run(r2, now=900.)
+assert r2['boards']['s6'] == dict(cards=cards, overlay=ov, open=False) and r2['asks']['s7']['main'] == [3, 1, 0, 2]
+w = weak(t2, r2)
+assert w == [dict(slide='s6', title=BOARD_PROMPT, share=.5, top_wrong='It reads the words from left to right', n=5, main=None),
+             dict(slide='s7', title=TIMELINE_TITLE, share=None, top_wrong=None, n=0, main=[3, 1, 0, 2])]
+rc = recap(t2, r2)
+assert rc.boards == [dict(slide='s6', title=BOARD_PROMPT, found=2, missed=2, wrong=['It reads the words from left to right'],
+                          ghosts=['No memory that fades along the sentence', 'Costs memory that grows with the square of the length'])]
+assert rc.orders == [dict(slide='s7', title=TIMELINE_TITLE, off=['Sequence to sequence with RNNs', 'Attention to align and translate'],
+                          right=['Sequence to sequence with RNNs (2014)', 'Attention to align and translate (2015)', 'The Transformer (2017)', 'BERT: pre-train, then fine-tune (2018)'],
+                          room=['Attention to align and translate', 'Sequence to sequence with RNNs', 'The Transformer', 'BERT: pre-train, then fine-tune'])]
+page = recap_html(t2, r2, asset_resolver(lr))
+assert 'What the room missed' in page and 'No memory that fades along the sentence' in page and '✗ Not right' in page and '✓ The tutor has this' in page
+assert 'The right order' in page and 'Sequence to sequence with RNNs (2014)' in page
+assert '<img src=x' not in page and '&lt;img src=x onerror=alert(1)&gt;' in page and '<script' not in page.lower()
+assert len(lr.attempts(limit=1000)) == 0   # the room is not the owner
+```
+
+- [ ] **Step 2: Run the tests to see them fail**
+
+Run: `uv run nbdev-test --path nbs/17_talk.ipynb`
+Expected: FAIL with `NameError: name 'board_ref' is not defined` (or `ImportError` on `BOARD_PROMPT` before the data is in `tests/talk_data.py`).
+
+- [ ] **Step 3: Implement** the interfaces in the notebook.
+  - Each sub-section has a short lead in STE. Say in "The tutor's model of a board" that the tutor's cards stay in the talk, as the answer of a question does, and show only after R.
+  - `check_talk`: add one helper for each kind, called from the slide loop. Keep the order of the problem texts as in Interfaces. A board or timeline slide still goes through the beat, figure and ask checks of Task 1. A timeline's `ask` goes through the order check of Task 1 too.
+  - `public_deck`: add the one key for each kind from a list of allowed fields, as Task 2 does. Never copy `ref` or `date`.
+  - `board_ref` and `match_board` use `ask_json(for_task(ask, 'talk'), prompt(...))` in a `try`; any error gives the fallback. The user part of `talk.match` lists the tutor cards with their index and the room cards with their id. It never has the walk notes.
+  - `order_tally` reads each order as a list of option indexes (the room's form, Task 16).
+  - Keep the number of model calls small: `board_ref` is one call for each new board slide, `match_board` one call for each reveal.
+
+- [ ] **Step 4: Run the tests to see them pass**
+
+Run: `uv run nbdev-prepare && uv run nbdev-test --path nbs/17_talk.ipynb && uv run pytest -q`
+Expected: PASS. `tests/test_import_weight.py` still passes (no web import). The Settings page lists the two new prompts (the registry of Task 1 imports `abhyasa.talk`).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add nbs/17_talk.ipynb abhyasa/talk.py abhyasa/_modidx.py tests/talk_data.py
+git commit -m "Add board and timeline slides to the talk engine, with the tutor's cards, the overlay, the room's order and the recap"
+```
+
+---
+
+### Task 15: Board and timeline slides in the talk block, with no phones: the editor, the two windows, the keys and "After the talk"
+
+Spec 9.2, 11, 13. Screens `shots/c1-board.png`, `shots/c2-timeline.png` (without the phone parts).
+
+**Files:**
+- Modify: `abhyasa/core/stage.py` (`STAGE_TYPES` gets `board`, `overlay`, `order`; the new cases in `STAGE_CASES`; `BOARD_KEYS`; `STAGE_KEYS = PLAN_KEYS + TALK_KEYS + ROOM_KEYS + VOTE_KEYS + BOARD_KEYS`), `abhyasa/core/stage.js` (the field rules of the three types in `valid`), `abhyasa/core/keys.py` (add `BOARD_KEYS` to `KEYS`, after `VOTE_KEYS`), `abhyasa/blocks/talk/{app.py, ui.py, talk.js, talk.css}`, `tests/talk_data.py` (`board_talk`), `tests/conftest.py` (`talk_fake` gets `BOARD_RULES`)
+- Create: `tests/blocks/test_talk_board.py`
+- Test: `tests/test_stage.py`
+
+**Interfaces:**
+- Consumes: Task 14 `board_slide`, `timeline_slide`, `timeline_spec`, `board_ref`, `match_board`, `board_overlay`, `timeline_result`, `log_board`, `log_main`, `recap`, `public_deck`; Task 3 `STAGE_CASES`, `valid`, `channel`, `audience`, `presenter`; Task 4 `mirror(host).watch`; Task 5 `POST /t/{tid}/slide`, `check_talk` on each change; Task 6 `POST /t/{tid}/at`, `POST /t/{tid}/ask`, the presenter and audience pages, the rk-predict catch; Task 7 "After the talk"; `sabha.clean_text`.
+- Produces:
+  - Stage messages (v 1):
+
+| `t` | fields | from | what the audience does |
+|---|---|---|---|
+| `board` | `slide`; `cards` (up to 120 of `id` `^c[0-9]{1,4}$`, `text` up to 80 chars, `group` `^g[1-6]$` or null, `by` in `seed`, `room`, `you`); `focus` (a card id or null); `open` (bool) | presenter | draws the cards in their groups and the inbox; rings the focused card; shows "Add a card" lines when `open` |
+| `overlay` | `slide`; `on` (bool); `marks` (an object of up to 120 card ids to `match` or `wrong`); `ghosts` (up to 8 of `text` up to 80 chars and `group` or null) | presenter | shows or hides the tutor's model over the board |
+| `order` | `slide`; `order` (a list of 3 to 6 distinct indexes from 0); `right` (the same form, or null); `spread` (null, or one `{lo, mid, hi}` of whole numbers 0 to 5, or null, for each index); `dates` (null, or one string of up to 20 chars for each index); `off` (null, or a list of indexes) | presenter | puts the pictures in this order; with `right`, shows the right place, the dates and the marks |
+
+  - `BOARD_KEYS = [('Talk', 'S', 'On a board or a timeline: move the focus to the next card'), ('Talk', '⇧S', 'On a board or a timeline: move the focus to the card before'), ('Talk', '1–6', 'On a board: put the card in group 1 to 6'), ('Talk', '⇧A', 'On a board: type a card that the room says'), ('Talk', '⇧X', 'On a board: take out the card')]`.
+  - The talk keys on these slides: Q opens the board for cards and Q again closes it; R shows "what the tutor sees" (board) or the right order (timeline), and R again hides the overlay; ⌥S is the main button ("Open the board", then "Show what the tutor sees", then the next slide; on a timeline "Show the right order", then the next slide); E puts the focus in the order control of a timeline (rupaka's own keys move a row: W and S, or ⌥↑ and ⌥↓); Esc leaves the card box or the control. 1–6 on a board group the focused card; on other slides they keep their hand meaning. G, then digits, still goes to a slide.
+  - `POST /t/{tid}/slide` gains `act='board'` with `sid` (the slide before), `prompt`, `groups` (one on each line), `seed` (one on each line, may be empty), `concept` (a concept slug, may be empty): it builds `board_slide` with the next free slide id, runs `check_talk`, and only then calls `board_ref` (no call for a bad slide). `act='timeline'` with `sid`, `title`, `items` (one on each line, in the right order: `text | image id | date`; the image id and the date may be empty). `act='edit'` on a board takes `prompt`, `groups` and `ref` (one tutor card on each line: `Group label: text`; a label that is not a group puts the card in no group); on a timeline it takes `title` and `items`. 400 with the first problem, as Task 5.
+  - `POST /t/{tid}/board` with `slide` and `act`: `add` with `text` (through `sabha.clean_text(text, 80)`; 400 when empty; `by='you'`; the new card id is `c` and one more than the largest number on the board; the focus moves to it), `group` with `card` and `group` (`g1` to `g<n>`, or empty for the inbox), `drop` with `card`, `focus` with `card` (or empty), `open`, `close`, `reveal`, `hide`. Each saves with `log_board` and returns the `board` message, except `reveal` and `hide`, which return the `overlay` message. `reveal` keeps the overlay in the run, so a second reveal makes no second model call. 400 when the slide is not a board, or the group is not on it; 404 for an unknown card. The board of a run starts as a copy of the seed cards.
+  - `POST /t/{tid}/ask` on a timeline slide: `act='main'` with `main` (the indexes joined by commas, a permutation of the options, else 400) → `log_main(run, slide, 'order', main)` and the `order` message with `right=None, spread=None, dates=None, off=None`; `act='reveal'` → the `order` message from `timeline_result(slide, order=<main or None>)`.
+  - `POST /t/{tid}/at` to another slide closes an open board.
+  - The presenter view of a board: the prompt, one column `.grp[data-gid]` for each group with its label and number, the inbox `.inbox` ("From the room"), each card `.card[data-cid]` (text as a text node), the box `#card-box` (`maxlength="80"`, "Type a card", Enter adds, Esc leaves), the count line, and the button "Show what the tutor sees R". The tutor's cards show in the presenter view only, in the notes area, under "The tutor's cards (the room does not see these)".
+  - The presenter view of a timeline: the pictures `.pol[data-i]` (`/t/{tid}/img/{hash}` and the caption), the order control as a rupaka host with `data-talk-control` and the spec of `timeline_spec(slide)` (the demo mirror of Task 6 skips a host with `data-talk-control`), and the right order with the dates for the presenter only. `talk.js` watches the control (`mirror(host).watch`) and posts `ask` `main` with the order on each change.
+  - The audience view: a board slide draws from `board` of the public deck and from `board` and `overlay` messages; a timeline slide draws the pictures from `items` of the public deck and the order from `order` messages. A match gets "✓" and the `--ok` ring, a wrong card "✗ Not right" and the `--no` ring, a ghost a dashed card with "The tutor adds"; never colour alone. A view of a slide kind that it does not know still shows "This slide kind shows in a later version."
+  - "After the talk" gains "What the room missed": for each board with an overlay, `f'The room found {found} of the {found + missed} cards of the tutor.'`, the ghosts, and `f'Not right: {text}'` for each wrong card; for each timeline with a reveal, "The right order" with the dates and `f'The room put {len(off)} cards in the wrong place.'` (`'1 card'` for one).
+
+- [ ] **Step 1: Write the failing tests**
+
+In `abhyasa/core/stage.py`, add to `OK`:
+
+```python
+OK += [dict(v=1, t='board', slide='s6', cards=[dict(id='c1', text='All positions at once, not one by one', group='g1', by='seed'),
+                                               dict(id='c2', text='Trains on GPUs in parallel', group=None, by='room')], focus='c2', open=True),
+       dict(v=1, t='overlay', slide='s6', on=True, marks=dict(c1='match', c4='wrong'), ghosts=[dict(text='No memory that fades along the sentence', group='g2')]),
+       dict(v=1, t='overlay', slide='s6', on=False, marks={}, ghosts=[]),
+       dict(v=1, t='order', slide='s7', order=[3, 1, 0, 2], right=None, spread=None, dates=None, off=None),
+       dict(v=1, t='order', slide='s7', order=[1, 3, 0, 2], right=[1, 3, 0, 2], off=[], dates=['2017', '2014', '2018', '2015'],
+            spread=[dict(lo=2, mid=2, hi=2), dict(lo=0, mid=0, hi=0), dict(lo=3, mid=3, hi=3), None])]
+```
+
+and to `BAD`:
+
+```python
+card = dict(id='c1', text='x', group=None, by='room')
+BAD += [dict(v=1, t='board', slide='s6', cards=[dict(card, text='x' * 81)], focus=None, open=False),
+        dict(v=1, t='board', slide='s6', cards=[dict(card, id='../c1')], focus=None, open=False),
+        dict(v=1, t='board', slide='s6', cards=[dict(card, group='g7')], focus=None, open=False),
+        dict(v=1, t='board', slide='s6', cards=[dict(card, by='owner')], focus=None, open=False),
+        dict(v=1, t='board', slide='s6', cards=[dict(card, id=f'c{i}') for i in range(121)], focus=None, open=False),
+        dict(v=1, t='board', slide='s6', cards=[dict(card, ref=0)], focus=None, open=False),
+        dict(v=1, t='overlay', slide='s6', on=True, marks=dict(c1='right'), ghosts=[]),
+        dict(v=1, t='overlay', slide='s6', on=True, marks={}, ghosts=[dict(text='x' * 81, group=None)]),
+        dict(v=1, t='order', slide='s7', order=[0, 0, 1], right=None, spread=None, dates=None, off=None),
+        dict(v=1, t='order', slide='s7', order=list(range(7)), right=None, spread=None, dates=None, off=None),
+        dict(v=1, t='order', slide='s7', order=[0, 1, 2], right=[0, 1, 2], spread=[dict(lo=-1, mid=0, hi=0), None, None], dates=None, off=[]),
+        dict(v=1, t='order', slide='s7', order=[0, 1, 2], right=[0, 1, 2], spread=None, dates=['1' * 21, '', ''], off=[])]
+```
+
+```python
+# tests/test_stage.py
+def test_board_types_and_keys():
+    from abhyasa.core.stage import BOARD_KEYS, TALK_KEYS, ROOM_KEYS, VOTE_KEYS
+    assert {'board', 'overlay', 'order'} <= set(STAGE_TYPES)
+    assert {k for _, k, _ in BOARD_KEYS} == {'S', '⇧S', '1–6', '⇧A', '⇧X'} and not [k for _, k, _ in BOARD_KEYS if '⌥' in k]
+    assert not {'⇧S', '⇧A', '⇧X', 'S'} & {k for _, k, _ in TALK_KEYS + ROOM_KEYS + VOTE_KEYS}   # no talk key changes its meaning
+```
+
+`test_each_case_in_node`, `test_cases_cover_each_type` and `test_stage_keys_are_left_hand` (the plain set already has S) keep passing with no change.
+
+```python
+# tests/blocks/test_talk_board.py
+from talk_data import *
+
+def test_add_a_board_and_a_timeline_in_the_editor(mk, talk_fake, lr):
+    cl = mk(); tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s3', act='board', prompt=BOARD_PROMPT, groups='\n'.join(BOARD_GROUPS), seed=BOARD_SEED[0]))
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s6', act='timeline', title=TIMELINE_TITLE, items=TIMELINE_LINES))
+    t = lr.talk(tid); b, tl = t.slides[3], t.slides[4]
+    assert [s['id'] for s in t.slides] == ['s1', 's2', 's3', 's6', 's7', 's4', 's5'] and (b['kind'], tl['kind']) == ('board', 'timeline')
+    assert b['board']['groups'] == GROUPS and b['ref'][1] == dict(text='Word 1 can see word 50 in one step', group='g2')
+    assert [tl['items'][i]['date'] for i in tl['ask']['answer']] == ['2014', '2015', '2017', '2018']
+    page = cl.get(f'/t/{tid}').text
+    assert 'Word 1 can see word 50 in one step' in page and 'About 33 min of a 20 min slot' in page   # 20 + 8 + 5
+    r = cl.post(f'/t/{tid}/slide', data=dict(sid='s3', act='board', prompt='', groups='Speed'))
+    assert r.status_code == 400 and 'a board needs a prompt' in r.text
+    n = len([c for c in talk_fake.calls if 'You list the cards that a good answer has' in c[0] + c[1]])
+    assert n == 1                                                                   # no model call for a bad board
+    r = cl.post(f'/t/{tid}/slide', data=dict(sid='s7', act='timeline', title='T', items='a | | 1\nb | | 2'))
+    assert r.status_code == 400 and 'a timeline needs 3 to 6 items' in r.text
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s6', act='edit', ref='Speed: Fewer steps in each layer\nColour: Not on the board'))
+    assert lr.talk(tid).slides[3]['ref'] == [dict(text='Fewer steps in each layer', group='g1'), dict(text='Not on the board', group=None)]
+
+def test_audience_has_no_tutor_cards_and_no_dates(mk, talk_fake, lr):
+    cl = mk(); tid, run = board_talk(cl, lr)
+    a = cl.get(f'/t/{tid}/audience?k={run["key"]}').text
+    assert 'Long range' in a and BOARD_SEED[0] in a and 'The Transformer' in a and f'/t/{tid}/img/{hashlib.sha256(PNG).hexdigest()}' in a
+    assert 'No memory that fades' not in a and '2014' not in a and 'data-answer' not in a
+    p = cl.get(f'/t/{tid}/present').text
+    assert "The tutor's cards (the room does not see these)" in p and 'data-talk-control' in p and 'timeline-s7' in p
+
+def test_board_with_no_phones(mk, talk_fake, lr):
+    cl = mk(); tid, run = board_talk(cl, lr); n0 = len(lr.attempts(limit=1000))
+    cl.post(f'/t/{tid}/at', data=dict(slide='s6', beat=1))
+    post = lambda **kw: cl.post(f'/t/{tid}/board', data=dict(slide='s6', **kw))
+    m = post(act='add', text='  Trains on GPUs   in parallel ').json()
+    assert m == dict(v=1, t='board', slide='s6', focus='c2', open=False,
+                     cards=[dict(id='c1', text=BOARD_SEED[0], group=None, by='seed'), dict(id='c2', text='Trains on GPUs in parallel', group=None, by='you')])
+    for text in ('Word 1 can see word 50 in one step', 'It reads the words from left to right'): post(act='add', text=text)
+    for card, g in (('c1', 'g1'), ('c2', 'g1'), ('c3', 'g2')): post(act='group', card=card, group=g)
+    assert post(act='group', card='c9', group='g1').status_code == 404 and post(act='group', card='c1', group='g4').status_code == 400
+    assert post(act='add', text=' \x07 ').status_code == 400
+    assert post(act='add', text='x' * 81).json()['cards'][-1]['text'] == 'x' * 80
+    post(act='drop', card='c5')
+    ov = post(act='reveal').json()
+    assert ov == dict(v=1, t='overlay', slide='s6', on=True, marks={'c1': 'match', 'c3': 'match', 'c4': 'wrong'},
+                      ghosts=[dict(text='No memory that fades along the sentence', group='g2'), dict(text='Costs memory that grows with the square of the length', group=None)])
+    post(act='reveal')
+    assert len([c for c in talk_fake.calls if 'You match the cards of a room' in c[0] + c[1]]) == 1   # a second reveal makes no second call
+    assert post(act='hide').json()['on'] is False
+    post(act='add', text='<b>bold</b>')
+    p = cl.get(f'/t/{tid}/present').text
+    assert '&lt;b&gt;bold&lt;/b&gt;' in p and '<b>bold</b>' not in p
+    b = lr.run(run['id'])['boards']['s6']
+    assert [c['group'] for c in b['cards']][:4] == ['g1', 'g1', 'g2', None] and b['overlay']['found'] == 2
+    assert cl.post(f'/t/{tid}/board', data=dict(slide='s3', act='open')).status_code == 400   # s3 is not a board
+    assert len(lr.attempts(limit=1000)) == n0
+
+def test_timeline_with_no_phones(mk, talk_fake, lr):
+    cl = mk(); tid, run = board_talk(cl, lr); n0 = len(lr.attempts(limit=1000))
+    ans = lr.talk(tid).slides[4]['ask']['answer']; wrong = [ans[1], ans[0]] + ans[2:]
+    cl.post(f'/t/{tid}/at', data=dict(slide='s7', beat=1))
+    assert cl.post(f'/t/{tid}/ask', data=dict(slide='s7', act='main', main='0,0,1,2')).status_code == 400
+    m = cl.post(f'/t/{tid}/ask', data=dict(slide='s7', act='main', main=','.join(map(str, wrong)))).json()
+    assert m == dict(v=1, t='order', slide='s7', order=wrong, right=None, spread=None, dates=None, off=None)
+    res = cl.post(f'/t/{tid}/ask', data=dict(slide='s7', act='reveal')).json()
+    assert (res['order'], res['right'], res['off'], res['spread']) == (wrong, ans, sorted(ans[:2]), None)
+    assert [res['dates'][i] for i in ans] == ['2014', '2015', '2017', '2018']
+    assert lr.run(run['id'])['asks']['s7'] == dict(kind='order', rounds=[], main=wrong, shown=[]) and len(lr.attempts(limit=1000)) == n0
+
+def test_after_the_talk_shows_what_the_room_missed(mk, talk_fake, lr):
+    cl = mk(); tid, run = board_talk(cl, lr)
+    ans = lr.talk(tid).slides[4]['ask']['answer']
+    post = lambda **kw: cl.post(f'/t/{tid}/board', data=dict(slide='s6', **kw))
+    for text in ('Trains on GPUs in parallel', 'Word 1 can see word 50 in one step', 'It reads the words from left to right'): post(act='add', text=text)
+    post(act='reveal')
+    cl.post(f'/t/{tid}/ask', data=dict(slide='s7', act='main', main=','.join(map(str, [ans[1], ans[0]] + ans[2:]))))
+    cl.post(f'/t/{tid}/ask', data=dict(slide='s7', act='reveal'))
+    page = cl.get(cl.post(f'/t/{tid}/end', follow_redirects=False).headers['location']).text
+    assert 'What the room missed' in page and 'The room found 2 of the 4 cards of the tutor.' in page and 'No memory that fades along the sentence' in page
+    assert 'Not right: It reads the words from left to right' in page and 'The room put 2 cards in the wrong place.' in page
+    assert 'The answers of the room do not change your own learning.' in page
+
+def test_board_keys_are_in_the_table():
+    from abhyasa.core.keys import KEYS
+    assert ('Talk', '⇧A', 'On a board: type a card that the room says') in KEYS and ('Talk', 'S', 'On a board or a timeline: move the focus to the next card') in KEYS
+```
+
+- [ ] **Step 2: Run the tests to see them fail**
+
+Run: `uv run pytest tests/test_stage.py tests/blocks/test_talk_board.py -q`
+Expected: FAIL: `test_each_case_in_node` (the `board` cases are not valid yet), `test_cases_cover_each_type`, and `ImportError: cannot import name 'board_talk'`, then 400 on `act='board'`.
+
+- [ ] **Step 3: Implement.**
+  - `valid`: one rule table for each new `t`, as Task 3. A `board` card and an `overlay` ghost may have no other key. An `order` with `right` set must have `dates` of the same length as `order`, `spread` of the same length or null, and `off` as a list of indexes of `order`.
+  - `talk.js`: the board keys go in the key table that is passed to `abhyasaStage.presenter`, and work only when the slide now is a board (S, ⇧S, 1–6, ⇧A, ⇧X) or a timeline (S, ⇧S move the focus between the pictures, for the laser and the talk). Each key posts first, and sends the message from the reply (as Task 6). Bind S by `e.code === 'KeyS'`, so `tests/test_keys.py` finds it.
+  - The audience view never gets the tutor's cards from the page. They come only in the `overlay` message after R.
+  - Look: as `shots/c1-board.png`: the prompt at the top in the head font, the group columns on the page surface, the cards as quiet paper cards (no shadow stack, no tilt that hurts reading), the inbox at the right, the foot line with the count. As `shots/c2-timeline.png`: one row of pictures with captions, and after R the right place and the date under each picture. Dark mode from the theme tokens.
+
+- [ ] **Step 4: Run the tests to see them pass**
+
+Run: `uv run pytest tests/test_stage.py tests/blocks/test_talk_board.py tests/blocks/test_talk.py tests/test_keys.py tests/test_js_syntax.py -q && uv run pytest -q`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add abhyasa/core/stage.py abhyasa/core/stage.js abhyasa/core/keys.py abhyasa/blocks/talk tests/talk_data.py tests/conftest.py tests/test_stage.py tests/blocks/test_talk_board.py
+git commit -m "Add board and timeline slides to talks: cards in groups, the tutor's cards after R, and the right order"
+```
+
+---
+
+### Task 16: Cards and orders from phones: the card route of the room, its limits, the order tally, and the relay
+
+Spec 14.2 to 14.4, 15.2, 17.7. Screens `shots/c1-board.png` (the inbox and the join line), `shots/c2-timeline.png` (the spread).
+
+**Files:**
+- Modify: `abhyasa/sabha/__init__.py` (export `NoBoard`, `CARD_MOST`, `CARDS_PER_MIN`, `CARDS_HELD`), `abhyasa/sabha/room.py`, `abhyasa/sabha/server.py` (`POST /c`), `abhyasa/sabha/hostile.py` (4 cases), `abhyasa/sabha/pages.py` (the `#card` part), `abhyasa/sabha/static/phone.js`, `abhyasa/sabha/static/phone.css`, `abhyasa/blocks/talk/{app.py, talk.js, ui.py}`
+- Create: `tests/sabha/test_cards.py`
+- Test: `tests/sabha/test_hostile.py`, `tests/sabha/test_phone.py`, `tests/blocks/test_talk_room.py`
+
+**Interfaces:**
+- Consumes: Task 9 `Room`, `make_app`, `clean_text`, `TooMany`, the guard (Host, Origin, cookie, body); Task 10 the phone page and its `#order` part; Task 11 `ROOMS`, the relay, `GET /t/{tid}/room/state`, `room_on_loopback`, `phone`; Task 14 `order_tally`, `timeline_result`, `log_board`, `log_round`; Task 15 `POST /t/{tid}/board`, the `board` and `order` messages.
+- Produces:
+  - `CARD_MOST = 80`; `CARDS_PER_MIN = 6` (for each phone; only cards that are kept count); `CARDS_HELD = 300` (cards that the host has not taken; more gives `TooMany`). They are fixed security limits (in the `rate` and `body` rows of `FIXED`).
+  - `room.board(slide_id, prompt)`: opens the board for cards; `room.close_board()`; `room.card(token, text) -> dict(id, text, at)` (raises `NoBoard`, a `ValueError`, when no board is open; `TooMany`; `ValueError` for an empty text); `room.take_cards() -> list[dict(id, text, at)]` (the new cards, once each).
+  - `room.now(token)` gains `board`: `dict(prompt, sent=<the cards this phone sent to this board>)` or None.
+  - `room.close()` log gains `cards` (a count).
+  - The order tally: `room.close_ask()` for `order` gives `dict(kind='order', n, orders=[[order, count], ...])`. The room never has the answer, so the host counts right and wrong with `order_tally` (Task 14). See Conflict 3.
+  - `POST /c` with `text` (cookie and Origin as `/q`): 201 with no body; 409 with no open board; 429 over the limit; 400 for an empty text.
+  - `HOSTILE` gains: "card with no cookie" (`POST /c`) → 401; "card from a foreign origin" (`Origin: http://evil.example`) → 403; "card body of 3 kB" → 413; "card with HTML" (`text=<img src=x onerror=alert(1)>`, the cookie, the room's Origin, in the form of the `POST /q` case) → 201, and the card text kept as that literal text.
+  - The phone page: `#card` (a `textarea maxlength="80"`, "Add a card", the line "Your card is on the board. You can add more.", and `f'You sent {sent} cards.'`), shown when `now.board` is set. `phone.js` posts it with `fetch` and clears the box on 201. On a timeline, the phone uses the `#order` part of Task 10 with the captions only (no pictures).
+  - The relay in the talk block: `POST /t/{tid}/board` `open` and `close` call `room.board(slide, prompt)` and `room.close_board()` when a room is open. `GET /t/{tid}/room/state` calls `room.take_cards()` while the slide now is a board, adds each card to the run's board (`by='room'`, the next card id, `group=None`), saves with `log_board`, and returns `board` (the `board` message, or None on another slide). The presenter sends it on the channel. On a timeline, `ask` `reveal` calls `room.close_ask()`, then `order_tally(tally['orders'], answer)`, `log_round(run, slide, 'order', counts, n, swap=swap, places=places)`, `room.reveal(dict(kind='order', rounds=[dict(counts=counts, n=n)], right=answer))`, and returns the `order` message from `timeline_result(slide, places=places)`.
+  - The audience: on a board with the room open, the foot line `f'Add a card on your phone: {host}:{port} · code {code}'` and `f'{len(cards)} cards · {joined} phones'`; on a timeline after R with a spread, one band for each picture (the middle half of the room's places), a line at the middle place and a dot at the right place, a `title` on each band, and the line "Each band is the middle half of the places that the room chose. The line is the middle place. The dot is the right place."
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+# tests/sabha/test_cards.py
+import json
+from abhyasa.sabha import Room, CARD_MOST, CARDS_PER_MIN, CARDS_HELD
+from sabha_data import DECK, Clock, client
+
+def test_cards_from_phones():
+    clock = Clock(); room = Room(DECK, '127.0.0.1', clock=clock); cl, o = client(room); cl.post('/join', data=dict(code=room.code))
+    assert (CARD_MOST, CARDS_PER_MIN, CARDS_HELD) == (80, 6, 300)
+    assert cl.post('/c', data=dict(text='Fast')).status_code == 409                       # no board is open
+    room.board('s1', 'What does softmax give?')
+    assert room.now()['board'] == dict(prompt='What does softmax give?', sent=0)
+    assert cl.post('/c', data=dict(text='  <b>Weights</b>\x00 \n that add to 1 ')).status_code == 201
+    assert cl.post('/c', data=dict(text=' \x07 ')).status_code == 400
+    assert [c['text'] for c in room.take_cards()] == ['<b>Weights</b> that add to 1'] and room.take_cards() == []
+    for i in range(5): assert cl.post('/c', data=dict(text=f'card {i}')).status_code == 201
+    assert cl.post('/c', data=dict(text='seventh')).status_code == 429                    # 6 a minute for each phone
+    clock.t += 61
+    assert cl.post('/c', data=dict(text='x' * 200)).status_code == 201 and len(room.take_cards()[-1]['text']) == CARD_MOST
+    room.close_board()
+    assert room.now()['board'] is None and cl.post('/c', data=dict(text='late')).status_code == 409
+    log = room.close()
+    assert log.cards == 7 and 'sabha=' not in json.dumps(log)
+
+def test_order_tally_has_each_order():
+    room = Room(DECK, '127.0.0.1'); room.show('s1')
+    room.ask(dict(kind='order', q='Put the ideas in the order they came', options=['The Transformer', 'Sequence to sequence with RNNs', 'BERT: pre-train, then fine-tune', 'Attention to align and translate']))
+    for i, o in enumerate([[1, 3, 0, 2]] * 3 + [[3, 1, 0, 2], [1, 3, 2, 0]]): room.answer(room.join(room.code, f'10.0.0.{i + 2}'), o)
+    t = room.close_ask()
+    assert (t['kind'], t['n'], sorted(map(tuple, (tuple(o) + (c,) for o, c in t['orders'])))) == ('order', 5, [(1, 3, 0, 2, 3), (1, 3, 2, 0, 1), (3, 1, 0, 2, 1)])
+    assert 'answer' not in json.dumps(room.now())
+```
+
+```python
+# tests/sabha/test_hostile.py: before the loop, open a board; after it, check the card text
+room.board('s1', 'What does softmax give?')
+...
+assert room.take_cards()[-1]['text'] == '<img src=x onerror=alert(1)>'
+```
+
+```python
+# tests/sabha/test_phone.py: add to test_join_page_and_phone_page
+assert 'id="card"' in p and 'Add a card' in p and not INLINE.search(p)
+```
+
+```python
+# tests/blocks/test_talk_room.py
+def test_board_cards_from_phones(mk, talk_fake, lr, room_on_loopback):
+    cl = mk(); tid, run = board_talk(cl, lr); n0 = len(lr.attempts(limit=1000))
+    j = cl.post(f'/t/{tid}/room/open', data=dict(ip='127.0.0.1')).json(); base = j['url'].split('/j/')[0]
+    try:
+        a, b = phone(base, j['code']), phone(base, j['code'])
+        cl.post(f'/t/{tid}/at', data=dict(slide='s6', beat=1))
+        assert a.post('/c', data=dict(text='Too early')).status_code == 409
+        assert cl.post(f'/t/{tid}/board', data=dict(slide='s6', act='open')).json()['open'] is True
+        assert a.post('/c', data=dict(text='Trains on GPUs in parallel')).status_code == 201
+        assert b.post('/c', data=dict(text='<img src=x onerror=alert(1)>')).status_code == 201
+        st = cl.get(f'/t/{tid}/room/state').json()
+        assert [(c['id'], c['text'], c['by']) for c in st['board']['cards']] == [
+            ('c1', BOARD_SEED[0], 'seed'), ('c2', 'Trains on GPUs in parallel', 'room'), ('c3', '<img src=x onerror=alert(1)>', 'room')]
+        assert cl.get(f'/t/{tid}/room/state').json()['board']['cards'] == st['board']['cards']   # a second poll adds no card twice
+        p = cl.get(f'/t/{tid}/present').text
+        assert '&lt;img src=x onerror=alert(1)&gt;' in p and '<img src=x' not in p
+        cl.post(f'/t/{tid}/board', data=dict(slide='s6', act='close'))
+        assert a.post('/c', data=dict(text='Late')).status_code == 409
+        assert [c['by'] for c in lr.run(run['id'])['boards']['s6']['cards']] == ['seed', 'room', 'room'] and len(lr.attempts(limit=1000)) == n0
+    finally: cl.post(f'/t/{tid}/room/close')
+
+def test_timeline_order_from_phones(mk, talk_fake, lr, room_on_loopback):
+    cl = mk(); tid, run = board_talk(cl, lr); n0 = len(lr.attempts(limit=1000))
+    ans = lr.talk(tid).slides[4]['ask']['answer']
+    j = cl.post(f'/t/{tid}/room/open', data=dict(ip='127.0.0.1')).json(); base = j['url'].split('/j/')[0]
+    try:
+        phones = [phone(base, j['code']) for _ in range(5)]
+        cl.post(f'/t/{tid}/at', data=dict(slide='s7', beat=1)); cl.post(f'/t/{tid}/ask', data=dict(slide='s7', act='open'))
+        w1, w2 = [ans[1], ans[0]] + ans[2:], ans[:2] + [ans[3], ans[2]]
+        for ph, o in zip(phones, [ans, ans, ans, w1, w2]): assert ph.post('/a', data=dict(order=','.join(map(str, o)))).status_code == 204
+        res = cl.post(f'/t/{tid}/ask', data=dict(slide='s7', act='reveal')).json()
+        assert (res['t'], res['order'], res['right'], res['off']) == ('order', ans, ans, []) and [res['spread'][i]['mid'] for i in ans] == [0, 1, 2, 3]
+        r = lr.run(run['id'])['asks']['s7']['rounds'][0]
+        assert (r['counts'], r['n'], r['swap']) == ([3, 2], 5, min(sorted(ans[:2]), sorted(ans[2:]))) and len(r['places']) == 4
+        assert len(lr.attempts(limit=1000)) == n0
+    finally: cl.post(f'/t/{tid}/room/close')
+```
+
+The phone posts an order to `POST /a` as `order` (the option indexes joined by commas), in the form that Task 9 uses. When Task 9 used another field name, use that name here and in `phone.js`.
+
+- [ ] **Step 2: Run the tests to see them fail**
+
+Run: `uv run pytest tests/sabha tests/blocks/test_talk_room.py -q`
+Expected: FAIL with `ImportError: cannot import name 'CARD_MOST'`, then 404 on `POST /c`.
+
+- [ ] **Step 3: Implement.**
+  - `room.py`: the board state, the held cards and each token's card times go under the one lock of Task 9. A card id is `k` and a number (the room's own id). The host gives its own `c` ids. `take_cards` moves the held cards out, so the host never adds a card twice.
+  - `server.py`: `/c` is one more fixed route behind the same guard. It reads one form field. It makes no file path from input.
+  - The relay calls only `board`, `close_board`, `take_cards`, and the order calls of Task 11. No control route goes on the room port.
+  - When the Task 11 or Task 12 relay already counts an `order` question on an idea slide, change it to `order_tally` too, so both kinds count in one way.
+
+- [ ] **Step 4: Run the tests to see them pass**
+
+Run: `uv run pytest tests/sabha tests/blocks/test_talk_room.py tests/blocks/test_talk_board.py tests/test_js_syntax.py -q && uv run pytest -q`
+Expected: PASS. `test_sabha_imports_no_abhyasa` still passes.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add abhyasa/sabha abhyasa/blocks/talk tests/sabha tests/blocks/test_talk_room.py
+git commit -m "Let phones add cards to a board and put a timeline in order, with limits and hostile tests"
+```
+
+---
+
+### Task 17: Docs for board and timeline slides, a look in a real browser, and screens
+
+**Files:**
+- Modify: `tools/talk_look.py` (a `board` part with no phones and a `board-room` part with phones, run with `--only board` and `--only board-room`), `nbs/index.ipynb` (a short sub-section "Boards and timelines" in "Teach a topic to a group"), `README.md` (from `nbdev-prepare`), `CHANGELOG.md`, `docs/design-layers.md` (the board and the timeline in the list of views), `docs/superpowers/specs/2026-10-29-group-talk-design.md` (section 3: take out the non-goal on the board and timeline kinds; 7.2: the board and timeline fields; 9.2: the three new rows; 11: `BOARD_KEYS`; 14.3: `POST /c` and the card limits; 17: the new contracts; 19: Option C is done as slide kinds)
+- Screens: `design/screens/talk-board.png`, `talk-board-overlay.png`, `talk-board-dark.png`, `talk-timeline.png`, `talk-timeline-reveal.png`, `talk-phone-card.png`
+
+**Interfaces:**
+- Consumes: everything in Tasks 14 to 16, and the helpers of `tools/talk_look.py` from Tasks 8 and 13.
+- Produces: docs, two parts of the script and six screens.
+
+- [ ] **Step 1: Write the failing check.** The `board` part of `tools/talk_look.py` makes the prepared walk, a talk, a board after `s3` and a timeline after the board (as `board_talk`, through the app with `Fake` and `BOARD_RULES`), then asserts, at 1280 by 800 for the presenter and 1280 by 720 for the audience:
+  - the editor shows the board and the timeline rows, with the tutor's cards in the board row;
+  - G 4 goes to the board; Q opens it; ⇧A puts the focus in `#card-box`; typing "Trains on GPUs in parallel" and Enter adds a card in the inbox of both windows within 1 s; Esc leaves the box;
+  - S moves the focus to the next card, and the audience rings the same card; 2 puts it in "Long range" in both windows; ⇧X takes it out of both;
+  - no tutor card text is in the audience DOM before R; R shows "✓", "✗ Not right" and the dashed ghosts with "The tutor adds" in both windows; R again hides them;
+  - the board has no horizontal scroll in either window (`scrollWidth <= innerWidth`), and the card text is at least 22 px in the audience;
+  - ⌥S goes to the timeline; the audience shows four pictures in the shown order, one with the vault figure, and no date; E puts the focus in the order control; S in the control moves a row, and the audience pictures change order within 1 s; Esc leaves the control;
+  - R shows the right place and the date under each picture in the audience;
+  - from the presenter page, a `board` message with a card of 81 characters and an `overlay` message with an extra `ref` key change nothing in the audience;
+  - ⌥S on the last slide ends the talk; "After the talk" shows "What the room missed" and "The room put"; the Learning of the app has the same number of attempts as before the talk.
+
+  The `board-room` part patches `abhyasa.sabha.addresses` to `127.0.0.1`, opens the room, and asserts:
+  - a phone context at 390 by 844 joins; on the board, the phone shows "Add a card"; a card `<b>Fast</b>` shows in the inbox of the presenter and the audience as that literal text (no `b` element), within 2 s;
+  - the audience foot line shows the join address and `1 cards · 1 phones` (or the plural form that the builder writes in STE);
+  - on the timeline, the phone shows the order part with up and down buttons; after an order and R, the audience shows one band for each picture, and the phone shows the result with "✓ Right";
+  - the phone page has no console message about the Content Security Policy.
+
+- [ ] **Step 2: Run it to see it fail**
+
+Run: `uv run --all-extras python tools/talk_look.py --only board && uv run --all-extras python tools/talk_look.py --only board-room`
+Expected: PASS when Tasks 14 to 16 are right. A FAIL names the element, the key or the message; fix it in `blocks/talk`, `core/stage.*` or `sabha` before Step 3.
+
+- [ ] **Step 3: Write the docs** in STE grade 9: what a board slide is and how to add one; the tutor's cards, and that the room sees them only after R; how to group cards with the keys; what a timeline slide is, and how to give the items in the right order (the talk mixes them); how the room adds cards and orders on phones; the limits on cards; that cards and orders from the room do not change your own learning. Run `uv run nbdev-prepare` and look for stale references in `index.ipynb` (for example "This slide kind shows in a later version" in the text about board slides).
+
+- [ ] **Step 4: Run everything**
+
+Run: `uv run nbdev-prepare && uv run pytest -q && uv run --all-extras python tools/talk_look.py --shots`
+Expected: PASS; six new screens in `design/screens/`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tools/talk_look.py nbs/index.ipynb README.md CHANGELOG.md docs/design-layers.md docs/superpowers/specs/2026-10-29-group-talk-design.md design/screens/talk-*.png
+git commit -m "Document board and timeline slides, and add a browser check and screens of both"
+```
+
+---
+
+## Conflicts with Options A and B (for the controller)
+
+1. **Three new stage types under `v: 1`** (`board`, `overlay`, `order`). Spec 17.5 says a new type needs `v: 2` or an owner call (that text is about Leela's `out`). The change only adds types; abhyasa sends and takes both ends; an old receiver drops a type that it does not know. Ask the owner to accept the additive change under `v: 1`, and give the same rule to Leela's `out`.
+2. **Task 2's `log_main(run, slide, kind, main:int)`** takes a list for a timeline. `weak` gives `top_wrong=None` for a list `main`.
+3. **Task 9's order tally cannot count right and wrong.** The room gets only the public ask, so it has no answer. Task 16 makes `close_ask()` give `orders` for `order`, and the host counts with `order_tally`. When Task 9 is not built yet, write Task 9 that way from the start. Also, the plan does not name the field of an order answer on `POST /a`. Task 16 takes `order` (indexes joined by commas).
+4. **Spec section 3** (no task draws `board` or `timeline`), **7.2** (the note) and **19** ("after the modality views ship") are out of date with this ruling. The board here is the talk block's own columns, not the rupaka `canvas` renderer, and it has no links. Task 17 updates the spec.
+5. **The phones cannot use the rupaka ranklist.** The phone page loads only `phone.js` (the CSP and the fixed static table of Task 9), so "reuse the order-check ranklist" means the `order` part of Task 10 on phones. The ranklist is the order control in the presenter window only. rupaka's `validate` refuses a spec with no gate, but `Rupaka.mount` does not check, so the control has no gate.
+6. **Task 2's public deck** test asserts the 7 keys for each slide of a walk talk. Board and timeline slides get one more key. The test still passes because a walk talk has neither kind.
+7. **Keys:** 1–6 on a board group a card (a board has no question, so the hand picks never apply there). S joins the "Talk" group. The plain letter set of `test_stage_keys_are_left_hand` stays the same.
+
+## Leela handoff, C
+
+Leela uses the board and timeline slides with no copy of abhyasa's code. The contracts: the slide shapes (`board` with `prompt`, `groups`, `cards` and the private `ref`; `timeline` with `items` and an `order` question), their `check_talk` texts and `TALK_CASES`, the extra public deck keys (`board`, `items`, never `ref` or `date`), `board_ref`, `match_board`, `word_pairs`, `board_overlay`, `order_tally`, `order_spread`, `timeline_result`, `log_board` and the `boards` and `orders` parts of `recap` (all in `abhyasa.talk`); the stage messages `board`, `overlay` and `order` and `BOARD_KEYS` (in `core/stage.py` and `stage.js`); and the room calls `room.board`, `room.close_board`, `room.take_cards`, `POST /c` and the `orders` tally (in `sabha`). Leela gives its own `ask` to `board_ref` and `match_board`, and its own image scheme (`ws:`) for timeline pictures. A Leela talk about code can put a board after a `code` slide with the prompt "What could break here?" and the groups "Input", "State" and "Not sure yet". A timeline can order the steps of a pipeline or the commits of a change. When rupaka ships the `canvas` bundle, the board drawing can move there: a card maps to a JSON Canvas text node, a group to a group node, and `by` stays as an extra key. `test_abhyasa_contract.py` adds the new `TALK_CASES` and `STAGE_CASES`.
+
 ## Leela handoff
 
 Leela builds its own talk mode on these contracts, with no copy of abhyasa's code. The spec (section 17) has each contract in full.
