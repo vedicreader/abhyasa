@@ -146,6 +146,36 @@ def _gates(bs):
         if b.get('type') == 'gate': yield b
         yield from _gates(b.get('blocks'))
 
+def _num(v:float, d:int|None=None) -> str:
+    "The number `v` as rupaka's `show` writes it: `toFixed(d ?? 4)`, no zeros at the end, and − for a minus."
+    from decimal import Decimal, ROUND_HALF_UP
+    if not math.isfinite(v): return 'NaN' if v != v else ('−' if v < 0 else '') + 'Infinity'
+    x = Decimal(abs(v)).quantize(Decimal(1).scaleb(-(4 if d is None else d)), rounding=ROUND_HALF_UP)
+    if x == 0: return '0'
+    s = format(x.normalize(), 'f')
+    return ('−' if v < 0 else '') + s
+
+def _js(v) -> str:
+    "The value `v` as JavaScript's `String` writes an item of a list."
+    if v is None: return ''
+    if isinstance(v, bool): return 'true' if v else 'false'
+    if isinstance(v, float) and v.is_integer(): return str(int(v))
+    if isinstance(v, list): return ','.join(_js(x) for x in v)
+    return str(v)
+
+def _show(v, d:int|None=None) -> str:
+    "The value `v` as text, as rupaka's `show` writes it."
+    if v is None: return ''
+    if isinstance(v, bool): return 'true' if v else 'false'
+    if isinstance(v, (int, float)): return _num(v, d)
+    if isinstance(v, list): return ', '.join(_js(x) for x in v)
+    return str(v)
+
+def _fmt(s:str, state:dict) -> str:
+    "The text `s` with each `{path}` or `{path:d}` filled from `state`, as rupaka's `fmt` does; a path with no value stays as it is."
+    def one(m): v = _at(state, m[1]); return m[0] if v is _NONE else _show(v, None if m[2] is None else int(m[2]))
+    return re.sub(r'\{([\w.]+)(?::(\d))?\}', one, str(s or ''))
+
 # %% ../nbs/17_talk.ipynb #c6ce57ff
 def ask_from_gate(spec:dict, gate:str) -> dict|None:
     "A choice question from the gate `gate` of `spec`, with the index of the right option; None when the gate can not be a room question."
@@ -156,7 +186,7 @@ def ask_from_gate(spec:dict, gate:str) -> dict|None:
     ans = g.get('answer')
     ans = ans['is'] if isinstance(ans, dict) and 'is' in ans else _at(state, ans) if isinstance(ans, str) else _NONE
     if not isinstance(opts, list) or not 2 <= len(opts) <= 6 or ans is _NONE or ans not in opts: return None
-    q = re.sub(r'\{(\w+)\}', lambda m: str(state[m[1]]) if m[1] in state else m[0], g.get('prompt') or '')
+    q = _fmt(g.get('prompt'), state)
     return dict(kind='choice', q=q, options=list(opts), answer=opts.index(ans)) if q else None
 
 # %% ../nbs/17_talk.ipynb #9b23a412
