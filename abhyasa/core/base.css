@@ -174,6 +174,8 @@ a { transition: color .14s ease-out, text-decoration-color .14s ease-out; }
 [data-theme=signal] { --r: 2px; --r-s: 2px; --lift: 0 0 0 1px var(--line); }
 [data-theme=signal] :is(h1, nav .brand) { font-weight: 600; letter-spacing: 0; }
 [data-theme=signal] :is(h2, label, .lbl) { font-family: var(--head); font-size: var(--t-small); letter-spacing: 0; text-transform: none; }
+/* the mono is for labels only: a "why" line, also inside a label, reads in the text font */
+[data-theme=signal] .why, [data-theme=signal] :is(h2, label, .lbl) .why { font-family: var(--serif); }
 [data-theme=signal] body > nav { border-bottom: 3px solid var(--acc); }
 [data-theme=signal] :is(button, .btn) { border-radius: 2px; }
 [data-theme=signal] .md pre { border-left: 3px solid var(--acc); }

@@ -139,3 +139,9 @@ def test_week_bars_stand_out_in_dark():
     css = (ROOT/'blocks/history/history.css').read_text()
     bar = re.search(r'\.week \.col i \{[^}]*\}', css).group(0)
     assert 'light-dark(' in bar and 'var(--acc)' in bar
+
+# F16: Signal keeps the mono for labels only
+
+def test_signal_why_text_is_not_mono():
+    css = (ROOT/'core/base.css').read_text()
+    assert re.search(r'\[data-theme=signal\] \.why[^{]*\{[^}]*font-family: var\(--serif\)', css)
