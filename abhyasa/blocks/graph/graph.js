@@ -10,7 +10,7 @@
   const STATIC = new Set(['path', 'rings']), DAY = 86400;
   const g = await (await fetch(root.dataset.url)).json();
   note.remove();
-  if (!g.nodes.length) { stage.append(Object.assign(document.createElement('p'), {className: 'hint note', textContent: 'No concepts yet.'})); return; }
+  if (!g.nodes.length) { stage.append(Object.assign(document.createElement('p'), {className: 'hint note', textContent: 'Each idea that you learn shows here. Start with a walk.'})); return; }
 
   // ---- the levers and what is saved -------------------------------------------------------------------------------
   const DEF = {mode: 'force', spacing: 50, link: 50, push: 50, size: 50, sizeBy: 'seen', colorBy: 'floor', labels: 'all',
@@ -39,7 +39,7 @@
   const probe = root.appendChild(document.createElement('i'));
   const v = name => { probe.style.color = `var(${name})`; return getComputedStyle(probe).color; };
   const themed = () => {
-    C = {bg: v('--bg'), fg: v('--fg'), mute: v('--mute'), rule: v('--rule'), line: v('--line'), acc: v('--acc'), no: v('--no'), ok: v('--ok'),
+    C = {bg: v('--bg'), fg: v('--fg'), ink2: v('--ink2'), mute: v('--mute'), sunken: v('--sunken'), rule: v('--rule'), line: v('--line'), acc: v('--acc'), no: v('--no'), ok: v('--ok'),
          subs: [1, 2, 3, 4, 5, 6].map(i => v(`--g${i}`)), serif: getComputedStyle(root).getPropertyValue('--serif')};
     C.dark = d3.hsl(C.bg).l < .5;   // the theme and the mode are on <html>, so the page bg says which
     C.floor = d3.interpolateRgb(d3.interpolateRgb(C.bg, C.acc)(.4), C.acc);
@@ -49,9 +49,9 @@
   themed();
   const subCol = s => C.subs[subjects.indexOf(s) % C.subs.length];
   const fill = n => S.colorBy === 'subject' ? subCol(n.subject)
-    : S.colorBy === 'understanding' ? (C.state[n.state] || C.bg)
-    : S.colorBy === 'due' ? (n.days === null ? C.bg : C.due(Math.min(1, Math.max(0, n.days / 14))))
-    : n.floor ? C.floor((n.floor - 1) / 4) : C.bg;
+    : S.colorBy === 'understanding' ? (C.state[n.state] || C.sunken)
+    : S.colorBy === 'due' ? (n.days === null ? C.sunken : C.due(Math.min(1, Math.max(0, n.days / 14))))
+    : n.floor ? C.floor((n.floor - 1) / 4) : C.sunken;
   const hollow = n => S.colorBy === 'subject' ? false : S.colorBy === 'understanding' ? !C.state[n.state] : S.colorBy === 'due' ? n.days === null : !n.floor;
   const rad = n => sz() * (4.5 + (S.sizeBy === 'seen' ? 1.6 * Math.sqrt(Math.min(n.seen, 16))
     : S.sizeBy === 'due' ? 6 * dueness(n) : S.sizeBy === 'depth' ? 1.6 * Math.min(n.depth || 0, 6) : 1));
@@ -286,9 +286,9 @@
       ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 2 * Math.PI); ctx.fillStyle = fill(n); ctx.fill();
       const due = isDue(n) && S.colorBy !== 'due';
       ctx.lineWidth = (due ? 2.2 : n === picked ? 2.4 : 1) / k;
-      ctx.strokeStyle = n === picked ? C.fg : due ? C.no : hollow(n) ? C.mute : C.bg; ctx.stroke();
+      ctx.strokeStyle = n === picked ? C.fg : due ? C.no : hollow(n) ? C.rule : C.bg; ctx.stroke();
       if (n === picked) { ctx.beginPath(); ctx.arc(n.x, n.y, r + 4 / k, 0, 2 * Math.PI); ctx.strokeStyle = C.acc; ctx.lineWidth = 1.5 / k; ctx.stroke(); }
-      if (pins.has(n.id)) { ctx.beginPath(); ctx.arc(n.x, n.y, Math.min(r * .35, 2.2 / k + r * .1), 0, 2 * Math.PI); ctx.fillStyle = hollow(n) ? C.mute : C.bg; ctx.fill(); }
+      if (pins.has(n.id)) { ctx.beginPath(); ctx.arc(n.x, n.y, Math.min(r * .35, 2.2 / k + r * .1), 0, 2 * Math.PI); ctx.fillStyle = hollow(n) ? C.rule : C.bg; ctx.fill(); }
     }
     ctx.globalAlpha = 1; ctx.restore();
     labels(L);
@@ -309,7 +309,7 @@
   }
   function labels(L) {   // labels at a fixed screen size; a label that would cover another one is left out
     const want = S.labels, k = t.k, cell = 40, grid = new Map(), placed = [];
-    ctx.font = '12px ' + C.serif; ctx.textBaseline = 'middle';
+    ctx.font = '13px ' + C.serif; ctx.textBaseline = 'middle';
     const rank = n => (S.mode === 'path' && n.linked ? 1e4 : 0) + (n === picked ? 1e6 : 0) + (n === hover ? 2e6 : 0) + (hits?.has(n) ? 5e5 : 0) + (L?.has(n) ? 1e5 : 0) + n.floor * 100 + Math.min(n.seen, 50) + n.nb.size * 3;
     const cand = vis.filter(n => n === picked || n === hover || (L ? L.has(n) : want === 'all' || (want === 'learned' && learned(n)) || n === focus))
       .filter(n => want !== 'hover' || L || n === picked || n === focus || n === hover).sort((a, b) => rank(b) - rank(a));
@@ -321,19 +321,19 @@
     const add = b => { for (let i = Math.floor(b[0] / cell); i <= Math.floor(b[2] / cell); i++) for (let j = Math.floor(b[1] / cell); j <= Math.floor(b[3] / cell); j++) { const key = i * 1e5 + j; grid.has(key) ? grid.get(key).push(b) : grid.set(key, [b]); } };
     const heads = words(hit, add);
     vis.forEach(n => { const x = t.applyX(n.x), y = t.applyY(n.y), r = rad(n) * k; add([x - r, y - r, x + r, y + r]); });   // labels do not cover nodes
-    ctx.font = '12px ' + C.serif;
+    ctx.font = '13px ' + C.serif;
     for (const n of cand) {
       const x = t.applyX(n.x), y = t.applyY(n.y), r = rad(n) * k, w = width(n), must = n === hover || n === picked;
       if (x < -200 || y < -20 || x > W + 20 || y > H + 20) continue;
-      let b = [x + r + 4, y - 8, x + r + 4 + w, y + 8];
-      if (!must && hit(...b)) { b = [x - r - 4 - w, y - 8, x - r - 4, y + 8]; if (S.mode === 'path' || hit(...b)) continue; }   // in Path, a label on the left reads as the column before
+      let b = [x + r + 4, y - 9, x + r + 4 + w, y + 9];
+      if (!must && hit(...b)) { b = [x - r - 4 - w, y - 9, x - r - 4, y + 9]; if (S.mode === 'path' || hit(...b)) continue; }   // in Path, a label on the left reads as the column before
       add(b); placed.push([n, b]);
     }
     ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = C.bg;
     for (const [n, b] of placed) {
       const strong = n === picked || n === hover || n === focus || hits?.has(n);
-      ctx.font = (strong ? '600 13px ' : '12px ') + C.serif;
-      ctx.fillStyle = strong || L?.has(n) ? C.fg : C.mute;
+      ctx.font = (strong ? '600 13px ' : '13px ') + C.serif;
+      ctx.fillStyle = strong || L?.has(n) ? C.fg : C.ink2;
       ctx.strokeText(n.name, b[0], (b[1] + b[3]) / 2); ctx.fillText(n.name, b[0], (b[1] + b[3]) / 2);
     }
     heads();
@@ -409,9 +409,9 @@
     const el = panel.querySelector('.legend'), sw = (c, t, ring, w = 1) => { const s = document.createElement('span'), i = document.createElement('i');
       i.style.background = c; if (ring) i.style.boxShadow = `inset 0 0 0 ${w}px ${ring}`; s.append(i, t); return s; };
     el.replaceChildren(...(S.colorBy === 'subject' ? subjects.map(s => sw(subCol(s), s))
-      : S.colorBy === 'understanding' ? [['strong', 'strong'], ['learning', 'learning'], ['fading', 'fading'], ['weak', 'weak'], ['gap', 'a gap you named']].map(([k, t]) => sw(C.state[k], t)).concat([sw(C.bg, 'unseen', C.mute)])
-      : S.colorBy === 'due' ? [sw(C.no, 'due now'), sw(C.due(.5), 'in a week'), sw(C.ok, 'later'), sw(C.bg, 'new', C.mute)]
-      : [sw(C.bg, 'unseen', C.mute), ...[1, 3, 5].map(f => sw(C.floor((f - 1) / 4), DEPTHS[f]))]),
+      : S.colorBy === 'understanding' ? [['strong', 'strong'], ['learning', 'learning'], ['fading', 'fading'], ['weak', 'weak'], ['gap', 'a gap you named']].map(([k, t]) => sw(C.state[k], t)).concat([sw(C.sunken, 'unseen', C.rule)])
+      : S.colorBy === 'due' ? [sw(C.no, 'due now'), sw(C.due(.5), 'in a week'), sw(C.ok, 'later'), sw(C.sunken, 'new', C.rule)]
+      : [sw(C.sunken, 'unseen', C.rule), ...[1, 3, 5].map(f => sw(C.floor((f - 1) / 4), DEPTHS[f]))]),
       ...(S.colorBy !== 'due' ? [sw(C.bg, 'due', C.no, 2)] : []));
   };
   const showFocus = () => {

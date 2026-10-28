@@ -400,29 +400,44 @@ def f9_add_asks_for_one_thing(pg, w):
     assert 'name="text"' in body and 'name="url"' not in body and 'name="ref"' not in body, body[:300]
     assert not pg.is_visible('details.more #vr') and pg.is_visible('details.more summary')
 
+def f10_graph_has_more_graph(pg, w):
+    "Graph: Find, the layout and the legend show; the other levers are in a closed Adjust the view; an unseen node has the sunken fill in the legend."
+    pg.goto(w.B + '/graph'); pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 300)
+    assert pg.is_visible('#levers input[name=q]') and pg.is_visible('#levers .modes') and pg.is_visible('#levers .legend')
+    assert not pg.is_visible('#levers input[name=spacing]') and not pg.is_visible('#levers select[name=colorBy]')
+    assert pg.eval_on_selector('#levers details.adjust', 'd => d.open') is False
+    sunk = pg.evaluate("(() => { const i = document.createElement('i'); i.style.color = 'var(--sunken)'; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; })()")
+    assert pg.eval_on_selector('#levers .legend i', 'i => getComputedStyle(i).backgroundColor') == sunk
+    pg.click('#levers details.adjust > summary')
+    assert pg.is_visible('#levers input[name=spacing]')
+    pg.click('#levers details.adjust > summary')
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
-          f9_add_asks_for_one_thing]
+          f9_add_asks_for_one_thing, f10_graph_has_more_graph]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
-def screens(pg, w, out):
+def screens(pg, w, out, only=None, widths=(1280, 1000), looks=None):
     "Each changed page at 1280 and 1000 px, light and dark, Paper and Signal."
     out.mkdir(parents=True, exist_ok=True)
     w.lr.walk_step(w.jid, 2, check=dict(way='words', kind='short', depth=2, why='plain words fit this idea'))
     pages = dict(today='/', step=w.step(2), code=w.step(1), session=f'/s/{w.sid}', settings='/settings', strengths='/you/strengths',
                  profile='/you', keys='/keys', add='/add', concept='/c/ranking', plan=w.plan, end=f'/w/{w.jid}/0/done',
-                 walkend=walk_to_end(w), pane=f'{w.step(2)}?rh={side_walk(w)}', demo=demo_step(w))   # 19b: the end of a walk, the pane (1000 px: the narrow view), a demo
+                 walkend=walk_to_end(w), pane=f'{w.step(2)}?rh={side_walk(w)}', demo=demo_step(w),   # 19b: the end of a walk, the pane (1000 px: the narrow view), a demo
+                 graph='/graph', learning='/learning', journeys='/journeys', concepts='/concepts', sources='/sources', search='/search?q=rank')   # 19c
+    if only: pages = {k: v for k, v in pages.items() if k in only}
     shots = []
     for theme in ('paper', 'signal'):
         for mode in ('light', 'dark'):
+            if looks and f'{theme}-{mode}' not in looks: continue
             look(w.rq, w.B, theme, mode)
-            for width in (1280, 1000):
+            for width in widths:
                 pg.set_viewport_size(dict(width=width, height=900))
                 for n, u in pages.items():
-                    pg.goto(u if u.startswith('http') else w.B + u); settle(pg, 900 if n in ('step', 'code', 'session', 'pane', 'demo', 'walkend') else 400)
+                    pg.goto(u if u.startswith('http') else w.B + u); settle(pg, 900 if n in ('step', 'code', 'session', 'pane', 'demo', 'walkend', 'graph') else 400)
                     if n == 'demo': pg.wait_for_selector('#passage .mv', timeout=30000); pg.hover('#passage .mv >> nth=0')
                     p = out/f'polish-{n}-{theme}-{mode}-{width}.png'; pg.screenshot(path=str(p), full_page=True); shots.append(p.name)
     look(w.rq, w.B, 'paper', 'auto')
@@ -433,6 +448,8 @@ def main():
     ap.add_argument('--shots', action='store_true', help='also take the screens')
     ap.add_argument('--out', default=str(ROOT/'design/screens'))
     ap.add_argument('--only', nargs='*', default=None, help='run only the checks with these names')
+    ap.add_argument('--pages', nargs='*', default=None, help='take only the screens of these pages')
+    ap.add_argument('--looks', nargs='*', default=None, help='take only these looks, for example paper-light')
     a = ap.parse_args()
     from playwright.sync_api import sync_playwright
     lr, app = seed()
@@ -449,7 +466,7 @@ def main():
                 for c in [c for c in CHECKS if a.only is None or c.__name__ in a.only]:
                     try: c(pg, w); print('PASS', c.__name__, flush=True)
                     except Exception as e: bad += 1; print('FAIL', c.__name__, '-', str(e)[:300], flush=True)
-                if a.shots: print(len(screens(pg, w, Path(a.out))), 'screens in', a.out)
+                if a.shots: print(len(screens(pg, w, Path(a.out), a.pages, looks=a.looks)), 'screens in', a.out)
             finally: b.close()
     finally: srv.should_exit = True
     sys.exit(1 if bad else 0)

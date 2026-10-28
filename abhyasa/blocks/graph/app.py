@@ -4,7 +4,7 @@ from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, hook, asset_js, asset_css
 from abhyasa.model import understanding
 from .cfg import Routes
-from .ui import Stage
+from .ui import Stage, Empty_
 
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning',)
@@ -15,6 +15,7 @@ def connect(app, ctx):
 
     def page(subject:str='', focus:str=''):
         subs = [r['subject'] for r in lr.subjects() if r['subject']]
+        if not lr.concepts(): return Page('Graph', Empty_(), on='Graph', wide=True, extra=(asset_css(_P/'graph.css'),))
         return Page('Graph', Stage(Routes.data, subs, subject, focus),
                     Script(src='/vendor/d3.min.js'), asset_js(_P/'graph.js', defer=True),
                     on='Graph', wide=True, extra=(asset_css(_P/'graph.css'),))

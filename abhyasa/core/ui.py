@@ -262,9 +262,9 @@ def Check(head, q=None, *thread, foot='', thread_id=None, shut=False, cls='', **
     th = Ol(*thread, cls='thread', id=thread_id) if thread or thread_id else ''
     return Section(head, q if q is not None else '', th, foot, cls=' '.join(x for x in ('check', 'shut' if shut else '', cls) if x), **kw)
 
-def Empty(text, action=None):
+def Empty(text, action=None, cls=''):
     "The one empty state: a muted line and at most one link. Never a box."
-    return P(text, *((' ', action) if action is not None else ()), cls='mute empty')
+    return P(text, *((' ', action) if action is not None else ()), cls=f'mute empty {cls}'.strip())
 
 def Part(label, *c, more=None, more_label='More', **kw):
     "A section of a page: the small H2 label, the content, and an optional closed `More` part in one style."

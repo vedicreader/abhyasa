@@ -33,3 +33,35 @@ def test_add_finds_concepts_from_the_text(mk):
     assert re.search(r'<button[^>]*hx-post="/add"[^>]*>Find concepts only', h) or re.search(r'hx-post="/add"', h[h.index('Find concepts only') - 300:])
     t = mk(['add']).post('/add', data=dict(text='A rank is a position.')).text
     assert '<li>' in t or 'Paste' in t
+
+# F10: the Graph page has fewer controls than graph
+
+def test_graph_keeps_find_layout_and_legend_open(mk):
+    "Find, Layout and the legend are open; Space, Look, Show and Focus are in a closed Adjust the view."
+    h = mk().get('/graph').text
+    adj = re.search(r'<details class="adjust"><summary>Adjust the view</summary>(.*?)</details>', h, re.S)
+    assert adj, 'no Adjust the view'
+    inner = adj.group(1)
+    for k in ('name="spacing"', 'name="sizeBy"', 'name="colorBy"', 'name="dueOnly"', 'name="steps"', 'name="levers"'): assert k in inner, k
+    out = h.replace(adj.group(0), '')
+    for k in ('name="q"', 'name="mode"', 'class="legend"'): assert k in out, k
+    assert '<details class="adjust" open' not in h
+
+def test_graph_unseen_nodes_and_labels(mk):
+    "Unseen nodes are filled with --sunken and ringed with --rule; labels are 13 px in --ink2."
+    js = src('blocks/graph/graph.js')
+    assert "sunken: v('--sunken')" in js and "ink2: v('--ink2')" in js
+    assert "n.floor ? C.floor((n.floor - 1) / 4) : C.sunken;" in js and 'hollow(n) ? C.rule' in js
+    assert "'13px ' + C.serif" in js and "'12px ' + C.serif" not in js and 'C.ink2' in js
+
+def test_empty_graph_says_what_shows_here():
+    "A graph with no concepts: one line in the middle and a link to Add, and no levers."
+    from abhyasa.store import temp_learning
+    from abhyasa.app import mk_app
+    from starlette.testclient import TestClient
+    from abhyasa.llm import Fake
+    cl = TestClient(mk_app(temp_learning(), Fake({}), hosts=('testserver',)))
+    h = cl.get('/graph').text
+    assert 'Each idea that you learn shows here. Start with a walk.' in h and 'href="/add"' in h and 'id="levers"' not in h
+    assert 'class="mute empty graph-empty"' in h
+    assert "'Each idea that you learn shows here. Start with a walk.'" in src('blocks/graph/graph.js')   # a subject with no concepts
