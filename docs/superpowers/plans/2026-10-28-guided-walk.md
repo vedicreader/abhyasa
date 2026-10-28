@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make a paper, a pasted text, a topic or a link (a paper, a docs site, a GitHub repo) into a walk: one idea at a time in reading order, each with its passage, figure, a short tutor note and one check (short answer, predict-first demo, or a code task run in the browser), all logged and reviewed as today. When a step needs an idea the learner does not have, the learner learns it beside the step in a side pane (a rabbit hole) and comes back to the same place. A walk on a Python library has code checks that run with that library; a walk on a command-line tool has short-answer and order checks. A trial on real material measures the result.
+**Goal:** Make a paper, a pasted text, a topic or a link (a paper, a docs site, a GitHub repo) into a walk: one idea at a time in reading order, each with its passage, figure, a short tutor note and one check (short answer, predict-first demo, or a code task run in the browser), all logged and reviewed as today. When a step needs an idea the learner does not have, the learner learns it beside the step in a side pane (a rabbit hole) and comes back to the same place. A walk on a library or a command-line tool (a tool walk) has short-answer and order checks here, and its code steps link to Leela, where code with the library runs. A trial on real material measures the result.
 
-**Architecture:** The engine change comes first and is useful alone: `extract` keeps placement and modality fields, `method.py` gets the new ways, `allowed=` and `check_for`, and a walk is a journey whose steps carry `read` and `check`. A new engine module `walk.py` runs a step (note, short answer, code task, isolated run). A new hand-written block `blocks/walk` shows the plan and the steps and talks to other blocks only through hooks and links. Rabbit holes add engine functions in `journey.py` (`needs`, `pick_way_down`, `detour`, `back_from`), a split-pane host in `core/` (a page of the app in an `iframe`, its place kept in `?rh=`), and a block `blocks/detour` that adds to the step page only through hooks. A link is filed in the vault with vishalakshi's readers and made into one walk across the filed pages (`journey_from_sources`). A library walk gets a cached `uv` environment, made outside the closed process; the learner code then runs with that environment's Python and still has no network.
+**Architecture:** The engine change comes first and is useful alone: `extract` keeps placement and modality fields, `method.py` gets the new ways, `allowed=` and `check_for`, and a walk is a journey whose steps carry `read` and `check`. A new engine module `walk.py` runs a step (note, short answer, code task, isolated run). A new hand-written block `blocks/walk` shows the plan and the steps and talks to other blocks only through hooks and links. Rabbit holes add engine functions in `journey.py` (`needs`, `pick_way_down`, `detour`, `back_from`), a split-pane host in `core/` (a page of the app in an `iframe`, its place kept in `?rh=`), and a block `blocks/detour` that adds to the step page only through hooks. A link is filed in the vault with vishalakshi's readers and made into one walk across the filed pages (`journey_from_sources`). abhyasa keeps a small code footprint: it runs only short stdlib exercises. For code with a library or a tool, a step links to Leela (`/learn?walk=…&step=…`), found through the address file that a running Leela writes; Leela reads the walk from the shared learning store.
 
 **Tech Stack:** Python 3.12+, nbdev 3 on hatchling (engine notebooks in `nbs/`), FastHTML + htmx (blocks), vishalakshi vault, rupaka demos, `abhyasa.llm.Fake` for tests, pytest, Playwright bundled Chromium for the one browser check.
 
@@ -20,12 +20,13 @@
 - Notebooks read as documents: an intro, short sections, a one-line lead before each code cell, small tests with a line on what each checks.
 - Tests use `temp_learning()` and `abhyasa.llm.Fake`. Never open `~/.vishalakshi/vault.db` or `~/.config/abhyasa`.
 - Browser checks: Playwright `p.chromium.launch(headless=True)`, no `executable_path`, one browser at a time, closed in a `finally`.
-- New prompt text is registered with `prompts.register`: `extract`, `walk.note`, `walk.tool` (Task 14), and `way.demo`, `way.order`, `way.playground`, `way.board`, `way.timeline` (by the loop in `method.py`).
+- New prompt text is registered with `prompts.register`: `extract`, `walk.note`, and `way.demo`, `way.order`, `way.playground`, `way.board`, `way.timeline` (by the loop in `method.py`).
 - `TEXT_WAYS = ('code', 'maths', 'analogy', 'example', 'diagram', 'words')`; `WALK_WAYS = TEXT_WAYS + ('demo', 'order')`.
 - Check kinds: `short`, `demo`, `order`, `code`. Depths: short 2 (floor < 2) else 3; code 4; demo and order 2, or 3 with a why.
 - Learner code: `run_isolated(..., total=10., sandbox=True)`; 2 s per test; `python -I -B`; kill at 12 s; `RLIMIT_CPU` 11 s; `RLIMIT_FSIZE` 10 MB; no network. On macOS, also `/usr/bin/sandbox-exec` (when it exists) with a profile that denies the network and file writes outside the temp dir. Docs say "a closed process with no network"; never "a security sandbox".
-- Tool environment: a library walk runs learner code with `run_isolated(..., python=<env python>, total=20.)`, with every limit above. The environment is made once by `tool_env` with `uv venv` and `uv pip install --only-binary :all:`, outside the closed process, from at most 5 package names that match `PKG_RE`, passed as separate arguments with no shell. Tests never install a package: they use a venv made with `python -m venv --without-pip` and a small module written into it.
-- Fetching: the app uses the network only when the learner asks, outside the closed process: a link (Task 13: only the URL given and pages in its folder, at most `pages`, never more than `LINK_MAX = 20`) and a library environment (Task 14). Tests never fetch: they pass a fake `read` to `file_link`, or patch the `Vault` reader methods with `monkeypatch`.
+- abhyasa installs no libraries for learners and runs only stdlib exercises: learner code runs with the app's own Python, and an exercise uses only the standard library. Code with a library, tool environments, code lookup and the agent tutor are Leela's (owner's decision, 28 Oct). abhyasa only links to Leela (Task 14).
+- Leela: abhyasa never calls Leela. It reads Leela's address file (`$XDG_CONFIG_HOME/leela/serving.json`) and makes a link to a loopback `http` URL only. With no live Leela, it shows a muted line and the install link, never a broken link. Tests never read the owner's real address file (the `no_leela` fixture, Task 14).
+- Fetching: the app uses the network only when the learner asks, outside the closed process: a link (Task 13: only the URL given and pages in its folder, at most `pages`, never more than `LINK_MAX = 20`). Tests never fetch: they pass a fake `read` to `file_link`, or patch the `Vault` reader methods with `monkeypatch`.
 - `MAX_TRIES` stays 3. A syntax error uses no try.
 - A passage is at most 600 chars and shows only when found word for word. A tutor note is 2 or 3 sentences, at most 60 words.
 - Figures only from `lr.vault.assets()`, suffix in `.png .jpg .jpeg .gif .webp`.
@@ -42,6 +43,7 @@
 5. **A demo that the model cannot make, or that takes long**: the step does not stay on "making a demo"; it falls back to a short answer, and "Next idea" works all the time. Test: `demo_failure_falls_back_to_short_answer` in Task 6.
 6. **A pane URL that points off the app** (`?rh=https://…`, `//host`, `/\host`, `javascript:…`, or a pane message from another origin): no pane, no `iframe`, and `rh` does not change. Tests: `test_pane_url_is_local_only` in Task 11, `test_needs_line_and_side_walk_beside` in Task 12, and the off-app checks in `tools/walk_look.py` (Task 16).
 7. **A crawl that pulls unrelated pages** (a docs site that links to its blog, its API pages, another product or another host): the crawl is told the folder of the URL and the page cap, and the walk has steps only from pages in that folder, at most the cap. Test: `crawl_stays_under_the_link` in Task 13.
+8. **A stale or strange Leela address file** (the Leela that wrote it has stopped, or its URL is not on this computer): no link to `/learn`; the line says "Open this in Leela for code and tools" with the install link. Test: `test_leela_link_is_local_and_live` in Task 14.
 
 ---
 
@@ -1181,150 +1183,174 @@ git commit -m "Make a walk from a link: file a paper, a docs site or a repo, the
 
 ---
 
-### Task 14: Tool walks: code checks with a Python library, and a command-line tool with no code
+### Task 14: Open in Leela: a link for code and tools
 
-Spec 6.12 and 6.7.
+Spec 6.12, and the owner's decision of 28 Oct: "abhyasa can just have minimal code footprint and we can have a link to open leela for full fledged in depth learning." abhyasa keeps the small stdlib code check of Tasks 7-8. Code with a library, tool environments, code lookup and the agent tutor are in Leela (`abhyasa-designs/leela-reuse.md`, section 6). This task adds only the link, the `kind='tool'` marker and the rule that a tool walk gets no code check in abhyasa.
+
+Facts from the Leela repo (read only): `serve_ide` writes `~/.config/leela/serving.json` (`$XDG_CONFIG_HOME/leela/serving.json`) with `host`, `port`, `pid` and `url` while it answers, and removes it when it stops (`leela/core/projects.py`, `now_serving`, `served`). Leela's default port is 5010, but Leela.app takes the first free port in 5010-5019, so the file, not a fixed port, gives the address. Leela.app registers no URL scheme (it answers only the `odoc` Apple Event), so this task makes no `leela://` link. Leela has no `/learn` route yet; Leela builds it to the contract below.
 
 **Files:**
-- Modify: `nbs/06_check.ipynb` (`PKG_RE`, `MAX_PKGS`, `check_packages`, `env_key`, `env_root`, `env_python`, `tool_env`; `run_isolated(..., python=None)`; `_guard` lets an `AF_UNIX` socket through; this extends Task 7)
-- Modify: `nbs/08_nb.ipynb` (`new_exercise(ask, c, extra='')`)
-- Modify: `nbs/15_walk.ipynb` (section "A library walk": `OFFLINE`, `TOOL_SP`, `tool_note`; `code_task(..., packages=())`; `run_code` uses the question's `python` and `total`)
-- Modify: `nbs/11_journey.ipynb` (`CLI_WAYS`; `_check(lr, c, tool='')`; the makers pass `tool`)
-- Modify: `abhyasa/blocks/walk/{app.py, ui.py}` (`/walk/new` takes `tool` and `packages`; the environment job; the pending code card; the plan refuses `code` on a cli walk)
-- Modify: `abhyasa/blocks/add/app.py` ("What is it?" and "Package names" in the walk form)
-- Modify: `tests/walk_data.py` (`toy_env`)
-- Test: `tests/test_check.py`, `tests/blocks/test_walk.py`
-- Generated: `abhyasa/check.py`, `abhyasa/nb.py`, `abhyasa/walk.py`, `abhyasa/journey.py`
+- Modify: `nbs/11_journey.ipynb` (new section "Open in Leela": `LEELA_ROUTE`, `HANDOFF_CASES`, `handoff`, `read_handoff`; `TOOL_WAYS`; `_check(lr, c, kind='')`; the makers take `kind` and set `leela` on a step)
+- Create: `abhyasa/core/leela.py` (`LEELA_INSTALL`, `leela_address`, `leela_base`, `leela_link`, `leela_line`)
+- Modify: `abhyasa/core/cfg.py` (`cfg.leela`)
+- Modify: `abhyasa/blocks/walk/{app.py, ui.py, walk.css}` (`/walk/new` takes `tool`; the Leela line on the plan page of a tool walk, on a step with `leela`, under the code card, and on the concept page through `concept_more`; the plan refuses `code` on a tool walk)
+- Modify: `abhyasa/blocks/add/app.py` (a tick box in the walk form)
+- Modify: `tests/walk_data.py` (`leela_file`), `tests/conftest.py` (an `autouse` fixture `no_leela`)
+- Test: `tests/test_leela.py`, `tests/blocks/test_walk.py`
+- Generated: `abhyasa/journey.py`
 
 **Interfaces:**
-- Consumes: Task 7 `run_isolated`, `_guard`, `new_exercise`, `code_task`, `run_code`; Task 13 `journey_from_sources`; Task 6 the pending card and the short fallback.
+- Consumes: Task 3 `_check`, `_walk`, the makers; Task 13 `journey_from_sources(**extra)`, `_steps`; Task 5 the plan page and the step page; Task 8 `CHECKS['code']`; Task 9 the `concept_more` hook and the walk form on Add.
 - Produces:
-  - `PKG_RE = r'^[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9,._-]+\])?((==|>=|<=|~=|!=|<|>)[A-Za-z0-9.*+!-]+)?$'`; `MAX_PKGS = 5`.
-  - `check_packages(packages) -> list[str]` — the names, stripped; `ValueError` for a name that does not match `PKG_RE` or for more than `MAX_PKGS`.
-  - `env_key(packages) -> str` — 12 hex chars of a sha1 of the Python `major.minor` and the sorted names.
-  - `env_root() -> Path` — `$ABHYASA_ENVS`, else `~/.cache/abhyasa/envs`.
-  - `env_python(packages, root=None) -> str|None` — `<root>/<key>/bin/python` when `<root>/<key>/ready` exists.
-  - `tool_env(packages, root=None, run=subprocess.run, uv=None, timeout=600) -> str` — `check_packages`, then (once) `[uv, 'venv', '--python', sys.executable, env]` and `[uv, 'pip', 'install', '--python', env_py, '--only-binary', ':all:', *names]`, then writes `ready`; returns the env Python. `uv` defaults to `shutil.which('uv')`; `RuntimeError` when there is none or a command fails.
-  - `run_isolated(kind, fname, source, tests, *, total=10., setup=(), sandbox=True, python=None) -> dict` — `python` replaces `sys.executable`.
-  - `new_exercise(ask, c, extra:str='') -> AttrDict` — `extra` is added to the exercise prompt.
-  - `OFFLINE = {'pydantic-ai': 'pydantic_ai.models.test.TestModel or pydantic_ai.models.function.FunctionModel', 'pydantic-ai-slim': <the same>}`.
-  - `TOOL_SP` registered as `register('walk.tool', 'Library exercise', ..., TOOL_SP)`; `tool_note(packages) -> str` fills it with the names and the `OFFLINE` helpers.
-  - `code_task(tutor, c, session:str='', meta:dict=None, packages=()) -> AttrDict` — with `packages`: `extra=tool_note(packages)`, and the open question keeps `packages`, `python=env_python(packages)` and `total=20.` (server side only; `public` drops them).
-  - `CLI_WAYS = ('words', 'example', 'order')`; `_check(lr, c, tool='')` limits the ways to `CLI_WAYS` for `tool='cli'`.
+  - `LEELA_ROUTE = '/learn'`.
+  - `handoff(jid:str='', i:int|None=None, topic:str='') -> str` — the path and query that Leela opens: `'/learn?walk=attention-ab12&step=3'`. Keys in this order, each only when given: `walk`, `step`, `topic` (`urllib.parse.urlencode`). `ValueError('nothing to open')` when `jid` and `topic` are both empty.
+  - `read_handoff(query:str) -> AttrDict(walk:str, step:int|None, topic:str)` — the other side of `handoff`, for Leela. `ValueError` names the bad key: `walk` must match `^[a-z0-9-]{1,48}$` (the form of `_new_id`), `step` must be a whole number from 0, `topic` is at most 200 chars; `ValueError('nothing to open')` with no `walk` and no `topic`.
+  - `HANDOFF_CASES: list[tuple[dict, str]]` — the shared cases that both test suites run (below).
+  - `TOOL_WAYS = tuple(w for w in WALK_WAYS if w != 'code')`.
+  - `_check(lr, c, kind:str='') -> AttrDict` — for `kind='tool'`, the candidates are the concept's ways in `TOOL_WAYS`, else `('words',)`; so a tool walk never gets a `code` check.
+  - `journey_from_source(..., kind:str='')`, `journey_from_text(..., kind:str='')`, `walk_from_topic(..., kind:str='')`, `journey_from_sources(..., kind:str='', **extra)` — `kind` goes on the journey (`''` or `'tool'`). On a tool walk, a step whose concept has `code` in its ways gets `leela=True`.
+  - `cfg.leela = os.getenv('ABHYASA_LEELA', '')` — a base URL that the owner sets only when Leela runs where its address file cannot be seen.
+  - `LEELA_INSTALL = 'https://github.com/vedicreader/leela#install'`.
+  - `leela_address() -> Path` — `$XDG_CONFIG_HOME/leela/serving.json`, else `~/.config/leela/serving.json`. Read at each call, not at import.
+  - `leela_base() -> str|None` — the `url` of the address file when its `pid` is alive (`os.kill(pid, 0)`, as Leela's own `serving()` does), else `cfg.leela` when it is set, else None. A URL that is not `http://` on `127.0.0.1`, `localhost` or `[::1]` with a port gives None. No network call: one small file read, so there is no cache.
+  - `leela_link(j, i:int|None=None, topic:str='') -> str|None` — `leela_base()` (without its last `/`) plus `handoff(j.id if j else '', i, topic)`, or None when `leela_base()` is None.
+  - `leela_line(j, i:int|None=None, topic:str='', say:str='Open in Leela for code and tools', quiet:bool=False) -> FT` — with a link: `P(A(f'{say} ↗', href=…, target='_blank', rel='noopener'), cls='leela-line')`. With no link: `P('Open this in Leela for code and tools. ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='leela-line muted')`, or `''` when `quiet`. Never a link to a Leela that is not running.
+  - Where the line shows: the plan page of a tool walk (`leela_line(j)`), under the title; the step page of a step with `leela` (`leela_line(j, i)`), under `#check`; under the code card of any walk (`leela_line(j, i, say='Go further with real code in Leela', quiet=True)`); the concept page, for a concept with `code` in its ways (`concept_more`: `leela_line(None, topic=c.name, say=f'Learn {c.name} with code in Leela', quiet=True)`).
+  - `/walk/new` takes `tool` (a tick box): `tool='on'` makes `kind='tool'`, for a document, a text, a topic or a link. The Add walk form gets the tick box "It is a library or a command-line tool. Code and tools open in Leela." `/w/{jid}/plan` with `act='check'` and `way='code'` on a tool walk returns 400.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```python
-# tests/walk_data.py: add (with `from pathlib import Path` and `import subprocess, sys` at the top)
-def toy_env(path):
-    "A venv with no pip and one small module, `toylib`, marked ready; return its Python. Nothing is installed from the network."
-    subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(path)], check=True)
-    (next(Path(path).glob('lib/python*/site-packages'))/'toylib.py').write_text('def double(n): return n * 2\n')
-    (Path(path)/'ready').write_text('')
-    return str(Path(path)/'bin'/'python')
+# nbs/11_journey.ipynb, section "Open in Leela": the shared cases, which Leela's contract test also runs
+HANDOFF_CASES = [(dict(jid='attention-ab12'), '/learn?walk=attention-ab12'),
+                 (dict(jid='attention-ab12', i=3), '/learn?walk=attention-ab12&step=3'),
+                 (dict(topic='Agents and tools'), '/learn?topic=Agents+and+tools'),
+                 (dict(jid='pydantic-ai-docs-9f0c', i=0, topic='Agents'), '/learn?walk=pydantic-ai-docs-9f0c&step=0&topic=Agents')]
 ```
 
 ```python
-# tests/test_check.py (it also needs `import subprocess, pytest`)
-from walk_data import toy_env
-
-def test_tool_env_is_made_once_from_wheels(tmp_path):
-    calls = []
-    def run(cmd, **kw): calls.append(cmd); return subprocess.CompletedProcess(cmd, 0, '', '')
-    py = check.tool_env(['pydantic-ai'], root=tmp_path, run=run, uv='uv')
-    assert py.startswith(str(tmp_path)) and py.endswith('/bin/python')
-    assert calls[0][:2] == ['uv', 'venv'] and calls[1][:3] == ['uv', 'pip', 'install']
-    assert '--only-binary' in calls[1] and calls[1][-1] == 'pydantic-ai'
-    assert check.tool_env(['pydantic-ai'], root=tmp_path, run=run, uv='uv') == py and len(calls) == 2   # made once
-    for bad in (['-e', '.'], ['--index-url=http://x'], ['a; rm -rf /'], ['git+https://x/y'], ['./pkg'], ['p'] * 6):
-        with pytest.raises(ValueError): check.tool_env(bad, root=tmp_path, run=run, uv='uv')
-    assert len(calls) == 2                                                                              # a bad name runs nothing
-
-def test_learner_code_uses_the_tool_env(tmp_path):
-    py = toy_env(tmp_path/'env')
-    src = 'import toylib\ndef f(n): return toylib.double(n)'
-    assert check.run_isolated('assert', 'f', src, ['assert f(2) == 4'], python=py)['checks'][0]['status'] == 'pass'
-    assert check.run_isolated('assert', 'f', src, ['assert f(2) == 4']).get('error') == 'no check result'   # the app's own Python has no toylib
-    net = 'import socket, toylib\ndef f(n):\n    socket.create_connection(("example.org", 80), 1)\n    return n'
-    assert check.run_isolated('assert', 'f', net, ['assert f(2) == 2'], python=py)['checks'][0]['status'] == 'error'   # still no network
-    aio = 'import asyncio\nasync def g(n): return n\ndef f(n): return asyncio.run(g(n))'
-    assert check.run_isolated('assert', 'f', aio, ['assert f(2) == 2'], python=py)['checks'][0]['status'] == 'pass'    # asyncio needs a local socket pair
+# each case makes its path, and the path reads back to the same values
+for kw, path in HANDOFF_CASES:
+    test_eq(handoff(**kw), path)
+    test_eq(read_handoff(path.split('?', 1)[1]), AttrDict(walk=kw.get('jid', ''), step=kw.get('i'), topic=kw.get('topic', '')))
+test_fail(lambda: read_handoff('walk=../x'), contains='walk')            # an id that is not a walk id
+test_fail(lambda: read_handoff('walk=a-1&step=-1'), contains='step')
+test_fail(lambda: handoff(), contains='nothing to open')
 ```
 
 ```python
-# nbs/15_walk.ipynb, section "A library walk"
-k = code_task(t, lr.concept('softmax'), s.id, step_meta(j, 1), packages=['pydantic-ai'])
-p = ask.calls[-1][0]
-assert 'pydantic-ai' in p and 'TestModel' in p and 'no network' in p and 'API key' in p   # the exercise says how to work offline
-assert t.open[k.q.id].total == 20. and 'python' not in k.q and 'packages' not in k.q      # the environment stays on the server
-code_task(t, lr.concept('softmax'), s.id, step_meta(j, 1))
-assert 'TestModel' not in ask.calls[-1][0]                                                # a plain code task has no library note
+# a tool walk has no code check; the step of an idea with the code way points to Leela
+lr = temp_learning(); did = add_paper(lr)
+ask = Fake({'Return JSON: {"concepts"': EXTRACT_REPLY})
+j = journey_from_source(lr, ask, did, kind='tool')
+assert lr.journey(j.id).kind == 'tool' and j.id in [x.id for x in lr.journeys()]   # the marker does not change how a journey is kept
+assert all(s['check']['kind'] != 'code' for s in j.steps)
+test_eq([bool(s.get('leela')) for s in j.steps], [False, True, False])              # softmax has the code way
+assert 'leela' not in journey_from_source(lr, ask, did).steps[1]                    # a walk to read does not change
 ```
 
 ```python
-# nbs/11_journey.ipynb, after the Task 13 test
-jc = journey_from_sources(lr, ask, docs, 'Tool docs', tool='cli')
-assert all(s['check']['way'] in CLI_WAYS for s in jc.steps)                               # a command-line tool: no code check
+# tests/walk_data.py: add (with `import os` at the top)
+def leela_file(root, port=5011, pid=None, url=None):
+    "Write the address file that a running Leela writes, under `root`; the pid of this test makes it look alive."
+    f = Path(root)/'leela'/'serving.json'; f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(dict(host='127.0.0.1', port=port, pid=pid or os.getpid(), url=url or f'http://127.0.0.1:{port}/')))
+    return f
+```
+
+```python
+# tests/conftest.py: add. No test reads the owner's real Leela address file.
+@pytest.fixture(autouse=True)
+def no_leela(monkeypatch, tmp_path_factory):
+    from abhyasa.core.cfg import cfg
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path_factory.mktemp('xdg'))); monkeypatch.setitem(cfg, 'leela', '')
+```
+
+```python
+# tests/test_leela.py
+import json, subprocess, sys
+from fastcore.basics import AttrDict
+from abhyasa.core.cfg import cfg
+from abhyasa.core.leela import leela_link
+from walk_data import leela_file
+
+def test_leela_link_is_local_and_live(monkeypatch, tmp_path):
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); j = AttrDict(id='attention-ab12')
+    assert leela_link(j, 2) is None                                                     # no address file: no link
+    f = leela_file(tmp_path)
+    assert leela_link(j, 2) == 'http://127.0.0.1:5011/learn?walk=attention-ab12&step=2'
+    assert leela_link(None, topic='Softmax') == 'http://127.0.0.1:5011/learn?topic=Softmax'
+    p = subprocess.Popen([sys.executable, '-c', '']); p.wait()
+    leela_file(tmp_path, pid=p.pid); assert leela_link(j) is None                       # a stale file: that Leela stopped
+    leela_file(tmp_path, url='http://evil.example:5011/'); assert leela_link(j) is None  # not on this computer
+    f.unlink(); monkeypatch.setitem(cfg, 'leela', 'http://127.0.0.1:5020/')
+    assert leela_link(j) == 'http://127.0.0.1:5020/learn?walk=attention-ab12'           # the owner's setting
+    monkeypatch.setitem(cfg, 'leela', 'https://evil.example/'); assert leela_link(j) is None
 ```
 
 ```python
 # tests/blocks/test_walk.py
-from abhyasa.check import env_key
+import os
+from abhyasa.core.leela import LEELA_INSTALL
 
-def test_library_walk_runs_code_in_its_env(mk, walk_fake, lr, monkeypatch, tmp_path):
-    monkeypatch.setenv('ABHYASA_ENVS', str(tmp_path)); toy_env(tmp_path/env_key(['toylib']))   # made before: no uv, no network
-    cl = mk(); add = cl.get('/add').text
-    assert 'A Python library' in add and 'A command-line tool' in add
-    jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='library', packages='toylib')).headers['hx-redirect'].split('/')[-1]
-    assert (lr.journey(jid).tool, lr.journey(jid).packages) == ('library', ['toylib'])
-    cl.post(f'/w/{jid}/start'); lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    assert 'code-editor' in cl.get(f'/w/{jid}/1/check').text
-    assert 'Next idea' in cl.post(f'/w/{jid}/1/run', data=dict(source='import toylib\n' + GOOD)).text
+def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path))
+    cl = mk(); assert 'Code and tools open in Leela' in cl.get('/add').text
+    jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='on')).headers['hx-redirect'].split('/')[-1]
+    assert lr.journey(jid).kind == 'tool'
+    plan = cl.get(f'/w/{jid}').text
+    assert 'Open this in Leela for code and tools' in plan and LEELA_INSTALL in plan and '/learn?' not in plan   # no Leela: never a broken link
+    assert cl.post(f'/w/{jid}/plan', data=dict(i=1, act='check', way='code')).status_code == 400                # no library code check in abhyasa
+    leela_file(tmp_path)
+    assert f'href="http://127.0.0.1:5011/learn?walk={jid}"' in cl.get(f'/w/{jid}').text
+    cl.post(f'/w/{jid}/start')
+    step = cl.get(f'/w/{jid}/1').text
+    assert f'http://127.0.0.1:5011/learn?walk={jid}&amp;step=1' in step and 'target="_blank"' in step
+    assert 'code-editor' not in cl.get(f'/w/{jid}/1/check').text                                                 # the check here is short or order
+    assert '/learn?' not in cl.get(f'/w/{jid}/0').text                                                           # an idea with no code way has no link
 
-def test_library_walk_without_uv_falls_back(mk, walk_fake, lr, monkeypatch, tmp_path):
-    monkeypatch.setenv('ABHYASA_ENVS', str(tmp_path)); monkeypatch.setenv('PATH', str(tmp_path))   # no uv on the PATH
-    cl = mk(); jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='library', packages='pydantic-ai')).headers['hx-redirect'].split('/')[-1]
-    cl.post(f'/w/{jid}/start'); lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    card = wait_for(lambda: (t := cl.get(f'/w/{jid}/1/check').text) if 'pending' not in t else None, secs=10)
-    assert 'What does a rank tell you?' in card and lr.journey(jid).steps[1]['check']['kind'] == 'short'
-
-def test_tool_fields_are_checked(mk, walk_fake, lr):
-    cl = mk(); did = add_paper(lr)
-    assert 'req-err' in cl.post('/walk/new', data=dict(ref=did, tool='library', packages='-e .')).text
-    jid = cl.post('/walk/new', data=dict(ref=did, tool='cli')).headers['hx-redirect'].split('/')[-1]
-    assert all(s['check']['kind'] != 'code' for s in lr.journey(jid).steps)
-    assert cl.post(f'/w/{jid}/plan', data=dict(i=1, act='check', way='code')).status_code == 400   # no code check on a cli walk
+def test_code_card_and_concept_page_offer_leela_only_when_it_runs(mk, walk_fake, lr, monkeypatch, tmp_path):
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path))
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'code-editor' in card and 'Leela' not in card and 'Leela' not in cl.get('/c/softmax').text   # quiet when Leela is not running
+    leela_file(tmp_path)
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'code-editor' in card and f'/learn?walk={jid}&amp;step=1' in card                           # the small stdlib check stays in abhyasa
+    assert '/learn?topic=Softmax' in cl.get('/c/softmax').text
 ```
 
 - [ ] **Step 2: Run the tests to see them fail**
 
-Run: `uv run pytest tests/test_check.py -k tool -q; uv run nbdev-test --path nbs/15_walk.ipynb; uv run pytest tests/blocks/test_walk.py -k "library or tool" -q`
-Expected: FAIL: `AttributeError: module 'abhyasa.check' has no attribute 'tool_env'`, `TypeError: code_task() got an unexpected keyword argument 'packages'`, and no "A Python library" on `/add`.
+Run: `uv run nbdev-test --path nbs/11_journey.ipynb; uv run pytest tests/test_leela.py tests/blocks/test_walk.py -k leela -q`
+Expected: FAIL with `NameError: name 'handoff' is not defined`, `ModuleNotFoundError: No module named 'abhyasa.core.leela'`, and no "Code and tools open in Leela" on `/add`.
 
 - [ ] **Step 3: Implement.**
-  - `_guard`: on `socket.__new__`, allow `args[1] == socket.AF_UNIX` (asyncio's self-pipe uses `socketpair`); refuse every other `socket.` event as today. Check that the sandbox-exec profile lets a socket pair through; if it does not, allow only `(allow network* (local unix))` and nothing more, and say so in the commit line.
-  - `run_isolated`: `cmd = [python or sys.executable, '-I', '-B']`. `-I` keeps the venv's own `site-packages` and drops the user site and `PYTHON*` variables.
-  - `TOOL_SP` (STE): "The code runs with {packages} installed. It has no network and no API key. Use only the offline test helpers of the library: {helpers}. Write the tests so that they need nothing else." For a package with no `OFFLINE` entry: "Write a task on the pure functions of the library only."
-  - The block: a library walk queues `tool_env(packages)` on the pool when the walk is made (job key `env:<env_key>`). The code card: `env_python` set → the card of Task 8, and `run` passes the question's `python` and `total`; job running → a pending card "Setting up {names}. This happens once." that polls; job failed → `short_check` and the short card, as Task 6 does for a failed demo. Bad package names → `P(..., cls='req-err')`, and no walk is made.
-  - The Add walk form: "What is it?" with "A paper or docs to read" (default), "A Python library", "A command-line tool"; "Package names" shows for a library.
+  - `handoff` and `read_handoff` use only `urllib.parse` (`urlencode`, `parse_qs`). `read_handoff` takes the first value of each key and ignores other keys, so Leela can add its own.
+  - `_check`: for `kind='tool'`, call `check_for` with `AttrDict(c, ways=[w for w in (c.get('ways') or TEXT_WAYS) if w in TOOL_WAYS] or ['words'])`. Do not change `check_for`.
+  - The makers pass `kind` to `_check` and to the journey. `journey_from_sources` takes `kind` out of `extra`, so it reaches `_steps`.
+  - `abhyasa/core/leela.py` imports `handoff` from `abhyasa.journey`. The blocks import `leela_line` from `abhyasa.core.leela`; no block imports another.
+  - `walk.css`: `.leela-line` is one muted line with no box (`docs/design-layers.md`).
+  - abhyasa never calls Leela. It reads the address file and makes a link. The learner's browser opens the link.
 
 - [ ] **Step 4: Run the tests to see them pass**
 
-Run: `uv run nbdev-prepare && uv run nbdev-test --path nbs/06_check.ipynb && uv run nbdev-test --path nbs/15_walk.ipynb && uv run nbdev-test --path nbs/11_journey.ipynb && uv run pytest -q`
-Expected: PASS, with `test_hostile_code_does_not_pass_or_hang` unchanged.
+Run: `uv run nbdev-prepare && uv run nbdev-test --path nbs/11_journey.ipynb && uv run pytest -q`
+Expected: PASS, with the Task 3, Task 8 and Task 13 tests unchanged.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add nbs/06_check.ipynb nbs/08_nb.ipynb nbs/15_walk.ipynb nbs/11_journey.ipynb abhyasa/check.py abhyasa/nb.py abhyasa/walk.py abhyasa/journey.py abhyasa/_modidx.py abhyasa/blocks/walk abhyasa/blocks/add tests/walk_data.py tests/test_check.py tests/blocks/test_walk.py
-git commit -m "Add tool walks: code checks that run with a Python library and no network, and no code for a command-line tool"
+git add nbs/11_journey.ipynb abhyasa/journey.py abhyasa/_modidx.py abhyasa/core/leela.py abhyasa/core/cfg.py abhyasa/blocks/walk abhyasa/blocks/add tests/walk_data.py tests/conftest.py tests/test_leela.py tests/blocks/test_walk.py
+git commit -m "Add Open in Leela: a tool walk has no code check here and links its code steps to Leela"
 ```
 
 ---
 
 ### Task 15: A trial on real material
 
-Spec 6.13. The script uses the real model and the network. CI and the test suite never run it in full; the test below runs it in its dry mode only.
+Spec 6.13. The script uses the real model and the network. CI and the test suite never run it in full; the test below runs it in its dry mode only. No library code runs in abhyasa: the PydanticAI and Claude Code walks are tool walks (Task 14), and the trial checks their Leela links. The trial never starts or calls Leela.
 
 **Files:**
 - Create: `tools/walk_trial.py` (a script, not a test)
@@ -1332,16 +1358,17 @@ Spec 6.13. The script uses the real model and the network. CI and the test suite
 - Output (the real run): `design/screens/trial/report.md` and `design/screens/trial/<walk>-<i>.png`
 
 **Interfaces:**
-- Consumes: Task 13 `file_link`, `journey_from_sources`; Task 14 `tool_env`, `code_task(packages=)`, `run_code`; Task 3 `walk_from_topic`; Task 4 `tutor_note`, `open_short`; `Session`; `ground.VaultSource`; `app.mk_app`; `tools/grade_eval.py` `question_checks` (`from grade_eval import question_checks`: the script folder is on `sys.path`); `llm.Router`, `rishi_ask`, `for_task`.
+- Consumes: Task 13 `file_link`, `journey_from_sources`; Task 14 `kind='tool'`, `leela_link`, `handoff`; Task 7 `code_task`, `run_code`; Task 3 `walk_from_topic`; Task 4 `tutor_note`, `open_short`; `Session`; `ground.VaultSource`; `app.mk_app`; `tools/grade_eval.py` `question_checks` (`from grade_eval import question_checks`: the script folder is on `sys.path`); `llm.Router`, `rishi_ask`, `for_task`.
 - Produces:
-  - `CASES = [dict(name='attention', link='1706.03762', pages=1), dict(name='gradient-descent', topic='how gradient descent works'), dict(name='pydantic-ai', link='https://ai.pydantic.dev', pages=8, tool='library', packages=['pydantic-ai']), dict(name='claude-code', link='https://docs.claude.com/en/docs/claude-code/overview', pages=8, tool='cli')]`
-  - `build(lr, ask, case, read=None) -> AttrDict(j, secs)` — a link through `file_link` and `journey_from_sources(tool=, packages=)`; a topic through `walk_from_topic(sources=[VaultSource(lr)])`, after the other cases are filed.
+  - `CASES = [dict(name='attention', link='1706.03762', pages=1), dict(name='gradient-descent', topic='how gradient descent works'), dict(name='pydantic-ai', link='https://ai.pydantic.dev', pages=8, kind='tool'), dict(name='claude-code', link='https://docs.claude.com/en/docs/claude-code/overview', pages=8, kind='tool')]`
+  - `build(lr, ask, case, read=None) -> AttrDict(j, secs)` — a link through `file_link` and `journey_from_sources(kind=case.get('kind', ''))`; a topic through `walk_from_topic(sources=[VaultSource(lr)])`, after the other cases are filed.
   - `measure(lr, ask, j) -> AttrDict(steps, found, figures, kinds, asks_ok, asks, secs_step, bad_asks)` — for each step: `tutor_note`, and `open_short` for a short check, with `question_checks` on the question; `secs_step` is the mean time of a step.
   - `grade_trip(lr, ask, j) -> AttrDict(good, weak)` — on the first short step: the concept statement as the answer (it must grade correct), then a new question answered "I am not sure." (it must grade not correct).
-  - `code_trip(lr, ask, j, envs) -> AttrDict(naive, good, secs)` — `tool_env(packages, root=envs)`, then `code_task(packages=…)` on the first code step (or on step 0, set to `code`); the stub as the naive try, then the solution kept on the server (`tutor.open[qid].answer`) as the good try; each as `passed of total`.
+  - `code_trip(lr, ask, j) -> AttrDict(naive, good, secs)` — on the attention walk only (a stdlib exercise): `code_task` on the first code step (or on step 0, set to `code`); the stub as the naive try, then the solution kept on the server (`tutor.open[qid].answer`) as the good try; each as `passed of total`.
+  - `handoff_trip(lr, ask, j, cfg_home) -> AttrDict(code_checks, leela_steps, links_ok, pages_ok)` — on a tool walk: `leela_file(cfg_home, port=5019)` (Task 14: a fake address file in a temp folder; no Leela runs), then for each step: `code_checks` counts checks of kind `code` (it must be 0); for each step with `leela`, `leela_link(j, i)` must equal `http://127.0.0.1:5019` + `handoff(j.id, i)`, and the step page and its check card (through `mk_app(lr, ask)` and a test client) must have that link and no `code-editor`. It sets `XDG_CONFIG_HOME` to `cfg_home` for the trial run only.
   - `shoot(lr, ask, jid, idxs, out) -> list[Path]` — the app (`mk_app(lr, ask)`) under uvicorn in a thread on a free port on 127.0.0.1 (never 5001, 5055, 5077, 5078 or 9223); Playwright `p.chromium.launch(headless=True)`, 1280×900; for steps 0, the middle and the last: wait until `#check` has no `.pending` (120 s), save a full-page PNG; browser and server closed in a `finally`.
-  - `report(rows, out) -> str` — a Markdown table (walk, steps, with passage, figures, checks short/demo/order/code, one ask, grade round trip, code naive/good, s/step, build s), then for each walk: the questions that fail a check (in full), the grade and code results, the screens. Writes `out/report.md` and prints the table.
-  - Options: `--model`, `--only NAME`, `--out` (default `design/screens/trial`), `--envs` (default a new temp folder), `--dry` (`Fake` with the replies of `walk_fake`, and a fake `read` that files `PAGES`; `toylib` from `toy_env` in place of `pydantic-ai`), `--no-shots`.
+  - `report(rows, out) -> str` — a Markdown table (walk, steps, with passage, figures, checks short/demo/order/code, one ask, grade round trip, code naive/good, Leela steps and links right, s/step, build s), then for each walk: the questions that fail a check (in full), the grade, code and Leela results, the screens. Writes `out/report.md` and prints the table.
+  - Options: `--model`, `--only NAME`, `--out` (default `design/screens/trial`), `--dry` (`Fake` with the replies of `walk_fake`, and a fake `read` that files `PAGES`), `--no-shots`.
   - The vault is always `temp_learning()`. The script never opens `~/.vishalakshi/vault.db` or `~/.config/abhyasa`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1359,7 +1386,7 @@ def test_trial_dry_run(tmp_path):
     assert r.returncode == 0, r.stderr
     rep = (tmp_path/'report.md').read_text()
     for name in ('attention', 'gradient-descent', 'pydantic-ai', 'claude-code'): assert name in rep
-    assert 'one ask' in rep and 's/step' in rep and 'naive' in rep
+    assert 'one ask' in rep and 's/step' in rep and 'naive' in rep and 'Leela' in rep
 ```
 
 - [ ] **Step 2: Run the test to see it fail**
@@ -1378,13 +1405,13 @@ Expected: PASS.
 
 ```bash
 git add tools/walk_trial.py tests/test_trial.py
-git commit -m "Add a trial script that makes walks from a paper, a topic and two docs sites, and reports on them"
+git commit -m "Add a trial script that makes walks from a paper, a topic and two docs sites, and checks their Leela links"
 ```
 
 - [ ] **Step 6: The controller runs the trial with the real model**
 
 Run: `uv run --all-extras python tools/walk_trial.py`
-Expected: a table with 4 rows, `design/screens/trial/report.md`, and 12 screens. This output is for the owner to read. The report marks a value that is outside these guides: 5 to 40 steps; at least 70% of steps with a passage for the paper and the docs walks; every question passes the one-ask checks; the grade round trip is right both ways; the naive code fails at least one test and the good code passes all; at most 30 s for each step.
+Expected: a table with 4 rows, `design/screens/trial/report.md`, and 12 screens. This output is for the owner to read. The report marks a value that is outside these guides: 5 to 40 steps; at least 70% of steps with a passage for the paper and the docs walks; every question passes the one-ask checks; the grade round trip is right both ways; on the attention walk, the naive code fails at least one test and the good code passes all; on the two tool walks, no `code` check, and every Leela link is right; at most 30 s for each step.
 
 - [ ] **Step 7: Fix what the trial finds.** For each problem, make one small follow-up: a failing test that shows it (with `Fake` or the dry data), the fix, and one commit. Then run the trial again for that walk only (`--only NAME`). List each fix at the end of `report.md`.
 
@@ -1400,7 +1427,7 @@ git commit -m "Add the report and screens of the walk trial on real material"
 ### Task 16: Docs and one look in a real browser
 
 **Files:**
-- Modify: `nbs/index.ipynb` (short sections "Learn a paper, a topic, a link or a tool as a walk" and "Rabbit holes"; check for stale references)
+- Modify: `nbs/index.ipynb` (short sections "Learn a paper, a topic or a link as a walk", "Rabbit holes" and "Open in Leela"; check for stale references)
 - Modify: `README.md` (made by `nbdev-prepare` from `index.ipynb`), `CHANGELOG.md` (an entry under the next version), `docs/design-layers.md` (the walk page and the side pane in the list of pages)
 - Create: `tools/walk_look.py` (a script, not a test: it starts the app on a temp vault with `Fake`, opens walk steps in Playwright's bundled Chromium, and saves `design/screens/walk-code.png`, `walk-demo.png` and `walk-pane.png`)
 
@@ -1412,7 +1439,8 @@ git commit -m "Add the report and screens of the walk trial on real material"
   - in the step page: `#rail`, `#passage`, `#check .code-editor`, no horizontal scroll (`document.documentElement.scrollWidth <= 1280`), and that ⌥S presses "Next idea" (⌥F still opens the keyboard shortcuts);
   - on step 3 with an unmet need: ⌥B opens the offer, `2` opens the side walk in `#rh-pane`, the URL has `rh=` with a local path, there is still no horizontal scroll, and ⌥Z closes the pane, takes `rh` out of the URL and puts the focus on the check;
   - `?rh=https://evil.example/` draws no `#rh-pane`, and `window.postMessage({type: 'rh:at', url: 'https://evil.example/'}, '*')` from the main page leaves `rh` unchanged;
-  - at 1000 px, ⌥B and `2` open the side walk in the same tab, with "Back to the paper" at the top.
+  - at 1000 px, ⌥B and `2` open the side walk in the same tab, with "Back to the paper" at the top;
+  - on a tool walk, with a fake Leela address file in a temp `XDG_CONFIG_HOME`, the code step has the "Open in Leela" link with `target="_blank"`; with no file, the step has the muted line and the "Get Leela" link, and no link to `/learn`.
 
 - [ ] **Step 2: Run it to see it fail**
 
@@ -1424,7 +1452,7 @@ Expected: PASS when Tasks 5-14 are right. A FAIL names the missing element, the 
   - that learner code runs in a closed process with no network (never "a security sandbox");
   - rabbit holes: the needs line, the three ways down, the side pane and its keys (⌥B, ⌥Z, Esc), the depth limit, and that the open check and the draft stay;
   - a walk from a link: what links work, that abhyasa fetches only when you ask, only pages in the folder of the link, and at most the page cap;
-  - tool walks: a library walk makes its environment once with `uv` (wheels only), and its code uses the offline test helpers with no network and no API key; a command-line tool walk runs no commands and asks short-answer and order checks.
+  - Open in Leela: abhyasa installs no libraries and runs only short stdlib exercises; for code with a library or a tool, a step links to Leela, which has the tool environments, code lookup and the agent tutor; a tool walk (a library or a command-line tool) asks short-answer and order checks here; with no Leela running, the step says so and links to the install page.
   Run `uv run nbdev-prepare`, and look for stale references in `index.ipynb`.
 
 - [ ] **Step 4: Run everything**
@@ -1436,5 +1464,5 @@ Expected: PASS; three new screens in `design/screens/`.
 
 ```bash
 git add nbs/index.ipynb README.md CHANGELOG.md docs/design-layers.md tools/walk_look.py design/screens/walk-code.png design/screens/walk-demo.png design/screens/walk-pane.png
-git commit -m "Document the walk, rabbit holes, links and tool walks, and add screens of a code check, a demo and the side pane"
+git commit -m "Document the walk, rabbit holes, links and Open in Leela, and add screens of a code check, a demo and the side pane"
 ```

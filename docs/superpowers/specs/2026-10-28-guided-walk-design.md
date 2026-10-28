@@ -2,7 +2,8 @@
 
 Date: 28 October 2026. Status: approved by the owner (Option A, on the shared core).
 Amended 28 October 2026, approved by the owner: rabbit holes (6.10), a walk from a link (6.11), tool walks (6.12) and a
-trial on real material (6.13).
+trial on real material (6.13). Amended again on 28 October 2026 by the owner's decision: 6.12 is now "Open in Leela" (a
+link), and code with a library runs in Leela, not in abhyasa.
 Design sources: `abhyasa-designs/paper/options.md` ("The shared core", "Option A", "Comparison", "Recommendation"),
 mockups `abhyasa-designs/paper/mock/a1-a3` and `paper/shots/a1-add.png`, `a2-walk-code.png`, `a3-walk-demo.png`,
 background `abhyasa-designs/research.md`, the modality design `abhyasa-designs/modalities/options.md` (part 4A and
@@ -46,8 +47,8 @@ Option B and the map of Option C can come later as views of the same journey.
    open check and the draft kept.
 9. A walk from a link: a paper (a PDF URL or an arXiv id), a docs site (crawled, with a page cap) or a GitHub repo is
    filed in the vault, and one walk is made across the filed pages in reading order.
-10. Tool walks: a walk on a Python library has code checks that run with that library installed and the network still
-    blocked; a walk on a command-line tool has short-answer and order checks only.
+10. Open in Leela: a walk on a library or a command-line tool (a tool walk) has short-answer and order checks in
+    abhyasa, and its code steps link to Leela, which runs code with the library. abhyasa installs no libraries.
 11. A trial on real material (a paper, a topic, two docs sites) measures the walk before the owner uses it every day.
 
 ## 3. Non-goals (this plan)
@@ -57,11 +58,13 @@ Option B and the map of Option C can come later as views of the same journey.
 - The modality views: playground frames, seeded board, timeline lanes, lenses (`modalities/options.md` 1A, 2A, 3A, 4B).
 - New rupaka blocks (an `image` block, `frames`, `diagram`, `code`).
 - A code editor library. The editor is a plain text area.
-- Sync or sharing. The app stays local and offline, except for the fetches in 6.11 and 6.12, which run only when the
-  learner asks.
+- Sync or sharing. The app stays local and offline, except for the fetches in 6.11, which run only when the learner
+  asks.
 - Rabbit hole moment 4 (a question typed in the answer box is caught before the grade). Hover cards on terms, notes
   in the pane bar, a "Highlight" tool, and tiles (more than one pane).
 - Installing a command-line tool or running it. A walk on a command-line tool never runs a command.
+- Installing a library for the learner, tool environments, code with a library, code lookup and an agent tutor. These
+  are Leela's (6.12). abhyasa runs only short stdlib exercises.
 - A crawl past the page cap, or to pages outside the folder of the given URL.
 
 ## 4. Anti-goals (things the walk must never do)
@@ -93,8 +96,8 @@ Option B and the map of Option C can come later as views of the same journey.
   ⌘↵ send or run, 1-9 options, K keep. The side pane: ⌥B open beside, ⌥Z back to the paper, Esc close the pane.
   ⌥F (show the keyboard shortcuts), ⌥D (dictate), ⌥G (strengths) and ⌥E (show me a demo) are taken and the walk never
   binds them. Before a key is chosen, read `abhyasa/core/keys.py`; the task that binds a new key adds it to `KEYS`.
-- No new runtime dependency and no new vendored script. A library walk needs `uv` on the PATH to make its environment;
-  with no `uv`, its code checks fall back to short answers.
+- No new runtime dependency and no new vendored script. abhyasa installs no libraries for learners and runs only
+  stdlib exercises (6.12).
 
 ## 6. Decided design
 
@@ -244,19 +247,15 @@ A view reads extra keys with `.get`, so later fields (`layout='pair'` for B, `x`
 - On macOS, the child also runs under `/usr/bin/sandbox-exec` (when it exists) with a profile that denies the network
   and file writes outside the temp folder. The docs say "a closed process with no network". They never say "a
   security sandbox".
-- A library walk (6.12) runs the learner code with the Python of its own environment (`python=`) and a total of 20 s.
-  All the limits above stay. The audit hook lets the code make a local socket pair (`AF_UNIX`), because asyncio needs
-  one to start. It still refuses `connect`, `bind`, `getaddrinfo` and `sendto`, and sandbox-exec still denies the
-  network.
-- The app itself uses the network in two cases only, outside the closed process, and only when the learner asks:
-  1. **Fetching a link (6.11).** Only the URL that the learner gives, and only pages in the folder of that URL. At
-     most the page cap (default 8, never more than 20). The fetched text is data: it goes into the vault and to the
-     model as passage text, and it never runs.
-  2. **Making a library environment (6.12).** `uv` installs the packages named on the walk. Each name must match a
-     plain package pattern (a name, an optional extra, an optional version), at most 5 names, passed as separate
-     arguments with no shell. `--only-binary :all:` installs wheels only, so no build script runs at install time.
-     The package code is code from the internet: it runs only when imported by learner code, inside the closed
-     process, with the same limits.
+- Learner code always runs with the app's own Python, and an exercise uses only the standard library. abhyasa
+  installs no package. Code with a library runs in Leela (6.12); its limits are Leela's (`leela-reuse.md`, section 6).
+- The app itself uses the network in one case only, outside the closed process, and only when the learner asks:
+  **fetching a link (6.11).** Only the URL that the learner gives, and only pages in the folder of that URL. At most
+  the page cap (default 8, never more than 20). The fetched text is data: it goes into the vault and to the model as
+  passage text, and it never runs.
+- The Leela link (6.12): abhyasa reads Leela's address file and never connects to Leela. It makes a link only to a
+  loopback `http` URL whose process is alive. The values in the link are a journey id, a step number and a concept
+  name, made with `urlencode`.
 - The side pane (6.10) shows only a page of the app: the `rh` value must be a local path (one `/` at the start, no
   `//`, no `\`, no scheme). The page takes pane messages only from its own origin and from its own pane frame.
 
@@ -267,7 +266,7 @@ Block `abhyasa/blocks/walk/` (`cfg.py`, `ui.py`, `app.py`, `walk.css`, `walk.js`
 
 | route | method | what it does |
 |---|---|---|
-| `/walk/new` | POST | make a walk from `ref` (vault doc), `text`, `topic` or `url` (6.11), with `tool` and `packages` (6.12); redirect to `/w/{jid}` |
+| `/walk/new` | POST | make a walk from `ref` (vault doc), `text`, `topic` or `url` (6.11), with `tool` (a tool walk, 6.12); redirect to `/w/{jid}` |
 | `/walk/job` | GET | the state of a link walk that is still being made: a pending card, or a redirect to `/w/{jid}`, or a message (6.11) |
 | `/w/{jid}` | GET | not started: the plan (A1); started: redirect to the current step |
 | `/w/{jid}/plan` | POST | change one step of the plan: `act` = `check` (with a `way` in `WALK_WAYS`; `why` = "you chose it") or `drop` |
@@ -422,41 +421,78 @@ Today Add takes pasted text or a vault document only. A link adds a third way in
 - Fetching is network access outside the closed process (6.7): only when the learner sends the form, only the URL
   given and the pages in its folder, at most the page cap.
 
-### 6.12 Tool walks: a Python library or a command-line tool
+### 6.12 Open in Leela: the handoff for code and tools
 
-A walk has a `tool` field: `''` (a walk to read, as today), `'library'` or `'cli'`. The Add form asks "What is it?":
-"A paper or docs to read", "A Python library (give the package names)", "A command-line tool".
+The owner's decision of 28 October 2026, in the owner's words: "let's have the parts to teach tools and code in
+abhyasa, but the implementation can rest within leela. also, leela comes with kosha tools which can make code lookup
+easy for everyone. comes with uv, ramabana. makes sense to be there. abhyasa can just have minimal code footprint and
+we can have a link to open leela for full fledged in depth learning."
 
-**A Python library** (for example PydanticAI).
-- The walk keeps `packages`, for example `['pydantic-ai']`: at most 5 names, each a plain package name with an
-  optional extra and version. Any other text gets a short message, and no walk is made.
-- `tool_env(packages, root=None)` makes one cached environment for each set of packages and Python version, under
-  `$ABHYASA_ENVS` or `~/.cache/abhyasa/envs`: `uv venv`, then `uv pip install --only-binary :all:`. It runs once, as
-  a pool job when the walk is made, outside the closed process. A `ready` file marks a finished environment.
-- While the environment is not ready, the code card says "Setting up pydantic-ai. This happens once." and polls. If
-  setup fails, or there is no `uv`, the step falls back to a short answer, as a failed demo does.
-- The learner code runs with `run_isolated(..., python=<env python>, total=20.)`: the same closed process, the same
-  limits, no network (6.7).
-- The exercise prompt (`walk.tool`, registered) names the library and says: the code runs with no network and no API
-  key; use the offline test helpers of the library. For PydanticAI these are `pydantic_ai.models.test.TestModel` and
-  `pydantic_ai.models.function.FunctionModel`. A table `OFFLINE` holds the helpers per package. For a package with no
-  entry, the prompt says to write a task on the pure functions of the library only.
+So abhyasa keeps walks from papers, topics and docs links (6.11), and the small code check of 6.6 (a closed process,
+short stdlib exercises, no library installs). Code with a library, tool environments, code lookup (kosha) and the agent
+tutor (ramabana) are in Leela. abhyasa gives a link. The Leela side is in `abhyasa-designs/leela-reuse.md`, section 6.
 
-**A command-line tool** (for example Claude Code).
-- No code runs. The checks are short answers (which command or flag does X) and order checks (the steps of a
-  workflow), picked through the existing ways: `CLI_WAYS = ('words', 'example', 'order')`.
-- The plan view refuses a `code` check on a cli walk (400).
+**A tool walk.** A walk has `kind`: `''` (a walk to read, as today) or `'tool'` (a walk on a Python library or a
+command-line tool, for example PydanticAI or Claude Code). The learner sets it with a tick box in the walk form on Add:
+"It is a library or a command-line tool. Code and tools open in Leela."
+- A tool walk gets no `code` check in abhyasa. Its checks come from `TOOL_WAYS` (`WALK_WAYS` without `code`): short
+  answers (which call, command or flag does X) and order checks (the steps of a workflow). The plan view refuses a
+  `code` check on a tool walk (400).
+- A step whose concept has `code` in its ways gets `leela=True`. That step shows the Leela line under its check.
+
+**Where the Leela line shows.**
+
+| place | the line | with no Leela running |
+|---|---|---|
+| the plan page of a tool walk | "Open in Leela for code and tools ↗" (the walk) | the muted line and "Get Leela" |
+| a step with `leela` | "Open in Leela for code and tools ↗" (this step) | the muted line and "Get Leela" |
+| under any code card (a stdlib check) | "Go further with real code in Leela ↗" (this step) | nothing |
+| the concept page, for a concept with the `code` way | "Learn Softmax with code in Leela ↗" (the topic) | nothing |
+
+The muted line is "Open this in Leela for code and tools." with a link to the install page
+(`https://github.com/vedicreader/leela#install`). abhyasa never shows a link to a Leela that is not running.
+
+**How abhyasa finds Leela.** A running Leela writes `~/.config/leela/serving.json` (`$XDG_CONFIG_HOME/leela/...`) with
+`host`, `port`, `pid` and `url`, and removes it when it stops (`leela/core/projects.py`). Leela's default port is 5010,
+but Leela.app takes the first free port in 5010-5019, so abhyasa reads the file and does not guess a port.
+- `leela_base()`: the `url` of the file when its `pid` is alive (the same test as Leela's `serving()`), else the setting
+  `ABHYASA_LEELA` when the owner sets it, else none. A URL that is not `http://` on `127.0.0.1`, `localhost` or `[::1]`
+  is refused. This is one small file read for each page, with no network call, so there is no cache.
+- abhyasa never calls Leela. The learner's browser opens the link in a new tab (`target="_blank"`,
+  `rel="noopener"`).
+- Leela.app does not register a URL scheme today (it answers only the Apple Event that opens files and folders). So
+  there is no `leela://` link in this plan (section 8).
+
+**The handoff contract** (both sides implement it; the functions are in the engine, `abhyasa.journey`, so Leela
+imports them with no web code):
+- The link is `<Leela base URL>` + `handoff(jid, i, topic)`: `GET /learn?walk=<journey id>&step=<step index>&topic=<concept
+  name>`. Each key is there only when it has a value. With no `step`, Leela opens the current step (`walk_state`). With
+  only `topic`, Leela opens a lesson on that concept.
+- `read_handoff(query)` gives `AttrDict(walk, step, topic)`, and refuses a `walk` that is not a journey id
+  (`^[a-z0-9-]{1,48}$`), a `step` that is not a whole number from 0, a `topic` over 200 chars, or a link with neither
+  `walk` nor `topic`. Other keys are ignored, so either side can add its own.
+- Leela reads the walk from the shared learning store (`Learning(vault).journey(jid)`, after `import abhyasa.journey`).
+  Both apps use `$VISHALAKSHI_VAULT`, else `~/.vishalakshi/vault.db`, and the `learning` shelf.
+- What Leela writes back: attempts through `Learning.record`, with `walk`, `step`, `section` (when there is one),
+  `from = "<journey id>/<step>"` and `app = "leela"` in the meta. So abhyasa's review rule (6.4), `lesson_extra` and the
+  learner model see the work. Leela does not change the journey itself.
+- `HANDOFF_CASES` is one list of `(arguments, path)` pairs. abhyasa's notebook test and Leela's contract test both run
+  it: each case makes its path with `handoff`, and the path reads back to the same values with `read_handoff`.
+
+**A command-line tool** (for example Claude Code) is a tool walk too. abhyasa still asks short-answer and order checks
+on it, and never runs a command. Its code steps (a hook script, a settings file) link to Leela.
 
 ### 6.13 A trial on real material
 
 `tools/walk_trial.py` is a script, not a test. The controller runs it with the real model. It makes walks in a
 temporary vault (never the real one) for: the paper "Attention Is All You Need" (arXiv 1706.03762); the topic "how
-gradient descent works"; the PydanticAI docs (`https://ai.pydantic.dev`, cap 8, a library walk); and the Claude Code
-docs (`https://docs.claude.com/en/docs/claude-code/overview`, cap 8, a cli walk). For each walk it reports: the
+gradient descent works"; the PydanticAI docs (`https://ai.pydantic.dev`, cap 8, a tool walk); and the Claude Code
+docs (`https://docs.claude.com/en/docs/claude-code/overview`, cap 8, a tool walk). For each walk it reports: the
 number of steps, the share of steps with a found passage, the figures found, the checks of each kind, the one-ask
 rule on each question it makes (the question checks of `tools/grade_eval.py`), a short-answer grade round trip on one
-step, a code round trip on the PydanticAI walk (a naive and a good solution), the time for each step, and screenshots
-of 3 steps. It prints a table and writes `design/screens/trial/report.md`. The owner reads the report. Each problem
+step, a code round trip on the attention walk (a stdlib task, a naive and a good solution), the Leela handoff on the two
+tool walks (no `code` check, and each step with `leela` has the right link, made with a fake address file; no Leela
+runs and no library code runs), the time for each step, and screenshots of 3 steps. It prints a table and writes `design/screens/trial/report.md`. The owner reads the report. Each problem
 it finds gets a small fix with its own test.
 
 ## 7. Left to the builder
@@ -482,6 +518,10 @@ it finds gets a small fix with its own test.
   answer with cites (`vr/core/ask.py`) and the same offer.
 - **Leela as a pane host**: Leela implements `open` and `close` of the pane contract (6.10) and calls the same engine
   functions on a selection in a markdown cell.
+- **A `leela://` link**: when Leela.app registers the scheme (`CFBundleURLTypes`) and answers the URL Apple Event, a
+  link can also start Leela when it is not running. The path and query stay as in 6.12.
+- **Leela work on the rail**: a step could show "Worked on in Leela" from the attempts with `app = "leela"` and its
+  `walk` and `step`. In this plan, the rail shows only checks done in abhyasa.
 
 ## 9. Decisions made while writing this spec (the owner can change them)
 
@@ -510,10 +550,21 @@ it finds gets a small fix with its own test.
 16. The return strip shows on the parent step while its newest detour is less than 10 minutes old.
 17. A crawl follows only links into the folder of the given URL, and the walk uses only pages in that folder.
 18. A concept found in two pages of a link walk gets one step, at the first page where its passage is found.
-19. A library walk runs learner code with a 20 s total (not 10 s), because a large library can take some seconds to
-    import. The 2 s limit for each test stays.
-20. The audit hook allows a local socket pair (`AF_UNIX`), so asyncio code (PydanticAI's `run_sync`) can run. All
-    network calls stay refused.
-21. A library environment installs wheels only (`--only-binary :all:`). A package with no wheel cannot be used in a
-    library walk; its code checks fall back to short answers.
-22. A library walk needs `uv` on the PATH. This is a tool on the Mac, not a Python dependency of abhyasa.
+19. Replaced by the owner's decision of 28 Oct (6.12). It was: a library walk runs learner code with a 20 s total. Now
+    this is a Leela-side note (`leela-reuse.md`, section 6).
+20. Replaced by the owner's decision of 28 Oct (6.12). It was: the audit hook allows a local socket pair (`AF_UNIX`)
+    for asyncio. abhyasa's hook does not change; the allowance is a Leela-side note.
+21. Replaced by the owner's decision of 28 Oct (6.12). It was: a library environment installs wheels only. Leela makes
+    tool environments, wheels only.
+22. Replaced by the owner's decision of 28 Oct (6.12). It was: a library walk needs `uv` on the PATH. abhyasa needs no
+    `uv` for learners; Leela comes with `uv`.
+23. A tool walk is marked by the learner with a tick box on Add. The model does not tag it in this plan, because that
+    would change the `extract` prompt of 6.1.
+24. abhyasa finds Leela only through Leela's address file (or the `ABHYASA_LEELA` setting). It never guesses port 5010
+    and never connects to Leela, so a link never points at a Leela that is not running.
+25. The handoff is an `http` link to `/learn` on Leela. There is no `leela://` link, because Leela.app does not register
+    a URL scheme today.
+26. On a tool walk, an idea with the `code` way gets a short or order check in abhyasa and a link to Leela. abhyasa does
+    not hold that step open for Leela.
+27. Leela logs back with `walk`, `step`, `from` and `app = "leela"` and does not change the journey. The rail in abhyasa
+    does not mark a step done from work in Leela (section 8).
