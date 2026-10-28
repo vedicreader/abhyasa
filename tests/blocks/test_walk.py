@@ -260,3 +260,30 @@ def test_today_journeys_concept_and_review_links(mk, walk_fake, lr):
     cl.get(f'/s/{sid}'); r = cl.post(f'/s/{sid}/answer', data=dict(answer='rank'))
     assert 'Read the passage again: p. 4' in r.text and f'/w/{jid}/1' in r.text
     assert f'/w/{jid}' in cl.get('/learning').text                                 # Continue goes to the walk, not a plain session
+
+def test_walk_from_a_link(mk, walk_fake, lr, monkeypatch):
+    from fastcore.utils import L
+    from vishalakshi.core import Vault
+    def crawl(self, start_url, max_pages=10, sel=None, **kw):
+        return L([self.add(PAGES, 'Attention docs', source=start_url, kind='web', meta=dict(url=start_url))])
+    monkeypatch.setattr(Vault, 'crawl', crawl)
+    monkeypatch.setattr('abhyasa.sources._addrs', lambda host: {'93.184.216.34'})   # no DNS: a host on the internet
+    cl = mk(); u = 'https://docs.example.dev/attention/'
+    assert 'From a link' in cl.get('/add').text and 'Pages to read' in cl.get('/add').text
+    r = cl.post('/walk/new', data=dict(url=u, pages=3)).text
+    assert 'pending' in r and '/walk/job' in r                                     # a link walk is made as a job
+    jid = wait_for(lambda: (cl.get('/walk/job', params=dict(url=u)).headers.get('hx-redirect') or '').split('/')[-1] or None, secs=10)
+    assert lr.journey(jid).source['url'] == u and len(lr.journey(jid).steps) == 3
+    assert 'From the link' in cl.get(f'/w/{jid}').text
+    monkeypatch.setattr(Vault, 'crawl', lambda self, *a, **kw: L())
+    e = 'https://docs.example.dev/empty/'
+    cl.post('/walk/new', data=dict(url=e))
+    t = wait_for(lambda: t if 'pending' not in (t := cl.get('/walk/job', params=dict(url=e)).text) else None, secs=10)
+    assert 'could not read this link' in t and 'req-err' in t
+
+def test_link_walk_refuses_local_links(mk, walk_fake, lr):
+    cl = mk()
+    for bad in ('http://127.0.0.1:5001/', 'file:///etc/passwd', 'http://192.168.1.1/admin'):
+        r = cl.post('/walk/new', data=dict(url=bad), headers=HX).text
+        assert 'req-err' in r and 'pending' not in r                               # refused in the request: no job, no fetch
+    assert 'No walk' in cl.get('/walk/job', params=dict(url='https://nothing.example/')).text

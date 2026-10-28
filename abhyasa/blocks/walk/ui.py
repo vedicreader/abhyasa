@@ -1,6 +1,7 @@
 "A walk on the page: the plan, then one idea at a time with the outline at the left, the passage, the figure, the tutor note and one check."
 import json
 from pathlib import Path
+from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import Md, DepthBar, asset_css, asset_js
@@ -45,11 +46,18 @@ def PlanIdea(jid, i, s, by):
                      hx_vals=json.dumps(dict(i=i, act='drop')), hx_target='#plan', hx_swap='outerHTML'),
               cls='known' if s.get('status') == 'known' else None)
 
+def page_of(j, i):
+    "The title of the page of step `i` in a walk from a link; None in other walks."
+    return (j['steps'][i].get('read') or {}).get('title') if (j.get('source') or {}).get('docs') else None
+
 def Plan(j, st, by):
-    "The sections in reading order, each idea with its check. You can change the way of a check, or drop an idea."
+    "The sections in reading order, each idea with its check. You can change the way of a check, or drop an idea. A walk from a link names each page once."
     mins = sum(minutes(s) for s in j['steps'])
-    secs = [Li(Div(B(sec or 'The ideas'), Small(' · '.join(x for x in (pages([j['steps'][i] for i in ix]), f"{sum(minutes(j['steps'][i]) for i in ix)} min") if x)), cls='sh'),
-               Ul(*[PlanIdea(j['id'], i, j['steps'][i], by) for i in ix])) for sec, ix in st.sections]
+    secs, page = [], None
+    for sec, ix in st.sections:
+        if (t := page_of(j, ix[0])) and t != page: secs.append(Li(H3(t), cls='page')); page = t
+        secs.append(Li(Div(B(sec or 'The ideas'), Small(' · '.join(x for x in (pages([j['steps'][i] for i in ix]), f"{sum(minutes(j['steps'][i]) for i in ix)} min") if x)), cls='sh'),
+                       Ul(*[PlanIdea(j['id'], i, j['steps'][i], by) for i in ix])))
     return Div(Span(f"The walk · {len(st.sections)} section{'s' * (len(st.sections) != 1)} · {len(j['steps'])} ideas · about {mins} min", cls='lbl'),
                P('Each idea has one check. The tutor picks the check from the idea and from the ways that work for you. You can change any check.', cls='mute'),
                Ol(*secs, cls='plan') if secs else P('The tutor found no ideas in this source.', cls='mute'), id='plan')
@@ -58,8 +66,13 @@ def PlanPage(j, st, by):
     src = j.get('source') or {}
     go = (Form(Button('Start the walk ', Kbd('⌥S'), cls='go', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post')
           if j['steps'] else '')
-    return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else j.get('goal', ''), cls='mute'),
+    return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else f"From the link: {src['url']} · {len(src['docs'])} page{'s' * (len(src['docs']) != 1)}." if src.get('docs') else j.get('goal', ''), cls='mute'),
             Plan(j, st, by), Div(go, Span('The walk is a journey, so it shows on Today.', cls='mute'), cls='row'))
+
+def LinkPending(url, said):
+    "A walk from a link that is still being made: the card asks the server again in 2 seconds."
+    return Div(P(said), P('This can take some minutes. When the walk is ready, it opens here and shows in your journeys.', cls='mute'),
+               cls='walk-link pending', style='animation: none', hx_get=f"{Routes.job}?{urlencode(dict(url=url))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
 
 # --- the step page ---------------------------------------------------------------------------------------------------
 
@@ -80,7 +93,7 @@ def Passage(j, s, c):
     "The passage from the source, word for word; with no passage, the statement of the idea, marked as the tutor's words."
     r = s.get('read') or {}
     if r.get('text'):
-        if r.get('src'): src = f"From {r.get('title') or 'your sources'}"
+        if r.get('src') or (j.get('source') or {}).get('docs'): src = f"From {r.get('title') or 'your sources'}"
         else: src = ', '.join(x for x in ('From the paper' if j.get('source') else 'From the text',
                                           r.get('section') and f"section {r['section'].split()[0]}", r.get('page') and f"p. {r['page']}") if x)
         return Blockquote(Md(r['text']), Span(src, cls='src'), id='passage', cls='quote')

@@ -7,9 +7,9 @@ Docs: https://vedicreader.github.io/abhyasa/journey.html.md"""
 # %% auto #0
 __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'SHORT_WAYS', 'SHAKY', 'STEP_MIN', 'MAX_DEPTH', 'CHAIN', 'READY', 'PRIMER_SP',
            'step_state', 'progress', 'current', 'plan_prompt', 'near_goal', 'plan', 'short_check',
-           'journey_from_source', 'journey_from_text', 'walk_from_topic', 'walk_state', 'minutes', 'needs',
-           'pick_way_down', 'detour', 'trail', 'back_from', 'look_up', 'add_topic', 'name_gaps', 'split', 'related',
-           'with_step', 'beyond']
+           'journey_from_source', 'journey_from_text', 'journey_from_sources', 'walk_from_topic', 'walk_state',
+           'minutes', 'needs', 'pick_way_down', 'detour', 'trail', 'back_from', 'look_up', 'add_topic', 'name_gaps',
+           'split', 'related', 'with_step', 'beyond']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, random, time, uuid
@@ -17,7 +17,7 @@ from fastcore.utils import *
 from .store import Learning, slugify, _src
 from .model import GOAL, learned
 from .llm import ask_json
-from .sources import extract, _index, doc_pages, from_vault, placement
+from .sources import extract, _index, doc_pages, from_vault, placement, LINK_CHARS
 import abhyasa.profile  # adds Learning.profile
 from .method import check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND
 from .ground import ground, ground_text
@@ -164,15 +164,22 @@ def short_check(lr:Learning, c) -> AttrDict:
     return _check(lr, {**c, 'ways': [w for w in c.get('ways') or () if w in SHORT_WAYS] or list(SHORT_WAYS)})
 
 # %% ../nbs/11_journey.ipynb #w304
+def _steps(lr:Learning, slugs, doc_id:str, shelf:str, title:str) -> list:
+    "One walk step for each of `slugs` that has a place in document `doc_id`, in the order of the document."
+    cs = sorted(((c, placement(c, doc_id)) for c in map(lr.concept, slugs) if c and placement(c, doc_id)), key=lambda x: x[1].get('order') or 0)
+    return [dict(slug=c.slug, status='known' if (c.get('floor') or 0) >= 4 else 'todo', why='',
+                 read=dict(shelf=shelf, doc_id=doc_id, title=title, section=p.get('section') or '',
+                           page=p.get('page'), span=p.get('span'), text=p.get('passage') or '', figure=p.get('figure')),
+                 check=_check(lr, c)) for c, p in cs]
+
+def _save_walk(lr:Learning, jid:str, title:str, steps:list, source:dict|None, goal:str, subject:str, **extra) -> AttrDict:
+    "Save a walk that is not started yet."
+    return lr.put_journey(dict(id=jid, title=title, goal=goal, subject=subject, steps=steps, created=time.time(),
+                               mode='walk', source=source, started=None, sitting=None, **extra))
+
 def _walk(lr:Learning, jid:str, title:str, slugs, doc_id:str, source:dict|None, goal:str, subject:str) -> AttrDict:
     "Save a walk with one step for each of `slugs` that has a place in document `doc_id`, in the order of the document."
-    cs = sorted(((c, placement(c, doc_id)) for c in map(lr.concept, slugs) if c and placement(c, doc_id)), key=lambda x: x[1].get('order') or 0)
-    steps = [dict(slug=c.slug, status='known' if (c.get('floor') or 0) >= 4 else 'todo', why='',
-                  read=dict(shelf=(source or {}).get('shelf', 'store'), doc_id=doc_id, title=title, section=p.get('section') or '',
-                            page=p.get('page'), span=p.get('span'), text=p.get('passage') or '', figure=p.get('figure')),
-                  check=_check(lr, c)) for c, p in cs]
-    return lr.put_journey(dict(id=jid, title=title, goal=goal, subject=subject, steps=steps, created=time.time(),
-                               mode='walk', source=source, started=None, sitting=None))
+    return _save_walk(lr, jid, title, _steps(lr, slugs, doc_id, (source or {}).get('shelf', 'store'), title), source, goal, subject)
 
 def journey_from_source(lr:Learning, ask, ref:str, shelf:str='store', subject:str='') -> AttrDict:
     "Make a walk from one vault document, by doc id, source or title."
@@ -186,6 +193,21 @@ def journey_from_text(lr:Learning, ask, text:str, title:str, subject:str='') -> 
     jid = _new_id(title)
     slugs = extract(lr, ask, subject=subject, source=dict(src='text', doc_id=jid, title=title), pages=[(None, text)])
     return _walk(lr, jid, title, slugs, jid, None, f'Read {title}', subject)
+
+# %% ../nbs/11_journey.ipynb #lk41
+def journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str='', progress=None, **extra) -> AttrDict:
+    "Make one walk across the vault documents `docs`, each with `shelf`, `doc_id`, `title` and `url`, in their order. `extra` goes on the journey."
+    if not docs: raise ValueError('no pages to walk')
+    got = {}
+    for k, d in enumerate(docs):
+        if progress: progress(k, len(docs))
+        got[d.doc_id] = from_vault(lr, ask, d.doc_id, subject, d.shelf, chars=LINK_CHARS)
+    told = lambda s, d: bool((placement(lr.concept(s) or {}, d.doc_id) or {}).get('passage'))
+    named = lambda s: [d for d in docs if s in got[d.doc_id]]
+    home = {s: (first(d for d in named(s) if told(s, d)) or named(s)[0]).doc_id for d in docs for s in got[d.doc_id]}
+    steps = [x for d in docs for x in _steps(lr, [s for s in got[d.doc_id] if home[s] == d.doc_id], d.doc_id, d.shelf, d.title)]
+    title = title or docs[0].title
+    return _save_walk(lr, _new_id(title), title, steps, dict(url=docs[0].url, docs=[dict(d) for d in docs]), f'Read {title}', subject, **extra)
 
 # %% ../nbs/11_journey.ipynb #w308
 def _topic_read(c, sources) -> dict|None:
@@ -226,11 +248,13 @@ def walk_state(j) -> AttrDict:
     "The steps with a `dot`, the index of the current step, the counts, and the sections as `(name, [indexes])`."
     cur = next((i for i, s in enumerate(j['steps']) if not s.get('done') and s.get('status', 'todo') == 'todo'), None)
     steps = [AttrDict(s, dot=_dot(s, i == cur)) for i, s in enumerate(j['steps'])]
-    secs = []
+    secs, last = [], None
     for i, s in enumerate(steps):
-        name = (s.get('read') or {}).get('section') or ''
-        if secs and secs[-1][0] == name: secs[-1][1].append(i)
+        r = s.get('read') or {}
+        name = r.get('section') or ''
+        if secs and last == (r.get('doc_id'), name): secs[-1][1].append(i)
         else: secs.append((name, [i]))
+        last = (r.get('doc_id'), name)
     return AttrDict(steps=steps, current=cur, done=sum(s.dot in ('done', 'known') for s in steps),
                     total=sum(s.dot != 'skipped' for s in steps), sections=secs)
 

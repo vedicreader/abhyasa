@@ -1,4 +1,4 @@
-"""The guided walk: a paper, a text or a topic as one idea at a time, in reading order. The plan, the step page, its check,
+"""The guided walk: a paper, a text, a topic or a link as one idea at a time, in reading order. The plan, the step page, its check,
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
 import json, time
 from collections import defaultdict
@@ -10,7 +10,8 @@ from abhyasa.llm import for_task
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
-from abhyasa.journey import journey_from_source, journey_from_text, walk_from_topic, walk_state, short_check, with_step, trail
+from abhyasa.sources import file_link, link_kind
+from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_state, short_check, with_step, trail
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.demo import queue_demo, job_state, job_age
 from . import ui
@@ -23,12 +24,14 @@ RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
 DEMO_WAIT = 90                       # seconds to wait for a demo; then the step uses a short answer
 MAX_STATE = 20_000                   # the most chars of a kept demo state
+PAGES = 8                            # the page cap of a link when the form gives none
 
 def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
     ask = lambda prompt, sp='': for_task(ctx.ask, 'extract')(prompt, sp)   # looked up on each call, so a settings change works at once
     up = [('Today', '/'), ('Journeys', '/journeys')]
     writing = defaultdict(Lock)   # (walk, step) -> a lock, so the note and the check of one step do not write the note twice
+    links = {}                    # link -> the pool job that makes its walk, and `said`, the words of its state
 
     def by(): return {c.slug: c for c in lr.concepts()}
     def go(jid, i): return Redirect(ui.at(Routes.step, jid, i))
@@ -125,7 +128,34 @@ def connect(app, ctx):
         lr.walk_step(j.id, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
         return reply(lr.journey(j.id), i, r)
 
-    def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str=''):
+    def from_link(url, pages, st):
+        "On the pool: file the pages of `url`, then read each page and make one walk. Return the walk id."
+        docs = file_link(lr, url, pages)
+        j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=f"Reading {k + 1} of {n} page{'s' * (n != 1)}…"))
+        if not j.steps:
+            lr.drop_journey(j.id)
+            raise ValueError('The tutor found no ideas on these pages.')
+        return j.id
+
+    def link_walk(url, pages):
+        "Start the pool job that makes a walk from `url`, unless one is running. The request does not wait for the network or the model."
+        try: link_kind(url)
+        except ValueError as e: return P(str(e), cls='req-err')
+        st = links.get(url)
+        if not st or st.job.done():
+            st = links[url] = AttrDict(said='Getting the pages from the link…')
+            st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() else PAGES, st)
+        return ui.LinkPending(url, st.said)
+
+    def job(url:str=''):
+        "The state of the walk from `url`: the pending card, a redirect to the walk when it is ready, or a message."
+        if not (st := links.get(url.strip())): return P('No walk is being made from this link. Send the form again.', cls='req-err')
+        if not st.job.done(): return ui.LinkPending(url.strip(), st.said)
+        if (e := st.job.exception()): return P(str(e) if isinstance(e, ValueError) else f'The tutor could not make a walk ({e}). Try again.', cls='req-err')
+        return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
+
+    def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str=''):
+        if url.strip(): return link_walk(url.strip(), pages)
         try:
             if ref.strip(): j = journey_from_source(lr, ask, ref.strip(), shelf.strip() or 'store')
             elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60])
@@ -305,6 +335,7 @@ def connect(app, ctx):
         return P(A('Read the passage again' + (f': p. {pg}' if pg else ''), href=ui.at(Routes.step, j.id, i)), cls='walk-again')
 
     app.post(Routes.new)(new)
+    app.get(Routes.job)(job)
     app.get(Routes.one)(one)
     app.post(Routes.plan)(plan)
     app.post(Routes.start)(start)

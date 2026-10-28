@@ -6,6 +6,8 @@
 .plan > li:last-child { border-bottom: 1px solid var(--line); }
 .plan .sh { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
 .plan .sh b { font-weight: 500; font-size: 18px; }
+.plan > li.page { border-top: 0; padding: 18px 0 2px; }
+.plan > li.page h3 { margin: 0; font-size: 14px; font-weight: 500; color: var(--mute); }
 .plan .sh small { white-space: nowrap; }
 .plan ul { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 2px; }
 .plan ul li { display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px; align-items: center; font-size: 16px; color: var(--ink2); }
