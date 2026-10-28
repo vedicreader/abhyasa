@@ -273,11 +273,13 @@ def parse(text, nonce:str=None) -> dict:
 
 # %% ../nbs/06_check.ipynb #b7c1a002
 def _guard(tmp, unix=False):
-    "Add an audit hook that refuses the network, new processes, and file changes outside the folder `tmp`; with `unix`, allow a local socket pair."
-    import os, sys, socket
+    "Add an audit hook that refuses the network, ctypes libraries, new processes, and file changes outside the folder `tmp`; with `unix`, allow a local socket pair."
+    import os, sys, socket, ctypes
     writes = os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_TRUNC
     def outside(p): return isinstance(p, (str, bytes, os.PathLike)) and not os.path.realpath(os.fsdecode(p)).startswith(tmp + os.sep)
     def hook(event, args):
+        if event == 'ctypes.dlopen' or (event == 'ctypes.dlsym' and args[1] != 'PyThreadState_SetAsyncExc'):
+            raise PermissionError(f'{event} is not allowed')
         if unix and event == 'socket.__new__' and args[1] == socket.AF_UNIX: return
         if event.startswith(('socket.', 'os.exec', 'os.posix_spawn', 'os.fork')) or event in ('subprocess.Popen', 'os.system'):
             raise PermissionError(f'{event} is not allowed')
@@ -327,13 +329,15 @@ def run_isolated(kind, fname, source, tests, *, total=10., setup=(), sandbox=Tru
             pre += f'{inspect.getsource(_guard)}\n_guard({tmp!r}, {unix!r})\ndel _guard\n'
             if sys.platform == 'darwin' and os.path.exists(SANDBOX_EXEC): cmd = [SANDBOX_EXEC, '-p', SANDBOX_PROFILE, '-D', f'TMP={tmp}', *cmd]
         code = f'{head}\n{pre}{body}\n' + snippet(kind, fname, tests, total=total, setup=setup, nonce=nonce)
-        with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=tmp,
-                              env={'PATH': os.defpath, 'HOME': tmp}, start_new_session=True) as p:
-            try: out, _ = p.communicate(code, timeout=total + 2)
-            except subprocess.TimeoutExpired:   # stop the whole group: a process that the code started can keep the output open
-                try: os.killpg(p.pid, signal.SIGKILL)
-                except (AttributeError, ProcessLookupError): p.kill()
-                p.wait()
-                return {'timeout': True}
+        try:
+            with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=tmp,
+                                  env={'PATH': os.defpath, 'HOME': tmp}, start_new_session=True) as p:
+                try: out, _ = p.communicate(code, timeout=total + 2)
+                except subprocess.TimeoutExpired:   # stop the whole group: a process that the code started can keep the output open
+                    try: os.killpg(p.pid, signal.SIGKILL)
+                    except (AttributeError, ProcessLookupError): p.kill()
+                    p.wait()
+                    return {'timeout': True}
+        except OSError: return {'error': 'no check result'}   # `python` cannot start
     if -p.returncode in (getattr(signal, 'SIGXCPU', None), getattr(signal, 'SIGKILL', None)): return {'timeout': True}
     return {'error': 'no check result'} if p.returncode < 0 else parse(out, nonce)
