@@ -72,7 +72,8 @@ add('talks.image_mb', 'talks', 'Largest figure for the room', 'A figure larger t
 add('talks.port', 'talks', 'Room port', 'The port of the room that phones join.', 5180, 1024, 65000, more=True)
 add('talks.room_hours', 'talks', 'Room closes after', 'The room closes after this time, also when the talk did not end.', 3, 1, 8, more=True, unit='hours')
 add('talks.phones', 'talks', 'Most phones', 'The most phones that can join one room.', 300, 10, 300, more=True)
-add('talks.nets', 'talks', 'Rooms before', 'The subnets where you opened a room before, as a comma list.', '', ui=False);
+# talks.nets only adds a warning at a new place. It never changes what a server binds to or accepts.
+add('talks.nets', 'talks', 'Places you opened a room', 'The Wi-Fi places where you opened a room before. The app warns you at a new place.', '', ui=False);
 
 # %% ../nbs/16_settings.ipynb #43f21485
 add('checks.tries', 'checks', 'Tries', 'How many answers you can give before the tutor teaches the idea.', 3, 1, 5)
