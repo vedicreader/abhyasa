@@ -6,10 +6,9 @@ Docs: https://vedicreader.github.io/abhyasa/voice.html.md"""
 
 # %% auto #0
 __all__ = ['STT_SP', 'DFLT_GEMMA', 'GEMMA_E2B', 'DFLT_WHISPER', 'DFLT_PARAKEET', 'DFLT_OPENAI', 'DFLT_MODELS', 'ALIASES',
-           'DFLT_SETTINGS', 'OPENAI_URL', 'http_post', 'ENGINES', 'RAMABANA_KEYS', 'KNOWN', 'STT_WORDS', 'NOT_STT',
-           'cfg_dir', 'settings', 'save_settings', 'update_settings', 'resolve', 'current', 'unload', 'resident',
-           'openai_key', 'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence', 'cached', 'cache_bytes',
-           'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'Dictation', 'Speech']
+           'OPENAI_URL', 'http_post', 'ENGINES', 'RAMABANA_KEYS', 'KNOWN', 'STT_WORDS', 'NOT_STT', 'resolve', 'current',
+           'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence',
+           'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'Dictation', 'Speech']
 
 # %% ../nbs/05_voice.ipynb #v005
 import os, re, gc, json, time, uuid, inspect, tempfile, threading, wave
@@ -28,39 +27,7 @@ DFLT_MODELS = dict(gemma=DFLT_GEMMA, mlx=DFLT_WHISPER, openai=DFLT_OPENAI)
 ALIASES = dict(whisper=('mlx', DFLT_WHISPER), parakeet=('mlx', DFLT_PARAKEET))
 
 # %% ../nbs/05_voice.ipynb #v010
-def cfg_dir() -> Path:
-    "The folder for abhyasa's settings and keys: `$ABHYASA_CONFIG`, else `~/.config/abhyasa`."
-    return Path(os.getenv('ABHYASA_CONFIG') or '~/.config/abhyasa').expanduser()
-
-DFLT_SETTINGS = dict(stt=dict(engine='gemma', model='', segment=True),
-                     models=dict(question='', grade='', hint='', lesson=''),   # model ids for the tutor tasks; empty: the app's model
-                     tokens=dict(question='', grade='', hint='', lesson='', extract=''),   # the reply cap of each task; empty: `llm.TOKENS`
-                     look=dict(theme='paper', mode='auto'),                    # the colour theme, and light, dark or auto (as the Mac)
-                     prompts={},                                               # your text for a tutor prompt, by name (see `prompts`); else the default
-                     downloaded=[])                                            # the models that the Settings page downloaded
-
-def settings() -> dict:
-    "The saved settings over the defaults."
-    d = json.loads(json.dumps(DFLT_SETTINGS))
-    try: saved = json.loads((cfg_dir()/'settings.json').read_text())
-    except (OSError, ValueError): saved = {}
-    for k, v in saved.items():
-        if isinstance(d.get(k), dict) and isinstance(v, dict): d[k].update(v)
-        elif k in d: d[k] = v
-    return d
-
-def save_settings(d:dict) -> dict:
-    "Write all the settings."
-    p = cfg_dir()/'settings.json'
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix('.tmp')
-    tmp.write_text(json.dumps(d, indent=2)); tmp.replace(p)
-    return d
-
-def update_settings(section:str, **kw) -> dict:
-    "Change some keys in one section of the settings."
-    d = settings(); d[section].update(kw)
-    return save_settings(d)
+from .settings import cfg_dir, DFLT_SETTINGS, settings, save_settings, update_settings, val
 
 # %% ../nbs/05_voice.ipynb #v014
 def resolve(engine:str, model:str='') -> tuple:

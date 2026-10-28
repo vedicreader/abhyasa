@@ -32,7 +32,7 @@ def need_lines(n:int, what:str):
 # %% ../nbs/14_prompts.ipynb #p011
 def saved() -> dict:
     "The saved prompt texts: name -> text."
-    from abhyasa.voice import settings
+    from abhyasa.settings import settings
     return settings().get('prompts') or {}
 
 def prompt(name:str) -> str:
@@ -42,7 +42,7 @@ def prompt(name:str) -> str:
 
 def set_prompt(name:str, text:str='') -> str:
     "Save the text of the prompt `name`. An empty text uses the default. A text that fails the check raises `ValueError`. Return the text in use."
-    from abhyasa.voice import settings, save_settings
+    from abhyasa.settings import settings, save_settings
     p, text = PROMPTS[name], (text or '').replace('\r\n', '\n').strip()
     if text and p.check: p.check(text)
     d = settings()
