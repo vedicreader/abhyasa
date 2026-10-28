@@ -1466,3 +1466,63 @@ Expected: PASS; three new screens in `design/screens/`.
 git add nbs/index.ipynb README.md CHANGELOG.md docs/design-layers.md tools/walk_look.py design/screens/walk-code.png design/screens/walk-demo.png design/screens/walk-pane.png
 git commit -m "Document the walk, rabbit holes, links and Open in Leela, and add screens of a code check, a demo and the side pane"
 ```
+
+### Task 17: Runner options for Leela
+
+Added by ruling (28 Oct): Leela uses abhyasa's runner and needs no copy of it. Run Task 17, then Task 18, then Task 16, because the docs describe the new Settings page.
+
+**Files:**
+- Modify: `nbs/06_check.ipynb` (`run_isolated`), then `uv run nbdev-prepare`
+
+**Interfaces:**
+- Produces: `run_isolated(kind, fname, source, tests, *, total=10., setup=(), sandbox=True, python=None, unix=False) -> dict`
+
+- [ ] **Step 1: Write the failing tests** in `nbs/06_check.ipynb`:
+  - `python=` runs the given interpreter (use `sys.executable` in the test, and check that the result reports the same `sys.version`). With `python=None` the runner uses `sys.executable`, as before.
+  - `unix=True` lets the learner code make an `AF_UNIX` `socket.socketpair()` and send bytes across it. `connect`, `bind`, `getaddrinfo` and `sendto` to an internet address are still refused, both by the audit hook and, on macOS, by the sandbox-exec profile.
+  - `unix=False` (the default) refuses `socketpair` as it does now.
+  - `total` stays as passed with both options.
+- [ ] **Step 2: Implement.** `python` replaces `sys.executable` in `cmd` and keeps `-I -B`. `unix` changes only the audit hook's socket rule and adds the sandbox-exec rule for local unix sockets. It never allows network. Docstring: one line, and say "a closed process with no network", never "a security sandbox".
+- [ ] **Step 3: Run** `uv run nbdev-test --fname nbs/06_check.ipynb` and `uv run pytest -q`. Expected: PASS.
+- [ ] **Step 4: Commit**: `Let run_isolated use another Python and local unix sockets, for Leela`
+
+### Task 18: Settings for everything
+
+Added by ruling (28 Oct). The owner wants every value a person might change on the Settings page, in clear groups, with practical defaults, including the number of ideas in a walk. The inventory of current values, with file:line, is in the plan workspace: `settings-inventory.md` (marks S = safe to expose, L = a resource cap, K = keep fixed).
+
+**Rules:**
+- One table is the single source: for each setting, its group, key, label, a one-line help text, the type, the default and, for numbers, a min and a max. The engine, the web code and the Settings page all read this table. Values are read at call time, as the prompts are.
+- A saved value outside its range is clamped to the range, and a value of the wrong type uses the default. A bad settings file never stops the app.
+- Defaults are the values the code uses now (the inventory lists them). The app must behave the same when nobody changes a setting.
+- K items stay fixed and get no setting: no network in the code runner, the sandbox-exec profile, the audit hook, `python -I`, `sandbox=True`, the link checks for local addresses, plain HTTP with `auto=False`, link kinds, the HTML allowlist, the pane URL check, local-only hosts, the test allowlist, the grade scale and the depth ladder.
+- Each row has "Use the default". Each group has "Use the defaults for this group".
+- Remove copies: one value per setting. Fix the copies the inventory names, for example the default page count in three places, the "10 s" message in walk.py, "up to 4 ideas" in detour/ui.py, the GOAL copy in journey.py and "every 10 seconds" on the Settings page.
+
+**Groups, in page order (labels in STE). Ranges are the controller's ruling:**
+1. **Look**: theme and mode (as now).
+2. **Learning** (the same values as the Profile page, stored once, editable in both places): pace, session length (3 to 40, default 12), new ways (never, sometimes, often).
+3. **Walks**: ideas in a walk `MAX_STEPS` (3 to 30, default 12); hands-on share `MAX_HANDS_ON` (0 to 1, default 1/3); passage length (200 to 2000 chars, default 600); note length (20 to 120 words, default 60); rabbit-hole depth (1 to 4, default 2); ideas in a side walk (2 to 8, default 4); how long "Back on the paper" shows (1 to 60 min, default 10); demo wait (30 to 300 s, default 90).
+4. **Checks and grading**: tries `MAX_TRIES` (1 to 5, default 3); shaky pass `NEAR` (5 to 9, default 7); learned depth `GOAL` (2 to 5, default 4); sure confidence `HIGH` (40 to 90, default 60); hints before a pass is shaky (1 to 4, default 2); one ask per question (on/off, default on); use my sources (on/off, default on); misses before a demo (1 to 5, default 2); retest a miss after N questions (1 to 6, default 2).
+5. **Review**: first interval after a solid answer (0.25 to 7 days, default 1); after a shaky answer (0.1 to 3 days, default 0.5); growth factor (1 to 6, default the current 3); new: most reviews a day (0 = no limit, up to 200, default 0); fading below recall (0.3 to 0.9, default 0.6).
+6. **Links**: pages read by default (1 to the page cap, default 8); page cap (1 to 50, default 20); time per fetch (5 to 120 s, default 30); download speed cap (0.1 to 10 MB/s, default 1); characters kept per page (default 400000) and read per page (default 100000), both 10000 to 1000000.
+7. **Code runner**: total time (5 to 60 s, default 10); time per test (1 to 10 s, default 2); largest file (1 to 100 MB, default 10). The kill time and the CPU limit follow the total time (total + 2 and total + 1), as now.
+8. **Speech to text**: as now, plus the pause before a cut (300 to 2000 ms, default 700) and the longest segment (5 to 30 s, default 12).
+9. **Models**: new: the default model (now only `--model`, `$ABHYASA_MODEL` or the Mac app; those still win when set). Own rows, each falling back to the task it borrows now: plan, pick, walk note, profile and code exercise. The existing rows stay. Add `extract` to the defaults.
+10. **Lists** (advanced, closed by default): the visible list lengths in the inventory's U2 row.
+11. **Prompts**: as now, plus registering the prompts that are not registered yet: `PRIMER_SP`, `ONBOARD_SP`, `OBSERVE_SP`, `STT_SP`, `CODE_RULES`, `ORDER_AIM` and `DEPTH_ASK`. Keep the existing format checks, for example `need_lines`.
+
+Groups 10 and the rarely changed caps in groups 6 and 7 go under a closed "More" part of their group, so the page stays short.
+
+**Files:** the settings table goes in the notebook that has `settings()` now (`nbs/` for `voice.py`) or in a new small notebook `nbs/15_settings.ipynb` if it is cleaner. Change each engine notebook that uses one of the values. Change `abhyasa/blocks/settings/` and `abhyasa/blocks/profile/` for the page.
+
+- [ ] **Step 1: Write the failing tests**:
+  - the table has every group above, and every default equals the value the code used before (one test per group);
+  - a saved value outside its range is clamped, a wrong type gives the default, and an unknown key is ignored;
+  - one engine use per group reads the saved value at call time (for example a walk of 5 steps after setting ideas to 5, a run that stops at the new total, a link that reads the new page count);
+  - the Settings page lists every group in order, each row shows its help text and range, "Use the default" restores the default, and a POST with a value out of range saves the clamped value;
+  - pace, session length and new ways saved on Settings show on the Profile page, and the other way round;
+  - no K item has a setting (a test that names them).
+- [ ] **Step 2: Run them to see them fail.**
+- [ ] **Step 3: Implement.** Keep each value in one place. Short docstrings. Help texts in STE grade 9, with no odd machine phrasing.
+- [ ] **Step 4: Run** `uv run nbdev-prepare` and `uv run pytest -q`. Expected: PASS. Check by hand that a settings file from before this task still loads.
+- [ ] **Step 5: Commit** in small steps, one plain STE line each.
