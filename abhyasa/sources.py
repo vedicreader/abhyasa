@@ -178,7 +178,7 @@ def from_vault(lr:Learning, ask, ref:str, subject:str='', shelf:str='store', cha
 
 # %% ../nbs/04_sources.ipynb #lk02
 import ipaddress, socket
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 def fetch_opts() -> dict:
     "The limits of one fetch, from the settings: the time limit, the speed cap in bytes a second, and one retry."
@@ -189,14 +189,21 @@ def link_folder(url:str) -> str:
     u = urlparse(url)
     return f"{u.scheme}://{u.netloc}{u.path[:u.path.rfind('/') + 1] or '/'}"
 
+def _plain(path:str) -> str:
+    "`path` with its percent codes decoded, again until none is left, as a server can do."
+    for _ in range(5):
+        if (p := unquote(path)) == path: break
+        path = p
+    return path
+
 def in_scope(url:str, start:str) -> bool:
-    "Whether `url`, without its query and fragment, is in the folder of `start`. A path with `..` is never in it."
-    u = urlparse(url)
-    return '..' not in u.path.split('/') and f"{u.scheme}://{u.netloc}{u.path}".startswith(link_folder(start))
+    "Whether `url`, without its query and fragment, is in the folder of `start`. A path with `..`, also in percent codes, is never in it."
+    u, path = urlparse(url), _plain(urlparse(url).path)
+    return '..' not in re.split(r'[/\\]', path) and f"{u.scheme}://{u.netloc}{path}".startswith(_plain(link_folder(start)))
 
 def link_sel(start:str) -> str:
-    "The CSS selector of the links into the folder of `start`: from the root of the site, in full, or relative. None has `..`."
-    f, up = link_folder(start).replace('"', '%22'), ':not([href*=".."])'
+    "The CSS selector of the links into the folder of `start`: from the root of the site, in full, or relative. None has `..` or `%2e`."
+    f, up = link_folder(start).replace('"', '%22'), ':not([href*=".."]):not([href*="%2e" i])'
     return (f'a[href^="{urlparse(f).path}"]{up}, a[href^="{f}"]{up}, '
             f'a[href]:not([href*=":"]):not([href^="/"]):not([href^="#"]){up}')
 
