@@ -18,7 +18,7 @@ from abhyasa.store import temp_learning
 from abhyasa.llm import Router, Fake, route_ask, for_task
 from abhyasa.tutor import Tutor
 from abhyasa.ground import VaultSource
-from abhyasa.sources import file_link
+from abhyasa.sources import file_link, LinkError
 from abhyasa.journey import journey_from_sources, walk_from_topic, walk_state, handoff
 from abhyasa.walk import tutor_note, open_short, code_task, run_code, step_meta
 from abhyasa.core.leela import leela_link
@@ -77,7 +77,7 @@ def fake_read(lr):
     "A `read` for `file_link` that files `PAGES` and fetches nothing."
     from walk_data import PAGES
     def read(how, target, **kw):
-        src = target if how == 'arxiv' else target.rstrip('/') + '/page'
+        src = target if how in ('arxiv', 'pdf') else target.rstrip('/') + '/page'
         d = lr.vault.add([(n, f'{t}\n\n(Pages of {target}.)' if n == 0 else t) for n, t in PAGES], f'Pages of {target}', source=src, kind='web')
         img = lr.vault.assets(d['doc_id'])/'images'/'fig2.png'
         img.parent.mkdir(parents=True, exist_ok=True); img.write_bytes(b'\x89PNG\r\n\x1a\n')
@@ -89,7 +89,7 @@ def build(lr, ask, case, read=None) -> AttrDict:
     t = time.monotonic()
     if 'topic' in case: j = walk_from_topic(lr, ask, case['topic'], sources=[VaultSource(lr)])
     else: j = journey_from_sources(lr, ask, file_link(lr, case['link'], case.get('pages', 8), read=read), tool=bool(case.get('tool')))
-    if not j.steps: raise ValueError('the walk has no steps')
+    if not j.steps: raise LinkError('The tutor found no ideas on these pages.')
     return AttrDict(j=j, secs=time.monotonic() - t)
 
 def measure(lr, ask, j) -> AttrDict:
@@ -109,13 +109,13 @@ def measure(lr, ask, j) -> AttrDict:
     return AttrDict(steps=len(j.steps), found=found, figures=figs, kinds=kinds, asks_ok=ok, asks=asks, secs_step=mean(secs), bad_asks=bad)
 
 def grade_trip(lr, ask, j) -> AttrDict:
-    "On the first short step: the statement of the idea must grade correct, and a new question answered 'I am not sure.' must not."
+    "On the first short step: the model answer of its question must grade correct, and a new question answered 'I am not sure.' must not."
     tutor = Tutor(lr, ask)
     k = first(i for i, s in enumerate(j.steps) if s['check']['kind'] == 'short')
     if k is None: raise ValueError('no short check in this walk')
     c = lr.concept(j.steps[k]['slug'])
     q = open_short(tutor, lr.journey(j.id), k, 'trial')
-    good = bool(tutor.answer(q.id, c.get('statement') or c.name, confidence=80).correct)
+    good = bool(tutor.answer(q.id, tutor.open[q.id].answer, confidence=80).correct)   # the model answer of this question, not the general statement of the idea
     q2 = tutor.ask_on(c, 2, session='trial', method=j.steps[k]['check']['way'])
     return AttrDict(good=good, weak=not tutor.answer(q2.id, 'I am not sure.', confidence=20).correct)
 
@@ -227,7 +227,7 @@ def report(rows, out) -> str:
         m = r.m
         md.append(f"- Steps: {m.steps}; build {r.build.secs:.0f} s; {r.n_calls} model calls, {r.s_call:.1f} s each on average.")
         for b in m.bad_asks: md.append(f'- Step {b.step} ({b.name}) fails {", ".join(b.failed)}: {b.question!r}')
-        if r.get('g'): md.append(f'- Grade: the statement graded correct: {r.g.good}; "I am not sure." graded not correct: {r.g.weak}.')
+        if r.get('g'): md.append(f'- Grade: the model answer graded correct: {r.g.good}; "I am not sure." graded not correct: {r.g.weak}.')
         if r.get('c'): md.append(f'- Code: naive {r.c.naive}, good {r.c.good}, {r.c.secs:.0f} s.')
         if r.get('h'): md.append(f'- Leela: {r.h.leela_steps} steps with a link, {r.h.links_ok} links right, {r.h.pages_ok} pages right, {r.h.code_checks} code checks. {r.h.cards_skipped} demo or order cards were not fetched (a demo card starts a demo job).')
         for e in ('g', 'c', 'h', 'shots'):
