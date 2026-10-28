@@ -95,6 +95,9 @@ CODE_RULES = """
 You write one small Python exercise that makes the learner apply a concept by implementing one function.
 - The function is 5-25 lines for a correct solution, standard library and numpy only.
 - Tests are 3-6 plain `assert` lines that call the function by name; include one edge case.
+- Each test is one line with plain values: `assert f(a, b) == c`. A test has no `lambda`, `def`, loop, `import` or helper function. If the function takes a function, take a plain value instead (a number, a string, a list or a dict).
+- Good test: `assert softmax([0.0, 0.0]) == [0.5, 0.5]`
+- Bad test: `assert decode(lambda s: (s[0], s[1:]), ('a', 'b')) == ['a', 'b']`
 - Never put the solution in the stub."""
 
 def code_sp() -> str:
@@ -115,7 +118,7 @@ def new_exercise(ask, c) -> AttrDict:
     p = code_prompt(c)
     try: return validate_exercise(ask_json(for_task(ask, 'question'), p, code_sp()))
     except ValueError as e:
-        return validate_exercise(ask_json(for_task(ask, 'question'), f'{p}\n\nYour last reply was refused: {e}. Follow the rules exactly.', code_sp()))
+        return validate_exercise(ask_json(for_task(ask, 'question'), f'{p}\n\nYour last reply was refused: {e}. Write each test again as one `assert` line with plain values only: no `lambda`, `def`, loop or `import`.', code_sp()))
 
 class Exercise:
     "One code exercise on a concept. `check(fn)` runs its tests on your function."
