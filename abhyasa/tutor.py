@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/tutor.html.md"""
 
 # %% auto #0
 __all__ = ['MAX_TRIES', 'NEAR', 'HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'GRADE_SP', 'TEACH', 'CLOSE_HOOKS', 'MISSES',
-           'SHAKY', 'question_prompt', 'with_code', 'bridges', 'thread_text', 'grade_prompt', 'hint_prompt',
-           'teach_prompt', 'hints', 'Tutor', 'public', 'paced', 'flow', 'Session', 'retests', 'moved']
+           'SHAKY', 'one_ask', 'asks_twice', 'question_prompt', 'with_code', 'bridges', 'thread_text', 'grade_prompt',
+           'hint_prompt', 'teach_prompt', 'hints', 'Tutor', 'public', 'paced', 'flow', 'Session', 'retests', 'moved']
 
 # %% ../nbs/03_tutor.ipynb #c004
 import json, random, time, uuid
@@ -60,11 +60,24 @@ QUESTION_RULES = """Rules for the question:
 - Write only the final question: no drafts, no corrections, no 'no: take'.
 Pairs of a BAD and a GOOD question, on other subjects. Do not copy them:
 - One ask, not two. BAD: "State what f computes. Then say what s holds before return." GOOD: "What does s hold just before the return line?"
+- No second ask after a comma. BAD: "What must the arrow carry, and why does the right box need it?" GOOD: "Why does the right box need what the arrow carries?"
+- No second ask after a choice. BAD: "Which team matches a recurrent model, and why?" GOOD: "Why does a relay team match a recurrent model?"
+- No two questions in one. BAD: "What moves on this picture, and what stays fixed?" GOOD: "What stays fixed on this picture while the model trains?"
 - One question word. BAD: "What does it print, and why?" GOOD: "Why does it print 7, not 8?"
 - A new case. BAD: "Explain the example of the apple that falls from the tree." GOOD: "A hammer and a feather fall on the Moon. Why do they land at the same time?"
 - Reasoning, not recitation. BAD: "What is the definition of the median?" GOOD: "You add one very large value to a list. Why does the median move less than the mean?"
 - Short and plain. BAD: "Considering the multifaceted implications of compounding over extended periods, elucidate why a debt grows nonlinearly." GOOD: "A debt of 100 grows by 10% each year. Why is it 121, not 120, after two years?"
 - Code goes in `code`. BAD: `question` is "What does def f(xs): return sorted(xs)[len(xs) // 2] give for [5, 1, 9]?" GOOD: `code` holds the two lines of f, and `question` is "What does f return for [5, 1, 9, 3]?\""""
+
+import re
+def one_ask(q:str) -> bool:
+    "No second ask in the sentence that ends in '?'. 'Which' and 'who' after a comma can only describe a noun, so they need 'and' or 'or'."
+    ask = re.split(r'(?<=[.!:;])\s+', (q or '').strip())[-1]
+    return not re.search(r'(?:\b(?:and|or)|,)\s+(?:why|what|how|when|where)\b|\b(?:and|or)\s+(?:which|who)\b', ask, re.I)
+
+def asks_twice(q:str) -> bool:
+    "True when a question has more than one `?`, or a second ask joined to the first (see `one_ask`)."
+    return (q or '').count('?') > 1 or not one_ask(q)
 
 # %% ../nbs/03_tutor.ipynb #c013
 def _concept_block(c, ctx='', who=''):
@@ -241,7 +254,10 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, 
         q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, method=ck[2], why=f'{why}; the check from the lesson'.lstrip('; '))
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
-        r = ask_json(for_task(self.ask, 'question'), question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else (), q.method, read), prompt('tutor'))
+        qp, ask = question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else (), q.method, read), for_task(self.ask, 'question')
+        r = ask_json(ask, qp, prompt('tutor'))
+        if asks_twice(r.get('question')):   # one more try, with the question that asked twice
+            r = ask_json(ask, f"{qp}\n\nYour last question asked twice: {r['question']!r}. Write it again with one ask: one question word and one question mark.", prompt('tutor'))
         q.update(question=with_code(r['question'], r.get('code') or ''), answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))

@@ -7,7 +7,7 @@ import argparse, re
 from itertools import cycle, islice
 from fastcore.utils import *
 from abhyasa.llm import Router, rishi_ask, for_task, ask_json
-from abhyasa.tutor import GRADE_SP, TUTOR_SP, grade_prompt, question_prompt, with_code
+from abhyasa.tutor import GRADE_SP, TUTOR_SP, grade_prompt, question_prompt, with_code, one_ask
 
 NEURON = AttrDict(name='Neuron as a weighted sum', depth=3, method='words', kind='explain',
     question=("A neuron scores a chart with inputs x1 = Jupiter strength and x2 = Saturn strength. You set both inputs to 0. "
@@ -60,11 +60,6 @@ def feedback_checks(fb:str) -> list:
     blocks = re.findall(r'```[^\n]*\n(.*?)```', fb or '', re.S)
     return [('at most one ?', (fb or '').count('?') <= 1),
             ('code at most 4 lines', all(len(b.strip('\n').splitlines()) <= 4 for b in blocks))]
-
-def one_ask(q:str) -> bool:
-    "No second ask in the sentence that ends in '?'. 'Which' and 'who' after a comma can only describe a noun, so they need 'and' or 'or'."
-    ask = re.split(r'(?<=[.!:;])\s+', q.strip())[-1]
-    return not re.search(r'(?:\b(?:and|or)|,)\s+(?:why|what|how|when|where)\b|\b(?:and|or)\s+(?:which|who)\b', ask, re.I)
 
 def question_checks(r) -> list:
     "`(label, ok)` for a written question: one ?, no second instruction, under 60 words, one ask, code only in `code`."
