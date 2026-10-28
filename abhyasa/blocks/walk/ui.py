@@ -227,10 +227,13 @@ def Result(c, texts):
     "One test result. A hidden test shows its label and status only: never its text, its expected value or your value."
     return Li(Span(RESULT.get(c['status'], c['status']), cls='st'), Span(c['label']), '' if c['hidden'] else Code(texts[c['i']]), cls=c['status'])
 
-def CodeOut(jid, i, q, r=None):
-    "The results part of a code check: hints, the results of the last run, the first error, and the close. The editor is not in it."
+def closed(q): return first(t for t in q.get('turns') or () if t.get('kind') == 'close')
+
+def CodeOut(jid, i, q, r=None, oob=True):
+    """The results part of a code check: hints, the results of the last run, the first error, and the close. The editor is not in it.
+    After a run that closes the check, `oob` also turns off Run the tests, so Next idea is the one main button."""
     texts = [t if isinstance(t, str) else t['test'] for t in q.tests]
-    close = first(t for t in q.get('turns') or () if t.get('kind') == 'close')
+    close = closed(q)
     out = [Div(Span(f'Hint {n}', cls='lbl'), Md(h), cls='hint') for n, h in enumerate(q.get('hints') or (), 1)]
     if r and r.get('syntax'):
         out += [Div(Span('Syntax error: ', cls='k'), f'{r.syntax}.', cls='err'), P(f'try {val('checks.tries') - r.tries_left + 1} · no try used', cls='mute')]
@@ -242,8 +245,12 @@ def CodeOut(jid, i, q, r=None):
     if close:
         out += [Tag(close.get('outcome')),
                 Div(Span('Lesson', cls='lbl'), Md(close['lesson']), cls='lesson') if close.get('lesson') else '', GoOn(jid, i),
-                Button('Run the tests', type='submit', form='run-form', id='run', disabled=True, hx_swap_oob='true')]   # no longer the main button, so ⌥S goes to Next idea
+                RunOff(oob=True) if oob else '']
     return Div(*out, id='code-out', aria_live='polite')
+
+def RunOff(oob=False):
+    "Run the tests on a closed check: plain and off, so ⌥S presses Next idea."
+    return Button('Run the tests', type='submit', form='run-form', id='run', disabled=True, **({'hx_swap_oob': 'true'} if oob else {}))
 
 def CodeCheck(jid, i, s, q, after=()):
     "A code check: the task, a plain editor with the stub, the visible tests, and Run. A run swaps only the results."
@@ -261,8 +268,9 @@ def CodeCheck(jid, i, s, q, after=()):
                          aria_label='Your code'),
                 Details(Summary('The tests you can see'), Ul(*[Li(Code(t)) for t in c['tests']], cls='tests'), open=True),
                 id='run-form', hx_post=at(Routes.run, jid, i), **tgt)
-    run = Primary('Run the tests', type='submit', form='run-form', id='run', data_wait=RUNNING, title='⌘↵ runs them too')   # outside the form, so the results hold Next idea with no nested form
-    return Check(CardHead(s, q), q['question'], foot=(form, CodeOut(jid, i, q), Div(run, hint, idk, Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'),
+    # Run is outside the form, so the results can hold Next idea with no nested form. On a closed check, Next idea is the main button.
+    run = RunOff() if closed(q) else Primary('Run the tests', type='submit', form='run-form', id='run', data_wait=RUNNING, title='⌘↵ runs them too')
+    return Check(CardHead(s, q), q['question'], foot=(form, CodeOut(jid, i, q, oob=False), Div(run, hint, idk, Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'),
                                                    leela_line(AttrDict(id=jid), i, say='Go further with real code in Leela', quiet=True)), cls='code-check')
 
 CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card

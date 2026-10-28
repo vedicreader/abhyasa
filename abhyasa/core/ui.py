@@ -10,7 +10,7 @@ from abhyasa.core.pane import PaneHost, is_local
 from abhyasa.model import DEPTHS
 
 __all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago',
-           'meta', 'n_of', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part']
+           'meta', 'n_of', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -88,6 +88,7 @@ def Page(title, *c, on='', wide=False, extra=(), crumbs=(), pane=False):
     In the side pane (`pane`, or `pane=1` in the request) it has no nav and no crumbs. With a local `rh` in the request, the side pane is open."""
     req = _req.get()
     q = req.query_params if req is not None else {}
+    one_main(c)
     if pane or q.get('pane') == '1':
         if req is not None: req.htmlkw['class'] = 'in-pane'
         return (Title(f'{title} · abhyasa'), *extra, Main(*c, cls='wide' if wide else ''), *run('page_extra'))
@@ -164,25 +165,44 @@ def n_of(n:int, word:str, plural:str=None) -> str:
     "A count with the right plural: `1 idea`, `3 ideas`, `0 ideas`."
     return f"{n} {word if n == 1 else plural or word + 's'}"
 
-def _first_primary() -> bool:
-    "True for the first `Primary` of this request. Each request (a page or an htmx part) has its own count."
-    req = _req.get()
-    if req is None: return True
-    st = req.scope.setdefault('abhyasa', {})
-    first_ = not st.get('primary')
-    st['primary'] = True
-    return first_
-
 def _btn(c, cls, href=None, **kw):
     cls = ' '.join(x for x in (cls, kw.pop('cls', '')) if x)
     return A(*c, href=href, cls=f'btn {cls}'.strip(), **kw) if href else Button(*c, cls=cls or None, **kw)
 
-def Primary(label, key='⌥S', href=None, focus=False, **kw):
+def Primary(label, key='⌥S', href=None, focus=False, rank=5, **kw):
     """The main action of a view: the one filled button, with its key (⌥S). A link when `href` is given. `focus` puts the cursor
-    on it when the page loads, with no focus ring until you use a key (core.js). A second `Primary` in the same reply is drawn
-    as a `Secondary` with no key, so a view never has two filled buttons."""
-    if not _first_primary(): return Secondary(label, href=href, **kw)
-    return _btn((label + ' ', Kbd(key)) if key else (label,), 'go', href, **({'data_focus': '1'} if focus else {}), **kw)
+    on it when the page loads, with no focus ring until you use a key (core.js).
+    A card or a view picks its own main button and draws only one. For a page made from hooks, `Page` keeps the `Primary` with
+    the lowest `rank` that shows (the first one on a tie) and draws the others as `Secondary`, so the hook order does not matter."""
+    return _btn((label, ' ', Kbd(key)) if key else (label,), 'go', href, data_main=str(rank), **({'data_focus': '1'} if focus else {}), **kw)
+
+def _mains(c, hidden=False, out=None):
+    "The `Primary` buttons in `c` that show: not inside a part with `hidden`."
+    out = [] if out is None else out
+    for x in c:
+        if isinstance(x, (list, tuple)): _mains(x, hidden, out)
+        elif isinstance(x, FT):
+            h = hidden or x.attrs.get('hidden') not in (None, False)
+            if 'data-main' in x.attrs and not h: out.append(x)
+            _mains(x.children, h, out)
+    return out
+
+def _demote(b):
+    "Draw a `Primary` as a `Secondary`: no fill, no key, no focus."
+    b.attrs['class'] = ' '.join(k for k in b.attrs.get('class', '').split() if k != 'go') or None
+    if b.attrs['class'] is None: b.attrs.pop('class')
+    for k in ('data-focus', 'data-main'): b.attrs.pop(k, None)
+    b.children = tuple(x for x in b.children if not (isinstance(x, FT) and x.tag == 'kbd'))
+    if len(b.children) > 1 and b.children[-1] == ' ': b.children = b.children[:-1]
+
+def one_main(c):
+    "Keep one filled button in the page `c`: the shown `Primary` with the lowest rank. Return `c`."
+    ms = _mains(c)
+    if len(ms) > 1:
+        keep = min(ms, key=lambda b: int(b.attrs['data-main']))
+        for b in ms:
+            if b is not keep: _demote(b)
+    return c
 
 def Secondary(label, *c, href=None, **kw):
     "A second action: a raised button with no fill. `c` can hold the one key that the page names."

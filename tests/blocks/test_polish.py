@@ -82,10 +82,39 @@ def test_each_page_has_at_most_one_filled_button(mk, walk_fake, lr):
         t = cl.get(u).text
         assert len(gos(t)) <= 1, (u, gos(t))
         assert u == '/keys' or t.count('<kbd>⌥S</kbd>') <= 1, u                  # the shortcut sheet lists the keys
-    today = cl.get('/').text
-    assert 'Continue <kbd>⌥S</kbd>' in today and re.search(r'class="btn"[^>]*>Start|>Start</button>', today) and 'autofocus' not in today
+    assert gos(cl.get('/').text) == ['Continue <kbd>⌥S</kbd>']                 # the Continue card is the main button, and Start is plain
+    assert 'autofocus' not in cl.get('/').text
+    assert gos(cl.get('/c/ranking').text) == ['Learn this <kbd>⌥S</kbd>'] and gos(cl.get('/add').text) == ['Make a walk <kbd>⌥S</kbd>']
+    assert gos(cl.get(f'/w/{jid}').text) == ['Start the walk <kbd>⌥S</kbd>']
     cl.get(f'/s/{sid}/end')
     assert len(gos(cl.get(f'/s/{sid}/end').text)) <= 1
+
+def test_today_with_no_open_session_starts(mk, walk_fake, lr):
+    assert gos(mk().get('/').text) == ['Start <kbd>⌥S</kbd>']
+
+def test_reloaded_closed_code_check_has_next_idea_as_main(mk, walk_fake, lr):
+    "A code check that closed in this run, drawn again: Next idea is the one main button, and Run the tests is off."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    cl.get(f'/w/{jid}/1/check'); cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD))
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert gos(card) == ['Next idea <kbd>⌥S</kbd>'] and card.count('id="run"') == 1 and 'hx-swap-oob' not in card
+    assert re.search(r'<button[^>]*id="run"[^>]*disabled|<button[^>]*disabled[^>]*id="run"', card) and 'data-focus="1"' in card
+
+def test_each_closed_walk_card_has_next_idea_as_main(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
+    cl.get(f'/w/{jid}/1/check'); cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position'))
+    assert gos(cl.get(f'/w/{jid}/1/check').text) == ['Next idea <kbd>⌥S</kbd>']
+
+def test_side_walk_end_names_alt_s_on_back_to_the_paper():
+    "At the end of a side walk, Back to the paper is the main button with ⌥S, before or after the section summary."
+    from fasthtml.common import Div, to_xml
+    from abhyasa.core import one_main, Primary
+    from abhyasa.blocks.detour.ui import EndNote
+    for order in (1, -1):
+        parts = [EndNote('Derivatives', True, '/w/x/2', 'idea 3 of 3', 'gradients', 'solid'), Primary('Back to your journeys', href='/journeys')]
+        assert gos(to_xml(Div(*one_main(parts[::order])))) == ['← Back to the paper: idea 3 of 3 <kbd>⌥S</kbd>']
 
 def test_model_table_has_no_filled_button():
     from abhyasa.blocks.settings.ui import UseBtn
@@ -152,3 +181,4 @@ def test_a_figure_that_fails_goes_but_keeps_its_alt_text():
     js, css = (ROOT/'blocks/walk/walk.js').read_text(), (ROOT/'blocks/walk/walk.css').read_text()
     assert "'#figure img'" in js and "addEventListener('error'" in js and "classList.add('gone')" in js
     assert re.search(r'#figure\.gone \{[^}]*clip-path', css)                   # out of sight, but a screen reader still reads the alt text
+

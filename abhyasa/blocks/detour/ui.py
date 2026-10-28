@@ -74,5 +74,5 @@ def NotFound(t, at):
 def EndNote(name, ok, back, here, slug, outcome):
     "The end of a side walk: what you learned, and the way back. detour.js sends `rh:done` from `data-rh-done`."
     return Div(P('You ', 'learned ' if ok else 'looked at ', B(name), ' on the way.', cls='lead-sum'),
-               Primary(f'← Back to the paper: {here}', key=None, href=back), *assets(),
+               Primary(f'← Back to the paper: {here}', href=back, rank=0), *assets(),
                cls='rh-end', data_rh_done=json.dumps(dict(slug=slug, outcome=outcome)))

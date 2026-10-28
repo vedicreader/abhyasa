@@ -1,10 +1,8 @@
 "The shared pieces in core (design review, section 5): the meta line, counts, one primary button in a view, the outcome tag, the check card, and the space and type steps."
 import re
 from pathlib import Path
-from types import SimpleNamespace
 from fasthtml.common import to_xml
-from abhyasa.core import meta, n_of, Primary, Secondary, Quiet, Tag, Check, Msg, FirstError, Empty, Part, Confidence
-from abhyasa.core.ui import _req
+from abhyasa.core import meta, n_of, one_main, Primary, Secondary, Quiet, Tag, Check, Msg, FirstError, Empty, Part, Confidence
 
 CORE = Path(__file__).parents[1]/'abhyasa/core'
 BLOCKS = Path(__file__).parents[1]/'abhyasa/blocks'
@@ -13,14 +11,15 @@ def test_meta_and_counts():
     assert meta('floor unseen', '', None, 'due now') == 'floor unseen · due now' and meta('', None) == ''
     assert (n_of(1, 'idea'), n_of(0, 'idea'), n_of(3, 'document'), n_of(2, 'try', 'tries')) == ('1 idea', '0 ideas', '3 documents', '2 tries')
 
-def test_one_primary_in_a_reply():
-    "The first `Primary` of a request is filled and has its key; a second one in the same request is a secondary with no key."
-    tok = _req.set(SimpleNamespace(scope={}))
-    try: a, b = to_xml(Primary('Continue')), to_xml(Primary('Start', href='/start'))
-    finally: _req.reset(tok)
-    assert 'class="go"' in a and '<kbd>⌥S</kbd>' in a
-    assert 'go' not in b and 'kbd' not in b and 'class="btn"' in b and 'href="/start"' in b
-    assert 'class="btn go"' in to_xml(Primary('Go on', href='/x'))                  # with no request (a test), each one is the first
+def test_one_primary_in_a_page():
+    "A page keeps the shown `Primary` with the lowest rank, in any order; the others lose the fill, the key and the focus. A hidden one does not count."
+    from fasthtml.common import Div, Form
+    for order in (1, -1):
+        a, b = Primary('Start', href='/start', rank=3, focus=True), Primary('Continue', rank=1)
+        h = to_xml(Div(*one_main([a, b][::order])))
+        assert re.search(r'class="go"[^>]*>Continue <kbd>⌥S</kbd>', h) and 'href="/start" class="btn">Start</a>' in h and 'data-focus' not in h
+    h = to_xml(Div(*one_main([Form(Primary('Next idea'), hidden=True), Primary('Send')])))
+    assert re.search(r'class="go"[^>]*>Next idea', h) and re.search(r'class="go"[^>]*>Send', h)   # the hidden one is not the main button yet
     assert 'data-focus' in to_xml(Primary('Next idea', focus=True)) and 'autofocus' not in to_xml(Primary('Next idea', focus=True))
     assert 'class="quiet small"' in to_xml(Quiet('Skip this idea', small=True)) and 'class="go"' not in to_xml(Secondary('Download'))
 
