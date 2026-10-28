@@ -15,6 +15,7 @@
         --dur-1: 140ms; --dur-2: 220ms; --dur-3: 300ms; --ease: cubic-bezier(.2, .7, .2, 1);
         --nav-h: 56px; }   /* the height of the top bar, so the pane bar and any sticky part line up with it */
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }   /* a part with `hidden` stays out of sight, even with a class that sets display (the demo's Next idea) */
 html { -webkit-text-size-adjust: 100%; }
 body { background: var(--bg); color: var(--fg); font: var(--t-body)/1.65 var(--serif); margin: 0; font-optical-sizing: auto; -webkit-font-smoothing: antialiased; }
 main { max-width: 740px; margin: 0 auto; padding: var(--s7) var(--s5) 96px; }
