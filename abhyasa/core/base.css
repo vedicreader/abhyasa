@@ -163,6 +163,7 @@ button.small, .btn.small { padding: var(--s1) var(--s2); font-size: var(--t-meta
 :is(.refs, .sunken) ul.plain li:first-child { border-top: 0; padding-top: var(--s1); }
 :is(.refs, .sunken) ul.plain li:last-child { border-bottom: 0; padding-bottom: 2px; }
 .refs .pair > div > p.mute { margin: 0; }
+.refs > p.empty:not(:first-child) { margin-top: var(--s6); }   /* an empty part keeps the gap of a section */
 .refs ul:not(.plain) { margin: 0; padding-left: var(--s5); font-size: var(--t-list); color: var(--ink2); } .refs ul:not(.plain) .md > :last-child { margin-bottom: var(--s1); }
 /* code is a small well, a little deeper than the surface under it */
 .md pre { background: light-dark(color-mix(in oklab, var(--bg) 94%, var(--fg)), color-mix(in oklab, var(--bg) 72%, black));

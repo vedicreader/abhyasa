@@ -236,7 +236,7 @@
   // ---- the camera -------------------------------------------------------------------------------------------------
   let t = d3.zoomIdentity, W = 0, H = 0, dpr = 1;
   const zoom = d3.zoom().scaleExtent([.08, 6]).on('zoom', e => { t = e.transform; hideTip(); dirty(); })
-    .on('end', () => { store.cam[S.mode] = {k: t.k, x: t.x, y: t.y}; save(); });
+    .on('end', () => { store.cam[S.mode] = {k: t.k, x: t.x, y: t.y, w: W}; save(); });   // the width too: a new width fits again
   const sel = d3.select(cv);
   const box = () => {
     const T = tween ? [...tween.to.values()] : vis.map(n => [n.x, n.y]);
@@ -530,7 +530,7 @@
   document.addEventListener('abhyasa:theme', () => { themed(); legend(); dirty(); });   // core.js sends it for a new theme or mode
   show(); layout();
   const cam = store.cam[S.mode];
-  if (cam && !picked) sel.call(zoom.transform, d3.zoomIdentity.translate(cam.x, cam.y).scale(cam.k));
+  if (cam && !picked && Math.abs((cam.w || W) - W) < 40) sel.call(zoom.transform, d3.zoomIdentity.translate(cam.x, cam.y).scale(cam.k));
   else setTimeout(() => { fit(0); if (picked) setTimeout(() => centre(picked), 50); }, tween ? tween.ms : 0);
   root.focus({preventScroll: true});
   if (motion && (changed.length || fresh.length)) setTimeout(() => { pulse = {t0: performance.now(), ring: new Set(changed), fade: new Set(fresh)}; dirty(); }, tween ? tween.ms : 150);

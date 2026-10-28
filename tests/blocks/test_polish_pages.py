@@ -152,3 +152,11 @@ def test_your_learning_counts_with_plurals(mk, lr):
     assert '0 questions in the last seven days' in h   # n_of: 1 question, 2 questions
     assert '0 of 0 passed' not in h and 'no answers yet · open' in h
 
+
+def test_graph_fits_again_at_a_new_width():
+    "The saved camera keeps the width; at another width the graph fits again, so labels do not go past the edge."
+    js = src('blocks/graph/graph.js')
+    assert 'w: W}' in js and 'Math.abs((cam.w || W) - W) < 40' in js
+
+def test_empty_part_of_refs_keeps_the_section_gap():
+    assert '.refs > p.empty:not(:first-child) { margin-top: var(--s6); }' in src('core/base.css')
