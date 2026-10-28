@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/check.html.md"""
 
 # %% auto #0
 __all__ = ['SAFE_NAMES', 'SAFE_BUILTINS', 'SAFE_NODES', 'TEST_SECONDS', 'RUN_SECONDS', 'SANDBOX_EXEC', 'SANDBOX_PROFILE',
-           'safe_test', 'validate_exercise', 'time_limit', 'Report', 'public', 'run_asserts', 'load_tests', 'run_cells',
-           'snippet', 'parse', 'run_isolated']
+           'OUTPUT_KEEP', 'RESULT_MAX', 'safe_test', 'validate_exercise', 'time_limit', 'Report', 'public',
+           'run_asserts', 'load_tests', 'run_cells', 'snippet', 'parse', 'run_isolated']
 
 # %% ../nbs/06_check.ipynb #7ddc814d
 import ast, builtins, ctypes, inspect, io, json, os, re, signal, subprocess, sys, threading, time
@@ -366,6 +366,28 @@ def _start(defs, call, nonce_fd, out_fd, guard=None):
     _thread.start_new_thread(work, ())
     return go, done
 
+# %% ../nbs/06_check.ipynb #cap02
+OUTPUT_KEEP, RESULT_MAX = 64 * 2**10, 2**20   # bytes of stdout and of stderr that the parent keeps; the largest report it reads
+
+def _drain(fd, cap) -> AttrDict:
+    "Start a thread that reads `fd` to its end in chunks, keeps at most `cap` bytes in `data`, and sets `over` when there was more."
+    got = AttrDict(data=bytearray(), over=False)
+    def read():
+        try:
+            for b in iter(lambda: os.read(fd, 1 << 16), b''):
+                room = cap - len(got.data)
+                if len(b) > room: got.over = True
+                if room > 0: got.data += b[:room]
+        except OSError: pass
+    got.thread = threading.Thread(target=read, daemon=True)
+    got.thread.start()
+    return got
+
+def _feed(f, data):
+    "Write `data` to the file `f` and close it. A process that stopped early does not stop the parent."
+    try: f.write(data); f.close()
+    except OSError: pass
+
 # %% ../nbs/06_check.ipynb #b7c1a008
 _GO = 'try: _go[0].release()\nexcept RuntimeError: pass\n_go[1].acquire()\n'   # the last lines: start the checks and wait for them
 
@@ -386,23 +408,30 @@ def run_isolated(kind, fname, source, tests, *, total=None, setup=(), sandbox=Tr
         pre = (_limits(total) + inspect.getsource(_guard) + inspect.getsource(_start)
                + f'_go = _start({defs!r}, {call!r}, {nr}, {rw}, {guard})\ndel _start, _guard\n')
         code = f'{head}\n{pre}{body}\n{_GO}'
-        chunks = []
-        reader = threading.Thread(target=lambda: chunks.extend(iter(lambda: os.read(rr, 1 << 16), b'')), daemon=True)
+        res = _drain(rr, RESULT_MAX)
         try:
-            try: p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=tmp,
+            try: p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=tmp,
                                       env={'PATH': os.defpath, 'HOME': tmp}, start_new_session=True, pass_fds=(nr, rw))
             finally: os.close(nr); os.close(rw)
-            reader.start()
+            outs = [_drain(f.fileno(), OUTPUT_KEEP) for f in (p.stdout, p.stderr)]
+            threading.Thread(target=_feed, args=(p.stdin, code.encode()), daemon=True).start()
             with p:
-                try: p.communicate(code, timeout=total + 2)
+                end = time.monotonic() + total + 2
+                try:   # wait for the end of the output, as `communicate` does, and then for the process
+                    for o in outs: o.thread.join(max(end - time.monotonic(), 0))
+                    if any(o.thread.is_alive() for o in outs): raise subprocess.TimeoutExpired(cmd, total + 2)
+                    p.wait(timeout=max(end - time.monotonic(), 0))
                 except subprocess.TimeoutExpired:   # stop the whole group: a process that the code started can keep the output open
                     try: os.killpg(p.pid, signal.SIGKILL)
                     except (AttributeError, ProcessLookupError): p.kill()
                     p.wait()
                     return {'timeout': True}
+                finally:
+                    for o in outs: o.thread.join(1)
         except OSError: return {'error': 'no check result'}   # `python` cannot start
         finally:
-            if reader.ident: reader.join(1)
-            if not reader.is_alive(): os.close(rr)
+            res.thread.join(1)
+            if not res.thread.is_alive(): os.close(rr)
     if -p.returncode in (getattr(signal, 'SIGXCPU', None), getattr(signal, 'SIGKILL', None)): return {'timeout': True}
-    return {'error': 'no check result'} if p.returncode < 0 else parse(b''.join(chunks).decode('utf-8', 'replace'), nonce)
+    if p.returncode < 0: return {'error': 'no check result'}
+    return {'error': 'check result too large'} if res.over else parse(res.data.decode('utf-8', 'replace'), nonce)

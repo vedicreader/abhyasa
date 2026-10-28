@@ -12,6 +12,7 @@
 - Side pane: a page in the pane can ask to open an http or https link in a new tab (`rh:link`). Other schemes are refused.
 - When the tutor cannot make a walk, a side walk or a term, the page shows a plain line. The log keeps the error.
 - A code check refuses more than 100 000 characters of code.
+- Code runner: the app keeps at most 64 KB of the output of learner code and reads at most 1 MB of the report. A larger report is an error.
 - Your journeys: a side walk opens in the pane beside the step that opened it.
 - Search gives the number of hits that you ask for when the shelf has them.
 - Walks from links: a folder such as `go` or `ui` is not a language folder.

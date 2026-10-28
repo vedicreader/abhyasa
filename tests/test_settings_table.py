@@ -1,5 +1,5 @@
 "The settings table: each group has the values that the code used before, and the engine reads a saved value when it uses it."
-import json
+import json, os, threading
 import pytest
 from abhyasa.settings import SETTINGS, GROUPS, FIXED, val, set_val, settings, cfg_dir
 
@@ -138,15 +138,21 @@ def test_runner_values_out_of_range_are_clamped(monkeypatch):
     "A runner value out of range in the file reaches the closed process at the top of its range: 60 s, 10 s a test, 100 MB."
     from abhyasa import check
     (cfg_dir()/'settings.json').write_text(json.dumps(dict(runner=dict(total=999, per_test='99', file_mb=10**6))))
-    seen = {}
+    seen, fed = {}, threading.Event()
+    class Stdin:
+        def write(self, code): seen.update(code=code.decode()); fed.set()
+        def close(self): pass
+    def empty():
+        r, w = os.pipe(); os.close(w)
+        return open(r, 'rb')
     class Popen:
-        def __init__(self, cmd, **kw): self.pid, self.returncode = 0, 0
+        def __init__(self, cmd, **kw): self.pid, self.returncode, self.stdin, self.stdout, self.stderr = 0, 0, Stdin(), empty(), empty()
         def __enter__(self): return self
-        def __exit__(self, *a): pass
-        def communicate(self, code, timeout): seen.update(code=code, timeout=timeout); return '', ''
+        def __exit__(self, *a): self.stdout.close(); self.stderr.close()
+        def wait(self, timeout=None): seen.update(timeout=timeout); return 0
     monkeypatch.setattr(check.subprocess, 'Popen', Popen)
     check.run_isolated('assert', 'f', 'def f(): return 1', ['assert f() == 1'])
-    assert seen['timeout'] == 62 and 'RUN_SECONDS = 60.0' in seen['code'] and 'TEST_SECONDS = 10.0' in seen['code']
+    assert fed.wait(2) and round(seen['timeout']) == 62 and 'RUN_SECONDS = 60.0' in seen['code'] and 'TEST_SECONDS = 10.0' in seen['code']
     assert 'RLIMIT_CPU, (61, 62)' in seen['code'] and f'({100 * 2**20}, {100 * 2**20})' in seen['code']
 
 # Speech to text

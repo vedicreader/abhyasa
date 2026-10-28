@@ -510,3 +510,35 @@ def test_home_is_the_work_folder():
     src = 'import os\ndef f():\n    return os.environ.get("HOME") == os.getcwd() == os.path.expanduser("~")'
     for sandbox in (True, False):
         assert check.run_isolated('assert', 'f', src, ['assert f() == True'], sandbox=sandbox)['checks'][0]['status'] == 'pass'
+
+
+def _peak_mb():
+    import resource
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return peak / 2**20 if sys.platform == 'darwin' else peak / 2**10   # bytes on macOS, KB on Linux
+
+
+@pytest.mark.parametrize('src', ['while True: print("x" * 10000)\ndef f(n): return n * 2',
+                                 'import sys\ndef f(n):\n    while True: print("x" * 10000, file=sys.__stderr__)\n    return n * 2'])
+def test_loud_output_keeps_parent_memory_small(src):
+    "A learner function that prints a lot until the time limit: the parent keeps only a little of it, and the check does not pass."
+    start = _peak_mb()
+    r = check.run_isolated('assert', 'f', src, ['assert f(2) == 4'], total=2.)
+    assert _peak_mb() - start < 200
+    assert r.get('timeout') or r.get('error') or all(c['status'] != 'pass' for c in r['checks']), r
+
+
+def test_drain_keeps_a_capped_part():
+    "The reader keeps at most `cap` bytes of a pipe, reads it to its end, and notes that there was more."
+    r, w = os.pipe()
+    got = check._drain(r, 1000)
+    os.write(w, b'a' * 5000); os.close(w)
+    got.thread.join(2)
+    assert bytes(got.data) == b'a' * 1000 and got.over
+    os.close(r)
+    r, w = os.pipe()
+    got = check._drain(r, 1000)
+    os.write(w, b'ok'); os.close(w)
+    got.thread.join(2)
+    assert bytes(got.data) == b'ok' and not got.over
+    os.close(r)
