@@ -1,42 +1,47 @@
 "Grow the graph: paste text, name a vault document, give a link for a walk, or import vedicreader."
 import time
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides, Primary, Secondary
+from pathlib import Path
+from abhyasa.core import Page, RouteOverrides, Primary, Secondary, Quiet, Choice, asset_css, asset_js
 from abhyasa.sources import extract, from_vault, from_vedicreader
 from abhyasa.settings import val
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask')
+_P = Path(__file__).parent
 
 def connect(app, ctx):
     lr = ctx.learning
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
 
+    KINDS = (('doc', 'A paper or document'), ('topic', 'A topic'), ('link', 'A link'), ('text', 'A text'))
+
+    def Kind(k, *c):
+        "The fields of one choice. Only the chosen one shows and sends (add.js)."
+        return Fieldset(*c, cls=f'add-{k}', **({} if k == 'doc' else dict(disabled=True, hidden=True)))
+
     def page():
         return Page('Add', H1('Add a source'),
-            P('Paste text, or name a vault document by id, source or title. The tutor finds its core ideas.', cls='mute'),
-            Form(Label('Text', Textarea(name='text', rows=4, autofocus=True, placeholder='Paste a text. ⌘↵ finds its concepts.')),
-                 Div(Label('Subject', Input(type='text', name='subject', placeholder='e.g. ml, sanskrit, philosophy')),
-                     Label('Or a vault document', Input(type='text', name='ref', placeholder='an id, a source or a title')), cls='pair'),
-                 Div(Secondary('Find concepts', data_wait='Reading and finding concepts…', data_skel='#out'), cls='row'),
-                 hx_post=Routes.base, hx_target='#out'),
-            Div(id='out'),
-            H2('As a walk, in reading order'),
-            P('The tutor takes one idea at a time, in the order of a document, a text, a topic or a link. You read the passage and answer a check.', cls='mute'),
-            Form(Div(Label('A vault document', Input(type='text', name='ref', placeholder='an id, a source or a title')),
-                     Label('Or a topic', Input(type='text', name='topic', placeholder='for example: how attention works')), cls='pair'),
-                 Label('Or a text', Textarea(name='text', rows=3, placeholder='Paste a text.')),
-                 Label('Its title', Input(type='text', name='title', placeholder='for a pasted text')),
-                 Div(Label('From a link', Input(type='text', name='url', placeholder='an arXiv id, a PDF, a docs page or a GitHub repo')),
-                     Label('Pages to read', Input(type='number', name='pages', min=1, max=val('links.cap'), value=val('links.pages'))), cls='pair'),
-                 Label(Input(type='checkbox', name='tool'), ' It is a library or a command-line tool. Code and tools open in Leela.', cls='tick'),
-                 P('abhyasa gets the pages of a link only when you send this form. It reads only the pages in the folder of the link.', cls='mute'),
+            P('Pick what you have. The tutor makes a walk from it: one idea at a time, in reading order, with a check after each passage.', cls='mute'),
+            Form(Choice('kind', KINDS, 'doc', aria_label='What you have'),
+                 Kind('doc', Label('A document in your vault', Input(type='text', name='ref', placeholder='an id, a source or a title'))),
+                 Kind('topic', Label('A topic', Input(type='text', name='topic', placeholder='for example: how attention works'))),
+                 Kind('link', Div(Label('A link', Input(type='text', name='url', placeholder='an arXiv id, a PDF, a docs page or a GitHub repo')),
+                                  Label('Pages to read', Input(type='number', name='pages', min=1, max=val('links.cap'), value=val('links.pages'))), cls='pair'),
+                      Label(Input(type='checkbox', name='tool'), ' It is a library or a command-line tool. Code opens in Leela.', cls='tick'),
+                      P('abhyasa gets the pages of a link only when you send this form. It reads only the pages in the folder of the link.', cls='mute')),
+                 Kind('text', Label('A text', Textarea(name='text', rows=4, placeholder='Paste a text.')),
+                      Label('Its title', Input(type='text', name='title', placeholder='for a pasted text')),
+                      Div(Quiet('Find concepts only', hx_post=Routes.base, hx_target='#walk-out', data_wait='Reading and finding concepts…', data_skel='#walk-out'),
+                          Span('The tutor adds the core ideas to your graph and makes no walk.', cls='mute'), cls='row find')),
                  Div(Primary('Make a walk', data_wait='Making the walk…', data_skel='#walk-out'), cls='row'),
-                 hx_post='/walk/new', hx_target='#walk-out'),
+                 hx_post='/walk/new', hx_target='#walk-out', cls='add-form'),
             Div(id='walk-out'),
-            H2('vedicreader'), P('Sanskrit lessons and terms, and the jyotiṣa grahas, rāśis and nakṣatras, from the repo files.', cls='mute'),
-            Button('Import vedicreader', hx_post=Routes.vedicreader, hx_target='#vr', data_wait='Importing…', data_skel='#vr'), Div(id='vr'), on='Add', crumbs=[('Today', '/')])
+            Details(Summary('More sources'),
+                    P('vedicreader: Sanskrit lessons and terms, and the jyotiṣa grahas, rāśis and nakṣatras, from the repo files.', cls='mute'),
+                    Secondary('Import vedicreader', hx_post=Routes.vedicreader, hx_target='#vr', data_wait='Importing…', data_skel='#vr'), Div(id='vr'), cls='more'),
+            on='Add', crumbs=[('Today', '/')], extra=(asset_css(_P/'add.css'), asset_js(_P/'add.js', defer=True)))
 
     def add(subject:str='', text:str='', ref:str=''):
         if not (text.strip() or ref.strip()): return P('Paste text or name a document.', cls='mute')

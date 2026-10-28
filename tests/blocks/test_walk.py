@@ -238,7 +238,7 @@ HX = {'hx-request': 'true'}   # htmx asks for a part; without it FastHTML wraps 
 def test_ways_in(mk, walk_fake, lr):
     cl = mk()
     add = cl.get('/add').text
-    assert 'As a walk, in reading order' in add and '/walk/new' in add
+    assert 'A paper or document' in add and '/walk/new' in add
     did = add_paper(lr)
     assert 'Learn as a walk' in cl.get(f'/v/store/{did}').text
     jid = cl.post('/walk/new', data=dict(text=PAGES[1][1], title='My notes')).headers['hx-redirect'].split('/')[-1]
@@ -277,7 +277,7 @@ def test_walk_from_a_link(mk, walk_fake, lr, monkeypatch):
     monkeypatch.setattr('abhyasa.sources._final', lambda u: u)   # no fetch of the start page
     monkeypatch.setattr('abhyasa.sources._addrs', lambda host: {'93.184.216.34'})   # no DNS: a host on the internet
     cl = mk(); u = 'https://docs.example.dev/attention/'
-    assert 'From a link' in cl.get('/add').text and 'Pages to read' in cl.get('/add').text
+    assert 'A link' in cl.get('/add').text and 'Pages to read' in cl.get('/add').text
     r = cl.post('/walk/new', data=dict(url=u, pages=3)).text
     assert 'pending' in r and '/walk/job' in r                                     # a link walk is made as a job
     jid = wait_for(lambda: (cl.get('/walk/job', params=dict(url=u)).headers.get('hx-redirect') or '').split('/')[-1] or None, secs=10)
@@ -311,7 +311,7 @@ def test_link_walk_shows_only_its_own_messages(mk, walk_fake, lr, monkeypatch):
 def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
     from abhyasa.core.leela import LEELA_INSTALL
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path))
-    cl = mk(); assert 'Code and tools open in Leela' in cl.get('/add').text
+    cl = mk(); assert 'Code opens in Leela' in cl.get('/add').text
     jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='on')).headers['hx-redirect'].split('/')[-1]
     assert lr.journey(jid).tool is True
     plan = cl.get(f'/w/{jid}').text

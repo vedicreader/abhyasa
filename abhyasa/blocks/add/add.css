@@ -1,0 +1,5 @@
+/* Add: one choice, then only its fields. */
+.add-form fieldset { border: 0; padding: 0; margin: var(--s4) 0 0; min-width: 0; }
+.add-form .modes-pick { flex-wrap: wrap; }
+.add-form .find { margin-top: var(--s2); }
+.add-form .find .mute { font-size: var(--t-small); }
