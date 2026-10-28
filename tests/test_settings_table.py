@@ -44,3 +44,24 @@ def test_walk_of_five_steps():
     set_val('walks.steps', 5)
     j = journey_from_text(temp_learning(), ask, text, 'Notes')
     assert len(j.steps) == 5 and len(j.more) == 4
+
+# Checks and grading
+
+def test_checks_defaults():
+    assert dflts('checks') == {'checks.tries': 3, 'checks.sources': True, 'checks.one_ask': True, 'checks.near': 7, 'checks.goal': 4,
+                               'checks.high': 60, 'checks.hints': 2, 'checks.demo_misses': 2, 'checks.retest': 2}
+
+def test_tries_read_when_used(lr, fake):
+    from abhyasa.tutor import Tutor
+    t = Tutor(lr, fake, context=False)
+    q = t.next()
+    assert t.answer(q.id, 'scores').tries_left == 2           # 3 tries by default
+    set_val('checks.tries', 1)
+    q = t.next()
+    assert t.answer(q.id, 'scores').done                      # 1 try: the first miss closes the question
+
+def test_learned_depth_and_sure_confidence():
+    from abhyasa.model import learned, outcome
+    assert not learned(dict(floor=3)) and outcome(True, 55) == 'fragile'
+    set_val('checks.goal', 3); set_val('checks.high', 50)
+    assert learned(dict(floor=3)) and outcome(True, 55) == 'solid'

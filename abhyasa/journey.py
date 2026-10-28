@@ -16,7 +16,7 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'SHORT_WAYS', 'PICK_SP', 'S
 import json, math, re, random, time, uuid
 from fastcore.utils import *
 from .store import Learning, slugify, _src
-from .model import GOAL, learned
+from .model import learned
 from .settings import val
 from .llm import ask_json
 from .prompts import register, prompt
@@ -60,7 +60,7 @@ def drop_journey(self:Learning, jid:str):
 # %% ../nbs/11_journey.ipynb #f9c8b63c
 DONE = ('learned', 'known', 'skipped', 'missing')
 
-def step_state(c, status:str='todo', goal:int=GOAL) -> str:
+def step_state(c, status:str='todo', goal:int=None) -> str:
     "One of new, started, learned, known, skipped or missing."
     if status == 'known': return 'known'
     if status == 'skip': return 'skipped'
@@ -68,9 +68,9 @@ def step_state(c, status:str='todo', goal:int=GOAL) -> str:
     if learned(c, goal): return 'learned'
     return 'started' if c.get('seen') else 'new'
 
-def progress(lr:Learning, j, goal:int=GOAL, by:dict=None) -> AttrDict:
+def progress(lr:Learning, j, goal:int=None, by:dict=None) -> AttrDict:
     "Each step with its concept and state, the count done, the count that counts, and the current step."
-    by = by if by is not None else {c.slug: c for c in lr.concepts()}
+    by, goal = by if by is not None else {c.slug: c for c in lr.concepts()}, goal or val('checks.goal')
     steps = [AttrDict(s, c=by.get(s['slug']), name=(by.get(s['slug']) or {}).get('name', s['slug']),
                       state=step_state(by.get(s['slug']), s.get('status', 'todo'), goal)) for s in j['steps']]
     cur = first(s for s in steps if s.state not in DONE)
@@ -78,7 +78,7 @@ def progress(lr:Learning, j, goal:int=GOAL, by:dict=None) -> AttrDict:
                     total=sum(s.state not in ('skipped', 'missing') for s in steps), current=cur, finished=cur is None and bool(steps))
 
 # %% ../nbs/11_journey.ipynb #a554b4ae
-def current(lr:Learning, j, skip=(), goal:int=GOAL) -> str|None:
+def current(lr:Learning, j, skip=(), goal:int=None) -> str|None:
     "The slug of the first step that is not done and not in `skip`; else the first step that is not done."
     left = [s.slug for s in progress(lr, j, goal).steps if s.state not in DONE]
     return first(s for s in left if s not in skip) or first(left)
@@ -224,7 +224,7 @@ def _leela(c, tool:bool) -> dict:
 def _steps(lr:Learning, slugs, doc_id:str, shelf:str, title:str, tool:bool=False) -> list:
     "One walk step for each of `slugs` that has a place in document `doc_id`, in the order of the document. On a tool walk, an idea with a code way has `leela`."
     cs = sorted(((c, placement(c, doc_id)) for c in map(lr.concept, slugs) if c and placement(c, doc_id)), key=lambda x: x[1].get('order') or 0)
-    return [dict(slug=c.slug, status='known' if (c.get('floor') or 0) >= 4 else 'todo', why='',
+    return [dict(slug=c.slug, status='known' if learned(c) else 'todo', why='',
                  read=dict(shelf=shelf, doc_id=doc_id, title=title, section=p.get('section') or '',
                            page=p.get('page'), span=p.get('span'), text=p.get('passage') or '', figure=p.get('figure')),
                  check=_check(lr, c, tool), **_leela(c, tool)) for c, p in cs]
@@ -472,7 +472,7 @@ def split(lr:Learning, ask, jid:str, slug:str, sources=None) -> L:
     return new
 
 # %% ../nbs/11_journey.ipynb #f7daf6d5
-def related(lr:Learning, slug:str, k:int=6, goal:int=GOAL, by:dict=None) -> L:
+def related(lr:Learning, slug:str, k:int=6, goal:int=None, by:dict=None) -> L:
     "Up to `k` concepts next to `slug`: what builds on it, what relates to it, then what it needs."
     by = by if by is not None else {c.slug: c for c in lr.concepts()}
     c = by.get(slug)
@@ -488,7 +488,7 @@ def with_step(lr:Learning, slug:str) -> L:
     "`(journey, index)` for each journey that has step `slug`."
     return L((j, i) for j in lr.journeys() for i, s in enumerate(j.steps) if s['slug'] == slug)
 
-def beyond(lr:Learning, j, k:int=5, goal:int=GOAL) -> L:
+def beyond(lr:Learning, j, k:int=5, goal:int=None) -> L:
     "Up to `k` concepts that build on the steps of journey `j` and are not in it."
     by, have = {c.slug: c for c in lr.concepts()}, {s['slug'] for s in j['steps']}
     out = L()

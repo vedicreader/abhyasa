@@ -4,7 +4,7 @@ from concurrent.futures import wait
 from fasthtml.common import *
 from fastcore.utils import AttrDict
 from abhyasa.core import Page, hook
-from abhyasa.model import DEPTHS, GOAL, pick
+from abhyasa.model import DEPTHS, pick
 from abhyasa.tutor import Session, HINTS, moved
 from abhyasa.journey import progress, related
 from . import ui

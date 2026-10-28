@@ -7,7 +7,7 @@ from mdhtml import md2mdhtml, mdhtml2html
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local
-from abhyasa.model import DEPTHS, GOAL
+from abhyasa.model import DEPTHS
 
 __all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago']
 

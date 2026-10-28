@@ -2,7 +2,7 @@
 to a concept page and to a session."""
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, hook
-from abhyasa.model import GOAL
+from abhyasa.settings import val
 from abhyasa.llm import for_task
 from abhyasa.profile import profile_text
 from abhyasa.journey import plan, progress, add_topic, split, beyond, with_step
@@ -81,7 +81,7 @@ def connect(app, ctx):
     @hook('lesson_extra')
     def step_done(r):
         "A note when the close makes a step of the journey of this session learned."
-        if not (r.get('correct') and r.get('floor', 0) >= GOAL and r.get('depth') == r.get('floor')): return None
+        if not (r.get('correct') and r.get('floor', 0) >= val('checks.goal') and r.get('depth') == r.get('floor')): return None
         s = lr.session(r.get('session') or '') if r.get('session') else None
         if not (s and s.get('journey') and (j := lr.journey(s.journey))) or r.concept not in [x['slug'] for x in j.steps]: return None
         pg = progress(lr, j)

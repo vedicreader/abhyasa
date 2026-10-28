@@ -7,7 +7,8 @@ from rupaka.render import Demo, version
 from abhyasa.core import Md, DepthBar, asset_css, asset_js
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
-from abhyasa.tutor import MAX_TRIES, HINTS
+from abhyasa.tutor import HINTS
+from abhyasa.settings import val
 from abhyasa.core.leela import leela_line
 from abhyasa.journey import minutes, TOOL_WAYS
 from .cfg import Routes
@@ -187,7 +188,7 @@ def Short(jid, i, s, q, after=()):
     if shut: foot = GoOn(jid, i)
     else:
         tries = len(q.get('tries') or ())
-        left = MAX_TRIES - tries
+        left = val('checks.tries') - tries
         out = Button('Teach me' if tries else "I don't know", type='button', id='idk', cls='quiet', hx_post=at(Routes.giveup, jid, i),
                      hx_include='closest form', data_wait=TEACHING, **tgt)
         hint = Button('Hint ', Kbd('⌥W'), type='button', id='hint', cls='quiet', hx_post=at(Routes.hint, jid, i), data_wait=HINTING, **tgt,
@@ -235,9 +236,9 @@ def CodeOut(jid, i, q, r=None):
     close = first(t for t in q.get('turns') or () if t.get('kind') == 'close')
     out = [Div(Span(f'Hint {n}', cls='lbl'), Md(h), cls='hint') for n, h in enumerate(q.get('hints') or (), 1)]
     if r and r.get('syntax'):
-        out += [Div(Span('Syntax error: ', cls='k'), f'{r.syntax}.', cls='err'), P(f'try {MAX_TRIES - r.tries_left + 1} · no try used', cls='mute')]
+        out += [Div(Span('Syntax error: ', cls='k'), f'{r.syntax}.', cls='err'), P(f'try {val('checks.tries') - r.tries_left + 1} · no try used', cls='mute')]
     elif r and 'checks' in r:
-        n = MAX_TRIES - r.tries_left + bool(r.done and r.get('correct'))
+        n = val('checks.tries') - r.tries_left + bool(r.done and r.get('correct'))
         out += [Ul(*[Result(c, texts) for c in r.checks], cls='results') if r.checks else '',
                 Div(Span('First error: ', cls='k'), Md(r.first_error), cls='err') if r.first_error else '',
                 P(f'try {n} · {r.passed} of {r.total} pass', cls='mute')]
@@ -255,7 +256,7 @@ def CodeCheck(jid, i, s, q, after=()):
     c = s['code']
     draft = q['tries'][-1]['answer'] if q.get('tries') else c['stub']
     tgt = dict(hx_target='#code-out', hx_swap='innerHTML')
-    left = MAX_TRIES - len(q.get('tries') or ())
+    left = val('checks.tries') - len(q.get('tries') or ())
     hint = Button('Hint ', Kbd('⌥W'), type='button', id='hint', cls='quiet', hx_post=at(Routes.hint, jid, i), data_wait=HINTING, **tgt,
                   disabled=len(q.get('hints') or ()) >= len(HINTS))
     idk = Button('Teach me' if q.get('tries') else "I don't know", type='button', id='idk', cls='quiet', hx_post=at(Routes.giveup, jid, i),

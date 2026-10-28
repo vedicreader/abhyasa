@@ -15,7 +15,8 @@ from fastcore.utils import *
 from fastcore.nbio import new_nb, mk_cell, write_nb
 from .store import Learning
 from .model import DEPTHS
-from .tutor import Tutor, Session, MAX_TRIES
+from .tutor import Tutor, Session
+from .settings import val
 from .prompts import prompt
 from .llm import ask_json, for_task, route_ask
 from . import demo as _demo   # registers the demo hook of the tutor
@@ -162,7 +163,7 @@ class Exercise:
                            f'This test fails: `{fails[0][0]}` ({fails[0][1]})')
         g = AttrDict(correct=self.report.passed, grade=10 * passed // len(self.report.checks),
                      first_error=first_error, misconception='', feedback='')
-        if fails and len(self.q.tries) + 1 < MAX_TRIES:
+        if fails and len(self.q.tries) + 1 < val('checks.tries'):
             self.q.tries.append(dict(answer=f'{len(fails)} failing', first_error=g.first_error, confidence=confidence))
             return f"{passed} of {len(self.report.checks)} tests pass. {g.first_error}"
         if fails: self.q.tries.append(dict(answer=f'{len(fails)} failing', first_error=g.first_error, confidence=confidence))

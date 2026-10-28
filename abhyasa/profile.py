@@ -14,7 +14,7 @@ import json, time
 from fastcore.utils import *
 from .store import Learning, _src
 from .llm import ask_json
-from .model import HIGH
+from .settings import val, SETTINGS
 from .method import methods_text, EXPLORE
 
 # %% ../nbs/12_profile.ipynb #2269e644
@@ -151,13 +151,13 @@ def observe(lr:Learning, ask, n:int=12) -> list:
 # %% ../nbs/12_profile.ipynb #ca02
 def calibration(lr:Learning, n:int=300) -> AttrDict:
     "How often the first try of a question was right, when you felt sure and when you felt unsure."
-    seen, r = set(), AttrDict(sure=0, sure_right=0, unsure=0, unsure_right=0)
+    seen, r, high = set(), AttrDict(sure=0, sure_right=0, unsure=0, unsure_right=0), val('checks.high')
     for a in reversed(lr.attempts(limit=n)):   # oldest first, so the first try of each question counts
         k = (a.get('session'), a.question)
         if k in seen: continue
         seen.add(k)
         if a.get('kind') == 'demo' or a.get('dont_know') or a.get('confidence') is None: continue
-        b = 'sure' if a.confidence >= HIGH else 'unsure'
+        b = 'sure' if a.confidence >= high else 'unsure'
         r[b], r[f'{b}_right'] = r[b] + 1, r[f'{b}_right'] + bool(a.correct)
     return r
 

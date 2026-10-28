@@ -3,8 +3,8 @@ from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
 from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, asset_js
-from abhyasa.model import DEPTHS, GOAL
-from abhyasa.tutor import MAX_TRIES
+from abhyasa.model import DEPTHS
+from abhyasa.settings import val
 from abhyasa.method import LABELS as WAYS
 from .cfg import Routes
 
@@ -160,7 +160,7 @@ def Composer(sid, q=None, ready=None, oob=False):
                       placeholder='Think aloud: how did you get there? What are you not sure of?')]
     acts = ([out] if choice else [out, Button('Hint ', Kbd('⌥W'), type='button', id='hint', cls='quiet', hx_post=at(Routes.hint), data_wait=HINTING, **tl),
                                    Button('Send ', Kbd('⌥S'), cls='go', id='send', data_wait=GRADING)])
-    return Form(*boxes, Div(*run('answer_tools', q, 'think' if choice else 'ans'), Confidence(), Left(MAX_TRIES - len(q.tries) if tried else None),
+    return Form(*boxes, Div(*run('answer_tools', q, 'think' if choice else 'ans'), Confidence(), Left(val('checks.tries') - len(q.tries) if tried else None),
                             Span(cls='grow'), *acts, cls='row bar'),
                 hx_post=at(Routes.answer), **tl, **kw)
 

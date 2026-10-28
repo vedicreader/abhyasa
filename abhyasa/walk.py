@@ -13,7 +13,7 @@ from fastcore.utils import *
 from .llm import for_task
 from .settings import val
 from .prompts import register, prompt
-from .tutor import Tutor, Session, MAX_TRIES, public
+from .tutor import Tutor, Session, public
 from .check import run_isolated
 from .nb import new_exercise
 import abhyasa.journey  # adds Learning.walk_step
@@ -98,7 +98,7 @@ def _first_error(q, checks) -> str:
 def run_code(tutor:Tutor, qid:str, source:str, confidence:int=70) -> AttrDict:
     "Run `source` on the tests of the code task `qid` in a closed process, and grade it. A pass or the last try closes the task."
     q = tutor.open[qid]
-    out = AttrDict(syntax='', checks=[], passed=0, total=len(q.tests), first_error='', tries_left=MAX_TRIES - len(q.tries), done=False)
+    out = AttrDict(syntax='', checks=[], passed=0, total=len(q.tests), first_error='', tries_left=val('checks.tries') - len(q.tries), done=False)
     try: compile(source, '<code>', 'exec', dont_inherit=True)
     except (SyntaxError, ValueError) as e: return AttrDict(out, syntax=f"line {getattr(e, 'lineno', None) or 1}: {getattr(e, 'msg', None) or e}")
     r = run_isolated('assert', q.fname, source, q.tests)
@@ -111,7 +111,7 @@ def run_code(tutor:Tutor, qid:str, source:str, confidence:int=70) -> AttrDict:
     q.turns.append(dict(who='you', text=source, confidence=confidence))
     if correct: return AttrDict({**out, **tutor._close(q, True, confidence, g, answer=source)})
     q.tries.append(dict(answer=source, first_error=out.first_error, confidence=confidence))
-    if len(q.tries) < MAX_TRIES: return AttrDict(out, tries_left=MAX_TRIES - len(q.tries))
+    if len(q.tries) < (most := val('checks.tries')): return AttrDict(out, tries_left=most - len(q.tries))
     return AttrDict({**out, 'tries_left': 0, **tutor._close(q, False, q.tries[0]['confidence'], g, teach=True)})
 
 # %% ../nbs/15_walk.ipynb #i25
