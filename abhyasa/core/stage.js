@@ -207,9 +207,9 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
       return {state, gates};
     }
     function apply(state = {}, gates = {}) {
-      const s = store(), st = s.st, keys = inputs().filter(k => Object.hasOwn(state, k));
+      const s = store(), st = s.st, have = st.gate ?? {}, keys = inputs().filter(k => Object.hasOwn(state, k));
       // only a gate of this spec that is not done yet; an open or a pending gate in the presenter copy does not show here
-      const fresh = Object.keys(gates).filter(id => gates[id] === 'done' && Object.hasOwn(st.gate, id) && st.gate[id] !== 'done');
+      const fresh = Object.keys(gates).filter(id => gates[id] === 'done' && Object.hasOwn(have, id) && have[id] !== 'done');
       host.querySelectorAll('.rk-gate').forEach(n => { n.inert = true; });   // the room does not pick in the audience window
       if (ownSet()) {
         if (keys.length) Rupaka.set(host, Object.fromEntries(keys.map(k => [k, state[k]])));

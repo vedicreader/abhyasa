@@ -74,6 +74,23 @@ def test_mirror_details():
             assert got['calls'] == [['set', True, {'t': 2}]]   # the gate is done already, so it is not new
         finally: b.close()
 
+def test_mirror_with_no_gates():
+    "A store with no gate table: apply with a gate does not throw, and the snapshot has no gates."
+    spec = gallery()['softmax-temperature']
+    with pw.sync_playwright() as p:
+        b = p.chromium.launch(headless=True)
+        try:
+            pg = b.new_page(); pg.set_content(page([spec])); pg.add_script_tag(content=JS)
+            pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 1")
+            got = pg.evaluate("""() => {
+              const a = document.querySelector('[data-rupaka]'), m = abhyasaStage.mirror(a);
+              delete a.rupaka.st.gate;
+              m.apply({t: 2}, {hot: 'done'});
+              return {t: a.rupaka.st.t, gates: m.snapshot().gates};
+            }""")
+            assert got == dict(t=2, gates={})
+        finally: b.close()
+
 SETUP = """([rk, js, name, spec]) => Promise.all([rk, js].map(src => new Promise(ok => {
   const s = document.createElement('script'); s.src = src; s.onload = ok; document.head.appendChild(s);
 }))).then(() => {
@@ -92,7 +109,10 @@ def test_mirror_over_the_channel(mk):
     with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
     srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
     th = threading.Thread(target=srv.run, daemon=True); th.start()
-    while not srv.started: time.sleep(.05)
+    end = time.monotonic() + 10
+    while not srv.started:
+        assert time.monotonic() < end, 'the server did not start in 10 s'
+        time.sleep(.05)
     base, spec = f'http://127.0.0.1:{port}', gallery()['softmax-temperature']
     try:
         with pw.sync_playwright() as p:
