@@ -115,9 +115,12 @@ def grade_trip(lr, ask, j) -> AttrDict:
     if k is None: raise ValueError('no short check in this walk')
     c = lr.concept(j.steps[k]['slug'])
     q = open_short(tutor, lr.journey(j.id), k, 'trial')
-    good = bool(tutor.answer(q.id, tutor.open[q.id].answer, confidence=80).correct)   # the model answer of this question, not the general statement of the idea
+    o = tutor.open[q.id]
+    ans, basis = (o.answer, 'model answer') if o.answer else (o.get('options') and o.options[o.correct]['text'], 'correct option')   # a choice question may have no model answer
+    if not ans: raise ValueError('the question has no model answer and no correct option: the grade trip is skipped')
+    good = bool(tutor.answer(q.id, ans, confidence=80).correct)
     q2 = tutor.ask_on(c, 2, session='trial', method=j.steps[k]['check']['way'])
-    return AttrDict(good=good, weak=not tutor.answer(q2.id, 'I am not sure.', confidence=20).correct)
+    return AttrDict(good=good, weak=not tutor.answer(q2.id, 'I am not sure.', confidence=20).correct, basis=basis)
 
 def code_trip(lr, ask, j) -> AttrDict:
     "On the first code step (else step 0): the stub as the naive try, then the stored solution as the good try; each as `passed of total`."
@@ -227,7 +230,7 @@ def report(rows, out) -> str:
         m = r.m
         md.append(f"- Steps: {m.steps}; build {r.build.secs:.0f} s; {r.n_calls} model calls, {r.s_call:.1f} s each on average.")
         for b in m.bad_asks: md.append(f'- Step {b.step} ({b.name}) fails {", ".join(b.failed)}: {b.question!r}')
-        if r.get('g'): md.append(f'- Grade: the model answer graded correct: {r.g.good}; "I am not sure." graded not correct: {r.g.weak}.')
+        if r.get('g'): md.append(f'- Grade: the {r.g.basis} graded correct: {r.g.good}; "I am not sure." graded not correct: {r.g.weak}.')
         if r.get('c'): md.append(f'- Code: naive {r.c.naive}, good {r.c.good}, {r.c.secs:.0f} s.')
         if r.get('h'): md.append(f'- Leela: {r.h.leela_steps} steps with a link, {r.h.links_ok} links right, {r.h.pages_ok} pages right, {r.h.code_checks} code checks. {r.h.cards_skipped} demo or order cards were not fetched (a demo card starts a demo job).')
         for e in ('g', 'c', 'h', 'shots'):
