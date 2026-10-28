@@ -13,7 +13,7 @@ OUTCOME = {k: OUTCOMES[k][0] for k in ('solid', 'fragile', 'misconception', 'gap
 WORDS = {1: 'One more try', 2: 'Two more tries'}
 STEPS = (10, 30, 50, 70, 90)
 GRADING, HINTING, TEACHING, NEXT = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'Thinking of the next question…'
-OPT_KEYS = 'QWER'
+OPT_KEYS = '1234'   # no ⌥: the cursor is on an option, not in a box (session.js)
 
 def assets(): return asset_css(_P/'session.css'), asset_js(_P/'session.js')
 
@@ -30,7 +30,7 @@ def Options(sid, q, chosen=(), done=False, oob=False, right=None):
     "The options of a choice question, inline in the question. A wrong pick is struck, a right pick marked; all go off when the question closes."
     def opt(i, o):
         k = OPT_KEYS[i] if i < len(OPT_KEYS) else ''
-        return Button(Md(o), Kbd(f'⌥{k}') if k and not done else '', name='answer', value=str(i), id=f'o{i}' if not done else None,
+        return Button(Md(o), Kbd(k) if k and not done else '', name='answer', value=str(i), id=f'o{i}' if not done else None,
                       cls='opt' + (' right' if o == right else ' tried' if o in chosen else ''), disabled=done or o in chosen,
                       hx_post=Routes.at(Routes.answer, sid), hx_include='#composer', hx_target=f'#{tl_id(q)}', hx_swap='beforeend',
                       data_wait=GRADING, data_skel=f'#{tl_id(q)}')

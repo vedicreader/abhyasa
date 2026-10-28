@@ -1,6 +1,7 @@
 // The session keys, all for the left hand: ⌥S sends (or goes to the next question), ⌥W asks for a hint, ⌥X is "I don't know"
-// (or "Teach me", or after a shaky pass "Teach me this"), ⌥A asks for a lesson in another way, ⌥1 to ⌥5 set how sure you are, ⌥Q ⌥W ⌥E ⌥R pick an option. ⌘↵ sends from either box.
-Object.assign(abhyasaKeys, {KeyW: '#hint, #o1', KeyX: '#idk, #teach', KeyA: '#another', KeyQ: '#o0', KeyE: '#o2', KeyR: '#o3',   // ⌥↑ ⌥↓ step through the earlier questions
+// (or "Teach me", or after a shaky pass "Teach me this"), ⌥A asks for a lesson in another way, ⌥1 to ⌥5 set how sure you are.
+// On a choice question, 1 to 4 (with no ⌥) pick an option when the cursor is not in a box. ⌘↵ sends from either box.
+Object.assign(abhyasaKeys, {KeyW: '#hint', KeyX: '#idk, #teach', KeyA: '#another',   // ⌥↑ ⌥↓ step through the earlier questions
                             Digit1: '#c1', Digit2: '#c2', Digit3: '#c3', Digit4: '#c4', Digit5: '#c5'});
 
 // A boosted page loads this file again, so the listeners go on once.
@@ -40,6 +41,14 @@ if (!window.abhyasaSession) {
     }
     const f = document.querySelector('div#composer #send, #composer #ans, #chat .qa:last-child .opt:not(:disabled), #composer #think');
     if (f) f.focus({preventScroll: true});
+  });
+
+  // 1 to 4 pick an option of a choice question, when the cursor is not in a box.
+  document.addEventListener('keydown', e => {
+    const t = e.target, n = '1234'.indexOf(e.key);
+    if (n < 0 || e.altKey || e.metaKey || e.ctrlKey || (t.matches && t.matches('textarea, input, select, [contenteditable]'))) return;
+    const o = document.querySelector(`#chat .qa:last-child #o${n}`);
+    if (o && !o.disabled) { e.preventDefault(); o.click(); }
   });
 
   // ⌘↵ (or Ctrl+↵) sends from either box; in the closed state it goes to the next question.

@@ -1,3 +1,4 @@
-dl.keys { display: grid; grid-template-columns: max-content 1fr; gap: .45em 1.6em; margin: .4em 0 1.6em; }
+/* one key column for every group, so the columns line up down the page */
+dl.keys { display: grid; grid-template-columns: 10em 1fr; gap: .45em 1.6em; margin: .4em 0 1.6em; }
 dl.keys dt kbd { font: 600 var(--t-small)/1.4 var(--mono, ui-monospace, monospace); border: 0; background: none; padding: 0; color: var(--fg); }
 dl.keys dd { margin: 0; }

@@ -99,3 +99,30 @@ def test_native_controls_use_the_accent():
     css = (ROOT/'core/base.css').read_text()
     assert re.search(r'input\[type=radio\], input\[type=checkbox\][^{]*\{[^}]*accent-color: var\(--acc\)', css)
     assert re.search(r'select \{[^}]*appearance: none', css)      # the select arrow in the theme colours, not the system one
+
+# F14: the keyboard sheet lines up, and no ⌥ key has two meanings
+
+def test_sheet_has_one_key_column_and_no_slashes(mk):
+    from abhyasa.core.keys import KEYS
+    assert 'grid-template-columns: 10em 1fr' in (ROOT/'blocks/keys/keys.css').read_text()
+    assert not [k for _, k, _ in KEYS if ' / ' in k]
+    t = mk().get('/keys').text
+    assert '⌥Q' not in t and 'On a step of a walk.' in t and 'While a side walk is open' in t
+
+def test_no_alt_key_has_two_meanings():
+    "⌥W is only a hint and ⌥E only a demo: a choice question picks its options with 1 to 4, with no ⌥."
+    from abhyasa.core.keys import KEYS
+    alt = {}
+    for g, k, a in KEYS:
+        for x in re.findall(r'⌥[A-Z]', k): alt.setdefault(x, set()).add(a.split(',')[0].split('.')[0])
+    assert {x: v for x, v in alt.items() if len(v) > 1 and x != '⌥S'} == {}
+    js = (ROOT/'blocks/session/session.js').read_text()
+    assert 'KeyQ' not in js and 'KeyE' not in js and 'KeyR' not in js and "'#o1'" not in js
+    assert ('Session', '1–4', 'Pick option 1 to 4 on a choice question') in KEYS
+
+def test_options_show_their_digit(mk, fake):
+    from abhyasa.blocks.session.ui import Options
+    from fasthtml.common import to_xml
+    from fastcore.utils import AttrDict
+    h = to_xml(Options('s', AttrDict(id='q', options=['a', 'b', 'c'])))
+    assert '<kbd>1</kbd>' in h and '<kbd>3</kbd>' in h and '⌥' not in h
