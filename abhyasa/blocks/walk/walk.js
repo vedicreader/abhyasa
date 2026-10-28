@@ -5,6 +5,9 @@ abhyasaKeys.KeyV = '.walk-demo #keep';   // ⌥V keeps the state of a demo
 
 if (!window.abhyasaWalk) {
   window.abhyasaWalk = true;
+  // Over 1040 px the outline is always open and its summary is only a label, so the keys skip it. The outline is swapped by htmx, so this runs again after each swap.
+  const wide = matchMedia('(min-width: 1041px)'), railTab = () => document.querySelectorAll('#rail summary').forEach(x => wide.matches ? x.setAttribute('tabindex', '-1') : x.removeAttribute('tabindex'));
+  wide.addEventListener('change', railTab); document.addEventListener('htmx:afterSettle', railTab); railTab();
   // After a check card loads or changes, the cursor goes to the answer box, or to Next idea when the check is closed.
   document.addEventListener('htmx:afterSettle', e => {
     if (!e.detail.target || e.detail.target.id !== 'check') return;
