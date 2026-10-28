@@ -32,11 +32,26 @@ def test_more_bad_messages():
     bad = [dict(v=1, t='demo', slug='x', state=dict(a=[[[[[[[[[[1]]]]]]]]]]), gates={}), dict(v=1, t='pane', url='/w/x\n'),
            dict(v=1, t='join', url='http://192.168.1.23:5180/j/K7PQ2M', code=None), dict(v=1, t='point', x=.5), dict(v=1, t='point', off=True, id='a'),
            dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='open')), dict(v=1, t='result', slide='s3', kind='choice', rounds=[], right=9, main=None),
-           dict(v=1, t='go', slide='s4', beat=2.5), dict(v=1, t='go', slide='s4', beat=True), dict(v='1', t='go', slide='s4', beat=2), None, 'go']
+           dict(v=1, t='go', slide='s4', beat=2.5), dict(v=1, t='go', slide='s4', beat=True), dict(v='1', t='go', slide='s4', beat=2), None, 'go',
+           *(dict(v=1, t='demo', slug='x', state={}, gates={k: 'done'}) for k in PROTO),
+           *(dict(v=1, t='demo', slug='x', state={k: 1}, gates={}) for k in PROTO),
+           dict(v=1, t='demo', slug='x', state=dict(a=[dict(prototype=1)]), gates={})]
     assert node('JSON.parse(process.argv[2]).map(s.valid)', json.dumps(bad)) == [False] * len(bad)
     assert node("[s.valid({v: 1, t: 'go', slide: 's1', beat: NaN}), s.valid({v: 1, t: 'go', slide: 's1', beat: 1, constructor: 1})]") == [False, False]
     assert node("(s.add('card', {text: m => typeof m === 'string'}), [s.valid({v: 1, t: 'card', text: 'a'}), s.valid({v: 1, t: 'card', text: 1})])") == [True, False]
     with pytest.raises(subprocess.CalledProcessError): node("s.add('go', {})")   # a type that is there stays as it is
+    for f in ["{__proto__: () => true}", "{text: 1}", "[]"]:
+        with pytest.raises(subprocess.CalledProcessError): node(f"s.add('card', {f})")
+
+PROTO = ['__proto__', 'constructor', 'prototype']
+
+@no_node
+def test_added_type_is_a_frozen_copy():
+    "A change to the caller's objects after `add` does not change the type."
+    code = ("(() => { const f = {text: m => typeof m === 'string'}, need = ['text']; s.add('card', f, need);"
+            " f.text = () => true; f.more = () => true; need.push('more');"
+            " return [s.valid({v: 1, t: 'card', text: 'a'}), s.valid({v: 1, t: 'card', text: 1}), s.valid({v: 1, t: 'card', text: 'a', more: 1})] })()")
+    assert node(code) == [True, False, False]
 
 @no_node
 def test_is_local_matches_pane_py():
@@ -119,6 +134,7 @@ def test_stage_in_a_browser(mk):
                 pre.evaluate("() => { ch.send({t: 'go', slide: 's4', beat: 2}); ch.send({t: 'pane', url: '/keys'}); ch.send({t: 'point', id: 'scale'}) }")
                 aud.wait_for_function("() => drawn.includes('go') && st.classList.contains('beside')")
                 assert aud.evaluate("() => got.filter(m => m.t !== 'here').map(m => m.t)") == ['go', 'pane', 'point']
+                assert old.evaluate("() => got") == []   # the old window takes nothing from the new run either
                 assert aud.evaluate("() => [document.querySelector('iframe.stage-pane').getAttribute('src'), document.getElementById('scale').classList.contains('lit')]") == ['/keys', True]
                 pre.evaluate("() => ch.send({t: 'pane', url: null})")
                 aud.wait_for_function("() => !st.classList.contains('beside') && !document.querySelector('iframe.stage-pane')")
@@ -137,13 +153,18 @@ def test_stage_in_a_browser(mk):
                 # keys: only with html.talk, not in a text box, not in the demo (Esc still comes), not with ⌥
                 pre.evaluate("""() => { window.hit = []; const k = n => () => hit.push(n);
                   document.body.insertAdjacentHTML('beforeend', '<input id="box"><div data-rupaka><button id="demo">demo</button></div>');
-                  window.pr = abhyasaStage.presenter(st, ch, {keys: {KeyD: k('d'), Escape: k('esc'), '3': k('3'), 'Shift+KeyC': k('C')}}) }""")
+                  document.body.insertAdjacentHTML('beforeend', '<button id="btn" onclick="hit.push(\\'click\\')">b</button>');
+                  window.pr = abhyasaStage.presenter(st, ch, {keys: {KeyD: k('d'), Escape: k('esc'), '3': k('3'), 'Shift+KeyC': k('C'), Space: k('space')}}) }""")
                 pre.keyboard.press('KeyD')
                 pre.evaluate("() => document.documentElement.classList.add('talk')")
                 pre.keyboard.press('KeyD'); pre.keyboard.press('Digit3'); pre.keyboard.press('Shift+KeyC'); pre.keyboard.press('Alt+KeyD')
                 pre.focus('#box'); pre.keyboard.press('KeyD')
                 pre.focus('#demo'); pre.keyboard.press('KeyD'); pre.keyboard.press('Escape')
                 assert pre.evaluate('() => hit') == ['d', '3', 'C', 'esc']
+                # a held key does not repeat, and a focused button does not take Space from the talk
+                pre.evaluate("() => document.dispatchEvent(new KeyboardEvent('keydown', {code: 'KeyD', key: 'd', repeat: true, bubbles: true}))")
+                pre.focus('#btn'); pre.keyboard.press('Space')
+                assert pre.evaluate('() => hit') == ['d', '3', 'C', 'esc', 'space']
                 pre.evaluate("() => document.activeElement.blur()")
 
                 # the laser: off sends nothing; on, a move sends a point at most once a frame, and leaving sends off

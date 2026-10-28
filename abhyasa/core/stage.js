@@ -11,12 +11,14 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v) && [Object.prototype, null].includes(Object.getPrototypeOf(v));
 
   // Data that JSON can carry, at most DEEP levels down and with at most `left` parts: structured clone can carry more (a Map, a loop).
+  // No key anywhere is a name that can change a prototype, so code that copies a part of a message stays safe.
+  const PROTO = ['__proto__', 'constructor', 'prototype'];
   function plain(v, depth = 0, left = {n: 40000}) {
     if (--left.n < 0 || depth > DEEP) return false;
     if (v === null || typeof v === 'string' || typeof v === 'boolean') return true;
     if (typeof v === 'number') return Number.isFinite(v);
     if (Array.isArray(v)) return Object.getPrototypeOf(v) === Array.prototype && v.every(x => plain(x, depth + 1, left));
-    return isObj(v) && Object.values(v).every(x => plain(x, depth + 1, left));
+    return isObj(v) && Object.keys(v).every(k => !PROTO.includes(k) && plain(v[k], depth + 1, left));
   }
 
   // The field rules. Each one is a function of the value that gives true or false.
@@ -40,6 +42,7 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   const SLIDE = str(5, /^s[0-9]{1,4}$/), ID = str(64, /^[A-Za-z0-9_-]{1,64}$/), N = int(0, 1e6);
   const CODE = str(6, /^[A-HJKMNP-Z2-9]{6}$/);
   const JOIN = str(64, /^http:\/\/(10\.\d{1,3}|172\.(1[6-9]|2\d|3[01])|192\.168|127\.0)\.\d{1,3}\.\d{1,3}:\d{2,5}\/j\/[A-HJKMNP-Z2-9]{6}$/);
+  // At most 6 options, as in a talk now. By ruling, Option C adds its own types with their own limits through `add`; these stay.
   const PICK = either(int(0, 5), list(6, int(0, 5)));   // an option, or the options in order
   // The public part of a question: never its `answer` (spec 7.7).
   const ASK = shape({kind: v => ['choice', 'order', 'words', 'scale'].includes(v), q: str(500), options: list(6, str(200)), most: int(1, 500)}, ['kind', 'q']);
@@ -73,7 +76,13 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   // A later task adds a message type here (and to STAGE_TYPES in stage.py). It never changes a type that is there.
   function add(t, fields, need, ok) {
     if (!/^[a-z]{1,16}$/.test(t) || Object.hasOwn(TYPES, t)) throw Error('cannot add the stage message type ' + t);
-    TYPES[t] = {fields, need, ok};
+    if (!isObj(fields) || !Object.entries(fields).every(([k, f]) => /^[a-z][A-Za-z0-9]{0,31}$/.test(k) && typeof f === 'function'))
+      throw Error('the fields of a stage message type must be names with rule functions');
+    if (ok !== undefined && typeof ok !== 'function') throw Error('the whole-message check must be a function');
+    // a frozen copy, so a later change to the caller's objects cannot change the type
+    const copy = Object.freeze(Object.assign(Object.create(null), fields));
+    const needs = need === undefined ? undefined : Object.freeze(need.map(n => Array.isArray(n) ? Object.freeze([...n]) : n));
+    TYPES[t] = Object.freeze({fields: copy, need: needs, ok});
   }
 
   function channel(name) {
@@ -145,13 +154,13 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
     const root = document.documentElement, box = 'textarea, input, select, [contenteditable]:not([contenteditable="false"])';
     let laser = false, frame = 0, at = null;
     const onKey = e => {
-      if (!root.classList.contains('talk') || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+      if (!root.classList.contains('talk') || e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;   // a held key does not skip beats
       const a = document.activeElement;
       if (a && (a.matches(box) || a.isContentEditable)) return;
       if (e.key !== 'Escape' && a?.closest('[data-rupaka]')) return;
       const name = /^[0-9]$/.test(e.key) ? e.key : (e.shiftKey ? 'Shift+' : '') + e.code, fn = Object.hasOwn(keys, name) && keys[name];
       if (typeof fn !== 'function' || fn(e) === false) return;
-      e.preventDefault(); e.stopPropagation();
+      e.preventDefault(); e.stopPropagation();   // so a focused button or link does not also click on Space
     };
     const clamp = v => Math.round(Math.min(1, Math.max(0, v)) * 1e4) / 1e4;
     const send = () => { frame = 0; if (laser && at) ch.send({t: 'point', x: at[0], y: at[1]}); };
