@@ -334,17 +334,18 @@ def connect(app, ctx):
                 if (s := sessions.get(j.get('sitting') or '')) and s.q and s.q.id == qid: s.q = None; s.save()
             lr.walk_step(jid, i, done=dict(outcome='skipped', at=time.time()))
         ends = any(ix[-1] == i for _, ix in st.sections)
+        if ends and (sid := j.get('sitting')) and (s := sessions.pop(sid, None) or Session.load(tutor, sid)) and not s.ended:
+            s.end()   # the section ends here, on the POST, not on the GET of its summary
         # a plain 303, not HX-Redirect: htmx follows it and swaps the page in place, so the next idea comes in with a view transition
         return RedirectResponse(ui.at(Routes.done, jid, i) if ends else ui.at(Routes.step, jid, i + 1), status_code=303)
 
     def done(jid:str, i:int):
-        "The summary of the section of step `i`; it ends the sitting, and the next step opens a new one."
+        "The summary of the section of step `i`. It changes nothing: Next idea ended the sitting, and the next step opens a new one."
         if not (j := walk_of(jid, i)): return missing()
         sec, ix = next((sec, ix) for sec, ix in walk_state(j).sections if i in ix)
         slugs = {j.steps[k]['slug'] for k in ix}
         s = (sessions.get(sid) or Session.load(tutor, sid)) if (sid := j.get('sitting')) else None
         rows = [r for r in (s.log if s else ()) if r['concept'] in slugs]
-        if s and not s.ended: s.end(); sessions.pop(s.id, None)
         nxt = ix[-1] + 1 if ix[-1] + 1 < len(j.steps) else None
         crumbs = [*up, (j.title, ui.at(Routes.one, jid))]
         if nxt is not None: return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), nxt, by()), crumbs=crumbs, extra=ui.assets())

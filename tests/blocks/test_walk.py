@@ -451,3 +451,16 @@ def test_code_run_refuses_a_source_that_is_too_long(mk, walk_fake, lr):
     big = GOOD + '\n#' + 'x' * (100_000 - len(GOOD))
     assert len(big) > 100_000 and cl.post(f'/w/{jid}/1/run', data=dict(source=big)).status_code == 413
     assert not lr.attempts('softmax') and 'Next idea' not in cl.get(f'/w/{jid}/1/check').text
+
+def test_only_the_post_of_next_idea_ends_the_sitting(mk, walk_fake, lr):
+    "A GET of the section summary (also a `?rh=` frame load) does not end the sitting. Next idea at the end of a section does."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    live, sid = cl.app.state.svc['sessions'], lr.journey(jid).sitting
+    s = live[sid]
+    for u in (f'/w/{jid}/0/done', f'/w/{jid}/0/done?pane=1', f'/?rh=/w/{jid}/0/done'): assert cl.get(u).status_code == 200
+    assert not s.ended and live.get(sid) is s
+    assert cl.post(f'/w/{jid}/0/next', follow_redirects=False).headers['location'] == f'/w/{jid}/0/done'
+    assert s.ended and sid not in live
+    assert 'Section done' in cl.get(f'/w/{jid}/0/done').text
+    cl.get(f'/w/{jid}/1/check')
+    assert lr.journey(jid).sitting != sid                                              # the next step opens a new sitting
