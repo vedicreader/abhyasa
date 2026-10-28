@@ -1,6 +1,7 @@
 // The walk keys, for the left hand: ⌥S presses the main button (core.js): Send (or Run the tests) while a check is open, then Next idea.
 // ⌥W asks for a hint, and ⌘↵ sends the answer. Skip this idea is a quiet link with no key.
 abhyasaKeys.KeyW = '#hint';
+abhyasaKeys.KeyV = '.walk-demo #keep';   // ⌥V keeps the state of a demo
 
 if (!window.abhyasaWalk) {
   window.abhyasaWalk = true;
@@ -81,12 +82,6 @@ if (!window.abhyasaWalk) {
   document.addEventListener('click', e => {
     const b = e.target.closest && e.target.closest('.walk-demo #keep');
     if (b) keep(b.closest('.walk-demo'));
-  });
-  document.addEventListener('keydown', e => {
-    const t = e.target, inBox = t.matches && t.matches('textarea, input, select, [contenteditable]');
-    if (e.key !== 'k' || inBox || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
-    const b = document.querySelector('.walk-demo #keep');
-    if (b) { e.preventDefault(); b.click(); }
   });
 
   // The code editor: Tab adds 4 spaces, and Shift-Tab takes away up to 4. ⌘↵ runs the tests (core.js presses the Run button).

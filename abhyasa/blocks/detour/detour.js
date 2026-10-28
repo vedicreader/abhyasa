@@ -21,7 +21,7 @@ if (!window.abhyasaDetour) {
     hideTool();
     htmx.ajax('GET', `/rh/term?${new URLSearchParams({t, at: a})}`, {target: b, swap: 'innerHTML'}).then(() => {
       (b.querySelector('.rh-way.pick') || b.querySelector('.rh-way, button'))?.focus({preventScroll: true});
-      b.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+      b.scrollIntoView({block: 'nearest', behavior: abhyasaMotion() ? 'smooth' : 'auto'});
     });
     return true;
   };

@@ -182,3 +182,13 @@ def test_a_figure_that_fails_goes_but_keeps_its_alt_text():
     assert "'#figure img'" in js and "addEventListener('error'" in js and "classList.add('gone')" in js
     assert re.search(r'#figure\.gone \{[^}]*clip-path', css)                   # out of sight, but a screen reader still reads the alt text
 
+# Fix round 1: the small items
+
+def test_small_items():
+    from abhyasa.core.keys import KEYS
+    css = (ROOT/'core/base.css').read_text()
+    assert css.count('@keyframes fade ') == 1 and '@keyframes fade-out' in css        # the page fades in, never out
+    assert '[data-theme=signal] :is(h2, label, .lbl, .check .tag)' in css              # the outcome tag is a label too
+    assert ('Walk', '⌥V', 'Keep the state of the demo') in KEYS and not [k for _, k, _ in KEYS if k == 'K']   # left hand only
+    assert "abhyasaMotion() ? 'smooth' : 'auto'" in (ROOT/'blocks/detour/detour.js').read_text()
+    assert 'STEPS' not in (ROOT/'blocks/session/ui.py').read_text()

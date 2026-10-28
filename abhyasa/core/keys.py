@@ -29,7 +29,7 @@ KEYS = [
     ('Walk', '⌥S', 'Send the open check, or run the tests. Once the check closes, go to the next idea'),
     ('Walk', '⌥W', 'Ask for a hint'),
     ('Walk', '⌘↩', 'Send the answer, or run the tests'),
-    ('Walk', 'K', 'Keep the state of the demo'),
+    ('Walk', '⌥V', 'Keep the state of the demo'),
     ('Walk', '⌥B', 'Open beside: learn a missing idea in the side pane'),
     ('Side pane', '⌥Z', 'Back to the paper: close the side pane'),
     ('Side pane', 'esc', 'Close the side pane'),

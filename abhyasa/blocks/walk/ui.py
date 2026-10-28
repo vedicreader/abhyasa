@@ -204,10 +204,10 @@ def rk_assets():
     return Link(rel='stylesheet', href=f'/rupaka/rupaka.css?v={v}'), Script(src=f'/rupaka/rupaka.js?v={v}')
 
 def DemoCheck(jid, i, s, d):
-    "A demo or an order check: the rupaka demo of the step, closed when you skipped it. walk.js sends each prediction, and K keeps the state."
+    "A demo or an order check: the rupaka demo of the step, closed when you skipped it. walk.js sends each prediction, and ⌥V keeps the state."
     if d is None or (s.get('done') or {}).get('outcome') == 'skipped': return Done(jid, i, s)
     k = s['check']['kind']
-    keep = Button('Keep this state ', Kbd('K'), type='button', id='keep', cls='small quiet', title='Save the inputs of the demo with your last prediction')
+    keep = Button('Keep this state ', Kbd('⌥V'), type='button', id='keep', cls='small quiet', title='Save the inputs of the demo with your last prediction')
     shut = bool(s.get('done'))
     return Check(CardHead(s), P(LEAD[k], cls='mute'), foot=(Demo(d.spec), *rk_assets(), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts'),
                                                             GoOn(jid, i, hidden=not shut)), shut=shut, cls='walk-demo', data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))

@@ -11,7 +11,6 @@ from .cfg import Routes
 _P = Path(__file__).parent
 OUTCOME = {k: OUTCOMES[k][0] for k in ('solid', 'fragile', 'misconception', 'gap')}
 WORDS = {1: 'One more try', 2: 'Two more tries'}
-STEPS = (10, 30, 50, 70, 90)
 GRADING, HINTING, TEACHING, NEXT = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'Thinking of the next question…'
 OPT_KEYS = '1234'   # no ⌥: the cursor is on an option, not in a box (session.js)
 

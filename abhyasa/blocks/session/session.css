@@ -4,7 +4,7 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 
 .check.qa { margin-top: 0; }
 .qa .head { margin: 0 0 var(--s2); }
-.qa .head .lbl { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin: 0; }
+.qa .head .lbl { display: flex; align-items: center; flex-wrap: wrap; margin: 0; }   /* no gap: the way starts with its own space */
 .qa .head .why { margin: 2px 0 0; }
 .qa.done { background: transparent; box-shadow: none; padding: var(--s6) 0 0; }
 .qa .ask { margin: 0 0 var(--s3); }

@@ -173,7 +173,7 @@ a { transition: color .14s ease-out, text-decoration-color .14s ease-out; }
 
 [data-theme=signal] { --r: 2px; --r-s: 2px; --lift: 0 0 0 1px var(--line); }
 [data-theme=signal] :is(h1, nav .brand) { font-weight: 600; letter-spacing: 0; }
-[data-theme=signal] :is(h2, label, .lbl) { font-family: var(--head); font-size: var(--t-small); letter-spacing: 0; text-transform: none; }
+[data-theme=signal] :is(h2, label, .lbl, .check .tag) { font-family: var(--head); font-size: var(--t-small); letter-spacing: 0; text-transform: none; }
 /* the mono is for labels only: a "why" line, also inside a label, reads in the text font */
 [data-theme=signal] .why, [data-theme=signal] :is(h2, label, .lbl) .why { font-family: var(--serif); }
 [data-theme=signal] body > nav { border-bottom: 3px solid var(--acc); }
@@ -193,8 +193,8 @@ ul.srows li.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; ga
 .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: transparent; transition: background var(--dur-3) var(--ease); }
 .dot.on { background: var(--acc); }
 .srow .lft > .dot { position: absolute; left: -16px; top: .62em; }
-.saved { color: var(--mute); animation: fade 2s var(--ease) forwards; }
-@keyframes fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+.saved { color: var(--mute); animation: fade-out 2s var(--ease) forwards; }
+@keyframes fade-out { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 .num { display: inline-flex; align-items: center; gap: var(--s1); }
 .num input[type=number] { width: 6em; text-align: center; font-size: var(--t-list); padding: var(--s1) 2px; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
 .num input[type=number]::-webkit-inner-spin-button, .num input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
