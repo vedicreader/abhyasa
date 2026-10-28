@@ -1,10 +1,13 @@
 # The guided walk: learn a paper or a topic, one idea and one check at a time
 
 Date: 28 October 2026. Status: approved by the owner (Option A, on the shared core).
+Amended 28 October 2026, approved by the owner: rabbit holes (6.10), a walk from a link (6.11), tool walks (6.12) and a
+trial on real material (6.13).
 Design sources: `abhyasa-designs/paper/options.md` ("The shared core", "Option A", "Comparison", "Recommendation"),
 mockups `abhyasa-designs/paper/mock/a1-a3` and `paper/shots/a1-add.png`, `a2-walk-code.png`, `a3-walk-demo.png`,
-background `abhyasa-designs/research.md`, and the modality design `abhyasa-designs/modalities/options.md` (part 4A and
-its engine changes). Paths without a folder are in the abhyasa repo.
+background `abhyasa-designs/research.md`, the modality design `abhyasa-designs/modalities/options.md` (part 4A and
+its engine changes), and the rabbit-hole design `abhyasa-designs/rabbit-hole/design.md` with mockups `rabbit-hole/mock/r1-r3`
+and `rabbit-hole/shots/r1-offer.png`, `r2-pane.png`, `r3-return.png`. Paths without a folder are in the abhyasa repo.
 
 ## 1. Intent
 
@@ -38,6 +41,14 @@ Option B and the map of Option C can come later as views of the same journey.
 6. Review: due walk ideas come back on Today. The review uses a different way from last time and links to the passage.
 7. The shared core (extract fields and the new ways) also holds what the later modality views need, so they do not
    redo it.
+8. Rabbit holes: when a step needs an idea that the learner does not have, the learner can learn it beside the step
+   (a primer or a short side walk in a side pane) or in its own session, and then come back to the same place with the
+   open check and the draft kept.
+9. A walk from a link: a paper (a PDF URL or an arXiv id), a docs site (crawled, with a page cap) or a GitHub repo is
+   filed in the vault, and one walk is made across the filed pages in reading order.
+10. Tool walks: a walk on a Python library has code checks that run with that library installed and the network still
+    blocked; a walk on a command-line tool has short-answer and order checks only.
+11. A trial on real material (a paper, a topic, two docs sites) measures the walk before the owner uses it every day.
 
 ## 3. Non-goals (this plan)
 
@@ -46,7 +57,12 @@ Option B and the map of Option C can come later as views of the same journey.
 - The modality views: playground frames, seeded board, timeline lanes, lenses (`modalities/options.md` 1A, 2A, 3A, 4B).
 - New rupaka blocks (an `image` block, `frames`, `diagram`, `code`).
 - A code editor library. The editor is a plain text area.
-- Sync or sharing. The app stays local and offline.
+- Sync or sharing. The app stays local and offline, except for the fetches in 6.11 and 6.12, which run only when the
+  learner asks.
+- Rabbit hole moment 4 (a question typed in the answer box is caught before the grade). Hover cards on terms, notes
+  in the pane bar, a "Highlight" tool, and tiles (more than one pane).
+- Installing a command-line tool or running it. A walk on a command-line tool never runs a command.
+- A crawl past the page cap, or to pages outside the folder of the given URL.
 
 ## 4. Anti-goals (things the walk must never do)
 
@@ -73,8 +89,12 @@ Option B and the map of Option C can come later as views of the same journey.
   `abhyasa.llm.Fake`.
 - Browser checks use Playwright's bundled Chromium, headless, one browser at a time, closed in a `finally`.
 - New prompt text is registered in the prompt registry (`prompts.register`), so the owner can change it on Settings.
-- Every control has a left-hand key: ⌥S start, ⌥N next idea, ⌥H hint, ⌘↵ send or run, 1-9 options, K keep.
-- No new runtime dependency and no new vendored script.
+- Every control has a left-hand key: ⌥S start and "Next idea" (it is the app's "Press the main button" key), ⌥W hint,
+  ⌘↵ send or run, 1-9 options, K keep. The side pane: ⌥B open beside, ⌥Z back to the paper, Esc close the pane.
+  ⌥F (show the keyboard shortcuts), ⌥D (dictate), ⌥G (strengths) and ⌥E (show me a demo) are taken and the walk never
+  binds them. Before a key is chosen, read `abhyasa/core/keys.py`; the task that binds a new key adds it to `KEYS`.
+- No new runtime dependency and no new vendored script. A library walk needs `uv` on the PATH to make its environment;
+  with no `uv`, its code checks fall back to short answers.
 
 ## 6. Decided design
 
@@ -221,6 +241,24 @@ A view reads extra keys with `.get`, so later fields (`layout='pair'` for B, `x`
   with that nonce, so learner code that prints a fake result and exits cannot pass.
 - Tests from the model pass `validate_exercise` (one plain `assert` each). The solution never leaves the server.
 - No network in the check. The app stays loopback only (`LocalOnly`).
+- On macOS, the child also runs under `/usr/bin/sandbox-exec` (when it exists) with a profile that denies the network
+  and file writes outside the temp folder. The docs say "a closed process with no network". They never say "a
+  security sandbox".
+- A library walk (6.12) runs the learner code with the Python of its own environment (`python=`) and a total of 20 s.
+  All the limits above stay. The audit hook lets the code make a local socket pair (`AF_UNIX`), because asyncio needs
+  one to start. It still refuses `connect`, `bind`, `getaddrinfo` and `sendto`, and sandbox-exec still denies the
+  network.
+- The app itself uses the network in two cases only, outside the closed process, and only when the learner asks:
+  1. **Fetching a link (6.11).** Only the URL that the learner gives, and only pages in the folder of that URL. At
+     most the page cap (default 8, never more than 20). The fetched text is data: it goes into the vault and to the
+     model as passage text, and it never runs.
+  2. **Making a library environment (6.12).** `uv` installs the packages named on the walk. Each name must match a
+     plain package pattern (a name, an optional extra, an optional version), at most 5 names, passed as separate
+     arguments with no shell. `--only-binary :all:` installs wheels only, so no build script runs at install time.
+     The package code is code from the internet: it runs only when imported by learner code, inside the closed
+     process, with the same limits.
+- The side pane (6.10) shows only a page of the app: the `rh` value must be a local path (one `/` at the start, no
+  `//`, no `\`, no scheme). The page takes pane messages only from its own origin and from its own pane frame.
 
 ### 6.8 The walk block (Option A)
 
@@ -229,7 +267,8 @@ Block `abhyasa/blocks/walk/` (`cfg.py`, `ui.py`, `app.py`, `walk.css`, `walk.js`
 
 | route | method | what it does |
 |---|---|---|
-| `/walk/new` | POST | make a walk from `ref` (vault doc), `text` or `topic`; redirect to `/w/{jid}` |
+| `/walk/new` | POST | make a walk from `ref` (vault doc), `text`, `topic` or `url` (6.11), with `tool` and `packages` (6.12); redirect to `/w/{jid}` |
+| `/walk/job` | GET | the state of a link walk that is still being made: a pending card, or a redirect to `/w/{jid}`, or a message (6.11) |
 | `/w/{jid}` | GET | not started: the plan (A1); started: redirect to the current step |
 | `/w/{jid}/plan` | POST | change one step of the plan: `act` = `check` (with a `way` in `WALK_WAYS`; `why` = "you chose it") or `drop` |
 | `/w/{jid}/start` | POST | set `started`, open a sitting, redirect to step 0 or the current step |
@@ -267,8 +306,158 @@ All through `Learning.record`, no schema change:
 | demo | `demo` | `demo` | the same, `demo`, `gate`, `expected`, optional `keep` |
 | order | `order` | `order` | the same as demo |
 | skip | nothing logged | | the step stores `done.outcome='skipped'` |
+| any check in a side walk | as above | as above | the same, plus `from = "<walk id>/<step>"` (6.10) |
 
 The learner model, floor, ceiling and next review update as today.
+
+### 6.10 Rabbit holes: learn a missing idea, then come back
+
+From `abhyasa-designs/rabbit-hole/design.md`, with new keys (the design's ⌥D, ⌥G and ⌥E are taken in
+`core/keys.py`). The owner's case: "I'm reading the attention paper and I don't understand calculus. I should be able
+to quickly pick up a course on calculus from that page on a split pane or a separate session, and get back to this."
+
+**The moments that open one.** This plan builds 1, 2 and 3.
+
+1. **A missing prerequisite on a step.** Under the title: "This needs: Softmax · learned · Derivatives and gradients ·
+   you have not learned it · open beside ⌥B" (R1). The data: the concept's `prereqs`, and ready means floor 3 or more.
+2. **A miss that points at a gap.** After a nudge or a close, when the grade names `gaps` (filed by `name_gaps`), the
+   card adds "Your answer points at: gradients. Learn it beside ⌥B".
+3. **A selected term in the passage.** Select "extremely small gradients" and a small tool shows "I don't know this
+   ⌥B". `look_up` finds the term on the shelf by name or alias, or adds it with `name_gaps`.
+4. Later (not this plan): a question typed in the answer box is caught before the grade.
+
+**What opens.** The offer shows three ways down. The tutor picks one (`pick_way_down`) and says why in one line, as
+`check_for` does. Keys 1, 2, 3 choose; Esc closes the offer.
+
+| way down | what it is | where | picked when |
+|---|---|---|---|
+| A quick primer | a one-step walk: the statement, a figure if the vault has one, one short check at depth 2 | side pane | the concept has floor 1 or 2, or it has no prereqs of its own |
+| A short side walk | a walk of 2 to 4 ideas: the unready prereqs of the concept, deepest first, then the concept. With no chain on the shelf: `walk_from_topic(goal="<name>: the basics, enough to read <idea>")`, cut to 4 steps | side pane | no record, and the chain has 4 ideas or fewer |
+| Its own session | the same walk, or a full topic walk, as a page in a new tab | new tab | the chain has more than 4 unready ideas, or the depth limit is reached |
+
+A side walk is a normal walk journey. "Own session ↗" in the pane bar opens the same walk as a page, at the same
+step. Nothing is made twice.
+
+**The pane and its URL state.**
+- At 1100 px or more, the pane is fixed at the right, under the top bar, with width `clamp(440px, 42vw, 680px)`. The
+  walk hides its rail and keeps one column. A grip on the left edge resizes it: drag, arrow keys (24 px, Shift 96
+  px), a double-click resets. The width is kept in `localStorage` (`rh-w`).
+- The pane shows a full step page of the side walk in an `iframe`, at the step URL with `pane=1`. A page with
+  `pane=1` has no nav and no crumbs. Each document keeps its own ids, forms and keys.
+- The main URL gets `?rh=/w/{sid}/{k}` (`history.pushState` when the pane opens, so browser Back closes it). Moves
+  inside the pane tell the main page the new step (`rh:at`), and it updates `rh` with `replaceState`. On a reload,
+  the server reads `rh` and draws the pane open. An `rh` that is not a local path draws no pane (6.7).
+- The main step keeps its place. The main document is not drawn again, so its scroll, its open question (`qid`) and
+  the answer box stay. The card says "Held while you learn derivatives and gradients. Your draft is kept." The draft
+  is also kept in `sessionStorage` by `qid`.
+- Return (R3). When the side walk ends, its done page sends `rh:done`. The main page calls `/rh/back/{sid}`, closes
+  the pane and puts the focus in the answer box. The step shows the strip "Back on the paper. You learned
+  derivatives and gradients on the way · 3 ideas · 2 solid, 1 shaky". The needs line says "learned on the way
+  today".
+- Keys. ⌥B opens the offer for the first unmet need, or for the selected term; in the pane, it opens a nested rabbit
+  hole. ⌥Z goes back to the paper: it closes one level of the pane and puts the focus on the check. Esc closes the
+  offer, else the pane, when the focus is not in a text box. In a pane page, Esc closes the pane, not the crumb
+  above. The walk keys (⌥S, ⌥W, K, ⌘↵) act in the document that has the focus.
+
+**Nesting.** A rabbit hole in the pane opens in the same pane, not a second one. The bar shows the trail
+("Attention · idea 5 › Gradients › Derivatives"), each part a link. The limit is depth 2 (the paper plus two side
+walks, `MAX_DEPTH = 2`). At the limit, the offer gives only "Its own session ↗". ⌥Z goes back one level.
+
+**Narrow screens.** Under 1100 px there is no split. The side walk opens as a page in the same tab, with "← Back to
+the paper: idea 5 of 11" at the top. The main step comes back with its open question and the draft from
+`sessionStorage`.
+
+**What is logged.**
+- Side walk checks are normal attempts through `Learning.record`, with one more meta field:
+  `from = "<walk id>/<step>"`, the step that opened it. No schema change.
+- The side walk journey has `parent = {walk, step}` and `depth` (the parent's depth plus 1). "Its own session" has
+  `parent` and `depth = 0`, so it can open its own rabbit holes. The parent step gets `detours = [{walk, slug,
+  outcome, at}]` once, when the learner comes back (`back_from`).
+- Journeys lists a side walk under its parent, not as its own line. Today shows an unfinished side walk:
+  "Unfinished side walk: Derivatives (for Attention, idea 5)".
+- Review does not change. Under a lesson on the new idea, `lesson_extra` adds "You first met this on the way to: Why
+  divide by √dk", with a link to that step.
+
+**A reusable host, for Leela.**
+- The split-pane host is core, not a block, because many blocks open it: `abhyasa/core/pane.py` (`is_local`,
+  `pane_url`, `pane_link`, `PaneHost`), `core/pane.js`, `core/pane.css`.
+- The contract a host implements: `open(url, title)` shows `url` with `pane=1` beside the page; `close()`; the state is
+  one local URL in the query (`rh`). Messages from the pane: `rh:at {url, title, trail}`, `rh:open {url}` (nest),
+  `rh:done {slug, outcome}`, `rh:close`. Leela implements `open` with its second editor slot (`mountSecondary`) and
+  `close` with `leeCloseSplit`.
+- The engine functions take plain data: `needs`, `pick_way_down`, `detour(lr, ask, slug, parent, how)`, `back_from`,
+  `trail`, `look_up`. Leela passes its own `parent` (`{notebook, cell}`); `from` is the parent values joined by `/`.
+- New hooks in `core/hooks.py`: `step_needs(j, i, c)` (the needs line and the return strip), `check_after(j, i, q)`
+  (the gap line after a miss), `walk_end(j)` (the end of a side walk), `term_lookup(term, at)` (a selected term).
+
+### 6.11 A walk from a link
+
+Today Add takes pasted text or a vault document only. A link adds a third way in.
+
+- Add (in the "As a walk, in reading order" form) and `/walk/new` take `url` and `pages` (the page cap: 1 to 20,
+  default 8).
+- `file_link(lr, url, max_pages=8)` files the target in the vault with the reader that fits it (the same test as
+  `Vault.grab`, `fossick.what_is`):
+
+  | target | reader | what is filed |
+  |---|---|---|
+  | an arXiv id or URL | `Vault.arxiv` (the `papers` shelf) | one paper, with its figures |
+  | a PDF URL | `Vault.pdf` | one paper, with its figures |
+  | a GitHub repo | `Vault.github` | its prose files; the first `max_pages`, README first, are used |
+  | a GitHub file | `Vault.gh_file` | one document |
+  | any other web page | `Vault.crawl(url, max_pages, follow_sel=…)`, or `Vault.url` when the cap is 1 | the start page and pages linked from it |
+
+- The crawl stays in the folder of the URL. For `https://docs.claude.com/en/docs/claude-code/overview` the folder is
+  `/en/docs/claude-code/`. The crawl follows only links into that folder (`follow_sel`), and `in_scope` drops from the
+  walk any filed page outside it. The walk uses at most `max_pages` pages.
+- Reading order: the start page first, then pages in the order of their first link on the start page (a docs site
+  lists its pages in its side menu), then the rest in crawl order.
+- `journey_from_sources(lr, ask, docs, title='', subject='', **extra)` makes one walk across the filed pages: extract
+  each page, then the steps in page order, and in each page in placement order. A concept named in two pages gets one
+  step, in the first page where its passage is found (else its first page). Each step's `read` names its own
+  document. The journey keeps `source = dict(url=…, docs=[…])`.
+- Fetching and extracting a site can take minutes, so a link walk is made as a job on the pool. `/walk/new` returns a
+  pending card that polls `/walk/job` every 2 s. When the walk is ready, the card goes to `/w/{jid}`. A link that
+  gives no pages says "abhyasa could not read this link."
+- Fetching is network access outside the closed process (6.7): only when the learner sends the form, only the URL
+  given and the pages in its folder, at most the page cap.
+
+### 6.12 Tool walks: a Python library or a command-line tool
+
+A walk has a `tool` field: `''` (a walk to read, as today), `'library'` or `'cli'`. The Add form asks "What is it?":
+"A paper or docs to read", "A Python library (give the package names)", "A command-line tool".
+
+**A Python library** (for example PydanticAI).
+- The walk keeps `packages`, for example `['pydantic-ai']`: at most 5 names, each a plain package name with an
+  optional extra and version. Any other text gets a short message, and no walk is made.
+- `tool_env(packages, root=None)` makes one cached environment for each set of packages and Python version, under
+  `$ABHYASA_ENVS` or `~/.cache/abhyasa/envs`: `uv venv`, then `uv pip install --only-binary :all:`. It runs once, as
+  a pool job when the walk is made, outside the closed process. A `ready` file marks a finished environment.
+- While the environment is not ready, the code card says "Setting up pydantic-ai. This happens once." and polls. If
+  setup fails, or there is no `uv`, the step falls back to a short answer, as a failed demo does.
+- The learner code runs with `run_isolated(..., python=<env python>, total=20.)`: the same closed process, the same
+  limits, no network (6.7).
+- The exercise prompt (`walk.tool`, registered) names the library and says: the code runs with no network and no API
+  key; use the offline test helpers of the library. For PydanticAI these are `pydantic_ai.models.test.TestModel` and
+  `pydantic_ai.models.function.FunctionModel`. A table `OFFLINE` holds the helpers per package. For a package with no
+  entry, the prompt says to write a task on the pure functions of the library only.
+
+**A command-line tool** (for example Claude Code).
+- No code runs. The checks are short answers (which command or flag does X) and order checks (the steps of a
+  workflow), picked through the existing ways: `CLI_WAYS = ('words', 'example', 'order')`.
+- The plan view refuses a `code` check on a cli walk (400).
+
+### 6.13 A trial on real material
+
+`tools/walk_trial.py` is a script, not a test. The controller runs it with the real model. It makes walks in a
+temporary vault (never the real one) for: the paper "Attention Is All You Need" (arXiv 1706.03762); the topic "how
+gradient descent works"; the PydanticAI docs (`https://ai.pydantic.dev`, cap 8, a library walk); and the Claude Code
+docs (`https://docs.claude.com/en/docs/claude-code/overview`, cap 8, a cli walk). For each walk it reports: the
+number of steps, the share of steps with a found passage, the figures found, the checks of each kind, the one-ask
+rule on each question it makes (the question checks of `tools/grade_eval.py`), a short-answer grade round trip on one
+step, a code round trip on the PydanticAI walk (a naive and a good solution), the time for each step, and screenshots
+of 3 steps. It prints a table and writes `design/screens/trial/report.md`. The owner reads the report. Each problem
+it finds gets a small fix with its own test.
 
 ## 7. Left to the builder
 
@@ -289,6 +478,10 @@ The learner model, floor, ceiling and next review update as today.
   way to `WALK_WAYS` and one entry to `CHECKS`.
 - Other check kinds from that design (timeline/order with polaroid cards, board) log with their own `kind` through
   `record`, as above.
+- **Rabbit hole moment 4**: a question in the answer box is caught before the grade, uses no try, and gets a short
+  answer with cites (`vr/core/ask.py`) and the same offer.
+- **Leela as a pane host**: Leela implements `open` and `close` of the pane contract (6.10) and calls the same engine
+  functions on a selection in a markdown cell.
 
 ## 9. Decisions made while writing this spec (the owner can change them)
 
@@ -308,3 +501,19 @@ The learner model, floor, ceiling and next review update as today.
 11. The section summary is a walk page, not the session end page, so "Go on" stays in the walk.
 12. The Sources page lists shelves, not documents, so it gets no entry point. The entry points are Add and the vault
     document page.
+13. Rabbit hole keys: ⌥B open beside, ⌥Z back to the paper, Esc close the pane. The design's ⌥D, ⌥G and ⌥E are taken
+    (dictate, strengths, show me a demo). There is no key to move the focus between the paper and the pane: a click
+    moves it, and ⌥Z puts it back on the check.
+14. The selection tool shows only "I don't know this ⌥B". "Ask the tutor" and "Highlight" from mockup R1 come later.
+15. "Its own session" is a walk with `parent` and `depth = 0`. It logs `from` and comes back like a side walk, and it
+    can open its own rabbit holes.
+16. The return strip shows on the parent step while its newest detour is less than 10 minutes old.
+17. A crawl follows only links into the folder of the given URL, and the walk uses only pages in that folder.
+18. A concept found in two pages of a link walk gets one step, at the first page where its passage is found.
+19. A library walk runs learner code with a 20 s total (not 10 s), because a large library can take some seconds to
+    import. The 2 s limit for each test stays.
+20. The audit hook allows a local socket pair (`AF_UNIX`), so asyncio code (PydanticAI's `run_sync`) can run. All
+    network calls stay refused.
+21. A library environment installs wheels only (`--only-binary :all:`). A package with no wheel cannot be used in a
+    library walk; its code checks fall back to short answers.
+22. A library walk needs `uv` on the PATH. This is a tool on the Mac, not a Python dependency of abhyasa.

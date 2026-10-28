@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make a paper, a pasted text or a topic into a walk: one idea at a time in reading order, each with its passage, figure, a short tutor note and one check (short answer, predict-first demo, or a code task run in the browser), all logged and reviewed as today.
+**Goal:** Make a paper, a pasted text, a topic or a link (a paper, a docs site, a GitHub repo) into a walk: one idea at a time in reading order, each with its passage, figure, a short tutor note and one check (short answer, predict-first demo, or a code task run in the browser), all logged and reviewed as today. When a step needs an idea the learner does not have, the learner learns it beside the step in a side pane (a rabbit hole) and comes back to the same place. A walk on a Python library has code checks that run with that library; a walk on a command-line tool has short-answer and order checks. A trial on real material measures the result.
 
-**Architecture:** The engine change comes first and is useful alone: `extract` keeps placement and modality fields, `method.py` gets the new ways, `allowed=` and `check_for`, and a walk is a journey whose steps carry `read` and `check`. A new engine module `walk.py` runs a step (note, short answer, code task, isolated run). A new hand-written block `blocks/walk` shows the plan and the steps and talks to other blocks only through hooks and links.
+**Architecture:** The engine change comes first and is useful alone: `extract` keeps placement and modality fields, `method.py` gets the new ways, `allowed=` and `check_for`, and a walk is a journey whose steps carry `read` and `check`. A new engine module `walk.py` runs a step (note, short answer, code task, isolated run). A new hand-written block `blocks/walk` shows the plan and the steps and talks to other blocks only through hooks and links. Rabbit holes add engine functions in `journey.py` (`needs`, `pick_way_down`, `detour`, `back_from`), a split-pane host in `core/` (a page of the app in an `iframe`, its place kept in `?rh=`), and a block `blocks/detour` that adds to the step page only through hooks. A link is filed in the vault with vishalakshi's readers and made into one walk across the filed pages (`journey_from_sources`). A library walk gets a cached `uv` environment, made outside the closed process; the learner code then runs with that environment's Python and still has no network.
 
 **Tech Stack:** Python 3.12+, nbdev 3 on hatchling (engine notebooks in `nbs/`), FastHTML + htmx (blocks), vishalakshi vault, rupaka demos, `abhyasa.llm.Fake` for tests, pytest, Playwright bundled Chromium for the one browser check.
 
@@ -15,19 +15,21 @@
 - Engine code is edited only in `nbs/*.ipynb`; then run `uv run nbdev-prepare` (hyphen). Never edit a generated `abhyasa/*.py` engine file (`store, model, llm, tutor, sources, voice, ground, rama, nb, demo, journey, profile, method, prompts, check, walk`).
 - Web code (`abhyasa/blocks/`, `abhyasa/core/`, `abhyasa/app.py`) is written by hand and tested with `uv run pytest`.
 - A block never imports another block. It adds to other pages only through hooks: `today_next`, `concept_more`, `lesson_extra` (and the others in `core/hooks.py`).
-- `NAMES` in `abhyasa/blocks/__init__.py` gets `walk` after `demo` and before `today`.
+- `NAMES` in `abhyasa/blocks/__init__.py` gets `walk` after `demo` and before `today`, and `detour` after `walk` (Task 12).
 - Prose (UI text, prompts, notebooks, docs, commit messages) is ASD-STE100 Simplified Technical English, US grade 9.
 - Notebooks read as documents: an intro, short sections, a one-line lead before each code cell, small tests with a line on what each checks.
 - Tests use `temp_learning()` and `abhyasa.llm.Fake`. Never open `~/.vishalakshi/vault.db` or `~/.config/abhyasa`.
 - Browser checks: Playwright `p.chromium.launch(headless=True)`, no `executable_path`, one browser at a time, closed in a `finally`.
-- New prompt text is registered with `prompts.register`: `extract`, `walk.note`, and `way.demo`, `way.order`, `way.playground`, `way.board`, `way.timeline` (by the loop in `method.py`).
+- New prompt text is registered with `prompts.register`: `extract`, `walk.note`, `walk.tool` (Task 14), and `way.demo`, `way.order`, `way.playground`, `way.board`, `way.timeline` (by the loop in `method.py`).
 - `TEXT_WAYS = ('code', 'maths', 'analogy', 'example', 'diagram', 'words')`; `WALK_WAYS = TEXT_WAYS + ('demo', 'order')`.
 - Check kinds: `short`, `demo`, `order`, `code`. Depths: short 2 (floor < 2) else 3; code 4; demo and order 2, or 3 with a why.
-- Learner code: `run_isolated(..., total=10., sandbox=True)`; 2 s per test; `python -I -B`; kill at 12 s; `RLIMIT_CPU` 11 s; `RLIMIT_FSIZE` 10 MB; no network.
+- Learner code: `run_isolated(..., total=10., sandbox=True)`; 2 s per test; `python -I -B`; kill at 12 s; `RLIMIT_CPU` 11 s; `RLIMIT_FSIZE` 10 MB; no network. On macOS, also `/usr/bin/sandbox-exec` (when it exists) with a profile that denies the network and file writes outside the temp dir. Docs say "a closed process with no network"; never "a security sandbox".
+- Tool environment: a library walk runs learner code with `run_isolated(..., python=<env python>, total=20.)`, with every limit above. The environment is made once by `tool_env` with `uv venv` and `uv pip install --only-binary :all:`, outside the closed process, from at most 5 package names that match `PKG_RE`, passed as separate arguments with no shell. Tests never install a package: they use a venv made with `python -m venv --without-pip` and a small module written into it.
+- Fetching: the app uses the network only when the learner asks, outside the closed process: a link (Task 13: only the URL given and pages in its folder, at most `pages`, never more than `LINK_MAX = 20`) and a library environment (Task 14). Tests never fetch: they pass a fake `read` to `file_link`, or patch the `Vault` reader methods with `monkeypatch`.
 - `MAX_TRIES` stays 3. A syntax error uses no try.
 - A passage is at most 600 chars and shows only when found word for word. A tutor note is 2 or 3 sentences, at most 60 words.
 - Figures only from `lr.vault.assets()`, suffix in `.png .jpg .jpeg .gif .webp`.
-- Keys: ⌥S start, ⌥N next idea, ⌥H hint, ⌘↵ send or run, 1-9 options, K keep.
+- Keys (controller ruling): ⌥S start and "Next idea" (the app's "Press the main button" key), ⌥W hint, ⌘↵ send or run, 1-9 options, K keep. Side pane: ⌥B open beside, ⌥Z back to the paper, Esc close the pane. ⌥F ("Show the keyboard shortcuts"), ⌥D (dictate), ⌥G (strengths) and ⌥E (show me a demo) are taken: never bind them. Read `abhyasa/core/keys.py` before you choose a key; the task that binds a new key adds it to `KEYS` (`tests/test_keys.py` checks the table against the js). Where Tasks 5, 8 and the mockups say ⌥N, ⌥H or ⌥F for the walk, use ⌥S and ⌥W.
 - No new runtime dependency and no new vendored script.
 - Commit messages are one plain STE line. No AI credit. No Co-Authored-By line.
 
@@ -38,6 +40,8 @@
 3. **Reload, Back or a second tab on a step with an open check**: the same question comes back, no second question is made, no try is logged twice, and a double press of "Next idea" moves one step only. Test: `reload_keeps_one_question_and_next_is_idempotent` in Task 5.
 4. **Learner code that hangs at the top level, has a syntax error, opens a socket, or prints a fake pass line and exits**: no hang over 12 s, no try used for the syntax error, the socket fails, and the fake line does not pass. Test: `hostile_code_does_not_pass_or_hang` in Task 7.
 5. **A demo that the model cannot make, or that takes long**: the step does not stay on "making a demo"; it falls back to a short answer, and "Next idea" works all the time. Test: `demo_failure_falls_back_to_short_answer` in Task 6.
+6. **A pane URL that points off the app** (`?rh=https://…`, `//host`, `/\host`, `javascript:…`, or a pane message from another origin): no pane, no `iframe`, and `rh` does not change. Tests: `test_pane_url_is_local_only` in Task 11, `test_needs_line_and_side_walk_beside` in Task 12, and the off-app checks in `tools/walk_look.py` (Task 16).
+7. **A crawl that pulls unrelated pages** (a docs site that links to its blog, its API pages, another product or another host): the crawl is told the folder of the URL and the page cap, and the walk has steps only from pages in that folder, at most the cap. Test: `crawl_stays_under_the_link` in Task 13.
 
 ---
 
@@ -795,34 +799,642 @@ git commit -m "Start a walk from Add, from a vault document or from a topic, and
 
 ---
 
-### Task 10: Docs and one look in a real browser
+### Task 10: Rabbit holes in the engine: needs, the way down, side walks
+
+Spec 6.10. Design: `abhyasa-designs/rabbit-hole/design.md` ("What opens", "What is logged", "Reusable pieces").
 
 **Files:**
-- Modify: `nbs/index.ipynb` (a short section "Learn a paper or a topic as a walk"; check for stale references)
-- Modify: `README.md` (made by `nbdev-prepare` from `index.ipynb`), `CHANGELOG.md` (an entry under the next version), `docs/design-layers.md` (the walk page in the list of pages)
-- Create: `tools/walk_look.py` (a script, not a test: it starts the app on a temp vault with `Fake`, opens `/w/{jid}/1` in Playwright's bundled Chromium, saves `design/screens/walk-code.png` and `walk-demo.png`)
+- Modify: `nbs/11_journey.ipynb` (new section "Rabbit holes" after "Walks")
+- Modify: `nbs/15_walk.ipynb` (`#i13` `step_meta`; this extends Task 4)
+- Generated: `abhyasa/journey.py`, `abhyasa/walk.py`
 
 **Interfaces:**
-- Consumes: everything above.
-- Produces: docs only, and two screens.
+- Consumes: Task 3 `journey_from_source`, `walk_from_topic`, `short_check`, `Learning.walk_step`, `_new_id`; Task 4 `step_meta`; `name_gaps`, `_index`, `Learning.put_journey`, `Learning.add_gap`.
+- Produces:
+  - `MAX_DEPTH = 2`; `CHAIN = 4`; `READY = 3` (the floor at which a need is met).
+  - `needs(lr:Learning, slug:str, by:dict=None) -> L` — the prereqs, then the gaps, of `slug`, each `AttrDict(slug, name, floor, why='prereq'|'gap', ok:bool)`; `ok` is floor `READY` or more.
+  - `pick_way_down(lr:Learning, slug:str, by:dict=None) -> AttrDict(how='primer'|'walk'|'session', why:str, chain:list[str])` — `chain` is the unready prereqs of `slug`, deepest first, then `slug`.
+  - `detour(lr:Learning, ask, slug:str, parent:dict, how:str='walk', sources=None) -> AttrDict` — a saved walk journey (`mode='walk'`, `started` set) with `parent` and `depth`. For `primer` and `walk`, `depth` is the parent's depth plus 1, and `ValueError('too deep: …')` past `MAX_DEPTH`. For `session`, `depth=0`. A `primer` is one step on `slug` with `short_check`.
+  - `trail(lr:Learning, jid:str) -> L` — `AttrDict(walk, title, step)` from the root walk to `jid`.
+  - `back_from(lr:Learning, jid:str) -> AttrDict|None` — add `{walk, slug, outcome, at}` to the parent step's `detours` once; return the parent journey (None when `jid` has no parent).
+  - `look_up(lr:Learning, ask, term:str, at:str='', sources=None) -> AttrDict(slug, name, statement)` — by name or alias, else `name_gaps` on the concept of step `at` (`'<jid>/<i>'`).
+  - `step_meta(j, i)` adds `from='/'.join(map(str, j.parent.values()))` when `j` has a `parent`.
 
-- [ ] **Step 1: Write the failing check.** `tools/walk_look.py` asserts, in the page: `#rail`, `#passage`, `#check .code-editor`, no horizontal scroll at 1280 px (`document.documentElement.scrollWidth <= 1280`), and that ⌥N focuses the next form.
+- [ ] **Step 1: Write the failing tests** (in the new section, after the shared-data cell; each with a one-line lead)
 
-- [ ] **Step 2: Run it to see it fail**
+```python
+lr = temp_learning(); did = add_paper(lr)
+j = journey_from_source(lr, Fake({'Return JSON: {"concepts"': EXTRACT_REPLY}), did)
+lr.put('Derivatives and gradients', 'The slope of a function at a point, one for each input.', 'ml', slug='gradients')
+lr.update('scaling-by-the-root-of-dk', prereqs=['softmax', 'gradients']); lr.update('softmax', floor=3)
+test_eq([(n.slug, n.ok) for n in needs(lr, 'scaling-by-the-root-of-dk')], [('softmax', True), ('gradients', False)])
+test_eq(pick_way_down(lr, 'gradients').how, 'primer')          # no prereqs of its own: a primer is enough
+lr.put('Slope of a line', '', 'ml', slug='slope'); lr.update('gradients', prereqs=['slope'])
+w = pick_way_down(lr, 'gradients')
+test_eq((w.how, w.chain), ('walk', ['slope', 'gradients']))     # a short chain: a side walk, deepest first
+```
 
-Run: `uv run python tools/walk_look.py`
-Expected: PASS when Tasks 5-8 are right. A FAIL names the missing element, the scroll width or the key; fix it in `walk.css`, `ui.py` or `walk.js` before Step 3.
+```python
+d = detour(lr, Fake({}), 'gradients', dict(walk=j.id, step=2))
+test_eq((d.mode, d.parent, d.depth, [s['slug'] for s in d.steps]), ('walk', dict(walk=j.id, step=2), 1, ['slope', 'gradients']))
+test_eq(step_meta(d, 0)['from'], f'{j.id}/2')                  # each attempt links to the step that opened it
+assert 'from' not in step_meta(j, 0)                            # a walk with no parent has no `from`
+test_eq([t.walk for t in trail(lr, d.id)], [j.id, d.id])
+d2 = detour(lr, Fake({}), 'slope', dict(walk=d.id, step=0), how='primer')
+test_eq((d2.depth, len(d2.steps), d2.steps[0]['check']['depth']), (2, 1, 2))
+test_fail(lambda: detour(lr, Fake({}), 'softmax', dict(walk=d2.id, step=0), how='primer'), contains='deep')
+test_eq(detour(lr, Fake({}), 'softmax', dict(walk=d2.id, step=0), how='session').depth, 0)   # past the limit: its own session
+```
 
-- [ ] **Step 3: Write the docs** in STE grade 9: what a walk is, the three checks, that learner code runs in a closed process with no network, and that reading never waits for a check. Run `uv run nbdev-prepare`, and look for stale references in `index.ipynb`.
+```python
+lr.walk_step(d.id, 1, done=dict(outcome='solid', aid='a1', at=1.))
+p = back_from(lr, d.id); back_from(lr, d.id)
+test_eq(p.id, j.id)
+test_eq([(x['walk'], x['slug'], x['outcome']) for x in lr.journey(j.id).steps[2]['detours']], [(d.id, 'gradients', 'solid')])   # once
+test_eq(look_up(lr, Fake({}), 'gradients').slug, 'gradients')
+test_eq(look_up(lr, Fake({}), 'Derivatives and gradients').slug, 'gradients')                  # by name too
+g = look_up(lr, Fake({'The idea: vanishing gradients': dict(name='Vanishing gradients', statement='Gradients near 0 stop the weights.')}),
+            'vanishing gradients', at=f'{j.id}/2')
+assert g.name == 'Vanishing gradients' and g.slug in lr.concept('scaling-by-the-root-of-dk').gaps   # a new term is filed as a gap of the step
+```
 
-- [ ] **Step 4: Run everything**
+- [ ] **Step 2: Run the tests to see them fail**
 
-Run: `uv run nbdev-prepare && uv run pytest -q && uv run python tools/walk_look.py`
-Expected: PASS; two new screens in `design/screens/`.
+Run: `uv run nbdev-test --path nbs/11_journey.ipynb`
+Expected: FAIL with `NameError: name 'needs' is not defined`.
+
+- [ ] **Step 3: Implement** in `nbs/11_journey.ipynb`.
+  - `pick_way_down`: `primer` when the concept has floor 1 or 2, or no prereqs of its own; `walk` when the chain has `CHAIN` ideas or fewer; else `session`. `why` is one plain line ("it builds on two ideas you have not met yet").
+  - `detour` for `walk`: one step for each slug of the chain. With no chain on the shelf, `walk_from_topic` with the goal "<name>: the basics, enough to read <parent idea>", cut to `CHAIN` steps. Each step gets `read` and `check` as Task 3 makes them.
+  - The depth of a parent is `lr.journey(parent['walk']).get('depth', 0)`. A parent with no `walk` key (Leela's `{notebook, cell}`) has depth 0.
+  - `back_from`: the outcome is the `done.outcome` of the step on the target slug (the last step), or `'skipped'`.
+  - In `nbs/15_walk.ipynb`, `step_meta` adds `from` only when the walk has a `parent`.
+
+- [ ] **Step 4: Run the tests to see them pass**
+
+Run: `uv run nbdev-prepare && uv run nbdev-test --path nbs/11_journey.ipynb && uv run nbdev-test --path nbs/15_walk.ipynb && uv run pytest -q`
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add nbs/index.ipynb README.md CHANGELOG.md docs/design-layers.md tools/walk_look.py design/screens/walk-code.png design/screens/walk-demo.png
-git commit -m "Document the guided walk and add screens of a code check and a demo check"
+git add nbs/11_journey.ipynb nbs/15_walk.ipynb abhyasa/journey.py abhyasa/walk.py abhyasa/_modidx.py
+git commit -m "Find the ideas a step needs, and make a short side walk that links back to the step"
+```
+
+---
+
+### Task 11: The split pane in core
+
+Spec 6.10 ("The pane and its URL state", "A reusable host"). Follow `vedicreader/static/js/pane.js` for the grip and the width.
+
+**Files:**
+- Create: `abhyasa/core/pane.py`, `abhyasa/core/pane.js`, `abhyasa/core/pane.css`
+- Modify: `abhyasa/core/ui.py` (`Page(..., pane=False)`, link the pane assets), `abhyasa/core/core.js` (Esc), `abhyasa/core/__init__.py`
+- Modify: `abhyasa/core/keys.py` (two rows in `KEYS`)
+- Test: `tests/test_pane.py`
+
+**Interfaces:**
+- `is_local(url) -> bool` — a path in this app: a string that starts with one `/`, with no `//` or `\` at the start, no scheme and no control character.
+- `pane_url(url:str) -> str|None` — `url` with `pane=1` added to its query, only when `is_local(url)`; else None.
+- `pane_link(label, href:str, title:str='', cls:str='pane-link', **kw) -> FT` — `A(label, href=href, target='_blank', data_pane=pane_url(href), data_title=title)`.
+- `PaneHost(url:str|None, title:str='', trail=()) -> FT|str` — `aside#rh-pane`: the bar (the trail, "Own session ↗" linking `url` in a new tab, ×), the grip (`role="separator"`, `aria-orientation="vertical"`, `tabindex="0"`), and an `iframe` with `src=pane_url(url)`. `''` when `url` is not local.
+- `Page(title, *c, on='', wide=False, extra=(), crumbs=(), pane=False)` — with `pane=True`, or when the request has `pane=1` (a request-scoped flag set in core, so no route changes): no nav, no crumbs, `html.in-pane`.
+- `KEYS` gets `('Side pane', '⌥Z', 'Back to the paper: close the side pane')` and `('Side pane', 'esc', 'Close the side pane')`.
+- JS: `abhyasaPane.open(url, title)`, `abhyasaPane.close()`. Messages from the pane: `rh:at {url, title, trail}`, `rh:open {url}`, `rh:done {slug, outcome}`, `rh:close`.
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+from fasthtml.common import to_xml
+from abhyasa.core.pane import is_local, pane_url, pane_link, PaneHost
+from abhyasa.core.keys import KEYS
+
+def test_pane_url_is_local_only():
+    assert pane_url('/w/g-1a2b/0') == '/w/g-1a2b/0?pane=1' and pane_url('/w/g?x=1') == '/w/g?x=1&pane=1'
+    for bad in ('https://evil.example/x', '//evil.example', '/\\evil.example', 'javascript:alert(1)', 'w/g', '', None):
+        assert not is_local(bad) and pane_url(bad) is None, bad
+
+def test_pane_link_is_a_real_link():
+    h = to_xml(pane_link('Derivatives', '/w/g-1a2b/0', 'Side walk'))
+    assert 'href="/w/g-1a2b/0"' in h and 'data-pane="/w/g-1a2b/0?pane=1"' in h and 'target="_blank"' in h
+
+def test_host_draws_the_pane_or_nothing():
+    h = to_xml(PaneHost('/w/g-1a2b/0', 'Derivatives'))
+    assert 'id="rh-pane"' in h and 'src="/w/g-1a2b/0?pane=1"' in h and 'role="separator"' in h
+    assert PaneHost(None) == '' and PaneHost('https://evil.example/') == '' and PaneHost('/\\evil.example') == ''
+
+def test_page_in_a_pane_has_no_nav(mk):
+    cl = mk()
+    assert '<nav' in cl.get('/').text
+    t = cl.get('/?pane=1').text
+    assert '<nav' not in t and 'in-pane' in t
+
+def test_pane_keys_are_in_the_table():
+    assert ('Side pane', '⌥Z', 'Back to the paper: close the side pane') in KEYS
+    assert ('Side pane', 'esc', 'Close the side pane') in KEYS
+```
+
+- [ ] **Step 2: Run the tests to see them fail**
+
+Run: `uv run pytest tests/test_pane.py -q`
+Expected: FAIL with `ModuleNotFoundError: No module named 'abhyasa.core.pane'`.
+
+- [ ] **Step 3: Implement.**
+  - `pane.js`: at 1100 px or more, `open` sets the `iframe` src and `history.pushState` with `?rh=`; under 1100 px, it goes to the page itself in the same tab. The grip: drag, arrow keys (24 px, Shift 96 px), double-click resets, bounds 380 px to the smaller of 70% of the window and the window less 520 px, width in `localStorage` (`rh-w`). The pane is `position: fixed` and the body gets only `padding-right`, so the page is not drawn again.
+  - Messages: take one only when `e.origin === location.origin` and `e.source === frame.contentWindow`. On `rh:at`, `replaceState` with the new `rh` only when the url passes the same local test as `is_local`. `rh:open` loads the url in the same pane. `rh:close` closes.
+  - Keys: ⌥Z closes one level and puts the focus on `#check` of the main page; bind it in the form that `tests/test_keys.py` reads (`e.code !== 'KeyZ'`). Esc closes the pane before `core.js` goes up a crumb, when the focus is not in a text box. In a page with `html.in-pane`, `core.js` sends `rh:close` to the parent on Esc instead of going up a crumb, and the page sends `rh:at` on load.
+
+- [ ] **Step 4: Run the tests to see them pass**
+
+Run: `uv run pytest tests/test_pane.py tests/test_keys.py -q && uv run pytest -q`
+Expected: PASS (the keys test finds `KeyZ` in `core/pane.js`).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add abhyasa/core tests/test_pane.py
+git commit -m "Add the side pane: a page beside the page, with its place in the URL"
+```
+
+---
+
+### Task 12: The detour block: the offer, the side walk beside the step, and the way back
+
+Spec 6.10. Mockups `rabbit-hole/shots/r1-offer.png`, `r2-pane.png`, `r3-return.png` (read ⌥B, ⌥Z and ⌥S where the shots show ⌥D, ⌥G and ⌥F).
+
+**Files:**
+- Create: `abhyasa/blocks/detour/{__init__.py, cfg.py, ui.py, app.py, detour.css, detour.js}`
+- Modify: `abhyasa/blocks/__init__.py` (`NAMES`: `detour` after `walk`), `abhyasa/core/hooks.py` (name `step_needs`, `check_after`, `walk_end`, `term_lookup` in the docstring), `abhyasa/core/keys.py` (one row)
+- Modify: `abhyasa/blocks/walk/{app.py, ui.py, walk.js}` (this extends Task 5: run the four hooks; draw `PaneHost` from `rh`; the side walk foot "← Back to the paper: idea k of n ⌥Z"; the draft in `sessionStorage` by `qid`; open a sitting when a side walk step has none)
+- Modify: `abhyasa/blocks/journeys/ui.py` (a side walk shows under its parent, in "Side walks", not as its own line)
+- Test: `tests/blocks/test_detour.py`
+
+**Interfaces:**
+- Consumes: Task 10 `needs`, `pick_way_down`, `detour`, `trail`, `back_from`, `look_up`, `MAX_DEPTH`; Task 11 `PaneHost`, `pane_link`; Task 5 `Routes` strings (by value, not by import).
+- Produces:
+  - `CAPS = ('learning', 'ask', 'sources')`; `Routes`: `open='/rh/open'`, `term='/rh/term'`, `back='/rh/back/{sid}'`.
+  - `POST /rh/open` (`slug`, `at='<jid>/<i>'`, `how`) → JSON `{url, title, how}`, with `url='/w/{sid}/0'`. Past `MAX_DEPTH`, it makes `how='session'`.
+  - `GET /rh/term?t=…&at=…` → the offer card for a selected term (three choices, the pick marked).
+  - `POST /rh/back/{sid}` → `back_from`, then 303 to the parent step.
+  - Hooks: `step_needs(j, i, c)` (the needs line, and the strip "Back on the paper …" while the newest detour of the step is less than 10 minutes old), `check_after(j, i, q)` (the line "Your answer points at: …" from `q.gaps`), `walk_end(j)` (the done page of a side walk sends `rh:done`), `term_lookup(term, at)`; and `today_next` ("Unfinished side walk: …"), `lesson_extra` ("You first met this on the way to: …").
+  - `KEYS` gets `('Walk', '⌥B', 'Open beside: learn a missing idea in the side pane')`.
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+from walk_data import *
+
+def needs_gradients(lr):
+    lr.put('Derivatives and gradients', 'The slope of a function at a point, one for each input.', 'ml', slug='gradients')
+    lr.update('scaling-by-the-root-of-dk', prereqs=['softmax', 'gradients'])
+
+def test_needs_line_and_side_walk_beside(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    page = cl.get(f'/w/{jid}/2').text
+    assert 'This needs' in page and 'you have not learned it' in page and '⌥B' in page
+    r = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()
+    sid = r['url'].split('/')[2]
+    assert lr.journey(sid).parent == dict(walk=jid, step=2) and r['title'].startswith('Derivatives')
+    pane = cl.get(r['url'] + '?pane=1').text
+    assert '<nav' not in pane and 'Back to the paper: idea 3 of 3' in pane and '⌥Z' in pane
+    assert f'src="/w/{sid}/0?pane=1"' in cl.get(f'/w/{jid}/2?rh=/w/{sid}/0').text        # a reload keeps the pane open
+    for bad in ('https://evil.example/', '//evil.example/', '/\\evil.example/'):
+        assert 'rh-pane' not in cl.get(f'/w/{jid}/2', params=dict(rh=bad)).text         # no pane for a URL off the app
+    assert 'Unfinished side walk' in cl.get('/').text
+
+def test_side_walk_logs_from_and_comes_back(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    sid = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url'].split('/')[2]
+    cl.get(f'/w/{sid}/0/check'); cl.post(f'/w/{sid}/0/answer', data=dict(answer='the slope', confidence=70))
+    assert lr.attempts('gradients', limit=1)[0]['from'] == f'{jid}/2'
+    r = cl.post(f'/rh/back/{sid}', follow_redirects=False)
+    assert r.headers['location'] == f'/w/{jid}/2'
+    page = cl.get(f'/w/{jid}/2').text
+    assert 'Back on the paper' in page and 'on the way' in page
+    assert sid not in cl.get('/journeys').text.split('Side walks')[0]                    # listed under its parent only
+    s2 = cl.get('/start?focus=gradients', follow_redirects=False).headers['location'].split('/')[-1]
+    cl.get(f'/s/{s2}')
+    assert 'You first met this on the way to' in cl.post(f'/s/{s2}/answer', data=dict(answer='slope')).text
+
+def test_a_miss_that_names_a_gap_offers_it(mk, walk_fake, lr):
+    walk_fake.rules['You grade one answer'] = dict(correct=False, grade=2, first_error='No slope.', misconception='',
+                                                   feedback='Think of the slope.', gaps=['gradients'])
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    lr.walk_step(jid, 2, check=dict(way='words', kind='short', depth=2, why=''))
+    cl.get(f'/w/{jid}/2/check')
+    r = cl.post(f'/w/{jid}/2/answer', data=dict(answer='it is faster', confidence=70)).text
+    assert 'Your answer points at' in r and '⌥B' in r
+
+def test_term_offer_and_depth_limit(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    t = cl.get('/rh/term', params=dict(t='gradients', at=f'{jid}/2')).text
+    assert 'A quick primer' in t and 'A short side walk' in t and 'Its own session' in t
+    a = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url'].split('/')[2]
+    b = cl.post('/rh/open', data=dict(slug='softmax', at=f'{a}/0', how='primer')).json()['url'].split('/')[2]
+    r = cl.post('/rh/open', data=dict(slug='softmax', at=f'{b}/0', how='primer')).json()
+    assert r['how'] == 'session'                                                          # past the limit: only its own session
+```
+
+- [ ] **Step 2: Run the tests to see them fail**
+
+Run: `uv run pytest tests/blocks/test_detour.py -q`
+Expected: FAIL with 404 on `/rh/open`.
+
+- [ ] **Step 3: Implement.**
+  - The block never imports the walk block. It adds to the step only through the hooks, and links by route strings.
+  - The offer is one sunken card with three choices (1, 2, 3) and the pick from `pick_way_down`; at the limit, only "Its own session ↗". Esc closes it.
+  - `detour.js`: ⌥B opens the offer for the first unmet need, or for the selected text in `#passage` (a small tool "I don't know this ⌥B" next to the selection). Bind ⌥B in the form `tests/test_keys.py` reads. Choice 1 or 2 calls `abhyasaPane.open(url, title)`; choice 3 opens the url in a new tab.
+  - The walk block: the step route reads `rh` and draws `PaneHost(rh, …)` (which draws nothing for a URL off the app). A side walk step shows the foot "← Back to the paper: idea k of n ⌥Z" (k and n from `trail`) and a held note on the parent's check card ("Held while you learn …. Your draft is kept."). The parent saves the draft in `sessionStorage` by `qid` and puts it back on load.
+  - On `rh:done`, the parent posts `/rh/back/{sid}`, closes the pane and puts the focus in the answer box.
+
+- [ ] **Step 4: Run the tests to see them pass**
+
+Run: `uv run pytest tests/blocks/test_detour.py tests/test_blocks.py tests/test_keys.py -q && uv run pytest -q`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add abhyasa/blocks abhyasa/core/hooks.py abhyasa/core/keys.py tests/blocks/test_detour.py
+git commit -m "Learn a missing idea beside the step in a side walk, and come back to the same place"
+```
+
+---
+
+### Task 13: A walk from a link: a paper, a docs site or a repo
+
+Spec 6.11. Read the signatures in `.venv/lib/python3.13/site-packages/vishalakshi/acquire.py` (`Vault.url`, `crawl`, `arxiv`, `pdf`, `github`, `gh_file`, `grab`) and `fossick.what_is`.
+
+**Files:**
+- Modify: `nbs/04_sources.ipynb` (new section "From a link": `LINK_MAX`, `link_folder`, `in_scope`, `link_sel`, `reading_order`, `file_link`)
+- Modify: `nbs/11_journey.ipynb` (`journey_from_sources`; split `_walk` into `_steps` and the save, so that the Task 3 tests still pass; this extends Task 3)
+- Modify: `abhyasa/blocks/walk/{cfg.py, app.py, ui.py}` (`/walk/new` takes `url` and `pages`; `Routes.job = '/walk/job'`)
+- Modify: `abhyasa/blocks/add/app.py` (a "From a link" field and a page cap in the walk form of Task 9)
+- Test: `tests/blocks/test_walk.py`
+- Generated: `abhyasa/sources.py`, `abhyasa/journey.py`
+
+**Interfaces:**
+- Consumes: Task 1 `doc_pages`, `from_vault`, `placement`; Task 3 `_walk`, `_check`, `_new_id`; `Vault.route`, `Vault.doc`, the vishalakshi readers.
+- Produces:
+  - `LINK_MAX = 20`
+  - `link_folder(url:str) -> str` — the scheme, host and folder: `'https://docs.claude.com/en/docs/claude-code/'` for `'https://docs.claude.com/en/docs/claude-code/overview'`; `'https://ai.pydantic.dev/'` for `'https://ai.pydantic.dev'`.
+  - `in_scope(url:str, start:str) -> bool` — `url` (without query and fragment) starts with `link_folder(start)`.
+  - `link_sel(start:str) -> str` — the CSS selector of links into the folder: `a[href^="/en/docs/claude-code/"], a[href^="https://docs.claude.com/en/docs/claude-code/"]`.
+  - `reading_order(docs:list, start_text:str) -> L` — the start page, then the pages in the order of their first link in `start_text`, then the rest in their given order.
+  - `file_link(lr:Learning, url:str, max_pages:int=8, read=None) -> L` — `AttrDict(shelf, doc_id, title, url)` for each filed page in folder, in reading order, at most `min(max_pages, LINK_MAX)`. `read(how, target, **kw) -> list[dict]` names the `Vault` method (`arxiv`, `pdf`, `github`, `gh_file`, `crawl`, `url`); the default calls it on `lr.vault.route(kind)`, and `shelf` is that shelf's `name`. Raise `ValueError('abhyasa could not read this link.')` when no page is filed.
+  - `journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str='', **extra) -> AttrDict` — one walk across `docs` (spec 6.11); `source=dict(url=docs[0].url, docs=[…])`; `extra` (for example `tool`, `packages`) goes into the journey.
+  - `/walk/new` with `url` (and `pages`, default 8) starts a pool job and returns a pending card (class `pending`) that polls `GET /walk/job?url=…` every 2 s; that route returns the pending card, an `HX-Redirect` to `/w/{jid}`, or `P(…, cls='req-err')`.
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+# nbs/04_sources.ipynb, section "From a link"
+START = 'https://docs.example.dev/en/docs/tool/overview'
+test_eq(link_folder(START), 'https://docs.example.dev/en/docs/tool/')
+test_eq(link_folder('https://ai.pydantic.dev'), 'https://ai.pydantic.dev/')
+assert in_scope('https://docs.example.dev/en/docs/tool/setup#a', START) and not in_scope('https://docs.example.dev/en/api/x', START)
+assert not in_scope('https://evil.example/en/docs/tool/x', START) and not in_scope('https://docs.example.dev.evil.example/en/docs/tool/', START)
+
+SITE = {START: '# Overview\n\nSee [Setup](/en/docs/tool/setup) and [Hooks](/en/docs/tool/hooks).',
+        'https://docs.example.dev/en/docs/tool/hooks': '# Hooks\n\nA hook runs a command at a set point.',
+        'https://docs.example.dev/en/docs/tool/setup': '# Setup\n\nInstall the tool with one command.',
+        'https://docs.example.dev/blog/news': '# News\n\nWe have a new logo.'}
+calls = []
+def fake_read(lr):
+    "File every page of SITE in crawl order, and keep the call."
+    def read(how, target, **kw):
+        calls.append((how, target, kw))
+        return [lr.vault.add(md, md.split('\n')[0][2:], source=u, kind='web', meta=dict(url=u)) for u, md in SITE.items()]
+    return read
+```
+
+```python
+# crawl_stays_under_the_link: the crawl gets the folder and the cap, and a page outside the folder is not used
+lr = temp_learning()
+docs = file_link(lr, START, max_pages=500, read=fake_read(lr))
+test_eq((calls[0][0], calls[0][2]['max_pages']), ('crawl', LINK_MAX))
+assert 'a[href^="/en/docs/tool/"]' in calls[0][2]['follow_sel']
+test_eq([d.title for d in docs], ['Overview', 'Setup', 'Hooks'])        # the start page, then its links in order; no blog page
+calls.clear(); file_link(lr, START, max_pages=1, read=fake_read(lr)); test_eq(calls[0][0], 'url')
+calls.clear(); file_link(lr, '1706.03762', read=fake_read(lr)); test_eq(calls[0][0], 'arxiv')
+test_fail(lambda: file_link(temp_learning(), START, read=lambda how, target, **kw: []), contains='could not read')
+```
+
+```python
+# nbs/11_journey.ipynb: one walk across two pages
+lr = temp_learning()
+a = lr.vault.add(PAGES[0][1], 'Introduction', source='https://example.dev/docs/intro', kind='web')
+b = lr.vault.add([(0, PAGES[1][1]), (1, PAGES[2][1])], 'Attention', source='https://example.dev/docs/attention', kind='web')
+docs = [AttrDict(shelf='store', doc_id=d['doc_id'], title=t, url=u) for d, t, u in
+        [(a, 'Introduction', 'https://example.dev/docs/intro'), (b, 'Attention', 'https://example.dev/docs/attention')]]
+ask = Fake({'Return JSON: {"concepts"': EXTRACT_REPLY})
+j = journey_from_sources(lr, ask, docs, 'Attention docs')
+test_eq([s['slug'] for s in j.steps], ['sequential-computation', 'softmax', 'scaling-by-the-root-of-dk'])
+test_eq([s['read']['doc_id'] for s in j.steps], [a['doc_id'], b['doc_id'], b['doc_id']])   # softmax is named in both; its step is where its passage is
+assert j.steps[1]['read']['text'].startswith('apply a softmax function') and j.source['url'] == 'https://example.dev/docs/intro'
+test_eq(journey_from_sources(lr, ask, docs, 'Tool docs', tool='cli').tool, 'cli')         # extra fields go on the journey
+```
+
+```python
+# tests/blocks/test_walk.py
+from fastcore.utils import L
+from vishalakshi.core import Vault
+
+def test_walk_from_a_link(mk, walk_fake, lr, monkeypatch):
+    def crawl(self, start_url, max_pages=10, sel=None, **kw):
+        return L([self.add(PAGES, 'Attention docs', source=start_url, kind='web', meta=dict(url=start_url))])
+    monkeypatch.setattr(Vault, 'crawl', crawl)
+    cl = mk(); u = 'https://docs.example.dev/attention/'
+    assert 'From a link' in cl.get('/add').text
+    r = cl.post('/walk/new', data=dict(url=u, pages=3)).text
+    assert 'pending' in r and '/walk/job' in r                                     # a link walk is made as a job
+    jid = wait_for(lambda: (cl.get('/walk/job', params=dict(url=u)).headers.get('hx-redirect') or '').split('/')[-1] or None, secs=10)
+    assert lr.journey(jid).source['url'] == u and len(lr.journey(jid).steps) == 3
+    monkeypatch.setattr(Vault, 'crawl', lambda self, *a, **kw: L())
+    cl.post('/walk/new', data=dict(url='https://docs.example.dev/empty/'))
+    t = wait_for(lambda: (t := cl.get('/walk/job', params=dict(url='https://docs.example.dev/empty/')).text) if 'pending' not in t else None, secs=10)
+    assert 'could not read this link' in t
+```
+
+- [ ] **Step 2: Run the tests to see them fail**
+
+Run: `uv run nbdev-test --path nbs/04_sources.ipynb; uv run nbdev-test --path nbs/11_journey.ipynb; uv run pytest tests/blocks/test_walk.py -k link -q`
+Expected: FAIL with `NameError: name 'link_folder' is not defined`, `NameError: name 'journey_from_sources' is not defined`, and no "From a link" on `/add`.
+
+- [ ] **Step 3: Implement.**
+  - `file_link` picks the reader from `fossick.what_is(url)`: `arxiv` → `arxiv`; `pdf` → `pdf`; `github` → `github` (then keep its prose docs, README first, up to the cap); `ghfile` → `gh_file`; any other → `crawl(url, max_pages=cap, follow_sel=link_sel(url))`, or `url` when the cap is 1. It reads each filed doc back with `Vault.doc` for its `title` and `source`, drops the docs that are not `in_scope` (web cases only), orders them with `reading_order` (the start text from `doc_pages`), and cuts to the cap.
+  - `journey_from_sources`: `from_vault` on each doc; a slug goes to the first doc where its placement has a passage, else to its first doc; steps in doc order, then placement order; one `_steps` helper shared with `_walk`.
+  - The block: the job key is the URL; the job runs `file_link` then `journey_from_sources` with `ask` for the `extract` task; it never runs inside a request. The Add walk form gets "From a link" (a URL field) and "Pages to read" (1 to 20, default 8). The plan page of a link walk names each page title once, as a section group.
+
+- [ ] **Step 4: Run the tests to see them pass**
+
+Run: `uv run nbdev-prepare && uv run nbdev-test --path nbs/04_sources.ipynb && uv run nbdev-test --path nbs/11_journey.ipynb && uv run pytest -q`
+Expected: PASS, with the Task 1 and Task 3 tests unchanged.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add nbs/04_sources.ipynb nbs/11_journey.ipynb abhyasa/sources.py abhyasa/journey.py abhyasa/_modidx.py abhyasa/blocks/walk abhyasa/blocks/add tests/blocks/test_walk.py
+git commit -m "Make a walk from a link: file a paper, a docs site or a repo, then walk its pages in reading order"
+```
+
+---
+
+### Task 14: Tool walks: code checks with a Python library, and a command-line tool with no code
+
+Spec 6.12 and 6.7.
+
+**Files:**
+- Modify: `nbs/06_check.ipynb` (`PKG_RE`, `MAX_PKGS`, `check_packages`, `env_key`, `env_root`, `env_python`, `tool_env`; `run_isolated(..., python=None)`; `_guard` lets an `AF_UNIX` socket through; this extends Task 7)
+- Modify: `nbs/08_nb.ipynb` (`new_exercise(ask, c, extra='')`)
+- Modify: `nbs/15_walk.ipynb` (section "A library walk": `OFFLINE`, `TOOL_SP`, `tool_note`; `code_task(..., packages=())`; `run_code` uses the question's `python` and `total`)
+- Modify: `nbs/11_journey.ipynb` (`CLI_WAYS`; `_check(lr, c, tool='')`; the makers pass `tool`)
+- Modify: `abhyasa/blocks/walk/{app.py, ui.py}` (`/walk/new` takes `tool` and `packages`; the environment job; the pending code card; the plan refuses `code` on a cli walk)
+- Modify: `abhyasa/blocks/add/app.py` ("What is it?" and "Package names" in the walk form)
+- Modify: `tests/walk_data.py` (`toy_env`)
+- Test: `tests/test_check.py`, `tests/blocks/test_walk.py`
+- Generated: `abhyasa/check.py`, `abhyasa/nb.py`, `abhyasa/walk.py`, `abhyasa/journey.py`
+
+**Interfaces:**
+- Consumes: Task 7 `run_isolated`, `_guard`, `new_exercise`, `code_task`, `run_code`; Task 13 `journey_from_sources`; Task 6 the pending card and the short fallback.
+- Produces:
+  - `PKG_RE = r'^[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9,._-]+\])?((==|>=|<=|~=|!=|<|>)[A-Za-z0-9.*+!-]+)?$'`; `MAX_PKGS = 5`.
+  - `check_packages(packages) -> list[str]` — the names, stripped; `ValueError` for a name that does not match `PKG_RE` or for more than `MAX_PKGS`.
+  - `env_key(packages) -> str` — 12 hex chars of a sha1 of the Python `major.minor` and the sorted names.
+  - `env_root() -> Path` — `$ABHYASA_ENVS`, else `~/.cache/abhyasa/envs`.
+  - `env_python(packages, root=None) -> str|None` — `<root>/<key>/bin/python` when `<root>/<key>/ready` exists.
+  - `tool_env(packages, root=None, run=subprocess.run, uv=None, timeout=600) -> str` — `check_packages`, then (once) `[uv, 'venv', '--python', sys.executable, env]` and `[uv, 'pip', 'install', '--python', env_py, '--only-binary', ':all:', *names]`, then writes `ready`; returns the env Python. `uv` defaults to `shutil.which('uv')`; `RuntimeError` when there is none or a command fails.
+  - `run_isolated(kind, fname, source, tests, *, total=10., setup=(), sandbox=True, python=None) -> dict` — `python` replaces `sys.executable`.
+  - `new_exercise(ask, c, extra:str='') -> AttrDict` — `extra` is added to the exercise prompt.
+  - `OFFLINE = {'pydantic-ai': 'pydantic_ai.models.test.TestModel or pydantic_ai.models.function.FunctionModel', 'pydantic-ai-slim': <the same>}`.
+  - `TOOL_SP` registered as `register('walk.tool', 'Library exercise', ..., TOOL_SP)`; `tool_note(packages) -> str` fills it with the names and the `OFFLINE` helpers.
+  - `code_task(tutor, c, session:str='', meta:dict=None, packages=()) -> AttrDict` — with `packages`: `extra=tool_note(packages)`, and the open question keeps `packages`, `python=env_python(packages)` and `total=20.` (server side only; `public` drops them).
+  - `CLI_WAYS = ('words', 'example', 'order')`; `_check(lr, c, tool='')` limits the ways to `CLI_WAYS` for `tool='cli'`.
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+# tests/walk_data.py: add (with `from pathlib import Path` and `import subprocess, sys` at the top)
+def toy_env(path):
+    "A venv with no pip and one small module, `toylib`, marked ready; return its Python. Nothing is installed from the network."
+    subprocess.run([sys.executable, '-m', 'venv', '--without-pip', str(path)], check=True)
+    (next(Path(path).glob('lib/python*/site-packages'))/'toylib.py').write_text('def double(n): return n * 2\n')
+    (Path(path)/'ready').write_text('')
+    return str(Path(path)/'bin'/'python')
+```
+
+```python
+# tests/test_check.py (it also needs `import subprocess, pytest`)
+from walk_data import toy_env
+
+def test_tool_env_is_made_once_from_wheels(tmp_path):
+    calls = []
+    def run(cmd, **kw): calls.append(cmd); return subprocess.CompletedProcess(cmd, 0, '', '')
+    py = check.tool_env(['pydantic-ai'], root=tmp_path, run=run, uv='uv')
+    assert py.startswith(str(tmp_path)) and py.endswith('/bin/python')
+    assert calls[0][:2] == ['uv', 'venv'] and calls[1][:3] == ['uv', 'pip', 'install']
+    assert '--only-binary' in calls[1] and calls[1][-1] == 'pydantic-ai'
+    assert check.tool_env(['pydantic-ai'], root=tmp_path, run=run, uv='uv') == py and len(calls) == 2   # made once
+    for bad in (['-e', '.'], ['--index-url=http://x'], ['a; rm -rf /'], ['git+https://x/y'], ['./pkg'], ['p'] * 6):
+        with pytest.raises(ValueError): check.tool_env(bad, root=tmp_path, run=run, uv='uv')
+    assert len(calls) == 2                                                                              # a bad name runs nothing
+
+def test_learner_code_uses_the_tool_env(tmp_path):
+    py = toy_env(tmp_path/'env')
+    src = 'import toylib\ndef f(n): return toylib.double(n)'
+    assert check.run_isolated('assert', 'f', src, ['assert f(2) == 4'], python=py)['checks'][0]['status'] == 'pass'
+    assert check.run_isolated('assert', 'f', src, ['assert f(2) == 4']).get('error') == 'no check result'   # the app's own Python has no toylib
+    net = 'import socket, toylib\ndef f(n):\n    socket.create_connection(("example.org", 80), 1)\n    return n'
+    assert check.run_isolated('assert', 'f', net, ['assert f(2) == 2'], python=py)['checks'][0]['status'] == 'error'   # still no network
+    aio = 'import asyncio\nasync def g(n): return n\ndef f(n): return asyncio.run(g(n))'
+    assert check.run_isolated('assert', 'f', aio, ['assert f(2) == 2'], python=py)['checks'][0]['status'] == 'pass'    # asyncio needs a local socket pair
+```
+
+```python
+# nbs/15_walk.ipynb, section "A library walk"
+k = code_task(t, lr.concept('softmax'), s.id, step_meta(j, 1), packages=['pydantic-ai'])
+p = ask.calls[-1][0]
+assert 'pydantic-ai' in p and 'TestModel' in p and 'no network' in p and 'API key' in p   # the exercise says how to work offline
+assert t.open[k.q.id].total == 20. and 'python' not in k.q and 'packages' not in k.q      # the environment stays on the server
+code_task(t, lr.concept('softmax'), s.id, step_meta(j, 1))
+assert 'TestModel' not in ask.calls[-1][0]                                                # a plain code task has no library note
+```
+
+```python
+# nbs/11_journey.ipynb, after the Task 13 test
+jc = journey_from_sources(lr, ask, docs, 'Tool docs', tool='cli')
+assert all(s['check']['way'] in CLI_WAYS for s in jc.steps)                               # a command-line tool: no code check
+```
+
+```python
+# tests/blocks/test_walk.py
+from abhyasa.check import env_key
+
+def test_library_walk_runs_code_in_its_env(mk, walk_fake, lr, monkeypatch, tmp_path):
+    monkeypatch.setenv('ABHYASA_ENVS', str(tmp_path)); toy_env(tmp_path/env_key(['toylib']))   # made before: no uv, no network
+    cl = mk(); add = cl.get('/add').text
+    assert 'A Python library' in add and 'A command-line tool' in add
+    jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='library', packages='toylib')).headers['hx-redirect'].split('/')[-1]
+    assert (lr.journey(jid).tool, lr.journey(jid).packages) == ('library', ['toylib'])
+    cl.post(f'/w/{jid}/start'); lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    assert 'code-editor' in cl.get(f'/w/{jid}/1/check').text
+    assert 'Next idea' in cl.post(f'/w/{jid}/1/run', data=dict(source='import toylib\n' + GOOD)).text
+
+def test_library_walk_without_uv_falls_back(mk, walk_fake, lr, monkeypatch, tmp_path):
+    monkeypatch.setenv('ABHYASA_ENVS', str(tmp_path)); monkeypatch.setenv('PATH', str(tmp_path))   # no uv on the PATH
+    cl = mk(); jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='library', packages='pydantic-ai')).headers['hx-redirect'].split('/')[-1]
+    cl.post(f'/w/{jid}/start'); lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    card = wait_for(lambda: (t := cl.get(f'/w/{jid}/1/check').text) if 'pending' not in t else None, secs=10)
+    assert 'What does a rank tell you?' in card and lr.journey(jid).steps[1]['check']['kind'] == 'short'
+
+def test_tool_fields_are_checked(mk, walk_fake, lr):
+    cl = mk(); did = add_paper(lr)
+    assert 'req-err' in cl.post('/walk/new', data=dict(ref=did, tool='library', packages='-e .')).text
+    jid = cl.post('/walk/new', data=dict(ref=did, tool='cli')).headers['hx-redirect'].split('/')[-1]
+    assert all(s['check']['kind'] != 'code' for s in lr.journey(jid).steps)
+    assert cl.post(f'/w/{jid}/plan', data=dict(i=1, act='check', way='code')).status_code == 400   # no code check on a cli walk
+```
+
+- [ ] **Step 2: Run the tests to see them fail**
+
+Run: `uv run pytest tests/test_check.py -k tool -q; uv run nbdev-test --path nbs/15_walk.ipynb; uv run pytest tests/blocks/test_walk.py -k "library or tool" -q`
+Expected: FAIL: `AttributeError: module 'abhyasa.check' has no attribute 'tool_env'`, `TypeError: code_task() got an unexpected keyword argument 'packages'`, and no "A Python library" on `/add`.
+
+- [ ] **Step 3: Implement.**
+  - `_guard`: on `socket.__new__`, allow `args[1] == socket.AF_UNIX` (asyncio's self-pipe uses `socketpair`); refuse every other `socket.` event as today. Check that the sandbox-exec profile lets a socket pair through; if it does not, allow only `(allow network* (local unix))` and nothing more, and say so in the commit line.
+  - `run_isolated`: `cmd = [python or sys.executable, '-I', '-B']`. `-I` keeps the venv's own `site-packages` and drops the user site and `PYTHON*` variables.
+  - `TOOL_SP` (STE): "The code runs with {packages} installed. It has no network and no API key. Use only the offline test helpers of the library: {helpers}. Write the tests so that they need nothing else." For a package with no `OFFLINE` entry: "Write a task on the pure functions of the library only."
+  - The block: a library walk queues `tool_env(packages)` on the pool when the walk is made (job key `env:<env_key>`). The code card: `env_python` set → the card of Task 8, and `run` passes the question's `python` and `total`; job running → a pending card "Setting up {names}. This happens once." that polls; job failed → `short_check` and the short card, as Task 6 does for a failed demo. Bad package names → `P(..., cls='req-err')`, and no walk is made.
+  - The Add walk form: "What is it?" with "A paper or docs to read" (default), "A Python library", "A command-line tool"; "Package names" shows for a library.
+
+- [ ] **Step 4: Run the tests to see them pass**
+
+Run: `uv run nbdev-prepare && uv run nbdev-test --path nbs/06_check.ipynb && uv run nbdev-test --path nbs/15_walk.ipynb && uv run nbdev-test --path nbs/11_journey.ipynb && uv run pytest -q`
+Expected: PASS, with `test_hostile_code_does_not_pass_or_hang` unchanged.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add nbs/06_check.ipynb nbs/08_nb.ipynb nbs/15_walk.ipynb nbs/11_journey.ipynb abhyasa/check.py abhyasa/nb.py abhyasa/walk.py abhyasa/journey.py abhyasa/_modidx.py abhyasa/blocks/walk abhyasa/blocks/add tests/walk_data.py tests/test_check.py tests/blocks/test_walk.py
+git commit -m "Add tool walks: code checks that run with a Python library and no network, and no code for a command-line tool"
+```
+
+---
+
+### Task 15: A trial on real material
+
+Spec 6.13. The script uses the real model and the network. CI and the test suite never run it in full; the test below runs it in its dry mode only.
+
+**Files:**
+- Create: `tools/walk_trial.py` (a script, not a test)
+- Create: `tests/test_trial.py` (the dry run)
+- Output (the real run): `design/screens/trial/report.md` and `design/screens/trial/<walk>-<i>.png`
+
+**Interfaces:**
+- Consumes: Task 13 `file_link`, `journey_from_sources`; Task 14 `tool_env`, `code_task(packages=)`, `run_code`; Task 3 `walk_from_topic`; Task 4 `tutor_note`, `open_short`; `Session`; `ground.VaultSource`; `app.mk_app`; `tools/grade_eval.py` `question_checks` (`from grade_eval import question_checks`: the script folder is on `sys.path`); `llm.Router`, `rishi_ask`, `for_task`.
+- Produces:
+  - `CASES = [dict(name='attention', link='1706.03762', pages=1), dict(name='gradient-descent', topic='how gradient descent works'), dict(name='pydantic-ai', link='https://ai.pydantic.dev', pages=8, tool='library', packages=['pydantic-ai']), dict(name='claude-code', link='https://docs.claude.com/en/docs/claude-code/overview', pages=8, tool='cli')]`
+  - `build(lr, ask, case, read=None) -> AttrDict(j, secs)` — a link through `file_link` and `journey_from_sources(tool=, packages=)`; a topic through `walk_from_topic(sources=[VaultSource(lr)])`, after the other cases are filed.
+  - `measure(lr, ask, j) -> AttrDict(steps, found, figures, kinds, asks_ok, asks, secs_step, bad_asks)` — for each step: `tutor_note`, and `open_short` for a short check, with `question_checks` on the question; `secs_step` is the mean time of a step.
+  - `grade_trip(lr, ask, j) -> AttrDict(good, weak)` — on the first short step: the concept statement as the answer (it must grade correct), then a new question answered "I am not sure." (it must grade not correct).
+  - `code_trip(lr, ask, j, envs) -> AttrDict(naive, good, secs)` — `tool_env(packages, root=envs)`, then `code_task(packages=…)` on the first code step (or on step 0, set to `code`); the stub as the naive try, then the solution kept on the server (`tutor.open[qid].answer`) as the good try; each as `passed of total`.
+  - `shoot(lr, ask, jid, idxs, out) -> list[Path]` — the app (`mk_app(lr, ask)`) under uvicorn in a thread on a free port on 127.0.0.1 (never 5001, 5055, 5077, 5078 or 9223); Playwright `p.chromium.launch(headless=True)`, 1280×900; for steps 0, the middle and the last: wait until `#check` has no `.pending` (120 s), save a full-page PNG; browser and server closed in a `finally`.
+  - `report(rows, out) -> str` — a Markdown table (walk, steps, with passage, figures, checks short/demo/order/code, one ask, grade round trip, code naive/good, s/step, build s), then for each walk: the questions that fail a check (in full), the grade and code results, the screens. Writes `out/report.md` and prints the table.
+  - Options: `--model`, `--only NAME`, `--out` (default `design/screens/trial`), `--envs` (default a new temp folder), `--dry` (`Fake` with the replies of `walk_fake`, and a fake `read` that files `PAGES`; `toylib` from `toy_env` in place of `pydantic-ai`), `--no-shots`.
+  - The vault is always `temp_learning()`. The script never opens `~/.vishalakshi/vault.db` or `~/.config/abhyasa`.
+
+- [ ] **Step 1: Write the failing test**
+
+```python
+# tests/test_trial.py: the trial script works on the shared data, with no model, no network and no browser
+import subprocess, sys
+from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+
+def test_trial_dry_run(tmp_path):
+    r = subprocess.run([sys.executable, 'tools/walk_trial.py', '--dry', '--no-shots', '--out', str(tmp_path)],
+                       capture_output=True, text=True, timeout=180, cwd=ROOT)
+    assert r.returncode == 0, r.stderr
+    rep = (tmp_path/'report.md').read_text()
+    for name in ('attention', 'gradient-descent', 'pydantic-ai', 'claude-code'): assert name in rep
+    assert 'one ask' in rep and 's/step' in rep and 'naive' in rep
+```
+
+- [ ] **Step 2: Run the test to see it fail**
+
+Run: `uv run pytest tests/test_trial.py -q`
+Expected: FAIL: `can't open file '.../tools/walk_trial.py'`.
+
+- [ ] **Step 3: Write `tools/walk_trial.py`** to the interfaces above. A module docstring says what it does and how to run it, as `tools/grade_eval.py` does. Each case runs alone: an error in one case goes into its row, and the next case still runs.
+
+- [ ] **Step 4: Run the dry test and the suite**
+
+Run: `uv run pytest tests/test_trial.py -q && uv run pytest -q`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tools/walk_trial.py tests/test_trial.py
+git commit -m "Add a trial script that makes walks from a paper, a topic and two docs sites, and reports on them"
+```
+
+- [ ] **Step 6: The controller runs the trial with the real model**
+
+Run: `uv run --all-extras python tools/walk_trial.py`
+Expected: a table with 4 rows, `design/screens/trial/report.md`, and 12 screens. This output is for the owner to read. The report marks a value that is outside these guides: 5 to 40 steps; at least 70% of steps with a passage for the paper and the docs walks; every question passes the one-ask checks; the grade round trip is right both ways; the naive code fails at least one test and the good code passes all; at most 30 s for each step.
+
+- [ ] **Step 7: Fix what the trial finds.** For each problem, make one small follow-up: a failing test that shows it (with `Fake` or the dry data), the fix, and one commit. Then run the trial again for that walk only (`--only NAME`). List each fix at the end of `report.md`.
+
+- [ ] **Step 8: Commit the report and the screens**
+
+```bash
+git add design/screens/trial
+git commit -m "Add the report and screens of the walk trial on real material"
+```
+
+---
+
+### Task 16: Docs and one look in a real browser
+
+**Files:**
+- Modify: `nbs/index.ipynb` (short sections "Learn a paper, a topic, a link or a tool as a walk" and "Rabbit holes"; check for stale references)
+- Modify: `README.md` (made by `nbdev-prepare` from `index.ipynb`), `CHANGELOG.md` (an entry under the next version), `docs/design-layers.md` (the walk page and the side pane in the list of pages)
+- Create: `tools/walk_look.py` (a script, not a test: it starts the app on a temp vault with `Fake`, opens walk steps in Playwright's bundled Chromium, and saves `design/screens/walk-code.png`, `walk-demo.png` and `walk-pane.png`)
+
+**Interfaces:**
+- Consumes: everything above.
+- Produces: docs only, and three screens.
+
+- [ ] **Step 1: Write the failing check.** `tools/walk_look.py` asserts, at 1280 px:
+  - in the step page: `#rail`, `#passage`, `#check .code-editor`, no horizontal scroll (`document.documentElement.scrollWidth <= 1280`), and that ⌥S presses "Next idea" (⌥F still opens the keyboard shortcuts);
+  - on step 3 with an unmet need: ⌥B opens the offer, `2` opens the side walk in `#rh-pane`, the URL has `rh=` with a local path, there is still no horizontal scroll, and ⌥Z closes the pane, takes `rh` out of the URL and puts the focus on the check;
+  - `?rh=https://evil.example/` draws no `#rh-pane`, and `window.postMessage({type: 'rh:at', url: 'https://evil.example/'}, '*')` from the main page leaves `rh` unchanged;
+  - at 1000 px, ⌥B and `2` open the side walk in the same tab, with "Back to the paper" at the top.
+
+- [ ] **Step 2: Run it to see it fail**
+
+Run: `uv run python tools/walk_look.py`
+Expected: PASS when Tasks 5-14 are right. A FAIL names the missing element, the scroll width, the key or the URL; fix it in the block's `.css`, `ui.py` or `.js`, or in `core/pane.js`, before Step 3.
+
+- [ ] **Step 3: Write the docs** in STE grade 9, with no odd machine phrasing:
+  - what a walk is, the three checks, and that reading never waits for a check;
+  - that learner code runs in a closed process with no network (never "a security sandbox");
+  - rabbit holes: the needs line, the three ways down, the side pane and its keys (⌥B, ⌥Z, Esc), the depth limit, and that the open check and the draft stay;
+  - a walk from a link: what links work, that abhyasa fetches only when you ask, only pages in the folder of the link, and at most the page cap;
+  - tool walks: a library walk makes its environment once with `uv` (wheels only), and its code uses the offline test helpers with no network and no API key; a command-line tool walk runs no commands and asks short-answer and order checks.
+  Run `uv run nbdev-prepare`, and look for stale references in `index.ipynb`.
+
+- [ ] **Step 4: Run everything**
+
+Run: `uv run nbdev-prepare && uv run pytest -q && uv run python tools/walk_look.py`
+Expected: PASS; three new screens in `design/screens/`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add nbs/index.ipynb README.md CHANGELOG.md docs/design-layers.md tools/walk_look.py design/screens/walk-code.png design/screens/walk-demo.png design/screens/walk-pane.png
+git commit -m "Document the walk, rabbit holes, links and tool walks, and add screens of a code check, a demo and the side pane"
 ```
