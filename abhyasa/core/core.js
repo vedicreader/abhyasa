@@ -33,11 +33,14 @@ document.addEventListener('keydown', e => {
 
 // Esc goes up one level, to the parent in the crumbs. In a text box the first Esc only leaves the box, so no words are lost.
 // A part of a page with its own Esc (the graph) has the focus, so this does nothing there.
+// An open side pane (pane.js) closes first. A page in the side pane has no crumbs: there Esc tells the main page to close the pane.
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
   const t = e.target;
   if (t.matches && t.matches('textarea, input, select, [contenteditable]')) { t.blur(); return; }
-  if (t !== document.body && !(t.matches && t.matches('a, button, summary'))) return;
+  if (t !== document.body && !(t.matches && t.matches('a, button, summary, #rh-pane .grip'))) return;
+  if (document.documentElement.classList.contains('in-pane')) { e.preventDefault(); parent.postMessage({type: 'rh:close'}, location.origin); return; }
+  if (window.abhyasaPane && abhyasaPane.isOpen()) { e.preventDefault(); abhyasaPane.close(); return; }
   const up = document.querySelector('main .crumbs a.up');
   if (up) { e.preventDefault(); up.click(); }
 });

@@ -1,0 +1,39 @@
+/* The side pane (pane.js, core/pane.py), after vedicreader's static/css/pane.css: a page of the app at the right, on the page surface,
+   with hairlines only. The page under it only gets padding-right. Under 1100 px there is no split. */
+:root { --rh-w: clamp(440px, 42vw, 680px); }
+#rh-pane { display: none; }
+@media (min-width: 1100px) {
+  html.rh-open body { padding-right: var(--rh-w); }
+  html.rh-open body > nav { flex-wrap: wrap; }   /* the narrower page keeps the search box in view */
+  html.rh-open #rh-pane { display: flex; flex-direction: column; position: fixed; top: 0; right: 0; bottom: 0; width: var(--rh-w); z-index: 60;
+    background: var(--page); color: var(--fg); border-left: 1px solid var(--line); }
+}
+#rh-pane iframe { flex: 1; width: 100%; border: 0; background: var(--page); }
+#rh-pane .grip { position: absolute; top: 0; bottom: 0; left: -4px; width: 9px; z-index: 2; cursor: col-resize; touch-action: none; }
+#rh-pane .grip::after { content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: transparent; transition: background .15s; }
+#rh-pane .grip:hover::after, #rh-pane .grip:focus-visible::after, html.rh-drag #rh-pane .grip::after { background: var(--acc); width: 2px; left: 3px; }
+#rh-pane .grip:focus-visible { outline: none; }
+html.rh-drag, html.rh-drag * { cursor: col-resize !important; user-select: none !important; }
+html.rh-drag #rh-pane iframe { pointer-events: none; }
+
+/* the bar: where you are, Own session, and close */
+.rh-bar { padding: 10px 24px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.rh-top { display: flex; gap: 14px; align-items: center; min-height: 26px; }
+.rh-trail { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--mute); }
+.rh-trail a { color: var(--mute); text-decoration: none; } .rh-trail a:hover { color: var(--fg); }
+.rh-trail b { font-weight: 500; color: var(--acc); }
+.rh-trail .sep { margin: 0 6px; opacity: .6; }
+.rh-top .rh-own { flex: none; color: var(--ink2); text-decoration: none; white-space: nowrap; } .rh-top .rh-own:hover { color: var(--acc); }
+.rh-top .rh-x { flex: none; font-size: 20px; line-height: 1; color: var(--ink2); padding: 0 4px; background: none; border: 0; box-shadow: none; }
+.rh-top .rh-x:hover { color: var(--acc); background: none; box-shadow: none; }
+[data-theme=signal] .rh-bar { border-bottom: 3px solid var(--acc); }
+[data-theme=signal] .rh-trail { font-family: var(--head); letter-spacing: 0; text-transform: none; font-size: 13px; }
+
+/* a page in the pane: no nav and no crumbs (also for a page that htmx puts in), and less space at the top */
+html.in-pane body > nav, html.in-pane main .crumbs { display: none; }
+html.in-pane main { padding-top: 24px; }
+
+/* under 1100 px, the side page in the same tab: the way back */
+main > a.rh-back { display: inline-block; margin: 0 0 16px; font-size: 15px; color: var(--ink2); text-decoration: none; }
+main > a.rh-back:hover { color: var(--acc); }

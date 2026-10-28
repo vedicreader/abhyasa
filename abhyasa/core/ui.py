@@ -1,10 +1,12 @@
 "The page frame, shared pieces, and block assets served with a content hash."
 import hashlib, html, re, time, nh3
+from contextvars import ContextVar
 from pathlib import Path
 from fasthtml.common import *
 from mdhtml import md2mdhtml, mdhtml2html
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
+from abhyasa.core.pane import PaneHost, is_local
 from abhyasa.model import DEPTHS, GOAL
 
 __all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago']
@@ -46,7 +48,7 @@ def HDRS():
             Script(src='/vendor/htmx.min.js'), Script(src='/vendor/fasthtml.js'),
             asset_css(_here/'base.css'), asset_css(_here/'themes.css'),
             Link(rel='stylesheet', href='/vendor/katex.min.css'), Script(src='/vendor/katex.min.js', defer=True),
-            asset_js(_here/'core.js'))
+            asset_css(_here/'pane.css'), asset_js(_here/'core.js'), asset_js(_here/'pane.js'))
 
 THEMES = dict(paper='Warm paper, umber accent', ink='Calm, high contrast, dark first', manuscript='Palm leaf, saffron accent',
               clear='System font, plain and bright', sage='Soft green-grey, low glare', signal='Silver panels, orange controls')   # themes.css has the colours
@@ -64,8 +66,11 @@ def look_attrs() -> dict:
     t, m = look()
     return {'data-theme': t, 'data-mode': m}
 
-def look_before(req):
-    "Beforeware: each page starts in the theme from the settings."
+_req = ContextVar('abhyasa_req', default=None)   # the request of this page, so `Page` can read `pane` and `rh` with no route change
+
+async def look_before(req):
+    "Beforeware: each page starts in the theme from the settings. Async, so the request it keeps is seen by the handler."
+    _req.set(req)
     req.htmlkw.update(look_attrs())
 
 def Crumbs(crumbs):
@@ -77,12 +82,20 @@ def Crumbs(crumbs):
         out += [A(('← ' if last and len(crumbs) == 1 else '') + t, href=h, cls='up' if last else None, title='Esc' if last else None), Span('›', cls='sep')]
     return Div(*out[:-1], cls='crumbs', role='navigation', aria_label='Where you are')
 
-def Page(title, *c, on='', wide=False, extra=(), crumbs=()):
-    "A whole page: the header with the blocks' nav links, what other blocks add (`nav_extra`), a search box, the crumbs, then `c`."
+def Page(title, *c, on='', wide=False, extra=(), crumbs=(), pane=False):
+    """A whole page: the header with the blocks' nav links, what other blocks add (`nav_extra`), a search box, the crumbs, then `c`.
+    In the side pane (`pane`, or `pane=1` in the request) it has no nav and no crumbs. With a local `rh` in the request, the side pane is open."""
+    req = _req.get()
+    q = req.query_params if req is not None else {}
+    if pane or q.get('pane') == '1':
+        if req is not None: req.htmlkw['class'] = 'in-pane'
+        return (Title(f'{title} · abhyasa'), *extra, Main(*c, cls='wide' if wide else ''), *run('page_extra'))
+    rh = q.get('rh')
+    if req is not None and is_local(rh): req.htmlkw['class'] = 'rh-open'   # drawn open, so it does not flash closed on a reload
     nav = [A(t, href=h, cls='on' if t == on else '') for t, h, _ in sorted(RouteOverrides.nav, key=lambda x: x[2])]
     return (Title(f'{title} · abhyasa'), *extra, Nav(A('abhyasa', href='/', cls='brand'), *nav, Span(cls='nav-gap'), *run('nav_extra'),
             Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search')),
-            Main(Crumbs(crumbs), *c, cls='wide' if wide else ''), *run('page_extra'))
+            Main(Crumbs(crumbs), *c, cls='wide' if wide else ''), PaneHost(rh), *run('page_extra'))
 
 # Learner text, model text and vault text are not trusted. Markdown is rendered here as Leela does it (mdhtml with dollar maths),
 # then nh3 keeps only the tags and attributes that markdown can mean. `core.js` draws each `.math` with KaTeX.
