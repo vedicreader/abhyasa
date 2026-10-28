@@ -124,12 +124,13 @@ def choose(st, subject:str='', weak:bool=False, rng=None, explore:str='sometimes
 CHECK_KIND = dict(demo='demo', order='order', code='code')
 DEPTH = dict(short=2, demo=2, order=2, code=4)
 
-def check_for(c, st, rng=None, explore:str='sometimes', prior=(), last:str='') -> AttrDict:
-    "The way, kind, depth and reason for one check of concept `c`. A hands-on way of the idea comes before its text ways."
-    ways = [w for w in c.get('ways') or () if w in WALK_WAYS] or list(TEXT_WAYS)
-    ways = [w for w in ways if w != last] or ways
-    cands = [w for w in ways if w in CHECK_KIND] or ways
-    way, note = choose(st, c.get('subject', ''), False, rng, explore, prior, allowed=cands)
+def check_for(c, st, rng=None, explore:str='sometimes', prior=(), last:str='', hands:bool=True) -> AttrDict:
+    "The way, kind, depth and reason for one check of concept `c`. A hands-on way of the idea comes before its text ways; `hands=False` leaves the hands-on ways out."
+    own = [w for w in c.get('ways') or () if w in WALK_WAYS]
+    ways = [w for w in own if w != last] or own
+    hand = [w for w in ways if w in CHECK_KIND] if hands else []
+    text = [w for w in ways if w not in CHECK_KIND] or [w for w in own if w not in CHECK_KIND] or [w for w in TEXT_WAYS if w not in CHECK_KIND]
+    way, note = choose(st, c.get('subject', ''), False, rng, explore, prior, allowed=hand or text)
     kind = CHECK_KIND.get(way, 'short')
     depth = (2 if (c.get('floor') or 0) < 2 else 3) if kind == 'short' else DEPTH[kind]
     return AttrDict(way=way, kind=kind, depth=depth, why=note or f'{LABELS[way].lower()} fits this idea')
