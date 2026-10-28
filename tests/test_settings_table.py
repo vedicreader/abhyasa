@@ -125,6 +125,21 @@ def test_run_reads_the_new_limits():
     assert run_isolated('assert', 'f', slow, ['assert f() == 1'])['checks'][0]['status'] != 'pass'   # 1 s: the test stops
     assert "RUN_SECONDS = 5.0" in snippet('assert', 'f', []) and 'RLIMIT_CPU, (6, 7)' in _limits(5.) and f'({2**20}, {2**20})' in _limits(5.)
 
+def test_runner_values_out_of_range_are_clamped(monkeypatch):
+    "A runner value out of range in the file reaches the closed process at the top of its range: 60 s, 10 s a test, 100 MB."
+    from abhyasa import check
+    (cfg_dir()/'settings.json').write_text(json.dumps(dict(runner=dict(total=999, per_test='99', file_mb=10**6))))
+    seen = {}
+    class Popen:
+        def __init__(self, cmd, **kw): self.pid, self.returncode = 0, 0
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+        def communicate(self, code, timeout): seen.update(code=code, timeout=timeout); return '', ''
+    monkeypatch.setattr(check.subprocess, 'Popen', Popen)
+    check.run_isolated('assert', 'f', 'def f(): return 1', ['assert f() == 1'])
+    assert seen['timeout'] == 62 and 'RUN_SECONDS = 60.0' in seen['code'] and 'TEST_SECONDS = 10.0' in seen['code']
+    assert 'RLIMIT_CPU, (61, 62)' in seen['code'] and f'({100 * 2**20}, {100 * 2**20})' in seen['code']
+
 # Speech to text
 
 def test_stt_defaults():

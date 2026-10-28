@@ -94,9 +94,10 @@ def pick(concepts, focus:str=None, subject:str=None, goal:int=None, now:float=No
     by = {c['slug']: c for c in concepts}
     pool = [c for c in concepts if c['slug'] not in skip and (not subject or c.get('subject') == subject)]
     def out(c, why):
+        rv = 'due for review: ' if why.startswith('due for review') else ''   # a review sent to a prereq or a gap is still a review
         c, back = _back(c, by, goal)
-        if (g := _gap(c, by)): return g, min(next_depth(g), g.get('floor', 0) + 1), f"you said you did not know {g['name']}; it comes before {c['name']}"
-        return c, next_depth(c) if not learned(c, goal) else c.get('floor', 0), back or why
+        if (g := _gap(c, by)): return g, min(next_depth(g), g.get('floor', 0) + 1), f"{rv}you said you did not know {g['name']}; it comes before {c['name']}"
+        return c, next_depth(c) if not learned(c, goal) else c.get('floor', 0), rv + back if back else why
     if focus and (f := by.get(focus)) and (not learned(f, goal) or (f.get('due') or 0) <= now):
         return out(f, f"you chose {f['name']}")
     due = [c for c in pool if review and c.get('seen') and c.get('due') and c['due'] <= now]

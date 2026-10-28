@@ -203,9 +203,10 @@ def record(self:Learning, concept:str, question:str, answer:str='', thinking:str
 
 # %% ../nbs/00_store.ipynb #c025
 @patch
-def attempts(self:Learning, concept:str=None, session:str=None, limit:int=50) -> L:
-    "Recent attempts, newest first, for one concept or one session."
+def attempts(self:Learning, concept:str=None, session:str=None, limit:int=50, since:float=None) -> L:
+    "Recent attempts, newest first, for one concept or one session; with `since`, only the attempts from that time on."
     w, args = [], []
+    if since is not None: w.append("json_extract(meta, '$.at')>=?"); args.append(since)
     if concept: w.append("json_extract(meta, '$.concept')=?"); args.append(concept)
     if session: w.append("json_extract(meta, '$.session')=?"); args.append(session)
     rs = L(self._docs('attempt', ' and '.join(w), args)).map(lambda r: AttrDict(json.loads(r['meta'])))

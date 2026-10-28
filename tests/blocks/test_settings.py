@@ -268,3 +268,13 @@ def test_bad_hint_ladder_is_refused(mk):
     t = mk(['settings']).post('/settings/prompt', data=dict(name='hints', text='One.\nTwo.')).text
     assert 'needs 6 lines' in t and 'role="alert"' in t and 'One.\nTwo.' in t
     assert hints() == HINTS and voice.settings()['prompts'] == {}
+
+def test_more_keeps_names_in_case(mk):
+    "The `More` summary lowers only the first letter of each name, so a page name keeps its capital."
+    t = mk().get('/settings').text
+    assert 'More in Lists: weak and strong ideas, journeys on Today,' in t
+
+def test_prompt_list_does_not_need_the_blocks():
+    "The prompt list loads each module that registers a prompt, so it does not depend on which blocks loaded."
+    from abhyasa.blocks.settings.ui import registry
+    assert {'primer', 'walk.note', 'profile.onboard'} <= set(registry())

@@ -286,7 +286,7 @@ def reviews_today(lr:Learning, now:float=None) -> int:
     "How many review questions you closed today, from midnight on this Mac."
     t = time.localtime(ifnone(now, time.time()))
     day0 = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, 0, 0, 0, 0, 0, -1))
-    return sum(1 for a in lr.attempts(limit=1000) if a.at >= day0 and a.get('review') and a.get('final'))
+    return sum(1 for a in lr.attempts(limit=None, since=day0) if a.get('review') and a.get('final'))
 
 def review_open(lr:Learning) -> bool:
     "True when review can go on today: the setting `review.per_day` is 0 (no limit), or you closed fewer reviews today."

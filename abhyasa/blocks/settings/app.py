@@ -4,7 +4,7 @@ from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, THEMES, MODES, parse_value
 from abhyasa import voice
-from abhyasa.settings import GROUPS, SETTINGS, rows, val, fit, set_val, reset, reset_group, changed
+from abhyasa.settings import GROUPS, SETTINGS, rows, val, fit, set_val, reset, reset_group
 from . import ui
 from .cfg import Routes
 

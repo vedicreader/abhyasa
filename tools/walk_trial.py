@@ -30,8 +30,9 @@ CASES = [dict(name='attention', link='1706.03762', pages=1),
          dict(name='pydantic-ai', link='https://ai.pydantic.dev', pages=8, tool=True),
          dict(name='claude-code', link='https://docs.claude.com/en/docs/claude-code/overview', pages=8, tool=True)]
 PORT = 5019   # the port of the fake Leela address file
-MAX_STEPS = val('walks.steps')
-MARKS = f'steps 5 to {MAX_STEPS}; passage on 70% of steps (a paper or docs walk); every question passes; grade right both ways; naive code fails and good code passes; no code check and right links on a tool walk; at most 30 s a step'
+def marks() -> str:
+    "The guides of the trial, with the walk length from the settings now."
+    return f'steps 5 to {val("walks.steps")}; passage on 70% of steps (a paper or docs walk); every question passes; grade right both ways; naive code fails and good code passes; no code check and right links on a tool walk; at most 30 s a step'
 
 class Timed(Router):
     "A `Router` that keeps the seconds of each model call in `calls`."
@@ -208,7 +209,8 @@ def flags(r) -> list:
     "What is outside the guides, for a row `r`."
     if r.get('error'): return [f'The case failed: {r.error}']
     m, g, c, h, out = r.m, r.get('g'), r.get('c'), r.get('h'), []
-    if not 5 <= m.steps <= MAX_STEPS: out.append(f'{m.steps} steps (5 to {MAX_STEPS})')
+    most = val('walks.steps')
+    if not 5 <= m.steps <= most: out.append(f'{m.steps} steps (5 to {most})')
     if r.case.get('link') and m.found * 100 < 70 * m.steps: out.append(f'passage on {m.found} of {m.steps} steps (70%)')
     if m.asks_ok < m.asks: out.append(f'{m.asks - m.asks_ok} of {m.asks} questions fail a check')
     if r.get('g_error') or (g and not (g.good and g.weak)): out.append(f'the grade round trip is not right: {g or r.g_error}')
@@ -224,7 +226,7 @@ def report(rows, out) -> str:
     "The Markdown of the trial: a table, then the details of each walk. Writes `out/report.md` and prints the table."
     out = Path(out); out.mkdir(parents=True, exist_ok=True)
     table = '\n'.join(['| ' + ' | '.join(COLS) + ' |', '|' + ' --- |' * len(COLS), *('| ' + ' | '.join(map(str, cells(r))) + ' |' for r in rows)])
-    md = [f'# Walk trial\n\nGuides: {MARKS}.\n', table]
+    md = [f'# Walk trial\n\nGuides: {marks()}.\n', table]
     for r in rows:
         md.append(f'\n## {r.name}\n')
         md.append('\n'.join(f'- Outside the guides: {f}' for f in flags(r)) or '- Inside every guide.')

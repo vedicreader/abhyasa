@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/llm.html.md"""
 
 # %% auto #0
 __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 'FALLBACK', 'ALL_TASKS', 'MAX_TOKENS',
-           'dflt_model', 'rishi_ask', 'parse_json', 'ask_json', 'Fake', 'check_tokens', 'model_ask', 'model_label',
-           'catalog', 'Router', 'for_task', 'ramabana_agent', 'ramabana_oneshot', 'RouteAsk', 'route_ask']
+           'dflt_model', 'rishi_ask', 'parse_json', 'ask_json', 'Fake', 'model_ask', 'model_label', 'catalog', 'Router',
+           'for_task', 'ramabana_agent', 'ramabana_oneshot', 'RouteAsk', 'route_ask']
 
 # %% ../nbs/02_llm.ipynb #c004
 import json, os, re
@@ -71,14 +71,6 @@ class Fake:
 TASKS = ('question', 'grade', 'hint', 'lesson', 'extract')
 TOKENS = {t: dflt(f'tokens.{t}') for t in TASKS}   # the reply cap of each task, when the settings give none
 TOKENS_MAX = SETTINGS['tokens.question'].hi
-
-def check_tokens(v) -> int|str:
-    "A reply cap from the Settings page: a whole number from 1 to `TOKENS_MAX`, or '' for the default. Raise `ValueError` for another value."
-    v = str(v).strip()
-    if not v: return ''
-    if not v.isdigit() or not 1 <= int(v) <= TOKENS_MAX:
-        raise ValueError(f'Type a whole number from 1 to {TOKENS_MAX}, or make the box empty to use the default.')
-    return int(v)
 
 # %% ../nbs/02_llm.ipynb #d2b8f8ec
 import threading, time

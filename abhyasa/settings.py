@@ -196,6 +196,9 @@ def fit(r, v):
     if r.kind == 'bool': return v if isinstance(v, bool) else r.dflt
     if r.kind == 'choice': return v if v in r.choices else r.dflt
     if r.kind == 'str': return v if isinstance(v, str) else r.dflt
+    if isinstance(v, str):   # a number that you typed in the file by hand, such as "8192"
+        try: v = float(v.strip())
+        except ValueError: return r.dflt
     if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v: return r.dflt
     v = min(max(v, r.lo), top(r))
     return int(round(v)) if r.kind == 'int' else float(v)
@@ -226,6 +229,7 @@ def set_val(name:str, v):
 def reset(name:str):
     "Use the default of the setting `name` again."
     r = SETTINGS[name]
+    if r.store != 'file': raise KeyError(f'{name} is kept in the profile; change it with `Learning.set_profile()`')
     with _lock:
         d = settings(); d[r.section].pop(r.key, None)
         save_settings(d)
