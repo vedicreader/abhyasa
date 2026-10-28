@@ -51,10 +51,12 @@ def test_checks_defaults():
     assert dflts('checks') == {'checks.tries': 3, 'checks.sources': True, 'checks.one_ask': True, 'checks.near': 7, 'checks.goal': 4,
                                'checks.high': 60, 'checks.hints': 2, 'checks.demo_misses': 2, 'checks.retest': 2, 'checks.demo_ladder': True}
 
-def test_demo_ladder_setting():
-    "The demo ladder is an on/off value in Checks and grading, on by default, with a help line."
+def test_demo_ladder_setting(mk):
+    "The demo ladder is an on/off value in Checks and grading, on by default, with a help line on the Settings page."
     r = SETTINGS['checks.demo_ladder']
     assert (r.group, r.kind, r.dflt, r.ui) == ('checks', 'bool', True, True) and r.help.endswith('.')
+    t = mk().get('/settings').text
+    assert r.label in t and r.help in t
     set_val('checks.demo_ladder', False)
     assert val('checks.demo_ladder') is False
 
@@ -206,13 +208,26 @@ def test_all_prompts_registered(mk):
     from abhyasa.prompts import PROMPTS, set_prompt, prompt
     from abhyasa.tutor import depth_ask
     t = mk().get('/settings').text
-    for n in ('primer', 'profile.onboard', 'profile.observe', 'stt', 'exercise', 'demo.order', 'depths', 'tutor', 'hints', 'walk.pick', 'walk.plan'):
+    for n in ('primer', 'profile.onboard', 'profile.observe', 'stt', 'exercise', 'demo.order', 'demo.simpler', 'depths', 'tutor', 'hints', 'walk.pick', 'walk.plan'):
         assert n in PROMPTS and f'pr-{n.replace(".", "-")}' in t
     with pytest.raises(ValueError, match='5 lines'): set_prompt('depths', 'one line only')
     with pytest.raises(ValueError, match='6 lines'): set_prompt('hints', 'one\ntwo')
     assert depth_ask(4).startswith('apply it')
     set_prompt('depths', 'see it\nsay it\nwhy it\nuse it\nmove it')
     assert depth_ask(4) == 'use it'
+
+def test_simpler_demo_prompt_is_editable(mk, lr):
+    "The prompt for a simpler demo is on the Settings page. A saved text goes into the next simpler demo that the tutor makes."
+    from abhyasa.prompts import prompt
+    from abhyasa.demo import make_demo, SIMPLER_AIM
+    from abhyasa.llm import Fake
+    from rupaka.spec import gallery
+    cl = mk()
+    assert 'pr-demo-simpler' in cl.get('/settings').text and prompt('demo.simpler') == SIMPLER_AIM
+    assert cl.post('/settings/prompt', data=dict(name='demo.simpler', text='Use one slider only.')).status_code == 200
+    ask = Fake({'You design one interactive demo': gallery()['reciprocal-rank-fusion']})
+    d = make_demo(lr, ask, 'reciprocal-rank-fusion', check=False, aim='simpler')
+    assert d.aim == 'simpler' and 'Use one slider only.' in ask.calls[0][0] and SIMPLER_AIM not in ask.calls[0][0]
 
 # The Settings page
 
