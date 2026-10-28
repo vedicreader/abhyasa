@@ -70,3 +70,17 @@ def test_your_learning_has_one_continue_and_no_open(mk, lr):
     runs = h[h.index('class="days"'):]
     assert runs.count('class="btn small">Continue') == 1 and runs.index('/s/new1') < runs.index('class="btn small">Continue') < runs.index('/s/old1'), runs[:3000]
     assert re.search(r'<a href="/s/old1" class="onward">Continue →</a>', runs) and '>Open<' not in runs
+
+# 4. The session answer bar is one row: Speak as a quiet link, Sure?, then Teach me, Hint and Send, with Send last
+
+def test_session_answer_bar_is_one_row(mk, lr):
+    "The composer row: Speak (quiet), Sure?, the space, then I don't know or Teach me, Hint, and Send last with ⌥S."
+    cl = mk()
+    sid = cl.get('/start?focus=ranking', follow_redirects=False).headers['location'].rstrip('/').split('/')[-1]
+    h = cl.get(f'/s/{sid}').text
+    bar = h[h.index('id="composer"'):]; bar = bar[bar.index('class="row bar"'):bar.index('</form>')]
+    at = [bar.index(k) for k in ('id="mic"', 'id="conf"', 'class="grow"', 'id="idk"', 'id="hint"', 'id="send"')]
+    assert at == sorted(at), at
+    assert re.search(r'id="mic" class="mic quiet', bar) and '<kbd>⌥S</kbd>' in bar[at[-1]:]
+    c = src('blocks/session/session.css')
+    assert re.search(r'@media \(min-width: 641px\) \{ \.composer \.bar \{ flex-wrap: nowrap;', c)

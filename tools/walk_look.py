@@ -603,13 +603,37 @@ def d3_one_button_in_a_list(pg, w):
         ons[0].evaluate("a => a.closest('li').querySelector('a').focus()"); pg.wait_for_timeout(300)
         assert ons[0].evaluate('a => getComputedStyle(a).opacity') == '1', (u, 'the quiet link does not show on focus')
 
+ROW = """() => ['#mic', '#conf', '#idk', '#hint', '#send'].map(s => document.querySelector('#composer ' + s)).map(e => e && e.checkVisibility() ? e.getBoundingClientRect() : null)
+                  .map(r => r && [Math.round(r.top + r.height / 2), Math.round(r.left), Math.round(r.right)])"""
+
+def d4_session_bar_one_row(pg, w):
+    "The session answer bar is one row at 1280 and 1000 px: Speak (no box), Sure?, Teach me, Hint, Send last; ⌥S sends."
+    sid = w.rq.get(f'{w.B}/start?focus=reciprocal-rank-fusion', max_redirects=0).headers['location'].rstrip('/').split('/')[-1]
+    try:
+        for width in (1280, 1000):
+            pg.set_viewport_size(dict(width=width, height=900)); pg.goto(f'{w.B}/s/{sid}'); pg.wait_for_selector('#composer #send'); settle(pg)
+            r = pg.evaluate(ROW)
+            assert all(r), (width, r)
+            assert max(y for y, *_ in r) - min(y for y, *_ in r) <= 8, (width, 'not one row', r)
+            assert [x for _, x, _ in r] == sorted(x for _, x, _ in r) and r[-1][2] == max(x for *_, x in r), (width, 'Send is not last', r)
+            edge = pg.eval_on_selector('#composer #ans', 'a => a.getBoundingClientRect().right')
+            assert r[-1][2] <= edge + 1, (width, 'Send goes past the box', r[-1][2], edge)
+            assert pg.eval_on_selector('#composer #mic', "m => getComputedStyle(m).borderTopColor === 'rgba(0, 0, 0, 0)' || getComputedStyle(m).borderTopStyle === 'none'"), 'Speak has a box'
+        n = pg.eval_on_selector_all('.check .thread > .m', 'ms => ms.length')
+        pg.fill('#ans', 'a sum'); pg.keyboard.press('Alt+s')   # a miss: the row also holds the tries that are left
+        pg.wait_for_function(f"document.querySelectorAll('.check .thread > .m').length > {n}", timeout=10000)
+        pg.wait_for_selector('#composer #left:not(:empty)'); settle(pg, 300)
+        r, edge = pg.evaluate(ROW), pg.eval_on_selector('#composer #ans', 'a => a.getBoundingClientRect().right')
+        assert max(y for y, *_ in r) - min(y for y, *_ in r) <= 8 and r[-1][2] <= edge + 1, ('the row with the tries left', r, edge)
+    finally: pg.set_viewport_size(dict(width=1280, height=900))
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
-          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list]
+          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

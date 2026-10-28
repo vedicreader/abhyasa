@@ -62,7 +62,7 @@ def connect(app, ctx):
         return StreamingResponse(gen(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
     @hook('answer_tools')
-    def mic(q, into): return MicButton(into, q.get('concept', ''))
+    def mic(q, into): return MicButton(into, q.get('concept', ''), cls='mic quiet')   # a quiet link at the start of the answer row, as in the walk
 
     @hook('page_extra')
     def anywhere():
