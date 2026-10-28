@@ -1,6 +1,6 @@
 """The guided walk: a paper, a text, a topic or a link as one idea at a time, in reading order. The plan, the step page, its check,
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
-import json, re, time
+import json, logging, re, time
 from collections import defaultdict
 from threading import Lock
 from pathlib import Path
@@ -25,6 +25,7 @@ RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
 MAX_STATE = 20_000                   # the most chars of a kept demo state
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
+log = logging.getLogger(__name__)
 
 def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
@@ -162,7 +163,9 @@ def connect(app, ctx):
             elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60], tool=tool)
             elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool)
             else: return P('Name a vault document, paste a text, or write a topic.', cls='req-err')
-        except Exception as e: return P(f'The tutor could not make a walk ({e}). Try again.', cls='req-err')
+        except Exception as e:   # the log keeps the words of the library; the page shows a plain line
+            log.warning('the tutor could not make a walk: %r', e)
+            return P(str(e) if isinstance(e, LinkError) else 'The tutor could not make a walk. Try again.', cls='req-err')
         if not j.steps:
             lr.drop_journey(j.id)
             return P('The tutor found no ideas in this document.' if ref.strip() or text.strip() else 'The tutor found no steps for this topic.', cls='req-err')

@@ -8,6 +8,7 @@
 - Code runner: learner code cannot send a signal to another process.
 - Code runner: learner code cannot fake a pass. The report goes to a private pipe, not to stdout.
 - Side pane: a page in the pane can ask to open an http or https link in a new tab (`rh:link`). Other schemes are refused.
+- When the tutor cannot make a walk, a side walk or a term, the page shows a plain line. The log keeps the error.
 
 ## 0.0.11
 

@@ -149,3 +149,15 @@ def test_side_walk_beside_the_step_in_a_browser(mk, walk_fake, lr):
                 assert lr.journey(jid).steps[2]['detours'][0]['outcome'] in ('solid', 'fragile')
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
+
+def test_a_failed_side_walk_or_term_shows_a_plain_line_and_logs_the_error(mk, walk_fake, lr, monkeypatch, caplog):
+    "The page never shows the words of a library. The log keeps them."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    def boom(*a, **k): raise RuntimeError('litellm.APIError: 500 from upstream')
+    monkeypatch.setattr('abhyasa.blocks.detour.app.detour', boom); monkeypatch.setattr('abhyasa.blocks.detour.app.look_up', boom)
+    with caplog.at_level('WARNING'):
+        r = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer'))
+        t = cl.post('/rh/term', data=dict(t='entropy', at=f'{jid}/2'))
+    assert r.status_code == 502 and 'Try again' in r.text and 'litellm' not in r.text and 'upstream' not in r.text
+    assert 'req-err' in t.text and 'Try again' in t.text and 'litellm' not in t.text
+    assert caplog.text.count('litellm.APIError') >= 2

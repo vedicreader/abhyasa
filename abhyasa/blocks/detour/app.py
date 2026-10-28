@@ -2,7 +2,7 @@
 
 The block adds to the walk step only through hooks (`step_needs`, `check_after`, `walk_end`, `term_lookup`), and to Today and to a
 lesson (`today_next`, `lesson_extra`). It links to the walk by route strings. The side walk is a normal walk journey."""
-import time
+import logging, time
 from urllib.parse import urlencode
 from fasthtml.common import *
 from abhyasa.core import hook
@@ -15,6 +15,7 @@ __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask', 'sources')
 HOWS = ('primer', 'walk', 'session')
 GOOD = ('solid', 'fragile')
+log = logging.getLogger(__name__)
 
 def today(t):
     "Whether time `t` is on the local day of now."
@@ -58,7 +59,9 @@ def connect(app, ctx):
         if not lr.concept(slug): return Response('No such idea.', status_code=404)
         if how != 'session' and (j.get('depth') or 0) >= val('walks.depth'): how = 'session'
         try: d = detour(lr, ask, slug, dict(walk=j.id, step=i), how, ctx.sources)   # walk, then step: `from` is "<walk id>/<step>"
-        except Exception as e: return Response(f'The tutor could not make the side walk ({e}). Try again.', status_code=502)
+        except Exception as e:   # the log keeps the words of the library; the page shows a plain line
+            log.warning('the tutor could not make the side walk: %r', e)
+            return Response('The tutor could not make the side walk. Try again.', status_code=502)
         if not d.steps:
             lr.drop_journey(d.id)
             return Response('The tutor found no steps for this idea.', status_code=502)
@@ -77,7 +80,9 @@ def connect(app, ctx):
         if err: return err
         if not t.strip(): return Response('Select a term first.', status_code=400)
         try: r = look_up(lr, ask, t.strip()[:80], at=f'{j.id}/{i}', sources=ctx.sources)
-        except Exception as e: return P(f'The tutor could not add this term ({e}). Try again.', cls='req-err')
+        except Exception as e:
+            log.warning('the tutor could not add the term: %r', e)
+            return P('The tutor could not add this term. Try again.', cls='req-err')
         return offer(lr.concept(r.slug), j, i) if r else P('The tutor could not add this term.', cls='req-err')
 
     def back(sid:str):

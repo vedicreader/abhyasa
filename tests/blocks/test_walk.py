@@ -433,3 +433,12 @@ def test_no_ladder_in_a_walk_when_the_setting_is_off(mk, walk_fake, lr):
         assert r['ok'] and 'ladder' not in r and not lr.journey(jid).steps[2].get('ladder')
         assert f'/w/{jid}/2/ladder' not in cl.get(f'/w/{jid}/2/check').text
     finally: set_val('checks.demo_ladder', True)
+
+def test_a_failed_walk_shows_a_plain_line_and_logs_the_error(mk, walk_fake, lr, monkeypatch, caplog):
+    "The page never shows the words of a library. The log keeps them."
+    def boom(*a, **k): raise RuntimeError('litellm.APIError: 500 from upstream')
+    monkeypatch.setattr('abhyasa.blocks.walk.app.walk_from_topic', boom)
+    cl = mk()
+    with caplog.at_level('WARNING'): r = cl.post('/walk/new', data=dict(topic='attention'), headers=HX)
+    assert 'req-err' in r.text and 'litellm' not in r.text and 'upstream' not in r.text and 'Try again' in r.text
+    assert 'litellm.APIError' in caplog.text
