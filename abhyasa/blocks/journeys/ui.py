@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago, Primary, n_of
+from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago, Primary, n_of, Onward
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -30,12 +30,14 @@ def SideWalk(j, pg):
     i = (j.get('parent') or {}).get('step')
     return Li(A(j.title, href=go(j)), Span(f"  for idea {i + 1} · {pg.done} of {n_of(pg.total, 'idea')}" if isinstance(i, int) else f"  {pg.done} of {n_of(pg.total, 'idea')}", cls='mute'))
 
-def Row(j, pg, sides=()):
-    "One journey in a list: its title, its progress, the step to do now, Continue, and its side walks."
+def Row(j, pg, sides=(), lead=False):
+    """One journey in a list: its title, its progress, the step to do now, the way on, and its side walks. Only the `lead` row
+    (the current journey) has a button; the others have a quiet `Continue →` link."""
     now = f"Now: {pg.current.name}" if pg.current else 'Finished'
+    go_on = (A('Continue the walk' if j.get('mode') == 'walk' else 'Continue', href=go(j), cls='btn small') if lead else
+             Onward('Continue', go(j)) if pg.current else Onward('See what comes after', at(Routes.one, j)))
     return Li(Div(A(j.title, href=at(Routes.one, j), cls='jt'), Span(f"  {pg.done} of {n_of(pg.total, 'step')} · {now}", cls='mute'), cls='jrow-head'),
-              Bar(pg.done, pg.total),
-              A('Continue the walk' if j.get('mode') == 'walk' else 'Continue', href=go(j), cls='btn small') if pg.current else A('See what comes after', href=at(Routes.one, j), cls='btn small quiet'),
+              Bar(pg.done, pg.total), go_on,
               Div(Span('Side walks', cls='lbl'), Ul(*[SideWalk(*x) for x in sides], cls='plain'), cls='side-walks') if sides else '',
               cls='jrow')
 
@@ -46,14 +48,16 @@ def root_of(j, ids):
         seen.add(p); j = ids[p][0]
     return None if j is None or j.get('depth') else j.id
 
-def JourneyList(js, empty='No journeys yet. Say what you want to learn, and the tutor suggests a path.'):
-    "The journeys, each with its side walks under it. A side walk whose walk is gone has its own line."
+def JourneyList(js, empty='No journeys yet. Say what you want to learn, and the tutor suggests a path.', lead=True):
+    """The journeys, each with its side walks under it. A side walk whose walk is gone has its own line.
+    With `lead`, the first journey with a step to do (the newest, as Continue in the top bar) has the one button."""
     ids = {j.id: (j, pg) for j, pg in js}
     sides = {}
     for j, pg in js:
         if j.get('depth') and (r := root_of(j, ids)): sides.setdefault(r, []).append((j, pg))
     under = {j.id for x in sides.values() for j, _ in x}
-    rows = [Row(j, pg, sides.get(j.id, ())) for j, pg in js if j.id not in under]
+    top = next((j.id for j, pg in js if j.id not in under and pg.current), None) if lead else None
+    rows = [Row(j, pg, sides.get(j.id, ()), j.id == top) for j, pg in js if j.id not in under]
     return Ul(*rows, cls='plain journeys') if rows else P(empty, cls='mute')
 
 def Act(j, s, act, label, title):
@@ -91,7 +95,7 @@ def JourneyPage(j, pg, after=(), others=()):
                Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
                        Button('Add to the path', type='button', cls='small quiet', hx_post=Routes.attach, hx_vals=json.dumps(dict(jid=j.id, slug=c.slug)),
                               hx_target='#path', hx_swap='outerHTML')) for c in after], cls='plain')] if after else []),
-            *([H2('Your other journeys'), JourneyList(others)] if others else [])]
+            *([H2('Your other journeys'), JourneyList(others, lead=False)] if others else [])]
     return (H1(j.title), P('Your goal: ', Span(j.get('goal', ''), cls='goal'), Span(f"  · changed {ago(j.get('updated'))}", cls='mute'), cls='mute'),
             Path_(j, pg), Div(*near, cls='refs') if near else '',
             Form(Button('Remove this journey', cls='small quiet danger'), action=at(Routes.drop, j), method='post',

@@ -4,7 +4,7 @@
 .goal-form .row { margin-top: var(--s3); }
 .journeys .jrow { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--s4); align-items: center; }
 .journeys .jrow .prog { grid-column: 1; margin: 2px 0 0; }
-.journeys .jrow .btn { grid-column: 2; grid-row: 1 / span 2; }
+.journeys .jrow :is(.btn, .onward) { grid-column: 2; grid-row: 1 / span 2; }
 .journeys .jt { font-size: var(--t-body); }
 .phead { margin: var(--s5) 0 var(--s1); } .phead .prog { max-width: 420px; }
 .goal { font-style: italic; color: var(--ink2); }

@@ -139,6 +139,11 @@ main { animation: fade .2s ease-out; }
 .crumbs { font-size: var(--t-small); color: var(--mute); margin: calc(-1 * var(--s4)) 0 var(--s4); display: flex; flex-wrap: wrap; gap: var(--s1) var(--s2); align-items: baseline; }
 .crumbs a { color: var(--mute); text-decoration: none; } .crumbs a:hover { color: var(--fg); text-decoration: underline; }
 .crumbs .sep { opacity: .6; }
+/* a list has one button, on the current row; the other rows have a quiet text link that shows on hover and focus */
+.onward { font-size: var(--t-small); color: var(--mute); text-decoration: none; opacity: 0; transition: opacity var(--dur-1) var(--ease); }
+.onward:hover { color: var(--acc); }
+li:hover .onward, li:focus-within .onward, .onward:focus-visible { opacity: 1; }
+@media (hover: none) { .onward { opacity: 1; } }
 /* a thin progress line: a journey, a week */
 .prog { display: block; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; max-width: 360px; margin: var(--s2) 0 0; }
 .prog i { display: block; height: 100%; background: var(--acc); border-radius: 2px; transition: width var(--dur-3) var(--ease); }

@@ -47,3 +47,26 @@ def test_pane_bar_draws_the_pace():
     js, c = src('core/pane.js'), src('core/pane.css')
     assert 'dataset.rhPace' in js and "querySelector('#rail-prog')" in js and "'rh-pace'" in js and "className = 'prog'" in js
     assert re.search(r'\.rh-pace \{[^}]*display: flex', c) and re.search(r'\.rh-bar \{[^}]*flex-direction: column', c)
+
+# 3. A list has one button: on the current journey, or the current open session; the other rows have a quiet link
+
+def test_journeys_have_one_button(mk, walk_fake, lr):
+    "Journeys: only the first journey with a step to do has a button; the others have a quiet `Continue →` link that shows on hover and focus."
+    cl = mk()
+    for _ in range(3): walk(cl, lr)
+    h = cl.get('/journeys').text
+    rows = h.split('class="jrow"')[1:]
+    assert len(rows) == 3 and sum('class="btn small"' in r for r in rows) == 1 and 'class="btn small">Continue the walk' in rows[0], rows
+    assert all(re.search(r'<a href="[^"]*" class="onward">Continue →</a>', r) for r in rows[1:])
+    b = src('core/base.css')
+    assert re.search(r'\.onward \{[^}]*opacity: 0', b) and ':focus-within .onward' in b and '@media (hover: none) { .onward { opacity: 1; } }' in b
+
+def test_your_learning_has_one_continue_and_no_open(mk, lr):
+    "Your learning: only the newest open session has the Continue button; an older open one has a quiet link; no row has Open."
+    row = [dict(concept='ranking', correct=True, depth=1, question='q', turns=[])]
+    lr.log_session('old1', 'An older open session.', start=3., updated=3., log=row)
+    lr.log_session('new1', 'An open session.', start=5., updated=5., log=row)
+    h = mk().get('/learning').text
+    runs = h[h.index('class="days"'):]
+    assert runs.count('class="btn small">Continue') == 1 and runs.index('/s/new1') < runs.index('class="btn small">Continue') < runs.index('/s/old1'), runs[:3000]
+    assert re.search(r'<a href="/s/old1" class="onward">Continue →</a>', runs) and '>Open<' not in runs

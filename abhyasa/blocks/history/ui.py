@@ -2,7 +2,7 @@
 import time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import n_of, meta, Md, DepthBar, asset_css, ago, Primary
+from abhyasa.core import n_of, meta, Md, DepthBar, asset_css, ago, Primary, Onward
 from abhyasa.model import DEPTHS
 from .cfg import Routes
 
@@ -30,17 +30,18 @@ def Continue(s, title, big=False, href=None):
                P(A(title, href=href), Span(f"  · {n_of(n, 'question')} done · {ago(s.get('updated'))}", cls='mute')),
                Div(Primary('Continue', href=href, rank=1), cls='row'), cls='continue-card')   # on Today, before Start
 
-def Row(s, title, ms, href=None):
-    "One past session: when, what, how it went, what moved, and what you can do next."
+def Row(s, title, ms, href=None, lead=False):
+    """One past session: when, what, how it went, what moved, and what you can do next. The title opens the session.
+    Only the `lead` row (the newest open session) has the Continue button; an older open one has a quiet `Continue →` link."""
     log, open_ = s.get('log'), s.get('log') is not None and not s.get('ended')
     n, ok = (len(log), sum(r['correct'] for r in log)) if log is not None else (s.get('asked', 0), s.get('passed', 0))
     up = [m for m in ms if m['after'] > m['before']]
     mis = [x for m in ms for x in m['misconceptions']]
     missed = [m['concept'] for m in ms if m['passed'] < m['asked']]
     when = time.strftime('%H:%M', time.localtime(s.get('start') or s.get('updated') or 0))
-    acts = [A('Continue', href=href or Routes.of(Routes.page, sid=s['id']), cls='btn small') if open_ else '',
-            A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn small quiet') if missed else '',
-            A('Open', href=Routes.of(Routes.one, sid=s['id']), cls='btn small quiet') if log else '']
+    go = href or Routes.of(Routes.page, sid=s['id'])
+    acts = [(A('Continue', href=go, cls='btn small') if lead else Onward('Continue', go)) if open_ else '',
+            A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn small quiet') if missed else '']
     return Li(Div(Span(when, cls='t'), A(title, href=Routes.of(Routes.one, sid=s['id']) if log else None, cls='tt'),
                   Span('  ' + meta(f"{ok} of {n} passed" if n else 'no answers yet', 'open' if open_ else ''), cls='mute'), cls='rh'),
               P(*[x for m in up for x in (Move(m), '; ')][:-1], cls='moves') if up else '',

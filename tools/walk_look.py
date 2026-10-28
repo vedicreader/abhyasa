@@ -588,13 +588,28 @@ def d2_pane_bar(pg, w):
     ys = pg.evaluate("() => [document.querySelector('body > nav').getBoundingClientRect().bottom, document.querySelector('#rh-pane .rh-bar').getBoundingClientRect().bottom]")
     assert abs(ys[0] - ys[1]) < 1, ys
 
+def d3_one_button_in_a_list(pg, w):
+    "Journeys and Your learning: one button in the list; the other rows show a quiet Continue → only on hover or focus; no Open."
+    new_walk(w)   # a second journey, and two open sessions with an answer
+    row = [dict(concept='ranking', correct=True, depth=1, question='What does a rank tell you?', turns=[])]
+    for k in (1, 2): w.lr.log_session(f'look-open-{k}', f'An open session, number {k}.', start=time.time() - 60 * k, updated=time.time() - 60 * k, log=row)
+    for u, row in (('/journeys', '.jrow'), ('/learning', '.runs li')):
+        pg.goto(w.B + u); settle(pg)
+        assert pg.eval_on_selector_all(f'{row} .btn:not(.quiet)', 'bs => bs.length') == 1, u
+        assert not pg.query_selector(f'{row} a:text-is("Open")'), u
+        ons = pg.query_selector_all(f'{row} .onward')
+        assert ons, (u, 'no quiet link')
+        assert ons[0].evaluate('a => getComputedStyle(a).opacity') == '0', u
+        ons[0].evaluate("a => a.closest('li').querySelector('a').focus()"); pg.wait_for_timeout(300)
+        assert ons[0].evaluate('a => getComputedStyle(a).opacity') == '1', (u, 'the quiet link does not show on focus')
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
-          d1_narrow_band, d2_pane_bar]
+          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
