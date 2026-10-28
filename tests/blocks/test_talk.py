@@ -1,7 +1,7 @@
 "The talk block: make a talk from a walk, change its slides, and find it again."
 from talk_data import *
 from abhyasa.settings import val
-import pytest
+import hashlib, pytest
 from pathlib import Path
 
 def test_present_this_walk(mk, talk_fake, lr):
@@ -201,3 +201,180 @@ def test_editor_options_and_guards(mk, talk_fake, lr):
     r = cl.post(f'/t/{tid}/slide', data=dict(sid=pause, act='edit', kind='choice', q='Q?', options='a\nb', answer='0'))
     assert r.status_code == 400 and r.text == 'This slide has no question for the room.' and lr.talk(tid).slides[1]['ask'] is None
     assert 'class="quiet small danger"' in cl.get(f'/t/{tid}').text   # Take it out looks like a danger
+
+# --- the presenter view, the audience view, hands and the talk keys --------------------------------------------------
+
+def started(cl, lr):
+    "A talk on the prepared walk, started; return (tid, run)."
+    tid = make_talk(cl, prep_walk(lr, walk(cl, lr))); cl.post(f'/t/{tid}/start')
+    return tid, lr.run(lr.talk(tid).live)
+
+def test_start_and_present(mk, talk_fake, lr):
+    cl = mk(); tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
+    assert cl.get(f'/t/{tid}/present', follow_redirects=False).headers['location'] == f'/t/{tid}'
+    r = cl.post(f'/t/{tid}/start', follow_redirects=False)
+    run = lr.run(lr.talk(tid).live)
+    assert r.headers['location'] == f'/t/{tid}/present' and run['at']['slide'] == 's1'
+    page = cl.get(f'/t/{tid}/present').text
+    assert '<nav' not in page and 'Softmax makes weights from scores.' in page and f'/t/{tid}/audience?k={run["key"]}' in page
+    assert f'data-channel="{tid}:{run["key"]}"' in page
+
+def test_audience_has_no_notes_and_no_answers(mk, talk_fake, lr):
+    cl = mk(); tid, run = started(cl, lr)
+    a = cl.get(f'/t/{tid}/audience?k={run["key"]}').text
+    assert '<nav' not in a and 'Softmax makes weights' not in a and '"answer"' not in a and 'data-answer' not in a
+    assert 'It falls' in a and 'softmax-temperature' in a                                   # the public options, and the demo spec for the live demo
+    h = hashlib.sha256(PNG).hexdigest()
+    assert f'/t/{tid}/img/{h}' in a and cl.get(f'/t/{tid}/img/{h}').headers['content-type'] == 'image/png'
+    assert cl.get(f'/t/{tid}/img/{"0" * 64}').status_code == 404 and cl.get(f'/t/{tid}/img/vault.db').status_code == 404
+
+def test_audience_needs_the_run_key(mk, talk_fake, lr):
+    cl = mk(); tid, run = started(cl, lr)
+    assert cl.get(f'/t/{tid}/audience?k=0000000000000000').status_code == 403 and cl.get(f'/t/{tid}/audience').status_code == 403
+    assert cl.get(f'/t/{tid}/audience', params=dict(k='é' * 16)).status_code == 403
+
+def test_place_survives_a_reload(mk, talk_fake, lr):
+    cl = mk(); tid, run = started(cl, lr)
+    assert cl.post(f'/t/{tid}/at', data=dict(slide='s3', beat=2)).status_code == 200
+    assert lr.run(run['id'])['at'] == dict(slide='s3', beat=2, blank=False, pane=None, ask=None)
+    assert 'data-slide="s3" data-beat="2"' in cl.get(f'/t/{tid}/present').text
+    assert 'data-slide="s3" data-beat="2"' in cl.get(f'/t/{tid}/audience?k={run["key"]}').text
+    for bad in (dict(slide='s9', beat=1), dict(slide='s3', beat=3), dict(slide='s3', beat=0), dict(slide='s3', beat=1, pane='https://evil.example/')):
+        assert cl.post(f'/t/{tid}/at', data=bad).status_code == 400, bad
+    assert lr.run(run['id'])['at']['slide'] == 's3'
+
+def test_hands_and_result_stay_out_of_learning(mk, talk_fake, lr):
+    cl = mk(); tid, run = started(cl, lr); n0 = len(lr.attempts(limit=1000))
+    m = cl.post(f'/t/{tid}/ask', data=dict(slide='s3', act='open')).json()
+    assert m == dict(v=1, t='ask', slide='s3', ask=dict(kind='choice', q='T goes from 1 to 2. What happens to the share of Paris?', options=['It rises', 'It falls', 'It stays the same']))
+    cl.post(f'/t/{tid}/ask', data=dict(slide='s3', act='main', main=0))
+    res = cl.post(f'/t/{tid}/ask', data=dict(slide='s3', act='reveal')).json()
+    assert res == dict(v=1, t='result', slide='s3', kind='choice', rounds=[], right=1, main=0)
+    assert lr.run(run['id'])['asks']['s3'] == dict(kind='choice', rounds=[], main=0, shown=[])
+    assert len(lr.attempts(limit=1000)) == n0
+    assert cl.post(f'/t/{tid}/ask', data=dict(slide='s4', act='open')).status_code == 400   # the questions slide has no question
+
+def test_talk_keys_are_in_the_table():
+    from abhyasa.core.keys import KEYS
+    assert ('Talk', 'D', 'Next beat, then the next slide') in KEYS and ('Talk', 'Q', 'Ask the room, or close the question') in KEYS
+    assert ('Talk', '⌥S', 'The main button: start the talk, ask the room, vote again, end the talk') in KEYS
+    assert not [k for g, k, _ in KEYS if g == 'Talk' and k in ('⌥Q', '⌥R', '⌥X', '⌥E')]   # no new ⌥ key
+
+def test_a_new_slide_opens_clean(mk, talk_fake, lr):
+    "A move on the same slide keeps the blank screen, the pane and the question; a new slide clears them, and the reply closes the question."
+    cl = mk(); tid, run = started(cl, lr)
+    post = lambda **kw: cl.post(f'/t/{tid}/at', data=kw)
+    cl.post(f'/t/{tid}/ask', data=dict(slide='s1', act='open'))
+    r = post(slide='s1', beat=1, blank=1, pane='/w/g-1a2b/0').json()
+    assert r['at'] == dict(slide='s1', beat=1, blank=True, pane='/w/g-1a2b/0', ask='s1')
+    assert dict(v=1, t='pane', url='/w/g-1a2b/0?pane=1&talk=1') in r['msgs'] and dict(v=1, t='blank', on=True) in r['msgs']
+    r = post(slide='s2', beat=1).json()
+    assert r['at'] == dict(slide='s2', beat=1, blank=False, pane=None, ask=None) and dict(v=1, t='ask', slide='s1', ask=None) in r['msgs']
+    assert post(slide='s2', beat=1, pane='').status_code == 200 and post(slide='s2', beat=1, blank='yes').status_code == 400
+    assert post(slide='s2', beat=1, pane='/w/../0').status_code == 400 and post(slide='s2', beat='x').status_code == 400
+    assert [x['slide'] for x in lr.run(run['id'])['shown']] == ['s1', 's2']
+
+def test_question_guards_and_pair(mk, talk_fake, lr):
+    "A hands pick out of range is refused; pair gives the prompt with the setting; an unknown act is refused; start again goes to the same run."
+    cl = mk(); tid, run = started(cl, lr)
+    post = lambda **kw: cl.post(f'/t/{tid}/ask', data=dict(slide='s3', **kw))
+    assert post(act='main', main=3).status_code == 400 and post(act='main', main='x').status_code == 400 and post(act='fly').status_code == 400
+    assert post(act='pair', on=1).json() == dict(v=1, t='pair', on=True, prompt=f"Talk to your neighbour for {val('talks.pair_min')} minutes.")
+    assert post(act='close').json() == dict(v=1, t='ask', slide='s3', ask=None)
+    assert cl.post(f'/t/{tid}/ask', data=dict(slide='s9', act='open')).status_code == 400
+    cl.post(f'/t/{tid}/start'); assert lr.talk(tid).live == run['id'] and len(lr.runs(tid)) == 1
+
+def test_run_posts_are_local_only(mk, talk_fake, lr):
+    "start, at and ask are behind LocalOnly: a foreign Origin is refused, and the place does not change."
+    cl = mk(); tid, run = started(cl, lr)
+    evil = {'Origin': 'https://evil.example'}
+    for path, data in ((f'/t/{tid}/start', {}), (f'/t/{tid}/at', dict(slide='s2', beat=1)), (f'/t/{tid}/ask', dict(slide='s3', act='open'))):
+        assert cl.post(path, data=data, headers=evil).status_code == 403, path
+    assert lr.run(run['id'])['at'] == dict(slide='s1', beat=1, blank=False, pane=None, ask=None)
+
+def serve(cl):
+    "Run the app of `cl` on a free port in a thread; return (server, base URL)."
+    import threading, time, uvicorn
+    port = free_port()
+    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
+    threading.Thread(target=srv.run, daemon=True).start()
+    end = time.monotonic() + 10
+    while not srv.started:
+        assert time.monotonic() < end, 'the server did not start in 10 s'
+        time.sleep(.05)
+    return srv, f'http://127.0.0.1:{port}'
+
+def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
+    """In Chromium, a presenter page and an audience page of one run: the keys move both, a lit beat lights the words, a question
+    opens with hands and the right answer, the demo follows the presenter, B blanks the room, a reload finds the place, and
+    the stray keys do nothing."""
+    pw = pytest.importorskip('playwright.sync_api')
+    cl = mk(); tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
+    p1 = lr.talk(tid).slides[0]['show']['passage']; words = ' '.join(p1.split()[1:3])
+    assert cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='edit', beats=f'passage\nlit:{words}')).status_code == 200
+    cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live); n0 = len(lr.attempts(limit=1000))
+    at = lambda: lr.run(run['id'])['at']
+    srv, base = serve(cl)
+    try:
+        with pw.sync_playwright() as p:
+            if not Path(p.chromium.executable_path).exists(): pytest.skip("Playwright's Chromium is not installed")
+            b = p.chromium.launch(headless=True)
+            try:
+                c = b.new_context(viewport=dict(width=1280, height=800))
+                errs = []
+                pr = c.new_page(); pr.on('pageerror', lambda e: errs.append(str(e)))
+                pr.goto(f'{base}/t/{tid}/present'); pr.wait_for_load_state('networkidle')
+                au = c.new_page(); au.on('pageerror', lambda e: errs.append(str(e)))
+                au.set_viewport_size(dict(width=1280, height=720))
+                au.goto(f'{base}/t/{tid}/audience?k={run["key"]}'); au.wait_for_load_state('networkidle')
+                pr.wait_for_selector('#aud-live:not([hidden])')   # the audience window said hello: no popup opens on the first key
+                pr.bring_to_front()
+                shown = lambda pg: pg.evaluate("[document.getElementById('stage').dataset.slide, +document.getElementById('stage').dataset.beat, document.querySelector('#stage > section.stage:not([hidden])').dataset.sid]")
+                assert shown(au) == ['s1', 1, 's1'] and au.locator('#stage mark.lit').count() == 0
+                pr.keyboard.press('d')
+                au.wait_for_function("document.getElementById('stage').dataset.beat === '2'")
+                assert at()['beat'] == 2 and au.locator('#stage mark.lit').inner_text() == words and pr.locator('#stage mark.lit').inner_text() == words
+                pr.keyboard.press('a'); au.wait_for_function("document.getElementById('stage').dataset.beat === '1'")
+                assert au.locator('#stage mark.lit').count() == 0
+                pr.keyboard.press('ArrowRight'); pr.keyboard.press('PageDown')   # a clicker: past the last beat goes to the next slide
+                au.wait_for_function("document.getElementById('stage').dataset.slide === 's2'")
+                assert at()['slide'] == 's2' and pr.locator('#notes > div:not([hidden])').inner_text().startswith('Softmax makes weights')
+                pr.screenshot(path=str(tmp_path/'presenter-s2.png')); au.screenshot(path=str(tmp_path/'audience-s2.png'))
+                pr.keyboard.press('g'); pr.keyboard.press('3')
+                au.wait_for_function("document.getElementById('stage').dataset.slide === 's3'")
+                pr.keyboard.press('d'); au.wait_for_function("document.querySelector('section[data-sid=s3] .demo:not([hidden]) [data-rk-ready]')")
+                # the presenter picks at the gate: the talk settles it, so nothing goes to the learner; the audience copy follows
+                pr.evaluate("""() => { const h = document.querySelector('section[data-sid=s3] [data-rupaka]');
+                  h.querySelector('.rk-gate .opts button').click(); h.querySelector('.rk-gate button.go').click(); h.rupaka.set('t', 2); }""")
+                au.wait_for_function("document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka.st.t === 2")
+                assert au.evaluate("document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka.st.gate.hot") == 'done'
+                assert au.evaluate("document.querySelector('section[data-sid=s3] .rk-gate').inert") is True
+                au.screenshot(path=str(tmp_path/'audience-demo.png'))
+                pr.keyboard.press('e'); assert pr.evaluate("!!document.activeElement.closest('[data-rupaka]')")   # E goes into the demo
+                pr.keyboard.press('d'); pr.wait_for_timeout(150); assert at()['beat'] == 2   # there the demo's own keys win
+                pr.keyboard.press('Escape'); assert pr.evaluate("!document.activeElement.closest('[data-rupaka]')") and at()['slide'] == 's3'
+                pr.keyboard.press('q'); au.wait_for_selector('#stage .stage-ask:not([hidden])')
+                assert 'It falls' in au.locator('#stage .stage-ask').inner_text() and at()['ask'] == 's3'
+                assert au.locator('#stage .stage-ask li.right').count() == 0   # no answer before R
+                au.reload(); au.wait_for_selector('#stage .stage-ask:not([hidden])')   # a reload in the middle of a question catches up
+                assert shown(au)[0] == 's3'
+                au.wait_for_function("document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka?.st.t === 2")   # and the demo state
+                pr.bring_to_front(); pr.keyboard.press('1'); pr.keyboard.press('r')
+                au.wait_for_selector('#stage .stage-ask li.right')
+                assert au.locator('#stage .stage-ask li.right').inner_text().startswith('BIt falls') or 'It falls' in au.locator('#stage .stage-ask li.right').inner_text()
+                assert lr.run(run['id'])['asks']['s3']['main'] == 0
+                pr.screenshot(path=str(tmp_path/'presenter.png')); au.screenshot(path=str(tmp_path/'audience.png'))
+                pr.keyboard.press('Escape'); au.wait_for_selector('#stage .stage-ask', state='hidden')
+                assert at()['ask'] is None
+                pr.keyboard.press('b'); au.wait_for_function("document.getElementById('stage').classList.contains('blank')")
+                assert at()['blank'] is True
+                pr.keyboard.press('b'); au.wait_for_function("!document.getElementById('stage').classList.contains('blank')")
+                url = pr.url
+                for k in ('Alt+t', 'Alt+c', 'Alt+g', 'Alt+d', '/', 'Escape'): pr.keyboard.press(k)
+                pr.wait_for_timeout(200); assert pr.url == url   # a stray key never leaves a live talk
+                pr.reload(); pr.wait_for_load_state('networkidle')
+                assert shown(pr)[0] == 's3' and pr.locator('#ask-card .ask-q:not([hidden])').count() == 1
+                au.bring_to_front(); au.keyboard.press('d'); au.wait_for_selector('#keys-note:not([hidden])')   # keys work in the presenter window
+                assert at()['beat'] == 2 and len(lr.attempts(limit=1000)) == n0 and not errs, errs
+            finally: b.close()
+    finally: srv.should_exit = True

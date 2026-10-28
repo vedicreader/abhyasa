@@ -1,12 +1,18 @@
 """The talk: a walk made into slides for a group. "Present this walk" makes the talk on the pool, and the editor changes its slides.
-A change to the talk never changes the walk. Each change runs `check_talk`, and a talk with a problem is not saved."""
-import math, random
+A change to the talk never changes the walk. Each change runs `check_talk`, and a talk with a problem is not saved.
+
+"Present" starts a run. The presenter window and the audience window (`/t/{tid}/audience?k=<run key>`) stay in step over the
+stage channel. Each key posts to the server first (`at`, `ask`), and the window sends the stage messages from the reply, so the
+run log on the server always has the place. The hands of the room and the result never go into the learner model."""
+import math, random, re, secrets, time
 from copy import deepcopy
 from fasthtml.common import *
-from abhyasa.core import Page, hook
+from starlette.responses import JSONResponse, RedirectResponse
+from abhyasa.core import Page, hook, n_of
 from abhyasa.llm import for_task
 from abhyasa.settings import val
-from abhyasa.talk import check_talk, talk_from_walk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN
+from abhyasa.talk import (check_talk, talk_from_walk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
+                          public_deck, public_ask, asset_resolver, new_run, log_go, log_main)
 from . import ui
 from .cfg import Routes
 
@@ -19,6 +25,9 @@ ASKS = ('idea', 'primer')              # the slide kinds that can ask the room
 SLOT = (5, 240)                         # the most and the least minutes of a slot
 SECS = (10, 1800)                       # the time of a pause
 Q_MOST, OPT_MOST, NOTE_MOST = 500, 200, 5000   # as the `ask` message of the stage allows
+WALK_STEP = re.compile(r'/w/[a-z0-9-]{1,48}/[0-9]{1,3}')   # the only page that the side pane of a talk opens (spec 9.2)
+HASH = re.compile(r'[0-9a-f]{64}')
+NO_ASK = 'This slide has no question for the room.'
 
 class Bad(Exception):
     "A change that cannot be made; its text goes back to the editor."
@@ -118,6 +127,21 @@ def edit(s, f):
     s['ask'] = a
     return s
 
+def room_spec(spec):
+    "A copy of a demo spec for the audience window: no gate has its `answer`, so the HTML has no answer before the presenter shows it."
+    def strip(x):
+        if isinstance(x, list): return [strip(v) for v in x]
+        if not isinstance(x, dict): return x
+        return {k: strip(v) for k, v in x.items() if not (k == 'answer' and x.get('type') == 'gate')}
+    return strip(deepcopy(spec))
+
+def place_msgs(at, old):
+    "The stage messages for the place `at`; a question of the slide before closes."
+    pane = f"{at['pane']}?pane=1&talk=1" if at['pane'] else None
+    out = [dict(v=1, t='go', slide=at['slide'], beat=at['beat']), dict(v=1, t='blank', on=at['blank']), dict(v=1, t='pane', url=pane)]
+    if old['ask'] and not at['ask']: out.append(dict(v=1, t='ask', slide=old['ask'], ask=None))
+    return out
+
 def connect(app, ctx):
     lr = ctx.learning
     jobs = {}   # walk id -> the pool job that makes its talk
@@ -196,6 +220,107 @@ def connect(app, ctx):
             t['phones'] = phones == 'on'
         return ui.Deck(lr.put_talk(t))
 
+    # --- the run: the presenter window, the audience window, the place and the questions ----------------------------------
+
+    def live(tid):
+        "Talk `tid` and its open run (None when no run is open)."
+        if not (t := lr.talk(tid)): return None, None
+        r = lr.run(t.get('live') or '') if t.get('live') else None
+        return t, (dict(r) if r and not r.get('ended') else None)
+
+    def slide_of(t, sid): return next((s for s in t['slides'] if s.get('id') == sid), None)
+
+    def specs(t):
+        "The demo spec of each slide that shows a demo, by slide id."
+        out = {}
+        for s in t['slides']:
+            if (slug := (s.get('show') or {}).get('demo')) and (d := lr.demo(slug)) and d.get('spec'): out[s['id']] = (slug, d.spec)
+        return out
+
+    def start(tid:str):
+        "Start a run of talk `tid`, or go back to the run that is open."
+        t, r = live(tid)
+        if not t: return Response('No such talk.', status_code=404)
+        if not r:
+            r = new_run(t); lr.put_run(r); lr.put_talk({**t, 'live': r['id']})
+        return RedirectResponse(Routes.of(Routes.present, tid=tid), status_code=303)
+
+    def page(req, title, c, cls):
+        out = Page(title, c, extra=(*ui.stage_assets(), *ui.rupaka_assets(), *ui.assets()), pane=True)
+        req.htmlkw['class'] = cls   # no nav and no crumbs (pane=True); the talk keys (talk.js) work only with `talk`
+        return out
+
+    def presenter(req, tid:str):
+        t, r = live(tid)
+        if not t: return Response('No such talk.', status_code=404)
+        if not r: return RedirectResponse(Routes.of(Routes.one, tid=tid), status_code=303)
+        deck = public_deck(t, asset_resolver(lr))
+        return page(req, f"{t.title}, presenter", ui.Presenter(t, deck, r, specs(t)), 'talk present')
+
+    def audience(req, tid:str, k:str=''):
+        t, r = live(tid)
+        if not r or not secrets.compare_digest(str(k).encode(), str(r['key']).encode()): return Response('This is not the audience window of the talk that runs now.', status_code=403)
+        deck = public_deck(t, asset_resolver(lr))
+        room = {sid: (slug, room_spec(sp)) for sid, (slug, sp) in specs(t).items()}
+        return page(req, t.title, ui.Audience(t, deck, r, room, fade=val('talks.laser_ms')), 'talk audience')
+
+    def img(tid:str, h:str):
+        "The bytes of one image of the public deck, by its sha256."
+        if not HASH.fullmatch(h) or not (t := lr.talk(tid)): return Response('No such image.', status_code=404)
+        if not (got := public_deck(t, asset_resolver(lr)).images.get(h)): return Response('No such image.', status_code=404)
+        return Response(got[0], media_type=got[1], headers={'Cache-Control': 'private, max-age=3600'})
+
+    async def at(req, tid:str):
+        "Move the place of the run: `slide`, `beat`, and `blank` (0 or 1) and `pane` (a walk step path, or empty) when they change."
+        t, r = live(tid)
+        if not r: return text('The talk does not run now.')
+        f = {k: v for k, v in (await req.form()).items() if isinstance(v, str)}
+        if not (s := slide_of(t, f.get('slide'))): return text('No such slide.')
+        try: beat = number(f.get('beat', ''), 1, max(1, len(s.get('beats') or [])), 'No such beat on this slide.')
+        except Bad as e: return text(str(e))
+        blank, pane = f.get('blank'), f.get('pane')
+        if blank not in (None, '0', '1'): return text('blank is 0 or 1.')
+        if pane not in (None, '') and not WALK_STEP.fullmatch(pane): return text('The side pane opens only a step of a walk.')
+        old = dict(r['at']); new = s['id'] != old['slide']
+        log_go(r, s['id'], beat, time.time())
+        a = r['at']
+        if new: a.update(blank=False, pane=None, ask=None)   # a new slide opens clean: no blank screen, no pane, no question
+        if blank is not None: a['blank'] = blank == '1'
+        if pane is not None: a['pane'] = pane or None
+        lr.put_run(r)
+        return JSONResponse(dict(at=a, msgs=place_msgs(a, old)))
+
+    async def ask_(req, tid:str):
+        "A question for the room: `act` is open, close, main (the option that most hands chose), reveal or pair."
+        t, r = live(tid)
+        if not r: return text('The talk does not run now.')
+        f = {k: v for k, v in (await req.form()).items() if isinstance(v, str)}
+        if not (s := slide_of(t, f.get('slide'))): return text('No such slide.')
+        if not (a := s.get('ask')) or a.get('kind') == 'none': return text(NO_ASK)
+        sid, act = s['id'], f.get('act', '')
+        if act == 'open':
+            r['at']['ask'] = sid; lr.put_run(r)
+            return JSONResponse(dict(v=1, t='ask', slide=sid, ask=public_ask(a)))
+        if act == 'close':
+            if r['at']['ask'] == sid: r['at']['ask'] = None; lr.put_run(r)
+            return JSONResponse(dict(v=1, t='ask', slide=sid, ask=None))
+        if act == 'main':
+            opts = a.get('options') or []
+            if not opts: return text('This question has no options to count hands for.')
+            try: n = number(f.get('main', ''), 0, len(opts) - 1, 'Pick one of the options of the question.')
+            except Bad as e: return text(str(e))
+            log_main(r, sid, a['kind'], n); lr.put_run(r)   # in the run log only, never in Learning.record
+            return JSONResponse(dict(slide=sid, main=n))
+        if act == 'reveal':
+            lg = r['asks'].get(sid) or {}
+            rounds = [{k: v for k, v in x.items() if k in ('counts', 'n')} for x in lg.get('rounds') or []]
+            right = a.get('answer') if a['kind'] in ('choice', 'order') else None
+            return JSONResponse(dict(v=1, t='result', slide=sid, kind=a['kind'], rounds=rounds, right=right, main=lg.get('main')))
+        if act == 'pair':
+            if (on := f.get('on', '1')) not in ('0', '1'): return text('on is 0 or 1.')
+            return JSONResponse(dict(v=1, t='pair', on=on == '1', prompt=f"Talk to your neighbour for {n_of(val('talks.pair_min'), 'minute')}."))
+        return text(f'Unknown act: {act}.')
+
     @hook('walk_actions')
     def present(j):
         "On the plan of a walk and on its journey page: make a talk from the walk."
@@ -211,3 +336,9 @@ def connect(app, ctx):
     app.get(Routes.one)(one)
     app.post(Routes.slide)(slide)
     app.post(Routes.slot)(slot)
+    app.post(Routes.start)(start)
+    app.get(Routes.present)(presenter)
+    app.get(Routes.audience)(audience)
+    app.get(Routes.img)(img)
+    app.post(Routes.at)(at)
+    app.post(Routes.ask)(ask_)
