@@ -6,6 +6,7 @@
 
 - Demo ladder: when you miss an idea after its demo, the tutor teaches it in another way, then shows a simpler demo, then steps back to a prereq (setting: More help after a demo).
 - Code runner: learner code cannot send a signal to another process.
+- Code runner: learner code cannot fake a pass. The report goes to a private pipe, not to stdout.
 
 ## 0.0.11
 
