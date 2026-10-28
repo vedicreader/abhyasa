@@ -272,12 +272,13 @@ def parse(text, nonce:str=None) -> dict:
     return {'error': 'no check result'}
 
 # %% ../nbs/06_check.ipynb #b7c1a002
-def _guard(tmp):
-    "Add an audit hook that refuses the network, new processes, and file changes outside the folder `tmp`."
-    import os, sys
+def _guard(tmp, unix=False):
+    "Add an audit hook that refuses the network, new processes, and file changes outside the folder `tmp`; with `unix`, allow a local socket pair."
+    import os, sys, socket
     writes = os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_TRUNC
     def outside(p): return isinstance(p, (str, bytes, os.PathLike)) and not os.path.realpath(os.fsdecode(p)).startswith(tmp + os.sep)
     def hook(event, args):
+        if unix and event == 'socket.__new__' and args[1] == socket.AF_UNIX: return
         if event.startswith(('socket.', 'os.exec', 'os.posix_spawn', 'os.fork')) or event in ('subprocess.Popen', 'os.system'):
             raise PermissionError(f'{event} is not allowed')
         if event == 'open' and ((isinstance(args[1], str) and any(m in args[1] for m in 'wax+')) or args[2] & writes) and outside(args[0]):
@@ -316,14 +317,14 @@ def _split_future(source) -> tuple:
     return ''.join(lines[:n]), ''.join(lines[n:])
 
 # %% ../nbs/06_check.ipynb #b7c1a008
-def run_isolated(kind, fname, source, tests, *, total=10., setup=(), sandbox=True) -> dict:
-    "Run `source` and its checks in a closed Python process with time, CPU and file limits; with `sandbox`, also with no network."
+def run_isolated(kind, fname, source, tests, *, total=10., setup=(), sandbox=True, python=None, unix=False) -> dict:
+    "Run `source` and its checks in a closed process with no network, using `python` (default `sys.executable`); with `unix`, it can use a local socket pair."
     import tempfile
     nonce, (head, body) = os.urandom(8).hex(), _split_future(source)
     with tempfile.TemporaryDirectory() as tmp:
-        tmp, cmd, pre = os.path.realpath(tmp), [sys.executable, '-I', '-B'], _limits(total)
+        tmp, cmd, pre = os.path.realpath(tmp), [python or sys.executable, '-I', '-B'], _limits(total)
         if sandbox:
-            pre += f'{inspect.getsource(_guard)}\n_guard({tmp!r})\ndel _guard\n'
+            pre += f'{inspect.getsource(_guard)}\n_guard({tmp!r}, {unix!r})\ndel _guard\n'
             if sys.platform == 'darwin' and os.path.exists(SANDBOX_EXEC): cmd = [SANDBOX_EXEC, '-p', SANDBOX_PROFILE, '-D', f'TMP={tmp}', *cmd]
         code = f'{head}\n{pre}{body}\n' + snippet(kind, fname, tests, total=total, setup=setup, nonce=nonce)
         with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=tmp,
