@@ -370,9 +370,9 @@ def log_round(run:dict, slide:str, kind:str, counts:list, n:int, **extra) -> dic
     a['rounds'].append(r)
     return r
 
-def log_main(run:dict, slide:str, kind:str, main:int):
-    "Keep `main`, the option that most hands chose for the question of `slide`."
-    _ask_log(run, slide, kind)['main'] = main
+def log_main(run:dict, slide:str, kind:str, main:int|list):
+    "Keep `main`, the option that most hands chose for the question of `slide`, or a list (the cards of a board, the order of a timeline)."
+    _ask_log(run, slide, kind)['main'] = list(main) if isinstance(main, (list, tuple)) else main
 
 # %% ../nbs/17_talk.ipynb #b8a90bff
 def log_question(run:dict, text:str, at:float, shown:bool=False, note:str='') -> dict:
@@ -442,7 +442,7 @@ def weak(t:dict, run:dict, below:float=None) -> list:
             r = log['rounds'][-1]
             if (sh := share_right(a, r)) is not None and sh < below:
                 out.append(dict(slide=s['id'], title=s.get('title') or '', share=sh, top_wrong=_top_wrong(a, r.get('counts')), n=r.get('n'), main=None))
-        elif (m := log.get('main')) is not None and a.get('kind') == 'choice' and m != a.get('answer'):
+        elif isinstance(m := log.get('main'), int) and a.get('kind') == 'choice' and m != a.get('answer'):
             out.append(dict(slide=s['id'], title=s.get('title') or '', share=None, top_wrong=_option(a, m), n=None, main=m))
     return out
 
