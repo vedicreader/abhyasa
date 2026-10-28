@@ -11,6 +11,12 @@ if (!window.abhyasaWalk) {
     if (f) f.focus({preventScroll: true, focusVisible: false});
   });
 
+  // A figure that does not load goes out of sight, so the page shows no broken image. Its alt text stays for a screen reader.
+  const gone = img => img.closest('#figure')?.classList.add('gone');
+  document.addEventListener('error', e => { if (e.target.matches && e.target.matches('#figure img')) gone(e.target); }, true);
+  const check = () => document.querySelectorAll('#figure img').forEach(i => { if (i.complete && !i.naturalWidth) gone(i); });
+  window.addEventListener('load', check); document.addEventListener('htmx:afterSettle', check);
+
   // The draft in the answer box is kept in sessionStorage by the id of the question, so a reload or a side walk in the same tab
   // does not lose it. It goes when you send the answer.
   const root = document.documentElement, KEY = 'rh-draft:';

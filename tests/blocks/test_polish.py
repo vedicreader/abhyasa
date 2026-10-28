@@ -145,3 +145,10 @@ def test_week_bars_stand_out_in_dark():
 def test_signal_why_text_is_not_mono():
     css = (ROOT/'core/base.css').read_text()
     assert re.search(r'\[data-theme=signal\] \.why[^{]*\{[^}]*font-family: var\(--serif\)', css)
+
+# F17: a figure that does not load shows no broken image
+
+def test_a_figure_that_fails_goes_but_keeps_its_alt_text():
+    js, css = (ROOT/'blocks/walk/walk.js').read_text(), (ROOT/'blocks/walk/walk.css').read_text()
+    assert "'#figure img'" in js and "addEventListener('error'" in js and "classList.add('gone')" in js
+    assert re.search(r'#figure\.gone \{[^}]*clip-path', css)                   # out of sight, but a screen reader still reads the alt text
