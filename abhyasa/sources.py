@@ -269,18 +269,24 @@ def _reader(lr:Learning, kind:str):
     return read
 
 def file_link(lr:Learning, url:str, max_pages:int=8, read=None) -> L:
-    "File the pages of `url` in the vault. Return `shelf`, `doc_id`, `title` and `url` of each page in the folder of `url`, in reading order, at most `max_pages`."
+    "File the pages of `url` in the vault. Return `shelf`, `doc_id`, `title` and `url` of each page in the folder of `url` (after any redirect of the start page), in reading order, at most `max_pages`."
     url, cap = url.strip(), max(1, min(int(max_pages), LINK_MAX))
     kind = link_kind(url)
     how = READERS.get(kind) or ('url' if cap == 1 else 'crawl')
     if read is None:
         if (host := urlparse(url).hostname) and any(map(_local, _addrs(host))): raise LinkError(NOT_LOCAL)
         read = _reader(lr, kind)
-    kw = dict(crawl=dict(max_pages=cap, follow_sel=link_sel(url), **PLAIN), url=PLAIN, pdf=FETCH, arxiv=FETCH, github=dict(code=False)).get(how, {})
     shelves, docs = [lr.vault.route(kind), lr.vault], L()   # a reader can file on the shelf of the kind or on the main shelf
-    for r in _filed(read(how, url, **kw)):
+    start, found = url, read is not None
+    if how in ('url', 'crawl'):   # a docs site can redirect its start page to another host or folder: the folder is that of the page after the redirects
+        got = _filed(read('url', url, **PLAIN))
+        start = first(d['source'] for r in got if (d := first(s.doc(r['doc_id']) for s in shelves))) or url
+        host = urlparse(start).hostname
+        if urlparse(start).scheme not in ('http', 'https') or not host or _local(host) or (not found and any(map(_local, _addrs(host)))): raise LinkError(NOT_LOCAL)
+    kw = dict(crawl=dict(max_pages=cap, follow_sel=link_sel(start), **PLAIN), pdf=FETCH, arxiv=FETCH, github=dict(code=False)).get(how, {})
+    for r in _filed(got if how == 'url' else read(how, start, **kw)):
         sh, d = first(((s, s.doc(r['doc_id'])) for s in shelves), lambda x: x[1]) or (None, None)
-        if not d or d['id'] in docs.attrgot('doc_id') or (how in ('url', 'crawl') and not in_scope(d['source'], url)): continue
+        if not d or d['id'] in docs.attrgot('doc_id') or (how in ('url', 'crawl') and not in_scope(d['source'], start)): continue
         docs.append(AttrDict(shelf=sh.name, doc_id=d['id'], title=d['title'], url=d['source']))
     if how == 'github': docs = L(sorted(docs, key=lambda d: 'readme' not in Path(d.url).name.lower()))
     if not docs: raise LinkError('abhyasa could not read this link.')

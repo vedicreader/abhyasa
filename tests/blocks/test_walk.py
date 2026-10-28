@@ -267,6 +267,7 @@ def test_walk_from_a_link(mk, walk_fake, lr, monkeypatch):
     def crawl(self, start_url, max_pages=10, sel=None, **kw):
         return L([self.add(PAGES, 'Attention docs', source=start_url, kind='web', meta=dict(url=start_url))])
     monkeypatch.setattr(Vault, 'crawl', crawl)
+    monkeypatch.setattr(Vault, 'url', lambda self, u, **kw: self.add(PAGES, 'Attention docs', source=u, kind='web'))   # the start page is read first
     monkeypatch.setattr('abhyasa.sources._addrs', lambda host: {'93.184.216.34'})   # no DNS: a host on the internet
     cl = mk(); u = 'https://docs.example.dev/attention/'
     assert 'From a link' in cl.get('/add').text and 'Pages to read' in cl.get('/add').text
@@ -292,6 +293,7 @@ def test_link_walk_shows_only_its_own_messages(mk, walk_fake, lr, monkeypatch):
     from vishalakshi.core import Vault
     def crawl(self, *a, **kw): raise ValueError('10.0.0.1 is a private address — pass allow_private=True or set FOSSICK_ALLOW_PRIVATE=1')
     monkeypatch.setattr(Vault, 'crawl', crawl)
+    monkeypatch.setattr(Vault, 'url', lambda self, u, **kw: self.add(PAGES, 'Docs', source=u, kind='web'))
     monkeypatch.setattr('abhyasa.sources._addrs', lambda host: {'93.184.216.34'})
     cl = mk(); u = 'https://docs.example.dev/broken/'
     cl.post('/walk/new', data=dict(url=u))
