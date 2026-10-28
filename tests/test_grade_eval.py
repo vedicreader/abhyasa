@@ -24,7 +24,7 @@ def test_question_checks():
     assert all(oks(ge.question_checks(dict(question='If x is 0, then what is z?', code=''))))
 
 def test_one_ask():
-    "A second question word joined by 'and', 'or' or a comma fails the one-ask check; one ask passes."
+    "A second question word joined by 'and' or 'or' fails the one-ask check; one ask passes."
     ask = lambda q: dict(ge.question_checks(dict(question=q, code='')))['one ask']
     for q in ("After the loop, what does `out` hold, and why does it have fewer values than `sales`?",
               "What does it return for 2100 and for 2400, and why do the results differ?",

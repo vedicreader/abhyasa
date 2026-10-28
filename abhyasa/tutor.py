@@ -71,9 +71,9 @@ Pairs of a BAD and a GOOD question, on other subjects. Do not copy them:
 
 import re
 def one_ask(q:str) -> bool:
-    "No second ask in the sentence that ends in '?'. 'Which' and 'who' after a comma can only describe a noun, so they need 'and' or 'or'."
+    "No second ask in the sentence that ends in '?'. A second ask joins with 'and' or 'or' (', and why'). A clause before a question word ('If x is 3, what ...') is one ask."
     ask = re.split(r'(?<=[.!:;])\s+', (q or '').strip())[-1]
-    return not re.search(r'(?:\b(?:and|or)|,)\s+(?:why|what|how|when|where)\b|\b(?:and|or)\s+(?:which|who)\b', ask, re.I)
+    return not re.search(r'\b(?:and|or)\s+(?:why|what|how|when|where|which|who)\b', ask, re.I)
 
 def asks_twice(q:str) -> bool:
     "True when a question has more than one `?`, or a second ask joined to the first (see `one_ask`)."
