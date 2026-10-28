@@ -12,6 +12,7 @@
 - Settings has every value in 11 groups, with the range and the default of each. The number of ideas in a walk is 12 by default.
 - A new look for the walk, Add, Graph, Today and Profile pages.
 - Fix: ⌥F opens the keyboard shortcuts again.
+- Needs fossick 0.1.22, which checks each redirect and verifies TLS.
 
 ## 0.0.10
 

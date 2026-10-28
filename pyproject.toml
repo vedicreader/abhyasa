@@ -28,6 +28,7 @@ dependencies = [
     "vidyut>=0.4",
     "mdhtml>=0.1.38",
     "nh3>=0.3.7",
+    "fossick>=0.1.22",
 ]
 
 [project.optional-dependencies]
