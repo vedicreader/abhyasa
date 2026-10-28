@@ -10,7 +10,7 @@ __all__ = ['SAFE_NAMES', 'SAFE_BUILTINS', 'SAFE_NODES', 'TEST_SECONDS', 'RUN_SEC
            'snippet', 'parse', 'run_isolated']
 
 # %% ../nbs/06_check.ipynb #7ddc814d
-import ast, builtins, ctypes, inspect, io, json, os, signal, subprocess, sys, threading, time
+import ast, builtins, ctypes, inspect, io, json, os, re, signal, subprocess, sys, threading, time
 from contextlib import contextmanager, redirect_stdout, redirect_stderr
 from fastcore.basics import AttrDict, adict, stop
 from fastcore.nbio import read_nb, dict2nb
@@ -311,21 +311,27 @@ def _limits(total) -> str:
 
 # %% ../nbs/06_check.ipynb #b7c1a013
 def _split_future(source) -> tuple:
-    "The docstring and the `from __future__` imports at the start of `source`, and the code after them."
+    "The docstring and the `from __future__` imports at the start of `source`, and the code after them. Refuse code on the same line as one of them."
     try: tree = ast.parse(source)
     except (SyntaxError, ValueError): return '', source
-    n = 0
+    k = 0
     for i, s in enumerate(tree.body):
-        if isinstance(s, ast.ImportFrom) and s.module == '__future__': n = s.end_lineno
-        elif not (i == 0 and isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant) and isinstance(s.value.value, str)): break
-    lines = source.splitlines(keepends=True)
-    return ''.join(lines[:n]), ''.join(lines[n:])
+        if not ((isinstance(s, ast.ImportFrom) and s.module == '__future__') or
+                (i == 0 and isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant) and isinstance(s.value.value, str))): break
+        k = i + 1
+    if not k: return '', source
+    if k < len(tree.body) and tree.body[k].lineno <= tree.body[k - 1].end_lineno:
+        raise ValueError('Put the docstring and each `from __future__` import on its own line.')
+    lines = re.findall(r'.*?(?:\r\n|\r|\n)|.+\Z', source, re.S)   # the same line breaks as `ast`
+    return '\n'.join(ast.get_source_segment(source, s) for s in tree.body[:k]), ''.join(lines[tree.body[k - 1].end_lineno:])
 
 # %% ../nbs/06_check.ipynb #b7c1a008
 def run_isolated(kind, fname, source, tests, *, total=None, setup=(), sandbox=True, python=None, unix=False) -> dict:
     "Run `source` and its checks in a closed process with no network, using `python` (default `sys.executable`); with `unix`, it can use a local socket pair. `total` defaults to the setting `runner.total`, and each test gets `runner.per_test` seconds."
     import tempfile
-    nonce, (head, body), total = os.urandom(8).hex(), _split_future(source), float(total or val('runner.total'))
+    try: head, body = _split_future(source)
+    except ValueError as e: return {'error': str(e)}
+    nonce, total = os.urandom(8).hex(), float(total or val('runner.total'))
     with tempfile.TemporaryDirectory() as tmp:
         tmp, cmd, pre = os.path.realpath(tmp), [python or sys.executable, '-I', '-B'], _limits(total)
         if sandbox:

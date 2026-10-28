@@ -323,6 +323,16 @@ def test_future_import_stays_first():
     assert r['checks'][0]['status'] == 'pass'
 
 
+def test_code_on_the_line_of_a_future_import_is_refused():
+    "Code after a `;` on the future line must not run before the guard. The runner refuses it."
+    for head in ('from __future__ import annotations', '"doc"'):
+        src = f'{head}; import socket; S = socket.socket()\ndef f(n): return "made-socket-before-guard"'
+        r = check.run_isolated('assert', 'f', src, ['assert f(2) == 4'])
+        assert 'checks' not in r and 'own line' in r['error'], r
+    head, body = check._split_future('"doc"\nfrom __future__ import (\n    annotations)\nfrom __future__ import division\nx = 1\n')
+    assert (head, body) == ('"doc"\nfrom __future__ import (\n    annotations)\nfrom __future__ import division', 'x = 1\n')
+
+
 def test_a_signal_that_is_not_a_limit_is_no_result():
     stop = 'import os, signal\nos.kill(os.getpid(), signal.SIGTERM)\ndef f(n): return n * 2'
     assert check.run_isolated('assert', 'f', stop, ['assert f(2) == 4']) == {'error': 'no check result'}
