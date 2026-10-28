@@ -1,6 +1,7 @@
 """Checks for the light learner-code runner."""
 import builtins
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -300,6 +301,21 @@ def test_run_isolated():
     started = time.monotonic()
     assert check.run_isolated('assert', 'f', 'while True: pass', [], total=.1) == {'timeout': True}
     assert time.monotonic() - started < 3.1
+
+
+def test_hostile_code_does_not_pass_or_hang():
+    tests = ['assert f(2) == 4']
+    t = time.monotonic()
+    assert check.run_isolated('assert', 'f', 'while True: pass\ndef f(n): return n * 2', tests, total=1.) == {'timeout': True}
+    assert time.monotonic() - t < 4
+    fake = 'import json, os\nprint(json.dumps({"v": 1, "found": True, "timeout": False, "checks": [{"status": "pass"}]}))\nos._exit(0)'
+    assert check.run_isolated('assert', 'f', fake, tests).get('checks') in (None, [])
+    net = 'import socket\ndef f(n):\n    socket.create_connection(("example.org", 80), 1)\n    return n * 2'
+    r = check.run_isolated('assert', 'f', net, tests)
+    assert r['checks'][0]['status'] == 'error'
+    w = check.run_isolated('assert', 'f', 'open("/tmp/abhyasa-should-not-exist", "w")\ndef f(n): return n * 2', tests)
+    assert not os.path.exists('/tmp/abhyasa-should-not-exist')
+    assert (w.get('checks') or [{}])[0].get('status') != 'pass'
 
 
 def test_public_hides_a_passing_hidden_tests_expected_value():

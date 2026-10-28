@@ -5,9 +5,10 @@ import pytest
 from fastcore.basics import AttrDict
 
 from abhyasa.llm import Fake
-from abhyasa.nb import Exercise
+from abhyasa.nb import Exercise, new_exercise
 from abhyasa.store import temp_learning
 from abhyasa.tutor import Tutor
+from walk_data import EXERCISE
 
 
 @pytest.fixture
@@ -64,3 +65,8 @@ def test_exercise_report_grade(exercise):
         return AttrDict(outcome='miss', feedback=grade.first_error, lesson='', floor=0)
     exercise.t._close = close
     assert 'got 4' in exercise.check(lambda x: 4)
+
+
+def test_exercise_uses_new_exercise(lr):
+    ex = new_exercise(Fake({'You write one small Python exercise': EXERCISE}), lr.concept('ranking'))
+    assert ex.fname == 'softmax' and ex.solution.startswith('import math')
