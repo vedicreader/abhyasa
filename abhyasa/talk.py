@@ -1,4 +1,4 @@
-"""A walk as a talk for a group: the deck shape, its checks, and a talk made from a walk.
+"""A walk as a talk for a group: the deck shape, its checks, a talk made from a walk, the run log and the recap.
 
 Docs: https://vedicreader.github.io/abhyasa/talk.html.md"""
 
@@ -6,11 +6,17 @@ Docs: https://vedicreader.github.io/abhyasa/talk.html.md"""
 
 # %% auto #0
 __all__ = ['TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'TALK_CASES',
-           'CHOICE_SP', 'check_talk', 'ask_from_gate', 'public_ask', 'ask_from_check', 'ask_for_concept',
-           'slide_minutes', 'talk_minutes', 'talk_from_walk']
+           'CHOICE_SP', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'check_talk', 'ask_from_gate', 'public_ask',
+           'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'talk_from_walk', 'image_type',
+           'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_question',
+           'log_beside', 'share_right', 'is_split', 'weak', 'recap', 'recap_html']
 
 # %% ../nbs/17_talk.ipynb #bddba3f8
-import re, json, math, time, uuid
+import re, json, math, time, uuid, secrets, hashlib, base64, html
+from copy import deepcopy
+from datetime import datetime
+from pathlib import Path
+from typing import Callable
 from fastcore.utils import *
 from .store import Learning, slugify, _src
 from .journey import minutes
@@ -274,3 +280,246 @@ def talks(self:Learning) -> L:
 def drop_talk(self:Learning, tid:str):
     "Remove a talk. Its walk stays."
     if (t := self.talk(tid)): self.v.forget(t.doc_id)
+
+# %% ../nbs/17_talk.ipynb #399b1dc2
+IMAGE_TYPES = {b'\x89PNG\r\n\x1a\n': 'image/png', b'\xff\xd8\xff': 'image/jpeg', b'GIF87a': 'image/gif', b'GIF89a': 'image/gif'}
+IMAGE_SUFFIXES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
+
+def image_type(b:bytes) -> str|None:
+    "The image type of the bytes `b`, or None when they are not a png, jpeg, gif or webp image."
+    if not isinstance(b, (bytes, bytearray)): return None
+    if b[:4] == b'RIFF' and b[8:12] == b'WEBP': return 'image/webp'
+    return first(m for sig, m in IMAGE_TYPES.items() if b.startswith(sig))
+
+# %% ../nbs/17_talk.ipynb #df2686bb
+def asset_resolver(lr:Learning) -> Callable[[str], Path|None]:
+    "A resolver from an image id `asset:<path>` to a file in the assets folder of `lr`, or None."
+    root = lr.vault.assets().resolve()
+    def resolve(image_id:str) -> Path|None:
+        if not _image_ok(image_id): return None
+        p = (root/image_id.split(':', 1)[1]).resolve()
+        return p if p.is_relative_to(root) and p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES else None
+    return resolve
+
+# %% ../nbs/17_talk.ipynb #5c843df8
+def _figure(resolve, f) -> tuple|None:
+    "The sha256, the bytes and the type of the figure `f`, or None."
+    try: p = resolve(f) if f else None
+    except Exception: p = None
+    if p is None: return None
+    try:
+        p = Path(p)
+        if p.stat().st_size > val('talks.image_mb') * 2**20: return None
+        b = p.read_bytes()
+    except OSError: return None
+    return (hashlib.sha256(b).hexdigest(), b, m) if (m := image_type(b)) else None
+
+# %% ../nbs/17_talk.ipynb #271cb741
+def _passage(s:dict) -> str:
+    "The passage that slide `s` shows to the room, or ''."
+    beats = s.get('beats') or []
+    return ((s.get('show') or {}).get('passage') or '') if 'passage' in beats or not beats else ''
+
+# %% ../nbs/17_talk.ipynb #a0e06d66
+def public_deck(t:dict, resolve) -> AttrDict:
+    "The part of talk `t` that the room can see; `resolve` turns an image id into a file."
+    slides, images = [], {}
+    for s in t['slides']:
+        fig = _figure(resolve, (s.get('show') or {}).get('figure'))
+        if fig: images[fig[0]] = fig[1:]
+        slides.append(dict(id=s['id'], kind=s['kind'], title=s.get('title') or '', section=s.get('section') or '', passage=_passage(s),
+                           figure=fig[0] if fig else None, ask=deepcopy(public_ask(s.get('ask')))))
+    return AttrDict(title=t['title'], slides=slides, images=images)
+
+# %% ../nbs/17_talk.ipynb #b1468021
+def new_run(t:dict, now:float=None) -> dict:
+    "A new run log of talk `t`, on its first idea slide."
+    now = time.time() if now is None else now
+    sid = first(s['id'] for s in t['slides'] if s.get('kind') == 'idea') or first(s['id'] for s in t['slides'])
+    return dict(id=f'run-{secrets.token_hex(4)}', talk=t['id'], key=secrets.token_hex(8), started=now, ended=None, people=None,
+                at=dict(slide=sid, beat=1, blank=False, pane=None, ask=None), shown=[dict(slide=sid, at=now, secs=0.)],
+                asks={}, questions=[], beside=[])
+
+# %% ../nbs/17_talk.ipynb #45d7904e
+def _close(run:dict, now:float):
+    "Give the last shown slide its time up to `now`."
+    last = run['shown'][-1]; last['secs'] = max(0., now - last['at'])
+
+def log_go(run:dict, slide:str, beat:int, now:float):
+    "Move the place of `run` to beat `beat` of `slide`."
+    _close(run, now)
+    if run['shown'][-1]['slide'] != slide: run['shown'].append(dict(slide=slide, at=now, secs=0.))
+    run['at'].update(slide=slide, beat=beat)
+
+def end_run(run:dict, now:float=None) -> dict:
+    "End `run` at `now`."
+    now = time.time() if now is None else now
+    _close(run, now); run['ended'] = now
+    return run
+
+# %% ../nbs/17_talk.ipynb #80d2cc55
+def _ask_log(run:dict, slide:str, kind:str) -> dict:
+    "The log of the question of `slide` in `run`, made when it is not there."
+    return run['asks'].setdefault(slide, dict(kind=kind, rounds=[], main=None, shown=[]))
+
+def log_round(run:dict, slide:str, kind:str, counts:list, n:int, **extra) -> dict:
+    "Add a round of the question of `slide`, with `n` answers. A third round raises `ValueError`."
+    a = _ask_log(run, slide, kind)
+    if len(a['rounds']) >= 2: raise ValueError('a question has at most two rounds')
+    r = dict(n=n, **extra) if counts is None else dict(counts=list(counts), n=n, **extra)
+    a['rounds'].append(r)
+    return r
+
+def log_main(run:dict, slide:str, kind:str, main:int):
+    "Keep `main`, the option that most hands chose for the question of `slide`."
+    _ask_log(run, slide, kind)['main'] = main
+
+# %% ../nbs/17_talk.ipynb #b8a90bff
+def log_question(run:dict, text:str, at:float, shown:bool=False, note:str='') -> dict:
+    "Add a question from the room to `run`; its id is `q1`, `q2` ..."
+    q = dict(id=f"q{len(run['questions']) + 1}", text=text, at=at, shown=shown, note=note)
+    run['questions'].append(q)
+    return q
+
+def log_beside(run:dict, slug:str, slide:str, at:float, secs:float):
+    "Keep the primer `slug` that was open beside `slide` for `secs` seconds."
+    run['beside'].append(dict(slug=slug, slide=slide, at=at, secs=secs))
+
+# %% ../nbs/17_talk.ipynb #69d42654
+@patch
+def put_run(self:Learning, r:dict) -> AttrDict:
+    "Save run `r`, and replace an earlier one with the same id."
+    r = {k: v for k, v in dict(r).items() if k != 'doc_id'}
+    d = self.v.add(f"Talk run: {r['talk']} ({r['id']})", title=f"Talk run {r['id']}", source=_src('run', r['id']), kind='talk-run', meta=r)
+    if not d.get('changed'): self.v.set_meta(d['doc_id'], **r)
+    return self.run(r['id'])
+
+@patch
+def run(self:Learning, rid:str) -> AttrDict|None:
+    "One run by id."
+    r = first(self.v.t.docs(where='source=?', where_args=[_src('run', rid)]))
+    return _tmeta(r) if r else None
+
+@patch
+def runs(self:Learning, tid:str) -> L:
+    "The runs of talk `tid`, the newest first."
+    rs = self._docs('talk-run', "json_extract(meta, '$.talk')=?", [tid])
+    return L(sorted(map(_tmeta, rs), key=lambda r: -(r.get('started') or 0)))
+
+# %% ../nbs/17_talk.ipynb #3c6e62a8
+def share_right(ask:dict, round:dict) -> float|None:
+    "The share of right answers of `round` of the question `ask`, or None."
+    n, c = (round or {}).get('n') or 0, (round or {}).get('counts')
+    if not ask or not n or not isinstance(c, list) or not c: return None
+    k, a = ask.get('kind'), ask.get('answer')
+    if k == 'choice' and isinstance(a, int) and 0 <= a < len(c): return c[a] / n
+    return c[0] / n if k == 'order' else None
+
+def is_split(ask:dict, round:dict, lo:float=None, hi:float=None) -> bool:
+    "True when the share right of `round` is from `lo` to `hi` (defaults `talks.split_lo` and `talks.split_hi`)."
+    lo, hi = val('talks.split_lo') if lo is None else lo, val('talks.split_hi') if hi is None else hi
+    return (s := share_right(ask, round)) is not None and lo <= s <= hi
+
+# %% ../nbs/17_talk.ipynb #3e561889
+def _option(ask:dict, i) -> str|None:
+    "The text of option `i` of `ask`, or None."
+    opts = ask.get('options') or []
+    return opts[i] if isinstance(i, int) and 0 <= i < len(opts) else None
+
+def _top_wrong(ask:dict, counts) -> str|None:
+    "The wrong option of a choice with the most answers, or None."
+    if ask.get('kind') != 'choice': return None
+    wrong = [(c, i) for i, c in enumerate(counts or []) if i != ask.get('answer') and c]
+    return _option(ask, max(wrong, key=lambda x: x[0])[1]) if wrong else None
+
+def weak(t:dict, run:dict, below:float=None) -> list:
+    "The slides of talk `t` where the room of `run` was unsure, in slide order."
+    below, out = val('talks.weak') if below is None else below, []
+    for s in t['slides']:
+        a, log = s.get('ask'), (run.get('asks') or {}).get(s['id'])
+        if not a or not log: continue
+        if log.get('rounds'):
+            r = log['rounds'][-1]
+            if (sh := share_right(a, r)) is not None and sh < below:
+                out.append(dict(slide=s['id'], title=s.get('title') or '', share=sh, top_wrong=_top_wrong(a, r.get('counts')), n=r.get('n'), main=None))
+        elif (m := log.get('main')) is not None and a.get('kind') == 'choice' and m != a.get('answer'):
+            out.append(dict(slide=s['id'], title=s.get('title') or '', share=None, top_wrong=_option(a, m), n=None, main=m))
+    return out
+
+# %% ../nbs/17_talk.ipynb #68179193
+def _shown(t:dict, run:dict) -> list:
+    "Each shown slide of `t` one time, in the order of its first show, with its total seconds."
+    secs, by = {}, {s['id']: s for s in t['slides']}
+    for e in run.get('shown') or []: secs[e['slide']] = secs.get(e['slide'], 0.) + (e.get('secs') or 0.)
+    return [(by[sid], n) for sid, n in secs.items() if sid in by]
+
+def _shares(s:dict, run:dict) -> list:
+    "The share right of each round of the question of slide `s`."
+    return [share_right(s.get('ask'), r) for r in ((run.get('asks') or {}).get(s['id']) or {}).get('rounds') or []]
+
+def recap(t:dict, run:dict) -> AttrDict:
+    "The data of the recap of `run` of talk `t`."
+    unsure, by = weak(t, run), {s['id']: s for s in t['slides']}
+    slides = [dict(slide=s['id'], title=s.get('title') or '', secs=n, share=(_shares(s, run) or [None])[-1]) for s, n in _shown(t, run)]
+    follow = list(dict.fromkeys(c for w in unsure if (c := by[w['slide']].get('concept'))))
+    return AttrDict(unsure=unsure, slides=slides, questions=list(run.get('questions') or []), beside=list(run.get('beside') or []), follow=follow)
+
+# %% ../nbs/17_talk.ipynb #21a03bb0
+RECAP_CSS = """:root { --bg: hsl(44 43% 93%); --fg: hsl(28 22% 17%); --ink2: hsl(30 18% 28%); --mute: hsl(32 20% 34%); --line: hsl(40 30% 80%);
+  --acc: hsl(22 42% 33%); --ok: hsl(88 32% 25%); --no: hsl(14 58% 34%); --rule: color-mix(in srgb, var(--fg) 22%, transparent);
+  --serif: 'Literata', ui-serif, Georgia, serif; --head: 'Libre Baskerville', ui-serif, Georgia, serif; --mono: ui-monospace, 'SF Mono', Menlo, monospace; }
+body { max-width: 44rem; margin: 0 auto; padding: 2rem 1.25rem; background: var(--bg); color: var(--fg); font: 1.05rem/1.6 var(--serif); }
+h1, h2 { font-family: var(--head); font-weight: 400; line-height: 1.25; }
+h1 { font-size: 2rem; margin: 0; }
+h2 { font-size: 1.4rem; margin: 0 0 .25rem; }
+section { border-top: 1px solid var(--rule); padding: 1.25rem 0; }
+.meta { color: var(--mute); font-size: .9rem; margin: .25rem 0; }
+blockquote { margin: .75rem 0; padding-left: 1rem; border-left: 3px solid var(--line); color: var(--ink2); white-space: pre-line; }
+img { max-width: 100%; height: auto; }
+.q { font-weight: 600; margin-bottom: .25rem; }
+.right { color: var(--ok); font-weight: 600; }
+.note { color: var(--ink2); }"""
+
+# %% ../nbs/17_talk.ipynb #819713d4
+_LETTERS = 'ABCDEF'
+
+def _ask_html(a:dict, log:dict) -> str:
+    "The HTML of the question `a` and its result `log`."
+    e, log = html.escape, log or {}
+    out, opts, ans = [f'<p class="q">{e(str(a.get("q") or ""))}</p>'], a.get('options') or [], a.get('answer')
+    if a['kind'] == 'choice':
+        mark = ' <span class="right">✓ Right</span>'
+        out.append('<ol type="A">' + ''.join(f'<li>{e(str(o))}{mark if i == ans else ""}</li>' for i, o in enumerate(opts)) + '</ol>')
+    elif a['kind'] == 'order' and isinstance(ans, list):
+        out.append('<p class="meta">The right order:</p><ol>' + ''.join(f'<li>{e(str(_option(a, i)))}</li>' for i in ans) + '</ol>')
+    for k, r in enumerate(log.get('rounds') or [], 1):
+        sh = share_right(a, r)
+        res = f'{round(100 * sh)}% right, ' if sh is not None else ''
+        out.append(f'<p class="meta">Round {k}: {res}{int(r.get("n") or 0)} answers</p>')
+    if isinstance(m := log.get('main'), int) and 0 <= m and a['kind'] == 'choice' and m < len(_LETTERS) and isinstance(ans, int) and ans < len(_LETTERS):
+        out.append(f'<p class="meta">Most hands: {_LETTERS[m]} (right: {_LETTERS[ans]})</p>')
+    if (ws := log.get('shown')): out.append('<ul>' + ''.join(f'<li>{e(str(w))}</li>' for w in ws) + '</ul>')
+    return ''.join(out)
+
+# %% ../nbs/17_talk.ipynb #9a5f0b65
+def recap_html(t:dict, run:dict, resolve) -> str:
+    "The recap of `run` of talk `t` as one HTML file, with the figures inline."
+    e, pub = html.escape, public_deck(t, resolve)
+    ps = {s['id']: s for s in pub.slides}
+    d = datetime.fromtimestamp(run.get('started') or time.time())
+    out = [f'<header><h1>{e(str(t["title"]))}</h1><p class="meta">{d:%B} {d.day}, {d.year}</p></header>']
+    for s, _ in _shown(t, run):
+        p, part = ps[s['id']], [f'<h2>{e(str(ps[s["id"]]["title"]))}</h2>']
+        if p['section']: part.append(f'<p class="meta">{e(str(p["section"]))}</p>')
+        if p['passage']: part.append(f'<blockquote>{e(str(p["passage"]))}</blockquote>')
+        if (h := p['figure']):
+            b, m = pub.images[h]
+            part.append(f'<img alt="Figure" src="data:{m};base64,{base64.b64encode(b).decode()}">')
+        if (a := s.get('ask')) and a.get('kind') != 'none': part.append(_ask_html(a, (run.get('asks') or {}).get(s['id'])))
+        out.append(f'<section>{"".join(part)}</section>')
+    kept = [q for q in run.get('questions') or [] if q.get('shown')]
+    if kept:
+        qs = ''.join(f'<li><p>{e(str(q.get("text") or ""))}</p>' + (f'<p class="note">{e(str(q["note"]))}</p>' if q.get('note') else '') + '</li>' for q in kept)
+        out.append(f'<section><h2>Questions from the room</h2><ul>{qs}</ul></section>')
+    return (f'<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+            f'<title>{e(str(t["title"]))}</title><style>{RECAP_CSS}</style></head><body>{"".join(out)}</body></html>\n')
