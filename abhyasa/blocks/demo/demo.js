@@ -5,8 +5,10 @@ if (!window.abhyasaDemo) {
   document.addEventListener('rk-predict', e => {
     const card = e.target.closest && e.target.closest('.demo-card');
     if (!card) return;
+    e.preventDefault();   // the gate shows the answer only when the save works
     const d = e.detail, body = new URLSearchParams({gate: d.gate, picked: String(d.picked), ans: String(d.ans), ok: String(d.ok),
                                                      why: d.why || '', context: d.context || '', session: card.dataset.session || ''});
-    fetch(card.dataset.url, {method: 'POST', body}).catch(() => {});
+    const no = 'The tutor did not save this. Try again.';
+    fetch(card.dataset.url, {method: 'POST', body}).then(r => d.settle(r.ok, no)).catch(() => d.settle(false, no));
   });
 }

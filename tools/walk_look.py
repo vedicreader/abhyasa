@@ -315,12 +315,13 @@ def m3_outline_dot_fills(pg, w):
     assert pg.eval_on_selector('#rail-bar', 'e => e.getBoundingClientRect().width') > w0
     assert pg.evaluate("getComputedStyle(document.querySelector('#rail-bar')).transitionProperty") == 'width'
 
-def demo_step(w):
-    "A step with a demo check whose passage names two parts of the demo, made once. Its URL."
-    if not getattr(w, 'demo', None):
+def demo_step(w, fresh=False):
+    "A step with a demo check whose passage names two parts of the demo, made once (or a new one when `fresh`). Its URL."
+    if fresh or not getattr(w, 'demo', None):
         jid = new_walk(w)
         w.lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why='a demo shows it best'),
                        read={**(w.lr.journey(jid).steps[2].get('read') or {}), 'text': 'Fusion adds up the rank in the keyword search list and in the vector search list.'})
+        if fresh: return f'{w.B}/w/{jid}/2'
         w.demo = f'{w.B}/w/{jid}/2'
     return w.demo
 
@@ -339,6 +340,27 @@ def m6_words_point_at_the_demo(pg, w):
     assert not pg.query_selector('.walk-demo .rk-b.mv-hot')
     pg.hover('.walk-demo .rk-ranklist >> nth=1')
     assert pg.eval_on_selector_all('#passage .mv.hot', 'ms => ms.map(m => m.textContent)') == ['vector search']
+
+def rupaka_settle(pg, w):
+    "A demo prediction that the walk does not save leaves the gate open, with the pick, the why and a message; a saved one shows the answer."
+    pg.goto(demo_step(w, fresh=True)); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+    gate = '#check .walk-demo [data-rupaka]'
+    pg.eval_on_selector('#check .walk-demo', "c => { c.dataset.good = c.dataset.demo; c.dataset.demo = 'no-such-demo'; }")   # the server refuses this slug
+    pg.click(f'{gate} .opts button >> nth=0')
+    why = pg.query_selector(f'{gate} textarea')
+    if why: why.fill('my reason')
+    pg.click(f'{gate} button.go')
+    pg.wait_for_function(f"() => document.querySelector('{gate} .note')?.textContent.includes('did not save')", timeout=10000)
+    assert pg.is_visible(f'{gate} button.go') and pg.is_enabled(f'{gate} button.go'), 'the gate did not open again'
+    assert not pg.is_visible(f'{gate} .verdict'), 'the answer showed after a failed save'
+    assert pg.get_attribute(f'{gate} .opts button >> nth=0', 'aria-checked') == 'true'   # the pick stays
+    if why: assert why.input_value() == 'my reason'
+    assert 'Next idea ⌥S' not in visible_gos(pg)
+    pg.eval_on_selector('#check .walk-demo', 'c => { c.dataset.demo = c.dataset.good; }')
+    pg.click(f'{gate} button.go')
+    pg.wait_for_selector(f'{gate} .verdict', state='visible', timeout=10000)
+    assert not pg.is_visible(f'{gate} .note')
+    pg.wait_for_function("() => [...document.querySelectorAll('main .go')].some(e => e.checkVisibility() && e.textContent.includes('Next idea'))", timeout=10000)
 
 def m7_side_walk_returns_you(pg, w):
     "At the end of a side walk the pane slides out to the right, the needs line says learned on the way today, and the draft is still in the answer box."
@@ -362,7 +384,7 @@ def m7_side_walk_returns_you(pg, w):
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
-          m6_words_point_at_the_demo, m7_side_walk_returns_you]
+          m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

@@ -74,9 +74,14 @@ if (!window.abhyasaWalk) {
   document.addEventListener('rk-predict', e => {
     const card = e.target.closest && e.target.closest('.walk-demo');
     if (!card) return;
-    const d = e.detail;
-    post(card, card.dataset.url, {slug: card.dataset.demo, gate: d.gate, picked: String(d.picked), ans: String(d.ans), ok: String(d.ok),
-                                  why: d.why || '', context: d.context || ''}, 'Your prediction is saved.').then(r => { if (r) { shut(card); fill(card, r); } });
+    // The gate waits until the walk saves the prediction. A failed save opens the gate again, with the pick and the why kept.
+    e.preventDefault();
+    const d = e.detail, no = 'The tutor did not save this. Try again.';
+    fetch(card.dataset.url, {method: 'POST', body: new URLSearchParams({slug: card.dataset.demo, gate: d.gate, picked: String(d.picked), ans: String(d.ans),
+                                                                        ok: String(d.ok), why: d.why || '', context: d.context || ''})})
+      .then(r => { d.settle(r.ok, no); return r.ok && r.json(); })
+      .then(r => { if (r) { say(card, 'Your prediction is saved.'); shut(card); fill(card, r); } })
+      .catch(() => d.settle(false, no));
   });
 
   // Keep this state (K): save the inputs of the demo with your last prediction.

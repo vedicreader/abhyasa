@@ -252,3 +252,12 @@ def test_fix_round_1_the_walk_end_reads_only_its_sessions_and_history_counts_onc
     assert 'lr.sessions(limit=None, journey=jid)' in css('blocks/walk/app.py')
     h = css('blocks/history/app.py')
     assert h.count('moved_words(m)') == 1
+
+# rupaka 0.0.2: the gate waits for the save
+
+def test_demo_hosts_settle_the_gate():
+    "The walk and the concept demo hold the gate until the save ends, then settle it; a failed fetch opens it again with a message."
+    for p in ('blocks/walk/walk.js', 'blocks/demo/demo.js'):
+        js = css(p)
+        assert 'e.preventDefault()' in js and 'd.settle(r.ok, no)' in js and '.catch(() => d.settle(false, no))' in js, p
+        assert "'The tutor did not save this. Try again.'" in js
