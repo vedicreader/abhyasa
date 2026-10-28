@@ -442,7 +442,7 @@ def weak(t:dict, run:dict, below:float=None) -> list:
             r = log['rounds'][-1]
             if (sh := share_right(a, r)) is not None and sh < below:
                 out.append(dict(slide=s['id'], title=s.get('title') or '', share=sh, top_wrong=_top_wrong(a, r.get('counts')), n=r.get('n'), main=None))
-        elif isinstance(m := log.get('main'), int) and a.get('kind') == 'choice' and m != a.get('answer'):
+        elif isinstance(m := log.get('main'), int) and not isinstance(m, bool) and a.get('kind') == 'choice' and m != a.get('answer'):
             out.append(dict(slide=s['id'], title=s.get('title') or '', share=None, top_wrong=_option(a, m), n=None, main=m))
     return out
 
@@ -496,7 +496,7 @@ def _ask_html(a:dict, log:dict) -> str:
         sh = share_right(a, r)
         res = f'{round(100 * sh)}% right, ' if sh is not None else ''
         out.append(f'<p class="meta">Round {k}: {res}{int(r.get("n") or 0)} answers</p>')
-    if isinstance(m := log.get('main'), int) and 0 <= m and a['kind'] == 'choice' and m < len(_LETTERS) and isinstance(ans, int) and ans < len(_LETTERS):
+    if isinstance(m := log.get('main'), int) and 0 <= m and a['kind'] == 'choice' and m < len(_LETTERS) and isinstance(ans, int) and 0 <= ans < len(_LETTERS):
         out.append(f'<p class="meta">Most hands: {_LETTERS[m]} (right: {_LETTERS[ans]})</p>')
     if (ws := log.get('shown')): out.append('<ul>' + ''.join(f'<li>{e(str(w))}</li>' for w in ws) + '</ul>')
     return ''.join(out)
