@@ -182,13 +182,14 @@ def pick_prompt(cs, most:int) -> str:
     return f'Ideas, in the order of the source:\n{ls}\n\nPick at most {most} ideas. Return JSON: {{"pick": [int]}}'
 
 def main_steps(lr:Learning, ask, steps:list, most:int=MAX_STEPS) -> tuple:
-    "The `most` main steps of `steps` that the model picks, and the slugs of the other steps. The steps keep their order, with each prerequisite first."
+    "The `most` main steps of `steps` that the model picks, filled up in source order when it picks fewer, and the slugs of the other steps. The steps keep their order, with each prerequisite first."
     if len(steps) <= most: return steps, []
     cs = [lr.concept(s['slug']) or AttrDict(name=s['slug']) for s in steps]
     try: r = ask_json(ask, pick_prompt(cs, most), prompt('walk.pick'))
     except ValueError: r = {}
-    ks = [k - 1 for k in (r.get('pick') if isinstance(r, dict) else None) or () if isinstance(k, int) and 1 <= k <= len(steps)]
-    keep = sorted(list(dict.fromkeys(ks))[:most]) or list(range(most))
+    ks = [k - 1 for k in (r.get('pick') if isinstance(r, dict) else None) or () if type(k) is int and 1 <= k <= len(steps)]
+    ks = list(dict.fromkeys(ks))[:most]
+    keep = sorted(ks + [k for k in range(len(steps)) if k not in ks][:most - len(ks)])
     at, seen, out = {steps[k]['slug']: k for k in keep}, set(), []
     def put(k):
         if k in seen: return
