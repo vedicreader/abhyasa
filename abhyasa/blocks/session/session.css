@@ -37,7 +37,7 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 .composer textarea { display: block; padding: var(--s1) 2px; }
 #ans { font-size: var(--t-body); min-height: calc(2lh + 10px); max-height: 32vh; }
 #think { font-size: var(--t-small); color: var(--ink2); min-height: calc(1lh + 10px); max-height: 20vh; margin-top: var(--s2); }
-.composer .bar { margin-top: var(--s3); gap: var(--s2) var(--s3); }
+.composer .bar { margin-top: var(--s3); gap: var(--s2); }
 .composer button, .composer .btn { padding: var(--s2) var(--s3); font-size: var(--t-small); }
 .composer button.quiet, .composer .btn.quiet { border-color: transparent; color: var(--mute); }
 .composer button.quiet:hover, .composer .btn.quiet:hover { color: var(--fg); }

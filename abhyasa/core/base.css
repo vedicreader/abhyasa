@@ -221,7 +221,7 @@ button.quiet:hover { color: var(--fg); }
 .check .thread .lbl { margin-bottom: 2px; }
 .check .thread .md > :last-child { margin-bottom: 0; }
 .check .thread > .you { color: var(--ink2); }
-.check .thread > .you .md, .check .thread > .you p { white-space: pre-wrap; }
+.check .thread > .you p { white-space: pre-wrap; }
 .check .thread > .hint .lbl { font-style: italic; }
 .check .tag { display: block; font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .1em; text-transform: uppercase; color: var(--mute); margin-bottom: 2px; }
 .tag.ok { color: var(--ok); } .tag.no { color: var(--no); }
