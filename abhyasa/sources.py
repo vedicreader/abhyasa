@@ -323,8 +323,9 @@ def file_link(lr:Learning, url:str, max_pages:int=None, read=None, final=None) -
         scope = start
         if start != url:
             path, last = urlparse(start).path, urlparse(start).path.rstrip('/').rsplit('/', 1)[-1]
-            if path in ('', '/'): scope = url if urlparse(start).netloc == urlparse(url).netloc else start   # a redirect to a bare host root: on the same host, keep the folder of the link
-            elif path.endswith('/') and not _locale(last): scope = start.rstrip('/')   # `.../overview/` names the overview page, so its folder is the one above; a locale folder is the folder
+            if path.endswith('/') and not _locale(last): scope = start.rstrip('/')   # `.../overview/` names the overview page, so its folder is the one above; a locale folder is the folder
+            up, was = link_folder(scope), link_folder(url)
+            if urlparse(start).netloc == urlparse(url).netloc and was != up and was.startswith(up): scope = url   # a redirect up the same host, also to its root, keeps the folder of the link
     f = fetch_opts()
     kw = dict(crawl=dict(max_pages=cap, follow_sel=link_sel(scope), **PLAIN, **f), url={**PLAIN, **f}, pdf=f, arxiv=f, github=dict(code=False)).get(how, {})
     shelves, docs = [lr.vault.route(kind), lr.vault], L()   # a reader can file on the shelf of the kind or on the main shelf

@@ -13,6 +13,7 @@
 - Your journeys: a side walk opens in the pane beside the step that opened it.
 - Search gives the number of hits that you ask for when the shelf has them.
 - Walks from links: a folder such as `go` or `ui` is not a language folder.
+- Walks from links: a redirect to a folder higher on the same host keeps the folder of the link.
 
 ## 0.0.11
 
