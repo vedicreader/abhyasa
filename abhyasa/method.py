@@ -125,9 +125,10 @@ CHECK_KIND = dict(demo='demo', order='order', code='code')
 DEPTH = dict(short=2, demo=2, order=2, code=4)
 
 def check_for(c, st, rng=None, explore:str='sometimes', prior=(), last:str='') -> AttrDict:
-    "The way, kind, depth and reason for one check of concept `c`."
-    cands = [w for w in c.get('ways') or () if w in WALK_WAYS] or list(TEXT_WAYS)
-    cands = [w for w in cands if w != last] or cands
+    "The way, kind, depth and reason for one check of concept `c`. A hands-on way of the idea comes before its text ways."
+    ways = [w for w in c.get('ways') or () if w in WALK_WAYS] or list(TEXT_WAYS)
+    ways = [w for w in ways if w != last] or ways
+    cands = [w for w in ways if w in CHECK_KIND] or ways
     way, note = choose(st, c.get('subject', ''), False, rng, explore, prior, allowed=cands)
     kind = CHECK_KIND.get(way, 'short')
     depth = (2 if (c.get('floor') or 0) < 2 else 3) if kind == 'short' else DEPTH[kind]

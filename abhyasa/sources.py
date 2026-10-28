@@ -29,6 +29,7 @@ EXTRACT_SP = register('extract', 'Concept finder', 'How the tutor finds the idea
 - `quote` is one short sentence of the text, copied exactly.
 - `figure` is the link of one image of the text that shows the idea, copied exactly. Use "" when there is none.
 - `ways` names the ways that suit the idea. Use only names from the list in the request.
+- Add `order` when the idea is a process or a sequence of steps. Add `demo` when a change to one value changes the result. Add `code` when a short Python program with only the standard library can show the idea. Do not add these ways to other ideas.
 - `moves` names the things that change in the idea, for example "weights". Use [] when nothing changes.
 - `when` is the year of the idea, or null. `who` names the people of the idea.""")
 
