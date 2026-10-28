@@ -10,7 +10,7 @@ __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SET
            'reset_group', 'changed', 'clamped']
 
 # %% ../nbs/16_settings.ipynb #2411ca2e
-import os, json
+import os, json, threading
 from pathlib import Path
 from fastcore.utils import *
 
@@ -162,23 +162,29 @@ def settings() -> dict:
     return json.loads(json.dumps(d))
 
 # %% ../nbs/16_settings.ipynb #3e2f1f8c
+_lock = threading.RLock()   # the web app saves from many threads: one read-change-write at a time
+
 def save_settings(d:dict) -> dict:
     "Write all the settings."
+    with _lock: return _write(d)
+
+def _write(d:dict) -> dict:
     p = _path()
     p.parent.mkdir(parents=True, exist_ok=True)
     lean = {k: dict(v) if isinstance(v, dict) else v for k, v in d.items()}
     for r in SETTINGS.values():   # a default is not kept, so a new default in a later version works
         sec = lean.get(r.section)
         if isinstance(sec, dict) and r.key in sec and type(sec[r.key]) is type(r.dflt) and sec[r.key] == r.dflt: del sec[r.key]
-    tmp = p.with_suffix('.tmp')
+    tmp = p.with_suffix(f'.{os.getpid()}.{threading.get_ident()}.tmp')   # its own name, so two writes never share a file
     tmp.write_text(json.dumps(lean, indent=2)); tmp.replace(p)
     _cache.clear()
     return d
 
 def update_settings(section:str, **kw) -> dict:
     "Change some keys in one section of the settings."
-    d = settings(); d.setdefault(section, {}).update(kw)
-    return save_settings(d)
+    with _lock:
+        d = settings(); d.setdefault(section, {}).update(kw)
+        return save_settings(d)
 
 # %% ../nbs/16_settings.ipynb #b1853311
 def top(r):
@@ -220,8 +226,9 @@ def set_val(name:str, v):
 def reset(name:str):
     "Use the default of the setting `name` again."
     r = SETTINGS[name]
-    d = settings(); d[r.section].pop(r.key, None)
-    save_settings(d)
+    with _lock:
+        d = settings(); d[r.section].pop(r.key, None)
+        save_settings(d)
     return r.dflt
 
 def rows(group:str) -> list:
@@ -231,9 +238,10 @@ def rows(group:str) -> list:
 def reset_group(group:str) -> list:
     "Use the default of each row of `group` that the file keeps and that a group reset can change. Return their names."
     ns = [r.name for r in rows(group) if r.store == 'file' and r.reset and raw(r.name) is not None]
-    d = settings()
-    for n in ns: d[SETTINGS[n].section].pop(SETTINGS[n].key, None)
-    save_settings(d)
+    with _lock:
+        d = settings()
+        for n in ns: d[SETTINGS[n].section].pop(SETTINGS[n].key, None)
+        save_settings(d)
     return ns
 
 def changed(name:str) -> bool: return val(name) != dflt(name)
