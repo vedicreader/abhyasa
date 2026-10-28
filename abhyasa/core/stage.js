@@ -191,7 +191,48 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
     };
   }
 
-  return {V, valid, isLocal, add, types: () => Object.keys(TYPES), channel, audience, presenter};
+  // The mirrored demo (spec 10): the same rupaka spec in the two windows. The presenter copy gives `snapshot` and `watch`, and the
+  // talk page sends each snapshot as a `demo` message. The audience copy takes it with `apply`, and sends nothing back.
+  // A snapshot has only the input keys (the keys of `spec.state`) and the gates that are done: never a pick or a verdict.
+  // The one feature check: when rupaka has `Rupaka.set` and `Rupaka.settle` (the ask of Task 4), `apply` uses them.
+  // Until then it uses the rupaka 0.0.3 store on `host.rupaka`, and the audience copy shows the blocks after a gate but no verdict.
+  const ownSet = () => typeof globalThis.Rupaka?.set === 'function' && typeof Rupaka.settle === 'function';
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  function mirror(host) {
+    const store = () => host.rupaka, inputs = () => Object.keys(store().spec.state || {});
+    function snapshot() {
+      const st = store().st, state = {}, gates = {};
+      for (const k of inputs()) state[k] = structuredClone(st[k]);
+      for (const [id, g] of Object.entries(st.gate || {})) if (g === 'done') gates[id] = 'done';
+      return {state, gates};
+    }
+    function apply(state = {}, gates = {}) {
+      const s = store(), st = s.st, keys = inputs().filter(k => Object.hasOwn(state, k));
+      // only a gate of this spec that is not done yet; an open or a pending gate in the presenter copy does not show here
+      const fresh = Object.keys(gates).filter(id => gates[id] === 'done' && Object.hasOwn(st.gate, id) && st.gate[id] !== 'done');
+      host.querySelectorAll('.rk-gate').forEach(n => { n.inert = true; });   // the room does not pick in the audience window
+      if (ownSet()) {
+        if (keys.length) Rupaka.set(host, Object.fromEntries(keys.map(k => [k, state[k]])));
+        fresh.forEach(id => Rupaka.settle(host, id, null));
+        return;
+      }
+      for (const k of keys) if (!same(st[k], state[k])) s.set(k, structuredClone(state[k]));
+      if (!fresh.length) return;
+      fresh.forEach(id => { st.gate[id] = 'done'; });
+      s.set('_', (st._ || 0) + 1);   // one draw, so the blocks after the gates show
+    }
+    // `fn(snapshot())` on a change: the first change at once, then at most once each 50 ms, and never the same snapshot twice.
+    function watch(fn) {
+      let t = 0, due = false, last = null, live = true;
+      const send = () => { const s = snapshot(), k = JSON.stringify(s); if (k !== last) { last = k; fn(s); } };
+      const tick = () => { if (due && live) { due = false; send(); t = setTimeout(tick, 50); } else t = 0; };
+      store().on(() => { if (!live) return; if (t) due = true; else { send(); t = setTimeout(tick, 50); } });
+      return () => { live = false; clearTimeout(t); };
+    }
+    return {snapshot, apply, watch};
+  }
+
+  return {V, valid, isLocal, add, types: () => Object.keys(TYPES), channel, audience, presenter, mirror};
 })();
 if (typeof window !== 'undefined') window.abhyasaStage = abhyasaStage;
 if (typeof module !== 'undefined' && module.exports) module.exports = abhyasaStage;
