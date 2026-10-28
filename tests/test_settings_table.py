@@ -140,3 +140,26 @@ def test_mic_gets_the_pause_values(mk):
     import abhyasa.blocks.voice as v
     js = (Path(v.__file__).parent/'vad.js').read_text()
     assert 'op.pause' in js and 'op.longest' in js and 'HANG = 35' not in js
+
+# Models
+
+def test_models_defaults():
+    from abhyasa.llm import TOKENS, TASKS
+    ms = dflts('models')
+    assert {k: v for k, v in ms.items() if k.startswith('models.')} == {f'models.{t}': '' for t in ('default', *TASKS, 'plan', 'pick', 'note', 'profile', 'exercise')}
+    assert {k[7:]: v for k, v in ms.items() if k.startswith('tokens.')} == TOKENS == dict(question=4096, grade=2048, hint=512, lesson=2048, extract=4096)
+    assert 'extract' in settings()['models']
+
+def test_default_model_and_own_rows(monkeypatch):
+    from abhyasa.llm import dflt_model, RouteAsk, Router, Fake
+    monkeypatch.delenv('ABHYASA_MODEL', raising=False)
+    ra = RouteAsk()
+    assert dflt_model() == ra.model == 'claude/sonnet'
+    set_val('models.default', 'claude/haiku')
+    assert ra.model == 'claude/haiku' and dflt_model('claude/opus') == 'claude/opus'      # --model still wins
+    monkeypatch.setenv('ABHYASA_MODEL', 'env/model'); assert ra.model == 'env/model'       # and so does the environment
+    r = Router(Fake())
+    set_val('models.extract', 'x/extract')
+    assert r.name('plan') == 'x/extract'                                                   # plan borrows the model of extract
+    set_val('models.plan', 'x/plan')
+    assert r.name('plan') == 'x/plan'

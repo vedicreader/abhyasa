@@ -117,9 +117,9 @@ from .check import SAFE_NAMES, SAFE_BUILTINS, SAFE_NODES, TEST_SECONDS, safe_tes
 def new_exercise(ask, c) -> AttrDict:
     "A code exercise on concept `c` from the model, checked by `validate_exercise`. A refused reply gets one more try, with the reason."
     p = code_prompt(c)
-    try: return validate_exercise(ask_json(for_task(ask, 'question'), p, code_sp()))
+    try: return validate_exercise(ask_json(for_task(ask, 'exercise'), p, code_sp()))
     except ValueError as e:
-        return validate_exercise(ask_json(for_task(ask, 'question'), f'{p}\n\nYour last reply was refused: {e}. Write each test again as one `assert` line with plain values only: no `lambda`, `def`, loop or `import`.', code_sp()))
+        return validate_exercise(ask_json(for_task(ask, 'exercise'), f'{p}\n\nYour last reply was refused: {e}. Write each test again as one `assert` line with plain values only: no `lambda`, `def`, loop or `import`.', code_sp()))
 
 class Exercise:
     "One code exercise on a concept. `check(fn)` runs its tests on your function."

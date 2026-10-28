@@ -4,7 +4,6 @@ from fasthtml.common import *
 from fastcore.utils import first
 from abhyasa.core import Page
 from abhyasa.sources import extract
-from abhyasa.llm import for_task
 from . import ui
 from .cfg import Routes
 
@@ -14,7 +13,7 @@ _SHELF = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
 def connect(app, ctx):
     lr = ctx.learning
-    ask = lambda prompt, sp='': for_task(ctx.ask, 'extract')(prompt, sp)   # looked up on each call, so a settings change works at once
+    ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
 
     def _get(shelf, doc_id):
         "The shelf and the docs row, or None when the shelf name is unsafe or the document is not there."

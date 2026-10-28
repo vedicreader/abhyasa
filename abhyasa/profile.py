@@ -13,7 +13,7 @@ __all__ = ['PROFILE', 'LIST_FIELDS', 'EXAMPLES', 'PACES', 'LABELS', 'ONBOARD_QS'
 import json, time
 from fastcore.utils import *
 from .store import Learning, _src
-from .llm import ask_json
+from .llm import ask_json, for_task
 from .settings import val, SETTINGS
 from .method import methods_text, EXPLORE
 
@@ -100,7 +100,7 @@ def onboard_prompt(answers:dict) -> str:
 
 def onboard(lr:Learning, ask, answers:dict) -> list:
     "Fill the profile from the onboarding answers. Return the changes."
-    r = ask_json(ask, onboard_prompt(answers), ONBOARD_SP)
+    r = ask_json(for_task(ask, 'profile'), onboard_prompt(answers), ONBOARD_SP)
     return lr.set_profile(by='onboarding', why='from what you said when you started', **{k: v for k, v in r.items() if k in PROFILE})
 
 # %% ../nbs/12_profile.ipynb #0d6b81f4
@@ -138,7 +138,7 @@ def observe(lr:Learning, ask, n:int=12) -> list:
     "Change the profile from the recent answers. Return the changes, each with its reason."
     if not (ev := evidence(lr, n)): return []
     lr.set_stats(calib=dict(calibration(lr)))   # cached here, every few closes, so a question does not read all attempts
-    r = ask_json(ask, observe_prompt(lr.profile(), ev, lr.stats()), OBSERVE_SP)
+    r = ask_json(for_task(ask, 'profile'), observe_prompt(lr.profile(), ev, lr.stats()), OBSERVE_SP)
     out = []
     for c in (r.get('changes') or [])[:3] if isinstance(r, dict) else []:
         f, p = c.get('field'), lr.profile()

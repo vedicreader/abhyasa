@@ -18,7 +18,7 @@ from fastcore.utils import *
 from .store import Learning, slugify, _src
 from .model import learned
 from .settings import val
-from .llm import ask_json
+from .llm import ask_json, for_task
 from .prompts import register, prompt
 from .sources import extract, _index, doc_pages, from_vault, placement
 import abhyasa.profile  # adds Learning.profile
@@ -136,7 +136,7 @@ def _new_id(title): return f"{slugify(title)[:40]}-{uuid.uuid4().hex[:4]}"
 
 def plan(lr:Learning, ask, goal:str, who:str='', sources=None) -> AttrDict:
     "Plan a journey to `goal`, make the concepts that the shelf does not have, and save it."
-    r = ask_json(ask, plan_prompt(goal, who, near_goal(lr, goal)), prompt('walk.plan'))
+    r = ask_json(for_task(ask, 'plan'), plan_prompt(goal, who, near_goal(lr, goal)), prompt('walk.plan'))
     idx, subject, steps, slug_of = _index(lr), (r.get('subject') or '').lower().strip(), [], {}
     for s in r.get('steps') or []:
         slug = s.get('slug') if s.get('slug') and lr.concept(s['slug']) else idx.get(s['name'].lower())
@@ -185,7 +185,7 @@ def main_steps(lr:Learning, ask, steps:list, most:int=None) -> tuple:
     most = most or val('walks.steps')
     if len(steps) <= most: return steps, []
     cs = [lr.concept(s['slug']) or AttrDict(name=s['slug']) for s in steps]
-    try: r = ask_json(ask, pick_prompt(cs, most), prompt('walk.pick'))
+    try: r = ask_json(for_task(ask, 'pick'), pick_prompt(cs, most), prompt('walk.pick'))
     except ValueError: r = {}
     ks = [k - 1 for k in (r.get('pick') if isinstance(r, dict) else None) or () if type(k) is int and 1 <= k <= len(steps)]
     ks = list(dict.fromkeys(ks))[:most]
@@ -433,7 +433,7 @@ def add_topic(lr:Learning, ask, jid:str, name:str, before:str=None, sources=None
     j = lr.journey(jid)
     slug = _index(lr).get(name.strip().lower())
     if not slug:
-        r = ask_json(ask, f"The idea: {name}\nThe path it is part of: {j.title} ({j.get('goal', '')})\n\n"
+        r = ask_json(for_task(ask, 'extract'), f"The idea: {name}\nThe path it is part of: {j.title} ({j.get('goal', '')})\n\n"
                           'Return JSON: {"name": str, "statement": str}', PRIMER_SP)
         slug = lr.put(r.get('name') or name, r.get('statement', ''), j.get('subject', ''), provenance=[dict(src='journey', journey=jid)]).slug
         if sources:
@@ -447,7 +447,7 @@ def name_gaps(lr:Learning, ask, slug:str, terms, sources=None) -> L:
     c, idx, out = lr.concept(slug), _index(lr), L()
     for t in dict.fromkeys(str(t).strip() for t in terms or () if str(t).strip()):
         if not (g := idx.get(t.lower())):
-            r = ask_json(ask, f"The idea: {t}\nIt comes up in: {c.name} ({c.get('subject') or 'general'})\n\n"
+            r = ask_json(for_task(ask, 'extract'), f"The idea: {t}\nIt comes up in: {c.name} ({c.get('subject') or 'general'})\n\n"
                               'Return JSON: {"name": str, "statement": str}', PRIMER_SP)
             name = r.get('name') or t
             g = lr.put(name, r.get('statement', ''), c.get('subject', ''), aliases=[t] if t.lower() != name.lower() else [],

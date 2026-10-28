@@ -40,7 +40,7 @@ def tutor_note(lr, ask, j, i:int) -> str:
     c = lr.concept(s['slug'])
     p = (f"Idea: {c.name}\n{c.get('statement', '')}\n\nThe passage:\n{(s.get('read') or {}).get('text') or 'none'}\n\n"
          f"The next check is a {(s.get('check') or {}).get('kind', 'short')} check.\n\nUse at most {val('walks.note')} words.")
-    n = _trim(for_task(ask, 'hint')(p, prompt('walk.note')))
+    n = _trim(for_task(ask, 'note')(p, prompt('walk.note')))
     lr.walk_step(j.id, i, note=n)
     return n
 

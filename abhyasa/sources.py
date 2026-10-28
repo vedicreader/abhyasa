@@ -16,7 +16,7 @@ from pathlib import Path
 from fastcore.utils import *
 from .store import Learning, slugify, _union
 from .settings import val
-from .llm import ask_json
+from .llm import ask_json, for_task
 from .prompts import register, prompt
 
 # %% ../nbs/04_sources.ipynb #c007
@@ -122,7 +122,7 @@ def _read(lr, ask, text, subject, pages):
     "Ask for the concepts of each window of the text, and return `(slug, concept, prereq slugs)` in the order of the replies."
     idx, out = _index(lr), []
     for w in _windows('\n\n'.join(t for _, t in pages)):
-        r = ask_json(ask, extract_prompt(w, subject, sorted({v for v in idx.values()})), prompt('extract'))
+        r = ask_json(for_task(ask, 'extract'), extract_prompt(w, subject, sorted({v for v in idx.values()})), prompt('extract'))
         cs = r.get('concepts', []) if isinstance(r, dict) else r
         slug_of = {}
         for c in cs:

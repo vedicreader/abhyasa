@@ -7,7 +7,6 @@ from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import Page, hook, run as run_hook
 from abhyasa.core.leela import leela_line
-from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
@@ -29,7 +28,7 @@ NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try
 
 def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
-    ask = lambda prompt, sp='': for_task(ctx.ask, 'extract')(prompt, sp)   # looked up on each call, so a settings change works at once
+    ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
     up = [('Today', '/'), ('Journeys', '/journeys')]
     writing = defaultdict(Lock)   # (walk, step) -> a lock, so the note and the check of one step do not write the note twice
     links = {}                    # link -> the pool job that makes its walk, and `said`, the words of its state

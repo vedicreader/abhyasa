@@ -3,7 +3,6 @@ import time
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides
 from abhyasa.sources import extract, from_vault, from_vedicreader
-from abhyasa.llm import for_task
 from abhyasa.settings import val
 from .cfg import Routes
 
@@ -12,7 +11,7 @@ CAPS = ('learning', 'ask')
 
 def connect(app, ctx):
     lr = ctx.learning
-    ask = lambda prompt, sp='': for_task(ctx.ask, 'extract')(prompt, sp)   # looked up on each call, so a settings change works at once
+    ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
 
     def page():
         return Page('Add', H1('Add a source'),

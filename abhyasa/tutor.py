@@ -426,7 +426,7 @@ def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinki
 @patch
 def _observe(self:Tutor):
     "Update the profile from the recent answers; a failure changes nothing."
-    try: return observe(self.learning, for_task(self.ask, 'extract'))
+    try: return observe(self.learning, self.ask)
     except Exception: return []
 
 # %% ../nbs/03_tutor.ipynb #3e0566b8

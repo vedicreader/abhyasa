@@ -3,7 +3,6 @@ to a concept page and to a session."""
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, hook
 from abhyasa.settings import val
-from abhyasa.llm import for_task
 from abhyasa.profile import profile_text
 from abhyasa.journey import plan, progress, add_topic, split, beyond, with_step
 from . import ui
@@ -14,7 +13,7 @@ CAPS = ('learning', 'ask', 'sources')
 
 def connect(app, ctx):
     lr = ctx.learning
-    ask = lambda prompt, sp='': for_task(ctx.ask, 'extract')(prompt, sp)   # looked up on each call, so a settings change works at once
+    ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
     up = [('Today', '/'), ('Journeys', Routes.base)]
 
     def by(): return {c.slug: c for c in lr.concepts()}

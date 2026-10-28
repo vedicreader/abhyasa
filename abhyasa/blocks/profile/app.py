@@ -1,7 +1,6 @@
 "What abhyasa knows about you: the profile page, the first conversation, and the line on Today until you have one."
 from fasthtml.common import *
 from abhyasa.core import Page, hook
-from abhyasa.llm import for_task
 from abhyasa.profile import PROFILE, LIST_FIELDS, ONBOARD_QS, onboard, observe, calibration
 from . import ui
 from .cfg import Routes
@@ -11,7 +10,7 @@ CAPS = ('learning', 'ask')
 
 def connect(app, ctx):
     lr = ctx.learning
-    ask = lambda prompt, sp='': for_task(ctx.ask, 'extract')(prompt, sp)
+    ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
     up = [('Today', '/')]
 
     def page(new:str=''):
