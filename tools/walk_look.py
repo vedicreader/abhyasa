@@ -4,6 +4,7 @@ Run: uv run --all-extras python tools/walk_look.py [--shots] [--out design/scree
 It makes a temporary vault and settings folder, runs the app with the `Fake` model on a free port, and opens it in Playwright's
 bundled Chromium (headless, one browser, closed at the end). Each check prints PASS or FAIL; the run fails when one check fails.
 `--shots` also takes the screens `polish-<page>-<theme>-<mode>-<width>.png` at 1280 and 1000 px, light and dark, Paper and Signal.
+`--only` runs only the checks that it names.
 Task 16 adds its own checks to `CHECKS`."""
 import argparse, os, socket, sys, tempfile, threading, time
 from pathlib import Path
@@ -309,13 +310,20 @@ def m3_outline_dot_fills(pg, w):
     assert pg.eval_on_selector('#rail-bar', 'e => e.getBoundingClientRect().width') > w0
     assert pg.evaluate("getComputedStyle(document.querySelector('#rail-bar')).transitionProperty") == 'width'
 
+def demo_step(w):
+    "A step with a demo check whose passage names two parts of the demo, made once. Its URL."
+    if not getattr(w, 'demo', None):
+        jid = new_walk(w)
+        w.lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why='a demo shows it best'),
+                       read={**(w.lr.journey(jid).steps[2].get('read') or {}), 'text': 'Fusion adds up the rank in the keyword search list and in the vector search list.'})
+        w.demo = f'{w.B}/w/{jid}/2'
+    return w.demo
+
 def m6_words_point_at_the_demo(pg, w):
     "On a demo step, the words of the passage that name a part of the demo get a dotted line; pointing at one rings that part, and back."
-    jid = new_walk(w)
-    w.lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why='a demo shows it best'),
-                   read={**(w.lr.journey(jid).steps[2].get('read') or {}), 'text': 'Fusion adds up the rank in the keyword search list and in the vector search list.'})
-    pg.goto(f'{w.B}/w/{jid}/2'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+    pg.goto(demo_step(w)); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
     pg.wait_for_selector('#passage .mv')
+    assert 'Next idea ⌥S' not in visible_gos(pg) and pg.is_visible('.next-bar .skip'), visible_gos(pg)   # Next idea waits for the first prediction
     assert pg.eval_on_selector_all('#passage .mv', 'ms => ms.map(m => m.textContent)') == ['keyword search', 'vector search']
     assert pg.eval_on_selector('#passage .mv', "m => getComputedStyle(m).textDecorationStyle") == 'dotted'
     pg.hover('#passage .mv >> nth=0')
@@ -358,7 +366,8 @@ def screens(pg, w, out):
     out.mkdir(parents=True, exist_ok=True)
     w.lr.walk_step(w.jid, 2, check=dict(way='words', kind='short', depth=2, why='plain words fit this idea'))
     pages = dict(today='/', step=w.step(2), code=w.step(1), session=f'/s/{w.sid}', settings='/settings', strengths='/you/strengths',
-                 profile='/you', keys='/keys', add='/add', concept='/c/ranking', plan=w.plan, end=f'/w/{w.jid}/0/done')
+                 profile='/you', keys='/keys', add='/add', concept='/c/ranking', plan=w.plan, end=f'/w/{w.jid}/0/done',
+                 walkend=walk_to_end(w), pane=f'{w.step(2)}?rh={side_walk(w)}', demo=demo_step(w))   # 19b: the end of a walk, the pane (1000 px: the narrow view), a demo
     shots = []
     for theme in ('paper', 'signal'):
         for mode in ('light', 'dark'):
@@ -366,7 +375,8 @@ def screens(pg, w, out):
             for width in (1280, 1000):
                 pg.set_viewport_size(dict(width=width, height=900))
                 for n, u in pages.items():
-                    pg.goto(u if u.startswith('http') else w.B + u); settle(pg, 900 if n in ('step', 'code', 'session') else 400)
+                    pg.goto(u if u.startswith('http') else w.B + u); settle(pg, 900 if n in ('step', 'code', 'session', 'pane', 'demo', 'walkend') else 400)
+                    if n == 'demo': pg.wait_for_selector('#passage .mv', timeout=30000); pg.hover('#passage .mv >> nth=0')
                     p = out/f'polish-{n}-{theme}-{mode}-{width}.png'; pg.screenshot(path=str(p), full_page=True); shots.append(p.name)
     look(w.rq, w.B, 'paper', 'auto')
     return shots
