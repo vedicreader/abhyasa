@@ -261,7 +261,8 @@ def connect(app, ctx):
         st.noted(a, floor0)
         with writing[jid, i]:
             if not lr.journey(jid).steps[i].get('done'): lr.walk_step(jid, i, done=dict(outcome=a.outcome, aid=a.id, at=time.time()))
-        return JSONResponse(dict(ok=True, dot=walk_state(lr.journey(jid)).steps[i].dot))   # walk.js fills the dot of the idea
+        ws = walk_state(lr.journey(jid))
+        return JSONResponse(dict(ok=True, dot=ws.steps[i].dot, done=ws.done, total=ws.total))   # walk.js fills the dot and moves the progress line
 
     def keep(jid:str, i:int, state:str=''):
         "Keep the state of the demo on the newest prediction of step `i`."

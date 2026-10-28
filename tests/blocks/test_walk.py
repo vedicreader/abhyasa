@@ -101,7 +101,8 @@ def test_demo_check_is_made_ahead_and_logged(mk, walk_fake, lr):
     card = cl.get(f'/w/{jid}/2/check').text
     assert 'walk-demo' in card and 'demo-card' not in card and f'/w/{jid}/2/predict' in card
     g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
-    assert cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='1', ans='1', ok='true', why='bigger dot products')).json()['ok']
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='1', ans='1', ok='true', why='bigger dot products')).json()
+    assert r['ok'] and r['dot'] in ('done', 'shaky') and (r['done'], r['total']) == (1, 3)   # walk.js fills the dot and moves the progress line
     a = lr.attempts('scaling-by-the-root-of-dk', limit=1)[0]
     assert (a.kind, a.method, a.walk, a.step, a.depth) == ('demo', 'demo', jid, 2, 3)
     assert lr.journey(jid).steps[2]['done']['outcome'] in ('solid', 'fragile')

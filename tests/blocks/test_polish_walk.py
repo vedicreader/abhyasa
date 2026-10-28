@@ -227,7 +227,7 @@ def test_m3_the_outline_dot_fills(mk, walk_fake, lr):
     w, b = css('blocks/walk/walk.css'), css('core/base.css')
     assert re.search(r'\.outline li\.c\.just::before \{ animation: dot-grow var\(--dur-3\) var\(--ease\) both; \}', w) and '@keyframes dot-grow { from { transform: scale(.4); } }' in w
     assert re.search(r'\.prog i \{[^}]*transition: width var\(--dur-3\) var\(--ease\)', b)
-    assert "'rail-' + " in css('blocks/walk/walk.js')                                  # a demo check fills its dot from the reply of the prediction
+    assert "'rail-' + " in css('blocks/walk/walk.js') and "bar.style.width" in css('blocks/walk/walk.js')   # a demo check fills its dot and moves the line
 
 def test_m6_words_in_the_passage_point_at_the_demo(mk, walk_fake, lr):
     "The passage names the words that the idea moves; walk.js marks them and the demo labels, and rings the matching part of the demo."

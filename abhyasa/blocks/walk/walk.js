@@ -59,10 +59,11 @@ if (!window.abhyasaWalk) {
   const say = (card, text) => { const s = card.querySelector('.said'); if (s) s.textContent = text; };
   const post = (card, url, body, done) => fetch(url, {method: 'POST', body: new URLSearchParams(body)})
     .then(r => { say(card, r.ok ? done : 'The tutor did not save this. Try again.'); return r.ok && r.json(); }).catch(() => say(card, 'The tutor did not save this. Try again.'));
-  // The first prediction closes the step: its dot in the outline fills, as after an answer (walk.css `.just`).
-  const fill = (card, dot) => {
-    const li = dot && document.getElementById('rail-' + card.dataset.step);
-    if (li && !li.classList.contains(dot)) { li.classList.remove('now', 'todo'); li.classList.add(dot, 'just'); }
+  // The first prediction closes the step: its dot in the outline fills and the progress line moves, as after an answer (walk.css `.just`).
+  const fill = (card, r) => {
+    const li = r.dot && document.getElementById('rail-' + card.dataset.step), bar = document.getElementById('rail-bar');
+    if (li && !li.classList.contains(r.dot)) { li.classList.remove('now', 'todo'); li.classList.add(r.dot, 'just'); }
+    if (bar && r.total) bar.style.width = `${Math.floor(100 * r.done / r.total)}%`;
   };
   // The first prediction closes a demo check: Next idea shows in the card and becomes the main button, and the skip goes.
   const shut = card => {
@@ -75,7 +76,7 @@ if (!window.abhyasaWalk) {
     if (!card) return;
     const d = e.detail;
     post(card, card.dataset.url, {slug: card.dataset.demo, gate: d.gate, picked: String(d.picked), ans: String(d.ans), ok: String(d.ok),
-                                  why: d.why || '', context: d.context || ''}, 'Your prediction is saved.').then(r => { if (r) { shut(card); fill(card, r.dot); } });
+                                  why: d.why || '', context: d.context || ''}, 'Your prediction is saved.').then(r => { if (r) { shut(card); fill(card, r); } });
   });
 
   // Keep this state (K): save the inputs of the demo with your last prediction.
