@@ -116,7 +116,7 @@ def test_the_end_of_a_walk_is_calm(mk, walk_fake, lr):
     assert re.search(r'The first review is (today|tomorrow|in \d+ days)\.', t)
     gos = re.findall(r'class="btn go"[^>]*>(.*?)</a>', t)
     assert gos == ['Back to Today <kbd>⌥S</kbd>'] and 'href="/graph" class="btn">See the graph</a>' in t and 'Back to your journeys' not in t
-    assert '<p class="well">Well walked.</p>' in t
+    assert 'Well walked' not in t and 'p.well' not in css('blocks/walk/walk.css')        # the H1 closes the page: no closing line
 
 def test_a_section_with_no_checks_says_how_to_come_back(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); cl.post(f'/w/{jid}/0/next')
@@ -191,6 +191,11 @@ def test_m4_the_dots_fill_one_by_one_then_the_sum_fades_in(mk, walk_fake, lr):
 def test_m1_the_next_idea_comes_in_gently():
     "htmx swaps a whole page in a view transition, only with motion; a part of a page swaps with none. Only the idea moves."
     js, w = css('core/core.js'), css('blocks/walk/walk.css')
+    from fastcore.utils import AttrDict
+    from fasthtml.common import to_xml
+    from abhyasa.blocks.walk.ui import Dots
+    long = to_xml(Dots(AttrDict(steps=[AttrDict(dot='done')] * 30, done=30)))
+    assert 'style="--i:5"' in long and 'style="--i:6"' not in long                  # the stagger stops at 5, so the sum shows within 600 ms
     assert 'htmx.config.globalViewTransitions = abhyasaMotion()' in js and "'htmx:beforeTransition'" in js and 'document.body' in js
     assert '.walk-main { view-transition-name: idea; }' in w and '::view-transition-old(root), ::view-transition-new(root) { animation: none; }' in w
     assert re.search(r'::view-transition-old\(idea\) \{ animation: idea-out 120ms', w) and re.search(r'::view-transition-new\(idea\) \{ animation: idea-in var\(--dur-2\)', w)

@@ -311,7 +311,7 @@ def SectionDone(j, sec, ix, ms, nxt, by):
 def Dots(st):
     "One dot for each idea of the walk, in the colours of the outline."
     n = len(st.steps)
-    return Div(*[I(cls=f'd {s.dot}', style=f'--i:{k}') for k, s in enumerate(st.steps)], cls='walk-dots', role='img',
+    return Div(*[I(cls=f'd {s.dot}', style=f'--i:{min(k, 5)}') for k, s in enumerate(st.steps)], cls='walk-dots', role='img',
                aria_label=f"{st.done} of {n_of(n, 'idea')} done")
 
 def when_review(due, now=None):
@@ -333,5 +333,5 @@ def WalkDone(j, st, ms, by, sides=(), due=None, end=()):
     go = '' if end else Div(Primary('Back to Today', href='/'), Secondary('See the graph', href='/graph'), cls='row')
     return (H1('You finished the walk'), Dots(st),
             Div(P(lead, cls='lead-sum'), *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []), *also,
-                P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', P('Well walked.', cls='well'), cls='walk-sum', style=f"--n:{len(outs)}"),
+                P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', cls='walk-sum', style=f"--n:{min(len(outs), 5)}"),
             *end, go)

@@ -263,7 +263,7 @@ def f2_calm_end(pg, w):
     assert pg.inner_text('main h1') == 'You finished the walk'
     assert pg.eval_on_selector_all('.walk-dots .d', 'ds => ds.map(d => d.className)') == ['d skipped', 'd done', 'd skipped']
     assert visible_gos(pg) == ['Back to Today ⌥S'], visible_gos(pg)
-    assert 'stays at unseen' not in pg.inner_text('main') and pg.is_visible('p.well')
+    assert 'stays at unseen' not in pg.inner_text('main') and 'Well walked' not in pg.inner_text('main')
 
 def m4_calm_finish(pg, w):
     "At the end of a walk, the dots of the ideas you did fill one by one, 60 ms apart, then the sum fades in."
