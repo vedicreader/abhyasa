@@ -103,7 +103,7 @@
     c.focus();
   };
   const narrow = url => {
-    sessionStorage.setItem('rh-back', JSON.stringify({from: location.pathname + location.search, to: url, title: document.title.replace(/ · abhyasa$/, '')}));
+    sessionStorage.setItem('rh-back', JSON.stringify({from: withRh(null), to: url, title: document.title.replace(/ · abhyasa$/, '')}));
     location.assign(url);
   };
   const backLink = () => {   // under 1100 px: the side page in the same tab gets a link back to the page that opened it

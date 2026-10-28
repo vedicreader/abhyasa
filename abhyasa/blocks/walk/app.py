@@ -1,6 +1,6 @@
 """The guided walk: a paper, a text, a topic or a link as one idea at a time, in reading order. The plan, the step page, its check,
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
-import json, time
+import json, re, time
 from collections import defaultdict
 from threading import Lock
 from pathlib import Path
@@ -316,6 +316,12 @@ def connect(app, ctx):
         for j in lr.journeys():
             if j.get('mode') == 'walk' and j.get('started') and not j.get('depth') and (st := walk_state(j)).current is not None:   # a side walk shows under its parent
                 return P(A(f"Continue the walk: {j.title} · idea {st.current + 1} of {len(j.steps)}", href=ui.at(Routes.one, j.id)), cls='walk-next')
+
+    @hook('pane_title')
+    def pane_title(url):
+        "The title of the walk at `url` (`/w/<id>/<step>`) in the side pane; None for another page."
+        m = re.match(r'/w/([^/?#]+)/\d+(?:[?#]|$)', url or '')
+        return (j := m and walk_of(m.group(1))) and j.title or None
 
     @hook('concept_more')
     def passages(c):

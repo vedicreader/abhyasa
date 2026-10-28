@@ -6,7 +6,7 @@ from fasthtml.common import *
 from mdhtml import md2mdhtml, mdhtml2html
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
-from abhyasa.core.pane import PaneHost, is_local
+from abhyasa.core.pane import PaneHost, is_local, pane_url
 from abhyasa.model import DEPTHS
 
 __all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago',
@@ -93,11 +93,20 @@ def Page(title, *c, on='', wide=False, extra=(), crumbs=(), pane=False):
         if req is not None: req.htmlkw['class'] = 'in-pane'
         return (Title(f'{title} · abhyasa'), *extra, Main(*c, cls='wide' if wide else ''), *run('page_extra'))
     rh = q.get('rh')
-    if req is not None and is_local(rh): req.htmlkw['class'] = 'rh-open'   # drawn open, so it does not flash closed on a reload
+    side = ''
+    if req is not None and is_local(rh):
+        req.htmlkw['class'] = 'rh-open'   # drawn open, so it does not flash closed on a reload
+        side = next(iter(run('pane_title', rh)), '')
     nav = [A(t, href=h, cls='on' if t == on else '') for t, h, _ in sorted(RouteOverrides.nav, key=lambda x: x[2])]
     return (Title(f'{title} · abhyasa'), *extra, Nav(A('abhyasa', href='/', cls='brand'), *nav, Span(cls='nav-gap'), *run('nav_extra'),
             Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search')),
-            Main(Crumbs(crumbs), *c, cls='wide' if wide else ''), PaneHost(rh), *run('page_extra'))
+            Main(Crumbs(crumbs), Narrow(rh, side), *c, cls='wide' if wide else ''), PaneHost(rh, side), *run('page_extra'))
+
+def Narrow(rh, title=''):
+    "Under 1100 px the side pane does not show: one line over the title names the side walk that is open, and opens it (pane.css shows it)."
+    if not is_local(rh): return ''
+    said = ('You have a side walk open: ', B(title), '. Open it →') if title else ('You have a side page open. Open it →',)
+    return A(*said, href=rh, data_pane=pane_url(rh), cls='rh-back rh-narrow')
 
 # Learner text, model text and vault text are not trusted. Markdown is rendered here as Leela does it (mdhtml with dollar maths),
 # then nh3 keeps only the tags and attributes that markdown can mean. `core.js` draws each `.math` with KaTeX.

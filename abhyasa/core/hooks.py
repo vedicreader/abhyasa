@@ -6,7 +6,9 @@ composer); `lesson_extra` (under a lesson).
 
 The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs, and the strip after a side walk);
 `check_after(j, i, q)` (under a check: the gaps that an answer points at); `walk_end(j)` (the end of a walk: a side walk sends
-`rh:done`); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`)."""
+`rh:done`); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`).
+
+The side pane: `pane_title(url)` (the title of the page at the local path `url`, for the pane bar and the line under 1100 px)."""
 from collections import defaultdict
 
 __all__ = ['HOOKS', 'hook', 'run', 'clear']

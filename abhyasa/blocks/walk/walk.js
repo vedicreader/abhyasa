@@ -37,7 +37,8 @@ if (!window.abhyasaWalk) {
 
   // While a side walk is open in the pane, the check says that it waits, and that the draft is kept.
   const held = () => {
-    const c = document.querySelector('#check .check'), on = root.classList.contains('rh-open') && c && c.querySelector('#ans');
+    const c = document.querySelector('#check .check'), pane = document.getElementById('rh-pane');
+    const on = root.classList.contains('rh-open') && pane?.checkVisibility() && c && c.querySelector('#ans');   // under 1100 px the pane does not show
     c?.querySelector('.held')?.remove();
     if (!on) return;
     const name = document.querySelector('#rh-pane .rh-trail b')?.textContent.trim() || 'the other idea';

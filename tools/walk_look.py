@@ -187,9 +187,42 @@ def f7_step_lines_up(pg, w):
         assert r[0] <= r[1] and r[2] <= r[1] - 16, r
     finally: pg.set_viewport_size(dict(width=1280, height=900))
 
+def side_walk(w):
+    "A side walk on Derivatives and gradients from step 3, made once; the URL of its first step."
+    if not getattr(w, 'side', None):
+        w.lr.update('scaling-by-the-root-of-dk', prereqs=['softmax', 'gradients'])
+        w.side = w.rq.post(f'{w.B}/rh/open', form=dict(slug='gradients', at=f'{w.jid}/2', how='primer')).json()['url']
+    return w.side
+
+def rows(pg, sel='body > nav'):
+    "The rows of the top bar: a child that starts under the bottom of the first child is on a new row."
+    return pg.eval_on_selector(sel, """n => { const r = [...n.children].filter(e => e.checkVisibility() && e.getBoundingClientRect().width).map(e => e.getBoundingClientRect());
+                                          return 1 + r.filter(b => b.top >= r[0].bottom).length; }""")
+
+def f6_pane_layout(pg, w):
+    "With the pane open at 1280 px the top bar has one row, the pane shows no outline, and in Signal the bar lines meet; at 1000 px a line names the side walk."
+    u = f'{w.step(2)}?rh={side_walk(w)}'
+    try:
+        for theme in ('paper', 'signal'):
+            look(w.rq, w.B, theme, 'light')
+            pg.goto(u); pg.wait_for_selector('#rh-pane iframe'); settle(pg, 900)
+            assert rows(pg) == 1, (theme, rows(pg))
+            fr = pg.frame_locator('#rh-pane iframe'); fr.locator('#check .check').wait_for()
+            assert not fr.locator('.outline').is_visible() and '1 of 1' not in fr.locator('main').inner_text()
+            assert not pg.is_visible('main > a.rh-narrow'), 'the line for a narrow window shows beside the pane'
+            ys = pg.evaluate("() => [document.querySelector('body > nav').getBoundingClientRect().bottom, document.querySelector('#rh-pane .rh-bar').getBoundingClientRect().bottom]")
+            assert abs(ys[0] - ys[1]) < 1, (theme, ys)
+        look(w.rq, w.B, 'paper', 'light')
+        pg.set_viewport_size(dict(width=1000, height=900)); pg.goto(u); settle(pg)
+        assert pg.is_visible('main > a.rh-narrow') and 'Derivatives and gradients' in pg.inner_text('main > a.rh-narrow')
+        pg.wait_for_selector('#check #ans'); settle(pg)
+        assert 'Held while' not in pg.inner_text('#check'), 'the check waits for a pane that does not show'
+        assert rows(pg) == 1, rows(pg)
+    finally: look(w.rq, w.B, 'paper', 'light'); pg.set_viewport_size(dict(width=1280, height=900))
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
-          f7_step_lines_up]
+          f7_step_lines_up, f6_pane_layout]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

@@ -31,6 +31,8 @@ nav .nav-gap { margin-left: auto; }
 nav #continue { color: var(--fg); white-space: nowrap; min-width: 0; flex: 0 1 auto; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
 nav #continue kbd { margin-left: var(--s2); }
 nav input[type=search] { width: 200px; font-size: var(--t-small); padding: var(--s1) 2px; }
+/* a narrow window keeps the top bar on one row: no Continue (⌥C still works) */
+@media (max-width: 1099px) { body > nav { gap: var(--s4); } body > nav #continue { display: none; } }
 
 h1, h2 { font-family: var(--head); font-weight: 400; letter-spacing: -.01em; }
 h1 { font-size: var(--t-h1); line-height: 1.3; margin: 0 0 var(--s3); }
@@ -177,6 +179,7 @@ a { transition: color .14s ease-out, text-decoration-color .14s ease-out; }
 /* the mono is for labels only: a "why" line, also inside a label, reads in the text font */
 [data-theme=signal] .why, [data-theme=signal] :is(h2, label, .lbl) .why { font-family: var(--serif); }
 [data-theme=signal] body > nav { border-bottom: 3px solid var(--acc); }
+[data-theme=signal] { --nav-h: 58px; }   /* the thick line under the top bar; the pane bar takes the same height */
 [data-theme=signal] :is(button, .btn) { border-radius: 2px; }
 [data-theme=signal] .md pre { border-left: 3px solid var(--acc); }
 

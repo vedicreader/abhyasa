@@ -22,7 +22,7 @@ function abhyasaFind(sel) {
 }
 document.addEventListener('keydown', e => {
   if (!e.altKey) return;
-  const el = abhyasaFind(abhyasaKeys[e.code]);
+  const el = abhyasaFind(abhyasaKeys[e.code]) || (e.code === 'KeyC' && document.querySelector('#continue'));   // Continue works when the top bar has no room for it
   if (el) { e.preventDefault(); el.click(); }
 });
 // A main button with `data-focus` takes the cursor when it comes, with no focus ring until you use a key. Never a box with your text in it.
@@ -41,7 +41,8 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); t.form.requestSubmit(t.form.querySelector('button.go') || undefined);
   } else if (e.key === '/' && !inBox && !e.metaKey && !e.ctrlKey && !e.altKey) {
     const q = document.querySelector('nav input[type=search]');
-    if (q) { e.preventDefault(); q.focus(); q.select(); }
+    if (q && abhyasaSeen(q)) { e.preventDefault(); q.focus(); q.select(); }
+    else if (q) { e.preventDefault(); location.assign('/search'); }   // beside the side pane the top bar has no search box
   }
 });
 

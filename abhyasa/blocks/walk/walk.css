@@ -71,6 +71,9 @@ h1.idea { font-size: var(--t-idea); margin-bottom: var(--s4); }
 .check .held { font-size: var(--t-small); font-style: italic; margin: 2px 0 var(--s2); }
 .check .held::before { content: '•'; margin-right: var(--s2); color: var(--acc); }
 a.walk-back { display: inline-block; margin: 0 0 var(--s4); font-size: var(--t-small); color: var(--ink2); text-decoration: none; } a.walk-back:hover { color: var(--acc); }
+/* in the side pane, the bar names the side walk and its trail, so the step does not show the outline again */
+html.in-pane .walk-layout { grid-template-columns: minmax(0, 1fr); }
+html.in-pane .walk-layout > .outline { display: none; }
 html.in-pane a.walk-back { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; margin: 0; padding: var(--s3) var(--s5); background: var(--page); border-top: 1px solid var(--line); }
 html.in-pane main { padding-bottom: 64px; }
 
