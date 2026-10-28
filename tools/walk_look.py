@@ -387,7 +387,7 @@ def l1_demo_ladder(pg, w):
     wrong(0, 0)
     pg.wait_for_selector('#ladder .lesson', timeout=15000)
     assert 'Positions are shared.' in pg.inner_text('#ladder') and pg.text_content('#ladder .lbl').startswith('Lesson · ')
-    assert pg.is_visible('#ladder button[hx-get$="simpler=1"]'); calm()
+    assert pg.is_visible('#ladder button[hx-post$="simpler=1"]'); calm()
     wrong(1, 2)
     pg.wait_for_selector('#ladder button[hx-get$="show=1"]', timeout=20000)
     assert 'Positions are shared.' in pg.inner_text('#ladder'); calm()
@@ -404,8 +404,8 @@ def l1_demo_ladder(pg, w):
     # one gate: the quiet link under the lesson makes the simpler demo on demand
     pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
     wrong(0, 0)
-    pg.wait_for_selector('#ladder button[hx-get$="simpler=1"]', timeout=15000); calm()
-    pg.click('#ladder button[hx-get$="simpler=1"]')
+    pg.wait_for_selector('#ladder button[hx-post$="simpler=1"]', timeout=15000); calm()
+    pg.click('#ladder button[hx-post$="simpler=1"]')
     pg.wait_for_selector('#ladder[data-demo] [data-rk-ready="1"]', timeout=30000)
     assert w.lr.demo(pg.get_attribute('#ladder', 'data-demo')).aim == 'simpler' and 'Positions are shared.' in pg.inner_text('#ladder'); calm()
 

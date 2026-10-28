@@ -399,14 +399,47 @@ def test_one_gate_demo_can_ask_for_a_simpler_demo(mk, walk_fake, lr):
     r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
     made(cl, f'{slug}:lesson')
     part = cl.get(r['ladder']).text
-    assert 'Positions are shared.' in part and 'Show a simpler demo' in part and '?simpler=1' in part and 'class="go' not in part
+    assert 'Positions are shared.' in part and 'Show a simpler demo' in part and 'hx-post="/w/' in part and '?simpler=1' in part and 'class="go' not in part
+    jobs = cl.app.state.svc['tutor'].jobs
+    cl.get(r['ladder'] + '?simpler=1')                                                   # a GET reads: it asks for nothing and writes nothing
+    assert not lr.journey(jid).steps[2]['ladder'].get('asked') and f'{slug}:simpler' not in jobs
     assert f'{slug}:simpler' not in cl.app.state.svc['tutor'].jobs                     # nothing is made until you ask
-    part = cl.get(r['ladder'] + '?simpler=1').text
+    part = cl.post(r['ladder'] + '?simpler=1').text
     assert 'The tutor is making a simpler demo' in part and 'load delay:2s' in part and 'Positions are shared.' in part
     assert lr.journey(jid).steps[2]['ladder']['asked']
     hold.set(); small = made(cl, f'{slug}:simpler')
     part = cl.get(r['ladder']).text                                                     # the poll after the job: the demo shows
     assert 'data-rupaka' in part and f'data-demo="{small.slug}"' in part and 'Positions are shared.' in part and 'class="go' not in part
+
+def test_a_failed_lesson_job_does_not_start_again_on_the_poll(mk, walk_fake, lr):
+    "A lesson job that fails stays failed: the next polls start no job and show one plain line with a button that POSTs. The button starts the job again."
+    slug, calls, real = 'scaling-by-the-root-of-dk', [], walk_fake.rules['Teach the smallest step']
+    def boom(p, sp): calls.append(p); return ''   # the model gives an empty lesson
+    walk_fake.rules['Teach the smallest step'] = boom
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = made(cl, slug); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
+    jb = cl.app.state.svc['tutor'].jobs[f'{slug}:lesson']; jb.result(timeout=30)
+    n = len(calls)
+    for _ in range(3):
+        part = cl.get(r['ladder']).text
+        assert 'could not write a lesson' in part and 'load delay' not in part and f'hx-post="/w/{jid}/2/ladder"' in part and 'Try again' in part
+    assert len(calls) == n and cl.app.state.svc['tutor'].jobs[f'{slug}:lesson'] is jb      # the polls start no new job
+    walk_fake.rules['Teach the smallest step'] = real
+    cl.post(r['ladder']); made(cl, f'{slug}:lesson')                                          # Try again starts the job
+    assert 'Positions are shared.' in cl.get(r['ladder']).text
+
+def test_a_lesson_with_no_attempt_stops_the_poll(mk, walk_fake, lr):
+    "When the attempt of the ladder is gone, the block shows a plain line with no poll and no button."
+    slug = 'scaling-by-the-root-of-dk'
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    lr.walk_step(jid, 2, ladder=dict(rung=1, aid='missing', way=TEXT_WAYS[0]))
+    part = cl.get(f'/w/{jid}/2/ladder').text
+    assert 'could not write a lesson' in part and 'load delay' not in part and 'Try again' not in part
+    assert f'{slug}:lesson' not in cl.app.state.svc['tutor'].jobs
 
 def test_a_prereq_does_not_stop_the_ladder_in_a_walk(mk, walk_fake, lr):
     "An idea with a prereq that is not learned still gets the simpler demo on the second wrong prediction: `_back` waits for the third miss since the demo."

@@ -230,15 +230,16 @@ def Slot(jid, i, s):
     "The place for the help under a demo check. walk.js fills it after a wrong prediction; a reload fills it when the step has help."
     return Div(id='ladder', cls='ladder', **(dict(hx_get=at(Routes.ladder, jid, i), hx_trigger='load', hx_swap='outerHTML') if s.get('ladder') else {}))
 
-def Ladder(jid, i, ld, demo=None, show=False, pending='', failed=False, more=False):
+def Ladder(jid, i, ld, demo=None, show=False, pending='', failed='', retry=False, more=False):
     """The help under a demo check after a wrong prediction, as one quiet block with no main button: the lesson in another way (`ld`),
-    then a simpler demo. `pending` says what the tutor makes while the page asks again in 2 seconds. `more` adds the quiet link that asks for the simpler demo."""
+    then a simpler demo. `pending` says what the tutor makes while the page asks again in 2 seconds. `more` adds the quiet button that asks for the simpler demo.
+    `failed` is the plain line after a job failed; `retry` adds a button that POSTs to start the job again."""
     url = at(Routes.ladder, jid, i)
     out = [Div(Span(f"Lesson · {LABELS[ld['way']].lower()}" if ld.get('way') in LABELS else 'Lesson', cls='lbl'), Md(ld['lesson']), cls='lesson')] if ld.get('lesson') else []
     if pending: out.append(P(pending, cls='mute making'))
-    elif failed: out.append(P('No simpler demo this time. Read the passage again, or go on to the next idea.', cls='mute'))
+    elif failed: out += [P(f'{failed} Read the passage again, or go on to the next idea.', cls='mute'), *([Div(Quiet('Try again', type='button', hx_post=url, hx_target='#ladder', hx_swap='outerHTML'), cls='row acts')] if retry else [])]
     elif demo is not None and show: out += [Span('A simpler demo', cls='lbl'), Demo(demo.spec)]
-    elif more: out.append(Div(Quiet('Show a simpler demo', type='button', hx_get=f'{url}?simpler=1', hx_target='#ladder', hx_swap='outerHTML'), cls='row acts'))
+    elif more: out.append(Div(Quiet('Show a simpler demo', type='button', hx_post=f'{url}?simpler=1', hx_target='#ladder', hx_swap='outerHTML'), cls='row acts'))
     elif demo is not None: out.append(Div(Span('A simpler demo', cls='lbl'), Quiet('Show a simpler demo', type='button', hx_get=f'{url}?show=1', hx_target='#ladder', hx_swap='outerHTML'), cls='row acts'))
     poll = dict(hx_get=url, hx_trigger='load delay:2s', hx_swap='outerHTML') if pending else {}
     return Div(*out, id='ladder', cls='ladder' + (' pending' if pending else ''), aria_live='polite', **poll, **({'data_demo': demo.slug} if demo is not None and show else {}))
