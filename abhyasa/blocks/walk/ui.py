@@ -1,16 +1,16 @@
 "A walk on the page: the plan, then one idea at a time with the outline at the left, the passage, the figure, the tutor note and one check."
-import json
+import json, time
 from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import n_of, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet
+from abhyasa.core import n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
 from abhyasa.settings import val
 from abhyasa.core.leela import leela_line
-from abhyasa.journey import minutes, TOOL_WAYS
+from abhyasa.journey import minutes, TOOL_WAYS, SHAKY
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -278,19 +278,46 @@ CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # 
 # --- the end of a section --------------------------------------------------------------------------------------------
 
 def Moved(m):
-    up, down = m['after'] > m['before'], m['after'] < m['before']
-    said = f"{DEPTHS[m['before']]} → {DEPTHS[m['after']]}" if up or down else f"stays at {DEPTHS[m['after']]}"
-    return Li(A(m['name'], href=f"/c/{m['concept']}"), DepthBar(m['after']), ' ', Span(said, cls='moved'),
-              Span(f"  · {m['passed']} of {m['asked']} passed", cls='mute'))
+    "One concept after the checks: from what depth to what depth, in words that never read as nothing happened."
+    said, count = moved_words(m)
+    return Li(A(m['name'], href=f"/c/{m['concept']}"), DepthBar(m['after']), ' ', Span(said, cls='moved'), Span(f"  · {count}", cls='mute') if count else '')
 
-def SectionDone(j, sec, ix, ms, nxt, by, end=()):
-    "What moved in this section, the ideas you skipped, and Go on. At the end of the walk, `end` is what other blocks add (`walk_end`)."
+def SectionDone(j, sec, ix, ms, nxt, by):
+    "The end of a section that is not the last one: what moved, the ideas you skipped, and Go on."
     skipped = [name(by, j['steps'][k]) for k in ix if (j['steps'][k].get('done') or {}).get('outcome') == 'skipped']
-    up = sum(m['after'] > m['before'] for m in ms)
-    lead = (f"{n_of(up, 'idea')} moved up." if up else 'Nothing moved up in this section.' if ms else 'You did no checks in this section.')
-    go = Primary('Go on', href=at(Routes.step, j['id'], nxt)) if nxt is not None else Primary('Back to your journeys', href='/journeys')
+    up, ok, n = sum(m['after'] > m['before'] for m in ms), sum(m['passed'] for m in ms), sum(m['asked'] for m in ms)
+    lead = (f"{n_of(up, 'idea')} moved up." if up else f"You passed {ok} of {n_of(n, 'check')}." if ok else
+            'You did not pass a check in this section yet. These ideas come back in your review.' if ms else
+            'You skipped the checks in this section. You can come back to them from the outline.')
     return (Span(sec or 'The ideas', cls='lbl'), H1('Section done'), P(lead, cls='lead-sum'),
             *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []),
             *([P('You skipped: ', ', '.join(skipped), '.', cls='mute')] if skipped else []),
-            P(f"Next: {name(by, j['steps'][nxt])}." if nxt is not None else 'You finished the walk.', cls='next-step'),
-            *end, Div(go, cls='row'))
+            P(f"Next: {name(by, j['steps'][nxt])}.", cls='next-step'), Div(Primary('Go on', href=at(Routes.step, j['id'], nxt)), cls='row'))
+
+def Dots(st):
+    "One dot for each idea of the walk, in the colours of the outline."
+    n = len(st.steps)
+    return Div(*[I(cls=f'd {s.dot}', style=f'--i:{k}') for k, s in enumerate(st.steps)], cls='walk-dots', role='img',
+               aria_label=f"{st.done} of {n_of(n, 'idea')} done")
+
+def when_review(due, now=None):
+    "The day of the first review: `today`, `tomorrow` or `in 3 days`."
+    lt, now = time.localtime(due), time.localtime(now or time.time())
+    days = round((time.mktime(lt[:3] + (12, 0, 0) + lt[6:]) - time.mktime(now[:3] + (12, 0, 0) + now[6:])) / 86400)
+    return 'today' if days <= 0 else 'tomorrow' if days == 1 else f'in {days} days'
+
+def WalkDone(j, st, ms, by, sides=(), due=None, end=()):
+    """The end of a walk: a row of dots for all the ideas, a short sum of the walk, what moved, the side walks that you did, the
+    first review, and Back to Today. `sides` is `(name, learned)`. `end` is what other blocks add (`walk_end`): when it holds
+    a way out (the end of a side walk), the page does not add its own."""
+    outs = [(s.get('done') or {}).get('outcome') for s in j['steps']]
+    counts = [f"{outs.count('solid')} solid", f"{sum(o in SHAKY for o in outs)} shaky", f"{outs.count('skipped')} skipped"]
+    counts = ', '.join(c for c in counts if not c.startswith('0 '))
+    lead = f"{n_of(len(outs), 'idea')} from {j['title']}." + (f" {counts}." if counts else '')
+    learned, looked = [n for n, ok in sides if ok], [n for n, ok in sides if not ok]
+    also = [P(f"You also {verb} {' and '.join(ns)} on the way.", cls='mute') for verb, ns in (('learned', learned), ('looked at', looked)) if ns]
+    go = '' if end else Div(Primary('Back to Today', href='/'), Secondary('See the graph', href='/graph'), cls='row')
+    return (H1('You finished the walk'), Dots(st),
+            Div(P(lead, cls='lead-sum'), *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []), *also,
+                P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', P('Well walked.', cls='well'), cls='walk-sum'),
+            *end, go)

@@ -10,7 +10,7 @@ from abhyasa.core.pane import PaneHost, is_local, pane_url
 from abhyasa.model import DEPTHS
 
 __all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago',
-           'meta', 'n_of', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part']
+           'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -173,6 +173,17 @@ def meta(*parts) -> str:
 def n_of(n:int, word:str, plural:str=None) -> str:
     "A count with the right plural: `1 idea`, `3 ideas`, `0 ideas`."
     return f"{n} {word if n == 1 else plural or word + 's'}"
+
+def moved_words(m) -> tuple:
+    """What a sitting did to one concept (a row of `tutor.moved`), as `(said, count)`. A pass never reads as "nothing happened":
+    `recall → explain`, `stays at recall` for a concept seen before, else `first pass`, `on the way to recall`, or `not yet`.
+    `count` is `2 of 3 passed`, or empty when `said` already tells it."""
+    b, a, n, ok = m['before'], m['after'], m['asked'], m['passed']
+    if a != b: said = f"{DEPTHS[b]} → {DEPTHS[a]}"
+    elif b: said = f"stays at {DEPTHS[a]}"
+    elif not ok: said = 'not yet'
+    else: said = 'first pass' if ok == 1 else f"on the way to {DEPTHS[2]}"
+    return said, f"{ok} of {n} passed" if n > 1 or b else ''
 
 def _btn(c, cls, href=None, **kw):
     cls = ' '.join(x for x in (cls, kw.pop('cls', '')) if x)

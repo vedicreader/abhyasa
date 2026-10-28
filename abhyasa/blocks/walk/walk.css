@@ -30,8 +30,10 @@ main.wide:has(.walk-layout) > .crumbs { max-width: 984px; margin-inline: auto; }
 .outline li.c { padding-left: var(--s5); position: relative; }
 .outline li.c a { color: inherit; text-decoration: none; } .outline li.c a:hover { color: var(--fg); }
 .outline li.c::before { content: ''; position: absolute; left: 12px; top: 10px; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--rule); }
-.outline li.c.done::before, .outline li.c.known::before { background: var(--acc); border-color: var(--acc); }
-.outline li.c.shaky::before { background: color-mix(in srgb, var(--no) 40%, var(--bg)); border-color: var(--no); }
+/* the dot of an idea: in the outline, and in the row of dots at the end of a walk */
+.walk-dots .d { display: block; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--rule); }
+.outline li.c:is(.done, .known)::before, .walk-dots .d:is(.done, .known) { background: var(--acc); border-color: var(--acc); }
+.outline li.c.shaky::before, .walk-dots .d.shaky { background: color-mix(in srgb, var(--no) 40%, var(--bg)); border-color: var(--no); }
 .outline li.c.skipped a { text-decoration: line-through; }
 .outline li.on { border-left-color: var(--acc); color: var(--fg); }
 .outline li.c.on::before { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 20%, transparent); }
@@ -52,6 +54,11 @@ h1.idea { font-size: var(--t-idea); margin-bottom: var(--s4); }
 /* a closed check holds Next idea, so the next bar keeps only the way back; this works at once, with no reload */
 .walk-main:has(.check.shut, .check.done, #code-out .tag) .next-bar .skip { display: none; }
 .next-bar .skip button { margin-left: auto; }
+
+/* the end of a walk: the row of dots, the sum, and one quiet line at the end */
+.walk-dots { display: flex; flex-wrap: wrap; gap: var(--s2); margin: var(--s2) 0 var(--s5); }
+.walk-sum .lead-sum { font-size: var(--t-body); }
+p.well { font-style: italic; color: var(--ink2); margin: var(--s5) 0 0; }
 
 /* the code check */
 .code-editor { font: var(--t-small)/1.5 var(--mono); tab-size: 4; white-space: pre; overflow: auto; background: var(--sunken); border: 0; border-radius: var(--r-s); padding: var(--s3) var(--s4); }

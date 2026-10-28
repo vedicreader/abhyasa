@@ -233,9 +233,29 @@ def f5_way_beside(pg, w):
     pg.goto(w.step(2)); pg.wait_for_selector('.rh-line'); settle(pg)
     assert not pg.query_selector('.rh-tip'), 'the tip shows twice'
 
+def walk_to_end(w):
+    "A second walk on the paper, walked to the end: idea 1 skipped, idea 2 passed, idea 3 skipped. The URL of its last page."
+    if not getattr(w, 'end', None):
+        r = w.rq.post(f'{w.B}/walk/new', form=dict(ref=add_paper(w.lr)), headers={'HX-Request': 'true'}, max_redirects=0)
+        jid = r.headers['hx-redirect'].split('/')[-1]
+        w.lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why='plain words fit this idea'))
+        w.rq.post(f'{w.B}/w/{jid}/start', max_redirects=0); w.rq.post(f'{w.B}/w/{jid}/0/next', max_redirects=0)
+        w.rq.get(f'{w.B}/w/{jid}/1/check'); w.rq.post(f'{w.B}/w/{jid}/1/answer', form=dict(answer='the rank is a position', confidence='70'))
+        w.rq.post(f'{w.B}/w/{jid}/2/next', max_redirects=0)
+        w.end = f'{w.B}/w/{jid}/2/done'
+    return w.end
+
+def f2_calm_end(pg, w):
+    "The end of a walk says You finished the walk, has one dot for each idea, and Back to Today is the one main button."
+    pg.goto(walk_to_end(w)); settle(pg)
+    assert pg.inner_text('main h1') == 'You finished the walk'
+    assert pg.eval_on_selector_all('.walk-dots .d', 'ds => ds.map(d => d.className)') == ['d skipped', 'd done', 'd skipped']
+    assert visible_gos(pg) == ['Back to Today ⌥S'], visible_gos(pg)
+    assert 'stays at unseen' not in pg.inner_text('main') and pg.is_visible('p.well')
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
-          f7_step_lines_up, f6_pane_layout, f5_way_beside]
+          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

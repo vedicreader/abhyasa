@@ -75,3 +75,50 @@ def test_one_tip_says_that_you_can_select_a_word():
     js, d = css('blocks/detour/detour.js'), css('blocks/detour/detour.css')
     assert 'Select a word that you do not know, then press ⌥B.' in js and "'rh-tip'" in js and 'localStorage' in js
     assert re.search(r'\.rh-tip \{[^}]*font-size: var\(--t-small\)[^}]*color: var\(--mute\)', d)
+
+# F2: a calm end to a walk, and a pass never reads as "nothing happened"
+
+def test_moved_words_never_say_nothing_happened():
+    from abhyasa.core import moved_words
+    m = lambda b, a, n, ok: dict(before=b, after=a, asked=n, passed=ok)
+    assert moved_words(m(0, 0, 1, 1)) == ('first pass', '')                           # not "stays at unseen · 1 of 1 passed"
+    assert moved_words(m(0, 0, 3, 2)) == ('on the way to recall', '2 of 3 passed')
+    assert moved_words(m(0, 0, 1, 0)) == ('not yet', '')
+    assert moved_words(m(2, 2, 1, 1)) == ('stays at recall', '1 of 1 passed')         # a concept that you had seen before
+    assert moved_words(m(1, 3, 2, 2)) == ('recognise → explain', '2 of 2 passed')
+    for f in ('blocks/walk/ui.py', 'blocks/session/ui.py', 'blocks/history/app.py'): assert 'stays at {' not in css(f), f
+
+def finish(cl, lr, jid, sides=False):
+    "Walk to the end: skip idea 1, pass idea 2, and skip idea 3. With `sides`, learn Derivatives beside idea 3 first."
+    cl.post(f'/w/{jid}/start')
+    cl.post(f'/w/{jid}/0/next')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
+    cl.get(f'/w/{jid}/1/check'); cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position', confidence=70))
+    if sides:
+        needs_gradients(lr)
+        sid = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url'].split('/')[2]
+        cl.get(f'/w/{sid}/0/check'); cl.post(f'/w/{sid}/0/answer', data=dict(answer='the rank is a position', confidence=90))
+        cl.post(f'/rh/back/{sid}')
+    cl.post(f'/w/{jid}/2/next')
+    return cl.get(f'/w/{jid}/2/done').text
+
+def test_the_end_of_a_walk_is_calm(mk, walk_fake, lr):
+    "The last page says You finished the walk, has one dot for each idea, sums up the whole walk, and goes back to Today."
+    walk_fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')
+    cl = mk(); jid = walk(cl, lr)
+    t = finish(cl, lr, jid, sides=True)
+    assert '<h1>You finished the walk</h1>' in t and 'Section done' not in t and 'You did no checks' not in t
+    dots = re.findall(r'<i class="d (\w+)"', t)
+    assert dots == ['skipped', 'done', 'skipped'], dots
+    assert '3 ideas from Attention Is All You Need. 1 solid, 2 skipped.' in t
+    assert 'What moved' in t and 'Softmax' in t.split('What moved')[1] and 'stays at unseen' not in t
+    assert 'You also learned Derivatives and gradients on the way.' in t
+    assert re.search(r'The first review is (today|tomorrow|in \d+ days)\.', t)
+    gos = re.findall(r'class="btn go"[^>]*>(.*?)</a>', t)
+    assert gos == ['Back to Today <kbd>⌥S</kbd>'] and 'href="/graph" class="btn">See the graph</a>' in t and 'Back to your journeys' not in t
+    assert '<p class="well">Well walked.</p>' in t
+
+def test_a_section_with_no_checks_says_how_to_come_back(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); cl.post(f'/w/{jid}/0/next')
+    t = cl.get(f'/w/{jid}/0/done').text
+    assert 'You skipped the checks in this section. You can come back to them from the outline.' in t and 'Section done' in t

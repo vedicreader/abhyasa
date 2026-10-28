@@ -1,7 +1,7 @@
 "Your learning: past sessions with what moved, what you learned each week, and Continue: in the top bar and on Today."
 import time
 from fasthtml.common import *
-from abhyasa.core import n_of, Page, RouteOverrides, hook, ago
+from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, ago
 from abhyasa.settings import val
 from abhyasa.tutor import moved
 from abhyasa.journey import progress
@@ -100,8 +100,8 @@ def connect(app, ctx):
         return Page('Session', ui.css(), H1(title(s, by, js)),
                     P(f"{ago(s.get('start'))} · {sum(r['correct'] for r in log)} of {len(log)} passed" + (' · open' if is_open(s) else ''), cls='mute'),
                     Div(*acts, cls='row') if any(acts) else '',
-                    *([H2('What moved'), Ul(*[Li(ui.Move(m) if m['after'] != m['before'] else Span(m['name'], f" stays at {ui.DEPTHS[m['after']]}"),
-                                                 Span(f"  · {m['passed']} of {m['asked']} passed", cls='mute')) for m in ms], cls='plain')] if ms else []),
+                    *([H2('What moved'), Ul(*[Li(ui.Move(m) if m['after'] != m['before'] else Span(m['name'], f" {moved_words(m)[0]}"),
+                                                 Span(f"  · {moved_words(m)[1]}", cls='mute') if moved_words(m)[1] else '') for m in ms], cls='plain')] if ms else []),
                     H2('The questions'), *(map(ui.Question, log) if log else [P(s.get('summary') or 'No questions.', cls='mute')]),
                     crumbs=[*up, ('Your learning', Routes.base)])
 

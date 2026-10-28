@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import n_of, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary
+from abhyasa.core import n_of, moved_words, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary
 from abhyasa.model import DEPTHS
 from abhyasa.settings import val
 from abhyasa.method import LABELS as WAYS
@@ -181,10 +181,10 @@ def Done():
 def Moved(m):
     "One concept of the session: from what depth to what depth, and how many passed."
     up, down = m['after'] > m['before'], m['after'] < m['before']
-    said = (f"{DEPTHS[m['before']]} → {DEPTHS[m['after']]}" if up or down else f"stays at {DEPTHS[m['after']]}")
+    said, count = moved_words(m)
     return Li(A(m['name'], href=f"/c/{m['concept']}"), DepthBar(m['after']), ' ',
               Span(said, cls='moved up' if up else 'moved down' if down else 'moved'),
-              Span(f"  · {m['passed']} of {m['asked']} passed", cls='mute'),
+              Span(f"  · {count}", cls='mute') if count else '',
               *([P('Misconception: ', ', '.join(m['misconceptions']), cls='mute mis')] if m['misconceptions'] else []))
 
 def EndPage(s, ms, j=None, pg=None, rel=()):

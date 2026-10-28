@@ -295,8 +295,15 @@ def connect(app, ctx):
         rows = [r for r in (s.log if s else ()) if r['concept'] in slugs]
         if s and not s.ended: s.end(); sessions.pop(s.id, None)
         nxt = ix[-1] + 1 if ix[-1] + 1 < len(j.steps) else None
-        end = run_hook('walk_end', j) if nxt is None else ()
-        return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), nxt, by(), end), crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
+        crumbs = [*up, (j.title, ui.at(Routes.one, jid))]
+        if nxt is not None: return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), nxt, by()), crumbs=crumbs, extra=ui.assets())
+        b = by()
+        logs = [x.get('log') or [] for x in sorted(lr.sessions(limit=10_000), key=lambda x: x.get('start') or 0) if x.get('journey') == jid and x.get('id') != sid]
+        rows = [r for log in logs for r in log] + (s.log if s else [])   # the whole walk: every sitting, in order
+        sides = [((b.get(d['slug']) or {}).get('name', d['slug']), d.get('outcome') in ('solid', 'fragile')) for st in j.steps for d in st.get('detours') or ()]
+        now, slugs = time.time(), {st['slug'] for st in j.steps if (st.get('done') or {}).get('outcome') not in (None, 'skipped')}
+        due = min((c.due for k in slugs if (c := b.get(k)) and c.get('due') and c.due > now), default=None)
+        return Page('You finished the walk', *ui.WalkDone(j, walk_state(j), moved(rows), b, sides, due, run_hook('walk_end', j)), crumbs=crumbs, extra=ui.assets())
 
     def img(jid:str, i:int):
         "The figure of step `i`, only from inside the vault assets and only as an image file."
