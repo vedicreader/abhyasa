@@ -7,7 +7,8 @@ Docs: https://vedicreader.github.io/abhyasa/tutor.html.md"""
 # %% auto #0
 __all__ = ['HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'GRADE_SP', 'TEACH', 'CLOSE_HOOKS', 'MISSES', 'SHAKY', 'one_ask',
            'asks_twice', 'question_prompt', 'with_code', 'bridges', 'thread_text', 'grade_prompt', 'hint_prompt',
-           'teach_prompt', 'hints', 'Tutor', 'public', 'paced', 'flow', 'Session', 'retests', 'moved']
+           'teach_prompt', 'hints', 'Tutor', 'public', 'reviews_today', 'review_open', 'paced', 'flow', 'Session',
+           'retests', 'moved']
 
 # %% ../nbs/03_tutor.ipynb #c004
 import json, random, time, uuid
@@ -275,6 +276,18 @@ def public(q) -> AttrDict:
     if q.get('options'): out.options = [o['text'] for o in q.options]
     return out
 
+# %% ../nbs/03_tutor.ipynb #17909b13
+def reviews_today(lr:Learning, now:float=None) -> int:
+    "How many review questions you closed today, from midnight on this Mac."
+    t = time.localtime(ifnone(now, time.time()))
+    day0 = time.mktime((t.tm_year, t.tm_mon, t.tm_mday, 0, 0, 0, 0, 0, -1))
+    return sum(1 for a in lr.attempts(limit=1000) if a.at >= day0 and a.get('review') and a.get('final'))
+
+def review_open(lr:Learning) -> bool:
+    "True when review can go on today: the setting `review.per_day` is 0 (no limit), or you closed fewer reviews today."
+    n = val('review.per_day')
+    return not n or reviews_today(lr) < n
+
 # %% ../nbs/03_tutor.ipynb #c025
 def paced(c, depth:int, pace:str='steady') -> int:
     "The depth for the pace of the learner: at `gentle`, at most one above the floor; at `fast`, one more than `pick` gives."
@@ -285,11 +298,12 @@ def paced(c, depth:int, pace:str='steady') -> int:
 
 @patch
 def next(self:Tutor, focus:str=None, subject:str=None, session:str='', skip=(), near=(), pace:str=None, mode:str=None) -> AttrDict|None:
-    "The next question, chosen by `pick` at `pace` (by default the pace in the profile), or None when there is nothing to learn or review."
-    r = pick(self.learning.concepts(), focus=focus, subject=subject, goal=self.goal, skip=skip, near=near)
+    "The next question, chosen by `pick` at `pace` (by default the pace in the profile), or None when there is nothing to learn or review. A review question has `review` in its meta."
+    r = pick(self.learning.concepts(), focus=focus, subject=subject, goal=self.goal, skip=skip, near=near, review=review_open(self.learning))
     if not r: return None
     c, d, why = r
-    return self.ask_on(c, paced(c, d, pace or self.learning.profile().pace), why, session=session, mode=mode)
+    meta = dict(review=True) if why.startswith('due for review') else None
+    return self.ask_on(c, paced(c, d, pace or self.learning.profile().pace), why, session=session, mode=mode, meta=meta)
 
 # %% ../nbs/03_tutor.ipynb #fl02
 MISSES = ('gap', 'misconception')

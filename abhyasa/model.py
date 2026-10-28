@@ -35,8 +35,8 @@ def recall(c, now:float=None) -> float:
 
 def grow(s:float, r:float, kind:str) -> float:
     "The new stability after an outcome, from the old stability `s` and the recall `r` at the time of the answer."
-    if kind == 'solid': return 1. if not s else s * (1 + 3 * (1 - r) + .2)
-    if kind == 'fragile': return .5 if not s else s * (1 + (1 - r) + .05)
+    if kind == 'solid': return val('review.solid') if not s else s * (1 + val('review.growth') * (1 - r) + .2)
+    if kind == 'fragile': return val('review.shaky') if not s else s * (1 + (1 - r) + .05)
     if kind == 'misconception': return .2
     return max(.2, s * .3)
 
@@ -88,8 +88,8 @@ def _gap(c, by):
     return first(by[g] for g in c.get('gaps') or () if g in by and not by[g].get('floor') and by[g].get('seen', 0) < 2)
 
 # %% ../nbs/01_model.ipynb #c039
-def pick(concepts, focus:str=None, subject:str=None, goal:int=None, now:float=None, skip=(), near=()):
-    "The next `(concept, depth, why)`, or None when no review is due and the frontier is empty. Concepts in `near` come first on the frontier."
+def pick(concepts, focus:str=None, subject:str=None, goal:int=None, now:float=None, skip=(), near=(), review:bool=True):
+    "The next `(concept, depth, why)`, or None when no review is due and the frontier is empty. Concepts in `near` come first on the frontier. `review=False` skips the review of due concepts."
     now, goal = ifnone(now, time.time()), goal or val('checks.goal')
     by = {c['slug']: c for c in concepts}
     pool = [c for c in concepts if c['slug'] not in skip and (not subject or c.get('subject') == subject)]
@@ -99,7 +99,7 @@ def pick(concepts, focus:str=None, subject:str=None, goal:int=None, now:float=No
         return c, next_depth(c) if not learned(c, goal) else c.get('floor', 0), back or why
     if focus and (f := by.get(focus)) and (not learned(f, goal) or (f.get('due') or 0) <= now):
         return out(f, f"you chose {f['name']}")
-    due = [c for c in pool if c.get('seen') and c.get('due') and c['due'] <= now]
+    due = [c for c in pool if review and c.get('seen') and c.get('due') and c['due'] <= now]
     if due:
         c = min(due, key=lambda c: recall(c, now))
         return out(c, f"due for review: recall about {recall(c, now):.0%}")
@@ -119,7 +119,7 @@ def understanding(c, now:float=None) -> AttrDict:
            *([f'a misconception: {mis[-1]}'] if mis else []),
            *([f'missed the last {mi} times'] if mi >= 2 else []),
            *([f'right, but shaky at {DEPTHS[c["shaky"]]}'] if c.get('shaky') else []),
-           *([f'fading: recall {r:.0%}'] if c.get('seen') and r < .6 else [])]
+           *([f'fading: recall {r:.0%}'] if c.get('seen') and r < val('review.fading') else [])]
     weak = bool(why) or mi > 0
     if c.get('seen', 0) >= 3 and min(c.get('ceiling', 6), 6) - fl >= 3: why.append('its level is not clear yet')
     strong = fl >= 3 and r >= .8 and not mi and not why

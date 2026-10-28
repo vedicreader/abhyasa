@@ -65,3 +65,27 @@ def test_learned_depth_and_sure_confidence():
     assert not learned(dict(floor=3)) and outcome(True, 55) == 'fragile'
     set_val('checks.goal', 3); set_val('checks.high', 50)
     assert learned(dict(floor=3)) and outcome(True, 55) == 'solid'
+
+# Review
+
+def test_review_defaults():
+    from abhyasa.model import grow
+    assert dflts('review') == {'review.solid': 1., 'review.per_day': 0, 'review.shaky': .5, 'review.growth': 3., 'review.fading': .6}
+    assert (grow(0, 0, 'solid'), grow(0, 0, 'fragile'), grow(2, .5, 'solid')) == (1., .5, 2 * (1 + 3 * .5 + .2))
+
+def test_review_values_read_when_used():
+    from abhyasa.model import grow
+    set_val('review.solid', 2); set_val('review.growth', 1)
+    assert (grow(0, 0, 'solid'), grow(2, .5, 'solid')) == (2., 2 * (1 + .5 + .2))
+
+def test_most_reviews_a_day(lr, fake):
+    import time
+    from abhyasa.tutor import Tutor
+    lr.update('ranking', seen=1, floor=4, stability=1., last=time.time() - 9 * 86400, due=time.time() - 86400)
+    t = Tutor(lr, fake, context=False)
+    q = t.next()
+    assert q.why.startswith('due for review') and q.meta == dict(review=True)
+    t.answer(q.id, 'rank position')                           # a pass closes the review
+    lr.update('ranking', due=time.time() - 60)
+    set_val('review.per_day', 1)
+    assert not t.next().why.startswith('due for review')      # one review a day: the next question is a new idea
