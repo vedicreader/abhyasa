@@ -503,3 +503,10 @@ def test_patched_runner_modules_do_not_fake_a_pass():
         for kind, tests in (('assert', ['assert f(2) == 4']), ('cell', [dict(source='assert f(2) == 4')])):
             r = check.run_isolated(kind, 'f', p + '\ndef f(n):\n    while True: pass\n', tests, total=3.)
             assert no_pass(r), (p, kind, r)
+
+
+def test_home_is_the_work_folder():
+    "Leela's tests rely on this: in the closed process, HOME and `~` are the temporary work folder."
+    src = 'import os\ndef f():\n    return os.environ.get("HOME") == os.getcwd() == os.path.expanduser("~")'
+    for sandbox in (True, False):
+        assert check.run_isolated('assert', 'f', src, ['assert f() == True'], sandbox=sandbox)['checks'][0]['status'] == 'pass'
