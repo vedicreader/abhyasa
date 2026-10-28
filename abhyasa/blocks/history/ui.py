@@ -2,7 +2,7 @@
 import time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, DepthBar, asset_css, ago
+from abhyasa.core import Md, DepthBar, asset_css, ago, Primary
 from abhyasa.model import DEPTHS
 from .cfg import Routes
 
@@ -28,7 +28,7 @@ def Continue(s, title, big=False, href=None):
     n = len(s.get('log') or [])
     return Div(Span('Continue where you stopped', cls='lbl'),
                P(A(title, href=href), Span(f"  · {n} question{'s' if n != 1 else ''} done · {ago(s.get('updated'))}", cls='mute')),
-               Div(A('Continue ', Kbd('⌥S'), href=href, cls='btn go'), cls='row'), cls='continue-card')
+               Div(Primary('Continue', href=href), cls='row'), cls='continue-card')
 
 def Row(s, title, ms, href=None):
     "One past session: when, what, how it went, what moved, and what you can do next."

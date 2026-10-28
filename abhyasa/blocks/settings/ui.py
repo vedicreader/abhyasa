@@ -83,16 +83,17 @@ def Status(sp):
     poll = dict(hx_get=Routes.status, hx_trigger='every 1s', hx_swap='outerHTML') if sp.status.startswith('loading') else {}
     return Span(sp.status, id='stt-status', cls='mute', **poll)
 
-def UseBtn(engine, model, label='Use', go=False):
-    return Button(label, cls='go' if go else '', hx_post=Routes.get if go else Routes.use, hx_vals={'engine': engine, 'model': model},
-                  hx_target='#speech', hx_swap='outerHTML', hx_indicator='#use-sp')
+def UseBtn(engine, model, get=False):
+    "Use a model that is here, or `get` it first: a plain button, since the page has no main action."
+    return Button('Download' if get else 'Use', hx_post=Routes.get if get else Routes.use, hx_vals={'engine': engine, 'model': model},
+                  title='Download the model, then use it' if get else None, hx_target='#speech', hx_swap='outerHTML', hx_indicator='#use-sp')
 
 def Action(k, cur, s, key):
     "What a row can do: it is in use, or you can use it, get it, or not use it (no key)."
     m, e = k['model'], k['engine']
     if (e, m) == cur: return Span('In use', cls='inuse')
     if e == 'openai': return UseBtn(e, m) if key else Span('Set a key first', cls='mute')
-    acts = [UseBtn(e, m) if voice.cached(m) else UseBtn(e, m, 'Get and use', go=True)]
+    acts = [UseBtn(e, m) if voice.cached(m) else UseBtn(e, m, get=True)]
     if m in s['downloaded']: acts.append(Button('Remove', hx_post=Routes.remove, hx_vals={'model': m}, hx_target='#speech', hx_swap='outerHTML',
                                                 hx_confirm=f'Delete {m} from the Hugging Face cache?'))
     return Span(*acts, cls='acts')
@@ -152,7 +153,7 @@ def Found(rows, cur):
     if not rows: return P('No speech to text models match. Try "whisper", "asr" or "parakeet".', cls='mute')
     def row(r):
         m = r['model']
-        act = Span('In use', cls='inuse') if cur == ('mlx', m) else UseBtn('mlx', m) if voice.cached(m) else UseBtn('mlx', m, 'Get and use', go=True)
+        act = Span('In use', cls='inuse') if cur == ('mlx', m) else UseBtn('mlx', m) if voice.cached(m) else UseBtn('mlx', m, get=True)
         return Tr(Td(A(m, href=f'https://huggingface.co/{m}')), Td(size(r['size']), cls='n'), Td(f"{r['downloads']:,}", cls='n'),
                   Td(Span('on this Mac', cls='ok') if voice.cached(m) else ''), Td(act))
     return Table(Thead(Tr(*map(Th, ('Model', 'Size', 'Downloads', '', '')))), Tbody(*map(row, rows)), cls='models')

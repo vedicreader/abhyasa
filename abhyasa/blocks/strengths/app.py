@@ -1,7 +1,7 @@
 "Your strengths and weak spots, from how well you know each concept, and the ways you learn best."
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page, hook
+from abhyasa.core import Page, hook, Primary
 from abhyasa.settings import val
 from abhyasa.model import understanding
 from abhyasa.method import EXAMPLES_TO, methods_text
@@ -29,7 +29,7 @@ def connect(app, ctx):
                     H2('By subject'), Ul(*[ui.Subject(k, v) for k, v in sorted(subs.items(), key=lambda kv: -len(kv[1]))], cls='plain subjects'),
                     H2('Weak spots'),
                     Div(Ul(*[ui.Concept(*x) for x in weak], cls='plain concepts'),
-                        A('Practice my weak spots ', Kbd('⌥S'), href=f'/start?drill=1{q}', cls='btn go'), cls='weak') if weak
+                        Primary('Practice my weak spots', href=f'/start?drill=1{q}'), cls='weak') if weak
                     else P('No weak spots now.', cls='mute'),
                     H2('Strong'), Ul(*[ui.Concept(*x) for x in strong], cls='plain concepts') if strong else P('Nothing is strong yet: that takes depth 3 and good recall.', cls='mute'),
                     H2('Ways you learn' + (f' {subject}' if subject else '')), ui.Ways(st, subject, prior),

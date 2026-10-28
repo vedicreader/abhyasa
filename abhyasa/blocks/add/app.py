@@ -1,7 +1,7 @@
 "Grow the graph: paste text, name a vault document, give a link for a walk, or import vedicreader."
 import time
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides
+from abhyasa.core import Page, RouteOverrides, Primary, Secondary
 from abhyasa.sources import extract, from_vault, from_vedicreader
 from abhyasa.settings import val
 from .cfg import Routes
@@ -19,7 +19,7 @@ def connect(app, ctx):
             Form(Label('Text', Textarea(name='text', rows=4, autofocus=True, placeholder='Paste a text. ⌘↵ finds its concepts.')),
                  Div(Label('Subject', Input(type='text', name='subject', placeholder='e.g. ml, sanskrit, philosophy')),
                      Label('Or a vault document', Input(type='text', name='ref', placeholder='an id, a source or a title')), cls='pair'),
-                 Div(Button('Find concepts ', Kbd('⌥S'), cls='go', data_wait='Reading and finding concepts…', data_skel='#out'), cls='row'),
+                 Div(Secondary('Find concepts', data_wait='Reading and finding concepts…', data_skel='#out'), cls='row'),
                  hx_post=Routes.base, hx_target='#out'),
             Div(id='out'),
             H2('As a walk, in reading order'),
@@ -32,7 +32,7 @@ def connect(app, ctx):
                      Label('Pages to read', Input(type='number', name='pages', min=1, max=val('links.cap'), value=val('links.pages'))), cls='pair'),
                  Label(Input(type='checkbox', name='tool'), ' It is a library or a command-line tool. Code and tools open in Leela.', cls='tick'),
                  P('abhyasa gets the pages of a link only when you send this form. It reads only the pages in the folder of the link.', cls='mute'),
-                 Div(Button('Make a walk', cls='go', data_wait='Making the walk…', data_skel='#walk-out'), cls='row'),
+                 Div(Primary('Make a walk', data_wait='Making the walk…', data_skel='#walk-out'), cls='row'),
                  hx_post='/walk/new', hx_target='#walk-out'),
             Div(id='walk-out'),
             H2('vedicreader'), P('Sanskrit lessons and terms, and the jyotiṣa grahas, rāśis and nakṣatras, from the repo files.', cls='mute'),

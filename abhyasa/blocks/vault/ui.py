@@ -1,7 +1,7 @@
 import json, time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, asset_css, DepthBar
+from abhyasa.core import Md, asset_css, DepthBar, Primary
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -40,7 +40,7 @@ def Actions(d, meta, shelf):
     if src.startswith(('http://', 'https://')): out.append(A('Open the page', href=src, cls='btn'))
     if (f := memory_file(src)) or (src.startswith('/') and Path(src).exists() and (f := Path(src))):
         out.append(Code(str(f), cls='cmd'))
-    out.append(Button('Learn from this', cls='go', hx_post=Routes.learn.format(shelf=shelf, doc_id=d['id']), hx_target='#learned', data_wait='Reading the document…', data_skel='#learned'))
+    out.append(Primary('Learn from this', key=None, hx_post=Routes.learn.format(shelf=shelf, doc_id=d['id']), hx_target='#learned', data_wait='Reading the document…', data_skel='#learned'))
     out.append(Button('Learn as a walk', cls='btn', hx_post='/walk/new', hx_vals=json.dumps(dict(shelf=shelf, ref=d['id'])), hx_target='#learned',
                       title='One idea at a time, in the order of the document', data_wait='Making the walk…', data_skel='#learned'))
     return Div(*out, cls='row actions')

@@ -280,8 +280,7 @@ def SectionDone(j, sec, ix, ms, nxt, by, end=()):
     skipped = [name(by, j['steps'][k]) for k in ix if (j['steps'][k].get('done') or {}).get('outcome') == 'skipped']
     up = sum(m['after'] > m['before'] for m in ms)
     lead = (f"{up} idea{'s' * (up != 1)} moved up." if up else 'Nothing moved up in this section.' if ms else 'You did no checks in this section.')
-    go = (A('Go on ', Kbd('⌥S'), href=at(Routes.step, j['id'], nxt), cls='btn go') if nxt is not None
-          else A('Back to your journeys ', Kbd('⌥S'), href='/journeys', cls='btn go'))
+    go = Primary('Go on', href=at(Routes.step, j['id'], nxt)) if nxt is not None else Primary('Back to your journeys', href='/journeys')
     return (Span(sec or 'The ideas', cls='lbl'), H1('Section done'), P(lead, cls='lead-sum'),
             *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []),
             *([P('You skipped: ', ', '.join(skipped), '.', cls='mute')] if skipped else []),

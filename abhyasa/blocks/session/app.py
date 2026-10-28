@@ -3,7 +3,7 @@ Each session is saved on the shelf as it goes; a URL of a session that is not in
 from concurrent.futures import wait
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import Page, hook
+from abhyasa.core import Page, hook, Primary
 from abhyasa.model import DEPTHS, pick
 from abhyasa.tutor import Session, HINTS, moved
 from abhyasa.journey import progress, related
@@ -172,11 +172,11 @@ def connect(app, ctx):
         nxt_ = P(f"Next: {p[0].name} at {DEPTHS[p[1]]}. ", Span(p[2], cls='why')) if p else P('Nothing due. Add a source, start a journey, or pick a concept.')
         return (H2('Review and practice'), nxt_,
                 Form(Input(type='hidden', name='subject', value=subject or ''),
-                     Button(f"Start{' ' + subject if subject else ''} ", Kbd('⌥S'), cls='go', data_wait='Starting…', autofocus=True), action=Routes.start, method='post'))
+                     Primary(f"Start{' ' + subject if subject else ''}", data_wait='Starting…', focus=True), action=Routes.start, method='post'))
 
     @hook('concept_actions')
     def learn_this(c):
-        return Form(Input(type='hidden', name='focus', value=c.slug), Button('Learn this ', Kbd('⌥S'), cls='go', data_wait='Starting…'), action=Routes.start, method='post')
+        return Form(Input(type='hidden', name='focus', value=c.slug), Primary('Learn this', data_wait='Starting…'), action=Routes.start, method='post')
 
     app.post(Routes.start)(start)
     app.get(Routes.start)(start)   # a plain link can start a session too: Continue in the top bar, a journey step

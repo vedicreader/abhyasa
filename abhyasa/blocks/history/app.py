@@ -94,7 +94,7 @@ def connect(app, ctx):
         by, js = names()
         log, ms = s.get('log') or [], moved(s.get('log') or [])
         missed = [m['concept'] for m in ms if m['passed'] < m['asked']]
-        acts = [A('Continue ', ui.Kbd('⌥S'), href=back(s, js), cls='btn go') if is_open(s) else '',
+        acts = [ui.Primary('Continue', href=back(s, js)) if is_open(s) else '',
                 A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn') if missed else '',
                 A('Continue the journey', href=back(s, js) if s.journey in js and js[s.journey].get('mode') == 'walk' else f"{Routes.start}?journey={s.journey}", cls='btn') if s.get('journey') and s.journey in js and not is_open(s) else '']
         return Page('Session', ui.css(), H1(title(s, by, js)),

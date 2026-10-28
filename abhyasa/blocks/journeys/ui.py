@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago
+from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago, Primary
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -77,7 +77,7 @@ def Step(j, s, i, n, now):
 def Path_(j, pg):
     "The progress, the way on, the steps, and a box to add a topic. Each change returns this whole part."
     cur = pg.current.slug if pg.current else None
-    way = (A('Continue the walk ' if j.get('mode') == 'walk' else f'Continue: {pg.current.name} ', Kbd('⌥S'), href=go(j), cls='btn go') if pg.current
+    way = (Primary('Continue the walk' if j.get('mode') == 'walk' else f'Continue: {pg.current.name}', href=go(j)) if pg.current
            else P('You finished this journey. See what comes after it, below.', cls='done-note'))
     return Div(Div(Span(f"{pg.done} of {pg.total} steps", cls='lbl'), Bar(pg.done, pg.total), cls='phead'), Div(way, cls='row'),
                Ol(*[Step(j, s, i, len(pg.steps), s.slug == cur) for i, s in enumerate(pg.steps)], cls='path'),

@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure
+from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary
 from abhyasa.model import DEPTHS
 from abhyasa.settings import val
 from abhyasa.method import LABELS as WAYS
@@ -144,8 +144,8 @@ def Composer(sid, q=None, ready=None, oob=False):
     at = lambda r: Routes.at(r, sid)
     kw = dict(id='composer', cls='composer', hx_swap_oob='true' if oob else None)
     if q is None:   # closed, or the first question is not written yet
-        nxt = Button('Next ', Kbd('⌥S'), cls='go', id='send', hx_post=at(Routes.next), hx_target='#chat', hx_swap='innerHTML',
-                     data_wait=NEXT, data_skel='#chat', autofocus=True) if ready is not None else ''
+        nxt = Primary('Next', id='send', hx_post=at(Routes.next), hx_target='#chat', hx_swap='innerHTML',
+                      data_wait=NEXT, data_skel='#chat', focus=True) if ready is not None else ''
         return Div(Div(Ready(sid, ready) if ready is not None else Span('Writing the first question', cls='ready mute wait'),
                        A('End session', href=at(Routes.end), cls='btn quiet'), nxt, cls='row bar'), **kw)
     tl = dict(hx_target=f'#{tl_id(q)}', hx_swap='beforeend', data_skel=f'#{tl_id(q)}')
@@ -156,7 +156,7 @@ def Composer(sid, q=None, ready=None, oob=False):
              Textarea(name='thinking', id='think', rows=1, aria_label='Think aloud',
                       placeholder='Think aloud: how did you get there? What are you not sure of?')]
     acts = ([out] if choice else [out, Button('Hint ', Kbd('⌥W'), type='button', id='hint', cls='quiet', hx_post=at(Routes.hint), data_wait=HINTING, **tl),
-                                   Button('Send ', Kbd('⌥S'), cls='go', id='send', data_wait=GRADING)])
+                                   Primary('Send', id='send', data_wait=GRADING)])
     return Form(*boxes, Div(*run('answer_tools', q, 'think' if choice else 'ans'), Confidence(), Left(val('checks.tries') - len(q.tries) if tried else None),
                             Span(cls='grow'), *acts, cls='row bar'),
                 hx_post=at(Routes.answer), **tl, **kw)
@@ -202,8 +202,8 @@ def EndPage(s, ms, j=None, pg=None, rel=()):
         nxt = [H2('Your journey'), P(A(j.title, href=f'/j/{j.id}'), Span(f"  {pg.done} of {pg.total} steps", cls='mute')),
                Span(I(style=f"width:{100 * pg.done // max(pg.total, 1)}%"), cls='prog'),
                P(f"Next step: {pg.current.name}." if pg.current else 'You finished this journey.', cls='next-step'),
-               Div(A('Continue the journey ', Kbd('⌥S'), href=f'/start?journey={j.id}', cls='btn go') if pg.current else
-                   A('See what comes after ', Kbd('⌥S'), href=f'/j/{j.id}', cls='btn go'), cls='row')]
+               Div(Primary('Continue the journey', href=f'/start?journey={j.id}') if pg.current else
+                   Primary('See what comes after', href=f'/j/{j.id}'), cls='row')]
     elif rel:
         nxt = [H2('Related topics'), Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
                                              A('Learn', href=f'/start?focus={c.slug}', cls='btn small quiet')) for c in rel], cls='plain related')]

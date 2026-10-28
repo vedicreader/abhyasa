@@ -1,7 +1,7 @@
 "What abhyasa knows about you: every field in the open, each change with who made it and why, and a short first conversation."
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import asset_css, ago, SettingRow, row_id
+from abhyasa.core import asset_css, ago, SettingRow, row_id, Primary
 from abhyasa.settings import val, SETTINGS
 from abhyasa.profile import LABELS, LIST_FIELDS, EXAMPLES, PACES, ONBOARD_QS, calibration_text
 from .cfg import Routes
@@ -22,7 +22,7 @@ def Form_(p):
                                             cls='chips'))
     return Form(Box('background', p, 'what you do and know; one on each line'), Box('goals', p, 'what you want to learn, and why'),
                 Box('interests', p), ex, Box('confuses', p, 'the tutor adds to this from your answers'), Box('notes', p, 'anything else', rows=2),
-                Div(Button('Save ', Kbd('⌥S'), cls='go', data_wait='Saving…'), Span(id='saved', cls='mute'), cls='row'),
+                Div(Primary('Save', data_wait='Saving…'), Span(id='saved', cls='mute'), cls='row'),
                 hx_post=Routes.base, hx_target='#saved', cls='profile')
 
 def reset_attrs(r): return dict(hx_post=Routes.setting_default, hx_vals={'name': r.name}, hx_target=f'#{row_id(r)}', hx_swap='outerHTML')
@@ -64,5 +64,5 @@ def Onboard():
     qs = [Li(Span('abhyasa asks', cls='lbl'), P(q, cls='ask'), Textarea(name=k, id=f'ob-{k}', rows=2, data_mic='1', placeholder=ex, aria_label=q))
           for k, q, ex in ONBOARD_QS]
     return Form(Ol(*qs, cls='onboard'),
-                Div(Button('Done ', Kbd('⌥S'), cls='go', data_wait='Reading what you said…'), A('Not now', href='/', cls='btn quiet'), cls='row'),
+                Div(Primary('Done', data_wait='Reading what you said…'), A('Not now', href='/', cls='btn quiet'), cls='row'),
                 action=Routes.start, method='post')

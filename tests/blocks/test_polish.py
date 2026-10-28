@@ -69,3 +69,26 @@ def test_keys_say_what_alt_s_does_in_a_walk():
     walk = {k: a for g, k, a in KEYS if g == 'Walk'}
     assert walk['⌥S'].startswith('Send the open check') and 'next idea' in walk['⌥S'] and walk['⌥W'] == 'Ask for a hint'
     assert 'Send the open check' in sanketa_pack()                             # the Sanketa pack comes from the same table
+
+# F4: one filled button in each view
+
+def test_each_page_has_at_most_one_filled_button(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); did = add_paper(lr)
+    sid = start(cl, focus='ranking'); cl.get(f'/s/{sid}')
+    cl.post(f'/s/{sid}/answer', data=dict(answer='a score', confidence=90))     # a miss: a weak spot, and an open session for the Continue card
+    pages = ['/', '/journeys', f'/j/{jid}', f'/w/{jid}', '/settings', '/c/ranking', '/add', f'/v/store/{did}', '/you/strengths', '/you', '/you/start',
+             '/learning', f'/learning/{sid}', '/concepts', '/sources', '/keys', '/graph']
+    for u in pages:
+        t = cl.get(u).text
+        assert len(gos(t)) <= 1, (u, gos(t))
+        assert u == '/keys' or t.count('<kbd>⌥S</kbd>') <= 1, u                  # the shortcut sheet lists the keys
+    today = cl.get('/').text
+    assert 'Continue <kbd>⌥S</kbd>' in today and re.search(r'class="btn"[^>]*>Start|>Start</button>', today) and 'autofocus' not in today
+    cl.get(f'/s/{sid}/end')
+    assert len(gos(cl.get(f'/s/{sid}/end').text)) <= 1
+
+def test_model_table_has_no_filled_button():
+    from abhyasa.blocks.settings.ui import UseBtn
+    from fasthtml.common import to_xml
+    b = to_xml(UseBtn('mlx', 'm', get=True))
+    assert '>Download<' in b and 'class="go"' not in b and '/get' in b
