@@ -322,5 +322,5 @@ def WalkDone(j, st, ms, by, sides=(), due=None, end=()):
     go = '' if end else Div(Primary('Back to Today', href='/'), Secondary('See the graph', href='/graph'), cls='row')
     return (H1('You finished the walk'), Dots(st),
             Div(P(lead, cls='lead-sum'), *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []), *also,
-                P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', P('Well walked.', cls='well'), cls='walk-sum'),
+                P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', P('Well walked.', cls='well'), cls='walk-sum', style=f"--n:{len(outs)}"),
             *end, go)

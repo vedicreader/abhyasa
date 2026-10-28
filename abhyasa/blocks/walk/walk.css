@@ -59,6 +59,10 @@ h1.idea { font-size: var(--t-idea); margin-bottom: var(--s4); }
 .walk-dots { display: flex; flex-wrap: wrap; gap: var(--s2); margin: var(--s2) 0 var(--s5); }
 .walk-sum .lead-sum { font-size: var(--t-body); }
 p.well { font-style: italic; color: var(--ink2); margin: var(--s5) 0 0; }
+/* a calm finish: the dots of the ideas you did fill one by one, 60 ms apart, then the sum fades in. No sound, no confetti. */
+@keyframes dot-fill { from { background-color: transparent; transform: scale(.6); } }
+.walk-dots .d:is(.done, .known, .shaky) { animation: dot-fill var(--dur-3) var(--ease) both; animation-delay: calc(var(--i) * 60ms); }
+.walk-sum { animation: fade var(--dur-2) var(--ease) both; animation-delay: calc(var(--n) * 60ms + var(--dur-3)); }
 
 /* the code check */
 .code-editor { font: var(--t-small)/1.5 var(--mono); tab-size: 4; white-space: pre; overflow: auto; background: var(--sunken); border: 0; border-radius: var(--r-s); padding: var(--s3) var(--s4); }

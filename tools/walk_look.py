@@ -165,13 +165,18 @@ def f17_no_broken_figure(pg, w):
     box = pg.eval_on_selector('#figure', 'e => [e.classList.contains("gone"), e.getBoundingClientRect().width, e.querySelector("img").alt]')
     assert box[0] and box[1] <= 1 and box[2], box
 
+MOVING = """() => [...document.querySelectorAll('body, body *')].flatMap(e => [e, '::before', '::after'].map(p => p === e ? getComputedStyle(e) : getComputedStyle(e, p)))
+                 .filter(s => s.animationName != 'none' || parseFloat(s.transitionDuration) > 0).length"""
+
 def reduced_motion(pg, w):
-    "With reduced motion, nothing moves."
+    "With reduced motion, nothing moves: not the step, the end of a walk, nor the side pane, and htmx makes no view transition."
     ctx = pg.context.browser.new_context(viewport=dict(width=1280, height=900), reduced_motion='reduce')
     try:
-        p2 = ctx.new_page(); p2.goto(w.step(0)); settle(p2)
-        names = p2.evaluate("() => [...document.querySelectorAll('main, main *')].map(e => getComputedStyle(e)).filter(s => s.animationName != 'none' || parseFloat(s.transitionDuration) > 0).length")
-        assert names == 0, names
+        p2 = ctx.new_page()
+        for u in (w.step(0), walk_to_end(w), f'{w.step(2)}?rh={side_walk(w)}'):
+            p2.goto(u); settle(p2)
+            assert p2.evaluate(MOVING) == 0, (u, p2.evaluate(MOVING))
+        assert p2.evaluate('htmx.config.globalViewTransitions') is False
     finally: ctx.close()
 
 # --- Task 19b: the walk, the side pane and the end of a walk ----------------------------------------------------
@@ -253,9 +258,16 @@ def f2_calm_end(pg, w):
     assert visible_gos(pg) == ['Back to Today ⌥S'], visible_gos(pg)
     assert 'stays at unseen' not in pg.inner_text('main') and pg.is_visible('p.well')
 
+def m4_calm_finish(pg, w):
+    "At the end of a walk, the dots of the ideas you did fill one by one, 60 ms apart, then the sum fades in."
+    pg.goto(walk_to_end(w)); settle(pg, 100)
+    d = pg.eval_on_selector_all('.walk-dots .d', "ds => ds.map(d => [getComputedStyle(d).animationName, getComputedStyle(d).animationDelay])")
+    assert d[1] == ['dot-fill', '0.06s'] and d[0][0] == 'none', d
+    assert pg.eval_on_selector('.walk-sum', "e => [getComputedStyle(e).animationName, getComputedStyle(e).animationDelay]") == ['fade', '0.48s']
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
-          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end]
+          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

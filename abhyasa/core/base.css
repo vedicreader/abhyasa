@@ -124,6 +124,7 @@ main { animation: fade .2s ease-out; }
 .pending, .thread > li, .qa, #out > *, #vr > *, #learned > *, .ix > * { animation: rise .28s ease-out both; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
   .skel i { background: var(--line); }
 }
 .row > .ix:not(:empty) { flex-basis: 100%; }

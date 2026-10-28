@@ -172,3 +172,18 @@ def test_today_says_next_as_a_verb(mk, lr):
     lr.put('Ranking', 'Order items by a score.', 'ml')
     t = mk().get('/').text
     assert not re.search(r'Next: [^<]+ at (recognise|recall|explain|apply|transfer)\.', t) and re.search(r'Next: (recognise|recall|explain|apply|transfer) Ranking\.', t)
+
+# Magic touches. Each one stops under reduced motion: the rule in base.css stops every animation and transition.
+
+def test_reduced_motion_stops_all_motion():
+    b = css('core/base.css')
+    rule = b[b.index('@media (prefers-reduced-motion: reduce)'):]
+    assert 'animation: none !important; transition: none !important' in rule and '::view-transition-group(*)' in rule
+
+def test_m4_the_dots_fill_one_by_one_then_the_sum_fades_in(mk, walk_fake, lr):
+    w = css('blocks/walk/walk.css')
+    assert re.search(r'\.walk-dots \.d:is\(\.done, \.known, \.shaky\) \{[^}]*animation: dot-fill var\(--dur-3\) var\(--ease\) both; animation-delay: calc\(var\(--i\) \* 60ms\)', w)
+    assert re.search(r'\.walk-sum \{[^}]*animation: fade var\(--dur-2\) var\(--ease\) both; animation-delay: calc\(var\(--n\) \* 60ms \+ var\(--dur-3\)\)', w)
+    cl = mk(); jid = walk(cl, lr)
+    t = finish(cl, lr, jid)
+    assert 'class="walk-sum" style="--n:3"' in t and 'style="--i:2"' in t
