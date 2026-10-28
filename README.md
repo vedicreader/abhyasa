@@ -76,7 +76,7 @@ Each idea is one step. A step shows the passage from the source, word for word. 
 - Order. You put the parts of the idea in the right order.
 - Code. You write a small Python function, and its tests run.
 
-The tutor picks the kind that fits the idea and your profile. The step shows the reason. Reading never waits for a check. You can read the passage and press “Skip this idea” at any time. A skipped idea stays unseen in your record. A check that you pass or miss changes your record, as an answer in a session does.
+The tutor picks the kind that fits the idea and your profile. The step shows the reason. Reading never waits for a check. You can read the passage and press “Skip this idea” at any time. A skipped idea stays unseen in your record. A pass or a miss on a check changes your record, as an answer in a session does.
 
 On a walk step, ⌥S sends your answer, or runs the tests. When the check is closed, ⌥S goes to the next idea. ⌥W asks for a hint. In a demo, ⌥V keeps the state of the demo. ⌥F still shows all the keys.
 
@@ -94,7 +94,7 @@ abhyasa fetches the link only when you press “Make a walk”. It reads only th
 
 A passage can use an idea that you do not know yet. The step then shows a “This needs” line with each idea that it needs. An idea that is not learned yet has a “Learn beside” button.
 
-There are three ways down:
+You have three choices:
 
 1.  A quick primer. A short text that you read in the side pane.
 2.  A short side walk. A small walk on that idea, in the side pane.
@@ -126,13 +126,13 @@ Settings has every value that you may want to change. The values are in 11 group
 | group | what it sets |
 |----|----|
 | Look | the theme and the mode |
-| Learning | your pace, how many questions a session has, and how often a new way to learn comes |
+| Learning | your pace, how many questions a session has, and how often the tutor tries a new way to teach you |
 | Walks | how many ideas a walk has, how much is hands-on, how deep a side walk goes, and the length of a passage and a note |
-| Checks | the tries for a check, the closeness of a pass, hints, and how sure you must be |
+| Checks and grading | the tries for a check, how close an answer must be to pass, hints, and how sure you must be |
 | Review | when a concept comes back, and a limit for each day |
 | Links | the page cap, the time for a link, and how much text abhyasa keeps |
 | Code runner | the time for each test, the whole run, and the size of a file that code writes |
-| Speech | the speech engine, the pause that ends a phrase, and the longest phrase |
+| Speech to text | the speech engine, the pause that ends a phrase, and the longest phrase |
 | Models | the model for each tutor task, and the limit of its reply |
 | Lists | how many rows each list shows |
 | Prompts | the text of the tutor prompts |
