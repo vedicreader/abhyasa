@@ -92,7 +92,7 @@
     load(p.querySelector('iframe'), paneURL(url));
   };
   const hide = () => {
-    root.classList.remove('rh-open');
+    clearTimeout(leaving); root.classList.remove('rh-open', 'rh-leave');
     const f = frame();
     if (f && f.getAttribute('src')) try { f.contentWindow.location.replace('about:blank'); } catch {}
   };
@@ -129,11 +129,18 @@
     shownKey = withRh(null);
     return true;
   };
-  const close = () => {
-    if (!isOpen()) return;
+  // The pane slides out to the right (pane.css `.rh-leave`, 220 ms), then closes; with reduced motion it closes at once.
+  // The focus goes back to the answer box, with your draft.
+  let leaving = null;
+  const shut = () => {
     if (history.state && history.state.rh) history.back();   // the entry that open pushed: Forward opens it again
     else { history.replaceState(history.state, '', withRh(null)); hide(); }
     focusCheck();
+  };
+  const close = () => {
+    if (!isOpen() || root.classList.contains('rh-leave')) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return shut();
+    root.classList.add('rh-leave'); leaving = setTimeout(shut, 220);
   };
   const back = () => trail.length > 1 ? open(trail[trail.length - 1][1]) : close();   // one level up, or back to the page
   window.abhyasaPane = {open, close, isOpen};

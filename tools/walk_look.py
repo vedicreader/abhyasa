@@ -327,10 +327,29 @@ def m6_words_point_at_the_demo(pg, w):
     pg.hover('.walk-demo .rk-ranklist >> nth=1')
     assert pg.eval_on_selector_all('#passage .mv.hot', 'ms => ms.map(m => m.textContent)') == ['vector search']
 
+def m7_side_walk_returns_you(pg, w):
+    "At the end of a side walk the pane slides out to the right, the needs line says learned on the way today, and the draft is still in the answer box."
+    jid = new_walk(w)
+    w.lr.update('scaling-by-the-root-of-dk', prereqs=['softmax', 'gradients'])
+    side = w.rq.post(f'{w.B}/rh/open', form=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url']
+    pg.goto(f'{w.B}/w/{jid}/2?rh={side}'); pg.wait_for_selector('#check #ans'); settle(pg)
+    pg.fill('#check #ans', 'my draft')
+    pane = pg.locator('#rh-pane iframe').element_handle().content_frame()
+    pane.wait_for_selector('#check #ans'); pane.fill('#check #ans', 'the slope, a rank of change'); pane.click('#send')
+    pane.wait_for_selector('#check .check.shut .go')
+    pg.evaluate("""() => { window.left = false; new MutationObserver(() => { if (document.documentElement.classList.contains('rh-leave')) window.left = true; })
+                           .observe(document.documentElement, {attributes: true, attributeFilter: ['class']}); }""")
+    pane.click('#check .check.shut .go')
+    pg.wait_for_function("() => !document.documentElement.classList.contains('rh-open')", timeout=15000)
+    assert pg.evaluate('window.left'), 'the pane did not slide out'
+    pg.wait_for_function("() => document.querySelector('.rh-needs')?.textContent.includes('learned on the way today')", timeout=10000)
+    assert pg.is_visible('.rh-needs.fresh .rh-strip') and pg.eval_on_selector('.rh-needs.fresh .rh-strip', 'e => getComputedStyle(e).animationName') == 'rise'
+    assert pg.evaluate("document.activeElement.id") == 'ans' and pg.input_value('#check #ans') == 'my draft'
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
-          m6_words_point_at_the_demo]
+          m6_words_point_at_the_demo, m7_side_walk_returns_you]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

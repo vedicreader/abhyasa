@@ -13,6 +13,8 @@
   html.rh-open #rh-pane { display: flex; flex-direction: column; position: fixed; top: 0; right: 0; bottom: 0; width: var(--rh-w); z-index: 60;
     background: var(--page); color: var(--fg); border-left: 1px solid var(--line); }
 }
+/* closing: the pane slides out to the right, then goes (pane.js) */
+html.rh-open.rh-leave #rh-pane { transform: translateX(100%); transition: transform var(--dur-2) var(--ease); }
 #rh-pane iframe { flex: 1; width: 100%; border: 0; background: var(--page); }
 #rh-pane .grip { position: absolute; top: 0; bottom: 0; left: -4px; width: 9px; z-index: 2; cursor: col-resize; touch-action: none; }
 #rh-pane .grip::after { content: ''; position: absolute; top: 0; bottom: 0; left: 4px; width: 1px; background: transparent; transition: background .15s; }

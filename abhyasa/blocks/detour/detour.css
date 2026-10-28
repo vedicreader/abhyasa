@@ -36,5 +36,9 @@
 .check .rh-gapline { font-size: var(--t-small); margin: var(--s1) 0 var(--s3); }
 #rh-sel { position: absolute; z-index: 50; font-size: var(--t-small); padding: var(--s1) var(--s3); background: var(--raised); box-shadow: var(--lift); border-radius: var(--r-s); }
 
+/* back on the paper: the new state of a need fades in, and the strip rises in under the title */
+.rh-needs.fresh .st.today { animation: fade var(--dur-3) var(--ease) both; }
+.rh-needs.fresh .rh-strip { animation: rise var(--dur-2) var(--ease) both; }
+
 /* the end of a side walk */
 .rh-end { margin: var(--s3) 0; }

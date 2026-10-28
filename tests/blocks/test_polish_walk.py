@@ -228,3 +228,11 @@ def test_m6_words_in_the_passage_point_at_the_demo(mk, walk_fake, lr):
     js, w = css('blocks/walk/walk.js'), css('blocks/walk/walk.css')
     assert 'dataset.moves' in js and "'.rk-b'" in js and "'mv-hot'" in js and 'rkReady' in js
     assert re.search(r'#passage \.mv \{[^}]*text-decoration: underline dotted', w) and re.search(r'\.walk-demo \.rk-b\.mv-hot \{[^}]*box-shadow: 0 0 0 2px', w)
+
+def test_m7_the_side_walk_returns_you():
+    "The pane slides out to the right when it closes; the new needs line and the strip come in on the paper. The focus goes back to the answer."
+    p, pj, d, dj = css('core/pane.css'), css('core/pane.js'), css('blocks/detour/detour.css'), css('blocks/detour/detour.js')
+    assert re.search(r'html\.rh-open\.rh-leave #rh-pane \{[^}]*transform: translateX\(100%\)[^}]*transition: transform var\(--dur-2\) var\(--ease\)', p)
+    assert "classList.add('rh-leave')" in pj and 'prefers-reduced-motion: reduce' in pj and "classList.remove('rh-open', 'rh-leave')" in pj and 'focusCheck()' in pj
+    assert "fresh.classList.add('fresh')" in dj
+    assert re.search(r'\.rh-needs\.fresh \.st\.today \{ animation: fade var\(--dur-3\)', d) and re.search(r'\.rh-needs\.fresh \.rh-strip \{ animation: rise var\(--dur-2\)', d)
