@@ -24,7 +24,7 @@ dependencies = [
     "rishi>=0.1.56",
     "python-fasthtml>=0.14",
     "ipywidgets>=8.1",
-    "rupaka>=0.0.1",
+    "rupaka>=0.0.2",
     "vidyut>=0.4",
     "mdhtml>=0.1.38",
     "nh3>=0.3.7",
@@ -33,8 +33,8 @@ dependencies = [
 [project.optional-dependencies]
 whisper = ["mlx-audio>=0.5"]
 tick = ["pobblebonk>=0.0.6"]
-demo = ["rupaka[check]>=0.0.1"]
-dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.6", "rupaka[check]>=0.0.1"]
+demo = ["rupaka[check]>=0.0.2"]
+dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.6", "rupaka[check]>=0.0.2"]
 models = [
     "ramabana>=0.2.78",
 ]
