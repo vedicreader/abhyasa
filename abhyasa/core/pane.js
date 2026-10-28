@@ -46,7 +46,7 @@
     const p = document.createElement('aside');
     p.id = 'rh-pane'; p.setAttribute('aria-label', 'Side pane');
     p.innerHTML = '<div class="grip" role="separator" aria-orientation="vertical" aria-label="Resize the side pane" tabindex="0" title="Drag to resize. Double-click to reset."></div>'
-      + '<header class="rh-bar"><div class="rh-top"><div class="rh-trail"></div><a class="rh-own" target="_blank" title="Open this page in a new tab">Own session ↗</a>'
+      + '<header class="rh-bar"><div class="rh-top"><div class="rh-trail"></div><a class="rh-own" target="_blank" title="Open this page in a new tab">Its own session ↗</a>'
       + '<button type="button" class="rh-x" title="Close (Esc)" aria-label="Close the side pane">×</button></div></header><iframe></iframe>';
     document.body.appendChild(p);
     return p;

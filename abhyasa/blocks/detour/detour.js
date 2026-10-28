@@ -15,10 +15,21 @@ if (!window.abhyasaDetour) {
   const say = text => { const c = box()?.querySelector('.rh-offer-card'); if (!c) return; let p = c.querySelector('.req-err');
     if (!p) { p = document.createElement('p'); p.className = 'req-err'; c.append(p); } p.textContent = text; };
 
+  // One quiet tip under the first passage of a walk, shown once (the flag in localStorage): you can select a word. It goes after one use.
+  const TIP = 'rh-tip';
+  const tip = () => {
+    const p = document.getElementById('passage');
+    if (!p || !at() || inPane() || localStorage.getItem(TIP) || document.querySelector('.rh-tip')) return;
+    localStorage.setItem(TIP, '1');
+    p.after(Object.assign(document.createElement('p'), {className: 'rh-tip', textContent: 'Select a word that you do not know, then press ⌥B.'}));
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tip); else tip();
+  document.addEventListener('htmx:afterSettle', e => { if (e.detail.target === document.body) tip(); });
+
   const offer = t => {
     const b = box(), a = at();
     if (!b || !a || !t) return false;
-    hideTool();
+    hideTool(); document.querySelector('.rh-tip')?.remove();
     htmx.ajax('GET', `/rh/term?${new URLSearchParams({t, at: a})}`, {target: b, swap: 'innerHTML'}).then(() => {
       (b.querySelector('.rh-way.pick') || b.querySelector('.rh-way, button'))?.focus({preventScroll: true});
       b.scrollIntoView({block: 'nearest', behavior: abhyasaMotion() ? 'smooth' : 'auto'});
@@ -53,7 +64,7 @@ if (!window.abhyasaDetour) {
       const r = getSelection().getRangeAt(0).getBoundingClientRect();
       tool = document.createElement('button');
       tool.type = 'button'; tool.id = 'rh-sel'; tool.className = 'quiet'; tool.dataset.t = t;
-      tool.append("I don't know this ", Object.assign(document.createElement('kbd'), {textContent: '⌥B'}));
+      tool.append('Learn beside ', Object.assign(document.createElement('kbd'), {textContent: '⌥B'}));
       tool.style.left = `${scrollX + Math.max(8, r.right - 150)}px`; tool.style.top = `${scrollY + r.bottom + 6}px`;
       document.body.append(tool);
     });

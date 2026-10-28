@@ -11,7 +11,7 @@ def needs_gradients(lr):
 def test_needs_line_and_side_walk_beside(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
     page = cl.get(f'/w/{jid}/2').text
-    assert 'This needs' in page and 'you have not learned it' in page and '⌥B' in page
+    assert 'This needs' in page and 'not learned yet' in page and '⌥B' in page
     r = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()
     sid = r['url'].split('/')[2]
     assert lr.journey(sid).parent == dict(walk=jid, step=2) and r['title'].startswith('Derivatives')
@@ -89,7 +89,7 @@ def test_walk_end_sends_done_and_the_key_is_listed(mk, walk_fake, lr):
     assert 'data-rh-done' in end and 'on the way' in end
     cl.post(f'/rh/back/{sid}')
     assert 'learned on the way today' in cl.get(f'/w/{jid}/2').text
-    assert ('Walk', '⌥B', 'Open beside: learn a missing idea in the side pane') in KEYS
+    assert ('Walk', '⌥B', 'Learn beside: learn a missing idea in the side pane') in KEYS
 
 def test_leave_early_then_finish_updates_the_result(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)

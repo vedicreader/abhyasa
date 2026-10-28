@@ -44,3 +44,34 @@ def test_narrow_view_names_the_open_side_walk(mk, walk_fake, lr):
     assert 'rh-narrow' not in cl.get(f'/w/{jid}/2').text
     assert "pane?.checkVisibility()" in css('blocks/walk/walk.js')                      # the check does not wait for a pane that does not show
     assert re.search(r'main > a\.rh-narrow \{ display: none; \}', css('core/pane.css')) and '@media (max-width: 1099px) { main > a.rh-narrow { display: inline-block; } }' in css('core/pane.css')
+
+# F5: the way beside is easy to find, and one act has one name
+
+def test_each_unmet_need_can_be_learned_beside(mk, walk_fake, lr):
+    "Each need that you have not learned has Learn beside; only the first shows ⌥B. The state is muted, and no line starts with a dot."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    page = cl.get(f'/w/{jid}/2').text
+    line = page[page.index('class="rh-line"'):].split('id="rh-offer"')[0]
+    assert line.count('Learn beside') == 2 and line.count('<kbd>⌥B</kbd>') == 1 and 'data-t="softmax"' in line and 'data-t="gradients"' in line
+    assert 'not learned yet' in line and 'you have not learned it' not in line and 'open beside' not in page
+    d = css('blocks/detour/detour.css')
+    assert '.need + .need::before' not in d and re.search(r'\.rh-line \{[^}]*column-gap: var\(--s5\)', d) and re.search(r'\.rh-line \.need \{[^}]*inline-flex', d)
+    assert re.search(r'\.rh-line \.st\.missing \{[^}]*color: var\(--mute\)', d)
+
+def test_one_name_for_each_way_beside():
+    "Learn beside on the needs line, the gap line, the selected word and the keys; Its own session in the offer and the pane bar."
+    from fasthtml.common import to_xml
+    from abhyasa.blocks.detour.ui import GapLine
+    from abhyasa.core.pane import PaneHost
+    from abhyasa.core.keys import KEYS
+    assert 'Learn beside <kbd>⌥B</kbd>' in to_xml(GapLine([('gradients', 'Derivatives')])) and 'Learn it beside' not in to_xml(GapLine([('g', 'G')]))
+    assert 'Its own session ↗' in to_xml(PaneHost('/w/g/0')) and 'Its own session ↗' in css('core/pane.js')
+    js = css('blocks/detour/detour.js')
+    assert "'Learn beside '" in js and "I don't know this" not in js
+    assert ('Walk', '⌥B', 'Learn beside: learn a missing idea in the side pane') in KEYS
+
+def test_one_tip_says_that_you_can_select_a_word():
+    "Under the first passage of a walk, one quiet tip, shown once (localStorage `rh-tip`). It goes after one use."
+    js, d = css('blocks/detour/detour.js'), css('blocks/detour/detour.css')
+    assert 'Select a word that you do not know, then press ⌥B.' in js and "'rh-tip'" in js and 'localStorage' in js
+    assert re.search(r'\.rh-tip \{[^}]*font-size: var\(--t-small\)[^}]*color: var\(--mute\)', d)

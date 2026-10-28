@@ -46,10 +46,10 @@ def _trail(trail, title):
     return Div(*out, B(title), cls='rh-trail')
 
 def PaneHost(url, title:str='', trail=()):
-    "The side pane open on `url`: the bar (the trail, Own session, ×), the grip, and the page in a frame. Nothing when `url` is not local."
+    "The side pane open on `url`: the bar (the trail, Its own session, ×), the grip, and the page in a frame. Nothing when `url` is not local."
     if not is_local(url): return ''
     title = title or 'Side pane'
-    bar = Header(Div(_trail(trail, title), A('Own session ↗', href=url, target='_blank', cls='rh-own', title='Open this page in a new tab'),
+    bar = Header(Div(_trail(trail, title), A('Its own session ↗', href=url, target='_blank', cls='rh-own', title='Open this page in a new tab'),
                      Button('×', type='button', cls='rh-x', title='Close (Esc)', aria_label='Close the side pane'), cls='rh-top'), cls='rh-bar')
     grip = Div(cls='grip', role='separator', aria_orientation='vertical', aria_label='Resize the side pane', tabindex='0',
                title='Drag to resize. Double-click to reset.')

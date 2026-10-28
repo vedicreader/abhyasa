@@ -220,9 +220,22 @@ def f6_pane_layout(pg, w):
         assert rows(pg) == 1, rows(pg)
     finally: look(w.rq, w.B, 'paper', 'light'); pg.set_viewport_size(dict(width=1280, height=900))
 
+def f5_way_beside(pg, w):
+    "Each unmet need has Learn beside, with no dot at the start of a line; the tip shows under the first passage once; ⌥B opens the offer."
+    side_walk(w)
+    pg.goto(w.B + '/'); pg.evaluate("localStorage.removeItem('rh-tip')")
+    pg.goto(w.step(2)); pg.wait_for_selector('.rh-line'); settle(pg)
+    st = pg.eval_on_selector_all('.rh-line .need', """ns => ns.map(n => [n.querySelector('.st').textContent.trim(), !!n.querySelector('.rh-ask'), getComputedStyle(n, '::before').content])""")
+    assert st and all(a == (s == '· not learned yet') for s, a, _ in st) and all(b in ('none', 'normal') for *_, b in st), st
+    assert pg.is_visible('.rh-tip') and 'press ⌥B' in pg.inner_text('.rh-tip')
+    pg.locator('h1.idea').click(); pg.keyboard.press('Alt+b'); pg.wait_for_selector('#rh-offer .rh-way')
+    assert not pg.is_visible('.rh-tip'), 'the tip stays after one use'
+    pg.goto(w.step(2)); pg.wait_for_selector('.rh-line'); settle(pg)
+    assert not pg.query_selector('.rh-tip'), 'the tip shows twice'
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
-          f7_step_lines_up, f6_pane_layout]
+          f7_step_lines_up, f6_pane_layout, f5_way_beside]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

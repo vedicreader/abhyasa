@@ -7,7 +7,7 @@ from abhyasa.settings import val
 from .cfg import Routes
 
 _P = Path(__file__).parent
-STATE = dict(learned='learned', today='learned on the way today', missing='you have not learned it')
+STATE = dict(learned='learned', today='learned on the way today', missing='not learned yet')
 
 def assets(): return asset_css(_P/'detour.css'), asset_js(_P/'detour.js')
 
@@ -18,9 +18,9 @@ def Ask(label, t, *c, cls='rh-ask'):
     return Button(label, *c, type='button', cls=f'quiet small {cls}', data_t=t)
 
 def Need(n, state, first):
-    "One idea that the step needs: its name, its state, and Open beside on the first one that you have not learned."
-    return Span(A(n.name, href=f'/c/{n.slug}', cls='n'), Span(f' · {STATE[state]}', cls=f'st {state}'),
-                Ask('open beside ', n.slug, Kbd('⌥B')) if first else '', cls='need')
+    "One idea that the step needs: its name, its state, and Learn beside on each one that you have not learned. Only the first shows ⌥B."
+    go = '' if state != 'missing' else Ask('Learn beside ', n.slug, Kbd('⌥B')) if first else Ask('Learn beside', n.slug)
+    return Span(A(n.name, href=f'/c/{n.slug}', cls='n'), Span(f' · {STATE[state]}', cls=f'st {state}'), go, cls='need')
 
 def Strip(name, ok, sid, outs):
     "The strip after a side walk: what you learned on the way, and how the checks went."
@@ -38,7 +38,7 @@ def Needs(at, rows, strip=None):
 def GapLine(gaps):
     "After a miss that names a gap: the ideas your answer points at, and a way to learn the first one beside the step."
     names = ', '.join(name for _, name in gaps)
-    return P('Your answer points at: ', B(names), '. ', Ask('Learn it beside ', gaps[0][0], Kbd('⌥B'), cls='rh-ask rh-gap'), cls='rh-gapline')
+    return P('Your answer points at: ', B(names), '. ', Ask('Learn beside ', gaps[0][0], Kbd('⌥B'), cls='rh-ask rh-gap'), cls='rh-gapline')
 
 WAYS = dict(primer='A quick primer', walk='A short side walk', session='Its own session ↗')
 

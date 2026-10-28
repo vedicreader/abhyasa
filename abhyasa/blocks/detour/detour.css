@@ -1,13 +1,16 @@
 /* Rabbit holes: the needs line under the title, the offer as one sunken card, the gap line, the strip after a side walk. */
 
-.rh-line { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); align-items: baseline; margin: calc(-1 * var(--s1)) 0 var(--s4); font-size: var(--t-small); }
+.rh-line { display: flex; flex-wrap: wrap; row-gap: var(--s1); column-gap: var(--s5); align-items: baseline; margin: calc(-1 * var(--s1)) 0 var(--s4); font-size: var(--t-small); }
 .rh-line > .lbl { margin: 0; }
-.rh-line .need + .need::before { content: '·'; margin-right: var(--s4); color: var(--mute); }
+.rh-line .need { display: inline-flex; align-items: baseline; flex-wrap: wrap; }
 .rh-line .n { color: var(--fg); }
 .rh-line .st { font-style: italic; font-size: var(--t-small); }
 .rh-line .st.learned, .rh-line .st.today { color: var(--ok); }
-.rh-line .st.missing { color: var(--no); }
+.rh-line .st.missing { color: var(--mute); }   /* not learned yet is not a mistake: red is for wrong answers only */
 .rh-ask { margin-left: var(--s2); }
+
+/* the one tip under the first passage of a walk (detour.js) */
+.rh-tip { font-size: var(--t-small); color: var(--mute); margin: calc(-1 * var(--s2)) 0 var(--s4); }
 
 /* the strip after you come back */
 .rh-strip { margin: 0 0 var(--s4); padding: 2px 0 2px var(--s4); border-left: 2px solid color-mix(in srgb, var(--ok) 55%, transparent); }

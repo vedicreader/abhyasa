@@ -30,7 +30,7 @@ KEYS = [
     ('Walk', '⌥W', 'Ask for a hint'),
     ('Walk', '⌘↩', 'Send the answer, or run the tests'),
     ('Walk', '⌥V', 'Keep the state of the demo'),
-    ('Walk', '⌥B', 'Open beside: learn a missing idea in the side pane'),
+    ('Walk', '⌥B', 'Learn beside: learn a missing idea in the side pane'),
     ('Side pane', '⌥Z', 'Back to the paper: close the side pane'),
     ('Side pane', 'esc', 'Close the side pane'),
     ('Graph', '1–4', 'Layout: free, path, rings, groups'),

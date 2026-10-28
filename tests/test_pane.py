@@ -21,7 +21,7 @@ def test_pane_link_is_a_real_link():
 def test_host_draws_the_pane_or_nothing():
     h = to_xml(PaneHost('/w/g-1a2b/0', 'Derivatives', trail=[('Attention · idea 5', '/w/a/4')]))
     assert 'id="rh-pane"' in h and 'src="/w/g-1a2b/0?pane=1"' in h and 'role="separator"' in h and 'aria-orientation="vertical"' in h
-    assert 'Own session ↗' in h and 'href="/w/g-1a2b/0" target="_blank"' in h and 'Attention · idea 5' in h and '<b>Derivatives</b>' in h
+    assert 'Its own session ↗' in h and 'href="/w/g-1a2b/0" target="_blank"' in h and 'Attention · idea 5' in h and '<b>Derivatives</b>' in h
     for bad in HOSTILE: assert PaneHost(bad) == '', bad
     assert 'evil' not in to_xml(PaneHost('/w/g', trail=[('Out', 'https://evil.example/')]))   # a trail part that leaves the app has no link
 
