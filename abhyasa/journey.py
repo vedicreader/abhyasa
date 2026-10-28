@@ -18,6 +18,7 @@ from fastcore.utils import *
 from .store import Learning, slugify, _src
 from .model import GOAL, learned
 from .llm import ask_json
+from .prompts import register, prompt
 from .sources import extract, _index, doc_pages, from_vault, placement, LINK_CHARS
 import abhyasa.profile  # adds Learning.profile
 from .method import check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND
@@ -107,14 +108,14 @@ def journey_add(self:Learning, jid:str, slug:str, before:str=None, why:str='') -
     return self.put_journey(j)
 
 # %% ../nbs/11_journey.ipynb #22f3f614
-PLAN_SP = """You plan a learning path toward one learner's goal.
+PLAN_SP = register('walk.plan', 'Path planner', 'How the tutor plans the steps toward a goal, for a journey or a walk on a topic.', """You plan a learning path toward one learner's goal.
 - Give 4 to 9 steps, in the order to learn them. Each step is one idea that a learner can be asked about and can explain.
 - Start where the learner is. Leave out what they know well: their background, and their concepts at depth 4 or more.
 - When a known concept fits a step, give its slug in `slug`. Else `slug` is "".
 - `statement` is true and self-contained: one to three sentences. Maths in $...$.
 - `why` says in one short sentence why the step is in the path. Write to the learner as "you", in ASD-STE100 Simplified Technical English.
 - `needs` names the earlier steps that this step needs first.
-- `ways` names up to 3 ways that suit the idea best, from: code, maths, analogy, example, diagram, words, demo, order."""
+- `ways` names up to 3 ways that suit the idea best, from: code, maths, analogy, example, diagram, words, demo, order.""")
 
 def plan_prompt(goal:str, who:str='', known=()) -> str:
     "The prompt that plans a path to `goal`."
@@ -134,7 +135,7 @@ def _new_id(title): return f"{slugify(title)[:40]}-{uuid.uuid4().hex[:4]}"
 
 def plan(lr:Learning, ask, goal:str, who:str='', sources=None) -> AttrDict:
     "Plan a journey to `goal`, make the concepts that the shelf does not have, and save it."
-    r = ask_json(ask, plan_prompt(goal, who, near_goal(lr, goal)), PLAN_SP)
+    r = ask_json(ask, plan_prompt(goal, who, near_goal(lr, goal)), prompt('walk.plan'))
     idx, subject, steps, slug_of = _index(lr), (r.get('subject') or '').lower().strip(), [], {}
     for s in r.get('steps') or []:
         slug = s.get('slug') if s.get('slug') and lr.concept(s['slug']) else idx.get(s['name'].lower())
@@ -170,10 +171,10 @@ def short_check(lr:Learning, c) -> AttrDict:
 # %% ../nbs/11_journey.ipynb #mx11
 MAX_STEPS = 12   # the most steps in one walk
 
-PICK_SP = """You pick the main ideas of a source for a learner.
+PICK_SP = register('walk.pick', 'Main ideas of a walk', f'How the tutor picks the {MAX_STEPS} main ideas of a long source for a walk.', """You pick the main ideas of a source for a learner.
 - Pick the ideas that the rest of the source builds on, and its main results.
 - Leave out small details, and ideas that only name a part or an option.
-- Give each idea by its number in the list."""
+- Give each idea by its number in the list.""")
 
 def pick_prompt(cs, most:int) -> str:
     "The prompt that asks for the `most` main ideas of the concepts `cs`, numbered from 1 in the order of the source."
@@ -184,7 +185,7 @@ def main_steps(lr:Learning, ask, steps:list, most:int=MAX_STEPS) -> tuple:
     "The `most` main steps of `steps` that the model picks, and the slugs of the other steps. The steps keep their order, with each prerequisite first."
     if len(steps) <= most: return steps, []
     cs = [lr.concept(s['slug']) or AttrDict(name=s['slug']) for s in steps]
-    try: r = ask_json(ask, pick_prompt(cs, most), PICK_SP)
+    try: r = ask_json(ask, pick_prompt(cs, most), prompt('walk.pick'))
     except ValueError: r = {}
     ks = [k - 1 for k in (r.get('pick') if isinstance(r, dict) else None) or () if isinstance(k, int) and 1 <= k <= len(steps)]
     keep = sorted(list(dict.fromkeys(ks))[:most]) or list(range(most))

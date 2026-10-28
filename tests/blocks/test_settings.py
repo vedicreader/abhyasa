@@ -248,6 +248,11 @@ def test_prompts_section(mk):
     for p in PROMPTS.values(): assert p.label in t and p.note.split("'")[0] in t
     assert 'Use the default' in t and 'You never think for them.' in t   # the default text of the tutor rules
 
+def test_walk_prompts_in_settings(mk):
+    "The path planner and the pick of the main ideas are on the Settings page of the app."
+    t = mk().get('/settings').text
+    for n in ('walk.plan', 'walk.pick', 'walk.note'): assert PROMPTS[n].label in t
+
 def test_prompt_save_and_use_the_default(mk):
     "Save keeps the text and the tutor uses it. 'Use the default' and an empty save both clear it."
     cl = mk(['settings'])
