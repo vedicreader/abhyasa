@@ -442,3 +442,12 @@ def test_a_failed_walk_shows_a_plain_line_and_logs_the_error(mk, walk_fake, lr, 
     with caplog.at_level('WARNING'): r = cl.post('/walk/new', data=dict(topic='attention'), headers=HX)
     assert 'req-err' in r.text and 'litellm' not in r.text and 'upstream' not in r.text and 'Try again' in r.text
     assert 'litellm.APIError' in caplog.text
+
+def test_code_run_refuses_a_source_that_is_too_long(mk, walk_fake, lr):
+    "More than 100 000 characters of code is refused with 413, and it uses no try."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    cl.get(f'/w/{jid}/1/check')
+    big = GOOD + '\n#' + 'x' * (100_000 - len(GOOD))
+    assert len(big) > 100_000 and cl.post(f'/w/{jid}/1/run', data=dict(source=big)).status_code == 413
+    assert not lr.attempts('softmax') and 'Next idea' not in cl.get(f'/w/{jid}/1/check').text

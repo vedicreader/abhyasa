@@ -24,6 +24,7 @@ FIGURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a step (spec 6.3), empty until the step is used
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
 MAX_STATE = 20_000                   # the most chars of a kept demo state
+MAX_SOURCE = 100_000                 # the most chars of code that a run takes
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
 log = logging.getLogger(__name__)
 
@@ -232,6 +233,7 @@ def connect(app, ctx):
 
     def run(jid:str, i:int, source:str=''):
         "Run the code of step `i` on its tests; the reply is the results part only."
+        if len(source) > MAX_SOURCE: return Response(f'The code is too long. Send at most {MAX_SOURCE:,} characters.', status_code=413)
         with writing[jid, i]:   # one run at a time, so a double click does not use two tries
             j, s = live(jid, i)
             if not s or not j.steps[i].get('code'): return no_check(j, i) if s is None else Response('This check is not a code check.', status_code=409)
