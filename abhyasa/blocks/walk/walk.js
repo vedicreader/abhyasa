@@ -1,4 +1,5 @@
-// The walk keys, for the left hand: ⌥S presses the main button (core.js): Send while a check is open, else Next idea. ⌥W asks for a hint, and ⌘↵ sends the answer.
+// The walk keys, for the left hand: ⌥S presses the main button (core.js): Send (or Run the tests) while a check is open, then Next idea.
+// ⌥W asks for a hint, and ⌘↵ sends the answer. Skip this idea is a quiet link with no key.
 abhyasaKeys.KeyW = '#hint';
 
 if (!window.abhyasaWalk) {
@@ -7,7 +8,7 @@ if (!window.abhyasaWalk) {
   document.addEventListener('htmx:afterSettle', e => {
     if (!e.detail.target || e.detail.target.id !== 'check') return;
     const f = document.querySelector('#check #ans, #check .go');
-    if (f) f.focus({preventScroll: true});
+    if (f) f.focus({preventScroll: true, focusVisible: false});
   });
 
   // The draft in the answer box is kept in sessionStorage by the id of the question, so a reload or a side walk in the same tab
@@ -49,13 +50,19 @@ if (!window.abhyasaWalk) {
   // A demo or an order check: each prediction goes to the walk, which logs it with the step.
   const say = (card, text) => { const s = card.querySelector('.said'); if (s) s.textContent = text; };
   const post = (card, url, body, done) => fetch(url, {method: 'POST', body: new URLSearchParams(body)})
-    .then(r => say(card, r.ok ? done : 'The tutor did not save this. Try again.')).catch(() => say(card, 'The tutor did not save this. Try again.'));
+    .then(r => { say(card, r.ok ? done : 'The tutor did not save this. Try again.'); return r.ok; }).catch(() => say(card, 'The tutor did not save this. Try again.'));
+  // The first prediction closes a demo check: Next idea shows in the card and becomes the main button, and the skip goes.
+  const shut = card => {
+    const go = card.querySelector('.go-on');
+    if (!go || !go.hidden) return;
+    go.hidden = false; card.classList.add('shut');
+  };
   document.addEventListener('rk-predict', e => {
     const card = e.target.closest && e.target.closest('.walk-demo');
     if (!card) return;
     const d = e.detail;
     post(card, card.dataset.url, {slug: card.dataset.demo, gate: d.gate, picked: String(d.picked), ans: String(d.ans), ok: String(d.ok),
-                                  why: d.why || '', context: d.context || ''}, 'Your prediction is saved.');
+                                  why: d.why || '', context: d.context || ''}, 'Your prediction is saved.').then(ok => ok && shut(card));
   });
 
   // Keep this state (K): save the inputs of the demo with your last prediction.

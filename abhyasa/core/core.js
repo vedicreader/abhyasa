@@ -11,15 +11,29 @@ function render(root) {
 window.addEventListener('load', () => render());
 for (const ev of ['htmx:afterSwap', 'htmx:oobAfterSwap']) document.addEventListener(ev, () => render());   // the whole page: an outerHTML swap takes e.target out
 
-// A block adds keys with `abhyasaKeys.KeyX = '#selector'`. ⌥S presses the main button of any page.
-window.abhyasaKeys = window.abhyasaKeys || {KeyS: '#send, main .go'};
+// A block adds keys with `abhyasaKeys.KeyX = '#selector'`, or a list of selectors: the first one that names a button you can
+// see and use wins. ⌥S presses the main button of any page: Send when there is one, else the one filled button.
+window.abhyasaKeys = window.abhyasaKeys || {KeyS: ['#send', 'main .go']};
 // ⌥T goes to Today and ⌥C continues where you stopped, from any page.
 Object.assign(abhyasaKeys, {KeyT: 'nav a[href="/"]:not(.brand)', KeyC: '#continue'});
+const abhyasaSeen = el => !el.disabled && (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
+function abhyasaFind(sel) {
+  for (const s of [].concat(sel || [])) { const el = [...document.querySelectorAll(s)].find(abhyasaSeen); if (el) return el; }
+}
 document.addEventListener('keydown', e => {
   if (!e.altKey) return;
-  const sel = abhyasaKeys[e.code], el = sel && document.querySelector(sel);
-  if (el && !el.disabled) { e.preventDefault(); el.click(); }
+  const el = abhyasaFind(abhyasaKeys[e.code]);
+  if (el) { e.preventDefault(); el.click(); }
 });
+// A main button with `data-focus` takes the cursor when it comes, with no focus ring until you use a key. Never a box with your text in it.
+function abhyasaFocus() {
+  const a = document.activeElement;
+  if (a && a !== document.body && a.matches('textarea, input, select, [contenteditable]')) return;
+  const el = [...document.querySelectorAll('[data-focus]')].find(abhyasaSeen);
+  if (el && el !== a) el.focus({preventScroll: true, focusVisible: false});
+}
+window.addEventListener('load', abhyasaFocus);
+document.addEventListener('htmx:afterSettle', abhyasaFocus);
 // ⌘↵ in a form box sends the form with its main button; "/" goes to the search box from anywhere that is not a box.
 document.addEventListener('keydown', e => {
   const t = e.target, inBox = t.matches && t.matches('textarea, input, select, [contenteditable]');

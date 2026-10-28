@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence
+from abhyasa.core import Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -69,7 +69,7 @@ def Plan(j, st, by):
 
 def PlanPage(j, st, by):
     src = j.get('source') or {}
-    go = (Form(Button('Start the walk ', Kbd('⌥S'), cls='go', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post')
+    go = (Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post')
           if j['steps'] else '')
     return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else f"From the link: {src['url']} · {len(src['docs'])} page{'s' * (len(src['docs']) != 1)}." if src.get('docs') else j.get('goal', ''), cls='mute'),
             leela_line(j) if j.get('tool') else '', Plan(j, st, by), Div(go, Span('The walk is a journey, so it shows on Today.', cls='mute'), cls='row'))
@@ -109,12 +109,12 @@ def Figure_(jid, i, s, c):
     return Figure(Img(src=at(Routes.img, jid, i), alt=f"A figure for {(c or {}).get('name', 'this idea')}", loading='lazy'), id='figure')
 
 def NextBar(jid, i, st, by):
-    "Back to the idea before, and Next idea. Next works at any time: with no check done, it skips the idea."
+    """Back to the idea before, and a quiet `Skip this idea` while the check is open. Once the check closes, the card holds
+    Next idea, the one main button, and the skip goes (walk.css hides it at once, with no reload)."""
     back = A(f"← {name(by, st.steps[i - 1])}", href=at(Routes.step, jid, i - 1), cls='mute') if i else Span()
     done = (st.steps[i].get('done') or {}).get('outcome')
-    say = '' if done else 'Do the check, or skip it, to go on.'
-    return Div(back, Span(Span(say, cls='mute'), Form(Button('Next idea ', Kbd('⌥S'), id='next', cls='small go'), action=at(Routes.next, jid, i), method='post'),
-                          cls='row'), cls='next-bar')
+    skip = '' if done else Form(Quiet('Skip this idea', small=True, id='skip'), action=at(Routes.next, jid, i), method='post', cls='skip')
+    return Div(back, skip, cls='next-bar')
 
 def Note(text): return Md(text, cls='note') if text else ''
 
@@ -159,8 +159,9 @@ def Thread(q):
         out.append(Turn(t, n))
     return out
 
-def GoOn(jid, i):
-    return Form(Button('Next idea ', Kbd('⌥S'), cls='go', autofocus=True), action=at(Routes.next, jid, i), method='post', cls='row')
+def GoOn(jid, i, hidden=False):
+    "Next idea: the one main button of a step once its check is closed. A demo check holds it hidden until the first prediction."
+    return Form(Primary('Next idea', focus=True), action=at(Routes.next, jid, i), method='post', cls='row go-on', hidden=hidden)
 
 def CardHead(s, q=None):
     ck = s.get('check') or {}
@@ -191,7 +192,7 @@ def Short(jid, i, s, q, after=()):
         foot = Form(Textarea(name='answer', id='ans', rows=2, autofocus=True, aria_label='Your answer', placeholder='Your answer. ⌘↵ sends.'),
                     Textarea(name='thinking', id='think', rows=1, aria_label='Think aloud', placeholder='Think aloud: how did you get there?'),
                     Div(Confidence(), Span(f"{left} {'try' if left == 1 else 'tries'} left" if tries else '', cls='mute'), cls='row conf'),
-                    Div(Button('Send ', Kbd('⌘↵'), cls='go', id='send', data_wait=GRADING), hint, out, cls='row acts'),
+                    Div(Primary('Send', id='send', data_wait=GRADING, title='⌘↵ sends too'), hint, out, cls='row acts'),
                     hx_post=at(Routes.answer, jid, i), data_qid=q['id'], **tgt)
     return Check(CardHead(s, q), q['question'], *Thread(q), foot=(*after, foot), shut=shut)
 
@@ -207,8 +208,9 @@ def DemoCheck(jid, i, s, d):
     if d is None or (s.get('done') or {}).get('outcome') == 'skipped': return Done(jid, i, s)
     k = s['check']['kind']
     keep = Button('Keep this state ', Kbd('K'), type='button', id='keep', cls='small quiet', title='Save the inputs of the demo with your last prediction')
-    return Check(CardHead(s), P(LEAD[k], cls='mute'), foot=(Demo(d.spec), *rk_assets(), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts')),
-                 cls='walk-demo', data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
+    shut = bool(s.get('done'))
+    return Check(CardHead(s), P(LEAD[k], cls='mute'), foot=(Demo(d.spec), *rk_assets(), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts'),
+                                                            GoOn(jid, i, hidden=not shut)), shut=shut, cls='walk-demo', data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
 
 def Pending(jid, i, s):
     "The demo of the step is not ready: the card asks the server again in 2 seconds."
@@ -259,7 +261,7 @@ def CodeCheck(jid, i, s, q, after=()):
                          aria_label='Your code'),
                 Details(Summary('The tests you can see'), Ul(*[Li(Code(t)) for t in c['tests']], cls='tests'), open=True),
                 id='run-form', hx_post=at(Routes.run, jid, i), **tgt)
-    run = Button('Run the tests ', Kbd('⌘↵'), type='submit', form='run-form', id='run', cls='go', data_wait=RUNNING)   # outside the form, so the results hold Next idea with no nested form
+    run = Primary('Run the tests', type='submit', form='run-form', id='run', data_wait=RUNNING, title='⌘↵ runs them too')   # outside the form, so the results hold Next idea with no nested form
     return Check(CardHead(s, q), q['question'], foot=(form, CodeOut(jid, i, q), Div(run, hint, idk, Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'),
                                                    leela_line(AttrDict(id=jid), i, say='Go further with real code in Leela', quiet=True)), cls='code-check')
 

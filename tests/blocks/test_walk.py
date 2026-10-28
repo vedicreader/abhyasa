@@ -31,7 +31,7 @@ def test_step_page_and_short_check(mk, walk_fake, lr):
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why='plain words fit'))
     page = cl.get(f'/w/{jid}/1').text
     assert 'apply a softmax function' in page and f'src="/w/{jid}/1/img"' in page and f'hx-get="/w/{jid}/1/note"' in page
-    assert 'Next idea <kbd>⌥S</kbd>' in page and '⌥F' not in page                    # Next idea is the main button; ⌥F stays the shortcuts panel
+    assert 'Skip this idea' in page and '⌥F' not in page                             # a quiet skip while the check is open; ⌥F stays the shortcuts panel
     assert 'KeyF' not in (Path(abhyasa.blocks.walk.__file__).parent/'walk.js').read_text()
     assert 'Softmax makes weights' not in page and 'Softmax makes weights' in cl.get(f'/w/{jid}/1/note').text   # the note loads after the page
     assert lr.journey(jid).steps[1]['read_at']

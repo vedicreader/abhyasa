@@ -47,6 +47,9 @@ h1.idea { font-size: var(--t-idea); margin-bottom: var(--s4); }
 
 .next-bar { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: var(--s5); padding-top: var(--s4); }
 .next-bar .row { margin-top: 0; } .next-bar .mute { margin: 0; }
+/* a closed check holds Next idea, so the next bar keeps only the way back; this works at once, with no reload */
+.walk-main:has(.check.shut, .check.done, #code-out .tag) .next-bar .skip { display: none; }
+.next-bar .skip button { margin-left: auto; }
 
 /* the code check */
 .code-editor { font: var(--t-small)/1.5 var(--mono); tab-size: 4; white-space: pre; overflow: auto; background: var(--sunken); border: 0; border-radius: var(--r-s); padding: var(--s3) var(--s4); }
