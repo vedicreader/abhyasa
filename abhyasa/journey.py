@@ -13,7 +13,7 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'SHORT_WAYS', 'PICK_SP', 'S
            'split', 'related', 'with_step', 'beyond', 'handoff', 'read_handoff']
 
 # %% ../nbs/11_journey.ipynb #aae14397
-import json, math, re, random, time, uuid
+import json, math, re, random, threading, time, uuid
 from fastcore.utils import *
 from .store import Learning, slugify, _src
 from .model import learned
@@ -286,14 +286,29 @@ def walk_from_topic(lr:Learning, ask, goal:str, who:str='', sources=None, tool:b
     return lr.put_journey({**j, 'mode': 'walk', 'source': None, 'started': None, 'sitting': None, 'tool': tool, 'more': more})
 
 # %% ../nbs/11_journey.ipynb #w310
+_JLOCKS, _JLOCK = {}, threading.Lock()
+
+def _jlock(jid) -> threading.RLock:
+    "The lock of journey `jid`, so that two writers do not read, change and write it at the same time."
+    with _JLOCK: return _JLOCKS.setdefault(jid, threading.RLock())
+
 @patch
 def walk_step(self:Learning, jid:str, i:int, **kv) -> AttrDict:
-    "Merge `kv` into step `i` of walk `jid` and save it."
-    j = self.journey(jid)
-    if j is None: raise KeyError(f'no journey {jid!r}')
-    if not -len(j.steps) <= i < len(j.steps): raise IndexError(f'no step {i} in journey {jid!r}')
-    j.steps[i].update(kv)
-    return self.put_journey(j)
+    "Merge `kv` into step `i` of walk `jid` and save it, under the lock of the journey."
+    with _jlock(jid):
+        j = self.journey(jid)
+        if j is None: raise KeyError(f'no journey {jid!r}')
+        if not -len(j.steps) <= i < len(j.steps): raise IndexError(f'no step {i} in journey {jid!r}')
+        j.steps[i].update(kv)
+        return self.put_journey(j)
+
+@patch
+def merge_journey(self:Learning, jid:str, **kv) -> AttrDict:
+    "Merge the fields `kv` into journey `jid` and save it, under the lock of the journey. The other fields stay as they are."
+    with _jlock(jid):
+        j = self.journey(jid)
+        if j is None: raise KeyError(f'no journey {jid!r}')
+        return self.put_journey({**j, **kv})
 
 SHAKY = ('fragile', 'gap', 'misconception')
 

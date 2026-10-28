@@ -464,3 +464,20 @@ def test_only_the_post_of_next_idea_ends_the_sitting(mk, walk_fake, lr):
     assert 'Section done' in cl.get(f'/w/{jid}/0/done').text
     cl.get(f'/w/{jid}/1/check')
     assert lr.journey(jid).sitting != sid                                              # the next step opens a new sitting
+
+def test_two_writers_on_one_walk_lose_no_field(mk, walk_fake, lr):
+    "`walk_step` on two steps and `merge_journey` of `sitting` at the same time: each change stays."
+    import threading
+    cl = mk(); jid = walk(cl, lr); n = 15
+    def a():
+        for k in range(n): lr.walk_step(jid, 0, a=k)
+    def b():
+        for k in range(n): lr.walk_step(jid, 1, b=k)
+    def c():
+        for k in range(n): lr.merge_journey(jid, sitting=f's{k}')
+    ts = [threading.Thread(target=f) for f in (a, b, c)]
+    for t in ts: t.start()
+    for t in ts: t.join()
+    j = lr.journey(jid)
+    assert (j.steps[0].get('a'), j.steps[1].get('b'), j.sitting) == (n - 1, n - 1, f's{n - 1}')
+    assert lr.merge_journey(jid, sitting='x').steps == j.steps                      # a merge changes only the fields that it names

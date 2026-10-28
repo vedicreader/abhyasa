@@ -51,7 +51,7 @@ def connect(app, ctx):
         s = sid and (sessions.get(sid) or Session.load(tutor, sid))
         if not s or s.ended:
             s = Session(tutor, journey=j.id)
-            lr.put_journey({**j, 'sitting': s.id})
+            lr.merge_journey(j.id, sitting=s.id)   # only `sitting`, so a step that another request writes stays
         sessions[s.id] = s
         return s
 
