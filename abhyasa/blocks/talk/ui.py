@@ -1,11 +1,13 @@
 "The talk on the page: the editor with one row for each slide, the form that changes a slide, and the parts on other pages."
 import json, math
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import Primary, Secondary, Quiet, Part, Md, meta, n_of, asset_css, asset_js, stage_assets
-from abhyasa.talk import talk_minutes, public_ask
+from abhyasa.talk import talk_minutes, public_ask, share_right
+from abhyasa.settings import val
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -267,9 +269,10 @@ def Presenter(t, deck, run, demos):
                Span('Present in your browser: open ', Code('', id='app-url'), ' ', Quiet('Copy', small=True, type='button', id='app-copy'),
                     id='aud-app', hidden=True), cls='aud')
     keys = [('D', 'or space: next'), ('A', 'back'), ('Q', 'ask the room'), ('R', 'show the answer'), ('E', 'into the demo'), ('X', 'laser'),
-            ('B', 'blank the room screen'), ('G', 'go to a slide'), ('esc', 'close')]
+            ('B', 'blank the room screen'), ('G', 'go to a slide'), ('⌥B', 'learn beside'), ('⌥Z', 'back to the slide'), ('esc', 'close')]
+    end = Form(Quiet('End the talk', small=True, type='submit'), action=at(Routes.end, tid), method='post', hx_boost='false', id='end-form')
     return Div(Div(Span(t['title'], cls='t'), aud, Span(cls='gap'), Span(id='left'),
-                   Span('0:00', id='clock', data_started=str(run['started']), data_slot=str(t['minutes'])), Small(f"of {t['minutes']} min"), cls='pv-top'),
+                   Span('0:00', id='clock', data_started=str(run['started']), data_slot=str(t['minutes'])), Small(f"of {t['minutes']} min"), end, cls='pv-top'),
                Div(Div(Span(id='now'), Span(id='beats', cls='beats'), cls='mini-lbl'),
                    Stage(t, deck, run, demos, presenter=True),
                    Div(*[I(data_sid=s['id'], data_mins=str(s.get('mins') or 0), title=s.get('title') or '', cls='shaky' if s['id'] in shaky else None) for s in ss],
@@ -280,7 +283,135 @@ def Presenter(t, deck, run, demos):
                    Div(Span('Next', cls='lbl'),
                        Div(*[Div(NextRow(ss[i + 1]) if i + 1 < len(ss) else P('This is the last slide.', cls='mute'), data_sid=s['id'], hidden=s['id'] != a['slide'])
                              for i, s in enumerate(ss)], id='next')),
-                   AskCard(t, run), cls='pv-side'),
+                   Div(id='beside-offer', aria_live='polite'), AskCard(t, run), cls='pv-side'),
                Div(*[Span(Kbd(k), w) for k, w in keys], cls='pv-foot'),
                id='talk', cls='pv', data_tid=tid, data_channel=f"{tid}:{run['key']}", data_audience=url, data_window=win,
-               data_at=json.dumps(a), data_result=json.dumps(log.get('result')), data_pair=json.dumps(log.get('pair')))
+               data_at=json.dumps(a), data_result=json.dumps(log.get('result')), data_pair=json.dumps(log.get('pair')), data_side=json.dumps(run.get('side')))
+
+# --- the side pane in a talk (spec 12): the offer in the presenter window --------------------------------------------------
+
+WAYS = dict(primer=('A quick primer', 'The idea in short, beside the slide. About 2 minutes.'),
+            walk=('A short side walk', 'The idea and the ideas under it, beside the slide, one at a time.'))
+
+def BesideNone(c):
+    "The offer when the idea of the slide needs no other idea on your shelf."
+    said = f'{c.name} needs no other idea on your shelf.' if c else 'This slide has no idea that needs another idea.'
+    return Div(Span('Learn beside', cls='lbl'), P(said), P('Press Esc to close this.', cls='meta'), cls='bs-offer none')
+
+def BesideOffer(s, c, ns, n, pick):
+    """The offer for the presenter only: the ideas that the idea of slide `s` needs, and two ways to open idea `n` beside the slide.
+    1 is the primer and 2 the side walk; the tutor's pick (`pick_way_down`) is marked. Its own session never opens in a talk."""
+    rows = [Li(B(x.name) if x.slug == n.slug else Button(x.name, type='button', cls='quiet small bs-need', data_need=x.slug),
+               Span(' · learned' if x.ok else ' · not learned yet', cls='mute')) for x in ns]
+    ways = [Button(Span(B(title), ' ', Kbd(str(k))), Span(body, cls='body'),
+                   Span(f"The tutor's pick: {pick.why}.", cls='why') if pick.how == how else '',
+                   type='button', cls='bs-way' + (' pick' if pick.how == how else ''), data_how=how, data_slug=n.slug)
+            for k, (how, (title, body)) in enumerate(WAYS.items(), 1)]
+    far = P(f"The tutor would open {n.name} as its own session: {pick.why}. In a talk, use the primer.", cls='meta') if pick.how == 'session' else ''
+    return Div(Span(f"Learn beside · {s.get('title') or ''}", cls='lbl'), P(f'{c.name} needs:', cls='lead-in'), Ul(*rows, cls='plain bs-needs'),
+               P(f'Open {n.name} beside the slide:', cls='lead-in'), Div(*ways, cls='bs-ways'), far,
+               P('Press 1 or 2 to choose. Esc closes this. Only you see it.', cls='meta'), cls='bs-offer', data_slide=s['id'])
+
+# --- after the talk (spec 13, shots/b5-recap.png) ---------------------------------------------------------------------------
+
+def pct(x): return f'{round(100 * x)}%'
+
+def mins(secs): return f'{max(1, round((secs or 0) / 60))} min'
+
+def letter(a, i): return str(i + 1) if a.get('kind') == 'scale' else LETTERS[i] if isinstance(i, int) and 0 <= i < len(LETTERS) else '?'
+
+def shares(a, log):
+    "The share right of each round of question `a`."
+    return [x for x in (share_right(a, rd) for rd in (log or {}).get('rounds') or []) if x is not None]
+
+def Item(head, tail, *lines, act=''):
+    "One row of a list on the page after the talk: a bold head, a short line at the right, the lines under it, and its button."
+    return Li(Div(B(head), Span(tail, cls='share'), cls='h'), *[P(x) for x in lines if x], act, cls='after-item')
+
+def Unsure(t, run, unsure):
+    """Where the room was unsure: each question that the room answered, in slide order. A weak one has the share right in each
+    round (or the hands line), the wrong answer that most people chose, and one plain line. The other ones say that the room was sure."""
+    weak, out = {w['slide']: w for w in unsure}, []
+    for s in t['slides']:
+        a, log = s.get('ask') or {}, (run.get('asks') or {}).get(s['id']) or {}
+        if not a or a.get('kind') == 'none' or not (log.get('rounds') or log.get('main') is not None): continue
+        sh, w = shares(a, log), weak.get(s['id'])
+        tail = ' → '.join(map(pct, sh)) + ' right' if sh else ''
+        if w and w['share'] is None:
+            out.append(Item(s.get('title') or '', f"Most hands: {letter(a, w['main'])} (right: {letter(a, a.get('answer'))})",
+                            f"Most hands chose “{w['top_wrong']}”. Go over this idea again." if w.get('top_wrong') else 'Most hands chose a wrong answer. Go over this idea again.'))
+        elif w:
+            moved = len(sh) > 1 and sh[-1] > sh[0]
+            plain = ('After the talk with a neighbour, more people were right, but the idea is not solid yet.' if moved
+                     else 'A second vote did not help. Go over this idea again.' if len(sh) > 1 else f"Fewer than {pct(val('talks.weak'))} of the room chose the right answer.")
+            out.append(Item(s.get('title') or '', tail, f"The wrong answer that most people chose: “{w['top_wrong']}”." if w.get('top_wrong') else '', plain))
+        else: out.append(Item(s.get('title') or '', tail or 'Most hands were right', 'Solid. No follow-up is needed.'))
+    return Part('Where the room was unsure', Ul(*out, cls='plain after-list') if out else P('The room answered no question in this talk.', cls='mute'))
+
+def RoomQuestions(qs):
+    "The questions from the room, each with your note."
+    if not qs: return ''
+    return Part('Questions from the room', Ul(*[Item(q.get('text') or '', 'shown' if q.get('shown') else 'not shown',
+                                                     f"Your note: “{q['note']}”" if q.get('note') else 'This question has no note.') for q in qs], cls='plain after-list'))
+
+def ForRoom(tid, rid):
+    "The recap file for the room: a download, and a look at it first."
+    f = f"{Routes.of(Routes.recap, tid=tid)}?{urlencode(dict(run=rid))}"
+    return Part('For the room', P("One file with the slides, the passages, each question with its right answer and the room's result, and the "
+                                  'questions that you kept, with your notes. It has no speaker notes of yours and no names. Send it by mail or chat.', cls='lead'),
+                Div(Primary('Save the recap as one file', href=f, download='', hx_boost='false'),
+                    Quiet('Look at it first', href=f + '&look=1', target='_blank', hx_boost='false'), cls='row'))
+
+def ForYou(t, run, follow, cnames):
+    """A follow-up walk on the weak ideas, and "Next time: put the <name> primer before idea <n>" for each primer that was open
+    beside a slide, with "Add it to the talk"."""
+    tid, ss, out = t['id'], t['slides'], []
+    if follow:
+        out.append(Item(f"A follow-up walk on {', '.join(follow)}", n_of(len(follow), 'idea'),
+                        'For the ideas where the room was unsure. Make it now. Present it next time, or send it with the recap.',
+                        act=Form(Input(type='hidden', name='run', value=run['id']), Secondary('Make the walk', data_wait='Making the walk…'),
+                                 action=at(Routes.follow, tid), method='post', hx_boost='false', cls='row')))
+    seen = set()
+    for b in run.get('beside') or []:
+        k = next((i for i, s in enumerate(ss) if s['id'] == b.get('slide')), None)
+        if k is None or (b.get('slug'), b.get('slide')) in seen: continue
+        seen.add((b.get('slug'), b.get('slide')))
+        name, minute = cnames.get(b.get('slug'), b.get('slug')), max(0, round(((b.get('at') or 0) - (run.get('started') or 0)) / 60))
+        there = k > 0 and ss[k - 1].get('kind') == 'primer' and ss[k - 1].get('concept') == b.get('slug')
+        add = (P('It is in the talk now.', cls='mute') if there else
+               Form(Secondary('Add it to the talk'), hx_post=at(Routes.slide, tid), hx_vals=json.dumps(dict(sid=b['slide'], act='primer', slug=b['slug'], **{'from': 'after'})),
+                    hx_target='this', hx_swap='outerHTML', cls='row'))
+        out.append(Item(f"Next time: put the {name} primer before idea {k + 1}", '1 slide',
+                        f"You opened it beside the slide in minute {minute}, for {mins(b.get('secs'))}. Keep it in the talk as its own slide.", act=add))
+    return Part('For you', Ul(*out, cls='plain after-list') if out else P('Nothing to do now. The room was sure on each idea.', cls='mute'))
+
+def Added(tid, title):
+    "The line in place of Add it to the talk."
+    return P(f'Added. The {title} primer is in the talk now. ', A('See the slides', href=at(Routes.one, tid)), cls='mute')
+
+def SlideBySlide(t, run, rc, cnames):
+    "The talk, slide by slide: each shown slide with its time and its shares, and each primer under the slide that it was open beside."
+    pos, by = {s['id']: k for k, s in enumerate(t['slides'], 1)}, {s['id']: s for s in t['slides']}
+    out = []
+    for x in rc.slides:
+        s = by[x['slide']]
+        title = 'Pause: ' + (s.get('prompt') or 'talk to your neighbour') if s.get('kind') == 'pause' else x['title']
+        sh = shares(s.get('ask') or {}, (run.get('asks') or {}).get(x['slide']))
+        out.append(Li(f"{pos[x['slide']]} · {title}", Span(' · ' + meta(mins(x['secs']), ' → '.join(map(pct, sh))), cls='mute')))
+        out += [Li(I(f"Beside: {cnames.get(b['slug'], b['slug'])}"), Span(f" · {mins(b.get('secs'))}", cls='mute'), cls='beside')
+                for b in rc.beside if b.get('slide') == x['slide']]
+    return Aside(Span('The talk, slide by slide', cls='lbl'), Ul(*out, cls='plain'),
+                 P('The answers of the room do not change your own learning.', cls='mute small'),
+                 P("The room's answers are counts only. They are not your attempts.", cls='mute small'), cls='sunken after-side')
+
+def After(t, run, rc, names, cnames):
+    "The page after the talk (spec 13): what the room was unsure about, the questions, the recap file, and what to do next."
+    d = datetime.fromtimestamp(run.get('started') or 0)
+    asked = sum(bool(x.get('rounds') or x.get('main') is not None) for x in (run.get('asks') or {}).values())
+    line = meta(f"{d:%A} {d.day} {d:%b} at {d:%H:%M}", mins((run.get('ended') or run.get('started') or 0) - (run.get('started') or 0)),
+                n_of(run['people'], 'person', 'people') if run.get('people') else '', f"{n_of(asked, 'question')} to the room" if asked else '',
+                f"{n_of(len(rc.beside), 'primer')} beside the slides" if rc.beside else '')
+    follow = list(dict.fromkeys(names[w['slide']] for w in rc.unsure if w['slide'] in names))
+    return (H1('After the talk'), P(line, cls='mute'),
+            Div(Div(Unsure(t, run, rc.unsure), RoomQuestions(rc.questions), ForRoom(t['id'], run['id']), ForYou(t, run, follow, cnames)),
+                SlideBySlide(t, run, rc, cnames), cls='after-cols'))

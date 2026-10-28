@@ -3,16 +3,22 @@ A change to the talk never changes the walk. Each change runs `check_talk`, and 
 
 "Present" starts a run. The presenter window and the audience window (`/t/{tid}/audience?k=<run key>`) stay in step over the
 stage channel. Each key posts to the server first (`at`, `ask`), and the window sends the stage messages from the reply, so the
-run log on the server always has the place. The hands of the room and the result never go into the learner model."""
+run log on the server always has the place. The hands of the room and the result never go into the learner model.
+
+When the room is lost, ⌥B offers a primer on an idea that the slide needs, and the primer opens in the side pane of both windows,
+in the talk type (`pane=1&talk=1`). "End the talk" ends the run and opens "After the talk": where the room was unsure, the
+recap file for the room, a follow-up walk, and the primers to add to the talk."""
 import math, random, re, secrets, time
 from copy import deepcopy
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
-from abhyasa.core import Page, hook, n_of
+from abhyasa.core import Page, hook, n_of, pane_url
+from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic
 from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.talk import (check_talk, talk_from_walk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
-                          public_deck, public_ask, asset_resolver, new_run, log_go, log_main)
+                          public_deck, public_ask, asset_resolver, new_run, log_go, log_main, end_run, log_beside,
+                          recap, recap_html)
 from . import ui
 from .cfg import Routes
 
@@ -28,6 +34,8 @@ Q_MOST, OPT_MOST, NOTE_MOST = 500, 200, 5000   # as the `ask` message of the sta
 WALK_STEP = re.compile(r'/w/[a-z0-9-]{1,48}/[0-9]{1,3}')   # the only page that the side pane of a talk opens (spec 9.2)
 HASH = re.compile(r'[0-9a-f]{64}')
 NO_ASK = 'This slide has no question for the room.'
+SIDE_HOWS = ('primer', 'walk')          # the ways that open beside a slide; its own session never opens in a talk (spec 12)
+NO_RUN = 'The talk does not run now.'
 
 class Bad(Exception):
     "A change that cannot be made; its text goes back to the editor."
@@ -141,10 +149,15 @@ def stage_log(r):
 
 def place_msgs(at, old):
     "The stage messages for the place `at`; a question of the slide before closes."
-    pane = f"{at['pane']}?pane=1&talk=1" if at['pane'] else None
+    pane = pane_url(at['pane'], talk=True) if at['pane'] else None
     out = [dict(v=1, t='go', slide=at['slide'], beat=at['beat']), dict(v=1, t='blank', on=at['blank']), dict(v=1, t='pane', url=pane)]
     if old['ask'] and not at['ask']: out.append(dict(v=1, t='ask', slide=old['ask'], ask=None))
     return out
+
+def close_side(r, now):
+    "Keep the primer that is open beside a slide in the run log (`beside`), with the time it was open, and close it."
+    if (sd := r.get('side')): log_beside(r, sd['slug'], sd['slide'], sd['at'], round(max(0., now - sd['at']), 1))
+    r['side'] = None
 
 def connect(app, ctx):
     lr = ctx.learning
@@ -210,7 +223,9 @@ def connect(app, ctx):
                                   mins=slide_minutes(dict(read=dict(text=p)), a)))
             else: return text(f'Unknown change: {act}.')
         except Bad as e: return text(str(e))
-        return change(t, ss)
+        out = change(t, ss)
+        if f.get('from') == 'after' and not isinstance(out, Response): return ui.Added(t['id'], ss[i]['title'])   # from After the talk
+        return out
 
     def slot(tid:str, minutes:str=None, phones:str=None):
         "The minutes of the slot (5 to 240), and room phones (`on` or `off`); each only when the form sends it."
@@ -277,7 +292,7 @@ def connect(app, ctx):
     async def at(req, tid:str):
         "Move the place of the run: `slide`, `beat`, and `blank` (0 or 1) and `pane` (a walk step path, or empty) when they change."
         t, r = live(tid)
-        if not r: return text('The talk does not run now.')
+        if not r: return text(NO_RUN)
         f = {k: v for k, v in (await req.form()).items() if isinstance(v, str)}
         if not (s := slide_of(t, f.get('slide'))): return text('No such slide.')
         try: beat = number(f.get('beat', ''), 1, max(1, len(s.get('beats') or [])), 'No such beat on this slide.')
@@ -292,15 +307,17 @@ def connect(app, ctx):
             a.update(blank=False, pane=None, ask=None); stage_log(r).update(result=None, pair=None)
         if blank is not None: a['blank'] = blank == '1'
         if pane is not None: a['pane'] = pane or None
+        if not a['pane']: close_side(r, time.time())   # a new slide or an empty pane closes the primer beside the slide
         lr.put_run(r)
         return JSONResponse(dict(at=a, msgs=place_msgs(a, old)))
 
     async def ask_(req, tid:str):
         "A question for the room: `act` is open, close, main (the option that most hands chose), reveal or pair."
         t, r = live(tid)
-        if not r: return text('The talk does not run now.')
+        if not r: return text(NO_RUN)
         f = {k: v for k, v in (await req.form()).items() if isinstance(v, str)}
         if not (s := slide_of(t, f.get('slide'))): return text('No such slide.')
+        if f.get('pane') == '1': return side_ask(r, s['id'], f)
         if not (a := s.get('ask')) or a.get('kind') == 'none': return text(NO_ASK)
         sid, act = s['id'], f.get('act', '')
         if act == 'open':
@@ -333,6 +350,112 @@ def connect(app, ctx):
             return JSONResponse(m)
         return text(f'Unknown act: {act}.')
 
+    def side_ask(r, sid, f):
+        """The question for the room on the idea of the primer beside slide `sid` (Q with the pane open): one model call on the first
+        open, then the run keeps it. The reply of `open` is `{msg, ask}`: the stage message, and the whole question for the presenter."""
+        if not (sd := r.get('side')): return text('No side pane is open.')
+        act = f.get('act', '')
+        if act == 'open':
+            if not sd.get('ask'): sd['ask'] = ask_for_concept(lr, ask(), sd['slug'])
+            r['at']['ask'] = sid; sd['main'] = None; stage_log(r).update(result=None, pair=None); lr.put_run(r)
+            return JSONResponse(dict(msg=dict(v=1, t='ask', slide=sid, ask=public_ask(sd['ask'])), ask=sd['ask']))
+        if not (a := sd.get('ask')): return text('Ask the room first.')
+        if act == 'close':
+            if r['at']['ask'] == sid: r['at']['ask'] = None
+            stage_log(r).update(result=None, pair=None); lr.put_run(r)
+            return JSONResponse(dict(v=1, t='ask', slide=sid, ask=None))
+        if act == 'main':
+            opts = a.get('options') or []
+            if not opts: return text('This question has no options to count hands for.')
+            try: sd['main'] = number(f.get('main', ''), 0, len(opts) - 1, 'Pick one of the options of the question.')
+            except Bad as e: return text(str(e))
+            lr.put_run(r)   # in the run log only, never in Learning.record
+            return JSONResponse(dict(slide=sid, main=sd['main']))
+        if act == 'reveal':
+            m = dict(v=1, t='result', slide=sid, kind=a['kind'], rounds=[], right=a.get('answer') if a['kind'] in ('choice', 'order') else None, main=sd.get('main'))
+            stage_log(r)['result'] = m; lr.put_run(r)
+            return JSONResponse(m)
+        return text(f'Unknown act: {act}.')
+
+    async def beside(req, tid:str):
+        """The side pane of a talk (spec 12). With `slide` only: the offer for the presenter, with the needs of the idea of the slide.
+        With `slide`, `slug` and `how`: make the primer or the side walk, and give its URL. With `close=1`: keep it in the run log."""
+        t, r = live(tid)
+        if not r: return text(NO_RUN)
+        f = {k: v for k, v in (await req.form()).items() if isinstance(v, str)}
+        if f.get('close') == '1':
+            close_side(r, time.time()); old = dict(r['at']); r['at']['pane'] = None; lr.put_run(r)
+            return JSONResponse(dict(at=r['at'], msgs=[m for m in place_msgs(r['at'], old) if m['t'] == 'pane']))
+        if not (s := slide_of(t, f.get('slide'))): return text('No such slide.')
+        slug, how = f.get('slug', ''), f.get('how', '')
+        if slug and how not in SIDE_HOWS: return text('Choose a primer or a short side walk. Its own session does not open in a talk.')
+        if r.get('side') or r['at']['pane']: return Response('Close the side pane first (⌥Z).', status_code=409, media_type='text/plain')
+        if not slug:
+            c = lr.concept(s.get('concept') or '')
+            ns = list(needs(lr, c.slug)) if c else []
+            if not ns: return ui.BesideNone(c)
+            n = next((x for x in ns if x.slug == f.get('need')), None) or next((x for x in ns if not x.ok), ns[0])
+            return ui.BesideOffer(s, c, ns, n, pick_way_down(lr, n.slug))
+        if not (c := lr.concept(slug)): return text('No such idea.')
+        try: d = detour(lr, ctx.ask, c.slug, dict(talk=tid, slide=s['id']), how, ctx.sources)
+        except Exception: return Response('The tutor could not make the primer. Try again.', status_code=502, media_type='text/plain')
+        url = f'/w/{d.id}/0'
+        if not d.steps or not WALK_STEP.fullmatch(url):
+            lr.drop_journey(d.id)
+            return Response('The tutor found no steps for this idea.', status_code=502, media_type='text/plain')
+        r['side'] = dict(slug=c.slug, slide=s['id'], at=time.time(), url=url, title=c.name, ask=None, main=None); lr.put_run(r)
+        return JSONResponse(dict(url=url, pane=pane_url(url, talk=True), title=c.name))
+
+    def end(tid:str):
+        "End the run: the place, the primer beside a slide and the time of the last slide go into the run log. Then After the talk."
+        t, r = live(tid)
+        if not t: return Response('No such talk.', status_code=404)
+        if not r:
+            if (rs := lr.runs(tid)): return RedirectResponse(f"{Routes.of(Routes.after, tid=tid)}?run={rs[0]['id']}", status_code=303)
+            return text(NO_RUN)
+        now = time.time(); close_side(r, now); end_run(r, now); lr.put_run(r)
+        lr.put_talk({**t, 'live': None})
+        return RedirectResponse(f"{Routes.of(Routes.after, tid=tid)}?run={r['id']}", status_code=303)
+
+    def run_of(tid, rid):
+        "Talk `tid` and its run `rid` (the newest run when `rid` is empty), or (talk, None)."
+        if not (t := lr.talk(tid)): return None, None
+        if not rid: return t, (lr.runs(tid) or [None])[0]
+        r = lr.run(rid)
+        return t, (r if r and r.get('talk') == tid else None)
+
+    def after(tid:str, run:str=''):
+        t, r = run_of(tid, run)
+        if not t: return Response('No such talk.', status_code=404)
+        if not r: return Response('This talk has no such run.', status_code=404)
+        names = {s['id']: name_of(s) for s in t['slides']}
+        return Page('After the talk', *ui.After(t, r, recap(t, r), names, {x.slug: x.name for x in lr.concepts()}),
+                    crumbs=[('Journeys', '/journeys'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.assets(), wide=True)
+
+    def name_of(s):
+        "The name of the idea of slide `s`, else its title."
+        return (lr.concept(s.get('concept') or '') or {}).get('name') or s.get('title') or ''
+
+    def recap_file(tid:str, run:str='', look:str=''):
+        "The recap of a run as one HTML file: a download, or with `look=1` a look at it first (no script can run in it)."
+        t, r = run_of(tid, run)
+        if not t or not r: return Response('No such run.', status_code=404)
+        body = recap_html(t, r, asset_resolver(lr))
+        how = 'inline' if look == '1' else f'attachment; filename="{re.sub(r"[^a-z0-9-]", "", t.id)[:48] or "talk"}-recap.html"'
+        return Response(body, media_type='text/html; charset=utf-8',
+                        headers={'Content-Disposition': how, 'Content-Security-Policy': "default-src 'none'; img-src data:; style-src 'unsafe-inline'"})
+
+    def follow(tid:str, run:str=''):
+        "A follow-up walk on the ideas where the room was unsure: the goal is \"Review: <names>\"."
+        t, r = run_of(tid, run)
+        if not t or not r or not run: return Response('No such run.', status_code=404)
+        by = {s['id']: s for s in t['slides']}
+        ns = list(dict.fromkeys(name_of(by[w['slide']]) for w in recap(t, r).unsure))
+        if not ns: return text('The room was sure on each idea. No follow-up walk is needed.')
+        try: j = walk_from_topic(lr, ctx.ask, goal='Review: ' + ', '.join(ns), sources=ctx.sources)
+        except Exception: return Response('The tutor could not make the walk. Try again.', status_code=502, media_type='text/plain')
+        return RedirectResponse(f'/w/{j.id}', status_code=303)
+
     @hook('walk_actions')
     def present(j):
         "On the plan of a walk and on its journey page: make a talk from the walk."
@@ -354,3 +477,8 @@ def connect(app, ctx):
     app.get(Routes.img)(img)
     app.post(Routes.at)(at)
     app.post(Routes.ask)(ask_)
+    app.post(Routes.beside)(beside)
+    app.post(Routes.end)(end)
+    app.get(Routes.after)(after)
+    app.get(Routes.recap)(recap_file); app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's static route for `.html`
+    app.post(Routes.follow)(follow)

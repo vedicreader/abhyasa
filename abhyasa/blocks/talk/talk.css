@@ -72,7 +72,10 @@ html:is(.present, .audience) main { max-width: none; margin: 0; padding: 0; anim
 /* the stage: the type scales with the box (46 px and 28 px at 1280 px wide), in both windows */
 #stage { container-type: inline-size; }
 #stage > section.stage { position: absolute; inset: 0; width: auto; aspect-ratio: auto; display: flex; flex-direction: column; padding: 4.4cqw 6.25cqw 2.8cqw; }
-#stage.beside > section.stage { right: 60%; }
+/* beside (shots/a5-beside.png): the slide keeps its type at the left, and the primer takes the right 45% */
+#stage.beside { padding-right: 0; }
+#stage.beside > section.stage { right: 45%; }
+#stage.beside > .stage-pane { width: 45%; }
 #stage .crumb { font: 500 calc(15 / 1280 * 100cqw)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: 0; }
 #stage h1 { font: 400 calc(46 / 1280 * 100cqw)/1.2 var(--head); margin: .3em 0 0; max-width: 24ch; }
 #stage .say { font-size: calc(28 / 1280 * 100cqw); color: var(--ink2); margin: 1em 0 0; }
@@ -157,6 +160,32 @@ html.audience #stage { width: min(100vw, calc(100vh * 16 / 9)); }
 .askcard .acts { margin-top: var(--s2); }
 .pv-foot { grid-column: 1 / -1; display: flex; gap: var(--s4); flex-wrap: wrap; font-size: var(--t-meta); color: var(--mute); padding-top: var(--s3); border-top: 1px solid var(--line); margin-top: var(--s3); }
 .pv-foot kbd { margin: 0 var(--s1) 0 0; color: var(--fg); }
+
+/* the side pane in a talk (spec 12): the offer shows in the presenter window only; the pane has no "Its own session" */
+.bs-offer { background: var(--sunken); border-radius: var(--r); padding: var(--s4); font-size: var(--t-small); }
+.bs-offer .lead-in { margin: var(--s2) 0 var(--s1); color: var(--ink2); }
+.bs-needs { margin: 0; } .bs-needs li { padding: 2px 0; }
+.bs-ways { display: grid; gap: var(--s2); }
+.bs-way { display: grid; gap: 2px; text-align: left; padding: var(--s2) var(--s3); }
+.bs-way.pick { box-shadow: inset 0 0 0 2px var(--acc); }
+.bs-way .body { color: var(--ink2); } .bs-way .why { color: var(--mute); font-size: var(--t-meta); }
+.bs-offer .meta { font-size: var(--t-meta); color: var(--mute); margin: var(--s2) 0 0; }
+html.present #rh-pane .rh-own { display: none; }
+.pv-top #end-form { margin: 0; }
+.askcard .ask-q.side .lbl { color: var(--acc); }
+
+/* after the talk (shots/b5-recap.png) */
+.after-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 360px); gap: var(--s7); align-items: start; }
+.after-list > li { padding: var(--s3) 0; border-top: 1px solid var(--line); } .after-list > li:last-child { border-bottom: 1px solid var(--line); }
+.after-item .h { display: flex; justify-content: space-between; gap: var(--s4); align-items: baseline; }
+.after-item .h b { font-weight: 500; }
+.after-item .share { font: var(--t-meta) var(--mono); color: var(--ink2); white-space: nowrap; }
+.after-item p { margin: var(--s1) 0 0; color: var(--ink2); }
+.after-item .row { margin-top: var(--s2); }
+.after-side { margin-top: var(--s5); }
+.after-side ul { font-size: var(--t-small); } .after-side li { padding: var(--s2) 0; border-bottom: 1px solid var(--line); } .after-side li.beside { padding-left: var(--s4); }
+.after-side .small { font-size: var(--t-meta); margin: var(--s3) 0 0; }
+@media (max-width: 900px) { .after-cols { grid-template-columns: minmax(0, 1fr); } }
 
 @media (max-width: 900px) { .pv { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .rail i { transition: none; } }

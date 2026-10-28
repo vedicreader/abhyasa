@@ -107,6 +107,8 @@ addEventListener('keydown', e => {
 }, true);
 
 const LETTERS = 'ABCDEF';
+const PANE = /^\/w\/[a-z0-9-]{1,48}\/[0-9]{1,3}$/;   // the only page that the side pane of a talk opens: a walk step (spec 9.2)
+const paneOK = u => u === null || (typeof u === 'string' && PANE.test(u.split('?')[0]) && u.endsWith('?pane=1&talk=1'));
 const make = (tag, cls, text) => Object.assign(document.createElement(tag), cls ? {className: cls} : {}, text != null ? {textContent: text} : {});
 const sectionsOf = st => [...st.querySelectorAll(':scope > section.stage[data-sid]')];
 const sectionOf = (st, sid) => sectionsOf(st).find(s => s.dataset.sid === sid);
@@ -225,6 +227,8 @@ function presenterView(st) {
   // the result and the pair prompt that show now come from the run log, so a reload of this window can give them to a hello again
   let at = JSON.parse(box.dataset.at), result = JSON.parse(box.dataset.result || 'null'), pair = JSON.parse(box.dataset.pair || 'null');
   let seen = 0, opened = false, goWait = null;
+  // the primer beside the slide ({slug, slide, url, title, ask, main, open}), from the run log; `open` is true while its question is open
+  let side = JSON.parse(box.dataset.side || 'null');
   const slides = sectionsOf(st).map(s => ({sid: s.dataset.sid, n: +s.dataset.n, beats: JSON.parse(s.dataset.beats || '[]')}));
   const idx = () => slides.findIndex(s => s.sid === at.slide);
   const say = t => { sayLine.textContent = t || ''; };
@@ -262,6 +266,7 @@ function presenterView(st) {
     const moved = r.at.slide !== at.slide;
     at = r.at;
     if (moved) { result = null; pair = null; }
+    if (!at.pane && side) { side = null; drawSide(); if (abhyasaPane.isOpen()) abhyasaPane.close(); }   // the server closed the primer
     r.msgs.forEach(m => send(m));
     paint();
     if (moved) sendDemo();
@@ -272,23 +277,95 @@ function presenterView(st) {
   const back = () => act(() => { const i = idx(); if (at.beat > 1) return go(at.slide, at.beat - 1); if (i > 0) return go(slides[i - 1].sid, slides[i - 1].n); });
   const goTo = n => act(() => slides[n - 1] && go(slides[n - 1].sid, 1));
   const blank = () => act(() => go(at.slide, at.beat, {blank: at.blank ? 0 : 1}));
-  const closePane = () => act(() => go(at.slide, at.beat, {pane: ''}));
+  // --- the side pane (spec 12): ⌥B shows the offer here only; 1 or 2 opens the primer beside the slide in both windows
+  const offerBox = $('beside-offer'), wide = matchMedia('(min-width: 1100px)');
+  const offerOpen = () => !!offerBox.querySelector('.bs-offer');
+  const shutOffer = () => offerBox.replaceChildren();
+  async function offer(need) {
+    if (at.pane || side) return say('Close the side pane first (⌥Z).');
+    const r = await fetch(base + 'beside', {method: 'POST', body: new URLSearchParams({slide: at.slide, ...(need ? {need} : {})})}).catch(() => null);
+    if (!r) return say('abhyasa did not answer. Try again.');
+    if (!r.ok) return say(await r.text());
+    say('');
+    // the HTML of this app (FT, with each name escaped on the server), never text from the room
+    offerBox.replaceChildren(...new DOMParser().parseFromString(await r.text(), 'text/html').body.childNodes);
+  }
+  const openPane = () => {
+    if (!side) return;
+    if (wide.matches) abhyasaPane.open(side.url + '?pane=1&talk=1', side.title);
+    else say('The primer shows beside the slide in the audience window. Make this window wider to see it here too.');
+  };
+  const choose = w => act(async () => {
+    offerBox.querySelectorAll('.bs-way').forEach(b => { b.disabled = true; });
+    say('Making the primer…');
+    const r = await fetch(base + 'beside', {method: 'POST', body: new URLSearchParams({slide: at.slide, slug: w.dataset.slug, how: w.dataset.how})}).catch(() => null);
+    if (!r || !r.ok) { offerBox.querySelectorAll('.bs-way').forEach(b => { b.disabled = false; }); return say(r ? await r.text() : 'abhyasa did not answer. Try again.'); }
+    const d = await r.json();
+    if (!PANE.test(d.url) || d.pane !== d.url + '?pane=1&talk=1') return say('abhyasa gave a page that the side pane does not open.');
+    shutOffer();
+    side = {slug: w.dataset.slug, slide: at.slide, url: d.url, title: d.title, ask: null, main: null, open: false};
+    await go(at.slide, at.beat, {pane: d.url});   // the reply sends {t: 'pane'} to the audience window, with ?pane=1&talk=1
+    openPane();
+  });
+  offerBox.addEventListener('click', e => {
+    const w = e.target.closest('.bs-way'), n = e.target.closest('.bs-need');
+    if (w && !w.disabled) choose(w); else if (n) offer(n.dataset.need);
+  });
+  // The pane closed (⌥Z, Esc, × or browser Back): keep the primer in the run log, and close it in the audience window.
+  const closeSide = () => act(async () => {
+    if (!side && !at.pane) return;
+    if (side?.open) await ask('close');
+    const r = await post('beside', {close: 1});
+    if (!r) return;
+    at = r.at; side = null; drawSide();
+    r.msgs.forEach(m => send(m));
+    paint();
+  });
+  const closePane = () => abhyasaPane.isOpen() ? abhyasaPane.close() : closeSide();
+  let paneWas = root.classList.contains('rh-open');
+  new MutationObserver(() => { const now = root.classList.contains('rh-open'); if (paneWas && !now) closeSide(); paneWas = now; })
+    .observe(root, {attributes: true, attributeFilter: ['class']});
 
   // --- the question for the room
-  const block = () => document.querySelector(`#ask-card .ask-q[data-sid="${CSS.escape(at.slide)}"]`);
+  const block = () => side?.open ? $('ask-side') : document.querySelector(`#ask-card .ask-q[data-sid="${CSS.escape(at.slide)}"]`);
+  // The question on the idea of the primer (Q with the pane open), drawn as text in its own block of the card.
+  function drawSide() {
+    const card = $('ask-card');
+    card.querySelector('#ask-side')?.remove();
+    const a = side?.open && side.ask;
+    if (!a) return;
+    const opts = a.options || [], b = make('div', 'ask-q side');
+    b.id = 'ask-side'; b.dataset.n = opts.length; b.dataset.kind = a.kind;
+    b.dataset.ask = JSON.stringify({slide: at.slide, ask: Object.fromEntries(['kind', 'q', 'options', 'most'].filter(k => k in a).map(k => [k, a[k]]))});
+    const ol = make('ol', 'opts');
+    opts.forEach((o, k) => { const li = make('li', a.kind === 'choice' && k === a.answer ? 'right' : ''); li.append(make('span', 'L', mark(a.kind, k)), o); ol.append(li); });
+    const hands = make('div', 'hands row');
+    opts.forEach((_, k) => {
+      const h = make('button', side.main === k ? 'on' : '', mark(a.kind, k)); h.type = 'button'; h.dataset.hand = k;
+      h.append(make('kbd', '', String(k + 1))); h.addEventListener('click', () => hand(k + 1)); hands.append(h);
+    });
+    b.append(make('span', 'lbl', `Ask the room · on the primer: ${side.title}`), make('p', 'q', a.q), ...(opts.length ? [ol, hands] : []));
+    card.insertBefore(b, card.querySelector('.none'));
+  }
   async function ask(what, extra = {}) {
-    const r = await post('ask', {slide: at.slide, act: what, ...extra});
+    const onSide = what === 'open' ? !!side && !at.ask : !!side?.open;
+    let r = await post('ask', {slide: at.slide, act: what, ...extra, ...(onSide ? {pane: 1} : {})});
     if (!r) return;
+    if (onSide && what === 'open') { side.ask = r.ask; side.open = true; side.main = null; r = r.msg; drawSide(); }
+    else if (what === 'open' && side) side.open = false;
+    if (onSide && what === 'main') side.main = r.main;
+    if (what === 'close' && side?.open) { side.open = false; drawSide(); }
     if (what === 'open') { at.ask = at.slide; result = null; }
     if (what === 'close') { at.ask = null; result = null; if (pair?.on) send(pair = {t: 'pair', on: false, prompt: pair.prompt}); }
     if (what === 'main') document.querySelectorAll('#ask-card [data-hand]').forEach(b => b.classList.toggle('on', +b.dataset.hand === r.main));
-    else if (what === 'reveal') { result = r; send(r); const i = idx(); if (r.main != null && !Array.isArray(r.right) && r.right != null && r.main !== r.right) $('rail').children[i]?.classList.add('shaky'); }
+    else if (what === 'reveal') { result = r; send(r); const i = idx(); if (!onSide && r.main != null && !Array.isArray(r.right) && r.right != null && r.main !== r.right) $('rail').children[i]?.classList.add('shaky'); }
     else if (what === 'pair') send(pair = r);
     else send(r);
     paint();
   }
   const askKey = () => act(() => at.ask ? ask('close') : ask('open'));
-  const main = () => act(() => !at.ask ? ask('open') : !result ? ask('reveal') : ask('close'));
+  const last = () => idx() === slides.length - 1 && !side && !block();
+  const main = () => last() ? endTalk() : act(() => !at.ask ? ask('open') : !result ? ask('reveal') : ask('close'));
   const hand = d => {
     const b = block();
     if (!at.ask || !b || d > +b.dataset.n) return false;
@@ -310,6 +387,7 @@ function presenterView(st) {
     if (c) c.focus(); else say('This slide has no demo to go into.');
   };
   const esc = () => {
+    if (offerOpen()) return shutOffer();
     if (at.ask) return act(() => ask('close'));
     if (document.activeElement?.closest('[data-rupaka]')) { document.activeElement.blur(); return; }
     if (at.pane) return closePane();
@@ -322,6 +400,7 @@ function presenterView(st) {
     say('Go to slide…');
   }
   function digit(d) {
+    if (!goWait && offerOpen()) { const w = offerBox.querySelectorAll('.bs-way')[+d - 1]; if (!w) return false; if (!w.disabled) choose(w); return; }
     if (!goWait) return hand(+d);
     goWait.n += d; clearTimeout(goWait.t);
     const done = () => { const n = +goWait.n; goWait = null; say(''); if (n) goTo(n); };
@@ -342,6 +421,20 @@ function presenterView(st) {
     ...Object.fromEntries([...'123456789'].map(d => [d, () => digit(d)])),
   }});
   $('ask-go').addEventListener('click', main);
+  // ⌥B and ⌥Z keep their app meanings (spec 11): learn beside, and back to the slide. pane.js takes ⌥Z while its pane shows.
+  addEventListener('keydown', e => {
+    if (!e.altKey || e.metaKey || e.ctrlKey || e.repeat || !root.classList.contains('talk')) return;
+    if (e.code === 'KeyB') { e.preventDefault(); e.stopImmediatePropagation(); act(() => offer()); }
+    else if (e.code === 'KeyZ' && !abhyasaPane.isOpen() && (side || at.pane)) { e.preventDefault(); e.stopImmediatePropagation(); closeSide(); }
+  }, true);
+  // End the talk: the run ends on the server, the audience window shows the end, and this window opens After the talk.
+  const endTalk = () => act(async () => {
+    const r = await fetch(base + 'end', {method: 'POST'}).catch(() => null);
+    if (!r || !r.ok) return say(r ? await r.text() : 'abhyasa did not answer. Try again.');
+    send({t: 'end'}, false);
+    location.assign(r.url);
+  });
+  $('end-form').addEventListener('submit', e => { e.preventDefault(); endTalk(); });
   $('pair-go').addEventListener('click', () => act(() => ask('pair', {on: pair?.on ? 0 : 1})));
   document.querySelectorAll('#ask-card [data-hand]').forEach(b => b.addEventListener('click', () => hand(+b.dataset.hand + 1)));
 
@@ -350,7 +443,7 @@ function presenterView(st) {
     seen = Date.now(); paint();
     send({t: 'go', slide: at.slide, beat: at.beat}, false);
     send({t: 'blank', on: !!at.blank}, false);
-    send({t: 'pane', url: at.pane ? at.pane + '?pane=1&talk=1' : null}, false);
+    send({t: 'pane', url: at.pane && PANE.test(at.pane) ? at.pane + '?pane=1&talk=1' : null}, false);
     const b = block();
     if (at.ask && b) send({t: 'ask', ...JSON.parse(b.dataset.ask)}, false);
     if (result) send(result, false);
@@ -379,11 +472,12 @@ function presenterView(st) {
     const card = $('ask-card'), b = block();
     card.querySelectorAll('.ask-q').forEach(q => { q.hidden = q !== b; });
     card.querySelector('.none').hidden = !!b;
-    card.querySelector('.acts').hidden = !b;
+    const end = last();
+    card.querySelector('.acts').hidden = !b && !end;
     card.classList.toggle('open', !!at.ask); card.classList.toggle('shown', !!result);
     const go = $('ask-go');
-    go.querySelector('.act').textContent = !at.ask ? 'Ask the room' : !result ? 'Show the answer' : 'Close the question';
-    go.querySelector('kbd').textContent = !at.ask ? 'Q' : !result ? 'R' : 'Q';
+    go.querySelector('.act').textContent = end ? 'End the talk' : !at.ask ? 'Ask the room' : !result ? 'Show the answer' : 'Close the question';
+    go.querySelector('kbd').textContent = end ? '⌥S' : !at.ask ? 'Q' : !result ? 'R' : 'Q';
     $('pair-go').hidden = !result;
     $('pair-go').textContent = pair?.on ? 'End the talk with a neighbour' : 'Talk to your neighbour';
     if (!at.ask) card.querySelectorAll('[data-hand]').forEach(h => h.classList.remove('on'));
@@ -402,6 +496,9 @@ function presenterView(st) {
     paint();
   };
   tick(); setInterval(tick, 1000);
+  if (side && !(side.open && at.ask === at.slide)) side.open = false;
+  drawSide();
+  if (side && at.pane) openPane();   // a reload: the primer is still beside the slide
   if (at.ask) { const b = block(); if (b) drawAsk(st, {t: 'ask', ...JSON.parse(b.dataset.ask)}); }
   if (result) drawResult(st, result);
   if (pair) drawPair(st, pair);
@@ -425,7 +522,9 @@ function audienceView(st) {
       sec?.querySelectorAll(`[data-rupaka][data-demo="${CSS.escape(m.slug)}"]`).forEach(h => mirrors.get(h)?.apply(m.state, m.gates));
     }
   }
-  abhyasaStage.audience(st, {ch, draw, fade: +st.dataset.fade || 1500, title: st.dataset.title});
+  // the side pane shows only a walk step in the talk type, over the checked channel
+  const only = {...ch, on: (t, fn) => ch.on(t, t === 'pane' ? m => paneOK(m.url) && fn(m) : fn)};
+  abhyasaStage.audience(st, {ch: only, draw, fade: +st.dataset.fade || 1500, title: st.dataset.title});
   show(st, st.dataset.slide, +st.dataset.beat);
   // F fills the screen. Another key shows for 3 s that the keys work in the presenter window.
   let t = 0;
