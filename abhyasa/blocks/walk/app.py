@@ -14,6 +14,7 @@ from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
+from abhyasa.tutor import NoLesson
 from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo
 from . import ui
 from .cfg import Routes
@@ -258,7 +259,7 @@ def connect(app, ctx):
         ld = lr.journey(jid).steps[i]['ladder']
         a = first(x for x in lr.attempts(slug) if x.id == ld.get('aid'))
         def job():
-            if not (text := demo_lesson(tutor, a, ld['way'])): return
+            if not (text := demo_lesson(tutor, a, ld['way'])) or isinstance(text, NoLesson): return   # an empty lesson or the fallback note is a failure
             with writing[jid, i]: lr.walk_step(jid, i, ladder={**(lr.journey(jid).steps[i].get('ladder') or {}), 'lesson': text})
         if a is not None: tutor.jobs[k] = ctx.pool.submit(job)
 

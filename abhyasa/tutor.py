@@ -8,7 +8,7 @@ Docs: https://vedicreader.github.io/abhyasa/tutor.html.md"""
 __all__ = ['HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'GRADE_SP', 'TEACH', 'CLOSE_HOOKS', 'LESSON_HOOKS', 'MISSES',
            'SHAKY', 'depth_ask', 'one_ask', 'asks_twice', 'question_prompt', 'with_code', 'bridges', 'thread_text',
            'grade_prompt', 'hint_prompt', 'teach_prompt', 'hints', 'Tutor', 'public', 'reviews_today', 'review_open',
-           'paced', 'flow', 'Session', 'retests', 'moved']
+           'paced', 'flow', 'NoLesson', 'Session', 'retests', 'moved']
 
 # %% ../nbs/03_tutor.ipynb #c004
 import json, random, time, uuid
@@ -394,11 +394,14 @@ def give_up(self:Tutor, qid:str, confidence:int=0, dont_know:bool=False) -> Attr
     return self._close(q, False, first.get('confidence', confidence), g, teach=True, dont_know=dont_know and not q.tries)
 
 # %% ../nbs/03_tutor.ipynb #c034
+class NoLesson(str):
+    "The note that stands for a lesson when the model fails; a caller can tell it from a real lesson by its type."
+
 @patch
 def _lesson(self:Tutor, q, first_error:str='') -> str:
     "A short lesson on `q` from its first error. When the model fails, a note with the model answer."
     try: lesson = for_task(self.ask, 'lesson')(teach_prompt(q, first_error), prompt('tutor')).strip()
-    except Exception as e: return f"The tutor could not write the lesson ({type(e).__name__}). The model answer is: {q.answer or 'not given'}"
+    except Exception as e: return NoLesson(f"The tutor could not write the lesson ({type(e).__name__}). The model answer is: {q.answer or 'not given'}")
     if 'Check:' in lesson: self.checks[q.concept] = (lesson.rsplit('Check:', 1)[1].strip(), lesson, q.get('method', ''))
     return lesson
 

@@ -431,6 +431,22 @@ def test_a_failed_lesson_job_does_not_start_again_on_the_poll(mk, walk_fake, lr)
     cl.post(r['ladder']); made(cl, f'{slug}:lesson')                                          # Try again starts the job
     assert 'Positions are shared.' in cl.get(r['ladder']).text
 
+def test_a_model_that_raises_gives_a_failed_ladder_not_a_lesson(mk, walk_fake, lr):
+    "The tutor writes a fallback note when the model raises. The ladder does not show it as a lesson: it shows the failed state with Try again, and the poll starts no new job."
+    slug, calls = 'scaling-by-the-root-of-dk', []
+    def boom(p, sp): calls.append(p); raise RuntimeError('the model is down')
+    walk_fake.rules['Teach the smallest step'] = boom
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = made(cl, slug); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
+    cl.app.state.svc['tutor'].jobs[f'{slug}:lesson'].result(timeout=30); n = len(calls)
+    for _ in range(2):
+        part = cl.get(r['ladder']).text
+        assert 'could not write a lesson' in part and 'Try again' in part and 'load delay' not in part and 'model answer' not in part
+    assert not lr.journey(jid).steps[2]['ladder'].get('lesson') and len(calls) == n
+
 def test_a_lesson_with_no_attempt_stops_the_poll(mk, walk_fake, lr):
     "When the attempt of the ladder is gone, the block shows a plain line with no poll and no button."
     slug = 'scaling-by-the-root-of-dk'
