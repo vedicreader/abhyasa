@@ -123,6 +123,8 @@ button.busy .secs:empty, .secs:empty { display: none; }
 /* main only fades: a transform on it would hold the fixed composer of the session page inside it */
 main { animation: fade .2s ease-out; }
 .pending, .thread > li, .qa, #out > *, #vr > *, #learned > *, .ix > * { animation: rise .28s ease-out both; }
+/* a new page swaps in with no crossfade; only a part with its own view-transition-name moves (the idea of a walk) */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }

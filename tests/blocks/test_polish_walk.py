@@ -197,7 +197,7 @@ def test_m1_the_next_idea_comes_in_gently():
     long = to_xml(Dots(AttrDict(steps=[AttrDict(dot='done')] * 30, done=30)))
     assert 'style="--i:5"' in long and 'style="--i:6"' not in long                  # the stagger stops at 5, so the sum shows within 600 ms
     assert 'htmx.config.globalViewTransitions = abhyasaMotion()' in js and "'htmx:beforeTransition'" in js and 'document.body' in js
-    assert '.walk-main { view-transition-name: idea; }' in w and '::view-transition-old(root), ::view-transition-new(root) { animation: none; }' in w
+    assert '.walk-main { view-transition-name: idea; }' in w and '::view-transition-old(root), ::view-transition-new(root) { animation: none; }' in css('core/base.css')   # no page crossfades
     assert re.search(r'::view-transition-old\(idea\) \{ animation: idea-out 120ms', w) and re.search(r'::view-transition-new\(idea\) \{ animation: idea-in var\(--dur-2\)', w)
     assert re.search(r'@keyframes idea-in \{ from \{ opacity: 0; transform: translateY\(8px\); \} \}', w)
 

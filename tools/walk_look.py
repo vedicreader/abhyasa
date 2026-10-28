@@ -286,6 +286,9 @@ def m1_next_idea_comes_in_gently(pg, w):
     assert pg.evaluate("getComputedStyle(document.querySelector('.walk-main')).viewTransitionName") == 'idea'
     assert abs(pg.eval_on_selector('#rail', 'e => e.getBoundingClientRect().left') - x0) < 1
 
+    root = "() => getComputedStyle(document.documentElement, '::view-transition-old(root)').animationName"
+    pg.goto(w.B + '/'); settle(pg); pg.click('nav a[href="/graph"]'); pg.wait_for_url('**/graph'); settle(pg)
+    assert pg.evaluate(root) == 'none', 'another page crossfades'
 ACC = "c => { const d = document.createElement('i'); d.style.color = `var(${c})`; document.querySelector('#check .check').append(d); const v = getComputedStyle(d).color; d.remove(); return v; }"
 
 def m2_check_answers_in_place(pg, w):

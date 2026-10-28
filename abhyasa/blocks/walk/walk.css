@@ -67,7 +67,6 @@ h1.idea { font-size: var(--t-idea); margin-bottom: var(--s4); }
    from 8 px below. The rest of the page, with the outline, does not move. */
 .walk-main { view-transition-name: idea; }
 main:has(.walk-layout) { animation: none; }
-::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 ::view-transition-group(idea) { animation-duration: var(--dur-2); animation-timing-function: var(--ease); }
 ::view-transition-old(idea) { animation: idea-out 120ms var(--ease) both; }
 ::view-transition-new(idea) { animation: idea-in var(--dur-2) var(--ease) both; }
