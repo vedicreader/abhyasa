@@ -96,9 +96,11 @@ def figure_path(lr:Learning, source:str, link:str):
     "The path of the image `link` of the document `source`, from the assets folder. None when the file is not there, is outside that folder or is not an image."
     if not (source and link): return None
     root = lr.vault.assets().resolve()
-    try: p = (lr.vault.assets(Path(source).stem)/str(link)).resolve()
-    except (ValueError, OSError): return None
-    if p.suffix.lower() in IMG_SUFFIXES and p.is_file() and p.is_relative_to(root): return str(p.relative_to(root))
+    for name in (Path(source).stem, source.rsplit('/', 1)[-1].split('?')[0]):   # the folder of a file, or of a link: the vault names a PDF link by its last part
+        try: p = (lr.vault.assets(name)/str(link)).resolve()
+        except (ValueError, OSError): continue
+        if p.suffix.lower() in IMG_SUFFIXES and p.is_file() and p.is_relative_to(root): return str(p.relative_to(root))
+
 
 # %% ../nbs/04_sources.ipynb #w006
 def placement(c, doc_id:str):
@@ -291,6 +293,7 @@ def file_link(lr:Learning, url:str, max_pages:int=8, read=None, final=None) -> L
     "File the pages of `url` in the vault. Return `shelf`, `doc_id`, `title` and `url` of each page in the folder of `url` (after any redirect of the start page), in reading order, at most `max_pages`. `final(url)` gives the address after the redirects."
     url, cap = url.strip(), max(1, min(int(max_pages), LINK_MAX))
     kind = link_kind(url)
+    if kind == 'arxiv' and (m := ARXIV_ID.search(url)): kind, url = 'pdf', f'https://arxiv.org/pdf/{m.group()}'   # the arxiv reader gives the abstract only; the PDF gives the text and its figures
     how = READERS.get(kind) or ('url' if cap == 1 else 'crawl')
     found = read is not None
     if read is None:
