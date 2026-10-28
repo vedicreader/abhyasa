@@ -141,7 +141,7 @@ class Exercise:
     def run(self, fn):
         "Keep the shared `report` and return `(test, error)` failures; hidden tests use only label and status."
         from abhyasa.check import run_asserts
-        self.report = run_asserts(fn, self.fname, self.tests)
+        self.report = run_asserts(fn, self.fname, self.tests, secs=val('runner.per_test'), total=val('runner.total'))
         fails = []
         for c in self.report.checks:
             if c.status == 'pass': continue

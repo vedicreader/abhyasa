@@ -108,3 +108,19 @@ def test_link_reads_the_new_page_count():
     set_val('links.pages', 3); set_val('links.timeout', 10)
     assert len(file_link(lr, 'https://example.org/docs/', read=read, final=lambda u: u)) == 3
     assert [c['max_pages'] for c in calls] == [8, 3] and calls[1]['timeout'] == 10
+
+# Code runner
+
+def test_runner_defaults():
+    from abhyasa import check
+    assert dflts('runner') == {'runner.total': 10, 'runner.per_test': 2, 'runner.file_mb': 10}
+    assert (check.TEST_SECONDS, check.RUN_SECONDS) == (2., 10.)
+    assert 'RLIMIT_CPU, (11, 12)' in check._limits(10.) and f'({10 * 2**20}, {10 * 2**20})' in check._limits(10.)
+
+def test_run_reads_the_new_limits():
+    from abhyasa.check import run_isolated, snippet, _limits
+    slow = 'def f():\n    import time\n    time.sleep(1.2)\n    return 1'
+    assert run_isolated('assert', 'f', slow, ['assert f() == 1'])['checks'][0]['status'] == 'pass'   # 2 s for each test
+    set_val('runner.per_test', 1); set_val('runner.total', 5); set_val('runner.file_mb', 1)
+    assert run_isolated('assert', 'f', slow, ['assert f() == 1'])['checks'][0]['status'] != 'pass'   # 1 s: the test stops
+    assert "RUN_SECONDS = 5.0" in snippet('assert', 'f', []) and 'RLIMIT_CPU, (6, 7)' in _limits(5.) and f'({2**20}, {2**20})' in _limits(5.)

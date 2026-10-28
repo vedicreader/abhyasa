@@ -102,7 +102,7 @@ def run_code(tutor:Tutor, qid:str, source:str, confidence:int=70) -> AttrDict:
     try: compile(source, '<code>', 'exec', dont_inherit=True)
     except (SyntaxError, ValueError) as e: return AttrDict(out, syntax=f"line {getattr(e, 'lineno', None) or 1}: {getattr(e, 'msg', None) or e}")
     r = run_isolated('assert', q.fname, source, q.tests)
-    if 'checks' not in r: out.first_error = 'The code ran longer than 10 s' if r.get('timeout') else 'The code stopped before the tests ran'
+    if 'checks' not in r: out.first_error = f"The code ran longer than {val('runner.total')} s" if r.get('timeout') else 'The code stopped before the tests ran'
     else:
         out.checks, out.passed = r['checks'], sum(c['status'] == 'pass' for c in r['checks'])
         out.first_error = _first_error(q, r['checks'])
