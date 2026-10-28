@@ -309,7 +309,7 @@ def SectionDone(j, sec, ix, ms, nxt, by):
             P(f"Next: {name(by, j['steps'][nxt])}.", cls='next-step'), Div(Primary('Go on', href=at(Routes.step, j['id'], nxt)), cls='row'))
 
 def Dots(st):
-    "One dot for each idea of the walk, in the colours of the outline."
+    "One dot for each idea of the walk, in the colours of the outline. The fill steps stop at 5, so the sum shows within 600 ms on any walk."
     n = len(st.steps)
     return Div(*[I(cls=f'd {s.dot}', style=f'--i:{min(k, 5)}') for k, s in enumerate(st.steps)], cls='walk-dots', role='img',
                aria_label=f"{st.done} of {n_of(n, 'idea')} done")
