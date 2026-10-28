@@ -1,5 +1,6 @@
 "Every concept, one concept's page, and the subjects on Today."
 from abhyasa.core import Page, RouteOverrides, hook
+from abhyasa.settings import val
 from . import ui
 from .cfg import Routes
 
@@ -20,7 +21,7 @@ def connect(app, ctx):
         if lr.stale_links(c):
             try: lr.connect(slug, ctx.sources); c = lr.concept(slug)
             except Exception: pass
-        return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=10)),
+        return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=val('lists.attempts'))),
                     crumbs=[('Today', '/'), ('Concepts', Routes.base)])
 
     @hook('today')

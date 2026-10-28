@@ -39,7 +39,7 @@ def connect(app, ctx):
         j = lr.journey(jid)
         if not j: return Page('Journey', H1('No such journey'), P(A('All journeys', href=Routes.base)), crumbs=up)
         pg = progress(lr, j)
-        return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:4]), crumbs=up, extra=ui.assets())
+        return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')]), crumbs=up, extra=ui.assets())
 
     def step(jid:str, slug:str, act:str):
         if not lr.journey(jid): return Response(status_code=404)
@@ -68,8 +68,8 @@ def connect(app, ctx):
     @hook('today_top')
     def on_today(subject=None):
         js = listed()
-        return (H2('Your journeys'), ui.JourneyList(js[:3]),
-                *([P(A(f'All {len(js)} journeys', href=Routes.base), cls='mute')] if len(js) > 3 else []),
+        return (H2('Your journeys'), ui.JourneyList(js[:(n := val('lists.journeys'))]),
+                *([P(A(f'All {len(js)} journeys', href=Routes.base), cls='mute')] if len(js) > n else []),
                 ui.GoalForm(compact=bool(js)), *ui.assets())
 
     @hook('concept_more')

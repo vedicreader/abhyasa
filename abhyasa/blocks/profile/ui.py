@@ -2,6 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, ago
+from abhyasa.settings import val
 from abhyasa.profile import LABELS, LIST_FIELDS, EXAMPLES, PACES, ONBOARD_QS, calibration_text
 from abhyasa.method import EXPLORE
 from .cfg import Routes
@@ -48,7 +49,7 @@ def Changes(cs):
         return Li(Div(Span(WHO.get(c['by'], c['by']), cls='who'), Span(f"  {ago(c['at'])}", cls='mute'), cls='ch-head'), P(said(c), cls='what'),
                   P('Why: ', c['why'], cls='mute why-line') if c.get('why') else '',
                   Form(Input(type='hidden', name='at', value=repr(c['at'])), Button('Undo', cls='small quiet'), action=Routes.undo, method='post'))
-    return Ul(*map(row, cs[:40]), cls='plain changes')
+    return Ul(*map(row, cs[:val('lists.changes')]), cls='plain changes')
 
 def Calibration(r):
     "How often you were right when you felt sure, and when you felt unsure."

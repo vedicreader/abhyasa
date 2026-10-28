@@ -2,6 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import Page, hook
+from abhyasa.settings import val
 from abhyasa.model import understanding
 from abhyasa.method import EXAMPLES_TO, methods_text
 from . import ui
@@ -20,8 +21,8 @@ def connect(app, ctx):
         prior = [EXAMPLES_TO[e] for e in p.examples if e in EXAMPLES_TO]
         subs = {}
         for c, u in (rs if not subject else rows()): subs.setdefault(c.get('subject') or '', []).append((c, u))
-        weak = sorted((x for x in rs if x[1].weak), key=lambda x: x[1].score)[:10]
-        strong = sorted((x for x in rs if x[1].strong), key=lambda x: -x[1].score)[:10]
+        weak = sorted((x for x in rs if x[1].weak), key=lambda x: x[1].score)[:val('lists.strengths')]
+        strong = sorted((x for x in rs if x[1].strong), key=lambda x: -x[1].score)[:val('lists.strengths')]
         q = f'&subject={subject}' if subject else ''
         return Page('Strengths', *ui.assets(), H1('Your strengths and weak spots' + (f' in {subject}' if subject else '')),
                     P('This comes from your answers: how deep you know each concept, how well you recall it now, and what went wrong.', cls='mute'),

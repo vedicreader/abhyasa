@@ -2,6 +2,7 @@
 import time
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, hook, ago
+from abhyasa.settings import val
 from abhyasa.tutor import moved
 from abhyasa.journey import progress
 from . import ui
@@ -57,7 +58,7 @@ def connect(app, ctx):
             if a.get('final') and a.get('kind') != 'demo' and (k := int((t0 - day0(a.at)) // DAY)) < 7 and k >= 0: n[6 - k] += 1
         return [(time.strftime('%a', time.localtime(t0 - (6 - i) * DAY)), n[i]) for i in range(7)]
 
-    def weeks(ss, by, most=8):
+    def weeks(ss, by, most=None):
         "For each week, newest first: the concepts that moved up, with the floor before the first session and after the last."
         out = {}
         for s in sorted(ss, key=lambda s: s.get('start') or 0):
@@ -69,7 +70,7 @@ def connect(app, ctx):
                 o = w.setdefault(m['concept'], dict(m))
                 o['after'] = m['after']
         rows = [(wk, [m for m in w.values() if m['after'] > m['before']]) for wk, w in out.items()]
-        return [(wk, ms) for wk, ms in rows[::-1] if ms][:most]
+        return [(wk, ms) for wk, ms in rows[::-1] if ms][:most or val('lists.weeks')]
 
     def index():
         ss, (by, js) = lr.sessions(500), names()

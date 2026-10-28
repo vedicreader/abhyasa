@@ -163,3 +163,17 @@ def test_default_model_and_own_rows(monkeypatch):
     assert r.name('plan') == 'x/extract'                                                   # plan borrows the model of extract
     set_val('models.plan', 'x/plan')
     assert r.name('plan') == 'x/plan'
+
+# Lists
+
+def test_lists_defaults():
+    assert dflts('lists') == {'lists.strengths': 10, 'lists.journeys': 3, 'lists.beside': 4, 'lists.weeks': 8, 'lists.search': 12,
+                              'lists.elsewhere': 2, 'lists.snippet': 300, 'lists.attempts': 10, 'lists.changes': 40}
+    assert all(r.more for r in SETTINGS.values() if r.group == 'lists')
+
+def test_journeys_on_today_read_when_used(mk, lr):
+    for k in range(4): lr.put_journey(dict(id=f'j{k}', title=f'Journey {k}', goal='g', subject='', steps=[], created=k))
+    cl = mk()
+    assert 'All 4 journeys' in cl.get('/').text
+    set_val('lists.journeys', 5)
+    assert 'All 4 journeys' not in cl.get('/').text
