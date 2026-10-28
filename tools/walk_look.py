@@ -572,7 +572,8 @@ def d1_narrow_band(pg, w):
         top = pg.eval_on_selector('h1.idea', 'h => h.getBoundingClientRect().top')
         assert top < 260, f'the title starts at y = {top}'
         pg.click('#rail summary'); assert pg.is_visible('#rail ol li.c'), 'a click does not open the outline'
-        pg.keyboard.press('Alt+c'); pg.wait_for_load_state()   # ⌥C still works when Continue does not show
+        with pg.expect_navigation(): pg.keyboard.press('Alt+c')   # ⌥C still works when Continue does not show
+        settle(pg, 200)
     finally: pg.set_viewport_size(dict(width=1280, height=900))
 
 def d2_pane_bar(pg, w):
