@@ -44,9 +44,11 @@ def tutor_note(lr, ask, j, i:int) -> str:
 
 # %% ../nbs/15_walk.ipynb #i13
 def step_meta(j, i:int) -> dict:
-    "The walk, the step, the section and the page of step `i`, for the record of each attempt."
+    "The walk, the step, the section and the page of step `i`, for the record of each attempt. A side walk adds `from`, the step that opened it."
     r = j.steps[i].get('read') or {}
-    return dict(walk=j.id, step=i, section=r.get('section'), page=r.get('page'))
+    m = dict(walk=j.id, step=i, section=r.get('section'), page=r.get('page'))
+    if j.get('parent'): m['from'] = '/'.join(map(str, j.parent.values()))
+    return m
 
 # %% ../nbs/15_walk.ipynb #i15
 def open_short(tutor:Tutor, j, i:int, session:str) -> AttrDict:
