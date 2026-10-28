@@ -7,6 +7,7 @@ class Routes:
     add = '/j/{jid}/add'            # add a topic by name
     split = '/j/{jid}/split'        # split a step into smaller ones
     drop = '/j/{jid}/drop'          # remove the journey
+    walk = '/w/{jid}'               # the walk block: the plan, then the current step
     start = '/start'                # the session block starts a session: ?journey= or ?focus=
     def of(route, **kw):
         for k, v in kw.items(): route = route.replace('{' + k + '}', v)

@@ -225,3 +225,38 @@ def test_next_idea_moves_on_after_a_code_pass_in_a_browser(mk, walk_fake, lr, ho
                 assert pg.url != url and 'code-editor' not in pg.content().split('walk-main')[0]
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
+
+HX = {'hx-request': 'true'}   # htmx asks for a part; without it FastHTML wraps the reply in a page
+
+def test_ways_in(mk, walk_fake, lr):
+    cl = mk()
+    add = cl.get('/add').text
+    assert 'As a walk, in reading order' in add and '/walk/new' in add
+    did = add_paper(lr)
+    assert 'Learn as a walk' in cl.get(f'/v/store/{did}').text
+    jid = cl.post('/walk/new', data=dict(text=PAGES[1][1], title='My notes')).headers['hx-redirect'].split('/')[-1]
+    assert lr.journey(jid).mode == 'walk' and lr.journey(jid).source is None
+    walk_fake.rules['You plan a learning path'] = dict(title='Attention', subject='ml', steps=[dict(name='Ranking', statement='', slug='', why='Scores to places.', needs=[], ways=['code'])])
+    tj = cl.post('/walk/new', data=dict(topic='how attention works')).headers['hx-redirect'].split('/')[-1]
+    assert lr.journey(tj).mode == 'walk' and lr.journey(tj).steps[0]['read']['text'].startswith('Ranking orders')   # from the Notes source
+    assert cl.post('/walk/new', data=dict(), headers=HX).text.startswith('<p')                 # nothing given: a plain message, no error page
+
+def test_new_walk_errors_are_plain_messages(mk, walk_fake, lr):
+    cl = mk()
+    r = cl.post('/walk/new', data=dict(ref='no-such-document'), headers=HX)
+    assert r.status_code == 200 and r.text.startswith('<p') and 'req-err' in r.text and 'hx-redirect' not in r.headers
+    walk_fake.rules['Return JSON: {"concepts"'] = dict(concepts=[])
+    r = cl.post('/walk/new', data=dict(ref=add_paper(lr)), headers=HX)
+    assert 'The tutor found no ideas in this document.' in r.text and not [j for j in lr.journeys() if j.get('mode') == 'walk']
+
+def test_today_journeys_concept_and_review_links(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    assert f'href="/w/{jid}"' in cl.get('/').text and 'idea 1 of 3' in cl.get('/').text
+    assert f'href="/w/{jid}"' in cl.get(f'/j/{jid}').text
+    assert 'apply a softmax function' in cl.get('/c/softmax').text and f'/w/{jid}/1' in cl.get('/c/softmax').text
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
+    cl.get(f'/w/{jid}/1/check'); cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position'))
+    sid = cl.get('/start?focus=softmax', follow_redirects=False).headers['location'].split('/')[-1]
+    cl.get(f'/s/{sid}'); r = cl.post(f'/s/{sid}/answer', data=dict(answer='rank'))
+    assert 'Read the passage again: p. 4' in r.text and f'/w/{jid}/1' in r.text
+    assert f'/w/{jid}' in cl.get('/learning').text                                 # Continue goes to the walk, not a plain session

@@ -21,16 +21,16 @@ def Week(days):
 def Move(m):
     return Span(A(m['name'], href=f"/c/{m['concept']}"), f" {DEPTHS[m['before']]} → {DEPTHS[m['after']]}", cls='mv')
 
-def Continue(s, title, big=False):
-    "The way back into an open session, one key away."
-    href = Routes.of(Routes.page, sid=s['id'])
+def Continue(s, title, big=False, href=None):
+    "The way back into an open session, one key away; `href` is where it goes when it is not the session page."
+    href = href or Routes.of(Routes.page, sid=s['id'])
     if not big: return A(f'Continue: {title}', Kbd('⌥C'), href=href, id='continue', title='Continue where you stopped')
     n = len(s.get('log') or [])
     return Div(Span('Continue where you stopped', cls='lbl'),
                P(A(title, href=href), Span(f"  · {n} question{'s' if n != 1 else ''} done · {ago(s.get('updated'))}", cls='mute')),
                Div(A('Continue ', Kbd('⌥S'), href=href, cls='btn go'), cls='row'), cls='continue-card')
 
-def Row(s, title, ms):
+def Row(s, title, ms, href=None):
     "One past session: when, what, how it went, what moved, and what you can do next."
     log, open_ = s.get('log'), s.get('log') is not None and not s.get('ended')
     n, ok = (len(log), sum(r['correct'] for r in log)) if log is not None else (s.get('asked', 0), s.get('passed', 0))
@@ -38,7 +38,7 @@ def Row(s, title, ms):
     mis = [x for m in ms for x in m['misconceptions']]
     missed = [m['concept'] for m in ms if m['passed'] < m['asked']]
     when = time.strftime('%H:%M', time.localtime(s.get('start') or s.get('updated') or 0))
-    acts = [A('Continue', href=Routes.of(Routes.page, sid=s['id']), cls='btn small') if open_ else '',
+    acts = [A('Continue', href=href or Routes.of(Routes.page, sid=s['id']), cls='btn small') if open_ else '',
             A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn small quiet') if missed else '',
             A('Open', href=Routes.of(Routes.one, sid=s['id']), cls='btn small quiet') if log else '']
     return Li(Div(Span(when, cls='t'), A(title, href=Routes.of(Routes.one, sid=s['id']) if log else None, cls='tt'),

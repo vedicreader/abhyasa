@@ -22,6 +22,15 @@ def connect(app, ctx):
                  Div(Button('Find concepts ', Kbd('⌥S'), cls='go', data_wait='Reading and finding concepts…', data_skel='#out'), cls='row'),
                  hx_post=Routes.base, hx_target='#out'),
             Div(id='out'),
+            H2('As a walk, in reading order'),
+            P('The tutor takes one idea at a time, in the order of a document, a text or a topic. You read the passage and answer a check.', cls='mute'),
+            Form(Div(Label('A vault document', Input(type='text', name='ref', placeholder='an id, a source or a title')),
+                     Label('Or a topic', Input(type='text', name='topic', placeholder='for example: how attention works')), cls='pair'),
+                 Label('Or a text', Textarea(name='text', rows=3, placeholder='Paste a text.')),
+                 Label('Its title', Input(type='text', name='title', placeholder='for a pasted text')),
+                 Div(Button('Make a walk', cls='go', data_wait='Making the walk…', data_skel='#walk-out'), cls='row'),
+                 hx_post='/walk/new', hx_target='#walk-out'),
+            Div(id='walk-out'),
             H2('vedicreader'), P('Sanskrit lessons and terms, and the jyotiṣa grahas, rāśis and nakṣatras, from the repo files.', cls='mute'),
             Button('Import vedicreader', hx_post=Routes.vedicreader, hx_target='#vr', data_wait='Importing…', data_skel='#vr'), Div(id='vr'), on='Add', crumbs=[('Today', '/')])
 

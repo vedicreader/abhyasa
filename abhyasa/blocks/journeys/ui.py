@@ -12,7 +12,7 @@ PLANNING = 'Planning a path. This takes about half a minute…'
 def assets(): return asset_css(_P/'journeys.css'), asset_js(_P/'journeys.js')
 
 def at(r, j): return Routes.of(r, jid=j.id)
-def go(j): return f"{Routes.start}?journey={j.id}"
+def go(j): return Routes.of(Routes.walk, jid=j.id) if j.get('mode') == 'walk' else f"{Routes.start}?journey={j.id}"
 
 def Bar(done, total): return Span(I(style=f"width:{100 * done // max(total, 1)}%"), cls='prog', role='progressbar', aria_valuenow=str(done), aria_valuemax=str(total))
 
@@ -30,7 +30,7 @@ def Row(j, pg):
     now = f"Now: {pg.current.name}" if pg.current else 'Finished'
     return Li(Div(A(j.title, href=at(Routes.one, j), cls='jt'), Span(f"  {pg.done} of {pg.total} steps · {now}", cls='mute'), cls='jrow-head'),
               Bar(pg.done, pg.total),
-              A('Continue', href=go(j), cls='btn small') if pg.current else A('See what comes after', href=at(Routes.one, j), cls='btn small quiet'),
+              A('Continue the walk' if j.get('mode') == 'walk' else 'Continue', href=go(j), cls='btn small') if pg.current else A('See what comes after', href=at(Routes.one, j), cls='btn small quiet'),
               cls='jrow')
 
 def JourneyList(js, empty='No journeys yet. Say what you want to learn, and the tutor suggests a path.'):
@@ -57,7 +57,7 @@ def Step(j, s, i, n, now):
 def Path_(j, pg):
     "The progress, the way on, the steps, and a box to add a topic. Each change returns this whole part."
     cur = pg.current.slug if pg.current else None
-    way = (A(f'Continue: {pg.current.name} ', Kbd('⌥S'), href=go(j), cls='btn go') if pg.current
+    way = (A('Continue the walk ' if j.get('mode') == 'walk' else f'Continue: {pg.current.name} ', Kbd('⌥S'), href=go(j), cls='btn go') if pg.current
            else P('You finished this journey. See what comes after it, below.', cls='done-note'))
     return Div(Div(Span(f"{pg.done} of {pg.total} steps", cls='lbl'), Bar(pg.done, pg.total), cls='phead'), Div(way, cls='row'),
                Ol(*[Step(j, s, i, len(pg.steps), s.slug == cur) for i, s in enumerate(pg.steps)], cls='path'),

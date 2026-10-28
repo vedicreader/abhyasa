@@ -31,6 +31,11 @@ def connect(app, ctx):
         if s.get('subject'): return f"Review: {s.subject}"
         return ', '.join(by[x].name for x in (s.get('concepts') or [])[:3] if x in by) or 'Review'
 
+    def back(s, js):
+        "Where Continue goes: the walk for a sitting of a walk, else the session page."
+        j = js.get(s.get('journey') or '')
+        return f'/w/{j.id}' if j and j.get('mode') == 'walk' else Routes.of(Routes.page, sid=s['id'])
+
     def is_open(s): return s.get('log') is not None and not s.get('ended') and bool(s.get('log') or s.get('open'))
 
     def latest_open():
@@ -64,7 +69,7 @@ def connect(app, ctx):
         for s in ss:
             day = ago(day0(s.get('start') or s.get('updated') or 0) + 1).replace(' at 00:00', '')
             day = day[:1].upper() + day[1:]
-            groups.setdefault(day, []).append(ui.Row(s, title(s, by, js), moved(s.get('log') or [])))
+            groups.setdefault(day, []).append(ui.Row(s, title(s, by, js), moved(s.get('log') or []), back(s, js)))
         wk = week()
         ups = sum(len(ms) for w, ms in weeks([s for s in ss if (s.get('start') or 0) > time.time() - 7 * DAY], by))
         return Page('Your learning', ui.css(), H1('Your learning'),
@@ -80,9 +85,9 @@ def connect(app, ctx):
         by, js = names()
         log, ms = s.get('log') or [], moved(s.get('log') or [])
         missed = [m['concept'] for m in ms if m['passed'] < m['asked']]
-        acts = [A('Continue ', ui.Kbd('⌥S'), href=Routes.of(Routes.page, sid=sid), cls='btn go') if is_open(s) else '',
+        acts = [A('Continue ', ui.Kbd('⌥S'), href=back(s, js), cls='btn go') if is_open(s) else '',
                 A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn') if missed else '',
-                A('Continue the journey', href=f"{Routes.start}?journey={s.journey}", cls='btn') if s.get('journey') and s.journey in js and not is_open(s) else '']
+                A('Continue the journey', href=back(s, js) if s.journey in js and js[s.journey].get('mode') == 'walk' else f"{Routes.start}?journey={s.journey}", cls='btn') if s.get('journey') and s.journey in js and not is_open(s) else '']
         return Page('Session', ui.css(), H1(title(s, by, js)),
                     P(f"{ago(s.get('start'))} · {sum(r['correct'] for r in log)} of {len(log)} passed" + (' · open' if is_open(s) else ''), cls='mute'),
                     Div(*acts, cls='row') if any(acts) else '',
@@ -96,15 +101,15 @@ def connect(app, ctx):
         "Continue where you stopped: the newest open session, else the newest journey that is not finished."
         if (s := latest_open()):
             by, js = names()
-            return ui.Continue(s, title(s, by, js))
+            return ui.Continue(s, title(s, by, js), href=back(s, js))
         for j in lr.journeys()[:3]:
-            if (pg := progress(lr, j)).current: return A(f'Continue: {j.title}', ui.Kbd('⌥C'), href=f"{Routes.start}?journey={j.id}", id='continue')
+            if (pg := progress(lr, j)).current: return A(f'Continue: {j.title}', ui.Kbd('⌥C'), href=f'/w/{j.id}' if j.get('mode') == 'walk' else f"{Routes.start}?journey={j.id}", id='continue')
 
     @hook('today_top')
     def continue_card(subject=None):
         if not (s := latest_open()): return None
         by, js = names()
-        return ui.Continue(s, title(s, by, js), big=True)
+        return ui.Continue(s, title(s, by, js), big=True, href=back(s, js))
 
     @hook('today')
     def this_week(subject=None):

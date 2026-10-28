@@ -5,12 +5,12 @@ from collections import defaultdict
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page
+from abhyasa.core import Page, hook
 from abhyasa.llm import for_task
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
-from abhyasa.journey import journey_from_source, journey_from_text, walk_from_topic, walk_state, short_check
+from abhyasa.journey import journey_from_source, journey_from_text, walk_from_topic, walk_state, short_check, with_step
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.demo import queue_demo, job_state, job_age
 from . import ui
@@ -114,13 +114,16 @@ def connect(app, ctx):
         lr.walk_step(j.id, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
         return reply(lr.journey(j.id), i, r)
 
-    def new(ref:str='', text:str='', title:str='', topic:str=''):
+    def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str=''):
         try:
-            if ref.strip(): j = journey_from_source(lr, ask, ref.strip())
+            if ref.strip(): j = journey_from_source(lr, ask, ref.strip(), shelf.strip() or 'store')
             elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60])
             elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources)
             else: return P('Name a vault document, paste a text, or write a topic.', cls='req-err')
         except Exception as e: return P(f'The tutor could not make a walk ({e}). Try again.', cls='req-err')
+        if not j.steps:
+            lr.drop_journey(j.id)
+            return P('The tutor found no ideas in this document.' if ref.strip() or text.strip() else 'The tutor found no steps for this topic.', cls='req-err')
         return Response(headers={'HX-Redirect': ui.at(Routes.one, j.id)})
 
     def one(jid:str):
@@ -257,6 +260,35 @@ def connect(app, ctx):
         p = (root/f).resolve()
         if not p.is_relative_to(root) or p.suffix.lower() not in FIGURES or not p.is_file(): return Response(status_code=404)
         return FileResponse(p)
+
+    def walks_of(slug):
+        "`(walk, index)` for each walk that has a step on concept `slug`."
+        return [(j, i) for j, i in with_step(lr, slug) if j.get('mode') == 'walk']
+
+    @hook('today_next')
+    def on_today(subject=None):
+        "Continue the newest walk that is started and not finished."
+        for j in lr.journeys():
+            if j.get('mode') == 'walk' and j.get('started') and (st := walk_state(j)).current is not None:
+                return P(A(f"Continue the walk: {j.title} · idea {st.current + 1} of {len(j.steps)}", href=ui.at(Routes.one, j.id)), cls='walk-next')
+
+    @hook('concept_more')
+    def passages(c):
+        "The passage of concept `c` in each walk, with a link to its step."
+        rows = [(j, i, (j.steps[i].get('read') or {}).get('text')) for j, i in walks_of(c.slug)]
+        rows = [r for r in rows if r[2]]
+        return Div(H2('In a walk'), *[Div(Blockquote(t), P(A(f'{j.title}: read it in the walk', href=ui.at(Routes.step, j.id, i)), cls='mute')) for j, i, t in rows],
+                   cls='walk-passages') if rows else None
+
+    @hook('lesson_extra')
+    def reread(r):
+        "A link back to the passage when the concept of the lesson is a step of a walk."
+        s = lr.session(r.get('session') or '') if r.get('session') else None
+        rows = [(j, i) for j, i in walks_of(r.concept) if (j.steps[i].get('read') or {}).get('text')]
+        j, i = next(((j, i) for j, i in rows if s and j.id == s.get('journey')), rows[0] if rows else (None, None))
+        if j is None: return None
+        pg = j.steps[i]['read'].get('page')
+        return P(A('Read the passage again' + (f': p. {pg}' if pg else ''), href=ui.at(Routes.step, j.id, i)), cls='walk-again')
 
     app.post(Routes.new)(new)
     app.get(Routes.one)(one)
