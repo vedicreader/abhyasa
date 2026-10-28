@@ -65,3 +65,13 @@ def test_empty_graph_says_what_shows_here():
     assert 'Each idea that you learn shows here. Start with a walk.' in h and 'href="/add"' in h and 'id="levers"' not in h
     assert 'class="mute empty graph-empty"' in h
     assert "'Each idea that you learn shows here. Start with a walk.'" in src('blocks/graph/graph.js')   # a subject with no concepts
+
+# Magic touch 5: the graph grows as you learn
+
+def test_graph_marks_what_moved_since_the_last_visit():
+    "graph.js keeps the floors of the last visit, pulses each moved idea once, and says how many moved; with no motion, only the line."
+    js, css = src('blocks/graph/graph.js'), src('blocks/graph/graph.css')
+    assert "'abhyasa.graph.seen'" in js and 'abhyasaMotion()' in js
+    assert "moved since your last visit." in js and "n === 1 ? 'idea' : 'ideas'" in js
+    assert 'PULSE = 600' in js
+    assert '#graph .moved' in css

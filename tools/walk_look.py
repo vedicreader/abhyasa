@@ -412,11 +412,39 @@ def f10_graph_has_more_graph(pg, w):
     assert pg.is_visible('#levers input[name=spacing]')
     pg.click('#levers details.adjust > summary')
 
+def m5_graph_grows(pg, w):
+    "The graph: each idea whose floor moved since the last visit pulses once, a new idea fades in, and a line says how many; a reload shows nothing; with no motion, only the line."
+    w.lr.put('Pulse one', 'A concept for the pulse check.', 'ml', slug='pulse-one', prereqs=['ranking'])
+    graph = lambda: (pg.goto(w.B + '/graph'), pg.wait_for_function('() => window.abhyasaGraph', timeout=15000))
+    line = lambda: pg.text_content('#graph .moved') if pg.query_selector('#graph .moved') else ''
+    errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    graph(); graph()
+    assert not errs, errs
+    assert line() == '' and pg.evaluate('abhyasaGraph.moved') == []
+    w.lr.update('pulse-one', floor=2, seen=1)
+    w.lr.put('Pulse two', 'A new concept for the pulse check.', 'ml', slug='pulse-two', prereqs=['pulse-one'])
+    graph()
+    assert line() == '1 idea moved since your last visit. You have 1 new idea since your last visit.', line()
+    assert pg.evaluate('abhyasaGraph.moved') == ['pulse-one'] and pg.evaluate('abhyasaGraph.fresh') == ['pulse-two']
+    pg.wait_for_function('() => abhyasaGraph.pulsing', timeout=3000)
+    pg.wait_for_function('() => !abhyasaGraph.pulsing', timeout=3000)    # one time, about 600 ms
+    graph(); pg.wait_for_timeout(400)
+    assert line() == '' and not pg.evaluate('abhyasaGraph.pulsing')       # a reload shows nothing
+    pg.emulate_media(reduced_motion='reduce')
+    try:
+        w.lr.update('pulse-one', floor=3)
+        pg.goto(w.B + '/graph'); pg.evaluate("window.seenPulse = false; setInterval(() => { if (window.abhyasaGraph?.pulsing) window.seenPulse = true; }, 10)")
+        pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); pg.wait_for_timeout(1000)
+        assert line() == '1 idea moved since your last visit.' and not pg.evaluate('window.seenPulse')
+        assert pg.eval_on_selector('#graph .moved', 'e => getComputedStyle(e).animationName') in ('none', '') or \
+               pg.eval_on_selector('#graph .moved', 'e => parseFloat(getComputedStyle(e).animationDuration)') < .01
+    finally: pg.emulate_media(reduced_motion='no-preference')
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
-          f9_add_asks_for_one_thing, f10_graph_has_more_graph]
+          f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

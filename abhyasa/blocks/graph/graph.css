@@ -55,3 +55,6 @@ main.wide:has(#graph) { padding-top: var(--s5); padding-bottom: var(--s5); }
 /* no concepts: one line in the middle of the page */
 main.wide:has(.graph-empty) { display: grid; place-items: center; min-height: calc(100vh - 160px); }
 p.graph-empty { text-align: center; max-width: 36em; margin: 0; }
+/* what moved since your last visit: one quiet line over the graph (graph.js) */
+#graph .moved { position: absolute; top: var(--s3); left: var(--s1); margin: 0; font-size: var(--t-small); color: var(--mute); font-style: italic; z-index: 1; pointer-events: none;
+                animation: fade var(--dur-2) var(--ease) both; }

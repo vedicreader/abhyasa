@@ -34,6 +34,20 @@
   const dueness = n => n.days === null ? 0 : n.days <= 0 ? 1 : Math.max(0, 1 - n.days / 14);
   if (root.dataset.subject && subjects.includes(root.dataset.subject)) subjects.forEach(s => S.subs[s] = s === root.dataset.subject);
 
+  // ---- what moved since your last visit -----------------------------------------------------------------------------
+  // The floors of the last visit stay in localStorage. Each idea whose floor changed gets one soft ring pulse in its new colour,
+  // and a new idea fades in beside its first prereq. A quiet line says how many. With reduced motion: only the line and the colours.
+  const SEEN = 'abhyasa.graph.seen', PULSE = 600, FADE = 220, motion = abhyasaMotion();
+  let last; try { last = JSON.parse(localStorage.getItem(SEEN)); } catch { last = null; }
+  const before = last && last.floors || null;
+  const changed = before ? nodes.filter(n => n.id in before && before[n.id] !== n.floor) : [];
+  const fresh = before ? nodes.filter(n => !(n.id in before)) : [];
+  try { localStorage.setItem(SEEN, JSON.stringify({at: Date.now(), floors: {...before, ...Object.fromEntries(nodes.map(n => [n.id, n.floor]))}})); } catch {}
+  const ideas = n => `${n} ${n === 1 ? 'idea' : 'ideas'}`;
+  const said = [changed.length ? `${ideas(changed.length)} moved since your last visit.` : '', fresh.length ? `You have ${fresh.length} new ${fresh.length === 1 ? 'idea' : 'ideas'} since your last visit.` : ''].filter(Boolean);
+  if (said.length) stage.append(Object.assign(document.createElement('p'), {className: 'moved', textContent: said.join(' ')}));
+  let pulse = null;   // {t0, ring: Set, fade: Set} while the pulse runs
+
   // ---- the colours, from the theme --------------------------------------------------------------------------------
   let C = {};
   const probe = root.appendChild(document.createElement('i'));
@@ -208,7 +222,8 @@
     dirty();
   };
   const seed = n => {   // a new node starts next to a neighbour that has a place, or at a random place near the middle
-    const m = [...n.nb].find(m => m.x !== undefined), a = Math.random() * 2 * Math.PI, r = m ? 20 : 120 * Math.random();
+    const placed = [...n.nb].filter(m => m.x !== undefined), m = placed.find(m => kinds.get(m.id + '>' + n.id) === 'prereq') || placed[0];
+    const a = Math.random() * 2 * Math.PI, r = m ? 20 : 120 * Math.random();
     n.x = (m ? m.x : 0) + r * Math.cos(a); n.y = (m ? m.y : 0) + r * Math.sin(a);
   };
   let fitLater = false;
@@ -244,7 +259,11 @@
   // ---- drawing ----------------------------------------------------------------------------------------------------
   let raf = 0; const stats = {frames: 0, draw: 0, max: 0, sum: 0};
   function dirty() { if (!raf) raf = requestAnimationFrame(frame); }
-  function frame(ts) { raf = 0; const more = tween && glideStep(ts); draw(); if (more) dirty(); }
+  function frame(ts) {
+    raf = 0; const more = tween && glideStep(ts); draw();
+    if (pulse && performance.now() - pulse.t0 >= PULSE) { pulse = null; draw(); }
+    if (more || pulse) dirty();
+  }
   const region = document.createElement('canvas'), rctx = region.getContext('2d'), soft = document.createElement('canvas'), sctx = soft.getContext('2d');
   const widths = new Map(); const width = n => widths.get(n) ?? (widths.set(n, ctx.measureText(n.name).width), widths.get(n));
   const lit = () => {   // the nodes in full colour: what you point at and its neighbours, or what you find; null for all
@@ -281,14 +300,19 @@
     // the nodes: the fill shows the colour lever, a red ring shows a review that is due, a dot shows a node you put in place
     const pins = pinned();
     for (const n of vis) {
-      const r = rad(n), dim = L && !L.has(n);
-      ctx.globalAlpha = dim ? .2 : 1;
+      const r = rad(n), dim = L && !L.has(n), age = pulse ? performance.now() - pulse.t0 : PULSE;
+      ctx.globalAlpha = (dim ? .2 : 1) * (pulse && pulse.fade.has(n) ? Math.min(1, age / FADE) : 1);
       ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 2 * Math.PI); ctx.fillStyle = fill(n); ctx.fill();
       const due = isDue(n) && S.colorBy !== 'due';
       ctx.lineWidth = (due ? 2.2 : n === picked ? 2.4 : 1) / k;
       ctx.strokeStyle = n === picked ? C.fg : due ? C.no : hollow(n) ? C.rule : C.bg; ctx.stroke();
       if (n === picked) { ctx.beginPath(); ctx.arc(n.x, n.y, r + 4 / k, 0, 2 * Math.PI); ctx.strokeStyle = C.acc; ctx.lineWidth = 1.5 / k; ctx.stroke(); }
       if (pins.has(n.id)) { ctx.beginPath(); ctx.arc(n.x, n.y, Math.min(r * .35, 2.2 / k + r * .1), 0, 2 * Math.PI); ctx.fillStyle = hollow(n) ? C.rule : C.bg; ctx.fill(); }
+      if (pulse && pulse.ring.has(n) && age < PULSE) {   // one soft ring that grows out and fades
+        const p = age / PULSE, e = d3.easeCubicOut(p);
+        ctx.beginPath(); ctx.arc(n.x, n.y, r + (2 + 10 * e) / k, 0, 2 * Math.PI);
+        ctx.globalAlpha = .7 * (1 - p); ctx.strokeStyle = hollow(n) ? C.rule : fill(n); ctx.lineWidth = 2 / k; ctx.stroke();
+      }
     }
     ctx.globalAlpha = 1; ctx.restore();
     labels(L);
@@ -509,5 +533,6 @@
   if (cam && !picked) sel.call(zoom.transform, d3.zoomIdentity.translate(cam.x, cam.y).scale(cam.k));
   else setTimeout(() => { fit(0); if (picked) setTimeout(() => centre(picked), 50); }, tween ? tween.ms : 0);
   root.focus({preventScroll: true});
-  window.abhyasaGraph = {nodes, stats, get t() { return t; }, get mode() { return S.mode; }, get vis() { return vis; }, get moving() { return !!tween || sim.alpha() > sim.alphaMin(); }};
+  if (motion && (changed.length || fresh.length)) setTimeout(() => { pulse = {t0: performance.now(), ring: new Set(changed), fade: new Set(fresh)}; dirty(); }, tween ? tween.ms : 150);
+  window.abhyasaGraph = {nodes, stats, moved: changed.map(n => n.id), fresh: fresh.map(n => n.id), get pulsing() { return !!pulse; }, get t() { return t; }, get mode() { return S.mode; }, get vis() { return vis; }, get moving() { return !!tween || sim.alpha() > sim.alphaMin(); }};
 })();
