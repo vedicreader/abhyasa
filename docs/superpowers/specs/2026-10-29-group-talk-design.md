@@ -201,7 +201,7 @@ ask = dict(kind='choice', q='T goes from 1 to 2. What happens to the share of Pa
 | kind | `options` | `answer` | made from |
 |---|---|---|---|
 | `choice` | 2 to 6 texts | the index of the right option | a demo gate with fixed options; a short check through the prompt `talk.choice` |
-| `order` | 3 to 6 texts, in the order that the room sees | the indexes in the right order | an order check (a gate with a fixed order answer) |
+| `order` | 3 to 6 texts, in the order that the room sees | the indexes in the right order | the editor: the presenter writes the cards in the right order, and the talk mixes them |
 | `words` | none (`most=80`) | none | a short check, when `talks.choice` is off or the model fails |
 | `scale` | 5 labels | none | a pause ("How sure are you?") |
 | `none` | | | a slide with no question |
@@ -271,7 +271,8 @@ the file for the room (section 13).
    `notes`: the step's `note`, else `''` (no model call for notes).
 2. A step whose check is a demo or an order check: `show.demo` is the slug from `lr.demo_for(slug, aim)` (aim `order` for
    an order check). The question comes from the first gate that can be a room question: `ask_from_gate(spec, gate)`.
-   This uses no model call.
+   This uses no model call. A walk's order check is a gate after a ranklist, so it gives a `choice` too. When the step
+   has no demo yet, or no gate can be a room question, the slide has no demo and the question comes as in item 3.
 3. A step with a short check: with `choice` (default `val('talks.choice')`, True), one model call through the registered
    prompt `talk.choice` makes a choice of 4 options with the right answer kept in the talk (`ask_from_check`). The call
    uses the model task `talk`, which borrows the model of `question`. When the call fails, or `choice` is False, the
@@ -285,7 +286,7 @@ the file for the room (section 13).
 - A gate with a fixed list of options and an answer `{"is": value}` that is one of the options gives a `choice`.
 - A gate with options or an answer from a state path gives a `choice` only when the path is in `spec.state` itself.
   It runs no `derive`. A path that needs `derive` gives None.
-- A gate whose fixed answer is a list (an order) gives an `order`, with the options mixed.
+- It gives only `choice` questions. A slider gate (4 ranges around the answer) comes with `rupaka.poll`.
 - More than 6 options, or fewer than 2, gives None. The prompt is drawn with the values of `spec.state`.
 
 ## 9. The stage: two windows in step
@@ -646,7 +647,8 @@ abhyasaStage.mirror(host) -> {snapshot(), apply(state, gates)}
 ```
 
 - `stage.py` has `STAGE_V = 1`, `STAGE_TYPES`, `STAGE_CASES` (messages with `True` or `False`), `STAGE_KEYS` (the rows of
-  the "Talk" and "Talk plan" groups, which `keys.py` adds to `KEYS`) and `stage_assets()`.
+  the "Talk" and "Talk plan" groups, as four lists that `keys.py` adds to `KEYS`: `PLAN_KEYS`, `TALK_KEYS`, `ROOM_KEYS`,
+  `VOTE_KEYS`) and `stage_assets()`.
 - `stage.css` has the audience frame: the page surface, 46 px titles and 28 px passages at 1280 by 720, the laser dot, the
   blank screen, the slide beside the pane. It uses the token names of `themes.css` (`--bg --fg --ink2 --mute --line
   --rule --acc --ok --no`, `--serif --head --mono`), so Leela's tokens fit.
@@ -665,7 +667,7 @@ to rupaka (section 10). Until they ship, `abhyasaStage.mirror` uses the rupaka 0
 ### 17.7 Room server (`abhyasa/sabha/`, later the `sabha` package)
 
 ```python
-room = sabha.Room(deck, host, port=5180, most=300, hours=3)   # `deck` is a public deck (7.7)
+room = sabha.Room(deck, host, port=5180, most=300, hours=3, theme=None)   # `deck` is a public deck (7.7); `theme`: colour tokens
 info = room.open()                 # AttrDict(url, code, port); starts the server on a thread
 room.show(slide_id, beat=1)
 room.ask(public_ask, round=1); t = room.close_ask()   # the tally of this round
@@ -703,6 +705,7 @@ sabha.HOSTILE                      # the cases that the room must refuse, with t
 - The laser trail and its look, inside the fade time.
 - The Window Management API, when the browser has it.
 - How the phone page moves cards for an order question (buttons up and down, keyboard too).
+- Passing the talk's theme colours to the phones (`Room(theme=...)`). The phones use the Paper light colours until then.
 - How `sabha` wakes the event streams from the presenter's thread (for example `loop.call_soon_threadsafe`).
 
 ## 19. Later phases this design leaves room for
