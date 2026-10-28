@@ -80,6 +80,9 @@ class World:
         lr.walk_step(jid, 2, check=dict(way='words', kind='short', depth=2, why='plain words fit this idea'))
         rq.post(f'{B}/w/{jid}/start', max_redirects=0)
         self.sid = rq.get(f'{B}/start?focus=ranking', max_redirects=0).headers['location'].rstrip('/').split('/')[-1]
+        r = rq.post(f'{B}/walk/new', form=dict(text='Ranking orders items by a score. A rank is a position in the list.', title='Ranking notes'),
+                    headers={'HX-Request': 'true'}, max_redirects=0)
+        self.plan = r.headers['hx-redirect']   # a walk that is not started, so its plan page shows (with the way selects)
 
     def step(self, i): return f'{self.B}/w/{self.jid}/{i}'
 
@@ -125,8 +128,9 @@ def f11_native_controls(pg, w):
     acc = pg.evaluate("() => { const d = document.createElement('i'); d.style.color = 'var(--acc)'; document.body.append(d); const c = getComputedStyle(d).color; d.remove(); return c; }")
     got = pg.eval_on_selector_all('input[type=checkbox], input[type=radio], input[type=range]', 'els => els.map(e => getComputedStyle(e).accentColor)')
     assert got and set(got) == {acc}, (acc, set(got))
-    pg.goto(w.B + f'/w/{w.jid}?plan=1'); settle(pg)
-    if pg.query_selector('select'): assert pg.eval_on_selector('select', "e => getComputedStyle(e).appearance") == 'none'
+    pg.goto(w.B + w.plan); settle(pg)
+    assert pg.query_selector('.plan select'), 'no plan page'
+    assert pg.eval_on_selector('.plan select', "e => getComputedStyle(e).appearance") == 'none'
 
 def f14_sheet_lines_up(pg, w):
     "The key column of every group on the sheet starts and ends at the same place."
@@ -180,7 +184,7 @@ def screens(pg, w, out):
     out.mkdir(parents=True, exist_ok=True)
     w.lr.walk_step(w.jid, 2, check=dict(way='words', kind='short', depth=2, why='plain words fit this idea'))
     pages = dict(today='/', step=w.step(2), code=w.step(1), session=f'/s/{w.sid}', settings='/settings', strengths='/you/strengths',
-                 profile='/you', keys='/keys', add='/add', concept='/c/ranking', plan=f'/w/{w.jid}?plan=1')
+                 profile='/you', keys='/keys', add='/add', concept='/c/ranking', plan=w.plan, end=f'/w/{w.jid}/0/done')
     shots = []
     for theme in ('paper', 'signal'):
         for mode in ('light', 'dark'):
