@@ -1,0 +1,57 @@
+/* The talk editor (shots/a1-deck.png): one column; the total against the slot at the top; one row for each slide, as the walk plan. */
+.talk .lead { max-width: 70ch; color: var(--ink2); margin: 0 0 var(--s2); }
+.talk-top { margin-top: var(--s4); }
+.talk-top label.inline { display: inline-flex; gap: var(--s2); align-items: baseline; margin: 0 0 0 var(--s3); text-transform: none; letter-spacing: 0; font-size: var(--t-small); }
+.talk-top input[type=number] { width: 5em; font-size: var(--t-small); }
+.talk-top select { width: auto; font-size: var(--t-small); }
+.talk-new.pending p { margin: 0; }
+.talk-new { display: inline-block; margin: 0; }
+
+#deck .total { font-size: var(--t-small); color: var(--ink2); margin: 0 0 var(--s2); }
+#deck .total.over { color: var(--no); }
+.deck { list-style: none; margin: 0; padding: 0; }
+.deck > li { display: grid; grid-template-columns: 28px 132px minmax(0, 1fr) 220px 64px; gap: var(--s4); align-items: center; padding: var(--s3) 0; border-top: 1px solid var(--line); }
+.deck > li:last-child { border-bottom: 1px solid var(--line); }
+.deck > li.sec { display: block; padding: var(--s5) 0 var(--s1); border-top: 0; }
+.deck > li.sec b { font-weight: 600; }
+.deck > li.sec small { color: var(--mute); }
+.deck > li.slide { outline: none; transition: background var(--dur-1) var(--ease); }
+.deck > li.slide:focus-visible, .deck > li.slide:has(details[open]) { background: color-mix(in srgb, var(--acc) 6%, transparent); box-shadow: inset 2px 0 0 var(--acc); }
+.deck .no { font: var(--t-meta) var(--mono); color: var(--mute); text-align: right; }
+.deck .mini { width: 132px; aspect-ratio: 16 / 9; overflow: hidden; padding: var(--s1) var(--s2); border: 1px solid var(--line); border-radius: var(--r-s); background: var(--page);
+  font-size: 6px; line-height: 1.3; color: var(--ink2); position: relative; }
+.deck .mini small { display: block; color: var(--mute); font-size: 5px; }
+.deck .mini b { display: block; font-weight: 500; font-size: 8px; margin: 1px 0 3px; }
+.deck .mini p { margin: 0; max-width: 70%; }
+.deck .mini .fig { position: absolute; right: 8px; top: 18px; width: 24%; height: 50%; border: 1px solid var(--line); background: var(--sunken); }
+.deck .ttl b { font-weight: 500; display: block; line-height: 1.35; font-size: var(--t-body); }
+.deck .ttl b.added { font-style: italic; }
+.deck .ttl span { font-size: var(--t-small); color: var(--mute); }
+.deck .ask { font-size: var(--t-small); color: var(--ink2); display: grid; gap: 2px; }
+.deck .ask .lbl { margin: 0; }
+.deck .ask small { font-size: var(--t-meta); }
+.deck .min { font: var(--t-meta) var(--mono); color: var(--mute); text-align: right; white-space: nowrap; }
+.deck .sure, .deck .req-err { grid-column: 3 / -1; margin: 0; }
+.deck .sure { color: var(--ink2); font-size: var(--t-small); }
+
+/* the form that changes a slide: closed until E or Change */
+.deck details.edit { grid-column: 3 / -1; margin: 0; }
+.deck details.edit > summary { font-size: var(--t-meta); color: var(--mute); cursor: pointer; width: max-content; }
+.deck li.slide:not(:hover):not(:focus-within) details.edit:not([open]) > summary { opacity: 0; }
+@media (hover: none) { .deck li.slide details.edit > summary { opacity: 1 !important; } }
+.deck details.edit .acts { display: flex; gap: var(--s2); flex-wrap: wrap; margin: var(--s2) 0; }
+.slide-edit { display: grid; gap: var(--s3); max-width: 60ch; padding: var(--s2) 0 var(--s3); }
+.slide-edit label { margin: 0; }
+.slide-edit label > :is(input[type=text], textarea, select) { display: block; width: 100%; margin-top: var(--s1); }
+.slide-edit .help { display: block; text-transform: none; letter-spacing: 0; font-size: var(--t-meta); margin-top: 2px; }
+.slide-edit .boxes { display: flex; gap: var(--s4); align-items: baseline; flex-wrap: wrap; }
+.slide-edit .boxes .lbl { margin: 0; }
+.slide-edit label.box { display: inline-flex; gap: var(--s1); align-items: baseline; text-transform: none; letter-spacing: 0; font-size: var(--t-small); color: var(--ink2); }
+.slide-edit .row { margin-top: 0; }
+.talk .keys-line { margin-top: var(--s4); font-size: var(--t-small); }
+
+@media (max-width: 760px) {
+  .deck > li { grid-template-columns: 24px minmax(0, 1fr) 56px; }
+  .deck .mini { display: none; }
+  .deck .ask, .deck details.edit, .deck .sure, .deck .req-err { grid-column: 2 / -1; }
+}

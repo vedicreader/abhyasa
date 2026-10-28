@@ -1,7 +1,7 @@
 """Journeys: a goal and a path of steps to it, that you can see and change. The list, the path page, and what they add to Today,
 to a concept page and to a session."""
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides, hook
+from abhyasa.core import Page, RouteOverrides, hook, run
 from abhyasa.settings import val
 from abhyasa.profile import profile_text
 from abhyasa.journey import plan, progress, add_topic, split, beyond, with_step
@@ -39,7 +39,7 @@ def connect(app, ctx):
         j = lr.journey(jid)
         if not j: return Page('Journey', H1('No such journey'), P(A('All journeys', href=Routes.base)), crumbs=up)
         pg = progress(lr, j)
-        return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')]), crumbs=up, extra=ui.assets())
+        return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')], run('walk_actions', j)), crumbs=up, extra=ui.assets())
 
     def step(jid:str, slug:str, act:str):
         if not lr.journey(jid): return Response(status_code=404)

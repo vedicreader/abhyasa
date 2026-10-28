@@ -70,12 +70,12 @@ def Plan(j, st, by):
                  'When a step needs one of them, you can learn it beside the walk.', cls='mute') if n else '',
                Ol(*secs, cls='plan') if secs else P('The tutor found no ideas in this source.', cls='mute'), id='plan')
 
-def PlanPage(j, st, by):
+def PlanPage(j, st, by, actions=()):
     src = j.get('source') or {}
     go = (Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post')
           if j['steps'] else '')
     return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else f"From the link: {src['url']} · {n_of(len(src['docs']), 'page')}." if src.get('docs') else j.get('goal', ''), cls='mute'),
-            leela_line(j) if j.get('tool') else '', Plan(j, st, by), Div(go, Span('The walk is a journey, so it shows on Today.', cls='mute'), cls='row'))
+            leela_line(j) if j.get('tool') else '', Plan(j, st, by), Div(go, *actions, Span('The walk is a journey, so it shows on Today.', cls='mute'), cls='row'))
 
 def LinkPending(url, said):
     "A walk from a link that is still being made: the card asks the server again in 2 seconds."

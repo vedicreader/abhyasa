@@ -172,7 +172,7 @@ def connect(app, ctx):
         if not (j := walk_of(jid)): return missing()
         st = walk_state(j)
         if j.get('started') and st.current is not None: return go(jid, st.current)
-        return Page(j.title, *ui.PlanPage(j, st, by()), crumbs=up, extra=ui.assets())
+        return Page(j.title, *ui.PlanPage(j, st, by(), run_hook('walk_actions', j)), crumbs=up, extra=ui.assets())
 
     def plan(jid:str, i:int, act:str, way:str=''):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
