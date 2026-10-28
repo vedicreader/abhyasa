@@ -49,7 +49,7 @@ def test_walk_of_five_steps():
 
 def test_checks_defaults():
     assert dflts('checks') == {'checks.tries': 3, 'checks.sources': True, 'checks.one_ask': True, 'checks.near': 7, 'checks.goal': 4,
-                               'checks.high': 60, 'checks.hints': 2, 'checks.demo_misses': 2, 'checks.retest': 2, 'checks.demo_ladder': True}
+                               'checks.high': 60, 'checks.hints': 2, 'checks.demo_misses': 2, 'checks.retest': 2, 'checks.demo_ladder': True, 'checks.feedback_row': True}
 
 def test_demo_ladder_setting(mk):
     "The demo ladder is an on/off value in Checks and grading, on by default, with a help line on the Settings page."

@@ -39,9 +39,12 @@ def grader(p, sp):
     return dict(correct=ok, grade=8 if ok else 3, first_error='' if ok else 'You add raw scores.', misconception='' if ok else 'scores are comparable',
                 feedback='Yes. The position is what counts.' if ok else 'Look at positions.')
 
+FAKE = None   # the Fake model of the app, so a check can read the prompts
+
 def seed():
     "A vault with some concepts and the attention paper, and an app on it with the Fake model."
-    ask = Fake({'You grade one answer': grader, 'Give hint level': 'Think about positions.',
+    global FAKE
+    ask = FAKE = Fake({'You grade one answer': grader, 'Give hint level': 'Think about positions.',
                 'Teach the smallest step': 'Positions are shared. Check: what if k = 0?',
                 'Return JSON: {"concepts"': EXTRACT_REPLY, 'You write a short note': 'Softmax makes weights from scores. Look at what a large score does.',
                 'You write one small Python exercise': EXERCISE, 'You design one interactive demo': gallery()['reciprocal-rank-fusion']},
@@ -409,6 +412,34 @@ def l1_demo_ladder(pg, w):
     pg.wait_for_selector('#ladder[data-demo] [data-rk-ready="1"]', timeout=30000)
     assert w.lr.demo(pg.get_attribute('#ladder', 'data-demo')).aim == 'simpler' and 'Positions are shared.' in pg.inner_text('#ladder'); calm()
 
+def fb1_not_clear_note_reaches_the_simpler_demo(pg, w):
+    """Under a demo, the quiet feedback row: pick "Not clear", type a note and send it. The row keeps only the thanks and a quiet
+    "Show a simpler demo". That button makes the simpler demo, and its prompt holds the note. Next idea stays the one main button."""
+    from abhyasa.demo import SIMPLER_AIM
+    jid = new_walk(w)
+    k = 0   # an idea that the checks before did not miss, so `_back` does not step back from it
+    slug = w.lr.journey(jid).steps[k]['slug']
+    w.lr.put_demo({**gallery()['reciprocal-rank-fusion'], 'id': f'{slug}-fb'}, slug)
+    w.lr.walk_step(jid, k, check=dict(way='demo', kind='demo', depth=2, why='a demo shows it best'))
+    pg.goto(f'{w.B}/w/{jid}/{k}'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+    row = '#check .fb-row'
+    assert pg.is_visible(f'{row} .fb-picks') and not pg.is_visible(f'{row} .fb-note') and not pg.is_visible(f'{row} .fb-more')
+    assert pg.eval_on_selector(row, 'r => parseFloat(getComputedStyle(r).fontSize)') <= 14   # small text
+    pg.click(f'{row} .fb-picks button:has-text("Not clear")')
+    pg.wait_for_selector(f'{row} .fb-note textarea', state='visible')
+    assert pg.query_selector(f'{row} .fb-note .mic'), 'no mic for the note'
+    note = 'why the rank goes in the bottom of the fraction'
+    pg.fill(f'{row} .fb-note textarea', note)
+    pg.click(f'{row} .fb-note button[type=submit]')
+    pg.wait_for_selector(f'{row}[data-done="unclear"]', timeout=10000)
+    assert 'Thank you' in pg.inner_text(f'{row} .fb-said') and not pg.is_visible(f'{row} .fb-picks')
+    assert 'Next idea ⌥S' not in visible_gos(pg) and not pg.query_selector(f'{row} .go')   # no new main button
+    pg.click(f'{row} .fb-more')
+    pg.wait_for_selector('#ladder[data-demo] [data-rk-ready="1"]', timeout=30000)
+    assert w.lr.demo(pg.get_attribute('#ladder', 'data-demo')).aim == 'simpler'
+    asks = [p for p, _ in FAKE.calls if SIMPLER_AIM in p]
+    assert asks and f'The learner did not see: {note}.' in asks[-1], asks[-1][-300:] if asks else 'no simpler demo prompt'
+
 def m7_side_walk_returns_you(pg, w):
     "At the end of a side walk the pane slides out to the right, the needs line says learned on the way today, and the draft is still in the answer box."
     jid = new_walk(w)
@@ -704,7 +735,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
-          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder]
+          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

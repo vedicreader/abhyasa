@@ -279,3 +279,14 @@ p.foot { margin-top: var(--s7); }
 /* Search: each hit by its kind, a plain title, a short line and a quiet meta line. */
 ul.hits li > p { margin: 2px 0 0; }
 ul.hits li > p.mute:not(.line) { font-size: var(--t-meta); }
+
+/* The feedback row under a demo or a lesson (core/feedback.py): one quiet line of small text, with no motion. */
+.fb-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1); margin-top: var(--s2); font-size: var(--t-meta); color: var(--mute); }
+.fb-row .fb-picks { display: inline-flex; align-items: center; flex-wrap: wrap; }
+.fb-row .fb-picks button { padding: 0 var(--s1); }
+.fb-row .sep { opacity: .6; }
+.fb-row .fb-note:not([hidden]) { flex-basis: 100%; display: grid; gap: var(--s1); }
+.fb-row .fb-note label { font-size: var(--t-meta); }
+.fb-row .fb-note textarea { font-size: var(--t-meta); }
+.fb-row .fb-more, .fb-row[data-done] .fb-picks, .fb-row[data-done] .fb-note { display: none; }
+.fb-row[data-done="unclear"] .fb-more { display: inline-flex; }

@@ -363,7 +363,7 @@ def test_wrong_predictions_climb_the_demo_ladder(mk, walk_fake, lr):
     cl.get(f'/w/{jid}/1')
     d = lr.put_demo(two_gates(made(cl, slug)), slug)
     card = cl.get(f'/w/{jid}/2/check').text
-    assert 'id="ladder"' in card and f'/w/{jid}/2/ladder' not in card               # an empty slot until a wrong prediction
+    assert 'id="ladder"' in card and f'hx-get="/w/{jid}/2/ladder"' not in card      # an empty slot until a wrong prediction (the feedback row only POSTs to it)
     r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate='win', picked='0', ans='1', ok='false')).json()
     assert r['ladder'] == f'/w/{jid}/2/ladder'
     ld = lr.journey(jid).steps[2]['ladder']

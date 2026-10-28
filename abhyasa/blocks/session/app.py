@@ -4,7 +4,7 @@ import time
 from concurrent.futures import wait
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import Page, hook, Primary, n_of
+from abhyasa.core import Page, hook, Primary, n_of, Feedback
 from abhyasa.model import DEPTHS, pick
 from abhyasa.tutor import Session, HINTS, moved
 from abhyasa.journey import progress, related
@@ -135,7 +135,8 @@ def connect(app, ctx):
         s = get(sid)
         if not s or qid not in tutor.shut: return Response(status_code=204)
         lesson = s.teach(qid, bool(another))
-        out = ui.Lesson(lesson, tutor.shut[qid].get('method', '') if another else ''), ui.AnotherWay(sid, qid)
+        sq = tutor.shut[qid]
+        out = ui.Lesson(lesson, sq.get('method', '') if another else ''), Feedback('lesson', aid=sq.get('aid', ''), way=sq.get('method', '')), ui.AnotherWay(sid, qid)
         if (q := next((x for x in shown.get(sid, ()) if x.id == qid), None)): redraw_close(q, out)
         return out
 

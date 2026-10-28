@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import n_of, moved_words, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary
+from abhyasa.core import n_of, moved_words, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary, Feedback
 from abhyasa.model import DEPTHS
 from abhyasa.settings import val
 from abhyasa.method import LABELS as WAYS
@@ -97,6 +97,7 @@ def Close(r, said='', sid=None, qid=None):
     fb = r.feedback if r.correct or not r.lesson else ''   # after a miss the lesson speaks; the last nudge would ask a question nobody answers
     return Msg(Tag(r.outcome, said), Md(fb) if fb else '',
               Lesson(r.lesson, r.get('lesson_way', '')) if r.lesson else '',
+              Feedback('lesson', aid=r.get('aid', ''), way=r.get('lesson_way', '')) if sid and r.lesson else '',
               AnotherWay(sid, qid) if sid and r.lesson else '',
               TeachMe(sid, qid) if sid and r.outcome == 'fragile' and not r.lesson else '',
                Cites(r.get('grounds')), Now(r),

@@ -15,7 +15,7 @@ from abhyasa.sources import file_link, link_kind, LinkError
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.tutor import NoLesson
-from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo
+from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said
 from . import ui
 from .cfg import Routes
 
@@ -267,12 +267,15 @@ def connect(app, ctx):
         "After the wrong prediction `a` in the demo check of step `i`, keep the next rung of the demo ladder on the step. The URL of its help, or ''."
         s = lr.journey(jid).steps[i]
         if a.correct or s['check']['kind'] != 'demo' or not val('checks.demo_ladder') or (k := rung(lr, s['slug'])) not in (1, 2): return ''
-        old = s.get('ladder') or {}
-        ld = dict(rung=1, aid=a.id, way=other_way(lr, s['slug'], s['check']['way'])) if k == 1 else {**old, 'rung': 2}
+        old, slug, simple = s.get('ladder') or {}, s['slug'], said(lr, s['slug'], 'simple')
+        if k == 1 and said(lr, slug, 'unclear'): ld = dict(rung=2, aid=a.id)   # "Not clear" on the demo: the simpler demo comes now
+        elif k == 1: ld = dict(rung=1, aid=a.id, way=other_way(lr, slug, s['check']['way']), **({'simple': True} if simple else {}))
+        elif simple: ld = dict(rung=1, aid=a.id, way=other_way(lr, slug, (s['check']['way'], old.get('way', ''))), simple=True)   # "Too simple": one more lesson, no simpler demo
+        else: ld = {**old, 'rung': 2}
         with writing[jid, i]: lr.walk_step(jid, i, ladder=ld)
-        if not backed(lr, s['slug'], tutor.goal):   # the job starts now, so the help is often ready when the page asks
-            if k == 1: lesson_job(jid, i, s['slug'])
-            else: simpler_demo(tutor, s['slug'])
+        if not backed(lr, slug, tutor.goal):   # the job starts now, so the help is often ready when the page asks
+            if ld['rung'] == 1: lesson_job(jid, i, slug)
+            else: simpler_demo(tutor, slug)
         return ui.at(Routes.ladder, jid, i)
 
     def ladder_view(jid, i, s, show=''):
@@ -280,13 +283,13 @@ def connect(app, ctx):
         ld, slug = s['ladder'], s['slug']
         stop = backed(lr, slug, tutor.goal)   # once `_back` steps back to a prereq, the ladder makes nothing
         if ld['rung'] == 1 and not ld.get('asked'):
-            if ld.get('lesson') or stop: return ui.Ladder(jid, i, ld, more=True)
+            if ld.get('lesson') or stop: return ui.Ladder(jid, i, ld, more=not ld.get('simple'))   # after "Too simple", no link to a simpler demo
             jb = tutor.jobs.get(f'{slug}:lesson')
             if jb is not None and not jb.done(): return ui.Ladder(jid, i, ld, pending='The tutor is writing a lesson in another way. You can read the passage while you wait.')
             lost = first(x for x in lr.attempts(slug) if x.id == ld.get('aid')) is None   # no attempt: a new job cannot help
             return ui.Ladder(jid, i, ld, failed='The tutor could not write a lesson this time.', retry=not lost)
         # the simpler demo: after the second wrong prediction, or when you asked for it
-        if (d := lr.demo_for(slug, aim='simpler')): return ui.Ladder(jid, i, ld, demo=d, show=bool(show) or bool(ld.get('asked')))
+        if (d := lr.demo_for(slug, aim='simpler')) and not said(lr, slug, 'unclear'): return ui.Ladder(jid, i, ld, demo=d, show=bool(show) or bool(ld.get('asked')))   # after "Not clear", a new one
         st = job_state(tutor, slug, 'simpler')
         if stop and st != 'failed': return ui.Ladder(jid, i, ld)
         if st == 'running': return ui.Ladder(jid, i, ld, pending='The tutor is making a simpler demo of this idea. You can read the passage while you wait.')
@@ -298,17 +301,19 @@ def connect(app, ctx):
         return ladder_view(jid, i, j.steps[i], show) if j.steps[i].get('ladder') else ui.Slot(jid, i, j.steps[i])
 
     def ask_ladder(jid:str, i:int, simpler:str=''):
-        """Ask for help under the demo check of step `i`: the simpler demo (`simpler`, so a demo with one gate can reach it), or the job again after a failure.
-        This is the only route that starts a help job."""
+        """Ask for help under the demo check of step `i`: the simpler demo (`simpler`, so a demo with one gate can reach it, and the feedback row
+        after "Not clear" before a prediction), or the job again after a failure. This is the only route that starts a help job."""
         if not (j := walk_of(jid, i)): return Response(status_code=404)
-        if not (ld := j.steps[i].get('ladder')): return ui.Slot(jid, i, j.steps[i])
+        if not (ld := j.steps[i].get('ladder')):
+            if not simpler or j.steps[i]['check']['kind'] != 'demo': return ui.Slot(jid, i, j.steps[i])
+            with writing[jid, i]: lr.walk_step(jid, i, ladder=(ld := dict(rung=2, asked=True)))
         if simpler and not ld.get('asked'):
             with writing[jid, i]: lr.walk_step(jid, i, ladder={**lr.journey(jid).steps[i]['ladder'], 'asked': True})
         s = walk_of(jid, i).steps[i]; ld, slug = s['ladder'], s['slug']
         if not backed(lr, slug, tutor.goal):
             if ld['rung'] == 1 and not ld.get('asked'):
                 if not ld.get('lesson'): lesson_job(jid, i, slug)
-            elif not lr.demo_for(slug, aim='simpler'): simpler_demo(tutor, slug)
+            else: simpler_demo(tutor, slug)   # the demo there, or a job for a new one
         return ladder_view(jid, i, s)
 
     def predict(jid:str, i:int, slug:str, gate:str, picked:str, ans:str='', ok:str='', why:str='', context:str='', confidence:int=None):

@@ -2,7 +2,7 @@
 from fasthtml.common import *
 from rupaka.render import bundle, version
 from abhyasa.core import Page, hook
-from abhyasa.demo import queue_demo, job_state
+from abhyasa.demo import queue_demo, job_state, said
 from . import ui
 from .cfg import Routes
 
@@ -31,13 +31,15 @@ def connect(app, ctx):
     def made(concept, session='', aim=''):
         "The newest demo of `concept` with the aim `aim` (a plain demo or a simpler demo, never a walk order check), or the state of its job."
         aim = aim if aim in ui.AIMS else ''
-        if (d := lr.demo_for(concept, aim=aim)): return ui.DemoCard(d, session=session)
-        return ui.Pending(concept, aim) if job_state(tutor, concept, aim) == 'running' else ui.Failed()
+        if job_state(tutor, concept, aim) == 'running': return ui.Pending(concept, aim)
+        return ui.DemoCard(d, session=session) if (d := lr.demo_for(concept, aim=aim)) else ui.Failed()
 
-    def make(concept:str):
+    def make(concept:str, aim:str=''):
+        "The newest demo of `concept` with the aim `aim` (a plain demo, or a simpler demo after \"Not clear\"), or a job that makes it."
         if not lr.concept(concept): return P('No such concept.', cls='mute')
-        if not lr.demo_for(concept, aim=''): queue_demo(tutor, concept)
-        return made(concept)
+        aim = aim if aim in ui.AIMS else ''
+        if not lr.demo_for(concept, aim=aim) or (aim and said(lr, concept, 'unclear')): queue_demo(tutor, concept, aim=aim)   # after "Not clear", a new simpler demo
+        return made(concept, aim=aim)
 
     def wait(concept:str, session:str='', aim:str=''): return made(concept, session, aim)
 
