@@ -15,9 +15,11 @@ import os, re, gc, json, time, uuid, inspect, tempfile, threading, wave
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from fastcore.utils import *
+from .prompts import register, prompt
 
 # %% ../nbs/05_voice.ipynb #v008
-STT_SP = 'You transcribe speech exactly. Keep technical terms, Sanskrit words (in IAST) and maths as spoken. Reply with the transcript only.'
+STT_SP = register('stt', 'Speech to text', 'How the Gemma speech engine writes down what you say. A change works when the model loads again.',
+                  'You transcribe speech exactly. Keep technical terms, Sanskrit words (in IAST) and maths as spoken. Reply with the transcript only.')
 DFLT_GEMMA = 'litert-community/gemma-4-E4B-it-litert-lm'
 GEMMA_E2B = 'litert-community/gemma-4-E2B-it-litert-lm'
 DFLT_WHISPER = 'mlx-community/whisper-large-v3-turbo-asr-fp16'
@@ -73,7 +75,7 @@ def _gemma_engine(model):
 
 def _gemma(path, hint='', model=DFLT_GEMMA):
     from rishi import Chat, resp_text
-    chat = Chat(model, engine=_gemma_engine(model), sp=STT_SP)
+    chat = Chat(model, engine=_gemma_engine(model), sp=prompt('stt'))
     try: return resp_text(chat([f'Transcribe this clip.{" Words it may use: " + hint if hint else ""}', Path(path)]))
     finally: chat.close()
 

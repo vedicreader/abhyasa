@@ -190,8 +190,8 @@ def Tutor(router):
 
 
 def registry() -> dict:
-    "The editable prompts. The tutor and the method add theirs when they load."
-    import abhyasa.tutor
+    "The editable prompts. Each engine module adds its own when it loads."
+    import abhyasa.tutor, abhyasa.demo, abhyasa.nb, abhyasa.voice
     from abhyasa.prompts import PROMPTS
     return PROMPTS
 

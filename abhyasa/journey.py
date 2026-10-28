@@ -426,7 +426,8 @@ def look_up(lr:Learning, ask, term:str, at:str='', sources=None) -> AttrDict|Non
     return AttrDict(slug=c.slug, name=c.name, statement=c.get('statement', ''))
 
 # %% ../nbs/11_journey.ipynb #d94c59aa
-PRIMER_SP = "You write one true, self-contained statement of one idea, for a learner: one to three sentences. Maths in $...$."
+PRIMER_SP = register('primer', 'Statement of a new idea', 'How the tutor writes the statement of an idea that it adds to a path or looks up for you.',
+                     "You write one true, self-contained statement of one idea, for a learner: one to three sentences. Maths in $...$.")
 
 def add_topic(lr:Learning, ask, jid:str, name:str, before:str=None, sources=None) -> AttrDict:
     "Add topic `name` to journey `jid`, as a concept on the shelf. Return the journey."
@@ -434,7 +435,7 @@ def add_topic(lr:Learning, ask, jid:str, name:str, before:str=None, sources=None
     slug = _index(lr).get(name.strip().lower())
     if not slug:
         r = ask_json(for_task(ask, 'extract'), f"The idea: {name}\nThe path it is part of: {j.title} ({j.get('goal', '')})\n\n"
-                          'Return JSON: {"name": str, "statement": str}', PRIMER_SP)
+                          'Return JSON: {"name": str, "statement": str}', prompt('primer'))
         slug = lr.put(r.get('name') or name, r.get('statement', ''), j.get('subject', ''), provenance=[dict(src='journey', journey=jid)]).slug
         if sources:
             try: lr.connect(slug, sources)
@@ -448,7 +449,7 @@ def name_gaps(lr:Learning, ask, slug:str, terms, sources=None) -> L:
     for t in dict.fromkeys(str(t).strip() for t in terms or () if str(t).strip()):
         if not (g := idx.get(t.lower())):
             r = ask_json(for_task(ask, 'extract'), f"The idea: {t}\nIt comes up in: {c.name} ({c.get('subject') or 'general'})\n\n"
-                              'Return JSON: {"name": str, "statement": str}', PRIMER_SP)
+                              'Return JSON: {"name": str, "statement": str}', prompt('primer'))
             name = r.get('name') or t
             g = lr.put(name, r.get('statement', ''), c.get('subject', ''), aliases=[t] if t.lower() != name.lower() else [],
                        provenance=[dict(src='gap', of=slug, said=t, at=time.time())]).slug

@@ -18,6 +18,7 @@ from .store import Learning, slugify, _src
 from .tutor import CLOSE_HOOKS
 from .model import update
 from .method import way
+from .prompts import register, prompt
 from .settings import val
 
 
@@ -100,7 +101,8 @@ def want_demo(c) -> bool:
     return bool(c and (c.get('visual') or (c.get('misses', 0) >= val('checks.demo_misses') and c.get('misconceptions'))))
 
 # %% ../nbs/10_demo.ipynb #c029
-ORDER_AIM = 'Make this demo an order check. Use one gate and one ranklist of 3 to 6 steps of the idea.'
+ORDER_AIM = register('demo.order', 'Order check', 'What the tutor adds to a demo to make it an order check.',
+                     'Make this demo an order check. Use one gate and one ranklist of 3 to 6 steps of the idea.')
 
 def _types(bs):
     "The block types in the blocks `bs`, with the blocks inside them."
@@ -116,7 +118,7 @@ def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, 
     ex, ask_ = None, ask
     if aim == 'order':
         ex = [s for s in gallery().values() if 'ranklist' in _types(s.get('blocks'))]
-        ask_ = lambda p, sp='': ask(f"{p}\n\n{way('order')} {ORDER_AIM}", sp)
+        ask_ = lambda p, sp='': ask(f"{p}\n\n{way('order')} {prompt('demo.order')}", sp)
     spec = author(c, ask_, first_error, examples=ex, check=check, log=log)
     if spec is None: return None
     return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", checked=time.time() if check else None, aim=aim)

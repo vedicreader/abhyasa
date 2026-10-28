@@ -177,3 +177,17 @@ def test_journeys_on_today_read_when_used(mk, lr):
     assert 'All 4 journeys' in cl.get('/').text
     set_val('lists.journeys', 5)
     assert 'All 4 journeys' not in cl.get('/').text
+
+# Prompts
+
+def test_all_prompts_registered(mk):
+    from abhyasa.prompts import PROMPTS, set_prompt, prompt
+    from abhyasa.tutor import depth_ask
+    t = mk().get('/settings').text
+    for n in ('primer', 'profile.onboard', 'profile.observe', 'stt', 'exercise', 'demo.order', 'depths', 'tutor', 'hints', 'walk.pick', 'walk.plan'):
+        assert n in PROMPTS and f'pr-{n.replace(".", "-")}' in t
+    with pytest.raises(ValueError, match='5 lines'): set_prompt('depths', 'one line only')
+    with pytest.raises(ValueError, match='6 lines'): set_prompt('hints', 'one\ntwo')
+    assert depth_ask(4).startswith('apply it')
+    set_prompt('depths', 'see it\nsay it\nwhy it\nuse it\nmove it')
+    assert depth_ask(4) == 'use it'

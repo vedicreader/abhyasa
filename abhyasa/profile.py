@@ -14,6 +14,7 @@ import json, time
 from fastcore.utils import *
 from .store import Learning, _src
 from .llm import ask_json, for_task
+from .prompts import register, prompt
 from .settings import val, SETTINGS
 from .method import methods_text, EXPLORE
 
@@ -88,8 +89,8 @@ ONBOARD_QS = (('who', 'What do you do, and what do you know well already?', 'For
               ('how', 'What kind of explanation works for you?', 'Code, maths, analogies, stories, pictures, real cases.'),
               ('time', 'How long do you like to study at one time? Small steps or big ones?', 'For example: twenty minutes, small steps.'))
 
-ONBOARD_SP = """You make a short learner profile from what a learner says about themselves.
-Use only what they say; leave a field empty when they say nothing about it. Keep each item under 12 words, in their words where you can."""
+ONBOARD_SP = register('profile.onboard', 'Profile from your first answers', 'How the tutor makes your profile from your answers to the four first questions.', """You make a short learner profile from what a learner says about themselves.
+Use only what they say; leave a field empty when they say nothing about it. Keep each item under 12 words, in their words where you can.""")
 
 def onboard_prompt(answers:dict) -> str:
     "The prompt that turns the onboarding answers into profile fields."
@@ -100,15 +101,15 @@ def onboard_prompt(answers:dict) -> str:
 
 def onboard(lr:Learning, ask, answers:dict) -> list:
     "Fill the profile from the onboarding answers. Return the changes."
-    r = ask_json(for_task(ask, 'profile'), onboard_prompt(answers), ONBOARD_SP)
+    r = ask_json(for_task(ask, 'profile'), onboard_prompt(answers), prompt('profile.onboard'))
     return lr.set_profile(by='onboarding', why='from what you said when you started', **{k: v for k, v in r.items() if k in PROFILE})
 
 # %% ../nbs/12_profile.ipynb #0d6b81f4
-OBSERVE_SP = """You keep a short profile of one learner. You change it only from evidence in their recent answers.
+OBSERVE_SP = register('profile.observe', 'Profile from your answers', 'How the tutor changes your profile from your recent answers.', """You keep a short profile of one learner. You change it only from evidence in their recent answers.
 Propose at most 3 changes, and none when the evidence is weak. Good changes: a topic that confuses them again and again,
 a kind of example that works (they explain well with code or analogies), a pace that fits (many hints and misses: gentle;
 quick solid passes: fast), background that their answers show. Each `why` names the evidence in one short sentence, to the
-learner as "you", in ASD-STE100 Simplified Technical English."""
+learner as "you", in ASD-STE100 Simplified Technical English.""")
 
 def evidence(lr:Learning, n:int=12) -> str:
     "The last `n` final answers as short lines for a prompt: the outcome, the method, the first error, gaps you named, lessons you asked for, and what you said."
@@ -138,7 +139,7 @@ def observe(lr:Learning, ask, n:int=12) -> list:
     "Change the profile from the recent answers. Return the changes, each with its reason."
     if not (ev := evidence(lr, n)): return []
     lr.set_stats(calib=dict(calibration(lr)))   # cached here, every few closes, so a question does not read all attempts
-    r = ask_json(for_task(ask, 'profile'), observe_prompt(lr.profile(), ev, lr.stats()), OBSERVE_SP)
+    r = ask_json(for_task(ask, 'profile'), observe_prompt(lr.profile(), ev, lr.stats()), prompt('profile.observe'))
     out = []
     for c in (r.get('changes') or [])[:3] if isinstance(r, dict) else []:
         f, p = c.get('field'), lr.profile()

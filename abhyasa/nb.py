@@ -17,7 +17,7 @@ from .store import Learning
 from .model import DEPTHS
 from .tutor import Tutor, Session
 from .settings import val
-from .prompts import prompt
+from .prompts import register, prompt
 from .llm import ask_json, for_task, route_ask
 from . import demo as _demo   # registers the demo hook of the tutor
 
@@ -92,18 +92,18 @@ def demo_view(r, learning):
     return show(d.spec) if r.get('demo') and (d := learning.demo(r.demo)) else None
 
 # %% ../nbs/08_nb.ipynb #c014
-CODE_RULES = """
+CODE_RULES = register('exercise', 'Code exercise', 'How the tutor writes a code exercise and its tests. The tutor rules come first.', """
 You write one small Python exercise that makes the learner apply a concept by implementing one function.
 - The function is 5-25 lines for a correct solution, standard library and numpy only.
 - Tests are 3-6 plain `assert` lines that call the function by name; include one edge case.
 - Each test is one line with plain values: `assert f(a, b) == c`. A test has no `lambda`, `def`, loop, `import` or helper function. If the function takes a function, take a plain value instead (a number, a string, a list or a dict).
 - Good test: `assert softmax([0.0, 0.0]) == [0.5, 0.5]`
 - Bad test: `assert decode(lambda s: (s[0], s[1:]), ('a', 'b')) == ['a', 'b']`
-- Never put the solution in the stub."""
+- Never put the solution in the stub.""")
 
 def code_sp() -> str:
     "The system prompt of a code exercise: the tutor rules now, then the rules of an exercise."
-    return prompt('tutor') + CODE_RULES
+    return prompt('tutor') + '\n' + prompt('exercise')
 
 def code_prompt(c):
     return (f"Concept: {c['name']} (subject: {c.get('subject') or 'general'})\nStatement: {c.get('statement', '')}\n"
