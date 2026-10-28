@@ -2,7 +2,7 @@
 import time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import n_of, Md, DepthBar, asset_css, ago, Primary
+from abhyasa.core import n_of, meta, Md, DepthBar, asset_css, ago, Primary
 from abhyasa.model import DEPTHS
 from .cfg import Routes
 
@@ -42,7 +42,7 @@ def Row(s, title, ms, href=None):
             A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn small quiet') if missed else '',
             A('Open', href=Routes.of(Routes.one, sid=s['id']), cls='btn small quiet') if log else '']
     return Li(Div(Span(when, cls='t'), A(title, href=Routes.of(Routes.one, sid=s['id']) if log else None, cls='tt'),
-                  Span(f"  {ok} of {n} passed" + (' · open' if open_ else ''), cls='mute'), cls='rh'),
+                  Span('  ' + meta(f"{ok} of {n} passed" if n else 'no answers yet', 'open' if open_ else ''), cls='mute'), cls='rh'),
               P(*[x for m in up for x in (Move(m), '; ')][:-1], cls='moves') if up else '',
               P('Misconceptions found: ', '; '.join(mis), cls='mute mis') if mis else '',
               Div(*acts, cls='acts') if any(acts) else '', cls='run' + (' open' if open_ else ''))

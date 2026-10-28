@@ -3,7 +3,7 @@
 /* in the quiet group, the strengths summary has a label as the other sections do */
 .refs .known h3 { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: 0 0 var(--s2); }
 .refs .known p.mute { margin: 0 0 var(--s2); }
-.refs .in-journeys { margin: var(--s6) 0 0; }
+.refs .in-journeys:not(:first-child) { margin: var(--s6) 0 0; }
 ul.concepts li { display: flex; align-items: baseline; gap: 0 var(--s4); padding: var(--s2) 0; }
 ul.concepts li .mute { margin-left: auto; order: 2; white-space: nowrap; }
 ul.concepts li .depth { order: 3; }

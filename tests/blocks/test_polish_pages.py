@@ -136,3 +136,19 @@ def test_speak_sits_in_the_label_row():
     assert "box.dataset.mic === 'label'" in js and 'mic in-label' in js and '⌥D' in js
     assert '.mic.in-label' in css
     assert "data_mic='label'" in src('blocks/profile/ui.py') and "data_mic='label'" in src('blocks/journeys/ui.py')
+
+# The whole-app pass
+
+def test_concept_page_has_no_none_lines(mk):
+    "A concept with no links and no attempts: one muted line for each, not three `none` lines; the journey part has no gap at the top."
+    h = mk().get('/c/ranking').text
+    assert '>none<' not in h and '>none yet<' not in h
+    assert 'You did not answer a question on this idea yet.' in h and 'class="mute empty"' in h
+    assert '.refs .in-journeys:not(:first-child)' in src('blocks/concepts/concepts.css')
+
+def test_your_learning_counts_with_plurals(mk, lr):
+    cl = mk(); sid = cl.post('/start', data={}, follow_redirects=False).headers['location'].split('/')[-1]; cl.get(f'/s/{sid}')
+    h = cl.get('/learning').text
+    assert '0 questions in the last seven days' in h   # n_of: 1 question, 2 questions
+    assert '0 of 0 passed' not in h and 'no answers yet · open' in h
+

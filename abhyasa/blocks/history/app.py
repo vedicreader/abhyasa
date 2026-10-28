@@ -89,7 +89,7 @@ def connect(app, ctx):
         return Page('Your learning', ui.css(), H1('Your learning'),
                     P('This page keeps each session, with what moved. Open a session to read its questions again, or to continue it.', cls='mute'),
                     H2('This week'), ui.Week(wk),
-                    P(f"{sum(n for _, n in wk)} questions in the last seven days · {n_of(ups, 'concept')} moved up.", cls='mute week-sum'),
+                    P(f"{n_of(sum(n for _, n in wk), 'question')} in the last seven days · {n_of(ups, 'concept')} moved up.", cls='mute week-sum'),
                     H2('What you learned'), ui.Learned(weeks(ss, by)),
                     ui.Runs(list(groups.items())), *run('learning_end'), on='Your learning', crumbs=up)
 
