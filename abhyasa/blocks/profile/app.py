@@ -1,6 +1,7 @@
 "What abhyasa knows about you: the profile page, the first conversation, and the line on Today until you have one."
 from fasthtml.common import *
-from abhyasa.core import Page, hook
+from abhyasa.core import Page, hook, parse_value, RangeLine, row_id
+from abhyasa.settings import SETTINGS, fit
 from abhyasa.profile import PROFILE, LIST_FIELDS, ONBOARD_QS, onboard, observe, calibration
 from . import ui
 from .cfg import Routes
@@ -20,7 +21,8 @@ def connect(app, ctx):
                       'The tutor adds to it from your answers. Each change shows below with its reason.', cls='mute'),
                     P('This is what abhyasa took from what you said. Change what is wrong.', cls='fresh') if new else '',
                     '' if p.known else P(A('Tell abhyasa about you', href=Routes.start), ': four short questions, by voice or text.'),
-                    ui.Form_(p),
+                    H2('How the tutor teaches you'), P('The Settings page shows the same three values. A change saves at once.', cls='mute'), ui.Learning(p),
+                    H2('About you'), ui.Form_(p),
                     H2('What changed, and why'), ui.Changes(p.changes),
                     H2('How well you know what you know'), ui.Calibration(calibration(lr)),
                     H2('Learn about me now'),
@@ -34,7 +36,7 @@ def connect(app, ctx):
 
     async def save(req):
         f = await req.form()
-        kv = {k: (f.getlist(k) if k == 'examples' else f.get(k, '')) for k in PROFILE}
+        kv = {k: (f.getlist(k) if k == 'examples' else f.get(k, '')) for k in PROFILE if k == 'examples' or k in f}   # a field that the form does not have stays
         ch = lr.set_profile(by='you', why='you changed it', **kv)
         return Span(f"Saved {len(ch)} change{'s' if len(ch) != 1 else ''}." if ch else 'No changes.', id='saved', cls='mute')
 
@@ -51,9 +53,29 @@ def connect(app, ctx):
                                                ui.Onboard(), crumbs=[*up, ('About you', Routes.base)])
         return Redirect(f'{Routes.base}?new=1')
 
-    def undo(at:float):
-        lr.undo_profile(at)
+    def undo(id:str='', at:str=''):
+        lr.undo_profile(id or at)
         return Redirect(Routes.base)
+
+    def learn_row(name):
+        r = SETTINGS.get(name)
+        return r if r is not None and r.store == 'profile' else None
+
+    def setting(name:str, value:str=''):
+        "Save pace, questions in a session or new ways, as the Settings page does. The reply is the row."
+        if (r := learn_row(name)) is None: return Response('unknown setting', status_code=400)
+        try: v = parse_value(r, value)
+        except ValueError: return RangeLine(r, lr.profile()[r.key], ui.reset_attrs(r), err='Type a number.')
+        lr.set_profile(by='you', why='you changed it', **{r.key: fit(r, v)})
+        got = lr.profile()[r.key]
+        if got != v: return ui.LearnRow(r, lr.profile()), *HtmxResponseHeaders(retarget=f'#{row_id(r)}', reswap='outerHTML')   # clamped: the box shows the value in use
+        return (RangeLine(r, got, ui.reset_attrs(r), saved=True),
+                Span(cls='dot' + (' on' if got != r.dflt else ''), id=f'{row_id(r)}-dot', hx_swap_oob='true'))
+
+    def setting_default(name:str):
+        if (r := learn_row(name)) is None: return Response('unknown setting', status_code=400)
+        lr.set_profile(by='you', why='you used the default', **{r.key: r.dflt})
+        return ui.LearnRow(r, lr.profile())
 
     def observe_now():
         try: ch = observe(lr, ask)
@@ -80,5 +102,7 @@ def connect(app, ctx):
     app.get(Routes.start)(start_page)
     app.post(Routes.start)(start)
     app.post(Routes.undo)(undo)
+    app.post(Routes.setting)(setting)
+    app.post(Routes.setting_default)(setting_default)
     app.post(Routes.observe)(observe_now)
     app.post(Routes.clear)(clear)

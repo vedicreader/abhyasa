@@ -1,22 +1,7 @@
-// The Settings page: the − and + buttons and the sliders move the number box, and the box saves (htmx, after 400 ms).
+// The Settings page. The − and + buttons and the sliders of a setting row are in core.js, as the Profile page has rows too.
 // "Find a setting" shows only the rows whose label or help has the words, and opens the "More" parts that hold them.
 (() => {
-  const box = el => document.getElementById(el.dataset.box);
-  const send = b => b.dispatchEvent(new Event('change', {bubbles: true}));
-  document.addEventListener('click', e => {
-    const s = e.target.closest('[data-step]');
-    if (!s || !box(s)) return;
-    const b = box(s);
-    Number(s.dataset.step) > 0 ? b.stepUp() : b.stepDown();
-    send(b);
-  });
-  document.addEventListener('input', e => {
-    const r = e.target.closest('input[type=range][data-box]');
-    if (r && box(r)) { box(r).value = r.value; box(r).dispatchEvent(new Event('input', {bubbles: true})); }
-    const b = e.target.closest('.slide input[type=number]');
-    if (b) { const r2 = b.parentElement.querySelector('input[type=range]'); if (r2) r2.value = b.value; }
-    if (e.target.id === 'sfind') find(e.target.value);
-  });
+  document.addEventListener('input', e => { if (e.target.id === 'sfind') find(e.target.value); });
   function find(q) {
     const ws = q.toLowerCase().split(/\s+/).filter(Boolean);
     document.querySelectorAll('.sgroup').forEach(g => {

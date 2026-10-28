@@ -16,9 +16,9 @@ def test_edit_and_undo(mk, lr):
     assert p.background == ['codes in Python', 'knows Sanskrit grammar'] and p.examples == ['code', 'maths'] and p.pace == 'gentle' and p.session_len == 8
     page = cl.get('/you').text
     assert 'What changed, and why' in page and 'codes in Python' in page and 'Undo' in page
-    at = [c for c in lr.profile().changes if c['field'] == 'pace'][0]['at']
-    cl.post('/you/undo', data=dict(at=repr(at)))
-    assert lr.profile().pace == 'steady'
+    cid = [c for c in lr.profile().changes if c['field'] == 'pace'][0]['id']   # by id: two changes of one save can have the same time
+    cl.post('/you/undo', data=dict(id=cid))
+    assert lr.profile().pace == 'steady' and lr.profile().session_len == 8
 
 def test_onboarding(mk, lr, fake):
     cl = mk()

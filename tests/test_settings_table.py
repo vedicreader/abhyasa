@@ -226,3 +226,36 @@ def test_page_saves_clamps_and_uses_the_default(mk):
 def test_page_says_when_the_file_had_a_value_out_of_range(mk):
     (cfg_dir()/'settings.json').write_text(json.dumps(dict(walks=dict(steps=50))))
     assert 'Your file had 50. The most is 30, so abhyasa uses 30.' in mk().get('/settings').text
+
+# Learning: stored once, in the profile, and edited on both pages
+
+def test_learning_defaults_and_choices():
+    from abhyasa.profile import PROFILE, PACES
+    from abhyasa.method import EXPLORE
+    assert dflts('learning') == {'learning.pace': 'steady', 'learning.session_len': 12, 'learning.explore': 'sometimes'}
+    assert (PROFILE['pace'], PROFILE['session_len'], PROFILE['explore']) == ('steady', 12, 'sometimes')
+    assert tuple(PACES) == SETTINGS['learning.pace'].choices and tuple(EXPLORE) == SETTINGS['learning.explore'].choices
+    assert SETTINGS['learning.session_len'].lo == 3 and SETTINGS['learning.session_len'].hi == 40
+
+def test_learning_on_both_pages(mk, lr):
+    cl = mk()
+    cl.post('/settings/value', data=dict(name='learning.pace', value='gentle'))
+    cl.post('/settings/value', data=dict(name='learning.session_len', value='99'))
+    p = lr.profile()
+    assert (p.pace, p.session_len) == ('gentle', 40)
+    t = cl.get('/you').text
+    assert 'value="gentle" checked' in t and 'value="40"' in t and 'Use the default (12)' in t
+    cl.post('/you/setting', data=dict(name='learning.explore', value='often'))
+    cl.post('/you/setting/default', data=dict(name='learning.pace'))
+    assert (lr.profile().explore, lr.profile().pace) == ('often', 'steady')
+    t = cl.get('/settings').text
+    assert 'value="often" checked' in t and 'Learning<span class="n"> · 2' in t
+    cl.post('/you', data=dict(background='writes code'))                                     # the main form does not touch them
+    assert (lr.profile().explore, lr.profile().session_len) == ('often', 40)
+
+def test_saves_from_many_threads():
+    "The web app saves from many threads at once. No save fails, and no change is lost."
+    from concurrent.futures import ThreadPoolExecutor
+    names = [r.name for r in SETTINGS.values() if r.kind == 'int' and r.store == 'file' and r.lo <= 3 <= (r.hi if not isinstance(r.hi, str) else 3)]
+    with ThreadPoolExecutor(8) as ex: list(ex.map(lambda n: set_val(n, 3), names))
+    assert all(val(n) == 3 for n in names)

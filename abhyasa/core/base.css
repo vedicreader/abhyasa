@@ -168,3 +168,32 @@ a { transition: color .14s ease-out, text-decoration-color .14s ease-out; }
 [data-theme=signal] body > nav { border-bottom: 3px solid var(--acc); }
 [data-theme=signal] :is(button, .btn) { border-radius: 2px; }
 [data-theme=signal] .md pre { border-left: 3px solid var(--acc); }
+
+/* One setting row (core/rows.py), on the Settings page and the Profile page: the label and its help at the left; the control, the range and the default at the right. */
+ul.srows li.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s2) var(--s5); align-items: start; padding: var(--s3) 0; }
+.srow .lft { position: relative; min-width: 0; }
+.srow label { font: 17px/1.4 var(--serif); letter-spacing: 0; text-transform: none; color: var(--fg); margin: 0; }
+.srow p.help { font-size: 14px; line-height: 1.5; color: var(--mute); margin: 2px 0 0; max-width: 46ch; }
+.srow .rgt { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s1); text-align: right; }
+.srow .rng { font-size: var(--t-meta); color: var(--mute); font-variant-numeric: tabular-nums; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; max-width: 300px; }
+.srow .rng .no { color: var(--no); text-align: right; }
+.srow .rng a.use { color: var(--mute); }
+.srow .rng a.use:hover { color: var(--acc); }
+.dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: transparent; transition: background var(--dur-3) var(--ease); }
+.dot.on { background: var(--acc); }
+.srow .lft > .dot { position: absolute; left: -16px; top: .62em; }
+.saved { color: var(--mute); animation: fade 2s var(--ease) forwards; }
+@keyframes fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+.num { display: inline-flex; align-items: center; gap: var(--s1); }
+.num input[type=number] { width: 6em; text-align: center; font-size: var(--t-list); padding: 4px 2px; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+.num input[type=number]::-webkit-inner-spin-button, .num input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+button.quiet { border-color: transparent; color: var(--mute); }
+button.quiet:hover { color: var(--fg); }
+.num button.step { padding: 4px 10px; font-size: 18px; line-height: 1; }
+.num.slide input[type=range] { width: 160px; margin: 0 var(--s2) 0 0; display: inline-block; }
+.num.slide input[type=number] { width: 4.5em; }
+.srow input.toggle { width: 18px; height: 18px; accent-color: var(--acc); margin: 4px 0; }
+.srow .modes-pick { display: flex; flex-wrap: wrap; gap: 2px; justify-content: flex-end; }
+.srow .modes-pick label { font-size: var(--t-small); padding: 4px 12px; color: var(--mute); }
+.srow select { width: auto; max-width: 300px; font-size: var(--t-list); }
+@media (max-width: 640px) { ul.srows li.srow { grid-template-columns: 1fr; } .srow .rgt, .srow .rng { align-items: flex-start; text-align: left; } }

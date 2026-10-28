@@ -64,7 +64,8 @@ def connect(app, ctx):
         try: v = parse_value(r, value)
         except ValueError: return ui.RangeLine(r, value_of(r), ui.reset_attrs(name), err='Type a number.')
         got = store(r, v)
-        if got != v and r.kind in ('int', 'float'): return ui.Row(r, got), *after(r)[1:]   # clamped: the box shows the value in use
+        if got != v and r.kind in ('int', 'float'):   # clamped: the whole row comes again, so the box shows the value in use
+            return ui.Row(r, got), *HtmxResponseHeaders(retarget=f'#{ui.row_id(r)}', reswap='outerHTML'), *after(r)[1:]
         return ui.RangeLine(r, got, ui.reset_attrs(name), saved=True), *after(r)
 
     def default(name:str):
