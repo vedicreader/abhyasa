@@ -276,12 +276,12 @@ def parse(text, nonce:str=None) -> dict:
 
 # %% ../nbs/06_check.ipynb #b7c1a002
 def _guard(tmp, unix=False):
-    "Add an audit hook that refuses the network, ctypes libraries, new processes, and file changes outside the folder `tmp`; with `unix`, allow a local socket pair."
+    "Add an audit hook that refuses the network, ctypes libraries, new processes, signals to other processes, and file changes outside the folder `tmp`; with `unix`, allow a local socket pair."
     import os, sys, socket, ctypes
     writes = os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_TRUNC
     def outside(p): return isinstance(p, (str, bytes, os.PathLike)) and not os.path.realpath(os.fsdecode(p)).startswith(tmp + os.sep)
     def hook(event, args):
-        if event.startswith(('ctypes.dlopen', 'ctypes.dlsym')):
+        if event.startswith(('ctypes.dlopen', 'ctypes.dlsym')) or event in ('os.kill', 'os.killpg', 'signal.pthread_kill'):
             raise PermissionError(f'{event} is not allowed')
         if unix and event == 'socket.__new__' and args[1] == socket.AF_UNIX: return
         if event.startswith(('socket.', 'os.exec', 'os.posix_spawn', 'os.fork')) or event in ('subprocess.Popen', 'os.system'):
@@ -299,6 +299,8 @@ SANDBOX_PROFILE = """(version 1)
 (allow default)
 (deny network*)
 (deny process-fork)
+(deny signal)
+(allow signal (target self))
 (deny file-write*)
 (allow file-write* (subpath (param "TMP")) (literal "/dev/null"))"""
 

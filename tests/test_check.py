@@ -363,3 +363,33 @@ def test_system_exit_in_the_learners_function_is_an_error_not_an_escape():
     report = run_asserts(quits, 'quits', ['assert quits(1) == 1', dict(test='assert quits(2) == 2', hidden=True)])
     assert [c.status for c in report.checks] == ['error', 'error']
     assert report.checks[1].error == 'SystemExit'
+
+
+@pytest.fixture
+def target():
+    "A spare process that hostile code tries to stop. It is not the test process, so a red test cannot stop pytest."
+    t = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
+    yield t
+    t.kill(); t.wait()
+
+
+@pytest.mark.parametrize('exe', ['real', 'missing'])
+def test_hostile_code_cannot_signal_other_processes(target, exe, monkeypatch):
+    "The audit hook refuses os.kill, os.killpg and signal.pthread_kill. With a missing sandbox-exec, the hook alone must do it."
+    if exe == 'missing': monkeypatch.setattr(check, 'SANDBOX_EXEC', '/missing/sandbox-exec')
+    for call in (f'os.kill({target.pid}, 9)', f'os.killpg({target.pid}, 9)', 'os.kill(os.getppid(), 0)',
+                 'signal.pthread_kill(threading.main_thread().ident, 0)'):
+        src = f'import os, signal, threading\ndef f(n):\n    {call}\n    return n * 2'
+        r = check.run_isolated('assert', 'f', src, ['assert f(2) == 4'])
+        assert r['checks'][0]['status'] == 'error' and 'PermissionError' in r['checks'][0]['error'], (call, r)
+    time.sleep(.2)
+    assert target.poll() is None
+
+
+@pytest.mark.skipif(not os.path.exists(check.SANDBOX_EXEC), reason='macOS sandbox-exec only')
+def test_the_profile_alone_refuses_a_signal_to_another_process(target):
+    code = f'import os, signal\nsignal.signal(15, lambda *a: print("self"))\nos.kill(os.getpid(), 15)\nos.kill({target.pid}, 9)'
+    p = subprocess.run([check.SANDBOX_EXEC, '-p', check.SANDBOX_PROFILE, '-D', 'TMP=/nonexistent', sys.executable, '-I', '-B', '-c', code],
+                       capture_output=True, text=True, timeout=20)
+    time.sleep(.2)
+    assert 'self' in p.stdout and 'PermissionError' in p.stderr and target.poll() is None
