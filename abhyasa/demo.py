@@ -8,7 +8,7 @@ Docs: https://vedicreader.github.io/abhyasa/demo.html.md"""
 __all__ = ['ORDER_AIM', 'demo_text', 'want_demo', 'make_demo', 'queue_demo', 'job_state', 'job_age', 'on_close', 'import_gallery']
 
 # %% ../nbs/10_demo.ipynb #c005
-import json, time
+import json, threading, time
 from concurrent.futures import ThreadPoolExecutor
 from fastcore.utils import *
 import rupaka
@@ -32,19 +32,22 @@ def demo_text(spec) -> str:
     return '\n\n'.join(t for t in (spec.get('title'), spec.get('ask'), *walk(spec.get('blocks'))) if t)
 
 # %% ../nbs/10_demo.ipynb #c009
+_DEMO_LOCK = threading.Lock()
+
 @patch
 def put_demo(self:Learning, spec:dict, concept:str, by:str='hand', checked:float=None, aim:str='') -> AttrDict:
     "Store `spec` as a demo of `concept` with the aim `aim`."
     spec = upgrade(spec)
     slug = slugify(spec['id'])
-    old = self.demo(slug) or {}
-    if old and (old.get('concept'), old.get('aim', '')) != (concept, aim):   # a model picks the id
-        slug = slugify('-'.join(x for x in (concept, aim, spec['id']) if x)); old = self.demo(slug) or {}
-    m = dict(slug=slug, concept=concept, spec=spec, schema=spec['rupaka'], rupaka=rupaka.__version__, by=by,
-             checked=checked, aim=aim, at=time.time(), stats=old.get('stats') or dict(shown=0, right=0))
-    r = self.v.add(f'{demo_text(spec)}\n\nDemo {slug} for {concept}', title=spec.get('title') or slug, source=_src('demo', slug), kind='demo', meta=m)
-    if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
-    return self.demo(slug)
+    with _DEMO_LOCK:   # two demo jobs at once: the second sees the demo of the first
+        old = self.demo(slug) or {}
+        if old and (old.get('concept'), old.get('aim', '')) != (concept, aim):   # a model picks the id
+            slug = slugify('-'.join(x for x in (concept, aim, spec['id']) if x)); old = self.demo(slug) or {}
+        m = dict(slug=slug, concept=concept, spec=spec, schema=spec['rupaka'], rupaka=rupaka.__version__, by=by,
+                 checked=checked, aim=aim, at=time.time(), stats=old.get('stats') or dict(shown=0, right=0))
+        r = self.v.add(f'{demo_text(spec)}\n\nDemo {slug} for {concept}', title=spec.get('title') or slug, source=_src('demo', slug), kind='demo', meta=m)
+        if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
+        return self.demo(slug)
 
 # %% ../nbs/10_demo.ipynb #c011
 def _meta(r): return AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']})

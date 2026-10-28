@@ -43,6 +43,20 @@ def test_demo_page_and_json(mk, lr):
     assert cl.get('/demo/reciprocal-rank-fusion.json').json()['id'] == 'reciprocal-rank-fusion'
     assert cl.get('/demo/nope.json').status_code == 404
 
+def test_two_demos_with_one_id_at_the_same_time_get_two_slugs(lr, monkeypatch):
+    "Two demo jobs that run at once with the same spec id file under two slugs, one for each concept."
+    import threading, time
+    from abhyasa.store import Learning
+    real = Learning.demo
+    def slow(self, slug): r = real(self, slug); time.sleep(.05); return r   # widen the gap between the check and the add
+    monkeypatch.setattr(Learning, 'demo', slow)
+    spec, out = gallery()['reciprocal-rank-fusion'], {}
+    ts = [threading.Thread(target=lambda c=c: out.__setitem__(c, lr.put_demo(spec, c))) for c in ('ranking', 'reciprocal-rank-fusion')]
+    for t in ts: t.start()
+    for t in ts: t.join()
+    assert out['ranking'].slug != out['reciprocal-rank-fusion'].slug
+    assert {c: lr.demo(d.slug).concept for c, d in out.items()} == {c: c for c in out}
+
 def test_predict_writes_an_attempt(mk, lr):
     lr.put_demo(gallery()['reciprocal-rank-fusion'], 'reciprocal-rank-fusion')
     c0 = lr.concept('reciprocal-rank-fusion')

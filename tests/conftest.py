@@ -22,12 +22,18 @@ def grader(p, sp):
     ans = p.split("Learner's answer:")[1].split("Learner's think-aloud:")[0]
     return dict(correct='rank' in ans, grade=8 if 'rank' in ans else 3, first_error='You add raw scores.', misconception='scores are comparable', feedback='Look at positions.')
 
+def demo_rule(p, sp):
+    "The gallery demo, with an id from the concept in the prompt, so each concept gets its own spec."
+    import re
+    from abhyasa.store import slugify
+    return {**gallery()['reciprocal-rank-fusion'], 'id': slugify(re.search(r'^Concept: (.+?) \(subject', p, re.M).group(1))}
+
 @pytest.fixture
 def fake():
     return Fake({'You grade one answer': grader, 'Give hint level': 'Think about positions.',
                  'Teach the smallest step': 'Positions are shared. Check: what if k = 0?',
                  'Return JSON: {"concepts"': dict(concepts=[dict(name='Rank', statement='A position in a list.', aliases=[], prereqs=[])]),
-                 'You design one interactive demo': gallery()['reciprocal-rank-fusion']},
+                 'You design one interactive demo': demo_rule},
                 dflt=dict(question='What does a rank tell you?', answer='Its position.', rubric=['position']))
 
 @pytest.fixture
