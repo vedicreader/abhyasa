@@ -4,11 +4,12 @@
 // in the URL (`?rh=<local path>`): open pushes it, so browser Back closes the pane, and a reload draws it open again (Page in ui.py).
 // Under 1100 px there is no split: the page opens in the same tab, with a link back.
 // Messages from the pane page, taken only from this origin and from the pane's own frame:
-//   rh:at {url, title, trail}  the pane is at `url`; `trail` is [[title, url], ...] from the main page to the parent of `url`
+//   rh:at {url, title, trail, pace}  the pane is at `url`; `trail` is [[title, url], ...] from the main page to the parent of `url`;
+//                              `pace` is {said, done, total} for a side walk, else null
 //   rh:open {url}              open `url` in the same pane (a nested side page)
 //   rh:done {slug, outcome}    the side walk ended; sent on as the event 'abhyasa:rh-done' for the block that opened it
 //   rh:close {level}           close the pane; with `level`, go back one level only (⌥Z)
-// A pane page tells its trail with `data-rh-trail` (JSON) on any element.
+// A pane page tells its trail with `data-rh-trail` (JSON) on any element, and its pace with `data-rh-pace` and the `#rail-prog` line.
 (() => {
   const root = document.documentElement, WIDE = matchMedia('(min-width: 1100px)'), RHW = 'rh-w';
   const inPane = () => root.classList.contains('in-pane');
@@ -34,7 +35,9 @@
   const at = () => {
     let trail = [];
     try { trail = JSON.parse(document.querySelector('[data-rh-trail]').dataset.rhTrail); } catch {}
-    toParent({type: 'rh:at', url: here(), title: document.title.replace(/ · abhyasa$/, ''), trail});
+    const said = document.querySelector('[data-rh-pace]')?.dataset.rhPace, bar = document.querySelector('#rail-prog');
+    const pace = said ? {said, done: +(bar?.getAttribute('aria-valuenow') || 0), total: +(bar?.getAttribute('aria-valuemax') || 0)} : null;
+    toParent({type: 'rh:at', url: here(), title: document.title.replace(/ · abhyasa$/, ''), trail, pace});
   };
 
   // The host. The pane is drawn by PaneHost on a reload, or here when it opens.
@@ -51,7 +54,7 @@
     document.body.appendChild(p);
     return p;
   };
-  const bar = (url, title, parts) => {
+  const bar = (url, title, parts, pace = null) => {
     const p = pane(), t = p.querySelector('.rh-trail'), b = document.createElement('b');
     p.querySelector('.rh-own').setAttribute('href', url);
     t.replaceChildren();
@@ -62,6 +65,22 @@
     }
     b.textContent = title || 'Side pane'; t.append(b);
     frame().title = b.textContent;
+    paceRow(pace);
+  };
+  // The second row of the bar: the pace of a side walk (`Side walk · 1 of 1`) and its thin progress line; none for another page.
+  const paceRow = pace => {
+    let r = pane().querySelector('.rh-pace');
+    if (!pace) return r?.remove();
+    if (!r) {
+      r = document.createElement('div'); r.className = 'rh-pace';
+      const s = document.createElement('span'), p = document.createElement('span');
+      p.className = 'prog'; p.setAttribute('role', 'progressbar'); p.append(document.createElement('i'));
+      r.append(s, p); pane().querySelector('.rh-bar').append(r);
+    }
+    const p = r.querySelector('.prog'), done = Math.max(0, Math.min(pace.done, pace.total));
+    r.querySelector('span').textContent = pace.said;
+    p.setAttribute('aria-valuenow', done); p.setAttribute('aria-valuemax', pace.total);
+    p.firstChild.style.width = `${pace.total ? 100 * done / pace.total : 0}%`;
   };
   const load = (f, src) => {   // a new page in the frame with no new history entry, so browser Back still closes the pane
     let now = null;
@@ -160,7 +179,8 @@
     const d = e.data || {};
     if (d.type === 'rh:at' && isLocal(d.url)) {
       trail = (Array.isArray(d.trail) ? d.trail : []).filter(x => Array.isArray(x) && typeof x[0] === 'string').map(([l, h]) => [l, h]);
-      bar(d.url, typeof d.title === 'string' ? d.title : '', trail);
+      const p = d.pace, ok = p && typeof p.said === 'string' && Number.isInteger(p.done) && Number.isInteger(p.total) && p.total > 0;
+      bar(d.url, typeof d.title === 'string' ? d.title : '', trail, ok ? {said: p.said.slice(0, 80), done: p.done, total: p.total} : null);
       if (isOpen() && rhNow() !== d.url) history.replaceState(history.state, '', withRh(d.url));
     } else if (d.type === 'rh:open' && isLocal(d.url)) open(d.url);
     else if (d.type === 'rh:close') d.level ? back() : close();

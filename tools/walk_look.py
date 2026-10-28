@@ -575,13 +575,26 @@ def d1_narrow_band(pg, w):
         pg.keyboard.press('Alt+c'); pg.wait_for_load_state()   # ⌥C still works when Continue does not show
     finally: pg.set_viewport_size(dict(width=1280, height=900))
 
+def d2_pane_bar(pg, w):
+    "The pane bar shows the whole place, `Idea 3 › Derivatives and gradients`, and under it `Side walk · 1 of 1` with the thin line; the bar lines still meet."
+    pg.goto(f'{w.step(2)}?rh={side_walk(w)}'); pg.wait_for_selector('#rh-pane iframe')
+    pg.frame_locator('#rh-pane iframe').locator('#check .check').wait_for(); settle(pg, 900)
+    t = pg.eval_on_selector('#rh-pane .rh-trail', 't => [t.textContent, t.scrollWidth <= t.clientWidth]')
+    assert t == ['Idea 3›Derivatives and gradients', True], t
+    assert pg.text_content('#rh-pane .rh-pace span') == 'Side walk · 1 of 1' and pg.is_visible('#rh-pane .rh-pace .prog')
+    fr = pg.frame_locator('#rh-pane iframe').locator('#rail-prog')
+    done, total = fr.get_attribute('aria-valuenow'), fr.get_attribute('aria-valuemax')
+    assert pg.get_attribute('#rh-pane .rh-pace .prog', 'aria-valuenow') == done and pg.get_attribute('#rh-pane .rh-pace .prog', 'aria-valuemax') == total
+    ys = pg.evaluate("() => [document.querySelector('body > nav').getBoundingClientRect().bottom, document.querySelector('#rh-pane .rh-bar').getBoundingClientRect().bottom]")
+    assert abs(ys[0] - ys[1]) < 1, ys
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
-          d1_narrow_band]
+          d1_narrow_band, d2_pane_bar]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

@@ -131,9 +131,10 @@ def NextBar(jid, i, st, by):
 
 def Note(text): return Md(text, cls='note') if text else ''
 
-def BackFoot(b):
-    "In a side walk: the way back to the step that opened it. In the side pane it stays at the foot, and ⌥Z does the same."
-    return A(f"← Back to the paper: {b.here} ", Kbd('⌥Z'), href=b.href, cls='rh-back walk-back', data_rh_trail=json.dumps(b.trail))
+def BackFoot(b, pace=''):
+    """In a side walk: the way back to the step that opened it. In the side pane it stays at the foot, and ⌥Z does the same.
+    It tells the pane bar the trail and the pace (`Side walk · 1 of 1`); the bar reads the progress line from the outline."""
+    return A(f"← Back to the paper: {b.here} ", Kbd('⌥Z'), href=b.href, cls='rh-back walk-back', data_rh_trail=json.dumps(b.trail), data_rh_pace=pace)
 
 def StepPage(j, st, by, i, needs=(), back=None):
     "One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title."
@@ -143,7 +144,7 @@ def StepPage(j, st, by, i, needs=(), back=None):
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING)
     return Div(Rail(j, st, by, i),
-               Div(BackFoot(back) if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c), Figure_(j['id'], i, s, c),
+               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c), Figure_(j['id'], i, s, c),
                    Div(id='note', hx_get=at(Routes.note, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1'), slot, leela_line(j, i) if s.get('leela') else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 

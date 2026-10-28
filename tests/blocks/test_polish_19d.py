@@ -27,3 +27,23 @@ def test_continue_goes_when_it_has_no_room():
     js, b = src('core/core.js'), src('core/base.css')
     assert "classList.toggle('no-room'" in js and 'nav #continue.no-room { display: none; }' in b
     assert "e.code === 'KeyC' && document.querySelector('#continue')" in js
+
+# 2. The pane bar shows the place, and the pace of the side walk
+
+def test_pane_trail_starts_at_the_idea(mk, walk_fake, lr):
+    "A side walk tells the pane a trail that starts at the idea (`Idea 3`), with no walk title, and its pace: `Side walk · 1 of 1`."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.put('Derivatives and gradients', 'The slope of a function at a point, one for each input.', 'ml', slug='gradients')
+    lr.update('scaling-by-the-root-of-dk', prereqs=['softmax', 'gradients'])
+    url = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url']
+    h = cl.get(url + '?pane=1').text
+    back = re.search(r'<a href="[^"]*" data-rh-trail=\'([^\']*)\' data-rh-pace="([^"]*)" class="rh-back walk-back"', h)
+    assert back, h[h.find('walk-back') - 300:h.find('walk-back') + 50]
+    assert back.group(1).startswith('[["Idea 3", ') and 'Attention' not in back.group(1)
+    assert back.group(2) == 'Side walk · 1 of 1'
+
+def test_pane_bar_draws_the_pace():
+    "pane.js sends the pace and the progress of the page in the pane, and the bar draws them on a second row with the thin line."
+    js, c = src('core/pane.js'), src('core/pane.css')
+    assert 'dataset.rhPace' in js and "querySelector('#rail-prog')" in js and "'rh-pace'" in js and "className = 'prog'" in js
+    assert re.search(r'\.rh-pace \{[^}]*display: flex', c) and re.search(r'\.rh-bar \{[^}]*flex-direction: column', c)

@@ -27,8 +27,11 @@ html.rh-drag, html.rh-drag * { cursor: col-resize !important; user-select: none 
 html.rh-drag #rh-pane iframe { pointer-events: none; }
 
 /* the bar: where you are, Its own session, and close */
-.rh-bar { min-height: var(--nav-h); display: flex; align-items: center; padding: var(--s3) var(--s5); border-bottom: 1px solid var(--line); font-size: var(--t-meta); }
-.rh-bar > .rh-top { flex: 1; min-width: 0; }   /* as high as the top bar, so the two lines under them meet */
+.rh-bar { min-height: var(--nav-h); display: flex; flex-direction: column; justify-content: center; padding: var(--s1) var(--s5); border-bottom: 1px solid var(--line); font-size: var(--t-meta); }
+/* the second row: the pace of a side walk and its thin progress line, in the height of the top bar */
+.rh-pace { display: flex; align-items: center; gap: var(--s3); font: var(--t-lbl)/1.4 var(--serif); color: var(--mute); }
+.rh-pace .prog { flex: 0 1 160px; margin: 0; }
+.rh-bar > .rh-top { min-width: 0; }   /* as high as the top bar, so the two lines under them meet */
 .rh-top { display: flex; gap: var(--s4); align-items: center; min-height: 26px; }
 .rh-trail { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-lbl); letter-spacing: .12em;
   text-transform: uppercase; color: var(--mute); }

@@ -76,7 +76,7 @@ def connect(app, ctx):
         p = j.get('parent') or {}
         pj = lr.journey(p['walk']) if isinstance(p.get('walk'), str) else None
         if not pj or not isinstance(p.get('step'), int) or not 0 <= p['step'] < len(pj.steps): return None
-        parts = [[f"{t.title} · idea {t.step + 1}", ui.at(Routes.step, t.walk, t.step)] for t in trail(lr, j.id)[:-1] if t.step is not None]
+        parts = [[f"Idea {t.step + 1}", ui.at(Routes.step, t.walk, t.step)] for t in trail(lr, j.id)[:-1] if t.step is not None]
         return AttrDict(href=ui.at(Routes.step, pj.id, p['step']), here=f"idea {p['step'] + 1} of {len(pj.steps)}", trail=parts)
 
     def as_short(j, i):
