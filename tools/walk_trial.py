@@ -4,7 +4,7 @@ Run: uv run --all-extras python tools/walk_trial.py [--only NAME] [--model claud
 For each subject it makes a walk, writes the notes and questions of its steps and checks them, grades two answers, runs a code task (the paper only),
 checks the Leela links (the two docs walks), and takes screens. It writes `report.md` and the screens in `--out` and prints the table.
 It uses a new temporary vault and never starts or calls Leela. `--dry` uses a fake model and fake pages, with no network and no browser."""
-import argparse, os, socket, sys, tempfile, threading, time
+import argparse, errno, os, re, socket, sys, tempfile, threading, time
 from contextlib import contextmanager
 from pathlib import Path
 from statistics import mean
@@ -126,29 +126,33 @@ def code_trip(lr, ask, j) -> AttrDict:
     i = first(i for i, s in enumerate(j.steps) if s['check']['kind'] == 'code') or 0
     task = code_task(tutor, lr.concept(j.steps[i]['slug']), session='trial', meta=step_meta(j, i))
     good = tutor.open[task.q.id].answer
-    r = lambda src: (x := run_code(tutor, task.q.id, src)) and f'{x.passed} of {x.total}'
+    def r(src):
+        if not (x := run_code(tutor, task.q.id, src)): raise ValueError('run_code gave no result')
+        return f'{x.passed} of {x.total}'
     return AttrDict(naive=r(task.stub), good=r(good), secs=time.monotonic() - t)
 
 def handoff_trip(lr, ask, j, cfg_home) -> AttrDict:
-    "On a tool walk, with a fake Leela address file: no `code` check, and the right link and no `code-editor` on each step with `leela`."
+    "On a tool walk, with a fake Leela address file in `cfg_home`: no `code` check, and on each step with `leela` the right link on the page, and no `code-editor` on the page or the card."
     from starlette.testclient import TestClient
     from abhyasa.app import mk_app
     from walk_data import leela_file
-    leela_file(cfg_home, port=PORT)
-    with env(XDG_CONFIG_HOME=str(cfg_home)):
+    with env(ABHYASA_LEELA_FILE=str(leela_file(cfg_home, port=PORT))):
         j = lr.journey(j.id)
         cl = TestClient(mk_app(lr, ask, transcribe=lambda a, hint='': '', sources=[VaultSource(lr)], hosts=('testserver', '127.0.0.1', 'localhost')))
         cl.post(f'/w/{j.id}/start')
-        n = links = pages = 0
+        n = links = pages = skipped = 0
         for i, s in enumerate(j.steps):
             if not s.get('leela'): continue
             n += 1
             want = f'http://127.0.0.1:{PORT}' + handoff(j.id, i)
             links += leela_link(j, i) == want
             page = cl.get(f'/w/{j.id}/{i}').text
-            card = cl.get(f'/w/{j.id}/{i}/check').text if s['check']['kind'] not in ('demo', 'order') else ''   # a demo card starts a demo job
-            pages += want.replace('&', '&amp;') in page and 'code-editor' not in page + card
-    return AttrDict(code_checks=sum(s['check']['kind'] == 'code' for s in j.steps), leela_steps=n, links_ok=links, pages_ok=pages)
+            demo = s['check']['kind'] in ('demo', 'order')   # a demo card starts a demo job: not fetched
+            card = '' if demo else cl.get(f'/w/{j.id}/{i}/check').text
+            skipped += demo
+            other = [m for m in re.findall(r'href="(http://127\.0\.0\.1:\d+/learn[^"]*)"', card) if m != want.replace('&', '&amp;')]   # a short card has no link; a link on a card must be right
+            pages += want.replace('&', '&amp;') in page and 'code-editor' not in page + card and not other
+    return AttrDict(code_checks=sum(s['check']['kind'] == 'code' for s in j.steps), leela_steps=n, links_ok=links, pages_ok=pages, cards_skipped=skipped)
 
 def free_port() -> int:
     with socket.socket() as s: s.bind(('127.0.0.1', 0)); return s.getsockname()[1]
@@ -205,6 +209,7 @@ def flags(r) -> list:
     if r.get('g_error') or (g and not (g.good and g.weak)): out.append(f'the grade round trip is not right: {g or r.g_error}')
     if c and not (int(c.naive.split()[0]) < int(c.naive.split()[2]) and c.good.split()[0] == c.good.split()[2]): out.append(f'code: naive {c.naive}, good {c.good}')
     if r.get('c_error'): out.append(f'code trip failed: {r.c_error}')
+    if r.get('shots_error'): out.append(f'screens failed: {r.shots_error}')
     if h and (h.code_checks or h.links_ok < h.leela_steps or h.pages_ok < h.leela_steps): out.append(f'Leela: {h.code_checks} code checks, {h.links_ok} of {h.leela_steps} links, {h.pages_ok} pages')
     if r.get('h_error'): out.append(f'Leela trip failed: {r.h_error}')
     if m.secs_step > 30: out.append(f'{m.secs_step:.0f} s a step (30)')
@@ -224,9 +229,9 @@ def report(rows, out) -> str:
         for b in m.bad_asks: md.append(f'- Step {b.step} ({b.name}) fails {", ".join(b.failed)}: {b.question!r}')
         if r.get('g'): md.append(f'- Grade: the statement graded correct: {r.g.good}; "I am not sure." graded not correct: {r.g.weak}.')
         if r.get('c'): md.append(f'- Code: naive {r.c.naive}, good {r.c.good}, {r.c.secs:.0f} s.')
-        if r.get('h'): md.append(f'- Leela: {r.h.leela_steps} steps with a link, {r.h.links_ok} links right, {r.h.pages_ok} pages right, {r.h.code_checks} code checks.')
-        for e in ('g_error', 'c_error', 'h_error', 's_error'):
-            if r.get(e): md.append(f'- Error ({e[0]}): {r[e]}')
+        if r.get('h'): md.append(f'- Leela: {r.h.leela_steps} steps with a link, {r.h.links_ok} links right, {r.h.pages_ok} pages right, {r.h.code_checks} code checks. {r.h.cards_skipped} demo or order cards were not fetched (a demo card starts a demo job).')
+        for e in ('g', 'c', 'h', 'shots'):
+            if r.get(f'{e}_error'): md.append(f'- Error ({e}): {r[f"{e}_error"]}')
         md += [f'- Screen: `{p.name}`' for p in r.get('shots') or ()]
     s = '\n'.join(md) + '\n'
     (out/'report.md').write_text(s)
@@ -264,16 +269,21 @@ def main(argv=None):
     p.add_argument('--out', default=str(ROOT/'design/screens/trial'))
     p.add_argument('--dry', action='store_true', help='a fake model and fake pages: no network and no browser')
     p.add_argument('--no-shots', action='store_true')
+    p.add_argument('--probe', action='store_true', help='with --dry: try one connection off this computer (it is refused), to show that the dry run fails on it')
     a = p.parse_args(argv)
     if a.dry: a.no_shots = True
     tmp = Path(tempfile.mkdtemp())
     if a.dry:
         _no_network()
         base, read = Router(fake_ask(), models=lambda: {}, tokens=lambda: {}), None
+        if a.probe:
+            try: socket.create_connection(('192.0.2.1', 9), timeout=1)   # a test address: the guard refuses it before any packet leaves
+            except OSError: pass
     else:
         from abhyasa.voice import settings
         s = settings()   # one read of the models and reply caps that you chose; nothing else of the folder is used or changed
-        base, read = Router(route_ask(a.model), models=lambda: s['models'], tokens=lambda: s['tokens']), None
+        m, t = s['models'], s['tokens']
+        base, read = Router(route_ask(a.model), models=lambda: m, tokens=lambda: t), None
     os.environ['ABHYASA_CONFIG'] = str(tmp/'config')   # the app writes its session key here
     import rupaka.check
     rupaka.check.can_check = lambda: False   # a demo is made but not run in a browser: one browser only, for the screens
@@ -283,17 +293,24 @@ def main(argv=None):
     if not cases: raise SystemExit(f'no case named {a.only!r}')
     cases.sort(key=lambda c: 'topic' in c)   # a topic walk goes last, when the other cases are filed
     rows = []
-    with env(XDG_CONFIG_HOME=str(tmp/'xdg')):
+    with env(ABHYASA_LEELA_FILE=str(tmp/'leela'/'serving.json')):   # only the address file of Leela moves; HOME and XDG_CONFIG_HOME stay as they are, so the model sees your login
         for c in cases:
-            rows.append(run_case(lr, ask, c, a, read, tmp/'xdg'))
+            rows.append(run_case(lr, ask, c, a, read, tmp))
     report(rows, a.out)
+    if BLOCKED: raise SystemExit(f'dry run: {len(BLOCKED)} connection(s) to a host off this computer were refused: {sorted(set(BLOCKED))}')
+
+BLOCKED = []   # the hosts that a dry run tried to reach
 
 def _no_network():
-    "In a dry run, refuse a connection to any host but this computer."
-    real = socket.socket.connect
+    "In a dry run, refuse a connection to any host but this computer, and keep each refused host in `BLOCKED`."
+    real, real_ex = socket.socket.connect, socket.socket.connect_ex
+    def off(self, addr): return self.family != socket.AF_UNIX and str(addr[0]) not in ('127.0.0.1', '::1', 'localhost')
     def connect(self, addr, *a):
-        if self.family != socket.AF_UNIX and str(addr[0]) not in ('127.0.0.1', '::1', 'localhost'): raise OSError(f'dry run: no network ({addr[0]})')
+        if off(self, addr): BLOCKED.append(str(addr[0])); raise OSError(f'dry run: no network ({addr[0]})')
         return real(self, addr, *a)
-    socket.socket.connect = connect
+    def connect_ex(self, addr, *a):
+        if off(self, addr): BLOCKED.append(str(addr[0])); return errno.EACCES
+        return real_ex(self, addr, *a)
+    socket.socket.connect, socket.socket.connect_ex = connect, connect_ex
 
 if __name__ == '__main__': main()

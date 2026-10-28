@@ -16,3 +16,8 @@ def test_leela_link_is_local_and_live(monkeypatch, tmp_path):
     f.unlink(); monkeypatch.setitem(cfg, 'leela', 'http://127.0.0.1:5020/')
     assert leela_link(j) == 'http://127.0.0.1:5020/learn?walk=attention-ab12'           # the owner's setting
     monkeypatch.setitem(cfg, 'leela', 'https://evil.example/'); assert leela_link(j) is None
+
+def test_leela_file_override(monkeypatch, tmp_path):
+    j = AttrDict(id='attention-ab12'); f = leela_file(tmp_path / 'else', port=5019)
+    monkeypatch.setenv('ABHYASA_LEELA_FILE', str(f))                                    # no change to XDG_CONFIG_HOME or HOME
+    assert leela_link(j) == 'http://127.0.0.1:5019/learn?walk=attention-ab12'

@@ -12,7 +12,8 @@ LEELA_INSTALL = 'https://github.com/vedicreader/leela#install'
 LOCAL = ('127.0.0.1', 'localhost', '::1')
 
 def leela_address() -> Path:
-    "The file that a running Leela writes: `$XDG_CONFIG_HOME/leela/serving.json`, else `~/.config/leela/serving.json`."
+    "The file that a running Leela writes: `$ABHYASA_LEELA_FILE` (a test or a trial sets it), else `$XDG_CONFIG_HOME/leela/serving.json`, else `~/.config/leela/serving.json`."
+    if f := os.getenv('ABHYASA_LEELA_FILE'): return Path(f)
     return Path(os.getenv('XDG_CONFIG_HOME') or Path.home()/'.config')/'leela'/'serving.json'
 
 def _local(url) -> bool:
