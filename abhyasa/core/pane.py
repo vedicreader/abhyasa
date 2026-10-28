@@ -1,9 +1,21 @@
 """The side pane: a page of this app beside the page, after vedicreader's `vr/core/pane.py`.
 
 The pane shows a local page in an `iframe`, at its URL with `pane=1`. Its place is in the URL of the page (`?rh=<local path>`),
-so a reload keeps it and browser Back closes it. `pane.js` does the opening, the grip, the keys and the messages. Any host that
-can show a URL (Leela too) can use the same contract: `open(url, title)`, `close()`, and the messages `rh:at`, `rh:open`,
-`rh:done` and `rh:close` from the pane."""
+so a reload keeps it and browser Back closes it. `pane.js` does the opening, the grip, the keys and the messages.
+
+The contract for a host (abhyasa here, Leela too):
+
+- `open(url, title)` shows the local page `url`, with `pane=1`, beside the page. `close()` closes it. The state is one local URL
+  in the query of the page: `rh`.
+- The host takes a message only when its origin is the host's own origin and its source is the pane's own frame. It ignores
+  all other messages. A URL in a message must pass `is_local`.
+- `rh:at {url, title, trail}`: the pane is now at `url`. The host updates `rh` with `replaceState`. `trail` is a list of
+  `[title, url]` from the main page to the parent of `url`.
+- `rh:open {url}`: open `url` in the same pane (a nested side page).
+- `rh:close`: close the pane. `rh:close {level: 1}` goes back one level only: to the last part of the trail, or, when there is
+  no part in the pane, the pane closes (⌥Z).
+- `rh:done {slug, outcome}`: the side walk ended. The host sends it again as the DOM event `abhyasa:rh-done` on `document`, with
+  `detail = {slug, outcome}`. The detail comes from the page in the pane: the host must treat it as input that it cannot trust."""
 import re
 from urllib.parse import urlsplit, urlunsplit
 from fasthtml.common import A, Aside, B, Button, Div, Header, Iframe, Span

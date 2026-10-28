@@ -55,7 +55,7 @@ def _chromium():
 def test_pane_in_a_browser(mk):
     import socket, threading, time, uvicorn
     from playwright.sync_api import sync_playwright
-    cl = mk()
+    cl = mk(); sid = cl.post('/start', follow_redirects=False).headers['location'].split('/')[-1]   # a session page: the composer and the mic
     with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
     srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
     th = threading.Thread(target=srv.run, daemon=True); th.start()
@@ -112,8 +112,22 @@ def test_pane_in_a_browser(mk):
                 pg.wait_for_function("() => !document.documentElement.classList.contains('rh-open')")
                 assert not rh(pg)                                                            # ⌥Z goes back to the page
 
+                pg.goto(f'{base}/s/{sid}'); pg.wait_for_selector('#composer textarea')
+                pg.evaluate("document.querySelector('.mic-float').classList.add('on')")
+                pg.evaluate("abhyasaPane.open('/keys', 'Keyboard shortcuts')"); pg.wait_for_function("() => document.documentElement.classList.contains('rh-open')")
+                box = lambda sel: pg.locator(sel).bounding_box()
+                def clear():                                                                 # the fixed parts of the page keep out of the pane
+                    left = box('#rh-pane')['x']
+                    for sel in ('.mic-float', '#composer'): assert box(sel)['x'] + box(sel)['width'] <= left + 1, sel
+                clear()
+                g = box('#rh-pane .grip'); x, y = g['x'] + g['width'] / 2, g['y'] + 200
+                pg.mouse.move(x, y); pg.mouse.down(); pg.mouse.move(x - 120, y, steps=6); pg.mouse.up()
+                clear()                                                                      # also after the grip makes the pane wider
+                pg.evaluate('abhyasaPane.close()'); pg.wait_for_function("() => !document.documentElement.classList.contains('rh-open')")
+                assert box('#composer')['x'] + box('#composer')['width'] >= 1400 - 20        # closed: the composer is full width again
+
                 pg.set_viewport_size(dict(width=900, height=900))
                 pg.evaluate("abhyasaPane.open('/keys', 'Keyboard shortcuts')"); pg.wait_for_url(base + '/keys')
-                pg.wait_for_selector('main a.rh-back'); assert pg.locator('main a.rh-back').get_attribute('href') == '/'   # narrow: the same tab, with a way back
+                pg.wait_for_selector('main a.rh-back'); assert pg.locator('main a.rh-back').get_attribute('href') == f'/s/{sid}'   # narrow: the same tab, with a way back
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)

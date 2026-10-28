@@ -53,8 +53,8 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 .opt:disabled { cursor: default; } .opt:disabled:hover { background: transparent; }
 
 /* the composer: fixed at the bottom, paper ground, a hairline above; two boxes that grow, then one row of actions */
-.composer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--raised); --bg: var(--raised);
-            padding: 14px max(24px, calc((100vw - 740px) / 2)) 14px;
+.composer { position: fixed; left: 0; right: var(--rh-gap, 0px); bottom: 0; z-index: 20; background: var(--raised); --bg: var(--raised);
+            padding: 14px max(24px, calc((100vw - var(--rh-gap, 0px) - 740px) / 2)) 14px;
             box-shadow: 0 -1px 0 light-dark(rgb(60 40 20 / .06), rgb(255 255 255 / .05)), 0 -14px 34px -18px light-dark(rgb(60 40 20 / .22), rgb(0 0 0 / .6)); }
 .composer:empty { display: none; }
 .composer textarea { display: block; padding: 4px 2px; }
@@ -100,7 +100,7 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 #chat.viewing .back { margin: 0 0 18px; }
 @media (min-width: 1040px) {
   .rail summary { pointer-events: none; }   /* always open beside the question */
-  .composer { padding-left: calc(max(24px, (100vw - 1010px) / 2) + 270px); padding-right: max(24px, (100vw - 1010px) / 2); }
+  .composer { padding-left: calc(max(24px, (100vw - var(--rh-gap, 0px) - 1010px) / 2) + 270px); padding-right: max(24px, (100vw - var(--rh-gap, 0px) - 1010px) / 2); }
 }
 @media (max-width: 1039px) {
   .session-layout { grid-template-columns: minmax(0, 740px); gap: 0; }

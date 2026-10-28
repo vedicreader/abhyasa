@@ -2,8 +2,11 @@
    with hairlines only. The page under it only gets padding-right. Under 1100 px there is no split. */
 :root { --rh-w: clamp(440px, 42vw, 680px); }
 #rh-pane { display: none; }
+/* --rh-gap is the room the open pane takes at the right, 0 when it is closed. The body and each fixed element of a page (the composer,
+   the floating mic) keep out of it. The grip changes --rh-w, so the gap follows. */
 @media (min-width: 1100px) {
-  html.rh-open body { padding-right: var(--rh-w); }
+  html.rh-open { --rh-gap: var(--rh-w); }
+  html.rh-open body { padding-right: var(--rh-gap); }
   html.rh-open body > nav { flex-wrap: wrap; }   /* the narrower page keeps the search box in view */
   html.rh-open #rh-pane { display: flex; flex-direction: column; position: fixed; top: 0; right: 0; bottom: 0; width: var(--rh-w); z-index: 60;
     background: var(--page); color: var(--fg); border-left: 1px solid var(--line); }

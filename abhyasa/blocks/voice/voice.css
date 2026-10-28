@@ -14,7 +14,7 @@
 @media (prefers-reduced-motion: reduce) { .mic .lvl { transition: none; } .mic.busy .say::before { animation: none; } }
 
 /* the floating mic: out of sight until ⌥D starts it for a box that has no mic of its own */
-.mic-float { display: none; position: fixed; right: 24px; bottom: calc(var(--composer-h, 0px) + 20px); z-index: 40; background: var(--bg); }
+.mic-float { display: none; position: fixed; right: calc(var(--rh-gap, 0px) + 24px); bottom: calc(var(--composer-h, 0px) + 20px); z-index: 40; background: var(--bg); }
 .mic-float.on, .mic-float.busy { display: inline-flex; }
 /* a small mic at the bottom right of a box that asks for one */
 .micbox { position: relative; display: block; }
