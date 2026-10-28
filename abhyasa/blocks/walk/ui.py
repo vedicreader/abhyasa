@@ -196,7 +196,57 @@ def Pending(jid, i, s):
     return Section(CardHead(s), P('The tutor is making the demo for this idea. This can take a minute. You can read the passage while you wait.', cls='mute'),
                    cls='check pending', hx_get=at(Routes.check, jid, i), hx_trigger='load delay:2s', hx_target='#check', hx_swap='innerHTML')
 
-CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck)   # check kind -> card; Task 8 adds code
+
+# --- the code check --------------------------------------------------------------------------------------------------
+
+RUNNING = 'Running the tests…'
+RESULT = dict(error='error', timeout='timeout')   # a status that is not pass or fail, as its own word
+
+def Result(c, texts):
+    "One test result. A hidden test shows its label and status only: never its text, its expected value or your value."
+    return Li(Span(RESULT.get(c['status'], c['status']), cls='st'), Span(c['label']), '' if c['hidden'] else Code(texts[c['i']]), cls=c['status'])
+
+def CodeOut(jid, i, q, r=None):
+    "The results part of a code check: hints, the results of the last run, the first error, and the close. The editor is not in it."
+    texts = [t if isinstance(t, str) else t['test'] for t in q.tests]
+    close = first(t for t in q.get('turns') or () if t.get('kind') == 'close')
+    out = [Div(Span(f'Hint {n}', cls='lbl'), Md(h), cls='hint') for n, h in enumerate(q.get('hints') or (), 1)]
+    if r and r.get('syntax'):
+        out += [Div(Span('Syntax error: ', cls='k'), f'{r.syntax}.', cls='err'), P(f'try {MAX_TRIES - r.tries_left + 1} · no try used', cls='mute')]
+    elif r and 'checks' in r:
+        n = MAX_TRIES - r.tries_left + bool(r.done and r.get('correct'))
+        out += [Ul(*[Result(c, texts) for c in r.checks], cls='results') if r.checks else '',
+                Div(Span('First error: ', cls='k'), Md(r.first_error), cls='err') if r.first_error else '',
+                P(f'try {n} · {r.passed} of {r.total} pass', cls='mute')]
+    if close:
+        ok = close.get('outcome') in ('solid', 'fragile')
+        out += [Span(OUTCOME.get(close.get('outcome'), 'Closed'), cls='tag ' + ('ok' if ok else 'no')),
+                Div(Span('Lesson', cls='lbl'), Md(close['lesson']), cls='lesson') if close.get('lesson') else '', GoOn(jid, i),
+                Button('Run the tests', type='submit', id='run', disabled=True, hx_swap_oob='true')]   # no longer the main button, so ⌥S goes to Next idea
+    return Div(*out, id='code-out', aria_live='polite')
+
+def CodeCheck(jid, i, s, q):
+    "A code check: the task, a plain editor with the stub, the visible tests, and Run. A run swaps only the results."
+    if q is None: return Done(jid, i, s)
+    if not s.get('code'): return Short(jid, i, s, q)
+    c = s['code']
+    draft = q['tries'][-1]['answer'] if q.get('tries') else c['stub']
+    tgt = dict(hx_target='#code-out', hx_swap='innerHTML')
+    left = MAX_TRIES - len(q.get('tries') or ())
+    hint = Button('Hint ', Kbd('⌥W'), type='button', id='hint', cls='quiet', hx_post=at(Routes.hint, jid, i), data_wait=HINTING, **tgt,
+                  disabled=len(q.get('hints') or ()) >= len(HINTS))
+    idk = Button('Teach me' if q.get('tries') else "I don't know", type='button', id='idk', cls='quiet', hx_post=at(Routes.giveup, jid, i),
+                 data_wait=TEACHING, **tgt)
+    return Section(CardHead(s, q), Md(q['question'], cls='q'),
+                   Form(Textarea(draft, name='source', id='source', cls='code-editor', rows=max(6, draft.count('\n') + 3), spellcheck='false', autofocus=True,
+                                 aria_label='Your code'),
+                        Details(Summary('The tests you can see'), Ul(*[Li(Code(t)) for t in c['tests']], cls='tests'), open=True),
+                        CodeOut(jid, i, q),
+                        Div(Button('Run the tests ', Kbd('⌘↵'), type='submit', id='run', cls='go', data_wait=RUNNING), hint, idk,
+                            Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'),
+                        hx_post=at(Routes.run, jid, i), **tgt), cls='check code-check')
+
+CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card
 
 # --- the end of a section --------------------------------------------------------------------------------------------
 

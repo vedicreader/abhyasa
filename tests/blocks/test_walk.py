@@ -77,9 +77,10 @@ def test_miss_hint_and_dont_know(mk, walk_fake, lr):
     assert 'Next idea' in cl.post(f'/w/{jid}/1/answer', data=dict(answer='late')).text               # a closed check takes no more answers
 
 def test_code_check_falls_back_to_a_text_way(mk, walk_fake, lr):
+    walk_fake.rules['You write one small Python exercise'] = 'no exercise today'                 # the tutor could not make a code task
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    assert 'What does a rank tell you?' in cl.get(f'/w/{jid}/1/check').text                      # a short card until the code card comes
+    assert 'What does a rank tell you?' in cl.get(f'/w/{jid}/1/check').text                      # a short card when the code task fails
     cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank'))
     assert lr.attempts('softmax', limit=1)[0].method in TEXT_WAYS                                  # the record and the credit name a text way
     assert lr.journey(jid).steps[1]['check']['kind'] == 'code'                                     # the plan keeps its check
@@ -152,3 +153,41 @@ def test_a_gate_logs_once_and_a_skipped_demo_is_closed(mk, walk_fake, lr):
     assert 'walk-demo' not in cl.get(f'/w/{jid}/1/check').text                     # a skipped demo shows as closed
     assert cl.post(f'/w/{jid}/1/predict', data=dict(slug=s.slug, gate=g, picked='1', ans='1', ok='true')).status_code == 409
     assert not lr.attempts('softmax')
+
+def test_code_check_in_the_browser(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why='your best way here: code'))
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'code-editor' in card and 'def softmax(x, t=1.0):' in card and 'm = max(x)' not in card
+    assert 'max(softmax([1000.0, 1001.0]))' not in card                            # a hidden test stays hidden
+    assert 'Run the tests' in card and 'Hint' in card and "I don&#x27;t know" in card.replace("'", '&#x27;')
+    assert cl.get(f'/w/{jid}/1/check').text.count('code-editor') == card.count('code-editor')   # a reload keeps one task
+    assert lr.journey(jid).steps[1]['code']['fname'] == 'softmax'
+    r = cl.post(f'/w/{jid}/1/run', data=dict(source='def softmax(x\n')).text
+    assert 'line 1' in r and 'try 1' in r                                          # a syntax error uses no try
+    r = cl.post(f'/w/{jid}/1/run', data=dict(source=NAIVE)).text
+    assert '2 of 3 pass' in r and 'It does not fail on large scores' in r and 'm = max(x)' not in r
+    assert 'code-editor' not in r and 'max(softmax([1000.0, 1001.0]))' not in r   # only the results part comes back
+    r = cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text
+    assert 'Next idea' in r and lr.attempts('softmax', limit=1)[0].kind == 'code'
+    assert lr.journey(jid).steps[1]['done']['outcome'] == 'fragile'                # a pass after a failing try is not clean
+
+def test_code_check_hides_a_failing_hidden_test(mk, walk_fake, lr):
+    secret = 'assert softmax([0.0, 1.0]) == [0.123456, 0.876544]'
+    walk_fake.rules['You write one small Python exercise'] = dict(EXERCISE, tests=EXERCISE['tests'][:2] + [dict(test=secret, say='A secret weight check', hidden=True)])
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    cl.get(f'/w/{jid}/1/check')
+    r = cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text
+    assert 'A secret weight check' in r and 'fail' in r and '2 of 3 pass' in r
+    for leak in ('0.123456', '0.876544', 'softmax([0.0, 1.0])', '0.2689', '0.7310'): assert leak not in r
+
+def test_code_run_refuses_a_closed_or_missing_check(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    assert cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).status_code == 409   # the check was never loaded
+    assert cl.post('/w/nope/1/run', data=dict(source=GOOD)).status_code == 404
+    cl.get(f'/w/{jid}/1/check')
+    assert 'Next idea' in cl.post(f'/w/{jid}/1/giveup').text
+    assert 'Next idea' in cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text and lr.attempts('softmax', limit=5)[0].kind == 'code'
+    assert len(lr.attempts('softmax', limit=9)) == 1                                # a closed check takes no more runs

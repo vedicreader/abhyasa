@@ -63,3 +63,15 @@ h1.idea { font-size: 28px; margin-bottom: 14px; }
 
 .next-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: 26px; padding-top: 16px; }
 .next-bar .row { margin-top: 0; } .next-bar .mute { margin: 0; }
+
+/* the code check */
+.code-editor { font: 14px/1.5 var(--mono); tab-size: 4; white-space: pre; overflow: auto; background: var(--sunken); border: 0; border-radius: var(--r-s); padding: 12px 14px; }
+.code-check summary { cursor: pointer; color: var(--mute); font-size: 14px; }
+.code-check .tests, .code-check .results { list-style: none; padding: 0; margin: 6px 0 10px; }
+.code-check .tests li, .code-check .results li { padding: 6px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.code-check .results li { display: flex; gap: 14px; align-items: baseline; }
+.code-check .results .st { font: 12px/1.4 var(--mono); min-width: 52px; }
+.code-check .results .pass .st { color: var(--ok); } .code-check .results .fail .st, .code-check .results .error .st, .code-check .results .timeout .st { color: var(--no); }
+.code-check code { font: 14px var(--mono); }
+.code-check .err { margin: 8px 0; } .code-check .lesson { margin: 10px 0; }
+.code-check .acts .mute { margin-left: auto; }

@@ -11,7 +11,7 @@ from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.journey import journey_from_source, journey_from_text, walk_from_topic, walk_state, short_check
-from abhyasa.walk import tutor_note, open_short, step_meta
+from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.demo import queue_demo, job_state, job_age
 from . import ui
 from .cfg import Routes
@@ -66,9 +66,9 @@ def connect(app, ctx):
         return ui.CHECKS.get(k, ui.Short)(j.id, i, s, demo(s) if k in AIM else question(j, i))
 
     def as_short(j, i):
-        "Walk `j` with the check of step `i` as a short answer in a text way, while its own kind has no card (spec 6.5)."
+        "Walk `j` with the check of step `i` as a short answer in a text way, when its code task could not be made (spec 6.5)."
         s = j.steps[i]
-        if s['check']['kind'] in ui.CHECKS: return j
+        if s['check']['kind'] == 'short': return j
         return AttrDict({**j, 'steps': [*j.steps[:i], {**s, 'check': dict(short_check(lr, lr.concept(s['slug'])))}, *j.steps[i + 1:]]})
 
     def ahead(j, i):
@@ -84,10 +84,22 @@ def connect(app, ctx):
         if job_state(tutor, slug, aim) == 'running' and job_age(tutor, slug, aim) < DEMO_WAIT: return ui.Pending(j.id, i, s)
         lr.walk_step(j.id, i, check=dict(short_check(lr, lr.concept(slug))))
 
+    def open_code(j, i, sid):
+        "Open the code task of step `i` and keep its stub and visible tests on the step, so a reload shows the same task; None when it fails."
+        try: t = code_task(tutor, lr.concept(j.steps[i]['slug']), session=sid, meta=step_meta(j, i))
+        except Exception: return None
+        lr.walk_step(j.id, i, qid=t.q.id, code=dict(fname=t.fname, stub=t.stub, tests=t.tests))
+        return t.q
+
+    def reply(j, i, r=None):
+        "The reply to a move on a check: the results part for a code check, else the whole card."
+        q = question(j, i)
+        return ui.CodeOut(j.id, i, q, r) if q and j.steps[i].get('code') else card(j, i)
+
     def no_check(j, i):
         "The reply to a move on a check that is not open: the closed card, or 409 when the check was never loaded."
         if not j: return Response(status_code=404)
-        if j.steps[i].get('done'): return card(j, i)
+        if j.steps[i].get('done'): return reply(j, i)
         return Response('No check is open on this idea. Load the page again.', status_code=409)
 
     def live(jid, i):
@@ -100,7 +112,7 @@ def connect(app, ctx):
     def closed(j, i, r):
         "Mark step `i` done with the outcome of its check."
         lr.walk_step(j.id, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
-        return card(lr.journey(j.id), i)
+        return reply(lr.journey(j.id), i, r)
 
     def new(ref:str='', text:str='', title:str='', topic:str=''):
         try:
@@ -158,7 +170,7 @@ def connect(app, ctx):
                 j = lr.journey(jid)
             if not j.steps[i].get('done') and j.steps[i]['check']['kind'] not in AIM and j.steps[i].get('qid') not in tutor.open:
                 s = sitting(j)
-                s.q = open_short(tutor, as_short(j, i), i, s.id)
+                s.q = (open_code(j, i, s.id) if j.steps[i]['check']['kind'] == 'code' else None) or open_short(tutor, as_short(j, i), i, s.id)
                 s.save()
         return card(lr.journey(jid), i)
 
@@ -166,13 +178,21 @@ def connect(app, ctx):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
         r = s.answer(answer, thinking, confidence)
-        return closed(j, i, r) if r.done else card(j, i)
+        return closed(j, i, r) if r.done else reply(j, i)
+
+    def run(jid:str, i:int, source:str=''):
+        "Run the code of step `i` on its tests; the reply is the results part only."
+        with writing[jid, i]:   # one run at a time, so a double click does not use two tries
+            j, s = live(jid, i)
+            if not s or not j.steps[i].get('code'): return no_check(j, i) if s is None else Response('This check is not a code check.', status_code=409)
+            r = s.code(source)
+            return closed(j, i, r) if r.done else reply(j, i, r)
 
     def hint(jid:str, i:int):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
         if len(tutor.open[s.q.id].hints) < len(HINTS): s.hint()
-        return card(j, i)
+        return reply(j, i)
 
     def giveup(jid:str, i:int, confidence:int=None):
         j, s = live(jid, i)
@@ -248,6 +268,7 @@ def connect(app, ctx):
     app.post(Routes.answer)(answer)
     app.post(Routes.hint)(hint)
     app.post(Routes.giveup)(giveup)
+    app.post(Routes.run)(run)
     app.post(Routes.predict)(predict)
     app.post(Routes.keep)(keep)
     app.post(Routes.next)(next_)
