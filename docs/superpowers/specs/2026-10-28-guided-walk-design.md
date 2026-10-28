@@ -246,11 +246,12 @@ A view reads extra keys with `.get`, so later fields (`layout='pair'` for B, `x`
   The first lines of the script set `RLIMIT_CPU` to the total + 1 s and `RLIMIT_FSIZE` to `runner.file_mb` (10 MB by default).
 - `sandbox` is on by default. The report goes to a private pipe, not to stdout, with a random nonce for each run. The
   nonce comes in on a second pipe, so it is not in the source. If the pipe has no report with the nonce, the result is
-  an error. Learner code that prints a fake result, or changes `json` or `print`, cannot pass.
+  an error. Learner code that only prints a fake result does not pass. But learner code can still fool its own checks
+  (for example through `ctypes`, or by a change to the `json` module). The checks are for learning. They are not a proof.
 - Tests from the model pass `validate_exercise` (one plain `assert` each). The solution never leaves the server.
 - No network in the check. The app stays loopback only (`LocalOnly`).
 - On macOS, the child also runs under `/usr/bin/sandbox-exec` (when it exists) with a profile that denies the network,
-  signals to other processes, and file writes outside the temp folder. The docs say "a closed process with no network". They never say "a
+  signals to other processes, and file writes outside the temp folder. On other systems, the guard is best-effort. The docs say "a closed process with no network". They never say "a
   security sandbox".
 - Learner code always runs with the app's own Python, and an exercise uses only the standard library. abhyasa
   installs no package. Code with a library runs in Leela (6.12); its limits are Leela's (`leela-reuse.md`, section 6).

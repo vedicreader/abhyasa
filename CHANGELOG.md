@@ -6,7 +6,9 @@
 
 - Demo ladder: when you miss an idea after its demo, the tutor teaches it in another way, then shows a simpler demo, then steps back to a prereq (setting: More help after a demo).
 - Code runner: learner code cannot send a signal to another process.
-- Code runner: learner code cannot fake a pass. The report goes to a private pipe, not to stdout.
+- Code runner: the report goes to a private pipe, not to stdout. On macOS, `sandbox-exec` stops the network and writes outside the temp folder. On other systems, the guard does its best, but it is not a full block.
+- Code runner: learner code can still fool its own checks (for example through `ctypes`). The checks are for learning. They are not a proof.
+- Code runner: `logging`, `inspect.stack` and `traceback` do not work in learner code in the closed process.
 - Side pane: a page in the pane can ask to open an http or https link in a new tab (`rh:link`). Other schemes are refused.
 - When the tutor cannot make a walk, a side walk or a term, the page shows a plain line. The log keeps the error.
 - A code check refuses more than 100 000 characters of code.
