@@ -2,6 +2,10 @@
 
 <!-- do not remove -->
 
+## 0.0.12
+
+- Demo ladder: when you miss an idea after its demo, the tutor teaches it in another way, then shows a simpler demo, then steps back to a prereq (setting: More help after a demo).
+
 ## 0.0.11
 
 - Guided walk: make a walk from a paper, a text or a topic. Each idea is a step with one check.
