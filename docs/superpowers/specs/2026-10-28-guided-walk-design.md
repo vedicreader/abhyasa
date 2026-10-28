@@ -238,23 +238,26 @@ A view reads extra keys with `.get`, so later fields (`layout='pair'` for B, `x`
 ### 6.7 Security of learner code
 
 - Learner code runs only in `run_isolated`: a new `python -I -B` process, cwd a new temp folder, an environment with
-  only `PATH` and `HOME` (the temp folder), 2 s for each test and 10 s in total, and a kill at 12 s.
+  only `PATH` and `HOME` (the temp folder), and the time limits in Settings: `runner.per_test` for each test (2 s by default, 1 to
+  10 s) and `runner.total` for all the tests (10 s by default, 5 to 60 s). The kill comes at the total + 2 s.
 - `sandbox=True` adds, before the learner code, an audit hook (`sys.addaudithook`, which cannot be removed) that
   raises on `socket.*` (connect, bind, getaddrinfo), `subprocess.Popen`, `os.system`, `os.exec*`, `os.posix_spawn`,
-  `os.fork`, and `open` for write outside the temp folder. A POSIX `preexec_fn` sets `RLIMIT_CPU` to 11 s and
-  `RLIMIT_FSIZE` to 10 MB.
-- `sandbox` is on by default. The result line carries a random nonce for each run, and `parse` takes only the line
-  with that nonce, so learner code that prints a fake result and exits cannot pass.
+  `os.fork`, `os.kill`, `os.killpg`, `signal.pthread_kill`, frame walks, and `open` for write outside the temp folder.
+  The first lines of the script set `RLIMIT_CPU` to the total + 1 s and `RLIMIT_FSIZE` to `runner.file_mb` (10 MB by default).
+- `sandbox` is on by default. The report goes to a private pipe, not to stdout, with a random nonce for each run. The
+  nonce comes in on a second pipe, so it is not in the source. If the pipe has no report with the nonce, the result is
+  an error. Learner code that prints a fake result, or changes `json` or `print`, cannot pass.
 - Tests from the model pass `validate_exercise` (one plain `assert` each). The solution never leaves the server.
 - No network in the check. The app stays loopback only (`LocalOnly`).
-- On macOS, the child also runs under `/usr/bin/sandbox-exec` (when it exists) with a profile that denies the network
-  and file writes outside the temp folder. The docs say "a closed process with no network". They never say "a
+- On macOS, the child also runs under `/usr/bin/sandbox-exec` (when it exists) with a profile that denies the network,
+  signals to other processes, and file writes outside the temp folder. The docs say "a closed process with no network". They never say "a
   security sandbox".
 - Learner code always runs with the app's own Python, and an exercise uses only the standard library. abhyasa
   installs no package. Code with a library runs in Leela (6.12); its limits are Leela's (`leela-reuse.md`, section 6).
 - The app itself uses the network in one case only, outside the closed process, and only when the learner asks:
   **fetching a link (6.11).** Only the URL that the learner gives, and only pages in the folder of that URL. At most
-  the page cap (default 8, never more than 20). The fetched text is data: it goes into the vault and to the model as
+  the pages in Settings: `links.pages` (8 by default), never more than the page cap `links.cap` (20 by default, 1 to
+  50). The fetched text is data: it goes into the vault and to the model as
   passage text, and it never runs.
 - The Leela link (6.12): abhyasa reads Leela's address file and never connects to Leela. It makes a link only to a
   loopback `http` URL whose process is alive. The values in the link are a journey id, a step number and a concept
@@ -341,7 +344,7 @@ A side walk is a normal walk journey. "Own session ↗" in the pane bar opens th
 step. Nothing is made twice.
 
 **The pane and its URL state.**
-- At 1100 px or more, the pane is fixed at the right, under the top bar, with width `clamp(440px, 42vw, 680px)`. The
+- At 1100 px or more, the pane is fixed at the right, at the top of the window (`top: 0`), with width `clamp(440px, 42vw, 680px)`. The
   walk hides its rail and keeps one column. A grip on the left edge resizes it: drag, arrow keys (24 px, Shift 96
   px), a double-click resets. The width is kept in `localStorage` (`rh-w`).
 - The pane shows a full step page of the side walk in an `iframe`, at the step URL with `pane=1`. A page with
