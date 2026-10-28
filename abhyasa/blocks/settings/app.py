@@ -1,22 +1,91 @@
-"Settings: the speech to text engine and model (pick, look up, get, remove), cut at pauses, the OpenAI key, the model and the reply cap of each tutor task, the theme, and the text of the tutor prompts."
+"Settings: every value that you can change, in groups. Each value saves when it changes. The rarely changed values are under a closed `More`."
+import os
 from fasthtml.common import *
 from fastcore.basics import AttrDict
-from abhyasa.core import Page, RouteOverrides, THEMES, MODES
+from abhyasa.core import Page, RouteOverrides, THEMES, MODES, parse_value
 from abhyasa import voice
+from abhyasa.settings import GROUPS, SETTINGS, rows, val, fit, set_val, reset, reset_group, changed
 from . import ui
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
-CAPS = ('speech', 'ask', 'pool')
+CAPS = ('speech', 'ask', 'pool', 'learning')
 
 def connect(app, ctx):
-    sp, jobs = ctx.speech, {}
+    sp, lr, jobs = ctx.speech, ctx.learning, {}
     has_key = lambda: bool(voice.openai_key()[0])
     speech = lambda oob=False: ui.Speech(sp, has_key(), oob)
 
+    def value_of(r):
+        "The value of row `r` now: from the profile for a Learning row, else from the settings file."
+        return lr.profile().get(r.key, r.dflt) if r.store == 'profile' else val(r.name)
+
+    def count(g) -> int:
+        "How many values of group `g` are not their default. For Prompts: how many prompts have your text."
+        if g == 'prompts':
+            from abhyasa.prompts import saved
+            return len(saved())
+        return sum(value_of(r) != r.dflt for r in rows(g) if r.reset)
+
+    def set_by() -> str:
+        "What sets the default model outside this page, if anything."
+        if os.getenv('ABHYASA_MODEL'): return '$ABHYASA_MODEL'
+        return '"abhyasa --model"' if getattr(ctx.ask.dflt, '_model', None) else ''
+
+    def section(g):
+        n = count(g)
+        if g == 'look': return ui.Look()
+        if g == 'stt': return ui.SpeechGroup(sp, has_key(), jobs, n)
+        if g == 'models': return ui.ModelsGroup(n)
+        if g == 'prompts': return ui.Prompts(n)
+        return ui.RowGroup(g, n, value_of)
+
     def page():
-        return Page('Settings', H1('Settings'), ui.Look(), speech(), ui.Jobs(jobs), ui.Lookup(), ui.Key(), ui.Tutor(ctx.ask), ui.Prompts(),
-                    on='Settings', extra=ui.assets(), crumbs=[('Today', '/')])
+        return Page('Settings', H1('Settings'), P('The tutor works well with the defaults. Change a value only when you want to.', cls='mute lead-page'),
+                    Div(ui.Index({g: count(g) for g in GROUPS}), Div(*map(section, GROUPS), cls='sgroups'), cls='slayout'),
+                    on='Settings', extra=ui.assets(), crumbs=[('Today', '/')], wide=True)
+
+    def store(r, v):
+        "Save the value `v` of row `r`, made to fit its row. Return the value in use."
+        if r.store == 'profile':
+            lr.set_profile(by='you', why='you changed it on the Settings page', **{r.key: fit(r, v)})
+            return value_of(r)
+        return set_val(r.name, v)
+
+    def after(r):
+        "The parts that change with a value: the dot of the row, the index line and the group reset."
+        g = r.group
+        return (Span(cls='dot' + (' on' if value_of(r) != r.dflt else ''), id=f'{ui.row_id(r)}-dot', hx_swap_oob='true'),
+                ui.IndexItem(g, count(g), oob=True), ui.GroupReset(g, count(g), oob=True))
+
+    def value(name:str, value:str=''):
+        "Save one value. A value out of range is saved as the nearest end of the range. The reply is the range line, with `Saved`."
+        if (r := SETTINGS.get(name)) is None or not r.ui: return Response('unknown setting', status_code=400)
+        try: v = parse_value(r, value)
+        except ValueError: return ui.RangeLine(r, value_of(r), ui.reset_attrs(name), err='Type a number.')
+        got = store(r, v)
+        if got != v and r.kind in ('int', 'float'): return ui.Row(r, got), *after(r)[1:]   # clamped: the box shows the value in use
+        return ui.RangeLine(r, got, ui.reset_attrs(name), saved=True), *after(r)
+
+    def default(name:str):
+        "Use the default of one value."
+        if (r := SETTINGS.get(name)) is None or not r.ui: return Response('unknown setting', status_code=400)
+        if r.store == 'profile': store(r, r.dflt)
+        else: reset(name)
+        return ui.Row(r, value_of(r)), *after(r)[1:]
+
+    def group_ask(group:str, no:int=0):
+        "Ask one time before the group goes back to its defaults; `no` puts the link back."
+        if group not in GROUPS: return Response('unknown group', status_code=400)
+        return ui.GroupReset(group, count(group), ask=not no)
+
+    def group_default(group:str):
+        "Use the default of each value of the group that a group reset can change."
+        if group not in GROUPS: return Response('unknown group', status_code=400)
+        ps = {r.key: r.dflt for r in rows(group) if r.store == 'profile'}
+        if ps: lr.set_profile(by='you', why='you used the defaults on the Settings page', **ps)
+        reset_group(group)
+        return section(group), ui.IndexItem(group, count(group), oob=True)
 
     def use(engine:str, model:str=''):
         if engine == 'openai' and not has_key(): return speech()
@@ -71,12 +140,13 @@ def connect(app, ctx):
         return ui.Key(), speech(oob=True)
 
     def model(task:str, model:str=''):
-        from abhyasa.llm import TASKS, catalog
-        if task not in TASKS: return Response('unknown task', status_code=400)
-        cur = voice.settings()['models'].get(task, '')
-        if model == ui.OTHER: return ui.TaskRow(task, cur, ctx.ask.model, [], typing=True)
-        voice.update_settings('models', **{task: model.strip()})
-        return ui.TaskRow(task, model.strip(), ctx.ask.model, catalog())
+        "Save the model of one task; '' uses the default. `ui.OTHER` shows a box for a model id that the list does not have."
+        from abhyasa.llm import ALL_TASKS, catalog
+        if task not in ('default', *ALL_TASKS): return Response('unknown task', status_code=400)
+        r = SETTINGS[f'models.{task}']
+        if model == ui.OTHER: return ui.ModelRow(task, ctx.ask, [], typing=True)
+        set_val(r.name, model.strip())
+        return ui.ModelRow(task, ctx.ask, catalog(), set_by=set_by() if task == 'default' else ''), *after(r)[1:]
 
     def test(task:str, model:str=''):
         import time
@@ -86,18 +156,9 @@ def connect(app, ctx):
         except Exception as e: return Span(f'Failed: {str(e)[:160]}', cls='no')
         return Span(f"{time.time() - t:.1f} s: “{(out or '').strip()[:40]}”" if out else 'No answer.', cls='ok' if out else 'no')
 
-    def tokens(task:str, tokens:str=''):
-        "Save the reply cap of `task`; a bad value is not saved, and the box says what to type."
-        from abhyasa.llm import TASKS, check_tokens
-        if task not in TASKS: return Response('unknown task', status_code=400)
-        try: n = check_tokens(tokens)
-        except ValueError as e: return ui.Cap(task, tokens, err=str(e))
-        voice.update_settings('tokens', **{task: n})
-        return ui.Cap(task, n)
-
     def catalog():
         from abhyasa.llm import catalog as cat
-        return ui.Tasks(ctx.ask, cat())
+        return ui.Models(ctx.ask, cat(), set_by())
 
     def look_(theme:str='', mode:str=''):
         "Save the theme and the mode; core.js already shows them."
@@ -111,12 +172,17 @@ def connect(app, ctx):
         if (p := ui.registry().get(name)) is None: return Response('unknown prompt', status_code=400)
         try: set_prompt(name, text)
         except ValueError as e: return ui.PromptItem(p, text, err=str(e))
-        return ui.PromptItem(p, said='Saved.' if name in saved() else 'The default is in use.')
+        return ui.PromptItem(p, said='Saved.' if name in saved() else 'The default is in use.'), ui.IndexItem('prompts', count('prompts'), oob=True)
 
     def prompt_default(name:str): return prompt_(name, '')
 
+
     RouteOverrides.nav.append(('Settings', Routes.base, 9))
     app.get(Routes.base)(page)
+    app.post(Routes.value)(value)
+    app.post(Routes.default)(default)
+    app.get(Routes.group_ask)(group_ask)
+    app.post(Routes.group_default)(group_default)
     app.post(Routes.use)(use)
     app.post(Routes.segment)(segment)
     app.post(Routes.get)(get)
@@ -127,7 +193,6 @@ def connect(app, ctx):
     app.post(Routes.key)(key)
     app.post(Routes.model)(model)
     app.post(Routes.test)(test)
-    app.post(Routes.tokens)(tokens)
     app.get(Routes.catalog)(catalog)
     app.post(Routes.look)(look_)
     app.post(Routes.prompt)(prompt_)

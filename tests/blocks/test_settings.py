@@ -15,7 +15,7 @@ def test_page(mk):
     t = mk().get('/settings').text
     assert '>Settings<' in t and 'Gemma 4 E4B (LiteRT)' in t and 'In use' in t
     assert 'sends your audio off this machine' in t and 'There is no key' in t
-    assert 'Tutor models' in t and 'Look up models' in t
+    assert '>Models<' in t and 'Look up models' in t
 
 def test_use_switches_and_warms(mk):
     cl = mk(['voice', 'settings'])
@@ -108,7 +108,7 @@ import abhyasa.llm as llm
 
 def test_tutor_model_saved_and_routed(mk, fake):
     cl = mk(['settings'])
-    assert 'Tutor models' in cl.get('/settings').text
+    assert '>Models<' in cl.get('/settings').text
     fast = llm.Fake(dflt='quick'); fast.model = 'fast/model'
     llm._asks['fast/model'] = fast
     r = cl.post('/settings/model', data=dict(task='grade', model='fast/model'))
@@ -141,30 +141,26 @@ def test_tutor_model_test_uses_the_task_route(mk):
     assert seen == [('test:hint', 'claude/haiku', llm.TOKENS['hint']), ('test:grade', '', llm.TOKENS['grade'])]
 
 def test_reply_cap_saved_loaded_and_checked(mk, monkeypatch):
-    "The reply cap of a task: saved in settings.json, shown on the page, empty for the default, and a bad value is refused."
-    from abhyasa.llm import TOKENS
+    "The reply cap of a task is a row of the table: saved in settings.json, shown under More in Models, and a value out of range is clamped."
+    from abhyasa.llm import TOKENS, TOKENS_MAX
     monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [])
     cl = mk(['settings'])
     t = cl.get('/settings/catalog').text
-    assert f'placeholder="{TOKENS["hint"]}"' in t and 'name="tokens"' in t
-    r = cl.post('/settings/model/tokens', data=dict(task='hint', tokens='300'))
-    assert r.status_code == 200 and 'value="300"' in r.text
-    assert voice.settings()['tokens']['hint'] == 300
-    assert 'value="300"' in cl.get('/settings/catalog').text
+    assert 'Reply cap: hints' in t and f'1 to {TOKENS_MAX:,} tokens · default {TOKENS["hint"]} tokens' in t
+    r = cl.post('/settings/value', data=dict(name='tokens.hint', value='300'))
+    assert r.status_code == 200 and 'Saved' in r.text and voice.settings()['tokens']['hint'] == 300
     assert cl.app.state.svc['ask'].cap('hint') == 300
-    r = cl.post('/settings/model/tokens', data=dict(task='hint', tokens='0'))
-    assert 'whole number' in r.text and voice.settings()['tokens']['hint'] == 300
-    assert 'whole number' in cl.post('/settings/model/tokens', data=dict(task='hint', tokens='lots')).text
-    cl.post('/settings/model/tokens', data=dict(task='hint', tokens=''))
-    assert voice.settings()['tokens']['hint'] == '' and cl.app.state.svc['ask'].cap('hint') == TOKENS['hint']
-    assert cl.post('/settings/model/tokens', data=dict(task='nope', tokens='5')).status_code == 400
+    assert 'value="1"' in cl.post('/settings/value', data=dict(name='tokens.hint', value='0')).text and voice.settings()['tokens']['hint'] == 1
+    assert 'Type a number' in cl.post('/settings/value', data=dict(name='tokens.hint', value='lots')).text
+    cl.post('/settings/default', data=dict(name='tokens.hint'))
+    assert cl.app.state.svc['ask'].cap('hint') == TOKENS['hint']
 
 def test_catalog_gives_a_list_with_plain_names(mk, monkeypatch):
     "The list shows names that people know, grouped by provider. The value of each item is the model id."
     monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [dict(value='codex/gpt-6-astra', name='GPT-6 Astra', label='gpt-6-astra', provider='codex', source='login'),
                                                          dict(value='claude/sonnet', name='Claude Sonnet', label='sonnet', provider='claude', source='cli')])
     t = mk(['settings']).get('/settings/catalog').text
-    assert t.count('<select') == len(llm.TASKS) and '<optgroup label="Codex">' in t and '<optgroup label="Claude">' in t
+    assert t.count('<select') == len(llm.ALL_TASKS) + 1 and '<optgroup label="Codex">' in t and '<optgroup label="Claude">' in t
     assert '<option value="codex/gpt-6-astra" title="codex/gpt-6-astra">GPT-6 Astra</option>' in t
     assert 'Default: Claude Sonnet' in t and 'Type another model id' in t
 
@@ -191,7 +187,7 @@ def test_theme_on_html(mk):
     voice.update_settings('look', theme='paper', mode='auto')
     cl = mk()
     t = cl.get('/settings').text
-    assert '<html data-theme="paper" data-mode="auto">' in t and '>Theme<' in t and 'value="sage"' in t
+    assert '<html data-theme="paper" data-mode="auto">' in t and '>Look<' in t and 'value="sage"' in t
     assert '/assets/themes.css' in t
 
 def test_theme_switch(mk):

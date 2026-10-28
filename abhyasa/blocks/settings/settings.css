@@ -16,15 +16,9 @@ table.models.small { max-width: 420px; }
 .cloud, .warn { color: var(--no); }
 p.warn { font-size: 15px; margin: 0 0 12px; }
 .inuse-line { margin: 0 0 12px; }
-label.check { display: flex; align-items: baseline; gap: 6px; text-transform: none; letter-spacing: 0; font: 16px/1.5 var(--serif); color: var(--fg); margin: 10px 0 14px; }
-label.check input { accent-color: var(--acc); }
 .lookup input[type=search] { flex: 1; min-width: 200px; }
 .jobs li { font-size: 15px; }
 #key input[type=password] { flex: 1; min-width: 200px; font: 16px/1.6 var(--mono); background: transparent; border: 0; border-bottom: 1px solid var(--rule); color: var(--fg); padding: 6px 2px; }
-table.tasks select, table.tasks input[type=text] { font-size: 16px; min-width: 220px; }
-table.tasks .acts input[type=text] { flex: 1; }
-table.tasks label.cap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin-top: 8px; }
-table.tasks label.cap input { width: 8em; font-size: 16px; }
 /* The prompts: each one opens to a raised editor. The box is monospace, so code-like text keeps its shape. */
 .prompts details.prompt { border-top: 1px solid var(--line); padding: 10px 0; }
 .prompts details.prompt:first-child { border-top: 0; }
@@ -34,3 +28,66 @@ table.tasks label.cap input { width: 8em; font-size: 16px; }
 .prompts form.raised { margin-top: 4px; }
 .prompts textarea { font: 14px/1.55 var(--mono); min-height: calc(10lh + 12px); max-height: 70vh; white-space: pre-wrap; tab-size: 4; }
 .prompts .acts { margin-top: 10px; align-items: baseline; }
+/* The page of groups (design review, section 4): a sticky index at the left from 1100 px, the groups at the right on hairline rows, no boxes. */
+.lead-page { margin-bottom: var(--s5); }
+.slayout { display: block; }
+.sindex { display: block; padding: 0; margin: 0 0 var(--s5); border: 0; font-size: var(--t-small); }
+.sindex input[type=search] { font-size: var(--t-small); max-width: 240px; margin-bottom: var(--s3); }
+.sindex .six { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); }
+.sindex a { color: var(--mute); text-decoration: none; padding: 0; border: 0; white-space: nowrap; }
+.sindex a:hover { color: var(--fg); }
+.sindex .n { font-variant-numeric: tabular-nums; }
+.sindex .dot { margin-left: var(--s2); vertical-align: middle; }
+@media (min-width: 1100px) {
+  .slayout { display: grid; grid-template-columns: 190px minmax(0, 720px); gap: var(--s7); justify-content: center; }
+  .sindex { position: sticky; top: var(--s5); align-self: start; margin: 0; }
+  .sindex .six { flex-direction: column; gap: var(--s2); }
+}
+.sgroups { min-width: 0; }
+.sgroup { scroll-margin-top: var(--s5); }
+.sgroup:first-child h2 { margin-top: var(--s2); }
+.ghead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s4); }
+.ghead h2 { margin-bottom: var(--s1); }
+.greset { font-size: var(--t-meta); color: var(--mute); }
+.greset a { color: var(--mute); }
+.greset button.small { padding: 4px 10px; font-size: var(--t-meta); margin-left: var(--s1); }
+.sgroup p.lead { color: var(--mute); font-size: var(--t-small); margin: 0 0 var(--s3); }
+/* One row: the label and its help at the left; the control, the range and the default at the right. */
+ul.srows li.srow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s2) var(--s5); align-items: start; padding: var(--s3) 0; }
+.srow .lft { position: relative; min-width: 0; }
+.srow label { font: 17px/1.4 var(--serif); letter-spacing: 0; text-transform: none; color: var(--fg); margin: 0; }
+.srow p.help { font-size: 14px; line-height: 1.5; color: var(--mute); margin: 2px 0 0; max-width: 46ch; }
+.srow .rgt { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s1); text-align: right; }
+.srow .rng { font-size: var(--t-meta); color: var(--mute); font-variant-numeric: tabular-nums; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; max-width: 300px; }
+.srow .rng .no { color: var(--no); text-align: right; }
+.srow .rng a.use { color: var(--mute); }
+.srow .rng a.use:hover { color: var(--acc); }
+.dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: transparent; transition: background var(--dur-3) var(--ease); }
+.dot.on { background: var(--acc); }
+.srow .lft > .dot { position: absolute; left: -16px; top: .62em; }
+.saved { color: var(--mute); animation: fade 2s var(--ease) forwards; }
+@keyframes fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+.num { display: inline-flex; align-items: center; gap: var(--s1); }
+.num input[type=number] { width: 6em; text-align: center; font-size: var(--t-list); padding: 4px 2px; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+.num input[type=number]::-webkit-inner-spin-button, .num input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+button.quiet { border-color: transparent; color: var(--mute); }
+button.quiet:hover { color: var(--fg); }
+.num button.step { padding: 4px 10px; font-size: 18px; line-height: 1; }
+.num.slide input[type=range] { width: 160px; margin: 0 var(--s2) 0 0; display: inline-block; }
+.num.slide input[type=number] { width: 4.5em; }
+.srow input.toggle { width: 18px; height: 18px; accent-color: var(--acc); margin: 4px 0; }
+.srow .modes-pick { display: flex; flex-wrap: wrap; gap: 2px; justify-content: flex-end; }
+.srow .modes-pick label { font-size: var(--t-small); padding: 4px 12px; color: var(--mute); }
+.srow select { width: auto; max-width: 300px; font-size: var(--t-list); }
+.srow .mrow { display: flex; gap: var(--s2); align-items: baseline; flex-wrap: wrap; justify-content: flex-end; }
+.srow .mrow button.small { padding: 4px 10px; font-size: var(--t-meta); }
+/* "More in <group>": closed, one quiet line */
+details.more { margin-top: var(--s2); }
+details.more > summary { cursor: pointer; color: var(--mute); font-size: var(--t-small); padding: var(--s2) 0; list-style-position: inside; }
+details.more > summary:hover { color: var(--fg); }
+details.more[open] > summary { margin-bottom: var(--s1); }
+details.more ul.srows li.srow:first-child { border-top-color: var(--line); }
+h3.sub { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: var(--s5) 0 var(--s2); }
+#speech { margin-bottom: var(--s3); }
+.prompts summary .dot { margin-right: var(--s2); vertical-align: middle; }
+@media (max-width: 640px) { ul.srows li.srow { grid-template-columns: 1fr; } .srow .rgt, .srow .rng { align-items: flex-start; text-align: left; } }

@@ -9,6 +9,10 @@
 @font-face { font-family: 'Libre Baskerville'; font-style: normal; font-display: swap; font-weight: 400; src: url(/assets/libre-baskerville-latin-ext-400-normal.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
 
 /* The colours and fonts (--bg --fg --ink2 --mute --line --rule --acc --ok --no --bad, --serif --head --mono) are in themes.css. */
+/* Shared steps (design review, section 5): space, type size and motion. Use these, not new values. */
+:root { --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 44px; --s8: 52px;
+        --t-lbl: 12px; --t-meta: 13px; --t-small: 15px; --t-list: 16px; --t-body: 18px; --t-q: 21px; --t-idea: 28px; --t-h1: 30px;
+        --dur-1: 140ms; --dur-2: 220ms; --dur-3: 300ms; --ease: cubic-bezier(.2, .7, .2, 1); }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { background: var(--bg); color: var(--fg); font: 18px/1.65 var(--serif); margin: 0; font-optical-sizing: auto; -webkit-font-smoothing: antialiased; }

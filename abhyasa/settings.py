@@ -31,18 +31,18 @@ GROUPS = dict(look=('Look', 'Pick the colours of the app.'),
 SETTINGS = {}   # 'section.key' -> the row
 
 def add(name:str, group:str, label:str, help:str, dflt, lo=None, hi=None, more:bool=False, choices=None, unit:str='',
-        pct:bool=False, store:str='file', ui:bool=True):
+        pct:bool=False, store:str='file', ui:bool=True, reset:bool=True):
     "Add the setting `name` to `SETTINGS` and return its row."
     kind = ('bool' if isinstance(dflt, bool) else 'choice' if choices else 'int' if isinstance(dflt, int) else
             'float' if isinstance(dflt, float) else 'str')
     sec, key = name.split('.', 1)
     SETTINGS[name] = r = AttrDict(name=name, section=sec, key=key, group=group, label=label, help=help, kind=kind, dflt=dflt,
-                                  lo=lo, hi=hi, more=more, choices=tuple(choices or ()), unit=unit, pct=pct, store=store, ui=ui)
+                                  lo=lo, hi=hi, more=more, choices=tuple(choices or ()), unit=unit, pct=pct, store=store, ui=ui, reset=reset)
     return r
 
 # %% ../nbs/16_settings.ipynb #b9e18e8c
-add('look.theme', 'look', 'Theme', 'The colours of the app.', 'paper', ui=False)
-add('look.mode', 'look', 'Light or dark', 'Auto follows the Mac.', 'auto', ui=False)
+add('look.theme', 'look', 'Theme', 'The colours of the app.', 'paper', ui=False, reset=False)
+add('look.mode', 'look', 'Light or dark', 'Auto follows the Mac.', 'auto', ui=False, reset=False)
 add('learning.pace', 'learning', 'Pace', 'How big each step is. Gentle uses small steps. Fast uses bigger steps.', 'steady',
     choices=('gentle', 'steady', 'fast'), store='profile')
 add('learning.session_len', 'learning', 'Questions in a session', 'How many questions the tutor asks in one session.', 12, 3, 40, store='profile')
@@ -91,8 +91,8 @@ add('runner.per_test', 'runner', 'Time for each test', 'How long one test can ru
 add('runner.file_mb', 'runner', 'Largest file', 'The largest file that your code can write.', 10, 1, 100, more=True, unit='MB');
 
 # %% ../nbs/16_settings.ipynb #ec6cb843
-add('stt.engine', 'stt', 'Engine', 'The speech engine.', 'gemma', ui=False)
-add('stt.model', 'stt', 'Model', 'The speech model. Empty uses the default of the engine.', '', ui=False)
+add('stt.engine', 'stt', 'Engine', 'The speech engine.', 'gemma', ui=False, reset=False)
+add('stt.model', 'stt', 'Model', 'The speech model. Empty uses the default of the engine.', '', ui=False, reset=False)
 add('stt.segment', 'stt', 'Cut at pauses', 'The text shows after each pause. When this is off, the text comes in fixed blocks of time.', True)
 add('stt.pause', 'stt', 'Pause before a cut', 'How long a pause must be before the text of what you said shows.', 700, 300, 2000, more=True, unit='ms')
 add('stt.longest', 'stt', 'Longest segment', 'The text shows after this time, also when you do not pause.', 12, 5, 30, more=True, unit='s');
@@ -229,8 +229,8 @@ def rows(group:str) -> list:
     return [r for r in SETTINGS.values() if r.group == group]
 
 def reset_group(group:str) -> list:
-    "Use the default of each row of `group` that the file keeps. Return their names."
-    ns = [r.name for r in rows(group) if r.store == 'file' and raw(r.name) is not None]
+    "Use the default of each row of `group` that the file keeps and that a group reset can change. Return their names."
+    ns = [r.name for r in rows(group) if r.store == 'file' and r.reset and raw(r.name) is not None]
     d = settings()
     for n in ns: d[SETTINGS[n].section].pop(SETTINGS[n].key, None)
     save_settings(d)

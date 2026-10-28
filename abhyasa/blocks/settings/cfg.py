@@ -1,5 +1,9 @@
 class Routes:
     base = '/settings'
+    value = '/settings/value'          # save one value of the settings table
+    default = '/settings/default'      # use the default of one value
+    group_ask = '/settings/group/ask'  # ask before a group goes back to its defaults
+    group_default = '/settings/group/default'   # use the defaults of a group
     use = '/settings/use'            # switch the speech engine and model
     segment = '/settings/segment'    # cut at pauses, on or off
     search = '/settings/search'      # look up speech models on Hugging Face
@@ -10,7 +14,6 @@ class Routes:
     key = '/settings/key'            # set or clear the OpenAI key
     model = '/settings/model'        # the model for one tutor task
     test = '/settings/model/test'    # time one short call to a model
-    tokens = '/settings/model/tokens'  # the reply cap of one tutor task
     catalog = '/settings/catalog'    # the models that can run here, for the pickers
     look = '/settings/look'          # the theme and the mode: light, dark or auto
     prompt = '/settings/prompt'      # save the text of one tutor prompt; empty: the default

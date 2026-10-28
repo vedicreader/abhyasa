@@ -1,12 +1,14 @@
+"The Settings page: a side index of the groups, then each group on quiet hairline rows, with the rarely changed values under a closed `More`."
 import os
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Spin, asset_css, THEMES, MODES, look
+from abhyasa.core import Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say
 from abhyasa import voice
+from abhyasa.settings import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped
 from .cfg import Routes
 
 _P = Path(__file__).parent
-def assets(): return (asset_css(_P/'settings.css'),)
+def assets(): return (asset_css(_P/'settings.css'), asset_js(_P/'settings.js'))
 
 def size(n:int) -> str:
     "Bytes as MB or GB."
@@ -14,18 +16,67 @@ def size(n:int) -> str:
 
 def pct(x): return '' if x is None else f'{x:.0%}'
 
+def reset_attrs(name): return dict(hx_post=Routes.default, hx_vals={'name': name}, hx_target=f'#{row_id(SETTINGS[name])}', hx_swap='outerHTML')
+
+def Row(r, v):
+    "A setting row on this page: its value posts to `Routes.value`, and `Use the default` to `Routes.default`."
+    return SettingRow(r, v, Routes.value, reset_attrs(r.name), file=clamped(r.name) if r.store == 'file' else None)
+
+def More(group, *items, names=()):
+    "The closed part of a group: `More in Walks: passage length, note length, depth, and 2 more`."
+    if not any(items): return ''
+    ns = [n.lower() for n in names]
+    say_ = ', '.join(ns[:3]) + (f', and {len(ns) - 3} more' if len(ns) > 3 else '')
+    return Details(Summary(f'More in {GROUPS[group][0]}' + (f': {say_}' if ns else '')), *items, cls='more')
+
+def Head(g, n=0):
+    "The group label, and `Use the defaults for this group` when the group has changed values."
+    return Div(H2(GROUPS[g][0]), GroupReset(g, n), cls='ghead')
+
+def GroupReset(g, n=0, ask=False, oob=False):
+    "`Use the defaults for this group`; it asks one time before it changes the values."
+    o = dict(hx_swap_oob='true') if oob else {}
+    if not n: return Span(id=f'gr-{g}', cls='greset', **o)
+    if ask:
+        return Span(f"Use the default for {n} value{'s' * (n != 1)} in {GROUPS[g][0]}? ",
+                    Button('Yes', type='button', cls='quiet small', hx_post=Routes.group_default, hx_vals={'group': g}, hx_target=f'#g-{g}', hx_swap='outerHTML'),
+                    Button('No', type='button', cls='quiet small', hx_get=Routes.group_ask, hx_vals={'group': g, 'no': 1}, hx_target=f'#gr-{g}', hx_swap='outerHTML'),
+                    id=f'gr-{g}', cls='greset ask', **o)
+    return Span(A('Use the defaults for this group', href='#', hx_get=Routes.group_ask, hx_vals={'group': g}, hx_target=f'#gr-{g}', hx_swap='outerHTML'),
+                id=f'gr-{g}', cls='greset', **o)
+
+def Group(g, n, *shown, more=(), names=(), extra=()):
+    "One group: the head, one lead line, the rows that show, then the closed `More` part."
+    return Section(Head(g, n), P(GROUPS[g][1], cls='lead'), *extra, Ul(*shown, cls='plain srows') if shown else '',
+                   More(g, *more, names=names), id=f'g-{g}', cls='sgroup')
+
+def RowGroup(g, n, value, extra=(), more_extra=()):
+    "A group made only of setting rows: `value(r)` gives the value of row `r`."
+    rs = [r for r in rows(g) if r.ui]
+    sh, mo = [r for r in rs if not r.more], [r for r in rs if r.more]
+    return Group(g, n, *[Row(r, value(r)) for r in sh], extra=extra,
+                 more=(Ul(*[Row(r, value(r)) for r in mo], cls='plain srows') if mo else '', *more_extra), names=[r.label for r in mo])
+
+def Index(counts):
+    "The side index: a box that finds a setting, then a link to each group, with a dot and the count of changed values."
+    return Nav(Input(type='search', placeholder='Find a setting', id='sfind', aria_label='Find a setting', autocomplete='off'),
+               Ul(*[IndexItem(g, counts.get(g, 0)) for g in GROUPS], cls='six'), cls='sindex', aria_label='Groups of settings')
+
+def IndexItem(g, n, oob=False):
+    return Li(A(GROUPS[g][0], Span(f' · {n}', cls='n') if n else '', Span(cls='dot on') if n else '', href=f'#g-{g}'),
+              id=f'ix-{g}', **(dict(hx_swap_oob='true') if oob else {}))
+
 def Look():
     "The theme and the mode. A click changes the page at once (core.js), and the form saves the choice."
     t, m = look()
     def theme(k, note):
         return Label(Input(type='radio', name='theme', value=k, checked=k == t), Span(I(), I(), I(), cls='sw', data_theme=k),
                      Span(Span(k.capitalize(), cls='nm', data_theme=k), Small(note)))
-    return Section(H2('Theme'),
+    return Group('look', 0, extra=(
         Form(Div(*[theme(k, n) for k, n in THEMES.items()], cls='themes', role='radiogroup', aria_label='Theme'),
              Div(*[Label(Input(type='radio', name='mode', value=k, checked=k == m), 'Auto, as the Mac' if k == 'auto' else k.capitalize())
                    for k in MODES], cls='modes-pick', role='radiogroup', aria_label='Light or dark'),
-             hx_post=Routes.look, hx_trigger='change', hx_swap='none', data_quiet='1'),
-        id='look')
+             hx_post=Routes.look, hx_trigger='change', hx_swap='none', data_quiet='1', id='look'),))
 
 def Status(sp):
     "The state of the model in use; it asks again each second while the model loads."
@@ -65,21 +116,22 @@ def Known(cur, s, key):
     return Table(Thead(hd), Tbody(*map(row, voice.KNOWN + more)), cls='models')
 
 def Speech(sp, key, oob=False):
-    "The speech section: the model in use, cut at pauses, and the known models."
+    "The model in use and the known models, with their numbers."
     s, cur = voice.settings(), voice.current()
     env = os.getenv('ABHYASA_STT')
     known = next((k['label'] for k in voice.KNOWN if (k['engine'], k['model']) == cur), cur[1])
-    return Section(
-        H2('Speech to text'),
+    return Div(
         P(Strong(known), ' ', Span(f'{cur[0]} · {cur[1]}', cls='mute'), ' ', Status(sp), cls='inuse-line'),
         P(f'The speech engine is set to {env} outside this page ($ABHYASA_STT), so a choice here has no effect. '
           'In Abhyasa.app, open Abhyasa, then Settings, and set Speech engine to "From the Settings page".', cls='warn') if env else '',
-        Label(Input(type='checkbox', name='on', checked=s['stt']['segment'], hx_post=Routes.segment, hx_trigger='change', hx_swap='none',
-                    hx_vals='js:{on: event.target.checked ? 1 : 0}'),
-              ' Cut at pauses', Span('The text comes after each pause. When this is off, the text comes every 10 seconds.', cls='note'), cls='check'),
         P('Clip A is English speech. Clip B has Nyāya terms in IAST and maths words. The model gets these terms as a hint. The numbers are word error rates on this Mac, with the model already loaded. Terms: the number of key terms written correctly. '
-          '"5 s" is the time for one 5-second segment. Only one model is in memory at a time.', cls='mute'),
-        Known(cur, s, key), Span(Spin('switching…'), id='use-sp'), id='speech', **(dict(hx_swap_oob='true') if oob else {}))
+                  '"5 s" is the time for one 5-second segment. Only one model is in memory at a time.', cls='mute'),
+        Known(cur, s, key),
+        Span(Spin('switching…'), id='use-sp'), id='speech', **(dict(hx_swap_oob='true') if oob else {}))
+
+def SpeechGroup(sp, key, jobs, n):
+    "Speech to text: the model in use and the model table, cut at pauses, then the pauses, the model search and the OpenAI key under More."
+    return RowGroup('stt', n, lambda r: val(r.name), extra=(Speech(sp, key), Jobs(jobs)), more_extra=(Lookup(), Key()))
 
 def Job(j):
     if j.state == 'downloading':
@@ -106,7 +158,7 @@ def Found(rows, cur):
     return Table(Thead(Tr(*map(Th, ('Model', 'Size', 'Downloads', '', '')))), Tbody(*map(row, rows)), cls='models')
 
 def Lookup():
-    return Section(H2('Look up models'),
+    return Div(H3('Look up models', cls='sub'),
         P('Search the mlx-community models on Hugging Face. The list shows only speech to text models that mlx-audio can load.', cls='mute'),
         Form(Input(type='search', name='q', placeholder='whisper, qwen3-asr, parakeet, voxtral…'), Button('Look up'), Spin('looking…'),
              hx_get=Routes.search, hx_target='#found', cls='row lookup'),
@@ -118,7 +170,7 @@ def Key(err=''):
     own = src == str(voice.cfg_dir()/'keys.env')
     have = (P('In use: ', Code(voice.masked(k)), ' from ', Span('the environment (OPENAI_API_KEY)' if src == 'environment' else src),
               '' if own or src == 'environment' else ' (read only)', '.', cls='mute') if k else P('There is no key. The OpenAI engine is off.', cls='mute'))
-    return Section(H2('OpenAI key'),
+    return Div(H3('OpenAI key', cls='sub'),
         P(Strong('The OpenAI engine sends your audio off this machine.'), ' The other engines keep it here.', cls='warn'),
         have, P(err, cls='warn', role='alert') if err else '',
         Form(Input(type='password', name='key', placeholder='sk-…', autocomplete='off'), Button('Save key'),
@@ -127,67 +179,65 @@ def Key(err=''):
         P(f'abhyasa keeps the key in {voice.cfg_dir()/"keys.env"}, with mode 0600. It never writes it to the vault.', cls='mute'),
         id='key')
 
-TASK_NOTE = dict(question='writes each question and its hidden answer', grade='reads the conversation and grades it',
-                 hint='gives the next hint', lesson='teaches the smallest step after a miss', extract='finds the concepts in a text')
-
 OTHER = '__other__'   # the list item that shows a text box for a model id
 
-def Pick(task, name, dflt, rows):
+def Pick(task, name, dflt_label, rows):
     "The model list for one task: the default, then the models grouped by provider, then 'Type another model id'."
-    from abhyasa.llm import model_label, PROVIDERS, DFLT_MODEL
+    from abhyasa.llm import model_label, PROVIDERS
     groups, ids = {}, {r['value'] for r in rows}
     for r in rows: groups.setdefault(r.get('provider', ''), []).append(r)
     opt = lambda v, n: Option(n, value=v, selected=v == name, title=v)
-    return Select(Option(f'Default: {model_label(dflt or DFLT_MODEL)}', value='', selected=not name),
+    return Select(Option(dflt_label, value='', selected=not name),
                   Optgroup(opt(name, model_label(name)), label='Saved') if name and name not in ids else '',
                   *[Optgroup(*[opt(r['value'], r.get('name') or model_label(r['value'], p)) for r in rs], label=PROVIDERS.get(p, p.capitalize() or 'Other'))
                     for p, rs in groups.items()],
                   Option('Type another model id…', value=OTHER),
-                  name='model', aria_label=f'The model for {task}', hx_post=Routes.model, hx_vals={'task': task}, hx_trigger='change',
-                  hx_target=f'#tm-{task}', hx_swap='outerHTML')
+                  name='model', id=f'{row_id(SETTINGS["models." + task])}-c', aria_label=f'The model for {TASK_LABEL.get(task, "the default").lower()}',
+                  hx_post=Routes.model, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#{row_id(SETTINGS["models." + task])}', hx_swap='outerHTML')
 
 def Typed(task, name):
     "A text box for a model id that the list does not have."
-    return Span(Input(type='text', name='model', value=name, placeholder='a model id, such as claude/sonnet', autofocus=True,
-                      hx_post=Routes.model, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#tm-{task}', hx_swap='outerHTML',
+    i = row_id(SETTINGS['models.' + task])
+    return Span(Input(type='text', name='model', value=name, placeholder='a model id, such as claude/sonnet', autofocus=True, id=f'{i}-c',
+                      hx_post=Routes.model, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#{i}', hx_swap='outerHTML',
                       autocomplete='off', spellcheck='false', aria_label=f'The model id for {task}'),
                 Button('Back to the list', type='button', hx_post=Routes.model, hx_vals={'task': task, 'model': name},
-                       hx_target=f'#tm-{task}', hx_swap='outerHTML'), cls='acts')
+                       hx_target=f'#{i}', hx_swap='outerHTML'), cls='acts')
 
-def Cap(task, value=None, err=''):
-    "The reply cap of one task, in tokens: empty means the default, which shows in the box. `err` says why a value was refused."
-    from abhyasa.llm import TOKENS, TOKENS_MAX
-    if value is None: value = voice.settings()['tokens'].get(task, '')
-    return Label(Span('Most tokens in a reply', cls='mute'),
-                 Input(type='number', name='tokens', value=value, placeholder=str(TOKENS[task]), min='1', max=str(TOKENS_MAX), step='1',
-                       inputmode='numeric', hx_post=Routes.tokens, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#tc-{task}',
-                       hx_swap='outerHTML', aria_label=f'The most tokens in a reply for {task}'),
-                 Span(err, cls='no', role='alert') if err else '', id=f'tc-{task}', cls='cap')
+def fallback(task, router) -> str:
+    "What an empty model means for `task`: the model it borrows, else the default model."
+    from abhyasa.llm import model_label, DFLT_MODEL
+    if task == 'default': return f"abhyasa's default: {model_label(DFLT_MODEL)}"
+    dm = router.model or DFLT_MODEL
+    if task in BORROWS: return f'Same as {TASK_LABEL[BORROWS[task]].lower()}: {model_label(router.name(BORROWS[task]) or dm)}'
+    return f'Default: {model_label(dm)}'
 
-def TaskRow(task, name, dflt, rows, typing=False):
-    "One tutor task: its model (empty means the default), its reply cap, and a test."
-    return Tr(Td(Span(task, cls='task'), Br(), Span(TASK_NOTE[task], cls='mute')),
-              Td(Typed(task, name) if typing else Pick(task, name, dflt, rows), Cap(task)),
-              Td(Button('Test', type='button', hx_post=Routes.test, hx_vals={'task': task}, hx_include='closest tr', hx_target=f'#tt-{task}',
-                        data_wait='Testing…'), Span(id=f'tt-{task}', cls='mute')),
-              id=f'tm-{task}')
+def ModelRow(task, router, rows, typing=False, set_by=''):
+    "One model row: the list of models and a Test button. `set_by` says what sets the default model outside this page."
+    from abhyasa.llm import model_label, DFLT_MODEL
+    r = SETTINGS['models.' + task]
+    name, i = (val(r.name) or ''), row_id(r)
+    test = '' if task == 'default' else Span(Button('Test', type='button', cls='quiet small', hx_post=Routes.test, hx_vals={'task': task},
+                                                    hx_include=f'#{i}-c', hx_target=f'#{i}-t', data_wait='Testing…'), Span(id=f'{i}-t', cls='mute'))
+    ctl = Div(Typed(task, name) if typing else Pick(task, name, fallback(task, router), rows), test, cls='mrow')
+    rng = Div(Span(f'{set_by} sets the model now, so this choice has no effect.', cls='no') if set_by else Span(f"default {model_label(DFLT_MODEL)}" if task == 'default' else
+                                                                                                 f'default: the model for {TASK_LABEL[BORROWS[task]].lower()}' if task in BORROWS else 'default: the default model'),
+              A('Use the default', href='#', cls='use', hx_post=Routes.model, hx_vals={'task': task, 'model': ''}, hx_target=f'#{i}', hx_swap='outerHTML') if name else '',
+              cls='rng', id=f'{i}-m')
+    return Li(Div(Span(cls='dot' + (' on' if name else ''), id=f'{i}-dot'), Label(r.label, fr=f'{i}-c'), P(r.help, cls='help'), cls='lft'),
+              Div(ctl, rng, cls='rgt'), cls='srow', id=i, data_find=f'{r.label} {r.help}'.lower())
 
-def Tasks(router, rows):
-    "The table of tutor tasks, each with its model list."
-    from abhyasa.llm import TASKS
-    ms = voice.settings()['models']
-    return Table(Tbody(*[TaskRow(t, ms.get(t, ''), router.model, rows) for t in TASKS]), cls='models tasks', id='tasks')
+def Models(router, cat, set_by=''):
+    "The model rows: the default and the four main tasks, then the other tasks and the reply caps under More."
+    main, other = ('default', 'question', 'grade', 'hint', 'lesson'), ('extract', *BORROWS)
+    caps = [r for r in rows('models') if r.name.startswith('tokens.')]
+    return Div(Ul(*[ModelRow(t, router, cat, set_by=set_by if t == 'default' else '') for t in main], cls='plain srows'),
+               More('models', Ul(*[ModelRow(t, router, cat) for t in other], cls='plain srows'), Ul(*[Row(r, val(r.name)) for r in caps], cls='plain srows'),
+                    names=[TASK_LABEL[t] for t in other] + ['reply caps']), id='models')
 
-def Tutor(router):
-    "The model for each tutor task. A quick model can grade and give hints. A strong model can write questions and lessons."
-    return Section(H2('Tutor models'),
-        P('Choose a model for each task. "Default" uses the model that the app started with. '
-          'The list shows the models that can run here. A change works at once. "Test" times one short call. '
-          '"Most tokens in a reply" stops a long reply. Make it empty to use the default, which shows in the box. '
-          'Claude Code models do not use this limit.', cls='mute'),
-        Div(Spin('getting the list of models…'), hx_get=Routes.catalog, hx_trigger='load', hx_swap='outerHTML', id='tasks'),
-        id='tutor-models')
-
+def ModelsGroup(n):
+    "The Models group. The model lists load after the page, because the list of models can take a moment."
+    return Group('models', n, extra=(Div(Spin('getting the list of models…'), hx_get=Routes.catalog, hx_trigger='load', hx_swap='outerHTML', id='models'),))
 
 def registry() -> dict:
     "The editable prompts. Each engine module adds its own when it loads."
@@ -199,7 +249,7 @@ def PromptItem(p, text=None, err='', said=''):
     "One prompt: its label, a note on what it changes, and a raised editor with the text in use. `err` says why a text was refused."
     from abhyasa.prompts import saved, prompt
     mine, pid = p.name in saved(), 'pr-' + p.name.replace('.', '-')
-    return Details(Summary(Span(p.label, cls='nm'), Span('Your text' if mine else 'The default', cls='mute state')),
+    return Details(Summary(Span(cls='dot' + (' on' if mine else '')), Span(p.label, cls='nm'), Span('Your text' if mine else 'The default', cls='mute state')),
                    P(p.note, cls='mute note'),
                    Form(Textarea(prompt(p.name) if text is None else text, name='text', spellcheck='false', autocomplete='off',
                                  aria_label=f'The text of {p.label}'),
@@ -208,13 +258,12 @@ def PromptItem(p, text=None, err='', said=''):
                                                    hx_target=f'#{pid}', hx_swap='outerHTML'),
                             Span(said, cls='ok') if said else '', cls='acts'),
                         hx_post=Routes.prompt, hx_vals={'name': p.name}, hx_target=f'#{pid}', hx_swap='outerHTML', cls='raised'),
-                   id=pid, cls='prompt', open=bool(err or said))
+                   id=pid, cls='prompt', open=bool(err or said), data_find=f'{p.label} {p.note}'.lower())
 
-def Prompts():
-    "The instruction text of the tutor: one item for each prompt, the ways last."
+def Prompts(n):
+    "The instruction text of the tutor: one closed item for each prompt, the ways last."
     ps = sorted(registry().values(), key=lambda p: p.name.startswith('way.'))
-    return Section(H2('Prompts'),
-        P('These texts tell the model how to ask, grade, hint and teach. A change works on the next question. '
-          'To go back to the text that comes with abhyasa, click "Use the default", or save an empty box. '
+    return Group('prompts', 0, extra=(
+        P('A change works on the next question. To go back to the text that comes with abhyasa, click "Use the default", or save an empty box. '
           'The concept, the conversation and the reply format stay in code.', cls='mute'),
-        Div(*map(PromptItem, ps), cls='prompts'), id='prompts')
+        Div(*map(PromptItem, ps), cls='prompts')))

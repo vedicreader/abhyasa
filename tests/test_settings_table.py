@@ -191,3 +191,38 @@ def test_all_prompts_registered(mk):
     assert depth_ask(4).startswith('apply it')
     set_prompt('depths', 'see it\nsay it\nwhy it\nuse it\nmove it')
     assert depth_ask(4) == 'use it'
+
+# The Settings page
+
+def test_page_lists_every_group_in_order(mk):
+    import re
+    from abhyasa.core import say
+    t = mk().get('/settings').text
+    ids = re.findall(r'<section id="g-(\w+)"', t)
+    assert ids == list(GROUPS)
+    for r in SETTINGS.values():
+        if not r.ui or r.group == 'models': continue                       # the model rows load after the page
+        assert r.help in t.replace('&quot;', '"'), r.name
+        if r.kind in ('int', 'float'): assert f'to {say(r, r.hi if not isinstance(r.hi, str) else 20)} · default {say(r, r.dflt)}' in t, r.name
+    assert 'More in Walks: passage length, note length, rabbit-hole depth, and 2 more' in t
+    assert 'Use the default (' not in t and 'Use the defaults for this group' not in t     # all defaults: the page stays quiet
+
+def test_page_saves_clamps_and_uses_the_default(mk):
+    cl = mk()
+    r = cl.post('/settings/value', data=dict(name='walks.steps', value='50'))
+    assert val('walks.steps') == 30 and 'value="30"' in r.text                             # out of range: the most, and the box shows it
+    t = cl.post('/settings/value', data=dict(name='walks.steps', value='8')).text
+    assert val('walks.steps') == 8 and 'Saved' in t and 'Use the default (12)' in t and 'Walks<span class="n"> · 1' in t
+    assert 'Use the default for 1 value in Walks?' in cl.get('/settings/group/ask', params=dict(group='walks')).text
+    t = cl.post('/settings/default', data=dict(name='walks.steps')).text
+    assert val('walks.steps') == 12 and 'Use the default (' not in t
+    cl.post('/settings/value', data=dict(name='walks.hands', value='50'))                    # a share comes as a percent
+    cl.post('/settings/value', data=dict(name='checks.one_ask', value='0'))
+    assert (val('walks.hands'), val('checks.one_ask')) == (.5, False)
+    cl.post('/settings/group/default', data=dict(group='walks'))
+    assert val('walks.hands') == 1/3 and val('checks.one_ask') is False                     # only the walks went back
+    assert cl.post('/settings/value', data=dict(name='mine.x', value='1')).status_code == 400
+
+def test_page_says_when_the_file_had_a_value_out_of_range(mk):
+    (cfg_dir()/'settings.json').write_text(json.dumps(dict(walks=dict(steps=50))))
+    assert 'Your file had 50. The most is 30, so abhyasa uses 30.' in mk().get('/settings').text
