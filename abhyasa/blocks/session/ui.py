@@ -57,7 +57,7 @@ def Rail(sid, past=(), outcomes=None, current=None, viewing=None, oob=False):
         return Li(A(Span(q.name, cls='n'), Span(' · '.join(x for x in (DEPTHS[q.depth], oc) if x), cls='mute'),
                     href=f"{Routes.at(Routes.page, sid)}?q={q.id}"), cls='on' if viewing == q.id else None, data_q=q.id)
     cur = Li(A(Span(current.name, cls='n'), Span('now', cls='mute'), href=Routes.at(Routes.page, sid)), cls='now' + (' on' if not viewing else '')) if current else ''
-    return Details(Summary(f'Earlier questions ({len(past)})'), Ol(*map(row, past), cur, cls='rail-list'),
+    return Details(Summary(f'Earlier questions · {len(past)}' if past else 'This session'), Ol(*map(row, past), cur, cls='rail-list'),
                    open=True, id='rail', cls='rail', hx_swap_oob='true' if oob else None)
 
 def You(text, thinking='', confidence=None):

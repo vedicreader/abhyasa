@@ -183,3 +183,12 @@ def test_search_shows_hits_by_kind(mk, walk_fake, lr):
     from fasthtml.common import to_xml
     from abhyasa.blocks.search.app import Elsewhere
     assert 'class="mute empty">Nothing found.<' in to_xml(Elsewhere([]))
+
+def test_session_rail_names_this_session():
+    "With no earlier question, the rail says This session; with some, Earlier questions · N (not the current one)."
+    from fasthtml.common import to_xml
+    from fastcore.utils import AttrDict
+    from abhyasa.blocks.session.ui import Rail
+    q = AttrDict(id='q1', name='Ranking', depth=2)
+    assert '<summary>This session</summary>' in to_xml(Rail('s1', current=q))
+    assert '<summary>Earlier questions · 1</summary>' in to_xml(Rail('s1', past=[AttrDict(id='q0', name='Softmax', depth=1)], current=q))
