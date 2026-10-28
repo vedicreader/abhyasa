@@ -19,7 +19,7 @@ from abhyasa.llm import Router, Fake, route_ask, for_task
 from abhyasa.tutor import Tutor
 from abhyasa.ground import VaultSource
 from abhyasa.sources import file_link, LinkError
-from abhyasa.journey import journey_from_sources, walk_from_topic, walk_state, handoff
+from abhyasa.journey import journey_from_sources, walk_from_topic, walk_state, handoff, MAX_STEPS
 from abhyasa.walk import tutor_note, open_short, code_task, run_code, step_meta
 from abhyasa.core.leela import leela_link
 from grade_eval import question_checks
@@ -29,7 +29,7 @@ CASES = [dict(name='attention', link='1706.03762', pages=1),
          dict(name='pydantic-ai', link='https://ai.pydantic.dev', pages=8, tool=True),
          dict(name='claude-code', link='https://docs.claude.com/en/docs/claude-code/overview', pages=8, tool=True)]
 PORT = 5019   # the port of the fake Leela address file
-MARKS = 'steps 5 to 40; passage on 70% of steps (a paper or docs walk); every question passes; grade right both ways; naive code fails and good code passes; no code check and right links on a tool walk; at most 30 s a step'
+MARKS = f'steps 5 to {MAX_STEPS}; passage on 70% of steps (a paper or docs walk); every question passes; grade right both ways; naive code fails and good code passes; no code check and right links on a tool walk; at most 30 s a step'
 
 class Timed(Router):
     "A `Router` that keeps the seconds of each model call in `calls`."
@@ -206,7 +206,7 @@ def flags(r) -> list:
     "What is outside the guides, for a row `r`."
     if r.get('error'): return [f'The case failed: {r.error}']
     m, g, c, h, out = r.m, r.get('g'), r.get('c'), r.get('h'), []
-    if not 5 <= m.steps <= 40: out.append(f'{m.steps} steps (5 to 40)')
+    if not 5 <= m.steps <= MAX_STEPS: out.append(f'{m.steps} steps (5 to {MAX_STEPS})')
     if r.case.get('link') and m.found * 100 < 70 * m.steps: out.append(f'passage on {m.found} of {m.steps} steps (70%)')
     if m.asks_ok < m.asks: out.append(f'{m.asks - m.asks_ok} of {m.asks} questions fail a check')
     if r.get('g_error') or (g and not (g.good and g.weak)): out.append(f'the grade round trip is not right: {g or r.g_error}')
@@ -228,7 +228,7 @@ def report(rows, out) -> str:
         md.append('\n'.join(f'- Outside the guides: {f}' for f in flags(r)) or '- Inside every guide.')
         if r.get('error'): continue
         m = r.m
-        md.append(f"- Steps: {m.steps}; build {r.build.secs:.0f} s; {r.n_calls} model calls, {r.s_call:.1f} s each on average.")
+        md.append(f"- Steps: {m.steps}, and {len(r.build.j.get('more') or ())} more ideas that are not steps; build {r.build.secs:.0f} s; {r.n_calls} model calls, {r.s_call:.1f} s each on average.")
         for b in m.bad_asks: md.append(f'- Step {b.step} ({b.name}) fails {", ".join(b.failed)}: {b.question!r}')
         if r.get('g'): md.append(f'- Grade: the {r.g.basis} graded correct: {r.g.good}; "I am not sure." graded not correct: {r.g.weak}.')
         if r.get('c'): md.append(f'- Code: naive {r.c.naive}, good {r.c.good}, {r.c.secs:.0f} s.')
