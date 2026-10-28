@@ -77,7 +77,7 @@ def test_graph_marks_what_moved_since_the_last_visit():
     "graph.js keeps the floors of the last visit, pulses each moved idea once, and says how many moved; with no motion, only the line."
     js, css = src('blocks/graph/graph.js'), src('blocks/graph/graph.css')
     assert "'abhyasa.graph.seen'" in js and 'abhyasaMotion()' in js
-    assert "moved since your last visit." in js and "n === 1 ? 'idea' : 'ideas'" in js
+    assert "went up since your last visit." in js and "n.floor > before[n.id]" in js and "n === 1 ? 'idea' : 'ideas'" in js
     assert 'PULSE = 600' in js
     assert '#graph .moved' in css
 

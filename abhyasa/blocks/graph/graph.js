@@ -34,17 +34,18 @@
   const dueness = n => n.days === null ? 0 : n.days <= 0 ? 1 : Math.max(0, 1 - n.days / 14);
   if (root.dataset.subject && subjects.includes(root.dataset.subject)) subjects.forEach(s => S.subs[s] = s === root.dataset.subject);
 
-  // ---- what moved since your last visit -----------------------------------------------------------------------------
-  // The floors of the last visit stay in localStorage. Each idea whose floor changed gets one soft ring pulse in its new colour,
-  // and a new idea fades in beside its first prereq. A quiet line says how many. With reduced motion: only the line and the colours.
+  // ---- what went up since your last visit ---------------------------------------------------------------------------
+  // The floors of the last visit stay in localStorage. Each idea whose floor went up gets one soft ring pulse in its new colour,
+  // and a new idea fades in beside its first prereq. A quiet line says how many. A floor that went down shows only its new colour.
+  // With reduced motion: only the line and the colours.
   const SEEN = 'abhyasa.graph.seen', PULSE = 600, FADE = 220, motion = abhyasaMotion();
   let last; try { last = JSON.parse(localStorage.getItem(SEEN)); } catch { last = null; }
   const before = last && last.floors || null;
-  const changed = before ? nodes.filter(n => n.id in before && before[n.id] !== n.floor) : [];
+  const rose = before ? nodes.filter(n => n.id in before && n.floor > before[n.id]) : [];
   const fresh = before ? nodes.filter(n => !(n.id in before)) : [];
   try { localStorage.setItem(SEEN, JSON.stringify({at: Date.now(), floors: {...before, ...Object.fromEntries(nodes.map(n => [n.id, n.floor]))}})); } catch {}
   const ideas = n => `${n} ${n === 1 ? 'idea' : 'ideas'}`;
-  const said = [changed.length ? `${ideas(changed.length)} moved since your last visit.` : '', fresh.length ? `You have ${fresh.length} new ${fresh.length === 1 ? 'idea' : 'ideas'} since your last visit.` : ''].filter(Boolean);
+  const said = [rose.length ? `${ideas(rose.length)} went up since your last visit.` : '', fresh.length ? `You have ${fresh.length} new ${fresh.length === 1 ? 'idea' : 'ideas'} since your last visit.` : ''].filter(Boolean);
   if (said.length) stage.append(Object.assign(document.createElement('p'), {className: 'moved', textContent: said.join(' ')}));
   let pulse = null;   // {t0, ring: Set, fade: Set} while the pulse runs
 
@@ -533,6 +534,6 @@
   if (cam && !picked && Math.abs((cam.w || W) - W) < 40) sel.call(zoom.transform, d3.zoomIdentity.translate(cam.x, cam.y).scale(cam.k));
   else setTimeout(() => { fit(0); if (picked) setTimeout(() => centre(picked), 50); }, tween ? tween.ms : 0);
   root.focus({preventScroll: true});
-  if (motion && (changed.length || fresh.length)) setTimeout(() => { pulse = {t0: performance.now(), ring: new Set(changed), fade: new Set(fresh)}; dirty(); }, tween ? tween.ms : 150);
-  window.abhyasaGraph = {nodes, stats, moved: changed.map(n => n.id), fresh: fresh.map(n => n.id), get pulsing() { return !!pulse; }, get t() { return t; }, get mode() { return S.mode; }, get vis() { return vis; }, get moving() { return !!tween || sim.alpha() > sim.alphaMin(); }};
+  if (motion && (rose.length || fresh.length)) setTimeout(() => { pulse = {t0: performance.now(), ring: new Set(rose), fade: new Set(fresh)}; dirty(); }, tween ? tween.ms : 150);
+  window.abhyasaGraph = {nodes, stats, rose: rose.map(n => n.id), fresh: fresh.map(n => n.id), get pulsing() { return !!pulse; }, get t() { return t; }, get mode() { return S.mode; }, get vis() { return vis; }, get moving() { return !!tween || sim.alpha() > sim.alphaMin(); }};
 })();

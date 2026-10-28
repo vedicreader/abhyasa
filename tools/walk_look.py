@@ -419,19 +419,19 @@ def f10_graph_has_more_graph(pg, w):
     pg.click('#levers details.adjust > summary')
 
 def m5_graph_grows(pg, w):
-    "The graph: each idea whose floor moved since the last visit pulses once, a new idea fades in, and a line says how many; a reload shows nothing; with no motion, only the line."
+    "The graph: each idea whose floor went up since the last visit pulses once, a new idea fades in, and a line says how many; a reload shows nothing; with no motion, only the line."
     w.lr.put('Pulse one', 'A concept for the pulse check.', 'ml', slug='pulse-one', prereqs=['ranking'])
     graph = lambda: (pg.goto(w.B + '/graph'), pg.wait_for_function('() => window.abhyasaGraph', timeout=15000))
     line = lambda: pg.text_content('#graph .moved') if pg.query_selector('#graph .moved') else ''
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     graph(); graph()
     assert not errs, errs
-    assert line() == '' and pg.evaluate('abhyasaGraph.moved') == []
+    assert line() == '' and pg.evaluate('abhyasaGraph.rose') == []
     w.lr.update('pulse-one', floor=2, seen=1)
     w.lr.put('Pulse two', 'A new concept for the pulse check.', 'ml', slug='pulse-two', prereqs=['pulse-one'])
     graph()
-    assert line() == '1 idea moved since your last visit. You have 1 new idea since your last visit.', line()
-    assert pg.evaluate('abhyasaGraph.moved') == ['pulse-one'] and pg.evaluate('abhyasaGraph.fresh') == ['pulse-two']
+    assert line() == '1 idea went up since your last visit. You have 1 new idea since your last visit.', line()
+    assert pg.evaluate('abhyasaGraph.rose') == ['pulse-one'] and pg.evaluate('abhyasaGraph.fresh') == ['pulse-two']
     pg.wait_for_function('() => abhyasaGraph.pulsing', timeout=3000)
     pg.wait_for_function('() => !abhyasaGraph.pulsing', timeout=3000)    # one time, about 600 ms
     graph(); pg.wait_for_timeout(400)
@@ -441,10 +441,13 @@ def m5_graph_grows(pg, w):
         w.lr.update('pulse-one', floor=3)
         pg.goto(w.B + '/graph'); pg.evaluate("window.seenPulse = false; setInterval(() => { if (window.abhyasaGraph?.pulsing) window.seenPulse = true; }, 10)")
         pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); pg.wait_for_timeout(1000)
-        assert line() == '1 idea moved since your last visit.' and not pg.evaluate('window.seenPulse')
+        assert line() == '1 idea went up since your last visit.' and not pg.evaluate('window.seenPulse')
         assert pg.eval_on_selector('#graph .moved', 'e => getComputedStyle(e).animationName') in ('none', '') or \
                pg.eval_on_selector('#graph .moved', 'e => parseFloat(getComputedStyle(e).animationDuration)') < .01
     finally: pg.emulate_media(reduced_motion='no-preference')
+    w.lr.update('pulse-one', floor=1)   # a floor that went down: its colour only, no line and no pulse
+    graph(); pg.wait_for_timeout(400)
+    assert line() == '' and pg.evaluate('abhyasaGraph.rose') == [] and not pg.evaluate('abhyasaGraph.pulsing')
 
 def f12_today_has_an_order(pg, w):
     "Today: the Continue card, the review line, the journeys, the goal on one line, then the links on one line; no week and no subjects."
