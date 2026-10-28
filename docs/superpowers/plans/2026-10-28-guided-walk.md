@@ -1526,3 +1526,22 @@ Groups 10 and the rarely changed caps in groups 6 and 7 go under a closed "More"
 - [ ] **Step 3: Implement.** Keep each value in one place. Short docstrings. Help texts in STE grade 9, with no odd machine phrasing.
 - [ ] **Step 4: Run** `uv run nbdev-prepare` and `uv run pytest -q`. Expected: PASS. Check by hand that a settings file from before this task still loads.
 - [ ] **Step 5: Commit** in small steps, one plain STE line each.
+
+### Task 19: Design polish: one calm, cohesive app
+
+Added by ruling (28 Oct). The owner asked for a design review so the app feels cohesive, not overwhelming, inviting and "like magic", and approved all of it. The design review, with 17 ranked findings, 7 magic touches and a system note, is in the plan workspace: `design-review.md`. The screens it refers to are in `design-review/`. Run this task after Task 18 and before Task 16.
+
+**Owner rulings:**
+- Build all 17 findings (F1 to F17) and all 7 magic touches.
+- Keys: ⌥S means Send everywhere, as in a session. In a walk, ⌥S sends the open check. Skipping is a quiet "Skip this idea" link. Once the check is closed, "Next idea" is the one main button, and ⌥S presses it. Update `abhyasa/core/keys.py`, the shortcut sheet and the Sanketa pack in one place. Fix the two clashing keys that F14 names. Check `keys.py` before you add any key. Keys stay left-hand.
+- Follow the system note (design-review.md section 5): shared tokens, one spacing scale and shared components in `core/` (for example the one `Check` component of F3). A block never imports another block. Blocks use the shared pieces through `core/`.
+- Motion: every magic touch respects `prefers-reduced-motion`. No sound.
+- All copy follows ASD-STE100 at US grade 9, with no machine-sounding phrasing.
+
+**Files:** `abhyasa/core/` (base.css, ui.py, core.js, keys.py, a new shared check component), and the blocks the findings name (walk, detour, session, today, add, graph, profile, settings, strengths, concepts). Engine notebooks only if a finding needs engine data (for example the walk summary of F2).
+
+- [ ] **Step 1: Write the failing checks.** For each finding and magic touch, add one pytest test (HTML structure, classes, copy, keys) or one Playwright assertion in `tools/walk_look.py`. Examples: a walk step has exactly one primary button; the end of a walk shows "You finished the walk" with one dot for each idea; the session and the walk render the same `Check` markup; the side pane at 1280 px leaves the top bar on one row; a missing figure shows no broken image; every animation is off under reduced motion.
+- [ ] **Step 2: Run them to see them fail.**
+- [ ] **Step 3: Implement**, in small commits by finding. Take screens of each changed page at 1280 and 1000 px, light and dark, Paper and Signal, into `design/screens/polish-*.png`.
+- [ ] **Step 4: Run** `uv run nbdev-prepare`, `uv run pytest -q` and `uv run python tools/walk_look.py`. Expected: PASS.
+- [ ] **Step 5: Design re-check.** The controller sends the new screens to the design reviewer, who confirms each finding is closed or names what is left.
