@@ -4,3 +4,4 @@ from .block import Ctx, connect_all
 from .pane import *
 from .ui import *
 from .rows import *
+from .stage import stage_assets
