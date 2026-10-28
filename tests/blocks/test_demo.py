@@ -123,3 +123,12 @@ def test_the_ladder_after_a_demo_in_a_session(mk, lr, fake):
     assert lr.demo_for('ranking', aim='').slug == 'reciprocal-rank-fusion'               # the simpler demo is never the plain demo
     cl.post(f'/s/{sid}/next'); fourth = miss(cl, sid)
     assert 'demo-card' not in fourth and 'Lesson · ' not in fourth                     # the third miss after the demo adds nothing
+
+def test_identical_misses_each_count(mk, lr):
+    "Misses with the same words are separate attempts: the history keeps each try, and the ladder counts each miss."
+    from abhyasa.demo import rung
+    lr.put_demo(gallery()['reciprocal-rank-fusion'], 'ranking')
+    cl = mk(); sid = start(cl, focus='ranking'); cl.get(f'/s/{sid}')
+    miss(cl, sid); cl.post(f'/s/{sid}/next'); miss(cl, sid)
+    a = lr.attempts('ranking')
+    assert len(a) == 6 and len([x for x in a if x.get('final')]) == 2 and rung(lr, 'ranking') == 1

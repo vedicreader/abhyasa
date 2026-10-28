@@ -215,9 +215,7 @@ def on_close(tutor, q, r):
     if k >= 2: return r   # from the third miss on, `_back` steps back to a prereq; the ladder adds nothing
     if (d := lr.demo_for(q.concept, aim='')):
         r.demo = d.slug   # a plain demo: not an order check, not a simpler demo
-        if not k and q.get('aid'):
-            try: lr.mark_attempt(q.aid, shown_demo=d.slug)
-            except KeyError: pass   # the vault kept an older attempt with the same text, so this one has no document
+        if not k and q.get('aid'): lr.mark_attempt(q.aid, shown_demo=d.slug)
     elif not k and want_demo(lr.concept(q.concept)): queue_demo(tutor, q.concept, r.get('first_error', '')); r.demo_pending = True
     return r
 
