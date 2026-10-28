@@ -44,8 +44,8 @@ TALK_KEYS = [('Talk', 'D', 'Next beat, then the next slide'), ('Talk', 'space', 
              ('Talk', '⌥S', 'The main button: start the talk, ask the room, vote again, end the talk'),
              ('Talk', 'E', 'Go into the demo. Esc comes out'), ('Talk', 'X', 'Laser on or off'), ('Talk', 'B', 'Blank the room screen, and back'),
              ('Talk', 'G', 'Go to a slide: G, then its number'), ('Talk', '1–6', 'With no phones: the option that most hands chose'),
-             ('Talk', 'F', 'In the audience window: fill the screen'), ('Talk', '⌥B', 'Learn beside: open a missing idea next to the slide'),
-             ('Talk', '⌥Z', 'Back to the slide: close the side pane'),
+             ('Talk', 'F', 'In the audience window: fill the screen'), ('Talk', '⌥B', 'Learn beside: learn a missing idea in the side pane, next to the slide'),
+             ('Talk', '⌥Z', 'Back to the paper: close the side pane, and the slide grows back'),
              ('Talk', 'esc', 'Close the open question, the demo focus or the side pane. It never ends the talk')]
 ROOM_KEYS = [('Talk', 'C', 'Show the join code on the room screen, and back'), ('Talk', '⇧C', 'Make a new join code'),
              ('Talk', 'T', 'Lock the room, so no new phones join')]
