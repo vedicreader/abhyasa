@@ -18,7 +18,9 @@
 @media (hover: none) { .plan ul li button { opacity: 1; } }
 
 /* the step: the outline, then one column */
-.walk-layout { display: grid; grid-template-columns: 240px minmax(0, 720px); gap: var(--s8); justify-content: center; }
+/* the crumbs start where the outline starts: 220 + 44 + 720 px */
+.walk-layout { display: grid; grid-template-columns: 220px minmax(0, 720px); gap: var(--s7); justify-content: center; }
+main.wide:has(.walk-layout) > .crumbs { max-width: 984px; margin-inline: auto; }
 .outline { position: sticky; top: 24px; align-self: start; font-size: var(--t-small); }
 .outline .lbl { margin-bottom: var(--s2); }
 .outline .prog { margin: var(--s1) 0 var(--s4); }
@@ -34,7 +36,7 @@
 .outline li.on { border-left-color: var(--acc); color: var(--fg); }
 .outline li.c.on::before { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 20%, transparent); }
 .outline .k { font-size: var(--t-lbl); font-style: italic; }
-@media (max-width: 900px) { .walk-layout { grid-template-columns: minmax(0, 1fr); gap: var(--s5); } .outline { position: static; } }
+@media (max-width: 1040px) { .walk-layout { grid-template-columns: minmax(0, 1fr); gap: var(--s5); } .outline { position: static; } }
 
 .sec-lbl { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: 0 0 var(--s1); display: flex; gap: var(--s3); flex-wrap: wrap; }
 .sec-lbl span + span::before { content: '·'; margin-right: var(--s3); }
@@ -64,7 +66,8 @@ h1.idea { font-size: var(--t-idea); margin-bottom: var(--s4); }
 .code-check .acts .mute { margin-left: auto; }
 
 /* rabbit holes: with the side pane open, the step drops its outline and keeps one column; in the pane, the way back is at the foot */
-@media (min-width: 1100px) { html.rh-open .walk-layout { grid-template-columns: minmax(0, 720px); } html.rh-open .walk-layout > .outline { display: none; } }
+@media (min-width: 1100px) { html.rh-open .walk-layout { grid-template-columns: minmax(0, 720px); } html.rh-open .walk-layout > .outline { display: none; }
+  html.rh-open main.wide:has(.walk-layout) > .crumbs { max-width: 720px; } }
 .check .held { font-size: var(--t-small); font-style: italic; margin: 2px 0 var(--s2); }
 .check .held::before { content: '•'; margin-right: var(--s2); color: var(--acc); }
 a.walk-back { display: inline-block; margin: 0 0 var(--s4); font-size: var(--t-small); color: var(--ink2); text-decoration: none; } a.walk-back:hover { color: var(--acc); }

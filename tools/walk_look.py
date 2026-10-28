@@ -174,8 +174,22 @@ def reduced_motion(pg, w):
         assert names == 0, names
     finally: ctx.close()
 
+# --- Task 19b: the walk, the side pane and the end of a walk ----------------------------------------------------
+
+def f7_step_lines_up(pg, w):
+    "The crumbs start where the outline starts at 1280 px, and at 1000 px nothing goes past the right edge."
+    try:
+        pg.goto(w.step(2)); pg.wait_for_selector('#check .check'); settle(pg)
+        xs = pg.evaluate("() => [document.querySelector('main .crumbs').getBoundingClientRect().left, document.querySelector('.outline').getBoundingClientRect().left]")
+        assert abs(xs[0] - xs[1]) < 1, xs
+        pg.set_viewport_size(dict(width=1000, height=900)); pg.goto(w.step(2)); pg.wait_for_selector('#check .check'); settle(pg)
+        r = pg.evaluate("() => [document.documentElement.scrollWidth, innerWidth, document.querySelector('#check .check').getBoundingClientRect().right]")
+        assert r[0] <= r[1] and r[2] <= r[1] - 16, r
+    finally: pg.set_viewport_size(dict(width=1280, height=900))
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
-          f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion]
+          f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
+          f7_step_lines_up]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
@@ -201,6 +215,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--shots', action='store_true', help='also take the screens')
     ap.add_argument('--out', default=str(ROOT/'design/screens'))
+    ap.add_argument('--only', nargs='*', default=None, help='run only the checks with these names')
     a = ap.parse_args()
     from playwright.sync_api import sync_playwright
     lr, app = seed()
@@ -214,7 +229,7 @@ def main():
                 pg = ctx.new_page()
                 w = World(lr, pg.request, B)
                 look(pg.request, B, 'paper', 'light')
-                for c in CHECKS:
+                for c in [c for c in CHECKS if a.only is None or c.__name__ in a.only]:
                     try: c(pg, w); print('PASS', c.__name__, flush=True)
                     except Exception as e: bad += 1; print('FAIL', c.__name__, '-', str(e)[:300], flush=True)
                 if a.shots: print(len(screens(pg, w, Path(a.out))), 'screens in', a.out)
