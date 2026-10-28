@@ -316,16 +316,18 @@ def trail(lr:Learning, jid:str) -> L:
     return out
 
 def back_from(lr:Learning, jid:str) -> AttrDict|None:
-    "Keep the result of side walk `jid` on the step that opened it, one time. Return the parent walk, or None."
+    "Keep the result of side walk `jid` on the step that opened it: one record for each side walk, updated when its outcome changes. Return the parent walk, or None."
     j = lr.journey(jid)
     p = (j or {}).get('parent') or {}
     pj = lr.journey(p['walk']) if 'walk' in p else None
     if pj is None: return None
     ds = pj.steps[p['step']].get('detours') or []
-    if any(d['walk'] == jid for d in ds): return pj
     s = next((s for s in reversed(j.steps) if s['slug'] == j.get('slug')), {})
     d = dict(walk=jid, slug=j.get('slug'), outcome=(s.get('done') or {}).get('outcome') or 'skipped', at=time.time())
-    return lr.walk_step(pj.id, p['step'], detours=[*ds, d])
+    k = next((k for k, x in enumerate(ds) if x['walk'] == jid), None)
+    if k is None: return lr.walk_step(pj.id, p['step'], detours=[*ds, d])
+    if d['outcome'] in ('skipped', ds[k]['outcome']): return pj   # nothing new: never back to skipped
+    return lr.walk_step(pj.id, p['step'], detours=[*ds[:k], d, *ds[k + 1:]])
 
 # %% ../nbs/11_journey.ipynb #rh20
 def look_up(lr:Learning, ask, term:str, at:str='', sources=None) -> AttrDict|None:

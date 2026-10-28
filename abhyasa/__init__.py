@@ -2,6 +2,8 @@
 
 Modules:
 
-- `abhyasa.core.hooks`: Blocks add to each other's pages without importing each other (vedicreader's `vr/core/hooks.py`)."""
+- `abhyasa.blocks.detour.app`: Rabbit holes: learn a missing idea beside the step, then come back to the same place (spec 6.10).
+- `abhyasa.core.hooks`: Blocks add to each other's pages without importing each other (vedicreader's `vr/core/hooks.py`).
+- `abhyasa.core.pane`: The side pane: a page of this app beside the page, after vedicreader's `vr/core/pane.py`."""
 
 __version__ = "0.0.11"

@@ -91,6 +91,18 @@ def test_walk_end_sends_done_and_the_key_is_listed(mk, walk_fake, lr):
     assert 'learned on the way today' in cl.get(f'/w/{jid}/2').text
     assert ('Walk', '⌥B', 'Open beside: learn a missing idea in the side pane') in KEYS
 
+def test_leave_early_then_finish_updates_the_result(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    sid = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url'].split('/')[2]
+    cl.post(f'/rh/back/{sid}')                                                            # ⌥Z before the side check
+    assert 'looked at' in cl.get(f'/w/{jid}/2').text
+    walk_fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')
+    cl.get(f'/w/{sid}/0/check'); cl.post(f'/w/{sid}/0/answer', data=dict(answer='the slope', confidence=90))
+    cl.post(f'/rh/back/{sid}')                                                            # finish it later, then come back again
+    page = cl.get(f'/w/{jid}/2').text
+    assert 'learned on the way today' in page and 'looked at' not in page                 # the needs line and the strip show the finish
+    assert len(lr.journey(jid).steps[2]['detours']) == 1
+
 def _chromium():
     "True when Playwright's bundled Chromium is installed."
     try:
