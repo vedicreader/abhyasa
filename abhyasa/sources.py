@@ -6,9 +6,9 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'LINK_MAX', 'LINK_BYTES', 'LINK_CHARS', 'FETCH', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL',
-           'READERS', 'PLAIN', 'VR_ROOT', 'RASI', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement',
-           'extract', 'from_vault', 'link_folder', 'in_scope', 'link_sel', 'LinkError', 'link_kind', 'reading_order',
-           'file_link', 'plain', 'from_vedicreader']
+           'READERS', 'PLAIN', 'SHORT', 'EMPTY', 'VR_ROOT', 'RASI', 'extract_prompt', 'doc_pages', 'locate',
+           'figure_path', 'placement', 'extract', 'from_vault', 'link_folder', 'in_scope', 'link_sel', 'LinkError',
+           'link_kind', 'reading_order', 'file_link', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re
@@ -259,38 +259,62 @@ def _clip(src):
     "Text, or `(page, text)` pairs, cut to `LINK_BYTES` characters."
     return src[:LINK_BYTES] if isinstance(src, str) else _cut(src, LINK_BYTES)
 
+SHORT = 200   # a page with less text than this was cut by readability: file it again with all its text
+EMPTY = 40    # all the pages of a link with less text than this have nothing to read
+
+def _whole(lr:Learning, sh, r:dict):
+    "A web page that readability cut to almost nothing: file it again with all its text. A page that still has no text stays as it is."
+    d = sh.doc(r['doc_id'])
+    if not d or sum(len(t) for _, t in doc_pages(lr, d['id'], sh.name).pages) >= SHORT: return
+    from fossick import fetch, to_md   # here, so that the import of this module stays light
+    md = to_md(fetch(d['source'], **PLAIN), readability=False).strip()
+    if len(md) >= SHORT: sh.add(_clip(md), d['title'], source=d['source'], kind='web', meta=dict(url=d['source'], via='whole'), force=True)
+
+def _final(url:str) -> str:
+    "The address of `url` after its redirects, from one plain fetch."
+    from fossick import fetch
+    return fetch(url, **PLAIN).url
+
 def _reader(lr:Learning, kind:str):
     "The default `read`: the `Vault` method `how` on a new copy of the shelf of `kind`, whose `add` keeps at most `LINK_BYTES` of a page."
     def read(how, target, **kw):
         sh = lr.vault.shelf(lr.vault.route(kind).name)   # a copy, so the shared vault does not change
         add = sh.add
         sh.add = lambda src, *a, **k: add(_clip(src), *a, **k)
-        return getattr(sh, how)(target, **kw)
+        got = getattr(sh, how)(target, **kw)
+        if how in ('url', 'crawl'):
+            for r in _filed(got): _whole(lr, sh, r)
+        return got
     return read
 
-def file_link(lr:Learning, url:str, max_pages:int=8, read=None) -> L:
-    "File the pages of `url` in the vault. Return `shelf`, `doc_id`, `title` and `url` of each page in the folder of `url` (after any redirect of the start page), in reading order, at most `max_pages`."
+def file_link(lr:Learning, url:str, max_pages:int=8, read=None, final=None) -> L:
+    "File the pages of `url` in the vault. Return `shelf`, `doc_id`, `title` and `url` of each page in the folder of `url` (after any redirect of the start page), in reading order, at most `max_pages`. `final(url)` gives the address after the redirects."
     url, cap = url.strip(), max(1, min(int(max_pages), LINK_MAX))
     kind = link_kind(url)
     how = READERS.get(kind) or ('url' if cap == 1 else 'crawl')
+    found = read is not None
     if read is None:
         if (host := urlparse(url).hostname) and any(map(_local, _addrs(host))): raise LinkError(NOT_LOCAL)
-        read = _reader(lr, kind)
-    shelves, docs = [lr.vault.route(kind), lr.vault], L()   # a reader can file on the shelf of the kind or on the main shelf
-    start, found = url, read is not None
-    if how in ('url', 'crawl'):   # a docs site can redirect its start page to another host or folder: the folder is that of the page after the redirects
-        got = _filed(read('url', url, **PLAIN))
-        start = first(d['source'] for r in got if (d := first(s.doc(r['doc_id']) for s in shelves))) or url
+        read, final = _reader(lr, kind), final or _final
+    start = scope = url
+    if how == 'crawl':   # a docs site can redirect its start page to another host or folder: the folder is that of the page after the redirects
+        start = (final or (lambda u: u))(url)
         host = urlparse(start).hostname
         if urlparse(start).scheme not in ('http', 'https') or not host or _local(host) or (not found and any(map(_local, _addrs(host)))): raise LinkError(NOT_LOCAL)
-    kw = dict(crawl=dict(max_pages=cap, follow_sel=link_sel(start), **PLAIN), pdf=FETCH, arxiv=FETCH, github=dict(code=False)).get(how, {})
-    for r in _filed(got if how == 'url' else read(how, start, **kw)):
+        if start != url and urlparse(start).path.endswith('/'): scope = start.rstrip('/')   # a redirect to `.../overview/` names the overview page, so its folder is the one above
+        else: scope = start
+    kw = dict(crawl=dict(max_pages=cap, follow_sel=link_sel(scope), **PLAIN), url=PLAIN, pdf=FETCH, arxiv=FETCH, github=dict(code=False)).get(how, {})
+    shelves, docs = [lr.vault.route(kind), lr.vault], L()   # a reader can file on the shelf of the kind or on the main shelf
+    for r in _filed(read(how, start, **kw)):
         sh, d = first(((s, s.doc(r['doc_id'])) for s in shelves), lambda x: x[1]) or (None, None)
-        if not d or d['id'] in docs.attrgot('doc_id') or (how in ('url', 'crawl') and not in_scope(d['source'], start)): continue
+        if not d or d['id'] in docs.attrgot('doc_id') or (how in ('url', 'crawl') and not in_scope(d['source'], scope)): continue
         docs.append(AttrDict(shelf=sh.name, doc_id=d['id'], title=d['title'], url=d['source']))
     if how == 'github': docs = L(sorted(docs, key=lambda d: 'readme' not in Path(d.url).name.lower()))
     if not docs: raise LinkError('abhyasa could not read this link.')
+    if sum(len(t) for d in docs for _, t in doc_pages(lr, d.doc_id, d.shelf).pages) < EMPTY:
+        raise LinkError('abhyasa found almost no text on these pages. A page that needs a browser to show its text gives none.')
     return reading_order(docs, '\n\n'.join(t for _, t in doc_pages(lr, docs[0].doc_id, docs[0].shelf).pages))[:cap]
+
 
 # %% ../nbs/04_sources.ipynb #c020
 VR_ROOT = Path(os.getenv('VEDICREADER_ROOT', Path.home()/'code/personal/orgs/vedicreader'))
