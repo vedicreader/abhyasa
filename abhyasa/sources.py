@@ -6,7 +6,7 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'LINK_MAX', 'LINK_BYTES', 'LINK_CHARS', 'FETCH', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL',
-           'READERS', 'PLAIN', 'SHORT', 'EMPTY', 'VR_ROOT', 'RASI', 'extract_prompt', 'doc_pages', 'locate',
+           'READERS', 'PLAIN', 'LOCALE', 'SHORT', 'EMPTY', 'VR_ROOT', 'RASI', 'extract_prompt', 'doc_pages', 'locate',
            'figure_path', 'placement', 'extract', 'from_vault', 'link_folder', 'in_scope', 'link_sel', 'LinkError',
            'link_kind', 'reading_order', 'file_link', 'plain', 'from_vedicreader']
 
@@ -261,13 +261,14 @@ def _clip(src):
     "Text, or `(page, text)` pairs, cut to `LINK_BYTES` characters."
     return src[:LINK_BYTES] if isinstance(src, str) else _cut(src, LINK_BYTES)
 
+LOCALE = re.compile(r'[a-z]{2}(?:[-_][A-Za-z]{2})?')   # a folder that names a language: en, en-us, pt-BR
 SHORT = 200   # a page with less text than this was cut by readability: file it again with all its text
 EMPTY = 40    # all the pages of a link with less text than this have nothing to read
 
-def _whole(lr:Learning, sh, r:dict):
-    "A web page that readability cut to almost nothing: file it again with all its text. A page that still has no text stays as it is."
-    d = sh.doc(r['doc_id'])
-    if not d or sum(len(t) for _, t in doc_pages(lr, d['id'], sh.name).pages) >= SHORT: return
+def _whole(lr:Learning, sh, d:dict):
+    "A web page `d` that readability cut to almost nothing: file it again with all its text, when its host is on the internet. A page that still has no text stays as it is."
+    host = urlparse(d['source']).hostname
+    if not host or _local(host) or any(map(_local, _addrs(host))) or sum(len(t) for _, t in doc_pages(lr, d['id'], sh.name).pages) >= SHORT: return
     from fossick import fetch, to_md   # here, so that the import of this module stays light
     md = to_md(fetch(d['source'], **PLAIN), readability=False).strip()
     if len(md) >= SHORT: sh.add(_clip(md), d['title'], source=d['source'], kind='web', meta=dict(url=d['source'], via='whole'), force=True)
@@ -283,10 +284,7 @@ def _reader(lr:Learning, kind:str):
         sh = lr.vault.shelf(lr.vault.route(kind).name)   # a copy, so the shared vault does not change
         add = sh.add
         sh.add = lambda src, *a, **k: add(_clip(src), *a, **k)
-        got = getattr(sh, how)(target, **kw)
-        if how in ('url', 'crawl'):
-            for r in _filed(got): _whole(lr, sh, r)
-        return got
+        return getattr(sh, how)(target, **kw)
     return read
 
 def file_link(lr:Learning, url:str, max_pages:int=8, read=None, final=None) -> L:
@@ -304,13 +302,17 @@ def file_link(lr:Learning, url:str, max_pages:int=8, read=None, final=None) -> L
         start = (final or (lambda u: u))(url)
         host = urlparse(start).hostname
         if urlparse(start).scheme not in ('http', 'https') or not host or _local(host) or (not found and any(map(_local, _addrs(host)))): raise LinkError(NOT_LOCAL)
-        if start != url and urlparse(start).path.endswith('/'): scope = start.rstrip('/')   # a redirect to `.../overview/` names the overview page, so its folder is the one above
-        else: scope = start
+        scope = start
+        if start != url:
+            path, last = urlparse(start).path, urlparse(start).path.rstrip('/').rsplit('/', 1)[-1]
+            if path in ('', '/'): scope = url if urlparse(start).netloc == urlparse(url).netloc else start   # a redirect to a bare host root: on the same host, keep the folder of the link
+            elif path.endswith('/') and not LOCALE.fullmatch(last): scope = start.rstrip('/')   # `.../overview/` names the overview page, so its folder is the one above; a locale folder is the folder
     kw = dict(crawl=dict(max_pages=cap, follow_sel=link_sel(scope), **PLAIN), url=PLAIN, pdf=FETCH, arxiv=FETCH, github=dict(code=False)).get(how, {})
     shelves, docs = [lr.vault.route(kind), lr.vault], L()   # a reader can file on the shelf of the kind or on the main shelf
     for r in _filed(read(how, start, **kw)):
         sh, d = first(((s, s.doc(r['doc_id'])) for s in shelves), lambda x: x[1]) or (None, None)
         if not d or d['id'] in docs.attrgot('doc_id') or (how in ('url', 'crawl') and not in_scope(d['source'], scope)): continue
+        if how in ('url', 'crawl') and not found: _whole(lr, sh, d)   # after the scope filter, and only for a host on the internet
         docs.append(AttrDict(shelf=sh.name, doc_id=d['id'], title=d['title'], url=d['source']))
     if how == 'github': docs = L(sorted(docs, key=lambda d: 'readme' not in Path(d.url).name.lower()))
     if not docs: raise LinkError('abhyasa could not read this link.')
