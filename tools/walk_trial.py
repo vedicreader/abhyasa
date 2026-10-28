@@ -10,6 +10,7 @@ from pathlib import Path
 from statistics import mean
 
 ROOT = Path(__file__).parents[1]
+if '--dry' in sys.argv: os.environ['LITESEARCH_USEARCH'] = '0'   # numpy search: in a new venv, usearch downloads a binary on first use
 os.environ['VISHALAKSHI_VAULT'] = os.environ['ABHYASA_VAULT'] = str(Path(tempfile.mkdtemp())/'vault.db')   # never the real vault
 sys.path[:0] = [str(ROOT/'tools'), str(ROOT/'tests')]   # `grade_eval`, and the page and exercise data of the tests (for `--dry`)
 
