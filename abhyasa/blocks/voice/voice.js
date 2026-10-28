@@ -92,6 +92,16 @@ function abhyasaMics(root) {
     b.dataset.into = box.id;
     b.innerHTML = '<span class="say">Speak</span><i class="lvl"></i>';
     b.addEventListener('click', () => abhyasaMic(b));
+    // `data-mic="label"`: Speak goes in the label row, after the name (BACKGROUND · Speak ⌥D), not over an empty box. Only the first names ⌥D.
+    const label = box.dataset.mic === 'label' && document.querySelector(`label[for="${box.id}"]`);
+    if (label) {
+      const first = !document.querySelector('.mic.in-label');
+      b.className = 'mic in-label mini';
+      if (first) b.insertAdjacentHTML('beforeend', ' <kbd>⌥D</kbd>');
+      const sep = Object.assign(document.createElement('span'), {className: 'sep', textContent: ' · '});
+      label.firstChild ? label.firstChild.after(sep, b) : label.append(sep, b);
+      return;
+    }
     const wrap = document.createElement('span');
     wrap.className = 'micbox';
     box.replaceWith(wrap); wrap.append(box, b);

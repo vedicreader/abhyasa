@@ -5,7 +5,7 @@ from walk_data import *
 
 ROOT = Path(__file__).parents[2]/'abhyasa'
 def src(p): return (ROOT/p).read_text()
-def gos(h): return re.findall(r'class="go"[^>]*>(.*?)</(?:button|a)>', h)
+def gos(h): return re.findall(r'class="(?:btn )?go"[^>]*>(.*?)</(?:button|a)>', h)
 
 # F9: the Add page asks for one thing
 
@@ -113,3 +113,26 @@ def test_today_goal_is_open_with_no_journey(mk):
 def test_your_learning_has_the_week_and_subjects(mk):
     h = mk().get('/learning').text
     assert 'This week' in h and '>Subjects<' in h and '2 concepts' in h
+
+# F13: Profile is not a wall of empty boxes
+
+def test_empty_profile_is_one_invitation(mk):
+    "An empty profile: one raised card with Start ⌥S; the fields are under a closed Edit by hand; no empty change log."
+    h = mk().get('/you').text
+    card = re.search(r'<section class="raised invite">(.*?)</section>', h, re.S)
+    assert card and 'Tell abhyasa about you.' in card.group(1) and 'Four short questions, by voice or text. About two minutes.' in card.group(1)
+    assert gos(h) == ['Start <kbd>⌥S</kbd>'] and 'href="/you/start"' in card.group(1)
+    assert re.search(r'<details class="more by-hand"><summary>Edit by hand</summary>.*name="background"', h, re.S)
+    assert 'No changes yet.' not in h
+
+def test_known_profile_shows_the_fields(mk, lr):
+    lr.set_profile(by='you', why='test', background=['nurse'])
+    h = mk().get('/you').text
+    assert 'invite' not in h and 'Edit by hand' not in h and 'name="background"' in h and gos(h) == ['Save <kbd>⌥S</kbd>']
+
+def test_speak_sits_in_the_label_row():
+    "A box with data-mic=label gets its Speak in the label row; only the first one names ⌥D."
+    js, css = src('blocks/voice/voice.js'), src('blocks/voice/voice.css')
+    assert "box.dataset.mic === 'label'" in js and 'mic in-label' in js and '⌥D' in js
+    assert '.mic.in-label' in css
+    assert "data_mic='label'" in src('blocks/profile/ui.py') and "data_mic='label'" in src('blocks/journeys/ui.py')

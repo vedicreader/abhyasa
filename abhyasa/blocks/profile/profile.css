@@ -1,3 +1,7 @@
+/* An empty profile: one card that invites, and the fields under Edit by hand. */
+.invite { margin: var(--s5) 0 var(--s4); }
+.invite h2 { margin: 0 0 var(--s1); font: var(--t-q)/1.3 var(--serif); letter-spacing: 0; text-transform: none; color: var(--fg); }
+.invite p { margin: 0 0 var(--s3); }
 /* About you: plain fields on hairlines; the changes as a quiet log; the first conversation in the tutor's margin voice. */
 .profile textarea { font-size: var(--t-body); }
 .chips, .paces { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin-top: var(--s2); }

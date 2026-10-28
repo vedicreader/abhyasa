@@ -20,10 +20,10 @@ def connect(app, ctx):
                     P('The tutor uses this to choose examples, paths and pace. All of it is here, and you can change any of it. '
                       'The tutor adds to it from your answers. Each change shows below with its reason.', cls='mute'),
                     P('This is what abhyasa took from what you said. Change what is wrong.', cls='fresh') if new else '',
-                    '' if p.known else P(A('Tell abhyasa about you', href=Routes.start), ': four short questions, by voice or text.'),
+                    '' if p.known else ui.Invite(),
                     H2('How the tutor teaches you'), P('The Settings page shows the same three values. A change saves at once.', cls='mute'), ui.Learning(p),
-                    H2('About you'), ui.Form_(p),
-                    H2('What changed, and why'), ui.Changes(p.changes),
+                    H2('About you'), ui.Form_(p) if p.known else Details(Summary('Edit by hand'), ui.Form_(p), cls='more by-hand'),
+                    *((H2('What changed, and why'), ui.Changes(p.changes)) if p.changes else ()),
                     H2('How well you know what you know'), ui.Calibration(calibration(lr)),
                     H2('Learn about me now'),
                     P('The tutor reads your recent answers after every sixth question. You can ask it to do that now.', cls='mute'),

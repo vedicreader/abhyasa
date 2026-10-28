@@ -14,7 +14,7 @@ def css(): return asset_css(_P/'profile.css')
 def Box(k, p, note='', rows=2):
     v = p[k]
     return Div(Label(LABELS[k], Span(note, cls='note') if note else '', fr=f'pf-{k}'),
-               Textarea('\n'.join(v) if isinstance(v, list) else v, name=k, id=f'pf-{k}', rows=rows, data_mic='1'))
+               Textarea('\n'.join(v) if isinstance(v, list) else v, name=k, id=f'pf-{k}', rows=rows, data_mic='label'))
 
 def Form_(p):
     "Each field, open to change. A list field takes one item on each line."
@@ -24,6 +24,11 @@ def Form_(p):
                 Box('interests', p), ex, Box('confuses', p, 'the tutor adds to this from your answers'), Box('notes', p, 'anything else', rows=2),
                 Div(Primary('Save', data_wait='Saving…'), Span(id='saved', cls='mute'), cls='row'),
                 hx_post=Routes.base, hx_target='#saved', cls='profile')
+
+def Invite():
+    "An empty profile: one card that asks you to start the first conversation."
+    return Section(H2('Tell abhyasa about you.'), P('Four short questions, by voice or text. About two minutes.', cls='mute'),
+                   Div(Primary('Start', href=Routes.start, rank=1), cls='row'), cls='raised invite')
 
 def reset_attrs(r): return dict(hx_post=Routes.setting_default, hx_vals={'name': r.name}, hx_target=f'#{row_id(r)}', hx_swap='outerHTML')
 

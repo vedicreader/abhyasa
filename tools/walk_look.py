@@ -452,11 +452,25 @@ def f12_today_has_an_order(pg, w):
     assert not pg.query_selector('main h2:has-text("This week")') and not pg.query_selector('main h2:has-text("Subjects")')
     assert visible_gos(pg) == ['Continue ⌥S'], visible_gos(pg)
 
+def f13_profile_invites(pg, w):
+    "Profile, empty: one raised card with Start ⌥S; the fields are under a closed Edit by hand; each Speak sits in its label row, and only the first names ⌥D."
+    if w.lr.profile().known: return   # the check needs an empty profile
+    pg.goto(w.B + '/you'); settle(pg, 300)
+    assert pg.is_visible('.raised.invite') and visible_gos(pg) == ['Start ⌥S'], visible_gos(pg)
+    assert pg.eval_on_selector('details.by-hand', 'd => d.open') is False and not pg.is_visible('#pf-background')
+    pg.click('details.by-hand > summary')
+    assert pg.is_visible('label[for=pf-background] .mic.in-label')
+    lb, box = (pg.eval_on_selector(x, 'e => { const r = e.getBoundingClientRect(); return [r.top, r.bottom]; }') for x in ('label[for=pf-background]', '#pf-background'))
+    mic = pg.eval_on_selector('label[for=pf-background] .mic', 'e => e.getBoundingClientRect().top')
+    assert lb[0] - 2 <= mic < box[0], (lb, mic, box)
+    assert pg.eval_on_selector_all('.mic.in-label kbd', 'ks => ks.map(k => k.textContent)') == ['⌥D']
+    assert pg.eval_on_selector('label[for=pf-background]', 'l => l.textContent.replace(/\\s+/g, " ").trim()').startswith('Background · Speak ⌥D')
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
-          f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order]
+          f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

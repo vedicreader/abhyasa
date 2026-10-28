@@ -22,3 +22,7 @@
 .mic.mini { background: transparent; box-shadow: none; position: absolute; right: 0; bottom: 6px; padding: 3px var(--s2); font-size: var(--t-meta); border-color: transparent; color: var(--mute); }
 .mic.mini:hover { color: var(--fg); border-color: var(--rule); background: transparent; box-shadow: none; }
 .mic.mini.on, .mic.mini.busy { border-color: var(--acc); color: var(--fg); }
+/* Speak in the label row of a box (data-mic="label") */
+.mic.in-label { position: static; display: inline; padding: 0 var(--s1); margin: 0; font: var(--t-meta)/1.4 var(--serif); letter-spacing: 0; text-transform: none; vertical-align: baseline; }
+.mic.in-label .lvl { bottom: -2px; }
+label .sep { color: var(--mute); }
