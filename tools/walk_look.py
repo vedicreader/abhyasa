@@ -482,11 +482,80 @@ def f13_profile_invites(pg, w):
         assert pg.is_visible('text=Clear what abhyasa knows about you')
     finally: w.lr.clear_profile()
 
+# --- Task 16: the walk page, the side pane keys, a bad pane address and Open in Leela -------------------------------------
+
+NO_SCROLL = 'document.documentElement.scrollWidth <= innerWidth'
+
+def rh_now(pg): return pg.evaluate("new URLSearchParams(location.search).get('rh')")
+
+def t16_step_page_parts(pg, w):
+    "A code step at 1280 px has the outline, the passage and the code editor, no sideways scroll; ⌥F opens the shortcuts."
+    pg.goto(w.step(1)); pg.wait_for_selector('#check .code-editor'); settle(pg)
+    for sel in ('#rail', '#passage', '#check .code-editor'): assert pg.is_visible(sel), sel
+    assert pg.evaluate('document.documentElement.scrollWidth') <= 1280 and pg.evaluate(NO_SCROLL)
+    pg.locator('h1.idea').click(); pg.keyboard.press('Alt+f'); pg.wait_for_url('**/keys', timeout=10000)
+
+def t16_side_walk_by_key(pg, w):
+    "On step 3, ⌥B opens the offer and 2 opens the side walk in the pane; rh is a local path; ⌥Z closes it, drops rh and puts the focus on the check."
+    side_walk(w)
+    pg.goto(w.step(2)); pg.wait_for_selector('.rh-line'); settle(pg)
+    pg.locator('h1.idea').click(); pg.keyboard.press('Alt+b'); pg.wait_for_selector('#rh-offer .rh-way')
+    pg.keyboard.press('2'); pg.wait_for_selector('#rh-pane iframe', timeout=15000); settle(pg, 700)
+    rh = rh_now(pg)
+    assert rh and rh.startswith('/') and not rh.startswith('//') and '://' not in rh, rh
+    assert pg.evaluate(NO_SCROLL), 'sideways scroll with the pane open'
+    pg.locator('h1.idea').click(); pg.keyboard.press('Alt+z')
+    pg.wait_for_function("() => !document.documentElement.classList.contains('rh-open')", timeout=10000); settle(pg, 700)
+    assert rh_now(pg) is None, rh_now(pg)
+    assert pg.evaluate("!!document.activeElement.closest('#check')"), pg.evaluate('document.activeElement.outerHTML.slice(0, 80)')
+
+def t16_pane_refuses_other_places(pg, w):
+    "?rh=https://evil.example/ draws no pane; a message from the main page that names another site leaves rh as it was."
+    pg.goto(f'{w.step(2)}?rh=https://evil.example/'); settle(pg, 500)
+    assert not pg.query_selector('#rh-pane'), 'a pane for another site'
+    pg.goto(f'{w.step(2)}?rh={side_walk(w)}'); pg.wait_for_selector('#rh-pane iframe'); settle(pg, 700)
+    before = rh_now(pg)
+    assert before and before.startswith('/'), before
+    pg.evaluate("window.postMessage({type: 'rh:at', url: 'https://evil.example/'}, '*')"); pg.wait_for_timeout(500)
+    assert rh_now(pg) == before, (before, rh_now(pg))
+
+def t16_narrow_side_walk_same_tab(pg, w):
+    "At 1000 px, ⌥B and 2 open the side walk in this tab, with Back to the paper at the top."
+    side_walk(w)
+    try:
+        pg.set_viewport_size(dict(width=1000, height=900))
+        pg.goto(w.step(2)); pg.wait_for_selector('.rh-line'); settle(pg)
+        pages = len(pg.context.pages)
+        pg.locator('h1.idea').click(); pg.keyboard.press('Alt+b'); pg.wait_for_selector('#rh-offer .rh-way')
+        pg.keyboard.press('2'); pg.wait_for_url(lambda u: f'/w/{w.jid}/2' not in u, timeout=15000); settle(pg, 500)
+        assert len(pg.context.pages) == pages and not pg.query_selector('#rh-pane'), 'the side walk did not open in this tab'
+        ys = pg.evaluate("() => { const a = [...document.querySelectorAll('a')].find(a => a.textContent.includes('Back to the paper')); return a && [a.getBoundingClientRect().top, document.querySelector('h1').getBoundingClientRect().top]; }")
+        assert ys and ys[0] < ys[1], ys   # the line is above the title
+    finally: pg.set_viewport_size(dict(width=1280, height=900))
+
+def t16_open_in_leela(pg, w):
+    "With an address file, a code step of a tool walk has Open in Leela with target=_blank; with none, a muted line and Get Leela, and no link to /learn."
+    from abhyasa.core.leela import leela_address
+    from walk_data import leela_file
+    jid = new_walk(w); w.lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why='you learn well with code'), leela=True)
+    u, f = f'{w.B}/w/{jid}/1', leela_address()
+    try:
+        leela_file(f.parents[1]); pg.goto(u); pg.wait_for_selector('#check .code-editor'); settle(pg)
+        a = pg.query_selector('.leela-line a:has-text("Open in Leela")')
+        assert a, 'no Open in Leela link'
+        assert 'Open in Leela' in a.inner_text() and a.get_attribute('target') == '_blank' and '/learn' in a.get_attribute('href'), (a.inner_text(), a.get_attribute('href'))
+        f.unlink(); pg.goto(u); pg.wait_for_selector('#check .code-editor'); settle(pg)
+        assert pg.query_selector('.leela-line.muted') and pg.is_visible('.leela-line >> text=Get Leela')
+        bad = pg.eval_on_selector_all('a[href*="/learn?"]', 'as => as.map(a => a.outerHTML)')
+        assert not bad, bad
+    finally: f.unlink(missing_ok=True)
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
-          f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites]
+          f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
+          t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
