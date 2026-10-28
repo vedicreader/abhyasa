@@ -1,7 +1,7 @@
 "Your learning: past sessions with what moved, what you learned each week, and Continue: in the top bar and on Today."
 import time
 from fasthtml.common import *
-from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, ago
+from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago
 from abhyasa.settings import val
 from abhyasa.tutor import moved
 from abhyasa.journey import progress
@@ -91,7 +91,7 @@ def connect(app, ctx):
                     H2('This week'), ui.Week(wk),
                     P(f"{sum(n for _, n in wk)} questions in the last seven days · {n_of(ups, 'concept')} moved up.", cls='mute week-sum'),
                     H2('What you learned'), ui.Learned(weeks(ss, by)),
-                    ui.Runs(list(groups.items())), on='Your learning', crumbs=up)
+                    ui.Runs(list(groups.items())), *run('learning_end'), on='Your learning', crumbs=up)
 
     def one(sid:str):
         s = lr.session(sid)
@@ -122,13 +122,7 @@ def connect(app, ctx):
     def continue_card(subject=None):
         if not (s := latest_open()): return None
         by, js = names()
-        return ui.Continue(s, title(s, by, js), big=True, href=back(s, js))
-
-    @hook('today')
-    def this_week(subject=None):
-        wk = week()
-        if not sum(n for _, n in wk): return None
-        return H2('This week'), ui.css(), ui.Week(wk), P(A('Your learning', href=Routes.base), ': what you learned, and each past session.', cls='mute week-sum')
+        return ui.css(), ui.Continue(s, title(s, by, js), big=True, href=back(s, js))   # the card style is in history.css
 
     RouteOverrides.nav.append(('Your learning', Routes.base, 0.7))
     app.get(Routes.base)(index)

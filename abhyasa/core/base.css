@@ -263,3 +263,9 @@ details.more { margin-top: var(--s2); }
 details.more > summary { cursor: pointer; color: var(--mute); font-size: var(--t-small); padding: var(--s2) 0; list-style-position: inside; }
 details.more > summary:hover { color: var(--fg); }
 details.more[open] > summary { margin-bottom: var(--s1); }
+
+/* Today, in order of weight (F12): the review line with its Start, then the journeys, then one line of links at the foot. */
+.review { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; margin: var(--s5) 0 var(--s4); }
+.review p { margin: 0; }
+p.foot { margin-top: var(--s7); }
+p:is(.walk-next, .rh-next) { font-size: var(--t-small); margin: var(--s2) 0; }

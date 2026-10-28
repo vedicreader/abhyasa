@@ -40,7 +40,7 @@ def connect(app, ctx):
 
     @hook('today_end')
     def line(subject=None):
-        return P(A('Your strengths and weak spots', href=Routes.base), ' ', Kbd('⌥G'), cls='mute') if any(c.get('seen') for c in lr.concepts()) else None
+        return (A('Your strengths', href=Routes.base), ' ', Kbd('⌥G')) if any(c.get('seen') for c in lr.concepts()) else None
 
     @hook('concept_more')
     def known(c):

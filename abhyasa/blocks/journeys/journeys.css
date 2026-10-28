@@ -37,3 +37,7 @@
 .in-journeys { margin: var(--s5) 0 0; } .in-journeys .attach { margin-top: var(--s3); } .in-journeys select { width: auto; font-size: var(--t-small); }
 .step-done { padding: 2px 0; } .step-done .lbl { color: var(--ok); } .step-done p { margin: 0; }
 .side-walks { margin: var(--s2) 0 0 var(--s4); font-size: var(--t-small); } .side-walks ul { margin: 2px 0 0; }
+/* With journeys, the goal box is one line on Today until you open it. */
+details.goal-fold { margin: var(--s4) 0 0; }
+details.goal-fold > summary { cursor: pointer; color: var(--ink2); padding: var(--s2) 0; list-style-position: inside; }
+details.goal-fold > summary:hover, details.goal-fold[open] > summary { color: var(--fg); }

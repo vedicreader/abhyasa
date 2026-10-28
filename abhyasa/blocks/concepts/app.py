@@ -1,4 +1,4 @@
-"Every concept, one concept's page, and the subjects on Today."
+"Every concept, one concept's page, and the subjects on Your learning."
 from abhyasa.core import Page, RouteOverrides, hook
 from abhyasa.settings import val
 from . import ui
@@ -24,8 +24,8 @@ def connect(app, ctx):
         return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=val('lists.attempts'))),
                     crumbs=[('Today', '/'), ('Concepts', Routes.base)])
 
-    @hook('today')
-    def subjects(subject=None): return ui.Subjects(lr.subjects())
+    @hook('learning_end')
+    def subjects(): return ui.Subjects(lr.subjects())
 
     RouteOverrides.nav.append(('Concepts', Routes.base, 2))
     app.get(Routes.base)(index)

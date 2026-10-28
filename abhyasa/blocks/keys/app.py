@@ -17,7 +17,7 @@ def connect(app, ctx):
                     *[ui.Group(k, v) for k, v in groups.items()], crumbs=[('Today', '/')])
 
     @hook('today_end')
-    def line(subject=None): return P(A('Keyboard shortcuts', href=Routes.base), ' ', Kbd('⌥F'), cls='mute')
+    def line(subject=None): return A('Keyboard shortcuts', href=Routes.base), ' ', Kbd('⌥F')
 
     @hook('page_extra')
     def key():   # ⌥F, or ? outside a text box, opens the page from any page

@@ -189,9 +189,9 @@ def test_lists_defaults():
 def test_journeys_on_today_read_when_used(mk, lr):
     for k in range(4): lr.put_journey(dict(id=f'j{k}', title=f'Journey {k}', goal='g', subject='', steps=[], created=k))
     cl = mk()
-    assert 'All 4 journeys' in cl.get('/').text
+    assert 'See all 4 journeys' in cl.get('/').text
     set_val('lists.journeys', 5)
-    assert 'All 4 journeys' not in cl.get('/').text
+    assert 'See all 4 journeys' not in cl.get('/').text
 
 # Prompts
 

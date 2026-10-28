@@ -65,12 +65,13 @@ def connect(app, ctx):
         if src == 'concept': return P('Added to ', A(j.title, href=Routes.of(Routes.one, jid=jid)), '.', cls='mute')
         return path(jid)
 
-    @hook('today_top')
+    @hook('today')
     def on_today(subject=None):
         js = listed()
+        goal = Details(Summary('What do you want to learn?'), ui.GoalForm(compact=True, label=False), cls='goal-fold') if js else ui.GoalForm()
         return (H2('Your journeys'), ui.JourneyList(js[:(n := val('lists.journeys'))]),
-                *([P(A(f'All {len(js)} journeys', href=Routes.base), cls='mute')] if len(js) > n else []),
-                ui.GoalForm(compact=bool(js)), *ui.assets())
+                *([P(A(f'See all {len(js)} journeys', href=Routes.base), cls='mute')] if len(js) > n else []),
+                goal, *ui.assets())
 
     @hook('concept_more')
     def in_journeys(c):

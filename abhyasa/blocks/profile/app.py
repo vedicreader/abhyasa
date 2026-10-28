@@ -95,7 +95,7 @@ def connect(app, ctx):
 
     @hook('today_end')
     def about(subject=None):
-        return P(A('What abhyasa knows about you', href=Routes.base), cls='mute') if lr.profile().known else None
+        return A('What abhyasa knows about you', href=Routes.base) if lr.profile().known else None
 
     app.get(Routes.base)(page)
     app.post(Routes.base)(save)

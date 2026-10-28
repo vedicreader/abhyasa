@@ -124,7 +124,7 @@ def connect(app, ctx):
         if not (r := found(t)): return None
         return dict(r, url=f"{Routes.term}?{urlencode(dict(t=r.slug, at=at))}")
 
-    @hook('today_next')
+    @hook('today_top')
     def unfinished(subject=None):
         "The newest side walk that is not finished, with its pane open beside the step that opened it."
         for j in lr.journeys():

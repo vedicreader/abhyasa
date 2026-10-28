@@ -319,7 +319,7 @@ def connect(app, ctx):
         "`(walk, index)` for each walk that has a step on concept `slug`."
         return [(j, i) for j, i in with_step(lr, slug) if j.get('mode') == 'walk']
 
-    @hook('today_next')
+    @hook('today_top')
     def on_today(subject=None):
         "Continue the newest walk that is started and not finished."
         for j in lr.journeys():

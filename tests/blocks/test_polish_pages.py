@@ -75,3 +75,41 @@ def test_graph_marks_what_moved_since_the_last_visit():
     assert "moved since your last visit." in js and "n === 1 ? 'idea' : 'ideas'" in js
     assert 'PULSE = 600' in js
     assert '#graph .moved' in css
+
+# F12: Today has an order of weight
+
+def today_order(h, *marks):
+    at = [h.find(m) for m in marks]
+    assert all(a >= 0 for a in at), [m for m, a in zip(marks, at) if a < 0]
+    return at == sorted(at)
+
+def test_today_has_an_order_of_weight(mk, walk_fake, lr):
+    "Continue card, then one review line with Start, then at most three journeys with See all, then the goal closed to one line; no week or subjects."
+    cl = mk()
+    for i in range(5): walk(cl, lr)
+    lr.update('ranking', seen=1, floor=1)   # a seen idea: the strengths link shows
+    sid = cl.post('/start', data={}, follow_redirects=False).headers['location'].split('/')[-1]; cl.get(f'/s/{sid}')   # an open session: the Continue card
+    h = cl.get('/').text
+    assert today_order(h, 'Continue where you stopped', 'class="review-line"', 'Your journeys', 'See all 5 journeys', 'What do you want to learn?')
+    assert 'Review and practice' not in h and 'This week' not in h and '>Subjects<' not in h
+    assert h.count('class="jrow"') == 3
+    assert re.search(r'<details class="goal-fold"><summary>What do you want to learn\?</summary>', h)
+    assert re.search(r'<p class="mute foot">.*Your strengths</a> <kbd>⌥G</kbd> · <a href="/keys">Keyboard shortcuts</a> <kbd>⌥F</kbd>', h, re.S)
+
+def test_today_review_line_counts_due_ideas(mk, lr):
+    "The review line says how many ideas are due, with Start; with nothing due it names the next idea."
+    import time
+    lr.update('ranking', seen=1, due=time.time() - 60, floor=1)
+    h = mk().get('/').text
+    line = re.search(r'<p class="review-line">(.*?)</p>', h, re.S).group(1)
+    assert 'Review: 1 idea is due' in line
+    assert 'Start' in h[h.index('class="review-line"'):][:900]
+    assert '0 due for review' not in h
+
+def test_today_goal_is_open_with_no_journey(mk):
+    h = mk().get('/').text
+    assert 'goal-fold' not in h and 'What do you want to learn?' in h and 'No journeys yet' in h
+
+def test_your_learning_has_the_week_and_subjects(mk):
+    h = mk().get('/learning').text
+    assert 'This week' in h and '>Subjects<' in h and '2 concepts' in h

@@ -440,11 +440,23 @@ def m5_graph_grows(pg, w):
                pg.eval_on_selector('#graph .moved', 'e => parseFloat(getComputedStyle(e).animationDuration)') < .01
     finally: pg.emulate_media(reduced_motion='no-preference')
 
+def f12_today_has_an_order(pg, w):
+    "Today: the Continue card, the review line, the journeys, the goal on one line, then the links on one line; no week and no subjects."
+    pg.goto(f'{w.B}/s/{w.sid}'); settle(pg, 300)   # the session is open, so the Continue card shows
+    pg.goto(w.B + '/'); settle(pg, 300)
+    top = lambda sel: pg.eval_on_selector(sel, 'e => e.getBoundingClientRect().top')
+    ys = [top(x) for x in ('.continue-card', '.review', 'main h2:has-text("Your journeys")', 'details.goal-fold', 'p.foot')]
+    assert ys == sorted(ys), ys
+    assert pg.eval_on_selector('details.goal-fold', 'd => d.open') is False and not pg.is_visible('#goal')
+    assert pg.eval_on_selector('p.foot', 'e => e.getBoundingClientRect().height') < 40
+    assert not pg.query_selector('main h2:has-text("This week")') and not pg.query_selector('main h2:has-text("Subjects")')
+    assert visible_gos(pg) == ['Continue ⌥S'], visible_gos(pg)
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
-          f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows]
+          f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

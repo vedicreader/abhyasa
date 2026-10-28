@@ -16,9 +16,9 @@ def go(j): return Routes.of(Routes.walk, jid=j.id) if j.get('mode') == 'walk' el
 
 def Bar(done, total): return Span(I(style=f"width:{100 * done // max(total, 1)}%"), cls='prog', role='progressbar', aria_valuenow=str(done), aria_valuemax=str(total))
 
-def GoalForm(compact=False):
-    "The box where a journey starts: say or type a goal. The planner suggests a path that you can change."
-    return Form(Label('What do you want to learn?', fr='goal'),
+def GoalForm(compact=False, label=True):
+    "The box where a journey starts: say or type a goal. The planner suggests a path that you can change. `label=False` when a fold names it."
+    return Form(Label('What do you want to learn?', fr='goal') if label else '',
                 Textarea(name='goal', id='goal', rows=1 if compact else 2, data_mic='1', aria_label='Your goal',
                          placeholder='For example: how LLMs work, from tokens to training. ⌘↵ plans a path.'),
                 Div(Button('Plan a path', cls='plan', data_wait=PLANNING, data_skel='#plan-out'),

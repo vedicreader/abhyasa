@@ -1,9 +1,10 @@
 """One sitting with the tutor: ask, struggle, grade, teach. The next question is fetched while you read the feedback.
 Each session is saved on the shelf as it goes; a URL of a session that is not in memory loads it from the shelf."""
+import time
 from concurrent.futures import wait
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import Page, hook, Primary
+from abhyasa.core import Page, hook, Primary, n_of
 from abhyasa.model import DEPTHS, pick
 from abhyasa.tutor import Session, HINTS, moved
 from abhyasa.journey import progress, related
@@ -168,11 +169,15 @@ def connect(app, ctx):
 
     @hook('today_next')
     def start_here(subject=None):
-        p = pick(ctx.learning.concepts(), subject=subject)
-        nxt_ = P(f"Next: {DEPTHS[p[1]]} {p[0].name}. ", Span(p[2], cls='why')) if p else P('Nothing due. Add a source, start a journey, or pick a concept.')
-        return (H2('Review and practice'), nxt_,
-                Form(Input(type='hidden', name='subject', value=subject or ''),
-                     Primary(f"Start{' ' + subject if subject else ''}", data_wait='Starting…', focus=True, rank=3), action=Routes.start, method='post'))
+        cs, now = ctx.learning.concepts(subject), time.time()
+        n = sum(1 for c in cs if c.seen and c.due and c.due <= now)
+        p = None if n else pick(ctx.learning.concepts(), subject=subject)
+        said = (f"Review: {n_of(n, 'idea')} {'is' if n == 1 else 'are'} due.",) if n else \
+               (f"Next: {DEPTHS[p[1]]} {p[0].name}. ", Span(p[2], cls='why')) if p else ('Nothing is due. Add a source, start a journey, or pick a concept.',)
+        return Div(P(*said, cls='review-line'),
+                   Form(Input(type='hidden', name='subject', value=subject or ''),
+                        Primary(f"Start{' ' + subject if subject else ''}", data_wait='Starting…', focus=True, rank=3), action=Routes.start, method='post'),
+                   cls='review')
 
     @hook('concept_actions')
     def learn_this(c):

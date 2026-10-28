@@ -74,7 +74,7 @@ def test_focus_and_end(mk, lr):
 def test_today_and_concept_hooks(mk):
     cl = mk()
     today = cl.get('/').text
-    assert re.search(r'Next: \w+ Ranking\.', today) and 'action="/start"' in today and 'Subjects' in today
+    assert re.search(r'Next: \w+ Ranking\.', today) and 'action="/start"' in today and '>Subjects<' not in today   # the subjects are on Your learning
     c = cl.get('/c/ranking').text
     assert 'Learn this' in c and 'See in the graph' in c
 
