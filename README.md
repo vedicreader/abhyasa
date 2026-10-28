@@ -63,6 +63,84 @@ When you say “I don’t know X”, X becomes a concept, and it comes first the
 | lesson | the smallest step that the tutor teaches after a miss. “Another way” (⌥A) teaches it again in a different way |
 | demo | an interactive figure for one concept. You predict, you lock in, and then you change the inputs |
 
+## Learn a paper, a topic or a link as a walk
+
+A walk takes you through one source, one idea at a time. You can make a walk from a paper in your vault, a text that you paste, a topic, or a link. Use Add, and choose what you have.
+
+The tutor reads the source and picks the main ideas. A walk has 12 ideas by default. You can change this number in Settings, under Walks. Before you start, the plan page shows each idea and the kind of check for it. You can change the kind for an idea there.
+
+Each idea is one step. A step shows the passage from the source, word for word. It also shows a short note from the tutor and a figure from the source, if the source has one. Each step has one check:
+
+- Short answer. You write the idea in your own words, and the tutor grades it.
+- Demo. You predict what a demo will do, lock in your prediction, and then change the inputs.
+- Order. You put the parts of the idea in the right order.
+- Code. You write a small Python function, and its tests run.
+
+The tutor picks the kind that fits the idea and your profile. The step shows the reason. Reading never waits for a check. You can read the passage and press “Skip this idea” at any time. A skipped idea stays unseen in your record. A check that you pass or miss changes your record, as an answer in a session does.
+
+On a walk step, ⌥S sends your answer, or runs the tests. When the check is closed, ⌥S goes to the next idea. ⌥W asks for a hint. In a demo, ⌥V keeps the state of the demo. ⌥F still shows all the keys.
+
+### Code runs in a closed process
+
+The tests of a code check run in a closed process with no network. Each test has 2 seconds, and the whole run has 10 seconds. You can change these limits in Settings, under Code runner. On macOS, a `sandbox-exec` profile stops the network and stops writes outside a temporary folder. On other systems, the guard is best-effort, so run abhyasa in your own container if you need more. abhyasa installs no libraries. Its code checks use only the Python standard library.
+
+### A walk from a link
+
+On Add, choose “A link”. These links work: a web page, a documentation site, a PDF, an arXiv link or id, and a GitHub repository or file. A video link does not work. A link to your own computer or to a local network does not work either.
+
+abhyasa fetches the link only when you press “Make a walk”. It reads only the pages in the folder of the link, after any redirect. It reads at most the page cap. The default is 8 pages. You can set the number on Add, up to the cap in Settings, under Links. The cap is 20 by default.
+
+## Rabbit holes
+
+A passage can use an idea that you do not know yet. The step then shows a “This needs” line with each idea that it needs. An idea that is not learned yet has a “Learn beside” button.
+
+There are three ways down:
+
+1.  A quick primer. A short text that you read in the side pane.
+2.  A short side walk. A small walk on that idea, in the side pane.
+3.  Its own session. A normal session on that idea, in a new tab.
+
+Press ⌥B to open the offer. Then press 1, 2 or 3. A primer or a side walk opens in a pane beside the step. The paper stays on the left. On a narrow window, the side walk opens in the same tab, with “Back to the paper” at the top.
+
+- ⌥B opens the offer for the first idea that you do not know.
+- ⌥Z goes back to the paper and closes the pane. Esc also closes it.
+- A side walk can open another side walk. The limit is 2 levels, and you can change it in Settings, under Walks. Past the limit, only “Own session” is left.
+- The check that was open on the paper stays open. The answer that you typed there stays in the box. When the side walk ends, the paper tells you what you learned on the way.
+
+The pane opens only pages of abhyasa. A pane address that points to another site is ignored.
+
+## Open in Leela
+
+abhyasa does not install libraries for you, and it runs only short exercises that use the standard library. A library or a command-line tool is better to learn in [Leela](https://github.com/vedicreader/leela). Leela has the tool environments, code lookup and an agent tutor.
+
+When you add a link, tick “It is a library or a command-line tool”. This makes a tool walk. A tool walk asks short-answer and order checks here, and it has no code check.
+
+A step that needs code has an “Open in Leela” link. The link opens Leela in a new tab, on the same walk and step. abhyasa never calls Leela. It reads the file that a running Leela writes, and it makes a link only to an address on this computer.
+
+If Leela does not run, the step says so, and it links to the install page.
+
+## Settings
+
+Settings has every value that you may want to change. The values are in 11 groups:
+
+| group | what it sets |
+|----|----|
+| Look | the theme and the mode |
+| Learning | your pace, how many questions a session has, and how often a new way to learn comes |
+| Walks | how many ideas a walk has, how much is hands-on, how deep a side walk goes, and the length of a passage and a note |
+| Checks | the tries for a check, the closeness of a pass, hints, and how sure you must be |
+| Review | when a concept comes back, and a limit for each day |
+| Links | the page cap, the time for a link, and how much text abhyasa keeps |
+| Code runner | the time for each test, the whole run, and the size of a file that code writes |
+| Speech | the speech engine, the pause that ends a phrase, and the longest phrase |
+| Models | the model for each tutor task, and the limit of its reply |
+| Lists | how many rows each list shows |
+| Prompts | the text of the tutor prompts |
+
+Each number has a range. The page shows the range and the default next to the value, for example `3 to 30 · default 12`. A value outside its range is not kept. If your settings file has such a value, abhyasa uses the nearest end of the range and tells you on the page. Where a value is not the default, “Use the default” puts the default back. “Use the defaults for this group” does the same for the whole group. “Find a setting” filters the rows as you type.
+
+Some guards have no setting: the closed process with no network, the check of link addresses, plain HTTP for web pages, the check of a pane address, and the rule that abhyasa answers only this computer. A change to a setting works on the next question or the next walk.
+
 ## Keyboard shortcuts
 
 All keys are for the left hand. ⌥ is the Option key. To see all the keys, press ⌥F, or press ? outside a text box.
@@ -101,18 +179,20 @@ The web app is made from blocks in `abhyasa/blocks`:
 
 | block | what it does |
 |----|----|
-| `today` | the home page: continue, your journeys, the next review and this week |
+| `today` | the home page: continue, the next review and your journeys |
 | `journeys` | say a goal, and the tutor makes a path of steps. You can move, skip, add or split a step |
 | `history` | your learning: each past session with what changed, and what you learned each week. Continue (⌥C) is in the top bar |
 | `profile` | what abhyasa knows about you: a short first conversation, your edits, and the changes that the tutor makes, each with its reason |
 | `strengths` | your strong concepts, your weak spots and the ways that you learn best (⌥G) |
 | `session` | one sitting with the tutor: one question at a time, with hints, confidence and “I don’t know” |
 | `voice` | a microphone for each text box. ⌥D speaks into the box that has the focus, on any page |
-| [`settings`](https://vedicreader.github.io/abhyasa/voice.html#settings) | the speech model, the OpenAI key and the model for each tutor task. You choose each model from a list of names. Under Prompts, you can change the text of the tutor prompts. A change works on the next question |
+| [`settings`](https://vedicreader.github.io/abhyasa/settings.html#settings) | every value that you may change, in groups: the look, learning, walks, checks, review, links, the code runner, speech, models, list lengths and the tutor prompts. Each number shows its range and its default. A change works on the next question |
 | `concepts` | the list of concepts, and one page for each concept with its state |
 | `graph` | the concept graph. You can color it by depth, by how well you know each concept, by subject or by due date |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |
-| `add` | add concepts from a text, a vault document or vedicreader |
+| [`add`](https://vedicreader.github.io/abhyasa/settings.html#add) | make a walk, or find concepts, from a text, a vault document, vedicreader or a link |
+| `walk` | a walk: one step for each idea, with a passage, a note and a check |
+| [`detour`](https://vedicreader.github.io/abhyasa/journey.html#detour) | rabbit holes: a primer, a side walk or a session for an idea that a step needs, with the side pane |
 | `demo` | interactive demos from rupaka: on a concept page, under a lesson after a miss, and one page for each demo |
 | `keys` | the keyboard shortcuts (⌥F) |
 
