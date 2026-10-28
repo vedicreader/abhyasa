@@ -68,6 +68,7 @@ add('checks.goal', 'checks', 'Learned depth', 'The depth at which an idea counts
 add('checks.high', 'checks', 'Sure confidence', 'At or above this confidence, you count as sure. A sure answer that is wrong counts as a misconception.', 60, 40, 90, more=True, unit='%')
 add('checks.hints', 'checks', 'Hints before a pass is shaky', 'With this many hints, a right answer counts as shaky.', 2, 1, 4, more=True)
 add('checks.demo_misses', 'checks', 'Misses before a demo', 'After this many misses on an idea, the tutor makes a demo for it.', 2, 1, 5, more=True)
+add('checks.demo_ladder', 'checks', 'More help after a demo', 'When you miss an idea after its demo, the tutor teaches it in another way. After the next miss, it shows a simpler demo.', True)
 add('checks.retest', 'checks', 'Retest a miss after', 'The tutor asks a missed idea again after this many other questions in the session.', 2, 1, 6, more=True, unit='questions');
 
 # %% ../nbs/16_settings.ipynb #63876a2f
