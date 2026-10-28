@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary
+from abhyasa.core import n_of, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary
 from abhyasa.model import DEPTHS
 from abhyasa.settings import val
 from abhyasa.method import LABELS as WAYS
@@ -195,8 +195,8 @@ def EndPage(s, ms, j=None, pg=None, rel=()):
     mis = sum(len(m['misconceptions']) for m in ms)
     mins = max(1, round(((s.ended or s.start) - s.start) / 60))
     lead = ' '.join(x for x in (
-        f"{len(up)} concept{'s' if len(up) != 1 else ''} moved up." if up else 'Nothing moved up this time. The misses show what to work on next.' if n else 'No questions this time.',
-        f"You found {mis} misconception{'s' if mis != 1 else ''}." if mis else '') if x)
+        f"{n_of(len(up), 'concept')} moved up." if up else 'Nothing moved up this time. The misses show what to work on next.' if n else 'No questions this time.',
+        f"You found {n_of(mis, 'misconception')}." if mis else '') if x)
     nxt = []
     if j and pg:
         nxt = [H2('Your journey'), P(A(j.title, href=f'/j/{j.id}'), Span(f"  {pg.done} of {pg.total} steps", cls='mute')),

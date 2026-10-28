@@ -5,7 +5,7 @@ from collections import defaultdict
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page, hook, run as run_hook
+from abhyasa.core import n_of, Page, hook, run as run_hook
 from abhyasa.core.leela import leela_line
 from abhyasa.settings import val
 from abhyasa.profile import profile_text
@@ -131,7 +131,7 @@ def connect(app, ctx):
     def from_link(url, pages, st, tool=False):
         "On the pool: file the pages of `url`, then read each page and make one walk. Return the walk id."
         docs = file_link(lr, url, pages)
-        j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=f"Reading {k + 1} of {n} page{'s' * (n != 1)}…"), tool=tool)
+        j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=f"Reading {k + 1} of {n_of(n, 'page')}…"), tool=tool)
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no ideas on these pages.')

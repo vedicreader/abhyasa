@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet
+from abhyasa.core import n_of, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -61,9 +61,9 @@ def Plan(j, st, by):
         secs.append(Li(Div(B(sec or 'The ideas'), Small(' · '.join(x for x in (pages([j['steps'][i] for i in ix]), f"{sum(minutes(j['steps'][i]) for i in ix)} min") if x)), cls='sh'),
                        Ul(*[PlanIdea(j['id'], i, j['steps'][i], by, ways) for i in ix])))
     n = len(j.get('more') or ())
-    return Div(Span(f"The walk · {len(st.sections)} section{'s' * (len(st.sections) != 1)} · {len(j['steps'])} ideas · about {mins} min", cls='lbl'),
+    return Div(Span(f"The walk · {n_of(len(st.sections), 'section')} · {n_of(len(j['steps']), 'idea')} · about {mins} min", cls='lbl'),
                P('Each idea has one check. The tutor picks the check from the idea and from the ways that work for you. You can change any check.', cls='mute'),
-               P(f"The tutor picked the main ideas. The source has {n} more idea{'s' * (n != 1)}. They are in your concepts. "
+               P(f"The tutor picked the main ideas. The source has {n} more {'idea' if n == 1 else 'ideas'}. They are in your concepts. "
                  'When a step needs one of them, you can open it beside the walk.', cls='mute') if n else '',
                Ol(*secs, cls='plan') if secs else P('The tutor found no ideas in this source.', cls='mute'), id='plan')
 
@@ -71,7 +71,7 @@ def PlanPage(j, st, by):
     src = j.get('source') or {}
     go = (Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post')
           if j['steps'] else '')
-    return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else f"From the link: {src['url']} · {len(src['docs'])} page{'s' * (len(src['docs']) != 1)}." if src.get('docs') else j.get('goal', ''), cls='mute'),
+    return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else f"From the link: {src['url']} · {n_of(len(src['docs']), 'page')}." if src.get('docs') else j.get('goal', ''), cls='mute'),
             leela_line(j) if j.get('tool') else '', Plan(j, st, by), Div(go, Span('The walk is a journey, so it shows on Today.', cls='mute'), cls='row'))
 
 def LinkPending(url, said):
@@ -279,7 +279,7 @@ def SectionDone(j, sec, ix, ms, nxt, by, end=()):
     "What moved in this section, the ideas you skipped, and Go on. At the end of the walk, `end` is what other blocks add (`walk_end`)."
     skipped = [name(by, j['steps'][k]) for k in ix if (j['steps'][k].get('done') or {}).get('outcome') == 'skipped']
     up = sum(m['after'] > m['before'] for m in ms)
-    lead = (f"{up} idea{'s' * (up != 1)} moved up." if up else 'Nothing moved up in this section.' if ms else 'You did no checks in this section.')
+    lead = (f"{n_of(up, 'idea')} moved up." if up else 'Nothing moved up in this section.' if ms else 'You did no checks in this section.')
     go = Primary('Go on', href=at(Routes.step, j['id'], nxt)) if nxt is not None else Primary('Back to your journeys', href='/journeys')
     return (Span(sec or 'The ideas', cls='lbl'), H1('Section done'), P(lead, cls='lead-sum'),
             *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []),

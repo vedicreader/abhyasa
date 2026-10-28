@@ -2,7 +2,7 @@
 import time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, DepthBar, asset_css, ago, Primary
+from abhyasa.core import n_of, Md, DepthBar, asset_css, ago, Primary
 from abhyasa.model import DEPTHS
 from .cfg import Routes
 
@@ -27,7 +27,7 @@ def Continue(s, title, big=False, href=None):
     if not big: return A(f'Continue: {title}', Kbd('⌥C'), href=href, id='continue', title='Continue where you stopped')
     n = len(s.get('log') or [])
     return Div(Span('Continue where you stopped', cls='lbl'),
-               P(A(title, href=href), Span(f"  · {n} question{'s' if n != 1 else ''} done · {ago(s.get('updated'))}", cls='mute')),
+               P(A(title, href=href), Span(f"  · {n_of(n, 'question')} done · {ago(s.get('updated'))}", cls='mute')),
                Div(Primary('Continue', href=href), cls='row'), cls='continue-card')
 
 def Row(s, title, ms, href=None):

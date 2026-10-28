@@ -1,7 +1,7 @@
 "Your learning: past sessions with what moved, what you learned each week, and Continue: in the top bar and on Today."
 import time
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides, hook, ago
+from abhyasa.core import n_of, Page, RouteOverrides, hook, ago
 from abhyasa.settings import val
 from abhyasa.tutor import moved
 from abhyasa.journey import progress
@@ -84,7 +84,7 @@ def connect(app, ctx):
         return Page('Your learning', ui.css(), H1('Your learning'),
                     P('This page keeps each session, with what moved. Open a session to read its questions again, or to continue it.', cls='mute'),
                     H2('This week'), ui.Week(wk),
-                    P(f"{sum(n for _, n in wk)} questions in the last seven days · {ups} concept{'s' if ups != 1 else ''} moved up.", cls='mute week-sum'),
+                    P(f"{sum(n for _, n in wk)} questions in the last seven days · {n_of(ups, 'concept')} moved up.", cls='mute week-sum'),
                     H2('What you learned'), ui.Learned(weeks(ss, by)),
                     ui.Runs(list(groups.items())), on='Your learning', crumbs=up)
 

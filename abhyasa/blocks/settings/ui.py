@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say
+from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say
 from abhyasa import voice
 from abhyasa.settings import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped
 from .cfg import Routes
@@ -38,7 +38,7 @@ def GroupReset(g, n=0, ask=False, oob=False):
     o = dict(hx_swap_oob='true') if oob else {}
     if not n: return Span(id=f'gr-{g}', cls='greset', **o)
     if ask:
-        return Span(f"Use the default for {n} value{'s' * (n != 1)} in {GROUPS[g][0]}? ",
+        return Span(f"Use the default for {n_of(n, 'value')} in {GROUPS[g][0]}? ",
                     Button('Yes', type='button', cls='quiet small', hx_post=Routes.group_default, hx_vals={'group': g}, hx_target=f'#g-{g}', hx_swap='outerHTML'),
                     Button('No', type='button', cls='quiet small', hx_get=Routes.group_ask, hx_vals={'group': g, 'no': 1}, hx_target=f'#gr-{g}', hx_swap='outerHTML'),
                     id=f'gr-{g}', cls='greset ask', **o)

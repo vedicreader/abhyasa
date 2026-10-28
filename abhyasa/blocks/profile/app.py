@@ -1,6 +1,6 @@
 "What abhyasa knows about you: the profile page, the first conversation, and the line on Today until you have one."
 from fasthtml.common import *
-from abhyasa.core import Page, hook, parse_value, RangeLine, row_id
+from abhyasa.core import n_of, Page, hook, parse_value, RangeLine, row_id
 from abhyasa.settings import SETTINGS, fit
 from abhyasa.profile import PROFILE, LIST_FIELDS, ONBOARD_QS, onboard, observe, calibration
 from . import ui
@@ -38,7 +38,7 @@ def connect(app, ctx):
         f = await req.form()
         kv = {k: (f.getlist(k) if k == 'examples' else f.get(k, '')) for k in PROFILE if k == 'examples' or k in f}   # a field that the form does not have stays
         ch = lr.set_profile(by='you', why='you changed it', **kv)
-        return Span(f"Saved {len(ch)} change{'s' if len(ch) != 1 else ''}." if ch else 'No changes.', id='saved', cls='mute')
+        return Span(f"Saved {n_of(len(ch), 'change')}." if ch else 'No changes.', id='saved', cls='mute')
 
     def start_page():
         return Page('About you', ui.css(), H1('Tell abhyasa about you'),
@@ -81,7 +81,7 @@ def connect(app, ctx):
         try: ch = observe(lr, ask)
         except Exception as e: return P(f'The model did not answer ({e}).', cls='req-err')
         if not ch: return P('No change: the tutor found nothing new in your recent answers.', cls='mute')
-        return Div(P(f"{len(ch)} change{'s' if len(ch) != 1 else ''}:", cls='mute'), ui.Changes(ch))
+        return Div(P(f"{n_of(len(ch), 'change')}:", cls='mute'), ui.Changes(ch))
 
     def clear():
         lr.clear_profile()
