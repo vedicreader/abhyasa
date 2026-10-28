@@ -11,6 +11,7 @@
 - When the tutor cannot make a walk, a side walk or a term, the page shows a plain line. The log keeps the error.
 - A code check refuses more than 100 000 characters of code.
 - Your journeys: a side walk opens in the pane beside the step that opened it.
+- Search gives the number of hits that you ask for when the shelf has them.
 
 ## 0.0.11
 
