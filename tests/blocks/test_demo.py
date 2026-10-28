@@ -99,3 +99,27 @@ def test_an_order_demo_is_not_the_plain_demo(mk, lr):
     cl.post('/demo/make', data=dict(concept='reciprocal-rank-fusion'))           # the order demo does not count: a plain demo job starts
     d = svc(cl)['tutor'].jobs['reciprocal-rank-fusion'].result(timeout=120)
     assert d.aim == '' and lr.demo_for('reciprocal-rank-fusion', aim='') is not None
+
+def test_the_ladder_after_a_demo_in_a_session(mk, lr, fake):
+    "After you saw the demo: a lesson in another way with the demo kept, then a simpler demo, then nothing new."
+    import itertools
+    n = itertools.count()
+    fake.rules['Teach the smallest step'] = lambda p, sp: f'Positions are shared. Check: what if k = {next(n)}?'   # each attempt gets its own text
+    lr.put_demo(gallery()['reciprocal-rank-fusion'], 'ranking')
+    cl = mk(); sid = start(cl, focus='ranking'); cl.get(f'/s/{sid}')
+    def miss(cl, sid):
+        "Three sure wrong answers, each with its own words, so the vault keeps each attempt as its own document."
+        for k in range(3): r = cl.post(f'/s/{sid}/answer', data=dict(answer=f'add the scores, try {k}', confidence=90)).text
+        return r
+    first = miss(cl, sid)
+    assert 'data-rupaka' in first and 'Lesson · ' not in first                         # the plain demo, as before
+    cl.post(f'/s/{sid}/next'); second = miss(cl, sid)
+    assert 'Lesson · ' in second and 'data-rupaka' in second and 'A simpler demo' not in second   # another way, and the demo stays
+    cl.post(f'/s/{sid}/next'); third = miss(cl, sid)
+    assert 'The tutor is making a simpler demo' in third and '/demo/wait/ranking?aim=simpler' in third
+    svc(cl)['tutor'].jobs['ranking:simpler'].result(timeout=120)
+    card = cl.get('/demo/wait/ranking?aim=simpler').text
+    assert 'A simpler demo' in card and 'data-rupaka' in card
+    assert lr.demo_for('ranking', aim='').slug == 'reciprocal-rank-fusion'               # the simpler demo is never the plain demo
+    cl.post(f'/s/{sid}/next'); fourth = miss(cl, sid)
+    assert 'demo-card' not in fourth and 'Lesson · ' not in fourth                     # the third miss after the demo adds nothing
