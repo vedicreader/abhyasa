@@ -147,6 +147,9 @@ Rules:
 - `check_for(c, st, rng=None, explore='sometimes', prior=(), last='') -> AttrDict(way, kind, depth, why)`:
   - candidates: `c.ways ∩ WALK_WAYS`, else `TEXT_WAYS`; `last` (the way of the last check) is left out when another
     candidate is left.
+  - A hands-on way of the idea (demo, order or code) comes before its text ways. An idea with no way that a walk can
+    show gets a short answer. At most a third of the checks of a walk are hands-on (`MAX_HANDS_ON`); later steps get a
+    check in their text ways.
   - kind from way: `demo` → `demo`; `order` → `order`; `code` → `code`; else `short`.
   - depth: `code` is 4 (apply); a short answer is 2 (recall) for a concept with floor below 2, else 3 (explain); a
     demo or order check is 2, and 3 when the learner writes a why (as `record_prediction` does today).
