@@ -15,6 +15,7 @@ CAPS = ('learning', 'ask', 'pool', 'sources')
 NO_TALK = 'abhyasa could not make the talk.'
 PARTS = ('passage', 'figure', 'demo')   # the parts that a slide can show, in the order of their beats
 PAUSE = 'Talk to your neighbour.'
+ASKS = ('idea', 'primer')              # the slide kinds that can ask the room
 SLOT = (5, 240)                         # the most and the least minutes of a slot
 SECS = (10, 1800)                       # the time of a pause
 Q_MOST, OPT_MOST, NOTE_MOST = 500, 200, 5000   # as the `ask` message of the stage allows
@@ -73,19 +74,30 @@ def new_ask(old, f):
         return dict(a, options=opts)
     if kind == 'choice':
         if not 2 <= len(opts) <= 6: raise Bad('A choice needs 2 to 6 options, one on each line.')
-        n = number(ans, 0, len(opts) - 1, 'Give the right option as its number, from 0.') if ans else old.get('answer') if same else None
-        if n is None: raise Bad('Give the right option as its number, from 0.')
+        n = number(ans, 0, len(opts) - 1, 'Pick the right option.') if ans else old.get('answer') if same else None
+        if n is None: raise Bad('Pick the right option.')
         return dict(a, options=opts, answer=n)
     if not 3 <= len(opts) <= 6: raise Bad('An order needs 3 to 6 options, one on each line.')
-    if ans:
+    if ',' in ans:   # the API can give the right order; the editor lists the options in the right order and sends no order
         try: order = [int(x) for x in ans.split(',')]
         except ValueError: raise Bad('Give the right order as the numbers of the options, with commas.')
         return dict(a, options=opts, answer=order)
     if 'options' not in f and same: return dict(a, options=opts, answer=old.get('answer'))
+    if 'options' not in f: raise Bad('Write the options in the right order, one on each line.')
     at = mixed(len(opts))   # the options are in the right order: the room sees them mixed
     shown = [None] * len(opts)
     for k, p in enumerate(at): shown[p] = opts[k]
     return dict(a, options=shown, answer=at)
+
+def rows(f, opts):
+    "The editor sends one box for each option and a radio button on the right one: make them the lines of `options` and the index of `answer`."
+    if len(opts) < 2: return f
+    keep = [k for k, o in enumerate(opts) if isinstance(o, str) and o.strip()]
+    f = {**f, 'options': '\n'.join(opts[k].strip() for k in keep)}
+    if (a := f.get('answer', '').strip()).isdigit():
+        if int(a) not in keep: raise Bad('Pick an option that has text.')
+        f['answer'] = str(keep.index(int(a)))
+    return f
 
 def edit(s, f):
     "Change slide `s` with the fields that the form `f` sends, and only those."
@@ -94,8 +106,11 @@ def edit(s, f):
         s['notes'] = f['notes'].strip()
     if 'beats' in f: s['beats'] = lines(f['beats'])
     for p in PARTS:
-        if (v := f.get(f'show_{p}')) is not None: s['beats'] = with_part(s.get('beats') or [], p, v == 'on')
+        if (v := f.get(f'show_{p}')) is None: continue
+        if v not in ('on', 'off'): raise Bad(f'show_{p} is on or off.')
+        s['beats'] = with_part(s.get('beats') or [], p, v == 'on')
     if not {'kind', 'q', 'options', 'answer'} & set(f): return s
+    if s.get('kind') not in ASKS: raise Bad('This slide has no question for the room.')
     old, a = s.get('ask'), new_ask(s.get('ask'), f)
     if a and old and all(a.get(k) == old.get(k) for k in ('kind', 'q', 'options', 'answer')) and 'src' in old: a['src'] = old['src']
     if bool(a) != bool(old and old.get('kind') != 'none'):   # a question takes its minutes, and gives them back when it goes
@@ -140,7 +155,10 @@ def connect(app, ctx):
 
     async def slide(req, tid:str):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
-        f = {k: v for k, v in (await req.form()).items() if isinstance(v, str)}
+        form = await req.form()
+        f = {k: v for k, v in form.items() if isinstance(v, str)}
+        try: f = rows(f, form.getlist('options'))
+        except Bad as e: return text(str(e))
         ss = deepcopy(list(t.slides))
         if (i := next((k for k, s in enumerate(ss) if s.get('id') == f.get('sid')), None)) is None: return Response('No such slide.', status_code=404)
         act = f.get('act', '')
@@ -173,7 +191,9 @@ def connect(app, ctx):
         if minutes is not None:
             try: t['minutes'] = number(minutes, *SLOT, f'A slot is {SLOT[0]} to {SLOT[1]} minutes.')
             except Bad as e: return text(str(e))
-        if phones is not None: t['phones'] = phones == 'on'
+        if phones is not None:
+            if phones not in ('on', 'off'): return text('Room phones is on or off.')
+            t['phones'] = phones == 'on'
         return ui.Deck(lr.put_talk(t))
 
     @hook('walk_actions')

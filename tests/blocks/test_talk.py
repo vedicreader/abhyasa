@@ -35,6 +35,8 @@ def test_talks_on_your_learning_and_search(mk, talk_fake, lr):
     page = cl.get('/learning').text
     assert 'Your talks' in page and f'href="/t/{tid}"' in page
     assert cl.get('/search?q=Attention').status_code == 200 and cl.get('/t/nope').status_code == 404
+    found = cl.get('/search?q=talk Attention').text
+    assert f'href="/t/{tid}"' in found and 'A talk · 5 slides' in found   # search finds the talk, with its slide count
 
 # --- more of the edit, the slot and the guards ----------------------------------------------------------------------
 
@@ -50,7 +52,7 @@ def test_edit_the_question(mk, talk_fake, lr):
     a = lr.talk(tid).slides[0]['ask']
     assert a['answer'] == 2 and a['q'] == s['ask']['q'] and a['options'] == s['ask']['options']
     assert post(answer='9').status_code == 400 and lr.talk(tid).slides[0]['ask']['answer'] == 2
-    assert post(answer='x').text == 'Give the right option as its number, from 0.'
+    assert post(answer='x').text == 'Pick the right option.'
     assert post(kind='none').status_code == 200
     s = lr.talk(tid).slides[0]
     assert s['ask'] is None and s['mins'] == mins - val('talks.ask_min')   # no question: its minute goes
@@ -163,5 +165,39 @@ def test_editor_keys_in_a_browser(mk, talk_fake, lr, tmp_path):
                 err = pg.locator('#deck .req-err')
                 assert 'lights text that is not in the passage' in err.inner_text() and err.locator('b').count() == 0   # text, never HTML
                 assert pg.evaluate("document.querySelectorAll('.req-err').length") == 1
+                pg.reload(); pg.wait_for_load_state('networkidle')   # the bad beat stays in the box until the page loads again
+                notes = lr.talk(tid).slides[0]['notes']; sid = lr.talk(tid).slides[0]['id']   # the first slide has a choice question
+                pg.evaluate(f"document.querySelector('li.slide[data-sid=\"{sid}\"] details.edit').open = true")
+                pg.locator(f'li.slide[data-sid="{sid}"] input[type=radio][value="1"]').check()
+                pg.screenshot(path=str(tmp_path/'choice.png'), full_page=True)
+                pg.locator(f'li.slide[data-sid="{sid}"] form.slide-edit button').click()
+                pg.wait_for_function(f"document.activeElement.dataset.sid === '{sid}'")
+                a = lr.talk(tid).slides[0]['ask']   # the radio button sends the right option; the other fields stay
+                assert a['answer'] == 1 and a['options'] == CHOICE['options'] and lr.talk(tid).slides[0]['notes'] == notes
             finally: b.close()
     finally: srv.should_exit = True
+
+def test_editor_options_and_guards(mk, talk_fake, lr):
+    "The editor sends a box for each option and a radio button on the right one; an order is listed right and saved mixed; on and off only."
+    cl, tid = talk_of(mk, lr)
+    post = lambda **kw: cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='edit', **kw))
+    page = cl.get(f'/t/{tid}').text
+    assert 'from 0' not in page and 'name="answer"' in page and 'type="radio"' in page
+    boxes = ['Weights', '', 'Largest only', 'In order', '', '']   # empty boxes do not count: the radio on box 3 is option 2
+    assert post(kind='choice', q='Q?', options=boxes, answer='3').status_code == 200
+    a = lr.talk(tid).slides[0]['ask']; assert a['options'] == ['Weights', 'Largest only', 'In order'] and a['answer'] == 2
+    assert post(kind='choice', q='Q?', options=boxes, answer='1').text == 'Pick an option that has text.'
+    assert post(kind='choice', q='Q?', options=boxes).status_code == 200   # the same kind: the right option stays
+    right = ['Dot products', 'Divide', 'Softmax', 'Weigh', '', '']
+    assert post(kind='order', q='Put them in order.', options=right, answer='0').status_code == 200
+    a = lr.talk(tid).slides[0]['ask']; assert [a['options'][i] for i in a['answer']] == right[:4] and a['options'] != right[:4]
+    assert all(f'value="{o}"' in cl.get(f'/t/{tid}').text for o in right[:4])
+    page = cl.get(f'/t/{tid}').text; at = [page.index(f'value="{o}"') for o in right[:4]]
+    assert at == sorted(at)   # the editor lists the order right
+    assert post(show_passage='yes').status_code == 400 and lr.talk(tid).slides[0]['beats'] == ['passage']
+    assert cl.post(f'/t/{tid}/slot', data=dict(phones='maybe')).status_code == 400 and lr.talk(tid).phones is False
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='pause'))
+    pause = lr.talk(tid).slides[1]['id']
+    r = cl.post(f'/t/{tid}/slide', data=dict(sid=pause, act='edit', kind='choice', q='Q?', options='a\nb', answer='0'))
+    assert r.status_code == 400 and r.text == 'This slide has no question for the room.' and lr.talk(tid).slides[1]['ask'] is None
+    assert 'class="quiet small danger"' in cl.get(f'/t/{tid}').text   # Take it out looks like a danger

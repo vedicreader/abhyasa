@@ -48,6 +48,13 @@
 .slide-edit .boxes .lbl { margin: 0; }
 .slide-edit label.box { display: inline-flex; gap: var(--s1); align-items: baseline; text-transform: none; letter-spacing: 0; font-size: var(--t-small); color: var(--ink2); }
 .slide-edit .row { margin-top: 0; }
+.slide-edit .opts { border: 0; padding: 0; margin: 0; display: grid; gap: var(--s1); }
+.slide-edit .opts legend { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); padding: 0; margin-bottom: var(--s1); }
+.slide-edit .opt-row { display: flex; gap: var(--s2); align-items: center; }
+.slide-edit .opt-row input[type=text] { flex: 1; }
+.slide-edit:not(:has(select[name=kind] option[value=choice]:checked)) .opt-row input[type=radio] { visibility: hidden; }
+.slide-edit:has(select[name=kind] :is(option[value=words], option[value=none]):checked) .opts { display: none; }
+.deck .acts .danger { color: var(--no); }
 .talk .keys-line { margin-top: var(--s4); font-size: var(--t-small); }
 
 @media (max-width: 760px) {

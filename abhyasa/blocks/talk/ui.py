@@ -68,23 +68,32 @@ def Mini(s):
 def Field(label, el, help=''):
     return Label(label, el, Small(help, cls='mute help') if help else '')
 
+def Options(a, most=6):
+    """One box for each option, with a radio button on the right one for a choice. An order shows its options in the right order;
+    the talk mixes them for the room when you save."""
+    opts, ans = list(a.get('options') or []), a.get('answer')
+    if a.get('kind') == 'order' and isinstance(ans, list) and sorted(ans) == list(range(len(opts))): opts = [opts[i] for i in ans]
+    opts += [''] * (most - len(opts))
+    right = ans if a.get('kind') == 'choice' else None
+    return Fieldset(Legend('Options'), *[Div(Input(type='radio', name='answer', value=str(k), checked=k == right, aria_label=f'Option {k + 1} is right'),
+                                             Input(type='text', name='options', value=o, maxlength='200', aria_label=f'Option {k + 1}'), cls='opt-row')
+                                         for k, o in enumerate(opts)],
+                    Small('For a choice, pick the right option. For an order, write the options in the right order. The room sees them mixed.', cls='mute help'),
+                    cls='opts')
+
 def EditForm(tid, s):
     "The form that changes slide `s`: the note, what shows, the beats and the question. It sends only what it shows."
     sid, sh, a = s['id'], s.get('show') or {}, s.get('ask') or {}
     beats, kind = s.get('beats') or [], (s.get('ask') or {}).get('kind') or 'none'
     boxes = [Label(Input(type='checkbox', name=f'show_{p}', checked=p in beats), SHOWS[p], cls='box') for p in SHOWS if sh.get(p)]
-    ans = a.get('answer')
-    q = [Field('Ask the room', Select(*[Option(t, value=k, selected=k == kind) for k, t in KINDS.items()], name='kind')),
-         Field('Question', Input(type='text', name='q', value=a.get('q') or '', maxlength='500')),
-         Field('Options', Textarea('\n'.join(a.get('options') or []), name='options', rows='4'), 'One option on each line.'),
-         Field('Right answer', Input(type='text', name='answer', value=','.join(map(str, ans)) if isinstance(ans, list) else '' if ans is None else str(ans)),
-               'For a choice, the number of the right option, from 0. For an order, write the options in the right order and leave this empty.')]
+    q = Div(Field('Ask the room', Select(*[Option(t, value=k, selected=k == kind) for k, t in KINDS.items()], name='kind')),
+            Field('Question', Input(type='text', name='q', value=a.get('q') or '', maxlength='500')), Options(a), cls='ask-fields')
     return Form(Input(type='hidden', name='sid', value=sid), Input(type='hidden', name='act', value='edit'),
                 Field('Speaker note', Textarea(s.get('notes') or '', name='notes', rows='3'), 'Only you see it.'),
                 Div(Span('What shows', cls='lbl'), *boxes, cls='boxes') if boxes else '',
                 Field('Beats', Textarea('\n'.join(beats), name='beats', rows='3'),
                       'Each press of D shows one more. Use passage, figure, demo or ask, or lit: and words from the passage to light them.'),
-                *(q if s.get('kind') in ('idea', 'primer') else ()),
+                q if s.get('kind') in ('idea', 'primer') else '',
                 Div(Secondary('Save the slide'), cls='row'),
                 hx_post=at(Routes.slide, tid), hx_target='#deck', hx_swap='outerHTML', cls='slide-edit')
 
@@ -93,7 +102,12 @@ def Acts(tid, sid):
     post = lambda act, **kw: dict(hx_post=at(Routes.slide, tid), hx_vals=json.dumps(dict(sid=sid, act=act, **kw)), hx_target='#deck', hx_swap='outerHTML', type='button')
     return Div(Quiet('Move up', small=True, **post('up')), Quiet('Move down', small=True, **post('down')),
                Quiet('Add a pause after it', small=True, **post('pause')),
-               Quiet('Take it out', small=True, hx_confirm='Take out this slide? The walk does not change.', **post('drop')), cls='acts')
+               Danger(Quiet('Take it out', small=True, hx_confirm='Take out this slide? The walk does not change.', **post('drop'))), cls='acts')
+
+def Danger(b):
+    "A quiet button that takes something out: the --no colour (talk.css)."
+    b.attrs['class'] = f"{b.attrs.get('class', '')} danger".strip()
+    return b
 
 def Row(tid, n, s):
     "One slide: its number, a small picture, the title and what shows, the question, the minutes, and the closed form that changes it."

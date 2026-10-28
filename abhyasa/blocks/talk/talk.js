@@ -63,10 +63,15 @@ if (!window.abhyasaTalk) {
     const f = e.detail.elt;
     if (!f.matches || !f.matches('form.slide-edit')) return;
     want = {sid: f.closest('li.slide')?.dataset.sid};
+    const p = e.detail.parameters, changed = el => el.type === 'checkbox' || el.type === 'radio' ? el.checked !== el.defaultChecked
+      : el.tagName === 'SELECT' ? [...el.options].some(o => o.selected !== o.defaultSelected) : el.value !== el.defaultValue;
+    // the question is one group: when one of its fields changed, all of them go, so the options and the right one stay together
+    const ask = f.querySelector('.ask-fields');
+    if (ask && ![...ask.querySelectorAll('input, select')].some(changed)) ['kind', 'q', 'options', 'answer'].forEach(k => delete p[k]);
     for (const el of f.querySelectorAll('input:not([type=hidden]), textarea, select')) {
-      const p = e.detail.parameters;
-      if (el.type === 'checkbox') { if (el.checked === el.defaultChecked) delete p[el.name]; else p[el.name] = el.checked ? 'on' : 'off'; }
-      else if (el.tagName === 'SELECT' ? [...el.options].every(o => o.selected === o.defaultSelected) : el.value === el.defaultValue) delete p[el.name];
+      if (el.closest('.ask-fields')) continue;
+      if (!changed(el)) delete p[el.name];
+      else if (el.type === 'checkbox') p[el.name] = el.checked ? 'on' : 'off';
     }
   });
   // A change that the talk cannot take: the server says why in plain text, and it shows under the slide (as text, never as HTML).
