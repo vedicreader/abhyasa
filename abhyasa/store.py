@@ -250,10 +250,24 @@ def sessions(self:Learning, limit:int=100, journey:str=None) -> L:
     return L(sorted(rs, key=lambda s: -(s.get('updated') or s.get('end') or s.get('start') or 0))[:limit])
 
 # %% ../nbs/00_store.ipynb #c029
+def _answers(m) -> int:
+    "How many answers a filed session has: its log, or `asked` for an old one with no log."
+    return len(m['log']) if 'log' in m else m.get('asked', 0)
+
 @patch
 def search(self:Learning, q:str, kind:str=None, limit:int=10) -> L:
-    "Hybrid search over the shelf: concepts, attempts and sessions."
-    return L(self.v.search(q, limit=limit, kind=kind))
+    """Hybrid search over the shelf. Each hit also has the `kind`, `title` and `meta` of its document, so a page can show it
+    by kind. The method stats and a session with no answers stay out: they have no text that you wrote or learned."""
+    hs = L(self.v.search(q, limit=limit + 10, kind=kind))
+    ids = list(dict.fromkeys(h['doc_id'] for h in hs))
+    rows = {r['id']: r for r in self.v.t.docs(where=f"id in ({','.join('?' * len(ids))})", where_args=ids)} if ids else {}
+    out = L()
+    for h in hs:
+        if (r := rows.get(h['doc_id'])) is None: continue
+        m = json.loads(r['meta'] or '{}')
+        if r['kind'] == 'stats' or (r['kind'] == 'session' and not _answers(m)): continue
+        out.append({**h, 'kind': r['kind'], 'title': r['title'], 'meta': m})
+    return out[:limit]
 
 @patch
 def graph(self:Learning, subject:str=None) -> dict:

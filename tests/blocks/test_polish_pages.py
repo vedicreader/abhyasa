@@ -165,3 +165,21 @@ def test_graph_fits_again_at_a_new_width():
 
 def test_empty_part_of_refs_keeps_the_section_gap():
     assert '.refs > p.empty:not(:first-child) { margin-top: var(--s6); }' in src('core/base.css')
+
+# Fix round 1: search shows each hit by its kind
+
+def test_search_shows_hits_by_kind(mk, walk_fake, lr):
+    "No raw index text, no stats, no session with no answers, no slot that is not filled; each hit has a plain title."
+    cl = mk(); jid = walk(cl, lr)
+    sid = cl.post('/start', data={}, follow_redirects=False).headers['location'].split('/')[-1]; cl.get(f'/s/{sid}')   # a session with no answers
+    lr.record('ranking', 'What does a rank tell you?', answer='its position', correct=True)
+    import abhyasa.method; lr.set_stats(rank=dict(words=[1, 1]))   # the method stats doc
+    h = cl.get('/search?q=rank').text
+    body = h[h.index('<main'):]
+    for bad in ('Subject:', 'Journey:', 'Goal:', 'Steps:', 'Question:', 'Answer:', 'Also:', 'Concepts:', 'How you learn', '0 of 0 passed', 'Session '):
+        assert bad not in body, bad
+    assert not re.search(r'\{[\w.]+\}', re.sub(r'<script.*?</script>', '', body, flags=re.S))
+    assert 'class="hit"' in body and 'An idea · ml' in body and 'What does a rank tell you?' in body and 'Your answer' in body
+    from fasthtml.common import to_xml
+    from abhyasa.blocks.search.app import Elsewhere
+    assert 'class="mute empty">Nothing found.<' in to_xml(Elsewhere([]))

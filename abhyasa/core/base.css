@@ -270,3 +270,7 @@ details.more[open] > summary { margin-bottom: var(--s1); }
 .review p { margin: 0; }
 p.foot { margin-top: var(--s7); }
 p:is(.walk-next, .rh-next) { font-size: var(--t-small); margin: var(--s2) 0; }
+
+/* Search: each hit by its kind, a plain title, a short line and a quiet meta line. */
+ul.hits li > p { margin: 2px 0 0; }
+ul.hits li > p.mute:not(.line) { font-size: var(--t-meta); }
