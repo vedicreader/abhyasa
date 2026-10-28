@@ -202,7 +202,7 @@ def Tag(outcome, said='', **kw):
 
 def Msg(label, *c, cls='', **kw):
     "One message in the thread of a check: a small label, then its text."
-    return Li(label if not isinstance(label, str) else Span(label, cls='lbl'), *c, cls=f'm {cls}'.strip(), **kw)
+    return Li((Span(label, cls='lbl') if label else '') if isinstance(label, str) else label, *c, cls=f'm {cls}'.strip(), **kw)
 
 def FirstError(text):
     "The first error in an answer, in one style for the walk and the session."

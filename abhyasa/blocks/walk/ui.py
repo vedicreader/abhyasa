@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import Md, DepthBar, asset_css, asset_js
+from abhyasa.core import Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -14,9 +14,8 @@ from abhyasa.journey import minutes, TOOL_WAYS
 from .cfg import Routes
 
 _P = Path(__file__).parent
-OUTCOME = dict(solid='Solid', fragile='Right, but shaky', misconception='A misconception', gap='A gap', skipped='Skipped')
+OUTCOME = {k: t for k, (t, _) in OUTCOMES.items() if k != 'nudge'}
 KIND = dict(short='short answer', code='code', demo='predict · demo', order='predict · order')
-STEPS = (10, 30, 50, 70, 90)
 GRADING, HINTING, TEACHING, WRITING = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'Writing the check…'
 LEAD = dict(demo='Predict first. Then the demo shows the rest.', order='Put the steps in order first. Then the demo shows the right order.')
 
@@ -142,27 +141,23 @@ def Turn(t, n):
     k = t.get('kind')
     if t['who'] == 'you':
         sure = f" · {t['confidence']}% sure" if t.get('confidence') is not None else ''
-        return Li(Span(f'You{sure}', cls='lbl'), Md(t['text']) if t.get('text') else P('No answer.', cls='mute'), cls='m you')
-    if k == 'nudge': return Li(Span('Not yet', cls='tag no'), Md(t.get('text', '')), Div(Span('First error: ', cls='k'), Md(t['first_error']), cls='err') if t.get('first_error') else '', cls='m')
-    if k == 'hint': return Li(Span(f'Hint {n}', cls='lbl'), Md(t.get('text', '')), cls='m hint')
-    if k == 'lesson': return Li(Span('Lesson', cls='lbl'), Md(t.get('text', '')), cls='m')
+        return Msg(f'You{sure}', Md(t['text']) if t.get('text') else P('No answer.', cls='mute'), cls='you')
+    if k == 'nudge': return Msg(Tag('nudge'), Md(t.get('text', '')), FirstError(t.get('first_error')))
+    if k == 'hint': return Msg(f'Hint {n}', Md(t.get('text', '')), cls='hint')
+    if k == 'lesson': return Msg('Lesson', Md(t.get('text', '')))
     if k == 'close':
         ok = t.get('outcome') in ('solid', 'fragile')
-        return Li(Span(OUTCOME.get(t.get('outcome'), 'Closed'), cls='tag ' + ('ok' if ok else 'no')), Md(t['text']) if t.get('text') and (ok or not t.get('lesson')) else '',
-                  Div(Span('Lesson', cls='lbl'), Md(t['lesson']), cls='lesson') if t.get('lesson') else '', cls='m close')
+        return Msg(Tag(t.get('outcome')), Md(t['text']) if t.get('text') and (ok or not t.get('lesson')) else '',
+                   Div(Span('Lesson', cls='lbl'), Md(t['lesson']), cls='lesson') if t.get('lesson') else '', cls='close')
     return ''
 
 def Thread(q):
+    "The messages of the check after the question."
     out, n = [], 0
     for t in (q.get('turns') or [])[1:]:   # the first turn is the question, shown above
         n += t.get('kind') == 'hint'
         out.append(Turn(t, n))
-    return Ol(*out, cls='thread') if out else ''
-
-def Confidence():
-    "Five steps for how sure you are."
-    return Div(Span('Sure?', cls='lbl'), *[Label(Input(type='radio', name='confidence', value=v), Span(f'{v}%')) for v in STEPS],
-               cls='steps', role='radiogroup', aria_label='How sure you are')
+    return out
 
 def GoOn(jid, i):
     return Form(Button('Next idea ', Kbd('⌥S'), cls='go', autofocus=True), action=at(Routes.next, jid, i), method='post', cls='row')
@@ -178,7 +173,7 @@ def Done(jid, i, s):
     o = (s.get('done') or {}).get('outcome')
     say = ('You skipped this check.' if o == 'skipped' else f"You did this check: {OUTCOME[o].lower()}." if o in OUTCOME
            else 'This check is not open. Load the page again.')
-    return Section(CardHead(s), P(say), GoOn(jid, i), cls='check done')
+    return Check(CardHead(s), P(say), foot=GoOn(jid, i), cls='done')
 
 def Short(jid, i, s, q, after=()):
     "A short-answer check: the question, the thread so far, what other blocks add (`after`), then the answer box, or the close and Next idea."
@@ -198,7 +193,7 @@ def Short(jid, i, s, q, after=()):
                     Div(Confidence(), Span(f"{left} {'try' if left == 1 else 'tries'} left" if tries else '', cls='mute'), cls='row conf'),
                     Div(Button('Send ', Kbd('⌘↵'), cls='go', id='send', data_wait=GRADING), hint, out, cls='row acts'),
                     hx_post=at(Routes.answer, jid, i), data_qid=q['id'], **tgt)
-    return Section(CardHead(s, q), Md(q['question'], cls='q'), Thread(q), *after, foot, cls='check' + (' shut' if shut else ''))
+    return Check(CardHead(s, q), q['question'], *Thread(q), foot=(*after, foot), shut=shut)
 
 # --- the demo and order checks ---------------------------------------------------------------------------------------
 
@@ -212,13 +207,13 @@ def DemoCheck(jid, i, s, d):
     if d is None or (s.get('done') or {}).get('outcome') == 'skipped': return Done(jid, i, s)
     k = s['check']['kind']
     keep = Button('Keep this state ', Kbd('K'), type='button', id='keep', cls='small quiet', title='Save the inputs of the demo with your last prediction')
-    return Section(CardHead(s), P(LEAD[k], cls='mute'), Demo(d.spec), *rk_assets(), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts'),
-                   cls='check walk-demo', data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
+    return Check(CardHead(s), P(LEAD[k], cls='mute'), foot=(Demo(d.spec), *rk_assets(), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts')),
+                 cls='walk-demo', data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
 
 def Pending(jid, i, s):
     "The demo of the step is not ready: the card asks the server again in 2 seconds."
-    return Section(CardHead(s), P('The tutor is making the demo for this idea. This can take a minute. You can read the passage while you wait.', cls='mute'),
-                   cls='check pending', hx_get=at(Routes.check, jid, i), hx_trigger='load delay:2s', hx_target='#check', hx_swap='innerHTML')
+    return Check(CardHead(s), P('The tutor is making the demo for this idea. This can take a minute. You can read the passage while you wait.', cls='mute'),
+                 cls='pending', hx_get=at(Routes.check, jid, i), hx_trigger='load delay:2s', hx_target='#check', hx_swap='innerHTML')
 
 
 # --- the code check --------------------------------------------------------------------------------------------------
@@ -240,11 +235,10 @@ def CodeOut(jid, i, q, r=None):
     elif r and 'checks' in r:
         n = val('checks.tries') - r.tries_left + bool(r.done and r.get('correct'))
         out += [Ul(*[Result(c, texts) for c in r.checks], cls='results') if r.checks else '',
-                Div(Span('First error: ', cls='k'), Md(r.first_error), cls='err') if r.first_error else '',
+                FirstError(r.first_error),
                 P(f'try {n} · {r.passed} of {r.total} pass', cls='mute')]
     if close:
-        ok = close.get('outcome') in ('solid', 'fragile')
-        out += [Span(OUTCOME.get(close.get('outcome'), 'Closed'), cls='tag ' + ('ok' if ok else 'no')),
+        out += [Tag(close.get('outcome')),
                 Div(Span('Lesson', cls='lbl'), Md(close['lesson']), cls='lesson') if close.get('lesson') else '', GoOn(jid, i),
                 Button('Run the tests', type='submit', form='run-form', id='run', disabled=True, hx_swap_oob='true')]   # no longer the main button, so ⌥S goes to Next idea
     return Div(*out, id='code-out', aria_live='polite')
@@ -266,8 +260,8 @@ def CodeCheck(jid, i, s, q, after=()):
                 Details(Summary('The tests you can see'), Ul(*[Li(Code(t)) for t in c['tests']], cls='tests'), open=True),
                 id='run-form', hx_post=at(Routes.run, jid, i), **tgt)
     run = Button('Run the tests ', Kbd('⌘↵'), type='submit', form='run-form', id='run', cls='go', data_wait=RUNNING)   # outside the form, so the results hold Next idea with no nested form
-    return Section(CardHead(s, q), Md(q['question'], cls='q'), form, CodeOut(jid, i, q),
-                   Div(run, hint, idk, Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'), leela_line(AttrDict(id=jid), i, say='Go further with real code in Leela', quiet=True), cls='check code-check')
+    return Check(CardHead(s, q), q['question'], foot=(form, CodeOut(jid, i, q), Div(run, hint, idk, Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'),
+                                                   leela_line(AttrDict(id=jid), i, say='Go further with real code in Leela', quiet=True)), cls='code-check')
 
 CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card
 

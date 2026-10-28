@@ -1,45 +1,22 @@
-/* The session page as a conversation, in the vedicreader look: the tutor writes at the margin, your messages sit quietly
-   at the right, each question starts after a hairline, and the composer stays at the bottom of the window. */
+/* The session page: one question at a time in the shared check card (core/ui.py `Check`, styles in base.css), and the composer
+   at the bottom of the window. Only what a session has more than a walk is here. */
 main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* this file can stay in <head> after a boosted page change */
 
-/* each question: a quiet rule, the concept and why, then its thread */
-.qa { padding: var(--s5) 0 var(--s2); border-top: 1px solid var(--line); }
-.qa:first-child { border-top: 0; padding-top: 0; }
-.qa .head { margin: 0 0 var(--s4); }
-.qa .head .lbl { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.check.qa { margin-top: 0; }
+.qa .head { margin: 0 0 var(--s2); }
+.qa .head .lbl { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin: 0; }
 .qa .head .why { margin: 2px 0 0; }
-.qa.done { padding-top: var(--s6); }
-
-.thread { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s5); }
-.thread .lbl { margin-bottom: 2px; }
-.thread .md > :last-child { margin-bottom: 0; }
-
-/* the tutor: margin notes, a hairline at the left, its kind as a small label */
-.m.tutor { padding-left: var(--s4); border-left: 2px solid var(--line); font-size: var(--t-body); line-height: 1.65; color: var(--ink2); max-width: 680px; }
-.m.tutor.ask { border-left-color: var(--rule); color: var(--fg); }
-.m.tutor.hint { border-left-style: dotted; border-left-color: var(--rule); font-size: var(--t-list); }
-.m.tutor.no { border-left-color: color-mix(in srgb, var(--no) 55%, transparent); }
-.m.tutor.ok { border-left-color: color-mix(in srgb, var(--ok) 55%, transparent); }
-.q { font-size: var(--t-q); line-height: 1.5; margin: 0; color: var(--fg); }
-.q > :last-child { margin-bottom: 0; }
-.fb.ok .tag { color: var(--ok); } .fb.no .tag { color: var(--no); }
-.tag { display: block; font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; margin-bottom: var(--s1); }
-.m .err { margin: var(--s2) 0 0; font-size: var(--t-small); }
-.m .k { font-style: normal; letter-spacing: .08em; text-transform: uppercase; font-size: var(--t-lbl); color: var(--mute); }
-/* the lesson comes forward on a raised surface; the sources under the feedback sit back in a sunken one */
-.fb .lesson { margin: var(--s4) 0 var(--s1); padding: var(--s4) var(--s5) var(--s4); background: var(--raised); --bg: var(--raised); box-shadow: var(--lift); border-radius: var(--r); color: var(--fg); }
+.qa.done { background: transparent; box-shadow: none; padding: var(--s6) 0 0; }
+.qa .ask { margin: 0 0 var(--s3); }
+.qa .ask .q { margin-bottom: 0; }
+/* the sources under the feedback sit back in a sunken part */
 .m div.cites { margin: var(--s4) 0 var(--s1); padding: var(--s3) var(--s5) var(--s2); background: var(--sunken); --bg: var(--sunken); border-radius: var(--r); }
 .m .cites ul.plain li { padding: var(--s2) 0; } .m .cites ul.plain li:first-child { border-top: 0; } .m .cites ul.plain li:last-child { border-bottom: 0; }
 .m .now { margin: var(--s3) 0 0; }
-
-/* you: set off at the right, quieter than the tutor, no box */
-.m.you { align-self: flex-end; max-width: 78%; padding-right: var(--s4); border-right: 2px solid var(--rule); display: flex; flex-direction: column; align-items: flex-end; }
-.m.you .lbl { margin-bottom: 2px; }
-.m.you .said { margin: 0; font-size: var(--t-body); line-height: 1.55; color: var(--fg); }
-.m.you .said p, .m.you .thought p { white-space: pre-wrap; }
+.m.you .said { margin: 0; }
 .m.you .said.none { font-style: italic; color: var(--mute); }
 .m.you .thought { margin: var(--s1) 0 0; font: italic var(--t-small)/1.5 var(--serif); color: var(--mute); }
-.thread > .pending { padding-left: var(--s4); border-left: 2px solid var(--line); }
+.m.extra .lbl:empty { display: none; }
 
 /* choices: rows on hairlines inside the question, each with its key */
 .opts { margin-top: var(--s4); border-bottom: 1px solid var(--line); }
@@ -73,7 +50,7 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 
 .mic.on { background: var(--bad); color: var(--bg); border-color: var(--bad); }
 .mic.on kbd { color: var(--bg); }
-@media (max-width: 640px) { .m.you { max-width: 92%; } .composer .bar kbd { display: none; } }
+@media (max-width: 640px) { .composer .bar kbd { display: none; } }
 
 /* one question at a time: the earlier questions in a quiet list at the left, the open question and the composer at the right */
 .session-layout { display: grid; grid-template-columns: 230px minmax(0, 740px); gap: var(--s7); justify-content: center; }

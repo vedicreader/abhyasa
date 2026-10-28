@@ -2,14 +2,14 @@
 from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, asset_js
+from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure
 from abhyasa.model import DEPTHS
 from abhyasa.settings import val
 from abhyasa.method import LABELS as WAYS
 from .cfg import Routes
 
 _P = Path(__file__).parent
-OUTCOME = {'solid': 'Solid', 'fragile': 'Right, but shaky', 'misconception': 'A misconception', 'gap': 'A gap'}
+OUTCOME = {k: OUTCOMES[k][0] for k in ('solid', 'fragile', 'misconception', 'gap')}
 WORDS = {1: 'One more try', 2: 'Two more tries'}
 STEPS = (10, 30, 50, 70, 90)
 GRADING, HINTING, TEACHING, NEXT = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'Thinking of the next question…'
@@ -37,12 +37,12 @@ def Options(sid, q, chosen=(), done=False, oob=False, right=None):
     return Div(*[opt(i, o) for i, o in enumerate(q.options)], cls='opts', id=f'opts-{q.id}', hx_swap_oob='true' if oob else None)
 
 def Asked(sid, q):
-    "The first message of the tutor: the question, with its options for a choice question."
-    return Li(Span('Question', cls='lbl'), Md(q.question, cls='q'), Options(sid, q) if q.get('options') else '', cls='m tutor ask')
+    "The question, with its options for a choice question."
+    return Div(Md(q.question, cls='q'), Options(sid, q) if q.get('options') else '', cls='ask')
 
 def Section_(sid, q, entries=()):
-    "One question and its thread so far."
-    return Section(Head(q), Ol(Asked(sid, q), *entries, id=tl_id(q), cls='thread'), cls='qa', id=f'q-{q.id}')
+    "One question and its thread so far, in the same check card as the walk. The composer stays at the foot of the window."
+    return Check(Head(q), Asked(sid, q), *entries, thread_id=tl_id(q), cls='qa', id=f'q-{q.id}')
 
 def Chat(sid, cur=None, waiting=False, viewing=None):
     "One question at a time: the open one, or a past one that you opened from the list (read only)."
@@ -62,19 +62,18 @@ def Rail(sid, past=(), outcomes=None, current=None, viewing=None, oob=False):
                    open=True, id='rail', cls='rail', hx_swap_oob='true' if oob else None)
 
 def You(text, thinking='', confidence=None):
-    "One message of yours: what you said this time, quoted quietly at the right."
-    return Li(Span('You' + (f' · {confidence}% sure' if confidence is not None else ''), cls='lbl'),
-              Md(text, cls='said') if text else P('No answer.', cls='said none'),
-              Div(Span('Thinking: ', cls='k'), Md(thinking), cls='thought') if thinking else '', cls='m you')
+    "One message of yours: what you said this time, at the left in a quieter ink, as in the walk."
+    return Msg('You' + (f' · {confidence}% sure' if confidence is not None else ''),
+               Md(text, cls='said') if text else P('No answer.', cls='said none'),
+               Div(Span('Thinking: ', cls='k'), Md(thinking), cls='thought') if thinking else '', cls='you')
 
 def Nudge(r):
     "The tutor's reply to a wrong try: what to look at next, and the first error."
-    return Li(Span('Not yet', cls='tag'), Md(r.feedback) if r.feedback else '',
-              Div(Span('First error: ', cls='k'), Md(r.first_error), cls='err') if r.first_error else '', cls='m tutor fb no')
+    return Msg(Tag('nudge'), Md(r.feedback) if r.feedback else '', FirstError(r.first_error), cls='tutor fb no')
 
 def Hint(n, text):
     "A hint, at the time you asked for it."
-    return Li(Span(f'Hint {n}', cls='lbl'), Md(text), cls='m tutor hint')
+    return Msg(f'Hint {n}', Md(text), cls='tutor hint')
 
 def Lesson(text, way=''):
     "A lesson under the outcome; `way` names the method of a lesson that you asked for in another way."
@@ -97,12 +96,12 @@ def AnotherWay(sid, qid):
 def Close(r, said='', sid=None, qid=None):
     "The last message on a question: the outcome, the lesson and the next review. A shaky pass can ask for a lesson."
     fb = r.feedback if r.correct or not r.lesson else ''   # after a miss the lesson speaks; the last nudge would ask a question nobody answers
-    return Li(Span(OUTCOME[r.outcome] + (f' · {said}' if said else ''), cls='tag'), Md(fb) if fb else '',
+    return Msg(Tag(r.outcome, said), Md(fb) if fb else '',
               Lesson(r.lesson) if r.lesson else '',
               AnotherWay(sid, qid) if sid and r.lesson else '',
               TeachMe(sid, qid) if sid and r.outcome == 'fragile' and not r.lesson else '',
-              Cites(r.get('grounds')), Now(r),
-              cls=f"m tutor fb close {'ok' if r.correct else 'no'}")
+               Cites(r.get('grounds')), Now(r),
+               cls=f"tutor fb close {'ok' if r.correct else 'no'}")
 
 def Turns(turns):
     "The messages of a question drawn again from its thread: after a restart, or for a question of an earlier run."
@@ -111,16 +110,16 @@ def Turns(turns):
         if t['who'] == 'you': out.append(You(t.get('text', ''), t.get('thinking', ''), t.get('confidence')))
         elif t.get('kind') == 'nudge': out.append(Nudge(AttrDict(feedback=t.get('text', ''), first_error=t.get('first_error', ''))))
         elif t.get('kind') == 'hint': n += 1; out.append(Hint(n, t.get('text', '')))
-        elif t.get('kind') == 'lesson': out.append(Li(Lesson(t.get('text', '')), cls='m tutor fb close ok'))
+        elif t.get('kind') == 'lesson': out.append(Msg(Lesson(t.get('text', '')), cls='tutor fb close ok'))
         elif t.get('kind') == 'close':
             ok = t.get('outcome') in ('solid', 'fragile')
-            out.append(Li(Span(OUTCOME.get(t.get('outcome'), 'Closed'), cls='tag'), Md(t['text']) if t.get('text') and (ok or not t.get('lesson')) else '',
-                          Lesson(t['lesson']) if t.get('lesson') else '', cls=f"m tutor fb close {'ok' if ok else 'no'}"))
+            out.append(Msg(Tag(t.get('outcome')), Md(t['text']) if t.get('text') and (ok or not t.get('lesson')) else '',
+                           Lesson(t['lesson']) if t.get('lesson') else '', cls=f"tutor fb close {'ok' if ok else 'no'}"))
     return out
 
 def Extras(r):
     "What other blocks add after the close, such as a demo under the lesson: each one is a tutor message in the thread."
-    return [Li(x, cls='m tutor extra') for x in run('lesson_extra', r)]
+    return [Msg('', x, cls='tutor extra') for x in run('lesson_extra', r)]
 
 def Skeleton(label):
     "A placeholder question while the model writes it."
@@ -134,9 +133,7 @@ def Waiting(sid):
 
 def Confidence():
     "Five steps for how sure you are; ⌥1 to ⌥5 pick one."
-    steps = [Label(Input(type='radio', name='confidence', value=v, id=f'c{i + 1}'), Span(f'{v}%'), title=f'⌥{i + 1}')
-             for i, v in enumerate(STEPS)]
-    return Div(Span('Sure?', cls='lbl'), *steps, cls='steps', id='conf', role='radiogroup', aria_label='How sure you are')
+    return Sure(keys=True)
 
 def Left(n=None, **kw):
     "The tries that are left; empty before the first try."

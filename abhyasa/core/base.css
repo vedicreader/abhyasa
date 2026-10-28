@@ -207,13 +207,13 @@ button.quiet:hover { color: var(--fg); }
 .check .q { font-size: var(--t-q); line-height: 1.45; margin: var(--s1) 0 var(--s3); color: var(--fg); }
 .check .q > :last-child { margin-bottom: 0; }
 .check .thread { list-style: none; padding: 0; margin: 0 0 var(--s3); }
-.check .thread > .m { padding: var(--s2) 0; border-top: 1px solid var(--line); }
+.check .thread > :is(.m, .pending) { padding: var(--s2) 0; border-top: 1px solid var(--line); }
 .check .thread .lbl { margin-bottom: 2px; }
 .check .thread .md > :last-child { margin-bottom: 0; }
 .check .thread > .you { color: var(--ink2); }
 .check .thread > .you .md, .check .thread > .you p { white-space: pre-wrap; }
 .check .thread > .hint .lbl { font-style: italic; }
-.tag { display: block; font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .1em; text-transform: uppercase; color: var(--mute); margin-bottom: 2px; }
+.check .tag { display: block; font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .1em; text-transform: uppercase; color: var(--mute); margin-bottom: 2px; }
 .tag.ok { color: var(--ok); } .tag.no { color: var(--no); }
 .check .k { color: var(--mute); }
 .err { margin: var(--s2) 0 0; } .err .k { color: var(--no); }
