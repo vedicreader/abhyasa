@@ -1,7 +1,7 @@
 /* Your learning: quiet columns for the week, rows for sessions on hairlines, the moves in the ok colour. */
 .week { display: flex; gap: var(--s4); align-items: flex-end; margin: var(--s4) 0 var(--s2); height: 92px; }
 .week .col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 34px; height: 100%; }
-.week .col i { display: block; width: 14px; border-radius: 2px 2px 0 0; background: color-mix(in srgb, var(--acc) 70%, var(--bg)); }
+.week .col i { display: block; width: 14px; border-radius: 2px 2px 0 0; background: light-dark(color-mix(in srgb, var(--acc) 70%, var(--bg)), color-mix(in srgb, var(--acc) 88%, var(--fg))); }   /* in dark, near the full accent, so a bar never looks like a line */
 .week .col .n { font: var(--t-lbl)/1 var(--mono); color: var(--mute); margin-bottom: var(--s1); }
 .week .col .d { font-size: var(--t-lbl); color: var(--mute); margin-top: var(--s2); border-top: 1px solid var(--line); width: 100%; text-align: center; padding-top: var(--s1); }
 .week .col.none .d { opacity: .7; }

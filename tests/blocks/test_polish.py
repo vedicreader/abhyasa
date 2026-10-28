@@ -126,3 +126,16 @@ def test_options_show_their_digit(mk, fake):
     from fastcore.utils import AttrDict
     h = to_xml(Options('s', AttrDict(id='q', options=['a', 'b', 'c'])))
     assert '<kbd>1</kbd>' in h and '<kbd>3</kbd>' in h and '⌥' not in h
+
+# F15: the two dark mode faults
+
+def test_no_button_has_autofocus_and_the_ring_is_calm_in_dark():
+    for f in [*ROOT.glob('blocks/*/*.py'), *ROOT.glob('core/*.py')]:
+        for m in re.finditer(r'(Button|Primary)\((?:[^()]|\([^()]*\))*autofocus=True', f.read_text()): raise AssertionError(f'{f.name}: {m.group(0)[:60]}')
+    css = (ROOT/'core/base.css').read_text()
+    assert re.search(r':is\(button, \.btn\)\.go:focus-visible \{[^}]*outline-offset: 3px', css) and 'color-mix(in srgb, var(--acc) 55%, var(--fg))' in css
+
+def test_week_bars_stand_out_in_dark():
+    css = (ROOT/'blocks/history/history.css').read_text()
+    bar = re.search(r'\.week \.col i \{[^}]*\}', css).group(0)
+    assert 'light-dark(' in bar and 'var(--acc)' in bar

@@ -72,6 +72,8 @@ button.go, .btn.go { background: var(--acc); color: var(--bg); border-color: var
 button.go:hover, .btn.go:hover { background: color-mix(in srgb, var(--acc) 88%, var(--fg)); }
 kbd { font: var(--t-lbl)/1 var(--mono); color: var(--mute); margin-left: var(--s2); letter-spacing: .04em; }
 button.go kbd, .btn.go kbd { color: var(--bg); opacity: .85; }
+/* the focus ring of a filled button stands off from it, in a softer tone, so in dark it does not read as a second border */
+:is(button, .btn).go:focus-visible { outline-offset: 3px; outline-color: light-dark(var(--acc), color-mix(in srgb, var(--acc) 55%, var(--fg))); }
 
 .depth { display: inline-flex; gap: 3px; vertical-align: middle; margin-left: var(--s2); }
 .depth i { width: 14px; height: 4px; border-radius: 2px; background: var(--line); display: inline-block; }
