@@ -363,6 +363,45 @@ def rupaka_settle(pg, w):
     assert not pg.is_visible(f'{gate} .note')
     pg.wait_for_function("() => [...document.querySelectorAll('main .go')].some(e => e.checkVisibility() && e.textContent.includes('Next idea'))", timeout=10000)
 
+def l1_demo_ladder(pg, w):
+    "A wrong prediction shows a lesson in another way under the demo. A second one shows a simpler demo behind a quiet button. Next idea stays the one main button."
+    jid = new_walk(w)
+    slug = w.lr.journey(jid).steps[2]['slug']
+    pre = w.lr.concept(slug).prereqs
+    spec = gallery()['reciprocal-rank-fusion']
+    g2 = {**next(b for b in spec['blocks'] if b.get('type') == 'gate'), 'id': 'second', 'prompt': 'Which document comes second after fusion?', 'answer': 'fused.1.id'}
+    w.lr.put_demo({**spec, 'id': f'{slug}-two-gates', 'blocks': [*spec['blocks'], g2]}, slug)
+    w.lr.record(slug, 'A pass before this check', correct=True, final=True)   # a pass ends the count of the checks before
+    w.lr.update(slug, prereqs=[])                                              # no prereq, so the next question does not step back
+    w.lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why='a demo shows it best'))
+    try:
+        pg.goto(f'{w.B}/w/{jid}/2'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+        gate = lambda k: f'#check .walk-demo [data-rupaka] .rk-b[data-rk-type="gate"] >> nth={k}'
+        def wrong(k, opt):
+            pg.click(f'{gate(k)} >> .opts button >> nth={opt}')
+            pg.click(f'{gate(k)} >> button.go')
+            pg.wait_for_selector(f'{gate(k)} >> .verdict', state='visible', timeout=10000)
+        wrong(0, 0)
+        pg.wait_for_selector('#ladder .lesson', timeout=15000)
+        assert 'Positions are shared.' in pg.inner_text('#ladder') and pg.text_content('#ladder .lbl').startswith('Lesson · ')
+        own = lambda: pg.eval_on_selector_all('#ladder .go', 'els => els.filter(e => e.checkVisibility() && !e.closest("[data-rupaka]")).length')
+        assert 'Next idea ⌥S' in visible_gos(pg) and not own(), visible_gos(pg)   # the help adds no main button; a gate of a demo keeps its own Lock in
+        assert pg.is_visible('#passage')
+        wrong(1, 2)
+        pg.wait_for_selector('#ladder button:has-text("Show a simpler demo")', timeout=20000)
+        assert 'Positions are shared.' in pg.inner_text('#ladder') and 'Next idea ⌥S' in visible_gos(pg) and not own(), visible_gos(pg)
+        pg.click('#ladder button:has-text("Show a simpler demo")')
+        pg.wait_for_selector('#ladder[data-demo] [data-rk-ready="1"]', timeout=30000)
+        small = pg.get_attribute('#ladder', 'data-demo')
+        assert w.lr.demo(small).aim == 'simpler' and 'Next idea ⌥S' in visible_gos(pg) and not own(), visible_gos(pg)
+        g = '#ladder [data-rupaka] .rk-b[data-rk-type="gate"]'
+        pg.eval_on_selector('#check .said', 'e => { e.textContent = ""; }')
+        pg.click(f'{g} >> .opts button >> nth=3'); pg.click(f'{g} >> button.go')
+        pg.wait_for_selector(f'{g} >> .verdict', state='visible', timeout=10000)
+        pg.wait_for_function(f"() => document.querySelector('#check .said')?.textContent.includes('saved')", timeout=10000)
+        assert w.lr.attempts(slug, limit=1)[0].demo == small                      # a prediction in the simpler demo goes in with its own slug
+    finally: w.lr.update(slug, prereqs=pre)
+
 def m7_side_walk_returns_you(pg, w):
     "At the end of a side walk the pane slides out to the right, the needs line says learned on the way today, and the draft is still in the answer box."
     jid = new_walk(w)
@@ -658,7 +697,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
-          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults]
+          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

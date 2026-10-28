@@ -5,7 +5,7 @@ import abhyasa.blocks.walk
 import pytest
 
 def made(cl, key): return cl.app.state.svc['tutor'].jobs[key].result(timeout=30)   # wait on the demo job, not on the clock
-from abhyasa.method import TEXT_WAYS
+from abhyasa.method import TEXT_WAYS, LABELS
 
 def test_plan_then_start(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr)
@@ -335,3 +335,81 @@ def test_code_card_and_concept_page_offer_leela_only_when_it_runs(mk, walk_fake,
     card = cl.get(f'/w/{jid}/1/check').text
     assert 'code-editor' in card and f'/learn?walk={jid}&amp;step=1' in card                           # the small stdlib check stays in abhyasa
     assert '/learn?topic=Softmax' in cl.get('/c/softmax').text
+
+# The demo ladder in a walk: a wrong prediction gets a lesson in another way under the card, and a second one a simpler demo
+
+def two_gates(d):
+    "The spec of demo `d` with a second gate, so one demo check can take two predictions."
+    g = {**first(b for b in d.spec['blocks'] if b.get('type') == 'gate'), 'id': 'second', 'prompt': 'Which document comes second after fusion?', 'answer': 'fused.1.id'}
+    return {**d.spec, 'id': 'two-gates', 'blocks': [*d.spec['blocks'], g]}
+
+def held(fake, key, words):
+    "Hold the reply of the rule `key` of `fake` for a prompt with `words` until the event is set, so a test can see the pending state."
+    import threading
+    ev, real = threading.Event(), fake.rules[key]
+    def rule(p, sp):
+        if words in p: ev.wait(30)
+        return real(p, sp) if callable(real) else real
+    fake.rules[key] = rule
+    return ev
+
+def test_wrong_predictions_climb_the_demo_ladder(mk, walk_fake, lr):
+    "The first wrong prediction shows a lesson in another way under the card. The second shows a simpler demo. The walk never waits on the model."
+    from abhyasa.demo import SIMPLER_AIM
+    slug = 'scaling-by-the-root-of-dk'
+    teach, small_job = held(walk_fake, 'Teach the smallest step', 'They predicted'), held(walk_fake, 'You design one interactive demo', SIMPLER_AIM)
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = lr.put_demo(two_gates(made(cl, slug)), slug)
+    card = cl.get(f'/w/{jid}/2/check').text
+    assert 'id="ladder"' in card and f'/w/{jid}/2/ladder' not in card               # an empty slot until a wrong prediction
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate='win', picked='0', ans='1', ok='false')).json()
+    assert r['ladder'] == f'/w/{jid}/2/ladder'
+    ld = lr.journey(jid).steps[2]['ladder']
+    assert ld['rung'] == 1 and ld['way'] in TEXT_WAYS
+    part = cl.get(r['ladder']).text
+    assert 'The tutor is writing a lesson in another way' in part and 'load delay:2s' in part   # pending: the page asks again
+    teach.set(); made(cl, f'{slug}:lesson')
+    part = cl.get(r['ladder']).text
+    assert 'Positions are shared.' in part and f'Lesson · {LABELS[ld["way"]].lower()}' in part and 'class="go' not in part   # one quiet block, no new main button
+    assert f'hx-get="/w/{jid}/2/ladder"' in cl.get(f'/w/{jid}/2/check').text        # a reload loads the help again
+    lr.update(slug, prereqs=[])                                                       # no prereq, so `_back` does not step back
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate='second', picked='0', ans='1', ok='false')).json()
+    part = cl.get(r['ladder']).text
+    assert 'The tutor is making a simpler demo' in part and 'load delay:2s' in part and 'Positions are shared.' in part
+    small_job.set(); small = made(cl, f'{slug}:simpler')
+    assert small.aim == 'simpler' and lr.demo_for(slug, aim='').slug == d.slug        # the simpler demo is never the plain demo
+    part = cl.get(r['ladder']).text
+    assert 'Show a simpler demo' in part and 'data-rupaka' not in part and 'class="go' not in part
+    shown = cl.get(r['ladder'] + '?show=1').text
+    assert 'data-rupaka' in shown and f'data-demo="{small.slug}"' in shown
+    a = cl.post(f'/w/{jid}/2/predict', data=dict(slug=small.slug, gate='win', picked='2', ans='1', ok='false')).json()
+    assert a['ok'] and not a.get('again') and not a.get('ladder')                      # the third miss after the demo adds nothing (a new pick: the vault keeps one document for each text)
+    assert (lr.attempts(slug, limit=1)[0].demo, lr.attempts(slug, limit=1)[0].method) == (small.slug, 'demo')   # it counts against demo
+
+def test_no_simpler_demo_job_once_back_steps_back(mk, walk_fake, lr):
+    "The second wrong prediction on an idea with a prereq that is not learned starts no job: the next question steps back to the prereq."
+    slug = 'scaling-by-the-root-of-dk'
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = lr.put_demo(two_gates(made(cl, slug)), slug)
+    for g in ('win', 'second'): r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
+    made(cl, f'{slug}:lesson')
+    part = cl.get(r['ladder']).text
+    assert 'Positions are shared.' in part and 'simpler demo' not in part and f'{slug}:simpler' not in cl.app.state.svc['tutor'].jobs
+
+def test_no_ladder_in_a_walk_when_the_setting_is_off(mk, walk_fake, lr):
+    "With checks.demo_ladder off, a wrong prediction only shows the answer, as before."
+    from abhyasa.settings import set_val
+    set_val('checks.demo_ladder', False)
+    try:
+        cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+        lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+        cl.get(f'/w/{jid}/1')
+        d = made(cl, 'scaling-by-the-root-of-dk'); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+        r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
+        assert r['ok'] and 'ladder' not in r and not lr.journey(jid).steps[2].get('ladder')
+        assert f'/w/{jid}/2/ladder' not in cl.get(f'/w/{jid}/2/check').text
+    finally: set_val('checks.demo_ladder', True)

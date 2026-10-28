@@ -14,7 +14,7 @@ from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
-from abhyasa.demo import queue_demo, job_state, job_age
+from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo
 from . import ui
 from .cfg import Routes
 
@@ -247,22 +247,62 @@ def connect(app, ctx):
         r = s.give_up(confidence=confidence or 0) if tutor.open[s.q.id].tries else s.answer(dont_know=True, confidence=confidence)
         return closed(j, i, r)
 
+    def lesson_job(jid, i, slug):
+        "Start the pool job that writes the lesson in another way of step `i`, unless it runs. The job keeps the lesson on the step."
+        k = f'{slug}:lesson'
+        if (jb := tutor.jobs.get(k)) is not None and not jb.done(): return
+        ld = lr.journey(jid).steps[i]['ladder']
+        a = first(x for x in lr.attempts(slug) if x.id == ld.get('aid'))
+        def job():
+            text = demo_lesson(tutor, a, ld['way'])
+            with writing[jid, i]: lr.walk_step(jid, i, ladder={**(lr.journey(jid).steps[i].get('ladder') or {}), 'lesson': text})
+        if a is not None: tutor.jobs[k] = ctx.pool.submit(job)
+
+    def climb(jid, i, a):
+        "After the wrong prediction `a` in the demo check of step `i`, keep the next rung of the demo ladder on the step. The URL of its help, or ''."
+        s = lr.journey(jid).steps[i]
+        if a.correct or s['check']['kind'] != 'demo' or not val('checks.demo_ladder') or (k := rung(lr, s['slug'])) not in (1, 2): return ''
+        old = s.get('ladder') or {}
+        ld = dict(rung=1, aid=a.id, way=other_way(lr, s['slug'], s['check']['way'])) if k == 1 else {**old, 'rung': 2}
+        with writing[jid, i]: lr.walk_step(jid, i, ladder=ld)
+        if not backed(lr, s['slug'], tutor.goal):   # the job starts now, so the help is often ready when the page asks
+            if k == 1: lesson_job(jid, i, s['slug'])
+            else: simpler_demo(tutor, s['slug'])
+        return ui.at(Routes.ladder, jid, i)
+
+    def ladder(jid:str, i:int, show:str=''):
+        "The help under the demo check of step `i`: the lesson in another way, then the simpler demo, or what the tutor still makes. It never waits on a job."
+        if not (j := walk_of(jid, i)): return Response(status_code=404)
+        s = j.steps[i]
+        if not (ld := s.get('ladder')): return ui.Slot(jid, i, s)
+        slug, stop = s['slug'], backed(lr, s['slug'], tutor.goal)   # once `_back` steps back to a prereq, the ladder starts no job
+        if ld['rung'] == 1:
+            if ld.get('lesson') or stop: return ui.Ladder(jid, i, ld)
+            lesson_job(jid, i, slug)
+            return ui.Ladder(jid, i, ld, pending='The tutor is writing a lesson in another way. You can read the passage while you wait.')
+        if (d := lr.demo_for(slug, aim='simpler')): return ui.Ladder(jid, i, ld, demo=d, show=bool(show))
+        if job_state(tutor, slug, 'simpler') == 'failed': return ui.Ladder(jid, i, ld, failed=True)
+        if stop: return ui.Ladder(jid, i, ld)
+        simpler_demo(tutor, slug)
+        return ui.Ladder(jid, i, ld, pending='The tutor is making a simpler demo of this idea. You can read the passage while you wait.')
+
     def predict(jid:str, i:int, slug:str, gate:str, picked:str, ans:str='', ok:str='', why:str='', context:str='', confidence:int=None):
         "Log the first prediction on each gate in the demo of step `i` with the walk; the first one closes the step (spec 6.5)."
         j = walk_of(jid, i)
         if not j or (s := j.steps[i])['check']['kind'] not in AIM or not (d := lr.demo(slug)) or d.concept != s['slug']:
             return JSONResponse(dict(ok=False), status_code=404)
         if (s.get('done') or {}).get('outcome') == 'skipped': return JSONResponse(dict(ok=False), status_code=409)
-        if first(a for a in lr.attempts(s['slug']) if (a.get('walk'), a.get('step'), a.get('gate')) == (jid, i, gate)):
-            return JSONResponse(dict(ok=True, again=True))   # one record for each gate: a second try comes after the answer showed
+        if first(a for a in lr.attempts(s['slug']) if (a.get('walk'), a.get('step'), a.get('demo'), a.get('gate')) == (jid, i, slug, gate)):
+            return JSONResponse(dict(ok=True, again=True))   # one record for each gate of each demo: a second try comes after the answer showed
         st, floor0 = sitting(j), lr.concept(s['slug']).get('floor') or 0
         a = lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, st.id, confidence,
                                  kind=s['check']['kind'], method=s['check']['way'], **step_meta(j, i))
         st.noted(a, floor0)
         with writing[jid, i]:
             if not lr.journey(jid).steps[i].get('done'): lr.walk_step(jid, i, done=dict(outcome=a.outcome, aid=a.id, at=time.time()))
-        ws = walk_state(lr.journey(jid))
-        return JSONResponse(dict(ok=True, dot=ws.steps[i].dot, done=ws.done, total=ws.total))   # walk.js fills the dot and moves the progress line
+        ws, help_ = walk_state(lr.journey(jid)), climb(jid, i, a)
+        # walk.js fills the dot, moves the progress line, and loads the help under the card when there is a `ladder`
+        return JSONResponse(dict(ok=True, dot=ws.steps[i].dot, done=ws.done, total=ws.total, **({'ladder': help_} if help_ else {})))
 
     def keep(jid:str, i:int, state:str=''):
         "Keep the state of the demo on the newest prediction of step `i`."
@@ -363,6 +403,7 @@ def connect(app, ctx):
     app.post(Routes.run)(run)
     app.post(Routes.predict)(predict)
     app.post(Routes.keep)(keep)
+    app.get(Routes.ladder)(ladder)
     app.post(Routes.next)(next_)
     app.get(Routes.done)(done)
     app.get(Routes.img)(img)
