@@ -18,6 +18,7 @@ from fastcore.utils import *
 GROUPS = dict(look=('Look', 'Pick the colours of the app.'),
               learning=('Learning', 'Set how the tutor teaches you. The Profile page shows the same values.'),
               walks=('Walks', 'Pick how long a walk is and how much of it is hands-on.'),
+              talks=('Talks', 'Set how a talk runs and how the room works.'),
               checks=('Checks and grading', 'Set how many tries you get and how the tutor grades an answer.'),
               review=('Review', 'Set when an idea comes back for review.'),
               links=('Links', 'Set how much of a link the tutor reads.'),
@@ -58,6 +59,20 @@ add('walks.note', 'walks', 'Note length', 'The most words in the tutor note unde
 add('walks.depth', 'walks', 'Rabbit-hole depth', 'How many side walks you can open one inside the other. A deeper idea opens as its own session.', 2, 1, 4, more=True)
 add('walks.fresh', 'walks', 'Time for "Back on the paper"', 'How long the "Back on the paper" line shows after you come back from a side walk.', 10, 1, 60, more=True, unit='min')
 add('walks.demo_wait', 'walks', 'Wait for a demo', 'How long a step waits for its demo. Then the check is a short answer.', 90, 30, 300, more=True, unit='s');
+
+# %% ../nbs/16_settings.ipynb #7a1c2e91
+add('talks.choice', 'talks', 'Choice questions from short checks', 'A new talk turns each short check into a choice question with 4 options. When this is off, the question asks for a short answer.', True)
+add('talks.ask_min', 'talks', 'Minutes for each question', 'The minutes that a question adds to its slide in the time of a talk.', 1, 0, 5, unit='min')
+add('talks.pair_min', 'talks', 'Time to talk to a neighbour', 'How long the room talks in pairs before a second vote.', 2, 1, 10, unit='min')
+add('talks.weak', 'talks', 'Unsure below', 'A slide is unsure when the share of right answers is below this value. The recap lists the unsure slides.', .7, .3, .95, more=True, pct=True)
+add('talks.split_lo', 'talks', 'A split vote starts at', 'A vote with a share of right answers from this value to the end value is split. Then the room talks in pairs.', .3, 0., 1., more=True, pct=True)
+add('talks.split_hi', 'talks', 'A split vote ends at', 'The top of a split vote. Above it, most of the room knows the answer.', .7, 0., 1., more=True, pct=True)
+add('talks.laser_ms', 'talks', 'Laser fade', 'How long the laser dot stays on the audience screen after the pointer stops.', 1500, 500, 5000, more=True, unit='ms')
+add('talks.image_mb', 'talks', 'Largest figure for the room', 'A figure larger than this does not go to the room.', 5, 1, 20, more=True, unit='MB')
+add('talks.port', 'talks', 'Room port', 'The port of the room that phones join.', 5180, 1024, 65000, more=True)
+add('talks.room_hours', 'talks', 'Room closes after', 'The room closes after this time, also when the talk did not end.', 3, 1, 8, more=True, unit='hours')
+add('talks.phones', 'talks', 'Most phones', 'The most phones that can join one room.', 300, 10, 300, more=True)
+add('talks.nets', 'talks', 'Rooms before', 'The subnets where you opened a room before, as a comma list.', '', ui=False);
 
 # %% ../nbs/16_settings.ipynb #43f21485
 add('checks.tries', 'checks', 'Tries', 'How many answers you can give before the tutor teaches the idea.', 3, 1, 5)
@@ -101,10 +116,11 @@ add('stt.longest', 'stt', 'Longest segment', 'The text shows after this time, al
 TASK_HELP = dict(question='Writes each question and its hidden answer.', grade='Reads your answer and grades it.', hint='Gives the next hint.',
                  lesson='Teaches the smallest step after a miss.', extract='Finds the ideas in a text.', plan='Plans the steps toward a goal.',
                  pick='Picks the main ideas of a long source for a walk.', note='Writes the note under the passage of a step.',
-                 profile='Learns about you from your answers.', exercise='Writes a code exercise and its tests.')
-BORROWS = dict(plan='extract', pick='extract', note='hint', profile='extract', exercise='question')
+                 profile='Learns about you from your answers.', exercise='Writes a code exercise and its tests.',
+                 talk='Writes a choice question for a talk from a short check.')
+BORROWS = dict(plan='extract', pick='extract', note='hint', profile='extract', exercise='question', talk='question')
 TASK_LABEL = dict(question='Questions', grade='Grades', hint='Hints', lesson='Lessons', extract='Ideas in a text', plan='Plans',
-                  pick='Main ideas', note='Walk notes', profile='Your profile', exercise='Code exercises')
+                  pick='Main ideas', note='Walk notes', profile='Your profile', exercise='Code exercises', talk='Talk questions')
 
 add('models.default', 'models', 'Default model', 'The model for each task that has no model of its own. '
     '"abhyasa --model" and $ABHYASA_MODEL come first when they are set.', '', ui=False)
@@ -257,4 +273,5 @@ def clamped(name:str):
     return v if v < r.lo or v > top(r) else None
 
 # %% ../nbs/16_settings.ipynb #31e370ac
-FIXED = ('network', 'sandbox', 'audit', 'isolate', 'local', 'plain', 'link_kind', 'html', 'pane_url', 'hosts', 'allowlist', 'safe_names', 'grade_scale', 'depths')
+FIXED = ('network', 'sandbox', 'audit', 'isolate', 'local', 'plain', 'link_kind', 'html', 'pane_url', 'hosts', 'allowlist', 'safe_names', 'grade_scale', 'depths',
+         'bind', 'join_code', 'rate', 'body', 'room_headers')
