@@ -106,6 +106,10 @@ def test_own_download_listed_with_remove(mk, monkeypatch):
 # tutor models: a model for each task, saved in the settings, used at once, with a test and a catalogue
 import abhyasa.llm as llm
 
+def test_no_test_reads_the_real_ramabana_config():
+    setup = pytest.importorskip('ramabana.setup')
+    assert setup.config_path() != Path(setup.CONFIG).expanduser() and not setup.config_path().exists()
+
 def test_tutor_model_saved_and_routed(mk, fake):
     cl = mk(['settings'])
     assert '>Models<' in cl.get('/settings').text
