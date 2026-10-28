@@ -25,7 +25,10 @@ def at(r, jid, i=None): return Routes.of(r, jid=jid, **({} if i is None else dic
 
 def name(by, s): return (by.get(s['slug']) or {}).get('name') or s['slug']
 
-def Bar(done, total): return Span(I(style=f"width:{100 * done // max(total, 1)}%"), cls='prog', role='progressbar', aria_valuenow=str(done), aria_valuemax=str(total))
+def Bar(done, total, oob=False):
+    "The progress line of the outline. An answer that closes a check swaps it out of band, and its width moves (htmx settles the style)."
+    return Span(I(style=f"width:{100 * done // max(total, 1)}%", id='rail-bar'), cls='prog', role='progressbar', aria_valuenow=str(done), aria_valuemax=str(total),
+                id='rail-prog', **({'hx_swap_oob': 'true'} if oob else {}))
 
 def pages(steps):
     "The pages of `steps` as 'p. 3' or 'p. 3–5'; empty when no step has a page."
@@ -81,17 +84,23 @@ def LinkPending(url, said):
 
 # --- the step page ---------------------------------------------------------------------------------------------------
 
+def Idea(j, by, s, k, i, just=False):
+    "One idea in the outline, with a dot for its state. `just`: its check closed now, so the dot fills (walk.css); it is swapped out of band."
+    tag = dict(now='now', shaky='shaky', skipped='skipped', known='you know it').get(s.dot, '')
+    return Li(A(name(by, s), href=at(Routes.step, j['id'], k)), Span(f' · {tag}', cls='k') if tag else '', id=f'rail-{k}',
+              cls=f"c {s.dot}" + (' on' if k == i else '') + (' just' if just else ''), **({'hx_swap_oob': 'true'} if just else {}))
+
+def Filled(j, st, by, i):
+    "The parts of the outline that change when the check of step `i` closes: its idea and the progress line, out of band."
+    return Idea(j, by, st.steps[i], i, i, just=True), Bar(st.done, st.total, oob=True)
+
 def Rail(j, st, by, i):
     "The outline at the left: each section, and the ideas in it with a dot for each state."
     lbl = 'The paper' if j.get('source') else 'The walk'
     rows = []
     for sec, ix in st.sections:
         rows.append(Li(sec or 'The ideas', cls='sec' + (' on' if i in ix else '')))
-        for k in ix:
-            s = st.steps[k]
-            tag = dict(now='now', shaky='shaky', skipped='skipped', known='you know it').get(s.dot, '')
-            rows.append(Li(A(name(by, s), href=at(Routes.step, j['id'], k)), Span(f' · {tag}', cls='k') if tag else '',
-                           cls=f"c {s.dot}" + (' on' if k == i else '')))
+        rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
     return Aside(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total), Ol(*rows), id='rail', cls='outline', aria_label='The walk')
 
 def Passage(j, s, c):
@@ -210,7 +219,7 @@ def DemoCheck(jid, i, s, d):
     keep = Button('Keep this state ', Kbd('⌥V'), type='button', id='keep', cls='small quiet', title='Save the inputs of the demo with your last prediction')
     shut = bool(s.get('done'))
     return Check(CardHead(s), P(LEAD[k], cls='mute'), foot=(Demo(d.spec), *rk_assets(), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts'),
-                                                            GoOn(jid, i, hidden=not shut)), shut=shut, cls='walk-demo', data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
+                                                            GoOn(jid, i, hidden=not shut)), shut=shut, cls='walk-demo', data_step=str(i), data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
 
 def Pending(jid, i, s):
     "The demo of the step is not ready: the card asks the server again in 2 seconds."

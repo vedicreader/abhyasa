@@ -203,3 +203,19 @@ def test_m2_the_check_answers_in_place():
     assert re.search(r'\.check:has\(\.thread > \.close > \.tag, #code-out > \.tag\) > \.q::after \{[^}]*height: 2px[^}]*background: var\(--ok\)[^}]*transform-origin: left[^}]*animation: grow var\(--dur-3\)', b)
     assert re.search(r':has\(\.close > \.tag\.no, #code-out > \.tag\.no\) > \.q::after \{ background: var\(--no\); \}', b)
     assert '@keyframes grow { from { transform: scaleX(0); } }' in b
+
+def test_m3_the_outline_dot_fills(mk, walk_fake, lr):
+    "The answer that closes a check also swaps the idea in the outline (class `just`, so its dot fills) and the progress line."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
+    page = cl.get(f'/w/{jid}/1').text
+    assert 'id="rail-1"' in page and 'id="rail-prog"' in page and 'id="rail-bar"' in page
+    cl.get(f'/w/{jid}/1/check')
+    r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position')).text
+    assert re.search(r'<li hx-swap-oob="true" id="rail-1" class="c (done|shaky) on just"', r) and re.search(r'<span [^>]*hx-swap-oob="true" id="rail-prog"', r)
+    miss = cl.post(f'/w/{jid}/2/answer', data=dict(answer='x')).text
+    assert 'rail-' not in miss                                                       # no swap while a check stays open
+    w, b = css('blocks/walk/walk.css'), css('core/base.css')
+    assert re.search(r'\.outline li\.c\.just::before \{ animation: dot-grow var\(--dur-3\) var\(--ease\) both; \}', w) and '@keyframes dot-grow { from { transform: scale(.4); } }' in w
+    assert re.search(r'\.prog i \{[^}]*transition: width var\(--dur-3\) var\(--ease\)', b)
+    assert "'rail-' + " in css('blocks/walk/walk.js')                                  # a demo check fills its dot from the reply of the prediction

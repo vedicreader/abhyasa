@@ -35,6 +35,9 @@ main.wide:has(.walk-layout) > .crumbs { max-width: 984px; margin-inline: auto; }
 .outline li.c:is(.done, .known)::before, .walk-dots .d:is(.done, .known) { background: var(--acc); border-color: var(--acc); }
 .outline li.c.shaky::before, .walk-dots .d.shaky { background: color-mix(in srgb, var(--no) 40%, var(--bg)); border-color: var(--no); }
 .outline li.c.skipped a { text-decoration: line-through; }
+/* the dot fills from the centre when the check closes (an out-of-band swap from the answer); the progress line moves with it */
+@keyframes dot-grow { from { transform: scale(.4); } }
+.outline li.c.just::before { animation: dot-grow var(--dur-3) var(--ease) both; }
 .outline li.on { border-left-color: var(--acc); color: var(--fg); }
 .outline li.c.on::before { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 20%, transparent); }
 .outline .k { font-size: var(--t-lbl); font-style: italic; }

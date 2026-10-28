@@ -136,7 +136,7 @@ main { animation: fade .2s ease-out; }
 .crumbs .sep { opacity: .6; }
 /* a thin progress line: a journey, a week */
 .prog { display: block; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; max-width: 360px; margin: var(--s2) 0 0; }
-.prog i { display: block; height: 100%; background: var(--acc); border-radius: 2px; transition: width .4s ease-out; }
+.prog i { display: block; height: 100%; background: var(--acc); border-radius: 2px; transition: width var(--dur-3) var(--ease); }
 button.quiet, .btn.quiet { border-color: transparent; color: var(--mute); } button.quiet:hover, .btn.quiet:hover { color: var(--fg); }
 button.small, .btn.small { padding: var(--s1) var(--s2); font-size: var(--t-meta); }
 @media (max-width: 640px) { nav .nav-gap { display: none; } }

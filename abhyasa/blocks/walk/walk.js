@@ -58,7 +58,12 @@ if (!window.abhyasaWalk) {
   // A demo or an order check: each prediction goes to the walk, which logs it with the step.
   const say = (card, text) => { const s = card.querySelector('.said'); if (s) s.textContent = text; };
   const post = (card, url, body, done) => fetch(url, {method: 'POST', body: new URLSearchParams(body)})
-    .then(r => { say(card, r.ok ? done : 'The tutor did not save this. Try again.'); return r.ok; }).catch(() => say(card, 'The tutor did not save this. Try again.'));
+    .then(r => { say(card, r.ok ? done : 'The tutor did not save this. Try again.'); return r.ok && r.json(); }).catch(() => say(card, 'The tutor did not save this. Try again.'));
+  // The first prediction closes the step: its dot in the outline fills, as after an answer (walk.css `.just`).
+  const fill = (card, dot) => {
+    const li = dot && document.getElementById('rail-' + card.dataset.step);
+    if (li && !li.classList.contains(dot)) { li.classList.remove('now', 'todo'); li.classList.add(dot, 'just'); }
+  };
   // The first prediction closes a demo check: Next idea shows in the card and becomes the main button, and the skip goes.
   const shut = card => {
     const go = card.querySelector('.go-on');
@@ -70,7 +75,7 @@ if (!window.abhyasaWalk) {
     if (!card) return;
     const d = e.detail;
     post(card, card.dataset.url, {slug: card.dataset.demo, gate: d.gate, picked: String(d.picked), ans: String(d.ans), ok: String(d.ok),
-                                  why: d.why || '', context: d.context || ''}, 'Your prediction is saved.').then(ok => ok && shut(card));
+                                  why: d.why || '', context: d.context || ''}, 'Your prediction is saved.').then(r => { if (r) { shut(card); fill(card, r.dot); } });
   });
 
   // Keep this state (K): save the inputs of the demo with your last prediction.

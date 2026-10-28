@@ -125,8 +125,8 @@ def connect(app, ctx):
 
     def closed(j, i, r):
         "Mark step `i` done with the outcome of its check."
-        lr.walk_step(j.id, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
-        return reply(lr.journey(j.id), i, r)
+        j = lr.walk_step(j.id, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
+        return reply(j, i, r), *ui.Filled(j, walk_state(j), by(), i)   # the dot of the idea fills in the outline
 
     def from_link(url, pages, st, tool=False):
         "On the pool: file the pages of `url`, then read each page and make one walk. Return the walk id."
@@ -261,7 +261,7 @@ def connect(app, ctx):
         st.noted(a, floor0)
         with writing[jid, i]:
             if not lr.journey(jid).steps[i].get('done'): lr.walk_step(jid, i, done=dict(outcome=a.outcome, aid=a.id, at=time.time()))
-        return JSONResponse(dict(ok=True))
+        return JSONResponse(dict(ok=True, dot=walk_state(lr.journey(jid)).steps[i].dot))   # walk.js fills the dot of the idea
 
     def keep(jid:str, i:int, state:str=''):
         "Keep the state of the demo on the newest prediction of step `i`."

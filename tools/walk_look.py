@@ -297,9 +297,21 @@ def m2_check_answers_in_place(pg, w):
     assert line[:2] == ['grow', '2px'] and line[2] == pg.evaluate(f"({ACC})('--ok')"), line
     assert pg.eval_on_selector('#check .close > .tag', 'e => getComputedStyle(e).animationName') == 'fade'
 
+def m3_outline_dot_fills(pg, w):
+    "When a check closes, the dot of its idea in the outline fills from the centre, and the progress line moves."
+    jid = new_walk(w)
+    pg.goto(f'{w.B}/w/{jid}/0'); pg.wait_for_selector('#check #ans'); settle(pg)
+    w0 = pg.eval_on_selector('#rail-bar', 'e => e.getBoundingClientRect().width')
+    pg.fill('#ans', 'it is the rank'); pg.click('#send'); pg.wait_for_selector('#rail-0.just'); settle(pg, 100)
+    st = pg.eval_on_selector('#rail-0', "e => [e.className, getComputedStyle(e, '::before').animationName]")
+    assert st == ['c done on just', 'dot-grow'], st
+    pg.wait_for_timeout(400)
+    assert pg.eval_on_selector('#rail-bar', 'e => e.getBoundingClientRect().width') > w0
+    assert pg.evaluate("getComputedStyle(document.querySelector('#rail-bar')).transitionProperty") == 'width'
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
-          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place]
+          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
