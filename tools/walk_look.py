@@ -309,9 +309,28 @@ def m3_outline_dot_fills(pg, w):
     assert pg.eval_on_selector('#rail-bar', 'e => e.getBoundingClientRect().width') > w0
     assert pg.evaluate("getComputedStyle(document.querySelector('#rail-bar')).transitionProperty") == 'width'
 
+def m6_words_point_at_the_demo(pg, w):
+    "On a demo step, the words of the passage that name a part of the demo get a dotted line; pointing at one rings that part, and back."
+    jid = new_walk(w)
+    w.lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why='a demo shows it best'),
+                   read={**(w.lr.journey(jid).steps[2].get('read') or {}), 'text': 'Fusion adds up the rank in the keyword search list and in the vector search list.'})
+    pg.goto(f'{w.B}/w/{jid}/2'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+    pg.wait_for_selector('#passage .mv')
+    assert pg.eval_on_selector_all('#passage .mv', 'ms => ms.map(m => m.textContent)') == ['keyword search', 'vector search']
+    assert pg.eval_on_selector('#passage .mv', "m => getComputedStyle(m).textDecorationStyle") == 'dotted'
+    pg.hover('#passage .mv >> nth=0')
+    hot = pg.eval_on_selector_all('.walk-demo .rk-b.mv-hot', 'ns => ns.map(n => n.dataset.rkType)')
+    assert hot == ['ranklist'], hot
+    assert pg.eval_on_selector('.walk-demo .rk-b.mv-hot', 'n => getComputedStyle(n).boxShadow') != 'none'
+    pg.mouse.move(5, 5)
+    assert not pg.query_selector('.walk-demo .rk-b.mv-hot')
+    pg.hover('.walk-demo .rk-ranklist >> nth=1')
+    assert pg.eval_on_selector_all('#passage .mv.hot', 'ms => ms.map(m => m.textContent)') == ['vector search']
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
-          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills]
+          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
+          m6_words_point_at_the_demo]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

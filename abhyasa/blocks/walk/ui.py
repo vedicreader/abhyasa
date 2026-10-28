@@ -104,14 +104,16 @@ def Rail(j, st, by, i):
     return Aside(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total), Ol(*rows), id='rail', cls='outline', aria_label='The walk')
 
 def Passage(j, s, c):
-    "The passage from the source, word for word; with no passage, the statement of the idea, marked as the tutor's words."
+    """The passage from the source, word for word; with no passage, the statement of the idea, marked as the tutor's words.
+    `data-moves` holds the words that the idea moves: walk.js links them to the parts of the demo."""
     r = s.get('read') or {}
+    mv = dict(data_moves=json.dumps(list((c or {}).get('moves') or []))) if (c or {}).get('moves') else {}
     if r.get('text'):
         if r.get('src') or (j.get('source') or {}).get('docs'): src = f"From {r.get('title') or 'your sources'}"
         else: src = ', '.join(x for x in ('From the paper' if j.get('source') else 'From the text',
                                           r.get('section') and f"section {r['section'].split()[0]}", r.get('page') and f"p. {r['page']}") if x)
-        return Blockquote(Md(r['text']), Span(src, cls='src'), id='passage', cls='quote')
-    return Div(Span("In the tutor's words", cls='lbl'), Md((c or {}).get('statement', '')), id='passage', cls='stated')
+        return Blockquote(Md(r['text']), Span(src, cls='src'), id='passage', cls='quote', **mv)
+    return Div(Span("In the tutor's words", cls='lbl'), Md((c or {}).get('statement', '')), id='passage', cls='stated', **mv)
 
 def Figure_(jid, i, s, c):
     if not (s.get('read') or {}).get('figure'): return ''

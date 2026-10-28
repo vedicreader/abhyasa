@@ -219,3 +219,12 @@ def test_m3_the_outline_dot_fills(mk, walk_fake, lr):
     assert re.search(r'\.outline li\.c\.just::before \{ animation: dot-grow var\(--dur-3\) var\(--ease\) both; \}', w) and '@keyframes dot-grow { from { transform: scale(.4); } }' in w
     assert re.search(r'\.prog i \{[^}]*transition: width var\(--dur-3\) var\(--ease\)', b)
     assert "'rail-' + " in css('blocks/walk/walk.js')                                  # a demo check fills its dot from the reply of the prediction
+
+def test_m6_words_in_the_passage_point_at_the_demo(mk, walk_fake, lr):
+    "The passage names the words that the idea moves; walk.js marks them and the demo labels, and rings the matching part of the demo."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    page = cl.get(f'/w/{jid}/2').text
+    assert '<blockquote data-moves=\'["dot products", "weights"]\' id="passage" class="quote">' in page
+    js, w = css('blocks/walk/walk.js'), css('blocks/walk/walk.css')
+    assert 'dataset.moves' in js and "'.rk-b'" in js and "'mv-hot'" in js and 'rkReady' in js
+    assert re.search(r'#passage \.mv \{[^}]*text-decoration: underline dotted', w) and re.search(r'\.walk-demo \.rk-b\.mv-hot \{[^}]*box-shadow: 0 0 0 2px', w)

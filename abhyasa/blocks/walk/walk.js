@@ -90,6 +90,51 @@ if (!window.abhyasaWalk) {
     if (b) keep(b.closest('.walk-demo'));
   });
 
+  // Words in the passage point at the demo, as in an explorable explanation. The words that the idea moves (`data-moves`) and the
+  // labels of the demo get a dotted line when a part of the demo has the same name. Point at a word, and that part gets a soft
+  // ring; point at the part, and its words light up. With no match, the passage stays as it is.
+  const norm = t => String(t || '').toLowerCase().replace(/\(.*?\)/g, ' ').replace(/\s+/g, ' ').trim();
+  const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const tree = bs => (bs || []).flatMap(b => [b, ...tree(b.blocks)]);   // the blocks in the order that rupaka draws them
+  const link = () => {
+    const p = document.getElementById('passage'), host = document.querySelector('#check .walk-demo [data-rupaka]');
+    if (!p || !host || host.dataset.rkReady !== '1' || p.dataset.linked) return;
+    let spec; try { spec = host.rupaka?.spec || JSON.parse(host.querySelector('script').textContent); } catch { return; }
+    const nodes = [...host.querySelectorAll('.rk-b')], bs = tree(spec.blocks);
+    if (nodes.length !== bs.length) return;
+    let moves = []; try { moves = JSON.parse(p.dataset.moves || '[]'); } catch {}
+    const names = k => [bs[k].label, bs[k].bind].map(norm).filter(x => x.length > 2);
+    const parts = w => nodes.filter((n, k) => names(k).some(x => x === w || x.includes(w) || w.includes(x)));
+    const words = new Map([...new Set([...moves, ...bs.map(b => b.label)].map(norm))].filter(w => w.length > 2).map(w => [w, parts(w)]).filter(([, ns]) => ns.length));
+    const text = p.querySelector('.md') || p;
+    if (!words.size || !text) return;
+    const re = new RegExp(`\\b(${[...words.keys()].sort((a, b) => b.length - a.length).map(esc).join('|')})\\b`, 'gi');
+    const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT), ts = [];
+    while (walker.nextNode()) ts.push(walker.currentNode);
+    for (const t of ts) {
+      if (t.parentElement.closest('.mv, .math, code')) continue;
+      const s = t.textContent, f = document.createDocumentFragment();
+      let at = 0;
+      for (const m of s.matchAll(re)) {
+        const sp = Object.assign(document.createElement('span'), {className: 'mv', textContent: m[0], tabIndex: 0});
+        sp.dataset.mv = norm(m[0]);
+        f.append(s.slice(at, m.index), sp); at = m.index + m[0].length;
+      }
+      if (at) { f.append(s.slice(at)); t.replaceWith(f); }
+    }
+    p.dataset.linked = '1';
+    const ring = (w, on) => (words.get(w) || []).forEach(n => n.classList.toggle('mv-hot', on));
+    const lit = (n, on) => p.querySelectorAll('.mv').forEach(sp => { if ((words.get(sp.dataset.mv) || []).includes(n)) sp.classList.toggle('hot', on); });
+    for (const ev of ['pointerover', 'focusin']) p.addEventListener(ev, e => { const sp = e.target.closest('.mv'); if (sp) ring(sp.dataset.mv, true); });
+    for (const ev of ['pointerout', 'focusout']) p.addEventListener(ev, e => { const sp = e.target.closest('.mv'); if (sp) ring(sp.dataset.mv, false); });
+    for (const n of new Set([...words.values()].flat())) {
+      n.addEventListener('pointerenter', () => lit(n, true)); n.addEventListener('pointerleave', () => lit(n, false));
+    }
+  };
+  // rupaka draws the demo after the card comes; link when it is ready.
+  new MutationObserver(link).observe(document.documentElement, {subtree: true, attributes: true, attributeFilter: ['data-rk-ready']});
+  document.addEventListener('htmx:afterSettle', link);
+
   // The code editor: Tab adds 4 spaces, and Shift-Tab takes away up to 4. ⌘↵ runs the tests (core.js presses the Run button).
   document.addEventListener('keydown', e => {
     const t = e.target;
