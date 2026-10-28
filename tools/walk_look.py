@@ -400,11 +400,12 @@ def f9_add_asks_for_one_thing(pg, w):
     assert pg.evaluate('document.activeElement.name') == 'url'
     pg.click('.add-form .modes-pick label:has-text("A text")')
     assert shown() == ['add-text'] and pg.is_visible('.add-text >> text=Find concepts only') and not pg.is_visible('input[name=tool]')
+    assert not pg.is_visible('details.more #vr') and pg.is_visible('details.more summary')
     pg.fill('.add-text textarea', 'Ranking orders items. A rank is a position.')
     with pg.expect_request(lambda r: r.url.endswith('/walk/new') and r.method == 'POST') as rq: pg.click('main .go')
     body = rq.value.post_data or ''
     assert 'name="text"' in body and 'name="url"' not in body and 'name="ref"' not in body, body[:300]
-    assert not pg.is_visible('details.more #vr') and pg.is_visible('details.more summary')
+    pg.wait_for_url(lambda u: '/w/' in u, timeout=30000); settle(pg, 200)   # the walk opens; wait, so the next check's page load is not cut off
 
 def f10_graph_has_more_graph(pg, w):
     "Graph: Find, the layout and the legend show; the other levers are in a closed Adjust the view; an unseen node has the sunken fill in the legend."
