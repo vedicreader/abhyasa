@@ -42,6 +42,15 @@ main.wide:has(.walk-layout) > .crumbs { max-width: 984px; margin-inline: auto; }
 .outline li.c.on::before { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 20%, transparent); }
 .outline .k { font-size: var(--t-lbl); font-style: italic; }
 @media (max-width: 1040px) { .walk-layout { grid-template-columns: minmax(0, 1fr); gap: var(--s5); } .outline { position: static; } }
+/* the outline is a details: over 1040 px it is always open and its first line is only a label; under 1040 px it folds into
+   that line, `The paper · 3 of 3 ▸` with the progress line, so the idea title stays near the top. A click opens it. */
+.outline summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: max-content 1fr; align-items: baseline; } .outline summary .prog { grid-column: 1 / -1; order: 2; } .outline summary::-webkit-details-marker { display: none; }
+.outline summary::after { content: '▸'; order: 1; margin-left: var(--s2); color: var(--mute); font-size: var(--t-lbl); }
+.outline details[open] > summary::after { content: '▾'; }
+.outline summary:hover .lbl { color: var(--fg); }
+@supports selector(::details-content) { @media (min-width: 1041px) {
+  .outline details::details-content { content-visibility: visible; display: block; }
+  .outline summary { cursor: default; pointer-events: none; } .outline summary::after { content: none; } } }
 
 .sec-lbl { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: 0 0 var(--s1); display: flex; gap: var(--s3); flex-wrap: wrap; }
 .sec-lbl span + span::before { content: '·'; margin-right: var(--s3); }

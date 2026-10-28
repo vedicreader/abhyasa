@@ -25,6 +25,17 @@ document.addEventListener('keydown', e => {
   const el = abhyasaFind(abhyasaKeys[e.code]) || (e.code === 'KeyC' && document.querySelector('#continue'));   // Continue works when the top bar has no room for it
   if (el) { e.preventDefault(); el.click(); }
 });
+// Continue in the top bar shows only when it has room for its first words (about 8 em). Else it goes, and ⌥C still works.
+function abhyasaRoom() {
+  const c = document.querySelector('body > nav #continue');
+  if (!c) return;
+  c.classList.remove('no-room');
+  c.classList.toggle('no-room', c.scrollWidth > c.clientWidth && c.clientWidth < 8 * parseFloat(getComputedStyle(c).fontSize));
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', abhyasaRoom); else abhyasaRoom();
+addEventListener('resize', abhyasaRoom);
+document.addEventListener('htmx:afterSettle', abhyasaRoom);
+if (document.fonts) document.fonts.ready.then(abhyasaRoom);
 // A main button with `data-focus` takes the cursor when it comes, with no focus ring until you use a key. Never a box with your text in it.
 function abhyasaFocus() {
   const a = document.activeElement;

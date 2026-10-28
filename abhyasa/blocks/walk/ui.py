@@ -95,13 +95,15 @@ def Filled(j, st, by, i):
     return Idea(j, by, st.steps[i], i, i, just=True), Bar(st.done, st.total, oob=True)
 
 def Rail(j, st, by, i):
-    "The outline at the left: each section, and the ideas in it with a dot for each state."
+    """The outline at the left: each section, and the ideas in it with a dot for each state. Under 1040 px it folds into
+    its first line, `The paper · 3 of 3` and the progress line, and a click opens it (walk.css)."""
     lbl = 'The paper' if j.get('source') else 'The walk'
     rows = []
     for sec, ix in st.sections:
         rows.append(Li(sec or 'The ideas', cls='sec' + (' on' if i in ix else '')))
         rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
-    return Aside(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total), Ol(*rows), id='rail', cls='outline', aria_label='The walk')
+    return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows)),
+                 id='rail', cls='outline', aria_label='The walk')
 
 def Passage(j, s, c):
     """The passage from the source, word for word; with no passage, the statement of the idea, marked as the tutor's words.

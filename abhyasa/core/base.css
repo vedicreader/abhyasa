@@ -31,6 +31,7 @@ nav .brand { font: var(--t-body)/1 var(--head); color: var(--fg); margin-right: 
 nav .nav-gap { margin-left: auto; }
 nav #continue { color: var(--fg); white-space: nowrap; min-width: 0; flex: 0 1 auto; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
 nav #continue kbd { margin-left: var(--s2); }
+nav #continue.no-room { display: none; }   /* core.js: with no room for its first words, Continue goes, not "C…"; ⌥C still works */
 nav input[type=search] { width: 200px; font-size: var(--t-small); padding: var(--s1) 2px; }
 /* a narrow window keeps the top bar on one row: a smaller gap, and Continue truncates */
 @media (max-width: 1099px) { body > nav { gap: var(--s4); } }

@@ -550,12 +550,38 @@ def t16_open_in_leela(pg, w):
         assert not bad, bad
     finally: f.unlink(missing_ok=True)
 
+# --- Task 19d: the last design faults -----------------------------------------------------------------------------
+
+CONT = """() => { const c = document.querySelector('body > nav #continue'); if (!c || !c.checkVisibility()) return 'hidden';
+                 return c.scrollWidth <= c.clientWidth || c.clientWidth >= 8 * parseFloat(getComputedStyle(c).fontSize) ? 'room' : 'cut'; }"""
+
+def d1_narrow_band(pg, w):
+    "At 1000 px the outline is one line over the title that opens on a click, the title stays near the top, and Continue never shows as 'C…'."
+    try:
+        pg.goto(w.step(2)); pg.wait_for_selector('#check .check'); settle(pg)
+        assert pg.is_visible('#rail ol li.c'), 'the outline does not show at 1280 px'
+        pg.eval_on_selector('#rail summary', 's => s.click()'); assert pg.is_visible('#rail ol li.c'), 'a click closes the outline at 1280 px'
+        pg.set_viewport_size(dict(width=1000, height=900))
+        for u in (w.step(2), f'/s/{w.sid}', '/graph'):
+            pg.goto(u if u.startswith('http') else w.B + u); settle(pg)
+            assert pg.evaluate(CONT) != 'cut', (u, 'Continue is cut')
+        pg.goto(w.step(2)); pg.wait_for_selector('#check .check'); settle(pg)
+        assert pg.evaluate(CONT) != 'cut' and pg.eval_on_selector('#continue', 'c => !!c') is True
+        assert not pg.is_visible('#rail ol li.c') and pg.text_content('#rail summary').startswith('The paper · 3 of 3'), pg.text_content('#rail summary')
+        assert pg.is_visible('#rail-prog'), 'no progress line in the folded outline'
+        top = pg.eval_on_selector('h1.idea', 'h => h.getBoundingClientRect().top')
+        assert top < 260, f'the title starts at y = {top}'
+        pg.click('#rail summary'); assert pg.is_visible('#rail ol li.c'), 'a click does not open the outline'
+        pg.keyboard.press('Alt+c'); pg.wait_for_load_state()   # ⌥C still works when Continue does not show
+    finally: pg.set_viewport_size(dict(width=1280, height=900))
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
-          t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela]
+          t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
+          d1_narrow_band]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
