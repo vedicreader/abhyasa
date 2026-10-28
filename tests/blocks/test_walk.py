@@ -374,7 +374,6 @@ def test_wrong_predictions_climb_the_demo_ladder(mk, walk_fake, lr):
     part = cl.get(r['ladder']).text
     assert 'Positions are shared.' in part and f'Lesson · {LABELS[ld["way"]].lower()}' in part and 'class="go' not in part   # one quiet block, no new main button
     assert f'hx-get="/w/{jid}/2/ladder"' in cl.get(f'/w/{jid}/2/check').text        # a reload loads the help again
-    lr.update(slug, prereqs=[])                                                       # no prereq, so `_back` does not step back
     r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate='second', picked='0', ans='1', ok='false')).json()
     part = cl.get(r['ladder']).text
     assert 'The tutor is making a simpler demo' in part and 'load delay:2s' in part and 'Positions are shared.' in part
@@ -388,17 +387,17 @@ def test_wrong_predictions_climb_the_demo_ladder(mk, walk_fake, lr):
     assert a['ok'] and not a.get('again') and not a.get('ladder')                      # the third miss after the demo adds nothing (a new pick: the vault keeps one document for each text)
     assert (lr.attempts(slug, limit=1)[0].demo, lr.attempts(slug, limit=1)[0].method) == (small.slug, 'demo')   # it counts against demo
 
-def test_no_simpler_demo_job_once_back_steps_back(mk, walk_fake, lr):
-    "The second wrong prediction on an idea with a prereq that is not learned starts no job: the next question steps back to the prereq."
+def test_a_prereq_does_not_stop_the_ladder_in_a_walk(mk, walk_fake, lr):
+    "An idea with a prereq that is not learned still gets the simpler demo on the second wrong prediction: `_back` waits for the third miss since the demo."
     slug = 'scaling-by-the-root-of-dk'
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
     cl.get(f'/w/{jid}/1')
     d = lr.put_demo(two_gates(made(cl, slug)), slug)
+    assert lr.concept(slug).prereqs                                                    # the idea has a prereq, and it is not learned
     for g in ('win', 'second'): r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
-    made(cl, f'{slug}:lesson')
-    part = cl.get(r['ladder']).text
-    assert 'Positions are shared.' in part and 'simpler demo' not in part and f'{slug}:simpler' not in cl.app.state.svc['tutor'].jobs
+    made(cl, f'{slug}:lesson'); made(cl, f'{slug}:simpler')
+    assert lr.concept(slug).after_demo == 2 and 'Show a simpler demo' in cl.get(r['ladder']).text
 
 def test_no_ladder_in_a_walk_when_the_setting_is_off(mk, walk_fake, lr):
     "With checks.demo_ladder off, a wrong prediction only shows the answer, as before."
