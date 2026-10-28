@@ -15,6 +15,7 @@ import json, os, re
 from pathlib import Path
 from fastcore.utils import *
 from .store import Learning, slugify, _union
+from .settings import val
 from .llm import ask_json
 from .prompts import register, prompt
 
@@ -154,7 +155,7 @@ def extract(lr:Learning, ask, text:str='', subject:str='', source:dict=None, pag
                     when=c.get('when', old.get('when')), image=fig or old.get('image'), visual=bool(moves))
         prov = [source] if source else []
         if pages is not None and source is not None:
-            t = pgs[loc[0]][1][loc[1]:loc[2]][:600] if loc else ''
+            t = pgs[loc[0]][1][loc[1]:loc[2]][:val('walks.passage')] if loc else ''
             prov = [{**source, 'order': order, 'section': c.get('section') or '', 'page': pgs[loc[0]][0] if loc else None,
                      'span': [loc[1], loc[1] + len(t)] if loc else None, 'passage': t, 'figure': fig}]
         lr.put(c['name'], c.get('statement', ''), subject, slug=s, aliases=c.get('aliases') or (), prereqs=[p for p in pre if p], provenance=prov, **meta)

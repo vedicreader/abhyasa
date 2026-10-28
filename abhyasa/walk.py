@@ -11,6 +11,7 @@ __all__ = ['NOTE_SP', 'tutor_note', 'step_meta', 'open_short', 'code_task', 'run
 import re, time, uuid
 from fastcore.utils import *
 from .llm import for_task
+from .settings import val
 from .prompts import register, prompt
 from .tutor import Tutor, Session, MAX_TRIES, public
 from .check import run_isolated
@@ -19,13 +20,14 @@ import abhyasa.journey  # adds Learning.walk_step
 
 # %% ../nbs/15_walk.ipynb #i07
 NOTE_SP = register('walk.note', 'Walk note', 'How the tutor writes the short note under the passage of each step in a walk.',
-    "You write a short note for a learner who just read a passage. Write 2 or 3 sentences, at most 60 words. "
+    "You write a short note for a learner who just read a passage. Write 2 or 3 short sentences. "
     "Say what the passage says about the idea, in plain words. Do not give the answer to a question on this idea. "
     "End with what to look for next. Reply with the note only.")
 
 # %% ../nbs/15_walk.ipynb #i09
-def _trim(text:str, n:int=3, words:int=60) -> str:
-    "The first `n` sentences of `text`, fewer when they have more than `words` words, and at most `words` words."
+def _trim(text:str, n:int=3, words:int=None) -> str:
+    "The first `n` sentences of `text`, fewer when they have more than `words` words (default: the setting `walks.note`), and at most `words` words."
+    words = words or val('walks.note')
     ss = re.split(r'(?<=[.!?])\s+', ' '.join(text.split()))[:n]
     while len(ss) > 1 and len(' '.join(ss).split()) > words: ss.pop()
     return ' '.join(' '.join(ss).split()[:words])
@@ -37,7 +39,7 @@ def tutor_note(lr, ask, j, i:int) -> str:
     if s.get('note'): return s['note']
     c = lr.concept(s['slug'])
     p = (f"Idea: {c.name}\n{c.get('statement', '')}\n\nThe passage:\n{(s.get('read') or {}).get('text') or 'none'}\n\n"
-         f"The next check is a {(s.get('check') or {}).get('kind', 'short')} check.")
+         f"The next check is a {(s.get('check') or {}).get('kind', 'short')} check.\n\nUse at most {val('walks.note')} words.")
     n = _trim(for_task(ask, 'hint')(p, prompt('walk.note')))
     lr.walk_step(j.id, i, note=n)
     return n

@@ -19,7 +19,8 @@ from abhyasa.llm import Router, Fake, route_ask, for_task
 from abhyasa.tutor import Tutor
 from abhyasa.ground import VaultSource
 from abhyasa.sources import file_link, LinkError
-from abhyasa.journey import journey_from_sources, walk_from_topic, walk_state, handoff, MAX_STEPS
+from abhyasa.journey import journey_from_sources, walk_from_topic, walk_state, handoff
+from abhyasa.settings import val
 from abhyasa.walk import tutor_note, open_short, code_task, run_code, step_meta
 from abhyasa.core.leela import leela_link
 from grade_eval import question_checks
@@ -29,6 +30,7 @@ CASES = [dict(name='attention', link='1706.03762', pages=1),
          dict(name='pydantic-ai', link='https://ai.pydantic.dev', pages=8, tool=True),
          dict(name='claude-code', link='https://docs.claude.com/en/docs/claude-code/overview', pages=8, tool=True)]
 PORT = 5019   # the port of the fake Leela address file
+MAX_STEPS = val('walks.steps')
 MARKS = f'steps 5 to {MAX_STEPS}; passage on 70% of steps (a paper or docs walk); every question passes; grade right both ways; naive code fails and good code passes; no code check and right links on a tool walk; at most 30 s a step'
 
 class Timed(Router):

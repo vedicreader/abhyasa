@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, asset_js
+from abhyasa.settings import val
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -49,9 +50,9 @@ def Way(k, how, slug, title, meta, body, why=''):
 def Offer(c, pick, chain, here, limit=False):
     "One sunken card: how to learn idea `c` before you go on. The tutor's pick is marked. At the depth limit, only its own session."
     names = ', '.join(chain)
-    walk = f"{names}. One check on each." if len(chain) > 1 else 'The tutor plans up to 4 ideas. One check on each.'
+    walk = f"{names}. One check on each." if len(chain) > 1 else f"The tutor plans up to {val('walks.chain')} ideas. One check on each."
     ways = [('primer', 'beside this page · 2 min', 'The idea in short, and one check.'),
-            ('walk', f"beside this page · {len(chain)} ideas" if len(chain) > 1 else 'beside this page · up to 4 ideas', walk),
+            ('walk', f"beside this page · {len(chain)} ideas" if len(chain) > 1 else f"beside this page · up to {val('walks.chain')} ideas", walk),
             ('session', 'a new tab · as long as you need', f"{c.name} from the start, as its own walk. This page stays open.")]
     if limit: ways = ways[2:]
     why = 'you are two side walks down, so this one opens in a new tab' if limit else pick.why

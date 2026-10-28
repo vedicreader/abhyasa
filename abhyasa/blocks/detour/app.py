@@ -7,7 +7,8 @@ from urllib.parse import urlencode
 from fasthtml.common import *
 from abhyasa.core import hook
 from abhyasa.llm import for_task
-from abhyasa.journey import needs, pick_way_down, detour, back_from, look_up, walk_state, MAX_DEPTH
+from abhyasa.journey import needs, pick_way_down, detour, back_from, look_up, walk_state
+from abhyasa.settings import val
 from . import ui
 from .cfg import Routes
 
@@ -15,7 +16,6 @@ __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask', 'sources')
 HOWS = ('primer', 'walk', 'session')
 GOOD = ('solid', 'fragile')
-FRESH = 600   # seconds: the strip "Back on the paper" shows this long after you come back
 
 def today(t):
     "Whether time `t` is on the local day of now."
@@ -45,7 +45,7 @@ def connect(app, ctx):
 
     def offer(c, j, i):
         pick = pick_way_down(lr, c.slug)
-        return ui.Offer(c, pick, [(lr.concept(s) or {}).get('name', s) for s in pick.chain], here(j, i), limit=(j.get('depth') or 0) >= MAX_DEPTH)
+        return ui.Offer(c, pick, [(lr.concept(s) or {}).get('name', s) for s in pick.chain], here(j, i), limit=(j.get('depth') or 0) >= val('walks.depth'))
 
     def found(t):
         "The concept for term `t` by slug, name or alias, or None. It writes nothing."
@@ -57,7 +57,7 @@ def connect(app, ctx):
         j, i, err = place(at)
         if err: return err
         if not lr.concept(slug): return Response('No such idea.', status_code=404)
-        if how != 'session' and (j.get('depth') or 0) >= MAX_DEPTH: how = 'session'
+        if how != 'session' and (j.get('depth') or 0) >= val('walks.depth'): how = 'session'
         try: d = detour(lr, ask, slug, dict(walk=j.id, step=i), how, ctx.sources)   # walk, then step: `from` is "<walk id>/<step>"
         except Exception as e: return Response(f'The tutor could not make the side walk ({e}). Try again.', status_code=502)
         if not d.steps:
@@ -97,7 +97,7 @@ def connect(app, ctx):
         met = {d['slug'] for d in ds if d.get('outcome') in GOOD and today(d.get('at'))}
         rows = [(n, 'learned' if n.ok else 'today' if n.slug in met else 'missing') for n in (needs(lr, c.slug, by) if c and c.slug in by else ())]
         strip, d = None, ds[-1] if ds else None
-        if d and time.time() - d.get('at', 0) < FRESH and (sj := lr.journey(d['walk'])):
+        if d and time.time() - d.get('at', 0) < val('walks.fresh') * 60 and (sj := lr.journey(d['walk'])):
             outs = [(s.get('done') or {}).get('outcome') for s in sj.steps]
             strip = ui.Strip((by.get(d['slug']) or {}).get('name', d['slug']), d.get('outcome') in GOOD, sj.id, [o for o in outs if o and o != 'skipped'])
         return ui.Needs(f'{j.id}/{i}', rows, strip)

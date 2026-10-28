@@ -8,6 +8,7 @@ from fasthtml.common import *
 from abhyasa.core import Page, hook, run as run_hook
 from abhyasa.core.leela import leela_line
 from abhyasa.llm import for_task
+from abhyasa.settings import val
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
@@ -23,7 +24,6 @@ CAPS = ('learning', 'tutor', 'ask', 'pool', 'sessions', 'sources')
 FIGURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a step (spec 6.3), empty until the step is used
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
-DEMO_WAIT = 90                       # seconds to wait for a demo; then the step uses a short answer
 MAX_STATE = 20_000                   # the most chars of a kept demo state
 PAGES = 8                            # the page cap of a link when the form gives none
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
@@ -97,7 +97,7 @@ def connect(app, ctx):
         s = j.steps[i]
         slug, aim = s['slug'], AIM[s['check']['kind']]
         if job_state(tutor, slug, aim) == 'none': ahead(j, i)
-        if job_state(tutor, slug, aim) == 'running' and job_age(tutor, slug, aim) < DEMO_WAIT: return ui.Pending(j.id, i, s)
+        if job_state(tutor, slug, aim) == 'running' and job_age(tutor, slug, aim) < val('walks.demo_wait'): return ui.Pending(j.id, i, s)
         lr.walk_step(j.id, i, check=dict(short_check(lr, lr.concept(slug))))
 
     def open_code(j, i, sid):
