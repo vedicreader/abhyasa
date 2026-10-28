@@ -2,7 +2,7 @@
 
 .rh-line { display: flex; flex-wrap: wrap; row-gap: var(--s1); column-gap: var(--s5); align-items: baseline; margin: calc(-1 * var(--s1)) 0 var(--s4); font-size: var(--t-small); }
 .rh-line > .lbl { margin: 0; }
-.rh-line .need { display: inline-flex; align-items: baseline; flex-wrap: wrap; }
+.rh-line .need { display: inline-flex; align-items: baseline; flex-wrap: wrap; column-gap: var(--s1); }
 .rh-line .n { color: var(--fg); }
 .rh-line .st { font-style: italic; font-size: var(--t-small); }
 .rh-line .st.learned, .rh-line .st.today { color: var(--ok); }
