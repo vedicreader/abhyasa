@@ -10,6 +10,7 @@
 - Side pane: a page in the pane can ask to open an http or https link in a new tab (`rh:link`). Other schemes are refused.
 - When the tutor cannot make a walk, a side walk or a term, the page shows a plain line. The log keeps the error.
 - A code check refuses more than 100 000 characters of code.
+- Your journeys: a side walk opens in the pane beside the step that opened it.
 
 ## 0.0.11
 

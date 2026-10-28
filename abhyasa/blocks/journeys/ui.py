@@ -1,8 +1,10 @@
 "A journey as a path: a vertical line of steps, each with its state, its depth and why it is there; the current step in the accent."
 import json
 from pathlib import Path
+from urllib.parse import quote
 from fasthtml.common import *
 from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago, Primary, n_of, Onward
+from abhyasa.journey import parent_step, walk_state
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -25,12 +27,19 @@ def GoalForm(compact=False, label=True):
                     Span('The tutor suggests the steps. You can change each one.', cls='mute'), cls='row'),
                 Div(id='plan-out'), hx_post=Routes.new, hx_target='#plan-out', cls='goal-form' if compact else 'goal-form raised')
 
-def SideWalk(j, pg):
-    "One side walk under the walk that opened it: its title, the idea it was for, and its progress."
-    i = (j.get('parent') or {}).get('step')
-    return Li(A(j.title, href=go(j)), Span(f"  for idea {i + 1} · {pg.done} of {n_of(pg.total, 'idea')}" if isinstance(i, int) else f"  {pg.done} of {n_of(pg.total, 'idea')}", cls='mute'))
+def beside(j, js):
+    "The step that opened side walk `j`, with the side walk at its current step in the pane (`?rh=`); its own page when that step is gone."
+    pj, i = parent_step(None, j, js)
+    if not pj: return go(j)
+    k = walk_state(j).current
+    return f"/w/{pj.id}/{i}?rh=" + quote(f"/w/{j.id}/{k if k is not None else 0}", safe='/')
 
-def Row(j, pg, sides=(), lead=False):
+def SideWalk(j, pg, js=None):
+    "One side walk under the walk that opened it: its title, the idea it was for, and its progress. It opens beside the step that opened it."
+    i = (j.get('parent') or {}).get('step')
+    return Li(A(j.title, href=beside(j, js or {})), Span(f"  for idea {i + 1} · {pg.done} of {n_of(pg.total, 'idea')}" if isinstance(i, int) else f"  {pg.done} of {n_of(pg.total, 'idea')}", cls='mute'))
+
+def Row(j, pg, sides=(), lead=False, js=None):
     """One journey in a list: its title, its progress, the step to do now, the way on, and its side walks. Only the `lead` row
     (the current journey) has a button; the others have a quiet `Continue →` link."""
     now = f"Now: {pg.current.name}" if pg.current else 'Finished'
@@ -38,7 +47,7 @@ def Row(j, pg, sides=(), lead=False):
              Onward('Continue', go(j)) if pg.current else Onward('See what comes after', at(Routes.one, j)))
     return Li(Div(A(j.title, href=at(Routes.one, j), cls='jt'), Span(f"  {pg.done} of {n_of(pg.total, 'step')} · {now}", cls='mute'), cls='jrow-head'),
               Bar(pg.done, pg.total), go_on,
-              Div(Span('Side walks', cls='lbl'), Ul(*[SideWalk(*x) for x in sides], cls='plain'), cls='side-walks') if sides else '',
+              Div(Span('Side walks', cls='lbl'), Ul(*[SideWalk(*x, js=js) for x in sides], cls='plain'), cls='side-walks') if sides else '',
               cls='jrow')
 
 def root_of(j, ids):
@@ -57,7 +66,8 @@ def JourneyList(js, empty='No journeys yet. Say what you want to learn, and the 
         if j.get('depth') and (r := root_of(j, ids)): sides.setdefault(r, []).append((j, pg))
     under = {j.id for x in sides.values() for j, _ in x}
     top = next((j.id for j, pg in js if j.id not in under and pg.current), None) if lead else None
-    rows = [Row(j, pg, sides.get(j.id, ()), j.id == top) for j, pg in js if j.id not in under]
+    byid = {k: v[0] for k, v in ids.items()}
+    rows = [Row(j, pg, sides.get(j.id, ()), j.id == top, byid) for j, pg in js if j.id not in under]
     return Ul(*rows, cls='plain journeys') if rows else P(empty, cls='mute')
 
 def Act(j, s, act, label, title):
