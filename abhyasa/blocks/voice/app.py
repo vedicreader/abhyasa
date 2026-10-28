@@ -4,7 +4,7 @@ from pathlib import Path
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook, asset_js, asset_css
-from abhyasa.voice import settings
+from abhyasa.settings import val
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect', 'MicButton', 'hint_for']
@@ -38,7 +38,8 @@ def connect(app, ctx):
         except Exception as e: return JSONResponse(dict(text='', error=str(e)), status_code=500)
 
     def start(concept:str=''):
-        return JSONResponse(dict(id=sp.start(hint_for(ctx.learning, concept)), segment=settings()['stt']['segment'], status=sp.status))
+        return JSONResponse(dict(id=sp.start(hint_for(ctx.learning, concept)), segment=val('stt.segment'), pause=val('stt.pause'),
+                                 longest=val('stt.longest'), status=sp.status))
 
     async def seg(req, did:str, seq:int):
         if not (d := sp.runs.get(did)): return JSONResponse(dict(error='no such dictation'), status_code=404)

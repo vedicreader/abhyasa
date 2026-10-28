@@ -124,3 +124,19 @@ def test_run_reads_the_new_limits():
     set_val('runner.per_test', 1); set_val('runner.total', 5); set_val('runner.file_mb', 1)
     assert run_isolated('assert', 'f', slow, ['assert f() == 1'])['checks'][0]['status'] != 'pass'   # 1 s: the test stops
     assert "RUN_SECONDS = 5.0" in snippet('assert', 'f', []) and 'RLIMIT_CPU, (6, 7)' in _limits(5.) and f'({2**20}, {2**20})' in _limits(5.)
+
+# Speech to text
+
+def test_stt_defaults():
+    assert dflts('stt') == {'stt.engine': 'gemma', 'stt.model': '', 'stt.segment': True, 'stt.pause': 700, 'stt.longest': 12}
+
+def test_mic_gets_the_pause_values(mk):
+    cl = mk()
+    assert {k: v for k, v in cl.post('/voice/start').json().items() if k in ('segment', 'pause', 'longest')} == dict(segment=True, pause=700, longest=12)
+    set_val('stt.pause', 1200); set_val('stt.longest', 40)
+    r = cl.post('/voice/start').json()
+    assert (r['pause'], r['longest']) == (1200, 30)
+    from pathlib import Path
+    import abhyasa.blocks.voice as v
+    js = (Path(v.__file__).parent/'vad.js').read_text()
+    assert 'op.pause' in js and 'op.longest' in js and 'HANG = 35' not in js

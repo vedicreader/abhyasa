@@ -1,13 +1,16 @@
 // A voice activity detector in an AudioWorklet. It cuts the mic stream into speech segments at pauses.
 // Each 20 ms frame is speech when its energy is well above a noise floor that follows the room. Very noisy frames
 // (many zero crossings, as in hiss) must be louder. A segment starts after 3 speech frames, with 300 ms of audio
-// from before the start, so the first sound is not cut. It ends after 700 ms of silence (250 ms after 8 s), or at 12 s.
+// from before the start, so the first sound is not cut. It ends after a pause of `pause` ms (250 ms after 8 s), or at `longest` s.
+// The two values come from the settings (stt.pause and stt.longest), through /voice/start.
 // Segments go to the page as 16 kHz mono Float32Array. With `pauses` off, the cut is every 10 s.
-const F = 0.02, PRE = 15, ONSET = 3, HANG = 35, HANG_LONG = 12, LONG = 400, CAP = 600, FIXED = 500, MIN_VOICED = 8;
+const F = 0.02, PRE = 15, ONSET = 3, HANG_LONG = 12, LONG = 400, FIXED = 500, MIN_VOICED = 8;
 class AbhyasaVad extends AudioWorkletProcessor {
   constructor(o) {
     super();
-    this.pauses = (o.processorOptions || {}).pauses !== false;
+    const op = o.processorOptions || {};
+    this.pauses = op.pauses !== false;
+    this.hangN = Math.round(op.pause / 1000 / F); this.cap = Math.round(op.longest / F);   // in frames, from /voice/start
     this.frame = Math.round(sampleRate * F); this.buf = new Float32Array(this.frame); this.n = 0;
     this.floor = 0.002; this.run = 0; this.hang = 0; this.speech = false; this.pre = []; this.seg = []; this.voiced = 0; this.tick = 0;
     this.port.onmessage = e => { if (e.data === 'flush') { this.emit(); this.port.postMessage({flushed: true}); } };
@@ -41,7 +44,7 @@ class AbhyasaVad extends AudioWorkletProcessor {
     }
     this.seg.push(f);
     if (isSp) { this.voiced++; this.hang = 0; } else this.hang++;
-    if (this.hang >= (this.seg.length > LONG ? HANG_LONG : HANG) || this.seg.length >= CAP) this.emit();
+    if (this.hang >= (this.seg.length > LONG ? Math.min(HANG_LONG, this.hangN) : this.hangN) || this.seg.length >= this.cap) this.emit();
   }
   emit() {
     const keep = this.seg.length - Math.max(0, this.hang - 10);   // keep 200 ms of the silence at the end

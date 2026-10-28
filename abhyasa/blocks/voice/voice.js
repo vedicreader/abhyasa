@@ -40,7 +40,7 @@ async function abhyasaMic(btn) {
     d.ac = new AudioContext();
     await d.ac.audioWorklet.addModule(btn.dataset.vad);
     if (d.ended) return d.stream.getTracks().forEach(t => t.stop());   // stopped while the mic started
-    d.node = new AudioWorkletNode(d.ac, 'abhyasa-vad', {processorOptions: {pauses: r.segment}});
+    d.node = new AudioWorkletNode(d.ac, 'abhyasa-vad', {processorOptions: {pauses: r.segment, pause: r.pause, longest: r.longest}});
     d.flushed = new Promise(ok => d.onflush = ok);
     const mute = d.ac.createGain(); mute.gain.value = 0;
     d.ac.createMediaStreamSource(d.stream).connect(d.node); d.node.connect(mute).connect(d.ac.destination);
