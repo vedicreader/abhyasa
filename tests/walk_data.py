@@ -1,4 +1,5 @@
-import json, re, time
+import json, os, re, time
+from pathlib import Path
 
 PAGES = [(0, '1 Introduction\n\nRecurrent models compute along the positions of the input. '
              'This inherently sequential nature precludes parallelization within training examples.'),
@@ -44,3 +45,9 @@ def wait_for(f, secs=5.):
 def walk(cl, lr):
     "File the paper, make a walk from it through the app, and return the journey id."
     return cl.post('/walk/new', data=dict(ref=add_paper(lr))).headers['hx-redirect'].split('/')[-1]
+
+def leela_file(root, port=5011, pid=None, url=None):
+    "Write the address file that a running Leela writes, under `root`; the pid of this test makes it look alive."
+    f = Path(root)/'leela'/'serving.json'; f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(dict(host='127.0.0.1', port=port, pid=pid or os.getpid(), url=url or f'http://127.0.0.1:{port}/')))
+    return f

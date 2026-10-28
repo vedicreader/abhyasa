@@ -51,3 +51,9 @@ def walk_fake(fake, monkeypatch):
     fake.rules.update({'Return JSON: {"concepts"': EXTRACT_REPLY, 'You write a short note': 'Softmax makes weights from scores. Look at what a large score does.',
                        'You write one small Python exercise': EXERCISE})
     return fake
+
+@pytest.fixture(autouse=True)
+def no_leela(monkeypatch, tmp_path_factory):
+    "No test reads the owner's real Leela address file."
+    from abhyasa.core.cfg import cfg
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path_factory.mktemp('xdg'))); monkeypatch.setitem(cfg, 'leela', '')

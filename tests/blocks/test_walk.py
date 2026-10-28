@@ -297,3 +297,32 @@ def test_link_walk_shows_only_its_own_messages(mk, walk_fake, lr, monkeypatch):
     cl.post('/walk/new', data=dict(url=u))
     t = wait_for(lambda: t if 'pending' not in (t := cl.get('/walk/job', params=dict(url=u)).text) else None, secs=10)
     assert 'allow_private' not in t and 'FOSSICK' not in t and 'abhyasa could not make a walk from this link' in t   # a library message never shows
+
+
+def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
+    from abhyasa.core.leela import LEELA_INSTALL
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path))
+    cl = mk(); assert 'Code and tools open in Leela' in cl.get('/add').text
+    jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='on')).headers['hx-redirect'].split('/')[-1]
+    assert lr.journey(jid).tool is True
+    plan = cl.get(f'/w/{jid}').text
+    assert 'Open this in Leela for code and tools' in plan and LEELA_INSTALL in plan and '/learn?' not in plan   # no Leela: never a broken link
+    assert cl.post(f'/w/{jid}/plan', data=dict(i=1, act='check', way='code')).status_code == 400                # no library code check in abhyasa
+    leela_file(tmp_path)
+    assert f'href="http://127.0.0.1:5011/learn?walk={jid}"' in cl.get(f'/w/{jid}').text
+    cl.post(f'/w/{jid}/start')
+    step = cl.get(f'/w/{jid}/1').text
+    assert f'http://127.0.0.1:5011/learn?walk={jid}&amp;step=1' in step and 'target="_blank"' in step
+    assert 'code-editor' not in cl.get(f'/w/{jid}/1/check').text                                                 # the check here is short or order
+    assert '/learn?' not in cl.get(f'/w/{jid}/0').text                                                           # an idea with no code way has no link
+
+def test_code_card_and_concept_page_offer_leela_only_when_it_runs(mk, walk_fake, lr, monkeypatch, tmp_path):
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path))
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'code-editor' in card and 'Leela' not in card and 'Leela' not in cl.get('/c/softmax').text   # quiet when Leela is not running
+    leela_file(tmp_path)
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'code-editor' in card and f'/learn?walk={jid}&amp;step=1' in card                           # the small stdlib check stays in abhyasa
+    assert '/learn?topic=Softmax' in cl.get('/c/softmax').text

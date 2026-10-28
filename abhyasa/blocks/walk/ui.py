@@ -8,7 +8,8 @@ from abhyasa.core import Md, DepthBar, asset_css, asset_js
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import MAX_TRIES, HINTS
-from abhyasa.journey import minutes
+from abhyasa.core.leela import leela_line
+from abhyasa.journey import minutes, TOOL_WAYS
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -33,15 +34,15 @@ def pages(steps):
 
 # --- the plan --------------------------------------------------------------------------------------------------------
 
-def WayPick(jid, i, s):
+def WayPick(jid, i, s, ways=WALK_WAYS):
     "The way of the check of one step; a change saves it at once."
     way = (s.get('check') or {}).get('way')
-    return Select(*[Option(LABELS[w], value=w, selected=w == way) for w in WALK_WAYS], name='way', aria_label='The way of the check',
+    return Select(*[Option(LABELS[w], value=w, selected=w == way) for w in ways], name='way', aria_label='The way of the check',
                   hx_post=at(Routes.plan, jid), hx_vals=json.dumps(dict(i=i, act='check')), hx_trigger='change', hx_target='#plan', hx_swap='outerHTML')
 
-def PlanIdea(jid, i, s, by):
+def PlanIdea(jid, i, s, by, ways=WALK_WAYS):
     k = (s.get('check') or {}).get('kind', 'short')
-    return Li(Span(name(by, s), cls='n'), Span(KIND.get(k, k), cls='w'), WayPick(jid, i, s),
+    return Li(Span(name(by, s), cls='n'), Span(KIND.get(k, k), cls='w'), WayPick(jid, i, s, ways),
               Button('Drop', type='button', cls='small quiet', title='Take this idea out of the walk', hx_post=at(Routes.plan, jid),
                      hx_vals=json.dumps(dict(i=i, act='drop')), hx_target='#plan', hx_swap='outerHTML'),
               cls='known' if s.get('status') == 'known' else None)
@@ -54,10 +55,11 @@ def Plan(j, st, by):
     "The sections in reading order, each idea with its check. You can change the way of a check, or drop an idea. A walk from a link names each page once."
     mins = sum(minutes(s) for s in j['steps'])
     secs, page = [], None
+    ways = TOOL_WAYS if j.get('tool') else WALK_WAYS
     for sec, ix in st.sections:
         if (t := page_of(j, ix[0])) and t != page: secs.append(Li(H3(t), cls='page')); page = t
         secs.append(Li(Div(B(sec or 'The ideas'), Small(' · '.join(x for x in (pages([j['steps'][i] for i in ix]), f"{sum(minutes(j['steps'][i]) for i in ix)} min") if x)), cls='sh'),
-                       Ul(*[PlanIdea(j['id'], i, j['steps'][i], by) for i in ix])))
+                       Ul(*[PlanIdea(j['id'], i, j['steps'][i], by, ways) for i in ix])))
     return Div(Span(f"The walk · {len(st.sections)} section{'s' * (len(st.sections) != 1)} · {len(j['steps'])} ideas · about {mins} min", cls='lbl'),
                P('Each idea has one check. The tutor picks the check from the idea and from the ways that work for you. You can change any check.', cls='mute'),
                Ol(*secs, cls='plan') if secs else P('The tutor found no ideas in this source.', cls='mute'), id='plan')
@@ -67,7 +69,7 @@ def PlanPage(j, st, by):
     go = (Form(Button('Start the walk ', Kbd('⌥S'), cls='go', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post')
           if j['steps'] else '')
     return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else f"From the link: {src['url']} · {len(src['docs'])} page{'s' * (len(src['docs']) != 1)}." if src.get('docs') else j.get('goal', ''), cls='mute'),
-            Plan(j, st, by), Div(go, Span('The walk is a journey, so it shows on Today.', cls='mute'), cls='row'))
+            leela_line(j) if j.get('tool') else '', Plan(j, st, by), Div(go, Span('The walk is a journey, so it shows on Today.', cls='mute'), cls='row'))
 
 def LinkPending(url, said):
     "A walk from a link that is still being made: the card asks the server again in 2 seconds."
@@ -126,7 +128,7 @@ def StepPage(j, st, by, i, needs=(), back=None):
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING)
     return Div(Rail(j, st, by, i),
                Div(BackFoot(back) if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c), Figure_(j['id'], i, s, c),
-                   Div(id='note', hx_get=at(Routes.note, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1'), slot, NextBar(j['id'], i, st, by), cls='walk-main'),
+                   Div(id='note', hx_get=at(Routes.note, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1'), slot, leela_line(j, i) if s.get('leela') else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 
 # --- the short-answer check ------------------------------------------------------------------------------------------
@@ -261,7 +263,7 @@ def CodeCheck(jid, i, s, q, after=()):
                 id='run-form', hx_post=at(Routes.run, jid, i), **tgt)
     run = Button('Run the tests ', Kbd('⌘↵'), type='submit', form='run-form', id='run', cls='go', data_wait=RUNNING)   # outside the form, so the results hold Next idea with no nested form
     return Section(CardHead(s, q), Md(q['question'], cls='q'), form, CodeOut(jid, i, q),
-                   Div(run, hint, idk, Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'), cls='check code-check')
+                   Div(run, hint, idk, Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'), leela_line(AttrDict(id=jid), i, say='Go further with real code in Leela', quiet=True), cls='check code-check')
 
 CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card
 

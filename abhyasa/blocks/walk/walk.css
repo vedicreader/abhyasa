@@ -85,3 +85,6 @@ h1.idea { font-size: 28px; margin-bottom: 14px; }
 a.walk-back { display: inline-block; margin: 0 0 14px; font-size: 15px; color: var(--ink2); text-decoration: none; } a.walk-back:hover { color: var(--acc); }
 html.in-pane a.walk-back { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; margin: 0; padding: 10px 24px; background: var(--page); border-top: 1px solid var(--line); }
 html.in-pane main { padding-bottom: 64px; }
+
+/* the link to Leela: one muted line, no box */
+.leela-line { margin: 10px 0; font-size: 14px; color: var(--mute); } .leela-line a { color: var(--ink2); }

@@ -6,12 +6,13 @@ from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import Page, hook, run as run_hook
+from abhyasa.core.leela import leela_line
 from abhyasa.llm import for_task
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError
-from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_state, short_check, with_step, trail
+from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.demo import queue_demo, job_state, job_age
 from . import ui
@@ -129,23 +130,23 @@ def connect(app, ctx):
         lr.walk_step(j.id, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
         return reply(lr.journey(j.id), i, r)
 
-    def from_link(url, pages, st):
+    def from_link(url, pages, st, tool=False):
         "On the pool: file the pages of `url`, then read each page and make one walk. Return the walk id."
         docs = file_link(lr, url, pages)
-        j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=f"Reading {k + 1} of {n} page{'s' * (n != 1)}…"))
+        j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=f"Reading {k + 1} of {n} page{'s' * (n != 1)}…"), tool=tool)
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no ideas on these pages.')
         return j.id
 
-    def link_walk(url, pages):
+    def link_walk(url, pages, tool=False):
         "Start the pool job that makes a walk from `url`, unless one is running. The request does not wait for the network or the model."
         try: link_kind(url)
         except ValueError as e: return P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err')
         st = links.get(url)
         if not st or st.job.done():
             st = links[url] = AttrDict(said='Getting the pages from the link…')
-            st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() else PAGES, st)
+            st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() else PAGES, st, tool)
         return ui.LinkPending(url, st.said)
 
     def job(url:str=''):
@@ -155,12 +156,13 @@ def connect(app, ctx):
         if (e := st.job.exception()): return P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err')   # never the words of a library
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
-    def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str=''):
-        if url.strip(): return link_walk(url.strip(), pages)
+    def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str=''):
+        tool = tool == 'on'
+        if url.strip(): return link_walk(url.strip(), pages, tool)
         try:
-            if ref.strip(): j = journey_from_source(lr, ask, ref.strip(), shelf.strip() or 'store')
-            elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60])
-            elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources)
+            if ref.strip(): j = journey_from_source(lr, ask, ref.strip(), shelf.strip() or 'store', tool=tool)
+            elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60], tool=tool)
+            elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool)
             else: return P('Name a vault document, paste a text, or write a topic.', cls='req-err')
         except Exception as e: return P(f'The tutor could not make a walk ({e}). Try again.', cls='req-err')
         if not j.steps:
@@ -179,7 +181,7 @@ def connect(app, ctx):
         if act == 'drop':
             j.steps.pop(i)
             j = lr.put_journey(j)
-        elif act == 'check' and way in WALK_WAYS:
+        elif act == 'check' and way in (TOOL_WAYS if j.get('tool') else WALK_WAYS):
             kind = CHECK_KIND.get(way, 'short')
             floor = (lr.concept(j.steps[i]['slug']) or {}).get('floor') or 0
             j = lr.walk_step(jid, i, check=dict(way=way, kind=kind, depth=(2 if floor < 2 else 3) if kind == 'short' else DEPTH[kind], why='you chose it'))
@@ -324,6 +326,12 @@ def connect(app, ctx):
         rows = [r for r in rows if r[2]]
         return Div(H2('In a walk'), *[Div(Blockquote(t), P(A(f'{j.title}: read it in the walk', href=ui.at(Routes.step, j.id, i)), cls='mute')) for j, i, t in rows],
                    cls='walk-passages') if rows else None
+
+    @hook('concept_more')
+    def leela(c):
+        "A link to Leela for a concept with a code way, when Leela runs."
+        line = leela_line(None, topic=c.name, say=f'Learn {c.name} with code in Leela', quiet=True) if 'code' in (c.get('ways') or ()) else ''
+        return line or None
 
     @hook('lesson_extra')
     def reread(r):

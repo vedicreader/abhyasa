@@ -30,6 +30,7 @@ def connect(app, ctx):
                  Label('Its title', Input(type='text', name='title', placeholder='for a pasted text')),
                  Div(Label('From a link', Input(type='text', name='url', placeholder='an arXiv id, a PDF, a docs page or a GitHub repo')),
                      Label('Pages to read', Input(type='number', name='pages', min=1, max=20, value=8)), cls='pair'),
+                 Label(Input(type='checkbox', name='tool'), ' It is a library or a command-line tool. Code and tools open in Leela.', cls='tick'),
                  P('abhyasa gets the pages of a link only when you send this form. It reads only the pages in the folder of the link.', cls='mute'),
                  Div(Button('Make a walk', cls='go', data_wait='Making the walk…', data_skel='#walk-out'), cls='row'),
                  hx_post='/walk/new', hx_target='#walk-out'),
