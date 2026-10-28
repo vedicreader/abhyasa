@@ -26,6 +26,7 @@ KEYS = [
     ('Session', '⌥Q / ⌥W / ⌥E / ⌥R', 'Pick option 1 to 4'),
     ('Session', '⌥↑ / ⌥↓', 'Read an earlier question'),
     ('Concept', '⌥E', 'Show me a demo'),
+    ('Walk', '⌥B', 'Open beside: learn a missing idea in the side pane'),
     ('Side pane', '⌥Z', 'Back to the paper: close the side pane'),
     ('Side pane', 'esc', 'Close the side pane'),
     ('Graph', '1–4', 'Layout: free, path, rings, groups'),

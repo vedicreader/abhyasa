@@ -100,14 +100,19 @@ def NextBar(jid, i, st, by):
 
 def Note(text): return Md(text, cls='note') if text else ''
 
-def StepPage(j, st, by, i):
+def BackFoot(b):
+    "In a side walk: the way back to the step that opened it. In the side pane it stays at the foot, and ⌥Z does the same."
+    return A(f"← Back to the paper: {b.here} ", Kbd('⌥Z'), href=b.href, cls='rh-back walk-back', data_rh_trail=json.dumps(b.trail))
+
+def StepPage(j, st, by, i, needs=(), back=None):
+    "One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title."
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
     head = Div(*[Span(x) for x in (r.get('section'), r.get('page') and f"p. {r['page']}") if x], cls='sec-lbl')
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING)
     return Div(Rail(j, st, by, i),
-               Div(head, H1(name(by, s), cls='idea'), Passage(j, s, c), Figure_(j['id'], i, s, c),
+               Div(BackFoot(back) if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c), Figure_(j['id'], i, s, c),
                    Div(id='note', hx_get=at(Routes.note, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1'), slot, NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 
@@ -156,8 +161,8 @@ def Done(jid, i, s):
            else 'This check is not open. Load the page again.')
     return Section(CardHead(s), P(say), GoOn(jid, i), cls='check done')
 
-def Short(jid, i, s, q):
-    "A short-answer check: the question, the thread so far, then the answer box, or the close and Next idea."
+def Short(jid, i, s, q, after=()):
+    "A short-answer check: the question, the thread so far, what other blocks add (`after`), then the answer box, or the close and Next idea."
     if q is None: return Done(jid, i, s)
     shut = any(t.get('kind') == 'close' for t in q.get('turns') or ())
     tgt = dict(hx_target='#check', hx_swap='innerHTML')
@@ -173,8 +178,8 @@ def Short(jid, i, s, q):
                     Textarea(name='thinking', id='think', rows=1, aria_label='Think aloud', placeholder='Think aloud: how did you get there?'),
                     Div(Confidence(), Span(f"{left} {'try' if left == 1 else 'tries'} left" if tries else '', cls='mute'), cls='row conf'),
                     Div(Button('Send ', Kbd('⌘↵'), cls='go', id='send', data_wait=GRADING), hint, out, cls='row acts'),
-                    hx_post=at(Routes.answer, jid, i), **tgt)
-    return Section(CardHead(s, q), Md(q['question'], cls='q'), Thread(q), foot, cls='check' + (' shut' if shut else ''))
+                    hx_post=at(Routes.answer, jid, i), data_qid=q['id'], **tgt)
+    return Section(CardHead(s, q), Md(q['question'], cls='q'), Thread(q), *after, foot, cls='check' + (' shut' if shut else ''))
 
 # --- the demo and order checks ---------------------------------------------------------------------------------------
 
@@ -225,10 +230,10 @@ def CodeOut(jid, i, q, r=None):
                 Button('Run the tests', type='submit', form='run-form', id='run', disabled=True, hx_swap_oob='true')]   # no longer the main button, so ⌥S goes to Next idea
     return Div(*out, id='code-out', aria_live='polite')
 
-def CodeCheck(jid, i, s, q):
+def CodeCheck(jid, i, s, q, after=()):
     "A code check: the task, a plain editor with the stub, the visible tests, and Run. A run swaps only the results."
     if q is None: return Done(jid, i, s)
-    if not s.get('code'): return Short(jid, i, s, q)
+    if not s.get('code'): return Short(jid, i, s, q, after)
     c = s['code']
     draft = q['tries'][-1]['answer'] if q.get('tries') else c['stub']
     tgt = dict(hx_target='#code-out', hx_swap='innerHTML')
@@ -255,8 +260,8 @@ def Moved(m):
     return Li(A(m['name'], href=f"/c/{m['concept']}"), DepthBar(m['after']), ' ', Span(said, cls='moved'),
               Span(f"  · {m['passed']} of {m['asked']} passed", cls='mute'))
 
-def SectionDone(j, sec, ix, ms, nxt, by):
-    "What moved in this section, the ideas you skipped, and Go on."
+def SectionDone(j, sec, ix, ms, nxt, by, end=()):
+    "What moved in this section, the ideas you skipped, and Go on. At the end of the walk, `end` is what other blocks add (`walk_end`)."
     skipped = [name(by, j['steps'][k]) for k in ix if (j['steps'][k].get('done') or {}).get('outcome') == 'skipped']
     up = sum(m['after'] > m['before'] for m in ms)
     lead = (f"{up} idea{'s' * (up != 1)} moved up." if up else 'Nothing moved up in this section.' if ms else 'You did no checks in this section.')
@@ -266,4 +271,4 @@ def SectionDone(j, sec, ix, ms, nxt, by):
             *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []),
             *([P('You skipped: ', ', '.join(skipped), '.', cls='mute')] if skipped else []),
             P(f"Next: {name(by, j['steps'][nxt])}." if nxt is not None else 'You finished the walk.', cls='next-step'),
-            Div(go, cls='row'))
+            *end, Div(go, cls='row'))

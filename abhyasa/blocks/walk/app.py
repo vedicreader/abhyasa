@@ -5,12 +5,12 @@ from collections import defaultdict
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page, hook
+from abhyasa.core import Page, hook, run as run_hook
 from abhyasa.llm import for_task
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
-from abhyasa.journey import journey_from_source, journey_from_text, walk_from_topic, walk_state, short_check, with_step
+from abhyasa.journey import journey_from_source, journey_from_text, walk_from_topic, walk_state, short_check, with_step, trail
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.demo import queue_demo, job_state, job_age
 from . import ui
@@ -61,9 +61,20 @@ def connect(app, ctx):
         return lr.demo_for(s['slug'], AIM[k]) if k in AIM else None
 
     def card(j, i):
+        "The check card of step `i`; a short-answer card adds what other blocks put after it (`check_after`)."
         s = j.steps[i]
         k = s['check']['kind']
-        return ui.CHECKS.get(k, ui.Short)(j.id, i, s, demo(s) if k in AIM else question(j, i))
+        if k in AIM: return ui.CHECKS[k](j.id, i, s, demo(s))
+        q = question(j, i)
+        return ui.CHECKS.get(k, ui.Short)(j.id, i, s, q, after=run_hook('check_after', j, i, q) if q else ())
+
+    def back_to(j):
+        "The way back from side walk `j` to the step that opened it, and the trail for the side pane; None for a walk with no parent."
+        p = j.get('parent') or {}
+        pj = lr.journey(p['walk']) if isinstance(p.get('walk'), str) else None
+        if not pj or not isinstance(p.get('step'), int) or not 0 <= p['step'] < len(pj.steps): return None
+        parts = [[f"{t.title} · idea {t.step + 1}", ui.at(Routes.step, t.walk, t.step)] for t in trail(lr, j.id)[:-1] if t.step is not None]
+        return AttrDict(href=ui.at(Routes.step, pj.id, p['step']), here=f"idea {p['step'] + 1} of {len(pj.steps)}", trail=parts)
 
     def as_short(j, i):
         "Walk `j` with the check of step `i` as a short answer in a text way, when its code task could not be made (spec 6.5)."
@@ -154,7 +165,9 @@ def connect(app, ctx):
         if not (j := walk_of(jid, i)): return missing()
         if not j.steps[i].get('read_at'): j = lr.walk_step(jid, i, read_at=time.time())
         ahead(j, i + 1)
-        return Page(ui.name(b := by(), j.steps[i]), ui.StepPage(j, walk_state(j), b, i), wide=True, extra=ui.assets(),
+        b = by()
+        page = ui.StepPage(j, walk_state(j), b, i, needs=run_hook('step_needs', j, i, b.get(j.steps[i]['slug'])), back=back_to(j))
+        return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
 
     def note(jid:str, i:int):
@@ -251,7 +264,8 @@ def connect(app, ctx):
         rows = [r for r in (s.log if s else ()) if r['concept'] in slugs]
         if s and not s.ended: s.end(); sessions.pop(s.id, None)
         nxt = ix[-1] + 1 if ix[-1] + 1 < len(j.steps) else None
-        return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), nxt, by()), crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
+        end = run_hook('walk_end', j) if nxt is None else ()
+        return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), nxt, by(), end), crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
 
     def img(jid:str, i:int):
         "The figure of step `i`, only from inside the vault assets and only as an image file."
@@ -269,7 +283,7 @@ def connect(app, ctx):
     def on_today(subject=None):
         "Continue the newest walk that is started and not finished."
         for j in lr.journeys():
-            if j.get('mode') == 'walk' and j.get('started') and (st := walk_state(j)).current is not None:
+            if j.get('mode') == 'walk' and j.get('started') and not j.get('depth') and (st := walk_state(j)).current is not None:   # a side walk shows under its parent
                 return P(A(f"Continue the walk: {j.title} · idea {st.current + 1} of {len(j.steps)}", href=ui.at(Routes.one, j.id)), cls='walk-next')
 
     @hook('concept_more')

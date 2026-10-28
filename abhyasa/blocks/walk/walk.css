@@ -75,3 +75,11 @@ h1.idea { font-size: 28px; margin-bottom: 14px; }
 .code-check code { font: 14px var(--mono); }
 .code-check .err { margin: 8px 0; } .code-check .lesson { margin: 10px 0; }
 .code-check .acts .mute { margin-left: auto; }
+
+/* rabbit holes: with the side pane open, the step drops its outline and keeps one column; in the pane, the way back is at the foot */
+@media (min-width: 1100px) { html.rh-open .walk-layout { grid-template-columns: minmax(0, 720px); } html.rh-open .walk-layout > .outline { display: none; } }
+.check .held { font-size: 14px; font-style: italic; margin: 2px 0 6px; }
+.check .held::before { content: '•'; margin-right: 6px; color: var(--acc); }
+a.walk-back { display: inline-block; margin: 0 0 14px; font-size: 15px; color: var(--ink2); text-decoration: none; } a.walk-back:hover { color: var(--acc); }
+html.in-pane a.walk-back { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; margin: 0; padding: 10px 24px; background: var(--page); border-top: 1px solid var(--line); }
+html.in-pane main { padding-bottom: 64px; }

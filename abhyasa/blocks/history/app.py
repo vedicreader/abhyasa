@@ -24,9 +24,15 @@ def connect(app, ctx):
         "Concept names by slug, and journeys by id: to name a session."
         return {c.slug: c for c in lr.concepts()}, {j.id: j for j in lr.journeys()}
 
+    def opener(j, js):
+        "For a side walk: the walk and the step that opened it, so Continue goes back to the paper. Else (None, None)."
+        p = (j or {}).get('parent') or {}
+        pj = js.get(p.get('walk')) if j and j.get('depth') else None
+        return (pj, p.get('step')) if pj and isinstance(p.get('step'), int) else (None, None)
+
     def title(s, by, js):
-        "What a session was about: its journey, its concept, its subject, or its concepts."
-        if s.get('journey') and (j := js.get(s.journey)): return j.title
+        "What a session was about: its journey (for a side walk, the walk that opened it), its concept, its subject, or its concepts."
+        if s.get('journey') and (j := js.get(s.journey)): return (opener(j, js)[0] or j).title
         if s.get('focus') and (c := by.get(s.focus)): return c.name
         if s.get('subject'): return f"Review: {s.subject}"
         return ', '.join(by[x].name for x in (s.get('concepts') or [])[:3] if x in by) or 'Review'
@@ -34,6 +40,8 @@ def connect(app, ctx):
     def back(s, js):
         "Where Continue goes: the walk for a sitting of a walk, else the session page."
         j = js.get(s.get('journey') or '')
+        pj, i = opener(j, js)
+        if pj: return f'/w/{pj.id}/{i}'
         return f'/w/{j.id}' if j and j.get('mode') == 'walk' else Routes.of(Routes.page, sid=s['id'])
 
     def is_open(s): return s.get('log') is not None and not s.get('ended') and bool(s.get('log') or s.get('open'))

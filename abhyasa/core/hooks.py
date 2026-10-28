@@ -2,7 +2,11 @@
 
 The hooks: `today_top`, `today_next`, `today`, `today_end` (the parts of Today, in that order); `nav_extra` (the right of the top bar);
 `page_extra` (once at the end of each page); `concept_actions` and `concept_more` (a concept page); `answer_tools` (the session
-composer); `lesson_extra` (under a lesson)."""
+composer); `lesson_extra` (under a lesson).
+
+The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs, and the strip after a side walk);
+`check_after(j, i, q)` (under a check: the gaps that an answer points at); `walk_end(j)` (the end of a walk: a side walk sends
+`rh:done`); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`)."""
 from collections import defaultdict
 
 __all__ = ['HOOKS', 'hook', 'run', 'clear']

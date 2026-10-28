@@ -1,0 +1,37 @@
+/* Rabbit holes: the needs line under the title, the offer as one sunken card, the gap line, the strip after a side walk. */
+
+.rh-line { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; margin: -4px 0 16px; font-size: 15px; }
+.rh-line > .lbl { margin: 0; }
+.rh-line .need + .need::before { content: '·'; margin-right: 14px; color: var(--mute); }
+.rh-line .n { color: var(--fg); }
+.rh-line .st { font-style: italic; font-size: 14px; }
+.rh-line .st.learned, .rh-line .st.today { color: var(--ok); }
+.rh-line .st.missing { color: var(--no); }
+.rh-ask { margin-left: 6px; }
+
+/* the strip after you come back */
+.rh-strip { margin: 0 0 16px; padding: 2px 0 2px 16px; border-left: 2px solid color-mix(in srgb, var(--ok) 55%, transparent); }
+.rh-strip p { margin: 2px 0; } .rh-strip b { font-weight: 600; }
+
+/* the offer: one sunken card with three ways down */
+.rh-offer-card { background: var(--sunken); border-radius: var(--r); padding: 16px 20px 14px; margin: 0 0 20px; }
+.rh-offer-card h2 { font: 400 21px/1.3 var(--serif); text-transform: none; letter-spacing: 0; color: var(--fg); margin: 2px 0 12px; }
+.rh-head, .rh-foot-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.rh-foot-row { margin-top: 12px; font-size: 14px; }
+.rh-ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.rh-way { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; text-align: left; font: inherit; color: var(--fg); background: var(--raised);
+  border: 1px solid transparent; border-radius: var(--r-s); padding: 10px 12px 12px; box-shadow: none; cursor: pointer; }
+.rh-way:hover, .rh-way:focus-visible { border-color: var(--rule); background: var(--raised); }
+.rh-way.pick { border-color: var(--acc); }
+.rh-way .wt { display: flex; justify-content: space-between; gap: 8px; } .rh-way .wt b { font-weight: 500; font-size: 17px; }
+.rh-way .k { font-size: 13px; color: var(--mute); }
+.rh-way .meta { font-size: 13px; color: var(--mute); }
+.rh-way .body { font-size: 15px; line-height: 1.4; }
+.rh-way .why { font-size: 13px; font-style: italic; color: var(--acc); }
+
+/* the gap line on a check, and the tool on a selected term */
+.check .rh-gapline { font-size: 15px; margin: 4px 0 10px; }
+#rh-sel { position: absolute; z-index: 50; font-size: 14px; padding: 4px 10px; background: var(--raised); box-shadow: var(--lift); border-radius: var(--r-s); }
+
+/* the end of a side walk */
+.rh-end { margin: 12px 0; }

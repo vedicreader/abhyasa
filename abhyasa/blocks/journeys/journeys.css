@@ -36,3 +36,4 @@
 .drop { margin-top: 48px; } .danger:hover { color: var(--bad); }
 .in-journeys { margin: 24px 0 0; } .in-journeys .attach { margin-top: 10px; } .in-journeys select { width: auto; font-size: 15px; }
 .step-done { padding: 2px 0; } .step-done .lbl { color: var(--ok); } .step-done p { margin: 0; }
+.side-walks { margin: 8px 0 0 14px; font-size: 14px; } .side-walks ul { margin: 2px 0 0; }

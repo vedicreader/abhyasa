@@ -25,16 +25,36 @@ def GoalForm(compact=False):
                     Span('The tutor suggests the steps. You can change each one.', cls='mute'), cls='row'),
                 Div(id='plan-out'), hx_post=Routes.new, hx_target='#plan-out', cls='goal-form' if compact else 'goal-form raised')
 
-def Row(j, pg):
-    "One journey in a list: its title, its progress, the step to do now, and Continue."
+def SideWalk(j, pg):
+    "One side walk under the walk that opened it: its title, the idea it was for, and its progress."
+    i = (j.get('parent') or {}).get('step')
+    return Li(A(j.title, href=go(j)), Span(f"  for idea {i + 1} · {pg.done} of {pg.total} ideas" if isinstance(i, int) else f"  {pg.done} of {pg.total} ideas", cls='mute'))
+
+def Row(j, pg, sides=()):
+    "One journey in a list: its title, its progress, the step to do now, Continue, and its side walks."
     now = f"Now: {pg.current.name}" if pg.current else 'Finished'
     return Li(Div(A(j.title, href=at(Routes.one, j), cls='jt'), Span(f"  {pg.done} of {pg.total} steps · {now}", cls='mute'), cls='jrow-head'),
               Bar(pg.done, pg.total),
               A('Continue the walk' if j.get('mode') == 'walk' else 'Continue', href=go(j), cls='btn small') if pg.current else A('See what comes after', href=at(Routes.one, j), cls='btn small quiet'),
+              Div(Span('Side walks', cls='lbl'), Ul(*[SideWalk(*x) for x in sides], cls='plain'), cls='side-walks') if sides else '',
               cls='jrow')
 
+def root_of(j, ids):
+    "The id of the first walk up the parents of side walk `j` that is not a side walk, when it is in `ids`; else None."
+    seen = set()
+    while j and j.get('depth') and (p := (j.get('parent') or {}).get('walk')) in ids and p not in seen:
+        seen.add(p); j = ids[p][0]
+    return None if j is None or j.get('depth') else j.id
+
 def JourneyList(js, empty='No journeys yet. Say what you want to learn, and the tutor suggests a path.'):
-    return Ul(*[Row(j, pg) for j, pg in js], cls='plain journeys') if js else P(empty, cls='mute')
+    "The journeys, each with its side walks under it. A side walk whose walk is gone has its own line."
+    ids = {j.id: (j, pg) for j, pg in js}
+    sides = {}
+    for j, pg in js:
+        if j.get('depth') and (r := root_of(j, ids)): sides.setdefault(r, []).append((j, pg))
+    under = {j.id for x in sides.values() for j, _ in x}
+    rows = [Row(j, pg, sides.get(j.id, ())) for j, pg in js if j.id not in under]
+    return Ul(*rows, cls='plain journeys') if rows else P(empty, cls='mute')
 
 def Act(j, s, act, label, title):
     return Button(label, type='button', cls='small quiet', title=title, hx_post=at(Routes.step, j), hx_vals=json.dumps(dict(slug=s.slug, act=act)),
