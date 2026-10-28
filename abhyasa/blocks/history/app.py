@@ -17,6 +17,11 @@ def day0(t):
     lt = time.localtime(t)
     return time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
 
+def Moved(m):
+    "One concept of a filed session: what moved, and the count when it adds something."
+    said, count = moved_words(m)
+    return Li(ui.Move(m) if m['after'] != m['before'] else Span(m['name'], f" {said}"), Span(f"  · {count}", cls='mute') if count else '')
+
 def connect(app, ctx):
     lr = ctx.learning
     up = [('Today', '/')]
@@ -100,8 +105,7 @@ def connect(app, ctx):
         return Page('Session', ui.css(), H1(title(s, by, js)),
                     P(f"{ago(s.get('start'))} · {sum(r['correct'] for r in log)} of {len(log)} passed" + (' · open' if is_open(s) else ''), cls='mute'),
                     Div(*acts, cls='row') if any(acts) else '',
-                    *([H2('What moved'), Ul(*[Li(ui.Move(m) if m['after'] != m['before'] else Span(m['name'], f" {moved_words(m)[0]}"),
-                                                 Span(f"  · {moved_words(m)[1]}", cls='mute') if moved_words(m)[1] else '') for m in ms], cls='plain')] if ms else []),
+                    *([H2('What moved'), Ul(*[Moved(m) for m in ms], cls='plain')] if ms else []),
                     H2('The questions'), *(map(ui.Question, log) if log else [P(s.get('summary') or 'No questions.', cls='mute')]),
                     crumbs=[*up, ('Your learning', Routes.base)])
 

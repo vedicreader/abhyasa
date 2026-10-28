@@ -300,7 +300,7 @@ def connect(app, ctx):
         crumbs = [*up, (j.title, ui.at(Routes.one, jid))]
         if nxt is not None: return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), nxt, by()), crumbs=crumbs, extra=ui.assets())
         b = by()
-        logs = [x.get('log') or [] for x in sorted(lr.sessions(limit=10_000), key=lambda x: x.get('start') or 0) if x.get('journey') == jid and x.get('id') != sid]
+        logs = [x.get('log') or [] for x in sorted(lr.sessions(limit=None, journey=jid), key=lambda x: x.get('start') or 0) if x.get('id') != sid]
         rows = [r for log in logs for r in log] + (s.log if s else [])   # the whole walk: every sitting, in order
         sides = [((b.get(d['slug']) or {}).get('name', d['slug']), d.get('outcome') in ('solid', 'fragile')) for st in j.steps for d in st.get('detours') or ()]
         now, slugs = time.time(), {st['slug'] for st in j.steps if (st.get('done') or {}).get('outcome') not in (None, 'skipped')}

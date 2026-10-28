@@ -243,9 +243,10 @@ def session(self:Learning, sid:str) -> AttrDict|None:
     return AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']}) if r else None
 
 @patch
-def sessions(self:Learning, limit:int=100) -> L:
-    "The filed sessions, the most recently changed first."
-    rs = L(self._docs('session')).map(lambda r: AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']}))
+def sessions(self:Learning, limit:int=100, journey:str=None) -> L:
+    "The filed sessions, the most recently changed first; with `journey`, only the sessions of that journey."
+    w, args = ("json_extract(meta, '$.journey')=?", [journey]) if journey else ('', [])
+    rs = L(self._docs('session', w, args)).map(lambda r: AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']}))
     return L(sorted(rs, key=lambda s: -(s.get('updated') or s.get('end') or s.get('start') or 0))[:limit])
 
 # %% ../nbs/00_store.ipynb #c029
