@@ -200,3 +200,25 @@ def test_today_has_one_way_to_continue_a_walk(mk, walk_fake, lr):
     assert 'Continue the walk:' not in h and 'Unfinished side walk' not in h and 'walk-next' not in h
     assert re.search(r'<p class="mute foot">\s*<a href="/you/start">Tell abhyasa about you</a> · ', h)
     assert h.count('Tell abhyasa about you') == 1
+
+def test_graph_focus_hint_shows_outside_the_fold(mk):
+    h = mk().get('/graph').text
+    fold = re.search(r'<details class="adjust">.*?</details>', h, re.S).group(0)
+    assert 'id="focus-name"' in h and 'id="focus-name"' not in fold
+
+def test_your_learning_leaves_out_closed_empty_sessions(mk, lr):
+    "A session with no answers that is closed does not show; an open one does, so you can continue it."
+    lr.log_session('gone1', '0 of 0 passed.', start=1., updated=1., log=[], ended=2.)
+    lr.log_session('open1', 'An open session.', start=3., updated=3., log=[])
+    h = mk().get('/learning').text
+    i = h.find('gone1'); assert i < 0, h[i - 300:i + 40]
+    assert 'no answers yet · open' in h
+
+def test_empty_profile_hides_what_has_no_data(mk, lr):
+    "An empty profile with no answers has no calibration, no Learn about me now and no Clear; a known one has them."
+    h = mk().get('/you').text
+    for x in ('How well you know what you know', 'Learn about me now', 'Clear what abhyasa knows about you'): assert x not in h, x
+    assert 'This stays in your vault on this Mac.' in h
+    lr.set_profile(by='you', why='test', background=['nurse'])
+    h = mk().get('/you').text
+    for x in ('How well you know what you know', 'Learn about me now', 'Clear what abhyasa knows about you'): assert x in h, x

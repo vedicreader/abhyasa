@@ -54,7 +54,7 @@ def test_voice_everywhere(mk):
     assert 'mic-float' not in mk(names=['journeys', 'today']).get('/journeys').text   # without the voice block nothing breaks
 
 def test_calibration(mk, lr):
-    cl = mk()
+    cl = mk(); lr.set_profile(background=['codes in Python'])   # an empty profile with no answers shows no calibration
     assert 'How well you know what you know' in cl.get('/you').text and 'After five answers' in cl.get('/you').text
     for i, (ok, conf) in enumerate([(False, 90), (False, 90), (True, 90), (False, 70), (True, 30)]):
         lr.record('ranking', f'q{i}', correct=ok, confidence=conf, depth=3, session='s', final=True)

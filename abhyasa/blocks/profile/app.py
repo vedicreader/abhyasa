@@ -16,6 +16,7 @@ def connect(app, ctx):
 
     def page(new:str=''):
         p = lr.profile()
+        used = p.known or bool(lr.attempts(limit=1))   # with no profile and no answers, there is nothing to measure, read or clear
         return Page('About you', ui.css(), H1('What abhyasa knows about you'),
                     P('The tutor uses this to choose examples, paths and pace. All of it is here, and you can change any of it. '
                       'The tutor adds to it from your answers. Each change shows below with its reason.', cls='mute'),
@@ -24,14 +25,14 @@ def connect(app, ctx):
                     H2('How the tutor teaches you'), P('The Settings page shows the same three values. A change saves at once.', cls='mute'), ui.Learning(p),
                     H2('About you'), ui.Form_(p) if p.known else Details(Summary('Edit by hand'), ui.Form_(p), cls='more by-hand'),
                     *((H2('What changed, and why'), ui.Changes(p.changes)) if p.changes else ()),
-                    H2('How well you know what you know'), ui.Calibration(calibration(lr)),
-                    H2('Learn about me now'),
-                    P('The tutor reads your recent answers after every sixth question. You can ask it to do that now.', cls='mute'),
-                    Div(Button('Look at my recent answers', hx_post=Routes.observe, hx_target='#observed', data_wait='Reading your answers…'),
-                        Div(id='observed', cls='ix'), cls='row'),
+                    *((H2('How well you know what you know'), ui.Calibration(calibration(lr)),
+                       H2('Learn about me now'),
+                       P('The tutor reads your recent answers after every sixth question. You can ask it to do that now.', cls='mute'),
+                       Div(Button('Look at my recent answers', hx_post=Routes.observe, hx_target='#observed', data_wait='Reading your answers…'),
+                           Div(id='observed', cls='ix'), cls='row')) if used else ()),
                     Div(H2('Privacy'), P('This stays in your vault on this Mac. Only the model that writes your questions gets it.', cls='mute'),
                         Form(Button('Clear what abhyasa knows about you', cls='small quiet danger'), action=Routes.clear, method='post',
-                             hx_confirm='Clear the whole profile and its changes?'), cls='privacy'),
+                             hx_confirm='Clear the whole profile and its changes?') if p.known or p.changes else '', cls='privacy'),
                     crumbs=up)
 
     async def save(req):

@@ -81,6 +81,8 @@ def connect(app, ctx):
         ss, (by, js) = lr.sessions(500), names()
         groups = {}
         for s in ss:
+            log = s.get('log')
+            if not (len(log) if log is not None else s.get('asked', 0)) and (log is None or s.get('ended')): continue   # no answers and not open: nothing to show
             day = ago(day0(s.get('start') or s.get('updated') or 0) + 1).replace(' at 00:00', '')
             day = day[:1].upper() + day[1:]
             groups.setdefault(day, []).append(ui.Row(s, title(s, by, js), moved(s.get('log') or []), back(s, js)))

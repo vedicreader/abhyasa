@@ -27,13 +27,13 @@ def Levers(subjects):
     floors = [(str(i), d) for i, d in enumerate(DEPTHS)]
     return Aside(
         _sec('Find', Input(type='search', name='q', placeholder='A concept', autocomplete='off'), keys='S'),
+        P('Point at a concept and press E, or find a concept.', cls='hint', id='focus-name'),   # it changes on E, so it stays out of the fold
         _sec('Layout', modes, keys='1–4'),
         Div(Button('Freeze', Kbd('␣'), type='button', name='freeze'), Button('Fit', Kbd('F'), type='button', name='fit'),
             Button('Lay out again', Kbd('R'), type='button', name='reset'), cls='acts'),
         _sec('Colours', Div(cls='legend')),
         Details(Summary('Adjust the view'),
-            _sec('Focus', P('Point at a concept and press E, or find a concept.', cls='hint', id='focus-name'),
-                 _slide('steps', 'Steps out', 1, 4, 1), keys='E'),
+            _sec('Focus', _slide('steps', 'Steps out', 1, 4, 1), keys='E'),
             _sec('Space', _slide('spacing', 'Spacing'), _slide('link', 'Link length'), _slide('push', 'Push apart'),
                  _slide('size', 'Node size')),
             _sec('Look', Label(Span('Size by'), _pick('sizeBy', [('even', 'the same'), ('seen', 'times seen'), ('due', 'how due'), ('depth', 'prereq steps')], 'seen'), cls='pick'),
