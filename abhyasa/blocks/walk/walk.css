@@ -13,7 +13,7 @@
 .plan ul li { display: grid; grid-template-columns: 1fr auto auto auto; gap: var(--s3); align-items: center; font-size: var(--t-list); color: var(--ink2); }
 .plan ul li.known .n { color: var(--mute); }
 .plan ul li .w { font-size: var(--t-meta); color: var(--mute); text-align: right; }
-.plan select { width: auto; font-size: var(--t-meta); padding: 2px var(--s1); color: var(--mute); background: transparent; border: 0; border-bottom: 1px solid var(--line); }
+.plan select { width: auto; font-size: var(--t-meta); padding: 2px var(--s5) 2px var(--s1); color: var(--mute); background-color: transparent; border: 0; border-bottom: 1px solid var(--line); }
 .plan ul li button { opacity: 0; } .plan ul li:hover button, .plan ul li:focus-within button { opacity: 1; }
 @media (hover: none) { .plan ul li button { opacity: 1; } }
 

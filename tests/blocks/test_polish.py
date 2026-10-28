@@ -92,3 +92,10 @@ def test_model_table_has_no_filled_button():
     from fasthtml.common import to_xml
     b = to_xml(UseBtn('mlx', 'm', get=True))
     assert '>Download<' in b and 'class="go"' not in b and '/get' in b
+
+# F11: native controls on the theme
+
+def test_native_controls_use_the_accent():
+    css = (ROOT/'core/base.css').read_text()
+    assert re.search(r'input\[type=radio\], input\[type=checkbox\][^{]*\{[^}]*accent-color: var\(--acc\)', css)
+    assert re.search(r'select \{[^}]*appearance: none', css)      # the select arrow in the theme colours, not the system one

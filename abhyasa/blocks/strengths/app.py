@@ -33,14 +33,10 @@ def connect(app, ctx):
                     else P('No weak spots now.', cls='mute'),
                     H2('Strong'), Ul(*[ui.Concept(*x) for x in strong], cls='plain concepts') if strong else P('Nothing is strong yet: that takes depth 3 and good recall.', cls='mute'),
                     H2('Ways you learn' + (f' {subject}' if subject else '')), ui.Ways(st, subject, prior),
-                    H3('How often to try a new way'),
+                    H2('How often to try a new way'),
                     P('The tutor teaches a weak concept in your best way. For a concept that is not weak, it sometimes uses a different way. This makes you better at that way too.', cls='mute'),
                     ui.Explore(p.get('explore', 'sometimes')),
                     crumbs=[('Today', '/'), ('About you', '/you')])
-
-    def explore(explore:str='sometimes'):
-        ch = lr.set_profile(by='you', why='you changed it', explore=explore)
-        return 'Saved.' if ch else 'No change.'
 
     @hook('today_end')
     def line(subject=None):
@@ -60,4 +56,3 @@ def connect(app, ctx):
         return A(href=Routes.base, id='strengths-key', hidden=True, aria_hidden='true'), Script("abhyasaKeys.KeyG = '#strengths-key';")
 
     app.get(Routes.base)(page)
-    app.post(Routes.explore)(explore)

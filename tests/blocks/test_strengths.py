@@ -13,9 +13,13 @@ def test_drill_starts_on_the_weak_spot(mk, lr):
     sid = cl.get('/start?drill=1', follow_redirects=False).headers['location'].split('/')[-1]
     assert 'a weak spot' in cl.get(f'/s/{sid}').text
 
-def test_explore_choice_saves(mk, lr):
-    assert 'Saved' in mk().post('/you/strengths/explore', data=dict(explore='often')).text
-    assert lr.profile().explore == 'often'
+def test_explore_choice_is_on_profile_only(mk, lr):
+    "Strengths says how often the tutor tries a new way and links to the one choice on the Profile page."
+    cl = mk(); lr.set_profile(by='you', why='test', explore='often')
+    t = cl.get('/you/strengths').text
+    assert '<h2>How often to try a new way</h2>' in t and 'type="radio"' not in t and 'Often' in t and 'href="/you#sr-learning-explore"' in t
+    assert 'id="sr-learning-explore"' in cl.get('/you').text
+    assert cl.post('/you/strengths/explore', data=dict(explore='never')).status_code == 404 and lr.profile().explore == 'often'
 
 def test_concept_line_and_graph_state(mk, lr):
     lr.update('reciprocal-rank-fusion', misses=2, seen=2)

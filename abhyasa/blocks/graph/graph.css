@@ -24,7 +24,7 @@ main.wide:has(#graph) { padding-top: var(--s5); padding-bottom: var(--s5); }
 #levers .slide input { margin: 0; max-width: none; height: 18px; }
 #levers .slide input:disabled { opacity: .45; }
 #levers .pick { justify-content: space-between; margin: 0 0 var(--s2); color: var(--ink2); }
-#levers select { width: auto; max-width: 132px; font-size: var(--t-small); padding: 2px 0; text-align: right; }
+#levers select { width: auto; max-width: 132px; font-size: var(--t-small); padding: 2px var(--s5) 2px 0; text-align: right; }
 #levers input[type=search] { font-size: var(--t-small); padding: 3px 2px; }
 #levers input[type=search]::-webkit-search-cancel-button { display: none; }   /* ⎋ clears it */
 #levers .tick { margin: 0 0 3px; color: var(--ink2); }

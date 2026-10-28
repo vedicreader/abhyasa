@@ -3,7 +3,6 @@
 .chips, .paces { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin-top: var(--s2); }
 .paces { flex-direction: column; gap: var(--s1); }
 .chips label, .paces label { margin: 0; display: inline-flex; gap: var(--s2); align-items: baseline; font: var(--t-list)/1.4 var(--serif); letter-spacing: 0; text-transform: none; color: var(--fg); cursor: pointer; }
-.chips input, .paces input { accent-color: var(--acc); }
 .profile select { width: auto; min-width: 90px; }
 .changes .who { font-weight: 500; }
 .changes .what { margin: 2px 0 0; }

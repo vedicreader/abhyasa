@@ -6,7 +6,5 @@
 .ways .k { color: var(--mute); min-width: 5em; }
 .ways .tag { color: var(--ok); }
 .weak .btn { margin-top: .6em; }
-.explore { display: flex; flex-direction: column; gap: .3em; }
 .known h3 { margin-bottom: .2em; }
 .concepts .why li { border: 0; padding: .05em 0; font-style: normal; }
-.explore label { text-transform: none; letter-spacing: normal; font-size: 1rem; color: var(--fg); display: flex; gap: .5em; align-items: center; }

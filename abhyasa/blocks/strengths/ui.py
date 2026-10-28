@@ -8,7 +8,7 @@ from .cfg import Routes
 _P = Path(__file__).parent
 STATES = dict(strong='strong', learning='learning', fading='fading', weak='weak', gap='gap you named', unseen='not started')
 PLURAL = dict(gap='gaps you named')
-SAY_EXPLORE = dict(never='Never: always use my best way', sometimes='Sometimes (about one question in seven)', often='Often (about one in three)')
+SAY_EXPLORE = dict(never='Never: the tutor always uses your best way', sometimes='Sometimes: about one question in seven', often='Often: about one question in three')
 
 def assets(): return (asset_css(_P/'strengths.css'),)
 
@@ -39,6 +39,5 @@ def Ways(st, subject='', prior=()):
     return Div(hint, Ul(*map(row, order), cls='plain ways'))
 
 def Explore(v):
-    "How often the tutor tries a new way."
-    return Form(*[Label(Input(type='radio', name='explore', value=k, checked=v == k), Span(SAY_EXPLORE[k])) for k in EXPLORE],
-                Span(id='explored', cls='mute'), hx_post=Routes.explore, hx_trigger='change', hx_target='#explored', cls='explore')
+    "How often the tutor tries a new way now, and the link to the one place where you change it: the Profile page."
+    return P(f"{SAY_EXPLORE.get(v, SAY_EXPLORE['sometimes'])}. ", A('Change it on your profile', href='/you#sr-learning-explore'), cls='explore')

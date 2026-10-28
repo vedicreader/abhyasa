@@ -57,6 +57,12 @@ textarea:focus, input:focus, select:focus { border-bottom-color: var(--fg); }
 textarea:focus-visible, input:focus-visible, select:focus-visible { outline: none; box-shadow: 0 1px 0 var(--fg); }
 ::placeholder { color: var(--mute); opacity: 1; font-style: italic; }
 input[type=range] { width: 100%; max-width: 340px; accent-color: var(--acc); display: block; margin-top: var(--s2); }
+/* native controls in the theme: the accent for a radio, a checkbox and a range; a select with its arrow in the muted ink */
+input[type=radio], input[type=checkbox], input[type=range], progress { accent-color: var(--acc); }
+select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: var(--s5);
+  background-image: linear-gradient(45deg, transparent 50%, var(--mute) 50%), linear-gradient(135deg, var(--mute) 50%, transparent 50%);
+  background-position: calc(100% - 11px) 55%, calc(100% - 6px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+select option { background: var(--raised); color: var(--fg); }
 
 .row { display: flex; gap: var(--s3); align-items: center; flex-wrap: wrap; margin-top: var(--s5); }
 button, .btn { font: var(--t-small)/1 var(--serif); padding: var(--s3) var(--s4); border-radius: 4px; border: 1px solid var(--rule);
