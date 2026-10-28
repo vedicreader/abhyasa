@@ -222,7 +222,7 @@ def CodeOut(jid, i, q, r=None):
         ok = close.get('outcome') in ('solid', 'fragile')
         out += [Span(OUTCOME.get(close.get('outcome'), 'Closed'), cls='tag ' + ('ok' if ok else 'no')),
                 Div(Span('Lesson', cls='lbl'), Md(close['lesson']), cls='lesson') if close.get('lesson') else '', GoOn(jid, i),
-                Button('Run the tests', type='submit', id='run', disabled=True, hx_swap_oob='true')]   # no longer the main button, so ⌥S goes to Next idea
+                Button('Run the tests', type='submit', form='run-form', id='run', disabled=True, hx_swap_oob='true')]   # no longer the main button, so ⌥S goes to Next idea
     return Div(*out, id='code-out', aria_live='polite')
 
 def CodeCheck(jid, i, s, q):
@@ -237,14 +237,13 @@ def CodeCheck(jid, i, s, q):
                   disabled=len(q.get('hints') or ()) >= len(HINTS))
     idk = Button('Teach me' if q.get('tries') else "I don't know", type='button', id='idk', cls='quiet', hx_post=at(Routes.giveup, jid, i),
                  data_wait=TEACHING, **tgt)
-    return Section(CardHead(s, q), Md(q['question'], cls='q'),
-                   Form(Textarea(draft, name='source', id='source', cls='code-editor', rows=max(6, draft.count('\n') + 3), spellcheck='false', autofocus=True,
-                                 aria_label='Your code'),
-                        Details(Summary('The tests you can see'), Ul(*[Li(Code(t)) for t in c['tests']], cls='tests'), open=True),
-                        CodeOut(jid, i, q),
-                        Div(Button('Run the tests ', Kbd('⌘↵'), type='submit', id='run', cls='go', data_wait=RUNNING), hint, idk,
-                            Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'),
-                        hx_post=at(Routes.run, jid, i), **tgt), cls='check code-check')
+    form = Form(Textarea(draft, name='source', id='source', cls='code-editor', rows=max(6, draft.count('\n') + 3), spellcheck='false', autofocus=True,
+                         aria_label='Your code'),
+                Details(Summary('The tests you can see'), Ul(*[Li(Code(t)) for t in c['tests']], cls='tests'), open=True),
+                id='run-form', hx_post=at(Routes.run, jid, i), **tgt)
+    run = Button('Run the tests ', Kbd('⌘↵'), type='submit', form='run-form', id='run', cls='go', data_wait=RUNNING)   # outside the form, so the results hold Next idea with no nested form
+    return Section(CardHead(s, q), Md(q['question'], cls='q'), form, CodeOut(jid, i, q),
+                   Div(run, hint, idk, Span(f"{left} {'try' if left == 1 else 'tries'} left", cls='mute'), cls='row acts'), cls='check code-check')
 
 CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card
 

@@ -2,6 +2,7 @@ from walk_data import *
 from fastcore.utils import first
 from pathlib import Path
 import abhyasa.blocks.walk
+import pytest
 
 def made(cl, key): return cl.app.state.svc['tutor'].jobs[key].result(timeout=30)   # wait on the demo job, not on the clock
 from abhyasa.method import TEXT_WAYS
@@ -191,3 +192,36 @@ def test_code_run_refuses_a_closed_or_missing_check(mk, walk_fake, lr):
     assert 'Next idea' in cl.post(f'/w/{jid}/1/giveup').text
     assert 'Next idea' in cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text and lr.attempts('softmax', limit=5)[0].kind == 'code'
     assert len(lr.attempts('softmax', limit=9)) == 1                                # a closed check takes no more runs
+
+def _chromium():
+    "True when Playwright's bundled Chromium is installed."
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p: return Path(p.chromium.executable_path).exists()
+    except Exception: return False
+
+@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
+@pytest.mark.parametrize('how', ['click', 'key'])
+def test_next_idea_moves_on_after_a_code_pass_in_a_browser(mk, walk_fake, lr, how):
+    import socket, threading, time, uvicorn
+    from playwright.sync_api import sync_playwright
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_page(); url = f'http://127.0.0.1:{port}/w/{jid}/1'
+                pg.goto(url); pg.wait_for_selector('#source')
+                pg.fill('#source', GOOD); pg.press('#source', 'Control+Enter')           # runs the tests
+                pg.wait_for_selector('#code-out .go')                                     # the close shows Next idea
+                if how == 'click': pg.click('#code-out .go')
+                else: pg.keyboard.press('Alt+s')
+                pg.wait_for_function('u => location.href != u', arg=url, timeout=10000)
+                assert pg.url != url and 'code-editor' not in pg.content().split('walk-main')[0]
+            finally: b.close()
+    finally: srv.should_exit = True; th.join(5)
