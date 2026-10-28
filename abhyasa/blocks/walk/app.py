@@ -10,7 +10,7 @@ from abhyasa.llm import for_task
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
-from abhyasa.sources import file_link, link_kind
+from abhyasa.sources import file_link, link_kind, LinkError
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_state, short_check, with_step, trail
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.demo import queue_demo, job_state, job_age
@@ -25,6 +25,7 @@ AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
 DEMO_WAIT = 90                       # seconds to wait for a demo; then the step uses a short answer
 MAX_STATE = 20_000                   # the most chars of a kept demo state
 PAGES = 8                            # the page cap of a link when the form gives none
+NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
 
 def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
@@ -134,13 +135,13 @@ def connect(app, ctx):
         j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=f"Reading {k + 1} of {n} page{'s' * (n != 1)}…"))
         if not j.steps:
             lr.drop_journey(j.id)
-            raise ValueError('The tutor found no ideas on these pages.')
+            raise LinkError('The tutor found no ideas on these pages.')
         return j.id
 
     def link_walk(url, pages):
         "Start the pool job that makes a walk from `url`, unless one is running. The request does not wait for the network or the model."
         try: link_kind(url)
-        except ValueError as e: return P(str(e), cls='req-err')
+        except ValueError as e: return P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err')
         st = links.get(url)
         if not st or st.job.done():
             st = links[url] = AttrDict(said='Getting the pages from the link…')
@@ -151,7 +152,7 @@ def connect(app, ctx):
         "The state of the walk from `url`: the pending card, a redirect to the walk when it is ready, or a message."
         if not (st := links.get(url.strip())): return P('No walk is being made from this link. Send the form again.', cls='req-err')
         if not st.job.done(): return ui.LinkPending(url.strip(), st.said)
-        if (e := st.job.exception()): return P(str(e) if isinstance(e, ValueError) else f'The tutor could not make a walk ({e}). Try again.', cls='req-err')
+        if (e := st.job.exception()): return P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err')   # never the words of a library
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
     def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str=''):

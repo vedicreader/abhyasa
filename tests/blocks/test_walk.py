@@ -287,3 +287,13 @@ def test_link_walk_refuses_local_links(mk, walk_fake, lr):
         r = cl.post('/walk/new', data=dict(url=bad), headers=HX).text
         assert 'req-err' in r and 'pending' not in r                               # refused in the request: no job, no fetch
     assert 'No walk' in cl.get('/walk/job', params=dict(url='https://nothing.example/')).text
+
+def test_link_walk_shows_only_its_own_messages(mk, walk_fake, lr, monkeypatch):
+    from vishalakshi.core import Vault
+    def crawl(self, *a, **kw): raise ValueError('10.0.0.1 is a private address — pass allow_private=True or set FOSSICK_ALLOW_PRIVATE=1')
+    monkeypatch.setattr(Vault, 'crawl', crawl)
+    monkeypatch.setattr('abhyasa.sources._addrs', lambda host: {'93.184.216.34'})
+    cl = mk(); u = 'https://docs.example.dev/broken/'
+    cl.post('/walk/new', data=dict(url=u))
+    t = wait_for(lambda: t if 'pending' not in (t := cl.get('/walk/job', params=dict(url=u)).text) else None, secs=10)
+    assert 'allow_private' not in t and 'FOSSICK' not in t and 'abhyasa could not make a walk from this link' in t   # a library message never shows
