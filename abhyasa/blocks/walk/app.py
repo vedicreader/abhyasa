@@ -270,17 +270,21 @@ def connect(app, ctx):
             else: simpler_demo(tutor, s['slug'])
         return ui.at(Routes.ladder, jid, i)
 
-    def ladder(jid:str, i:int, show:str=''):
-        "The help under the demo check of step `i`: the lesson in another way, then the simpler demo, or what the tutor still makes. It never waits on a job."
+    def ladder(jid:str, i:int, show:str='', simpler:str=''):
+        """The help under the demo check of step `i`: the lesson in another way, then the simpler demo, or what the tutor still makes. It never waits on a job.
+        `simpler` asks for the simpler demo on the first rung, so a demo with one gate can reach it."""
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         s = j.steps[i]
         if not (ld := s.get('ladder')): return ui.Slot(jid, i, s)
+        if simpler and not ld.get('asked'):
+            with writing[jid, i]: ld = lr.walk_step(jid, i, ladder={**lr.journey(jid).steps[i]['ladder'], 'asked': True}).steps[i]['ladder']
         slug, stop = s['slug'], backed(lr, s['slug'], tutor.goal)   # once `_back` steps back to a prereq, the ladder starts no job
-        if ld['rung'] == 1:
-            if ld.get('lesson') or stop: return ui.Ladder(jid, i, ld)
+        if ld['rung'] == 1 and not ld.get('asked'):
+            if ld.get('lesson') or stop: return ui.Ladder(jid, i, ld, more=True)
             lesson_job(jid, i, slug)
             return ui.Ladder(jid, i, ld, pending='The tutor is writing a lesson in another way. You can read the passage while you wait.')
-        if (d := lr.demo_for(slug, aim='simpler')): return ui.Ladder(jid, i, ld, demo=d, show=bool(show))
+        # the simpler demo: after the second wrong prediction, or when you asked for it
+        if (d := lr.demo_for(slug, aim='simpler')): return ui.Ladder(jid, i, ld, demo=d, show=bool(show) or bool(ld.get('asked')))
         if job_state(tutor, slug, 'simpler') == 'failed': return ui.Ladder(jid, i, ld, failed=True)
         if stop: return ui.Ladder(jid, i, ld)
         simpler_demo(tutor, slug)

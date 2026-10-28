@@ -387,6 +387,27 @@ def test_wrong_predictions_climb_the_demo_ladder(mk, walk_fake, lr):
     assert a['ok'] and not a.get('again') and not a.get('ladder')                      # the third miss after the demo adds nothing (a new pick: the vault keeps one document for each text)
     assert (lr.attempts(slug, limit=1)[0].demo, lr.attempts(slug, limit=1)[0].method) == (small.slug, 'demo')   # it counts against demo
 
+def test_one_gate_demo_can_ask_for_a_simpler_demo(mk, walk_fake, lr):
+    "With one gate, the lesson after a wrong prediction has a quiet link. The link makes the simpler demo on demand: first a pending state, then the demo."
+    from abhyasa.demo import SIMPLER_AIM
+    slug = 'scaling-by-the-root-of-dk'
+    hold = held(walk_fake, 'You design one interactive demo', SIMPLER_AIM)
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = made(cl, slug); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
+    made(cl, f'{slug}:lesson')
+    part = cl.get(r['ladder']).text
+    assert 'Positions are shared.' in part and 'Show a simpler demo' in part and '?simpler=1' in part and 'class="go' not in part
+    assert f'{slug}:simpler' not in cl.app.state.svc['tutor'].jobs                     # nothing is made until you ask
+    part = cl.get(r['ladder'] + '?simpler=1').text
+    assert 'The tutor is making a simpler demo' in part and 'load delay:2s' in part and 'Positions are shared.' in part
+    assert lr.journey(jid).steps[2]['ladder']['asked']
+    hold.set(); small = made(cl, f'{slug}:simpler')
+    part = cl.get(r['ladder']).text                                                     # the poll after the job: the demo shows
+    assert 'data-rupaka' in part and f'data-demo="{small.slug}"' in part and 'Positions are shared.' in part and 'class="go' not in part
+
 def test_a_prereq_does_not_stop_the_ladder_in_a_walk(mk, walk_fake, lr):
     "An idea with a prereq that is not learned still gets the simpler demo on the second wrong prediction: `_back` waits for the third miss since the demo."
     slug = 'scaling-by-the-root-of-dk'

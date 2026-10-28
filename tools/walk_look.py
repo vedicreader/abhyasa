@@ -364,39 +364,50 @@ def rupaka_settle(pg, w):
     pg.wait_for_function("() => [...document.querySelectorAll('main .go')].some(e => e.checkVisibility() && e.textContent.includes('Next idea'))", timeout=10000)
 
 def l1_demo_ladder(pg, w):
-    "A wrong prediction shows a lesson in another way under the demo. A second one shows a simpler demo behind a quiet button. Next idea stays the one main button."
+    """A wrong prediction shows a lesson in another way under the demo, with a quiet link to a simpler demo. A second wrong prediction
+    shows the simpler demo behind a quiet button. With one gate, the link makes the simpler demo on demand. Next idea stays the one main button."""
     jid = new_walk(w)
-    slug = w.lr.journey(jid).steps[2]['slug']
     spec = gallery()['reciprocal-rank-fusion']
     g2 = {**next(b for b in spec['blocks'] if b.get('type') == 'gate'), 'id': 'second', 'prompt': 'Which document comes second after fusion?', 'answer': 'fused.1.id'}
-    w.lr.put_demo({**spec, 'id': f'{slug}-two-gates', 'blocks': [*spec['blocks'], g2]}, slug)
-    w.lr.record(slug, 'A pass before this check', correct=True, final=True)   # a pass ends the count of the checks before
-    w.lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why='a demo shows it best'))
-    pg.goto(f'{w.B}/w/{jid}/2'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+    two, one = (w.lr.journey(jid).steps[k]['slug'] for k in (2, 1))
+    w.lr.put_demo({**spec, 'id': f'{two}-two-gates', 'blocks': [*spec['blocks'], g2]}, two)
+    w.lr.put_demo({**spec, 'id': f'{one}-one-gate'}, one)
+    for k, slug in ((2, two), (1, one)):
+        w.lr.record(slug, 'A pass before this check', correct=True, final=True)   # a pass ends the count of the checks before
+        w.lr.walk_step(jid, k, check=dict(way='demo', kind='demo', depth=2, why='a demo shows it best'))
     gate = lambda k: f'#check .walk-demo [data-rupaka] .rk-b[data-rk-type="gate"] >> nth={k}'
     def wrong(k, opt):
         pg.click(f'{gate(k)} >> .opts button >> nth={opt}')
         pg.click(f'{gate(k)} >> button.go')
         pg.wait_for_selector(f'{gate(k)} >> .verdict', state='visible', timeout=10000)
+    own = lambda: pg.eval_on_selector_all('#ladder .go', 'els => els.filter(e => e.checkVisibility() && !e.closest("[data-rupaka]")).length')
+    def calm(): assert 'Next idea ⌥S' in visible_gos(pg) and not own() and pg.is_visible('#passage'), visible_gos(pg)   # the help adds no main button
+    # two gates: the lesson, then the simpler demo on the second wrong prediction
+    pg.goto(f'{w.B}/w/{jid}/2'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
     wrong(0, 0)
     pg.wait_for_selector('#ladder .lesson', timeout=15000)
     assert 'Positions are shared.' in pg.inner_text('#ladder') and pg.text_content('#ladder .lbl').startswith('Lesson · ')
-    own = lambda: pg.eval_on_selector_all('#ladder .go', 'els => els.filter(e => e.checkVisibility() && !e.closest("[data-rupaka]")).length')
-    assert 'Next idea ⌥S' in visible_gos(pg) and not own(), visible_gos(pg)   # the help adds no main button; a gate of a demo keeps its own Lock in
-    assert pg.is_visible('#passage')
+    assert pg.is_visible('#ladder button[hx-get$="simpler=1"]'); calm()
     wrong(1, 2)
-    pg.wait_for_selector('#ladder button:has-text("Show a simpler demo")', timeout=20000)
-    assert 'Positions are shared.' in pg.inner_text('#ladder') and 'Next idea ⌥S' in visible_gos(pg) and not own(), visible_gos(pg)
-    pg.click('#ladder button:has-text("Show a simpler demo")')
+    pg.wait_for_selector('#ladder button[hx-get$="show=1"]', timeout=20000)
+    assert 'Positions are shared.' in pg.inner_text('#ladder'); calm()
+    pg.click('#ladder button[hx-get$="show=1"]')
     pg.wait_for_selector('#ladder[data-demo] [data-rk-ready="1"]', timeout=30000)
     small = pg.get_attribute('#ladder', 'data-demo')
-    assert w.lr.demo(small).aim == 'simpler' and 'Next idea ⌥S' in visible_gos(pg) and not own(), visible_gos(pg)
+    assert w.lr.demo(small).aim == 'simpler'; calm()
     g = '#ladder [data-rupaka] .rk-b[data-rk-type="gate"]'
     pg.eval_on_selector('#check .said', 'e => { e.textContent = ""; }')
     pg.click(f'{g} >> .opts button >> nth=3'); pg.click(f'{g} >> button.go')
     pg.wait_for_selector(f'{g} >> .verdict', state='visible', timeout=10000)
-    pg.wait_for_function(f"() => document.querySelector('#check .said')?.textContent.includes('saved')", timeout=10000)
-    assert w.lr.attempts(slug, limit=1)[0].demo == small                      # a prediction in the simpler demo goes in with its own slug
+    pg.wait_for_function("() => document.querySelector('#check .said')?.textContent.includes('saved')", timeout=10000)
+    assert w.lr.attempts(two, limit=1)[0].demo == small                        # a prediction in the simpler demo goes in with its own slug
+    # one gate: the quiet link under the lesson makes the simpler demo on demand
+    pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+    wrong(0, 0)
+    pg.wait_for_selector('#ladder button[hx-get$="simpler=1"]', timeout=15000); calm()
+    pg.click('#ladder button[hx-get$="simpler=1"]')
+    pg.wait_for_selector('#ladder[data-demo] [data-rk-ready="1"]', timeout=30000)
+    assert w.lr.demo(pg.get_attribute('#ladder', 'data-demo')).aim == 'simpler' and 'Positions are shared.' in pg.inner_text('#ladder'); calm()
 
 def m7_side_walk_returns_you(pg, w):
     "At the end of a side walk the pane slides out to the right, the needs line says learned on the way today, and the draft is still in the answer box."
