@@ -2,6 +2,17 @@
 
 <!-- do not remove -->
 
+## 0.0.11
+
+- Guided walk: make a walk from a paper, a text or a topic. Each idea is one step with a passage, a note and one check: short answer, demo, order or code. Reading never waits for a check.
+- Rabbit holes: a step that needs an idea you do not know offers a primer, a side walk or its own session. The side walk opens in a pane (⌥B to open, ⌥Z or Esc to close).
+- Walks from links: a web page, a docs site, a PDF, an arXiv link or a GitHub repository. abhyasa reads only the pages in the folder of the link, up to the page cap.
+- Open in Leela: a tool walk asks short-answer and order checks here, and a step that needs code links to Leela.
+- The code runner has an option for Python and a Unix socket pair, for Leela.
+- Settings has every value in 11 groups, with the range and the default of each. The number of ideas in a walk is 12 by default.
+- A new look: one main button on each page, ⌥S for Send and Next idea, and calmer walk, Add, Graph, Today and Profile pages.
+- Fix: ⌥F opens the keyboard shortcuts again.
+
 ## 0.0.10
 
 - Settings: choose the model for each tutor task from a list of known names, in groups by provider. A saved choice stays. "Type another model id…" gives a text box.

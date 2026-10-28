@@ -35,6 +35,8 @@ The utility classes are `.raised` and `.sunken`. The class `.refs` is the quiet 
 | Today | the "Continue where you stopped" card | everything else | none |
 | Journeys | the goal box (also on Today when you have no journey) | the list of journeys | none |
 | Journey | none | the path and its steps | `.refs`: next to this path, your other journeys |
+| Walk step | the check card | the outline, the title, the passage and the note | the code editor |
+| Side pane | the check card in the pane | the pane has the surface of the page; a hairline divides it from the paper | the code editor |
 | Your learning | none | this week, what you learned | the list of past sessions |
 | Settings | the theme and the mode that you chose | the forms | the model tables |
 
