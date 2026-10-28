@@ -297,28 +297,42 @@ SANDBOX_PROFILE = """(version 1)
 FILE_LIMIT = 10 * 2**20   # bytes: the largest file that the process can write
 
 # %% ../nbs/06_check.ipynb #b7c1a006
-def _limits(total):
-    "A `preexec_fn` that sets `total + 1` s of CPU time and 10 MB files, or None when the system has no `resource` module."
-    try: import resource
-    except ImportError: return None
+def _limits(total) -> str:
+    "Code that limits the process to `total + 1` s of CPU time and to files of 10 MB, when the system has the `resource` module."
     cpu = int(total) + 1
-    def f():
-        resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu + 1))
-        resource.setrlimit(resource.RLIMIT_FSIZE, (FILE_LIMIT, FILE_LIMIT))
-    return f
+    return (f'try:\n    import resource\n    resource.setrlimit(resource.RLIMIT_CPU, ({cpu}, {cpu + 1}))\n'
+            f'    resource.setrlimit(resource.RLIMIT_FSIZE, ({FILE_LIMIT}, {FILE_LIMIT}))\n    del resource\nexcept ImportError: pass\n')
+
+# %% ../nbs/06_check.ipynb #b7c1a013
+def _split_future(source) -> tuple:
+    "The docstring and the `from __future__` imports at the start of `source`, and the code after them."
+    try: tree = ast.parse(source)
+    except (SyntaxError, ValueError): return '', source
+    n = 0
+    for i, s in enumerate(tree.body):
+        if isinstance(s, ast.ImportFrom) and s.module == '__future__': n = s.end_lineno
+        elif not (i == 0 and isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant) and isinstance(s.value.value, str)): break
+    lines = source.splitlines(keepends=True)
+    return ''.join(lines[:n]), ''.join(lines[n:])
 
 # %% ../nbs/06_check.ipynb #b7c1a008
 def run_isolated(kind, fname, source, tests, *, total=10., setup=(), sandbox=True) -> dict:
     "Run `source` and its checks in a closed Python process with time, CPU and file limits; with `sandbox`, also with no network."
     import tempfile
-    nonce = os.urandom(8).hex()
+    nonce, (head, body) = os.urandom(8).hex(), _split_future(source)
     with tempfile.TemporaryDirectory() as tmp:
-        tmp, cmd, pre = os.path.realpath(tmp), [sys.executable, '-I', '-B'], ''
+        tmp, cmd, pre = os.path.realpath(tmp), [sys.executable, '-I', '-B'], _limits(total)
         if sandbox:
-            pre = f'{inspect.getsource(_guard)}\n_guard({tmp!r})\ndel _guard\n'
+            pre += f'{inspect.getsource(_guard)}\n_guard({tmp!r})\ndel _guard\n'
             if sys.platform == 'darwin' and os.path.exists(SANDBOX_EXEC): cmd = [SANDBOX_EXEC, '-p', SANDBOX_PROFILE, '-D', f'TMP={tmp}', *cmd]
-        code = pre + source + '\n' + snippet(kind, fname, tests, total=total, setup=setup, nonce=nonce)
-        try: r = subprocess.run(cmd, input=code, capture_output=True, text=True, cwd=tmp, env={'PATH': os.defpath, 'HOME': tmp},
-                                preexec_fn=_limits(total), timeout=total + 2)
-        except subprocess.TimeoutExpired: return {'timeout': True}
-    return {'timeout': True} if r.returncode < 0 else parse(r.stdout, nonce)
+        code = f'{head}\n{pre}{body}\n' + snippet(kind, fname, tests, total=total, setup=setup, nonce=nonce)
+        with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=tmp,
+                              env={'PATH': os.defpath, 'HOME': tmp}, start_new_session=True) as p:
+            try: out, _ = p.communicate(code, timeout=total + 2)
+            except subprocess.TimeoutExpired:   # stop the whole group: a process that the code started can keep the output open
+                try: os.killpg(p.pid, signal.SIGKILL)
+                except (AttributeError, ProcessLookupError): p.kill()
+                p.wait()
+                return {'timeout': True}
+    if -p.returncode in (getattr(signal, 'SIGXCPU', None), getattr(signal, 'SIGKILL', None)): return {'timeout': True}
+    return {'error': 'no check result'} if p.returncode < 0 else parse(out, nonce)

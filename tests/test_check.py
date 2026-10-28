@@ -318,6 +318,32 @@ def test_hostile_code_does_not_pass_or_hang():
     assert (w.get('checks') or [{}])[0].get('status') != 'pass'
 
 
+def test_future_import_stays_first():
+    r = check.run_isolated('assert', 'f', 'from __future__ import annotations\ndef f(n: int) -> int: return n * 2', ['assert f(2) == 4'])
+    assert r['checks'][0]['status'] == 'pass'
+
+
+def test_a_signal_that_is_not_a_limit_is_no_result():
+    stop = 'import os, signal\nos.kill(os.getpid(), signal.SIGTERM)\ndef f(n): return n * 2'
+    assert check.run_isolated('assert', 'f', stop, ['assert f(2) == 4']) == {'error': 'no check result'}
+
+
+@pytest.mark.skipif(not hasattr(os, 'killpg'), reason='process groups are POSIX only')
+def test_a_child_process_that_keeps_the_output_open_does_not_hang(tmp_path):
+    "The audit hook refuses new processes, so this runs without it. The time limit stops the whole process group."
+    pidfile = tmp_path/'pid'
+    src = f'import subprocess\np = subprocess.Popen(["sleep", "30"])\nopen({str(pidfile)!r}, "w").write(str(p.pid))\ndef f(n): return n * 2'
+    t = time.monotonic()
+    assert check.run_isolated('assert', 'f', src, ['assert f(2) == 4'], total=1., sandbox=False) == {'timeout': True}
+    assert time.monotonic() - t < 5
+    pid, end = int(pidfile.read_text()), time.monotonic() + 3
+    while time.monotonic() < end:
+        try: os.kill(pid, 0)
+        except ProcessLookupError: break
+        time.sleep(.05)
+    else: pytest.fail(f'the child process {pid} still runs')
+
+
 def test_public_hides_a_passing_hidden_tests_expected_value():
     def double(n): return n * 2
     page = json.dumps(public(run_asserts(double, 'double', [dict(test='assert double(-123) == -246', say='Negative', hidden=True)])))

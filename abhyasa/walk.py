@@ -8,7 +8,7 @@ Docs: https://vedicreader.github.io/abhyasa/walk.html.md"""
 __all__ = ['NOTE_SP', 'tutor_note', 'step_meta', 'open_short', 'code_task', 'run_code']
 
 # %% ../nbs/15_walk.ipynb #i05
-import ast, re, time, uuid
+import re, time, uuid
 from fastcore.utils import *
 from .llm import for_task
 from .prompts import register, prompt
@@ -95,8 +95,8 @@ def run_code(tutor:Tutor, qid:str, source:str, confidence:int=70) -> AttrDict:
     "Run `source` on the tests of the code task `qid` in a closed process, and grade it. A pass or the last try closes the task."
     q = tutor.open[qid]
     out = AttrDict(syntax='', checks=[], passed=0, total=len(q.tests), first_error='', tries_left=MAX_TRIES - len(q.tries), done=False)
-    try: ast.parse(source)
-    except SyntaxError as e: return AttrDict(out, syntax=f'line {e.lineno}: {e.msg}')
+    try: compile(source, '<code>', 'exec', dont_inherit=True)
+    except (SyntaxError, ValueError) as e: return AttrDict(out, syntax=f"line {getattr(e, 'lineno', None) or 1}: {getattr(e, 'msg', None) or e}")
     r = run_isolated('assert', q.fname, source, q.tests)
     if 'checks' not in r: out.first_error = 'The code ran longer than 10 s' if r.get('timeout') else 'The code stopped before the tests ran'
     else:
