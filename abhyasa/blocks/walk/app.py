@@ -25,7 +25,6 @@ FIGURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a step (spec 6.3), empty until the step is used
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
 MAX_STATE = 20_000                   # the most chars of a kept demo state
-PAGES = 8                            # the page cap of a link when the form gives none
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
 
 def connect(app, ctx):
@@ -146,7 +145,7 @@ def connect(app, ctx):
         st = links.get(url)
         if not st or st.job.done():
             st = links[url] = AttrDict(said='Getting the pages from the link…')
-            st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() else PAGES, st, tool)
+            st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() else None, st, tool)
         return ui.LinkPending(url, st.said)
 
     def job(url:str=''):

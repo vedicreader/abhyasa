@@ -89,3 +89,22 @@ def test_most_reviews_a_day(lr, fake):
     lr.update('ranking', due=time.time() - 60)
     set_val('review.per_day', 1)
     assert not t.next().why.startswith('due for review')      # one review a day: the next question is a new idea
+
+# Links
+
+def test_links_defaults():
+    from abhyasa.sources import fetch_opts
+    assert dflts('links') == {'links.pages': 8, 'links.cap': 20, 'links.timeout': 30, 'links.speed': 1., 'links.kept': 400_000, 'links.read': 100_000}
+    assert fetch_opts() == dict(timeout=30, max_recv_speed=1_000_000, retries=1)
+
+def test_link_reads_the_new_page_count():
+    from abhyasa.store import temp_learning
+    from abhyasa.sources import file_link
+    lr, calls = temp_learning(), []
+    def read(how, target, **kw):
+        calls.append(kw)
+        return [lr.vault.add(f'Page {k} has some text on the idea of the folder, enough to read.', f'Page {k}', source=f'https://example.org/docs/p{k}', kind='web') for k in range(9)]
+    file_link(lr, 'https://example.org/docs/', read=read, final=lambda u: u)
+    set_val('links.pages', 3); set_val('links.timeout', 10)
+    assert len(file_link(lr, 'https://example.org/docs/', read=read, final=lambda u: u)) == 3
+    assert [c['max_pages'] for c in calls] == [8, 3] and calls[1]['timeout'] == 10

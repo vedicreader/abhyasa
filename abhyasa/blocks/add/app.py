@@ -4,6 +4,7 @@ from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides
 from abhyasa.sources import extract, from_vault, from_vedicreader
 from abhyasa.llm import for_task
+from abhyasa.settings import val
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
@@ -29,7 +30,7 @@ def connect(app, ctx):
                  Label('Or a text', Textarea(name='text', rows=3, placeholder='Paste a text.')),
                  Label('Its title', Input(type='text', name='title', placeholder='for a pasted text')),
                  Div(Label('From a link', Input(type='text', name='url', placeholder='an arXiv id, a PDF, a docs page or a GitHub repo')),
-                     Label('Pages to read', Input(type='number', name='pages', min=1, max=20, value=8)), cls='pair'),
+                     Label('Pages to read', Input(type='number', name='pages', min=1, max=val('links.cap'), value=val('links.pages'))), cls='pair'),
                  Label(Input(type='checkbox', name='tool'), ' It is a library or a command-line tool. Code and tools open in Leela.', cls='tick'),
                  P('abhyasa gets the pages of a link only when you send this form. It reads only the pages in the folder of the link.', cls='mute'),
                  Div(Button('Make a walk', cls='go', data_wait='Making the walk…', data_skel='#walk-out'), cls='row'),

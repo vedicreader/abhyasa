@@ -20,7 +20,7 @@ from .model import learned
 from .settings import val
 from .llm import ask_json
 from .prompts import register, prompt
-from .sources import extract, _index, doc_pages, from_vault, placement, LINK_CHARS
+from .sources import extract, _index, doc_pages, from_vault, placement
 import abhyasa.profile  # adds Learning.profile
 from .method import check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND
 from .ground import ground, ground_text
@@ -260,7 +260,7 @@ def journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str=
     got = {}
     for k, d in enumerate(docs):
         if progress: progress(k, len(docs))
-        got[d.doc_id] = from_vault(lr, ask, d.doc_id, subject, d.shelf, chars=LINK_CHARS)
+        got[d.doc_id] = from_vault(lr, ask, d.doc_id, subject, d.shelf, chars=val('links.read'))
     told = lambda s, d: bool((placement(lr.concept(s) or {}, d.doc_id) or {}).get('passage'))
     named = lambda s: [d for d in docs if s in got[d.doc_id]]
     home = {s: (first(d for d in named(s) if told(s, d)) or named(s)[0]).doc_id for d in docs for s in got[d.doc_id]}
