@@ -412,6 +412,7 @@ def f10_graph_has_more_graph(pg, w):
     assert pg.is_visible('#levers input[name=q]') and pg.is_visible('#levers .modes') and pg.is_visible('#levers .legend')
     assert not pg.is_visible('#levers input[name=spacing]') and not pg.is_visible('#levers select[name=colorBy]')
     assert pg.eval_on_selector('#levers details.adjust', 'd => d.open') is False
+    assert pg.is_visible('#focus-name')   # the E hint changes on E, so it shows outside the fold
     sunk = pg.evaluate("(() => { const i = document.createElement('i'); i.style.color = 'var(--sunken)'; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; })()")
     assert pg.eval_on_selector('#levers .legend i', 'i => getComputedStyle(i).backgroundColor') == sunk
     pg.click('#levers details.adjust > summary')
@@ -423,9 +424,7 @@ def m5_graph_grows(pg, w):
     w.lr.put('Pulse one', 'A concept for the pulse check.', 'ml', slug='pulse-one', prereqs=['ranking'])
     graph = lambda: (pg.goto(w.B + '/graph'), pg.wait_for_function('() => window.abhyasaGraph', timeout=15000))
     line = lambda: pg.text_content('#graph .moved') if pg.query_selector('#graph .moved') else ''
-    errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
     graph(); graph()
-    assert not errs, errs
     assert line() == '' and pg.evaluate('abhyasaGraph.rose') == []
     w.lr.update('pulse-one', floor=2, seen=1)
     w.lr.put('Pulse two', 'A new concept for the pulse check.', 'ml', slug='pulse-two', prereqs=['pulse-one'])
@@ -463,7 +462,7 @@ def f12_today_has_an_order(pg, w):
 
 def f13_profile_invites(pg, w):
     "Profile, empty: one raised card with Start ⌥S; the fields are under a closed Edit by hand; each Speak sits in its label row, and only the first names ⌥D."
-    if w.lr.profile().known: return   # the check needs an empty profile
+    w.lr.clear_profile()   # start from an empty profile, so the check cannot pass without checking
     pg.goto(w.B + '/you'); settle(pg, 300)
     assert pg.is_visible('.raised.invite') and visible_gos(pg) == ['Start ⌥S'], visible_gos(pg)
     assert pg.eval_on_selector('details.by-hand', 'd => d.open') is False and not pg.is_visible('#pf-background')
@@ -474,6 +473,13 @@ def f13_profile_invites(pg, w):
     assert lb[0] - 2 <= mic < box[0], (lb, mic, box)
     assert pg.eval_on_selector_all('.mic.in-label kbd', 'ks => ks.map(k => k.textContent)') == ['⌥D']
     assert pg.eval_on_selector('label[for=pf-background]', 'l => l.textContent.replace(/\\s+/g, " ").trim()').startswith('Background · Speak ⌥D')
+    w.lr.set_profile(by='you', why='the look check', background=['nurse'])   # a known profile: the fields open, Save is the main button, no card
+    try:
+        pg.goto(w.B + '/you'); settle(pg, 300)
+        assert not pg.query_selector('.raised.invite') and not pg.query_selector('details.by-hand') and pg.is_visible('#pf-background')
+        assert visible_gos(pg) == ['Save ⌥S'], visible_gos(pg)
+        assert pg.is_visible('text=Clear what abhyasa knows about you')
+    finally: w.lr.clear_profile()
 
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
@@ -506,6 +512,13 @@ def screens(pg, w, out, only=None, widths=(1280, 1000), looks=None):
     look(w.rq, w.B, 'paper', 'auto')
     return shots
 
+def guard(pg):
+    "Collect the script errors of the page and its frames: uncaught errors and console errors. A failed request is not a script error."
+    errs = []
+    pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
+    pg.on('console', lambda m: m.type == 'error' and not m.text.startswith('Failed to load resource') and errs.append(m.text[:200]))
+    return errs
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--shots', action='store_true', help='also take the screens')
@@ -524,12 +537,20 @@ def main():
             try:
                 ctx = b.new_context(viewport=dict(width=1280, height=900), reduced_motion='no-preference')
                 pg = ctx.new_page()
+                errs = guard(pg)
                 w = World(lr, pg.request, B)
                 look(pg.request, B, 'paper', 'light')
                 for c in [c for c in CHECKS if a.only is None or c.__name__ in a.only]:
-                    try: c(pg, w); print('PASS', c.__name__, flush=True)
+                    errs.clear()
+                    try:
+                        c(pg, w)
+                        assert not errs, f'script errors on the page: {errs[:3]}'
+                        print('PASS', c.__name__, flush=True)
                     except Exception as e: bad += 1; print('FAIL', c.__name__, f'(line {e.__traceback__.tb_next.tb_lineno if e.__traceback__.tb_next else "?"})', '-', str(e)[:300], flush=True)
-                if a.shots: print(len(screens(pg, w, Path(a.out), a.pages, looks=a.looks)), 'screens in', a.out)
+                if a.shots:
+                    errs.clear(); n = len(screens(pg, w, Path(a.out), a.pages, looks=a.looks))
+                    if errs: bad += 1; print('FAIL screens - script errors on the page:', errs[:3], flush=True)
+                    print(n, 'screens in', a.out)
             finally: b.close()
     finally: srv.should_exit = True
     sys.exit(1 if bad else 0)
