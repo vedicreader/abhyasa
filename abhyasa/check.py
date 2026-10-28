@@ -278,7 +278,7 @@ def _guard(tmp, unix=False):
     writes = os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_TRUNC
     def outside(p): return isinstance(p, (str, bytes, os.PathLike)) and not os.path.realpath(os.fsdecode(p)).startswith(tmp + os.sep)
     def hook(event, args):
-        if event == 'ctypes.dlopen' or (event == 'ctypes.dlsym' and args[1] != 'PyThreadState_SetAsyncExc'):
+        if event.startswith(('ctypes.dlopen', 'ctypes.dlsym')):
             raise PermissionError(f'{event} is not allowed')
         if unix and event == 'socket.__new__' and args[1] == socket.AF_UNIX: return
         if event.startswith(('socket.', 'os.exec', 'os.posix_spawn', 'os.fork')) or event in ('subprocess.Popen', 'os.system'):
@@ -287,6 +287,7 @@ def _guard(tmp, unix=False):
             raise PermissionError(f'writing to {args[0]} is not allowed')
         if event in ('os.remove', 'os.rename', 'os.rmdir', 'os.mkdir', 'os.truncate', 'os.symlink', 'os.link', 'shutil.rmtree') and any(map(outside, args)):
             raise PermissionError(f'{event} outside the work folder is not allowed')
+    ctypes.pythonapi.PyThreadState_SetAsyncExc   # the timer needs this symbol: look it up now, before the hook
     sys.addaudithook(hook)
 
 # %% ../nbs/06_check.ipynb #b7c1a004
