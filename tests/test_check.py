@@ -135,22 +135,20 @@ def test_worker_timeout():
 
 def test_main_timeout_and_cleanup():
     with pytest.raises(TimeoutError):
-        with time_limit(.02):
-            deadline = time.monotonic() + 1
-            while time.monotonic() < deadline: pass
-    with time_limit(.02): pass
-    time.sleep(.04)
+        with time_limit(.02): time.sleep(1)   # not a busy `while` loop: on Python 3.13, the alarm error can skip the `with` there
+    with time_limit(.5): pass   # room for a slow machine; the sleep shows that the timer is gone
+    time.sleep(.6)
 
 
 def test_worker_timer_cancelled():
     result = []
     def work():
-        with time_limit(.02): pass
-        time.sleep(.05)
+        with time_limit(.5): pass
+        time.sleep(.6)
         result.append('finished')
     worker = threading.Thread(target=work, daemon=True)
     worker.start()
-    worker.join(1)
+    worker.join(2)
     assert not worker.is_alive() and result == ['finished']
 
 
