@@ -28,3 +28,13 @@ def test_graph_nodes_carry_their_group_and_the_levers_can_group_by_it(lr):
     assert by['ashwini']['group'] == ['Nakshatras', 'Fire'] and by['ranking']['group'] == []
     x = to_xml(Levers(['ml']))
     assert 'name="groupBy"' in x and 'value="group"' in x
+
+def test_small_grip_fixes():
+    "The graph grip goes under 820 px; the 409 line says its last words once; the pane tip waits for a pane that shows and has its own key."
+    g = Path(abhyasa.blocks.graph.__file__).parent
+    core = g.parents[1]/'core'
+    assert '#graph .grip { display: none; }' in (g/'graph.css').read_text().split('@media (max-width: 820px)')[1]
+    c = (core/'core.js').read_text()
+    assert 'Load the page again' in c and 'lead' in c
+    p = (core/'pane.js').read_text()
+    assert "!WIDE.matches ||" in p and "'rh-grip-tip'" in p and "'rh-tip'" not in p

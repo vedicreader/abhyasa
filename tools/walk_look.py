@@ -871,7 +871,7 @@ def er1_error_line_shows_the_server_reason(pg, w):
 def _er1(pg, w, jid, fail):
     pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check #ans'); settle(pg)
     e = fail(409, 'No check is open on this idea. Load the page again.')
-    assert e.inner_text().startswith('No check is open on this idea. Load the page again.') and e.query_selector('a'), e.inner_text()
+    assert e.inner_text().startswith('No check is open on this idea.') and e.query_selector('a') and e.inner_text().count('Load the page again') == 1, e.inner_text()
     with pg.expect_event('load'): e.query_selector('a').click()
     pg.wait_for_selector('#check #ans'); settle(pg)
     e = fail(400, 'z' * 300)
@@ -901,6 +901,12 @@ def g1_graph_uses_the_window_and_fits(pg, w):
 
 def gr1_the_grips_show_and_resize(pg, w):
     "The side pane and the Graph tools have a visible grip. A drag changes the width and a reload keeps it. Key 2 on the pane grip sets a half."
+    pg.set_viewport_size(dict(width=1000, height=800)); pg.goto(w.B + '/keys'); pg.evaluate("localStorage.clear()")
+    pg.goto(f'{w.step(2)}?rh={side_walk(w)}'); settle(pg, 600)
+    assert pg.evaluate("localStorage.getItem('rh-grip-tip')") is None and not pg.query_selector('.grip-tip'), (pg.evaluate("localStorage.getItem('rh-grip-tip')"), bool(pg.query_selector('.grip-tip')), pg.evaluate("[innerWidth, matchMedia('(min-width: 1100px)').matches, !!document.querySelector('#rh-pane')]"), 'the tip waits for a pane that shows')
+    pg.goto(w.B + '/graph'); pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 800)
+    pg.set_viewport_size(dict(width=800, height=800)); settle(pg, 500)
+    assert not pg.is_visible('#graph .grip'), 'under 820 px the tools go under the graph, and the grip goes'
     pg.set_viewport_size(dict(width=1400, height=900))
     pg.goto(w.B + '/keys'); pg.evaluate("localStorage.clear()")
     pg.goto(f'{w.step(2)}?rh={side_walk(w)}'); pg.wait_for_selector('#rh-pane .grip'); settle(pg, 600)

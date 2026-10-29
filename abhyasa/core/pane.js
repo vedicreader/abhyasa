@@ -103,8 +103,8 @@
   // The first time a pane opens: a quiet line by the grip. It goes after the first drag or after 8 seconds, and is kept as seen.
   const tip = () => {
     const p = pane();
-    if (!p || localStorage.getItem('rh-tip') || p.querySelector('.grip-tip')) return;
-    localStorage.setItem('rh-tip', '1');
+    if (!p || !WIDE.matches || localStorage.getItem('rh-grip-tip') || p.querySelector('.grip-tip')) return;   // under 1100 px the pane does not show
+    localStorage.setItem('rh-grip-tip', '1');
     const t = Object.assign(document.createElement('p'), {className: 'grip-tip', textContent: 'Drag this edge to make the pane wider.'});
     t.setAttribute('role', 'status'); p.append(t);
     const off = () => { clearTimeout(timer); t.classList.add('gone'); setTimeout(() => t.remove(), 300); };
