@@ -8,6 +8,22 @@ function render(root) {
     katex.render(m.textContent, m, {displayMode: m.classList.contains('display'), throwOnError: false, trust: false});
   });
 }
+// Plain text `s` into `el` with its `$…$` maths drawn, as `Inline` in core/ui.py does on the server. Each part goes in as a text
+// node or as the textContent of a `span.math`, so the text never goes in as HTML. The rule of a `$` is pandoc's, as in md_html:
+// no space after the open `$` or before the close `$`, and no digit after the close.
+const MATH_IN = /(?<!\\)\$(?=\S)([^$\n]*?[^\s\\])\$(?!\d)/g;
+function abhyasaMath(el, s) {
+  s = String(s ?? ''); el.replaceChildren();
+  let at = 0;
+  for (const m of s.matchAll(MATH_IN)) {
+    if (m.index > at) el.append(s.slice(at, m.index));
+    el.append(Object.assign(document.createElement('span'), {className: 'math inline', textContent: m[1]}));
+    at = m.index + m[0].length;
+  }
+  if (at < s.length) el.append(s.slice(at));
+  render(el);
+  return el;
+}
 window.addEventListener('load', () => render());
 for (const ev of ['htmx:afterSwap', 'htmx:oobAfterSwap']) document.addEventListener(ev, () => render());   // the whole page: an outerHTML swap takes e.target out
 

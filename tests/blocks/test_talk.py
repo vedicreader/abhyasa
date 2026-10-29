@@ -168,7 +168,7 @@ def test_the_room_sees_the_points(mk, talk_fake, lr):
     "The audience window shows the points of a slide and never its notes or sources; the presenter window shows the notes and the sources."
     cl = mk(); tid = journey_talk(cl, journey_of(lr)); cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
     a = cl.get(f'/t/{tid}/audience?k={run["key"]}').text
-    assert 'class="points"' in a and '<li>The idea has one main step.</li>' in a
+    assert 'class="points"' in a and '<span class="">The idea has one main step.</span>' in a
     assert 'People mix up' not in a and 'Start with the main step' not in a and 'Watch for' not in a and 'My ranking notes' not in a
     p = cl.get(f'/t/{tid}/present').text
     assert 'People mix up the main step and the example.' in p and 'From your sources' in p and 'My ranking notes' in p
@@ -902,3 +902,71 @@ def test_no_present_on_a_side_walk_or_a_talk_walk(mk, talk_fake, lr):
     for w in (side, talk):
         assert 'Present this walk' not in cl.get(f'/w/{w}/1').text and 'Present this walk' not in cl.get(f'/w/{w}/2/done').text
     assert cl.get('/journeys').text.count('Present this walk') == 1   # the walk of `jid` only
+
+# --- maths in a slide, and the words question ---------------------------------------------------------------------
+
+TEX = r'$1/\sqrt{d_k}$'
+MATH = r'<span class="math inline">1/\sqrt{d_k}</span>'
+
+def maths_talk(cl, lr):
+    "A started talk whose first slide has maths in its title, section, points, notes, question and options; return (tid, run)."
+    tid, _ = started(cl, lr); t = dict(lr.talk(tid))
+    s = t['slides'][0]
+    s.update(title=f'Why scale by {TEX}', section=f'Scale by {TEX}', notes=f'Say why we divide by {TEX}.', beats=['body', *s.get('beats', [])])
+    s['show'] = dict(s['show'], body=[f'We divide the scores by {TEX}.', 'Large scores make softmax flat.'])
+    s['ask'] = dict(s['ask'], q=f'Why divide by {TEX}?', options=[f'To keep {TEX} small', 'To add noise', 'To sort', 'To skip'])
+    t['slides'][1]['title'] = f'Softmax over {TEX}'
+    lr.put_talk(t); cl.post(f'/t/{tid}/end'); cl.post(f'/t/{tid}/start')
+    return tid, lr.run(lr.talk(tid).live)
+
+def test_slide_maths_is_drawn(mk, talk_fake, lr):
+    "The title, the section, the points, the notes, the question, the options and the Next row of a slide have maths spans, not raw TeX."
+    cl = mk(); tid, run = maths_talk(cl, lr)
+    p, a = cl.get(f'/t/{tid}/present').text, cl.get(f'/t/{tid}/audience?k={run["key"]}').text
+    for page in (p, a):
+        assert f'Why scale by {MATH}' in page and f'Scale by {MATH}' in page
+        assert f'We divide the scores by {MATH}.' in page and f'scores by {TEX}' not in page
+        assert f'<h1>Why scale by {TEX}' not in page and f'Scale by {TEX}</p>' not in page
+    assert f'Why divide by {MATH}?' in p and f'To keep {MATH} small' in p and f'Say why we divide by {MATH}.' in p
+    assert f'Why divide by {TEX}?</p>' not in p and f'To keep {TEX} small</li>' not in p
+    nxt = p[p.index('id="next"'):]; nxt = nxt[:nxt.index('</div>\n', nxt.index('next-row'))]
+    assert f'Softmax over {MATH}' in nxt and f'Softmax over {TEX}' not in nxt   # the Next row
+    assert f'Why divide by {MATH}?' in cl.get(f'/t/{tid}').text   # the Ask the room cell of the editor
+
+def test_slide_text_is_safe(mk, talk_fake, lr):
+    "A title or a question with HTML in it shows no script on the presenter or the audience page."
+    cl = mk(); tid, _ = started(cl, lr); t = dict(lr.talk(tid)); s = t['slides'][0]
+    s.update(title='Why <script>alert(1)</script> $x$', section='<img src=x onerror=alert(1)>')
+    s['ask'] = dict(s['ask'], q='<iframe src="https://evil.example"></iframe> $y$?')
+    lr.put_talk(t); cl.post(f'/t/{tid}/end'); cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
+    for page in (cl.get(f'/t/{tid}/present').text, cl.get(f'/t/{tid}/audience?k={run["key"]}').text):
+        assert '<script>alert' not in page and '<img src=x' not in page and '<img src="x"' not in page and '<iframe' not in page
+        assert '<span class="math inline">x</span>' in page   # the maths still draws
+
+def test_words_question_reads_well():
+    "The words question names the idea as a question when the name is a question, and asks what it is when the name is a noun phrase."
+    from abhyasa.talk import words_q
+    assert words_q(f'Why scale by {TEX}') == f'Say in one or two sentences: why scale by {TEX}?'
+    assert words_q('How does attention work?') == 'Say in one or two sentences: how does attention work?'
+    assert words_q('Softmax') == 'Say in one or two sentences: what is Softmax?'
+
+def test_a_failed_choice_gives_a_good_words_question(lr):
+    "When the model gives no choice question, the words question reads well for a name that is a question."
+    from abhyasa.talk import ask_from_check
+    from abhyasa.llm import Fake
+    lr.put(f'Why scale by {TEX}', 'Divide the scores by the root of dk.', 'ml')
+    slug = next(c.slug for c in lr.concepts() if c.name.startswith('Why scale'))
+    a = ask_from_check(lr, Fake({}, dflt='not JSON'), slug)
+    assert a['kind'] == 'words' and a['q'] == f'Say in one or two sentences: why scale by {TEX}?'
+
+def test_the_slide_model_writes_the_words_question(lr):
+    "A slide with the fallback words question takes the question that the slide model writes; a question that you wrote stays."
+    from abhyasa.talk import fill_slide, words_q
+    from abhyasa.llm import Fake
+    from talk_data import SLIDE
+    ask = Fake({'You write one slide of a talk': SLIDE})
+    s = dict(id='s1', kind='idea', concept='ranking', title='Ranking', show=dict(passage='Order items by a score.'), beats=['passage'], notes='',
+             ask=dict(kind='words', q=words_q('Ranking'), most=80, src=dict(check='code')))
+    assert fill_slide(lr, ask, s)['ask'] == dict(kind='words', q=SLIDE['ask'], most=80, src=dict(check='code'))
+    mine = dict(s, ask=dict(s['ask'], q='Say how you rank two lists.'))
+    assert fill_slide(lr, ask, mine)['ask']['q'] == 'Say how you rank two lists.'
