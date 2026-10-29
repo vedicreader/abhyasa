@@ -200,3 +200,22 @@ def test_text_cannot_make_the_page_fetch(mk, fake):
     for html in (cl.post(f'/s/{sid}/answer', data=dict(answer=f'a score {bad}', confidence=50)).text, cl.get(f'/s/{sid}').text):
         assert 'subject=x' not in html and 'evil.com' not in html and 'tracker.example' not in html
     assert '<img alt="t">' in html
+
+class VaultNotes:
+    "A source with one passage in a vault document, and one in vedicreader."
+    name = 'vault'
+    def search(self, q, k=4):
+        from abhyasa.ground import passage
+        return [passage('vault:store', 'd1#3', 'Rasi Characteristics', 'Ranking orders items by score.', url='/tmp/rasi.pdf'),
+                passage('vedicreader', 'ashtadhyayi:1', 'Ashtadhyayi 1 2 · 1.2.63', 'Ranking orders a list of verses.')]
+
+def test_vault_source_opens_in_the_side_pane(lr, fake):
+    "A link to a vault document under a lesson opens the side pane; it is still a real link to a new tab. A vedicreader passage stays text."
+    from starlette.testclient import TestClient
+    from abhyasa.app import mk_app
+    cl = TestClient(mk_app(lr, fake, sources=[VaultNotes()], hosts=('testserver',)))
+    sid = start(cl)
+    r = cl.post(f'/s/{sid}/answer', data=dict(answer='its rank position', confidence=80)).text
+    a = re.search(r'<a [^>]*>Rasi Characteristics</a>', r).group(0)
+    assert 'href="/v/store/d1"' in a and 'data-pane="/v/store/d1?pane=1"' in a and 'target="_blank"' in a and 'data-title="Rasi Characteristics"' in a
+    assert 'Ashtadhyayi 1 2 · 1.2.63' in r and not re.search(r'<a [^>]*>Ashtadhyayi', r)

@@ -6,7 +6,7 @@ from fasthtml.common import *
 from mdhtml import md2mdhtml, mdhtml2html
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
-from abhyasa.core.pane import PaneHost, is_local, pane_url
+from abhyasa.core.pane import PaneHost, is_local, pane_url, pane_link
 from abhyasa.model import DEPTHS
 
 __all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago',
@@ -132,21 +132,26 @@ def _attr(tag, attr, val):
     if attr != 'class': return val
     return ' '.join(t for t in val.split() if t in ('math', 'inline', 'display') or t.startswith('language-')) or None
 
-def clean_html(h):
-    "`h` cut to what markdown means: no scripts, frames, media, forms, handlers or styles; links only to http, https and mailto; no relative URL."
-    return nh3.clean(h, tags=_TAGS, clean_content_tags=_DROP, attributes=_ATTRS, attribute_filter=_attr,
-                     url_schemes={'http', 'https', 'mailto', 'data'}, url_relative='deny', link_rel='noopener noreferrer')
+def clean_html(h, imgs=()):
+    """`h` cut to what markdown means: no scripts, frames, media, forms, handlers or styles; links only to http, https and mailto; no relative URL.
+    An image `src` that is one of the local paths in `imgs` stays: the page made each one and checked that its file is there."""
+    def f(t, a, v):   # with `imgs`, nh3 lets relative URLs through, so a link must name its scheme here
+        if a == 'src' and v in imgs: return v
+        if a == 'href' and not re.match(r'(https?|mailto):', re.sub(r'[\x00-\x20]+', '', v), re.I): return None
+        return _attr(t, a, v)
+    return nh3.clean(h, tags=_TAGS, clean_content_tags=_DROP, attributes=_ATTRS, attribute_filter=f if imgs else _attr,
+                     url_schemes={'http', 'https', 'mailto', 'data'}, url_relative='pass_through' if imgs else 'deny', link_rel='noopener noreferrer')
 
-def md_html(s):
-    "Safe HTML for markdown `s`: `$…$` is a `span.math`, `$$…$$` a `.math.display`, and a code fence a `pre` that keeps its lines."
+def md_html(s, imgs=()):
+    "Safe HTML for markdown `s`: `$…$` is a `span.math`, `$$…$$` a `.math.display`, and a code fence a `pre` that keeps its lines. `imgs` as in `clean_html`."
     s = str(s or '')
     try: h = str(mdhtml2html(md2mdhtml(s, math='dollars', frontmatter=False), refs='ids', auto_ids=False, hl=None))
     except Exception: h = f'<p>{html.escape(s)}</p>'
-    return clean_html(h)
+    return clean_html(h, imgs)
 
-def Md(s, cls='', **kw):
-    "Markdown with maths, rendered and cleaned here; `core.js` draws the maths."
-    return Div(NotStr(md_html(s)), cls=f'md {cls}'.strip(), **kw)
+def Md(s, cls='', imgs=(), **kw):
+    "Markdown with maths, rendered and cleaned here; `core.js` draws the maths. `imgs`: the local image paths that may show."
+    return Div(NotStr(md_html(s, imgs)), cls=f'md {cls}'.strip(), **kw)
 
 def DepthBar(floor, asked=None):
     "Five marks: filled to the floor, the asked depth marked."
@@ -281,11 +286,12 @@ def Part(label, *c, more=None, more_label='More', **kw):
     return Section(H2(label), *c, Details(Summary(more_label), *more, cls='more') if more else '', **kw)
 
 def Cites(links, label='From your sources'):
-    "Links to passages in your own sources: a vault document, a session, a notebook, a verse."
+    "Links to passages in your own sources: a vault document, a session, a notebook, a verse. A page of this app opens in the side pane."
     if not links: return ''
     def href(l):
         if l.get('url', '').startswith('http'): return l['url']
         if l.get('src', '').startswith('vault:'): return f"/v/{l['src'][6:]}/{str(l.get('ref', '')).split('#')[0]}"
     where = lambda s: 'in your vault' if str(s).startswith('vault:') else s   # a shelf name is a machine name
-    item = lambda l: Li(A(l['title'], href=h) if (h := href(l)) else Span(l['title']), ' ', Span(where(l['src']), cls='mute'))
+    link = lambda l, h: pane_link(l['title'], h, l['title']) if is_local(h) else A(l['title'], href=h) if h else Span(l['title'])
+    item = lambda l: Li(link(l, href(l)), ' ', Span(where(l['src']), cls='mute'))
     return Div(Span(label, cls='lbl'), Ul(*map(item, links), cls='plain cites'), cls='cites')

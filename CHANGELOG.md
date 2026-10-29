@@ -19,6 +19,10 @@
 - Search gives the number of hits that you ask for when the shelf has them.
 - Walks from links: a folder such as `go` or `ui` is not a language folder.
 - Walks from links: a redirect to a folder higher on the same host keeps the folder of the link.
+- Sources under a lesson: a link to a vault document opens the document in the side pane. A cmd-click still opens a new tab.
+- Vault documents: the page shows the images of a PDF from the assets folder of that document. An image that is not there does not show.
+- Add: a web link or an arXiv id in the vault document field makes a walk from the link. A vault name that matches no document gives a plain message.
+- Add: a paper link (arXiv or PDF) is read in full. The wait line says "Reading the paper", and the page count to read does not show for a paper.
 - Concepts: the page shows your concepts as a tree, with groups of two levels at most under each subject, and a count on each group. The find box finds a concept in any group and opens its branch. "Sort my concepts" asks the tutor to put your concepts in groups, and you accept or cancel the tree before it is saved (setting: Concepts in one sort). A new concept gets a group from the groups that the subject has. On a concept page, the Group field moves the concept by hand, and the tutor does not move it after that.
 - Talks: present a walk to a group. Each idea is a slide, the tutor note is your speaker note, and the check is a question for the room.
 - Talks: present a plain journey, too. "Present this journey" makes a talk from its steps, in their order: the first steps, up to the Ideas in a walk setting (12 by default). Skipped steps are left out. The next time, open the same talk, or make it again as a new talk with the date in its title. The editor says when the journey changed after the talk was made.

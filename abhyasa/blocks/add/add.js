@@ -11,4 +11,14 @@
     pointer = false;
   };
   form.addEventListener('change', e => { if (e.target.name === 'kind') show(); });
+  // A paper (an arXiv id or address, or a PDF link) is read in full: the count of pages to read goes, and one muted line says so.
+  // The server also ignores the count for a paper (is_paper in sources.py).
+  const PAPER = /^\s*(?:arxiv:\s*)?(?:\d{4}\.\d{4,5}(?:v\d+)?|(?:https?:\/\/)?(?:www\.|export\.)?arxiv\.org\/(?:abs|pdf)\/\S+|https?:\/\/[^\s?#]+\.pdf(?:[?#]\S*)?)\s*$/i;
+  const url = form.querySelector('input[name=url]'), pages = form.querySelector('.add-link .pages'), note = form.querySelector('.add-link .paper-note');
+  const paper = () => {
+    if (!url || !pages || !note) return;
+    const on = PAPER.test(url.value);
+    pages.hidden = on; pages.querySelector('input').disabled = on; note.hidden = !on;
+  };
+  url?.addEventListener('input', paper); paper();
 })();

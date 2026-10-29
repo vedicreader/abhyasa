@@ -61,6 +61,23 @@ def test_page_with_rh_draws_the_pane_open(mk):
         assert 'rh-pane' not in t and 'rh-open' not in t, bad
     assert 'rh-pane' not in cl.get('/', params=dict(rh='/concepts', pane='1')).text   # no pane in a pane
 
+def test_source_links_open_the_pane():
+    "A vault source is a pane link; a web source stays a plain link; a source with no page stays text."
+    from abhyasa.core import Cites
+    h = to_xml(Cites([dict(title='Rasi Characteristics', src='vault:store', ref='d1#4'), dict(title='Notes', src='notes', ref='n', url='https://example.org/n'),
+                      dict(title='Ashtadhyayi 1 2', src='vedicreader', ref='a:1', url='')]))
+    assert 'href="/v/store/d1"' in h and 'data-pane="/v/store/d1?pane=1"' in h and 'data-title="Rasi Characteristics"' in h
+    assert h.count('data-pane') == 1 and 'href="https://example.org/n"' in h and '<span>Ashtadhyayi 1 2</span>' in h
+
+def test_vault_page_in_the_pane(mk, lr):
+    "The document page in the pane has no nav; a page with the document in `rh` names it in the pane bar."
+    d = lr.vault.add([(0, 'Aries is a fire sign.')], 'Rasi Characteristics', source='/tmp/rasi.pdf', kind='pdf')['doc_id']
+    cl = mk()
+    t = cl.get(f'/v/store/{d}?pane=1').text
+    assert 'Aries is a fire sign' in t and '<nav' not in t and 'in-pane' in t
+    t = cl.get(f'/?rh=/v/store/{d}').text
+    assert f'src="/v/store/{d}?pane=1"' in t and '<b>Rasi Characteristics</b>' in t
+
 def test_pane_keys_are_in_the_table():
     assert ('Side pane', '⌥Z', 'Back to the paper: close the side pane') in KEYS
     assert ('Side pane', 'esc', 'Close the side pane') in KEYS

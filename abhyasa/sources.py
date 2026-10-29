@@ -6,10 +6,10 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'READERS', 'PLAIN', 'LOCALE', 'LANGS',
-           'SHORT', 'EMPTY', 'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group', 'extract_prompt', 'doc_pages',
-           'locate', 'figure_path', 'placement', 'extract', 'from_vault', 'sort_prompt', 'propose_groups',
+           'SHORT', 'EMPTY', 'ARXIV_LINK', 'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group', 'extract_prompt',
+           'doc_pages', 'locate', 'figure_path', 'placement', 'extract', 'from_vault', 'sort_prompt', 'propose_groups',
            'apply_groups', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError', 'link_kind',
-           'reading_order', 'file_link', 'plain', 'from_vedicreader']
+           'reading_order', 'file_link', 'as_link', 'is_paper', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re
@@ -112,13 +112,13 @@ def locate(pages:list, quote:str):
 IMG_SUFFIXES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 
 def figure_path(lr:Learning, source:str, link:str):
-    "The path of the image `link` of the document `source`, from the assets folder. None when the file is not there, is outside that folder or is not an image."
+    "The path of the image `link` of the document `source`, from the assets folder. None when the file is not there, is outside the folder of that document or is not an image."
     if not (source and link): return None
     root = lr.vault.assets().resolve()
     for name in (Path(source).stem, source.rsplit('/', 1)[-1].split('?')[0]):   # the folder of a file, or of a link: the vault names a PDF link by its last part
-        try: p = (lr.vault.assets(name)/str(link)).resolve()
+        try: base = lr.vault.assets(name).resolve(); p = (base/str(link)).resolve()
         except (ValueError, OSError): continue
-        if p.suffix.lower() in IMG_SUFFIXES and p.is_file() and p.is_relative_to(root): return str(p.relative_to(root))
+        if base.parent == root and p.suffix.lower() in IMG_SUFFIXES and p.is_file() and p.is_relative_to(base): return str(p.relative_to(root))
 
 
 # %% ../nbs/04_sources.ipynb #w006
@@ -400,6 +400,22 @@ def file_link(lr:Learning, url:str, max_pages:int=None, read=None, final=None) -
         raise LinkError('abhyasa found almost no text on these pages. A page that needs a browser to show its text gives none.')
     return reading_order(docs, '\n\n'.join(t for _, t in doc_pages(lr, docs[0].doc_id, docs[0].shelf).pages))[:cap]
 
+
+# %% ../nbs/04_sources.ipynb #lk17
+ARXIV_LINK = re.compile(r'(?:https?://)?(?:www\.|export\.)?arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5}(?:v\d+)?)(?:\.pdf)?/?', re.I)
+
+def as_link(s:str) -> str|None:
+    "The link in the field `s`: a web link, an arXiv id, `arxiv:<id>` or an arXiv address. None for anything else, such as a vault name."
+    s = re.sub(r'^arxiv:\s*', '', (s or '').strip(), flags=re.I)
+    if ARXIV_ID.fullmatch(s) or re.fullmatch(r'https?://\S+', s, re.I): return s
+    return f'https://arxiv.org/abs/{m[1]}' if (m := ARXIV_LINK.fullmatch(s)) else None
+
+def is_paper(url:str) -> bool:
+    "Whether `url` is one paper that abhyasa reads in full: an arXiv id or address, or a link to a PDF file."
+    u = (url or '').strip()
+    if ARXIV_ID.fullmatch(u) or ARXIV_LINK.fullmatch(u): return True
+    try: return urlparse(u).scheme in ('http', 'https') and urlparse(u).path.lower().endswith('.pdf')
+    except ValueError: return False
 
 # %% ../nbs/04_sources.ipynb #c020
 VR_ROOT = Path(os.getenv('VEDICREADER_ROOT', Path.home()/'code/personal/orgs/vedicreader'))
