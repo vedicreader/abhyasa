@@ -13,7 +13,7 @@
   if (!g.nodes.length) { stage.append(Object.assign(document.createElement('p'), {className: 'hint note', textContent: 'Each idea that you learn shows here. Start with a walk.'})); return; }
 
   // ---- the levers and what is saved -------------------------------------------------------------------------------
-  const DEF = {mode: 'force', spacing: 50, link: 50, push: 50, size: 50, sizeBy: 'seen', colorBy: 'floor', labels: 'all',
+  const DEF = {mode: 'force', spacing: 50, link: 50, push: 50, size: 50, sizeBy: 'seen', colorBy: 'floor', labels: 'all', groupBy: 'subject',
                floorLo: 0, floorHi: 5, dueOnly: false, hideUnseen: false, related: true, steps: 1, frozen: false, subs: {}};
   let store; try { store = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { store = {}; }
   store.pos ||= {}; store.pins ||= {}; store.cam ||= {};
@@ -28,7 +28,7 @@
   const now = Date.now() / 1000, nodes = g.nodes, byId = new Map(nodes.map(n => [n.id, n]));
   const links = g.links.map(l => ({kind: l.kind === 'gap' ? 'prereq' : l.kind, s: byId.get(l.source), t: byId.get(l.target)})).filter(l => l.s && l.t).map(l => ({...l, source: l.s, target: l.t}));
   const subjects = [...new Set(nodes.map(n => n.subject || 'general'))];
-  nodes.forEach(n => { n.subject ||= 'general'; n.days = n.seen && n.due ? (n.due - now) / DAY : null; n.nb = new Set(); });
+  nodes.forEach(n => { n.subject ||= 'general'; n.gkey = n.group?.length ? `${n.subject} › ${n.group[0]}` : `${n.subject} · not sorted`; n.days = n.seen && n.due ? (n.due - now) / DAY : null; n.nb = new Set(); });
   links.forEach(l => { l.s.nb.add(l.t); l.t.nb.add(l.s); });
   const isDue = n => n.days !== null && n.days <= 0, learned = n => n.floor > 0 || n.seen > 0;
   const dueness = n => n.days === null ? 0 : n.days <= 0 ? 1 : Math.max(0, 1 - n.days / 14);
@@ -63,6 +63,8 @@
   };
   themed();
   const subCol = s => C.subs[subjects.indexOf(s) % C.subs.length];
+  // A cluster is a subject, or with Group by group a subject and the first level of its group (for example `jyotisha › nakshatras`).
+  const ckey = n => S.groupBy === 'group' ? n.gkey : n.subject, clusters = () => [...new Set(nodes.map(ckey))];
   const fill = n => S.colorBy === 'subject' ? subCol(n.subject)
     : S.colorBy === 'understanding' ? (C.state[n.state] || C.raised)
     : S.colorBy === 'due' ? (n.days === null ? C.raised : C.due(Math.min(1, Math.max(0, n.days / 14))))
@@ -105,23 +107,23 @@
   const sim = d3.forceSimulation().stop().on('tick', dirty).on('end', keep);
   const forces = () => {
     const groups = S.mode === 'groups', k = sp(), centre = groupCentres();
-    sim.nodes(vis).velocityDecay(.4)
-      .force('link', d3.forceLink(visLinks).distance(l => linkLen() * (l.kind === 'related' ? 1.3 : 1)).strength(l => (l.kind === 'related' ? .3 : .7) * (groups && l.s.subject !== l.t.subject ? .15 : 1) / Math.min(l.s.nb.size, l.t.nb.size)))
+    sim.force('x', null).force('y', null).nodes(vis).velocityDecay(.4)   // the old centres do not know the new clusters
+      .force('link', d3.forceLink(visLinks).distance(l => linkLen() * (l.kind === 'related' ? 1.3 : 1)).strength(l => (l.kind === 'related' ? .3 : .7) * (groups && ckey(l.s) !== ckey(l.t) ? .15 : 1) / Math.min(l.s.nb.size, l.t.nb.size)))
       .force('charge', d3.forceManyBody().strength(charge() * (groups ? .6 : 1)).distanceMax(500 * k))
-      .force('x', d3.forceX(n => groups ? centre.get(n.subject)[0] : 0).strength(groups ? .14 : .05))
-      .force('y', d3.forceY(n => groups ? centre.get(n.subject)[1] : 0).strength(groups ? .14 : .05))
+      .force('x', d3.forceX(n => groups ? centre.get(ckey(n))[0] : 0).strength(groups ? .14 : .05))
+      .force('y', d3.forceY(n => groups ? centre.get(ckey(n))[1] : 0).strength(groups ? .14 : .05))
       .force('collide', d3.forceCollide(n => rad(n) + 3 * k));
     const pins = pinned(); vis.forEach(n => { n.fx = n.fy = null; if (pins.has(n.id) && store.pos[S.mode]?.[n.id]) [n.fx, n.fy] = store.pos[S.mode][n.id]; });
   };
   const groupCentres = () => {   // the subjects on a circle, far enough apart for their sizes
-    const subs = subjects.filter(s => vis.some(n => n.subject === s)), size = s => Math.sqrt(vis.filter(n => n.subject === s).length);
+    const subs = clusters().filter(s => vis.some(n => ckey(n) === s)), size = s => Math.sqrt(vis.filter(n => ckey(n) === s).length);
     const R = subs.length < 2 ? 0 : d3.sum(subs, size) * 24 * sp() / Math.PI;
     return new Map(subs.map((s, i) => [s, [R * Math.cos(2 * Math.PI * i / subs.length - Math.PI / 2), R * Math.sin(2 * Math.PI * i / subs.length - Math.PI / 2)]]));
   };
   const pathTargets = () => {   // a block for each subject: one column for each step of prereqs, then a grid of the rest
     const k = sp(), col = 190 * k, row = 26 * k, aspect = (cv.clientWidth || 900) / (cv.clientHeight || 600), blocks = [];
-    for (const s of subjects) {
-      const ns = vis.filter(n => n.subject === s); if (!ns.length) continue;
+    for (const s of clusters()) {
+      const ns = vis.filter(n => ckey(n) === s); if (!ns.length) continue;
       const T = new Map(), caps = [[-12, 0, s, 'band']], linked = ns.filter(n => n.linked), loose = ns.filter(n => !n.linked).sort((a, b) => a.name.localeCompare(b.name));
       let top = row * 1.4, wide = 0;
       if (linked.length) {
@@ -170,7 +172,7 @@
   const bary = (n, at) => { const p = [...n.nb].filter(m => at.has(m) && linkKind(m, n) === 'prereq'); return p.length ? d3.mean(p, m => at.get(m)) : 0; };
   const ringTargets = () => {   // a slice for each subject, sized by its count; rings go out by prereq steps, then one band for the rest
     const T = new Map(), k = sp(), gap = 30 * k, slot = 24 * k, r0 = 90 * k, total = vis.length;
-    const subs = subjects.filter(s => vis.some(n => n.subject === s)).map(s => ({s, ns: vis.filter(n => n.subject === s)}));
+    const subs = clusters().filter(s => vis.some(n => ckey(n) === s)).map(s => ({s, ns: vis.filter(n => ckey(n) === s)}));
     let a0 = -Math.PI / 2, maxR = r0; captions = [];
     subs.forEach(o => { o.a0 = a0; o.wedge = 2 * Math.PI * o.ns.length / total; o.pad = subs.length > 1 ? Math.min(.12, o.wedge * .1) : 0; a0 += o.wedge; });
     const put = (o, grp, ring) => {   // fill rings from `ring` out, as many on each ring as there is room for; return the next free ring
@@ -274,7 +276,7 @@
   function draw() {
     const t0 = performance.now(), L = lit(), k = t.k;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-    if (S.mode === 'groups') regions();
+    regions();
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(k, k);
     // the links: prereqs are lines with an arrow, related links are dashes
     const curve = S.mode === 'path';
@@ -319,18 +321,28 @@
     labels(L);
     const d = performance.now() - t0; stats.frames++; stats.draw = d; stats.sum += d; stats.max = Math.max(stats.max, d);
   }
-  function regions() {   // a soft tint under each subject in the Groups layout; one colour does not add up where it overlaps
-    const q = 4, w = Math.ceil(W / q), h = Math.ceil(H / q);
+  let regionList = [];
+  function regions() {   // a soft tint and a label for each cluster: Groups, Path, and Free with Colour by subject; one colour does not add up where it overlaps
+    regionList = [];
+    const on = S.mode === 'groups' || S.mode === 'path' || (S.mode === 'force' && S.colorBy === 'subject');
+    if (!on) { if (S.mode === 'force') captions = []; return; }
+    const q = 4, w = Math.ceil(W / q), h = Math.ceil(H / q), R = 30 * sp(), box = S.mode === 'path', groups = d3.groups(vis, ckey);
     if (region.width !== w || region.height !== h) { region.width = soft.width = w; region.height = soft.height = h; }
     rctx.setTransform(1, 0, 0, 1, 0, 0); rctx.clearRect(0, 0, w, h);
     rctx.setTransform(t.k / q, 0, 0, t.k / q, t.x / q, t.y / q);
-    const R = 30 * sp();
-    for (const n of vis) { rctx.beginPath(); rctx.arc(n.x, n.y, R, 0, 2 * Math.PI); rctx.fillStyle = subCol(n.subject); rctx.fill(); }
+    for (const [key, ns] of groups) {
+      rctx.fillStyle = subCol(ns[0].subject); rctx.beginPath();
+      if (box) {   // Path: a rounded box round the block, as the nodes sit in columns
+        const x0 = d3.min(ns, n => n.x) - 16, y0 = d3.min(ns, n => n.y) - 14, x1 = d3.max(ns, n => n.x) + 16, y1 = d3.max(ns, n => n.y) + 14;
+        rctx.roundRect(x0, y0, x1 - x0, y1 - y0, 14);
+      } else for (const n of ns) { rctx.moveTo(n.x + R, n.y); rctx.arc(n.x, n.y, R, 0, 2 * Math.PI); }
+      rctx.fill();
+      regionList.push({key, n: ns.length});
+    }
     // blur at a quarter of the size, where it costs little, then scale it up; the scale-up smooths it too
     sctx.clearRect(0, 0, w, h); sctx.filter = `blur(${Math.max(1, 2.5 * t.k)}px)`; sctx.drawImage(region, 0, 0); sctx.filter = 'none';
     ctx.save(); ctx.globalAlpha = C.dark ? .16 : .12; ctx.imageSmoothingEnabled = true; ctx.drawImage(soft, 0, 0, w * q, h * q); ctx.restore();
-    const groups = d3.groups(vis, n => n.subject);
-    captions = groups.map(([s, ns]) => [d3.mean(ns, n => n.x), d3.min(ns, n => n.y) - R * .9, s, 'group']);
+    if (S.mode !== 'path') captions = groups.map(([s, ns]) => [d3.mean(ns, n => n.x), d3.min(ns, n => n.y) - R * .9, s, 'group']);   // the label sits above its region
   }
   function labels(L) {   // labels at a fixed screen size; a label that would cover another one is left out
     const want = S.labels, k = t.k, cell = 40, grid = new Map(), placed = [];
@@ -423,7 +435,7 @@
   const $ = name => panel.querySelector(`[name="${name}"]`);
   const show = () => {   // the levers show the saved settings
     panel.querySelectorAll('[name=mode]').forEach(r => r.checked = r.value === S.mode);
-    for (const k of ['spacing', 'link', 'push', 'size', 'steps', 'sizeBy', 'colorBy', 'labels', 'floorLo', 'floorHi']) $(k).value = S[k];
+    for (const k of ['spacing', 'link', 'push', 'size', 'steps', 'sizeBy', 'colorBy', 'labels', 'groupBy', 'floorLo', 'floorHi']) $(k).value = S[k];
     for (const k of ['dueOnly', 'hideUnseen', 'related']) $(k).checked = S[k];
     subjects.forEach(s => { const b = $('sub:' + s); if (b) b.checked = S.subs[s] !== false; });
     $('freeze').firstChild.textContent = S.frozen ? 'Let it move' : 'Freeze';
@@ -444,7 +456,7 @@
     el.textContent = focus ? `Shows ${focus.name} and what is ${S.steps} ${S.steps > 1 ? 'steps' : 'step'} away. ⎋ stops it.`
       : picked ? `Press E to show only ${picked.name} and its neighbours.` : 'Point at a concept and press E, or find a concept.';
   };
-  const relayout = ['mode', 'spacing', 'floorLo', 'floorHi', 'dueOnly', 'hideUnseen', 'related', 'steps'];
+  const relayout = ['mode', 'groupBy', 'spacing', 'floorLo', 'floorHi', 'dueOnly', 'hideUnseen', 'related', 'steps'];
   panel.addEventListener('input', e => {
     const el = e.target, k = el.name; if (!k || k === 'q') return;
     if (k.startsWith('sub:')) S.subs[k.slice(4)] = el.checked;
@@ -541,5 +553,5 @@
   ready = true;
   root.focus({preventScroll: true});
   if (motion && (rose.length || fresh.length)) setTimeout(() => { pulse = {t0: performance.now(), ring: new Set(rose), fade: new Set(fresh)}; dirty(); }, tween ? tween.ms : 150);
-  window.abhyasaGraph = {nodes, stats, rose: rose.map(n => n.id), fresh: fresh.map(n => n.id), get pulsing() { return !!pulse; }, get t() { return t; }, get mode() { return S.mode; }, get vis() { return vis; }, get moving() { return !!tween || sim.alpha() > sim.alphaMin(); }};
+  window.abhyasaGraph = {nodes, get regions() { return regionList.map(r => ({...r, label: !!captions.find(c => c[2] === r.key)})); }, get captions() { return captions.map(c => c[2]); }, stats, rose: rose.map(n => n.id), fresh: fresh.map(n => n.id), get pulsing() { return !!pulse; }, get t() { return t; }, get mode() { return S.mode; }, get vis() { return vis; }, get moving() { return !!tween || sim.alpha() > sim.alphaMin(); }};
 })();

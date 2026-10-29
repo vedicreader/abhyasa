@@ -338,7 +338,7 @@ def graph(self:Learning, subject:str=None) -> dict:
     "Nodes and links (prereq, related, gap) for a graph view. A link to a slug that has no concept is dropped."
     cs = self.concepts(subject)
     have = set(cs.attrgot('slug'))
-    nodes = [dict(id=c.slug, name=c.name, subject=c.subject, floor=c.floor, ceiling=c.ceiling, due=c.due, seen=c.seen) for c in cs]
+    nodes = [dict(id=c.slug, name=c.name, subject=c.subject, floor=c.floor, ceiling=c.ceiling, due=c.due, seen=c.seen, group=clean_group(c.get('group'), c.subject)) for c in cs]
     links = [dict(source=p, target=c.slug, kind='prereq') for c in cs for p in c.prereqs if p in have]
     links += [dict(source=c.slug, target=r, kind='related') for c in cs for r in c.related if r in have and c.slug < r]
     links += [dict(source=g, target=c.slug, kind='gap') for c in cs for g in c.get('gaps') or () if g in have]

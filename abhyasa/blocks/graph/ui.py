@@ -38,6 +38,7 @@ def Levers(subjects):
                  _slide('size', 'Node size')),
             _sec('Look', Label(Span('Size by'), _pick('sizeBy', [('even', 'the same'), ('seen', 'times seen'), ('due', 'how due'), ('depth', 'prereq steps')], 'seen'), cls='pick'),
                  Label(Span('Colour by'), _pick('colorBy', [('floor', 'floor'), ('understanding', 'understanding'), ('subject', 'subject'), ('due', 'due')], 'floor'), cls='pick'),
+                 Label(Span('Group by'), _pick('groupBy', [('subject', 'subject'), ('group', 'group')], 'subject'), cls='pick'),
                  Label(Span('Labels'), _pick('labels', [('all', 'all that fit'), ('learned', 'learned only'), ('hover', 'on hover')], 'all'), cls='pick'), keys='W'),
             _sec('Show', Div(*[_tick(f'sub:{s}', s, True) for s in subjects], cls='subs'),
                  Label(Span('Floor from'), _pick('floorLo', floors, '0'), cls='pick'),

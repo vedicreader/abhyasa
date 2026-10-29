@@ -934,6 +934,30 @@ def gr1_the_grips_show_and_resize(pg, w):
     assert pg.evaluate(INSIDE) == 0, 'a node is outside the canvas after the panel changes'
     pg.set_viewport_size(dict(width=1280, height=900))
 
+def g2_clusters_have_labels_and_regions(pg, w):
+    "In Groups and Path, each cluster has a label and a region: two subjects make two, and Group by group splits a subject into its groups. Free shows them with Colour by subject."
+    for slug, name, sub, grp in (('ashwini', 'Ashwini', 'jyotisha', ['Nakshatras']), ('bharani', 'Bharani', 'jyotisha', ['Nakshatras']), ('mesha', 'Mesha', 'jyotisha', ['Rashis']), ('vrishabha', 'Vrishabha', 'jyotisha', ['Rashis'])):
+        w.lr.put(name, f'{name} in jyotisha.', sub, slug=slug); w.lr.set_group(slug, grp)
+    pg.set_viewport_size(dict(width=1400, height=900)); pg.goto(w.B + '/graph')
+    pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 1500)
+    st = lambda: pg.evaluate("[window.abhyasaGraph.regions.map(r => r.key).sort(), window.abhyasaGraph.regions.every(r => r.label)]")
+    def go(mode, group_by):
+        pg.select_option('#levers select[name=groupBy]', group_by); pg.keyboard.press('Escape')
+        pg.focus('#graph'); pg.keyboard.press(mode); settle(pg, 1800)
+    pg.evaluate("localStorage.removeItem('abhyasa.graph.v1')"); pg.reload(); pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 1500)
+    pg.click('#levers details.adjust > summary')
+    go('Digit4', 'subject'); keys, labelled = st()
+    assert keys == ['general', 'jyotisha', 'ml'] and labelled, keys
+    go('Digit4', 'group'); keys, labelled = st()
+    assert 'jyotisha › Nakshatras' in keys and 'jyotisha › Rashis' in keys and 'ml · not sorted' in keys and labelled, keys
+    go('Digit2', 'group'); keys, labelled = st()
+    assert 'jyotisha › Nakshatras' in keys and 'jyotisha › Rashis' in keys and labelled, ('path', keys)
+    go('Digit2', 'subject'); assert st()[0] == ['general', 'jyotisha', 'ml'], st()
+    go('Digit1', 'subject'); assert st()[0] == [], 'Free shows no regions with Colour by floor'
+    pg.select_option('#levers select[name=colorBy]', 'subject'); settle(pg, 500)
+    assert st()[0] == ['general', 'jyotisha', 'ml'], st()
+    pg.set_viewport_size(dict(width=1280, height=900))
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
@@ -943,7 +967,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
           s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field, r1_start_forms_show_no_error, ct1_concept_tree,
           dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason,
-          g1_graph_uses_the_window_and_fits, gr1_the_grips_show_and_resize]
+          g1_graph_uses_the_window_and_fits, gr1_the_grips_show_and_resize, g2_clusters_have_labels_and_regions]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
