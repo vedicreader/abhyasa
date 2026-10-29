@@ -13,15 +13,16 @@ from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper
-from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk
+from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
+from abhyasa.research import to_research, wants_source
 from abhyasa.tutor import NoLesson
 from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said
 from . import ui
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
-CAPS = ('learning', 'tutor', 'ask', 'pool', 'sessions', 'sources')
+CAPS = ('learning', 'tutor', 'ask', 'pool', 'sessions', 'sources', 'research')
 FIGURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a step (spec 6.3), empty until the step is used
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
@@ -133,6 +134,13 @@ def connect(app, ctx):
         j = lr.walk_step(j.id, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
         return reply(j, i, r), *ui.Filled(j, walk_state(j), by(), i)   # the dot of the idea fills in the outline
 
+    looking, look_for = ctx.research.looking, ctx.research.look_for   # research runs on its own pool; the request does not wait
+
+    @hook('walk_made')
+    def research_new(j):
+        "After a topic walk is made: look for a web source for each step with no passage, up to `research.per_walk` steps."
+        if (j := lr.journey(j['id'])) and j.get('mode') == 'walk': look_for(j.id, to_research(j))
+
     def paper_said(docs):
         "The wait line of a paper: its page count when the vault knows it."
         try: n = (lr.vault if docs[0].shelf == 'store' else lr.vault.shelf(docs[0].shelf)).doc(docs[0].doc_id)['pages']
@@ -185,6 +193,7 @@ def connect(app, ctx):
         if not j.steps:
             lr.drop_journey(j.id)
             return P('The tutor found no ideas in this document.' if ref or text.strip() else 'The tutor found no steps for this topic.', cls='req-err')
+        if topic.strip() and not ref and not text.strip(): research_new(j)
         return Response(headers={'HX-Redirect': ui.at(Routes.one, j.id)})
 
     def one(jid:str):
@@ -196,8 +205,9 @@ def connect(app, ctx):
     def plan(jid:str, i:int, act:str, way:str=''):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         if act == 'drop':
-            j.steps.pop(i)
-            j = lr.put_journey(j)
+            with _jlock(jid):   # under the lock of the walk, so a source that research writes now stays
+                j = lr.journey(jid); j.steps.pop(i)
+                j = lr.put_journey(j)
         elif act == 'check' and way in (TOOL_WAYS if j.get('tool') else WALK_WAYS):
             kind = CHECK_KIND.get(way, 'short')
             floor = (lr.concept(j.steps[i]['slug']) or {}).get('floor') or 0
@@ -207,7 +217,8 @@ def connect(app, ctx):
 
     def start(jid:str):
         if not (j := walk_of(jid)): return missing()
-        if not j.get('started'): j = lr.put_journey({**j, 'started': time.time(), 'steps': [{**RUN, **s} for s in j.steps]})
+        with _jlock(jid):   # read and write under the lock of the walk, so a source that research writes now stays
+            if not (j := lr.journey(jid)).get('started'): j = lr.put_journey({**j, 'started': time.time(), 'steps': [{**RUN, **s} for s in j.steps]})
         sitting(j)
         return go(jid, walk_state(lr.journey(jid)).current or 0)
 
@@ -218,7 +229,7 @@ def connect(app, ctx):
             ahead(j, i + 1)
         b = by()
         page = ui.StepPage(j, walk_state(j), b, i, needs=run_hook('step_needs', j, i, b.get(j.steps[i]['slug'])), back=back_to(j),
-                       present=run_hook('walk_actions', j, quiet=True))
+                       present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
 
@@ -228,6 +239,19 @@ def connect(app, ctx):
         try:
             with writing[jid, i]: return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
         except Exception: return ''
+
+    def source(jid:str, i:int):
+        "The passage of step `i` as it is now. When a web source came, the note loads again, so it explains the passage. A GET only reads."
+        if not (j := walk_of(jid, i)): return Response(status_code=404)
+        s = j.steps[i]
+        out = ui.Passage(j, s, by().get(s['slug']), i, looking(jid, i))
+        return (out, ui.NoteSlot(jid, i, oob=True)) if (s.get('read') or {}).get('src') == 'web' else out
+
+    def find_source(jid:str, i:int):
+        "Find a source: look for a web source for step `i` on the pool, also after a search that found nothing. Off in Settings, it does nothing."
+        if not (j := walk_of(jid, i)): return Response(status_code=404)
+        if val('research.on') and wants_source(j.steps[i]): look_for(jid, [i])
+        return source(jid, i)
 
     def check(jid:str, i:int):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
@@ -460,3 +484,5 @@ def connect(app, ctx):
     app.post(Routes.next)(next_)
     app.get(Routes.done)(done)
     app.get(Routes.img)(img)
+    app.get(Routes.source)(source)
+    app.post(Routes.source)(find_source)

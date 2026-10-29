@@ -31,6 +31,15 @@ from walk_data import EXTRACT_REPLY, EXERCISE, GOOD, add_paper
 
 cfg['leela'] = ''
 
+import abhyasa.research   # research reads a fake web: no check searches the web or fetches a page
+from fastcore.basics import AttrDict
+BLOOM = 'https://example.org/bloom-filter'
+BLOOM_PAGE = ('# Bloom filters\n\nHome · Blog\n\nA Bloom filter is a small bit array that tells you if an item may be in a set. '
+              'It can say yes for an item that is not in the set, but it never says no for an item that is in the set.\n')
+BLOOM_QUOTE = 'A Bloom filter is a small bit array that tells you if an item may be in a set.'
+abhyasa.research.web_search = lambda q, n: [dict(title='Local', href='http://127.0.0.1:5078/'), dict(title='Bloom filters', href=BLOOM)][:n]
+abhyasa.research.web_fetch = lambda url: AttrDict(url=url, title='Bloom filters explained', text={BLOOM: BLOOM_PAGE}[url])
+
 def grader(p, sp):
     "A grade from the words of the answer: `faster` is a miss with a gap, `rank` or `weight` a pass, anything else a miss."
     ans = p.split("Learner's answer:")[1].split("Learner's think-aloud:")[0].lower()
@@ -986,6 +995,23 @@ def g2_clusters_have_labels_and_regions(pg, w):
     assert st()[0] == ['general', 'jyotisha', 'ml'], st()
     pg.set_viewport_size(dict(width=1280, height=900))
 
+def rs1_topic_walk_shows_a_web_source(pg, w):
+    "A topic walk opens at once. The step says that the tutor looks for a source, then shows the quote From the web, with the vault copy in the pane and the page in a new tab."
+    FAKE.rules.update({'You plan a learning path': dict(title='Bloom filters', subject='cs', steps=[dict(name='Bloom filter', statement='A Bloom filter tests if an item may be in a set.',
+                                                                                                    slug='', why='The goal.', needs=[], ways=['words'])]),
+                       'You find one passage': dict(passage=BLOOM_QUOTE)})
+    r = w.rq.post(f'{w.B}/walk/new', form=dict(topic='how a bloom filter works'), headers={'HX-Request': 'true'}, max_redirects=0)
+    jid = r.headers['hx-redirect'].split('/')[-1]
+    w.rq.post(f'{w.B}/w/{jid}/start', max_redirects=0)
+    pg.goto(f'{w.B}/w/{jid}/0')
+    src = pg.wait_for_selector('#passage .src.web', timeout=20000); settle(pg)
+    assert BLOOM_QUOTE in pg.text_content('#passage') and src.text_content().startswith('From the web: example.org · Bloom filters explained'), src.text_content()
+    doc = w.lr.journey(jid).steps[0]['read']['doc_id']
+    a = pg.query_selector(f'#passage .src.web a[data-pane="/v/store/{doc}?pane=1"]')
+    o = pg.query_selector(f'#passage .src.web a[href="{BLOOM}"]')
+    assert a and o and o.get_attribute('target') == '_blank' and 'noopener' in o.get_attribute('rel'), src.inner_html()
+    assert pg.is_visible('#passage .src.web') and "In the tutor's words" not in pg.text_content('main')
+
 def op1_open_check_survives_a_restart(pg, w):
     "Open a check, give one wrong try, type the next try, restart the server on the same vault, then send: the check grades with the first try kept, and no 409 shows."
     r = w.rq.post(f'{w.B}/walk/new', form=dict(text='A rank is a position in a list. Ranks from two lists can be compared.', title='Ranks after a restart'),
@@ -1012,7 +1038,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
           s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field, r1_start_forms_show_no_error, ct1_concept_tree,
           dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason,
-          g1_graph_uses_the_window_and_fits, gr1_the_grips_show_and_resize, g2_clusters_have_labels_and_regions,
+          g1_graph_uses_the_window_and_fits, gr1_the_grips_show_and_resize, g2_clusters_have_labels_and_regions, rs1_topic_walk_shows_a_web_source,
     op1_open_check_survives_a_restart]   # last: it restarts the server
 
 # --- the screens --------------------------------------------------------------------------------------------------

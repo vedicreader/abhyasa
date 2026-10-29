@@ -6,10 +6,10 @@ from fasthtml.common import *
 from mdhtml import md2mdhtml, mdhtml2html
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
-from abhyasa.core.pane import PaneHost, is_local, pane_url, pane_link
+from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
 from abhyasa.model import DEPTHS
 
-__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago',
+__all__ = ['Cites', 'WebSource', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward']
 
 _here = Path(__file__).parent
@@ -284,6 +284,15 @@ def Empty(text, action=None, cls=''):
 def Part(label, *c, more=None, more_label='More', **kw):
     "A section of a page: the small H2 label, the content, and an optional closed `More` part in one style."
     return Section(H2(label), *c, Details(Summary(more_label), *more, cls='more') if more else '', **kw)
+
+def WebSource(r, cls='src web'):
+    """The line under a passage from the web (`research`): `From the web: <site> · <title>`. The title opens the copy in your vault
+    in the side pane, and `Open the page` opens the original page in a new tab."""
+    site, title = r.get('site') or '', r.get('title') or r.get('site') or 'the page'
+    doc = f"/v/{r.get('shelf')}/{r.get('doc_id')}" if r.get('shelf') and r.get('doc_id') else ''
+    name = pane_link(title, doc, title) if is_local(doc) else Span(title)
+    out = A('Open the page', href=r['url'], target='_blank', rel='noopener noreferrer', cls='web-open') if is_web(r.get('url')) else ''
+    return Span('From the web: ', *([site, ' · '] if site else []), name, *([' · ', out] if out else []), cls=cls)
 
 def Cites(links, label='From your sources'):
     "Links to passages in your own sources: a vault document, a session, a notebook, a verse. A page of this app opens in the side pane."

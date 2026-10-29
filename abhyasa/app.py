@@ -12,6 +12,7 @@ from abhyasa.store import Learning
 from abhyasa.tutor import Tutor
 from abhyasa.llm import route_ask, Router
 from abhyasa.ground import VaultSource, VedicSource
+from abhyasa.research import Researcher
 
 __all__ = ['mk_app', 'main']
 
@@ -62,7 +63,8 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     if sources is None: sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else [])]
     pool = ThreadPoolExecutor(2)
     svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources, pool=pool), ask=ask, transcribe=transcribe,
-               speech=Speech(transcribe), pool=pool, sessions={}, sources=sources)
+               speech=Speech(transcribe), pool=pool, sessions={}, sources=sources,
+               research=Researcher(learning, ask))   # research has its own pool of one worker, so a long search never holds a demo or a note
     app.state.blocks = connect_all(app, blocks(*([names] if names else [])), **svc)
     app.state.svc = svc
     serve_assets(app)

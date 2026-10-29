@@ -22,6 +22,7 @@ GROUPS = dict(look=('Look', 'Pick the colours of the app.'),
               checks=('Checks and grading', 'Set how many tries you get and how the tutor grades an answer.'),
               review=('Review', 'Set when an idea comes back for review.'),
               links=('Links', 'Set how much of a link the tutor reads.'),
+              research=('Research', 'Set how the tutor finds a source on the web for a step that has none.'),
               runner=('Code runner', 'Set the limits for the code that you run in a check.'),
               stt=('Speech to text', 'Pick the model that writes down what you say.'),
               models=('Models', 'Pick the model for each task. "Default" uses the default model.'),
@@ -103,6 +104,12 @@ add('links.timeout', 'links', 'Time for each fetch', 'How long the tutor waits f
 add('links.speed', 'links', 'Download speed cap', 'The fastest speed at which abhyasa gets a page.', 1., .1, 10., more=True, unit='MB/s')
 add('links.kept', 'links', 'Characters kept for each page', 'The most characters of one page that the vault keeps.', 400_000, 10_000, 1_000_000, more=True)
 add('links.read', 'links', 'Characters read for each page', 'The most characters of one page that the tutor reads to find ideas.', 100_000, 10_000, 1_000_000, more=True);
+
+# %% ../nbs/16_settings.ipynb #rs02
+add('research.on', 'research', 'Find sources on the web', 'For a step with no source, the tutor searches the web and quotes a page. The search sees your topic.', True)
+add('research.per_walk', 'research', 'Steps to research in a walk', 'The most steps of one new walk that the tutor finds a source for. 0 means none.', 12, 0, 30)
+add('research.results', 'research', 'Search results to read', 'How many search results the tutor looks at for one step. It reads the best 3 pages.', 5, 3, 10, more=True)
+add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk from a journey waits for web sources. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s');
 
 # %% ../nbs/16_settings.ipynb #4412f5ae
 add('runner.total', 'runner', 'Total time', 'How long your code can run for all the tests together. Then the run stops.', 10, 5, 60, unit='s')

@@ -6,6 +6,7 @@ from fasthtml.common import *
 from abhyasa.core.hooks import run
 from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago, Primary, n_of, Onward
 from abhyasa.journey import parent_step, walk_state
+from abhyasa.settings import val
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -26,6 +27,7 @@ def GoalForm(compact=False, label=True):
                          placeholder='For example: how LLMs work, from tokens to training. ⌘↵ plans a path.'),
                 Div(Button('Plan a path', cls='plan', data_wait=PLANNING, data_skel='#plan-out'),
                     Span('The tutor suggests the steps. You can change each one.', cls='mute'), cls='row'),
+                P('The tutor searches the web for sources. The search sees your topic.', cls='mute') if val('research.on') else '',
                 Div(id='plan-out'), hx_post=Routes.new, hx_target='#plan-out', cls='goal-form' if compact else 'goal-form raised')
 
 def beside(j, js):

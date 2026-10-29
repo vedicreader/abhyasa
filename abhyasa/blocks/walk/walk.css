@@ -122,3 +122,7 @@ html.in-pane main { padding-bottom: 64px; }
 .ladder .lesson { margin: 0 0 var(--s3); }
 .ladder .making { font-style: italic; }
 .ladder .rk { max-width: 640px; }
+.quote .src.web a { color: inherit; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 2px; }
+.stated .looking, .stated .find-source { font-size: var(--t-meta); margin: var(--s2) 0 0; }
+.stated .find-source button { margin-left: 0; }
+.stated .no-source { font-size: var(--t-meta); margin: var(--s2) 0 0; }

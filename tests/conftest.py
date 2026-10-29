@@ -71,3 +71,11 @@ def no_leela(monkeypatch, tmp_path_factory):
     "No test reads the owner's real Leela address file."
     from abhyasa.core.cfg import cfg
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path_factory.mktemp('xdg'))); monkeypatch.setitem(cfg, 'leela', '')
+
+@pytest.fixture(autouse=True)
+def no_web(monkeypatch):
+    "No test searches the web or fetches a page: the default search finds nothing, and the default fetch fails. A test passes its own fakes."
+    import abhyasa.research
+    def fetch(url): raise AssertionError(f'a test tried to fetch {url}')
+    monkeypatch.setattr(abhyasa.research, 'web_search', lambda q, n: [])
+    monkeypatch.setattr(abhyasa.research, 'web_fetch', fetch)
