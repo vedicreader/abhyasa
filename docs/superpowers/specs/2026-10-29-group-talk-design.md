@@ -7,7 +7,7 @@ Design sources: `abhyasa-designs/presentation/design.md` (sections 1 to 4, 7 and
 the mockups `presentation/mock/a1-a5` and `b1-b5`, and the screens `presentation/shots/a1-deck.png` to `b5-recap.png`. The
 walk spec (`docs/superpowers/specs/2026-10-28-guided-walk-design.md`) gives the walk, the side pane and the keys that this
 spec uses. Paths without a folder are in the abhyasa repo. Facts about the code are from abhyasa 0.0.11 (commit `faf7858`)
-and rupaka 0.0.3. Option A, as built (Tasks 1 to 8, abhyasa 0.0.13), uses rupaka 0.0.4. "As built" notes below give the
+and rupaka 0.0.3. Option A, as built (Tasks 1 to 8, abhyasa 0.0.12), uses rupaka 0.0.4. "As built" notes below give the
 rulings that changed this spec while the plan was built.
 
 ## 1. Intent
@@ -329,7 +329,7 @@ types with `abhyasaStage.add`.)
 | `ask` | `slide`, `ask` (`kind`, `q` up to 500 chars, `options` up to 6 of up to 200 chars, `most`), or `ask: null` | presenter | shows the question, or closes it |
 | `result` | `slide`, `kind`, `rounds` (up to 2 of `counts`, `n`), `right` (an index, a list or null), `main` | presenter | shows the result and the right answer |
 | `pair` | `on` (bool), `prompt` (up to 200 chars) | presenter | "Talk to your neighbour", with no clock |
-| `pane` | `url` (a local path, or null) | presenter | opens the page beside the slide, or closes it |
+| `pane` | `url` (a local path, or null), optional `page` (0 to 19) | presenter | opens the page beside the slide, or closes it; shows page `page` of a long primer |
 | `blank` | `on` (bool) | presenter | the page colour and the talk title only |
 | `end` | none | presenter | "Thank you" and the talk title |
 | `answers` | `slide`, `slug`, `gates` (up to 16 of gate id -> the gate's `answer`: `{is: value}` or a state path) | presenter | after R only: puts the answers into the done gates of that demo, so its copy shows the verdict of the presenter's pick |
@@ -393,6 +393,11 @@ Rules for each message (`abhyasaStage.valid`, in `core/stage.js`):
     (`forget`). A reload after R gets them again on `hello`.
   - The pick goes only over the channel. No window logs it or files it.
   - The gates in the audience copy are `inert`. They never take input.
+  - When the presenter presses "Try another", the gate is not done in the next snapshot, and the audience copy opens it again
+    with no pick and no verdict.
+- As built (fix round): the demo zoom has a floor of 0.55 of a slide 1280 px wide (`fit` in `talk.js`). A demo that is smaller
+  than the floor beside the other parts shows alone on the slide (`demo-alone`: no crumb, title, passage or figure), with the
+  whole height of the slide. A demo that is still smaller alone takes the size that fits, so the room sees all of it.
 - The rupaka ask (Task 4) gave rupaka 0.0.4: `Rupaka.set`, `Rupaka.settle`, `Rupaka.state(el)`, a `save(state)` option for
   `Rupaka.mount`, and `rupaka.poll` (section 17.4). Still open with the rupaka owner: `Rupaka.options(el, gate)` or a
   `settle` by index, and a `Rupaka.reveal` (or `settle` with an answer), so the mirror reads no part of the store.
@@ -456,6 +461,11 @@ slide (`shots/a5-beside.png`): the slide gets narrow at the left, and the primer
 
 - The pane URL has `talk=1` (`pane_url(url, talk=True)` in `core/pane.py`). A page with `pane=1&talk=1` draws in talk
   type, and the walk step page draws no check card, so no question opens and nothing is logged.
+- As built (fix round): the primer in talk type is a short note (`talk_text` in `walk/ui.py`: no picture, no heading, whole
+  sentences up to about 240 characters). `core/talktype.js` fits it to its window: the type gets smaller down to 22 px for the
+  passage, then the passage shows one page at a time with a fade at the foot. The talk sends a page number, never pixels: `page`
+  in the `pane` message, kept in `run.side.page` (`POST /t/{tid}/at` with `page`) and sent again on `hello`. While the primer is
+  open, D and A turn its pages in both windows. A figure that does not load goes out of sight.
 - Q while the pane is open asks the room about the primer's concept, with `ask_for_concept(lr, ask, slug)` (the same path
   as `ask_from_check`).
 - ⌥Z closes the pane and the slide grows back. Nesting stays at depth 1. "Its own session" is not offered.

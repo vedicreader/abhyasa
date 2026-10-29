@@ -137,8 +137,8 @@ All keys work in the presenter window. They do not work while the focus is in a 
 
 | key | what it does |
 |----|----|
-| D, space, → or Page Down | the next beat, then the next slide. A clicker works too |
-| A, ← or Page Up | back one beat |
+| D, space, → or Page Down | the next beat, then the next slide. With a primer open: its next page. A clicker works too |
+| A, ← or Page Up | back one beat. With a primer open: its page before |
 | G, then a number | go to that slide |
 | Q | ask the room, or close the question |
 | R | show the right answer |
@@ -157,11 +157,11 @@ In a talk window, ⌥T, ⌥C, ⌥G, ⌥D and / do nothing. Thus a key that you p
 
 Press Q. The question and its options show in the audience window. The answer does not show. The people in the room put up their hands. Press the number of the option that most hands chose: 1 for A, 2 for B, and so on. Then press R. The right answer and the answer of most hands are lit. After R, “Talk to your neighbour” lets the room talk in pairs about the answer.
 
-On a slide with a demo, press E to go into the demo and change it. The demo in the audience window follows each change. When you lock in a prediction at a gate of the demo, the room sees your pick. The room sees if the pick is right only after R.
+On a slide with a demo, press E to go into the demo and change it. The demo in the audience window follows each change. When you choose an answer at a gate of the demo, the room sees your answer. The room sees if your answer is right only after R. If you press “Try another”, the gate opens again in both windows.
 
 ### The side pane in a talk
 
-Press ⌥B to see the ideas that the slide needs. Press 1 for a quick primer, or 2 for a short side walk. The primer opens beside the slide in both windows, in large type. It has no check. While it is open, Q asks the room a question about the primer. ⌥Z closes the pane in both windows. A move to a new slide also closes it. A side walk from a talk does not show in your journeys or in Continue.
+Press ⌥B to see the ideas that the slide needs. Press 1 for a quick primer, or 2 for a short side walk. The primer opens beside the slide in both windows, in large type. It has no check. A long primer shows one page at a time: press D for the next page and A for the page before. While it is open, Q asks the room a question about the primer. ⌥Z closes the pane in both windows. A move to a new slide also closes it. A side walk from a talk does not show in your journeys or in Continue.
 
 ### After the talk
 

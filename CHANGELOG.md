@@ -2,7 +2,7 @@
 
 <!-- do not remove -->
 
-## 0.0.13
+## 0.0.12
 
 - Talks: present a walk to a group. Each idea is a slide, the tutor note is your speaker note, and the check is a question for the room.
 - Talk editor: change the order, the beats, the notes and the question of each slide, and set the minutes of your slot.
@@ -10,7 +10,7 @@
 - Talk keys for the left hand: D next, A back, G go to a slide, Q ask, R show the answer, X laser, B blank, E into the demo.
 - Ask the room with hands: press the option that most hands chose, then R shows the right answer.
 - A demo on a slide shows the same state in both windows. The room sees if your pick at a gate is right only after R.
-- The side pane in a talk: ⌥B opens a primer beside the slide in both windows, in large type and with no check. ⌥Z closes it.
+- The side pane in a talk: ⌥B opens a short primer beside the slide in both windows, in large type and with no check. D and A turn its pages. ⌥Z closes it.
 - After the talk: where the room was unsure, the talk slide by slide, a recap file for the room, and a follow-up walk.
 - The answers of the room and your pick at a demo gate in a talk do not change your learning.
 - Needs rupaka 0.0.4.
