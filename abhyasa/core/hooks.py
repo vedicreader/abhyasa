@@ -7,7 +7,7 @@ composer); `lesson_extra` (under a lesson).
 
 The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs, and the strip after a side walk);
 `check_after(j, i, q)` (under a check: the gaps that an answer points at); `walk_end(j)` (the end of a walk: a side walk sends
-`rh:done`); `walk_made(j)` (a block made topic walk `j`: the walk block looks for web sources for its steps on the pool); `walk_actions(j, quiet=False)` (the plan of a walk, its step page, its last page, its row in Journeys and its journey page: the talk adds
+`rh:done`); `concepts_added()` (a block added concepts from a source: the concepts block places the new ones in the groups of their subjects, on the pool); `walk_made(j)` (a block made topic walk `j`: the walk block looks for web sources for its steps on the pool); `walk_actions(j, quiet=False)` (the plan of a walk, its step page, its last page, its row in Journeys and its journey page: the talk adds
 "Present this walk", or "Open the talk", and "Present this journey" on a plain journey; `quiet` is for a page with its own main button); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`).
 
 The side pane: `pane_title(url)` (the title of the page at the local path `url`, for the pane bar and the line under 1100 px)."""

@@ -27,6 +27,8 @@ def label(name) -> str:
 def Row(c):
     "One concept in the tree: its name, its level, and when it comes back."
     return Li(A(c.name, href=Routes.of(c.slug)), DepthBar(c.floor), Span('  ' + (when(c.due) if c.seen else 'new'), cls='mute'),
+              *((Span('Placed by the tutor', cls='mute placed'), Form(Quiet('Undo', small=True), hx_post=Routes.undo_of(c.slug), hx_swap='none', cls='undo'))
+                if c.get('group_by') == 'placed' and c.get('group') else ()),
               data_find=' '.join(fold(x) for x in (c.name, *(c.get('aliases') or ()))))
 
 def ConceptList(cs): return Ul(*map(Row, cs), cls='plain concepts'), css()
@@ -56,17 +58,19 @@ def Counts(cs):
     loose = sum(1 for c in cs if not c.get('group'))
     return P(meta(n_of(len(cs), 'concept'), n_of(len({(c.subject or '').lower() for c in cs}), 'subject'), loose and f'{loose} not sorted yet'), cls='mute')
 
-def SortButton(subject=''):
-    return Form(Secondary('Sort my concepts'), Span('The tutor puts your concepts in groups. You see the tree before it is saved.', cls='mute'),
+def SortButton(subject='', n=0):
+    "The sort action, with the count of concepts that have no group. With none, it does not show."
+    if not n: return ''
+    return Form(Secondary(f"Sort {n_of(n, 'new concept')}"), Span('The tutor puts them in the groups that you have. You see the result before it is saved. Concepts that are sorted do not move.', cls='mute'),
                 hx_post=Routes.sort, hx_target='#concepts-view', hx_swap='innerHTML', cls='row sort-form',
                 **({'hx_vals': json.dumps(dict(subject=subject))} if subject else {}))
 
-def Listing(cs, q='', subject='', said=''):
+def Listing(cs, q='', subject='', said='', new=0):
     "The normal view: the line of a failed sort, the find box and the sort action, then the tree."
     if not cs and not q: return Empty('No concepts yet.', A('Add a source', href='/add'))
     hits = [c for c in cs if finds(c, q)] if q.strip() else cs
     body = Tree(hits, deep=bool(q.strip())) if hits else Empty(f'No concept matches “{q}”.', A('Search everything', href=f"/search?{urlencode(dict(q=q))}"))
-    return (P(said, cls='req-err') if said else '', Counts(cs), Div(Find(q, subject), SortButton(subject), cls='tools'), body)
+    return (P(said, cls='req-err') if said else '', Counts(cs), Div(Find(q, subject), SortButton(subject, new), cls='tools'), body)
 
 def _sort_id(sid, subject): return Input(type='hidden', name='sort', value=sid), Input(type='hidden', name='subject', value=subject)
 
@@ -77,7 +81,7 @@ def SortPending(sid, cs, subject=''):
                 cls='pending', hx_get=Routes.sort + (f"?{urlencode(dict(subject=subject))}" if subject else ''), hx_trigger='load delay:2s', hx_target='#concepts-view', hx_swap='innerHTML'),
             Tree(cs))
 
-def Proposal(sid, subject, cs, moved, hand, placed=0, left=()):
+def Proposal(sid, subject, cs, moved, hand, placed=0, left=()):   # `cs`: only the new concepts
     "The tree that the tutor proposes, and one choice: accept it (the one main button) or cancel. Nothing is saved before the accept."
     said = f"The tutor moves {n_of(moved, 'concept')}." if moved else 'The tutor has no change to make.'
     if hand: said += f" {n_of(hand, 'concept')} that you moved by hand {'stays where it is' if hand == 1 else 'stay where they are'}."

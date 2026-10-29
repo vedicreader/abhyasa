@@ -16,7 +16,7 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'SHORT_WAYS', 'PICK_SP', 'S
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
 from fastcore.utils import *
-from .store import Learning, slugify, _src, clean_subject
+from .store import Learning, slugify, _src, clean_subject, usable_name
 from .model import learned
 from .settings import val
 from .llm import ask_json, for_task
@@ -227,6 +227,13 @@ def _subject_of(lr:Learning, slugs, subject:str='') -> str:
     ss = [c.subject for c in map(lr.concept, slugs) if c and c.subject]
     return subject or (max(set(ss), key=ss.count) if ss else '')
 
+def _fill_subject(lr:Learning, slugs, subject:str='') -> str:
+    "Give the subject of a walk (`subject`, or the most common one of its concepts) to each of its concepts that has none. A concept that you moved by hand stays. Return the subject."
+    sub = _subject_of(lr, slugs, subject)
+    for s in slugs if sub else ():
+        if (c := lr.concept(s)) and not c.subject: lr.set_subject(s, sub)
+    return sub
+
 def _steps(lr:Learning, slugs, doc_id:str, shelf:str, title:str, tool:bool=False) -> list:
     "One walk step for each of `slugs` that has a place in document `doc_id`, in the order of the document. On a tool walk, an idea with a code way has `leela`."
     cs = sorted(((c, placement(c, doc_id)) for c in map(lr.concept, slugs) if c and placement(c, doc_id)), key=lambda x: x[1].get('order') or 0)
@@ -250,14 +257,14 @@ def journey_from_source(lr:Learning, ask, ref:str, shelf:str='store', subject:st
     "Make a walk from one vault document, by doc id, source or title. `tool` marks a library or a command-line tool."
     d, subject = doc_pages(lr, ref, shelf), clean_subject(subject)
     slugs = from_vault(lr, ask, d.doc_id, subject, shelf)
-    return _walk(lr, ask, _new_id(d.title), d.title, slugs, d.doc_id, dict(shelf=shelf, doc_id=d.doc_id, title=d.title), f'Read {d.title}', _subject_of(lr, slugs, subject), tool)
+    return _walk(lr, ask, _new_id(d.title), d.title, slugs, d.doc_id, dict(shelf=shelf, doc_id=d.doc_id, title=d.title), f'Read {d.title}', _fill_subject(lr, slugs, subject), tool)
 
 # %% ../nbs/11_journey.ipynb #w306
 def journey_from_text(lr:Learning, ask, text:str, title:str, subject:str='', tool:bool=False) -> AttrDict:
     "Make a walk from pasted `text`."
     jid, subject = _new_id(title), clean_subject(subject)
     slugs = extract(lr, ask, subject=subject, source=dict(src='text', doc_id=jid, title=title), pages=[(None, text)])
-    return _walk(lr, ask, jid, title, slugs, jid, None, f'Read {title}', _subject_of(lr, slugs, subject), tool)
+    return _walk(lr, ask, jid, title, slugs, jid, None, f'Read {title}', _fill_subject(lr, slugs, subject), tool)
 
 # %% ../nbs/11_journey.ipynb #lk41
 def journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str='', progress=None, tool:bool=False, **extra) -> AttrDict:
@@ -272,7 +279,7 @@ def journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str=
     home = {s: (first(d for d in named(s) if told(s, d)) or named(s)[0]).doc_id for d in docs for s in got[d.doc_id]}
     steps = [x for d in docs for x in _steps(lr, [s for s in got[d.doc_id] if home[s] == d.doc_id], d.doc_id, d.shelf, d.title, tool)]
     title = title or docs[0].title
-    return _save_walk(lr, ask, _new_id(title), title, steps, dict(url=docs[0].url, docs=[dict(d) for d in docs]), f'Read {title}', _subject_of(lr, [s for v in got.values() for s in v], subject), tool, **extra)
+    return _save_walk(lr, ask, _new_id(title), title, steps, dict(url=docs[0].url, docs=[dict(d) for d in docs]), f'Read {title}', _fill_subject(lr, [s for v in got.values() for s in v], subject), tool, **extra)
 
 # %% ../nbs/11_journey.ipynb #w308
 def _topic_read(c, sources) -> dict|None:
@@ -497,6 +504,7 @@ PRIMER_SP = register('primer', 'Statement of a new idea', 'How the tutor writes 
 def add_topic(lr:Learning, ask, jid:str, name:str, before:str=None, sources=None) -> AttrDict:
     "Add topic `name` to journey `jid`, as a concept on the shelf. Return the journey."
     j = lr.journey(jid)
+    if not usable_name(name): return j   # a name such as `x` is not an idea
     slug = _index(lr).get(name.strip().lower())
     if not slug:
         r = ask_json(for_task(ask, 'extract'), f"The idea: {name}\nThe path it is part of: {j.title} ({j.get('goal', '')})\n\n"
@@ -513,9 +521,10 @@ def name_gaps(lr:Learning, ask, slug:str, terms, sources=None) -> L:
     c, idx, out = lr.concept(slug), _index(lr), L()
     for t in dict.fromkeys(str(t).strip() for t in terms or () if str(t).strip()):
         if not (g := idx.get(t.lower())):
+            if not usable_name(t): continue   # a term such as `x` is not an idea
             r = ask_json(for_task(ask, 'extract'), f"The idea: {t}\nIt comes up in: {c.name} ({c.get('subject') or 'general'})\n\n"
                               'Return JSON: {"name": str, "statement": str}', prompt('primer'))
-            name = r.get('name') or t
+            name = r.get('name') if usable_name(r.get('name')) else t
             g = lr.put(name, r.get('statement', ''), c.get('subject', ''), aliases=[t] if t.lower() != name.lower() else [],
                        provenance=[dict(src='gap', of=slug, said=t, at=time.time())]).slug
             if sources:
@@ -531,11 +540,25 @@ def split(lr:Learning, ask, jid:str, slug:str, sources=None) -> L:
     ps = ground(' '.join([c.name, *(c.aliases or [])][:4]), sources, 4) if sources else L()
     text = f"{c.name}\n\n{c.statement}" + (f"\n\nPassages:\n{ground_text(ps)}" if ps else '')
     have = {s['slug'] for s in j.steps}
-    new = L(s for s in extract(lr, ask, text, c.subject, dict(src='journey', journey=jid, split=slug)) if s != slug and s not in have)
+    new = L(s for s in extract(lr, ask, text, c.subject or j.get('subject') or '', dict(src='journey', journey=jid, split=slug)) if s != slug and s not in have)
     for s in new:
         lr.link(slug, s)
         lr.journey_add(jid, s, before=slug, why=f'a part of {c.name}')
     return new
+
+# %% ../nbs/11_journey.ipynb #cl36
+@patch
+def repair_subjects(self:Learning) -> list:
+    "One time on a vault: give the subject of its walk to each concept of the walk that has none (a walk with no subject uses the most common one of its concepts). The group stays. A concept that you moved by hand stays. Return the slugs that changed."
+    if first(self.v.t.docs(where='source=?', where_args=[_src('marker', 'subjects')])): return []
+    out = []
+    for j in self.journeys():
+        slugs = [s['slug'] if isinstance(s, dict) else s for s in (*j.steps, *(j.get('more') or ()))]
+        sub = _subject_of(self, slugs, j.get('subject') or '')
+        for s in slugs if sub else ():
+            if (c := self.concept(s)) and not c.subject and self.set_subject(s, sub).subject: out.append(s)
+    self.v.add('The subjects of the concepts were repaired.', title='Subjects repaired', source=_src('marker', 'subjects'), kind='marker')
+    return out
 
 # %% ../nbs/11_journey.ipynb #f7daf6d5
 def related(lr:Learning, slug:str, k:int=6, goal:int=None, by:dict=None) -> L:

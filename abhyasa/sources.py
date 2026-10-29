@@ -8,15 +8,15 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'READERS', 'PLAIN', 'LOCALE', 'LANGS',
            'SHORT', 'EMPTY', 'ARXIV_LINK', 'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group', 'extract_prompt',
            'doc_pages', 'locate', 'figure_path', 'placement', 'extract', 'from_vault', 'sort_prompt', 'Places',
-           'propose_groups', 'apply_groups', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError',
-           'link_kind', 'reading_order', 'file_link', 'as_link', 'is_id_title', 'arxiv_title', 'is_paper', 'plain',
-           'from_vedicreader']
+           'propose_groups', 'apply_groups', 'place_new', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel',
+           'LinkError', 'link_kind', 'reading_order', 'file_link', 'as_link', 'is_id_title', 'arxiv_title', 'is_paper',
+           'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re
 from pathlib import Path
 from fastcore.utils import *
-from .store import Learning, slugify, _union, clean_group, clean_subject, readable_name
+from .store import Learning, slugify, _union, clean_group, clean_subject, readable_name, usable_name
 from .settings import val
 from .llm import ask_json, for_task
 from .prompts import register, prompt
@@ -148,7 +148,7 @@ def _read(lr, ask, text, subject, pages):
         r = ask_json(for_task(ask, 'extract'), extract_prompt(w, subject, sorted({v for v in idx.values()}), gs, have, lead), prompt('extract'))
         cs = [c for c in (r.get('concepts', []) if isinstance(r, dict) else r) if isinstance(c, dict)]
         for c in cs: c['name'] = readable_name(c.get('name'), c.get('statement'))
-        cs = [c for c in cs if c['name']]
+        cs = [c for c in cs if usable_name(c['name'])]   # a name such as `x` is not an idea
         slug_of = {}
         for c in cs:
             names = [c['name'], *(c.get('aliases') or ())]
@@ -178,14 +178,17 @@ def extract(lr:Learning, ask, text:str='', subject:str='', source:dict=None, pag
     recs = _read(lr, ask, text, subject, pgs)
     places = _places(pgs, recs) if pages is not None else [(None, None)] * len(recs)
     src = _doc_source(lr, source) if pages is not None else ''
-    touched = L()
+    touched, kept = L(), {}
     for (s, c, pre), (order, loc) in zip(recs, places):
         old, fig = lr.concept(s) or {}, figure_path(lr, src, c.get('figure'))
         moves = _union(old.get('moves'), _strs(c.get('moves')))
         meta = dict(ways=_union(old.get('ways'), _strs(c.get('ways'))), moves=moves, who=_union(old.get('who'), _strs(c.get('who'))),
                     when=c.get('when', old.get('when')), image=fig or old.get('image'), visual=bool(moves))
         subj = subject or old.get('subject') or c.get('subject') or ''
-        if (g := clean_group(c.get('group'), subj)) and not old.get('group'): meta.update(group=g, group_by='model')   # a group stays where it is
+        if subj not in kept: kept[subj] = lr.groups(subj)
+        g = clean_group(c.get('group'), subj)
+        if g and not old.get('group') and old.get('group_by') not in ('hand', 'undone') and (not kept[subj] or g in kept[subj]):   # with groups, only one of them, spelled the same way
+            meta.update(group=g, group_by='placed' if kept[subj] else 'model')   # `placed`: the subject had groups, so the tutor placed it and you can undo it
         prov = [source] if source else []
         if pages is not None and source is not None:
             t = pgs[loc[0]][1][loc[1]:loc[2]][:val('walks.passage')] if loc else ''
@@ -212,19 +215,20 @@ def from_vault(lr:Learning, ask, ref:str, subject:str='', shelf:str='store', cha
 # %% ../nbs/04_sources.ipynb #gs02
 SORT_SP = register('concepts.sort', 'Concept sorter', 'How the tutor sorts your concepts into groups on the Concepts page.', """You sort the concepts of one subject into a small tree of groups, so that a learner can find them again.
 - `group` is one or two short names, from wide to narrow, for example ["nakshatras"] or ["grammar", "sandhi"]. Do not use the subject as a group.
-- Use a group from the list of groups when one fits. Make a new group only when no group fits.
+- Use a group from the list of groups first. Make a new group only when no group in the list fits. Do not rename a group in the list.
 - A good group has three concepts or more. Do not make a group for one concept when a wider group fits.
 - Use plain names of one to three words, in the words of the subject. Spell a group the same way each time.
 - Give a group to each concept in the list. Do not leave a concept out. Copy its slug exactly.
 - When no group fits a concept, use the group "Other". Use "Other" only as the last resort, for a few concepts.
 - A concept can have no subject. Then also give `subject`: one name from the list of subjects when one fits, or a short new name of one to three words. Give the group of the concept under that subject.""")
 
-def sort_prompt(subject:str, cs, groups=(), subjects=(), again:bool=False) -> str:
-    "The request for one batch: the subject (or the subjects that exist, for concepts with no subject), the groups so far, and one line for each concept. `again` asks for the concepts that got no place."
+def sort_prompt(subject:str, cs, groups=(), subjects=(), again:bool=False, closed:bool=False) -> str:
+    "The request for one batch: the subject (or the subjects that exist, for concepts with no subject), the groups so far, and one line for each concept. `again` asks for the concepts that got no place. `closed` allows only a group from the list: any other answer is []. "
     item = lambda c: f"- {c.slug}: {quoted(c.name)}. {quoted(str(c.get('statement') or '')[:160])}"
     head = f"Subject: {quoted(subject)}\n" if subject else "Subject: none. These concepts have no subject.\nSubjects now: " + ('; '.join(map(quoted, subjects[:60])) or 'none') + '\n'
     return (head + (group_line(groups) or 'Groups of this subject now: none\n')
             + ('\nThese concepts got no place the first time. Give a group to each one now.\n' if again else '')
+            + ('\nUse only a group from the list, spelled the same way. Do not make a new group and do not use "Other". Use [] for a concept that fits no group in the list.\n' if closed else '')
             + '\nConcepts:\n' + '\n'.join(map(item, cs))
             + '\n\nReturn JSON: {"places": [{"slug": str, "group": [str]' + ('' if subject else ', "subject": str') + '}]}')
 
@@ -233,19 +237,19 @@ class Places(dict):
     "The result of a sort: `{slug: group}`, with `.subjects` (`{slug: subject}` for concepts that had none) and `.left` (the slugs that got no place)."
     def __init__(self, *a, subjects=None, left=None): super().__init__(*a); self.subjects, self.left = subjects or {}, left or []
 
-def propose_groups(lr:Learning, ask, subject:str=None, batch:int=None) -> Places:
-    "Ask the model for the group of each concept that you did not move by hand, `batch` concepts at a time for each subject; ask again once for the concepts that got no place. Concepts with no subject also get one. Save nothing."
+def propose_groups(lr:Learning, ask, subject:str=None, batch:int=None, only=None, closed:bool=False) -> Places:
+    "Ask the model for the group of each concept that has no group (and that you did not keep out of the groups by hand), `batch` concepts at a time for each subject; ask again once for the concepts that got no place. Concepts with no subject also get one. A concept with a group never moves. `only` limits it to these slugs. With `closed`, a group must be in the list of the subject, spelled the same way, and it asks one time for each batch; any other answer leaves the concept out. Save nothing."
     batch, out, by = batch or val('lists.sort_batch'), Places(), {}
     have = [c['subject'] for c in lr.subjects() if c['subject']]
-    for c in lr.concepts(subject):
-        if c.get('group_by') != 'hand': by.setdefault(c.subject or '', []).append(c)
+    for c in lr.unsorted(subject):
+        if only is None or c.slug in only: by.setdefault(c.subject or '', []).append(c)
     def place(s, part, gs, again=False):
         "Ask for the places of `part`; keep each one with a group. Return the slugs of `part` that got none."
-        r = ask_json(for_task(ask, 'extract'), sort_prompt(s, part.values(), gs, have, again), prompt('concepts.sort'))
+        r = ask_json(for_task(ask, 'extract'), sort_prompt(s, part.values(), gs, have, again, closed), prompt('concepts.sort'))
         for p in (r.get('places') if isinstance(r, dict) else None) or []:
             if not (isinstance(p, dict) and p.get('slug') in part): continue
             sj = s or next((h for h in have if h.lower() == clean_subject(p.get('subject'))), clean_subject(p.get('subject')))
-            if g := clean_group(p.get('group'), sj):
+            if (g := clean_group(p.get('group'), sj)) and (not closed or g in gs):
                 out[p['slug']] = g; add_group(gs, g)
                 if sj and not s: out.subjects[p['slug']] = sj
         return [k for k in part if k not in out]
@@ -253,18 +257,29 @@ def propose_groups(lr:Learning, ask, subject:str=None, batch:int=None) -> Places
         gs = lr.groups(s)
         for i in range(0, len(cs), batch):
             part = {c.slug: c for c in cs[i:i + batch]}
-            if miss := place(s, part, gs): out.left += place(s, {k: part[k] for k in miss}, gs, True)
+            if (miss := place(s, part, gs)) and not closed: out.left += place(s, {k: part[k] for k in miss}, gs, True)
+            elif miss: out.left += miss
     return out
 
 def apply_groups(lr:Learning, places:dict) -> list:
-    "Save the paths of `places` as moves by the model. A concept with no subject gets its proposed subject first. Return the slugs that moved. A concept that you moved by hand, or that is gone, stays."
-    moved = []
+    "Save the paths of `places` as a saved sort, and keep the group list of each subject. A concept with no subject gets its proposed subject first. Return the slugs that moved. A concept that has a group, that you moved by hand, or that is gone, stays."
+    moved, subjects = [], set()
     for slug, g in places.items():
         c = lr.concept(slug)
-        if c is None or c.get('group_by') == 'hand': continue
+        if c is None or c.get('group_by') == 'hand' or c.get('group'): continue   # a concept with a group is sorted: it stays
         if (sj := getattr(places, 'subjects', {}).get(slug)) and not c.subject: c = lr.set_subject(slug, sj); moved.append(slug)
-        if clean_group(c.get('group'), c.subject) != clean_group(g, c.subject): lr.set_group(slug, g, by='model'); moved.append(slug)
+        if clean_group(g, c.subject): lr.set_group(slug, g, by='sort'); moved.append(slug); subjects.add(c.subject)
+    for s in subjects: lr.save_groups(s)   # the groups of the saved sort stay
     return list(dict.fromkeys(moved))
+
+def place_new(lr:Learning, ask, batch:int=None) -> list:
+    "Place the new concepts of each subject that has groups: one request for each batch, and no second request. A concept that fits no group of the list, that has no subject, or that you undid stays. Return the slugs placed."
+    todo = {c.slug for c in lr.unsorted() if c.subject and c.get('group_by') != 'undone' and lr.groups(c.subject)}
+    out = []
+    for s in sorted({lr.concept(x).subject for x in todo}):
+        places = propose_groups(lr, ask, s, batch, only=todo, closed=True)   # no new group, and no second ask
+        out += [slug for slug, g in places.items() if lr.place(slug, g)]   # it looks again, under the lock, just before it writes
+    return out
 
 # %% ../nbs/04_sources.ipynb #lk02
 import ipaddress, socket

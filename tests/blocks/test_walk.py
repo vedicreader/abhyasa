@@ -795,3 +795,15 @@ def test_title_repair_never_blocks_the_start(mk, lr):
         assert not f.done() and cl.get('/').status_code == 200 and Learning(lr.vault).journey('old').title == '1706.03762'
     finally: go.set()
     assert f.result(timeout=10) == ['old']
+
+def test_link_walk_places_its_new_concepts_in_the_groups(mk, walk_fake, lr, monkeypatch):
+    "A link walk into a subject with groups puts its new concepts in those groups, on the pool, after the walk."
+    import re, time
+    fake_web(monkeypatch)
+    lr.set_group('ranking', ['Lists'], by='sort'); lr.save_groups('ml')
+    walk_fake.rules['Return JSON: {"places"'] = lambda p, sp: dict(places=[dict(slug=s, group=['Lists']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
+    link_walk_subjects(mk(), 'https://docs.example.dev/c/', subject='ml')
+    for _ in range(250):
+        if (c := lr.concept('softmax')) and c.get('group'): break
+        time.sleep(.02)
+    assert (c.group, c.group_by) == (['Lists'], 'placed')

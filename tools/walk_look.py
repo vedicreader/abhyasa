@@ -841,7 +841,7 @@ def r1_start_forms_show_no_error(pg, w):
         errs = pg.evaluate("sessionStorage.getItem('errs')")
         assert not errs and not pg.query_selector('.req-err'), (url, errs)
 
-def ct1_concept_tree(pg, w):
+def ct1_concept_tree(pg, w):   # the sort button names the new concepts (`Sort 3 new concepts`)
     "Concepts: a quiet tree, open at the subject. A click opens a group. The find box finds a deep concept and opens its branch; an empty box closes it again."
     w.lr.put('Ashvini', 'The first nakshatra.', 'jyotisha', group=['nakshatras'], group_by='model')
     w.lr.put('Magha', 'The tenth nakshatra.', 'jyotisha', aliases=['Maghā'], group=['nakshatras', 'pitri gana'], group_by='model')
@@ -867,7 +867,7 @@ def ct1_concept_tree(pg, w):
     pg.fill('#find', 'magh'); pg.press('#find', 'Enter'); pg.wait_for_url(lambda u: 'q=magh' in u); settle(pg, 200)
     assert is_open(deep) and pg.is_visible('a:text-is("Magha")'), 'with no script, the server opens the branch too'
     pg.goto(w.B + '/concepts'); settle(pg, 200)
-    pg.click('button:has-text("Sort my concepts")'); pg.wait_for_selector('.tally', timeout=20000)
+    pg.click('button:has-text("new concept")'); pg.wait_for_selector('.tally', timeout=20000)
     assert re.search(r'\d+ placed\. \d+ left for you', pg.inner_text('.tally')), 'the proposal says how many are placed and how many are left'
     pg.click('.proposal button:has-text("Cancel")'); settle(pg, 150)
 

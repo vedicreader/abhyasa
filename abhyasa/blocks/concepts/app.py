@@ -1,12 +1,12 @@
 "Every concept in a tree of groups, one concept's page, the sort of the concepts into groups, and the subjects on Your learning."
-import logging, re, uuid
+import logging, re, threading, uuid
 from urllib.parse import urlencode
 from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, hook
 from abhyasa.settings import val
 from abhyasa.store import clean_group, GROUP_DEPTH, GROUP_LEN
-from abhyasa.sources import propose_groups, apply_groups
+from abhyasa.sources import propose_groups, apply_groups, place_new
 from . import ui
 from .cfg import Routes
 
@@ -25,6 +25,7 @@ def check_group(text:str):
 
 def connect(app, ctx):
     lr = ctx.learning
+    placing = threading.Lock()   # one placement of new concepts at a time
     st = AttrDict(id='', job=None, subject='')   # the one sort: its id, the pool job, and the subject it sorts ('' for all)
 
     def cs_of(subject=''): return lr.concepts(subject or None)
@@ -32,10 +33,9 @@ def connect(app, ctx):
     def proposed(places, subject):
         "The concepts of the sort with their proposed subjects and groups, the count of the moves, the count of the concepts moved by hand, the count placed, and the names left."
         cs, sj = cs_of(subject), getattr(places, 'subjects', {})
-        free = [c for c in cs if c.get('group_by') != 'hand']
-        moved = sum(1 for c in cs if c.slug in places and (clean_group(c.get('group'), c.subject) != places[c.slug] or c.slug in sj))
-        rows = [AttrDict({**c, 'group': places.get(c.slug, c.get('group')), 'subject': sj.get(c.slug, c.subject)}) for c in cs]
-        return rows, moved, len(cs) - len(free), sum(c.slug in places for c in free), [c.name for c in free if c.slug not in places]
+        free = [c for c in cs if not c.get('group') and c.get('group_by') != 'hand']   # the new concepts: the only ones that the sort looks at
+        rows = [AttrDict({**c, 'group': places.get(c.slug, c.get('group')), 'subject': sj.get(c.slug, c.subject)}) for c in free]
+        return rows, sum(c.slug in places for c in free), sum(c.get('group_by') == 'hand' for c in cs), sum(c.slug in places for c in free), [c.name for c in free if c.slug not in places]
 
     def mine(subject): return st.job is not None and st.subject == subject   # a sort shows only on the page of its own subject
 
@@ -47,7 +47,7 @@ def connect(app, ctx):
         if mine(subject):
             if st.job.exception() is None: return ui.Proposal(st.id, subject, *proposed(st.job.result(), subject))
             said = 'The tutor could not sort your concepts. Try again.'   # the log has the words of the library (`run_sort`)
-        return ui.Listing(cs_of(subject), q, subject, said)
+        return ui.Listing(cs_of(subject), q, subject, said, len(lr.unsorted(subject or None)))
 
     def index(subject:str='', q:str=''):
         return Page('Concepts', ui.css(), ui.js(), ui.H1(subject or 'Concepts'), Div(view(subject, q), id='concepts-view'), on='Concepts',
@@ -83,6 +83,24 @@ def connect(app, ctx):
         if sort == st.id and mine(subject): st.update(id='', job=None, subject='')
         return view(subject)
 
+    def undo(slug:str):
+        "Undo a placement by the tutor: the concept goes back to `Not sorted yet`, and the tutor leaves it there. A group that you set stays."
+        if lr.concept(slug) is None: return Response('No such concept.', status_code=404)
+        lr.unplace(slug)
+        return Response(headers={'HX-Refresh': 'true'})
+
+    def place_job():
+        "On the pool: place the new concepts in the groups of their subjects. A failure only goes in the log."
+        with placing:
+            try: place_new(lr, ctx.ask)
+            except Exception as e: log.warning('the tutor could not place the new concepts: %r', e)
+
+    @hook('concepts_added')
+    def concepts_added():
+        "New concepts came in (a walk, an add or an import): place them on the pool. The request does not wait."
+        try: ctx.pool.submit(place_job)
+        except Exception as e: log.warning('the tutor could not start to place the new concepts: %r', e)
+
     def one(slug:str):
         c = lr.concept(slug)
         if not c: return Page('Concept', ui.P('No such concept.'))
@@ -112,3 +130,4 @@ def connect(app, ctx):
     app.post(Routes.cancel)(cancel)
     app.get(Routes.one)(one)
     app.post(Routes.group)(group)
+    app.post(Routes.undo)(undo)

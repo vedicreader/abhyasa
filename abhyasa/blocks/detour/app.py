@@ -5,7 +5,7 @@ lesson (`today_next`, `lesson_extra`). It links to the walk by route strings. Th
 import logging, time
 from urllib.parse import urlencode
 from fasthtml.common import *
-from abhyasa.core import hook
+from abhyasa.core import hook, run as run_hook
 from abhyasa.journey import needs, pick_way_down, detour, back_from, look_up, walk_state, parent_step, for_talk
 from abhyasa.settings import val
 from . import ui
@@ -66,6 +66,7 @@ def connect(app, ctx):
         j, i, err = place(at)
         if err: return err
         r = found(t)
+        if r: run_hook('concepts_added')   # a new term is a new concept: the concepts block places it
         return offer(lr.concept(r.slug), j, i) if r else ui.NotFound(t.strip()[:80], at)
 
     def add_term(t:str='', at:str=''):

@@ -5,5 +5,7 @@ class Routes:
     sort = '/concepts/sort'
     accept = '/concepts/sort/accept'
     cancel = '/concepts/sort/cancel'
+    undo = '/c/{slug}/undo'
     def of(slug): return f'/c/{slug}'
     def group_of(slug): return f'/c/{slug}/group'
+    def undo_of(slug): return f'/c/{slug}/undo'

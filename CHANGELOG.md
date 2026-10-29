@@ -4,6 +4,8 @@
 
 ## 0.0.12
 
+- Concepts: a saved sort is locked. The tutor never moves a concept that has a group, and it keeps the group list of each subject. The button says "Sort 3 new concepts" and shows only when some concepts have no group; it sends only those, and the groups you have come first. New concepts from a walk, an add or an import are placed in the groups by themselves, with a quiet mark and an Undo.
+- Concepts: a name of one character, such as "x", does not make a concept from a text, a term or a ramabana note.
 - Sort my concepts: the tutor asks again one time for each concept that got no group, and a short "Other" group is the last resort. For a concept with no subject, it also proposes a subject (one you have, or a new one). The proposal says how many it placed and names the ones it left for you.
 - Walks from a link or a paper: new concepts get a subject (the Subject field, or one that the tutor picks), and a name that was a slug shows as words. Old concepts with a slug name get words once.
 - Research: a walk step with no source passage (a walk from a topic, the walk of a talk from a journey) gets a source from the web. The tutor searches the web for the idea, reads the best 3 pages with plain HTTP, and quotes one passage of at most 600 characters. It keeps the passage only when the page has it word for word. The page goes into your vault as a web document and is linked to the concept, so lessons, slides and your sources find it (prompt: Source finder).

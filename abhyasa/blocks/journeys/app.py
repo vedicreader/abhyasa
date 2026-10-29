@@ -48,11 +48,11 @@ def connect(app, ctx):
         return path(jid)
 
     def add(jid:str, name:str=''):
-        if name.strip(): add_topic(lr, ask, jid, name.strip(), sources=ctx.sources)
+        if name.strip(): add_topic(lr, ask, jid, name.strip(), sources=ctx.sources); run('concepts_added')   # the concepts block places the new concept
         return path(jid)
 
     def split_(jid:str, slug:str):
-        split(lr, ask, jid, slug, ctx.sources)
+        split(lr, ask, jid, slug, ctx.sources); run('concepts_added')
         return path(jid)
 
     def drop(jid:str):

@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import quote
 from fasthtml.common import *
 from fastcore.utils import first
-from abhyasa.core import Page, hook
+from abhyasa.core import Page, hook, run as run_hook
 from abhyasa.sources import extract, figure_path
 from . import ui
 from .cfg import Routes
@@ -64,6 +64,7 @@ def connect(app, ctx):
         if d is None: return P('No such document.', cls='mute')
         slugs = extract(lr, ask, sh.document(doc_id).text, '', dict(src=f'vault:{shelf}', ref=doc_id, title=d['title'], at=time.time()))
         if not slugs: return P('No concepts found.', cls='mute')
+        run_hook('concepts_added')   # the concepts block places the new concepts on the pool
         return Div(Span('Concepts from this document', cls='lbl'), Ul(*[Li(A(lr.concept(s).name, href=f'/c/{s}')) for s in slugs], cls='plain'))
 
     @hook('pane_title')

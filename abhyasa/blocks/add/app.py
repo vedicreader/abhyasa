@@ -2,7 +2,7 @@
 import logging, time
 from fasthtml.common import *
 from pathlib import Path
-from abhyasa.core import Page, RouteOverrides, Primary, Secondary, Quiet, Choice, asset_css, asset_js
+from abhyasa.core import run as run_hook, Page, RouteOverrides, Primary, Secondary, Quiet, Choice, asset_css, asset_js
 from abhyasa.sources import extract, from_vault, from_vedicreader
 from abhyasa.settings import val
 from .cfg import Routes
@@ -60,6 +60,7 @@ def connect(app, ctx):
             if not ref.strip(): return P(str(e), cls='mute')
             log.warning('no concepts from the vault: %r', e)
             return P(NO_DOC, cls='mute')
+        run_hook('concepts_added')   # the concepts block places the new concepts on the pool
         return Ul(*[Li(A(lr.concept(s).name, href=f'/c/{s}')) for s in slugs], cls='plain')
 
     def vedicreader(): return P(', '.join(f'{v} {k}' for k, v in from_vedicreader(lr).items()) + ' added.')
