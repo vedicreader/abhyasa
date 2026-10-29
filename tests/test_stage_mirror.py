@@ -23,16 +23,16 @@ def _two(pg, spec):
     pg.set_content(page([spec, spec])); pg.add_script_tag(content=JS); pg.evaluate(f'() => {{ {TALK}; }}')
     pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 2")
 
-def test_mirror_needs_rupaka_005():
-    "With no `Rupaka.options` (rupaka 0.0.4 and older), `mirror` throws an error that names the rupaka version."
+def test_mirror_needs_rupaka_006():
+    "With no `Rupaka.open` (rupaka 0.0.5 and older), `mirror` throws an error that names the rupaka version."
     spec = gallery()['softmax-temperature']
     with pw.sync_playwright() as p:
         b = p.chromium.launch(headless=True)
         try:
             pg = b.new_page(); _two(pg, spec)
-            got = pg.evaluate("""() => { delete Rupaka.options;
+            got = pg.evaluate("""() => { delete Rupaka.open;
               try { abhyasaStage.mirror(document.querySelector('[data-rupaka]')); return 'no error'; } catch (e) { return e.message; } }""")
-            assert 'rupaka 0.0.5' in got
+            assert 'rupaka 0.0.6' in got
         finally: b.close()
 
 def test_mirror_follows_the_presenter_copy():
