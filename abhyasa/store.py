@@ -65,6 +65,8 @@ class Learning:
         self.vault, self.v = vault, vault.shelf(shelf)
         try: self.repair_names()   # a name that is a slug becomes words, one time
         except Exception as e: log.warning('abhyasa could not repair the names of the concepts: %r', e)
+        try: import abhyasa.journey; self.repair_titles()   # a walk titled with an arXiv id gets the title of its paper, one time
+        except Exception as e: log.warning('abhyasa could not repair the titles of the walks: %r', e)
 
     def _docs(self, kind, where='', args=()):
         w = 'kind=?' + (f' and ({where})' if where else '')

@@ -9,7 +9,8 @@ __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'N
            'SHORT', 'EMPTY', 'ARXIV_LINK', 'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group', 'extract_prompt',
            'doc_pages', 'locate', 'figure_path', 'placement', 'extract', 'from_vault', 'sort_prompt', 'Places',
            'propose_groups', 'apply_groups', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError',
-           'link_kind', 'reading_order', 'file_link', 'as_link', 'is_paper', 'plain', 'from_vedicreader']
+           'link_kind', 'reading_order', 'file_link', 'as_link', 'is_id_title', 'arxiv_title', 'is_paper', 'plain',
+           'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re
@@ -394,10 +395,11 @@ def _reader(lr:Learning, kind:str):
         return getattr(sh, how)(target, **kw)
     return read
 
-def file_link(lr:Learning, url:str, max_pages:int=None, read=None, final=None) -> L:
-    "File the pages of `url` in the vault. Return `shelf`, `doc_id`, `title` and `url` of each page in the folder of `url` (after any redirect of the start page), in reading order, at most `max_pages` (default: the setting `links.pages`). `final(url)` gives the address after the redirects."
+def file_link(lr:Learning, url:str, max_pages:int=None, read=None, final=None, title_of=None) -> L:
+    "File the pages of `url` in the vault. Return `shelf`, `doc_id`, `title` and `url` of each page in the folder of `url` (after any redirect of the start page), in reading order, at most `max_pages` (default: the setting `links.pages`). `final(url)` gives the address after the redirects. A paper filed under its arXiv id gets its real title from `title_of(id)` (with the real readers, `arxiv_title`)."
     url, cap = url.strip(), max(1, min(int(max_pages or val('links.pages')), val('links.cap')))
     kind = link_kind(url)
+    aid = (m := ARXIV_LINK.fullmatch(url) or ARXIV_ID.fullmatch(url)) and ARXIV_ID.search(m[0]).group()   # the id of an arXiv paper
     if kind == 'arxiv' and (m := ARXIV_ID.search(url)): kind, url = 'pdf', f'https://arxiv.org/pdf/{m.group()}'   # the arxiv reader gives the abstract only; the PDF gives the text and its figures
     how = READERS.get(kind) or ('url' if cap == 1 else 'crawl')
     found = read is not None
@@ -423,6 +425,7 @@ def file_link(lr:Learning, url:str, max_pages:int=None, read=None, final=None) -
         if not d or d['id'] in docs.attrgot('doc_id') or (how in ('url', 'crawl') and not in_scope(d['source'], scope)): continue
         if how in ('url', 'crawl') and not found: _whole(lr, sh, d)   # after the scope filter, and only for a host on the internet
         docs.append(AttrDict(shelf=sh.name, doc_id=d['id'], title=d['title'], url=d['source']))
+    if aid and (t := (title_of or (not found and arxiv_title) or (lambda i: None))(aid)): docs = L(AttrDict(d, title=t) if is_id_title(d.title) else d for d in docs)   # the PDF reader names a paper by the end of its link
     if how == 'github': docs = L(sorted(docs, key=lambda d: 'readme' not in Path(d.url).name.lower()))
     if not docs: raise LinkError('abhyasa could not read this link.')
     if sum(len(t) for d in docs for _, t in doc_pages(lr, d.doc_id, d.shelf).pages) < EMPTY:
@@ -438,6 +441,16 @@ def as_link(s:str) -> str|None:
     s = re.sub(r'^arxiv:\s*', '', (s or '').strip(), flags=re.I)
     if ARXIV_ID.fullmatch(s) or re.fullmatch(r'https?://\S+', s, re.I): return s
     return f'https://arxiv.org/abs/{m[1]}' if (m := ARXIV_LINK.fullmatch(s)) else None
+
+def is_id_title(t:str) -> bool:
+    "Whether `t` is only an arXiv id, as the PDF reader names a paper by the end of its link."
+    return bool(re.fullmatch(ARXIV_ID.pattern + r'(?:\.pdf)?', re.sub(r'^arxiv:\s*', '', (t or '').strip(), flags=re.I)))
+
+def arxiv_title(aid:str) -> str|None:
+    "The title of arXiv paper `aid` from its metadata (fossick keeps it on disk), or None when there is none."
+    from fossick import read_arxiv
+    try: return ' '.join(read_arxiv(aid, save_pdf=False, **fetch_opts())['title'].split()) or None
+    except Exception: return None
 
 def is_paper(url:str) -> bool:
     "Whether `url` is one paper that abhyasa reads in full: an arXiv id or address, or a link to a PDF file."

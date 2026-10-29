@@ -717,3 +717,43 @@ def test_vault_viewer_refuses_an_open_question(mk, walk_fake, lr):
     r = cl.get(f'/v/learning/{d}')
     assert 'No such document' in r.text and 'Its position.' not in r.text and 'What does a rank' not in r.text   # the same page as a document that is not there
     assert cl.get(f'/v/learning/{d}/img?f=x.png').status_code == 404
+
+def paper_walk(monkeypatch, cl, u='https://arxiv.org/pdf/1706.03762'):
+    "Make a walk from an arXiv link whose PDF is filed under its id, as the PDF reader does; the arXiv metadata has the real title."
+    fake_web(monkeypatch, pdf_title='1706.03762')
+    monkeypatch.setattr('abhyasa.sources.arxiv_title', lambda i: 'Attention Is All You Need')
+    cl.post('/walk/new', data=dict(url=u), headers=HX)
+    return wait_for(lambda: (cl.get('/walk/job', params=dict(url=u)).headers.get('hx-redirect') or '').split('/')[-1] or None, secs=10)
+
+def test_paper_walk_is_named_for_the_paper(mk, walk_fake, lr, monkeypatch):
+    "A walk from an arXiv link takes the title of the paper, not its id; the id stays as a quiet tag on a row."
+    cl = mk(); jid = paper_walk(monkeypatch, cl)
+    assert lr.journey(jid).title == 'Attention Is All You Need'
+    page = cl.get(f'/w/{jid}').text
+    assert '<h1>Attention Is All You Need</h1>' in page and '1706.03762' not in page.split('<h1>')[0].split('<title>')[-1]
+    cl.post(f'/w/{jid}/start')
+    crumbs = cl.get(f'/w/{jid}/0').text
+    assert 'Today' in crumbs and '>Attention Is All You Need<' in crumbs and '>1706.03762<' not in crumbs
+    for url in ('/', '/journeys'):
+        t = cl.get(url).text
+        assert 'Attention Is All You Need' in t and 'class="paper-id mute"' in t and '>1706.03762<' in t
+
+def test_old_paper_walk_title_is_repaired_once(lr):
+    "A walk whose title is a bare arXiv id takes the title of its vault document, one time; a walk with a real title stays."
+    from abhyasa.store import Learning
+    d = lr.vault.add(PAGES, 'Attention Is All You Need', source='https://arxiv.org/pdf/1706.03762', kind='pdf')
+    mk_j = lambda i, t, doc: lr.put_journey(dict(id=i, title=t, mode='walk', steps=[], url='https://arxiv.org/pdf/1706.03762', source=dict(url='https://arxiv.org/pdf/1706.03762'),
+                                                 docs=[dict(shelf='store', doc_id=doc, title=t, url='https://arxiv.org/pdf/1706.03762')]))
+    mk_j('old', '1706.03762', d['doc_id']); mk_j('mine', 'My own title', d['doc_id'])
+    lr.v.forget(first(lr.v.t.docs(where='source=?', where_args=['learning://marker/titles']))['id']) if first(lr.v.t.docs(where='source=?', where_args=['learning://marker/titles'])) else None
+    assert Learning(lr.vault).journey('old').title == 'Attention Is All You Need' and lr.journey('mine').title == 'My own title'
+    lr.put_journey({**lr.journey('old'), 'title': '1706.03762'})
+    assert Learning(lr.vault).journey('old').title == '1706.03762'   # the mark is set: it does not look again
+
+def test_continue_card_of_a_walk_says_what_was_done(mk, walk_fake, lr):
+    "The Continue card on Today says the ideas done in a walk, not the questions of a session."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    cl.post(f'/w/{jid}/plan', data=dict(i=1, act='check', way='words'))
+    cl.get(f'/w/{jid}/1/check'); cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position'))
+    card = cl.get('/').text.split('class="continue-card"')[1].split('</div>')[0]
+    assert ' of 3 ideas' in card and 'question' not in card

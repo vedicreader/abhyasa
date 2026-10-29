@@ -127,7 +127,10 @@ def connect(app, ctx):
     def continue_card(subject=None):
         if not (s := latest_open()): return None
         by, js = names()
-        return ui.css(), ui.Continue(s, title(s, by, js), big=True, href=back(s, js))   # the card style is in history.css
+        j = js.get(s.get('journey') or '')
+        pg = j and j.get('mode') == 'walk' and progress(lr, opener(j, js)[0] or j)   # a walk says its ideas, not questions
+        done = f"{pg.done} of {n_of(pg.total, 'idea')}" if pg else ''
+        return ui.css(), ui.Continue(s, title(s, by, js), big=True, href=back(s, js), done=done)   # the card style is in history.css
 
     RouteOverrides.nav.append(('Your learning', Routes.base, 0.7))
     app.get(Routes.base)(index)

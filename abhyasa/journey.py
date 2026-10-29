@@ -11,7 +11,7 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'SHORT_WAYS', 'PICK_SP', 'S
            'journey_from_source', 'journey_from_text', 'journey_from_sources', 'walk_from_topic', 'walk_state',
            'minutes', 'needs', 'pick_way_down', 'detour', 'parent_step', 'trail', 'back_from', 'for_talk',
            'journey_walk', 'walk_for_talk', 'journey_changed', 'look_up', 'add_topic', 'name_gaps', 'split', 'related',
-           'with_step', 'beyond', 'handoff', 'read_handoff']
+           'with_step', 'beyond', 'paper_id', 'handoff', 'read_handoff']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
@@ -21,7 +21,7 @@ from .model import learned
 from .settings import val
 from .llm import ask_json, for_task
 from .prompts import register, prompt
-from .sources import extract, _index, doc_pages, from_vault, placement
+from .sources import extract, _index, doc_pages, from_vault, placement, is_id_title, ARXIV_LINK
 import abhyasa.profile  # adds Learning.profile
 from .method import check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND
 from .ground import ground, ground_text
@@ -561,6 +561,27 @@ def beyond(lr:Learning, j, k:int=5, goal:int=None) -> L:
     for s in j['steps'][::-1]:
         out += [x for x in related(lr, s['slug'], k, goal, by) if x.slug not in have and x.slug not in out.attrgot('slug')]
     return out[:k]
+
+# %% ../nbs/11_journey.ipynb #jt-1
+def paper_id(j) -> str:
+    "The arXiv id of the paper that walk `j` reads, or an empty string. Empty too when the title of `j` is that id."
+    m = ARXIV_LINK.fullmatch((j.get('source') or {}).get('url') or j.get('url') or '')
+    return m[1] if m and not is_id_title(j.get('title')) else ''
+
+@patch
+def repair_titles(self:Learning) -> list:
+    "One time for each shelf, give each walk whose title is only an arXiv id the title of its vault document, when that has a real one. Return the ids that changed."
+    if first(self.v.t.docs(where='source=?', where_args=[_src('marker', 'titles')])): return []
+    out = []
+    for j in self.journeys():
+        if not (is_id_title(j.title) and j.get('docs')): continue
+        d = self.vault.shelf(j.docs[0]['shelf']).doc(j.docs[0]['doc_id'])
+        if d and (t := (d['title'] or '').strip()) and not is_id_title(t):
+            n = self.put_journey({**j, 'title': t, 'docs': [{**j.docs[0], 'title': t}, *j.docs[1:]]})
+            self.v.set_meta(n.doc_id, updated=j.get('updated', 0))   # a repair is not a change that you made: the order of the list stays
+            out.append(j.id)
+    self.v.add('The titles of the walks were repaired.', title='Titles repaired', source=_src('marker', 'titles'), kind='marker')
+    return out
 
 # %% ../nbs/11_journey.ipynb #667e494b
 from urllib.parse import urlencode, parse_qs
