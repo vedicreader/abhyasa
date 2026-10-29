@@ -106,6 +106,33 @@ def test_mirror_room_copy_has_no_verdict():
               m.apply({}, {hot: 'done'}, {hot: 1}); const v = b.querySelector('.rk-gate .verdict');
               return [b.rupaka.st.gate.hot, v.hidden, v.textContent]; }""")
             assert got == ['done', True, '']
+            # after R the answers come: the done gate draws the verdict of the presenter's pick
+            got = pg.evaluate("""() => { const b = document.querySelectorAll('[data-rupaka]')[1], m = abhyasaStage.mirror(b);
+              m.apply({}, {hot: 'done'}, {hot: 1}); m.reveal({hot: {is: 'It falls'}, nope: {is: 1}});
+              const v = b.querySelector('.rk-gate .verdict'); return [v.hidden, v.textContent]; }""")
+            assert got[0] is False and got[1].startswith('You said It falls. That is right.')
+        finally: b.close()
+
+def test_mirror_answers_only_for_done_gates():
+    "The presenter copy gives the answers of its done gates only; the audience copy takes an answer only for a gate that is done there."
+    spec = gallery()['softmax-temperature']
+    room = {**spec, 'blocks': [{k: v for k, v in x.items() if k != 'answer'} for x in spec['blocks']]}
+    with pw.sync_playwright() as p:
+        b = p.chromium.launch(headless=True)
+        try:
+            pg = b.new_page(); pg.set_content(page([spec, room])); pg.add_script_tag(content=JS); pg.evaluate(f'() => {{ {TALK}; }}')
+            pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 2")
+            got = pg.evaluate("""() => { const [a, b] = document.querySelectorAll('[data-rupaka]'), ma = abhyasaStage.mirror(a), mb = abhyasaStage.mirror(b), r = {};
+              r.before = ma.answers();
+              a.querySelector('.rk-gate .opts button').click(); a.querySelector('.rk-gate .go').click();
+              r.after = ma.answers();
+              mb.reveal(r.after);   // the gate is open here: no answer goes into the copy
+              r.open = [b.rupaka.st.gate.hot, 'answer' in b.rupaka.spec.blocks[2]];
+              const s = ma.snapshot(); mb.apply(s.state, s.gates, s.pick); mb.reveal(r.after);
+              r.verdict = b.querySelector('.rk-gate .verdict').textContent;
+              return r; }""")
+            assert got['before'] == {} and got['after'] == dict(hot={'is': 'It falls'}) and got['open'] == ['open', False]
+            assert got['verdict'].startswith('You said It rises. It is It falls.')
         finally: b.close()
 
 SETUP = """([rk, js, name, spec]) => Promise.all([rk, js].map(src => new Promise(ok => {

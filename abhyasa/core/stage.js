@@ -47,6 +47,7 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   const GATE_PICK = either(int(0, 63), list(64, int(0, 63)));   // the same at a demo gate, which can have more options
   // The public part of a question: never its `answer` (spec 7.7).
   const ASK = shape({kind: v => ['choice', 'order', 'words', 'scale'].includes(v), q: str(500), options: list(6, str(200)), most: int(1, 500)}, ['kind', 'q']);
+  const ANSWER = v => str(200, /^[A-Za-z0-9_.]{1,200}$/)(v) || (isObj(v) && Object.keys(v).length === 1 && Object.hasOwn(v, 'is') && JSON.stringify(v).length <= 2000);
   const ROUND = shape({counts: list(6, N), n: N}, ['n']);
 
   // One row for each `t`: {fields, need, ok}. `ok` is a check of the whole message, after the fields pass.
@@ -68,6 +69,9 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
     join: {fields: {url: orNull(JOIN), code: orNull(CODE)}, ok: m => m.url === null ? m.code === null : m.url.endsWith('/j/' + m.code)},
     room: {fields: {joined: N, answered: N}},
     question: {fields: {text: orNull(str(280))}},
+    // The answers of the done demo gates of a slide, after R shows the answer of the slide. Each is the `answer` of the gate in the
+    // spec: `{is: value}`, or a path in the state. Before R no message has an answer, and the room copy of the spec has none.
+    answers: {fields: {slide: SLIDE, gates: v => isObj(v) && Object.keys(v).length <= 16 && Object.entries(v).every(([k, x]) => ID(k) && ANSWER(x))}},
   };
 
   function valid(m) {
@@ -108,7 +112,7 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
     };
   }
 
-  const DRAWN = ['go', 'ask', 'result', 'pair', 'join', 'room', 'question', 'demo', 'end'];
+  const DRAWN = ['go', 'ask', 'result', 'pair', 'join', 'room', 'question', 'demo', 'end', 'answers'];
   const child = (el, cls, tag = 'div') => el.querySelector(':scope > .' + cls) || el.appendChild(Object.assign(document.createElement(tag), {className: cls}));
 
   // The audience window: the laser dot, the lit id, the blank screen and the side pane. `draw(msg)` draws the rest.
@@ -206,15 +210,19 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   // does not give the options of a gate, so this is the one read of the store of the demo.
   // A gate with no `answer` (the copy of a talk's audience window, see room_spec) gives no options, so it shows no verdict:
   // a verdict with no answer would read "It is ." to the room.
+  // `gate` gives the block of gate `id` in the spec; `reveal` puts an answer into it, as the gate reads `answer` from its block.
+  function gate(host, id) {
+    const find = bs => { for (const b of bs || []) { if (b?.type === 'gate' && b.id === id) return b; const g = find(b?.blocks); if (g) return g; } };
+    return find(host.rupaka?.spec?.blocks);
+  }
   function options(host, id) {
-    const s = host.rupaka, find = bs => { for (const b of bs || []) { if (b?.type === 'gate' && b.id === id) return b; const g = find(b?.blocks); if (g) return g; } };
-    const g = find(s?.spec?.blocks);
+    const s = host.rupaka, g = gate(host, id);
     const os = !g || g.answer == null ? null : Array.isArray(g.options) ? g.options : s.get(g.options?.from);
     return Array.isArray(os) ? os : [];
   }
   function mirror(host) {
     if (!HOST_API()) throw Error('a mirrored demo needs rupaka 0.0.4 or newer: Rupaka.state, Rupaka.set and Rupaka.settle are not there');
-    const gates = {}, pick = {}, shown = {}, pokes = [];
+    const gates = {}, pick = {}, shown = {}, picked = {}, pokes = [];
     const poke = () => pokes.forEach(f => f());
     // The presenter copy: a gate is done when the page settles its prediction as saved, or when no page catches it.
     host.addEventListener('rk-predict', e => {
@@ -234,10 +242,28 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
       for (const id of Object.keys(done || {})) {
         const p = picks?.[id] ?? null, k = JSON.stringify(p);
         if (done[id] !== 'done' || shown[id] === k) continue;
-        const os = options(host, id), at = i => Number.isInteger(i) && i >= 0 && i < os.length ? os[i] : undefined;
-        let v = Array.isArray(p) ? p.map(at) : at(p);
-        if (v === undefined || (Array.isArray(v) && v.includes(undefined))) v = null;
-        if (Rupaka.settle(host, id, v)) shown[id] = k;
+        if (Rupaka.settle(host, id, value(id, p))) { shown[id] = k; picked[id] = p; }
+      }
+    }
+    // The option of the pick `p` at gate `id`, or null (no verdict) when the copy has no answer or no such option.
+    function value(id, p) {
+      const os = options(host, id), at = i => Number.isInteger(i) && i >= 0 && i < os.length ? os[i] : undefined;
+      const v = Array.isArray(p) ? p.map(at) : at(p);
+      return v === undefined || (Array.isArray(v) && v.includes(undefined)) ? null : v;
+    }
+    // The presenter copy: the answer of each gate that is done, for the `answers` message after R.
+    function answers() {
+      const out = {};
+      for (const id of Object.keys(gates)) { const a = gate(host, id)?.answer; if (a != null) out[id] = structuredClone(a); }
+      return out;
+    }
+    // The audience copy: an answer goes into the gate only when the gate is done here; then the verdict of the pick shows.
+    function reveal(got = {}) {
+      for (const [id, a] of Object.entries(got || {})) {
+        const g = gate(host, id);
+        if (!g || !Object.hasOwn(shown, id)) continue;
+        g.answer = structuredClone(a);
+        Rupaka.settle(host, id, value(id, picked[id]));
       }
     }
     // `fn(snapshot())` on a change: the first change at once, then at most once each 50 ms, and never the same snapshot twice.
@@ -252,7 +278,7 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
       EVENTS.forEach(n => host.addEventListener(n, on)); document.addEventListener('pointerup', on); pokes.push(on);
       return () => { live = false; clearTimeout(t); EVENTS.forEach(n => host.removeEventListener(n, on)); document.removeEventListener('pointerup', on); };
     }
-    return {snapshot, apply, watch};
+    return {snapshot, apply, watch, answers, reveal};
   }
 
   return {V, valid, isLocal, add, types: () => Object.keys(TYPES), channel, audience, presenter, mirror};

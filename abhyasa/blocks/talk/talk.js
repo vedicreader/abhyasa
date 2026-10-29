@@ -230,6 +230,8 @@ function presenterView(st) {
   let seen = 0, opened = false, goWait = null;
   // the primer beside the slide ({slug, slide, url, title, ask, main, open}), from the run log; `open` is true while its question is open
   let side = JSON.parse(box.dataset.side || 'null');
+  // the slides whose answer the room saw (R), from the run log: only then do the answers of their demo gates go to the room
+  const revealed = new Set(JSON.parse(box.dataset.revealed || '[]'));
   const slides = sectionsOf(st).map(s => ({sid: s.dataset.sid, n: +s.dataset.n, beats: JSON.parse(s.dataset.beats || '[]')}));
   const idx = () => slides.findIndex(s => s.sid === at.slide);
   const say = t => { sayLine.textContent = t || ''; };
@@ -359,7 +361,7 @@ function presenterView(st) {
     if (what === 'open') { at.ask = at.slide; result = null; }
     if (what === 'close') { at.ask = null; result = null; if (pair?.on) send(pair = {t: 'pair', on: false, prompt: pair.prompt}); }
     if (what === 'main') document.querySelectorAll('#ask-card [data-hand]').forEach(b => b.classList.toggle('on', +b.dataset.hand === r.main));
-    else if (what === 'reveal') { result = r; send(r); const i = idx(); if (!onSide && r.main != null && !Array.isArray(r.right) && r.right != null && r.main !== r.right) $('rail').children[i]?.classList.add('shaky'); }
+    else if (what === 'reveal') { result = r; send(r); if (!onSide) { revealed.add(at.slide); sendAnswers(); } const i = idx(); if (!onSide && r.main != null && !Array.isArray(r.right) && r.right != null && r.main !== r.right) $('rail').children[i]?.classList.add('shaky'); }
     else if (what === 'pair') send(pair = r);
     else send(r);
     paint();
@@ -376,11 +378,17 @@ function presenterView(st) {
   // --- the demo: the presenter's copy runs here; the audience copy follows it. The presenter's own pick is not logged.
   st.addEventListener('rk-predict', e => { e.preventDefault(); e.detail.settle(true); });
   const demos = () => [...(sectionOf(st, at.slide)?.querySelectorAll('[data-rupaka][data-demo]') || [])];
-  function sendDemo() { demos().forEach(h => h._mirror && send({t: 'demo', slug: h.dataset.demo, ...h._mirror.snapshot()}, false)); }
+  function sendDemo() { demos().forEach(h => h._mirror && send({t: 'demo', slug: h.dataset.demo, ...h._mirror.snapshot()}, false)); sendAnswers(); }
+  // After R, the answers of the done gates of the slide, so the audience copy can draw the verdict of the presenter's pick.
+  function sendAnswers() {
+    if (!revealed.has(at.slide)) return;
+    const gates = Object.assign({}, ...demos().map(h => h._mirror?.answers() || {}));
+    if (Object.keys(gates).length) send({t: 'answers', slide: at.slide, gates}, false);
+  }
   st.querySelectorAll('[data-rupaka][data-demo]').forEach(h => mounted(h, () => {
     fit(h);
     h._mirror = abhyasaStage.mirror(h);
-    h._mirror.watch(s => { if (h.closest('section.stage')?.dataset.sid === at.slide) send({t: 'demo', slug: h.dataset.demo, ...s}, false); });
+    h._mirror.watch(s => { if (h.closest('section.stage')?.dataset.sid === at.slide) { send({t: 'demo', slug: h.dataset.demo, ...s}, false); sendAnswers(); } });
   }));
   const intoDemo = () => {
     const h = demos().find(x => !x.closest('[hidden]'));
@@ -522,6 +530,7 @@ function audienceView(st) {
       const sec = sectionOf(st, st.dataset.slide);
       sec?.querySelectorAll(`[data-rupaka][data-demo="${CSS.escape(m.slug)}"]`).forEach(h => mirrors.get(h)?.apply(m.state, m.gates, m.pick));
     }
+    else if (m.t === 'answers' && m.slide === st.dataset.slide) sectionOf(st, m.slide)?.querySelectorAll('[data-rupaka][data-demo]').forEach(h => mirrors.get(h)?.reveal(m.gates));
   }
   // the side pane shows only a walk step in the talk type, over the checked channel
   const only = {...ch, on: (t, fn) => ch.on(t, t === 'pane' ? m => paneOK(m.url) && fn(m) : fn)};

@@ -286,7 +286,8 @@ def Presenter(t, deck, run, demos):
                    Div(id='beside-offer', aria_live='polite'), AskCard(t, run), cls='pv-side'),
                Div(*[Span(Kbd(k), w) for k, w in keys], cls='pv-foot'),
                id='talk', cls='pv', data_tid=tid, data_channel=f"{tid}:{run['key']}", data_audience=url, data_window=win,
-               data_at=json.dumps(a), data_result=json.dumps(log.get('result')), data_pair=json.dumps(log.get('pair')), data_side=json.dumps(run.get('side')))
+               data_at=json.dumps(a), data_result=json.dumps(log.get('result')), data_pair=json.dumps(log.get('pair')), data_side=json.dumps(run.get('side')),
+               data_revealed=json.dumps(log.get('revealed') or []))
 
 # --- the side pane in a talk (spec 12): the offer in the presenter window --------------------------------------------------
 

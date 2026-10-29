@@ -436,6 +436,12 @@ def serve(cl):
         time.sleep(.05)
     return srv, f'http://127.0.0.1:{port}'
 
+HEARD = """(() => { const B = window.BroadcastChannel; window.heard = [];
+  window.BroadcastChannel = class extends B { constructor(n) { super(n); this.addEventListener('message', e => heard.push(JSON.stringify(e.data))); } }; })()"""
+NO_ANSWER = """(() => { const g = document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka.spec.blocks.find(b => b.type === 'gate');
+  return [...heard.filter(m => /"t":"answers"|"is":|"answer"/.test(m)), ...(/"answer"/.test(document.documentElement.outerHTML) ? ['the page'] : []),
+          ...('answer' in g ? ['the gate'] : [])]; })()"""
+
 def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
     """In Chromium, a presenter page and an audience page of one run: the keys move both, a lit beat lights the words, a question
     opens with hands and the right answer, the demo follows the presenter, B blanks the room, a reload finds the place, and
@@ -458,6 +464,7 @@ def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
                 pr.goto(f'{base}/t/{tid}/present'); pr.wait_for_load_state('networkidle')
                 au = c.new_page(); au.on('pageerror', lambda e: errs.append(str(e)))
                 au.set_viewport_size(dict(width=1280, height=720))
+                au.add_init_script(HEARD)   # each stage message that the audience window gets, as JSON
                 au.goto(f'{base}/t/{tid}/audience?k={run["key"]}'); au.wait_for_load_state('networkidle')
                 pr.wait_for_selector('#aud-live:not([hidden])')   # the audience window said hello: no popup opens on the first key
                 pr.bring_to_front()
@@ -506,8 +513,12 @@ def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
                 assert shown(au)[0] == 's3'
                 au.wait_for_function("document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka?.st.t === 2")   # and the demo state
                 assert au.evaluate(verdict) is None   # and still no verdict
+                assert au.evaluate(NO_ANSWER) == []   # before R: no answer in the messages, the page or the room copy of the gate
                 pr.bring_to_front(); pr.keyboard.press('1'); pr.keyboard.press('r')
                 au.wait_for_selector('#stage .stage-ask li.right')
+                au.wait_for_function(f"({verdict} || '').startsWith('You said It rises. It is It falls.')")   # after R the room sees the verdict of the pick
+                au.reload(); au.wait_for_selector('#stage .stage-ask li.right')
+                au.wait_for_function(f"({verdict} || '').startsWith('You said It rises. It is It falls.')")   # a reload after R gets it on hello
                 assert au.locator('#stage .stage-ask li.right').inner_text().startswith('BIt falls') or 'It falls' in au.locator('#stage .stage-ask li.right').inner_text()
                 assert lr.run(run['id'])['asks']['s3']['main'] == 0
                 pr.screenshot(path=str(tmp_path/'presenter.png')); au.screenshot(path=str(tmp_path/'audience.png'))

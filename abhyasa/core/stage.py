@@ -12,7 +12,7 @@ __all__ = ['STAGE_V', 'STAGE_TYPES', 'STAGE_CASES', 'PLAN_KEYS', 'TALK_KEYS', 'R
 _here = Path(__file__).parent
 STAGE_V = 1
 #: the message types of version 1, as in the table `TYPES` of `stage.js`; a later task adds a type to both, under `v: 1`
-STAGE_TYPES = ('go', 'point', 'demo', 'ask', 'result', 'pair', 'pane', 'blank', 'end', 'hello', 'here', 'join', 'room', 'question')
+STAGE_TYPES = ('go', 'point', 'demo', 'ask', 'result', 'pair', 'pane', 'blank', 'end', 'hello', 'here', 'join', 'room', 'question', 'answers')
 
 OK = [dict(v=1, t='go', slide='s4', beat=2), dict(v=1, t='point', x=.31, y=.62), dict(v=1, t='point', id='scale'), dict(v=1, t='point', off=True),
       dict(v=1, t='demo', slug='softmax-temperature', state=dict(t=2), gates=dict(hot='done')),
@@ -23,7 +23,8 @@ OK = [dict(v=1, t='go', slide='s4', beat=2), dict(v=1, t='point', x=.31, y=.62),
       dict(v=1, t='pair', on=True, prompt='Talk to your neighbour about your answer.'), dict(v=1, t='pane', url='/w/g-1a2b/0'), dict(v=1, t='pane', url=None),
       dict(v=1, t='blank', on=True), dict(v=1, t='end'), dict(v=1, t='hello'), dict(v=1, t='here'),
       dict(v=1, t='join', url='http://192.168.1.23:5180/j/K7PQ2M', code='K7PQ2M'), dict(v=1, t='join', url=None, code=None),
-      dict(v=1, t='room', joined=34, answered=27), dict(v=1, t='question', text='Is √dk the best number?')]
+      dict(v=1, t='room', joined=34, answered=27), dict(v=1, t='question', text='Is √dk the best number?'),
+      dict(v=1, t='answers', slide='s3', gates=dict(hot={'is': 'It falls'}, win='best.0'))]
 BAD = [dict(v=2, t='go', slide='s4', beat=2), dict(v=1, t='eval', code='alert(1)'), dict(v=1, t='go', slide='s4', beat=-1), dict(v=1, t='go', slide='../x', beat=1),
        dict(v=1, t='go', slide='s4', beat=2, extra=1), dict(v=1, t='point', x=1.5, y=.2), dict(v=1, t='point', id='<b>'),
        dict(v=1, t='pane', url='https://evil.example/'), dict(v=1, t='pane', url='//evil.example'), dict(v=1, t='pane', url='/\\evil.example'),
@@ -35,7 +36,10 @@ BAD = [dict(v=2, t='go', slide='s4', beat=2), dict(v=1, t='eval', code='alert(1)
        dict(v=1, t='room', joined=-1, answered=0), dict(v=1, t='demo', slug='x', state=dict(a='x' * 70000), gates={}),
        dict(v=1, t='demo', slug='x', state={}, gates={}, pick=dict(hot=1)), dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot=64)),
        dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot='It falls')), dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot=-1)),
-       dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot=list(range(65)))), dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=[1]), [1, 2]]
+       dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot=list(range(65)))), dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=[1]),
+       dict(v=1, t='answers', slide='s3', gates=dict(hot='It falls')), dict(v=1, t='answers', slide='s3', gates=dict(hot={'is': 1, 'x': 2})),
+       dict(v=1, t='answers', slide='s3', gates=dict(hot={'is': 'x' * 2001})), dict(v=1, t='answers', slide='s3', gates={f'g{i}': 'a' for i in range(17)}),
+       dict(v=1, t='answers', slide='s3', gates=dict(hot={'is': {'constructor': 1}})), dict(v=1, t='answers', slide='../x', gates={}), [1, 2]]
 #: each (message, valid); `tests/test_stage.py` runs them through `abhyasaStage.valid` in node
 STAGE_CASES = [(m, True) for m in OK] + [(m, False) for m in BAD]
 
