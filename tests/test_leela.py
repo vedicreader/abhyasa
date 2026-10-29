@@ -1,13 +1,11 @@
 import json, subprocess, sys
-from pathlib import Path
 from fastcore.basics import AttrDict
 from abhyasa.core.cfg import cfg
-from abhyasa.core.leela import leela_link, _alive, use_vault, app_vault
+from abhyasa.core.leela import leela_link, _alive
 from abhyasa.contract import vault_key
 from walk_data import leela_file
 
 def test_leela_link_is_local_and_live(monkeypatch, tmp_path):
-    monkeypatch.setattr('abhyasa.core.leela._app', dict(vault=None)); monkeypatch.setitem(cfg, 'vault', None)   # no vault known: no key
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); j = AttrDict(id='attention-ab12')
     assert leela_link(j, 2) is None                                                     # no address file: no link
     f = leela_file(tmp_path)
@@ -25,14 +23,11 @@ def test_leela_file_override(monkeypatch, tmp_path):
     monkeypatch.setenv('ABHYASA_LEELA_FILE', str(f))                                    # no change to XDG_CONFIG_HOME or HOME
     assert leela_link(j, vault=tmp_path/'v.db') == f'http://127.0.0.1:5019/learn?walk=attention-ab12&v={vault_key(tmp_path/"v.db")}'
 
-def test_leela_link_names_the_vault_of_the_app(mk, monkeypatch, tmp_path):
-    "The link has the key of the vault that `mk_app` uses, so Leela can tell when it uses another vault."
-    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
-    mk(names=['walk'])
-    lr_path = app_vault(); assert lr_path and vault_key(lr_path) == vault_key(Path(lr_path).resolve())
-    assert leela_link(AttrDict(id='attention-ab12'), 3) == f'http://127.0.0.1:5011/learn?walk=attention-ab12&step=3&v={vault_key(lr_path)}'
-    monkeypatch.setattr('abhyasa.core.leela._app', dict(vault=None)); use_vault(tmp_path/'other.db')
-    assert leela_link(AttrDict(id='a')).endswith(f'&v={vault_key(tmp_path/"other.db")}')
+def test_leela_link_has_the_key_only_with_a_vault(monkeypatch, tmp_path):
+    "With a vault, the link has its key `v`. With none, the link is as in 0.0.12."
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path); j = AttrDict(id='attention-ab12')
+    assert leela_link(j, 3, vault=tmp_path/'v.db') == f'http://127.0.0.1:5011/learn?walk=attention-ab12&step=3&v={vault_key(tmp_path/"v.db")}'
+    assert leela_link(j, 3) == 'http://127.0.0.1:5011/learn?walk=attention-ab12&step=3'
 
 def test_a_pid_of_zero_or_less_is_not_alive(monkeypatch, tmp_path):
     "`os.kill(0, 0)` signals the process group, so a pid of 0 or less must not count as a running Leela."

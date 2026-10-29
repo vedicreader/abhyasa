@@ -38,6 +38,7 @@ log = logging.getLogger(__name__)
 
 def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
+    vault = lr.vault.path         # each Leela link names the vault of this app with its key
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
     up = [('Today', '/'), ('Learn', '/learn')]
     writing = defaultdict(Lock)   # (walk, step) -> a lock, so the note and the check of one step do not write the note twice
@@ -80,7 +81,7 @@ def connect(app, ctx):
         if k == 'notebook': return nb_card(j, i)
         if k in AIM: return ui.CHECKS[k](j.id, i, s, demo(s))
         q = question(j, i)
-        return ui.CHECKS.get(k, ui.Short)(j.id, i, s, q, after=run_hook('check_after', j, i, q) if q else ())
+        return ui.CHECKS.get(k, ui.Short)(j.id, i, s, q, after=run_hook('check_after', j, i, q) if q else (), **(dict(vault=vault) if k == 'code' else {}))
 
     def back_to(j):
         "The way back from side walk `j` to the step that opened it, and the trail for the side pane; None for a walk with no parent."
@@ -154,7 +155,7 @@ def connect(app, ctx):
 
     def nb_card(j, i):
         "The card of a notebook step: the notebook, the line while the tutor writes it, or the reason when it could not."
-        s, link = j.steps[i], leela_link(j, i)
+        s, link = j.steps[i], leela_link(j, i, vault=vault)
         if s.get('nb'): return ui.NotebookCard(j.id, i, s, link)
         if not s.get('nb_why'): write_notebook(j.id, i)
         if nb_writing(j.id, i) or not s.get('nb_why'): return ui.NbPending(j.id, i, link, s.get('leela_at'))
@@ -329,7 +330,7 @@ def connect(app, ctx):
         if not (j := walk_of(jid)): return missing()
         st = walk_state(j)
         if j.get('started') and st.current is not None: return go(jid, st.current)
-        h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j))
+        h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j), vault=vault)
         return Page(j.title, h1, ui.Filed(j), *rest, on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
 
     def plan(jid:str, i:int, act:str, way:str=''):
@@ -358,7 +359,7 @@ def connect(app, ctx):
             if not j.steps[i].get('read_at'): j = lr.walk_step(jid, i, read_at=time.time())
             ahead(j, i + 1)
         b = by()
-        page = ui.StepPage(j, walk_state(j), b, i, needs=run_hook('step_needs', j, i, b.get(j.steps[i]['slug'])), back=back_to(j),
+        page = ui.StepPage(j, walk_state(j), b, i, needs=run_hook('step_needs', j, i, b.get(j.steps[i]['slug'])), back=back_to(j), vault=vault,
                        present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
@@ -414,7 +415,7 @@ def connect(app, ctx):
     def open_leela(jid:str, i:int):
         "Open in Leela: note the time on step `i` (`leela_at`), then go to the Leela link. When Leela does not run, go back to the step."
         if not walk_of(jid, i): return Response(status_code=404)
-        if not (link := leela_link(lr.journey(jid), i)): return RedirectResponse(ui.at(Routes.step, jid, i), status_code=303)
+        if not (link := leela_link(lr.journey(jid), i, vault=vault)): return RedirectResponse(ui.at(Routes.step, jid, i), status_code=303)
         lr.walk_step(jid, i, leela_at=time.time())
         return RedirectResponse(link, status_code=303)
 
@@ -615,7 +616,7 @@ def connect(app, ctx):
     @hook('concept_more')
     def leela(c):
         "A link to Leela for a concept with a code way, when Leela runs."
-        line = leela_line(None, topic=c.name, say=f'Learn {c.name} with code in Leela', quiet=True) if 'code' in (c.get('ways') or ()) else ''
+        line = leela_line(None, topic=c.name, say=f'Learn {c.name} with code in Leela', quiet=True, vault=vault) if 'code' in (c.get('ways') or ()) else ''
         return line or None
 
     @hook('lesson_extra')

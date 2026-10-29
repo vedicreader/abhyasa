@@ -73,12 +73,12 @@ def Plan(j, st, by):
                  'When a step needs one of them, you can learn it beside the walk.', cls='mute') if n else '',
                Ol(*secs, cls='plan') if secs else P('The tutor found no ideas in this source.', cls='mute'), id='plan')
 
-def PlanPage(j, st, by, actions=()):
+def PlanPage(j, st, by, actions=(), vault=None):
     src = j.get('source') or {}
     go = (Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post')
           if j['steps'] else '')
     return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else f"From the link: {src['url']} · {n_of(len(src['docs']), 'page')}." if src.get('docs') else j.get('goal', ''), cls='mute'),
-            leela_line(j) if j.get('tool') else '', Plan(j, st, by), Div(go, *actions, cls='row'))
+            leela_line(j, vault=vault) if j.get('tool') else '', Plan(j, st, by), Div(go, *actions, cls='row'))
 
 def LinkPending(url, said):
     "A walk from a link that is still being made: the card asks the server again in 2 seconds."
@@ -204,7 +204,7 @@ def TalkStep(j, st, by, i):
     return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea'), Passage(j, short, c), Figure_(j['id'], i, s, c),
                P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
-def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False):
+def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None):
     "One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title, `present` under the outline."
     if in_talk(): return TalkStep(j, st, by, i)
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
@@ -214,7 +214,7 @@ def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False):
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING)
     return Div(Rail(j, st, by, i, present),
                Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c),
-                   NoteSlot(j['id'], i), slot, leela_line(j, i) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
+                   NoteSlot(j['id'], i), slot, leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 
 # --- the short-answer check ------------------------------------------------------------------------------------------
@@ -359,7 +359,7 @@ def RunOff(oob=False):
     "Run the tests on a closed check: plain and off, so ⌥S presses Next idea."
     return Button('Run the tests', type='submit', form='run-form', id='run', disabled=True, **({'hx_swap_oob': 'true'} if oob else {}))
 
-def CodeCheck(jid, i, s, q, after=()):
+def CodeCheck(jid, i, s, q, after=(), vault=None):
     "A code check: the task, a plain editor with the stub, the visible tests, and Run. A run swaps only the results."
     if q is None: return Done(jid, i, s)
     if not s.get('code'): return Short(jid, i, s, q, after)
@@ -377,7 +377,7 @@ def CodeCheck(jid, i, s, q, after=()):
     # Run is outside the form, so the results can hold Next idea with no nested form. On a closed check, Next idea is the main button.
     run = RunOff() if closed(q) else Primary('Run the tests', type='submit', form='run-form', id='run', data_wait=RUNNING, title='⌘↵ runs them too')
     return Check(CardHead(s, q), q['question'], foot=(form, CodeOut(jid, i, q, oob=False), Div(run, hint, idk, cls='row acts'),
-                                                   leela_line(AttrDict(id=jid), i, say='Go further with real code in Leela', quiet=True)), cls='code-check')
+                                                   leela_line(AttrDict(id=jid), i, say='Go further with real code in Leela', quiet=True, vault=vault)), cls='code-check')
 
 # --- the notebook check: it runs in Leela ---------------------------------------------------------------------------
 

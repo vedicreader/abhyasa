@@ -160,7 +160,7 @@ def handoff_trip(lr, ask, j, cfg_home) -> AttrDict:
             if not s.get('leela'): continue
             n += 1
             want = f'http://127.0.0.1:{PORT}' + handoff(j.id, i, v=vault_key(lr.vault.path))
-            links += leela_link(j, i) == want
+            links += leela_link(j, i, vault=lr.vault.path) == want
             page = cl.get(f'/w/{j.id}/{i}').text
             demo = s['check']['kind'] in ('demo', 'order')   # a demo card starts a demo job: not fetched
             card = '' if demo else cl.get(f'/w/{j.id}/{i}/check').text

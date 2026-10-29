@@ -104,3 +104,18 @@ def test_walk_made_writes_each_notebook(mk, lr, walk_fake, monkeypatch):
     ix = [i for i, s in enumerate(lr.journey(jid).steps) if s['check']['kind'] == 'notebook']
     assert ix and all(lr.journey(jid).steps[i]['check']['why'].endswith('runs in Leela') for i in ix)
     assert wait_for(lambda: all(lr.journey(jid).steps[i].get('nb') for i in ix) or None, 10)
+
+def test_two_apps_link_their_own_vault(lr, walk_fake, monkeypatch, tmp_path):
+    "Two apps in one process, on two vaults: the Leela link of each app has the key of its own vault."
+    from starlette.testclient import TestClient
+    from abhyasa.app import mk_app
+    from abhyasa.store import temp_learning
+    from abhyasa.contract import vault_key
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
+    lr2 = temp_learning()
+    cls = [TestClient(mk_app(l, walk_fake, transcribe=lambda a, hint='': '', names=['walk'], hosts=('testserver',))) for l in (lr, lr2)]   # the second app is made last
+    for cl, l in zip(cls, (lr, lr2)):
+        jid = nb_step(cl, l)
+        r = cl.post(f'/w/{jid}/1/leela', follow_redirects=False)
+        assert r.headers['location'].endswith(f'&v={vault_key(l.vault.path)}'), r.headers['location']
+    assert vault_key(lr.vault.path) != vault_key(lr2.vault.path)

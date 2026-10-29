@@ -2,6 +2,23 @@
 
 <!-- do not remove -->
 
+## 0.0.13
+
+- The app says "walk" for each journey: the pages, the notes, the docstrings and the vault titles. The path page moves to `/path/<id>`. An old `/j/<id>` link goes there.
+- The top bar has four tabs (Today, Learn, Library, You) and a gear for Settings. A page with more parts shows them as links under the title. Left-hand keys go to the tabs: ⌥Q Learn, ⌥R Library, ⌥G You, and ⌥1 to ⌥3 for the links under the title.
+- The Learn page lists your walks and talks. Each walk row has two lines and a pill that says its kind. A path row has a quiet Present.
+- One Start box takes a topic, a link, a paper, a text, a vault document or a dropped file. It says what it will do before you press Start. It makes no network call to read the box.
+- Each passage has one source line under it, with a label: your vault, the web, or your source. The tutor's own words have a mark. Old talk slides and concept page passages get a source line too.
+- A goal that names a folder, a local repo or a GitHub repo files it as a source. The names show as chips under the box before you press Start. You can remove a chip. Undo forgets what Start filed.
+- Folders and repos: abhyasa files notebooks, Markdown, text and Python files. It refuses hard links and hidden folders, caps each filing at 200 MB, and clones a public GitHub repo over HTTPS (extra: `abhyasa[repos]`). The setting "Source folders" (`sources.roots`) sets where it looks.
+- A new check kind, `notebook`, for an idea that needs a library. The tutor writes the task, the tests, the data paths, the packages and the run onto the step. The card shows them, and the step runs in Leela. "Download the notebook" gives the same notebook for Jupyter.
+- The notebook spec is checked: each text is one line, the patterns match in full, a data path must be in your home folder with no `..` and no hidden part, and a line that starts with `#|` is refused. The tutor gets each passage between markers.
+- `abhyasa.contract` holds the names that abhyasa and Leela share: the exercise test rule, the notebook spec, the run check and the link. It uses only the standard library.
+- The link to Leela has the vault key `v`, so Leela can tell when the two apps use different vaults. A link with no `v` works as before.
+- "Open in Leela" on a notebook step notes the time on the step. The step then says "Opened in Leela at 14:02. The result comes back here."
+- abhyasa writes its address to `~/.config/abhyasa/serving.json` (`url`, `pid`, `vault`) when it starts, and removes it when it stops. Leela uses it to link back to the walk.
+- `abhyasa.stagekit` holds `room_spec` and `is_local` with only standard imports.
+
 ## 0.0.12
 
 - Concepts: a saved sort is locked. The tutor never moves a concept that has a group, and it keeps the group list of each subject. The button says "Sort 3 new concepts" and shows only when some concepts have no group; it sends only those, and the groups you have come first. New concepts from a walk, an add or an import are placed in the groups by themselves, with a quiet mark and an Undo.

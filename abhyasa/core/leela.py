@@ -7,7 +7,7 @@ from fasthtml.common import *
 from abhyasa.contract import handoff, vault_key
 from .cfg import cfg
 
-__all__ = ['LEELA_INSTALL', 'leela_address', 'leela_base', 'use_vault', 'app_vault', 'leela_link', 'leela_line', 'abhyasa_address',
+__all__ = ['LEELA_INSTALL', 'leela_address', 'leela_base', 'leela_link', 'leela_line', 'abhyasa_address',
            'write_address', 'drop_address']
 LEELA_INSTALL = 'https://github.com/vedicreader/leela#install'
 LOCAL = ('127.0.0.1', 'localhost', '::1')
@@ -36,25 +36,15 @@ def leela_base() -> str|None:
     if isinstance(d, dict) and _alive(d.get('pid') or 0) and _local(d.get('url')): return d['url']
     return cfg.leela if _local(cfg.leela) else None
 
-_app = dict(vault=None)   # the vault file of this app; `mk_app` sets it
-
-def use_vault(path):
-    "Make `path` the vault that the Leela link names with its key."
-    _app['vault'] = str(path) if path else None
-
-def app_vault() -> str|None:
-    "The vault file of this app: the one `use_vault` set, else `cfg.vault`; None when neither is known."
-    return _app['vault'] or cfg.vault
-
 def leela_link(j, i:int|None=None, topic:str='', vault=None) -> str|None:
-    "The link that opens walk `j`, its step `i` or `topic` in Leela, with the key of `vault` (default `app_vault()`); None when Leela does not run."
+    """The link that opens walk `j`, its step `i` or `topic` in Leela; None when Leela does not run. `vault` is the vault file of the app,
+    so the link has its key `v` and Leela can tell when it uses another vault. With no `vault` the link has no `v`, as in 0.0.12."""
     if not (b := leela_base()): return None
-    v = vault or app_vault()
-    return b.rstrip('/') + handoff(j.id if j else '', i, topic, v=vault_key(v) if v else '')
+    return b.rstrip('/') + handoff(j.id if j else '', i, topic, v=vault_key(vault) if vault else '')
 
-def leela_line(j, i:int|None=None, topic:str='', say:str='Open in Leela for code and tools', quiet:bool=False):
-    "One muted line with the link to Leela, or how to get Leela; nothing when `quiet` and Leela does not run."
-    if href := leela_link(j, i, topic): return P(A(f'{say} ↗', href=href, target='_blank', rel='noopener'), cls='leela-line')
+def leela_line(j, i:int|None=None, topic:str='', say:str='Open in Leela for code and tools', quiet:bool=False, vault=None):
+    "One muted line with the link to Leela (with the key of `vault`), or how to get Leela; nothing when `quiet` and Leela does not run."
+    if href := leela_link(j, i, topic, vault): return P(A(f'{say} ↗', href=href, target='_blank', rel='noopener'), cls='leela-line')
     return '' if quiet else P('Open this in Leela for code and tools. ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='leela-line muted')
 
 def abhyasa_address() -> Path:

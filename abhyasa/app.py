@@ -7,7 +7,7 @@ from fasthtml.common import *
 from abhyasa.core import cfg, RouteOverrides, connect_all, serve_assets, serve_feedback, HDRS, look_before
 from abhyasa.core import hooks
 from abhyasa.core.keys import write_sanketa_pack
-from abhyasa.core.leela import use_vault, write_address, drop_address
+from abhyasa.core.leela import write_address, drop_address
 from abhyasa.blocks import blocks
 from abhyasa.store import Learning
 from abhyasa.tutor import Tutor
@@ -59,7 +59,6 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     if transcribe is None: from abhyasa.voice import transcribe
     ask = ask if isinstance(ask, Router) else Router(ask or route_ask())   # a model for each task, from the settings
     hooks.clear(); RouteOverrides.nav.clear(); RouteOverrides.subtabs.clear(); RouteOverrides.gear = None
-    use_vault(learning.vault.path)   # the Leela link names this vault with its key
     try: learning.repair_subjects()   # one time on a vault: a concept in General gets the subject of its walk
     except Exception as e: logging.getLogger(__name__).warning('abhyasa could not repair the subjects of the concepts: %r', e)
     from abhyasa.voice import cfg_dir
