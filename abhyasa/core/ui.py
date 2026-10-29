@@ -126,21 +126,26 @@ def _attr(tag, attr, val):
     if attr != 'class': return val
     return ' '.join(t for t in val.split() if t in ('math', 'inline', 'display') or t.startswith('language-')) or None
 
-def clean_html(h):
-    "`h` cut to what markdown means: no scripts, frames, media, forms, handlers or styles; links only to http, https and mailto; no relative URL."
-    return nh3.clean(h, tags=_TAGS, clean_content_tags=_DROP, attributes=_ATTRS, attribute_filter=_attr,
-                     url_schemes={'http', 'https', 'mailto', 'data'}, url_relative='deny', link_rel='noopener noreferrer')
+def clean_html(h, imgs=()):
+    """`h` cut to what markdown means: no scripts, frames, media, forms, handlers or styles; links only to http, https and mailto; no relative URL.
+    An image `src` that is one of the local paths in `imgs` stays: the page made each one and checked that its file is there."""
+    def f(t, a, v):   # with `imgs`, nh3 lets relative URLs through, so a link must name its scheme here
+        if a == 'src' and v in imgs: return v
+        if a == 'href' and not re.match(r'(https?|mailto):', re.sub(r'[\x00-\x20]+', '', v), re.I): return None
+        return _attr(t, a, v)
+    return nh3.clean(h, tags=_TAGS, clean_content_tags=_DROP, attributes=_ATTRS, attribute_filter=f if imgs else _attr,
+                     url_schemes={'http', 'https', 'mailto', 'data'}, url_relative='pass_through' if imgs else 'deny', link_rel='noopener noreferrer')
 
-def md_html(s):
-    "Safe HTML for markdown `s`: `$…$` is a `span.math`, `$$…$$` a `.math.display`, and a code fence a `pre` that keeps its lines."
+def md_html(s, imgs=()):
+    "Safe HTML for markdown `s`: `$…$` is a `span.math`, `$$…$$` a `.math.display`, and a code fence a `pre` that keeps its lines. `imgs` as in `clean_html`."
     s = str(s or '')
     try: h = str(mdhtml2html(md2mdhtml(s, math='dollars', frontmatter=False), refs='ids', auto_ids=False, hl=None))
     except Exception: h = f'<p>{html.escape(s)}</p>'
-    return clean_html(h)
+    return clean_html(h, imgs)
 
-def Md(s, cls='', **kw):
-    "Markdown with maths, rendered and cleaned here; `core.js` draws the maths."
-    return Div(NotStr(md_html(s)), cls=f'md {cls}'.strip(), **kw)
+def Md(s, cls='', imgs=(), **kw):
+    "Markdown with maths, rendered and cleaned here; `core.js` draws the maths. `imgs`: the local image paths that may show."
+    return Div(NotStr(md_html(s, imgs)), cls=f'md {cls}'.strip(), **kw)
 
 def DepthBar(floor, asked=None):
     "Five marks: filled to the floor, the asked depth marked."

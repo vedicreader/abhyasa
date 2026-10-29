@@ -4,5 +4,6 @@
 .doc h1, .doc h2, .doc h3 { font: 600 var(--t-body)/1.5 var(--serif); letter-spacing: 0; text-transform: none; color: var(--fg); margin: var(--s6) 0 var(--s2); }
 .doc.session h2 { padding-left: var(--s4); border-left: 2px solid var(--acc); font-weight: 500; color: var(--ink2); }
 .doc pre { overflow-x: auto; padding: var(--s3) 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.doc img { display: block; max-width: 100%; height: auto; margin: var(--s3) 0; }
 .doc table { border-collapse: collapse; font-size: var(--t-small); } .doc td, .doc th { padding: var(--s1) var(--s3); border-bottom: 1px solid var(--line); text-align: left; }
 .thread-doc li.you { padding-left: 18%; text-align: right; } .thread-doc li.you .md { text-align: left; display: inline-block; }

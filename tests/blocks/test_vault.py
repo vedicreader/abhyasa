@@ -21,3 +21,37 @@ def test_viewer_refuses_unknown_or_unsafe(mk):
     cl = mk(['vault'])
     assert 'No such document' in cl.get('/v/ramabana/nope').text
     assert 'No such document' in cl.get('/v/bad;name/x').text
+
+PNG = b'\x89PNG\r\n\x1a\n'
+
+def rasi(lr):
+    "A PDF document with four image links: one in its assets folder, one not there, one of another document, one not an image."
+    text = ('Aries is a fire sign.\n\n![Image 1 from page 2](images/page2_1.png)\n\n![Image 2 from page 2](images/page2_2.png)\n\n'
+            '![Other](../attention/images/fig2.png)\n\n![Notes](images/notes.txt)')
+    d = lr.vault.add([(2, text)], 'Rasi Characteristics', source='/tmp/vr/Rasi-Characteristics.pdf', kind='pdf')['doc_id']
+    for f, b in (('Rasi-Characteristics/images/page2_1.png', PNG), ('Rasi-Characteristics/images/notes.txt', b'x'), ('attention/images/fig2.png', PNG)):
+        p = lr.vault.assets()/f; p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(b)
+    return d
+
+def test_document_shows_its_images(mk, lr):
+    "An image link that is in the assets folder of the document is an image from the app; the others are left out, with no empty image."
+    import re
+    d = rasi(lr)
+    t = mk(['vault']).get(f'/v/store/{d}').text
+    assert re.findall(r'<img [^>]*>', t) == [f'<img src="/v/store/{d}/img?f=images/page2_1.png" alt="Image 1 from page 2">']
+    assert 'Image 2 from page 2' not in t and 'Other' not in t and 'Aries is a fire sign' in t
+
+def test_document_image_route_is_safe(mk, lr, monkeypatch):
+    "The image route sends only an image of that document, from its assets folder, under the size cap."
+    d = rasi(lr)
+    cl = mk(['vault'])
+    r = cl.get(f'/v/store/{d}/img?f=images/page2_1.png')
+    assert r.status_code == 200 and r.content == PNG and r.headers['content-type'] == 'image/png'
+    for bad in ('images/page2_2.png', 'images/notes.txt', '../attention/images/fig2.png', '..%2Fattention%2Fimages%2Ffig2.png',
+                '%2Fetc%2Fhosts', '../../../../etc/hosts', 'images/../../attention/images/fig2.png'):
+        assert cl.get(f'/v/store/{d}/img?f={bad}').status_code == 404, bad
+    assert cl.get(f'/v/store/{d}/img').status_code == 404
+    assert cl.get('/v/store/nope/img?f=images/page2_1.png').status_code == 404
+    assert cl.get(f'/v/bad;name/{d}/img?f=images/page2_1.png').status_code == 404
+    monkeypatch.setattr('abhyasa.blocks.vault.app.IMG_MAX', 4)
+    assert cl.get(f'/v/store/{d}/img?f=images/page2_1.png').status_code == 404   # larger than the cap

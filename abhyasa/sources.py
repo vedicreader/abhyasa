@@ -95,13 +95,13 @@ def locate(pages:list, quote:str):
 IMG_SUFFIXES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 
 def figure_path(lr:Learning, source:str, link:str):
-    "The path of the image `link` of the document `source`, from the assets folder. None when the file is not there, is outside that folder or is not an image."
+    "The path of the image `link` of the document `source`, from the assets folder. None when the file is not there, is outside the folder of that document or is not an image."
     if not (source and link): return None
     root = lr.vault.assets().resolve()
     for name in (Path(source).stem, source.rsplit('/', 1)[-1].split('?')[0]):   # the folder of a file, or of a link: the vault names a PDF link by its last part
-        try: p = (lr.vault.assets(name)/str(link)).resolve()
+        try: base = lr.vault.assets(name).resolve(); p = (base/str(link)).resolve()
         except (ValueError, OSError): continue
-        if p.suffix.lower() in IMG_SUFFIXES and p.is_file() and p.is_relative_to(root): return str(p.relative_to(root))
+        if base.parent == root and p.suffix.lower() in IMG_SUFFIXES and p.is_file() and p.is_relative_to(base): return str(p.relative_to(root))
 
 
 # %% ../nbs/04_sources.ipynb #w006

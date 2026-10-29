@@ -748,6 +748,20 @@ def s1_source_link_opens_the_pane(pg, w):
     pg.wait_for_function("() => !document.documentElement.classList.contains('rh-open')", timeout=10000)
     assert rh_now(pg) is None and f'/s/{sid}' in pg.url, pg.url
 
+PNG = bytes.fromhex('89504e470d0a1a0a0000000d4948445200000001000000010806000000'
+                    '1f15c4890000000d49444154789c63f8cfc0f01f0005000201a5f6e1d70000000049454e44ae426082')   # one pixel
+
+def s2_document_shows_its_images(pg, w):
+    "A document page shows the images that its text names from its assets folder; an image that is not there leaves no broken box."
+    d = w.lr.vault.add([(2, 'Aries is a fire sign.\n\n![Image 1 from page 2](images/page2_1.png)\n\n![Image 2 from page 2](images/page2_2.png)\n\n'
+                            '![Other](../attention/images/fig2.png)')], 'Rasi Characteristics', source='/tmp/vr/Rasi-Characteristics.pdf', kind='pdf')['doc_id']
+    f = w.lr.vault.assets('Rasi-Characteristics')/'images'/'page2_1.png'
+    f.parent.mkdir(parents=True, exist_ok=True); f.write_bytes(PNG)
+    pg.goto(f'{w.B}/v/store/{d}'); pg.wait_for_selector('.md.doc'); settle(pg, 700)
+    imgs = pg.eval_on_selector_all('.md.doc img', 'is => is.map(i => [i.getAttribute("src"), i.alt, i.complete && i.naturalWidth > 0])')
+    assert imgs == [[f'/v/store/{d}/img?f=images/page2_1.png', 'Image 1 from page 2', True]], imgs
+    assert 'Image 2 from page 2' not in pg.inner_text('main') and 'Other' not in pg.inner_text('.md.doc'), pg.inner_text('.md.doc')
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
@@ -755,7 +769,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
-          s1_source_link_opens_the_pane]
+          s1_source_link_opens_the_pane, s2_document_shows_its_images]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

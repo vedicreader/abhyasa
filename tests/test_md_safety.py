@@ -44,6 +44,13 @@ def test_images_are_inline_data_only():
     assert f'<img src="{dot}" alt="dot">' in h and '<img alt="far">' in h and '<img alt="svg">' in h
     assert 'tracker' not in h and 'svg+xml' not in h and 'text/html' not in h
 
+def test_images_from_the_page_only():
+    "A local image path stays only when the page names it in `imgs`; with `imgs`, a relative link is still removed."
+    ok = '/v/store/d1/img/images/page2_1.png'
+    h = md_html(f'![a]({ok}) ![b](/v/store/d1/img/images/other.png) ![c](images/page2_1.png) [r](/s/1) [s]( /s/1) [w](https://example.org) [j](javascript:x)', imgs={ok})
+    assert f'<img src="{ok}" alt="a">' in h and '<img alt="b">' in h and '<img alt="c">' in h
+    assert 'href="/s/1"' not in h and 'javascript' not in h and 'href="https://example.org"' in h and h.count('href=') == 1
+
 def test_md_wraps_the_safe_html():
     x = to_xml(Md('$x$ <script>1</script>', cls='said'))
     assert 'class="md said"' in x and '<span class="math inline">x</span>' in x and '<script' not in x
