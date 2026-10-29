@@ -1,12 +1,14 @@
 # Teach a topic to a group: a walk as a talk, then a live room
 
 Date: 29 October 2026. Status: approved by the owner. Build Option A ("Walk as talk") first, then Option B ("Live room"),
-in one plan. Option C (a board-first workshop) is not in this spec. Its board and timeline come later as slide kinds.
+in one plan. Option C (a board-first workshop) is not its own mode. By the owner's ruling, its board and timeline are slide
+kinds inside a talk (plan Tasks 14 to 17, `plan-c.md`).
 Design sources: `abhyasa-designs/presentation/design.md` (sections 1 to 4, 7 and 8), `abhyasa-designs/presentation/leela-reuse.md`,
 the mockups `presentation/mock/a1-a5` and `b1-b5`, and the screens `presentation/shots/a1-deck.png` to `b5-recap.png`. The
 walk spec (`docs/superpowers/specs/2026-10-28-guided-walk-design.md`) gives the walk, the side pane and the keys that this
 spec uses. Paths without a folder are in the abhyasa repo. Facts about the code are from abhyasa 0.0.11 (commit `faf7858`)
-and rupaka 0.0.3.
+and rupaka 0.0.3. Option A, as built (Tasks 1 to 8, abhyasa 0.0.13), uses rupaka 0.0.4. "As built" notes below give the
+rulings that changed this spec while the plan was built.
 
 ## 1. Intent
 
@@ -50,7 +52,8 @@ room server of Option B is a small separate package, `sabha`, that runs only dur
 - More than one presenter at a time, or a phone as a remote. A presentation clicker works (section 11).
 - A second native window in Abhyasa.app. Talks run in the browser (decision 2).
 - HTTPS for the room (decision 4).
-- Option C as its own mode, and the board and timeline slide kinds. `SLIDE_KINDS` names them, but no task draws them.
+- Option C as its own mode. The board and timeline slide kinds are not a non-goal now: by ruling, plan Tasks 14 to 17
+  draw them inside a talk (section 19). The `code` kind is for Leela; no task in this plan draws it.
 - "Present it" on `/walk/new` (make a walk and a talk in one form). The way in is "Present this walk" on a walk.
 
 ## 4. Anti-goals (things a talk must never do)
@@ -162,8 +165,9 @@ slide = dict(id='s3', kind='idea', step=2, title='Scaling by the root of dk', se
 | `mins` | the minutes of the slide |
 | `prompt`, `secs` | for `pause`: the prompt ("Talk to your neighbour: ...") and the time |
 
-`board`, `timeline` and `code` are in `SLIDE_KINDS` so that a talk with them passes `check_talk`, but no task in this
-plan draws them. A view that does not know a kind shows the title and "This slide kind shows in a later version."
+`board`, `timeline` and `code` are in `SLIDE_KINDS` so that a talk with them passes `check_talk`. Plan Tasks 14 to 17
+(Option C) draw `board` and `timeline` inside a talk, with their own fields. No task draws `code` (Leela draws it). A view
+that does not know a kind shows the title and "This slide kind shows in a later version."
 
 ### 7.3 Image ids
 
@@ -188,7 +192,9 @@ slide shows its last beat.
 | `demo` | the demo |
 | `ask` | opens the question (the same as Q) |
 
-`talk_from_walk` makes `['passage']`, then `'figure'` when there is a figure, then `'demo'` when there is a demo. The
+`talk_from_walk` makes `'passage'` when the passage has text, then `'figure'` when there is a figure, then `'demo'` when
+there is a demo. (As built, Task 1 ruling: a step with no passage text gets no `passage` beat, because `check_talk` refuses
+a beat whose part is empty.) The
 presenter adds `lit:` beats in the editor. Leela adds `lines:a-b` and `out` for its `code` slides.
 
 ### 7.5 Questions for the room
@@ -246,7 +252,12 @@ run = dict(id='run-7d1e2a3b', talk='attention-...-3f2a', key='9c1e5f7a2b3d4e6f',
 
 - `key` is a random 64-bit hex value for this run. The channel name has it (9.2).
 - `at` is the place: the slide, the beat, the blank screen, the open pane URL and the open question. A reload of either
-  window reads it.
+  window reads it. A move to a new slide clears `blank`, `pane` and `ask` (as built, Task 6 ruling); a field that the
+  same request sends wins over that.
+- `stage = dict(result, pair, revealed)` keeps the last result and the pair prompt (a new slide, an open or a close clears
+  them) and `revealed`, the slides whose answer the room saw (R). A reload of either window draws them again.
+- A `beside` entry is `dict(slug, slide, at, secs, ask, main)`, plus `rounds` when the room answered a question on the
+  primer. `weak` and `recap` add each unsure primer question after its slide.
 - `asks[...].rounds` has one or two rounds. For `order`, `counts` is `[right, not right]` and the round has `swap` (the
   pair of options most often swapped, or None). For `words`, a round is `dict(n=...)`, and `shown` keeps only the answers
   that the presenter showed. For hands (Option A), `rounds` is empty and `main` is the option that most hands chose.
@@ -306,20 +317,23 @@ the file for the room (section 13).
 ### 9.2 The channel
 
 The windows talk over `BroadcastChannel('abhyasa-stage:' + tid + ':' + run.key)`. No server is needed for this. A message
-is small data, with `v: 1`. The full list for version 1 is below. A sends all but the last three. B sends those too.
+is small data, with `v: 1`. The full list for version 1 is below. A sends all but `join`, `room` and `question`. B sends
+those too. (As built: `answers` and the `pick` field of `demo` were added under `v: 1` in Task 7b; Option C adds its own
+types with `abhyasaStage.add`.)
 
 | `t` | fields | from | what the audience does |
 |---|---|---|---|
 | `go` | `slide` (`^s[0-9]{1,4}$`), `beat` (0 to 50) | presenter | shows the slide up to the beat |
 | `point` | `x`, `y` (0 to 1, in the slide box), or `id` (`^[A-Za-z0-9_-]{1,64}$`), or `off: true` | presenter | the laser dot, or lights an id for 3 s |
-| `demo` | `slug` (`^[a-z0-9-]{1,80}$`), `state` (an object), `gates` (`{id: 'done'}`) | presenter | sets the mirrored demo (section 10) |
+| `demo` | `slug` (`^[a-z0-9-]{1,80}$`), `state` (an object), `gates` (`{id: 'done'}`), optional `pick` (`{id: index}` or a list of indexes, 0 to 63, only for a done gate) | presenter | sets the mirrored demo (section 10) |
 | `ask` | `slide`, `ask` (`kind`, `q` up to 500 chars, `options` up to 6 of up to 200 chars, `most`), or `ask: null` | presenter | shows the question, or closes it |
 | `result` | `slide`, `kind`, `rounds` (up to 2 of `counts`, `n`), `right` (an index, a list or null), `main` | presenter | shows the result and the right answer |
 | `pair` | `on` (bool), `prompt` (up to 200 chars) | presenter | "Talk to your neighbour", with no clock |
 | `pane` | `url` (a local path, or null) | presenter | opens the page beside the slide, or closes it |
 | `blank` | `on` (bool) | presenter | the page colour and the talk title only |
 | `end` | none | presenter | "Thank you" and the talk title |
-| `hello` | none | audience | asks for the place; the presenter answers with `go`, `blank`, `pane`, `ask`, `pair` |
+| `answers` | `slide`, `slug`, `gates` (up to 16 of gate id -> the gate's `answer`: `{is: value}` or a state path) | presenter | after R only: puts the answers into the done gates of that demo, so its copy shows the verdict of the presenter's pick |
+| `hello` | none | audience | asks for the place; the presenter answers with `go`, `blank`, `pane`, `ask`, `result`, `pair`, `demo` and, after R, `answers` |
 | `here` | none | audience | sent every 2 s; with none for 5 s, the presenter shows "The audience window is closed. Open it again." |
 | `join` | `url` (`http://<private IPv4 or 127.0.0.1>:<port>/j/<code>`, or null), `code` | presenter (B) | the join screen with the QR code |
 | `room` | `joined`, `answered` (whole numbers) | presenter (B) | "27 of 34 answered", never the counts of each option |
@@ -343,6 +357,8 @@ Rules for each message (`abhyasaStage.valid`, in `core/stage.js`):
   updates `run.shown`. A reload of the presenter window or the audience window draws the place from `run.at`.
 - The audience window sends `hello` when it loads. The presenter answers with the place.
 - `POST /t/{tid}/at` with an unknown slide, or a beat out of range, gives 400 and changes nothing.
+- A move to a new slide clears the blank screen, the pane and the question (7.8). The reply has the stage messages for
+  each change, and the presenter sends them.
 
 ### 9.4 Opening the audience window
 
@@ -351,7 +367,9 @@ Rules for each message (`abhyasaStage.valid`, in `core/stage.js`):
   user act). The presenter drags it to the projector and presses F in it.
 - When `window.open` gives null, the presenter view shows "Open the audience window" as a link with the same URL.
 - In Abhyasa.app, a second window of a server page opens in the same view. So when the page runs in the app, the presenter
-  view shows "Present in your browser" with the loopback URL of the presenter window and a copy button.
+  view shows "Present in your browser" with the loopback URL of the presenter window and a copy button. As built, the app
+  puts the token `Abhyasa/<version>` in its user agent (`applicationNameForUserAgent` in `WebController.swift`), and
+  `talk.js` looks for that token. An older app (WebKit with no `Safari/`) is the fallback.
 - On a call, the presenter shares only the audience window.
 - The Window Management API (to put the window on the second screen) is left to the builder: use it only when the
   browser has it and the presenter allows it.
@@ -363,16 +381,21 @@ Rules for each message (`abhyasaStage.valid`, in `core/stage.js`):
 - At a gate, the presenter asks the room (Q). After the result (R), the presenter picks the room's answer in the gate.
   The talk page catches the gate's `rk-predict` event, calls `preventDefault()`, then `detail.settle(true)`. It never
   posts a prediction, so nothing goes into `Learning.record`.
-- The mirror is `abhyasaStage.mirror(host)` in `core/stage.js`: `snapshot()` gives the input keys of the demo (the keys
-  of `spec.state`) and the gates that are done; `apply(state, gates)` sets them on the audience copy.
-  - With rupaka 0.0.3, `apply` uses the store that rupaka puts on the host (`host.rupaka.set(k, v)`) for each input key.
-    For a gate, it marks the gate done in the store, so the blocks after the gate show. The audience copy does not draw
-    the gate's verdict; the result chart of the talk shows the answer.
-  - When rupaka has `Rupaka.set(el, state)` and `Rupaka.settle(el, gate, pick)`, `apply` uses them, and the audience copy
-    draws the verdict too.
+- The mirror is `abhyasaStage.mirror(host)` in `core/stage.js`. As built, it needs rupaka 0.0.4 (`Rupaka.state`, `set`
+  and `settle`) and throws an error that names the version when they are not there.
+  - `snapshot()` gives `{state: Rupaka.state(host), gates, pick}`: the input keys, the gates that are done, and the
+    presenter's pick at each done gate as the index of the option.
+  - `apply(state, gates, pick)` calls `Rupaka.set` with only the changed input keys, then `Rupaka.settle` one time for
+    each new pick at a done gate, so the blocks after the gate show.
+  - The audience copy has no gate answers (`room_spec` takes them out), so before R a closed gate shows no verdict.
+    On R the presenter sends `answers` for the done gates of each demo of the slide (`answers()`), and the audience
+    copy puts them in (`reveal`) and shows the verdict of the pick. A move to a new slide takes them out again
+    (`forget`). A reload after R gets them again on `hello`.
+  - The pick goes only over the channel. No window logs it or files it.
   - The gates in the audience copy are `inert`. They never take input.
-- The rupaka ask (one plan task ends with it): add `Rupaka.set`, `Rupaka.settle`, `Rupaka.state(el)`, a `save(state)`
-  option for `Rupaka.mount`, and `rupaka.poll` (section 17.4), with a two-page Playwright check in rupaka.
+- The rupaka ask (Task 4) gave rupaka 0.0.4: `Rupaka.set`, `Rupaka.settle`, `Rupaka.state(el)`, a `save(state)` option for
+  `Rupaka.mount`, and `rupaka.poll` (section 17.4). Still open with the rupaka owner: `Rupaka.options(el, gate)` or a
+  `settle` by index, and a `Rupaka.reveal` (or `settle` with an answer), so the mirror reads no part of the store.
 
 ## 11. Keys
 
@@ -425,9 +448,10 @@ How the talk keys avoid clashes with the app keys:
 ## 12. The side pane in a talk
 
 The room is lost on idea 3. The presenter presses ⌥B. A small offer opens in the presenter window only, with the needs
-of the slide's concept (`journey.needs`, `pick_way_down`). The presenter picks the quick primer (1). The talk block makes
-it with `journey.detour(lr, ask, slug, parent={'talk': tid, 'slide': sid}, how='primer')`. The presenter window opens it
-in the side pane, and the audience window gets `{t: 'pane', url: '/w/<side walk id>/0'}`. It shows the primer beside the
+of the slide's concept (`journey.needs`, `pick_way_down`). The presenter picks the quick primer (1) or a short side walk (2). The
+talk block makes it with `journey.detour(lr, ask, slug, parent={'talk': tid, 'slide': sid}, how='primer')`. The presenter
+window opens it in the side pane, and the audience window gets `{t: 'pane', url: '/w/<side walk id>/0?pane=1&talk=1'}`.
+The audience window opens only a URL that matches `^/w/[a-z0-9-]{1,48}/[0-9]{1,3}\?pane=1&talk=1$`. It shows the primer beside the
 slide (`shots/a5-beside.png`): the slide gets narrow at the left, and the primer shows in big type at the right.
 
 - The pane URL has `talk=1` (`pane_url(url, talk=True)` in `core/pane.py`). A page with `pane=1&talk=1` draws in talk
@@ -435,7 +459,11 @@ slide (`shots/a5-beside.png`): the slide gets narrow at the left, and the primer
 - Q while the pane is open asks the room about the primer's concept, with `ask_for_concept(lr, ask, slug)` (the same path
   as `ask_from_check`).
 - ⌥Z closes the pane and the slide grows back. Nesting stays at depth 1. "Its own session" is not offered.
-- The run log keeps it (`beside`). After the talk, the recap offers "Next time: put the Softmax primer before idea 3".
+- The run log keeps it (`beside`), with the question on the primer and its hands. After the talk, the recap offers
+  "Next time: put the Softmax primer before idea 3".
+- A side walk of a talk is not the presenter's own learning (as built, Task 7 ruling). `for_talk(j)` in `abhyasa.journey`
+  is true when its `parent` has `talk`. Such a walk does not show in Continue, Journeys or "In your journeys" on a concept
+  page, and its steps set no read time and start no demo job.
 
 ## 13. After the talk
 
@@ -629,9 +657,9 @@ public deck with no notes, no answer, no path, and one image by hash; `json.dump
 
 ### 17.4 Question from a gate (`abhyasa.talk` now, `rupaka.poll` later)
 
-`ask_from_gate(spec, gate) -> dict | None` and `public_ask(ask) -> dict` (without `answer` and `src`). When rupaka ships
-`rupaka.poll.of_gate` with the same contract and the same tests, `abhyasa.talk` calls it and keeps `ask_from_gate` as a
-thin wrapper. abhyasa adds `ask_from_check` (a model call). Leela adds "What does this print?" for a code cell: the right
+`ask_from_gate(spec, gate) -> dict | None` and `public_ask(ask) -> dict` (without `answer` and `src`). As built (Task 7b),
+rupaka 0.0.4 ships `rupaka.poll.of_gate` and `poll.public`; `abhyasa.talk` calls them and keeps `ask_from_gate` and
+`public_ask` as thin wrappers. The options are strings in the number format of the demo (2.0 shows as 2). abhyasa adds `ask_from_check` (a model call). Leela adds "What does this print?" for a code cell: the right
 answer comes from the kernel after the vote, so no answer is stored before the run.
 
 ### 17.5 Stage bundle (`abhyasa/core/stage.js`, `stage.css`, `stage.py`)
@@ -643,7 +671,8 @@ const ch = abhyasaStage.channel(name)                // BroadcastChannel 'abhyas
 ch.send(msg); ch.on(t, fn); ch.close()               // send throws on an invalid message; on drops one
 abhyasaStage.audience(el, {ch, draw, fade})          // blank, laser, pointing, pane, end, hello and here; draw(msg) for the rest
 abhyasaStage.presenter(el, ch, {keys})               // the key scope (html.talk, no box, not in the demo) and the laser source
-abhyasaStage.mirror(host) -> {snapshot(), apply(state, gates)}
+abhyasaStage.mirror(host) -> {snapshot(), apply(state, gates, pick), watch(fn), answers(), reveal(gates), forget()}
+abhyasaStage.add(t, fields, need, ok)                // a later task adds a message type under v: 1; it never changes one
 ```
 
 - `stage.py` has `STAGE_V = 1`, `STAGE_TYPES`, `STAGE_CASES` (messages with `True` or `False`), `STAGE_KEYS` (the rows of
@@ -662,7 +691,8 @@ abhyasaStage.mirror(host) -> {snapshot(), apply(state, gates)}
 ### 17.6 Mirrored demo (rupaka)
 
 `Rupaka.set(el, state)`, `Rupaka.settle(el, gate, pick)`, `Rupaka.state(el)` and `Rupaka.mount(el, spec, {save})` belong
-to rupaka (section 10). Until they ship, `abhyasaStage.mirror` uses the rupaka 0.0.3 store.
+to rupaka (section 10). They shipped in rupaka 0.0.4, and abhyasa needs `rupaka>=0.0.4`. The one read of the store left
+is the options of a gate (for the index of a pick) and the answer that `reveal` puts into the gate block.
 
 ### 17.7 Room server (`abhyasa/sabha/`, later the `sabha` package)
 
@@ -710,8 +740,9 @@ sabha.HOSTILE                      # the cases that the room must refuse, with t
 
 ## 19. Later phases this design leaves room for
 
-- **Option C:** `board` and `timeline` slides that the room fills, after the modality views ship (`design.md` section 5).
-  `SLIDE_KINDS` has them, and the room can take cards with a new `room.on('card', fn)`.
+- **Option C:** by the owner's ruling it is done as slide kinds inside a talk, not as its own mode and not after the
+  modality views: `board` and `timeline` slides (plan Tasks 14 to 17, `plan-c.md`). The board is the talk block's own
+  columns, not the rupaka `canvas` renderer. With phones, the room sends cards (`POST /c`).
 - **Leela's talk mode**: the section "Leela handoff" in the plan, and section 17 here.
 - **A second native window in Abhyasa.app**, when the owner wants to present from the app.
 - **Your own answer:** a talk that the owner gives to learn the topic could log the owner's own answer. Not in this plan.
@@ -721,8 +752,8 @@ sabha.HOSTILE                      # the cases that the room must refuse, with t
 
 1. `ask_from_gate` lives in `abhyasa.talk` now, with the contract of the future `rupaka.poll.of_gate`, because this plan
    does not edit rupaka.
-2. A ships with a mirror on the rupaka 0.0.3 store. The audience copy shows the blocks after a gate, but not the gate's
-   verdict, until rupaka has `Rupaka.settle`.
+2. A ships with a mirror on the rupaka 0.0.4 host API (`Rupaka.state`, `set`, `settle`). As built: the audience copy
+   shows the gate's verdict of the presenter's pick only after R, when the presenter sends the gate answers (`answers`).
 3. The presenter's own pick at a demo gate in a talk is not logged (the talk page settles the gate itself).
 4. `recap_html` is in `abhyasa.talk`, not in `sabha`, because A needs it and it has no network part. `sabha` only serves
    the HTML that the host gives it.
@@ -746,7 +777,8 @@ sabha.HOSTILE                      # the cases that the room must refuse, with t
 17. A later answer from the same phone replaces the earlier one until the vote closes.
 18. In Abhyasa.app, the presenter view shows the loopback URL to open in a browser, because the app opens a second window
     of a server page in the same view.
-19. A primer opened beside a slide is a walk with `parent={'talk': tid, 'slide': sid}`. It stays in Journeys, so the
-    presenter can learn it later.
+19. A primer opened beside a slide is a walk with `parent={'talk': tid, 'slide': sid}`. As built (Task 7 ruling), it is
+    kept out of the presenter's own learning: `for_talk(j)` keeps it out of Continue and Journeys, and its steps set no
+    read time. "After the talk" offers a follow-up walk for the presenter instead.
 20. "Your talks" shows at the end of Your learning (the hook `learning_end`), and "Present this walk" shows through a new
     hook `walk_actions(j)` on the walk plan and the journey page.
