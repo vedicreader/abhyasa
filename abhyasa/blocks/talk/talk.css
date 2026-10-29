@@ -70,7 +70,7 @@ html:is(.present, .audience) main { max-width: none; margin: 0; padding: 0; anim
 #stage [hidden], #talk [hidden], #keys-note[hidden] { display: none !important; }
 
 /* the stage: the type scales with the box (46 px and 28 px at 1280 px wide), in both windows */
-#stage { container-type: inline-size; }
+#stage { container-type: inline-size; padding: 0; }   /* each part is placed in the box and has its own padding, so 100cqw is the width of the slide */
 #stage > section.stage { position: absolute; inset: 0; width: auto; aspect-ratio: auto; display: flex; flex-direction: column; padding: 4.4cqw 6.25cqw 2.8cqw; }
 /* beside (shots/a5-beside.png): the slide keeps its type at the left, and the primer takes the right 45% */
 #stage.beside { padding-right: 0; }
