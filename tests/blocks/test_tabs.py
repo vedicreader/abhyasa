@@ -17,6 +17,10 @@ def sub_words(h):
     m = re.search(r'<nav[^>]*class="subtabs"[^>]*>(.*?)</nav>', h, re.S)
     return [_text(a) for a in re.findall(r'<a [^>]*>(.*?)</a>', m.group(1), re.S)] if m else []
 
+def sub_in_force(h):
+    m = re.search(r'<nav[^>]*class="subtabs"[^>]*>.*?<a [^>]*aria-current="page"[^>]*>(.*?)</a>', h, re.S)
+    return _text(m.group(1)) if m else ''
+
 def test_bar_has_four_tabs_and_a_gear(mk):
     h = mk().get('/').text
     assert nav_words(h) == ['Today', 'Learn', 'Library', 'You']
@@ -30,13 +34,27 @@ def test_tab_in_force(mk):
         assert current_tab(cl.get(u).text) == tab, u
     assert 'class="gear on"' in cl.get('/settings').text and 'class="gear on"' not in cl.get('/').text   # the gear is ruled under on Settings
 
+def test_tab_on_every_page(mk, talk_fake, lr):
+    "Each page marks its tab: a walk, a path, a session and a talk are in Learn; a concept, a demo and a vault document are in Library."
+    from talk_data import walk, prep_walk, make_talk
+    cl = mk(); jid = walk(cl, lr); tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
+    sid = cl.post('/start', data={}, follow_redirects=False).headers['location'].split('/')[-1]
+    for u, tab in ((f'/w/{jid}', 'Learn'), (f'/w/{jid}/1', 'Learn'), (f'/path/{jid}', 'Learn'), (f'/j/{jid}', 'Learn'), (f'/s/{sid}', 'Learn'),
+                   (f'/t/{tid}', 'Learn'), ('/w/nope', 'Learn'), ('/c/ranking', 'Library'), ('/c/nope', 'Library'), ('/v/learning/nope', 'Library'),
+                   (f'/learning/{sid}', 'You'), ('/settings', ''), ('/search?q=rank', ''), ('/keys', '')):
+        assert current_tab(cl.get(u).text) == tab, u
+
 def test_subtabs(mk):
     h = mk().get('/sources').text
-    assert 'role="tablist"' in h and sub_words(h) == ['Concepts', 'Sources', 'Graph'] and 'aria-selected="true">Sources' in h
+    assert sub_words(h) == ['Concepts', 'Sources', 'Graph'] and sub_in_force(h) == 'Sources'
+    assert 'role="tab' not in h and 'aria-selected' not in h   # plain links in a nav, as in the top bar
     assert 'title="⌥1"' in h and 'title="⌥3"' in h
+    assert h.index('<h1>Sources</h1>') < h.index('class="subtabs"')   # under the page title
     assert sub_words(mk().get('/you').text) == ['Your learning', 'Profile']
-    assert 'aria-selected="true">Your learning' in mk().get('/you/strengths').text   # Strengths is part of Your learning
-    assert sub_words(mk().get('/').text) == [] and sub_words(mk().get('/learn').text) == []   # Today and Learn have no sub-tabs
+    st = mk().get('/you/strengths').text
+    assert sub_in_force(st) == 'Your learning'   # Strengths is part of Your learning
+    assert re.search(r'class="crumbs".*?>Today<.*?>You<.*?>Your learning<', st, re.S)
+    assert sub_words(mk().get('/').text) == [] and sub_words(mk().get('/learn').text) == [] and sub_words(mk().get('/c/ranking').text) == []
     assert mk().get('/library', follow_redirects=False).headers['location'] == '/concepts'
 
 def test_old_urls_still_work(mk):

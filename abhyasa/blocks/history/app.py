@@ -97,7 +97,7 @@ def connect(app, ctx):
 
     def one(sid:str):
         s = lr.session(sid)
-        if not s: return Page('Session', H1('No such session'), P(A('Your learning', href=Routes.base)), crumbs=[*up, ('Your learning', Routes.base)])
+        if not s: return Page('Session', H1('No such session'), P(A('Your learning', href=Routes.base)), on='You', crumbs=[*up, ('Your learning', Routes.base)])
         by, js = names()
         log, ms = s.get('log') or [], moved(s.get('log') or [])
         by_q = {}
@@ -112,7 +112,7 @@ def connect(app, ctx):
                     Div(*acts, cls='row') if any(acts) else '',
                     *([H2('What moved'), Ul(*[Moved(m) for m in ms], cls='plain')] if ms else []),
                     H2('The questions'), *([ui.Question(r, own(r)) for r in log] if log else [P(s.get('summary') or 'No questions.', cls='mute')]),
-                    crumbs=[*up, ('Your learning', Routes.base)])
+                    on='You', crumbs=[*up, ('Your learning', Routes.base)])
 
     @hook('nav_extra')
     def continue_link():

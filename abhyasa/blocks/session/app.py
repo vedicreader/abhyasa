@@ -77,7 +77,7 @@ def connect(app, ctx):
     def layout(s, chat, composer, cur=None, viewing=None):
         "The page: the earlier questions on the left, and one question with the composer on the right."
         rail = ui.Rail(s.id, past(s.id, cur), outcomes, cur, viewing)
-        return Page('Learn', Div(rail, Div(chat, composer, cls='main'), cls='session-layout'), wide=True, extra=ui.assets(), crumbs=crumbs(s))
+        return Page('Learn', Div(rail, Div(chat, composer, cls='main'), cls='session-layout'), wide=True, extra=ui.assets(), on='Learn', crumbs=crumbs(s))
 
     def page(sid:str, q:str=''):
         s, cur = live(sid)
@@ -166,7 +166,7 @@ def connect(app, ctx):
         "End the session, and show what moved and what comes next."
         if (f := pre.pop(sid, None)): f.cancel()
         s = get(sid)
-        if not s: return Page('Session', H1('No such session'), P('It is not on the shelf.', cls='mute'), crumbs=[('Today', '/')])
+        if not s: return Page('Session', H1('No such session'), P('It is not on the shelf.', cls='mute'), on='Learn', crumbs=[('Today', '/')])
         if not s.ended: s.end()
         sessions.pop(sid, None)
         for q in shown.pop(sid, ()): tl.pop(q.id, None); outcomes.pop(q.id, None)   # get() builds them again from the shelf
@@ -175,7 +175,7 @@ def connect(app, ctx):
         nxt_ = progress(lr, j, by=by) if j else None
         last = s.log[-1]['concept'] if s.log else s.focus
         rel = [] if j else related(lr, last, 4, by=by) if last else []
-        return Page('Session', *ui.EndPage(s, moved(s.log), j, nxt_, rel), crumbs=crumbs(s), extra=ui.assets())
+        return Page('Session', *ui.EndPage(s, moved(s.log), j, nxt_, rel), on='Learn', crumbs=crumbs(s), extra=ui.assets())
 
     @hook('today_next')
     def start_here(subject=None):

@@ -38,9 +38,9 @@ def connect(app, ctx):
 
     def one(jid:str):
         j = lr.journey(jid)
-        if not j: return Page('Walk', H1('No such walk'), P(A('All walks', href=Routes.base)), crumbs=up)
+        if not j: return Page('Walk', H1('No such walk'), P(A('All walks', href=Routes.base)), on='Learn', crumbs=up)
         pg = progress(lr, j)
-        return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')], run('walk_actions', j)), crumbs=up, extra=ui.assets())
+        return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')], run('walk_actions', j)), on='Learn', crumbs=up, extra=ui.assets())
 
     def step(jid:str, slug:str, act:str):
         if not lr.journey(jid): return Response(status_code=404)

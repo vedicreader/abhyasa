@@ -103,12 +103,12 @@ def connect(app, ctx):
 
     def one(slug:str):
         c = lr.concept(slug)
-        if not c: return Page('Concept', ui.P('No such concept.'))
+        if not c: return Page('Concept', ui.P('No such concept.'), on='Library')
         if lr.stale_links(c):
             try: lr.connect(slug, ctx.sources); c = lr.concept(slug)
             except Exception: pass
         return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=val('lists.attempts')), lr.groups(c.subject)),
-                    crumbs=[('Today', '/'), ('Concepts', Routes.base)])
+                    on='Library', crumbs=[('Today', '/'), ('Concepts', Routes.base)])
 
     def group(slug:str, group:str=''):
         "Move one concept by hand. The text is checked and cleaned first."

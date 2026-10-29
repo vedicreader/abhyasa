@@ -207,7 +207,7 @@ def connect(app, ctx):
         j = lr.journey((t.get('src') or {}).get('walk') or '')
         pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
         up = [(pj.title, f'/path/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j)), crumbs=[('Today', '/'), ('Walks', '/journeys'), *up],
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j)), on='Learn', crumbs=[('Today', '/'), ('Walks', '/journeys'), *up],
                     extra=ui.assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys (talk.js) work only here
         return page
@@ -461,7 +461,7 @@ def connect(app, ctx):
         names = {s['id']: name_of(s) for s in t['slides']}
         cn = {x.slug: x.name for x in lr.concepts()}
         return Page('After the talk', *ui.After(t, r, recap(t, r, cn), names, cn),
-                    crumbs=[('Walks', '/journeys'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.assets(), wide=True)
+                    on='Learn', crumbs=[('Walks', '/journeys'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.assets(), wide=True)
 
     def name_of(s):
         "The name of the idea of slide `s`, else its title."

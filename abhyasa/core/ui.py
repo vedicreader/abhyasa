@@ -95,15 +95,21 @@ _GEAR = ('<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r=
          'l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>')
 
 def SubTabs(tab:str, sub:str):
-    "The row of sub-tabs under the title of a page in `tab`, with `sub` in force; ⌥1, ⌥2 and ⌥3 pick them (core.js). Empty when the tab has none."
+    "The row of sub-tab links under the title of a page in `tab`, with `sub` in force; ⌥1, ⌥2 and ⌥3 pick them (core.js). Empty when the tab has none."
     rows = sorted(RouteOverrides.subtabs.get(tab, ()), key=lambda x: x[2])
     if not rows: return ''
-    return Nav(*[A(t, href=h, role='tab', cls='on' if t == sub else None, title=f'⌥{i}' if i < 4 else None)(aria_selected='true' if t == sub else 'false')
-                 for i, (t, h, _) in enumerate(rows, 1)], cls='subtabs', role='tablist', aria_label=tab)
+    return Nav(*[A(t, href=h, cls='on' if t == sub else None, title=f'⌥{i}' if i < 4 else None, aria_current='page' if t == sub else None)
+                 for i, (t, h, _) in enumerate(rows, 1)], cls='subtabs', aria_label=tab)
+
+def _under_title(c, x):
+    "`c` with `x` after its first top-level H1, or first when it has none."
+    if not x: return c
+    i = next((i for i, e in enumerate(c) if getattr(e, 'tag', None) == 'h1'), -1)
+    return (*c[:i + 1], x, *c[i + 1:])
 
 def Page(title, *c, on='', sub='', wide=False, extra=(), crumbs=(), pane=False):
     """A whole page: the top bar (the four tabs, with `on` in force, what other blocks add (`nav_extra`), the search and the gear), the crumbs,
-    the sub-tabs of `on` with `sub` in force, then `c`.
+    then `c`, with the sub-tabs of `on` under its title when the page names a `sub`.
     In the side pane (`pane`, or `pane=1` in the request) it has no nav and no crumbs. With a local `rh` in the request, the side pane is open."""
     req = _req.get()
     q = req.query_params if req is not None else {}
@@ -123,7 +129,7 @@ def Page(title, *c, on='', sub='', wide=False, extra=(), crumbs=(), pane=False):
     return (Title(f'{title} · abhyasa'), *extra, Nav(A('abhyasa', href='/', cls='brand'), *nav, Span(cls='nav-gap'), *run('nav_extra'),
             A('Search ', Kbd('/'), href='/search', cls='nav-search'),   # beside the side pane, in place of the box (pane.css)
             Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search'), gear, aria_label='Main'),
-            Main(Crumbs(crumbs), SubTabs(on, sub), Narrow(rh, side), *c, cls='wide' if wide else ''), PaneHost(rh, side), *run('page_extra'))
+            Main(Crumbs(crumbs), Narrow(rh, side), *_under_title(c, sub and SubTabs(on, sub)), cls='wide' if wide else ''), PaneHost(rh, side), *run('page_extra'))
 
 def Narrow(rh, title=''):
     "Under 1100 px the side pane does not show: one line over the title names the side walk that is open, and opens it (pane.css shows it)."

@@ -42,7 +42,7 @@ def connect(app, ctx):
 
     def by(): return {c.slug: c for c in lr.concepts()}
     def go(jid, i): return Redirect(ui.at(Routes.step, jid, i))
-    def missing(): return Page('Walk', H1('No such walk'), P(A('Your walks', href='/journeys')), crumbs=up)
+    def missing(): return Page('Walk', H1('No such walk'), P(A('Your walks', href='/journeys')), on='Learn', crumbs=up)
 
     def walk_of(jid, i=None):
         "The walk `jid`, and step `i` when it is there; None for an unknown walk or step."
@@ -208,7 +208,7 @@ def connect(app, ctx):
         if not (j := walk_of(jid)): return missing()
         st = walk_state(j)
         if j.get('started') and st.current is not None: return go(jid, st.current)
-        return Page(j.title, *ui.PlanPage(j, st, by(), run_hook('walk_actions', j)), crumbs=up, extra=ui.assets())
+        return Page(j.title, *ui.PlanPage(j, st, by(), run_hook('walk_actions', j)), on='Learn', crumbs=up, extra=ui.assets())
 
     def plan(jid:str, i:int, act:str, way:str=''):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
@@ -239,7 +239,7 @@ def connect(app, ctx):
         page = ui.StepPage(j, walk_state(j), b, i, needs=run_hook('step_needs', j, i, b.get(j.steps[i]['slug'])), back=back_to(j),
                        present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
-                    crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
+                    on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
 
     def note(jid:str, i:int):
         "The tutor note of step `i`, loaded after the page; a failed note shows nothing."
@@ -422,14 +422,14 @@ def connect(app, ctx):
         rows = [r for r in (s.log if s else ()) if r['concept'] in slugs]
         nxt = ix[-1] + 1 if ix[-1] + 1 < len(j.steps) else None
         crumbs = [*up, (j.title, ui.at(Routes.one, jid))]
-        if nxt is not None: return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), nxt, by()), crumbs=crumbs, extra=ui.assets())
+        if nxt is not None: return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), nxt, by()), on='Learn', crumbs=crumbs, extra=ui.assets())
         b = by()
         logs = [x.get('log') or [] for x in sorted(lr.sessions(limit=None, journey=jid), key=lambda x: x.get('start') or 0) if x.get('id') != sid]
         rows = [r for log in logs for r in log] + (s.log if s else [])   # the whole walk: every sitting, in order
         sides = [((b.get(d['slug']) or {}).get('name', d['slug']), d.get('outcome') in ('solid', 'fragile')) for st in j.steps for d in st.get('detours') or ()]
         now, slugs = time.time(), {st['slug'] for st in j.steps if (st.get('done') or {}).get('outcome') not in (None, 'skipped')}
         due = min((c.due for k in slugs if (c := b.get(k)) and c.get('due') and c.due > now), default=None)
-        return Page('You finished the walk', *ui.WalkDone(j, walk_state(j), moved(rows), b, sides, due, run_hook('walk_end', j), run_hook('walk_actions', j, quiet=True)), crumbs=crumbs, extra=ui.assets())
+        return Page('You finished the walk', *ui.WalkDone(j, walk_state(j), moved(rows), b, sides, due, run_hook('walk_end', j), run_hook('walk_actions', j, quiet=True)), on='Learn', crumbs=crumbs, extra=ui.assets())
 
     def img(jid:str, i:int):
         "The figure of step `i`, only from inside the vault assets and only as an image file."

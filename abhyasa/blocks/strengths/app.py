@@ -36,7 +36,7 @@ def connect(app, ctx):
                     H2('How often to try a new way'),
                     P('The tutor teaches a weak concept in your best way. For a concept that is not weak, it sometimes uses a different way. This makes you better at that way too.', cls='mute'),
                     ui.Explore(p.get('explore', 'sometimes')),
-                    on='You', sub='Your learning', crumbs=[('Today', '/'), ('About you', '/you')])
+                    on='You', sub='Your learning', crumbs=[('Today', '/'), ('You', '/learning'), ('Your learning', '/learning')])
 
     @hook('today_end')
     def line(subject=None):

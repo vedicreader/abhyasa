@@ -213,7 +213,7 @@ Some guards have no setting: the closed process with no network, the check of li
 
 ## Keyboard shortcuts
 
-All keys are for the left hand. ⌥ is the Option key. To see all the keys, press ⌥F, or press ? outside a text box.
+All keys are for the left hand. ⌥ is the Option key. ⌥T, ⌥Q, ⌥R and ⌥G open the tabs Today, Learn, Library and You. ⌥1 to ⌥3 open a sub-tab. To see all the keys, press ⌥F, or press ? outside a text box.
 
 If you use [Sanketa](https://github.com/vedicreader/sanketa), it shows the same keys when abhyasa is in front. abhyasa writes the pack `~/.config/sanketa/packs/abhyasa.toml` when it starts. It does not write over a pack that you made.
 
@@ -266,7 +266,7 @@ The web app is made from blocks in `abhyasa/blocks`:
 | `demo` | interactive demos from rupaka: on a concept page, under a lesson after a miss, and one page for each demo |
 | `keys` | the keyboard shortcuts (⌥F) |
 
-Each page shows where you are, above its title. Esc goes up one level, ⌥T goes to Today, and Back and Forward work.
+The top bar has four tabs: Today (⌥T), Learn (⌥Q), Library (⌥R) and You (⌥G). Library and You have sub-tabs under the page title. ⌥1, ⌥2 and ⌥3 open them. The gear at the right end opens Settings. Each page shows where you are, above its title. Esc goes up one level, and Back and Forward work.
 
 ### ramabana
 
