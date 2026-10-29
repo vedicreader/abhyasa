@@ -729,13 +729,39 @@ def d5_small_faults(pg, w):
         assert node > page, ('an unseen node is darker than the page', node, page)
     finally: look(w.rq, w.B, 'paper', 'light')
 
+def ct1_concept_tree(pg, w):
+    "Concepts: a quiet tree, open at the subject. A click opens a group. The find box finds a deep concept and opens its branch; an empty box closes it again."
+    w.lr.put('Ashvini', 'The first nakshatra.', 'jyotisha', group=['nakshatras'], group_by='model')
+    w.lr.put('Magha', 'The tenth nakshatra.', 'jyotisha', aliases=['Maghā'], group=['nakshatras', 'pitri gana'], group_by='model')
+    w.lr.put('Mesha', 'The first rasi.', 'jyotisha')
+    pg.goto(w.B + '/concepts'); settle(pg, 200)
+    subj = 'details.tree.subj:has(> summary .name:text-is("Jyotisha"))'
+    grp = subj + ' > details.tree.grp:has(> summary .name:text-is("Nakshatras"))'
+    deep = grp + ' > details.tree.grp:has(> summary .name:text-is("Pitri gana"))'
+    is_open = lambda sel: pg.eval_on_selector(sel, 'd => d.open')
+    assert is_open(subj) and not is_open(grp), 'the subject is open and its groups are closed'
+    assert pg.inner_text(grp + ' > summary').replace('\n', ' ').strip() == 'Nakshatras · 2', pg.inner_text(grp + ' > summary')
+    assert not pg.is_visible('a:text-is("Ashvini")')
+    pg.click(grp + ' > summary'); settle(pg, 150)
+    assert is_open(grp) and pg.is_visible('a:text-is("Ashvini")') and not pg.is_visible('a:text-is("Magha")')
+    pg.click(grp + ' > summary'); settle(pg, 150)
+    pg.fill('#find', 'magh'); settle(pg, 150)
+    assert is_open(grp) and is_open(deep) and pg.is_visible('a:text-is("Magha")'), 'the find box opens the branch of Magha'
+    assert not pg.is_visible('a:text-is("Ashvini")') and not pg.is_visible('a:text-is("Ranking")') and not pg.is_visible('a:text-is("Mesha")')
+    pg.fill('#find', ''); settle(pg, 150)
+    assert not is_open(grp) and pg.is_visible(subj + ' > summary') and pg.is_visible('a:text-is("Ranking")'), 'an empty box gives the tree as it was'
+    pg.fill('#find', 'zzz'); settle(pg, 150)
+    assert pg.is_visible('.find-none') and not pg.is_visible('a:text-is("Magha")')
+    pg.fill('#find', 'magh'); pg.press('#find', 'Enter'); pg.wait_for_url(lambda u: 'q=magh' in u); settle(pg, 200)
+    assert is_open(deep) and pg.is_visible('a:text-is("Magha")'), 'with no script, the server opens the branch too'
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
-          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo]
+          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo, ct1_concept_tree]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
