@@ -13,6 +13,7 @@ class Routes:
     run = '/w/{jid}/{i}/run'          # the code check
     predict = '/w/{jid}/{i}/predict'  # a demo or order prediction
     keep = '/w/{jid}/{i}/keep'        # keep the demo state on the last prediction
+    ladder = '/w/{jid}/{i}/ladder'    # the help under a demo check after a wrong prediction: a lesson in another way, or a simpler demo
     next = '/w/{jid}/{i}/next'        # skip or go on
     done = '/w/{jid}/{i}/done'        # the summary at the end of a section
     img = '/w/{jid}/{i}/img'          # the figure of the step, from the vault assets

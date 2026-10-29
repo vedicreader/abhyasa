@@ -363,3 +363,189 @@ def test_system_exit_in_the_learners_function_is_an_error_not_an_escape():
     report = run_asserts(quits, 'quits', ['assert quits(1) == 1', dict(test='assert quits(2) == 2', hidden=True)])
     assert [c.status for c in report.checks] == ['error', 'error']
     assert report.checks[1].error == 'SystemExit'
+
+
+@pytest.fixture
+def target():
+    "A spare process that hostile code tries to stop. It is not the test process, so a red test cannot stop pytest."
+    t = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)
+    yield t
+    t.kill(); t.wait()
+
+
+@pytest.mark.parametrize('exe', ['real', 'missing'])
+def test_hostile_code_cannot_signal_other_processes(target, exe, monkeypatch):
+    "The audit hook refuses os.kill, os.killpg and signal.pthread_kill. With a missing sandbox-exec, the hook alone must do it."
+    if exe == 'missing': monkeypatch.setattr(check, 'SANDBOX_EXEC', '/missing/sandbox-exec')
+    for call in (f'os.kill({target.pid}, 9)', f'os.killpg({target.pid}, 9)', 'os.kill(os.getppid(), 0)',
+                 'signal.pthread_kill(threading.main_thread().ident, 0)'):
+        src = f'import os, signal, threading\ndef f(n):\n    {call}\n    return n * 2'
+        r = check.run_isolated('assert', 'f', src, ['assert f(2) == 4'])
+        assert r['checks'][0]['status'] == 'error' and 'PermissionError' in r['checks'][0]['error'], (call, r)
+    time.sleep(.2)
+    assert target.poll() is None
+
+
+@pytest.mark.skipif(not os.path.exists(check.SANDBOX_EXEC), reason='macOS sandbox-exec only')
+def test_the_profile_alone_refuses_a_signal_to_another_process(target):
+    code = f'import os, signal\nsignal.signal(15, lambda *a: print("self"))\nos.kill(os.getpid(), 15)\nos.kill({target.pid}, 9)'
+    p = subprocess.run([check.SANDBOX_EXEC, '-p', check.SANDBOX_PROFILE, '-D', 'TMP=/nonexistent', sys.executable, '-I', '-B', '-c', code],
+                       capture_output=True, text=True, timeout=20)
+    time.sleep(.2)
+    assert 'self' in p.stdout and 'PermissionError' in p.stderr and target.poll() is None
+
+
+FORGE = '''
+import json, os, re
+def _forge(text):
+    "Send a false all-pass report with each nonce found in `text`, on stdout and on each open fd, then stop."
+    for n in set(re.findall(r'[0-9a-f]{16}', text)) | {None}:
+        line = json.dumps({"nonce": n, "v": 1, "found": True, "timeout": False,
+                           "checks": [{"i": 0, "label": "x", "status": "pass", "got": None, "error": "", "hidden": False, "ms": 0}]})
+        print(line, flush=True)
+        for fd in range(1, 64):
+            try: os.write(fd, ("\\n" + line + "\\n").encode())
+            except OSError: pass
+    os._exit(0)
+'''
+WRONG = '\ndef f(n): return n\n'
+
+
+def no_pass(r): return not any(c.get('status') == 'pass' for c in r.get('checks') or [])
+
+
+def test_a_patched_json_dumps_does_not_fake_a_pass():
+    src = ('import json\n_d = json.dumps\n'
+           'json.dumps = lambda o, **k: _d({**o, "checks": [{**c, "status": "pass"} for c in o["checks"]]} if isinstance(o, dict) and "checks" in o else o, **k)'
+           + WRONG)
+    r = check.run_isolated('assert', 'f', src, ['assert f(2) == 4'])
+    assert r['checks'][0]['status'] == 'fail', r
+
+
+def test_a_patched_print_does_not_fake_a_pass():
+    src = 'import builtins\n_p = builtins.print\nbuiltins.print = lambda *a, **k: _p(*(str(x).replace(\'"fail"\', \'"pass"\') for x in a), **k)' + WRONG
+    r = check.run_isolated('assert', 'f', src, ['assert f(2) == 4'])
+    assert r['checks'][0]['status'] == 'fail', r
+
+
+def test_the_nonce_is_not_in_the_code_constants():
+    src = FORGE + '''
+import sys
+def _consts(c): return ''.join(repr(k) + (_consts(k) if hasattr(k, 'co_consts') else '') for k in c.co_consts)
+text = ''
+try: text += _consts(sys._getframe().f_code)
+except Exception: pass
+for v in list(globals().values()):
+    try: text += _consts(v.__code__)
+    except Exception: pass
+_forge(text)
+''' + WRONG
+    assert no_pass(check.run_isolated('assert', 'f', src, ['assert f(2) == 4']))
+
+
+@pytest.mark.parametrize('where', ['body', 'test'])
+def test_a_frame_walk_does_not_find_the_nonce(where):
+    "The code walks up the frames from the body and from a call in a test, and reads every local and constant that it finds."
+    walk = '''
+import sys, gc
+def _walk(f):
+    text = ''
+    while f is not None:
+        text += repr(f.f_code.co_consts) + repr(dict(f.f_locals)) + repr({k: v for k, v in f.f_globals.items() if k != "__builtins__"})
+        f = f.f_back
+    return text
+def _all():
+    text = ''
+    try: text += _walk(sys._getframe())
+    except Exception: pass
+    try: 1 / 0
+    except Exception as e:
+        try: text += _walk(e.__traceback__.tb_frame)
+        except Exception: pass
+    def g(): yield
+    try: text += _walk(g().gi_frame)
+    except Exception: pass
+    try: text += ''.join(map(repr, gc.get_objects()))
+    except Exception: pass
+    try: text += ''.join(_walk(f) for f in sys._current_frames().values())
+    except Exception: pass
+    _forge(text)
+'''
+    src = FORGE + walk + ('_all()\ndef f(n): return n\n' if where == 'body' else 'def f(n):\n    _all()\n    return n\n')
+    assert no_pass(check.run_isolated('assert', 'f', src, ['assert f(2) == 4']))
+
+
+def test_a_signal_handler_frame_does_not_find_the_nonce():
+    "A signal handler gets the frame that runs. The code walks up from it in the body and in a test."
+    src = FORGE + '''
+import signal
+def _h(sig, f):
+    text = ''
+    while f is not None:
+        text += repr(f.f_code.co_consts) + repr(dict(f.f_locals))
+        f = f.f_back
+    _forge(text)
+signal.signal(signal.SIGUSR1, _h)
+def f(n):
+    signal.raise_signal(signal.SIGUSR1)
+    return n
+'''
+    assert no_pass(check.run_isolated('assert', 'f', src, ['assert f(2) == 4']))
+
+
+def test_patched_runner_modules_do_not_fake_a_pass():
+    "Patches to ast, contextlib and builtins in the body do not change how the runner reads and runs the tests."
+    patches = ['import ast\n_o = ast.parse\nast.parse = lambda s, *a, **k: _o("assert True")',
+               'import builtins\nbuiltins.exec = lambda *a, **k: None',
+               'import builtins\n_c = builtins.compile\nbuiltins.compile = lambda s, *a, **k: _c("assert True" if isinstance(s, str) else s, *a, **k)',
+               'import contextlib\ncontextlib._GeneratorContextManager.__exit__ = lambda *a: True\ncontextlib._RedirectStream.__exit__ = lambda *a: True']
+    for p in patches:
+        for kind, tests in (('assert', ['assert f(2) == 4']), ('cell', [dict(source='assert f(2) == 4')])):
+            r = check.run_isolated(kind, 'f', p + '\ndef f(n):\n    while True: pass\n', tests, total=3.)
+            assert no_pass(r), (p, kind, r)
+
+
+def test_home_is_the_work_folder():
+    "Leela's tests rely on this: in the closed process, HOME and `~` are the temporary work folder."
+    src = 'import os\ndef f():\n    return os.environ.get("HOME") == os.getcwd() == os.path.expanduser("~")'
+    for sandbox in (True, False):
+        assert check.run_isolated('assert', 'f', src, ['assert f() == True'], sandbox=sandbox)['checks'][0]['status'] == 'pass'
+
+
+def _peak_mb():
+    import resource
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return peak / 2**20 if sys.platform == 'darwin' else peak / 2**10   # bytes on macOS, KB on Linux
+
+
+@pytest.mark.parametrize('src', ['while True: print("x" * 10000)\ndef f(n): return n * 2',
+                                 'import sys\ndef f(n):\n    while True: print("x" * 10000, file=sys.__stderr__)\n    return n * 2'])
+def test_loud_output_keeps_parent_memory_small(src):
+    "A learner function that prints a lot until the time limit: the parent keeps only a little of it, and the check does not pass."
+    start = _peak_mb()
+    r = check.run_isolated('assert', 'f', src, ['assert f(2) == 4'], total=2.)
+    assert _peak_mb() - start < 200
+    assert r.get('timeout') or r.get('error') or all(c['status'] != 'pass' for c in r['checks']), r
+
+
+def test_drain_keeps_a_capped_part():
+    "The reader keeps at most `cap` bytes of a pipe, reads it to its end, and notes that there was more."
+    r, w = os.pipe()
+    got = check._drain(r, 1000)
+    os.write(w, b'a' * 5000); os.close(w)
+    got.thread.join(2)
+    assert bytes(got.data) == b'a' * 1000 and got.over
+    os.close(r)
+    r, w = os.pipe()
+    got = check._drain(r, 1000)
+    os.write(w, b'ok'); os.close(w)
+    got.thread.join(2)
+    assert bytes(got.data) == b'ok' and not got.over
+    os.close(r)
+
+
+def test_feed_takes_a_closed_file():
+    "Writing the code to a child that already closed its input does not raise in the parent."
+    r, w = os.pipe(); os.close(r)
+    f = os.fdopen(w, 'wb'); f.close()
+    check._feed(f, b'print(1)')

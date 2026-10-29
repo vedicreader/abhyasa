@@ -2,7 +2,7 @@
 from pathlib import Path
 import pytest
 from fasthtml.common import to_xml
-from abhyasa.core.pane import is_local, pane_url, pane_link, PaneHost
+from abhyasa.core.pane import is_local, is_web, pane_url, pane_link, PaneHost
 from abhyasa.core.keys import KEYS
 
 HOSTILE = ('https://evil.example/x', '//evil.example', '/\\evil.example', '\\\\evil.example', 'javascript:alert(1)', 'JaVaScRiPt:alert(1)',
@@ -12,6 +12,14 @@ def test_pane_url_is_local_only():
     assert pane_url('/w/g-1a2b/0') == '/w/g-1a2b/0?pane=1' and pane_url('/w/g?x=1') == '/w/g?x=1&pane=1'
     assert pane_url('/w/g?pane=1') == '/w/g?pane=1' and pane_url('/w/g#check') == '/w/g?pane=1#check'   # one flag, before the fragment
     for bad in HOSTILE: assert not is_local(bad) and pane_url(bad) is None, bad
+
+WEB_BAD = ('javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,hi', 'file:///etc/passwd', 'ftp://example.org/', 'blob:https://x/y',
+           '/w/g', '//evil.example', 'https:evil.example', 'http://', ' https://example.org', 'https://exa mple.org', 'https://example.org/\n', '', None, 3)
+
+def test_rh_link_takes_only_http_and_https():
+    "A page in the pane asks the host to open a link outside the pane with `rh:link {url}`. Only an http or https URL is a link."
+    for good in ('https://example.org/x?y=1#z', 'http://example.org', 'HTTPS://Example.org/a'): assert is_web(good), good
+    for bad in WEB_BAD: assert not is_web(bad), bad
 
 def test_pane_link_is_a_real_link():
     h = to_xml(pane_link('Derivatives', '/w/g-1a2b/0', 'Side walk'))
@@ -76,6 +84,13 @@ def test_pane_in_a_browser(mk):
                 assert fr.locator('nav').count() == 0 and fr.locator('h1').count() >= 1    # a page in a pane has no nav
                 pg.wait_for_function("() => document.querySelector('#rh-pane .rh-trail b').textContent.includes('Keyboard shortcuts')")   # rh:at came back
 
+                pg.evaluate("window.opened = []; window.open = (...a) => { opened.push(a); return null; }; 0")
+                inner = next(f for f in pg.frames if 'pane=1' in f.url)
+                for u in ('https://example.org/x', 'javascript:alert(1)', 'data:text/html,hi', 'file:///etc/passwd', '/keys', 'http://example.org/y'):
+                    inner.evaluate("u => parent.postMessage({type: 'rh:link', url: u}, location.origin)", u)
+                pg.wait_for_function('opened.length >= 2'); time.sleep(.2)
+                assert pg.evaluate('opened') == [['https://example.org/x', '_blank', 'noopener'], ['http://example.org/y', '_blank', 'noopener']]   # rh:link: http(s) only, in a new tab
+
                 pg.reload(); pg.wait_for_load_state()
                 assert shown(pg) and rh(pg) == '/keys'                                       # a reload keeps the pane
                 pg.go_back(); pg.wait_for_function("() => !new URLSearchParams(location.search).get('rh')")
@@ -93,11 +108,12 @@ def test_pane_in_a_browser(mk):
                 assert abs(body - pg.locator('#rh-pane').bounding_box()['width']) < 2       # the page only makes room; it is not drawn again
 
                 pg.evaluate("window.got = 0; addEventListener('message', () => got++)")
+                pg.evaluate("window.opened = []; window.open = (...a) => { opened.push(a); return null; }; 0")
                 other = ("data:text/html,<script>parent.postMessage({type:'rh:close'}, '*'); parent.postMessage({type:'rh:at', url:'/evil'}, '*');"
-                         "parent.postMessage({type:'rh:open', url:'/learning'}, '*')</script>")   # a page in the pane frame, from another origin
+                         "parent.postMessage({type:'rh:open', url:'/learning'}, '*'); parent.postMessage({type:'rh:link', url:'https://evil.example/'}, '*')</script>")   # a page in the pane frame, from another origin
                 pg.evaluate("u => document.querySelector('#rh-pane iframe').contentWindow.location.replace(u)", other)   # replace: no new history entry
-                pg.wait_for_function('got >= 3'); time.sleep(.3)
-                assert shown(pg) and rh(pg) == '/keys'                                       # messages from another origin change nothing
+                pg.wait_for_function('got >= 4'); time.sleep(.3)
+                assert shown(pg) and rh(pg) == '/keys' and pg.evaluate('opened') == []                                       # messages from another origin change nothing
                 pg.evaluate("window.postMessage({type:'rh:close'}, location.origin)"); time.sleep(.2)
                 assert shown(pg)                                                             # nor do messages that do not come from the pane
 

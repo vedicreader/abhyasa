@@ -2,7 +2,7 @@
 from fasthtml.common import *
 from rupaka.render import bundle, version
 from abhyasa.core import Page, hook
-from abhyasa.demo import queue_demo, job_state
+from abhyasa.demo import queue_demo, job_state, said
 from . import ui
 from .cfg import Routes
 
@@ -28,17 +28,20 @@ def connect(app, ctx):
         back = P('A demo for ', A(c.name, href=f'/c/{c.slug}'), '.', cls='mute') if c else ''
         return Page(d.spec.get('title') or 'Demo', back, ui.DemoCard(d, link=False), crumbs=[('Today', '/'), *([(c.name, f'/c/{c.slug}')] if c else [])])
 
-    def made(concept, session=''):
-        "The newest demo of `concept`, or the state of its job."
-        if (d := lr.demo_for(concept, aim='')): return ui.DemoCard(d, session=session)   # a plain demo, not a walk order check
-        return ui.Pending(concept) if job_state(tutor, concept) == 'running' else ui.Failed()
+    def made(concept, session='', aim=''):
+        "The newest demo of `concept` with the aim `aim` (a plain demo or a simpler demo, never a walk order check), or the state of its job."
+        aim = aim if aim in ui.AIMS else ''
+        if job_state(tutor, concept, aim) == 'running': return ui.Pending(concept, aim)
+        return ui.DemoCard(d, session=session) if (d := lr.demo_for(concept, aim=aim)) else ui.Failed()
 
-    def make(concept:str):
+    def make(concept:str, aim:str=''):
+        "The newest demo of `concept` with the aim `aim` (a plain demo, or a simpler demo after \"Not clear\"), or a job that makes it."
         if not lr.concept(concept): return P('No such concept.', cls='mute')
-        if not lr.demo_for(concept, aim=''): queue_demo(tutor, concept)
-        return made(concept)
+        aim = aim if aim in ui.AIMS else ''
+        if not lr.demo_for(concept, aim=aim) or (aim and said(lr, concept, 'unclear')): queue_demo(tutor, concept, aim=aim)   # after "Not clear", a new simpler demo
+        return made(concept, aim=aim)
 
-    def wait(concept:str, session:str=''): return made(concept, session)
+    def wait(concept:str, session:str='', aim:str=''): return made(concept, session, aim)
 
     def predict(slug:str, gate:str, picked:str, ans:str='', ok:str='', why:str='', context:str='', session:str='', confidence:int=None):
         try: lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, session, confidence)
@@ -51,7 +54,7 @@ def connect(app, ctx):
     @hook('lesson_extra')
     def under_lesson(r):
         if r.get('demo') and (d := lr.demo(r.demo)): return ui.DemoCard(d, session=r.get('session', ''))
-        if r.get('demo_pending'): return ui.Pending(r.concept)
+        if r.get('demo_pending'): return ui.Pending(r.concept, r.get('demo_aim', ''))
 
     for r, f in ((Routes.js, rk_js), (Routes.css, rk_css), (Routes.spec, spec)):
         app.get(r)(f)

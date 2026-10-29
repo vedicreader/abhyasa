@@ -15,18 +15,26 @@ The contract for a host (abhyasa here, Leela too):
 - `rh:close`: close the pane. `rh:close {level: 1}` goes back one level only: to the last part of the trail, or, when there is
   no part in the pane, the pane closes (⌥Z).
 - `rh:done {slug, outcome}`: the side walk ended. The host sends it again as the DOM event `abhyasa:rh-done` on `document`, with
-  `detail = {slug, outcome}`. The detail comes from the page in the pane: the host must treat it as input that it cannot trust."""
+  `detail = {slug, outcome}`. The detail comes from the page in the pane: the host must treat it as input that it cannot trust.
+- `rh:link {url}`: open `url` outside the pane, in a new tab with `noopener` (Leela sends it). The URL must pass `is_web`: http
+  or https only. The host refuses all other schemes, such as `javascript:`, `data:` and `file:`."""
 import re
 from urllib.parse import urlsplit, urlunsplit
 from fasthtml.common import A, Aside, B, Button, Div, Header, Iframe, Span
 
-__all__ = ['is_local', 'pane_url', 'pane_link', 'PaneHost']
+__all__ = ['is_local', 'is_web', 'pane_url', 'pane_link', 'PaneHost']
 
 _BAD = re.compile(r'[\x00-\x1f\x7f\\]')   # a control character or a backslash: a browser can make either into a way out of the app
 
 def is_local(url) -> bool:
     "Whether `url` is a path in this app: one `/` at the start, no scheme, no host, no backslash and no control character."
     return isinstance(url, str) and url.startswith('/') and not url.startswith('//') and not _BAD.search(url)
+
+_WEB = re.compile(r'https?://[^\s/?#\\]+[^\s\\]*\Z', re.I)   # http or https, a host, and no space
+
+def is_web(url) -> bool:
+    "Whether `url` is an http or https URL with a host, and no space, backslash or control character: a link that `rh:link` can open."
+    return isinstance(url, str) and bool(_WEB.match(url)) and not _BAD.search(url)
 
 def pane_url(url) -> str|None:
     "`url` with `pane=1` in its query, when it is a local path; else None."

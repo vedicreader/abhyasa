@@ -5,7 +5,7 @@ import abhyasa.blocks.walk
 import pytest
 
 def made(cl, key): return cl.app.state.svc['tutor'].jobs[key].result(timeout=30)   # wait on the demo job, not on the clock
-from abhyasa.method import TEXT_WAYS
+from abhyasa.method import TEXT_WAYS, LABELS
 
 def test_plan_then_start(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr)
@@ -335,3 +335,198 @@ def test_code_card_and_concept_page_offer_leela_only_when_it_runs(mk, walk_fake,
     card = cl.get(f'/w/{jid}/1/check').text
     assert 'code-editor' in card and f'/learn?walk={jid}&amp;step=1' in card                           # the small stdlib check stays in abhyasa
     assert '/learn?topic=Softmax' in cl.get('/c/softmax').text
+
+# The demo ladder in a walk: a wrong prediction gets a lesson in another way under the card, and a second one a simpler demo
+
+def two_gates(d):
+    "The spec of demo `d` with a second gate, so one demo check can take two predictions."
+    g = {**first(b for b in d.spec['blocks'] if b.get('type') == 'gate'), 'id': 'second', 'prompt': 'Which document comes second after fusion?', 'answer': 'fused.1.id'}
+    return {**d.spec, 'id': 'two-gates', 'blocks': [*d.spec['blocks'], g]}
+
+def held(fake, key, words):
+    "Hold the reply of the rule `key` of `fake` for a prompt with `words` until the event is set, so a test can see the pending state."
+    import threading
+    ev, real = threading.Event(), fake.rules[key]
+    def rule(p, sp):
+        if words in p: ev.wait(30)
+        return real(p, sp) if callable(real) else real
+    fake.rules[key] = rule
+    return ev
+
+def test_wrong_predictions_climb_the_demo_ladder(mk, walk_fake, lr):
+    "The first wrong prediction shows a lesson in another way under the card. The second shows a simpler demo. The walk never waits on the model."
+    from abhyasa.demo import SIMPLER_AIM
+    slug = 'scaling-by-the-root-of-dk'
+    teach, small_job = held(walk_fake, 'Teach the smallest step', 'They predicted'), held(walk_fake, 'You design one interactive demo', SIMPLER_AIM)
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = lr.put_demo(two_gates(made(cl, slug)), slug)
+    card = cl.get(f'/w/{jid}/2/check').text
+    assert 'id="ladder"' in card and f'hx-get="/w/{jid}/2/ladder"' not in card      # an empty slot until a wrong prediction (the feedback row only POSTs to it)
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate='win', picked='0', ans='1', ok='false')).json()
+    assert r['ladder'] == f'/w/{jid}/2/ladder'
+    ld = lr.journey(jid).steps[2]['ladder']
+    assert ld['rung'] == 1 and ld['way'] in TEXT_WAYS
+    part = cl.get(r['ladder']).text
+    assert 'The tutor is writing a lesson in another way' in part and 'load delay:2s' in part   # pending: the page asks again
+    teach.set(); made(cl, f'{slug}:lesson')
+    part = cl.get(r['ladder']).text
+    assert 'Positions are shared.' in part and f'Lesson · {LABELS[ld["way"]].lower()}' in part and 'class="go' not in part   # one quiet block, no new main button
+    assert f'hx-get="/w/{jid}/2/ladder"' in cl.get(f'/w/{jid}/2/check').text        # a reload loads the help again
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate='second', picked='0', ans='1', ok='false')).json()
+    part = cl.get(r['ladder']).text
+    assert 'The tutor is making a simpler demo' in part and 'load delay:2s' in part and 'Positions are shared.' in part
+    small_job.set(); small = made(cl, f'{slug}:simpler')
+    assert small.aim == 'simpler' and lr.demo_for(slug, aim='').slug == d.slug        # the simpler demo is never the plain demo
+    part = cl.get(r['ladder']).text
+    assert 'Show a simpler demo' in part and 'data-rupaka' not in part and 'class="go' not in part
+    shown = cl.get(r['ladder'] + '?show=1').text
+    assert 'data-rupaka' in shown and f'data-demo="{small.slug}"' in shown
+    a = cl.post(f'/w/{jid}/2/predict', data=dict(slug=small.slug, gate='win', picked='2', ans='1', ok='false')).json()
+    assert a['ok'] and not a.get('again') and not a.get('ladder')                      # the third miss after the demo adds nothing (a new pick: the vault keeps one document for each text)
+    assert (lr.attempts(slug, limit=1)[0].demo, lr.attempts(slug, limit=1)[0].method) == (small.slug, 'demo')   # it counts against demo
+
+def test_one_gate_demo_can_ask_for_a_simpler_demo(mk, walk_fake, lr):
+    "With one gate, the lesson after a wrong prediction has a quiet link. The link makes the simpler demo on demand: first a pending state, then the demo."
+    from abhyasa.demo import SIMPLER_AIM
+    slug = 'scaling-by-the-root-of-dk'
+    hold = held(walk_fake, 'You design one interactive demo', SIMPLER_AIM)
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = made(cl, slug); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
+    made(cl, f'{slug}:lesson')
+    part = cl.get(r['ladder']).text
+    assert 'Positions are shared.' in part and 'Show a simpler demo' in part and 'hx-post="/w/' in part and '?simpler=1' in part and 'class="go' not in part
+    jobs = cl.app.state.svc['tutor'].jobs
+    cl.get(r['ladder'] + '?simpler=1')                                                   # a GET reads: it asks for nothing and writes nothing
+    assert not lr.journey(jid).steps[2]['ladder'].get('asked') and f'{slug}:simpler' not in jobs
+    assert f'{slug}:simpler' not in cl.app.state.svc['tutor'].jobs                     # nothing is made until you ask
+    part = cl.post(r['ladder'] + '?simpler=1').text
+    assert 'The tutor is making a simpler demo' in part and 'load delay:2s' in part and 'Positions are shared.' in part
+    assert lr.journey(jid).steps[2]['ladder']['asked']
+    hold.set(); small = made(cl, f'{slug}:simpler')
+    part = cl.get(r['ladder']).text                                                     # the poll after the job: the demo shows
+    assert 'data-rupaka' in part and f'data-demo="{small.slug}"' in part and 'Positions are shared.' in part and 'class="go' not in part
+
+def test_a_failed_lesson_job_does_not_start_again_on_the_poll(mk, walk_fake, lr):
+    "A lesson job that fails stays failed: the next polls start no job and show one plain line with a button that POSTs. The button starts the job again."
+    slug, calls, real = 'scaling-by-the-root-of-dk', [], walk_fake.rules['Teach the smallest step']
+    def boom(p, sp): calls.append(p); return ''   # the model gives an empty lesson
+    walk_fake.rules['Teach the smallest step'] = boom
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = made(cl, slug); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
+    jb = cl.app.state.svc['tutor'].jobs[f'{slug}:lesson']; jb.result(timeout=30)
+    n = len(calls)
+    for _ in range(3):
+        part = cl.get(r['ladder']).text
+        assert 'could not write a lesson' in part and 'load delay' not in part and f'hx-post="/w/{jid}/2/ladder"' in part and 'Try again' in part
+    assert len(calls) == n and cl.app.state.svc['tutor'].jobs[f'{slug}:lesson'] is jb      # the polls start no new job
+    walk_fake.rules['Teach the smallest step'] = real
+    cl.post(r['ladder']); made(cl, f'{slug}:lesson')                                          # Try again starts the job
+    assert 'Positions are shared.' in cl.get(r['ladder']).text
+
+def test_a_model_that_raises_gives_a_failed_ladder_not_a_lesson(mk, walk_fake, lr):
+    "The tutor writes a fallback note when the model raises. The ladder does not show it as a lesson: it shows the failed state with Try again, and the poll starts no new job."
+    slug, calls = 'scaling-by-the-root-of-dk', []
+    def boom(p, sp): calls.append(p); raise RuntimeError('the model is down')
+    walk_fake.rules['Teach the smallest step'] = boom
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = made(cl, slug); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+    r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
+    cl.app.state.svc['tutor'].jobs[f'{slug}:lesson'].result(timeout=30); n = len(calls)
+    for _ in range(2):
+        part = cl.get(r['ladder']).text
+        assert 'could not write a lesson' in part and 'Try again' in part and 'load delay' not in part and 'model answer' not in part
+    assert not lr.journey(jid).steps[2]['ladder'].get('lesson') and len(calls) == n
+
+def test_a_lesson_with_no_attempt_stops_the_poll(mk, walk_fake, lr):
+    "When the attempt of the ladder is gone, the block shows a plain line with no poll and no button."
+    slug = 'scaling-by-the-root-of-dk'
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    lr.walk_step(jid, 2, ladder=dict(rung=1, aid='missing', way=TEXT_WAYS[0]))
+    part = cl.get(f'/w/{jid}/2/ladder').text
+    assert 'could not write a lesson' in part and 'load delay' not in part and 'Try again' not in part
+    assert f'{slug}:lesson' not in cl.app.state.svc['tutor'].jobs
+
+def test_a_prereq_does_not_stop_the_ladder_in_a_walk(mk, walk_fake, lr):
+    "An idea with a prereq that is not learned still gets the simpler demo on the second wrong prediction: `_back` waits for the third miss since the demo."
+    slug = 'scaling-by-the-root-of-dk'
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+    cl.get(f'/w/{jid}/1')
+    d = lr.put_demo(two_gates(made(cl, slug)), slug)
+    assert lr.concept(slug).prereqs                                                    # the idea has a prereq, and it is not learned
+    for g in ('win', 'second'): r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
+    made(cl, f'{slug}:lesson'); made(cl, f'{slug}:simpler')
+    assert lr.concept(slug).after_demo == 2 and 'Show a simpler demo' in cl.get(r['ladder']).text
+
+def test_no_ladder_in_a_walk_when_the_setting_is_off(mk, walk_fake, lr):
+    "With checks.demo_ladder off, a wrong prediction only shows the answer, as before."
+    from abhyasa.settings import set_val
+    set_val('checks.demo_ladder', False)
+    try:
+        cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+        lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why=''))
+        cl.get(f'/w/{jid}/1')
+        d = made(cl, 'scaling-by-the-root-of-dk'); g = first(b['id'] for b in d.spec['blocks'] if b.get('type') == 'gate')
+        r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='0', ans='1', ok='false')).json()
+        assert r['ok'] and 'ladder' not in r and not lr.journey(jid).steps[2].get('ladder')
+        assert f'/w/{jid}/2/ladder' not in cl.get(f'/w/{jid}/2/check').text
+    finally: set_val('checks.demo_ladder', True)
+
+def test_a_failed_walk_shows_a_plain_line_and_logs_the_error(mk, walk_fake, lr, monkeypatch, caplog):
+    "The page never shows the words of a library. The log keeps them."
+    def boom(*a, **k): raise RuntimeError('litellm.APIError: 500 from upstream')
+    monkeypatch.setattr('abhyasa.blocks.walk.app.walk_from_topic', boom)
+    cl = mk()
+    with caplog.at_level('WARNING'): r = cl.post('/walk/new', data=dict(topic='attention'), headers=HX)
+    assert 'req-err' in r.text and 'litellm' not in r.text and 'upstream' not in r.text and 'Try again' in r.text
+    assert 'litellm.APIError' in caplog.text
+
+def test_code_run_refuses_a_source_that_is_too_long(mk, walk_fake, lr):
+    "More than 100 000 characters of code is refused with 413, and it uses no try."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    cl.get(f'/w/{jid}/1/check')
+    big = GOOD + '\n#' + 'x' * (100_000 - len(GOOD))
+    assert len(big) > 100_000 and cl.post(f'/w/{jid}/1/run', data=dict(source=big)).status_code == 413
+    assert not lr.attempts('softmax') and 'Next idea' not in cl.get(f'/w/{jid}/1/check').text
+
+def test_only_the_post_of_next_idea_ends_the_sitting(mk, walk_fake, lr):
+    "A GET of the section summary (also a `?rh=` frame load) does not end the sitting. Next idea at the end of a section does."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    live, sid = cl.app.state.svc['sessions'], lr.journey(jid).sitting
+    s = live[sid]
+    for u in (f'/w/{jid}/0/done', f'/w/{jid}/0/done?pane=1', f'/?rh=/w/{jid}/0/done'): assert cl.get(u).status_code == 200
+    assert not s.ended and live.get(sid) is s
+    assert cl.post(f'/w/{jid}/0/next', follow_redirects=False).headers['location'] == f'/w/{jid}/0/done'
+    assert s.ended and sid not in live
+    assert 'Section done' in cl.get(f'/w/{jid}/0/done').text
+    cl.get(f'/w/{jid}/1/check')
+    assert lr.journey(jid).sitting != sid                                              # the next step opens a new sitting
+
+def test_two_writers_on_one_walk_lose_no_field(mk, walk_fake, lr):
+    "`walk_step` on two steps and `merge_journey` of `sitting` at the same time: each change stays."
+    import threading
+    cl = mk(); jid = walk(cl, lr); n = 15
+    def a():
+        for k in range(n): lr.walk_step(jid, 0, a=k)
+    def b():
+        for k in range(n): lr.walk_step(jid, 1, b=k)
+    def c():
+        for k in range(n): lr.merge_journey(jid, sitting=f's{k}')
+    ts = [threading.Thread(target=f) for f in (a, b, c)]
+    for t in ts: t.start()
+    for t in ts: t.join()
+    j = lr.journey(jid)
+    assert (j.steps[0].get('a'), j.steps[1].get('b'), j.sitting) == (n - 1, n - 1, f's{n - 1}')
+    assert lr.merge_journey(jid, sitting='x').steps == j.steps                      # a merge changes only the fields that it names

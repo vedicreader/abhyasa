@@ -198,7 +198,7 @@ def record(self:Learning, concept:str, question:str, answer:str='', thinking:str
                  session=session, at=time.time(), **meta)
     c = self.concept(concept)
     self.v.add(attempt_text(a), title=f"{c.name if c else concept}: {question[:80]}", source=_src('attempt', a.id),
-               kind='attempt', meta=dict(a))
+               kind='attempt', meta=dict(a), force=True)   # its own document, also when an older attempt has the same text
     return a
 
 # %% ../nbs/00_store.ipynb #c025
@@ -258,16 +258,22 @@ def _answers(m) -> int:
 def search(self:Learning, q:str, kind:str=None, limit:int=10) -> L:
     """Hybrid search over the shelf. Each hit also has the `kind`, `title` and `meta` of its document, so a page can show it
     by kind. The method stats and a session with no answers stay out: they have no text that you wrote or learned."""
-    hs = L(self.v.search(q, limit=limit + 10, kind=kind))
-    ids = list(dict.fromkeys(h['doc_id'] for h in hs))
-    rows = {r['id']: r for r in self.v.t.docs(where=f"id in ({','.join('?' * len(ids))})", where_args=ids)} if ids else {}
-    out = L()
-    for h in hs:
-        if (r := rows.get(h['doc_id'])) is None: continue
-        m = json.loads(r['meta'] or '{}')
-        if r['kind'] == 'stats' or (r['kind'] == 'session' and not _answers(m)): continue
-        out.append({**h, 'kind': r['kind'], 'title': r['title'], 'meta': m})
-    return out[:limit]
+    n = limit + 10
+    while True:   # fetch more until there are `limit` real hits, or the search has no more
+        hs = L(self.v.search(q, limit=n, kind=kind))
+        ids = list(dict.fromkeys(h['doc_id'] for h in hs))
+        rows = {r['id']: r for r in self.v.t.docs(where=f"id in ({','.join('?' * len(ids))})", where_args=ids)} if ids else {}
+        out, seen = L(), set()
+        for h in hs:
+            if (r := rows.get(h['doc_id'])) is None: continue
+            m = json.loads(r['meta'] or '{}')
+            if r['kind'] == 'stats' or (r['kind'] == 'session' and not _answers(m)): continue
+            if r['kind'] == 'attempt':   # two attempts with the same words are two records, but one hit
+                if (k := (r['title'], h.get('snippet'))) in seen: continue
+                seen.add(k)
+            out.append({**h, 'kind': r['kind'], 'title': r['title'], 'meta': m})
+        if len(out) >= limit or len(hs) < n: return out[:limit]
+        n *= 4
 
 @patch
 def graph(self:Learning, subject:str=None) -> dict:

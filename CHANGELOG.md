@@ -2,6 +2,23 @@
 
 <!-- do not remove -->
 
+## 0.0.12
+
+- Demo ladder: when you miss an idea after its demo, the tutor teaches it in another way, then shows a simpler demo, then steps back to a prereq (setting: More help after a demo).
+- Feedback: under each demo and each lesson, a quiet row asks "Too simple · Just right · Not clear". "Not clear" opens a short box that you can speak into. The tutor uses your choice and your note for the next demo or lesson of the idea, on the demo ladder, in the ways that work for you and in your profile (setting: Feedback under a demo or a lesson).
+- Code runner: learner code cannot send a signal to another process.
+- Code runner: the report goes to a private pipe, not to stdout. On macOS, `sandbox-exec` stops the network and writes outside the temp folder. On other systems, the guard does its best, but it is not a full block.
+- Code runner: learner code can still fool its own checks (for example through `ctypes`). The checks are for learning. They are not a proof.
+- Code runner: `logging`, `inspect.stack` and `traceback` do not work in learner code in the closed process.
+- Side pane: a page in the pane can ask to open an http or https link in a new tab (`rh:link`). Other schemes are refused.
+- When the tutor cannot make a walk, a side walk or a term, the page shows a plain line. The log keeps the error.
+- A code check refuses more than 100 000 characters of code.
+- Code runner: the app keeps at most 64 KB of the output of learner code and reads at most 1 MB of the report. A larger report is an error.
+- Your journeys: a side walk opens in the pane beside the step that opened it.
+- Search gives the number of hits that you ask for when the shelf has them.
+- Walks from links: a folder such as `go` or `ui` is not a language folder.
+- Walks from links: a redirect to a folder higher on the same host keeps the folder of the link.
+
 ## 0.0.11
 
 - Guided walk: make a walk from a paper, a text or a topic. Each idea is a step with one check.

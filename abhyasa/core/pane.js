@@ -9,11 +9,13 @@
 //   rh:open {url}              open `url` in the same pane (a nested side page)
 //   rh:done {slug, outcome}    the side walk ended; sent on as the event 'abhyasa:rh-done' for the block that opened it
 //   rh:close {level}           close the pane; with `level`, go back one level only (⌥Z)
+//   rh:link {url}              open the http or https `url` outside the pane, in a new tab with noopener (Leela sends it)
 // A pane page tells its trail with `data-rh-trail` (JSON) on any element, and its pace with `data-rh-pace` and the `#rail-prog` line.
 (() => {
   const root = document.documentElement, WIDE = matchMedia('(min-width: 1100px)'), RHW = 'rh-w';
   const inPane = () => root.classList.contains('in-pane');
   const isLocal = u => typeof u === 'string' && u.startsWith('/') && !u.startsWith('//') && !/[\x00-\x1f\x7f\\]/.test(u);   // as is_local in pane.py
+  const isWeb = u => typeof u === 'string' && /^https?:\/\/[^\s/?#\\]+[^\s\\]*$/i.test(u) && !/[\x00-\x1f\x7f\\]/.test(u);   // as is_web in pane.py
   const without = (search, k) => search.replace(/^\?/, '').split('&').filter(x => x && !x.startsWith(k + '='));
   const join = (path, q, hash = '') => path + (q.length ? '?' + q.join('&') : '') + hash;
   const paneURL = u => {   // as pane_url in pane.py
@@ -184,6 +186,10 @@
       if (isOpen() && rhNow() !== d.url) history.replaceState(history.state, '', withRh(d.url));
     } else if (d.type === 'rh:open' && isLocal(d.url)) open(d.url);
     else if (d.type === 'rh:close') d.level ? back() : close();
+    else if (d.type === 'rh:link' && isWeb(d.url)) {
+      const u = new URL(d.url);
+      if (u.protocol === 'http:' || u.protocol === 'https:') window.open(u.href, '_blank', 'noopener');
+    }
     else if (d.type === 'rh:done') document.dispatchEvent(new CustomEvent('abhyasa:rh-done', {detail: {slug: d.slug, outcome: d.outcome}}));
   });
 

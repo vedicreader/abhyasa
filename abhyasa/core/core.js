@@ -248,3 +248,10 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => abhy
     if (b) { const r2 = b.parentElement.querySelector('input[type=range]'); if (r2) r2.value = b.value; }
   });
 })();
+
+// The feedback row under a demo or a lesson (core/feedback.py). Once a choice is saved, the row keeps only the thanks, and after
+// "Not clear", the quiet "Show a simpler demo" when the page has one (base.css reads `data-done`).
+document.addEventListener('htmx:afterRequest', e => {
+  const el = e.detail.elt, row = el && el.closest && el.closest('.fb-row');
+  if (row && e.detail.successful && el.dataset.verdict) row.dataset.done = el.dataset.verdict;
+});

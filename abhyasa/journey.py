@@ -9,11 +9,11 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'SHORT_WAYS', 'PICK_SP', 'S
            'LEELA_ROUTE', 'WALK_ID', 'TOPIC_MAX', 'HANDOFF_CASES', 'step_state', 'progress', 'current', 'plan_prompt',
            'near_goal', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most', 'cap_hands',
            'journey_from_source', 'journey_from_text', 'journey_from_sources', 'walk_from_topic', 'walk_state',
-           'minutes', 'needs', 'pick_way_down', 'detour', 'trail', 'back_from', 'look_up', 'add_topic', 'name_gaps',
-           'split', 'related', 'with_step', 'beyond', 'handoff', 'read_handoff']
+           'minutes', 'needs', 'pick_way_down', 'detour', 'parent_step', 'trail', 'back_from', 'look_up', 'add_topic',
+           'name_gaps', 'split', 'related', 'with_step', 'beyond', 'handoff', 'read_handoff']
 
 # %% ../nbs/11_journey.ipynb #aae14397
-import json, math, re, random, time, uuid
+import json, math, re, random, threading, time, uuid
 from fastcore.utils import *
 from .store import Learning, slugify, _src
 from .model import learned
@@ -286,14 +286,29 @@ def walk_from_topic(lr:Learning, ask, goal:str, who:str='', sources=None, tool:b
     return lr.put_journey({**j, 'mode': 'walk', 'source': None, 'started': None, 'sitting': None, 'tool': tool, 'more': more})
 
 # %% ../nbs/11_journey.ipynb #w310
+_JLOCKS, _JLOCK = {}, threading.Lock()
+
+def _jlock(jid) -> threading.RLock:
+    "The lock of journey `jid`, so that two writers do not read, change and write it at the same time."
+    with _JLOCK: return _JLOCKS.setdefault(jid, threading.RLock())
+
 @patch
 def walk_step(self:Learning, jid:str, i:int, **kv) -> AttrDict:
-    "Merge `kv` into step `i` of walk `jid` and save it."
-    j = self.journey(jid)
-    if j is None: raise KeyError(f'no journey {jid!r}')
-    if not -len(j.steps) <= i < len(j.steps): raise IndexError(f'no step {i} in journey {jid!r}')
-    j.steps[i].update(kv)
-    return self.put_journey(j)
+    "Merge `kv` into step `i` of walk `jid` and save it, under the lock of the journey."
+    with _jlock(jid):
+        j = self.journey(jid)
+        if j is None: raise KeyError(f'no journey {jid!r}')
+        if not -len(j.steps) <= i < len(j.steps): raise IndexError(f'no step {i} in journey {jid!r}')
+        j.steps[i].update(kv)
+        return self.put_journey(j)
+
+@patch
+def merge_journey(self:Learning, jid:str, **kv) -> AttrDict:
+    "Merge the fields `kv` into journey `jid` and save it, under the lock of the journey. The other fields stay as they are."
+    with _jlock(jid):
+        j = self.journey(jid)
+        if j is None: raise KeyError(f'no journey {jid!r}')
+        return self.put_journey({**j, **kv})
 
 SHAKY = ('fragile', 'gap', 'misconception')
 
@@ -389,6 +404,14 @@ def detour(lr:Learning, ask, slug:str, parent:dict, how:str='walk', sources=None
     return lr.put_journey(dict(id=_new_id(c.name), title=c.name, goal=goal, subject=c.get('subject', ''), steps=steps, created=time.time(),
                                mode='walk', source=None, started=time.time(), sitting=None, parent=dict(parent), depth=depth, slug=slug))
 
+# %% ../nbs/11_journey.ipynb #ps02
+def parent_step(lr:Learning, j, js:dict=None) -> tuple:
+    "The parent walk and step of side walk `j`, when the walk is there and has that step; else `(None, None)`. `js` maps ids to journeys that are already read."
+    p = (j or {}).get('parent') or {}
+    w, i = p.get('walk'), p.get('step')
+    pj = (js.get(w) if js is not None else lr.journey(w)) if isinstance(w, str) else None
+    return (pj, i) if pj and isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(pj.steps) else (None, None)
+
 # %% ../nbs/11_journey.ipynb #rh18
 def trail(lr:Learning, jid:str) -> L:
     "The walks from the root walk to walk `jid`, each with the step that you are on."
@@ -403,16 +426,15 @@ def trail(lr:Learning, jid:str) -> L:
 def back_from(lr:Learning, jid:str) -> AttrDict|None:
     "Keep the result of side walk `jid` on the step that opened it: one record for each side walk, updated when its outcome changes. Return the parent walk, or None."
     j = lr.journey(jid)
-    p = (j or {}).get('parent') or {}
-    pj = lr.journey(p['walk']) if 'walk' in p else None
+    pj, i = parent_step(lr, j)
     if pj is None: return None
-    ds = pj.steps[p['step']].get('detours') or []
+    ds = pj.steps[i].get('detours') or []
     s = next((s for s in reversed(j.steps) if s['slug'] == j.get('slug')), {})
     d = dict(walk=jid, slug=j.get('slug'), outcome=(s.get('done') or {}).get('outcome') or 'skipped', at=time.time())
     k = next((k for k, x in enumerate(ds) if x['walk'] == jid), None)
-    if k is None: return lr.walk_step(pj.id, p['step'], detours=[*ds, d])
+    if k is None: return lr.walk_step(pj.id, i, detours=[*ds, d])
     if d['outcome'] in ('skipped', ds[k]['outcome']): return pj   # nothing new: never back to skipped
-    return lr.walk_step(pj.id, p['step'], detours=[*ds[:k], d, *ds[k + 1:]])
+    return lr.walk_step(pj.id, i, detours=[*ds[:k], d, *ds[k + 1:]])
 
 # %% ../nbs/11_journey.ipynb #rh20
 def look_up(lr:Learning, ask, term:str, at:str='', sources=None) -> AttrDict|None:

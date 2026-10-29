@@ -2,11 +2,11 @@
 
 The block adds to the walk step only through hooks (`step_needs`, `check_after`, `walk_end`, `term_lookup`), and to Today and to a
 lesson (`today_next`, `lesson_extra`). It links to the walk by route strings. The side walk is a normal walk journey."""
-import time
+import logging, time
 from urllib.parse import urlencode
 from fasthtml.common import *
 from abhyasa.core import hook
-from abhyasa.journey import needs, pick_way_down, detour, back_from, look_up, walk_state
+from abhyasa.journey import needs, pick_way_down, detour, back_from, look_up, walk_state, parent_step
 from abhyasa.settings import val
 from . import ui
 from .cfg import Routes
@@ -15,6 +15,7 @@ __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask', 'sources')
 HOWS = ('primer', 'walk', 'session')
 GOOD = ('solid', 'fragile')
+log = logging.getLogger(__name__)
 
 def today(t):
     "Whether time `t` is on the local day of now."
@@ -32,12 +33,6 @@ def connect(app, ctx):
         if not j or j.get('mode') != 'walk' or not i < len(j.steps): return None, None, Response('No such step.', status_code=404)
         return j, i, None
 
-    def parent_of(j):
-        "The parent walk and step of side walk `j`, when they are still there; else (None, None)."
-        p = (j or {}).get('parent') or {}
-        pj = lr.journey(p['walk']) if isinstance(p.get('walk'), str) else None
-        ok = pj and isinstance(p.get('step'), int) and 0 <= p['step'] < len(pj.steps)
-        return (pj, p['step']) if ok else (None, None)
 
     def here(pj, i): return f"idea {i + 1} of {len(pj.steps)}"
     def side(j): return j.get('mode') == 'walk' and (j.get('depth') or 0) > 0 and j.get('parent')
@@ -58,7 +53,9 @@ def connect(app, ctx):
         if not lr.concept(slug): return Response('No such idea.', status_code=404)
         if how != 'session' and (j.get('depth') or 0) >= val('walks.depth'): how = 'session'
         try: d = detour(lr, ask, slug, dict(walk=j.id, step=i), how, ctx.sources)   # walk, then step: `from` is "<walk id>/<step>"
-        except Exception as e: return Response(f'The tutor could not make the side walk ({e}). Try again.', status_code=502)
+        except Exception as e:   # the log keeps the words of the library; the page shows a plain line
+            log.warning('the tutor could not make the side walk: %r', e)
+            return Response('The tutor could not make the side walk. Try again.', status_code=502)
         if not d.steps:
             lr.drop_journey(d.id)
             return Response('The tutor found no steps for this idea.', status_code=502)
@@ -77,13 +74,15 @@ def connect(app, ctx):
         if err: return err
         if not t.strip(): return Response('Select a term first.', status_code=400)
         try: r = look_up(lr, ask, t.strip()[:80], at=f'{j.id}/{i}', sources=ctx.sources)
-        except Exception as e: return P(f'The tutor could not add this term ({e}). Try again.', cls='req-err')
+        except Exception as e:
+            log.warning('the tutor could not add the term: %r', e)
+            return P('The tutor could not add this term. Try again.', cls='req-err')
         return offer(lr.concept(r.slug), j, i) if r else P('The tutor could not add this term.', cls='req-err')
 
     def back(sid:str):
         "Keep the result of side walk `sid` on the step that opened it, one time, then go to that step."
         j = lr.journey(sid)
-        pj, i = parent_of(j)
+        pj, i = parent_step(lr, j)
         if not pj: return Response('No such side walk.', status_code=404)
         back_from(lr, sid)
         return Redirect(ui.step_url(pj.id, i))
@@ -111,7 +110,7 @@ def connect(app, ctx):
     @hook('walk_end')
     def end(j):
         "The end of a side walk: what you learned on the way, the way back, and `rh:done` for the page that opened it."
-        pj, i = parent_of(j)
+        pj, i = parent_step(lr, j)
         if not side(j) or not pj: return None
         s = next((s for s in reversed(j.steps) if s['slug'] == j.get('slug')), {})
         o = (s.get('done') or {}).get('outcome') or 'skipped'
@@ -129,7 +128,7 @@ def connect(app, ctx):
         "Under a lesson on an idea that you first met in a side walk: the step that you were on."
         js = sorted((j for j in lr.journeys() if side(j) and any(s['slug'] == r.get('concept') for s in j.steps)), key=lambda j: j.get('created') or 0)
         for j in js:
-            pj, i = parent_of(j)
+            pj, i = parent_step(lr, j)
             if pj:
                 name = (lr.concept(pj.steps[i]['slug']) or {}).get('name', pj.steps[i]['slug'])
                 return P('You first met this on the way to: ', A(name, href=ui.step_url(pj.id, i)), cls='rh-met')
