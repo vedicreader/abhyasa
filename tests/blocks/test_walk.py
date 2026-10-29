@@ -530,3 +530,63 @@ def test_two_writers_on_one_walk_lose_no_field(mk, walk_fake, lr):
     j = lr.journey(jid)
     assert (j.steps[0].get('a'), j.steps[1].get('b'), j.sitting) == (n - 1, n - 1, f's{n - 1}')
     assert lr.merge_journey(jid, sitting='x').steps == j.steps                      # a merge changes only the fields that it names
+
+
+def fake_web(monkeypatch, pdf_title='Attention Is All You Need'):
+    "The PDF and crawl readers file the test pages and fetch nothing; no DNS, no fetch of the start page."
+    from fastcore.utils import L
+    from vishalakshi.core import Vault
+    monkeypatch.setattr(Vault, 'pdf', lambda self, url, **kw: self.add(PAGES, pdf_title, source=url, kind='pdf'))
+    monkeypatch.setattr(Vault, 'crawl', lambda self, start_url, max_pages=10, **kw: L([self.add([(k, 'From the docs. ' + t) for k, t in PAGES], 'Attention docs', source=start_url, kind='web')]))
+    monkeypatch.setattr('abhyasa.sources._final', lambda u: u)
+    monkeypatch.setattr('abhyasa.sources._addrs', lambda host: {'93.184.216.34'})
+
+def test_link_in_the_document_field_makes_a_link_walk(mk, walk_fake, lr, monkeypatch):
+    "A web link or an arXiv id in the vault document field makes the link walk, with one quiet note."
+    fake_web(monkeypatch)
+    cl = mk(); u = 'https://arxiv.org/pdf/1706.03762'
+    r = cl.post('/walk/new', data=dict(ref=u, shelf='store'), headers=HX).text
+    assert 'This is a link, so the tutor reads it from the web.' in r and 'pending' in r and '/walk/job' in r and 'req-err' not in r
+    jid = wait_for(lambda: (cl.get('/walk/job', params=dict(url=u)).headers.get('hx-redirect') or '').split('/')[-1] or None, secs=10)
+    assert lr.journey(jid).source['url'] == u and lr.journey(jid).steps
+    r = cl.post('/walk/new', data=dict(ref='arXiv:1706.03762'), headers=HX).text
+    assert 'This is a link' in r and 'pending' in r
+    r = cl.post('/walk/new', data=dict(ref='http://127.0.0.1:5001/'), headers=HX).text
+    assert 'req-err' in r and 'pending' not in r                                   # the link checks still refuse a local link
+
+def test_vault_name_with_no_document(mk, walk_fake, lr, caplog):
+    "A vault name that matches no document gives a plain message, and the log keeps a line."
+    cl = mk()
+    with caplog.at_level('WARNING'): r = cl.post('/walk/new', data=dict(ref='No such paper'), headers=HX).text
+    assert 'No document in your vault has this name. To add a web page or a paper, use A link.' in r and 'Try again' not in r
+    assert 'No such paper' in caplog.text
+    t = cl.post('/add', data=dict(ref='No such paper')).text
+    assert 'No document in your vault has this name' in t and 'matching' not in t
+
+def test_paper_link_says_paper(mk, walk_fake, lr, monkeypatch):
+    "A paper link ignores the page count and its wait line says Reading the paper, with its page count; a docs link keeps its count of pages."
+    import threading
+    fake_web(monkeypatch)
+    said, go = {}, threading.Event()
+    def hold(lr_, ask, docs, progress=None, **kw):
+        progress(0, len(docs)); said[docs[0].url] = True; go.wait(10)
+        raise ValueError('stop')
+    monkeypatch.setattr('abhyasa.blocks.walk.app.journey_from_sources', hold)
+    from abhyasa.sources import file_link
+    seen = {}
+    def spy(lr_, url, pages=None, **kw): seen[url] = pages; return file_link(lr_, url, pages, **kw)
+    monkeypatch.setattr('abhyasa.blocks.walk.app.file_link', spy)
+    cl = mk(); p, d = 'https://arxiv.org/pdf/1706.03762', 'https://docs.example.dev/attention/'
+    try:
+        assert 'Reading the paper' in cl.post('/walk/new', data=dict(url=p, pages=15), headers=HX).text
+        t = wait_for(lambda: t if 'Reading the paper: 5 pages' in (t := cl.get('/walk/job', params=dict(url=p)).text) else None, secs=10)
+        assert t and '1 of 1' not in t and seen[p] is None
+        cl.post('/walk/new', data=dict(url=d, pages=15), headers=HX)
+        t = wait_for(lambda: t if 'Reading 1 of 1 page' in (t := cl.get('/walk/job', params=dict(url=d)).text) else None, secs=10)
+        assert t and seen[d] == 15
+    finally: go.set()
+
+def test_add_page_quiets_pages_for_a_paper(mk):
+    "The link field has a script that quiets Pages to read for a paper, and the muted line is there."
+    t = mk().get('/add').text
+    assert 'A paper is read in full.' in t and 'paper-note' in t

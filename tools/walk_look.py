@@ -762,6 +762,30 @@ def s2_document_shows_its_images(pg, w):
     assert imgs == [[f'/v/store/{d}/img?f=images/page2_1.png', 'Image 1 from page 2', True]], imgs
     assert 'Image 2 from page 2' not in pg.inner_text('main') and 'Other' not in pg.inner_text('.md.doc'), pg.inner_text('.md.doc')
 
+def s3_link_in_the_document_field(pg, w):
+    "A link in the vault document field starts the link walk with one quiet note; a paper says Reading the paper. On A link, a paper quiets Pages to read. No network: the readers are fakes."
+    import abhyasa.sources
+    from vishalakshi.core import Vault
+    from walk_data import PAGES
+    was = Vault.pdf, abhyasa.sources._final, abhyasa.sources._addrs
+    Vault.pdf = lambda self, url, **kw: self.add([(k, 'From the PDF. ' + t) for k, t in PAGES], 'Attention Is All You Need', source=url, kind='pdf')
+    abhyasa.sources._final, abhyasa.sources._addrs = (lambda u: u), (lambda host: {'93.184.216.34'})
+    try:
+        pg.goto(f'{w.B}/add'); pg.wait_for_selector('.add-form input[name=ref]'); settle(pg, 300)
+        pg.fill('.add-form input[name=ref]', 'https://arxiv.org/pdf/1706.03762'); pg.click('.add-form button.go')
+        pg.wait_for_selector('#walk-out .walk-link', timeout=10000)
+        out = pg.inner_text('#walk-out')
+        assert 'This is a link, so the tutor reads it from the web.' in out and 'Reading the paper' in out and '1 of 1' not in out, out
+        assert not pg.query_selector('#walk-out .req-err'), out
+        pg.wait_for_url('**/w/*', timeout=30000)
+        pg.goto(f'{w.B}/add'); pg.wait_for_selector('.add-form'); settle(pg, 300)
+        pg.click('.add-form label:has(input[name=kind][value=link])'); pg.wait_for_selector('.add-link input[name=url]', state='visible')
+        pg.fill('.add-link input[name=url]', '1706.03762')
+        assert pg.is_hidden('.add-link .pages') and pg.is_visible('.add-link .paper-note') and pg.inner_text('.add-link .paper-note') == 'A paper is read in full.'
+        pg.fill('.add-link input[name=url]', 'https://docs.example.dev/attention/')
+        assert pg.is_visible('.add-link .pages') and pg.is_hidden('.add-link .paper-note')
+    finally: Vault.pdf, abhyasa.sources._final, abhyasa.sources._addrs = was
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
@@ -769,7 +793,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
-          s1_source_link_opens_the_pane, s2_document_shows_its_images]
+          s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

@@ -20,6 +20,8 @@
 - Walks from links: a redirect to a folder higher on the same host keeps the folder of the link.
 - Sources under a lesson: a link to a vault document opens the document in the side pane. A cmd-click still opens a new tab.
 - Vault documents: the page shows the images of a PDF from the assets folder of that document. An image that is not there does not show.
+- Add: a web link or an arXiv id in the vault document field makes a walk from the link. A vault name that matches no document gives a plain message.
+- Add: a paper link (arXiv or PDF) is read in full. The wait line says "Reading the paper", and the page count to read does not show for a paper.
 
 ## 0.0.11
 

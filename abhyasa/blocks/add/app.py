@@ -1,5 +1,5 @@
 "Grow the graph: paste text, name a vault document, give a link for a walk, or import vedicreader."
-import time
+import logging, time
 from fasthtml.common import *
 from pathlib import Path
 from abhyasa.core import Page, RouteOverrides, Primary, Secondary, Quiet, Choice, asset_css, asset_js
@@ -10,6 +10,8 @@ from .cfg import Routes
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask')
 _P = Path(__file__).parent
+NO_DOC = 'No document in your vault has this name. To add a web page or a paper, use A link.'
+log = logging.getLogger(__name__)
 
 def connect(app, ctx):
     lr = ctx.learning
@@ -34,7 +36,8 @@ def connect(app, ctx):
                  Kind('doc', Label('A document in your vault', Input(type='text', name='ref', placeholder='an id, a source or a title')), *Find()),
                  Kind('topic', Label('A topic', Input(type='text', name='topic', placeholder='for example: how attention works'))),
                  Kind('link', Div(Label('A link', Input(type='text', name='url', placeholder='an arXiv id, a PDF, a docs page or a GitHub repo')),
-                                  Label('Pages to read', Input(type='number', name='pages', min=1, max=val('links.cap'), value=val('links.pages'))), cls='pair'),
+                                  Label('Pages to read', Input(type='number', name='pages', min=1, max=val('links.cap'), value=val('links.pages')), cls='pages'),
+                                  P('A paper is read in full.', cls='mute paper-note', hidden=True), cls='pair'),
                       Label(Input(type='checkbox', name='tool'), ' It is a library or a command-line tool. Code opens in Leela.', cls='tick'),
                       P('abhyasa gets the pages of a link only when you send this form. It reads only the pages in the folder of the link.', cls='mute')),
                  Kind('text', Label('A text', Textarea(name='text', rows=4, placeholder='Paste a text.')),
@@ -50,7 +53,10 @@ def connect(app, ctx):
     def add(subject:str='', text:str='', ref:str=''):
         if not (text.strip() or ref.strip()): return P('Paste text or name a document.', cls='mute')
         try: slugs = from_vault(lr, ask, ref, subject) if ref.strip() else extract(lr, ask, text, subject, dict(src='pasted', at=time.time()))
-        except ValueError as e: return P(str(e), cls='mute')
+        except ValueError as e:
+            if not ref.strip(): return P(str(e), cls='mute')
+            log.warning('no concepts from the vault: %r', e)
+            return P(NO_DOC, cls='mute')
         return Ul(*[Li(A(lr.concept(s).name, href=f'/c/{s}')) for s in slugs], cls='plain')
 
     def vedicreader(): return P(', '.join(f'{v} {k}' for k, v in from_vedicreader(lr).items()) + ' added.')

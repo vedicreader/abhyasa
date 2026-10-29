@@ -6,9 +6,9 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'READERS', 'PLAIN', 'LOCALE', 'LANGS', 'SHORT',
-           'EMPTY', 'VR_ROOT', 'RASI', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'extract',
-           'from_vault', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError', 'link_kind', 'reading_order',
-           'file_link', 'plain', 'from_vedicreader']
+           'EMPTY', 'ARXIV_LINK', 'VR_ROOT', 'RASI', 'extract_prompt', 'doc_pages', 'locate', 'figure_path',
+           'placement', 'extract', 'from_vault', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError',
+           'link_kind', 'reading_order', 'file_link', 'as_link', 'is_paper', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re
@@ -340,6 +340,22 @@ def file_link(lr:Learning, url:str, max_pages:int=None, read=None, final=None) -
         raise LinkError('abhyasa found almost no text on these pages. A page that needs a browser to show its text gives none.')
     return reading_order(docs, '\n\n'.join(t for _, t in doc_pages(lr, docs[0].doc_id, docs[0].shelf).pages))[:cap]
 
+
+# %% ../nbs/04_sources.ipynb #lk17
+ARXIV_LINK = re.compile(r'(?:https?://)?(?:www\.|export\.)?arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5}(?:v\d+)?)(?:\.pdf)?/?', re.I)
+
+def as_link(s:str) -> str|None:
+    "The link in the field `s`: a web link, an arXiv id, `arxiv:<id>` or an arXiv address. None for anything else, such as a vault name."
+    s = re.sub(r'^arxiv:\s*', '', (s or '').strip(), flags=re.I)
+    if ARXIV_ID.fullmatch(s) or re.fullmatch(r'https?://\S+', s, re.I): return s
+    return f'https://arxiv.org/abs/{m[1]}' if (m := ARXIV_LINK.fullmatch(s)) else None
+
+def is_paper(url:str) -> bool:
+    "Whether `url` is one paper that abhyasa reads in full: an arXiv id or address, or a link to a PDF file."
+    u = (url or '').strip()
+    if ARXIV_ID.fullmatch(u) or ARXIV_LINK.fullmatch(u): return True
+    try: return urlparse(u).scheme in ('http', 'https') and urlparse(u).path.lower().endswith('.pdf')
+    except ValueError: return False
 
 # %% ../nbs/04_sources.ipynb #c020
 VR_ROOT = Path(os.getenv('VEDICREADER_ROOT', Path.home()/'code/personal/orgs/vedicreader'))

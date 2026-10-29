@@ -11,7 +11,7 @@ from abhyasa.settings import val
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
-from abhyasa.sources import file_link, link_kind, LinkError
+from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.tutor import NoLesson
@@ -27,6 +27,8 @@ AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
 MAX_STATE = 20_000                   # the most chars of a kept demo state
 MAX_SOURCE = 100_000                 # the most chars of code that a run takes
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
+AS_LINK = 'This is a link, so the tutor reads it from the web.'
+NO_DOC = 'No document in your vault has this name. To add a web page or a paper, use A link.'
 log = logging.getLogger(__name__)
 
 def connect(app, ctx):
@@ -130,10 +132,17 @@ def connect(app, ctx):
         j = lr.walk_step(j.id, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
         return reply(j, i, r), *ui.Filled(j, walk_state(j), by(), i)   # the dot of the idea fills in the outline
 
+    def paper_said(docs):
+        "The wait line of a paper: its page count when the vault knows it."
+        try: n = (lr.vault if docs[0].shelf == 'store' else lr.vault.shelf(docs[0].shelf)).doc(docs[0].doc_id)['pages']
+        except Exception: n = None
+        return f"Reading the paper: {n_of(n, 'page')}…" if n else 'Reading the paper…'
+
     def from_link(url, pages, st, tool=False):
-        "On the pool: file the pages of `url`, then read each page and make one walk. Return the walk id."
+        "On the pool: file the pages of `url`, then read each page and make one walk. Return the walk id. A paper is one document, read in full."
         docs = file_link(lr, url, pages)
-        j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=f"Reading {k + 1} of {n_of(n, 'page')}…"), tool=tool)
+        said = (lambda k, n: paper_said(docs)) if is_paper(url) else (lambda k, n: f"Reading {k + 1} of {n_of(n, 'page')}…")
+        j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=said(k, n)), tool=tool)
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no ideas on these pages.')
@@ -145,8 +154,9 @@ def connect(app, ctx):
         except ValueError as e: return P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err')
         st = links.get(url)
         if not st or st.job.done():
-            st = links[url] = AttrDict(said='Getting the pages from the link…')
-            st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() else None, st, tool)
+            paper = is_paper(url)   # one paper: the count of pages to read does not apply
+            st = links[url] = AttrDict(said='Reading the paper…' if paper else 'Getting the pages from the link…')
+            st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() and not paper else None, st, tool)
         return ui.LinkPending(url, st.said)
 
     def job(url:str=''):
@@ -157,10 +167,14 @@ def connect(app, ctx):
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
     def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str=''):
-        tool = tool == 'on'
+        tool, ref, shelf = tool == 'on', ref.strip(), shelf.strip() or 'store'
         if url.strip(): return link_walk(url.strip(), pages, tool)
+        if (u := as_link(ref)): return Div(P(AS_LINK, cls='mute'), link_walk(u, '', tool))   # a link in the vault document field
         try:
-            if ref.strip(): j = journey_from_source(lr, ask, ref.strip(), shelf.strip() or 'store', tool=tool)
+            if ref and (lr.vault if shelf == 'store' else lr.vault.shelf(shelf)).doc(ref) is None:
+                log.warning('the tutor could not make a walk: no vault document matches %r', ref)
+                return P(NO_DOC, cls='req-err')
+            if ref: j = journey_from_source(lr, ask, ref, shelf, tool=tool)
             elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60], tool=tool)
             elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool)
             else: return P('Name a vault document, paste a text, or write a topic.', cls='req-err')
@@ -169,7 +183,7 @@ def connect(app, ctx):
             return P(str(e) if isinstance(e, LinkError) else 'The tutor could not make a walk. Try again.', cls='req-err')
         if not j.steps:
             lr.drop_journey(j.id)
-            return P('The tutor found no ideas in this document.' if ref.strip() or text.strip() else 'The tutor found no steps for this topic.', cls='req-err')
+            return P('The tutor found no ideas in this document.' if ref or text.strip() else 'The tutor found no steps for this topic.', cls='req-err')
         return Response(headers={'HX-Redirect': ui.at(Routes.one, j.id)})
 
     def one(jid:str):
