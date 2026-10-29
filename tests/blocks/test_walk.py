@@ -757,3 +757,38 @@ def test_continue_card_of_a_walk_says_what_was_done(mk, walk_fake, lr):
     cl.get(f'/w/{jid}/1/check'); cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position'))
     card = cl.get('/').text.split('class="continue-card"')[1].split('</div>')[0]
     assert ' of 3 ideas' in card and 'question' not in card
+
+def old_paper_walk(lr):
+    "An old walk from an arXiv link: its title and its vault document have only the id."
+    u = 'https://arxiv.org/pdf/1706.03762'
+    d = lr.vault.add(PAGES, '1706.03762', source=u, kind='pdf')
+    lr.put_journey(dict(id='old', title='1706.03762', mode='walk', steps=[], source=dict(url=u), url=u, docs=[dict(shelf='store', doc_id=d['doc_id'], title='1706.03762', url=u)]))
+    return d['doc_id']
+
+def test_old_paper_walk_gets_its_title_in_the_background(mk, lr):
+    "After the start, the pool asks arXiv (faked) for the title of an old walk; the walk and its document take it."
+    from abhyasa.app import repair_in_background
+    did = old_paper_walk(lr); cl = mk()
+    assert repair_in_background(cl.app, lambda aid: 'Attention Is All You Need').result(timeout=10) == ['old']
+    assert lr.journey('old').title == 'Attention Is All You Need'
+    assert first(lr.vault.t.docs(where='id=?', where_args=[did]))['title'] == 'Attention Is All You Need'
+
+def test_failed_title_repair_keeps_the_id_and_tries_again(mk, lr):
+    "A network failure keeps the id title and leaves the mark off, so the next start asks again."
+    from abhyasa.app import repair_in_background
+    old_paper_walk(lr); cl = mk()
+    def down(aid): raise OSError('no network')
+    assert repair_in_background(cl.app, down).result(timeout=10) == [] and lr.journey('old').title == '1706.03762'
+    assert repair_in_background(cl.app, lambda aid: 'Attention Is All You Need').result(timeout=10) == ['old']
+
+def test_title_repair_never_blocks_the_start(mk, lr):
+    "The repair is a future on the pool: the call returns while arXiv is slow, and a load of the vault asks nothing."
+    import threading
+    from abhyasa.app import repair_in_background
+    from abhyasa.store import Learning
+    old_paper_walk(lr); cl = mk(); go = threading.Event()
+    f = repair_in_background(cl.app, lambda aid: go.wait(10) and 'Attention Is All You Need')
+    try:
+        assert not f.done() and cl.get('/').status_code == 200 and Learning(lr.vault).journey('old').title == '1706.03762'
+    finally: go.set()
+    assert f.result(timeout=10) == ['old']

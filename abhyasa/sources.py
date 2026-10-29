@@ -446,11 +446,14 @@ def is_id_title(t:str) -> bool:
     "Whether `t` is only an arXiv id, as the PDF reader names a paper by the end of its link."
     return bool(re.fullmatch(ARXIV_ID.pattern + r'(?:\.pdf)?', re.sub(r'^arxiv:\s*', '', (t or '').strip(), flags=re.I)))
 
-def arxiv_title(aid:str) -> str|None:
-    "The title of arXiv paper `aid` from its metadata (fossick keeps it on disk), or None when there is none."
+def arxiv_title(aid:str, strict:bool=False) -> str|None:
+    "The title of arXiv paper `aid` from its metadata (fossick keeps it on disk), or None when there is none. `strict`: a failure raises, and the time limit is at most 10 s."
     from fossick import read_arxiv
-    try: return ' '.join(read_arxiv(aid, save_pdf=False, **fetch_opts())['title'].split()) or None
-    except Exception: return None
+    o = fetch_opts(); o['timeout'] = min(o['timeout'], 10) if strict else o['timeout']
+    try: return ' '.join(read_arxiv(aid, save_pdf=False, **o)['title'].split()) or None
+    except Exception:
+        if strict: raise
+        return None
 
 def is_paper(url:str) -> bool:
     "Whether `url` is one paper that abhyasa reads in full: an arXiv id or address, or a link to a PDF file."

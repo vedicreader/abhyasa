@@ -21,7 +21,7 @@ from .model import learned
 from .settings import val
 from .llm import ask_json, for_task
 from .prompts import register, prompt
-from .sources import extract, _index, doc_pages, from_vault, placement, is_id_title, ARXIV_LINK
+from .sources import extract, _index, doc_pages, from_vault, placement, is_id_title, ARXIV_LINK, ARXIV_ID, arxiv_title
 import abhyasa.profile  # adds Learning.profile
 from .method import check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND
 from .ground import ground, ground_text
@@ -563,10 +563,20 @@ def beyond(lr:Learning, j, k:int=5, goal:int=None) -> L:
     return out[:k]
 
 # %% ../nbs/11_journey.ipynb #jt-1
+def _arxiv_of(j) -> str:
+    "The arXiv id in the address of walk `j`, or an empty string."
+    m = ARXIV_LINK.fullmatch((j.get('source') or {}).get('url') or j.get('url') or '')
+    return m[1] if m else ''
+
 def paper_id(j) -> str:
     "The arXiv id of the paper that walk `j` reads, or an empty string. Empty too when the title of `j` is that id."
-    m = ARXIV_LINK.fullmatch((j.get('source') or {}).get('url') or j.get('url') or '')
-    return m[1] if m and not is_id_title(j.get('title')) else ''
+    return '' if is_id_title(j.get('title')) else _arxiv_of(j)
+
+@patch
+def _retitle(self:Learning, j, t:str):
+    "Give walk `j` the title `t`, and its first vault document too, and keep the place of the walk in the list."
+    n = self.put_journey({**j, 'title': t, 'docs': [{**j.docs[0], 'title': t}, *j.docs[1:]]})
+    self.v.set_meta(n.doc_id, updated=j.get('updated', 0))   # a repair is not a change that you made: the order of the list stays
 
 @patch
 def repair_titles(self:Learning) -> list:
@@ -577,10 +587,30 @@ def repair_titles(self:Learning) -> list:
         if not (is_id_title(j.title) and j.get('docs')): continue
         d = self.vault.shelf(j.docs[0]['shelf']).doc(j.docs[0]['doc_id'])
         if d and (t := (d['title'] or '').strip()) and not is_id_title(t):
-            n = self.put_journey({**j, 'title': t, 'docs': [{**j.docs[0], 'title': t}, *j.docs[1:]]})
-            self.v.set_meta(n.doc_id, updated=j.get('updated', 0))   # a repair is not a change that you made: the order of the list stays
-            out.append(j.id)
+            self._retitle(j, t); out.append(j.id)
     self.v.add('The titles of the walks were repaired.', title='Titles repaired', source=_src('marker', 'titles'), kind='marker')
+    return out
+
+# %% ../nbs/11_journey.ipynb #pt-1
+@patch
+def repair_paper_titles(self:Learning, title_of=None) -> list:
+    "Give each walk and each PDF in the vault that is titled with only an arXiv id the title of its paper, from `title_of(id)` (default: arXiv). Return the ids of the walks that changed. The mark is set only when no id failed from the network."
+    mark = _src('marker', 'paper-titles')
+    if first(self.v.t.docs(where='source=?', where_args=[mark])): return []
+    title_of = title_of or partial(arxiv_title, strict=True)
+    got, retry, out = {}, False, []
+    def title(aid):
+        nonlocal retry
+        if aid not in got:
+            try: got[aid] = title_of(aid)
+            except Exception as e: got[aid] = None; retry = retry or 'No paper found' not in str(e)   # a paper that arXiv does not have: no more tries
+        return got[aid]
+    for j in self.journeys():
+        if is_id_title(j.title) and j.get('docs') and (aid := _arxiv_of(j)) and (t := title(aid)): self._retitle(j, t); out.append(j.id)
+    for d in self.vault.t.docs(where="kind in ('pdf', 'arxiv')"):
+        if is_id_title(d['title']) and (m := ARXIV_LINK.fullmatch(d['source'] or '') or ARXIV_ID.fullmatch(d['title'])) and (t := title(ARXIV_ID.search(m[0]).group())):
+            self.vault.t.docs.update(dict(id=d['id'], title=t))
+    if not retry: self.v.add('The titles of the papers were repaired.', title='Paper titles repaired', source=mark, kind='marker')
     return out
 
 # %% ../nbs/11_journey.ipynb #667e494b

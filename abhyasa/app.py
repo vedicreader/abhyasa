@@ -1,5 +1,5 @@
 "The web app: `fast_app`, the services, and `connect_all` over the blocks in `NAMES` order. Loopback only."
-import argparse
+import argparse, logging
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -13,6 +13,8 @@ from abhyasa.tutor import Tutor
 from abhyasa.llm import route_ask, Router
 from abhyasa.ground import VaultSource, VedicSource
 from abhyasa.research import Researcher
+
+log = logging.getLogger(__name__)
 
 __all__ = ['mk_app', 'main']
 
@@ -76,6 +78,13 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's static route, which answers 404 for it
     return app
 
+def repair_in_background(app, title_of=None):
+    "After the start: give the old papers with an arXiv id for a title their real title, on the pool of the app. Return the future; nothing waits for it."
+    def run():
+        try: return app.state.svc['learning'].repair_paper_titles(title_of)
+        except Exception as e: log.warning('abhyasa could not repair the titles of the papers: %r', e)
+    return app.state.svc['pool'].submit(run)
+
 def main():
     "Serve the app on loopback."
     import uvicorn
@@ -90,4 +99,6 @@ def main():
     except OSError: pass
     ask = Router(route_ask(a.model))
     ask.warm()   # makes the ramabana Agent and starts the backends in the background, so the server starts at once
-    uvicorn.run(mk_app(lr, ask), host=cfg.host, port=a.port, log_level='warning')
+    app = mk_app(lr, ask)
+    repair_in_background(app)
+    uvicorn.run(app, host=cfg.host, port=a.port, log_level='warning')
