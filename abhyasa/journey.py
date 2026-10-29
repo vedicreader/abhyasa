@@ -9,8 +9,9 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'SHORT_WAYS', 'PICK_SP', 'S
            'LEELA_ROUTE', 'WALK_ID', 'TOPIC_MAX', 'HANDOFF_CASES', 'step_state', 'progress', 'current', 'plan_prompt',
            'near_goal', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most', 'cap_hands',
            'journey_from_source', 'journey_from_text', 'journey_from_sources', 'walk_from_topic', 'walk_state',
-           'minutes', 'needs', 'pick_way_down', 'detour', 'parent_step', 'trail', 'back_from', 'for_talk', 'look_up',
-           'add_topic', 'name_gaps', 'split', 'related', 'with_step', 'beyond', 'handoff', 'read_handoff']
+           'minutes', 'needs', 'pick_way_down', 'detour', 'parent_step', 'trail', 'back_from', 'for_talk',
+           'journey_walk', 'walk_for_talk', 'look_up', 'add_topic', 'name_gaps', 'split', 'related', 'with_step',
+           'beyond', 'handoff', 'read_handoff']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
@@ -275,15 +276,19 @@ def _topic_read(c, sources) -> dict|None:
     p = first(ground(name, sources, 1, must=[name, *(c.get('aliases') or ())])) if sources else None
     return p and dict(src=p.src, ref=p.ref, title=p.title, url=p.url, text=p.text[:val('walks.passage')], section='', figure=None)
 
-def walk_from_topic(lr:Learning, ask, goal:str, who:str='', sources=None, tool:bool=False) -> AttrDict:
-    "Plan a path to `goal` and make it a walk of at most `walks.steps` steps, with a passage from `sources` and a check on each step."
-    j, most = plan(lr, ask, goal, who, sources), val('walks.steps')
+def _topic_walk(lr:Learning, j, sources=None, tool:bool=False, **extra) -> AttrDict:
+    "Save journey `j` as a walk of its first `walks.steps` steps, in its order, with a passage from `sources` and a check on each step. The other steps go in `more`, and `extra` goes on the walk."
+    most = val('walks.steps')
     j.steps, more = j.steps[:most], [s['slug'] for s in j.steps[most:]]
     for s in j.steps:
         c = lr.concept(s['slug'])
         s.update(read=_topic_read(c, sources), check=_check(lr, c, tool), **_leela(c, tool))
     cap_hands(lr, j.steps, tool)
-    return lr.put_journey({**j, 'mode': 'walk', 'source': None, 'started': None, 'sitting': None, 'tool': tool, 'more': more})
+    return lr.put_journey({**j, 'mode': 'walk', 'source': None, 'started': None, 'sitting': None, 'tool': tool, 'more': more, **extra})
+
+def walk_from_topic(lr:Learning, ask, goal:str, who:str='', sources=None, tool:bool=False) -> AttrDict:
+    "Plan a path to `goal` and make it a walk of at most `walks.steps` steps, with a passage from `sources` and a check on each step."
+    return _topic_walk(lr, plan(lr, ask, goal, who, sources), sources, tool)
 
 # %% ../nbs/11_journey.ipynb #w310
 _JLOCKS, _JLOCK = {}, threading.Lock()
@@ -438,8 +443,25 @@ def back_from(lr:Learning, jid:str) -> AttrDict|None:
 
 # %% ../nbs/11_journey.ipynb #rh18b
 def for_talk(j) -> bool:
-    "Whether walk `j` is a side walk that a talk opened beside a slide, for the room."
-    return isinstance((j or {}).get('parent'), dict) and 'talk' in j['parent']
+    "Whether walk `j` is for a talk: a side walk that a talk opened beside a slide, or the walk that a talk was made from, from a journey."
+    p = (j or {}).get('parent')
+    return isinstance(p, dict) and ('talk' in p or p.get('for') == 'talk')
+
+# %% ../nbs/11_journey.ipynb #pj02
+def journey_walk(lr:Learning, jid:str) -> AttrDict|None:
+    "The newest walk that `walk_for_talk` made from journey `jid`, or None."
+    ws = [j for j in lr.journeys() if j.get('parent') == {'journey': jid, 'for': 'talk'}]
+    return first(sorted(ws, key=lambda j: -(j.get('created') or 0)))
+
+def walk_for_talk(lr:Learning, jid:str, sources=None, again:bool=False) -> AttrDict:
+    "A walk for a talk from plain journey `jid`: its steps that are not skipped, in order, with its goal. A second call gives the same walk, unless `again`."
+    j = lr.journey(jid)
+    if j is None or j.get('mode') == 'walk' or for_talk(j): raise KeyError(f'no plain journey {jid!r}')
+    if not again and (w := journey_walk(lr, jid)): return w
+    ss = [dict(slug=s['slug'], status='todo', why=s.get('why', '')) for s in j.steps if s.get('status') != 'skip' and lr.concept(s['slug'])]
+    if not ss: raise ValueError(f'journey {jid!r} has no step to present')
+    w = AttrDict(id=_new_id(j.title), title=j.title, goal=j.get('goal', ''), subject=j.get('subject', ''), steps=ss, created=time.time())
+    return _topic_walk(lr, w, sources, parent={'journey': jid, 'for': 'talk'})
 
 # %% ../nbs/11_journey.ipynb #rh20
 def look_up(lr:Learning, ask, term:str, at:str='', sources=None) -> AttrDict|None:
