@@ -391,10 +391,19 @@ def _figure(resolve, f) -> tuple|None:
     return (hashlib.sha256(b).hexdigest(), b, m) if (m := image_type(b)) else None
 
 # %% ../nbs/17_talk.ipynb #271cb741
+def _shows(s:dict, part:str) -> bool:
+    "True when slide `s` shows `part` to the room: it has the beat, or it has no beats."
+    beats = s.get('beats') or []
+    return part in beats or not beats
+
 def _passage(s:dict) -> str:
     "The passage that slide `s` shows to the room, or ''."
-    beats = s.get('beats') or []
-    return ((s.get('show') or {}).get('passage') or '') if 'passage' in beats or not beats else ''
+    return ((s.get('show') or {}).get('passage') or '') if _shows(s, 'passage') else ''
+
+def _points(s:dict) -> list:
+    "The points that slide `s` shows to the room, or []."
+    b = (s.get('show') or {}).get('body')
+    return [str(x) for x in b] if _shows(s, 'body') and isinstance(b, list) else []
 
 # %% ../nbs/17_talk.ipynb #a0e06d66
 def public_deck(t:dict, resolve) -> AttrDict:
@@ -403,7 +412,7 @@ def public_deck(t:dict, resolve) -> AttrDict:
     for s in t['slides']:
         fig = _figure(resolve, (s.get('show') or {}).get('figure'))
         if fig: images[fig[0]] = fig[1:]
-        slides.append(dict(id=s['id'], kind=s['kind'], title=s.get('title') or '', section=s.get('section') or '', passage=_passage(s),
+        slides.append(dict(id=s['id'], kind=s['kind'], title=s.get('title') or '', section=s.get('section') or '', passage=_passage(s), body=_points(s),
                            figure=fig[0] if fig else None, ask=deepcopy(public_ask(s.get('ask')))))
     return AttrDict(title=t['title'], slides=slides, images=images)
 
@@ -611,6 +620,7 @@ def recap_html(t:dict, run:dict, resolve) -> str:
         p, part = ps[s['id']], [f'<h2>{e(str(ps[s["id"]]["title"]))}</h2>']
         if p['section']: part.append(f'<p class="meta">{e(str(p["section"]))}</p>')
         if p['passage']: part.append(f'<blockquote>{e(str(p["passage"]))}</blockquote>')
+        if p['body']: part.append('<ul>' + ''.join(f'<li>{e(x)}</li>' for x in p['body']) + '</ul>')
         if (h := p['figure']):
             b, m = pub.images[h]
             part.append(f'<img alt="Figure" src="data:{m};base64,{base64.b64encode(b).decode()}">')

@@ -334,8 +334,33 @@ def present_journey(pg, w):
     pg.goto(f'{w.B}/j/{jid}'); settle(pg)
     assert pg.get_by_role('link', name='Open the talk').get_attribute('href') == f'/t/{tid}', 'no Open the talk'
 
+def journey_points(pg, w):
+    "Present a journey on ideas that no source names: each idea slide in the audience window has points, the first slide shows them, and no note shows."
+    jid = w.lr.put_journey(dict(id='ranking-talk-ab12', title='Ranking talk', goal='Learn how to rank results', subject='ml',
+                                steps=[dict(slug=s, status='todo', why='') for s in ('ranking', 'reciprocal-rank-fusion')])).id
+    pg.goto(f'{w.B}/j/{jid}'); settle(pg)
+    pg.get_by_role('button', name='Present this journey').click()
+    pg.wait_for_url('**/t/*', timeout=20000); settle(pg)
+    tid = pg.url.rstrip('/').split('/')[-1]
+    w.rq.post(f'{w.B}/t/{tid}/start', max_redirects=0)
+    key, ideas = w.lr.run(w.lr.talk(tid).live)['key'], [s['id'] for s in w.lr.talk(tid).slides if s['kind'] == 'idea']
+    au = w.ctx.new_page(); guard(au, w.errs); au.set_viewport_size(AUDIENCE)
+    try:
+        au.goto(f'{w.B}/t/{tid}/audience?k={key}'); settle(au)
+        n = {sid: au.eval_on_selector(f'section.stage[data-sid="{sid}"]', "s => [...s.querySelectorAll('.points li')].filter(l => l.textContent.trim()).length") for sid in ideas}
+        assert ideas and all(k >= 2 for k in n.values()), n
+        first = f'section.stage[data-sid="{ideas[0]}"] .points'
+        assert au.is_visible(first) and px(au, first) >= 21.9, 'the points of the first slide do not show at a size that the room can read'
+        assert 'Watch for' not in au.inner_text('body') and no_hscroll(au), 'a note shows to the room, or the window scrolls sideways'
+        # long points: the type gets smaller, down to 22 px, so that they fit the slide
+        got = au.eval_on_selector(first, """p => { p.querySelectorAll('li').forEach(l => { l.textContent = 'A long point with many words in it. '.repeat(9); });
+            dispatchEvent(new Event('resize')); return parseFloat(getComputedStyle(p).fontSize); }""")
+        assert 21.9 <= got < 27.9, f'long points did not get smaller: {got} px'
+    finally:
+        au.close(); w.rq.post(f'{w.B}/t/{tid}/end', max_redirects=0)
+
 CHECKS = [editor_keys, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
-          reload_audience, strangers, audience_closed, stray_keys, end_and_after, present_journey]
+          reload_audience, strangers, audience_closed, stray_keys, end_and_after, present_journey, journey_points]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

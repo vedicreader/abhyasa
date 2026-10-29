@@ -18,7 +18,7 @@ from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_t
 from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
-                          public_deck, public_ask, asset_resolver, new_run, log_go, log_main, end_run, log_beside,
+                          public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, new_run, log_go, log_main, end_run, log_beside,
                           recap, recap_html)
 from . import ui
 from .cfg import Routes
@@ -26,7 +26,7 @@ from .cfg import Routes
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask', 'pool', 'sources')
 NO_TALK = 'abhyasa could not make the talk.'
-PARTS = ('passage', 'figure', 'demo')   # the parts that a slide can show, in the order of their beats
+PARTS = ('passage', 'body', 'figure', 'demo')   # the parts that a slide can show, in the order of their beats
 PAUSE = 'Talk to your neighbour.'
 ASKS = ('idea', 'primer')              # the slide kinds that can ask the room
 SLOT = (5, 240)                         # the most and the least minutes of a slot
@@ -126,6 +126,11 @@ def edit(s, f):
         if len(f['notes']) > NOTE_MOST: raise Bad(f'Write the note in at most {NOTE_MOST} characters.')
         s['notes'] = f['notes'].strip()
     if 'beats' in f: s['beats'] = lines(f['beats'])
+    if 'body' in f:   # the points: a new list shows with its beat, and no points take the beat out
+        pts, had = lines(f['body']), bool((s.get('show') or {}).get('body'))
+        if len(pts) > BODY_MOST or any(len(p) > POINT_MOST for p in pts): raise Bad(f'Write at most {BODY_MOST} points, each in at most {POINT_MOST} characters.')
+        s['show'] = {**(s.get('show') or {}), 'body': pts}
+        if not pts or not had: s['beats'] = with_part(s.get('beats') or [], 'body', bool(pts))
     for p in PARTS:
         if (v := f.get(f'show_{p}')) is None: continue
         if v not in ('on', 'off'): raise Bad(f'show_{p} is on or off.')

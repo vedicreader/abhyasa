@@ -164,6 +164,29 @@ def test_a_journey_talk_has_content(mk, talk_fake, lr):
     assert s1['cites'] == [dict(src='vault:notes', ref='n1', title='My ranking notes', url='https://example.org/notes')]   # from your sources
     assert s2['show']['body'] == SLIDE['points'] and s2['beats'][0] == 'body' and '**Ask the room:**' in s2['notes'] and 'cites' not in s2
 
+def test_the_room_sees_the_points(mk, talk_fake, lr):
+    "The audience window shows the points of a slide and never its notes or sources; the presenter window shows the notes and the sources."
+    cl = mk(); tid = journey_talk(cl, journey_of(lr)); cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
+    a = cl.get(f'/t/{tid}/audience?k={run["key"]}').text
+    assert 'class="points"' in a and '<li>The idea has one main step.</li>' in a
+    assert 'People mix up' not in a and 'Start with the main step' not in a and 'Watch for' not in a and 'My ranking notes' not in a
+    p = cl.get(f'/t/{tid}/present').text
+    assert 'People mix up the main step and the example.' in p and 'From your sources' in p and 'My ranking notes' in p
+
+def test_edit_the_points(mk, talk_fake, lr):
+    "The editor shows the points, one on each line; a change saves them, and no points takes the beat out."
+    cl = mk(); tid = journey_talk(cl, journey_of(lr))
+    ed = cl.get(f'/t/{tid}').text
+    assert 'name="body"' in ed and 'The idea has one main step.' in ed
+    assert cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='edit', body='One point.\nTwo points.')).status_code == 200
+    s = lr.talk(tid).slides[1]; assert s['show']['body'] == ['One point.', 'Two points.'] and s['beats'][0] == 'body'
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='edit', body=''))
+    s = lr.talk(tid).slides[1]; assert s['show']['body'] == [] and 'body' not in s['beats']
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='edit', body='Back again.'))
+    assert lr.talk(tid).slides[1]['beats'][0] == 'body'
+    assert cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='edit', body='\n'.join(['A point.'] * 7))).status_code == 400
+    assert cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='edit', body='x' * 301)).status_code == 400
+
 def test_a_journey_talk_again(mk, talk_fake, lr):
     "A journey that you presented before offers its talk and Make it again; a second press gives the same talk, and Make it again a new one."
     cl = mk(); jid = journey_of(lr); tid = journey_talk(cl, jid); n = len(lr.journeys())

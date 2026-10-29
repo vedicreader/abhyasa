@@ -144,9 +144,21 @@ function show(st, slide, beat) {
     if (sec.hidden) continue;
     sec.querySelectorAll('[data-at]').forEach(p => { p.hidden = +p.dataset.at > beat; });
     light(sec, beat);
+    fitPoints(sec);
   }
   if (moved) { roomPart(st, 'stage-ask').hidden = true; roomPart(st, 'stage-pair').hidden = true; }
 }
+
+// The points fit the slide, as a passage does in the talk type (core/talktype.js): when they do not fit, their type gets smaller,
+// down to 22/28 of its size. Each window does this at its own size.
+const POINTS_FLOOR = 22 / 28;
+function fitPoints(sec) {
+  const p = sec.querySelector('.body > .points'), body = p?.parentElement;
+  if (!p || p.hidden) return;
+  p.style.removeProperty('--pts');
+  for (let s = 1; body.scrollHeight > body.clientHeight + 1 && s > POINTS_FLOOR + .001;) { s = Math.max(POINTS_FLOOR, s - .05); p.style.setProperty('--pts', String(s)); }
+}
+addEventListener('resize', () => document.querySelectorAll('#stage > section.stage:not([hidden])').forEach(fitPoints));
 
 const roomPart = (st, cls) => st.querySelector(':scope > .' + cls);
 const said = n => n.length < 2 ? n.join('') : n.slice(0, -1).join(', ') + ' or ' + n[n.length - 1];

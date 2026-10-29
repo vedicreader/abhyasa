@@ -5,14 +5,14 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import Primary, Secondary, Quiet, Part, Md, meta, n_of, asset_css, asset_js, stage_assets
+from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Cites, meta, n_of, asset_css, asset_js, stage_assets
 from abhyasa.talk import talk_minutes, public_ask, share_right
 from abhyasa.settings import val
 from .cfg import Routes
 
 _P = Path(__file__).parent
 KINDS = dict(choice='Choice', order='Order', words='Short answer', scale='Scale', run='What does this print?', none='No question')
-SHOWS = dict(passage='passage', figure='figure', demo='live demo')
+SHOWS = dict(passage='passage', body='points', figure='figure', demo='live demo')
 ENDS = dict(questions='the questions from the room, or your notes', recap='made at the end from what the room answered')
 
 def assets(): return asset_css(_P/'talk.css'), asset_js(_P/'talk.js')
@@ -77,7 +77,7 @@ def AskCell(s):
 def Mini(s):
     "A small picture of the slide: its section, its title and the start of its passage."
     sh = s.get('show') or {}
-    return Div(Small(s.get('section') or ''), B(s.get('title') or ''), P(short(sh.get('passage') or s.get('prompt') or '', 120)),
+    return Div(Small(s.get('section') or ''), B(s.get('title') or ''), P(short(sh.get('passage') or ' '.join(sh.get('body') or []) or s.get('prompt') or '', 120)),
                I(cls='fig') if sh.get('figure') else '', cls='mini', aria_hidden='true')
 
 def Field(label, el, help=''):
@@ -101,13 +101,15 @@ def EditForm(tid, s):
     sid, sh, a = s['id'], s.get('show') or {}, s.get('ask') or {}
     beats, kind = s.get('beats') or [], (s.get('ask') or {}).get('kind') or 'none'
     boxes = [Label(Input(type='checkbox', name=f'show_{p}', checked=p in beats), SHOWS[p], cls='box') for p in SHOWS if sh.get(p)]
+    pts = Field('Points', Textarea('\n'.join(sh.get('body') or []), name='body', rows='4'),
+                'One point on each line, at most 6. The room sees them.') if s.get('kind') in ('idea', 'primer') and (sh.get('body') or not sh.get('passage')) else ''
     q = Div(Field('Ask the room', Select(*[Option(t, value=k, selected=k == kind) for k, t in KINDS.items()], name='kind')),
             Field('Question', Input(type='text', name='q', value=a.get('q') or '', maxlength='500')), Options(a), cls='ask-fields')
     return Form(Input(type='hidden', name='sid', value=sid), Input(type='hidden', name='act', value='edit'),
                 Field('Speaker note', Textarea(s.get('notes') or '', name='notes', rows='3'), 'Only you see it.'),
-                Div(Span('What shows', cls='lbl'), *boxes, cls='boxes') if boxes else '',
+                pts, Div(Span('What shows', cls='lbl'), *boxes, cls='boxes') if boxes else '',
                 Field('Beats', Textarea('\n'.join(beats), name='beats', rows='3'),
-                      'Each press of D shows one more. Use passage, figure, demo or ask, or lit: and words from the passage to light them.'),
+                      'Each press of D shows one more. Use passage, body (the points), figure, demo or ask, or lit: and words from the passage to light them.'),
                 q if s.get('kind') in ('idea', 'primer') else '',
                 Div(Secondary('Save the slide'), cls='row'),
                 hx_post=at(Routes.slide, tid), hx_target='#deck', hx_swap='outerHTML', cls='slide-edit')
@@ -169,7 +171,7 @@ def Editor(t, j, pj=None, changed=False):
     old = P('The journey changed after this talk was made. Make it again to update it.', cls='mute') if changed else ''
     return (H1(f"{t['title']}, as a talk"),
             P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), cls='mute'), cut, old,
-            P('Each idea of the walk is one slide. The passage and the figure show to the room. The tutor note is your speaker note. '
+            P('Each idea of the walk is one slide. The passage or the points, and the figure, show to the room. The tutor note is your speaker note. '
               'The check of the idea becomes a question for the room. A change here does not change the walk.', cls='lead'),
             Div(Form(Primary('Present', data_wait='Starting…'), action=at(Routes.start, t['id']), method='post', hx_boost='false'), *Slot(t), cls='row talk-top'),
             Part('The slides', Deck(t)),
@@ -198,6 +200,7 @@ def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):
     parts = []
     if kind in ('idea', 'primer'):
         if ps['passage'] and (k := part_at(beats, 'passage')): parts.append(Blockquote(ps['passage'], cls='passage', data_at=k, hidden=hide(k)))
+        if ps['body'] and (k := part_at(beats, 'body')): parts.append(Ul(*map(Li, ps['body']), cls='points', data_at=k, hidden=hide(k)))
         if ps['figure'] and (k := part_at(beats, 'figure')):
             parts.append(Figure(Img(src=at_img(tid, ps['figure']), alt=f"The figure of {ps['title']}"), cls='fig', data_at=k, hidden=hide(k)))
         if demo and (k := part_at(beats, 'demo')): parts.append(Div(Demo(demo[1], data_demo=demo[0]), cls='demo', data_at=k, hidden=hide(k)))
@@ -288,7 +291,8 @@ def Presenter(t, deck, run, demos):
                        id='rail', cls='rail'),
                    P(id='say', cls='say', role='status'), cls='pv-main'),
                Div(Div(Span('Your notes', cls='lbl'),
-                       Div(*[Div(Md(s['notes']) if s.get('notes') else P('This slide has no note.', cls='mute'), data_sid=s['id'], hidden=s['id'] != a['slide']) for s in ss], id='notes', cls='notes')),
+                       Div(*[Div(Md(s['notes']) if s.get('notes') else P('This slide has no note.', cls='mute'), Cites(s.get('cites')), data_sid=s['id'], hidden=s['id'] != a['slide'])
+                             for s in ss], id='notes', cls='notes')),
                    Div(Span('Next', cls='lbl'),
                        Div(*[Div(NextRow(ss[i + 1]) if i + 1 < len(ss) else P('This is the last slide.', cls='mute'), data_sid=s['id'], hidden=s['id'] != a['slide'])
                              for i, s in enumerate(ss)], id='next')),
