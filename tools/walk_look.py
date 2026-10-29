@@ -729,6 +729,20 @@ def d5_small_faults(pg, w):
         assert node > page, ('an unseen node is darker than the page', node, page)
     finally: look(w.rq, w.B, 'paper', 'light')
 
+def r1_start_forms_show_no_error(pg, w):
+    "A form that starts something and redirects (Learn this, Make a walk, Start the walk) shows no error line and lands on the next page."
+    pg.add_init_script("document.addEventListener('DOMContentLoaded', () => new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => n.classList && n.classList.contains('req-err') && sessionStorage.setItem('errs', n.textContent)))).observe(document, {childList: true, subtree: true}));")
+    for url, fill, btn, land in [('/c/ranking', None, 'main button:has-text("Learn this")', '/s/'),
+                                 ('/add', ('.add-form input[name=ref]', add_paper(w.lr)), 'main .go', '/w/'),
+                                 (w.plan.replace(w.B, ''), None, 'main button:has-text("Start the walk")', '/w/')]:
+        pg.goto(w.B + url); settle(pg, 200)
+        if fill: pg.fill(*fill)
+        pg.evaluate("sessionStorage.removeItem('errs')")
+        pg.click(btn)
+        pg.wait_for_url(lambda u: land in u and not u.endswith(url), timeout=30000); settle(pg, 300)
+        errs = pg.evaluate("sessionStorage.getItem('errs')")
+        assert not errs and not pg.query_selector('.req-err'), (url, errs)
+
 def ct1_concept_tree(pg, w):
     "Concepts: a quiet tree, open at the subject. A click opens a group. The find box finds a deep concept and opens its branch; an empty box closes it again."
     w.lr.put('Ashvini', 'The first nakshatra.', 'jyotisha', group=['nakshatras'], group_by='model')
@@ -761,7 +775,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
-          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo, ct1_concept_tree]
+          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo, r1_start_forms_show_no_error, ct1_concept_tree]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
