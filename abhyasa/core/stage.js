@@ -69,9 +69,10 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
     join: {fields: {url: orNull(JOIN), code: orNull(CODE)}, ok: m => m.url === null ? m.code === null : m.url.endsWith('/j/' + m.code)},
     room: {fields: {joined: N, answered: N}},
     question: {fields: {text: orNull(str(280))}},
-    // The answers of the done demo gates of a slide, after R shows the answer of the slide. Each is the `answer` of the gate in the
-    // spec: `{is: value}`, or a path in the state. Before R no message has an answer, and the room copy of the spec has none.
-    answers: {fields: {slide: SLIDE, gates: v => isObj(v) && Object.keys(v).length <= 16 && Object.entries(v).every(([k, x]) => ID(k) && ANSWER(x))}},
+    // The answers of the done gates of one demo of a slide, after R shows the answer of the slide. The slug and the gate id name
+    // each gate, so two demos on one slide with the same gate id do not mix. Each is the `answer` of the gate in the spec:
+    // `{is: value}`, or a path in the state. Before R no message has an answer, and the room copy of the spec has none.
+    answers: {fields: {slide: SLIDE, slug: str(80, /^[a-z0-9-]{1,80}$/), gates: v => isObj(v) && Object.keys(v).length <= 16 && Object.entries(v).every(([k, x]) => ID(k) && ANSWER(x))}},
   };
 
   function valid(m) {
@@ -258,13 +259,20 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
       return out;
     }
     // The audience copy: an answer goes into the gate only when the gate is done here; then the verdict of the pick shows.
+    const told = new Set();
     function reveal(got = {}) {
       for (const [id, a] of Object.entries(got || {})) {
         const g = gate(host, id);
         if (!g || !Object.hasOwn(shown, id)) continue;
-        g.answer = structuredClone(a);
+        g.answer = structuredClone(a); told.add(id);
         Rupaka.settle(host, id, value(id, picked[id]));
       }
+    }
+    // The audience copy, on a move to a new slide: the answers that `reveal` put in go out again, and their verdicts close.
+    // A move back gets them again from the presenter, after R.
+    function forget() {
+      for (const id of told) { const g = gate(host, id); if (g) delete g.answer; Rupaka.settle(host, id, null); }
+      told.clear();
     }
     // `fn(snapshot())` on a change: the first change at once, then at most once each 50 ms, and never the same snapshot twice.
     // A change comes from the input events in the demo (the save of mount is the page's own), and from a gate that closes.
@@ -278,7 +286,7 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
       EVENTS.forEach(n => host.addEventListener(n, on)); document.addEventListener('pointerup', on); pokes.push(on);
       return () => { live = false; clearTimeout(t); EVENTS.forEach(n => host.removeEventListener(n, on)); document.removeEventListener('pointerup', on); };
     }
-    return {snapshot, apply, watch, answers, reveal};
+    return {snapshot, apply, watch, answers, reveal, forget};
   }
 
   return {V, valid, isLocal, add, types: () => Object.keys(TYPES), channel, audience, presenter, mirror};

@@ -24,7 +24,7 @@ OK = [dict(v=1, t='go', slide='s4', beat=2), dict(v=1, t='point', x=.31, y=.62),
       dict(v=1, t='blank', on=True), dict(v=1, t='end'), dict(v=1, t='hello'), dict(v=1, t='here'),
       dict(v=1, t='join', url='http://192.168.1.23:5180/j/K7PQ2M', code='K7PQ2M'), dict(v=1, t='join', url=None, code=None),
       dict(v=1, t='room', joined=34, answered=27), dict(v=1, t='question', text='Is √dk the best number?'),
-      dict(v=1, t='answers', slide='s3', gates=dict(hot={'is': 'It falls'}, win='best.0'))]
+      dict(v=1, t='answers', slide='s3', slug='softmax-temperature', gates=dict(hot={'is': 'It falls'}, win='best.0'))]
 BAD = [dict(v=2, t='go', slide='s4', beat=2), dict(v=1, t='eval', code='alert(1)'), dict(v=1, t='go', slide='s4', beat=-1), dict(v=1, t='go', slide='../x', beat=1),
        dict(v=1, t='go', slide='s4', beat=2, extra=1), dict(v=1, t='point', x=1.5, y=.2), dict(v=1, t='point', id='<b>'),
        dict(v=1, t='pane', url='https://evil.example/'), dict(v=1, t='pane', url='//evil.example'), dict(v=1, t='pane', url='/\\evil.example'),
@@ -37,9 +37,10 @@ BAD = [dict(v=2, t='go', slide='s4', beat=2), dict(v=1, t='eval', code='alert(1)
        dict(v=1, t='demo', slug='x', state={}, gates={}, pick=dict(hot=1)), dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot=64)),
        dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot='It falls')), dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot=-1)),
        dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot=list(range(65)))), dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=[1]),
-       dict(v=1, t='answers', slide='s3', gates=dict(hot='It falls')), dict(v=1, t='answers', slide='s3', gates=dict(hot={'is': 1, 'x': 2})),
-       dict(v=1, t='answers', slide='s3', gates=dict(hot={'is': 'x' * 2001})), dict(v=1, t='answers', slide='s3', gates={f'g{i}': 'a' for i in range(17)}),
-       dict(v=1, t='answers', slide='s3', gates=dict(hot={'is': {'constructor': 1}})), dict(v=1, t='answers', slide='../x', gates={}), [1, 2]]
+       dict(v=1, t='answers', slide='s3', slug='x', gates=dict(hot='It falls')), dict(v=1, t='answers', slide='s3', slug='x', gates=dict(hot={'is': 1, 'x': 2})),
+       dict(v=1, t='answers', slide='s3', slug='x', gates=dict(hot={'is': 'x' * 2001})), dict(v=1, t='answers', slide='s3', slug='x', gates={f'g{i}': 'a' for i in range(17)}),
+       dict(v=1, t='answers', slide='s3', slug='x', gates=dict(hot={'is': {'constructor': 1}})), dict(v=1, t='answers', slide='../x', slug='x', gates={}),
+       dict(v=1, t='answers', slide='s3', gates=dict(hot={'is': 1})), dict(v=1, t='answers', slide='s3', slug='Bad Slug', gates={}), [1, 2]]
 #: each (message, valid); `tests/test_stage.py` runs them through `abhyasaStage.valid` in node
 STAGE_CASES = [(m, True) for m in OK] + [(m, False) for m in BAD]
 

@@ -382,8 +382,10 @@ function presenterView(st) {
   // After R, the answers of the done gates of the slide, so the audience copy can draw the verdict of the presenter's pick.
   function sendAnswers() {
     if (!revealed.has(at.slide)) return;
-    const gates = Object.assign({}, ...demos().map(h => h._mirror?.answers() || {}));
-    if (Object.keys(gates).length) send({t: 'answers', slide: at.slide, gates}, false);
+    for (const h of demos()) {   // one message for each demo, so the slug and the gate id name a gate
+      const gates = h._mirror?.answers() || {};
+      if (Object.keys(gates).length) send({t: 'answers', slide: at.slide, slug: h.dataset.demo, gates}, false);
+    }
   }
   st.querySelectorAll('[data-rupaka][data-demo]').forEach(h => mounted(h, () => {
     fit(h);
@@ -521,7 +523,10 @@ function audienceView(st) {
   const mirrors = new Map();
   st.querySelectorAll('[data-rupaka][data-demo]').forEach(h => mounted(h, () => { fit(h); const m = abhyasaStage.mirror(h); m.apply({}, {}); mirrors.set(h, m); }));
   function draw(m) {
-    if (m.t === 'go') show(st, m.slide, m.beat);
+    if (m.t === 'go') {   // the answers of the old slide's gates go out on a new slide
+      if (m.slide !== st.dataset.slide) mirrors.forEach((x, h) => { if (h.closest('section.stage')?.dataset.sid !== m.slide) x.forget(); });
+      show(st, m.slide, m.beat);
+    }
     else if (m.t === 'ask') drawAsk(st, m);
     else if (m.t === 'result') drawResult(st, m);
     else if (m.t === 'pair') drawPair(st, m);
@@ -530,7 +535,8 @@ function audienceView(st) {
       const sec = sectionOf(st, st.dataset.slide);
       sec?.querySelectorAll(`[data-rupaka][data-demo="${CSS.escape(m.slug)}"]`).forEach(h => mirrors.get(h)?.apply(m.state, m.gates, m.pick));
     }
-    else if (m.t === 'answers' && m.slide === st.dataset.slide) sectionOf(st, m.slide)?.querySelectorAll('[data-rupaka][data-demo]').forEach(h => mirrors.get(h)?.reveal(m.gates));
+    else if (m.t === 'answers' && m.slide === st.dataset.slide)
+      sectionOf(st, m.slide)?.querySelectorAll(`[data-rupaka][data-demo="${CSS.escape(m.slug)}"]`).forEach(h => mirrors.get(h)?.reveal(m.gates));
   }
   // the side pane shows only a walk step in the talk type, over the checked channel
   const only = {...ch, on: (t, fn) => ch.on(t, t === 'pane' ? m => paneOK(m.url) && fn(m) : fn)};

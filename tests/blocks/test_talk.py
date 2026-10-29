@@ -1,7 +1,7 @@
 "The talk block: make a talk from a walk, change its slides, and find it again."
 from talk_data import *
 from abhyasa.settings import val
-import hashlib, pytest
+import hashlib, json, pytest
 from fastcore.basics import AttrDict
 from pathlib import Path
 
@@ -538,6 +538,16 @@ def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
                 assert shown(pr)[0] == 's3' and pr.locator('#ask-card .ask-q:not([hidden])').count() == 1
                 au.bring_to_front(); au.keyboard.press('d'); au.wait_for_selector('#keys-note:not([hidden])')   # keys work in the presenter window
                 assert at()['beat'] == 2 and len(lr.attempts(limit=1000)) == n0 and not errs, errs
+                # each answers message names its demo; a new slide takes the old slide's answers out of the audience copy
+                pr.evaluate("""() => { const h = document.querySelector('section[data-sid=s3] [data-rupaka]');
+                  h.querySelector('.rk-gate .opts button').click(); h.querySelector('.rk-gate button.go').click(); }""")   # the reload opened the gate again
+                slug = au.evaluate("document.querySelector('section[data-sid=s3] [data-rupaka]').dataset.demo")
+                au.wait_for_function("'answer' in document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka.spec.blocks.find(b => b.type === 'gate')")
+                sent = [json.loads(m) for m in au.evaluate('heard') if '"t":"answers"' in m]
+                assert sent and all(m['slug'] == slug for m in sent)
+                pr.bring_to_front(); pr.keyboard.press('g'); pr.keyboard.press('2')
+                au.wait_for_function("document.getElementById('stage').dataset.slide === 's2'")
+                assert au.evaluate(NO_ANSWER.replace('heard.filter', '[].filter')) == [] and au.evaluate(verdict) is None
                 ua = pr.evaluate('navigator.userAgent') + ' Abhyasa/0.0.12'   # Abhyasa.app: the presenter page shows its address, and opens no window
                 c2 = b.new_context(user_agent=ua); ap = c2.new_page(); ap.goto(f'{base}/t/{tid}/present'); ap.wait_for_load_state('networkidle')
                 ap.wait_for_selector('#aud-app:not([hidden])'); ap.mouse.click(5, 5); ap.wait_for_timeout(200)

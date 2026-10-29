@@ -135,6 +135,27 @@ def test_mirror_answers_only_for_done_gates():
             assert got['verdict'].startswith('You said It rises. It is It falls.')
         finally: b.close()
 
+def test_mirror_forgets_the_answers_on_a_new_slide():
+    "forget takes out the answers that reveal put into the audience copy and closes their verdicts; a later reveal draws the verdict again."
+    spec = gallery()['softmax-temperature']
+    room = {**spec, 'blocks': [{k: v for k, v in x.items() if k != 'answer'} for x in spec['blocks']]}
+    with pw.sync_playwright() as p:
+        b = p.chromium.launch(headless=True)
+        try:
+            pg = b.new_page(); pg.set_content(page([spec, room])); pg.add_script_tag(content=JS)
+            pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 2")
+            got = pg.evaluate("""() => { const b = document.querySelectorAll('[data-rupaka]')[1], m = abhyasaStage.mirror(b), r = {};
+              const v = () => (n => n.hidden ? null : n.textContent)(b.querySelector('.rk-gate .verdict')), has = () => 'answer' in b.rupaka.spec.blocks[2];
+              m.apply({}, {hot: 'done'}, {hot: 1}); m.reveal({hot: {is: 'It falls'}}); r.shown = [has(), v()];
+              m.forget(); r.gone = [has(), v(), b.rupaka.st.gate.hot];
+              m.forget(); r.twice = has();   // a second forget does nothing
+              m.reveal({hot: {is: 'It falls'}}); r.back = [has(), v()];
+              return r; }""")
+            assert got['shown'][0] and got['shown'][1].startswith('You said It falls. That is right.')
+            assert got['gone'] == [False, None, 'done'] and got['twice'] is False
+            assert got['back'][0] and got['back'][1].startswith('You said It falls. That is right.')
+        finally: b.close()
+
 SETUP = """([rk, js, name, spec]) => Promise.all([rk, js].map(src => new Promise(ok => {
   const s = document.createElement('script'); s.src = src; s.onload = ok; document.head.appendChild(s);
 }))).then(() => {
