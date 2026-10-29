@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Cites, meta, n_of, asset_css, asset_js, stage_assets
+from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Cites, WebSource, meta, n_of, asset_css, asset_js, stage_assets
 from abhyasa.talk import talk_minutes, public_ask, share_right, needs_fill
 from abhyasa.settings import val
 from .cfg import Routes
@@ -30,10 +30,13 @@ def short(s, n=140):
 
 # --- on other pages --------------------------------------------------------------------------------------------------
 
-def PresentWalk(jid):
-    "Make a talk from walk `jid`: the button gives way to the pending card."
-    return Form(Input(type='hidden', name='jid', value=jid), Secondary('Present this walk', data_wait='Making the talk…'),
-                hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
+def PresentWalk(jid, t=None, quiet=False):
+    """Make a talk from walk `jid`: the button gives way to the pending card. When talk `t` was made from it before: open that talk, or make it again.
+    `quiet` is for a page that has its own main button (the step page, the last page, a row of Journeys)."""
+    btn = (lambda *a, **kw: Quiet(*a, small=True, **kw)) if quiet else Secondary
+    go = Form(Input(type='hidden', name='jid', value=jid), btn('Make it again' if t else 'Present this walk', data_wait='Making the talk…'),
+              hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
+    return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, cls='row') if t else go
 
 def PresentJourney(jid, t=None):
     "Make a talk from plain journey `jid`. When talk `t` was made from it before: open that talk, or make it again."
@@ -132,7 +135,8 @@ def Row(tid, n, s):
     "One slide: its number, a small picture, the title and what shows, the question, the minutes, and the closed form that changes it."
     added = s.get('kind') in ('pause', 'questions', 'recap', 'primer')
     title = 'Pause: ' + (s.get('prompt') or 'talk to your neighbour') if s.get('kind') == 'pause' else s.get('title') or ''
-    return Li(Span(str(n), cls='no'), Mini(s), Div(B(title, cls='added' if added else None), Span(shows(s)), cls='ttl'), AskCell(s),
+    return Li(Span(str(n), cls='no'), Mini(s), Div(B(title, cls='added' if added else None), Span(shows(s)),
+                                               WebSource(src, cls='src web') if (src := (s.get('show') or {}).get('src')) else '', cls='ttl'), AskCell(s),
               Span(f"{s.get('mins') or 0} min", cls='min'),
               Details(Summary('Change', title='E'), Acts(tid, s['id']), EditForm(tid, s), cls='edit'),
               cls='slide', data_sid=s['id'], tabindex='0')

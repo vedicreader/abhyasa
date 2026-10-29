@@ -24,6 +24,7 @@ main.wide:has(.walk-layout) > .crumbs { max-width: 984px; margin-inline: auto; }
 .outline { position: sticky; top: 24px; align-self: start; font-size: var(--t-small); }
 .outline .lbl { margin-bottom: var(--s2); }
 .outline .prog { margin: var(--s1) 0 var(--s4); }
+.outline .rail-acts { margin-top: var(--s4); }
 .outline ol { list-style: none; padding: 0; margin: 0; }
 .outline li { padding: var(--s1) 0 var(--s1) var(--s4); border-left: 2px solid var(--line); color: var(--mute); line-height: 1.35; }
 .outline li.sec { color: var(--ink2); padding-top: var(--s3); }
@@ -41,7 +42,7 @@ main.wide:has(.walk-layout) > .crumbs { max-width: 984px; margin-inline: auto; }
 .outline li.on { border-left-color: var(--acc); color: var(--fg); }
 .outline li.c.on::before { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 20%, transparent); }
 .outline .k { font-size: var(--t-lbl); font-style: italic; }
-@media (max-width: 1040px) { .walk-layout { grid-template-columns: minmax(0, 1fr); gap: var(--s5); } .outline { position: static; } }
+@media (max-width: 1040px) { .walk-layout { grid-template-columns: minmax(0, 1fr); gap: var(--s5); } .outline { position: static; } .outline:has(details:not([open])) .rail-acts { display: none; } }   /* the folded outline has one line: Present shows when it is open */
 /* the outline is a details: over 1040 px it is always open and its first line is only a label; under 1040 px it folds into
    that line, `The paper · 3 of 3 ▸` with the progress line, so the idea title stays near the top. A click opens it. */
 .outline summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: max-content 1fr; align-items: baseline; } .outline summary .prog { grid-column: 1 / -1; order: 2; } .outline summary::-webkit-details-marker { display: none; }
@@ -121,3 +122,7 @@ html.in-pane main { padding-bottom: 64px; }
 .ladder .lesson { margin: 0 0 var(--s3); }
 .ladder .making { font-style: italic; }
 .ladder .rk { max-width: 640px; }
+.quote .src.web a { color: inherit; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 2px; }
+.stated .looking, .stated .find-source { font-size: var(--t-meta); margin: var(--s2) 0 0; }
+.stated .find-source button { margin-left: 0; }
+.stated .no-source { font-size: var(--t-meta); margin: var(--s2) 0 0; }

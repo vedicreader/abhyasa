@@ -8,6 +8,7 @@ website:
       - 03_tutor.ipynb
       - 04_sources.ipynb
       - 05_voice.ipynb
+      - 06_check.ipynb
       - 07_rama.ipynb
       - 08_nb.ipynb
       - 09_ground.ipynb
@@ -19,3 +20,4 @@ website:
       - 15_walk.ipynb
       - 16_settings.ipynb
       - 17_talk.ipynb
+      - 18_research.ipynb

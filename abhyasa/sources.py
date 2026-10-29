@@ -7,15 +7,15 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'READERS', 'PLAIN', 'LOCALE', 'LANGS',
            'SHORT', 'EMPTY', 'ARXIV_LINK', 'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group', 'extract_prompt',
-           'doc_pages', 'locate', 'figure_path', 'placement', 'extract', 'from_vault', 'sort_prompt', 'propose_groups',
-           'apply_groups', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError', 'link_kind',
-           'reading_order', 'file_link', 'as_link', 'is_paper', 'plain', 'from_vedicreader']
+           'doc_pages', 'locate', 'figure_path', 'placement', 'extract', 'from_vault', 'sort_prompt', 'Places',
+           'propose_groups', 'apply_groups', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError',
+           'link_kind', 'reading_order', 'file_link', 'as_link', 'is_paper', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re
 from pathlib import Path
 from fastcore.utils import *
-from .store import Learning, slugify, _union, clean_group
+from .store import Learning, slugify, _union, clean_group, clean_subject, readable_name
 from .settings import val
 from .llm import ask_json, for_task
 from .prompts import register, prompt
@@ -34,7 +34,9 @@ EXTRACT_SP = register('extract', 'Concept finder', 'How the tutor finds the idea
 - Add `order` when the idea is a process or a sequence of steps. Add `demo` when a change to one value changes the result. Add `code` when a short Python program with only the standard library can show the idea. Do not add these ways to other ideas.
 - `moves` names the things that change in the idea, for example "weights". Use [] when nothing changes.
 - `when` is the year of the idea, or null. `who` names the people of the idea.
-- `group` is the place of the idea under the subject: one or two short names, from wide to narrow, for example ["nakshatras"]. Do not use the subject as a group. Use a group from the list of groups when one fits. Make a new group only when no group fits. Use [] when you are not sure.""")
+- `group` is the place of the idea under the subject: one or two short names, from wide to narrow, for example ["nakshatras"]. Do not use the subject as a group. Use a group from the list of groups when one fits. Make a new group only when no group fits. Use [] when you are not sure.
+- When the request has no `Subject` line, `subject` is the subject of the idea: one name from the list of subjects when one fits, or a short new name of one to three words, for example "transformers". Use one subject for all ideas of the text, unless an idea clearly belongs to another subject in the list. When the request has a `Subject` line, do not give `subject`.
+- `name` is a readable name of the idea, in words. Do not use a slug with hyphens as a name.""")
 
 def quoted(s) -> str:
     "`s` on one line, in JSON quotes, so a name with a line break or a leading `- ` cannot add a line to a prompt."
@@ -51,13 +53,15 @@ def add_group(gs:list, g:list) -> list:
         if tuple(x.lower() for x in g[:i]) not in have: gs.append(g[:i]); have.add(tuple(x.lower() for x in g[:i]))
     return gs
 
-def extract_prompt(text, subject='', known=(), groups=()):
+def extract_prompt(text, subject='', known=(), groups=(), subjects=(), lead=''):
     from abhyasa.method import METHODS
     kn = ', '.join(map(quoted, known[:150]))
-    return ((f"Subject: {subject}\n" if subject else '') + (f"Concepts the learner already has: {kn}\n" if kn else '') + group_line(groups)
+    return ((f"Subject: {quoted(subject)}\n" if subject else '') + (f"Subjects the learner has: {'; '.join(map(quoted, subjects[:60]))}\n" if subjects and not subject else '')
+            + (f"Subject of this text so far: {quoted(lead)}\n" if lead and not subject else '')
+            + (f"Concepts the learner already has: {kn}\n" if kn else '') + group_line(groups)
             + f"Ways: {', '.join(METHODS)}\n\nText:\n{text}\n\n"
             'Return JSON: {"concepts": [{"name": str, "statement": str, "aliases": [str], "prereqs": [str], "section": str, "quote": str, '
-            '"figure": str, "ways": [str], "moves": [str], "when": int|null, "who": [str], "group": [str]}]}')
+            '"figure": str, "ways": [str], "moves": [str], "when": int|null, "who": [str], "group": [str]' + ('' if subject else ', "subject": str') + '}]}')
 
 # %% ../nbs/04_sources.ipynb #c009
 def _index(lr):
@@ -138,9 +142,12 @@ def _doc_source(lr, source):
 def _read(lr, ask, text, subject, pages):
     "Ask for the concepts of each window of the text, and return `(slug, concept, prereq slugs)` in the order of the replies."
     idx, out, gs = _index(lr), [], lr.groups(subject)
+    have, lead = [c['subject'] for c in lr.subjects() if c['subject']], ''
     for w in _windows('\n\n'.join(t for _, t in pages)):
-        r = ask_json(for_task(ask, 'extract'), extract_prompt(w, subject, sorted({v for v in idx.values()}), gs), prompt('extract'))
-        cs = r.get('concepts', []) if isinstance(r, dict) else r
+        r = ask_json(for_task(ask, 'extract'), extract_prompt(w, subject, sorted({v for v in idx.values()}), gs, have, lead), prompt('extract'))
+        cs = [c for c in (r.get('concepts', []) if isinstance(r, dict) else r) if isinstance(c, dict)]
+        for c in cs: c['name'] = readable_name(c.get('name'), c.get('statement'))
+        cs = [c for c in cs if c['name']]
         slug_of = {}
         for c in cs:
             names = [c['name'], *(c.get('aliases') or ())]
@@ -148,7 +155,12 @@ def _read(lr, ask, text, subject, pages):
         for c in cs:
             s = slug_of[c['name'].lower()]
             out.append((s, c, [slug_of.get(p.lower()) or idx.get(p.lower()) for p in c.get('prereqs') or ()]))
-        for c in cs: add_group(gs, clean_group(c.get('group'), subject))   # the next window sees the new groups
+        if not subject:   # one subject for the text: the most common one that the finder gave for a new idea
+            for c in cs: c['subject'] = next((h for h in have if h.lower() == clean_subject(c.get('subject'))), clean_subject(c.get('subject')))
+            new = [c['subject'] for c in cs if c['subject'] and slug_of[c['name'].lower()] not in idx.values()]
+            lead = lead or (max(set(new), key=new.count) if new else '')
+            for c in cs: c['subject'] = c['subject'] or lead
+        for c in cs: add_group(gs, clean_group(c.get('group'), subject or c.get('subject')))   # the next window sees the new groups
         for c in cs: idx.update({n.lower(): slug_of[c['name'].lower()] for n in (c['name'], *(c.get('aliases') or ()))})
     return out
 
@@ -161,7 +173,7 @@ def _places(pages, recs):
 
 def extract(lr:Learning, ask, text:str='', subject:str='', source:dict=None, pages:list=None) -> L:
     "Add the core ideas of `text` (or of `pages`, a list of `(page, text)`) to the shelf as concepts, merged with the concepts there. Return the slugs that it changed."
-    pgs = pages if pages is not None else [(None, text)]
+    subject, pgs = clean_subject(subject), pages if pages is not None else [(None, text)]
     recs = _read(lr, ask, text, subject, pgs)
     places = _places(pgs, recs) if pages is not None else [(None, None)] * len(recs)
     src = _doc_source(lr, source) if pages is not None else ''
@@ -171,13 +183,14 @@ def extract(lr:Learning, ask, text:str='', subject:str='', source:dict=None, pag
         moves = _union(old.get('moves'), _strs(c.get('moves')))
         meta = dict(ways=_union(old.get('ways'), _strs(c.get('ways'))), moves=moves, who=_union(old.get('who'), _strs(c.get('who'))),
                     when=c.get('when', old.get('when')), image=fig or old.get('image'), visual=bool(moves))
-        if (g := clean_group(c.get('group'), subject)) and not old.get('group'): meta.update(group=g, group_by='model')   # a group stays where it is
+        subj = subject or old.get('subject') or c.get('subject') or ''
+        if (g := clean_group(c.get('group'), subj)) and not old.get('group'): meta.update(group=g, group_by='model')   # a group stays where it is
         prov = [source] if source else []
         if pages is not None and source is not None:
             t = pgs[loc[0]][1][loc[1]:loc[2]][:val('walks.passage')] if loc else ''
             prov = [{**source, 'order': order, 'section': c.get('section') or '', 'page': pgs[loc[0]][0] if loc else None,
                      'span': [loc[1], loc[1] + len(t)] if loc else None, 'passage': t, 'figure': fig}]
-        lr.put(c['name'], c.get('statement', ''), subject, slug=s, aliases=c.get('aliases') or (), prereqs=[p for p in pre if p], provenance=prov, **meta)
+        lr.put(c['name'], c.get('statement', ''), subj, slug=s, aliases=c.get('aliases') or (), prereqs=[p for p in pre if p], provenance=prov, **meta)
         touched.append(s)
     return touched.unique()
 
@@ -201,40 +214,56 @@ SORT_SP = register('concepts.sort', 'Concept sorter', 'How the tutor sorts your 
 - Use a group from the list of groups when one fits. Make a new group only when no group fits.
 - A good group has three concepts or more. Do not make a group for one concept when a wider group fits.
 - Use plain names of one to three words, in the words of the subject. Spell a group the same way each time.
-- Give a place to each concept in the list. Copy its slug exactly.
-- Use [] for a concept that fits no group.""")
+- Give a group to each concept in the list. Do not leave a concept out. Copy its slug exactly.
+- When no group fits a concept, use the group "Other". Use "Other" only as the last resort, for a few concepts.
+- A concept can have no subject. Then also give `subject`: one name from the list of subjects when one fits, or a short new name of one to three words. Give the group of the concept under that subject.""")
 
-def sort_prompt(subject:str, cs, groups=()) -> str:
-    "The request for one batch: the subject, the groups so far, and one line for each concept."
+def sort_prompt(subject:str, cs, groups=(), subjects=(), again:bool=False) -> str:
+    "The request for one batch: the subject (or the subjects that exist, for concepts with no subject), the groups so far, and one line for each concept. `again` asks for the concepts that got no place."
     item = lambda c: f"- {c.slug}: {quoted(c.name)}. {quoted(str(c.get('statement') or '')[:160])}"
-    return (f"Subject: {subject or 'general'}\n" + (group_line(groups) or 'Groups of this subject now: none\n')
-            + '\nConcepts:\n' + '\n'.join(map(item, cs)) + '\n\nReturn JSON: {"places": [{"slug": str, "group": [str]}]}')
+    head = f"Subject: {quoted(subject)}\n" if subject else "Subject: none. These concepts have no subject.\nSubjects now: " + ('; '.join(map(quoted, subjects[:60])) or 'none') + '\n'
+    return (head + (group_line(groups) or 'Groups of this subject now: none\n')
+            + ('\nThese concepts got no place the first time. Give a group to each one now.\n' if again else '')
+            + '\nConcepts:\n' + '\n'.join(map(item, cs))
+            + '\n\nReturn JSON: {"places": [{"slug": str, "group": [str]' + ('' if subject else ', "subject": str') + '}]}')
 
 # %% ../nbs/04_sources.ipynb #gs04
-def propose_groups(lr:Learning, ask, subject:str=None, batch:int=None) -> dict:
-    "Ask the model for the group of each concept that you did not move by hand, `batch` concepts at a time for each subject. Save nothing."
-    batch, out, by = batch or val('lists.sort_batch'), {}, {}
+class Places(dict):
+    "The result of a sort: `{slug: group}`, with `.subjects` (`{slug: subject}` for concepts that had none) and `.left` (the slugs that got no place)."
+    def __init__(self, *a, subjects=None, left=None): super().__init__(*a); self.subjects, self.left = subjects or {}, left or []
+
+def propose_groups(lr:Learning, ask, subject:str=None, batch:int=None) -> Places:
+    "Ask the model for the group of each concept that you did not move by hand, `batch` concepts at a time for each subject; ask again once for the concepts that got no place. Concepts with no subject also get one. Save nothing."
+    batch, out, by = batch or val('lists.sort_batch'), Places(), {}
+    have = [c['subject'] for c in lr.subjects() if c['subject']]
     for c in lr.concepts(subject):
         if c.get('group_by') != 'hand': by.setdefault(c.subject or '', []).append(c)
+    def place(s, part, gs, again=False):
+        "Ask for the places of `part`; keep each one with a group. Return the slugs of `part` that got none."
+        r = ask_json(for_task(ask, 'extract'), sort_prompt(s, part.values(), gs, have, again), prompt('concepts.sort'))
+        for p in (r.get('places') if isinstance(r, dict) else None) or []:
+            if not (isinstance(p, dict) and p.get('slug') in part): continue
+            sj = s or next((h for h in have if h.lower() == clean_subject(p.get('subject'))), clean_subject(p.get('subject')))
+            if g := clean_group(p.get('group'), sj):
+                out[p['slug']] = g; add_group(gs, g)
+                if sj and not s: out.subjects[p['slug']] = sj
+        return [k for k in part if k not in out]
     for s, cs in sorted(by.items()):
         gs = lr.groups(s)
         for i in range(0, len(cs), batch):
             part = {c.slug: c for c in cs[i:i + batch]}
-            r = ask_json(for_task(ask, 'extract'), sort_prompt(s, part.values(), gs), prompt('concepts.sort'))
-            for p in (r.get('places') if isinstance(r, dict) else None) or []:
-                if isinstance(p, dict) and p.get('slug') in part:
-                    out[p['slug']] = g = clean_group(p.get('group'), s)
-                    add_group(gs, g)
+            if miss := place(s, part, gs): out.left += place(s, {k: part[k] for k in miss}, gs, True)
     return out
 
 def apply_groups(lr:Learning, places:dict) -> list:
-    "Save the paths of `places` as moves by the model. Return the slugs that moved. A concept that you moved by hand, or that is gone, stays."
+    "Save the paths of `places` as moves by the model. A concept with no subject gets its proposed subject first. Return the slugs that moved. A concept that you moved by hand, or that is gone, stays."
     moved = []
     for slug, g in places.items():
         c = lr.concept(slug)
-        if c is None or c.get('group_by') == 'hand' or clean_group(c.get('group'), c.subject) == clean_group(g, c.subject): continue
-        lr.set_group(slug, g, by='model'); moved.append(slug)
-    return moved
+        if c is None or c.get('group_by') == 'hand': continue
+        if (sj := getattr(places, 'subjects', {}).get(slug)) and not c.subject: c = lr.set_subject(slug, sj); moved.append(slug)
+        if clean_group(c.get('group'), c.subject) != clean_group(g, c.subject): lr.set_group(slug, g, by='model'); moved.append(slug)
+    return list(dict.fromkeys(moved))
 
 # %% ../nbs/04_sources.ipynb #lk02
 import ipaddress, socket

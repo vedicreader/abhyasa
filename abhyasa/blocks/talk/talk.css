@@ -195,3 +195,5 @@ html.present #rh-pane .rh-own { display: none; }
 
 @media (max-width: 900px) { .pv { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: reduce) { .rail i { transition: none; } }
+.deck .ttl .web { display: block; }
+.deck .ttl .web a { color: inherit; }

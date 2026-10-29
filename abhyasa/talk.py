@@ -220,12 +220,16 @@ def _idea_ask(lr:Learning, ask, s:dict, passage:str, choice:bool) -> tuple:
     return None, dict(a, src=dict(check='code' if kind == 'code' else 'short'))
 
 # %% ../nbs/17_talk.ipynb #1242b4f9
+def _web(r:dict) -> dict:
+    "`{'src': ...}` with the title, site, URL and vault document of a passage from the web (`research`), so the editor can name it; else `{}`."
+    return dict(src={k: r.get(k) for k in ('title', 'site', 'url', 'shelf', 'doc_id')}) if r.get('src') == 'web' and r.get('text') else {}
+
 def _idea(lr:Learning, ask, i:int, s:dict, sid:str, choice:bool) -> dict:
     "The `idea` slide `sid` of walk step `i`."
     r = s.get('read') or {}
     passage, fig = r.get('text') or '', r.get('figure')
     demo, a = _idea_ask(lr, ask, s, passage, choice)
-    show = dict(passage=passage, figure=f'asset:{fig}' if fig else None, demo=demo)
+    show = dict(passage=passage, figure=f'asset:{fig}' if fig else None, demo=demo, **_web(r))
     beats = [b for b in ('passage', 'figure', 'demo') if show[b]]
     c = lr.concept(s['slug']) or {}
     return dict(id=sid, kind='idea', step=i, concept=s['slug'], title=c.get('name') or s['slug'], section=r.get('section') or '',
@@ -370,10 +374,13 @@ def walk_talk(lr:Learning, wid:str) -> AttrDict|None:
     "The newest talk made from walk `wid`, or None."
     return first(t for t in lr.talks() if (t.get('src') or {}).get('walk') == wid)
 
-def talk_from_journey(lr:Learning, ask, jid:str, sources=None, again:bool=False) -> AttrDict:
-    "A talk from plain journey `jid`, made from its walk for a talk. A second call gives the same talk, unless `again`: then a new talk has the date in its title."
+def talk_from_journey(lr:Learning, ask, jid:str, sources=None, again:bool=False, research=None) -> AttrDict:
+    """A talk from plain journey `jid`, made from its walk for a talk. A second call gives the same talk, unless `again`: then a new talk has the date in its title.
+    `research(walk)` runs on the walk before a new talk is made, so a step can get a source from the web and its slide can show it."""
     w = walk_for_talk(lr, jid, sources, again)
-    if not again: return walk_talk(lr, w.id) or talk_from_walk(lr, ask, w.id, sources=sources)
+    if not again and (t := walk_talk(lr, w.id)): return t
+    if research: research(w)
+    if not again: return talk_from_walk(lr, ask, w.id, sources=sources)
     t, d = talk_from_walk(lr, ask, w.id, sources=sources), datetime.now()
     return lr.put_talk({**t, 'title': f'{t.title} · {d.day} {d:%b}'})
 

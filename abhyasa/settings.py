@@ -22,6 +22,7 @@ GROUPS = dict(look=('Look', 'Pick the colours of the app.'),
               checks=('Checks and grading', 'Set how many tries you get and how the tutor grades an answer.'),
               review=('Review', 'Set when an idea comes back for review.'),
               links=('Links', 'Set how much of a link the tutor reads.'),
+              research=('Research', 'Set how the tutor finds a source on the web for a step that has none.'),
               runner=('Code runner', 'Set the limits for the code that you run in a check.'),
               stt=('Speech to text', 'Pick the model that writes down what you say.'),
               models=('Models', 'Pick the model for each task. "Default" uses the default model.'),
@@ -86,7 +87,8 @@ add('checks.hints', 'checks', 'Hints before a pass is shaky', 'With this many hi
 add('checks.demo_misses', 'checks', 'Misses before a demo', 'After this many misses on an idea, the tutor makes a demo for it.', 2, 1, 5, more=True)
 add('checks.demo_ladder', 'checks', 'More help after a demo', 'When you miss an idea after its demo, the tutor teaches it in another way. After the next miss, it shows a simpler demo.', True)
 add('checks.retest', 'checks', 'Retest a miss after', 'The tutor asks a missed idea again after this many other questions in the session.', 2, 1, 6, more=True, unit='questions')
-add('checks.feedback_row', 'checks', 'Feedback under a demo or a lesson', 'Show a short row under each demo and each lesson: Too simple, Just right or Not clear. The tutor uses what you choose for the next demo or lesson.', True);
+add('checks.feedback_row', 'checks', 'Feedback under a demo or a lesson', 'Show a short row under each demo and each lesson: Too simple, Just right or Not clear. The tutor uses what you choose for the next demo or lesson.', True)
+add('checks.open_days', 'checks', 'Keep an open check for', 'An open check with no answer for this many days closes. It gets no grade.', 7, 1, 60, more=True, unit='days');
 
 # %% ../nbs/16_settings.ipynb #63876a2f
 add('review.solid', 'review', 'First review after a solid answer', 'When a new idea comes back after your first solid answer.', 1., .25, 7., unit='days')
@@ -102,6 +104,12 @@ add('links.timeout', 'links', 'Time for each fetch', 'How long the tutor waits f
 add('links.speed', 'links', 'Download speed cap', 'The fastest speed at which abhyasa gets a page.', 1., .1, 10., more=True, unit='MB/s')
 add('links.kept', 'links', 'Characters kept for each page', 'The most characters of one page that the vault keeps.', 400_000, 10_000, 1_000_000, more=True)
 add('links.read', 'links', 'Characters read for each page', 'The most characters of one page that the tutor reads to find ideas.', 100_000, 10_000, 1_000_000, more=True);
+
+# %% ../nbs/16_settings.ipynb #rs02
+add('research.on', 'research', 'Find sources on the web', 'For a step with no source, the tutor searches the web and quotes a page. The search sees your topic.', True)
+add('research.per_walk', 'research', 'Steps to research in a walk', 'The most steps of one new walk that the tutor finds a source for. 0 means none.', 12, 0, 30)
+add('research.results', 'research', 'Search results to read', 'How many search results the tutor looks at for one step. It reads the best 3 pages.', 5, 3, 10, more=True)
+add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk from a journey waits for web sources. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s');
 
 # %% ../nbs/16_settings.ipynb #4412f5ae
 add('runner.total', 'runner', 'Total time', 'How long your code can run for all the tests together. Then the run stops.', 10, 5, 60, unit='s')

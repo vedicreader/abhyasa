@@ -218,3 +218,37 @@ def test_two_subjects_do_not_mix(mk, jy, fake):
     r = cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t), subject='ml'))
     assert r.headers.get('HX-Redirect') == '/concepts?subject=ml'
     assert jy.concept('ranking').group == ['Stars'] and jy.concept('mesha').get('group') is None
+
+# Every concept gets a place
+
+def test_summary_counts_and_the_one_follow_up(mk, jy, fake):
+    "A concept that the model leaves out is asked for again one time, then named in the line of the proposal."
+    jy.set_group('magha', ['mine'])                                                   # by hand: not in the count
+    def skips_mesha(p, sp):
+        return dict(places=[dict(slug=s, group=['Stars']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M) if s != 'mesha'])
+    fake.rules[SORT] = skips_mesha
+    cl = mk()
+    cl.post('/concepts/sort')
+    t = settled(cl)
+    assert '3 placed. 1 left for you: Mesha.' in t and 'The tutor moves 3 concepts.' in t
+    assert sum('- mesha:' in p for p, _ in fake.calls if SORT in p) == 2              # the first request and one follow-up
+    assert not any('- magha:' in p for p, _ in fake.calls if SORT in p)
+    cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
+    assert jy.concept('mesha').get('group') is None and jy.concept('magha').group == ['mine']
+
+def test_sort_gives_a_subject_to_a_concept_with_none(mk, jy, fake):
+    "A concept with no subject is shown under a proposed subject and group. The accept sets the subject, then the group."
+    jy.put('Attention', 'Weights on values.'); jy.put('Pinned', 'Mine.'); jy.set_group('pinned', ['mine'])
+    def f(p, sp):
+        return dict(places=[dict(slug=s, group=['Layers'], subject='Transformers') if s == 'attention' else dict(slug=s, group=['Stars'])
+                            for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
+    fake.rules[SORT] = f
+    cl = mk()
+    cl.post('/concepts/sort')
+    t = settled(cl)
+    assert summary(t, 'Transformers', 1) and summary(t, 'Layers', 1) and '0 left for you.' in t
+    assert jy.concept('attention').subject == ''                                      # nothing is saved before the accept
+    cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
+    c = jy.concept('attention')
+    assert (c.subject, c.group, c.group_by) == ('transformers', ['Layers'], 'model')
+    assert (jy.concept('pinned').subject, jy.concept('pinned').group) == ('', ['mine'])

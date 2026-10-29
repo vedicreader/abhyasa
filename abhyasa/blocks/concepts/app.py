@@ -30,10 +30,12 @@ def connect(app, ctx):
     def cs_of(subject=''): return lr.concepts(subject or None)
 
     def proposed(places, subject):
-        "The concepts of the sort with their proposed groups, and the counts of the moves and of the concepts moved by hand."
-        cs = cs_of(subject)
-        moved = sum(1 for c in cs if c.slug in places and clean_group(c.get('group'), c.subject) != places[c.slug])
-        return [AttrDict({**c, 'group': places.get(c.slug, c.get('group'))}) for c in cs], moved, sum(c.get('group_by') == 'hand' for c in cs)
+        "The concepts of the sort with their proposed subjects and groups, the count of the moves, the count of the concepts moved by hand, the count placed, and the names left."
+        cs, sj = cs_of(subject), getattr(places, 'subjects', {})
+        free = [c for c in cs if c.get('group_by') != 'hand']
+        moved = sum(1 for c in cs if c.slug in places and (clean_group(c.get('group'), c.subject) != places[c.slug] or c.slug in sj))
+        rows = [AttrDict({**c, 'group': places.get(c.slug, c.get('group')), 'subject': sj.get(c.slug, c.subject)}) for c in cs]
+        return rows, moved, len(cs) - len(free), sum(c.slug in places for c in free), [c.name for c in free if c.slug not in places]
 
     def mine(subject): return st.job is not None and st.subject == subject   # a sort shows only on the page of its own subject
 

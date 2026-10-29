@@ -11,7 +11,7 @@ def own_config(monkeypatch, tmp_path):
 def dflts(group): return {r.name: r.dflt for r in SETTINGS.values() if r.group == group}
 
 def test_groups_in_order():
-    assert list(GROUPS) == ['look', 'learning', 'walks', 'talks', 'checks', 'review', 'links', 'runner', 'stt', 'models', 'lists', 'prompts']
+    assert list(GROUPS) == ['look', 'learning', 'walks', 'talks', 'checks', 'review', 'links', 'research', 'runner', 'stt', 'models', 'lists', 'prompts']
 
 def test_bad_values():
     (cfg_dir()/'settings.json').write_text(json.dumps(dict(walks=dict(steps=99, note='long', depth=2.6), checks=dict(one_ask='yes'), mine=dict(a=1))))
@@ -58,7 +58,7 @@ def test_talks_defaults():
 
 def test_checks_defaults():
     assert dflts('checks') == {'checks.tries': 3, 'checks.sources': True, 'checks.one_ask': True, 'checks.near': 7, 'checks.goal': 4,
-                               'checks.high': 60, 'checks.hints': 2, 'checks.demo_misses': 2, 'checks.retest': 2, 'checks.demo_ladder': True, 'checks.feedback_row': True}
+                               'checks.high': 60, 'checks.hints': 2, 'checks.demo_misses': 2, 'checks.retest': 2, 'checks.demo_ladder': True, 'checks.feedback_row': True, 'checks.open_days': 7}
 
 def test_demo_ladder_setting(mk):
     "The demo ladder is an on/off value in Checks and grading, on by default, with a help line on the Settings page."
@@ -311,3 +311,9 @@ def test_saves_from_many_threads():
     names = [r.name for r in SETTINGS.values() if r.kind == 'int' and r.store == 'file' and r.lo <= 3 <= (r.hi if not isinstance(r.hi, str) else 3)]
     with ThreadPoolExecutor(8) as ex: list(ex.map(lambda n: set_val(n, 3), names))
     assert all(val(n) == 3 for n in names)
+
+# Research
+
+def test_research_defaults():
+    assert dflts('research') == {'research.on': True, 'research.per_walk': 12, 'research.results': 5, 'research.wait': 90}
+    assert set_val('research.per_walk', 99) == 30 and set_val('research.results', 1) == 3

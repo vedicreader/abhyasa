@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk
+from abhyasa.core import WebSource, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -17,6 +17,7 @@ _P = Path(__file__).parent
 OUTCOME = {k: t for k, (t, _) in OUTCOMES.items() if k != 'nudge'}
 KIND = dict(short='short answer', code='code', demo='predict · demo', order='predict · order')
 GRADING, HINTING, TEACHING, WRITING = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'Writing the check…'
+LOOKING = 'Looking for a source…'
 LEAD = dict(demo='Predict first. Then the demo shows the rest.', order='Put the steps in order first. Then the demo shows the right order.')
 
 def assets(): return asset_css(_P/'walk.css'), asset_js(_P/'walk.js')
@@ -94,28 +95,41 @@ def Filled(j, st, by, i):
     "The parts of the outline that change when the check of step `i` closes: its idea and the progress line, out of band."
     return Idea(j, by, st.steps[i], i, i, just=True), Bar(st.done, st.total, oob=True)
 
-def Rail(j, st, by, i):
+def Rail(j, st, by, i, present=()):
     """The outline at the left: each section, and the ideas in it with a dot for each state. Under 1040 px it folds into
-    its first line, `The paper · 3 of 3` and the progress line, and a click opens it (walk.css)."""
+    its first line, `The paper · 3 of 3` and the progress line, and a click opens it (walk.css). `present` is what other blocks add under it."""
     lbl = 'The paper' if j.get('source') else 'The walk'
     rows = []
     for sec, ix in st.sections:
         rows.append(Li(sec or 'The ideas', cls='sec' + (' on' if i in ix else '')))
         rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
-    return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows)),
+    return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows)), *([Div(*present, cls='rail-acts')] if present else []),
                  id='rail', cls='outline', aria_label='The walk')
 
-def Passage(j, s, c):
+def FindSource(jid, i, s, looking=False):
+    """Under the tutor's words of step `i`: while the tutor looks for a source on the web, a quiet line (the passage asks again in
+    3 seconds); else `Find a source`, under `No source found.` on its own line when a search found nothing. Nothing when research is off."""
+    if not val('research.on'): return ''
+    if s.get('research') == 'pending' and looking: return P(LOOKING, cls='mute looking', aria_live='polite')
+    go = Quiet('Find a source', small=True, type='button', hx_post=at(Routes.source, jid, i), hx_target='#passage', hx_swap='outerHTML', data_wait=LOOKING)
+    return (P('No source found.', cls='mute no-source') if s.get('research') == 'none' else '', P(go, cls='mute find-source'))
+
+def Passage(j, s, c, i=None, looking=False):
     """The passage from the source, word for word; with no passage, the statement of the idea, marked as the tutor's words.
+    A passage from the web names its site and its page. With `i`, a step with no passage can look for a source (`FindSource`).
     `data-moves` holds the words that the idea moves: walk.js links them to the parts of the demo."""
     r = s.get('read') or {}
     mv = dict(data_moves=json.dumps(list((c or {}).get('moves') or []))) if (c or {}).get('moves') else {}
     if r.get('text'):
+        if r.get('src') == 'web': return Blockquote(Md(r['text']), WebSource(r), id='passage', cls='quote web', **mv)
         if r.get('src') or (j.get('source') or {}).get('docs'): src = f"From {r.get('title') or 'your sources'}"
         else: src = ', '.join(x for x in ('From the paper' if j.get('source') else 'From the text',
                                           r.get('section') and f"section {r['section'].split()[0]}", r.get('page') and f"p. {r['page']}") if x)
         return Blockquote(Md(r['text']), Span(src, cls='src'), id='passage', cls='quote', **mv)
-    return Div(Span("In the tutor's words", cls='lbl'), Md((c or {}).get('statement', '')), id='passage', cls='stated', **mv)
+    wait = i is not None and s.get('research') == 'pending' and looking and val('research.on')
+    poll = dict(hx_get=at(Routes.source, j['id'], i), hx_trigger='load delay:3s', hx_swap='outerHTML') if wait else {}
+    return Div(Span("In the tutor's words", cls='lbl'), Md((c or {}).get('statement', '')), FindSource(j['id'], i, s, looking) if i is not None else '',
+               id='passage', cls='stated' + (' pending' if wait else ''), **poll, **mv)
 
 def Figure_(jid, i, s, c):
     if not (s.get('read') or {}).get('figure'): return ''
@@ -130,6 +144,10 @@ def NextBar(jid, i, st, by):
     return Div(back, skip, cls='next-bar')
 
 def Note(text): return Md(text, cls='note') if text else ''
+
+def NoteSlot(jid, i, oob=False):
+    "The place of the tutor note, which loads after the page. Out of band, it loads the note again: a new passage gives a new note."
+    return Div(id='note', hx_get=at(Routes.note, jid, i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1', **({'hx_swap_oob': 'true'} if oob else {}))
 
 def BackFoot(b, pace=''):
     """In a side walk: the way back to the step that opened it. In the side pane it stays at the foot, and ⌥Z does the same.
@@ -163,17 +181,17 @@ def TalkStep(j, st, by, i):
     return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea'), Passage(j, short, c), Figure_(j['id'], i, s, c),
                P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
-def StepPage(j, st, by, i, needs=(), back=None):
-    "One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title."
+def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False):
+    "One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title, `present` under the outline."
     if in_talk(): return TalkStep(j, st, by, i)
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
     head = Div(*[Span(x) for x in (r.get('section'), r.get('page') and f"p. {r['page']}") if x], cls='sec-lbl')
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING)
-    return Div(Rail(j, st, by, i),
-               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c), Figure_(j['id'], i, s, c),
-                   Div(id='note', hx_get=at(Routes.note, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1'), slot, leela_line(j, i) if s.get('leela') else '', NextBar(j['id'], i, st, by), cls='walk-main'),
+    return Div(Rail(j, st, by, i, present),
+               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c),
+                   NoteSlot(j['id'], i), slot, leela_line(j, i) if s.get('leela') else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 
 # --- the short-answer check ------------------------------------------------------------------------------------------
@@ -371,10 +389,10 @@ def when_review(due, now=None):
     days = round((time.mktime(lt[:3] + (12, 0, 0) + lt[6:]) - time.mktime(now[:3] + (12, 0, 0) + now[6:])) / 86400)
     return 'today' if days <= 0 else 'tomorrow' if days == 1 else f'in {days} days'
 
-def WalkDone(j, st, ms, by, sides=(), due=None, end=()):
+def WalkDone(j, st, ms, by, sides=(), due=None, end=(), present=()):
     """The end of a walk: a row of dots for all the ideas, a short sum of the walk, what moved, the side walks that you did, the
     first review, and Back to Today. `sides` is `(name, learned)`. `end` is what other blocks add (`walk_end`): when it holds
-    a way out (the end of a side walk), the page does not add its own."""
+    a way out (the end of a side walk), the page does not add its own. `present` is the quiet Present of the talk block (`walk_actions`)."""
     outs = [(s.get('done') or {}).get('outcome') for s in j['steps']]
     counts = [f"{outs.count('solid')} solid", f"{sum(o in SHAKY for o in outs)} shaky", f"{outs.count('skipped')} skipped"]
     counts = ', '.join(c for c in counts if not c.startswith('0 '))
@@ -385,4 +403,4 @@ def WalkDone(j, st, ms, by, sides=(), due=None, end=()):
     return (H1('You finished the walk'), Dots(st),
             Div(P(lead, cls='lead-sum'), *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []), *also,
                 P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', cls='walk-sum', style=f"--n:{min(len(outs), 5)}"),
-            *end, go)
+            *end, go, *([Div(*present, cls='row')] if present else []))
