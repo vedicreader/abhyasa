@@ -14,7 +14,6 @@ from copy import deepcopy
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
 from abhyasa.core import Page, hook, n_of, pane_url, run as run_hook
-from abhyasa.research import research_walk
 from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
 from abhyasa.llm import for_task
 from abhyasa.settings import val
@@ -25,7 +24,7 @@ from . import ui
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
-CAPS = ('learning', 'ask', 'pool', 'sources')
+CAPS = ('learning', 'ask', 'pool', 'sources', 'research')
 NO_TALK = 'abhyasa could not make the talk.'
 PARTS = ('passage', 'body', 'figure', 'demo')   # the parts that a slide can show, in the order of their beats
 PAUSE = 'Talk to your neighbour.'
@@ -187,8 +186,8 @@ def connect(app, ctx):
         return ui.Pending(jid)
 
     def find_sources(w):
-        "On the pool, before the slides are made: look for a web source for each step of walk `w` with no passage, so its slide shows the source."
-        research_walk(lr, ctx.ask, w.id)
+        "Before the slides are made: mark the steps of walk `w` with no passage as pending, look for their web sources on the research pool, and wait."
+        ctx.research.run(w.id)
 
     def plain(j): return bool(j and j.get('mode') != 'walk' and not for_talk(j) and j.steps)   # a journey that is not a walk
 

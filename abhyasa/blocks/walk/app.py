@@ -14,14 +14,14 @@ from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
-from abhyasa.research import research_walk, to_research, mark_pending, wants_source
+from abhyasa.research import to_research, wants_source
 from abhyasa.tutor import NoLesson
 from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said
 from . import ui
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
-CAPS = ('learning', 'tutor', 'ask', 'pool', 'sessions', 'sources')
+CAPS = ('learning', 'tutor', 'ask', 'pool', 'sessions', 'sources', 'research')
 FIGURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a step (spec 6.3), empty until the step is used
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
@@ -38,7 +38,6 @@ def connect(app, ctx):
     up = [('Today', '/'), ('Journeys', '/journeys')]
     writing = defaultdict(Lock)   # (walk, step) -> a lock, so the note and the check of one step do not write the note twice
     links = {}                    # link -> the pool job that makes its walk, and `said`, the words of its state
-    looks = defaultdict(list)     # walk -> the pool jobs that look for web sources, each with the steps `ix` that it looks for
 
     def by(): return {c.slug: c for c in lr.concepts()}
     def go(jid, i): return Redirect(ui.at(Routes.step, jid, i))
@@ -134,15 +133,7 @@ def connect(app, ctx):
         j = lr.walk_step(j.id, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
         return reply(j, i, r), *ui.Filled(j, walk_state(j), by(), i)   # the dot of the idea fills in the outline
 
-    def looking(jid, i):
-        "Whether a pool job looks for a web source for step `i` of walk `jid` now."
-        return any(i in x.ix and not x.job.done() for x in looks[jid])
-
-    def look_for(jid, ix):
-        "Mark the steps `ix` of walk `jid` as pending, then start one pool job that looks for their web sources in order. The request does not wait."
-        if not (ix := [i for i in ix if not looking(jid, i)]): return
-        mark_pending(lr, jid, ix)
-        looks[jid] = [x for x in looks[jid] if not x.job.done()] + [AttrDict(ix=set(ix), job=ctx.pool.submit(research_walk, lr, ask, jid, ix))]
+    looking, look_for = ctx.research.looking, ctx.research.look_for   # research runs on its own pool; the request does not wait
 
     @hook('walk_made')
     def research_new(j):

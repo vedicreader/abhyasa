@@ -86,6 +86,7 @@ def test_no_source_then_find_a_source(mk, web, lr, walk_fake):
     until(lambda: state(lr, jid) == 'none')
     page = cl.get(f'/w/{jid}/0').text
     assert "In the tutor's words" in page and 'No source found.' in page and 'Find a source' in page and f'hx-post="/w/{jid}/0/source"' in page
+    assert '<p class="mute no-source">No source found.</p>' in page   # on its own line
     n = len(web.asked)
     cl.get(f'/w/{jid}/0/source')
     assert len(web.asked) == n and state(lr, jid) == 'none'   # a GET starts no search
@@ -120,5 +121,18 @@ def test_a_journey_talk_shows_the_web_source(mk, web, lr, talk_fake):
     tid = until(lambda: cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect')).split('/')[-1]
     s = lr.talk(tid).slides[0]
     assert s['show']['passage'] == QUOTE and s['show']['src']['url'] == URL
+    assert cl.app.state.svc['research'].jobs[lr.talk(tid).src['walk']]   # the same registry as a walk, with pending marks
     ed = cl.get(f'/t/{tid}').text
     assert 'From the web: example.org · ' in ed and f'href="{URL}"' in ed
+
+def test_a_long_research_job_does_not_block_a_demo_or_a_note(mk, web, lr):
+    "Research has its own pool. Two walks that wait on the web leave the main pool free for a demo, a note or a lesson."
+    web.hold = threading.Event()
+    cl = mk()
+    try:
+        a, b = topic(cl), topic(cl)
+        until(lambda: web.asked)
+        assert cl.app.state.svc['pool'].submit(lambda: 'a demo').result(timeout=5) == 'a demo'
+        assert 'Softmax makes weights' in cl.get(f'/w/{a}/0/note').text
+    finally: web.hold.set()
+    until(lambda: state(lr, a) == 'found' and state(lr, b) == 'found')

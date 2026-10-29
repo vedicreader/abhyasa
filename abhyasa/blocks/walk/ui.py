@@ -108,11 +108,11 @@ def Rail(j, st, by, i):
 
 def FindSource(jid, i, s, looking=False):
     """Under the tutor's words of step `i`: while the tutor looks for a source on the web, a quiet line (the passage asks again in
-    3 seconds); else `Find a source`, after `No source found.` when a search found nothing. Nothing when research is off."""
+    3 seconds); else `Find a source`, under `No source found.` on its own line when a search found nothing. Nothing when research is off."""
     if not val('research.on'): return ''
     if s.get('research') == 'pending' and looking: return P(LOOKING, cls='mute looking', aria_live='polite')
     go = Quiet('Find a source', small=True, type='button', hx_post=at(Routes.source, jid, i), hx_target='#passage', hx_swap='outerHTML', data_wait=LOOKING)
-    return P('No source found. ' if s.get('research') == 'none' else '', go, cls='mute find-source')
+    return (P('No source found.', cls='mute no-source') if s.get('research') == 'none' else '', P(go, cls='mute find-source'))
 
 def Passage(j, s, c, i=None, looking=False):
     """The passage from the source, word for word; with no passage, the statement of the idea, marked as the tutor's words.

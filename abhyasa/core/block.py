@@ -4,7 +4,7 @@ from fastcore.basics import store_attr
 __all__ = ['CAPABILITIES', 'Ctx', 'Block', 'connect_all', 'block_name', 'block_caps']
 
 #: the services the app hands to blocks
-CAPABILITIES = ('learning', 'tutor', 'ask', 'transcribe', 'speech', 'pool', 'sessions', 'sources')
+CAPABILITIES = ('learning', 'tutor', 'ask', 'transcribe', 'speech', 'pool', 'sessions', 'sources', 'research')
 
 def _undeclared(ctx, name): return f"block {ctx.name!r} used capability {name!r} without declaring it; add it to the block's `CAPS`"
 
