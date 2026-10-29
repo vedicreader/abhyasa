@@ -15,7 +15,7 @@ main.wide:has(#graph) { max-width: none; padding-top: var(--s5); padding-bottom:
 #graph .tip span.why { display: block; color: var(--fg); }
 
 /* the grip (core grip.js) sits on the left edge of the tools and makes the line beside them */
-#graph .grip { grid-column: 2; grid-row: 1; justify-self: start; left: auto; height: calc(100vh - 120px); min-height: 460px; bottom: auto; margin-left: -8px; }
+#graph .grip { grid-column: 2; grid-row: 1; justify-self: start; left: auto; height: calc(100vh - 120px); min-height: 460px; bottom: auto; transform: translateX(-8px); }
 #graph .grip::before { background: var(--line); width: 1px; left: 8px; }
 #levers { height: calc(100vh - 120px); min-height: 460px; overflow-y: auto; padding: 2px var(--s1) var(--s3) var(--s5);
           font-size: var(--t-small); line-height: 1.4; scrollbar-width: thin; }

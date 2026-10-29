@@ -23,7 +23,7 @@ html.rh-open.rh-leave #rh-pane { transform: translateX(100%); transition: transf
    brightens on hover and focus. The pane has its own border, so its line stays out of sight; the Graph tools use the line (graph.css). */
 .grip { position: absolute; top: 0; bottom: 0; left: -8px; width: 10px; z-index: 2; cursor: col-resize; touch-action: none; outline: none; }
 .grip::before { content: ''; position: absolute; top: 0; bottom: 0; left: 7px; width: 2px; background: transparent; transition: background .15s; }
-.grip::after { content: ''; position: absolute; top: 50%; left: 3px; width: 4px; height: 28px; margin-top: -14px; border-radius: 2px;
+.grip::after { content: ''; position: absolute; top: 50%; left: 3px; width: 4px; height: 28px; transform: translateY(-50%); border-radius: 2px;
                background: var(--mute); opacity: .55; transition: background .15s, opacity .15s; }
 .grip:hover::before, .grip:focus-visible::before, html.grip-drag .grip::before { background: var(--acc); }
 .grip:hover::after, .grip:focus-visible::after, html.grip-drag .grip::after { background: var(--acc); opacity: 1; }
