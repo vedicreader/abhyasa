@@ -56,6 +56,38 @@ if (!window.abhyasaStart) {
       } catch { say('abhyasa could not send this PDF. Try again.'); }
     } else say('Drop a PDF, a .md or a .txt file.');
   });
+  // The sources of a goal. `extra` (the sources that you added) and `drop` (the ones that you removed) stay in #start-keep,
+  // outside the part that each read swaps, so a new read keeps them.
+  const keep = (name, value) => {
+    const k = document.getElementById('start-keep'); if (!k || !value) return;
+    if ([...k.querySelectorAll('input')].some(i => i.name === name && i.value === value)) return;
+    const i = document.createElement('input'); i.type = 'hidden'; i.name = name; i.value = value; k.append(i);
+  };
+  const add = () => {
+    const a = document.getElementById('start-add'); const v = a && a.value.trim(); if (!v) return;
+    keep('extra', v); a.value = ''; read().then(() => document.getElementById('start-add')?.focus());
+  };
+  document.addEventListener('click', e => {
+    const x = e.target.closest && e.target.closest('#start-form .schip .x');
+    if (x) {   // remove one source: its chip and its hidden `sources` input go, and the next reads leave it out
+      e.preventDefault();
+      const id = x.dataset.chip, chip = x.closest('.schip'), name = chip.querySelector('b')?.textContent || '';
+      keep('drop', id); chip.remove();
+      const s = document.getElementById('start-say'); if (s) s.textContent = `Removed ${name}.`;
+      document.getElementById('start-add')?.focus();
+      return;
+    }
+    if (e.target.closest && e.target.closest('#start-add-go')) { e.preventDefault(); add(); return; }
+    const g = e.target.closest && e.target.closest('#start-as-goal');
+    if (g) {   // Use it for a goal: the folder becomes a source, and the box waits for the goal
+      e.preventDefault();
+      keep('extra', g.dataset.goal);
+      const q = document.getElementById('start-q'); q.value = ''; q.focus(); read();
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.target.id === 'start-add' && e.key === 'Enter') { e.preventDefault(); add(); }   // Enter adds; it never sends the form
+  });
   // /add opens Learn with the cursor in the box
   const focus = () => { if (location.hash === '#start') document.getElementById('start-q')?.focus({preventScroll: false}); };
   if (document.readyState === 'complete') focus(); else addEventListener('load', () => setTimeout(focus));   // after voice.js adds the mic

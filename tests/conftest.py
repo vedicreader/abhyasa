@@ -79,3 +79,12 @@ def no_web(monkeypatch):
     def fetch(url): raise AssertionError(f'a test tried to fetch {url}')
     monkeypatch.setattr(abhyasa.research, 'web_search', lambda q, n: [])
     monkeypatch.setattr(abhyasa.research, 'web_fetch', fetch)
+    import abhyasa.sources
+    def gh(o, n): raise AssertionError(f'a test asked GitHub about {o}/{n}')
+    monkeypatch.setattr(abhyasa.sources, 'gh_public', gh)
+
+@pytest.fixture(autouse=True)
+def no_disk_names(tmp_path_factory):
+    "The Start box looks for named folders in an empty temp folder, not in the owner's code folders."
+    from abhyasa.settings import set_val
+    set_val('sources.roots', str(tmp_path_factory.mktemp('roots')))

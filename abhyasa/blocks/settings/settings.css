@@ -59,3 +59,4 @@ details.more ul.srows li.srow:first-child { border-top-color: var(--line); }
 h3.sub { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); margin: var(--s5) 0 var(--s2); }
 #speech { margin-bottom: var(--s3); }
 .prompts summary .dot { margin-right: var(--s2); vertical-align: middle; }
+.srow textarea { width: 100%; min-width: 260px; font: var(--t-small)/1.5 var(--mono); }

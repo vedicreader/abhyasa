@@ -90,6 +90,24 @@ On Add, choose “A link”. These links work: a web page, a documentation site,
 
 abhyasa fetches the link only when you press Start. The box reads only the text that you type, and it makes no network call. It reads only the pages in the folder of the link, after any redirect. It reads at most the page cap. The default is 8 pages. You can set the number in the Start box, up to the cap in Settings, under Links. The cap is 20 by default.
 
+### A walk to a goal, from your folders and repos
+
+Write a goal in the Start box, such as “I want to fine-tune a diffusion model. Use course22 and fastbook. Also
+fastai/diffusion-nbs.” The box finds the sources that the goal names and shows them under “Sources for this goal”:
+
+- a folder on this Mac, by its name or its path. abhyasa looks for a name only in the source folders (Settings, under
+  Research). The default is `~/code/personal/orgs`, two levels down. It never searches the whole disk.
+- a folder or a repo that is in your vault already;
+- a public GitHub repo, as `owner/name` or as a link;
+- vedicreader, for the Ramayana episodes.
+
+Press × to remove a source, or add one with “Add a folder, a repo or a link”. abhyasa reads nothing before you press
+Start. Then it files each new folder in your vault and clones each GitHub repo with fossick, then plans the walk. It reads
+only `.ipynb`, `.md`, `.txt` and `.py` files, and it never runs their code. It reads only folders in your home folder,
+with no hidden folders and no links. For one hour, the walk page shows “Added course22: 24 notebooks.” with Undo.
+
+A path alone, such as `~/code/course22`, asks one question: “Walk through it” or “Use it for a goal”.
+
 ## Rabbit holes
 
 A passage can use an idea that you do not know yet. The step then shows a “This needs” line with each idea that it needs. An idea that is not learned yet has a “Learn beside” button.

@@ -125,3 +125,8 @@ html.in-pane main { padding-bottom: 64px; }
 .stated .looking, .stated .find-source { font-size: var(--t-meta); margin: var(--s2) 0 0; }
 .stated .find-source button { margin-left: 0; }
 .stated .no-source { font-size: var(--t-meta); margin: var(--s2) 0 0; }
+
+/* what Start filed for this walk, with Undo for one hour */
+.walk-filed { margin: var(--s2) 0 var(--s3); font-size: var(--t-small); color: var(--ink2); }
+.walk-filed .filed { display: flex; gap: var(--s2); align-items: baseline; }
+.walk-filed .req-err { margin: var(--s1) 0 0; }

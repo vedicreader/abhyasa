@@ -1,6 +1,7 @@
 class Routes:
     new = '/walk/new'                 # make a walk from a vault document, a text, a topic or a link
-    job = '/walk/job'                 # the state of a walk from a link while it is made
+    job = '/walk/job'                 # the state of a walk from a link or a goal while it is made
+    unfile = '/walk/unfile'           # Undo: forget what Start filed for a walk
     one = '/w/{jid}'                  # the plan before the start; then the current step
     plan = '/w/{jid}/plan'            # one change to the plan: the check of a step, or drop a step
     start = '/w/{jid}/start'          # start the walk and open a sitting

@@ -85,6 +85,23 @@ def LinkPending(url, said):
     return Div(P(said), P('This can take some minutes. When the walk is ready, it opens here and shows in your walks.', cls='mute'),
                cls='walk-link pending', style='animation: none', hx_get=f"{Routes.job}?{urlencode(dict(url=url))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
 
+UNDO_FOR = 3600   # seconds after Start that the walk page shows Undo for the folders and repos that Start filed
+
+def filed_words(f) -> str:
+    "`11 notebooks`, `11 notebooks and 3 other files`, or `3 files`: what one filing added."
+    nb, n = f.get('notebooks', 0), len(f.get('docs') or ())
+    if not nb: return n_of(n, 'file')
+    return n_of(nb, 'notebook') + (f" and {n_of(n - nb, 'other file')}" if n > nb else '')
+
+def Filed(j, now=None):
+    "What Start filed for walk `j`, each with Undo for one hour, and the sources that it could not file."
+    now = now or time.time()
+    rows = [Div(f"Added {f['root']}: {filed_words(f)}.", ' ',
+                Quiet('Undo', small=True, type='button', hx_post=Routes.unfile, hx_vals=dict(jid=j['id'], root=f['root']), hx_target='this', hx_swap='outerHTML'),
+                cls='filed') for f in j.get('filed') or () if not f.get('undone') and now - f.get('at', 0) < UNDO_FOR]
+    notes = [P(n, cls='req-err') for n in j.get('notes') or ()]
+    return Div(*rows, *notes, cls='walk-filed') if rows or notes else ''
+
 # --- the step page ---------------------------------------------------------------------------------------------------
 
 def Idea(j, by, s, k, i, just=False):

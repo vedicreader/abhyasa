@@ -55,6 +55,8 @@ def _control(r, v, post):
         return Input(type='checkbox', checked=bool(v), id=f'{i}-c', cls='toggle', hx_trigger='change', hx_post=post, hx_target=h['hx_target'],
                      hx_swap='outerHTML', hx_vals=f'js:{{name: "{r.name}", value: event.target.checked ? 1 : 0}}')
     if r.kind == 'choice': return Form(Choice('value', [(c, c.capitalize()) for c in r.choices], v, aria_label=r.label), hx_trigger='change', **h)
+    if r.kind == 'str':   # a text list, such as the source folders: one item on each line
+        return Textarea(v, name='value', id=f'{i}-c', rows=3, spellcheck='false', autocomplete='off', aria_label=r.label, hx_trigger='change', **h)
     lo, hi, n = shown(r, r.lo), shown(r, top(r)), shown(r, v)
     box = Input(type='number', name='value', value=n, min=lo, max=hi, step=_step(r), id=f'{i}-c', inputmode='decimal', aria_label=r.label,
                 hx_trigger='input changed delay:400ms, change', **h)

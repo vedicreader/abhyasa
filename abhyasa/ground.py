@@ -204,12 +204,12 @@ def nb_text(p, max_out:int=1000, max_doc:int=60000) -> str:
                 if t: parts.append(''.join(t)[:max_out])
     return '\n\n'.join(p for p in parts if p.strip())[:max_doc]
 
-def index_notebooks(vault, roots, shelf:str='notebooks', only_agent:bool=False, dry_run:bool=False) -> dict:
-    "Put each notebook under `roots` that is new or changed on the vault shelf `shelf`. Returns counts."
+def index_notebooks(vault, roots, shelf:str='notebooks', only_agent:bool=False, dry_run:bool=False, files=None) -> dict:
+    "Put each notebook under `roots` (or each notebook in `files`) that is new or changed on the vault shelf `shelf`. Returns counts."
     sh, n = (None if dry_run else vault.shelf(shelf)), dict(notebooks=0, changed=0, failed=0, same=0)
     # a notebook with the same mtime as its copy on the shelf is not read again
     had = {} if dry_run else {d['meta'].get('path'): d['meta'].get('mtime') for d in sh.sources(kind='notebook')}
-    for p in find_notebooks(roots, only_agent):
+    for p in (map(Path, files) if files is not None else find_notebooks(roots, only_agent)):
         n['notebooks'] += 1
         if dry_run: continue
         if had.get(str(p)) == p.stat().st_mtime: n['same'] += 1; continue

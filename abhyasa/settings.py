@@ -6,7 +6,7 @@ Docs: https://vedicreader.github.io/abhyasa/settings.html.md"""
 
 # %% auto #0
 __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SETTINGS', 'FIXED', 'add', 'cfg_dir', 'settings',
-           'save_settings', 'update_settings', 'top', 'fit', 'raw', 'val', 'dflt', 'set_val', 'reset', 'rows',
+           'save_settings', 'update_settings', 'top', 'fit', 'raw', 'val', 'dflt', 'roots', 'set_val', 'reset', 'rows',
            'reset_group', 'changed', 'clamped']
 
 # %% ../nbs/16_settings.ipynb #2411ca2e
@@ -111,6 +111,7 @@ add('research.per_walk', 'research', 'Steps to research in a walk', 'The most st
 add('research.results', 'research', 'Search results to read', 'How many search results the tutor looks at for one step. It reads the best 3 pages.', 5, 3, 10, more=True)
 add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk from a walk with no source waits for web sources. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s')
 add('research.told', 'research', 'Web search line shown', 'The Start box said one time that a topic walk searches the web.', False, ui=False);
+add('sources.roots', 'research', 'Source folders', 'The folders where abhyasa looks for a source that you name. It looks two levels down. It never searches the whole disk.', '~/code/personal/orgs');
 
 # %% ../nbs/16_settings.ipynb #4412f5ae
 add('runner.total', 'runner', 'Total time', 'How long your code can run for all the tests together. Then the run stops.', 10, 5, 60, unit='s')
@@ -247,6 +248,11 @@ def val(name:str):
     return r.dflt if v is None else fit(r, v)
 
 def dflt(name:str): return SETTINGS[name].dflt
+
+# %% ../nbs/16_settings.ipynb #a1685b9e
+def roots() -> list:
+    "The paths of the setting `sources.roots`, one for each line that is not empty."
+    return [l.strip() for l in str(val('sources.roots') or '').splitlines() if l.strip()]
 
 # %% ../nbs/16_settings.ipynb #1a846de0
 def set_val(name:str, v):

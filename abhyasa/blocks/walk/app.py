@@ -1,6 +1,6 @@
 """The guided walk: a paper, a text, a topic or a link as one idea at a time, in reading order. The plan, the step page, its check,
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
-import json, logging, re, time
+import hashlib, json, logging, re, time
 from collections import defaultdict
 from threading import Lock
 from pathlib import Path
@@ -13,7 +13,7 @@ from abhyasa.store import clean_subject
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
-from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper
+from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.research import to_research, wants_source
@@ -175,6 +175,73 @@ def connect(app, ctx):
             st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() and not paper else None, st, tool, subject)
         return ui.LinkPending(url, st.said)
 
+    def file_chip(i, st):
+        "On the pool: file the source of the chip id `i` (`gh:`, `folder:`, `repo:`, `link:`), or get its docs (`vault:`, `doc:`). Returns (name, docs)."
+        kind, _, v = i.partition(':')
+        if kind == 'gh':
+            st.update(said=f'Cloning {v}')
+            return v, file_repo(lr, v)
+        if kind in ('folder', 'repo'):
+            name, fs = Path(v).name, ([] if folder_why(v) else tree_files(v))
+            nb = sum(p.suffix == '.ipynb' for p in fs)
+            st.update(said=f"Filing {name}: {n_of(nb, 'notebook') if nb else n_of(len(fs), 'file')}")
+            return name, file_folder(lr, v)
+        if kind == 'link':
+            st.update(said='Getting the pages from the link')
+            return v, file_link(lr, v)
+        if kind == 'vault': return v, root_docs(lr, v)
+        if kind == 'doc' and (d := lr.vault.doc(v)): return d['title'], L([AttrDict(shelf='store', doc_id=d['id'], title=d['title'], url=d['source'])])
+        return v, L()   # vedicreader: the walk reads it as a source, it is not filed
+
+    def from_goal(goal, ids, st, subject=''):
+        "On the pool: file each chip that is not in the vault, then plan the walk to `goal` (or, with no goal, walk through the docs). Return the walk id."
+        filed, notes, docs, names = [], [], L(), []
+        for i in ids:
+            kind, _, v = i.partition(':')
+            try: name, ds = file_chip(i, st)
+            except Exception as e:   # one source that fails never stops the walk
+                log.warning('abhyasa could not file the source %r: %r', i, e)
+                why = f' {e}' if isinstance(e, LinkError) and not str(e).startswith('abhyasa could not') else ''
+                notes.append((f'abhyasa could not clone {v}.' if kind == 'gh' else f'abhyasa could not file {Path(v).name or v}.') + why)
+                continue
+            docs += ds; names.append(name)
+            if added := getattr(ds, 'added', None):
+                filed.append(dict(root=name, docs=[dict(x) for x in added], at=time.time(), notebooks=sum(str(x.url).endswith('.ipynb') for x in added)))
+        st.update(said='Planning the walk')
+        if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), ctx.sources, False)
+        elif docs:
+            n = val('links.pages')
+            j = journey_from_sources(lr, ask, docs[:n], title=' and '.join(names), subject=subject,
+                                     progress=lambda k, m: st.update(said=f"Reading {k + 1} of {n_of(m, 'document')}"))
+        else: raise LinkError(' '.join(notes) or 'abhyasa found no text to read in these sources.')
+        run_hook('concepts_added')
+        if not j.steps:
+            lr.drop_journey(j.id)
+            raise LinkError('The tutor found no steps for this goal.' if goal else 'The tutor found no ideas in these sources.')
+        lr.merge_journey(j.id, filed=filed, notes=notes, chips=list(ids))
+        if goal:
+            research_new(j)
+            if val('research.on') and not val('research.told'): set_val('research.told', True)
+        return j.id
+
+    def goal_walk(goal, ids, subject=''):
+        "Start the pool job that files the chips `ids` and makes the walk, unless one is running. The request does not wait."
+        key = 'goal:' + hashlib.sha1(json.dumps([goal, ids]).encode()).hexdigest()[:12]
+        st = links.get(key)
+        if not st or st.job.done():
+            st = links[key] = AttrDict(said='Planning the walk')
+            st.job = ctx.pool.submit(from_goal, goal, ids, st, subject)
+        return ui.LinkPending(key, st.said)
+
+    def unfile_(jid:str, root:str=''):
+        "Undo: forget the docs that Start added for `root`, when each is still the same file."
+        if not (j := walk_of(jid)): return Response(status_code=404)
+        f = first(x for x in j.get('filed') or () if x['root'] == root and not x.get('undone'))
+        if not f: return P('There is nothing to undo.', cls='mute')
+        n = unfile(lr, f['docs'])
+        lr.merge_journey(jid, filed=[{**x, 'undone': True} if x['root'] == root else x for x in j['filed']])
+        return P(f"Removed {root} from your vault: {n_of(n, 'document')}.", cls='mute filed')
+
     def job(url:str=''):
         "The state of the walk from `url`: the pending card, a redirect to the walk when it is ready, or a message."
         if not (st := links.get(url.strip())): return P('No walk is being made from this link. Send the form again.', cls='req-err')
@@ -183,10 +250,16 @@ def connect(app, ctx):
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
     def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str='',
-            q:str='', pick:str='', file:str='', opts:str='', doc:str=''):
-        if q.strip() and not any(x.strip() for x in (ref, text, topic, url)):   # the Start box: its reading says which field it is
+            q:str='', pick:str='', file:str='', opts:str='', doc:str='', sources:list[str]=None, chips:str=''):
+        if (q.strip() or chips) and not any(x.strip() for x in (ref, text, topic, url)):   # the Start box: its reading says which field it is
             t = vault_title(lr.vault, q) if not file else None
-            r = detect(q, dict([t]) if t else {}, research=val('research.on'), file=file, pick=pick, doc=doc)   # `ref` is a document id
+            r = detect(q, dict([t]) if t else {}, research=val('research.on'), file=file, pick=pick, doc=doc, roots_in_vault=vault_roots(lr))   # `ref` is a document id
+            ids = [x for x in (sources or []) if x] if chips else r.send.get('sources', [])   # the chips that the box showed, less the ones that you removed
+            goal = r.kind == 'goal' or (chips and r.kind == 'topic')   # a topic with sources that you added is a goal
+            if (goal or r.kind in ('sources', 'folder')) and (r.send or chips):
+                if not goal and not ids: return P('Add a source first.', cls='req-err')
+                return goal_walk(q.strip() if goal else '', ids, clean_subject(subject))
+            if chips and not q.strip(): return P('Write your goal first.', cls='req-err')
             if not r.send: return P(r.line if r.kind != 'ask' else 'Pick one answer first.', cls='req-err')
             ref, text, topic, url = (r.send.get(k, '') for k in ('ref', 'text', 'topic', 'url'))
             title = title or r.send.get('title', '')
@@ -219,7 +292,8 @@ def connect(app, ctx):
         if not (j := walk_of(jid)): return missing()
         st = walk_state(j)
         if j.get('started') and st.current is not None: return go(jid, st.current)
-        return Page(j.title, *ui.PlanPage(j, st, by(), run_hook('walk_actions', j)), on='Learn', crumbs=up, extra=ui.assets())
+        h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j))
+        return Page(j.title, h1, ui.Filed(j), *rest, on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
 
     def plan(jid:str, i:int, act:str, way:str=''):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
@@ -486,6 +560,7 @@ def connect(app, ctx):
 
     app.post(Routes.new)(new)
     app.get(Routes.job)(job)
+    app.post(Routes.unfile)(unfile_)
     app.get(Routes.one)(one)
     app.post(Routes.plan)(plan)
     app.post(Routes.start)(start)

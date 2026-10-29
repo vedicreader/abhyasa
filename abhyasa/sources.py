@@ -6,17 +6,19 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'READERS', 'PLAIN', 'LOCALE', 'LANGS',
-           'SHORT', 'EMPTY', 'ARXIV_LINK', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'VR_ROOT', 'RASI', 'quoted', 'group_line',
-           'add_group', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'extract', 'from_vault',
-           'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts', 'link_folder',
-           'in_scope', 'link_sel', 'LinkError', 'link_kind', 'reading_order', 'file_link', 'as_link', 'is_id_title',
-           'arxiv_title', 'is_paper', 'source_of', 'plain', 'from_vedicreader']
+           'SHORT', 'EMPTY', 'ARXIV_LINK', 'TREE_TYPES', 'TREE_SKIP', 'TREE_FILES', 'TREE_MB', 'TREE_SEEN', 'NO_FOLDER',
+           'GH_NAME', 'NOT_REPOS', 'CLONE_WAIT', 'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'VR_ROOT', 'RASI', 'quoted',
+           'group_line', 'add_group', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'extract',
+           'from_vault', 'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts',
+           'link_folder', 'in_scope', 'link_sel', 'LinkError', 'link_kind', 'reading_order', 'file_link', 'as_link',
+           'is_id_title', 'arxiv_title', 'is_paper', 'tree_files', 'folder_why', 'file_folder', 'vault_roots',
+           'root_docs', 'unfile', 'gh_name', 'gh_public', 'file_repo', 'source_of', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re
 from pathlib import Path
 from fastcore.utils import *
-from .store import Learning, slugify, _union, clean_group, clean_subject, readable_name, usable_name
+from .store import Learning, SHELF, slugify, _union, clean_group, clean_subject, readable_name, usable_name
 from .settings import val
 from .llm import ask_json, for_task
 from .prompts import register, prompt
@@ -84,7 +86,10 @@ def _windows(text, size=12000):
 def doc_pages(lr:Learning, ref:str, shelf:str='store') -> AttrDict:
     "Every chunk of one vault document in page order, as `(page, text)` with the page a reader sees (from 1)."
     sh = lr.vault if shelf == 'store' else lr.vault.shelf(shelf)
-    if (d := sh.doc(ref)) is None: raise ValueError(f'no document in the vault matching {ref!r}')
+    if (d := sh.doc(ref)) is None and shelf == 'store':   # a notebook or a folder file is on its own shelf: look on each shelf but the concepts
+        for name in (s['store'] for s in lr.vault.shelves() if s['store'] not in ('store', SHELF)):
+            if (d := (o := lr.vault.shelf(name)).doc(ref)) is not None: sh = o; break
+    if d is None: raise ValueError(f'no document in the vault matching {ref!r}')
     did = d['id'].replace("'", "''")
     cs = sorted(sh.store(where=f"doc_id='{did}'", select='content, page, rowid as rowid'), key=lambda c: (-1 if c['page'] is None else c['page'], c['rowid']))
     return AttrDict(doc_id=d['id'], title=d['title'], source=d['source'], pages=[(None if c['page'] is None else c['page'] + 1, c['content']) for c in cs])
@@ -478,6 +483,137 @@ def is_paper(url:str) -> bool:
     if ARXIV_ID.fullmatch(u) or ARXIV_LINK.fullmatch(u): return True
     try: return urlparse(u).scheme in ('http', 'https') and urlparse(u).path.lower().endswith('.pdf')
     except ValueError: return False
+
+# %% ../nbs/04_sources.ipynb #29ba502d
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import quote
+from .ground import SKIP_DIRS, index_notebooks
+
+# %% ../nbs/04_sources.ipynb #83fe9565
+TREE_TYPES = ('.ipynb', '.md', '.txt', '.py')   # in this order: the file cap keeps the notebooks first
+TREE_SKIP = SKIP_DIRS | {'data', 'datasets'}
+TREE_FILES, TREE_MB, TREE_SEEN = 400, 20, 20_000   # the most files filed, the most MB of one file, the most names looked at
+
+def tree_files(root) -> L:
+    "The files under the folder `root` that abhyasa files, in path order. No link, nothing outside `root`, and at most `TREE_FILES`."
+    root, got, seen = Path(root).resolve(), [], 0
+    for dp, dns, fns in os.walk(root):   # `os.walk` does not go into a link to a folder
+        dns[:] = sorted(d for d in dns if d not in TREE_SKIP and not d.startswith('.'))
+        for f in sorted(fns):
+            seen += 1
+            p = Path(dp)/f
+            if f.startswith('.') or p.suffix.lower() not in TREE_TYPES or p.is_symlink(): continue
+            try:
+                if p.stat().st_size <= TREE_MB * 2**20 and p.resolve().is_relative_to(root): got.append(p)
+            except OSError: continue
+        if seen >= TREE_SEEN: break
+    return L(sorted(sorted(got, key=lambda p: (TREE_TYPES.index(p.suffix.lower()), str(p)))[:TREE_FILES]))
+
+# %% ../nbs/04_sources.ipynb #442af40e
+NO_FOLDER = 'abhyasa cannot find this folder.'
+
+def folder_why(p) -> str:
+    "Why abhyasa does not file the folder `p`, or '' when it can."
+    p, home = Path(p).expanduser(), Path.home().resolve()
+    try: r = p.resolve()
+    except (OSError, RuntimeError): return NO_FOLDER
+    if not r.is_relative_to(home): return 'abhyasa reads only folders in your home folder.'
+    if r == home: return 'Name a folder in your home folder, not the home folder itself.'
+    if p.is_symlink() or any(x.startswith('.') for x in r.relative_to(home).parts): return 'abhyasa does not read a hidden folder or a link.'
+    return '' if r.is_dir() else NO_FOLDER
+
+# %% ../nbs/04_sources.ipynb #b5b78218
+def _file_tree(lr:Learning, root, shelf:str, name:str, url=None) -> L:
+    "File the files of the folder `root` on `shelf`, with `meta.root=name` and `meta.url=url(path in root)`. The docs, and in `added` the new ones."
+    root, sh = Path(root).resolve(), lr.vault.shelf(shelf)
+    files = tree_files(root)
+    key = lambda d: d['meta'].get('path') or d['source']
+    had = {key(d): d for d in sh.sources()}
+    if nbs := [p for p in files if p.suffix.lower() == '.ipynb']: index_notebooks(lr.vault, (), shelf, files=nbs)
+    for p in files:
+        if p.suffix.lower() == '.ipynb' or ((h := had.get(str(p))) and h['meta'].get('mtime') == p.stat().st_mtime): continue
+        try: sh.add_file(str(p), title=f'{p.parent.name}/{p.stem}')
+        except Exception: continue   # a file that the vault cannot read is left out
+    by, docs, added = {key(d): d for d in sh.sources()}, L(), L()
+    for p in files:
+        if not (d := by.get(str(p))): continue
+        m = dict(root=name, path=str(p), mtime=p.stat().st_mtime, **({'url': url(p.relative_to(root).as_posix())} if url else {}))
+        if any(d['meta'].get(k) != v for k, v in m.items()): sh.set_meta(d['id'], **m)
+        docs.append(x := AttrDict(shelf=shelf, doc_id=d['id'], title=d['title'], url=m.get('url', str(p)), mtime=m['mtime']))
+        if str(p) not in had: added.append(x)
+    docs.added = added
+    return docs
+
+def file_folder(lr:Learning, path, shelf:str='notebooks') -> L:
+    "File the folder `path` in your home folder on `shelf`. Each doc keeps `meta.root` (the folder name) and `meta.path`. Raises `LinkError` for a folder that abhyasa does not file."
+    if why := folder_why(path): raise LinkError(why)
+    r = Path(path).expanduser().resolve()
+    return _file_tree(lr, r, shelf, r.name)
+
+# %% ../nbs/04_sources.ipynb #b809f261
+def vault_roots(lr:Learning, shelf:str='notebooks') -> dict:
+    "Each folder or repo filed on `shelf` (its `meta.root`), to its count of documents."
+    sh = lr.vault.shelf(shelf)
+    q = f"select json_extract(meta, '$.root') as r, count(*) from [{sh.t.docs.name}] where r is not null group by r"
+    return dict(sh.db.execute(q).fetchall())
+
+def root_docs(lr:Learning, root:str, shelf:str='notebooks') -> L:
+    "The documents of the folder or repo `root` on `shelf`, in path order, in the shape of `file_link`."
+    sh = lr.vault.shelf(shelf)
+    rows = sh.t.docs(where="json_extract(meta, '$.root') = ?", where_args=[root])
+    ds = sorted(((json.loads(r['meta'] or '{}'), r) for r in rows), key=lambda x: str(x[0].get('path') or ''))
+    return L(AttrDict(shelf=shelf, doc_id=r['id'], title=r['title'], url=m.get('url') or m.get('path') or r['source'], mtime=m.get('mtime')) for m, r in ds)
+
+# %% ../nbs/04_sources.ipynb #b67461d7
+def unfile(lr:Learning, docs) -> int:
+    "Forget the docs that one filing added, when each is still the same file (same id, same mtime). Returns the count."
+    n = 0
+    for x in map(AttrDict, docs):
+        sh = lr.vault if x.shelf == 'store' else lr.vault.shelf(x.shelf)
+        r = first(sh.t.docs(where='id=?', where_args=[x.doc_id]))
+        if r and json.loads(r['meta'] or '{}').get('mtime') == x.get('mtime'): sh.forget(x.doc_id); n += 1
+    return n
+
+# %% ../nbs/04_sources.ipynb #3675758b
+GH_NAME = re.compile(r'([A-Za-z0-9][A-Za-z0-9-]{0,38})/([\w.-]{1,100})')
+NOT_REPOS = frozenset('and/or either/or he/she his/her yes/no on/off input/output read/write true/false pros/cons i/o w/o n/a tcp/ip client/server'.split())
+
+def gh_name(s:str) -> str|None:
+    "`owner/name` of the GitHub repo that `s` names (a github.com link, or `owner/name`), or None."
+    s = str(s or '').strip().rstrip('.,;:)')
+    m = re.fullmatch(r'(?:https?://)?(?:www\.)?github\.com/([^/\s]+)/([^/\s#?]+)(?:[/#?]\S*)?', s, re.I)
+    o, n = (m[1], m[2].removesuffix('.git')) if m else (s.split('/', 1) + [''])[:2]
+    if not GH_NAME.fullmatch(f'{o}/{n}') or s.lower() in NOT_REPOS or not re.search('[A-Za-z]', o) or n.strip('.') == '': return None
+    return f'{o}/{n}'
+
+# %% ../nbs/04_sources.ipynb #3b93837a
+CLONE_WAIT, REPO_MB = 300, 500   # seconds for one clone; the biggest repo, in MB
+
+def gh_public(owner:str, name:str) -> dict|None:
+    "What GitHub says of the repo `owner/name` (`private`, `size` in KB), or None when it has no such repo."
+    from fossick import http_get
+    r = http_get(f'https://api.github.com/repos/{owner}/{name}', timeout=15)
+    return json.loads(r.body) if r.status == 200 else None
+
+def _clone_url(g):
+    try: from gheasy.repos import clone_url
+    except ImportError: return f'https://github.com/{g}.git'
+    return clone_url(g)
+
+def file_repo(lr:Learning, url:str, shelf:str='notebooks') -> L:
+    "Clone the public GitHub repo `url` (a link or `owner/name`) with fossick's `gh_clone`, then file it on `shelf`. Raises `LinkError` with a plain reason."
+    if not (g := gh_name(url)): raise LinkError('abhyasa clones only a public repo on github.com.')
+    info = gh_public(*g.split('/'))
+    if not info or info.get('private'): raise LinkError(f'{g} is not a public repo on github.com.')
+    if (info.get('size') or 0) > REPO_MB * 1024: raise LinkError(f'{g} is too big. abhyasa clones a repo of at most {REPO_MB} MB.')
+    import fossick
+    os.environ.setdefault('GIT_TERMINAL_PROMPT', '0')   # a git that asks for a password would wait for ever
+    ex = ThreadPoolExecutor(1)
+    try: d = Path(ex.submit(fossick.gh_clone, _clone_url(g)).result(timeout=CLONE_WAIT))
+    except TimeoutError: raise LinkError(f'abhyasa could not clone {g} in {CLONE_WAIT // 60} minutes.') from None
+    finally: ex.shutdown(wait=False)
+    if not d.is_dir(): raise LinkError(f'abhyasa could not clone {g}.')
+    return _file_tree(lr, d, shelf, g, url=lambda rel: f'https://github.com/{g}/blob/HEAD/{quote(rel)}')
 
 # %% ../nbs/04_sources.ipynb #so0i
 from datetime import datetime

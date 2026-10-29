@@ -17,3 +17,20 @@
 .start .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .start-more { margin-top: var(--s4); }
 .start-more .goal-form { margin-top: var(--s3); }
+/* The sources of a goal: one quiet row for each, a dashed border for a source that Start adds. */
+.start .chips-src { display: flex; flex-direction: column; gap: var(--s2); margin: var(--s4) 0 0; }
+.start .chips-src .lbl { margin: 0 0 var(--s1); }
+.start .schip { display: flex; gap: var(--s3); align-items: baseline; padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r-s); font-size: var(--t-small); color: var(--ink2); }
+.start .schip b { font-weight: 600; color: var(--fg); overflow-wrap: anywhere; flex: none; max-width: 40%; }
+.start .schip .w { flex: 1; min-width: 0; overflow-wrap: break-word; }
+.start .schip .where { margin-right: var(--s3); }
+.start .schip .st { color: var(--mute); font-size: var(--t-meta); }
+.start .schip button.x { margin-left: auto; flex: none; align-self: center; color: var(--mute); background: none; border: 0; box-shadow: none; min-height: 0; padding: 0 var(--s1); font-size: var(--t-q); line-height: 1; cursor: pointer; }
+.start .schip button.x:hover, .start .schip button.x:focus-visible { color: var(--fg); }
+.start .schip.new { border-style: dashed; }
+.start .schip.bad .st { color: var(--no, var(--mute)); }
+.start .schip.web { background: var(--sunken); border-color: transparent; }
+.start .schip.web a.st { text-decoration: underline; }
+.start .addf { display: flex; gap: var(--s2); align-items: center; margin-top: var(--s2); font-size: var(--t-small); }
+.start .addf input { max-width: 420px; }
+.start .chips-src .req-err { margin: 0; font-size: var(--t-small); }
