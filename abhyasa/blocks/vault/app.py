@@ -2,7 +2,7 @@
 import json, re, time
 from fasthtml.common import *
 from fastcore.utils import first
-from abhyasa.core import Page
+from abhyasa.core import Page, hook
 from abhyasa.sources import extract
 from . import ui
 from .cfg import Routes
@@ -38,6 +38,12 @@ def connect(app, ctx):
         slugs = extract(lr, ask, sh.document(doc_id).text, '', dict(src=f'vault:{shelf}', ref=doc_id, title=d['title'], at=time.time()))
         if not slugs: return P('No concepts found.', cls='mute')
         return Div(Span('Concepts from this document', cls='lbl'), Ul(*[Li(A(lr.concept(s).name, href=f'/c/{s}')) for s in slugs], cls='plain'))
+
+    @hook('pane_title')
+    def pane_title(url):
+        "The title of the document at `url` (`/v/<shelf>/<id>`) in the side pane; None for another page."
+        m = re.match(r'/v/([^/?#]+)/([^/?#]+)(?:[?#]|$)', url or '')
+        return m and (d := _get(*m.groups())[1]) is not None and (d['title'] or d['id']) or None
 
     app.get(Routes.doc)(doc)
     app.post(Routes.learn)(learn)

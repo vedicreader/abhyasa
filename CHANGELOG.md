@@ -18,6 +18,7 @@
 - Search gives the number of hits that you ask for when the shelf has them.
 - Walks from links: a folder such as `go` or `ui` is not a language folder.
 - Walks from links: a redirect to a folder higher on the same host keeps the folder of the link.
+- Sources under a lesson: a link to a vault document opens the document in the side pane. A cmd-click still opens a new tab.
 
 ## 0.0.11
 

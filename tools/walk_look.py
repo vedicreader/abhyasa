@@ -729,13 +729,33 @@ def d5_small_faults(pg, w):
         assert node > page, ('an unseen node is darker than the page', node, page)
     finally: look(w.rq, w.B, 'paper', 'light')
 
+def s1_source_link_opens_the_pane(pg, w):
+    "In a session, a vault source under the lesson opens the document in the side pane, in its pane form; it stays a real link to a new tab; Esc closes the pane."
+    d = w.lr.vault.add([(0, 'Ranking puts the items in order. The rank of an item is its position in the list.')], 'Ranking in my notes',
+                       source='/tmp/ranking-notes.pdf', kind='pdf')['doc_id']
+    sid = w.rq.get(f'{w.B}/start?focus=ranking', max_redirects=0).headers['location'].rstrip('/').split('/')[-1]
+    pg.goto(f'{w.B}/s/{sid}'); pg.wait_for_selector('#composer #send'); settle(pg)
+    pg.fill('#ans', 'its rank, a position'); pg.keyboard.press('Alt+s')
+    a = pg.wait_for_selector(f'.cites a[href="/v/store/{d}"]', timeout=15000)
+    assert a.get_attribute('target') == '_blank' and a.get_attribute('data-pane') == f'/v/store/{d}?pane=1', a.evaluate('a => a.outerHTML')
+    a.click(); pg.wait_for_selector('#rh-pane iframe', timeout=10000); settle(pg, 700)
+    assert rh_now(pg) == f'/v/store/{d}' and f'/s/{sid}' in pg.url, (pg.url, rh_now(pg))
+    fr = pg.frame_locator('#rh-pane iframe')
+    fr.locator('main h1').wait_for()
+    assert fr.locator('main h1').text_content() == 'Ranking in my notes' and fr.locator('body > nav').count() == 0
+    assert pg.text_content('#rh-pane .rh-trail b') == 'Ranking in my notes'
+    pg.locator('main').first.click(position=dict(x=5, y=5)); pg.keyboard.press('Escape')
+    pg.wait_for_function("() => !document.documentElement.classList.contains('rh-open')", timeout=10000)
+    assert rh_now(pg) is None and f'/s/{sid}' in pg.url, pg.url
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
-          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo]
+          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
+          s1_source_link_opens_the_pane]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
