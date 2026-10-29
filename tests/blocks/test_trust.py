@@ -1,5 +1,7 @@
 "Trust (decision 6 of 0.0.13): every passage has one source line with a label, the tutor's words have a dashed rule and no link, and the recap lists each source once."
-import re, time
+import json, re, time
+from fastcore.basics import first
+from abhyasa.store import _src
 from fasthtml.common import to_xml
 from abhyasa.core import SourceLine, TutorWords, Cites, source_of
 from abhyasa.llm import Fake
@@ -106,6 +108,55 @@ def test_source_line_parts():
     assert 'javascript' not in h and 'Open the page' not in h and '<span>Softmax explained</span>' in h
     c = to_xml(Cites([dict(title='Notes', src='vault:store', ref='d1'), dict(WEB)]))
     assert c.count('class="pill"') == 2 and '>your source<' in c and '>from the web<' in c
-    t = to_xml(TutorWords('A [link](https://example.org) in the words.'))
-    assert "In the tutor's words" in t and 'class="stated"' in t
+    t = to_xml(TutorWords('The words name no page.'))
+    assert "In the tutor's words" in t and 'class="stated"' in t and '<a ' not in t   # the label and the rule add no link
     assert source_of(dict(text='')).label == 'tutor' and SourceLine(None) == ''
+
+EVIL = '<script>alert(1)</script><img src=x onerror=alert(2)>'
+
+def safe(h):
+    "True when page `h` has none of the hostile parts as markup: no script from the title, no image with an onerror, no javascript: link."
+    return '<script>alert(1)' not in h and '<img src=x' not in h and 'onerror=alert(2)>' not in h.replace('onerror=alert(2)&gt;', '') and 'javascript:' not in h
+
+def test_a_hostile_source_is_escaped_everywhere(mk, lr, talk_fake):
+    "A web source with a hostile title and a javascript: link: the step, the talk editor, the room and the recap file escape the title and drop the link."
+    jid = web_walk(lr)
+    lr.walk_step(jid, 0, read={**WEB, 'title': EVIL, 'site': EVIL, 'url': 'javascript:alert(3)'})
+    cl = mk()
+    h = cl.get(f'/w/{jid}/0').text
+    assert safe(h) and '&lt;script&gt;alert(1)&lt;/script&gt;' in h and 'Open the page' not in section(h, '#passage')
+    tid = make_talk(cl, jid)
+    assert lr.talk(tid).slides[0]['show']['src']['title'] == EVIL
+    ed = cl.get(f'/t/{tid}').text
+    assert safe(ed) and '&lt;script&gt;alert(1)' in ed
+    key = start_run(cl, tid)
+    au = cl.get(f'/t/{tid}/audience', params=dict(k=key)).text
+    assert safe(au) and '&lt;script&gt;alert(1)' in au
+    t = lr.talk(tid); run = new_run(t, now=0.)
+    page = recap_html(t, run, asset_resolver(lr))
+    assert safe(page) and '<script' not in page.lower() and '&lt;script&gt;alert(1)' in page and '<h2>Sources</h2>' in page
+
+def test_a_hostile_cite_is_escaped():
+    "A cite with a hostile title and a javascript: link is text: no script, no onerror attribute, no link."
+    h = to_xml(Cites([dict(title=EVIL, src='notes', ref='n', url='javascript:alert(3)')]))
+    assert safe(h) and '&lt;img src=x onerror=alert(2)&gt;' in h and '<a ' not in h
+
+def test_concept_page_passage_has_its_source_line(mk, lr, walk_fake):
+    "The In a walk part of a concept page shows each passage with its source line."
+    cl = mk(); paper_walk(cl, lr)
+    h = cl.get('/c/softmax').text
+    part = h[h.index('walk-passages'):]
+    assert 'In a walk' in h and '>your source<' in part and 'Attention Is All You Need' in part and 'Open in your vault' in part
+
+def test_old_talk_gets_its_source_from_the_walk(mk, lr, talk_fake):
+    "A talk made before 0.0.13 kept no source for a vault passage. The editor and the room still name the source, from the walk step."
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr))
+    t = lr.talk(tid)
+    for s in t['slides']: s['show'].pop('src', None)
+    lr.put_talk(t)
+    raw = first(lr.v.t.docs(where='source=?', where_args=[_src('talk', tid)]))
+    assert all('src' not in s['show'] for s in json.loads(raw['meta'])['slides'])   # saved as an old talk
+    ed = cl.get(f'/t/{tid}').text
+    assert '>your source<' in ed and 'section 1 · p. 1' in ed and 'Open in your vault' in ed
+    key = start_run(cl, tid)
+    assert '>your source<' in cl.get(f'/t/{tid}/audience', params=dict(k=key)).text

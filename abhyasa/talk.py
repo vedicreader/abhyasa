@@ -386,11 +386,25 @@ def put_talk(self:Learning, t:dict) -> AttrDict:
     return self.talk(t['id'])
 
 # %% ../nbs/17_talk.ipynb #347943e7
+def _old_sources(lr:Learning, t:AttrDict) -> AttrDict:
+    """Talk `t` with a source on each slide that shows a passage but keeps no source: a talk made before 0.0.13 kept one only for a
+    passage from the web. The source comes from the walk step of the slide, when the walk still has that step; else it is your source
+    with the title of the walk. Nothing is saved here."""
+    w = None
+    for s in t.get('slides') or []:
+        sh = s.get('show') or {}
+        if sh.get('src') or not (sh.get('passage') or '').strip(): continue
+        if w is None: w = lr.journey((t.get('src') or {}).get('walk') or '') or {}
+        ss, k = w.get('steps') or [], s.get('step')
+        r = (ss[k].get('read') or {}) if isinstance(k, int) and 0 <= k < len(ss) and ss[k].get('slug') == s.get('concept') else {}
+        sh['src'] = _source(r)['src'] if r.get('text') else dict(src='doc', title=w.get('title') or t.get('title') or 'your text')
+    return t
+
 @patch
 def talk(self:Learning, tid:str) -> AttrDict|None:
-    "One talk by id."
+    "One talk by id. A slide of an old talk gets the source of its passage (`_old_sources`)."
     r = first(self.v.t.docs(where='source=?', where_args=[_src('talk', tid)]))
-    return _tmeta(r) if r else None
+    return _old_sources(self, _tmeta(r)) if r else None
 
 @patch
 def talks(self:Learning) -> L:
