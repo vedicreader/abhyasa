@@ -319,8 +319,23 @@ def end_and_after(pg, w):
     assert 'After the talk' in pg.inner_text('h1')
     assert w.lr.talk(w.tid).live is None and len(w.lr.attempts(limit=10000)) == w.n0
 
+def present_journey(pg, w):
+    "Present this journey on a plain journey makes the talk and opens the editor; ⌥S there opens the presenter view; the journey then offers Open the talk."
+    jid = w.lr.put_journey(dict(id='attention-basics-ab12', title='Attention basics', goal='Learn how attention works', subject='ml',
+                                steps=[dict(slug=s, status='todo', why='') for s in ('softmax', 'sequential-computation')])).id
+    pg.goto(f'{w.B}/j/{jid}'); settle(pg)
+    pg.get_by_role('button', name='Present this journey').click()
+    pg.wait_for_url('**/t/*', timeout=20000); settle(pg)
+    tid = pg.url.rstrip('/').split('/')[-1]
+    assert 'Made from your journey' in pg.inner_text('main') and w.lr.talk(tid).src['walk'] != w.jid, pg.url
+    press(pg, 'Alt+s'); pg.wait_for_url(f'**/t/{tid}/present', timeout=10000); settle(pg)
+    assert pg.is_visible('#stage'), 'no stage in the presenter view'
+    w.rq.post(f'{w.B}/t/{tid}/end', max_redirects=0)
+    pg.goto(f'{w.B}/j/{jid}'); settle(pg)
+    assert pg.get_by_role('link', name='Open the talk').get_attribute('href') == f'/t/{tid}', 'no Open the talk'
+
 CHECKS = [editor_keys, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
-          reload_audience, strangers, audience_closed, stray_keys, end_and_after]
+          reload_audience, strangers, audience_closed, stray_keys, end_and_after, present_journey]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
