@@ -1,6 +1,6 @@
 """Start something new, in Learn: one box that reads what you paste or drop and says what abhyasa will do (`detect`).
 Also Find concepts only (`POST /add`), and the vedicreader import."""
-import logging, re, time
+import asyncio, hashlib, logging, re, time
 from fasthtml.common import *
 from pathlib import Path
 from abhyasa.core import hook, run as run_hook, Primary, Secondary, Quiet, Pill, asset_css, asset_js
@@ -15,9 +15,11 @@ _P = Path(__file__).parent
 NO_DOC = 'No document in your vault has this name. To add a web page or a paper, paste its link.'
 WEB_ONCE = 'The tutor will search the web for sources. Your topic goes to the search. Turn this off in Settings.'
 DROP_MB = 50
+DROP_WAIT = 60   # seconds that a drop waits for the vault to read the PDF; then the pool goes on and the request answers
+STILL = 'abhyasa is still reading this PDF. It shows in your vault when it is done.'
 WAIT = dict(paper='Reading the paper…', repo='Getting the repository…', site='Getting the pages from the link…', topic='Planning the walk…')
 CHIP = dict(paper='paper', repo='repo', site='site', doc='vault', topic='topic', text='text')
-NOT_YET = ('video', 'local', 'folder', 'sources')   # Start stays off: the line says why
+NOT_YET = ('video', 'local', 'folder', 'sources', 'file_name')   # Start stays off: the line says why
 log = logging.getLogger(__name__)
 
 def Line(r):
@@ -38,11 +40,11 @@ def Ask(r):
 def Options(r, f):
     "Only the fields that change the result. `f` keeps what you typed in them."
     o, c = r.options, []
-    if 'pages' in o: c.append(Label('Pages to read', Input(type='number', name='pages', min=1, max=val('links.cap'), value=f.get('pages') or val('links.pages'))))
-    if 'tool' in o: c.append(Label(Input(type='checkbox', name='tool', checked=f.get('tool', 'on') == 'on'), ' It is a library or a command-line tool', cls='tick'))
-    if 'title' in o: c.append(Label('Title', Input(type='text', name='title', value=f.get('title') or r.send.get('title', ''), placeholder='optional')))
-    if 'subject' in o: c.append(Label('Subject', Input(type='text', name='subject', value=f.get('subject', ''), placeholder='optional, for example: ml, sanskrit')))
-    return Div(*c, Input(type='hidden', name='opts', value='1'), cls='opts') if c else ''
+    if 'pages' in o: c.append(Label('Pages to read', Input(type='number', name='pages', id='start-pages', min=1, max=val('links.cap'), value=f.get('pages') or val('links.pages'))))
+    if 'tool' in o: c.append(Label(Input(type='checkbox', name='tool', id='start-tool', checked=f.get('tool', 'on') == 'on'), ' It is a library or a command-line tool', cls='tick'))
+    if 'title' in o: c.append(Label('Title', Input(type='text', name='title', id='start-title', value=f.get('title') or r.send.get('title', ''), placeholder='optional')))
+    if 'subject' in o: c.append(Label('Subject', Input(type='text', name='subject', id='start-subject', value=f.get('subject', ''), placeholder='optional, for example: ml, sanskrit')))
+    return Div(*c, Input(type='hidden', name='opts', value=','.join(o)), cls='opts') if c else ''
 
 def Say(r, oob=False):
     "The line for a screen reader. It stays on the page and only its words change, so a reader hears each change."
@@ -66,37 +68,51 @@ def connect(app, ctx):
     lr = ctx.learning
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
 
-    def reading(q, pick='', file='', pages=''):
-        p = int(pages) if str(pages).strip().isdigit() else val('links.pages')
+    def reading(q, pick='', file='', pages='', doc=''):
+        p = max(1, min(int(pages), val('links.cap'))) if str(pages).strip().isdigit() else val('links.pages')   # the line says what the walk reads
         t = vault_title(lr.vault, q) if not file else None
-        return detect(q, (t,) if t else (), research=val('research.on'), pages=p, file=file, pick=pick)
+        return detect(q, dict([t]) if t else {}, research=val('research.on'), pages=p, file=file, pick=pick, doc=doc)
 
-    def Box(q='', file=''):
+    def Doc(r, file='', doc='', oob=False):
+        "The id of the vault document that Start uses: the dropped PDF, or the document that the question names."
+        v = doc if file else ((r.ask or {}).get('doc') or '')
+        return Input(type='hidden', name='doc', value=v, id='start-doc', **({'hx_swap_oob': 'true'} if oob else {}))
+
+    def Box(q='', file='', doc=''):
         "The Start box. The read part comes from `/learn/read` after 250 ms with no typing (start.js)."
         return Form(Label('Paste a link, a paper, a topic, a file name or some text', fr='start-q'),
                     Textarea(q, name='q', id='start-q', rows=2, data_mic='label', aria_describedby='start-will'),
-                    Input(type='hidden', name='file', value=file, id='start-file'), Say(r := reading(q, file=file)),
+                    Input(type='hidden', name='file', value=file, id='start-file'), Say(r := reading(q, file=file, doc=doc)), Doc(r, file, doc),
                     Div(*Read(r, told=val('research.told')), id='start-read', data_quiet='1'),
                     hx_post='/walk/new', hx_target='#walk-out', id='start-form', cls='start raised', data_read=Routes.read, data_drop=Routes.file)
 
-    def read(q:str='', pick:str='', file:str='', pages:str='', tool:str='', title:str='', subject:str='', opts:str=''):
-        f = dict(pages=pages, title=title, subject=subject, **({'tool': tool or 'off'} if opts else {}))
-        r = reading(q, pick, file, pages)
-        return (*Read(r, f, told=val('research.told')), Say(r, oob=True))
+    def read(q:str='', pick:str='', file:str='', pages:str='', tool:str='', title:str='', subject:str='', opts:str='', doc:str=''):
+        f = dict(pages=pages, title=title, subject=subject, **({'tool': tool or 'off'} if 'tool' in opts.split(',') else {}))   # the box was shown and you set it
+        r = reading(q, pick, file, pages, doc)
+        return (*Read(r, f, told=val('research.told')), Say(r, oob=True), Doc(r, file, doc, oob=True))
 
     async def drop(f:UploadFile):
-        "A dropped PDF: file it in the vault on the pool, then show the box with its name in it."
-        name = Path(f.filename or 'dropped.pdf').name
+        "A dropped PDF: file it in the vault on the pool, then show the box with its name in it and its id in the form."
+        name, most = Path(f.filename or 'dropped.pdf').name, DROP_MB * 2**20
+        big = P(f'This file is too big. The most is {DROP_MB} MB.', cls='req-err')
         if not name.lower().endswith('.pdf'): return P('Drop a PDF, a .md or a .txt file.', cls='req-err')
-        data = await f.read()
-        if len(data) > DROP_MB * 2**20: return P(f'This file is too big. The most is {DROP_MB} MB.', cls='req-err')
-        p = Path(lr.vault.assets('drops'))/re.sub(r'[^\w.-]+', '-', name)
-        p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(data)
-        try: d = ctx.pool.submit(lr.vault.pdf, str(p), title=p.stem).result()
+        if f.size is not None and f.size > most: return big
+        data = await f.read(most + 1)   # never more than the limit in memory
+        if len(data) > most: return big
+        if b'%PDF-' not in data[:1024]: return P('This file is not a PDF.', cls='req-err')
+        stem = Path(name).stem.strip() or 'dropped'
+        safe = re.sub(r'[^\w.-]+', '-', stem)[:80]
+        p = Path(lr.vault.assets('drops'))/f'{hashlib.sha1(data).hexdigest()[:10]}-{safe}.pdf'   # one file for each content: a second drop never writes over the first
+        p.parent.mkdir(parents=True, exist_ok=True)
+        if not p.exists(): p.write_bytes(data)
+        fut = ctx.pool.submit(lr.vault.pdf, str(p), title=stem)
+        try: d = await asyncio.wait_for(asyncio.shield(asyncio.wrap_future(fut)), DROP_WAIT)
+        except asyncio.TimeoutError: return P(STILL, cls='req-err')   # `shield`: the pool job goes on
         except Exception as e:
             log.warning('abhyasa could not file the dropped PDF: %r', e)
             return P('abhyasa could not read this PDF.', cls='req-err')
-        return Box((d or {}).get('title') or p.stem, name)
+        d = d or {}
+        return Box(d.get('title') or stem, name, d.get('doc_id') or d.get('id') or '')
 
     def add(subject:str='', text:str='', ref:str='', q:str=''):
         text = text or q   # the Start box sends its text as `q`

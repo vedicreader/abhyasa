@@ -183,10 +183,10 @@ def connect(app, ctx):
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
     def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str='',
-            q:str='', pick:str='', file:str='', opts:str=''):
+            q:str='', pick:str='', file:str='', opts:str='', doc:str=''):
         if q.strip() and not any(x.strip() for x in (ref, text, topic, url)):   # the Start box: its reading says which field it is
             t = vault_title(lr.vault, q) if not file else None
-            r = detect(q, (t,) if t else (), research=val('research.on'), file=file, pick=pick)
+            r = detect(q, dict([t]) if t else {}, research=val('research.on'), file=file, pick=pick, doc=doc)   # `ref` is a document id
             if not r.send: return P(r.line if r.kind != 'ask' else 'Pick one answer first.', cls='req-err')
             ref, text, topic, url = (r.send.get(k, '') for k in ('ref', 'text', 'topic', 'url'))
             title = title or r.send.get('title', '')
@@ -200,9 +200,7 @@ def connect(app, ctx):
                 return P(NO_DOC, cls='req-err')
             if ref: j = journey_from_source(lr, ask, ref, shelf, subject, tool)
             elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60], subject, tool)
-            elif topic.strip():
-                if val('research.on') and not val('research.told'): set_val('research.told', True)   # the box said one time that a topic goes to the search
-                j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool)
+            elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool)
             else: return P('Name a vault document, paste a text, or write a topic.', cls='req-err')
         except Exception as e:   # the log keeps the words of the library; the page shows a plain line
             log.warning('the tutor could not make a walk: %r', e)
@@ -211,7 +209,9 @@ def connect(app, ctx):
         if not j.steps:
             lr.drop_journey(j.id)
             return P('The tutor found no ideas in this document.' if ref or text.strip() else 'The tutor found no steps for this topic.', cls='req-err')
-        if topic.strip() and not ref and not text.strip(): research_new(j)
+        if topic.strip() and not ref and not text.strip():
+            research_new(j)
+            if val('research.on') and not val('research.told'): set_val('research.told', True)   # the box said one time that a topic goes to the search
         if ref: ctx.pool.submit(retitle, j.id)   # a vault PDF with an arXiv id for a name: the title of the paper comes after the page
         return Response(headers={'HX-Redirect': ui.at(Routes.one, j.id)})
 

@@ -530,6 +530,11 @@ def f9_start_box_reads_the_box(pg, w):
         with pg.expect_response(lambda r: '/learn/read' in r.url): pg.fill('#start-q', t)
         settle(pg, 150)
     put('1706.03762'); assert 'An arXiv paper.' in line() and pg.is_enabled('#start-go') and not pg.is_visible('#start-read .opts'), line()
+    put('https://docs.example.dev/a/')
+    pg.click('#start-pages'); pg.eval_on_selector('#start-pages', 'e => e.select()')
+    with pg.expect_response(lambda r: '/learn/read' in r.url): pg.keyboard.type('3')
+    settle(pg, 150); pg.keyboard.type('')   # the swap is over: the focus and the value stay
+    assert pg.evaluate('document.activeElement.id') == 'start-pages' and pg.input_value('#start-pages') == '3' and 'at most 3 pages' in line(), line()
     put('github.com/vedicreader/fossick'); assert pg.is_checked('input[name=tool]') and 'A GitHub repository.' in line(), line()
     put('https://youtu.be/x'); assert pg.is_disabled('#start-go') and 'Video links do not work yet.' in line(), line()
     put('The moon spends about one day in each of the lunar mansions.')
@@ -537,7 +542,9 @@ def f9_start_box_reads_the_box(pg, w):
     assert not pg.is_visible('details.start-more .goal-form') and pg.is_visible('details.start-more summary')
     put('Ranking orders items.\nA rank is a position.')
     assert 'Pasted text, 2 lines.' in line() and pg.is_visible('#start-read >> text=Find concepts only') and pg.is_visible('input[name=subject]'), line()
-    with pg.expect_request(lambda r: r.url.endswith('/walk/new') and r.method == 'POST') as rq: pg.click('#start-go')
+    pg.fill('#start-q', 'Ranking orders items.\nA rank is a position. It is a place.')   # ⌥S at once: start.js waits for the read, then starts
+    with pg.expect_request(lambda r: r.url.endswith('/walk/new') and r.method == 'POST') as rq: pg.keyboard.press('Alt+KeyS')
+    assert 'ß' not in pg.input_value('#start-q') if pg.query_selector('#start-q') else True
     body = rq.value.post_data or ''
     assert 'name="q"' in body and 'name="url"' not in body and 'name="ref"' not in body, body[:300]
     pg.wait_for_url(lambda u: '/w/' in u, timeout=30000); settle(pg, 200)   # the walk opens; wait, so the next check's page load is not cut off
