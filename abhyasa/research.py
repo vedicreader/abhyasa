@@ -13,7 +13,7 @@ __all__ = ['log', 'SOCIAL', 'FILES', 'PAGE_BYTES', 'TEXT_TYPES', 'MOST', 'LEAST'
 # %% ../nbs/18_research.ipynb #r006
 import hashlib, json, logging, re, threading, time
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from urllib.parse import urlparse, unquote
 from fastcore.utils import *
 from .store import Learning, _union
@@ -160,11 +160,18 @@ def file_page(lr:Learning, page, passage:str='') -> AttrDict:
         r = sh.add(page.text, page.title or site_of(page.url), source=src, kind='web', meta=dict(url=page.url, via='research'), refresh=False)
     return AttrDict(shelf=sh.name, doc_id=r['doc_id'])
 
+_CLOCKS, _CLOCK = {}, threading.Lock()
+
+def _clock(slug:str) -> threading.Lock:
+    "The lock of concept `slug`, so that two writers of its provenance do not lose an entry."
+    with _CLOCK: return _CLOCKS.setdefault(slug, threading.Lock())
+
 def link_concept(lr:Learning, slug:str, src:dict) -> AttrDict:
-    "Add the source `src` to the provenance of concept `slug`. A newer entry for the same document takes the place of the older one."
-    if not (c := lr.concept(slug)): return None
+    "Add the source `src` to the provenance of concept `slug`, under the lock of the concept. A newer entry for the same document takes the place of the older one."
     key = lambda p: (p.get('src'), p.get('doc_id') or p.get('url'))
-    return lr.update(slug, provenance=[p for p in c.get('provenance') or () if key(p) != key(src)] + [src])
+    with _clock(slug):
+        if not (c := lr.concept(slug)): return None
+        return lr.update(slug, provenance=[p for p in c.get('provenance') or () if key(p) != key(src)] + [src])
 
 # %% ../nbs/18_research.ipynb #r026
 TOP = 3   # the most pages that research reads for one step
@@ -225,10 +232,14 @@ def to_research(j) -> list:
     ix = [i for i, s in enumerate(j['steps']) if wants_source(s) and s.get('research') not in ('none', 'found')]
     return ix[:val('research.per_walk')]
 
-def mark_pending(lr:Learning, jid:str, ix) -> list:
-    "Mark the steps `ix` of walk `jid` as `research='pending'`. Return `ix`."
-    for i in ix: lr.walk_step(jid, i, research='pending', research_at=time.time())
-    return list(ix)
+def mark_pending(lr:Learning, jid:str, ix, slugs=None) -> list:
+    "Mark the steps `ix` of walk `jid` (on the concepts `slugs`, when given) as `research='pending'`. Each step is found by its concept under the lock of the walk. Return the indexes now."
+    with _jlock(jid):
+        ss = lr.journey(jid).steps
+        slugs = slugs or [ss[i]['slug'] for i in ix if 0 <= i < len(ss)]
+        out = [k for i, slug in zip(ix, slugs) if (k := _at(lr, jid, slug, i)) is not None]
+        for k in out: lr.walk_step(jid, k, research='pending', research_at=time.time())
+    return out
 
 def research_walk(lr:Learning, ask, j, ix=None, search=None, fetch=None) -> list:
     "Research the steps `ix` of walk `j` (default: `to_research`), in order. Return the new `read` or None for each."
@@ -259,14 +270,18 @@ class Researcher:
             if (j := self.lr.journey(jid)) is None: return None
             ix = [i for i in (to_research(j) if ix is None else ix) if not self.looking(jid, i)]
             if not ix: return None
-            mark_pending(self.lr, jid, ix)
+            if not (ix := mark_pending(self.lr, jid, ix, [j.steps[i]['slug'] for i in ix])): return None
             job = self.pool.submit(research_walk, self.lr, self.ask, jid, ix, self.search, self.fetch)
             self.jobs[jid] = [x for x in self.jobs[jid] if not x.job.done()] + [AttrDict(ix=set(ix), job=job)]
             return job
 
-    def run(self, jid:str, timeout:float=None):
-        "Look for the sources of walk `jid`, and wait until each job of the walk ends."
+    def run(self, jid:str, timeout:float=None) -> bool:
+        """Look for the sources of walk `jid`, and wait until each job of the walk ends, at most `timeout` seconds in all (default: the
+        setting `research.wait`). Return False when the time is up: the jobs go on, and their steps stay pending until they end."""
         self.look_for(jid)
+        end = time.monotonic() + (val('research.wait') if timeout is None else timeout)
         for x in list(self.jobs[jid]):
-            try: x.job.result(timeout)
+            try: x.job.result(max(0, end - time.monotonic()))
+            except FutureTimeout: log.warning('research: the time for %s is up; the job goes on', jid); return False
             except Exception as e: log.warning('research: the job of %s failed: %r', jid, e)
+        return True
