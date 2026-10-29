@@ -44,7 +44,7 @@ def PresentJourney(jid, t=None):
 
 def Pending(jid):
     "A talk that is still being made: the card asks the server again in 2 seconds."
-    return Div(P('Making the talk…'), P('The tutor writes a question for the room from each check. This can take a minute.', cls='mute'),
+    return Div(P('Making the talk…'), P('The tutor writes the points and the speaker notes of each slide, and a question for the room from each check. This can take a minute.', cls='mute'),
                cls='talk-new pending', hx_get=f"{Routes.job}?{urlencode(dict(jid=jid))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
 
 def YourTalks(ts):

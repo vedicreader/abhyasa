@@ -154,6 +154,16 @@ def test_present_this_journey(mk, talk_fake, lr):
     assert 'Made from your journey' in ed and f'href="/j/{jid}"' in ed and 'This talk has the first' not in ed and 'The journey changed' not in ed
     for pg in ('/', '/journeys', '/learning', '/c/ranking'): assert f'/w/{w.id}' not in cl.get(pg).text, pg
 
+def test_a_journey_talk_has_content(mk, talk_fake, lr):
+    "Each idea slide of a journey talk has content and notes: a step with no passage gets points, and a step with a passage keeps it."
+    cl = mk(); jid = journey_of(lr)
+    assert 'points and the speaker notes' in cl.post('/talk/journey', data=dict(jid=jid)).text   # the pending card says what the tutor writes
+    tid = wait_for(lambda: cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect')).split('/')[-1]
+    s1, s2 = lr.talk(tid).slides[:2]
+    assert s1['show']['passage'] == 'Ranking orders items by score.' and 'body' not in s1['show'] and '**Watch for:**' in s1['notes']
+    assert s1['cites'] == [dict(src='vault:notes', ref='n1', title='My ranking notes', url='https://example.org/notes')]   # from your sources
+    assert s2['show']['body'] == SLIDE['points'] and s2['beats'][0] == 'body' and '**Ask the room:**' in s2['notes'] and 'cites' not in s2
+
 def test_a_journey_talk_again(mk, talk_fake, lr):
     "A journey that you presented before offers its talk and Make it again; a second press gives the same talk, and Make it again a new one."
     cl = mk(); jid = journey_of(lr); tid = journey_talk(cl, jid); n = len(lr.journeys())

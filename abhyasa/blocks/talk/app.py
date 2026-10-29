@@ -177,7 +177,7 @@ def connect(app, ctx):
     def new(jid:str=''):
         "Start the pool job that makes a talk from walk `jid`, unless one runs. The request does not wait for the model."
         if not walk_of(jid := jid.strip()): return P('No such walk.', cls='req-err')
-        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_walk(lr, ask(), jid).id)
+        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_walk(lr, ask(), jid, sources=ctx.sources).id)
         return ui.Pending(jid)
 
     def plain(j): return bool(j and j.get('mode') != 'walk' and not for_talk(j) and j.steps)   # a journey that is not a walk
