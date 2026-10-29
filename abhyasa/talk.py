@@ -23,6 +23,7 @@ from .journey import minutes
 from .llm import ask_json, for_task
 from .prompts import register, prompt
 from .settings import val
+from rupaka import poll
 import abhyasa.demo  # adds Learning.demo_for
 
 # %% ../nbs/17_talk.ipynb #f8aa27c1
@@ -128,17 +129,6 @@ TALK_CASES = [
     (_case(ask=dict(kind='order', q='Q?', options=['a', 'b', 'c'], answer=[0, 0, 1])), ['s1: the answer [0, 0, 1] is not an order of the options'])]
 
 # %% ../nbs/17_talk.ipynb #918274cf
-_NONE = object()
-
-def _at(state, path:str):
-    "The value at the dotted `path` in `state`, or `_NONE`."
-    v = state
-    for k in str(path).split('.'):
-        if isinstance(v, dict) and k in v: v = v[k]
-        elif isinstance(v, list) and k.isdigit() and int(k) < len(v): v = v[int(k)]
-        else: return _NONE
-    return v
-
 def _gates(bs):
     "The gate blocks in `bs`, nested blocks too, in order."
     for b in bs or []:
@@ -146,53 +136,15 @@ def _gates(bs):
         if b.get('type') == 'gate': yield b
         yield from _gates(b.get('blocks'))
 
-def _num(v:float, d:int|None=None) -> str:
-    "The number `v` as rupaka's `show` writes it: `toFixed(d ?? 4)`, no zeros at the end, and − for a minus."
-    from decimal import Decimal, ROUND_HALF_UP
-    if not math.isfinite(v): return 'NaN' if v != v else ('−' if v < 0 else '') + 'Infinity'
-    x = Decimal(abs(v)).quantize(Decimal(1).scaleb(-(4 if d is None else d)), rounding=ROUND_HALF_UP)
-    if x == 0: return '0'
-    s = format(x.normalize(), 'f')
-    return ('−' if v < 0 else '') + s
-
-def _js(v) -> str:
-    "The value `v` as JavaScript's `String` writes an item of a list."
-    if v is None: return ''
-    if isinstance(v, bool): return 'true' if v else 'false'
-    if isinstance(v, float) and v.is_integer(): return str(int(v))
-    if isinstance(v, list): return ','.join(_js(x) for x in v)
-    return str(v)
-
-def _show(v, d:int|None=None) -> str:
-    "The value `v` as text, as rupaka's `show` writes it."
-    if v is None: return ''
-    if isinstance(v, bool): return 'true' if v else 'false'
-    if isinstance(v, (int, float)): return _num(v, d)
-    if isinstance(v, list): return ', '.join(_js(x) for x in v)
-    return str(v)
-
-def _fmt(s:str, state:dict) -> str:
-    "The text `s` with each `{path}` or `{path:d}` filled from `state`, as rupaka's `fmt` does; a path with no value stays as it is."
-    def one(m): v = _at(state, m[1]); return m[0] if v is _NONE else _show(v, None if m[2] is None else int(m[2]))
-    return re.sub(r'\{([\w.]+)(?::(\d))?\}', one, str(s or ''))
-
 # %% ../nbs/17_talk.ipynb #c6ce57ff
 def ask_from_gate(spec:dict, gate:str) -> dict|None:
     "A choice question from the gate `gate` of `spec`, with the index of the right option; None when the gate can not be a room question."
-    g, state = first(b for b in _gates((spec or {}).get('blocks')) if b.get('id') == gate), (spec or {}).get('state') or {}
-    if g is None: return None
-    opts = g.get('options')
-    if isinstance(opts, dict): opts = _at(state, opts.get('from', ''))
-    ans = g.get('answer')
-    ans = ans['is'] if isinstance(ans, dict) and 'is' in ans else _at(state, ans) if isinstance(ans, str) else _NONE
-    if not isinstance(opts, list) or not 2 <= len(opts) <= 6 or ans is _NONE or ans not in opts: return None
-    q = _fmt(g.get('prompt'), state)
-    return dict(kind='choice', q=q, options=list(opts), answer=opts.index(ans)) if q else None
+    return poll.of_gate(spec, gate)
 
 # %% ../nbs/17_talk.ipynb #9b23a412
 def public_ask(ask:dict|None) -> dict|None:
     "The part of `ask` that the room sees: no answer and no source."
-    return None if ask is None else {k: ask[k] for k in ('kind', 'q', 'options', 'most') if k in ask}
+    return poll.public(ask)
 
 # %% ../nbs/17_talk.ipynb #8ecb3c87
 CHOICE_SP = register('talk.choice', 'Talk question', 'How the tutor turns a short check into a choice question for a room.', """You turn one check into a choice question. A presenter shows the question to a room, and each person picks one option.
