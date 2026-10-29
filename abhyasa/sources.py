@@ -6,10 +6,10 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'READERS', 'PLAIN', 'LOCALE', 'LANGS',
-           'SHORT', 'EMPTY', 'VR_ROOT', 'RASI', 'group_line', 'add_group', 'extract_prompt', 'doc_pages', 'locate',
-           'figure_path', 'placement', 'extract', 'from_vault', 'sort_prompt', 'propose_groups', 'apply_groups',
-           'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError', 'link_kind', 'reading_order', 'file_link',
-           'plain', 'from_vedicreader']
+           'SHORT', 'EMPTY', 'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group', 'extract_prompt', 'doc_pages',
+           'locate', 'figure_path', 'placement', 'extract', 'from_vault', 'sort_prompt', 'propose_groups',
+           'apply_groups', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError', 'link_kind',
+           'reading_order', 'file_link', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re
@@ -36,6 +36,10 @@ EXTRACT_SP = register('extract', 'Concept finder', 'How the tutor finds the idea
 - `when` is the year of the idea, or null. `who` names the people of the idea.
 - `group` is the place of the idea under the subject: one or two short names, from wide to narrow, for example ["nakshatras"]. Do not use the subject as a group. Use a group from the list of groups when one fits. Make a new group only when no group fits. Use [] when you are not sure.""")
 
+def quoted(s) -> str:
+    "`s` on one line, in JSON quotes, so a name with a line break or a leading `- ` cannot add a line to a prompt."
+    return json.dumps(' '.join(str(s or '').split()), ensure_ascii=False)
+
 def group_line(groups) -> str:
     "The line of a prompt that lists the group paths of a subject, or ''."
     return f"Groups of this subject now: {'; '.join(' › '.join(g) for g in groups[:200])}\n" if groups else ''
@@ -49,7 +53,7 @@ def add_group(gs:list, g:list) -> list:
 
 def extract_prompt(text, subject='', known=(), groups=()):
     from abhyasa.method import METHODS
-    kn = ', '.join(known[:150])
+    kn = ', '.join(map(quoted, known[:150]))
     return ((f"Subject: {subject}\n" if subject else '') + (f"Concepts the learner already has: {kn}\n" if kn else '') + group_line(groups)
             + f"Ways: {', '.join(METHODS)}\n\nText:\n{text}\n\n"
             'Return JSON: {"concepts": [{"name": str, "statement": str, "aliases": [str], "prereqs": [str], "section": str, "quote": str, '
@@ -202,7 +206,7 @@ SORT_SP = register('concepts.sort', 'Concept sorter', 'How the tutor sorts your 
 
 def sort_prompt(subject:str, cs, groups=()) -> str:
     "The request for one batch: the subject, the groups so far, and one line for each concept."
-    item = lambda c: f"- {c.slug}: {c.name}. {' '.join(str(c.get('statement') or '').split())[:160]}"
+    item = lambda c: f"- {c.slug}: {quoted(c.name)}. {quoted(str(c.get('statement') or '')[:160])}"
     return (f"Subject: {subject or 'general'}\n" + (group_line(groups) or 'Groups of this subject now: none\n')
             + '\nConcepts:\n' + '\n'.join(map(item, cs)) + '\n\nReturn JSON: {"places": [{"slug": str, "group": [str]}]}')
 

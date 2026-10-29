@@ -207,7 +207,7 @@ def set_group(self:Learning, slug:str, path, by:str='hand') -> AttrDict:
     if c is None: raise KeyError(f'no concept {slug!r}')
     if by != 'hand' and c.get('group_by') == 'hand': return c
     g = clean_group(path, c.subject)
-    return self.update(slug, group=g, group_by=by if g else None)
+    return self.update(slug, group=g, group_by='hand' if by == 'hand' else by if g else None)
 
 @patch
 def groups(self:Learning, subject:str='') -> list:

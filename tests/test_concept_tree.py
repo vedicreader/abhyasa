@@ -25,12 +25,12 @@ def summary(t, name, n):
 def test_old_vault_sits_in_not_sorted_yet(mk):
     "Concepts with no group are under their subject, in an open `Not sorted yet` part. The subject is open."
     t = mk().get('/concepts').text
-    assert summary(t, 'Ml', 2) and summary(t, 'Not sorted yet', 2) and 'Ranking' in t and 'Reciprocal rank fusion' in t
+    assert summary(t, 'ML', 2) and summary(t, 'Not sorted yet', 2) and 'Ranking' in t and 'Reciprocal rank fusion' in t
     assert all(' open' in d for d in details(t, 'subj')) and all(' open' in d for d in details(t, 'loose'))
 
 def test_tree_has_counts_and_closed_groups(mk, jy):
     t = mk().get('/concepts').text
-    assert summary(t, 'Jyotisha', 3) and summary(t, 'Nakshatras', 2) and summary(t, 'Pitri gana', 1) and summary(t, 'Ml', 2)
+    assert summary(t, 'Jyotisha', 3) and summary(t, 'Nakshatras', 2) and summary(t, 'Pitri gana', 1) and summary(t, 'ML', 2)
     assert all(' open' not in d for d in details(t, 'grp'))                       # quiet: groups start closed
     assert t.index('Nakshatras') < t.index('Not sorted yet') < t.index('Mesha')      # the groups, then the concepts with no group
     assert '4 concepts' not in t and re.search(r'5 concepts · 2 subjects · 3 not sorted yet', t)
@@ -76,7 +76,8 @@ def test_group_field_checks_the_input(mk, jy):
     cl.post('/c/mesha/group', data=dict(group='jyotisha / rasis'))
     assert jy.concept('mesha').group == ['rasis']                                     # the subject is not a group
     cl.post('/c/mesha/group', data=dict(group=''))
-    assert (jy.concept('mesha').group, jy.concept('mesha').group_by) == ([], None)    # empty: out of the group, and the next sort can place it
+    assert (jy.concept('mesha').group, jy.concept('mesha').group_by) == ([], 'hand')  # empty: out of the group, and the tutor does not sort it again
+    assert 'You keep this concept out of the groups.' in cl.get('/c/mesha').text
     assert cl.post('/c/nope/group', data=dict(group='x')).status_code == 404
 
 def test_group_shows_who_set_it(mk, jy):
@@ -125,13 +126,21 @@ def test_sort_runs_in_the_background_and_saves_only_on_accept(mk, jy, fake):
     t = cl.get('/concepts').text
     assert 'Accept this tree' not in t and summary(t, 'Rasis', 1) and 'Sort my concepts' in t
 
+def settled_in(cl, subject, n=250):
+    "The sort part of `subject` after the job is done."
+    for _ in range(n):
+        t = cl.get('/concepts/sort', params=dict(subject=subject)).text
+        if 'is sorting' not in t: return t
+        time.sleep(.02)
+    raise AssertionError('the sort did not end')
+
 def test_sort_of_one_subject(mk, jy, fake):
     fake.rules[SORT] = sorter()
     cl = mk()
     cl.post('/concepts/sort', data=dict(subject='ml'))
-    t = settled(cl)
-    assert summary(t, 'Ml', 2) and 'Jyotisha' not in t
-    cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
+    t = settled_in(cl, 'ml')
+    assert summary(t, 'ML', 2) and 'Jyotisha' not in t
+    cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t), subject='ml'))
     assert jy.concept('ranking').group == ['Stars'] and jy.concept('mesha').get('group') is None
 
 def test_cancel_saves_nothing(mk, jy, fake):
@@ -181,3 +190,31 @@ def test_changes_from_other_sites_are_refused(mk, jy, fake):
 def test_sort_prompt_is_on_the_settings_page(mk):
     from abhyasa.prompts import PROMPTS
     assert 'concepts.sort' in PROMPTS and 'pr-concepts-sort' in mk().get('/settings').text
+
+def test_label_of_a_subject_or_a_group():
+    "A short name with no space is in upper case. A name in lower case gets a capital first letter. Other names show as they are."
+    from abhyasa.blocks.concepts.ui import label
+    assert [label(x) for x in ('ml', 'ai', 'nlp', 'jyotisha', 'iOS', 'deva gana', 'GraphQL', 'ab c', '')] == \
+           ['ML', 'AI', 'NLP', 'Jyotisha', 'iOS', 'Deva gana', 'GraphQL', 'Ab c', 'General']
+
+def test_two_subjects_do_not_mix(mk, jy, fake):
+    "A sort of one subject shows only on the page of that subject, and its accept needs that subject. A second sort waits for the first one."
+    gate = threading.Event()
+    fake.rules[SORT] = sorter(gate)
+    cl = mk()
+    assert 'The tutor is sorting your concepts' in cl.post('/concepts/sort', data=dict(subject='ml')).text
+    t = cl.get('/concepts').text
+    assert 'is sorting' not in t and 'Jyotisha' in t                                  # the page of all subjects is not the ml sort
+    assert 'is sorting' in cl.get('/concepts', params=dict(subject='ml')).text
+    assert 'No sort is running' in cl.get('/concepts/sort', params=dict(subject='jyotisha')).text
+    t = cl.post('/concepts/sort', data=dict(subject='jyotisha')).text
+    assert 'The tutor is sorting the concepts of ml now' in t and 'is sorting your concepts' not in t
+    gate.set()
+    t = settled_in(cl, 'ml')
+    assert 'Accept this tree' in t and 'Jyotisha' not in t and 'name="subject" value="ml"' in t
+    assert 'Accept this tree' not in cl.get('/concepts').text
+    r = cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))                  # the right id, but not the subject of the sort
+    assert 'This sort is old' in r.text and jy.concept('ranking').get('group') is None
+    r = cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t), subject='ml'))
+    assert r.headers.get('HX-Redirect') == '/concepts?subject=ml'
+    assert jy.concept('ranking').group == ['Stars'] and jy.concept('mesha').get('group') is None

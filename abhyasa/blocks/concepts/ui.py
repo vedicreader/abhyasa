@@ -19,8 +19,10 @@ def finds(c, q) -> bool:
     return fold(q).strip() in fold(' '.join((c.name, c.slug, *(c.get('aliases') or ()))))
 
 def label(name) -> str:
-    "A subject or a group name as a label: the first letter in upper case."
-    return name[:1].upper() + name[1:] if name else 'General'
+    "A subject or a group name as a label: a short name such as `ml` in upper case, a name in lower case with a capital first letter, else as it is."
+    if not name: return 'General'
+    if len(name) <= 3 and name.isalpha() and name.islower(): return name.upper()
+    return name[:1].upper() + name[1:] if name.islower() else name
 
 def Row(c):
     "One concept in the tree: its name, its level, and when it comes back."
@@ -66,26 +68,29 @@ def Listing(cs, q='', subject='', said=''):
     body = Tree(hits, deep=bool(q.strip())) if hits else Empty(f'No concept matches “{q}”.', A('Search everything', href=f"/search?{urlencode(dict(q=q))}"))
     return (P(said, cls='req-err') if said else '', Counts(cs), Div(Find(q, subject), SortButton(subject), cls='tools'), body)
 
-def SortPending(sid, cs):
+def _sort_id(sid, subject): return Input(type='hidden', name='sort', value=sid), Input(type='hidden', name='subject', value=subject)
+
+def SortPending(sid, cs, subject=''):
     "The sort runs in the background: the card asks the server again in 2 seconds. The tree below stays, so you can read it."
     return (Div(P('The tutor is sorting your concepts…'), P('This can take a minute. You can read your concepts while you wait.', cls='mute'),
-                Form(Input(type='hidden', name='sort', value=sid), Quiet('Cancel'), hx_post=Routes.cancel, hx_target='#concepts-view', hx_swap='innerHTML'),
-                cls='pending', hx_get=Routes.sort, hx_trigger='load delay:2s', hx_target='#concepts-view', hx_swap='innerHTML'),
+                Form(*_sort_id(sid, subject), Quiet('Cancel'), hx_post=Routes.cancel, hx_target='#concepts-view', hx_swap='innerHTML'),
+                cls='pending', hx_get=Routes.sort + (f"?{urlencode(dict(subject=subject))}" if subject else ''), hx_trigger='load delay:2s', hx_target='#concepts-view', hx_swap='innerHTML'),
             Tree(cs))
 
-def Proposal(sid, cs, moved, hand):
+def Proposal(sid, subject, cs, moved, hand):
     "The tree that the tutor proposes, and one choice: accept it (the one main button) or cancel. Nothing is saved before the accept."
     said = f"The tutor moves {n_of(moved, 'concept')}." if moved else 'The tutor has no change to make.'
     if hand: said += f" {n_of(hand, 'concept')} that you moved by hand {'stays where it is' if hand == 1 else 'stay where they are'}."
     return Part('The proposed tree', P(said, cls='mute'),
-                Div(Form(Input(type='hidden', name='sort', value=sid), Primary('Accept this tree'), hx_post=Routes.accept),
-                    Form(Input(type='hidden', name='sort', value=sid), Quiet('Cancel'), hx_post=Routes.cancel, hx_target='#concepts-view', hx_swap='innerHTML'),
+                Div(Form(*_sort_id(sid, subject), Primary('Accept this tree'), hx_post=Routes.accept),
+                    Form(*_sort_id(sid, subject), Quiet('Cancel'), hx_post=Routes.cancel, hx_target='#concepts-view', hx_swap='innerHTML'),
                     cls='row'),
                 Tree(cs), cls='proposal')
 
 def GroupField(c, groups=(), said='', bad=False):
     "A small form on a concept page to move it to a group by hand: one or two names with `/` between them."
-    who = {'hand': 'You set this group.', 'model': 'The tutor set this group.'}.get(c.get('group_by'), '') if c.get('group') else ''
+    who = ({'hand': 'You set this group.', 'model': 'The tutor set this group.'}.get(c.get('group_by'), '') if c.get('group') else
+           'You keep this concept out of the groups.' if c.get('group_by') == 'hand' else '')
     return Form(Label(Span('Group', cls='lbl'),
                       Input(type='text', name='group', value=' / '.join(c.get('group') or []), placeholder='For example: nakshatras / padas',
                             list='group-names', maxlength='90', autocomplete='off', aria_label='Group')),
