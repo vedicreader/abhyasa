@@ -38,6 +38,7 @@ def connect(app, ctx):
                  Kind('link', Div(Label('A link', Input(type='text', name='url', placeholder='an arXiv id, a PDF, a docs page or a GitHub repo')),
                                   Label('Pages to read', Input(type='number', name='pages', min=1, max=val('links.cap'), value=val('links.pages')), cls='pages'),
                                   P('A paper is read in full.', cls='mute paper-note', hidden=True), cls='pair'),
+                      Label('Subject', Input(type='text', name='subject', placeholder='optional: the tutor picks one when this is empty')),
                       Label(Input(type='checkbox', name='tool'), ' It is a library or a command-line tool. Code opens in Leela.', cls='tick'),
                       P('abhyasa gets the pages of a link only when you send this form. It reads only the pages in the folder of the link.', cls='mute')),
                  Kind('text', Label('A text', Textarea(name='text', rows=4, placeholder='Paste a text.')),

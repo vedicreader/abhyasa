@@ -825,6 +825,10 @@ def ct1_concept_tree(pg, w):
     assert pg.is_visible('.find-none') and not pg.is_visible('a:text-is("Magha")')
     pg.fill('#find', 'magh'); pg.press('#find', 'Enter'); pg.wait_for_url(lambda u: 'q=magh' in u); settle(pg, 200)
     assert is_open(deep) and pg.is_visible('a:text-is("Magha")'), 'with no script, the server opens the branch too'
+    pg.goto(w.B + '/concepts'); settle(pg, 200)
+    pg.click('button:has-text("Sort my concepts")'); pg.wait_for_selector('.tally', timeout=20000)
+    assert re.search(r'\d+ placed\. \d+ left for you', pg.inner_text('.tally')), 'the proposal says how many are placed and how many are left'
+    pg.click('.proposal button:has-text("Cancel")'); settle(pg, 150)
 
 def box_values(pg): return pg.evaluate("['#ans', '#think'].map(s => document.querySelector(s)?.value)")
 

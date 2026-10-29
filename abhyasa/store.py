@@ -6,7 +6,7 @@ Docs: https://vedicreader.github.io/abhyasa/store.html.md"""
 
 # %% auto #0
 __all__ = ['SHELF', 'STATE', 'LISTS', 'SYMBOLS', 'SLUG_KEYS', 'GROUP_DEPTH', 'GROUP_LEN', 'slugify', 'concept_text', 'Learning',
-           'clean_group', 'tree', 'attempt_text', 'temp_learning']
+           'clean_group', 'clean_subject', 'readable_name', 'tree', 'attempt_text', 'temp_learning']
 
 # %% ../nbs/00_store.ipynb #c004
 import json, re, time, uuid, hashlib, unicodedata
@@ -61,6 +61,7 @@ class Learning:
     def __init__(self, vault=None, shelf:str=SHELF):
         if not isinstance(vault, Vault): vault = Vault(vault)
         self.vault, self.v = vault, vault.shelf(shelf)
+        self.repair_names()   # a name that is a slug becomes words, one time
 
     def _docs(self, kind, where='', args=()):
         w = 'kind=?' + (f' and ({where})' if where else '')
@@ -218,6 +219,34 @@ def groups(self:Learning, subject:str='') -> list:
         g = clean_group(c.get('group'), c.subject)
         for i in range(1, len(g) + 1): seen.setdefault(tuple(x.lower() for x in g[:i]), g[:i])
     return [seen[k] for k in sorted(seen)]
+
+# %% ../nbs/00_store.ipynb #sf06
+def clean_subject(s) -> str:
+    "`s` as one short plain lower-case name; '' when it has none."
+    return ' '.join(_plain(s).split())[:GROUP_LEN].strip(' -').lower() if isinstance(s, str) else ''
+
+@patch
+def set_subject(self:Learning, slug:str, subject:str, by:str='model') -> AttrDict:
+    "Give concept `slug` a subject, set `by` the learner (`hand`) or the tutor (`model`). The tutor sets only an empty subject, and never on a concept that you moved by hand."
+    c = self.concept(slug)
+    if c is None: raise KeyError(f'no concept {slug!r}')
+    s = clean_subject(subject)
+    if by != 'hand' and (c.get('group_by') == 'hand' or c.subject or not s): return c
+    return self.update(slug, subject=s, subject_by=by)
+
+def readable_name(name, statement:str='') -> str:
+    "`name` as words: a name that is a slug with hyphens, or an empty name (words from `statement`), becomes a short sentence-case name. Else `name`."
+    n = ' '.join(str(name or '').split())
+    if n and not (' ' not in n and '-' in n and n == slugify(n)): return n
+    n = ' '.join((n or ' '.join(str(statement or '').split()[:6])).replace('-', ' ').split()).rstrip('.,;:')
+    return n[:1].upper() + n[1:]
+
+@patch
+def repair_names(self:Learning) -> list:
+    "Give each concept whose name is its own slug, with hyphens, a readable name. Return the slugs that changed. A name that differs from the slug stays."
+    out = [c.slug for c in self.concepts() if c.name == c.slug and '-' in c.name]
+    for s in out: self.update(s, name=readable_name(s))
+    return out
 
 # %% ../nbs/00_store.ipynb #g006
 def _node(name, path): return AttrDict(name=name, path=path, kids={}, cs=[])

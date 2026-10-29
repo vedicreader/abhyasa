@@ -138,17 +138,17 @@ def connect(app, ctx):
         except Exception: n = None
         return f"Reading the paper: {n_of(n, 'page')}…" if n else 'Reading the paper…'
 
-    def from_link(url, pages, st, tool=False):
+    def from_link(url, pages, st, tool=False, subject=''):
         "On the pool: file the pages of `url`, then read each page and make one walk. Return the walk id. A paper is one document, read in full."
         docs = file_link(lr, url, pages)
         said = (lambda k, n: paper_said(docs)) if is_paper(url) else (lambda k, n: f"Reading {k + 1} of {n_of(n, 'page')}…")
-        j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=said(k, n)), tool=tool)
+        j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=said(k, n)), tool=tool, subject=subject)
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no ideas on these pages.')
         return j.id
 
-    def link_walk(url, pages, tool=False):
+    def link_walk(url, pages, tool=False, subject=''):
         "Start the pool job that makes a walk from `url`, unless one is running. The request does not wait for the network or the model."
         try: link_kind(url)
         except ValueError as e: return P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err')
@@ -156,7 +156,7 @@ def connect(app, ctx):
         if not st or st.job.done():
             paper = is_paper(url)   # one paper: the count of pages to read does not apply
             st = links[url] = AttrDict(said='Reading the paper…' if paper else 'Getting the pages from the link…')
-            st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() and not paper else None, st, tool)
+            st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() and not paper else None, st, tool, subject)
         return ui.LinkPending(url, st.said)
 
     def job(url:str=''):
@@ -166,16 +166,16 @@ def connect(app, ctx):
         if (e := st.job.exception()): return P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err')   # never the words of a library
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
-    def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str=''):
-        tool, ref, shelf = tool == 'on', ref.strip(), shelf.strip() or 'store'
-        if url.strip(): return link_walk(url.strip(), pages, tool)
-        if (u := as_link(ref)): return Div(P(AS_LINK, cls='mute'), link_walk(u, '', tool))   # a link in the vault document field
+    def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str=''):
+        tool, ref, shelf, subject = tool == 'on', ref.strip(), shelf.strip() or 'store', subject.strip()
+        if url.strip(): return link_walk(url.strip(), pages, tool, subject)
+        if (u := as_link(ref)): return Div(P(AS_LINK, cls='mute'), link_walk(u, '', tool, subject))   # a link in the vault document field
         try:
             if ref and (lr.vault if shelf == 'store' else lr.vault.shelf(shelf)).doc(ref) is None:
                 log.warning('the tutor could not make a walk: no vault document matches %r', ref)
                 return P(NO_DOC, cls='req-err')
-            if ref: j = journey_from_source(lr, ask, ref, shelf, tool=tool)
-            elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60], tool=tool)
+            if ref: j = journey_from_source(lr, ask, ref, shelf, subject, tool)
+            elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60], subject, tool)
             elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool)
             else: return P('Name a vault document, paste a text, or write a topic.', cls='req-err')
         except Exception as e:   # the log keeps the words of the library; the page shows a plain line

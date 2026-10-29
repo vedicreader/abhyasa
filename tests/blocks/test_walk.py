@@ -614,3 +614,31 @@ def test_a_refused_move_gives_the_server_a_plain_reason(mk, walk_fake, lr):
     assert r.status_code == 409 and r.text == 'No check is open on this idea. Load the page again.' and 'html' not in r.headers.get('content-type', '')
     js = (Path(abhyasa.__file__).parent/'core'/'core.js').read_text()
     assert 'responseText' in js and 'Load the page again' in js and 'textContent' in js
+
+def link_walk_subjects(cl, u, **data):
+    "Make a link walk with the form fields `data`, wait for it, and return the subjects of its concepts."
+    cl.post('/walk/new', data=dict(url=u, **data), headers=HX)
+    jid = wait_for(lambda: (cl.get('/walk/job', params=dict(url=u)).headers.get('hx-redirect') or '').split('/')[-1] or None, secs=10)
+    return jid
+
+def test_link_walk_sets_a_subject_for_each_new_concept(mk, walk_fake, lr, monkeypatch):
+    "A link walk uses the Subject field when it is given. Else the finder gives the subject. A concept with a subject keeps it. A name that is a slug becomes words."
+    fake_web(monkeypatch)
+    lr.put('Softmax', 'Old words.', 'math')
+    reply = dict(concepts=[{**c, 'subject': 'Transformers'} for c in EXTRACT_REPLY['concepts']])
+    reply['concepts'][0]['name'] = 'sequential-computation'
+    walk_fake.rules['Return JSON: {"concepts"'] = reply
+    cl = mk()
+    assert 'name="subject"' in cl.get('/add').text
+    link_walk_subjects(cl, 'https://docs.example.dev/a/')
+    got = {c.slug: c.subject for c in lr.concepts()}
+    assert got['sequential-computation'] == 'transformers' and got['scaling-by-the-root-of-dk'] == 'transformers' and got['softmax'] == 'math'
+    assert lr.concept('sequential-computation').name == 'Sequential computation'
+
+def test_link_walk_uses_the_subject_field(mk, walk_fake, lr, monkeypatch):
+    "With the Subject field, each new concept gets that subject, and the request does not ask the finder for one."
+    fake_web(monkeypatch)
+    walk_fake.rules['Return JSON: {"concepts"'] = dict(concepts=[{**c, 'subject': 'Transformers'} for c in EXTRACT_REPLY['concepts']])
+    link_walk_subjects(mk(), 'https://docs.example.dev/b/', subject='nlp')
+    assert {c.subject for c in lr.concepts() if c.slug in ('softmax', 'sequential-computation')} == {'nlp'}
+    assert 'Subject: nlp' in walk_fake.calls[-1][0] and '"subject": str' not in walk_fake.calls[-1][0]

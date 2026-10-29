@@ -77,11 +77,12 @@ def SortPending(sid, cs, subject=''):
                 cls='pending', hx_get=Routes.sort + (f"?{urlencode(dict(subject=subject))}" if subject else ''), hx_trigger='load delay:2s', hx_target='#concepts-view', hx_swap='innerHTML'),
             Tree(cs))
 
-def Proposal(sid, subject, cs, moved, hand):
+def Proposal(sid, subject, cs, moved, hand, placed=0, left=()):
     "The tree that the tutor proposes, and one choice: accept it (the one main button) or cancel. Nothing is saved before the accept."
     said = f"The tutor moves {n_of(moved, 'concept')}." if moved else 'The tutor has no change to make.'
     if hand: said += f" {n_of(hand, 'concept')} that you moved by hand {'stays where it is' if hand == 1 else 'stay where they are'}."
-    return Part('The proposed tree', P(said, cls='mute'),
+    tally = f"{placed} placed. {len(left)} left for you" + (f": {', '.join(left)}." if left else '.')
+    return Part('The proposed tree', P(said, cls='mute'), P(tally, cls='mute tally'),
                 Div(Form(*_sort_id(sid, subject), Primary('Accept this tree'), hx_post=Routes.accept),
                     Form(*_sort_id(sid, subject), Quiet('Cancel'), hx_post=Routes.cancel, hx_target='#concepts-view', hx_swap='innerHTML'),
                     cls='row'),
