@@ -191,7 +191,8 @@ document.addEventListener('htmx:afterRequest', e => {
       const p = document.createElement('p');
       p.className = 'req-err';
       const why = abhyasaWhy(e.detail.xhr);   // the short plain reason of a 4xx, as text and never as HTML
-      p.textContent = why || (status ? `The request failed (error ${status}). Try again.` : 'The app does not answer. Make sure that it runs, then try again.');
+      const lead = status === 409 ? why.replace(/\s*Load the page again\.?$/i, '') : why;   // the link says the last words, so they show once
+      p.textContent = why ? lead : status ? `The request failed (error ${status}). Try again.` : 'The app does not answer. Make sure that it runs, then try again.';
       if (why && status === 409) {
         const a = Object.assign(document.createElement('a'), {href: location.href, textContent: 'Load the page again'});
         a.addEventListener('click', ev => { ev.preventDefault(); location.reload(); });
