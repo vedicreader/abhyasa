@@ -7,9 +7,10 @@ Docs: https://vedicreader.github.io/abhyasa/talk.html.md"""
 # %% auto #0
 __all__ = ['TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'TALK_CASES',
            'CHOICE_SP', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'check_talk', 'ask_from_gate', 'public_ask',
-           'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'talk_from_walk', 'image_type',
-           'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_question',
-           'log_beside', 'share_right', 'is_split', 'weak', 'recap', 'recap_html']
+           'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'talk_from_walk', 'walk_talk',
+           'talk_from_journey', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run',
+           'log_round', 'log_main', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap',
+           'recap_html']
 
 # %% ../nbs/17_talk.ipynb #bddba3f8
 import re, json, math, time, uuid, secrets, hashlib, base64, html
@@ -19,7 +20,7 @@ from pathlib import Path
 from typing import Callable
 from fastcore.utils import *
 from .store import Learning, slugify, _src
-from .journey import minutes
+from .journey import minutes, walk_for_talk
 from .llm import ask_json, for_task
 from .prompts import register, prompt
 from .settings import val
@@ -262,6 +263,16 @@ def talks(self:Learning) -> L:
 def drop_talk(self:Learning, tid:str):
     "Remove a talk. Its walk stays."
     if (t := self.talk(tid)): self.v.forget(t.doc_id)
+
+# %% ../nbs/17_talk.ipynb #pj22
+def walk_talk(lr:Learning, wid:str) -> AttrDict|None:
+    "The newest talk made from walk `wid`, or None."
+    return first(t for t in lr.talks() if (t.get('src') or {}).get('walk') == wid)
+
+def talk_from_journey(lr:Learning, ask, jid:str, sources=None, again:bool=False) -> AttrDict:
+    "A talk from plain journey `jid`, made from its walk for a talk. A second call gives the same talk, unless `again`."
+    w = walk_for_talk(lr, jid, sources, again)
+    return (None if again else walk_talk(lr, w.id)) or talk_from_walk(lr, ask, w.id)
 
 # %% ../nbs/17_talk.ipynb #399b1dc2
 IMAGE_TYPES = {b'\x89PNG\r\n\x1a\n': 'image/png', b'\xff\xd8\xff': 'image/jpeg', b'GIF87a': 'image/gif', b'GIF89a': 'image/gif'}
