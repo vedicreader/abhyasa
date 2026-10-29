@@ -111,6 +111,7 @@ const PANE = /^\/w\/[a-z0-9-]{1,48}\/[0-9]{1,3}$/;   // the only page that the s
 const PANE_URL = /^\/w\/[a-z0-9-]{1,48}\/[0-9]{1,3}\?pane=1&talk=1$/;   // the same step, in the talk type, and nothing more
 const paneOK = u => u === null || (typeof u === 'string' && PANE_URL.test(u));
 const make = (tag, cls, text) => Object.assign(document.createElement(tag), cls ? {className: cls} : {}, text != null ? {textContent: text} : {});
+const maths = (tag, cls, text) => abhyasaMath(make(tag, cls), text);   // text with its maths drawn (core.js), never as HTML
 const sectionsOf = st => [...st.querySelectorAll(':scope > section.stage[data-sid]')];
 const sectionOf = (st, sid) => sectionsOf(st).find(s => s.dataset.sid === sid);
 
@@ -170,9 +171,9 @@ function drawAsk(st, m) {
   if (!m.ask) { box.hidden = true; box.replaceChildren(); return; }
   const a = m.ask, opts = a.options || [], sec = sectionOf(st, m.slide), n = sectionsOf(st).indexOf(sec) + 1;
   const ol = make('ol', 'ask-opts');
-  opts.forEach((o, k) => { const li = make('li'); li.dataset.k = k; li.append(make('span', 'L', mark(a.kind, k)), make('span', 't', o)); ol.append(li); });
+  opts.forEach((o, k) => { const li = make('li'); li.dataset.k = k; li.dataset.o = o; li.append(make('span', 'L', mark(a.kind, k)), maths('span', 't', o)); ol.append(li); });
   const hint = opts.length ? `Hands up for your answer: ${said(opts.map((_, k) => mark(a.kind, k)))}.` : 'Think of your answer. The presenter asks some of you to say it.';
-  box.replaceChildren(make('p', 'crumb', `Ask the room · slide ${n}`), make('h2', 'ask-q', a.q), ...(opts.length ? [ol] : []), make('p', 'hint-line', hint));
+  box.replaceChildren(make('p', 'crumb', `Ask the room · slide ${n}`), maths('h2', 'ask-q', a.q), ...(opts.length ? [ol] : []), make('p', 'hint-line', hint));
   box.dataset.kind = a.kind; box.hidden = false;
 }
 
@@ -189,9 +190,9 @@ function drawResult(st, m) {
     if (tags.length) li.querySelector('.t').append(make('span', 'tag', tags.join(' · ')));
   });
   if (Array.isArray(m.right)) {
-    const items = [...box.querySelectorAll('.ask-opts li .t')].map(t => t.firstChild.textContent);
+    const items = [...box.querySelectorAll('.ask-opts li')].map(li => li.dataset.o);
     const ol = make('ol', 'right-order');
-    m.right.forEach(i => ol.append(make('li', '', items[i] ?? '')));
+    m.right.forEach(i => ol.append(maths('li', '', items[i] ?? '')));
     box.querySelector('.right-order')?.remove();
     box.querySelector('.hint-line').replaceWith(make('p', 'hint-line', 'The right order:'), ol);
   } else box.querySelector('.hint-line').textContent = m.main == null ? 'The right answer is lit.' : 'The right answer and the answer of most hands are lit.';
@@ -199,13 +200,13 @@ function drawResult(st, m) {
 
 function drawPair(st, m) {
   const box = roomPart(st, 'stage-pair');
-  box.replaceChildren(make('p', 'pair-say', m.prompt || 'Talk to your neighbour.'));
+  box.replaceChildren(maths('p', 'pair-say', m.prompt || 'Talk to your neighbour.'));
   box.hidden = !m.on;
 }
 
 function drawEnd(st) {
   const box = roomPart(st, 'stage-pair');
-  box.replaceChildren(make('h2', 'pair-say', 'Thank you'), make('p', 'crumb', st.dataset.title || ''));
+  box.replaceChildren(make('h2', 'pair-say', 'Thank you'), maths('p', 'crumb', st.dataset.title || ''));
   box.hidden = false;
 }
 
@@ -408,13 +409,13 @@ function presenterView(st) {
     b.id = 'ask-side'; b.dataset.n = opts.length; b.dataset.kind = a.kind;
     b.dataset.ask = JSON.stringify({slide: at.slide, ask: Object.fromEntries(['kind', 'q', 'options', 'most'].filter(k => k in a).map(k => [k, a[k]]))});
     const ol = make('ol', 'opts');
-    opts.forEach((o, k) => { const li = make('li', a.kind === 'choice' && k === a.answer ? 'right' : ''); li.append(make('span', 'L', mark(a.kind, k)), o); ol.append(li); });
+    opts.forEach((o, k) => { const li = make('li', a.kind === 'choice' && k === a.answer ? 'right' : ''); li.append(make('span', 'L', mark(a.kind, k)), maths('span', '', o)); ol.append(li); });
     const hands = make('div', 'hands row');
     opts.forEach((_, k) => {
       const h = make('button', side.main === k ? 'on' : '', mark(a.kind, k)); h.type = 'button'; h.dataset.hand = k;
       h.append(make('kbd', '', String(k + 1))); h.addEventListener('click', () => hand(k + 1)); hands.append(h);
     });
-    b.append(make('span', 'lbl', `Ask the room · on the primer: ${side.title}`), make('p', 'q', a.q), ...(opts.length ? [ol, hands] : []));
+    b.append(maths('span', 'lbl', `Ask the room · on the primer: ${side.title}`), maths('p', 'q', a.q), ...(opts.length ? [ol, hands] : []));
     card.insertBefore(b, card.querySelector('.none'));
   }
   async function ask(what, extra = {}) {
@@ -542,8 +543,8 @@ function presenterView(st) {
   // --- paint: the parts of the presenter view that follow the place
   function paint() {
     const i = idx(), s = slides[i], sec = sectionOf(st, at.slide);
-    const crumb = sec.querySelector('.crumb')?.textContent;
-    $('now').textContent = `Now · slide ${i + 1} of ${slides.length}` + (crumb ? ` · ${crumb}` : '');
+    const crumb = sec.querySelector('.crumb');   // a copy of the drawn crumb, so its maths shows as on the slide
+    $('now').replaceChildren(`Now · slide ${i + 1} of ${slides.length}`, ...(crumb ? [' · ', ...crumb.cloneNode(true).childNodes] : []));
     $('beats').replaceChildren(`Beat ${at.beat} of ${s.n} `, ...Array.from({length: s.n}, (_, k) => make('i', k < at.beat ? 'on' : '')));
     [...$('rail').children].forEach((r, k) => { r.classList.toggle('done', k < i); r.classList.toggle('now', k === i); });
     for (const id of ['notes', 'next']) [...$(id).children].forEach(n => { n.hidden = n.dataset.sid !== at.slide; });

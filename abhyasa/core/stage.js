@@ -128,7 +128,8 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   function audience(el, {ch, draw = () => {}, fade = 1500, title} = {}) {
     const dot = child(el, 'stage-dot'), blank = child(el, 'stage-blank');
     dot.setAttribute('aria-hidden', 'true');
-    blank.textContent = title ?? el.dataset.title ?? '';
+    const name = title ?? el.dataset.title ?? '';
+    if (typeof abhyasaMath === 'function') abhyasaMath(blank, name); else blank.textContent = name;   // core.js draws its maths, as text
     let dotT = 0, litT = 0, lit = null;
     const hide = () => { clearTimeout(dotT); dot.classList.remove('on'); };
     const unlight = () => { clearTimeout(litT); lit?.classList.remove('lit'); lit = null; };
