@@ -29,6 +29,7 @@ demo = [
     { name = "rupaka", extra = ["check"] },
 ]
 dev = [
+    { name = "gheasy" },
     { name = "ipykernel" },
     { name = "nbdev" },
     { name = "notebook" },
@@ -58,6 +59,7 @@ dev = [
 requires-dist = [
     { name = "fastcore", specifier = ">=1.8" },
     { name = "fossick", specifier = ">=0.1.22" },
+    { name = "gheasy", marker = "extra == 'dev'", specifier = ">=0.0.15" },
     { name = "gheasy", marker = "extra == 'repos'", specifier = ">=0.0.15" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=7.3.0" },
     { name = "ipywidgets", specifier = ">=8.1" },
