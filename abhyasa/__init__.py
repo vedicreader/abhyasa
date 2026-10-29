@@ -6,4 +6,4 @@ Modules:
 - `abhyasa.core.hooks`: Blocks add to each other's pages without importing each other (vedicreader's `vr/core/hooks.py`).
 - `abhyasa.core.pane`: The side pane: a page of this app beside the page, after vedicreader's `vr/core/pane.py`."""
 
-__version__ = "0.0.11"
+__version__ = "0.0.12"
