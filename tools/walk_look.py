@@ -826,6 +826,21 @@ def ct1_concept_tree(pg, w):
     pg.fill('#find', 'magh'); pg.press('#find', 'Enter'); pg.wait_for_url(lambda u: 'q=magh' in u); settle(pg, 200)
     assert is_open(deep) and pg.is_visible('a:text-is("Magha")'), 'with no script, the server opens the branch too'
 
+def box_values(pg): return pg.evaluate("['#ans', '#think'].map(s => document.querySelector(s)?.value)")
+
+def dr1_wrong_try_leaves_empty_boxes(pg, w):
+    "After a wrong try, the answer box and the think-aloud box are empty in the walk check and in the session, and the try stays in the record."
+    jid = new_walk(w)
+    pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check #ans'); settle(pg)
+    pg.fill('#ans', 'a sum of scores'); pg.fill('#think', 'I added them'); pg.click('#send')
+    pg.wait_for_selector('#check .thread .you'); settle(pg, 300)
+    assert 'a sum of scores' in pg.inner_text('#check .thread') and box_values(pg) == ['', ''], box_values(pg)
+    sid = w.rq.get(f'{w.B}/start?focus=ranking', max_redirects=0).headers['location'].rstrip('/').split('/')[-1]
+    pg.goto(f'{w.B}/s/{sid}'); pg.wait_for_selector('#composer #ans'); settle(pg)
+    pg.fill('#ans', 'a sum of scores'); pg.fill('#think', 'I added them'); pg.click('#send')
+    pg.wait_for_selector('#chat .m.you'); settle(pg, 300)
+    assert box_values(pg) == ['', ''], box_values(pg)
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
@@ -833,7 +848,8 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
-          s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field, r1_start_forms_show_no_error, ct1_concept_tree]
+          s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field, r1_start_forms_show_no_error, ct1_concept_tree,
+          dr1_wrong_try_leaves_empty_boxes]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

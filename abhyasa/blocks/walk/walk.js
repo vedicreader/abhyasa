@@ -29,9 +29,10 @@ if (!window.abhyasaWalk) {
     if (e.target.id !== 'ans' || !e.target.closest('#check') || !qid()) return;
     if (e.target.value) sessionStorage.setItem(KEY + qid(), e.target.value); else sessionStorage.removeItem(KEY + qid());
   });
-  document.addEventListener('htmx:afterRequest', e => {
-    const f = e.detail.elt;
-    if (e.detail.successful && f && f.matches && f.matches('#check form[data-qid]')) sessionStorage.removeItem(KEY + f.dataset.qid);
+  // It goes before the new card swaps in (afterSettle would put it back), so a miss leaves the box empty for the next try.
+  document.addEventListener('htmx:beforeSwap', e => {
+    const f = document.querySelector('#check form[data-qid]');
+    if (f && e.detail.xhr.status < 300 && /\/(answer|giveup)$/.test(e.detail.requestConfig.path)) sessionStorage.removeItem(KEY + f.dataset.qid);
   });
   const restore = () => {
     const a = document.querySelector('#check #ans'), d = qid() && sessionStorage.getItem(KEY + qid());

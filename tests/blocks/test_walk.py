@@ -590,3 +590,18 @@ def test_add_page_quiets_pages_for_a_paper(mk):
     "The link field has a script that quiets Pages to read for a paper, and the muted line is there."
     t = mk().get('/add').text
     assert 'A paper is read in full.' in t and 'paper-note' in t
+
+def boxes(html):
+    "The answer box and the think-aloud box of a page, as their tags and their text."
+    import re
+    return {m[1]: (m[0], m[2]) for m in re.findall(r'(<textarea[^>]*id="(ans|think)"[^>]*>)(.*?)</textarea>', html, re.S)}
+
+def test_wrong_try_gives_empty_boxes_and_keeps_the_try_in_the_record(mk, walk_fake, lr):
+    "After a miss the card shows the try in its record, and the answer box and the think-aloud box are empty."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
+    cl.get(f'/w/{jid}/1/check')
+    r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='a sum of scores', thinking='I added them')).text
+    assert 'Not yet' in r and 'a sum of scores' in r                                  # the try shows in the record
+    b = boxes(r)
+    assert b['ans'][1] == '' and b['think'][1] == '' and 'a sum of scores' not in b['ans'][0]   # the boxes are empty

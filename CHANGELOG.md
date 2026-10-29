@@ -33,6 +33,7 @@
 - The side pane in a talk: ⌥B opens a short primer beside the slide in both windows, in large type and with no check. D and A turn its pages. ⌥Z closes it.
 - After the talk: where the room was unsure, the talk slide by slide, a recap file for the room, and a follow-up walk.
 - The answers of the room and your pick at a demo gate in a talk do not change your learning.
+- After a wrong try, the answer box and the think-aloud box are empty for the next try. The earlier try shows in the record of the check.
 
 ## 0.0.11
 
