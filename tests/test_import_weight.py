@@ -18,3 +18,14 @@ def test_nb_import_is_light():
     mods = json.loads(subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, check=True).stdout)
     bad = [m for m in mods if m.split('.')[0] in ('ramabana', 'rishi')]
     assert not bad, bad
+
+
+def test_stagekit_imports_only_the_standard_library():
+    "Leela imports room_spec and is_local with no abhyasa web code and no settings."
+    code = "import abhyasa.stagekit, sys; assert 'fasthtml' not in sys.modules and 'abhyasa.settings' not in sys.modules and 'abhyasa.core' not in sys.modules"
+    subprocess.run([sys.executable, '-I', '-c', code], check=True)
+
+def test_core_names_are_the_stagekit_names():
+    "The names in `core` are the same objects as in `stagekit`."
+    import abhyasa.stagekit as k, abhyasa.core as c, abhyasa.core.pane as p
+    assert c.room_spec is k.room_spec and p.is_local is k.is_local

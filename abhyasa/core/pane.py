@@ -22,14 +22,9 @@ The contract for a host (abhyasa here, Leela too):
 import re
 from urllib.parse import urlsplit, urlunsplit
 from fasthtml.common import A, Aside, B, Button, Div, Header, Iframe, Span
+from abhyasa.stagekit import is_local, _BAD
 
 __all__ = ['is_local', 'is_web', 'pane_url', 'pane_link', 'PaneHost']
-
-_BAD = re.compile(r'[\x00-\x1f\x7f\\]')   # a control character or a backslash: a browser can make either into a way out of the app
-
-def is_local(url) -> bool:
-    "Whether `url` is a path in this app: one `/` at the start, no scheme, no host, no backslash and no control character."
-    return isinstance(url, str) and url.startswith('/') and not url.startswith('//') and not _BAD.search(url)
 
 _WEB = re.compile(r'https?://[^\s/?#\\]+[^\s\\]*\Z', re.I)   # http or https, a host, and no space
 
