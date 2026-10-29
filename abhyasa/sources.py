@@ -644,7 +644,8 @@ def _day(t) -> str:
 
 def source_of(read:dict, j:dict|None=None) -> AttrDict:
     """The source line of the passage `read` (a step `read`, a slide source or a cite) in walk `j`: its `label`, its `title`,
-    `href` (its document in the vault), `place` (the section and the page, or the site of a web page), `url` (a web page) and `date`."""
+    `href` (its document in the vault), `place` (the section and the page, or the site of a web page), `url` (a web page), `date`,
+    and `episode` (the id of a Ramayana episode, for its link to vedicreader)."""
     r, s = read or {}, str((read or {}).get('src') or '')
     shelf, doc = r.get('shelf'), r.get('doc_id')
     if not (shelf and doc) and s.startswith('vault:'): shelf, doc = s[6:], str(r.get('ref') or '').split('#')[0]
@@ -654,7 +655,7 @@ def source_of(read:dict, j:dict|None=None) -> AttrDict:
     title = r.get('title') or ((j or {}).get('source') or {}).get('title') or r.get('site') or 'your text'
     other = '' if web or s.startswith('vault:') or s in ('text', 'doc') else s   # a source that is not in the vault, such as `notes`
     return AttrDict(label=label, title=str(title), href=f'/v/{shelf}/{doc}' if shelf and doc else '', place=_place(r) or (r.get('site') or '' if web else other),
-                    url=url, date=_day(r.get('at')) if web else '')
+                    url=url, date=_day(r.get('at')) if web else '', episode=str(r.get('episode') or '') if s == 'vedicstory' else '')
 
 # %% ../nbs/04_sources.ipynb #c020
 VR_ROOT = Path(os.getenv('VEDICREADER_ROOT', Path.home()/'code/personal/orgs/vedicreader'))

@@ -12,7 +12,7 @@ from abhyasa.blocks import blocks
 from abhyasa.store import Learning
 from abhyasa.tutor import Tutor
 from abhyasa.llm import route_ask, Router
-from abhyasa.ground import VaultSource, VedicSource
+from abhyasa.ground import VaultSource, VedicSource, VedicStory
 from abhyasa.research import Researcher
 
 log = logging.getLogger(__name__)
@@ -65,8 +65,11 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     cfg_dir().mkdir(parents=True, exist_ok=True)
     app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False, bodykw=dict(hx_boost='true'), before=look_before,
                        key_fname=str(cfg_dir()/'.sesskey'))   # not the working folder: an app may start in /, which is read only   # htmx and fasthtml.js come from core/vendor; links load in place
-    if sources is None: sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else [])]
     pool = ThreadPoolExecutor(2)
+    if sources is None:
+        story = VedicStory(pool=pool)   # the Ramayana episodes: read on the pool, never in a request
+        sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else []), *([story] if story.ok() else [])]
+        if story in sources: story.ready()   # the first read starts on the pool now
     svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources, pool=pool), ask=ask, transcribe=transcribe,
                speech=Speech(transcribe), pool=pool, sessions={}, sources=sources,
                research=Researcher(learning, ask))   # research has its own pool of one worker, so a long search never holds a demo or a note

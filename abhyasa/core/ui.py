@@ -7,6 +7,7 @@ from mdhtml import md2mdhtml, mdhtml2html
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
+from abhyasa.core.leela import vr_episode
 from abhyasa.model import DEPTHS
 from abhyasa.sources import source_of
 
@@ -324,17 +325,20 @@ def Part(label, *c, more=None, more_label='More', **kw):
 
 def SourceLine(src, room=False):
     """The one line under a passage (decision 6): the label in a pill, the title, the place, and the link that opens it. A page in your vault
-    opens in the side pane, and `Open in your vault` opens it in full. A web page (`Open the page`) opens in a new tab. `src` comes from `source_of`.
+    opens in the side pane, and `Open in your vault` opens it in full. A web page (`Open the page`) opens in a new tab. A Ramayana episode
+    (`Open in vedicreader`) opens its page in a new tab when vedicreader runs on this computer. `src` comes from `source_of`.
     With `room`, the line is text only, for the room: no link."""
     if not src: return ''
     bits = lambda *xs: [Span(x) for x in xs if x]
     line = lambda *c, cls='src-line': Div(*[y for k, x in enumerate(c) if x for y in ((' ', x) if k else (x,))], cls=cls)   # a space between the parts, for a copy and a screen reader
     if room: return line(Pill(src.label), *bits(src.title, src.place), cls='src-line room')
     local, web = is_local(src.href), is_web(src.url)
-    name = (pane_link(src.title, src.href, src.title) if local else A(src.title, href=src.url, target='_blank', rel='noopener noreferrer') if web
+    vr = '' if local or web else vr_episode(src.get('episode') or '')
+    name = (pane_link(src.title, src.href, src.title) if local else A(src.title, href=src.url if web else vr, target='_blank', rel='noopener noreferrer') if web or vr
             else Span(src.title))
     go = (A('Open the page', href=src.url, target='_blank', rel='noopener noreferrer', cls='src-open') if web
-          else A('Open in your vault', href=src.href, cls='src-open') if local else '')
+          else A('Open in your vault', href=src.href, cls='src-open') if local
+          else A('Open in vedicreader', href=vr, target='_blank', rel='noopener noreferrer', cls='src-open') if vr else '')
     return line(Pill(src.label), name, *bits(src.place, src.date and f'read on {src.date}'), go)
 
 def TutorWords(text, *c, note=False, cls='', **kw):

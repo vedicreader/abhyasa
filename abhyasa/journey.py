@@ -291,7 +291,8 @@ def _topic_read(c, sources) -> dict|None:
     "The first passage in `sources` that names concept `c`, as a `read`, or None."
     name = c.get('name') or c.slug
     p = first(ground(name, sources, 1, must=[name, *(c.get('aliases') or ())])) if sources else None
-    return p and dict(src=p.src, ref=p.ref, title=p.title, url=p.url, text=p.text[:val('walks.passage')], section='', figure=None)
+    return p and dict(src=p.src, ref=p.ref, title=p.title, url=p.url, text=p.text[:val('walks.passage')], section=p.get('section') or '', figure=None,
+                   **({'episode': p.episode} if p.get('episode') else {}))   # an episode keeps its place in the poem and its id
 
 def _topic_walk(lr:Learning, j, sources=None, tool:bool=False, **extra) -> AttrDict:
     "Save path `j` as a walk of its first `walks.steps` steps, in its order, with a passage from `sources` and a check on each step. The other steps go in `more`, and `extra` goes on the walk."

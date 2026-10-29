@@ -1,6 +1,7 @@
 """Open in Leela: code with a library and tools are learned in Leela. abhyasa reads the address file that a running Leela writes and makes a link.
-It never calls Leela. The learner's browser opens the link. abhyasa writes its own address file, so Leela can link back to the walk."""
-import json, os, tempfile
+It never calls Leela. The learner's browser opens the link. abhyasa writes its own address file, so Leela can link back to the walk.
+A running vedicreader gets a link to an episode page in the same way, from its own address file."""
+import json, os, re, tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 from fasthtml.common import *
@@ -8,7 +9,7 @@ from abhyasa.contract import handoff, vault_key
 from .cfg import cfg
 
 __all__ = ['LEELA_INSTALL', 'leela_address', 'leela_base', 'leela_link', 'leela_line', 'abhyasa_address',
-           'write_address', 'drop_address']
+           'write_address', 'drop_address', 'vr_address', 'vr_base', 'vr_episode']
 LEELA_INSTALL = 'https://github.com/vedicreader/leela#install'
 LOCAL = ('127.0.0.1', 'localhost', '::1')
 
@@ -29,12 +30,16 @@ def _alive(pid) -> bool:
     except (OSError, ValueError, TypeError): return False
     return True
 
-def leela_base() -> str|None:
-    "The address of a running Leela: from its address file when its pid is alive, else `cfg.leela`; None when neither is local."
-    try: d = json.loads(leela_address().read_text())
+def _served(f:Path, fallback:str='') -> str|None:
+    "The loopback address in the address file `f` when its pid is alive, else `fallback`; None when neither is local."
+    try: d = json.loads(f.read_text()) if f.stat().st_size < 4096 else None
     except (OSError, ValueError): d = None
     if isinstance(d, dict) and _alive(d.get('pid') or 0) and _local(d.get('url')): return d['url']
-    return cfg.leela if _local(cfg.leela) else None
+    return fallback if _local(fallback) else None
+
+def leela_base() -> str|None:
+    "The address of a running Leela: from its address file when its pid is alive, else `cfg.leela`; None when neither is local."
+    return _served(leela_address(), cfg.leela)
 
 def leela_link(j, i:int|None=None, topic:str='', vault=None) -> str|None:
     """The link that opens walk `j`, its step `i` or `topic` in Leela; None when Leela does not run. `vault` is the vault file of the app,
@@ -72,3 +77,17 @@ def drop_address():
     try: d = json.loads(f.read_text())
     except (OSError, ValueError): return
     if isinstance(d, dict) and d.get('pid') == os.getpid(): f.unlink(missing_ok=True)
+
+def vr_address() -> Path:
+    "The file that a running vedicreader writes: `$ABHYASA_VR_FILE` (a test sets it), else `$XDG_CONFIG_HOME/vedicreader/serving.json`, else `~/.config/vedicreader/serving.json`."
+    if f := os.getenv('ABHYASA_VR_FILE'): return Path(f)
+    return Path(os.getenv('XDG_CONFIG_HOME') or Path.home()/'.config')/'vedicreader'/'serving.json'
+
+def vr_base() -> str|None:
+    "The address of a running vedicreader on this computer, from its address file or `cfg.vedicreader`; None when it does not run."
+    return _served(vr_address(), cfg.vedicreader)
+
+def vr_episode(eid:str) -> str|None:
+    "The link to the page of Ramayana episode `eid` in a running vedicreader; None when it does not run or `eid` is not an episode id."
+    if not (isinstance(eid, str) and re.fullmatch(r'[a-z0-9_]{1,80}', eid) and (b := vr_base())): return None
+    return f"{b.rstrip('/')}/story/ramayana/e/{eid}"

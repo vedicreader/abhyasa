@@ -25,6 +25,9 @@ def connect(app, ctx):
             Ul(*[Li(Span(s['store']), Span(f"  {n_of(s['docs'], 'document')}", cls='mute')) for s in shelves], cls='plain'),
             H2('vedicreader library'),
             P(f"{len(vs.dbs())} verse databases in {vs.dir}." if vs.dbs() else 'Not found. Set VEDICREADER_ROOT to the vedicreader repo.', cls='mute'),
+            H2('Ramayana episodes'),
+            P(st.status() if (st := first(s for s in ctx.sources if getattr(s, 'name', '') == 'vedicstory')) else
+              'Not found. Set VEDICREADER_ROOT to the vedicreader repo.', cls='mute'),
             Details(Summary('More'),
                     P('vedicreader: Sanskrit lessons and terms, and the jyotiṣa grahas, rāśis and nakṣatras, from the repo files.', cls='mute'),
                     Button('Import vedicreader', hx_post='/add/vedicreader', hx_target='#vr', data_wait='Importing…', data_skel='#vr'), Div(id='vr'), cls='more'),
