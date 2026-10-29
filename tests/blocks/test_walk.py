@@ -807,3 +807,22 @@ def test_link_walk_places_its_new_concepts_in_the_groups(mk, walk_fake, lr, monk
         if (c := lr.concept('softmax')) and c.get('group'): break
         time.sleep(.02)
     assert (c.group, c.group_by) == (['Lists'], 'placed')
+
+def test_walk_from_a_vault_pdf_named_by_an_arxiv_id_gets_the_paper_title(mk, walk_fake, lr, monkeypatch):
+    "A walk made from a vault PDF titled with its id takes the title of the paper from arXiv (faked) on the pool; no link is needed."
+    monkeypatch.setattr('abhyasa.sources.arxiv_title', lambda aid, strict=False: 'Attention Is All You Need')
+    d = lr.vault.add(PAGES, '1706.03762', source='/tmp/attention.pdf', kind='pdf')
+    cl = mk(); jid = cl.post('/walk/new', data=dict(ref=d['doc_id'])).headers['hx-redirect'].split('/')[-1]
+    assert wait_for(lambda: lr.journey(jid).title if lr.journey(jid).title != '1706.03762' else None, secs=10) == 'Attention Is All You Need'
+    assert 'Attention Is All You Need' in cl.get('/').text
+
+def test_old_vault_pdf_walk_is_repaired_after_the_first_mark(mk, lr):
+    "A walk from a vault PDF with only an id for a title is repaired by the background repair, also when the first mark is on the shelf."
+    from abhyasa.app import repair_in_background
+    d = lr.vault.add(PAGES, '1706.03762', source='/tmp/attention.pdf', kind='pdf')
+    lr.put_journey(dict(id='v', title='1706.03762', mode='walk', steps=[], source=dict(shelf='store', doc_id=d['doc_id'], title='1706.03762')))
+    lr.v.add('old', title='Paper titles repaired', source='learning://marker/paper-titles', kind='marker')   # as the first release left it
+    cl = mk()
+    assert repair_in_background(cl.app, lambda aid: 'Attention Is All You Need').result(timeout=10) == ['v']
+    assert lr.journey('v').title == 'Attention Is All You Need'
+    assert first(lr.vault.t.docs(where='id=?', where_args=[d['doc_id']]))['title'] == 'Attention Is All You Need'

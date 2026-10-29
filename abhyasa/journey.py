@@ -586,19 +586,27 @@ def beyond(lr:Learning, j, k:int=5, goal:int=None) -> L:
     return out[:k]
 
 # %% ../nbs/11_journey.ipynb #jt-1
-def _arxiv_of(j) -> str:
-    "The arXiv id in the address of walk `j`, or an empty string."
-    m = ARXIV_LINK.fullmatch((j.get('source') or {}).get('url') or j.get('url') or '')
-    return m[1] if m else ''
+def _arxiv_of(j, lr=None) -> str:
+    "The arXiv id of walk `j`, or an empty string: from its address, the addresses of its vault documents, the document that it reads (with `lr`), or its title when that is only an id."
+    ds = [r for r in (*(j.get('docs') or [])[:1], j.get('source') or {}) if r.get('doc_id')]
+    docs = [lr.vault.shelf(r.get('shelf') or 'store').doc(r['doc_id']) for r in ds] if lr else []
+    for u in [(j.get('source') or {}).get('url'), j.get('url'), *(r.get('url') for r in ds), *(d['source'] for d in docs if d)]:
+        if m := ARXIV_LINK.fullmatch(u or '') or ARXIV_ID.fullmatch(Path(u or '').name.removesuffix('.pdf')): return ARXIV_ID.search(m[0]).group()
+    t = re.sub(r'^arxiv:\s*', '', (j.get('title') or '').strip(), flags=re.I).removesuffix('.pdf')
+    return t if ARXIV_ID.fullmatch(t) else ''
 
 def paper_id(j) -> str:
     "The arXiv id of the paper that walk `j` reads, or an empty string. Empty too when the title of `j` is that id."
     return '' if is_id_title(j.get('title'), _arxiv_of(j)) else _arxiv_of(j)
 
 @patch
-def _retitle(self:Learning, j, t:str):
-    "Give walk `j` the title `t`, and its first vault document too, and keep the place of the walk in the list."
-    n = self.put_journey({**j, 'title': t, 'docs': [{**j.docs[0], 'title': t}, *j.docs[1:]]})
+def _retitle(self:Learning, j, t:str, aid:str=''):
+    "Give walk `j` the title `t`, and its vault documents that are titled with the id, and keep the place of the walk in the list."
+    docs, src = j.get('docs'), j.get('source')
+    n = self.put_journey({**j, 'title': t, **({'docs': [{**docs[0], 'title': t}, *docs[1:]]} if docs else {}), **({'source': {**src, 'title': t}} if src and src.get('title') else {})})
+    for r in [*(docs or [])[:1], src or {}]:
+        sh = self.vault.shelf(r.get('shelf') or 'store')
+        if r.get('doc_id') and (d := sh.doc(r['doc_id'])) and is_id_title(d['title'], aid): sh.t.docs.update(dict(id=r['doc_id'], title=t))
     self.v.set_meta(n.doc_id, updated=j.get('updated', 0))   # a repair is not a change that you made: the order of the list stays
 
 @patch
@@ -618,7 +626,7 @@ def repair_titles(self:Learning) -> list:
 @patch
 def repair_paper_titles(self:Learning, title_of=None) -> list:
     "Give each walk and each PDF in the vault that is titled with only an arXiv id the title of its paper, from `title_of(id)` (default: arXiv). Return the ids of the walks that changed. The mark is set only when no id failed from the network."
-    mark = _src('marker', 'paper-titles')
+    mark = _src('marker', 'paper-titles-2')   # the first mark was set while a walk from a vault document had no id: that start did not repair it
     if first(self.v.t.docs(where='source=?', where_args=[mark])): return []
     title_of = title_of or partial(arxiv_title, strict=True)
     got, retry, out = {}, False, []
@@ -629,13 +637,20 @@ def repair_paper_titles(self:Learning, title_of=None) -> list:
             except Exception as e: got[aid] = None; retry = retry or 'No paper found' not in str(e)   # a paper that arXiv does not have: no more tries
         return got[aid]
     for j in self.journeys():
-        if (aid := _arxiv_of(j)) and is_id_title(j.title, aid) and j.get('docs') and (t := title(aid)): self._retitle(j, t); out.append(j.id)
+        if (aid := _arxiv_of(j, self)) and is_id_title(j.title, aid) and (t := title(aid)): self._retitle(j, t, aid); out.append(j.id)
     for d in self.vault.t.docs(where="kind in ('pdf', 'arxiv')"):
         m = ARXIV_LINK.fullmatch(d['source'] or '') or ARXIV_ID.fullmatch(d['title'])
         if m and is_id_title(d['title'], aid := ARXIV_ID.search(m[0]).group()) and (t := title(aid)):
             self.vault.t.docs.update(dict(id=d['id'], title=t))
     if not retry: self.v.add('The titles of the papers were repaired.', title='Paper titles repaired', source=mark, kind='marker')
     return out
+
+@patch
+def retitle_paper(self:Learning, jid:str, title_of=None) -> str|None:
+    "Give walk `jid`, when its title is only an arXiv id, the title of its paper from `title_of(id)` (default: arXiv). Return the title, or None. A network failure raises."
+    if not ((j := self.journey(jid)) and (aid := _arxiv_of(j, self)) and is_id_title(j.title, aid)): return None
+    if t := (title_of or partial(arxiv_title, strict=True))(aid): self._retitle(j, t, aid)
+    return t
 
 # %% ../nbs/11_journey.ipynb #667e494b
 from urllib.parse import urlencode, parse_qs

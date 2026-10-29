@@ -158,6 +158,11 @@ def connect(app, ctx):
             raise LinkError('The tutor found no ideas on these pages.')
         return j.id
 
+    def retitle(jid):
+        "On the pool: give a walk named by an arXiv id the title of its paper. A failure of the network keeps the id."
+        try: lr.retitle_paper(jid)
+        except Exception as e: log.warning('abhyasa could not get the title of the paper: %r', e)
+
     def link_walk(url, pages, tool=False, subject=''):
         "Start the pool job that makes a walk from `url`, unless one is running. The request does not wait for the network or the model."
         try: link_kind(url)
@@ -196,6 +201,7 @@ def connect(app, ctx):
             lr.drop_journey(j.id)
             return P('The tutor found no ideas in this document.' if ref or text.strip() else 'The tutor found no steps for this topic.', cls='req-err')
         if topic.strip() and not ref and not text.strip(): research_new(j)
+        if ref: ctx.pool.submit(retitle, j.id)   # a vault PDF with an arXiv id for a name: the title of the paper comes after the page
         return Response(headers={'HX-Redirect': ui.at(Routes.one, j.id)})
 
     def one(jid:str):
