@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Cites, meta, n_of, asset_css, asset_js, stage_assets
-from abhyasa.talk import talk_minutes, public_ask, share_right
+from abhyasa.talk import talk_minutes, public_ask, share_right, needs_fill
 from abhyasa.settings import val
 from .cfg import Routes
 
@@ -42,9 +42,11 @@ def PresentJourney(jid, t=None):
     if not t: return go('Present this journey')
     return Div(Secondary('Open the talk', href=at(Routes.one, t.id)), go('Make it again', Input(type='hidden', name='again', value='1')), cls='row')
 
-def Pending(jid):
-    "A talk that is still being made: the card asks the server again in 2 seconds."
-    return Div(P('Making the talk…'), P('The tutor writes the points and the speaker notes of each slide, and a question for the room from each check. This can take a minute.', cls='mute'),
+def Pending(jid, fill=False):
+    "A talk that is still being made, or filled (`fill`): the card asks the server again in 2 seconds."
+    said = (('Filling the slides…', 'The tutor writes the points and the speaker notes of each slide that has none. This can take a minute.') if fill else
+            ('Making the talk…', 'The tutor writes the points and the speaker notes of each slide, and a question for the room from each check. This can take a minute.'))
+    return Div(P(said[0]), P(said[1], cls='mute'),
                cls='talk-new pending', hx_get=f"{Routes.job}?{urlencode(dict(jid=jid))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
 
 def YourTalks(ts):
@@ -162,6 +164,13 @@ def Slot(t):
             Label('Room phones', Select(Option('No phones', value='off', selected=not t.get('phones')),
                                         Option('Phones on this Wi-Fi', value='on', selected=bool(t.get('phones'))), name='phones', **post), cls='inline phones'))
 
+def Fill(t):
+    "Fill the slides: a quiet button for a talk made before the tutor wrote slide content. It shows only when a slide has no points or no speaker note."
+    if not (n := sum(map(needs_fill, t['slides']))): return ''
+    have = 'slide has' if n == 1 else 'slides have'
+    return Form(Quiet('Fill the slides', small=True, data_wait='Filling the slides…'), Small(f' {n} {have} no points or no speaker note.', cls='mute'),
+                hx_post=at(Routes.fill, t['id']), hx_target='this', hx_swap='outerHTML', cls='talk-new talk-fill')
+
 def Editor(t, j, pj=None, changed=False):
     "The editor of talk `t` from walk `j` (made from plain journey `pj`, if given, which `changed` after): what it is, Present, the slot, then the slides (as `shots/a1-deck.png`)."
     ideas = sum(s.get('kind') == 'idea' for s in t['slides'])
@@ -174,7 +183,7 @@ def Editor(t, j, pj=None, changed=False):
             P('Each idea of the walk is one slide. The passage or the points, and the figure, show to the room. The tutor note is your speaker note. '
               'The check of the idea becomes a question for the room. A change here does not change the walk.', cls='lead'),
             Div(Form(Primary('Present', data_wait='Starting…'), action=at(Routes.start, t['id']), method='post', hx_boost='false'), *Slot(t), cls='row talk-top'),
-            Part('The slides', Deck(t)),
+            Part('The slides', Fill(t), Deck(t)),
             P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the slide · ',
               Kbd('E'), ' change the slide · ', Kbd('X'), ' take it out · ', Kbd('Q'), ' add a pause · ', Kbd('⌥S'), ' present', cls='mute keys-line'))
 

@@ -17,7 +17,7 @@ from abhyasa.core import Page, hook, n_of, pane_url
 from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
 from abhyasa.llm import for_task
 from abhyasa.settings import val
-from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
+from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
                           public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, new_run, log_go, log_main, end_run, log_beside,
                           recap, recap_html)
 from . import ui
@@ -193,10 +193,16 @@ def connect(app, ctx):
         if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_journey(lr, ask(), jid, ctx.sources, again=bool(again)).id)
         return ui.Pending(jid)
 
+    def fill(tid:str):
+        "Start the pool job that writes the content of the slides of talk `tid` that have none (Fill the slides). The request does not wait for the model."
+        if not lr.talk(tid): return Response('No such talk.', status_code=404)
+        if not (job := jobs.get(tid)) or job.done(): jobs[tid] = ctx.pool.submit(lambda: fill_talk(lr, ask(), tid, ctx.sources).id)
+        return ui.Pending(tid, fill=True)
+
     def job(jid:str=''):
-        "The state of the talk from walk `jid`: the pending card, a redirect to the editor, or a message."
+        "The state of the talk from walk `jid`, or of Fill the slides of talk `jid`: the pending card, a redirect to the editor, or a message."
         if not (j := jobs.get(jid.strip())): return P('No talk is being made from this walk. Try again.', cls='req-err')
-        if not j.done(): return ui.Pending(jid.strip())
+        if not j.done(): return ui.Pending(jid.strip(), fill=bool(lr.talk(jid.strip())))
         if j.exception(): return P(NO_TALK, cls='req-err')   # never the words of a library
         return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=j.result())})
 
@@ -505,6 +511,7 @@ def connect(app, ctx):
     app.get(Routes.one)(one)
     app.post(Routes.slide)(slide)
     app.post(Routes.slot)(slot)
+    app.post(Routes.fill)(fill)
     app.post(Routes.start)(start)
     app.get(Routes.present)(presenter)
     app.get(Routes.audience)(audience)

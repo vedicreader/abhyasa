@@ -8,10 +8,10 @@ Docs: https://vedicreader.github.io/abhyasa/talk.html.md"""
 __all__ = ['TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'BODY_MOST',
            'POINT_MOST', 'TALK_CASES', 'CHOICE_SP', 'SLIDE_SP', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS',
            'check_talk', 'ask_from_gate', 'public_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes',
-           'talk_minutes', 'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'walk_talk',
-           'talk_from_journey', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run',
-           'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak',
-           'recap', 'recap_html']
+           'talk_minutes', 'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk',
+           'walk_talk', 'talk_from_journey', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go',
+           'end_run', 'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split',
+           'weak', 'recap', 'recap_html']
 
 # %% ../nbs/17_talk.ipynb #bddba3f8
 import re, json, math, time, uuid, secrets, hashlib, base64, html
@@ -344,6 +344,16 @@ def talks(self:Learning) -> L:
 def drop_talk(self:Learning, tid:str):
     "Remove a talk. Its walk stays."
     if (t := self.talk(tid)): self.v.forget(t.doc_id)
+
+# %% ../nbs/17_talk.ipynb #sb45
+def fill_talk(lr:Learning, ask, tid:str, sources=None) -> AttrDict:
+    "Fill each slide of talk `tid` that `needs_fill`, and save the talk. A slide that changed while the tutor wrote keeps the change."
+    t = lr.talk(tid)
+    if t is None: raise KeyError(f'no talk {tid!r}')
+    was = {s['id']: s for s in t.slides}
+    new = {s['id']: f for s, f in zip(t.slides, fill_slides(lr, ask, t.slides, sources)) if f is not s}
+    now = lr.talk(tid) or t
+    return lr.put_talk({**now, 'slides': [new[s['id']] if s['id'] in new and s == was[s['id']] else s for s in now.slides]})
 
 # %% ../nbs/17_talk.ipynb #pj22
 def walk_talk(lr:Learning, wid:str) -> AttrDict|None:
