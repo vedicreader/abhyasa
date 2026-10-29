@@ -64,6 +64,7 @@ h1.idea { font-size: var(--t-idea); margin-bottom: var(--s4); }
 /* words in the passage that point at a part of the demo (walk.js): a dotted line; pointing at one rings the part, and back */
 #passage .mv { text-decoration: underline dotted; text-decoration-color: color-mix(in srgb, var(--acc) 70%, transparent); text-underline-offset: .2em; cursor: help; }
 #passage .mv:hover, #passage .mv:focus-visible, #passage .mv.hot { color: var(--acc); }
+.walk-demo .rk-ranklist svg { width: min(100%, 337.5px); }   /* the items are 16 px in a 300 px box: 337.5 px wide makes them 18 px (the body size), not bigger with the card */
 .walk-demo .rk-b { border-radius: var(--r-s); outline: 2px solid transparent; outline-offset: 4px; transition: outline-color var(--dur-1) var(--ease); }
 .walk-demo .rk-b.mv-hot { outline: 2px solid color-mix(in srgb, var(--acc) 45%, transparent); outline-offset: 4px; }   /* 4 px out, so it does not cut the block label */
 

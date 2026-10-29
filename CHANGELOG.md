@@ -64,6 +64,7 @@
 - Your learning: the page of one past session shows what you said about a question (Too simple, Just right, Not clear, and your note), in the same quiet lines as the concept page.
 - Talks: when a demo shows alone on the slide and its text would be under 14 px, the demo keeps 14 px in a taller box that scrolls. The scroll of the presenter window shows in the audience window.
 - Walks: the outline on a step page draws the maths in the names of the ideas, not raw TeX.
+- Walks: the items of a put-in-order check use the body size of the page, not a size that grows with the card.
 
 ## 0.0.11
 

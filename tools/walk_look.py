@@ -368,6 +368,24 @@ def m6_words_point_at_the_demo(pg, w):
     pg.hover('.walk-demo .rk-ranklist >> nth=1')
     assert pg.eval_on_selector_all('#passage .mv.hot', 'ms => ms.map(m => m.textContent)') == ['vector search']
 
+def o1_order_items_use_body_size(pg, w):
+    "The items of a put-in-order check draw at the body size of the page (18 px, not scaled up with the card), at 1280 and 1000 px, in light and dark."
+    try:
+        jid = new_walk(w); one = w.lr.journey(jid).steps[1]['slug']
+        spec = {'rupaka': 1, 'id': f'{one}-order', 'title': 'Order', 'state': {'order': ['A', 'C', 'E', 'B']}, 'blocks': [
+            {'type': 'ranklist', 'bind': 'order', 'label': 'Results', 'lock': 'second'},
+            {'type': 'gate', 'id': 'second', 'prompt': 'You move B to the top. Which result is second then?', 'options': ['A', 'C', 'E'], 'answer': {'is': 'A'}}]}
+        w.lr.put_demo(spec, one); w.lr.record(one, 'A pass before this check', correct=True, final=True)
+        w.lr.walk_step(jid, 1, check=dict(way='demo', kind='demo', depth=2, why='the order matters'))   # the demo of an order check: one ranklist and one gate
+        for mode in ('light', 'dark'):
+            look(w.rq, w.B, 'paper', mode)
+            for width in (1280, 1000):
+                pg.set_viewport_size(dict(width=width, height=900)); pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+                got = pg.evaluate("""() => { const t = document.querySelector('.walk-demo .rk-ranklist text.t'), b = parseFloat(getComputedStyle(document.body).fontSize);
+                  return {item: t.getBoundingClientRect().height / t.getBBox().height * parseFloat(getComputedStyle(t).fontSize), body: b}; }""")
+                assert abs(got['item'] - got['body']) <= 2 , (mode, width, got)
+    finally: look(w.rq, w.B, 'paper', 'light'); pg.set_viewport_size(dict(width=1280, height=900))
+
 def rupaka_settle(pg, w):
     "A demo prediction that the walk does not save leaves the gate open, with the pick, the why and a message; a saved one shows the answer."
     pg.goto(demo_step(w, fresh=True)); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
@@ -1032,7 +1050,7 @@ def op1_open_check_survives_a_restart(pg, w):
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
-          m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
+          m6_words_point_at_the_demo, o1_order_items_use_body_size, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
