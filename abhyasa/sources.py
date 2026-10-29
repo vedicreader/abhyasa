@@ -272,7 +272,7 @@ def apply_groups(lr:Learning, places:dict) -> list:
     return list(dict.fromkeys(moved))
 
 def place_new(lr:Learning, ask, batch:int=None) -> list:
-    "Place the new concepts of each subject that has groups: one request for each batch, then one more for the concepts with no place. A concept that fits no group of the list, that has no subject, or that you undid stays. Return the slugs placed."
+    "Place the new concepts of each subject that has groups: one request for each batch, and no second request. A concept that fits no group of the list, that has no subject, or that you undid stays. Return the slugs placed."
     todo = {c.slug for c in lr.unsorted() if c.subject and c.get('group_by') != 'undone' and lr.groups(c.subject)}
     out = []
     for s in sorted({lr.concept(x).subject for x in todo}):
