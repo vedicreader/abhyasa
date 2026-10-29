@@ -139,6 +139,12 @@ def _read(page, kept, passage, now) -> dict:
     return dict(src='web', ref=kept.doc_id, shelf=kept.shelf, doc_id=kept.doc_id, title=page.title or site_of(page.url), site=site_of(page.url),
                 url=page.url, text=passage, section='', page=None, span=None, figure=None, researched=True, at=now)
 
+def _at(lr:Learning, jid:str, slug:str, i:int):
+    "The index of the step on `slug` in walk `jid` now, near `i`: a step that moved keeps its source. None when the step is gone."
+    ss = (lr.journey(jid) or {}).get('steps') or []
+    if 0 <= i < len(ss) and ss[i]['slug'] == slug: return i
+    return next((k for k, s in enumerate(ss) if s['slug'] == slug), None)
+
 def research_step(lr:Learning, ask, j, i:int, search=None, fetch=None, renote:bool=True) -> AttrDict|None:
     "Find a web source for step `i` of walk `j` (a walk or its id). Return the new `read`, or None. `search(q, n)` and `fetch(url)` default to the web."
     if not val('research.on'): return None
@@ -154,6 +160,7 @@ def research_step(lr:Learning, ask, j, i:int, search=None, fetch=None, renote:bo
         page = AttrDict(url=page.url, title=_flat(page.get('title') or h.title)[:200], text=str(page.get('text') or ''))
         if not (passage := pick_passage(ask, c, page)): continue
         now = time.time()
+        if (i := _at(lr, j.id, s['slug'], i)) is None: return None   # the step left the walk while research ran
         kept = file_page(lr, page)
         r = _read(page, kept, passage, now)
         link_concept(lr, s['slug'], dict(src='web', shelf=kept.shelf, doc_id=kept.doc_id, title=r['title'], url=page.url, passage=passage, at=now))
@@ -162,7 +169,7 @@ def research_step(lr:Learning, ask, j, i:int, search=None, fetch=None, renote:bo
             try: tutor_note(lr, ask, lr.journey(j.id), i)
             except Exception as e: log.warning('research: no new note: %r', e)
         return AttrDict(r)
-    lr.walk_step(j.id, i, research='none', research_at=time.time())
+    if (i := _at(lr, j.id, s['slug'], i)) is not None: lr.walk_step(j.id, i, research='none', research_at=time.time())
     return None
 
 # %% ../nbs/18_research.ipynb #r028
