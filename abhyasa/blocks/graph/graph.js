@@ -467,6 +467,10 @@
     if (k === 'floorHi' && S.floorHi < S.floorLo) S.floorLo = S.floorHi;
     save(); show();
     if (k === 'link' || k === 'push' || k === 'size') { if (STATIC.has(S.mode)) return dirty(); forces(); if (!S.frozen) sim.alpha(.4).restart(); return dirty(); }
+    if (k === 'groupBy') {   // the layouts that cluster forget their saved places, so the nodes gather in the new clusters
+      delete store.pos.groups; delete store.pins.groups; delete store.cam.groups; save();
+      return layout({fresh: true, fit: true});
+    }
     if (k === 'steps' && !focus) return;
     if (relayout.includes(k) || k.startsWith('sub:')) layout();
     if (k === 'sizeBy' && !STATIC.has(S.mode)) { forces(); if (!S.frozen) sim.alpha(.2).restart(); }

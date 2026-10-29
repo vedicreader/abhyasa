@@ -946,9 +946,13 @@ def g2_clusters_have_labels_and_regions(pg, w):
         pg.focus('#graph'); pg.keyboard.press(mode); settle(pg, 1800)
     pg.evaluate("localStorage.removeItem('abhyasa.graph.v1')"); pg.reload(); pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 1500)
     pg.click('#levers details.adjust > summary')
-    go('Digit4', 'subject'); keys, labelled = st()
+    go('Digit4', 'subject'); keys, labelled = st(); pg.wait_for_function('() => !window.abhyasaGraph.moving', timeout=20000); settle(pg, 800)
+    gap = lambda: pg.evaluate("(() => { const v = window.abhyasaGraph.vis, at = id => v.find(n => n.id === id); const d = (a, b) => Math.hypot(at(a).x - at(b).x, at(a).y - at(b).y); return [d('ashwini', 'mesha'), d('ashwini', 'bharani')]; })()")
+    near = gap()
     assert keys == ['general', 'jyotisha', 'ml'] and labelled, keys
-    go('Digit4', 'group'); keys, labelled = st()
+    go('Digit4', 'group'); keys, labelled = st(); pg.wait_for_function('() => !window.abhyasaGraph.moving', timeout=20000); settle(pg, 800)
+    apart = gap()
+    assert apart[0] > near[0] * 1.3 and apart[0] > apart[1] * 2, ('Group by group regroups the nodes of Groups', near, apart)
     assert 'jyotisha › Nakshatras' in keys and 'jyotisha › Rashis' in keys and 'ml · not sorted' in keys and labelled, keys
     go('Digit2', 'group'); keys, labelled = st()
     assert 'jyotisha › Nakshatras' in keys and 'jyotisha › Rashis' in keys and labelled, ('path', keys)
