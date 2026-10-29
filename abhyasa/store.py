@@ -248,7 +248,7 @@ def readable_name(name, statement:str='') -> str:
 def repair_names(self:Learning) -> list:
     "One time for each shelf, give each concept whose name is its own slug, with hyphens, a readable name. Return the slugs that changed. A name that differs from the slug, or that you set by hand (`named_by`), stays."
     if first(self.v.t.docs(where='source=?', where_args=[_src('marker', 'names')])): return []
-    out = [c.slug for c in self.concepts() if c.name == c.slug and '-' in c.name and c.get('named_by') != 'hand']
+    out = [c.slug for c in self.concepts() if c.name == c.slug and '-' in c.name and c.get('named_by') != 'hand']   # `named_by='hand'`: no rename path yet, the editors of 0.0.13 set it
     for s in out: c = self.concept(s); self.put(readable_name(s), c.statement, c.subject, slug=s)   # `put` makes the search text and the title again
     self.v.add('The names of the concepts were repaired.', title='Names repaired', source=_src('marker', 'names'), kind='marker')
     return out
@@ -358,7 +358,7 @@ def search(self:Learning, q:str, kind:str=None, limit:int=10) -> L:
         out, seen = L(), set()
         for h in hs:
             if (r := rows.get(h['doc_id'])) is None: continue
-            m = json.loads(r['meta'] or '{}')   # `named_by='hand'` (no rename path yet; the editors of 0.0.13 set it) keeps a name from `repair_names`
+            m = json.loads(r['meta'] or '{}')
             if r['kind'] in ('stats', 'marker') or (r['kind'] == 'session' and not _answers(m)): continue
             if r['kind'] == 'attempt':   # two attempts with the same words are two records, but one hit
                 if (k := (r['title'], h.get('snippet'))) in seen: continue

@@ -6,6 +6,7 @@
 
 - Sort my concepts: the tutor asks again one time for each concept that got no group, and a short "Other" group is the last resort. For a concept with no subject, it also proposes a subject (one you have, or a new one). The proposal says how many it placed and names the ones it left for you.
 - Walks from a link or a paper: new concepts get a subject (the Subject field, or one that the tutor picks), and a name that was a slug shows as words. Old concepts with a slug name get words once.
+- Present shows on a started walk, on its last page and in Journeys.
 - Talks: when the talk is made, the tutor writes 2 to 4 points for each slide that has no passage (for example each slide of "Present this journey"), and speaker notes for each slide that has none: what to say, a question for the room and a confusion to watch for. It uses your sources when they name the idea. You can change the prompt (Talk slide) on the Settings page.
 - Talks: the room sees the points of a slide, with the `body` beat, and its type gets smaller when they do not fit. The room never sees the speaker notes. The presenter window shows the notes and the line "From your sources". The editor has a Points box for each slide with no passage.
 - Talks: an old talk with slides that have only a title offers a quiet "Fill the slides" button in the editor. The tutor writes the points and the notes of those slides in the background. A slide that you change at that time keeps your change.
