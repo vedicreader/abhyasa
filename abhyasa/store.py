@@ -71,6 +71,8 @@ class Learning:
         self.vault, self.v = vault, vault.shelf(shelf)
         try: self.repair_names()   # a name that is a slug becomes words, one time
         except Exception as e: log.warning('abhyasa could not repair the names of the concepts: %r', e)
+        try: getattr(self, 'repair_subjects', lambda: 0)()   # the journey module adds it: a walk gives its subject to its concepts, one time
+        except Exception as e: log.warning('abhyasa could not repair the subjects of the concepts: %r', e)
 
     def _docs(self, kind, where='', args=()):
         w = 'kind=?' + (f' and ({where})' if where else '')
