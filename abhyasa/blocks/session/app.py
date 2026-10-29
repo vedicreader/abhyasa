@@ -194,7 +194,7 @@ def connect(app, ctx):
         return Form(Input(type='hidden', name='focus', value=c.slug), Primary('Learn this', data_wait='Starting…'), action=Routes.start, method='post')
 
     app.post(Routes.start)(start)
-    app.get(Routes.start)(start)   # a plain link can start a session too: Continue in the top bar, a journey step
+    app.get(Routes.start)(start)   # a plain link can start a session too: Continue in the top bar, a step of a path
     app.get(Routes.page)(page)
     app.get(Routes.card)(card)
     app.get(Routes.ready)(ready)

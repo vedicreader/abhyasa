@@ -45,7 +45,7 @@ def PresentWalk(jid, t=None, quiet=False):
     return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, cls='row') if t else go
 
 def PresentJourney(jid, t=None):
-    "Make a talk from plain journey `jid`. When talk `t` was made from it before: open that talk, or make it again."
+    "Make a talk from path `jid` (a walk with no source). When talk `t` was made from it before: open that talk, or make it again."
     def go(label, *again): return Form(Input(type='hidden', name='jid', value=jid), *again, Secondary(label, data_wait='Making the talk…'),
                                       hx_post=Routes.journey, hx_target='this', hx_swap='outerHTML', cls='talk-new')
     if not t: return go('Present this walk')
@@ -182,7 +182,7 @@ def Fill(t):
                 hx_post=at(Routes.fill, t['id']), hx_target='this', hx_swap='outerHTML', cls='talk-new talk-fill')
 
 def Editor(t, j, pj=None, changed=False):
-    "The editor of talk `t` from walk `j` (made from plain journey `pj`, if given, which `changed` after): what it is, Present, the slot, then the slides (as `shots/a1-deck.png`)."
+    "The editor of talk `t` from walk `j` (made from path `pj`, if given, which `changed` after): what it is, Present, the slot, then the slides (as `shots/a1-deck.png`)."
     ideas = sum(s.get('kind') == 'idea' for s in t['slides'])
     secs = len({s.get('section') for s in t['slides'] if s.get('kind') == 'idea' and s.get('section')})
     made = A('Made from your walk', href=f'/path/{pj.id}') if pj else A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'

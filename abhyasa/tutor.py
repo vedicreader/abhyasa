@@ -561,7 +561,7 @@ class Session:
         return {last[0]} if len(last) == self.run and len(set(last)) == 1 else set()
 
     def next(self) -> AttrDict|None:
-        "The next question, or None when the session is over (or its journey is done)."
+        "The next question, or None when the session is over (or its walk is done)."
         if self.ended or len(self.log) >= self.limit: return None
         skip, (pace, note) = self._skip(), flow(self.log, self.tutor.learning.profile().pace)
         mode = 'drill' if note.startswith('easier') else None   # after two misses: your best way, not a new one
@@ -570,7 +570,7 @@ class Session:
             j = self.tutor.learning.journey(self.journey)
             if not (f := current(self.tutor.learning, j, skip, self.tutor.goal) if j else None): return None
             self.q = self.tutor.next(focus=f, session=self.id, skip=skip, near=self.near, pace=pace, mode=mode)
-            if self.q and self.q.why.startswith('you chose'):   # the learner chose the journey, not the concept: say so
+            if self.q and self.q.why.startswith('you chose'):   # the learner chose the walk, not the concept: say so
                 self.q.why = self.tutor.open[self.q.id].why = self.q.why.replace(f'you chose {self.q.name}', f'the next step of your walk "{j.title}"', 1)
         else: self.q = self.tutor.next(focus=self.focus if self.focus not in skip else None, subject=self.subject, session=self.id, skip=skip, near=self.near, pace=pace, mode=mode)
         if self.q and note: self.q.why = self.tutor.open[self.q.id].why = f'{self.q.why}; {note}'

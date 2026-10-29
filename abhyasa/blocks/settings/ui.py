@@ -25,7 +25,7 @@ def Row(r, v):
 def More(group, *items, names=()):
     "The closed part of a group: `More in Walks: passage length, note length, depth, and 2 more`."
     if not any(items): return ''
-    ns = [n[:1].lower() + n[1:] for n in names]   # only the first letter: "journeys on Today", not "journeys on today"
+    ns = [n[:1].lower() + n[1:] for n in names]   # only the first letter: "walks on Today", not "walks on today"
     say_ = ', '.join(ns[:3]) + (f', and {len(ns) - 3} more' if len(ns) > 3 else '')
     return Details(Summary(f'More in {GROUPS[group][0]}' + (f': {say_}' if ns else '')), *items, cls='more')
 

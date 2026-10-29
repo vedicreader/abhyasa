@@ -9,7 +9,7 @@ from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
 from abhyasa.model import DEPTHS
 
-__all__ = ['Cites', 'WebSource', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago',
+__all__ = ['Cites', 'WebSource', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward']
 
 _here = Path(__file__).parent
@@ -181,6 +181,10 @@ def ago(t):
     if days < 1: return time.strftime('today at %H:%M', lt)
     if days < 2: return time.strftime('yesterday at %H:%M', lt)
     return time.strftime('%a %d %b' if days < 300 else '%d %b %Y', lt)
+
+def doc_title(t):
+    "The title of a vault document as the page shows it: an old walk title `Journey: …` shows as `Walk: …`. The stored title stays."
+    return 'Walk: ' + t[len('Journey: '):] if isinstance(t, str) and t.startswith('Journey: ') else t
 
 # --- shared pieces (design review, section 5): a block uses these and does not make its own copy -----------------------
 

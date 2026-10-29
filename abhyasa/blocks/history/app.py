@@ -27,7 +27,7 @@ def connect(app, ctx):
     up = [('Today', '/')]
 
     def names():
-        "Concept names by slug, and journeys by id: to name a session."
+        "Concept names by slug, and walks by id: to name a session."
         return {c.slug: c for c in lr.concepts()}, {j.id: j for j in lr.journeys()}
 
     def opener(j, js):
@@ -35,7 +35,7 @@ def connect(app, ctx):
         return parent_step(lr, j, js) if j and j.get('depth') else (None, None)
 
     def title(s, by, js):
-        "What a session was about: its journey (for a side walk, the walk that opened it), its concept, its subject, or its concepts."
+        "What a session was about: its walk (for a side walk, the walk that opened it), its concept, its subject, or its concepts."
         if s.get('journey') and (j := js.get(s.journey)): return (opener(j, js)[0] or j).title
         if s.get('focus') and (c := by.get(s.focus)): return c.name
         if s.get('subject'): return f"Review: {s.subject}"
@@ -116,7 +116,7 @@ def connect(app, ctx):
 
     @hook('nav_extra')
     def continue_link():
-        "Continue where you stopped: the newest open session, else the newest journey that is not finished."
+        "Continue where you stopped: the newest open session, else the newest walk that is not finished."
         if (s := latest_open()):
             by, js = names()
             return ui.Continue(s, title(s, by, js), href=back(s, js))

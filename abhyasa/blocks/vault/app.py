@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import quote
 from fasthtml.common import *
 from fastcore.utils import first
-from abhyasa.core import Page, hook, run as run_hook
+from abhyasa.core import Page, hook, run as run_hook, doc_title
 from abhyasa.sources import extract, figure_path
 from . import ui
 from .cfg import Routes
@@ -51,7 +51,7 @@ def connect(app, ctx):
         sh, d = _get(shelf, doc_id)
         if d is None: return Page('Not found', H1('No such document'), P(f'The {shelf} shelf has no document {doc_id}.', cls='mute'), crumbs=[('Today', '/')])
         text, imgs = images(shelf, d, sh.document(doc_id, max_chars=200000).text)
-        return Page(d['title'] or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id), imgs), crumbs=[('Today', '/')])
+        return Page(doc_title(d['title']) or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id), imgs), crumbs=[('Today', '/')])
 
     def img(shelf:str, doc_id:str, f:str=''):
         "An image of the document, only from its own assets folder, only an image file and only under the size cap."
@@ -71,7 +71,7 @@ def connect(app, ctx):
     def pane_title(url):
         "The title of the document at `url` (`/v/<shelf>/<id>`) in the side pane; None for another page."
         m = re.match(r'/v/([^/?#]+)/([^/?#]+)(?:[?#]|$)', url or '')
-        return m and (d := _get(*m.groups())[1]) is not None and (d['title'] or d['id']) or None
+        return m and (d := _get(*m.groups())[1]) is not None and (doc_title(d['title']) or d['id']) or None
 
     app.get(Routes.doc)(doc)
     app.post(Routes.learn)(learn)

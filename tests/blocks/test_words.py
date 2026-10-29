@@ -45,3 +45,14 @@ def test_kind_pill(lr):
     assert kind_of(dict(mode='walk', source=dict(url='https://docs.x.org/a/', docs=[{}]), steps=[])) == 'site'
     assert kind_of(dict(id='w1', mode='walk', source=None, steps=[dict(read=dict(doc_id='w1'))])) == 'text'
     assert kind_of(dict(mode='walk', source=None, steps=[])) == 'topic'
+
+def test_old_walk_title_shows_as_walk(mk, fake, lr):
+    "A new walk document has the title `Walk: …`. An old one keeps `Journey: …` in the vault, and the page shows `Walk: …`."
+    from abhyasa.store import _src
+    cl = mk(); jid = make_plain(cl, fake)
+    assert lr.v.t.docs(where='source=?', where_args=[_src('journey', jid)])[0]['title'] == 'Walk: How LLMs work'
+    r = lr.v.add('Journey: Old walk (old-1)\n\nGoal: g', title='Journey: Old walk', source=_src('journey', 'old-1'), kind='journey', meta=dict(id='old-1', title='Old walk', steps=[]))
+    assert lr.v.t.docs(where='source=?', where_args=[_src('journey', 'old-1')])[0]['title'] == 'Journey: Old walk'   # the stored title stays
+    page = cl.get(f'/v/learning/{r["doc_id"]}')
+    assert page.status_code == 200 and 'Walk: Old walk' in page.text, page.text[:300]
+    assert 'journey' not in visible_text(page.text).lower()

@@ -1,7 +1,7 @@
 import json, time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, asset_css, DepthBar, Primary
+from abhyasa.core import Md, asset_css, DepthBar, Primary, doc_title
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -23,7 +23,7 @@ def memory_file(source):
 def Facts(d, meta):
     "One quiet line: the kind of document, its dates and where it came from."
     kind, src = d['kind'], d['source'] or ''
-    bits = [kind]
+    bits = ['walk' if kind == 'journey' else kind]   # the stored kind stays
     if kind == 'session':
         bits += [f"{meta.get('turns', '?')} turns", when(meta.get('last_at') or meta.get('first_at')), meta.get('model', '')]
         if meta.get('roots'): bits.append(', '.join(meta['roots']))
@@ -61,6 +61,6 @@ def Thread(turns):
 
 def DocPage(d, meta, text, shelf, linked, imgs=()):
     "The document page; `imgs` are the image links of the text that the page sends."
-    return (css(), Span(f'{shelf} shelf', cls='lbl'), H1(d['title'] or d['id']), Facts(d, meta), Actions(d, meta, shelf),
+    return (css(), Span(f'{shelf} shelf', cls='lbl'), H1(doc_title(d['title']) or d['id']), Facts(d, meta), Actions(d, meta, shelf),
             Div(id='learned'), *Thread(meta.get('thread')), H2('Concepts linked here'), Linked(linked),
-            H2('Text'), Md(text, cls=f"doc {d['kind']}", imgs=imgs))
+            H2('Text'), Md(doc_title(text), cls=f"doc {d['kind']}", imgs=imgs))

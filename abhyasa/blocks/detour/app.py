@@ -1,7 +1,7 @@
 """Rabbit holes: learn a missing idea beside the step, then come back to the same place (spec 6.10).
 
 The block adds to the walk step only through hooks (`step_needs`, `check_after`, `walk_end`, `term_lookup`), and to Today and to a
-lesson (`today_next`, `lesson_extra`). It links to the walk by route strings. The side walk is a normal walk journey."""
+lesson (`today_next`, `lesson_extra`). It links to the walk by route strings. The side walk is a normal walk."""
 import logging, time
 from urllib.parse import urlencode
 from fasthtml.common import *

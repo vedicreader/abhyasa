@@ -74,7 +74,7 @@ class Learning:
         except Exception as e: log.warning('abhyasa could not repair the names of the concepts: %r', e)
         try: import abhyasa.journey; self.repair_titles()   # a walk titled with an arXiv id gets the title of its paper, one time
         except Exception as e: log.warning('abhyasa could not repair the titles of the walks: %r', e)
-        try: getattr(self, 'repair_subjects', lambda: 0)()   # the journey module adds it: a walk gives its subject to its concepts, one time
+        try: getattr(self, 'repair_subjects', lambda: 0)()   # the `journey` module adds it: a walk gives its subject to its concepts, one time
         except Exception as e: log.warning('abhyasa could not repair the subjects of the concepts: %r', e)
 
     def _docs(self, kind, where='', args=()):
@@ -392,7 +392,7 @@ def session(self:Learning, sid:str) -> AttrDict|None:
 
 @patch
 def sessions(self:Learning, limit:int=100, journey:str=None) -> L:
-    "The filed sessions, the most recently changed first; with `journey`, only the sessions of that journey."
+    "The filed sessions, the most recently changed first; with `journey`, only the sessions of that walk."
     w, args = ("json_extract(meta, '$.journey')=?", [journey]) if journey else ('', [])
     rs = L(self._docs('session', w, args)).map(lambda r: AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']}))
     return L(sorted(rs, key=lambda s: -(s.get('updated') or s.get('end') or s.get('start') or 0))[:limit])

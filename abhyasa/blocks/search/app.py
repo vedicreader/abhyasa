@@ -1,7 +1,7 @@
 "Search what you learned, and the rest of your vault beside it: one query, every shelf."
 import re, time
 from fasthtml.common import *
-from abhyasa.core import Page, Md, Empty, meta, n_of, ago
+from abhyasa.core import Page, Md, Empty, meta, n_of, ago, doc_title
 from abhyasa.settings import val
 from .cfg import Routes
 
@@ -26,7 +26,7 @@ def Hit(h, by):
                   P(meta('Your answer', c and c.name, ago(m.get('at'))), cls='mute'))
     if k == 'journey':
         walk = m.get('mode') == 'walk'
-        return Li(A(m.get('title') or h['title'], href=f"/{'w' if walk else 'path'}/{m.get('id', '')}", cls='hit'),
+        return Li(A(m.get('title') or doc_title(h['title']), href=f"/{'w' if walk else 'path'}/{m.get('id', '')}", cls='hit'),
                   P(short(m.get('goal')), cls='line') if m.get('goal') else '', P('A walk' if walk else 'A walk to a goal', cls='mute'))
     if k == 'session':
         log = m.get('log') or []
@@ -46,7 +46,7 @@ def Hit(h, by):
 
 def Elsewhere(hs):
     "Hits in the rest of your vault: a short passage and where it is."
-    item = lambda h: Li(Md(short(h.text)), A(h.breadcrumb, href=f'/v/{h.store}/{h.doc_id}', cls='mute'))
+    item = lambda h: Li(Md(doc_title(short(h.text))), A(doc_title(h.breadcrumb), href=f'/v/{h.store}/{h.doc_id}', cls='mute'))
     return Ul(*map(item, hs), cls='plain hits') if hs else Empty('Nothing found.')
 
 def connect(app, ctx):

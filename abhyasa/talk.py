@@ -408,7 +408,7 @@ def walk_talk(lr:Learning, wid:str) -> AttrDict|None:
     return first(t for t in lr.talks() if (t.get('src') or {}).get('walk') == wid)
 
 def talk_from_journey(lr:Learning, ask, jid:str, sources=None, again:bool=False, research=None) -> AttrDict:
-    """A talk from plain journey `jid`, made from its walk for a talk. A second call gives the same talk, unless `again`: then a new talk has the date in its title.
+    """A talk from path `jid` (a walk with no source), made from its walk for a talk. A second call gives the same talk, unless `again`: then a new talk has the date in its title.
     `research(walk)` runs on the walk before a new talk is made, so a step can get a source from the web and its slide can show it."""
     w = walk_for_talk(lr, jid, sources, again)
     if not again and (t := walk_talk(lr, w.id)): return t

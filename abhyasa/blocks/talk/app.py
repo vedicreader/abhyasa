@@ -181,10 +181,10 @@ def connect(app, ctx):
         "Before the slides are made: mark the steps of walk `w` with no passage as pending, look for their web sources on the research pool, and wait."
         ctx.research.run(w.id)
 
-    def plain(j): return bool(j and j.get('mode') != 'walk' and not for_talk(j) and j.steps)   # a journey that is not a walk
+    def plain(j): return bool(j and j.get('mode') != 'walk' and not for_talk(j) and j.steps)   # a path: a walk with no source
 
     def from_journey(jid:str='', again:str=''):
-        "Start the pool job that makes a talk from plain journey `jid`, or finds the one made before. `again` makes a new walk and a new talk."
+        "Start the pool job that makes a talk from path `jid`, or finds the one made before. `again` makes a new walk and a new talk."
         if not plain(lr.journey(jid := jid.strip())): return P('No such walk.', cls='req-err')
         if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_journey(lr, ask(), jid, ctx.sources, again=bool(again), research=find_sources).id)
         return ui.Pending(jid)
@@ -491,8 +491,8 @@ def connect(app, ctx):
 
     @hook('walk_actions')
     def present(j, quiet=False):
-        """On a walk (its plan, its step, its last page, its row in Journeys) and on its journey page: make a talk from the walk, or open the one made before.
-        On a plain journey: the same from the journey. `quiet` gives a quiet button, for a page that has its own main button."""
+        """On a walk (its plan, its step, its last page, its row in Walks) and on its path page: make a talk from the walk, or open the one made before.
+        On a path (a walk with no source): the same from the path. `quiet` gives a quiet button, for a page that has its own main button."""
         if j.get('mode') == 'walk': return ui.PresentWalk(j.id, walk_talk(lr, j.id), quiet) if j.steps and not j.get('depth') and not for_talk(j) else None
         if not plain(j): return None
         w = journey_walk(lr, j.id)

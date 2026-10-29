@@ -1,4 +1,4 @@
-"The home page, in order of weight: `today_top` (continue), `today_next` (the review line), `today` (your journeys, the goal), and `today_end` (one line of links)."
+"The home page, in order of weight: `today_top` (continue), `today_next` (the review line), `today` (your walks, the goal), and `today_end` (one line of links)."
 import time
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, run, n_of

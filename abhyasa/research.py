@@ -23,7 +23,7 @@ from .prompts import register, prompt
 from .journey import _jlock
 from .sources import doc_pages, link_kind, LinkError, NOT_LOCAL, PLAIN, SHORT, fetch_opts, quoted, _local, _addrs, _clip
 from .ground import fence
-from .walk import tutor_note   # adds Learning.walk_step, through journey
+from .walk import tutor_note   # adds Learning.walk_step, through `journey`
 
 log = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-"""A goal and a path to it: an ordered list of steps, one concept each, that the learner can see and change.
+"""A walk and its path: an ordered list of steps, one concept each, that the learner can see and change. The module is `abhyasa.journey`.
 
 Docs: https://vedicreader.github.io/abhyasa/journey.html.md"""
 
@@ -33,29 +33,29 @@ def _jmeta(r): return AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id
 
 @patch
 def put_journey(self:Learning, j:dict) -> AttrDict:
-    "Save journey `j`, and replace an earlier one with the same id."
+    "Save walk `j`, and replace an earlier one with the same id."
     j = {k: v for k, v in dict(j).items() if k != 'doc_id'}
     j.update(updated=time.time(), steps=[dict(s) for s in j.get('steps', [])])
     names = [(self.concept(s['slug']) or {}).get('name', s['slug']) for s in j['steps']]
-    text = f"Journey: {j['title']} ({j['id']})\n\nGoal: {j.get('goal', '')}\n\nSteps: {', '.join(names)}"
-    r = self.v.add(text, title=f"Journey: {j['title']}", source=_src('journey', j['id']), kind='journey', meta=j)
+    text = f"Walk: {j['title']} ({j['id']})\n\nGoal: {j.get('goal', '')}\n\nSteps: {', '.join(names)}"
+    r = self.v.add(text, title=f"Walk: {j['title']}", source=_src('journey', j['id']), kind='journey', meta=j)
     if not r.get('changed'): self.v.set_meta(r['doc_id'], **j)
     return self.journey(j['id'])
 
 @patch
 def journey(self:Learning, jid:str) -> AttrDict|None:
-    "One journey by id."
+    "One walk by id."
     r = first(self.v.t.docs(where='source=?', where_args=[_src('journey', jid)]))
     return _jmeta(r) if r else None
 
 @patch
 def journeys(self:Learning) -> L:
-    "All journeys, the most recently changed first."
+    "All walks, the most recently changed first."
     return L(sorted(map(_jmeta, self._docs('journey')), key=lambda j: -j.get('updated', 0)))
 
 @patch
 def drop_journey(self:Learning, jid:str):
-    "Remove a journey. Its concepts and their state stay."
+    "Remove a walk. Its concepts and their state stay."
     if (j := self.journey(jid)): self.v.forget(j.doc_id)
 
 # %% ../nbs/11_journey.ipynb #f9c8b63c
@@ -136,7 +136,7 @@ def near_goal(lr:Learning, goal:str, k:int=40, most:int=150) -> list:
 def _new_id(title): return f"{slugify(title)[:40]}-{uuid.uuid4().hex[:4]}"
 
 def plan(lr:Learning, ask, goal:str, who:str='', sources=None) -> AttrDict:
-    "Plan a journey to `goal`, make the concepts that the shelf does not have, and save it."
+    "Plan a path (a walk with no source) to `goal`, make the concepts that the shelf does not have, and save it."
     r = ask_json(for_task(ask, 'plan'), plan_prompt(goal, who, near_goal(lr, goal)), prompt('walk.plan'))
     idx, subject, steps, slug_of = _index(lr), (r.get('subject') or '').lower().strip(), [], {}
     for s in r.get('steps') or []:
@@ -268,7 +268,7 @@ def journey_from_text(lr:Learning, ask, text:str, title:str, subject:str='', too
 
 # %% ../nbs/11_journey.ipynb #lk41
 def journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str='', progress=None, tool:bool=False, **extra) -> AttrDict:
-    "Make one walk across the vault documents `docs`, each with `shelf`, `doc_id`, `title` and `url`, in their order. `extra` goes on the journey."
+    "Make one walk across the vault documents `docs`, each with `shelf`, `doc_id`, `title` and `url`, in their order. `extra` goes on the walk."
     if not docs: raise ValueError('no pages to walk')
     got, subject = {}, clean_subject(subject)
     for k, d in enumerate(docs):
@@ -289,7 +289,7 @@ def _topic_read(c, sources) -> dict|None:
     return p and dict(src=p.src, ref=p.ref, title=p.title, url=p.url, text=p.text[:val('walks.passage')], section='', figure=None)
 
 def _topic_walk(lr:Learning, j, sources=None, tool:bool=False, **extra) -> AttrDict:
-    "Save journey `j` as a walk of its first `walks.steps` steps, in its order, with a passage from `sources` and a check on each step. The other steps go in `more`, and `extra` goes on the walk."
+    "Save path `j` as a walk of its first `walks.steps` steps, in its order, with a passage from `sources` and a check on each step. The other steps go in `more`, and `extra` goes on the walk."
     most = val('walks.steps')
     j.steps, more = j.steps[:most], [s['slug'] for s in j.steps[most:]]
     for s in j.steps:
@@ -306,12 +306,12 @@ def walk_from_topic(lr:Learning, ask, goal:str, who:str='', sources=None, tool:b
 _JLOCKS, _JLOCK = {}, threading.Lock()
 
 def _jlock(jid) -> threading.RLock:
-    "The lock of journey `jid`, so that two writers do not read, change and write it at the same time."
+    "The lock of walk `jid`, so that two writers do not read, change and write it at the same time."
     with _JLOCK: return _JLOCKS.setdefault(jid, threading.RLock())
 
 @patch
 def walk_step(self:Learning, jid:str, i:int, **kv) -> AttrDict:
-    "Merge `kv` into step `i` of walk `jid` and save it, under the lock of the journey."
+    "Merge `kv` into step `i` of walk `jid` and save it, under the lock of the walk."
     with _jlock(jid):
         j = self.journey(jid)
         if j is None: raise KeyError(f'no journey {jid!r}')
@@ -321,7 +321,7 @@ def walk_step(self:Learning, jid:str, i:int, **kv) -> AttrDict:
 
 @patch
 def merge_journey(self:Learning, jid:str, **kv) -> AttrDict:
-    "Merge the fields `kv` into journey `jid` and save it, under the lock of the journey. The other fields stay as they are."
+    "Merge the fields `kv` into walk `jid` and save it, under the lock of the walk. The other fields stay as they are."
     with _jlock(jid):
         j = self.journey(jid)
         if j is None: raise KeyError(f'no journey {jid!r}')
@@ -398,7 +398,7 @@ def _step(lr:Learning, c, sources, check, why:str='') -> dict:
     return dict(slug=c.slug, status='todo', why=why, read=_topic_read(c, sources), check=check(lr, c))
 
 def _topic_steps(lr:Learning, ask, c, goal:str, most, sources) -> list:
-    "The steps of a path to `goal`, at most `most` of them, then a step on `c`. The planned journey is not kept."
+    "The steps of a path to `goal`, at most `most` of them, then a step on `c`. The planned path is not kept."
     t = plan(lr, ask, goal, sources=sources)
     lr.drop_journey(t.id)
     ss = [s for s in t.steps if s['slug'] != c.slug][:most]
@@ -423,7 +423,7 @@ def detour(lr:Learning, ask, slug:str, parent:dict, how:str='walk', sources=None
 
 # %% ../nbs/11_journey.ipynb #ps02
 def parent_step(lr:Learning, j, js:dict=None) -> tuple:
-    "The parent walk and step of side walk `j`, when the walk is there and has that step; else `(None, None)`. `js` maps ids to journeys that are already read."
+    "The parent walk and step of side walk `j`, when the walk is there and has that step; else `(None, None)`. `js` maps ids to walks that are already read."
     p = (j or {}).get('parent') or {}
     w, i = p.get('walk'), p.get('step')
     pj = (js.get(w) if js is not None else lr.journey(w)) if isinstance(w, str) else None
@@ -455,22 +455,22 @@ def back_from(lr:Learning, jid:str) -> AttrDict|None:
 
 # %% ../nbs/11_journey.ipynb #rh18b
 def for_talk(j) -> bool:
-    "Whether walk `j` is for a talk: a side walk that a talk opened beside a slide, or the walk that a talk was made from, from a journey."
+    "Whether walk `j` is for a talk: a side walk that a talk opened beside a slide, or the walk that a talk was made from, from a path."
     p = (j or {}).get('parent')
     return isinstance(p, dict) and ('talk' in p or p.get('for') == 'talk')
 
 # %% ../nbs/11_journey.ipynb #pj02
 def _to_present(lr:Learning, j) -> list:
-    "The steps of journey `j` that a talk presents: not skipped, and with a concept on the shelf."
+    "The steps of path `j` that a talk presents: not skipped, and with a concept on the shelf."
     return [s for s in j.steps if s.get('status') != 'skip' and lr.concept(s['slug'])]
 
 def journey_walk(lr:Learning, jid:str) -> AttrDict|None:
-    "The newest walk that `walk_for_talk` made from journey `jid`, or None."
+    "The newest walk that `walk_for_talk` made from path `jid`, or None."
     ws = [j for j in lr.journeys() if j.get('parent') == {'journey': jid, 'for': 'talk'}]
     return first(sorted(ws, key=lambda j: -(j.get('created') or 0)))
 
 def walk_for_talk(lr:Learning, jid:str, sources=None, again:bool=False) -> AttrDict:
-    "A walk for a talk from plain journey `jid`: its steps that are not skipped, in order, with its goal. `made_from` keeps their slugs. A second call gives the same walk, unless `again`."
+    "A walk for a talk from path `jid` (a walk with no source): its steps that are not skipped, in order, with its goal. `made_from` keeps their slugs. A second call gives the same walk, unless `again`."
     j = lr.journey(jid)
     if j is None or j.get('mode') == 'walk' or for_talk(j): raise KeyError(f'no plain journey {jid!r}')
     if not again and (w := journey_walk(lr, jid)): return w
@@ -481,7 +481,7 @@ def walk_for_talk(lr:Learning, jid:str, sources=None, again:bool=False) -> AttrD
 
 # %% ../nbs/11_journey.ipynb #pj14
 def journey_changed(lr:Learning, w) -> bool:
-    "Whether the journey that walk `w` was made from for a talk has other steps now, or the same steps in another order."
+    "Whether the path that walk `w` was made from for a talk has other steps now, or the same steps in another order."
     p, was = (w or {}).get('parent') or {}, (w or {}).get('made_from')
     j = lr.journey(p.get('journey') or '') if p.get('for') == 'talk' else None
     return bool(j and was is not None and [s['slug'] for s in _to_present(lr, j)] != was)
@@ -502,7 +502,7 @@ PRIMER_SP = register('primer', 'Statement of a new idea', 'How the tutor writes 
                      "You write one true, self-contained statement of one idea, for a learner: one to three sentences. Maths in $...$.")
 
 def add_topic(lr:Learning, ask, jid:str, name:str, before:str=None, sources=None) -> AttrDict:
-    "Add topic `name` to journey `jid`, as a concept on the shelf. Return the journey."
+    "Add topic `name` to walk `jid`, as a concept on the shelf. Return the walk."
     j = lr.journey(jid)
     if not usable_name(name): return j   # a name such as `x` is not an idea
     slug = _index(lr).get(name.strip().lower())
@@ -574,11 +574,11 @@ def related(lr:Learning, slug:str, k:int=6, goal:int=None, by:dict=None) -> L:
     return L(out[:k])
 
 def with_step(lr:Learning, slug:str) -> L:
-    "`(journey, index)` for each journey that has step `slug`."
+    "`(walk, index)` for each walk that has step `slug`."
     return L((j, i) for j in lr.journeys() for i, s in enumerate(j.steps) if s['slug'] == slug)
 
 def beyond(lr:Learning, j, k:int=5, goal:int=None) -> L:
-    "Up to `k` concepts that build on the steps of journey `j` and are not in it."
+    "Up to `k` concepts that build on the steps of walk `j` and are not in it."
     by, have = {c.slug: c for c in lr.concepts()}, {s['slug'] for s in j['steps']}
     out = L()
     for s in j['steps'][::-1]:
