@@ -8,6 +8,7 @@
 - Talks: the room sees the points of a slide, with the `body` beat, and its type gets smaller when they do not fit. The room never sees the speaker notes. The presenter window shows the notes and the line "From your sources". The editor has a Points box for each slide with no passage.
 - Talks: an old talk with slides that have only a title offers a quiet "Fill the slides" button in the editor. The tutor writes the points and the notes of those slides in the background. A slide that you change at that time keeps your change.
 - Talks: a slide with no passage can show a figure from your vault: the first image of a vault passage that names the idea, when the folder of that document has the image file.
+- Talks: the tutor gets each passage of your sources as data between `<source>` markers, so a line in a passage cannot act as an instruction. The notes of a slide have a length limit.
 - Talks need rupaka 0.0.6.
 - Demo ladder: when you miss an idea after its demo, the tutor teaches it in another way, then shows a simpler demo, then steps back to a prereq (setting: More help after a demo).
 - Feedback: under each demo and each lesson, a quiet row asks "Too simple · Just right · Not clear". "Not clear" opens a short box that you can speak into. The tutor uses your choice and your note for the next demo or lesson of the idea, on the demo ladder, in the ways that work for you and in your profile (setting: Feedback under a demo or a lesson).

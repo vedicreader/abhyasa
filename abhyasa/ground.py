@@ -6,8 +6,9 @@ Docs: https://vedicreader.github.io/abhyasa/ground.html.md"""
 
 # %% auto #0
 __all__ = ['VR_ROOT', 'RAMA_CFG', 'SKIP_DIRS', 'TICK', 'passage', 'cite', 'fts_query', 'VaultSource', 'VedicSource', 'fold',
-           'names', 'ground', 'ground_text', 'ramabana_memory', 'ramabana_sessions', 'index_ramabana', 'find_notebooks',
-           'nb_text', 'index_notebooks', 'tick', 'schedule', 'index_main']
+           'names', 'ground', 'ground_text', 'concept_grounds', 'fence', 'fenced', 'ramabana_memory',
+           'ramabana_sessions', 'index_ramabana', 'find_notebooks', 'nb_text', 'index_notebooks', 'tick', 'schedule',
+           'index_main']
 
 # %% ../nbs/09_ground.ipynb #c004
 import json, os, re, sqlite3, time, unicodedata
@@ -95,6 +96,24 @@ def ground(q:str, sources, k:int=3, must=()) -> L:
 def ground_text(ps) -> str:
     "Passages as prompt text, one line each, with citations."
     return '\n'.join(f"- {cite(p)} {p.text[:400]}" for p in ps)
+
+# %% ../nbs/09_ground.ipynb #gf02
+def concept_grounds(c, sources, k:int=3) -> L:
+    "Up to `k` passages from `sources` that name concept `c` (its name or an alias)."
+    terms = [c.get('name') or c.get('slug') or '', *(c.get('aliases') or [])]
+    try: return ground(' '.join(terms[:4]), sources, k, must=terms) if sources else L()
+    except Exception: return L()
+
+_MARK = re.compile(r'</?\s*source\b[^>]*>?', re.I)
+
+def fence(title:str, text:str) -> str:
+    "`text` as data for a prompt: between `<source>` markers, with each marker in `title` and `text` cut."
+    cut = lambda x: _MARK.sub('', str(x or ''))
+    return f'<source title={json.dumps(cut(title))}>{cut(text)}</source>'
+
+def fenced(ps, n:int=400) -> str:
+    "Each passage of `ps` as `fence` gives it, with at most `n` characters of its text, one on each line."
+    return '\n'.join(fence(p.title, p.text[:n]) for p in ps)
 
 # %% ../nbs/09_ground.ipynb #c022
 @patch
