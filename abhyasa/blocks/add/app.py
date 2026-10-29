@@ -101,21 +101,37 @@ def connect(app, ctx):
     lr = ctx.learning
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
 
-    known = AttrDict(key=None, at=0, names={}, disk={})   # the folder names under `sources.roots`, and what one folder holds
+    known = AttrDict(key=None, at=0, names={}, disk={}, busy=set())   # the folder names under `sources.roots`, what one folder holds, and the refreshes on the pool
+
+    def later(what, f):
+        "Run `f` on the pool, one at a time for each `what`. The request goes on with the old value."
+        if what in known.busy: return
+        known.busy.add(what)
+        def go():
+            try: f()
+            finally: known.busy.discard(what)
+        ctx.pool.submit(go)
+
+    def read_names(key): known.update(key=key, at=time.time(), names=folder_names(key))
 
     def names():
-        "The folder names under `sources.roots`, two levels down. Read again when the setting changes, or after `NAMES_FOR` seconds."
+        "The folder names under `sources.roots`, two levels down. A change of the setting reads them at once; after `NAMES_FOR` seconds the pool reads them again."
         key = tuple(roots())
-        if known.key != key or time.time() - known.at > NAMES_FOR: known.update(key=key, at=time.time(), names=folder_names(key))
+        if known.key != key: read_names(key)
+        elif time.time() - known.at > NAMES_FOR: later('names', lambda: read_names(key))
         return known.names
 
-    def disk(p):
-        "What the folder `p` holds, for the folder line: the notebooks and the files, if it is a repo, or why abhyasa does not file it."
-        if why := folder_why(p): return dict(why=why)
-        if (got := known.disk.get(p)) and time.time() - got[0] < DISK_FOR: return got[1]
+    def count(p):
         fs = tree_files(p)
         known.disk[p] = (time.time(), d := dict(notebooks=sum(x.suffix == '.ipynb' for x in fs), files=len(fs), repo=(Path(p)/'.git').exists()))
         return d
+
+    def disk(p):
+        "What the folder `p` holds, for the folder line: the notebooks and the files, if it is a repo, or why abhyasa does not file it. An old count is read again on the pool."
+        if why := folder_why(p): return dict(why=why)
+        if not (got := known.disk.get(p)): return count(p)
+        if time.time() - got[0] > DISK_FOR: later(p, lambda: count(p))
+        return got[1]
 
     def reading(q, pick='', file='', pages='', doc='', extra=(), drop=()):
         "The reading of the box, and its chips: the sources that the text names, and the ones that you added (`extra`), less the ones that you removed (`drop`)."
@@ -195,7 +211,7 @@ def connect(app, ctx):
 
     def vedicreader(): return P(', '.join(f'{v} {k}' for k, v in from_vedicreader(lr).items()) + ' added.')
 
-    ctx.pool.submit(names)   # read the folder names one time, before the first read of the box
+    later('names', lambda: read_names(tuple(roots())))   # read the folder names one time, before the first read of the box
 
     @hook('learn_start')
     def start():

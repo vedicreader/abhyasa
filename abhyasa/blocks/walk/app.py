@@ -195,7 +195,7 @@ def connect(app, ctx):
 
     def from_goal(goal, ids, st, subject=''):
         "On the pool: file each chip that is not in the vault, then plan the walk to `goal` (or, with no goal, walk through the docs). Return the walk id."
-        filed, notes, docs, names = [], [], L(), []
+        filed, notes, docs, names = st.setdefault('filed', []), [], L(), []   # `st.filed`: the Undo still works when the walk fails
         for i in ids:
             kind, _, v = i.partition(':')
             try: name, ds = file_chip(i, st)
@@ -205,6 +205,7 @@ def connect(app, ctx):
                 notes.append((f'abhyasa could not clone {v}.' if kind == 'gh' else f'abhyasa could not file {Path(v).name or v}.') + why)
                 continue
             docs += ds; names.append(name)
+            if cut := getattr(ds, 'cut', ''): notes.append(f'{name}: {cut}')
             if added := getattr(ds, 'added', None):
                 filed.append(dict(root=name, docs=[dict(x) for x in added], at=time.time(), notebooks=sum(str(x.url).endswith('.ipynb') for x in added)))
         st.update(said='Planning the walk')
@@ -233,20 +234,24 @@ def connect(app, ctx):
             st.job = ctx.pool.submit(from_goal, goal, ids, st, subject)
         return ui.LinkPending(key, st.said)
 
-    def unfile_(jid:str, root:str=''):
-        "Undo: forget the docs that Start added for `root`, when each is still the same file."
-        if not (j := walk_of(jid)): return Response(status_code=404)
+    def unfile_(jid:str='', root:str='', job:str=''):
+        "Undo, for one hour after Start: forget the docs that Start added for `root` (for walk `jid`, or for the pool job `job` when its walk failed), when each is still the same file."
+        st = links.get(job) if job else None
+        if not (j := walk_of(jid) if jid else st): return Response(status_code=404)
         f = first(x for x in j.get('filed') or () if x['root'] == root and not x.get('undone'))
         if not f: return P('There is nothing to undo.', cls='mute')
+        if not ui.can_undo(f): return P('The time for Undo is over. abhyasa keeps these documents.', cls='mute')
         n = unfile(lr, f['docs'])
-        lr.merge_journey(jid, filed=[{**x, 'undone': True} if x['root'] == root else x for x in j['filed']])
+        if st: f['undone'] = True
+        else: lr.merge_journey(jid, filed=[{**x, 'undone': True} if x['root'] == root else x for x in j['filed']])
         return P(f"Removed {root} from your vault: {n_of(n, 'document')}.", cls='mute filed')
 
     def job(url:str=''):
         "The state of the walk from `url`: the pending card, a redirect to the walk when it is ready, or a message."
         if not (st := links.get(url.strip())): return P('No walk is being made from this link. Send the form again.', cls='req-err')
         if not st.job.done(): return ui.LinkPending(url.strip(), st.said)
-        if (e := st.job.exception()): return P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err')   # never the words of a library
+        if (e := st.job.exception()):   # never the words of a library; what Start filed keeps its Undo
+            return Div(P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err'), ui.Filed(dict(id='', filed=st.get('filed')), job=url.strip()))
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
     def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str='',

@@ -6,20 +6,21 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'READERS', 'PLAIN', 'LOCALE', 'LANGS',
-           'SHORT', 'EMPTY', 'ARXIV_LINK', 'TREE_TYPES', 'TREE_SKIP', 'TREE_FILES', 'TREE_MB', 'TREE_SEEN', 'NO_FOLDER',
-           'GH_NAME', 'NOT_REPOS', 'CLONE_WAIT', 'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'VR_ROOT', 'RASI', 'quoted',
-           'group_line', 'add_group', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'extract',
-           'from_vault', 'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts',
-           'link_folder', 'in_scope', 'link_sel', 'LinkError', 'link_kind', 'reading_order', 'file_link', 'as_link',
-           'is_id_title', 'arxiv_title', 'is_paper', 'tree_files', 'folder_why', 'file_folder', 'vault_roots',
-           'root_docs', 'unfile', 'gh_name', 'gh_public', 'file_repo', 'source_of', 'plain', 'from_vedicreader']
+           'SHORT', 'EMPTY', 'ARXIV_LINK', 'TREE_TYPES', 'TREE_SKIP', 'TREE_FILES', 'TREE_MB', 'TREE_TOTAL_MB',
+           'TREE_SEEN', 'GH_NAME', 'NOT_REPOS', 'REPO_MB', 'CLONES', 'NO_GHEASY', 'WEB', 'YOURS', 'TUTOR', 'YOU',
+           'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group', 'extract_prompt', 'doc_pages', 'locate',
+           'figure_path', 'placement', 'extract', 'from_vault', 'sort_prompt', 'Places', 'propose_groups',
+           'apply_groups', 'place_new', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError', 'link_kind',
+           'reading_order', 'file_link', 'as_link', 'is_id_title', 'arxiv_title', 'is_paper', 'tree_files',
+           'folder_why', 'file_folder', 'vault_roots', 'root_docs', 'unfile', 'gh_name', 'can_clone', 'gh_public',
+           'file_repo', 'source_of', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
-import json, os, re
+import json, os, re, shutil
 from pathlib import Path
 from fastcore.utils import *
 from .store import Learning, SHELF, slugify, _union, clean_group, clean_subject, readable_name, usable_name
-from .settings import val
+from .settings import val, path_why, NO_FOLDER
 from .llm import ask_json, for_task
 from .prompts import register, prompt
 
@@ -485,42 +486,45 @@ def is_paper(url:str) -> bool:
     except ValueError: return False
 
 # %% ../nbs/04_sources.ipynb #29ba502d
-from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 from .ground import SKIP_DIRS, index_notebooks
 
 # %% ../nbs/04_sources.ipynb #83fe9565
-TREE_TYPES = ('.ipynb', '.md', '.txt', '.py')   # in this order: the file cap keeps the notebooks first
+TREE_TYPES = ('.ipynb', '.md', '.txt', '.py')   # in this order: the caps keep the notebooks first
 TREE_SKIP = SKIP_DIRS | {'data', 'datasets'}
-TREE_FILES, TREE_MB, TREE_SEEN = 400, 20, 20_000   # the most files filed, the most MB of one file, the most names looked at
+TREE_FILES, TREE_MB, TREE_TOTAL_MB, TREE_SEEN = 400, 20, 200, 20_000   # the most files, MB of one file, MB of one filing, names looked at
 
 def tree_files(root) -> L:
-    "The files under the folder `root` that abhyasa files, in path order. No link, nothing outside `root`, and at most `TREE_FILES`."
-    root, got, seen = Path(root).resolve(), [], 0
+    """The files under the folder `root` that abhyasa files, in path order. No link, no hard link, nothing outside `root`,
+    no `.py` when the folder has notebooks, at most `TREE_FILES` files and `TREE_TOTAL_MB` MB. `cut` says why it stopped early, or is ''."""
+    root, got, seen, nbs = Path(root).resolve(), [], 0, False
     for dp, dns, fns in os.walk(root):   # `os.walk` does not go into a link to a folder
         dns[:] = sorted(d for d in dns if d not in TREE_SKIP and not d.startswith('.'))
         for f in sorted(fns):
             seen += 1
             p = Path(dp)/f
             if f.startswith('.') or p.suffix.lower() not in TREE_TYPES or p.is_symlink(): continue
+            nbs = nbs or p.suffix.lower() == '.ipynb'
             try:
-                if p.stat().st_size <= TREE_MB * 2**20 and p.resolve().is_relative_to(root): got.append(p)
+                st = p.lstat()   # a hard link can name a file outside the folder, such as a key: it is never read
+                if st.st_nlink == 1 and st.st_size <= TREE_MB * 2**20 and p.resolve().is_relative_to(root): got.append((p, st.st_size))
             except OSError: continue
         if seen >= TREE_SEEN: break
-    return L(sorted(sorted(got, key=lambda p: (TREE_TYPES.index(p.suffix.lower()), str(p)))[:TREE_FILES]))
+    if nbs: got = [(p, n) for p, n in got if p.suffix.lower() != '.py']   # the code of a course is in its notebooks
+    got.sort(key=lambda x: (TREE_TYPES.index(x[0].suffix.lower()), str(x[0])))
+    keep, total, cut = [], 0, ''
+    for p, n in got:
+        if len(keep) == TREE_FILES: cut = f'abhyasa stopped at {TREE_FILES} files.'; break
+        if total + n > TREE_TOTAL_MB * 2**20: cut = f'abhyasa stopped at {TREE_TOTAL_MB} MB.'; break
+        keep.append(p); total += n
+    out = L(sorted(keep))
+    out.cut = cut
+    return out
 
 # %% ../nbs/04_sources.ipynb #442af40e
-NO_FOLDER = 'abhyasa cannot find this folder.'
-
 def folder_why(p) -> str:
-    "Why abhyasa does not file the folder `p`, or '' when it can."
-    p, home = Path(p).expanduser(), Path.home().resolve()
-    try: r = p.resolve()
-    except (OSError, RuntimeError): return NO_FOLDER
-    if not r.is_relative_to(home): return 'abhyasa reads only folders in your home folder.'
-    if r == home: return 'Name a folder in your home folder, not the home folder itself.'
-    if p.is_symlink() or any(x.startswith('.') for x in r.relative_to(home).parts): return 'abhyasa does not read a hidden folder or a link.'
-    return '' if r.is_dir() else NO_FOLDER
+    "Why abhyasa does not file the folder `p` (the rules of `settings.path_why`), or '' when it can."
+    return path_why(p) or ('' if Path(str(p)).expanduser().resolve().is_dir() else NO_FOLDER)
 
 # %% ../nbs/04_sources.ipynb #b5b78218
 def _file_tree(lr:Learning, root, shelf:str, name:str, url=None) -> L:
@@ -538,10 +542,11 @@ def _file_tree(lr:Learning, root, shelf:str, name:str, url=None) -> L:
     for p in files:
         if not (d := by.get(str(p))): continue
         m = dict(root=name, path=str(p), mtime=p.stat().st_mtime, **({'url': url(p.relative_to(root).as_posix())} if url else {}))
-        if any(d['meta'].get(k) != v for k, v in m.items()): sh.set_meta(d['id'], **m)
+        mine = str(p) not in had or had[str(p)]['meta'].get('root') == name   # a document that was there before, filed by another tool, keeps its meta
+        if mine and any(d['meta'].get(k) != v for k, v in m.items()): sh.set_meta(d['id'], **m)
         docs.append(x := AttrDict(shelf=shelf, doc_id=d['id'], title=d['title'], url=m.get('url', str(p)), mtime=m['mtime']))
         if str(p) not in had: added.append(x)
-    docs.added = added
+    docs.added, docs.cut = added, files.cut
     return docs
 
 def file_folder(lr:Learning, path, shelf:str='notebooks') -> L:
@@ -587,7 +592,15 @@ def gh_name(s:str) -> str|None:
     return f'{o}/{n}'
 
 # %% ../nbs/04_sources.ipynb #3b93837a
-CLONE_WAIT, REPO_MB = 300, 500   # seconds for one clone; the biggest repo, in MB
+REPO_MB = 500   # the biggest repo that abhyasa clones, in MB
+CLONES = Path.home()/'.cache/abhyasa/git_clones'
+NO_GHEASY = 'Install abhyasa[repos] to add GitHub repos.'
+
+def can_clone() -> bool:
+    "True when gheasy, the optional extra that clones a repo, is installed."
+    try: from gheasy import repo
+    except ImportError: return False
+    return True
 
 def gh_public(owner:str, name:str) -> dict|None:
     "What GitHub says of the repo `owner/name` (`private`, `size` in KB), or None when it has no such repo."
@@ -595,24 +608,20 @@ def gh_public(owner:str, name:str) -> dict|None:
     r = http_get(f'https://api.github.com/repos/{owner}/{name}', timeout=15)
     return json.loads(r.body) if r.status == 200 else None
 
-def _clone_url(g):
-    try: from gheasy.repos import clone_url
-    except ImportError: return f'https://github.com/{g}.git'
-    return clone_url(g)
-
-def file_repo(lr:Learning, url:str, shelf:str='notebooks') -> L:
-    "Clone the public GitHub repo `url` (a link or `owner/name`) with fossick's `gh_clone`, then file it on `shelf`. Raises `LinkError` with a plain reason."
+def file_repo(lr:Learning, url:str, shelf:str='notebooks', into=None) -> L:
+    "Clone the public GitHub repo `url` (a link or `owner/name`) with gheasy into `into` (default `CLONES`), then file it on `shelf`. Raises `LinkError` with a plain reason."
     if not (g := gh_name(url)): raise LinkError('abhyasa clones only a public repo on github.com.')
+    if not can_clone(): raise LinkError(NO_GHEASY)
     info = gh_public(*g.split('/'))
     if not info or info.get('private'): raise LinkError(f'{g} is not a public repo on github.com.')
     if (info.get('size') or 0) > REPO_MB * 1024: raise LinkError(f'{g} is too big. abhyasa clones a repo of at most {REPO_MB} MB.')
-    import fossick
-    os.environ.setdefault('GIT_TERMINAL_PROMPT', '0')   # a git that asks for a password would wait for ever
-    ex = ThreadPoolExecutor(1)
-    try: d = Path(ex.submit(fossick.gh_clone, _clone_url(g)).result(timeout=CLONE_WAIT))
-    except TimeoutError: raise LinkError(f'abhyasa could not clone {g} in {CLONE_WAIT // 60} minutes.') from None
-    finally: ex.shutdown(wait=False)
-    if not d.is_dir(): raise LinkError(f'abhyasa could not clone {g}.')
+    from gheasy import repo as gr
+    parent = Path(into or CLONES); parent.mkdir(parents=True, exist_ok=True)
+    d = parent/g.replace('/', '-')
+    if not (d/'.git').is_dir():
+        if d.exists(): shutil.rmtree(d)   # a clone that stopped half way
+        try: d = Path(gr.clone(f'https://github.com/{g}.git', parent, d.name))
+        except Exception as e: raise LinkError(f'abhyasa could not clone {g}.') from e
     return _file_tree(lr, d, shelf, g, url=lambda rel: f'https://github.com/{g}/blob/HEAD/{quote(rel)}')
 
 # %% ../nbs/04_sources.ipynb #so0i

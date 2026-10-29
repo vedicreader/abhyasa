@@ -4,7 +4,7 @@ from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say
 from abhyasa import voice
-from abhyasa.settings import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped
+from abhyasa.settings import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped, dropped_roots
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -18,9 +18,14 @@ def pct(x): return '' if x is None else f'{x:.0%}'
 
 def reset_attrs(name): return dict(hx_post=Routes.default, hx_vals={'name': name}, hx_target=f'#{row_id(SETTINGS[name])}', hx_swap='outerHTML')
 
+def dropped() -> str:
+    "The source folders that abhyasa does not use, with the reason for each, or ''."
+    return ' '.join(f'abhyasa does not use {l}: {w}' for l, w in dropped_roots())
+
 def Row(r, v):
-    "A setting row on this page: its value posts to `Routes.value`, and `Use the default` to `Routes.default`."
-    return SettingRow(r, v, Routes.value, reset_attrs(r.name), file=clamped(r.name) if r.store == 'file' else None)
+    "A setting row on this page: its value posts to `Routes.value`, and `Use the default` to `Routes.default`. The source folders say which lines are not used."
+    help = f'{r.help} {d}' if r.name == 'sources.roots' and (d := dropped()) else None
+    return SettingRow(r, v, Routes.value, reset_attrs(r.name), file=clamped(r.name) if r.store == 'file' else None, help=help)
 
 def More(group, *items, names=()):
     "The closed part of a group: `More in Walks: passage length, note length, depth, and 2 more`."

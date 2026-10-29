@@ -66,7 +66,7 @@ def connect(app, ctx):
         got = store(r, v)
         if got != v and r.kind in ('int', 'float'):   # clamped: the whole row comes again, so the box shows the value in use
             return ui.Row(r, got), *HtmxResponseHeaders(retarget=f'#{ui.row_id(r)}', reswap='outerHTML'), *after(r)[1:]
-        return ui.RangeLine(r, got, ui.reset_attrs(name), saved=True), *after(r)
+        return ui.RangeLine(r, got, ui.reset_attrs(name), saved=True, err=ui.dropped() if name == 'sources.roots' else ''), *after(r)   # a source folder that breaks a rule is named at once
 
     def default(name:str):
         "Use the default of one value."

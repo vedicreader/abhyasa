@@ -93,12 +93,16 @@ def filed_words(f) -> str:
     if not nb: return n_of(n, 'file')
     return n_of(nb, 'notebook') + (f" and {n_of(n - nb, 'other file')}" if n > nb else '')
 
-def Filed(j, now=None):
-    "What Start filed for walk `j`, each with Undo for one hour, and the sources that it could not file."
-    now = now or time.time()
+def can_undo(f, now=None) -> bool:
+    "True when the filing `f` is not undone and is less than `UNDO_FOR` seconds old."
+    return not f.get('undone') and (now or time.time()) - f.get('at', 0) < UNDO_FOR
+
+def Filed(j, now=None, job=''):
+    "What Start filed for walk `j` (or, when the walk failed, for the pool job `job`), each with Undo for one hour, and the sources that it could not file."
+    who = dict(job=job) if job else dict(jid=j['id'])
     rows = [Div(f"Added {f['root']}: {filed_words(f)}.", ' ',
-                Quiet('Undo', small=True, type='button', hx_post=Routes.unfile, hx_vals=dict(jid=j['id'], root=f['root']), hx_target='this', hx_swap='outerHTML'),
-                cls='filed') for f in j.get('filed') or () if not f.get('undone') and now - f.get('at', 0) < UNDO_FOR]
+                Quiet('Undo', small=True, type='button', hx_post=Routes.unfile, hx_vals=dict(**who, root=f['root']), hx_target='this', hx_swap='outerHTML'),
+                cls='filed') for f in j.get('filed') or () if can_undo(f, now)]
     notes = [P(n, cls='req-err') for n in j.get('notes') or ()]
     return Div(*rows, *notes, cls='walk-filed') if rows or notes else ''
 
