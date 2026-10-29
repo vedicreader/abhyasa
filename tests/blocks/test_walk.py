@@ -614,3 +614,42 @@ def test_a_refused_move_gives_the_server_a_plain_reason(mk, walk_fake, lr):
     assert r.status_code == 409 and r.text == 'No check is open on this idea. Load the page again.' and 'html' not in r.headers.get('content-type', '')
     js = (Path(abhyasa.__file__).parent/'core'/'core.js').read_text()
     assert 'responseText' in js and 'Load the page again' in js and 'textContent' in js
+
+def open_check(cl, lr, jid):
+    "Start walk `jid`, open the short check of step 1, give one wrong try and get one hint."
+    cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
+    cl.get(f'/w/{jid}/1/check')
+    assert '2 tries left' in cl.post(f'/w/{jid}/1/answer', data=dict(answer='a sum of scores', confidence=40)).text
+    assert 'Think about positions.' in cl.post(f'/w/{jid}/1/hint').text
+    return lr.journey(jid).steps[1]['qid']
+
+def test_open_check_survives_a_restart(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); qid = open_check(cl, lr, jid)
+    cl2 = mk()                                                                      # a restart: a new app with a new tutor on the same vault
+    assert qid not in dict(cl2.app.state.svc['tutor'].open)
+    for page in (cl2.get(f'/w/{jid}/1').text, cl2.get(f'/w/{jid}/1/check').text):
+        assert 'Its position.' not in page and 'rubric' not in page                 # the answer key never reaches the HTML
+    card = cl2.get(f'/w/{jid}/1/check').text
+    assert 'What does a rank tell you?' in card and 'Think about positions.' in card and lr.journey(jid).steps[1]['qid'] == qid   # the same check, with its hint
+    r = cl2.post(f'/w/{jid}/1/answer', data=dict(answer='more scores', confidence=50))
+    assert r.status_code == 200 and '1 try left' in r.text                          # the try before the restart counts
+    assert 'a sum of scores' in walk_fake.calls[-1][0]                              # and the grader sees it
+    r = cl2.post(f'/w/{jid}/1/answer', data=dict(answer='its rank position', confidence=70)).text
+    assert 'Next idea' in r and lr.journey(jid).steps[1]['done']['outcome'] == 'fragile'
+    assert len(lr.attempts('softmax', limit=None)) == 3 and lr.open_q(qid).status == 'closed'
+
+def test_closed_check_after_a_restart_is_refused(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); qid = open_check(cl, lr, jid)
+    lr.put_open_q(lr.open_q(qid).q, 'closed', 'closed')
+    r = mk().post(f'/w/{jid}/1/answer', data=dict(answer='its rank position'))
+    assert r.status_code == 409 and r.text == 'No check is open on this idea. Load the page again.'
+
+def test_old_check_closes_with_no_grade(mk, walk_fake, lr):
+    import time
+    cl = mk(); jid = walk(cl, lr); qid = open_check(cl, lr, jid)
+    before, n = dict(lr.concept('softmax')), len(lr.attempts('softmax', limit=None))
+    lr.v.set_meta(lr.open_q(qid).doc_id, updated=time.time() - 8 * 86400)          # no change in 8 days; the setting is 7
+    assert mk().post(f'/w/{jid}/1/answer', data=dict(answer='its rank position')).status_code == 409
+    assert (lr.open_q(qid).status, lr.open_q(qid).end) == ('closed', 'abandoned')
+    assert dict(lr.concept('softmax')) == before and len(lr.attempts('softmax', limit=None)) == n and not lr.journey(jid).steps[1]['done']

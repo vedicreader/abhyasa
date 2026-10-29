@@ -215,6 +215,7 @@ def test_vault_source_opens_in_the_side_pane(lr, fake):
     from abhyasa.app import mk_app
     cl = TestClient(mk_app(lr, fake, sources=[VaultNotes()], hosts=('testserver',)))
     sid = start(cl)
+    cl.get(f'/s/{sid}')   # the page waits for the question that is fetched ahead
     r = cl.post(f'/s/{sid}/answer', data=dict(answer='its rank position', confidence=80)).text
     a = re.search(r'<a [^>]*>Rasi Characteristics</a>', r).group(0)
     assert 'href="/v/store/d1"' in a and 'data-pane="/v/store/d1?pane=1"' in a and 'target="_blank"' in a and 'data-title="Rasi Characteristics"' in a
@@ -233,3 +234,14 @@ def test_composer_boxes_keep_a_draft_by_question(mk):
         m = re.search(rf'(<textarea[^>]*id="{k}"[^>]*>)(.*?)</textarea>', composer, re.S)
         assert m and m[2] == '' and 'data-draft' in m[1], k
     assert 'add the scores' not in composer and 'they look alike' not in composer
+
+def test_session_question_survives_a_restart(mk, lr):
+    cl = mk(); sid = start(cl)
+    cl.get(f'/s/{sid}')
+    assert 'Not yet' in cl.post(f'/s/{sid}/answer', data=dict(answer='a score', confidence=70)).text
+    assert 'Think about positions' in cl.post(f'/s/{sid}/hint').text
+    cl2 = mk()                                                                      # a restart: a new app on the same vault
+    page = cl2.get(f'/s/{sid}').text
+    assert 'What does a rank tell you?' in page and 'Think about positions' in page and 'Its position' not in page
+    r = cl2.post(f'/s/{sid}/answer', data=dict(answer='its rank position', confidence=70)).text
+    assert 'Right, but shaky' in r                                                  # the wrong try and the hint still count
