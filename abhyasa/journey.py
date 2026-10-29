@@ -570,7 +570,7 @@ def _arxiv_of(j) -> str:
 
 def paper_id(j) -> str:
     "The arXiv id of the paper that walk `j` reads, or an empty string. Empty too when the title of `j` is that id."
-    return '' if is_id_title(j.get('title')) else _arxiv_of(j)
+    return '' if is_id_title(j.get('title'), _arxiv_of(j)) else _arxiv_of(j)
 
 @patch
 def _retitle(self:Learning, j, t:str):
@@ -584,9 +584,9 @@ def repair_titles(self:Learning) -> list:
     if first(self.v.t.docs(where='source=?', where_args=[_src('marker', 'titles')])): return []
     out = []
     for j in self.journeys():
-        if not (is_id_title(j.title) and j.get('docs')): continue
+        if not (is_id_title(j.title, _arxiv_of(j)) and j.get('docs')): continue
         d = self.vault.shelf(j.docs[0]['shelf']).doc(j.docs[0]['doc_id'])
-        if d and (t := (d['title'] or '').strip()) and not is_id_title(t):
+        if d and (t := (d['title'] or '').strip()) and not is_id_title(t, _arxiv_of(j)):
             self._retitle(j, t); out.append(j.id)
     self.v.add('The titles of the walks were repaired.', title='Titles repaired', source=_src('marker', 'titles'), kind='marker')
     return out
@@ -606,9 +606,10 @@ def repair_paper_titles(self:Learning, title_of=None) -> list:
             except Exception as e: got[aid] = None; retry = retry or 'No paper found' not in str(e)   # a paper that arXiv does not have: no more tries
         return got[aid]
     for j in self.journeys():
-        if is_id_title(j.title) and j.get('docs') and (aid := _arxiv_of(j)) and (t := title(aid)): self._retitle(j, t); out.append(j.id)
+        if (aid := _arxiv_of(j)) and is_id_title(j.title, aid) and j.get('docs') and (t := title(aid)): self._retitle(j, t); out.append(j.id)
     for d in self.vault.t.docs(where="kind in ('pdf', 'arxiv')"):
-        if is_id_title(d['title']) and (m := ARXIV_LINK.fullmatch(d['source'] or '') or ARXIV_ID.fullmatch(d['title'])) and (t := title(ARXIV_ID.search(m[0]).group())):
+        m = ARXIV_LINK.fullmatch(d['source'] or '') or ARXIV_ID.fullmatch(d['title'])
+        if m and is_id_title(d['title'], aid := ARXIV_ID.search(m[0]).group()) and (t := title(aid)):
             self.vault.t.docs.update(dict(id=d['id'], title=t))
     if not retry: self.v.add('The titles of the papers were repaired.', title='Paper titles repaired', source=mark, kind='marker')
     return out

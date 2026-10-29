@@ -298,7 +298,7 @@ def link_sel(start:str) -> str:
             f'a[href]:not([href*=":"]):not([href^="/"]):not([href^="#"]){up}')
 
 # %% ../nbs/04_sources.ipynb #lk04
-ARXIV_ID = re.compile(r'\d{4}\.\d{4,5}(?:v\d+)?')
+ARXIV_ID = re.compile(r'(?:\d{4}\.\d{4,5}|[a-z]+(?:-[a-z]+)?(?:\.[A-Z]{2})?/\d{7})(?:v\d+)?')   # 1706.03762, and the old form hep-th/9901001
 LOCAL_ENDS = ('.localhost', '.local', '.internal', '.lan', '.home.arpa')
 NOT_LOCAL = 'abhyasa does not read links to this computer or to a local network.'
 
@@ -425,7 +425,7 @@ def file_link(lr:Learning, url:str, max_pages:int=None, read=None, final=None, t
         if not d or d['id'] in docs.attrgot('doc_id') or (how in ('url', 'crawl') and not in_scope(d['source'], scope)): continue
         if how in ('url', 'crawl') and not found: _whole(lr, sh, d)   # after the scope filter, and only for a host on the internet
         docs.append(AttrDict(shelf=sh.name, doc_id=d['id'], title=d['title'], url=d['source']))
-    if aid and (t := (title_of or (not found and arxiv_title) or (lambda i: None))(aid)): docs = L(AttrDict(d, title=t) if is_id_title(d.title) else d for d in docs)   # the PDF reader names a paper by the end of its link
+    if aid and (t := (title_of or (not found and arxiv_title) or (lambda i: None))(aid)): docs = L(AttrDict(d, title=t) if is_id_title(d.title, aid) else d for d in docs)   # the PDF reader names a paper by the end of its link
     if how == 'github': docs = L(sorted(docs, key=lambda d: 'readme' not in Path(d.url).name.lower()))
     if not docs: raise LinkError('abhyasa could not read this link.')
     if sum(len(t) for d in docs for _, t in doc_pages(lr, d.doc_id, d.shelf).pages) < EMPTY:
@@ -434,7 +434,7 @@ def file_link(lr:Learning, url:str, max_pages:int=None, read=None, final=None, t
 
 
 # %% ../nbs/04_sources.ipynb #lk17
-ARXIV_LINK = re.compile(r'(?:https?://)?(?:www\.|export\.)?arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5}(?:v\d+)?)(?:\.pdf)?/?', re.I)
+ARXIV_LINK = re.compile(rf'(?:https?://)?(?:www\.|export\.)?arxiv\.org/(?:abs|pdf)/({ARXIV_ID.pattern})(?:\.pdf)?/?', re.I)
 
 def as_link(s:str) -> str|None:
     "The link in the field `s`: a web link, an arXiv id, `arxiv:<id>` or an arXiv address. None for anything else, such as a vault name."
@@ -442,18 +442,20 @@ def as_link(s:str) -> str|None:
     if ARXIV_ID.fullmatch(s) or re.fullmatch(r'https?://\S+', s, re.I): return s
     return f'https://arxiv.org/abs/{m[1]}' if (m := ARXIV_LINK.fullmatch(s)) else None
 
-def is_id_title(t:str) -> bool:
-    "Whether `t` is only an arXiv id, as the PDF reader names a paper by the end of its link."
-    return bool(re.fullmatch(ARXIV_ID.pattern + r'(?:\.pdf)?', re.sub(r'^arxiv:\s*', '', (t or '').strip(), flags=re.I)))
+def is_id_title(t:str, aid:str='') -> bool:
+    "Whether `t` is only an arXiv id, as the PDF reader names a paper by the end of its link. With `aid`, also its last part: `0601001` for `math/0601001`."
+    t = re.sub(r'^arxiv:\s*', '', (t or '').strip(), flags=re.I)
+    return bool(re.fullmatch(ARXIV_ID.pattern + r'(?:\.pdf)?', t) or aid and t.removesuffix('.pdf') == aid.rsplit('/', 1)[-1])
 
 def arxiv_title(aid:str, strict:bool=False) -> str|None:
     "The title of arXiv paper `aid` from its metadata (fossick keeps it on disk), or None when there is none. `strict`: a failure raises, and the time limit is at most 10 s."
     from fossick import read_arxiv
     o = fetch_opts(); o['timeout'] = min(o['timeout'], 10) if strict else o['timeout']
-    try: return ' '.join(read_arxiv(aid, save_pdf=False, **o)['title'].split()) or None
+    try: t = ' '.join(read_arxiv(aid, save_pdf=False, **o)['title'].split())
     except Exception:
         if strict: raise
         return None
+    return (t if len(t) <= 200 else t[:200].rsplit(' ', 1)[0].rstrip() + '…') or None
 
 def is_paper(url:str) -> bool:
     "Whether `url` is one paper that abhyasa reads in full: an arXiv id or address, or a link to a PDF file."

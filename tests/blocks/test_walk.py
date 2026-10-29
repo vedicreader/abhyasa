@@ -745,7 +745,10 @@ def test_old_paper_walk_title_is_repaired_once(lr):
     mk_j = lambda i, t, doc: lr.put_journey(dict(id=i, title=t, mode='walk', steps=[], url='https://arxiv.org/pdf/1706.03762', source=dict(url='https://arxiv.org/pdf/1706.03762'),
                                                  docs=[dict(shelf='store', doc_id=doc, title=t, url='https://arxiv.org/pdf/1706.03762')]))
     mk_j('old', '1706.03762', d['doc_id']); mk_j('mine', 'My own title', d['doc_id'])
-    lr.v.forget(first(lr.v.t.docs(where='source=?', where_args=['learning://marker/titles']))['id']) if first(lr.v.t.docs(where='source=?', where_args=['learning://marker/titles'])) else None
+    mark = first(lr.v.t.docs(where='source=?', where_args=['learning://marker/titles']))
+    assert mark                       # the shelf has the mark of the repair
+    lr.v.forget(mark['id'])           # a vault from before the repair: no mark, so the next load repairs
+    assert not first(lr.v.t.docs(where='source=?', where_args=['learning://marker/titles']))
     assert Learning(lr.vault).journey('old').title == 'Attention Is All You Need' and lr.journey('mine').title == 'My own title'
     lr.put_journey({**lr.journey('old'), 'title': '1706.03762'})
     assert Learning(lr.vault).journey('old').title == '1706.03762'   # the mark is set: it does not look again
