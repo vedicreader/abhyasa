@@ -88,3 +88,12 @@ def no_disk_names(tmp_path_factory):
     "The Start box looks for named folders in an empty temp folder, not in the owner's code folders."
     from abhyasa.settings import set_val
     set_val('sources.roots', str(tmp_path_factory.mktemp('roots')))
+
+def pytest_sessionfinish(session, exitstatus):
+    "Show each thread that is still running after the tests. In CI, end the process, so a left-over job cannot hold the run open."
+    import sys, threading, faulthandler
+    left = [t for t in threading.enumerate() if t is not threading.main_thread() and not t.daemon and t.is_alive()]
+    if left:
+        print(f'\nThreads still running after the tests: {[t.name for t in left]}', file=sys.stderr, flush=True)
+        faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
+    if os.environ.get('CI'): sys.stdout.flush(); sys.stderr.flush(); os._exit(int(exitstatus))
