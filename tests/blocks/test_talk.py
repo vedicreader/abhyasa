@@ -703,3 +703,19 @@ def test_beside_and_end_in_a_browser(mk, talk_fake, lr, tmp_path):
                 assert lr.talk(tid).live is None and len(lr.attempts(limit=1000)) == n0 and not errs, errs
             finally: b.close()
     finally: srv.should_exit = True
+
+def test_edit_a_run_question(mk, talk_fake, lr):
+    "A run question (\"What does this print?\") takes 2 to 6 options or none, never has an answer, and keeps its options in the order that you wrote."
+    from abhyasa.blocks.talk.ui import KINDS
+    assert KINDS['run'] == 'What does this print?'
+    cl, tid = talk_of(mk, lr)
+    post = lambda **kw: cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='edit', **kw))
+    ask = lambda: lr.talk(tid).slides[0]['ask']
+    assert post(kind='run', q='What does it print?', options='1\n2').status_code == 200                      # two options are enough
+    assert ask() == dict(kind='run', q='What does it print?', options=['1', '2'])
+    assert post(kind='run', q='What does it print?', options='a\nb\nc\nd', answer='1').status_code == 200   # more options: not mixed, no answer
+    assert ask() == dict(kind='run', q='What does it print?', options=['a', 'b', 'c', 'd'])
+    assert post(kind='run', q='What does it print?', options='').status_code == 200 and 'options' not in ask()    # free words
+    assert post(kind='run', q='What does it print?', options='only one').status_code == 400
+    assert post(kind='run', q='What does it print?', options='1\n2\n3\n4\n5\n6\n7').status_code == 400
+    assert lr.talk(tid).slides[0]['ask']['kind'] == 'run'

@@ -90,6 +90,9 @@ def new_ask(old, f):
     if kind == 'scale':
         if len(opts) != 5: raise Bad('A scale needs 5 labels, one on each line.')
         return dict(a, options=opts)
+    if kind == 'run':   # the answer comes after the run: no right option, and the options keep their order
+        if opts and not 2 <= len(opts) <= 6: raise Bad('A run question needs 2 to 6 options, one on each line, or none.')
+        return dict(a, options=opts) if opts else a
     if kind == 'choice':
         if not 2 <= len(opts) <= 6: raise Bad('A choice needs 2 to 6 options, one on each line.')
         n = number(ans, 0, len(opts) - 1, 'Pick the right option.') if ans else old.get('answer') if same else None

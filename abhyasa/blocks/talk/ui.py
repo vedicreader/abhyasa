@@ -11,7 +11,7 @@ from abhyasa.settings import val
 from .cfg import Routes
 
 _P = Path(__file__).parent
-KINDS = dict(choice='Choice', order='Order', words='Short answer', scale='Scale', none='No question')
+KINDS = dict(choice='Choice', order='Order', words='Short answer', scale='Scale', run='What does this print?', none='No question')
 SHOWS = dict(passage='passage', figure='figure', demo='live demo')
 ENDS = dict(questions='the questions from the room, or your notes', recap='made at the end from what the room answered')
 

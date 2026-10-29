@@ -61,6 +61,7 @@ def _ask_problems(sid, a) -> list:
     if k == 'choice':
         if not isinstance(opts, list) or not 2 <= len(opts) <= 6: return [f'{sid}: a choice needs 2 to 6 options']
         if not (is_int(ans) and 0 <= ans < len(opts)): return [f'{sid}: the answer {ans!r} is not an option']
+    if k == 'run' and ans is not None: return [f'{sid}: a run question has no answer before the run']
     if k == 'run' and opts is not None and not (isinstance(opts, list) and 2 <= len(opts) <= 6 and all(isinstance(o, str) for o in opts)): return [f'{sid}: a run question has 2 to 6 options, or none']
     if k == 'order':
         n = len(opts) if isinstance(opts, list) else 0
