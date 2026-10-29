@@ -68,9 +68,9 @@ requires-dist = [
     { name = "python-fasthtml", specifier = ">=0.14" },
     { name = "ramabana", marker = "extra == 'models'", specifier = ">=0.2.78" },
     { name = "rishi", specifier = ">=0.1.56" },
-    { name = "rupaka", specifier = ">=0.0.3" },
-    { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.3" },
-    { name = "rupaka", extras = ["check"], marker = "extra == 'dev'", specifier = ">=0.0.3" },
+    { name = "rupaka", specifier = ">=0.0.4" },
+    { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.4" },
+    { name = "rupaka", extras = ["check"], marker = "extra == 'dev'", specifier = ">=0.0.4" },
     { name = "vidyut", specifier = ">=0.4" },
     { name = "vishalakshi", specifier = ">=0.1.35" },
 ]
@@ -4554,14 +4554,14 @@ wheels = [
 
 [[package]]
 name = "rupaka"
-version = "0.0.3"
+version = "0.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/71/65/292bb70cff8a2c020705c7e6e8e569de2c4f55fca30da3fe9591908537d9/rupaka-0.0.3.tar.gz", hash = "sha256:8b017945b7d61f7b655e6755701a81a1c77a109d36103ffa4a53143b54c3b759", size = 290638, upload-time = "2026-10-28T08:50:24.855Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/a5/6285eb7e1167bb895b7481ba04c6f506ad3350fe24a577f4fea60b3707e3/rupaka-0.0.4.tar.gz", hash = "sha256:665d69a70606f4f79d86033ee0070b40fea6a515bc757a0f272ee427c73ac408", size = 292902, upload-time = "2026-10-28T23:27:55.159Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/c3/a17f93fcd6b052f95cc030ccfde2aa89fc5c84f5cf6a79bba4bb51da3574/rupaka-0.0.3-py3-none-any.whl", hash = "sha256:c2a525f2ffa90fa14369d793954934355bf27abc559ccc4555fb2bb5b5a70924", size = 318033, upload-time = "2026-10-28T08:50:23.207Z" },
+    { url = "https://files.pythonhosted.org/packages/42/37/dd610bc8fa95a02008d7e4a1bbd5f1cb071eece62b1d319f0bb9b930a542/rupaka-0.0.4-py3-none-any.whl", hash = "sha256:cc981b151259cbf5d96bf3e8921b834dfea6abe829b4a394e2252c1d263b5aa2", size = 320873, upload-time = "2026-10-28T23:27:53.527Z" },
 ]
 
 [package.optional-dependencies]
