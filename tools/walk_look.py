@@ -841,6 +841,31 @@ def dr1_wrong_try_leaves_empty_boxes(pg, w):
     pg.wait_for_selector('#chat .m.you'); settle(pg, 300)
     assert box_values(pg) == ['', ''], box_values(pg)
 
+def er1_error_line_shows_the_server_reason(pg, w):
+    "A 4xx with a short plain body shows that text, clipped to 200 characters, as text. A 409 adds a link that reloads. Other errors keep the generic line."
+    global QUIET
+    jid = new_walk(w)
+    def fail(status, body, ctype='text/plain'):
+        pg.unroute('**/answer'); pg.route('**/answer', lambda r: r.fulfill(status=status, body=body, content_type=ctype))
+        pg.evaluate("document.querySelectorAll('.req-err').forEach(e => e.remove())")
+        pg.fill('#ans', 'x'); pg.click('#send'); pg.wait_for_selector('.req-err'); return pg.query_selector('.req-err')
+    QUIET = True
+    try: _er1(pg, w, jid, fail)
+    finally: QUIET = False; pg.unroute('**/answer')
+
+def _er1(pg, w, jid, fail):
+    pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check #ans'); settle(pg)
+    e = fail(409, 'No check is open on this idea. Load the page again.')
+    assert e.inner_text().startswith('No check is open on this idea. Load the page again.') and e.query_selector('a'), e.inner_text()
+    with pg.expect_event('load'): e.query_selector('a').click()
+    pg.wait_for_selector('#check #ans'); settle(pg)
+    e = fail(400, 'z' * 300)
+    assert len(e.inner_text()) <= 200 and not e.query_selector('a'), len(e.inner_text())
+    e = fail(422, '<b id="inj">bold</b>', 'text/html')
+    assert not pg.query_selector('#inj') and 'error 422' in e.inner_text(), e.inner_text()
+    e = fail(500, 'Boom')
+    assert 'error 500' in e.inner_text(), e.inner_text()
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
@@ -849,7 +874,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
           s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field, r1_start_forms_show_no_error, ct1_concept_tree,
-          dr1_wrong_try_leaves_empty_boxes]
+          dr1_wrong_try_leaves_empty_boxes, er1_error_line_shows_the_server_reason]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
@@ -876,11 +901,13 @@ def screens(pg, w, out, only=None, widths=(1280, 1000), looks=None):
     look(w.rq, w.B, 'paper', 'auto')
     return shots
 
+QUIET = False   # a check that forces a failed request sets this, as htmx logs each one as a console error
+
 def guard(pg):
     "Collect the script errors of the page and its frames: uncaught errors and console errors. A failed request is not a script error."
     errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
-    pg.on('console', lambda m: m.type == 'error' and not m.text.startswith('Failed to load resource') and errs.append(m.text[:200]))
+    pg.on('console', lambda m: m.type == 'error' and not QUIET and not m.text.startswith('Failed to load resource') and errs.append(m.text[:200]))
     return errs
 
 def main():

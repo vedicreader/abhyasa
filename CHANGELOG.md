@@ -34,6 +34,7 @@
 - After the talk: where the room was unsure, the talk slide by slide, a recap file for the room, and a follow-up walk.
 - The answers of the room and your pick at a demo gate in a talk do not change your learning.
 - After a wrong try, the answer box and the think-aloud box are empty for the next try. The earlier try shows in the record of the check.
+- The error line shows the reason that the app gives when it refuses a request (up to 200 characters). After a 409 it adds a link that loads the page again.
 
 ## 0.0.11
 

@@ -605,3 +605,11 @@ def test_wrong_try_gives_empty_boxes_and_keeps_the_try_in_the_record(mk, walk_fa
     assert 'Not yet' in r and 'a sum of scores' in r                                  # the try shows in the record
     b = boxes(r)
     assert b['ans'][1] == '' and b['think'][1] == '' and 'a sum of scores' not in b['ans'][0]   # the boxes are empty
+
+def test_a_refused_move_gives_the_server_a_plain_reason(mk, walk_fake, lr):
+    "A move on a check that is not open answers 409 with a short plain line, which core.js shows on the page."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='x'))
+    assert r.status_code == 409 and r.text == 'No check is open on this idea. Load the page again.' and 'html' not in r.headers.get('content-type', '')
+    js = (Path(abhyasa.__file__).parent/'core'/'core.js').read_text()
+    assert 'responseText' in js and 'Load the page again' in js and 'textContent' in js

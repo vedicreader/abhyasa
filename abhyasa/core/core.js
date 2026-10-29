@@ -170,6 +170,12 @@ document.addEventListener('htmx:beforeSwap', e => {
   if (st && st.skel) st.skel.remove();   // before the swap, so the new content takes the place of the placeholder with no jump
 });
 
+// The reason that the server gives for a refused request: its body, when the status is 4xx and the body is a short line of plain text.
+const abhyasaWhy = xhr => {
+  const t = (xhr.responseText || '').trim(), type = xhr.getResponseHeader('Content-Type') || '';
+  return xhr.status >= 400 && xhr.status < 500 && t && !/html|json/i.test(type) && !t.startsWith('<') ? t.slice(0, 200) : '';
+};
+
 document.addEventListener('htmx:afterRequest', e => {
   const st = abhyasaReqs.get(e.detail.xhr);
   if (!st) return;
@@ -184,7 +190,13 @@ document.addEventListener('htmx:afterRequest', e => {
     if (!e.detail.successful && !e.detail.xhr.getResponseHeader('HX-Redirect')) {   // htmx leaves `successful` unset when it follows HX-Redirect
       const p = document.createElement('p');
       p.className = 'req-err';
-      p.textContent = status ? `The request failed (error ${status}). Try again.` : 'The app does not answer. Make sure that it runs, then try again.';
+      const why = abhyasaWhy(e.detail.xhr);   // the short plain reason of a 4xx, as text and never as HTML
+      p.textContent = why || (status ? `The request failed (error ${status}). Try again.` : 'The app does not answer. Make sure that it runs, then try again.');
+      if (why && status === 409) {
+        const a = Object.assign(document.createElement('a'), {href: location.href, textContent: 'Load the page again'});
+        a.addEventListener('click', ev => { ev.preventDefault(); location.reload(); });
+        p.append(' ', a);
+      }
       const at = (st.btn && st.btn.isConnected && st.btn.closest('.row')) || e.detail.elt;
       if (at && at.isConnected) at.after(p);
     }
