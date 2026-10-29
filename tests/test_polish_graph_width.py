@@ -6,3 +6,15 @@ def test_graph_page_has_no_width_cap_and_fits_on_resize():
     d = Path(abhyasa.blocks.graph.__file__).parent
     assert 'main.wide:has(#graph)' in (d/'graph.css').read_text() and 'max-width: none' in (d/'graph.css').read_text()
     assert 'ResizeObserver(() =>' in (d/'graph.js').read_text() and 'fit(' in (d/'graph.js').read_text().split('new ResizeObserver')[1][:200]
+
+def test_one_grip_helper_for_the_pane_and_the_graph_tools():
+    "grip.js is in core and loads before pane.js; pane.js and graph.js call it, and neither keeps its own drag code."
+    from abhyasa.core.ui import HDRS
+    core = Path(abhyasa.blocks.graph.__file__).parents[2]/'core'
+    h = str(HDRS())
+    assert h.index('grip.js') < h.index('pane.js') and 'abhyasaGrip' in (core/'grip.js').read_text()
+    pane, graph = (core/'pane.js').read_text(), (Path(abhyasa.blocks.graph.__file__).parent/'graph.js').read_text()
+    assert 'abhyasaGrip(' in pane and 'abhyasaGrip(' in graph and 'setPointerCapture' not in pane + graph
+    from fasthtml.common import to_xml
+    from abhyasa.blocks.graph.ui import Stage
+    assert 'class="grip"' in to_xml(Stage('/d', []))

@@ -91,25 +91,31 @@
     else if (now !== src) f.contentWindow.location.replace(src);
   };
 
-  // The width, as vedicreader: the grip drags it, arrow keys move it (24 px, Shift 96 px), a double-click resets it; kept in `rh-w`.
+  // The width, as vedicreader: the grip (grip.js) drags it, arrow keys move it (24 px, Shift 96 px), 1, 2 and 3 on the grip set a third, a half
+  // and two thirds, a double-click resets it; kept in `rh-w`.
   const bounds = () => [380, Math.max(380, Math.min(innerWidth * .7, innerWidth - 520))];
-  const setW = (w, keep) => {
-    if (w == null) { root.style.removeProperty('--rh-w'); localStorage.removeItem(RHW); }
-    else {
-      const [lo, hi] = bounds();
-      w = Math.round(Math.min(hi, Math.max(lo, w)));
-      root.style.setProperty('--rh-w', `${w}px`);
-      if (keep) localStorage.setItem(RHW, w);
-    }
-    const g = pane()?.querySelector('.grip'), [lo, hi] = bounds();
-    if (g) Object.entries({'aria-valuemin': lo, 'aria-valuemax': Math.round(hi), 'aria-valuenow': Math.round(pane().getBoundingClientRect().width)}).forEach(([k, v]) => g.setAttribute(k, v));
+  const gripOf = () => {
+    const g = pane()?.querySelector('.grip');
+    return g && abhyasaGrip(g, {box: pane(), key: RHW, bounds, quick: true,
+                                apply: w => w == null ? root.style.removeProperty('--rh-w') : root.style.setProperty('--rh-w', `${w}px`)});
   };
-  const keptW = () => { const w = +localStorage.getItem(RHW); if (w) setW(w, false); };
+  const keptW = () => gripOf()?.restore();
+  // The first time a pane opens: a quiet line by the grip. It goes after the first drag or after 8 seconds, and is kept as seen.
+  const tip = () => {
+    const p = pane();
+    if (!p || localStorage.getItem('rh-tip') || p.querySelector('.grip-tip')) return;
+    localStorage.setItem('rh-tip', '1');
+    const t = Object.assign(document.createElement('p'), {className: 'grip-tip', textContent: 'Drag this edge to make the pane wider.'});
+    t.setAttribute('role', 'status'); p.append(t);
+    const off = () => { clearTimeout(timer); t.classList.add('gone'); setTimeout(() => t.remove(), 300); };
+    const timer = setTimeout(off, 8000);
+    p.addEventListener('abhyasa:grip', off, {once: true});
+  };
 
   const show = (url, title) => {
     const p = pane() || build();
     if (title !== undefined) bar(url, title, trail); else p.querySelector('.rh-own').setAttribute('href', url);
-    root.classList.add('rh-open'); keptW();
+    root.classList.add('rh-open'); keptW(); tip();
     load(p.querySelector('iframe'), paneURL(url));
   };
   const hide = () => {
@@ -201,34 +207,20 @@
     const t = e.target.closest('#rh-pane .rh-trail a');
     if (t) { e.preventDefault(); const h = t.getAttribute('href'); h.split('?')[0] === location.pathname ? close() : open(h); }
   });
-  document.addEventListener('pointerdown', e => {
-    const g = e.target.closest('#rh-pane .grip');
-    if (!g || e.button !== 0) return;
-    e.preventDefault(); g.setPointerCapture(e.pointerId); root.classList.add('rh-drag');
-    const move = ev => setW(root.clientWidth - ev.clientX, false);
-    const up = () => { g.removeEventListener('pointermove', move); root.classList.remove('rh-drag'); setW(pane().getBoundingClientRect().width, true); };
-    g.addEventListener('pointermove', move);
-    g.addEventListener('pointerup', up, {once: true}); g.addEventListener('pointercancel', up, {once: true});
-  });
-  document.addEventListener('dblclick', e => { if (e.target.closest('#rh-pane .grip')) setW(null); });
-  document.addEventListener('keydown', e => {
-    const d = e.target.closest && e.target.closest('#rh-pane .grip') && {ArrowLeft: 1, ArrowRight: -1}[e.key];
-    if (d) { e.preventDefault(); setW(pane().getBoundingClientRect().width + d * (e.shiftKey ? 96 : 24), true); }
-  });
   // ⌥Z: back to the paper. It closes one level of the pane and puts the focus on the check; in the pane, it asks the main page.
   document.addEventListener('keydown', e => {
     if (!e.altKey || e.metaKey || e.ctrlKey || e.code !== 'KeyZ') return;
     if (inPane()) { e.preventDefault(); toParent({type: 'rh:close', level: 1}); }
     else if (isOpen()) { e.preventDefault(); back(); }
   });
-  addEventListener('resize', () => { const w = parseFloat(root.style.getPropertyValue('--rh-w')); if (w) setW(w, false); });
+  addEventListener('resize', () => { const w = parseFloat(root.style.getPropertyValue('--rh-w')); if (w) gripOf()?.set(w, false); });
 
   // On each page, and after htmx puts in a new one: a pane page reports where it is; a host page opens the pane that it has.
   const sync = () => {
     if (inPane()) return at();
     backLink();
     root.classList.toggle('rh-open', !!pane() && isLocal(rhNow()));
-    if (pane()) keptW();
+    if (pane()) { keptW(); tip(); }
     shownKey = withRh(null);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync); else sync();

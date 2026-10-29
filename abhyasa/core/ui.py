@@ -49,7 +49,7 @@ def HDRS():
             Script(src='/vendor/htmx.min.js'), Script(src='/vendor/fasthtml.js'),
             asset_css(_here/'base.css'), asset_css(_here/'themes.css'),
             Link(rel='stylesheet', href='/vendor/katex.min.css'), Script(src='/vendor/katex.min.js', defer=True),
-            asset_css(_here/'pane.css'), asset_js(_here/'core.js'), asset_js(_here/'pane.js'))
+            asset_css(_here/'pane.css'), asset_js(_here/'core.js'), asset_js(_here/'grip.js'), asset_js(_here/'pane.js'))
 
 THEMES = dict(paper='Warm paper, umber accent', ink='Calm, high contrast, dark first', manuscript='Palm leaf, saffron accent',
               clear='System font, plain and bright', sage='Soft green-grey, low glare', signal='Silver panels, orange controls')   # themes.css has the colours

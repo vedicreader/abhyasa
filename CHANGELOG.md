@@ -37,6 +37,7 @@
 - The error line shows the reason that the app gives when it refuses a request (up to 200 characters). After a 409 it adds a link that loads the page again.
 - A draft answer and its think-aloud text stay across a reload or a restart, in a walk check and in the session. They go when the answer is sent. A code editor keeps its own state.
 - Graph: the page uses the whole window, and the graph fits its nodes in the canvas again when the canvas changes size.
+- You can drag the edge of the side pane and of the Graph tools to resize them. The edge has a line and a small handle, and a tip shows the first time. Arrow keys move it, 1, 2 and 3 set a third, a half and two thirds of the window (the pane), and a double-click resets it.
 
 ## 0.0.11
 

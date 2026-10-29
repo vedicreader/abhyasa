@@ -881,6 +881,9 @@ def _er1(pg, w, jid, fail):
     e = fail(500, 'Boom')
     assert 'error 500' in e.inner_text(), e.inner_text()
 
+INSIDE = """() => { const g = window.abhyasaGraph, r = document.querySelector('#graph canvas').getBoundingClientRect(), t = g.t;
+        return g.vis.filter(n => { const x = t.applyX(n.x), y = t.applyY(n.y); return x < 0 || y < 0 || x > r.width || y > r.height; }).length; }"""
+
 def g1_graph_uses_the_window_and_fits(pg, w):
     "The graph canvas is at least 70% of the window at 1920 and at 1280 px, and every node is inside it after load and after a resize."
     inside = """() => { const g = window.abhyasaGraph, r = document.querySelector('#graph canvas').getBoundingClientRect(), t = g.t;
@@ -896,6 +899,41 @@ def g1_graph_uses_the_window_and_fits(pg, w):
             assert pg.evaluate(inside) == 0, 'a node is outside the canvas after a resize'
     pg.set_viewport_size(dict(width=1280, height=900))
 
+def gr1_the_grips_show_and_resize(pg, w):
+    "The side pane and the Graph tools have a visible grip. A drag changes the width and a reload keeps it. Key 2 on the pane grip sets a half."
+    pg.set_viewport_size(dict(width=1400, height=900))
+    pg.goto(w.B + '/keys'); pg.evaluate("localStorage.clear()")
+    pg.goto(f'{w.step(2)}?rh={side_walk(w)}'); pg.wait_for_selector('#rh-pane .grip'); settle(pg, 600)
+    g = pg.query_selector('#rh-pane .grip'); bb = g.bounding_box()
+    handle = pg.eval_on_selector('#rh-pane .grip', "g => { const s = getComputedStyle(g, '::after'); return [parseFloat(s.width), s.backgroundColor, s.opacity]; }")
+    assert bb['width'] >= 8 and handle[0] >= 4 and handle[1] != 'rgba(0, 0, 0, 0)' and float(handle[2]) > 0, (bb, handle)
+    assert pg.is_visible('.grip-tip') and 'Drag this edge' in pg.inner_text('.grip-tip')
+    w0 = pg.eval_on_selector('#rh-pane', 'p => p.getBoundingClientRect().width')
+    x, y = bb['x'] + bb['width'] / 2, bb['y'] + 300
+    pg.mouse.move(x, y); pg.mouse.down(); pg.mouse.move(x - 120, y, steps=6); pg.mouse.up(); settle(pg, 500)
+    w1 = pg.eval_on_selector('#rh-pane', 'p => p.getBoundingClientRect().width')
+    assert abs(w1 - w0 - 120) < 6 and not pg.query_selector('.grip-tip'), (w0, w1)
+    pg.reload(); pg.wait_for_selector('#rh-pane .grip'); settle(pg, 600)
+    assert abs(pg.eval_on_selector('#rh-pane', 'p => p.getBoundingClientRect().width') - w1) < 2, 'the width is kept after a reload'
+    assert not pg.query_selector('.grip-tip'), 'the tip shows once'
+    pg.focus('#rh-pane .grip'); pg.keyboard.press('2'); settle(pg, 300)
+    half = pg.eval_on_selector('#rh-pane', 'p => p.getBoundingClientRect().width')
+    assert abs(half - 700) < 6, half
+    pg.focus('#rh-pane .grip'); pg.keyboard.press('Home'); pg.dblclick('#rh-pane .grip'); settle(pg, 300)
+    assert pg.eval_on_selector('#rh-pane', 'p => p.getBoundingClientRect().width') != half, 'a double-click resets'
+    # the Graph tools
+    pg.goto(w.B + '/graph'); pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 1500)
+    gb = pg.query_selector('#graph .grip').bounding_box(); p0 = pg.eval_on_selector('#levers', 'e => e.getBoundingClientRect().width'); c0 = pg.eval_on_selector('#graph canvas', 'c => c.getBoundingClientRect().width')
+    assert gb['width'] >= 8 and pg.evaluate("getComputedStyle(document.querySelector('#graph .grip'), '::after').backgroundColor") != 'rgba(0, 0, 0, 0)'
+    x, y = gb['x'] + gb['width'] / 2, gb['y'] + 200
+    pg.mouse.move(x, y); pg.mouse.down(); pg.mouse.move(x - 100, y, steps=6); pg.mouse.up(); settle(pg, 2000)
+    p1 = pg.eval_on_selector('#levers', 'e => e.getBoundingClientRect().width'); c1 = pg.eval_on_selector('#graph canvas', 'c => c.getBoundingClientRect().width')
+    assert abs(p1 - p0 - 100) < 6 and c1 < c0, (p0, p1, c0, c1)
+    pg.reload(); pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 2500)
+    assert abs(pg.eval_on_selector('#levers', 'e => e.getBoundingClientRect().width') - p1) < 2, 'the panel width is kept'
+    assert pg.evaluate(INSIDE) == 0, 'a node is outside the canvas after the panel changes'
+    pg.set_viewport_size(dict(width=1280, height=900))
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
@@ -905,7 +943,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
           s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field, r1_start_forms_show_no_error, ct1_concept_tree,
           dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason,
-          g1_graph_uses_the_window_and_fits]
+          g1_graph_uses_the_window_and_fits, gr1_the_grips_show_and_resize]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

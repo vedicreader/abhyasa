@@ -55,5 +55,7 @@ def Empty_():
 
 def Stage(url, subjects, subject='', focus=''):
     "The canvas and its panel. The wrapper takes keyboard focus, so the keys work only here."
-    return Div(Div(Canvas(), Div(cls='tip', hidden=True), P('Loading the graph…', cls='hint note'), cls='stage'), Levers(subjects),
+    return Div(Div(Canvas(), Div(cls='tip', hidden=True), P('Loading the graph…', cls='hint note'), cls='stage'),
+               Div(cls='grip', role='separator', aria_orientation='vertical', aria_label='Resize the tools', tabindex='0', title='Drag to resize. Double-click to reset.'),
+               Levers(subjects),
                id='graph', tabindex='0', data_url=url, data_subject=subject, data_focus=focus)

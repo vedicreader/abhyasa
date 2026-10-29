@@ -511,7 +511,7 @@
 
   // ---- keys, only while the graph has focus -----------------------------------------------------------------------
   root.addEventListener('keydown', e => {
-    if (e.metaKey || e.ctrlKey || e.altKey || e.target === q) return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.target === q || e.target.closest('.grip')) return;
     const k = e.code, own = e.target === root;
     if (/^Digit[1-4]$/.test(k)) setMode(['force', 'path', 'rings', 'groups'][+k[5] - 1]);
     else if (k === 'KeyF') fit();
@@ -527,6 +527,9 @@
   });
 
   // ---- start ------------------------------------------------------------------------------------------------------
+  // The tools panel: its edge is a grip (core grip.js). The canvas takes the rest of the width, and the observer below fits the graph again.
+  abhyasaGrip(root.querySelector('.grip'), {box: panel, key: 'abhyasa.graph.w', bounds: () => [220, innerWidth * .45],
+                                            apply: w => w == null ? root.style.removeProperty('--gw') : root.style.setProperty('--gw', w + 'px')}).restore();
   // The canvas box can change (the window, the pane, the panel): the nodes fit in it again, with no glide for reduced motion.
   let ready = false;
   new ResizeObserver(() => { resize(); if (ready) fit(motion ? 250 : 0); }).observe(stage); resize();

@@ -1,7 +1,7 @@
 /* The graph: a canvas on the left, a quiet column of levers on the right. No boxes: the column has one rule beside it. */
 #graph { --g1: light-dark(hsl(22 45% 36%), hsl(28 55% 68%)); --g2: light-dark(hsl(205 34% 36%), hsl(205 40% 70%)); --g3: light-dark(hsl(82 34% 29%), hsl(82 32% 64%));
          --g4: light-dark(hsl(320 24% 40%), hsl(320 30% 74%)); --g5: light-dark(hsl(175 36% 27%), hsl(175 32% 62%)); --g6: light-dark(hsl(40 70% 32%), hsl(44 62% 64%));
-         display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 0 var(--s6); outline: none; }   /* the subject colours; light-dark() follows data-mode */
+         display: grid; position: relative; grid-template-columns: minmax(0, 1fr) var(--gw, 250px); gap: 0 var(--s6); outline: none; }   /* the subject colours; light-dark() follows data-mode */
 main.wide:has(#graph) { max-width: none; padding-top: var(--s5); padding-bottom: var(--s5); }   /* the whole window; the top bar keeps its width */
 #graph .stage { position: relative; height: calc(100vh - 120px); min-height: 460px; }
 #graph canvas { position: absolute; inset: 0; display: block; cursor: grab; touch-action: none; }
@@ -14,7 +14,10 @@ main.wide:has(#graph) { max-width: none; padding-top: var(--s5); padding-bottom:
 #graph .tip span { font-size: var(--t-meta); color: var(--mute); }
 #graph .tip span.why { display: block; color: var(--fg); }
 
-#levers { height: calc(100vh - 120px); min-height: 460px; overflow-y: auto; border-left: 1px solid var(--line); padding: 2px var(--s1) var(--s3) var(--s5);
+/* the grip (core grip.js) sits on the left edge of the tools and makes the line beside them */
+#graph .grip { grid-column: 2; grid-row: 1; justify-self: start; left: auto; height: calc(100vh - 120px); min-height: 460px; bottom: auto; margin-left: -8px; }
+#graph .grip::before { background: var(--line); width: 1px; left: 8px; }
+#levers { height: calc(100vh - 120px); min-height: 460px; overflow-y: auto; padding: 2px var(--s1) var(--s3) var(--s5);
           font-size: var(--t-small); line-height: 1.4; scrollbar-width: thin; }
 #levers .sec { margin: 0 0 var(--s4); }
 #levers .lbl { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 var(--s2); }
