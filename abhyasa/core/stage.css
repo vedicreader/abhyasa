@@ -1,0 +1,36 @@
+/* The stage (core/stage.js): the 16:9 slide box of a talk, the laser dot, the lit id, the blank screen and the slide beside the pane.
+   Only the token names of themes.css (--bg --fg --ink2 --mute --line --rule --acc, --serif --head), so another host's tokens fit.
+   The type is 46 px for a title and 28 px for a passage at 1280 by 720, and it scales with the window. */
+.stage { position: relative; box-sizing: border-box; aspect-ratio: 16 / 9; width: min(100vw, calc(100vh * 16 / 9)); margin: auto; overflow: hidden;
+  padding: 4% 5.5%; background: var(--page, var(--bg)); color: var(--fg); font-family: var(--serif); line-height: 1.4; }
+.stage h1 { font: 400 min(calc(46 / 1280 * 100vw), calc(46 / 720 * 100vh))/1.2 var(--head); letter-spacing: -.01em; margin: 0 0 .5em; }
+.stage .passage { font-size: min(calc(28 / 1280 * 100vw), calc(28 / 720 * 100vh)); color: var(--ink2); max-width: 34em; }
+.stage.laser { cursor: crosshair; }
+
+/* the laser dot: it shows at once, and fades when the pointer stops */
+.stage-dot { position: absolute; left: 0; top: 0; width: min(calc(18 / 1280 * 100vw), calc(18 / 720 * 100vh)); aspect-ratio: 1; border-radius: 50%;
+  background: var(--acc); box-shadow: 0 0 0 .3em color-mix(in srgb, var(--acc) 25%, transparent); transform: translate(-50%, -50%);
+  pointer-events: none; opacity: 0; transition: opacity var(--dur-3, 300ms) var(--ease, ease-out); z-index: 3; }
+.stage-dot.on { opacity: 1; transition: none; }
+
+/* a lit id (a beat or the laser on a part), and lit words in a passage */
+.stage .lit, .stage mark.lit { background: color-mix(in srgb, var(--acc) 18%, transparent); box-shadow: 0 0 0 .15em color-mix(in srgb, var(--acc) 18%, transparent);
+  border-radius: 2px; transition: background var(--dur-2, 220ms) var(--ease, ease-out); }
+.stage mark { background: none; color: inherit; }
+
+/* the blank screen: the page colour and the talk title only */
+.stage-blank { position: absolute; inset: 0; display: none; place-items: center; z-index: 4; background: var(--page, var(--bg)); color: var(--mute);
+  font: 400 min(calc(28 / 1280 * 100vw), calc(28 / 720 * 100vh))/1.3 var(--head); }
+.stage.blank .stage-blank { display: grid; animation: stage-fade var(--dur-2, 220ms) var(--ease, ease-out) both; }
+@keyframes stage-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* beside: the slide at the left, the page of the side pane at the right */
+.stage-pane { display: none; }
+.stage.beside { padding-right: 63%; }
+.stage.beside > .stage-pane { display: block; position: absolute; top: 0; right: 0; bottom: 0; width: 60%; height: 100%; box-sizing: border-box;
+  border: 0; border-left: 1px solid var(--line); background: var(--bg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-dot, .stage .lit, .stage mark.lit { transition: none; }
+  .stage.blank .stage-blank { animation: none; }
+}

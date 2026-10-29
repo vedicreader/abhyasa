@@ -109,6 +109,75 @@ Press ⌥B to open the offer. Then press 1, 2 or 3. A primer or a side walk open
 
 The pane opens only pages of abhyasa. A pane address that points to another site is ignored.
 
+## Teach a topic to a group
+
+You can present a walk to a group, as a talk. Each idea of the walk becomes one slide. The passage and the figure, or the demo, show to the room. The tutor note becomes your speaker note. The check of the idea becomes a question for the room.
+
+### Make a talk from a walk
+
+On the plan of a walk, or on its journey page, press “Present this walk”. The editor shows the slides in the order of the walk. A Questions slide and a recap slide come at the end. Set the minutes of your slot. A change to the talk does not change the walk.
+
+In the editor, W and S move the focus from slide to slide. ⇧W and ⇧S move a slide up or down. E opens the form that changes the slide. X takes out the slide (press X again to be sure). Q adds a pause after it. In the form, each line of “Beats” is one press of D: [`passage`](https://vedicreader.github.io/abhyasa/ground.html#passage), `figure`, `demo`, `ask`, or `lit:` and words from the passage. A `lit:` beat lights those words on the slide.
+
+In this version the room answers with hands. Keep “Room phones” at “No phones”.
+
+### The two windows
+
+Press Present (⌥S). The presenter window shows the slide now, your notes, the next slide, the question card and a clock. The first key that you press opens the audience window. If the browser blocks it, use the link “Open the audience window” at the top.
+
+To show the audience window on the projector, move it to the projector screen and press F in it. F fills the screen. Another key in the audience window only shows a note: the keys work in the presenter window. A reload of the audience window shows the same slide and beat. If you close the audience window, the presenter window tells you, and gives a link to open it again.
+
+The two windows send messages only to each other, in the same browser. Each run of a talk has a new random key. Thus an audience window from an old run cannot show or change a new run.
+
+The Abhyasa app for Mac cannot open the second window. In the app, the presenter window shows the address of the talk. Open that address in your browser to present.
+
+### The keys of a talk
+
+All keys work in the presenter window. They do not work while the focus is in a text box or in the demo.
+
+| key | what it does |
+|----|----|
+| D, space, → or Page Down | the next beat, then the next slide. With a primer open: its next page. A clicker works too |
+| A, ← or Page Up | back one beat. With a primer open: its page before |
+| G, then a number | go to that slide |
+| Q | ask the room, or close the question |
+| R | show the right answer |
+| 1 to 6 | while a question is open: the option that most hands chose |
+| E | go into the demo. Esc comes out |
+| X | the laser on or off. Move the pointer over the slide, and a dot shows in the audience window |
+| B | blank the room screen, and back |
+| ⌥S | the main button: ask the room, show the answer, close the question. On the last slide it ends the talk |
+| ⌥B | open a primer beside the slide |
+| ⌥Z | close the primer |
+| Esc | close the open question, the demo focus or the side pane. Esc never ends the talk |
+
+In a talk window, ⌥T, ⌥C, ⌥G, ⌥D and / do nothing. Thus a key that you press by mistake does not take you away from the talk.
+
+### Ask the room with hands
+
+Press Q. The question and its options show in the audience window. The answer does not show. The people in the room put up their hands. Press the number of the option that most hands chose: 1 for A, 2 for B, and so on. Then press R. The right answer and the answer of most hands are lit. After R, “Talk to your neighbour” lets the room talk in pairs about the answer.
+
+On a slide with a demo, press E to go into the demo and change it. The demo in the audience window follows each change. When you choose an answer at a gate of the demo, the room sees your answer. The room sees if your answer is right only after R. If you press “Try another”, the gate opens again in both windows.
+
+### The side pane in a talk
+
+Press ⌥B to see the ideas that the slide needs. Press 1 for a quick primer, or 2 for a short side walk. The primer opens beside the slide in both windows, in large type. It has no check. A long primer shows one page at a time: press D for the next page and A for the page before. While it is open, Q asks the room a question about the primer. ⌥Z closes the pane in both windows. A move to a new slide also closes it. A side walk from a talk does not show in your journeys or in Continue.
+
+### After the talk
+
+On the last slide, press ⌥S, or press “End the talk” at the top. The audience window says “Thank you”, and the presenter window opens “After the talk”. This page shows:
+
+- where the room was unsure: each question, with the answer that most hands chose;
+- the talk, slide by slide, with the time of each slide and each primer beside it;
+- “Save the recap as one file”: one HTML file with the slides, the passages, and each question with its right answer and the result of the room. It has no speaker notes and no names. Send it by mail or chat. “Look at it first” opens it in the browser;
+- a follow-up walk on the ideas where the room was unsure, and the primers that you can put in the talk for the next time.
+
+### The room does not change your learning
+
+The answers of the room are counts in the talk. They are not your attempts. Your own pick at a demo gate in a talk is not an attempt either. A talk does not change your record, your Continue or your journeys.
+
+Settings has a Talks group. It has the minutes for each question, the time to talk to a neighbour, the share of right answers below which a slide is unsure (70% by default), and how long the laser dot stays.
+
 ## Open in Leela
 
 abhyasa does not install libraries for you, and it runs only short exercises that use the standard library. A library or a command-line tool is better to learn in [Leela](https://github.com/vedicreader/leela). Leela has the tool environments, code lookup and an agent tutor.
@@ -121,13 +190,14 @@ If Leela does not run, the step says so, and it links to the install page.
 
 ## Settings
 
-Settings has every value that you may want to change. The values are in 11 groups:
+Settings has every value that you may want to change. The values are in 12 groups:
 
 | group | what it sets |
 |----|----|
 | Look | the theme and the mode |
 | Learning | your pace, how many questions a session has, and how often the tutor tries a new way to teach you |
 | Walks | how many ideas a walk has, how much is hands-on, how deep a side walk goes, and the length of a passage and a note |
+| Talks | the minutes for each question, the time to talk to a neighbour, when a slide is unsure, and the laser |
 | Checks and grading | the tries for a check, how close an answer must be to pass, hints, and how sure you must be |
 | Review | when a concept comes back, and a limit for each day |
 | Links | the page cap, the time for a link, and how much text abhyasa keeps |

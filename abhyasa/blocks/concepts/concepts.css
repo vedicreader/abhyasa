@@ -10,3 +10,20 @@ ul.concepts li .depth { order: 3; }
 ul.attempts li p.mute { margin: var(--s1) 0 0; }
 ul.attempts .ok, ul.attempts .no { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; margin-right: var(--s3); }
 ul.attempts .ok { color: var(--ok); } ul.attempts .no { color: var(--no); }
+/* The tree: quiet, a hairline under each branch head, the count muted beside the name. */
+#concepts-view .tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s5); margin: var(--s4) 0 var(--s5); }
+#concepts-view .find input { min-width: 260px; }
+#concepts-view .sort-form .mute { font-size: var(--t-small); }
+details.tree > summary { cursor: pointer; padding: var(--s2) 0; list-style-position: inside; }
+details.tree > summary .n { color: var(--mute); font-size: var(--t-meta); }
+details.tree.subj { margin: 0 0 var(--s5); }
+details.tree.subj > summary { font: 500 var(--t-list)/1.4 var(--serif); border-bottom: 1px solid var(--line); }
+details.tree.grp, details.tree.loose { margin-left: var(--s5); }
+details.tree.loose > summary .name { color: var(--mute); }
+details.tree ul.concepts { margin: 0 0 0 var(--s5); }
+details.tree[hidden] { display: none; }
+.proposal { margin: var(--s5) 0 0; }
+.proposal .row { margin: var(--s3) 0 var(--s5); }
+form.group-field { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); margin: var(--s4) 0 0; font-size: var(--t-small); }
+form.group-field label { display: flex; align-items: center; gap: var(--s2); }
+form.group-field input { min-width: 240px; }

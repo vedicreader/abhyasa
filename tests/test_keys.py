@@ -11,8 +11,8 @@ def bound():
     return set(re.findall(r"\b(?:Key|Digit)([A-Z0-9])\b(?=\s*[:=']|')", js))
 
 def listed():
-    "The ⌥ letters and digits in the table, and the plain letters of the graph, which graph.js checks by `e.code` too."
-    out = {k for g, k, _ in KEYS if g == 'Graph' and re.fullmatch('[A-Z]', k)}
+    "The ⌥ letters and digits in the table, and the plain letters of the graph and the talk, which their js checks by `e.code` too."
+    out = {k for g, k, _ in KEYS if g in ('Graph', 'Talk', 'Talk plan') and re.fullmatch('[A-Z]', k)}
     for _, k, _ in KEYS:
         for m in re.finditer(r'⌥([A-Z0-9])(?:–⌥([0-9]))?', k):
             a, b = m.groups()

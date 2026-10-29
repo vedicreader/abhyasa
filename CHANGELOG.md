@@ -4,6 +4,7 @@
 
 ## 0.0.12
 
+- Talks need rupaka 0.0.6.
 - Demo ladder: when you miss an idea after its demo, the tutor teaches it in another way, then shows a simpler demo, then steps back to a prereq (setting: More help after a demo).
 - Feedback: under each demo and each lesson, a quiet row asks "Too simple · Just right · Not clear". "Not clear" opens a short box that you can speak into. The tutor uses your choice and your note for the next demo or lesson of the idea, on the demo ladder, in the ways that work for you and in your profile (setting: Feedback under a demo or a lesson).
 - Code runner: learner code cannot send a signal to another process.
@@ -22,6 +23,16 @@
 - Vault documents: the page shows the images of a PDF from the assets folder of that document. An image that is not there does not show.
 - Add: a web link or an arXiv id in the vault document field makes a walk from the link. A vault name that matches no document gives a plain message.
 - Add: a paper link (arXiv or PDF) is read in full. The wait line says "Reading the paper", and the page count to read does not show for a paper.
+- Concepts: the page shows your concepts as a tree, with groups of two levels at most under each subject, and a count on each group. The find box finds a concept in any group and opens its branch. "Sort my concepts" asks the tutor to put your concepts in groups, and you accept or cancel the tree before it is saved (setting: Concepts in one sort). A new concept gets a group from the groups that the subject has. On a concept page, the Group field moves the concept by hand, and the tutor does not move it after that.
+- Talks: present a walk to a group. Each idea is a slide, the tutor note is your speaker note, and the check is a question for the room.
+- Talk editor: change the order, the beats, the notes and the question of each slide, and set the minutes of your slot.
+- Two windows: the presenter window has your notes, the next slide and a clock. The audience window goes on the projector (F fills the screen).
+- Talk keys for the left hand: D next, A back, G go to a slide, Q ask, R show the answer, X laser, B blank, E into the demo.
+- Ask the room with hands: press the option that most hands chose, then R shows the right answer.
+- A demo on a slide shows the same state in both windows. The room sees if your pick at a gate is right only after R.
+- The side pane in a talk: ⌥B opens a short primer beside the slide in both windows, in large type and with no check. D and A turn its pages. ⌥Z closes it.
+- After the talk: where the room was unsure, the talk slide by slide, a recap file for the room, and a follow-up walk.
+- The answers of the room and your pick at a demo gate in a talk do not change your learning.
 
 ## 0.0.11
 

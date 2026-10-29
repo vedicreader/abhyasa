@@ -4,7 +4,7 @@ from fasthtml.common import *
 from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago
 from abhyasa.settings import val
 from abhyasa.tutor import moved
-from abhyasa.journey import progress, parent_step
+from abhyasa.journey import progress, parent_step, for_talk
 from . import ui
 from .cfg import Routes
 
@@ -117,7 +117,7 @@ def connect(app, ctx):
         if (s := latest_open()):
             by, js = names()
             return ui.Continue(s, title(s, by, js), href=back(s, js))
-        for j in lr.journeys()[:3]:
+        for j in [j for j in lr.journeys() if not for_talk(j)][:3]:   # a side walk of a talk is for the room
             if (pg := progress(lr, j)).current: return A(f'Continue: {j.title}', ui.Kbd('⌥C'), href=f'/w/{j.id}' if j.get('mode') == 'walk' else f"{Routes.start}?journey={j.id}", id='continue')
 
     @hook('today_top')

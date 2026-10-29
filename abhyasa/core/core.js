@@ -181,7 +181,7 @@ document.addEventListener('htmx:afterRequest', e => {
   const status = e.detail.xhr.status;
   if (!st.quiet) {
     abhyasaBar.done();
-    if (!e.detail.successful) {
+    if (!e.detail.successful && !e.detail.xhr.getResponseHeader('HX-Redirect')) {   // htmx leaves `successful` unset when it follows HX-Redirect
       const p = document.createElement('p');
       p.className = 'req-err';
       p.textContent = status ? `The request failed (error ${status}). Try again.` : 'The app does not answer. Make sure that it runs, then try again.';

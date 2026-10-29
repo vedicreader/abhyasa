@@ -1,4 +1,9 @@
 class Routes:
     base = '/concepts'
     one = '/c/{slug}'
+    group = '/c/{slug}/group'
+    sort = '/concepts/sort'
+    accept = '/concepts/sort/accept'
+    cancel = '/concepts/sort/cancel'
     def of(slug): return f'/c/{slug}'
+    def group_of(slug): return f'/c/{slug}/group'

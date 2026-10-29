@@ -59,6 +59,13 @@ def walk_fake(fake, monkeypatch):
                        'You write one small Python exercise': EXERCISE})
     return fake
 
+@pytest.fixture
+def talk_fake(walk_fake):
+    "The walk `fake`, with the replies for a talk: a choice question from each short check."
+    from talk_data import TALK_RULES
+    walk_fake.rules.update(TALK_RULES)
+    return walk_fake
+
 @pytest.fixture(autouse=True)
 def no_leela(monkeypatch, tmp_path_factory):
     "No test reads the owner's real Leela address file."

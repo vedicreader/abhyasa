@@ -6,7 +6,7 @@ import logging, time
 from urllib.parse import urlencode
 from fasthtml.common import *
 from abhyasa.core import hook
-from abhyasa.journey import needs, pick_way_down, detour, back_from, look_up, walk_state, parent_step
+from abhyasa.journey import needs, pick_way_down, detour, back_from, look_up, walk_state, parent_step, for_talk
 from abhyasa.settings import val
 from . import ui
 from .cfg import Routes
@@ -126,7 +126,7 @@ def connect(app, ctx):
     @hook('lesson_extra')
     def first_met(r):
         "Under a lesson on an idea that you first met in a side walk: the step that you were on."
-        js = sorted((j for j in lr.journeys() if side(j) and any(s['slug'] == r.get('concept') for s in j.steps)), key=lambda j: j.get('created') or 0)
+        js = sorted((j for j in lr.journeys() if side(j) and not for_talk(j) and any(s['slug'] == r.get('concept') for s in j.steps)), key=lambda j: j.get('created') or 0)
         for j in js:
             pj, i = parent_step(lr, j)
             if pj:

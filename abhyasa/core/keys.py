@@ -3,6 +3,7 @@
 The keys work in `core.js` and in each block's js; `tests/test_keys.py` checks that each ⌥ key here is one that the js binds."""
 import json, os
 from pathlib import Path
+from abhyasa.core.stage import PLAN_KEYS, TALK_KEYS
 
 __all__ = ['KEYS', 'MENU', 'BUNDLE', 'sanketa_pack', 'write_sanketa_pack']
 
@@ -33,6 +34,8 @@ KEYS = [
     ('Walk', '⌥B', 'Learn beside: learn a missing idea in the side pane'),
     ('Side pane', '⌥Z', 'Back to the paper: close the side pane'),
     ('Side pane', 'esc', 'Close the side pane'),
+    *PLAN_KEYS,
+    *TALK_KEYS,
     ('Graph', '1–4', 'Layout: free, path, rings, groups'),
     ('Graph', 'S', 'Find a concept'),
     ('Graph', 'E', 'Focus on the concept'),
