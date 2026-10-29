@@ -498,9 +498,10 @@ def connect(app, ctx):
         return RedirectResponse(f'/w/{j.id}', status_code=303)
 
     @hook('walk_actions')
-    def present(j):
-        "On the plan of a walk and on its journey page: make a talk from the walk. On a plain journey: make a talk from it, or open the one made before."
-        if j.get('mode') == 'walk': return ui.PresentWalk(j.id) if j.steps else None
+    def present(j, quiet=False):
+        """On a walk (its plan, its step, its last page, its row in Journeys) and on its journey page: make a talk from the walk, or open the one made before.
+        On a plain journey: the same from the journey. `quiet` gives a quiet button, for a page that has its own main button."""
+        if j.get('mode') == 'walk': return ui.PresentWalk(j.id, walk_talk(lr, j.id), quiet) if j.steps and not j.get('depth') and not for_talk(j) else None
         if not plain(j): return None
         w = journey_walk(lr, j.id)
         return ui.PresentJourney(j.id, w and walk_talk(lr, w.id))

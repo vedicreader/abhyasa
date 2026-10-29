@@ -334,7 +334,18 @@ def present_journey(pg, w):
     assert pg.is_visible('#stage'), 'no stage in the presenter view'
     w.rq.post(f'{w.B}/t/{tid}/end', max_redirects=0)
     pg.goto(f'{w.B}/j/{jid}'); settle(pg)
-    assert pg.get_by_role('link', name='Open the talk').get_attribute('href') == f'/t/{tid}', 'no Open the talk'
+    assert pg.get_by_role('link', name='Open the talk').first.get_attribute('href') == f'/t/{tid}', 'no Open the talk'   # a row of the list beside has its own
+
+def present_started_walk(pg, w):
+    "A started walk goes to its step: on step 2 the quiet Present this walk is in the outline column and opens the talk editor."
+    r = w.rq.post(f'{w.B}/walk/new', form=dict(ref=add_paper(w.lr)), headers={'HX-Request': 'true'}, max_redirects=0)
+    jid = prep_walk(w.lr, r.headers['hx-redirect'].split('/')[-1])
+    w.rq.post(f'{w.B}/w/{jid}/start', max_redirects=0)
+    pg.goto(f'{w.B}/w/{jid}/1'); settle(pg)
+    link = pg.locator('#rail').get_by_role('button', name='Present this walk')
+    assert link.is_visible(), 'no Present this walk on step 2'
+    link.click(); pg.wait_for_url('**/t/*', timeout=20000); settle(pg)
+    assert 'Made from your walk' in pg.inner_text('main'), pg.url
 
 def journey_points(pg, w):
     "Present a journey on ideas that no source names: each idea slide in the audience window has points, the first slide shows them, and no note shows."
@@ -362,7 +373,7 @@ def journey_points(pg, w):
         au.close(); w.rq.post(f'{w.B}/t/{tid}/end', max_redirects=0)
 
 CHECKS = [editor_keys, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
-          reload_audience, strangers, audience_closed, stray_keys, end_and_after, present_journey, journey_points]
+          reload_audience, strangers, audience_closed, stray_keys, end_and_after, present_journey, present_started_walk, journey_points]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

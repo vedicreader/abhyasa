@@ -30,10 +30,13 @@ def short(s, n=140):
 
 # --- on other pages --------------------------------------------------------------------------------------------------
 
-def PresentWalk(jid):
-    "Make a talk from walk `jid`: the button gives way to the pending card."
-    return Form(Input(type='hidden', name='jid', value=jid), Secondary('Present this walk', data_wait='Making the talk…'),
-                hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
+def PresentWalk(jid, t=None, quiet=False):
+    """Make a talk from walk `jid`: the button gives way to the pending card. When talk `t` was made from it before: open that talk, or make it again.
+    `quiet` is for a page that has its own main button (the step page, the last page, a row of Journeys)."""
+    btn = (lambda *a, **kw: Quiet(*a, small=True, **kw)) if quiet else Secondary
+    go = Form(Input(type='hidden', name='jid', value=jid), btn('Make it again' if t else 'Present this walk', data_wait='Making the talk…'),
+              hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
+    return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, cls='row') if t else go
 
 def PresentJourney(jid, t=None):
     "Make a talk from plain journey `jid`. When talk `t` was made from it before: open that talk, or make it again."

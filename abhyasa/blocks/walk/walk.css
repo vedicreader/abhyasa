@@ -24,6 +24,7 @@ main.wide:has(.walk-layout) > .crumbs { max-width: 984px; margin-inline: auto; }
 .outline { position: sticky; top: 24px; align-self: start; font-size: var(--t-small); }
 .outline .lbl { margin-bottom: var(--s2); }
 .outline .prog { margin: var(--s1) 0 var(--s4); }
+.outline .rail-acts { margin-top: var(--s4); }
 .outline ol { list-style: none; padding: 0; margin: 0; }
 .outline li { padding: var(--s1) 0 var(--s1) var(--s4); border-left: 2px solid var(--line); color: var(--mute); line-height: 1.35; }
 .outline li.sec { color: var(--ink2); padding-top: var(--s3); }

@@ -95,15 +95,15 @@ def Filled(j, st, by, i):
     "The parts of the outline that change when the check of step `i` closes: its idea and the progress line, out of band."
     return Idea(j, by, st.steps[i], i, i, just=True), Bar(st.done, st.total, oob=True)
 
-def Rail(j, st, by, i):
+def Rail(j, st, by, i, present=()):
     """The outline at the left: each section, and the ideas in it with a dot for each state. Under 1040 px it folds into
-    its first line, `The paper · 3 of 3` and the progress line, and a click opens it (walk.css)."""
+    its first line, `The paper · 3 of 3` and the progress line, and a click opens it (walk.css). `present` is what other blocks add under it."""
     lbl = 'The paper' if j.get('source') else 'The walk'
     rows = []
     for sec, ix in st.sections:
         rows.append(Li(sec or 'The ideas', cls='sec' + (' on' if i in ix else '')))
         rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
-    return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows)),
+    return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows)), *([Div(*present, cls='rail-acts')] if present else []),
                  id='rail', cls='outline', aria_label='The walk')
 
 def FindSource(jid, i, s, looking=False):
@@ -181,15 +181,15 @@ def TalkStep(j, st, by, i):
     return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea'), Passage(j, short, c), Figure_(j['id'], i, s, c),
                P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
-def StepPage(j, st, by, i, needs=(), back=None, looking=False):
-    "One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title."
+def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False):
+    "One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title, `present` under the outline."
     if in_talk(): return TalkStep(j, st, by, i)
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
     head = Div(*[Span(x) for x in (r.get('section'), r.get('page') and f"p. {r['page']}") if x], cls='sec-lbl')
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING)
-    return Div(Rail(j, st, by, i),
+    return Div(Rail(j, st, by, i, present),
                Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c),
                    NoteSlot(j['id'], i), slot, leela_line(j, i) if s.get('leela') else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
@@ -389,10 +389,10 @@ def when_review(due, now=None):
     days = round((time.mktime(lt[:3] + (12, 0, 0) + lt[6:]) - time.mktime(now[:3] + (12, 0, 0) + now[6:])) / 86400)
     return 'today' if days <= 0 else 'tomorrow' if days == 1 else f'in {days} days'
 
-def WalkDone(j, st, ms, by, sides=(), due=None, end=()):
+def WalkDone(j, st, ms, by, sides=(), due=None, end=(), present=()):
     """The end of a walk: a row of dots for all the ideas, a short sum of the walk, what moved, the side walks that you did, the
     first review, and Back to Today. `sides` is `(name, learned)`. `end` is what other blocks add (`walk_end`): when it holds
-    a way out (the end of a side walk), the page does not add its own."""
+    a way out (the end of a side walk), the page does not add its own. `present` is the quiet Present of the talk block (`walk_actions`)."""
     outs = [(s.get('done') or {}).get('outcome') for s in j['steps']]
     counts = [f"{outs.count('solid')} solid", f"{sum(o in SHAKY for o in outs)} shaky", f"{outs.count('skipped')} skipped"]
     counts = ', '.join(c for c in counts if not c.startswith('0 '))
@@ -403,4 +403,4 @@ def WalkDone(j, st, ms, by, sides=(), due=None, end=()):
     return (H1('You finished the walk'), Dots(st),
             Div(P(lead, cls='lead-sum'), *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []), *also,
                 P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', cls='walk-sum', style=f"--n:{min(len(outs), 5)}"),
-            *end, go)
+            *end, go, *([Div(*present, cls='row')] if present else []))
