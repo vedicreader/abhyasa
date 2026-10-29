@@ -141,17 +141,17 @@ def journey_talk(cl, jid, **kw):
     return wait_for(lambda: cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect')).split('/')[-1]
 
 def test_present_this_journey(mk, talk_fake, lr):
-    "A plain journey has Present this journey; the talk has its steps in order and opens in the editor; its walk is not your learning."
+    "A plain journey has Present this walk, from the journey; the talk has its steps in order and opens in the editor; its walk is not your learning."
     cl = mk(); jid = journey_of(lr); n = len(lr.journeys())
     page = cl.get(f'/j/{jid}').text
-    assert 'Present this journey' in page and 'Present this walk' not in page and len(lr.journeys()) == n   # the GET only reads
+    assert 'Present this walk' in page and 'hx-post="/talk/journey"' in page and 'hx-post="/talk/new"' not in page and len(lr.journeys()) == n   # the GET only reads
     assert 'Making the talk…' in cl.post('/talk/journey', data=dict(jid=jid)).text
     tid = wait_for(lambda: cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect')).split('/')[-1]
     t = lr.talk(tid); w = lr.journey(t.src['walk'])
     assert [s.get('concept') for s in t.slides][:2] == ['ranking', 'reciprocal-rank-fusion'] and w.goal == 'Learn how to rank results'
     assert w.parent == {'journey': jid, 'for': 'talk'} and lr.journey(jid).get('mode') is None
     ed = cl.get(f'/t/{tid}').text
-    assert 'Made from your journey' in ed and f'href="/j/{jid}"' in ed and 'This talk has the first' not in ed and 'The journey changed' not in ed
+    assert 'Made from your walk' in ed and f'href="/path/{jid}"' in ed and 'This talk has the first' not in ed and 'The walk changed' not in ed
     for pg in ('/', '/journeys', '/learning', '/c/ranking'): assert f'/w/{w.id}' not in cl.get(pg).text, pg
 
 def test_a_journey_talk_has_content(mk, talk_fake, lr):
@@ -206,7 +206,7 @@ def test_a_journey_talk_again(mk, talk_fake, lr):
     "A journey that you presented before offers its talk and Make it again; a second press gives the same talk, and Make it again a new one."
     cl = mk(); jid = journey_of(lr); tid = journey_talk(cl, jid); n = len(lr.journeys())
     page = cl.get(f'/j/{jid}').text
-    assert 'Open the talk' in page and f'href="/t/{tid}"' in page and 'Make it again' in page and 'Present this journey' not in page
+    assert 'Open the talk' in page and f'href="/t/{tid}"' in page and 'Make it again' in page
     assert journey_talk(cl, jid) == tid and len(lr.journeys()) == n   # no new walk and no new talk
     tid2 = journey_talk(cl, jid, again='1')
     assert tid2 != tid and len(lr.journeys()) == n + 1 and f'href="/t/{tid2}"' in cl.get(f'/j/{jid}').text
@@ -215,7 +215,7 @@ def test_a_journey_talk_again(mk, talk_fake, lr):
 def test_a_journey_talk_out_of_date(mk, talk_fake, lr):
     "When the journey changes after the talk was made, the editor says so."
     cl = mk(); jid = journey_of(lr); tid = journey_talk(cl, jid)
-    line = 'The journey changed after this talk was made. Make it again to update it.'
+    line = 'The walk changed after this talk was made. Make it again to update it.'
     assert line not in cl.get(f'/t/{tid}').text
     lr.journey_step(jid, 'ranking', 'down')
     assert line in cl.get(f'/t/{tid}').text
@@ -225,16 +225,16 @@ def test_a_long_journey_talk_says_so(mk, talk_fake, lr):
     cl = mk(); jid = journey_of(lr, n=12); tid = journey_talk(cl, jid)
     assert sum(s['kind'] == 'idea' for s in lr.talk(tid).slides) == val('walks.steps') == 12
     ed = cl.get(f'/t/{tid}').text
-    assert 'This talk has the first steps of the journey, up to the Ideas in a walk setting (12 by default).' in ed and 'Skipped steps are left out.' in ed
+    assert 'This talk has the first steps of the walk, up to the Ideas in a walk setting (12 by default).' in ed and 'Skipped steps are left out.' in ed
 
 def test_journey_talk_guards(mk, talk_fake, lr):
     "No talk from a journey that is not there or from a walk; the POST is local-only; a walk has no Present this journey."
     cl = mk(); jid = journey_of(lr); n = len(lr.journeys())
     assert cl.post('/talk/journey', data=dict(jid=jid), headers={'Origin': 'https://evil.example'}).status_code == 403
     assert len(lr.journeys()) == n and not lr.talks()
-    assert 'No such journey.' in cl.post('/talk/journey', data=dict(jid='nope')).text
+    assert 'No such walk.' in cl.post('/talk/journey', data=dict(jid='nope')).text
     wid = walk(cl, lr)
-    assert 'No such journey.' in cl.post('/talk/journey', data=dict(jid=wid)).text and 'Present this journey' not in cl.get(f'/j/{wid}').text
+    assert 'No such walk.' in cl.post('/talk/journey', data=dict(jid=wid)).text and 'hx-post="/talk/journey"' not in cl.get(f'/j/{wid}').text
 
 def test_editor_keys_in_a_browser(mk, talk_fake, lr, tmp_path):
     "In Chromium: W and S move the focus, ⇧S moves the slide, Q adds a pause, X twice takes a slide out, E opens the form, and a bad beat shows its problem as text."
@@ -883,7 +883,7 @@ def test_present_in_the_journeys_list(mk, talk_fake, lr):
     "A walk has a quiet Present this walk on its row in Journeys. A plain journey row does not."
     cl = mk(); jid = walk_started(cl, lr); plain = journey_of(lr)
     page = cl.get('/journeys').text
-    assert page.count('Present this walk') == 1 and 'Present this journey' not in page
+    assert page.count('Present this walk') == 1 and 'hx-post="/talk/journey"' not in page
     assert plain in page
 
 def test_a_walk_with_a_talk_opens_it(mk, talk_fake, lr):

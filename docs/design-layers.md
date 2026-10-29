@@ -19,7 +19,7 @@ themes get the surfaces. `light-dark()` gives one value for light and one value 
 - A sunken surface has no shadow. Only its tint makes it different.
 - The radius is 10 px for a surface (`--r`) and 8 px for a small part (`--r-s`), for example code.
 - No surface has a heavy border.
-- Each surface sets `--bg` to its own colour. Thus the parts that use `--bg` (the text on a primary button, the journey dots, the
+- Each surface sets `--bg` to its own colour. Thus the parts that use `--bg` (the text on a primary button, the path dots, the
   rupaka demo) agree with the surface below them.
 - Code blocks (`.md pre`) are a small sunken well on each surface: a little darker than the surface in light mode, and darker in
   dark mode. KaTeX takes the text colour, so it shows correctly on each surface.
@@ -30,11 +30,11 @@ The utility classes are `.raised` and `.sunken`. The class `.refs` is the quiet 
 
 | Page | Raised | Page level | Sunken |
 |---|---|---|---|
-| Concept | the demo card | the title, the meta line, the statement, the actions | `.refs`: how well you know it, your journeys, misconceptions, needs first and related (side by side), your attempts, seen in your work, the source |
+| Concept | the demo card | the title, the meta line, the statement, the actions | `.refs`: how well you know it, your walks, misconceptions, needs first and related (side by side), your attempts, seen in your work, the source |
 | Session | the composer, the lesson | the question and the thread | the "From your sources" list under the feedback; code |
 | Today | the "Continue where you stopped" card | everything else | none |
-| Journeys | the goal box (also on Today when you have no journey) | the list of journeys | none |
-| Journey | none | the path and its steps | `.refs`: next to this path, your other journeys |
+| Walks | the goal box (also on Today when you have no walk) | the list of walks | none |
+| Path of a walk | none | the path and its steps | `.refs`: next to this path, your other walks |
 | Walk step | the check card | the outline, the title, the passage and the note | the code editor |
 | Side pane | the check card in the pane | the pane has the surface of the page; a hairline divides it from the paper | the code editor |
 | Your learning | none | this week, what you learned | the list of past sessions |

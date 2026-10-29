@@ -109,7 +109,7 @@ add('links.read', 'links', 'Characters read for each page', 'The most characters
 add('research.on', 'research', 'Find sources on the web', 'For a step with no source, the tutor searches the web and quotes a page. The search sees your topic.', True)
 add('research.per_walk', 'research', 'Steps to research in a walk', 'The most steps of one new walk that the tutor finds a source for. 0 means none.', 12, 0, 30)
 add('research.results', 'research', 'Search results to read', 'How many search results the tutor looks at for one step. It reads the best 3 pages.', 5, 3, 10, more=True)
-add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk from a journey waits for web sources. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s');
+add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk from a walk with no source waits for web sources. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s');
 
 # %% ../nbs/16_settings.ipynb #4412f5ae
 add('runner.total', 'runner', 'Total time', 'How long your code can run for all the tests together. Then the run stops.', 10, 5, 60, unit='s')
@@ -144,8 +144,8 @@ for t, n in dict(question=4096, grade=2048, hint=512, lesson=2048, extract=4096)
 
 # %% ../nbs/16_settings.ipynb #265e285d
 add('lists.strengths', 'lists', 'Weak and strong ideas', 'How many weak spots and strong ideas the Strengths page shows.', 10, 3, 50, more=True)
-add('lists.journeys', 'lists', 'Journeys on Today', 'How many of your journeys show on Today.', 3, 1, 10, more=True)
-add('lists.beside', 'lists', 'Other journeys on a journey page', 'How many other journeys show at the foot of a journey.', 4, 0, 20, more=True)
+add('lists.journeys', 'lists', 'Walks on Today', 'How many of your walks show on Today.', 3, 1, 10, more=True)
+add('lists.beside', 'lists', 'Other walks on a walk page', 'How many other walks show at the foot of a walk.', 4, 0, 20, more=True)
 add('lists.weeks', 'lists', 'Weeks in your history', 'How many weeks the history of your learning shows.', 8, 1, 52, more=True)
 add('lists.search', 'lists', 'Search results', 'How many results from what you learned the search shows.', 12, 3, 50, more=True)
 add('lists.elsewhere', 'lists', 'Results from other sources', 'How many results from your other sources the search shows.', 2, 0, 10, more=True)

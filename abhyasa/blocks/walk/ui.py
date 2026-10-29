@@ -76,11 +76,11 @@ def PlanPage(j, st, by, actions=()):
     go = (Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post')
           if j['steps'] else '')
     return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else f"From the link: {src['url']} · {n_of(len(src['docs']), 'page')}." if src.get('docs') else j.get('goal', ''), cls='mute'),
-            leela_line(j) if j.get('tool') else '', Plan(j, st, by), Div(go, *actions, Span('The walk is a journey, so it shows on Today.', cls='mute'), cls='row'))
+            leela_line(j) if j.get('tool') else '', Plan(j, st, by), Div(go, *actions, cls='row'))
 
 def LinkPending(url, said):
     "A walk from a link that is still being made: the card asks the server again in 2 seconds."
-    return Div(P(said), P('This can take some minutes. When the walk is ready, it opens here and shows in your journeys.', cls='mute'),
+    return Div(P(said), P('This can take some minutes. When the walk is ready, it opens here and shows in your walks.', cls='mute'),
                cls='walk-link pending', style='animation: none', hx_get=f"{Routes.job}?{urlencode(dict(url=url))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
 
 # --- the step page ---------------------------------------------------------------------------------------------------

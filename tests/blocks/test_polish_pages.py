@@ -95,7 +95,7 @@ def test_today_has_an_order_of_weight(mk, walk_fake, lr):
     lr.update('ranking', seen=1, floor=1)   # a seen idea: the strengths link shows
     sid = cl.post('/start', data={}, follow_redirects=False).headers['location'].split('/')[-1]; cl.get(f'/s/{sid}')   # an open session: the Continue card
     h = cl.get('/').text
-    assert today_order(h, 'Continue where you stopped', 'class="review-line"', 'Your journeys', 'See all 5 journeys', 'What do you want to learn?')
+    assert today_order(h, 'Continue where you stopped', 'class="review-line"', 'Your walks', 'See all 5 walks', 'What do you want to learn?')
     assert 'Review and practice' not in h and 'This week' not in h and '>Subjects<' not in h
     assert h.count('class="jrow"') == 3
     assert re.search(r'<details class="goal-fold"><summary>What do you want to learn\?</summary>', h)
@@ -113,7 +113,7 @@ def test_today_review_line_counts_due_ideas(mk, lr):
 
 def test_today_goal_is_open_with_no_journey(mk):
     h = mk().get('/').text
-    assert 'goal-fold' not in h and 'What do you want to learn?' in h and 'No journeys yet' in h
+    assert 'goal-fold' not in h and 'What do you want to learn?' in h and 'No walks yet' in h
 
 def test_your_learning_has_the_week_and_subjects(mk):
     h = mk().get('/learning').text

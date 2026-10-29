@@ -117,7 +117,7 @@ def test_the_end_of_a_walk_is_calm(mk, walk_fake, lr):
     assert 'You also learned Derivatives and gradients on the way.' in t
     assert re.search(r'The first review is (today|tomorrow|in \d+ days)\.', t)
     gos = re.findall(r'class="btn go"[^>]*>(.*?)</a>', t)
-    assert gos == ['Back to Today <kbd>⌥S</kbd>'] and 'href="/graph" class="btn">See the graph</a>' in t and 'Back to your journeys' not in t
+    assert gos == ['Back to Today <kbd>⌥S</kbd>'] and 'href="/graph" class="btn">See the graph</a>' in t and 'Back to your walks' not in t
     assert 'Well walked' not in t and 'p.well' not in css('blocks/walk/walk.css')        # the H1 closes the page: no closing line
 
 def test_a_section_with_no_checks_says_how_to_come_back(mk, walk_fake, lr):
@@ -169,7 +169,7 @@ def test_concept_page_copy(mk, walk_fake, lr):
     from abhyasa.core import Cites
     cl = mk(); walk(cl, lr)
     t = cl.get('/c/ranking').text
-    assert 'Add this idea to a journey' in t
+    assert 'Add this idea to a walk' in t
     assert 'in your vault' in to_xml(Cites([dict(title='Notes', src='vault:store', ref='d1')])) and 'vault:store' not in to_xml(Cites([dict(title='Notes', src='vault:store', ref='d1')]))
 
 def test_today_says_next_as_a_verb(mk, lr):

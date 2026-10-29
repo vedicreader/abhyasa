@@ -373,18 +373,19 @@ def end_and_after(pg, w):
     assert w.lr.talk(w.tid).live is None and len(w.lr.attempts(limit=10000)) == w.n0
 
 def present_journey(pg, w):
-    "Present this journey on a plain journey makes the talk and opens the editor; ⌥S there opens the presenter view; the journey then offers Open the talk."
+    "An old /j/ link opens the path; Present this walk there makes the talk and opens the editor; ⌥S there opens the presenter view; the path then offers Open the talk."
     jid = w.lr.put_journey(dict(id='attention-basics-ab12', title='Attention basics', goal='Learn how attention works', subject='ml',
                                 steps=[dict(slug=s, status='todo', why='') for s in ('softmax', 'sequential-computation')])).id
     pg.goto(f'{w.B}/j/{jid}'); settle(pg)
-    pg.get_by_role('button', name='Present this journey').click()
+    assert pg.url.endswith(f'/path/{jid}'), pg.url
+    pg.get_by_role('button', name='Present this walk').click()
     pg.wait_for_url('**/t/*', timeout=20000); settle(pg)
     tid = pg.url.rstrip('/').split('/')[-1]
-    assert 'Made from your journey' in pg.inner_text('main') and w.lr.talk(tid).src['walk'] != w.jid, pg.url
+    assert 'Made from your walk' in pg.inner_text('main') and w.lr.talk(tid).src['walk'] != w.jid, pg.url
     press(pg, 'Alt+s'); pg.wait_for_url(f'**/t/{tid}/present', timeout=10000); settle(pg)
     assert pg.is_visible('#stage'), 'no stage in the presenter view'
     w.rq.post(f'{w.B}/t/{tid}/end', max_redirects=0)
-    pg.goto(f'{w.B}/j/{jid}'); settle(pg)
+    pg.goto(f'{w.B}/path/{jid}'); settle(pg)
     assert pg.get_by_role('link', name='Open the talk').first.get_attribute('href') == f'/t/{tid}', 'no Open the talk'   # a row of the list beside has its own
 
 def present_started_walk(pg, w):
@@ -399,11 +400,11 @@ def present_started_walk(pg, w):
     assert 'Made from your walk' in pg.inner_text('main'), pg.url
 
 def journey_points(pg, w):
-    "Present a journey on ideas that no source names: each idea slide in the audience window has points, the first slide shows them, and no note shows."
+    "Present a walk planned from a goal, on ideas that no source names: each idea slide in the audience window has points, the first slide shows them, and no note shows."
     jid = w.lr.put_journey(dict(id='ranking-talk-ab12', title='Ranking talk', goal='Learn how to rank results', subject='ml',
                                 steps=[dict(slug=s, status='todo', why='') for s in ('ranking', 'reciprocal-rank-fusion')])).id
-    pg.goto(f'{w.B}/j/{jid}'); settle(pg)
-    pg.get_by_role('button', name='Present this journey').click()
+    pg.goto(f'{w.B}/path/{jid}'); settle(pg)
+    pg.get_by_role('button', name='Present this walk').click()
     pg.wait_for_url('**/t/*', timeout=20000); settle(pg)
     tid = pg.url.rstrip('/').split('/')[-1]
     w.rq.post(f'{w.B}/t/{tid}/start', max_redirects=0)

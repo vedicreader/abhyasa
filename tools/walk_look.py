@@ -569,11 +569,11 @@ def m5_graph_grows(pg, w):
     assert line() == '' and pg.evaluate('abhyasaGraph.rose') == [] and not pg.evaluate('abhyasaGraph.pulsing')
 
 def f12_today_has_an_order(pg, w):
-    "Today: the Continue card, the review line, the journeys, the goal on one line, then the links on one line; no week and no subjects."
+    "Today: the Continue card, the review line, the walks, the goal on one line, then the links on one line; no week and no subjects."
     pg.goto(f'{w.B}/s/{w.sid}'); settle(pg, 300)   # the session is open, so the Continue card shows
     pg.goto(w.B + '/'); settle(pg, 300)
     top = lambda sel: pg.eval_on_selector(sel, 'e => e.getBoundingClientRect().top')
-    ys = [top(x) for x in ('.continue-card', '.review', 'main h2:has-text("Your journeys")', 'details.goal-fold', 'p.foot')]
+    ys = [top(x) for x in ('.continue-card', '.review', 'main h2:has-text("Your walks")', 'details.goal-fold', 'p.foot')]
     assert ys == sorted(ys), ys
     assert pg.eval_on_selector('details.goal-fold', 'd => d.open') is False and not pg.is_visible('#goal')
     assert pg.eval_on_selector('p.foot', 'e => e.getBoundingClientRect().height') < 40

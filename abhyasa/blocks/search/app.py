@@ -26,8 +26,8 @@ def Hit(h, by):
                   P(meta('Your answer', c and c.name, ago(m.get('at'))), cls='mute'))
     if k == 'journey':
         walk = m.get('mode') == 'walk'
-        return Li(A(m.get('title') or h['title'], href=f"/{'w' if walk else 'j'}/{m.get('id', '')}", cls='hit'),
-                  P(short(m.get('goal')), cls='line') if m.get('goal') else '', P('A walk' if walk else 'A journey', cls='mute'))
+        return Li(A(m.get('title') or h['title'], href=f"/{'w' if walk else 'path'}/{m.get('id', '')}", cls='hit'),
+                  P(short(m.get('goal')), cls='line') if m.get('goal') else '', P('A walk' if walk else 'A walk to a goal', cls='mute'))
     if k == 'session':
         log = m.get('log') or []
         n, ok = (len(log), sum(bool(r.get('correct')) for r in log)) if 'log' in m else (m.get('asked', 0), m.get('passed', 0))

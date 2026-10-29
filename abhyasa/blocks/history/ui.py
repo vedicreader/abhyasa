@@ -50,7 +50,7 @@ def Row(s, title, ms, href=None, lead=False):
 
 def Runs(groups):
     "The sessions, grouped by day, newest first."
-    if not groups: return P('No sessions yet. Start one on Today, or start a journey.', cls='mute')
+    if not groups: return P('No sessions yet. Start one on Today, or start a walk.', cls='mute')
     return Div(*[Div(H2(day), Ul(*rows, cls='plain runs')) for day, rows in groups], cls='days')
 
 def Learned(weeks):

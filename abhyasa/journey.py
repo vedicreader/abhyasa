@@ -110,7 +110,7 @@ def journey_add(self:Learning, jid:str, slug:str, before:str=None, why:str='') -
     return self.put_journey(j)
 
 # %% ../nbs/11_journey.ipynb #22f3f614
-PLAN_SP = register('walk.plan', 'Path planner', 'How the tutor plans the steps toward a goal, for a journey or a walk on a topic.', """You plan a learning path toward one learner's goal.
+PLAN_SP = register('walk.plan', 'Path planner', 'How the tutor plans the steps of a walk, toward a goal or on a topic.', """You plan a learning path toward one learner's goal.
 - Give 4 to 9 steps, in the order to learn them. Each step is one idea that a learner can be asked about and can explain.
 - Start where the learner is. Leave out what they know well: their background, and their concepts at depth 4 or more.
 - When a known concept fits a step, give its slug in `slug`. Else `slug` is "".

@@ -36,13 +36,13 @@ log = logging.getLogger(__name__)
 def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
-    up = [('Today', '/'), ('Journeys', '/journeys')]
+    up = [('Today', '/'), ('Walks', '/journeys')]
     writing = defaultdict(Lock)   # (walk, step) -> a lock, so the note and the check of one step do not write the note twice
     links = {}                    # link -> the pool job that makes its walk, and `said`, the words of its state
 
     def by(): return {c.slug: c for c in lr.concepts()}
     def go(jid, i): return Redirect(ui.at(Routes.step, jid, i))
-    def missing(): return Page('Walk', H1('No such walk'), P(A('Your journeys', href='/journeys')), crumbs=up)
+    def missing(): return Page('Walk', H1('No such walk'), P(A('Your walks', href='/journeys')), crumbs=up)
 
     def walk_of(jid, i=None):
         "The walk `jid`, and step `i` when it is there; None for an unknown walk or step."

@@ -64,9 +64,9 @@ def connect(app, ctx):
     def chosen(q): return {t['text'] for t in q.get('turns') or () if t['who'] == 'you'}
 
     def crumbs(s):
-        "Today, then the journey of the session, if it has one."
+        "Today, then the walk of the session, if it has one."
         j = lr.journey(s.journey) if s and s.journey else None
-        return [('Today', '/'), *([(j.title, f'/j/{j.id}')] if j else [])]
+        return [('Today', '/'), *([(j.title, f'/path/{j.id}')] if j else [])]
 
     def start(subject:str='', focus:str='', journey:str='', drill:str=''):
         s = Session(tutor, focus=focus or None, subject=subject or None, journey=journey or None, drill=bool(drill))
@@ -183,7 +183,7 @@ def connect(app, ctx):
         n = sum(1 for c in cs if c.seen and c.due and c.due <= now)
         p = None if n else pick(ctx.learning.concepts(), subject=subject)
         said = (f"Review: {n_of(n, 'idea')} {'is' if n == 1 else 'are'} due.",) if n else \
-               (f"Next: {DEPTHS[p[1]]} {p[0].name}. ", Span(p[2], cls='why')) if p else ('Nothing is due. Add a source, start a journey, or pick a concept.',)
+               (f"Next: {DEPTHS[p[1]]} {p[0].name}. ", Span(p[2], cls='why')) if p else ('Nothing is due. Start something new, or pick a concept.',)
         return Div(P(*said, cls='review-line'),
                    Form(Input(type='hidden', name='subject', value=subject or ''),
                         Primary(f"Start{' ' + subject if subject else ''}", data_wait='Starting…', focus=True, rank=3), action=Routes.start, method='post'),

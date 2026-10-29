@@ -55,7 +55,7 @@ When you say “I don’t know X”, X becomes a concept, and it comes first the
 | ceiling | the lowest depth where you failed |
 | attempt | one answer, kept as a document in your vault |
 | session | one sitting of questions. abhyasa saves it after each step, so you can continue it after a restart |
-| journey | a goal and a path to it, with one concept for each step. You can see and change the path |
+| walk | a path of steps, one idea for each step. A walk comes from a goal, a topic, a paper, a site, a repo or a text. You can see and change the path |
 | profile | what abhyasa knows about you: your background, your goals, the examples that help you and your pace. You can see and change all of it |
 | way to learn | code, maths, an analogy, a worked example, a picture or plain words. Each result counts for the way that the question used |
 | gap | an idea that you said you do not know. It comes before the concept where you said it, but it does not block that concept |
@@ -115,7 +115,7 @@ You can present a walk to a group, as a talk. Each idea of the walk becomes one 
 
 ### Make a talk from a walk
 
-On the plan of a walk, or on its journey page, press “Present this walk”. The editor shows the slides in the order of the walk. A Questions slide and a recap slide come at the end. Set the minutes of your slot. A change to the talk does not change the walk.
+On the plan of a walk, or on its path page, press “Present this walk”. The editor shows the slides in the order of the walk. A Questions slide and a recap slide come at the end. Set the minutes of your slot. A change to the talk does not change the walk.
 
 In the editor, W and S move the focus from slide to slide. ⇧W and ⇧S move a slide up or down. E opens the form that changes the slide. X takes out the slide (press X again to be sure). Q adds a pause after it. In the form, each line of “Beats” is one press of D: [`passage`](https://vedicreader.github.io/abhyasa/ground.html#passage), `figure`, `demo`, `ask`, or `lit:` and words from the passage. A `lit:` beat lights those words on the slide.
 
@@ -174,7 +174,7 @@ On the last slide, press ⌥S, or press “End the talk” at the top. The audie
 
 ### The room does not change your learning
 
-The answers of the room are counts in the talk. They are not your attempts. Your own pick at a demo gate in a talk is not an attempt either. A talk does not change your record, your Continue or your journeys.
+The answers of the room are counts in the talk. They are not your attempts. Your own pick at a demo gate in a talk is not an attempt either. A talk does not change your record, your Continue or your walks.
 
 Settings has a Talks group. It has the minutes for each question, the time to talk to a neighbour, the share of right answers below which a slide is unsure (70% by default), and how long the laser dot stays.
 
@@ -249,8 +249,8 @@ The web app is made from blocks in `abhyasa/blocks`:
 
 | block | what it does |
 |----|----|
-| `today` | the home page: continue, the next review and your journeys |
-| `journeys` | say a goal, and the tutor makes a path of steps. You can move, skip, add or split a step |
+| `today` | the home page: continue, the next review and your walks |
+| `journeys` | your walks. Say a goal, and the tutor makes a path of steps. You can move, skip, add or split a step |
 | `history` | your learning: each past session with what changed, and what you learned each week. Continue (⌥C) is in the top bar |
 | `profile` | what abhyasa knows about you: a short first conversation, your edits, and the changes that the tutor makes, each with its reason |
 | `strengths` | your strong concepts, your weak spots and the ways that you learn best (⌥G) |

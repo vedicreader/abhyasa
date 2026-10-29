@@ -38,7 +38,7 @@ def short(s, n=140):
 
 def PresentWalk(jid, t=None, quiet=False):
     """Make a talk from walk `jid`: the button gives way to the pending card. When talk `t` was made from it before: open that talk, or make it again.
-    `quiet` is for a page that has its own main button (the step page, the last page, a row of Journeys)."""
+    `quiet` is for a page that has its own main button (the step page, the last page, a row of Walks)."""
     btn = (lambda *a, **kw: Quiet(*a, small=True, **kw)) if quiet else Secondary
     go = Form(Input(type='hidden', name='jid', value=jid), btn('Make it again' if t else 'Present this walk', data_wait='Making the talk…'),
               hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
@@ -48,7 +48,7 @@ def PresentJourney(jid, t=None):
     "Make a talk from plain journey `jid`. When talk `t` was made from it before: open that talk, or make it again."
     def go(label, *again): return Form(Input(type='hidden', name='jid', value=jid), *again, Secondary(label, data_wait='Making the talk…'),
                                       hx_post=Routes.journey, hx_target='this', hx_swap='outerHTML', cls='talk-new')
-    if not t: return go('Present this journey')
+    if not t: return go('Present this walk')
     return Div(Secondary('Open the talk', href=at(Routes.one, t.id)), go('Make it again', Input(type='hidden', name='again', value='1')), cls='row')
 
 def Pending(jid, fill=False):
@@ -185,9 +185,9 @@ def Editor(t, j, pj=None, changed=False):
     "The editor of talk `t` from walk `j` (made from plain journey `pj`, if given, which `changed` after): what it is, Present, the slot, then the slides (as `shots/a1-deck.png`)."
     ideas = sum(s.get('kind') == 'idea' for s in t['slides'])
     secs = len({s.get('section') for s in t['slides'] if s.get('kind') == 'idea' and s.get('section')})
-    made = A('Made from your journey', href=f'/j/{pj.id}') if pj else A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'
-    cut = P('This talk has the first steps of the journey, up to the Ideas in a walk setting (12 by default). Skipped steps are left out.', cls='mute') if pj and (j.get('more') or any(s.get('status') == 'skip' for s in pj.steps)) else ''
-    old = P('The journey changed after this talk was made. Make it again to update it.', cls='mute') if changed else ''
+    made = A('Made from your walk', href=f'/path/{pj.id}') if pj else A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'
+    cut = P('This talk has the first steps of the walk, up to the Ideas in a walk setting (12 by default). Skipped steps are left out.', cls='mute') if pj and (j.get('more') or any(s.get('status') == 'skip' for s in pj.steps)) else ''
+    old = P('The walk changed after this talk was made. Make it again to update it.', cls='mute') if changed else ''
     return (H1(f"{t['title']}, as a talk"),
             P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), cls='mute'), cut, old,
             P('Each idea of the walk is one slide. The passage or the points, and the figure, show to the room. The tutor note is your speaker note. '

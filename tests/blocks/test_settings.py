@@ -276,7 +276,7 @@ def test_bad_hint_ladder_is_refused(mk):
 def test_more_keeps_names_in_case(mk):
     "The `More` summary lowers only the first letter of each name, so a page name keeps its capital."
     t = mk().get('/settings').text
-    assert 'More in Lists: weak and strong ideas, journeys on Today,' in t
+    assert 'More in Lists: weak and strong ideas, walks on Today,' in t
 
 def test_prompt_list_does_not_need_the_blocks():
     "The prompt list loads each module that registers a prompt, so it does not depend on which blocks loaded."

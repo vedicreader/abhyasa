@@ -1,5 +1,5 @@
 """The talk: a walk made into slides for a group. "Present this walk" makes the talk on the pool, and the editor changes its slides.
-"Present this journey" on a plain journey first makes a walk for the talk from its steps, in their order, and a second press opens
+On a walk planned from a goal, "Present this walk" first makes a walk for the talk from its steps, in their order, and a second press opens
 the same talk. A change to the talk never changes the walk. Each change runs `check_talk`, and a talk with a problem is not saved.
 
 "Present" starts a run. The presenter window and the audience window (`/t/{tid}/audience?k=<run key>`) stay in step over the
@@ -185,7 +185,7 @@ def connect(app, ctx):
 
     def from_journey(jid:str='', again:str=''):
         "Start the pool job that makes a talk from plain journey `jid`, or finds the one made before. `again` makes a new walk and a new talk."
-        if not plain(lr.journey(jid := jid.strip())): return P('No such journey.', cls='req-err')
+        if not plain(lr.journey(jid := jid.strip())): return P('No such walk.', cls='req-err')
         if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_journey(lr, ask(), jid, ctx.sources, again=bool(again), research=find_sources).id)
         return ui.Pending(jid)
 
@@ -206,8 +206,8 @@ def connect(app, ctx):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
         j = lr.journey((t.get('src') or {}).get('walk') or '')
         pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
-        up = [(pj.title, f'/j/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j)), crumbs=[('Today', '/'), ('Journeys', '/journeys'), *up],
+        up = [(pj.title, f'/path/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j)), crumbs=[('Today', '/'), ('Walks', '/journeys'), *up],
                     extra=ui.assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys (talk.js) work only here
         return page
@@ -461,7 +461,7 @@ def connect(app, ctx):
         names = {s['id']: name_of(s) for s in t['slides']}
         cn = {x.slug: x.name for x in lr.concepts()}
         return Page('After the talk', *ui.After(t, r, recap(t, r, cn), names, cn),
-                    crumbs=[('Journeys', '/journeys'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.assets(), wide=True)
+                    crumbs=[('Walks', '/journeys'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.assets(), wide=True)
 
     def name_of(s):
         "The name of the idea of slide `s`, else its title."

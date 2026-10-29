@@ -571,7 +571,7 @@ class Session:
             if not (f := current(self.tutor.learning, j, skip, self.tutor.goal) if j else None): return None
             self.q = self.tutor.next(focus=f, session=self.id, skip=skip, near=self.near, pace=pace, mode=mode)
             if self.q and self.q.why.startswith('you chose'):   # the learner chose the journey, not the concept: say so
-                self.q.why = self.tutor.open[self.q.id].why = self.q.why.replace(f'you chose {self.q.name}', f'the next step of your journey "{j.title}"', 1)
+                self.q.why = self.tutor.open[self.q.id].why = self.q.why.replace(f'you chose {self.q.name}', f'the next step of your walk "{j.title}"', 1)
         else: self.q = self.tutor.next(focus=self.focus if self.focus not in skip else None, subject=self.subject, session=self.id, skip=skip, near=self.near, pace=pace, mode=mode)
         if self.q and note: self.q.why = self.tutor.open[self.q.id].why = f'{self.q.why}; {note}'
         self.save()
