@@ -9,6 +9,7 @@ The checks build on each other, in the order of `CHECKS`: one talk, from the edi
 `--shots` also takes the screens `talk-<page>-<theme>-<mode>-<width>.png` at 1280 and 1000 px, light and dark, Paper and Signal,
 and the seven screens of the plan (`talk-editor.png`, `talk-presenter.png`, ... in Paper at 1280 px)."""
 import argparse, os, shutil, socket, struct, sys, tempfile, threading, time, zlib
+from copy import deepcopy
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
@@ -302,6 +303,44 @@ def reload_audience(pg, w):
     wait_place(w.au, *before)
     pg.bring_to_front()
 
+TEX = r'$1/\sqrt{d_k}$'
+SHOWN = "(s => [...document.querySelectorAll(s)].map(e => [e.innerText, e.querySelectorAll('.katex').length]))"
+CASES = [r'costs \$5 now', r'sum $$x^2$$ here', '$$x$$', r'a $b$ and \$c$', 'x $a$$b$ y', 'plain 5$ and $ 6$', 'pay $5 and $10', f'Why scale by {TEX}?']
+TOKENS = """(s => { const e = abhyasaMath(document.createElement('p'), s);
+  return [...e.childNodes].map(n => n.nodeType === 3 ? n.data : `[${n.classList.contains('display') ? 'd' : 'i'}:${n.querySelector('annotation')?.textContent ?? n.textContent}]`).join(''); })"""
+def server_tokens(s):
+    "The text of `Inline(s)` with each maths span as [i:tex] or [d:tex], as TOKENS gives it in the browser."
+    import html, re
+    from fastcore.xml import to_xml
+    from abhyasa.core import Inline
+    h = re.sub(r'<span class="math (inline|display)">(.*?)</span>', lambda m: f'[{m[1][0]}:{m[2]}]', to_xml(Inline(s)))
+    return html.unescape(re.sub(r'^<span class="">|</span>\s*$', '', h.strip()))
+
+def maths(pg, w):
+    "Maths in the title, the section, the points, the question and the options of slide 1 draws with KaTeX, the same in both windows."
+    au, before, t0 = w.au, place(pg), w.lr.talk(w.tid)
+    t = deepcopy(dict(t0)); s = t['slides'][0]
+    s.update(title=f'Why scale by {TEX}', section=f'Scale by {TEX}', beats=['body', *[b for b in s.get('beats') or [] if b != 'body']])
+    s['show'] = dict(s['show'], body=[f'We divide the scores by {TEX}.', 'Large scores make softmax flat.'])
+    s['ask'] = dict(s['ask'], q=f'Why divide by {TEX}?', options=[f'To keep {TEX} small', 'To add noise', 'To sort them'])
+    for c in CASES: assert pg.evaluate(TOKENS, c) == server_tokens(c), (c, pg.evaluate(TOKENS, c), server_tokens(c))   # the same maths as md_html
+    w.lr.put_talk(t)
+    try:
+        for x in (au, pg): x.reload(); settle(x)
+        pg.bring_to_front(); press(pg, 'g', '1'); wait_place(au, 's1', 1)
+        parts = 'section[data-sid=s1] h1, section[data-sid=s1] .crumb, section[data-sid=s1] .points li'
+        got = [x.evaluate(f"{SHOWN}('{parts}')") for x in (au, pg)]
+        assert got[0] == got[1] and all(n == 1 and '$' not in txt for txt, n in got[0][:3]), got
+        assert pg.evaluate("document.querySelectorAll('#now .katex, #ask-card .ask-q:not([hidden]) .katex').length") == 3   # the crumb, the question and an option
+        press(pg, 'q'); au.wait_for_selector('#stage .stage-ask:not([hidden])')
+        got = [x.evaluate(f"{SHOWN}('#stage .stage-ask h2, #stage .stage-ask li .t')") for x in (au, pg)]
+        assert got[0] == got[1] and got[0][0][1] == 1 and got[0][1][1] == 1 and '$' not in got[0][0][0] + got[0][1][0], got
+        press(pg, 'Escape'); au.wait_for_selector('#stage .stage-ask', state='hidden')
+    finally:
+        w.lr.put_talk(t0)
+        for x in (au, pg): x.reload(); settle(x)
+        pg.bring_to_front(); press(pg, 'g', before[0][1:]); wait_place(au, before[0])
+
 def strangers(pg, w):
     "A pane to another site, a message of version 2, and a message on the channel of the old run change nothing in the audience window."
     au = w.au; before = place(au)
@@ -385,7 +424,7 @@ def journey_points(pg, w):
         au.close(); w.rq.post(f'{w.B}/t/{tid}/end', max_redirects=0)
 
 CHECKS = [editor_keys, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
-          reload_audience, strangers, audience_closed, stray_keys, end_and_after, present_journey, present_started_walk, journey_points]
+          reload_audience, maths, strangers, audience_closed, stray_keys, end_and_after, present_journey, present_started_walk, journey_points]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
