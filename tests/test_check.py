@@ -542,3 +542,10 @@ def test_drain_keeps_a_capped_part():
     got.thread.join(2)
     assert bytes(got.data) == b'ok' and not got.over
     os.close(r)
+
+
+def test_feed_takes_a_closed_file():
+    "Writing the code to a child that already closed its input does not raise in the parent."
+    r, w = os.pipe(); os.close(r)
+    f = os.fdopen(w, 'wb'); f.close()
+    check._feed(f, b'print(1)')

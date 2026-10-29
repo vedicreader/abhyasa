@@ -386,7 +386,7 @@ def _drain(fd, cap) -> AttrDict:
 def _feed(f, data):
     "Write `data` to the file `f` and close it. A process that stopped early does not stop the parent."
     try: f.write(data); f.close()
-    except OSError: pass
+    except (OSError, ValueError): pass   # a closed pipe, or a file that is closed already
 
 # %% ../nbs/06_check.ipynb #b7c1a008
 _GO = 'try: _go[0].release()\nexcept RuntimeError: pass\n_go[1].acquire()\n'   # the last lines: start the checks and wait for them

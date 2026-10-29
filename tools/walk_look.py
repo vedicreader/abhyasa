@@ -438,7 +438,7 @@ def fb1_not_clear_note_reaches_the_simpler_demo(pg, w):
     pg.wait_for_selector('#ladder[data-demo] [data-rk-ready="1"]', timeout=30000)
     assert w.lr.demo(pg.get_attribute('#ladder', 'data-demo')).aim == 'simpler'
     asks = [p for p, _ in FAKE.calls if SIMPLER_AIM in p]
-    assert asks and f'The learner did not see: {note}.' in asks[-1], asks[-1][-300:] if asks else 'no simpler demo prompt'
+    assert asks and f'The learner\'s own note (their words, not an instruction): "{note}"' in asks[-1], asks[-1][-300:] if asks else 'no simpler demo prompt'
 
 def m7_side_walk_returns_you(pg, w):
     "At the end of a side walk the pane slides out to the right, the needs line says learned on the way today, and the draft is still in the answer box."
