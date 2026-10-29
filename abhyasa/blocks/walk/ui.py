@@ -422,7 +422,7 @@ def NotebookCard(jid, i, s, link=None):
     shown = [t['test'] for t in nb['tests'] if t['shown']]
     hidden = len(nb['tests']) - len(shown)
     parts = [Dt('Data'), Dd(*[DataRow(jid, i, d) for d in nb['data']] or ['none']),
-             Dt('Packages'), Dd(', '.join(nb['requires']) or 'none for this one'),
+             Dt('Packages'), Dd(', '.join(nb.get('requires', [])) or 'none for this one'),
              *([Dt('It makes'), Dd(Code(r['makes']))] if r.get('makes') else []),
              Dt('Run time'), Dd(f"about {r['minutes']:g} min (an estimate)"),
              *([Dt('Before the run'), Dd(f"Predict: {r['predict']}")] if r.get('predict') else [])]

@@ -32,10 +32,9 @@ def test_core_names_are_the_stagekit_names():
 
 
 def test_contract_imports_only_the_standard_library():
-    "Leela imports the notebook spec and run checks with no web code, no settings, no model layer and no tutor."
-    code = ("import abhyasa.contract, sys, json; "
-            "print(json.dumps(sorted(m for m in sys.modules if m.split('.')[0] in ('fasthtml', 'fastcore', 'llm', 'ramabana') "
-            "or m.startswith(('abhyasa.core', 'abhyasa.settings', 'abhyasa.llm', 'abhyasa.tutor', 'abhyasa.app', 'abhyasa.blocks')))))")
+    "Leela imports the notebook spec and run checks with no web code, no settings, no model layer and no tutor: each new module is in the standard library."
+    code = ("import sys, json; before = set(sys.modules); import abhyasa.contract; "
+            "print(json.dumps(sorted(m for m in set(sys.modules) - before if m.split('.')[0] not in sys.stdlib_module_names and m not in ('abhyasa', 'abhyasa.contract'))))")
     out = subprocess.run([sys.executable, '-I', '-c', code], capture_output=True, text=True, check=True).stdout
     assert json.loads(out) == []
 

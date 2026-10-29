@@ -204,29 +204,34 @@ _SAVE = """def save_result(**numbers):
     import json
     Path('result.json').write_text(json.dumps(numbers, default=str))"""
 
+def _one(s) -> str:
+    "`s` as one line: each run of white space, a newline too, becomes one space. For a directive line."
+    return ' '.join(str(s).split())
+
 def _setup_cell(spec) -> str:
-    "The source of the `#| setup` cell: the data paths by name, `DEVICE` and `save_result`."
-    names = [f"{d['name']} = Path({d['path']!r}).expanduser()   # {d['what']}" for d in spec['data']]
+    """The source of the `#| setup` cell: the data paths by name, `DEVICE` and `save_result`. A path goes in as a Python string (`repr`),
+    and no other text of the spec goes into the code, so a text with a newline cannot add code."""
+    names = [f"{d['name']} = Path({d['path']!r}).expanduser()" for d in spec['data'] if d['name'].isidentifier()]
     return '\n'.join(['#| setup', 'from pathlib import Path', *names, _DEVICE, '', _SAVE])
 
 def _task_md(spec) -> str:
     "The task cell: the task, the data, the packages and what the run makes."
     data = [f"- `{d['name']}`: {d['what']} (`{d['path']}`)" + (' Put your files in this folder first.' if d['need'] else '') for d in spec['data']]
     return '\n'.join([f"# The task\n\n{spec['task']}", *(['', '**Data**', '', *data] if data else []),
-                      '', f"**Packages**: {', '.join(spec['requires']) or 'none for this one'}"])
+                      '', f"**Packages**: {', '.join(spec.get('requires', [])) or 'none for this one'}"])
 
 def _run_cells(spec) -> list:
-    "The cells of the real run: the prediction, then the run cell from `run.say`."
+    "The cells of the real run: the lead with `run.say` and the prediction as markdown, then a run cell with fixed text only."
     r = spec['run']
     lead = f"## Run it for real\n\n{r['say']}" + (f" It makes `{r['makes']}`." if r['makes'] else '') + f" It runs for about {r['minutes']:g} min (an estimate)."
     pred = [mk_cell(f"**Before the run.** Predict: {r['predict']}\n\nMy prediction: ", 'markdown')] if r['predict'] else []
-    return [mk_cell(lead, 'markdown'), *pred, mk_cell(f"# {r['say']}\n# Write the run here. End with save_result(...), as save_result(loss=0.08).")]
+    return [mk_cell(lead, 'markdown'), *pred, mk_cell("# Write the run that the text above says. End with save_result(...), as save_result(loss=0.08).")]
 
 def spec_notebook(spec:dict, path) -> Path:
     "A new Jupyter notebook at `path` from the notebook spec of a walk step: the task, the setup, the stub, the tests and the run. Do not write over a file."
     spec, p = validate_nb_spec(spec), Path(path).expanduser()
     if p.exists(): raise FileExistsError(p)
-    tests = [mk_cell(f"#| test: {t['say']}\n" + ('' if t['shown'] else '#| hidden\n') + t['test']) for t in spec['tests']]
+    tests = [mk_cell(f"#| test: {_one(t['say'])}\n" + ('' if t['shown'] else '#| hidden\n') + t['test']) for t in spec['tests']]
     cells = [mk_cell(_task_md(spec), 'markdown'), mk_cell(_setup_cell(spec)), mk_cell(spec['stub']), *tests, *_run_cells(spec)]
     write_nb(new_nb(cells), p)
     return p

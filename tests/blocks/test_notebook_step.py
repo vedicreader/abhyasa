@@ -39,11 +39,12 @@ def test_card_links_to_leela_when_it_runs(mk, lr, walk_fake, monkeypatch, tmp_pa
 def test_data_path_outside_home_refused(mk, lr, walk_fake):
     cl = mk(); jid = nb_step(cl, lr)
     before = lr.journey(jid).steps[1]['nb']
-    for bad in ('/etc', '~/../../etc', ''):
+    for bad, why in (('/etc', 'the path is not in your home folder'), ('~/../../etc', 'the path has ..'), ('', 'give a path of one line'),
+                     ('~/.ssh', 'a part of the path starts with a dot'), ('~/x\nimport os', 'give a path of one line')):
         r = cl.post(f'/w/{jid}/1/data', data=dict(name='IMAGES', path=bad))
-        assert r.status_code == 400 and 'home folder' in r.text
+        assert r.status_code == 400 and f'abhyasa did not keep this path: {why}.' in r.text, (bad, r.text)
     assert cl.post(f'/w/{jid}/1/data', data=dict(name='NOPE', path='~/x')).status_code == 400
-    assert lr.journey(jid).steps[1]['nb'] == before
+    assert lr.journey(jid).steps[1]['nb'] == before and 'requires' not in before   # an empty `requires` is left out
     r = cl.post(f'/w/{jid}/1/data', data=dict(name='IMAGES', path='~/Pictures/ramayana'))
     assert r.status_code == 200 and '~/Pictures/ramayana' in r.text
     assert [d['path'] for d in lr.journey(jid).steps[1]['nb']['data']][1] == '~/Pictures/ramayana'
