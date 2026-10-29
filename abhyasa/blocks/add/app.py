@@ -10,6 +10,7 @@ from .cfg import Routes
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask')
 _P = Path(__file__).parent
+SEARCH_SAYS = 'The tutor searches the web for sources. The search sees your topic.'
 NO_DOC = 'No document in your vault has this name. To add a web page or a paper, use A link.'
 log = logging.getLogger(__name__)
 
@@ -34,7 +35,8 @@ def connect(app, ctx):
             P('Pick what you have. The tutor makes a walk from it: one idea at a time, in reading order, with a check after each passage.', cls='mute'),
             Form(Choice('kind', KINDS, 'doc', aria_label='What you have'),
                  Kind('doc', Label('A document in your vault', Input(type='text', name='ref', placeholder='an id, a source or a title')), *Find()),
-                 Kind('topic', Label('A topic', Input(type='text', name='topic', placeholder='for example: how attention works'))),
+                 Kind('topic', Label('A topic', Input(type='text', name='topic', placeholder='for example: how attention works')),
+                      P(SEARCH_SAYS, cls='mute') if val('research.on') else ''),
                  Kind('link', Div(Label('A link', Input(type='text', name='url', placeholder='an arXiv id, a PDF, a docs page or a GitHub repo')),
                                   Label('Pages to read', Input(type='number', name='pages', min=1, max=val('links.cap'), value=val('links.pages')), cls='pages'),
                                   P('A paper is read in full.', cls='mute paper-note', hidden=True), cls='pair'),

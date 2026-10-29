@@ -13,7 +13,8 @@ import math, random, re, secrets, time
 from copy import deepcopy
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
-from abhyasa.core import Page, hook, n_of, pane_url
+from abhyasa.core import Page, hook, n_of, pane_url, run as run_hook
+from abhyasa.research import research_walk
 from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
 from abhyasa.llm import for_task
 from abhyasa.settings import val
@@ -185,12 +186,16 @@ def connect(app, ctx):
         if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_walk(lr, ask(), jid, sources=ctx.sources).id)
         return ui.Pending(jid)
 
+    def find_sources(w):
+        "On the pool, before the slides are made: look for a web source for each step of walk `w` with no passage, so its slide shows the source."
+        research_walk(lr, ctx.ask, w.id)
+
     def plain(j): return bool(j and j.get('mode') != 'walk' and not for_talk(j) and j.steps)   # a journey that is not a walk
 
     def from_journey(jid:str='', again:str=''):
         "Start the pool job that makes a talk from plain journey `jid`, or finds the one made before. `again` makes a new walk and a new talk."
         if not plain(lr.journey(jid := jid.strip())): return P('No such journey.', cls='req-err')
-        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_journey(lr, ask(), jid, ctx.sources, again=bool(again)).id)
+        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_journey(lr, ask(), jid, ctx.sources, again=bool(again), research=find_sources).id)
         return ui.Pending(jid)
 
     def fill(tid:str):
@@ -490,6 +495,7 @@ def connect(app, ctx):
         if not ns: return text('The room was sure on each idea. No follow-up walk is needed.')
         try: j = walk_from_topic(lr, ctx.ask, goal='Review: ' + ', '.join(ns), sources=ctx.sources)
         except Exception: return Response('The tutor could not make the walk. Try again.', status_code=502, media_type='text/plain')
+        run_hook('walk_made', j)   # the walk block looks for web sources on the pool
         return RedirectResponse(f'/w/{j.id}', status_code=303)
 
     @hook('walk_actions')

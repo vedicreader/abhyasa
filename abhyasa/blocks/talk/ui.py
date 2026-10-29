@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Cites, meta, n_of, asset_css, asset_js, stage_assets
+from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Cites, WebSource, meta, n_of, asset_css, asset_js, stage_assets
 from abhyasa.talk import talk_minutes, public_ask, share_right, needs_fill
 from abhyasa.settings import val
 from .cfg import Routes
@@ -132,7 +132,8 @@ def Row(tid, n, s):
     "One slide: its number, a small picture, the title and what shows, the question, the minutes, and the closed form that changes it."
     added = s.get('kind') in ('pause', 'questions', 'recap', 'primer')
     title = 'Pause: ' + (s.get('prompt') or 'talk to your neighbour') if s.get('kind') == 'pause' else s.get('title') or ''
-    return Li(Span(str(n), cls='no'), Mini(s), Div(B(title, cls='added' if added else None), Span(shows(s)), cls='ttl'), AskCell(s),
+    return Li(Span(str(n), cls='no'), Mini(s), Div(B(title, cls='added' if added else None), Span(shows(s)),
+                                               WebSource(src, cls='src web') if (src := (s.get('show') or {}).get('src')) else '', cls='ttl'), AskCell(s),
               Span(f"{s.get('mins') or 0} min", cls='min'),
               Details(Summary('Change', title='E'), Acts(tid, s['id']), EditForm(tid, s), cls='edit'),
               cls='slide', data_sid=s['id'], tabindex='0')
