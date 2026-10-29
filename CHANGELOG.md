@@ -2,14 +2,6 @@
 
 <!-- do not remove -->
 
-## 0.0.13
-
-- Core: `room_spec` (a demo spec for the audience window, with no gate answer) is now in `abhyasa.core`. The talk block calls it from there.
-- Code runner: `logging` now works in learner code in the closed process (`logging.info` and the like). `inspect.stack`, `traceback` and `sys._getframe` stay refused.
-- Talks: a narrow presenter window (with no side pane) now stops D at the real last page of the primer. The audience window tells the page count in a `pages` stage message.
-- Your learning: the page of one past session shows what you said about a question (Too simple, Just right, Not clear, and your note), in the same quiet lines as the concept page.
-- Talks: when a demo shows alone on the slide and its text would be under 14 px, the demo keeps 14 px in a taller box that scrolls. The scroll of the presenter window shows in the audience window.
-
 ## 0.0.12
 
 - Talks: when the talk is made, the tutor writes 2 to 4 points for each slide that has no passage (for example each slide of "Present this journey"), and speaker notes for each slide that has none: what to say, a question for the room and a confusion to watch for. It uses your sources when they name the idea. You can change the prompt (Talk slide) on the Settings page.
@@ -24,7 +16,7 @@
 - Code runner: learner code cannot send a signal to another process.
 - Code runner: the report goes to a private pipe, not to stdout. On macOS, `sandbox-exec` stops the network and writes outside the temp folder. On other systems, the guard does its best, but it is not a full block.
 - Code runner: learner code can still fool its own checks (for example through `ctypes`). The checks are for learning. They are not a proof.
-- Code runner: `logging`, `inspect.stack` and `traceback` do not work in learner code in the closed process.
+- Code runner: `inspect.stack` and `traceback` do not work in learner code in the closed process.
 - Side pane: a page in the pane can ask to open an http or https link in a new tab (`rh:link`). Other schemes are refused.
 - When the tutor cannot make a walk, a side walk or a term, the page shows a plain line. The log keeps the error.
 - A code check refuses more than 100 000 characters of code.
@@ -56,6 +48,11 @@
 - Graph: each cluster has a label and a soft region, and Group by can use the concept groups.
 - Talks: a question can take its answer from a run (for Leela).
 - Stage messages: a run question (`ask` and `result` with kind `run`) and a new `output` message, so a host can show what a run printed.
+- Core: `room_spec` (a demo spec for the audience window, with no gate answer) is now in `abhyasa.core`. The talk block calls it from there.
+- Code runner: `logging` now works in learner code in the closed process (`logging.info` and the like). `inspect.stack`, `traceback` and `sys._getframe` stay refused.
+- Talks: a narrow presenter window (with no side pane) now stops D at the real last page of the primer. The audience window tells the page count in a `pages` stage message.
+- Your learning: the page of one past session shows what you said about a question (Too simple, Just right, Not clear, and your note), in the same quiet lines as the concept page.
+- Talks: when a demo shows alone on the slide and its text would be under 14 px, the demo keeps 14 px in a taller box that scrolls. The scroll of the presenter window shows in the audience window.
 
 ## 0.0.11
 

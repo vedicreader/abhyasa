@@ -769,6 +769,7 @@ def test_narrow_presenter_stops_at_the_last_page(mk, talk_fake, lr):
                 pr = c.new_page(); pr.on('pageerror', lambda e: errs.append(str(e)))
                 pr.goto(f'{base}/t/{tid}/present'); pr.wait_for_load_state('networkidle')
                 au = c.new_page(); au.on('pageerror', lambda e: errs.append(str(e)))
+                au.add_init_script("(() => { const si = window.setInterval; window.setInterval = (f, t, ...a) => si(t === 700 ? () => { if (!window.__quiet) f(); } : f, t, ...a); })()")   # the count report can stop
                 au.set_viewport_size(dict(width=1280, height=720))
                 au.goto(f'{base}/t/{tid}/audience?k={run["key"]}'); au.wait_for_load_state('networkidle')
                 pr.wait_for_selector('#aud-live:not([hidden])'); pr.bring_to_front()
@@ -781,13 +782,62 @@ def test_narrow_presenter_stops_at_the_last_page(mk, talk_fake, lr):
                 au.evaluate("(t) => { const w = document.querySelector('#stage > iframe.stage-pane').contentWindow; w.document.querySelector('#passage .md').textContent = t; w.abhyasaTalkPage.fit(); }", long)
                 last = au.evaluate("document.querySelector('#stage > iframe.stage-pane').contentWindow.abhyasaTalkPage.pages") - 1
                 assert 0 < last < 19
-                for bad in (dict(n=0), dict(n=21), dict(n='3'), dict(n=3, x=1)):   # the channel checks the message
-                    pr.evaluate("([ch, m]) => { const b = new BroadcastChannel('abhyasa-stage:' + ch); b.postMessage({v: 1, t: 'pages', ...m}); b.close(); }", [f"{tid}:{run['key']}", bad])
                 pr.wait_for_timeout(1500)   # the audience window reports the count
-                for _ in range(last + 4):
-                    pr.keyboard.press('d'); pr.wait_for_timeout(120)
+                press_d = lambda k: [(pr.keyboard.press('d'), pr.wait_for_timeout(120)) for _ in range(k)]
+                press_d(last + 4)
                 pr.wait_for_timeout(300)
                 assert side() == last, (side(), last)
+                # a bad count is ignored: with the audience reports stopped, it must leave the real count as it was (a bad one would move the last page)
+                au.evaluate("window.__quiet = true")
+                for _ in range(last): pr.keyboard.press('a'); pr.wait_for_timeout(120)
+                pr.wait_for_timeout(300); assert side() == 0
+                for bad in (dict(n=-5), dict(n=0), dict(n=21), dict(n=1.5), dict(n='3'), dict(n=3, x=1)):   # the channel checks the message
+                    pr.evaluate("([ch, m]) => { const b = new BroadcastChannel('abhyasa-stage:' + ch); b.postMessage({v: 1, t: 'pages', ...m}); b.close(); }", [f"{tid}:{run['key']}", bad])
+                pr.wait_for_timeout(200)
+                press_d(last + 4)
+                pr.wait_for_timeout(300)
+                assert side() == last, (side(), last)
+                assert not errs, errs
+            finally: b.close()
+    finally: srv.should_exit = True
+
+def test_tall_demo_keeps_14px_and_the_room_follows_the_scroll(mk, talk_fake, lr):
+    "A demo that shows alone and is too tall keeps 14 px text in a taller box (`.tall`) that scrolls; the audience window follows the presenter's scroll (`demoscroll`) and ignores a bad one."
+    pw = pytest.importorskip('playwright.sync_api')
+    cl = mk(); tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
+    cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
+    srv, base = serve(cl)
+    DEMO = "document.querySelector('section[data-sid=s3] [data-rupaka]')"
+    info = f"(h => ({{tall: h.parentElement.classList.contains('tall'), alone: h.closest('section').classList.contains('demo-alone'), text: +h.style.zoom * parseFloat(getComputedStyle(h).fontSize)}}))({DEMO})"
+    frac = f"(d => d.scrollTop / Math.max(1, d.scrollHeight - d.clientHeight))({DEMO}.parentElement)"
+    try:
+        with pw.sync_playwright() as p:
+            if not Path(p.chromium.executable_path).exists(): pytest.skip("Playwright's Chromium is not installed")
+            b = p.chromium.launch(headless=True)
+            try:
+                c = b.new_context(viewport=dict(width=1000, height=800), reduced_motion='reduce')
+                errs = []
+                pr = c.new_page(); pr.on('pageerror', lambda e: errs.append(str(e)))
+                pr.goto(f'{base}/t/{tid}/present'); pr.wait_for_load_state('networkidle')
+                au = c.new_page(); au.on('pageerror', lambda e: errs.append(str(e)))
+                au.set_viewport_size(dict(width=1000, height=562))
+                au.goto(f'{base}/t/{tid}/audience?k={run["key"]}'); au.wait_for_load_state('networkidle')
+                pr.wait_for_selector('#aud-live:not([hidden])'); pr.bring_to_front()
+                pr.keyboard.press('g'); pr.keyboard.press('3'); au.wait_for_function("document.getElementById('stage').dataset.slide === 's3'")
+                pr.keyboard.press('d'); au.wait_for_function(f"!!{DEMO}?.rupaka"); pr.wait_for_function(f"!!{DEMO}?.rupaka")
+                for x in (pr, au): assert not x.evaluate(info)['tall']   # a demo that fits is not in a tall box
+                for x in (pr, au): x.evaluate(f"{DEMO}.firstElementChild.style.paddingBottom = '700px'")
+                for x in (pr, au):
+                    x.wait_for_function(f"{DEMO}.parentElement.classList.contains('tall')", timeout=3000)
+                    got = x.evaluate(info); assert got['alone'] and got['text'] >= 13.9, got
+                    assert x.evaluate(f"{DEMO}.parentElement.scrollHeight > {DEMO}.parentElement.clientHeight")
+                pr.evaluate(f"(d => {{ d.scrollTop = (d.scrollHeight - d.clientHeight) / 2; }})({DEMO}.parentElement)")
+                au.wait_for_function(f"Math.abs({frac} - .5) < .02", timeout=3000)
+                for bad in (2, -1, 'x'):   # the channel checks the message: the audience box stays where it is
+                    pr.evaluate("([ch, y]) => { const b = new BroadcastChannel('abhyasa-stage:' + ch); b.postMessage({v: 1, t: 'demoscroll', y}); b.close(); }", [f"{tid}:{run['key']}", bad])
+                au.wait_for_timeout(300); assert abs(au.evaluate(frac) - .5) < .02
+                pr.evaluate("([ch]) => { const b = new BroadcastChannel('abhyasa-stage:' + ch); b.postMessage({v: 1, t: 'demoscroll', y: 1}); b.close(); }", [f"{tid}:{run['key']}"])
+                au.wait_for_function(f"{frac} > .98", timeout=3000)
                 assert not errs, errs
             finally: b.close()
     finally: srv.should_exit = True

@@ -50,6 +50,19 @@ def test_session_page_shows_the_feedback_on_a_question(mk, lr):
     one = cl.get(f'/learning/{sid}').text
     assert 'Your feedback on the lesson: Not clear' in one and 'The second step lost me.' in one
 
+def test_session_page_matches_feedback_to_its_own_question(mk, lr):
+    "A question asked twice in one session shows the feedback of each own attempt, not the newest on both rows."
+    cl = mk(); sid = 'twice1'; q = 'What does a rank tell you?'
+    a1 = lr.record('ranking', q, 'x', session=sid); a2 = lr.record('ranking', q, 'y', session=sid)
+    row = lambda: dict(qid='q', concept='ranking', name='Ranking', depth=1, question=q, correct=False, outcome='gap', floor=0, turns=[dict(who='tutor', text=q)])
+    lr.log_session(sid, 'two', start=1e9, end=1e9 + 9, concepts=['ranking'], passed=0, asked=2, log=[row(), row()], ended=True)
+    first, second = sorted(lr.attempts(session=sid), key=lambda a: a.at)
+    lr.mark_attempt(first.id, feedback_on='lesson', verdict='simple', note='First note.')
+    lr.mark_attempt(second.id, feedback_on='lesson', verdict='unclear', note='Second note.')
+    one = cl.get(f'/learning/{sid}').text
+    assert one.count('Your feedback') == 2 and one.index('First note.') < one.index('Second note.')
+    assert one.count('First note.') == one.count('Second note.') == 1
+
 def test_continue_on_today_and_top_bar(mk):
     cl = mk()
     assert 'id="continue"' not in cl.get('/').text
