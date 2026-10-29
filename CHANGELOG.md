@@ -5,6 +5,7 @@
 ## 0.0.13
 
 - Core: `room_spec` (a demo spec for the audience window, with no gate answer) is now in `abhyasa.core`. The talk block calls it from there.
+- Code runner: `logging` now works in learner code in the closed process (`logging.info` and the like). `inspect.stack`, `traceback` and `sys._getframe` stay refused.
 
 ## 0.0.12
 

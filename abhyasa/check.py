@@ -279,8 +279,10 @@ def parse(text, nonce:str=None) -> dict:
 
 # %% ../nbs/06_check.ipynb #b7c1a002
 def _guard(tmp, unix=False):
-    "Add an audit hook that refuses the network, ctypes libraries, new processes, signals to other processes, frame and object walks, and file changes outside the folder `tmp`; with `unix`, allow a local socket pair."
+    "Add an audit hook that refuses the network, ctypes libraries, new processes, signals to other processes, frame and object walks (`logging` does not walk frames), and file changes outside the folder `tmp`; with `unix`, allow a local socket pair."
     import os, sys, socket, ctypes
+    import logging
+    logging._srcfile = None   # `logging` then skips its frame walk, which the hook refuses
     writes = os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_TRUNC
     walks = ('sys._getframe', 'sys._current_frames', 'sys.settrace', 'sys.setprofile', 'gc.get_objects', 'gc.get_referrers', 'gc.get_referents')
     def outside(p): return isinstance(p, (str, bytes, os.PathLike)) and not os.path.realpath(os.fsdecode(p)).startswith(tmp + os.sep)
