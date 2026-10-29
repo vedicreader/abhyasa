@@ -555,6 +555,7 @@ def recap_html(t:dict, run:dict, resolve) -> str:
             b, m = pub.images[h]
             part.append(f'<img alt="Figure" src="data:{m};base64,{base64.b64encode(b).decode()}">')
         if (a := s.get('ask')) and a.get('kind') != 'none': part.append(_ask_html(a, (run.get('asks') or {}).get(s['id'])))
+        part += [_ask_html(b['ask'], b) for b in run.get('beside') or [] if b.get('slide') == s['id'] and b.get('ask')]
         out.append(f'<section>{"".join(part)}</section>')
     kept = [q for q in run.get('questions') or [] if q.get('shown')]
     if kept:
