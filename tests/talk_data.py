@@ -6,7 +6,10 @@ from rupaka.spec import gallery
 
 CHOICE = dict(q='What does softmax give for a list of scores?',
               options=['Weights above 0 that add to 1', 'The largest score only', 'The scores in order', 'Scores that are all above 1'], answer=0)
-TALK_RULES = {'Return JSON: {"concepts"': EXTRACT_REPLY, 'You turn one check into a choice question': CHOICE}
+SLIDE = dict(points=['The idea has one main step.', 'Each step uses the result of the step before it.', 'A small example shows the idea.'],
+             say='Start with the main step. Show the small example. Then ask the room to say the idea in their own words.',
+             ask='What does the main step give you?', watch='People mix up the main step and the example.')
+TALK_RULES = {'Return JSON: {"concepts"': EXTRACT_REPLY, 'You turn one check into a choice question': CHOICE, 'You write one slide of a talk': SLIDE}
 PNG = b'\x89PNG\r\n\x1a\n'
 
 def prep_walk(lr, jid):

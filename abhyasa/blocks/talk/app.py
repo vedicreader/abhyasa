@@ -17,8 +17,8 @@ from abhyasa.core import Page, hook, n_of, pane_url
 from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
 from abhyasa.llm import for_task
 from abhyasa.settings import val
-from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
-                          public_deck, public_ask, asset_resolver, new_run, log_go, log_main, end_run, log_beside,
+from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
+                          public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, new_run, log_go, log_main, end_run, log_beside,
                           recap, recap_html)
 from . import ui
 from .cfg import Routes
@@ -26,7 +26,7 @@ from .cfg import Routes
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask', 'pool', 'sources')
 NO_TALK = 'abhyasa could not make the talk.'
-PARTS = ('passage', 'figure', 'demo')   # the parts that a slide can show, in the order of their beats
+PARTS = ('passage', 'body', 'figure', 'demo')   # the parts that a slide can show, in the order of their beats
 PAUSE = 'Talk to your neighbour.'
 ASKS = ('idea', 'primer')              # the slide kinds that can ask the room
 SLOT = (5, 240)                         # the most and the least minutes of a slot
@@ -126,6 +126,11 @@ def edit(s, f):
         if len(f['notes']) > NOTE_MOST: raise Bad(f'Write the note in at most {NOTE_MOST} characters.')
         s['notes'] = f['notes'].strip()
     if 'beats' in f: s['beats'] = lines(f['beats'])
+    if 'body' in f:   # the points: a new list shows with its beat, and no points take the beat out
+        pts, had = lines(f['body']), bool((s.get('show') or {}).get('body'))
+        if len(pts) > BODY_MOST or any(len(p) > POINT_MOST for p in pts): raise Bad(f'Write at most {BODY_MOST} points, each in at most {POINT_MOST} characters.')
+        s['show'] = {**(s.get('show') or {}), 'body': pts}
+        if not pts or not had: s['beats'] = with_part(s.get('beats') or [], 'body', bool(pts))
     for p in PARTS:
         if (v := f.get(f'show_{p}')) is None: continue
         if v not in ('on', 'off'): raise Bad(f'show_{p} is on or off.')
@@ -177,7 +182,7 @@ def connect(app, ctx):
     def new(jid:str=''):
         "Start the pool job that makes a talk from walk `jid`, unless one runs. The request does not wait for the model."
         if not walk_of(jid := jid.strip()): return P('No such walk.', cls='req-err')
-        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_walk(lr, ask(), jid).id)
+        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_walk(lr, ask(), jid, sources=ctx.sources).id)
         return ui.Pending(jid)
 
     def plain(j): return bool(j and j.get('mode') != 'walk' and not for_talk(j) and j.steps)   # a journey that is not a walk
@@ -188,10 +193,16 @@ def connect(app, ctx):
         if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_journey(lr, ask(), jid, ctx.sources, again=bool(again)).id)
         return ui.Pending(jid)
 
+    def fill(tid:str):
+        "Start the pool job that writes the content of the slides of talk `tid` that have none (Fill the slides). The request does not wait for the model."
+        if not lr.talk(tid): return Response('No such talk.', status_code=404)
+        if not (job := jobs.get(tid)) or job.done(): jobs[tid] = ctx.pool.submit(lambda: fill_talk(lr, ask(), tid, ctx.sources).id)
+        return ui.Pending(tid, fill=True)
+
     def job(jid:str=''):
-        "The state of the talk from walk `jid`: the pending card, a redirect to the editor, or a message."
+        "The state of the talk from walk `jid`, or of Fill the slides of talk `jid`: the pending card, a redirect to the editor, or a message."
         if not (j := jobs.get(jid.strip())): return P('No talk is being made from this walk. Try again.', cls='req-err')
-        if not j.done(): return ui.Pending(jid.strip())
+        if not j.done(): return ui.Pending(jid.strip(), fill=bool(lr.talk(jid.strip())))
         if j.exception(): return P(NO_TALK, cls='req-err')   # never the words of a library
         return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=j.result())})
 
@@ -500,6 +511,7 @@ def connect(app, ctx):
     app.get(Routes.one)(one)
     app.post(Routes.slide)(slide)
     app.post(Routes.slot)(slot)
+    app.post(Routes.fill)(fill)
     app.post(Routes.start)(start)
     app.get(Routes.present)(presenter)
     app.get(Routes.audience)(audience)
