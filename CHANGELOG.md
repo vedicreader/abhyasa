@@ -19,6 +19,7 @@
 - Walks from links: a folder such as `go` or `ui` is not a language folder.
 - Walks from links: a redirect to a folder higher on the same host keeps the folder of the link.
 - Talks: present a walk to a group. Each idea is a slide, the tutor note is your speaker note, and the check is a question for the room.
+- Talks: present a plain journey, too. "Present this journey" makes a talk from its steps, in their order, with the first 12 steps at most. The next time, open the same talk or make it again.
 - Talk editor: change the order, the beats, the notes and the question of each slide, and set the minutes of your slot.
 - Two windows: the presenter window has your notes, the next slide and a clock. The audience window goes on the projector (F fills the screen).
 - Talk keys for the left hand: D next, A back, G go to a slide, Q ask, R show the answer, X laser, B blank, E into the demo.
