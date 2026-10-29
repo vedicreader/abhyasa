@@ -1,4 +1,5 @@
 "Learner, model and vault text are not trusted: `md_html` renders markdown with maths and code, and keeps no raw HTML that can run."
+import re
 from abhyasa.core import md_html, clean_html, Md
 from fasthtml.common import to_xml
 
@@ -30,7 +31,7 @@ def test_htmx_ids_targets_and_svg_are_removed():
     h = md_html('<div id="send" hx-get="/s/start" hx-trigger="load" data-hx-post="/x">a</div>\n\n'
                 '<a href="https://example.org" target="_top" name="chat">b</a>\n\n<svg onload="alert(1)"><circle r="9"/></svg>\n\nc').lower()
     for bad in ('id=', 'hx-', '/s/start', 'target=', 'name=', '<svg', '<circle'): assert bad not in h, bad   # mdhtml shows the svg as text
-    assert '<div>a</div>' in h and 'href="https://example.org"' in h
+    assert re.search(r'<div>\s*(<p>)?a(</p>)?\s*</div>', h) and 'href="https://example.org"' in h   # newer mdhtml wraps the text in a <p>
     assert clean_html('<p><svg onload="alert(1)"><circle r="9"/></svg>c</p>') == '<p>c</p>'   # svg inline in a paragraph too
 
 def test_relative_urls_are_removed():

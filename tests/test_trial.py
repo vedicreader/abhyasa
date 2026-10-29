@@ -31,3 +31,10 @@ def test_dry_run_turns_off_usearch():
 def test_dry_run_fails_when_something_connects_out(tmp_path):
     r, _ = dry(tmp_path, '--probe')   # the probe tries one host off this computer; the guard refuses it and the run must still fail
     assert r.returncode == 1 and '192.0.2.1' in r.stderr and 'refused' in r.stderr
+
+def test_dry_run_grades_a_choice_question_with_no_model_answer(tmp_path):
+    "With --choice, the first short check is a choice question with no model answer. The grade trip uses the correct option."
+    r, _ = dry(tmp_path, '--choice', '--only', 'gradient-descent')
+    assert r.returncode == 0, r.stderr
+    rep = (tmp_path/'out'/'report.md').read_text()
+    assert 'the correct option graded correct: True' in rep and 'g_error' not in rep and 'grade trip is skipped' not in rep, rep

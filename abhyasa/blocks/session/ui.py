@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import n_of, moved_words, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary
+from abhyasa.core import n_of, moved_words, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary, Feedback
 from abhyasa.model import DEPTHS
 from abhyasa.settings import val
 from abhyasa.method import LABELS as WAYS
@@ -75,7 +75,7 @@ def Hint(n, text):
     return Msg(f'Hint {n}', Md(text), cls='tutor hint')
 
 def Lesson(text, way=''):
-    "A lesson under the outcome; `way` names the method of a lesson that you asked for in another way."
+    "A lesson under the outcome; `way` names the method of a lesson in another way: one that you asked for, or one after a miss on a demo."
     return Div(Span('Lesson' + (f' · {WAYS[way].lower()}' if way in WAYS else ''), cls='lbl'), Md(text), cls='lesson')
 
 def Now(r):
@@ -96,7 +96,8 @@ def Close(r, said='', sid=None, qid=None):
     "The last message on a question: the outcome, the lesson and the next review. A shaky pass can ask for a lesson."
     fb = r.feedback if r.correct or not r.lesson else ''   # after a miss the lesson speaks; the last nudge would ask a question nobody answers
     return Msg(Tag(r.outcome, said), Md(fb) if fb else '',
-              Lesson(r.lesson) if r.lesson else '',
+              Lesson(r.lesson, r.get('lesson_way', '')) if r.lesson else '',
+              Feedback('lesson', aid=r.get('aid', ''), way=r.get('lesson_way', '')) if sid and r.lesson else '',
               AnotherWay(sid, qid) if sid and r.lesson else '',
               TeachMe(sid, qid) if sid and r.outcome == 'fragile' and not r.lesson else '',
                Cites(r.get('grounds')), Now(r),
@@ -113,7 +114,7 @@ def Turns(turns):
         elif t.get('kind') == 'close':
             ok = t.get('outcome') in ('solid', 'fragile')
             out.append(Msg(Tag(t.get('outcome')), Md(t['text']) if t.get('text') and (ok or not t.get('lesson')) else '',
-                           Lesson(t['lesson']) if t.get('lesson') else '', cls=f"tutor fb close {'ok' if ok else 'no'}"))
+                           Lesson(t['lesson'], t.get('way', '')) if t.get('lesson') else '', cls=f"tutor fb close {'ok' if ok else 'no'}"))
     return out
 
 def Extras(r):

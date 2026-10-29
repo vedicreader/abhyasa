@@ -76,12 +76,14 @@ def ready(c, by:dict) -> bool:
     return all(by[p].get('floor', 0) >= 3 for p in c.get('prereqs', ()) if p in by)
 
 def _back(c, by, goal):
-    "The weakest prereq of `c` that is not learned, after two misses; else `c`."
+    "The weakest prereq of `c` that is not learned, after two misses; else `c`. After a demo of `c`, it waits for the third miss since the demo."
     if c.get('misses', 0) < 2: return c, ''
+    ladder = val('checks.demo_ladder') and c.get('after_demo') is not None   # the demo module keeps the misses since the demo
+    if ladder and c['after_demo'] < 3: return c, ''                          # the demo ladder runs first
     ps = [by[p] for p in c.get('prereqs', ()) if p in by and not learned(by[p], goal)]
     if not ps: return c, ''
     p = min(ps, key=lambda x: x.get('floor', 0))
-    return p, f"two misses on {c['name']}; step back to {p['name']}"
+    return p, f"{'three misses on ' + c['name'] + ' after its demo' if ladder else 'two misses on ' + c['name']}; step back to {p['name']}"
 
 def _gap(c, by):
     "The first gap you named on `c` that is not passed yet, for at most two questions; else None. A gap never blocks `c`."

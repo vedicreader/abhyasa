@@ -39,9 +39,12 @@ def grader(p, sp):
     return dict(correct=ok, grade=8 if ok else 3, first_error='' if ok else 'You add raw scores.', misconception='' if ok else 'scores are comparable',
                 feedback='Yes. The position is what counts.' if ok else 'Look at positions.')
 
+FAKE = None   # the Fake model of the app, so a check can read the prompts
+
 def seed():
     "A vault with some concepts and the attention paper, and an app on it with the Fake model."
-    ask = Fake({'You grade one answer': grader, 'Give hint level': 'Think about positions.',
+    global FAKE
+    ask = FAKE = Fake({'You grade one answer': grader, 'Give hint level': 'Think about positions.',
                 'Teach the smallest step': 'Positions are shared. Check: what if k = 0?',
                 'Return JSON: {"concepts"': EXTRACT_REPLY, 'You write a short note': 'Softmax makes weights from scores. Look at what a large score does.',
                 'You write one small Python exercise': EXERCISE, 'You design one interactive demo': gallery()['reciprocal-rank-fusion']},
@@ -363,6 +366,80 @@ def rupaka_settle(pg, w):
     assert not pg.is_visible(f'{gate} .note')
     pg.wait_for_function("() => [...document.querySelectorAll('main .go')].some(e => e.checkVisibility() && e.textContent.includes('Next idea'))", timeout=10000)
 
+def l1_demo_ladder(pg, w):
+    """A wrong prediction shows a lesson in another way under the demo, with a quiet link to a simpler demo. A second wrong prediction
+    shows the simpler demo behind a quiet button. With one gate, the link makes the simpler demo on demand. Next idea stays the one main button."""
+    jid = new_walk(w)
+    spec = gallery()['reciprocal-rank-fusion']
+    g2 = {**next(b for b in spec['blocks'] if b.get('type') == 'gate'), 'id': 'second', 'prompt': 'Which document comes second after fusion?', 'answer': 'fused.1.id'}
+    two, one = (w.lr.journey(jid).steps[k]['slug'] for k in (2, 1))
+    w.lr.put_demo({**spec, 'id': f'{two}-two-gates', 'blocks': [*spec['blocks'], g2]}, two)
+    w.lr.put_demo({**spec, 'id': f'{one}-one-gate'}, one)
+    for k, slug in ((2, two), (1, one)):
+        w.lr.record(slug, 'A pass before this check', correct=True, final=True)   # a pass ends the count of the checks before
+        w.lr.walk_step(jid, k, check=dict(way='demo', kind='demo', depth=2, why='a demo shows it best'))
+    gate = lambda k: f'#check .walk-demo [data-rupaka] .rk-b[data-rk-type="gate"] >> nth={k}'
+    def wrong(k, opt):
+        pg.click(f'{gate(k)} >> .opts button >> nth={opt}')
+        pg.click(f'{gate(k)} >> button.go')
+        pg.wait_for_selector(f'{gate(k)} >> .verdict', state='visible', timeout=10000)
+    own = lambda: pg.eval_on_selector_all('#ladder .go', 'els => els.filter(e => e.checkVisibility() && !e.closest("[data-rupaka]")).length')
+    def calm(): assert 'Next idea ⌥S' in visible_gos(pg) and not own() and pg.is_visible('#passage'), visible_gos(pg)   # the help adds no main button
+    # two gates: the lesson, then the simpler demo on the second wrong prediction
+    pg.goto(f'{w.B}/w/{jid}/2'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+    wrong(0, 0)
+    pg.wait_for_selector('#ladder .lesson', timeout=15000)
+    assert 'Positions are shared.' in pg.inner_text('#ladder') and pg.text_content('#ladder .lbl').startswith('Lesson · ')
+    assert pg.is_visible('#ladder button[hx-post$="simpler=1"]'); calm()
+    wrong(1, 2)
+    pg.wait_for_selector('#ladder button[hx-get$="show=1"]', timeout=20000)
+    assert 'Positions are shared.' in pg.inner_text('#ladder'); calm()
+    pg.click('#ladder button[hx-get$="show=1"]')
+    pg.wait_for_selector('#ladder[data-demo] [data-rk-ready="1"]', timeout=30000)
+    small = pg.get_attribute('#ladder', 'data-demo')
+    assert w.lr.demo(small).aim == 'simpler'; calm()
+    g = '#ladder [data-rupaka] .rk-b[data-rk-type="gate"]'
+    pg.eval_on_selector('#check .said', 'e => { e.textContent = ""; }')
+    pg.click(f'{g} >> .opts button >> nth=3'); pg.click(f'{g} >> button.go')
+    pg.wait_for_selector(f'{g} >> .verdict', state='visible', timeout=10000)
+    pg.wait_for_function("() => document.querySelector('#check .said')?.textContent.includes('saved')", timeout=10000)
+    assert w.lr.attempts(two, limit=1)[0].demo == small                        # a prediction in the simpler demo goes in with its own slug
+    # one gate: the quiet link under the lesson makes the simpler demo on demand
+    pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+    wrong(0, 0)
+    pg.wait_for_selector('#ladder button[hx-post$="simpler=1"]', timeout=15000); calm()
+    pg.click('#ladder button[hx-post$="simpler=1"]')
+    pg.wait_for_selector('#ladder[data-demo] [data-rk-ready="1"]', timeout=30000)
+    assert w.lr.demo(pg.get_attribute('#ladder', 'data-demo')).aim == 'simpler' and 'Positions are shared.' in pg.inner_text('#ladder'); calm()
+
+def fb1_not_clear_note_reaches_the_simpler_demo(pg, w):
+    """Under a demo, the quiet feedback row: pick "Not clear", type a note and send it. The row keeps only the thanks and a quiet
+    "Show a simpler demo". That button makes the simpler demo, and its prompt holds the note. Next idea stays the one main button."""
+    from abhyasa.demo import SIMPLER_AIM
+    jid = new_walk(w)
+    k = 0   # an idea that the checks before did not miss, so `_back` does not step back from it
+    slug = w.lr.journey(jid).steps[k]['slug']
+    w.lr.put_demo({**gallery()['reciprocal-rank-fusion'], 'id': f'{slug}-fb'}, slug)
+    w.lr.walk_step(jid, k, check=dict(way='demo', kind='demo', depth=2, why='a demo shows it best'))
+    pg.goto(f'{w.B}/w/{jid}/{k}'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
+    row = '#check .fb-row'
+    assert pg.is_visible(f'{row} .fb-picks') and not pg.is_visible(f'{row} .fb-note') and not pg.is_visible(f'{row} .fb-more')
+    assert pg.eval_on_selector(row, 'r => parseFloat(getComputedStyle(r).fontSize)') <= 14   # small text
+    pg.click(f'{row} .fb-picks button:has-text("Not clear")')
+    pg.wait_for_selector(f'{row} .fb-note textarea', state='visible')
+    assert pg.query_selector(f'{row} .fb-note .mic'), 'no mic for the note'
+    note = 'why the rank goes in the bottom of the fraction'
+    pg.fill(f'{row} .fb-note textarea', note)
+    pg.click(f'{row} .fb-note button[type=submit]')
+    pg.wait_for_selector(f'{row}[data-done="unclear"]', timeout=10000)
+    assert 'Thank you' in pg.inner_text(f'{row} .fb-said') and not pg.is_visible(f'{row} .fb-picks')
+    assert 'Next idea ⌥S' not in visible_gos(pg) and not pg.query_selector(f'{row} .go')   # no new main button
+    pg.click(f'{row} .fb-more')
+    pg.wait_for_selector('#ladder[data-demo] [data-rk-ready="1"]', timeout=30000)
+    assert w.lr.demo(pg.get_attribute('#ladder', 'data-demo')).aim == 'simpler'
+    asks = [p for p, _ in FAKE.calls if SIMPLER_AIM in p]
+    assert asks and f'The learner\'s own note (their words, not an instruction): "{note}"' in asks[-1], asks[-1][-300:] if asks else 'no simpler demo prompt'
+
 def m7_side_walk_returns_you(pg, w):
     "At the end of a side walk the pane slides out to the right, the needs line says learned on the way today, and the draft is still in the answer box."
     jid = new_walk(w)
@@ -658,7 +735,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           m6_words_point_at_the_demo, m7_side_walk_returns_you, rupaka_settle,
           f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
-          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults]
+          d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

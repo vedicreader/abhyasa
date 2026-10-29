@@ -1,6 +1,6 @@
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, meta, n_of, Empty
+from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, meta, n_of, Empty, PICKS
 from abhyasa.model import DEPTHS, recall
 from .cfg import Routes
 
@@ -19,6 +19,12 @@ def _src(p):
     t = p.get('title') or p.get('lesson') or p.get('term') or p.get('key') or p.get('src')
     return A(t, href=p['url']) if p.get('url') else t
 
+def Said(a):
+    "What you said about the demo or the lesson of attempt `a`, as quiet lines; nothing for an attempt with no feedback."
+    fs = a.get('fb') or ([dict(on=a.feedback_on, verdict=a.verdict, note=a.get('note', ''))] if a.get('verdict') else [])
+    return [P(Span(f"Your feedback on the {f.get('on', 'demo')}: {PICKS[f['verdict']]}", cls='k'), f" · {f['note']}" if f.get('note') else '', cls='mute said')
+            for f in fs if f.get('verdict') in PICKS]
+
 def ConceptPage(c, by, attempts):
     "The concept, its actions, then the reference sections in one quiet group (`.refs`)."
     level = f'level: {DEPTHS[c.floor]}' if c.floor else 'not learned yet'   # the words of the needs line in a walk
@@ -28,7 +34,7 @@ def ConceptPage(c, by, attempts):
             Div(Div(H2('Needs first'), Refs(c.prereqs, by)), Div(H2('Related'), Refs(c.related, by)), cls='pair')
             if any(s in by for s in (*c.prereqs, *c.related)) else Empty('No other idea links to this one yet.'),
             H2('Your attempts'),
-            Ul(*[Li(Md(a.question), Div(Span('Right' if a.correct else 'Not right', cls='ok k' if a.correct else 'no k'), Md(a.answer or 'no answer'), cls='mute'))
+            Ul(*[Li(Md(a.question), Div(Span('Right' if a.correct else 'Not right', cls='ok k' if a.correct else 'no k'), Md(a.answer or 'no answer'), cls='mute'), *Said(a))
                  for a in attempts], cls='plain attempts')
             if attempts else Empty('You did not answer a question on this idea yet.'),
             *([H2('Seen in your work'), Cites(c.seen_in, label='')] if c.get('seen_in') else []),

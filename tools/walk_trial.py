@@ -63,8 +63,11 @@ def timed(f, *a, **kw):
     t = time.monotonic(); r = f(*a, **kw)
     return r, time.monotonic() - t
 
-def fake_ask():
-    "The `Fake` model of the dry run: the replies of the `walk_fake` fixture, a plan, and a grader that fails only 'I am not sure.'"
+CHOICE = dict(question='Which one tells you the position of a page?', options=[dict(text='Its rank.', misconception=''), dict(text='Its score.', misconception='a score is a position')],
+              correct=0, rubric=[])   # a choice question with no model answer
+
+def fake_ask(choice=False):
+    "The `Fake` model of the dry run: the replies of the `walk_fake` fixture, a plan, and a grader that fails only 'I am not sure.' With `choice`, a question is a choice question with no model answer."
     from rupaka.spec import gallery
     from walk_data import EXTRACT_REPLY, EXERCISE
     def grader(p, sp):
@@ -75,7 +78,7 @@ def fake_ask():
     return Fake({'You grade one answer': grader, 'Give hint level': 'Think about positions.', 'Teach the smallest step': 'Positions are shared. Check: what if k = 0?',
                  'Return JSON: {"concepts"': EXTRACT_REPLY, 'You write a short note': 'Softmax makes weights from scores. Look at what a large score does.',
                  'You write one small Python exercise': EXERCISE, 'You plan a learning path': plan, 'You design one interactive demo': gallery()['reciprocal-rank-fusion']},
-                dflt=dict(question='What does a rank tell you?', answer='Its position.', rubric=['position']))
+                dflt=CHOICE if choice else dict(question='What does a rank tell you?', answer='Its position.', rubric=['position']))
 
 def fake_read(lr):
     "A `read` for `file_link` that files `PAGES` and fetches nothing."
@@ -111,6 +114,11 @@ def measure(lr, ask, j) -> AttrDict:
             else: bad.append(AttrDict(step=i, name=q.name, question=q.question, failed=[l for l, o in cs if not o]))
         secs.append(time.monotonic() - t)
     return AttrDict(steps=len(j.steps), found=found, figures=figs, kinds=kinds, asks_ok=ok, asks=asks, secs_step=mean(secs), bad_asks=bad)
+
+def as_choice(lr, j) -> AttrDict:
+    "Walk `j` with its first short check at depth 1, so that its question is a choice question (`--choice`)."
+    k = first(i for i, s in enumerate(j.steps) if s['check']['kind'] == 'short')
+    return j if k is None else lr.walk_step(j.id, k, check={**j.steps[k]['check'], 'depth': 1})
 
 def grade_trip(lr, ask, j) -> AttrDict:
     "On the first short step: the model answer of its question must grade correct, and a new question answered 'I am not sure.' must not."
@@ -255,7 +263,7 @@ def run_case(lr, ask, case, a, read, cfg_home) -> AttrDict:
         except Exception as e: r[f'{key}_error'] = f'{type(e).__name__}: {e}'
     try:
         r.build = build(lr, ask, case, read)
-        j = r.build.j
+        j = r.build.j = as_choice(lr, r.build.j) if a.choice else r.build.j
         r.m = measure(lr, ask, j)
     except Exception as e:
         r.error = f'{type(e).__name__}: {e}'
@@ -277,13 +285,14 @@ def main(argv=None):
     p.add_argument('--out', default=str(ROOT/'design/screens/trial'))
     p.add_argument('--dry', action='store_true', help='a fake model and fake pages: no network and no browser')
     p.add_argument('--no-shots', action='store_true')
+    p.add_argument('--choice', action='store_true', help='with --dry: the first short check of each walk is a choice question with no model answer')
     p.add_argument('--probe', action='store_true', help='with --dry: try one connection off this computer (it is refused), to show that the dry run fails on it')
     a = p.parse_args(argv)
     if a.dry: a.no_shots = True
     tmp = Path(tempfile.mkdtemp())
     if a.dry:
         _no_network()
-        base, read = Router(fake_ask(), models=lambda: {}, tokens=lambda: {}), None
+        base, read = Router(fake_ask(a.choice), models=lambda: {}, tokens=lambda: {}), None
         if a.probe:
             try: socket.create_connection(('192.0.2.1', 9), timeout=1)   # a test address: the guard refuses it before any packet leaves
             except OSError: pass

@@ -1,5 +1,5 @@
 "The settings table: each group has the values that the code used before, and the engine reads a saved value when it uses it."
-import json
+import json, os, threading
 import pytest
 from abhyasa.settings import SETTINGS, GROUPS, FIXED, val, set_val, settings, cfg_dir, rows
 
@@ -58,7 +58,16 @@ def test_talks_defaults():
 
 def test_checks_defaults():
     assert dflts('checks') == {'checks.tries': 3, 'checks.sources': True, 'checks.one_ask': True, 'checks.near': 7, 'checks.goal': 4,
-                               'checks.high': 60, 'checks.hints': 2, 'checks.demo_misses': 2, 'checks.retest': 2}
+                               'checks.high': 60, 'checks.hints': 2, 'checks.demo_misses': 2, 'checks.retest': 2, 'checks.demo_ladder': True, 'checks.feedback_row': True}
+
+def test_demo_ladder_setting(mk):
+    "The demo ladder is an on/off value in Checks and grading, on by default, with a help line on the Settings page."
+    r = SETTINGS['checks.demo_ladder']
+    assert (r.group, r.kind, r.dflt, r.ui) == ('checks', 'bool', True, True) and r.help.endswith('.')
+    t = mk().get('/settings').text
+    assert r.label in t and r.help in t
+    set_val('checks.demo_ladder', False)
+    assert val('checks.demo_ladder') is False
 
 def test_tries_read_when_used(lr, fake):
     from abhyasa.tutor import Tutor
@@ -138,15 +147,21 @@ def test_runner_values_out_of_range_are_clamped(monkeypatch):
     "A runner value out of range in the file reaches the closed process at the top of its range: 60 s, 10 s a test, 100 MB."
     from abhyasa import check
     (cfg_dir()/'settings.json').write_text(json.dumps(dict(runner=dict(total=999, per_test='99', file_mb=10**6))))
-    seen = {}
+    seen, fed = {}, threading.Event()
+    class Stdin:
+        def write(self, code): seen.update(code=code.decode()); fed.set()
+        def close(self): pass
+    def empty():
+        r, w = os.pipe(); os.close(w)
+        return open(r, 'rb')
     class Popen:
-        def __init__(self, cmd, **kw): self.pid, self.returncode = 0, 0
+        def __init__(self, cmd, **kw): self.pid, self.returncode, self.stdin, self.stdout, self.stderr = 0, 0, Stdin(), empty(), empty()
         def __enter__(self): return self
-        def __exit__(self, *a): pass
-        def communicate(self, code, timeout): seen.update(code=code, timeout=timeout); return '', ''
+        def __exit__(self, *a): self.stdout.close(); self.stderr.close()
+        def wait(self, timeout=None): seen.update(timeout=timeout); return 0
     monkeypatch.setattr(check.subprocess, 'Popen', Popen)
     check.run_isolated('assert', 'f', 'def f(): return 1', ['assert f() == 1'])
-    assert seen['timeout'] == 62 and 'RUN_SECONDS = 60.0' in seen['code'] and 'TEST_SECONDS = 10.0' in seen['code']
+    assert fed.wait(2) and round(seen['timeout']) == 62 and 'RUN_SECONDS = 60.0' in seen['code'] and 'TEST_SECONDS = 10.0' in seen['code']
     assert 'RLIMIT_CPU, (61, 62)' in seen['code'] and f'({100 * 2**20}, {100 * 2**20})' in seen['code']
 
 # Speech to text
@@ -208,13 +223,26 @@ def test_all_prompts_registered(mk):
     from abhyasa.prompts import PROMPTS, set_prompt, prompt
     from abhyasa.tutor import depth_ask
     t = mk().get('/settings').text
-    for n in ('primer', 'profile.onboard', 'profile.observe', 'stt', 'exercise', 'demo.order', 'depths', 'tutor', 'hints', 'walk.pick', 'walk.plan'):
+    for n in ('primer', 'profile.onboard', 'profile.observe', 'stt', 'exercise', 'demo.order', 'demo.simpler', 'depths', 'tutor', 'hints', 'walk.pick', 'walk.plan'):
         assert n in PROMPTS and f'pr-{n.replace(".", "-")}' in t
     with pytest.raises(ValueError, match='5 lines'): set_prompt('depths', 'one line only')
     with pytest.raises(ValueError, match='6 lines'): set_prompt('hints', 'one\ntwo')
     assert depth_ask(4).startswith('apply it')
     set_prompt('depths', 'see it\nsay it\nwhy it\nuse it\nmove it')
     assert depth_ask(4) == 'use it'
+
+def test_simpler_demo_prompt_is_editable(mk, lr):
+    "The prompt for a simpler demo is on the Settings page. A saved text goes into the next simpler demo that the tutor makes."
+    from abhyasa.prompts import prompt
+    from abhyasa.demo import make_demo, SIMPLER_AIM
+    from abhyasa.llm import Fake
+    from rupaka.spec import gallery
+    cl = mk()
+    assert 'pr-demo-simpler' in cl.get('/settings').text and prompt('demo.simpler') == SIMPLER_AIM
+    assert cl.post('/settings/prompt', data=dict(name='demo.simpler', text='Use one slider only.')).status_code == 200
+    ask = Fake({'You design one interactive demo': gallery()['reciprocal-rank-fusion']})
+    d = make_demo(lr, ask, 'reciprocal-rank-fusion', check=False, aim='simpler')
+    assert d.aim == 'simpler' and 'Use one slider only.' in ask.calls[0][0] and SIMPLER_AIM not in ask.calls[0][0]
 
 # The Settings page
 

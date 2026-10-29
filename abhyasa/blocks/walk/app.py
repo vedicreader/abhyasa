@@ -1,6 +1,6 @@
 """The guided walk: a paper, a text, a topic or a link as one idea at a time, in reading order. The plan, the step page, its check,
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
-import json, re, time
+import json, logging, re, time
 from collections import defaultdict
 from threading import Lock
 from pathlib import Path
@@ -12,9 +12,10 @@ from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError
-from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, for_talk
+from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
-from abhyasa.demo import queue_demo, job_state, job_age
+from abhyasa.tutor import NoLesson
+from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said
 from . import ui
 from .cfg import Routes
 
@@ -24,7 +25,9 @@ FIGURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a step (spec 6.3), empty until the step is used
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
 MAX_STATE = 20_000                   # the most chars of a kept demo state
+MAX_SOURCE = 100_000                 # the most chars of code that a run takes
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
+log = logging.getLogger(__name__)
 
 def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
@@ -49,7 +52,7 @@ def connect(app, ctx):
         s = sid and (sessions.get(sid) or Session.load(tutor, sid))
         if not s or s.ended:
             s = Session(tutor, journey=j.id)
-            lr.put_journey({**j, 'sitting': s.id})
+            lr.merge_journey(j.id, sitting=s.id)   # only `sitting`, so a step that another request writes stays
         sessions[s.id] = s
         return s
 
@@ -73,11 +76,10 @@ def connect(app, ctx):
 
     def back_to(j):
         "The way back from side walk `j` to the step that opened it, and the trail for the side pane; None for a walk with no parent."
-        p = j.get('parent') or {}
-        pj = lr.journey(p['walk']) if isinstance(p.get('walk'), str) else None
-        if not pj or not isinstance(p.get('step'), int) or not 0 <= p['step'] < len(pj.steps): return None
+        pj, i = parent_step(lr, j)
+        if not pj: return None
         parts = [[f"Idea {t.step + 1}", ui.at(Routes.step, t.walk, t.step)] for t in trail(lr, j.id)[:-1] if t.step is not None]
-        return AttrDict(href=ui.at(Routes.step, pj.id, p['step']), here=f"idea {p['step'] + 1} of {len(pj.steps)}", trail=parts)
+        return AttrDict(href=ui.at(Routes.step, pj.id, i), here=f"idea {i + 1} of {len(pj.steps)}", trail=parts)
 
     def as_short(j, i):
         "Walk `j` with the check of step `i` as a short answer in a text way, when its code task could not be made (spec 6.5)."
@@ -162,7 +164,9 @@ def connect(app, ctx):
             elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60], tool=tool)
             elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool)
             else: return P('Name a vault document, paste a text, or write a topic.', cls='req-err')
-        except Exception as e: return P(f'The tutor could not make a walk ({e}). Try again.', cls='req-err')
+        except Exception as e:   # the log keeps the words of the library; the page shows a plain line
+            log.warning('the tutor could not make a walk: %r', e)
+            return P(str(e) if isinstance(e, LinkError) else 'The tutor could not make a walk. Try again.', cls='req-err')
         if not j.steps:
             lr.drop_journey(j.id)
             return P('The tutor found no ideas in this document.' if ref.strip() or text.strip() else 'The tutor found no steps for this topic.', cls='req-err')
@@ -230,6 +234,7 @@ def connect(app, ctx):
 
     def run(jid:str, i:int, source:str=''):
         "Run the code of step `i` on its tests; the reply is the results part only."
+        if len(source) > MAX_SOURCE: return Response(f'The code is too long. Send at most {MAX_SOURCE:,} characters.', status_code=413)
         with writing[jid, i]:   # one run at a time, so a double click does not use two tries
             j, s = live(jid, i)
             if not s or not j.steps[i].get('code'): return no_check(j, i) if s is None else Response('This check is not a code check.', status_code=409)
@@ -248,22 +253,87 @@ def connect(app, ctx):
         r = s.give_up(confidence=confidence or 0) if tutor.open[s.q.id].tries else s.answer(dont_know=True, confidence=confidence)
         return closed(j, i, r)
 
+    def lesson_job(jid, i, slug):
+        "Start the pool job that writes the lesson in another way of step `i`, unless it runs. The job keeps the lesson on the step."
+        k = f'{slug}:lesson'
+        if (jb := tutor.jobs.get(k)) is not None and not jb.done(): return
+        ld = lr.journey(jid).steps[i]['ladder']
+        a = first(x for x in lr.attempts(slug) if x.id == ld.get('aid'))
+        def job():
+            if not (text := demo_lesson(tutor, a, ld['way'])) or isinstance(text, NoLesson): return   # an empty lesson or the fallback note is a failure
+            with writing[jid, i]: lr.walk_step(jid, i, ladder={**(lr.journey(jid).steps[i].get('ladder') or {}), 'lesson': text})
+        if a is not None: tutor.jobs[k] = ctx.pool.submit(job)
+
+    def climb(jid, i, a):
+        "After the wrong prediction `a` in the demo check of step `i`, keep the next rung of the demo ladder on the step. The URL of its help, or ''."
+        s = lr.journey(jid).steps[i]
+        if a.correct or s['check']['kind'] != 'demo' or not val('checks.demo_ladder') or (k := rung(lr, s['slug'])) not in (1, 2): return ''
+        old, slug, simple = s.get('ladder') or {}, s['slug'], said(lr, s['slug'], 'simple')
+        if k == 1 and said(lr, slug, 'unclear'): ld = dict(rung=2, aid=a.id)   # "Not clear" on the demo: the simpler demo comes now
+        elif k == 1: ld = dict(rung=1, aid=a.id, way=other_way(lr, slug, s['check']['way']), **({'simple': True} if simple else {}))
+        elif simple: ld = dict(rung=1, aid=a.id, way=other_way(lr, slug, (s['check']['way'], old.get('way', ''))), simple=True)   # "Too simple": one more lesson, no simpler demo
+        else: ld = {**old, 'rung': 2}
+        with writing[jid, i]: lr.walk_step(jid, i, ladder=ld)
+        if not backed(lr, slug, tutor.goal):   # the job starts now, so the help is often ready when the page asks
+            if ld['rung'] == 1: lesson_job(jid, i, slug)
+            else: simpler_demo(tutor, slug)
+        return ui.at(Routes.ladder, jid, i)
+
+    def ladder_view(jid, i, s, show=''):
+        "The help under the demo check of step `i` as it is now. It only reads: it starts no job and writes nothing."
+        ld, slug = s['ladder'], s['slug']
+        stop = backed(lr, slug, tutor.goal)   # once `_back` steps back to a prereq, the ladder makes nothing
+        if ld['rung'] == 1 and not ld.get('asked'):
+            if ld.get('lesson') or stop: return ui.Ladder(jid, i, ld, more=not ld.get('simple'))   # after "Too simple", no link to a simpler demo
+            jb = tutor.jobs.get(f'{slug}:lesson')
+            if jb is not None and not jb.done(): return ui.Ladder(jid, i, ld, pending='The tutor is writing a lesson in another way. You can read the passage while you wait.')
+            lost = first(x for x in lr.attempts(slug) if x.id == ld.get('aid')) is None   # no attempt: a new job cannot help
+            return ui.Ladder(jid, i, ld, failed='The tutor could not write a lesson this time.', retry=not lost)
+        # the simpler demo: after the second wrong prediction, or when you asked for it
+        if (d := lr.demo_for(slug, aim='simpler')) and not said(lr, slug, 'unclear'): return ui.Ladder(jid, i, ld, demo=d, show=bool(show) or bool(ld.get('asked')))   # after "Not clear", a new one
+        st = job_state(tutor, slug, 'simpler')
+        if stop and st != 'failed': return ui.Ladder(jid, i, ld)
+        if st == 'running': return ui.Ladder(jid, i, ld, pending='The tutor is making a simpler demo of this idea. You can read the passage while you wait.')
+        return ui.Ladder(jid, i, ld, failed='The tutor could not make a simpler demo this time.', retry=True)
+
+    def ladder(jid:str, i:int, show:str=''):
+        "The help under the demo check of step `i`: the lesson in another way, then the simpler demo. A GET only reads."
+        if not (j := walk_of(jid, i)): return Response(status_code=404)
+        return ladder_view(jid, i, j.steps[i], show) if j.steps[i].get('ladder') else ui.Slot(jid, i, j.steps[i])
+
+    def ask_ladder(jid:str, i:int, simpler:str=''):
+        """Ask for help under the demo check of step `i`: the simpler demo (`simpler`, so a demo with one gate can reach it, and the feedback row
+        after "Not clear" before a prediction), or the job again after a failure. This is the only route that starts a help job."""
+        if not (j := walk_of(jid, i)): return Response(status_code=404)
+        if not (ld := j.steps[i].get('ladder')):
+            if not simpler or j.steps[i]['check']['kind'] != 'demo': return ui.Slot(jid, i, j.steps[i])
+            with writing[jid, i]: lr.walk_step(jid, i, ladder=(ld := dict(rung=2, asked=True)))
+        if simpler and not ld.get('asked'):
+            with writing[jid, i]: lr.walk_step(jid, i, ladder={**lr.journey(jid).steps[i]['ladder'], 'asked': True})
+        s = walk_of(jid, i).steps[i]; ld, slug = s['ladder'], s['slug']
+        if not backed(lr, slug, tutor.goal):
+            if ld['rung'] == 1 and not ld.get('asked'):
+                if not ld.get('lesson'): lesson_job(jid, i, slug)
+            else: simpler_demo(tutor, slug)   # the demo there, or a job for a new one
+        return ladder_view(jid, i, s)
+
     def predict(jid:str, i:int, slug:str, gate:str, picked:str, ans:str='', ok:str='', why:str='', context:str='', confidence:int=None):
         "Log the first prediction on each gate in the demo of step `i` with the walk; the first one closes the step (spec 6.5)."
         j = walk_of(jid, i)
         if not j or (s := j.steps[i])['check']['kind'] not in AIM or not (d := lr.demo(slug)) or d.concept != s['slug']:
             return JSONResponse(dict(ok=False), status_code=404)
         if (s.get('done') or {}).get('outcome') == 'skipped': return JSONResponse(dict(ok=False), status_code=409)
-        if first(a for a in lr.attempts(s['slug']) if (a.get('walk'), a.get('step'), a.get('gate')) == (jid, i, gate)):
-            return JSONResponse(dict(ok=True, again=True))   # one record for each gate: a second try comes after the answer showed
+        if first(a for a in lr.attempts(s['slug']) if (a.get('walk'), a.get('step'), a.get('demo'), a.get('gate')) == (jid, i, slug, gate)):
+            return JSONResponse(dict(ok=True, again=True))   # one record for each gate of each demo: a second try comes after the answer showed
         st, floor0 = sitting(j), lr.concept(s['slug']).get('floor') or 0
         a = lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, st.id, confidence,
                                  kind=s['check']['kind'], method=s['check']['way'], **step_meta(j, i))
         st.noted(a, floor0)
         with writing[jid, i]:
             if not lr.journey(jid).steps[i].get('done'): lr.walk_step(jid, i, done=dict(outcome=a.outcome, aid=a.id, at=time.time()))
-        ws = walk_state(lr.journey(jid))
-        return JSONResponse(dict(ok=True, dot=ws.steps[i].dot, done=ws.done, total=ws.total))   # walk.js fills the dot and moves the progress line
+        ws, help_ = walk_state(lr.journey(jid)), climb(jid, i, a)
+        # walk.js fills the dot, moves the progress line, and loads the help under the card when there is a `ladder`
+        return JSONResponse(dict(ok=True, dot=ws.steps[i].dot, done=ws.done, total=ws.total, **({'ladder': help_} if help_ else {})))
 
     def keep(jid:str, i:int, state:str=''):
         "Keep the state of the demo on the newest prediction of step `i`."
@@ -286,17 +356,18 @@ def connect(app, ctx):
                 if (s := sessions.get(j.get('sitting') or '')) and s.q and s.q.id == qid: s.q = None; s.save()
             lr.walk_step(jid, i, done=dict(outcome='skipped', at=time.time()))
         ends = any(ix[-1] == i for _, ix in st.sections)
+        if ends and (sid := j.get('sitting')) and (s := sessions.pop(sid, None) or Session.load(tutor, sid)) and not s.ended:
+            s.end()   # the section ends here, on the POST, not on the GET of its summary
         # a plain 303, not HX-Redirect: htmx follows it and swaps the page in place, so the next idea comes in with a view transition
         return RedirectResponse(ui.at(Routes.done, jid, i) if ends else ui.at(Routes.step, jid, i + 1), status_code=303)
 
     def done(jid:str, i:int):
-        "The summary of the section of step `i`; it ends the sitting, and the next step opens a new one."
+        "The summary of the section of step `i`. It changes nothing: Next idea ended the sitting, and the next step opens a new one."
         if not (j := walk_of(jid, i)): return missing()
         sec, ix = next((sec, ix) for sec, ix in walk_state(j).sections if i in ix)
         slugs = {j.steps[k]['slug'] for k in ix}
         s = (sessions.get(sid) or Session.load(tutor, sid)) if (sid := j.get('sitting')) else None
         rows = [r for r in (s.log if s else ()) if r['concept'] in slugs]
-        if s and not s.ended: s.end(); sessions.pop(s.id, None)
         nxt = ix[-1] + 1 if ix[-1] + 1 < len(j.steps) else None
         crumbs = [*up, (j.title, ui.at(Routes.one, jid))]
         if nxt is not None: return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), nxt, by()), crumbs=crumbs, extra=ui.assets())
@@ -364,6 +435,8 @@ def connect(app, ctx):
     app.post(Routes.run)(run)
     app.post(Routes.predict)(predict)
     app.post(Routes.keep)(keep)
+    app.get(Routes.ladder)(ladder)
+    app.post(Routes.ladder)(ask_ladder)
     app.post(Routes.next)(next_)
     app.get(Routes.done)(done)
     app.get(Routes.img)(img)

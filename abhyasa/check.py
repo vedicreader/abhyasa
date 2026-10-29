@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/check.html.md"""
 
 # %% auto #0
 __all__ = ['SAFE_NAMES', 'SAFE_BUILTINS', 'SAFE_NODES', 'TEST_SECONDS', 'RUN_SECONDS', 'SANDBOX_EXEC', 'SANDBOX_PROFILE',
-           'safe_test', 'validate_exercise', 'time_limit', 'Report', 'public', 'run_asserts', 'load_tests', 'run_cells',
-           'snippet', 'parse', 'run_isolated']
+           'OUTPUT_KEEP', 'RESULT_MAX', 'safe_test', 'validate_exercise', 'time_limit', 'Report', 'public',
+           'run_asserts', 'load_tests', 'run_cells', 'snippet', 'parse', 'run_isolated']
 
 # %% ../nbs/06_check.ipynb #7ddc814d
 import ast, builtins, ctypes, inspect, io, json, os, re, signal, subprocess, sys, threading, time
@@ -213,8 +213,7 @@ def run_cells(tests, ns, *, setup=(), secs=TEST_SECONDS, total=RUN_SECONDS) -> R
                     except AssertionError as e:
                         check.status = 'fail'
                         check.error = type(e).__name__ if hidden else f'{type(e).__name__}: {e}'[:200]
-                        tb = e.__traceback__
-                        while tb and tb.tb_frame.f_code is not code: tb = tb.tb_next
+                        tb = e.__traceback__.tb_next   # the frame of `code`; the closed process refuses `tb_frame`
                         position = list(code.co_positions())[tb.tb_lasti // 2] if tb else (None, None, None, None)
                         captured = next((name for (start, end), name in captures.items()
                                          if position[0] is not None and start <= (position[0], position[2]) < end), None)
@@ -234,8 +233,8 @@ def run_cells(tests, ns, *, setup=(), secs=TEST_SECONDS, total=RUN_SECONDS) -> R
     return report
 
 # %% ../nbs/06_check.ipynb #6bc8717a
-def snippet(kind, fname, tests, *, secs=None, total=None, setup=(), nonce:str=None) -> str:
-    "Build a standalone kernel check that prints one public JSON result with `nonce`. The time limits default to the settings `runner.per_test` and `runner.total`."
+def _runner(kind, fname, tests, *, secs=None, total=None, setup=(), nonce:str=None) -> tuple:
+    "The source that defines the runner and its test data, and the line that runs the checks and sets `result`."
     secs, total = float(secs or val('runner.per_test')), float(total or val('runner.total'))
     if kind not in ('assert', 'cell'): raise ValueError("kind must be 'assert' or 'cell'")
     dependencies = [stop, adict, AttrDict, time_limit, public]
@@ -254,12 +253,16 @@ def snippet(kind, fname, tests, *, secs=None, total=None, setup=(), nonce:str=No
         *(inspect.getsource(obj) for obj in runners),
     ]
     if kind == 'assert':
-        parts.append('result = run_asserts(_ns.get(data["fname"]), data["fname"], data["tests"], secs=data["secs"], total=data["total"])')
+        call = 'result = run_asserts(_ns.get(data["fname"]), data["fname"], data["tests"], secs=data["secs"], total=data["total"])'
     else:
-        parts.append('result = run_cells(data["tests"], _ns, setup=data["setup"], secs=data["secs"], total=data["total"])')
-    parts.append('print(json.dumps({"nonce": data["nonce"], **public(result)}))')
-    return f'exec({chr(10).join(parts)!r}, {{"_ns": globals()}})'
+        call = 'result = run_cells(data["tests"], _ns, setup=data["setup"], secs=data["secs"], total=data["total"])'
+    return '\n'.join(parts), call
 
+def snippet(kind, fname, tests, *, secs=None, total=None, setup=(), nonce:str=None) -> str:
+    "Build a standalone kernel check that prints one public JSON result with `nonce`. The time limits default to the settings `runner.per_test` and `runner.total`."
+    defs, call = _runner(kind, fname, tests, secs=secs, total=total, setup=setup, nonce=nonce)
+    report = 'print(json.dumps({"nonce": data["nonce"], **public(result)}))'
+    return f'exec({chr(10).join([defs, call, report])!r}, {{"_ns": globals()}})'
 
 # %% ../nbs/06_check.ipynb #0b115444
 def parse(text, nonce:str=None) -> dict:
@@ -276,13 +279,16 @@ def parse(text, nonce:str=None) -> dict:
 
 # %% ../nbs/06_check.ipynb #b7c1a002
 def _guard(tmp, unix=False):
-    "Add an audit hook that refuses the network, ctypes libraries, new processes, and file changes outside the folder `tmp`; with `unix`, allow a local socket pair."
+    "Add an audit hook that refuses the network, ctypes libraries, new processes, signals to other processes, frame and object walks, and file changes outside the folder `tmp`; with `unix`, allow a local socket pair."
     import os, sys, socket, ctypes
     writes = os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_TRUNC
+    walks = ('sys._getframe', 'sys._current_frames', 'sys.settrace', 'sys.setprofile', 'gc.get_objects', 'gc.get_referrers', 'gc.get_referents')
     def outside(p): return isinstance(p, (str, bytes, os.PathLike)) and not os.path.realpath(os.fsdecode(p)).startswith(tmp + os.sep)
     def hook(event, args):
-        if event.startswith(('ctypes.dlopen', 'ctypes.dlsym')):
+        if event.startswith(('ctypes.dlopen', 'ctypes.dlsym')) or event in ('os.kill', 'os.killpg', 'signal.pthread_kill', *walks):
             raise PermissionError(f'{event} is not allowed')
+        if event == 'object.__getattr__' and args[1] in ('tb_frame', 'gi_frame', 'cr_frame', 'ag_frame'):
+            raise PermissionError(f'{args[1]} is not allowed')
         if unix and event == 'socket.__new__' and args[1] == socket.AF_UNIX: return
         if event.startswith(('socket.', 'os.exec', 'os.posix_spawn', 'os.fork')) or event in ('subprocess.Popen', 'os.system'):
             raise PermissionError(f'{event} is not allowed')
@@ -299,6 +305,8 @@ SANDBOX_PROFILE = """(version 1)
 (allow default)
 (deny network*)
 (deny process-fork)
+(deny signal)
+(allow signal (target self))
 (deny file-write*)
 (allow file-write* (subpath (param "TMP")) (literal "/dev/null"))"""
 
@@ -325,28 +333,105 @@ def _split_future(source) -> tuple:
     lines = re.findall(r'.*?(?:\r\n|\r|\n)|.+\Z', source, re.S)   # the same line breaks as `ast`
     return '\n'.join(ast.get_source_segment(source, s) for s in tree.body[:k]), ''.join(lines[tree.body[k - 1].end_lineno:])
 
+# %% ../nbs/06_check.ipynb #b7c1a015
+def _start(defs, call, nonce_fd, out_fd, guard=None):
+    "Before the learner code runs: keep the real functions, private copies of `ast` and `contextlib`, and the nonce in a worker thread, call `guard`, and return the locks that start the checks and show their end."
+    import _thread, builtins, importlib.util, json, os, types
+    real = dict(vars(builtins))   # the runner uses these, also when the learner code changes `builtins`
+    def fresh(name):
+        spec = importlib.util.find_spec(name)
+        m = importlib.util.module_from_spec(spec)
+        m.__builtins__ = real
+        spec.loader.exec_module(m)
+        return m
+    mods = dict(ast=fresh('ast'), contextlib=fresh('contextlib'), builtins=types.ModuleType('builtins'))
+    vars(mods['builtins']).update(real)
+    imp = real['__import__']
+    real['__import__'] = lambda name, *a, **k: mods.get(name) or imp(name, *a, **k)
+    dumps, write, close, run = json.dumps, os.write, os.close, builtins.exec
+    nonce = os.read(nonce_fd, 64).decode()
+    close(nonce_fd)
+    space = {'__builtins__': real, '_ns': globals()}
+    run(defs, space)
+    go, done = _thread.allocate_lock(), _thread.allocate_lock()
+    go.acquire(); done.acquire()
+    def work():
+        try:
+            go.acquire()
+            run(call, space)
+            write(out_fd, ('\n' + dumps({'nonce': nonce, **space['public'](space['result'])}) + '\n').encode())
+        except BaseException: pass
+        finally: done.release()
+    if guard: guard()
+    _thread.start_new_thread(work, ())
+    return go, done
+
+# %% ../nbs/06_check.ipynb #cap02
+OUTPUT_KEEP, RESULT_MAX = 64 * 2**10, 2**20   # bytes of stdout and of stderr that the parent keeps; the largest report it reads
+
+def _drain(fd, cap) -> AttrDict:
+    "Start a thread that reads `fd` to its end in chunks, keeps at most `cap` bytes in `data`, and sets `over` when there was more."
+    got = AttrDict(data=bytearray(), over=False)
+    def read():
+        try:
+            for b in iter(lambda: os.read(fd, 1 << 16), b''):
+                room = cap - len(got.data)
+                if len(b) > room: got.over = True
+                if room > 0: got.data += b[:room]
+        except OSError: pass
+    got.thread = threading.Thread(target=read, daemon=True)
+    got.thread.start()
+    return got
+
+def _feed(f, data):
+    "Write `data` to the file `f` and close it. A process that stopped early does not stop the parent."
+    try: f.write(data); f.close()
+    except (OSError, ValueError): pass   # a closed pipe, or a file that is closed already
+
 # %% ../nbs/06_check.ipynb #b7c1a008
+_GO = 'try: _go[0].release()\nexcept RuntimeError: pass\n_go[1].acquire()\n'   # the last lines: start the checks and wait for them
+
 def run_isolated(kind, fname, source, tests, *, total=None, setup=(), sandbox=True, python=None, unix=False) -> dict:
     "Run `source` and its checks in a closed process with no network, using `python` (default `sys.executable`); with `unix`, it can use a local socket pair. `total` defaults to the setting `runner.total`, and each test gets `runner.per_test` seconds."
     import tempfile
     try: head, body = _split_future(source)
     except ValueError as e: return {'error': str(e)}
     nonce, total = os.urandom(8).hex(), float(total or val('runner.total'))
+    defs, call = _runner(kind, fname, tests, secs=val('runner.per_test'), total=total, setup=setup)
     with tempfile.TemporaryDirectory() as tmp:
-        tmp, cmd, pre = os.path.realpath(tmp), [python or sys.executable, '-I', '-B'], _limits(total)
-        if sandbox:
-            pre += f'{inspect.getsource(_guard)}\n_guard({tmp!r}, {unix!r})\ndel _guard\n'
-            if sys.platform == 'darwin' and os.path.exists(SANDBOX_EXEC): cmd = [SANDBOX_EXEC, '-p', SANDBOX_PROFILE, '-D', f'TMP={tmp}', *cmd]
-        code = f'{head}\n{pre}{body}\n' + snippet(kind, fname, tests, secs=val('runner.per_test'), total=total, setup=setup, nonce=nonce)
+        tmp, cmd = os.path.realpath(tmp), [python or sys.executable, '-I', '-B']
+        if sandbox and sys.platform == 'darwin' and os.path.exists(SANDBOX_EXEC): cmd = [SANDBOX_EXEC, '-p', SANDBOX_PROFILE, '-D', f'TMP={tmp}', *cmd]
+        nr, nw = os.pipe()   # the nonce goes in on one pipe and the report comes out on the other, never on stdout
+        rr, rw = os.pipe()
+        os.write(nw, nonce.encode()); os.close(nw)
+        guard = f'lambda: _guard({tmp!r}, {unix!r})' if sandbox else 'None'
+        pre = (_limits(total) + inspect.getsource(_guard) + inspect.getsource(_start)
+               + f'_go = _start({defs!r}, {call!r}, {nr}, {rw}, {guard})\ndel _start, _guard\n')
+        code = f'{head}\n{pre}{body}\n{_GO}'
+        res = _drain(rr, RESULT_MAX)
         try:
-            with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=tmp,
-                                  env={'PATH': os.defpath, 'HOME': tmp}, start_new_session=True) as p:
-                try: out, _ = p.communicate(code, timeout=total + 2)
+            try: p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=tmp,
+                                      env={'PATH': os.defpath, 'HOME': tmp}, start_new_session=True, pass_fds=(nr, rw))
+            finally: os.close(nr); os.close(rw)
+            outs = [_drain(f.fileno(), OUTPUT_KEEP) for f in (p.stdout, p.stderr)]
+            threading.Thread(target=_feed, args=(p.stdin, code.encode()), daemon=True).start()
+            with p:
+                end = time.monotonic() + total + 2
+                try:   # wait for the end of the output, as `communicate` does, and then for the process
+                    for o in outs: o.thread.join(max(end - time.monotonic(), 0))
+                    if any(o.thread.is_alive() for o in outs): raise subprocess.TimeoutExpired(cmd, total + 2)
+                    p.wait(timeout=max(end - time.monotonic(), 0))
                 except subprocess.TimeoutExpired:   # stop the whole group: a process that the code started can keep the output open
                     try: os.killpg(p.pid, signal.SIGKILL)
                     except (AttributeError, ProcessLookupError): p.kill()
                     p.wait()
                     return {'timeout': True}
+                finally:
+                    for o in outs: o.thread.join(1)
         except OSError: return {'error': 'no check result'}   # `python` cannot start
+        finally:
+            res.thread.join(1)
+            if not res.thread.is_alive(): os.close(rr)
     if -p.returncode in (getattr(signal, 'SIGXCPU', None), getattr(signal, 'SIGKILL', None)): return {'timeout': True}
-    return {'error': 'no check result'} if p.returncode < 0 else parse(out, nonce)
+    if p.returncode < 0: return {'error': 'no check result'}
+    return {'error': 'check result too large'} if res.over else parse(res.data.decode('utf-8', 'replace'), nonce)
