@@ -210,7 +210,12 @@ function drawEnd(st) {
 }
 
 // The audience window tells how many pages its primer has (`pages`), so a presenter window with no pane (a narrow one) stops at the real last page.
-const pagesType = () => abhyasaStage.add('pages', {n: v => Number.isInteger(v) && v >= 1 && v <= 20}, ['n']);
+// The presenter tells how far the demo box scrolls (`demoscroll`, 0 to 1), when the demo is in a taller box.
+const stageTypes = () => {
+  abhyasaStage.add('pages', {n: v => Number.isInteger(v) && v >= 1 && v <= 20}, ['n']);
+  abhyasaStage.add('demoscroll', {y: v => typeof v === 'number' && v >= 0 && v <= 1}, ['y']);
+};
+const tallBox = st => st.querySelector('section.stage:not([hidden]) .demo.tall');
 
 // Page `n` of the primer in the pane frame `f` (core/talktype.js), now and each time the frame loads.
 function framePage(f, n) {
@@ -231,8 +236,9 @@ function mounted(host, fn, left = 200) {
 // scales it to min(box width / its width, box height / its height). Both windows do the same, so the laser points at the same place.
 // The zoom has a floor, as a share of a slide 1280 px wide, so the text of the demo stays readable from the room (rupaka's 18 px
 // text shows at about 10 px). When the demo is smaller than the floor beside the other parts, the slide shows the demo alone
-// (`demo-alone`: the crumb, the title, the passage and the figure go). When it is still smaller alone, it takes the size that fits: the room sees all of it.
-const DEMO_FLOOR = .55;
+// (`demo-alone`: the crumb, the title, the passage and the figure go). When its text is still under 14 px alone, it keeps 14 px
+// in a taller box (`tall`) that scrolls, and the presenter's scroll shows in the room (`demoscroll`), rather than shrink further.
+const DEMO_FLOOR = .55, DEMO_TEXT = 14;
 function fit(host) {
   const box = host.parentElement, sec = host.closest('section.stage');
   const size = () => {
@@ -243,11 +249,15 @@ function fit(host) {
     return .98 * Math.min(bw / Math.max(1, host.offsetWidth), bh / Math.max(1, host.offsetHeight));
   };
   const go = () => {
-    sec?.classList.remove('demo-alone');
+    sec?.classList.remove('demo-alone'); box.classList.remove('tall');
     let z = size();
     if (!z) return;   // a part that does not show yet: the observer calls again when it shows
     const floor = DEMO_FLOOR * (sec?.parentElement?.clientWidth || 1280) / 1280;
-    if (z < floor && sec?.querySelector('.body')) { sec.classList.add('demo-alone'); z = size() || z; }
+    if (z < floor && sec?.querySelector('.body')) {
+      sec.classList.add('demo-alone'); z = size() || z;
+      const least = Math.min(DEMO_TEXT / (parseFloat(getComputedStyle(host).fontSize) || 18), .98 * box.clientWidth / Math.max(1, host.offsetWidth));
+      if (z < least) { z = least; box.classList.add('tall'); }
+    }
     host.style.zoom = String(Math.floor(z * 1000) / 1000);
   };
   const ro = new ResizeObserver(go);
@@ -258,7 +268,7 @@ function fit(host) {
 
 // --- the presenter window ----------------------------------------------------------------------------------------------
 function presenterView(st) {
-  pagesType();
+  stageTypes();
   const box = document.getElementById('talk'), base = `/t/${box.dataset.tid}/`, ch = abhyasaStage.channel(box.dataset.channel);
   const $ = id => document.getElementById(id), sayLine = $('say');
   // the result and the pair prompt that show now come from the run log, so a reload of this window can give them to a hello again
@@ -276,6 +286,10 @@ function presenterView(st) {
   const ua = navigator.userAgent, app = /\bAbhyasa\//.test(ua) || (/AppleWebKit/.test(ua) && !/Safari\//.test(ua));
 
   // Each message goes to the audience window and is drawn here too, so the presenter sees what the room sees.
+  st.addEventListener('scroll', e => {
+    const d = e.target;
+    if (d.classList?.contains('tall') && d === tallBox(st) && d.scrollHeight > d.clientHeight) send({t: 'demoscroll', y: Math.round(d.scrollTop / (d.scrollHeight - d.clientHeight) * 1e3) / 1e3}, false);
+  }, true);
   let roomPages = null, roomUrl = null;   // the pages of the primer in the audience window, when this window has no pane
   function send(m, here = true) {
     if (m.t === 'pane' && m.url !== roomUrl) { roomUrl = m.url; roomPages = null; }
@@ -572,8 +586,9 @@ function presenterView(st) {
 
 // --- the audience window -----------------------------------------------------------------------------------------------
 function audienceView(st) {
-  pagesType();
+  stageTypes();
   const ch = abhyasaStage.channel(st.dataset.channel), note = document.getElementById('keys-note');
+  ch.on('demoscroll', m => { const d = tallBox(st); if (d) d.scrollTop = m.y * (d.scrollHeight - d.clientHeight); });
   setInterval(() => { const n = st.querySelector(':scope > iframe.stage-pane')?.contentWindow?.abhyasaTalkPage?.pages; if (n) ch.send({t: 'pages', n}); }, 700);
   const mirrors = new Map();
   st.querySelectorAll('[data-rupaka][data-demo]').forEach(h => mounted(h, () => { fit(h); const m = abhyasaStage.mirror(h); m.apply({}, {}); mirrors.set(h, m); }));

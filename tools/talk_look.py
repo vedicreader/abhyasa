@@ -212,7 +212,7 @@ def demo(pg, w):
 
 ZOOM = f"""(() => {{ const h = {DEMO}, st = document.getElementById('stage'), d = h.parentElement.getBoundingClientRect(), r = h.getBoundingClientRect();
   return {{z: +h.style.zoom * 1280 / st.clientWidth, alone: h.closest('section').classList.contains('demo-alone'),
-          inside: r.bottom <= d.bottom + 1 && r.right <= d.right + 1, text: +h.style.zoom * parseFloat(getComputedStyle(h).fontSize)}}; }})()"""
+          inside: r.bottom <= d.bottom + 1 && r.right <= d.right + 1, tall: h.parentElement.classList.contains('tall'), text: +h.style.zoom * parseFloat(getComputedStyle(h).fontSize)}}; }})()"""
 def demo_floor(pg, w):
     "The demo zoom keeps its floor (0.55 of a slide 1280 px wide) at 1280 and 1000 px; a demo too tall for the floor shows alone on the slide."
     au = w.au
@@ -223,11 +223,23 @@ def demo_floor(pg, w):
             assert got['z'] >= .55 - .01 and got['inside'] and not got['alone'], (width, got)
     au.set_viewport_size(AUDIENCE); pg.set_viewport_size(PRESENTER); au.wait_for_timeout(300)
     tall = f"{DEMO}.firstElementChild.style.paddingBottom"
-    au.evaluate(f"{tall} = '700px'"); au.wait_for_function(f"{DEMO}.closest('section').classList.contains('demo-alone')", timeout=3000)
-    got = au.evaluate(ZOOM)
-    assert got['alone'] and got['inside'] and au.is_hidden('section[data-sid=s3] .passage') and au.is_hidden('section[data-sid=s3] h1'), got
-    au.evaluate(f"{tall} = ''"); au.wait_for_function(f"!{DEMO}.closest('section').classList.contains('demo-alone')", timeout=3000)
-    assert au.is_visible('section[data-sid=s3] .passage')
+    # a demo too tall for the floor shows alone; its text is then 14 px or more, in a taller box that scrolls, and the presenter's scroll shows in the room
+    for width in (1280, 1000):
+        au.set_viewport_size(dict(width=width, height=round(width * 9 / 16))); pg.set_viewport_size(dict(width=width, height=800))
+        for x in (au, pg): x.evaluate(f"{tall} = '700px'")
+        for x in (au, pg): x.wait_for_function(f"{DEMO}.closest('section').classList.contains('demo-alone')", timeout=3000)
+        for x in (au, pg):
+            got = x.evaluate(ZOOM)
+            assert got['alone'] and got['tall'] and got['text'] >= 14 - .1, (width, got)
+            assert x.is_hidden('section[data-sid=s3] .passage') and x.is_hidden('section[data-sid=s3] h1'), got
+        room = lambda x: x.evaluate(f"(d => d.scrollTop / Math.max(1, d.scrollHeight - d.clientHeight))({DEMO}.parentElement)")
+        assert pg.evaluate(f"({DEMO}.parentElement.scrollHeight > {DEMO}.parentElement.clientHeight)"), width
+        pg.evaluate(f"(d => {{ d.scrollTop = (d.scrollHeight - d.clientHeight) / 2; }})({DEMO}.parentElement)")
+        au.wait_for_function(f"(d => Math.abs(d.scrollTop / Math.max(1, d.scrollHeight - d.clientHeight) - .5) < .02)({DEMO}.parentElement)", timeout=3000)
+        for x in (au, pg): x.evaluate(f"{tall} = ''")
+        for x in (au, pg): x.wait_for_function(f"!{DEMO}.closest('section').classList.contains('demo-alone')", timeout=3000)
+        assert au.is_visible('section[data-sid=s3] .passage') and not au.evaluate(ZOOM)['tall']
+    au.set_viewport_size(AUDIENCE); pg.set_viewport_size(PRESENTER); au.wait_for_timeout(300)
 
 def question(pg, w):
     "Q shows the question and 3 options in the audience window, with no right answer; 1 then R marks It falls as the right answer."

@@ -89,6 +89,7 @@ html:is(.present, .audience) main { max-width: none; margin: 0; padding: 0; anim
 #stage section.demo-alone .body.two { grid-template-columns: minmax(0, 1fr); margin-top: 0; }
 #stage section.demo-alone .body > :not(.demo), #stage section.demo-alone > :is(.crumb, h1, .say) { display: none; }
 #stage .demo { align-self: stretch; position: relative; min-height: 0; overflow: hidden; }
+#stage .demo.tall { overflow-y: auto; scrollbar-width: none; }   /* the text keeps 14 px: the demo is taller than the box, and its scroll shows in the room */
 #stage .demo > [data-rupaka] { position: absolute; top: 0; left: 0; width: 560px; }   /* the width rupaka lays out at; talk.js zooms it to fit */
 #stage .foot { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; font-size: calc(17 / 1280 * 100cqw); color: var(--mute); }
 
