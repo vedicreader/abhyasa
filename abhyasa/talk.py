@@ -9,8 +9,8 @@ __all__ = ['TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 
            'CHOICE_SP', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'check_talk', 'ask_from_gate', 'public_ask',
            'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'talk_from_walk', 'walk_talk',
            'talk_from_journey', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run',
-           'log_round', 'log_main', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap',
-           'recap_html']
+           'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak',
+           'recap', 'recap_html']
 
 # %% ../nbs/17_talk.ipynb #bddba3f8
 import re, json, math, time, uuid, secrets, hashlib, base64, html
@@ -30,7 +30,7 @@ import abhyasa.demo  # adds Learning.demo_for
 # %% ../nbs/17_talk.ipynb #f8aa27c1
 TALK_SCHEMA = 1
 SLIDE_KINDS = ('idea', 'pause', 'questions', 'recap', 'primer', 'board', 'timeline', 'code')
-ASK_KINDS = ('choice', 'order', 'words', 'scale', 'none')
+ASK_KINDS = ('choice', 'order', 'words', 'scale', 'run', 'none')   # `run`: what does this print? The answer comes after the run.
 BEATS = ('passage', 'figure', 'demo', 'ask')
 QUESTIONS_MIN = 5   # the minutes of a `questions` slide
 RECAP_MIN = 2       # the minutes of a `recap` slide
@@ -61,6 +61,7 @@ def _ask_problems(sid, a) -> list:
     if k == 'choice':
         if not isinstance(opts, list) or not 2 <= len(opts) <= 6: return [f'{sid}: a choice needs 2 to 6 options']
         if not (is_int(ans) and 0 <= ans < len(opts)): return [f'{sid}: the answer {ans!r} is not an option']
+    if k == 'run' and opts is not None and not (isinstance(opts, list) and 2 <= len(opts) <= 6 and all(isinstance(o, str) for o in opts)): return [f'{sid}: a run question has 2 to 6 options, or none']
     if k == 'order':
         n = len(opts) if isinstance(opts, list) else 0
         if not (isinstance(ans, list) and all(map(is_int, ans)) and sorted(ans) == list(range(n))): return [f'{sid}: the answer {ans!r} is not an order of the options']
@@ -369,6 +370,12 @@ def log_main(run:dict, slide:str, kind:str, main:int|list):
     "Keep `main`, the option that most hands chose for the question of `slide`, or a list (the cards of a board, the order of a timeline)."
     _ask_log(run, slide, kind)['main'] = list(main) if isinstance(main, (list, tuple)) else main
 
+def log_output(run:dict, slide:str, text:str):
+    "Keep the output of the run for the question of `slide`: plain text, at most 2000 characters."
+    t = ''.join(c for c in str(text) if c in '\n\t' or c >= ' ' and c != '\x7f')
+    _ask_log(run, slide, 'run')['output'] = t[:2000]
+
+
 # %% ../nbs/17_talk.ipynb #b8a90bff
 def log_question(run:dict, text:str, at:float, shown:bool=False, note:str='') -> dict:
     "Add a question from the room to `run`; its id is `q1`, `q2` ..."
@@ -423,6 +430,12 @@ def _option(ask:dict, i) -> str|None:
     opts = ask.get('options') or []
     return opts[i] if isinstance(i, int) and 0 <= i < len(opts) else None
 
+def _as_choice(a:dict, log:dict) -> dict|None:
+    "A run question as a choice whose right option is the output of the run, when an option equals it; None when not. Another kind stays as it is."
+    if a.get('kind') != 'run': return a
+    opts, out = a.get('options') or [], str((log or {}).get('output') or '').strip()
+    return dict(a, kind='choice', answer=opts.index(out)) if out in opts else None
+
 def _top_wrong(ask:dict, counts) -> str|None:
     "The wrong option of a choice with the most answers, or None."
     if ask.get('kind') != 'choice': return None
@@ -431,7 +444,7 @@ def _top_wrong(ask:dict, counts) -> str|None:
 
 def _unsure(a:dict, log:dict, below:float, **item) -> dict|None:
     "The item for question `a` with the answers `log` when the room was unsure on it, else None."
-    if not a or not log: return None
+    if not a or not log or not (a := _as_choice(a, log)): return None
     if log.get('rounds'):
         r = log['rounds'][-1]
         if (sh := share_right(a, r)) is not None and sh < below: return dict(item, share=sh, top_wrong=_top_wrong(a, r.get('counts')), n=r.get('n'), main=None)
@@ -464,7 +477,7 @@ def _shares(s:dict, run:dict) -> list:
 def recap(t:dict, run:dict, names:dict=None) -> AttrDict:
     "The data of the recap of `run` of talk `t`; `names` gives the name of the idea of each primer."
     unsure, by = weak(t, run, names=names), {s['id']: s for s in t['slides']}
-    slides = [dict(slide=s['id'], title=s.get('title') or '', secs=n, share=(_shares(s, run) or [None])[-1]) for s, n in _shown(t, run)]
+    slides = [dict(slide=s['id'], title=s.get('title') or '', secs=n, share=(_shares(s, run) or [None])[-1], output=((run.get('asks') or {}).get(s['id']) or {}).get('output')) for s, n in _shown(t, run)]
     follow = list(dict.fromkeys(c for w in unsure if (c := w.get('beside') or by[w['slide']].get('concept'))))
     return AttrDict(unsure=unsure, slides=slides, questions=list(run.get('questions') or []), beside=list(run.get('beside') or []), follow=follow)
 
@@ -496,6 +509,8 @@ def _ask_html(a:dict, log:dict) -> str:
         out.append('<ol type="A">' + ''.join(f'<li>{e(str(o))}{mark if i == ans else ""}</li>' for i, o in enumerate(opts)) + '</ol>')
     elif a['kind'] == 'order' and isinstance(ans, list):
         out.append('<p class="meta">The right order:</p><ol>' + ''.join(f'<li>{e(str(_option(a, i)))}</li>' for i in ans) + '</ol>')
+    elif a['kind'] == 'run' and (o := log.get('output')) is not None:
+        out.append(f'<p class="meta">The output:</p><pre>{e(str(o))}</pre>')
     for k, r in enumerate(log.get('rounds') or [], 1):
         sh = share_right(a, r)
         res = f'{round(100 * sh)}% right, ' if sh is not None else ''
