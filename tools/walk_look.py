@@ -881,6 +881,21 @@ def _er1(pg, w, jid, fail):
     e = fail(500, 'Boom')
     assert 'error 500' in e.inner_text(), e.inner_text()
 
+def g1_graph_uses_the_window_and_fits(pg, w):
+    "The graph canvas is at least 70% of the window at 1920 and at 1280 px, and every node is inside it after load and after a resize."
+    inside = """() => { const g = window.abhyasaGraph, r = document.querySelector('#graph canvas').getBoundingClientRect(), t = g.t;
+        return g.vis.filter(n => { const x = t.applyX(n.x), y = t.applyY(n.y); return x < 0 || y < 0 || x > r.width || y > r.height; }).length; }"""
+    for W_, H_ in ((1920, 1080), (1280, 800), (1920, 1080)):
+        pg.set_viewport_size(dict(width=W_, height=H_)); pg.goto(w.B + '/graph')
+        pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 2500)
+        cw = pg.eval_on_selector('#graph canvas', 'c => c.getBoundingClientRect().width')
+        assert cw >= .7 * W_, (W_, cw)
+        assert pg.evaluate(inside) == 0, (W_, 'a node is outside the canvas')
+        if W_ == 1280:
+            pg.set_viewport_size(dict(width=1000, height=700)); settle(pg, 1500)
+            assert pg.evaluate(inside) == 0, 'a node is outside the canvas after a resize'
+    pg.set_viewport_size(dict(width=1280, height=900))
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
@@ -889,7 +904,8 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
           s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field, r1_start_forms_show_no_error, ct1_concept_tree,
-          dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason]
+          dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason,
+          g1_graph_uses_the_window_and_fits]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

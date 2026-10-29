@@ -36,6 +36,7 @@
 - After a wrong try, the answer box and the think-aloud box are empty for the next try. The earlier try shows in the record of the check.
 - The error line shows the reason that the app gives when it refuses a request (up to 200 characters). After a 409 it adds a link that loads the page again.
 - A draft answer and its think-aloud text stay across a reload or a restart, in a walk check and in the session. They go when the answer is sent. A code editor keeps its own state.
+- Graph: the page uses the whole window, and the graph fits its nodes in the canvas again when the canvas changes size.
 
 ## 0.0.11
 

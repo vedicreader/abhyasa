@@ -527,12 +527,15 @@
   });
 
   // ---- start ------------------------------------------------------------------------------------------------------
-  new ResizeObserver(resize).observe(stage); resize();
+  // The canvas box can change (the window, the pane, the panel): the nodes fit in it again, with no glide for reduced motion.
+  let ready = false;
+  new ResizeObserver(() => { resize(); if (ready) fit(motion ? 250 : 0); }).observe(stage); resize();
   document.addEventListener('abhyasa:theme', () => { themed(); legend(); dirty(); });   // core.js sends it for a new theme or mode
   show(); layout();
   const cam = store.cam[S.mode];
   if (cam && !picked && Math.abs((cam.w || W) - W) < 40) sel.call(zoom.transform, d3.zoomIdentity.translate(cam.x, cam.y).scale(cam.k));
   else setTimeout(() => { fit(0); if (picked) setTimeout(() => centre(picked), 50); }, tween ? tween.ms : 0);
+  ready = true;
   root.focus({preventScroll: true});
   if (motion && (rose.length || fresh.length)) setTimeout(() => { pulse = {t0: performance.now(), ring: new Set(rose), fade: new Set(fresh)}; dirty(); }, tween ? tween.ms : 150);
   window.abhyasaGraph = {nodes, stats, rose: rose.map(n => n.id), fresh: fresh.map(n => n.id), get pulsing() { return !!pulse; }, get t() { return t; }, get mode() { return S.mode; }, get vis() { return vis; }, get moving() { return !!tween || sim.alpha() > sim.alphaMin(); }};
