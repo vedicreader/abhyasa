@@ -479,9 +479,14 @@ def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
                 why = pr.locator('section[data-sid=s3] .rk-gate textarea'); why.click(); pr.keyboard.type('a/b')
                 assert why.input_value() == 'a/b'   # a / in a text box of the demo stays in the box
                 pr.evaluate("""() => { const h = document.querySelector('section[data-sid=s3] [data-rupaka]');
-                  h.querySelector('.rk-gate .opts button').click(); h.querySelector('.rk-gate button.go').click(); h.rupaka.set('t', 2); }""")
+                  h.querySelector('.rk-gate .opts button').click(); h.querySelector('.rk-gate button.go').click();
+                  const i = h.querySelector('.rk-slider input'); i.value = 2; i.dispatchEvent(new Event('input', {bubbles: true})); }""")
                 au.wait_for_function("document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka.st.t === 2")
                 assert au.evaluate("document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka.st.gate.hot") == 'done'
+                # the presenter's pick goes to the audience copy, but the room copy has no answer (room_spec), so it draws no verdict
+                verdict = "(v => v.hidden ? null : v.textContent)(document.querySelector('section[data-sid=s3] .rk-gate .verdict'))"
+                assert pr.evaluate("document.querySelector('section[data-sid=s3] [data-rupaka]')._mirror.snapshot().pick") == dict(hot=0)
+                assert pr.evaluate(verdict).startswith('You said It rises. It is It falls.') and au.evaluate(verdict) is None
                 assert au.evaluate("document.querySelector('section[data-sid=s3] .rk-gate').inert") is True
                 au.screenshot(path=str(tmp_path/'audience-demo.png'))
                 pr.wait_for_timeout(100)   # the demo fits its part in both windows, with no scroll, and at the same place on the slide
@@ -500,6 +505,7 @@ def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
                 au.reload(); au.wait_for_selector('#stage .stage-ask:not([hidden])')   # a reload in the middle of a question catches up
                 assert shown(au)[0] == 's3'
                 au.wait_for_function("document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka?.st.t === 2")   # and the demo state
+                assert au.evaluate(verdict) is None   # and still no verdict
                 pr.bring_to_front(); pr.keyboard.press('1'); pr.keyboard.press('r')
                 au.wait_for_selector('#stage .stage-ask li.right')
                 assert au.locator('#stage .stage-ask li.right').inner_text().startswith('BIt falls') or 'It falls' in au.locator('#stage .stage-ask li.right').inner_text()
