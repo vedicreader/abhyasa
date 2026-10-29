@@ -4,7 +4,7 @@ import ast, math, re
 from pathlib import Path
 
 __all__ = ['SAFE_NAMES', 'SAFE_NODES', 'safe_test', 'check_exercise', 'WALK_ID', 'PKG', 'DATA_NAME', 'NB_KEYS', 'RUN_MINUTES',
-           'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES']
+           'has_directive', 'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES']
 
 # --- the test rule of an exercise --------------------------------------------------------------------------------------
 
@@ -65,6 +65,10 @@ def _number(x) -> bool:
     try: return math.isfinite(x)
     except OverflowError: return False
 
+def has_directive(text) -> bool:
+    "Whether a line of `text` starts with `#|` after its leading white space: a notebook directive, as `#| setup` or `#| test`."
+    return isinstance(text, str) and any(l.lstrip().startswith('#|') for l in text.splitlines())
+
 def path_why(p) -> str:
     """Why `p` cannot be a data path, or an empty text when it can. A data path is one line, has no `..`, is inside the home folder
     (not the home folder itself) with `~` read and links followed, and has no part that starts with a dot (as `~/.ssh`)."""
@@ -93,6 +97,8 @@ def validate_nb_spec(spec) -> dict:
     if not (isinstance(rows, list) and all(isinstance(t, dict) for t in rows)): raise ValueError('tests: give a list of test objects {test, say, shown}')
     try: ex = check_exercise({k: spec.get(k) for k in ('task', 'fname', 'stub')} | {'tests': [t.get('test') for t in rows]})
     except ValueError as e: raise ValueError(f'{_exercise_key(e)}: {e}') from None
+    for k in ('task', 'stub'):
+        if has_directive(spec[k]): raise ValueError(f'{k}: a line starts with #|, which makes a setup or test cell in a notebook')
     tests = []
     for t in rows:
         say = t.get('say')
@@ -160,7 +166,10 @@ NB_SPEC_CASES = [(_GOOD, None),
                  ({**_GOOD, 'run': {**_GOOD['run'], 'minutes': True}}, 'run'),
                  ({**_GOOD, 'tests': [dict(test="assert caption({}, {}, {}) == ''", say='a\nb', shown=True)]}, 'tests'),
                  ({**_GOOD, 'requires': ['torch\n']}, 'requires'),
-                 ({**_GOOD, 'demo': 'x\ny'}, 'demo')]
+                 ({**_GOOD, 'demo': 'x\ny'}, 'demo'),
+                 ({**_GOOD, 'stub': '#| setup\nimport os\ndef caption(ep, places, chars): ...'}, 'stub'),
+                 ({**_GOOD, 'stub': 'def caption(ep, places, chars):\n    #| test: x\n    import os'}, 'stub'),
+                 ({**_GOOD, 'task': 'Write caption.\n  #| test: x'}, 'task')]
 
 # --- the check of a run result that Leela files -------------------------------------------------------------------------
 

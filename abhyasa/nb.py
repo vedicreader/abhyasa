@@ -192,7 +192,7 @@ def write_exercise(ex:Exercise, path) -> Path:
     return p
 
 # %% ../nbs/08_nb.ipynb #80243ee9
-from .contract import validate_nb_spec
+from .contract import validate_nb_spec, has_directive
 
 _DEVICE = """try:
     import torch
@@ -230,6 +230,7 @@ def _run_cells(spec) -> list:
 def spec_notebook(spec:dict, path) -> Path:
     "A new Jupyter notebook at `path` from the notebook spec of a walk step: the task, the setup, the stub, the tests and the run. Do not write over a file."
     spec, p = validate_nb_spec(spec), Path(path).expanduser()
+    if has_directive(spec['task']) or has_directive(spec['stub']): raise ValueError('a line of the task or the stub starts with #|')   # a second guard: no extra setup or test cell
     if p.exists(): raise FileExistsError(p)
     tests = [mk_cell(f"#| test: {_one(t['say'])}\n" + ('' if t['shown'] else '#| hidden\n') + t['test']) for t in spec['tests']]
     cells = [mk_cell(_task_md(spec), 'markdown'), mk_cell(_setup_cell(spec)), mk_cell(spec['stub']), *tests, *_run_cells(spec)]
