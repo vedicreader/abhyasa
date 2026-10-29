@@ -207,14 +207,14 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   // of the option. The audience copy draws the verdict from the pick with `Rupaka.settle`. The pick is for the display only: no
   // window logs it or files it, and `Rupaka.set` and `Rupaka.settle` fire no gate, no rk-predict and no log.
   const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
-  const HOST_API = () => ['state', 'set', 'settle', 'options'].every(f => typeof globalThis.Rupaka?.[f] === 'function');
+  const HOST_API = () => ['state', 'set', 'settle', 'options', 'open'].every(f => typeof globalThis.Rupaka?.[f] === 'function');
   // The options of gate `id`, as the gate shows them (`Rupaka.options`, rupaka 0.0.5): the pick goes over the channel as an index.
   const options = (host, id) => { const os = Rupaka.options(host, id); return Array.isArray(os) ? os : []; };
   // The gate block of gate `id` in this window, found by the id of its question (`rk-<demo>-<gate>-q`). Its Lock in button shows
   // while the gate is open.
   const gateBlock = (host, id) => [...host.querySelectorAll('.rk-gate .q[id]')].find(q => q.id.endsWith(`-${id}-q`))?.closest('.rk-gate');
   function mirror(host) {
-    if (!HOST_API()) throw Error('a mirrored demo needs rupaka 0.0.5 or newer: Rupaka.state, set, settle and options are not all there');
+    if (!HOST_API()) throw Error('a mirrored demo needs rupaka 0.0.6 or newer: Rupaka.state, set, settle, options and open are not all there (Rupaka.open is missing in older versions)');
     const gates = {}, pick = {}, said = {}, shown = {}, picked = {}, pokes = [], told = {};
     const poke = () => pokes.forEach(f => f());
     // The presenter copy: a gate is done when the page settles its prediction as saved, or when no page catches it. The event
@@ -245,12 +245,11 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
         if (Rupaka.settle(host, id, value(id, p), told[id] ? {answer: told[id]} : undefined)) { shown[id] = k; picked[id] = p; }
       }
     }
-    // rupaka 0.0.5 has no host call that opens a gate, so this does what the gate's own "Try another" does: it marks the gate
-    // open in the store and draws the demo again. The blocks after the gate hide, and the verdict goes.
+    // `Rupaka.open` (rupaka 0.0.6) does what the gate's own "Try another" does: no pick, no reason, no verdict, and the blocks
+    // after the gate hide. It sends no rk-predict, adds no log and does not save.
     function reopen(id) {
-      const s = host.rupaka;
       delete shown[id]; delete picked[id]; delete told[id];
-      if (s?.st?.gate) { s.st.gate[id] = 'open'; s.set('_', (s.st._ || 0) + 1); }
+      Rupaka.open(host, id);
     }
     // The option of the pick `p` at gate `id`, or null when there is no such option.
     function value(id, p) {

@@ -207,7 +207,7 @@ def test_default_model_and_own_rows(monkeypatch):
 
 def test_lists_defaults():
     assert dflts('lists') == {'lists.strengths': 10, 'lists.journeys': 3, 'lists.beside': 4, 'lists.weeks': 8, 'lists.search': 12,
-                              'lists.elsewhere': 2, 'lists.snippet': 300, 'lists.attempts': 10, 'lists.changes': 40}
+                              'lists.elsewhere': 2, 'lists.snippet': 300, 'lists.attempts': 10, 'lists.changes': 40, 'lists.sort_batch': 40}
     assert all(r.more for r in SETTINGS.values() if r.group == 'lists')
 
 def test_journeys_on_today_read_when_used(mk, lr):

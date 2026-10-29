@@ -143,7 +143,8 @@ add('lists.search', 'lists', 'Search results', 'How many results from what you l
 add('lists.elsewhere', 'lists', 'Results from other sources', 'How many results from your other sources the search shows.', 2, 0, 10, more=True)
 add('lists.snippet', 'lists', 'Length of a search result', 'The most characters of each search result.', 300, 100, 2000, more=True, unit='characters')
 add('lists.attempts', 'lists', 'Answers on a concept page', 'How many of your recent answers a concept page shows.', 10, 3, 50, more=True)
-add('lists.changes', 'lists', 'Changes on the Profile page', 'How many changes to your profile the Profile page shows.', 40, 10, 200, more=True);
+add('lists.changes', 'lists', 'Changes on the Profile page', 'How many changes to your profile the Profile page shows.', 40, 10, 200, more=True)
+add('lists.sort_batch', 'lists', 'Concepts in one sort', 'How many concepts the tutor sorts into groups in one request. With fewer, each request is shorter.', 40, 10, 100, more=True);
 
 # %% ../nbs/16_settings.ipynb #3adc33c5
 def cfg_dir() -> Path:

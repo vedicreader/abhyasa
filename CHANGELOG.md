@@ -4,6 +4,7 @@
 
 ## 0.0.12
 
+- Talks need rupaka 0.0.6.
 - Demo ladder: when you miss an idea after its demo, the tutor teaches it in another way, then shows a simpler demo, then steps back to a prereq (setting: More help after a demo).
 - Feedback: under each demo and each lesson, a quiet row asks "Too simple · Just right · Not clear". "Not clear" opens a short box that you can speak into. The tutor uses your choice and your note for the next demo or lesson of the idea, on the demo ladder, in the ways that work for you and in your profile (setting: Feedback under a demo or a lesson).
 - Code runner: learner code cannot send a signal to another process.
@@ -18,6 +19,7 @@
 - Search gives the number of hits that you ask for when the shelf has them.
 - Walks from links: a folder such as `go` or `ui` is not a language folder.
 - Walks from links: a redirect to a folder higher on the same host keeps the folder of the link.
+- Concepts: the page shows your concepts as a tree, with groups of two levels at most under each subject, and a count on each group. The find box finds a concept in any group and opens its branch. "Sort my concepts" asks the tutor to put your concepts in groups, and you accept or cancel the tree before it is saved (setting: Concepts in one sort). A new concept gets a group from the groups that the subject has. On a concept page, the Group field moves the concept by hand, and the tutor does not move it after that.
 - Talks: present a walk to a group. Each idea is a slide, the tutor note is your speaker note, and the check is a question for the room.
 - Talks: present a plain journey, too. "Present this journey" makes a talk from its steps, in their order: the first steps, up to the Ideas in a walk setting (12 by default). Skipped steps are left out. The next time, open the same talk, or make it again as a new talk with the date in its title. The editor says when the journey changed after the talk was made.
 - Talk editor: change the order, the beats, the notes and the question of each slide, and set the minutes of your slot.
@@ -28,7 +30,6 @@
 - The side pane in a talk: ⌥B opens a short primer beside the slide in both windows, in large type and with no check. D and A turn its pages. ⌥Z closes it.
 - After the talk: where the room was unsure, the talk slide by slide, a recap file for the room, and a follow-up walk.
 - The answers of the room and your pick at a demo gate in a talk do not change your learning.
-- Needs rupaka 0.0.5.
 
 ## 0.0.11
 
