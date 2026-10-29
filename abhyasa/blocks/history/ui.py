@@ -2,7 +2,7 @@
 import time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import n_of, meta, Md, DepthBar, asset_css, ago, Primary, Onward
+from abhyasa.core import n_of, meta, Md, DepthBar, asset_css, ago, Primary, Onward, Said
 from abhyasa.model import DEPTHS
 from .cfg import Routes
 
@@ -66,6 +66,7 @@ def Turn(t):
     lbl = dict(nudge='Not yet', hint='Hint', close=OUTCOME.get(t.get('outcome'), 'Closed')).get(t.get('kind'), 'Tutor')
     return Li(Span(lbl, cls='lbl'), Md(t['text']) if t.get('text') else '', Div(Span('Lesson', cls='lbl'), Md(t['lesson'])) if t.get('lesson') else '', cls='tutor')
 
-def Question(r):
+def Question(r, a=None):
+    "One past question with its turns, and what you said about it (attempt `a`), if anything."
     return Section(Span(f"{r['name']} · {DEPTHS[r['depth']]} · {OUTCOME.get(r['outcome'], r['outcome'])}", DepthBar(r.get('floor', 0), asked=r['depth']), cls='lbl'),
-                   Md(r['question'], cls='q'), Ol(*[Turn(t) for t in (r.get('turns') or [])[1:]], cls='turns'), cls='pq')
+                   Md(r['question'], cls='q'), Ol(*[Turn(t) for t in (r.get('turns') or [])[1:]], cls='turns'), *(Said(a) if a else []), cls='pq')

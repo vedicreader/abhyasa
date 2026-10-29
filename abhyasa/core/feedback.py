@@ -5,7 +5,7 @@ from fasthtml.common import *
 from abhyasa.settings import val
 from .ui import Quiet
 
-__all__ = ['FEEDBACK_URL', 'PICKS', 'Feedback', 'FeedbackSaid', 'serve_feedback']
+__all__ = ['FEEDBACK_URL', 'PICKS', 'Feedback', 'FeedbackSaid', 'Said', 'serve_feedback']
 
 FEEDBACK_URL = '/feedback'
 PICKS = dict(simple='Too simple', right='Just right', unclear='Not clear')   # the verdict -> its words on the row
@@ -30,6 +30,12 @@ def Feedback(kind, slug='', aid='', way='', simpler=None):
                note, Span(cls='fb-said', aria_live='polite'),
                Button('Show a simpler demo', type='button', cls='quiet small fb-more', **simpler) if simpler else '',
                cls='fb-row', data_kind=kind)
+
+def Said(a):
+    "What you said about the demo or the lesson of attempt `a`, as quiet lines; nothing for an attempt with no feedback."
+    fs = a.get('fb') or ([dict(on=a.feedback_on, verdict=a.verdict, note=a.get('note', ''))] if a.get('verdict') else [])
+    return [P(Span(f"Your feedback on the {f.get('on', 'demo')}: {PICKS[f['verdict']]}", cls='k'), f" · {f['note']}" if f.get('note') else '', cls='mute said')
+            for f in fs if f.get('verdict') in PICKS]
 
 def FeedbackSaid(verdict): return THANKS[verdict]
 

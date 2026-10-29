@@ -100,6 +100,7 @@ def connect(app, ctx):
         if not s: return Page('Session', H1('No such session'), P(A('Your learning', href=Routes.base)), crumbs=[*up, ('Your learning', Routes.base)])
         by, js = names()
         log, ms = s.get('log') or [], moved(s.get('log') or [])
+        said = {(x.concept, x.question): x for x in reversed(lr.attempts(session=sid, limit=1000))}   # the newest attempt of a question, for what you said about it
         missed = [m['concept'] for m in ms if m['passed'] < m['asked']]
         acts = [ui.Primary('Continue', href=back(s, js)) if is_open(s) else '',
                 A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn') if missed else '',
@@ -108,7 +109,7 @@ def connect(app, ctx):
                     P(f"{ago(s.get('start'))} · {sum(r['correct'] for r in log)} of {len(log)} passed" + (' · open' if is_open(s) else ''), cls='mute'),
                     Div(*acts, cls='row') if any(acts) else '',
                     *([H2('What moved'), Ul(*[Moved(m) for m in ms], cls='plain')] if ms else []),
-                    H2('The questions'), *(map(ui.Question, log) if log else [P(s.get('summary') or 'No questions.', cls='mute')]),
+                    H2('The questions'), *([ui.Question(r, said.get((r['concept'], r['question']))) for r in log] if log else [P(s.get('summary') or 'No questions.', cls='mute')]),
                     crumbs=[*up, ('Your learning', Routes.base)])
 
     @hook('nav_extra')

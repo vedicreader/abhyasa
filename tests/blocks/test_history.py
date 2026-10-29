@@ -38,6 +38,18 @@ def test_your_learning(mk, lr):
     one = cl.get(f'/learning/{sid}').text
     assert 'What does a rank tell you?' in one and 'A gap' in one and 'href="/learning"' in one
 
+def test_session_page_shows_the_feedback_on_a_question(mk, lr):
+    "The page of one past session shows what you said about the lesson of a question (pick and note), as the concept page does; a question with none shows nothing."
+    cl = mk()
+    sid = start(cl, focus='ranking')
+    cl.get(f'/s/{sid}')
+    cl.post(f'/s/{sid}/giveup', data=dict(dont_know=1))
+    assert 'Your feedback' not in cl.get(f'/learning/{sid}').text
+    a = lr.attempts(session=sid)[0]
+    lr.mark_attempt(a.id, feedback_on='lesson', verdict='unclear', note='The second step lost me.')
+    one = cl.get(f'/learning/{sid}').text
+    assert 'Your feedback on the lesson: Not clear' in one and 'The second step lost me.' in one
+
 def test_continue_on_today_and_top_bar(mk):
     cl = mk()
     assert 'id="continue"' not in cl.get('/').text
