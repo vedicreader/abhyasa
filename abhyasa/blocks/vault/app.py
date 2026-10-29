@@ -14,6 +14,7 @@ CAPS = ('learning', 'ask')
 _SHELF = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 _IMG = re.compile(r'!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)')   # a markdown image: ![alt](link "title")
 IMG_MAX = 20 << 20   # the largest image file that the page sends: 20 MB
+_CODE = re.compile(r'(```[\s\S]*?(?:```|\Z)|~~~[\s\S]*?(?:~~~|\Z)|`[^`\n]+`)')   # a code fence (also one with no end) or inline code
 
 def connect(app, ctx):
     lr = ctx.learning
@@ -43,7 +44,7 @@ def connect(app, ctx):
             if not image(d, m[2]): return ''
             urls.add(u := Routes.img_of(shelf, quote(d['id'], safe=''), m[2]))
             return f'![{m[1]}]({u})'
-        return _IMG.sub(one, text), urls
+        return ''.join(p if k % 2 else _IMG.sub(one, p) for k, p in enumerate(_CODE.split(text))), urls   # code stays as it is
 
     def doc(shelf:str, doc_id:str):
         sh, d = _get(shelf, doc_id)
@@ -55,7 +56,7 @@ def connect(app, ctx):
         "An image of the document, only from its own assets folder, only an image file and only under the size cap."
         sh, d = _get(shelf, doc_id)
         p = d is not None and f and image(d, f)
-        return FileResponse(p) if p else Response(status_code=404)
+        return FileResponse(p, headers={'X-Content-Type-Options': 'nosniff'}) if p else Response(status_code=404)
 
     def learn(shelf:str, doc_id:str):
         sh, d = _get(shelf, doc_id)

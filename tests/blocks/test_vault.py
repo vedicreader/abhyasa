@@ -46,7 +46,7 @@ def test_document_image_route_is_safe(mk, lr, monkeypatch):
     d = rasi(lr)
     cl = mk(['vault'])
     r = cl.get(f'/v/store/{d}/img?f=images/page2_1.png')
-    assert r.status_code == 200 and r.content == PNG and r.headers['content-type'] == 'image/png'
+    assert r.status_code == 200 and r.content == PNG and r.headers['content-type'] == 'image/png' and r.headers['x-content-type-options'] == 'nosniff'
     for bad in ('images/page2_2.png', 'images/notes.txt', '../attention/images/fig2.png', '..%2Fattention%2Fimages%2Ffig2.png',
                 '%2Fetc%2Fhosts', '../../../../etc/hosts', 'images/../../attention/images/fig2.png'):
         assert cl.get(f'/v/store/{d}/img?f={bad}').status_code == 404, bad
@@ -55,3 +55,12 @@ def test_document_image_route_is_safe(mk, lr, monkeypatch):
     assert cl.get(f'/v/bad;name/{d}/img?f=images/page2_1.png').status_code == 404
     monkeypatch.setattr('abhyasa.blocks.vault.app.IMG_MAX', 4)
     assert cl.get(f'/v/store/{d}/img?f=images/page2_1.png').status_code == 404   # larger than the cap
+
+def test_image_syntax_in_code_stays_as_text(mk, lr):
+    "Image syntax in a code fence or in inline code is code: the page shows it as text and makes no image of it."
+    text = ('Fig:\n\n![Image 1 from page 2](images/page2_1.png)\n\n```\n![In a fence](images/page2_1.png)\n```\n\n'
+            'Write `![inline](images/page2_1.png)` for an image.')
+    d = lr.vault.add([(2, text)], 'Code notes', source='/tmp/vr/Code-notes.pdf', kind='pdf')['doc_id']
+    p = lr.vault.assets('Code-notes')/'images'/'page2_1.png'; p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(PNG)
+    t = mk(['vault']).get(f'/v/store/{d}').text
+    assert t.count('<img ') == 1 and '![In a fence](images/page2_1.png)' in t and '![inline](images/page2_1.png)' in t
