@@ -13,7 +13,7 @@ import math, random, re, secrets, time
 from copy import deepcopy
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
-from abhyasa.core import Page, hook, n_of, pane_url
+from abhyasa.core import Page, hook, n_of, pane_url, room_spec
 from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
 from abhyasa.llm import for_task
 from abhyasa.settings import val
@@ -143,14 +143,6 @@ def edit(s, f):
         s['mins'] = max(1, (s.get('mins') or 0) + (val('talks.ask_min') if a else -val('talks.ask_min')))
     s['ask'] = a
     return s
-
-def room_spec(spec):
-    "A copy of a demo spec for the audience window: no gate has its `answer`, so the HTML has no answer before the presenter shows it."
-    def strip(x):
-        if isinstance(x, list): return [strip(v) for v in x]
-        if not isinstance(x, dict): return x
-        return {k: strip(v) for k, v in x.items() if not (k == 'answer' and x.get('type') == 'gate')}
-    return strip(deepcopy(spec))
 
 def stage_log(r):
     "The room parts of run `r` that a reload must show again: the result that shows, the pair prompt, and the slides whose answer was shown."

@@ -408,7 +408,7 @@ def test_run_posts_are_local_only(mk, talk_fake, lr):
 
 def test_room_spec_takes_out_each_gate_answer():
     "room_spec takes `answer` out of a gate at any depth, and keeps the rest; a state-path gate keeps its state, where the value stays."
-    from abhyasa.blocks.talk.app import room_spec
+    from abhyasa.core import room_spec
     gate = dict(type='gate', id='g', prompt='Which?', options=['a', 'b'], answer={'is': 'b'})
     spec = dict(id='d', state=dict(best='b'), blocks=[dict(type='row', blocks=[dict(type='stack', blocks=[gate])]),
                                                        dict(type='gate', id='h', prompt='Best?', options={'from': 'opts'}, answer='best'),

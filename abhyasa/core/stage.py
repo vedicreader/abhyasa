@@ -4,10 +4,11 @@
 draws the laser, the lit id, the blank screen and the side pane, and `presenter` binds the talk keys and sends the laser.
 `stage.css` is the audience frame. This file has the version, the message types, the test cases that node runs through
 `valid`, the rows of the talk keys, and the assets. A host (abhyasa, later Leela) draws its own slides with `draw`."""
+from copy import deepcopy
 from pathlib import Path
 from abhyasa.core.ui import asset_css, asset_js
 
-__all__ = ['STAGE_V', 'STAGE_TYPES', 'STAGE_CASES', 'PLAN_KEYS', 'TALK_KEYS', 'ROOM_KEYS', 'VOTE_KEYS', 'STAGE_KEYS', 'stage_assets']
+__all__ = ['STAGE_V', 'STAGE_TYPES', 'STAGE_CASES', 'PLAN_KEYS', 'TALK_KEYS', 'ROOM_KEYS', 'VOTE_KEYS', 'STAGE_KEYS', 'stage_assets', 'room_spec']
 
 _here = Path(__file__).parent
 STAGE_V = 1
@@ -74,3 +75,11 @@ STAGE_KEYS = PLAN_KEYS + TALK_KEYS + ROOM_KEYS + VOTE_KEYS
 def stage_assets() -> tuple:
     "The style and the script of the stage, for the head of a talk page."
     return asset_css(_here/'stage.css'), asset_js(_here/'stage.js')
+
+def room_spec(spec):
+    "A copy of a demo spec for the audience window: no gate has its `answer`, so the HTML has no answer before the presenter shows it."
+    def strip(x):
+        if isinstance(x, list): return [strip(v) for v in x]
+        if not isinstance(x, dict): return x
+        return {k: strip(v) for k, v in x.items() if not (k == 'answer' and x.get('type') == 'gate')}
+    return strip(deepcopy(spec))
