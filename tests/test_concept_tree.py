@@ -1,0 +1,183 @@
+"The tree on the Concepts page: groups under each subject, the find box, the sort by the model, and a move by hand."
+import re, threading, time
+import pytest
+
+SORT = 'Return JSON: {"places"'
+
+@pytest.fixture
+def jy(lr):
+    "The `lr` concepts (ml, with no group, as in an old vault) and three jyotisha concepts, two of them in groups."
+    lr.put('Ashvini', 'The first nakshatra.', 'jyotisha', group=['nakshatras'], group_by='model')
+    lr.put('Magha', 'The tenth nakshatra.', 'jyotisha', aliases=['Maghā'], group=['nakshatras', 'pitri gana'], group_by='model')
+    lr.put('Mesha', 'The first rasi.', 'jyotisha')
+    return lr
+
+def details(t, cls):
+    "The opening tags of the `details` with the class `cls`."
+    return re.findall(rf'<details[^>]*class="tree {cls}"[^>]*>', t)
+
+def summary(t, name, n):
+    "Whether the page has a summary for the branch `name` with the count `n`."
+    return re.search(rf'<summary><span class="name">{re.escape(name)}</span><span class="n">\s*·\s*{n}</span></summary>', t) is not None
+
+# The tree
+
+def test_old_vault_sits_in_not_sorted_yet(mk):
+    "Concepts with no group are under their subject, in an open `Not sorted yet` part. The subject is open."
+    t = mk().get('/concepts').text
+    assert summary(t, 'Ml', 2) and summary(t, 'Not sorted yet', 2) and 'Ranking' in t and 'Reciprocal rank fusion' in t
+    assert all(' open' in d for d in details(t, 'subj')) and all(' open' in d for d in details(t, 'loose'))
+
+def test_tree_has_counts_and_closed_groups(mk, jy):
+    t = mk().get('/concepts').text
+    assert summary(t, 'Jyotisha', 3) and summary(t, 'Nakshatras', 2) and summary(t, 'Pitri gana', 1) and summary(t, 'Ml', 2)
+    assert all(' open' not in d for d in details(t, 'grp'))                       # quiet: groups start closed
+    assert t.index('Nakshatras') < t.index('Not sorted yet') < t.index('Mesha')      # the groups, then the concepts with no group
+    assert '4 concepts' not in t and re.search(r'5 concepts · 2 subjects · 3 not sorted yet', t)
+
+def test_find_opens_the_branch_of_a_deep_concept(mk, jy):
+    "With `q`, the page keeps the concepts that match, in any case and without marks, and opens each branch above them."
+    t = mk().get('/concepts', params=dict(q='MAGH')).text
+    assert 'Magha' in t and 'Ashvini' not in t and 'Ranking' not in t
+    assert summary(t, 'Jyotisha', 1) and summary(t, 'Pitri gana', 1)
+    assert details(t, 'grp') and all(' open' in d for d in details(t, 'grp'))
+    assert 'value="MAGH"' in t
+    assert 'Magha' in mk().get('/concepts', params=dict(q='maghā')).text           # an alias with a mark matches too
+
+def test_find_with_no_match_points_to_search(mk, jy):
+    t = mk().get('/concepts', params=dict(q='zzz')).text
+    assert 'No concept matches “zzz”.' in t and 'href="/search?q=zzz"' in t
+
+def test_rows_carry_the_words_to_find(mk, jy):
+    "The find box filters in the page as you type (concepts.js): each row has its folded name and aliases."
+    t = mk().get('/concepts').text
+    assert 'data-find="magha magha"' in t and 'concepts.js' in t and 'id="find"' in t
+
+# A move by hand
+
+def test_group_field_moves_a_concept_by_hand(mk, jy):
+    cl = mk()
+    r = cl.post('/c/mesha/group', data=dict(group=' Rasis /  Fire signs '))
+    assert r.status_code == 200 and 'Moved.' in r.text and 'value="Rasis / Fire signs"' in r.text
+    c = jy.concept('mesha')
+    assert (c.group, c.group_by) == (['Rasis', 'Fire signs'], 'hand')
+    t = cl.get('/c/mesha').text
+    assert 'id="group-field"' in t and 'value="Rasis / Fire signs"' in t and 'You set this group.' in t
+    assert '<option value="nakshatras / pitri gana">' in t                              # the groups of the subject to pick from
+
+def test_group_field_checks_the_input(mk, jy):
+    cl = mk()
+    for bad, said in (('a / b / c', 'two levels at most'), ('x' * 41, '40 characters at most'), ('!!! / ???', 'letters or digits'), ('y' * 300, '40 characters at most')):
+        r = cl.post('/c/mesha/group', data=dict(group=bad))
+        assert r.status_code == 200 and said in r.text and 'req-err' in r.text, bad
+        assert jy.concept('mesha').get('group') is None, bad
+    cl.post('/c/mesha/group', data=dict(group='Stars & planets!'))
+    assert jy.concept('mesha').group == ['Stars planets']                             # marks go; the name stays
+    cl.post('/c/mesha/group', data=dict(group='jyotisha / rasis'))
+    assert jy.concept('mesha').group == ['rasis']                                     # the subject is not a group
+    cl.post('/c/mesha/group', data=dict(group=''))
+    assert (jy.concept('mesha').group, jy.concept('mesha').group_by) == ([], None)    # empty: out of the group, and the next sort can place it
+    assert cl.post('/c/nope/group', data=dict(group='x')).status_code == 404
+
+def test_group_shows_who_set_it(mk, jy):
+    assert 'The tutor set this group.' in mk().get('/c/magha').text
+
+# Sort my concepts
+
+def sorter(gate=None):
+    "A sort reply that puts Mesha in Rasis and each other concept in Stars, after `gate` opens."
+    def f(p, sp):
+        if gate: gate.wait(5)
+        return dict(places=[dict(slug=s, group=['Rasis'] if s == 'mesha' else ['Stars']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
+    return f
+
+def settled(cl, n=250):
+    "The sort part after the job is done."
+    for _ in range(n):
+        t = cl.get('/concepts/sort').text
+        if 'is sorting' not in t: return t
+        time.sleep(.02)
+    raise AssertionError('the sort did not end')
+
+def sort_id(t): return re.search(r'name="sort" value="([0-9a-f]+)"', t).group(1)
+
+def test_sort_runs_in_the_background_and_saves_only_on_accept(mk, jy, fake):
+    gate = threading.Event()
+    fake.rules[SORT] = sorter(gate)
+    jy.set_group('magha', ['mine'])                                                   # moved by hand: the sort never changes it
+    cl = mk()
+    t = cl.post('/concepts/sort').text
+    assert 'The tutor is sorting your concepts' in t and 'hx-get="/concepts/sort"' in t
+    assert 'The tutor is sorting your concepts' in cl.get('/concepts').text          # the page reads the state of the job
+    gate.set()
+    t = settled(cl)
+    assert 'Accept this tree' in t and 'Cancel' in t and summary(t, 'Rasis', 1) and summary(t, 'Mine', 1)
+    assert 'The tutor moves 4 concepts.' in t and '1 concept that you moved by hand stays where it is.' in t
+    assert not any('- magha:' in p for p, _ in fake.calls if SORT in p)
+    assert jy.concept('mesha').get('group') is None                                   # nothing is saved before the accept
+    assert 'Accept this tree' in cl.get('/concepts').text                             # the page shows the proposal until you choose
+    r = cl.post('/concepts/sort/accept', data=dict(sort='0' * 8))
+    assert 'This sort is old' in r.text and jy.concept('mesha').get('group') is None
+    r = cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
+    assert r.headers.get('HX-Redirect') == '/concepts'
+    assert (jy.concept('mesha').group, jy.concept('mesha').group_by) == (['Rasis'], 'model')
+    assert jy.concept('magha').group == ['mine'] and jy.concept('ashvini').group == ['Stars']
+    t = cl.get('/concepts').text
+    assert 'Accept this tree' not in t and summary(t, 'Rasis', 1) and 'Sort my concepts' in t
+
+def test_sort_of_one_subject(mk, jy, fake):
+    fake.rules[SORT] = sorter()
+    cl = mk()
+    cl.post('/concepts/sort', data=dict(subject='ml'))
+    t = settled(cl)
+    assert summary(t, 'Ml', 2) and 'Jyotisha' not in t
+    cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
+    assert jy.concept('ranking').group == ['Stars'] and jy.concept('mesha').get('group') is None
+
+def test_cancel_saves_nothing(mk, jy, fake):
+    fake.rules[SORT] = sorter()
+    cl = mk()
+    cl.post('/concepts/sort')
+    t = settled(cl)
+    r = cl.post('/concepts/sort/cancel', data=dict(sort=sort_id(t)))
+    assert 'Sort my concepts' in r.text and 'Accept this tree' not in r.text
+    assert jy.concept('mesha').get('group') is None and 'Accept this tree' not in cl.get('/concepts').text
+    assert 'No sort is running' in cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t))).text
+
+def test_get_only_reads(mk, jy, fake):
+    "A GET never starts a sort and never asks the model."
+    fake.rules[SORT] = sorter()
+    cl = mk()
+    n = len(fake.calls)
+    assert 'No sort is running' in cl.get('/concepts/sort').text
+    assert 'Sort my concepts' in cl.get('/concepts').text and 'is sorting' not in cl.get('/concepts').text
+    assert len(fake.calls) == n
+
+def test_a_failed_sort_shows_a_plain_line(mk, jy, fake):
+    def boom(p, sp): raise RuntimeError('litellm.APIError: secret words')
+    fake.rules[SORT] = boom
+    cl = mk()
+    cl.post('/concepts/sort')
+    t = settled(cl)
+    assert 'The tutor could not sort your concepts. Try again.' in t and 'secret words' not in t and 'Sort my concepts' in t
+
+def test_one_main_button_in_the_proposal(mk, jy, fake):
+    fake.rules[SORT] = sorter()
+    cl = mk()
+    cl.post('/concepts/sort'); settled(cl)
+    t = cl.get('/concepts').text
+    assert len(re.findall(r'class="go"', t)) == 1 and re.search(r'class="go"[^>]*>Accept this tree', t)
+    assert 'class="go"' not in mk().get('/c/mesha').text.split('id="group-field"')[1].split('</form>')[0]
+
+def test_changes_from_other_sites_are_refused(mk, jy, fake):
+    fake.rules[SORT] = sorter()
+    cl, n = mk(), len(fake.calls)
+    evil = {'Origin': 'https://evil.example'}
+    assert cl.post('/concepts/sort', headers=evil).status_code == 403
+    assert cl.post('/c/mesha/group', data=dict(group='x'), headers=evil).status_code == 403
+    assert cl.post('/concepts/sort/accept', data=dict(sort='x'), headers=evil).status_code == 403
+    assert len(fake.calls) == n and jy.concept('mesha').get('group') is None
+
+def test_sort_prompt_is_on_the_settings_page(mk):
+    from abhyasa.prompts import PROMPTS
+    assert 'concepts.sort' in PROMPTS and 'pr-concepts-sort' in mk().get('/settings').text
