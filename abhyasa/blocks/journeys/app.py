@@ -1,10 +1,10 @@
 """Journeys: a goal and a path of steps to it, that you can see and change. The list, the path page, and what they add to Today,
 to a concept page and to a session."""
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides, hook
+from abhyasa.core import Page, RouteOverrides, hook, run
 from abhyasa.settings import val
 from abhyasa.profile import profile_text
-from abhyasa.journey import plan, progress, add_topic, split, beyond, with_step
+from abhyasa.journey import plan, progress, add_topic, split, beyond, with_step, for_talk
 from . import ui
 from .cfg import Routes
 
@@ -17,9 +17,10 @@ def connect(app, ctx):
     up = [('Today', '/'), ('Journeys', Routes.base)]
 
     def by(): return {c.slug: c for c in lr.concepts()}
+    def yours(): return [j for j in lr.journeys() if not for_talk(j)]   # a side walk of a talk is for the room, not yours
     def listed(skip=None):
         b = by()
-        return [(j, progress(lr, j, by=b)) for j in lr.journeys() if j.id != skip]
+        return [(j, progress(lr, j, by=b)) for j in yours() if j.id != skip]
 
     def path(jid): return ui.Path_(j := lr.journey(jid), progress(lr, j))
 
@@ -39,7 +40,7 @@ def connect(app, ctx):
         j = lr.journey(jid)
         if not j: return Page('Journey', H1('No such journey'), P(A('All journeys', href=Routes.base)), crumbs=up)
         pg = progress(lr, j)
-        return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')]), crumbs=up, extra=ui.assets())
+        return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')], run('walk_actions', j)), crumbs=up, extra=ui.assets())
 
     def step(jid:str, slug:str, act:str):
         if not lr.journey(jid): return Response(status_code=404)
@@ -75,7 +76,7 @@ def connect(app, ctx):
 
     @hook('concept_more')
     def in_journeys(c):
-        rows, js = with_step(lr, c.slug), lr.journeys()
+        rows, js = [(j, i) for j, i in with_step(lr, c.slug) if not for_talk(j)], yours()
         return ui.InJourneys(c, rows, js) if rows or js else None
 
     @hook('lesson_extra')

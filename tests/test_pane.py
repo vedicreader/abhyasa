@@ -13,6 +13,19 @@ def test_pane_url_is_local_only():
     assert pane_url('/w/g?pane=1') == '/w/g?pane=1' and pane_url('/w/g#check') == '/w/g?pane=1#check'   # one flag, before the fragment
     for bad in HOSTILE: assert not is_local(bad) and pane_url(bad) is None, bad
 
+def test_pane_url_in_talk_type():
+    assert pane_url('/w/g-1a2b/0', talk=True) == '/w/g-1a2b/0?pane=1&talk=1' and pane_url('https://evil.example/', talk=True) is None
+    assert pane_url('/w/g?talk=0&pane=1', talk=True) == '/w/g?pane=1&talk=1'   # one of each flag
+
+def test_walk_step_in_talk_type_has_no_check(mk, walk_fake, lr):
+    from walk_data import walk
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    page = cl.get(f'/w/{jid}/1?pane=1&talk=1').text
+    assert 'id="check"' not in page and 'talk-type' in page and 'apply a softmax function' in page
+    assert not lr.journey(jid).steps[1].get('qid')
+    assert 'id="skip"' not in page and 'Back to the slide' in page   # no skip, so nothing is logged; the way back is ⌥Z
+    assert 'id="check"' in cl.get(f'/w/{jid}/1?pane=1').text   # a pane that is not in a talk keeps its check
+
 WEB_BAD = ('javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,hi', 'file:///etc/passwd', 'ftp://example.org/', 'blob:https://x/y',
            '/w/g', '//evil.example', 'https:evil.example', 'http://', ' https://example.org', 'https://exa mple.org', 'https://example.org/\n', '', None, 3)
 

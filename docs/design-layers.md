@@ -39,6 +39,10 @@ The utility classes are `.raised` and `.sunken`. The class `.refs` is the quiet 
 | Side pane | the check card in the pane | the pane has the surface of the page; a hairline divides it from the paper | the code editor |
 | Your learning | none | this week, what you learned | the list of past sessions |
 | Settings | the theme and the mode that you chose | the forms | the model tables |
+| Talk editor | none | the title, Present, the slot and the rows of slides | the small picture of a figure in a slide row |
+| Presenter view | the question card, with the main button | the slide now, your notes, the next slide, the clock and the line of keys | the offer of a primer beside the slide (⌥B) |
+| Audience view | the short note "Keys work in the presenter window." | the whole window is the slide, on the page colour; a question or the blank screen covers it with the page colour | none |
+| After the talk | none | where the room was unsure, for the room, for you | the talk, slide by slide |
 
 Today has only one raised card. Then the main action is clear, and the page stays quiet.
 

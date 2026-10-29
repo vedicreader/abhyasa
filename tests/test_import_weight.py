@@ -4,8 +4,8 @@ import json, subprocess, sys
 HEAVY = ('ramabana', 'rishi', 'mdhtml', 'nh3', 'ipywidgets')
 
 def test_engine_import_is_light():
-    "Importing store, model, method and tutor loads no model layer, no renderer and no web app."
-    code = ("import sys, json, abhyasa.store, abhyasa.model, abhyasa.method, abhyasa.tutor; "
+    "Importing store, model, method, tutor and talk loads no model layer, no renderer and no web app."
+    code = ("import sys, json, abhyasa.store, abhyasa.model, abhyasa.method, abhyasa.tutor, abhyasa.talk; "
             "print(json.dumps(sorted(sys.modules)))")
     mods = json.loads(subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, check=True).stdout)
     bad = [m for m in mods if m.split('.')[0] in HEAVY or m.startswith(('abhyasa.app', 'abhyasa.blocks', 'abhyasa.core'))]

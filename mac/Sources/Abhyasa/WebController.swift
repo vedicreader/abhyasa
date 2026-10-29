@@ -13,6 +13,9 @@ final class WebController: NSObject, WKUIDelegate, WKNavigationDelegate {
     override init() {
         let c = WKWebViewConfiguration()
         c.websiteDataStore = .default()
+        // the talk page finds the app by this token: the app opens a second window of a server page in the same view
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        c.applicationNameForUserAgent = "Abhyasa/\(version)"
         view = WKWebView(frame: .zero, configuration: c)
         super.init()
         view.uiDelegate = self

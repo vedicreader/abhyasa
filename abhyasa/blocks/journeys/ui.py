@@ -100,14 +100,14 @@ def Path_(j, pg):
                     Button('Add', data_wait='Adding…'), hx_post=at(Routes.add, j), hx_target='#path', hx_swap='outerHTML', cls='add-topic'),
                id='path')
 
-def JourneyPage(j, pg, after=(), others=()):
+def JourneyPage(j, pg, after=(), others=(), actions=()):
     near = [*([H2('After this' if pg.finished else 'Next to this path'),
                Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
                        Button('Add to the path', type='button', cls='small quiet', hx_post=Routes.attach, hx_vals=json.dumps(dict(jid=j.id, slug=c.slug)),
                               hx_target='#path', hx_swap='outerHTML')) for c in after], cls='plain')] if after else []),
             *([H2('Your other journeys'), JourneyList(others, lead=False)] if others else [])]
     return (H1(j.title), P('Your goal: ', Span(j.get('goal', ''), cls='goal'), Span(f"  · changed {ago(j.get('updated'))}", cls='mute'), cls='mute'),
-            Path_(j, pg), Div(*near, cls='refs') if near else '',
+            Div(*actions, cls='row') if actions else '', Path_(j, pg), Div(*near, cls='refs') if near else '',
             Form(Button('Remove this journey', cls='small quiet danger'), action=at(Routes.drop, j), method='post',
                  hx_confirm='Remove this journey? Its concepts and what you learned stay.', cls='drop'))
 

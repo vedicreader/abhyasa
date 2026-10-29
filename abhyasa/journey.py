@@ -9,8 +9,8 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'SHORT_WAYS', 'PICK_SP', 'S
            'LEELA_ROUTE', 'WALK_ID', 'TOPIC_MAX', 'HANDOFF_CASES', 'step_state', 'progress', 'current', 'plan_prompt',
            'near_goal', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most', 'cap_hands',
            'journey_from_source', 'journey_from_text', 'journey_from_sources', 'walk_from_topic', 'walk_state',
-           'minutes', 'needs', 'pick_way_down', 'detour', 'parent_step', 'trail', 'back_from', 'look_up', 'add_topic',
-           'name_gaps', 'split', 'related', 'with_step', 'beyond', 'handoff', 'read_handoff']
+           'minutes', 'needs', 'pick_way_down', 'detour', 'parent_step', 'trail', 'back_from', 'for_talk', 'look_up',
+           'add_topic', 'name_gaps', 'split', 'related', 'with_step', 'beyond', 'handoff', 'read_handoff']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
@@ -435,6 +435,11 @@ def back_from(lr:Learning, jid:str) -> AttrDict|None:
     if k is None: return lr.walk_step(pj.id, i, detours=[*ds, d])
     if d['outcome'] in ('skipped', ds[k]['outcome']): return pj   # nothing new: never back to skipped
     return lr.walk_step(pj.id, i, detours=[*ds[:k], d, *ds[k + 1:]])
+
+# %% ../nbs/11_journey.ipynb #rh18b
+def for_talk(j) -> bool:
+    "Whether walk `j` is a side walk that a talk opened beside a slide, for the room."
+    return isinstance((j or {}).get('parent'), dict) and 'talk' in j['parent']
 
 # %% ../nbs/11_journey.ipynb #rh20
 def look_up(lr:Learning, ask, term:str, at:str='', sources=None) -> AttrDict|None:

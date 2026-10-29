@@ -39,6 +39,9 @@ def Hit(h, by):
         c = by.get(m.get('concept'))
         t = h['title'] if not re.search(r'\{[\w.]+\}', h['title'] or '') else c and c.name   # never a slot that is not filled
         return Li(A(t or 'A demo', href=f"/c/{m.get('concept', '')}", cls='hit'), P(meta('A demo', c and c.name), cls='mute'))
+    if k == 'talk':
+        return Li(A(m.get('title') or h['title'], href=f"/t/{m.get('id', '')}", cls='hit'),
+                  P(meta('A talk', n_of(len(m.get('slides') or ()), 'slide')), cls='mute'))
     return None   # a kind with no plain view does not show
 
 def Elsewhere(hs):

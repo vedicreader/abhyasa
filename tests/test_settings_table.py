@@ -1,7 +1,7 @@
 "The settings table: each group has the values that the code used before, and the engine reads a saved value when it uses it."
 import json, os, threading
 import pytest
-from abhyasa.settings import SETTINGS, GROUPS, FIXED, val, set_val, settings, cfg_dir
+from abhyasa.settings import SETTINGS, GROUPS, FIXED, val, set_val, settings, cfg_dir, rows
 
 @pytest.fixture(autouse=True)
 def own_config(monkeypatch, tmp_path):
@@ -11,7 +11,7 @@ def own_config(monkeypatch, tmp_path):
 def dflts(group): return {r.name: r.dflt for r in SETTINGS.values() if r.group == group}
 
 def test_groups_in_order():
-    assert list(GROUPS) == ['look', 'learning', 'walks', 'checks', 'review', 'links', 'runner', 'stt', 'models', 'lists', 'prompts']
+    assert list(GROUPS) == ['look', 'learning', 'walks', 'talks', 'checks', 'review', 'links', 'runner', 'stt', 'models', 'lists', 'prompts']
 
 def test_bad_values():
     (cfg_dir()/'settings.json').write_text(json.dumps(dict(walks=dict(steps=99, note='long', depth=2.6), checks=dict(one_ask='yes'), mine=dict(a=1))))
@@ -44,6 +44,15 @@ def test_walk_of_five_steps():
     set_val('walks.steps', 5)
     j = journey_from_text(temp_learning(), ask, text, 'Notes')
     assert len(j.steps) == 5 and len(j.more) == 4
+
+# Talks
+
+def test_talks_defaults():
+    assert [r.name for r in rows('talks')] == ['talks.choice', 'talks.ask_min', 'talks.pair_min', 'talks.weak', 'talks.split_lo', 'talks.split_hi',
+                                               'talks.laser_ms', 'talks.image_mb', 'talks.port', 'talks.room_hours', 'talks.phones', 'talks.nets']
+    assert (val('talks.choice'), val('talks.ask_min'), val('talks.pair_min'), val('talks.port'), val('talks.room_hours'), val('talks.phones')) == (True, 1, 2, 5180, 3, 300)
+    assert (val('talks.weak'), val('talks.split_lo'), val('talks.split_hi'), val('talks.image_mb'), val('talks.laser_ms')) == (.7, .3, .7, 5, 1500)
+    assert set_val('talks.phones', 900) == 300 and {'bind', 'join_code', 'rate', 'body', 'room_headers'} <= set(FIXED)
 
 # Checks and grading
 
@@ -176,7 +185,7 @@ def test_mic_gets_the_pause_values(mk):
 def test_models_defaults():
     from abhyasa.llm import TOKENS, TASKS
     ms = dflts('models')
-    assert {k: v for k, v in ms.items() if k.startswith('models.')} == {f'models.{t}': '' for t in ('default', *TASKS, 'plan', 'pick', 'note', 'profile', 'exercise')}
+    assert {k: v for k, v in ms.items() if k.startswith('models.')} == {f'models.{t}': '' for t in ('default', *TASKS, 'plan', 'pick', 'note', 'profile', 'exercise', 'talk')}
     assert {k[7:]: v for k, v in ms.items() if k.startswith('tokens.')} == TOKENS == dict(question=4096, grade=2048, hint=512, lesson=2048, extract=4096)
     assert 'extract' in settings()['models']
 

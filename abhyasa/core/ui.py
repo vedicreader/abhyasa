@@ -9,7 +9,7 @@ from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, pane_url
 from abhyasa.model import DEPTHS
 
-__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago',
+__all__ = ['Cites', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward']
 
 _here = Path(__file__).parent
@@ -83,6 +83,12 @@ def Crumbs(crumbs):
         out += [A(('← ' if last and len(crumbs) == 1 else '') + t, href=h, cls='up' if last else None, title='Esc' if last else None), Span('›', cls='sep')]
     return Div(*out[:-1], cls='crumbs', role='navigation', aria_label='Where you are')
 
+def in_talk() -> bool:
+    "Whether this page is in the side pane of a talk (`pane=1&talk=1`): it draws in the talk type, with no check."
+    req = _req.get()
+    q = req.query_params if req is not None else {}
+    return q.get('pane') == '1' and q.get('talk') == '1'
+
 def Page(title, *c, on='', wide=False, extra=(), crumbs=(), pane=False):
     """A whole page: the header with the blocks' nav links, what other blocks add (`nav_extra`), a search box, the crumbs, then `c`.
     In the side pane (`pane`, or `pane=1` in the request) it has no nav and no crumbs. With a local `rh` in the request, the side pane is open."""
@@ -90,8 +96,8 @@ def Page(title, *c, on='', wide=False, extra=(), crumbs=(), pane=False):
     q = req.query_params if req is not None else {}
     one_main(c)
     if pane or q.get('pane') == '1':
-        if req is not None: req.htmlkw['class'] = 'in-pane'
-        return (Title(f'{title} · abhyasa'), *extra, Main(*c, cls='wide' if wide else ''), *run('page_extra'))
+        if req is not None: req.htmlkw['class'] = 'in-pane talk-type' if in_talk() else 'in-pane'
+        return (Title(f'{title} · abhyasa'), *extra, Main(*c, cls='wide' if wide else ''), *run('page_extra'), *((asset_js(_here/'talktype.js'),) if in_talk() else ()))
     rh = q.get('rh')
     side = ''
     if req is not None and is_local(rh):
