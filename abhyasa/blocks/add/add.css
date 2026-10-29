@@ -1,5 +1,19 @@
-/* Add: one choice, then only its fields. */
-.add-form fieldset { border: 0; padding: 0; margin: var(--s4) 0 0; min-width: 0; }
-.add-form .modes-pick { flex-wrap: wrap; }
-.add-form .find { margin-top: var(--s2); }
-.add-form .find .mute { font-size: var(--t-small); }
+/* The Start box: one box, one quiet line, then only the question or the options that matter. */
+.start { margin: 0 0 var(--s3); }
+.start label[for=start-q] { margin-top: 0; }
+.start textarea { font-size: var(--t-q); line-height: 1.5; min-height: calc(2lh + 12px); width: 100%; }
+.start.drag { outline: 2px dashed var(--acc); outline-offset: 4px; }
+.start .will { margin: var(--s2) 0 0; color: var(--ink2); font-size: var(--t-small); min-height: 1.5em; }
+.start .will b { font-weight: 600; color: var(--fg); }
+.start .web-once { margin: var(--s2) 0 0; font-size: var(--t-small); }
+.start .ask { display: flex; gap: var(--s2); flex-wrap: wrap; margin: var(--s3) 0 0; align-items: center; }
+.start .ask .mute { width: 100%; margin: var(--s1) 0 0; font-size: var(--t-small); }
+.start .opts { display: flex; gap: var(--s5); flex-wrap: wrap; align-items: end; margin: var(--s4) 0 0; }
+.start .opts label { margin: 0; }
+.start .opts input[type=number] { width: 4em; }
+.start .tick { display: flex; gap: var(--s2); align-items: center; text-transform: none; letter-spacing: 0; font: var(--t-small)/1.4 var(--serif); color: var(--ink2); }
+.start .foot { display: flex; gap: var(--s4); align-items: center; margin-top: var(--s4); flex-wrap: wrap; }
+.start .start-drop { color: var(--mute); font-size: var(--t-meta); }
+.start .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.start-more { margin-top: var(--s4); }
+.start-more .goal-form { margin-top: var(--s3); }

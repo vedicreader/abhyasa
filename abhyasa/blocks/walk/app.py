@@ -7,7 +7,8 @@ from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import n_of, Page, hook, run as run_hook
 from abhyasa.core.leela import leela_line
-from abhyasa.settings import val
+from abhyasa.settings import val, set_val
+from abhyasa.detect import detect, vault_title
 from abhyasa.store import clean_subject
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
@@ -181,7 +182,15 @@ def connect(app, ctx):
         if (e := st.job.exception()): return P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err')   # never the words of a library
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
-    def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str=''):
+    def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str='',
+            q:str='', pick:str='', file:str='', opts:str=''):
+        if q.strip() and not any(x.strip() for x in (ref, text, topic, url)):   # the Start box: its reading says which field it is
+            t = vault_title(lr.vault, q) if not file else None
+            r = detect(q, (t,) if t else (), research=val('research.on'), file=file, pick=pick)
+            if not r.send: return P(r.line if r.kind != 'ask' else 'Pick one answer first.', cls='req-err')
+            ref, text, topic, url = (r.send.get(k, '') for k in ('ref', 'text', 'topic', 'url'))
+            title = title or r.send.get('title', '')
+            if not opts: tool = tool or r.send.get('tool', '')   # the options of the box were not shown: the reading picks
         tool, ref, shelf, subject = tool == 'on', ref.strip(), shelf.strip() or 'store', clean_subject(subject)
         if url.strip(): return link_walk(url.strip(), pages, tool, subject)
         if (u := as_link(ref)): return Div(P(AS_LINK, cls='mute'), link_walk(u, '', tool, subject))   # a link in the vault document field
@@ -191,7 +200,9 @@ def connect(app, ctx):
                 return P(NO_DOC, cls='req-err')
             if ref: j = journey_from_source(lr, ask, ref, shelf, subject, tool)
             elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60], subject, tool)
-            elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool)
+            elif topic.strip():
+                if val('research.on') and not val('research.told'): set_val('research.told', True)   # the box said one time that a topic goes to the search
+                j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool)
             else: return P('Name a vault document, paste a text, or write a topic.', cls='req-err')
         except Exception as e:   # the log keeps the words of the library; the page shows a plain line
             log.warning('the tutor could not make a walk: %r', e)

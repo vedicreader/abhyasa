@@ -145,7 +145,7 @@ def f3_same_check_card(pg, w):
 
 def f4_one_filled_button(pg, w):
     "No page shows two filled buttons."
-    for u in ['/', '/learn', f'/w/{w.jid}', '/settings', '/c/ranking', '/add', '/you/strengths', '/you', '/learning', '/keys']:
+    for u in ['/', '/learn', f'/w/{w.jid}', '/settings', '/c/ranking', '/you/strengths', '/you', '/learning', '/keys']:
         pg.goto(w.B + u); settle(pg, 300)
         n = pg.eval_on_selector_all('main .go', 'els => els.filter(e => e.checkVisibility()).length')
         assert n <= 1, (u, n)
@@ -520,28 +520,26 @@ def m7_side_walk_returns_you(pg, w):
 
 # --- 19c: the other pages ------------------------------------------------------------------------------------------
 
-def f9_add_asks_for_one_thing(pg, w):
-    "Add: a choice of four; only the chosen fields show; the tool box only for a link; one main button; a text walk sends only the text."
-    pg.goto(w.B + '/add'); settle(pg, 300)
-    shown = lambda: pg.eval_on_selector_all('.add-form fieldset', 'fs => fs.filter(f => f.checkVisibility()).map(f => f.className)')
-    assert shown() == ['add-doc'], shown()
-    assert not pg.is_visible('input[name=tool]') and visible_gos(pg) == ['Make a walk ⌥S']
-    pg.focus('.add-form input[name=kind][value=doc]'); pg.keyboard.press('ArrowRight'); pg.keyboard.press('ArrowRight')   # the arrow keys move through the choice
-    got = pg.evaluate("[document.querySelector('.add-form input[name=kind]:checked').value, document.activeElement.name]")
-    assert got == ['link', 'kind'], got
-    assert shown() == ['add-link'], shown()
-    pg.click('.add-form .modes-pick label:has-text("A paper or document")')
-    assert shown() == ['add-doc'] and pg.is_visible('.add-doc input[name=subject]') and pg.is_visible('.add-doc >> text=Find concepts only')
-    pg.click('.add-form .modes-pick label:has-text("A link")')
-    assert shown() == ['add-link'] and pg.is_visible('input[name=tool]')
-    assert pg.evaluate('document.activeElement.name') == 'url'
-    pg.click('.add-form .modes-pick label:has-text("A text")')
-    assert shown() == ['add-text'] and pg.is_visible('.add-text >> text=Find concepts only') and not pg.is_visible('input[name=tool]')
-    assert not pg.is_visible('details.more #vr') and pg.is_visible('details.more summary')
-    pg.fill('.add-text textarea', 'Ranking orders items. A rank is a position.')
-    with pg.expect_request(lambda r: r.url.endswith('/walk/new') and r.method == 'POST') as rq: pg.click('main .go')
+def f9_start_box_reads_the_box(pg, w):
+    "Start box: /add opens Learn with the cursor in the box; the line follows the text after 250 ms; options show only when they matter; a question waits for an answer; a text walk sends only q."
+    pg.goto(w.B + '/add'); pg.wait_for_url('**/learn#start'); settle(pg, 300)
+    assert pg.evaluate('document.activeElement.id') == 'start-q'
+    assert pg.is_disabled('#start-go') and 'Not sure what to paste?' in pg.inner_text('#start-will')
+    line = lambda: pg.inner_text('#start-will')
+    def put(t):
+        with pg.expect_response(lambda r: '/learn/read' in r.url): pg.fill('#start-q', t)
+        settle(pg, 150)
+    put('1706.03762'); assert 'An arXiv paper.' in line() and pg.is_enabled('#start-go') and not pg.is_visible('#start-read .opts'), line()
+    put('github.com/vedicreader/fossick'); assert pg.is_checked('input[name=tool]') and 'A GitHub repository.' in line(), line()
+    put('https://youtu.be/x'); assert pg.is_disabled('#start-go') and 'Video links do not work yet.' in line(), line()
+    put('The moon spends about one day in each of the lunar mansions.')
+    assert pg.is_disabled('#start-go') and pg.is_visible('.ask button:has-text("A topic")') and visible_gos(pg) == ['A topic ⌥S'], visible_gos(pg)
+    assert not pg.is_visible('details.start-more .goal-form') and pg.is_visible('details.start-more summary')
+    put('Ranking orders items.\nA rank is a position.')
+    assert 'Pasted text, 2 lines.' in line() and pg.is_visible('#start-read >> text=Find concepts only') and pg.is_visible('input[name=subject]'), line()
+    with pg.expect_request(lambda r: r.url.endswith('/walk/new') and r.method == 'POST') as rq: pg.click('#start-go')
     body = rq.value.post_data or ''
-    assert 'name="text"' in body and 'name="url"' not in body and 'name="ref"' not in body, body[:300]
+    assert 'name="q"' in body and 'name="url"' not in body and 'name="ref"' not in body, body[:300]
     pg.wait_for_url(lambda u: '/w/' in u, timeout=30000); settle(pg, 200)   # the walk opens; wait, so the next check's page load is not cut off
 
 def f10_graph_has_more_graph(pg, w):
@@ -821,8 +819,8 @@ def s2_document_shows_its_images(pg, w):
     assert imgs == [[f'/v/store/{d}/img?f=images/page2_1.png', 'Image 1 from page 2', True]], imgs
     assert 'Image 2 from page 2' not in pg.inner_text('main') and 'Other' not in pg.inner_text('.md.doc'), pg.inner_text('.md.doc')
 
-def s3_link_in_the_document_field(pg, w):
-    "A link in the vault document field starts the link walk with one quiet note; a paper says Reading the paper. On A link, a paper quiets Pages to read. No network: the readers are fakes."
+def s3_paper_link_in_the_start_box(pg, w):
+    "A PDF link in the Start box starts the link walk and says Reading the paper. A paper hides Pages to read; a site shows it. No network: the readers are fakes."
     import abhyasa.sources
     from vishalakshi.core import Vault
     from walk_data import PAGES
@@ -830,26 +828,24 @@ def s3_link_in_the_document_field(pg, w):
     Vault.pdf = lambda self, url, **kw: self.add([(k, 'From the PDF. ' + t) for k, t in PAGES], 'Attention Is All You Need', source=url, kind='pdf')
     abhyasa.sources._final, abhyasa.sources._addrs = (lambda u: u), (lambda host: {'93.184.216.34'})
     try:
-        pg.goto(f'{w.B}/add'); pg.wait_for_selector('.add-form input[name=ref]'); settle(pg, 300)
-        pg.fill('.add-form input[name=ref]', 'https://arxiv.org/pdf/1706.03762'); pg.click('.add-form button.go')
+        pg.goto(f'{w.B}/learn'); pg.wait_for_selector('#start-q'); settle(pg, 300)
+        pg.fill('#start-q', 'https://arxiv.org/pdf/1706.03762'); pg.wait_for_selector('#start-go.go'); pg.click('#start-go')
         pg.wait_for_selector('#walk-out .walk-link', timeout=10000)
         out = pg.inner_text('#walk-out')
-        assert 'This is a link, so the tutor reads it from the web.' in out and 'Reading the paper' in out and '1 of 1' not in out, out
+        assert 'Reading the paper' in out and '1 of 1' not in out, out
         assert not pg.query_selector('#walk-out .req-err'), out
         pg.wait_for_url('**/w/*', timeout=30000)
-        pg.goto(f'{w.B}/add'); pg.wait_for_selector('.add-form'); settle(pg, 300)
-        pg.click('.add-form label:has(input[name=kind][value=link])'); pg.wait_for_selector('.add-link input[name=url]', state='visible')
-        pg.fill('.add-link input[name=url]', '1706.03762')
-        assert pg.is_hidden('.add-link .pages') and pg.is_visible('.add-link .paper-note') and pg.inner_text('.add-link .paper-note') == 'A paper is read in full.'
-        pg.fill('.add-link input[name=url]', 'https://docs.example.dev/attention/')
-        assert pg.is_visible('.add-link .pages') and pg.is_hidden('.add-link .paper-note')
+        pg.goto(f'{w.B}/learn'); pg.wait_for_selector('#start-q'); settle(pg, 300)
+        pg.fill('#start-q', '1706.03762'); pg.wait_for_selector('#start-go.go')
+        assert not pg.is_visible('input[name=pages]')
+        pg.fill('#start-q', 'https://docs.example.dev/attention/'); pg.wait_for_selector('input[name=pages]', state='visible')
     finally: Vault.pdf, abhyasa.sources._final, abhyasa.sources._addrs = was
 
 def r1_start_forms_show_no_error(pg, w):
     "A form that starts something and redirects (Learn this, Make a walk, Start the walk) shows no error line and lands on the next page."
     pg.add_init_script("document.addEventListener('DOMContentLoaded', () => new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => n.classList && n.classList.contains('req-err') && sessionStorage.setItem('errs', n.textContent)))).observe(document, {childList: true, subtree: true}));")
     for url, fill, btn, land in [('/c/ranking', None, 'main button:has-text("Learn this")', '/s/'),
-                                 ('/add', ('.add-form input[name=ref]', add_paper(w.lr)), 'main .go', '/w/'),
+                                 ('/learn', ('#start-q', 'Ranking orders items.\nA rank is a position.'), '#start-go.go', '/w/'),
                                  (w.plan.replace(w.B, ''), None, 'main button:has-text("Start the walk")', '/w/')]:
         pg.goto(w.B + url); settle(pg, 200)
         if fill: pg.fill(*fill)
@@ -1069,10 +1065,10 @@ CHECKS = [tb1_four_tabs_and_keys, f1_one_main_button_and_alt_s, f3_same_check_ca
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, o1_order_items_use_body_size, m7_side_walk_returns_you, rupaka_settle,
-          f9_add_asks_for_one_thing, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
+          f9_start_box_reads_the_box, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
-          s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field, r1_start_forms_show_no_error, ct1_concept_tree,
+          s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_paper_link_in_the_start_box, r1_start_forms_show_no_error, ct1_concept_tree,
           dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason,
           g1_graph_uses_the_window_and_fits, gr1_the_grips_show_and_resize, g2_clusters_have_labels_and_regions, rs1_topic_walk_shows_a_web_source,
     op1_open_check_survives_a_restart]   # last: it restarts the server

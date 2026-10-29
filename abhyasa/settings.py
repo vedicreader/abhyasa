@@ -109,7 +109,8 @@ add('links.read', 'links', 'Characters read for each page', 'The most characters
 add('research.on', 'research', 'Find sources on the web', 'For a step with no source, the tutor searches the web and quotes a page. The search sees your topic.', True)
 add('research.per_walk', 'research', 'Steps to research in a walk', 'The most steps of one new walk that the tutor finds a source for. 0 means none.', 12, 0, 30)
 add('research.results', 'research', 'Search results to read', 'How many search results the tutor looks at for one step. It reads the best 3 pages.', 5, 3, 10, more=True)
-add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk from a walk with no source waits for web sources. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s');
+add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk from a walk with no source waits for web sources. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s')
+add('research.told', 'research', 'Web search line shown', 'The Start box said one time that a topic walk searches the web.', False, ui=False);
 
 # %% ../nbs/16_settings.ipynb #4412f5ae
 add('runner.total', 'runner', 'Total time', 'How long your code can run for all the tests together. Then the run stops.', 10, 5, 60, unit='s')

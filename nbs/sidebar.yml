@@ -21,3 +21,4 @@ website:
       - 16_settings.ipynb
       - 17_talk.ipynb
       - 18_research.ipynb
+      - 19_detect.ipynb

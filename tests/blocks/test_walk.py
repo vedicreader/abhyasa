@@ -249,7 +249,7 @@ HX = {'hx-request': 'true'}   # htmx asks for a part; without it FastHTML wraps 
 def test_ways_in(mk, walk_fake, lr):
     cl = mk()
     add = cl.get('/add').text
-    assert 'A paper or document' in add and '/walk/new' in add
+    assert 'Paste a link, a paper, a topic, a file name or some text' in add and 'hx-post="/walk/new"' in add
     did = add_paper(lr)
     assert 'Learn as a walk' in cl.get(f'/v/store/{did}').text
     jid = cl.post('/walk/new', data=dict(text=PAGES[1][1], title='My notes')).headers['hx-redirect'].split('/')[-1]
@@ -288,7 +288,7 @@ def test_walk_from_a_link(mk, walk_fake, lr, monkeypatch):
     monkeypatch.setattr('abhyasa.sources._final', lambda u: u)   # no fetch of the start page
     monkeypatch.setattr('abhyasa.sources._addrs', lambda host: {'93.184.216.34'})   # no DNS: a host on the internet
     cl = mk(); u = 'https://docs.example.dev/attention/'
-    assert 'A link' in cl.get('/add').text and 'Pages to read' in cl.get('/add').text
+    assert 'Pages to read' in cl.get('/learn/read', params=dict(q=u)).text
     r = cl.post('/walk/new', data=dict(url=u, pages=3)).text
     assert 'pending' in r and '/walk/job' in r                                     # a link walk is made as a job
     jid = wait_for(lambda: (cl.get('/walk/job', params=dict(url=u)).headers.get('hx-redirect') or '').split('/')[-1] or None, secs=10)
@@ -322,7 +322,7 @@ def test_link_walk_shows_only_its_own_messages(mk, walk_fake, lr, monkeypatch):
 def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
     from abhyasa.core.leela import LEELA_INSTALL
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path))
-    cl = mk(); assert 'Code opens in Leela' in cl.get('/add').text
+    cl = mk(); assert 'Code steps open in Leela' in cl.get('/learn/read', params=dict(q='github.com/a/b')).text
     jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='on')).headers['hx-redirect'].split('/')[-1]
     assert lr.journey(jid).tool is True
     plan = cl.get(f'/w/{jid}').text
@@ -597,10 +597,11 @@ def test_paper_link_says_paper(mk, walk_fake, lr, monkeypatch):
         assert t and seen[d] == 15
     finally: go.set()
 
-def test_add_page_quiets_pages_for_a_paper(mk):
-    "The link field has a script that quiets Pages to read for a paper, and the muted line is there."
-    t = mk().get('/add').text
-    assert 'A paper is read in full.' in t and 'paper-note' in t
+def test_start_box_shows_no_pages_for_a_paper(mk):
+    "A paper is read in full, so the Start box shows no Pages to read for it. A docs site shows it."
+    cl = mk()
+    assert 'Pages to read' not in cl.get('/learn/read', params=dict(q='https://arxiv.org/pdf/1706.03762')).text
+    assert 'Pages to read' in cl.get('/learn/read', params=dict(q='https://docs.example.dev/a/')).text
 
 def boxes(html):
     "The answer box and the think-aloud box of a page, as their tags and their text."
@@ -640,7 +641,7 @@ def test_link_walk_sets_a_subject_for_each_new_concept(mk, walk_fake, lr, monkey
     reply['concepts'][0]['name'] = 'sequential-computation'
     walk_fake.rules['Return JSON: {"concepts"'] = reply
     cl = mk()
-    assert 'name="subject"' in cl.get('/add').text
+    assert 'name="subject"' in cl.get('/learn/read', params=dict(q='a\nb')).text
     jid = link_walk_subjects(cl, 'https://docs.example.dev/a/')
     assert lr.journey(jid).subject == 'transformers'                                 # the walk has the subject that the tutor picked
     got = {c.slug: c.subject for c in lr.concepts()}

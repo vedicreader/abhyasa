@@ -79,6 +79,11 @@ def connect(app, ctx):
         more = [A(f'See all {len(js)} in Learn', href=Routes.learn), ' · '] if len(js) > (n := val('lists.journeys')) else []
         return (H2('Your walks'), ui.JourneyList(js[:n]), P(*more, A('Start something new', href=f'{Routes.learn}#start'), cls='mute'), *ui.assets())
 
+    @hook('start_more')
+    def goal_box():
+        "Under More in the Start box: plan a path of concepts from a goal, with no source."
+        return Div(P('Plan a path of concepts, with no source', cls='lbl'), ui.GoalForm(compact=True, label=False))
+
     @hook('concept_more')
     def in_journeys(c):
         rows, js = [(j, i) for j, i in with_step(lr, c.slug) if not for_talk(j)], yours()

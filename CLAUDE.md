@@ -2,7 +2,7 @@
 
 nbdev 3 on hatchling. Two kinds of code live here:
 
-- The engine (`store`, `model`, `llm`, `tutor`, `sources`, `voice`, `ground`, `rama`, `nb`, `demo`, `journey`, `profile`, `method`, `research`): the notebooks under `nbs/` are the
+- The engine (`store`, `model`, `llm`, `tutor`, `sources`, `voice`, `ground`, `rama`, `nb`, `demo`, `journey`, `profile`, `method`, `research`, `detect`): the notebooks under `nbs/` are the
   source, and `abhyasa/*.py` is generated. Edit the notebook. Run `uv run nbdev-prepare` (with a hyphen). Never edit a generated file.
 - The web app (`abhyasa/app.py`, `abhyasa/core/`, `abhyasa/blocks/`): plain Python written by hand, tested with `uv run pytest`.
 

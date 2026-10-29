@@ -105,11 +105,13 @@ def test_research_off_means_no_search(mk, web, lr):
         cl.post(f'/w/{jid}/0/source')
         assert web.asked == [] and state(lr, jid) is None
         assert 'The search sees your topic' not in cl.get('/add').text
+        assert 'from its own knowledge' in cl.get('/learn/read', params=dict(q='how attention works')).text   # the Start box line comes from the setting
     finally: set_val('research.on', True)
 
-def test_add_page_says_the_search_sees_the_topic(mk, web):
+def test_start_box_says_the_search_sees_the_topic(mk, web):
     cl = mk()
-    assert 'The tutor searches the web for sources. The search sees your topic.' in cl.get('/add').text
+    assert 'The tutor searches the web for sources. The search sees your topic.' in cl.get('/add').text   # the goal box under More
+    assert 'looks for sources on the web' in cl.get('/learn/read', params=dict(q='how attention works')).text
 
 def test_a_journey_talk_shows_the_web_source(mk, web, lr, talk_fake):
     "A talk from a journey looks for sources before it makes the slides, so the slide shows the passage and the editor names the page."

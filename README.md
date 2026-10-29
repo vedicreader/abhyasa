@@ -65,7 +65,7 @@ When you say “I don’t know X”, X becomes a concept, and it comes first the
 
 ## Learn a paper, a topic or a link as a walk
 
-A walk takes you through one source, one idea at a time. You can make a walk from a paper in your vault, a text that you paste, a topic, or a link. Use Add, and choose what you have.
+A walk takes you through one source, one idea at a time. You can make a walk from a paper in your vault, a text that you paste, a topic, or a link. Paste it into the Start box in Learn. One line says what abhyasa will do with it. When two readings are likely, the box asks you to pick one.
 
 The tutor reads the source and picks the main ideas. A walk has 12 ideas by default. You can change this number in Settings, under Walks. Before you start, the plan page shows each idea and the kind of check for it. You can change the kind for an idea there.
 
@@ -88,7 +88,7 @@ The tests of a code check run in a closed process with no network. Each test has
 
 On Add, choose “A link”. These links work: a web page, a documentation site, a PDF, an arXiv link or id, and a GitHub repository or file. A video link does not work. A link to your own computer or to a local network does not work either.
 
-abhyasa fetches the link only when you press “Make a walk”. It reads only the pages in the folder of the link, after any redirect. It reads at most the page cap. The default is 8 pages. You can set the number on Add, up to the cap in Settings, under Links. The cap is 20 by default.
+abhyasa fetches the link only when you press Start. The box reads only the text that you type, and it makes no network call. It reads only the pages in the folder of the link, after any redirect. It reads at most the page cap. The default is 8 pages. You can set the number in the Start box, up to the cap in Settings, under Links. The cap is 20 by default.
 
 ## Rabbit holes
 
@@ -260,7 +260,7 @@ The web app is made from blocks in `abhyasa/blocks`:
 | `concepts` | the list of concepts, and one page for each concept with its state |
 | `graph` | the concept graph. You can color it by depth, by how well you know each concept, by subject or by due date |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |
-| [`add`](https://vedicreader.github.io/abhyasa/settings.html#add) | make a walk, or find concepts, from a text, a vault document, vedicreader or a link |
+| [`add`](https://vedicreader.github.io/abhyasa/settings.html#add) | the Start box: read what you paste or drop, then make a walk or find concepts; the vedicreader import |
 | `walk` | a walk: one step for each idea, with a passage, a note and a check |
 | [`detour`](https://vedicreader.github.io/abhyasa/journey.html#detour) | rabbit holes: a primer, a side walk or a session for an idea that a step needs, with the side pane |
 | `demo` | interactive demos from rupaka: on a concept page, under a lesson after a miss, and one page for each demo |

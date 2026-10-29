@@ -2,7 +2,8 @@
 
 The hooks: `today_top`, `today_next`, `today`, `today_end` (the parts of Today, in that order; `today_end` parts go on one line);
 `learning_end` (the end of Your learning);
-`learn_talks` and `learn_start` (the parts of Learn after your walks: your talks, and Start something new); `nav_extra` (the right of the top bar);
+`learn_talks` and `learn_start` (the parts of Learn after your walks: your talks, and Start something new); `start_more` (under More in
+the Start box: the goal box); `nav_extra` (the right of the top bar);
 `page_extra` (once at the end of each page); `concept_actions` and `concept_more` (a concept page); `answer_tools` (the session
 composer); `lesson_extra` (under a lesson).
 

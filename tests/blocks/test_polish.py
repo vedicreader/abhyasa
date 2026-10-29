@@ -84,7 +84,7 @@ def test_each_page_has_at_most_one_filled_button(mk, walk_fake, lr):
         assert u == '/keys' or t.count('<kbd>⌥S</kbd>') <= 1, u                  # the shortcut sheet lists the keys
     assert gos(cl.get('/').text) == ['Continue <kbd>⌥S</kbd>']                 # the Continue card is the main button, and Start is plain
     assert 'autofocus' not in cl.get('/').text
-    assert gos(cl.get('/c/ranking').text) == ['Learn this <kbd>⌥S</kbd>'] and gos(cl.get('/add').text) == ['Make a walk <kbd>⌥S</kbd>']
+    assert gos(cl.get('/c/ranking').text) == ['Learn this <kbd>⌥S</kbd>'] and '<button disabled type="button" id="start-go"' in cl.get('/add').text   # an empty Start box: Start is off
     assert gos(cl.get(f'/w/{jid}').text) == ['Start the walk <kbd>⌥S</kbd>']
     cl.get(f'/s/{sid}/end')
     assert len(gos(cl.get(f'/s/{sid}/end').text)) <= 1
