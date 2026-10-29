@@ -5,6 +5,7 @@ class Routes:
     one = '/t/{tid}'                   # the editor: the slides of the talk
     slide = '/t/{tid}/slide'           # one change to one slide
     slot = '/t/{tid}/slot'             # the minutes of the slot, and room phones
+    fill = '/t/{tid}/fill'             # write the points and the notes of the slides that have none, on the pool
     start = '/t/{tid}/start'           # start a run (Task 6)
     present = '/t/{tid}/present'       # the presenter window (Task 6)
     audience = '/t/{tid}/audience'     # the audience window (Task 6)

@@ -154,6 +154,54 @@ def test_present_this_journey(mk, talk_fake, lr):
     assert 'Made from your journey' in ed and f'href="/j/{jid}"' in ed and 'This talk has the first' not in ed and 'The journey changed' not in ed
     for pg in ('/', '/journeys', '/learning', '/c/ranking'): assert f'/w/{w.id}' not in cl.get(pg).text, pg
 
+def test_a_journey_talk_has_content(mk, talk_fake, lr):
+    "Each idea slide of a journey talk has content and notes: a step with no passage gets points, and a step with a passage keeps it."
+    cl = mk(); jid = journey_of(lr)
+    assert 'points and the speaker notes' in cl.post('/talk/journey', data=dict(jid=jid)).text   # the pending card says what the tutor writes
+    tid = wait_for(lambda: cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect')).split('/')[-1]
+    s1, s2 = lr.talk(tid).slides[:2]
+    assert s1['show']['passage'] == 'Ranking orders items by score.' and 'body' not in s1['show'] and '**Watch for:**' in s1['notes']
+    assert s1['cites'] == [dict(src='vault:notes', ref='n1', title='My ranking notes', url='https://example.org/notes')]   # from your sources
+    assert s2['show']['body'] == SLIDE['points'] and s2['beats'][0] == 'body' and '**Ask the room:**' in s2['notes'] and 'cites' not in s2
+
+def test_the_room_sees_the_points(mk, talk_fake, lr):
+    "The audience window shows the points of a slide and never its notes or sources; the presenter window shows the notes and the sources."
+    cl = mk(); tid = journey_talk(cl, journey_of(lr)); cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
+    a = cl.get(f'/t/{tid}/audience?k={run["key"]}').text
+    assert 'class="points"' in a and '<li>The idea has one main step.</li>' in a
+    assert 'People mix up' not in a and 'Start with the main step' not in a and 'Watch for' not in a and 'My ranking notes' not in a
+    p = cl.get(f'/t/{tid}/present').text
+    assert 'People mix up the main step and the example.' in p and 'From your sources' in p and 'My ranking notes' in p
+
+def test_edit_the_points(mk, talk_fake, lr):
+    "The editor shows the points, one on each line; a change saves them, and no points takes the beat out."
+    cl = mk(); tid = journey_talk(cl, journey_of(lr))
+    ed = cl.get(f'/t/{tid}').text
+    assert 'name="body"' in ed and 'The idea has one main step.' in ed
+    assert cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='edit', body='One point.\nTwo points.')).status_code == 200
+    s = lr.talk(tid).slides[1]; assert s['show']['body'] == ['One point.', 'Two points.'] and s['beats'][0] == 'body'
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='edit', body=''))
+    s = lr.talk(tid).slides[1]; assert s['show']['body'] == [] and 'body' not in s['beats']
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='edit', body='Back again.'))
+    assert lr.talk(tid).slides[1]['beats'][0] == 'body'
+    assert cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='edit', body='\n'.join(['A point.'] * 7))).status_code == 400
+    assert cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='edit', body='x' * 301)).status_code == 400
+
+def test_fill_the_slides(mk, talk_fake, lr):
+    "An old talk with bare slides offers Fill the slides; the GET only reads, and the POST runs the job that fills them."
+    from abhyasa.talk import talk_from_walk
+    cl = mk(); tid = journey_talk(cl, journey_of(lr)); wid = lr.talk(tid).src['walk']
+    old = talk_from_walk(lr, talk_fake, wid, fill=False); before = lr.talk(old.id)
+    ed = cl.get(f'/t/{old.id}').text
+    assert 'Fill the slides' in ed and '2 slides have no points or no speaker note.' in ed and lr.talk(old.id) == before   # the GET only reads
+    assert 'Fill the slides' not in cl.get(f'/t/{tid}').text   # a full talk does not offer it
+    assert 'Filling the slides' in cl.post(f'/t/{old.id}/fill').text
+    assert wait_for(lambda: cl.get(f'/talk/job?jid={old.id}').headers.get('hx-redirect')) == f'/t/{old.id}'
+    s1, s2 = lr.talk(old.id).slides[:2]
+    assert '**Watch for:**' in s1['notes'] and s2['show']['body'] == SLIDE['points'] and 'Fill the slides' not in cl.get(f'/t/{old.id}').text
+    assert cl.post('/t/nope/fill').status_code == 404
+    assert cl.post(f'/t/{old.id}/fill', headers={'Origin': 'https://evil.example'}).status_code == 403
+
 def test_a_journey_talk_again(mk, talk_fake, lr):
     "A journey that you presented before offers its talk and Make it again; a second press gives the same talk, and Make it again a new one."
     cl = mk(); jid = journey_of(lr); tid = journey_talk(cl, jid); n = len(lr.journeys())
