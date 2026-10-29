@@ -56,7 +56,7 @@ def add_group(gs:list, g:list) -> list:
 def extract_prompt(text, subject='', known=(), groups=(), subjects=(), lead=''):
     from abhyasa.method import METHODS
     kn = ', '.join(map(quoted, known[:150]))
-    return ((f"Subject: {subject}\n" if subject else '') + (f"Subjects the learner has: {'; '.join(map(quoted, subjects[:60]))}\n" if subjects and not subject else '')
+    return ((f"Subject: {quoted(subject)}\n" if subject else '') + (f"Subjects the learner has: {'; '.join(map(quoted, subjects[:60]))}\n" if subjects and not subject else '')
             + (f"Subject of this text so far: {quoted(lead)}\n" if lead and not subject else '')
             + (f"Concepts the learner already has: {kn}\n" if kn else '') + group_line(groups)
             + f"Ways: {', '.join(METHODS)}\n\nText:\n{text}\n\n"
@@ -173,7 +173,7 @@ def _places(pages, recs):
 
 def extract(lr:Learning, ask, text:str='', subject:str='', source:dict=None, pages:list=None) -> L:
     "Add the core ideas of `text` (or of `pages`, a list of `(page, text)`) to the shelf as concepts, merged with the concepts there. Return the slugs that it changed."
-    pgs = pages if pages is not None else [(None, text)]
+    subject, pgs = clean_subject(subject), pages if pages is not None else [(None, text)]
     recs = _read(lr, ask, text, subject, pgs)
     places = _places(pgs, recs) if pages is not None else [(None, None)] * len(recs)
     src = _doc_source(lr, source) if pages is not None else ''
@@ -221,7 +221,7 @@ SORT_SP = register('concepts.sort', 'Concept sorter', 'How the tutor sorts your 
 def sort_prompt(subject:str, cs, groups=(), subjects=(), again:bool=False) -> str:
     "The request for one batch: the subject (or the subjects that exist, for concepts with no subject), the groups so far, and one line for each concept. `again` asks for the concepts that got no place."
     item = lambda c: f"- {c.slug}: {quoted(c.name)}. {quoted(str(c.get('statement') or '')[:160])}"
-    head = f"Subject: {subject}\n" if subject else "Subject: none. These concepts have no subject.\nSubjects now: " + ('; '.join(map(quoted, subjects[:60])) or 'none') + '\n'
+    head = f"Subject: {quoted(subject)}\n" if subject else "Subject: none. These concepts have no subject.\nSubjects now: " + ('; '.join(map(quoted, subjects[:60])) or 'none') + '\n'
     return (head + (group_line(groups) or 'Groups of this subject now: none\n')
             + ('\nThese concepts got no place the first time. Give a group to each one now.\n' if again else '')
             + '\nConcepts:\n' + '\n'.join(map(item, cs))

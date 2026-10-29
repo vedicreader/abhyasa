@@ -16,7 +16,7 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'SHORT_WAYS', 'PICK_SP', 'S
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
 from fastcore.utils import *
-from .store import Learning, slugify, _src
+from .store import Learning, slugify, _src, clean_subject
 from .model import learned
 from .settings import val
 from .llm import ask_json, for_task
@@ -222,6 +222,11 @@ def _leela(c, tool:bool) -> dict:
     "`leela=True` for an idea with a code way on a tool walk: its code is learned in Leela."
     return dict(leela=True) if tool and 'code' in (c.get('ways') or ()) else {}
 
+def _subject_of(lr:Learning, slugs, subject:str='') -> str:
+    "`subject`, or the most common subject of the concepts `slugs` when it is empty."
+    ss = [c.subject for c in map(lr.concept, slugs) if c and c.subject]
+    return subject or (max(set(ss), key=ss.count) if ss else '')
+
 def _steps(lr:Learning, slugs, doc_id:str, shelf:str, title:str, tool:bool=False) -> list:
     "One walk step for each of `slugs` that has a place in document `doc_id`, in the order of the document. On a tool walk, an idea with a code way has `leela`."
     cs = sorted(((c, placement(c, doc_id)) for c in map(lr.concept, slugs) if c and placement(c, doc_id)), key=lambda x: x[1].get('order') or 0)
@@ -243,22 +248,22 @@ def _walk(lr:Learning, ask, jid:str, title:str, slugs, doc_id:str, source:dict|N
 
 def journey_from_source(lr:Learning, ask, ref:str, shelf:str='store', subject:str='', tool:bool=False) -> AttrDict:
     "Make a walk from one vault document, by doc id, source or title. `tool` marks a library or a command-line tool."
-    d = doc_pages(lr, ref, shelf)
+    d, subject = doc_pages(lr, ref, shelf), clean_subject(subject)
     slugs = from_vault(lr, ask, d.doc_id, subject, shelf)
-    return _walk(lr, ask, _new_id(d.title), d.title, slugs, d.doc_id, dict(shelf=shelf, doc_id=d.doc_id, title=d.title), f'Read {d.title}', subject, tool)
+    return _walk(lr, ask, _new_id(d.title), d.title, slugs, d.doc_id, dict(shelf=shelf, doc_id=d.doc_id, title=d.title), f'Read {d.title}', _subject_of(lr, slugs, subject), tool)
 
 # %% ../nbs/11_journey.ipynb #w306
 def journey_from_text(lr:Learning, ask, text:str, title:str, subject:str='', tool:bool=False) -> AttrDict:
     "Make a walk from pasted `text`."
-    jid = _new_id(title)
+    jid, subject = _new_id(title), clean_subject(subject)
     slugs = extract(lr, ask, subject=subject, source=dict(src='text', doc_id=jid, title=title), pages=[(None, text)])
-    return _walk(lr, ask, jid, title, slugs, jid, None, f'Read {title}', subject, tool)
+    return _walk(lr, ask, jid, title, slugs, jid, None, f'Read {title}', _subject_of(lr, slugs, subject), tool)
 
 # %% ../nbs/11_journey.ipynb #lk41
 def journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str='', progress=None, tool:bool=False, **extra) -> AttrDict:
     "Make one walk across the vault documents `docs`, each with `shelf`, `doc_id`, `title` and `url`, in their order. `extra` goes on the journey."
     if not docs: raise ValueError('no pages to walk')
-    got = {}
+    got, subject = {}, clean_subject(subject)
     for k, d in enumerate(docs):
         if progress: progress(k, len(docs))
         got[d.doc_id] = from_vault(lr, ask, d.doc_id, subject, d.shelf, chars=val('links.read'))
@@ -267,7 +272,7 @@ def journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str=
     home = {s: (first(d for d in named(s) if told(s, d)) or named(s)[0]).doc_id for d in docs for s in got[d.doc_id]}
     steps = [x for d in docs for x in _steps(lr, [s for s in got[d.doc_id] if home[s] == d.doc_id], d.doc_id, d.shelf, d.title, tool)]
     title = title or docs[0].title
-    return _save_walk(lr, ask, _new_id(title), title, steps, dict(url=docs[0].url, docs=[dict(d) for d in docs]), f'Read {title}', subject, tool, **extra)
+    return _save_walk(lr, ask, _new_id(title), title, steps, dict(url=docs[0].url, docs=[dict(d) for d in docs]), f'Read {title}', _subject_of(lr, [s for v in got.values() for s in v], subject), tool, **extra)
 
 # %% ../nbs/11_journey.ipynb #w308
 def _topic_read(c, sources) -> dict|None:

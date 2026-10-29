@@ -8,6 +8,7 @@ from fasthtml.common import *
 from abhyasa.core import n_of, Page, hook, run as run_hook
 from abhyasa.core.leela import leela_line
 from abhyasa.settings import val
+from abhyasa.store import clean_subject
 from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
@@ -167,7 +168,7 @@ def connect(app, ctx):
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
     def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str=''):
-        tool, ref, shelf, subject = tool == 'on', ref.strip(), shelf.strip() or 'store', subject.strip()
+        tool, ref, shelf, subject = tool == 'on', ref.strip(), shelf.strip() or 'store', clean_subject(subject)
         if url.strip(): return link_walk(url.strip(), pages, tool, subject)
         if (u := as_link(ref)): return Div(P(AS_LINK, cls='mute'), link_walk(u, '', tool, subject))   # a link in the vault document field
         try:

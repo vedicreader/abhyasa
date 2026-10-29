@@ -630,7 +630,8 @@ def test_link_walk_sets_a_subject_for_each_new_concept(mk, walk_fake, lr, monkey
     walk_fake.rules['Return JSON: {"concepts"'] = reply
     cl = mk()
     assert 'name="subject"' in cl.get('/add').text
-    link_walk_subjects(cl, 'https://docs.example.dev/a/')
+    jid = link_walk_subjects(cl, 'https://docs.example.dev/a/')
+    assert lr.journey(jid).subject == 'transformers'                                 # the walk has the subject that the tutor picked
     got = {c.slug: c.subject for c in lr.concepts()}
     assert got['sequential-computation'] == 'transformers' and got['scaling-by-the-root-of-dk'] == 'transformers' and got['softmax'] == 'math'
     assert lr.concept('sequential-computation').name == 'Sequential computation'
@@ -639,6 +640,7 @@ def test_link_walk_uses_the_subject_field(mk, walk_fake, lr, monkeypatch):
     "With the Subject field, each new concept gets that subject, and the request does not ask the finder for one."
     fake_web(monkeypatch)
     walk_fake.rules['Return JSON: {"concepts"'] = dict(concepts=[{**c, 'subject': 'Transformers'} for c in EXTRACT_REPLY['concepts']])
-    link_walk_subjects(mk(), 'https://docs.example.dev/b/', subject='nlp')
-    assert {c.subject for c in lr.concepts() if c.slug in ('softmax', 'sequential-computation')} == {'nlp'}
-    assert 'Subject: nlp' in walk_fake.calls[-1][0] and '"subject": str' not in walk_fake.calls[-1][0]
+    jid = link_walk_subjects(mk(), 'https://docs.example.dev/b/', subject=' NLP!\n- x ')
+    assert lr.journey(jid).subject == 'nlp - x'
+    assert {c.subject for c in lr.concepts() if c.slug in ('softmax', 'sequential-computation')} == {'nlp - x'}
+    assert 'Subject: "nlp - x"' in walk_fake.calls[-1][0] and '"subject": str' not in walk_fake.calls[-1][0]
