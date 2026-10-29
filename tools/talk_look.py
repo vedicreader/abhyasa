@@ -1,0 +1,365 @@
+"""Browser checks of a talk (Task 8 of the group talk plan), and the screens of the editor, the two windows and the page after the talk.
+
+Run: uv run --all-extras python tools/talk_look.py [--shots] [--out design/screens]
+It makes a temporary vault and settings folder, runs the app with the `Fake` model on a free port, and opens it in Playwright's
+bundled Chromium (headless, one browser, closed at the end). The presenter window is 1280 by 800 and the audience window 1280 by 720.
+Each check prints PASS or FAIL; the run fails when one check fails, or when a page has a script error.
+The checks build on each other, in the order of `CHECKS`: one talk, from the editor to the page after the talk.
+`--only` runs only the checks that it names, so name a check with the checks before it.
+`--shots` also takes the screens `talk-<page>-<theme>-<mode>-<width>.png` at 1280 and 1000 px, light and dark, Paper and Signal,
+and the seven screens of the plan (`talk-editor.png`, `talk-presenter.png`, ... in Paper at 1280 px)."""
+import argparse, os, shutil, socket, struct, sys, tempfile, threading, time, zlib
+from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+TMP = Path(tempfile.mkdtemp(prefix='abhyasa-talk-look-'))
+os.environ['VISHALAKSHI_VAULT'] = os.environ['ABHYASA_VAULT'] = str(TMP/'vault.db')   # never the real vault
+os.environ['ABHYASA_CONFIG'] = str(TMP/'config')                                       # nor the real settings
+os.environ['RAMABANA_CONFIG'] = str(TMP/'ramabana.toml')                               # nor the real ramabana config
+os.environ['ABHYASA_LEELA_FILE'] = str(TMP/'leela'/'serving.json')
+os.environ['XDG_CONFIG_HOME'] = str(TMP/'xdg')
+for k in ('ABHYASA_STT', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ABHYASA_MODEL'): os.environ.pop(k, None)
+sys.path[:0] = [str(ROOT/'tests')]
+
+import abhyasa.voice
+abhyasa.voice.RAMABANA_KEYS = TMP/'keys.env'
+import rupaka.check
+rupaka.check.can_check = lambda: False   # no browser inside the app for a demo check
+from abhyasa.store import temp_learning
+from abhyasa.llm import Fake
+from abhyasa.app import mk_app
+from abhyasa.core.cfg import cfg
+from walk_data import EXTRACT_REPLY, EXERCISE, add_paper
+from talk_data import TALK_RULES, prep_walk
+
+cfg['leela'] = ''
+PRESENTER, AUDIENCE = dict(width=1280, height=800), dict(width=1280, height=720)
+LIT = 'softmax function'   # words of the passage of slide 2
+
+def seed():
+    "A vault with two concepts, and an app on it with the Fake model and the replies for a walk and a talk."
+    ask = Fake({'Return JSON: {"concepts"': EXTRACT_REPLY, 'You write a short note': 'Softmax makes weights from scores. Look at what a large score does.',
+                'You write one small Python exercise': EXERCISE, **TALK_RULES},
+               dflt=dict(question='What does a rank tell you?', answer='Its position.', rubric=['position']))
+    lr = temp_learning()
+    lr.put('Ranking', 'Order items by a score.', 'ml', order=0)
+    lr.put('Reciprocal rank fusion', 'Sum 1/(k + rank) over lists.', 'ml', prereqs=['ranking'], order=1)
+    return lr, mk_app(lr, ask, transcribe=lambda a, hint='': 'spoken text', hosts=('127.0.0.1', 'localhost'))
+
+def figure_png(w=640, h=360):
+    "A plain picture for the figure of slide 2: four bars, as the shares of a softmax. The test data has only the PNG header."
+    bars = [(.62, (122, 74, 50)), (.2, (160, 120, 96)), (.12, (190, 160, 140)), (.06, (215, 195, 180))]
+    def px(x, y):
+        k, left = divmod(x - 60, 140)
+        if 0 <= k < 4 and left < 100 and y > h - 40 - bars[k][0] * (h - 80) and y < h - 40: return bars[k][1]
+        return (60, 50, 40) if y == h - 40 and 40 <= x < w - 40 else (246, 241, 230)
+    raw = b''.join(b'\0' + bytes(c for x in range(w) for c in px(x, y)) for y in range(h))
+    chunk = lambda t, d: struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d))
+    return b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+
+def serve(app):
+    "Run `app` on a free port in a thread. Return the server and its base URL; the caller stops it with `server.should_exit`."
+    import uvicorn
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning'))
+    threading.Thread(target=srv.run, daemon=True).start()
+    end = time.monotonic() + 30
+    while not srv.started and time.monotonic() < end: time.sleep(.05)
+    return srv, f'http://127.0.0.1:{port}'
+
+def settle(pg, ms=400):
+    try: pg.wait_for_load_state('networkidle', timeout=8000)
+    except Exception: pass
+    pg.wait_for_timeout(ms)
+
+def look(rq, B, theme, mode): rq.post(f'{B}/settings/look', form=dict(theme=theme, mode=mode))
+
+def guard(pg, errs):
+    "Collect the script errors of `pg` in `errs`: uncaught errors and console errors. A failed request is not a script error."
+    pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
+    pg.on('console', lambda m: m.type == 'error' and not m.text.startswith('Failed to load resource') and errs.append(m.text[:200]))
+
+# --- the state that the checks and the screens share --------------------------------------------------------------
+
+class World:
+    "The prepared walk, its talk, an old run, and the two windows."
+    def __init__(self, lr, ctx, B, errs):
+        self.lr, self.ctx, self.B, self.errs, self.rq = lr, ctx, B, errs, ctx.request
+        doc = add_paper(lr); (lr.vault.assets('attention')/'images'/'fig2.png').write_bytes(figure_png())
+        r = self.rq.post(f'{B}/walk/new', form=dict(ref=doc), headers={'HX-Request': 'true'}, max_redirects=0)
+        self.jid = prep_walk(lr, r.headers['hx-redirect'].split('/')[-1])
+        self.rq.post(f'{B}/talk/new', form=dict(jid=self.jid))
+        end, loc = time.monotonic() + 20, None
+        while not loc and time.monotonic() < end:
+            loc = self.rq.get(f'{B}/talk/job?jid={self.jid}', max_redirects=0).headers.get('hx-redirect'); time.sleep(.1)
+        assert loc, 'the talk was not made in 20 s'
+        self.tid = loc.split('/')[-1]
+        # a run that ended: its key is an old run key
+        self.rq.post(f'{B}/t/{self.tid}/start', max_redirects=0); old = lr.talk(self.tid).live
+        self.old_key = lr.run(old)['key']
+        self.rq.post(f'{B}/t/{self.tid}/end', max_redirects=0)
+        assert lr.talk(self.tid).live is None
+        self.n0 = len(lr.attempts(limit=10000))
+        self.au = None
+
+    @property
+    def run(self): return self.lr.run(self.lr.talk(self.tid).live)
+    @property
+    def channel(self): return f"{self.tid}:{self.run['key']}"
+
+def place(pg): return pg.evaluate("(s => [s.dataset.slide, +s.dataset.beat])(document.getElementById('stage'))")
+def wait_place(pg, slide, beat=None):
+    pg.wait_for_function("([s, b]) => { const st = document.getElementById('stage'); return st.dataset.slide === s && (b === null || +st.dataset.beat === b); }",
+                         arg=[slide, beat], timeout=8000)
+def no_hscroll(pg): return pg.evaluate('document.documentElement.scrollWidth <= innerWidth')
+def px(pg, sel): return pg.eval_on_selector(sel, 'e => parseFloat(getComputedStyle(e).fontSize)')
+def post_on(pg, name, msg):
+    "Post `msg` on the stage channel `name` from page `pg`, as a stranger to the talk would."
+    pg.evaluate("([n, m]) => { const b = new BroadcastChannel('abhyasa-stage:' + n); b.postMessage(m); b.close(); }", [name, msg])
+def press(pg, *keys):
+    for k in keys: pg.keyboard.press(k)
+
+# --- the checks: each takes (pg, w), where pg is the presenter page, and raises AssertionError ---------------------
+
+def editor_keys(pg, w):
+    "The editor: rows in walk order, W and S move the focus, ⇧S moves the slide, ⌥F still opens the keyboard shortcuts; a lit: beat goes in through the form."
+    pg.goto(f'{w.B}/t/{w.tid}'); settle(pg)
+    sids = pg.eval_on_selector_all('#deck li.slide', 'els => els.map(e => e.dataset.sid)')
+    slides = w.lr.talk(w.tid).slides
+    assert sids == [s['id'] for s in slides], sids
+    steps = [s['step'] for s in slides if s['kind'] == 'idea']
+    assert steps == sorted(steps) and len(steps) == 3, steps
+    focused = lambda: pg.evaluate("document.activeElement.dataset.sid || ''")
+    press(pg, 's', 's'); assert focused() == 's2', focused()
+    press(pg, 'w'); assert focused() == 's1', focused()
+    press(pg, 'Shift+S')
+    pg.wait_for_function("document.querySelectorAll('#deck li.slide')[1].dataset.sid === 's1' && document.activeElement.dataset.sid === 's1'")
+    press(pg, 'Shift+W')
+    pg.wait_for_function("document.querySelectorAll('#deck li.slide')[0].dataset.sid === 's1' && document.activeElement.dataset.sid === 's1'")
+    assert [s['id'] for s in w.lr.talk(w.tid).slides][:3] == ['s1', 's2', 's3']
+    press(pg, 'Alt+f'); pg.wait_for_url('**/keys', timeout=8000)
+    assert 'Talk plan' in pg.text_content('main'), pg.url
+    pg.goto(f'{w.B}/t/{w.tid}'); settle(pg)
+    press(pg, 's', 's', 'e')   # the form of slide 2
+    assert focused() == '' and pg.evaluate("document.activeElement.closest('li.slide')?.dataset.sid") == 's2'
+    box = pg.locator('li.slide[data-sid="s2"] textarea[name=beats]')
+    box.fill(f'passage\nfigure\nlit:{LIT}'); pg.locator('li.slide[data-sid="s2"] form.slide-edit button').click()
+    pg.wait_for_function("document.activeElement.dataset.sid === 's2'")
+    assert w.lr.talk(w.tid).slides[1]['beats'] == ['passage', 'figure', f'lit:{LIT}'], w.lr.talk(w.tid).slides[1]['beats']
+
+def present_opens_audience(pg, w):
+    "⌥S on the editor opens the presenter view; the first D opens the audience window, whose URL has the run key, and goes to s2 beat 1."
+    pg.goto(f'{w.B}/t/{w.tid}'); settle(pg)
+    press(pg, 'Alt+s'); pg.wait_for_url(f'**/t/{w.tid}/present', timeout=10000); settle(pg)
+    with w.ctx.expect_page(timeout=10000) as got: press(pg, 'd')
+    au = w.au = got.value; guard(au, w.errs)
+    au.set_viewport_size(AUDIENCE); settle(au)
+    assert f'/t/{w.tid}/audience?k=' in au.url and au.url.endswith('k=' + w.run['key']), au.url
+    pg.bring_to_front()
+    wait_place(au, 's2', 1); wait_place(pg, 's2', 1)
+    pg.wait_for_selector('#aud-live:not([hidden])', timeout=8000)
+
+def audience_type(pg, w):
+    "The audience h1 is 46 px and the passage 28 px; neither window scrolls sideways."
+    au = w.au
+    h1, ps = px(au, '#stage > section.stage:not([hidden]) h1'), px(au, '#stage > section.stage:not([hidden]) .passage')
+    assert abs(h1 - 46) < .5 and abs(ps - 28) < .5, (h1, ps, au.evaluate("[innerWidth, innerHeight, document.getElementById('stage').getBoundingClientRect().toJSON()]"))
+    assert no_hscroll(au) and no_hscroll(pg), 'a window scrolls sideways'
+
+def beats_and_lit(pg, w):
+    "D gives beat 2 with the figure, then the lit: beat lights the words in both windows."
+    au = w.au
+    press(pg, 'd'); wait_place(au, 's2', 2)
+    assert au.is_visible('section[data-sid=s2] figure.fig'), 'no figure at beat 2'
+    assert au.locator('#stage mark.lit').count() == 0
+    press(pg, 'd'); wait_place(au, 's2', 3)
+    au.wait_for_selector('#stage mark.lit')
+    assert au.inner_text('#stage mark.lit') == LIT and pg.inner_text('#stage mark.lit') == LIT
+
+def laser(pg, w):
+    "X, then a move of the pointer over the slide, shows the dot in the audience window; 2 s with no move hides it."
+    au = w.au
+    press(pg, 'x')
+    r = pg.locator('#stage').bounding_box()
+    for i in range(4): pg.mouse.move(r['x'] + r['width'] * (.4 + i * .02), r['y'] + r['height'] * .5)
+    au.wait_for_selector('#stage .stage-dot.on', timeout=3000)
+    au.wait_for_timeout(2100)
+    assert au.locator('#stage .stage-dot.on').count() == 0, 'the dot stays after 2 s'
+    press(pg, 'x')
+
+def blank(pg, w):
+    "B blanks the room screen; B again shows the slide."
+    au = w.au
+    press(pg, 'b'); au.wait_for_function("document.getElementById('stage').classList.contains('blank')")
+    assert au.is_visible('#stage .stage-blank')
+    press(pg, 'b'); au.wait_for_function("!document.getElementById('stage').classList.contains('blank')")
+    assert not au.is_visible('#stage .stage-blank')
+
+DEMO = "document.querySelector('section[data-sid=s3] [data-rupaka]')"
+def demo(pg, w):
+    "G 3 goes to s3; E puts the focus in the demo; a change of t in the presenter's demo gives the same t in the audience copy."
+    au = w.au
+    press(pg, 'g', '3'); wait_place(au, 's3')
+    press(pg, 'd'); wait_place(au, 's3', 2)
+    au.wait_for_function(f"!!{DEMO}?.rupaka"); pg.wait_for_function(f"!!{DEMO}?.rupaka")
+    press(pg, 'e'); assert pg.evaluate("!!document.activeElement.closest('[data-rupaka]')"), 'E did not go into the demo'
+    pg.evaluate(f"""() => {{ const h = {DEMO};
+      h.querySelector('.rk-gate .opts button').click(); h.querySelector('.rk-gate button.go').click();
+      const i = h.querySelector('.rk-slider input'); i.value = 2; i.dispatchEvent(new Event('input', {{bubbles: true}})); }}""")
+    au.wait_for_function(f"{DEMO}.rupaka.st.t === 2", timeout=5000)
+    assert pg.evaluate(f"{DEMO}.rupaka.st.t") == au.evaluate(f"{DEMO}.rupaka.st.t") == 2
+    press(pg, 'Escape'); assert pg.evaluate("!document.activeElement.closest('[data-rupaka]')")
+
+def question(pg, w):
+    "Q shows the question and 3 options in the audience window, with no right answer; 1 then R marks It falls as the right answer."
+    au = w.au
+    press(pg, 'q'); au.wait_for_selector('#stage .stage-ask:not([hidden])')
+    assert au.locator('#stage .stage-ask .ask-opts li').count() == 3
+    assert au.locator('#stage .stage-ask li.right').count() == 0 and 'Right answer' not in au.inner_text('#stage .stage-ask')
+    press(pg, '1', 'r'); au.wait_for_selector('#stage .stage-ask li.right')
+    right = au.inner_text('#stage .stage-ask li.right')
+    assert 'It falls' in right and 'right answer' in right.lower(), right
+    press(pg, 'Escape'); au.wait_for_selector('#stage .stage-ask', state='hidden')
+
+PANE_FRAME = "#stage > iframe.stage-pane"
+def beside(pg, w):
+    "⌥B, then 1, opens the Softmax primer beside the slide in both windows, in the talk type with no check; ⌥Z closes both."
+    au = w.au
+    press(pg, 'Alt+b'); pg.wait_for_selector('#beside-offer .bs-offer')
+    press(pg, '1')
+    au.wait_for_selector('#stage.beside > iframe.stage-pane', timeout=8000)
+    pg.wait_for_selector('#rh-pane iframe', timeout=8000)
+    for src, fr in ((au.get_attribute(PANE_FRAME, 'src'), au.frame_locator(PANE_FRAME)), (pg.get_attribute('#rh-pane iframe', 'src'), pg.frame_locator('#rh-pane iframe'))):
+        assert 'talk=1' in src, src
+        fr.locator('h1').first.wait_for()
+        assert 'Softmax' in fr.locator('h1').first.inner_text() and fr.locator('#check').count() == 0, src
+    press(pg, 'Alt+z')
+    au.wait_for_function("!document.getElementById('stage').classList.contains('beside')")
+    pg.wait_for_function("!document.documentElement.classList.contains('rh-open')")
+    assert au.locator(PANE_FRAME).count() == 0
+
+def reload_audience(pg, w):
+    "A reload of the audience window shows the same slide and beat."
+    before = place(pg)
+    w.au.reload(); settle(w.au)
+    wait_place(w.au, *before)
+    pg.bring_to_front()
+
+def strangers(pg, w):
+    "A pane to another site, a message of version 2, and a message on the channel of the old run change nothing in the audience window."
+    au = w.au; before = place(au)
+    post_on(pg, w.channel, {'v': 1, 't': 'pane', 'url': 'https://evil.example/'})
+    post_on(pg, w.channel, {'v': 2, 't': 'go', 'slide': 's1', 'beat': 1})
+    post_on(pg, f"{w.tid}:{w.old_key}", {'v': 1, 't': 'go', 'slide': 's1', 'beat': 1})
+    post_on(pg, f"{w.tid}:{w.old_key}", {'v': 1, 't': 'blank', 'on': True})
+    au.wait_for_timeout(400)
+    assert place(au) == before and au.locator(PANE_FRAME).count() == 0, place(au)
+    assert not au.evaluate("document.getElementById('stage').classList.contains('blank')")
+
+def audience_closed(pg, w):
+    "Closing the audience window shows in the presenter window within 6 s."
+    w.au.close(); w.au = None
+    pg.wait_for_selector('#aud-gone:not([hidden])', timeout=6000)
+    assert 'The audience window is closed. Open it again.' in pg.inner_text('#aud-gone')
+
+def stray_keys(pg, w):
+    "Esc with nothing open, ⌥T and / leave the presenter on its URL."
+    url = pg.url
+    press(pg, 'Escape', 'Alt+t', '/'); pg.wait_for_timeout(300)
+    assert pg.url == url, pg.url
+
+def end_and_after(pg, w):
+    "⌥S on the last slide ends the talk and shows After the talk; the learning has the same number of attempts as before the talk."
+    n = len(w.lr.talk(w.tid).slides)
+    press(pg, 'g', str(n)); pg.wait_for_function("document.querySelector('#ask-go .act').textContent === 'End the talk'", timeout=5000)
+    press(pg, 'Alt+s'); pg.wait_for_url(f'**/t/{w.tid}/after?run=*', timeout=10000); settle(pg)
+    assert 'After the talk' in pg.inner_text('h1')
+    assert w.lr.talk(w.tid).live is None and len(w.lr.attempts(limit=10000)) == w.n0
+
+CHECKS = [editor_keys, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, question, beside,
+          reload_audience, strangers, audience_closed, stray_keys, end_and_after]
+
+# --- the screens --------------------------------------------------------------------------------------------------
+
+LOOKS = [(t, m) for t in ('paper', 'signal') for m in ('light', 'dark')]
+PLAN = {'editor': 'paper-light', 'presenter': 'paper-light', 'presenter-dark': 'paper-dark', 'audience': 'paper-light',
+        'hands': 'paper-light', 'beside': 'paper-light', 'after': 'paper-light'}
+
+def screens(w, out, widths=(1280, 1000)):
+    "Each page of a talk in each look and width; then the seven screens of the plan."
+    out.mkdir(parents=True, exist_ok=True)
+    B, tid, shots = w.B, w.tid, []
+    w.rq.post(f'{B}/t/{tid}/start', max_redirects=0)
+    pr = w.ctx.new_page(); guard(pr, w.errs); pr.set_viewport_size(PRESENTER)
+    au = w.ctx.new_page(); guard(au, w.errs); au.set_viewport_size(AUDIENCE)
+    au.goto(f"{B}/t/{tid}/audience?k={w.run['key']}"); pr.goto(f'{B}/t/{tid}/present')
+    settle(au); settle(pr); pr.wait_for_selector('#aud-live:not([hidden])', timeout=8000); pr.bring_to_front()
+
+    def take(name, pg, height):
+        for theme, mode in LOOKS:
+            look(w.rq, B, theme, mode)
+            for width in widths:
+                pg.set_viewport_size(dict(width=width, height=height if pg is not au else round(width * 9 / 16)))
+                pg.reload(); settle(pg, 900)
+                if pg is pr: pr.wait_for_selector('#aud-live:not([hidden])', timeout=8000)
+                p = out/f'talk-{name}-{theme}-{mode}-{width}.png'; pg.screenshot(path=str(p)); shots.append(p.name)
+        look(w.rq, B, 'paper', 'light')
+        if pg in (pr, au): pg.set_viewport_size(PRESENTER if pg is pr else AUDIENCE); pg.reload(); settle(pg)
+        pr.bring_to_front()
+
+    ed = w.ctx.new_page(); guard(ed, w.errs); ed.goto(f'{B}/t/{tid}'); take('editor', ed, 900); ed.close()
+    press(pr, 'g', '2'); wait_place(au, 's2'); press(pr, 'd', 'd'); wait_place(au, 's2', 3)
+    take('presenter', pr, 800); take('audience', au, 720)
+    press(pr, 'g', '3'); wait_place(au, 's3'); press(pr, 'd'); wait_place(au, 's3', 2)
+    press(pr, 'q'); au.wait_for_selector('#stage .stage-ask:not([hidden])'); press(pr, '1', 'r'); au.wait_for_selector('#stage .stage-ask li.right')
+    take('hands', pr, 800)
+    press(pr, 'Escape'); au.wait_for_selector('#stage .stage-ask', state='hidden')
+    press(pr, 'Alt+b'); pr.wait_for_selector('#beside-offer .bs-offer'); press(pr, '1'); au.wait_for_selector(PANE_FRAME, timeout=8000)
+    take('beside', au, 720)
+    press(pr, 'Alt+z'); au.wait_for_function("!document.getElementById('stage').classList.contains('beside')")
+    press(pr, 'g', str(len(w.lr.talk(tid).slides))); pr.wait_for_function("document.querySelector('#ask-go .act').textContent === 'End the talk'")
+    press(pr, 'Alt+s'); pr.wait_for_url(f'**/t/{tid}/after?run=*', timeout=10000)
+    after = w.ctx.new_page(); guard(after, w.errs); after.goto(pr.url); take('after', after, 900); after.close()
+    pr.close(); au.close()
+    for name, lk in PLAN.items():
+        shutil.copyfile(out/f"talk-{name.removesuffix('-dark')}-{lk}-1280.png", out/f'talk-{name}.png'); shots.append(f'talk-{name}.png')
+    return shots
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument('--shots', action='store_true', help='also take the screens')
+    ap.add_argument('--out', default=str(ROOT/'design/screens'))
+    ap.add_argument('--only', nargs='*', default=None, help='run only the checks with these names')
+    a = ap.parse_args()
+    from playwright.sync_api import sync_playwright
+    lr, app = seed()
+    srv, B = serve(app)
+    bad = 0
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                ctx = b.new_context(viewport=PRESENTER, reduced_motion='reduce')
+                errs = []
+                pg = ctx.new_page(); guard(pg, errs)
+                w = World(lr, ctx, B, errs)
+                look(w.rq, B, 'paper', 'light')
+                for c in [c for c in CHECKS if a.only is None or c.__name__ in a.only]:
+                    errs.clear()
+                    try:
+                        c(pg, w)
+                        assert not errs, f'script errors on a page: {errs[:3]}'
+                        print('PASS', c.__name__, flush=True)
+                    except Exception as e:
+                        bad += 1; tb = e.__traceback__
+                        while tb.tb_next and tb.tb_next.tb_frame.f_code.co_filename == __file__: tb = tb.tb_next
+                        print('FAIL', c.__name__, f'(line {tb.tb_lineno})', '-', str(e)[:300], flush=True)
+                if a.shots:
+                    errs.clear(); n = len(screens(w, Path(a.out)))
+                    if errs: bad += 1; print('FAIL screens - script errors on a page:', errs[:3], flush=True)
+                    print(n, 'screens in', a.out)
+            finally: b.close()
+    finally: srv.should_exit = True; shutil.rmtree(TMP, ignore_errors=True)
+    sys.exit(1 if bad else 0)
+
+if __name__ == '__main__': main()
