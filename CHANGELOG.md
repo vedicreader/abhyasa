@@ -6,6 +6,7 @@
 
 - Core: `room_spec` (a demo spec for the audience window, with no gate answer) is now in `abhyasa.core`. The talk block calls it from there.
 - Code runner: `logging` now works in learner code in the closed process (`logging.info` and the like). `inspect.stack`, `traceback` and `sys._getframe` stay refused.
+- Talks: a narrow presenter window (with no side pane) now stops D at the real last page of the primer. The audience window tells the page count in a `pages` stage message.
 
 ## 0.0.12
 

@@ -752,6 +752,46 @@ def test_beside_and_end_in_a_browser(mk, talk_fake, lr, tmp_path):
             finally: b.close()
     finally: srv.should_exit = True
 
+def test_narrow_presenter_stops_at_the_last_page(mk, talk_fake, lr):
+    "A presenter window with no side pane (narrow) learns the page count from the audience window, so D stops at the last page; a bad count is ignored."
+    pw = pytest.importorskip('playwright.sync_api')
+    cl = mk(); tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
+    cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
+    side = lambda: (lr.run(run['id']).get('side') or {}).get('page')
+    srv, base = serve(cl)
+    try:
+        with pw.sync_playwright() as p:
+            if not Path(p.chromium.executable_path).exists(): pytest.skip("Playwright's Chromium is not installed")
+            b = p.chromium.launch(headless=True)
+            try:
+                c = b.new_context(viewport=dict(width=1000, height=800), reduced_motion='reduce')
+                errs = []
+                pr = c.new_page(); pr.on('pageerror', lambda e: errs.append(str(e)))
+                pr.goto(f'{base}/t/{tid}/present'); pr.wait_for_load_state('networkidle')
+                au = c.new_page(); au.on('pageerror', lambda e: errs.append(str(e)))
+                au.set_viewport_size(dict(width=1280, height=720))
+                au.goto(f'{base}/t/{tid}/audience?k={run["key"]}'); au.wait_for_load_state('networkidle')
+                pr.wait_for_selector('#aud-live:not([hidden])'); pr.bring_to_front()
+                pr.keyboard.press('g'); pr.keyboard.press('3'); au.wait_for_function("document.getElementById('stage').dataset.slide === 's3'")
+                pr.keyboard.press('Alt+b'); pr.wait_for_selector('#beside-offer .bs-offer'); pr.keyboard.press('1')
+                au.wait_for_selector('#stage.beside > iframe.stage-pane')
+                assert pr.locator('#rh-pane iframe').count() == 0   # narrow: no pane in the presenter window
+                fr = au.frame_locator('#stage > iframe.stage-pane'); fr.locator('#passage').wait_for()
+                long = 'Softmax turns a list of scores into weights that are above 0 and add to 1. ' * 14
+                au.evaluate("(t) => { const w = document.querySelector('#stage > iframe.stage-pane').contentWindow; w.document.querySelector('#passage .md').textContent = t; w.abhyasaTalkPage.fit(); }", long)
+                last = au.evaluate("document.querySelector('#stage > iframe.stage-pane').contentWindow.abhyasaTalkPage.pages") - 1
+                assert 0 < last < 19
+                for bad in (dict(n=0), dict(n=21), dict(n='3'), dict(n=3, x=1)):   # the channel checks the message
+                    pr.evaluate("([ch, m]) => { const b = new BroadcastChannel('abhyasa-stage:' + ch); b.postMessage({v: 1, t: 'pages', ...m}); b.close(); }", [f"{tid}:{run['key']}", bad])
+                pr.wait_for_timeout(1500)   # the audience window reports the count
+                for _ in range(last + 4):
+                    pr.keyboard.press('d'); pr.wait_for_timeout(120)
+                pr.wait_for_timeout(300)
+                assert side() == last, (side(), last)
+                assert not errs, errs
+            finally: b.close()
+    finally: srv.should_exit = True
+
 def test_edit_a_run_question(mk, talk_fake, lr):
     "A run question (\"What does this print?\") takes 2 to 6 options or none, never has an answer, and keeps its options in the order that you wrote."
     from abhyasa.blocks.talk.ui import KINDS

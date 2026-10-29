@@ -209,6 +209,9 @@ function drawEnd(st) {
   box.hidden = false;
 }
 
+// The audience window tells how many pages its primer has (`pages`), so a presenter window with no pane (a narrow one) stops at the real last page.
+const pagesType = () => abhyasaStage.add('pages', {n: v => Number.isInteger(v) && v >= 1 && v <= 20}, ['n']);
+
 // Page `n` of the primer in the pane frame `f` (core/talktype.js), now and each time the frame loads.
 function framePage(f, n) {
   if (!f) return;
@@ -255,6 +258,7 @@ function fit(host) {
 
 // --- the presenter window ----------------------------------------------------------------------------------------------
 function presenterView(st) {
+  pagesType();
   const box = document.getElementById('talk'), base = `/t/${box.dataset.tid}/`, ch = abhyasaStage.channel(box.dataset.channel);
   const $ = id => document.getElementById(id), sayLine = $('say');
   // the result and the pair prompt that show now come from the run log, so a reload of this window can give them to a hello again
@@ -272,7 +276,9 @@ function presenterView(st) {
   const ua = navigator.userAgent, app = /\bAbhyasa\//.test(ua) || (/AppleWebKit/.test(ua) && !/Safari\//.test(ua));
 
   // Each message goes to the audience window and is drawn here too, so the presenter sees what the room sees.
+  let roomPages = null, roomUrl = null;   // the pages of the primer in the audience window, when this window has no pane
   function send(m, here = true) {
+    if (m.t === 'pane' && m.url !== roomUrl) { roomUrl = m.url; roomPages = null; }
     try { ch.send(m); }
     catch (e) { say(m.t === 'demo' ? 'The audience window cannot show this state of the demo. It is too large.' : 'The audience window did not get the last change.'); }
     if (here) draw(m);
@@ -310,9 +316,10 @@ function presenterView(st) {
     if (s.beats[at.beat - 1] === 'ask' && !at.ask) await ask('open');
   }
   // With the primer beside the slide, D and A turn its pages. The pages of this window's pane give the last page; with no pane
-  // here (a narrow window), the server's limit does.
+  // here (a narrow window), the audience window tells the count, and until it does, the limit of 20 pages does.
+  ch.on('pages', m => { roomPages = m.n; });
   const paneFrame = () => document.querySelector('#rh-pane iframe');
-  const lastPage = () => { const n = paneFrame()?.contentWindow?.abhyasaTalkPage?.pages; return (n || 20) - 1; };
+  const lastPage = () => { const n = paneFrame()?.contentWindow?.abhyasaTalkPage?.pages ?? roomPages; return (n || 20) - 1; };
   const turn = by => act(async () => {
     const n = (side.page || 0) + by;
     if (n < 0) return;
@@ -565,7 +572,9 @@ function presenterView(st) {
 
 // --- the audience window -----------------------------------------------------------------------------------------------
 function audienceView(st) {
+  pagesType();
   const ch = abhyasaStage.channel(st.dataset.channel), note = document.getElementById('keys-note');
+  setInterval(() => { const n = st.querySelector(':scope > iframe.stage-pane')?.contentWindow?.abhyasaTalkPage?.pages; if (n) ch.send({t: 'pages', n}); }, 700);
   const mirrors = new Map();
   st.querySelectorAll('[data-rupaka][data-demo]').forEach(h => mounted(h, () => { fit(h); const m = abhyasaStage.mirror(h); m.apply({}, {}); mirrors.set(h, m); }));
   function draw(m) {
