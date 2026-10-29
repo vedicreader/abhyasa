@@ -224,7 +224,7 @@ def connect(app, ctx):
         "The tutor note of step `i`, loaded after the page; a failed note shows nothing."
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         try:
-            with writing[jid, i]: return ui.Note(tutor_note(lr, ctx.ask, j, i))
+            with writing[jid, i]: return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
         except Exception: return ''
 
     def check(jid:str, i:int):
