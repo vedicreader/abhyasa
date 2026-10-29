@@ -21,23 +21,7 @@ if (!window.abhyasaWalk) {
   const check = () => document.querySelectorAll('#figure img').forEach(i => { if (i.complete && !i.naturalWidth) gone(i); });
   window.addEventListener('load', check); document.addEventListener('htmx:afterSettle', check);
 
-  // The draft in the answer box is kept in sessionStorage by the id of the question, so a reload or a side walk in the same tab
-  // does not lose it. It goes when you send the answer.
-  const root = document.documentElement, KEY = 'rh-draft:';
-  const qid = () => document.querySelector('#check form[data-qid]')?.dataset.qid;
-  document.addEventListener('input', e => {
-    if (e.target.id !== 'ans' || !e.target.closest('#check') || !qid()) return;
-    if (e.target.value) sessionStorage.setItem(KEY + qid(), e.target.value); else sessionStorage.removeItem(KEY + qid());
-  });
-  // It goes before the new card swaps in (afterSettle would put it back), so a miss leaves the box empty for the next try.
-  document.addEventListener('htmx:beforeSwap', e => {
-    const f = document.querySelector('#check form[data-qid]');
-    if (f && e.detail.xhr.status < 300 && /\/(answer|giveup)$/.test(e.detail.requestConfig.path)) sessionStorage.removeItem(KEY + f.dataset.qid);
-  });
-  const restore = () => {
-    const a = document.querySelector('#check #ans'), d = qid() && sessionStorage.getItem(KEY + qid());
-    if (a && d && !a.value) { a.value = d; a.dispatchEvent(new Event('input', {bubbles: true})); }
-  };
+  const root = document.documentElement;
 
   // While a side walk is open in the pane, the check says that it waits, and that the draft is kept.
   const held = () => {
@@ -50,7 +34,7 @@ if (!window.abhyasaWalk) {
     c.querySelector('.lbl')?.after(p);
   };
   new MutationObserver(held).observe(root, {attributes: true, attributeFilter: ['class']});
-  document.addEventListener('htmx:afterSettle', e => { if (e.detail.target && e.detail.target.id === 'check') { restore(); held(); } });
+  document.addEventListener('htmx:afterSettle', e => { if (e.detail.target && e.detail.target.id === 'check') held(); });
 
   // In the side pane, "Back to the paper" closes one level of the pane, as ⌥Z does, and does not load the paper in the pane.
   document.addEventListener('click', e => {

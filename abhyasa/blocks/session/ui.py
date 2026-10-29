@@ -151,15 +151,15 @@ def Composer(sid, q=None, ready=None, oob=False):
     tl = dict(hx_target=f'#{tl_id(q)}', hx_swap='beforeend', data_skel=f'#{tl_id(q)}')
     tried, out = bool(q.get('tries')), Out(sid, q)
     choice = bool(q.get('options'))
-    boxes = ([] if choice else [Textarea(name='answer', id='ans', rows=2, autofocus=True, aria_label='Your answer',
+    boxes = ([] if choice else [Textarea(name='answer', id='ans', rows=2, autofocus=True, data_draft='answer', aria_label='Your answer',
                                          placeholder='Your answer, or a follow-up. ⌘↵ sends.')]) + [
-             Textarea(name='thinking', id='think', rows=1, aria_label='Think aloud',
+             Textarea(name='thinking', id='think', rows=1, data_draft='thinking', aria_label='Think aloud',
                       placeholder='Think aloud: how did you get there? What are you not sure of?')]
     acts = ([out] if choice else [out, Button('Hint ', Kbd('⌥W'), type='button', id='hint', cls='quiet', hx_post=at(Routes.hint), data_wait=HINTING, **tl),
                                    Primary('Send', id='send', data_wait=GRADING)])
     return Form(*boxes, Div(*run('answer_tools', q, 'think' if choice else 'ans'), Confidence(), Left(val('checks.tries') - len(q.tries) if tried else None),
                             Span(cls='grow'), *acts, cls='row bar'),
-                hx_post=at(Routes.answer), **tl, **kw)
+                hx_post=at(Routes.answer), data_qid=q['id'], **tl, **kw)
 
 def Out(sid, q, oob=False):
     "The way out: I don't know before the first try, Teach me after it. ⌥X presses it."

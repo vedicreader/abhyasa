@@ -267,3 +267,27 @@ document.addEventListener('htmx:afterRequest', e => {
   const el = e.detail.elt, row = el && el.closest && el.closest('.fb-row');
   if (row && e.detail.successful && el.dataset.verdict) row.dataset.done = el.dataset.verdict;
 });
+
+// The draft of an answer: the boxes of a question (`textarea[data-draft]` in a `form[data-qid]`) are kept in sessionStorage by the id
+// of the question, as you type, so a reload or a restart of the app does not lose the text. A code editor has no `data-draft`.
+// The draft goes before the reply to an answer swaps in, so a miss leaves the boxes empty for the next try.
+const abhyasaDraft = {
+  boxes: () => [...document.querySelectorAll('form[data-qid] textarea[data-draft]')],
+  key: t => `rh-draft:${t.form.dataset.qid}:${t.dataset.draft}`,
+  restore() {
+    for (const t of this.boxes()) {
+      const d = sessionStorage.getItem(this.key(t));
+      if (d && !t.value) { t.value = d; t.dispatchEvent(new Event('input', {bubbles: true})); }
+    }
+  },
+};
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (!t.matches || !t.matches('form[data-qid] textarea[data-draft]')) return;
+  if (t.value) sessionStorage.setItem(abhyasaDraft.key(t), t.value); else sessionStorage.removeItem(abhyasaDraft.key(t));
+});
+document.addEventListener('htmx:beforeSwap', e => {
+  if (e.detail.xhr.status < 300 && /\/(answer|giveup)$/.test(e.detail.requestConfig.path)) abhyasaDraft.boxes().forEach(t => sessionStorage.removeItem(abhyasaDraft.key(t)));
+});
+window.addEventListener('load', () => abhyasaDraft.restore());
+document.addEventListener('htmx:afterSettle', () => abhyasaDraft.restore());

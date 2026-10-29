@@ -600,11 +600,12 @@ def test_wrong_try_gives_empty_boxes_and_keeps_the_try_in_the_record(mk, walk_fa
     "After a miss the card shows the try in its record, and the answer box and the think-aloud box are empty."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
-    cl.get(f'/w/{jid}/1/check')
+    cl.get(f'/w/{jid}/1/check'); qid = lr.journey(jid).steps[1]['qid']
     r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='a sum of scores', thinking='I added them')).text
     assert 'Not yet' in r and 'a sum of scores' in r                                  # the try shows in the record
     b = boxes(r)
     assert b['ans'][1] == '' and b['think'][1] == '' and 'a sum of scores' not in b['ans'][0]   # the boxes are empty
+    assert f'data-qid="{qid}"' in r and all('data-draft' in b[k][0] for k in b)        # core.js keeps a draft for each box, by question
 
 def test_a_refused_move_gives_the_server_a_plain_reason(mk, walk_fake, lr):
     "A move on a check that is not open answers 409 with a short plain line, which core.js shows on the page."

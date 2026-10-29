@@ -841,6 +841,21 @@ def dr1_wrong_try_leaves_empty_boxes(pg, w):
     pg.wait_for_selector('#chat .m.you'); settle(pg, 300)
     assert box_values(pg) == ['', ''], box_values(pg)
 
+def dr2_draft_survives_a_reload(pg, w):
+    "A typed answer and thinking text come back after a reload, in the walk check and in the session, and go once the answer is graded."
+    jid = new_walk(w)
+    sid = w.rq.get(f'{w.B}/start?focus=ranking', max_redirects=0).headers['location'].rstrip('/').split('/')[-1]
+    for url, box in ((f'{w.B}/w/{jid}/1', '#check #ans'), (f'{w.B}/s/{sid}', '#composer #ans')):
+        pg.goto(url); pg.wait_for_selector(box); settle(pg)
+        pg.fill('#ans', 'half an answer'); pg.fill('#think', 'not sure yet')
+        pg.reload(); pg.wait_for_selector(box); settle(pg, 300)
+        assert box_values(pg) == ['half an answer', 'not sure yet'], (url, box_values(pg))
+        pg.click('#send'); pg.wait_for_selector('.you'); settle(pg, 300)
+        pg.reload(); pg.wait_for_selector(box); settle(pg, 300)
+        assert box_values(pg) == ['', ''], (url, box_values(pg))
+    pg.goto(w.step(1)); pg.wait_for_selector('.code-editor'); settle(pg)
+    assert not any(k.startswith('rh-draft') and 'code' in k for k in pg.evaluate('Object.keys(sessionStorage)')), 'the code editor has no draft'
+
 def er1_error_line_shows_the_server_reason(pg, w):
     "A 4xx with a short plain body shows that text, clipped to 200 characters, as text. A 409 adds a link that reloads. Other errors keep the generic line."
     global QUIET
@@ -874,7 +889,7 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
           s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field, r1_start_forms_show_no_error, ct1_concept_tree,
-          dr1_wrong_try_leaves_empty_boxes, er1_error_line_shows_the_server_reason]
+          dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason]
 
 # --- the screens --------------------------------------------------------------------------------------------------
 

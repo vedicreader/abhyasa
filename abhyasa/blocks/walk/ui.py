@@ -231,8 +231,8 @@ def Short(jid, i, s, q, after=()):
                      hx_include='closest form', data_wait=TEACHING, **tgt)
         hint = Button('Hint ', Kbd('⌥W'), type='button', id='hint', cls='quiet', hx_post=at(Routes.hint, jid, i), data_wait=HINTING, **tgt,
                       disabled=len(q.get('hints') or ()) >= len(HINTS))
-        foot = Form(Textarea(name='answer', id='ans', rows=2, autofocus=True, aria_label='Your answer', placeholder='Your answer. ⌘↵ sends.'),
-                    Textarea(name='thinking', id='think', rows=1, aria_label='Think aloud', placeholder='Think aloud: how did you get there?'),
+        foot = Form(Textarea(name='answer', id='ans', rows=2, autofocus=True, data_draft='answer', aria_label='Your answer', placeholder='Your answer. ⌘↵ sends.'),
+                    Textarea(name='thinking', id='think', rows=1, data_draft='thinking', aria_label='Think aloud', placeholder='Think aloud: how did you get there?'),
                     Div(Confidence(), Span(f"{left} {'try' if left == 1 else 'tries'} left" if tries else '', cls='mute'), cls='row conf'),
                     Div(Primary('Send', id='send', data_wait=GRADING, title='⌘↵ sends too'), hint, out, cls='row acts'),
                     hx_post=at(Routes.answer, jid, i), data_qid=q['id'], **tgt)

@@ -219,3 +219,17 @@ def test_vault_source_opens_in_the_side_pane(lr, fake):
     a = re.search(r'<a [^>]*>Rasi Characteristics</a>', r).group(0)
     assert 'href="/v/store/d1"' in a and 'data-pane="/v/store/d1?pane=1"' in a and 'target="_blank"' in a and 'data-title="Rasi Characteristics"' in a
     assert 'Ashtadhyayi 1 2 · 1.2.63' in r and not re.search(r'<a [^>]*>Ashtadhyayi', r)
+
+def test_composer_boxes_keep_a_draft_by_question(mk):
+    "The boxes of the composer are empty, and the form names the question, so core.js can keep a draft of each box."
+    import re
+    cl = mk(); sid = start(cl)
+    cl.get(f'/s/{sid}')
+    cl.post(f'/s/{sid}/answer', data=dict(answer='add the scores', thinking='they look alike', confidence=70))
+    page = cl.get(f'/s/{sid}').text
+    composer = page[page.rindex('<form', 0, page.index('id="composer"')):]
+    assert re.search(r'data-qid="[^"]+"', composer.split('>')[0])
+    for k in ('ans', 'think'):
+        m = re.search(rf'(<textarea[^>]*id="{k}"[^>]*>)(.*?)</textarea>', composer, re.S)
+        assert m and m[2] == '' and 'data-draft' in m[1], k
+    assert 'add the scores' not in composer and 'they look alike' not in composer
