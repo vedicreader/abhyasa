@@ -1,0 +1,86 @@
+"A notebook step: the tutor writes the notebook spec onto the step, the card shows it, and Leela runs it."
+from walk_data import *
+from abhyasa.contract import NB_SPEC_CASES, validate_nb_spec
+from abhyasa.check import load_tests
+import json
+
+GOOD = NB_SPEC_CASES[0][0]
+NB_RULE = 'Write one exercise and one real run'
+
+def nb_step(cl, lr, i=1, spec=GOOD):
+    "A started walk whose step `i` is a notebook check with `spec` on it."
+    jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, i, check=dict(way='code', kind='notebook', depth=4, why=''), **(dict(nb=validate_nb_spec(spec)) if spec else {}))
+    return jid
+
+def test_notebook_card_and_download(mk, lr, walk_fake, tmp_path):
+    cl = mk(); jid = nb_step(cl, lr)
+    card = cl.get(f'/w/{jid}/1/check').text
+    for say in ('Check · notebook · runs in Leela', 'Open in Leela', '(an estimate)', 'none for this one', 'captions.jsonl', 'Predict: How many episodes',
+                'Pick the folder of your images', 'Download the notebook', 'Leela is not running. Start Leela, then press ⌥S again.', 'Get Leela',
+                '1 more test that you cannot see.', 'abhyasa does not run this code'):
+        assert say in card, say
+    assert 'no people and no place' not in card                                         # a hidden test shows nothing of itself
+    assert lr.journey(jid).steps[1].get('qid') is None                                   # abhyasa opens no question on a notebook step
+    r = cl.get(f'/w/{jid}/1/notebook')
+    assert r.status_code == 200 and r.headers['content-disposition'] == f'attachment; filename="{jid}-1.ipynb"'
+    setup, tests = load_tests(json.loads(r.text))
+    assert 'EPISODES = Path(' in setup[0] and [t['say'] for t in tests] == ['episode 1', 'no people and no place']
+    assert cl.get(f'/w/{jid}/0/notebook').status_code == 404                             # a step with no spec has no notebook
+
+def test_card_links_to_leela_when_it_runs(mk, lr, walk_fake, monkeypatch, tmp_path):
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
+    cl = mk(); jid = nb_step(cl, lr)
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert f'href="http://127.0.0.1:5011/learn?walk={jid}&amp;step=1"' in card and 'Leela runs at 127.0.0.1:5011.' in card and 'Leela is not running' not in card
+    page = cl.get(f'/w/{jid}/1').text
+    assert page.count('/learn?walk=') == 0                                               # the card loads after the page; no second Leela line
+
+def test_data_path_outside_home_refused(mk, lr, walk_fake):
+    cl = mk(); jid = nb_step(cl, lr)
+    before = lr.journey(jid).steps[1]['nb']
+    for bad in ('/etc', '~/../../etc', ''):
+        r = cl.post(f'/w/{jid}/1/data', data=dict(name='IMAGES', path=bad))
+        assert r.status_code == 400 and 'home folder' in r.text
+    assert cl.post(f'/w/{jid}/1/data', data=dict(name='NOPE', path='~/x')).status_code == 400
+    assert lr.journey(jid).steps[1]['nb'] == before
+    r = cl.post(f'/w/{jid}/1/data', data=dict(name='IMAGES', path='~/Pictures/ramayana'))
+    assert r.status_code == 200 and '~/Pictures/ramayana' in r.text
+    assert [d['path'] for d in lr.journey(jid).steps[1]['nb']['data']][1] == '~/Pictures/ramayana'
+
+def test_refused_import_says_notebook(mk, lr, walk_fake):
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
+    cl.get(f'/w/{jid}/1/check')
+    out = cl.post(f'/w/{jid}/1/run', data=dict(source='import torch\ndef softmax(x, t=1.0): return x')).text
+    assert '<code>import torch</code> does not work here. This step needs a notebook: change the check to Notebook, or open it in Leela.' in out
+
+def test_nb_spec_writes_the_step(mk, lr, walk_fake):
+    walk_fake.rules[NB_RULE] = GOOD
+    cl = mk(); jid = nb_step(cl, lr, spec=None)
+    first = cl.get(f'/w/{jid}/1/check').text
+    assert 'Writing the notebook…' in first or 'Open in Leela' in first
+    assert wait_for(lambda: lr.journey(jid).steps[1].get('nb'), 10) == validate_nb_spec(GOOD)
+    assert 'Open in Leela' in cl.get(f'/w/{jid}/1/check').text
+
+def test_bad_spec_twice_leaves_nb_unset(mk, lr, walk_fake):
+    walk_fake.rules[NB_RULE] = {**GOOD, 'data': [{**GOOD['data'][0], 'path': '/etc/passwd'}]}
+    cl = mk(); jid = nb_step(cl, lr, spec=None)
+    cl.get(f'/w/{jid}/1/check')
+    why = wait_for(lambda: lr.journey(jid).steps[1].get('nb_why') or None, 10)
+    assert why.startswith('data') and not lr.journey(jid).steps[1].get('nb')
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'The tutor could not write the notebook' in card and 'Try again' in card
+    walk_fake.rules[NB_RULE] = GOOD
+    assert 'Writing the notebook…' in cl.post(f'/w/{jid}/1/check').text or lr.journey(jid).steps[1].get('nb')
+    assert wait_for(lambda: lr.journey(jid).steps[1].get('nb'), 10)
+
+def test_walk_made_writes_each_notebook(mk, lr, walk_fake, monkeypatch):
+    "A tool walk whose code idea is a notebook check gets its spec in the background, with no page load."
+    walk_fake.rules[NB_RULE] = GOOD
+    monkeypatch.setattr('abhyasa.journey.hands_most', lambda n: n)   # no cap, so the code idea keeps its notebook check
+    cl = mk()
+    jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='on')).headers['hx-redirect'].split('/')[-1]
+    ix = [i for i, s in enumerate(lr.journey(jid).steps) if s['check']['kind'] == 'notebook']
+    assert ix and all(lr.journey(jid).steps[i]['check']['why'].endswith('runs in Leela') for i in ix)
+    assert wait_for(lambda: all(lr.journey(jid).steps[i].get('nb') for i in ix) or None, 10)

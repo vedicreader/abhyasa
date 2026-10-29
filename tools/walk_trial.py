@@ -147,7 +147,7 @@ def code_trip(lr, ask, j) -> AttrDict:
     return AttrDict(naive=r(task.stub), good=r(good), secs=time.monotonic() - t)
 
 def handoff_trip(lr, ask, j, cfg_home) -> AttrDict:
-    "On a tool walk, with a fake Leela address file in `cfg_home`: no `code` check, and on each step with `leela` the right link on the page, and no `code-editor` on the page or the card."
+    "On a tool walk, with a fake Leela address file in `cfg_home`: no `code` check, and on each step with `leela` the right link on the page or its card (a notebook step), and no `code-editor` on the page or the card."
     from starlette.testclient import TestClient
     from abhyasa.app import mk_app
     from walk_data import leela_file
@@ -166,7 +166,7 @@ def handoff_trip(lr, ask, j, cfg_home) -> AttrDict:
             card = '' if demo else cl.get(f'/w/{j.id}/{i}/check').text
             skipped += demo
             other = [m for m in re.findall(r'href="(http://127\.0\.0\.1:\d+/learn[^"]*)"', card) if m != want.replace('&', '&amp;')]   # a short card has no link; a link on a card must be right
-            pages += want.replace('&', '&amp;') in page and 'code-editor' not in page + card and not other
+            pages += want.replace('&', '&amp;') in page + card and 'code-editor' not in page + card and not other   # a notebook step has the link on its card
     return AttrDict(code_checks=sum(s['check']['kind'] == 'code' for s in j.steps), leela_steps=n, links_ok=links, pages_ok=pages, cards_skipped=skipped)
 
 def free_port() -> int:

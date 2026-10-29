@@ -29,3 +29,18 @@ def test_core_names_are_the_stagekit_names():
     "The names in `core` are the same objects as in `stagekit`."
     import abhyasa.stagekit as k, abhyasa.core as c, abhyasa.core.pane as p
     assert c.room_spec is k.room_spec and p.is_local is k.is_local
+
+
+def test_contract_imports_only_the_standard_library():
+    "Leela imports the notebook spec and run checks with no web code, no settings, no model layer and no tutor."
+    code = ("import abhyasa.contract, sys, json; "
+            "print(json.dumps(sorted(m for m in sys.modules if m.split('.')[0] in ('fasthtml', 'fastcore', 'llm', 'ramabana') "
+            "or m.startswith(('abhyasa.core', 'abhyasa.settings', 'abhyasa.llm', 'abhyasa.tutor', 'abhyasa.app', 'abhyasa.blocks')))))")
+    out = subprocess.run([sys.executable, '-I', '-c', code], capture_output=True, text=True, check=True).stdout
+    assert json.loads(out) == []
+
+def test_walk_names_are_the_contract_names():
+    "The old imports from `walk`, `check` and `journey` give the same objects as `contract`."
+    import abhyasa.contract as k, abhyasa.walk as w, abhyasa.check as c, abhyasa.journey as j, abhyasa.nb as n
+    assert all(getattr(w, x) is getattr(k, x) for x in ('PKG', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES'))
+    assert c.safe_test is k.safe_test and n.SAFE_NAMES is k.SAFE_NAMES and j.WALK_ID is k.WALK_ID

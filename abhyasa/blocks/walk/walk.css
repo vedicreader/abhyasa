@@ -130,3 +130,18 @@ html.in-pane main { padding-bottom: 64px; }
 .walk-filed { margin: var(--s2) 0 var(--s3); font-size: var(--t-small); color: var(--ink2); }
 .walk-filed .filed { display: flex; gap: var(--s2); align-items: baseline; }
 .walk-filed .req-err { margin: var(--s1) 0 0; }
+
+/* the notebook check: the spec of a step that runs in Leela (mockup 11) */
+.nb-check .tests { font: var(--t-small)/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; background: var(--sunken); border-radius: var(--r-s); padding: var(--s3) var(--s4); margin: var(--s3) 0; }
+.nb-parts { display: grid; grid-template-columns: max-content 1fr; gap: var(--s2) var(--s5); margin: var(--s4) 0; font-size: var(--t-small); }
+.nb-parts dt { color: var(--mute); }
+.nb-parts dd { margin: 0; min-width: 0; }
+.nb-parts code, .nb-data .path { font: var(--t-small) var(--mono); overflow-wrap: anywhere; }
+.nb-data + .nb-data { margin-top: var(--s2); }
+.nb-data.need { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s3); align-items: flex-end; margin: var(--s3) 0 0; }
+.nb-data.need > .mute { flex-basis: 100%; }
+.nb-pick { display: flex; flex-direction: column; gap: var(--s1); flex: 1 1 260px; }
+.nb-pick input { font: var(--t-small) var(--mono); }
+.nb-where { font-size: var(--t-small); }
+.nb-go { align-items: center; flex-wrap: wrap; }
+.nb-go .state { margin: 0; font-size: var(--t-small); }

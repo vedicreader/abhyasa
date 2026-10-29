@@ -9,13 +9,13 @@ from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
 from abhyasa.settings import val
-from abhyasa.core.leela import leela_line
+from abhyasa.core.leela import leela_line, LEELA_INSTALL
 from abhyasa.journey import minutes, TOOL_WAYS, SHAKY
 from .cfg import Routes
 
 _P = Path(__file__).parent
 OUTCOME = {k: t for k, (t, _) in OUTCOMES.items() if k != 'nudge'}
-KIND = dict(short='short answer', code='code', demo='predict · demo', order='predict · order')
+KIND = dict(short='short answer', code='code', demo='predict · demo', order='predict · order', notebook='notebook · in Leela')
 GRADING, HINTING, TEACHING, WRITING = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'Writing the check…'
 LOOKING = 'Looking for a source…'
 NO_SOURCE = 'No good source was found on the web.'
@@ -214,7 +214,7 @@ def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False):
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING)
     return Div(Rail(j, st, by, i, present),
                Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c),
-                   NoteSlot(j['id'], i), slot, leela_line(j, i) if s.get('leela') else '', NextBar(j['id'], i, st, by), cls='walk-main'),
+                   NoteSlot(j['id'], i), slot, leela_line(j, i) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 
 # --- the short-answer check ------------------------------------------------------------------------------------------
@@ -379,7 +379,59 @@ def CodeCheck(jid, i, s, q, after=()):
     return Check(CardHead(s, q), q['question'], foot=(form, CodeOut(jid, i, q, oob=False), Div(run, hint, idk, cls='row acts'),
                                                    leela_line(AttrDict(id=jid), i, say='Go further with real code in Leela', quiet=True)), cls='code-check')
 
-CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card
+# --- the notebook check: it runs in Leela ---------------------------------------------------------------------------
+
+NB_WRITING = 'Writing the notebook…'
+NB_HEAD = 'Check · notebook · runs in Leela'
+NO_LEELA = 'Leela is not running. Start Leela, then press ⌥S again.'
+PICK_FOLDER = 'Pick the folder of your images'
+
+def NbHead(): return Div(Span(NB_HEAD), cls='lbl')
+
+def NbGo(jid, i, link=None, spec=True):
+    "Open in Leela, the main button: a link when Leela runs, else a press that looks again, with how to get Leela. `spec` adds Download the notebook."
+    dl = Quiet('Download the notebook', href=at(Routes.notebook, jid, i), download=True) if spec else ''
+    if link: return Div(Primary('Open in Leela', href=link, target='_blank', rel='noopener'), dl,
+                        Span(f"Leela runs at {link.split('//', 1)[-1].split('/', 1)[0]}.", cls='mute state'), cls='row acts nb-go')
+    return Div(Primary('Open in Leela', type='button', hx_get=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), dl,
+               P(NO_LEELA, ' ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='mute state'), cls='row acts nb-go')
+
+def NbPending(jid, i, link=None):
+    "The notebook spec is not written yet: the card asks the server again in 2 seconds. Leela can open the step now."
+    return Check(NbHead(), P(NB_WRITING, cls='mute making'), foot=NbGo(jid, i, link, spec=False), cls='pending nb-check', aria_live='polite',
+                 hx_get=at(Routes.check, jid, i), hx_trigger='load delay:2s', hx_target='#check', hx_swap='innerHTML')
+
+def NbFailed(jid, i, why, link=None):
+    "The tutor could not write the notebook spec: the reason and Try again. Leela can still open the step and make its own lesson."
+    return Check(NbHead(), P(f'The tutor could not write the notebook: {why}.', cls='mute'),
+                 foot=(Div(Quiet('Try again', type='button', hx_post=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), cls='row acts'),
+                       NbGo(jid, i, link, spec=False)), cls='nb-check')
+
+def DataRow(jid, i, d):
+    "One data path of the notebook. An entry with `need` is a folder that you name, so it has a path field."
+    if not d.get('need'): return Div(Code(d['name']), ' ', Span(d['path'], cls='path'), Span(f" · {d['what']}", cls='mute') if d.get('what') else '', cls='nb-data')
+    return Form(Label(Span(PICK_FOLDER, cls='lbl'), Input(name='path', value=d['path'], spellcheck='false', aria_label=f"The folder for {d['name']}"), cls='nb-pick'),
+                Input(type='hidden', name='name', value=d['name']), Quiet('Keep', small=True), Span(Code(d['name']), f" · {d['what']}" if d.get('what') else '', cls='mute'),
+                hx_post=at(Routes.data, jid, i), hx_target='#check', hx_swap='innerHTML', cls='nb-data need')
+
+def NotebookCard(jid, i, s, link=None):
+    """The card "The notebook" of a step whose check runs in Leela: the task, the tests you can see, the data, the packages, what the run
+    makes, its time and the prediction. Open in Leela is the main button (a link when Leela runs). Download the notebook is quiet."""
+    nb = s['nb']
+    r = nb['run']
+    shown = [t['test'] for t in nb['tests'] if t['shown']]
+    hidden = len(nb['tests']) - len(shown)
+    parts = [Dt('Data'), Dd(*[DataRow(jid, i, d) for d in nb['data']] or ['none']),
+             Dt('Packages'), Dd(', '.join(nb['requires']) or 'none for this one'),
+             *([Dt('It makes'), Dd(Code(r['makes']))] if r.get('makes') else []),
+             Dt('Run time'), Dd(f"about {r['minutes']:g} min (an estimate)"),
+             *([Dt('Before the run'), Dd(f"Predict: {r['predict']}")] if r.get('predict') else [])]
+    tests = Div(Pre('\n'.join(shown), cls='tests') if shown else '', P(n_of(hidden, 'more test') + ' that you cannot see.', cls='mute') if hidden else '')
+    return Check(NbHead(), Div(Div(Md(nb['task']), cls='q'), tests, Dl(*parts, cls='nb-parts'),
+                               P('This step runs in Leela, in a notebook with its packages. abhyasa does not run this code.', cls='mute nb-where')),
+                 foot=NbGo(jid, i, link), cls='nb-check')
+
+CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card; `notebook` has its own card (NotebookCard)
 
 # --- the end of a section --------------------------------------------------------------------------------------------
 

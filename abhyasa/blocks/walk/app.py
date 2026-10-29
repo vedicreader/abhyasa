@@ -1,12 +1,12 @@
 """The guided walk: a paper, a text, a topic or a link as one idea at a time, in reading order. The plan, the step page, its check,
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
-import hashlib, json, logging, re, time
+import hashlib, json, logging, re, tempfile, time
 from collections import defaultdict
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import n_of, Page, hook, run as run_hook, SourceLine, source_of
-from abhyasa.core.leela import leela_line
+from abhyasa.core.leela import leela_line, leela_link
 from abhyasa.settings import val, set_val
 from abhyasa.detect import detect, vault_title
 from abhyasa.store import clean_subject
@@ -15,7 +15,8 @@ from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
-from abhyasa.walk import tutor_note, open_short, step_meta, code_task
+from abhyasa.walk import tutor_note, open_short, step_meta, code_task, nb_spec, validate_nb_spec
+from abhyasa.nb import spec_notebook
 from abhyasa.research import to_research, wants_source
 from abhyasa.tutor import NoLesson
 from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said
@@ -75,6 +76,7 @@ def connect(app, ctx):
         "The check card of step `i`; a short-answer card adds what other blocks put after it (`check_after`)."
         s = j.steps[i]
         k = s['check']['kind']
+        if k == 'notebook': return nb_card(j, i)
         if k in AIM: return ui.CHECKS[k](j.id, i, s, demo(s))
         q = question(j, i)
         return ui.CHECKS.get(k, ui.Short)(j.id, i, s, q, after=run_hook('check_after', j, i, q) if q else ())
@@ -136,11 +138,38 @@ def connect(app, ctx):
         return reply(j, i, r), *ui.Filled(j, walk_state(j), by(), i)   # the dot of the idea fills in the outline
 
     looking, look_for = ctx.research.looking, ctx.research.look_for   # research runs on its own pool; the request does not wait
+    nb_jobs, nb_lock = {}, Lock()   # (walk, step) -> the research pool job that writes the notebook spec of the step
+
+    def nb_writing(jid, i):
+        "Whether a job writes the notebook spec of step `i` of walk `jid` now."
+        return (f := nb_jobs.get((jid, i))) is not None and not f.done()
+
+    def write_notebook(jid, i):
+        "Start the job that writes the notebook spec of step `i` on the research pool, unless it runs or the step has a spec."
+        with nb_lock:
+            j = walk_of(jid, i)
+            if not j or nb_writing(jid, i) or j.steps[i].get('nb') or j.steps[i]['check']['kind'] != 'notebook': return
+            nb_jobs[jid, i] = ctx.research.pool.submit(nb_spec, lr, ask, j, i)
+
+    def nb_card(j, i):
+        "The card of a notebook step: the notebook, the line while the tutor writes it, or the reason when it could not."
+        s, link = j.steps[i], leela_link(j, i)
+        if s.get('nb'): return ui.NotebookCard(j.id, i, s, link)
+        if not s.get('nb_why'): write_notebook(j.id, i)
+        if nb_writing(j.id, i) or not s.get('nb_why'): return ui.NbPending(j.id, i, link)
+        return ui.NbFailed(j.id, i, s['nb_why'], link)
+
+    def write_notebooks(j):
+        "Start the job that writes the notebook spec of each notebook step of walk `j`, on the research pool."
+        for i, s in enumerate(j.steps):
+            if s['check']['kind'] == 'notebook': write_notebook(j.id, i)
 
     @hook('walk_made')
     def research_new(j):
-        "After a topic walk is made: look for a web source for each step with no passage, up to `research.per_walk` steps."
-        if (j := lr.journey(j['id'])) and j.get('mode') == 'walk': look_for(j.id, to_research(j))
+        "After a topic walk is made: look for a web source for each step with no passage, up to `research.per_walk` steps, and write the notebook of each notebook step."
+        if (j := lr.journey(j['id'])) and j.get('mode') == 'walk':
+            look_for(j.id, to_research(j))
+            write_notebooks(j)
 
     def paper_said(docs):
         "The wait line of a paper: its page count when the vault knows it."
@@ -157,6 +186,7 @@ def connect(app, ctx):
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no ideas on these pages.')
+        write_notebooks(j)
         return j.id
 
     def retitle(jid):
@@ -290,6 +320,7 @@ def connect(app, ctx):
         if topic.strip() and not ref and not text.strip():
             research_new(j)
             if val('research.on') and not val('research.told'): set_val('research.told', True)   # the box said one time that a topic goes to the search
+        else: write_notebooks(j)   # a walk from a document or a text: no web search, but its notebook steps get their spec
         if ref: ctx.pool.submit(retitle, j.id)   # a vault PDF with an arXiv id for a name: the title of the paper comes after the page
         return Response(headers={'HX-Redirect': ui.at(Routes.one, j.id)})
 
@@ -355,6 +386,7 @@ def connect(app, ctx):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         with writing[jid, i]:
             j = lr.journey(jid)
+            if j.steps[i]['check']['kind'] == 'notebook': return card(j, i)   # it runs in Leela: abhyasa opens no question on it
             if not j.steps[i].get('done') and j.steps[i]['check']['kind'] in AIM and not demo(j.steps[i]):
                 if (wait := no_demo(j, i)): return wait
                 j = lr.journey(jid)
@@ -363,6 +395,31 @@ def connect(app, ctx):
                 s.q = (open_code(j, i, s.id) if j.steps[i]['check']['kind'] == 'code' else None) or open_short(tutor, as_short(j, i), i, s.id)
                 s.save()
         return card(lr.journey(jid), i)
+
+    def nb_again(jid:str, i:int):
+        "Try again to write the notebook spec of step `i`, after the tutor could not."
+        if not (j := walk_of(jid, i)) or j.steps[i]['check']['kind'] != 'notebook': return Response(status_code=404)
+        if j.steps[i].get('nb_why'): j = lr.walk_step(jid, i, nb_why='')
+        return card(j, i)
+
+    def notebook(jid:str, i:int):
+        "The notebook of step `i` as a Jupyter file to download: the task, the setup, the stub, the tests and the run."
+        if not (j := walk_of(jid, i)) or not (spec := j.steps[i].get('nb')): return Response(status_code=404)
+        name = f'{jid}-{i}.ipynb'
+        try: p = spec_notebook(spec, Path(tempfile.mkdtemp(prefix='abhyasa-nb-'))/name)
+        except ValueError: return Response('The notebook of this step is not valid. Write it again.', status_code=409)
+        return FileResponse(p, media_type='application/x-ipynb+json', headers={'Content-Disposition': f'attachment; filename="{name}"'})
+
+    def data(jid:str, i:int, name:str='', path:str=''):
+        "Set the path of the data entry `name` of the notebook of step `i`, as the folder of your images. A path outside your home folder is refused."
+        with _jlock(jid):   # read and write under the lock of the walk
+            if not (j := walk_of(jid, i)) or not (spec := j.steps[i].get('nb')): return Response(status_code=404)
+            if not any(d['name'] == name for d in spec['data']): return Response('The notebook has no data with this name.', status_code=400)
+            new = {**spec, 'data': [{**d, 'path': path.strip()} if d['name'] == name else d for d in spec['data']]}
+            try: new = validate_nb_spec(new)
+            except ValueError: return Response(f'Use a folder in your home folder, as ~/Pictures/comic. abhyasa did not keep {path[:200]!r}.', status_code=400)
+            j = lr.walk_step(jid, i, nb=new)
+        return card(j, i)
 
     def answer(jid:str, i:int, answer:str='', thinking:str='', confidence:int=None):
         j, s = live(jid, i)
@@ -572,6 +629,7 @@ def connect(app, ctx):
     app.get(Routes.step)(step)
     app.get(Routes.note)(note)
     app.get(Routes.check)(check)
+    app.post(Routes.check)(nb_again)
     app.post(Routes.answer)(answer)
     app.post(Routes.hint)(hint)
     app.post(Routes.giveup)(giveup)
@@ -583,5 +641,7 @@ def connect(app, ctx):
     app.post(Routes.next)(next_)
     app.get(Routes.done)(done)
     app.get(Routes.img)(img)
+    app.get(Routes.notebook)(notebook)
+    app.post(Routes.data)(data)
     app.get(Routes.source)(source)
     app.post(Routes.source)(find_source)

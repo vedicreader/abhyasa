@@ -7,7 +7,7 @@ class Routes:
     start = '/w/{jid}/start'          # start the walk and open a sitting
     step = '/w/{jid}/{i}'             # one idea: the passage, the figure, the note and the check
     note = '/w/{jid}/{i}/note'        # the tutor note, loaded after the page
-    check = '/w/{jid}/{i}/check'      # the check card, loaded after the page
+    check = '/w/{jid}/{i}/check'      # GET: the check card, loaded after the page; POST: write the notebook of the step again
     answer = '/w/{jid}/{i}/answer'
     hint = '/w/{jid}/{i}/hint'
     giveup = '/w/{jid}/{i}/giveup'
@@ -18,6 +18,8 @@ class Routes:
     next = '/w/{jid}/{i}/next'        # skip or go on
     done = '/w/{jid}/{i}/done'        # the summary at the end of a section
     img = '/w/{jid}/{i}/img'          # the figure of the step, from the vault assets
+    notebook = '/w/{jid}/{i}/notebook'  # download the notebook of a step that runs in Leela, for Jupyter
+    data = '/w/{jid}/{i}/data'          # POST: the path of one data entry of the notebook, as the folder of your images
     source = '/w/{jid}/{i}/source'    # GET: the passage, or the line while the tutor looks for a source; POST: look for a source on the web
     def of(route, **kw):
         for k, v in kw.items(): route = route.replace('{' + k + '}', str(v))

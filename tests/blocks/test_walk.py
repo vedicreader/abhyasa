@@ -331,9 +331,9 @@ def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
     leela_file(tmp_path)
     assert f'href="http://127.0.0.1:5011/learn?walk={jid}"' in cl.get(f'/w/{jid}').text
     cl.post(f'/w/{jid}/start')
-    step = cl.get(f'/w/{jid}/1').text
+    step = cl.get(f'/w/{jid}/1').text + cl.get(f'/w/{jid}/1/check').text                                         # a notebook step has the link on its card
     assert f'http://127.0.0.1:5011/learn?walk={jid}&amp;step=1' in step and 'target="_blank"' in step
-    assert 'code-editor' not in cl.get(f'/w/{jid}/1/check').text                                                 # the check here is short or order
+    assert 'code-editor' not in step                                                                              # the check here is short, order or notebook
     assert '/learn?' not in cl.get(f'/w/{jid}/0').text                                                           # an idea with no code way has no link
 
 def test_code_card_and_concept_page_offer_leela_only_when_it_runs(mk, walk_fake, lr, monkeypatch, tmp_path):
