@@ -31,6 +31,8 @@ from abhyasa.app import mk_app
 from abhyasa.core.cfg import cfg
 from walk_data import EXTRACT_REPLY, EXERCISE, add_paper
 from talk_data import TALK_RULES, prep_walk
+import abhyasa.research   # no web search and no page fetch in a look: research finds nothing
+abhyasa.research.web_search = lambda q, n: []
 
 cfg['leela'] = ''
 PRESENTER, AUDIENCE = dict(width=1280, height=800), dict(width=1280, height=720)
