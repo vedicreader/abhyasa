@@ -12,13 +12,17 @@ __all__ = ['STAGE_V', 'STAGE_TYPES', 'STAGE_CASES', 'PLAN_KEYS', 'TALK_KEYS', 'R
 _here = Path(__file__).parent
 STAGE_V = 1
 #: the message types of version 1, as in the table `TYPES` of `stage.js`; a later task adds a type to both, under `v: 1`
-STAGE_TYPES = ('go', 'point', 'demo', 'ask', 'result', 'pair', 'pane', 'blank', 'end', 'hello', 'here', 'join', 'room', 'question', 'answers')
+STAGE_TYPES = ('go', 'point', 'demo', 'ask', 'result', 'output', 'pair', 'pane', 'blank', 'end', 'hello', 'here', 'join', 'room', 'question', 'answers')
 
 OK = [dict(v=1, t='go', slide='s4', beat=2), dict(v=1, t='point', x=.31, y=.62), dict(v=1, t='point', id='scale'), dict(v=1, t='point', off=True),
       dict(v=1, t='demo', slug='softmax-temperature', state=dict(t=2), gates=dict(hot='done')),
       dict(v=1, t='demo', slug='softmax-temperature', state=dict(t=2), gates=dict(hot='done', b='done'), pick=dict(hot=1, b=[2, 0, 1])),
       dict(v=1, t='ask', slide='s3', ask=dict(kind='choice', q='T goes from 1 to 2. What happens to the share of Paris?', options=['It rises', 'It falls', 'It stays the same'])),
       dict(v=1, t='ask', slide='s3', ask=None),
+      dict(v=1, t='ask', slide='s5', ask=dict(kind='run', q='What does this print?')),
+      dict(v=1, t='ask', slide='s5', ask=dict(kind='run', q='What does this print?', options=['1', '2', '3'])),
+      dict(v=1, t='result', slide='s5', kind='run', rounds=[dict(counts=[3, 9, 1], n=13)], right=1, main=None, output='2'),
+      dict(v=1, t='output', slide='s5', text='2\n<b>not html</b>'),
       dict(v=1, t='result', slide='s3', kind='choice', rounds=[dict(counts=[11, 10, 4], n=25)], right=1, main=None),
       dict(v=1, t='pair', on=True, prompt='Talk to your neighbour about your answer.'), dict(v=1, t='pane', url='/w/g-1a2b/0'), dict(v=1, t='pane', url=None),
       dict(v=1, t='pane', url='/w/g-1a2b/0?pane=1&talk=1', page=3), dict(v=1, t='pane', url=None, page=0),
@@ -33,6 +37,10 @@ BAD = [dict(v=2, t='go', slide='s4', beat=2), dict(v=1, t='eval', code='alert(1)
        dict(v=1, t='pane', url='/w/g-1a2b/0', page='1'), dict(v=1, t='pane', page=1),
        dict(v=1, t='ask', slide='s3', ask=dict(kind='choice', q='Q?', options=['a', 'b'], answer=1)),
        dict(v=1, t='ask', slide='s3', ask=dict(kind='choice', q='Q?', options=list('abcdefg'))),
+       dict(v=1, t='ask', slide='s5', ask=dict(kind='run', q='Q?', options=['1', '2'], answer=1)), dict(v=1, t='ask', slide='s5', ask=dict(kind='run', q='Q?', options=['1'])),
+       dict(v=1, t='result', slide='s5', kind='run', rounds=[], right=None, main=None, output='x' * 2001), dict(v=1, t='result', slide='s5', kind='poll', rounds=[], right=None, main=None),
+       dict(v=1, t='output', slide='s5', text='x' * 2001), dict(v=1, t='output', slide='s5', text=2), dict(v=1, t='output', slide='../x', text='2'),
+       dict(v=1, t='output', slide='s5'), dict(v=1, t='output', slide='s5', text='2', html='<b>2</b>'),
        dict(v=1, t='question', text='x' * 281), dict(v=1, t='join', url='http://evil.example/j/K7PQ2M', code='K7PQ2M'),
        dict(v=1, t='join', url='http://192.168.1.23:5180/j/K7PQ2O', code='K7PQ2O'), dict(v=1, t='blank', on='yes'),
        dict(v=1, t='room', joined=-1, answered=0), dict(v=1, t='demo', slug='x', state=dict(a='x' * 70000), gates={}),

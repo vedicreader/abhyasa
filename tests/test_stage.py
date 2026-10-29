@@ -139,6 +139,11 @@ def test_stage_in_a_browser(mk):
                 pre.evaluate("() => ch.send({t: 'pane', url: null})")
                 aud.wait_for_function("() => !st.classList.contains('beside') && !document.querySelector('iframe.stage-pane')")
 
+                # the output of a run reaches the audience, as data for textContent; a run question too
+                pre.evaluate("() => { ch.send({t: 'ask', slide: 's5', ask: {kind: 'run', q: 'What does this print?'}}); ch.send({t: 'output', slide: 's5', text: '2 <b>x</b>'}) }")
+                aud.wait_for_function("() => drawn.includes('output')")
+                assert aud.evaluate("() => [drawn.includes('ask'), got.find(m => m.t === 'output').text]") == [True, '2 <b>x</b>']
+
                 # the blank screen, and the dot that fades after `fade` ms
                 pre.evaluate("() => { ch.send({t: 'blank', on: true}); ch.send({t: 'point', x: .5, y: .25}) }")
                 aud.wait_for_function("() => st.classList.contains('blank') && document.querySelector('.stage-dot.on')")

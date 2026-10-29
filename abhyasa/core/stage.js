@@ -46,7 +46,9 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   const PICK = either(int(0, 5), list(6, int(0, 5)));   // an option, or the options in order
   const GATE_PICK = either(int(0, 63), list(64, int(0, 63)));   // the same at a demo gate, which can have more options
   // The public part of a question: never its `answer` (spec 7.7).
-  const ASK = shape({kind: v => ['choice', 'order', 'words', 'scale'].includes(v), q: str(500), options: list(6, str(200)), most: int(1, 500)}, ['kind', 'q']);
+  // A `run` question ("What does this print?") has no answer before the run, and 2 to 6 options or none.
+  const ASK_SHAPE = shape({kind: v => ['choice', 'order', 'words', 'scale', 'run'].includes(v), q: str(500), options: list(6, str(200)), most: int(1, 500)}, ['kind', 'q']);
+  const ASK = v => ASK_SHAPE(v) && (v.kind !== 'run' || !v.options || v.options.length >= 2);
   const ANSWER = v => str(200, /^[A-Za-z0-9_.]{1,200}$/)(v) || (isObj(v) && Object.keys(v).length === 1 && Object.hasOwn(v, 'is') && JSON.stringify(v).length <= 2000);
   const ROUND = shape({counts: list(6, N), n: N}, ['n']);
 
@@ -59,7 +61,12 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
                     pick: v => isObj(v) && Object.keys(v).length <= 64 && Object.entries(v).every(([k, x]) => ID(k) && GATE_PICK(x))},
            need: ['slug', 'state', 'gates'], ok: m => !m.pick || Object.keys(m.pick).every(k => Object.hasOwn(m.gates, k))},
     ask: {fields: {slide: SLIDE, ask: orNull(ASK)}},
-    result: {fields: {slide: SLIDE, kind: str(8, /^(choice|order|words|scale)$/), rounds: list(2, ROUND), right: orNull(PICK), main: orNull(PICK)}},
+    result: {fields: {slide: SLIDE, kind: str(8, /^(choice|order|words|scale|run)$/), rounds: list(2, ROUND), right: orNull(PICK), main: orNull(PICK),
+                     output: str(2000)},
+             need: ['slide', 'kind', 'rounds', 'right', 'main']},   // `output` is for a run question: the output of the run, and `right` is the option that matches it
+    // `output`: the output of a run, as plain text for the audience to show under the question (with textContent, never as HTML).
+    // The presenter clips it to 2000 characters, so the whole message stays far under MOST.
+    output: {fields: {slide: SLIDE, text: str(2000)}},
     pair: {fields: {on: bool, prompt: str(200)}, need: ['on']},
     // `page`: the page of the primer beside the slide; each window shows that page at its own size (core/talktype.js)
     pane: {fields: {url: orNull(v => str(2048)(v) && isLocal(v)), page: int(0, 19)}, need: ['url']},
@@ -114,7 +121,7 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
     };
   }
 
-  const DRAWN = ['go', 'ask', 'result', 'pair', 'join', 'room', 'question', 'demo', 'end', 'answers'];
+  const DRAWN = ['go', 'ask', 'result', 'pair', 'join', 'room', 'question', 'demo', 'end', 'answers', 'output'];
   const child = (el, cls, tag = 'div') => el.querySelector(':scope > .' + cls) || el.appendChild(Object.assign(document.createElement(tag), {className: cls}));
 
   // The audience window: the laser dot, the lit id, the blank screen and the side pane. `draw(msg)` draws the rest.

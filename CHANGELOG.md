@@ -41,6 +41,7 @@
 - You can drag the edge of the side pane and of the Graph tools to resize them. The edge has a line and a small handle, and a tip shows the first time. Arrow keys move it, 1, 2 and 3 set a third, a half and two thirds of the window (the pane), and a double-click resets it.
 - Graph: each cluster has a label and a soft region, and Group by can use the concept groups.
 - Talks: a question can take its answer from a run (for Leela).
+- Stage messages: a run question (`ask` and `result` with kind `run`) and a new `output` message, so a host can show what a run printed.
 
 ## 0.0.11
 

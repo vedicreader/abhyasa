@@ -129,7 +129,11 @@ TALK_CASES = [
     (dict(_good(), slides=_good()['slides'] * 2), ['s1: the slide id is used twice']),
     (_case(ask=_with_ask(kind='poll')), ["s1: unknown ask kind 'poll'"]),
     (_case(beats=['passage', 'fly']), ["s1: unknown beat 'fly'"]),
-    (_case(ask=dict(kind='order', q='Q?', options=['a', 'b', 'c'], answer=[0, 0, 1])), ['s1: the answer [0, 0, 1] is not an order of the options'])]
+    (_case(ask=dict(kind='order', q='Q?', options=['a', 'b', 'c'], answer=[0, 0, 1])), ['s1: the answer [0, 0, 1] is not an order of the options']),
+    (_case(ask=dict(kind='run', q='What does this print?')), []),                                   # a run question: no answer before the run
+    (_case(ask=dict(kind='run', q='What does this print?', options=['1', '2'])), []),
+    (_case(ask=dict(kind='run', q='What does this print?', options=['1', '2'], answer=0)), ['s1: a run question has no answer before the run']),
+    (_case(ask=dict(kind='run', q='What does this print?', options=['1'])), ['s1: a run question has 2 to 6 options, or none'])]
 
 # %% ../nbs/17_talk.ipynb #918274cf
 def _gates(bs):
