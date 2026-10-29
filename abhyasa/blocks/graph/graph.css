@@ -51,7 +51,7 @@ main.wide:has(#graph) { max-width: none; padding-top: var(--s5); padding-bottom:
 #levers ul.found { list-style: none; margin: var(--s1) 0 0; padding: 0; font-size: var(--t-small); }
 #levers ul.found li { padding: 2px 0; }
 #levers ul.found small { font-size: var(--t-lbl); font-style: italic; }
-@media (max-width: 820px) { #graph { grid-template-columns: 1fr; } #levers { height: auto; border-left: 0; border-top: 1px solid var(--line); padding: var(--s4) 0 0; } }
+@media (max-width: 820px) { #graph { grid-template-columns: 1fr; } #graph .grip { display: none; } #levers { height: auto; border-left: 0; border-top: 1px solid var(--line); padding: var(--s4) 0 0; } }
 #levers details.adjust { border-top: 1px solid var(--line); padding-top: var(--s2); }
 #levers details.adjust > summary { cursor: pointer; color: var(--mute); padding: var(--s1) 0 var(--s2); list-style-position: inside; }
 #levers details.adjust > summary:hover, #levers details.adjust[open] > summary { color: var(--fg); }
