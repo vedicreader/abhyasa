@@ -653,3 +653,26 @@ def test_old_check_closes_with_no_grade(mk, walk_fake, lr):
     assert mk().post(f'/w/{jid}/1/answer', data=dict(answer='its rank position')).status_code == 409
     assert (lr.open_q(qid).status, lr.open_q(qid).end) == ('closed', 'abandoned')
     assert dict(lr.concept('softmax')) == before and len(lr.attempts('softmax', limit=None)) == n and not lr.journey(jid).steps[1]['done']
+
+def test_two_answers_at_once_close_one_time(mk, walk_fake, lr):
+    import threading, time
+    from conftest import grader
+    def slow(p, sp): time.sleep(.2); return grader(p, sp)
+    cl = mk(); jid = walk(cl, lr); qid = open_check(cl, lr, jid)
+    walk_fake.rules['You grade one answer'] = slow
+    cl2 = mk()                                                                      # after a restart, so both requests load the question
+    out = []
+    def send(): out.append(cl2.post(f'/w/{jid}/1/answer', data=dict(answer='its rank position', confidence=70)))
+    ts = [threading.Thread(target=send) for _ in range(2)]
+    for t in ts: t.start()
+    for t in ts: t.join()
+    assert sorted(r.status_code for r in out) in ([200, 200], [200, 409]), [r.status_code for r in out]   # never a 500
+    assert len([a for a in lr.attempts('softmax', limit=None) if a.get('final')]) == 1
+    assert lr.journey(jid).steps[1]['done']['outcome'] == 'fragile'
+
+def test_vault_viewer_refuses_an_open_question(mk, walk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); qid = open_check(cl, lr, jid)
+    d = lr.open_q(qid).doc_id
+    r = cl.get(f'/v/learning/{d}')
+    assert 'No such document' in r.text and 'Its position.' not in r.text and 'What does a rank' not in r.text   # the same page as a document that is not there
+    assert cl.get(f'/v/learning/{d}/img?f=x.png').status_code == 404

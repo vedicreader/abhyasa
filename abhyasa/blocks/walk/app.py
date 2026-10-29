@@ -243,7 +243,8 @@ def connect(app, ctx):
     def answer(jid:str, i:int, answer:str='', thinking:str='', confidence:int=None):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
-        r = s.answer(answer, thinking, confidence)
+        try: r = s.answer(answer, thinking, confidence)
+        except KeyError: return no_check(lr.journey(jid), i)   # another request closed it while this one waited
         return closed(j, i, r) if r.done else reply(j, i)
 
     def run(jid:str, i:int, source:str=''):
@@ -258,13 +259,16 @@ def connect(app, ctx):
     def hint(jid:str, i:int):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
-        if len(tutor.open[s.q.id].hints) < len(HINTS): s.hint()
+        try:
+            if len(tutor.open[s.q.id].hints) < len(HINTS): s.hint()
+        except KeyError: return no_check(lr.journey(jid), i)
         return reply(j, i)
 
     def giveup(jid:str, i:int, confidence:int=None):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
-        r = s.give_up(confidence=confidence or 0) if tutor.open[s.q.id].tries else s.answer(dont_know=True, confidence=confidence)
+        try: r = s.give_up(confidence=confidence or 0) if tutor.open[s.q.id].tries else s.answer(dont_know=True, confidence=confidence)
+        except KeyError: return no_check(lr.journey(jid), i)
         return closed(j, i, r)
 
     def lesson_job(jid, i, slug):

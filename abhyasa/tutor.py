@@ -11,7 +11,7 @@ __all__ = ['HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'GRADE_SP', 'TEAC
            'public', 'reviews_today', 'review_open', 'paced', 'flow', 'NoLesson', 'Session', 'retests', 'moved']
 
 # %% ../nbs/03_tutor.ipynb #c004
-import json, random, threading, time, uuid
+import functools, json, random, threading, time, uuid, weakref
 from fastcore.utils import *
 from .store import Learning, _src
 from .settings import val
@@ -212,11 +212,18 @@ def hints() -> tuple:
 
 # %% ../nbs/03_tutor.ipynb #oq31
 OPEN_KIND = 'open-q'
-_QLOCKS, _QLOCK = {}, threading.Lock()
+_QLOCKS, _QLOCK = weakref.WeakValueDictionary(), threading.Lock()   # a lock that no caller holds goes away
 
 def _qlock(qid) -> threading.RLock:
-    "The lock of open question `qid`, so that two writers do not read, change and write it at the same time."
+    "The lock of open question `qid`, so that one caller at a time loads, changes and writes it."
     with _QLOCK: return _QLOCKS.setdefault(qid, threading.RLock())
+
+def _held(f):
+    "Run `f(self, qid, ...)` under the lock of question `qid`. A second caller waits, then finds the question as the first caller left it."
+    @functools.wraps(f)
+    def _f(self, qid, *args, **kw):
+        with _qlock(qid): return f(self, qid, *args, **kw)
+    return _f
 
 @patch
 def open_q(self:Learning, qid:str) -> AttrDict|None:
@@ -251,11 +258,14 @@ class Open(dict):
 
     def load(self, qid):
         "Question `qid` from the shelf, kept in memory, when it is open; else None. A stale question closes as abandoned."
-        if not isinstance(qid, str) or (m := self.learning.open_q(qid)) is None or m.status != 'open': return None
-        if stale(m): self.learning.put_open_q(m.q, 'closed', 'abandoned'); return None
-        q = AttrDict(m.q)
-        super().__setitem__(qid, q)
-        return q
+        if not isinstance(qid, str): return None
+        with _qlock(qid):   # two callers that both miss get one copy
+            if super().__contains__(qid): return super().__getitem__(qid)
+            if (m := self.learning.open_q(qid)) is None or m.status != 'open': return None
+            if stale(m): self.learning.put_open_q(m.q, 'closed', 'abandoned'); return None
+            q = AttrDict(m.q)
+            super().__setitem__(qid, q)
+            return q
 
     def __missing__(self, qid):
         if (q := self.load(qid)) is None: raise KeyError(qid)
@@ -393,6 +403,7 @@ def flow(log, pace:str='steady', n:int=3) -> tuple:
 
 # %% ../nbs/03_tutor.ipynb #c027
 @patch
+@_held
 def hint(self:Tutor, qid:str) -> str:
     "The next hint on the ladder, from the least to the most revealing."
     q = self.open[qid]
@@ -429,6 +440,7 @@ def _heard(self:Tutor, q, g):
     if g.get('asks_for') in TEXT_WAYS: q.method = g['asks_for']
 
 @patch
+@_held
 def answer(self:Tutor, qid:str, answer:str='', thinking:str='', confidence:int=None, dont_know:bool=False) -> AttrDict:
     "Grade an answer. A wrong try keeps the question open with a nudge. A pass or the last try closes it and updates the concept."
     q = self.open[qid]
@@ -454,6 +466,7 @@ def answer(self:Tutor, qid:str, answer:str='', thinking:str='', confidence:int=N
 
 # %% ../nbs/03_tutor.ipynb #c033
 @patch
+@_held
 def give_up(self:Tutor, qid:str, confidence:int=0, dont_know:bool=False) -> AttrDict:
     "Close the question as a miss and teach the smallest step. A shown answer is a miss, unless a try had a grade of `checks.near` or more."
     q = self.open[qid]
@@ -641,7 +654,7 @@ def save(self:Session):
     full = self.tutor.open.get(self.q.id) if self.q and not self.ended else None
     if full: self.tutor.open.save(full)   # a change such as a new "why" line
     self.tutor.learning.log_session(self.id, self.summary(), start=self.start, updated=time.time(), focus=self.focus, subject=self.subject,
-                                    journey=self.journey, drill=self.drill, limit=self.limit, log=self.log, open=dict(full) if full else None, ended=self.ended,
+                                    journey=self.journey, drill=self.drill, limit=self.limit, log=self.log, open=public(full) if full else None, ended=self.ended,
                                     asked=len(self.log), passed=sum(r['correct'] for r in self.log), concepts=sorted({r['concept'] for r in self.log}))
 
 @patch
@@ -661,7 +674,8 @@ def load(cls:Session, tutor:Tutor, sid:str):
     s.start, s.log, s.ended = m.get('start') or s.start, list(m.get('log') or []), m.get('ended')
     if (o := m.get('open')) and not s.ended:
         # the shelf has each open question in its own document; an old vault has only this copy
-        q = tutor.open.get(o['id']) if tutor.learning.open_q(o['id']) else None if stale(m) else AttrDict(o)
+        # a copy with no answer key (from this version on) is the learner view, so only the open-q document can open it
+        q = tutor.open.get(o['id']) if tutor.learning.open_q(o['id']) else None if stale(m) or 'answer' not in o else AttrDict(o)
         if q: tutor.open[q.id] = q; s.q = public(q)
     return s
 
