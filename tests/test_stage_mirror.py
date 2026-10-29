@@ -156,6 +156,33 @@ def test_mirror_forgets_the_answers_on_a_new_slide():
             assert got['back'][0] and got['back'][1].startswith('You said It falls. That is right.')
         finally: b.close()
 
+def test_mirror_opens_a_gate_again():
+    "After Try another in the presenter copy, the snapshot has no done gate and no pick, and the audience copy opens the gate again with no verdict and no answer."
+    spec = gallery()['softmax-temperature']
+    spec = {**spec, 'blocks': [{**x, 'again': True} if x.get('type') == 'gate' else x for x in spec['blocks']]}
+    room = {**spec, 'blocks': [{k: v for k, v in x.items() if k != 'answer'} for x in spec['blocks']]}
+    with pw.sync_playwright() as p:
+        b = p.chromium.launch(headless=True)
+        try:
+            pg = b.new_page(); pg.set_content(page([spec, room])); pg.add_script_tag(content=JS); pg.evaluate(f'() => {{ {TALK}; }}')
+            pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 2")
+            got = pg.evaluate("""() => { const [a, b] = document.querySelectorAll('[data-rupaka]'), ma = abhyasaStage.mirror(a), mb = abhyasaStage.mirror(b), r = {};
+              const sync = () => { const s = ma.snapshot(); mb.apply(s.state, s.gates, s.pick); return s; };
+              const after = () => [...b.querySelectorAll('[data-rk-after="hot"]')].some(n => n.style.display !== 'none' && !n.hidden);
+              a.querySelector('.rk-gate .opts button:nth-child(2)').click(); a.querySelector('.rk-gate .go').click();
+              r.done = sync().gates; mb.reveal(ma.answers());
+              r.shut = [b.rupaka.st.gate.hot, !b.querySelector('.rk-gate .verdict').hidden, 'answer' in b.rupaka.spec.blocks[2], after()];
+              [...a.querySelectorAll('.rk-gate button')].find(x => x.textContent === 'Try another').click();
+              const s = sync(); r.snap = [s.gates, s.pick, ma.answers()];
+              r.open = [b.rupaka.st.gate.hot, b.querySelector('.rk-gate .verdict').hidden, 'answer' in b.rupaka.spec.blocks[2], after()];
+              a.querySelector('.rk-gate .opts button').click(); a.querySelector('.rk-gate .go').click(); sync();   // a new pick closes it again
+              r.again = [b.rupaka.st.gate.hot, b.querySelector('.rk-gate .verdict').hidden];
+              return r; }""")
+            assert got['done'] == dict(hot='done') and got['shut'] == ['done', True, True, True]
+            assert got['snap'] == [{}, {}, {}] and got['open'] == ['open', True, False, False]
+            assert got['again'] == ['done', True]   # no answer in the room copy now: the verdict waits for R again
+        finally: b.close()
+
 SETUP = """([rk, js, name, spec]) => Promise.all([rk, js].map(src => new Promise(ok => {
   const s = document.createElement('script'); s.src = src; s.onload = ok; document.head.appendChild(s);
 }))).then(() => {

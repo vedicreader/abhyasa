@@ -223,7 +223,7 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   }
   function mirror(host) {
     if (!HOST_API()) throw Error('a mirrored demo needs rupaka 0.0.4 or newer: Rupaka.state, Rupaka.set and Rupaka.settle are not there');
-    const gates = {}, pick = {}, shown = {}, picked = {}, pokes = [];
+    const gates = {}, pick = {}, shown = {}, picked = {}, pokes = [], told = new Set();
     const poke = () => pokes.forEach(f => f());
     // The presenter copy: a gate is done when the page settles its prediction as saved, or when no page catches it.
     host.addEventListener('rk-predict', e => {
@@ -234,17 +234,29 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
       if (typeof settle === 'function') d.settle = (saved, message) => { settle(saved, message); if (saved) done(); };
       queueMicrotask(() => { if (!e.defaultPrevented) done(); });
     });
-    const snapshot = () => ({state: Rupaka.state(host), gates: {...gates}, pick: structuredClone(pick)});
+    // The presenter copy: a gate that opens again ("Try another") is not done any more, so the audience copy opens it too.
+    const prune = () => { for (const id of Object.keys(gates)) if (host.rupaka?.get?.(`gate.${id}`) === 'open') { delete gates[id]; delete pick[id]; } };
+    const snapshot = () => { prune(); return {state: Rupaka.state(host), gates: {...gates}, pick: structuredClone(pick)}; };
     function apply(state = {}, done = {}, picks = {}) {
       host.querySelectorAll('.rk-gate').forEach(n => { n.inert = true; });   // the room does not pick in the audience window
       const now = Rupaka.state(host), keys = Object.keys(now).filter(k => Object.hasOwn(state, k) && !same(now[k], state[k]));
       if (keys.length) Rupaka.set(host, Object.fromEntries(keys.map(k => [k, state[k]])));
+      // a gate that is not done in the presenter copy now opens again here, with no pick and no answer
+      for (const id of Object.keys(shown)) if (done?.[id] !== 'done') reopen(id);
       // only a gate that is done in the presenter copy; an open or a pending gate there does not show here
       for (const id of Object.keys(done || {})) {
         const p = picks?.[id] ?? null, k = JSON.stringify(p);
         if (done[id] !== 'done' || shown[id] === k) continue;
         if (Rupaka.settle(host, id, value(id, p))) { shown[id] = k; picked[id] = p; }
       }
+    }
+    // rupaka 0.0.4 has no host call that opens a gate, so this does what the gate's own "Try another" does: it marks the gate
+    // open in the store and draws the demo again. The blocks after the gate hide, and the verdict goes.
+    function reopen(id) {
+      const s = host.rupaka;
+      if (told.has(id)) { const g = gate(host, id); if (g) delete g.answer; told.delete(id); }
+      delete shown[id]; delete picked[id];
+      if (s?.st?.gate) { s.st.gate[id] = 'open'; s.set('_', (s.st._ || 0) + 1); }
     }
     // The option of the pick `p` at gate `id`, or null (no verdict) when the copy has no answer or no such option.
     function value(id, p) {
@@ -254,12 +266,12 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
     }
     // The presenter copy: the answer of each gate that is done, for the `answers` message after R.
     function answers() {
+      prune();
       const out = {};
       for (const id of Object.keys(gates)) { const a = gate(host, id)?.answer; if (a != null) out[id] = structuredClone(a); }
       return out;
     }
     // The audience copy: an answer goes into the gate only when the gate is done here; then the verdict of the pick shows.
-    const told = new Set();
     function reveal(got = {}) {
       for (const [id, a] of Object.entries(got || {})) {
         const g = gate(host, id);
