@@ -493,14 +493,15 @@ def connect(app, ctx):
     def present(j, quiet=False, row=False):
         """On a walk (its plan, its step, its last page) and on its path page: make a talk from the walk, or open the one made before.
         On a path (a walk with no source): the same from the path. `quiet` gives a quiet button, for a page that has its own main button.
-        `row` gives one quiet control for the row of a walk in a list: Present, or Open the talk. A path row has none, as before."""
+        `row` gives one quiet control for its row in a list: Present, or Open the talk."""
         if j.get('mode') == 'walk':
             if not j.steps or j.get('depth') or for_talk(j): return None
             t = walk_talk(lr, j.id)
             return ui.RowPresent(j.id, t) if row else ui.PresentWalk(j.id, t, quiet)
-        if row or not plain(j): return None
+        if not plain(j): return None
         w = journey_walk(lr, j.id)
-        return ui.PresentJourney(j.id, w and walk_talk(lr, w.id))
+        t = w and walk_talk(lr, w.id)
+        return ui.RowPresent(j.id, t, path=True) if row else ui.PresentJourney(j.id, t)
 
     @hook('learn_talks')
     def your_talks():

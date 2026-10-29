@@ -2,12 +2,14 @@
 .goal-form label { margin-top: var(--s2); }
 .goal-form.raised { margin: var(--s5) 0 var(--s2); padding: var(--s4) var(--s5) var(--s5); } .goal-form.raised label { margin-top: 0; }
 .goal-form .row { margin-top: var(--s3); }
-/* The head of a walk row stays on one line: "Now" gives way with an ellipsis, and a title longer than 55% of the line too. */
-.jrow .jrow-head { flex-wrap: nowrap; } .jrow .jrow-head > * { flex: none; }
-.jrow-head .prog { width: 56px; margin: 0; }
-.jrow .jrow-head :is(.jt, .now) { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jrow .jrow-head .jt { flex-shrink: 0; max-width: 55%; }
-@media (max-width: 640px) { .jrow .jrow-head { flex-wrap: wrap; } }
+/* The head of a walk row: two quiet lines in one block. Line 1 has the title, the kind and the paper id; line 2 has the progress and "Now",
+   cut with an ellipsis only when it is longer than the line. */
+.jrow-head { min-width: 0; }
+.jrow-l1, .jrow-l2 { display: flex; align-items: center; gap: var(--s1) var(--s3); min-width: 0; }
+.jrow-l1 { flex-wrap: wrap; } .jrow-l1 .jt { font-size: var(--t-list); color: var(--fg); }
+.jrow-l2 { margin-top: 2px; } .jrow-l2 > * { flex: none; } .jrow-l2 .mute { font-size: var(--t-meta); }
+.jrow-l2 .prog { width: 56px; margin: 0; }
+.jrow-l2 .now { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paper-id { font-size: var(--t-meta); }
 .phead { margin: var(--s5) 0 var(--s1); } .phead .prog { max-width: 420px; }
 .goal { font-style: italic; color: var(--ink2); }

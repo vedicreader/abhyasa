@@ -59,16 +59,18 @@ def fresh(j, pg) -> bool:
     return not j.get('started') if j.get('mode') == 'walk' else all(s.state == 'new' for s in pg.steps)
 
 def Row(j, pg, sides=(), lead=False, js=None):
-    """One walk in a list, on one line: its title, its kind, its progress and the step to do now. Then one way on and a quiet Present
+    """One walk in a list, as one block of two quiet lines: its title, its kind and its paper id; then its progress and the step to do now.
+    At the right, one way on and a quiet Present
     (`walk_actions` with `row`), and its side walks folded under it. Only the `lead` row (the current walk) has a button;
     the others have a quiet `Continue →` link."""
     word = 'Start the walk' if fresh(j, pg) else 'Continue'
     go_on = (A(word, href=go(j), cls='btn small') if lead and pg.current else Onward(word, go(j)) if pg.current
              else Onward('See what comes after', at(Routes.path, j)))
     pid = paper_id(j)
-    head = Div(A(j.title, href=at(Routes.path, j), cls='jt', title=j.title), Pill(kind_of(j)), Span(pid, cls='paper-id mute') if pid else '',
-               Span(f"{pg.done} of {n_of(pg.total, 'idea')}", cls='mute'), Bar(pg.done, pg.total),
-               Span(now := f"Now: {pg.current.name}" if pg.current else 'Finished', cls='mute now', title=now), cls='jrow-head lrow-head')
+    now = f"Now: {pg.current.name}" if pg.current else 'Finished'
+    head = Div(Div(A(j.title, href=at(Routes.path, j), cls='jt'), Pill(kind_of(j)), Span(pid, cls='paper-id mute') if pid else '', cls='jrow-l1'),
+               Div(Bar(pg.done, pg.total), Span(f"{pg.done} of {n_of(pg.total, 'idea')}", cls='mute'), Span(now, cls='mute now', title=now), cls='jrow-l2'),
+               cls='jrow-head')
     folded = Details(Summary(n_of(len(sides), 'side walk')), Ul(*[SideWalk(*x, js=js) for x in sides], cls='plain'), cls='side-walks') if sides else ''
     return Li(head, Div(go_on, *run('walk_actions', j, row=True), cls='lrow-acts'), folded, cls='jrow lrow')
 

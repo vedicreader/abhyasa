@@ -93,7 +93,7 @@ def connect(app, ctx):
                     H2('This week'), ui.Week(wk),
                     P(f"{n_of(sum(n for _, n in wk), 'question')} in the last seven days · {n_of(ups, 'concept')} moved up.", cls='mute week-sum'),
                     H2('What you learned'), ui.Learned(weeks(ss, by)),
-                    ui.Runs(list(groups.items())), *run('learning_end'), on='You', sub='Your learning', crumbs=up)
+                    ui.Runs(list(groups.items())), *run('learning_end'), on='You', sub='Your learning')
 
     def one(sid:str):
         s = lr.session(sid)

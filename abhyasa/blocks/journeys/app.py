@@ -28,7 +28,7 @@ def connect(app, ctx):
         "The Learn tab: your walks, your talks (`learn_talks`) and Start something new (`learn_start`)."
         return Page('Learn', H1('Learn'), Part('Your walks', ui.JourneyList(listed(), empty='No walks yet. Paste something below.')),
                     *run('learn_talks'), Section(H2('Start something new'), *run('learn_start'), id='start'),
-                    on='Learn', crumbs=[('Today', '/')], extra=ui.assets())
+                    on='Learn', extra=ui.assets())
 
     def index(): return RedirectResponse(Routes.learn, status_code=303)   # the old list: Learn has it now
 

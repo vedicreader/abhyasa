@@ -1083,6 +1083,10 @@ def screens(pg, w, out, only=None, widths=(1280, 1000), looks=None):
     "Each changed page at 1280 and 1000 px, light and dark, Paper and Signal."
     out.mkdir(parents=True, exist_ok=True)
     w.lr.walk_step(w.jid, 2, check=dict(way='words', kind='short', depth=2, why='plain words fit this idea'))
+    if not w.lr.talks():   # a talk, so Learn shows Your talks and a row with Open the talk
+        from abhyasa.talk import talk_from_walk
+        from talk_data import TALK_RULES
+        talk_from_walk(w.lr, Fake(TALK_RULES), w.jid)
     pages = dict(today='/', step=w.step(2), code=w.step(1), session=f'/s/{w.sid}', settings='/settings', strengths='/you/strengths',
                  profile='/you', keys='/keys', add='/add', concept='/c/ranking', plan=w.plan, end=f'/w/{w.jid}/0/done',
                  walkend=walk_to_end(w), pane=f'{w.step(2)}?rh={side_walk(w)}', demo=demo_step(w),   # 19b: the end of a walk, the pane (1000 px: the narrow view), a demo

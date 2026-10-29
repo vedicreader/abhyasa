@@ -33,7 +33,7 @@ def connect(app, ctx):
                     Div(H2('Privacy'), P('This stays in your vault on this Mac. Only the model that writes your questions gets it.', cls='mute'),
                         Form(Button('Clear what abhyasa knows about you', cls='small quiet danger'), action=Routes.clear, method='post',
                              hx_confirm='Clear the whole profile and its changes?') if p.known or p.changes else '', cls='privacy'),
-                    on='You', sub='Profile', crumbs=up)
+                    on='You', sub='Profile')
 
     async def save(req):
         f = await req.form()

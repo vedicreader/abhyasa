@@ -25,7 +25,7 @@ def test_learn_lists_walks_talks_and_start(mk, lr, talk_fake):
     assert f'action="/t/{tid}/start"' in h   # a quiet Present starts the talk
     assert 'Your talks' not in cl.get('/learning').text   # the talks moved from Your learning
 
-# A row has the title, the progress and the step to do now on one line, one Continue, a quiet Present and its side walks folded under it.
+# A row has the title, the progress and the step to do now in one block of two lines, one Continue, a quiet Present and its side walks folded under it.
 
 def test_walk_row_one_line_one_continue(mk, lr, talk_fake):
     cl = mk(); jid = paper_walk(cl, lr); side_walk(lr, jid)
@@ -64,3 +64,11 @@ def test_old_list_routes_redirect_to_learn(mk):
 def test_learn_empty(mk):
     h = mk().get('/learn').text
     assert 'No walks yet. Paste something below.' in h and 'Your talks' not in h and 'id="start"' in h
+
+# A tab root needs no way back: it shows no crumb.
+
+def test_tab_roots_have_no_crumb(mk):
+    cl = mk()
+    for u in ('/', '/learn', '/library', '/concepts', '/sources', '/learning', '/you'):
+        assert 'class="crumbs"' not in cl.get(u).text, u
+    assert 'class="crumbs"' in cl.get('/concepts?subject=ml').text   # a page under a tab root keeps its crumb

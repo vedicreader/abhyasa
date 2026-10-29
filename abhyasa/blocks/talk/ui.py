@@ -44,11 +44,12 @@ def PresentWalk(jid, t=None, quiet=False):
               hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
     return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, cls='row') if t else go
 
-def RowPresent(jid, t=None):
-    """The one quiet control on the row of walk `jid` in a list: "Open the talk" when talk `t` was made from it, else "Present", which makes the talk."""
+def RowPresent(jid, t=None, path=False):
+    """The one quiet control on the row of walk `jid` in a list: "Open the talk" when talk `t` was made from it, else "Present", which makes the talk.
+    `path` makes the talk from a path (a walk with no source)."""
     if t: return A('Open the talk', href=at(Routes.one, t.id), cls='quiet')
     return Form(Input(type='hidden', name='jid', value=jid), Quiet('Present', small=True, data_wait='Making the talk…', title='Make a talk from this walk'),
-                hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
+                hx_post=Routes.journey if path else Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
 
 def PresentJourney(jid, t=None):
     "Make a talk from path `jid` (a walk with no source). When talk `t` was made from it before: open that talk, or make it again."

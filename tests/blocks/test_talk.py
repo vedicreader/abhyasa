@@ -234,7 +234,7 @@ def test_journey_talk_guards(mk, talk_fake, lr):
     assert len(lr.journeys()) == n and not lr.talks()
     assert 'No such walk.' in cl.post('/talk/journey', data=dict(jid='nope')).text
     wid = walk(cl, lr)
-    assert 'No such walk.' in cl.post('/talk/journey', data=dict(jid=wid)).text and 'hx-post="/talk/journey"' not in cl.get(f'/j/{wid}').text
+    assert 'No such walk.' in cl.post('/talk/journey', data=dict(jid=wid)).text and 'hx-post="/talk/journey"' not in cl.get(f'/j/{wid}').text.split('Your other walks')[0]
 
 def test_editor_keys_in_a_browser(mk, talk_fake, lr, tmp_path):
     "In Chromium: W and S move the focus, ⇧S moves the slide, Q adds a pause, X twice takes a slide out, E opens the form, and a bad beat shows its problem as text."
@@ -880,10 +880,10 @@ def test_present_on_the_end_of_a_walk(mk, talk_fake, lr):
     assert page.count('Present this walk') == 1
 
 def test_present_in_the_journeys_list(mk, talk_fake, lr):
-    "A walk has a quiet Present on its row in Learn. A plain journey row does not."
+    "A walk and a plain journey each have a quiet Present on their row in Learn; the journey row makes its talk from the journey."
     cl = mk(); jid = walk_started(cl, lr); plain = journey_of(lr)
     page = cl.get('/learn').text
-    assert page.count('>Present</button>') == 1 and 'Present this walk' not in page and 'hx-post="/talk/journey"' not in page
+    assert page.count('>Present</button>') == 2 and 'Present this walk' not in page and page.count('hx-post="/talk/journey"') == 1
     assert plain in page
 
 def test_a_walk_with_a_talk_opens_it(mk, talk_fake, lr):

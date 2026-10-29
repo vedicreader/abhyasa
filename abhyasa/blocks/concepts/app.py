@@ -51,7 +51,7 @@ def connect(app, ctx):
 
     def index(subject:str='', q:str=''):
         return Page('Concepts', ui.css(), ui.js(), ui.H1(subject or 'Concepts'), Div(view(subject, q), id='concepts-view'), on='Library', sub='Concepts',
-                    crumbs=[('Today', '/'), *([('Concepts', Routes.base)] if subject else [])])
+                    crumbs=[('Concepts', Routes.base)] if subject else [])   # a tab root has no crumb
 
     def run_sort(subject):
         "On the pool: the proposed group of each concept. Nothing is saved."
