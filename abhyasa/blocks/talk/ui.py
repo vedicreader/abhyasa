@@ -328,24 +328,34 @@ def Item(head, tail, *lines, act=''):
     "One row of a list on the page after the talk: a bold head, a short line at the right, the lines under it, and its button."
     return Li(Div(B(head), Span(tail, cls='share'), cls='h'), *[P(x) for x in lines if x], act, cls='after-item')
 
-def Unsure(t, run, unsure):
-    """Where the room was unsure: each question that the room answered, in slide order. A weak one has the share right in each
-    round (or the hands line), the wrong answer that most people chose, and one plain line. The other ones say that the room was sure."""
-    weak, out = {w['slide']: w for w in unsure}, []
-    for s in t['slides']:
+def asked(t, run, cnames):
+    "Each question that the room answered, in slide order, as (key, title, question, answers): a slide's own, then each primer beside it."
+    out = []
+    for k, s in enumerate(t['slides'], 1):
         a, log = s.get('ask') or {}, (run.get('asks') or {}).get(s['id']) or {}
-        if not a or a.get('kind') == 'none' or not (log.get('rounds') or log.get('main') is not None): continue
-        sh, w = shares(a, log), weak.get(s['id'])
+        if a and a.get('kind') != 'none' and (log.get('rounds') or log.get('main') is not None): out.append(((s['id'], None), s.get('title') or '', a, log))
+        for b in run.get('beside') or []:
+            if b.get('slide') == s['id'] and b.get('ask') and (b.get('rounds') or b.get('main') is not None):
+                out.append(((s['id'], b['slug']), f"{cnames.get(b['slug'], b['slug'])} (beside idea {k})", b['ask'], b))
+    return out
+
+def Unsure(t, run, unsure, cnames):
+    """Where the room was unsure: each question that the room answered, in slide order, with the questions on a primer beside a slide.
+    A weak one has the share right in each round (or the hands line), the wrong answer that most people chose, and one plain line.
+    The other ones say that the room was sure."""
+    weak, out = {(w['slide'], w.get('beside')): w for w in unsure}, []
+    for key, title, a, log in asked(t, run, cnames):
+        sh, w = shares(a, log), weak.get(key)
         tail = ' → '.join(map(pct, sh)) + ' right' if sh else ''
         if w and w['share'] is None:
-            out.append(Item(s.get('title') or '', f"Most hands: {letter(a, w['main'])} (right: {letter(a, a.get('answer'))})",
+            out.append(Item(title, f"Most hands: {letter(a, w['main'])} (right: {letter(a, a.get('answer'))})",
                             f"Most hands chose “{w['top_wrong']}”. Go over this idea again." if w.get('top_wrong') else 'Most hands chose a wrong answer. Go over this idea again.'))
         elif w:
             moved = len(sh) > 1 and sh[-1] > sh[0]
             plain = ('After the talk with a neighbour, more people were right, but the idea is not solid yet.' if moved
                      else 'A second vote did not help. Go over this idea again.' if len(sh) > 1 else f"Fewer than {pct(val('talks.weak'))} of the room chose the right answer.")
-            out.append(Item(s.get('title') or '', tail, f"The wrong answer that most people chose: “{w['top_wrong']}”." if w.get('top_wrong') else '', plain))
-        else: out.append(Item(s.get('title') or '', tail or 'Most hands were right', 'Solid. No follow-up is needed.'))
+            out.append(Item(title, tail, f"The wrong answer that most people chose: “{w['top_wrong']}”." if w.get('top_wrong') else '', plain))
+        else: out.append(Item(title, tail or 'Most hands were right', 'Solid. No follow-up is needed.'))
     return Part('Where the room was unsure', Ul(*out, cls='plain after-list') if out else P('The room answered no question in this talk.', cls='mute'))
 
 def RoomQuestions(qs):
@@ -407,11 +417,11 @@ def SlideBySlide(t, run, rc, cnames):
 def After(t, run, rc, names, cnames):
     "The page after the talk (spec 13): what the room was unsure about, the questions, the recap file, and what to do next."
     d = datetime.fromtimestamp(run.get('started') or 0)
-    asked = sum(bool(x.get('rounds') or x.get('main') is not None) for x in (run.get('asks') or {}).values())
+    n = len(asked(t, run, cnames))
     line = meta(f"{d:%A} {d.day} {d:%b} at {d:%H:%M}", mins((run.get('ended') or run.get('started') or 0) - (run.get('started') or 0)),
-                n_of(run['people'], 'person', 'people') if run.get('people') else '', f"{n_of(asked, 'question')} to the room" if asked else '',
+                n_of(run['people'], 'person', 'people') if run.get('people') else '', f"{n_of(n, 'question')} to the room" if n else '',
                 f"{n_of(len(rc.beside), 'primer')} beside the slides" if rc.beside else '')
-    follow = list(dict.fromkeys(names[w['slide']] for w in rc.unsure if w['slide'] in names))
+    follow = list(dict.fromkeys(cnames.get(w['beside'], w['beside']) if w.get('beside') else names[w['slide']] for w in rc.unsure if w['slide'] in names))
     return (H1('After the talk'), P(line, cls='mute'),
-            Div(Div(Unsure(t, run, rc.unsure), RoomQuestions(rc.questions), ForRoom(t['id'], run['id']), ForYou(t, run, follow, cnames)),
+            Div(Div(Unsure(t, run, rc.unsure, cnames), RoomQuestions(rc.questions), ForRoom(t['id'], run['id']), ForYou(t, run, follow, cnames)),
                 SlideBySlide(t, run, rc, cnames), cls='after-cols'))

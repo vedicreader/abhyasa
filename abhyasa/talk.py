@@ -411,9 +411,11 @@ def log_question(run:dict, text:str, at:float, shown:bool=False, note:str='') ->
     run['questions'].append(q)
     return q
 
-def log_beside(run:dict, slug:str, slide:str, at:float, secs:float):
-    "Keep the primer `slug` that was open beside `slide` for `secs` seconds."
-    run['beside'].append(dict(slug=slug, slide=slide, at=at, secs=secs))
+def log_beside(run:dict, slug:str, slide:str, at:float, secs:float, ask:dict|None=None, main=None, rounds:list|None=None):
+    "Keep the primer `slug` that was open beside `slide` for `secs` seconds, with the question `ask` on its idea and the room's answers."
+    b = dict(slug=slug, slide=slide, at=at, secs=secs, ask=deepcopy(ask), main=main)
+    if rounds: b['rounds'] = deepcopy(list(rounds))
+    run['beside'].append(b)
 
 # %% ../nbs/17_talk.ipynb #69d42654
 @patch
@@ -462,18 +464,25 @@ def _top_wrong(ask:dict, counts) -> str|None:
     wrong = [(c, i) for i, c in enumerate(counts or []) if i != ask.get('answer') and c]
     return _option(ask, max(wrong, key=lambda x: x[0])[1]) if wrong else None
 
-def weak(t:dict, run:dict, below:float=None) -> list:
-    "The slides of talk `t` where the room of `run` was unsure, in slide order."
-    below, out = val('talks.weak') if below is None else below, []
-    for s in t['slides']:
-        a, log = s.get('ask'), (run.get('asks') or {}).get(s['id'])
-        if not a or not log: continue
-        if log.get('rounds'):
-            r = log['rounds'][-1]
-            if (sh := share_right(a, r)) is not None and sh < below:
-                out.append(dict(slide=s['id'], title=s.get('title') or '', share=sh, top_wrong=_top_wrong(a, r.get('counts')), n=r.get('n'), main=None))
-        elif isinstance(m := log.get('main'), int) and not isinstance(m, bool) and a.get('kind') == 'choice' and m != a.get('answer'):
-            out.append(dict(slide=s['id'], title=s.get('title') or '', share=None, top_wrong=_option(a, m), n=None, main=m))
+def _unsure(a:dict, log:dict, below:float, **item) -> dict|None:
+    "The item for question `a` with the answers `log` when the room was unsure on it, else None."
+    if not a or not log: return None
+    if log.get('rounds'):
+        r = log['rounds'][-1]
+        if (sh := share_right(a, r)) is not None and sh < below: return dict(item, share=sh, top_wrong=_top_wrong(a, r.get('counts')), n=r.get('n'), main=None)
+    elif isinstance(m := log.get('main'), int) and not isinstance(m, bool) and a.get('kind') == 'choice' and m != a.get('answer'):
+        return dict(item, share=None, top_wrong=_option(a, m), n=None, main=m)
+
+def weak(t:dict, run:dict, below:float=None, names:dict=None) -> list:
+    """The slides of talk `t` where the room of `run` was unsure, in slide order. After each slide come the primers beside it whose
+    question the room was unsure on, as "Softmax (beside idea 3)", with `beside` = the slug. `names` gives the name of each slug."""
+    below, out, names = val('talks.weak') if below is None else below, [], names or {}
+    for k, s in enumerate(t['slides'], 1):
+        if (w := _unsure(s.get('ask'), (run.get('asks') or {}).get(s['id']), below, slide=s['id'], title=s.get('title') or '')): out.append(w)
+        for b in run.get('beside') or []:
+            if b.get('slide') != s['id'] or not b.get('ask'): continue
+            title = f"{names.get(b['slug'], b['slug'])} (beside idea {k})"
+            if (w := _unsure(b['ask'], b, below, slide=s['id'], title=title, beside=b['slug'])): out.append(w)
     return out
 
 # %% ../nbs/17_talk.ipynb #68179193
@@ -487,11 +496,11 @@ def _shares(s:dict, run:dict) -> list:
     "The share right of each round of the question of slide `s`."
     return [share_right(s.get('ask'), r) for r in ((run.get('asks') or {}).get(s['id']) or {}).get('rounds') or []]
 
-def recap(t:dict, run:dict) -> AttrDict:
-    "The data of the recap of `run` of talk `t`."
-    unsure, by = weak(t, run), {s['id']: s for s in t['slides']}
+def recap(t:dict, run:dict, names:dict=None) -> AttrDict:
+    "The data of the recap of `run` of talk `t`; `names` gives the name of the idea of each primer."
+    unsure, by = weak(t, run, names=names), {s['id']: s for s in t['slides']}
     slides = [dict(slide=s['id'], title=s.get('title') or '', secs=n, share=(_shares(s, run) or [None])[-1]) for s, n in _shown(t, run)]
-    follow = list(dict.fromkeys(c for w in unsure if (c := by[w['slide']].get('concept'))))
+    follow = list(dict.fromkeys(c for w in unsure if (c := w.get('beside') or by[w['slide']].get('concept'))))
     return AttrDict(unsure=unsure, slides=slides, questions=list(run.get('questions') or []), beside=list(run.get('beside') or []), follow=follow)
 
 # %% ../nbs/17_talk.ipynb #21a03bb0

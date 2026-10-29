@@ -266,13 +266,16 @@ def test_a_new_slide_opens_clean(mk, talk_fake, lr):
     cl = mk(); tid, run = started(cl, lr)
     post = lambda **kw: cl.post(f'/t/{tid}/at', data=kw)
     cl.post(f'/t/{tid}/ask', data=dict(slide='s1', act='open'))
-    r = post(slide='s1', beat=1, blank=1, pane='/w/g-1a2b/0').json()
-    assert r['at'] == dict(slide='s1', beat=1, blank=True, pane='/w/g-1a2b/0', ask='s1')
-    assert dict(v=1, t='pane', url='/w/g-1a2b/0?pane=1&talk=1') in r['msgs'] and dict(v=1, t='blank', on=True) in r['msgs']
+    d = cl.post(f'/t/{tid}/beside', data=dict(slide='s1', slug='softmax', how='primer')).json()
+    r = post(slide='s1', beat=1, blank=1, pane=d['url']).json()
+    assert r['at'] == dict(slide='s1', beat=1, blank=True, pane=d['url'], ask='s1')
+    assert dict(v=1, t='pane', url=d['pane']) in r['msgs'] and dict(v=1, t='blank', on=True) in r['msgs']
     r = post(slide='s2', beat=1).json()
     assert r['at'] == dict(slide='s2', beat=1, blank=False, pane=None, ask=None) and dict(v=1, t='ask', slide='s1', ask=None) in r['msgs']
     assert post(slide='s2', beat=1, pane='').status_code == 200 and post(slide='s2', beat=1, blank='yes').status_code == 400
     assert post(slide='s2', beat=1, pane='/w/../0').status_code == 400 and post(slide='s2', beat='x').status_code == 400
+    assert post(slide='s2', beat=1, pane=d['url']).status_code == 400   # the primer closed with its slide: its URL is no good now
+    for bad in ('/w/g-1a2b/0', '/w/x/0?a?pane=1&talk=1', '/w/x/0?a#?pane=1&talk=1'): assert post(slide='s2', beat=1, pane=bad).status_code == 400, bad
     assert [x['slide'] for x in lr.run(run['id'])['shown']] == ['s1', 's2']
 
 def test_question_guards_and_pair(mk, talk_fake, lr):
@@ -367,6 +370,7 @@ def test_beside_guards_and_the_pane_question(mk, talk_fake, lr):
     r = lr.run(run['id']); assert r['side']['main'] == 2 and 's3' not in r['asks']   # the pane question is not the slide's own
     r = cl.post(f'/t/{tid}/at', data=dict(slide='s4', beat=1)).json()
     assert dict(v=1, t='pane', url=None) in r['msgs'] and [x['slug'] for x in lr.run(run['id'])['beside']] == ['softmax'] and not lr.run(run['id'])['side']
+    b = lr.run(run['id'])['beside'][0]; assert b['main'] == 2 and b['ask'] == m['ask']   # the question on the primer is kept
     assert cl.post(f'/t/{tid}/ask', data=dict(slide='s3', act='open', pane=1)).status_code == 400   # no pane is open now
     evil = {'Origin': 'https://evil.example'}
     for path, data in ((f'/t/{tid}/beside', dict(slide='s3')), (f'/t/{tid}/end', {}), (f'/t/{tid}/follow', dict(run=run['id']))):
@@ -389,6 +393,36 @@ def test_after_guards_and_the_recap_file(mk, talk_fake, lr):
     r = cl.post(f'/t/{tid}/slide', data=dict(sid='s3', act='primer', slug='softmax', **{'from': 'after'}))
     assert 'is in the talk now' in r.text and lr.talk(tid).slides[2]['kind'] == 'primer'
     assert 'It is in the talk now.' in cl.get(f'/t/{tid}/after').text
+
+def test_a_question_on_a_primer_is_in_the_recap(mk, talk_fake, lr, monkeypatch):
+    "Most hands chose a wrong option on the primer's question: After the talk shows it after its slide, and the follow-up walk has its idea."
+    cl = mk(); tid, run = started(cl, lr)
+    d = cl.post(f'/t/{tid}/beside', data=dict(slide='s3', slug='softmax', how='primer')).json()
+    cl.post(f'/t/{tid}/at', data=dict(slide='s3', beat=1, pane=d['url']))
+    cl.post(f'/t/{tid}/ask', data=dict(slide='s3', act='open', pane=1)); cl.post(f'/t/{tid}/ask', data=dict(slide='s3', act='main', main=1, pane=1))
+    page = cl.get(cl.post(f'/t/{tid}/end', follow_redirects=False).headers['location']).text
+    assert 'Softmax (beside idea 3)' in page and 'Most hands: B (right: A)' in page and '1 question to the room' in page
+    goals = []
+    monkeypatch.setattr('abhyasa.blocks.talk.app.walk_from_topic', lambda lr, ask, goal, **kw: goals.append(goal) or AttrDict(id='review-ab12'))
+    cl.post(f'/t/{tid}/follow', data=dict(run=run['id']), follow_redirects=False)
+    assert goals == ['Review: Softmax']
+
+def test_a_talk_side_walk_is_not_your_learning(mk, talk_fake, lr, monkeypatch):
+    "A side walk that a talk made is not in Continue, in Journeys or on the concept page; its step keeps no read time and starts no demo."
+    cl = mk(); tid, run = started(cl, lr)
+    jobs = []
+    monkeypatch.setattr('abhyasa.blocks.walk.app.queue_demo', lambda *a, **kw: jobs.append(a))
+    d = cl.post(f'/t/{tid}/beside', data=dict(slide='s3', slug='softmax', how='walk')).json()
+    sid = d['url'].split('/')[2]; j = lr.journey(sid)
+    assert j.parent == {'talk': tid, 'slide': 's3'}
+    other = next(c.slug for c in lr.concepts() if c.slug not in ('softmax', 'scaling-by-the-root-of-dk'))
+    nxt = {**j.steps[0], 'slug': other, 'check': dict(way='demo', kind='demo', depth=2, why='')}   # a visit of step 0 would start its demo
+    j = lr.put_journey({**j, 'steps': [*j.steps, nxt]})
+    for i in range(len(j.steps)): assert cl.get(f'/w/{sid}/{i}?pane=1&talk=1').status_code == 200
+    assert not any(s.get('read_at') for s in lr.journey(sid).steps) and jobs == []
+    for page in ('/', '/journeys', '/c/softmax', '/learning'): assert f'/w/{sid}' not in cl.get(page).text, page
+    lr.put_journey({**lr.journey(sid), 'parent': None}); cl.get(f'/w/{sid}/0')   # the same walk as your own: the visit is kept
+    assert lr.journey(sid).steps[0].get('read_at') and jobs and f'/w/{sid}' in cl.get('/journeys').text
 
 def serve(cl):
     "Run the app of `cl` on a free port in a thread; return (server, base URL)."
@@ -516,6 +550,10 @@ def test_beside_and_end_in_a_browser(mk, talk_fake, lr, tmp_path):
                 au.goto(f'{base}/t/{tid}/audience?k={run["key"]}'); au.wait_for_load_state('networkidle')
                 pr.wait_for_selector('#aud-live:not([hidden])'); pr.bring_to_front()
                 pr.keyboard.press('g'); pr.keyboard.press('3'); au.wait_for_function("document.getElementById('stage').dataset.slide === 's3'")
+                for bad in ('/w/x/0?a?pane=1&talk=1', '/w/x/0?a#?pane=1&talk=1', '/w/x/0?pane=1&talk=1&x=1'):   # the channel checks only is_local
+                    pr.evaluate("([ch, u]) => { const b = new BroadcastChannel('abhyasa-stage:' + ch); b.postMessage({v: 1, t: 'pane', url: u}); b.close(); }",
+                                [f"{tid}:{run['key']}", bad])
+                au.wait_for_timeout(200); assert au.locator('#stage > iframe.stage-pane').count() == 0   # the audience window opens no such pane
                 pr.keyboard.press('Alt+b'); pr.wait_for_selector('#beside-offer .bs-offer')
                 assert 'Softmax' in pr.locator('#beside-offer').inner_text() and au.locator('.bs-offer').count() == 0   # the offer is for the presenter only
                 pr.keyboard.press('1')
@@ -525,13 +563,14 @@ def test_beside_and_end_in_a_browser(mk, talk_fake, lr, tmp_path):
                 pr.wait_for_function("document.documentElement.classList.contains('rh-open')")
                 fr = au.frame_locator('#stage > iframe.stage-pane')
                 fr.locator('h1.idea').wait_for()
-                assert fr.locator('#check').count() == 0 and 'Softmax' in fr.locator('h1.idea').inner_text()
+                assert fr.locator('#check').count() == 0 and fr.locator('#note').count() == 0 and 'Softmax' in fr.locator('h1.idea').inner_text()
                 assert au.evaluate("document.querySelector('#stage > iframe.stage-pane').contentDocument.documentElement.classList.contains('talk-type')")
                 au.wait_for_timeout(300); au.screenshot(path=str(tmp_path/'audience-beside.png')); pr.screenshot(path=str(tmp_path/'presenter-beside.png'))
                 pr.keyboard.press('q'); au.wait_for_selector('#stage .stage-ask:not([hidden])')
                 assert 'What does softmax give' in au.locator('#stage .stage-ask').inner_text() and pr.locator('#ask-side').is_visible()
                 pr.keyboard.press('1'); pr.keyboard.press('r'); au.wait_for_selector('#stage .stage-ask li.right')
                 assert lr.run(run['id'])['side']['main'] == 0 and 's3' not in lr.run(run['id'])['asks']   # the pane question is not the slide's
+                sid = src.split('/')[2]; assert not lr.journey(sid).steps[0].get('read_at')   # the side walk of a talk keeps no read time
                 pr.keyboard.press('Escape'); au.wait_for_selector('#stage .stage-ask', state='hidden')
                 pr.keyboard.press('Alt+b'); pr.wait_for_timeout(200)
                 assert pr.locator('#beside-offer .bs-offer').count() == 0 and 'Close the side pane first' in pr.locator('#say').inner_text()   # no nesting
@@ -540,6 +579,7 @@ def test_beside_and_end_in_a_browser(mk, talk_fake, lr, tmp_path):
                 pr.wait_for_function("!document.documentElement.classList.contains('rh-open')")
                 pr.wait_for_timeout(300)
                 r = lr.run(run['id']); assert r['at']['pane'] is None and [x['slug'] for x in r['beside']] == ['softmax'] and not r.get('side')
+                assert r['beside'][0]['main'] == 0 and r['beside'][0]['ask']['q'] == CHOICE['q']   # the question on the primer is kept
                 pr.keyboard.press('g'); pr.keyboard.press(str(n)); au.wait_for_function(f"document.getElementById('stage').dataset.slide === 's{n}'")
                 pr.wait_for_function("document.querySelector('#ask-go .act').textContent === 'End the talk'")
                 pr.keyboard.press('Alt+s'); pr.wait_for_url(f'**/t/{tid}/after?run={run["id"]}')

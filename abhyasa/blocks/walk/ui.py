@@ -138,11 +138,11 @@ def BackFoot(b, pace=''):
 
 def TalkStep(j, st, by, i):
     """One idea in the side pane of a talk (`in_talk`), for the room to read: a line that says where it is, the title, the passage,
-    the figure and the note, in the talk type (pane.css). It has no check, no outline and no skip, so no question opens and nothing is logged."""
+    and the figure, in the talk type (pane.css). It has no check, no outline, no skip and no tutor note (the note prepares a learner for
+    the check), so no question opens and nothing is logged."""
     s, c, n = st.steps[i], by.get(st.steps[i]['slug']), len(st.steps)
     said = 'a quick primer' if n == 1 else f'idea {i + 1} of {n}'
     return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea'), Passage(j, s, c), Figure_(j['id'], i, s, c),
-               Div(id='note', hx_get=at(Routes.note, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1'),
                P('Back to the slide: ', Kbd('⌥Z'), cls='talk-back'), cls='walk-main talk-step')
 
 def StepPage(j, st, by, i, needs=(), back=None):

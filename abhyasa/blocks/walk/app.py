@@ -12,7 +12,7 @@ from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError
-from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail
+from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, for_talk
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task
 from abhyasa.demo import queue_demo, job_state, job_age
 from . import ui
@@ -194,8 +194,9 @@ def connect(app, ctx):
 
     def step(jid:str, i:int):
         if not (j := walk_of(jid, i)): return missing()
-        if not j.steps[i].get('read_at'): j = lr.walk_step(jid, i, read_at=time.time())
-        ahead(j, i + 1)
+        if not for_talk(j):   # a side walk of a talk is for the room: it keeps no read time and starts no demo
+            if not j.steps[i].get('read_at'): j = lr.walk_step(jid, i, read_at=time.time())
+            ahead(j, i + 1)
         b = by()
         page = ui.StepPage(j, walk_state(j), b, i, needs=run_hook('step_needs', j, i, b.get(j.steps[i]['slug'])), back=back_to(j))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
@@ -317,7 +318,7 @@ def connect(app, ctx):
 
     def walks_of(slug):
         "`(walk, index)` for each walk that has a step on concept `slug`."
-        return [(j, i) for j, i in with_step(lr, slug) if j.get('mode') == 'walk']
+        return [(j, i) for j, i in with_step(lr, slug) if j.get('mode') == 'walk' and not for_talk(j)]
 
     @hook('pane_title')
     def pane_title(url):

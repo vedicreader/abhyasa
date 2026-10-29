@@ -155,8 +155,8 @@ def place_msgs(at, old):
     return out
 
 def close_side(r, now):
-    "Keep the primer that is open beside a slide in the run log (`beside`), with the time it was open, and close it."
-    if (sd := r.get('side')): log_beside(r, sd['slug'], sd['slide'], sd['at'], round(max(0., now - sd['at']), 1))
+    "Keep the primer that is open beside a slide in the run log (`beside`), with the time it was open and the room's question on it, and close it."
+    if (sd := r.get('side')): log_beside(r, sd['slug'], sd['slide'], sd['at'], round(max(0., now - sd['at']), 1), ask=sd.get('ask'), main=sd.get('main'))
     r['side'] = None
 
 def connect(app, ctx):
@@ -299,7 +299,7 @@ def connect(app, ctx):
         except Bad as e: return text(str(e))
         blank, pane = f.get('blank'), f.get('pane')
         if blank not in (None, '0', '1'): return text('blank is 0 or 1.')
-        if pane not in (None, '') and not WALK_STEP.fullmatch(pane): return text('The side pane opens only a step of a walk.')
+        if pane not in (None, '') and pane != (r.get('side') or {}).get('url'): return text('The side pane opens only the primer that the talk made beside this slide.')
         old = dict(r['at']); new = s['id'] != old['slide']
         log_go(r, s['id'], beat, time.time())
         a = r['at']
@@ -429,7 +429,8 @@ def connect(app, ctx):
         if not t: return Response('No such talk.', status_code=404)
         if not r: return Response('This talk has no such run.', status_code=404)
         names = {s['id']: name_of(s) for s in t['slides']}
-        return Page('After the talk', *ui.After(t, r, recap(t, r), names, {x.slug: x.name for x in lr.concepts()}),
+        cn = {x.slug: x.name for x in lr.concepts()}
+        return Page('After the talk', *ui.After(t, r, recap(t, r, cn), names, cn),
                     crumbs=[('Journeys', '/journeys'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.assets(), wide=True)
 
     def name_of(s):
@@ -450,7 +451,8 @@ def connect(app, ctx):
         t, r = run_of(tid, run)
         if not t or not r or not run: return Response('No such run.', status_code=404)
         by = {s['id']: s for s in t['slides']}
-        ns = list(dict.fromkeys(name_of(by[w['slide']]) for w in recap(t, r).unsure))
+        cn = {x.slug: x.name for x in lr.concepts()}
+        ns = list(dict.fromkeys(cn.get(w['beside'], w['beside']) if w.get('beside') else name_of(by[w['slide']]) for w in recap(t, r, cn).unsure))
         if not ns: return text('The room was sure on each idea. No follow-up walk is needed.')
         try: j = walk_from_topic(lr, ctx.ask, goal='Review: ' + ', '.join(ns), sources=ctx.sources)
         except Exception: return Response('The tutor could not make the walk. Try again.', status_code=502, media_type='text/plain')

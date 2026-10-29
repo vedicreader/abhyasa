@@ -108,7 +108,8 @@ addEventListener('keydown', e => {
 
 const LETTERS = 'ABCDEF';
 const PANE = /^\/w\/[a-z0-9-]{1,48}\/[0-9]{1,3}$/;   // the only page that the side pane of a talk opens: a walk step (spec 9.2)
-const paneOK = u => u === null || (typeof u === 'string' && PANE.test(u.split('?')[0]) && u.endsWith('?pane=1&talk=1'));
+const PANE_URL = /^\/w\/[a-z0-9-]{1,48}\/[0-9]{1,3}\?pane=1&talk=1$/;   // the same step, in the talk type, and nothing more
+const paneOK = u => u === null || (typeof u === 'string' && PANE_URL.test(u));
 const make = (tag, cls, text) => Object.assign(document.createElement(tag), cls ? {className: cls} : {}, text != null ? {textContent: text} : {});
 const sectionsOf = st => [...st.querySelectorAll(':scope > section.stage[data-sid]')];
 const sectionOf = (st, sid) => sectionsOf(st).find(s => s.dataset.sid === sid);
