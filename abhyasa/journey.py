@@ -16,7 +16,7 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'SHORT_WAYS', 'PICK_SP', 'S
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
 from fastcore.utils import *
-from .store import Learning, slugify, _src, clean_subject
+from .store import Learning, slugify, _src, clean_subject, usable_name
 from .model import learned
 from .settings import val
 from .llm import ask_json, for_task
@@ -497,6 +497,7 @@ PRIMER_SP = register('primer', 'Statement of a new idea', 'How the tutor writes 
 def add_topic(lr:Learning, ask, jid:str, name:str, before:str=None, sources=None) -> AttrDict:
     "Add topic `name` to journey `jid`, as a concept on the shelf. Return the journey."
     j = lr.journey(jid)
+    if not usable_name(name): return j   # a name such as `x` is not an idea
     slug = _index(lr).get(name.strip().lower())
     if not slug:
         r = ask_json(for_task(ask, 'extract'), f"The idea: {name}\nThe path it is part of: {j.title} ({j.get('goal', '')})\n\n"
@@ -513,9 +514,10 @@ def name_gaps(lr:Learning, ask, slug:str, terms, sources=None) -> L:
     c, idx, out = lr.concept(slug), _index(lr), L()
     for t in dict.fromkeys(str(t).strip() for t in terms or () if str(t).strip()):
         if not (g := idx.get(t.lower())):
+            if not usable_name(t): continue   # a term such as `x` is not an idea
             r = ask_json(for_task(ask, 'extract'), f"The idea: {t}\nIt comes up in: {c.name} ({c.get('subject') or 'general'})\n\n"
                               'Return JSON: {"name": str, "statement": str}', prompt('primer'))
-            name = r.get('name') or t
+            name = r.get('name') if usable_name(r.get('name')) else t
             g = lr.put(name, r.get('statement', ''), c.get('subject', ''), aliases=[t] if t.lower() != name.lower() else [],
                        provenance=[dict(src='gap', of=slug, said=t, at=time.time())]).slug
             if sources:

@@ -717,3 +717,15 @@ def test_vault_viewer_refuses_an_open_question(mk, walk_fake, lr):
     r = cl.get(f'/v/learning/{d}')
     assert 'No such document' in r.text and 'Its position.' not in r.text and 'What does a rank' not in r.text   # the same page as a document that is not there
     assert cl.get(f'/v/learning/{d}/img?f=x.png').status_code == 404
+
+def test_link_walk_places_its_new_concepts_in_the_groups(mk, walk_fake, lr, monkeypatch):
+    "A link walk into a subject with groups puts its new concepts in those groups, on the pool, after the walk."
+    import re, time
+    fake_web(monkeypatch)
+    lr.set_group('ranking', ['Lists'], by='sort'); lr.save_groups('ml')
+    walk_fake.rules['Return JSON: {"places"'] = lambda p, sp: dict(places=[dict(slug=s, group=['Lists']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
+    link_walk_subjects(mk(), 'https://docs.example.dev/c/', subject='ml')
+    for _ in range(250):
+        if (c := lr.concept('softmax')) and c.get('group'): break
+        time.sleep(.02)
+    assert (c.group, c.group_by) == (['Lists'], 'placed')

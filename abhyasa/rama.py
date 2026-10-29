@@ -10,7 +10,7 @@ __all__ = ['show_q', 'show_r', 'find', 'learn', 'answer', 'hint', 'idk', 'teach'
 # %% ../nbs/07_rama.ipynb #c004
 import os, time
 from fastcore.utils import *
-from .store import Learning
+from .store import Learning, usable_name
 from .model import DEPTHS
 from .tutor import Tutor, Session
 
@@ -77,6 +77,7 @@ def due(agent=None, arg=''):
 # %% ../nbs/07_rama.ipynb #c017
 def learning_note(name:str, statement:str, subject:str='code', prereqs:str=''):
     "File a concept the user met while coding, so abhyasa can ask about it later. `prereqs` is comma-separated slugs."
+    if not usable_name(name): return f'{name!r} is too short for the name of a concept. Use a name of two characters or more.'   # an agent can send a name such as `x`
     c = _learning().put(name, statement, subject, prereqs=[p.strip() for p in prereqs.split(',') if p.strip()],
                         provenance=[dict(src='ramabana')])
     return f'Filed {c.name} ({c.slug}).'

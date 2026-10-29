@@ -112,8 +112,9 @@ def test_sort_runs_in_the_background_and_saves_only_on_accept(mk, jy, fake):
     assert 'The tutor is sorting your concepts' in cl.get('/concepts').text          # the page reads the state of the job
     gate.set()
     t = settled(cl)
-    assert 'Accept this tree' in t and 'Cancel' in t and summary(t, 'Rasis', 1) and summary(t, 'Mine', 1)
-    assert 'The tutor moves 4 concepts.' in t and '1 concept that you moved by hand stays where it is.' in t
+    assert 'Accept this tree' in t and 'Cancel' in t and summary(t, 'Rasis', 1) and summary(t, 'Stars', 2)
+    assert 'Mine' not in t and 'Ashvini' not in t                                   # only the new concepts show
+    assert 'The tutor moves 3 concepts.' in t and '1 concept that you moved by hand stays where it is.' in t
     assert not any('- magha:' in p for p, _ in fake.calls if SORT in p)
     assert jy.concept('mesha').get('group') is None                                   # nothing is saved before the accept
     assert 'Accept this tree' in cl.get('/concepts').text                             # the page shows the proposal until you choose
@@ -121,10 +122,10 @@ def test_sort_runs_in_the_background_and_saves_only_on_accept(mk, jy, fake):
     assert 'This sort is old' in r.text and jy.concept('mesha').get('group') is None
     r = cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
     assert r.headers.get('HX-Redirect') == '/concepts'
-    assert (jy.concept('mesha').group, jy.concept('mesha').group_by) == (['Rasis'], 'model')
-    assert jy.concept('magha').group == ['mine'] and jy.concept('ashvini').group == ['Stars']
+    assert (jy.concept('mesha').group, jy.concept('mesha').group_by) == (['Rasis'], 'sort')
+    assert jy.concept('magha').group == ['mine'] and jy.concept('ashvini').group == ['nakshatras']   # a concept with a group never moves
     t = cl.get('/concepts').text
-    assert 'Accept this tree' not in t and summary(t, 'Rasis', 1) and 'Sort my concepts' in t
+    assert 'Accept this tree' not in t and summary(t, 'Rasis', 1) and 'sort-form' not in t       # nothing is new: no button
 
 def settled_in(cl, subject, n=250):
     "The sort part of `subject` after the job is done."
@@ -149,7 +150,7 @@ def test_cancel_saves_nothing(mk, jy, fake):
     cl.post('/concepts/sort')
     t = settled(cl)
     r = cl.post('/concepts/sort/cancel', data=dict(sort=sort_id(t)))
-    assert 'Sort my concepts' in r.text and 'Accept this tree' not in r.text
+    assert 'Sort 3 new concepts' in r.text and 'Accept this tree' not in r.text
     assert jy.concept('mesha').get('group') is None and 'Accept this tree' not in cl.get('/concepts').text
     assert 'No sort is running' in cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t))).text
 
@@ -159,7 +160,7 @@ def test_get_only_reads(mk, jy, fake):
     cl = mk()
     n = len(fake.calls)
     assert 'No sort is running' in cl.get('/concepts/sort').text
-    assert 'Sort my concepts' in cl.get('/concepts').text and 'is sorting' not in cl.get('/concepts').text
+    assert 'Sort 3 new concepts' in cl.get('/concepts').text and 'is sorting' not in cl.get('/concepts').text
     assert len(fake.calls) == n
 
 def test_a_failed_sort_shows_a_plain_line(mk, jy, fake):
@@ -168,7 +169,7 @@ def test_a_failed_sort_shows_a_plain_line(mk, jy, fake):
     cl = mk()
     cl.post('/concepts/sort')
     t = settled(cl)
-    assert 'The tutor could not sort your concepts. Try again.' in t and 'secret words' not in t and 'Sort my concepts' in t
+    assert 'The tutor could not sort your concepts. Try again.' in t and 'secret words' not in t and 'Sort 3 new concepts' in t
 
 def test_one_main_button_in_the_proposal(mk, jy, fake):
     fake.rules[SORT] = sorter()
@@ -230,7 +231,7 @@ def test_summary_counts_and_the_one_follow_up(mk, jy, fake):
     cl = mk()
     cl.post('/concepts/sort')
     t = settled(cl)
-    assert '3 placed. 1 left for you: Mesha.' in t and 'The tutor moves 3 concepts.' in t
+    assert '2 placed. 1 left for you: Mesha.' in t and 'The tutor moves 2 concepts.' in t
     assert sum('- mesha:' in p for p, _ in fake.calls if SORT in p) == 2              # the first request and one follow-up
     assert not any('- magha:' in p for p, _ in fake.calls if SORT in p)
     cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
@@ -250,5 +251,69 @@ def test_sort_gives_a_subject_to_a_concept_with_none(mk, jy, fake):
     assert jy.concept('attention').subject == ''                                      # nothing is saved before the accept
     cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
     c = jy.concept('attention')
-    assert (c.subject, c.group, c.group_by) == ('transformers', ['Layers'], 'model')
+    assert (c.subject, c.group, c.group_by) == ('transformers', ['Layers'], 'sort')
     assert (jy.concept('pinned').subject, jy.concept('pinned').group) == ('', ['mine'])
+
+# Saved groups are locked
+
+def test_button_counts_the_new_concepts_and_goes_at_zero(mk, jy):
+    "The button names the concepts with no group. With none, it is gone. A concept that you kept out of the groups by hand does not count."
+    cl = mk()
+    t = cl.get('/concepts').text
+    assert 'Sort 3 new concepts' in t and 'Sort my concepts' not in t              # ranking, reciprocal rank fusion and mesha
+    assert 'Sort 1 new concept<' in cl.get('/concepts', params=dict(subject='jyotisha')).text
+    for s in ('ranking', 'reciprocal-rank-fusion'): jy.set_group(s, ['Lists'], by='sort')
+    jy.set_group('mesha', [], by='hand')
+    assert 'sort-form' not in cl.get('/concepts').text and 'Sort ' not in cl.get('/concepts').text.split('Find a concept')[1][:400]
+
+def test_a_saved_sort_is_locked_and_the_next_sort_sends_only_new_concepts(mk, jy, fake):
+    "The preview shows only the new placements. After the accept, a sorted concept never moves, and the next request has only the new concepts and the saved groups."
+    fake.rules[SORT] = sorter()
+    cl = mk()
+    cl.post('/concepts/sort')
+    t = settled(cl)
+    assert 'Ashvini' not in t and 'Magha' not in t and 'The tutor moves 3 concepts.' in t and summary(t, 'Rasis', 1) and summary(t, 'Stars', 2)
+    sent = [p for p, _ in fake.calls if SORT in p]
+    assert not any('- ashvini:' in p or '- magha:' in p for p in sent)
+    cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
+    assert jy.concept('mesha').group_by == 'sort' and jy.saved_groups('jyotisha') == [['nakshatras'], ['nakshatras', 'pitri gana'], ['Rasis']]
+    jy.put('Rohini', 'The fourth nakshatra.', 'jyotisha')
+    assert 'Sort 1 new concept<' in cl.get('/concepts').text
+    fake.calls.clear()
+    cl.post('/concepts/sort')
+    t = settled(cl)
+    p = next(p for p, _ in fake.calls if SORT in p)
+    assert '- rohini:' in p and '- mesha:' not in p and 'Rasis' in p and 'Groups of this subject now: nakshatras; nakshatras › pitri gana; Rasis' in p
+    cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
+    assert jy.concept('mesha').group == ['Rasis'] and jy.concept('ashvini').group == ['nakshatras']      # nothing else moved
+
+def wait_until(f, n=250):
+    "The value of `f()` when it is true, with up to `n` tries."
+    for _ in range(n):
+        if (v := f()): return v
+        time.sleep(.02)
+    raise AssertionError('it did not happen')
+
+def test_new_concepts_are_placed_in_the_background_and_can_be_undone(mk, jy, fake):
+    "A concept that comes into a subject with groups is placed on the pool, marked, and has an Undo. A failure only logs."
+    jy.save_groups('jyotisha'); jy.set_group('mesha', [], by='hand')                  # kept out by hand: the tutor leaves it
+    fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Bharani', statement='The second nakshatra.')])
+    fake.rules[SORT] = lambda p, sp: dict(places=[dict(slug=s, group=['nakshatras']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
+    cl = mk()
+    r = cl.post('/add', data=dict(subject='jyotisha', text='Bharani is a nakshatra.'))
+    assert r.status_code == 200 and 'Bharani' in r.text
+    c = wait_until(lambda: (c := jy.concept('bharani')) and c.get('group') and c)
+    assert (c.group, c.group_by) == (['nakshatras'], 'placed')
+    t = cl.get('/concepts').text
+    assert t.count('Placed by the tutor') == 1 and 'Undo' in t
+    r = cl.post('/c/bharani/undo')
+    assert r.headers.get('HX-Refresh') == 'true' and (jy.concept('bharani').group, jy.concept('bharani').group_by) == ([], 'undone')
+    t = cl.get('/concepts').text
+    assert 'Placed by the tutor' not in t and 'Sort ' in t and 'Bharani' in t
+    cl.post('/c/ashvini/undo'); assert jy.concept('ashvini').group == ['nakshatras']      # only a placement by the tutor can be undone
+    jy.put('Krittika', 'The third nakshatra.', 'jyotisha')
+    fake.rules[SORT] = lambda p, sp: (_ for _ in ()).throw(RuntimeError('model down'))
+    fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Rohini', statement='The fourth nakshatra.')])
+    assert cl.post('/add', data=dict(subject='jyotisha', text='Rohini.')).status_code == 200
+    time.sleep(.3)
+    assert jy.concept('rohini').get('group') is None and jy.concept('krittika').get('group') is None

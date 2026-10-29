@@ -152,6 +152,7 @@ def connect(app, ctx):
         docs = file_link(lr, url, pages)
         said = (lambda k, n: paper_said(docs)) if is_paper(url) else (lambda k, n: f"Reading {k + 1} of {n_of(n, 'page')}…")
         j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=said(k, n)), tool=tool, subject=subject)
+        run_hook('concepts_added')   # the concepts block places the new concepts on the pool
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no ideas on these pages.')
@@ -190,6 +191,7 @@ def connect(app, ctx):
         except Exception as e:   # the log keeps the words of the library; the page shows a plain line
             log.warning('the tutor could not make a walk: %r', e)
             return P(str(e) if isinstance(e, LinkError) else 'The tutor could not make a walk. Try again.', cls='req-err')
+        if ref or text.strip(): run_hook('concepts_added')
         if not j.steps:
             lr.drop_journey(j.id)
             return P('The tutor found no ideas in this document.' if ref or text.strip() else 'The tutor found no steps for this topic.', cls='req-err')
