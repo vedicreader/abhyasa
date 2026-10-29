@@ -25,6 +25,7 @@ from .store import Learning, slugify, _src
 from .journey import minutes, walk_for_talk
 from .llm import ask_json, for_task
 from .ground import ground, ground_text
+from .sources import figure_path
 from .prompts import register, prompt
 from .settings import val
 from rupaka import poll
@@ -270,6 +271,15 @@ def _grounds(c, sources) -> L:
     try: return ground(' '.join(terms[:4]), sources, 3, must=terms) if sources else L()
     except Exception: return L()
 
+_IMG_LINK = re.compile(r'!\[[^\]]*\]\(([^)\s]+)\)')
+
+def _source_figure(lr:Learning, ps) -> str|None:
+    "The image id of the first image in a vault passage of `ps` that the assets folder of its document has, or None."
+    for p in ps:
+        if not str(p.get('src') or '').startswith('vault:') or not p.get('url'): continue
+        for link in _IMG_LINK.findall(p.get('text') or ''):
+            if (f := figure_path(lr, p['url'], link)) and _image_ok(f'asset:{f}'): return f'asset:{f}'
+
 def fill_slide(lr:Learning, ask, s:dict, sources=None) -> dict:
     "Slide `s` with points (when it has no passage), speaker notes (when it has none) and its sources, from one model call. A bad reply gives `s`."
     if not needs_fill(s): return s
@@ -281,7 +291,10 @@ def fill_slide(lr:Learning, ask, s:dict, sources=None) -> dict:
     except Exception: b = None
     if b is None: return s
     s = {**deepcopy(s), 'show': dict(sh)}
-    if _bare(s): s['show']['body'], s['beats'] = b.points, ['body', *[x for x in s.get('beats') or [] if x != 'body']]
+    if _bare(s):
+        fig = None if sh.get('figure') else _source_figure(lr, ps)
+        if fig: s['show']['figure'] = fig
+        s['show']['body'], s['beats'] = b.points, ['body', *(['figure'] if fig else []), *[x for x in s.get('beats') or [] if x != 'body']]
     if not (s.get('notes') or '').strip(): s['notes'] = slide_notes(b)
     if ps and not s.get('cites'): s['cites'] = [dict(src=x.src, ref=x.ref, title=x.title, url=x.url) for x in ps]
     return s
