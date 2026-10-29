@@ -567,7 +567,7 @@ def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
                 pr.evaluate("""() => { const h = document.querySelector('section[data-sid=s3] [data-rupaka]');
                   h.querySelector('.rk-gate .opts button').click(); h.querySelector('.rk-gate button.go').click(); }""")   # the reload opened the gate again
                 slug = au.evaluate("document.querySelector('section[data-sid=s3] [data-rupaka]').dataset.demo")
-                au.wait_for_function("'answer' in document.querySelector('section[data-sid=s3] [data-rupaka]').rupaka.spec.blocks.find(b => b.type === 'gate')")
+                au.wait_for_function(f"({verdict} || '').startsWith('You said It rises. It is It falls.')")   # s3 was revealed: the answers come again
                 sent = [json.loads(m) for m in au.evaluate('heard') if '"t":"answers"' in m]
                 assert sent and all(m['slug'] == slug for m in sent)
                 pr.bring_to_front(); pr.keyboard.press('g'); pr.keyboard.press('2')

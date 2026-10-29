@@ -1,4 +1,4 @@
-"The mirrored demo: the audience copy of a rupaka demo follows the presenter copy through the rupaka 0.0.4 host API."
+"The mirrored demo: the audience copy of a rupaka demo follows the presenter copy through the rupaka 0.0.5 host API."
 import json, pytest
 from pathlib import Path
 from rupaka.render import page
@@ -23,16 +23,16 @@ def _two(pg, spec):
     pg.set_content(page([spec, spec])); pg.add_script_tag(content=JS); pg.evaluate(f'() => {{ {TALK}; }}')
     pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 2")
 
-def test_mirror_needs_rupaka_004():
-    "With no `Rupaka.state`, `set` or `settle`, `mirror` throws an error that names the rupaka version."
+def test_mirror_needs_rupaka_005():
+    "With no `Rupaka.options` (rupaka 0.0.4 and older), `mirror` throws an error that names the rupaka version."
     spec = gallery()['softmax-temperature']
     with pw.sync_playwright() as p:
         b = p.chromium.launch(headless=True)
         try:
             pg = b.new_page(); _two(pg, spec)
-            got = pg.evaluate("""() => { delete Rupaka.settle;
+            got = pg.evaluate("""() => { delete Rupaka.options;
               try { abhyasaStage.mirror(document.querySelector('[data-rupaka]')); return 'no error'; } catch (e) { return e.message; } }""")
-            assert 'rupaka 0.0.4' in got
+            assert 'rupaka 0.0.5' in got
         finally: b.close()
 
 def test_mirror_follows_the_presenter_copy():
@@ -136,7 +136,7 @@ def test_mirror_answers_only_for_done_gates():
         finally: b.close()
 
 def test_mirror_forgets_the_answers_on_a_new_slide():
-    "forget takes out the answers that reveal put into the audience copy and closes their verdicts; a later reveal draws the verdict again."
+    "forget closes the verdicts that reveal drew in the audience copy, and the gate stays done; a later reveal draws the verdict again. No answer goes into the spec."
     spec = gallery()['softmax-temperature']
     room = {**spec, 'blocks': [{k: v for k, v in x.items() if k != 'answer'} for x in spec['blocks']]}
     with pw.sync_playwright() as p:
@@ -151,9 +151,9 @@ def test_mirror_forgets_the_answers_on_a_new_slide():
               m.forget(); r.twice = has();   // a second forget does nothing
               m.reveal({hot: {is: 'It falls'}}); r.back = [has(), v()];
               return r; }""")
-            assert got['shown'][0] and got['shown'][1].startswith('You said It falls. That is right.')
+            assert got['shown'][0] is False and got['shown'][1].startswith('You said It falls. That is right.')   # rupaka never keeps the answer in the spec
             assert got['gone'] == [False, None, 'done'] and got['twice'] is False
-            assert got['back'][0] and got['back'][1].startswith('You said It falls. That is right.')
+            assert got['back'][0] is False and got['back'][1].startswith('You said It falls. That is right.')
         finally: b.close()
 
 def test_mirror_opens_a_gate_again():
@@ -178,7 +178,7 @@ def test_mirror_opens_a_gate_again():
               a.querySelector('.rk-gate .opts button').click(); a.querySelector('.rk-gate .go').click(); sync();   // a new pick closes it again
               r.again = [b.rupaka.st.gate.hot, b.querySelector('.rk-gate .verdict').hidden];
               return r; }""")
-            assert got['done'] == dict(hot='done') and got['shut'] == ['done', True, True, True]
+            assert got['done'] == dict(hot='done') and got['shut'] == ['done', True, False, True]
             assert got['snap'] == [{}, {}, {}] and got['open'] == ['open', True, False, False]
             assert got['again'] == ['done', True]   # no answer in the room copy now: the verdict waits for R again
         finally: b.close()

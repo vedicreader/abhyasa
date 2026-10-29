@@ -207,36 +207,30 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   // of the option. The audience copy draws the verdict from the pick with `Rupaka.settle`. The pick is for the display only: no
   // window logs it or files it, and `Rupaka.set` and `Rupaka.settle` fire no gate, no rk-predict and no log.
   const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
-  const HOST_API = () => ['state', 'set', 'settle'].every(f => typeof globalThis.Rupaka?.[f] === 'function');
-  // The options of gate `id`, from the spec and the state. `Rupaka.settle` takes the option itself, and the host API of rupaka 0.0.4
-  // does not give the options of a gate, so this is the one read of the store of the demo.
-  // A gate with no `answer` (the copy of a talk's audience window, see room_spec) gives no options, so it shows no verdict:
-  // a verdict with no answer would read "It is ." to the room.
-  // `gate` gives the block of gate `id` in the spec; `reveal` puts an answer into it, as the gate reads `answer` from its block.
-  function gate(host, id) {
-    const find = bs => { for (const b of bs || []) { if (b?.type === 'gate' && b.id === id) return b; const g = find(b?.blocks); if (g) return g; } };
-    return find(host.rupaka?.spec?.blocks);
-  }
-  function options(host, id) {
-    const s = host.rupaka, g = gate(host, id);
-    const os = !g || g.answer == null ? null : Array.isArray(g.options) ? g.options : s.get(g.options?.from);
-    return Array.isArray(os) ? os : [];
-  }
+  const HOST_API = () => ['state', 'set', 'settle', 'options'].every(f => typeof globalThis.Rupaka?.[f] === 'function');
+  // The options of gate `id`, as the gate shows them (`Rupaka.options`, rupaka 0.0.5): the pick goes over the channel as an index.
+  const options = (host, id) => { const os = Rupaka.options(host, id); return Array.isArray(os) ? os : []; };
+  // The gate block of gate `id` in this window, found by the id of its question (`rk-<demo>-<gate>-q`). Its Lock in button shows
+  // while the gate is open.
+  const gateBlock = (host, id) => [...host.querySelectorAll('.rk-gate .q[id]')].find(q => q.id.endsWith(`-${id}-q`))?.closest('.rk-gate');
   function mirror(host) {
-    if (!HOST_API()) throw Error('a mirrored demo needs rupaka 0.0.4 or newer: Rupaka.state, Rupaka.set and Rupaka.settle are not there');
-    const gates = {}, pick = {}, shown = {}, picked = {}, pokes = [], told = new Set();
+    if (!HOST_API()) throw Error('a mirrored demo needs rupaka 0.0.5 or newer: Rupaka.state, set, settle and options are not all there');
+    const gates = {}, pick = {}, said = {}, shown = {}, picked = {}, pokes = [], told = {};
     const poke = () => pokes.forEach(f => f());
-    // The presenter copy: a gate is done when the page settles its prediction as saved, or when no page catches it.
+    // The presenter copy: a gate is done when the page settles its prediction as saved, or when no page catches it. The event
+    // has the answer of the gate (`ans`); it goes to the room only after R (`answers`).
     host.addEventListener('rk-predict', e => {
       const d = e.detail, id = d?.gate, i = options(host, id).findIndex(o => same(o, d.picked));
       if (typeof id !== 'string') return;
-      const done = () => { gates[id] = 'done'; if (i >= 0 && i < 64) pick[id] = i; else delete pick[id]; poke(); };
+      const done = () => { gates[id] = 'done'; said[id] = d.ans; if (i >= 0 && i < 64) pick[id] = i; else delete pick[id]; poke(); };
       const settle = d.settle;
       if (typeof settle === 'function') d.settle = (saved, message) => { settle(saved, message); if (saved) done(); };
       queueMicrotask(() => { if (!e.defaultPrevented) done(); });
     });
     // The presenter copy: a gate that opens again ("Try another") is not done any more, so the audience copy opens it too.
-    const prune = () => { for (const id of Object.keys(gates)) if (host.rupaka?.get?.(`gate.${id}`) === 'open') { delete gates[id]; delete pick[id]; } };
+    const prune = () => {
+      for (const id of Object.keys(gates)) { const go = gateBlock(host, id)?.querySelector('button.go'); if (go && !go.hidden) { delete gates[id]; delete pick[id]; delete said[id]; } }
+    };
     const snapshot = () => { prune(); return {state: Rupaka.state(host), gates: {...gates}, pick: structuredClone(pick)}; };
     function apply(state = {}, done = {}, picks = {}) {
       host.querySelectorAll('.rk-gate').forEach(n => { n.inert = true; });   // the room does not pick in the audience window
@@ -248,18 +242,17 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
       for (const id of Object.keys(done || {})) {
         const p = picks?.[id] ?? null, k = JSON.stringify(p);
         if (done[id] !== 'done' || shown[id] === k) continue;
-        if (Rupaka.settle(host, id, value(id, p))) { shown[id] = k; picked[id] = p; }
+        if (Rupaka.settle(host, id, value(id, p), told[id] ? {answer: told[id]} : undefined)) { shown[id] = k; picked[id] = p; }
       }
     }
-    // rupaka 0.0.4 has no host call that opens a gate, so this does what the gate's own "Try another" does: it marks the gate
+    // rupaka 0.0.5 has no host call that opens a gate, so this does what the gate's own "Try another" does: it marks the gate
     // open in the store and draws the demo again. The blocks after the gate hide, and the verdict goes.
     function reopen(id) {
       const s = host.rupaka;
-      if (told.has(id)) { const g = gate(host, id); if (g) delete g.answer; told.delete(id); }
-      delete shown[id]; delete picked[id];
+      delete shown[id]; delete picked[id]; delete told[id];
       if (s?.st?.gate) { s.st.gate[id] = 'open'; s.set('_', (s.st._ || 0) + 1); }
     }
-    // The option of the pick `p` at gate `id`, or null (no verdict) when the copy has no answer or no such option.
+    // The option of the pick `p` at gate `id`, or null when there is no such option.
     function value(id, p) {
       const os = options(host, id), at = i => Number.isInteger(i) && i >= 0 && i < os.length ? os[i] : undefined;
       const v = Array.isArray(p) ? p.map(at) : at(p);
@@ -269,23 +262,22 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
     function answers() {
       prune();
       const out = {};
-      for (const id of Object.keys(gates)) { const a = gate(host, id)?.answer; if (a != null) out[id] = structuredClone(a); }
+      for (const id of Object.keys(gates)) if (said[id] !== undefined) out[id] = {is: structuredClone(said[id])};
       return out;
     }
-    // The audience copy: an answer goes into the gate only when the gate is done here; then the verdict of the pick shows.
+    // The audience copy: the verdict of the pick shows with the answer from the presenter, only for a gate that is done here.
+    // rupaka draws it from `answer` and never keeps it in the spec or the state.
     function reveal(got = {}) {
       for (const [id, a] of Object.entries(got || {})) {
-        const g = gate(host, id);
-        if (!g || !Object.hasOwn(shown, id)) continue;
-        g.answer = structuredClone(a); told.add(id);
-        Rupaka.settle(host, id, value(id, picked[id]));
+        if (!Object.hasOwn(shown, id)) continue;
+        told[id] = structuredClone(a);
+        Rupaka.settle(host, id, value(id, picked[id]), {answer: told[id]});
       }
     }
-    // The audience copy, on a move to a new slide: the answers that `reveal` put in go out again, and their verdicts close.
-    // A move back gets them again from the presenter, after R.
+    // The audience copy, on a move to a new slide: the verdicts close, and the pick stays marked. A move back gets the answers
+    // again from the presenter, after R.
     function forget() {
-      for (const id of told) { const g = gate(host, id); if (g) delete g.answer; Rupaka.settle(host, id, null); }
-      told.clear();
+      for (const id of Object.keys(told)) { delete told[id]; Rupaka.settle(host, id, value(id, picked[id])); }
     }
     // `fn(snapshot())` on a change: the first change at once, then at most once each 50 ms, and never the same snapshot twice.
     // A change comes from the input events in the demo (the save of mount is the page's own), and from a gate that closes.

@@ -7,7 +7,7 @@ Design sources: `abhyasa-designs/presentation/design.md` (sections 1 to 4, 7 and
 the mockups `presentation/mock/a1-a5` and `b1-b5`, and the screens `presentation/shots/a1-deck.png` to `b5-recap.png`. The
 walk spec (`docs/superpowers/specs/2026-10-28-guided-walk-design.md`) gives the walk, the side pane and the keys that this
 spec uses. Paths without a folder are in the abhyasa repo. Facts about the code are from abhyasa 0.0.11 (commit `faf7858`)
-and rupaka 0.0.3. Option A, as built (Tasks 1 to 8, abhyasa 0.0.12), uses rupaka 0.0.4. "As built" notes below give the
+and rupaka 0.0.3. Option A, as built (Tasks 1 to 8, abhyasa 0.0.12), uses rupaka 0.0.5. "As built" notes below give the
 rulings that changed this spec while the plan was built.
 
 ## 1. Intent
@@ -381,26 +381,28 @@ Rules for each message (`abhyasaStage.valid`, in `core/stage.js`):
 - At a gate, the presenter asks the room (Q). After the result (R), the presenter picks the room's answer in the gate.
   The talk page catches the gate's `rk-predict` event, calls `preventDefault()`, then `detail.settle(true)`. It never
   posts a prediction, so nothing goes into `Learning.record`.
-- The mirror is `abhyasaStage.mirror(host)` in `core/stage.js`. As built, it needs rupaka 0.0.4 (`Rupaka.state`, `set`
-  and `settle`) and throws an error that names the version when they are not there.
+- The mirror is `abhyasaStage.mirror(host)` in `core/stage.js`. As built, it needs rupaka 0.0.5 (`Rupaka.state`, `set`,
+  `settle` and `options`) and throws an error that names the version when they are not there.
   - `snapshot()` gives `{state: Rupaka.state(host), gates, pick}`: the input keys, the gates that are done, and the
-    presenter's pick at each done gate as the index of the option.
+    presenter's pick at each done gate as the index of the option in `Rupaka.options(host, gate)`.
   - `apply(state, gates, pick)` calls `Rupaka.set` with only the changed input keys, then `Rupaka.settle` one time for
     each new pick at a done gate, so the blocks after the gate show.
   - The audience copy has no gate answers (`room_spec` takes them out), so before R a closed gate shows no verdict.
-    On R the presenter sends `answers` for the done gates of each demo of the slide (`answers()`), and the audience
-    copy puts them in (`reveal`) and shows the verdict of the pick. A move to a new slide takes them out again
-    (`forget`). A reload after R gets them again on `hello`.
+    The presenter copy keeps the answer of each done gate from its `rk-predict` event. On R it sends `answers` for the
+    done gates of each demo of the slide (`answers()`), and the audience copy calls `Rupaka.settle(host, gate, pick,
+    {answer})` (`reveal`), which draws the verdict and never keeps the answer in the spec or the state. A move to a new
+    slide closes the verdict and keeps the pick (`forget`). A reload after R gets the answers again on `hello`.
   - The pick goes only over the channel. No window logs it or files it.
   - The gates in the audience copy are `inert`. They never take input.
   - When the presenter presses "Try another", the gate is not done in the next snapshot, and the audience copy opens it again
-    with no pick and no verdict.
+    with no pick and no verdict. rupaka has no host call that opens a gate, so `reopen` marks the gate open in the store,
+    as the gate's own "Try another" does. This is the one place where the mirror touches the store.
 - As built (fix round): the demo zoom has a floor of 0.55 of a slide 1280 px wide (`fit` in `talk.js`). A demo that is smaller
   than the floor beside the other parts shows alone on the slide (`demo-alone`: no crumb, title, passage or figure), with the
   whole height of the slide. A demo that is still smaller alone takes the size that fits, so the room sees all of it.
 - The rupaka ask (Task 4) gave rupaka 0.0.4: `Rupaka.set`, `Rupaka.settle`, `Rupaka.state(el)`, a `save(state)` option for
-  `Rupaka.mount`, and `rupaka.poll` (section 17.4). Still open with the rupaka owner: `Rupaka.options(el, gate)` or a
-  `settle` by index, and a `Rupaka.reveal` (or `settle` with an answer), so the mirror reads no part of the store.
+  `Rupaka.mount`, and `rupaka.poll` (section 17.4). rupaka 0.0.5 added `Rupaka.options(el, gate)` and `Rupaka.settle(el, gate,
+  pick, {answer})`. Still open: a host call that opens a gate again.
 
 ## 11. Keys
 
@@ -701,8 +703,9 @@ abhyasaStage.add(t, fields, need, ok)                // a later task adds a mess
 ### 17.6 Mirrored demo (rupaka)
 
 `Rupaka.set(el, state)`, `Rupaka.settle(el, gate, pick)`, `Rupaka.state(el)` and `Rupaka.mount(el, spec, {save})` belong
-to rupaka (section 10). They shipped in rupaka 0.0.4, and abhyasa needs `rupaka>=0.0.4`. The one read of the store left
-is the options of a gate (for the index of a pick) and the answer that `reveal` puts into the gate block.
+to rupaka (section 10). They shipped in rupaka 0.0.4; `Rupaka.options(el, gate)` and the `answer` option of `settle` shipped
+in 0.0.5, and abhyasa needs `rupaka>=0.0.5`. The mirror reads no part of the spec or the store. It writes the store only to
+open a gate again after "Try another".
 
 ### 17.7 Room server (`abhyasa/sabha/`, later the `sabha` package)
 
@@ -762,7 +765,7 @@ sabha.HOSTILE                      # the cases that the room must refuse, with t
 
 1. `ask_from_gate` lives in `abhyasa.talk` now, with the contract of the future `rupaka.poll.of_gate`, because this plan
    does not edit rupaka.
-2. A ships with a mirror on the rupaka 0.0.4 host API (`Rupaka.state`, `set`, `settle`). As built: the audience copy
+2. A ships with a mirror on the rupaka 0.0.5 host API (`Rupaka.state`, `set`, `settle`, `options`). As built: the audience copy
    shows the gate's verdict of the presenter's pick only after R, when the presenter sends the gate answers (`answers`).
 3. The presenter's own pick at a demo gate in a talk is not logged (the talk page settles the gate itself).
 4. `recap_html` is in `abhyasa.talk`, not in `sabha`, because A needs it and it has no network part. `sabha` only serves
