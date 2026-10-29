@@ -9,7 +9,7 @@ from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
 from abhyasa.model import DEPTHS
 
-__all__ = ['Cites', 'WebSource', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'DepthBar', 'Spin', 'when', 'ago',
+__all__ = ['Cites', 'WebSource', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward']
 
 _here = Path(__file__).parent
@@ -152,6 +152,12 @@ def md_html(s, imgs=()):
 def Md(s, cls='', imgs=(), **kw):
     "Markdown with maths, rendered and cleaned here; `core.js` draws the maths. `imgs`: the local image paths that may show."
     return Div(NotStr(md_html(s, imgs)), cls=f'md {cls}'.strip(), **kw)
+
+def Inline(s, cls=''):
+    "A short text with maths as a `span`, with no block tags, for a name inside a link or a list item; `core.js` draws the maths."
+    h = md_html(s).strip()
+    m = re.fullmatch(r'<p>(.*)</p>', h, re.S)
+    return Span(NotStr(m.group(1)) if m and '<p>' not in m.group(1) else html.escape(str(s or '')), cls=cls)
 
 def DepthBar(floor, asked=None):
     "Five marks: filled to the floor, the asked depth marked."

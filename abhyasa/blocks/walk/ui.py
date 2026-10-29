@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import WebSource, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk
+from abhyasa.core import WebSource, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -88,7 +88,7 @@ def LinkPending(url, said):
 def Idea(j, by, s, k, i, just=False):
     "One idea in the outline, with a dot for its state. `just`: its check closed now, so the dot fills (walk.css); it is swapped out of band."
     tag = dict(now='now', shaky='shaky', skipped='skipped', known='you know it').get(s.dot, '')
-    return Li(A(name(by, s), href=at(Routes.step, j['id'], k)), Span(f' · {tag}', cls='k') if tag else '', id=f'rail-{k}',
+    return Li(A(Inline(name(by, s)), href=at(Routes.step, j['id'], k)), Span(f' · {tag}', cls='k') if tag else '', id=f'rail-{k}',
               cls=f"c {s.dot}" + (' on' if k == i else '') + (' just' if just else ''), **({'hx_swap_oob': 'true'} if just else {}))
 
 def Filled(j, st, by, i):

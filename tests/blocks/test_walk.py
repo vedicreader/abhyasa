@@ -26,6 +26,17 @@ def test_plan_says_how_many_more_ideas(mk, walk_fake, lr):
     lr.put_journey({**lr.journey(jid), 'more': ['a', 'b']})
     assert 'The source has 2 more ideas.' in cl.get(f'/w/{jid}').text
 
+def test_outline_names_draw_their_maths(mk, walk_fake, lr):
+    "A step name with TeX shows as a maths carrier in the outline (no raw `$`), in plain inline markup with no block tags in the li."
+    import re
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    slug = lr.journey(jid).steps[1]['slug']
+    lr.update(slug, name=r'Why scale by $1/\sqrt{d_k}$')
+    page = cl.get(f'/w/{jid}/0').text
+    li = re.search(r'<li[^>]*id="rail-1".*?</li>', page, re.S).group(0)
+    assert 'class="math inline"' in li and '$' not in li and '<p>' not in li and 'Why scale by' in li
+    assert 'href="/w/' in li
+
 def test_step_page_and_short_check(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why='plain words fit'))
