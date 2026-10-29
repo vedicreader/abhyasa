@@ -207,7 +207,7 @@ def connect(app, ctx):
         j = lr.journey((t.get('src') or {}).get('walk') or '')
         pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
         up = [(pj.title, f'/path/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j)), on='Learn', crumbs=[('Today', '/'), ('Walks', '/journeys'), *up],
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j)), on='Learn', crumbs=[('Today', '/'), ('Learn', '/learn'), *up],
                     extra=ui.assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys (talk.js) work only here
         return page
@@ -461,7 +461,7 @@ def connect(app, ctx):
         names = {s['id']: name_of(s) for s in t['slides']}
         cn = {x.slug: x.name for x in lr.concepts()}
         return Page('After the talk', *ui.After(t, r, recap(t, r, cn), names, cn),
-                    on='Learn', crumbs=[('Walks', '/journeys'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.assets(), wide=True)
+                    on='Learn', crumbs=[('Learn', '/learn'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.assets(), wide=True)
 
     def name_of(s):
         "The name of the idea of slide `s`, else its title."
@@ -490,17 +490,21 @@ def connect(app, ctx):
         return RedirectResponse(f'/w/{j.id}', status_code=303)
 
     @hook('walk_actions')
-    def present(j, quiet=False):
-        """On a walk (its plan, its step, its last page, its row in Walks) and on its path page: make a talk from the walk, or open the one made before.
-        On a path (a walk with no source): the same from the path. `quiet` gives a quiet button, for a page that has its own main button."""
-        if j.get('mode') == 'walk': return ui.PresentWalk(j.id, walk_talk(lr, j.id), quiet) if j.steps and not j.get('depth') and not for_talk(j) else None
-        if not plain(j): return None
+    def present(j, quiet=False, row=False):
+        """On a walk (its plan, its step, its last page) and on its path page: make a talk from the walk, or open the one made before.
+        On a path (a walk with no source): the same from the path. `quiet` gives a quiet button, for a page that has its own main button.
+        `row` gives one quiet control for the row of a walk in a list: Present, or Open the talk. A path row has none, as before."""
+        if j.get('mode') == 'walk':
+            if not j.steps or j.get('depth') or for_talk(j): return None
+            t = walk_talk(lr, j.id)
+            return ui.RowPresent(j.id, t) if row else ui.PresentWalk(j.id, t, quiet)
+        if row or not plain(j): return None
         w = journey_walk(lr, j.id)
         return ui.PresentJourney(j.id, w and walk_talk(lr, w.id))
 
-    @hook('learning_end')
+    @hook('learn_talks')
     def your_talks():
-        "Your talks, at the end of Your learning."
+        "Your talks, in Learn after your walks."
         return ui.YourTalks(ts) if (ts := lr.talks()) else None
 
     app.post(Routes.new)(new)

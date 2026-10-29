@@ -89,16 +89,15 @@ def today_order(h, *marks):
     return at == sorted(at)
 
 def test_today_has_an_order_of_weight(mk, walk_fake, lr):
-    "Continue card, then one review line with Start, then at most three journeys with See all, then the goal closed to one line; no week or subjects."
+    "Continue card, then one review line with Start, then at most three walks with See all and Start something new; no goal box, no week or subjects."
     cl = mk()
     for i in range(5): walk(cl, lr)
     lr.update('ranking', seen=1, floor=1)   # a seen idea: the strengths link shows
     sid = cl.post('/start', data={}, follow_redirects=False).headers['location'].split('/')[-1]; cl.get(f'/s/{sid}')   # an open session: the Continue card
     h = cl.get('/').text
-    assert today_order(h, 'Continue where you stopped', 'class="review-line"', 'Your walks', 'See all 5 walks', 'What do you want to learn?')
+    assert today_order(h, 'Continue where you stopped', 'class="review-line"', 'Your walks', 'See all 5 in Learn', 'href="/learn#start"')
     assert 'Review and practice' not in h and 'This week' not in h and '>Subjects<' not in h
-    assert h.count('class="jrow"') == 3
-    assert re.search(r'<details class="goal-fold"><summary>What do you want to learn\?</summary>', h)
+    assert h.count('class="jrow lrow"') == 3 and 'What do you want to learn?' not in h
     assert re.search(r'<p class="mute foot">.*Your strengths</a> · <a href="/keys">Keyboard shortcuts</a> <kbd>⌥F</kbd>', h, re.S)
 
 def test_today_review_line_counts_due_ideas(mk, lr):
@@ -111,9 +110,9 @@ def test_today_review_line_counts_due_ideas(mk, lr):
     assert 'Start' in h[h.index('class="review-line"'):][:900]
     assert '0 due for review' not in h
 
-def test_today_goal_is_open_with_no_journey(mk):
+def test_today_with_no_walk_links_to_start(mk):
     h = mk().get('/').text
-    assert 'goal-fold' not in h and 'What do you want to learn?' in h and 'No walks yet' in h
+    assert 'What do you want to learn?' not in h and 'No walks yet' in h and 'href="/learn#start"' in h
 
 def test_your_learning_has_the_week_and_subjects(mk):
     h = mk().get('/learning').text

@@ -145,7 +145,7 @@ def f3_same_check_card(pg, w):
 
 def f4_one_filled_button(pg, w):
     "No page shows two filled buttons."
-    for u in ['/', '/journeys', f'/w/{w.jid}', '/settings', '/c/ranking', '/add', '/you/strengths', '/you', '/learning', '/keys']:
+    for u in ['/', '/learn', f'/w/{w.jid}', '/settings', '/c/ranking', '/add', '/you/strengths', '/you', '/learning', '/keys']:
         pg.goto(w.B + u); settle(pg, 300)
         n = pg.eval_on_selector_all('main .go', 'els => els.filter(e => e.checkVisibility()).length')
         assert n <= 1, (u, n)
@@ -587,13 +587,13 @@ def m5_graph_grows(pg, w):
     assert line() == '' and pg.evaluate('abhyasaGraph.rose') == [] and not pg.evaluate('abhyasaGraph.pulsing')
 
 def f12_today_has_an_order(pg, w):
-    "Today: the Continue card, the review line, the walks, the goal on one line, then the links on one line; no week and no subjects."
+    "Today: the Continue card, the review line, the walks, the link to Start something new, then the links on one line; no goal box, no week and no subjects."
     pg.goto(f'{w.B}/s/{w.sid}'); settle(pg, 300)   # the session is open, so the Continue card shows
     pg.goto(w.B + '/'); settle(pg, 300)
     top = lambda sel: pg.eval_on_selector(sel, 'e => e.getBoundingClientRect().top')
-    ys = [top(x) for x in ('.continue-card', '.review', 'main h2:has-text("Your walks")', 'details.goal-fold', 'p.foot')]
+    ys = [top(x) for x in ('.continue-card', '.review', 'main h2:has-text("Your walks")', 'a[href="/learn#start"]', 'p.foot')]
     assert ys == sorted(ys), ys
-    assert pg.eval_on_selector('details.goal-fold', 'd => d.open') is False and not pg.is_visible('#goal')
+    assert not pg.query_selector('#goal')
     assert pg.eval_on_selector('p.foot', 'e => e.getBoundingClientRect().height') < 40
     assert not pg.query_selector('main h2:has-text("This week")') and not pg.query_selector('main h2:has-text("Subjects")')
     assert visible_gos(pg) == ['Continue ⌥S'], visible_gos(pg)
@@ -727,11 +727,11 @@ def d2_pane_bar(pg, w):
     assert abs(ys[0] - ys[1]) < 1, ys
 
 def d3_one_button_in_a_list(pg, w):
-    "Journeys and Your learning: one button in the list; the other rows show a quiet Continue → only on hover or focus; no Open."
+    "Learn and Your learning: one button in the list; the other rows show a quiet Continue → only on hover or focus; no Open."
     new_walk(w)   # a second journey, and two open sessions with an answer
     row = [dict(concept='ranking', correct=True, depth=1, question='What does a rank tell you?', turns=[])]
     for k in (1, 2): w.lr.log_session(f'look-open-{k}', f'An open session, number {k}.', start=time.time() - 60 * k, updated=time.time() - 60 * k, log=row)
-    for u, row in (('/journeys', '.jrow'), ('/learning', '.runs li')):
+    for u, row in (('/learn', '.jrow'), ('/learning', '.runs li')):
         pg.goto(w.B + u); settle(pg)
         assert pg.eval_on_selector_all(f'{row} .btn:not(.quiet)', 'bs => bs.length') == 1, u
         assert not pg.query_selector(f'{row} a:text-is("Open")'), u
@@ -1086,7 +1086,7 @@ def screens(pg, w, out, only=None, widths=(1280, 1000), looks=None):
     pages = dict(today='/', step=w.step(2), code=w.step(1), session=f'/s/{w.sid}', settings='/settings', strengths='/you/strengths',
                  profile='/you', keys='/keys', add='/add', concept='/c/ranking', plan=w.plan, end=f'/w/{w.jid}/0/done',
                  walkend=walk_to_end(w), pane=f'{w.step(2)}?rh={side_walk(w)}', demo=demo_step(w),   # 19b: the end of a walk, the pane (1000 px: the narrow view), a demo
-                 graph='/graph', learning='/learning', journeys='/journeys', concepts='/concepts', sources='/sources', search='/search?q=rank')   # 19c
+                 graph='/graph', learning='/learning', learn='/learn', concepts='/concepts', sources='/sources', search='/search?q=rank')   # 19c
     if only: pages = {k: v for k, v in pages.items() if k in only}
     shots = []
     for theme in ('paper', 'signal'):

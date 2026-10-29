@@ -38,11 +38,17 @@ def short(s, n=140):
 
 def PresentWalk(jid, t=None, quiet=False):
     """Make a talk from walk `jid`: the button gives way to the pending card. When talk `t` was made from it before: open that talk, or make it again.
-    `quiet` is for a page that has its own main button (the step page, the last page, a row of Walks)."""
+    `quiet` is for a page that has its own main button (the step page, the last page)."""
     btn = (lambda *a, **kw: Quiet(*a, small=True, **kw)) if quiet else Secondary
     go = Form(Input(type='hidden', name='jid', value=jid), btn('Make it again' if t else 'Present this walk', data_wait='Making the talk…'),
               hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
     return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, cls='row') if t else go
+
+def RowPresent(jid, t=None):
+    """The one quiet control on the row of walk `jid` in a list: "Open the talk" when talk `t` was made from it, else "Present", which makes the talk."""
+    if t: return A('Open the talk', href=at(Routes.one, t.id), cls='quiet')
+    return Form(Input(type='hidden', name='jid', value=jid), Quiet('Present', small=True, data_wait='Making the talk…', title='Make a talk from this walk'),
+                hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
 
 def PresentJourney(jid, t=None):
     "Make a talk from path `jid` (a walk with no source). When talk `t` was made from it before: open that talk, or make it again."
@@ -58,10 +64,16 @@ def Pending(jid, fill=False):
     return Div(P(said[0]), P(said[1], cls='mute'),
                cls='talk-new pending', hx_get=f"{Routes.job}?{urlencode(dict(jid=jid))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
 
+def TalkRow(t):
+    "One talk in Learn: its title, its slide count and its slot, then Edit and a quiet Present that starts a run."
+    return Li(Div(A(t.title, href=at(Routes.one, t.id), cls='jt'), Span(meta(n_of(len(t.slides), 'slide'), f"a {t.minutes} min slot"), cls='mute'), cls='lrow-head'),
+              Div(A('Edit', href=at(Routes.one, t.id), cls='btn small'),
+                  Form(Quiet('Present', small=True, data_wait='Starting…'), action=at(Routes.start, t.id), method='post', hx_boost='false'), cls='lrow-acts'),
+              cls='lrow')
+
 def YourTalks(ts):
-    "Each talk as a link to its editor, with its slide count and its slot."
-    return Part('Your talks', Ul(*[Li(A(t.title, href=at(Routes.one, t.id)), Span('  ' + meta(n_of(len(t.slides), 'slide'), f"a {t.minutes} min slot"), cls='mute'))
-                                   for t in ts], cls='plain'))
+    "Your talks, in Learn: one row for each."
+    return Part('Your talks', Ul(*[TalkRow(t) for t in ts], cls='plain talks'))
 
 # --- the editor ------------------------------------------------------------------------------------------------------
 

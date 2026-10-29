@@ -21,7 +21,7 @@ def test_plan_and_path(mk, fake, lr):
     assert 'How LLMs work' in page and page.index('Tokenizers') < page.index('Ranking') < page.index('Attention')
     assert 'step tokenizers' not in page and 'class="step new now"' in page            # the first step is the one to do now
     assert f'href="/start?journey={jid}"' in page and 'Continue: Tokenizers' in page
-    assert 'class="crumbs"' in page and 'href="/journeys"' in page                   # a way up
+    assert 'class="crumbs"' in page and 'href="/learn"' in page                      # a way up
     assert 'data-mic' in page                                                         # say a topic to add
 
 def test_empty_goal(mk):
@@ -50,10 +50,10 @@ def test_continue_a_journey(mk, fake, lr):
 def test_today_and_concept_page(mk, fake):
     cl = mk()
     today = cl.get('/').text
-    assert 'What do you want to learn?' in today and 'No walks yet' in today
+    assert 'href="/learn#start"' in today and 'No walks yet' in today
     jid = plan(cl, fake)
     today = cl.get('/').text
-    assert 'How LLMs work' in today and '0 of 3 steps' in today and 'Now: Tokenizers' in today
+    assert 'How LLMs work' in today and '0 of 3 ideas' in today and '>path<' in today and 'Now: Tokenizers' in today
     c = cl.get('/c/ranking').text
     assert 'In your walks' in c and 'step 2 of 3' in c
     assert 'Continue: How LLMs work' in cl.get('/concepts').text                     # the top bar continues the journey

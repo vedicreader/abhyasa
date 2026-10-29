@@ -54,10 +54,10 @@ def test_journeys_have_one_button(mk, walk_fake, lr):
     "Journeys: only the first journey with a step to do has a button; the others have a quiet `Continue →` link that shows on hover and focus."
     cl = mk()
     for _ in range(3): walk(cl, lr)
-    h = cl.get('/journeys').text
-    rows = h.split('class="jrow"')[1:]
-    assert len(rows) == 3 and sum('class="btn small"' in r for r in rows) == 1 and 'class="btn small">Continue the walk' in rows[0], rows
-    assert all(re.search(r'<a href="[^"]*" class="onward">Continue →</a>', r) for r in rows[1:])
+    h = cl.get('/learn').text
+    rows = h.split('class="jrow lrow"')[1:]
+    assert len(rows) == 3 and sum('class="btn small"' in r for r in rows) == 1 and 'class="btn small">Start the walk' in rows[0], rows
+    assert all(re.search(r'<a href="[^"]*" class="onward">Start the walk →</a>', r) for r in rows[1:])
     b = src('core/base.css')
     assert re.search(r'\.onward \{[^}]*opacity: 0', b) and ':focus-within .onward' in b and '@media (hover: none) { .onward { opacity: 1; } }' in b
 

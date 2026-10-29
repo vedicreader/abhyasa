@@ -2,7 +2,7 @@
 import logging, time
 from fasthtml.common import *
 from pathlib import Path
-from abhyasa.core import run as run_hook, Page, Primary, Secondary, Quiet, Choice, asset_css, asset_js
+from abhyasa.core import hook, run as run_hook, Page, Primary, Secondary, Quiet, Choice, asset_css, asset_js
 from abhyasa.sources import extract, from_vault, from_vedicreader
 from abhyasa.settings import val
 from .cfg import Routes
@@ -64,6 +64,11 @@ def connect(app, ctx):
         return Ul(*[Li(A(lr.concept(s).name, href=f'/c/{s}')) for s in slugs], cls='plain')
 
     def vedicreader(): return P(', '.join(f'{v} {k}' for k, v in from_vedicreader(lr).items()) + ' added.')
+
+    @hook('learn_start')
+    def start():
+        "Start something new, in Learn: for now a link to this page."
+        return P(A('Add a paper, a link, a topic or a text', href=Routes.base), cls='mute')
 
     app.get(Routes.base)(page)
     app.post(Routes.base)(add)

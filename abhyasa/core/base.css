@@ -158,6 +158,18 @@ li:hover .onward, li:focus-within .onward, .onward:focus-visible { opacity: 1; }
 /* a thin progress line: a journey, a week */
 .prog { display: block; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; max-width: 360px; margin: var(--s2) 0 0; }
 .prog i { display: block; height: 100%; background: var(--acc); border-radius: 2px; transition: width var(--dur-3) var(--ease); }
+/* A row of a list (a walk, a talk): the head on one line at the left, its actions at the right. Under 640 px the actions go under the head. */
+ul.plain li.lrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s1) var(--s4); align-items: center; }
+.lrow-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); min-width: 0; }
+.lrow-head .jt { font-size: var(--t-list); color: var(--fg); margin-right: var(--s1); }
+.lrow-head > .mute { font-size: var(--t-meta); }
+.lrow-acts { display: flex; align-items: center; gap: var(--s2); justify-content: flex-end; }
+.lrow-acts form { margin: 0; }
+a.quiet { font-size: var(--t-meta); color: var(--mute); text-decoration: none; padding: var(--s1) var(--s2); border-radius: 4px; }
+a.quiet:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 5%, transparent); }
+@media (max-width: 640px) { ul.plain li.lrow { grid-template-columns: minmax(0, 1fr); } .lrow-acts { justify-content: flex-start; } }
+.pill { font: 500 var(--t-lbl)/1 var(--serif); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px var(--s2); white-space: nowrap; }
 button.quiet, .btn.quiet { border-color: transparent; color: var(--mute); } button.quiet:hover, .btn.quiet:hover { color: var(--fg); }
 button.small, .btn.small { padding: var(--s1) var(--s2); font-size: var(--t-meta); }
 @media (max-width: 640px) { nav .nav-gap { display: none; } }

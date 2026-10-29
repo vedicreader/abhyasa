@@ -2,11 +2,13 @@
 .goal-form label { margin-top: var(--s2); }
 .goal-form.raised { margin: var(--s5) 0 var(--s2); padding: var(--s4) var(--s5) var(--s5); } .goal-form.raised label { margin-top: 0; }
 .goal-form .row { margin-top: var(--s3); }
-.journeys .jrow { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--s4); align-items: center; }
-.journeys .jrow .prog { grid-column: 1; margin: 2px 0 0; }
-.journeys .jrow :is(.btn, .onward) { grid-column: 2; grid-row: 1 / span 2; }
-.journeys .jt { font-size: var(--t-body); }
-.paper-id { margin-left: var(--s2); font-size: var(--t-meta); }
+/* The head of a walk row stays on one line: "Now" gives way with an ellipsis, and a title longer than 55% of the line too. */
+.jrow .jrow-head { flex-wrap: nowrap; } .jrow .jrow-head > * { flex: none; }
+.jrow-head .prog { width: 56px; margin: 0; }
+.jrow .jrow-head :is(.jt, .now) { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jrow .jrow-head .jt { flex-shrink: 0; max-width: 55%; }
+@media (max-width: 640px) { .jrow .jrow-head { flex-wrap: wrap; } }
+.paper-id { font-size: var(--t-meta); }
 .phead { margin: var(--s5) 0 var(--s1); } .phead .prog { max-width: 420px; }
 .goal { font-style: italic; color: var(--ink2); }
 .path { list-style: none; padding: 0; margin: var(--s6) 0 var(--s3); }
@@ -37,8 +39,8 @@
 .drop { margin-top: var(--s8); } .danger:hover { color: var(--bad); }
 .in-journeys { margin: var(--s5) 0 0; } .in-journeys .attach { margin-top: var(--s3); } .in-journeys select { width: auto; font-size: var(--t-small); }
 .step-done { padding: 2px 0; } .step-done .lbl { color: var(--ok); } .step-done p { margin: 0; }
-.side-walks { margin: var(--s2) 0 0 var(--s4); font-size: var(--t-small); } .side-walks ul { margin: 2px 0 0; }
-/* With journeys, the goal box is one line on Today until you open it. */
-details.goal-fold { margin: var(--s4) 0 0; }
-details.goal-fold > summary { cursor: pointer; color: var(--ink2); padding: var(--s2) 0; list-style-position: inside; }
-details.goal-fold > summary:hover, details.goal-fold[open] > summary { color: var(--fg); }
+/* The side walks of a row: folded to one quiet line under it. */
+.jrow .side-walks { grid-column: 1 / -1; margin: 0 0 0 var(--s4); font-size: var(--t-small); }
+.jrow .side-walks > summary { cursor: pointer; color: var(--mute); font-size: var(--t-meta); list-style-position: inside; width: fit-content; }
+.jrow .side-walks > summary:hover, .jrow .side-walks[open] > summary { color: var(--fg); }
+.jrow .side-walks ul { margin: 2px 0 0; } .jrow .side-walks li { padding: var(--s2) 0; }

@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import quote, urlparse
 from fasthtml.common import *
 from abhyasa.core.hooks import run
-from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago, Primary, n_of, Onward
+from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago, Primary, n_of, Onward, Pill, Empty
 from abhyasa.journey import parent_step, walk_state, paper_id
 from abhyasa.sources import is_paper
 from abhyasa.settings import val
@@ -54,16 +54,23 @@ def SideWalk(j, pg, js=None):
     i = (j.get('parent') or {}).get('step')
     return Li(A(j.title, href=beside(j, js or {})), Span(f"  for idea {i + 1} · {pg.done} of {n_of(pg.total, 'idea')}" if isinstance(i, int) else f"  {pg.done} of {n_of(pg.total, 'idea')}", cls='mute'))
 
+def fresh(j, pg) -> bool:
+    "True when walk `j` is not started: a walk with no start time, or a path with each step new."
+    return not j.get('started') if j.get('mode') == 'walk' else all(s.state == 'new' for s in pg.steps)
+
 def Row(j, pg, sides=(), lead=False, js=None):
-    """One walk in a list: its title, its progress, the step to do now, the way on, and its side walks. Only the `lead` row
-    (the current walk) has a button; the others have a quiet `Continue →` link."""
-    now = f"Now: {pg.current.name}" if pg.current else 'Finished'
-    go_on = (A('Continue the walk' if j.get('mode') == 'walk' else 'Continue', href=go(j), cls='btn small') if lead else
-             Onward('Continue', go(j)) if pg.current else Onward('See what comes after', at(Routes.path, j)))
-    return Li(Div(A(j.title, href=at(Routes.path, j), cls='jt'), Span(paper_id(j), cls='paper-id mute') if paper_id(j) else '', Span(f"  {pg.done} of {n_of(pg.total, 'step')} · {now}", cls='mute'), cls='jrow-head'),
-              Bar(pg.done, pg.total), go_on, *(run('walk_actions', j, quiet=True) if j.get('mode') == 'walk' else ()),
-              Div(Span('Side walks', cls='lbl'), Ul(*[SideWalk(*x, js=js) for x in sides], cls='plain'), cls='side-walks') if sides else '',
-              cls='jrow')
+    """One walk in a list, on one line: its title, its kind, its progress and the step to do now. Then one way on and a quiet Present
+    (`walk_actions` with `row`), and its side walks folded under it. Only the `lead` row (the current walk) has a button;
+    the others have a quiet `Continue →` link."""
+    word = 'Start the walk' if fresh(j, pg) else 'Continue'
+    go_on = (A(word, href=go(j), cls='btn small') if lead and pg.current else Onward(word, go(j)) if pg.current
+             else Onward('See what comes after', at(Routes.path, j)))
+    pid = paper_id(j)
+    head = Div(A(j.title, href=at(Routes.path, j), cls='jt', title=j.title), Pill(kind_of(j)), Span(pid, cls='paper-id mute') if pid else '',
+               Span(f"{pg.done} of {n_of(pg.total, 'idea')}", cls='mute'), Bar(pg.done, pg.total),
+               Span(now := f"Now: {pg.current.name}" if pg.current else 'Finished', cls='mute now', title=now), cls='jrow-head lrow-head')
+    folded = Details(Summary(n_of(len(sides), 'side walk')), Ul(*[SideWalk(*x, js=js) for x in sides], cls='plain'), cls='side-walks') if sides else ''
+    return Li(head, Div(go_on, *run('walk_actions', j, row=True), cls='lrow-acts'), folded, cls='jrow lrow')
 
 def root_of(j, ids):
     "The id of the first walk up the parents of side walk `j` that is not a side walk, when it is in `ids`; else None."
@@ -72,7 +79,7 @@ def root_of(j, ids):
         seen.add(p); j = ids[p][0]
     return None if j is None or j.get('depth') else j.id
 
-def JourneyList(js, empty='No walks yet. Say what you want to learn, and the tutor suggests a path.', lead=True):
+def JourneyList(js, empty='No walks yet.', lead=True):
     """The walks, each with its side walks under it. A side walk whose walk is gone has its own line.
     With `lead`, the first walk with a step to do (the newest, as Continue in the top bar) has the one button."""
     ids = {j.id: (j, pg) for j, pg in js}
@@ -83,7 +90,7 @@ def JourneyList(js, empty='No walks yet. Say what you want to learn, and the tut
     top = next((j.id for j, pg in js if j.id not in under and pg.current), None) if lead else None
     byid = {k: v[0] for k, v in ids.items()}
     rows = [Row(j, pg, sides.get(j.id, ()), j.id == top, byid) for j, pg in js if j.id not in under]
-    return Ul(*rows, cls='plain journeys') if rows else P(empty, cls='mute')
+    return Ul(*rows, cls='plain journeys') if rows else Empty(empty)
 
 def Act(j, s, act, label, title):
     return Button(label, type='button', cls='small quiet', title=title, hx_post=at(Routes.path_step, j), hx_vals=json.dumps(dict(slug=s.slug, act=act)),

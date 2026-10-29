@@ -10,7 +10,7 @@ from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
 from abhyasa.model import DEPTHS
 
 __all__ = ['Cites', 'WebSource', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'SubTabs', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
-           'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward']
+           'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -308,6 +308,10 @@ def Check(head, q=None, *thread, foot='', thread_id=None, shut=False, cls='', **
 def Onward(label, href):
     "A quiet text link on a row of a list, such as `Continue →`: it shows on hover and focus (base.css). The current row has the button."
     return A(f'{label} →', href=href, cls='onward')
+
+def Pill(word:str):
+    "A small word in a pill, such as the kind of a walk: `paper`, `path` or `topic`."
+    return Span(word, cls='pill')
 
 def Empty(text, action=None, cls=''):
     "The one empty state: a muted line and at most one link. Never a box."

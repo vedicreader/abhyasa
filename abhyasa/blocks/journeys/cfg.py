@@ -1,6 +1,6 @@
 class Routes:
-    base = '/journeys'              # all walks, and the goal box
-    learn = '/learn'                # the Learn tab: the same list for now
+    base = '/journeys'              # the old list: it redirects to `learn`
+    learn = '/learn'                # the Learn tab: your walks, your talks and Start something new
     new = '/journeys/new'           # plan a walk from a goal
     attach = '/journeys/attach'     # add a concept to a walk, from its page
     path = '/path/{jid}'            # the path

@@ -1,7 +1,7 @@
 """Walks: a goal and a path of steps to it, that you can see and change. The list, the path page, and what they add to Today,
 to a concept page and to a session. The code calls a walk a journey; the page says walk."""
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides, hook, run
+from abhyasa.core import Page, Part, RouteOverrides, hook, run
 from abhyasa.settings import val
 from abhyasa.profile import profile_text
 from abhyasa.journey import plan, progress, add_topic, split, beyond, with_step, for_talk
@@ -14,7 +14,7 @@ CAPS = ('learning', 'ask', 'sources')
 def connect(app, ctx):
     lr = ctx.learning
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
-    up = [('Today', '/'), ('Walks', Routes.base)]
+    up = [('Today', '/'), ('Learn', Routes.learn)]
 
     def by(): return {c.slug: c for c in lr.concepts()}
     def yours(): return [j for j in lr.journeys() if not for_talk(j)]   # a side walk of a talk is for the room, not yours
@@ -24,11 +24,13 @@ def connect(app, ctx):
 
     def path(jid): return ui.Path_(j := lr.journey(jid), progress(lr, j))
 
-    def index():
-        return Page('Walks', H1('Walks'),
-                    P('A walk is a goal and a path of steps to it. The tutor suggests the path from your concepts and what it knows '
-                      'about you. You can move, skip, add or split a step.', cls='mute'),
-                    ui.GoalForm(), H2('Your walks'), ui.JourneyList(listed()), on='Learn', crumbs=[('Today', '/')], extra=ui.assets())
+    def learn():
+        "The Learn tab: your walks, your talks (`learn_talks`) and Start something new (`learn_start`)."
+        return Page('Learn', H1('Learn'), Part('Your walks', ui.JourneyList(listed(), empty='No walks yet. Paste something below.')),
+                    *run('learn_talks'), Section(H2('Start something new'), *run('learn_start'), id='start'),
+                    on='Learn', crumbs=[('Today', '/')], extra=ui.assets())
+
+    def index(): return RedirectResponse(Routes.learn, status_code=303)   # the old list: Learn has it now
 
     def new(goal:str=''):
         if not goal.strip(): return P('Say or type what you want to learn.', cls='req-err')
@@ -38,7 +40,7 @@ def connect(app, ctx):
 
     def one(jid:str):
         j = lr.journey(jid)
-        if not j: return Page('Walk', H1('No such walk'), P(A('All walks', href=Routes.base)), on='Learn', crumbs=up)
+        if not j: return Page('Walk', H1('No such walk'), P(A('All walks', href=Routes.learn)), on='Learn', crumbs=up)
         pg = progress(lr, j)
         return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')], run('walk_actions', j)), on='Learn', crumbs=up, extra=ui.assets())
 
@@ -57,7 +59,7 @@ def connect(app, ctx):
 
     def drop(jid:str):
         lr.drop_journey(jid)
-        return Redirect(Routes.base)
+        return Redirect(Routes.learn)
 
     def old(jid:str, req):
         "An old link to `/j/{jid}`, from a page, Leela or a vault document: go to the path, with the same query."
@@ -72,11 +74,10 @@ def connect(app, ctx):
 
     @hook('today')
     def on_today(subject=None):
+        "Your walks on Today: at most `lists.journeys` rows, then a link to all of them in Learn and to Start something new."
         js = listed()
-        goal = Details(Summary('What do you want to learn?'), ui.GoalForm(compact=True, label=False), cls='goal-fold') if js else ui.GoalForm()
-        return (H2('Your walks'), ui.JourneyList(js[:(n := val('lists.journeys'))]),
-                *([P(A(f'See all {len(js)} walks', href=Routes.base), cls='mute')] if len(js) > n else []),
-                goal, *ui.assets())
+        more = [A(f'See all {len(js)} in Learn', href=Routes.learn), ' · '] if len(js) > (n := val('lists.journeys')) else []
+        return (H2('Your walks'), ui.JourneyList(js[:n]), P(*more, A('Start something new', href=f'{Routes.learn}#start'), cls='mute'), *ui.assets())
 
     @hook('concept_more')
     def in_journeys(c):
@@ -94,7 +95,7 @@ def connect(app, ctx):
 
     RouteOverrides.nav.append(('Learn', Routes.learn, 1))
     app.get(Routes.base)(index)
-    app.get(Routes.learn)(index)
+    app.get(Routes.learn)(learn)
     app.post(Routes.new)(new)
     app.post(Routes.attach)(attach)
     app.get(Routes.path)(one)

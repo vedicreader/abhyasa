@@ -31,9 +31,9 @@ def test_change_the_slides(mk, talk_fake, lr):
     cl.post(f'/t/{tid}/slot', data=dict(minutes=40))
     assert 'of a 40 min slot' in cl.get(f'/t/{tid}').text and lr.journey(jid).steps == before   # the walk does not change
 
-def test_talks_on_your_learning_and_search(mk, talk_fake, lr):
+def test_talks_in_learn_and_search(mk, talk_fake, lr):
     cl = mk(); tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
-    page = cl.get('/learning').text
+    page = cl.get('/learn').text
     assert 'Your talks' in page and f'href="/t/{tid}"' in page
     assert cl.get('/search?q=Attention').status_code == 200 and cl.get('/t/nope').status_code == 404
     found = cl.get('/search?q=talk Attention').text
@@ -880,28 +880,30 @@ def test_present_on_the_end_of_a_walk(mk, talk_fake, lr):
     assert page.count('Present this walk') == 1
 
 def test_present_in_the_journeys_list(mk, talk_fake, lr):
-    "A walk has a quiet Present this walk on its row in Journeys. A plain journey row does not."
+    "A walk has a quiet Present on its row in Learn. A plain journey row does not."
     cl = mk(); jid = walk_started(cl, lr); plain = journey_of(lr)
-    page = cl.get('/journeys').text
-    assert page.count('Present this walk') == 1 and 'hx-post="/talk/journey"' not in page
+    page = cl.get('/learn').text
+    assert page.count('>Present</button>') == 1 and 'Present this walk' not in page and 'hx-post="/talk/journey"' not in page
     assert plain in page
 
 def test_a_walk_with_a_talk_opens_it(mk, talk_fake, lr):
-    "After a talk exists for the walk: its step page, its last page and its Journeys row show Open the talk and Make it again."
+    "After a talk exists for the walk: its step page and its last page show Open the talk and Make it again. Its row in Learn shows Open the talk only."
     cl = mk(); jid = walk_started(cl, lr); tid = make_talk(cl, jid)
     for i in range(3): cl.post(f'/w/{jid}/{i}/next')
-    for u in (f'/w/{jid}/1', f'/w/{jid}/2/done', '/journeys'):
+    for u in (f'/w/{jid}/1', f'/w/{jid}/2/done'):
         page = cl.get(u).text
         assert 'Open the talk' in page and f'href="/t/{tid}"' in page and 'Make it again' in page and 'Present this walk' not in page, u
+    row = cl.get('/learn').text.split('class="jrow lrow"')[1]
+    assert f'<a href="/t/{tid}" class="quiet">Open the talk</a>' in row and 'Make it again' not in row
 
 def test_no_present_on_a_side_walk_or_a_talk_walk(mk, talk_fake, lr):
-    "A side walk (`depth`) and a walk made for a talk (`for_talk`) have no Present on their step page, last page or Journeys row."
+    "A side walk (`depth`) and a walk made for a talk (`for_talk`) have no Present on their step page, last page or Learn row."
     cl = mk(); jid = walk_started(cl, lr); j = lr.journey(jid)
     side = lr.put_journey({**j, 'id': 'side-walk-ab12', 'title': 'Side walk', 'depth': 1, 'parent': dict(walk=jid, step=0)}).id
     talk = lr.put_journey({**j, 'id': 'talk-walk-ab12', 'title': 'Talk walk', 'parent': dict(**{'for': 'talk'})}).id
     for w in (side, talk):
         assert 'Present this walk' not in cl.get(f'/w/{w}/1').text and 'Present this walk' not in cl.get(f'/w/{w}/2/done').text
-    assert cl.get('/journeys').text.count('Present this walk') == 1   # the walk of `jid` only
+    assert cl.get('/learn').text.count('>Present</button>') == 1   # the walk of `jid` only
 
 # --- maths in a slide, and the words question ---------------------------------------------------------------------
 

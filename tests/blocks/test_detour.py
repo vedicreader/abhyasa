@@ -32,7 +32,7 @@ def test_side_walk_logs_from_and_comes_back(mk, walk_fake, lr):
     assert r.headers['location'] == f'/w/{jid}/2'
     page = cl.get(f'/w/{jid}/2').text
     assert 'Back on the paper' in page and 'on the way' in page
-    assert sid not in cl.get('/journeys').text.split('Side walks')[0]                    # listed under its parent only
+    assert sid not in cl.get('/learn').text.split('class="side-walks"')[0]                    # listed under its parent only
     s2 = cl.get('/start?focus=gradients', follow_redirects=False).headers['location'].split('/')[-1]
     cl.get(f'/s/{s2}')
     walk_fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')   # lesson_extra shows at a close
