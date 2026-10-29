@@ -1,5 +1,6 @@
 """The talk: a walk made into slides for a group. "Present this walk" makes the talk on the pool, and the editor changes its slides.
-A change to the talk never changes the walk. Each change runs `check_talk`, and a talk with a problem is not saved.
+"Present this journey" on a plain journey first makes a walk for the talk from its steps, in their order, and a second press opens
+the same talk. A change to the talk never changes the walk. Each change runs `check_talk`, and a talk with a problem is not saved.
 
 "Present" starts a run. The presenter window and the audience window (`/t/{tid}/audience?k=<run key>`) stay in step over the
 stage channel. Each key posts to the server first (`at`, `ask`), and the window sends the stage messages from the reply, so the
@@ -13,10 +14,10 @@ from copy import deepcopy
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
 from abhyasa.core import Page, hook, n_of, pane_url
-from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic
+from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk
 from abhyasa.llm import for_task
 from abhyasa.settings import val
-from abhyasa.talk import (check_talk, talk_from_walk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
+from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
                           public_deck, public_ask, asset_resolver, new_run, log_go, log_main, end_run, log_beside,
                           recap, recap_html)
 from . import ui
@@ -176,6 +177,14 @@ def connect(app, ctx):
         if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_walk(lr, ask(), jid).id)
         return ui.Pending(jid)
 
+    def plain(j): return bool(j and j.get('mode') != 'walk' and not for_talk(j) and j.steps)   # a journey that is not a walk
+
+    def from_journey(jid:str='', again:str=''):
+        "Start the pool job that makes a talk from plain journey `jid`, or finds the one made before. `again` makes a new walk and a new talk."
+        if not plain(lr.journey(jid := jid.strip())): return P('No such journey.', cls='req-err')
+        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_journey(lr, ask(), jid, ctx.sources, again=bool(again)).id)
+        return ui.Pending(jid)
+
     def job(jid:str=''):
         "The state of the talk from walk `jid`: the pending card, a redirect to the editor, or a message."
         if not (j := jobs.get(jid.strip())): return P('No talk is being made from this walk. Try again.', cls='req-err')
@@ -186,7 +195,9 @@ def connect(app, ctx):
     def one(req, tid:str):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
         j = lr.journey((t.get('src') or {}).get('walk') or '')
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j), crumbs=[('Today', '/'), ('Journeys', '/journeys'), *([(j.title, f'/w/{j.id}')] if j else [])],
+        pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
+        up = [(pj.title, f'/j/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj), crumbs=[('Today', '/'), ('Journeys', '/journeys'), *up],
                     extra=ui.assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys (talk.js) work only here
         return page
@@ -469,8 +480,11 @@ def connect(app, ctx):
 
     @hook('walk_actions')
     def present(j):
-        "On the plan of a walk and on its journey page: make a talk from the walk."
-        return ui.PresentWalk(j.id) if j.get('mode') == 'walk' and j.steps else None
+        "On the plan of a walk and on its journey page: make a talk from the walk. On a plain journey: make a talk from it, or open the one made before."
+        if j.get('mode') == 'walk': return ui.PresentWalk(j.id) if j.steps else None
+        if not plain(j): return None
+        w = journey_walk(lr, j.id)
+        return ui.PresentJourney(j.id, w and walk_talk(lr, w.id))
 
     @hook('learning_end')
     def your_talks():
@@ -478,6 +492,7 @@ def connect(app, ctx):
         return ui.YourTalks(ts) if (ts := lr.talks()) else None
 
     app.post(Routes.new)(new)
+    app.post(Routes.journey)(from_journey)
     app.get(Routes.job)(job)
     app.get(Routes.one)(one)
     app.post(Routes.slide)(slide)

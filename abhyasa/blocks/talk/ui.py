@@ -35,6 +35,13 @@ def PresentWalk(jid):
     return Form(Input(type='hidden', name='jid', value=jid), Secondary('Present this walk', data_wait='Making the talk…'),
                 hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
 
+def PresentJourney(jid, t=None):
+    "Make a talk from plain journey `jid`. When talk `t` was made from it before: open that talk, or make it again."
+    def go(label, *again): return Form(Input(type='hidden', name='jid', value=jid), *again, Secondary(label, data_wait='Making the talk…'),
+                                      hx_post=Routes.journey, hx_target='this', hx_swap='outerHTML', cls='talk-new')
+    if not t: return go('Present this journey')
+    return Div(Secondary('Open the talk', href=at(Routes.one, t.id)), go('Make it again', Input(type='hidden', name='again', value='1')), cls='row')
+
 def Pending(jid):
     "A talk that is still being made: the card asks the server again in 2 seconds."
     return Div(P('Making the talk…'), P('The tutor writes a question for the room from each check. This can take a minute.', cls='mute'),
@@ -153,13 +160,14 @@ def Slot(t):
             Label('Room phones', Select(Option('No phones', value='off', selected=not t.get('phones')),
                                         Option('Phones on this Wi-Fi', value='on', selected=bool(t.get('phones'))), name='phones', **post), cls='inline phones'))
 
-def Editor(t, j):
-    "The editor of talk `t` from walk `j`: what it is, Present, the slot, then the slides (as `shots/a1-deck.png`)."
+def Editor(t, j, pj=None):
+    "The editor of talk `t` from walk `j` (made from plain journey `pj`, if given): what it is, Present, the slot, then the slides (as `shots/a1-deck.png`)."
     ideas = sum(s.get('kind') == 'idea' for s in t['slides'])
     secs = len({s.get('section') for s in t['slides'] if s.get('kind') == 'idea' and s.get('section')})
-    made = A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'
+    made = A('Made from your journey', href=f'/j/{pj.id}') if pj else A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'
+    cut = P(f"This talk has the first {len(j.steps)} steps of the journey. The journey has {len(j.steps) + len(j.more)} steps.", cls='mute') if pj and j.get('more') else ''
     return (H1(f"{t['title']}, as a talk"),
-            P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), cls='mute'),
+            P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), cls='mute'), cut,
             P('Each idea of the walk is one slide. The passage and the figure show to the room. The tutor note is your speaker note. '
               'The check of the idea becomes a question for the room. A change here does not change the walk.', cls='lead'),
             Div(Form(Primary('Present', data_wait='Starting…'), action=at(Routes.start, t['id']), method='post', hx_boost='false'), *Slot(t), cls='row talk-top'),

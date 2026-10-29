@@ -1,5 +1,6 @@
 class Routes:
     new = '/talk/new'                  # make a talk from a walk, on the pool
+    journey = '/talk/journey'          # make a talk from a plain journey, on the pool
     job = '/talk/job'                  # the state of the talk while it is made
     one = '/t/{tid}'                   # the editor: the slides of the talk
     slide = '/t/{tid}/slide'           # one change to one slide

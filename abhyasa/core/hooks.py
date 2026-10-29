@@ -8,7 +8,7 @@ composer); `lesson_extra` (under a lesson).
 The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs, and the strip after a side walk);
 `check_after(j, i, q)` (under a check: the gaps that an answer points at); `walk_end(j)` (the end of a walk: a side walk sends
 `rh:done`); `walk_actions(j)` (beside the actions of the plan of a walk and of its journey page: the talk adds
-"Present this walk"); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`).
+"Present this walk", and "Present this journey" on a plain journey); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`).
 
 The side pane: `pane_title(url)` (the title of the page at the local path `url`, for the pane bar and the line under 1100 px)."""
 from collections import defaultdict
