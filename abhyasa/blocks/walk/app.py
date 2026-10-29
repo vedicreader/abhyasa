@@ -216,7 +216,8 @@ def connect(app, ctx):
             if not j.steps[i].get('read_at'): j = lr.walk_step(jid, i, read_at=time.time())
             ahead(j, i + 1)
         b = by()
-        page = ui.StepPage(j, walk_state(j), b, i, needs=run_hook('step_needs', j, i, b.get(j.steps[i]['slug'])), back=back_to(j))
+        page = ui.StepPage(j, walk_state(j), b, i, needs=run_hook('step_needs', j, i, b.get(j.steps[i]['slug'])), back=back_to(j),
+                       present=run_hook('walk_actions', j, quiet=True))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
 
@@ -395,7 +396,7 @@ def connect(app, ctx):
         sides = [((b.get(d['slug']) or {}).get('name', d['slug']), d.get('outcome') in ('solid', 'fragile')) for st in j.steps for d in st.get('detours') or ()]
         now, slugs = time.time(), {st['slug'] for st in j.steps if (st.get('done') or {}).get('outcome') not in (None, 'skipped')}
         due = min((c.due for k in slugs if (c := b.get(k)) and c.get('due') and c.due > now), default=None)
-        return Page('You finished the walk', *ui.WalkDone(j, walk_state(j), moved(rows), b, sides, due, run_hook('walk_end', j)), crumbs=crumbs, extra=ui.assets())
+        return Page('You finished the walk', *ui.WalkDone(j, walk_state(j), moved(rows), b, sides, due, run_hook('walk_end', j), run_hook('walk_actions', j, quiet=True)), crumbs=crumbs, extra=ui.assets())
 
     def img(jid:str, i:int):
         "The figure of step `i`, only from inside the vault assets and only as an image file."

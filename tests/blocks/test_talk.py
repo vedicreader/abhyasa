@@ -767,3 +767,48 @@ def test_edit_a_run_question(mk, talk_fake, lr):
     assert post(kind='run', q='What does it print?', options='only one').status_code == 400
     assert post(kind='run', q='What does it print?', options='1\n2\n3\n4\n5\n6\n7').status_code == 400
     assert lr.talk(tid).slides[0]['ask']['kind'] == 'run'
+
+def walk_started(cl, lr):
+    "A walk that is started, with a check on each idea; return its id."
+    jid = prep_walk(lr, walk(cl, lr)); cl.post(f'/w/{jid}/start'); return jid
+
+def test_present_on_a_started_walk(mk, talk_fake, lr):
+    "A started walk goes straight to its step: that page has Present this walk, but no new main button."
+    cl = mk(); jid = walk_started(cl, lr)
+    page = cl.get(f'/w/{jid}').text   # the client follows the redirect to the current step
+    assert 'Present this walk' in page and 'Open the talk' not in page
+    p1 = cl.get(f'/w/{jid}/1').text
+    assert p1.count('Present this walk') == 1 and 'class="quiet small"' in p1   # a quiet button, not a main one
+    assert f'value="{jid}"' in p1
+
+def test_present_on_the_end_of_a_walk(mk, talk_fake, lr):
+    "The last page of a walk has Present this walk; Back to Today stays the one main button."
+    cl = mk(); jid = walk_started(cl, lr)
+    for i in range(3): cl.post(f'/w/{jid}/{i}/next')
+    page = cl.get(f'/w/{jid}/2/done').text
+    assert 'You finished the walk' in page and 'Present this walk' in page and 'Back to Today' in page
+    assert page.count('Present this walk') == 1
+
+def test_present_in_the_journeys_list(mk, talk_fake, lr):
+    "A walk has a quiet Present this walk on its row in Journeys. A plain journey row does not."
+    cl = mk(); jid = walk_started(cl, lr); plain = journey_of(lr)
+    page = cl.get('/journeys').text
+    assert page.count('Present this walk') == 1 and 'Present this journey' not in page
+    assert plain in page
+
+def test_a_walk_with_a_talk_opens_it(mk, talk_fake, lr):
+    "After a talk exists for the walk: its step page, its last page and its Journeys row show Open the talk and Make it again."
+    cl = mk(); jid = walk_started(cl, lr); tid = make_talk(cl, jid)
+    for i in range(3): cl.post(f'/w/{jid}/{i}/next')
+    for u in (f'/w/{jid}/1', f'/w/{jid}/2/done', '/journeys'):
+        page = cl.get(u).text
+        assert 'Open the talk' in page and f'href="/t/{tid}"' in page and 'Make it again' in page and 'Present this walk' not in page, u
+
+def test_no_present_on_a_side_walk_or_a_talk_walk(mk, talk_fake, lr):
+    "A side walk (`depth`) and a walk made for a talk (`for_talk`) have no Present on their step page, last page or Journeys row."
+    cl = mk(); jid = walk_started(cl, lr); j = lr.journey(jid)
+    side = lr.put_journey({**j, 'id': 'side-walk-ab12', 'title': 'Side walk', 'depth': 1, 'parent': dict(walk=jid, step=0)}).id
+    talk = lr.put_journey({**j, 'id': 'talk-walk-ab12', 'title': 'Talk walk', 'parent': dict(**{'for': 'talk'})}).id
+    for w in (side, talk):
+        assert 'Present this walk' not in cl.get(f'/w/{w}/1').text and 'Present this walk' not in cl.get(f'/w/{w}/2/done').text
+    assert cl.get('/journeys').text.count('Present this walk') == 1   # the walk of `jid` only
