@@ -18,6 +18,7 @@ from .settings import val
 from .llm import ask_json, for_task
 from .prompts import register, prompt
 from .sources import link_kind, LinkError, NOT_LOCAL, PLAIN, SHORT, fetch_opts, quoted, _local, _addrs, _clip
+from .ground import fence
 from .walk import tutor_note   # adds Learning.walk_step, through journey
 
 log = logging.getLogger(__name__)
@@ -105,9 +106,8 @@ def _window(text:str, name:str) -> str:
 
 def pick_prompt(c, page) -> str:
     "The request for one passage on concept `c` from `page` (`url`, `text`), with the page text in a fence."
-    body = re.sub(r'<(/?)source', r'‹\1source', _window(page.text, c.get('name') or ''), flags=re.I)
-    return (f"Idea: {quoted(c.get('name'))}\nStatement: {quoted(c.get('statement'))}\n\n<source url={json.dumps(page.url)}>\n{body}\n</source>\n\n"
-            'Return JSON: {"passage": str}')
+    return (f"Idea: {quoted(c.get('name'))}\nStatement: {quoted(c.get('statement'))}\nPage: {json.dumps(page.url)}\n\n"
+            f"{fence(page.title or site_of(page.url), _window(page.text, c.get('name') or ''))}\n\n" 'Return JSON: {"passage": str}')
 
 def pick_passage(ask, c, page) -> str:
     "The passage that the model quotes from `page` for concept `c`, when it is in the page word for word; else ''."
