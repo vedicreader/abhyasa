@@ -61,7 +61,8 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
     ask: {fields: {slide: SLIDE, ask: orNull(ASK)}},
     result: {fields: {slide: SLIDE, kind: str(8, /^(choice|order|words|scale)$/), rounds: list(2, ROUND), right: orNull(PICK), main: orNull(PICK)}},
     pair: {fields: {on: bool, prompt: str(200)}, need: ['on']},
-    pane: {fields: {url: orNull(v => str(2048)(v) && isLocal(v))}},
+    // `page`: the page of the primer beside the slide; each window shows that page at its own size (core/talktype.js)
+    pane: {fields: {url: orNull(v => str(2048)(v) && isLocal(v)), page: int(0, 19)}, need: ['url']},
     blank: {fields: {on: bool}},
     end: {fields: {}},
     hello: {fields: {}},

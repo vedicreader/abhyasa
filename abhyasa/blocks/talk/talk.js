@@ -197,6 +197,15 @@ function drawEnd(st) {
   box.hidden = false;
 }
 
+// Page `n` of the primer in the pane frame `f` (core/talktype.js), now and each time the frame loads.
+function framePage(f, n) {
+  if (!f) return;
+  f._page = n;
+  const set = () => f.contentWindow?.abhyasaTalkPage?.set(f._page);
+  if (!f._paged) { f._paged = true; f.addEventListener('load', set); }
+  set();
+}
+
 // Wait until rupaka mounts the demo in `host` (its boot runs on load and after each swap).
 function mounted(host, fn, left = 200) {
   if (host.rupaka) return fn(host);
@@ -205,14 +214,25 @@ function mounted(host, fn, left = 200) {
 
 // The demo fits the free space of its part as one picture, with no scroll. rupaka lays it out at the width in talk.css, and `zoom`
 // scales it to min(box width / its width, box height / its height). Both windows do the same, so the laser points at the same place.
+// The zoom has a floor, as a share of a slide 1280 px wide, so the text of the demo stays readable from the room (rupaka's 18 px
+// text shows at about 10 px). When the demo is smaller than the floor beside the other parts, the slide shows the demo alone
+// (`demo-alone`: the crumb, the title, the passage and the figure go). When it is still smaller alone, it takes the size that fits: the room sees all of it.
+const DEMO_FLOOR = .55;
 function fit(host) {
-  const box = host.parentElement;
-  const go = () => {
+  const box = host.parentElement, sec = host.closest('section.stage');
+  const size = () => {
     const bw = box.clientWidth, bh = box.clientHeight;
-    if (!bw || !bh) return;   // a part that does not show yet: the observer calls again when it shows
+    if (!bw || !bh) return 0;
     host.style.zoom = '1';
     // 2% less: text at a small zoom does not scale in a straight line, so the demo stays inside its box
-    const z = .98 * Math.min(bw / Math.max(1, host.offsetWidth), bh / Math.max(1, host.offsetHeight));
+    return .98 * Math.min(bw / Math.max(1, host.offsetWidth), bh / Math.max(1, host.offsetHeight));
+  };
+  const go = () => {
+    sec?.classList.remove('demo-alone');
+    let z = size();
+    if (!z) return;   // a part that does not show yet: the observer calls again when it shows
+    const floor = DEMO_FLOOR * (sec?.parentElement?.clientWidth || 1280) / 1280;
+    if (z < floor && sec?.querySelector('.body')) { sec.classList.add('demo-alone'); z = size() || z; }
     host.style.zoom = String(Math.floor(z * 1000) / 1000);
   };
   const ro = new ResizeObserver(go);
@@ -251,6 +271,7 @@ function presenterView(st) {
     else if (m.t === 'ask') drawAsk(st, m);
     else if (m.t === 'result') drawResult(st, m);
     else if (m.t === 'pair') drawPair(st, m);
+    else if (m.t === 'pane' && m.url) framePage(document.querySelector('#rh-pane iframe'), m.page || 0);
   }
   async function post(what, data) {
     const r = await fetch(base + what, {method: 'POST', body: new URLSearchParams(data)}).catch(() => null);
@@ -276,8 +297,21 @@ function presenterView(st) {
     const s = slides[idx()];
     if (s.beats[at.beat - 1] === 'ask' && !at.ask) await ask('open');
   }
-  const next = () => act(() => { const i = idx(), s = slides[i]; if (at.beat < s.n) return go(s.sid, at.beat + 1); if (i + 1 < slides.length) return go(slides[i + 1].sid, 1); });
-  const back = () => act(() => { const i = idx(); if (at.beat > 1) return go(at.slide, at.beat - 1); if (i > 0) return go(slides[i - 1].sid, slides[i - 1].n); });
+  // With the primer beside the slide, D and A turn its pages. The pages of this window's pane give the last page; with no pane
+  // here (a narrow window), the server's limit does.
+  const paneFrame = () => document.querySelector('#rh-pane iframe');
+  const lastPage = () => { const n = paneFrame()?.contentWindow?.abhyasaTalkPage?.pages; return (n || 20) - 1; };
+  const turn = by => act(async () => {
+    const n = (side.page || 0) + by;
+    if (n < 0) return;
+    if (n > lastPage()) return say('This is the last page of the primer. ⌥Z goes back to the slide.');
+    const r = await post('at', {slide: at.slide, beat: at.beat, page: n});
+    if (!r) return;
+    side.page = n; at = r.at;
+    r.msgs.forEach(m => send(m));
+  });
+  const next = () => side && at.pane ? turn(1) : act(() => { const i = idx(), s = slides[i]; if (at.beat < s.n) return go(s.sid, at.beat + 1); if (i + 1 < slides.length) return go(slides[i + 1].sid, 1); });
+  const back = () => side && at.pane ? turn(-1) : act(() => { const i = idx(); if (at.beat > 1) return go(at.slide, at.beat - 1); if (i > 0) return go(slides[i - 1].sid, slides[i - 1].n); });
   const goTo = n => act(() => slides[n - 1] && go(slides[n - 1].sid, 1));
   const blank = () => act(() => go(at.slide, at.beat, {blank: at.blank ? 0 : 1}));
   // --- the side pane (spec 12): ⌥B shows the offer here only; 1 or 2 opens the primer beside the slide in both windows
@@ -295,7 +329,7 @@ function presenterView(st) {
   }
   const openPane = () => {
     if (!side) return;
-    if (wide.matches) abhyasaPane.open(side.url + '?pane=1&talk=1', side.title);
+    if (wide.matches) { abhyasaPane.open(side.url + '?pane=1&talk=1', side.title); framePage(paneFrame(), side.page || 0); }
     else say('The primer shows beside the slide in the audience window. Make this window wider to see it here too.');
   };
   const choose = w => act(async () => {
@@ -306,7 +340,7 @@ function presenterView(st) {
     const d = await r.json();
     if (!PANE.test(d.url) || d.pane !== d.url + '?pane=1&talk=1') return say('abhyasa gave a page that the side pane does not open.');
     shutOffer();
-    side = {slug: w.dataset.slug, slide: at.slide, url: d.url, title: d.title, ask: null, main: null, open: false};
+    side = {slug: w.dataset.slug, slide: at.slide, url: d.url, title: d.title, ask: null, main: null, open: false, page: 0};
     await go(at.slide, at.beat, {pane: d.url});   // the reply sends {t: 'pane'} to the audience window, with ?pane=1&talk=1
     openPane();
   });
@@ -454,7 +488,7 @@ function presenterView(st) {
     seen = Date.now(); paint();
     send({t: 'go', slide: at.slide, beat: at.beat}, false);
     send({t: 'blank', on: !!at.blank}, false);
-    send({t: 'pane', url: at.pane && PANE.test(at.pane) ? at.pane + '?pane=1&talk=1' : null}, false);
+    send({t: 'pane', url: at.pane && PANE.test(at.pane) ? at.pane + '?pane=1&talk=1' : null, page: at.pane && side?.page || 0}, false);
     const b = block();
     if (at.ask && b) send({t: 'ask', ...JSON.parse(b.dataset.ask)}, false);
     if (result) send(result, false);
@@ -539,7 +573,7 @@ function audienceView(st) {
       sectionOf(st, m.slide)?.querySelectorAll(`[data-rupaka][data-demo="${CSS.escape(m.slug)}"]`).forEach(h => mirrors.get(h)?.reveal(m.gates));
   }
   // the side pane shows only a walk step in the talk type, over the checked channel
-  const only = {...ch, on: (t, fn) => ch.on(t, t === 'pane' ? m => paneOK(m.url) && fn(m) : fn)};
+  const only = {...ch, on: (t, fn) => ch.on(t, t === 'pane' ? m => { if (!paneOK(m.url)) return; fn(m); if (m.url) framePage(st.querySelector(':scope > iframe.stage-pane'), m.page || 0); } : fn)};
   abhyasaStage.audience(st, {ch: only, draw, fade: +st.dataset.fade || 1500, title: st.dataset.title});
   show(st, st.dataset.slide, +st.dataset.beat);
   // F fills the screen. Another key shows for 3 s that the keys work in the presenter window.

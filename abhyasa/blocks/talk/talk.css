@@ -83,6 +83,9 @@ html:is(.present, .audience) main { max-width: none; margin: 0; padding: 0; anim
 #stage .body.two { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
 #stage .passage { margin: 0; font-size: calc(28 / 1280 * 100cqw); line-height: 1.55; color: var(--fg); padding-left: 2.2cqw; border-left: 2px solid var(--rule); white-space: pre-line; max-width: none; }
 #stage .fig { margin: 0; min-height: 0; } #stage .fig img { display: block; max-width: 100%; max-height: 50cqw; object-fit: contain; margin: auto; }
+/* a demo that is too small beside the other parts shows alone, with the whole height of the slide (talk.js `fit`) */
+#stage section.demo-alone .body.two { grid-template-columns: minmax(0, 1fr); margin-top: 0; }
+#stage section.demo-alone .body > :not(.demo), #stage section.demo-alone > :is(.crumb, h1, .say) { display: none; }
 #stage .demo { align-self: stretch; position: relative; min-height: 0; overflow: hidden; }
 #stage .demo > [data-rupaka] { position: absolute; top: 0; left: 0; width: 560px; }   /* the width rupaka lays out at; talk.js zooms it to fit */
 #stage .foot { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; font-size: calc(17 / 1280 * 100cqw); color: var(--mute); }

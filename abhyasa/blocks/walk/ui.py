@@ -1,5 +1,5 @@
 "A walk on the page: the plan, then one idea at a time with the outline at the left, the passage, the figure, the tutor note and one check."
-import json, time
+import json, re, time
 from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
@@ -136,14 +136,32 @@ def BackFoot(b, pace=''):
     It tells the pane bar the trail and the pace (`Side walk · 1 of 1`); the bar reads the progress line from the outline."""
     return A(f"← Back to the paper: {b.here} ", Kbd('⌥Z'), href=b.href, cls='rh-back walk-back', data_rh_trail=json.dumps(b.trail), data_rh_pace=pace)
 
+TALK_TEXT = 240   # about the characters of the passage of a primer in a talk: a short note, as in the mockup (shots/a5-beside.png)
+
+def talk_text(text, most=TALK_TEXT):
+    """The passage of a primer for the room: no picture and no heading, then whole sentences up to about `most` characters.
+    The first sentence always stays; a first sentence that is very long is cut at a word, with an ellipsis."""
+    t = re.sub(r'!\[[^\]]*\]\([^)]*\)', ' ', text or '')
+    ps = [x for x in (y.strip() for y in re.split(r'\n\s*\n', t)) if x]
+    # a heading: a line that starts with #, or a short line with no end mark that has text after it
+    keep = [x for k, x in enumerate(ps) if not x.startswith('#') and not (k < len(ps) - 1 and len(x) < 80 and not re.search(r'[.!?:;)"”]$', x))]
+    out = []
+    for x in re.split(r'(?<=[.!?])\s+', ' '.join(' '.join(p.split()) for p in keep)):
+        if out and len(' '.join(out + [x])) > most: break
+        out.append(x)
+    said = ' '.join(out).strip()
+    return said if len(said) <= 2 * most else said[:2 * most].rsplit(' ', 1)[0] + '…'
+
 def TalkStep(j, st, by, i):
-    """One idea in the side pane of a talk (`in_talk`), for the room to read: a line that says where it is, the title, the passage,
-    and the figure, in the talk type (pane.css). It has no check, no outline, no skip and no tutor note (the note prepares a learner for
-    the check), so no question opens and nothing is logged."""
+    """One idea in the side pane of a talk (`in_talk`), for the room to read: a line that says where it is, the title, a short passage
+    (`talk_text`), and the figure, in the talk type (pane.css, core/talktype.js fits it to the window). It has no check, no outline,
+    no skip and no tutor note (the note prepares a learner for the check), so no question opens and nothing is logged."""
     s, c, n = st.steps[i], by.get(st.steps[i]['slug']), len(st.steps)
     said = 'a quick primer' if n == 1 else f'idea {i + 1} of {n}'
-    return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea'), Passage(j, s, c), Figure_(j['id'], i, s, c),
-               P('Back to the slide: ', Kbd('⌥Z'), cls='talk-back'), cls='walk-main talk-step')
+    r = s.get('read') or {}
+    short = {**s, 'read': {**r, 'text': talk_text(r['text'])}} if r.get('text') else s
+    return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea'), Passage(j, short, c), Figure_(j['id'], i, s, c),
+               P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
 def StepPage(j, st, by, i, needs=(), back=None):
     "One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title."

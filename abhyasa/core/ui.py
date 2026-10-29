@@ -97,7 +97,7 @@ def Page(title, *c, on='', wide=False, extra=(), crumbs=(), pane=False):
     one_main(c)
     if pane or q.get('pane') == '1':
         if req is not None: req.htmlkw['class'] = 'in-pane talk-type' if in_talk() else 'in-pane'
-        return (Title(f'{title} · abhyasa'), *extra, Main(*c, cls='wide' if wide else ''), *run('page_extra'))
+        return (Title(f'{title} · abhyasa'), *extra, Main(*c, cls='wide' if wide else ''), *run('page_extra'), *((asset_js(_here/'talktype.js'),) if in_talk() else ()))
     rh = q.get('rh')
     side = ''
     if req is not None and is_local(rh):

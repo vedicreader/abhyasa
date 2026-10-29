@@ -75,9 +75,9 @@ def settle(pg, ms=400):
 def look(rq, B, theme, mode): rq.post(f'{B}/settings/look', form=dict(theme=theme, mode=mode))
 
 def guard(pg, errs):
-    "Collect the script errors of `pg` in `errs`: uncaught errors and console errors. A failed request is not a script error."
+    "Collect the errors of `pg` and its frames in `errs`: uncaught errors and console errors, a resource that fails to load (a broken image) too."
     pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
-    pg.on('console', lambda m: m.type == 'error' and not m.text.startswith('Failed to load resource') and errs.append(m.text[:200]))
+    pg.on('console', lambda m: m.type == 'error' and errs.append(f"{m.text[:160]} {m.location.get('url', '')[:80]}"))
 
 # --- the state that the checks and the screens share --------------------------------------------------------------
 
@@ -210,6 +210,25 @@ def demo(pg, w):
     assert pg.evaluate(f"{DEMO}.rupaka.st.t") == au.evaluate(f"{DEMO}.rupaka.st.t") == 2
     press(pg, 'Escape'); assert pg.evaluate("!document.activeElement.closest('[data-rupaka]')")
 
+ZOOM = f"""(() => {{ const h = {DEMO}, st = document.getElementById('stage'), d = h.parentElement.getBoundingClientRect(), r = h.getBoundingClientRect();
+  return {{z: +h.style.zoom * 1280 / st.clientWidth, alone: h.closest('section').classList.contains('demo-alone'),
+          inside: r.bottom <= d.bottom + 1 && r.right <= d.right + 1, text: +h.style.zoom * parseFloat(getComputedStyle(h).fontSize)}}; }})()"""
+def demo_floor(pg, w):
+    "The demo zoom keeps its floor (0.55 of a slide 1280 px wide) at 1280 and 1000 px; a demo too tall for the floor shows alone on the slide."
+    au = w.au
+    for width in (1280, 1000):
+        au.set_viewport_size(dict(width=width, height=round(width * 9 / 16))); pg.set_viewport_size(dict(width=width, height=800)); au.wait_for_timeout(300)
+        for x in (au, pg):
+            got = x.evaluate(ZOOM)
+            assert got['z'] >= .55 - .01 and got['inside'] and not got['alone'], (width, got)
+    au.set_viewport_size(AUDIENCE); pg.set_viewport_size(PRESENTER); au.wait_for_timeout(300)
+    tall = f"{DEMO}.firstElementChild.style.paddingBottom"
+    au.evaluate(f"{tall} = '700px'"); au.wait_for_function(f"{DEMO}.closest('section').classList.contains('demo-alone')", timeout=3000)
+    got = au.evaluate(ZOOM)
+    assert got['alone'] and got['inside'] and au.is_hidden('section[data-sid=s3] .passage') and au.is_hidden('section[data-sid=s3] h1'), got
+    au.evaluate(f"{tall} = ''"); au.wait_for_function(f"!{DEMO}.closest('section').classList.contains('demo-alone')", timeout=3000)
+    assert au.is_visible('section[data-sid=s3] .passage')
+
 def question(pg, w):
     "Q shows the question and 3 options in the audience window, with no right answer; 1 then R marks It falls as the right answer."
     au = w.au
@@ -233,6 +252,30 @@ def beside(pg, w):
         assert 'talk=1' in src, src
         fr.locator('h1').first.wait_for()
         assert 'Softmax' in fr.locator('h1').first.inner_text() and fr.locator('#check').count() == 0, src
+    # the primer is a short note that fits its window, in type of 22 px or more, with no broken picture
+    frames = [x.frame_locator(sel) for x, sel in ((au, PANE_FRAME), (pg, '#rh-pane iframe'))]
+    for fr in frames:
+        fr.locator('#passage').wait_for(); pg.wait_for_timeout(300)
+        got = fr.locator('html').evaluate("""() => ({fits: document.scrollingElement.scrollHeight <= innerHeight + 1, px: parseFloat(getComputedStyle(document.querySelector('#passage')).fontSize),
+            text: document.querySelector('#passage').textContent, broken: [...document.images].filter(i => !i.closest('.gone') && !(i.complete && i.naturalWidth)).length,
+            pages: abhyasaTalkPage.pages})""")
+        assert got['fits'] and got['px'] >= 22 and not got['broken'] and got['pages'] == 1, got
+        assert len(got['text']) < 400 and '![' not in got['text'] and '3.2.1' not in got['text'], got['text']
+    # a long passage: the type gets smaller down to 22 px, then pages; D and A turn the page in both windows
+    long = 'Softmax turns a list of scores into weights that are above 0 and add to 1. ' * 14
+    for fr in frames: fr.locator('html').evaluate("(_, t) => { document.querySelector('#passage .md').textContent = t; abhyasaTalkPage.fit(); }", long)
+    state = lambda fr: fr.locator('html').evaluate("""() => ({page: abhyasaTalkPage.page, pages: abhyasaTalkPage.pages, top: document.querySelector('#passage').scrollTop,
+        px: parseFloat(getComputedStyle(document.querySelector('#passage')).fontSize), fits: document.scrollingElement.scrollHeight <= innerHeight + 1,
+        more: document.querySelector('#passage').classList.contains('more'), label: document.querySelector('.talk-page').textContent})""")
+    for fr in frames:
+        got = state(fr); assert got['pages'] > 1 and abs(got['px'] - 22) < .6 and got['fits'] and got['more'] and got['top'] == 0, got
+    press(pg, 'd')
+    au.wait_for_function(f"document.querySelector('{PANE_FRAME}').contentWindow.abhyasaTalkPage.page === 1", timeout=5000)
+    for fr in frames:
+        got = state(fr); assert got['page'] == 1 and got['top'] > 0 and 'page 2 of' in got['label'], got
+    assert w.run['side']['page'] == 1 and place(au)[0] == 's3'
+    press(pg, 'a'); au.wait_for_function(f"document.querySelector('{PANE_FRAME}').contentWindow.abhyasaTalkPage.page === 0", timeout=5000)
+    assert w.run['side']['page'] == 0 and place(au) == place(pg)
     press(pg, 'Alt+z')
     au.wait_for_function("!document.getElementById('stage').classList.contains('beside')")
     pg.wait_for_function("!document.documentElement.classList.contains('rh-open')")
@@ -276,7 +319,7 @@ def end_and_after(pg, w):
     assert 'After the talk' in pg.inner_text('h1')
     assert w.lr.talk(w.tid).live is None and len(w.lr.attempts(limit=10000)) == w.n0
 
-CHECKS = [editor_keys, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, question, beside,
+CHECKS = [editor_keys, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
           reload_audience, strangers, audience_closed, stray_keys, end_and_after]
 
 # --- the screens --------------------------------------------------------------------------------------------------

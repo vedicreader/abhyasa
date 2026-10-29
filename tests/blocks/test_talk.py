@@ -269,7 +269,7 @@ def test_a_new_slide_opens_clean(mk, talk_fake, lr):
     d = cl.post(f'/t/{tid}/beside', data=dict(slide='s1', slug='softmax', how='primer')).json()
     r = post(slide='s1', beat=1, blank=1, pane=d['url']).json()
     assert r['at'] == dict(slide='s1', beat=1, blank=True, pane=d['url'], ask='s1')
-    assert dict(v=1, t='pane', url=d['pane']) in r['msgs'] and dict(v=1, t='blank', on=True) in r['msgs']
+    assert dict(v=1, t='pane', url=d['pane'], page=0) in r['msgs'] and dict(v=1, t='blank', on=True) in r['msgs']
     r = post(slide='s2', beat=1).json()
     assert r['at'] == dict(slide='s2', beat=1, blank=False, pane=None, ask=None) and dict(v=1, t='ask', slide='s1', ask=None) in r['msgs']
     assert post(slide='s2', beat=1, pane='').status_code == 200 and post(slide='s2', beat=1, blank='yes').status_code == 400
@@ -334,6 +334,31 @@ def test_beside_opens_a_primer_for_the_room(mk, talk_fake, lr):
     assert lr.run(run['id'])['beside'][0]['slug'] == 'softmax'
     assert cl.post(f'/t/{tid}/beside', data=dict(slide='s3', slug='softmax', how='session')).status_code == 400
 
+def test_primer_pages(mk, talk_fake, lr):
+    "The page of the primer beside a slide goes into the run log and the pane message; with no primer, or out of range, it is refused."
+    cl = mk(); tid, run = started(cl, lr)
+    post = lambda **kw: cl.post(f'/t/{tid}/at', data=dict(slide='s3', beat=1, **kw))
+    assert post(page=1).status_code == 400   # no primer is open
+    d = cl.post(f'/t/{tid}/beside', data=dict(slide='s3', slug='softmax', how='primer')).json()
+    assert post(pane=d['url']).status_code == 200
+    r = post(page=2).json()
+    assert dict(v=1, t='pane', url=d['pane'], page=2) in r['msgs'] and lr.run(run['id'])['side']['page'] == 2
+    assert dict(v=1, t='pane', url=d['pane'], page=2) in post().json()['msgs']   # a move on the same slide keeps the page
+    for bad in ('-1', '20', 'x'): assert post(page=bad).status_code == 400, bad
+    r = cl.post(f'/t/{tid}/at', data=dict(slide='s4', beat=1)).json()   # a new slide closes the primer, and its page
+    assert dict(v=1, t='pane', url=None, page=0) in r['msgs'] and not lr.run(run['id'])['side']
+
+def test_a_primer_in_a_talk_is_short():
+    "A primer for the room has no picture and no heading, and whole sentences up to about 240 characters; one short line stays."
+    from abhyasa.blocks.walk.ui import talk_text
+    long = ('We suspect that for large values of dk, the dot products grow large in magnitude, pushing the softmax function into regions '
+            'where it has extremely small gradients. 3.2.1 Scaled Dot-Product Attention We compute the dot products of the query with all keys, '
+            'divide each by √dk, and apply a softmax function. ![Figure 2](images/fig2.png) 1 Introduction')
+    assert talk_text(long) == long.split(' 3.2.1')[0]
+    assert talk_text('3.2.1 Scaled Dot-Product Attention\n\nWe compute the dot.\n\n![Figure 2](images/fig2.png)') == 'We compute the dot.'
+    assert talk_text('apply a softmax function to obtain the weights on the values') == 'apply a softmax function to obtain the weights on the values'
+    assert talk_text('# Head\n\nOne. Two. Three.', 6) == 'One.' and talk_text('word ' * 200).endswith('word…') and len(talk_text('word ' * 200)) <= 481
+
 def test_end_and_after_the_talk(mk, talk_fake, lr, monkeypatch):
     cl = mk(); tid, run = started(cl, lr)
     cl.post(f'/t/{tid}/ask', data=dict(slide='s1', act='open')); cl.post(f'/t/{tid}/ask', data=dict(slide='s1', act='main', main=1))
@@ -369,7 +394,7 @@ def test_beside_guards_and_the_pane_question(mk, talk_fake, lr):
     assert cl.post(f'/t/{tid}/ask', data=dict(slide='s3', act='reveal', pane=1)).json() == dict(v=1, t='result', slide='s3', kind='choice', rounds=[], right=0, main=2)
     r = lr.run(run['id']); assert r['side']['main'] == 2 and 's3' not in r['asks']   # the pane question is not the slide's own
     r = cl.post(f'/t/{tid}/at', data=dict(slide='s4', beat=1)).json()
-    assert dict(v=1, t='pane', url=None) in r['msgs'] and [x['slug'] for x in lr.run(run['id'])['beside']] == ['softmax'] and not lr.run(run['id'])['side']
+    assert dict(v=1, t='pane', url=None, page=0) in r['msgs'] and [x['slug'] for x in lr.run(run['id'])['beside']] == ['softmax'] and not lr.run(run['id'])['side']
     b = lr.run(run['id'])['beside'][0]; assert b['main'] == 2 and b['ask'] == m['ask']   # the question on the primer is kept
     assert cl.post(f'/t/{tid}/ask', data=dict(slide='s3', act='open', pane=1)).status_code == 400   # no pane is open now
     evil = {'Origin': 'https://evil.example'}

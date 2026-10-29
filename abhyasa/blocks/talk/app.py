@@ -147,10 +147,12 @@ def stage_log(r):
     "The room parts of run `r` that a reload must show again: the result that shows, the pair prompt, and the slides whose answer was shown."
     return r.setdefault('stage', dict(result=None, pair=None, revealed=[]))
 
-def place_msgs(at, old):
-    "The stage messages for the place `at`; a question of the slide before closes."
+MOST_PAGES = 20   # the pages of a primer beside a slide; each window shows page `page` at its own size (core/talktype.js)
+
+def place_msgs(at, old, page=0):
+    "The stage messages for the place `at`, with page `page` of the primer beside the slide; a question of the slide before closes."
     pane = pane_url(at['pane'], talk=True) if at['pane'] else None
-    out = [dict(v=1, t='go', slide=at['slide'], beat=at['beat']), dict(v=1, t='blank', on=at['blank']), dict(v=1, t='pane', url=pane)]
+    out = [dict(v=1, t='go', slide=at['slide'], beat=at['beat']), dict(v=1, t='blank', on=at['blank']), dict(v=1, t='pane', url=pane, page=page if pane else 0)]
     if old['ask'] and not at['ask']: out.append(dict(v=1, t='ask', slide=old['ask'], ask=None))
     return out
 
@@ -290,7 +292,8 @@ def connect(app, ctx):
         return Response(got[0], media_type=got[1], headers={'Cache-Control': 'private, max-age=3600'})
 
     async def at(req, tid:str):
-        "Move the place of the run: `slide`, `beat`, and `blank` (0 or 1) and `pane` (a walk step path, or empty) when they change."
+        """Move the place of the run: `slide`, `beat`, and `blank` (0 or 1), `pane` (a walk step path, or empty) and `page` (the page of the
+        primer beside the slide, from 0) when they change."""
         t, r = live(tid)
         if not r: return text(NO_RUN)
         f = {k: v for k, v in (await req.form()).items() if isinstance(v, str)}
@@ -300,6 +303,11 @@ def connect(app, ctx):
         blank, pane = f.get('blank'), f.get('pane')
         if blank not in (None, '0', '1'): return text('blank is 0 or 1.')
         if pane not in (None, '') and pane != (r.get('side') or {}).get('url'): return text('The side pane opens only the primer that the talk made beside this slide.')
+        page = f.get('page')
+        if page is not None:
+            if not r.get('side'): return text('No side pane is open.')
+            try: page = number(page, 0, MOST_PAGES - 1, f'A page is from 0 to {MOST_PAGES - 1}.')
+            except Bad as e: return text(str(e))
         old = dict(r['at']); new = s['id'] != old['slide']
         log_go(r, s['id'], beat, time.time())
         a = r['at']
@@ -308,8 +316,9 @@ def connect(app, ctx):
         if blank is not None: a['blank'] = blank == '1'
         if pane is not None: a['pane'] = pane or None
         if not a['pane']: close_side(r, time.time())   # a new slide or an empty pane closes the primer beside the slide
+        elif page is not None: r['side']['page'] = page
         lr.put_run(r)
-        return JSONResponse(dict(at=a, msgs=place_msgs(a, old)))
+        return JSONResponse(dict(at=a, msgs=place_msgs(a, old, (r.get('side') or {}).get('page', 0))))
 
     async def ask_(req, tid:str):
         "A question for the room: `act` is open, close, main (the option that most hands chose), reveal or pair."
