@@ -15,10 +15,10 @@ def connect(app, ctx):
 
     def page(subject:str='', focus:str=''):
         subs = [r['subject'] for r in lr.subjects() if r['subject']]
-        if not lr.concepts(): return Page('Graph', Empty_(), on='Graph', wide=True, extra=(asset_css(_P/'graph.css'),))
+        if not lr.concepts(): return Page('Graph', Empty_(), on='Library', sub='Graph', wide=True, extra=(asset_css(_P/'graph.css'),))
         return Page('Graph', Stage(Routes.data, subs, subject, focus),
                     Script(src='/vendor/d3.min.js'), asset_js(_P/'graph.js', defer=True),
-                    on='Graph', wide=True, extra=(asset_css(_P/'graph.css'),))
+                    on='Library', sub='Graph', wide=True, extra=(asset_css(_P/'graph.css'),))
 
     def data(subject:str=''):
         "The graph, with how well you know each concept: its state and the reasons."
@@ -30,6 +30,6 @@ def connect(app, ctx):
     @hook('concept_actions')
     def see(c): return A('See in the graph', href=f'{Routes.base}?subject={c.subject}&focus={c.slug}', cls='btn')
 
-    RouteOverrides.nav.append(('Graph', Routes.base, 1))
+    RouteOverrides.subtabs.setdefault('Library', []).append(('Graph', Routes.base, 2))
     app.get(Routes.base)(page)
     app.get(Routes.data)(data)

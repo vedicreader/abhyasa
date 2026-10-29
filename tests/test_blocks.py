@@ -31,7 +31,7 @@ def test_every_get_page_answers(mk):
 
 def test_nav_from_blocks(mk):
     page = mk().get('/').text
-    assert page.index('>Today<') < page.index('>Graph<') < page.index('>Concepts<') < page.index('>Add<')
+    assert page.index('>Today<') < page.index('>Learn<') < page.index('>Library<') < page.index('>You<')
 
 def test_assets_served_with_hash(mk):
     cl = mk()

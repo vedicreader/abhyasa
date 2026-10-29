@@ -1,6 +1,6 @@
 "What abhyasa knows about you: the profile page, the first conversation, and the line on Today until you have one."
 from fasthtml.common import *
-from abhyasa.core import n_of, Page, hook, parse_value, RangeLine, row_id
+from abhyasa.core import n_of, Page, RouteOverrides, hook, parse_value, RangeLine, row_id
 from abhyasa.settings import SETTINGS, fit
 from abhyasa.profile import PROFILE, LIST_FIELDS, ONBOARD_QS, onboard, observe, calibration
 from . import ui
@@ -33,7 +33,7 @@ def connect(app, ctx):
                     Div(H2('Privacy'), P('This stays in your vault on this Mac. Only the model that writes your questions gets it.', cls='mute'),
                         Form(Button('Clear what abhyasa knows about you', cls='small quiet danger'), action=Routes.clear, method='post',
                              hx_confirm='Clear the whole profile and its changes?') if p.known or p.changes else '', cls='privacy'),
-                    crumbs=up)
+                    on='You', sub='Profile', crumbs=up)
 
     async def save(req):
         f = await req.form()
@@ -44,14 +44,14 @@ def connect(app, ctx):
     def start_page():
         return Page('About you', ui.css(), H1('Tell abhyasa about you'),
                     P('Four short questions. Speak or type. Leave out any that you like. You can change all of it later.', cls='mute'),
-                    ui.Onboard(), crumbs=[*up, ('About you', Routes.base)])
+                    ui.Onboard(), on='You', sub='Profile', crumbs=[*up, ('About you', Routes.base)])
 
     def start(who:str='', want:str='', how:str='', time:str=''):
         answers = dict(who=who, want=want, how=how, time=time)
         if any(v.strip() for v in answers.values()):
             try: onboard(lr, ask, answers)
             except Exception as e: return Page('About you', H1('Tell abhyasa about you'), P(f'The model did not answer ({e}). Try again.', cls='req-err'),
-                                               ui.Onboard(), crumbs=[*up, ('About you', Routes.base)])
+                                               ui.Onboard(), on='You', sub='Profile', crumbs=[*up, ('About you', Routes.base)])
         return Redirect(f'{Routes.base}?new=1')
 
     def undo(id:str='', at:str=''):
@@ -93,6 +93,7 @@ def connect(app, ctx):
         "In the foot line of Today: the first conversation until you have a profile, then the profile."
         return A('What abhyasa knows about you', href=Routes.base) if lr.profile().known else A('Tell abhyasa about you', href=Routes.start)
 
+    RouteOverrides.subtabs.setdefault('You', []).append(('Profile', Routes.base, 1))
     app.get(Routes.base)(page)
     app.post(Routes.base)(save)
     app.get(Routes.start)(start_page)

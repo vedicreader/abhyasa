@@ -99,7 +99,7 @@ def test_today_has_an_order_of_weight(mk, walk_fake, lr):
     assert 'Review and practice' not in h and 'This week' not in h and '>Subjects<' not in h
     assert h.count('class="jrow"') == 3
     assert re.search(r'<details class="goal-fold"><summary>What do you want to learn\?</summary>', h)
-    assert re.search(r'<p class="mute foot">.*Your strengths</a> <kbd>⌥G</kbd> · <a href="/keys">Keyboard shortcuts</a> <kbd>⌥F</kbd>', h, re.S)
+    assert re.search(r'<p class="mute foot">.*Your strengths</a> · <a href="/keys">Keyboard shortcuts</a> <kbd>⌥F</kbd>', h, re.S)
 
 def test_today_review_line_counts_due_ideas(mk, lr):
     "The review line says how many ideas are due, with Start; with nothing due it names the next idea."

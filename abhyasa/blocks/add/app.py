@@ -2,7 +2,7 @@
 import logging, time
 from fasthtml.common import *
 from pathlib import Path
-from abhyasa.core import run as run_hook, Page, RouteOverrides, Primary, Secondary, Quiet, Choice, asset_css, asset_js
+from abhyasa.core import run as run_hook, Page, Primary, Secondary, Quiet, Choice, asset_css, asset_js
 from abhyasa.sources import extract, from_vault, from_vedicreader
 from abhyasa.settings import val
 from .cfg import Routes
@@ -51,7 +51,7 @@ def connect(app, ctx):
             Details(Summary('More sources'),
                     P('vedicreader: Sanskrit lessons and terms, and the jyotiṣa grahas, rāśis and nakṣatras, from the repo files.', cls='mute'),
                     Secondary('Import vedicreader', hx_post=Routes.vedicreader, hx_target='#vr', data_wait='Importing…', data_skel='#vr'), Div(id='vr'), cls='more'),
-            on='Add', crumbs=[('Today', '/')], extra=(asset_css(_P/'add.css'), asset_js(_P/'add.js', defer=True)))
+            on='Learn', crumbs=[('Today', '/')], extra=(asset_css(_P/'add.css'), asset_js(_P/'add.js', defer=True)))
 
     def add(subject:str='', text:str='', ref:str=''):
         if not (text.strip() or ref.strip()): return P('Paste text or name a document.', cls='mute')
@@ -65,7 +65,6 @@ def connect(app, ctx):
 
     def vedicreader(): return P(', '.join(f'{v} {k}' for k, v in from_vedicreader(lr).items()) + ' added.')
 
-    RouteOverrides.nav.append(('Add', Routes.base, 3))
     app.get(Routes.base)(page)
     app.post(Routes.base)(add)
     app.post(Routes.vedicreader)(vedicreader)

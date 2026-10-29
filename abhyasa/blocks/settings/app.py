@@ -43,7 +43,7 @@ def connect(app, ctx):
     def page():
         return Page('Settings', H1('Settings'), P('The tutor works well with the defaults. Change a value only when you want to.', cls='mute lead-page'),
                     Div(ui.Index({g: count(g) for g in GROUPS}), Div(*map(section, GROUPS), cls='sgroups'), cls='slayout'),
-                    on='Settings', extra=ui.assets(), crumbs=[('Today', '/')], wide=True)
+                    extra=ui.assets(), crumbs=[('Today', '/')], wide=True)
 
     def store(r, v):
         "Save the value `v` of row `r`, made to fit its row. Return the value in use."
@@ -178,7 +178,7 @@ def connect(app, ctx):
     def prompt_default(name:str): return prompt_(name, '')
 
 
-    RouteOverrides.nav.append(('Settings', Routes.base, 9))
+    RouteOverrides.gear = Routes.base
     app.get(Routes.base)(page)
     app.post(Routes.value)(value)
     app.post(Routes.default)(default)

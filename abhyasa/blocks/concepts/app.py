@@ -50,7 +50,7 @@ def connect(app, ctx):
         return ui.Listing(cs_of(subject), q, subject, said, len(lr.unsorted(subject or None)))
 
     def index(subject:str='', q:str=''):
-        return Page('Concepts', ui.css(), ui.js(), ui.H1(subject or 'Concepts'), Div(view(subject, q), id='concepts-view'), on='Concepts',
+        return Page('Concepts', ui.css(), ui.js(), ui.H1(subject or 'Concepts'), Div(view(subject, q), id='concepts-view'), on='Library', sub='Concepts',
                     crumbs=[('Today', '/'), *([('Concepts', Routes.base)] if subject else [])])
 
     def run_sort(subject):
@@ -122,8 +122,12 @@ def connect(app, ctx):
     @hook('learning_end')
     def subjects(): return ui.Subjects(lr.subjects())
 
-    RouteOverrides.nav.append(('Concepts', Routes.base, 2))
+    def library(): return Redirect(Routes.base)
+
+    RouteOverrides.nav.append(('Library', Routes.base, 2))
+    RouteOverrides.subtabs.setdefault('Library', []).append(('Concepts', Routes.base, 0))
     app.get(Routes.base)(index)
+    app.get(Routes.library)(library)
     app.get(Routes.sort)(sort_state)
     app.post(Routes.sort)(sort_start)
     app.post(Routes.accept)(accept)

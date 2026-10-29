@@ -93,7 +93,7 @@ def connect(app, ctx):
                     H2('This week'), ui.Week(wk),
                     P(f"{n_of(sum(n for _, n in wk), 'question')} in the last seven days · {n_of(ups, 'concept')} moved up.", cls='mute week-sum'),
                     H2('What you learned'), ui.Learned(weeks(ss, by)),
-                    ui.Runs(list(groups.items())), *run('learning_end'), on='Your learning', crumbs=up)
+                    ui.Runs(list(groups.items())), *run('learning_end'), on='You', sub='Your learning', crumbs=up)
 
     def one(sid:str):
         s = lr.session(sid)
@@ -132,6 +132,7 @@ def connect(app, ctx):
         done = f"{pg.done} of {n_of(pg.total, 'idea')}" if pg else ''
         return ui.css(), ui.Continue(s, title(s, by, js), big=True, href=back(s, js), done=done)   # the card style is in history.css
 
-    RouteOverrides.nav.append(('Your learning', Routes.base, 0.7))
+    RouteOverrides.nav.append(('You', Routes.base, 3))
+    RouteOverrides.subtabs.setdefault('You', []).append(('Your learning', Routes.base, 0))
     app.get(Routes.base)(index)
     app.get(Routes.one)(one)

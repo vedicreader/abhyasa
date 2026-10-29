@@ -36,11 +36,11 @@ def connect(app, ctx):
                     H2('How often to try a new way'),
                     P('The tutor teaches a weak concept in your best way. For a concept that is not weak, it sometimes uses a different way. This makes you better at that way too.', cls='mute'),
                     ui.Explore(p.get('explore', 'sometimes')),
-                    crumbs=[('Today', '/'), ('About you', '/you')])
+                    on='You', sub='Your learning', crumbs=[('Today', '/'), ('About you', '/you')])
 
     @hook('today_end')
     def line(subject=None):
-        return (A('Your strengths', href=Routes.base), ' ', Kbd('⌥G')) if any(c.get('seen') for c in lr.concepts()) else None
+        return A('Your strengths', href=Routes.base) if any(c.get('seen') for c in lr.concepts()) else None
 
     @hook('concept_more')
     def known(c):
@@ -50,9 +50,5 @@ def connect(app, ctx):
         return Section(H3('How well you know it'), P(f"{ui.STATES[u.state].capitalize()}. " + ('; '.join(u.reasons) + '.' if u.reasons else ''), cls='mute'),
                        P('Gaps you named: ', *[A(g.name, href=f'/c/{g.slug}') for g in gaps], cls='mute gaps') if gaps else '',
                        P(t, cls='mute') if (t := methods_text(lr.stats(), c.get('subject', ''))) else '', cls='known')
-
-    @hook('page_extra')
-    def key():   # ⌥G opens this page from any page
-        return A(href=Routes.base, id='strengths-key', hidden=True, aria_hidden='true'), Script("abhyasaKeys.KeyG = '#strengths-key';")
 
     app.get(Routes.base)(page)

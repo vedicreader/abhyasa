@@ -9,7 +9,7 @@ from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
 from abhyasa.model import DEPTHS
 
-__all__ = ['Cites', 'WebSource', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
+__all__ = ['Cites', 'WebSource', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'SubTabs', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward']
 
 _here = Path(__file__).parent
@@ -89,8 +89,21 @@ def in_talk() -> bool:
     q = req.query_params if req is not None else {}
     return q.get('pane') == '1' and q.get('talk') == '1'
 
-def Page(title, *c, on='', wide=False, extra=(), crumbs=(), pane=False):
-    """A whole page: the header with the blocks' nav links, what other blocks add (`nav_extra`), a search box, the crumbs, then `c`.
+_GEAR = ('<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 '
+         '1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1'
+         'a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3'
+         'l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>')
+
+def SubTabs(tab:str, sub:str):
+    "The row of sub-tabs under the title of a page in `tab`, with `sub` in force; ⌥1, ⌥2 and ⌥3 pick them (core.js). Empty when the tab has none."
+    rows = sorted(RouteOverrides.subtabs.get(tab, ()), key=lambda x: x[2])
+    if not rows: return ''
+    return Nav(*[A(t, href=h, role='tab', cls='on' if t == sub else None, title=f'⌥{i}' if i < 4 else None)(aria_selected='true' if t == sub else 'false')
+                 for i, (t, h, _) in enumerate(rows, 1)], cls='subtabs', role='tablist', aria_label=tab)
+
+def Page(title, *c, on='', sub='', wide=False, extra=(), crumbs=(), pane=False):
+    """A whole page: the top bar (the four tabs, with `on` in force, what other blocks add (`nav_extra`), the search and the gear), the crumbs,
+    the sub-tabs of `on` with `sub` in force, then `c`.
     In the side pane (`pane`, or `pane=1` in the request) it has no nav and no crumbs. With a local `rh` in the request, the side pane is open."""
     req = _req.get()
     q = req.query_params if req is not None else {}
@@ -103,11 +116,14 @@ def Page(title, *c, on='', wide=False, extra=(), crumbs=(), pane=False):
     if req is not None and is_local(rh):
         req.htmlkw['class'] = 'rh-open'   # drawn open, so it does not flash closed on a reload
         side = next(iter(run('pane_title', rh)), '')
-    nav = [A(t, href=h, cls='on' if t == on else '') for t, h, _ in sorted(RouteOverrides.nav, key=lambda x: x[2])]
+    nav = [A(t, href=h, cls='on' if t == on else '', aria_current='page' if t == on else None) for t, h, _ in sorted(RouteOverrides.nav, key=lambda x: x[2])]
+    g = RouteOverrides.gear
+    here = g is not None and req is not None and req.url.path == g
+    gear = A(NotStr(_GEAR), href=g, aria_label='Settings', title='Settings', cls='gear on' if here else 'gear', aria_current='page' if here else None) if g else ''
     return (Title(f'{title} · abhyasa'), *extra, Nav(A('abhyasa', href='/', cls='brand'), *nav, Span(cls='nav-gap'), *run('nav_extra'),
             A('Search ', Kbd('/'), href='/search', cls='nav-search'),   # beside the side pane, in place of the box (pane.css)
-            Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search')),
-            Main(Crumbs(crumbs), Narrow(rh, side), *c, cls='wide' if wide else ''), PaneHost(rh, side), *run('page_extra'))
+            Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search'), gear, aria_label='Main'),
+            Main(Crumbs(crumbs), SubTabs(on, sub), Narrow(rh, side), *c, cls='wide' if wide else ''), PaneHost(rh, side), *run('page_extra'))
 
 def Narrow(rh, title=''):
     "Under 1100 px the side pane does not show: one line over the title names the side walk that is open, and opens it (pane.css shows it)."

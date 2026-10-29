@@ -232,6 +232,24 @@ def rows(pg, sel='body > nav'):
     return pg.eval_on_selector(sel, """n => { const r = [...n.children].filter(e => e.checkVisibility() && e.getBoundingClientRect().width).map(e => e.getBoundingClientRect());
                                           return 1 + r.filter(b => b.top >= r[0].bottom).length; }""")
 
+def tb1_four_tabs_and_keys(pg, w):
+    "The top bar has the four tabs, Search and the gear on one row at 1280 and 1000 px, and beside the pane; ⌥R, ⌥2, ⌥G and ⌥Q move between the tabs."
+    try:
+        for width in (1280, 1000):
+            pg.set_viewport_size(dict(width=width, height=900)); pg.goto(w.B + '/sources'); settle(pg)
+            assert rows(pg) == 1, (width, rows(pg))
+            assert pg.is_visible('body > nav .gear') and pg.is_visible('nav.subtabs a.on'), width
+            g = pg.eval_on_selector('body > nav .gear', 'e => e.getBoundingClientRect().right')
+            assert g <= width, (width, g)
+        pg.set_viewport_size(dict(width=1280, height=900))
+        pg.goto(f'{w.step(2)}?rh={side_walk(w)}'); pg.wait_for_selector('#rh-pane iframe'); settle(pg, 900)
+        assert rows(pg) == 1 and pg.is_visible('body > nav .gear')
+        assert pg.evaluate("() => document.querySelector('body > nav .gear').getBoundingClientRect().right <= document.querySelector('#rh-pane').getBoundingClientRect().left"), 'the gear goes under the pane'
+        pg.goto(w.B + '/'); settle(pg)
+        for key, path in (('Alt+KeyR', '/concepts'), ('Alt+Digit2', '/sources'), ('Alt+KeyG', '/learning'), ('Alt+Digit2', '/you'), ('Alt+KeyQ', '/learn')):
+            pg.keyboard.press(key); pg.wait_for_url(lambda u, p=path: u.split('?')[0].endswith(p), timeout=10000); settle(pg)
+    finally: pg.set_viewport_size(dict(width=1280, height=900))
+
 def f6_pane_layout(pg, w):
     "With the pane open at 1280 px the top bar has one row, the pane shows no outline, and in Signal the bar lines meet; at 1000 px a line names the side walk."
     u = f'{w.step(2)}?rh={side_walk(w)}'
@@ -315,7 +333,7 @@ def m1_next_idea_comes_in_gently(pg, w):
     assert pg.evaluate("getComputedStyle(document.querySelector('.walk-main')).viewTransitionName") == 'idea'
     assert abs(pg.eval_on_selector('#rail', 'e => e.getBoundingClientRect().left') - x0) < 1
     root = "() => getComputedStyle(document.documentElement, '::view-transition-old(root)').animationName"
-    pg.goto(w.B + '/'); settle(pg); pg.click('nav a[href="/graph"]'); pg.wait_for_url('**/graph'); settle(pg)
+    pg.goto(w.B + '/'); settle(pg); pg.click('nav a[href="/concepts"]'); pg.wait_for_url('**/concepts'); settle(pg)
     assert pg.evaluate(root) == 'none', 'another page crossfades'
 
 ACC = "c => { const d = document.createElement('i'); d.style.color = `var(${c})`; document.querySelector('#check .check').append(d); const v = getComputedStyle(d).color; d.remove(); return v; }"
@@ -1047,7 +1065,7 @@ def op1_open_check_survives_a_restart(pg, w):
     assert any("Learner's answer: it is the rank" in c[0] and 'a sum of scores' in c[0] for c in FAKE.calls), 'the grader did not see the first try'
     assert (w.lr.journey(jid).steps[0].get('done') or {}).get('outcome') == 'fragile', w.lr.journey(jid).steps[0].get('done')
 
-CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
+CHECKS = [tb1_four_tabs_and_keys, f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, o1_order_items_use_body_size, m7_side_walk_returns_you, rupaka_settle,

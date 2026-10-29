@@ -1,5 +1,6 @@
 class Routes:
     base = '/concepts'
+    library = '/library'   # the Library tab: it opens Concepts
     one = '/c/{slug}'
     group = '/c/{slug}/group'
     sort = '/concepts/sort'

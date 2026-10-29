@@ -31,8 +31,10 @@ for (const ev of ['htmx:afterSwap', 'htmx:oobAfterSwap']) document.addEventListe
 // A block adds keys with `abhyasaKeys.KeyX = '#selector'`, or a list of selectors: the first one that names a button you can
 // see and use wins. ⌥S presses the main button of any page: Send when there is one, else the one filled button.
 window.abhyasaKeys = window.abhyasaKeys || {KeyS: ['#send', 'main .go']};
-// ⌥T goes to Today and ⌥C continues where you stopped, from any page.
-Object.assign(abhyasaKeys, {KeyT: 'nav a[href="/"]:not(.brand)', KeyC: '#continue'});
+// From any page: ⌥T, ⌥Q, ⌥R and ⌥G go to the four tabs, ⌥C continues where you stopped, and ⌥1 to ⌥3 pick a sub-tab.
+// A session page sets its own ⌥1 to ⌥5 (session.js), after this.
+Object.assign(abhyasaKeys, {KeyT: 'nav a[href="/"]:not(.brand)', KeyQ: 'nav a[href="/learn"]', KeyR: 'nav a[href="/concepts"]', KeyG: 'nav a[href="/learning"]',
+                            KeyC: '#continue', Digit1: '.subtabs a:nth-of-type(1)', Digit2: '.subtabs a:nth-of-type(2)', Digit3: '.subtabs a:nth-of-type(3)'});
 const abhyasaSeen = el => !el.disabled && (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
 function abhyasaFind(sel) {
   for (const s of [].concat(sel || [])) { const el = [...document.querySelectorAll(s)].find(abhyasaSeen); if (el) return el; }

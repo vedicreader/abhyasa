@@ -45,7 +45,7 @@ Each question goes through the same six steps:
 5.  Update. The result and your confidence change the floor, the ceiling and the next review date of the concept.
 6.  Teach. After a miss, the tutor teaches the smallest step that fixes your first error. Then it asks a check question.
 
-When you say “I don’t know X”, X becomes a concept, and it comes first the next time. The Strengths page (⌥G) shows your strong concepts, your weak spots with their reasons, and the ways that you learn best. “Practice my weak spots” starts a session on your weakest concepts.
+When you say “I don’t know X”, X becomes a concept, and it comes first the next time. The Strengths page shows your strong concepts, your weak spots with their reasons, and the ways that you learn best. “Practice my weak spots” starts a session on your weakest concepts.
 
 | term | meaning |
 |----|----|
@@ -151,7 +151,7 @@ All keys work in the presenter window. They do not work while the focus is in a 
 | ⌥Z | close the primer |
 | Esc | close the open question, the demo focus or the side pane. Esc never ends the talk |
 
-In a talk window, ⌥T, ⌥C, ⌥G, ⌥D and / do nothing. Thus a key that you press by mistake does not take you away from the talk.
+In a talk window, ⌥T, ⌥Q, ⌥R, ⌥G, ⌥C, ⌥D, ⌥1 to ⌥3 and / do nothing. Thus a key that you press by mistake does not take you away from the talk.
 
 ### Ask the room with hands
 
@@ -253,7 +253,7 @@ The web app is made from blocks in `abhyasa/blocks`:
 | `journeys` | your walks. Say a goal, and the tutor makes a path of steps. You can move, skip, add or split a step |
 | `history` | your learning: each past session with what changed, and what you learned each week. Continue (⌥C) is in the top bar |
 | `profile` | what abhyasa knows about you: a short first conversation, your edits, and the changes that the tutor makes, each with its reason |
-| `strengths` | your strong concepts, your weak spots and the ways that you learn best (⌥G) |
+| `strengths` | your strong concepts, your weak spots and the ways that you learn best |
 | `session` | one sitting with the tutor: one question at a time, with hints, confidence and “I don’t know” |
 | `voice` | a microphone for each text box. ⌥D speaks into the box that has the focus, on any page |
 | [`settings`](https://vedicreader.github.io/abhyasa/settings.html#settings) | every value that you may change, in groups: the look, learning, walks, checks, review, links, the code runner, speech, models, list lengths and the tutor prompts. Each number shows its range and its default. A change works on the next question |

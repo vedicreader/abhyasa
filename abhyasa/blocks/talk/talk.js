@@ -101,7 +101,7 @@ const root = document.documentElement;
 if (!root.classList.contains('present') && !root.classList.contains('audience')) return;
 addEventListener('keydown', e => {
   const typing = e.target?.matches?.('textarea, input, select, [contenteditable]:not([contenteditable="false"])');
-  if ((e.altKey && ['KeyT', 'KeyC', 'KeyG', 'KeyD'].includes(e.code)) || (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey)) {
+  if ((e.altKey && ['KeyT', 'KeyQ', 'KeyR', 'KeyG', 'KeyC', 'KeyD', 'Digit1', 'Digit2', 'Digit3'].includes(e.code)) || (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey)) {
     e.preventDefault(); e.stopImmediatePropagation();
   }
 }, true);

@@ -29,8 +29,9 @@ def test_concept_line_and_graph_state(mk, lr):
     st = {n['id']: n['state'] for n in g['nodes']}
     assert st['reciprocal-rank-fusion'] == 'weak' and st['ranking'] == 'unseen'
 
-def test_key_on_every_page(mk):
-    assert "abhyasaKeys.KeyG = '#strengths-key'" in mk().get('/').text
+def test_g_goes_to_you_not_here(mk):
+    "⌥G goes to the You tab now (core.js); Strengths is part of Your learning, so it has no key of its own."
+    assert "strengths-key" not in mk().get('/').text
 
 def test_ways_with_no_view_stay_hidden(mk):
     page = mk().get('/you/strengths').text

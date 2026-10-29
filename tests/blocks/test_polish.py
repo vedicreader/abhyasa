@@ -136,7 +136,7 @@ def test_sheet_has_one_key_column_and_no_slashes(mk):
     assert 'grid-template-columns: 10em 1fr' in (ROOT/'blocks/keys/keys.css').read_text()
     assert not [k for _, k, _ in KEYS if ' / ' in k]
     t = mk().get('/keys').text
-    assert '⌥Q' not in t and 'On a step of a walk.' in t and 'While a side walk is open' in t
+    assert t.count('⌥Q') == 1 and 'Go to Learn' in t and 'On a step of a walk.' in t and 'While a side walk is open' in t
 
 def test_no_alt_key_has_two_meanings():
     "⌥W is only a hint and ⌥E only a demo: a choice question picks its options with 1 to 4, with no ⌥."

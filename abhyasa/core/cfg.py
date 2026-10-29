@@ -9,5 +9,7 @@ cfg = AttrDict(port=int(os.getenv('ABHYASA_PORT', 5077)), host='127.0.0.1',
                leela=os.getenv('ABHYASA_LEELA', ''))   # a base URL, only when Leela runs where its address file cannot be seen
 
 class RouteOverrides:
-    "Blocks add `(label, href, order)` to `nav` in `connect`; the page header reads it."
+    "Blocks add the four tabs `(label, href, order)` to `nav`, the rows under a tab to `subtabs[tab]`, and Settings sets `gear`; the page header reads them."
     nav = []
+    subtabs = {}   # tab label -> [(label, href, order)]
+    gear = None

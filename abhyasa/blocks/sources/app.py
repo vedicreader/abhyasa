@@ -29,7 +29,7 @@ def connect(app, ctx):
             P('Each button adds a shelf to your vault, so every tool can search it. They change no other shelf. A second run skips what did not change.', cls='mute'),
             *[Div(Button(f'Index {t}', hx_post=Routes.index.format(what=k), hx_target=f'#ix-{k}', data_wait='Indexing…', data_skel=f'#ix-{k}'),
                   Span(d, cls='mute'), Div(id=f'ix-{k}', cls='ix'), cls='row') for k, (t, d) in INDEXERS.items()],
-            on='Sources', crumbs=[('Today', '/')])
+            on='Library', sub='Sources', crumbs=[('Today', '/')])
 
     def index(what:str):
         t = time.time()
@@ -38,6 +38,6 @@ def connect(app, ctx):
         else: return P('Unknown source.', cls='mute')
         return P(', '.join(f'{v} {k}' for k, v in n.items()) + f' in {time.time() - t:.0f} s.', cls='mute')
 
-    RouteOverrides.nav.append(('Sources', Routes.base, 4))
+    RouteOverrides.subtabs.setdefault('Library', []).append(('Sources', Routes.base, 1))
     app.get(Routes.base)(page)
     app.post(Routes.index)(index)

@@ -28,7 +28,7 @@ def connect(app, ctx):
         return Page('Walks', H1('Walks'),
                     P('A walk is a goal and a path of steps to it. The tutor suggests the path from your concepts and what it knows '
                       'about you. You can move, skip, add or split a step.', cls='mute'),
-                    ui.GoalForm(), H2('Your walks'), ui.JourneyList(listed()), on='Walks', crumbs=[('Today', '/')], extra=ui.assets())
+                    ui.GoalForm(), H2('Your walks'), ui.JourneyList(listed()), on='Learn', crumbs=[('Today', '/')], extra=ui.assets())
 
     def new(goal:str=''):
         if not goal.strip(): return P('Say or type what you want to learn.', cls='req-err')
@@ -92,8 +92,9 @@ def connect(app, ctx):
         pg = progress(lr, j)
         return ui.StepDone(lr.concept(r.concept), pg.current.name if pg.current else '')
 
-    RouteOverrides.nav.append(('Walks', Routes.base, 0.5))
+    RouteOverrides.nav.append(('Learn', Routes.learn, 1))
     app.get(Routes.base)(index)
+    app.get(Routes.learn)(index)
     app.post(Routes.new)(new)
     app.post(Routes.attach)(attach)
     app.get(Routes.path)(one)
