@@ -160,14 +160,15 @@ def Slot(t):
             Label('Room phones', Select(Option('No phones', value='off', selected=not t.get('phones')),
                                         Option('Phones on this Wi-Fi', value='on', selected=bool(t.get('phones'))), name='phones', **post), cls='inline phones'))
 
-def Editor(t, j, pj=None):
-    "The editor of talk `t` from walk `j` (made from plain journey `pj`, if given): what it is, Present, the slot, then the slides (as `shots/a1-deck.png`)."
+def Editor(t, j, pj=None, changed=False):
+    "The editor of talk `t` from walk `j` (made from plain journey `pj`, if given, which `changed` after): what it is, Present, the slot, then the slides (as `shots/a1-deck.png`)."
     ideas = sum(s.get('kind') == 'idea' for s in t['slides'])
     secs = len({s.get('section') for s in t['slides'] if s.get('kind') == 'idea' and s.get('section')})
     made = A('Made from your journey', href=f'/j/{pj.id}') if pj else A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'
-    cut = P(f"This talk has the first {len(j.steps)} steps of the journey. The journey has {len(j.steps) + len(j.more)} steps.", cls='mute') if pj and j.get('more') else ''
+    cut = P('This talk has the first steps of the journey, up to the Ideas in a walk setting (12 by default). Skipped steps are left out.', cls='mute') if pj and (j.get('more') or any(s.get('status') == 'skip' for s in pj.steps)) else ''
+    old = P('The journey changed after this talk was made. Make it again to update it.', cls='mute') if changed else ''
     return (H1(f"{t['title']}, as a talk"),
-            P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), cls='mute'), cut,
+            P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), cls='mute'), cut, old,
             P('Each idea of the walk is one slide. The passage and the figure show to the room. The tutor note is your speaker note. '
               'The check of the idea becomes a question for the room. A change here does not change the walk.', cls='lead'),
             Div(Form(Primary('Present', data_wait='Starting…'), action=at(Routes.start, t['id']), method='post', hx_boost='false'), *Slot(t), cls='row talk-top'),

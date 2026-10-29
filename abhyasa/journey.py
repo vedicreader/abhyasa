@@ -10,8 +10,8 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'SHORT_WAYS', 'PICK_SP', 'S
            'near_goal', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most', 'cap_hands',
            'journey_from_source', 'journey_from_text', 'journey_from_sources', 'walk_from_topic', 'walk_state',
            'minutes', 'needs', 'pick_way_down', 'detour', 'parent_step', 'trail', 'back_from', 'for_talk',
-           'journey_walk', 'walk_for_talk', 'look_up', 'add_topic', 'name_gaps', 'split', 'related', 'with_step',
-           'beyond', 'handoff', 'read_handoff']
+           'journey_walk', 'walk_for_talk', 'journey_changed', 'look_up', 'add_topic', 'name_gaps', 'split', 'related',
+           'with_step', 'beyond', 'handoff', 'read_handoff']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
@@ -448,20 +448,31 @@ def for_talk(j) -> bool:
     return isinstance(p, dict) and ('talk' in p or p.get('for') == 'talk')
 
 # %% ../nbs/11_journey.ipynb #pj02
+def _to_present(lr:Learning, j) -> list:
+    "The steps of journey `j` that a talk presents: not skipped, and with a concept on the shelf."
+    return [s for s in j.steps if s.get('status') != 'skip' and lr.concept(s['slug'])]
+
 def journey_walk(lr:Learning, jid:str) -> AttrDict|None:
     "The newest walk that `walk_for_talk` made from journey `jid`, or None."
     ws = [j for j in lr.journeys() if j.get('parent') == {'journey': jid, 'for': 'talk'}]
     return first(sorted(ws, key=lambda j: -(j.get('created') or 0)))
 
 def walk_for_talk(lr:Learning, jid:str, sources=None, again:bool=False) -> AttrDict:
-    "A walk for a talk from plain journey `jid`: its steps that are not skipped, in order, with its goal. A second call gives the same walk, unless `again`."
+    "A walk for a talk from plain journey `jid`: its steps that are not skipped, in order, with its goal. `made_from` keeps their slugs. A second call gives the same walk, unless `again`."
     j = lr.journey(jid)
     if j is None or j.get('mode') == 'walk' or for_talk(j): raise KeyError(f'no plain journey {jid!r}')
     if not again and (w := journey_walk(lr, jid)): return w
-    ss = [dict(slug=s['slug'], status='todo', why=s.get('why', '')) for s in j.steps if s.get('status') != 'skip' and lr.concept(s['slug'])]
+    ss = [dict(slug=s['slug'], status='todo', why=s.get('why', '')) for s in _to_present(lr, j)]
     if not ss: raise ValueError(f'journey {jid!r} has no step to present')
     w = AttrDict(id=_new_id(j.title), title=j.title, goal=j.get('goal', ''), subject=j.get('subject', ''), steps=ss, created=time.time())
-    return _topic_walk(lr, w, sources, parent={'journey': jid, 'for': 'talk'})
+    return _topic_walk(lr, w, sources, parent={'journey': jid, 'for': 'talk'}, made_from=[s['slug'] for s in ss])
+
+# %% ../nbs/11_journey.ipynb #pj14
+def journey_changed(lr:Learning, w) -> bool:
+    "Whether the journey that walk `w` was made from for a talk has other steps now, or the same steps in another order."
+    p, was = (w or {}).get('parent') or {}, (w or {}).get('made_from')
+    j = lr.journey(p.get('journey') or '') if p.get('for') == 'talk' else None
+    return bool(j and was is not None and [s['slug'] for s in _to_present(lr, j)] != was)
 
 # %% ../nbs/11_journey.ipynb #rh20
 def look_up(lr:Learning, ask, term:str, at:str='', sources=None) -> AttrDict|None:

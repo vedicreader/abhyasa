@@ -151,7 +151,7 @@ def test_present_this_journey(mk, talk_fake, lr):
     assert [s.get('concept') for s in t.slides][:2] == ['ranking', 'reciprocal-rank-fusion'] and w.goal == 'Learn how to rank results'
     assert w.parent == {'journey': jid, 'for': 'talk'} and lr.journey(jid).get('mode') is None
     ed = cl.get(f'/t/{tid}').text
-    assert 'Made from your journey' in ed and f'href="/j/{jid}"' in ed and 'This talk has the first' not in ed
+    assert 'Made from your journey' in ed and f'href="/j/{jid}"' in ed and 'This talk has the first' not in ed and 'The journey changed' not in ed
     for pg in ('/', '/journeys', '/learning', '/c/ranking'): assert f'/w/{w.id}' not in cl.get(pg).text, pg
 
 def test_a_journey_talk_again(mk, talk_fake, lr):
@@ -162,12 +162,22 @@ def test_a_journey_talk_again(mk, talk_fake, lr):
     assert journey_talk(cl, jid) == tid and len(lr.journeys()) == n   # no new walk and no new talk
     tid2 = journey_talk(cl, jid, again='1')
     assert tid2 != tid and len(lr.journeys()) == n + 1 and f'href="/t/{tid2}"' in cl.get(f'/j/{jid}').text
+    assert lr.talk(tid2).title.startswith('Ranking basics · ') and lr.talk(tid).title == 'Ranking basics'   # the old talk stays
+
+def test_a_journey_talk_out_of_date(mk, talk_fake, lr):
+    "When the journey changes after the talk was made, the editor says so."
+    cl = mk(); jid = journey_of(lr); tid = journey_talk(cl, jid)
+    line = 'The journey changed after this talk was made. Make it again to update it.'
+    assert line not in cl.get(f'/t/{tid}').text
+    lr.journey_step(jid, 'ranking', 'down')
+    assert line in cl.get(f'/t/{tid}').text
 
 def test_a_long_journey_talk_says_so(mk, talk_fake, lr):
     "A journey with more steps than a walk has gives a talk of the first steps, and the editor says so."
     cl = mk(); jid = journey_of(lr, n=12); tid = journey_talk(cl, jid)
     assert sum(s['kind'] == 'idea' for s in lr.talk(tid).slides) == val('walks.steps') == 12
-    assert 'This talk has the first 12 steps of the journey.' in cl.get(f'/t/{tid}').text
+    ed = cl.get(f'/t/{tid}').text
+    assert 'This talk has the first steps of the journey, up to the Ideas in a walk setting (12 by default).' in ed and 'Skipped steps are left out.' in ed
 
 def test_journey_talk_guards(mk, talk_fake, lr):
     "No talk from a journey that is not there or from a walk; the POST is local-only; a walk has no Present this journey."

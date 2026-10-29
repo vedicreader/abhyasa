@@ -270,9 +270,11 @@ def walk_talk(lr:Learning, wid:str) -> AttrDict|None:
     return first(t for t in lr.talks() if (t.get('src') or {}).get('walk') == wid)
 
 def talk_from_journey(lr:Learning, ask, jid:str, sources=None, again:bool=False) -> AttrDict:
-    "A talk from plain journey `jid`, made from its walk for a talk. A second call gives the same talk, unless `again`."
+    "A talk from plain journey `jid`, made from its walk for a talk. A second call gives the same talk, unless `again`: then a new talk has the date in its title."
     w = walk_for_talk(lr, jid, sources, again)
-    return (None if again else walk_talk(lr, w.id)) or talk_from_walk(lr, ask, w.id)
+    if not again: return walk_talk(lr, w.id) or talk_from_walk(lr, ask, w.id)
+    t, d = talk_from_walk(lr, ask, w.id), datetime.now()
+    return lr.put_talk({**t, 'title': f'{t.title} · {d.day} {d:%b}'})
 
 # %% ../nbs/17_talk.ipynb #399b1dc2
 IMAGE_TYPES = {b'\x89PNG\r\n\x1a\n': 'image/png', b'\xff\xd8\xff': 'image/jpeg', b'GIF87a': 'image/gif', b'GIF89a': 'image/gif'}

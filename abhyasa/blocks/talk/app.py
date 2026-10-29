@@ -14,7 +14,7 @@ from copy import deepcopy
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
 from abhyasa.core import Page, hook, n_of, pane_url
-from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk
+from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
 from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
@@ -197,7 +197,7 @@ def connect(app, ctx):
         j = lr.journey((t.get('src') or {}).get('walk') or '')
         pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
         up = [(pj.title, f'/j/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj), crumbs=[('Today', '/'), ('Journeys', '/journeys'), *up],
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j)), crumbs=[('Today', '/'), ('Journeys', '/journeys'), *up],
                     extra=ui.assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys (talk.js) work only here
         return page
