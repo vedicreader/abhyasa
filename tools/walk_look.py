@@ -1035,7 +1035,7 @@ def g2_clusters_have_labels_and_regions(pg, w):
     pg.set_viewport_size(dict(width=1280, height=900))
 
 def rs1_topic_walk_shows_a_web_source(pg, w):
-    "A topic walk opens at once. The step says that the tutor looks for a source, then shows the quote From the web, with the vault copy in the pane and the page in a new tab."
+    "A topic walk opens at once. The step says that the tutor looks for a source, then shows the quote with the source line `from the web`, with the vault copy in the pane and the page in a new tab."
     FAKE.rules.update({'You plan a learning path': dict(title='Bloom filters', subject='cs', steps=[dict(name='Bloom filter', statement='A Bloom filter tests if an item may be in a set.',
                                                                                                     slug='', why='The goal.', needs=[], ways=['words'])]),
                        'You find one passage': dict(passage=BLOOM_QUOTE)})
@@ -1043,13 +1043,14 @@ def rs1_topic_walk_shows_a_web_source(pg, w):
     jid = r.headers['hx-redirect'].split('/')[-1]
     w.rq.post(f'{w.B}/w/{jid}/start', max_redirects=0)
     pg.goto(f'{w.B}/w/{jid}/0')
-    src = pg.wait_for_selector('#passage .src.web', timeout=20000); settle(pg)
-    assert BLOOM_QUOTE in pg.text_content('#passage') and src.text_content().startswith('From the web: example.org · Bloom filters explained'), src.text_content()
+    src = pg.wait_for_selector('#passage.web .src-line', timeout=20000); settle(pg)
+    said = ' '.join(src.text_content().split())
+    assert BLOOM_QUOTE in pg.text_content('#passage') and said.startswith('from the web Bloom filters explained example.org read on '), said
     doc = w.lr.journey(jid).steps[0]['read']['doc_id']
-    a = pg.query_selector(f'#passage .src.web a[data-pane="/v/store/{doc}?pane=1"]')
-    o = pg.query_selector(f'#passage .src.web a[href="{BLOOM}"]')
+    a = pg.query_selector(f'#passage .src-line a[data-pane="/v/store/{doc}?pane=1"]')
+    o = pg.query_selector(f'#passage .src-line a[href="{BLOOM}"]')
     assert a and o and o.get_attribute('target') == '_blank' and 'noopener' in o.get_attribute('rel'), src.inner_html()
-    assert pg.is_visible('#passage .src.web') and "In the tutor's words" not in pg.text_content('main')
+    assert pg.is_visible('#passage .src-line .pill') and "In the tutor's words" not in pg.text_content('main')
 
 def op1_open_check_survives_a_restart(pg, w):
     "Open a check, give one wrong try, type the next try, restart the server on the same vault, then send: the check grades with the first try kept, and no 409 shows."

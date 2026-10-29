@@ -313,3 +313,11 @@ ul.hits li > p.mute:not(.line) { font-size: var(--t-meta); }
 .fb-row .fb-note textarea { font-size: var(--t-meta); }
 .fb-row .fb-more, .fb-row[data-done] .fb-picks, .fb-row[data-done] .fb-note { display: none; }
 .fb-row[data-done="unclear"] .fb-more { display: inline-flex; }
+/* trust (decision 6): a quote has a solid rule and one source line: the label in a pill, the title, the place, the link.
+   The tutor's own words have a dashed rule and a label, and no link. The two first labels have one look; a word, never a colour only. */
+.src-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); margin: var(--s2) 0 0; font: normal var(--t-meta)/1.5 var(--serif); color: var(--mute); }
+.src-line .pill { align-self: center; font-size: var(--t-lbl); }
+.src-line a { color: var(--ink2); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 2px; }
+.src-line a:hover { color: var(--fg); }
+.stated { margin: 0 0 var(--s4); padding: 0 0 0 var(--s4); border-left: 2px dashed var(--line); color: var(--ink2); }
+ul.cites .src-line { margin: 0; }

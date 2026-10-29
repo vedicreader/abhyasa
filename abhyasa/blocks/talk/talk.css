@@ -92,6 +92,10 @@ html:is(.present, .audience) main { max-width: none; margin: 0; padding: 0; anim
 #stage .demo.tall { overflow-y: auto; scrollbar-width: none; }   /* the text keeps 14 px: the demo is taller than the box, and its scroll shows in the room */
 #stage .demo > [data-rupaka] { position: absolute; top: 0; left: 0; width: 560px; }   /* the width rupaka lays out at; talk.js zooms it to fit */
 #stage .foot { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; font-size: calc(17 / 1280 * 100cqw); color: var(--mute); }
+/* the source line of the passage, for the room: the label, the title and the place, at the left of the foot line (decision 6) */
+#stage .foot .src-line.room { margin: 0 auto 0 0; font-size: inherit; gap: 1.2cqw; flex-wrap: nowrap; min-width: 0; }
+#stage .foot .src-line.room + * { margin-right: 2cqw; }
+#stage .foot .src-line.room .pill { font-size: calc(12 / 1280 * 100cqw); padding: .25cqw .7cqw; }
 
 /* the question, the pair prompt and the end, over the slide */
 #stage > :is(.stage-ask, .stage-pair) { position: absolute; inset: 0; z-index: 2; background: var(--page); padding: 4.4cqw 6.25cqw; overflow: hidden; }
@@ -197,3 +201,5 @@ html.present #rh-pane .rh-own { display: none; }
 @media (prefers-reduced-motion: reduce) { .rail i { transition: none; } }
 .deck .ttl .web { display: block; }
 .deck .ttl .web a { color: inherit; }
+.deck .ttl .src-line { margin-top: var(--s1); font-size: var(--t-small); }
+.deck .ttl .src-line .pill { font-size: var(--t-lbl); }

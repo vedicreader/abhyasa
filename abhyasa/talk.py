@@ -6,12 +6,13 @@ Docs: https://vedicreader.github.io/abhyasa/talk.html.md"""
 
 # %% auto #0
 __all__ = ['TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'BODY_MOST',
-           'POINT_MOST', 'TALK_CASES', 'CHOICE_SP', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'IMAGE_TYPES', 'IMAGE_SUFFIXES',
-           'RECAP_CSS', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q', 'words_ask',
-           'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_notes', 'needs_fill',
-           'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk', 'talk_from_journey', 'image_type',
-           'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_output',
-           'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap', 'recap_html']
+           'POINT_MOST', 'TALK_CASES', 'CHOICE_SP', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'IMAGE_TYPES',
+           'IMAGE_SUFFIXES', 'RECAP_CSS', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q',
+           'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_source',
+           'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk',
+           'talk_from_journey', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run',
+           'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak',
+           'recap', 'recap_html']
 
 # %% ../nbs/17_talk.ipynb #bddba3f8
 import re, json, math, time, uuid, secrets, hashlib, base64, html
@@ -25,7 +26,7 @@ from .store import Learning, slugify, _src
 from .journey import minutes, walk_for_talk
 from .llm import ask_json, for_task
 from .ground import concept_grounds, fence, fenced
-from .sources import figure_path
+from .sources import figure_path, source_of
 from .prompts import register, prompt
 from .settings import val
 from rupaka import poll
@@ -239,16 +240,25 @@ def _idea_ask(lr:Learning, ask, s:dict, passage:str, choice:bool) -> tuple:
     return None, dict(a, src=dict(check='code' if kind == 'code' else 'short')) if a else None
 
 # %% ../nbs/17_talk.ipynb #1242b4f9
-def _web(r:dict) -> dict:
-    "`{'src': ...}` with the title, site, URL and vault document of a passage from the web (`research`), so the editor can name it; else `{}`."
-    return dict(src={k: r.get(k) for k in ('title', 'site', 'url', 'shelf', 'doc_id')}) if r.get('src') == 'web' and r.get('text') else {}
+SOURCE_KEYS = ('src', 'ref', 'title', 'site', 'url', 'shelf', 'doc_id', 'section', 'page', 'at')   # what a slide keeps of the source of its passage
+
+def _source(r:dict) -> dict:
+    """`{'src': ...}`: where the passage of `r` comes from (its kind, title, document, place, site and link), so the slide can name it
+    (`slide_source`); `{}` with no passage. A passage of a document in your vault has the kind `doc`."""
+    return dict(src={k: v for k in SOURCE_KEYS if (v := r.get(k) if k != 'src' else r.get(k) or 'doc') not in (None, '')}) if r.get('text') else {}
+
+def slide_source(s:dict) -> AttrDict|None:
+    "The `source_of` the passage of slide `s`, or None. A talk made before 0.0.13 kept a source only for a passage from the web, with no kind."
+    sh = s.get('show') or {}
+    if not (src := sh.get('src')) or not (sh.get('passage') or '').strip(): return None
+    return source_of({'src': 'web', **src, 'text': sh['passage']})
 
 def _idea(lr:Learning, ask, i:int, s:dict, sid:str, choice:bool) -> dict:
     "The `idea` slide `sid` of walk step `i`."
     r = s.get('read') or {}
     passage, fig = r.get('text') or '', r.get('figure')
     demo, a = _idea_ask(lr, ask, s, passage, choice)
-    show = dict(passage=passage, figure=f'asset:{fig}' if fig else None, demo=demo, **_web(r))
+    show = dict(passage=passage, figure=f'asset:{fig}' if fig else None, demo=demo, **_source(r))
     beats = [b for b in ('passage', 'figure', 'demo') if show[b]]
     c = lr.concept(s['slug']) or {}
     return dict(id=sid, kind='idea', step=i, concept=s['slug'], title=c.get('name') or s['slug'], section=r.get('section') or '',
@@ -472,8 +482,9 @@ def public_deck(t:dict, resolve) -> AttrDict:
     for s in t['slides']:
         fig = _figure(resolve, (s.get('show') or {}).get('figure'))
         if fig: images[fig[0]] = fig[1:]
+        src = slide_source(s) if _passage(s) else None
         slides.append(dict(id=s['id'], kind=s['kind'], title=s.get('title') or '', section=s.get('section') or '', passage=_passage(s), body=_points(s),
-                           figure=fig[0] if fig else None, ask=deepcopy(public_ask(s.get('ask')))))
+                           figure=fig[0] if fig else None, ask=deepcopy(public_ask(s.get('ask'))), src=src and dict(label=src.label, title=src.title, place=src.place)))
     return AttrDict(title=t['title'], slides=slides, images=images)
 
 # %% ../nbs/17_talk.ipynb #b1468021
@@ -670,6 +681,21 @@ def _ask_html(a:dict, log:dict) -> str:
     return ''.join(out)
 
 # %% ../nbs/17_talk.ipynb #9a5f0b65
+def _sources_html(slides:list) -> str:
+    """The list at the end of the recap file: each source of the passages of `slides` one time, with its label, title, places and link.
+    Only a web page has a link, because a page of your vault does not open from a file. '' when no passage has a source."""
+    e, by = html.escape, {}
+    for s in slides:
+        if not (x := slide_source(s)): continue
+        k = x.href or x.url or x.title
+        got = by.setdefault(k, (x, []))[1]
+        if x.place and x.place not in got: got.append(x.place)
+    if not by: return ''
+    def li(x, places):
+        link = f' · <a href="{e(x.url)}">{e(x.url)}</a>' if x.url else ' · in your vault' if x.href else ''
+        return f'<li><b>{e(x.label)}</b> · {e(x.title)}' + ''.join(f' · {e(p)}' for p in places) + f'{link}</li>'
+    return f'<section><h2>Sources</h2><ul>{"".join(li(*v) for v in by.values())}</ul></section>'
+
 def recap_html(t:dict, run:dict, resolve) -> str:
     "The recap of `run` of talk `t` as one HTML file, with the figures inline."
     e, pub = html.escape, public_deck(t, resolve)
@@ -691,5 +717,6 @@ def recap_html(t:dict, run:dict, resolve) -> str:
     if kept:
         qs = ''.join(f'<li><p>{e(str(q.get("text") or ""))}</p>' + (f'<p class="note">{e(str(q["note"]))}</p>' if q.get('note') else '') + '</li>' for q in kept)
         out.append(f'<section><h2>Questions from the room</h2><ul>{qs}</ul></section>')
+    if (srcs := _sources_html([s for s, _ in _shown(t, run) if ps[s['id']]['passage']])): out.append(srcs)
     return (f'<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             f'<title>{e(str(t["title"]))}</title><style>{RECAP_CSS}</style></head><body>{"".join(out)}</body></html>\n')

@@ -59,7 +59,7 @@ def test_a_topic_walk_finds_a_web_source(mk, web, lr):
     assert any(p.get('doc_id') == r['doc_id'] for p in lr.concept('softmax').provenance)   # linked to the concept
     cl.post(f'/w/{jid}/start')
     page = cl.get(f'/w/{jid}/0').text
-    assert QUOTE in page and 'From the web: example.org · ' in page and "In the tutor's words" not in page
+    assert QUOTE in page and '<span class="pill">from the web</span>' in page and '<span>example.org</span>' in page and "In the tutor's words" not in page
     assert f'href="/v/store/{r["doc_id"]}"' in page and f'data-pane="/v/store/{r["doc_id"]}?pane=1"' in page   # the vault copy in the side pane
     assert f'href="{URL}" target="_blank" rel="noopener noreferrer"' in page and 'Open the page' in page   # the original in a new tab
     assert 'You are hacked' not in page
@@ -76,24 +76,24 @@ def test_the_step_says_it_looks_then_shows_the_source(mk, web, lr, walk_fake):
     finally: web.hold.set()
     until(lambda: state(lr, jid) == 'found')
     r = cl.get(f'/w/{jid}/0/source').text
-    assert QUOTE in r and 'From the web' in r and 'hx-swap-oob' in r and f'hx-get="/w/{jid}/0/note"' in r
+    assert QUOTE in r and '>from the web<' in r and 'hx-swap-oob' in r and f'hx-get="/w/{jid}/0/note"' in r
     assert QUOTE in [p for p, sp in walk_fake.calls if sp.startswith('You write a short note')][-1]   # the note explains the passage
 
 def test_no_source_then_find_a_source(mk, web, lr, walk_fake):
-    "A paraphrase is refused: the step says No source found, with Find a source. The GET reads only. The POST tries again."
+    "A paraphrase is refused: the step says that no good source was found, with Look again. The GET reads only. The POST tries again."
     walk_fake.rules['You find one passage'] = dict(passage='Softmax makes weights from scores, and they add up to 1 and lie between 0 and 1.')
     cl = mk(); jid = topic(cl); cl.post(f'/w/{jid}/start')
     until(lambda: state(lr, jid) == 'none')
     page = cl.get(f'/w/{jid}/0').text
-    assert "In the tutor's words" in page and 'No source found.' in page and 'Find a source' in page and f'hx-post="/w/{jid}/0/source"' in page
-    assert '<p class="mute no-source">No source found.</p>' in page   # on its own line
+    assert "In the tutor's words" in page and 'Look again' in page and 'Find a source' not in page and f'hx-post="/w/{jid}/0/source"' in page
+    assert '<p class="mute no-source">No good source was found on the web.</p>' in page   # on its own line
     n = len(web.asked)
     cl.get(f'/w/{jid}/0/source')
     assert len(web.asked) == n and state(lr, jid) == 'none'   # a GET starts no search
     walk_fake.rules['You find one passage'] = dict(passage=QUOTE)
     cl.post(f'/w/{jid}/0/source')
     until(lambda: state(lr, jid) == 'found')
-    assert len(web.asked) == n + 1 and 'From the web' in cl.get(f'/w/{jid}/0').text
+    assert len(web.asked) == n + 1 and '>from the web<' in cl.get(f'/w/{jid}/0').text
 
 def test_research_off_means_no_search(mk, web, lr):
     "With research off, a topic walk does no web search, the step keeps the tutor's words, and Find a source does not show or search."
@@ -121,10 +121,10 @@ def test_a_journey_talk_shows_the_web_source(mk, web, lr, talk_fake):
     cl = mk(); cl.post('/talk/journey', data=dict(jid=jid))
     tid = until(lambda: cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect')).split('/')[-1]
     s = lr.talk(tid).slides[0]
-    assert s['show']['passage'] == QUOTE and s['show']['src']['url'] == URL
+    assert s['show']['passage'] == QUOTE and s['show']['src']['url'] == URL and s['show']['src']['src'] == 'web'
     assert cl.app.state.svc['research'].jobs[lr.talk(tid).src['walk']]   # the same registry as a walk, with pending marks
     ed = cl.get(f'/t/{tid}').text
-    assert 'From the web: example.org · ' in ed and f'href="{URL}"' in ed
+    assert '>from the web<' in ed and '<span>example.org</span>' in ed and f'href="{URL}"' in ed
 
 def test_a_long_research_job_does_not_block_a_demo_or_a_note(mk, web, lr):
     "Research has its own pool. Two walks that wait on the web leave the main pool free for a demo, a note or a lesson."

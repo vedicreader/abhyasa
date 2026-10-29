@@ -165,11 +165,12 @@ def test_a_journey_talk_has_content(mk, talk_fake, lr):
     assert s2['show']['body'] == SLIDE['points'] and s2['beats'][0] == 'body' and '**Ask the room:**' in s2['notes'] and 'cites' not in s2
 
 def test_the_room_sees_the_points(mk, talk_fake, lr):
-    "The audience window shows the points of a slide and never its notes or sources; the presenter window shows the notes and the sources."
+    "The audience window shows the points of a slide and the source line of its passage, and never its notes or the list of sources; the presenter window shows them."
     cl = mk(); tid = journey_talk(cl, journey_of(lr)); cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
     a = cl.get(f'/t/{tid}/audience?k={run["key"]}').text
     assert 'class="points"' in a and '<span class="">The idea has one main step.</span>' in a
-    assert 'People mix up' not in a and 'Start with the main step' not in a and 'Watch for' not in a and 'My ranking notes' not in a
+    assert 'People mix up' not in a and 'Start with the main step' not in a and 'Watch for' not in a and 'From your sources' not in a
+    assert 'class="src-line room"' in a and '>your source<' in a and '<span>My ranking notes</span>' in a and 'href="/v/notes/n1"' not in a
     p = cl.get(f'/t/{tid}/present').text
     assert 'People mix up the main step and the example.' in p and 'From your sources' in p and 'My ranking notes' in p
 

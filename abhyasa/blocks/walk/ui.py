@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import WebSource, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline
+from abhyasa.core import SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -18,6 +18,7 @@ OUTCOME = {k: t for k, (t, _) in OUTCOMES.items() if k != 'nudge'}
 KIND = dict(short='short answer', code='code', demo='predict · demo', order='predict · order')
 GRADING, HINTING, TEACHING, WRITING = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'Writing the check…'
 LOOKING = 'Looking for a source…'
+NO_SOURCE = 'No good source was found on the web.'
 LEAD = dict(demo='Predict first. Then the demo shows the rest.', order='Put the steps in order first. Then the demo shows the right order.')
 
 def assets(): return asset_css(_P/'walk.css'), asset_js(_P/'walk.js')
@@ -45,8 +46,9 @@ def WayPick(jid, i, s, ways=WALK_WAYS):
                   hx_post=at(Routes.plan, jid), hx_vals=json.dumps(dict(i=i, act='check')), hx_trigger='change', hx_target='#plan', hx_swap='outerHTML')
 
 def PlanIdea(jid, i, s, by, ways=WALK_WAYS):
+    "One idea of the plan: its name, the label of its passage in small type, its check, and Drop."
     k = (s.get('check') or {}).get('kind', 'short')
-    return Li(Span(name(by, s), cls='n'), Span(KIND.get(k, k), cls='w'), WayPick(jid, i, s, ways),
+    return Li(Span(name(by, s), Small(source_of(s.get('read')).label, cls='src-lbl'), cls='n'), Span(KIND.get(k, k), cls='w'), WayPick(jid, i, s, ways),
               Button('Drop', type='button', cls='small quiet', title='Take this idea out of the walk', hx_post=at(Routes.plan, jid),
                      hx_vals=json.dumps(dict(i=i, act='drop')), hx_target='#plan', hx_swap='outerHTML'),
               cls='known' if s.get('status') == 'known' else None)
@@ -108,28 +110,26 @@ def Rail(j, st, by, i, present=()):
 
 def FindSource(jid, i, s, looking=False):
     """Under the tutor's words of step `i`: while the tutor looks for a source on the web, a quiet line (the passage asks again in
-    3 seconds); else `Find a source`, under `No source found.` on its own line when a search found nothing. Nothing when research is off."""
+    3 seconds); else `Find a source`, or `Look again` under `No good source was found on the web.` on its own line when a search
+    found nothing. Nothing when research is off."""
     if not val('research.on'): return ''
     if s.get('research') == 'pending' and looking: return P(LOOKING, cls='mute looking', aria_live='polite')
-    go = Quiet('Find a source', small=True, type='button', hx_post=at(Routes.source, jid, i), hx_target='#passage', hx_swap='outerHTML', data_wait=LOOKING)
-    return (P('No source found.', cls='mute no-source') if s.get('research') == 'none' else '', P(go, cls='mute find-source'))
+    none = s.get('research') == 'none'
+    go = Quiet('Look again' if none else 'Find a source', small=True, type='button', hx_post=at(Routes.source, jid, i), hx_target='#passage', hx_swap='outerHTML', data_wait=LOOKING)
+    return (P(NO_SOURCE, cls='mute no-source') if none else '', P(go, cls='mute find-source'))
 
 def Passage(j, s, c, i=None, looking=False):
-    """The passage from the source, word for word; with no passage, the statement of the idea, marked as the tutor's words.
-    A passage from the web names its site and its page. With `i`, a step with no passage can look for a source (`FindSource`).
+    """The passage from the source, word for word, with its `SourceLine`; with no passage, the statement of the idea, marked as the
+    tutor's words. With `i`, a step with no passage can look for a source (`FindSource`).
     `data-moves` holds the words that the idea moves: walk.js links them to the parts of the demo."""
     r = s.get('read') or {}
     mv = dict(data_moves=json.dumps(list((c or {}).get('moves') or []))) if (c or {}).get('moves') else {}
     if r.get('text'):
-        if r.get('src') == 'web': return Blockquote(Md(r['text']), WebSource(r), id='passage', cls='quote web', **mv)
-        if r.get('src') or (j.get('source') or {}).get('docs'): src = f"From {r.get('title') or 'your sources'}"
-        else: src = ', '.join(x for x in ('From the paper' if j.get('source') else 'From the text',
-                                          r.get('section') and f"section {r['section'].split()[0]}", r.get('page') and f"p. {r['page']}") if x)
-        return Blockquote(Md(r['text']), Span(src, cls='src'), id='passage', cls='quote', **mv)
+        return Blockquote(Md(r['text']), SourceLine(source_of(r, j)), id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', **mv)
     wait = i is not None and s.get('research') == 'pending' and looking and val('research.on')
     poll = dict(hx_get=at(Routes.source, j['id'], i), hx_trigger='load delay:3s', hx_swap='outerHTML') if wait else {}
-    return Div(Span("In the tutor's words", cls='lbl'), Md((c or {}).get('statement', '')), FindSource(j['id'], i, s, looking) if i is not None else '',
-               id='passage', cls='stated' + (' pending' if wait else ''), **poll, **mv)
+    return TutorWords((c or {}).get('statement', ''), FindSource(j['id'], i, s, looking) if i is not None else '',
+                      id='passage', cls='pending' if wait else '', **poll, **mv)
 
 def Figure_(jid, i, s, c):
     if not (s.get('read') or {}).get('figure'): return ''
@@ -143,7 +143,9 @@ def NextBar(jid, i, st, by):
     skip = '' if done else Form(Quiet('Skip this idea', small=True, id='skip'), action=at(Routes.next, jid, i), method='post', cls='skip')
     return Div(back, skip, cls='next-bar')
 
-def Note(text): return Md(text, cls='note') if text else ''
+def Note(text):
+    "The tutor note under the passage, with its label: it is the tutor's words, not a quote."
+    return TutorWords(text, note=True) if text else ''
 
 def NoteSlot(jid, i, oob=False):
     "The place of the tutor note, which loads after the page. Out of band, it loads the note again: a new passage gives a new note."

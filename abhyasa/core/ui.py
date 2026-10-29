@@ -8,8 +8,9 @@ from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
 from abhyasa.model import DEPTHS
+from abhyasa.sources import source_of
 
-__all__ = ['Cites', 'WebSource', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'SubTabs', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
+__all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'SubTabs', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill']
 
 _here = Path(__file__).parent
@@ -321,22 +322,28 @@ def Part(label, *c, more=None, more_label='More', **kw):
     "A section of a page: the small H2 label, the content, and an optional closed `More` part in one style."
     return Section(H2(label), *c, Details(Summary(more_label), *more, cls='more') if more else '', **kw)
 
-def WebSource(r, cls='src web'):
-    """The line under a passage from the web (`research`): `From the web: <site> · <title>`. The title opens the copy in your vault
-    in the side pane, and `Open the page` opens the original page in a new tab."""
-    site, title = r.get('site') or '', r.get('title') or r.get('site') or 'the page'
-    doc = f"/v/{r.get('shelf')}/{r.get('doc_id')}" if r.get('shelf') and r.get('doc_id') else ''
-    name = pane_link(title, doc, title) if is_local(doc) else Span(title)
-    out = A('Open the page', href=r['url'], target='_blank', rel='noopener noreferrer', cls='web-open') if is_web(r.get('url')) else ''
-    return Span('From the web: ', *([site, ' · '] if site else []), name, *([' · ', out] if out else []), cls=cls)
+def SourceLine(src, room=False):
+    """The one line under a passage (decision 6): the label in a pill, the title, the place, and the link that opens it. A page in your vault
+    opens in the side pane, and `Open in your vault` opens it in full. A web page (`Open the page`) opens in a new tab. `src` comes from `source_of`.
+    With `room`, the line is text only, for the room: no link."""
+    if not src: return ''
+    bits = lambda *xs: [Span(x) for x in xs if x]
+    line = lambda *c, cls='src-line': Div(*[y for k, x in enumerate(c) if x for y in ((' ', x) if k else (x,))], cls=cls)   # a space between the parts, for a copy and a screen reader
+    if room: return line(Pill(src.label), *bits(src.title, src.place), cls='src-line room')
+    local, web = is_local(src.href), is_web(src.url)
+    name = (pane_link(src.title, src.href, src.title) if local else A(src.title, href=src.url, target='_blank', rel='noopener noreferrer') if web
+            else Span(src.title))
+    go = (A('Open the page', href=src.url, target='_blank', rel='noopener noreferrer', cls='src-open') if web
+          else A('Open in your vault', href=src.href, cls='src-open') if local else '')
+    return line(Pill(src.label), name, *bits(src.place, src.date and f'read on {src.date}'), go)
+
+def TutorWords(text, *c, note=False, cls='', **kw):
+    """The tutor's own words, never a quote: a dashed rule at the left, the label `In the tutor's words` (or `The tutor's note`
+    with `note`) and no link. `c` goes under the text."""
+    return Div(Span("The tutor's note" if note else "In the tutor's words", cls='lbl'), Md(text), *c,
+               cls=' '.join(x for x in ('stated', 'note' if note else '', cls) if x), **kw)
 
 def Cites(links, label='From your sources'):
-    "Links to passages in your own sources: a vault document, a session, a notebook, a verse. A page of this app opens in the side pane."
+    "Links to passages in your own sources and on the web: a vault document, a session, a notebook, a verse. Each one is a `SourceLine`."
     if not links: return ''
-    def href(l):
-        if l.get('url', '').startswith('http'): return l['url']
-        if l.get('src', '').startswith('vault:'): return f"/v/{l['src'][6:]}/{str(l.get('ref', '')).split('#')[0]}"
-    where = lambda s: 'in your vault' if str(s).startswith('vault:') else s   # a shelf name is a machine name
-    link = lambda l, h: pane_link(l['title'], h, l['title']) if is_local(h) else A(l['title'], href=h) if h else Span(l['title'])
-    item = lambda l: Li(link(l, href(l)), ' ', Span(where(l['src']), cls='mute'))
-    return Div(Span(label, cls='lbl'), Ul(*map(item, links), cls='plain cites'), cls='cites')
+    return Div(Span(label, cls='lbl') if label else '', Ul(*[Li(SourceLine(source_of(l))) for l in links], cls='plain cites'), cls='cites')

@@ -57,10 +57,9 @@ main.wide:has(.walk-layout) > .crumbs { max-width: 984px; margin-inline: auto; }
 .sec-lbl span + span::before { content: '·'; margin-right: var(--s3); }
 h1.idea { font-size: var(--t-idea); margin-bottom: var(--s4); }
 .quote { margin: 0 0 var(--s4); padding: 0 0 0 var(--s4); border-left: 2px solid var(--rule); color: var(--fg); font-size: var(--t-body); }
-.quote .src { display: block; font-size: var(--t-meta); color: var(--mute); font-style: italic; margin-top: -2px; }
-.stated { margin: 0 0 var(--s4); padding: 0 0 0 var(--s4); border-left: 2px dashed var(--line); color: var(--ink2); }
 #figure { margin: 0 0 var(--s4); } #figure.gone { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); margin: 0; } #figure img { max-width: 100%; border-radius: var(--r-s); background: var(--sunken); }
 .note { color: var(--ink2); font-size: var(--t-body); }
+.plan .src-lbl { margin-left: var(--s2); font-size: var(--t-lbl); color: var(--mute); }   /* the label of the passage of an idea: your source, from the web, tutor */
 /* words in the passage that point at a part of the demo (walk.js): a dotted line; pointing at one rings the part, and back */
 #passage .mv { text-decoration: underline dotted; text-decoration-color: color-mix(in srgb, var(--acc) 70%, transparent); text-underline-offset: .2em; cursor: help; }
 #passage .mv:hover, #passage .mv:focus-visible, #passage .mv.hot { color: var(--acc); }
@@ -123,7 +122,6 @@ html.in-pane main { padding-bottom: 64px; }
 .ladder .lesson { margin: 0 0 var(--s3); }
 .ladder .making { font-style: italic; }
 .ladder .rk { max-width: 640px; }
-.quote .src.web a { color: inherit; text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 2px; }
 .stated .looking, .stated .find-source { font-size: var(--t-meta); margin: var(--s2) 0 0; }
 .stated .find-source button { margin-left: 0; }
 .stated .no-source { font-size: var(--t-meta); margin: var(--s2) 0 0; }

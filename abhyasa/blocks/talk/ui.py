@@ -5,8 +5,9 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Inline, Cites, WebSource, meta, n_of, asset_css, asset_js, stage_assets
-from abhyasa.talk import talk_minutes, public_ask, share_right, needs_fill
+from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Inline, Cites, SourceLine, meta, n_of, asset_css, asset_js, stage_assets
+from fastcore.basics import AttrDict
+from abhyasa.talk import talk_minutes, public_ask, share_right, needs_fill, slide_source
 from abhyasa.settings import val
 from .cfg import Routes
 
@@ -155,7 +156,7 @@ def Row(tid, n, s):
     added = s.get('kind') in ('pause', 'questions', 'recap', 'primer')
     title = 'Pause: ' + (s.get('prompt') or 'talk to your neighbour') if s.get('kind') == 'pause' else s.get('title') or ''
     return Li(Span(str(n), cls='no'), Mini(s), Div(B(title, cls='added' if added else None), Span(shows(s)),
-                                               WebSource(src, cls='src web') if (src := (s.get('show') or {}).get('src')) else '', cls='ttl'), AskCell(s),
+                                               SourceLine(slide_source(s)), cls='ttl'), AskCell(s),
               Span(f"{s.get('mins') or 0} min", cls='min'),
               Details(Summary('Change', title='E'), Acts(tid, s['id']), EditForm(tid, s), cls='edit'),
               cls='slide', data_sid=s['id'], tabindex='0')
@@ -243,7 +244,7 @@ def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):
     extra = dict(data_beats=json.dumps(beats), data_n=str(max(1, len(beats)))) if presenter else {}
     return Section(P(Inline(crumb), cls='crumb') if crumb else '', H1(Inline(head)), P(say, cls='say') if say else '',
                    Div(*parts, cls='body' + (' two' if len(parts) > 1 else '')) if parts else '',
-                   Div(Inline(title), Span(f'{n} of {total}'), cls='foot'),
+                   Div(SourceLine(AttrDict(ps['src']), room=True) if ps.get('src') else '', Inline(title), Span(f'{n} of {total}'), cls='foot'),
                    cls='stage', data_sid=ps['id'], data_lits=json.dumps(lits(beats, ps['passage'])), hidden=not here, **extra)
 
 def at_img(tid, h): return Routes.of(Routes.img, tid=tid, h=h)
@@ -322,7 +323,7 @@ def Presenter(t, deck, run, demos):
                    Div(*[I(data_sid=s['id'], data_mins=str(s.get('mins') or 0), title=s.get('title') or '', cls='shaky' if s['id'] in shaky else None) for s in ss],
                        id='rail', cls='rail'),
                    P(id='say', cls='say', role='status'), cls='pv-main'),
-               Div(Div(Span('Your notes', cls='lbl'),
+               Div(Div(Span('Your note', cls='lbl'),
                        Div(*[Div(Md(s['notes']) if s.get('notes') else P('This slide has no note.', cls='mute'), Cites(s.get('cites')), data_sid=s['id'], hidden=s['id'] != a['slide'])
                              for s in ss], id='notes', cls='notes')),
                    Div(Span('Next', cls='lbl'),

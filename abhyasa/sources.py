@@ -6,11 +6,11 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'READERS', 'PLAIN', 'LOCALE', 'LANGS',
-           'SHORT', 'EMPTY', 'ARXIV_LINK', 'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group', 'extract_prompt',
-           'doc_pages', 'locate', 'figure_path', 'placement', 'extract', 'from_vault', 'sort_prompt', 'Places',
-           'propose_groups', 'apply_groups', 'place_new', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel',
-           'LinkError', 'link_kind', 'reading_order', 'file_link', 'as_link', 'is_id_title', 'arxiv_title', 'is_paper',
-           'plain', 'from_vedicreader']
+           'SHORT', 'EMPTY', 'ARXIV_LINK', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'VR_ROOT', 'RASI', 'quoted', 'group_line',
+           'add_group', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'extract', 'from_vault',
+           'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts', 'link_folder',
+           'in_scope', 'link_sel', 'LinkError', 'link_kind', 'reading_order', 'file_link', 'as_link', 'is_id_title',
+           'arxiv_title', 'is_paper', 'source_of', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re
@@ -478,6 +478,38 @@ def is_paper(url:str) -> bool:
     if ARXIV_ID.fullmatch(u) or ARXIV_LINK.fullmatch(u): return True
     try: return urlparse(u).scheme in ('http', 'https') and urlparse(u).path.lower().endswith('.pdf')
     except ValueError: return False
+
+# %% ../nbs/04_sources.ipynb #so0i
+from datetime import datetime
+
+# %% ../nbs/04_sources.ipynb #so01
+WEB, YOURS, TUTOR, YOU = 'from the web', 'your source', 'tutor', 'you'   # the four labels of a text: decision 6 of 0.0.13
+
+def _place(r) -> str:
+    "Where the passage `r` is in its document: `section 3.2.1 · p. 4`. A section name with no number stays whole."
+    sec = ' '.join(str(r.get('section') or '').split())
+    if sec[:1].isdigit(): sec = f'section {sec.split()[0]}'
+    return ' · '.join(x for x in (sec, r.get('page') and f"p. {r['page']}") if x)
+
+def _day(t) -> str:
+    "The time `t` as a day, such as `29 Oct 2026`; '' with no time."
+    try: d = datetime.fromtimestamp(float(t))
+    except (TypeError, ValueError, OverflowError, OSError): return ''
+    return f'{d.day} {d:%b %Y}'
+
+def source_of(read:dict, j:dict|None=None) -> AttrDict:
+    """The source line of the passage `read` (a step `read`, a slide source or a cite) in walk `j`: its `label`, its `title`,
+    `href` (its document in the vault), `place` (the section and the page, or the site of a web page), `url` (a web page) and `date`."""
+    r, s = read or {}, str((read or {}).get('src') or '')
+    shelf, doc = r.get('shelf'), r.get('doc_id')
+    if not (shelf and doc) and s.startswith('vault:'): shelf, doc = s[6:], str(r.get('ref') or '').split('#')[0]
+    url = r.get('url') if str(r.get('url') or '').startswith(('http://', 'https://')) else ''
+    web = s == 'web'
+    label = WEB if web else YOURS if r.get('text') or s else TUTOR   # a cite names where it is from, so it is a source too
+    title = r.get('title') or ((j or {}).get('source') or {}).get('title') or r.get('site') or 'your text'
+    other = '' if web or s.startswith('vault:') or s in ('text', 'doc') else s   # a source that is not in the vault, such as `notes`
+    return AttrDict(label=label, title=str(title), href=f'/v/{shelf}/{doc}' if shelf and doc else '', place=_place(r) or (r.get('site') or '' if web else other),
+                    url=url, date=_day(r.get('at')) if web else '')
 
 # %% ../nbs/04_sources.ipynb #c020
 VR_ROOT = Path(os.getenv('VEDICREADER_ROOT', Path.home()/'code/personal/orgs/vedicreader'))
