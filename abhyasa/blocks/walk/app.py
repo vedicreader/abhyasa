@@ -191,7 +191,7 @@ def connect(app, ctx):
         except Exception as e:   # the log keeps the words of the library; the page shows a plain line
             log.warning('the tutor could not make a walk: %r', e)
             return P(str(e) if isinstance(e, LinkError) else 'The tutor could not make a walk. Try again.', cls='req-err')
-        if ref or text.strip(): run_hook('concepts_added')
+        run_hook('concepts_added')   # a topic walk too: its concepts have a subject when the learner gave one
         if not j.steps:
             lr.drop_journey(j.id)
             return P('The tutor found no ideas in this document.' if ref or text.strip() else 'The tutor found no steps for this topic.', cls='req-err')

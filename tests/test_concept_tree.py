@@ -311,9 +311,51 @@ def test_new_concepts_are_placed_in_the_background_and_can_be_undone(mk, jy, fak
     t = cl.get('/concepts').text
     assert 'Placed by the tutor' not in t and 'Sort ' in t and 'Bharani' in t
     cl.post('/c/ashvini/undo'); assert jy.concept('ashvini').group == ['nakshatras']      # only a placement by the tutor can be undone
-    jy.put('Krittika', 'The third nakshatra.', 'jyotisha')
+
+class Now:
+    "A pool that runs a job at once, so a test waits on nothing."
+    def __init__(self, n=2): pass
+    def submit(self, f, *a, **kw):
+        from concurrent.futures import Future
+        fu = Future()
+        try: fu.set_result(f(*a, **kw))
+        except BaseException as e: fu.set_exception(e)
+        return fu
+
+def test_a_failed_placement_only_logs(mk, jy, fake, monkeypatch, caplog):
+    "The model fails: the request still works, the concept stays in `Not sorted yet`, and the log has a line."
+    monkeypatch.setattr('abhyasa.app.ThreadPoolExecutor', Now)
+    jy.save_groups('jyotisha'); jy.set_group('mesha', [], by='hand')
     fake.rules[SORT] = lambda p, sp: (_ for _ in ()).throw(RuntimeError('model down'))
     fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Rohini', statement='The fourth nakshatra.')])
-    assert cl.post('/add', data=dict(subject='jyotisha', text='Rohini.')).status_code == 200
-    time.sleep(.3)
-    assert jy.concept('rohini').get('group') is None and jy.concept('krittika').get('group') is None
+    with caplog.at_level('WARNING'): r = mk().post('/add', data=dict(subject='jyotisha', text='Rohini.'))
+    assert r.status_code == 200 and jy.concept('rohini').get('group') is None and 'could not place the new concepts' in caplog.text
+
+def test_an_undone_concept_is_not_placed_again(mk, jy, fake, monkeypatch):
+    "After an Undo, a later add that places new concepts leaves the undone one where it is."
+    monkeypatch.setattr('abhyasa.app.ThreadPoolExecutor', Now)
+    jy.save_groups('jyotisha'); jy.set_group('mesha', [], by='hand')
+    fake.rules[SORT] = lambda p, sp: dict(places=[dict(slug=s, group=['nakshatras']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
+    cl = mk()
+    fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Bharani', statement='The second nakshatra.')])
+    cl.post('/add', data=dict(subject='jyotisha', text='Bharani.'))
+    assert jy.concept('bharani').group_by == 'placed'
+    cl.post('/c/bharani/undo'); n = len(fake.calls)
+    fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Bharani', statement='Again.', group=['nakshatras']), dict(name='Rohini', statement='The fourth nakshatra.')])
+    cl.post('/add', data=dict(subject='jyotisha', text='Bharani and Rohini.'))
+    assert (jy.concept('bharani').group, jy.concept('bharani').group_by) == ([], 'undone') and jy.concept('rohini').group_by == 'placed'
+    assert not any('- bharani:' in p for p, _ in fake.calls[n:] if SORT in p)
+
+def test_other_ways_to_add_concepts_place_them_too(mk, jy, fake, monkeypatch):
+    "A topic that you add to a journey and a step that you split make new concepts. The concepts block places them."
+    monkeypatch.setattr('abhyasa.app.ThreadPoolExecutor', Now)
+    jy.save_groups('jyotisha'); jy.set_group('mesha', [], by='hand')
+    fake.rules[SORT] = lambda p, sp: dict(places=[dict(slug=s, group=['nakshatras']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
+    jy.put_journey(dict(id='jj', title='Stars', goal='Stars', subject='jyotisha', mode='plan', created=0, steps=[dict(slug='ashvini', status='todo', why='')]))
+    cl = mk()
+    fake.rules['The idea: '] = dict(name='Bharani', statement='The second nakshatra.')
+    cl.post('/j/jj/add', data=dict(name='Bharani'))
+    assert (jy.concept('bharani').group, jy.concept('bharani').group_by) == (['nakshatras'], 'placed')
+    fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Krittika', statement='The third nakshatra.')])
+    cl.post('/j/jj/split', data=dict(slug='ashvini'))
+    assert (jy.concept('krittika').group, jy.concept('krittika').group_by) == (['nakshatras'], 'placed')

@@ -10,7 +10,7 @@ __all__ = ['log', 'SHELF', 'STATE', 'LISTS', 'SYMBOLS', 'SLUG_KEYS', 'GROUP_DEPT
            'temp_learning']
 
 # %% ../nbs/00_store.ipynb #c004
-import json, logging, re, time, uuid, hashlib, unicodedata
+import json, logging, re, threading, time, uuid, hashlib, unicodedata
 from pathlib import Path
 from fastcore.utils import *
 from vishalakshi import Vault
@@ -69,6 +69,7 @@ class Learning:
     def __init__(self, vault=None, shelf:str=SHELF):
         if not isinstance(vault, Vault): vault = Vault(vault)
         self.vault, self.v = vault, vault.shelf(shelf)
+        self._lock = threading.RLock()   # a change of a group is one step: look, then write
         try: self.repair_names()   # a name that is a slug becomes words, one time
         except Exception as e: log.warning('abhyasa could not repair the names of the concepts: %r', e)
         try: getattr(self, 'repair_subjects', lambda: 0)()   # the journey module adds it: a walk gives its subject to its concepts, one time
@@ -123,18 +124,19 @@ def put(self:Learning,
         questions=(),          # ready questions: `{'q':..., 'a':..., 'depth':...}`
         **meta) -> AttrDict:
     "Add a concept or add to one. Keep the learner state, merge the list fields and replace the other fields."
-    slug = slug or slugify(name)
-    old = self.concept(slug) or {}
-    if old.get('group_by') == 'hand': meta.pop('group', None); meta.pop('group_by', None)   # a move by hand stays
-    elif 'group' in meta: meta['group'] = clean_group(meta['group'], subject or old.get('subject', ''))
-    new = dict(name=name, statement=statement or old.get('statement', ''), subject=subject or old.get('subject', ''), slug=slug, **meta)
-    for k, v in dict(prereqs=prereqs, related=related, aliases=aliases, provenance=provenance, questions=questions).items():
-        new[k] = _union(old.get(k), v)
-    new['prereqs'] = [p for p in new['prereqs'] if p != slug]
-    m = {**STATE, **{k: v for k, v in old.items() if k != 'doc_id'}, **new}
-    r = self.v.add(concept_text(m), title=name, source=_src('concept', slug), kind='concept', meta=m)
-    if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
-    return self.concept(slug)
+    with self._lock:   # one step: look at the old concept, then write
+        slug = slug or slugify(name)
+        old = self.concept(slug) or {}
+        if old.get('group_by') in ('hand', 'sort', 'placed', 'undone'): meta.pop('group', None); meta.pop('group_by', None)   # a group that you, a saved sort or a placement set stays: use `set_group`
+        elif 'group' in meta: meta['group'] = clean_group(meta['group'], subject or old.get('subject', ''))
+        new = dict(name=name, statement=statement or old.get('statement', ''), subject=subject or old.get('subject', ''), slug=slug, **meta)
+        for k, v in dict(prereqs=prereqs, related=related, aliases=aliases, provenance=provenance, questions=questions).items():
+            new[k] = _union(old.get(k), v)
+        new['prereqs'] = [p for p in new['prereqs'] if p != slug]
+        m = {**STATE, **{k: v for k, v in old.items() if k != 'doc_id'}, **new}
+        r = self.v.add(concept_text(m), title=name, source=_src('concept', slug), kind='concept', meta=m)
+        if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
+        return self.concept(slug)
 
 # %% ../nbs/00_store.ipynb #c019
 @patch
@@ -215,11 +217,12 @@ def clean_group(path, subject:str='') -> list:
 @patch
 def set_group(self:Learning, slug:str, path, by:str='hand') -> AttrDict:
     "Put concept `slug` in the group `path`, set `by` the learner (`hand`) or the tutor (`model`)."
-    c = self.concept(slug)
-    if c is None: raise KeyError(f'no concept {slug!r}')
-    if by != 'hand' and c.get('group_by') == 'hand': return c
-    g = clean_group(path, c.subject)
-    return self.update(slug, group=g, group_by='hand' if by == 'hand' else by if g else None)   # `by`: hand, model, sort (a saved sort) or placed (a new concept)
+    with self._lock:
+        c = self.concept(slug)
+        if c is None: raise KeyError(f'no concept {slug!r}')
+        if by != 'hand' and c.get('group_by') == 'hand': return c
+        g = clean_group(path, c.subject)
+        return self.update(slug, group=g, group_by='hand' if by == 'hand' else by if g else None)   # `by`: hand, model, sort (a saved sort) or placed (a new concept)
 
 def _paths(*lists) -> list:
     "The group paths in `lists`, each one time and with its parents, sorted. Case does not count."
@@ -260,9 +263,19 @@ def unsorted(self:Learning, subject:str=None) -> L:
 @patch
 def unplace(self:Learning, slug:str) -> AttrDict:
     "Undo a placement by the tutor: no group, and the tutor does not place the concept by itself again. A group that you set, or that a saved sort set, stays."
-    c = self.concept(slug)
-    if c is None: raise KeyError(f'no concept {slug!r}')
-    return self.update(slug, group=[], group_by='undone') if c.get('group_by') == 'placed' else c
+    with self._lock:
+        c = self.concept(slug)
+        if c is None: raise KeyError(f'no concept {slug!r}')
+        return self.update(slug, group=[], group_by='undone') if c.get('group_by') == 'placed' else c
+
+@patch
+def place(self:Learning, slug:str, path) -> bool:
+    "Place a new concept in the group `path`, as the tutor. One step under a lock: it looks at the concept again, and changes nothing when the concept is gone, has a group, was kept out of the groups by hand, or was undone. Return whether it placed the concept."
+    with self._lock:
+        c = self.concept(slug)
+        if c is None or c.get('group') or c.get('group_by') in ('hand', 'undone') or not (g := clean_group(path, c.subject)): return False
+        self.update(slug, group=g, group_by='placed')
+        return True
 
 # %% ../nbs/00_store.ipynb #sf06
 def clean_subject(s) -> str:
