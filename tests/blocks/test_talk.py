@@ -946,9 +946,14 @@ def test_slide_text_is_safe(mk, talk_fake, lr):
 def test_words_question_reads_well():
     "The words question names the idea as a question when the name is a question, and asks what it is when the name is a noun phrase."
     from abhyasa.talk import words_q
-    assert words_q(f'Why scale by {TEX}') == f'Say in one or two sentences: why scale by {TEX}?'
-    assert words_q('How does attention work?') == 'Say in one or two sentences: how does attention work?'
-    assert words_q('Softmax') == 'Say in one or two sentences: what is Softmax?'
+    assert words_q(f'Why scale by {TEX}') == f'Say in one or two sentences: Why scale by {TEX}?'
+    assert words_q('How does attention work?') == 'Say in one or two sentences: How does attention work?'
+    assert words_q('Softmax') == 'Say in one or two sentences: what is "Softmax"?'
+    # the case of a name never changes, and only a title-case question word followed by more words makes a question
+    assert words_q('CAN bus') == 'Say in one or two sentences: what is "CAN bus"?'
+    assert words_q('WHO growth charts') == 'Say in one or two sentences: what is "WHO growth charts"?'
+    assert words_q('Bayes?') == 'Say in one or two sentences: Bayes?'
+    assert words_q('Which') == 'Say in one or two sentences: what is "Which"?' and words_q('') is None
 
 def test_a_failed_choice_gives_a_good_words_question(lr):
     "When the model gives no choice question, the words question reads well for a name that is a question."
@@ -957,7 +962,7 @@ def test_a_failed_choice_gives_a_good_words_question(lr):
     lr.put(f'Why scale by {TEX}', 'Divide the scores by the root of dk.', 'ml')
     slug = next(c.slug for c in lr.concepts() if c.name.startswith('Why scale'))
     a = ask_from_check(lr, Fake({}, dflt='not JSON'), slug)
-    assert a['kind'] == 'words' and a['q'] == f'Say in one or two sentences: why scale by {TEX}?'
+    assert a['kind'] == 'words' and a['q'] == f'Say in one or two sentences: Why scale by {TEX}?'
 
 def test_the_slide_model_writes_the_words_question(lr):
     "A slide with the fallback words question takes the question that the slide model writes; a question that you wrote stays."
@@ -970,3 +975,28 @@ def test_the_slide_model_writes_the_words_question(lr):
     assert fill_slide(lr, ask, s)['ask'] == dict(kind='words', q=SLIDE['ask'], most=80, src=dict(check='code'))
     mine = dict(s, ask=dict(s['ask'], q='Say how you rank two lists.'))
     assert fill_slide(lr, ask, mine)['ask']['q'] == 'Say how you rank two lists.'
+
+def test_an_old_words_question_gets_new_words(lr):
+    "A slide with a passage and a note needs no model call, but its old words question gets the words of words_q; your own question stays."
+    from abhyasa.talk import fill_slide, old_words_q
+    from abhyasa.llm import Fake
+    none = Fake({})
+    s = dict(id='s6', kind='idea', concept='nope', title=f'Why scale by {TEX}', show=dict(passage='We scale the dot products.'), beats=['passage'],
+             notes='Say why.', ask=dict(kind='words', q=old_words_q(f'Why scale by {TEX}'), most=80))
+    assert fill_slide(lr, none, s)['ask']['q'] == f'Say in one or two sentences: Why scale by {TEX}?' and none.calls == []
+    mine = dict(s, ask=dict(s['ask'], q='Say why we divide.'))
+    assert fill_slide(lr, none, mine) is mine
+
+def test_a_short_cut_keeps_the_maths_whole():
+    "The small picture of a slide cuts its text at a space, but never inside a pair of maths."
+    from abhyasa.blocks.talk.ui import short
+    assert short(f'We divide the scores by {TEX} here', 30) == 'We divide the scores by…'
+    assert short(f'{TEX} and more words after it', 5) == f'{TEX}…'
+    assert short(r'A long line with $$x + y$$ in it', 22) == 'A long line with…' and short('Plain words here', 10) == 'Plain…'
+
+def test_the_foot_draws_the_maths_of_the_talk_title(mk, talk_fake, lr):
+    "The foot of each slide shows the title of the talk with its maths drawn."
+    cl = mk(); tid, _ = started(cl, lr); t = dict(lr.talk(tid)); t['title'] = f'Scaling by {TEX}'
+    lr.put_talk(t)
+    p = cl.get(f'/t/{tid}/present').text
+    assert f'Scaling by {MATH}' in p and f'<span>Scaling by {TEX}</span>' not in p

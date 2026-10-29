@@ -7,11 +7,11 @@ Docs: https://vedicreader.github.io/abhyasa/talk.html.md"""
 # %% auto #0
 __all__ = ['TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'BODY_MOST',
            'POINT_MOST', 'TALK_CASES', 'CHOICE_SP', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'IMAGE_TYPES', 'IMAGE_SUFFIXES',
-           'RECAP_CSS', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q', 'ask_from_check',
-           'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides',
-           'talk_from_walk', 'fill_talk', 'walk_talk', 'talk_from_journey', 'image_type', 'asset_resolver',
-           'public_deck', 'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_output', 'log_question',
-           'log_beside', 'share_right', 'is_split', 'weak', 'recap', 'recap_html']
+           'RECAP_CSS', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q', 'words_ask',
+           'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_notes', 'needs_fill',
+           'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk', 'talk_from_journey', 'image_type',
+           'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_output',
+           'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap', 'recap_html']
 
 # %% ../nbs/17_talk.ipynb #bddba3f8
 import re, json, math, time, uuid, secrets, hashlib, base64, html
@@ -186,26 +186,32 @@ def _choice(r) -> dict|None:
     return dict(kind='choice', q=q.strip(), options=[o.strip() for o in opts], answer=ans) if good else None
 
 # %% ../nbs/17_talk.ipynb #wq02
-_ASKS = {'why', 'how', 'what', 'when', 'where', 'which', 'who', 'whose', 'is', 'are', 'does', 'do', 'can', 'should'}
+_ASKS = ('Why', 'How', 'What', 'When', 'Which')
 
-def words_q(name:str) -> str:
-    "The words question on the idea `name`: the name itself when it reads as a question, else what the idea is."
+def words_q(name:str) -> str|None:
+    "The words question on the idea `name`: the name itself when it reads as a question, else what the idea is; None for an empty name."
     n = ' '.join(str(name or '').split())
-    if n.endswith('?') or n.split(' ', 1)[0].lower() in _ASKS: return f"Say in one or two sentences: {n[:1].lower()}{n[1:].rstrip('?. ')}?"
-    return f"Say in one or two sentences: what is {n}?"
+    if not n: return None
+    if n.endswith('?'): return f"Say in one or two sentences: {n}"
+    if n.split(' ', 1)[0] in _ASKS and ' ' in n: return f"Say in one or two sentences: {n.rstrip('.')}?"
+    return f'Say in one or two sentences: what is "{n}"?'
 
 def old_words_q(name:str) -> str:
     "The words question that talks made before `words_q`: the name always after \"what is\"."
     return f"Say in one or two sentences: what is {name}?"
 
+def words_ask(name:str) -> dict|None:
+    "The words question on the idea `name` as a question for the room, or None for an empty name."
+    return dict(kind='words', q=q, most=WORDS_MOST) if (q := words_q(name)) else None
+
 # %% ../nbs/17_talk.ipynb #97e3223f
-def ask_from_check(lr:Learning, ask, slug:str, passage:str='') -> dict:
-    "A choice question on concept `slug` from one model call, or a words question when the call fails."
+def ask_from_check(lr:Learning, ask, slug:str, passage:str='') -> dict|None:
+    "A choice question on concept `slug` from one model call, or a words question when the call fails (None when the idea has no name)."
     c = lr.concept(slug) or AttrDict(name=slug, statement='')
     p = f"Idea: {c.get('name') or slug}\nStatement: {c.get('statement') or ''}\nPassage: {passage}"
     try: r = _choice(ask_json(for_task(ask, 'talk'), p, prompt('talk.choice')))
     except Exception: r = None
-    return r or dict(kind='words', q=words_q(c.get('name') or slug), most=WORDS_MOST)
+    return r or words_ask(c.get('name') or slug)
 
 def ask_for_concept(lr:Learning, ask, slug:str) -> dict:
     "`ask_from_check` with the statement of concept `slug` as the passage."
@@ -228,9 +234,9 @@ def _idea_ask(lr:Learning, ask, s:dict, passage:str, choice:bool) -> tuple:
         for g in _gates(d.spec.get('blocks')):
             if (a := ask_from_gate(d.spec, g.get('id'))): return d.slug, dict(a, src=dict(demo=d.slug, gate=g['id']))
     c = lr.concept(s['slug']) or {}
-    if kind == 'code' or not choice: a = dict(kind='words', q=words_q(c.get('name') or s['slug']), most=WORDS_MOST)
+    if kind == 'code' or not choice: a = words_ask(c.get('name') or s['slug'])
     else: a = ask_from_check(lr, ask, s['slug'], passage)
-    return None, dict(a, src=dict(check='code' if kind == 'code' else 'short'))
+    return None, dict(a, src=dict(check='code' if kind == 'code' else 'short')) if a else None
 
 # %% ../nbs/17_talk.ipynb #1242b4f9
 def _web(r:dict) -> dict:
@@ -294,14 +300,22 @@ def _source_figure(lr:Learning, ps) -> str|None:
             if (f := figure_path(lr, p['url'], link)) and _image_ok(f'asset:{f}'): return f'asset:{f}'
 
 def _made_q(s:dict, name:str) -> bool:
-    "True when the question of slide `s` is a words question that the talk made from the name `name`, not one that you wrote."
-    a = s.get('ask') or {}
-    return a.get('kind') == 'words' and a.get('q') in (words_q(name), old_words_q(name), words_q(s.get('title') or ''), old_words_q(s.get('title') or ''))
+    "True when the question of slide `s` is a words question that the talk made from the name `name` or the title, not one that you wrote."
+    a, names = s.get('ask') or {}, {name, s.get('title') or ''} - {''}
+    return a.get('kind') == 'words' and a.get('q') in {q for n in names for q in (words_q(n), old_words_q(n))}
+
+def _new_q(s:dict, name:str) -> dict:
+    "Slide `s` with the words question of `words_q`, when its question is one that the talk made before; else `s`."
+    q = words_q(name)
+    if not q or not _made_q(s, name) or s['ask']['q'] == q: return s
+    return {**s, 'ask': {**s['ask'], 'q': q}}
 
 def fill_slide(lr:Learning, ask, s:dict, sources=None) -> dict:
-    "Slide `s` with points (when it has no passage), speaker notes (when it has none), its sources, and the question of the model for a words question that the talk made, from one model call. A bad reply gives `s`."
-    if not needs_fill(s): return s
+    "Slide `s` with points (when it has no passage), speaker notes (when it has none), its sources, and the question of the model for a words question that the talk made, from one model call. A slide that needs no call, or a bad reply, gives `s` with the words of `words_q` in a question that the talk made."
+    if s.get('kind') not in ('idea', 'primer') or not s.get('concept'): return s
     c = lr.concept(s['concept']) or AttrDict(slug=s['concept'], name=s.get('title') or s['concept'], statement='')
+    s = _new_q(s, c.get('name') or s.get('title') or '')
+    if not needs_fill(s): return s
     ps, sh = concept_grounds(c, sources), s.get('show') or {}
     p = (f"Idea: {json.dumps(c.get('name') or '')}\nStatement: {json.dumps(c.get('statement') or '')}\n"
          + (f"The slide shows this passage:\n{fence('The slide', sh['passage'])}" if (sh.get('passage') or '').strip() else 'The slide shows no passage.')

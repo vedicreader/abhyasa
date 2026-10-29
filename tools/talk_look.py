@@ -305,6 +305,17 @@ def reload_audience(pg, w):
 
 TEX = r'$1/\sqrt{d_k}$'
 SHOWN = "(s => [...document.querySelectorAll(s)].map(e => [e.innerText, e.querySelectorAll('.katex').length]))"
+CASES = [r'costs \$5 now', r'sum $$x^2$$ here', '$$x$$', r'a $b$ and \$c$', 'x $a$$b$ y', 'plain 5$ and $ 6$', 'pay $5 and $10', f'Why scale by {TEX}?']
+TOKENS = """(s => { const e = abhyasaMath(document.createElement('p'), s);
+  return [...e.childNodes].map(n => n.nodeType === 3 ? n.data : `[${n.classList.contains('display') ? 'd' : 'i'}:${n.querySelector('annotation')?.textContent ?? n.textContent}]`).join(''); })"""
+def server_tokens(s):
+    "The text of `Inline(s)` with each maths span as [i:tex] or [d:tex], as TOKENS gives it in the browser."
+    import html, re
+    from fastcore.xml import to_xml
+    from abhyasa.core import Inline
+    h = re.sub(r'<span class="math (inline|display)">(.*?)</span>', lambda m: f'[{m[1][0]}:{m[2]}]', to_xml(Inline(s)))
+    return html.unescape(re.sub(r'^<span class="">|</span>\s*$', '', h.strip()))
+
 def maths(pg, w):
     "Maths in the title, the section, the points, the question and the options of slide 1 draws with KaTeX, the same in both windows."
     au, before, t0 = w.au, place(pg), w.lr.talk(w.tid)
@@ -312,6 +323,7 @@ def maths(pg, w):
     s.update(title=f'Why scale by {TEX}', section=f'Scale by {TEX}', beats=['body', *[b for b in s.get('beats') or [] if b != 'body']])
     s['show'] = dict(s['show'], body=[f'We divide the scores by {TEX}.', 'Large scores make softmax flat.'])
     s['ask'] = dict(s['ask'], q=f'Why divide by {TEX}?', options=[f'To keep {TEX} small', 'To add noise', 'To sort them'])
+    for c in CASES: assert pg.evaluate(TOKENS, c) == server_tokens(c), (c, pg.evaluate(TOKENS, c), server_tokens(c))   # the same maths as md_html
     w.lr.put_talk(t)
     try:
         for x in (au, pg): x.reload(); settle(x)

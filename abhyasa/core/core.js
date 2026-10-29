@@ -9,15 +9,16 @@ function render(root) {
   });
 }
 // Plain text `s` into `el` with its `$…$` maths drawn, as `Inline` in core/ui.py does on the server. Each part goes in as a text
-// node or as the textContent of a `span.math`, so the text never goes in as HTML. The rule of a `$` is pandoc's, as in md_html:
-// no space after the open `$` or before the close `$`, and no digit after the close.
-const MATH_IN = /(?<!\\)\$(?=\S)([^$\n]*?[^\s\\])\$(?!\d)/g;
+// node or as the textContent of a `span.math`, so the text never goes in as HTML. The rules are those of md_html: `\$` is a plain
+// `$`; `$$…$$` is display maths; and `$…$` has no space after the open `$` or before the close `$`, and no digit or `$` next to it.
+const MATH_IN = /\\\$|\$\$([^$]+?)\$\$|(?<!\$)\$(?=[^\s$])([^$\n]*?[^\s\\$])\$(?![\d$])/g;
 function abhyasaMath(el, s) {
   s = String(s ?? ''); el.replaceChildren();
   let at = 0;
   for (const m of s.matchAll(MATH_IN)) {
     if (m.index > at) el.append(s.slice(at, m.index));
-    el.append(Object.assign(document.createElement('span'), {className: 'math inline', textContent: m[1]}));
+    if (m[0] === '\\$') el.append('$');
+    else el.append(Object.assign(document.createElement('span'), {className: m[1] != null ? 'math display' : 'math inline', textContent: m[1] ?? m[2]}));
     at = m.index + m[0].length;
   }
   if (at < s.length) el.append(s.slice(at));

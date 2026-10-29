@@ -1,5 +1,5 @@
 "The talk on the page: the editor with one row for each slide, the form that changes a slide, and the parts on other pages."
-import json, math
+import json, math, re
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
@@ -24,9 +24,15 @@ def rupaka_assets():
 
 def at(r, tid): return Routes.of(r, tid=tid)
 
+_PAIR = re.compile(r'\$\$.+?\$\$|(?<!\\)\$[^$]+?(?<!\\)\$')   # a `$…$` or `$$…$$` pair of maths
+
 def short(s, n=140):
+    "`s` cut to about `n` characters at a space, with `…`. A cut never splits a pair of maths: it goes before the pair, or after it at the start."
     s = ' '.join(str(s or '').split())
-    return s if len(s) <= n else s[:n].rsplit(' ', 1)[0] + '…'
+    if len(s) <= n: return s
+    m = first(m for m in _PAIR.finditer(s) if m.start() < n < m.end())
+    if m: return (s[:m.start()].rstrip() if m.start() else s[:m.end()]) + '…'
+    return s[:n].rsplit(' ', 1)[0] + '…'
 
 # --- on other pages --------------------------------------------------------------------------------------------------
 
@@ -224,7 +230,7 @@ def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):
     extra = dict(data_beats=json.dumps(beats), data_n=str(max(1, len(beats)))) if presenter else {}
     return Section(P(Inline(crumb), cls='crumb') if crumb else '', H1(Inline(head)), P(say, cls='say') if say else '',
                    Div(*parts, cls='body' + (' two' if len(parts) > 1 else '')) if parts else '',
-                   Div(Span(title), Span(f'{n} of {total}'), cls='foot'),
+                   Div(Inline(title), Span(f'{n} of {total}'), cls='foot'),
                    cls='stage', data_sid=ps['id'], data_lits=json.dumps(lits(beats, ps['passage'])), hidden=not here, **extra)
 
 def at_img(tid, h): return Routes.of(Routes.img, tid=tid, h=h)
@@ -296,7 +302,7 @@ def Presenter(t, deck, run, demos):
     keys = [('D', 'or space: next'), ('A', 'back'), ('Q', 'ask the room'), ('R', 'show the answer'), ('E', 'into the demo'), ('X', 'laser'),
             ('B', 'blank the room screen'), ('G', 'go to a slide'), ('⌥B', 'learn beside'), ('⌥Z', 'back to the slide'), ('esc', 'close')]
     end = Form(Quiet('End the talk', small=True, type='submit'), action=at(Routes.end, tid), method='post', hx_boost='false', id='end-form')
-    return Div(Div(Span(t['title'], cls='t'), aud, Span(cls='gap'), Span(id='left'),
+    return Div(Div(Inline(t['title'], cls='t'), aud, Span(cls='gap'), Span(id='left'),
                    Span('0:00', id='clock', data_started=str(run['started']), data_slot=str(t['minutes'])), Small(f"of {t['minutes']} min"), end, cls='pv-top'),
                Div(Div(Span(id='now'), Span(id='beats', cls='beats'), cls='mini-lbl'),
                    Stage(t, deck, run, demos, presenter=True),
