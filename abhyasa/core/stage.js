@@ -44,6 +44,7 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   const JOIN = str(64, /^http:\/\/(10\.\d{1,3}|172\.(1[6-9]|2\d|3[01])|192\.168|127\.0)\.\d{1,3}\.\d{1,3}:\d{2,5}\/j\/[A-HJKMNP-Z2-9]{6}$/);
   // At most 6 options, as in a talk now. By ruling, Option C adds its own types with their own limits through `add`; these stay.
   const PICK = either(int(0, 5), list(6, int(0, 5)));   // an option, or the options in order
+  const GATE_PICK = either(int(0, 63), list(64, int(0, 63)));   // the same at a demo gate, which can have more options
   // The public part of a question: never its `answer` (spec 7.7).
   const ASK = shape({kind: v => ['choice', 'order', 'words', 'scale'].includes(v), q: str(500), options: list(6, str(200)), most: int(1, 500)}, ['kind', 'q']);
   const ROUND = shape({counts: list(6, N), n: N}, ['n']);
@@ -52,7 +53,10 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   const TYPES = {
     go: {fields: {slide: SLIDE, beat: int(0, 50)}},
     point: {fields: {x: part, y: part, id: ID, off: v => v === true}, need: [['x', 'y'], ['id'], ['off']]},
-    demo: {fields: {slug: str(80, /^[a-z0-9-]{1,80}$/), state: isObj, gates: v => isObj(v) && Object.entries(v).every(([k, x]) => ID(k) && x === 'done')}},
+    // `pick`: the presenter's pick at each done gate, for the verdict in the audience copy only. It is never logged or filed.
+    demo: {fields: {slug: str(80, /^[a-z0-9-]{1,80}$/), state: isObj, gates: v => isObj(v) && Object.entries(v).every(([k, x]) => ID(k) && x === 'done'),
+                    pick: v => isObj(v) && Object.keys(v).length <= 64 && Object.entries(v).every(([k, x]) => ID(k) && GATE_PICK(x))},
+           need: ['slug', 'state', 'gates'], ok: m => !m.pick || Object.keys(m.pick).every(k => Object.hasOwn(m.gates, k))},
     ask: {fields: {slide: SLIDE, ask: orNull(ASK)}},
     result: {fields: {slide: SLIDE, kind: str(8, /^(choice|order|words|scale)$/), rounds: list(2, ROUND), right: orNull(PICK), main: orNull(PICK)}},
     pair: {fields: {on: bool, prompt: str(200)}, need: ['on']},
@@ -193,41 +197,60 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
 
   // The mirrored demo (spec 10): the same rupaka spec in the two windows. The presenter copy gives `snapshot` and `watch`, and the
   // talk page sends each snapshot as a `demo` message. The audience copy takes it with `apply`, and sends nothing back.
-  // A snapshot has only the input keys (the keys of `spec.state`) and the gates that are done: never a pick or a verdict.
-  // The one feature check: when rupaka has `Rupaka.set` and `Rupaka.settle` (the ask of Task 4), `apply` uses them.
-  // Until then it uses the rupaka 0.0.3 store on `host.rupaka`, and the audience copy shows the blocks after a gate but no verdict.
-  const ownSet = () => typeof globalThis.Rupaka?.set === 'function' && typeof Rupaka.settle === 'function';
+  // A snapshot has the input keys (`Rupaka.state`), the gates that are done, and the presenter's pick at each of them, as the index
+  // of the option. The audience copy draws the verdict from the pick with `Rupaka.settle`. The pick is for the display only: no
+  // window logs it or files it, and `Rupaka.set` and `Rupaka.settle` fire no gate, no rk-predict and no log.
   const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  const HOST_API = () => ['state', 'set', 'settle'].every(f => typeof globalThis.Rupaka?.[f] === 'function');
+  // The options of gate `id`, from the spec and the state. `Rupaka.settle` takes the option itself, and the host API of rupaka 0.0.4
+  // does not give the options of a gate, so this is the one read of the store of the demo.
+  // A gate with no `answer` (the copy of a talk's audience window, see room_spec) gives no options, so it shows no verdict:
+  // a verdict with no answer would read "It is ." to the room.
+  function options(host, id) {
+    const s = host.rupaka, find = bs => { for (const b of bs || []) { if (b?.type === 'gate' && b.id === id) return b; const g = find(b?.blocks); if (g) return g; } };
+    const g = find(s?.spec?.blocks);
+    const os = !g || g.answer == null ? null : Array.isArray(g.options) ? g.options : s.get(g.options?.from);
+    return Array.isArray(os) ? os : [];
+  }
   function mirror(host) {
-    const store = () => host.rupaka, inputs = () => Object.keys(store().spec.state || {});
-    function snapshot() {
-      const st = store().st, state = {}, gates = {};
-      for (const k of inputs()) state[k] = structuredClone(st[k]);
-      for (const [id, g] of Object.entries(st.gate || {})) if (g === 'done') gates[id] = 'done';
-      return {state, gates};
-    }
-    function apply(state = {}, gates = {}) {
-      const s = store(), st = s.st, have = st.gate ?? {}, keys = inputs().filter(k => Object.hasOwn(state, k));
-      // only a gate of this spec that is not done yet; an open or a pending gate in the presenter copy does not show here
-      const fresh = Object.keys(gates).filter(id => gates[id] === 'done' && Object.hasOwn(have, id) && have[id] !== 'done');
+    if (!HOST_API()) throw Error('a mirrored demo needs rupaka 0.0.4 or newer: Rupaka.state, Rupaka.set and Rupaka.settle are not there');
+    const gates = {}, pick = {}, shown = {}, pokes = [];
+    const poke = () => pokes.forEach(f => f());
+    // The presenter copy: a gate is done when the page settles its prediction as saved, or when no page catches it.
+    host.addEventListener('rk-predict', e => {
+      const d = e.detail, id = d?.gate, i = options(host, id).findIndex(o => same(o, d.picked));
+      if (typeof id !== 'string') return;
+      const done = () => { gates[id] = 'done'; if (i >= 0 && i < 64) pick[id] = i; else delete pick[id]; poke(); };
+      const settle = d.settle;
+      if (typeof settle === 'function') d.settle = (saved, message) => { settle(saved, message); if (saved) done(); };
+      queueMicrotask(() => { if (!e.defaultPrevented) done(); });
+    });
+    const snapshot = () => ({state: Rupaka.state(host), gates: {...gates}, pick: structuredClone(pick)});
+    function apply(state = {}, done = {}, picks = {}) {
       host.querySelectorAll('.rk-gate').forEach(n => { n.inert = true; });   // the room does not pick in the audience window
-      if (ownSet()) {
-        if (keys.length) Rupaka.set(host, Object.fromEntries(keys.map(k => [k, state[k]])));
-        fresh.forEach(id => Rupaka.settle(host, id, null));
-        return;
+      const now = Rupaka.state(host), keys = Object.keys(now).filter(k => Object.hasOwn(state, k) && !same(now[k], state[k]));
+      if (keys.length) Rupaka.set(host, Object.fromEntries(keys.map(k => [k, state[k]])));
+      // only a gate that is done in the presenter copy; an open or a pending gate there does not show here
+      for (const id of Object.keys(done || {})) {
+        const p = picks?.[id] ?? null, k = JSON.stringify(p);
+        if (done[id] !== 'done' || shown[id] === k) continue;
+        const os = options(host, id), at = i => Number.isInteger(i) && i >= 0 && i < os.length ? os[i] : undefined;
+        let v = Array.isArray(p) ? p.map(at) : at(p);
+        if (v === undefined || (Array.isArray(v) && v.includes(undefined))) v = null;
+        if (Rupaka.settle(host, id, v)) shown[id] = k;
       }
-      for (const k of keys) if (!same(st[k], state[k])) s.set(k, structuredClone(state[k]));
-      if (!fresh.length) return;
-      fresh.forEach(id => { st.gate[id] = 'done'; });
-      s.set('_', (st._ || 0) + 1);   // one draw, so the blocks after the gates show
     }
     // `fn(snapshot())` on a change: the first change at once, then at most once each 50 ms, and never the same snapshot twice.
+    // A change comes from the input events in the demo (the save of mount is the page's own), and from a gate that closes.
     function watch(fn) {
       let t = 0, due = false, last = null, live = true;
       const send = () => { const s = snapshot(), k = JSON.stringify(s); if (k !== last) { last = k; fn(s); } };
       const tick = () => { if (due && live) { due = false; send(); t = setTimeout(tick, 50); } else t = 0; };
-      store().on(() => { if (!live) return; if (t) due = true; else { send(); t = setTimeout(tick, 50); } });
-      return () => { live = false; clearTimeout(t); };
+      // the check after 50 ms also takes a change that a listener of the demo made after this one
+      const on = () => { if (!live) return; if (t) due = true; else { send(); due = true; t = setTimeout(tick, 50); } };
+      const EVENTS = ['input', 'change', 'click', 'keyup', 'pointerup', 'pointermove'];
+      EVENTS.forEach(n => host.addEventListener(n, on)); document.addEventListener('pointerup', on); pokes.push(on);
+      return () => { live = false; clearTimeout(t); EVENTS.forEach(n => host.removeEventListener(n, on)); document.removeEventListener('pointerup', on); };
     }
     return {snapshot, apply, watch};
   }

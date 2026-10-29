@@ -520,7 +520,7 @@ function audienceView(st) {
     else if (m.t === 'end') drawEnd(st);
     else if (m.t === 'demo') {
       const sec = sectionOf(st, st.dataset.slide);
-      sec?.querySelectorAll(`[data-rupaka][data-demo="${CSS.escape(m.slug)}"]`).forEach(h => mirrors.get(h)?.apply(m.state, m.gates));
+      sec?.querySelectorAll(`[data-rupaka][data-demo="${CSS.escape(m.slug)}"]`).forEach(h => mirrors.get(h)?.apply(m.state, m.gates, m.pick));
     }
   }
   // the side pane shows only a walk step in the talk type, over the checked channel

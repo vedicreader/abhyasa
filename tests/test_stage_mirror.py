@@ -1,4 +1,4 @@
-"The mirrored demo: the audience copy of a rupaka demo follows the presenter copy, on the rupaka 0.0.3 store."
+"The mirrored demo: the audience copy of a rupaka demo follows the presenter copy through the rupaka 0.0.4 host API."
 import json, pytest
 from pathlib import Path
 from rupaka.render import page
@@ -15,80 +15,97 @@ def _chromium():
 
 pytestmark = pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
 
-def test_mirror_follows_the_presenter_copy():
+# The page settles each prediction as the talk page does: it files nothing.
+TALK = "document.addEventListener('rk-predict', e => { e.preventDefault(); e.detail.settle(true); })"
+
+def _two(pg, spec):
+    "Two copies of `spec` on `pg`, with the stage script and the talk page's catch of each prediction."
+    pg.set_content(page([spec, spec])); pg.add_script_tag(content=JS); pg.evaluate(f'() => {{ {TALK}; }}')
+    pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 2")
+
+def test_mirror_needs_rupaka_004():
+    "With no `Rupaka.state`, `set` or `settle`, `mirror` throws an error that names the rupaka version."
     spec = gallery()['softmax-temperature']
     with pw.sync_playwright() as p:
         b = p.chromium.launch(headless=True)
         try:
-            pg = b.new_page(); pg.set_content(page([spec, spec])); pg.add_script_tag(content=JS)
-            pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 2")
+            pg = b.new_page(); _two(pg, spec)
+            got = pg.evaluate("""() => { delete Rupaka.settle;
+              try { abhyasaStage.mirror(document.querySelector('[data-rupaka]')); return 'no error'; } catch (e) { return e.message; } }""")
+            assert 'rupaka 0.0.4' in got
+        finally: b.close()
+
+def test_mirror_follows_the_presenter_copy():
+    "The presenter picks at the gate; the snapshot has the inputs, the done gate and the pick, and the audience copy draws the same verdict."
+    spec = gallery()['softmax-temperature']
+    with pw.sync_playwright() as p:
+        b = p.chromium.launch(headless=True)
+        try:
+            pg = b.new_page(); _two(pg, spec)
+            pg.evaluate("() => { const [a, b] = document.querySelectorAll('[data-rupaka]'); window.ma = abhyasaStage.mirror(a); window.mb = abhyasaStage.mirror(b); }")
+            pg.click('[data-rupaka]:first-of-type .rk-gate .opts button:nth-child(2)'); pg.click('[data-rupaka]:first-of-type .rk-gate .go')
             got = pg.evaluate("""() => {
-              const [a, b] = document.querySelectorAll('[data-rupaka]'), ma = abhyasaStage.mirror(a), mb = abhyasaStage.mirror(b);
-              a.rupaka.set('t', 2); mb.apply(ma.snapshot().state, {});
-              a.rupaka.st.gate.hot = 'done'; mb.apply(ma.snapshot().state, ma.snapshot().gates);
-              return {t: b.rupaka.st.t, gate: b.rupaka.st.gate.hot, keys: Object.keys(ma.snapshot().state).sort()};
+              const [a, b] = document.querySelectorAll('[data-rupaka]'), s = ma.snapshot(), v = n => n.querySelector('.rk-gate .verdict');
+              mb.apply(s.state, s.gates, s.pick);
+              return {s, valid: abhyasaStage.valid({v: 1, t: 'demo', slug: 'x', ...s}), pre: v(a).textContent, aud: v(b).textContent,
+                      shown: !v(b).hidden, log: b.rupaka.st.log ?? null};
             }""")
-            assert got == dict(t=2, gate='done', keys=['logits', 't'])
+            assert got['s'] == dict(state=dict(logits=[3, 1.5, 1, -1], t=1), gates=dict(hot='done'), pick=dict(hot=1)) and got['valid']
+            assert got['pre'].startswith('You said It falls') and got['aud'] == got['pre'] and got['shown'] and got['log'] is None
         finally: b.close()
 
 def test_mirror_details():
-    "Only the input keys and the done gates; apply sets only what changed, fires no gate, and makes the gate inert; watch waits 50 ms; Rupaka.set wins when it is there."
+    "apply sets only what changed and fires no gate; a gate with no pick shows no verdict; watch waits 50 ms; the audience gate is inert."
     spec = gallery()['softmax-temperature']
     with pw.sync_playwright() as p:
         b = p.chromium.launch(headless=True)
         try:
-            pg = b.new_page(); pg.set_content(page([spec, spec])); pg.add_script_tag(content=JS)
-            pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 2")
+            pg = b.new_page(); _two(pg, spec)
             got = pg.evaluate("""async () => {
               const [a, b] = document.querySelectorAll('[data-rupaka]'), ma = abhyasaStage.mirror(a), mb = abhyasaStage.mirror(b), r = {};
-              let sets = 0, predicts = 0;
-              b.rupaka.on(() => sets++); b.addEventListener('rk-predict', () => predicts++);
-              a.rupaka.st.gate.hot = 'pending';
-              r.pending = ma.snapshot().gates;   // a gate that is not done is not sent
-              r.valid = abhyasaStage.valid({v: 1, t: 'demo', slug: spec_slug, ...ma.snapshot()});
+              let draws = 0, predicts = 0;
+              b.rupaka.on(() => draws++); b.addEventListener('rk-predict', () => predicts++);
+              r.open = ma.snapshot();   // a gate that is not done is not sent
               mb.apply({t: 1, logits: [3, 1.5, 1, -1]}, {});
-              r.same = sets;   // no key changed: no draw
-              mb.apply({t: 3, p: 'x', gate: {}, _: 9}, {nope: 'done', hot: 'open'});
-              r.after = {sets, t: b.rupaka.st.t, p: Array.isArray(b.rupaka.st.p), gate: b.rupaka.st.gate.hot, nope: Object.hasOwn(b.rupaka.st.gate, 'nope')};
+              r.same = draws;   // no key changed: no draw
+              mb.apply({t: 3, p: 'x', gate: {}, _: 9}, {nope: 'done', hot: 'open'}, {hot: 0});
+              r.after = {draws, state: Rupaka.state(b), p: Array.isArray(b.rupaka.st.p), gate: b.rupaka.st.gate.hot};
               const cap = () => [...b.querySelectorAll('[data-rk-after="hot"]')].every(n => n.style.display !== 'none' && !n.hidden);
               r.capBefore = cap();
               mb.apply({}, {hot: 'done'});
-              r.capAfter = cap(); r.gate = b.rupaka.st.gate.hot; r.predicts = predicts; r.log = b.rupaka.st.log ?? null;
+              r.capAfter = cap(); r.gate = b.rupaka.st.gate.hot; r.verdict = b.querySelector('.rk-gate .verdict').hidden;
+              mb.apply({}, {hot: 'done'}, {hot: 9}); r.far = b.querySelector('.rk-gate .verdict').hidden;   // an index past the options: no verdict
+              r.predicts = predicts; r.log = b.rupaka.st.log ?? null;
               r.inert = [...b.querySelectorAll('.rk-gate')].map(n => n.inert); r.presenterInert = [...a.querySelectorAll('.rk-gate')].map(n => n.inert);
+              a.querySelector('.rk-gate .opts button').click(); a.querySelector('.rk-gate .go').click();   // the slider shows after the gate
               const seen = []; ma.watch(s => seen.push(s.state.t));
-              for (const t of [1.1, 1.2, 1.3, 1.4]) a.rupaka.set('t', t);
+              const inp = a.querySelector('.rk-slider input');
+              for (const t of [1.1, 1.2, 1.3, 1.4]) { inp.value = t; inp.dispatchEvent(new Event('input', {bubbles: true})); }
               await new Promise(ok => setTimeout(ok, 20)); r.soon = [...seen];
               await new Promise(ok => setTimeout(ok, 120)); r.late = [...seen];
-              const calls = []; Rupaka.set = (el, s) => calls.push(['set', el === b, s]); Rupaka.settle = (el, g, pick) => calls.push(['settle', el === b, g, pick]);
-              mb.apply({t: 2}, {hot: 'done'});
-              delete Rupaka.set; delete Rupaka.settle;
-              r.calls = calls;
               return r;
-            }""".replace('spec_slug', json.dumps(spec['id'])))
-            assert got['pending'] == {} and got['valid'] and got['same'] == 0
-            assert got['after'] == dict(sets=1, t=3, p=True, gate='open', nope=False)   # only the input keys; an open gate and an unknown gate do nothing
-            assert not got['capBefore'] and got['capAfter'] and got['gate'] == 'done'
-            assert got['predicts'] == 0 and got['log'] is None   # no rk-predict and no pick in the audience copy
+            }""")
+            assert got['open'] == dict(state=dict(logits=[3, 1.5, 1, -1], t=1), gates={}, pick={}) and got['same'] == 0
+            assert got['after'] == dict(draws=1, state=dict(logits=[3, 1.5, 1, -1], t=3), p=True, gate='open')   # only the input keys; an open gate and an unknown gate do nothing
+            assert not got['capBefore'] and got['capAfter'] and got['gate'] == 'done' and got['verdict'] and got['far']
+            assert got['predicts'] == 0 and got['log'] is None   # no rk-predict and no log in the audience copy
             assert got['inert'] == [True] and got['presenterInert'] == [False]
             assert got['soon'] == [1.1] and got['late'] == [1.1, 1.4]   # the first change at once, then the last one after 50 ms
-            assert got['calls'] == [['set', True, {'t': 2}]]   # the gate is done already, so it is not new
         finally: b.close()
 
-def test_mirror_with_no_gates():
-    "A store with no gate table: apply with a gate does not throw, and the snapshot has no gates."
+def test_mirror_room_copy_has_no_verdict():
+    "A room copy with no answer at the gate (as room_spec makes it) closes the gate with a pick but draws no verdict."
     spec = gallery()['softmax-temperature']
+    room = {**spec, 'blocks': [{k: v for k, v in x.items() if k != 'answer'} for x in spec['blocks']]}
     with pw.sync_playwright() as p:
         b = p.chromium.launch(headless=True)
         try:
-            pg = b.new_page(); pg.set_content(page([spec])); pg.add_script_tag(content=JS)
-            pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 1")
-            got = pg.evaluate("""() => {
-              const a = document.querySelector('[data-rupaka]'), m = abhyasaStage.mirror(a);
-              delete a.rupaka.st.gate;
-              m.apply({t: 2}, {hot: 'done'});
-              return {t: a.rupaka.st.t, gates: m.snapshot().gates};
-            }""")
-            assert got == dict(t=2, gates={})
+            pg = b.new_page(); pg.set_content(page([spec, room])); pg.add_script_tag(content=JS)
+            pg.wait_for_function("document.querySelectorAll('[data-rupaka][data-rk-ready]').length === 2")
+            got = pg.evaluate("""() => { const b = document.querySelectorAll('[data-rupaka]')[1], m = abhyasaStage.mirror(b);
+              m.apply({}, {hot: 'done'}, {hot: 1}); const v = b.querySelector('.rk-gate .verdict');
+              return [b.rupaka.st.gate.hot, v.hidden, v.textContent]; }""")
+            assert got == ['done', True, '']
         finally: b.close()
 
 SETUP = """([rk, js, name, spec]) => Promise.all([rk, js].map(src => new Promise(ok => {
@@ -121,12 +138,14 @@ def test_mirror_over_the_channel(mk):
                 ctx = b.new_context(viewport=dict(width=1280, height=720))
                 pre, aud = ctx.new_page(), ctx.new_page()
                 for pg in (pre, aud): pg.goto(base + '/keys'); pg.wait_for_load_state(); pg.evaluate(SETUP, ['/rupaka/rupaka.js', js, 't1:KEY', spec])
-                aud.evaluate("() => ch.on('demo', x => m.apply(x.state, x.gates))")
+                aud.evaluate("() => ch.on('demo', x => m.apply(x.state, x.gates, x.pick))")
                 pre.evaluate(f"() => m.watch(s => ch.send({{t: 'demo', slug: {json.dumps(spec['id'])}, ...s}}))")
                 # the presenter picks at the gate; the talk page settles it and files nothing
                 pre.click('.rk-gate .opts button:nth-child(2)'); pre.click('.rk-gate .go')
                 aud.wait_for_function("() => host.rupaka.st.gate.hot === 'done'")
-                pre.evaluate("() => host.rupaka.set('t', 2.5)")
+                v = "() => host.querySelector('.rk-gate .verdict').textContent"
+                assert aud.evaluate(v).startswith('You said It falls') and aud.evaluate(v) == pre.evaluate(v)   # the audience sees the presenter's pick
+                pre.evaluate("() => { const i = host.querySelector('.rk-slider input'); i.value = 2.5; i.dispatchEvent(new Event('input', {bubbles: true})); }")
                 aud.wait_for_function("() => host.rupaka.st.t === 2.5")
                 assert aud.evaluate("() => host.querySelector('.rk-caption').textContent") == pre.evaluate("() => host.querySelector('.rk-caption').textContent")
                 assert aud.evaluate("() => [predicts, host.querySelector('.rk-gate').inert, host.rupaka.st.log ?? null]") == [[], True, None]

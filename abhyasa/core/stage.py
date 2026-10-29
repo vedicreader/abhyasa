@@ -16,6 +16,7 @@ STAGE_TYPES = ('go', 'point', 'demo', 'ask', 'result', 'pair', 'pane', 'blank', 
 
 OK = [dict(v=1, t='go', slide='s4', beat=2), dict(v=1, t='point', x=.31, y=.62), dict(v=1, t='point', id='scale'), dict(v=1, t='point', off=True),
       dict(v=1, t='demo', slug='softmax-temperature', state=dict(t=2), gates=dict(hot='done')),
+      dict(v=1, t='demo', slug='softmax-temperature', state=dict(t=2), gates=dict(hot='done', b='done'), pick=dict(hot=1, b=[2, 0, 1])),
       dict(v=1, t='ask', slide='s3', ask=dict(kind='choice', q='T goes from 1 to 2. What happens to the share of Paris?', options=['It rises', 'It falls', 'It stays the same'])),
       dict(v=1, t='ask', slide='s3', ask=None),
       dict(v=1, t='result', slide='s3', kind='choice', rounds=[dict(counts=[11, 10, 4], n=25)], right=1, main=None),
@@ -31,7 +32,10 @@ BAD = [dict(v=2, t='go', slide='s4', beat=2), dict(v=1, t='eval', code='alert(1)
        dict(v=1, t='ask', slide='s3', ask=dict(kind='choice', q='Q?', options=list('abcdefg'))),
        dict(v=1, t='question', text='x' * 281), dict(v=1, t='join', url='http://evil.example/j/K7PQ2M', code='K7PQ2M'),
        dict(v=1, t='join', url='http://192.168.1.23:5180/j/K7PQ2O', code='K7PQ2O'), dict(v=1, t='blank', on='yes'),
-       dict(v=1, t='room', joined=-1, answered=0), dict(v=1, t='demo', slug='x', state=dict(a='x' * 70000), gates={}), [1, 2]]
+       dict(v=1, t='room', joined=-1, answered=0), dict(v=1, t='demo', slug='x', state=dict(a='x' * 70000), gates={}),
+       dict(v=1, t='demo', slug='x', state={}, gates={}, pick=dict(hot=1)), dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot=64)),
+       dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot='It falls')), dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot=-1)),
+       dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=dict(hot=list(range(65)))), dict(v=1, t='demo', slug='x', state={}, gates=dict(hot='done'), pick=[1]), [1, 2]]
 #: each (message, valid); `tests/test_stage.py` runs them through `abhyasaStage.valid` in node
 STAGE_CASES = [(m, True) for m in OK] + [(m, False) for m in BAD]
 
