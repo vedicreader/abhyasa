@@ -43,3 +43,4 @@ def test_walk_names_are_the_contract_names():
     import abhyasa.contract as k, abhyasa.walk as w, abhyasa.check as c, abhyasa.journey as j, abhyasa.nb as n
     assert all(getattr(w, x) is getattr(k, x) for x in ('PKG', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES'))
     assert c.safe_test is k.safe_test and n.SAFE_NAMES is k.SAFE_NAMES and j.WALK_ID is k.WALK_ID
+    assert all(getattr(j, x) is getattr(k, x) for x in ('LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES'))

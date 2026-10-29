@@ -692,6 +692,29 @@ def t16_open_in_leela(pg, w):
         assert not bad, bad
     finally: f.unlink(missing_ok=True)
 
+def t6f_open_in_leela_notes_the_time(pg, w):
+    "On a notebook step, Open in Leela posts in a new tab, which goes to the Leela link with the vault key. This tab then says when."
+    from abhyasa.core.leela import leela_address
+    from abhyasa.contract import NB_SPEC_CASES, validate_nb_spec, vault_key
+    from walk_data import leela_file
+    jid = new_walk(w); w.lr.walk_step(jid, 1, check=dict(way='code', kind='notebook', depth=4, why=''), nb=validate_nb_spec(NB_SPEC_CASES[0][0]))
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    class Fake(BaseHTTPRequestHandler):   # no real Leela: a page on a free port answers the link
+        def do_GET(self): self.send_response(200); self.send_header('Content-Type', 'text/html'); self.end_headers(); self.wfile.write(b'<p>Leela</p>')
+        def log_message(self, *a): pass
+    srv = HTTPServer(('127.0.0.1', 0), Fake); threading.Thread(target=srv.serve_forever, daemon=True).start()
+    f, port = leela_address(), srv.server_address[1]
+    try:
+        leela_file(f.parents[1], port=port); pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check form.leela-go'); settle(pg)
+        with pg.context.expect_page() as new: pg.click('#check form.leela-go button[type=submit]')
+        tab = new.value; tab.wait_for_load_state()
+        want = f'http://127.0.0.1:{port}/learn?walk={jid}&step=1&v={vault_key(w.lr.vault.path)}'
+        assert tab.url == want, (tab.url, want)
+        tab.close()
+        pg.wait_for_selector('#check >> text=Opened in Leela at', timeout=5000)
+        assert pg.url == f'{w.B}/w/{jid}/1' and w.lr.journey(jid).steps[1].get('leela_at'), pg.url
+    finally: f.unlink(missing_ok=True); srv.shutdown(); srv.server_close()
+
 # --- Task 19d: the last design faults -----------------------------------------------------------------------------
 
 CONT = """() => { const c = document.querySelector('body > nav #continue'); if (!c || !c.checkVisibility()) return 'hidden';
@@ -1074,7 +1097,7 @@ CHECKS = [tb1_four_tabs_and_keys, f1_one_main_button_and_alt_s, f3_same_check_ca
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
           m6_words_point_at_the_demo, o1_order_items_use_body_size, m7_side_walk_returns_you, rupaka_settle,
           f9_start_box_reads_the_box, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
-          t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela,
+          t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela, t6f_open_in_leela_notes_the_time,
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
           s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_paper_link_in_the_start_box, r1_start_forms_show_no_error, ct1_concept_tree,
           dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason,

@@ -20,7 +20,7 @@ from abhyasa.llm import Router, Fake, route_ask, for_task
 from abhyasa.tutor import Tutor
 from abhyasa.ground import VaultSource
 from abhyasa.sources import file_link, LinkError
-from abhyasa.journey import journey_from_sources, walk_from_topic, walk_state, handoff
+from abhyasa.journey import journey_from_sources, walk_from_topic, walk_state, handoff, vault_key
 from abhyasa.settings import val
 from abhyasa.walk import tutor_note, open_short, code_task, run_code, step_meta
 from abhyasa.core.leela import leela_link
@@ -159,14 +159,15 @@ def handoff_trip(lr, ask, j, cfg_home) -> AttrDict:
         for i, s in enumerate(j.steps):
             if not s.get('leela'): continue
             n += 1
-            want = f'http://127.0.0.1:{PORT}' + handoff(j.id, i)
+            want = f'http://127.0.0.1:{PORT}' + handoff(j.id, i, v=vault_key(lr.vault.path))
             links += leela_link(j, i) == want
             page = cl.get(f'/w/{j.id}/{i}').text
             demo = s['check']['kind'] in ('demo', 'order')   # a demo card starts a demo job: not fetched
             card = '' if demo else cl.get(f'/w/{j.id}/{i}/check').text
             skipped += demo
             other = [m for m in re.findall(r'href="(http://127\.0\.0\.1:\d+/learn[^"]*)"', card) if m != want.replace('&', '&amp;')]   # a short card has no link; a link on a card must be right
-            pages += want.replace('&', '&amp;') in page + card and 'code-editor' not in page + card and not other   # a notebook step has the link on its card
+            go = f'action="/w/{j.id}/{i}/leela"' in card if s['check']['kind'] == 'notebook' else want.replace('&', '&amp;') in page + card   # a notebook card posts, then goes to the link
+            pages += go and 'code-editor' not in page + card and not other
     return AttrDict(code_checks=sum(s['check']['kind'] == 'code' for s in j.steps), leela_steps=n, links_ok=links, pages_ok=pages, cards_skipped=skipped)
 
 def free_port() -> int:

@@ -1,10 +1,13 @@
 """The names that abhyasa and Leela share: the test rule of an exercise, the notebook spec of a walk step, and the check of a run
-result that Leela files. This module imports only the standard library, so Leela imports it with no abhyasa web code and no settings."""
-import ast, math, re
+result that Leela files, and the link from a walk step to Leela. This module imports only the standard library, so Leela imports it
+with no abhyasa web code and no settings."""
+import ast, hashlib, math, re
 from pathlib import Path
+from urllib.parse import urlencode, parse_qs
 
 __all__ = ['SAFE_NAMES', 'SAFE_NODES', 'safe_test', 'check_exercise', 'WALK_ID', 'PKG', 'DATA_NAME', 'NB_KEYS', 'RUN_MINUTES',
-           'has_directive', 'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES']
+           'has_directive', 'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES',
+           'LEELA_ROUTE', 'TOPIC_MAX', 'VAULT_KEY', 'vault_key', 'Handoff', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'HANDOFF_BAD']
 
 # --- the test rule of an exercise --------------------------------------------------------------------------------------
 
@@ -227,3 +230,48 @@ RUN_CASES = [(_RUN, True),
              ({**_RUN, 'device': 'mps\nx'}, False),
              ({**_RUN, 'images': [['leela/ramayana-comic-ab12/7/0.png']]}, False),
              ('not an attempt', False)]
+
+# --- the link from a walk step to Leela ---------------------------------------------------------------------------------
+
+LEELA_ROUTE = '/learn'
+TOPIC_MAX = 200
+VAULT_KEY = re.compile(r'\A[0-9a-f]{8}\Z')                    # the vault key `v` in the link: 8 lower-case hex characters
+
+def vault_key(path) -> str:
+    "The key of the vault at `path`: the first 8 hex characters of the sha256 of the resolved path. Two apps on the same vault file get the same key."
+    return hashlib.sha256(str(Path(path).expanduser().resolve()).encode()).hexdigest()[:8]
+
+class Handoff(dict):
+    "The result of `read_handoff`: a dict whose keys also read as attributes, as fastcore's `AttrDict`."
+    def __getattr__(self, k):
+        try: return self[k]
+        except KeyError: raise AttributeError(k) from None
+
+def handoff(jid:str='', i:int|None=None, topic:str='', v:str='') -> str:
+    "The path and query that Leela opens: a walk, a step of it, a topic, or a mix. `v` is the `vault_key` of abhyasa's vault."
+    if not (jid or topic): raise ValueError('nothing to open')
+    if v and not VAULT_KEY.fullmatch(v): raise ValueError('v is not a vault key: give 8 characters from 0-9 and a-f')
+    q = [(k, x) for k, x in (('walk', jid), ('step', i), ('topic', topic), ('v', v)) if x not in ('', None)]
+    return f'{LEELA_ROUTE}?{urlencode(q)}'
+
+def read_handoff(query:str) -> Handoff:
+    """The `walk`, `step`, `topic` and `v` in `query`, checked. A `ValueError` names the key that is not valid. Other keys are ignored.
+    A missing `v` gives '', as a link from abhyasa 0.0.12. A `v` that is not 8 lower-case hex characters is refused."""
+    q = {k: x[0] for k, x in parse_qs(query).items()}
+    walk, step, topic, v = q.get('walk', ''), q.get('step'), q.get('topic', ''), q.get('v', '')
+    if walk and not WALK_ID.fullmatch(walk): raise ValueError('walk is not a walk id')
+    if step is not None and not (step.isascii() and step.isdigit()): raise ValueError('step must be a whole number from 0')
+    if len(topic) > TOPIC_MAX: raise ValueError(f'topic is more than {TOPIC_MAX} characters')
+    if v and not VAULT_KEY.fullmatch(v): raise ValueError('v is not a vault key: give 8 characters from 0-9 and a-f')
+    if not (walk or topic): raise ValueError('nothing to open')
+    return Handoff(walk=walk, step=None if step is None else int(step), topic=topic, v=v)
+
+# Both test suites run these: each `handoff(**kw)` gives the path, and `read_handoff` of its query gives the same walk, step, topic and v.
+HANDOFF_CASES = [(dict(jid='attention-ab12'), '/learn?walk=attention-ab12'),
+                 (dict(jid='attention-ab12', i=3), '/learn?walk=attention-ab12&step=3'),
+                 (dict(topic='Agents and tools'), '/learn?topic=Agents+and+tools'),
+                 (dict(jid='pydantic-ai-docs-9f0c', i=0, topic='Agents'), '/learn?walk=pydantic-ai-docs-9f0c&step=0&topic=Agents'),
+                 (dict(jid='attention-ab12', i=3, v='0a1b2c3d'), '/learn?walk=attention-ab12&step=3&v=0a1b2c3d')]
+
+# Queries that `read_handoff` refuses with a `ValueError`: a bad walk or step, nothing to open, and a `v` that is not a vault key.
+HANDOFF_BAD = ['walk=../x', 'walk=a-1&step=-1', '', 'walk=a&v=xyz', 'walk=a&v=0A1B2C3D', 'walk=a&v=0a1b2c3d4', 'walk=a&v=0a1b2c3d%0A']

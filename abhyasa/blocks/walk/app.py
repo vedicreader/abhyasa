@@ -157,8 +157,8 @@ def connect(app, ctx):
         s, link = j.steps[i], leela_link(j, i)
         if s.get('nb'): return ui.NotebookCard(j.id, i, s, link)
         if not s.get('nb_why'): write_notebook(j.id, i)
-        if nb_writing(j.id, i) or not s.get('nb_why'): return ui.NbPending(j.id, i, link)
-        return ui.NbFailed(j.id, i, s['nb_why'], link)
+        if nb_writing(j.id, i) or not s.get('nb_why'): return ui.NbPending(j.id, i, link, s.get('leela_at'))
+        return ui.NbFailed(j.id, i, s['nb_why'], link, s.get('leela_at'))
 
     def write_notebooks(j):
         "Start the job that writes the notebook spec of each notebook step of walk `j`, on the research pool."
@@ -411,6 +411,13 @@ def connect(app, ctx):
         except ValueError: return Response('The notebook of this step is not valid. Write it again.', status_code=409)
         return FileResponse(p, media_type='application/x-ipynb+json', headers={'Content-Disposition': f'attachment; filename="{name}"'})
 
+    def open_leela(jid:str, i:int):
+        "Open in Leela: note the time on step `i` (`leela_at`), then go to the Leela link. When Leela does not run, go back to the step."
+        if not walk_of(jid, i): return Response(status_code=404)
+        if not (link := leela_link(lr.journey(jid), i)): return RedirectResponse(ui.at(Routes.step, jid, i), status_code=303)
+        lr.walk_step(jid, i, leela_at=time.time())
+        return RedirectResponse(link, status_code=303)
+
     def data(jid:str, i:int, name:str='', path:str=''):
         "Set the path of the data entry `name` of the notebook of step `i`, as the folder of your images. A path outside your home folder is refused."
         with _jlock(jid):   # read and write under the lock of the walk
@@ -644,5 +651,6 @@ def connect(app, ctx):
     app.get(Routes.img)(img)
     app.get(Routes.notebook)(notebook)
     app.post(Routes.data)(data)
+    app.post(Routes.leela)(open_leela)
     app.get(Routes.source)(source)
     app.post(Routes.source)(find_source)

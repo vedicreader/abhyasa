@@ -388,24 +388,31 @@ PICK_FOLDER = 'Pick the folder of your images'
 
 def NbHead(): return Div(Span(NB_HEAD), cls='lbl')
 
-def NbGo(jid, i, link=None, spec=True):
-    "Open in Leela, the main button: a link when Leela runs, else a press that looks again, with how to get Leela. `spec` adds Download the notebook."
+def Opened(t):
+    "The line after Open in Leela: the time of the press, and where the result comes."
+    return f"Opened in Leela at {time.strftime('%H:%M', time.localtime(t))}. The result comes back here."
+
+def NbGo(jid, i, link=None, spec=True, opened=None):
+    """Open in Leela, the main button: when Leela runs, a form that notes the time on the step and opens Leela in a new tab, else a press
+    that looks again, with how to get Leela. `spec` adds Download the notebook. `opened` is the time of the last press (`leela_at`)."""
     dl = Quiet('Download the notebook', href=at(Routes.notebook, jid, i), download=True) if spec else ''
-    if link: return Div(Primary('Open in Leela', href=link, target='_blank', rel='noopener'), dl,
-                        Span(f"Leela runs at {link.split('//', 1)[-1].split('/', 1)[0]}.", cls='mute state'), cls='row acts nb-go')
+    if link: return Form(Primary('Open in Leela', type='submit'), dl,
+                         Span(Opened(opened) if opened else f"Leela runs at {link.split('//', 1)[-1].split('/', 1)[0]}.", cls='mute state'),
+                         method='post', action=at(Routes.leela, jid, i), target='_blank', rel='noopener', hx_boost='false', data_check=at(Routes.check, jid, i),
+                         cls='row acts nb-go leela-go')
     return Div(Primary('Open in Leela', type='button', hx_get=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), dl,
                P(NO_LEELA, ' ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='mute state'), cls='row acts nb-go')
 
-def NbPending(jid, i, link=None):
+def NbPending(jid, i, link=None, opened=None):
     "The notebook spec is not written yet: the card asks the server again in 2 seconds. Leela can open the step now."
-    return Check(NbHead(), P(NB_WRITING, cls='mute making'), foot=NbGo(jid, i, link, spec=False), cls='pending nb-check', aria_live='polite',
+    return Check(NbHead(), P(NB_WRITING, cls='mute making'), foot=NbGo(jid, i, link, spec=False, opened=opened), cls='pending nb-check', aria_live='polite',
                  hx_get=at(Routes.check, jid, i), hx_trigger='load delay:2s', hx_target='#check', hx_swap='innerHTML')
 
-def NbFailed(jid, i, why, link=None):
+def NbFailed(jid, i, why, link=None, opened=None):
     "The tutor could not write the notebook spec: the reason and Try again. Leela can still open the step and make its own lesson."
     return Check(NbHead(), P(f'The tutor could not write the notebook: {why}.', cls='mute'),
                  foot=(Div(Quiet('Try again', type='button', hx_post=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), cls='row acts'),
-                       NbGo(jid, i, link, spec=False)), cls='nb-check')
+                       NbGo(jid, i, link, spec=False, opened=opened)), cls='nb-check')
 
 def DataRow(jid, i, d):
     "One data path of the notebook. An entry with `need` is a folder that you name, so it has a path field."
@@ -429,7 +436,7 @@ def NotebookCard(jid, i, s, link=None):
     tests = Div(Pre('\n'.join(shown), cls='tests') if shown else '', P(n_of(hidden, 'more test') + ' that you cannot see.', cls='mute') if hidden else '')
     return Check(NbHead(), Div(Div(Md(nb['task']), cls='q'), tests, Dl(*parts, cls='nb-parts'),
                                P('This step runs in Leela, in a notebook with its packages. abhyasa does not run this code.', cls='mute nb-where')),
-                 foot=NbGo(jid, i, link), cls='nb-check')
+                 foot=NbGo(jid, i, link, opened=s.get('leela_at')), cls='nb-check')
 
 CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card; `notebook` has its own card (NotebookCard)
 

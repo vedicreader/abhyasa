@@ -6,12 +6,12 @@ Docs: https://vedicreader.github.io/abhyasa/journey.html.md"""
 
 # %% auto #0
 __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'TOOL_WAYS', 'NB_WHY', 'SHORT_WAYS', 'PICK_SP', 'SHAKY', 'STEP_MIN', 'READY', 'PRIMER_SP',
-           'LEELA_ROUTE', 'TOPIC_MAX', 'HANDOFF_CASES', 'step_state', 'progress', 'current', 'plan_prompt', 'near_goal',
-           'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most', 'cap_hands', 'journey_from_source',
-           'journey_from_text', 'journey_from_sources', 'walk_from_topic', 'walk_state', 'minutes', 'needs',
-           'pick_way_down', 'detour', 'parent_step', 'trail', 'back_from', 'for_talk', 'journey_walk', 'walk_for_talk',
-           'journey_changed', 'look_up', 'add_topic', 'name_gaps', 'split', 'related', 'with_step', 'beyond',
-           'paper_id', 'handoff', 'read_handoff', 'WALK_ID']
+           'step_state', 'progress', 'current', 'plan_prompt', 'near_goal', 'plan', 'short_check', 'pick_prompt',
+           'main_steps', 'hands_most', 'cap_hands', 'journey_from_source', 'journey_from_text', 'journey_from_sources',
+           'walk_from_topic', 'walk_state', 'minutes', 'needs', 'pick_way_down', 'detour', 'parent_step', 'trail',
+           'back_from', 'for_talk', 'journey_walk', 'walk_for_talk', 'journey_changed', 'look_up', 'add_topic',
+           'name_gaps', 'split', 'related', 'with_step', 'beyond', 'paper_id', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX',
+           'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
@@ -658,31 +658,5 @@ def retitle_paper(self:Learning, jid:str, title_of=None) -> str|None:
     return t
 
 # %% ../nbs/11_journey.ipynb #667e494b
-from urllib.parse import urlencode, parse_qs
-
-LEELA_ROUTE = '/learn'
-from .contract import WALK_ID   # the form of `_new_id`; Leela reads it from the module with only standard imports
-_all_ = ['WALK_ID']
-TOPIC_MAX = 200
-
-def handoff(jid:str='', i:int|None=None, topic:str='') -> str:
-    "The path and query that Leela opens: a walk, a step of it, a topic, or a mix."
-    if not (jid or topic): raise ValueError('nothing to open')
-    q = [(k, v) for k, v in (('walk', jid), ('step', i), ('topic', topic)) if v not in ('', None)]
-    return f'{LEELA_ROUTE}?{urlencode(q)}'
-
-def read_handoff(query:str) -> AttrDict:
-    "The `walk`, `step` and `topic` in `query`, checked. A `ValueError` names the key that is not valid. Other keys are ignored."
-    q = {k: v[0] for k, v in parse_qs(query).items()}
-    walk, step, topic = q.get('walk', ''), q.get('step'), q.get('topic', '')
-    if walk and not WALK_ID.match(walk): raise ValueError('walk is not a walk id')
-    if step is not None and not (step.isascii() and step.isdigit()): raise ValueError('step must be a whole number from 0')
-    if len(topic) > TOPIC_MAX: raise ValueError(f'topic is more than {TOPIC_MAX} characters')
-    if not (walk or topic): raise ValueError('nothing to open')
-    return AttrDict(walk=walk, step=None if step is None else int(step), topic=topic)
-
-# %% ../nbs/11_journey.ipynb #9bbba640
-HANDOFF_CASES = [(dict(jid='attention-ab12'), '/learn?walk=attention-ab12'),
-                 (dict(jid='attention-ab12', i=3), '/learn?walk=attention-ab12&step=3'),
-                 (dict(topic='Agents and tools'), '/learn?topic=Agents+and+tools'),
-                 (dict(jid='pydantic-ai-docs-9f0c', i=0, topic='Agents'), '/learn?walk=pydantic-ai-docs-9f0c&step=0&topic=Agents')]
+from .contract import WALK_ID, LEELA_ROUTE, TOPIC_MAX, vault_key, handoff, read_handoff, HANDOFF_CASES
+_all_ = ['WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES']

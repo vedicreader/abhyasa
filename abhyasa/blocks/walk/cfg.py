@@ -20,6 +20,7 @@ class Routes:
     img = '/w/{jid}/{i}/img'          # the figure of the step, from the vault assets
     notebook = '/w/{jid}/{i}/notebook'  # download the notebook of a step that runs in Leela, for Jupyter
     data = '/w/{jid}/{i}/data'          # POST: the path of one data entry of the notebook, as the folder of your images
+    leela = '/w/{jid}/{i}/leela'        # POST: Open in Leela. Note the time on the step (`leela_at`), then go to the Leela link
     source = '/w/{jid}/{i}/source'    # GET: the passage, or the line while the tutor looks for a source; POST: look for a source on the web
     def of(route, **kw):
         for k, v in kw.items(): route = route.replace('{' + k + '}', str(v))

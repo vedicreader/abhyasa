@@ -321,6 +321,7 @@ def test_link_walk_shows_only_its_own_messages(mk, walk_fake, lr, monkeypatch):
 
 def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
     from abhyasa.core.leela import LEELA_INSTALL
+    from abhyasa.contract import vault_key
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path))
     cl = mk(); assert 'Code steps open in Leela' in cl.get('/learn/read', params=dict(q='github.com/a/b')).text
     jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='on')).headers['hx-redirect'].split('/')[-1]
@@ -328,11 +329,11 @@ def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
     plan = cl.get(f'/w/{jid}').text
     assert 'Open this in Leela for code and tools' in plan and LEELA_INSTALL in plan and '/learn?' not in plan   # no Leela: never a broken link
     assert cl.post(f'/w/{jid}/plan', data=dict(i=1, act='check', way='code')).status_code == 400                # no library code check in abhyasa
-    leela_file(tmp_path)
-    assert f'href="http://127.0.0.1:5011/learn?walk={jid}"' in cl.get(f'/w/{jid}').text
+    leela_file(tmp_path); v = vault_key(lr.vault.path)                                                            # the link names the vault
+    assert f'href="http://127.0.0.1:5011/learn?walk={jid}&amp;v={v}"' in cl.get(f'/w/{jid}').text
     cl.post(f'/w/{jid}/start')
-    step = cl.get(f'/w/{jid}/1').text + cl.get(f'/w/{jid}/1/check').text                                         # a notebook step has the link on its card
-    assert f'http://127.0.0.1:5011/learn?walk={jid}&amp;step=1' in step and 'target="_blank"' in step
+    step = cl.get(f'/w/{jid}/1').text + cl.get(f'/w/{jid}/1/check').text                                         # a notebook card posts to /leela, then goes to the link
+    assert (f'http://127.0.0.1:5011/learn?walk={jid}&amp;step=1&amp;v={v}' in step or f'action="/w/{jid}/1/leela"' in step) and 'target="_blank"' in step
     assert 'code-editor' not in step                                                                              # the check here is short, order or notebook
     assert '/learn?' not in cl.get(f'/w/{jid}/0').text                                                           # an idea with no code way has no link
 

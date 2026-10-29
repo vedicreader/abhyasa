@@ -32,9 +32,28 @@ def test_card_links_to_leela_when_it_runs(mk, lr, walk_fake, monkeypatch, tmp_pa
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
     cl = mk(); jid = nb_step(cl, lr)
     card = cl.get(f'/w/{jid}/1/check').text
-    assert f'href="http://127.0.0.1:5011/learn?walk={jid}&amp;step=1"' in card and 'Leela runs at 127.0.0.1:5011.' in card and 'Leela is not running' not in card
+    assert f'action="/w/{jid}/1/leela"' in card and 'target="_blank"' in card and 'hx-boost="false"' in card   # a form that notes the time, in a new tab
+    assert 'Leela runs at 127.0.0.1:5011.' in card and 'Leela is not running' not in card and '/learn?' not in card
     page = cl.get(f'/w/{jid}/1').text
     assert page.count('/learn?walk=') == 0                                               # the card loads after the page; no second Leela line
+
+def test_open_in_leela_notes_the_time(mk, lr, walk_fake, monkeypatch, tmp_path):
+    "Open in Leela sets `leela_at` on the step and goes to the Leela link with the vault key. The card then says when."
+    from abhyasa.contract import vault_key
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
+    cl = mk(); jid = nb_step(cl, lr)
+    r = cl.post(f'/w/{jid}/1/leela', follow_redirects=False)
+    assert r.status_code == 303 and r.headers['location'] == f'http://127.0.0.1:5011/learn?walk={jid}&step=1&v={vault_key(lr.vault.path)}'
+    assert lr.journey(jid).steps[1]['leela_at'] > 0
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'Opened in Leela at ' in card and 'The result comes back here.' in card and 'Leela runs at' not in card
+
+def test_open_in_leela_with_no_leela(mk, lr, walk_fake):
+    "With no Leela, the press goes back to the step and notes no time. An unknown step is 404."
+    cl = mk(); jid = nb_step(cl, lr)
+    r = cl.post(f'/w/{jid}/1/leela', follow_redirects=False)
+    assert r.status_code == 303 and r.headers['location'] == f'/w/{jid}/1' and 'leela_at' not in lr.journey(jid).steps[1]
+    assert cl.post(f'/w/{jid}/99/leela', follow_redirects=False).status_code == 404
 
 def test_data_path_outside_home_refused(mk, lr, walk_fake):
     cl = mk(); jid = nb_step(cl, lr)

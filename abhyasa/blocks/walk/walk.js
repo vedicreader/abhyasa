@@ -23,6 +23,12 @@ if (!window.abhyasaWalk) {
 
   const root = document.documentElement;
 
+  // Open in Leela opens a new tab. This tab then loads the check card again, so the card shows "Opened in Leela at …".
+  document.addEventListener('submit', e => {
+    const f = e.target.closest && e.target.closest('form.leela-go');
+    if (f && f.dataset.check) setTimeout(() => htmx.ajax('GET', f.dataset.check, {target: '#check', swap: 'innerHTML'}), 800);
+  });
+
   // While a side walk is open in the pane, the check says that it waits, and that the draft is kept.
   const held = () => {
     const c = document.querySelector('#check .check'), pane = document.getElementById('rh-pane');
