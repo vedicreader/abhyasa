@@ -215,6 +215,7 @@ def test_vault_source_opens_in_the_side_pane(lr, fake):
     from abhyasa.app import mk_app
     cl = TestClient(mk_app(lr, fake, sources=[VaultNotes()], hosts=('testserver',)))
     sid = start(cl)
+    cl.get(f'/s/{sid}')   # the page waits for the question that is fetched ahead
     r = cl.post(f'/s/{sid}/answer', data=dict(answer='its rank position', confidence=80)).text
     a = re.search(r'<a [^>]*>Rasi Characteristics</a>', r).group(0)
     assert 'href="/v/store/d1"' in a and 'data-pane="/v/store/d1?pane=1"' in a and 'target="_blank"' in a and 'data-title="Rasi Characteristics"' in a
@@ -233,3 +234,34 @@ def test_composer_boxes_keep_a_draft_by_question(mk):
         m = re.search(rf'(<textarea[^>]*id="{k}"[^>]*>)(.*?)</textarea>', composer, re.S)
         assert m and m[2] == '' and 'data-draft' in m[1], k
     assert 'add the scores' not in composer and 'they look alike' not in composer
+
+def test_session_question_survives_a_restart(mk, lr):
+    cl = mk(); sid = start(cl)
+    cl.get(f'/s/{sid}')
+    assert 'Not yet' in cl.post(f'/s/{sid}/answer', data=dict(answer='a score', confidence=70)).text
+    assert 'Think about positions' in cl.post(f'/s/{sid}/hint').text
+    cl2 = mk()                                                                      # a restart: a new app on the same vault
+    page = cl2.get(f'/s/{sid}').text
+    assert 'What does a rank tell you?' in page and 'Think about positions' in page and 'Its position' not in page
+    r = cl2.post(f'/s/{sid}/answer', data=dict(answer='its rank position', confidence=70)).text
+    assert 'Right, but shaky' in r                                                  # the wrong try and the hint still count
+
+def test_second_answer_to_a_closed_question_is_204(mk, fake):
+    import threading, time, pytest
+    from conftest import grader
+    def slow(p, sp): time.sleep(.2); return grader(p, sp)
+    fake.rules['You grade one answer'] = slow
+    cl = mk(); sid = start(cl); cl.get(f'/s/{sid}')
+    out = []
+    def send(): out.append(cl.post(f'/s/{sid}/answer', data=dict(answer='its rank position', confidence=70)).status_code)
+    ts = [threading.Thread(target=send) for _ in range(2)]
+    for t in ts: t.start()
+    for t in ts: t.join()
+    assert sorted(out) == [200, 204], out                                           # the second caller finds it closed
+
+def test_other_key_errors_are_not_hidden(mk, fake):
+    import pytest
+    def broken(p, sp): raise KeyError('a bug in the grader')
+    fake.rules['You grade one answer'] = broken
+    cl = mk(); sid = start(cl); cl.get(f'/s/{sid}')
+    with pytest.raises(KeyError): cl.post(f'/s/{sid}/answer', data=dict(answer='x'))   # only a closed question gives 204
