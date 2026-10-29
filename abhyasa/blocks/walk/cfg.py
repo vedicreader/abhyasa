@@ -17,6 +17,7 @@ class Routes:
     next = '/w/{jid}/{i}/next'        # skip or go on
     done = '/w/{jid}/{i}/done'        # the summary at the end of a section
     img = '/w/{jid}/{i}/img'          # the figure of the step, from the vault assets
+    source = '/w/{jid}/{i}/source'    # GET: the passage, or the line while the tutor looks for a source; POST: look for a source on the web
     def of(route, **kw):
         for k, v in kw.items(): route = route.replace('{' + k + '}', str(v))
         return route
