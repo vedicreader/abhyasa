@@ -87,7 +87,8 @@ add('checks.hints', 'checks', 'Hints before a pass is shaky', 'With this many hi
 add('checks.demo_misses', 'checks', 'Misses before a demo', 'After this many misses on an idea, the tutor makes a demo for it.', 2, 1, 5, more=True)
 add('checks.demo_ladder', 'checks', 'More help after a demo', 'When you miss an idea after its demo, the tutor teaches it in another way. After the next miss, it shows a simpler demo.', True)
 add('checks.retest', 'checks', 'Retest a miss after', 'The tutor asks a missed idea again after this many other questions in the session.', 2, 1, 6, more=True, unit='questions')
-add('checks.feedback_row', 'checks', 'Feedback under a demo or a lesson', 'Show a short row under each demo and each lesson: Too simple, Just right or Not clear. The tutor uses what you choose for the next demo or lesson.', True);
+add('checks.feedback_row', 'checks', 'Feedback under a demo or a lesson', 'Show a short row under each demo and each lesson: Too simple, Just right or Not clear. The tutor uses what you choose for the next demo or lesson.', True)
+add('checks.open_days', 'checks', 'Keep an open check for', 'An open check with no answer for this many days closes. It gets no grade.', 7, 1, 60, more=True, unit='days');
 
 # %% ../nbs/16_settings.ipynb #63876a2f
 add('review.solid', 'review', 'First review after a solid answer', 'When a new idea comes back after your first solid answer.', 1., .25, 7., unit='days')

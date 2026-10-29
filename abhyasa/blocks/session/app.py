@@ -104,7 +104,10 @@ def connect(app, ctx):
     def answer(sid:str, answer:str='', thinking:str='', confidence:int=None):
         s, q = live(sid)
         if not q: return Response(status_code=204)
-        r = s.answer(answer, thinking, confidence)
+        try: r = s.answer(answer, thinking, confidence)
+        except KeyError:
+            if q.id in tutor.open: raise   # a real error, not a closed question
+            return Response(status_code=204)   # another request closed it while this one waited
         you = ui.You(you_said(q) or answer, thinking, confidence)
         opts = (ui.Options(sid, q, chosen(q), done=r.done, oob=True, right=r.correct and you_said(q)),) if q.get('options') else ()
         if not r.done:
@@ -117,7 +120,10 @@ def connect(app, ctx):
         s, q = live(sid)
         if not q: return Response(status_code=204)
         tried = bool(q.tries)
-        r = s.answer(dont_know=True, confidence=confidence) if dont_know and not tried else s.give_up()
+        try: r = s.answer(dont_know=True, confidence=confidence) if dont_know and not tried else s.give_up()
+        except KeyError:
+            if q.id in tutor.open: raise
+            return Response(status_code=204)
         ahead(sid); outcomes[q.id] = r.outcome
         opts = (ui.Options(sid, q, chosen(q), done=True, oob=True),) if q.get('options') else ()
         you = ui.You('Teach me.' if tried else "I don't know.")
@@ -127,7 +133,10 @@ def connect(app, ctx):
         s, q = live(sid)
         if not q: return Response(status_code=204)
         if len(q.hints) >= len(HINTS): return Li(Span('No more hints', cls='lbl'), P('Send your best answer, or ask the tutor to teach you.'), cls='m tutor hint')
-        h = s.hint()
+        try: h = s.hint()
+        except KeyError:
+            if q.id in tutor.open: raise
+            return Response(status_code=204)
         return keep(q, ui.Hint(len(q.hints), h))
 
     def teach(sid:str, qid:str, another:int=0):

@@ -62,17 +62,31 @@ def seed():
     lr.put('Ranking', 'Order items by a score.', 'ml', order=0)
     lr.put('Reciprocal rank fusion', 'Sum 1/(k + rank) over lists.', 'ml', prereqs=['ranking'], order=1)
     lr.put('Derivatives and gradients', 'The slope of a function at a point, one for each input.', 'ml', slug='gradients')
-    return lr, mk_app(lr, ask, transcribe=lambda a, hint='': 'spoken text', hosts=('127.0.0.1', 'localhost'))
+    return lr, app_on(lr)
 
-def serve(app):
-    "Run `app` on a free port in a thread. Return the server and its base URL; the caller stops it with `server.should_exit`."
+def app_on(lr):
+    "An app on `lr` with the Fake model: a new tutor with nothing open, as after a restart."
+    return mk_app(lr, FAKE, transcribe=lambda a, hint='': 'spoken text', hosts=('127.0.0.1', 'localhost'))
+
+SRV = None   # the server that runs now, so a check can restart it
+
+def serve(app, port:int=None):
+    "Run `app` on `port` (by default a free port) in a thread. Return the server and its base URL; the caller stops it with `server.should_exit`."
     import uvicorn
-    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
-    srv = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning'))
-    threading.Thread(target=srv.run, daemon=True).start()
+    global SRV
+    if port is None:
+        with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    SRV = srv = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning'))
+    srv.thread = threading.Thread(target=srv.run, daemon=True); srv.thread.start()
     end = time.monotonic() + 30
     while not srv.started and time.monotonic() < end: time.sleep(.05)
     return srv, f'http://127.0.0.1:{port}'
+
+def restart(lr, B):
+    "Stop the server and run a new app on the same vault and the same port."
+    SRV.should_exit = True; SRV.thread.join(15)
+    srv, _ = serve(app_on(lr), int(B.rsplit(':', 1)[1]))
+    assert srv.started, 'the new server did not start'
 
 def settle(pg, ms=500):
     try: pg.wait_for_load_state('networkidle', timeout=8000)
@@ -994,6 +1008,23 @@ def rs1_topic_walk_shows_a_web_source(pg, w):
     assert a and o and o.get_attribute('target') == '_blank' and 'noopener' in o.get_attribute('rel'), src.inner_html()
     assert pg.is_visible('#passage .src.web') and "In the tutor's words" not in pg.text_content('main')
 
+def op1_open_check_survives_a_restart(pg, w):
+    "Open a check, give one wrong try, type the next try, restart the server on the same vault, then send: the check grades with the first try kept, and no 409 shows."
+    r = w.rq.post(f'{w.B}/walk/new', form=dict(text='A rank is a position in a list. Ranks from two lists can be compared.', title='Ranks after a restart'),
+                  headers={'HX-Request': 'true'}, max_redirects=0)
+    jid = r.headers['hx-redirect'].split('/')[-1]
+    w.lr.walk_step(jid, 0, check=dict(way='words', kind='short', depth=2, why='plain words fit this idea'))
+    w.rq.post(f'{w.B}/w/{jid}/start', max_redirects=0)
+    pg.goto(f'{w.B}/w/{jid}/0'); pg.wait_for_selector('#check #ans'); settle(pg)
+    pg.fill('#ans', 'a sum of scores'); pg.click('#send'); pg.wait_for_selector('#check .err'); settle(pg)
+    pg.fill('#ans', 'it is the rank')
+    restart(w.lr, w.B)
+    pg.click('#send'); pg.wait_for_selector('#check .check.shut', timeout=10000); settle(pg)
+    main = pg.inner_text('main')
+    assert 'No check is open' not in main and 'Next idea' in main, main[:300]
+    assert any("Learner's answer: it is the rank" in c[0] and 'a sum of scores' in c[0] for c in FAKE.calls), 'the grader did not see the first try'
+    assert (w.lr.journey(jid).steps[0].get('done') or {}).get('outcome') == 'fragile', w.lr.journey(jid).steps[0].get('done')
+
 CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
           f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
@@ -1003,7 +1034,8 @@ CHECKS = [f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
           s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_link_in_the_document_field, r1_start_forms_show_no_error, ct1_concept_tree,
           dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason,
-          g1_graph_uses_the_window_and_fits, gr1_the_grips_show_and_resize, g2_clusters_have_labels_and_regions, rs1_topic_walk_shows_a_web_source]
+          g1_graph_uses_the_window_and_fits, gr1_the_grips_show_and_resize, g2_clusters_have_labels_and_regions, rs1_topic_walk_shows_a_web_source,
+    op1_open_check_survives_a_restart]   # last: it restarts the server
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
@@ -1049,7 +1081,7 @@ def main():
     a = ap.parse_args()
     from playwright.sync_api import sync_playwright
     lr, app = seed()
-    srv, B = serve(app)
+    _, B = serve(app)
     bad = 0
     try:
         with sync_playwright() as p:
@@ -1072,7 +1104,7 @@ def main():
                     if errs: bad += 1; print('FAIL screens - script errors on the page:', errs[:3], flush=True)
                     print(n, 'screens in', a.out)
             finally: b.close()
-    finally: srv.should_exit = True
+    finally: SRV.should_exit = True
     sys.exit(1 if bad else 0)
 
 if __name__ == '__main__': main()

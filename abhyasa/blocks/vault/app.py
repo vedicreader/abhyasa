@@ -21,11 +21,12 @@ def connect(app, ctx):
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
 
     def _get(shelf, doc_id):
-        "The shelf and the docs row, or None when the shelf name is unsafe or the document is not there."
+        "The shelf and the docs row, or None when the shelf name is unsafe, the document is not there, or it is an open question."
         if not _SHELF.match(shelf): return None, None
         try: sh = lr.vault if shelf == 'store' else lr.vault.shelf(shelf)
         except Exception: return None, None
-        return sh, first(sh.t.docs(where='id=?', where_args=[doc_id]))
+        d = first(sh.t.docs(where='id=?', where_args=[doc_id]))
+        return (None, None) if d and d['kind'] == 'open-q' else (sh, d)   # an open question has its answer key: the page never shows it
 
     def linked(shelf, doc_id):
         return [c for c in lr.concepts() if any(l.get('src') == f'vault:{shelf}' and str(l.get('ref', '')).split('#')[0] == doc_id

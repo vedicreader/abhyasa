@@ -125,6 +125,7 @@ def run_code(tutor:Tutor, qid:str, source:str, confidence:int=70) -> AttrDict:
     q.turns.append(dict(who='you', text=source, confidence=confidence))
     if correct: return AttrDict({**out, **tutor._close(q, True, confidence, g, answer=source)})
     q.tries.append(dict(answer=source, first_error=out.first_error, confidence=confidence))
+    tutor.open.save(q)
     if len(q.tries) < (most := val('checks.tries')): return AttrDict(out, tries_left=most - len(q.tries))
     return AttrDict({**out, 'tries_left': 0, **tutor._close(q, False, q.tries[0]['confidence'], g, teach=True)})
 
