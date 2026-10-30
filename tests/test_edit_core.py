@@ -14,6 +14,16 @@ def test_undo_keeps_run_fields_and_research():
     assert out[0]['read']['text'] == 'w' and out[0]['check'] == dict(kind='short') and 'note' not in out[0]   # the note is content: Undo takes back the new note
     assert out[1]['done'] == dict(outcome='solid') and out[1]['qid'] == 'q7' and out[1]['read_at'] == 5.
 
+def test_undo_keeps_what_the_walk_wrote_after_the_snapshot():
+    "Undo gives back only the fields that the editor changes. A side walk, a notebook, a Leela stamp and the research state that came after the snapshot stay."
+    before = [dict(slug='a', status='skip', note='Old.', check=dict(kind='short'), research='pending')]
+    now = [dict(slug='a', status='todo', note='New.', check=dict(kind='notebook'), detours=[dict(slug='x', walk='w2')], nb=dict(cells=[]), nb_why='Made.',
+                leela_at=7., research='none', research_why='No good source.', research_at=9.)]
+    out = restore_steps(before, now)[0]
+    assert (out['status'], out['note'], out['check']) == ('skip', 'Old.', dict(kind='short'))
+    assert out['detours'] == [dict(slug='x', walk='w2')] and out['nb'] == dict(cells=[]) and out['nb_why'] == 'Made.' and out['leela_at'] == 7.
+    assert (out['research'], out['research_why'], out['research_at']) == ('none', 'No good source.', 9.)
+
 def test_undo_gives_back_the_old_note():
     assert restore_steps([dict(slug='a', note='Old.')], [dict(slug='a', note='New.', qid='q1')]) == [dict(slug='a', note='Old.', qid='q1')]
 
