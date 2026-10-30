@@ -2,7 +2,7 @@
 
 A concept can have one explainer video. The concept page shows it with its tools (find, paste, remove); the walk step shows it
 through the `step_needs` hook. The ask route adds the cues of the video on the page from the vault."""
-import asyncio, json, logging, queue, threading
+import asyncio, json, logging, queue, threading, time
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook
@@ -17,6 +17,7 @@ CAPS = ('ask', 'learning', 'sources')
 IMAGES = (b'\x89PNG\r\n\x1a\n', b'\xff\xd8\xff', b'GIF87a', b'GIF89a')
 FIGURE_BYTES = 8_000_000
 ASK_BYTES = 200_000
+WARM_EVERY = 30.   # the least seconds between two warm calls of the guide backend
 WITHHELD = 'The guide did not send this, because your privacy setting withholds it. Change it in Settings.'   # the guard refused: personal data and `cli.pii` refuse
 NO_QUERY = 'The tutor did not search, because the name of this idea holds a key or personal data. Paste a link.'   # `safe_query` refused the web query
 log = logging.getLogger(__name__)
@@ -31,6 +32,15 @@ def is_image(b:bytes) -> bool: return b.startswith(IMAGES) or (b[:4] == b'RIFF' 
 def connect(app, ctx):
     ask, lr, sources = ctx.ask, ctx.learning, ctx.sources
     figs = FigureCache(cfg_dir()/'guide-figures.json')
+    warmed, warm_lock = [-WARM_EVERY], threading.Lock()
+
+    def warm():
+        "Start the backend of the guide job in the background, with no model call, at most once in `WARM_EVERY` seconds. The app starts it too."
+        with warm_lock:
+            if time.monotonic() - warmed[0] < WARM_EVERY or not hasattr(ask, 'warm'): return Response(status_code=204)
+            warmed[0] = time.monotonic()
+        ask.warm(['guide'])
+        return Response(status_code=204)
 
     async def figure(req, alt:str=''):
         "The label boxes of a figure. The image is in memory for one vision call, and is not kept."
@@ -122,6 +132,7 @@ def connect(app, ctx):
     def parts(): return ui.Parts()
 
     app.post(Routes.ask)(ask_)
+    app.post(Routes.warm)(warm)
     app.post(Routes.figure)(figure)
     app.post(Routes.video)(paste)
     app.post(Routes.find)(find)

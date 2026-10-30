@@ -59,5 +59,14 @@
 .board-src { margin-left: var(--s1, 4px); }
 .pill.tier-vault { border-color: var(--good, #3e6e52); }
 .pill.tier-web { border-color: var(--acc); }
-@media (prefers-reduced-motion: reduce) { .board-dots i, .board-say span { transition: none; } }
-@media print { #board-host, .board-hl, .guide-strip { display: none; } }
+/* Show while you talk (guide.js): a faint trail of the pointer while the guide asks, and a soft ring on a circle or a still point. */
+#board-trail { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 61; pointer-events: none; }
+#board-trail svg { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
+#board-trail polyline { fill: none; stroke: var(--board-ink); stroke-opacity: .35; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.board-trail-ring { position: absolute; border-radius: 14px; border: 1.5px solid color-mix(in srgb, var(--board-ink) 60%, transparent);
+                    background: color-mix(in srgb, var(--board-ink) 6%, transparent); box-shadow: 0 0 14px 2px color-mix(in srgb, var(--board-ink) 30%, transparent);
+                    animation: board-ring 1.5s ease-out forwards; }
+.board-trail-ring.point { border-radius: 50%; }
+@keyframes board-ring { 0% { opacity: 0; transform: scale(.92); } 15% { opacity: 1; transform: scale(1); } 60% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .board-dots i, .board-say span { transition: none; } .board-trail-ring { animation: none; } #board-trail polyline { display: none; } }
+@media print { #board-host, .board-hl, .guide-strip, #board-trail { display: none; } }

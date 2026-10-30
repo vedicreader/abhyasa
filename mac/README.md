@@ -103,4 +103,8 @@ To change the abhyasa version, do these steps:
 The release targets are the same as Sanketa's. `make release` signs with the Developer ID, notarizes and staples.
 `make publish` makes the GitHub release `mac-v<version>`. `make cask` copies `cask/abhyasa.rb` into `Casks/` in `TAP`
 (default `../../homebrew-tap`), if the file is not there. Then it writes the version and the hash into the file. It does
-not commit or push. The cask depends on the `uv` formula. `make -n` and `make -i` do not run `release` or `publish`.
+not commit or push. The cask depends on the `uv` formula. `make -n` and `make -i` do not run `release`, `publish` or `ship`.
+
+`make ship V=<version>` does all of a release in one step. It sets the abhyasa pin and the app version to V, runs
+`make lock`, `make publish` and `make cask`, commits the tap and abhyasa, and pushes both. It stops when V is empty, or when
+abhyasa or the tap has changes that are not committed.
