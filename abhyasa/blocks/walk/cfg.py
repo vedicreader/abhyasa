@@ -18,6 +18,7 @@ class Routes:
     next = '/w/{jid}/{i}/next'        # skip or go on
     done = '/w/{jid}/{i}/done'        # the summary at the end of a section
     img = '/w/{jid}/{i}/img'          # the figure of the step, from the vault assets
+    result = '/w/{jid}/{i}/result/{n}.png'   # one image of a run that Leela filed, from the vault assets under leela/<walk>/<step>/
     notebook = '/w/{jid}/{i}/notebook'  # download the notebook of a step that runs in Leela, for Jupyter
     data = '/w/{jid}/{i}/data'          # POST: the path of one data entry of the notebook, as the folder of your images
     leela = '/w/{jid}/{i}/leela'        # POST: Open in Leela. Note the time on the step (`leela_at`), then go to the Leela link

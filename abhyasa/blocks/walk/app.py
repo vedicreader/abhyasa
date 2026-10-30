@@ -15,7 +15,7 @@ from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, _topic_walk, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
-from abhyasa.walk import tutor_note, open_short, step_meta, code_task, nb_spec, validate_nb_spec
+from abhyasa.walk import tutor_note, open_short, step_meta, code_task, nb_spec, validate_nb_spec, leela_back
 from abhyasa.contract import path_why
 from abhyasa.nb import spec_notebook
 from abhyasa.research import to_research, wants_source
@@ -31,6 +31,8 @@ RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
 MAX_STATE = 20_000                   # the most chars of a kept demo state
 MAX_SOURCE = 100_000                 # the most chars of code that a run takes
+MAX_RESULT = 2 << 20                 # the most bytes of one image of a run from Leela
+PNG = b'\x89PNG\r\n\x1a\n'
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
 AS_LINK = 'This is a link, so the tutor reads it from the web.'
 NO_DOC = 'No document in your vault has this name. To add a web page or a paper, use A link.'
@@ -160,6 +162,16 @@ def connect(app, ctx):
         if not s.get('nb_why'): write_notebook(j.id, i)
         if nb_writing(j.id, i) or not s.get('nb_why'): return ui.NbPending(j.id, i, link, s.get('leela_at'))
         return ui.NbFailed(j.id, i, s['nb_why'], link, s.get('leela_at'))
+
+    def from_leela(j, i, back=None):
+        """The card "From Leela" of step `i`, or None. A done step gets Next idea. A notebook step that is not done keeps Open in Leela.
+        Another step that is not done keeps its own check, so it gets no card."""
+        if not (b := (leela_back(lr, j) if back is None else back).get(i)): return None
+        j = lr.journey(j.id)
+        s = j.steps[i]
+        if s.get('done'): return ui.FromLeela(j, i, b, ui.GoOn(j.id, i))
+        if s['check']['kind'] != 'notebook': return None
+        return ui.FromLeela(j, i, b, ui.NbGo(j.id, i, leela_link(j, i, vault=vault), spec=bool(s.get('nb')), opened=s.get('leela_at')))
 
     def write_notebooks(j):
         "Start the job that writes the notebook spec of each notebook step of walk `j`, on the research pool."
@@ -351,7 +363,8 @@ def connect(app, ctx):
 
     def one(jid:str):
         if not (j := walk_of(jid)): return missing()
-        st = walk_state(j)
+        leela_back(lr, j)   # a step that Leela checked is done, so the walk goes on from the next one
+        st = walk_state(j := lr.journey(jid))
         if j.get('started') and st.current is not None: return go(jid, st.current)
         h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j), vault=vault)
         return Page(j.title, h1, ui.Filed(j), *rest, on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
@@ -381,9 +394,10 @@ def connect(app, ctx):
         if not for_talk(j):   # a side walk of a talk is for the room: it keeps no read time and starts no demo
             if not j.steps[i].get('read_at'): j = lr.walk_step(jid, i, read_at=time.time())
             ahead(j, i + 1)
-        b = by()
+        back = leela_back(lr, j)
+        j, b = lr.journey(jid), by()
         page = ui.StepPage(j, walk_state(j), b, i, needs=run_hook('step_needs', j, i, b.get(j.steps[i]['slug'])), back=back_to(j), vault=vault,
-                       present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i))
+                       present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
 
@@ -409,6 +423,7 @@ def connect(app, ctx):
 
     def check(jid:str, i:int):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
+        if (got := from_leela(j, i)) is not None: return got   # what came back from Leela takes the place of the check
         with writing[jid, i]:
             j = lr.journey(jid)
             if j.steps[i]['check']['kind'] == 'notebook': return card(j, i)   # it runs in Leela: abhyasa opens no question on it
@@ -595,6 +610,8 @@ def connect(app, ctx):
     def done(jid:str, i:int):
         "The summary of the section of step `i`. It changes nothing: Next idea ended the sitting, and the next step opens a new one."
         if not (j := walk_of(jid, i)): return missing()
+        back = leela_back(lr, j)
+        j = lr.journey(jid)
         sec, ix = next((sec, ix) for sec, ix in walk_state(j).sections if i in ix)
         slugs = {j.steps[k]['slug'] for k in ix}
         s = (sessions.get(sid) or Session.load(tutor, sid)) if (sid := j.get('sitting')) else None
@@ -608,7 +625,10 @@ def connect(app, ctx):
         sides = [((b.get(d['slug']) or {}).get('name', d['slug']), d.get('outcome') in ('solid', 'fragile')) for st in j.steps for d in st.get('detours') or ()]
         now, slugs = time.time(), {st['slug'] for st in j.steps if (st.get('done') or {}).get('outcome') not in (None, 'skipped')}
         due = min((c.due for k in slugs if (c := b.get(k)) and c.get('due') and c.due > now), default=None)
-        return Page('You finished the walk', *ui.WalkDone(j, walk_state(j), moved(rows), b, sides, due, run_hook('walk_end', j), run_hook('walk_actions', j, quiet=True)), on='Learn', crumbs=crumbs, extra=ui.assets())
+        k = max((k for k, x in back.items() if x.run and x.run.get('images')), default=None)   # the last step with images: what you made
+        made = ui.WhatYouMade(j, k, back[k]) if k is not None else ''
+        return Page('You finished the walk', *ui.WalkDone(j, walk_state(j), moved(rows), b, sides, due, run_hook('walk_end', j), run_hook('walk_actions', j, quiet=True), made=made),
+                    on='Learn', crumbs=crumbs, extra=ui.assets())
 
     def img(jid:str, i:int):
         "The figure of step `i`, only from inside the vault assets and only as an image file."
@@ -617,6 +637,19 @@ def connect(app, ctx):
         p = (root/f).resolve()
         if not p.is_relative_to(root) or p.suffix.lower() not in FIGURES or not p.is_file(): return Response(status_code=404)
         return FileResponse(p)
+
+    def result(jid:str, i:int, n:str):
+        "One image of a run that Leela filed for step `i`: only `<assets>/leela/<jid>/<i>/<n>.png`, `n` one digit, a PNG file of at most `MAX_RESULT` bytes."
+        if not re.fullmatch(r'[0-9]', n) or not walk_of(jid, i): return Response(status_code=404)
+        root = (Path(lr.vault.assets())/'leela').resolve()
+        p = (root/jid/str(i)/f'{n}.png').resolve()
+        try:
+            ok = p.is_relative_to(root) and p.is_file() and p.stat().st_size <= MAX_RESULT
+            if ok:
+                with p.open('rb') as f: ok = f.read(8) == PNG
+        except OSError: ok = False
+        if not ok: return Response(status_code=404)
+        return FileResponse(p, media_type='image/png', headers={'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'"})
 
     def walks_of(slug):
         "`(walk, index)` for each walk that has a step on concept `slug`."
@@ -673,6 +706,7 @@ def connect(app, ctx):
     app.post(Routes.next)(next_)
     app.get(Routes.done)(done)
     app.get(Routes.img)(img)
+    app.get(Routes.result)(result); app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's static route for `.png`
     app.get(Routes.notebook)(notebook)
     app.post(Routes.data)(data)
     app.post(Routes.leela)(open_leela)

@@ -145,3 +145,16 @@ html.in-pane main { padding-bottom: 64px; }
 .nb-where { font-size: var(--t-small); }
 .nb-go { align-items: center; flex-wrap: wrap; }
 .nb-go .state { margin: 0; font-size: var(--t-small); }
+
+/* What comes back from Leela (mockup 13-back-from-leela): the card "From Leela" on the step, and what you made at the end of the walk */
+.fromleela dl { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: var(--s2) var(--s4); font-size: var(--t-small); margin: var(--s3) 0 var(--s4); }
+.fromleela dt { color: var(--mute); } .fromleela dd { margin: 0; color: var(--ink2); }
+.fromleela .thumbs { display: flex; flex-wrap: wrap; gap: var(--s3); margin: var(--s3) 0; }
+.fromleela .thumbs img { width: 112px; height: 112px; object-fit: cover; border-radius: var(--r-s); background: var(--line); }
+.fromleela .copies, .walk-made .copies { font-size: var(--t-meta); }
+.walk-made .copies { margin-top: var(--s3); }
+.fromleela .go-on { margin-top: var(--s4); }
+.walk-made .made { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: var(--s5); align-items: start; }
+.walk-made .made img { width: 100%; max-width: 300px; aspect-ratio: 1; object-fit: cover; border-radius: var(--r-s); background: var(--line); }
+.walk-made .cap { font: var(--t-q)/1.4 var(--head); color: var(--fg); margin: 0 0 var(--s3); }
+@media (max-width: 640px) { .walk-made .made { grid-template-columns: 1fr; } }

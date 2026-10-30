@@ -200,14 +200,15 @@ def TalkStep(j, st, by, i):
     return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea'), Passage(j, short, c), Figure_(j['id'], i, s, c),
                P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
-def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None):
-    "One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title, `present` under the outline."
+def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None):
+    """One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title, `present` under the outline.
+    `result` is the card "From Leela": it takes the place of the check, so the page has it with no second request."""
     if in_talk(): return TalkStep(j, st, by, i)
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
     head = Div(*[Span(x) for x in (r.get('section'), r.get('page') and f"p. {r['page']}") if x], cls='sec-lbl')
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
-               id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING)
+               id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING) if result is None else Div(result, id='check')
     return Div(Rail(j, st, by, i, present),
                Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c),
                    NoteSlot(j['id'], i), slot, leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
@@ -436,6 +437,86 @@ def NotebookCard(jid, i, s, link=None):
 
 CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card; `notebook` has its own card (NotebookCard)
 
+# --- what comes back from Leela: every text is Leela's data, so it is cut to one plain line and the page escapes it ---------
+
+DEVICES = dict(mps='Apple GPU (mps)', cuda='NVIDIA GPU (cuda)', cpu='CPU')
+COPIES = 'Images are copies in your vault.'
+LEELA_WROTE = "abhyasa wrote this from Leela's attempts. Leela never changes the walk."
+
+def plain(x, most=120) -> str:
+    "`x` as one line of printable text, at most `most` characters."
+    t = ' '.join(''.join(ch if ch.isprintable() else ' ' for ch in str(x if x is not None else '')).split())
+    return t if len(t) <= most else t[:most - 1] + '…'
+
+def num(v) -> str:
+    "A number of a run in words: `1,000`, `0.083`, `38.5`."
+    return f'{v:,.0f}' if abs(v) >= 1000 or v == int(v) else f'{v:.3g}'
+
+def took(secs) -> str:
+    "A run time in words: `45 s`, `38 min 30 s`, `2 h 5 min`."
+    s = round(secs)
+    if s < 60: return f'{s} s'
+    if s < 3600: return f'{s // 60} min' + (f' {s % 60} s' if s % 60 else '')
+    return f'{s // 3600} h' + (f' {s // 60 % 60} min' if s // 60 % 60 else '')
+
+def run_words(r) -> str:
+    "The run line: `1,000 steps in 38 min 30 s on Apple GPU (mps). Last loss 0.083.` and the other numbers."
+    m = r.get('metrics') or {}
+    dev = r.get('device') or ''
+    said = ' '.join(x for x in (f"{num(m['steps'])} steps" if 'steps' in m else 'It ran', f"in {took(r['secs'])}" if 'secs' in r else '',
+                                f"on {DEVICES.get(dev, plain(dev, 40))}" if dev else '') if x) + '.'
+    if 'loss' in m: said += f" Last loss {num(m['loss'])}."
+    if more := [f'{plain(k, 40)} {num(v)}' for k, v in m.items() if k not in ('steps', 'loss')]: said += f" Other numbers: {', '.join(more)}."
+    return said
+
+def check_words(c, s) -> str:
+    "The check line from a `code` attempt of Leela. Leela files a check only when all the tests pass."
+    if c.get('correct') is not True: return 'Not yet. Some tests do not pass.'
+    n = len((s.get('nb') or {}).get('tests') or ())
+    return f'Right. {n} of {n} tests pass.' if n else 'Right. The tests pass.'
+
+def said_words(p) -> str:
+    "The prediction line: `You said 0.15. It was 0.091.`"
+    was = p.get('actual') if p.get('actual') not in (None, '') else p.get('expected')
+    return f"You said {plain(p.get('answer'), 80)}." + (f' It was {plain(was, 80)}.' if was not in (None, '') else '')
+
+def result_n(p) -> str:
+    "The number `n` of an image path `leela/<walk>/<step>/<n>.png`."
+    return p.rsplit('/', 1)[-1].split('.')[0]
+
+def Results(jid, i, r, cls='thumbs'):
+    "The images of run `r`, each from the result route of step `i`."
+    ims = r.get('images') or []
+    return Div(*[Img(src=Routes.of(Routes.result, jid=jid, i=i, n=result_n(p)), alt=f'Image {k + 1} of {len(ims)} from the run', loading='lazy')
+                 for k, p in enumerate(ims)], cls=cls) if ims else ''
+
+def FromLeela(j, i, b, foot=''):
+    """The card "From Leela" of step `i`: when Leela filed it and the notebook, the check, the prediction against the real value,
+    the run and its images. `b` is `AttrDict(check, prediction, run)` from `leela_back`. `foot` is Next idea, or Open in Leela."""
+    s = j['steps'][i]
+    last = max((x for x in b.values() if x), key=lambda x: x.get('at') if type(x.get('at')) in (int, float) else 0)
+    nb = next((x['notebook'] for x in (b.run, b.check, b.prediction) if x and isinstance(x.get('notebook'), str) and x['notebook']), '')
+    when = f"filed {time.strftime('%H:%M', time.localtime(last['at']))}" if type(last.get('at')) in (int, float) else ''
+    said = ' · '.join(x for x in (when, plain('/'.join(Path(nb).parts[-2:]), 80) if nb else '') if x)
+    head = Div(Span('From Leela'), Span(said, cls='why') if said else '', cls='lbl')
+    rows = [*([Dt('The check'), Dd(check_words(b.check, s))] if b.check else []),
+            *([Dt('Your prediction'), Dd(said_words(b.prediction))] if b.prediction else []),
+            *([Dt('The run'), Dd(run_words(b.run))] if b.run else [])]
+    ims = b.run and b.run.get('images')
+    return Section(head, Dl(*rows), Results(j['id'], i, b.run) if ims else '', P(COPIES, cls='mute copies') if ims else '', foot,
+                   cls='check raised fromleela', aria_label='From Leela')
+
+def WhatYouMade(j, i, b):
+    "The end of the walk: the last image that came back, on step `i`, with the name of its idea and the source line of its passage."
+    r, s = b.run, j['steps'][i]
+    p = r['images'][-1]
+    rd = s.get('read') or {}
+    return Section(H2('What you made'),
+                   Div(Img(src=Routes.of(Routes.result, jid=j['id'], i=i, n=result_n(p)), alt=f'What you made in idea {i + 1}'),
+                       Div(P(f'Idea {i + 1}', cls='lbl'), P(plain(r['makes'], 200), cls='cap') if r.get('makes') else '',
+                           SourceLine(source_of(rd, j)) if rd.get('text') else '', cls='made-text'), cls='raised made'),
+                   P(LEELA_WROTE, cls='mute copies'), cls='walk-made', aria_label='What you made')
+
 # --- the end of a section --------------------------------------------------------------------------------------------
 
 def Moved(m):
@@ -467,10 +548,11 @@ def when_review(due, now=None):
     days = round((time.mktime(lt[:3] + (12, 0, 0) + lt[6:]) - time.mktime(now[:3] + (12, 0, 0) + now[6:])) / 86400)
     return 'today' if days <= 0 else 'tomorrow' if days == 1 else f'in {days} days'
 
-def WalkDone(j, st, ms, by, sides=(), due=None, end=(), present=()):
+def WalkDone(j, st, ms, by, sides=(), due=None, end=(), present=(), made=''):
     """The end of a walk: a row of dots for all the ideas, a short sum of the walk, what moved, the side walks that you did, the
     first review, and Back to Today. `sides` is `(name, learned)`. `end` is what other blocks add (`walk_end`): when it holds
-    a way out (the end of a side walk), the page does not add its own. `present` is the quiet Present of the talk block (`walk_actions`)."""
+    a way out (the end of a side walk), the page does not add its own. `present` is the quiet Present of the talk block (`walk_actions`).
+    `made` is what came back from Leela last (`WhatYouMade`)."""
     outs = [(s.get('done') or {}).get('outcome') for s in j['steps']]
     counts = [f"{outs.count('solid')} solid", f"{sum(o in SHAKY for o in outs)} shaky", f"{outs.count('skipped')} skipped"]
     counts = ', '.join(c for c in counts if not c.startswith('0 '))
@@ -481,4 +563,4 @@ def WalkDone(j, st, ms, by, sides=(), due=None, end=(), present=()):
     return (H1('You finished the walk'), Dots(st),
             Div(P(lead, cls='lead-sum'), *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []), *also,
                 P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', cls='walk-sum', style=f"--n:{min(len(outs), 5)}"),
-            *end, go, *([Div(*present, cls='row')] if present else []))
+            made, *end, go, *([Div(*present, cls='row')] if present else []))
