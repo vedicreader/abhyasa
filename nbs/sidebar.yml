@@ -23,3 +23,4 @@ website:
       - 18_research.ipynb
       - 19_detect.ipynb
       - 20_edit.ipynb
+      - 21_guide.ipynb
