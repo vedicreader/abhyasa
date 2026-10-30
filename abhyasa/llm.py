@@ -90,15 +90,21 @@ PROVIDERS = dict(claude='Claude', anthropic='Anthropic API', openai='OpenAI', co
                  llama='On this Mac (llama.cpp)', ollama='On this Mac (Ollama)')
 _DROP = re.compile(r'^(?:mlx|gguf|it|litert|lm|optiq|instruct|\d+bit)$', re.I)
 
+_DATE = re.compile(r'-20\d{6}$|-20\d\d-\d\d-\d\d$')   # 20251001 or 2024-07-18 at the end: a snapshot date, not a part of the name
+
 def _words(m:str) -> str:
-    "`claude-opus-5-5` gives `Claude Opus 5.5`, `gpt-6-astra` gives `GPT-6 Astra`, `Qwen3-4B` gives `Qwen 3 4B`."
-    m = re.sub(r'-20\d{6}$', '', m)
+    "`claude-opus-5-5` gives `Claude Opus 5.5`, `gpt-6-astra` gives `GPT-6 Astra`, `Qwen3-4B` gives `Qwen 3 4B`, `gpt-4o-mini` gives `GPT-4o mini`, `o4-mini` stays."
+    ts = [t for t in re.split(r'[-_:\s]+', _DATE.sub('', m)) if t and not _DROP.match(t)]
+    if ts and re.fullmatch(r'o\d+', ts[0], re.I): return '-'.join(t.lower() for t in ts)   # OpenAI writes o3 and o4-mini in lower case
     out = []
-    for t in (t for t in re.split(r'[-_:\s]+', m) if t and not _DROP.match(t)):
+    for t in ts:
         if t.isdigit() and out and re.fullmatch(r'[\d.]+', out[-1]) and '.' not in out[-1]: out[-1] += '.' + t
+        elif out and out[-1] == 'GPT' and re.fullmatch(r'[\d.]+o?', t, re.I): out[-1] += f'-{t.lower()}'
+        elif out and re.fullmatch(r'GPT-[\d.]+', out[-1]) and t.lower() == 'o': out[-1] += 'o'   # gpt-4-o-preview
+        elif out and re.fullmatch(r'GPT-[\d.]+o', out[-1]): out.append(t.lower())          # GPT-4o mini, as OpenAI writes it
         elif re.fullmatch(r'[a-z]?[\d.]+[bmk]', t, re.I): out.append(t.upper())
         elif t.lower() == 'gpt': out.append('GPT')
-        elif out and out[-1].startswith('GPT') and re.fullmatch(r'[\d.]+', t) and out[-1] == 'GPT': out[-1] += f'-{t}'
+        elif re.fullmatch(r'[a-z]\d+', t, re.I): out.append(t.upper())                     # one letter and a number: Kimi K3, DeepSeek R1
         else: out.append(re.sub(r'^([A-Za-z]+)(\d)', r'\1 \2', t[0].upper() + t[1:]))
     return ' '.join(out)
 
@@ -171,7 +177,7 @@ def _rank(p:str) -> int:
     return READY_ORDER.index(p) if p in READY_ORDER else len(READY_ORDER)
 
 def one_each(rows:list, keep:str='') -> list:
-    "One row of `rows` for each model name, in the first place of that name: the saved id `keep`, else the route that ramabana tries first. `also` has the other ids."
+    "One row of `rows` for each model name, in the first place of that name: the saved id `keep`, else the route that ramabana tries first. `also` has the other ids. An alias with a version beside it goes into the `also` of the newest version."
     key = lambda r: r.get('name') or r['value']
     best = {}
     for r in rows:
@@ -182,6 +188,12 @@ def one_each(rows:list, keep:str='') -> list:
         if (k := key(r)) in done: continue
         done.add(k)
         out.append(dict(best[k], also=[x['value'] for x in rows if key(x) == k and x is not best[k]]))
+    for a in [r for r in out if r['value'] != keep]:
+        vs = [r for r in out if re.fullmatch(re.escape(key(a)) + r' \d+(?:\.\d+)*', key(r))]
+        if not vs: continue
+        v = max(vs, key=lambda r: tuple(map(int, key(r).rpartition(' ')[2].split('.'))))   # the alias points to the newest version
+        out.remove(a)
+        v['also'] = v['also'] + [a['value'], *a['also']]
     return out
 
 # %% ../nbs/02_llm.ipynb #304e2f99
