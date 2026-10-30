@@ -71,7 +71,7 @@ requires-dist = [
     { name = "python-fasthtml", specifier = ">=0.14" },
     { name = "ramabana", specifier = ">=0.2.96" },
     { name = "ramabana", marker = "extra == 'models'", specifier = ">=0.2.96" },
-    { name = "rishi", specifier = ">=0.1.56" },
+    { name = "rishi", specifier = ">=0.1.63" },
     { name = "rupaka", specifier = ">=0.0.7" },
     { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.7" },
     { name = "rupaka", extras = ["check"], marker = "extra == 'dev'", specifier = ">=0.0.7" },
@@ -4418,7 +4418,7 @@ wheels = [
 
 [[package]]
 name = "rishi"
-version = "0.1.62"
+version = "0.1.63"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aidialog" },
@@ -4434,9 +4434,9 @@ dependencies = [
     { name = "truststore" },
     { name = "uraiyadal" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/80/ef8609abc4b98dbe9e38d9218ba5991f9548c38d5bd5580627ac9025a422/rishi-0.1.62.tar.gz", hash = "sha256:209522fe3efce864e9a6bab83fd0c7b7b5b54c597298953307e0c5029db63479", size = 98311, upload-time = "2026-10-30T09:11:13.639Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/52/c1/9b98b7c3159addc3c478904c03453c8d587b982e61e122e4638b59c5bb2c/rishi-0.1.63.tar.gz", hash = "sha256:b5fd5d8ec91a091644e3c6afec5d5200ae8d3c1661f0cbcec783318f1c066f5e", size = 98542, upload-time = "2026-10-30T11:07:53.339Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0d/47/5ccd8b736c927f868eb1a2217c7319bca56a0e64c15c375faa800c449975/rishi-0.1.62-py3-none-any.whl", hash = "sha256:fe98acafc34c354ebad6f97b05499ffa4a540daa402dbd3b931784729695c023", size = 107408, upload-time = "2026-10-30T09:11:12.012Z" },
+    { url = "https://files.pythonhosted.org/packages/94/74/7c3ebdb4f69806486cf0dd81ad3abc7795275ae479ae0e5f264c5fb5a4d5/rishi-0.1.63-py3-none-any.whl", hash = "sha256:838804af4738a90002b554f75f11b02b64a0d28468a16081aacdaaf31613d4d5", size = 107647, upload-time = "2026-10-30T11:07:51.996Z" },
 ]
 
 [[package]]
