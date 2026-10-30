@@ -259,3 +259,19 @@ def test_maths_in_the_board_caption(page):
     page.evaluate('window.katexSaved = window.katex; delete window.katex')
     try: assert say() == [6, 0, ['Q'], False]
     finally: page.evaluate('window.katex = window.katexSaved')
+
+def test_demo_set_keeps_each_value_in_its_input(page):
+    """Rupaka.set copies a value as it is given, so the board fits each value of `demo_set` to its input first: a number over the
+    max lands at the max and on the step, an option that the choice does not have and a toggle that is not true or false are dropped."""
+    got = page.evaluate("""async () => {
+      const calls = []; window.Rupaka = {set: (h, s) => calls.push(s)};
+      const h = Object.assign(document.createElement('div'), {textContent: 'A demo'}); h.dataset.guideId = 'demo';
+      h.rupaka = {spec: {id: 'd', state: {k: 3, shape: 'square', on: false}, blocks: [
+        {type: 'slider', bind: 'k', min: 0, max: 10, step: 0.5}, {type: 'choice', bind: 'shape', options: ['triangle', 'square']},
+        {type: 'toggle', bind: 'on'}]}, st: {k: 3, shape: 'square', on: false, gate: {}}};
+      document.querySelector('main').append(h);
+      await abhyasaBoard.play({steps: [{say: 'Move k.', strokes: [{op: 'demo_set', set: {k: 99, shape: 'circle', on: 'yes'}}, {op: 'box', at: 'demo'}]},
+                                       {say: 'Again.', strokes: [{op: 'demo_set', set: {k: 2.7, shape: 'triangle', on: true, nope: 1}}, {op: 'box', at: 'demo'}]}],
+                               tier: 'tutor', sources: []}, {quiet: true, fast: true});
+      return calls; }""")
+    assert got == [{'k': 10}, {'k': 2.5, 'shape': 'triangle', 'on': True}]

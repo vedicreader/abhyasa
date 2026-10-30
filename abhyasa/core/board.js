@@ -37,8 +37,9 @@
 //                                     at the end. It can return a function that stops the speech. The board ignores calls
 //                                     after the step changes. Default: speechSynthesis, timed by letters when it has no voice.
 //       demo(set)                     move the demo to `set` ({input: value}). Default: Rupaka.set on [data-guide-id="demo"],
-//                                     only when each gate of the demo is done (never show the result first). A host demo
-//                                     must do its own gate check.
+//                                     only when each gate of the demo is done (never show the result first), with each value
+//                                     made to fit its input first (fitDemo). A host demo must do its own gate check, and can
+//                                     use abhyasaBoard.fitDemo(spec, set).
 //       assets                        the URL folder of rough.js and perfect-freehand.mjs. Default '/vendor/'.
 //     A board with `streaming: true` waits for more steps: it can start with step 1 only. The strip shows no step count and
 //     no end line until finish(board).
@@ -698,7 +699,32 @@
     const walk = bs => (bs || []).forEach(b => { if (b.type === 'gate') gates.push(b.id); walk(b.blocks); });
     walk(s.spec.blocks);
     if (!gates.every(g => s.st.gate && s.st.gate[g] === 'done')) return;   // the gate is still closed: never show the result first
-    Rupaka.set(h, set);
+    const fit = fitDemo(s.spec, set);
+    if (Object.keys(fit).length) Rupaka.set(h, fit);
+  }
+  // A value from the model in the range of its input, as the demo itself allows: Rupaka.set copies a value as it is given. A number
+  // of a slider or a point goes to its min or max and to its step. A choice or a wheel item that is not one of its options, a toggle
+  // that is not true or false, a number input with no number, and a key that no input binds are dropped.
+  const SLIDER = {min: 0, max: 100, step: 1};
+  function fitDemo(spec, set) {
+    const by = {}, walk = bs => (bs || []).forEach(b => { for (const k of [b.bind, b.x, b.y, b.angle]) if (typeof k === 'string' && !(k in by)) by[k] = b; walk(b.blocks); });
+    walk(spec && spec.blocks);
+    const out = {};
+    for (const [k, v] of Object.entries(set || {})) {
+      const b = by[k];
+      if (!b) continue;
+      if (b.type === 'choice' || (b.type === 'wheel' && k === b.bind)) { if ((b.type === 'choice' ? b.options : b.items || []).some(o => JSON.stringify(o) === JSON.stringify(v))) out[k] = v; }
+      else if (b.type === 'toggle') { if (typeof v === 'boolean') out[k] = v; }
+      else if (typeof v === 'number' && Number.isFinite(v)) {
+        const d = b.type === 'slider' ? SLIDER : {}, lo = b.min ?? d.min, hi = b.max ?? d.max, step = b.step ?? d.step;
+        let x = v;
+        if (lo != null) x = Math.max(lo, x);
+        if (hi != null) x = Math.min(hi, x);
+        if (step > 0) { const o = lo ?? 0; x = +(o + Math.round((x - o) / step) * step).toFixed(10); if (hi != null && x > hi) x -= step; }
+        out[k] = x;
+      } else if (!['slider', 'point'].includes(b.type) && k !== b.angle) out[k] = v;   // a number input takes only a number; a list goes as it is
+    }
+    return out;
   }
   function seekVideo(t) {   // the YouTube player API by postMessage: the embed has enablejsapi=1, and no autoplay
     const f = document.querySelector('#guide-video iframe');
@@ -777,7 +803,7 @@
   }).observe(document.body, {childList: true, subtree: true});
   if (document.body) watch(); else addEventListener('DOMContentLoaded', watch);
   const view = p => [p[0] - scrollX, p[1] - scrollY];
-  window.abhyasaBoard = {play, add, finish, stop: () => stop(), note, status, seekVideo, demoAnchors, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
+  window.abhyasaBoard = {play, add, finish, stop: () => stop(), note, status, seekVideo, demoAnchors, fitDemo, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
                          get state() {
                            if (!st) return null;
                            const t = performance.now(), mine = st.marks.filter(m => m.step === st.i && !/^(clear|demo_set|video_at)$/.test(m.o.op));
