@@ -68,7 +68,7 @@ def step_meta(j, i:int) -> dict:
     "The walk, the step (its place, and `idea`, the slug of its concept, which stays when the step moves), the section and the page of step `i`, for the record of each attempt. A side walk adds `from`, the step that opened it."
     r = j.steps[i].get('read') or {}
     m = dict(walk=j.id, step=i, idea=j.steps[i]['slug'], section=r.get('section'), page=r.get('page'))
-    if j.get('parent'): m['from'] = '/'.join(map(str, j.parent.values()))
+    if j.get('parent'): m['from'] = '/'.join(str(v) for k, v in j.parent.items() if k != 'idea')   # `<walk>/<step>`: the concept of the step is not part of it
     return m
 
 # %% ../nbs/15_walk.ipynb #i15
@@ -231,18 +231,27 @@ def _from_leela(lr, jid:str) -> list:
 PREDICTIONS = ('predict', 'demo')   # the kinds of a prediction that Leela files: a card prediction, or a prediction in a demo
 
 def _same_step(lr, s, a) -> bool:
-    """Whether attempt `a` is on the concept of step `s`: its slug, or the slug of the concept name (Leela slugifies the lesson name).
-    An older Leela lesson files no `concept`: then the index of the step is the match."""
-    if 'concept' not in a: return True
+    "Whether attempt `a` names the concept of step `s`: its slug, or the slug of the concept name (Leela slugifies the lesson name)."
     c = a.get('concept')
     return isinstance(c, str) and bool(c) and c in (s['slug'], slugify((lr.concept(s['slug']) or {}).get('name') or ''))
 
+def _step_of(lr, j, a) -> int|None:
+    """The place now of the step of walk `j` that Leela attempt `a` is on. With a `concept`: the step on that concept (the one at the
+    index of `a` first), else None. With no `concept` (an older lesson): the index of `a`, only when `leela_opened` says that the step
+    opened there had the concept that the step there has now."""
+    i = a.get('step')
+    at = type(i) is int and 0 <= i < len(j.steps)
+    if 'concept' in a:
+        if at and _same_step(lr, j.steps[i], a): return i
+        return next((k for k, s in enumerate(j.steps) if _same_step(lr, s, a)), None)
+    return i if at and (j.get('leela_opened') or {}).get(str(i)) == j.steps[i]['slug'] else None
+
 def leela_found(lr, j) -> dict:
-    "Step -> `AttrDict(check, prediction, run)`: what Leela filed for walk `j`. It writes nothing."
+    "Step -> `AttrDict(check, prediction, run)`: what Leela filed for walk `j`, each on the step of its concept. It writes nothing."
     out = {}
     for a in _from_leela(lr, j.id):
-        i, k = a.get('step'), a.get('kind')
-        if type(i) is not int or not 0 <= i < len(j.steps) or not _same_step(lr, j.steps[i], a): continue
+        k = a.get('kind')
+        if (i := _step_of(lr, j, a)) is None: continue
         b = out.setdefault(i, AttrDict(check=None, prediction=None, run=None))
         if k == 'code' and b.check is None: b.check = a
         elif k in PREDICTIONS and b.prediction is None: b.prediction = a

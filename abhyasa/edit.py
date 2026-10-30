@@ -263,14 +263,21 @@ def clean_step(s:dict) -> dict:
 
 # %% ../nbs/20_edit.ipynb #fbd51855
 def reparent(lr:Learning, jid:str, before:list, after:list) -> list:
-    "Give each side walk of walk `jid` the new place of the step that it was opened from (`before` -> `after`, by slug). Return the side walk ids that changed."
-    at, out = {s.get('slug'): k for k, s in enumerate(after)}, []
+    """Give each side walk of walk `jid` the place in `after` of the step that it was opened from. The key is the concept of that step
+    (`parent.idea`; an old side walk gets it from its place in `before`), and it never changes. A step that a merge joined maps to the
+    step that it joined. A removed step gives no place (`step` None) until an Undo brings the step back. Return the side walk ids that changed."""
+    at = {s.get('slug'): k for k, s in enumerate(after)}
+    for k, s in enumerate(after):
+        for m in s.get('merged') or (): at.setdefault(m, k)   # a merged step: the side walk goes with the step that it joined
+    out = []
     for w in lr.journeys():
         p = w.get('parent') or {}
+        if p.get('walk') != jid: continue
         i = p.get('step')
-        if p.get('walk') != jid or type(i) is not int or not 0 <= i < len(before): continue
-        if (k := at.get(before[i].get('slug'))) is not None and k != i:
-            lr.merge_journey(w.id, parent={**p, 'step': k}); out.append(w.id)
+        idea = p.get('idea') or (before[i].get('slug') if type(i) is int and 0 <= i < len(before) else None)
+        if not idea: continue
+        new = {**p, 'idea': idea, 'step': at.get(idea)}
+        if new != p: lr.merge_journey(w.id, parent=new); out.append(w.id)
     return out
 
 # %% ../nbs/20_edit.ipynb #9768cabd
@@ -389,10 +396,11 @@ def passages(lr:Learning, j, i:int=None, q:str='', name:str='', sources=None) ->
     "The real passages that step `i` of walk `j` (or a new idea `name`) can pick, as `AttrDict(text, place, src)`; with `q`, only the ones with each word of `q`."
     name, ws = _name(lr, j, i, name), str(q or '').lower().split()
     most = min(val('walks.passage'), PASSAGE_MOST)
-    rows = [(t, pl, s) for t, pl, s in _found(lr, j, name, sources) if all(w in t.lower() for w in ws)]
+    rows = [(math_cut(t, most), t, pl, s) for t, pl, s in _found(lr, j, name, sources) if all(w in t.lower() for w in ws)]
+    rows = [(c, t, pl, s) for c, t, pl, s in rows if verbatim(c, t)]   # only a passage that `pick_read` takes: 40 characters or more, word for word
     key = main_words(name) if name else []
-    rows.sort(key=lambda x: -named_count(x[0], key) if key else 0)
-    return [AttrDict(text=math_cut(t, most), place=pl, src=s) for t, pl, s in rows[:PASSAGES_MOST]]
+    rows.sort(key=lambda x: -named_count(x[1], key) if key else 0)
+    return [AttrDict(text=c, place=pl, src=s) for c, t, pl, s in rows[:PASSAGES_MOST]]
 
 def pick_read(lr:Learning, j, i:int=None, text:str='', name:str='', sources=None) -> dict:
     "The `read` of step `i` (or of a new idea `name`) from the picked `text`. It must be in a real passage of the walk word for word; else `ValueError`."

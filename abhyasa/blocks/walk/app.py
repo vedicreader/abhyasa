@@ -14,7 +14,7 @@ from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
-from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, _topic_walk, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
+from abhyasa.journey import NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, _topic_walk, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task, validate_nb_spec, leela_back, leela_found
 import abhyasa.walk as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.talk   # adds Learning.talks: the editor links the talks made from a walk
@@ -524,6 +524,9 @@ def connect(app, ctx):
         "Open in Leela: note the time on step `i` (`leela_at`), then go to the Leela link. When Leela does not run, go back to the step."
         if not walk_of(jid, i): return Response(status_code=404)
         if not (link := leela_link(lr.journey(jid), i, vault=vault)): return RedirectResponse(ui.at(Routes.step, jid, i), status_code=303)
+        with _jlock(jid):   # the concept opened at this place: an older Leela lesson files no concept, so its results match only while the step there has it
+            j = lr.journey(jid)
+            lr.put_journey({**j, 'leela_opened': {**(j.get('leela_opened') or {}), str(i): j.steps[i]['slug']}})
         put(lr.journey(jid), i, leela_at=time.time())
         return RedirectResponse(link, status_code=303)
 
@@ -711,13 +714,14 @@ def connect(app, ctx):
         return FileResponse(p)
 
     def result(jid:str, i:int, n:str):
-        """One image of a run that Leela filed for step `i`: only `<assets>/leela/<jid>/<i>/<n>.png`, `n` one digit, listed by the run of
-        the step that `run_ok` accepts, and a PNG file of at most `MAX_RESULT` bytes."""
+        """One image of a run that Leela filed for step `i`: only `<assets>/leela/<jid>/<k>/<n>.png` (`k` is the place of the step when Leela
+        ran it, which a move can change), `n` one digit, listed by the run of the step that `run_ok` accepts, and a PNG file of at most `MAX_RESULT` bytes."""
         if not re.fullmatch(r'[0-9]', n) or not (j := walk_of(jid, i)): return Response(status_code=404)
         run = (leela_found(lr, j).get(i) or AttrDict(run=None)).run
-        if not run or f'leela/{jid}/{i}/{n}.png' not in run.get('images', []): return Response(status_code=404)
+        k = run.get('step') if run else None
+        if type(k) is not int or f'leela/{jid}/{k}/{n}.png' not in run.get('images', []): return Response(status_code=404)
         root = (Path(lr.vault.assets())/'leela').resolve()
-        p = (root/jid/str(i)/f'{n}.png').resolve()
+        p = (root/jid/str(k)/f'{n}.png').resolve()
         try:
             ok = p.is_relative_to(root) and p.is_file() and p.stat().st_size <= MAX_RESULT
             if ok:
@@ -816,6 +820,7 @@ def connect(app, ctx):
                     if act == 'add':
                         at = slugs.index(f['after']) + 1 if f.get('after') in slugs else len(slugs)
                         name, concept = f.get('name', '').strip(), f.get('concept', '').strip()
+                        if len(name) > NAME_MOST: raise ValueError(f'Write the name of the idea in at most {NAME_MOST} characters.')
                         read = pick_read(lr, j, None, text, name=name or nm(concept), sources=ctx.sources) if text else None
                         j2 = add_step(lr, ask, jid, at, name=name, slug=concept, read=read, sources=ctx.sources)
                     else: j2 = split_step(lr, ask, jid, slug, ctx.sources)
@@ -903,9 +908,10 @@ def connect(app, ctx):
         "The real passages that idea `i` (or a new idea `name`) can pick, with the words `q`. A GET only reads."
         if not (j := walk_of(jid)) or for_talk(j): return Response(status_code=404)
         k = int(i) if i.strip().isdecimal() and int(i) < len(j.steps) else None
-        if k is None and not name.strip(): return P('Write the name of the idea first.', cls='mute')
-        ps = real_passages(lr, j, k, q[:200], name=name.strip()[:120], sources=ctx.sources)
-        return ui.PickList(jid, ps, slug=j.steps[k]['slug'] if k is not None else '', name=name.strip()[:120])
+        name, q = ' '.join(CTRL.sub('', name).split())[:NAME_MOST], CTRL.sub('', q)[:200]
+        if k is None and not name: return P('Write the name of the idea first.', cls='mute')
+        ps = real_passages(lr, j, k, q, name=name, sources=ctx.sources)
+        return ui.PickList(jid, ps, slug=j.steps[k]['slug'] if k is not None else '', name=name)
 
     def walks_of(slug):
         "`(walk, index)` for each walk that has a step on concept `slug`."

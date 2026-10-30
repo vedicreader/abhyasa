@@ -254,3 +254,31 @@ def test_one_rewrite_button_and_room_for_the_bar(mk, lr, walk_fake):
     assert t.count('>Rewrite<') == 0 and t.count('data-rewrite="1"') == 3 and 'Press Return to send' in t
     css = (Path(__file__).parents[2]/'abhyasa/blocks/walk/walk.css').read_text()
     assert 'scroll-padding-bottom' in css and 'position: sticky' in css
+
+def test_a_side_walk_comes_back_to_its_step_after_remove_or_merge_and_undo(mk, lr, walk_fake):
+    "The side walk is tied to the concept of its step: remove, then Undo, puts it back on the same idea; a merge maps it to the idea it joined."
+    cl = mk(); jid = paper_walk(cl, lr); cl.post(f'/w/{jid}/start'); side = open_side_walk(cl, lr, jid, 1); ss = slugs(lr, jid)
+    post(cl, jid, slug=ss[1], act='remove')
+    assert lr.journey(side).parent['step'] is None and lr.journey(side).parent['idea'] == ss[1]
+    cl.post(f'/w/{jid}/undo')
+    assert lr.journey(side).parent['step'] == 1 and slugs(lr, jid) == ss
+    post(cl, jid, slug=ss[0], act='merge')
+    assert lr.journey(side).parent['step'] == 0
+    cl.post(f'/w/{jid}/undo')
+    assert lr.journey(side).parent['step'] == 1
+
+def test_back_from_a_side_walk_finds_its_step_by_concept(mk, lr, walk_fake):
+    "Back from a side walk keeps its result on the step that opened it, also when that step moved."
+    cl = mk(); jid = paper_walk(cl, lr); cl.post(f'/w/{jid}/start'); side = open_side_walk(cl, lr, jid, 1); ss = slugs(lr, jid)
+    lr.put_journey({**lr.journey(jid), 'steps': [lr.journey(jid).steps[k] for k in (1, 0, 2)]})   # moved by another writer: the side walk still says step 1
+    cl.post(f'/rh/back/{side}')
+    j = lr.journey(jid)
+    assert j.steps[0]['slug'] == ss[1] and j.steps[0].get('detours') and not j.steps[1].get('detours')
+
+def test_a_long_name_is_refused_and_marks_go(mk, lr, walk_fake):
+    cl = mk(); jid = paper_walk(cl, lr)
+    assert post(cl, jid, act='add', name='x' * 121).status_code == 400
+    walk_fake.rules['The idea: '] = dict(name='Layer norm', statement='It scales a layer.')
+    post(cl, jid, act='add', name='Layer‮ norm')
+    p = [c for c in walk_fake.calls if 'The idea: ' in c[0]][-1][0]
+    assert '<source title="idea">Layer norm</source>' in p
