@@ -30,3 +30,33 @@ def test_demo_set_waits_for_the_gate():
 
 def test_tex_match_ignores_braces():
     assert norm_tex(r'\sqrt{ \bar{\alpha}_{t} }') == norm_tex(r'\sqrt{\bar\alpha_t}')
+
+# --- the context and the figure labels -------------------------------------------------------------------------------
+from abhyasa.guide import clean_context, figure_labels, FigureCache
+
+def test_clean_context_keeps_known_keys_and_cuts():
+    raw = dict(page='/walk/x/step/1', evil='<script>', anchors=[dict(id='passage', kind='passage', text='w ' * 400, onclick='x'),
+                                                                 dict(id='bad id!', kind='passage', text='x'), dict(id='m1', kind='nope', text='y')])
+    c = clean_context(raw)
+    assert 'evil' not in c and [a['id'] for a in c.anchors] == ['passage', 'm1'] and 'onclick' not in c.anchors[0]
+    assert len(c.anchors[0]['text']) <= 300 and c.anchors[1]['kind'] == 'text' and set(c.by) == {'passage', 'm1'}
+
+def test_clean_context_cuts_all_text_to_6000():
+    c = clean_context(dict(anchors=[dict(id=f'a{i}', kind='text', text='x' * 300) for i in range(40)]))
+    assert sum(len(a['text']) for a in c.anchors) <= 6000
+
+def test_figure_labels_from_a_vision_reply():
+    calls = []
+    def vision(p, img, sp=''): calls.append(img); return json.dumps(dict(labels=[dict(text='a', box=[90, 400, 160, 500]), dict(text='b', box=[480, 880, 540, 960]),
+                                                                                  dict(text='c', box=[0, 0, 2000, 10]), dict(text='', box=[1, 1, 2, 2])]))
+    assert figure_labels(vision, b'\x89PNG', 'A right triangle') == {'a': [90, 400, 160, 500], 'b': [480, 880, 540, 960]}
+    assert calls == [b'\x89PNG']
+    assert figure_labels(lambda p, img, sp='': 'not json', b'x') == {}
+
+def test_figure_cache_keeps_boxes_only(tmp_path):
+    fc = FigureCache(tmp_path/'figs.json')
+    k = fc.key(b'\x89PNG data')
+    assert fc.get(k) is None
+    fc.put(k, {'a': [1, 2, 3, 4]})
+    assert FigureCache(tmp_path/'figs.json').get(k) == {'a': [1, 2, 3, 4]}
+    assert b'PNG' not in (tmp_path/'figs.json').read_bytes()
