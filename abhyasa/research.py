@@ -613,7 +613,7 @@ def put_notebook(lr:Learning, jid:str, idea, spec, st=None) -> str:
 STOPPED = 'Stopped. Call no more tools. Reply with one short line.'
 TIME_UP = 'The time is up. Call no more tools. Reply with one short line.'
 TEXTS = ('.md', '.txt', '.py', '.ipynb', '.rst', '.toml', '.yaml', '.yml', '.json', '.cfg', '.qmd', '.tex', '.html', '.js', '.ts', '.sh', '.r', '.jl')
-SECRET = re.compile(r'(?:^|/)(?:\.env[^/]*|\.ssh|\.aws|\.gnupg|\.netrc|id_[a-z0-9]+|[^/]*\.(?:pem|key|p12|pfx|keychain|kdbx))(?:/|$)', re.I)
+SECRET = re.compile(r'(?:^|/)(?:\.env[^/]*|\.ssh|\.aws|\.gnupg|\.netrc|id_[a-z0-9]+|[^/]*\.(?:pem|key|p12|pfx|keychain(?:-db)?|kdbx))(?:/|$)', re.I)
 
 def secret_path(p, top) -> bool:
     "Whether the file `p` under the folder `top` holds credentials: shalya's `denied` (the paths that ramabana never reads), and `SECRET` for the shapes that it does not list."
