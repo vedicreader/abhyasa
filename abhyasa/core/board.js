@@ -518,8 +518,10 @@
     }
     if (st.onVoice && !st.quiet && !st.told) {   // the first board with a voice says how to turn it off, one time
       st.told = true;
-      if (!localStorage.getItem('board-voice-told')) { localStorage.setItem('board-voice-told', '1'); parts.push(el('p', 'board-tell', 'The guide speaks its steps. Turn the voice off here.')); }
+      if (!localStorage.getItem('board-voice-told')) { localStorage.setItem('board-voice-told', '1'); st.tellAt = st.i; }
     }
+    if (st.tellAt === st.i && !st.quiet) parts.push(el('p', 'board-tell', 'The guide speaks its steps. Turn the voice off here.'));   // it stays until the step changes
+    else st.tellAt = null;
     const keys = el('p', 'board-keys', 'A again · S back · D next · Esc stop');
     if (st.onVoice) keys.append(' ', button(st.quiet ? 'Voice on' : 'Voice off', 'board-voice', () => setVoice(st.quiet)));
     keys.append(' ', button('Stop', 'board-stop', () => stop('learner')));

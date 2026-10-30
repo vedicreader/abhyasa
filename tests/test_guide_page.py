@@ -234,3 +234,14 @@ def test_the_page_shows_the_drawing_state_when_the_first_step_comes(page):
     page.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('what is this')")
     page.wait_for_function('abhyasaBoard.state && !abhyasaBoard.state.streaming', timeout=5000)
     assert page.evaluate('states') == ['reading', 'asking', 'drawing']
+
+def test_the_voice_notice_stays_until_the_step_changes(page):
+    "The first board with a voice says how to turn it off. A next step that streams in does not take the line away; a new step does."
+    page.evaluate("""() => { document.body.insertAdjacentHTML('beforeend', '<p data-guide-id="b">Beta</p>');
+                             abhyasaBoard.play({steps: [{say: 'One.', strokes: [{op: 'box', at: 'passage'}]}], tier: 'tutor', sources: [], streaming: true},
+                                               {onVoice: () => {}, host: {speak: () => {}}}); }""")   # a voice that never ends: the board stays at step 1
+    page.wait_for_function("document.querySelector('#guide-strip .board-tell')")
+    page.evaluate("abhyasaBoard.add({say: 'Two.', strokes: [{op: 'box', at: 'b'}]})")
+    assert page.evaluate("!!document.querySelector('#guide-strip .board-tell')") and page.evaluate('abhyasaBoard.state.i') == 0
+    page.evaluate('abhyasaBoard.next()')
+    assert page.evaluate("!document.querySelector('#guide-strip .board-tell')")
