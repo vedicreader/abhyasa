@@ -15,3 +15,12 @@ def test_the_step_title_names_its_concept(mk, walk_fake, lr):
     j = lr.journey(jid)
     h = cl.get(f'/w/{jid}/0').text
     assert re.search(r'<h1[^>]*class="idea"[^>]*data-concept="%s"|<h1[^>]*data-concept="%s"[^>]*class="idea"' % ((j.steps[0]['slug'],) * 2), h)
+
+def test_a_board_hint_shows_its_count_and_its_maths():
+    "After a reload, a hint from the board says its count of the ladder, and a bare W_Q in its words is maths."
+    from fasthtml.common import to_xml
+    from abhyasa.blocks.walk.ui import Turn, bare_tex
+    from abhyasa.tutor import HINTS
+    h = to_xml(Turn(dict(who='tutor', kind='hint', via='board', text='Look at W_Q and d_{k}.'), 2))
+    assert f'Hint 2 of {len(HINTS)} (from the board)' in h and '<span class="math inline">W_Q</span>' in h
+    assert bare_tex('a file_name, a_b_c and $x_i$ and W_Q') == 'a file_name, a_b_c and $x_i$ and W_Q'   # text with $ stays; long names are not maths

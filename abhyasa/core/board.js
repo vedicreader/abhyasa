@@ -491,8 +491,8 @@
     b.steps.forEach((_, k) => dots.append(el('i', k === st.i ? 'on' : '')));
     top.append(el('span', 'pill tier-' + b.tier, TIER[b.tier] || 'tutor'), dots, el('span', 'board-n', st.streaming ? `Step ${st.i + 1}` : `Step ${st.i + 1} of ${b.steps.length}`));
     if (st.who && st.who.model) top.append(el('span', 'board-who', `${st.who.model} · ${(chip(st.who) || {textContent: 'hosted'}).textContent}`));   // the words of the chip of the state line
-    const say = el('p', 'board-say');   // each word in its own span, so it can light up when it is said
-    step.say.split(/\s+/).filter(Boolean).forEach((w, k) => { if (k) say.append(' '); say.append(el('span', k <= st.lit ? 'on' : '', w)); });
+    const say = el('p', 'board-say');   // each word (or formula) in its own span, so it can light up when it is said
+    sayParts(step.say).forEach((w, k) => { if (k) say.append(' '); say.append(texInto(el('span', k <= st.lit ? 'on' : '', null), w)); });
     const parts = [top, say];
     if (step.quote) {
       const src = b.sources[step.quote.src - 1] || {}, q = el('p', 'board-quote');
@@ -528,10 +528,36 @@
     parts.push(keys);
     s.replaceChildren(...parts);
   }
+  // The words of a step, with its maths: `$…$` is one part, and a bare W_Q or d_{k} (one letter with a short subscript) is maths too.
+  // A part with maths is drawn by KaTeX where the page loaded it (trust off), else as text with <sub> elements. Model text never goes in as HTML.
+  const BARE = /^([A-Za-z])_(\{[^{}\s]{1,12}\}|[A-Za-z0-9]{1,3})([.,;:!?)]*)$/;
+  function sayParts(text) {
+    const out = [];
+    for (const m of String(text || '').matchAll(/\$([^$]+)\$([.,;:!?)]*)|(\S+)/g)) {
+      if (m[1] != null) { out.push({tex: m[1], after: m[2]}); continue; }
+      const b = m[3].match(BARE);
+      out.push(b ? {tex: `${b[1]}_${b[2]}`, after: b[3]} : m[3]);
+    }
+    return out;
+  }
+  function texInto(span, w) {
+    if (typeof w === 'string') { span.textContent = w; return span; }
+    const m = el('span', 'board-tex', null);
+    try { if (!window.katex) throw 0; katex.render(w.tex, m, {throwOnError: false, trust: false, strict: false}); }
+    catch (e) {   // no KaTeX: each _x or _{xy} is a <sub> with its text
+      m.replaceChildren();
+      let at = 0;
+      for (const s of w.tex.matchAll(/_(\{([^{}]*)\}|(.))/g)) { m.append(w.tex.slice(at, s.index)); m.append(el('sub', '', s[2] ?? s[3])); at = s.index + s[0].length; }
+      m.append(w.tex.slice(at));
+    }
+    span.append(m);
+    if (w.after) span.append(w.after);
+    return span;
+  }
   function light(k) {
     if (!st || k <= st.lit) return;
     st.lit = k;
-    document.querySelectorAll('#guide-strip .board-say span').forEach((w, n) => w.classList.toggle('on', n <= k));
+    document.querySelectorAll('#guide-strip .board-say > span').forEach((w, n) => w.classList.toggle('on', n <= k));
   }
   function link(src) {
     if (!src || !src.title) return el('span', '', '');

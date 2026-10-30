@@ -300,6 +300,12 @@ def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault
 
 # --- the short-answer check ------------------------------------------------------------------------------------------
 
+BARE_TEX = re.compile(r'(?<![\w\\$])([A-Za-z])_(\{[^{}\s]{1,12}\}|[A-Za-z0-9]{1,3})(?!\w)')
+
+def bare_tex(s:str) -> str:
+    "The words of a board as maths for `Md`: a bare W_Q or d_{k} (one letter with a short subscript) goes between $ signs. Text with a $ stays as it is."
+    return s if '$' in (s or '') else BARE_TEX.sub(r'$\1_\2$', s or '')
+
 def Turn(t, n):
     "One message on the check after the question: your try, a nudge, a hint, or the close."
     k = t.get('kind')
@@ -307,7 +313,8 @@ def Turn(t, n):
         sure = f" · {t['confidence']}% sure" if t.get('confidence') is not None else ''
         return Msg(f'You{sure}', Md(t['text']) if t.get('text') else P('No answer.', cls='mute'), cls='you')
     if k == 'nudge': return Msg(Tag('nudge'), Md(t.get('text', '')), FirstError(t.get('first_error')))
-    if k == 'hint': return Msg(f'Hint {n}' + (' (from the board)' if t.get('via') == 'board' else ''), Md(t.get('text', '')), cls='hint')
+    if k == 'hint' and t.get('via') == 'board': return Msg(f'Hint {n} of {len(HINTS)} (from the board)', Md(bare_tex(t.get('text', ''))), cls='hint')
+    if k == 'hint': return Msg(f'Hint {n}', Md(t.get('text', '')), cls='hint')
     if k == 'lesson': return Msg('Lesson', Md(t.get('text', '')))
     if k == 'close':
         ok = t.get('outcome') in ('solid', 'fragile')

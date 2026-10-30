@@ -58,8 +58,8 @@
 .board-dots i { display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: var(--line, var(--rule)); transition: width .25s, background-color .25s; }
 .board-dots i.on { width: 16px; background: var(--board-ink); }
 .board-say { font-size: 1.15em; font-weight: 500; color: var(--fg); }
-.board-say span { color: color-mix(in srgb, var(--fg) 38%, transparent); transition: color .12s ease-out; }
-.board-say span.on { color: var(--fg); }
+.board-say > span { color: color-mix(in srgb, var(--fg) 38%, transparent); transition: color .12s ease-out; }
+.board-say > span.on { color: var(--fg); }
 .board-quote q { font-style: italic; }
 .board-end, .board-keys, .board-note { font-size: var(--t-meta, 14px); color: var(--mute); }
 .board-src { margin-left: var(--s1, 4px); }
@@ -84,5 +84,5 @@
                     animation: board-ring 1.5s ease-out forwards; }
 .board-trail-ring.point { border-radius: 50%; }
 @keyframes board-ring { 0% { opacity: 0; transform: scale(.92); } 15% { opacity: 1; transform: scale(1); } 60% { opacity: 1; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .board-dots i, .board-say span { transition: none; } .board-trail-ring { animation: none; } #board-trail polyline { display: none; } }
+@media (prefers-reduced-motion: reduce) { .board-dots i, .board-say > span { transition: none; } .board-trail-ring { animation: none; } #board-trail polyline { display: none; } }
 @media print { #board-host, .board-hl, .guide-strip, #board-trail { display: none; } }

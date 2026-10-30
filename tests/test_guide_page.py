@@ -245,3 +245,17 @@ def test_the_voice_notice_stays_until_the_step_changes(page):
     assert page.evaluate("!!document.querySelector('#guide-strip .board-tell')") and page.evaluate('abhyasaBoard.state.i') == 0
     page.evaluate('abhyasaBoard.next()')
     assert page.evaluate("!document.querySelector('#guide-strip .board-tell')")
+
+def test_maths_in_the_board_caption(page):
+    """The words of a step with $…$ or a bare W_Q show maths: KaTeX draws it where the page has it, else a <sub> holds the subscript.
+    The text never goes in as HTML, and each formula is one word that lights up."""
+    step = dict(say='Multiply $x$ by W_Q, then <b>d_k</b>.', strokes=[dict(op='box', at='passage')])
+    def say():
+        page.evaluate("s => abhyasaBoard.play({steps: [s], tier: 'tutor', sources: []}, {quiet: true, fast: true})", step)
+        page.wait_for_function("document.querySelector('#guide-strip .board-say')")
+        return page.evaluate("""() => { const s = document.querySelector('#guide-strip .board-say');
+                                         return [s.children.length, s.querySelectorAll('.katex').length, [...s.querySelectorAll('sub')].map(x => x.textContent), !!s.querySelector('b')]; }""")
+    assert say() == [6, 2, [], False]   # Multiply, x, by, W_Q, then, <b>d_k</b>. (one word with its tags as text)
+    page.evaluate('window.katexSaved = window.katex; delete window.katex')
+    try: assert say() == [6, 0, ['Q'], False]
+    finally: page.evaluate('window.katex = window.katexSaved')
