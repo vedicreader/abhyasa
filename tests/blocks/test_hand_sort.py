@@ -84,3 +84,62 @@ def test_sort_again_and_sort_new_do_not_mix(mk, jy, fake):
     cl.post('/concepts/sort', data=dict(every='1'))
     assert 'Try again when it is done' in cl.post('/concepts/sort').text
     gate.set(); settled(cl)
+
+# Fix round 1
+
+def test_names_lose_control_characters(mk, jy):
+    cl = mk()
+    t = cl.post('/c/mesha/rename', data=dict(name='Ar\x00ies\x1b[31m' + 'y' * 300)).text
+    n = jy.concept('mesha').name
+    assert '\x00' not in n and '\x1b' not in n and len(n) <= 120 and n.startswith('Ar ies [31m') and '\x1b' not in t
+    cl.post('/concepts/group/rename', data=dict(subject='jyotisha', path='nakshatras', name='Lunar\x00 mansions\x1b', at=''))
+    assert jy.concept('ashvini').group == ['Lunar mansions']
+
+def test_group_routes_check_the_subject(mk, jy):
+    cl = mk()
+    for bad in ('nope', 'jyotisha\x00', 'x' * 300):
+        assert 'No such subject.' in cl.post('/concepts/group/new', data=dict(subject=bad, path='Rasis', at='')).text, bad
+        assert 'No such subject.' in cl.post('/concepts/group/rename', data=dict(subject=bad, path='nakshatras', name='Stars', at='')).text, bad
+        assert 'No such subject.' in cl.get('/concepts/group/new', params=dict(subject=bad)).text, bad
+    assert jy.saved_groups('nope') is None and jy.concept('ashvini').group == ['nakshatras']
+
+def test_buttons_name_their_concept_or_group(mk, jy):
+    t = mk().get('/concepts').text
+    assert 'aria-label="Move “Mesha” to a group"' in t and 'aria-label="Rename the group “Nakshatras”"' in t and 'aria-label="Make a new group in Jyotisha"' in t
+
+def test_undo_of_a_first_group_list_leaves_no_list(mk, lr):
+    cl = mk()
+    assert lr.saved_groups('ml') is None
+    t = cl.post('/concepts/group/new', data=dict(subject='ml', path='Heads', at='')).text
+    cl.post('/concepts/undo', data=dict(step=step(t), at=''))
+    assert lr.saved_groups('ml') is None
+
+def test_a_failed_accept_changes_nothing(mk, jy, fake, monkeypatch):
+    fake.rules[SORT] = lambda p, sp: dict(places=[dict(slug=s, group=['Stars']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
+    jy.new_group('jyotisha', 'Rasis'); jy.set_group('mesha', ['Rasis'])
+    cl = mk()
+    cl.post('/concepts/sort', data=dict(every='1'))                                   # Rasis unticked
+    t = settled(cl)
+    from abhyasa.store import Learning
+    real = Learning.save_groups
+    def boom(self, *a, **k): raise RuntimeError('the disk is full')
+    monkeypatch.setattr(Learning, 'save_groups', boom)
+    r = cl.post('/concepts/sort/accept', data=dict(sort=re.search(r'name="sort" value="([0-9a-f]+)"', t).group(1)))
+    monkeypatch.setattr(Learning, 'save_groups', real)
+    assert 'Nothing changed' in r.text and 'disk is full' not in r.text
+    assert (jy.concept('mesha').group, jy.concept('mesha').group_by) == (['Rasis'], 'hand') and jy.concept('ashvini').group == ['nakshatras']
+    assert jy.hand_groups('jyotisha') == [['Rasis']]
+
+def test_preview_opens_and_marks_the_moves(mk, jy, fake):
+    fake.rules[SORT] = lambda p, sp: dict(places=[dict(slug=s, group=['Stars']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M) if s != 'ranking'])
+    cl = mk()
+    cl.post('/concepts/sort', data=dict(every='1'))
+    t = settled(cl)
+    assert 'from nakshatras → Stars' in t and 'from Not sorted yet → Stars' in t
+    assert re.search(r'<details(?=[^>]*\bopen\b)[^>]*class="tree grp"[^>]*>\s*<summary[^>]*><span class="name">Stars', t)
+    assert 'left for you: Ranking. They stay in Not sorted yet.' in t
+    assert re.search(r'<details(?=[^>]*\bopen\b)[^>]*class="tree loose"', t)
+
+def test_page_title_is_the_display_name(mk, jy):
+    t = mk().get('/concepts', params=dict(subject='ml')).text
+    assert '<h1>ML</h1>' in t or re.search(r'<h1[^>]*>ML</h1>', t)

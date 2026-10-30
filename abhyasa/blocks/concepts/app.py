@@ -5,7 +5,7 @@ from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, hook
 from abhyasa.settings import val
-from abhyasa.store import clean_group, under, GROUP_DEPTH, GROUP_LEN
+from abhyasa.store import clean_group, clean_name, under, GROUP_DEPTH, GROUP_LEN
 from abhyasa.sources import propose_groups, apply_groups, place_new
 from . import ui
 from .cfg import Routes
@@ -38,8 +38,10 @@ def connect(app, ctx):
         if st.every: free = [c for c in cs if c.get('group_by') != 'hand' or c.slug in st.free]
         else: free = [c for c in cs if not c.get('group') and c.get('group_by') != 'hand']   # the new concepts: the only ones that a sort of new concepts looks at
         ok = {c.slug for c in free}
-        rows = [AttrDict({**c, 'group': places.get(c.slug, c.get('group')) if c.slug in ok else c.get('group'), 'subject': sj.get(c.slug, c.subject)}) for c in (cs if st.every else free)]
-        moved = sum(c.slug in places and clean_group(places[c.slug], c.subject) != (c.get('group') or []) for c in free)
+        def new(c): return clean_group(places[c.slug], sj.get(c.slug, c.subject)) if c.slug in ok and c.slug in places else (c.get('group') or [])
+        def was(c): return {'was': ' › '.join(c.get('group') or []) or 'Not sorted yet'} if new(c) != (c.get('group') or []) else {}   # the mark of a moved concept
+        rows = [AttrDict({**c, 'group': new(c), 'subject': sj.get(c.slug, c.subject), **was(c)}) for c in (cs if st.every else free)]
+        moved = sum(new(c) != (c.get('group') or []) for c in free)
         return rows, moved, 0 if st.every else sum(c.get('group_by') == 'hand' for c in cs), sum(c.slug in places for c in free), [c.name for c in free if c.slug not in places]
 
     def mine(subject): return st.job is not None and st.subject == subject   # a sort shows only on the page of its own subject
@@ -60,7 +62,8 @@ def connect(app, ctx):
                           hand(subject), opened, bar)
 
     def index(subject:str='', q:str=''):
-        return Page('Concepts', ui.css(), ui.js(), ui.H1(subject or 'Concepts'), Div(view(subject, q), id='concepts-view', data_at=subject), on='Library', sub='Concepts',
+        name = ui.label(subject) if subject else 'Concepts'   # the display name, not the slug
+        return Page(name, ui.css(), ui.js(), ui.H1(name), Div(view(subject, q), id='concepts-view', data_at=subject), on='Library', sub='Concepts',
                     crumbs=[('Concepts', Routes.base)] if subject else [])   # a tab root has no crumb
 
     def run_sort(subject, every=False, free=()):
@@ -89,8 +92,10 @@ def connect(app, ctx):
         "Save the proposed tree in one step. A sort that is old, of another subject, or still running saves nothing."
         if st.job is None: return P('No sort is running. Sort again.', cls='req-err')
         if sort != st.id or not mine(subject) or busy() or st.job.exception(): return P('This sort is old. Sort again.', cls='req-err')
-        for s, g in st.drop: lr.unmark_groups(s, [g])   # the groups that you unticked: the tutor sorts them now
-        apply_groups(lr, st.job.result(), every=st.every, free=st.free)
+        try: apply_groups(lr, st.job.result(), every=st.every, free=st.free, unmark=st.drop)   # one step, with the hand marks of the groups that you unticked
+        except Exception as e:
+            log.warning('abhyasa could not save the sorted tree: %r', e)
+            return P('abhyasa could not save the tree. Nothing changed. Try again.', cls='req-err')
         st.update(id='', job=None, subject='', every=False, free=(), drop=(), kept=0); undos.clear()   # an old Undo would undo part of the sort
         return Response(headers={'HX-Redirect': Routes.base + (f"?{urlencode(dict(subject=subject))}" if subject else '')})
 
@@ -170,27 +175,39 @@ def connect(app, ctx):
         "Give one concept a new name by hand. A source that adds it again keeps your name."
         c = lr.concept(slug)
         if not c: return Response('No such concept.', status_code=404)
-        try: step, n = by_hand(f"Renamed “{c.name}” to “{' '.join(name.split())}”.", [slug], [], lambda: lr.rename(slug, name[:400]))
+        try: step, n = by_hand(f"Renamed “{c.name}” to “{clean_name(name[:400], 120)}”.", [slug], [], lambda: lr.rename(slug, name[:400]))
         except ValueError as e: return ui.NameField(c, str(e), bad=True)
         return ui.NameField(n, 'Renamed.'), ui.H1(n.name, id='concept-name', hx_swap_oob='true'), ui.UndoBar(step, undos[-1].said, oob=True)
 
     def subject_slugs(subject): return [c.slug for c in cs_of(subject) if (c.subject or '') == (subject or '')]
 
-    def rename_group_form(subject:str='', path:str='', at:str=''): return ui.RenameGroupForm(subject, check_group(path)[0] or [], at)
+    def bad_subject(subject):
+        "Why a subject from a form is refused: too long, with control characters, or not a subject that you have. '' when it is good."
+        if len(subject) > GROUP_LEN or clean_name(subject, GROUP_LEN) != subject or subject not in subjects_of(): return 'No such subject.'
+        return ''
+
+    def rename_group_form(subject:str='', path:str='', at:str=''):
+        if why := bad_subject(subject): return P(why, cls='req-err')
+        return ui.RenameGroupForm(subject, check_group(path)[0] or [], at)
 
     def rename_group(subject:str='', path:str='', name:str='', at:str=''):
         "Give a group a new name by hand. Its concepts go with it, and the tutor never moves them."
+        if why := bad_subject(subject): return view(at, said=why)
         p, why = check_group(path[:400])
         if why or not p: return view(at, said=why or 'Pick a group to rename.')
-        new = [*p[:-1], ' '.join(name.split())]
+        new = clean_group([*p[:-1], name[:400]], subject)
+        if len(new) != len(p): return view(at, said='Use letters or digits in a group name.')
         try: step, _ = by_hand(f"Renamed the group “{p[-1]}” to “{new[-1]}”.", subject_slugs(subject), [subject], lambda: lr.rename_group(subject, p, name[:400]))
         except ValueError as e: return view(at, said=str(e))
-        return tree_after(at, subject, clean_group(new, subject), step, undos[-1].said)   # the keys fold, so a group that it joined opens too
+        return tree_after(at, subject, new, step, undos[-1].said)   # the keys fold, so a group that it joined opens too
 
-    def new_group_form(subject:str='', at:str=''): return ui.NewGroupForm(subject, at)
+    def new_group_form(subject:str='', at:str=''):
+        if why := bad_subject(subject): return P(why, cls='req-err')
+        return ui.NewGroupForm(subject, at)
 
     def new_group(subject:str='', path:str='', at:str=''):
         "Make an empty group by hand. You can then move concepts into it."
+        if why := bad_subject(subject): return view(at, said=why)
         g, why = check_group(path[:400])
         if why or not g: return view(at, said=why or 'Give the group a name.')
         step, _ = by_hand(f"Made the group “{' › '.join(g)}”.", [], [subject], lambda: lr.new_group(subject, g))

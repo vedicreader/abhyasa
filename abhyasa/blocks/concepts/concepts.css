@@ -59,3 +59,5 @@ details.tree > .slot form.slot-form { margin-left: 0; }
 details.sort-more { margin-top: var(--s6); }
 form.sort-again { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); max-width: 60ch; }
 form.sort-again label.keep { display: flex; align-items: center; gap: var(--s2); margin: 0; font: inherit; font-size: var(--t-small); letter-spacing: normal; text-transform: none; color: var(--fg); }
+/* in the proposed tree: where a moved concept comes from */
+.proposal ul.concepts li .moved { font-size: var(--t-small); order: 1; }

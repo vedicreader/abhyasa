@@ -45,7 +45,8 @@ def Row(c, at=None):
               A(c.name, href=Routes.of(c.slug)), DepthBar(c.floor), Span('  ' + (when(c.due) if c.seen else 'new'), cls='mute'),
               *((Span('Placed by the tutor', cls='mute placed'), Form(Quiet('Undo', small=True), hx_post=Routes.undo_of(c.slug), hx_swap='none', cls='undo'))
                 if c.get('group_by') == 'placed' and c.get('group') else ()),
-              *((_act('Move to…', 'move-to', **_opens(Routes.move_of(c.slug), at)), Slot()) if edit else ()),
+              *((Span(f"from {c.was} → {' › '.join(c.get('group') or []) or 'Not sorted yet'}", cls='mute moved'),) if c.get('was') else ()),
+              *((_act('Move to…', 'move-to', aria_label=f'Move “{c.name}” to a group', **_opens(Routes.move_of(c.slug), at)), Slot()) if edit else ()),
               data_find=' '.join(fold(x) for x in (c.name, *(c.get('aliases') or ()))),
               **({'data_slug': c.slug, 'data_subject': c.subject or '', 'data_post': Routes.group_of(c.slug)} if edit else {}))
 
@@ -55,10 +56,12 @@ def Head(name, n, *acts, **kw): return Summary(Span(name, cls='name'), Span(f' �
 
 def branch_key(subject, path=()): return (fold(subject), *map(fold, path))
 
+LOOSE = '\0'   # the key of `Not sorted yet` in `opened`: `branch_key(subject, [LOOSE])`
+
 def Branch(n, deep=False, subject='', at=None, opened=()):
     "A group: its name and count, its groups, then its own concepts. Closed, except when the find box opened it (`deep`) or a change by hand went in it (`opened`)."
     edit = at is not None
-    acts = (_act('Rename', 'act', **_opens(Routes.rename_group, at, subject=subject or '', path=path_text(n.path))),) if edit else ()
+    acts = (_act('Rename', 'act', aria_label=f'Rename the group “{label(n.name)}”', **_opens(Routes.rename_group, at, subject=subject or '', path=path_text(n.path))),) if edit else ()
     return Details(Head(label(n.name), n.n, *acts, **({'data_drop': path_text(n.path), 'data_subject': subject or ''} if edit else {})),
                    *((Slot(),) if edit else ()), *[Branch(k, deep, subject, at, opened) for k in n.kids], ConceptList(n.cs, at) if n.cs else '',
                    cls='tree grp', **({'open': True} if deep or branch_key(subject, n.path) in opened else {}))
@@ -66,10 +69,10 @@ def Branch(n, deep=False, subject='', at=None, opened=()):
 def Subject(n, deep=False, at=None, opened=()):
     "A subject, open: its groups, then the concepts with no group in `Not sorted yet`, open when the subject has no group yet."
     edit = at is not None
-    acts = (_act('New group', 'act', **_opens(Routes.new_group, at, subject=n.name or '')),) if edit else ()
+    acts = (_act('New group', 'act', aria_label=f'Make a new group in {label(n.name)}', **_opens(Routes.new_group, at, subject=n.name or '')),) if edit else ()
     return Details(Head(label(n.name), n.n, *acts), *((Slot(),) if edit else ()), *[Branch(k, deep, n.name, at, opened) for k in n.kids],
                    Details(Head('Not sorted yet', len(n.cs), **({'data_drop': '', 'data_subject': n.name or ''} if edit else {})), ConceptList(n.cs, at),
-                           cls='tree loose', **({'open': True} if deep or not n.kids else {})) if n.cs else '',
+                           cls='tree loose', **({'open': True} if deep or not n.kids or branch_key(n.name, [LOOSE]) in opened else {})) if n.cs else '',
                    cls='tree subj', open=True)
 
 def Tree(cs, deep=False, groups=None, at=None, opened=()):
@@ -163,12 +166,14 @@ def Proposal(sid, subject, cs, moved, hand, placed=0, left=(), kept=None):   # `
     said = f"The tutor moves {n_of(moved, 'concept')}." if moved else 'The tutor has no change to make.'
     if kept: said += f" {n_of(kept, 'group')} that you made {'stays' if kept == 1 else 'stay'}."
     elif hand: said += f" {n_of(hand, 'concept')} that you moved by hand {'stays where it is' if hand == 1 else 'stay where they are'}."
-    tally = f"{placed} placed. {len(left)} left for you" + (f": {', '.join(left)}." if left else '.')
+    tally = f"{placed} placed. {len(left)} left for you" + (f": {', '.join(left)}. They stay in Not sorted yet." if left else '.')
+    opened = {branch_key(c.subject, c.group[:i]) for c in cs if c.get('was') for i in range(1, len(c.group) + 1)} | \
+             {branch_key(c.subject, [LOOSE]) for c in cs if not c.get('group')}   # each group that changes opens, and so does Not sorted yet
     return Part('The proposed tree', P(said, cls='mute'), P(tally, cls='mute tally'),
                 Div(Form(*_sort_id(sid, subject), Primary('Accept this tree'), hx_post=Routes.accept),
                     Form(*_sort_id(sid, subject), Quiet('Cancel'), hx_post=Routes.cancel, hx_target='#concepts-view', hx_swap='innerHTML'),
                     cls='row'),
-                Tree(cs), cls='proposal')
+                Tree(cs, opened=opened), cls='proposal')
 
 def GroupField(c, groups=(), said='', bad=False):
     "A small form on a concept page to move it to a group by hand: one or two names with `/` between them."

@@ -271,8 +271,16 @@ def propose_groups(lr:Learning, ask, subject:str=None, batch:int=None, only=None
             elif miss: out.left += miss
     return out
 
-def apply_groups(lr:Learning, places:dict, every:bool=False, free=()) -> list:
-    "Save the paths of `places` as a saved sort, and keep the group list of each subject. A concept with no subject gets its proposed subject first. Return the slugs that moved. A concept that has a group, that you moved by hand, or that is gone, stays. With `every`, a concept with a group moves too, and so does a concept that you moved by hand when it is in `free`; the group list of each subject becomes the new groups and the hand groups."
+def apply_groups(lr:Learning, places:dict, every:bool=False, free=(), unmark=()) -> list:
+    "Save the paths of `places` as a saved sort, and keep the group list of each subject. A concept with no subject gets its proposed subject first. Return the slugs that moved. A concept that has a group, that you moved by hand, or that is gone, stays. With `every`, a concept with a group moves too, and so does a concept that you moved by hand when it is in `free`; the group list of each subject becomes the new groups and the hand groups. `unmark` (`(subject, path)`) takes the hand mark off those groups first. It is one step: when a write fails, it writes all back and raises."
+    with lr._lock:
+        cs = [c for c in map(lr.concept, places) if c]
+        snap = lr.snapshot([c.slug for c in cs], {*(c.subject or '' for c in cs), *getattr(places, 'subjects', {}).values(), *(s for s, _ in unmark)})
+        try: return _apply(lr, places, every, free, unmark)
+        except Exception: lr.restore(snap); raise
+
+def _apply(lr, places, every, free, unmark):
+    for s, g in unmark: lr.unmark_groups(s, [g])   # the groups that you unticked: the tutor sorts them now
     moved, subjects = [], {}
     for slug, g in places.items():
         c = lr.concept(slug)
