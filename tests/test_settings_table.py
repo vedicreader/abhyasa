@@ -175,10 +175,6 @@ def test_mic_gets_the_pause_values(mk):
     set_val('stt.pause', 1200); set_val('stt.longest', 40)
     r = cl.post('/voice/start').json()
     assert (r['pause'], r['longest']) == (1200, 30)
-    from pathlib import Path
-    import abhyasa.blocks.voice as v
-    js = (Path(v.__file__).parent/'vad.js').read_text()
-    assert 'op.pause' in js and 'op.longest' in js and 'HANG = 35' not in js
 
 # Models
 

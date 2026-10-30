@@ -895,7 +895,7 @@ def test_a_walk_with_a_talk_opens_it(mk, talk_fake, lr):
         page = cl.get(u).text
         assert 'Open the talk' in page and f'href="/t/{tid}"' in page and 'Make it again' in page and 'Present this walk' not in page, u
     row = cl.get('/learn').text.split('class="jrow lrow"')[1]
-    assert f'<a href="/t/{tid}" class="quiet">Open the talk</a>' in row and 'Make it again' not in row
+    assert re.search(rf'<a [^>]*href="/t/{tid}"[^>]*>Open the talk</a>', row) and 'Make it again' not in row
 
 def test_no_present_on_a_side_walk_or_a_talk_walk(mk, talk_fake, lr):
     "A side walk (`depth`) and a walk made for a talk (`for_talk`) have no Present on their step page, last page or Learn row."

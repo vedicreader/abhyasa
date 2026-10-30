@@ -142,13 +142,8 @@ def test_title_index_is_made_again_only_when_the_vault_changes(lr):
     assert b is not a and 'new one' in b
 
 def test_option_boxes_have_ids_and_alt_s_never_types(mk):
-    "Each option box has an id, so the read swap keeps the focus in it. start.js stops ⌥S in the box and waits for a read."
+    "Each option box has an id, so the read swap keeps the focus in it. walk_look f9 checks that ⌥S in the box waits for a read and types nothing."
     assert 'id="start-pages"' in mk().get('/learn/read', params=dict(q='https://docs.python.org/3/')).text
-    from pathlib import Path
-    import abhyasa.blocks.add as b
-    js = (Path(b.__file__).parent/'start.js').read_text()
-    assert "e.code !== 'KeyS'" in js and 'e.preventDefault(); e.stopImmediatePropagation();' in js and 'await inflight' in js
-    assert "getElementById('start-say')" in js   # drop lines go to the live region
 
 def test_a_file_name_or_a_bare_host(mk, lr):
     "A file name is never a topic. A bare host such as example.com is a site."
