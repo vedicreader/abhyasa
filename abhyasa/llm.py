@@ -7,8 +7,9 @@ Docs: https://vedicreader.github.io/abhyasa/llm.html.md"""
 # %% auto #0
 __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'FALLBACK', 'ALL_TASKS', 'MAX_TOKENS', 'HOSTED',
            'WORKER_SP', 'WORKER_CALLS', 'WORKER_STEPS', 'WORKER_DOLLARS', 'WORKER_TOKENS', 'dflt_model', 'rishi_ask',
-           'parse_json', 'ask_json', 'Fake', 'model_ask', 'model_label', 'catalog', 'Router', 'for_task',
-           'ramabana_agent', 'timeout_error', 'ramabana_oneshot', 'RouteAsk', 'route_ask', 'ramabana_worker']
+           'parse_json', 'ask_json', 'Fake', 'model_ask', 'model_label', 'provider_label', 'catalog', 'Router',
+           'for_task', 'ramabana_agent', 'timeout_error', 'ramabana_oneshot', 'RouteAsk', 'route_ask',
+           'ramabana_worker']
 
 # %% ../nbs/02_llm.ipynb #c004
 import json, os, re
@@ -115,6 +116,14 @@ def model_label(value:str, provider:str='', repo:str='') -> str:
     name = _words(repo.rpartition('/')[2] if repo else m) or value
     if provider in ('claude', 'anthropic') and not name.startswith('Claude'): name = f'Claude {name}'
     return f'a local model: {name}' if _on_mac(value, provider) else name
+
+def provider_label(provider:str, values=()) -> str:
+    "The name of the `provider` group in the model list, for the model ids `values`. An Ollama daemon on another computer is not on this Mac."
+    if provider == 'ollama' and values:
+        here = {_on_mac(v, provider) for v in values}
+        if here == {False}: return 'Ollama on another computer'
+        if here == {True, False}: return 'Ollama'
+    return PROVIDERS.get(provider, provider.capitalize() or 'Other')
 
 # %% ../nbs/02_llm.ipynb #fd4c9605
 FALLBACK = ['claude/sonnet', 'claude/haiku', 'claude/opus']

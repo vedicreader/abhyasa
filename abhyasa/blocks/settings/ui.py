@@ -189,13 +189,13 @@ OTHER = '__other__'   # the list item that shows a text box for a model id
 
 def Pick(task, name, dflt_label, rows):
     "The model list for one task: the default, then the models grouped by provider, then 'Type another model id'."
-    from abhyasa.llm import model_label, PROVIDERS
+    from abhyasa.llm import model_label, provider_label
     groups, ids = {}, {r['value'] for r in rows}
     for r in rows: groups.setdefault(r.get('provider', ''), []).append(r)
     opt = lambda v, n: Option(n, value=v, selected=v == name, title=v)
     return Select(Option(dflt_label, value='', selected=not name),
                   Optgroup(opt(name, model_label(name)), label='Saved') if name and name not in ids else '',
-                  *[Optgroup(*[opt(r['value'], r.get('name') or model_label(r['value'], p)) for r in rs], label=PROVIDERS.get(p, p.capitalize() or 'Other'))
+                  *[Optgroup(*[opt(r['value'], r.get('name') or model_label(r['value'], p)) for r in rs], label=provider_label(p, [r['value'] for r in rs]))
                     for p, rs in groups.items()],
                   Option('Type another model id…', value=OTHER),
                   name='model', id=f'{row_id(SETTINGS["models." + task])}-c', aria_label=f'The model for {TASK_LABEL.get(task, "the default").lower()}',
