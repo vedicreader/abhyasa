@@ -14,7 +14,7 @@ def test_needs_line_and_side_walk_beside(mk, walk_fake, lr):
     assert 'This needs' in page and 'not learned yet' in page and '⌥B' in page
     r = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()
     sid = r['url'].split('/')[2]
-    assert lr.journey(sid).parent == dict(walk=jid, step=2) and r['title'].startswith('Derivatives')
+    assert lr.journey(sid).parent == dict(walk=jid, step=2, idea=lr.journey(jid).steps[2]['slug']) and r['title'].startswith('Derivatives')
     pane = cl.get(r['url'] + '?pane=1').text
     assert '<nav' not in pane and 'Back to the paper: idea 3 of 3' in pane and '⌥Z' in pane
     assert f'src="/w/{sid}/0?pane=1"' in cl.get(f'/w/{jid}/2?rh=/w/{sid}/0').text        # a reload keeps the pane open

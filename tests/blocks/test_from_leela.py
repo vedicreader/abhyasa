@@ -114,3 +114,23 @@ def test_walk_end_shows_what_you_made(mk, lr, walk_fake):
     assert 'What you made' in page and f'src="/w/{jid}/1/result/2.png"' in page and 'Idea 2' in page
     assert 'Leela never changes the walk.' in page and 'abhyasa wrote this from Leela' in page
     assert 'Vālmīki asks Nārada' in page and 'Attention Is All You Need' in page   # the caption, and the source line of the passage
+
+def test_a_result_follows_its_step_when_it_moves(mk, lr, walk_fake):
+    "A Leela attempt with a concept shows on the step of that concept after a move, and its images still load from where Leela filed them."
+    cl = mk(); jid = nb_step(cl, lr); file_run(lr, jid, 1)
+    cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='move', to=2))
+    page = cl.get(f'/w/{jid}/2').text
+    assert 'Last loss 0.083.' in page and f'src="/w/{jid}/2/result/0.png"' in page and 'Last loss 0.083.' not in cl.get(f'/w/{jid}/1').text
+    assert cl.get(f'/w/{jid}/2/result/0.png').content == PNG and cl.get(f'/w/{jid}/1/result/0.png').status_code == 404
+
+def test_an_old_result_with_no_concept_needs_the_opened_concept(mk, lr, walk_fake, monkeypatch, tmp_path):
+    "An attempt of an older lesson (no concept) shows only on the place that Open in Leela noted, while that place has the same concept."
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
+    cl = mk(); jid = nb_step(cl, lr)
+    old = dict(id='old9', question='Run', kind='run', metrics=dict(loss=0.5, steps=10), at=time.time(), **meta(jid, 1))
+    lr.v.add('An older Leela run', title='Old run', source='attempt:old9', kind='attempt', meta=old, force=True)
+    assert 'Last loss 0.5.' not in cl.get(f'/w/{jid}/1').text   # nothing says which concept was opened: dropped
+    cl.post(f'/w/{jid}/1/leela', follow_redirects=False)
+    assert lr.journey(jid).leela_opened == {'1': 'softmax'} and 'Last loss 0.5.' in cl.get(f'/w/{jid}/1').text
+    cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='move', to=0))
+    assert all('Last loss 0.5.' not in cl.get(f'/w/{jid}/{i}').text for i in range(3))   # never on another step
