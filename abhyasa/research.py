@@ -26,7 +26,7 @@ from .settings import val
 from .llm import ask_json, for_task, ramabana_worker
 from .prompts import register, prompt
 from .journey import _jlock, chip_docs
-from .sources import doc_pages, link_kind, is_paper, file_link, LinkError, NOT_LOCAL, PLAIN, SHORT, fetch_opts, quoted, _local, _addrs, _clip
+from .sources import doc_pages, link_kind, is_paper, file_link, LinkError, NOT_LOCAL, PLAIN, SHORT, fetch_opts, quoted, public_url, _clip
 from .sources import math_cut, gh_name, gh_public, REPO_MB, source_of, tree_ok
 from .contract import validate_nb_spec
 from pathlib import Path
@@ -126,8 +126,7 @@ def web_search(q:str, n:int) -> list:
 
 def web_fetch(url:str) -> AttrDict:
     "The page at `url` as `url`, `title` and `text`, from one plain fetch. A link to this computer or to a local network raises `LinkError`."
-    host = urlparse(url).hostname
-    if not host or _local(host) or any(map(_local, _addrs(host))): raise LinkError(NOT_LOCAL)
+    public_url(url)
     from fossick import fetch
     log.warning('research: fetch %s', url)   # a record of each page that research reads
     r = fetch(url, **PLAIN, **fetch_opts(), max_bytes=PAGE_BYTES)

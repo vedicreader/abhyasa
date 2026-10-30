@@ -287,7 +287,7 @@ def test_walk_from_a_link(mk, walk_fake, lr, monkeypatch):
         return L([self.add(PAGES, 'Attention docs', source=start_url, kind='web', meta=dict(url=start_url))])
     monkeypatch.setattr(Vault, 'crawl', crawl)
     monkeypatch.setattr('abhyasa.sources._final', lambda u: u)   # no fetch of the start page
-    monkeypatch.setattr('abhyasa.sources._addrs', lambda host: {'93.184.216.34'})   # no DNS: a host on the internet
+    monkeypatch.setattr('socket.getaddrinfo', lambda host, port, *a, **k: [(2, 1, 6, '', ('93.184.216.34', port or 0))])   # no DNS: a host on the internet
     cl = mk(); u = 'https://docs.example.dev/attention/'
     assert 'Pages to read' in cl.get('/learn/read', params=dict(q=u)).text
     r = cl.post('/walk/new', data=dict(url=u, pages=3)).text
@@ -313,7 +313,7 @@ def test_link_walk_shows_only_its_own_messages(mk, walk_fake, lr, monkeypatch):
     def crawl(self, *a, **kw): raise ValueError('10.0.0.1 is a private address — pass allow_private=True or set FOSSICK_ALLOW_PRIVATE=1')
     monkeypatch.setattr(Vault, 'crawl', crawl)
     monkeypatch.setattr('abhyasa.sources._final', lambda u: u)   # no fetch of the start page
-    monkeypatch.setattr('abhyasa.sources._addrs', lambda host: {'93.184.216.34'})
+    monkeypatch.setattr('socket.getaddrinfo', lambda host, port, *a, **k: [(2, 1, 6, '', ('93.184.216.34', port or 0))])
     cl = mk(); u = 'https://docs.example.dev/broken/'
     cl.post('/walk/new', data=dict(url=u))
     t = wait_for(lambda: t if 'pending' not in (t := cl.get('/walk/job', params=dict(url=u)).text) else None, secs=10)
@@ -552,7 +552,7 @@ def fake_web(monkeypatch, pdf_title='Attention Is All You Need'):
     monkeypatch.setattr(Vault, 'pdf', lambda self, url, **kw: self.add(PAGES, pdf_title, source=url, kind='pdf'))
     monkeypatch.setattr(Vault, 'crawl', lambda self, start_url, max_pages=10, **kw: L([self.add([(k, 'From the docs. ' + t) for k, t in PAGES], 'Attention docs', source=start_url, kind='web')]))
     monkeypatch.setattr('abhyasa.sources._final', lambda u: u)
-    monkeypatch.setattr('abhyasa.sources._addrs', lambda host: {'93.184.216.34'})
+    monkeypatch.setattr('socket.getaddrinfo', lambda host, port, *a, **k: [(2, 1, 6, '', ('93.184.216.34', port or 0))])
 
 def test_link_in_the_document_field_makes_a_link_walk(mk, walk_fake, lr, monkeypatch):
     "A web link or an arXiv id in the vault document field makes the link walk, with one quiet note."

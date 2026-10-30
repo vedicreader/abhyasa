@@ -28,7 +28,7 @@ def loopback(url) -> str|None:
     if u.scheme != 'http' or u.username is not None or u.password is not None or host not in LOCAL or type(port) is not int or not 0 < port < 65536: return None
     return f"http://{'[::1]' if host == '::1' else host}:{port}"
 
-def _local(url) -> bool:
+def is_loopback(url) -> bool:
     "True when `url` is `http://` on this computer, with a port (`loopback`)."
     return loopback(url) is not None
 

@@ -14,7 +14,7 @@ import re, threading, unicodedata
 from pathlib import Path
 from urllib.parse import urlparse
 from fastcore.utils import *
-from .sources import ARXIV_ID, ARXIV_LINK, as_link, is_paper, _local, gh_name, folder_why, can_clone, NO_GHEASY
+from .sources import ARXIV_ID, ARXIV_LINK, as_link, is_paper, local_name, gh_name, folder_why, can_clone, NO_GHEASY
 from .ground import SKIP_DIRS
 from .settings import val
 
@@ -72,7 +72,7 @@ def source_of(s:str, folders=()) -> tuple|None:
     except ValueError: return None
     if not host: return None
     if any(host == h or host.endswith('.' + h) for h in VIDEO): return 'video', u
-    if _local(host): return 'local', u
+    if local_name(host): return 'local', u
     if is_paper(u): return 'paper', u
     if host in GITHUB and len([p for p in urlparse(u).path.split('/') if p]) >= 2: return 'repo', u
     return 'site', u
