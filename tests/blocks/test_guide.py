@@ -324,3 +324,19 @@ def test_the_point_look_goes_to_the_page_and_the_events(mk, fake):
         evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said="I don't get this", ctx=ctx)).text.splitlines() if l.startswith('data: ')]
         assert info['point'] == 'dot' and [e['point'] for e in evs if 'step' in e or 'board' in e] == ['dot', 'dot']
     finally: set_val('guide.point', 'tick')
+
+def test_page_info_names_the_new_guide_model_after_a_save(mk, monkeypatch):
+    "The page says which model the guide asks. A save of a model on the Settings page shows the new name on the next page, with no wait of INFO_EVERY."
+    import html, json, re
+    from types import SimpleNamespace
+    from abhyasa.settings import val, set_val
+    import abhyasa.blocks.guide.app as g
+    monkeypatch.setattr(g, 'guide_ask', lambda ask: SimpleNamespace(model=val('models.guide')))
+    info = lambda: json.loads(html.unescape(re.search(r"data-info='([^']*)'", cl.get('/').text)[1]))['model']['model']
+    try:
+        cl = mk()
+        assert cl.post('/settings/model', data=dict(task='guide', model='anthropic/claude-sonnet-4-5')).status_code == 200
+        first = info()
+        assert cl.post('/settings/model', data=dict(task='guide', model='openai/gpt-5')).status_code == 200
+        assert info() != first and 'GPT' in info().upper()
+    finally: set_val('models.guide', '')

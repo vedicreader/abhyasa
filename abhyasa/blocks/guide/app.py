@@ -8,7 +8,7 @@ from starlette.responses import StreamingResponse
 from abhyasa.core import hook, run as run_hook
 from abhyasa.guide import (FigureCache, Withheld, clean_context, concept_video, explain, figure_labels, file_video, find_explainer, guide_ask, set_video,
                            unsave, video_of, vision_ask, where_of)
-from abhyasa.settings import val, set_val
+from abhyasa.settings import SETTINGS, raw, val, set_val
 from abhyasa.voice import cfg_dir
 from . import ui
 from .cfg import Routes
@@ -19,7 +19,7 @@ IMAGES = (b'\x89PNG\r\n\x1a\n', b'\xff\xd8\xff', b'GIF87a', b'GIF89a')
 FIGURE_BYTES = 8_000_000
 ASK_BYTES = 200_000
 POLL = .25        # the seconds between two looks at whether the page still reads the board
-INFO_EVERY = 30.  # the seconds that the names of the models on each page stay
+INFO_EVERY = 30.  # the seconds that the names of the models on each page stay, while no model setting changes
 SAVES = 50        # the most pages that the guide saved and that Undo can take back in this run
 WARM_EVERY = 30.   # the least seconds between two warm calls of the guide backend
 WITHHELD = 'The guide did not send this, because your privacy setting withholds it. Change it in Settings.'   # the guard refused: personal data and `cli.pii` refuse
@@ -45,15 +45,16 @@ def speech() -> dict:
 def connect(app, ctx):
     ask, lr, sources = ctx.ask, ctx.learning, ctx.sources
     saves = {}   # the key of each Undo -> what the guide saved, for this run of the app only
-    info_ = [0., None]
+    info_ = [0., None, None]   # the time, the names, and the model settings that they are for
 
     def info():
         "What the page tells before it sends: the model of the guide, the model that reads a figure, the speech engine, the voice setting and the look of a point mark."
-        if time.monotonic() - info_[0] > INFO_EVERY or info_[1] is None:
+        now = tuple(raw(n) for n in SETTINGS if n.startswith(('models.', 'stt.')))   # a save on the Settings page names the new model at once
+        if time.monotonic() - info_[0] > INFO_EVERY or info_[1] is None or info_[2] != now:
             from abhyasa.llm import dflt_model
             g = where_of(getattr(guide_ask(ask), 'model', ''))
             routed = hasattr(getattr(ask, 'dflt', None), 'via')
-            info_[:] = time.monotonic(), dict(model=g, vision=where_of(ask.name('guide_vision') or dflt_model()) if routed else g, speech=speech())
+            info_[:] = time.monotonic(), dict(model=g, vision=where_of(ask.name('guide_vision') or dflt_model()) if routed else g, speech=speech()), now
         return {**info_[1], 'voice': bool(val('guide.voice')), 'point': val('guide.point')}
     figs = FigureCache(cfg_dir()/'guide-figures.json')
     warmed, warm_lock = [-WARM_EVERY], threading.Lock()
