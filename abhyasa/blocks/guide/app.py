@@ -17,6 +17,7 @@ CAPS = ('ask', 'learning', 'sources')
 IMAGES = (b'\x89PNG\r\n\x1a\n', b'\xff\xd8\xff', b'GIF87a', b'GIF89a')
 FIGURE_BYTES = 8_000_000
 ASK_BYTES = 200_000
+WITHHELD = 'The guide did not send this, because your privacy setting withholds it. Change it in Settings.'   # the guard refused: personal data and `cli.pii` refuse
 log = logging.getLogger(__name__)
 
 def why(e) -> str:
@@ -37,7 +38,8 @@ def connect(app, ctx):
         k = figs.key(img)
         if (got := figs.get(k)) is not None: return JSONResponse(dict(key=k, labels=got))
         if (vision := vision_ask(ask)) is None: return JSONResponse(dict(key=k, labels={}, note='The model cannot see pictures.'))
-        labels = await asyncio.to_thread(figure_labels, vision, img, alt)
+        try: labels = await asyncio.to_thread(figure_labels, vision, img, alt)
+        except Withheld: return JSONResponse(dict(error=WITHHELD, labels={}), status_code=403)
         figs.put(k, labels)
         return JSONResponse(dict(key=k, labels=labels))
 
@@ -56,7 +58,7 @@ def connect(app, ctx):
         q = queue.Queue()
         def run():
             try: q.put(dict(board=explain(ask, ctx_, said, sources=sources, note=lambda t: q.put(dict(wait=t)), lr=lr)))
-            except Withheld: q.put(dict(error='The page holds personal data, and your settings say to keep it on this Mac. The guide did not ask the model.'))
+            except Withheld: q.put(dict(error=WITHHELD))
             except Exception as e: log.warning('guide: %r', e); q.put(dict(error='The tutor could not answer. Try again.'))
         threading.Thread(target=run, daemon=True).start()
         async def gen():
@@ -79,7 +81,7 @@ def connect(app, ctx):
         "File the pasted YouTube link as the explainer of the concept."
         c = concept_of(slug)
         try: await asyncio.to_thread(file_video, lr, url, slug)
-        except Withheld: return video_part(c, 'The link holds personal data, so abhyasa did not send it.')
+        except Withheld: return video_part(c, WITHHELD)
         except Exception as e: log.warning('guide: video %r', e); return video_part(c, why(e))
         return video_part(lr.concept(slug))
 
@@ -90,7 +92,7 @@ def connect(app, ctx):
             v = await asyncio.to_thread(find_explainer, c.name, c.get('subject') or '')
             if not v: return video_part(c, 'The tutor found no short video for this idea. Paste a link.')
             await asyncio.to_thread(file_video, lr, v.url, slug)
-        except Withheld: return video_part(c, 'The name of the idea holds personal data, so abhyasa did not search.')
+        except Withheld: return video_part(c, WITHHELD)
         except Exception as e: log.warning('guide: find video %r', e); return video_part(c, why(e))
         return video_part(lr.concept(slug))
 

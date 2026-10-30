@@ -26,6 +26,27 @@ def test_figure_alt_passes_the_guard(mk, fake):
     ps = [p for p, sp in fake.calls if 'You find the text labels' in sp]
     assert ps and all(secret not in p and secret not in sp for p, sp in fake.calls) and '[SECRET]' in ps[-1]
 
+WITHHELD = 'The guide did not send this, because your privacy setting withholds it. Change it in Settings.'
+
+def test_each_route_answers_a_withheld_text_plainly(mk, fake, lr, monkeypatch):
+    "With `cli.pii` refuse, the guard withholds personal data: each guide route answers with one plain line, not a 500."
+    import abhyasa.guide, abhyasa.blocks.guide.app as ga
+    from abhyasa.guide import Withheld
+    monkeypatch.setattr(abhyasa.guide, 'pii_policy', lambda: ('refuse', False))
+    fake.rules['You find the text labels'] = LABELS
+    cl, pii = mk(), 'Mail jane.doe@example.com or call 415-555-0134'
+    r = cl.post(f'/guide/figure?alt={pii}', content=PNG + b'pii')
+    assert r.status_code == 403 and r.json() == dict(error=WITHHELD, labels={})
+    assert not any('jane.doe' in p for p, sp in fake.calls)
+    r = cl.post('/guide/ask', json=dict(said=f"I don't get this, {pii}", ctx={}))
+    assert r.status_code == 200 and json.loads(r.text.strip().split('data: ')[-1]) == dict(error=WITHHELD)
+    def withhold(*a, **kw): raise Withheld('personal data')
+    monkeypatch.setattr(ga, 'file_video', withhold); monkeypatch.setattr(ga, 'find_explainer', withhold)
+    slug = lr.concepts()[0].slug
+    for path, data in ((f'/guide/video/{slug}', dict(url='https://youtu.be/abc123def45')), (f'/guide/video/{slug}/find', {})):
+        r = cl.post(path, data=data)
+        assert r.status_code == 200 and WITHHELD in r.text, path
+
 def test_figure_route_takes_only_images(mk):
     assert mk().post('/guide/figure', content=b'<svg onload=alert(1)>').status_code == 415
 
