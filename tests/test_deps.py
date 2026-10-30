@@ -6,10 +6,10 @@ from pathlib import Path
 from packaging.version import Version
 
 def test_fossick_floor():
-    "fossick 0.1.23 checks each redirect, verifies TLS with the macOS keychain, and clones over HTTPS only, so abhyasa must ask for it, and the venv must have it."
+    "fossick 0.1.23 checks each redirect, verifies TLS with the macOS keychain, and clones over HTTPS only. 0.1.24 gives the timed cues of a video (`read_yt(cues=True)`) and `yt_link`. So abhyasa must ask for it, and the venv must have it."
     deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
-    assert 'fossick>=0.1.23' in deps
-    assert Version(version('fossick')) >= Version('0.1.23')
+    assert 'fossick>=0.1.24' in deps
+    assert Version(version('fossick')) >= Version('0.1.24')
 
 def test_rupaka_floor():
     "rupaka 0.0.7 has the `field` fn and the `pixels` block, and 0.0.6 has `Rupaka.state`, `set`, `settle` with an answer, `options`, `open` and `rupaka.poll`, so each extra must ask for it, and the lock must have it."
