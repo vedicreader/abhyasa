@@ -191,3 +191,38 @@ def test_the_first_use_line_keeps_the_box_wide(page):
     page.evaluate('abhyasaGuide.open()')
     assert page.evaluate("document.querySelector('#guide-form .guide-heard').textContent").startswith('The tutor reads this page')
     assert page.evaluate("document.getElementById('guide-box').getBoundingClientRect().width") > 300
+
+def test_a_concept_page_gives_its_slug_statement_and_passage(page):
+    """On a concept page the guide reads the slug from the title, the statement, and the passage of a walk, with the title of its
+    source and no source line or link in the passage text."""
+    from fasthtml.common import to_xml, Div, Blockquote
+    from abhyasa.core import Md, SourceLine, source_of
+    page.goto(page.url.rstrip('/') + '/c/ranking'); page.wait_for_function('window.abhyasaGuide')
+    walk = Div(Blockquote(Md('Items are ordered by a score.'), SourceLine(source_of(dict(shelf='papers', doc_id='d1', title='Learning to rank', section='2 Ranking', text='x'))),
+                          cls='quote'), cls='walk-passages')
+    page.evaluate("h => document.querySelector('main').insertAdjacentHTML('beforeend', h)", to_xml(walk))
+    ctx = page.evaluate('abhyasaGuide.capture()')
+    by = {a['id']: a for a in ctx['anchors']}
+    assert ctx['slug'] == 'ranking'
+    assert by['statement']['text'] == 'Order items by a score.' and by['statement']['kind'] == 'text'
+    assert by['passage']['text'] == 'Items are ordered by a score.'
+    assert ctx['source'].startswith('Learning to rank') and 'Open' not in ctx['source'] and 'your source' not in ctx['source']
+
+def test_block_parts_of_an_anchor_do_not_run_together(page):
+    "A label and a paragraph of the check read as two words, and the buttons are not text."
+    page.evaluate("""() => document.querySelector('main').insertAdjacentHTML('beforeend',
+                     '<div id="check"><span class="lbl">recall</span><p>plain words</p><button>Hint</button></div>')""")
+    by = {a['id']: a for a in page.evaluate('abhyasaGuide.capture()')['anchors']}
+    assert by['check']['text'] == 'recall plain words'
+
+def test_the_name_of_the_idea_is_not_a_figure_word(page):
+    """A walk figure with no caption has the alt "A figure for <idea>": a question that names the idea is not about the figure.
+    A word of a real caption is."""
+    page.evaluate("""() => { document.querySelector('main').insertAdjacentHTML('afterbegin', '<h1>Softmax</h1>');
+                             const f = document.createElement('figure'), i = new Image(); i.alt = 'A figure for Softmax';
+                             i.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"/>');
+                             f.append(i); document.querySelector('main').append(f); return new Promise(ok => i.complete ? ok() : i.onload = ok); }""")
+    about = lambda q: page.evaluate("async q => { const c = await abhyasaGuide.capture(); return abhyasaGuide.aboutFigure(q, c, document.querySelector('figure img')); }", q)
+    assert not about('why does softmax use exp')
+    page.evaluate("""() => document.querySelector('figure').insertAdjacentHTML('beforeend', '<figcaption>Scaled dot-product attention</figcaption>')""")
+    assert about('what is scaled here') and not about('why does softmax use exp')

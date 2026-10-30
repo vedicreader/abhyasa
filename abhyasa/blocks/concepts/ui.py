@@ -212,7 +212,7 @@ def ConceptPage(c, by, attempts, groups=()):
             if attempts else Empty('You did not answer a question on this idea yet.'),
             *([H2('Seen in your work'), Cites(c.seen_in, label='')] if c.get('seen_in') else []),
             *([H2('Source'), Ul(*[Li(_src(p)) for p in c.provenance], cls='plain')] if c.provenance else []))
-    return (css(), H1(c.name, id='concept-name'), head, Md(c.statement or '', cls='statement'), Div(*run('concept_actions', c), cls='row'), GroupField(c, groups), NameField(c), Div(id='undo-bar'), Div(*refs, cls='refs'))
+    return (css(), H1(c.name, id='concept-name', data_concept=c.slug), head, Md(c.statement or '', cls='statement'), Div(*run('concept_actions', c), cls='row'), GroupField(c, groups), NameField(c), Div(id='undo-bar'), Div(*refs, cls='refs'))
 
 def Subjects(subs):
     return (H2('Subjects'), Ul(*[Li(A(label(r['subject']), href=f"{Routes.base}?subject={r['subject'] or ''}"),

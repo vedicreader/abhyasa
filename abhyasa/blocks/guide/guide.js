@@ -13,12 +13,24 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const h = k.closest('[data-tex]'); if (h) return h.dataset.tex;
     const a = k.querySelector('annotation[encoding="application/x-tex"]'); return a ? a.textContent : '';
   };
-  const textOf = el => {   // the text of `el`, with each formula as its TeX between $ signs, and no hidden MathML
+  // The text of `el`, with each formula as its TeX between $ signs, and no hidden MathML. A part that is not inline on the page
+  // (a paragraph, a label, a pill) gets a space before and after it, so its words do not run into the next words. The source line of a
+  // passage and the buttons are not text of the page: the source goes in `source`.
+  const SKIP = 'script, style, textarea, input, select, button, .guide-go, .src-line';
+  const textOf = el => {
     if (!el) return '';
-    const c = el.cloneNode(true);
+    const c = el.cloneNode(true), mine = [...el.querySelectorAll('*')], copies = [...c.querySelectorAll('*')];
+    mine.forEach((m, n) => { if (!m.closest('.katex') && getComputedStyle(m).display !== 'inline') copies[n].dataset.guideGap = '1'; });
     c.querySelectorAll('.katex').forEach(k => k.replaceWith(`$${texOf(k)}$`));
-    c.querySelectorAll('script, style, textarea, input, select, button, .guide-go').forEach(x => x.remove());
+    c.querySelectorAll(SKIP).forEach(x => x.remove());
+    c.querySelectorAll('[data-guide-gap]').forEach(x => { x.before(' '); x.after(' '); });
     return cut(c.textContent, 300);
+  };
+  const sourceOf = line => {   // the title and the place of a source line, with no pill and no link to open it
+    if (!line) return '';
+    const c = line.cloneNode(true);
+    c.querySelectorAll('.pill, .src-open, button').forEach(x => x.remove());
+    return cut(c.textContent);
   };
   const figs = {};   // figure src -> labels, for this page load
 
@@ -60,7 +72,10 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const add = (el, id, kind, text) => { if (el && seen(el)) { el.dataset.guideId = id; anchors.push({id, kind, text}); } };
     const h1 = main.querySelector('h1');
     add(h1, 'title', 'title', textOf(h1));
-    for (const [sel, kind] of [['#passage', 'passage'], ['#note', 'note'], ['#check', 'check']]) add(main.querySelector(sel), sel.slice(1), kind, textOf(main.querySelector(sel)));
+    const passage = main.querySelector('#passage') || main.querySelector('.walk-passages blockquote');   // a concept page shows its passage from a walk
+    add(main.querySelector('.statement'), 'statement', 'text', textOf(main.querySelector('.statement')));   // the statement of a concept page
+    add(passage, 'passage', 'passage', textOf(passage));
+    for (const [sel, kind] of [['#note', 'note'], ['#check', 'check']]) add(main.querySelector(sel), sel.slice(1), kind, textOf(main.querySelector(sel)));
     for (const host of markMath(main)) {
       anchors.push({id: host.dataset.guideId, kind: 'formula', text: host.dataset.tex, tokens: JSON.parse(host.dataset.parts || '[]').map(p => p[0])});
     }
@@ -68,7 +83,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (figure && seen(figure)) {
       const cap = figure.closest('figure') && figure.closest('figure').querySelector('figcaption');
       figure.dataset.guideId = 'figure';
-      anchors.push({id: 'figure', kind: 'figure', text: cut([figure.alt, cap && cap.textContent].filter(Boolean).join('. ')), ...(labels && {labels: await labelsOf(figure)})});
+      anchors.push({id: 'figure', kind: 'figure', text: cut(cap ? cap.textContent : figure.alt), ...(labels && {labels: await labelsOf(figure)})});   // the caption, else the alt
     }
     main.querySelectorAll('figcaption, .rk-title').forEach((c, n) => n < 4 && add(c, 'cap' + (n + 1), 'caption', textOf(c)));
     let demo = {};
@@ -76,9 +91,9 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (rk) { const d = abhyasaBoard.demoAnchors(rk); if (d) { anchors.push(...d.anchors); demo = d.demo; } }
     const video = main.querySelector('#guide-video[data-vid]');
     if (video) add(video, 'video', 'video', cut(video.dataset.title || 'The explainer video'));
-    const src = main.querySelector('#passage .src-line');
+    const src = passage && passage.querySelector('.src-line');
     return {page: location.pathname, title: document.title, step: h1 ? cut(h1.textContent, 200) : '', slug: (main.querySelector('[data-concept]') || {dataset: {}}).dataset.concept || '',
-            source: src ? cut(src.textContent) : '', anchors: anchors.slice(0, 40), demo, ...(video && {video: {id: video.dataset.vid}})};
+            source: sourceOf(src), anchors: anchors.slice(0, 40), demo, ...(video && {video: {id: video.dataset.vid}})};
   }
 
   // --- show while you talk ---------------------------------------------------------------------------------------------
@@ -287,13 +302,15 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     return out.length ? `Reads this page: ${out.length > 1 ? out.slice(0, -1).join(', ') + ' and ' + out[out.length - 1] : out[0]}.` : 'Reads this page.';
   }
   // The picture of a figure goes to the vision model only when the question is about it: the learner showed it with the pointer,
-  // or the question names a figure, or a word of its caption. A figure that this page load already read sends nothing.
+  // or the question names a figure, or a word of its caption. The name of the idea (the title) is not a word of the figure: a walk
+  // figure with no caption has the alt "A figure for <idea>", and each question on the page names the idea.
+  // A figure that this page load already read sends nothing.
   const FIG_WORDS = /\b(figure|fig|picture|image|diagram|plot|graph|chart|drawing|label|labels|axis|axes|curve)\b/i;
   function aboutFigure(said, ctx, img) {
     const a = ctx.anchors.find(x => x.id === 'figure');
     if (!a || !img) return false;
     if (figs[img.src] || (ctx.focus || []).some(f => f.anchors.includes('figure')) || FIG_WORDS.test(said)) return true;
-    const words = new Set(flatWords(a.text));
+    const idea = new Set(flatWords((ctx.anchors.find(x => x.id === 'title') || {}).text)), words = new Set(flatWords(a.text).filter(w => !idea.has(w)));
     return flatWords(said).some(w => words.has(w));
   }
   const flatWords = t => String(t || '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 4);

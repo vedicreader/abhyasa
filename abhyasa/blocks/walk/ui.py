@@ -224,9 +224,17 @@ def Passage(j, s, c, i=None, looking=False):
     return TutorWords((c or {}).get('statement', ''), FindSource(j['id'], i, s, looking) if i is not None else '',
                       id='passage', cls='pending' if wait else '', **poll, **mv)
 
+def fig_caption(r) -> str:
+    "The caption of the figure of a passage, as the paper gives it: `caption`, or the alt text of the image of `figure` in the passage."
+    if r.get('caption'): return r['caption']
+    m = next((m for m in re.finditer(r'!\[([^\]]+)\]\(([^)\s]+)', r.get('text') or '') if m[2] == r.get('figure')), None)
+    return m[1].strip() if m else ''
+
 def Figure_(jid, i, s, c):
-    if not (s.get('read') or {}).get('figure'): return ''
-    return Figure(Img(src=at(Routes.img, jid, i), alt=f"A figure for {(c or {}).get('name', 'this idea')}", loading='lazy'), id='figure')
+    "The figure of the step. Its alt is the caption of the paper when the data has it."
+    r = s.get('read') or {}
+    if not r.get('figure'): return ''
+    return Figure(Img(src=at(Routes.img, jid, i), alt=fig_caption(r) or f"A figure for {(c or {}).get('name', 'this idea')}", loading='lazy'), id='figure')
 
 def NextBar(jid, i, st, by):
     """Back to the idea before, and a quiet `Skip this idea` while the check is open. Once the check closes, the card holds
@@ -273,7 +281,7 @@ def TalkStep(j, st, by, i):
     said = 'a quick primer' if n == 1 else f'idea {i + 1} of {n}'
     r = s.get('read') or {}
     short = {**s, 'read': {**r, 'text': talk_text(r['text'])}} if r.get('text') else s
-    return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea'), Passage(j, short, c), Figure_(j['id'], i, s, c),
+    return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea', data_concept=s.get('slug')), Passage(j, short, c), Figure_(j['id'], i, s, c),
                P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
 def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None):
@@ -286,7 +294,7 @@ def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING) if result is None else Div(result, id='check')
     return Div(Rail(j, st, by, i, present),
-               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea'), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c),
+               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea', data_concept=s.get('slug')), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c),
                    NoteSlot(j['id'], i), slot, leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 
