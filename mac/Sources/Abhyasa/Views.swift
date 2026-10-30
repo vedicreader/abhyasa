@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 import WebKit
 import AbhyasaCore
+import AbhyasaGuide
 
 struct WebView: NSViewRepresentable {
     let web: WebController
@@ -88,6 +89,7 @@ struct SettingsView: View {
     let model: AppModel
     @State private var s = Prefs.load()
     @State private var typing = false
+    @State private var guide = Guide.enabled
     private static let other = "\u{1}other"
 
     /// the list item: the model, or "Type another model id" for an id that the list does not have
@@ -118,6 +120,10 @@ struct SettingsView: View {
                 TextField("Vault", text: $s.vault)
                 Button("Choose…") { choose() }
             }
+            Toggle("Screen guide over other apps", isOn: $guide)
+                .onChange(of: guide) { _, on in Guide.shared.setEnabled(on) }
+            Text("Tap \(GuideText.key) to type a question about the window in front. Hold \(GuideText.key) to say it. The tutor draws the answer over the window. Esc stops it.")
+                .font(.caption).foregroundStyle(.secondary)
             HStack {
                 Spacer()
                 Button("Default Values") { s = ServerSettings(); typing = false }

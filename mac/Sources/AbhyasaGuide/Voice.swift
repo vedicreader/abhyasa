@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 
 /// The voice out: AVSpeechSynthesizer, with a mark for each word that it says (design 5.3). The app has no other native voice.
 @MainActor

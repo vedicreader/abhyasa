@@ -54,6 +54,32 @@ The `whisper` extra installs `mlx-audio` for the whisper engine, and the `tick` 
   document of your vault. `abhyasa://` and `abhyasa://today` open Today. Links to other sites open in your browser.
   A shelf or a document id has only letters, digits, `-`, `_` and `.`, and it is not only dots.
 
+## The screen guide over other apps
+
+The `AbhyasaGuide` target draws the guide's board over any app. The abhyasa server is the brain. The app only reads the
+window, asks the server and draws.
+
+- Key: ⌥`. A tap opens a small strip at the top of the screen, where you type your question. A hold opens the mic; the
+  release sends what you said to `/voice/stt`. While a board shows, a tap says the step again, and `Esc` stops the board.
+  The app takes `Esc` only while a board shows. The key is a Carbon hot key, so it needs no permission. Over Abhyasa's own
+  window, the key opens the page's own guide box.
+- Anchors: the app reads the window in front with the Accessibility API: the window, the thing under the pointer, the
+  selected text and up to 40 visible parts with text. Each read has a timeout of 0.5 s, and the whole read stops after
+  0.35 s or 600 parts. It runs on its own queue, not on the main thread. Password fields and fields with a name like a key
+  or a token are left out. The app does not read Keychain Access, 1Password, Bitwarden, Passwords, Messages, Mail, Signal,
+  WhatsApp or System Settings.
+- With no Accessibility permission, the guide uses the window frame only, and the strip says so. The first time, the strip
+  asks if you want to open System Settings. The app never asks for a permission at launch.
+- The question goes to `/guide/ask` as `{"said", "ctx"}`. `ctx.title` is the app name and the window title, and
+  `ctx.anchors` is the anchor list. The app reads the server-sent events (`wait`, `step`, `board`, `error`).
+- The board plays in a clear, click-through panel over the display of the window. The panel never takes the focus. Its web
+  view loads `board.js` from the server, and the app puts one empty box on the page for each anchor. The voice is
+  `AVSpeechSynthesizer`, with a mark for each word. The marks move when the window moves. The board goes 8 s after its
+  last line.
+- A picture of the window (ScreenCaptureKit, one window only, in memory only) is in the code, behind the `guide.vision`
+  setting, which is off. It never asks for Screen Recording. The server does not take a picture yet.
+- Settings has a switch for the guide.
+
 ## Build
 
 ```sh
