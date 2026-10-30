@@ -74,9 +74,14 @@ def step_meta(j, i:int) -> dict:
 def open_short(tutor:Tutor, j, i:int, session:str) -> AttrDict:
     "Open the short-answer check of step `i` of walk `j`, and keep its id on the step."
     s, lr = j.steps[i], tutor.learning
-    ck = s['check']
-    q = tutor.ask_on(lr.concept(s['slug']), ck['depth'], ck.get('why', ''), session=session, method=ck['way'],
+    ck, c = s['check'], lr.concept(s['slug'])
+    if (own := ' '.join(str(ck.get('q') or '').split())):   # your own question: the tutor asks it, and grades it against the statement
+        tutor.checks[c.slug] = (own, c.get('statement', ''), ck['way'])
+    q = tutor.ask_on(c, ck['depth'], ck.get('why', ''), session=session, method=ck['way'],
                      meta=step_meta(j, i), read=tutor_note(lr, tutor.ask, j, i, tutor.sources))
+    if own:
+        why = 'you wrote this question'
+        tutor.open[q.id].update(rubric=[f"the answer agrees with this: {c.get('statement', '')}"], why=why); q.why = why
     lr.walk_step(j.id, i, qid=q.id)
     return q
 

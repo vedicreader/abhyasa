@@ -56,9 +56,9 @@ def test_live_field_saves_after_600_ms():
     assert 'hx-post="/s1"' in to_xml(Live('notes', Input(), '/s1'))
 
 def test_editor_keys_are_for_the_editor_pages_only():
-    "The keys table gets the editor keys from the tasks that bind them. The editor assets are not in every page."
+    "The keys table gets the editor keys from the tasks that bind them (the talk plan and the walk path). The editor assets are not in every page."
     assert edit_keys('Walk path', ('P', 'M')) == [('Walk path', 'P', 'Split the row in two'), ('Walk path', 'M', 'Merge the row with the next row')]
-    assert not any(g == 'Walk path' for g, *_ in KEYS) and len(edit_assets()) == 2
+    assert ('Walk path', 'P', 'Split the idea into smaller ideas') in KEYS and len(edit_assets()) == 2
 
 def test_rewrite_prompt_is_in_settings(mk):
     assert 'Rewrite with an instruction' in mk().get('/settings').text

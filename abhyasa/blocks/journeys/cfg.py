@@ -15,6 +15,7 @@ class Routes:
     split = '/j/{jid}/split'
     drop = '/j/{jid}/drop'
     walk = '/w/{jid}'               # the walk block: the plan, then the current step
+    walk_edit = '/w/{jid}/edit'     # the walk block: the walk path editor
     start = '/start'                # the session block starts a session: ?journey= or ?focus=
     def of(route, **kw):
         for k, v in kw.items(): route = route.replace('{' + k + '}', v)

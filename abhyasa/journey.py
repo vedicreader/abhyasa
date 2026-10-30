@@ -10,9 +10,9 @@ __all__ = ['STATUS', 'DONE', 'PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL
            'chip_docs', 'source_map', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most', 'cap_hands',
            'hands_count', 'journey_from_source', 'journey_from_text', 'journey_from_sources', 'walk_from_topic',
            'walk_state', 'minutes', 'needs', 'pick_way_down', 'detour', 'parent_step', 'trail', 'back_from', 'for_talk',
-           'journey_walk', 'walk_for_talk', 'journey_changed', 'look_up', 'add_topic', 'name_gaps', 'split', 'related',
-           'with_step', 'beyond', 'paper_id', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff',
-           'read_handoff', 'HANDOFF_CASES']
+           'journey_walk', 'walk_for_talk', 'journey_changed', 'look_up', 'topic_slug', 'add_topic', 'name_gaps',
+           'split_parts', 'split', 'related', 'with_step', 'beyond', 'paper_id', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX',
+           'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
@@ -296,10 +296,10 @@ def cap_hands(lr:Learning, steps:list, tool:bool=False) -> list:
     return steps
 
 def hands_count(steps) -> tuple:
-    "`(hands-on checks, steps not skipped, notebooks that build the goal)` of `steps`. A `hands='notebook'` step counts only as a notebook, as in `cap_hands`."
+    "`(hands-on checks that are not notebooks, steps not skipped, notebook steps)` of `steps`. A notebook check counts only as a notebook. A skipped step does not count."
     ss = [s for s in steps if s.get('status') != 'skip']
-    nb = [s.get('hands') == 'notebook' for s in ss]
-    return sum((s.get('check') or {}).get('kind', 'short') != 'short' and not b for s, b in zip(ss, nb)), len(ss), sum(nb)
+    kinds = [(s.get('check') or {}).get('kind', 'short') for s in ss]
+    return sum(k not in ('short', 'notebook') for k in kinds), len(ss), kinds.count('notebook')
 
 # %% ../nbs/11_journey.ipynb #w304
 def _leela(c, tool:bool) -> dict:
@@ -661,18 +661,23 @@ def look_up(lr:Learning, ask, term:str, at:str='', sources=None) -> AttrDict|Non
 PRIMER_SP = register('primer', 'Statement of a new idea', 'How the tutor writes the statement of an idea that it adds to a path or looks up for you.',
                      "You write one true, self-contained statement of one idea, for a learner: one to three sentences. Maths in $...$.")
 
-def add_topic(lr:Learning, ask, jid:str, name:str, before:str=None, sources=None) -> AttrDict:
-    "Add topic `name` to walk `jid`, as a concept on the shelf. Return the walk."
-    j = lr.journey(jid)
-    if not usable_name(name): return j   # a name such as `x` is not an idea
+def topic_slug(lr:Learning, ask, j, name:str, sources=None) -> str|None:
+    "The slug of the concept `name` on the shelf. The tutor writes a new concept when the shelf has none. None for a name that is not an idea."
+    if not usable_name(name): return None   # a name such as `x` is not an idea
     slug = _index(lr).get(name.strip().lower())
     if not slug:
         r = ask_json(for_task(ask, 'extract'), f"The idea: {name}\nThe path it is part of: {j.title} ({j.get('goal', '')})\n\n"
                           'Return JSON: {"name": str, "statement": str}', prompt('primer'))
-        slug = lr.put(r.get('name') or name, r.get('statement', ''), j.get('subject', ''), provenance=[dict(src='journey', journey=jid)]).slug
+        slug = lr.put(r.get('name') or name, r.get('statement', ''), j.get('subject', ''), provenance=[dict(src='journey', journey=j.id)]).slug
         if sources:
             try: lr.connect(slug, sources)
             except Exception: pass
+    return slug
+
+def add_topic(lr:Learning, ask, jid:str, name:str, before:str=None, sources=None) -> AttrDict:
+    "Add topic `name` to walk `jid`, as a concept on the shelf. Return the walk."
+    j = lr.journey(jid)
+    if not (slug := topic_slug(lr, ask, j, name, sources)): return j
     return lr.journey_add(jid, slug, before, why='you added it')
 
 # %% ../nbs/11_journey.ipynb #17219547
@@ -694,16 +699,20 @@ def name_gaps(lr:Learning, ask, slug:str, terms, sources=None) -> L:
     return out
 
 # %% ../nbs/11_journey.ipynb #d3754943
-def split(lr:Learning, ask, jid:str, slug:str, sources=None) -> L:
-    "Find the parts of step `slug`, add them before it as steps and prereqs, and return their slugs."
+def split_parts(lr:Learning, ask, jid:str, slug:str, sources=None) -> L:
+    "Find the parts of step `slug` of walk `jid` with the tutor, and keep each as a prereq of `slug`. Return the slugs that are not steps of the walk. It does not change the walk."
     c, j = lr.concept(slug), lr.journey(jid)
     ps = ground(' '.join([c.name, *(c.aliases or [])][:4]), sources, 4) if sources else L()
     text = f"{c.name}\n\n{c.statement}" + (f"\n\nPassages:\n{ground_text(ps)}" if ps else '')
     have = {s['slug'] for s in j.steps}
     new = L(s for s in extract(lr, ask, text, c.subject or j.get('subject') or '', dict(src='journey', journey=jid, split=slug)) if s != slug and s not in have)
-    for s in new:
-        lr.link(slug, s)
-        lr.journey_add(jid, s, before=slug, why=f'a part of {c.name}')
+    for s in new: lr.link(slug, s)
+    return new
+
+def split(lr:Learning, ask, jid:str, slug:str, sources=None) -> L:
+    "Find the parts of step `slug`, add them before it as steps and prereqs, and return their slugs."
+    c, new = lr.concept(slug), split_parts(lr, ask, jid, slug, sources)
+    for s in new: lr.journey_add(jid, s, before=slug, why=f'a part of {c.name}')
     return new
 
 # %% ../nbs/11_journey.ipynb #cl36

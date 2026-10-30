@@ -41,6 +41,7 @@ def connect(app, ctx):
     def one(jid:str):
         j = lr.journey(jid)
         if not j: return Page('Walk', H1('No such walk'), P(A('All walks', href=Routes.learn)), on='Learn', crumbs=up)
+        if j.get('mode') == 'walk' and not for_talk(j): return RedirectResponse(Routes.of(Routes.walk_edit, jid=jid), status_code=303)   # a walk has its own editor
         pg = progress(lr, j)
         return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')], run('walk_actions', j)), on='Learn', crumbs=up, extra=ui.assets())
 

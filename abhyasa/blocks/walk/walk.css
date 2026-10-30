@@ -170,3 +170,38 @@ html.in-pane main { padding-bottom: 64px; }
 .gather-log .glog b { font-weight: 500; }
 .gather-log .glog.refused { color: var(--mute); }
 .gather-log .agent-note { font-style: italic; }
+
+/* The walk path editor (mockups/07-walk-editor.html): one column; the hands-on share; one row for each idea, in an editor list (core/edit.css). */
+.walk-top { margin-top: var(--s4); }
+p.hands { font-size: var(--t-small); color: var(--ink2); margin: var(--s4) 0 var(--s2); }
+p.hands.over { color: var(--fg); }
+p.hands a, .talk-line a, .change-walk a { color: var(--mute); }
+.change-walk { font-size: var(--t-small); margin: var(--s3) 0 0; }
+#steps > li.edit-row { grid-template-columns: 22px 28px minmax(0, 1fr) auto auto; }
+#steps > li.edit-row > [data-skip] { grid-column: 5; grid-row: 1; color: var(--mute); }
+#steps > li.edit-row.skipped .line { font-style: italic; }
+#steps > li.sec { list-style: none; padding: var(--s5) 0 var(--s1); font-size: var(--t-small); color: var(--mute); }
+#steps .row-acts [data-key="X"] { color: var(--no); }
+#steps .req-err { margin: 0; }
+#steps .fields { max-width: 64ch; }
+#steps .fields label > :is(input[type=text], input[type=search], textarea, select) { display: block; width: 100%; margin-top: var(--s1); }
+#steps .fields .help { display: block; font-family: var(--serif); text-transform: none; letter-spacing: 0; font-size: var(--t-meta); margin-top: 2px; }
+#steps .fields .lbl { display: block; margin: 0 0 var(--s1); }
+#steps .idea-part p { margin: 0; font-size: var(--t-small); }
+#steps blockquote { margin: 0 0 var(--s1); padding-left: var(--s3); border-left: 2px solid var(--line); color: var(--ink2); font-size: var(--t-small); }
+#steps blockquote.also { border-left-style: dashed; }
+#steps details.pick > summary, #steps details.add-idea > summary { list-style: none; cursor: pointer; width: max-content; display: inline-flex; align-items: center; gap: var(--s1);
+                                                                  min-height: 44px; padding: 0 var(--s2); font-size: var(--t-small); color: var(--mute); }
+#steps details.pick > summary::-webkit-details-marker, #steps details.add-idea > summary::-webkit-details-marker { display: none; }
+#steps details.pick > summary:hover, #steps details.add-idea > summary:hover { color: var(--fg); }
+#steps details.pick input[type=search] { width: 100%; margin: var(--s1) 0; font-size: var(--t-small); }
+#steps ul.picks { margin: var(--s2) 0 0; padding: 0; display: grid; gap: var(--s3); max-height: 28rem; overflow: auto; }
+#steps ul.picks > li { display: grid; gap: var(--s1); justify-items: start; }
+#steps .rewrite .chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s1); }
+#steps > li.edit-add { display: block; }
+#steps .add-forms { display: grid; gap: var(--s3); max-width: 64ch; padding: var(--s2) 0 0; }
+#steps .add-forms form { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: end; }
+#steps .add-forms label { flex: 1 1 18em; margin: 0; }
+#steps .add-forms label > :is(input, select) { display: block; width: 100%; margin-top: var(--s1); font-size: var(--t-small); }
+#steps .add-forms input[type=search] { flex: 1 1 18em; font-size: var(--t-small); }
+#passage .also { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px dashed var(--line); }

@@ -4,13 +4,13 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import pane_link, SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo
+from abhyasa.core import pane_link, SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, EditList, Live, UndoBar, HistoryList
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
 from abhyasa.settings import val
 from abhyasa.core.leela import leela_line, LEELA_INSTALL
-from abhyasa.journey import minutes, TOOL_WAYS, SHAKY
+from abhyasa.journey import minutes, TOOL_WAYS, SHAKY, hands_count, hands_most
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -77,6 +77,7 @@ def PlanPage(j, st, by, actions=(), vault=None):
     src = j.get('source') or {}
     go = (Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post')
           if j['steps'] else '')
+    go = (go, A('Change the walk', href=at(Routes.edit, j['id']), cls='change-walk'))
     return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else f"From the link: {src['url']} · {n_of(len(src['docs']), 'page')}." if src.get('docs') else j.get('goal', ''), cls='mute'),
             leela_line(j, vault=vault) if j.get('tool') else '', Plan(j, st, by), Div(go, *actions, cls='row'))
 
@@ -121,7 +122,8 @@ def Rail(j, st, by, i, present=()):
     for sec, ix in st.sections:
         rows.append(Li(sec or 'The ideas', cls='sec' + (' on' if i in ix else '')))
         rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
-    return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows)), *([Div(*present, cls='rail-acts')] if present else []),
+    edit = P(A('Change the walk', href=at(Routes.edit, j['id'])), cls='change-walk')   # the walk path editor
+    return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows), edit), *([Div(*present, cls='rail-acts')] if present else []),
                  id='rail', cls='outline', aria_label='The walk')
 
 def FindSource(jid, i, s, looking=False):
@@ -137,7 +139,8 @@ def FindSource(jid, i, s, looking=False):
     if none and s.get('gather_none'):   # the gather agent read for this idea and found nothing: what it read is in its log
         return (P(s.get('research_why') or NO_SOURCE, cls='mute no-source'), P(ShowLog(jid), ' ', go, cls='mute find-source'))
     why = P(s['research_why'], cls='mute no-source-why') if none and s.get('research_why') else ''
-    return (P(NO_SOURCE, cls='mute no-source') if none else '', why, P(go, cls='mute find-source'))
+    own = (' ', A('Pick a passage yourself', href=f"{at(Routes.edit, jid)}?{urlencode(dict(open=s['slug'], pick=1))}#pick-{s['slug']}", cls='pick-own')) if none else ()
+    return (P(NO_SOURCE, cls='mute no-source') if none else '', why, P(go, *own, cls='mute find-source'))
 
 # --- the gather agent: the band, and the log of what it read and filed ------------------------------------------------
 
@@ -214,7 +217,8 @@ def Passage(j, s, c, i=None, looking=False):
     r = s.get('read') or {}
     mv = dict(data_moves=json.dumps(list((c or {}).get('moves') or []))) if (c or {}).get('moves') else {}
     if r.get('text'):
-        return Blockquote(Md(r['text']), SourceLine(source_of(r, j)), id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', **mv)
+        also = [Div(Md(a.get('text') or ''), SourceLine(source_of(a, j)), cls='also') for a in r.get('also') or () if a.get('text')]   # a merge keeps both passages
+        return Blockquote(Md(r['text']), SourceLine(source_of(r, j)), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', **mv)
     wait = i is not None and s.get('research') == 'pending' and looking and val('research.on')
     poll = dict(hx_get=at(Routes.source, j['id'], i), hx_trigger='load delay:3s', hx_swap='outerHTML') if wait else {}
     return TutorWords((c or {}).get('statement', ''), FindSource(j['id'], i, s, looking) if i is not None else '',
@@ -636,3 +640,160 @@ def WalkDone(j, st, ms, by, sides=(), due=None, end=(), present=(), made=''):
             Div(P(lead, cls='lead-sum'), *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []), *also,
                 P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', cls='walk-sum', style=f"--n:{min(len(outs), 5)}"),
             made, *end, go, *([Div(*present, cls='row')] if present else []))
+
+# --- the walk path editor (core/edit.py: an `EditList`; each change saves at once, with an Undo) ----------------------
+
+CHOICES = dict(predict='Predict a demo', short='Short answer', order='Put in order', code='Write code', notebook='Notebook')   # the check kinds that you can pick
+CHOICE_OF = dict(predict=('demo', 'demo'), order=('order', 'order'), code=('code', 'code'), notebook=('code', 'notebook'))   # choice -> (way, kind); `short` keeps a text way
+CHOICE = dict(demo='predict', short='short', order='order', code='code', notebook='notebook')   # kind -> choice
+SAY_KIND = dict(demo='a demo', short='a short answer', order='put in order', code='code', notebook='a notebook')
+FIELDS = dict(note='note', q='check question')   # the names of the fields of a step, for the Undo bar
+REWRITE_CHIPS = ('Simpler', 'Add an example', 'Shorter')
+REWRITE_HELP = 'The tutor rewrites the note and the check question. It never changes the passage.'
+SETTING = '/settings#g-walks'   # the Walks group of Settings, with the hands-on share
+
+def edit_url(jid, slug=''): return at(Routes.edit, jid) + (f'?{urlencode(dict(slug=slug))}' if slug else '')
+
+def hands_words(j):
+    "The hands-on line of walk `j`, and whether the walk is over its share. It only warns."
+    h, n, nb = hands_count(j['steps'])
+    line = f"Hands-on: {h} of {n} ideas ({round(100 * h / n) if n else 0}%). Your setting is about {round(100 * val('walks.hands'))}%."
+    return line + (f' Notebooks that build your goal: {nb}.' if nb else ''), h > hands_most(n)
+
+def Hands(j, oob=False):
+    "The hands-on share of the walk against your setting. Over the share, a quiet link to the setting. Nothing blocks."
+    line, over = hands_words(j)
+    return P(line, *((' ', A('Change the setting', href=SETTING)) if over else ()), id='hands', cls='hands over' if over else 'hands', aria_live='polite',
+             **({'hx_swap_oob': 'true'} if oob else {}))
+
+def Field_(label, el, help=''): return Label(label, el, Small(help, cls='mute help') if help else '')
+
+def edit_act(jid, act, **kw):
+    "The htmx attributes of a button that makes the change `act` and swaps the list of ideas."
+    return dict(hx_post=at(Routes.edit, jid), hx_vals=json.dumps(dict(act=act, **kw)), hx_target='#steps', hx_swap='outerHTML', type='button')
+
+def pick_url(jid, **kw): return f"{at(Routes.passages, jid)}?{urlencode(kw)}"
+
+def PickList(jid, ps, slug='', name=''):
+    "The real passages to pick, word for word, each with its place. For a step: Use this passage. For a new idea: Add with this passage."
+    if not ps: return P('No passage in the sources of this walk has these words.', cls='mute')
+    go = (lambda p: edit_act(jid, 'pick', slug=slug, text=p.text)) if slug else (lambda p: edit_act(jid, 'add', name=name, text=p.text))
+    return Ul(*[Li(Blockquote(Inline(p.text)), Small(p.place, cls='mute'), Quiet('Use this passage' if slug else 'Add with this passage', small=True, data_wait='Saving…', **go(p)))
+                for p in ps], cls='plain picks')
+
+def EditPassage(j, k, s, pick=False):
+    "The passage of step `k` with its source line (and the passages that a merge kept), then Pick another passage: real passages only, with a search box."
+    r, slug = s.get('read') or {}, s['slug']
+    have = (r.get('text') or '').strip()
+    url = pick_url(j['id'], i=k)
+    return Div(Span('Passage', cls='lbl'),
+               *((Blockquote(Inline(have)), SourceLine(source_of(r, j))) if have else (P('This idea has no passage yet. Pick one, or the tutor looks for a source on the web.', cls='mute'),)),
+               *[x for a in r.get('also') or () for x in (Blockquote(Inline(a.get('text') or ''), cls='also'), SourceLine(source_of(a, j)))],
+               Details(Summary('Pick another passage' if have else 'Pick a passage yourself', cls='quiet small'),
+                       Input(type='search', name='q', placeholder='Words in the passage', aria_label='Words in the passage', maxlength='200',
+                             hx_get=url, hx_trigger='input changed delay:300ms, search', hx_target=f'#pick-{slug}-list', hx_swap='innerHTML'),
+                       Div(Span('Reading the sources…', cls='mute'), id=f'pick-{slug}-list', hx_get=url, hx_trigger='intersect once', hx_swap='innerHTML', cls='pick-list'),
+                       id=f'pick-{slug}', cls='pick', open=pick),
+               cls='passage-part')
+
+def Rewrite_(post):
+    "Rewrite the note and the check question: a short instruction, or one of three chips. The tutor never changes the passage."
+    return Form(Field_('Rewrite with the tutor', Input(type='text', name='text', maxlength='300', placeholder='Tell the tutor what to change', aria_label='What to change'), REWRITE_HELP),
+                Div(*[Quiet(c, small=True, type='submit', name='chip', value=c, data_wait='Rewriting…') for c in REWRITE_CHIPS],
+                    Quiet('Rewrite', small=True, type='submit', data_wait='Rewriting…'), cls='chips'),
+                hx_post=post, hx_vals=json.dumps(dict(act='rewrite')), hx_target='#steps', hx_swap='outerHTML', cls='rewrite')
+
+def StepBody(j, k, s, by, pick=False):
+    "The fields of an open row: the idea, the passage, the tutor note, the check kind, the check question and the rewrite. Each change has an Undo."
+    c, ck, post = by.get(s['slug']) or {}, s.get('check') or {}, edit_url(j['id'], s['slug'])
+    kind, tool = ck.get('kind', 'short'), bool(j.get('tool'))
+    h, n, _ = hands_count(j['steps'])
+    kinds = Select(*[Option(t, value=v, selected=v == CHOICE.get(kind)) for v, t in CHOICES.items() if not (tool and v == 'code')], name='way',
+                   aria_label='The kind of the check', hx_post=post, hx_trigger='change', hx_vals=json.dumps(dict(act='check')), hx_target='#steps', hx_swap='outerHTML')
+    return [Div(Span('Idea', cls='lbl'), P(Inline(c.get('statement') or c.get('name') or s['slug'])), cls='idea-part'),
+            EditPassage(j, k, s, pick),
+            Field_('Tutor note', Live('note', Textarea(s.get('note') or '', rows='3', placeholder='The tutor writes the note when you open this idea.'))),
+            Field_('Check', kinds, f'Hands-on now: {h} of {n} ideas. A notebook runs in Leela.' + (' A walk on a tool runs its code in a notebook.' if tool else '')),
+            Field_('Check question', Live('q', Input(type='text', value=ck.get('q') or '', maxlength='500', placeholder='The tutor writes a question when you reach this idea.')),
+                   'The tutor asks your question as it is.') if kind == 'short' else '',
+            Rewrite_(post)]
+
+def step_line(j, s):
+    "The short line of a step row: the kind of its check, its way, and the source of its passage."
+    if s.get('status') == 'skip': return 'skipped · you can bring it back'
+    ck, r = s.get('check') or {}, s.get('read') or {}
+    kind = ck.get('kind', 'short')
+    if kind == 'notebook' and not s.get('nb'): return meta(KIND.get(kind), 'Writing the notebook…')
+    return meta(KIND.get(kind, kind), LABELS.get(ck.get('way'), '').lower() if kind == 'short' else '',
+                f"passage: {source_of(r, j).label}" if (r.get('text') or '').strip() else 'no passage yet')
+
+def StepRow(j, k, s, by, opened='', fresh='', pick=False):
+    "Step `s` as row `k` of the editor list: its title and short line, Skip, then the fields of the open row."
+    slug, n = s['slug'], len(j['steps'])
+    acts = [Quiet('Split', ' ', Kbd('P'), small=True, data_key='P', data_wait='Splitting…', **edit_act(j['id'], 'split', slug=slug)),
+            Quiet('Merge with next', ' ', Kbd('M'), small=True, data_key='M', disabled=k == n - 1, **edit_act(j['id'], 'merge', slug=slug)),
+            Quiet('Remove', ' ', Kbd('X'), small=True, data_key='X', **edit_act(j['id'], 'remove', slug=slug)),
+            Quiet('Rewrite', ' ', Kbd('R'), small=True, type='button', data_key='R', data_rewrite='1')]
+    return dict(id=slug, title=Inline(name(by, s)), line=step_line(j, s), post=edit_url(j['id'], slug), body=StepBody(j, k, s, by, pick and slug == opened),
+                acts=acts, open=slug == opened, fresh=slug == fresh, cls='skipped' if s.get('status') == 'skip' else '')
+
+def AddIdea(j, by):
+    "Add an idea (A): by name, from the concept tree, or with a passage from a source. It goes after the idea that had the focus last."
+    have, post = {s['slug'] for s in j['steps']}, dict(hx_post=at(Routes.edit, j['id']), hx_vals=json.dumps(dict(act='add')), hx_target='#steps', hx_swap='outerHTML', data_after='1')
+    tree = sorted((c for c in by.values() if c.slug not in have), key=lambda c: (c.get('name') or c.slug).lower())[:300]
+    return Details(Summary('Add an idea', ' ', Kbd('A'), data_key='A', cls='quiet'),
+                   Div(Form(Field_('By name', Input(type='text', name='name', maxlength='120', placeholder='The name of the idea', aria_label='The name of the idea')),
+                            Quiet('Add', small=True, data_wait='Adding…'), cls='add-name', **post),
+                       Form(Field_('From the concept tree', Select(Option('Pick an idea', value='', selected=True, disabled=True), *[Option(c.get('name') or c.slug, value=c.slug) for c in tree], name='concept')),
+                            Quiet('Add', small=True, data_wait='Adding…'), cls='add-tree', **post) if tree else '',
+                       Form(Field_('From a source', Input(type='text', name='name', maxlength='120', placeholder='The name of the idea', aria_label='The name of the idea for the passage')),
+                            Input(type='search', name='q', maxlength='200', placeholder='Words in the passage', aria_label='Words in the passage'),
+                            Quiet('Find passages', small=True, data_wait='Reading the sources…'),
+                            hx_get=at(Routes.passages, j['id']), hx_target='#add-picks', hx_swap='innerHTML', cls='add-source'),
+                       Div(id='add-picks'), cls='add-forms'),
+                   id='add-idea', cls='add-idea')
+
+def Steps(j, by, opened='', fresh='', pick=False):
+    "The ideas of the walk as an editor list, with a quiet label where a section starts, and Add an idea under it. Each change swaps it whole."
+    ss = j['steps']
+    rows = [StepRow(j, k, s, by, opened, fresh, pick) for k, s in enumerate(ss)]
+    out = EditList(rows, 'walk-path', add=[AddIdea(j, by)], id='steps', aria_label='The ideas of the walk')
+    kids, sec = [], None
+    for li, s in zip(out.children, ss):
+        skip = s.get('status') == 'skip'
+        li.children = (*li.children[:3], Quiet('Bring back' if skip else 'Skip', small=True, data_skip='1', **edit_act(j['id'], 'back' if skip else 'skip', slug=s['slug'])), *li.children[3:])
+        if (x := (s.get('read') or {}).get('section')) and x != sec: sec = x; kids.append(Li(Inline(x), cls='sec', role='presentation'))
+        kids.append(li)
+    out.children = (*kids, *out.children[len(rows):])
+    return out
+
+def TalkLine(talks):
+    "The talks made from this walk, each with a link. A talk does not change when the walk changes: it offers Make it again."
+    if not talks: return ''
+    links = [x for k, t in enumerate(talks) for x in ((', ' if k else ''), A(f"{t['title']}, as a talk", href=f"/t/{t['id']}"))]
+    head = '1 talk was made from this walk: ' if len(talks) == 1 else f'{len(talks)} talks were made from this walk: '
+    return P(head, *links, '. After your edits it offers “Make it again”.', cls='mute talk-line')
+
+def Editor(j, by, talks=(), opened='', pick=False, actions=()):
+    "The walk path editor: what the walk is, its one main button (and the quiet `actions` of other blocks, such as Present), the hands-on share, then the ideas. A change saves at once, and Undo takes it back."
+    src, ss = j.get('source') or {}, j['steps']
+    mins = sum(minutes(s) for s in ss if s.get('status') != 'skip')
+    whence = f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', '')
+    go = (Primary('Continue the walk', href=at(Routes.one, j['id'])) if j.get('started') else
+          Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post'))
+    return (H1(f"{j['title']}, the walk path"),
+            P(meta(whence, n_of(len(ss), 'idea'), f'about {mins} min'), ' · ', A('Earlier versions', href=at(Routes.history, j['id'])), cls='mute'),
+            TalkLine(talks),
+            P('A change saves at once, and Undo takes it back. An idea keeps your progress, its passage and its side walks when it moves. '
+              'A removed idea keeps your answers in the vault.', cls='lead'),
+            Div(go, *actions, cls='row walk-top'), Hands(j), Steps(j, by, opened, pick=pick),
+            P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('E'), ' edit · ',
+              Kbd('A'), ' add · ', Kbd('P'), ' split · ', Kbd('M'), ' merge · ', Kbd('X'), ' remove · ', Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo', cls='mute keys-line'),
+            UndoBar(oob=False))
+
+def History(j, rows):
+    "The earlier versions of the path of walk `j`: each change, newest first, with Restore this version."
+    return (H1(f"Earlier versions of {j['title']}"),
+            P('Each line is one change. Restore this version gives back the path as it was before that change. Your progress stays. You can undo a restore too.', cls='lead'),
+            HistoryList(rows, at(Routes.restore, j['id'])),
+            P(A('Back to the walk path', href=at(Routes.edit, j['id'])), cls='mute'))

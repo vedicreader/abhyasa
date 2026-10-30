@@ -5,17 +5,21 @@ from collections import defaultdict
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import n_of, Page, hook, run as run_hook, SourceLine, source_of, Md
+from abhyasa.core import n_of, Page, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
 from abhyasa.core.leela import leela_line, leela_link
 from abhyasa.settings import val, set_val
 from abhyasa.detect import detect, vault_title
 from abhyasa.store import clean_subject
 from abhyasa.profile import profile_text
-from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
+from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, _topic_walk, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
-from abhyasa.walk import tutor_note, open_short, step_meta, code_task, nb_spec, validate_nb_spec, leela_back, leela_found
+from abhyasa.walk import tutor_note, open_short, step_meta, code_task, validate_nb_spec, leela_back, leela_found
+import abhyasa.walk as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
+import abhyasa.talk   # adds Learning.talks: the editor links the talks made from a walk
+from abhyasa.edit import (edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, merge_steps, add_step, split_step,
+                          passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite)
 from abhyasa.contract import data_path_why
 from abhyasa.nb import spec_notebook
 from abhyasa.research import to_research, wants_source, want_agent
@@ -36,6 +40,33 @@ PNG = b'\x89PNG\r\n\x1a\n'
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
 AS_LINK = 'This is a link, so the tutor reads it from the web.'
 NO_DOC = 'No document in your vault has this name. To add a web page or a paper, use A link.'
+NO_REWRITE = 'The tutor could not rewrite this. Nothing changed.'
+KEPT = 'Your edit was kept. The rewrite was not used.'
+NO_ADD, NO_SPLIT = 'The tutor could not add this idea. Nothing changed.', 'The tutor could not split this idea. Nothing changed.'
+NOTE_MOST, Q_MOST = 2000, 500        # the most characters of a tutor note and of a check question that you write
+EDIT_ACTS = ('move', 'skip', 'back', 'remove', 'split', 'merge', 'add', 'pick', 'note', 'check', 'q', 'rewrite')
+
+class Kept(Exception):
+    "A rewrite that came after you changed each of its fields: your edits stay, and the rewrite is not used."
+
+def bad(s): return Response(s, status_code=400, media_type='text/plain')
+
+def place(s, n):
+    "The index in `s` (digits only, as `isdecimal` reads them) in a list of `n`; else `ValueError`."
+    s = str(s).strip()
+    try: k = int(s) if s.isdecimal() else -1
+    except ValueError: k = -1
+    if not 0 <= k < n: raise ValueError('Give a place in the list.')
+    return k
+
+def on_step(slug, fn):
+    "An editor change that runs `fn` on the step on `slug` in the steps that it gets."
+    def op(ss):
+        s = next((s for s in ss if s.get('slug') == slug), None)
+        if s is None: raise KeyError('This idea is not in the walk now.')
+        fn(s)
+        return ss
+    return op
 log = logging.getLogger(__name__)
 
 def connect(app, ctx):
@@ -158,7 +189,7 @@ def connect(app, ctx):
         with nb_lock:
             j = walk_of(jid, i)
             if not j or nb_writing(jid, i) or j.steps[i].get('nb') or j.steps[i]['check']['kind'] != 'notebook': return
-            nb_jobs[jid, i] = ctx.research.pool.submit(nb_spec, lr, ask, j, i)
+            nb_jobs[jid, i] = ctx.research.pool.submit(walk_engine.nb_spec, lr, ask, j, i)
 
     def nb_card(j, i):
         "The card of a notebook step: the notebook, the line while the tutor writes it, or the reason when it could not."
@@ -678,6 +709,179 @@ def connect(app, ctx):
         if not ok: return Response(status_code=404)
         return FileResponse(p, media_type='image/png', headers={'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'"})
 
+    # --- the walk path editor: each change saves at once with an Undo (core/edit.py); steps are found by their concept -------
+
+    def talks_of(jid): return [t for t in lr.talks() if (t.get('src') or {}).get('walk') == jid]
+
+    def not_walk(jid):
+        "None for a walk of yours, else the page that says there is no such walk (a side walk of a talk is for the room)."
+        j = walk_of(jid)
+        return None if j and not for_talk(j) else missing()
+
+    def editor(jid:str, open:str='', pick:str=''):
+        "The walk path editor: the ideas in order, each with its passage, note and check. A change saves at once, and Undo takes it back."
+        if (no := not_walk(jid)): return no
+        j = lr.journey(jid)
+        return Page(f"{j.title}, the walk path", *ui.Editor(j, by(), talks_of(jid), opened=open, pick=bool(pick), actions=run_hook('walk_actions', j, quiet=True)), on='Learn',
+                    crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
+
+    def bar(j, said, rows, row=''):
+        "The Undo bar after a change: what changed, and Undo for the newest change."
+        return UndoBar(said, ui.at(Routes.undo, j.id), ui.at(Routes.history, j.id), step=rows[0].id if rows else '', row=row,
+                       hx_target='#steps', hx_swap='outerHTML')
+
+    def view(j, opened='', fresh=''): return ui.Steps(j, by(), opened=opened, fresh=fresh), ui.Hands(j, oob=True)
+
+    def new_check(j, s, way):
+        "The check of step `s` for the choice `way`: a kind of the editor (short, predict, order, code, notebook) or a way of the walk. The question that you wrote stays (the change adds it)."
+        old, tool = s.get('check') or {}, bool(j.get('tool'))
+        if way == 'code' and tool: raise ValueError('A walk on a tool has no Write code check. Pick Notebook.')
+        if way == 'short': w, kind = (old.get('way') if old.get('way') in TEXT_WAYS and old.get('way') != 'code' else 'words'), 'short'
+        elif way in ui.CHOICE_OF: w, kind = ui.CHOICE_OF[way]
+        elif way in (TOOL_WAYS if tool else WALK_WAYS): w, kind = way, CHECK_KIND.get(way, 'short')
+        else: raise ValueError('Pick a check kind.')
+        floor = (lr.concept(s['slug']) or {}).get('floor') or 0
+        return {'way': w, 'kind': kind, 'depth': (2 if floor < 2 else 3) if kind == 'short' else DEPTH[kind], 'why': 'you chose it'}
+
+    def queue_new(j, old):
+        "After an idea came in: look for a web source for each new step with no passage, and write the notebook of each new notebook step."
+        new = [i for i, s in enumerate(j.steps) if s['slug'] not in old]
+        if val('research.on') and (ix := [i for i in new if wants_source(j.steps[i])]): look_for(j.id, ix)
+        for i in new:
+            if j.steps[i]['check']['kind'] == 'notebook': write_notebook(j.id, i)
+        return j.steps[new[0]]['slug'] if new else ''
+
+    async def edit(req, jid:str):
+        "One change to the path of walk `jid`. The step is named by `slug` (its concept), never by its place."
+        form = await req.form()
+        f = {k: CTRL.sub('', v) for k, v in {**dict(req.query_params), **{k: v for k, v in form.items() if isinstance(v, str)}}.items()}
+        if not (j := walk_of(jid)) or for_talk(j): return Response('No such walk.', status_code=404)
+        act, slug, live = f.get('act', ''), f.get('slug', ''), f.get('act') == 'set'
+        if live: act = 'note' if 'note' in f else 'q' if 'q' in f else ''
+        if act not in EDIT_ACTS: return bad(f'Unknown change: {act}.')
+        slugs, b = [s['slug'] for s in j.steps], by()
+        if act != 'add' and slug not in slugs: return Response('This idea is not in the walk now.', status_code=404)
+        if act == 'rewrite': return redo(j, slug, f)
+        k = slugs.index(slug) if slug in slugs else None
+        nm = lambda x: ui.name(b, dict(slug=x))
+        text = (f.get(act, '') if live else f.get('text', '')).strip()
+        field, opened, row, fresh = None, '', slug, ''
+        try:
+            if act == 'move':
+                to = place(f.get('to', ''), len(slugs))
+                op, said = (lambda ss: move_step(ss, slug, to)), f'Moved “{nm(slug)}” to idea {to + 1}.'
+            elif act in ('skip', 'back'):
+                op, said = (lambda ss: skip_step(ss, slug, act == 'skip')), f"{'Skipped' if act == 'skip' else 'Brought back'} “{nm(slug)}”."
+            elif act == 'remove':
+                op, said = (lambda ss: remove_step(ss, slug)), f'Removed “{nm(slug)}”.'
+            elif act == 'merge':
+                if k + 1 >= len(slugs): raise ValueError('This is the last idea. It has no next idea to merge with.')
+                op, said, opened = (lambda ss: merge_steps(ss, slug)), f'Merged “{nm(slug)}” and “{nm(slugs[k + 1])}”.', slug
+            elif act == 'note':
+                if len(text) > NOTE_MOST: raise ValueError(f'Write the note in at most {NOTE_MOST} characters.')
+                op, said, field = on_step(slug, lambda s: s.update(note=text or None)), f'Changed the note of idea {k + 1}.', f'{slug}/note'
+            elif act == 'q':
+                if len(text) > Q_MOST: raise ValueError(f'Write the check question in at most {Q_MOST} characters.')
+                def setq(s):
+                    ck = {x: v for x, v in (s.get('check') or {}).items() if x != 'q'}
+                    s['check'] = {**ck, **({'q': text} if text else {})}
+                op, said, field = on_step(slug, setq), f'Changed the check question of idea {k + 1}.', f'{slug}/q'
+            elif act == 'check':
+                ck = new_check(j, j.steps[k], f.get('way', ''))
+                op, said, opened = on_step(slug, lambda s: s.update(check={**ck, **({'q': s['check']['q']} if (s.get('check') or {}).get('q') else {})})), f"Changed the check of “{nm(slug)}” to {ui.SAY_KIND[ck['kind']]}.", slug
+            elif act == 'pick':
+                read = pick_read(lr, j, k, text, sources=ctx.sources)
+                op, said, opened = on_step(slug, lambda s: s.update(read=read)), f'Changed the passage of idea {k + 1}.', slug
+            if act in ('add', 'split'):
+                old = set(slugs)
+                try:
+                    if act == 'add':
+                        at = slugs.index(f['after']) + 1 if f.get('after') in slugs else len(slugs)
+                        name, concept = f.get('name', '').strip(), f.get('concept', '').strip()
+                        read = pick_read(lr, j, None, text, name=name or nm(concept), sources=ctx.sources) if text else None
+                        j2 = add_step(lr, ask, jid, at, name=name, slug=concept, read=read, sources=ctx.sources)
+                    else: j2 = split_step(lr, ask, jid, slug, ctx.sources)
+                except (ValueError, KeyError): raise
+                except Exception as e:   # never the words of a library
+                    log.warning('the tutor could not %s an idea: %r', act, e)
+                    return bad(NO_ADD if act == 'add' else NO_SPLIT)
+                run_hook('concepts_added')   # the concepts block places a new concept
+                rows, got = lr.edits('walk', jid), queue_new(j2, old)
+                if act == 'add': return (*view(j2, opened=got, fresh=got), bar(j2, rows[0].what, rows, got))
+                return (*view(j2), bar(j2, rows[0].what, rows, slug))
+            j2, rows = edit_walk(lr, jid, op, said, field=field)
+        except KeyError as e: return Response(str(e.args[0] if e.args else 'Not found.'), status_code=404)
+        except ValueError as e: return bad(str(e))
+        if rows is None: return Response(status_code=204) if live else view(j2, opened=opened)
+        if act == 'check' and j2.steps[k2 := [s['slug'] for s in j2.steps].index(slug)]['check']['kind'] == 'notebook': write_notebook(jid, k2)
+        if live: return bar(j2, said, rows, row)   # a live field: the text that you type stays, and only the bar changes
+        return (*view(j2, opened=opened), bar(j2, said, rows, row))
+
+    def redo(j, slug, f):
+        "Rewrite the note and the check question of a step with a short instruction. The model call runs outside the lock; a failed rewrite changes nothing."
+        ins = ' '.join((f.get('chip') or f.get('text') or '').split()).rstrip('.')
+        if not ins: return bad('Tell the tutor what to change.')
+        k = [s['slug'] for s in j.steps].index(slug)
+        if not j.steps[k].get('note'):   # the note that the step would show: written now, so the tutor can rewrite it
+            try: tutor_note(lr, ctx.ask, j, k, ctx.sources); j = lr.journey(j.id)
+            except Exception: pass
+        s = j.steps[k]
+        was = dict(note=s.get('note') or '', q=(s.get('check') or {}).get('q') or '')
+        fields = {x: v for x, v in was.items() if v.strip()}
+        if not fields: return bad('Write a note or a check question first.')
+        try: new = tutor_rewrite(ask, fields, ins, context=(s.get('read') or {}).get('text') or '')
+        except Exception: return bad(NO_REWRITE)   # never the words of a library
+        kept = []
+        def apply(t):
+            now = dict(note=t.get('note') or '', q=(t.get('check') or {}).get('q') or '')
+            kept[:] = [x for x in fields if now[x] != was[x]]
+            if len(kept) == len(fields): raise Kept()
+            if 'note' in fields and 'note' not in kept: t['note'] = new['note']
+            if 'q' in fields and 'q' not in kept: t['check'] = {**t['check'], 'q': new['q']}
+        names = ' and the '.join(ui.FIELDS[x] for x in fields)
+        said = lambda old, now: f'Rewrote the {names} of idea {k + 1}: {ins}.' + (f' Your edit of the {ui.FIELDS[kept[0]]} was kept.' if kept else '')
+        try: j2, rows = edit_walk(lr, j.id, on_step(slug, apply), said, who='tutor')   # on the step as it is now: a field that you changed keeps your edit
+        except Kept: return bad(KEPT)
+        except KeyError: return Response('This idea is not in the walk now.', status_code=404)
+        except ValueError: return bad(NO_REWRITE)
+        if rows is None: return view(j2, opened=slug)
+        return (*view(j2, opened=slug), bar(j2, rows[0].what, rows, slug))
+
+    def undo_(jid:str, step:str=''):
+        "Take back the newest change of the path (`step` is its id, so an old bar does nothing)."
+        if not (j := walk_of(jid)) or for_talk(j): return Response('No such walk.', status_code=404)
+        try: e, line = undo_walk(lr, jid, step or None)
+        except ValueError as x: return bad(str(x))
+        j = lr.journey(jid)
+        said = f"Undone: {e.what}" + (f' {line}' if line else '') if e else 'Nothing to undo.'
+        return (*view(j), bar(j, said, lr.edits('walk', jid)))
+
+    def history(jid:str):
+        if (no := not_walk(jid)): return no
+        j = lr.journey(jid)
+        return Page(f'Earlier versions of {j.title}', *ui.History(j, lr.edits('walk', jid)), on='Learn',
+                    crumbs=[*up, (f'{j.title}, the walk path', ui.at(Routes.edit, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
+
+    def restore(jid:str, id:str='', k:str=''):
+        "Go back to the version of the path before one change (by its `id`, or by its place `k` in the history, newest first). A restore is a change too."
+        if not (j := walk_of(jid)) or for_talk(j): return Response('No such walk.', status_code=404)
+        es = lr.edits('walk', jid)
+        try: n = int(k) if k.strip().isdecimal() else None
+        except ValueError: n = None
+        e = first(x for x in es if x.id == id) if id else es[n] if n is not None and n < len(es) else None
+        if not e: return Response('No such change.', status_code=404)
+        try: restore_walk(lr, jid, e.id)
+        except (KeyError, ValueError) as x: return bad(str(x))
+        return Response(headers={'HX-Redirect': ui.at(Routes.edit, jid)})
+
+    def pick_list(jid:str, i:str='', q:str='', name:str=''):
+        "The real passages that idea `i` (or a new idea `name`) can pick, with the words `q`. A GET only reads."
+        if not (j := walk_of(jid)) or for_talk(j): return Response(status_code=404)
+        k = int(i) if i.strip().isdecimal() and int(i) < len(j.steps) else None
+        if k is None and not name.strip(): return P('Write the name of the idea first.', cls='mute')
+        ps = real_passages(lr, j, k, q[:200], name=name.strip()[:120], sources=ctx.sources)
+        return ui.PickList(jid, ps, slug=j.steps[k]['slug'] if k is not None else '', name=name.strip()[:120])
+
     def walks_of(slug):
         "`(walk, index)` for each walk that has a step on concept `slug`."
         return [(j, i) for j, i in with_step(lr, slug) if j.get('mode') == 'walk' and not for_talk(j)]
@@ -713,6 +917,12 @@ def connect(app, ctx):
         return P(A('Read the passage again' + (f': p. {pg}' if pg else ''), href=ui.at(Routes.step, j.id, i)), cls='walk-again')
 
     app.get(Routes.gather)(gather_band)   # before the step route `/w/{jid}/{i}`, which would take `gather` as a step
+    app.get(Routes.edit)(editor)          # these too: before the step route
+    app.post(Routes.edit)(edit)
+    app.post(Routes.undo)(undo_)
+    app.get(Routes.history)(history)
+    app.post(Routes.restore)(restore)
+    app.get(Routes.passages)(pick_list)
     app.get(Routes.gather_log)(gather_log)
     app.post(Routes.gather_stop)(stop_gather)
     app.post(Routes.new)(new)

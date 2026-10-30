@@ -6,8 +6,10 @@ Docs: https://vedicreader.github.io/abhyasa/edit.html.md"""
 
 # %% auto #0
 __all__ = ['HISTORY_MOST', 'HISTORY_BYTES', 'EDIT_JOIN', 'WHO', 'WHAT_MOST', 'RUN_FIELDS', 'CODE_GONE', 'REWRITE_SP',
-           'INSTRUCTION_MOST', 'REWRITE_TEXT', 'REWRITE_LIST', 'CTRL', 'edit_lock', 'restore_steps', 'undo_line',
-           'rewrite']
+           'INSTRUCTION_MOST', 'REWRITE_TEXT', 'REWRITE_LIST', 'CTRL', 'CHECK_KINDS', 'PASSAGES_MOST', 'edit_lock',
+           'restore_steps', 'undo_line', 'rewrite', 'move_step', 'skip_step', 'remove_step', 'merge_steps',
+           'check_steps', 'clean_step', 'reparent', 'edit_walk', 'undo_walk', 'restore_walk', 'add_step', 'split_step',
+           'passages', 'pick_read', 'hands_count']
 
 # %% ../nbs/20_edit.ipynb #e006
 import json, re, threading, time, uuid
@@ -183,3 +185,217 @@ def rewrite(ask, fields:dict, instruction:str, context:str='') -> dict:
         if new is None or isinstance(new, list) != isinstance(v, list): raise ValueError(f'The reply has no good {k!r}.')
         out[k] = new
     return out
+
+# %% ../nbs/20_edit.ipynb #aee58651
+from copy import deepcopy
+from .settings import val
+from .sources import math_cut
+from .ground import ground, main_words, named_count
+from .contract import validate_nb_spec
+from .journey import _jlock, hands_count, topic_slug, split_parts, _topic_read, _check as check_of, _leela, _doc_at, _doc_texts, _paras, _short
+from .research import verbatim, MOST as PASSAGE_MOST
+_all_ = ['hands_count']
+
+# %% ../nbs/20_edit.ipynb #b42a5962
+CHECK_KINDS = ('short', 'demo', 'order', 'code', 'notebook')   # the kinds of a check
+
+def _at(steps, slug) -> int:
+    "The index of the step on `slug`. A slug that is not in the walk raises `KeyError`."
+    k = next((k for k, s in enumerate(steps) if s.get('slug') == slug), None)
+    if k is None: raise KeyError(f'No idea {slug!r} in this walk.')
+    return k
+
+def move_step(steps:list, slug:str, to:int) -> list:
+    "A copy of `steps` with the step on `slug` at index `to`. The step keeps its concept, its progress and its passage."
+    ss = deepcopy(list(steps)); k = _at(ss, slug)
+    if not (type(to) is int and 0 <= to < len(ss)): raise ValueError('Give a place in the list.')
+    ss.insert(to, ss.pop(k))
+    return ss
+
+# %% ../nbs/20_edit.ipynb #42546db5
+def skip_step(steps:list, slug:str, on:bool=True) -> list:
+    "A copy of `steps` with the step on `slug` skipped, or brought back (`on=False`)."
+    ss = deepcopy(list(steps)); s = ss[_at(ss, slug)]
+    if on: s['status'] = 'skip'
+    elif s.get('status') == 'skip': s['status'] = 'todo'
+    return ss
+
+def remove_step(steps:list, slug:str) -> list:
+    "A copy of `steps` without the step on `slug`."
+    ss = deepcopy(list(steps)); ss.pop(_at(ss, slug))
+    return ss
+
+# %% ../nbs/20_edit.ipynb #9056db62
+def merge_steps(steps:list, slug:str) -> list:
+    "A copy of `steps` with the step on `slug` joined with the next step: the first concept and its passage stay, and the second passage goes in `read.also`."
+    ss = deepcopy(list(steps)); k = _at(ss, slug)
+    if k + 1 >= len(ss): raise ValueError('This is the last idea. It has no next idea to merge with.')
+    a, b = ss[k], ss.pop(k + 1)
+    r, br = dict(a.get('read') or {}), b.get('read') or {}
+    if (br.get('text') or '').strip(): r['also'] = [*r.get('also', []), {x: v for x, v in br.items() if x != 'also'}, *br.get('also', [])]
+    a['read'], a['merged'] = r, [*a.get('merged', []), b['slug'], *b.get('merged', [])]
+    return ss
+
+# %% ../nbs/20_edit.ipynb #012581e4
+def check_steps(steps:list, old=()) -> list:
+    "The problems of the walk steps `steps`, each as one line; an empty list when there is none. A notebook spec that is the same in `old` is not checked again."
+    out, seen, kept = [], set(), {s.get('slug'): s.get('nb') for s in old}
+    for k, s in enumerate(steps, 1):
+        slug, ck = s.get('slug'), s.get('check') or {}
+        if not (isinstance(slug, str) and slug): out.append(f'Idea {k} has no concept.'); continue
+        if slug in seen: out.append(f'Idea {k} is in the walk twice.')
+        seen.add(slug)
+        if ck.get('kind', 'short') not in CHECK_KINDS: out.append(f"Idea {k} has a check kind that abhyasa does not know: {ck.get('kind')!r}.")
+        for what, v in (('note', s.get('note')), ('check question', ck.get('q'))):
+            if v is not None and not isinstance(v, str): out.append(f'The {what} of idea {k} is not a text.')
+            elif v and CTRL.search(v): out.append(f'The {what} of idea {k} has a control mark.')
+        if s.get('nb') and s['nb'] != kept.get(slug):
+            try: validate_nb_spec(s['nb'])
+            except ValueError as e: out.append(f'The notebook of idea {k} is not valid: {e}')
+    return out
+
+def clean_step(s:dict) -> dict:
+    "Step `s` with no control marks in its note and its check question."
+    s = dict(s)
+    if isinstance(s.get('note'), str): s['note'] = CTRL.sub('', s['note'])
+    if isinstance((s.get('check') or {}).get('q'), str): s['check'] = {**s['check'], 'q': CTRL.sub('', s['check']['q'])}
+    return s
+
+# %% ../nbs/20_edit.ipynb #fbd51855
+def reparent(lr:Learning, jid:str, before:list, after:list) -> list:
+    "Give each side walk of walk `jid` the new place of the step that it was opened from (`before` -> `after`, by slug). Return the side walk ids that changed."
+    at, out = {s.get('slug'): k for k, s in enumerate(after)}, []
+    for w in lr.journeys():
+        p = w.get('parent') or {}
+        i = p.get('step')
+        if p.get('walk') != jid or type(i) is not int or not 0 <= i < len(before): continue
+        if (k := at.get(before[i].get('slug'))) is not None and k != i:
+            lr.merge_journey(w.id, parent={**p, 'step': k}); out.append(w.id)
+    return out
+
+# %% ../nbs/20_edit.ipynb #9768cabd
+def edit_walk(lr:Learning, jid:str, op, what, who:str='you', field:str=None) -> tuple:
+    "Apply `op` (old steps -> new steps) to walk `jid` and keep the change in its history. Return `(walk, history)`; the history is None when nothing changed."
+    with edit_lock('walk', jid), _jlock(jid):
+        j = lr.journey(jid)
+        if j is None: raise KeyError(f'No walk {jid!r}.')
+        old = list(j.steps)
+        new = [clean_step(s) for s in op(deepcopy(old))]
+        said = what(old, new) if callable(what) else what
+        if new == old or not said: return j, None
+        if (ps := check_steps(new, old)): raise ValueError(ps[0])
+        out = []
+        def put():
+            out.append(lr.put_journey({**j, 'steps': new}))
+            reparent(lr, jid, old, new)
+        rows = lr.add_edit('walk', jid, said, who, old, field=field, apply=put)
+    return out[0], rows
+
+# %% ../nbs/20_edit.ipynb #79cb30e1
+def undo_walk(lr:Learning, jid:str, eid:str=None) -> tuple:
+    "Undo the newest change of walk `jid`. Return `(change, line)`; the change is None when there is nothing to undo."
+    with edit_lock('walk', jid), _jlock(jid):
+        j, line = lr.journey(jid), ''
+        if j is None: raise KeyError(f'No walk {jid!r}.')
+        top = first(lr.edits('walk', jid))
+        if top and top.before is None: raise ValueError('This change was too large to keep. Undo cannot take it back.')
+        now = list(j.steps)
+        def put(e):
+            nonlocal line
+            back = restore_steps(e.before, now)
+            lr.put_journey({**j, 'steps': back}); reparent(lr, jid, now, back)
+            line = undo_line(e.before, now)
+        e = lr.pop_edit('walk', jid, eid, apply=put)
+    return e, line
+
+def restore_walk(lr:Learning, jid:str, eid:str) -> tuple:
+    "Go back to the version of walk `jid` before the change `eid`, as a new change. Return `(walk, history)`."
+    e = lr.edit('walk', jid, eid)
+    if e is None: raise KeyError('No such change.')
+    if e.before is None: raise ValueError('This change was too large to keep. It cannot come back.')
+    return edit_walk(lr, jid, lambda now: restore_steps(e.before, now), f'Restored the version before “{e.what}”')
+
+# %% ../nbs/20_edit.ipynb #a6ffd7fc
+def _doc_refs(j) -> list:
+    "The vault documents of walk `j` as `{shelf, doc_id}`: its source, the pages of a link, and the document of the passage of each step."
+    src = j.get('source') or {}
+    refs = ([src] if src.get('doc_id') else []) + list(src.get('docs') or []) + [s['read'] for s in j['steps'] if (s.get('read') or {}).get('doc_id')]
+    out = []
+    for r in refs:
+        d = dict(shelf=r.get('shelf') or 'store', doc_id=r['doc_id'])
+        if d not in out: out.append(d)
+    return out
+
+def _new_step(lr, j, c, why, read=None, sources=None) -> dict:
+    "A walk step on concept `c` for walk `j`, with a check, and with `read` or the passage that the walk finds for it."
+    tool, refs = bool(j.get('tool')), _doc_refs(j)
+    if read is None: read = _topic_read(c, sources, lr, refs[0] if refs else '')
+    return dict(slug=c.slug, status='todo', why=why, read=read, check=dict(check_of(lr, c, tool)), **_leela(c, tool))
+
+def add_step(lr:Learning, ask, jid:str, at:int, name:str='', slug:str='', read:dict|None=None, sources=None) -> AttrDict:
+    "Add an idea to walk `jid` at index `at`: by `name`, by the `slug` of a concept, or with the picked passage `read`. Keep the change. Return the walk."
+    if (j := lr.journey(jid)) is None: raise KeyError(f'No walk {jid!r}.')
+    if not slug and not (slug := topic_slug(lr, ask, j, name, sources)): raise ValueError('Give the idea a name.')
+    if not (c := lr.concept(slug)): raise ValueError('No such idea.')
+    step = _new_step(lr, j, c, 'you added it', read, sources)
+    def op(ss):
+        if any(s.get('slug') == c.slug for s in ss): raise ValueError(f'“{c.name}” is in the walk already.')
+        ss.insert(max(0, min(at, len(ss))), step)
+        return ss
+    return edit_walk(lr, jid, op, f'Added “{c.name}”.')[0]
+
+def split_step(lr:Learning, ask, jid:str, slug:str, sources=None) -> AttrDict:
+    "Split the step on `slug` of walk `jid`: the tutor finds its parts, and each goes before it as a step with a passage and a check. Keep the change. Return the walk."
+    j, c = lr.journey(jid), lr.concept(slug)
+    if j is None or c is None: raise KeyError('No such walk or idea.')
+    _at(j.steps, slug)
+    if not (new := split_parts(lr, ask, jid, slug, sources)): raise ValueError('The tutor found no smaller parts of this idea.')
+    add = [_new_step(lr, j, x, f'a part of {c.name}', sources=sources) for s in new if (x := lr.concept(s))]
+    def op(ss):
+        k, have = _at(ss, slug), {s.get('slug') for s in ss}
+        ss[k:k] = [s for s in add if s['slug'] not in have]
+        return ss
+    def said(old, now):
+        n = len(now) - len(old)
+        return f"Split “{c.name}”: added {n} {'idea' if n == 1 else 'ideas'}." if n else ''
+    return edit_walk(lr, jid, op, said)[0]
+
+# %% ../nbs/20_edit.ipynb #8c1aab3b
+PASSAGES_MOST = 30   # the most passages that the picker shows
+
+def _found(lr, j, name, sources=None):
+    "Each `(text, place, src)` that walk `j` can pick for the idea `name`: the paragraphs of its documents, else the passages of `sources`."
+    n = 0
+    for ref in _doc_refs(j):
+        if not (at := _doc_at(lr, ref)): continue
+        shelf, r = at
+        m = json.loads(r['meta'] or '{}') if isinstance(r['meta'], str) else (r['meta'] or {})
+        for page, texts in _doc_texts(lr, shelf, r, m).items():
+            for head, t in _paras('\n\n'.join(texts)):
+                n += 1
+                yield t, ' · '.join(str(x) for x in (_short(r['title']), head, f'p. {page}' if page else '') if x), dict(
+                    src=f'vault:{shelf}', shelf=shelf, doc_id=r['id'], ref=r['id'], title=_short(r['title']), url=m.get('url') or r['source'] or '',
+                    section=head, page=page, figure=None)
+    if n or not sources or not name: return
+    for p in ground(name, sources, 8):
+        if not p.text.lstrip().startswith('```'):
+            yield p.text, p.title, dict(src=p.src, ref=p.ref, title=p.title, url=p.url, section=p.get('section') or '', figure=None)
+
+def _name(lr, j, i, name=''):
+    if name or i is None or not 0 <= i < len(j['steps']): return name
+    return (lr.concept(j['steps'][i]['slug']) or {}).get('name') or j['steps'][i]['slug']
+
+def passages(lr:Learning, j, i:int=None, q:str='', name:str='', sources=None) -> list:
+    "The real passages that step `i` of walk `j` (or a new idea `name`) can pick, as `AttrDict(text, place, src)`; with `q`, only the ones with each word of `q`."
+    name, ws = _name(lr, j, i, name), str(q or '').lower().split()
+    most = min(val('walks.passage'), PASSAGE_MOST)
+    rows = [(t, pl, s) for t, pl, s in _found(lr, j, name, sources) if all(w in t.lower() for w in ws)]
+    key = main_words(name) if name else []
+    rows.sort(key=lambda x: -named_count(x[0], key) if key else 0)
+    return [AttrDict(text=math_cut(t, most), place=pl, src=s) for t, pl, s in rows[:PASSAGES_MOST]]
+
+def pick_read(lr:Learning, j, i:int=None, text:str='', name:str='', sources=None) -> dict:
+    "The `read` of step `i` (or of a new idea `name`) from the picked `text`. It must be in a real passage of the walk word for word; else `ValueError`."
+    for t, _, s in _found(lr, j, _name(lr, j, i, name), sources):
+        if (v := verbatim(text, t)): return {**s, 'text': v}
+    raise ValueError('This text is not in a source of the walk. Pick a passage from the list.')

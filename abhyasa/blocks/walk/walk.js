@@ -151,3 +151,50 @@ if (!window.abhyasaWalk) {
     t.setSelectionRange(Math.max(from, a + (out.length - (b - from)) * 0 + (lines[0].length - out.split('\n')[0].length) * -1), from + out.length);
   });
 }
+
+// The walk path editor. The keys, the drag, the live fields and ⌘Z are in core/edit.js ("Walk path" in core/keys.py). Here: Add an idea goes after
+// the idea that had the focus last, W or S with the focus on no row goes into the list, R opens the row and puts the focus in the rewrite box,
+// Add an idea puts the focus in its first box, and a change that the walk cannot take shows its reason under the row (as text).
+if (!window.abhyasaWalkEdit) {
+  window.abhyasaWalkEdit = true;
+  const rowOf = el => el?.closest?.('#steps > li.edit-row');
+  let last = null;   // the slug of the idea that had the focus last
+  document.addEventListener('focusin', e => { const li = rowOf(e.target); if (li) last = li.dataset.id; });
+  document.addEventListener('htmx:configRequest', e => {
+    const el = e.detail.elt;
+    if (!el?.closest?.('#steps')) return;
+    if (el.dataset?.after) { e.detail.parameters.after = last || ''; return; }
+    const li = rowOf(el);   // a change in a row puts the focus back on that row; a removed row gives it to the row after it
+    if (li && el !== li && !el.dataset?.live && el.getAttribute('hx-swap') !== 'none') {
+      const next = li.nextElementSibling?.matches('li.edit-row') ? li.nextElementSibling : li.previousElementSibling;
+      el._focus = {list: 'steps', id: e.detail.parameters.act === 'remove' ? next?.dataset?.id || '' : li.dataset.id};
+    }
+  });
+  document.addEventListener('keydown', e => {
+    const a = document.activeElement, all = document.querySelectorAll('#steps > li.edit-row');
+    if (e.defaultPrevented || e.altKey || e.metaKey || e.ctrlKey || e.shiftKey || (a && a !== document.body) || !all.length) return;
+    if (e.code !== 'KeyW' && e.code !== 'KeyS') return;
+    e.preventDefault(); all[e.code === 'KeyS' ? 0 : all.length - 1].focus();
+  });
+  document.addEventListener('click', e => {
+    const b = e.target.closest?.('#steps [data-rewrite]'), li = rowOf(b);
+    if (!li) return;
+    const d = li.querySelector(':scope > details');
+    if (d) d.open = true;
+    li.querySelector('form.rewrite input[name=text]')?.focus();
+  });
+  document.addEventListener('toggle', e => {
+    if (e.target.id === 'add-idea' && e.target.open) e.target.querySelector('input, select')?.focus();
+  }, true);
+  document.addEventListener('htmx:afterRequest', e => {
+    const elt = e.detail.elt, xhr = e.detail.xhr;
+    if (!elt.closest || !elt.closest('#steps')) return;
+    if (xhr.status !== 400) { if (xhr.status < 300) rowOf(elt)?.querySelectorAll('.req-err').forEach(x => x.remove()); return; }
+    document.querySelectorAll('#steps .req-err').forEach(x => x.remove());
+    const p = Object.assign(document.createElement('p'), {className: 'req-err', role: 'alert', textContent: xhr.responseText || 'The walk cannot take this change.'});
+    (rowOf(elt)?.querySelector('.fields') || elt.closest('.add-idea') || elt).append(p);
+  });
+  // A link from a step ("Pick a passage yourself") opens the editor at the passage picker of that idea.
+  const toPick = () => { const d = location.hash.startsWith('#pick-') && document.getElementById(location.hash.slice(1)); if (d) { d.open = true; d.scrollIntoView({block: 'center'}); d.querySelector('input')?.focus(); } };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', toPick); else toPick();
+}

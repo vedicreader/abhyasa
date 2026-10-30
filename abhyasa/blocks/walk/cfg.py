@@ -7,6 +7,11 @@ class Routes:
     gather_log = '/w/{jid}/gather/log'    # the log of the gather agent, newest first, each row with its link; it opens in the side pane
     gather_stop = '/w/{jid}/gather/stop'  # POST: stop the gather agent
     plan = '/w/{jid}/plan'            # one change to the plan: the check of a step, or drop a step
+    edit = '/w/{jid}/edit'            # GET: the walk path editor; POST: one change to the path, kept with an Undo
+    undo = '/w/{jid}/undo'            # POST: take back the newest change of the path
+    history = '/w/{jid}/history'      # the earlier versions of the path
+    restore = '/w/{jid}/restore'      # POST: go back to the version before one change
+    passages = '/w/{jid}/passages'    # GET: the real passages that an idea can pick (?i=&q=, or ?name=&q= for a new idea)
     start = '/w/{jid}/start'          # start the walk and open a sitting
     step = '/w/{jid}/{i}'             # one idea: the passage, the figure, the note and the check
     note = '/w/{jid}/{i}/note'        # the tutor note, loaded after the page

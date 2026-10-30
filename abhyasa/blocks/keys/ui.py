@@ -6,7 +6,7 @@ from abhyasa.core import asset_css
 _P = Path(__file__).parent
 WHERE = {'Everywhere': 'On every page.', 'Session': 'While you answer a question.', 'Concept': 'On a concept page.',
          'Walk': 'On a step of a walk.', 'Side pane': 'While a side walk is open beside the paper.',
-         'Talk plan': 'In the editor of a talk.', 'Talk': 'In the presenter window of a talk.',
+         'Talk plan': 'In the editor of a talk.', 'Walk path': 'In the editor of a walk path.', 'Talk': 'In the presenter window of a talk.',
          'Graph': 'When the graph has the focus: click it first.', 'Mac app': 'In the menus of Abhyasa.app.'}
 
 def css(): return asset_css(_P/'keys.css')

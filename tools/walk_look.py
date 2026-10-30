@@ -1019,6 +1019,58 @@ def op1_open_check_survives_a_restart(pg, w):
     assert any("Learner's answer: it is the rank" in c[0] and 'a sum of scores' in c[0] for c in FAKE.calls), 'the grader did not see the first try'
     assert (w.lr.journey(jid).steps[0].get('done') or {}).get('outcome') == 'fragile', w.lr.journey(jid).steps[0].get('done')
 
+def htmx_idle(pg):
+    "Wait until htmx has no request, swap or settle that runs."
+    pg.wait_for_function("() => !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling')", timeout=8000)
+
+def editor_walk(w):
+    "A walk on the paper that is not started, for the walk path editor. Its id."
+    r = w.rq.post(f'{w.B}/walk/new', form=dict(ref=add_paper(w.lr)), headers={'HX-Request': 'true'}, max_redirects=0)
+    return r.headers['hx-redirect'].split('/')[-1]
+
+def we1_walk_path_editor(pg, w):
+    "The walk path editor: S focuses the first idea, ⇧S moves it and keeps the focus, E opens it, a check kind over the share warns, ⌘Z undoes, and X removes."
+    jid = editor_walk(w); ss = [s['slug'] for s in w.lr.journey(jid).steps]
+    pg.goto(f'{w.B}/w/{jid}/edit'); settle(pg)
+    assert visible_gos(pg) == ['Start the walk ⌥S'], visible_gos(pg)
+    pg.keyboard.press('s'); assert pg.evaluate('document.activeElement.dataset.id') == ss[0]
+    pg.keyboard.press('Shift+s'); pg.wait_for_function(f"() => document.querySelector('#steps > li.edit-row').dataset.id === {ss[1]!r}"); htmx_idle(pg); pg.wait_for_timeout(100)
+    assert [s['slug'] for s in w.lr.journey(jid).steps][:2] == [ss[1], ss[0]]
+    assert pg.evaluate('document.activeElement.dataset.id') == ss[0], pg.evaluate('document.activeElement.outerHTML.slice(0, 80)')
+    assert 'to idea 2.' in pg.inner_text('#undo-bar')
+    pg.keyboard.press('Meta+z'); pg.wait_for_function(f"() => document.querySelector('#steps > li.edit-row').dataset.id === {ss[0]!r}"); htmx_idle(pg)
+    assert [s['slug'] for s in w.lr.journey(jid).steps] == ss
+    row = f'#steps > li.edit-row[data-id="{ss[0]}"]'
+    pg.click(f'{row} summary'); pg.wait_for_selector(f'{row}.open')
+    for s in ss:
+        pg.goto(f'{w.B}/w/{jid}/edit?open={s}'); settle(pg, 200)
+        pg.select_option(f'#steps > li.edit-row[data-id="{s}"] select[name=way]', 'predict'); htmx_idle(pg); pg.wait_for_timeout(100)
+    assert 'Change the setting' in pg.inner_text('#hands') and 'Your setting is about 33%.' in pg.inner_text('#hands')
+    assert all(s['check']['kind'] == 'demo' for s in w.lr.journey(jid).steps)
+    pg.focus(f'#steps > li.edit-row[data-id="{ss[2]}"]'); pg.keyboard.press('x'); htmx_idle(pg); pg.wait_for_timeout(100)
+    assert [s['slug'] for s in w.lr.journey(jid).steps] == ss[:2] and 'Removed' in pg.inner_text('#undo-bar')
+    pg.click('#undo-bar button'); htmx_idle(pg); pg.wait_for_timeout(100)
+    assert [s['slug'] for s in w.lr.journey(jid).steps] == ss
+    h = pg.eval_on_selector_all('#steps > li.edit-row', 'els => Math.min(...els.map(e => e.getBoundingClientRect().height))')
+    assert h >= 44, h
+
+def editor_shots(pg, w, out):
+    "The walk path editor with an idea open, the hands-on warning and an Undo bar, in Paper dark and Signal light, at 1280 px."
+    out.mkdir(parents=True, exist_ok=True)
+    jid = editor_walk(w); ss = [s['slug'] for s in w.lr.journey(jid).steps]
+    for s in ss: w.rq.post(f'{w.B}/w/{jid}/edit', form=dict(slug=s, act='check', way='predict'))
+    w.lr.walk_step(jid, 1, note='Softmax makes weights from scores. Look at what a large score does to the weights.')
+    shots = []
+    for theme, mode in (('paper', 'dark'), ('signal', 'light')):
+        look(w.rq, w.B, theme, mode)
+        pg.set_viewport_size(dict(width=1280, height=1300))
+        pg.goto(f'{w.B}/w/{jid}/edit?open={ss[1]}'); settle(pg, 600)
+        pg.select_option(f'#steps > li.edit-row[data-id="{ss[1]}"] select[name=way]', 'short'); htmx_idle(pg); pg.wait_for_timeout(300)
+        pg.select_option(f'#steps > li.edit-row[data-id="{ss[1]}"] select[name=way]', 'predict'); htmx_idle(pg); pg.wait_for_timeout(500)
+        p = out/f'walk-editor-{theme}-{mode}-1280.png'; pg.screenshot(path=str(p), full_page=True); shots.append(p.name)
+    look(w.rq, w.B, 'paper', 'auto')
+    return shots
+
 CHECKS = [tb1_four_tabs_and_keys, f1_one_main_button_and_alt_s, f4_one_filled_button, f17_no_broken_figure, reduced_motion,
           f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m3_outline_dot_fills,
           m6_words_point_at_the_demo, o1_order_items_use_body_size, m7_side_walk_returns_you, rupaka_settle,
@@ -1028,7 +1080,7 @@ CHECKS = [tb1_four_tabs_and_keys, f1_one_main_button_and_alt_s, f4_one_filled_bu
           s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_paper_link_in_the_start_box, r1_start_forms_show_no_error, ct1_concept_tree, hs1_sort_by_hand,
           dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason,
           g1_graph_uses_the_window_and_fits, gr1_the_grips_show_and_resize, g2_clusters_have_labels_and_regions, rs1_topic_walk_shows_a_web_source,
-    op1_open_check_survives_a_restart]   # last: it restarts the server
+    we1_walk_path_editor, op1_open_check_survives_a_restart]   # last: it restarts the server
 
 # --- the screens --------------------------------------------------------------------------------------------------
 
@@ -1075,6 +1127,7 @@ def main():
     ap.add_argument('--only', nargs='*', default=None, help='run only the checks with these names')
     ap.add_argument('--pages', nargs='*', default=None, help='take only the screens of these pages')
     ap.add_argument('--looks', nargs='*', default=None, help='take only these looks, for example paper-light')
+    ap.add_argument('--editor-shots', default=None, help='also take the screens of the walk path editor in this folder')
     a = ap.parse_args()
     from playwright.sync_api import sync_playwright
     lr, app = seed()
@@ -1096,6 +1149,10 @@ def main():
                         assert not errs, f'script errors on the page: {errs[:3]}'
                         print('PASS', c.__name__, flush=True)
                     except Exception as e: bad += 1; print('FAIL', c.__name__, f'(line {e.__traceback__.tb_next.tb_lineno if e.__traceback__.tb_next else "?"})', '-', str(e)[:300], flush=True)
+                if a.editor_shots:
+                    errs.clear(); n = len(editor_shots(pg, w, Path(a.editor_shots)))
+                    if errs: bad += 1; print('FAIL editor shots - script errors on the page:', errs[:3], flush=True)
+                    print(n, 'editor screens in', a.editor_shots)
                 if a.shots:
                     errs.clear(); n = len(screens(pg, w, Path(a.out), a.pages, looks=a.looks))
                     if errs: bad += 1; print('FAIL screens - script errors on the page:', errs[:3], flush=True)
