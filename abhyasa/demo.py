@@ -6,9 +6,10 @@ Docs: https://vedicreader.github.io/abhyasa/demo.html.md"""
 
 # %% auto #0
 __all__ = ['VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'ORDER_AIM',
-           'SIMPLER_AIM', 'AIMS', 'demo_text', 'since_demo', 'rung', 'keep_rung', 'want_demo', 'clean_note', 'quoted',
-           'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'queue_demo', 'job_state', 'job_age',
-           'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'import_gallery']
+           'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'demo_text', 'since_demo', 'rung', 'keep_rung', 'want_demo',
+           'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'queue_demo',
+           'job_state', 'job_age', 'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close',
+           'import_gallery']
 
 # %% ../nbs/10_demo.ipynb #c005
 import json, threading, time
@@ -27,10 +28,11 @@ from .settings import val
 
 # %% ../nbs/10_demo.ipynb #c007
 def demo_text(spec) -> str:
-    "The searchable text of a demo: title, ask, gate prompts and captions."
+    "The searchable text of a demo: title, ask, gate prompts, captions and the labels of `pixels` images."
     def walk(bs):
         for b in bs or []:
             yield from (b[k] for k in ('prompt', 'text') if isinstance(b.get(k), str))
+            if b.get('type') == 'pixels' and isinstance(b.get('label'), str): yield b['label']
             yield from walk(b.get('blocks'))
     return '\n\n'.join(t for t in (spec.get('title'), spec.get('ask'), *walk(spec.get('blocks'))) if t)
 
@@ -230,6 +232,8 @@ ORDER_AIM = register('demo.order', 'Order check', 'What the tutor adds to a demo
                      'Make this demo an order check. Use one gate and one ranklist of 3 to 6 steps of the idea.')
 SIMPLER_AIM = register('demo.simpler', 'Simpler demo', 'What the tutor adds to a demo when you missed the idea again after its first demo.',
                        'Make a simpler demo of this idea. Use one input you can change, one gate and at most 4 blocks. Show only the core of the idea.')
+IMAGES_LINE = register('demo.images', 'Image demos', 'What the tutor adds to each demo prompt, so that an idea about images or noise gets an image.',
+                       'For an idea about images or noise, use a `field` fn to make an n × n image from a formula over `i`, `j` and the state, with `noise(i, j)` for seeded noise, and show it with a `pixels` block.')
 AIMS = dict(order='demo.order', simpler='demo.simpler')   # the aim of a demo -> the prompt that the tutor adds
 
 def _types(bs):
@@ -246,8 +250,8 @@ def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, 
     ex, ask_ = None, ask
     if aim == 'order': ex = [s for s in gallery().values() if 'ranklist' in _types(s.get('blocks'))]
     pre = f"{way('order')} " if aim == 'order' else ''
-    if (extra := ' '.join(x for x in (aim in AIMS and f"{pre}{prompt(AIMS[aim])}", feedback_line(learning, slug, 'demo')) if x)):
-        ask_ = lambda p, sp='': ask(f"{p}\n\n{extra}", sp)   # the aim, then what you said about the last demo
+    extra = ' '.join(x for x in (prompt('demo.images'), aim in AIMS and f"{pre}{prompt(AIMS[aim])}", feedback_line(learning, slug, 'demo')) if x)
+    ask_ = lambda p, sp='': ask(f"{p}\n\n{extra}", sp)   # the image line, the aim, then what you said about the last demo
     spec = author(c, ask_, first_error, examples=ex, check=check, log=log)
     if spec is None: return None
     return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", checked=time.time() if check else None, aim=aim)

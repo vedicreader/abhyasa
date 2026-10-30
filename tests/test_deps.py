@@ -12,11 +12,11 @@ def test_fossick_floor():
     assert Version(version('fossick')) >= Version('0.1.23')
 
 def test_rupaka_floor():
-    "rupaka 0.0.6 has `Rupaka.state`, `set`, `settle` with an answer, `options`, `open` and `rupaka.poll`, so each extra must ask for it, and the lock must have it."
+    "rupaka 0.0.7 has the `field` fn and the `pixels` block, and 0.0.6 has `Rupaka.state`, `set`, `settle` with an answer, `options`, `open` and `rupaka.poll`, so each extra must ask for it, and the lock must have it."
     pp = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']
     deps = pp['dependencies'] + [d for ds in pp['optional-dependencies'].values() for d in ds]
     rs = [d for d in deps if d.startswith('rupaka')]
-    assert rs and all(d.endswith('>=0.0.6') for d in rs), rs
+    assert rs and all(d.endswith('>=0.0.7') for d in rs), rs
     lock = tomllib.loads((Path(__file__).parents[1]/'uv.lock').read_text())
-    assert Version(next(p['version'] for p in lock['package'] if p['name'] == 'rupaka')) >= Version('0.0.6')
-    assert Version(version('rupaka')) >= Version('0.0.6')
+    assert Version(next(p['version'] for p in lock['package'] if p['name'] == 'rupaka')) >= Version('0.0.7')
+    assert Version(version('rupaka')) >= Version('0.0.7')
