@@ -2,7 +2,7 @@ from abhyasa.ground import index_ramabana
 import json
 
 def test_viewer_shows_a_session_and_its_resume_command(mk, lr, tmp_path):
-    (tmp_path/'agent-history.jsonl').write_text(json.dumps(dict(session='agent_1', at=1., prompt='why does rrf use ranks', reply='Scores differ in scale.', model='m')))
+    (tmp_path/'agent-history.jsonl').write_text(json.dumps(dict(session='agent_1', at=1., prompt='why does rrf use ranks', reply='Scores differ in scale.', model='m')) + '\n')
     index_ramabana(lr.vault, tmp_path)
     doc_id = lr.vault.shelf('ramabana').t.docs()[0]['id']
     t = mk(['vault']).get(f'/v/ramabana/{doc_id}').text
@@ -10,7 +10,7 @@ def test_viewer_shows_a_session_and_its_resume_command(mk, lr, tmp_path):
     assert 'ramabana --resume agent_1' in t and 'Learn from this' in t
 
 def test_viewer_learns_concepts_from_a_document(mk, lr, tmp_path):
-    (tmp_path/'agent-history.jsonl').write_text(json.dumps(dict(session='agent_2', at=1., prompt='what is a rank', reply='A position in a list.', model='m')))
+    (tmp_path/'agent-history.jsonl').write_text(json.dumps(dict(session='agent_2', at=1., prompt='what is a rank', reply='A position in a list.', model='m')) + '\n')
     index_ramabana(lr.vault, tmp_path)
     doc_id = lr.vault.shelf('ramabana').t.docs()[0]['id']
     t = mk(['vault']).post(f'/v/ramabana/{doc_id}/learn').text

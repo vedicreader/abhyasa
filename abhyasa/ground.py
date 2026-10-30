@@ -315,37 +315,29 @@ def stale_links(self:Learning, c, age:float=86400.) -> bool:
 # %% ../nbs/09_ground.ipynb #f9f5b015
 def ramabana_memory(cfg=None):
     "ramabana's memory as `(ref, title, text)`: each project's MEMORY.md, and the learned AGENTS.md and skills."
-    cfg = Path(cfg or RAMA_CFG)
-    for p in sorted((cfg/'memory').glob('*/MEMORY.md')):
-        yield f'memory/{p.parent.name}', f'ramabana memory ({p.parent.name})', p.read_text(errors='replace')
-    lr = cfg/'learned'
-    if (lr/'AGENTS.md').exists(): yield 'learned/AGENTS.md', 'ramabana learned: AGENTS.md', (lr/'AGENTS.md').read_text(errors='replace')
-    for p in sorted((lr/'skills').glob('*/SKILL.md')):
-        yield f'learned/skills/{p.parent.name}', f'ramabana learned skill: {p.parent.name}', p.read_text(errors='replace')
+    from ramabana.history import History   # on the first call: importing abhyasa loads no ramabana
+    for ref, title, text, _ in History(cfg or RAMA_CFG).memory(): yield ref, title, text
 
 # %% ../nbs/09_ground.ipynb #c024
 RAMA_CFG = Path(os.getenv('RAMABANA_CFG', Path.home()/'.config/ramabana'))
 
-def _clean(s): return re.sub(r'</?user-request>', '', s or '').strip()
+def _clean(s):
+    from ramabana.history_core import request_body
+    return request_body(s or '').strip()
 
 def ramabana_sessions(cfg=None, history='agent', max_turn:int=2000, max_doc:int=60000):
-    "Each ramabana session as `(id, title, text, meta)`, from the history file."
-    cfg = Path(cfg or RAMA_CFG)
-    idx = json.loads((cfg/f'{history}-sessions.json').read_text()).get('sessions', {}) if (cfg/f'{history}-sessions.json').exists() else {}
-    turns, hp = {}, cfg/f'{history}-history.jsonl'
-    if not hp.exists(): return
-    with open(hp, encoding='utf-8', errors='replace') as f:
-        for line in f:
-            try: r = json.loads(line)
-            except json.JSONDecodeError: continue
-            if not (sid := r.get('session')): continue
-            turns.setdefault(sid, []).append(r)
+    "Each ramabana session as `(id, title, text, meta)`, from ramabana's `History`."
+    from ramabana.history import History
+    from ramabana.history_core import history_rows, hydrate_turns, labeled_rows
+    h = History(cfg or RAMA_CFG, history)
+    if not (info := {s['id']: s for s in h.sessions()}): return   # no log, or a link out of `cfg`
+    turns = {}
+    for sid, r in labeled_rows(row for *_, row in history_rows(h.history_path)): turns.setdefault(sid, []).append(r)
     for sid, rs in turns.items():
-        info = idx.get(sid, {})
-        title = info.get('title') or info.get('first_title') or _clean(rs[0].get('prompt', ''))[:80] or sid
-        text = '\n\n'.join(f"## {_clean(r.get('prompt', ''))[:300]}\n\n{(r.get('reply') or '')[:max_turn]}" for r in rs)[:max_doc]
-        yield sid, title, text, dict(session=sid, turns=len(rs), first_at=rs[0].get('at'), last_at=rs[-1].get('at'),
-                                     model=rs[-1].get('model', ''), roots=info.get('roots', []))
+        if (s := info.get(sid)) is None: continue
+        text = '\n\n'.join(f"## {_clean(r.get('prompt', ''))[:300]}\n\n{(r.get('reply') or '')[:max_turn]}" for r in hydrate_turns(h.cfg, rs))[:max_doc]
+        yield sid, s['title'] or sid, text, dict(session=sid, turns=s['turns'], first_at=s['first_at'], last_at=s['at'],
+                                                 model=s['model'], roots=s['roots'])
 
 def index_ramabana(vault, cfg=None, shelf:str='ramabana', dry_run:bool=False) -> dict:
     "Put each ramabana session on the vault shelf `shelf`, one document each. Returns counts."
