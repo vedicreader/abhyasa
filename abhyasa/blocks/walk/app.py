@@ -14,7 +14,7 @@ from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
-from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
+from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, _topic_walk, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task, nb_spec, validate_nb_spec
 from abhyasa.contract import path_why
 from abhyasa.nb import spec_notebook
@@ -264,6 +264,24 @@ def connect(app, ctx):
         if not st or st.job.done():
             st = links[key] = AttrDict(said='Planning the walk')
             st.job = ctx.pool.submit(from_goal, goal, ids, st, subject)
+        return ui.LinkPending(key, st.said)
+
+    def path_walk(jid):
+        "On the pool: make the path `jid` a walk, with a passage from your sources and a check on each step, then look for web sources. Return the walk id."
+        with _jlock(jid):
+            if not (j := lr.journey(jid)): raise LinkError('This walk is not there now.')
+            if j.get('mode') != 'walk': j = _topic_walk(lr, j, ctx.sources)
+        research_new(j)
+        return j.id
+
+    @hook('walk_from_path')
+    def from_path(j):
+        "Start the pool job that makes path `j` a walk, unless one is running. The pending card is the same as for a walk from a goal."
+        key = f"path:{j['id']}"
+        st = links.get(key)
+        if not st or st.job.done():
+            st = links[key] = AttrDict(said='Reading your sources for each step')
+            st.job = ctx.pool.submit(path_walk, j['id'])
         return ui.LinkPending(key, st.said)
 
     def unfile_(jid:str='', root:str='', job:str=''):

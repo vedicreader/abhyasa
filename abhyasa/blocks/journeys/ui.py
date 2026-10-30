@@ -129,7 +129,7 @@ def UseSources(j):
     if j.get('mode') == 'walk': return ''
     return Form(Button('Use sources for this walk', cls='small', data_wait='Reading your sources…'),
                 Span('abhyasa finds a passage in your sources for each step, and gives each step a check.', cls='mute'),
-                action=at(Routes.path_sources, j), method='post', cls='use-sources row')
+                hx_post=at(Routes.path_sources, j), hx_swap='outerHTML', cls='use-sources row')
 
 def JourneyPage(j, pg, after=(), others=(), actions=()):
     near = [*([H2('After this' if pg.finished else 'Next to this path'),

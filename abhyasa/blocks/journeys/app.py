@@ -4,7 +4,7 @@ from fasthtml.common import *
 from abhyasa.core import Page, Part, RouteOverrides, hook, run
 from abhyasa.settings import val
 from abhyasa.profile import profile_text
-from abhyasa.journey import plan, progress, add_topic, split, beyond, with_step, for_talk, _topic_walk
+from abhyasa.journey import plan, progress, add_topic, split, beyond, with_step, for_talk
 from . import ui
 from .cfg import Routes
 
@@ -62,12 +62,10 @@ def connect(app, ctx):
         return Redirect(Routes.learn)
 
     def use_sources(jid:str):
-        "Make the path `jid` a walk: a passage from your sources and a check on each step. Then the walk block looks for web sources on the pool."
-        if not (j := lr.journey(jid)): return Page('Walk', H1('No such walk'), P(A('All walks', href=Routes.learn)), on='Learn', crumbs=up)
-        if j.get('mode') != 'walk':
-            j = _topic_walk(lr, j, ctx.sources)
-            run('walk_made', j)
-        return RedirectResponse(Routes.of(Routes.walk, jid=jid), status_code=303)
+        "Make the path `jid` a walk with a passage from your sources on each step. The walk block does it on the pool (`walk_from_path`) and gives the pending card."
+        if not (j := lr.journey(jid)): return P('This walk is not there now.', cls='req-err')
+        if j.get('mode') == 'walk': return Response(headers={'HX-Redirect': Routes.of(Routes.walk, jid=jid)})
+        return first(run('walk_from_path', j)) or P('abhyasa cannot make a walk here.', cls='req-err')
 
     def old(jid:str, req):
         "An old link to `/j/{jid}`, from a page, Leela or a vault document: go to the path, with the same query."

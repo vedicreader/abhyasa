@@ -45,6 +45,13 @@ def test_goal_on_start_uses_the_chips(mk, lr, walk_fake):
     h = cl.get(f'{url}/0').text
     assert '15_DDPM' in h and 'the noise schedule sets how much noise' in h   # the step page shows the passage and its source line
 
+def test_weak_match_is_no_source(lr):
+    "A README in a named folder names only some words of the idea: it is not a source, so the step has no passage."
+    from abhyasa.journey import _topic_read
+    lr.vault.shelf('notebooks').add('Run training on a pool of local GPUs. The stable releases are on PyPI.', title='pytorch-image-models/README',
+                                    source='/tmp/course22/pytorch-image-models/README.md', kind='md', meta=dict(root='course22'))
+    assert _topic_read(dict(slug='s', name='Run Stable Diffusion 1.5 on your Mac'), [VaultSource(lr)], lr, roots=['course22']) is None
+
 def test_use_sources_for_a_path(mk, lr, fake):
     "A walk with no source shows the button. The POST makes it a walk with a passage and a check on each step."
     fake.rules['You plan a learning path'] = dict(title='Ranks', subject='ml', steps=[dict(name='Ranking', slug='ranking', statement='', why='')])
@@ -52,9 +59,11 @@ def test_use_sources_for_a_path(mk, lr, fake):
     j = plan(lr, fake, 'learn to rank')
     cl = mk()
     assert 'Use sources for this walk' in cl.get(f'/path/{j.id}').text
-    r = cl.post(f'/path/{j.id}/sources', follow_redirects=False)
-    assert r.status_code == 303 and r.headers['location'] == f'/w/{j.id}'
+    r = cl.post(f'/path/{j.id}/sources')
+    assert 'Reading your sources for each step' in r.text   # the pending card of a walk job: the request does not wait
+    assert wait_for_walk(cl, r) == f'/w/{j.id}'
     w = lr.journey(j.id)
     assert w.mode == 'walk' and w.goal == 'learn to rank'
     assert w.steps[0]['read']['title'] == 'My ranking notes' and w.steps[0]['check']
     assert 'Use sources for this walk' not in cl.get(f'/path/{j.id}').text
+    assert cl.post(f'/path/{j.id}/sources').headers['HX-Redirect'] == f'/w/{j.id}'   # a walk already: it opens

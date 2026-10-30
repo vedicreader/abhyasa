@@ -100,7 +100,7 @@ class VedicSource:
                                    "where sections_fts match ? order by r limit ?", (fq, k)).fetchall()
             except sqlite3.Error: continue
             out += [(r, passage('vedicreader', f'{f.stem}:{tid}', f'{t} · {sec}' if sec and sec != 'title' else t, m[:500]))
-                    for t, sec, m, r, tid in rs]
+                    for t, sec, m, r, tid in rs if m]   # a section with no meaning gives no passage
         return L(p for _, p in sorted(out, key=lambda x: x[0])[:k])
 
 # %% ../nbs/09_ground.ipynb #c017
@@ -120,9 +120,9 @@ def main_words(q:str) -> list:
     return list(dict.fromkeys(w for w in re.findall(r'\w+', fold(q)) if len(w) >= 3 and w not in STOP))
 
 def named_count(text:str, words) -> int:
-    "How many of `words` the text names as whole words, without marks."
+    "How many of `words` the text names as whole words (or with a plural `s` or `es`), without marks."
     t = fold(text)
-    return sum(bool(re.search(rf'\b{re.escape(fold(w))}\b', t)) for w in words)
+    return sum(bool(re.search(rf'\b{re.escape(fold(w))}(?:e?s)?\b', t)) for w in words)
 
 def _strong(p, q) -> bool:
     "Whether the text of passage `p` names every main word of `q`. Its title does not count: the title of a verse names its book."
