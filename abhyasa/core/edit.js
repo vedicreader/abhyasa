@@ -4,7 +4,7 @@
 // to the `data-post` of the row. Only the grip drags. A drop outside the list does nothing.
 // ⌘Z presses Undo on the Undo bar, except in a text box, where it undoes the typing.
 (() => {
-  const BOX = 'textarea, input, select, [contenteditable]';
+  const BOX = 'textarea, input, select, [contenteditable]:not([contenteditable="false"])';
   const rows = list => [...list.querySelectorAll(':scope > li.edit-row')];
   const rowOf = el => el?.closest?.('ol[data-edit] > li.edit-row');
   const move = (li, to) => {
@@ -116,10 +116,23 @@
   document.addEventListener('pointerup', e => end(e, true));
   document.addEventListener('pointercancel', e => end(e, false));
 
+  // Undo (the button or ⌘Z) puts the focus back on the row that the change touched (`data-row` of the button), else on the bar.
+  document.addEventListener('click', e => {
+    const b = e.target.closest?.('#undo-bar button');
+    if (b) abhyasaEdit.focus = {id: b.dataset.row || '', undo: true};
+  }, true);
   // After a swap: the focus goes back to the moved row, and a new row gets the focus in its first field, with the text selected.
-  document.addEventListener('htmx:afterSettle', () => {
+  const back = () => {
     const f = abhyasaEdit.focus;
-    if (f) { abhyasaEdit.focus = null; document.querySelector(`ol[data-edit] > li.edit-row[data-id="${CSS.escape(f.id)}"]`)?.focus(); }
+    if (!f) return;
+    const li = f.id && document.querySelector(`ol[data-edit] > li.edit-row[data-id="${CSS.escape(f.id)}"]`);
+    if (li) li.focus();
+    else if (f.undo) { const bar = document.getElementById('undo-bar'); (bar?.querySelector('button') || bar)?.focus(); }
+    else return;   // the moved row is not back yet
+    abhyasaEdit.focus = null;
+  };
+  document.addEventListener('htmx:afterSettle', () => {
+    back();
     document.querySelectorAll('ol[data-edit] > li.edit-row[data-fresh]').forEach(li => {
       delete li.dataset.fresh;
       const box = li.querySelector('.fields')?.querySelector(BOX);
@@ -136,5 +149,6 @@
     quiet = setTimeout(() => bar.classList.remove('fresh'), 1000 * (+bar.dataset.secs || 8));
   };
   document.addEventListener('htmx:oobAfterSwap', e => { if (e.detail.target?.id === 'undo-bar') fresh(); });
+  document.addEventListener('htmx:afterRequest', () => setTimeout(back, 50));   // an Undo answer can swap only out of band: then no settle comes
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fresh); else fresh();
 })();

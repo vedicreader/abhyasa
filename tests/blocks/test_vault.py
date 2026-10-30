@@ -64,3 +64,11 @@ def test_image_syntax_in_code_stays_as_text(mk, lr):
     p = lr.vault.assets('Code-notes')/'images'/'page2_1.png'; p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(PNG)
     t = mk(['vault']).get(f'/v/store/{d}').text
     assert t.count('<img ') == 1 and '![In a fence](images/page2_1.png)' in t and '![inline](images/page2_1.png)' in t
+
+def test_viewer_refuses_the_history_of_an_editor(mk, lr):
+    "A history keeps old text that you took out of a talk or a walk: the vault page never shows it, as for an open question."
+    import abhyasa.edit
+    lr.add_edit('talk', 't1', 'Removed “Softmax”.', 'you', [dict(id='s1', title='A secret slide')])
+    d = lr.v.t.docs(where="kind='edits'")[0]['id']
+    t = mk(['vault']).get(f'/v/learning/{d}').text
+    assert 'No such document' in t and 'A secret slide' not in t

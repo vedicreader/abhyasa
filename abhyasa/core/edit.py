@@ -31,20 +31,25 @@ def edit_assets() -> tuple:
     "The style and the script of the editors, for the head of an editor page."
     return asset_css(_here/'edit.css'), asset_js(_here/'edit.js')
 
-def UndoBar(said:str='', undo:str='', history:str='', step:str='', oob:bool=True, **kw):
+def UndoBar(said:str='', undo:str='', history:str='', step:str='', row:str='', oob:bool=True, **kw):
     """The Undo bar of an editor: what changed in one sentence, Undo (⌘Z) and a link to the History. With no `said`, the empty bar
     for the page. Undo posts `step` (the id of the change), so an old bar does nothing. With `oob`, htmx puts the content in the bar
-    of the page, and the live region says it. `kw` goes to the Undo button (for example `hx_target`)."""
-    c = (Span(said, cls='said'), Button('Undo', ' ', Kbd('⌘Z'), type='button', hx_post=undo, **({'hx_vals': json.dumps(dict(step=step))} if step else {}), **kw),
+    of the page, and the live region says it. `row` is the id of the row that the change touched: after Undo, `edit.js` puts
+    the focus on it, or on the bar when no row has that id. `kw` goes to the Undo button (for example `hx_target`); with no
+    `hx_swap`, the Undo answer swaps only out of band."""
+    kw = {'hx_swap': 'none', **kw, **({'hx_vals': json.dumps(dict(step=step))} if step else {}), **({'data_row': row} if row else {})}
+    c = (Span(said, cls='said'), Button('Undo', ' ', Kbd('⌘Z'), type='button', hx_post=undo, **kw),
          A('History', href=history, cls='hist')) if said else ()
-    return Div(*c, id='undo-bar', cls='undo-bar', role='status', aria_live='polite', data_secs=str(EDIT_BAR_SECS), **({'hx_swap_oob': 'innerHTML'} if oob else {}))
+    return Div(*c, id='undo-bar', cls='undo-bar', role='status', tabindex='-1', aria_live='polite', data_secs=str(EDIT_BAR_SECS), **({'hx_swap_oob': 'innerHTML'} if oob else {}))
 
 def HistoryList(rows, restore:str):
     """The history of one talk or one walk, newest first: the time, what changed, who ("you" or "tutor"), and "Restore this version".
-    Restore posts the `id` of the change to `restore`; the version is the one before that change."""
+    Restore posts the `id` of the change to `restore`; the version is the one before that change. A change in its short form
+    (`before` is None: it was too large to keep) has no Restore."""
     if not rows: return Empty('No changes yet.')
     return Ol(*[Li(Span(ago(r['at']), cls='at'), Span(r['what'], cls='what'), Span(r['who'], cls='who'),
-                   Quiet('Restore this version', type='button', hx_post=restore, hx_vals=json.dumps(dict(id=r['id']))), cls='edit-line') for r in rows],
+                   Quiet('Restore this version', type='button', hx_post=restore, hx_vals=json.dumps(dict(id=r['id']))) if r.get('before', '') is not None
+                   else Span('Too large to restore', cls='mute'), cls='edit-line') for r in rows],
               cls='edit-history', aria_label='Changes, newest first')
 
 def EditRow(i:int, r, n:int):

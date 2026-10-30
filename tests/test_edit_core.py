@@ -65,3 +65,23 @@ def test_rewrite_prompt_is_in_settings(mk):
 
 def test_editor_assets_are_not_in_every_page(mk):
     assert 'edit.js' not in mk().get('/').text
+
+def test_undo_bar_has_its_row_and_swaps_out_of_band():
+    "After Undo, edit.js puts the focus on the row of the change; with no target, the answer swaps only out of band. The bar takes the focus when no row is there."
+    h = to_xml(UndoBar('Moved “A”.', '/u', '/h', row='s2'))
+    assert 'data-row="s2"' in h and 'hx-swap="none"' in h and 'tabindex="-1"' in h
+    assert 'hx-swap="outerHTML"' in to_xml(UndoBar('Moved “A”.', '/u', '/h', hx_target='#slides', hx_swap='outerHTML'))
+
+def test_history_has_no_restore_for_a_short_form():
+    h = to_xml(HistoryList([dict(id='e1', at=1e9, what='Changed all slides.', who='you', before=None)], '/r'))
+    assert 'Restore this version' not in h and 'Too large to restore' in h
+
+def test_undo_button_is_44_px_high():
+    import re
+    from pathlib import Path
+    css = (Path(__file__).parents[1]/'abhyasa/core/edit.css').read_text()
+    assert re.search(r'\.undo-bar button \{[^}]*min-height: 44px', css)
+
+def test_key_guard_skips_contenteditable_false():
+    from pathlib import Path
+    assert '[contenteditable]:not([contenteditable="false"])' in (Path(__file__).parents[1]/'abhyasa/core/edit.js').read_text()

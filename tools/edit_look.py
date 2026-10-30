@@ -21,7 +21,7 @@ ROWS = [dict(id=f's{i}', title=f'Slide {i}', line='passage · 5 min', post=f'/ro
 ORDER = [r['id'] for r in ROWS]
 
 def the_list():
-    rs = [{**next(r for r in ROWS if r['id'] == i), 'body': [Label('Title', Live('title', Input(value=i))), Label('Notes', Live('notes', Textarea('n', rows=2)))],
+    rs = [{**next(r for r in ROWS if r['id'] == i), 'body': [Label('Title', Live('title', Input(value=i))), Label('Notes', Live('notes', Textarea('n', rows=2))), Div('Read only', contenteditable='false', tabindex='0', cls='ro')],
            'acts': [Quiet('Remove', Kbd('X'), type='button', data_key='X', hx_post=f'/row/{i}', hx_vals='{"act": "x"}', hx_swap='none')]} for i in ORDER]
     return EditList(rs, 'talk', add=[Button('Add a slide', Kbd('A'), type='button', data_key='A', hx_post='/row/new', hx_vals='{"act": "add"}', hx_swap='none')], id='slides')
 
@@ -35,10 +35,10 @@ def mk_page():
         f = dict(await req.form()); POSTS.append((rid, f))
         if f.get('act') == 'move':
             ORDER.remove(rid); ORDER.insert(int(f['to']), rid)
-            return the_list(), UndoBar(f'Moved “{rid}” to slide {int(f["to"]) + 1}.', '/undo', '/hist', step='e1')
-        return UndoBar(f'Did {f.get("act")} on {rid}.', '/undo', '/hist', step='e1')
+            return the_list(), UndoBar(f'Moved “{rid}” to slide {int(f["to"]) + 1}.', '/undo', '/hist', step='e1', row=rid, hx_target='#slides', hx_swap='outerHTML')
+        return UndoBar(f'Did {f.get("act")} on {rid}.', '/undo', '/hist', step='e1', row=rid, hx_target='#slides', hx_swap='outerHTML')
     @app.post('/undo')
-    async def undo(req): POSTS.append(('undo', dict(await req.form()))); return UndoBar('Undone.', '/undo', '/hist')
+    async def undo(req): POSTS.append(('undo', dict(await req.form()))); return the_list(), UndoBar('Undone.', '/undo', '/hist')   # the list swaps, as in an editor
     return app
 
 def serve(app):
@@ -85,10 +85,18 @@ def run(pg, base, check, shots=None, name=''):
     check('⌘Z in a field does not press Undo', not any(p[0] == 'undo' for p in POSTS[n:]))
     pg.keyboard.press('Escape'); pg.keyboard.press('Escape'); pg.wait_for_timeout(100)
     check('Esc leaves the field, then closes the row', pg.locator('#slides > li.open').count() == 0 and focused() == 's1')
-    pg.keyboard.press(f'{meta}+z'); pg.wait_for_timeout(300)
+    hb = box('#undo-bar button')
+    check(f"the Undo button is 44 px high at least ({hb['height']:.0f})", hb['height'] >= 44)
+    pg.evaluate('document.activeElement.blur()')
+    pg.keyboard.press(f'{meta}+z'); pg.wait_for_timeout(400)
     check('⌘Z outside a field presses Undo with its step', ('undo', {'step': 'e1'}) in POSTS)
+    check('after Undo the focus is on the row that the change touched', focused() == 's1')
+    pg.click('#undo-bar button'); pg.wait_for_timeout(400)
+    check('after an Undo with no row the focus is on the bar', pg.evaluate("document.activeElement === document.querySelector('#undo-bar button')"))
     li(0).locator('summary').click(); li(3).locator('summary').click(); pg.wait_for_timeout(100)
     check('one open row at a time', pg.locator('#slides > li.open').count() == 1 and 'open' in li(3).get_attribute('class'))
+    li(3).locator('.ro').focus(); pg.keyboard.press('w')
+    check('keys work on a part that you cannot edit (contenteditable=false)', focused() == pg.evaluate("document.querySelectorAll('#slides > li.edit-row')[2].dataset.id"))
     n = len(POSTS); li(3).locator('[data-move="2"]').click(); pg.wait_for_timeout(400)
     check('Move up posts a move', POSTS[n:] and POSTS[n][1] == {'act': 'move', 'to': '2'})
     li(0).focus(); n = len(POSTS); pg.keyboard.press('x'); pg.keyboard.press('a'); pg.wait_for_timeout(300)

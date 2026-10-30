@@ -36,8 +36,9 @@ html:has(.edit-list > li.dragging) { cursor: grabbing; user-select: none; }
             background: var(--raised); border: 1px solid var(--line); border-radius: var(--r); opacity: .75; transition: opacity .3s, box-shadow .3s; }
 .undo-bar:empty { display: none; }
 .undo-bar.fresh { opacity: 1; box-shadow: var(--lift); color: var(--fg); animation: undo-in .2s ease-out; }
-.undo-bar button { font-size: var(--t-small); padding: var(--s1) var(--s3); min-height: 36px; }
+.undo-bar button { font-size: var(--t-small); padding: var(--s1) var(--s3); min-height: 44px; }
 .undo-bar .hist { color: var(--mute); }
+.undo-bar:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 @keyframes undo-in { from { transform: translate(-50%, 8px); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .undo-bar, .undo-bar.fresh { animation: none; transition: none; } }
 
