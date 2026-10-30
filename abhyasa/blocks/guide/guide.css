@@ -1,5 +1,6 @@
-/* The Explain button: quiet, at the bottom left, out of the way of the floating mic at the bottom right. */
-.guide-go { position: fixed; left: 20px; bottom: calc(var(--composer-h, 0px) + 20px); z-index: 40; background: var(--bg); font-size: var(--t-meta); }
+/* The Explain button in the top bar: small, like a link, so it never covers the page. */
+nav .guide-go { background: transparent; border: 1px solid var(--rule); box-shadow: none; color: var(--fg); padding: 2px var(--s2); font-size: var(--t-meta); margin-right: var(--s2); }
+nav .guide-go:hover, nav .guide-go.on { border-color: var(--acc); }
 .guide-form { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--composer-h, 0px) + 64px); z-index: 61; width: min(560px, 92vw);
               display: flex; gap: var(--s2); align-items: center; padding: var(--s2) var(--s3); background: var(--bg); border: 1px solid var(--rule);
               border-radius: 8px; box-shadow: 0 6px 24px rgb(0 0 0 / .12); }

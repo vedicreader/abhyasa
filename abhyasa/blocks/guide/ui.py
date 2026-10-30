@@ -10,7 +10,7 @@ ASK = 'What do you not understand?'
 
 def Go():
     "The Explain button, for a learner with no Hyper key. Hyper+E does the same."
-    return Button('Explain', type='button', id='guide-go', cls='guide-go quiet', aria_keyshortcuts='Control+Alt+Shift+Meta+E',
+    return Button('Explain', type='button', id='guide-go', cls='guide-go', aria_keyshortcuts='Control+Alt+Shift+Meta+E',
                   title=f'Ask the tutor to explain a part of this page. {KEY} (Caps+E): hold to talk, tap to type.')
 
 def Box():
@@ -24,5 +24,5 @@ def Strip():
     return Div(id='guide-strip', cls='guide-strip', hidden=True, aria_live='polite', role='status')
 
 def Parts():
-    return (Go(), Box(), Strip(), asset_css(_P/'guide.css'),
+    return (Box(), Strip(), asset_css(_P/'guide.css'),
             asset_js(_P/'guide.js', data_ask=Routes.ask, data_figure=Routes.figure, data_cues=Routes.of(Routes.cues, vid='')))
