@@ -22,6 +22,7 @@
 //       resolve(id) -> Element|null   the element of anchor `id`. Default: document.querySelector('[data-guide-id="<id>"]').
 //                                     A formula element names its parts in data-parts: JSON [[tex, elementId], ...]; the
 //                                     board finds each part by its id inside the element, then in the document.
+//                                     A token with no part element marks the whole formula element.
 //       speak(text, onWord, done)     say `text`. Call onWord(k) when word k (from 0, split on white space) starts, and done()
 //                                     at the end. It can return a function that stops the speech. The board ignores calls
 //                                     after the step changes. Default: speechSynthesis, timed by letters when it has no voice.
@@ -87,7 +88,7 @@
       let parts = []; try { parts = JSON.parse(el.dataset.parts || '[]'); } catch (e) {}
       const hit = parts.find(p => normTex(p[0]) === normTex(a.tex)), pid = hit && String(hit[1]);
       const part = pid && (el.querySelector('#' + CSS.escape(pid)) || document.getElementById(pid));
-      return seen(part) ? {...pageRect(part.getBoundingClientRect()), el: part, glyphs: true} : null;
+      return seen(part) ? {...pageRect(part.getBoundingClientRect()), el: part, glyphs: true} : R;   // no part element: the whole formula, so the stroke stays
     }
     if (a.text != null) return textBox(el, a.text);
     const rel = b => ({x: R.x + R.w * b[0] / 1000, y: R.y + R.h * b[1] / 1000, w: R.w * (b[2] - b[0]) / 1000, h: R.h * (b[3] - b[1]) / 1000, el});

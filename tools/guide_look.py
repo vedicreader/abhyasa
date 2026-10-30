@@ -260,7 +260,8 @@ HOST_PAGE = r"""<!doctype html><html data-theme="paper" data-mode="light"><head>
 <div data-leela="pic" style="width:300px;height:180px;background:#fff;border:1px solid #ccc;margin-top:60px"></div></main></body></html>"""
 HOST_BOARD = dict(tier='tutor', sources=[], end='', steps=[
     dict(say='Alpha bar is the share that is left.', strokes=[dict(op='circle', at=dict(a='eq', tex=r'\bar\alpha'), w=0),
-         dict(op='label', at=dict(a='eq', tex=r'\bar\alpha'), text='share left', side='above', w=2), dict(op='circle', at='nothing', w=3)]),
+         dict(op='label', at=dict(a='eq', tex=r'\bar\alpha'), text='share left', side='above', w=2), dict(op='circle', at='nothing', w=3),
+         dict(op='underline', at=dict(a='eq', tex=r'\gamma'), w=4)]),
     dict(say='The picture shows it.', strokes=[dict(op='box', at='pic', w=0), dict(op='demo_set', set=dict(t=3), w=1)])])
 HOST_PLAY = r"""(board) => new Promise(ok => {
   window.__said = []; window.__sets = []; window.__resolved = [];
@@ -282,7 +283,10 @@ def hooks(page, base, name):
     settle(page)
     r = page.evaluate("""() => { const g = document.querySelector('#board-layer g[data-op="circle"]').getBoundingClientRect(), t = document.getElementById('leela-abar').getBoundingClientRect();
                           return [g.left + g.width / 2 - t.left - t.width / 2, g.top + g.height / 2 - t.top - t.height / 2]; }""")
-    check(f'{name}: host resolve: the circle is on the part that the host gives', abs(r[0]) <= 6 and abs(r[1]) <= 6, str([round(x) for x in r]))
+    check(f'{name}: host resolve: a token with a part element marks that part', abs(r[0]) <= 6 and abs(r[1]) <= 6, str([round(x) for x in r]))
+    u = page.evaluate("""() => { const g = document.querySelector('#board-layer g[data-op="underline"]'), e = document.querySelector('[data-leela="eq"]').getBoundingClientRect();
+                          if (!g || g.style.display === 'none') return null; const r = g.getBoundingClientRect(); return [r.left - e.left, r.right - e.right, r.top - e.bottom]; }""")
+    check(f'{name}: a token with no part element marks the whole formula, and the stroke stays', u and abs(u[0]) <= 8 and abs(u[1]) <= 8 and -4 <= u[2] <= 14, str(u and [round(x) for x in u]))
     c = page.evaluate(CHIP, dict(a='eq', tex=r'\bar\alpha'))
     check(f'{name}: host resolve: the chip is near its part and does not cover it', c and c['free'], str(c))
     page.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.i === 1', timeout=8000); settle(page)
