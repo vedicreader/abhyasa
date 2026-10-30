@@ -394,9 +394,9 @@ _UNSAFE = ('script', 'style', 'noscript', 'template', 'iframe', 'object', 'embed
 def _has(c): return f'contains(concat(" ", normalize-space(@class), " "), " {c} ")'
 
 def _tex(m) -> str:
-    "The TeX of the MathML element `m`: its `alttext`, else its TeX annotation, with no TeX comments, on one line, and with `$` written `\\$`."
+    "The TeX of the MathML element `m`: its `alttext`, else its TeX annotation, with no TeX comments, on one line, and with each `$` that is not escaped written `\\$`."
     t = m.get('alttext') or next((a.text or '' for a in m.iter('{*}annotation', 'annotation') if a.get('encoding') == 'application/x-tex'), '')
-    return ' '.join(re.sub(r'(?<!\\)%[^\n]*', '', t).split()).replace('$', r'\$')
+    return re.sub(r'(?<!\\)\$', r'\\$', ' '.join(re.sub(r'(?<!\\)%[^\n]*', '', t).split()))
 
 def _swap(e, s:str):
     "Put the text `s` in the place of the element `e`."
@@ -475,8 +475,10 @@ def save_figures(lr:Learning, aid:str, page, fetch=None) -> int:
         if not p.is_relative_to(root) or p.suffix.lower() not in IMG_SUFFIXES or p.is_file(): continue
         try: r = fetch(u, **PLAIN, **fetch_opts(), allow_private=False, max_bytes=PAGE_BYTES)
         except Exception: continue
-        if getattr(r, 'status', None) != 200 or not isinstance(b := getattr(r, 'body', None), bytes) or not b: continue
-        p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(b[:PAGE_BYTES]); n += 1
+        f = urlparse(str(getattr(r, 'url', '') or u))   # the address after the redirects
+        if f.scheme != 'https' or not (f.hostname == 'arxiv.org' or (f.hostname or '').endswith('.arxiv.org')): continue
+        if getattr(r, 'status', None) != 200 or not isinstance(b := getattr(r, 'body', None), bytes) or not b or len(b) > PAGE_BYTES: continue   # never a file cut short
+        p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(b); n += 1
     return n
 
 def _file_html(lr:Learning, aid:str, page) -> AttrDict:
