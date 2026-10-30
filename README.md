@@ -174,7 +174,8 @@ figure, moves the demo and speaks one short line for each step. The marks stay i
 - When a concept has an explainer video, the board can move the video to the right time and quote it. On a concept page,
   “Find a video” looks on YouTube, or you can paste a link.
 
-No secret and no personal data leaves the Mac without ramabana’s guard.
+The text that the guide sends to the model goes through ramabana’s guard. The guard always masks secrets. It masks personal
+data only when the ramabana setting `cli.pii` is `redact` or `refuse` (the default is `off`).
 
 ## Teach a topic to a group
 

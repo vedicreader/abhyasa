@@ -75,7 +75,7 @@
 
 ### Safety
 
-- No secret and no personal data leaves the Mac without the guard: the screen guide, the gather agent, the web queries, the links and the log go through ramabana's PII guard. The guard follows the ramabana setting `cli.pii`. When the guard withholds a text, the screen guide says so in one plain line.
+- The text that the screen guide and the gather agent send out (prompts, web queries, links and log lines) goes through ramabana's guard. The guard always masks secrets. It masks or withholds personal data only when the ramabana setting `cli.pii` is `redact` or `refuse`. The default is `off`. When the guard withholds a text, the screen guide says so in one plain line. A figure image goes to the vision model as it is: the guard cannot read pixels.
 - Every page fetch refuses a private address (`allow_private=False`), also when `FOSSICK_ALLOW_PRIVATE` is set.
 - The path checks: the agent reads only files in the folders of your sources and in its own clones. It never reads through a link, and never a key file such as `.env` or a keychain file. A clone has the same rules as a folder on this Mac.
 - The agent has a time limit and a spend limit for each walk.
