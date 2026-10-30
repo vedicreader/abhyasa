@@ -8,7 +8,7 @@ ENTITLEMENTS := entitlements.plist
 # the same zip with a name that does not change, so releases/latest/download/Abhyasa.zip always works
 STABLE_ZIP := dist/Abhyasa.zip
 
-.PHONY: test build lock bundle app release unpublished zip publish run install cask verify gatekeeper
+.PHONY: test build lock bundle app release unpublished zip publish run install cask verify gatekeeper ship
 
 # Values from the command line go to recipes only through the environment ("$$FILTER"), so the shell never parses
 # them. Each value must also pass this check, which reads the raw text with $(value) and so never expands it.
@@ -45,11 +45,11 @@ UV := /opt/homebrew/bin/uv
 endif
 NOTES := dist/notes-$(VERSION).md
 TAP ?= ../../homebrew-tap
-$(foreach v,FILTER INSTALL_DIR ZIP APP STABLE_ZIP NOTES TAP UV,$(call check_var,$v,$(SAFE_CHARS))$(call check_dash,$v))
+$(foreach v,FILTER INSTALL_DIR ZIP APP STABLE_ZIP NOTES TAP UV V,$(call check_var,$v,$(SAFE_CHARS))$(call check_dash,$v))
 $(foreach v,SIGN_ID RELEASE_ID,$(call check_identity,$v))
-export FILTER INSTALL_DIR ZIP SIGN_ID RELEASE_ID TAP UV
+export FILTER INSTALL_DIR ZIP SIGN_ID RELEASE_ID TAP UV V
 
-# release and publish notarize and upload, so they refuse make -n, make -i and their other forms
+# release, publish and ship notarize and upload, so they refuse make -n, make -i and their other forms
 include $(MK_DIR)no-dry-run.mk
 
 # FILTER=<name> runs only the tests whose names match (letters, digits and _ . / - only)
@@ -125,3 +125,23 @@ verify:
 # Gatekeeper's view: accepted only after notarization
 gatekeeper:
 	spctl -a -t exec -vv $(APP)
+
+# V=<version> runs each step of an app release: the pin and the app version go to V, then lock, publish (release,
+# notarize, staple, check) and cask, then one commit in the tap and one in abhyasa, and a push of both.
+# It stops when V is empty or when abhyasa or the tap has changes that are not committed.
+ship:
+	test -n "$$V" || { echo "Give the version: make ship V=<version>" >&2; exit 1; }
+	test -z "$$(git -C .. status --porcelain)" || { echo "abhyasa has changes that are not committed" >&2; exit 1; }
+	test -z "$$(git -C "$$TAP" status --porcelain)" || { echo "$$TAP has changes that are not committed" >&2; exit 1; }
+	python3 -c "import os,re,pathlib; p=pathlib.Path('Resources/Pin/pyproject.toml'); s=p.read_text(); f=lambda m: 'abhyasa['+','.join(x for x in m[1].split(',') if x.strip() not in ('','repos'))+']=='+os.environ['V']; t=re.sub(r'abhyasa\[([^\]]*)\]==[^\x22]+',f,s,count=1); t!=s or os.environ['V'] in s or exit('no abhyasa pin in '+str(p)); p.write_text(t)"
+	grep -n 'abhyasa\[' Resources/Pin/pyproject.toml
+	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $$V" Resources/Info.plist
+	$(MAKE) lock
+	$(MAKE) publish
+	$(MAKE) cask
+	git -C "$$TAP" add Casks/abhyasa.rb
+	git -C "$$TAP" commit -m "Abhyasa $$V"
+	git -C .. add mac/Resources README.md nbs/index.ipynb
+	git -C .. commit -m "Pin Abhyasa.app $$V to abhyasa $$V"
+	env -u GITHUB_TOKEN git -C "$$TAP" -c credential.helper= -c "credential.helper=!gh auth git-credential" push
+	env -u GITHUB_TOKEN git -C .. -c credential.helper= -c "credential.helper=!gh auth git-credential" push
