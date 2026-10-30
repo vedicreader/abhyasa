@@ -39,6 +39,11 @@
 - A mark in the menu bar shows the state of the guide, with Stop, Voice off and Turn off.
 - The Mac app uses abhyasa 0.0.14 and has `make ship V=<version>` for a release.
 
+### Settings in tabs
+
+- Settings has seven tabs: Models, Voice, Screen guide, Learning, Walks and talks, Sources and Look. One tab shows at a time. `?tab=voice` keeps the tab, and an old link such as `/settings#g-voice` opens its tab at that row. ⌥1 to ⌥7 pick a tab, and the arrow keys move along the tab row. Each row has one help line, with the other sentences under "About this". The Default model list starts where the other model lists start.
+- The model list uses the names that the makers use: "GPT-4o mini", "o4-mini", "o3" and "Kimi K3". An alias such as "Claude Opus" does not show next to its version.
+
 ### Built on ramabana and rishi
 
 - The gather agent is a plain ramabana `Agent` with `only_tools`. ramabana estimates its cost.
