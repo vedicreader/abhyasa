@@ -894,7 +894,7 @@ def gather_prompt(lr:Learning, j) -> str:
     "The request to the gather agent for walk `j`: the goal, each idea with its number and its statement, the sources that the goal named, and the caps."
     ideas = [f"{i}. {quoted((lr.concept(s['slug']) or {}).get('name') or s['slug'])}: {quoted((lr.concept(s['slug']) or {}).get('statement') or '')}"
              f" ({'needs a passage' if wants_source(s) else 'has a passage'})" for i, s in enumerate(j.steps, 1)]
-    srcs = [r for r, _ in chip_docs(lr, j.get('chips') or ())] + [Path(v).name for c in j.get('chips') or () for k, _, v in [str(c).partition(':')] if k in ('folder', 'repo')]
+    srcs = [r for r, _ in chip_docs(lr, j.get('chips') or ())] + list(_chip_roots(j))
     return (f"The goal of the learner: {quoted(j.get('goal') or j.get('title'))}\n\nThe ideas:\n" + '\n'.join(ideas) +
             f"\n\nThe sources that the learner named: {', '.join(dict.fromkeys(srcs)) or 'none'}. Use docs to list them.\n"
             f"You can read at most {AGENT_DOCS} documents in {val('research.agent_minutes')} minutes.")

@@ -222,6 +222,12 @@ def test_agent_reads_no_refused_folder(lr, monkeypatch, tmp_path):
     outs = [r['outcome'] for r in lr.journey(j.id).gather if r['tool'] == 'read_file']
     assert len(outs) == 4 and all(o.startswith('refused') for o in outs), outs
 
+def test_prompt_names_no_refused_folder(lr, monkeypatch, tmp_path):
+    "An old walk that still holds chips for /etc, a hidden folder and a folder outside HOME: the prompt to the agent names none of them."
+    j, _ = walk(lr, bad_roots(tmp_path, monkeypatch) + ['vault:notes'])
+    p = R.gather_prompt(lr, lr.journey(j.id))
+    assert not any(n in p for n in ('etc', 'app', 'outside')), p
+
 def test_refused_folder_chips_are_not_kept(mk, lr, walk_fake, monkeypatch, tmp_path):
     "Start a goal walk with chips for /etc, a hidden folder in HOME and a folder outside HOME: the walk keeps only the good chip, so gather never sees the others."
     chips = bad_roots(tmp_path, monkeypatch)
