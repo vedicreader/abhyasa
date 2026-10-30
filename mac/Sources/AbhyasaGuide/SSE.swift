@@ -42,20 +42,55 @@ public struct SSEParser {
 }
 
 /// One event of the guide's ask route (abhyasa/blocks/guide/app.py): `{"wait": text}`, `{"step": {…}, "k": n, "tier": t}`,
-/// `{"board": {…}}` or `{"error": text}`. `raw` is the JSON as it came, for board.js in the overlay.
+/// `{"board": {…}}`, `{"error": text}` or `{"saved": {"title", "url", "undo"}}`. A wait event can also tell the state:
+/// `{"wait", "state", "model", "where", "who", "query", "sources"}`. Each of these fields is optional, so an older server works
+/// too. `raw` is the JSON as it came, for board.js in the overlay.
 public struct GuideEvent: Equatable, Sendable {
-    public enum Kind: Equatable, Sendable { case wait(String), step(Int), board, error(String), other }
+    public enum Kind: Equatable, Sendable { case wait(String), step(Int), board, error(String), saved(Saved), other }
+
+    /// a thing that the guide put in the vault, with the route that takes it out again
+    public struct Saved: Equatable, Sendable {
+        public var title: String
+        public var url: String
+        public var undo: String
+    }
+
+    /// what the server does now, and who gets the text; nil fields are not in the event
+    public struct Status: Equatable, Sendable {
+        public var state: String?
+        public var model: String?
+        public var place: String?   // "where": "on this Mac" or "hosted"
+        public var who: String?
+        public var query: String?
+        public var sources: Int?
+        public init(state: String? = nil, model: String? = nil, place: String? = nil, who: String? = nil, query: String? = nil, sources: Int? = nil) {
+            self.state = state; self.model = model; self.place = place; self.who = who; self.query = query; self.sources = sources
+        }
+    }
+
     public var kind: Kind
     public var raw: String
+    public var status: Status?
 
     /// the event in `data`, or nil when it is not a JSON object
     public static func parse(_ data: String) -> GuideEvent? {
         guard let o = (try? JSONSerialization.jsonObject(with: Data(data.utf8))) as? [String: Any] else { return nil }
-        if let t = o["error"] as? String { return GuideEvent(kind: .error(t), raw: data) }
-        if o["board"] is [String: Any] { return GuideEvent(kind: .board, raw: data) }
-        if o["step"] is [String: Any] { return GuideEvent(kind: .step((o["k"] as? Int) ?? 0), raw: data) }
-        if let t = o["wait"] as? String { return GuideEvent(kind: .wait(t), raw: data) }
-        return GuideEvent(kind: .other, raw: data)
+        let st = status(o)
+        func e(_ k: Kind) -> GuideEvent { GuideEvent(kind: k, raw: data, status: st) }
+        if let t = o["error"] as? String { return e(.error(t)) }
+        if o["board"] is [String: Any] { return e(.board) }
+        if o["step"] is [String: Any] { return e(.step((o["k"] as? Int) ?? 0)) }
+        if let s = o["saved"] as? [String: Any] {
+            return e(.saved(Saved(title: s["title"] as? String ?? "", url: s["url"] as? String ?? "", undo: s["undo"] as? String ?? "")))
+        }
+        if let t = o["wait"] as? String { return e(.wait(t)) }
+        return e(.other)
+    }
+
+    static func status(_ o: [String: Any]) -> Status? {
+        let s = Status(state: o["state"] as? String, model: o["model"] as? String, place: o["where"] as? String,
+                       who: o["who"] as? String, query: o["query"] as? String, sources: o["sources"] as? Int)
+        return s == Status() ? nil : s
     }
 
     /// true for the last event of a question: the route ends the stream after a board or an error

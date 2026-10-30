@@ -59,6 +59,34 @@ final class StreamServer: @unchecked Sendable {
         #expect(kinds == [.wait("The tutor looks in your vault."), .step(0), .board])
     }
 
+    @Test func aSavedEventAfterTheBoardStillComes() async throws {
+        let sse = "data: {\"wait\": \"Asks Claude Sonnet.\", \"state\": \"asking\", \"model\": \"Claude Sonnet\", \"where\": \"hosted\"}\n\n"
+            + "data: {\"board\": {\"steps\": []}}\n\n"
+            + "data: {\"wait\": \"not read\"}\n\n"
+            + "data: {\"saved\": {\"title\": \"Attention\", \"url\": \"u\", \"undo\": \"/guide/undo/1\"}}\n\n"
+        let (s, c) = try serve(["/guide/ask": (200, "text/event-stream", sse)])
+        defer { s.stop() }
+        var kinds: [GuideEvent.Kind] = []
+        for try await e in c.ask(Data("{}".utf8)) { kinds.append(e.kind) }
+        #expect(kinds == [.wait("Asks Claude Sonnet."), .board, .saved(GuideEvent.Saved(title: "Attention", url: "u", undo: "/guide/undo/1"))])
+    }
+
+    @Test func undoPostsToTheRoute() async throws {
+        let (s, c) = try serve(["/guide/undo/1": (200, "application/json", "{}")])
+        defer { s.stop() }
+        #expect(await c.post("/guide/undo/1"))
+        #expect(!(await c.post("/guide/undo/2")))   // 404
+    }
+
+    @Test func undoGoesOnlyToTheServer() {
+        let base = URL(string: "http://127.0.0.1:5001/")!
+        #expect(GuideClient.route("/guide/undo/1", base: base)?.absoluteString == "http://127.0.0.1:5001/guide/undo/1")
+        #expect(GuideClient.route("https://evil.example/x", base: base) == nil)
+        #expect(GuideClient.route("//evil.example/x", base: base) == nil)
+        #expect(GuideClient.route("/a/../../x", base: base) == nil)
+        #expect(GuideClient.route("guide/undo", base: base) == nil)
+    }
+
     @Test func aRefusalGivesItsStatusAndText() async throws {
         let (s, c) = try serve(["/guide/ask": (400, "text/plain", "Say or type what you do not understand.")])
         defer { s.stop() }

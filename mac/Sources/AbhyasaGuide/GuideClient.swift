@@ -33,14 +33,17 @@ public final class GuideClient: Sendable {
                         for try await b in bytes { if text.count < 400 { text.append(b) } }
                         throw Failure.status(code, String(decoding: text, as: UTF8.self))
                     }
-                    var p = SSEParser(), line = Data()
+                    var p = SSEParser(), line = Data(), ended = false
                     for try await b in bytes {
                         line.append(b)
                         guard b == 0x0A else { continue }
                         for d in p.feed(line) {
                             guard let e = GuideEvent.parse(d) else { continue }
+                            if case .error = e.kind { c.yield(e); c.finish(); return }
+                            // after the board, only a saved event can come: what the guide put in the vault, with its Undo
+                            if ended { if case .saved = e.kind { c.yield(e) }; continue }
                             c.yield(e)
-                            if e.isLast { c.finish(); return }
+                            ended = e.isLast
                         }
                         line.removeAll(keepingCapacity: true)
                     }
@@ -49,6 +52,23 @@ public final class GuideClient: Sendable {
             }
             c.onTermination = { _ in t.cancel() }
         }
+    }
+
+    /// posts to `route`, a path on the server (the Undo of a saved event); true when the server says ok
+    public func post(_ route: String) async -> Bool {
+        guard let u = Self.route(route, base: base) else { return false }
+        var r = URLRequest(url: u)
+        r.httpMethod = "POST"
+        guard let (_, resp) = try? await session.data(for: r) else { return false }
+        return (200..<300).contains((resp as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+
+    /// the URL of `route` on the server, or nil when it is not a plain path there (no host, no scheme, no `..`)
+    public static func route(_ route: String, base: URL) -> URL? {
+        guard route.hasPrefix("/"), !route.hasPrefix("//"), !route.contains(".."), !route.contains("\\"),
+              let u = URL(string: route, relativeTo: base)?.absoluteURL,
+              u.scheme == base.scheme, u.host == base.host, u.port == base.port else { return nil }
+        return u
     }
 
     /// the text of one WAV clip from `/voice/stt`
