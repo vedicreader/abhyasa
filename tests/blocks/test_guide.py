@@ -222,3 +222,44 @@ def test_a_video_that_is_not_filed_gives_no_cues(mk, fake, yt):
     r = mk().post('/guide/ask', json=dict(said='Explain', ctx=dict(video=dict(id='zzz123def45'), anchors=[dict(id='title', kind='title', text='x')])))
     b = [json.loads(l[6:]) for l in r.text.splitlines() if l.startswith('data: ')][-1]['board']
     assert b['steps'][0]['strokes'] == [] and b['sources'] == []
+
+# --- stop: the page stops reading, and the model stream closes ------------------------------------------------------------
+def serve(app):
+    "Run `app` on a free port in a thread. Gives the base URL and a function that stops it."
+    import socket, threading, time, uvicorn
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    def end(): srv.should_exit = True; th.join(5)
+    return f'http://127.0.0.1:{port}', end
+
+def test_a_newer_question_does_not_wait_for_the_older_stream(mk, fake):
+    """The first question streams slowly and holds the backend lock, as `ramabana_stream` does. The page reads its first event and
+    stops. The stream closes at its next chunk, so the second question gets its board at once, not after the rest of the first."""
+    import threading, time, httpx
+    reply = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='This is the passage.'), dict(op='box', at='passage'),
+                                              dict(op='step', say='Read it again.'), dict(op='underline', at='passage')] + [dict(op='step', say='More.')] * 4)
+    backend, calls, shut = threading.Lock(), [], []
+    def stream(p, sp=''):
+        with backend:
+            slow = not calls; calls.append(p)
+            try:
+                for i in range(0, len(reply), 9):
+                    if slow: time.sleep(.4)
+                    yield reply[i:i + 9]
+            finally: shut.append(time.monotonic())
+    fake.rules['Tier: tutor'] = reply
+    fake.stream = stream
+    ctx = dict(page='/walk/x/step/1', anchors=[dict(id='passage', kind='passage', text='Some text.')])
+    base, end = serve(mk().app)
+    try:
+        with httpx.Client(base_url=base, timeout=30) as cl:
+            with cl.stream('POST', '/guide/ask', json=dict(said='first', ctx=ctx)) as r:
+                first = next(l for l in r.iter_lines() if l.startswith('data: '))
+            t0 = time.monotonic()
+            evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='second', ctx=ctx)).text.splitlines() if l.startswith('data: ')]
+            took = time.monotonic() - t0
+    finally: end()
+    assert first and 'board' in evs[-1] and len(evs[-1]['board']['steps']) == 6
+    assert took < 3 and shut and shut[0] - t0 < 2, (took, shut)   # the first stream closed soon after the page stopped reading

@@ -17,6 +17,7 @@ CAPS = ('ask', 'learning', 'sources')
 IMAGES = (b'\x89PNG\r\n\x1a\n', b'\xff\xd8\xff', b'GIF87a', b'GIF89a')
 FIGURE_BYTES = 8_000_000
 ASK_BYTES = 200_000
+POLL = .25        # the seconds between two looks at whether the page still reads the board
 WARM_EVERY = 30.   # the least seconds between two warm calls of the guide backend
 WITHHELD = 'The guide did not send this, because your privacy setting withholds it. Change it in Settings.'   # the guard refused: personal data and `cli.pii` refuse
 NO_QUERY = 'The tutor did not search, because the name of this idea holds a key or personal data. Paste a link.'   # `safe_query` refused the web query
@@ -68,18 +69,23 @@ def connect(app, ctx):
         if ctx_.get('video'):   # the cues come from the vault, never from the page
             if (v := await asyncio.to_thread(video_of, lr, ctx_.video['id'])): ctx_.video = v
             else: ctx_.pop('video')
-        q = queue.Queue()
+        q, stop = queue.Queue(), threading.Event()   # `stop`: the page stopped reading, so the model stream closes and lets go of its backend
         def run():
-            try: q.put(dict(board=explain(ask, ctx_, said, sources=sources, note=lambda t: q.put(dict(wait=t)), lr=lr,
+            try: q.put(dict(board=explain(ask, ctx_, said, sources=sources, note=lambda t: q.put(dict(wait=t)), lr=lr, stop=stop,
                                           on_step=lambda s, k: q.put(dict(step=s, k=k, tier='tutor')))))
             except Withheld: q.put(dict(error=WITHHELD))
             except Exception as e: log.warning('guide: %r', e); q.put(dict(error='The tutor could not answer. Try again.'))
         threading.Thread(target=run, daemon=True).start()
         async def gen():
-            while True:
-                m = await asyncio.to_thread(q.get)
-                yield f'data: {json.dumps(m)}\n\n'
-                if 'wait' not in m and 'step' not in m: break
+            try:
+                while True:
+                    try: m = await asyncio.to_thread(q.get, True, POLL)
+                    except queue.Empty:
+                        if await req.is_disconnected(): return   # a newer question, Stop, or a closed tab
+                        continue
+                    yield f'data: {json.dumps(m)}\n\n'
+                    if 'wait' not in m and 'step' not in m: break
+            finally: stop.set()
         return StreamingResponse(gen(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
     def video_part(c, msg=''):

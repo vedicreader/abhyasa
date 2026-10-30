@@ -37,6 +37,7 @@
 //   finish(board) -> bool   the whole checked board for the streaming board that shows now: it adds the steps that are not
 //                        there yet, takes the tier, sources and end of `board`, and stops the wait for steps. False when no
 //                        streaming board shows, or when its steps are not the first steps of `board` (then play `board`).
+//                        An `end` of '' shows no end line: the stream ended with no whole board.
 //   stop()  note(text)  next()  back()  again()  seekVideo(t)  boxOf(at)  normTex(tex)
 //   state    {i, steps, tier, first, done, streaming} or null. `done` is true when each mark of the step shows in full.
 //   pointer  {tip, to, flying} in window pixels, or null: where the tip of the pointer is, and the point that it flies to.
@@ -438,7 +439,7 @@
       parts.push(q);
     }
     if (st.video) parts.push(st.video);
-    if (st.i === b.steps.length - 1 && !st.streaming) {
+    if (st.i === b.steps.length - 1 && !st.streaming && b.end !== '') {   // an end of '' shows no end line
       const end = el('p', 'board-end', b.end || "In the tutor's own words. No source found.");
       (b.sources || []).filter(x => x.quoted).forEach(x => end.append(' ', link(x)));
       parts.push(end);
@@ -535,7 +536,7 @@
     if (!st || !st.streaming || !step || typeof step.say !== 'string' || !Array.isArray(step.strokes)) return false;
     const k = st.board.steps.length;
     st.board.steps.push(step); st.marks.push(...marksOf(step, k));
-    if (st.fast || (st.wait && st.i === k - 1)) show(k); else caption();
+    if ((st.fast || st.wait) && st.i === k - 1) show(k); else caption();
     return true;
   }
   function finish(board) {   // see the API at the top of this file

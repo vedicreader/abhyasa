@@ -295,7 +295,8 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     close();
     const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0}, n = ++asks;
     const opts = () => ({labels, quiet: !!window.abhyasaGuideQuiet}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
-    let labels = {}, live = null;   // live: the promise of the streaming board, with each add after it
+    let labels = {}, live = null, whole = false;   // live: the promise of the streaming board, with each add after it
+    const got = [];   // the steps that came, for a stream that ends with no board event
     say('The tutor reads the page.');
     try {
       const ctx = await capture();
@@ -319,11 +320,13 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
           if (n !== asks) return rd.cancel();
           if (m.wait) say(m.wait);
           if (m.error) say(m.error);
+          if (m.step) got.push(m.step);
           if (m.step && !live) {
             last.step_ms = Math.round(performance.now() - t0); mark();
             live = abhyasaBoard.play({steps: [m.step], tier: m.tier || 'tutor', sources: [], streaming: true}, opts());
           } else if (m.step) live = live.then(() => n === asks && abhyasaBoard.add(m.step));
           if (m.board) {
+            whole = true;
             last.board_ms = Math.round(performance.now() - t0); last.server_ms = m.board.ms; last.tier = m.board.tier;
             if (!live) { mark(); await abhyasaBoard.play(m.board, opts()); }
             else {
@@ -333,6 +336,10 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
             }
           }
         }
+      }
+      if (live && !whole && n === asks) {   // the stream ended after steps, with no board: end the board with the steps that came
+        await live;
+        if (n === asks && abhyasaBoard.state && abhyasaBoard.state.streaming) abhyasaBoard.finish({steps: got, tier: 'tutor', sources: [], end: ''});
       }
     } catch (e) { say('The tutor could not answer. Make sure that abhyasa runs, then try again.'); }
   }

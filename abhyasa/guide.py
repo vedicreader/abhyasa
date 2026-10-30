@@ -441,7 +441,7 @@ def video_cues(cues) -> list:
 def find_explainer(name:str, topic:str='', search=None, n:int=5) -> AttrDict|None:
     "The first video that fossick's `search_yt` finds for the idea `name`, as `id`, `title`, `channel` and `url`; None when there is none."
     if search is None: from fossick import search_yt as search
-    q = safe_query(' '.join(f'{name} {topic} explained'.split())[:150])
+    q = safe_query(' '.join(f'{name} {topic} explained'.split()))[:150]   # the whole query passes the guard, then it is cut: a cut key is still a key
     for h in search(q, n) or ():
         vid, d = str(h.get('id') or ''), h.get('duration')
         if not _VID.fullmatch(vid) or (_num(d) and not 60 <= d <= 3600): continue
@@ -526,7 +526,7 @@ def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None) -> list:
     from abhyasa import research as R
     search, fetch = search or R.web_search, fetch or R.web_fetch
     topic = ctx.get('concept') or ctx.get('step') or ''
-    try: q = safe_query(' '.join(f'{said} {topic}'.split())[:200])
+    try: q = safe_query(' '.join(f'{said} {topic}'.split()))[:200]   # the guard reads the whole query, then it is cut
     except Withheld: return []
     try: hits = R.candidates(search(q, 6), 6)
     except Exception: return []
@@ -545,10 +545,11 @@ def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None) -> list:
     return []
 
 # %% ../nbs/21_guide.ipynb #g076
-def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=None, note=None, lr=None, on_step=None) -> AttrDict:
+def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=None, note=None, lr=None, on_step=None, stop=None) -> AttrDict:
     """The board for `said` on the page `ctx`: from the tutor when it is sure, else from your `sources` (the vault), else from the
     web when `web` (default: the setting `research.on`). `note(text)` hears what the guide does while it waits. With a model that
-    can stream, `on_step(step, k)` gets each step of a sure tutor board as soon as it is whole (`stream_board`)."""
+    can stream, `on_step(step, k)` gets each step of a sure tutor board as soon as it is whole (`stream_board`). When the
+    `threading.Event` `stop` is set, the stream closes and no next tier starts."""
     from abhyasa.settings import val
     from abhyasa.ground import ground, label
     from ramabana.agent import mask_secrets
@@ -557,10 +558,10 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     said, ask = ' '.join(str(said or '').split())[:300], guide_ask(ask)   # each model call guards its prompt for its own route
     def board(tier, srcs, on_step=None):
         c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier), prompt('guide.board')
-        return stream_board(ask.stream(p, sp), c, on_step) if on_step and hasattr(ask, 'stream') else parse_board(ask(p, sp), c)
+        return stream_board(ask.stream(p, sp), c, on_step, stop=stop) if on_step and hasattr(ask, 'stream') else parse_board(ask(p, sp), c)
     page = _page_sources(ctx)
     b = board('tutor', page, on_step)
-    if b.steps and (b.sure or 0) >= SURE: return _done('tutor', b, page, t0)
+    if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('tutor', b, page, t0)
     best = (b, 'tutor', page)
     note('The tutor looks in your vault.')
     ps = ground(mask_secrets(f"{said} {ctx.get('concept') or ctx.get('step') or ''}"), list(sources), k=3) if sources else []   # a search of the vault on this Mac
@@ -579,8 +580,9 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     return _done(tier if b.steps and (b.sure or 0) >= SURE else 'tutor', b, srcs if tier == 'tutor' else page, t0)
 
 # %% ../nbs/21_guide.ipynb #gs02
-def stream_board(chunks, ctx, on_step=None, sure:float=SURE) -> AttrDict:
-    "`parse_board` of the reply that comes in `chunks`. When the header says `sure` or more, `on_step(step, k)` gets each step when it is whole."
+def stream_board(chunks, ctx, on_step=None, sure:float=SURE, stop=None) -> AttrDict:
+    """`parse_board` of the reply that comes in `chunks`. When the header says `sure` or more, `on_step(step, k)` gets each step when it is whole.
+    When the `threading.Event` `stop` is set, it reads no more chunks and closes the stream, so the model call ends and lets go of its backend."""
     text, sent, seen = '', 0, -1
     def send(b, whole):
         nonlocal sent
@@ -589,6 +591,7 @@ def stream_board(chunks, ctx, on_step=None, sure:float=SURE) -> AttrDict:
     it = iter(chunks)
     try:
         for c in it:
+            if stop is not None and stop.is_set(): break
             text += c
             if on_step and (n := text.rfind('\n')) > seen: seen = n; send(parse_board(text[:n], ctx), False)
     except Exception:
@@ -597,5 +600,5 @@ def stream_board(chunks, ctx, on_step=None, sure:float=SURE) -> AttrDict:
     finally:
         if hasattr(it, 'close'): it.close()
     b = parse_board(text, ctx)
-    send(b, True)
+    if stop is None or not stop.is_set(): send(b, True)
     return b
