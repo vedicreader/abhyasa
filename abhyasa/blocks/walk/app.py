@@ -420,7 +420,7 @@ def connect(app, ctx):
         leela_back(lr, j)   # a step that Leela checked is done, so the walk goes on from the next one
         st = walk_state(j := lr.journey(jid))
         if j.get('started') and st.current is not None: return go(jid, st.current)
-        h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j), vault=vault)
+        h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j, quiet=True), vault=vault)   # Start is the main button; Present is quiet
         band = ui.GatherBand(j, gathering(jid), halted(jid)) if j.get('gather_at') else ''
         return Page(j.title, h1, ui.Filed(j), band, *rest, on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
 

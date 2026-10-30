@@ -68,7 +68,7 @@ def Plan(j, st, by):
                        Ul(*[PlanIdea(j['id'], i, j['steps'][i], by, ways) for i in ix])))
     n = len(j.get('more') or ())
     return Div(Span(f"The walk · {n_of(len(st.sections), 'section')} · {n_of(len(j['steps']), 'idea')} · about {mins} min", cls='lbl'),
-               P('Each idea has one check. The tutor picks the check from the idea and from the ways that work for you. You can change any check.', cls='mute'),
+               P('Each idea has one check. You can change any check.', cls='mute'),
                P(f"The tutor picked the main ideas. The source has {n} more {'idea' if n == 1 else 'ideas'}. They are in your concepts. "
                  'When a step needs one of them, you can learn it beside the walk.', cls='mute') if n else '',
                Ol(*secs, cls='plan') if secs else P('The tutor found no ideas in this source.', cls='mute'), id='plan')

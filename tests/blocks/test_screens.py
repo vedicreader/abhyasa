@@ -105,3 +105,12 @@ def test_profile_folds_learn_about_me_now(mk, lr):
     s = soup(mk().get('/you').text)
     d = s.select_one('details.observe')
     assert d.summary.get_text() == 'Learn about me now' and not d.has_attr('open') and d.select_one('button[hx-post="/you/observe"]')
+
+# The plan of a walk before it starts: Start the walk is the one button; Present this walk is quiet and still makes the talk.
+
+def test_walk_plan_has_one_main(mk, talk_fake, lr):
+    cl = mk(); jid = walk(cl, lr)
+    s = soup(cl.get(f'/w/{jid}').text)
+    assert [b.get_text(' ').split()[:3] for b in s.select('main .go')] == [['Start', 'the', 'walk']]
+    p = next(b for b in s.select('main button') if b.get_text().strip() == 'Present this walk')
+    assert 'quiet' in p['class'] and p.find_parent('form')['hx-post'] == '/talk/new'
