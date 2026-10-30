@@ -840,7 +840,7 @@ def test_a_board_on_an_open_check_counts_as_one_hint(mk, walk_fake, lr):
     evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='I do not get the check', ctx=ctx)).text.splitlines() if l.startswith('data: ')]
     assert evs[-1]['board']['hint'] == 'Hint 2 of 6 used (from the board).'
     card = cl.get(f'/w/{jid}/1/check').text
-    assert 'Hint 2 (from the board)' in card and 'The check asks about the place of an item.' in card
+    assert 'Hint 2 of 6 (from the board)' in card and 'The check asks about the place of an item.' in card
     ctx['anchors'] = [dict(id='passage', kind='passage', text='Ranks.')]   # a board that does not show the check is not a hint
     evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='I do not get ranks', ctx=ctx)).text.splitlines() if l.startswith('data: ')]
     assert 'hint' not in evs[-1]['board']
