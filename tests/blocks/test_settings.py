@@ -227,7 +227,7 @@ def palettes():
     return out
 
 def test_theme_contrast():
-    "Each text colour of each theme has a contrast of 4.5:1 or more on its bg, in light and in dark. acc is also the bg of the main button."
+    "The look is the feature: text must be readable, so each text colour of each theme has a contrast of 4.5:1 or more on its bg, in light and in dark. acc is also the bg of the main button."
     low = []
     for t, p in palettes().items():
         assert set(p) >= {'bg', 'fg', 'ink2', 'mute', 'line', 'acc', 'ok', 'no', 'bad'}, t
