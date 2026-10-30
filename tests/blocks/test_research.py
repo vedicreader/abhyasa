@@ -53,7 +53,7 @@ def test_a_topic_walk_finds_a_web_source(mk, web, lr):
     "The walk opens at once. On the pool, research reads the good page only, files it in the vault, and the step shows it with its links."
     cl = mk(); jid = topic(cl)
     until(lambda: state(lr, jid) == 'found')
-    assert web.read == [URL] and web.asked == ['Softmax']   # the local result is never read
+    assert web.read == [URL] and web.asked == ['Softmax machine learning']   # the local result is never read
     r = lr.journey(jid).steps[0]['read']
     assert r['text'] == QUOTE and r['site'] == 'example.org' and lr.vault.doc(r['doc_id'])['source'] == URL
     assert any(p.get('doc_id') == r['doc_id'] for p in lr.concept('softmax').provenance)   # linked to the concept
@@ -115,6 +115,14 @@ def test_pending_from_before_a_restart_is_looked_for_at_start(mk, web, lr):
                               steps=[dict(slug='softmax', status='todo', why='', research='pending', research_at=time.time() - 60)])).id
     mk()
     until(lambda: state(lr, jid) == 'found')
+
+def test_start_scans_for_pending_steps_on_the_research_pool(mk, lr, monkeypatch):
+    "The app start does not read every walk: the scan for pending steps runs on the research pool."
+    seen, journeys = [], lr.journeys
+    monkeypatch.setattr(lr, 'journeys', lambda: seen.append(threading.current_thread().name) or journeys())
+    mk()
+    until(lambda: seen)
+    assert seen and all(n.startswith('research') for n in seen), seen
 
 def test_research_off_means_no_search(mk, web, lr):
     "With research off, a topic walk does no web search, the step keeps the tutor's words, and Find a source does not show or search."
