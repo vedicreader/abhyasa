@@ -247,7 +247,7 @@ def ModelsGroup(n):
 
 def registry() -> dict:
     "The editable prompts. Each engine module adds its own when it loads."
-    import abhyasa.tutor, abhyasa.demo, abhyasa.nb, abhyasa.voice, abhyasa.journey, abhyasa.walk, abhyasa.profile, abhyasa.method, abhyasa.sources, abhyasa.talk
+    import abhyasa.tutor, abhyasa.demo, abhyasa.nb, abhyasa.voice, abhyasa.journey, abhyasa.walk, abhyasa.profile, abhyasa.method, abhyasa.sources, abhyasa.talk, abhyasa.edit
     from abhyasa.prompts import PROMPTS
     return PROMPTS
 
