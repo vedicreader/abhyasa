@@ -63,3 +63,16 @@ h3.sub { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-tr
 /* where the text of a task goes: on this Mac is quiet, a hosted model has a thin accent outline */
 .srow .mrow .where { font-size: var(--t-meta); color: var(--mute); white-space: nowrap; }
 .srow .mrow .where.hosted { color: var(--fg); border: 1px solid var(--acc); border-radius: var(--r-s); padding: 0 var(--s1); }
+/* the speaking voice: the engines as a quiet list, then one line each for the model, the voice and the sample */
+.out-engines { display: grid; gap: var(--s2); margin: 0 0 var(--s3); }
+.out-engines label { display: flex; gap: var(--s2); align-items: baseline; cursor: pointer; }
+.out-engines label:has(input:disabled) { cursor: default; opacity: .7; }
+.out-engines .where, .out-line .where { font-size: var(--t-meta); color: var(--mute); white-space: nowrap; }
+.out-engines .where.hosted { color: var(--fg); border: 1px solid var(--acc); border-radius: var(--r-s); padding: 0 var(--s1); }
+.out-line { margin: 0 0 var(--s2); font-size: var(--t-small); }
+#voice-out { margin-bottom: var(--s3); }
+#voice-out label { font: var(--t-body)/1.45 var(--serif); letter-spacing: 0; text-transform: none; color: var(--fg); margin: 0; }
+#voice-out .out-engines small { font-size: var(--t-small); }
+#voice-out .out-line label { display: inline-flex; gap: var(--s2); align-items: baseline; font-size: var(--t-small); }
+#voice-out select { width: auto; max-width: 300px; font-size: var(--t-list); }
+#voice-out input[type=text] { width: auto; min-width: 220px; font-size: var(--t-small); }

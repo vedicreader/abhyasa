@@ -21,6 +21,7 @@ def voice_out(monkeypatch):
     loads = []
     monkeypatch.setattr(V, '_tts_load', lambda m: loads.append(m) or FakeKokoro())
     monkeypatch.setattr(V, 'spacy_ready', lambda: None)
+    monkeypatch.setattr(V, 'cached', lambda m: m != 'mlx-community/not-here')
     def use(engine, **kw): update_settings('voice', out=engine, **kw)
     use.loads = loads
     yield use
@@ -50,6 +51,11 @@ def test_bad_requests(mk, voice_out):
     cl = mk(['guide'])
     assert cl.post('/guide/say', json=dict(text='  ')).status_code == 400
     assert cl.post('/guide/say', content=b'not json').status_code == 400
+
+def test_a_model_that_is_not_here_is_not_downloaded_for_a_line(mk, voice_out):
+    voice_out('hf', out_model='mlx-community/not-here')
+    r = mk(['guide']).post('/guide/say', json=dict(text='Hello.'))
+    assert r.status_code == 400 and 'not on this Mac' in r.json()['error'] and voice_out.loads == []
 
 def test_warm_loads_the_voice(mk, voice_out):
     "The guide warms, and the voice of the settings loads on the voice worker, with no line from the page."

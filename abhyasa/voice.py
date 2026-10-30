@@ -329,7 +329,8 @@ SPACY_EN = 'en_core_web_sm'
 
 def spacy_ready():
     "Make the small English spaCy model importable: from its Hugging Face repo, unpacked one time into `cfg_dir()/'site'`."
-    import sys, zipfile, importlib, spacy
+    import sys, zipfile, importlib, warnings, spacy
+    warnings.filterwarnings('ignore', message=r'\[W095\]')   # the repo has model 3.7: spaCy 3.8 reads it well, so the warning is noise
     if spacy.util.is_package(SPACY_EN): return
     d = cfg_dir()/'site'
     if not (d/SPACY_EN).is_dir():
@@ -401,9 +402,14 @@ def speak(text:str, engine:str=None, model:str=None, voice:str=None, speed:float
 # %% ../nbs/05_voice.ipynb #40225f2f
 class Speaker:
     "One worker thread for the speaking voice, and the lines that it said in this run."
-    def __init__(self, fn=None, most:int=64):
+    def __init__(self, fn=None, most:int=64, here=None):
         self.fn, self.most, self.lines, self.status, self.warmed = fn or speak, most, {}, 'not loaded', None
+        self.here = here or (lambda m: cached(m))   # a model that is not on this Mac is not downloaded here: the Settings page gets it
         self.ex, self.lock = ThreadPoolExecutor(1, thread_name_prefix='voice'), threading.Lock()
+
+    def ready(self, engine:str, model:str):
+        "Raise when the model of an mlx engine is not on this Mac yet."
+        if engine in ('kokoro', 'hf') and not self.here(model): raise ValueError(f'The voice model {model} is not on this Mac. Download it on the Settings page.')
 
     def key(self, text:str, engine:str=None, model:str=None, voice:str=None, speed:float=None) -> tuple:
         "The key of a line: `(engine, model, voice, speed, text)`, with the settings for what is not given."
@@ -416,6 +422,7 @@ class Speaker:
         k = self.key(text, **kw)
         if k[0] == 'browser': raise ValueError('The browser speaks with its own voice. There is no audio here.')
         if not k[4]: raise ValueError('There is no text to say.')
+        self.ready(*k[:2])
         with self.lock:
             hit = k in self.lines
             f = self.lines.pop(k) if hit else self.ex.submit(self.fn, k[4], *k[:4])
@@ -431,7 +438,7 @@ class Speaker:
         "Load the voice in use on the worker with one short line; None when there is nothing to load."
         e, m, v, s = out_current()
         if e in ('browser', 'openai'): self.status = 'ready'; return None
-        if self.warmed == (e, m) and self.status != 'loading': return None
+        if self.warmed == (e, m) and self.status != 'loading' or not self.here(m): return None
         self.status, self.warmed = 'loading', (e, m)
         def go():
             try: self.fn('Ready.', e, m, v, s); self.status = 'ready'
