@@ -194,8 +194,8 @@ KNOWN = [
     dict(engine='mlx', model='mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit', bench={'seg5': 2.21, 'wer_a': 0.057, 'wer_b': 0.064, 'terms': 7, 'mem': 5.5}, label='Voxtral Mini 4B Realtime (4 bit)', note='made for live speech'),
     dict(engine='mlx', model='UsefulSensors/moonshine-base', bench={'seg5': 0.07, 'wer_a': 1.0, 'wer_b': 0.085, 'terms': 6, 'mem': 0.8}, label='Moonshine base', note='small; English only; short segments only'),
     dict(engine='mlx', model='Mediform/canary-1b-v2-mlx-q8', bench={'seg5': 0.08, 'wer_a': 0.057, 'wer_b': 0.043, 'terms': 8, 'mem': 1.4}, label='Canary 1B v2 (8 bit)', note='European languages'),
-    dict(engine='openai', model=DFLT_OPENAI, label='OpenAI gpt-4o-mini-transcribe', note='sends audio off this machine; needs a key'),
-    dict(engine='openai', model='gpt-4o-transcribe', label='OpenAI gpt-4o-transcribe', note='sends audio off this machine; needs a key'),
+    dict(engine='openai', model=DFLT_OPENAI, label='OpenAI gpt-4o-mini-transcribe', note='sends your audio off this Mac; needs a key'),
+    dict(engine='openai', model='gpt-4o-transcribe', label='OpenAI gpt-4o-transcribe', note='sends your audio off this Mac; needs a key'),
 ]
 
 def cached(model:str) -> bool:

@@ -22,7 +22,7 @@ GROUPS = dict(look=('Look', 'Pick the colours of the app.'),
               checks=('Checks and grading', 'Set how many tries you get and how the tutor grades an answer.'),
               review=('Review', 'Set when an idea comes back for review.'),
               links=('Links', 'Set how much of a link the tutor reads.'),
-              research=('Research', 'Set how the tutor finds a source on the web for a step that has none.'),
+              research=('Research', 'Set how the tutor finds a source on the web for an idea that has none.'),
               runner=('Code runner', 'Set the limits for the code that you run in a check.'),
               stt=('Speech to text', 'Pick the model that writes down what you say.'),
               voice=('Speaking voice', 'Pick the voice that reads the steps of the screen guide aloud.'),
@@ -54,21 +54,21 @@ add('learning.explore', 'learning', 'How often to try a new way', 'How often the
     choices=('never', 'sometimes', 'often'), store='profile');
 
 # %% ../nbs/16_settings.ipynb #da3e7fb7
-add('walks.steps', 'walks', 'Ideas in a walk', 'The most ideas in one walk. With more ideas, the walk is longer. The tutor keeps the other ideas in your concepts.', 12, 3, 30)
-add('walks.hands', 'walks', 'Hands-on share', 'How many checks in a walk are a demo, an order or code. The others are short answers.', 1/3, 0., 1., pct=True)
+add('walks.steps', 'walks', 'Ideas in a walk', 'The most ideas in one walk. The tutor keeps the other ideas in your concepts.', 12, 3, 30)
+add('walks.hands', 'walks', 'Hands-on share', 'The share of checks in a walk that are a demo, an order or code. The others are short answers.', 1/3, 0., 1., pct=True)
 add('walks.chain', 'walks', 'Ideas in a side walk', 'The most ideas in a side walk beside the paper.', 4, 2, 8)
-add('walks.passage', 'walks', 'Passage length', 'The most characters of the source that show for each idea.', 600, 200, 2000, more=True, unit='characters')
+add('walks.passage', 'walks', 'Passage length', 'The most characters of the source for each idea.', 600, 200, 2000, more=True, unit='characters')
 add('walks.note', 'walks', 'Note length', 'The most words in the tutor note under the passage.', 60, 20, 120, more=True, unit='words')
-add('walks.depth', 'walks', 'Rabbit-hole depth', 'How many side walks you can open one inside the other. A deeper idea opens as its own session.', 2, 1, 4, more=True)
-add('walks.fresh', 'walks', 'Time for "Back on the paper"', 'How long the "Back on the paper" line shows after you come back from a side walk.', 10, 1, 60, more=True, unit='min')
-add('walks.demo_wait', 'walks', 'Wait for a demo', 'How long a step waits for its demo. Then the check is a short answer.', 90, 30, 300, more=True, unit='s');
+add('walks.depth', 'walks', 'Side walk depth', 'How many side walks you can open, one inside the other. A deeper idea opens as its own session.', 2, 1, 4, more=True)
+add('walks.fresh', 'walks', 'Time for "Back on the paper"', 'How long the "Back on the paper" line shows after a side walk.', 10, 1, 60, more=True, unit='min')
+add('walks.demo_wait', 'walks', 'Wait for a demo', 'How long an idea waits for its demo. Then the check is a short answer.', 90, 30, 300, more=True, unit='s');
 
 # %% ../nbs/16_settings.ipynb #7a1c2e91
-add('talks.choice', 'talks', 'Choice questions from short checks', 'A new talk turns each short check into a choice question with 4 options. When this is off, the question asks for a short answer.', True)
+add('talks.choice', 'talks', 'Choice questions from short checks', 'A new talk makes each short check a question with 4 options. When this is off, the question asks for a short answer.', True)
 add('talks.ask_min', 'talks', 'Minutes for each question', 'The minutes that a question adds to its slide in the time of a talk.', 1, 0, 5, unit='min')
 add('talks.pair_min', 'talks', 'Time to talk to a neighbour', 'How long the room talks in pairs before a second vote.', 2, 1, 10, unit='min')
-add('talks.weak', 'talks', 'Unsure below', 'A slide is unsure when the share of right answers is below this value. The recap lists the unsure slides.', .7, .3, .95, more=True, pct=True)
-add('talks.split_lo', 'talks', 'A split vote starts at', 'A vote with a share of right answers from this value to the end value is split. Then the room talks in pairs.', .3, 0., 1., more=True, pct=True)
+add('talks.weak', 'talks', 'Unsure below', 'A slide is unsure below this share of right answers. The recap lists the unsure slides.', .7, .3, .95, more=True, pct=True)
+add('talks.split_lo', 'talks', 'A split vote starts at', 'A vote is split from this share of right answers to the end value. Then the room talks in pairs.', .3, 0., 1., more=True, pct=True)
 add('talks.split_hi', 'talks', 'A split vote ends at', 'The top of a split vote. Above it, most of the room knows the answer.', .7, 0., 1., more=True, pct=True)
 add('talks.laser_ms', 'talks', 'Laser fade', 'How long the laser dot stays on the audience screen after the pointer stops.', 1500, 500, 5000, more=True, unit='ms')
 add('talks.image_mb', 'talks', 'Largest figure for the room', 'A figure larger than this does not go to the room.', 5, 1, 20, more=True, unit='MB')
@@ -80,16 +80,16 @@ add('talks.nets', 'talks', 'Places you opened a room', 'The Wi-Fi places where y
 
 # %% ../nbs/16_settings.ipynb #43f21485
 add('checks.tries', 'checks', 'Tries', 'How many answers you can give before the tutor teaches the idea.', 3, 1, 5)
-add('checks.sources', 'checks', 'Use my sources', 'The tutor uses what you read and wrote to make its questions.', True)
-add('checks.one_ask', 'checks', 'One ask per question', 'When a question asks two things, the tutor writes it again with one ask.', True)
+add('checks.sources', 'checks', 'Use my sources', 'The tutor makes its questions from what you read and wrote.', True)
+add('checks.one_ask', 'checks', 'One ask per question', 'When a question asks two things, the tutor writes it again with one ask.', True, more=True)
 add('checks.near', 'checks', 'Shaky pass', 'A grade at or above this number is solid. A pass below it is shaky, and it comes back sooner.', 7, 5, 9, more=True)
 add('checks.goal', 'checks', 'Learned depth', 'The depth at which an idea counts as learned. 2 is recall, 3 is explain, 4 is apply and 5 is transfer.', 4, 2, 5, more=True)
-add('checks.high', 'checks', 'Sure confidence', 'At or above this confidence, you count as sure. A sure answer that is wrong counts as a misconception.', 60, 40, 90, more=True, unit='%')
+add('checks.high', 'checks', 'Sure confidence', 'At or above this confidence, you are sure. A sure answer that is wrong counts as a misconception.', 60, 40, 90, more=True, unit='%')
 add('checks.hints', 'checks', 'Hints before a pass is shaky', 'With this many hints, a right answer counts as shaky.', 2, 1, 4, more=True)
 add('checks.demo_misses', 'checks', 'Misses before a demo', 'After this many misses on an idea, the tutor makes a demo for it.', 2, 1, 5, more=True)
-add('checks.demo_ladder', 'checks', 'More help after a demo', 'When you miss an idea after its demo, the tutor teaches it in another way. After the next miss, it shows a simpler demo.', True)
+add('checks.demo_ladder', 'checks', 'More help after a demo', 'After a miss on a demo, the tutor teaches the idea in another way. After the next miss, it shows a simpler demo.', True, more=True)
 add('checks.retest', 'checks', 'Retest a miss after', 'The tutor asks a missed idea again after this many other questions in the session.', 2, 1, 6, more=True, unit='questions')
-add('checks.feedback_row', 'checks', 'Feedback under a demo or a lesson', 'Show a short row under each demo and each lesson: Too simple, Just right or Not clear. The tutor uses what you choose for the next demo or lesson.', True)
+add('checks.feedback_row', 'checks', 'Feedback under a demo or a lesson', 'A short row under each demo and lesson: Too simple, Just right or Not clear. The tutor uses your choice for the next demo or lesson.', True)
 add('checks.open_days', 'checks', 'Keep an open check for', 'An open check with no answer for this many days closes. It gets no grade.', 7, 1, 60, more=True, unit='days');
 
 # %% ../nbs/16_settings.ipynb #63876a2f
@@ -104,22 +104,22 @@ add('links.pages', 'links', 'Pages read by default', 'How many pages of a link t
 add('links.cap', 'links', 'Page cap', 'The most pages that the tutor reads from one link.', 20, 1, 50, more=True)
 add('links.timeout', 'links', 'Time for each fetch', 'How long the tutor waits for one page. Then it stops.', 30, 5, 120, more=True, unit='s')
 add('links.speed', 'links', 'Download speed cap', 'The fastest speed at which abhyasa gets a page.', 1., .1, 10., more=True, unit='MB/s')
-add('links.kept', 'links', 'Characters kept for each page', 'The most characters of one page that the vault keeps.', 400_000, 10_000, 1_000_000, more=True)
-add('links.read', 'links', 'Characters read for each page', 'The most characters of one page that the tutor reads to find ideas.', 100_000, 10_000, 1_000_000, more=True);
+add('links.kept', 'links', 'Characters kept for each page', 'The most characters of one page that your vault keeps.', 400_000, 10_000, 1_000_000, more=True)
+add('links.read', 'links', 'Characters read for each page', 'The most characters of one page that the tutor reads for ideas.', 100_000, 10_000, 1_000_000, more=True);
 
 # %% ../nbs/16_settings.ipynb #rs02
-add('research.on', 'research', 'Find sources on the web', 'For a step with no source, the tutor searches the web and quotes a page. The search sees your topic.', True)
-add('research.per_walk', 'research', 'Steps to research in a walk', 'The most steps of one new walk that the tutor finds a source for. 0 means none.', 12, 0, 30)
-add('research.results', 'research', 'Search results to read', 'How many search results the tutor looks at for one step. It reads the best 3 pages.', 5, 3, 10, more=True)
-add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk from a walk with no source waits for web sources. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s')
-add('research.retry', 'research', 'Look again after', 'A step that waits longer than this for a web source is looked for again. A restart can stop a search.', 10, 1, 120, more=True, unit='min')
-add('research.agent', 'research', 'Let an agent gather sources for a big goal', 'For a goal that names two or more sources or a big folder, an agent reads your sources and the web and gives a passage for each idea. abhyasa checks each passage word for word.', True)
+add('research.on', 'research', 'Find sources on the web', 'For an idea with no source, the tutor searches the web and quotes a page. The search engine gets your topic.', True)
+add('research.per_walk', 'research', 'Ideas to research in a walk', 'The most ideas of one new walk that get a web source. 0 means none.', 12, 0, 30)
+add('research.results', 'research', 'Search results to read', 'How many search results the tutor looks at for one idea. It reads the best 3 pages.', 5, 3, 10, more=True)
+add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk waits for web sources when its walk has none. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s')
+add('research.retry', 'research', 'Look again after', 'An idea that waits longer than this for a web source gets a new search. A restart can stop a search.', 10, 1, 120, more=True, unit='min')
+add('research.agent', 'research', 'Let an agent gather sources for a big goal', 'An agent reads your sources and the web, and gives a passage for each idea. It works for a goal that names two or more sources or a big folder. abhyasa checks each passage word for word.', True)
 add('research.agent_minutes', 'research', 'Most minutes for the agent', 'The agent stops after this time. You can also stop it.', 15, 1, 60, more=True, unit='min')
 add('research.told', 'research', 'Web search line shown', 'The Start box said one time that a topic walk searches the web.', False, ui=False);
-add('sources.roots', 'research', 'Source folders', 'The folders where abhyasa looks for a source that you name. It looks two levels down. It never searches the whole disk.', '~/code/personal/orgs');
+add('sources.roots', 'research', 'Source folders', 'Where abhyasa looks for a source that you name. It looks two levels down. It never searches the whole disk.', '~/code/personal/orgs');
 
 # %% ../nbs/16_settings.ipynb #4412f5ae
-add('runner.total', 'runner', 'Total time', 'How long your code can run for all the tests together. Then the run stops.', 10, 5, 60, unit='s')
+add('runner.total', 'runner', 'Total time', 'How long your code can run for all the tests together. Then the run stops.', 10, 5, 60, more=True, unit='s')
 add('runner.per_test', 'runner', 'Time for each test', 'How long one test can run. Then the test fails.', 2, 1, 10, more=True, unit='s')
 add('runner.file_mb', 'runner', 'Largest file', 'The largest file that your code can write.', 10, 1, 100, more=True, unit='MB');
 
@@ -130,7 +130,7 @@ add('stt.segment', 'stt', 'Cut at pauses', 'The text shows after each pause. Whe
 add('stt.pause', 'stt', 'Pause before a cut', 'How long a pause must be before the text of what you said shows.', 700, 300, 2000, more=True, unit='ms')
 add('stt.longest', 'stt', 'Longest segment', 'The text shows after this time, also when you do not pause.', 12, 5, 30, more=True, unit='s')
 add('guide.voice', 'guide', 'Voice', 'The guide speaks each step aloud. When this is off, the words of each step light up with no sound.', True)
-add('guide.point', 'guide', 'Point mark', 'How a point mark of the guide looks. Each look is weaker than a circle, so the part that you asked about stands out. Tick is a short pen tick. Dot is a small dot that pulses one time. Ring is a thin, small ring.', 'tick',
+add('guide.point', 'guide', 'Point mark', 'How the guide points to a part of the page. Tick is a short pen tick. Dot is a small dot that pulses one time. Ring is a thin, small ring. Each look is weaker than a circle, so the part that you asked about stands out.', 'tick',
     choices=('tick', 'dot', 'ring'));
 
 # %% ../nbs/16_settings.ipynb #37a7bc62

@@ -1,8 +1,9 @@
 "One setting row: the label and its help at the left, the control, the range and the default at the right. The Settings page and the Profile page use it."
+import re
 from fasthtml.common import *
 from abhyasa.settings import top
 
-__all__ = ['row_id', 'shown', 'say', 'parse_value', 'Choice', 'SettingRow', 'RangeLine']
+__all__ = ['row_id', 'shown', 'say', 'parse_value', 'Choice', 'SettingRow', 'RangeLine', 'help_parts', 'HelpLine']
 
 def row_id(r) -> str: return 'sr-' + r.name.replace('.', '-').replace('_', '-')
 
@@ -65,9 +66,19 @@ def _control(r, v, post):
     return Div(Button('−', type='button', cls='quiet step', data_step='-1', data_box=f'{i}-c', aria_label=f'Less: {r.label}'), box,
                Button('+', type='button', cls='quiet step', data_step='1', data_box=f'{i}-c', aria_label=f'More: {r.label}'), cls='num')
 
+def help_parts(h:str) -> tuple:
+    "The first sentence of the help `h`, and the other sentences (or '')."
+    a, *b = re.split(r'(?<=[.!?:])\s+(?=[A-Z0-9"$a-z])', h.strip(), maxsplit=1)
+    return a, ' '.join(b)
+
+def HelpLine(h:str):
+    "One help line under a label. The other sentences are under a closed `About this`."
+    a, b = help_parts(h)
+    return P(a, cls='help'), (Details(Summary('About this'), P(b), cls='about') if b else '')
+
 def SettingRow(r, v, post, reset=None, file=None, control=None, help=None):
     "One setting row. `reset` is the htmx attributes of `Use the default`, `file` a saved number that was out of range, `control` a control in place of the usual one."
     i = row_id(r)
-    return Li(Div(Span(cls='dot' + (' on' if v != r.dflt else ''), id=f'{i}-dot'), Label(r.label, fr=f'{i}-c'), P(help or r.help, cls='help'), cls='lft'),
+    return Li(Div(Span(cls='dot' + (' on' if v != r.dflt else ''), id=f'{i}-dot'), Label(r.label, fr=f'{i}-c'), *HelpLine(help or r.help), cls='lft'),
               Div(control if control is not None else _control(r, v, post), RangeLine(r, v, reset, file=file), cls='rgt'),
               cls='srow', id=i, data_find=f'{r.label} {help or r.help}'.lower())
