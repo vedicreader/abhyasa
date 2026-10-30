@@ -202,6 +202,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (e.code !== 'KeyE' || !(e.metaKey && e.altKey && e.ctrlKey && e.shiftKey)) return;
     e.preventDefault(); e.stopImmediatePropagation();   // before core.js, which would press the ⌥E button of a concept page
     if (e.repeat || held) return;
+    if (me.warm) fetch(me.warm, {method: 'POST'}).catch(() => {});   // the model starts while you talk or type; the server limits how often
     held = {timer: setTimeout(() => { if (held) { held.talking = true; talk(); } }, HOLD)};
   }, true);
   const release = e => {

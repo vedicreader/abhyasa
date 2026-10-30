@@ -122,6 +122,16 @@ def test_ask_streams_each_step_before_the_board(mk, fake):
     assert [(e['k'], e['tier']) for e in steps] == [(1, 'tutor'), (2, 'tutor')] and [e['step'] for e in steps] == b['steps']
     assert b['steps'][1]['strokes'] == [dict(op='underline', at='passage')]
 
+def test_warm_starts_the_guide_job_at_most_once_in_a_while(mk, monkeypatch):
+    "Hyper+E posts to the warm route. The route starts the backend of the guide job only, and a second post soon after does nothing."
+    from abhyasa.llm import Router
+    seen = []
+    monkeypatch.setattr(Router, 'warm', lambda self, jobs=None: seen.append(jobs), raising=False)
+    cl = mk()
+    assert [cl.post('/guide/warm').status_code for _ in range(3)] == [204] * 3
+    assert seen == [['guide']]
+    assert 'data-warm="/guide/warm"' in cl.get('/').text
+
 def test_ask_needs_words(mk):
     assert mk().post('/guide/ask', json=dict(said='  ', ctx={})).status_code == 400
 

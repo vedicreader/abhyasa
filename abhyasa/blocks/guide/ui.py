@@ -25,7 +25,7 @@ def Strip():
 
 def Parts():
     return (Box(), Strip(), asset_css(_P/'guide.css'),
-            asset_js(_P/'guide.js', data_ask=Routes.ask, data_figure=Routes.figure))
+            asset_js(_P/'guide.js', data_ask=Routes.ask, data_figure=Routes.figure, data_warm=Routes.warm))
 
 # --- the explainer video of a concept --------------------------------------------------------------------------------
 EMBED = 'https://www.youtube-nocookie.com/embed/{}?enablejsapi=1&rel=0'
