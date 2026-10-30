@@ -312,6 +312,59 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (halt()) { e.preventDefault(); e.stopPropagation(); }
   });
   const voiceOn = () => info.voice !== false && !window.abhyasaGuideQuiet;
+
+  // --- the natural voice -----------------------------------------------------------------------------------------------
+  // When the setting voice.out is not `browser`, the server says each line (info.say, `/guide/say`): a WAV and the start time of
+  // each word. The page plays it and lights each word at its time. Each step asks for its line as soon as it comes, so line 2 is
+  // ready when line 1 ends. When the route fails, the board speaks with the browser voice, and the strip says so one time.
+  const natural = () => !!(info.say && info.out && info.out.engine && info.out.engine !== 'browser');
+  const lines = new Map();   // the text of a line -> the promise of its audio, for this page load
+  function line(text) {
+    if (!lines.has(text)) {
+      const p = fetch(info.say, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text})}).then(async r => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.audio) throw new Error(d.error || 'The natural voice did not answer.');
+        return d;
+      });
+      p.catch(() => lines.delete(text));   // a failed line is asked again the next time
+      lines.set(text, p);
+      while (lines.size > 40) lines.delete(lines.keys().next().value);
+    }
+    return lines.get(text);
+  }
+  let fellBack = false;
+  function browserVoice(text, onWord, done, why) {
+    if (!fellBack && window.abhyasaBoard) {
+      fellBack = true;
+      console.warn('guide: natural voice', why);
+      abhyasaBoard.notice({text: 'The natural voice did not answer, so the browser voice speaks.', href: '/settings#g-voice', link: 'Settings'});
+    }
+    return window.abhyasaBoard && abhyasaBoard.speakBrowser(text, onWord, done);
+  }
+  function speakNatural(text, onWord, done) {   // the host speak of board.js: see its API
+    let audio = null, url = null, tick = 0, stopped = false, hush = null;
+    const clean = () => { clearInterval(tick); if (audio) { audio.pause(); audio.removeAttribute('src'); } if (url) URL.revokeObjectURL(url); audio = url = null; };
+    const fail = why => { if (stopped) return; clean(); hush = browserVoice(text, onWord, done, why); };
+    line(text).then(d => {
+      if (stopped) return;
+      const bytes = Uint8Array.from(atob(d.audio), c => c.charCodeAt(0)), words = d.words || [];
+      url = URL.createObjectURL(new Blob([bytes], {type: 'audio/wav'}));
+      audio = new Audio(url);
+      let k = 0;
+      const mark = () => { while (audio && k < words.length && words[k] <= audio.currentTime + .02) onWord(k++); };
+      audio.addEventListener('playing', () => { clearInterval(tick); tick = setInterval(mark, 40); mark(); });
+      audio.addEventListener('ended', () => { while (k < words.length) onWord(k++); clean(); done(); });
+      audio.addEventListener('error', () => fail('the audio did not play'));
+      const r = audio.play();
+      if (r && r.catch) r.catch(e => fail(e && e.message));
+    }).catch(e => fail(e && e.message));
+    return () => { stopped = true; clean(); if (typeof hush === 'function') hush(); };
+  }
+  function voiceOffer() {   // the first board with the browser voice says one time that a natural voice can read the steps
+    if (natural() || !voiceOn() || localStorage.getItem('guide-voice-offered')) return null;
+    localStorage.setItem('guide-voice-offered', '1');
+    return {text: 'A natural voice can read the steps: Kokoro runs on this Mac.', href: '/settings#g-voice', link: 'Turn it on in Settings'};
+  }
   function setVoice(on) {
     info.voice = on;
     if (me.voice) fetch(me.voice, {method: 'POST', body: new URLSearchParams({on: on ? '1' : '0'})}).catch(() => {});
@@ -329,7 +382,8 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const shown = stopShow();   // what the learner showed with the pointer while they asked
     close();
     const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0}, n = ++asks;
-    const opts = () => ({labels, quiet: !voiceOn(), who: asked, onVoice: setVoice}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
+    const offer = voiceOffer();
+    const opts = () => ({labels, quiet: !voiceOn(), who: asked, onVoice: setVoice, ...(natural() && {host: {speak: speakNatural}, voiceAt: info.out}), ...(offer && {notice: offer})}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
     let labels = {}, live = null, whole = false, asked = info.model || null, saved = null;   // live: the promise of the streaming board, with each add after it
     const got = [];   // the steps that came, for a stream that ends with no board event
     if (ctl) ctl.abort();
@@ -367,6 +421,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
           if (m.saved) saved = m.saved;
           if (m.error) say(m.error);
           if (m.step) got.push(m.step);
+          if (natural() && voiceOn()) for (const s of m.step ? [m.step] : m.board ? m.board.steps || [] : []) if (s && s.say) line(s.say).catch(() => {});   // each line before it is needed
           if (m.step && !live) {
             last.step_ms = Math.round(performance.now() - t0); mark(); drew = true;
             live = abhyasaBoard.play({steps: [m.step], tier: m.tier || 'tutor', sources: [], streaming: true}, opts());
@@ -454,5 +509,5 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   document.addEventListener('submit', e => { if (e.target.id === 'guide-form') { e.preventDefault(); ask(box().value); } });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.id === 'guide-box') { e.preventDefault(); e.stopPropagation(); close(); } });
 
-  window.abhyasaGuide = {capture, texParts: (...a) => abhyasaTex.texParts(...a), labelsOf, ask, open, gestures, focusOf, G, readLine, aboutFigure, halt};
+  window.abhyasaGuide = {capture, texParts: (...a) => abhyasaTex.texParts(...a), labelsOf, ask, open, gestures, focusOf, G, readLine, aboutFigure, halt, speakNatural, info};
 })();
