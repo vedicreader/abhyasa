@@ -7,8 +7,8 @@ Docs: https://vedicreader.github.io/abhyasa/ground.html.md"""
 # %% auto #0
 __all__ = ['KEEP', 'VR_ROOT', 'STOP', 'KANDAS', 'STORY_MAX', 'EPISODES_MAX', 'SUMMARY', 'STORY_GONE', 'STORY_BAD', 'RAMA_CFG',
            'SKIP_DIRS', 'TICK', 'passage', 'clip', 'link_of', 'label', 'cite', 'fts_query', 'VaultSource',
-           'VedicSource', 'fold', 'names', 'main_words', 'named_count', 'stem', 'key_terms', 'names_idea', 'ground',
-           'ground_text', 'vr_cite', 'read_story', 'VedicStory', 'concept_grounds', 'fence', 'fenced',
+           'VedicSource', 'fold', 'names', 'main_words', 'named_count', 'stem', 'key_terms', 'names_idea', 'relevance',
+           'ground', 'ground_text', 'vr_cite', 'read_story', 'VedicStory', 'concept_grounds', 'fence', 'fenced',
            'ramabana_memory', 'ramabana_sessions', 'index_ramabana', 'find_notebooks', 'nb_text', 'index_notebooks',
            'tick', 'schedule', 'index_main']
 
@@ -160,10 +160,23 @@ def _for(s, subject) -> bool:
     "Whether source `s` is for `subject`: it has no `subjects`, or `subject` is one of them, or no subject is given."
     return subject is None or not getattr(s, 'subjects', None) or subject in s.subjects
 
-def ground(q:str, sources, k:int=3, must=(), subject:str|None=None) -> L:
+def relevance(p, q:str) -> float:
+    "The share of the main words of `q` that the text of passage `p` names, from 0 to 1. Its title does not count, as in `_strong`."
+    ws = main_words(q)
+    return named_count(p.text, ws) / len(ws) if ws else 0.
+
+def _over(p, about:str, floor:float) -> bool:
+    "Whether passage `p` has a `relevance` to `about` of `floor` or more. It keeps the number as `p.score`."
+    p.score = round(relevance(p, about), 3)
+    return p.score >= floor
+
+def ground(q:str, sources, k:int=3, must=(), subject:str|None=None, floor:float=0., about:str|None=None) -> L:
     """Up to `k` passages for `q`, taken from the sources in turn. With `must`, a passage must name one of those terms.
-    With `subject`, a source with `subjects` that do not hold it gives only the passages that name every main word of `q`."""
-    per = [[p for p in s.search(q, k * 3) if (not must or names(p, must)) and (_for(s, subject) or _strong(p, q))] for s in sources]
+    With `subject`, a source with `subjects` that do not hold it gives only the passages that name every main word of `q`.
+    With `floor`, a passage must have a `relevance` to `about` (default `q`) of `floor` or more, and keeps it as `score`. When
+    no passage passes, there is none: a weak match is no source."""
+    per = [[p for p in s.search(q, k * 3) if (not must or names(p, must)) and (_for(s, subject) or _strong(p, q)) and (not floor or _over(p, about or q, floor))]
+           for s in sources]
     out = L()
     for i in range(k):
         for ps in per:

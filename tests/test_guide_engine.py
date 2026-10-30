@@ -172,3 +172,21 @@ def test_a_remote_route_that_drops_the_picture_is_text_only(monkeypatch):
     assert vision_why(r, 'codex/gpt-6.1-sol') == 'GPT-6.1 Sol does not get pictures on this route.' and vision_ask(r, 'codex/gpt-6.1-sol') is None
     monkeypatch.setattr(RemoteChat, '_oneshot_args', lambda self, p, sp, n: ([to_msg(mk_msg(p))], {}))
     assert vision_why(r, 'codex/gpt-6.1-sol') == '' and callable(vision_ask(r, 'codex/gpt-6.1-sol'))
+
+def test_weak_passages_never_reach_the_model():
+    "Passages that name too few words of the question (a Rigveda verse, a Kamba Ramayanam episode) go to no model, and no tier says your vault."
+    weak = [passage('vedicreader', 'r1', 'Rigveda 05 061 070', 'The Maruts get the gifts of the bar of gold.'),
+            passage('vedicstory', 'k1', 'Kamba Ramayanam', 'Rama goes to the forest for the alpha of his exile.', what='summary')]
+    v = Vault(weak)
+    f = Fake({'Tier: tutor': board(0.3, 'vault')})
+    r = explain(f, page_ctx(), "I don't get alpha bar", sources=[v], web=False)
+    assert len(f.calls) == 1 and 'Maruts' not in json.dumps(f.calls) and 'Rama goes' not in json.dumps(f.calls) and v.qs
+    assert r.tier == 'tutor' and r.sources[0]['label'] == 'your source'
+
+def test_each_passage_keeps_the_label_of_its_source():
+    "A passage from vedicreader is labelled vedicreader, and one from a vault shelf your vault."
+    note = 'Alpha bar t is the product of the alphas up to step t, so it falls from one toward zero as t grows.'
+    v = Vault([passage('vault:notes', 'n1', 'My DDPM notes', note), passage('vedicreader', 'r2', 'Notes', 'Alpha bar is a share.')])
+    f = Fake({'Tier: vault': board(0.8, src=2, quote=note.split(', so')[0]), 'Tier: tutor': board(0.3, 'vault')})
+    r = explain(f, page_ctx(), "I don't get alpha bar", sources=[v])
+    assert [s['label'] for s in r.sources] == ['your source', 'your vault', 'vedicreader']

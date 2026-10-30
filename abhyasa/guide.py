@@ -7,12 +7,12 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
            'FOCUS', 'SHOWN', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'WATCH', 'CHECK_ASK', 'FILLER', 'OFF_CHECK',
-           'COUNTS', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at',
-           'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels', 'FigureCache',
-           'keeps_images', 'vision_why', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'figure_check',
-           'focus_text', 'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer', 'file_video',
-           'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'guide_ask', 'video_source',
-           'web_sources', 'unsave', 'explain', 'stream_board']
+           'COUNTS', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR', 'norm_tex', 'flat', 'anchor_why', 'by_id',
+           'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels',
+           'FigureCache', 'keeps_images', 'vision_why', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded',
+           'figure_check', 'focus_text', 'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer',
+           'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'source_label',
+           'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -556,7 +556,18 @@ def on_check(ctx, said:str) -> bool:
 # %% ../nbs/21_guide.ipynb #g073
 NO_SOURCE = "In the tutor's own words. No source found."
 WITH_SOURCE = "In the tutor's own words, with quotes from the sources below."
-LABEL = dict(page='your source', vault='your vault', web='web', video='video')
+LABEL = dict(page='your source', vault='your vault', web='web', video='video', vedicreader='vedicreader', vedicstory='vedicreader')
+VAULT_FLOOR = .6   # the least `ground.relevance` of a passage from your sources to the question: both of 2 main words, 2 of 3, 3 of 4 or 5
+
+def source_label(p) -> str:
+    "The label of passage `p` by its real source: *your vault* for a vault shelf, else the label of its source, such as *vedicreader*."
+    src = str(p.get('src') or '')
+    return LABEL['vault'] if src.startswith('vault') else LABEL.get(src, src or LABEL['vault'])
+
+def _and(xs) -> str:
+    "The words `xs` once each, in order, as one phrase: `a`, `a and b`, `a, b and c`."
+    xs = list(dict.fromkeys(xs))
+    return ' and '.join(xs) if len(xs) < 3 else ', '.join(xs[:-1]) + ' and ' + xs[-1]
 
 def guide_ask(ask, name:str=''):
     """The `ask` of the guide: the ramabana job `guide` on `name`, else on the model of the screen guide (by default the model of hints, a fast one), with `guard` for the
@@ -667,7 +678,7 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     `threading.Event` `stop` is set, the stream closes and no next tier starts. `hint` is True when the board counts as a hint on
     the open check (`on_check`); the first state event says so."""
     from abhyasa.settings import val
-    from abhyasa.ground import ground, label
+    from abhyasa.ground import ground, label, main_words
     from ramabana.agent import mask_secrets
     t0 = time.monotonic()
     def tell(e):
@@ -687,11 +698,15 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     b = board('tutor', page, on_step)
     if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('tutor', b, page, t0, hint)
     best = (b, 'tutor', page)
-    if sources: tell(_ev('Looks in your vault.', 'searching', where=HERE))
-    ps = ground(mask_secrets(f"{said} {ctx.get('concept') or ctx.get('step') or ''}"), list(sources), k=3) if sources else []   # a search of the vault on this Mac
+    names = _and(LABEL.get(getattr(s, 'name', ''), LABEL['vault']) for s in sources)
+    if sources: tell(_ev(f'Looks in {names}.', 'searching', where=HERE))
+    topic = ctx.get('concept') or ctx.get('step') or ''
+    about = ' '.join(w for w in main_words(said) if w not in FILLER) or topic   # the passage must be on the question, not only on the page
+    ps = ground(mask_secrets(f"{said} {topic}"), list(sources), k=3, floor=VAULT_FLOOR, about=mask_secrets(about)) if sources else []   # a search on this Mac
+    if sources and not ps: tell(_ev(f'Found no passage on this in {names}.', 'searching', where=HERE))
     if ps:
-        srcs = page + [dict(title=label(p), text=p.text, url=p.get('url') or '', label=LABEL['vault']) for p in ps]
-        tell(dict(_asks(w, f"Sends {_n(len(ps), 'passage')} from your vault"), sources=len(ps)))
+        srcs = page + [dict(title=label(p) or source_label(p), text=p.text, url=p.get('url') or '', label=source_label(p)) for p in ps]
+        tell(dict(_asks(w, f"Sends {_n(len(ps), 'passage')} from {_and(s['label'] for s in srcs[len(page):])}"), sources=len(ps)))
         b = board('vault', srcs)
         if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('vault', b, srcs, t0, hint)
         if b.steps: best = (b, 'vault', srcs)
