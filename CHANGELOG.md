@@ -63,7 +63,7 @@
 - A model call that runs past its deadline gives a clear error.
 - The model list names an Ollama on another computer as hosted, not "on this Mac".
 - A file under a macOS `Keychains` folder counts as a secret.
-- abhyasa needs ramabana 0.2.96 and rishi 0.1.63. rishi 0.1.63 runs Claude one-shots on a Mac with an enterprise MCP config.
+- abhyasa needs ramabana 0.2.96 and rishi 0.1.64. rishi 0.1.63 runs Claude one-shots on a Mac with an enterprise MCP config. rishi 0.1.64 sends the picture of a one-shot, so figure labels work on remote and Claude models.
 
 ## 0.0.14
 
