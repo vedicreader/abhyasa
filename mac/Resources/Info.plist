@@ -2,30 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDisplayName</key>
+	<string>Abhyasa</string>
+	<key>CFBundleExecutable</key>
+	<string>Abhyasa</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>dev.vedicreader.abhyasa</string>
 	<key>CFBundleName</key>
 	<string>Abhyasa</string>
-	<key>CFBundleDisplayName</key>
-	<string>Abhyasa</string>
-	<key>CFBundleExecutable</key>
-	<string>Abhyasa</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.0.13</string>
-	<key>CFBundleVersion</key>
-	<string>13</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>26.0</string>
-	<key>LSApplicationCategoryType</key>
-	<string>public.app-category.education</string>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Abhyasa uses the microphone when you answer by voice. The speech changes to text on this Mac.</string>
+	<string>0.0.14</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -37,5 +27,15 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>13</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.education</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Abhyasa uses the microphone when you answer by voice. The speech changes to text on this Mac.</string>
 </dict>
 </plist>
