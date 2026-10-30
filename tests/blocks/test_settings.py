@@ -352,3 +352,14 @@ def test_prompt_list_does_not_need_the_blocks():
     "The prompt list loads each module that registers a prompt, so it does not depend on which blocks loaded."
     from abhyasa.blocks.settings.ui import registry
     assert {'primer', 'walk.note', 'profile.onboard'} <= set(registry())
+
+def test_the_point_look_row_shows_each_look_and_saves(mk):
+    "The Screen guide group has the Point mark row: one pill for each look, each with its own small picture. A pick saves it."
+    from abhyasa.settings import val, set_val
+    cl = mk(['settings'])
+    t = cl.get('/settings').text
+    row = t[t.index('id="sr-guide-point"'):]; row = row[:row.index('</li>')]
+    assert row.count('<svg') == 3 and all(f'value="{k}"' in row for k in ('tick', 'dot', 'ring')) and 'value="tick" checked' in row
+    assert 'http' not in row.replace('http://www.w3.org/2000/svg', '')   # the pictures are inline: no file from the web
+    assert 'Saved' in cl.post('/settings/value', data=dict(name='guide.point', value='ring')).text and val('guide.point') == 'ring'
+    set_val('guide.point', 'tick')

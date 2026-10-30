@@ -2,7 +2,8 @@
 import os
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say
+from fasthtml.svg import Svg, Path as SvgPath, Circle as SvgCircle, Rect as SvgRect, Ellipse as SvgEllipse
+from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say, Choice
 from abhyasa import voice
 from abhyasa.settings import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped, dropped_roots
 from .cfg import Routes
@@ -22,10 +23,23 @@ def dropped() -> str:
     "The source folders that abhyasa does not use, with the reason for each, or ''."
     return ' '.join(f'abhyasa does not use {l}: {w}' for l, w in dropped_roots())
 
+def Look_(k):
+    "A small picture of the point look `k` (the setting `guide.point`) on a grey target, in the ink of the board. Inline, so it works offline."
+    arrow = lambda w: (SvgPath(d='M4 18 Q9 12 15 12.5', cls='ln', stroke_width=w), SvgPath(d='M17 12.6 L13.4 10.2 L13.8 14.6 Z', cls='hd'))
+    mark = {'tick': arrow(1.3), 'dot': (SvgCircle(cx=31, cy=17.5, r=2, cls='hd'),),
+            'ring': (*arrow(1), SvgEllipse(cx=31, cy=10, rx=12, ry=7, cls='ln', stroke_width=1, opacity=.6))}[k]
+    return Svg(SvgRect(x=22, y=6, width=18, height=8, rx=2, cls='tgt'), *mark, viewBox='0 0 46 22', width=46, height=22, aria_hidden='true', cls='look')
+
+def PointPick(r, v):
+    "The choice of the point look, as pills with a small picture of each look."
+    h = dict(hx_post=Routes.value, hx_vals={'name': r.name}, hx_target=f'#{row_id(r)}-m', hx_swap='outerHTML')
+    return Form(Choice('value', [(c, Span(Look_(c), c.capitalize())) for c in r.choices], v, aria_label=r.label), hx_trigger='change', cls='point-looks', **h)
+
 def Row(r, v):
     "A setting row on this page: its value posts to `Routes.value`, and `Use the default` to `Routes.default`. The source folders say which lines are not used."
     help = f'{r.help} {d}' if r.name == 'sources.roots' and (d := dropped()) else None
-    return SettingRow(r, v, Routes.value, reset_attrs(r.name), file=clamped(r.name) if r.store == 'file' else None, help=help)
+    return SettingRow(r, v, Routes.value, reset_attrs(r.name), file=clamped(r.name) if r.store == 'file' else None, help=help,
+                      control=PointPick(r, v) if r.name == 'guide.point' else None)
 
 def More(group, *items, names=()):
     "The closed part of a group: `More in Walks: passage length, note length, depth, and 2 more`."

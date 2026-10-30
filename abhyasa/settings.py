@@ -128,7 +128,9 @@ add('stt.model', 'stt', 'Model', 'The speech model. Empty uses the default of th
 add('stt.segment', 'stt', 'Cut at pauses', 'The text shows after each pause. When this is off, the text comes in fixed blocks of time.', True)
 add('stt.pause', 'stt', 'Pause before a cut', 'How long a pause must be before the text of what you said shows.', 700, 300, 2000, more=True, unit='ms')
 add('stt.longest', 'stt', 'Longest segment', 'The text shows after this time, also when you do not pause.', 12, 5, 30, more=True, unit='s')
-add('guide.voice', 'guide', 'Voice', 'The guide speaks each step aloud. When this is off, the words of each step light up with no sound.', True);
+add('guide.voice', 'guide', 'Voice', 'The guide speaks each step aloud. When this is off, the words of each step light up with no sound.', True)
+add('guide.point', 'guide', 'Point mark', 'How a point mark of the guide looks. Each look is weaker than a circle, so the part that you asked about stands out. Tick is a short pen tick. Dot is a small dot that pulses one time. Ring is a thin, small ring.', 'tick',
+    choices=('tick', 'dot', 'ring'));
 
 # %% ../nbs/16_settings.ipynb #6d9f3f9f
 TASK_HELP = dict(question='Writes each question and its hidden answer.', grade='Reads your answer and grades it.', hint='Gives the next hint.',

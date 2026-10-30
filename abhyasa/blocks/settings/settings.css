@@ -63,3 +63,9 @@ h3.sub { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-tr
 /* where the text of a task goes: on this Mac is quiet, a hosted model has a thin accent outline */
 .srow .mrow .where { font-size: var(--t-meta); color: var(--mute); white-space: nowrap; }
 .srow .mrow .where.hosted { color: var(--fg); border: 1px solid var(--acc); border-radius: var(--r-s); padding: 0 var(--s1); }
+/* The point looks of the screen guide: a small picture of each look on a grey target, in the ink of the board. */
+.point-looks label > span { display: inline-flex; align-items: center; gap: var(--s1); }
+.point-looks svg.look { flex: none; }
+.point-looks .tgt { fill: none; stroke: var(--mute); stroke-width: 1; }
+.point-looks .ln { fill: none; stroke: var(--board-ink); stroke-linecap: round; }
+.point-looks .hd { fill: var(--board-ink); }
