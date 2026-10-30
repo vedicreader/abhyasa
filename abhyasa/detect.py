@@ -14,7 +14,7 @@ import re, threading, unicodedata
 from pathlib import Path
 from urllib.parse import urlparse
 from fastcore.utils import *
-from .sources import ARXIV_ID, ARXIV_LINK, as_link, is_paper, local_name, gh_name, folder_why, can_clone, NO_GHEASY
+from .sources import ARXIV_ID, ARXIV_LINK, as_link, is_paper, local_name, gh_name, folder_why
 from .ground import SKIP_DIRS
 from .settings import val
 
@@ -131,9 +131,8 @@ def named_sources(text:str, titles=(), names:dict=None, roots_in_vault=()) -> li
 
 # %% ../nbs/19_detect.ipynb #06cec052
 def on_disk(chips) -> list:
-    "`chips`, with what the disk says: a folder with `.git` is a `repo`; a folder that abhyasa does not file, or a GitHub repo with no gheasy to clone it, has `why`."
+    "`chips`, with what the disk says: a folder with `.git` is a `repo`; and a folder that abhyasa does not file has `why`."
     for c in chips:
-        if c.kind == 'gh' and not can_clone(): c.why = NO_GHEASY   # gheasy, the optional extra that clones, is not installed
         if c.kind != 'folder' or c.filed: continue
         if why := folder_why(c.path): c.why = why
         elif (Path(c.path)/'.git').exists(): c.kind, c.id = 'repo', f'repo:{c.path}'

@@ -40,9 +40,6 @@ dev = [
 models = [
     { name = "ramabana" },
 ]
-repos = [
-    { name = "gheasy" },
-]
 tick = [
     { name = "pobblebonk" },
 ]
@@ -60,7 +57,6 @@ requires-dist = [
     { name = "fastcore", specifier = ">=1.8" },
     { name = "fossick", specifier = ">=0.1.23" },
     { name = "gheasy", marker = "extra == 'dev'", specifier = ">=0.0.18" },
-    { name = "gheasy", marker = "extra == 'repos'", specifier = ">=0.0.18" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=7.3.0" },
     { name = "ipywidgets", specifier = ">=8.1" },
     { name = "mdhtml", specifier = ">=0.1.38" },
@@ -80,7 +76,7 @@ requires-dist = [
     { name = "vidyut", specifier = ">=0.4" },
     { name = "vishalakshi", specifier = ">=0.1.35" },
 ]
-provides-extras = ["demo", "dev", "models", "repos", "tick", "whisper"]
+provides-extras = ["demo", "dev", "models", "tick", "whisper"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "abhyasa", extras = ["dev"] }]

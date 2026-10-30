@@ -103,7 +103,7 @@ fastai/diffusion-nbs.” The box finds the sources that the goal names and shows
 
 Press × to remove a source, or add one with “Add a folder, a repo or a link”. abhyasa reads nothing before you press
 Start. Then it files each new folder in your vault and clones each public GitHub repo over HTTPS, then plans the walk.
-To clone, install the extra: `pip install abhyasa[repos]`. abhyasa reads only `.ipynb`, `.md`, `.txt` and `.py` files
+abhyasa reads only `.ipynb`, `.md`, `.txt` and `.py` files
 (no `.py` in a folder with notebooks), at most 400 files and 200 MB, and it never runs their code. It reads only folders
 in your home folder, with no hidden folders and no links. For one hour, the walk page shows “Added course22: 24 notebooks.” with Undo.
 

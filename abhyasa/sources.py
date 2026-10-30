@@ -8,13 +8,13 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'MATH_MOST', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'NOT_FOUND', 'log',
            'ARXIV_HTML', 'ARXIV_FIGS', 'READERS', 'PLAIN', 'LOCALE', 'LANGS', 'SHORT', 'EMPTY', 'ARXIV_LINK',
            'TREE_TYPES', 'TREE_SKIP', 'TREE_FILES', 'TREE_MB', 'TREE_TOTAL_MB', 'TREE_SEEN', 'GH_NAME', 'NOT_REPOS',
-           'REPO_MB', 'CLONES', 'NO_GHEASY', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'VR_ROOT', 'RASI', 'quoted', 'group_line',
-           'add_group', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'math_cut', 'extract',
-           'from_vault', 'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts',
-           'link_folder', 'in_scope', 'link_sel', 'LinkError', 'local_name', 'public_url', 'link_kind', 'reading_order',
-           'math_md', 'read_arxiv_html', 'save_figures', 'file_link', 'as_link', 'is_id_title', 'arxiv_title',
-           'is_paper', 'tree_ok', 'tree_files', 'folder_why', 'file_folder', 'vault_roots', 'root_docs', 'unfile',
-           'gh_name', 'can_clone', 'gh_public', 'file_repo', 'source_of', 'plain', 'from_vedicreader']
+           'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group',
+           'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'math_cut', 'extract', 'from_vault',
+           'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts', 'link_folder',
+           'in_scope', 'link_sel', 'LinkError', 'local_name', 'public_url', 'link_kind', 'reading_order', 'math_md',
+           'read_arxiv_html', 'save_figures', 'file_link', 'as_link', 'is_id_title', 'arxiv_title', 'is_paper',
+           'tree_ok', 'tree_files', 'folder_why', 'file_folder', 'vault_roots', 'root_docs', 'unfile', 'gh_name',
+           'gh_public', 'clone_repo', 'file_repo', 'source_of', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re, shutil
@@ -755,35 +755,25 @@ def gh_name(s:str) -> str|None:
 
 # %% ../nbs/04_sources.ipynb #3b93837a
 REPO_MB = 500   # the biggest repo that abhyasa clones, in MB
-CLONES = Path.home()/'.cache/abhyasa/git_clones'
-NO_GHEASY = 'Install abhyasa[repos] to add GitHub repos.'
-
-def can_clone() -> bool:
-    "True when gheasy, the optional extra that clones a repo, is installed."
-    try: from gheasy import repo
-    except ImportError: return False
-    return True
-
 def gh_public(owner:str, name:str) -> dict|None:
     "What GitHub says of the repo `owner/name` (`private`, `size` in KB), or None when it has no such repo."
     from fossick import http_get
     r = http_get(f'https://api.github.com/repos/{owner}/{name}', timeout=15, allow_private=False)
     return json.loads(r.body) if r.status == 200 else None
 
-def file_repo(lr:Learning, url:str, shelf:str='notebooks', into=None) -> L:
-    "Clone the public GitHub repo `url` (a link or `owner/name`) with gheasy into `into` (default `CLONES`), then file it on `shelf`. Raises `LinkError` with a plain reason."
+def clone_repo(url:str, timeout:float=600) -> tuple:
+    "`(owner/name, folder)` for the public GitHub repo `url` (a link or `owner/name`), cloned or brought up to date by fossick's `gh_clone` in its cache. Raises `LinkError` with a plain reason."
     if not (g := gh_name(url)): raise LinkError('abhyasa clones only a public repo on github.com.')
-    if not can_clone(): raise LinkError(NO_GHEASY)
     info = gh_public(*g.split('/'))
     if not info or info.get('private'): raise LinkError(f'{g} is not a public repo on github.com.')
     if (info.get('size') or 0) > REPO_MB * 1024: raise LinkError(f'{g} is too big. abhyasa clones a repo of at most {REPO_MB} MB.')
-    from gheasy import repo as gr
-    parent = Path(into or CLONES); parent.mkdir(parents=True, exist_ok=True)
-    d = parent/g.replace('/', '-')
-    if not (d/'.git').is_dir():
-        if d.exists(): shutil.rmtree(d)   # a clone that stopped half way
-        try: d = Path(gr.clone(f'https://github.com/{g}.git', parent, d.name))
-        except Exception as e: raise LinkError(f'abhyasa could not clone {g}.') from e
+    from fossick import gh_clone   # here, so that the import of this module stays light
+    try: return g, Path(gh_clone(f'https://github.com/{g}', timeout=timeout)).resolve()
+    except Exception as e: raise LinkError(f'abhyasa could not clone {g}.') from e
+
+def file_repo(lr:Learning, url:str, shelf:str='notebooks') -> L:
+    "Clone the public GitHub repo `url` (a link or `owner/name`) with `clone_repo`, then file it on `shelf`. Raises `LinkError` with a plain reason."
+    g, d = clone_repo(url)
     return _file_tree(lr, d, shelf, g, url=lambda rel: f'https://github.com/{g}/blob/HEAD/{quote(rel)}')
 
 # %% ../nbs/04_sources.ipynb #so0i

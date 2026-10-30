@@ -27,7 +27,7 @@ from .llm import ask_json, for_task, ramabana_worker
 from .prompts import register, prompt
 from .journey import _jlock, chip_docs
 from .sources import doc_pages, link_kind, is_paper, file_link, LinkError, NOT_LOCAL, PLAIN, SHORT, fetch_opts, quoted, public_url, _clip
-from .sources import math_cut, gh_name, gh_public, REPO_MB, source_of, tree_ok
+from .sources import math_cut, gh_name, clone_repo, source_of, tree_ok
 from .contract import validate_nb_spec
 from pathlib import Path
 from .ground import fence, names_idea, main_words
@@ -721,12 +721,7 @@ def gather_tools(lr:Learning, jid:str, stop:threading.Event, search=None, fetch=
     def repo_dir(repo) -> tuple:
         "`(owner/name, the folder of its clone)` for the public GitHub repo `repo`, cloned in fossick's cache. Raise `LinkError` for another repo."
         if not (g := gh_name(repo)): raise LinkError('abhyasa reads only a public repo on github.com')
-        if g not in st.clones:
-            info = gh_public(*g.split('/'))
-            if not info or info.get('private'): raise LinkError(f'{g} is not a public repo on github.com')
-            if (info.get('size') or 0) > REPO_MB * 1024: raise LinkError(f'{g} is too big')
-            from fossick import gh_clone as clone
-            st.clones[g] = Path(clone(f'https://github.com/{g}', timeout=120)).resolve()
+        if g not in st.clones: st.clones[g] = clone_repo(g, timeout=120)[1]
         return g, st.clones[g]
 
     def files(top:Path) -> list:

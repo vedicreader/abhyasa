@@ -19,19 +19,18 @@ def home(tmp_path, monkeypatch):
     d = tmp_path/'course22'; d.mkdir(); two_notebooks(d)
     return tmp_path
 
-def public(monkeypatch, clone, tmp_path):
-    "GitHub says that each repo is public, and gheasy's `clone` is `clone(url, parent, name)`. The cache is a temp folder. Nothing goes to the network."
+def public(monkeypatch, clone):
+    "GitHub says that each repo is public, and fossick's `gh_clone` is `clone`. Nothing goes to the network."
     monkeypatch.setattr('abhyasa.sources.gh_public', lambda o, n: dict(private=False, size=10))
-    monkeypatch.setattr('abhyasa.sources.CLONES', tmp_path/'clones')
-    monkeypatch.setitem(sys.modules, 'gheasy', types.SimpleNamespace(repo=types.SimpleNamespace(clone=clone)))   # with or without gheasy installed
+    monkeypatch.setattr('fossick.gh_clone', clone)
 
-def copy_clone(src, got=None):
-    "A fake gheasy `clone`: it copies the folder `src` as the clone, and keeps each link in `got`."
+def copy_clone(src, to, got=None):
+    "A fake fossick `gh_clone`: it copies the folder `src` to `to` the first time, and keeps each link in `got`."
     import shutil
-    def clone(url, parent, name):
+    def clone(url, timeout=None):
         if got is not None: got.append(url)
-        shutil.copytree(src, Path(parent)/name); (Path(parent)/name/'.git').mkdir(exist_ok=True)
-        return Path(parent)/name
+        if not to.exists(): shutil.copytree(src, to)
+        return to
     return clone
 
 def test_folder_becomes_docs_with_root(lr, home):
@@ -48,26 +47,25 @@ def test_a_link_and_a_hidden_folder_are_refused(lr, home):
     for p in (home/'.secret', home/'link', home):
         with pytest.raises(LinkError): file_folder(lr, p)
 
-def test_repo_uses_gheasy_clone_over_https(lr, tmp_path, monkeypatch):
+def test_repo_uses_fossick_clone_over_https(lr, tmp_path, monkeypatch):
     src = tmp_path/'src'; src.mkdir(); two_notebooks(src)
-    got = []; public(monkeypatch, copy_clone(src, got), tmp_path)
+    got = []; public(monkeypatch, copy_clone(src, tmp_path/'clones'/'diffusion-nbs', got))
     docs = file_repo(lr, 'fastai/diffusion-nbs')
     m = doc_meta(lr, docs[0]); assert m['root'] == 'fastai/diffusion-nbs' and m['url'].startswith('https://github.com/fastai/diffusion-nbs/blob/')
-    assert got == ['https://github.com/fastai/diffusion-nbs.git']   # the HTTPS link that was checked; never SSH
-    file_repo(lr, 'fastai/diffusion-nbs'); assert len(got) == 1     # in the cache: not cloned again
+    assert got == ['https://github.com/fastai/diffusion-nbs']   # the HTTPS link that was checked; never SSH
+    assert file_repo(lr, 'fastai/diffusion-nbs') == docs        # in the cache: the same documents
 
 def test_a_private_repo_is_not_cloned(lr, tmp_path, monkeypatch):
-    got = []; public(monkeypatch, lambda *a: got.append(a), tmp_path)
+    got = []; public(monkeypatch, lambda *a, **k: got.append(a))
     monkeypatch.setattr('abhyasa.sources.gh_public', lambda o, n: dict(private=True))
     with pytest.raises(LinkError, match='not a public repo'): file_repo(lr, 'a/b')
     assert not got
 
-def test_no_gheasy_no_clone(mk, lr, monkeypatch):
-    "With no gheasy, a GitHub chip says to install it and sends nothing to Start."
+def test_a_github_chip_needs_no_extra(mk, monkeypatch):
+    "A GitHub chip needs no extra: fossick, a core dependency, clones it, so the chip goes to Start."
     monkeypatch.setitem(sys.modules, 'gheasy', None)   # an import of gheasy fails
-    with pytest.raises(LinkError, match=r'Install abhyasa\[repos\]'): file_repo(lr, 'a/b')
     h = mk().get('/learn/read', params=dict(q='I want to learn diffusion from fastai/diffusion-nbs and my notes')).text
-    assert 'Install abhyasa[repos] to add GitHub repos.' in h and 'value="gh:fastai/diffusion-nbs"' not in h
+    assert 'Install abhyasa[repos]' not in h and 'value="gh:fastai/diffusion-nbs"' in h
 
 def test_hard_link_and_caps(lr, home, monkeypatch):
     "A hard link is never filed. The count cap, the size cap of one file and the cap on one filing each hold. A folder with notebooks files no .py."
@@ -117,8 +115,8 @@ def wait_for_walk(cl, r, tries=200):
 PLAN = dict(title='Diffusion', subject='ml', steps=[dict(name='Ranking', statement='', slug='', why='Scores to places.', needs=[], ways=['code'])])
 
 def test_failed_clone_keeps_the_walk(mk, lr, walk_fake, monkeypatch, tmp_path):
-    def boom(*a): raise IOError('no network')
-    public(monkeypatch, boom, tmp_path)
+    def boom(*a, **k): raise IOError('no network')
+    public(monkeypatch, boom)
     walk_fake.rules['You plan a learning path'] = PLAN
     lr.vault.shelf('notebooks').add('Notes on noise.', title='fb/01', source='/x/01.ipynb', kind='notebook', meta=dict(root='fastbook', path='/x/01.ipynb'))
     cl = mk()
