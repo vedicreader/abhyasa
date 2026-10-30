@@ -74,7 +74,7 @@ def has_directive(text) -> bool:
 
 def data_path_why(p) -> str:
     """Why `p` cannot be the data path of an exercise, or an empty text when it can. A data path is one line, has no `..`, is inside the home folder
-    (not the home folder itself) with `~` read and links followed, and has no part that starts with a dot (as `~/.ssh`)."""
+    (not the home folder itself) with `~` read and links followed, and has no part below the home folder that starts with a dot (as `~/.ssh`)."""
     if not (_line(p, 500) and p.strip()): return 'give a path of one line'
     try: given, home = Path(p).expanduser(), Path.home().resolve()
     except (RuntimeError, ValueError): return 'the path is not valid'
@@ -82,7 +82,8 @@ def data_path_why(p) -> str:
     try: q = given.resolve()
     except (OSError, RuntimeError, ValueError): return 'the path is not valid'
     if q == home or not q.is_relative_to(home): return 'the path is not in your home folder'
-    if any(x.startswith('.') for x in (*given.parts[1:], *q.relative_to(home).parts)): return 'a part of the path starts with a dot'
+    below = next((given.relative_to(h).parts for h in (Path.home(), home) if given.is_relative_to(h)), given.parts[1:])   # a dot above the home folder is not the learner's
+    if any(x.startswith('.') for x in (*below, *q.relative_to(home).parts)): return 'a part of the path starts with a dot'
     return ''
 
 path_why = data_path_why   # the old name: Leela imports `abhyasa.contract.path_why`

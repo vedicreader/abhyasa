@@ -136,6 +136,22 @@ def test_path_why_is_the_old_name_of_data_path_why():
     assert contract.path_why is contract.data_path_why and not hasattr(settings, 'path_why')
     assert contract.data_path_why('~/a/../b') == 'the path has ..'
 
+def test_data_path_under_a_hidden_home(monkeypatch, tmp_path):
+    "A home folder under a folder that starts with a dot (as /Users/x/.sandbox/home): a path in it is good, and a hidden folder in it is still refused. The case lists still pass."
+    from abhyasa.contract import data_path_why, NB_SPEC_CASES, RUN_CASES, HANDOFF_CASES, run_ok, read_handoff
+    home = tmp_path/'.sandbox'/'home'; (home/'Pictures').mkdir(parents=True)
+    monkeypatch.setenv('HOME', str(home))
+    assert data_path_why('~/Pictures/comic') == data_path_why(f'{home}/Pictures/comic') == ''
+    assert data_path_why('~/.ssh') == data_path_why(f'{home}/.aws/credentials') == 'a part of the path starts with a dot'
+    assert data_path_why(f'{tmp_path}/.sandbox/other') == 'the path is not in your home folder'
+    for spec, key in NB_SPEC_CASES:
+        try: validate_nb_spec(spec); got = None
+        except ValueError as e: got = str(e).split(':')[0]
+        assert got == key, (spec, key, got)
+    assert all(run_ok(a) == ok for a, ok in RUN_CASES)
+    from abhyasa.contract import handoff
+    assert all(handoff(**kw) == path and read_handoff(path.split('?', 1)[1])['walk'] == kw.get('jid', '') for kw, path in HANDOFF_CASES)
+
 def test_two_apps_link_their_own_vault(lr, walk_fake, monkeypatch, tmp_path):
     "Two apps in one process, on two vaults: the Leela link of each app has the key of its own vault."
     from starlette.testclient import TestClient
