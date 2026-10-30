@@ -11,6 +11,10 @@ one browser at a time, closed at the end). Each check prints PASS or FAIL; the r
 3. The triangle idea has an explainer video (fossick's `read_yt` is faked, and a fake player stands in for youtube-nocookie, so
    no call leaves the Mac). "What does the video say about a and b": the board seeks the embed to the start of the cue that
    holds the quote, and the strip quotes that cue word for word with its `yt_link`. The concept page shows the same video.
+4. The look: the pointer lands on its target, the glow on the formula stays around the text (not on it), a chip never covers
+   its target, and with reduced motion the pointer jumps and the marks show at once.
+5. A page with no data-guide-id plays a board through custom host hooks (resolve, speak, demo, assets).
+6. In Chromium, `guide-polish-*.png`: the DDPM, triangle and video boards in Paper light and Signal dark, at several moments.
 Screens: `guide-ddpm-<browser>.png`, `guide-triangle-<browser>.png`, `guide-video-<browser>.png` and `guide-video-concept-<browser>.png`. The board voice is off (`abhyasaGuideQuiet`)."""
 import argparse, json, os, re, socket, sys, tempfile, threading, time
 from pathlib import Path
@@ -147,6 +151,10 @@ TOKEN = """([fid, tex]) => { const h = document.querySelector(`[data-guide-id="$
 
 def close_to(a, b, tol=6): return a and b and abs(a[0] - b[0]) <= tol and abs(a[1] - b[1]) <= tol
 
+def settle(page):
+    "Wait until each mark of the step shows in full."
+    page.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done', timeout=10000); page.wait_for_timeout(100)
+
 def ask(page, said):
     page.evaluate('window.abhyasaGuideQuiet = true')
     page.click('#guide-go')
@@ -167,7 +175,7 @@ def ddpm(page, base, jid, name, out):
     page.mouse.click(5, 300)   # the focus leaves the box: the board keys work
     page.keyboard.press('d')
     page.wait_for_function("abhyasaBoard.state && abhyasaBoard.state.i === 1")
-    page.wait_for_timeout(400)
+    settle(page)
     at = dict(a=fid, tex=r'\bar\alpha_t')
     n = page.evaluate(NEAR, ['#board-layer g[data-op="circle"]', at]); tok = page.evaluate(TOKEN, [fid, r'\bar\alpha_t'])
     check(f'{name}: the circle is on alpha bar', n and close_to(n['mark'], tok) and n['mark'][2] > tok[2], f"mark {n and [round(x) for x in n['mark']]} token {[round(x) for x in tok]}")
@@ -180,7 +188,7 @@ def ddpm(page, base, jid, name, out):
     lab = page.evaluate("(() => { const l = document.querySelector('.board-label.on'); const r = l.getBoundingClientRect(); return [r.top + r.height, l.textContent]; })()")
     check(f'{name}: the label is above alpha bar', lab[1] == 'how much is left' and lab[0] <= tok3[1] - tok3[3] / 2)
     page.set_viewport_size(dict(width=1280, height=720)); page.evaluate('window.scrollTo(0, 0)')
-    page.keyboard.press('d'); page.wait_for_function("abhyasaBoard.state.i === 2"); page.wait_for_timeout(3500)
+    page.keyboard.press('d'); page.wait_for_function("abhyasaBoard.state.i === 2"); settle(page)
     u = page.evaluate(NEAR, ['#board-layer g[data-op="underline"]', dict(a=fid, tex=r'\sqrt{\bar\alpha_t}')])
     check(f'{name}: the underline is under the root of alpha bar', u and abs(u['mark'][0] - u['want'][0]) <= 8 and u['mark'][1] >= u['want'][1])
     page.evaluate("(f) => document.querySelector(`[data-guide-id='${f}']`).scrollIntoView({block: 'center'})", fid); page.wait_for_timeout(300)
@@ -194,16 +202,139 @@ def ddpm(page, base, jid, name, out):
     check(f'{name}: S goes back and Esc stops the board', True)
     return last
 
+# The look: where the pointer tip is, the glow and its text, and each chip with its target.
+GLOW = """(fid) => { const g = document.querySelector('.board-glow[data-op="box"]'), k = document.querySelector(`[data-guide-id="${fid}"] .katex-html`);
+  if (!g || !k) return null; const a = g.getBoundingClientRect(), b = k.getBoundingClientRect(), bg = getComputedStyle(g).backgroundColor;
+  return {margin: Math.min(b.left - a.left, b.top - a.top, a.right - b.right, a.bottom - b.bottom), bg, op: +getComputedStyle(g).opacity}; }"""
+CHIP = """(at) => { const c = document.querySelector('.board-label.on'), b = abhyasaBoard.boxOf(at); if (!c || !b) return null; const r = c.getBoundingClientRect();
+  const x = b.x - scrollX, y = b.y - scrollY; return {free: r.right <= x || r.left >= x + b.w || r.bottom <= y || r.top >= y + b.h, chip: [r.left, r.top, r.width, r.height], part: [x, y, b.w, b.h]}; }"""
+TIP = """(at) => { const p = abhyasaBoard.pointer, b = abhyasaBoard.boxOf(at); if (!p || !b) return null;
+  const x = b.x - scrollX, y = b.y - scrollY, [tx, ty] = p.tip, d = Math.max(x - tx, 0, tx - x - b.w) + Math.max(y - ty, 0, ty - y - b.h); return {d, flying: p.flying, tip: p.tip.map(Math.round)}; }"""
+JUMP = """() => new Promise(ok => { abhyasaBoard.again(); const out = []; const f = () => { out.push(abhyasaBoard.pointer); if (out.length < 6) requestAnimationFrame(f); else ok(out); }; requestAnimationFrame(f); })"""
+
+def alpha(css):
+    "The alpha of a computed colour such as `rgba(181, 85, 28, 0.06)` or `color(srgb 0.7 0.3 0.1 / 0.06)`."
+    m = re.search(r'/\s*([\d.]+)\)$', css) or re.search(r'rgba\([^)]*,\s*([\d.]+)\)$', css)
+    return float(m.group(1)) if m else 1.0
+
+def look(page, base, jid, name):
+    "The look checks on the DDPM board: the pointer, the glow, the chip, and reduced motion."
+    page.set_viewport_size(dict(width=1280, height=760))
+    page.goto(f'{base}/w/{jid}/0')
+    page.wait_for_function("document.querySelectorAll('#passage .katex').length >= 3")
+    ask(page, "I don't get alpha bar"); settle(page)
+    fid = page.evaluate("[...document.querySelectorAll('[data-guide-id^=m]')].find(h => (h.dataset.tex || '').includes('mathcal')).dataset.guideId")
+    g = page.evaluate(GLOW, fid)
+    check(f'{name}: the glow is around the formula, not on its text', g and g['margin'] >= 6 and alpha(g['bg']) <= .1 and g['op'] > .5, str(g))
+    t = page.evaluate(TIP, fid)
+    check(f'{name}: the pointer lands on the formula', t and t['d'] <= 14 and not t['flying'], str(t))
+    page.mouse.click(5, 300); page.keyboard.press('d'); page.wait_for_function('abhyasaBoard.state.i === 1')
+    page.wait_for_function('abhyasaBoard.pointer && abhyasaBoard.pointer.flying', timeout=3000)
+    flew = True
+    settle(page)
+    at = dict(a=fid, tex=r'\bar\alpha_t')
+    t = page.evaluate(TIP, at)
+    check(f'{name}: the pointer flies, then lands on alpha bar', flew and t and t['d'] <= 14 and not t['flying'], str(t))
+    c = page.evaluate(CHIP, at)
+    check(f'{name}: the chip does not cover alpha bar', c and c['free'], str(c))
+    page.emulate_media(reduced_motion='reduce')
+    frames = page.evaluate(JUMP)
+    tips = [f and f['tip'] for f in frames]
+    t = page.evaluate(TIP, at)
+    check(f'{name}: with reduced motion the pointer jumps and does not fly', all(f and not f['flying'] for f in frames) and len({tuple(map(round, x)) for x in tips}) == 1 and t['d'] <= 14, str(tips[:3]))
+    ring = """document.querySelector('#board-layer g[data-op="circle"] path').getBBox().width"""
+    page.wait_for_timeout(200); w0 = page.evaluate(ring); page.wait_for_timeout(900); w1 = page.evaluate(ring)
+    check(f'{name}: with reduced motion the marks show at once', w0 > 20 and abs(w0 - w1) < .5, f'ring width {round(w0, 1)} then {round(w1, 1)}')
+    page.emulate_media(reduced_motion='no-preference')
+    page.keyboard.press('Escape')
+
+# A page with no data-guide-id: the host resolves its own anchors, speaks, and moves its own demo.
+HOST_PAGE = r"""<!doctype html><html data-theme="paper" data-mode="light"><head><meta charset="utf-8"><title>Host hooks</title>
+<link rel="stylesheet" href="/assets/themes.css"><link rel="stylesheet" href="/assets/base.css"><link rel="stylesheet" href="/assets/board.css">
+<script src="/assets/board.js"></script></head><body><main style="padding:40px 80px;max-width:760px">
+<p data-leela="para" style="font-size:20px">The share that is left is <b data-leela="eq" data-parts='[["\\bar\\alpha", "leela-abar"], ["(1-\\bar\\alpha)", "leela-var"]]'>
+<span id="leela-abar">ᾱ</span> and <span id="leela-var">(1 − ᾱ)</span></b>.</p>
+<div data-leela="pic" style="width:300px;height:180px;background:#fff;border:1px solid #ccc;margin-top:60px"></div></main></body></html>"""
+HOST_BOARD = dict(tier='tutor', sources=[], end='', steps=[
+    dict(say='Alpha bar is the share that is left.', strokes=[dict(op='circle', at=dict(a='eq', tex=r'\bar\alpha'), w=0),
+         dict(op='label', at=dict(a='eq', tex=r'\bar\alpha'), text='share left', side='above', w=2), dict(op='circle', at='nothing', w=3)]),
+    dict(say='The picture shows it.', strokes=[dict(op='box', at='pic', w=0), dict(op='demo_set', set=dict(t=3), w=1)])])
+HOST_PLAY = r"""(board) => new Promise(ok => {
+  window.__said = []; window.__sets = []; window.__resolved = [];
+  const host = {resolve: id => { __resolved.push(id); return document.querySelector(`[data-leela="${CSS.escape(id)}"]`); },
+                speak: (text, onWord, done) => { __said.push(text); const n = text.split(/\s+/).length; let k = 0;
+                  const t = setInterval(() => { if (k < n) onWord(k++); else { clearInterval(t); done(); } }, 40); return () => clearInterval(t); },
+                demo: set => __sets.push(set), assets: '/vendor'};
+  document.addEventListener('board:first', () => ok(true), {once: true});
+  abhyasaBoard.play(board, {host, auto: true});
+})"""
+
+def hooks(page, base, name):
+    "The custom host hooks: a page with no data-guide-id plays a board with its own resolve, speak, demo and assets."
+    page.set_viewport_size(dict(width=1100, height=700))
+    page.route(f'{base}/host-test', lambda r: r.fulfill(status=200, content_type='text/html', body=HOST_PAGE))
+    page.goto(f'{base}/host-test')
+    page.evaluate(HOST_PLAY, HOST_BOARD)
+    check(f'{name}: the host page has no data-guide-id', page.evaluate("document.querySelectorAll('[data-guide-id]').length") == 0)
+    settle(page)
+    r = page.evaluate("""() => { const g = document.querySelector('#board-layer g[data-op="circle"]').getBoundingClientRect(), t = document.getElementById('leela-abar').getBoundingClientRect();
+                          return [g.left + g.width / 2 - t.left - t.width / 2, g.top + g.height / 2 - t.top - t.height / 2]; }""")
+    check(f'{name}: host resolve: the circle is on the part that the host gives', abs(r[0]) <= 6 and abs(r[1]) <= 6, str([round(x) for x in r]))
+    c = page.evaluate(CHIP, dict(a='eq', tex=r'\bar\alpha'))
+    check(f'{name}: host resolve: the chip is near its part and does not cover it', c and c['free'], str(c))
+    page.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.i === 1', timeout=8000); settle(page)
+    page.wait_for_function('window.__said.length === 2 && document.querySelectorAll("#guide-strip .board-say span.on").length === 4', timeout=5000)
+    check(f'{name}: host speak says each line, and its words light up', page.evaluate('window.__said') == [s['say'] for s in HOST_BOARD['steps']])
+    check(f'{name}: host demo gets the set', page.evaluate('window.__sets') == [dict(t=3)])
+    check(f'{name}: host resolve finds each anchor, and a missing one draws nothing', {'eq', 'pic', 'nothing'} <= set(page.evaluate('window.__resolved'))
+          and page.evaluate("""document.querySelectorAll('#board-layer g[data-op="circle"]').length""") == 1)
+    page.keyboard.press('Escape')
+
+THEMES = (('paper', 'light'), ('signal', 'dark'))
+
+def polish(page, base, jid, out):
+    "Screens of the board at several moments, in Paper light and Signal dark: `guide-polish-<board>-<theme>-<n>-<moment>.png`."
+    def shot(board, look, n, moment): page.screenshot(path=str(out/f'guide-polish-{board}-{look}-{n}-{moment}.png'))
+    def theme(t, m): page.evaluate("([t, m]) => { document.documentElement.dataset.theme = t; document.documentElement.dataset.mode = m; }", [t, m])
+    def still(): page.mouse.click(5, 300); page.keyboard.press('s'); page.wait_for_timeout(50)   # S on step 1 draws it again, and stops the auto step
+    for t, m in THEMES:
+        look = f'{t}-{m}'
+        page.set_viewport_size(dict(width=1280, height=760))
+        page.goto(f'{base}/w/{jid}/0'); theme(t, m)
+        page.wait_for_function("document.querySelectorAll('#passage .katex').length >= 3")
+        page.evaluate("document.querySelector('#passage .katex-display').scrollIntoView({block: 'center'})")
+        ask(page, "I don't get alpha bar"); still(); page.wait_for_timeout(380); shot('ddpm', look, 1, 'flight')
+        settle(page); page.wait_for_timeout(300); shot('ddpm', look, 2, 'glow')
+        page.keyboard.press('d'); page.wait_for_function('abhyasaBoard.state.i === 1'); page.wait_for_timeout(900); shot('ddpm', look, 3, 'marker')
+        settle(page); page.wait_for_timeout(300); shot('ddpm', look, 4, 'chip')
+        page.keyboard.press('d'); page.wait_for_function('abhyasaBoard.state.i === 2'); settle(page); page.wait_for_timeout(300); shot('ddpm', look, 5, 'end')
+        page.keyboard.press('Escape')
+        page.set_viewport_size(dict(width=1280, height=800))
+        page.goto(f'{base}/w/{jid}/1'); theme(t, m)
+        page.wait_for_function("(() => { const i = document.querySelector('#figure img'); return i && i.complete && i.naturalWidth > 0; })()")
+        page.evaluate("document.querySelector('#figure').scrollIntoView({block: 'center'})")
+        ask(page, 'Explain a and b'); still()
+        page.evaluate("window.scrollTo(0, document.querySelector('#figure').getBoundingClientRect().top + scrollY - 120)"); page.wait_for_timeout(500); shot('triangle', look, 1, 'drawing')
+        settle(page); page.keyboard.press('d'); page.wait_for_function('abhyasaBoard.state.i === 1'); settle(page); page.wait_for_timeout(300); shot('triangle', look, 2, 'chip')
+        page.keyboard.press('Escape')
+        page.set_viewport_size(dict(width=1280, height=900))
+        page.route('https://www.youtube-nocookie.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body=PLAYER))
+        page.goto(f'{base}/w/{jid}/1'); theme(t, m)
+        page.frame_locator('#guide-video iframe').locator('#t').wait_for()
+        ask(page, 'What does the video say about a and b'); page.wait_for_timeout(250); shot('video', look, 1, 'bloom')
+        settle(page); page.wait_for_timeout(600); shot('video', look, 2, 'glow')
+        page.keyboard.press('Escape')
+
 def tri(page, base, jid, name, out):
     page.set_viewport_size(dict(width=1280, height=800))
     page.goto(f'{base}/w/{jid}/1')
     page.wait_for_function("(() => { const i = document.querySelector('#figure img'); return i && i.complete && i.naturalWidth > 0; })()")
     page.evaluate("document.querySelector('#figure').scrollIntoView({block: 'center'})")
     last = ask(page, 'Explain a and b')
-    page.evaluate("window.scrollTo(0, document.querySelector('#figure').getBoundingClientRect().top + scrollY - 120)"); page.wait_for_timeout(300)
+    page.evaluate("window.scrollTo(0, document.querySelector('#figure').getBoundingClientRect().top + scrollY - 120)"); settle(page)
     ok = True
     for k, step in (('a', 0), ('b', 1)):
-        if step: page.mouse.click(5, 300); page.keyboard.press('d'); page.wait_for_function('abhyasaBoard.state.i === 1'); page.wait_for_timeout(900)
+        if step: page.mouse.click(5, 300); page.keyboard.press('d'); page.wait_for_function('abhyasaBoard.state.i === 1'); settle(page)
         want = page.evaluate("""(b) => { const r = document.querySelector('#figure img').getBoundingClientRect();
                                 return [r.left + r.width * (b[0] + b[2]) / 2000, r.top + r.height * (b[1] + b[3]) / 2000]; }""", LABELS[k])
         mark = page.evaluate(f"""(() => {{ const g = document.querySelectorAll('#board-layer g[data-op="point"]')[{step}]; const c = g && g.lastElementChild.getBoundingClientRect();
@@ -269,6 +400,12 @@ def main():
                     times[name] = ddpm(page, base, jid, name, out)
                     tri(page, base, jid, name, out)
                     video(page, base, jid, name, out)
+                    look(page, base, jid, name)
+                    hooks(page, base, name)
+                finally: b.close()
+            if 'chromium' in a.browsers.split(','):
+                b = p.chromium.launch(headless=True)
+                try: polish(b.new_page(device_scale_factor=2), base, jid, out)
                 finally: b.close()
     finally: srv.should_exit = True
     n = sum('You find the text labels' in sp for _, sp in FAKE.calls)
