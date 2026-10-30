@@ -132,6 +132,8 @@ def FindSource(jid, i, s, looking=False):
     if s.get('research') == 'pending' and looking: return P(LOOKING, cls='mute looking', aria_live='polite')
     none = s.get('research') == 'none'
     go = Quiet('Look again' if none else 'Find a source', small=True, type='button', hx_post=at(Routes.source, jid, i), hx_target='#passage', hx_swap='outerHTML', data_wait=LOOKING)
+    if s.get('gather_err') and s.get('research') is None:   # the agent stopped with an error: Find a source, with the reason
+        return (P(s.get('research_why') or '', cls='mute no-source-why'), P(go, cls='mute find-source'))
     if none and s.get('gather_none'):   # the gather agent read for this idea and found nothing: what it read is in its log
         return (P(s.get('research_why') or NO_SOURCE, cls='mute no-source'), P(ShowLog(jid), ' ', go, cls='mute find-source'))
     why = P(s['research_why'], cls='mute no-source-why') if none and s.get('research_why') else ''
@@ -141,9 +143,13 @@ def FindSource(jid, i, s, looking=False):
 
 TOOL_WORDS = dict(web_search='Searched the web', fetch_page='Read a page', gh_clone='Cloned a repo', read_gh_repo='Listed files in a repo',
                   read_file='Read a file', file_source='Opened a source', docs='Listed documents', read_doc='Read a document',
-                  put_passage='Gave a passage', put_notebook='Gave a notebook', note='Note from the agent')
+                  put_passage='Gave a passage', put_notebook='Gave a notebook', note='Note from the agent', spend='Spend')
 
 def hm(t) -> str: return time.strftime('%H:%M', time.localtime(t)) if t else ''
+
+def idea_no(j, slug) -> int|None:
+    "The number (from 1) of the step on the concept `slug` in walk `j` now, or None."
+    return next((k + 1 for k, s in enumerate(j['steps']) if s['slug'] == slug), None) if slug else None
 
 def ShowLog(jid): return pane_link('Show what it did', at(Routes.gather_log, jid), 'What the agent did', cls='pane-link show-log')
 
@@ -167,7 +173,8 @@ def GatherBand(j, running=False, stopping=False):
     log = ShowLog(j['id']) if j.get('gather') else ''
     if running:
         nw = j.get('gather_now') or {}
-        now = ' '.join(x for x in ('Now: reading', nw.get('title') or '', f"({nw['site']})" if nw.get('site') else '', f"for idea {nw['i'] + 1}" if type(nw.get('i')) is int else '') if x)
+        n = idea_no(j, nw.get('idea'))
+        now = ' '.join(x for x in ('Now: reading', nw.get('title') or '', f"({nw['site']})" if nw.get('site') else '', f"for idea {n}" if n else '') if x)
         stop = (Span('Stopping the agent…', cls='mute') if stopping else
                 Quiet('Stop', small=True, type='button', hx_post=at(Routes.gather_stop, j['id']), hx_target='#gather', hx_swap='outerHTML', data_wait='Stopping…'))
         return Div(P(f"An agent is reading your sources. {docs}. {ideas}. Started {hm(j['gather_at'])}."),
@@ -192,7 +199,7 @@ def GatherLog(j):
     rows = list(reversed(j.get('gather') or ()))
     docs, ideas = gather_words(j)
     def item(r):
-        idea = f" · idea {r['i'] + 1}" if type(r.get('i')) is int else ''
+        idea = f" · idea {n}" if (n := idea_no(j, r.get('idea'))) else ''
         if r.get('tool') == 'note': return Li(Span(hm(r.get('at')), cls='k'), ' ', B(TOOL_WORDS['note']), ' ', Q(r.get('outcome') or '', cls='agent-note'), cls='glog note')
         bad = str(r.get('outcome') or '').startswith(('refused', 'not read'))
         return Li(Span(hm(r.get('at')), cls='k'), ' ', B(TOOL_WORDS.get(r.get('tool'), r.get('tool') or '')), ' ', _target(r), Span(f" · {r.get('outcome') or ''}{idea}", cls='mute'),

@@ -13,8 +13,8 @@ __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'MATH_MOST', 'SORT_SP', 'ARXIV_ID', 'LO
            'from_vault', 'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts',
            'link_folder', 'in_scope', 'link_sel', 'LinkError', 'link_kind', 'reading_order', 'math_md',
            'read_arxiv_html', 'save_figures', 'file_link', 'as_link', 'is_id_title', 'arxiv_title', 'is_paper',
-           'tree_files', 'folder_why', 'file_folder', 'vault_roots', 'root_docs', 'unfile', 'gh_name', 'can_clone',
-           'gh_public', 'file_repo', 'source_of', 'plain', 'from_vedicreader']
+           'tree_ok', 'tree_files', 'folder_why', 'file_folder', 'vault_roots', 'root_docs', 'unfile', 'gh_name',
+           'can_clone', 'gh_public', 'file_repo', 'source_of', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re, shutil
@@ -644,6 +644,15 @@ TREE_TYPES = ('.ipynb', '.md', '.txt', '.py')   # in this order: the caps keep t
 TREE_SKIP = SKIP_DIRS | {'data', 'datasets'}
 TREE_FILES, TREE_MB, TREE_TOTAL_MB, TREE_SEEN = 400, 20, 200, 20_000   # the most files, MB of one file, MB of one filing, names looked at
 
+def tree_ok(p, root, most:int=None) -> bool:
+    "Whether abhyasa may read the file `p` under the folder `root`: not a link, not a hard link, at most `most` bytes (default `TREE_MB` MB), and inside `root` after each link is resolved."
+    p, most = Path(p), TREE_MB * 2**20 if most is None else most
+    try:
+        if p.is_symlink(): return False
+        st = p.lstat()   # a hard link can name a file outside the folder, such as a key: it is never read
+        return st.st_nlink == 1 and st.st_size <= most and p.resolve().is_relative_to(Path(root).resolve())
+    except OSError: return False
+
 def tree_files(root) -> L:
     """The files under the folder `root` that abhyasa files, in path order. No link, no hard link, nothing outside `root`,
     no `.py` when the folder has notebooks, at most `TREE_FILES` files and `TREE_TOTAL_MB` MB. `cut` says why it stopped early, or is ''."""
@@ -655,10 +664,9 @@ def tree_files(root) -> L:
             p = Path(dp)/f
             if f.startswith('.') or p.suffix.lower() not in TREE_TYPES or p.is_symlink(): continue
             nbs = nbs or p.suffix.lower() == '.ipynb'
-            try:
-                st = p.lstat()   # a hard link can name a file outside the folder, such as a key: it is never read
-                if st.st_nlink == 1 and st.st_size <= TREE_MB * 2**20 and p.resolve().is_relative_to(root): got.append((p, st.st_size))
-            except OSError: continue
+            if tree_ok(p, root):
+                try: got.append((p, p.lstat().st_size))
+                except OSError: continue
         if seen >= TREE_SEEN: break
     if nbs: got = [(p, n) for p, n in got if p.suffix.lower() != '.py']   # the code of a course is in its notebooks
     got.sort(key=lambda x: (TREE_TYPES.index(x[0].suffix.lower()), str(x[0])))

@@ -7,15 +7,16 @@ Docs: https://vedicreader.github.io/abhyasa/research.html.md"""
 # %% auto #0
 __all__ = ['log', 'SUBJECT_LABEL', 'MANY_SENSE', 'SOCIAL', 'FILES', 'PAGE_BYTES', 'TEXT_TYPES', 'MOST', 'LEAST', 'WINDOW',
            'PICK_SP', 'TOP', 'FOUND_NOTHING', 'NO_QUOTE', 'BIG_ROOT', 'AGENT_DOCS', 'TOOL_TEXT', 'LOG_MOST',
-           'FILE_BYTES', 'STOPPED', 'TIME_UP', 'TEXTS', 'SECRET', 'GATHER_SP', 'NO_START', 'NONE_FOUND',
-           'subject_label', 'vague', 'research_query', 'site_of', 'usable', 'paper_link', 'candidates', 'web_search',
-           'web_fetch', 'page_text', 'verbatim', 'pick_prompt', 'pick_passage', 'file_page', 'link_concept',
-           'wants_source', 'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending',
-           'research_walk', 'Researcher', 'want_agent', 'gather_row', 'gather_state', 'put_passage', 'put_notebook',
-           'gather_tools', 'gather_prompt', 'gather']
+           'FILE_BYTES', 'LEAK_WORDS', 'FLUSH_ROWS', 'FLUSH_SECS', 'PASSAGE_WORDS', 'STOPPED', 'TIME_UP', 'TEXTS',
+           'SECRET', 'GATHER_SP', 'NO_START', 'NONE_FOUND', 'CRASHED', 'subject_label', 'vague', 'research_query',
+           'site_of', 'usable', 'paper_link', 'candidates', 'web_search', 'web_fetch', 'page_text', 'verbatim',
+           'pick_prompt', 'pick_passage', 'file_page', 'link_concept', 'wants_source', 'put_step', 'why_unread',
+           'read_paper', 'research_step', 'to_research', 'mark_pending', 'research_walk', 'Researcher', 'want_agent',
+           'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state', 'idea_at', 'idea_no', 'put_passage',
+           'put_notebook', 'secret_path', 'gather_tools', 'gather_prompt', 'gather']
 
 # %% ../nbs/18_research.ipynb #r006
-import hashlib, json, logging, re, threading, time
+import hashlib, json, logging, os, re, threading, time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from urllib.parse import urlparse, unquote
@@ -26,7 +27,7 @@ from .llm import ask_json, for_task, ramabana_worker
 from .prompts import register, prompt
 from .journey import _jlock, chip_docs
 from .sources import doc_pages, link_kind, is_paper, file_link, LinkError, NOT_LOCAL, PLAIN, SHORT, fetch_opts, quoted, _local, _addrs, _clip
-from .sources import math_cut, gh_name, gh_public, REPO_MB, source_of
+from .sources import math_cut, gh_name, gh_public, REPO_MB, source_of, tree_ok
 from .contract import validate_nb_spec
 from pathlib import Path
 from .ground import fence, names_idea, main_words
@@ -411,6 +412,33 @@ def want_agent(j, chips=(), failed:bool=False) -> bool:
     return len(cs) >= 2 or any(n(c) > BIG_ROOT for c in cs)
 
 # %% ../nbs/18_research.ipynb #ga06
+LEAK_WORDS = 8   # a run of this many words of a local or vault file in a query or a link is the text of that file
+
+def pii_gate(text, mode:str='redact', kind:str='page') -> str:
+    """`text` through ramabana's read guard (`ramabana.agent.masking_guard`), as for a read that a hosted model gets: each API key or
+    private key is masked, and with `mode='redact'` each finding of personal data is masked (`[EMAIL]`); with `refuse`, text with
+    personal data gives `[withheld: <why>]`. Without ramabana (the models extra), the same gate of vishalakshi (`vishalakshi.pii.gated`)."""
+    t = str(text or '')
+    try:
+        from ramabana.agent import masking_guard
+        from shalya.core import ReadCheck, Refusal
+    except ImportError:
+        from vishalakshi.pii import gated
+        return gated(t, mode)
+    r = masking_guard(lambda: (mode, False))(ReadCheck('abhyasa', 'gather', kind, lambda: t, local=False))
+    return t if r is None else f'[withheld: {r.why}]' if isinstance(r, Refusal) else str(r)
+
+def _words(s) -> list: return re.findall(r'[a-z0-9]+', unquote(str(s or '')).lower())
+
+def leak(out, private=()) -> str:
+    """Why the text `out`, which leaves this computer (a search query, a link, a repo name), may not go: ramabana's guard finds a
+    secret or personal data in it, or it holds a run of `LEAK_WORDS` words from a local or vault file that the agent read (`private`, the words of
+    each file joined by spaces). '' when it may go."""
+    if (g := pii_gate(out, 'refuse', 'url')) != str(out or ''): return 'it holds personal data' if g.startswith('[withheld') else 'it holds a secret'
+    ws = _words(out)
+    runs = {' '.join(ws[k:k + LEAK_WORDS]) for k in range(len(ws) - LEAK_WORDS + 1)}
+    return 'it holds text from your files' if any(r in t for r in runs for t in private) else ''
+
 def _link(url) -> str:
     "`url` when it is an http or https link, or a local path of this app; else ''."
     u = str(url or '')
@@ -423,22 +451,55 @@ def _cut1(s, n:int) -> str:
     s = _flat(s)
     return s if len(s) <= n else s[:n].rsplit(' ', 1)[0] + '…'
 
-def gather_row(lr:Learning, jid:str, tool:str, target='', outcome='', link='', i=None) -> dict:
-    """Add one row `dict(at, tool, target, outcome, link, i)` to the log of the gather agent of walk `jid` (`j.gather`), under the lock
-    of the walk. A row whose outcome is `read` also sets `j.gather_now`, the document that the agent reads now. Return the row."""
-    row = dict(at=time.time(), tool=tool, target=_cut1(target, 200), outcome=_cut1(outcome, 400 if tool == 'note' else 200), link=_link(link), i=i if type(i) is int else None)
+FLUSH_ROWS, FLUSH_SECS = 5, 2.   # the log of a run is written every 5 rows or every 2 seconds, and at the end
+
+def _write_rows(lr:Learning, jid:str, rows:list):
+    "Add `rows` to `j.gather` in one write of walk `jid`, under the lock of the walk. The last `read` row sets `j.gather_now`."
+    if not rows: return
+    reads = [r for r in rows if r['outcome'] == 'read']
+    now = dict(title=reads[-1]['target'], site=site_of(reads[-1]['link']) if reads[-1]['link'].startswith('http') else '', idea=reads[-1]['idea']) if reads else None
     with _jlock(jid):
-        rows = list(_journey(lr, jid).get('gather') or ())[-(LOG_MOST - 1):] + [row]
-        now = dict(title=row['target'], site=site_of(row['link']) if row['link'].startswith('http') else '', i=row['i']) if outcome == 'read' else None
-        lr.merge_journey(jid, gather=rows, **({'gather_now': now} if now else {}))
+        old = list(_journey(lr, jid).get('gather') or ())
+        lr.merge_journey(jid, gather=(old + rows)[-LOG_MOST:], **({'gather_now': now} if now else {}))
+
+def gather_row(lr:Learning, jid:str, tool:str, target='', outcome='', link='', idea=None, st=None) -> dict:
+    """One row `dict(at, tool, target, outcome, link, idea)` of the log of the gather agent of walk `jid` (`j.gather`). `idea` is the slug
+    of the concept of the step, so a step that the learner moves keeps its rows. With the state `st` of a run, the row waits in `st.rows`,
+    and the log is written every `FLUSH_ROWS` rows or `FLUSH_SECS` seconds (`flush_rows`); with no `st`, at once. Return the row."""
+    pg = lambda x: pii_gate(x, 'redact')   # no log line keeps personal information: the PII gate of ramabana
+    row = dict(at=time.time(), tool=tool, target=_cut1(pg(target), 200), outcome=_cut1(pg(outcome), 400 if tool == 'note' else 200), link=_link(link) if leak(link) == '' else '',
+               idea=idea if isinstance(idea, str) and idea else None)
+    if st is None: _write_rows(lr, jid, [row]); return row
+    with st.lock:
+        st.rows.append(row)
+        if len(st.rows) >= FLUSH_ROWS or time.monotonic() - st.flushed >= FLUSH_SECS: flush_rows(lr, jid, st)
     return row
+
+def flush_rows(lr:Learning, jid:str, st, every:float=0):
+    "Write the rows that wait in `st.rows` in one write of the walk; with `every`, only when the last write is `every` seconds old."
+    with st.lock:
+        if not st.rows or time.monotonic() - st.flushed < every: return
+        rows, st.rows, st.flushed = st.rows, [], time.monotonic()
+        _write_rows(lr, jid, rows)
 
 def gather_state(lr:Learning=None, j=None) -> AttrDict:
     """The state of one run of the gather agent: `read` (the documents read), `docs` (the pages and files that it read, kept in memory
     by id until a passage files them), `vault` (the vault documents that it may read: the documents of the chips of walk `j`, and the
-    papers that it filed), `papers`, `used`, `clones` and `passages`."""
+    papers that it filed), `ideas` (the slug of each step, in the order of the numbers that the agent sees, from 1), `papers`, `used`,
+    `clones`, `passages`, and the rows of the log that wait (`rows`)."""
     vault = {d.doc_id: AttrDict(shelf=d.shelf, root=root, title=_short(d.title)) for root, ds in chip_docs(lr, (j or {}).get('chips') or ()) for d in ds} if lr is not None else {}
-    return AttrDict(read=set(), docs={}, vault=vault, papers=[], used=set(), clones={}, passages=0, stopped='')
+    return AttrDict(read=set(), docs={}, vault=vault, papers=[], used=set(), clones={}, passages=0, stopped='', ideas=[s['slug'] for s in (j or {}).get('steps') or ()],
+                    rows=[], flushed=time.monotonic(), lock=threading.RLock())
+
+def idea_at(lr:Learning, jid:str, st, idea) -> tuple:
+    "`(slug, index now)` of the idea `idea` of walk `jid`: its number in the list of the agent (from 1, `st.ideas`), or its slug. `(None, None)` when the walk has no such idea now."
+    slug = (st.ideas[idea - 1] if 1 <= idea <= len(st.ideas) else None) if type(idea) is int else idea if isinstance(idea, str) else None
+    k = next((k for k, s in enumerate(_journey(lr, jid).steps) if s['slug'] == slug), None) if slug else None
+    return (slug, k) if k is not None else (None, None)
+
+def idea_no(st, slug) -> int|None:
+    "The number (from 1) that the agent sees for the idea on `slug`."
+    return st.ideas.index(slug) + 1 if slug in st.ideas else None
 
 # %% ../nbs/18_research.ipynb #ga08
 def _vault_doc(lr:Learning, doc_id:str, shelf:str, root:str='') -> AttrDict|None:
@@ -473,25 +534,31 @@ def _file_local(lr:Learning, d) -> AttrDict:
         r = sh.add(d.text, d.title, source=d.path, kind=Path(d.path).suffix.lstrip('.') or 'text', meta=dict(root=d.root, path=d.path, via='gather'), refresh=False)
     return AttrDict(shelf=sh.name, doc_id=r['doc_id'])
 
-def put_passage(lr:Learning, jid:str, i:int, doc_id:str, quote:str, st=None) -> str:
-    """Give step `i` of walk `jid` the passage `quote` from the document `doc_id`, when it is in the document word for word (`verbatim`)
-    and names the idea (`names_idea`, the gate of research). abhyasa files a page or a file itself, only after these checks. The passage
-    is cut to `walks.passage`. At most `research.per_walk` passages in one run. Return the line for the agent; a refusal adds a row
-    `refused: <why>`."""
-    j = _journey(lr, jid); st = st if st is not None else gather_state(lr, j)
-    ok = type(i) is int and 0 <= i < len(j.steps)
-    s = j.steps[i] if ok else None
-    c = (lr.concept(s['slug']) or AttrDict(name=s['slug'])) if s else AttrDict(name='')
-    name = c.get('name') or (s or {}).get('slug') or f'idea {i}'
+PASSAGE_WORDS = 12   # the fewest words of a passage from the agent
+
+def put_passage(lr:Learning, jid:str, idea, doc_id:str, quote:str, st=None) -> str:
+    """Give the idea `idea` of walk `jid` (its number from 1 in the list of the agent, or the slug of its concept) the passage `quote`
+    from the document `doc_id`. It must be in the document word for word (`verbatim`), have at least `PASSAGE_WORDS` words, and name the
+    idea itself (`names_idea` on the passage alone: the title does not count). abhyasa files a page or a file itself, only after these
+    checks. The passage is cut to `walks.passage`. At most `research.per_walk` passages in one run. Return the line for the agent; a
+    refusal adds a row `refused: <why>`."""
+    j, own = _journey(lr, jid), st is None
+    st = gather_state(lr, j) if own else st
+    slug, k = idea_at(lr, jid, st, idea)
+    s = j.steps[k] if slug else None
+    c = (lr.concept(slug) or AttrDict(name=slug)) if slug else AttrDict(name='')
+    name, no_ = c.get('name') or slug or f'idea {idea}', idea_no(st, slug) or idea
     def no(why, link=''):
-        gather_row(lr, jid, 'put_passage', name, f'refused: {why}', link, i if ok else None)
+        gather_row(lr, jid, 'put_passage', name, f'refused: {why}', link, slug, st)
+        if own: flush_rows(lr, jid, st)
         return f'Refused: {why}.'
-    if not ok: return no('there is no such idea')
+    if not slug: return no('there is no such idea')
     if not wants_source(s): return no('this idea has a passage')
     if st.passages >= val('research.per_walk'): return no(f"the walk has {val('research.per_walk')} passages from the agent")
     if (d := _doc(lr, st, doc_id)) is None: return no('no document that you read has this id')
     if not (p := verbatim(quote if isinstance(quote, str) else '', d.text)): return no('not word for word', _doc_link(d))
-    if not names_idea(name, list(c.get('aliases') or ()), f'{d.title} {p}'): return no('the passage does not name the idea', _doc_link(d))
+    if len(p.split()) < PASSAGE_WORDS: return no(f'the passage has fewer than {PASSAGE_WORDS} words', _doc_link(d))
+    if not names_idea(name, list(c.get('aliases') or ()), p): return no('the passage does not name the idea', _doc_link(d))
     p, now = _cut(p, val('walks.passage')), time.time()
     if d.kind in ('vault', 'file'):
         if d.kind == 'file': d = AttrDict(d, kind='vault', **_file_local(lr, d))
@@ -501,36 +568,49 @@ def put_passage(lr:Learning, jid:str, i:int, doc_id:str, quote:str, st=None) -> 
         page = AttrDict(url=d.url, title=d.title, text=d.text)
         kept = d.get('kept') or file_page(lr, page, p)
         r = _read(page, kept, p, now)
-    link_concept(lr, s['slug'], dict(src=r['src'], shelf=r['shelf'], doc_id=r['doc_id'], title=r['title'], url=r['url'], passage=p, at=now))
-    if put_step(lr, jid, s['slug'], i, read=dict(r, gathered=True), research='found', research_at=now, research_why=None, note=None, gather_none=None) is None:
+    link_concept(lr, slug, dict(src=r['src'], shelf=r['shelf'], doc_id=r['doc_id'], title=r['title'], url=r['url'], passage=p, at=now))
+    if put_step(lr, jid, slug, k, read=dict(r, gathered=True), research='found', research_at=now, research_why=None, note=None, gather_none=None) is None:
         return no('the idea left the walk, or it has a passage now')
     st.passages += 1; st.used.add(str(doc_id))
-    gather_row(lr, jid, 'put_passage', name, 'filed', source_of(r).href or r['url'], i)
-    return f'Filed: idea {i} has its passage now.'
+    gather_row(lr, jid, 'put_passage', name, 'filed', source_of(r).href or r['url'], slug, st)
+    if own: flush_rows(lr, jid, st)
+    return f'Filed: idea {no_} has its passage now.'
 
-def put_notebook(lr:Learning, jid:str, i:int, spec) -> str:
-    """Give the notebook step `i` of walk `jid` the notebook spec `spec` (a dict, or its JSON), when the tutor could not write one
-    (`nb_spec` failed two times, so the step has `nb_why`) and `validate_nb_spec` takes it. Return the line for the agent."""
-    j = _journey(lr, jid)
-    ok = type(i) is int and 0 <= i < len(j.steps)
-    def no(why): gather_row(lr, jid, 'put_notebook', f'idea {i}', f'refused: {why}', '', i if ok else None); return f'Refused: {why}.'
-    if not ok: return no('there is no such idea')
-    s = j.steps[i]
+def put_notebook(lr:Learning, jid:str, idea, spec, st=None) -> str:
+    """Give the notebook idea `idea` of walk `jid` (its number from 1, or its slug) the notebook spec `spec` (a dict, or its JSON), when the
+    tutor could not write one (`nb_spec` failed two times, so the step has `nb_why`) and `validate_nb_spec` takes it. Return the line for the agent."""
+    j, own = _journey(lr, jid), st is None
+    st = gather_state(lr, j) if own else st
+    slug, k = idea_at(lr, jid, st, idea)
+    no_ = idea_no(st, slug) or idea
+    def no(why):
+        gather_row(lr, jid, 'put_notebook', slug or f'idea {idea}', f'refused: {why}', '', slug, st)
+        if own: flush_rows(lr, jid, st)
+        return f'Refused: {why}.'
+    if not slug: return no('there is no such idea')
+    s = j.steps[k]
     if (s.get('check') or {}).get('kind') != 'notebook': return no('this idea has no notebook check')
     if s.get('nb') or not s.get('nb_why'): return no('the tutor writes the notebook of this idea')
     try: spec = validate_nb_spec(json.loads(spec) if isinstance(spec, str) else spec)
     except (ValueError, TypeError) as e: return no(f'the spec is not good: {_flat(e)[:120]}')
     with _jlock(jid):
-        if (k := _at(lr, jid, s['slug'], i)) is None or lr.journey(jid).steps[k].get('nb'): return no('the idea left the walk, or it has a notebook now')
+        if (k := _at(lr, jid, slug, k)) is None or lr.journey(jid).steps[k].get('nb'): return no('the idea left the walk, or it has a notebook now')
         lr.walk_step(jid, k, nb=spec, nb_why='')
-    gather_row(lr, jid, 'put_notebook', s['slug'], 'filed', '', i)
-    return f'Filed: idea {i} has its notebook now.'
+    gather_row(lr, jid, 'put_notebook', slug, 'filed', '', slug, st)
+    if own: flush_rows(lr, jid, st)
+    return f'Filed: idea {no_} has its notebook now.'
 
 # %% ../nbs/18_research.ipynb #ga14
 STOPPED = 'Stopped. Call no more tools. Reply with one short line.'
 TIME_UP = 'The time is up. Call no more tools. Reply with one short line.'
 TEXTS = ('.md', '.txt', '.py', '.ipynb', '.rst', '.toml', '.yaml', '.yml', '.json', '.cfg', '.qmd', '.tex', '.html', '.js', '.ts', '.sh', '.r', '.jl')
 SECRET = re.compile(r'(?:^|/)(?:\.env[^/]*|\.ssh|\.aws|\.gnupg|\.netrc|id_[a-z0-9]+|[^/]*\.(?:pem|key|p12|pfx|keychain|kdbx))(?:/|$)', re.I)
+
+def secret_path(p, top) -> bool:
+    "Whether the file `p` under the folder `top` holds credentials: shalya's `denied` (the paths that ramabana never reads), and `SECRET` for the shapes that it does not list."
+    try: from shalya.core import denied
+    except ImportError: denied = lambda _: False
+    return denied(Path(p)) or bool(SECRET.search(str(Path(p).relative_to(top))))
 
 def _chip_roots(j) -> dict:
     "The folders on disk of the folder and repo chips of walk `j`, by name: the only folders on this computer that the agent may read."
@@ -545,29 +625,42 @@ def _nb_text(raw:str) -> str:
     try: return '\n\n'.join(''.join(c.get('source') or '') for c in json.loads(raw).get('cells') or ())
     except (ValueError, AttributeError, TypeError): return raw
 
-def _said(d, i:int, start:int=0) -> str:
+def _said(d, start:int=0) -> str:
     "The reply of a read: the id of document `d`, and at most `TOOL_TEXT` characters of its text from `start`, in a fence."
     t = d.text[max(0, int(start or 0)):][:TOOL_TEXT]
     more = f' It has more text: read_doc("{d.id}", start={int(start or 0) + TOOL_TEXT}).' if len(d.text) > int(start or 0) + TOOL_TEXT else ''
     return f'doc_id: {d.id}.{more}\n{fence(d.title or site_of(d.url), t)}'
+
+def _read_ok(p, top) -> str|None:
+    "The text of the file `p` under the folder `top`, at most `FILE_BYTES` bytes, when the rules of `tree_ok` let abhyasa read it (no link, no hard link, nothing outside `top`); else None. The open does not follow a link."
+    if not tree_ok(p, top, FILE_BYTES * 10): return None
+    try:
+        fd = os.open(p, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
+        try:
+            if os.fstat(fd).st_nlink != 1: return None
+            raw = os.read(fd, FILE_BYTES)
+        finally: os.close(fd)
+    except OSError: return None
+    return _nb_text(raw.decode('utf-8', 'replace'))
 
 def gather_tools(lr:Learning, jid:str, stop:threading.Event, search=None, fetch=None, paper=None, end:float=None, st=None) -> list:
     """The tools of the gather agent for walk `jid`: web search and a plain fetch (the rules of `usable`), a public GitHub repo
     (`gh_clone`, `read_gh_repo`), read-only file reads in the folders of the chips (`read_file`), and the abhyasa tools `file_source`,
     `docs`, `read_doc`, `put_passage`, `put_notebook` and `note`. No tool writes a file, runs a command or acts outside the vault; only
     `put_passage` and `put_notebook` change the walk, after their checks. Each tool first checks `stop` and the time limit `end`
-    (`time.monotonic`), then adds one row to `j.gather`. A text from a tool is in a fence: it is data, not instructions."""
+    (`time.monotonic`), A query, a link or a repo name that leaves this computer passes `leak` (the PII gate of ramabana, and no run of words from a local file); the text of a local or vault file goes to the model through the gate (`redact`). Then the tool adds one row to the log (`gather_row`, written in batches). An idea is named by its number from 1; the log keeps the slug of its concept. A text from a tool is in a fence: it is data, not instructions."""
     search, fetch, paper = search or web_search, fetch or web_fetch, paper or partial(read_paper, lr)
     st = st if st is not None else gather_state(lr, _journey(lr, jid))
     end = end or time.monotonic() + val('research.agent_minutes') * 60
-    roots, row = _chip_roots(_journey(lr, jid)), partial(gather_row, lr, jid)
+    roots = _chip_roots(_journey(lr, jid))
+    def row(tool, target='', outcome='', link='', idea=None): return gather_row(lr, jid, tool, target, outcome, link, idea, st)
     def held():
         "The line that ends a call when the agent must stop, or None."
         if stop.is_set(): return STOPPED
         if time.monotonic() > end: st.stopped = st.stopped or 'time'; stop.set(); return TIME_UP
-    def idea(i):
-        "The step index `i` when it names a step of the walk, else None."
-        return i if type(i) is int and 0 <= i < len(_journey(lr, jid).steps) else None
+    def slug_of(n):
+        "The slug of the idea with the number `n` (from 1), or None."
+        return idea_at(lr, jid, st, n)[0] if type(n) is int else None
     def count(key) -> bool:
         "Count the document `key` as read. False when the agent read `AGENT_DOCS` documents and `key` is a new one."
         if key in st.read: return True
@@ -578,29 +671,40 @@ def gather_tools(lr:Learning, jid:str, stop:threading.Event, search=None, fetch=
         d = AttrDict(id=f'p{len(st.docs) + 1}', kind=kind, title=_flat(title)[:200], url=url, text=str(text or ''), **kw)
         st.docs[d.id] = d
         return d
-    def full(tool, target, i) -> str:
-        row(tool, target, f'refused: {AGENT_DOCS} documents read', '', idea(i))
+    st.setdefault('private', [])
+    def shown(d) -> AttrDict:
+        "Document `d` as the model sees it: the text of a local or vault file goes through the PII gate (`redact`), and its words are kept so a query cannot carry them out."
+        if d.get('kind') not in ('file', 'vault'): return d
+        st.private.append(' '.join(_words(d.text)))
+        return AttrDict(d, text=pii_gate(d.text, 'redact'), title=pii_gate(d.title, 'redact'))
+    def out_ok(tool, out, idea=None) -> str|None:
+        "None when `out` may leave this computer; else the refusal for the agent, after a row that names the reason but not the text."
+        if not (why := leak(out, st.private)): return None
+        row(tool, '(withheld)', f'refused: {why}', '', slug_of(idea))
+        return f'Refused: {why}. Use the words of the idea, not the words of your files.'
+    def full(tool, target, idea) -> str:
+        row(tool, target, f'refused: {AGENT_DOCS} documents read', '', slug_of(idea))
         return f'You read {AGENT_DOCS} documents. Read no more. Give your passages now.'
 
     def web_search_(query:str,  # the words to search the web for
-                    i:int=-1,    # the number of the idea that you look for
+                    idea:int=0,    # the number (from 1) of the idea that you look for
                     ) -> str:
         "Search the web. Give the title and the link of each result that abhyasa can read."
-        if (h := held()): return h
+        if (h := held()) or (h := out_ok('web_search', query, idea)): return h
         hs = _search(search, _flat(query)[:200], 10)
-        row('web_search', query, _n(len(hs), 'result'), '', idea(i))
+        row('web_search', query, _n(len(hs), 'result'), '', slug_of(idea))
         return fence('search results', '\n'.join(f'{h.title} | {h.url}' for h in hs)) if hs else 'No results.'
     web_search_.__name__ = 'web_search'
 
     def fetch_page(url:str,  # an http or https link from a search, or one that you know
-                   i:int=-1,  # the number of the idea that you look for
+                   idea:int=0,  # the number (from 1) of the idea that you look for
                    ) -> str:
         "Read one web page, or a paper (an arXiv link or a PDF). Give its doc_id and its text."
-        if (h := held()): return h
+        if (h := held()) or (h := out_ok('fetch_page', url, idea)): return h
         url = str(url or '').strip()
         if not (usable(url) or paper_link(url)):
-            row('fetch_page', url, 'refused: abhyasa does not read this link', '', idea(i)); return 'Refused: abhyasa does not read this link.'
-        if not count(url): return full('fetch_page', url, i)
+            row('fetch_page', url, 'refused: abhyasa does not read this link', '', slug_of(idea)); return 'Refused: abhyasa does not read this link.'
+        if not count(url): return full('fetch_page', url, idea)
         try:
             if paper_link(url):   # the paper reader files the paper; a paper that gives no passage is forgotten at the end (`_unfile`)
                 pg = paper(url)
@@ -611,9 +715,9 @@ def gather_tools(lr:Learning, jid:str, stop:threading.Event, search=None, fetch=
                 if not usable(pg.url): raise LinkError('it moved to a site that abhyasa does not read')
                 d = keep('web', pg.get('title') or site_of(pg.url), pg.url, pg.get('text'))
         except Exception as e:
-            row('fetch_page', url, f'not read: {why_unread(e)}', url, idea(i)); return why_unread(e)
-        row('fetch_page', d.title, 'read', d.url, idea(i))
-        return _said(d, i)
+            row('fetch_page', url, f'not read: {why_unread(e)}', url, slug_of(idea)); return why_unread(e)
+        row('fetch_page', d.title, 'read', d.url, slug_of(idea))
+        return _said(d)
 
     def repo_dir(repo) -> tuple:
         "`(owner/name, the folder of its clone)` for the public GitHub repo `repo`, cloned in fossick's cache. Raise `LinkError` for another repo."
@@ -628,13 +732,13 @@ def gather_tools(lr:Learning, jid:str, stop:threading.Event, search=None, fetch=
 
     def files(top:Path) -> list:
         "The text files in the folder `top`, in path order, without `.git` and the folders that abhyasa skips."
-        return sorted(p for p in top.rglob('*') if p.is_file() and p.suffix.lower() in TEXTS and not SECRET.search(str(p.relative_to(top)))
+        return sorted(p for p in top.rglob('*') if p.suffix.lower() in TEXTS and tree_ok(p, top, FILE_BYTES * 10) and not secret_path(p, top)
                       and not set(p.relative_to(top).parts[:-1]) & {'.git', 'node_modules', '__pycache__', '.venv', '_proc', '_docs', 'site-packages'})[:500]
 
     def gh_clone(repo:str,  # a github.com link, or owner/name
                  ) -> str:
         "Clone a public GitHub repo in a cache, read only. Give the paths of its text files."
-        if (h := held()): return h
+        if (h := held()) or (h := out_ok('gh_clone', repo)): return h
         try: g, top = repo_dir(repo)
         except Exception as e: row('gh_clone', repo, f'refused: {_flat(e)[:100]}'); return f'Refused: {_flat(e)[:100]}.'
         fs = files(top)
@@ -643,51 +747,51 @@ def gather_tools(lr:Learning, jid:str, stop:threading.Event, search=None, fetch=
 
     def read_gh_repo(repo:str,      # a github.com link, or owner/name
                      pattern:str='README*',  # a file pattern, such as *.md or nbs/*.ipynb
-                     i:int=-1,      # the number of the idea that you look for
+                     idea:int=0,      # the number (from 1) of the idea that you look for
                      ) -> str:
         "Read the files of a public GitHub repo that match the pattern, at most 20. Give the doc_id of each file. Read each one with read_doc."
-        if (h := held()): return h
+        if (h := held()) or (h := out_ok('read_gh_repo', repo, idea)): return h
         try: g, top = repo_dir(repo)
-        except Exception as e: row('read_gh_repo', repo, f'refused: {_flat(e)[:100]}', '', idea(i)); return f'Refused: {_flat(e)[:100]}.'
+        except Exception as e: row('read_gh_repo', repo, f'refused: {_flat(e)[:100]}', '', slug_of(idea)); return f'Refused: {_flat(e)[:100]}.'
         fs = [p for p in files(top) if p.match(str(pattern or '*'))][:20]
-        ds = [keep('gh', f'{g}/{p.relative_to(top)}', f'https://github.com/{g}/blob/HEAD/{p.relative_to(top)}', _nb_text(p.read_text(errors='replace')[:FILE_BYTES])) for p in fs]
-        row('read_gh_repo', f'{g} {pattern}', _n(len(ds), 'file'), f'https://github.com/{g}', idea(i))
+        ds = [keep('gh', f'{g}/{p.relative_to(top)}', f'https://github.com/{g}/blob/HEAD/{p.relative_to(top)}', t) for p in fs if (t := _read_ok(p, top)) is not None]
+        row('read_gh_repo', f'{g} {pattern}', _n(len(ds), 'file'), f'https://github.com/{g}', slug_of(idea))
         return fence(g, '\n'.join(f'{d.id} | {d.title}' for d in ds)) if ds else 'No file matches.'
 
     def read_file(file:str,  # a path in a folder of the learner's sources, as root/path, or a path in a repo that you cloned
-                  i:int=-1,   # the number of the idea that you look for
+                  idea:int=0,   # the number (from 1) of the idea that you look for
                   ) -> str:
         "Read one text file in a folder that the learner named, or in a repo that you cloned. Read only. Give its doc_id and its text."
         if (h := held()): return h
         f = str(file or '').strip()
         tops = {**roots, **{g: p for g, p in st.clones.items()}}
         head, _, rest = f.partition('/')
-        p = (tops[head]/rest) if head in tops and rest else Path(f).expanduser()
-        try: p = p.resolve()
+        q = ((tops[head]/rest) if head in tops and rest else Path(f).expanduser()).absolute()
+        try: p = q.resolve()
         except (OSError, RuntimeError): p = None
         top = first(t for t in tops.values() if p is not None and p.is_relative_to(t))
-        if top is None or not p.is_file() or SECRET.search(str(p.relative_to(top))) or p.suffix.lower() not in TEXTS:
-            row('read_file', f, 'refused: not a text file in a folder of your sources', '', idea(i)); return 'Refused: abhyasa reads only a text file in a folder of your sources.'
-        if not count(str(p)): return full('read_file', f, i)
+        raw = _read_ok(q, top) if top is not None and p.suffix.lower() in TEXTS and not secret_path(p, top) else None
+        if raw is None:
+            row('read_file', f, 'refused: not a text file in a folder of your sources', '', slug_of(idea)); return 'Refused: abhyasa reads only a text file in a folder of your sources.'
+        if not count(str(p)): return full('read_file', f, idea)
         old = first(lr.vault.shelf('notebooks').t.docs(where='source=?', where_args=[str(p)]))
         if old:
             st.vault[old['id']] = AttrDict(shelf='notebooks', root=top.name)
             d = AttrDict(_vault_doc(lr, old['id'], 'notebooks', top.name), id=old['id'])
         else:
             g = first(k for k, v in st.clones.items() if v == top)
-            raw = _nb_text(p.read_bytes()[:FILE_BYTES].decode('utf-8', 'replace'))
             d = (keep('gh', f'{g}/{p.relative_to(top)}', f'https://github.com/{g}/blob/HEAD/{p.relative_to(top)}', raw) if g else
                  keep('file', f'{top.name}/{p.relative_to(top)}', '', raw, path=str(p), root=top.name))
-        row('read_file', d.title, 'read', _doc_link(d), idea(i))
-        return _said(d, i)
+        row('read_file', d.title, 'read', _doc_link(d), slug_of(idea))
+        return _said(shown(d))
 
     def file_source(path_or_url:str,  # a web link, a github.com repo, or a file in a folder of your sources
-                    i:int=-1,          # the number of the idea that you look for
+                    idea:int=0,          # the number (from 1) of the idea that you look for
                     ) -> str:
         "Open one source and give its doc_id: a web page or a paper, the README of a GitHub repo, or a file in a folder of your sources."
         s = str(path_or_url or '').strip()
-        if re.match(r'https?://(?:www\.)?github\.com/[^/\s]+/[^/\s]+/?\Z', s): return read_gh_repo(s, 'README*', i)
-        return fetch_page(s, i) if re.match(r'https?://', s) else read_file(s, i)
+        if re.match(r'https?://(?:www\.)?github\.com/[^/\s]+/[^/\s]+/?\Z', s): return read_gh_repo(s, 'README*', idea)
+        return fetch_page(s, idea) if re.match(r'https?://', s) else read_file(s, idea)
 
     def docs(root:str='',  # the name of a source; empty gives the names
              ) -> str:
@@ -708,32 +812,32 @@ def gather_tools(lr:Learning, jid:str, stop:threading.Event, search=None, fetch=
         return fence(root, '\n'.join(f'{x} | {st.vault[x].get("title") or ""}' for x in by[root][:AGENT_DOCS]))
 
     def read_doc(doc_id:str,  # the id of a document from docs, read_gh_repo or a read
-                 i:int=-1,     # the number of the idea that you look for
+                 idea:int=0,     # the number (from 1) of the idea that you look for
                  start:int=0,  # the first character to read, for a long document
                  ) -> str:
         "Read one document. Give its text, at most 12000 characters from start."
         if (h := held()): return h
-        if (d := _doc(lr, st, doc_id)) is None: row('read_doc', doc_id, 'refused: no such document', '', idea(i)); return 'Refused: no document that you may read has this id.'
-        if not count(str(doc_id)): return full('read_doc', d.title, i)
+        if (d := _doc(lr, st, doc_id)) is None: row('read_doc', doc_id, 'refused: no such document', '', slug_of(idea)); return 'Refused: no document that you may read has this id.'
+        if not count(str(doc_id)): return full('read_doc', d.title, idea)
         d = AttrDict(d, id=str(doc_id))
-        row('read_doc', d.title, 'read', _doc_link(d), idea(i))
-        return _said(d, i, start)
+        row('read_doc', d.title, 'read', _doc_link(d), slug_of(idea))
+        return _said(shown(d), start)
 
-    def put_passage_(i:int,       # the number of the idea
+    def put_passage_(idea:int,    # the number of the idea, from 1
                      doc_id:str,  # the id of the document that you quote
                      quote:str,   # 40 to 600 characters, copied word for word from the document
                      ) -> str:
         "Give an idea its passage. abhyasa checks that the quote is in the document word for word and that it names the idea, then files the source."
         if (h := held()): return h
-        return put_passage(lr, jid, i, doc_id, quote, st)
+        return put_passage(lr, jid, idea, doc_id, quote, st)
     put_passage_.__name__ = 'put_passage'
 
-    def put_notebook_(i:int,  # the number of the idea
+    def put_notebook_(idea:int,  # the number of the idea, from 1
                       spec:dict,  # the notebook spec: task, fname, stub, tests, and the other keys of the contract
                       ) -> str:
         "Give a notebook idea its notebook spec, only when the walk says that the tutor could not write it."
         if (h := held()): return h
-        return put_notebook(lr, jid, i, spec)
+        return put_notebook(lr, jid, idea, spec, st)
     put_notebook_.__name__ = 'put_notebook'
 
     def note(text:str,  # one short line for the learner
@@ -747,7 +851,7 @@ def gather_tools(lr:Learning, jid:str, stop:threading.Event, search=None, fetch=
 
 # %% ../nbs/18_research.ipynb #ga18
 GATHER_SP = register('research.gather', 'Source gatherer', 'How the agent gathers sources for the ideas of a big walk.', """You gather sources for the ideas of a walk, for a learner.
-- The ideas are in the list, each with its number. An idea marked "has a passage" needs nothing.
+- The ideas are in the list, each with its number from 1. Give that number to each tool. An idea marked "has a passage" needs nothing.
 - For each other idea, find one document that explains it. List and read the documents of the sources that the learner named first. Then search the web, read pages, and read public GitHub repos.
 - Keep each web search to a few words. Give the number of the idea to each read, so the learner sees which idea you look for.
 - When a document explains the idea, call put_passage with the number of the idea, the doc_id and one passage of 40 to 600 characters, copied word for word from the document. abhyasa refuses a passage that is not in the document word for word, or that does not name the idea.
@@ -757,11 +861,12 @@ GATHER_SP = register('research.gather', 'Source gatherer', 'How the agent gather
 
 NO_START = 'The agent could not start: {}. The passages come from the simple search.'
 NONE_FOUND = 'No good source was found. The agent read {} for this idea.'
+CRASHED = 'The agent stopped with an error before it found a source.'
 
 def gather_prompt(lr:Learning, j) -> str:
     "The request to the gather agent for walk `j`: the goal, each idea with its number and its statement, the sources that the goal named, and the caps."
     ideas = [f"{i}. {quoted((lr.concept(s['slug']) or {}).get('name') or s['slug'])}: {quoted((lr.concept(s['slug']) or {}).get('statement') or '')}"
-             f" ({'needs a passage' if wants_source(s) else 'has a passage'})" for i, s in enumerate(j.steps)]
+             f" ({'needs a passage' if wants_source(s) else 'has a passage'})" for i, s in enumerate(j.steps, 1)]
     srcs = [r for r, _ in chip_docs(lr, j.get('chips') or ())] + [Path(v).name for c in j.get('chips') or () for k, _, v in [str(c).partition(':')] if k in ('folder', 'repo')]
     return (f"The goal of the learner: {quoted(j.get('goal') or j.get('title'))}\n\nThe ideas:\n" + '\n'.join(ideas) +
             f"\n\nThe sources that the learner named: {', '.join(dict.fromkeys(srcs)) or 'none'}. Use docs to list them.\n"
@@ -771,24 +876,29 @@ def _reason(e) -> str:
     "A short reason from the error `e`, with no end stop."
     return (_flat(e)[:120].rstrip('.') or type(e).__name__)
 
-def _gather_end(lr:Learning, jid:str, st, stop):
-    "End a run: forget each paper that the agent filed and did not quote, and give each step with no passage the line that says what the agent read for it."
+def _gather_end(lr:Learning, jid:str, st, stop, err=None):
+    """End a run, also after an error: write the rows that wait, forget each paper that the agent filed and did not quote, and give
+    each step with no passage its line. After a normal end it says how many documents the agent read for that idea. After an error
+    (`err`) the step goes back to Find a source, with a plain reason (`CRASHED`)."""
     for pg in st.papers:
-        if pg.id not in st.used: _unfile(lr, pg)
-    rows = (_journey(lr, jid).get('gather') or ())
-    reads = [r for r in rows if r.get('outcome') == 'read']
+        if pg.id not in st.used: _unfile(lr, pg)   # `_unfile` never raises
+    flush_rows(lr, jid, st)
+    reads = [r for r in _journey(lr, jid).get('gather') or () if r.get('outcome') == 'read']
     with _jlock(jid):
         j = _journey(lr, jid)
         for k, s in enumerate(j.steps):
             if not wants_source(s): continue
-            n = sum(r.get('i') == k for r in reads) or len(reads)
-            lr.walk_step(jid, k, research='none', research_at=time.time(), research_why=NONE_FOUND.format(_n(n, 'document')), gather_none=True)
-        lr.merge_journey(jid, gather_end=time.time(), gather_now=None, gather_stopped=st.stopped or ('you' if stop.is_set() else None))
+            if err is not None: lr.walk_step(jid, k, research=None, research_at=time.time(), research_why=CRASHED, gather_err=True, gather_none=None)
+            else: lr.walk_step(jid, k, research='none', research_at=time.time(), gather_none=True, gather_err=None,
+                               research_why=NONE_FOUND.format(_n(sum(r.get('idea') == s['slug'] for r in reads), 'document')))
+        lr.merge_journey(jid, gather_end=time.time(), gather_now=None, gather_stopped=st.stopped or ('you' if stop.is_set() else None),
+                         **({'gather_why': f'The agent stopped with an error: {_reason(err)}.'} if err is not None else {}))
 
 def gather(lr:Learning, jid:str, stop:threading.Event, ask=None, search=None, fetch=None, paper=None) -> AttrDict:
     """Let a ramabana agent (`ramabana_worker`) gather a passage for each step of walk `jid` that has none, with `gather_tools`, for at most
     `research.agent_minutes` and `AGENT_DOCS` documents. `stop` ends it: each tool refuses, and the turn is cancelled. Return
-    `passages`, `read` and `why`. When the agent cannot start, `j.gather_why` says why, and `research_walk` finds the passages."""
+    `passages`, `read` and `why`. When the agent cannot start, `j.gather_why` says why, and `research_walk` finds the passages. The end
+    (`_gather_end`) runs in a `finally`, so a crash also forgets an unused paper and puts the steps back to Find a source."""
     j = _journey(lr, jid)
     end, st = time.monotonic() + val('research.agent_minutes') * 60, gather_state(lr, j)
     lr.merge_journey(jid, gather=[], gather_at=time.time(), gather_end=None, gather_why=None, gather_now=None, gather_stopped=None,
@@ -806,31 +916,35 @@ def gather(lr:Learning, jid:str, stop:threading.Event, ask=None, search=None, fe
         a = ramabana_worker(sp=prompt('research.gather'))
         for t in gather_tools(lr, jid, stop, search, fetch, paper, end, st): a.add_tool(t)
     except Exception as e: return plain(e)
-    done = threading.Event()
+    done, why, err, early = threading.Event(), '', None, False
     def watch():
-        "Cancel the turn on Stop, or when the time is up."
+        "Cancel the turn on Stop, or when the time is up. Write the rows that wait every `FLUSH_SECS` seconds."
         while not done.wait(.5):
+            try: flush_rows(lr, jid, st, FLUSH_SECS)
+            except Exception as e: log.warning('research: could not write the log of the gather agent: %r', e)
             if stop.is_set() or time.monotonic() > end:
                 if not stop.is_set(): st.stopped = st.stopped or 'time'; stop.set()
                 try: a.cancel()
                 except Exception as e: log.warning('research: could not cancel the gather agent: %r', e)
                 return
     threading.Thread(target=watch, name=f'gather-watch-{jid}', daemon=True).start()
-    why = ''
     try:
         r = a.ask(gather_prompt(lr, _journey(lr, jid)), result=True)
-        if r.state == 'failed' and not st.read and not st.passages: done.set(); return plain(RuntimeError(r.error or 'the model did not answer'))
-        if (r.reply or '').strip() and r.state != 'cancelled' and not stop.is_set(): gather_row(lr, jid, 'note', '', r.reply)
-        why = '' if r.state in ('complete', 'cancelled') else f'The agent stopped: {_reason(r.error or r.state)}.'
+        early = r.state == 'failed' and not st.read and not st.passages
+        if not early:
+            if (r.reply or '').strip() and r.state != 'cancelled' and not stop.is_set(): gather_row(lr, jid, 'note', '', r.reply, st=st)
+            why = '' if r.state in ('complete', 'cancelled') else f'The agent stopped: {_reason(r.error or r.state)}.'
     except Exception as e:
-        log.warning('research: the gather agent of %s failed: %r', jid, e); why = f'The agent stopped: {_reason(e)}.'
+        log.warning('research: the gather agent of %s failed: %r', jid, e); err = e
     finally:
         done.set()
         try: a.close()
         except Exception: pass
+        if (est := getattr(a, 'estimated', 0)): gather_row(lr, jid, 'spend', '', f'spend estimated: about ${est:.2f} from the tokens, as the model gave no cost', st=st)
+        if not early: _gather_end(lr, jid, st, stop, err)
+    if early: return plain(RuntimeError(r.error or 'the model did not answer'))
     if why: lr.merge_journey(jid, gather_why=why)
-    _gather_end(lr, jid, st, stop)
-    return AttrDict(passages=st.passages, read=len(st.read), why=why)
+    return AttrDict(passages=st.passages, read=len(st.read), why=why or (f'The agent stopped with an error: {_reason(err)}.' if err is not None else ''))
 
 # %% ../nbs/18_research.ipynb #ga20
 @patch

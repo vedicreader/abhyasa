@@ -38,7 +38,7 @@ demo = ["rupaka[check]>=0.0.7"]
 repos = ["gheasy>=0.0.18"]   # `clone_url` for a GitHub repo source; abhyasa works without it
 dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.6", "rupaka[check]>=0.0.7", "gheasy>=0.0.18"]
 models = [
-    "ramabana>=0.2.78",
+    "ramabana>=0.2.95",   # `masking_guard`: the PII and secret guard of the gather agent
 ]
 
 [project.scripts]

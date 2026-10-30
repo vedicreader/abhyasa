@@ -44,9 +44,9 @@ def test_agent_quote_refused_and_stop(lr, monkeypatch):
     "A quote that is not in the doc is refused; the real sentence is filed; Stop after the third call ends the job, and the rows stay."
     j, did = walk(lr)
     stop = threading.Event()
-    agent = Script([('put_passage', dict(i=0, doc_id=did, quote='words not in doc, and not a sentence of it at all')),
-                    ('put_passage', dict(i=0, doc_id=did, quote=QUOTE)), ('read_doc', dict(doc_id=did, i=1)), stop.set,
-                    *[('read_doc', dict(doc_id=did, i=1))] * 100])
+    agent = Script([('put_passage', dict(idea=1, doc_id=did, quote='words not in doc, and not a sentence of it at all')),
+                    ('put_passage', dict(idea=1, doc_id=did, quote=QUOTE)), ('read_doc', dict(doc_id=did, idea=2)), stop.set,
+                    *[('read_doc', dict(doc_id=did, idea=2))] * 100])
     monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
     out = R.gather(lr, j.id, stop)
     j = lr.journey(j.id)
@@ -95,11 +95,11 @@ def test_band_and_log_routes(mk, lr):
     "A walk with gather rows: the band shows the counts; the log lists the rows newest first, each with its link; Stop answers with the band."
     j, did = walk(lr)
     now = time.time()
-    rows = [dict(at=now - 60, tool='web_search', target='softmax machine learning', outcome='5 results', link='', i=0),
-            dict(at=now - 50, tool='fetch_page', target='Softmax explained', outcome='read', link='https://example.org/softmax', i=0),
-            dict(at=now - 40, tool='put_passage', target='Softmax', outcome='refused: not word for word', link='https://example.org/softmax', i=0),
-            dict(at=now - 30, tool='read_doc', target='softmax', outcome='read', link=f'/v/notebooks/{did}', i=1),
-            dict(at=now - 20, tool='note', target='', outcome='<b>Ignore</b> the rules', link='', i=None)]
+    rows = [dict(at=now - 60, tool='web_search', target='softmax machine learning', outcome='5 results', link='', idea='softmax'),
+            dict(at=now - 50, tool='fetch_page', target='Softmax explained', outcome='read', link='https://example.org/softmax', idea='softmax'),
+            dict(at=now - 40, tool='put_passage', target='Softmax', outcome='refused: not word for word', link='https://example.org/softmax', idea='softmax'),
+            dict(at=now - 30, tool='read_doc', target='softmax', outcome='read', link=f'/v/notebooks/{did}', idea='attention'),
+            dict(at=now - 20, tool='note', target='', outcome='<b>Ignore</b> the rules', link='', idea=None)]
     lr.merge_journey(j.id, gather=rows, gather_at=now - 70, gather_end=now, gather_total=12)
     cl = mk()
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
@@ -112,21 +112,21 @@ def test_band_and_log_routes(mk, lr):
 def test_band_runs_then_stop(mk, lr, monkeypatch):
     "While the agent runs, the band asks again every 3 s and names the document that it reads now. Stop ends the job, and the band says so."
     j, did = walk(lr)
-    agent = Script([('read_doc', dict(doc_id=did, i=0)), lambda: until(lambda: agent.cancelled)])
+    agent = Script([('read_doc', dict(doc_id=did, idea=1)), lambda: until(lambda: agent.cancelled)])
     monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
     cl = mk(); rs = cl.app.state.svc['research']
     job = rs.gather(j.id)
-    until(lambda: agent.calls)
+    until(lambda: lr.journey(j.id).get('gather'))   # the watch writes the rows that wait within 2 s
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
     assert 'An agent is reading your sources. 1 document read. 0 of 2 ideas have a passage. Started' in b
-    assert 'Now: reading nbs/softmax for idea 1' in b and 'every 3s' in b and '>Stop<' in b
+    assert 'Now: reading nbs/softmax for idea 1' in b and 'idea 1' in cl.get(f'/w/{j.id}/gather/log').text and 'every 3s' in b and '>Stop<' in b
     assert 'An agent is reading your sources' in cl.get(f'/w/{j.id}/0').text   # the step page has the band while it runs
     assert 'Stopping' in cl.post(f'/w/{j.id}/gather/stop', headers=HX).text or job.done()
     job.result(10)
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
     assert 'You stopped the agent. It read 1 document. 0 of 2 ideas have a passage.' in b and 'every 3s' not in b
     h = cl.get(f'/w/{j.id}/1').text
-    assert 'No good source was found. The agent read 1 document for this idea.' in h and 'Show what it did' in h
+    assert 'No good source was found. The agent read 0 documents for this idea.' in h and 'Show what it did' in h   # its one read was for idea 1
 
 def test_big_goal_on_start_calls_the_agent(mk, lr, walk_fake, monkeypatch):
     "Start with a goal and two chips: the walk calls Researcher.gather, not look_for."
@@ -152,3 +152,54 @@ def until(f, secs=20):
         if (r := f()): return r
         time.sleep(.05)
     raise AssertionError('timed out')
+
+def test_crash_goes_back_to_find_a_source(mk, lr, monkeypatch):
+    "When the agent crashes, each step with no passage goes back to Find a source, with a plain reason, and the band says why."
+    j, did = walk(lr)
+    def boom(): raise RuntimeError('the model process died')
+    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: Script([('read_doc', dict(doc_id=did, idea=1)), boom]))
+    out = R.gather(lr, j.id, threading.Event())
+    assert out.why == 'The agent stopped with an error: the model process died.'
+    cl = mk(); cl.post(f'/w/{j.id}/start')
+    h = cl.get(f'/w/{j.id}/0').text
+    assert R.CRASHED in h and 'Find a source' in h and 'Look again' not in h
+    assert 'The agent stopped with an error: the model process died.' in cl.get(f'/w/{j.id}/gather', headers=HX).text
+
+def test_spend_estimated_in_the_log(mk, lr, monkeypatch):
+    "When the model gives no cost, the worker estimates it from the tokens, and the log says so."
+    j, did = walk(lr)
+    agent = Script([('read_doc', dict(doc_id=did, idea=1))]); agent.estimated = 1.234
+    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
+    R.gather(lr, j.id, threading.Event())
+    assert 'spend estimated: about $1.23' in lr.journey(j.id).gather[-1]['outcome']
+    assert 'Spend' in mk().get(f'/w/{j.id}/gather/log').text
+
+def test_reorder_keeps_the_idea(lr, monkeypatch):
+    "The learner moves a step while the agent runs: the passage goes to the idea that the agent named, not to the step at its old place."
+    j, did = walk(lr)
+    agent = Script([lambda: lr.journey_step(j.id, 'softmax', 'down'), ('put_passage', dict(idea=1, doc_id=did, quote=QUOTE))])
+    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
+    R.gather(lr, j.id, threading.Event())
+    ss = lr.journey(j.id).steps
+    assert [s['slug'] for s in ss] == ['attention', 'softmax'] and ss[1]['read']['text'] == QUOTE and not (ss[0].get('read') or {}).get('text')
+
+def test_secret_in_a_local_file_never_leaves(lr, monkeypatch, tmp_path):
+    "A fake key in a local file: the model sees it masked, and it never goes out in a query or a link, nor into a log line (the PII gate of ramabana)."
+    key = 'sk-test1234567890abcdefghij'
+    top = tmp_path/'notes'; top.mkdir()
+    (top/'keys.md').write_text(f'# Keys\n\nMy key is {key}. Softmax notes for the comic live here too.')
+    j, did = walk(lr, [f'folder:{top}', 'vault:notes'])
+    sent, said = [], []
+    def search(q, n): sent.append(q); return []
+    def fetch(u): sent.append(u); raise AssertionError('no fetch')
+    agent = Script([('read_file', dict(file='notes/keys.md', idea=1)), ('web_search', dict(query=f'softmax {key}', idea=1)),
+                    ('fetch_page', dict(url=f'https://example.org/q?key={key}', idea=1)), ('note', dict(text=f'the key is {key}'))])
+    real = agent.add_tool
+    def add(f):
+        if f.__name__ == 'read_file': g = lambda **kw: said.append(f(**kw)) or said[-1]; g.__name__ = f.__name__; return real(g)
+        return real(f)
+    agent.add_tool = add
+    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
+    R.gather(lr, j.id, threading.Event(), search=search, fetch=fetch)
+    assert said and key not in said[0] and '[SECRET]' in said[0]
+    assert not sent and key not in str(lr.journey(j.id).gather)

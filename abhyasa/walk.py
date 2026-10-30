@@ -224,7 +224,9 @@ def _from_leela(lr, jid:str) -> list:
 PREDICTIONS = ('predict', 'demo')   # the kinds of a prediction that Leela files: a card prediction, or a prediction in a demo
 
 def _same_step(lr, s, a) -> bool:
-    "Whether attempt `a` is on the concept of step `s`: its slug, or the slug of the concept name (Leela slugifies the lesson name)."
+    """Whether attempt `a` is on the concept of step `s`: its slug, or the slug of the concept name (Leela slugifies the lesson name).
+    An older Leela lesson files no `concept`: then the index of the step is the match."""
+    if 'concept' not in a: return True
     c = a.get('concept')
     return isinstance(c, str) and bool(c) and c in (s['slug'], slugify((lr.concept(s['slug']) or {}).get('name') or ''))
 
