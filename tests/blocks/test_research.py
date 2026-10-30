@@ -53,7 +53,7 @@ def test_a_topic_walk_finds_a_web_source(mk, web, lr):
     "The walk opens at once. On the pool, research reads the good page only, files it in the vault, and the step shows it with its links."
     cl = mk(); jid = topic(cl)
     until(lambda: state(lr, jid) == 'found')
-    assert web.read == [URL] and web.asked == ['Softmax ml how softmax works']   # the local result is never read
+    assert web.read == [URL] and web.asked == ['Softmax ml']   # the local result is never read
     r = lr.journey(jid).steps[0]['read']
     assert r['text'] == QUOTE and r['site'] == 'example.org' and lr.vault.doc(r['doc_id'])['source'] == URL
     assert any(p.get('doc_id') == r['doc_id'] for p in lr.concept('softmax').provenance)   # linked to the concept
@@ -87,6 +87,7 @@ def test_no_source_then_find_a_source(mk, web, lr, walk_fake):
     page = cl.get(f'/w/{jid}/0').text
     assert "In the tutor's words" in page and 'Look again' in page and 'Find a source' not in page and f'hx-post="/w/{jid}/0/source"' in page
     assert '<p class="mute no-source">No good source was found on the web.</p>' in page   # on its own line
+    assert '<p class="mute no-source-why">No page had a good quote.</p>' in page   # and why, under it
     n = len(web.asked)
     cl.get(f'/w/{jid}/0/source')
     assert len(web.asked) == n and state(lr, jid) == 'none'   # a GET starts no search
@@ -94,6 +95,15 @@ def test_no_source_then_find_a_source(mk, web, lr, walk_fake):
     cl.post(f'/w/{jid}/0/source')
     until(lambda: state(lr, jid) == 'found')
     assert len(web.asked) == n + 1 and '>from the web<' in cl.get(f'/w/{jid}/0').text
+
+def test_one_ideas_heading(mk, web, lr, walk_fake):
+    "A topic walk with no sections shows one heading, The ideas, in its plan, also when its steps quote different pages."
+    walk_fake.rules['You plan a learning path'] = dict(title='Softmax', subject='ml', steps=[*PLAN['steps'], dict(name='Attention', statement='Attention mixes values by weights.', slug='', why='The goal.', needs=['Softmax'], ways=['words'])])
+    cl = mk(); jid = topic(cl)
+    until(lambda: state(lr, jid, 0) != 'pending' and state(lr, jid, 1) != 'pending')
+    for i, d in enumerate(('d1', 'd2')): lr.walk_step(jid, i, read=dict(src='web', doc_id=d, text='A passage.', section=''))
+    page = cl.get(f'/w/{jid}').text
+    assert page.count('<b>The ideas</b>') == 1 and '1 section' in page and page.count('class="sh"') == 1
 
 def test_research_off_means_no_search(mk, web, lr):
     "With research off, a topic walk does no web search, the step keeps the tutor's words, and Find a source does not show or search."
