@@ -7,7 +7,7 @@ from fasthtml.common import *
 from abhyasa.core import cfg, RouteOverrides, connect_all, serve_assets, serve_feedback, HDRS, look_before
 from abhyasa.core import hooks
 from abhyasa.core.keys import write_sanketa_pack
-from abhyasa.core.leela import write_address, drop_address
+from abhyasa.core.leela import write_address, drop_address, LOCAL_HOSTS
 from abhyasa.blocks import blocks
 from abhyasa.store import Learning
 from abhyasa.tutor import Tutor
@@ -28,7 +28,6 @@ async def _fresh(req, call_next):
     return r
 
 
-LOCAL_HOSTS = ('127.0.0.1', 'localhost', '::1')
 SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
 
 class LocalOnly:
