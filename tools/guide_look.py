@@ -210,6 +210,8 @@ CHIP = """(at) => { const c = document.querySelector('.board-label.on'), b = abh
   const x = b.x - scrollX, y = b.y - scrollY; return {free: r.right <= x || r.left >= x + b.w || r.bottom <= y || r.top >= y + b.h, chip: [r.left, r.top, r.width, r.height], part: [x, y, b.w, b.h]}; }"""
 TIP = """(at) => { const p = abhyasaBoard.pointer, b = abhyasaBoard.boxOf(at); if (!p || !b) return null;
   const x = b.x - scrollX, y = b.y - scrollY, [tx, ty] = p.tip, d = Math.max(x - tx, 0, tx - x - b.w) + Math.max(y - ty, 0, ty - y - b.h); return {d, flying: p.flying, tip: p.tip.map(Math.round)}; }"""
+OFF_CHIP = """() => { const p = document.querySelector('#board-pointer svg').getBoundingClientRect(), cs = [...document.querySelectorAll('.board-label.on')].filter(c => +c.style.opacity > .9);
+  return cs.length ? cs.every(c => { const r = c.getBoundingClientRect(); return p.right <= r.left || p.left >= r.right || p.bottom <= r.top || p.top >= r.bottom; }) : null; }"""
 JUMP = """() => new Promise(ok => { abhyasaBoard.again(); const out = []; const f = () => { out.push(abhyasaBoard.pointer); if (out.length < 6) requestAnimationFrame(f); else ok(out); }; requestAnimationFrame(f); })"""
 
 def alpha(css):
@@ -237,6 +239,7 @@ def look(page, base, jid, name):
     check(f'{name}: the pointer flies, then lands on alpha bar', flew and t and t['d'] <= 14 and not t['flying'], str(t))
     c = page.evaluate(CHIP, at)
     check(f'{name}: the chip does not cover alpha bar', c and c['free'], str(c))
+    check(f'{name}: the pointer rests off the chip', page.evaluate(OFF_CHIP) is True)
     page.emulate_media(reduced_motion='reduce')
     frames = page.evaluate(JUMP)
     tips = [f and f['tip'] for f in frames]
@@ -342,6 +345,7 @@ def tri(page, base, jid, name, out):
         good = close_to(mark, want, 6)
         ok &= bool(good)
         check(f'{name}: the pointer lands on label {k}', good, f'mark {mark and [round(x) for x in mark]} label {[round(x) for x in want]}')
+    check(f'{name}: the pointer rests off the chip of leg b', page.evaluate(OFF_CHIP) is True)
     page.screenshot(path=str(out/f'guide-triangle-{name}.png'))
     page.keyboard.press('Escape')
     return last

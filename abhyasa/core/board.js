@@ -340,11 +340,19 @@
 
   // --- the pointer ----------------------------------------------------------------------------------------------------------
   const home = () => { const s = document.getElementById('guide-strip'), sh = s && !s.hidden ? s.offsetHeight : 0; return [scrollX + 44, scrollY + innerHeight - sh - 36]; };
-  const aimAt = b => [b.x + b.w + 6, b.y + b.h + 4];   // the tip touches the lower right of the target; the body stays off the text
+  // Where the tip rests: at the lower right of the target, so the body stays off the text; else at its right or under it, so that
+  // the body (about 24 px around its centre, 6 px right and 10 px down from the tip) never sits on a chip of the step.
+  function aimAt(b) {
+    const chips = st ? st.marks.filter(m => m.step === st.i && m.o.op === 'label' && m.ok && m.box).map(m => m.box) : [];
+    const tries = [[b.x + b.w + 6, b.y + b.h + 4], [b.x + b.w + 8, b.y + b.h / 2 - 6], [b.x + b.w + 6, b.y + 2], [b.x + b.w / 2, b.y + b.h + 4]];
+    const free = ([x, y]) => !chips.some(c => x + 6 + 12 > c.x - 3 && x + 6 - 12 < c.x + c.w + 3 && y + 10 + 12 > c.y - 3 && y + 10 - 12 < c.y + c.h + 3);
+    return tries.find(free) || tries[0];
+  }
   function where(t) {   // the pointer at time t: its place, turn and size
     const P = st.ptr, f = P.f;
     if (!f) return {pos: P.pos || home(), rot: -35, sc: 1};
-    const to = f.m && f.m.ok && f.m.aim ? (([x, y]) => [x + 6, y + 10])(aimAt(f.m.aim)) : f.to;   // the target can move (scroll, resize)
+    if (f.m && f.m.ok && f.m.aim && t < f.t0 + f.dur) { const [ax, ay] = aimAt(f.m.aim); f.to = [ax + 6, ay + 10]; }   // in flight, the target can move (scroll, resize)
+    const to = f.to;
     const lin = clamp((t - f.t0) / f.dur), u = smooth(lin), s = 1 - u, c = [(f.from[0] + to[0]) / 2, (f.from[1] + to[1]) / 2 - f.arc];
     const pos = [s * s * f.from[0] + 2 * s * u * c[0] + u * u * to[0], s * s * f.from[1] + 2 * s * u * c[1] + u * u * to[1]];
     if (lin < 1) {   // it turns to its path, and grows to 1.3x as it comes in
@@ -364,6 +372,8 @@
     return t + dur;   // when it lands
   }
   function paintPointer(t) {
+    const f = st.ptr.f;   // at rest, a target that moved or a chip that came gives a short new flight, not a jump
+    if (f && f.m && f.m.ok && f.m.aim && t >= f.t0 + f.dur) { const [ax, ay] = aimAt(f.m.aim); if (Math.hypot(ax + 6 - f.to[0], ay + 10 - f.to[1]) > 2) fly(f.m, t); }
     const el = document.getElementById('board-pointer');
     if (!el) return;
     const w = where(t), breathe = reduced() ? 0 : .5 + .5 * Math.sin(t / 2500 * 2 * Math.PI), glow = 8 + (w.sc - 1) * 20 + breathe * 2;
