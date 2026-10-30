@@ -155,4 +155,4 @@ def test_a_file_name_or_a_bare_host(mk, lr):
 
 def test_vedicreader_is_under_more_on_sources(mk):
     import re
-    assert re.search(r'<summary>More</summary>.*Import vedicreader', mk().get('/sources').text, re.S)
+    assert re.search(r'<summary>Add more sources</summary>.*Import vedicreader', mk().get('/sources').text, re.S)
