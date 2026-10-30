@@ -84,7 +84,7 @@ def connect(app, ctx):
         "Your walks on Today: at most `lists.journeys` rows, then a link to all of them in Learn and to Start something new."
         js = listed()
         more = [A(f'See all {len(js)} in Learn', href=Routes.learn), ' · '] if len(js) > (n := val('lists.journeys')) else []
-        return (H2('Your walks'), ui.JourneyList(js[:n]), P(*more, A('Start something new', href=f'{Routes.learn}#start'), cls='mute'), *ui.assets())
+        return (H2('Your walks'), ui.JourneyList(js[:n], lead=False), P(*more, A('Start something new', href=f'{Routes.learn}#start'), cls='mute'), *ui.assets())
 
     @hook('start_more')
     def goal_box():

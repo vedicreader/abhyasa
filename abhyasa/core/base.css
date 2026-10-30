@@ -155,6 +155,9 @@ main { animation: fade .2s ease-out; }
 .onward:hover { color: var(--acc); }
 li:hover .onward, li:focus-within .onward, .onward:focus-visible { opacity: 1; }
 @media (hover: none) { .onward { opacity: 1; } }
+.lrow-acts > .quiet, .lrow-acts > .talk-new { opacity: 0; transition: opacity var(--dur-1) var(--ease); }   /* a rare row action, such as Present, shows on hover and focus, as `.onward` */
+li:hover > .lrow-acts > *, li:focus-within > .lrow-acts > * { opacity: 1; }
+@media (hover: none) { .lrow-acts > .quiet, .lrow-acts > .talk-new { opacity: 1; } }
 /* a thin progress line: a journey, a week */
 .prog { display: block; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; max-width: 360px; margin: var(--s2) 0 0; }
 .prog i { display: block; height: 100%; background: var(--acc); border-radius: 2px; transition: width var(--dur-3) var(--ease); }

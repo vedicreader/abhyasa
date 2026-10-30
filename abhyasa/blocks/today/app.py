@@ -26,7 +26,7 @@ def connect(app, ctx):
         cs = lr.concepts()
         parts = [*run('today_top', subject or None), *run('today_next', subject or None), *run('today', subject or None)]
         return Page('Today', H1(f'Today · {subject}' if subject else 'Today'),
-                    P(f"{sum(learned(c) for c in cs)} of {n_of(len(cs), 'concept')} learned", cls='mute'),
+                    P(f"{sum(learned(c) for c in cs)} of {n_of(len(cs), 'idea')} learned", cls='mute'),
                     *parts, Foot(run('today_end', subject or None)), on='Today')
 
     def due(): return JSONResponse(dict(due=n_due(lr.concepts())))   # the Mac app's Dock badge

@@ -14,6 +14,15 @@ from .cfg import Routes
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'tutor', 'pool', 'sessions')
 
+WHY = {'its prereqs are in place': 'You know the ideas that it needs.', 'you started it': 'You started it.',
+       'it is next to the concept you chose': 'It is next to the idea you chose.'}
+
+def plain_why(why:str) -> str:
+    "The reason of `pick` as one plain sentence for Today: `next on the frontier: its prereqs are in place` -> `You know the ideas that it needs.`"
+    w = why.removeprefix('next on the frontier: ')
+    if w in WHY: return WHY[w]
+    return (w[:1].upper() + w[1:] + ('' if w.endswith('.') else '.')) if w else ''
+
 def connect(app, ctx):
     tutor, sessions, pre, lr = ctx.tutor, ctx.sessions, {}, ctx.learning
     tl, shown, outcomes = {}, {}, {}   # question id -> its messages; session id -> its questions in order; question id -> its outcome
@@ -183,7 +192,7 @@ def connect(app, ctx):
         n = sum(1 for c in cs if c.seen and c.due and c.due <= now)
         p = None if n else pick(ctx.learning.concepts(), subject=subject)
         said = (f"Review: {n_of(n, 'idea')} {'is' if n == 1 else 'are'} due.",) if n else \
-               (f"Next: {DEPTHS[p[1]]} {p[0].name}. ", Span(p[2], cls='why')) if p else ('Nothing is due. Start something new, or pick a concept.',)
+               (f"Next: {DEPTHS[p[1]]} {p[0].name}. ", Span(plain_why(p[2]), cls='why')) if p else ('Nothing is due. Start something new, or pick a concept.',)
         return Div(P(*said, cls='review-line'),
                    Form(Input(type='hidden', name='subject', value=subject or ''),
                         Primary(f"Start{' ' + subject if subject else ''}", data_wait='Starting…', focus=True, rank=3), action=Routes.start, method='post'),
