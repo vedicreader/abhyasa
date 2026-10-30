@@ -48,6 +48,7 @@ def PresentWalk(jid, t=None, quiet=False):
     if not t: return go
     second = Form(Input(type='hidden', name='jid', value=jid), Quiet('Make a second talk', small=True, data_wait='Making the talk…'),
                   hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')   # the old way: a new talk, with no edits
+    if quiet: return Div(btn('Open the talk', href=at(Routes.one, t.id)), Details(Summary('More'), go, second, cls='talk-more'), cls='row')   # a page with its own main button shows one way to the talk; the rest is under More
     return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, Details(Summary('More'), second, cls='talk-more'), cls='row')
 
 def again_input(t): return (Input(type='hidden', name='again', value='1'), Input(type='hidden', name='tid', value=t['id'])) if t else ()

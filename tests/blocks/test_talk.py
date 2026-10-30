@@ -917,7 +917,7 @@ def test_present_in_the_journeys_list(mk, talk_fake, lr):
     assert plain in page
 
 def test_a_walk_with_a_talk_opens_it(mk, talk_fake, lr):
-    "After a talk exists for the walk: its step page and its last page show Open the talk, Make the talk again and, under More, Make a second talk. Its row in Learn shows Open the talk only."
+    "After a talk exists for the walk: its step page and its last page show Open the talk and, under More, Make the talk again and Make a second talk. Its row in Learn shows Open the talk only."
     cl = mk(); jid = walk_started(cl, lr); tid = make_talk(cl, jid)
     for i in range(3): cl.post(f'/w/{jid}/{i}/next')
     for u in (f'/w/{jid}/1', f'/w/{jid}/2/done'):
