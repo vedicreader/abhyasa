@@ -12,6 +12,7 @@
 - The mic shows its level and where speech to text runs. The board has Stop and Voice off. The new setting `guide.voice` keeps your choice.
 - A board on an open check counts as one hint, and the check says so.
 - Settings, Models has the rows "Screen guide" and "Figure labels". Each row shows "on this Mac" or "hosted · <provider>". The default is the model for hints. A model that comes through two providers shows one time.
+- A point mark is now weaker than a circle, so the part that you asked about stands out. The new setting `guide.point` picks the look: Tick (a short arrow, the default), Dot (a small dot that pulses one time) or Ring (a thin, small ring). Step 1 marks the asked part with a circle or a box and uses at most one point.
 
 ### Faster boards
 
