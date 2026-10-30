@@ -31,6 +31,26 @@ def test_a_failed_vision_call_is_not_kept(mk, fake):
     assert cl.post('/guide/figure', content=PNG + b'flaky').json()['labels'] == {'a': [90, 400, 160, 500], 'b': [480, 880, 540, 960]}
     assert len(tries) == 2
 
+def test_an_empty_first_result_is_not_kept(mk, fake):
+    "While no figure has labels, an empty reply is not kept: it can come from a route that lost the picture. So the next post asks again."
+    from abhyasa.settings import cfg_dir
+    (cfg_dir()/'guide-figures.json').unlink(missing_ok=True)
+    replies = [dict(labels=[]), LABELS]
+    fake.rules['You find the text labels'] = lambda p, sp: replies.pop(0)
+    cl = mk()
+    assert cl.post('/guide/figure', content=PNG + b'empty').json()['labels'] == {}
+    assert cl.post('/guide/figure', content=PNG + b'empty').json()['labels'] == {'a': [90, 400, 160, 500], 'b': [480, 880, 540, 960]}
+    assert replies == []
+
+def test_a_route_that_loses_pictures_says_so(mk, monkeypatch):
+    "When the route of figure labels drops the picture, the figure route makes no call and its note names the model and the route."
+    import abhyasa.guide as G
+    monkeypatch.setattr(G, 'vision_ask', lambda ask, name='', job='': None)
+    monkeypatch.setattr('abhyasa.blocks.guide.app.vision_ask', lambda ask, name='', job='': None)
+    monkeypatch.setattr('abhyasa.blocks.guide.app.vision_why', lambda ask, name='': 'GPT-6.1 Sol does not get pictures on this route.')
+    r = mk().post('/guide/figure', content=PNG + b'lost').json()
+    assert r['labels'] == {} and r['note'] == 'GPT-6.1 Sol does not get pictures on this route.'
+
 def test_figure_alt_passes_the_guard(mk, fake):
     "A secret in the alt text of a figure never reaches the vision call: the route sends the alt through `guard` first."
     fake.rules['You find the text labels'] = LABELS
@@ -290,7 +310,8 @@ def test_a_saved_web_page_can_be_undone(mk, fake, lr, monkeypatch):
     on = abhyasa.settings.val
     monkeypatch.setattr(abhyasa.settings, 'val', lambda k: True if k == 'research.on' else on(k))
     weak = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.3), dict(op='step', say='One.'), dict(op='box', at='title')])
-    fake.rules.update({'Tier: tutor': weak, 'Tier: vault': weak, 'Tier: web': weak.replace('0.3', '0.8'), 'Return JSON: {"passage"': dict(passage=text[6:])})
+    quoted = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.8), dict(op='step', say='One.', src=1, quote=text[6:]), dict(op='box', at='title')])
+    fake.rules.update({'Tier: tutor': weak, 'Tier: vault': weak, 'Tier: web': quoted, 'Return JSON: {"passage"': dict(passage=text[6:])})
     cl = mk()
     ctx = dict(page='/c/ranking', slug='ranking', concept='Ranking', anchors=[dict(id='title', kind='title', text='Ranking')])
     evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='what is a rank', ctx=ctx)).text.splitlines() if l.startswith('data: ')]

@@ -160,3 +160,52 @@ def test_the_routed_guide_guards_for_the_model_of_its_route(monkeypatch):
         monkeypatch.setattr(a, '_be_or_none', lambda job='turn', be=be: be)
         assert guide_ask(r)(f'mail ada@example.com key {SECRET}') == f'ONESHOT:mail {mail} key [SECRET]'
         assert f'alt {mail} [SECRET]' in vision_ask(r)(f'alt ada@example.com {SECRET}', b'\x89PNG', 'sp')
+
+def test_a_remote_route_that_drops_the_picture_is_text_only(monkeypatch):
+    "rishi's remote one-shot that builds its message from dict parts only drops the image of `compose`: `vision_ask` then makes no call, and `vision_why` says why."
+    from rishi.remote import RemoteChat, to_msg
+    from urai import mk_msg
+    from abhyasa import llm
+    from abhyasa.guide import vision_ask, vision_why
+    r = llm.Router(llm.RouteAsk('claude/sonnet'), models=lambda: {}, tokens=lambda: {})
+    monkeypatch.setattr(RemoteChat, '_oneshot_args', lambda self, p, sp, n: ([to_msg({'role': 'user', 'content': p})], {}))
+    assert vision_why(r, 'codex/gpt-6.1-sol') == 'GPT-6.1 Sol does not get pictures on this route.' and vision_ask(r, 'codex/gpt-6.1-sol') is None
+    monkeypatch.setattr(RemoteChat, '_oneshot_args', lambda self, p, sp, n: ([to_msg(mk_msg(p))], {}))
+    assert vision_why(r, 'codex/gpt-6.1-sol') == '' and callable(vision_ask(r, 'codex/gpt-6.1-sol'))
+
+def test_weak_passages_never_reach_the_model():
+    "Passages that name too few words of the question (a Rigveda verse, a Kamba Ramayanam episode) go to no model, and no tier says your vault."
+    weak = [passage('vedicreader', 'r1', 'Rigveda 05 061 070', 'The Maruts get the gifts of the bar of gold.'),
+            passage('vedicstory', 'k1', 'Kamba Ramayanam', 'Rama goes to the forest for the alpha of his exile.', what='summary')]
+    v = Vault(weak)
+    f = Fake({'Tier: tutor': board(0.3, 'vault')})
+    r = explain(f, page_ctx(), "I don't get alpha bar", sources=[v], web=False)
+    assert len(f.calls) == 1 and 'Maruts' not in json.dumps(f.calls) and 'Rama goes' not in json.dumps(f.calls) and v.qs
+    assert r.tier == 'tutor' and r.sources[0]['label'] == 'your source'
+
+def test_each_passage_keeps_the_label_of_its_source():
+    "A passage from vedicreader is labelled vedicreader, and one from a vault shelf your vault."
+    note = 'Alpha bar t is the product of the alphas up to step t, so it falls from one toward zero as t grows.'
+    v = Vault([passage('vault:notes', 'n1', 'My DDPM notes', note), passage('vedicreader', 'r2', 'Notes', 'Alpha bar is a share.')])
+    f = Fake({'Tier: vault': board(0.8, src=2, quote=note.split(', so')[0]), 'Tier: tutor': board(0.3, 'vault')})
+    r = explain(f, page_ctx(), "I don't get alpha bar", sources=[v])
+    assert [s['label'] for s in r.sources] == ['your source', 'your vault', 'vedicreader']
+
+def test_the_tier_and_the_end_line_agree():
+    "A sure vault board with no quote shows the tutor tier and No source found. A vault board that quotes only the page passage is the tutor, with the page quoted."
+    note = 'Alpha bar t is the product of the alphas up to step t, so it falls from one toward zero as t grows.'
+    v = Vault([passage('vault:notes', 'n1', 'My DDPM notes', note)])
+    r = explain(Fake({'Tier: vault': board(0.9), 'Tier: tutor': board(0.3, 'vault')}), page_ctx(), "I don't get alpha bar", sources=[v])
+    assert (r.tier, r.end) == ('tutor', "In the tutor's own words. No source found.") and not any(s['quoted'] for s in r.sources)
+    r = explain(Fake({'Tier: vault': board(0.9, src=1, quote=PAGE.rstrip('.')), 'Tier: tutor': board(0.3, 'vault')}), page_ctx(), "I don't get alpha bar", sources=[v])
+    assert (r.tier, r.end) == ('tutor', "In the tutor's own words, with quotes from the sources below.")
+    assert [(s['label'], s['quoted']) for s in r.sources] == [('your source', True), ('your vault', False)]
+
+def test_a_web_search_with_no_passage_says_so_and_the_board_knows():
+    "The web pages have no passage: a state line says so, and the next request tells the model that the web was searched and gave nothing."
+    from abhyasa.guide import NO_WEB, WEB_NO_PASSAGE
+    evs = []
+    f = Fake({NO_WEB: board(0.6), 'Tier: tutor': board(0.3, 'web'), 'Return JSON: {"passage"': dict(passage='')})
+    r = explain(f, page_ctx(), "I don't get alpha bar", sources=[Vault()], web=True, on_state=evs.append,
+                search=lambda q, n: [dict(title='x', href='https://example.org/x')], fetch=lambda u: AttrDict(url=u, title='x', text='Nothing on alpha here.'))
+    assert WEB_NO_PASSAGE in [e.get('wait') for e in evs] and NO_WEB in f.calls[-1][0] and r.sure == 0.6 and r.tier == 'tutor'

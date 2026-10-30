@@ -149,9 +149,23 @@ def connect(app, ctx):
         set_val(r.name, model.strip())
         return ui.ModelRow(task, ctx.ask, catalog(), set_by=set_by() if task == 'default' else ''), *after(r)[1:]
 
+    def figure_test(model:str):
+        "Send the test picture with the labels `FIGURE_TEST` to the model of figure labels, and say whether it read them."
+        import time
+        from pathlib import Path
+        from abhyasa.guide import figure_check, vision_ask, vision_why
+        if (why := vision_why(ctx.ask, model)): return Span(f'Failed: {why}', cls='no')
+        v, t = vision_ask(ctx.ask, model, job='test:guide_vision'), time.time()
+        try: r = figure_check(v, (Path(__file__).parent/'figure-test.png').read_bytes())
+        except Exception as e: return Span(f'Failed: {str(e)[:160]}', cls='no')
+        s = f'{time.time() - t:.1f} s: '
+        if r.ok: return Span(s + f"passed. It read {' and '.join(r.got)}.", cls='ok')
+        return Span(s + f"failed. It did not read {' and '.join(r.missing)}" + (f" (it read {', '.join(r.got)})." if r.got else '.'), cls='no')
+
     def test(task:str, model:str=''):
         import time
         model = '' if model == ui.OTHER else model.strip()
+        if task == 'guide_vision': return figure_test(model)
         ask, t = ctx.ask.for_(task, model, job=f'test:{task}'), time.time()   # its own job, so a test does not move the task's route
         try: out = ask('Reply with the one word: ready.', '')
         except Exception as e: return Span(f'Failed: {str(e)[:160]}', cls='no')

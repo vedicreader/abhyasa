@@ -6,11 +6,14 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
-           'FOCUS', 'SHOWN', 'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat',
-           'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context',
-           'figure_labels', 'FigureCache', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'focus_text',
-           'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video',
-           'concept_video', 'video_of', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
+           'FOCUS', 'SHOWN', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'WATCH', 'CHECK_ASK', 'FILLER', 'OFF_CHECK',
+           'COUNTS', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR', 'WEB_FAILED', 'WEB_NO_PAGE', 'WEB_NO_PASSAGE',
+           'NO_WEB', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board',
+           'PageContext', 'clean_context', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why', 'vision_ask',
+           'Withheld', 'guard', 'safe_query', 'guarded', 'figure_check', 'focus_text', 'page_text', 'board_prompt',
+           'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of',
+           'asked_words', 'on_check', 'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain',
+           'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -302,35 +305,71 @@ def figure_labels(vision, img:bytes, alt:str='') -> dict|None:
 
 # %% ../nbs/21_guide.ipynb #g058
 class FigureCache:
-    "The label boxes of each figure, by the SHA-1 of its bytes, in the JSON file `path`. It keeps at most `most` figures."
-    def __init__(self, path, most:int=500): self.path, self.most, self.lock = Path(path), most, threading.Lock()
+    """The label boxes of each figure, by the SHA-1 of its bytes, in the JSON file `path`. It keeps at most `most` figures. An empty
+    result is kept for `empty_ttl` seconds, and only when some figure in the file has labels: before that, an empty reply can come
+    from a route that lost the picture, and the next post must ask again."""
+    def __init__(self, path, most:int=500, empty_ttl:float=86400.):
+        self.path, self.most, self.empty_ttl, self.lock = Path(path), most, empty_ttl, threading.Lock()
     @staticmethod
     def key(img:bytes) -> str: return hashlib.sha1(img).hexdigest()
     def _all(self) -> dict:
         try: return json.loads(self.path.read_text())
         except (OSError, ValueError): return {}
-    def get(self, key:str) -> dict|None: return (self._all().get(key) or {}).get('labels')
-    def put(self, key:str, labels:dict):
+    @staticmethod
+    def _seen(d) -> bool: return any(v.get('labels') for v in d.values())
+    def get(self, key:str) -> dict|None:
+        d = self._all()
+        e = d.get(key) or {}
+        if (ls := e.get('labels')) or ls is None: return ls
+        return {} if time.time() - e.get('at', 0) <= self.empty_ttl and self._seen(d) else None
+    def put(self, key:str, labels:dict) -> bool:
+        "Keep `labels` for `key`. False when it keeps nothing: an empty result before any figure had labels."
         with self.lock:
             d = self._all()
+            if not labels and not self._seen(d): return False
             d[key] = dict(labels=labels, at=time.time())
             d = dict(sorted(d.items(), key=lambda kv: kv[1].get('at', 0))[-self.most:])
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self.path.write_text(json.dumps(d))
+            return True
 
 # %% ../nbs/21_guide.ipynb #g060
-def vision_ask(ask, name:str=''):
-    "A vision call `(prompt, img, sp) -> str` on the ramabana job `guide_vision` (on the model of figure labels, by default the model of hints), or None when the routed model takes no picture."
-    if not hasattr(getattr(ask, 'dflt', None), 'via'): return lambda p, img, sp='': ask(guard(p), guard(sp))
-    from abhyasa.llm import ramabana_agent, ramabana_oneshot, dflt_model
+_PNG = bytes.fromhex('89504e470d0a1a0a0000000d4948445200000001000000010806000000'
+                     '1f15c4890000000d49444154789c63f8ffff3f0005fe02fea7d6a4000000'
+                     '0049454e44ae426082')   # one white pixel
+
+def keeps_images(spec) -> bool:
+    "Whether the one-shot of the route `spec` sends the picture that `compose` puts in its prompt. Only rishi's remote routes are checked; a check that fails counts as yes."
+    if getattr(spec, 'runtime', '') not in ('remote', 'copilot'): return True
+    try:
+        from types import SimpleNamespace
+        from rishi.remote import RemoteChat
+        ms, _ = RemoteChat._oneshot_args(SimpleNamespace(_kw=lambda **kw: {}), [_PNG, 'x'], '', 8)
+        return any(getattr(p.type, 'value', p.type) == 'input_image' for m in ms for p in m.content)
+    except Exception: return True
+
+def vision_why(ask, name:str='') -> str:
+    "Why the routed model of figure labels (`name`, else the model of `guide_vision`) gets no picture, or '' when it gets one. A test model with no routing gets one."
+    if not hasattr(getattr(ask, 'dflt', None), 'via'): return ''
+    from abhyasa.llm import dflt_model, where_of
     from ramabana.core import accepts, resolve
     n = name or ask.name('guide_vision') or dflt_model()
-    try:
-        if not accepts(resolve(n), 'image'): return None
-    except Exception: return None
+    m = where_of(n).get('model') or n
+    try: s = resolve(n)
+    except Exception: return f'abhyasa does not know the model {n}.'
+    if not accepts(s, 'image'): return f'{m} cannot see pictures.'
+    if not keeps_images(s): return f'{m} does not get pictures on this route.'
+    return ''
+
+def vision_ask(ask, name:str='', job:str='guide_vision'):
+    "A vision call `(prompt, img, sp) -> str` on the ramabana job `job` (on the model of figure labels, by default the model of hints), or None when the routed model gets no picture (`vision_why`)."
+    if not hasattr(getattr(ask, 'dflt', None), 'via'): return lambda p, img, sp='': ask(guard(p), guard(sp))
+    if vision_why(ask, name): return None
+    from abhyasa.llm import ramabana_agent, ramabana_oneshot, dflt_model
+    n = name or ask.name('guide_vision') or dflt_model()
     def call(p, img, sp=''):
         def prep(_p, _sp, b): return ramabana_agent(n).compose(guard(p, b.spec), image=img), guard(sp, b.spec)
-        return ramabana_oneshot('guide_vision', n, p, sp, 1024, prep)
+        return ramabana_oneshot(job, n, p, sp, 1024, prep)
     return call
 
 # %% ../nbs/21_guide.ipynb #g062
@@ -355,6 +394,16 @@ def safe_query(q:str) -> str:
 def guarded(p, sp, b) -> tuple:
     "The `prepare` of a routed call: the prompt `p` and the system prompt `sp` through `guard` for the model of the backend `b`."
     return guard(p, b.spec), guard(sp, b.spec)
+
+# %% ../nbs/21_guide.ipynb #g060d
+FIGURE_TEST = ('Encoder', 'Decoder')   # the labels in the test picture of Settings, `blocks/settings/figure-test.png`
+
+def figure_check(vision, img:bytes, want=FIGURE_TEST) -> AttrDict:
+    "Whether `vision` reads each label of `want` in the picture `img`: `ok`, the labels that it `got`, and the `missing` ones. Raise when the reply is not JSON."
+    got = figure_labels(vision, img, 'Two boxes with a label in each, and an arrow from the first to the second.')
+    if got is None: raise RuntimeError('The model did not reply with labels in JSON.')
+    have = {k.lower() for k in got}
+    return AttrDict(ok=all(w.lower() in have for w in want), got=list(got), missing=[w for w in want if w.lower() not in have])
 
 # %% ../nbs/21_guide.ipynb #g069
 GUIDE_SP = register('guide.board', 'Screen guide', 'How the tutor explains a part of the page with a board drawn over it.', """You explain one thing on a learning page to a learner who said "I don't get X". You draw on the page and you speak one short line for each step.
@@ -411,15 +460,15 @@ def page_text(ctx) -> str:
         out.append('Video transcript:\n' + '\n'.join(f'[{c[0]:.0f} s] {c[1]}' for c in v['cues'][:200]))
     return '\n'.join(out)
 
-def board_prompt(ctx, said:str, sources=(), tier:str='tutor') -> str:
-    "The request for a board on `said`, with what the learner showed (`focus_text`), the page of `ctx` and the numbered `sources`, each in a fence."
+def board_prompt(ctx, said:str, sources=(), tier:str='tutor', note:str='') -> str:
+    "The request for a board on `said`, with what the learner showed (`focus_text`), the page of `ctx`, the numbered `sources`, each in a fence, and the lines of `note`."
     from abhyasa.ground import fence
     head = [f"Learner: {json.dumps(said)}", f"Page: {ctx.get('title') or ctx.get('page') or ''}"]
     if ctx.get('step'): head.append(f"Step: {ctx['step']}")
     if ctx.get('concept'): head.append(f"Concept: {ctx['concept']}")
     srcs = '\n'.join(f"Source {k}: " + fence(s.get('title') or '', s.get('text') or '') for k, s in enumerate(sources, 1))
     if (fx := focus_text(ctx)): head.append(f"\n{fx}")
-    return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + f"Tier: {tier}\nReply with the JSON lines."
+    return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + (f"{note}\n" if note else '') + f"Tier: {tier}\nReply with the JSON lines."
 
 # %% ../nbs/21_guide.ipynb #gv01
 WATCH = 'https://www.youtube.com/watch?v='
@@ -487,10 +536,39 @@ def video_of(lr, vid:str) -> AttrDict|None:
     m = json.loads(d.get('meta') or '{}')
     return AttrDict(id=vid, title=_s(d.get('title') or '', 200), channel=_s(m.get('channel') or '', 100), url=WATCH + vid, cues=m.get('cues') or [])
 
+# %% ../nbs/21_guide.ipynb #gh02
+CHECK_ASK = re.compile(r"\b(?:check|question|answer|hint|quiz)\b", re.I)
+FILLER = set('don dont get got understand explain explains mean means meaning does did not can could tell show here there please part'.split())
+OFF_CHECK = 'The open check is not part of this question. Do not mark the check, and do not explain it or give its answer.'
+COUNTS = ' This board counts as one hint on the open check.'
+
+def asked_words(s:str) -> set:
+    "The main words of `s` (`ground.main_words`) with a light plural stem, without the words that every question has."
+    from abhyasa.ground import main_words, stem
+    return {stem(w) for w in main_words(s)} - FILLER
+
+def on_check(ctx, said:str) -> bool:
+    "Whether a board on `said` counts as a hint on the open check of `ctx` (the anchor `check`)."
+    if not (c := (ctx.get('by') or {}).get('check')): return False
+    if any('check' in f['anchors'] for f in ctx.get('focus') or ()) or CHECK_ASK.search(said or ''): return True
+    mine = asked_words(said or '')
+    return bool(mine) and len(mine & asked_words(c.get('text') or '')) >= min(2, len(mine))
+
 # %% ../nbs/21_guide.ipynb #g073
 NO_SOURCE = "In the tutor's own words. No source found."
 WITH_SOURCE = "In the tutor's own words, with quotes from the sources below."
-LABEL = dict(page='your source', vault='your vault', web='web', video='video')
+LABEL = dict(page='your source', vault='your vault', web='web', video='video', vedicreader='vedicreader', vedicstory='vedicreader')
+VAULT_FLOOR = .6   # the least `ground.relevance` of a passage from your sources to the question: both of 2 main words, 2 of 3, 3 of 4 or 5
+
+def source_label(p) -> str:
+    "The label of passage `p` by its real source: *your vault* for a vault shelf, else the label of its source, such as *vedicreader*."
+    src = str(p.get('src') or '')
+    return LABEL['vault'] if src.startswith('vault') else LABEL.get(src, src or LABEL['vault'])
+
+def _and(xs) -> str:
+    "The words `xs` once each, in order, as one phrase: `a`, `a and b`, `a, b and c`."
+    xs = list(dict.fromkeys(xs))
+    return ' and '.join(xs) if len(xs) < 3 else ', '.join(xs[:-1]) + ' and ' + xs[-1]
 
 def guide_ask(ask, name:str=''):
     """The `ask` of the guide: the ramabana job `guide` on `name`, else on the model of the screen guide (by default the model of hints, a fast one), with `guard` for the
@@ -515,12 +593,16 @@ def _page_sources(ctx) -> list:
     out = [dict(title=ctx.get('source') or 'The passage', text=p, label=LABEL['page'], url='')] if p and ctx.get('source') else []
     return out + ([v] if (v := video_source(ctx.get('video'))) else [])
 
-def _done(tier, b, srcs, t0) -> AttrDict:
-    used = {s['quote']['src'] for s in b.steps if s.get('quote')}
+def _done(tier, b, srcs, t0, hint:bool=False) -> AttrDict:
+    """The board `b` as the page gets it, with `srcs`, the sources of its request. The tier and the end line come from the sources
+    that the board quotes: a vault or web tier that quotes none of its own sources is the tutor, and a board that quotes nothing
+    is in the tutor's own words with no source."""
+    used = {s['quote']['src'] for s in b.steps if s.get('quote')} & set(range(1, len(srcs) + 1))
     if any(x['op'] == 'video_at' for s in b.steps for x in s['strokes']): used |= {k for k, s in enumerate(srcs, 1) if s.get('video')}
+    if tier != 'tutor' and not any(srcs[k - 1]['label'] == LABEL[tier] for k in used): tier = 'tutor'
     ss = [dict(n=k, title=s.get('title', ''), url=s.get('url', ''), label=s['label'], quoted=k in used) for k, s in enumerate(srcs, 1)]
     return AttrDict(tier=tier, steps=b.steps, sources=ss, sure=b.sure, failed=b.failed and not b.steps, dropped=len(b.dropped),
-                    end=WITH_SOURCE if used else NO_SOURCE, ms=round((time.monotonic() - t0) * 1000))
+                    end=WITH_SOURCE if used else NO_SOURCE, ms=round((time.monotonic() - t0) * 1000), hint=hint and bool(b.steps))
 
 # %% ../nbs/21_guide.ipynb #gn02
 from .llm import WHO, HERE, where_of   # one place for where a model runs: the Settings page uses it too
@@ -538,10 +620,16 @@ def _asks(w:dict, what:str='') -> dict:
 def _n(n:int, what:str) -> str: return f"{n} {what}{'' if n == 1 else 's'}"
 
 # %% ../nbs/21_guide.ipynb #g075
+WEB_FAILED = 'The web search did not work.'
+WEB_NO_PAGE = 'The web search found no page on this.'
+WEB_NO_PASSAGE = 'The web pages had no passage on this.'
+NO_WEB = 'The web was searched and gave no passage on this. Do not say that you need the web or that the web must check it. Give your best answer from the page and the sources.'
+
 def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None, on_state=None) -> list:
     """Sources from the web for `said`, each with a passage that is word for word in its page. `on_state` gets a state event before
     the search (with the query word for word), before each read and model call, and before the page goes into the vault. Then it
-    gets `{"saved": ...}` when the guide added the page or its link to the concept: what `unsave` needs to take them away."""
+    gets `{"saved": ...}` when the guide added the page or its link to the concept: what `unsave` needs to take them away. When the
+    web gives no passage, a state event says why (`WEB_FAILED`, `WEB_NO_PAGE`, `WEB_NO_PASSAGE`)."""
     from abhyasa import research as R
     search, fetch, tell = search or R.web_search, fetch or R.web_fetch, on_state or (lambda e: None)
     topic = ctx.get('concept') or ctx.get('step') or ''
@@ -549,7 +637,8 @@ def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None, on_state=N
     except Withheld: return []
     tell(_ev(f'Searches the web for: "{q}"', 'searching', where='hosted', query=q))
     try: hits = R.candidates(search(q, 6), 6)
-    except Exception: return []
+    except Exception: tell(_ev(WEB_FAILED, 'searching', where='hosted')); return []
+    if not hits: tell(_ev(WEB_NO_PAGE, 'searching', where='hosted')); return []
     c, w = dict(name=topic or said, statement=said), where_of(getattr(ask, 'model', ''))
     for h in hits[:2]:
         tell(_ev(f"Reads {R.site_of(h.url)}.", 'reading', where='hosted'))
@@ -562,6 +651,7 @@ def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None, on_state=N
             try: _file(lr, ctx, page, p, tell)
             except Exception: pass
         return [dict(title=page.title or page.url, text=p, url=page.url, label=LABEL['web'])]
+    tell(_ev(WEB_NO_PASSAGE, 'searching', where='hosted'))
     return []
 
 def _file(lr, ctx, page, p, tell):
@@ -598,9 +688,10 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     web when `web` (default: the setting `research.on`). `on_state(event)` gets a state event before each step of the work, and
     `{"saved": ...}` when a web page goes into the vault (see *Never caught unaware*); `note(text)` gets only the `wait` line. With a model that
     can stream, `on_step(step, k)` gets each step of a sure tutor board as soon as it is whole (`stream_board`). When the
-    `threading.Event` `stop` is set, the stream closes and no next tier starts."""
+    `threading.Event` `stop` is set, the stream closes and no next tier starts. `hint` is True when the board counts as a hint on
+    the open check (`on_check`); the first state event says so."""
     from abhyasa.settings import val
-    from abhyasa.ground import ground, label
+    from abhyasa.ground import ground, label, main_words
     from ramabana.agent import mask_secrets
     t0 = time.monotonic()
     def tell(e):
@@ -608,30 +699,43 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
         if note and 'wait' in e: note(e['wait'])
     ctx = ctx if isinstance(ctx, PageContext) else clean_context(ctx)   # a raw dict from a host, also with `by`, is cleaned
     said, ask = ' '.join(str(said or '').split())[:300], guide_ask(ask)   # each model call guards its prompt for its own route
-    def board(tier, srcs, on_step=None):
-        c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier), prompt('guide.board')
+    hint = on_check(ctx, said)
+    off = 'check' in ctx.by and not hint   # an open check that this board may not touch
+    def board(tier, srcs, on_step=None, note=''):
+        note = '\n'.join(x for x in (OFF_CHECK if off else '', note) if x)
+        c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier, note), prompt('guide.board')
+        if off: c.by.pop('check')
         return stream_board(ask.stream(p, sp), c, on_step, stop=stop) if on_step and hasattr(ask, 'stream') else parse_board(ask(p, sp), c)
     page, w = _page_sources(ctx), where_of(getattr(ask, 'model', ''))
-    tell(_asks(w))
+    first = _asks(w)
+    tell(dict(first, wait=first['wait'] + COUNTS, hint=True) if hint else first)
     b = board('tutor', page, on_step)
-    if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('tutor', b, page, t0)
+    if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('tutor', b, page, t0, hint)
     best = (b, 'tutor', page)
-    if sources: tell(_ev('Looks in your vault.', 'searching', where=HERE))
-    ps = ground(mask_secrets(f"{said} {ctx.get('concept') or ctx.get('step') or ''}"), list(sources), k=3) if sources else []   # a search of the vault on this Mac
+    names = _and(LABEL.get(getattr(s, 'name', ''), LABEL['vault']) for s in sources)
+    if sources: tell(_ev(f'Looks in {names}.', 'searching', where=HERE))
+    topic = ctx.get('concept') or ctx.get('step') or ''
+    about = ' '.join(w for w in main_words(said) if w not in FILLER) or topic   # the passage must be on the question, not only on the page
+    ps = ground(mask_secrets(f"{said} {topic}"), list(sources), k=3, floor=VAULT_FLOOR, about=mask_secrets(about)) if sources else []   # a search on this Mac
+    if sources and not ps: tell(_ev(f'Found no passage on this in {names}.', 'searching', where=HERE))
     if ps:
-        srcs = page + [dict(title=label(p), text=p.text, url=p.get('url') or '', label=LABEL['vault']) for p in ps]
-        tell(dict(_asks(w, f"Sends {_n(len(ps), 'passage')} from your vault"), sources=len(ps)))
+        srcs = page + [dict(title=label(p) or source_label(p), text=p.text, url=p.get('url') or '', label=source_label(p)) for p in ps]
+        tell(dict(_asks(w, f"Sends {_n(len(ps), 'passage')} from {_and(s['label'] for s in srcs[len(page):])}"), sources=len(ps)))
         b = board('vault', srcs)
-        if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('vault', b, srcs, t0)
+        if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('vault', b, srcs, t0, hint)
         if b.steps: best = (b, 'vault', srcs)
     if web if web is not None else val('research.on'):
         if (ws := web_sources(ask, ctx, said, search, fetch, lr, tell)) and not (stop is not None and stop.is_set()):
             srcs = page + ws
             tell(dict(_asks(w, f"Sends {_n(len(ws), 'passage')} from the web"), sources=len(ws)))
             b = board('web', srcs)
-            if b.steps: return _done('web', b, srcs, t0)
+            if b.steps: return _done('web', b, srcs, t0, hint)
+        elif not ws and not (stop is not None and stop.is_set()) and (best[0].need == 'web' or not best[0].steps):
+            tell(_asks(w, 'Sends your question again, with no web passage,'))   # the web gave nothing: the board must not ask for it
+            b = board(best[1], best[2], note=NO_WEB)
+            if b.steps: best = (b, best[1], best[2])
     b, tier, srcs = best
-    return _done(tier if b.steps and (b.sure or 0) >= SURE else 'tutor', b, srcs if tier == 'tutor' else page, t0)
+    return _done(tier, b, srcs, t0, hint)   # the best board with the sources of its own request, so its quotes match the list
 
 # %% ../nbs/21_guide.ipynb #gs02
 def stream_board(chunks, ctx, on_step=None, sure:float=SURE, stop=None) -> AttrDict:

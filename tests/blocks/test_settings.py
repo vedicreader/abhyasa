@@ -363,3 +363,17 @@ def test_the_point_look_row_shows_each_look_and_saves(mk):
     assert 'http' not in row.replace('http://www.w3.org/2000/svg', '')   # the pictures are inline: no file from the web
     assert 'Saved' in cl.post('/settings/value', data=dict(name='guide.point', value='ring')).text and val('guide.point') == 'ring'
     set_val('guide.point', 'tick')
+
+def test_the_figure_labels_test_sends_a_known_picture(mk, fake):
+    "Test on the Figure labels row sends the test picture and says whether the model read its two labels."
+    from pathlib import Path
+    import abhyasa.blocks.settings as S
+    img, seen = (Path(S.__file__).parent/'figure-test.png').read_bytes(), []
+    assert img.startswith(b'\x89PNG')
+    fake.rules['You find the text labels'] = lambda p, sp: seen.append(p) or dict(labels=[dict(text='Encoder', box=[50, 290, 420, 710]), dict(text='Decoder', box=[580, 290, 950, 710])])
+    cl = mk(['settings'])
+    t = cl.post('/settings/model/test', data=dict(task='guide_vision')).text
+    assert 'passed. It read Encoder and Decoder.' in t and 'class="ok"' in t and seen
+    fake.rules['You find the text labels'] = dict(labels=[])
+    t = cl.post('/settings/model/test', data=dict(task='guide_vision')).text
+    assert 'failed. It did not read Encoder and Decoder.' in t and 'class="no"' in t
