@@ -112,6 +112,11 @@ def site(mk):
 SHOWN = "[...document.querySelectorAll('.stab')].filter(p => p.checkVisibility()).map(p => p.dataset.tab)"
 SELECTED = "[...document.querySelectorAll('[role=tab][aria-selected=true]')].map(a => a.dataset.tab)"
 IN_VIEW = "id => { const r = document.getElementById(id).getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && r.height > 0; }"
+def shown(pg, tab):
+    "Wait until only the tab `tab` shows: a click or a key acts in the next frame, and a busy machine can be slow."
+    pg.wait_for_function(f"JSON.stringify({SHOWN}) === JSON.stringify(['{tab}'])", timeout=5000)
+    return True
+
 ROW_BOX = "() => { const r = document.querySelector('.stop').getBoundingClientRect(); return [r.top, r.height]; }"
 
 @pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
@@ -119,24 +124,25 @@ def test_tabs_in_a_browser(site):
     "A click and the keys switch the tab, the URL keeps it, the tab row does not move, and the page takes no focus on load."
     pg, url = site
     pg.goto(f'{url}/settings'); pg.wait_for_selector('#sr-models-default select')
-    assert pg.evaluate(SHOWN) == ['models'] and pg.evaluate('document.activeElement === document.body')
+    assert shown(pg, 'models') and pg.evaluate('document.activeElement === document.body')
     xs = pg.evaluate("[...document.querySelectorAll('#models li.srow.model select')].filter(s => s.checkVisibility()).map(s => Math.round(s.getBoundingClientRect().left))")
     assert len(xs) >= 5 and max(xs) - min(xs) <= 1, xs                                          # the Default list starts where the others start
     box = pg.evaluate(ROW_BOX)
     pg.click('#ix-voice')
-    assert pg.evaluate(SHOWN) == ['voice'] and pg.evaluate(SELECTED) == ['voice'] and pg.url.endswith('/settings?tab=voice')
+    assert shown(pg, 'voice') and pg.evaluate(SELECTED) == ['voice'] and pg.url.endswith('/settings?tab=voice')
     assert pg.evaluate(ROW_BOX) == box                                                         # no layout jump
     pg.keyboard.press('ArrowRight')
-    assert pg.evaluate(SHOWN) == ['guide'] and pg.evaluate("document.activeElement.id") == 'ix-guide'
-    pg.keyboard.press('End'); assert pg.evaluate(SHOWN) == ['look']
-    pg.keyboard.press('ArrowRight'); assert pg.evaluate(SHOWN) == ['models']                   # it goes round
-    pg.keyboard.press('ArrowLeft'); assert pg.evaluate(SHOWN) == ['look']
-    pg.keyboard.press('Home'); assert pg.evaluate(SHOWN) == ['models']
+    assert shown(pg, 'guide') and pg.evaluate("document.activeElement.id") == 'ix-guide'
+    pg.keyboard.press('End'); assert shown(pg, 'look')
+    pg.keyboard.press('ArrowRight'); assert shown(pg, 'models')                   # it goes round
+    pg.keyboard.press('ArrowLeft'); assert shown(pg, 'look')
+    pg.keyboard.press('Home'); assert shown(pg, 'models')
     pg.keyboard.press('Alt+Digit4')
-    assert pg.evaluate(SHOWN) == ['learning'] and pg.url.endswith('?tab=learning')
+    assert shown(pg, 'learning') and pg.url.endswith('?tab=learning')
     pg.reload(); pg.wait_for_selector('#t-learning')
-    assert pg.evaluate(SHOWN) == ['learning'] and pg.evaluate(SELECTED) == ['learning']
+    assert shown(pg, 'learning') and pg.evaluate(SELECTED) == ['learning']
     pg.fill('#sfind', 'side walk depth')                                                        # Find looks in all the tabs
+    pg.wait_for_function("document.getElementById('sr-walks-depth').checkVisibility()", timeout=5000)
     assert pg.evaluate(IN_VIEW, 'sr-walks-depth') or pg.evaluate("document.getElementById('sr-walks-depth').checkVisibility()")
     assert not pg.evaluate("document.getElementById('sr-checks-tries').checkVisibility()")
 
@@ -145,10 +151,10 @@ def test_old_links_in_a_browser(site):
     "/settings#g-voice opens the Voice tab with the group in view. A link to a row under More opens its tab and its More. No focus moves."
     pg, url = site
     pg.goto(f'{url}/settings#g-voice'); pg.wait_for_function("!document.documentElement.dataset.stab")
-    assert pg.evaluate(SHOWN) == ['voice'] and pg.evaluate(SELECTED) == ['voice'] and pg.evaluate(IN_VIEW, 'g-voice')
+    assert shown(pg, 'voice') and pg.evaluate(SELECTED) == ['voice'] and pg.evaluate(IN_VIEW, 'g-voice')
     assert pg.evaluate('document.activeElement === document.body')
     pg.goto(f'{url}/settings#sr-walks-depth'); pg.wait_for_function("!document.documentElement.dataset.stab")
-    assert pg.evaluate(SHOWN) == ['walks'] and pg.evaluate(IN_VIEW, 'sr-walks-depth')
+    assert shown(pg, 'walks') and pg.evaluate(IN_VIEW, 'sr-walks-depth')
     assert pg.evaluate("document.getElementById('sr-walks-depth').closest('details.more').open")
     pg.goto(f'{url}/settings#g-research'); pg.wait_for_function("!document.documentElement.dataset.stab")
-    assert pg.evaluate(SHOWN) == ['sources']
+    assert shown(pg, 'sources')
