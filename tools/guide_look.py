@@ -6,7 +6,8 @@ labels a and b. The app runs with the `Fake` model on a free port. Playwright op
 one browser at a time, closed at the end). Each check prints PASS or FAIL; the run fails when one check fails.
 
 1. "I don't get alpha bar" on the DDPM step: the circle lies on the alpha bar of the formula, and stays on it after a scroll and
-   after the window changes size. A, S and D move the steps. The time from Send to the first mark is measured.
+   after the window changes size. A, S and D move the steps, but a key typed in a textarea or an editor stays there. The time
+   from Send to the first mark is measured.
 2. "Explain a and b" on the triangle step: the vision call (faked) finds the labels once, and the pointer marks land on them.
 3. The triangle idea has an explainer video (fossick's `read_yt` is faked, and a fake player stands in for youtube-nocookie, so
    no call leaves the Mac). "What does the video say about a and b": the board seeks the embed to the start of the cue that
@@ -196,7 +197,14 @@ def ddpm(page, base, jid, name, out):
     i0 = page.evaluate('abhyasaBoard.state.i')
     page.fill('#ans', ''); page.focus('#ans'); page.keyboard.press('s')   # in the answer box, S types, and the board stays
     check(f'{name}: a key in the answer box types and does not move the board', page.evaluate('abhyasaBoard.state.i') == i0 and page.input_value('#ans') == 's')
-    page.fill('#ans', ''); page.mouse.click(5, 300)
+    page.fill('#ans', '')
+    page.evaluate(EDITORS)   # a textarea, a contenteditable with a child node, and a CodeMirror-like box, as Leela has
+    page.focus('#gl-ta'); page.keyboard.press('d')
+    page.evaluate(CARET_IN_CHILD); page.keyboard.press('d')
+    got = page.evaluate(IN_EDITOR)
+    check(f'{name}: a key in a textarea or in a child of an editor types and does not move the board', got == dict(i=i0, ta='d', ce='xd', free=[True, True]), str(got))
+    page.evaluate("document.getElementById('gl-eds').remove()")
+    page.mouse.click(5, 300)
     page.keyboard.press('s'); page.wait_for_function(f"abhyasaBoard.state.i === {i0 - 1}")
     page.keyboard.press('Escape'); page.wait_for_function("!abhyasaBoard.state && !document.getElementById('board-host')")
     check(f'{name}: S goes back and Esc stops the board', True)
@@ -210,6 +218,16 @@ CHIP = """(at) => { const c = document.querySelector('.board-label.on'), b = abh
   const x = b.x - scrollX, y = b.y - scrollY; return {free: r.right <= x || r.left >= x + b.w || r.bottom <= y || r.top >= y + b.h, chip: [r.left, r.top, r.width, r.height], part: [x, y, b.w, b.h]}; }"""
 TIP = """(at) => { const p = abhyasaBoard.pointer, b = abhyasaBoard.boxOf(at); if (!p || !b) return null;
   const x = b.x - scrollX, y = b.y - scrollY, [tx, ty] = p.tip, d = Math.max(x - tx, 0, tx - x - b.w) + Math.max(y - ty, 0, ty - y - b.h); return {d, flying: p.flying, tip: p.tip.map(Math.round)}; }"""
+EDITORS = """() => { const d = document.createElement('div'); d.id = 'gl-eds';
+  d.innerHTML = '<textarea id="gl-ta"></textarea><div id="gl-ce" contenteditable="true"><p id="gl-ce-p">x</p></div><div class="cm-editor"><span id="gl-cm-gutter">1</span></div>';
+  document.body.append(d); }"""
+CARET_IN_CHILD = """() => { const p = document.getElementById('gl-ce-p'); document.getElementById('gl-ce').focus();
+  const r = document.createRange(); r.setStart(p.firstChild, 1); r.collapse(true); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }"""
+# A key sent to a child node (not the editing host): the board must leave it to the editor.
+IN_EDITOR = """() => { const key = id => { const e = new KeyboardEvent('keydown', {code: 'KeyD', key: 'd', bubbles: true, cancelable: true});
+                                     document.getElementById(id).dispatchEvent(e); return !e.defaultPrevented; };
+  const free = [key('gl-ce-p'), key('gl-cm-gutter')];
+  return {i: abhyasaBoard.state && abhyasaBoard.state.i, ta: document.getElementById('gl-ta').value, ce: document.getElementById('gl-ce-p').textContent, free}; }"""
 OFF_CHIP = """() => { const p = document.querySelector('#board-pointer svg').getBoundingClientRect(), cs = [...document.querySelectorAll('.board-label.on')].filter(c => +c.style.opacity > .9);
   return cs.length ? cs.every(c => { const r = c.getBoundingClientRect(); return p.right <= r.left || p.left >= r.right || p.bottom <= r.top || p.top >= r.bottom; }) : null; }"""
 JUMP = """() => new Promise(ok => { abhyasaBoard.again(); const out = []; const f = () => { out.push(abhyasaBoard.pointer); if (out.length < 6) requestAnimationFrame(f); else ok(out); }; requestAnimationFrame(f); })"""
