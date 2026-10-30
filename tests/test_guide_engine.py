@@ -160,3 +160,15 @@ def test_the_routed_guide_guards_for_the_model_of_its_route(monkeypatch):
         monkeypatch.setattr(a, '_be_or_none', lambda job='turn', be=be: be)
         assert guide_ask(r)(f'mail ada@example.com key {SECRET}') == f'ONESHOT:mail {mail} key [SECRET]'
         assert f'alt {mail} [SECRET]' in vision_ask(r)(f'alt ada@example.com {SECRET}', b'\x89PNG', 'sp')
+
+def test_a_remote_route_that_drops_the_picture_is_text_only(monkeypatch):
+    "rishi's remote one-shot that builds its message from dict parts only drops the image of `compose`: `vision_ask` then makes no call, and `vision_why` says why."
+    from rishi.remote import RemoteChat, to_msg
+    from urai import mk_msg
+    from abhyasa import llm
+    from abhyasa.guide import vision_ask, vision_why
+    r = llm.Router(llm.RouteAsk('claude/sonnet'), models=lambda: {}, tokens=lambda: {})
+    monkeypatch.setattr(RemoteChat, '_oneshot_args', lambda self, p, sp, n: ([to_msg({'role': 'user', 'content': p})], {}))
+    assert vision_why(r, 'codex/gpt-6.1-sol') == 'GPT-6.1 Sol does not get pictures on this route.' and vision_ask(r, 'codex/gpt-6.1-sol') is None
+    monkeypatch.setattr(RemoteChat, '_oneshot_args', lambda self, p, sp, n: ([to_msg(mk_msg(p))], {}))
+    assert vision_why(r, 'codex/gpt-6.1-sol') == '' and callable(vision_ask(r, 'codex/gpt-6.1-sol'))

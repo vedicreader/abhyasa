@@ -6,11 +6,12 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
-           'FOCUS', 'SHOWN', 'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat',
-           'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context',
-           'figure_labels', 'FigureCache', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'focus_text',
-           'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video',
-           'concept_video', 'video_of', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
+           'FOCUS', 'SHOWN', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL',
+           'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext',
+           'clean_context', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why', 'vision_ask', 'Withheld',
+           'guard', 'safe_query', 'guarded', 'figure_check', 'focus_text', 'page_text', 'board_prompt', 'video_id',
+           'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'guide_ask',
+           'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -302,35 +303,71 @@ def figure_labels(vision, img:bytes, alt:str='') -> dict|None:
 
 # %% ../nbs/21_guide.ipynb #g058
 class FigureCache:
-    "The label boxes of each figure, by the SHA-1 of its bytes, in the JSON file `path`. It keeps at most `most` figures."
-    def __init__(self, path, most:int=500): self.path, self.most, self.lock = Path(path), most, threading.Lock()
+    """The label boxes of each figure, by the SHA-1 of its bytes, in the JSON file `path`. It keeps at most `most` figures. An empty
+    result is kept for `empty_ttl` seconds, and only when some figure in the file has labels: before that, an empty reply can come
+    from a route that lost the picture, and the next post must ask again."""
+    def __init__(self, path, most:int=500, empty_ttl:float=86400.):
+        self.path, self.most, self.empty_ttl, self.lock = Path(path), most, empty_ttl, threading.Lock()
     @staticmethod
     def key(img:bytes) -> str: return hashlib.sha1(img).hexdigest()
     def _all(self) -> dict:
         try: return json.loads(self.path.read_text())
         except (OSError, ValueError): return {}
-    def get(self, key:str) -> dict|None: return (self._all().get(key) or {}).get('labels')
-    def put(self, key:str, labels:dict):
+    @staticmethod
+    def _seen(d) -> bool: return any(v.get('labels') for v in d.values())
+    def get(self, key:str) -> dict|None:
+        d = self._all()
+        e = d.get(key) or {}
+        if (ls := e.get('labels')) or ls is None: return ls
+        return {} if time.time() - e.get('at', 0) <= self.empty_ttl and self._seen(d) else None
+    def put(self, key:str, labels:dict) -> bool:
+        "Keep `labels` for `key`. False when it keeps nothing: an empty result before any figure had labels."
         with self.lock:
             d = self._all()
+            if not labels and not self._seen(d): return False
             d[key] = dict(labels=labels, at=time.time())
             d = dict(sorted(d.items(), key=lambda kv: kv[1].get('at', 0))[-self.most:])
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self.path.write_text(json.dumps(d))
+            return True
 
 # %% ../nbs/21_guide.ipynb #g060
-def vision_ask(ask, name:str=''):
-    "A vision call `(prompt, img, sp) -> str` on the ramabana job `guide_vision` (on the model of figure labels, by default the model of hints), or None when the routed model takes no picture."
-    if not hasattr(getattr(ask, 'dflt', None), 'via'): return lambda p, img, sp='': ask(guard(p), guard(sp))
-    from abhyasa.llm import ramabana_agent, ramabana_oneshot, dflt_model
+_PNG = bytes.fromhex('89504e470d0a1a0a0000000d4948445200000001000000010806000000'
+                     '1f15c4890000000d49444154789c63f8ffff3f0005fe02fea7d6a4000000'
+                     '0049454e44ae426082')   # one white pixel
+
+def keeps_images(spec) -> bool:
+    "Whether the one-shot of the route `spec` sends the picture that `compose` puts in its prompt. Only rishi's remote routes are checked; a check that fails counts as yes."
+    if getattr(spec, 'runtime', '') not in ('remote', 'copilot'): return True
+    try:
+        from types import SimpleNamespace
+        from rishi.remote import RemoteChat
+        ms, _ = RemoteChat._oneshot_args(SimpleNamespace(_kw=lambda **kw: {}), [_PNG, 'x'], '', 8)
+        return any(getattr(p.type, 'value', p.type) == 'input_image' for m in ms for p in m.content)
+    except Exception: return True
+
+def vision_why(ask, name:str='') -> str:
+    "Why the routed model of figure labels (`name`, else the model of `guide_vision`) gets no picture, or '' when it gets one. A test model with no routing gets one."
+    if not hasattr(getattr(ask, 'dflt', None), 'via'): return ''
+    from abhyasa.llm import dflt_model, where_of
     from ramabana.core import accepts, resolve
     n = name or ask.name('guide_vision') or dflt_model()
-    try:
-        if not accepts(resolve(n), 'image'): return None
-    except Exception: return None
+    m = where_of(n).get('model') or n
+    try: s = resolve(n)
+    except Exception: return f'abhyasa does not know the model {n}.'
+    if not accepts(s, 'image'): return f'{m} cannot see pictures.'
+    if not keeps_images(s): return f'{m} does not get pictures on this route.'
+    return ''
+
+def vision_ask(ask, name:str='', job:str='guide_vision'):
+    "A vision call `(prompt, img, sp) -> str` on the ramabana job `job` (on the model of figure labels, by default the model of hints), or None when the routed model gets no picture (`vision_why`)."
+    if not hasattr(getattr(ask, 'dflt', None), 'via'): return lambda p, img, sp='': ask(guard(p), guard(sp))
+    if vision_why(ask, name): return None
+    from abhyasa.llm import ramabana_agent, ramabana_oneshot, dflt_model
+    n = name or ask.name('guide_vision') or dflt_model()
     def call(p, img, sp=''):
         def prep(_p, _sp, b): return ramabana_agent(n).compose(guard(p, b.spec), image=img), guard(sp, b.spec)
-        return ramabana_oneshot('guide_vision', n, p, sp, 1024, prep)
+        return ramabana_oneshot(job, n, p, sp, 1024, prep)
     return call
 
 # %% ../nbs/21_guide.ipynb #g062
@@ -355,6 +392,16 @@ def safe_query(q:str) -> str:
 def guarded(p, sp, b) -> tuple:
     "The `prepare` of a routed call: the prompt `p` and the system prompt `sp` through `guard` for the model of the backend `b`."
     return guard(p, b.spec), guard(sp, b.spec)
+
+# %% ../nbs/21_guide.ipynb #g060d
+FIGURE_TEST = ('Encoder', 'Decoder')   # the labels in the test picture of Settings, `blocks/settings/figure-test.png`
+
+def figure_check(vision, img:bytes, want=FIGURE_TEST) -> AttrDict:
+    "Whether `vision` reads each label of `want` in the picture `img`: `ok`, the labels that it `got`, and the `missing` ones. Raise when the reply is not JSON."
+    got = figure_labels(vision, img, 'Two boxes with a label in each, and an arrow from the first to the second.')
+    if got is None: raise RuntimeError('The model did not reply with labels in JSON.')
+    have = {k.lower() for k in got}
+    return AttrDict(ok=all(w.lower() in have for w in want), got=list(got), missing=[w for w in want if w.lower() not in have])
 
 # %% ../nbs/21_guide.ipynb #g069
 GUIDE_SP = register('guide.board', 'Screen guide', 'How the tutor explains a part of the page with a board drawn over it.', """You explain one thing on a learning page to a learner who said "I don't get X". You draw on the page and you speak one short line for each step.

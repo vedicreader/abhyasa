@@ -31,6 +31,26 @@ def test_a_failed_vision_call_is_not_kept(mk, fake):
     assert cl.post('/guide/figure', content=PNG + b'flaky').json()['labels'] == {'a': [90, 400, 160, 500], 'b': [480, 880, 540, 960]}
     assert len(tries) == 2
 
+def test_an_empty_first_result_is_not_kept(mk, fake):
+    "While no figure has labels, an empty reply is not kept: it can come from a route that lost the picture. So the next post asks again."
+    from abhyasa.settings import cfg_dir
+    (cfg_dir()/'guide-figures.json').unlink(missing_ok=True)
+    replies = [dict(labels=[]), LABELS]
+    fake.rules['You find the text labels'] = lambda p, sp: replies.pop(0)
+    cl = mk()
+    assert cl.post('/guide/figure', content=PNG + b'empty').json()['labels'] == {}
+    assert cl.post('/guide/figure', content=PNG + b'empty').json()['labels'] == {'a': [90, 400, 160, 500], 'b': [480, 880, 540, 960]}
+    assert replies == []
+
+def test_a_route_that_loses_pictures_says_so(mk, monkeypatch):
+    "When the route of figure labels drops the picture, the figure route makes no call and its note names the model and the route."
+    import abhyasa.guide as G
+    monkeypatch.setattr(G, 'vision_ask', lambda ask, name='', job='': None)
+    monkeypatch.setattr('abhyasa.blocks.guide.app.vision_ask', lambda ask, name='', job='': None)
+    monkeypatch.setattr('abhyasa.blocks.guide.app.vision_why', lambda ask, name='': 'GPT-6.1 Sol does not get pictures on this route.')
+    r = mk().post('/guide/figure', content=PNG + b'lost').json()
+    assert r['labels'] == {} and r['note'] == 'GPT-6.1 Sol does not get pictures on this route.'
+
 def test_figure_alt_passes_the_guard(mk, fake):
     "A secret in the alt text of a figure never reaches the vision call: the route sends the alt through `guard` first."
     fake.rules['You find the text labels'] = LABELS

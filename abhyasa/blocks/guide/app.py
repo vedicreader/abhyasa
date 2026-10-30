@@ -7,7 +7,7 @@ from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook, run as run_hook
 from abhyasa.guide import (FigureCache, Withheld, clean_context, concept_video, explain, figure_labels, file_video, find_explainer, guide_ask, set_video,
-                           unsave, video_of, vision_ask, where_of)
+                           unsave, video_of, vision_ask, vision_why, where_of)
 from abhyasa.settings import val, set_val
 from abhyasa.voice import cfg_dir
 from . import ui
@@ -72,11 +72,11 @@ def connect(app, ctx):
         if not img or len(img) > FIGURE_BYTES or not is_image(img): return JSONResponse(dict(error='Send a PNG, JPEG, GIF or WebP image.'), status_code=415)
         k = figs.key(img)
         if (got := figs.get(k)) is not None: return JSONResponse(dict(key=k, labels=got))
-        if (vision := vision_ask(ask)) is None: return JSONResponse(dict(key=k, labels={}, note='The model cannot see pictures.'))
+        if (vision := vision_ask(ask)) is None: return JSONResponse(dict(key=k, labels={}, note=vision_why(ask) or 'The model cannot see pictures.'))
         try: labels = await asyncio.to_thread(figure_labels, vision, img, alt)
         except Withheld: return JSONResponse(dict(error=WITHHELD, labels={}), status_code=403)
         if labels is None: return JSONResponse(dict(key=k, labels={}))   # the call failed: keep nothing, so the next post asks again
-        figs.put(k, labels)
+        figs.put(k, labels)   # an empty result before any figure had labels is not kept: the route can have lost the picture
         return JSONResponse(dict(key=k, labels=labels))
 
     async def ask_(req):
