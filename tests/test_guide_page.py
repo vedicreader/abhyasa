@@ -85,3 +85,69 @@ def test_demo_anchors_have_the_agreed_ids(page):
               [...h.querySelectorAll('[data-guide-id]')].map(e => e.dataset.guideId), h.dataset.guideId];
     }""", long)
     assert got == [['demo', 'in:k', 'out:1', 'out:2'], ['k', long], ['score 0.25', 'a plot'], False, 'rrf', ['in:k', 'out:1', 'out:2'], 'demo']
+
+# --- never caught unaware ---------------------------------------------------------------------------------------------------
+ASKS = dict(wait='Asks Claude Sonnet. It gets your question and the page text.', state='asking', model='Claude Sonnet', where='hosted', who='Anthropic')
+strip = lambda page: page.evaluate("document.getElementById('guide-strip').textContent")
+
+def test_the_state_line_names_the_model_and_where_it_runs(page):
+    "Before the board, the state line shows the wait text, the chip of where the text goes, and Stop. The caption names the model."
+    page.reply = sse(ASKS, dict(wait='Searches the web for: "alpha bar"', state='searching', where='hosted', query='alpha bar'))
+    page.evaluate("abhyasaGuide.ask('what is this')")
+    page.wait_for_function("document.querySelector('#guide-strip .board-state[data-state=\"searching\"]')")
+    t = strip(page)
+    assert 'Searches the web for: "alpha bar"' in t and 'hosted' in t and 'Stop' in t
+    page.evaluate("abhyasaBoard.status(%s)" % json.dumps(ASKS))
+    assert page.evaluate("document.querySelector('#guide-strip .board-where').textContent") == 'hosted · Anthropic'
+    page.evaluate("abhyasaBoard.status({wait: 'Asks Gemma 4 E4B. Nothing leaves this Mac.', state: 'asking', model: 'Gemma 4 E4B', where: 'on this Mac', who: ''})")
+    assert page.evaluate("document.querySelector('#guide-strip .board-where').textContent") == 'on this Mac'
+    page.reply = sse(ASKS, dict(step=STEP, k=1, tier='tutor'), dict(board=dict(tier='tutor', steps=[STEP], sources=[], end="In the tutor's own words. No source found.",
+                                                                               saved=None, hint='Hint 2 of 6 used (from the board).')))
+    page.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('what is this')")
+    page.wait_for_function("abhyasaBoard.state && !abhyasaBoard.state.streaming")
+    assert page.evaluate("document.querySelector('#guide-strip .board-who').textContent") == 'Claude Sonnet · hosted'
+    assert 'Hint 2 of 6 used (from the board).' in strip(page)
+    assert page.evaluate("[...document.querySelectorAll('#guide-strip .board-btn')].map(b => b.textContent)") == ['Voice on', 'Stop']
+    page.click('#guide-strip .board-stop')
+    assert page.evaluate('abhyasaBoard.state') is None
+
+def test_saved_shows_with_undo(page):
+    "A page that the guide saved shows at the end, with Undo. Undo posts to the route and shows its answer."
+    page.route('**/guide/undo/k1', lambda r: r.fulfill(status=200, body='The guide took Ranks out of your vault.'))
+    page.reply = sse(dict(saved=dict(title='Ranks', url='https://example.org/r', undo='/guide/undo/k1')),
+                     dict(board=dict(tier='web', steps=[STEP], sources=[], end='x')))
+    page.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('what is this')")
+    page.wait_for_function("document.querySelector('#guide-strip .board-saved')")
+    assert page.evaluate("document.querySelector('#guide-strip .board-saved').textContent") == 'Saved to your vault: Ranks. Undo'
+    page.click('#guide-strip .board-undo')
+    page.wait_for_function("document.querySelector('#guide-strip .board-saved').textContent.startsWith('The guide took')")
+
+def test_stop_before_the_board_ends_the_request(page, fake):
+    "Stop in the state line while the model writes, before a board draws: the request ends, and the line says that the guide shows no answer."
+    fake.rules = {'Tier: tutor': lambda p, sp: time.sleep(2) or '{"op":"v","n":1,"sure":0.9}', **fake.rules}   # a slow model, on the real route
+    page.unroute('**/guide/ask')
+    page.evaluate("() => { abhyasaGuide.ask('what is this'); }")   # no wait for the ask to end
+    page.wait_for_function("document.querySelector('#guide-strip .board-state[data-state=\"asking\"] .board-stop')")
+    page.click('#guide-strip .board-stop')
+    page.wait_for_function("document.getElementById('guide-strip').textContent.startsWith('Stopped.')")
+
+def test_the_figure_goes_out_only_when_the_question_is_about_it(page):
+    "A figure on the page is not posted for a question on the passage. A question on the figure posts it, and the line says so first."
+    posts = []
+    page.route('**/guide/figure*', lambda r: (posts.append(1), r.fulfill(status=200, content_type='application/json', body='{"labels": {}}')))
+    page.evaluate("""() => new Promise(ok => { const f = document.createElement('figure'); f.id = 'figure'; const i = new Image(); i.onload = ok;
+                      i.alt = 'A right triangle'; i.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40"/></svg>');
+                      f.append(i); document.querySelector('main').append(f); })""")
+    page.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('what is the noise')")
+    page.wait_for_function("document.getElementById('guide-strip').textContent.includes('A test.')")
+    assert not posts and 'labels' not in json.dumps(page.asked[-1]['ctx'])
+    page.evaluate("abhyasaGuide.ask('what is this triangle')")
+    page.wait_for_function("document.getElementById('guide-strip').textContent.includes('A test.')")
+    assert posts == [1]
+
+def test_reading_line_and_the_pointer_notice(page):
+    page.evaluate("document.querySelector('main').insertAdjacentHTML('beforeend', '<div id=\"note\">A note.</div><div id=\"check\">A check.</div>')")
+    ctx = page.evaluate('abhyasaGuide.capture()')
+    assert page.evaluate('c => abhyasaGuide.readLine(c)', ctx) == 'Reads this page: the passage, the note and the check.'
+    page.evaluate('abhyasaGuide.open()')
+    assert page.evaluate("document.querySelector('#guide-form .guide-follow').textContent") == 'The guide follows your pointer while you ask.'

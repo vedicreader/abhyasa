@@ -4,6 +4,9 @@
 // --- what the page shows --------------------------------------------------------------------------------------------
 if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   const me = document.currentScript ? document.currentScript.dataset : {};
+  const info = (() => { try { return JSON.parse(me.info || '{}'); } catch (e) { return {}; } })();   // who gets what: the guide model, the figure model, the speech engine
+  const HERE = 'on this Mac';
+  const where = w => !w || !w.where ? '' : w.where === HERE ? HERE : w.who ? `hosted · ${w.who}` : 'hosted';
   const cut = (s, n = 300) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
   const seen = el => el && (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
   const texOf = k => {   // the TeX of a formula as the page wrote it: a marked formula keeps it in data-tex, and its annotation holds the ids
@@ -51,7 +54,8 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     } catch (e) { return {}; }
   }
 
-  async function capture() {
+  // What the page shows. A figure gets its labels only with {labels: true}: its picture goes to the vision model then.
+  async function capture({labels = false} = {}) {
     const main = document.querySelector('main') || document.body, anchors = [];
     const add = (el, id, kind, text) => { if (el && seen(el)) { el.dataset.guideId = id; anchors.push({id, kind, text}); } };
     const h1 = main.querySelector('h1');
@@ -64,7 +68,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (figure && seen(figure)) {
       const cap = figure.closest('figure') && figure.closest('figure').querySelector('figcaption');
       figure.dataset.guideId = 'figure';
-      anchors.push({id: 'figure', kind: 'figure', text: cut([figure.alt, cap && cap.textContent].filter(Boolean).join('. ')), labels: await labelsOf(figure)});
+      anchors.push({id: 'figure', kind: 'figure', text: cut([figure.alt, cap && cap.textContent].filter(Boolean).join('. ')), ...(labels && {labels: await labelsOf(figure)})});
     }
     main.querySelectorAll('figcaption, .rk-title').forEach((c, n) => n < 4 && add(c, 'cap' + (n + 1), 'caption', textOf(c)));
     let demo = {};
@@ -205,14 +209,17 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     spot();
     clearTimeout(rec.timer); rec.timer = setTimeout(() => spot(), G.dwellMs + 50);   // a still pointer shows its ring
   }
+  const follow = on => { const p = form() && form().querySelector('.guide-follow'); if (p) { p.hidden = !on; p.textContent = on ? 'The guide follows your pointer while you ask.' : ''; } };
   function startShow() {
     if (rec) return;
+    follow(true);
     rec = {t0: performance.now(), pts: [], said: [], rings: new Set(), timer: 0, drawing: false};
     addEventListener('mousemove', onMove, {capture: true, passive: true});
   }
   function stopShow() {   // the path and what was said with it; then nothing of it is kept
     if (!rec) return null;
     const r = rec; rec = null;
+    follow(false);
     heard_(r);
     removeEventListener('mousemove', onMove, {capture: true});
     clearTimeout(r.timer);
@@ -256,33 +263,93 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (!f || !b) return;
     const sel = cut(String(getSelection() || ''), 80);
     f.hidden = false; heard(''); startShow();
+    if (!localStorage.getItem('guide-told')) {   // the first Explain: one line, no sheet
+      localStorage.setItem('guide-told', '1');
+      const m = info.model || {};
+      heard(`The tutor reads this page and asks ${m.model || 'the tutor'} (${m.where === HERE ? HERE : 'hosted'}). Esc stops it.`);
+    }
     b.value = text != null ? text : sel ? `I don't get "${sel}"` : '';
     b.focus(); b.setSelectionRange(b.value.length, b.value.length);
   }
   function close() { stopShow(); if (form()) form().hidden = true; }
 
+  // What the read takes, in one line: "Reads this page: the passage, the note, 2 formulas and 1 figure."
+  function readLine(ctx) {
+    const k = kind => ctx.anchors.filter(a => a.kind === kind).length, n = (x, w) => `${x} ${w}${x === 1 ? '' : 's'}`, out = [];
+    for (const [kind, w] of [['passage', 'the passage'], ['note', 'the note'], ['check', 'the check'], ['demo', 'the demo'], ['video', 'the video']]) if (k(kind)) out.push(w);
+    if (k('formula')) out.push(n(k('formula'), 'formula'));
+    if (k('figure')) out.push(n(k('figure'), 'figure'));
+    return out.length ? `Reads this page: ${out.length > 1 ? out.slice(0, -1).join(', ') + ' and ' + out[out.length - 1] : out[0]}.` : 'Reads this page.';
+  }
+  // The picture of a figure goes to the vision model only when the question is about it: the learner showed it with the pointer,
+  // or the question names a figure, or a word of its caption. A figure that this page load already read sends nothing.
+  const FIG_WORDS = /\b(figure|fig|picture|image|diagram|plot|graph|chart|drawing|label|labels|axis|axes|curve)\b/i;
+  function aboutFigure(said, ctx, img) {
+    const a = ctx.anchors.find(x => x.id === 'figure');
+    if (!a || !img) return false;
+    if (figs[img.src] || (ctx.focus || []).some(f => f.anchors.includes('figure')) || FIG_WORDS.test(said)) return true;
+    const words = new Set(flatWords(a.text));
+    return flatWords(said).some(w => words.has(w));
+  }
+  const flatWords = t => String(t || '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 4);
+
   // Ask the tutor: read the page, post the question with it, and play the board that comes back. A sure tutor sends each step
   // when it is whole: the first step starts a streaming board, and each next step goes to abhyasaBoard.add. The board event at
   // the end is the whole board: it finishes the streaming board, or plays as it is when no step came. The times go into
   // `abhyasaGuideLast`: from the press of Explain to the first step, to the board, and to the first mark.
-  let asks = 0;   // a newer question takes the place of an older one, so the steps of the older one go nowhere
+  let asks = 0, ctl = null, busy = 0, drew = false;   // a newer question takes the place of an older one: its request stops, and its steps go nowhere
+  const STOPPED = 'Stopped. The tutor got the question, but the guide shows no answer.';
+  const status = e => window.abhyasaBoard && abhyasaBoard.status ? abhyasaBoard.status(e) : say(e.wait);
+  function halt() {   // Stop or Esc while the guide works: the request ends, so the server closes the model stream
+    if (!busy || !ctl) return false;
+    ctl.abort(); busy = 0;
+    if (!drew) say(STOPPED);   // no step showed yet
+    return true;
+  }
+  document.addEventListener('board:stop', e => { if (e.detail && e.detail.by === 'learner') halt(); });
+  addEventListener('keydown', e => {   // Esc stops the guide while the state line shows, before a board draws
+    if (e.key !== 'Escape' || !busy || (window.abhyasaBoard && abhyasaBoard.state) || (e.target && e.target.id === 'guide-box')) return;
+    if (halt()) { e.preventDefault(); e.stopPropagation(); }
+  });
+  const voiceOn = () => info.voice !== false && !window.abhyasaGuideQuiet;
+  function setVoice(on) {
+    info.voice = on;
+    if (me.voice) fetch(me.voice, {method: 'POST', body: new URLSearchParams({on: on ? '1' : '0'})}).catch(() => {});
+  }
+  function hintLine(text) {   // the open check says that the board counted as a hint on it
+    const c = document.getElementById('check');
+    if (!c || !text) return;
+    let p = c.querySelector('.guide-hint-used');
+    if (!p) { p = Object.assign(document.createElement('p'), {className: 'guide-hint-used mute'}); (c.querySelector('form') || c).prepend(p); }
+    p.textContent = text;
+  }
   async function ask(said) {
     said = cut(said, 300);
     if (!said) return;
     const shown = stopShow();   // what the learner showed with the pointer while they asked
     close();
     const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0}, n = ++asks;
-    const opts = () => ({labels, quiet: !!window.abhyasaGuideQuiet}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
-    let labels = {}, live = null, whole = false;   // live: the promise of the streaming board, with each add after it
+    const opts = () => ({labels, quiet: !voiceOn(), who: asked, onVoice: setVoice}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
+    let labels = {}, live = null, whole = false, asked = info.model || null, saved = null;   // live: the promise of the streaming board, with each add after it
     const got = [];   // the steps that came, for a stream that ends with no board event
-    say('The tutor reads the page.');
+    if (ctl) ctl.abort();
+    const me_ = ctl = new AbortController(); busy = n; drew = false;
+    if (window.abhyasaBoard && abhyasaBoard.state) abhyasaBoard.stop();   // the board of the older question goes
     try {
       const ctx = await capture();
       const focus = focusFor(shown, ctx);
       if (focus.length) ctx.focus = last.focus = focus;
       last.capture_ms = Math.round(performance.now() - t0);
+      status({wait: readLine(ctx), state: 'reading', where: HERE});
+      const img = ctx.anchors.some(a => a.id === 'figure') && document.querySelector('[data-guide-id="figure"]');
+      if (aboutFigure(said, ctx, img)) {   // the picture leaves the page only now, and the line says where it goes
+        const v = info.vision || {};
+        if (!figs[img.src]) status({wait: `The guide sends this figure to ${v.model || 'the tutor'} to find its labels. The picture is not kept.`, state: 'asking', ...v});
+        ctx.anchors.find(a => a.id === 'figure').labels = await labelsOf(img);
+        if (n !== asks) return;
+      }
       labels = Object.fromEntries(ctx.anchors.filter(a => a.labels).map(a => [a.id, a.labels]));
-      const r = await fetch(me.ask, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({said, ctx})});
+      const r = await fetch(me.ask, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({said, ctx}), signal: me_.signal});
       if (!r.ok) return say(cut(await r.text(), 200) || 'The tutor could not answer. Try again.');
       const rd = r.body.getReader(), dec = new TextDecoder();
       let buf = '';
@@ -296,17 +363,20 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
           if (!ev.startsWith('data: ')) continue;
           const m = JSON.parse(ev.slice(6));
           if (n !== asks) return rd.cancel();
-          if (m.wait) say(m.wait);
+          if (m.wait) { if (m.state === 'asking' && m.model) asked = {model: m.model, where: m.where, who: m.who}; status(m); }
+          if (m.saved) saved = m.saved;
           if (m.error) say(m.error);
           if (m.step) got.push(m.step);
           if (m.step && !live) {
-            last.step_ms = Math.round(performance.now() - t0); mark();
+            last.step_ms = Math.round(performance.now() - t0); mark(); drew = true;
             live = abhyasaBoard.play({steps: [m.step], tier: m.tier || 'tutor', sources: [], streaming: true}, opts());
           } else if (m.step) live = live.then(() => n === asks && abhyasaBoard.add(m.step));
           if (m.board) {
-            whole = true;
+            whole = true; busy = 0;
+            if (saved) m.board.saved = saved;
+            hintLine(m.board.hint);
             last.board_ms = Math.round(performance.now() - t0); last.server_ms = m.board.ms; last.tier = m.board.tier;
-            if (!live) { mark(); await abhyasaBoard.play(m.board, opts()); }
+            if (!live) { mark(); drew = true; await abhyasaBoard.play(m.board, opts()); }
             else {
               await live;
               const b = abhyasaBoard.state;   // null when the learner stopped the board
@@ -319,7 +389,8 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
         await live;
         if (n === asks && abhyasaBoard.state && abhyasaBoard.state.streaming) abhyasaBoard.finish({steps: got, tier: 'tutor', sources: [], end: ''});
       }
-    } catch (e) { say('The tutor could not answer. Make sure that abhyasa runs, then try again.'); }
+    } catch (e) { if (e.name !== 'AbortError') say('The tutor could not answer. Make sure that abhyasa runs, then try again.'); }
+    finally { if (busy === n) busy = 0; }
   }
 
   // --- Hyper+E: hold to talk, tap to type -------------------------------------------------------------------------------
@@ -332,7 +403,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const tpl = document.getElementById('mic-float');
     if (!tpl) return null;
     if (!mic || !mic.isConnected) {
-      mic = Object.assign(document.createElement('button'), {type: 'button', id: 'guide-mic', hidden: true});
+      mic = Object.assign(document.createElement('button'), {type: 'button', id: 'guide-mic', className: 'mic mini', hidden: true, title: 'The mic is on'});
       mic.innerHTML = '<span class="say">Speak</span><i class="lvl"></i>';   // fixed markup, as the voice block makes it
       for (const k of ['vad', 'start', 'seg', 'stop', 'events']) mic.dataset[k] = tpl.dataset[k];
       mic.dataset.into = 'guide-box';
@@ -344,16 +415,19 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     open('');
     const b = micButton();
     if (!b || !window.abhyasaMic) { heard('Type your question. The mic is not ready.'); return; }
-    heard('The mic is on. Release the key to send.');
+    heard(`The mic is on. Let go of Caps+E to send. Speech: ${where(info.speech) || HERE}`);
+    b.hidden = false;   // its dot and level show while you talk
     abhyasaMic(b);
   }
   async function endTalk() {
     const b = micButton();
     if (!b || !window.abhyasaDict || abhyasaDict.btn !== b) return;
-    heard('The app writes what you said.');
+    const sp = info.speech || {};
+    heard(`${sp.model || 'The app'} writes what you said. ${where(sp) || HERE}`);
     await abhyasaMic(b);   // the second press stops it; the last words still come in
     const end = performance.now() + 15000;
     while (performance.now() < end && (b.classList.contains('busy') || b.classList.contains('on'))) await new Promise(ok => setTimeout(ok, 100));
+    b.hidden = true;
     if (box().value.trim()) ask(box().value); else heard('The mic heard nothing. Type your question.');
   }
   addEventListener('keydown', e => {
@@ -380,5 +454,5 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   document.addEventListener('submit', e => { if (e.target.id === 'guide-form') { e.preventDefault(); ask(box().value); } });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.id === 'guide-box') { e.preventDefault(); e.stopPropagation(); close(); } });
 
-  window.abhyasaGuide = {capture, texParts: (...a) => abhyasaTex.texParts(...a), labelsOf, ask, open, gestures, focusOf, G};
+  window.abhyasaGuide = {capture, texParts: (...a) => abhyasaTex.texParts(...a), labelsOf, ask, open, gestures, focusOf, G, readLine, aboutFigure, halt};
 })();

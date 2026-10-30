@@ -19,3 +19,11 @@ nav .guide-go:hover, nav .guide-go.on { border-color: var(--acc); }
 .guide-transcript a { margin-right: var(--s1); font-variant-numeric: tabular-nums; }
 .guide-video-tools { margin-top: var(--s2); }
 .guide-paste input { flex: 1; min-width: 0; max-width: 28rem; }
+
+/* Never caught unaware: the pointer notice under the box, the mic dot and level while you talk, and the hint line on the check. */
+.guide-form { flex-wrap: wrap; }
+.guide-form .guide-follow { flex-basis: 100%; margin: 0; font-size: var(--t-meta); }
+.guide-form .guide-follow[hidden] { display: none; }
+.guide-form #guide-mic[hidden] { display: none; }
+.guide-form #guide-mic { position: relative; }
+.guide-hint-used { font-size: var(--t-meta); margin: 0 0 var(--s2); }

@@ -13,11 +13,14 @@
 // marks and chips fade in for 150 ms.
 //
 // API (window.abhyasaBoard):
-//   play(board, {labels, fast, quiet, auto, host})   play a checked board; it stops the board that shows now.
+//   play(board, {labels, fast, quiet, auto, host, who, onVoice})   play a checked board; it stops the board that shows now.
 //     labels  {anchorId: {label: [x0, y0, x1, y1]}}, the label boxes of a figure, 0 to 1000 of the anchor. Default {}.
 //     fast    draw each step at once, with no voice and no pointer flight. Default false.
 //     quiet   no voice: the words are timed by their letters. host.speak is not called. Default false.
 //     auto    go to the next step 1.2 s after the line is said. Default true (false when fast).
+//     who     {model, where, who}: the model that wrote the board, shown in the strip as "Claude Sonnet · hosted". Default none.
+//     onVoice onVoice(on) when the learner turns the voice off or on in the strip. With it, the strip has a Voice button, and the
+//             first board with a voice says once: "The guide speaks its steps. Turn the voice off here." Default none.
 //     host    the hooks of the page that shows the board. Each one is optional:
 //       resolve(id) -> Element|null   the element of anchor `id`. Default: document.querySelector('[data-guide-id="<id>"]').
 //                                     A formula element names its parts in data-parts: JSON [[tex, elementId], ...]; the
@@ -39,12 +42,17 @@
 //                        streaming board shows, or when its steps are not the first steps of `board` (then play `board`).
 //                        An `end` of '' shows no end line: the stream ended with no whole board.
 //   stop()  note(text)  next()  back()  again()  seekVideo(t)  boxOf(at)  normTex(tex)
+//   status(event)        the state line in the strip while the guide works: the `wait` text of a state event of the guide route
+//                        ({wait, state, model, where, who, query, sources}), a chip "on this Mac" or "hosted · <who>", the seconds
+//                        after 3 s while it asks, and Stop.
+//   A board can carry `saved` ({title, url, undo}: "Saved to your vault: <title>. Undo" at the end; Undo posts to the local
+//   path `undo`) and `hint` (a line for the open check, shown at the end).
 //   demoAnchors(host) -> {anchors, demo: {slug, inputs, readouts, open}} | null   the anchors of the rupaka demo `host`: `demo` for
 //                        the host, `in:<bind>` for each input of spec.state, `out:<n>` for each readout that shows (n from 1, in
 //                        spec order). It sets data-guide-id on each one. An id of more than 40 characters is dropped, never cut.
 //   state    {i, steps, tier, first, done, streaming} or null. `done` is true when each mark of the step shows in full.
 //   pointer  {tip, to, flying} in window pixels, or null: where the tip of the pointer is, and the point that it flies to.
-// Events on document: board:first (the first mark shows), board:stop.
+// Events on document: board:first (the first mark shows), board:stop (detail.by is 'learner' after Esc or Stop, else '').
 (() => {
   if (window.abhyasaBoard) return;
   const NS = 'http://www.w3.org/2000/svg', WAIT = 1200;
@@ -426,13 +434,40 @@
   const safeHref = u => /^(https?:\/\/|\/(?!\/))/.test(String(u || ''));
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   function strip() { return document.getElementById('guide-strip') || document.body.appendChild(Object.assign(el('div', 'guide-strip'), {id: 'guide-strip'})); }
-  function note(text) { const s = strip(); s.hidden = false; s.replaceChildren(el('p', 'board-note', text)); }
+  let ticker = 0;   // the seconds of the state line
+  function note(text) { clearInterval(ticker); const s = strip(); s.hidden = false; s.replaceChildren(el('p', 'board-note', text)); }
+  const HERE = 'on this Mac';
+  function chip(w) {   // where the text goes: "on this Mac" (quiet), or "hosted · <who>" (outlined)
+    if (!w || !w.where) return null;
+    const here = w.where === HERE, c = el('span', 'board-where' + (here ? '' : ' hosted'), here ? HERE : w.who ? `hosted · ${w.who}` : 'hosted');
+    if (w.model) c.title = w.model;
+    return c;
+  }
+  function button(text, cls, act) { const b = el('button', 'board-btn ' + cls, text); b.type = 'button'; b.addEventListener('click', act); return b; }
+  function status(ev) {   // see the API at the top of this file
+    if (!ev || typeof ev.wait !== 'string') return;
+    clearInterval(ticker);
+    const s = strip(), p = el('p', 'board-note board-state', null), t0 = performance.now();
+    p.dataset.state = ev.state || '';
+    p.append(el('span', 'board-wait', ev.wait));
+    if (ev.query && !ev.wait.includes(ev.query)) p.append(' ', el('q', 'board-query', ev.query));
+    const c = chip(ev); if (c) p.append(' ', c);
+    if (ev.state === 'asking') {
+      const n = el('span', 'board-secs', '');
+      p.append(' ', n);
+      ticker = setInterval(() => { const k = Math.floor((performance.now() - t0) / 1000); if (k >= 3) n.textContent = `${k} s`; if (!n.isConnected) clearInterval(ticker); }, 250);
+    }
+    p.append(' ', button('Stop', 'board-stop', () => stop('learner')));
+    s.hidden = false; s.replaceChildren(p);
+  }
   function caption() {
+    clearInterval(ticker);
     const s = strip(), b = st.board, step = b.steps[st.i];
     s.hidden = false;
     const top = el('div', 'board-top'), dots = el('span', 'board-dots');
     b.steps.forEach((_, k) => dots.append(el('i', k === st.i ? 'on' : '')));
     top.append(el('span', 'pill tier-' + b.tier, TIER[b.tier] || 'tutor'), dots, el('span', 'board-n', st.streaming ? `Step ${st.i + 1}` : `Step ${st.i + 1} of ${b.steps.length}`));
+    if (st.who && st.who.model) top.append(el('span', 'board-who', `${st.who.model} · ${st.who.where === HERE ? HERE : 'hosted'}`));
     const say = el('p', 'board-say');   // each word in its own span, so it can light up when it is said
     step.say.split(/\s+/).filter(Boolean).forEach((w, k) => { if (k) say.append(' '); say.append(el('span', k <= st.lit ? 'on' : '', w)); });
     const parts = [top, say];
@@ -447,7 +482,25 @@
       (b.sources || []).filter(x => x.quoted).forEach(x => end.append(' ', link(x)));
       parts.push(end);
     }
-    parts.push(el('p', 'board-keys', 'A again · S back · D next · Esc stop'));
+    if (st.i === b.steps.length - 1 && !st.streaming) {
+      if (b.saved && b.saved.title) {   // a thing that stays after the board: say it, with Undo
+        const sv = el('p', 'board-saved', `Saved to your vault: ${b.saved.title}. `), u = String(b.saved.undo || '');
+        if (/^\/(?!\/)/.test(u)) sv.append(button('Undo', 'board-undo', async () => {
+          try { const r = await fetch(u, {method: 'POST'}); sv.textContent = (await r.text()).slice(0, 200); } catch (e) { sv.textContent = 'abhyasa could not undo this. Try again.'; }
+          if (st) st.board.saved = null;
+        }));
+        parts.push(sv);
+      }
+      if (b.hint) parts.push(el('p', 'board-hint', b.hint));
+    }
+    if (st.onVoice && !st.quiet && !st.told) {   // the first board with a voice says how to turn it off, one time
+      st.told = true;
+      if (!localStorage.getItem('board-voice-told')) { localStorage.setItem('board-voice-told', '1'); parts.push(el('p', 'board-tell', 'The guide speaks its steps. Turn the voice off here.')); }
+    }
+    const keys = el('p', 'board-keys', 'A again · S back · D next · Esc stop');
+    if (st.onVoice) keys.append(' ', button(st.quiet ? 'Voice on' : 'Voice off', 'board-voice', () => setVoice(st.quiet)));
+    keys.append(' ', button('Stop', 'board-stop', () => stop('learner')));
+    parts.push(keys);
     s.replaceChildren(...parts);
   }
   function light(k) {
@@ -498,6 +551,12 @@
     st.gen++;
     st.timers.forEach(clearTimeout); st.timers = [];
     if (st.hush) { try { st.hush(); } catch (e) {} st.hush = null; }
+  }
+  function setVoice(on) {   // Voice off stops the speech and says the step again with no sound; Voice on speaks from the next step
+    if (!st) return;
+    st.quiet = !on;
+    try { st.onVoice(on); } catch (e) { console.warn('board: voice', e); }
+    if (on) caption(); else show(st.i);
   }
   function show(i) {
     if (!st) return;
@@ -615,24 +674,24 @@
     if (!st || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.repeat) return;
     const t = e.target;
     if (t && t.closest && t.closest('textarea, input, select, [contenteditable]:not([contenteditable="false"]), .cm-editor')) return;
-    const act = {KeyA: () => show(st.i), KeyS: () => show(st.i - 1), KeyD: () => show(st.i + 1), Escape: stop}[e.code];
+    const act = {KeyA: () => show(st.i), KeyS: () => show(st.i - 1), KeyD: () => show(st.i + 1), Escape: () => stop('learner')}[e.code];
     if (!act) return;
     e.preventDefault(); e.stopImmediatePropagation();
     if (e.code !== 'Escape') st.auto = e.code !== 'KeyS' && st.auto;
     act();
   }
-  function stop() {
-    quiet();
+  function stop(by) {
+    quiet(); clearInterval(ticker);
     const back = st && st.refocus;
     st = null;
     if (back && back.isConnected && !document.activeElement.matches('textarea, input, select, [contenteditable]')) back.focus({preventScroll: true});
     for (const e of document.querySelectorAll('#board-host, .board-hl')) e.remove();
     const s = document.getElementById('guide-strip'); if (s) { s.hidden = true; s.replaceChildren(); }
-    document.dispatchEvent(new CustomEvent('board:stop'));
+    document.dispatchEvent(new CustomEvent('board:stop', {detail: {by: by === 'learner' ? 'learner' : ''}}));
   }
 
   // Play a checked board. See the API at the top of this file.
-  async function play(board, {labels = {}, fast = false, quiet: q = false, auto = true, host: hk = {}} = {}) {
+  async function play(board, {labels = {}, fast = false, quiet: q = false, auto = true, host: hk = {}, who = null, onVoice = null} = {}) {
     if (st) stop();
     const h = {...HOST};
     for (const k of ['resolve', 'speak', 'demo']) if (typeof (hk || {})[k] === 'function') h[k] = hk[k];
@@ -642,6 +701,7 @@
     if (board.streaming) board = {...board, steps: [...board.steps]};   // add() grows the steps of its own copy
     st = {board, labels, host: h, fast, quiet: q || fast, auto: auto && !fast, i: 0, gen: 0, lit: -1, timers: [], rate: +(localStorage.getItem('board-rate') || 1), first: null,
           t0: performance.now(), stepAt: 0, ptr: {pos: null, f: null}, streaming: !!board.streaming, wait: false,
+          who: who && typeof who === 'object' ? who : null, onVoice: !fast && typeof onVoice === 'function' ? onVoice : null,
           marks: board.steps.flatMap(marksOf)};
     // An empty answer box with the focus (a check takes it when it loads) lets go of it, so A, S and D work. A box with your text
     // keeps it: then the keys type, and a click outside the box gives them to the board. Esc gives the focus back.
@@ -666,7 +726,7 @@
   }).observe(document.body, {childList: true, subtree: true});
   if (document.body) watch(); else addEventListener('DOMContentLoaded', watch);
   const view = p => [p[0] - scrollX, p[1] - scrollY];
-  window.abhyasaBoard = {play, add, finish, stop, note, seekVideo, demoAnchors, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
+  window.abhyasaBoard = {play, add, finish, stop: () => stop(), note, status, seekVideo, demoAnchors, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
                          get state() {
                            if (!st) return null;
                            const t = performance.now(), mine = st.marks.filter(m => m.step === st.i && !/^(clear|demo_set|video_at)$/.test(m.o.op));
