@@ -23,6 +23,8 @@ KEYS = [
     ('Everywhere', '/', 'Search what you learned'),
     ('Everywhere', '⌘↩', 'Send the form from a box'),
     ('Everywhere', 'esc', 'Go up one level'),
+    ('Settings', '⌥1–⌥7', 'Pick a tab'),
+    ('Settings', '← →', 'Go to the tab before or after, from a tab'),
     ('Session', '⌥S', 'Send, or go to the next question'),
     ('Session', '⌥W', 'Ask for a hint'),
     ('Session', '⌥X', "I don't know, or teach me"),

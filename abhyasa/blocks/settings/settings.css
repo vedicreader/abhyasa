@@ -28,23 +28,46 @@ p.warn { font-size: var(--t-small); margin: 0 0 var(--s3); }
 .prompts form.raised { margin-top: var(--s1); }
 .prompts textarea { font: var(--t-small)/1.55 var(--mono); min-height: calc(10lh + 12px); max-height: 70vh; white-space: pre-wrap; tab-size: 4; }
 .prompts .acts { margin-top: var(--s3); align-items: baseline; }
-/* The page of groups (design review, section 4): a sticky index at the left from 1100 px, the groups at the right on hairline rows, no boxes. */
-.lead-page { margin-bottom: var(--s5); }
-.slayout { display: block; }
-.sindex { display: block; padding: 0; margin: 0 0 var(--s5); border: 0; font-size: var(--t-small); }
-.sindex input[type=search] { font-size: var(--t-small); max-width: 240px; margin-bottom: var(--s3); }
-.sindex .six { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); }
-.sindex a { color: var(--mute); text-decoration: none; padding: 0; border: 0; white-space: nowrap; }
-.sindex a:hover { color: var(--fg); }
-.sindex .n { font-variant-numeric: tabular-nums; }
-.sindex .dot { margin-left: var(--s2); vertical-align: middle; }
-@media (min-width: 1100px) {
-  .slayout { display: grid; grid-template-columns: 190px minmax(0, 720px); gap: var(--s7); justify-content: center; }
-  .sindex { position: sticky; top: var(--s5); align-self: start; margin: 0; }
-  .sindex .six { flex-direction: column; gap: var(--s2); }
-}
+/* The tabs (design review, section 2): one quiet row as the sub-tabs of Library, with the box that finds a setting at its end. The row stays
+   at the top when you scroll. A tab in force has the raised surface, never a bolder font, so no tab changes its width. */
+.lead-page { margin-bottom: var(--s4); }
+.slayout { max-width: 820px; }
+.stop { position: sticky; top: 0; z-index: 2; background: var(--bg); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4);
+        padding: var(--s2) 0; margin: 0 0 var(--s4); border-bottom: 1px solid var(--line); }
+.stabs { display: flex; flex-wrap: wrap; gap: var(--s1); }
+.stabs a { color: var(--mute); padding: var(--s2) var(--s3); border: 0; border-radius: var(--r-s); font-size: var(--t-small); text-decoration: none; white-space: nowrap; }
+.stabs a:hover { color: var(--fg); }
+.stabs a.on { background: var(--raised); color: var(--fg); box-shadow: var(--lift); }
+.stabs a:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+.stabs .n { font-variant-numeric: tabular-nums; }
+.stabs .dot { margin-left: var(--s1); vertical-align: middle; }
+.stop input[type=search] { flex: 1 1 120px; max-width: 200px; margin: 0 0 0 auto; font-size: var(--t-small); }
+/* Before the page is ready, settings.js names the tab of the link on <html>, so that tab draws first. */
+html[data-stab] .stab { display: none !important; }
+html[data-stab=models] #t-models, html[data-stab=voice] #t-voice, html[data-stab=guide] #t-guide, html[data-stab=learning] #t-learning,
+html[data-stab=walks] #t-walks, html[data-stab=sources] #t-sources, html[data-stab=look] #t-look { display: block !important; }
+/* "Find a setting" looks in all the tabs. */
+.sgroups.finding .stab[hidden] { display: block !important; }
+.sgroups.finding .stab .sgroup[hidden] { display: none !important; }
+.stab .sgroup + .sgroup { margin-top: var(--s6); }
+.sgroup, .srow { scroll-margin-top: 6rem; }   /* below the tab row, which stays at the top */
+/* "About this": the other sentences of a help line, closed, in the same quiet size */
+.srow details.about { margin: 2px 0 0; font-size: var(--t-meta); color: var(--mute); max-width: 46ch; }
+.srow details.about > summary, details.about > summary { cursor: pointer; color: var(--mute); font-size: var(--t-meta); list-style-position: inside; }
+.srow details.about p { margin: var(--s1) 0 0; line-height: 1.5; }
+#speech details.about { margin: 0 0 var(--s3); font-size: var(--t-small); }
+/* the model rows: the right part has one width, so each list starts at the same place, also on the Default row with no Test button */
+ul.srows li.srow.model { grid-template-columns: minmax(0, 1fr) 25rem; }
+.srow.model .rgt { align-items: stretch; text-align: left; }
+.srow.model .rng { align-items: flex-start; max-width: none; }
+.srow.model .mrow { display: grid; grid-template-columns: minmax(0, 1fr) auto 3.5rem; justify-content: stretch; }
+.srow.model .mrow select, .srow.model .mrow > .acts { width: 100%; max-width: none; }
+.srow.model .mtest { display: contents; }
+.srow.model .mtest > button { justify-self: end; }
+.srow.model .mtest > span { grid-column: 1 / -1; text-align: right; font-size: var(--t-meta); }
+.srow.model .mtest > span:empty { display: none; }
+@media (max-width: 640px) { ul.srows li.srow.model { grid-template-columns: 1fr; } }
 .sgroups { min-width: 0; }
-.sgroup { scroll-margin-top: var(--s5); }
 .sgroup:first-child h2 { margin-top: var(--s2); }
 .ghead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s4); }
 .ghead h2 { margin-bottom: var(--s1); }

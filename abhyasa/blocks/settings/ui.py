@@ -1,15 +1,15 @@
-"The Settings page: a side index of the groups, then each group on quiet hairline rows, with the rarely changed values under a closed `More`."
-import os
+"The Settings page: a short row of tabs, and under it the groups of one tab on quiet hairline rows, with the rarely changed values under a closed `More`."
+import os, json
 from pathlib import Path
 from fasthtml.common import *
 from fasthtml.svg import Svg, Path as SvgPath, Circle as SvgCircle, Rect as SvgRect, Ellipse as SvgEllipse
-from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say, Choice
+from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say, Choice, HelpLine
 from abhyasa import voice
 from abhyasa.settings import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped, dropped_roots
 from .cfg import Routes
 
 _P = Path(__file__).parent
-def assets(): return (asset_css(_P/'settings.css'), asset_js(_P/'settings.js'))
+def assets(): return (TabMap(), asset_css(_P/'settings.css'), asset_js(_P/'settings.js'))
 
 def size(n:int) -> str:
     "Bytes as MB or GB."
@@ -41,12 +41,12 @@ def Row(r, v):
     return SettingRow(r, v, Routes.value, reset_attrs(r.name), file=clamped(r.name) if r.store == 'file' else None, help=help,
                       control=PointPick(r, v) if r.name == 'guide.point' else None)
 
-def More(group, *items, names=()):
-    "The closed part of a group: `More in Walks: passage length, note length, depth, and 2 more`."
+def More(group, *items, names=(), summary=''):
+    "The closed part of a group: `More in Walks: passage length, note length, depth, and 2 more`, or the `summary` that you give."
     if not any(items): return ''
     ns = [n[:1].lower() + n[1:] for n in names]   # only the first letter: "walks on Today", not "walks on today"
     say_ = ', '.join(ns[:3]) + (f', and {len(ns) - 3} more' if len(ns) > 3 else '')
-    return Details(Summary(f'More in {GROUPS[group][0]}' + (f': {say_}' if ns else '')), *items, cls='more')
+    return Details(Summary(summary or f'More in {GROUPS[group][0]}' + (f': {say_}' if ns else '')), *items, cls='more')
 
 def Head(g, n=0):
     "The group label, and `Use the defaults for this group` when the group has changed values."
@@ -64,10 +64,10 @@ def GroupReset(g, n=0, ask=False, oob=False):
     return Span(A('Use the defaults for this group', href='#', hx_get=Routes.group_ask, hx_vals={'group': g}, hx_target=f'#gr-{g}', hx_swap='outerHTML'),
                 id=f'gr-{g}', cls='greset', **o)
 
-def Group(g, n, *shown, more=(), names=(), extra=()):
+def Group(g, n, *shown, more=(), names=(), extra=(), summary=''):
     "One group: the head, one lead line, the rows that show, then the closed `More` part."
     return Section(Head(g, n), P(GROUPS[g][1], cls='lead'), *extra, Ul(*shown, cls='plain srows') if shown else '',
-                   More(g, *more, names=names), id=f'g-{g}', cls='sgroup')
+                   More(g, *more, names=names, summary=summary), id=f'g-{g}', cls='sgroup')
 
 def RowGroup(g, n, value, extra=(), more_extra=()):
     "A group made only of setting rows: `value(r)` gives the value of row `r`."
@@ -76,14 +76,43 @@ def RowGroup(g, n, value, extra=(), more_extra=()):
     return Group(g, n, *[Row(r, value(r)) for r in sh], extra=extra,
                  more=(Ul(*[Row(r, value(r)) for r in mo], cls='plain srows') if mo else '', *more_extra), names=[r.label for r in mo])
 
-def Index(counts):
-    "The side index: a box that finds a setting, then a link to each group, with a dot and the count of changed values."
-    return Nav(Input(type='search', placeholder='Find a setting', id='sfind', aria_label='Find a setting', autocomplete='off'),
-               Ul(*[IndexItem(g, counts.get(g, 0)) for g in GROUPS], cls='six'), cls='sindex', aria_label='Groups of settings')
+#: The tabs of the page: (label, groups), the most used first. Each group of `GROUPS` is in one tab, and a tab shows its groups in this order.
+TABS = dict(models=('Models', ('models', 'prompts')), voice=('Voice', ('voice', 'stt')), guide=('Screen guide', ('guide',)),
+            learning=('Learning', ('learning', 'checks', 'review', 'runner')), walks=('Walks and talks', ('walks', 'talks')),
+            sources=('Sources', ('research', 'links')), look=('Look', ('look', 'lists')))
+TAB_OF = {g: t for t, (_, gs) in TABS.items() for g in gs}
+DFLT_TAB = next(iter(TABS))
 
-def IndexItem(g, n, oob=False):
-    return Li(A(GROUPS[g][0], Span(f' · {n}', cls='n') if n else '', Span(cls='dot on') if n else '', href=f'#g-{g}'),
-              id=f'ix-{g}', **(dict(hx_swap_oob='true') if oob else {}))
+def tab_ids() -> dict:
+    "Each id that a link to the page can name, with its tab: the groups (`g-voice`), the rows (`sr-walks-hands`) and the parts of a group."
+    return ({f'g-{g}': t for g, t in TAB_OF.items()} | {row_id(r): TAB_OF[r.group] for r in SETTINGS.values()} |
+            dict(speech='voice', jobs='voice', found='voice', key='voice', models='models', look='look', **{'voice-out': 'voice', 'out-found': 'voice'}))
+
+def tab_for(tab:str='') -> str:
+    "The tab that `?tab=` names, else the first tab."
+    return tab if tab in TABS else DFLT_TAB
+
+def TabCount(t, n, oob=False):
+    "The count of changed values of tab `t`, with a dot: a part of the tab, so a change can swap it in place."
+    return Span(Span(f' · {n}', cls='n') if n else '', Span(cls='dot on') if n else '', id=f'ixn-{t}', **(dict(hx_swap_oob='true') if oob else {}))
+
+def Tab(t, i, n, on):
+    "One tab: a link to `?tab=<t>`, so it works with no script too. ⌥1 to ⌥7 pick it (settings.js); ← and → move along the row."
+    return A(TABS[t][0], TabCount(t, n), href=f'?tab={t}', role='tab', id=f'ix-{t}', aria_controls=f't-{t}', aria_selected='true' if on else 'false',
+             tabindex='0' if on else '-1', title=f'⌥{i}', cls='on' if on else None, data_tab=t)
+
+def Tabs(on, counts):
+    "The tab row, and the box that finds a setting in all the tabs."
+    return Div(Div(*[Tab(t, i, counts.get(t, 0), t == on) for i, t in enumerate(TABS, 1)], role='tablist', aria_label='Groups of settings', cls='stabs'),
+               Input(type='search', placeholder='Find a setting', id='sfind', aria_label='Find a setting', autocomplete='off'), cls='stop')
+
+def Panel(t, on, *groups):
+    "The groups of tab `t`. Only the tab in force shows; settings.js changes it with no reload."
+    return Div(*groups, role='tabpanel', id=f't-{t}', aria_labelledby=f'ix-{t}', cls='stab', data_tab=t, hidden=t != on)
+
+def TabMap():
+    "The ids and the tabs, for settings.js. It is in the head, so a link such as /settings#g-voice draws the right tab first, with no jump."
+    return Script(f'window.abhyasaSettingTabs = {json.dumps(dict(ids=tab_ids(), tabs=list(TABS)))};')
 
 def Look():
     "The theme and the mode. A click changes the page at once (core.js), and the form saves the choice."
@@ -118,8 +147,8 @@ def Action(k, cur, s, key):
     return Span(*acts, cls='acts')
 
 def Where(k):
-    if k['engine'] == 'openai': return Span('hosted · OpenAI', cls='cloud', title='This engine sends audio off this machine.')
-    return Span('on this Mac', cls='ok') if voice.cached(k['model']) else Span('not here', cls='mute')
+    if k['engine'] == 'openai': return Span('hosted · OpenAI', cls='cloud', title='This engine sends your audio off this Mac.')
+    return Span('on this Mac', cls='ok') if voice.cached(k['model']) else Span('not downloaded', cls='mute')
 
 def Known(cur, s, key):
     "The models we measured, with the numbers from the voice notebook; then the models that this page downloaded."
@@ -144,8 +173,10 @@ def Speech(sp, key, oob=False):
         P(Strong(known), ' ', Span(f'{cur[0]} · {cur[1]}', cls='mute'), ' ', Status(sp), cls='inuse-line'),
         P(f'The speech engine is set to {env} outside this page ($ABHYASA_STT), so a choice here has no effect. '
           'In Abhyasa.app, open Abhyasa, then Settings, and set Speech engine to "From the Settings page".', cls='warn') if env else '',
-        P('Clip A is English speech. Clip B has Nyāya terms in IAST and maths words. The model gets these terms as a hint. The numbers are word error rates on this Mac, with the model already loaded. Terms: the number of key terms written correctly. '
-                  '"5 s" is the time for one 5-second segment. Only one model is in memory at a time.', cls='mute'),
+        P('Only one model is in memory at a time.', cls='mute'),
+        Details(Summary('About these numbers'), P('Clip A is English speech. Clip B has Nyāya terms in IAST and maths words. The model gets these terms as a hint. '
+                  'The numbers are word error rates on this Mac, with the model already loaded. Terms: the number of key terms written correctly. '
+                  '"5 s" is the time for one 5-second segment.', cls='mute'), cls='about'),
         Known(cur, s, key),
         Span(Spin('switching…'), id='use-sp'), id='speech', **(dict(hx_swap_oob='true') if oob else {}))
 
@@ -273,7 +304,7 @@ def Key(err=''):
     have = (P('In use: ', Code(voice.masked(k)), ' from ', Span('the environment (OPENAI_API_KEY)' if src == 'environment' else src),
               '' if own or src == 'environment' else ' (read only)', '.', cls='mute') if k else P('There is no key. The OpenAI engine is off.', cls='mute'))
     return Div(H3('OpenAI key', cls='sub'),
-        P(Strong('The OpenAI engine sends your audio off this machine.'), ' The other engines keep it here.', cls='warn'),
+        P(Strong('The OpenAI engine sends your audio off this Mac.'), ' The other engines keep it on this Mac.', cls='warn'),
         have, P(err, cls='warn', role='alert') if err else '',
         Form(Input(type='password', name='key', placeholder='sk-…', autocomplete='off'), Button('Save key'),
              Button('Remove key', type='button', hx_post=Routes.key, hx_vals={'key': ''}, hx_target='#key', hx_swap='outerHTML') if own else '',
@@ -318,7 +349,7 @@ def in_use(task, router, name='') -> str:
 def fallback(task, router) -> str:
     "What an empty model means for `task`: the model it borrows, else the default model."
     from abhyasa.llm import model_label, DFLT_MODEL
-    if task == 'default': return f"abhyasa's default: {model_label(DFLT_MODEL)}"
+    if task == 'default': return f'Default: {model_label(DFLT_MODEL)}'
     if task in BORROWS: return f'Same as {TASK_LABEL[BORROWS[task]].lower()}: {model_label(in_use(task, router))}'
     return f'Default: {model_label(in_use(task, router))}'
 
@@ -333,15 +364,15 @@ def ModelRow(task, router, rows, typing=False, set_by=''):
     from abhyasa.llm import model_label, DFLT_MODEL
     r = SETTINGS['models.' + task]
     name, i = (val(r.name) or ''), row_id(r)
-    test = '' if task == 'default' else Span(Button('Test', type='button', cls='quiet small', hx_post=Routes.test, hx_vals={'task': task},
-                                                    hx_include=f'#{i}-c', hx_target=f'#{i}-t', data_wait='Testing…'), Span(id=f'{i}-t', cls='mute'))
+    test = Span(cls='mtest') if task == 'default' else Span(Button('Test', type='button', cls='quiet small', hx_post=Routes.test, hx_vals={'task': task},
+                                                    hx_include=f'#{i}-c', hx_target=f'#{i}-t', data_wait='Testing…'), Span(id=f'{i}-t', cls='mute'), cls='mtest')
     ctl = Div(Typed(task, name) if typing else Pick(task, name, fallback(task, router), rows), Where_(in_use(task, router, name)), test, cls='mrow')
     rng = Div(Span(f'{set_by} sets the model now, so this choice has no effect.', cls='no') if set_by else Span(f"default {model_label(DFLT_MODEL)}" if task == 'default' else
                                                                                                  f'default: the model for {TASK_LABEL[BORROWS[task]].lower()}' if task in BORROWS else 'default: the default model'),
               A('Use the default', href='#', cls='use', hx_post=Routes.model, hx_vals={'task': task, 'model': ''}, hx_target=f'#{i}', hx_swap='outerHTML') if name else '',
               cls='rng', id=f'{i}-m')
-    return Li(Div(Span(cls='dot' + (' on' if name else ''), id=f'{i}-dot'), Label(r.label, fr=f'{i}-c'), P(r.help, cls='help'), cls='lft'),
-              Div(ctl, rng, cls='rgt'), cls='srow', id=i, data_find=f'{r.label} {r.help}'.lower())
+    return Li(Div(Span(cls='dot' + (' on' if name else ''), id=f'{i}-dot'), Label(r.label, fr=f'{i}-c'), *HelpLine(r.help), cls='lft'),
+              Div(ctl, rng, cls='rgt'), cls='srow model', id=i, data_find=f'{r.label} {r.help}'.lower())
 
 def Models(router, cat, set_by=''):
     "The model rows: the default, the four main tasks and the screen guide, then the other tasks and the reply caps under More."
@@ -380,7 +411,6 @@ def PromptItem(p, text=None, err='', said=''):
 def Prompts(n):
     "The instruction text of the tutor: one closed item for each prompt, the ways last."
     ps = sorted(registry().values(), key=lambda p: p.name.startswith('way.'))
-    return Group('prompts', 0, extra=(
-        P('A change works on the next question. To go back to the text that comes with abhyasa, click "Use the default", or save an empty box. '
-          'The concept, the conversation and the reply format stay in code.', cls='mute'),
-        Div(*map(PromptItem, ps), cls='prompts')))
+    return Group('prompts', 0, more=(P('A change works on the next question. To go back to the text that comes with abhyasa, click "Use the default", or save an empty box. '
+                                       'The concept, the conversation and the reply format stay in code.', cls='mute'),
+                                     Div(*map(PromptItem, ps), cls='prompts')), summary=f'Show the {len(ps)} prompts')

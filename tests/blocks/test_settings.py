@@ -14,7 +14,7 @@ def clean():
 def test_page(mk):
     t = mk().get('/settings').text
     assert '>Settings<' in t and 'Gemma 4 E4B (LiteRT)' in t and 'In use' in t
-    assert 'sends your audio off this machine' in t and 'There is no key' in t
+    assert 'sends your audio off this Mac' in t and 'There is no key' in t
     assert '>Models<' in t and 'Look up models' in t
 
 def test_use_switches_and_warms(mk):

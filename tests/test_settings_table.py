@@ -1,5 +1,5 @@
 "The settings table: each group has the values that the code used before, and the engine reads a saved value when it uses it."
-import json, os, threading
+import json, os, re, threading
 import pytest
 from abhyasa.settings import SETTINGS, GROUPS, FIXED, val, set_val, settings, cfg_dir, rows
 
@@ -9,6 +9,13 @@ def own_config(monkeypatch, tmp_path):
     monkeypatch.setenv('ABHYASA_CONFIG', str(tmp_path))
 
 def dflts(group): return {r.name: r.dflt for r in SETTINGS.values() if r.group == group}
+
+def help_shown(r, t):
+    "The help of row `r` is on the page `t`: the first sentence on the help line, the others under `About this`."
+    from abhyasa.core import help_parts
+    a, b = help_parts(r.help)
+    t = t.replace('&quot;', '"')
+    return f'<p class="help">{a}</p>' in t and (not b or re.search(r'<summary>About this</summary>\s*<p>' + re.escape(b) + '</p>', t) is not None)
 
 def test_groups_in_order():
     assert list(GROUPS) == ['look', 'learning', 'walks', 'talks', 'checks', 'review', 'links', 'research', 'runner', 'stt', 'voice', 'guide', 'models', 'lists', 'prompts']
@@ -65,7 +72,7 @@ def test_demo_ladder_setting(mk):
     r = SETTINGS['checks.demo_ladder']
     assert (r.group, r.kind, r.dflt, r.ui) == ('checks', 'bool', True, True) and r.help.endswith('.')
     t = mk().get('/settings').text
-    assert r.label in t and r.help in t
+    assert r.label in t and help_shown(r, t)
     set_val('checks.demo_ladder', False)
     assert val('checks.demo_ladder') is False
 
@@ -246,13 +253,14 @@ def test_page_lists_every_group_in_order(mk):
     import re
     from abhyasa.core import say
     t = mk().get('/settings').text
+    from abhyasa.blocks.settings.ui import TABS
     ids = re.findall(r'<section id="g-(\w+)"', t)
-    assert ids == list(GROUPS)
+    assert ids == [g for _, gs in TABS.values() for g in gs] and sorted(ids) == sorted(GROUPS)   # each group once, in the order of the tabs
     for r in SETTINGS.values():
         if not r.ui or r.group == 'models': continue                       # the model rows load after the page
-        assert r.help in t.replace('&quot;', '"'), r.name
+        if r.name != 'sources.roots': assert help_shown(r, t), r.name      # the source folders add a line on the folders that abhyasa does not use
         if r.kind in ('int', 'float'): assert f'to {say(r, r.hi if not isinstance(r.hi, str) else 20)} · default {say(r, r.dflt)}' in t, r.name
-    assert 'More in Walks: passage length, note length, rabbit-hole depth, and 2 more' in t
+    assert 'More in Walks: passage length, note length, side walk depth, and 2 more' in t
     assert 'Use the default (' not in t and 'Use the defaults for this group' not in t     # all defaults: the page stays quiet
 
 def test_page_saves_clamps_and_uses_the_default(mk):
@@ -260,7 +268,7 @@ def test_page_saves_clamps_and_uses_the_default(mk):
     r = cl.post('/settings/value', data=dict(name='walks.steps', value='50'))
     assert val('walks.steps') == 30 and 'value="30"' in r.text                             # out of range: the most, and the box shows it
     t = cl.post('/settings/value', data=dict(name='walks.steps', value='8')).text
-    assert val('walks.steps') == 8 and 'Saved' in t and 'Use the default (12)' in t and 'Walks<span class="n"> · 1' in t
+    assert val('walks.steps') == 8 and 'Saved' in t and 'Use the default (12)' in t and '<span hx-swap-oob="true" id="ixn-walks"><span class="n"> · 1' in t
     assert 'Use the default for 1 value in Walks?' in cl.get('/settings/group/ask', params=dict(group='walks')).text
     t = cl.post('/settings/default', data=dict(name='walks.steps')).text
     assert val('walks.steps') == 12 and 'Use the default (' not in t
@@ -297,7 +305,7 @@ def test_learning_on_both_pages(mk, lr):
     cl.post('/you/setting/default', data=dict(name='learning.pace'))
     assert (lr.profile().explore, lr.profile().pace) == ('often', 'steady')
     t = cl.get('/settings').text
-    assert 'value="often" checked' in t and 'Learning<span class="n"> · 2' in t
+    assert 'value="often" checked' in t and 'Learning<span id="ixn-learning"><span class="n"> · 2' in t
     cl.post('/you', data=dict(background='writes code'))                                     # the main form does not touch them
     assert (lr.profile().explore, lr.profile().session_len) == ('often', 40)
 

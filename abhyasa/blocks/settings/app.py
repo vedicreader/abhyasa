@@ -1,4 +1,4 @@
-"Settings: every value that you can change, in groups. Each value saves when it changes. The rarely changed values are under a closed `More`."
+"Settings: every value that you can change, in groups, in a few tabs. Each value saves when it changes. The rarely changed values are under a closed `More`."
 import os, time, base64
 from fasthtml.common import *
 from fastcore.basics import AttrDict
@@ -28,6 +28,8 @@ def connect(app, ctx):
             return len(saved())
         return sum(value_of(r) != r.dflt for r in rows(g) if r.reset)
 
+    def tab_count(t) -> int: return sum(map(count, ui.TABS[t][1]))
+
     def set_by() -> str:
         "What sets the default model outside this page, if anything."
         if os.getenv('ABHYASA_MODEL'): return '$ABHYASA_MODEL'
@@ -42,9 +44,12 @@ def connect(app, ctx):
         if g == 'prompts': return ui.Prompts(n)
         return ui.RowGroup(g, n, value_of)
 
-    def page():
+    def page(tab:str=''):
+        "The page with the tab `tab` in force (`?tab=voice`); a link such as #g-voice picks its tab in settings.js."
+        on = ui.tab_for(tab)
         return Page('Settings', H1('Settings'), P('The tutor works well with the defaults. Change a value only when you want to.', cls='mute lead-page'),
-                    Div(ui.Index({g: count(g) for g in GROUPS}), Div(*map(section, GROUPS), cls='sgroups'), cls='slayout'),
+                    Div(ui.Tabs(on, {t: tab_count(t) for t in ui.TABS}),
+                        Div(*[ui.Panel(t, on, *map(section, gs)) for t, (_, gs) in ui.TABS.items()], cls='sgroups'), cls='slayout'),
                     extra=ui.assets(), crumbs=[('Today', '/')], wide=True)
 
     def store(r, v):
@@ -58,7 +63,9 @@ def connect(app, ctx):
         "The parts that change with a value: the dot of the row, the index line and the group reset."
         g = r.group
         return (Span(cls='dot' + (' on' if value_of(r) != r.dflt else ''), id=f'{ui.row_id(r)}-dot', hx_swap_oob='true'),
-                ui.IndexItem(g, count(g), oob=True), ui.GroupReset(g, count(g), oob=True))
+                tab_part(g), ui.GroupReset(g, count(g), oob=True))
+
+    def tab_part(g): return ui.TabCount(ui.TAB_OF[g], tab_count(ui.TAB_OF[g]), oob=True)
 
     def value(name:str, value:str=''):
         "Save one value. A value out of range is saved as the nearest end of the range. The reply is the range line, with `Saved`."
@@ -88,7 +95,7 @@ def connect(app, ctx):
         ps = {r.key: r.dflt for r in rows(group) if r.store == 'profile'}
         if ps: lr.set_profile(by='you', why='you used the defaults on the Settings page', **ps)
         reset_group(group)
-        return section(group), ui.IndexItem(group, count(group), oob=True)
+        return section(group), tab_part(group)
 
     def use(engine:str, model:str=''):
         if engine == 'openai' and not has_key(): return speech()
@@ -193,7 +200,7 @@ def connect(app, ctx):
         if (p := ui.registry().get(name)) is None: return Response('unknown prompt', status_code=400)
         try: set_prompt(name, text)
         except ValueError as e: return ui.PromptItem(p, text, err=str(e))
-        return ui.PromptItem(p, said='Saved.' if name in saved() else 'The default is in use.'), ui.IndexItem('prompts', count('prompts'), oob=True)
+        return ui.PromptItem(p, said='Saved.' if name in saved() else 'The default is in use.'), tab_part('prompts')
 
     def prompt_default(name:str): return prompt_(name, '')
 
