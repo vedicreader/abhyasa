@@ -28,15 +28,15 @@ dependencies = [
     "vidyut>=0.4",
     "mdhtml>=0.1.38",
     "nh3>=0.3.7",
-    "fossick>=0.1.22",
+    "fossick>=0.1.23",
 ]
 
 [project.optional-dependencies]
 whisper = ["mlx-audio>=0.5"]
 tick = ["pobblebonk>=0.0.6"]
 demo = ["rupaka[check]>=0.0.6"]
-repos = ["gheasy>=0.0.15"]   # `clone_url` for a GitHub repo source; abhyasa works without it
-dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.6", "rupaka[check]>=0.0.6", "gheasy>=0.0.15"]
+repos = ["gheasy>=0.0.18"]   # `clone_url` for a GitHub repo source; abhyasa works without it
+dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.6", "rupaka[check]>=0.0.6", "gheasy>=0.0.18"]
 models = [
     "ramabana>=0.2.78",
 ]

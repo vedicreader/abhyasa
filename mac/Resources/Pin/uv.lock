@@ -10,7 +10,7 @@ supported-markers = [
 
 [[package]]
 name = "abhyasa"
-version = "0.0.12"
+version = "0.0.13"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
@@ -24,14 +24,17 @@ dependencies = [
     { name = "vidyut" },
     { name = "vishalakshi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/29/d3/fcf4a0d465824db2badf7e3a9ba5a27168adcf963e5ba2693a97f16fdc96/abhyasa-0.0.12.tar.gz", hash = "sha256:b3cdf30ec7369d5492842698cc2ffdf997252b2aaefe799805fb97452dcccab5", size = 1265767, upload-time = "2026-10-29T08:38:08.035Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/06/61427b310fac3352e6e9dc09bcef56263edef8debbac3551e183bb54eaef/abhyasa-0.0.13.tar.gz", hash = "sha256:ae5a7719d893c1e46a708775ce677591fd1bd96bebc1e30cfa1c70a8e0306f1a", size = 1305300, upload-time = "2026-10-29T23:51:52.037Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f7/f3/699f18f6d292520dc60f50dbf3e6de7607e3fa1ed54489ea21fa2f28713e/abhyasa-0.0.12-py3-none-any.whl", hash = "sha256:98fb58bc465a86ca805c762c0cdaffafe58e7cbb052b5bcca230e3b86820a5c1", size = 1327657, upload-time = "2026-10-29T08:38:06.337Z" },
+    { url = "https://files.pythonhosted.org/packages/10/49/764b91e7fbd03021d2fe12648267791661feced0a598739b07a6de75e9fb/abhyasa-0.0.13-py3-none-any.whl", hash = "sha256:8742d7453f1809069af8347d88b121b733bbedeb2c06134c59deb1ae42959779", size = 1367264, upload-time = "2026-10-29T23:51:50.362Z" },
 ]
 
 [package.optional-dependencies]
 models = [
     { name = "ramabana" },
+]
+repos = [
+    { name = "gheasy" },
 ]
 tick = [
     { name = "pobblebonk" },
@@ -45,11 +48,11 @@ name = "abhyasa-app"
 version = "0.0.5"
 source = { virtual = "." }
 dependencies = [
-    { name = "abhyasa", extra = ["models", "tick", "whisper"] },
+    { name = "abhyasa", extra = ["models", "repos", "tick", "whisper"] },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models"], specifier = "==0.0.12" }]
+requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models", "repos"], specifier = "==0.0.13" }]
 
 [[package]]
 name = "adhara"
@@ -565,7 +568,7 @@ wheels = [
 
 [[package]]
 name = "fossick"
-version = "0.1.22"
+version = "0.1.23"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -582,9 +585,9 @@ dependencies = [
     { name = "scrapling", extra = ["fetchers"] },
     { name = "yt-dlp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/19/eae66d48e4b6f7e9438c9e2610fbb3e9370af48b48b4d6b429521a75294e/fossick-0.1.22.tar.gz", hash = "sha256:aa38d89412346e67fa7414ea1a5dd25ef87fb623da8b593ff7adef2ebdf6ae9a", size = 103277, upload-time = "2026-10-28T02:55:47.861Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/9b/0ae4fc75c495dcd7b13bfce43273a865786c5de604f640d3ece69651161c/fossick-0.1.23.tar.gz", hash = "sha256:47cb3536fc085e1facf7459e79a7ce7ca94a9214d05d9d9c81d39b939080e791", size = 104201, upload-time = "2026-10-29T23:48:19.143Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/0d/23f3312b23948c3072526f8cc991473dce15655f5e8196402e71330579b8/fossick-0.1.22-py3-none-any.whl", hash = "sha256:971c4ec075a0b2f06471d961f89158f9773d4b4f0a5e92ef35f141ef8e2e4176", size = 103619, upload-time = "2026-10-28T02:55:46.174Z" },
+    { url = "https://files.pythonhosted.org/packages/45/1d/42a4bb4b8ae4b15796f2f8f110c09f3b59e08eff3febf27207bffe682fc1/fossick-0.1.23-py3-none-any.whl", hash = "sha256:76e8c24f6a0f94dfb44636c81880ed80fc6fce16bb2fa31f6e79aa3471bc53ba", size = 104542, upload-time = "2026-10-29T23:48:17.801Z" },
 ]
 
 [[package]]
@@ -626,7 +629,7 @@ wheels = [
 
 [[package]]
 name = "gheasy"
-version = "0.0.15"
+version = "0.0.18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cyclopts" },
@@ -635,9 +638,9 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "tomlkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3c/46/5f0651146b9ea46d86a87100f4e8ae9651e7f413f7b5b18e8a6f47a59451/gheasy-0.0.15.tar.gz", hash = "sha256:41502c4de173502a0fb7a3c6a32d3abecdee5aec29234561da9a556d2c2091be", size = 64222, upload-time = "2026-10-24T21:22:53.438Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/32/e7/e208ad38de430b4ae7028d55d8efb1b700a20ffee867836d2de64437556a/gheasy-0.0.18.tar.gz", hash = "sha256:e0ed3b4e5600a8647e7ba0a35eac1bf27c85c8f00f1519407b05da7f963eee68", size = 64781, upload-time = "2026-10-29T23:50:28.277Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/3a/5d5fe84fc42f6c3502b25c5da8cb3921426724605bf7fc4ffda5195aa8b9/gheasy-0.0.15-py3-none-any.whl", hash = "sha256:7f620752218a891a7f15d5d3c0fdd945a1985d6c91800455a24d56e695cf9838", size = 66436, upload-time = "2026-10-24T21:22:52.114Z" },
+    { url = "https://files.pythonhosted.org/packages/dc/5f/7ab3d3f941f58c4801d1223873eb91f5130895dc87abdd7ec404c72ac826/gheasy-0.0.18-py3-none-any.whl", hash = "sha256:e5a80a3150a7f8b17aa1aa0c5d6f041e3136f7acc3c74d7418ca8b477110826e", size = 67066, upload-time = "2026-10-29T23:50:27.041Z" },
 ]
 
 [[package]]
