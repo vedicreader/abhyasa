@@ -48,7 +48,7 @@ def test_strengths_route_still_answers(mk):
 def test_sources_lists_documents_not_shelves(mk, lr, talk_fake):
     cl = mk(); jid = paper_walk(cl, lr); tid = make_talk(cl, jid)
     h = cl.get('/sources').text
-    assert 'Vault shelves' not in h and '>your source<' in h and f'href="/w/{jid}"' in h and '<summary>More</summary>' in h
+    assert 'Vault shelves' not in h and '>your source<' in h and f'href="/w/{jid}"' in h and '<summary>Add more sources</summary>' in h
     assert f'href="/t/{tid}"' in h   # the talk made from the walk
     did = lr.journey(jid).source['doc_id']
     assert f'href="/v/store/{did}"' in h and len(rows(h)) == 1 and 'Attention Is All You Need' in rows(h)[0]

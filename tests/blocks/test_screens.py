@@ -80,3 +80,11 @@ def test_talk_editor_folds_help_and_keys(mk, talk_fake, lr):
     about = s.select_one('main details.about')
     assert about and 'speaker note is for you only' in about.get_text() and not about.has_attr('open')
     assert 'duplicate' in s.select_one('main details.more .keys-line').get_text()
+
+# Sources: one closed part, Add more sources, holds the rare imports; its buttons still post.
+
+def test_sources_fold_add_more(mk):
+    s = soup(mk().get('/sources').text)
+    more = s.select_one('section.sources-more > details.more')
+    assert more.summary.get_text() == 'Add more sources' and not more.has_attr('open')
+    assert more.select_one('button[hx-post="/add/vedicreader"]') and more.select_one('button[hx-post="/sources/index/ramabana"]')

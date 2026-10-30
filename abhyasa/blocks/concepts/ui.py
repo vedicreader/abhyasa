@@ -92,7 +92,7 @@ def Counts(cs):
 def SortButton(subject='', n=0):
     "The sort action, with the count of concepts that have no group. With none, it does not show."
     if not n: return ''
-    return Form(Secondary(f"Sort {n_of(n, 'new concept')}"), Span('The tutor puts them in the groups that you have. You see the result before it is saved. Concepts that are sorted do not move.', cls='mute'),
+    return Form(Secondary(f"Sort {n_of(n, 'new concept')}"), Span('The tutor puts them in your groups. You see the result before it is saved.', cls='mute'),
                 hx_post=Routes.sort, hx_target='#concepts-view', hx_swap='innerHTML', cls='row sort-form',
                 **({'hx_vals': json.dumps(dict(subject=subject))} if subject else {}))
 

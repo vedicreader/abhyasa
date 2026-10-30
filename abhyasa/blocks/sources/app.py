@@ -4,7 +4,7 @@ import json, re, time
 from datetime import datetime, timezone
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page, Part, RouteOverrides, n_of, can_undo
+from abhyasa.core import Page, RouteOverrides, n_of, can_undo
 from abhyasa.ground import VedicSource, index_ramabana, index_notebooks, RAMA_CFG
 from abhyasa.journey import for_talk
 from abhyasa.sources import ARXIV_ID, ARXIV_LINK, WEB, YOURS, source_of, vault_roots, root_docs
@@ -103,9 +103,9 @@ def connect(app, ctx):
     def page():
         vs = VedicSource()
         return Page('Sources', H1('Sources'),
-            P('Each document that your walks read. The tutor uses them for its questions and does not change them.', cls='mute'),
+            P('The documents that your walks read. The tutor does not change them.', cls='mute'),
             ui.Rows(rows()),
-            Part('Add more sources', more_label='More', more=[
+            Section(Details(Summary('Add more sources'),
                 P(f"vedicreader library: {len(vs.dbs())} verse databases in {vs.dir}." if vs.dbs() else 'vedicreader library: not found. Set VEDICREADER_ROOT to the vedicreader repo.', cls='mute'),
                 P(B('Ramayana episodes'), ': ', st.status() if (st := first(s for s in ctx.sources if getattr(s, 'name', '') == 'vedicstory')) else
                   'Not found. Set VEDICREADER_ROOT to the vedicreader repo.', cls='mute'),
@@ -113,7 +113,7 @@ def connect(app, ctx):
                 Button('Import vedicreader', hx_post='/add/vedicreader', hx_target='#vr', data_wait='Importing…', data_skel='#vr'), Div(id='vr'),
                 P('Each button below adds a shelf to your vault, so every tool can search it. They change no other shelf. A second run skips what did not change.', cls='mute'),
                 *[Div(Button(f'Index {t}', hx_post=Routes.index.format(what=k), hx_target=f'#ix-{k}', data_wait='Indexing…', data_skel=f'#ix-{k}'),
-                      Span(d, cls='mute'), Div(id=f'ix-{k}', cls='ix'), cls='row') for k, (t, d) in INDEXERS.items()]], cls='sources-more'),
+                      Span(d, cls='mute'), Div(id=f'ix-{k}', cls='ix'), cls='row') for k, (t, d) in INDEXERS.items()], cls='more'), cls='sources-more'),   # rare: one closed part
             on='Library', sub='Sources')
 
     def index(what:str):
