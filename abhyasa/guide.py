@@ -6,12 +6,11 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
-           'FOCUS', 'SHOWN', 'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'WHO', 'HERE',
-           'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext',
-           'clean_context', 'figure_labels', 'FigureCache', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded',
-           'focus_text', 'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer', 'file_video',
-           'set_video', 'concept_video', 'video_of', 'guide_ask', 'video_source', 'where_of', 'web_sources', 'unsave',
-           'explain', 'stream_board']
+           'FOCUS', 'SHOWN', 'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat',
+           'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context',
+           'figure_labels', 'FigureCache', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'focus_text',
+           'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video',
+           'concept_video', 'video_of', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -321,11 +320,11 @@ class FigureCache:
 
 # %% ../nbs/21_guide.ipynb #g060
 def vision_ask(ask, name:str=''):
-    "A vision call `(prompt, img, sp) -> str` on the ramabana job `guide_vision`, or None when the routed model takes no picture."
+    "A vision call `(prompt, img, sp) -> str` on the ramabana job `guide_vision` (on the model of figure labels, by default the model of hints), or None when the routed model takes no picture."
     if not hasattr(getattr(ask, 'dflt', None), 'via'): return lambda p, img, sp='': ask(guard(p), guard(sp))
     from abhyasa.llm import ramabana_agent, ramabana_oneshot, dflt_model
     from ramabana.core import accepts, resolve
-    n = name or ask.name('hint') or dflt_model()
+    n = name or ask.name('guide_vision') or dflt_model()
     try:
         if not accepts(resolve(n), 'image'): return None
     except Exception: return None
@@ -493,10 +492,10 @@ WITH_SOURCE = "In the tutor's own words, with quotes from the sources below."
 LABEL = dict(page='your source', vault='your vault', web='web', video='video')
 
 def guide_ask(ask, name:str=''):
-    """The `ask` of the guide: the ramabana job `guide` on `name`, else on the model of hints (a fast one), with `guard` for the
+    """The `ask` of the guide: the ramabana job `guide` on `name`, else on the model of the screen guide (by default the model of hints, a fast one), with `guard` for the
     model of each route (`guarded`); a test model as it is, with `guard` for a hosted model. A model that can stream keeps its
     `stream(prompt, sp)`, with the same guard."""
-    if hasattr(getattr(ask, 'dflt', None), 'via'): return ask.dflt.via('guide', name or ask.name('hint'), 2048, guarded)
+    if hasattr(getattr(ask, 'dflt', None), 'via'): return ask.dflt.via('guide', name or ask.name('guide'), 2048, guarded)
     def call(p, sp=''): return ask(guard(p), guard(sp))
     call.model = getattr(ask, 'model', '') or ''   # a routed ask names its model too: `via` sets it
     if callable(s := getattr(ask, 'stream', None) or getattr(getattr(ask, 'dflt', None), 'stream', None)):   # a `Router` streams on its default
@@ -523,16 +522,7 @@ def _done(tier, b, srcs, t0) -> AttrDict:
                     end=WITH_SOURCE if used else NO_SOURCE, ms=round((time.monotonic() - t0) * 1000))
 
 # %% ../nbs/21_guide.ipynb #gn02
-WHO = dict(claude='Anthropic', anthropic='Anthropic', openai='OpenAI', codex='OpenAI', gemini='Google', copilot='GitHub', azure='Microsoft')
-HERE = 'on this Mac'
-
-def where_of(name:str) -> dict:
-    "Who runs the model `name`: `model` (its label), `where` (`on this Mac` or `hosted`) and `who` (the company of a hosted model). An unknown model is hosted, as the guard takes it."
-    from abhyasa.llm import model_label, provider_label, _on_mac
-    if not name: return dict(where='hosted')
-    pre = name.rpartition('/')[0]
-    if _on_mac(name): return dict(model=model_label(name).removeprefix('a local model: '), where=HERE, who='')
-    return dict(model=model_label(name), where='hosted', who=WHO.get(pre) or (provider_label(pre) if pre else ''))
+from .llm import WHO, HERE, where_of   # one place for where a model runs: the Settings page uses it too
 
 def _ev(wait:str, state:str, **kw) -> dict:
     "One state event: `wait` and `state`, then each field of `kw` that applies."

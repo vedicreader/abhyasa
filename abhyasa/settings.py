@@ -135,16 +135,19 @@ TASK_HELP = dict(question='Writes each question and its hidden answer.', grade='
                  lesson='Teaches the smallest step after a miss.', extract='Finds the ideas in a text.', plan='Plans the steps toward a goal.',
                  pick='Picks the main ideas of a long source for a walk.', note='Writes the note under the passage of a step.',
                  profile='Learns about you from your answers.', exercise='Writes a code exercise and its tests.',
-                 talk='Writes a choice question for a talk from a short check.')
-BORROWS = dict(plan='extract', pick='extract', note='hint', profile='extract', exercise='question', talk='question')
+                 talk='Writes a choice question for a talk from a short check.',
+                 guide='Explains a part of the page when you ask the screen guide.',
+                 guide_vision='Reads the labels of a figure for the screen guide. Pick a model that can see pictures.')
+BORROWS = dict(plan='extract', pick='extract', note='hint', profile='extract', exercise='question', talk='question', guide='hint', guide_vision='hint')
 TASK_LABEL = dict(question='Questions', grade='Grades', hint='Hints', lesson='Lessons', extract='Ideas in a text', plan='Plans',
-                  pick='Main ideas', note='Walk notes', profile='Your profile', exercise='Code exercises', talk='Talk questions')
+                  pick='Main ideas', note='Walk notes', profile='Your profile', exercise='Code exercises', talk='Talk questions',
+                  guide='Screen guide', guide_vision='Figure labels')
 
 add('models.default', 'models', 'Default model', 'The model for each task that has no model of its own. '
     '"abhyasa --model" and $ABHYASA_MODEL come first when they are set.', '', ui=False)
 for t, h in TASK_HELP.items():
     add(f'models.{t}', 'models', TASK_LABEL[t], h + (f' Empty uses the model for {TASK_LABEL[BORROWS[t]].lower()}.' if t in BORROWS else ''),
-        '', more=t not in ('question', 'grade', 'hint', 'lesson'), ui=False)
+        '', more=t not in ('question', 'grade', 'hint', 'lesson', 'guide', 'guide_vision'), ui=False)
 for t, n in dict(question=4096, grade=2048, hint=512, lesson=2048, extract=4096).items():
     add(f'tokens.{t}', 'models', f'Reply cap: {TASK_LABEL[t].lower()}', 'The most tokens in one reply. Claude Code models do not use this limit.',
         n, 1, 32768, more=True, unit='tokens')

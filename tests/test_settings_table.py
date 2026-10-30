@@ -181,7 +181,7 @@ def test_mic_gets_the_pause_values(mk):
 def test_models_defaults():
     from abhyasa.llm import TOKENS, TASKS
     ms = dflts('models')
-    assert {k: v for k, v in ms.items() if k.startswith('models.')} == {f'models.{t}': '' for t in ('default', *TASKS, 'plan', 'pick', 'note', 'profile', 'exercise', 'talk')}
+    assert {k: v for k, v in ms.items() if k.startswith('models.')} == {f'models.{t}': '' for t in ('default', *TASKS, 'plan', 'pick', 'note', 'profile', 'exercise', 'talk', 'guide', 'guide_vision')}
     assert {k[7:]: v for k, v in ms.items() if k.startswith('tokens.')} == TOKENS == dict(question=4096, grade=2048, hint=512, lesson=2048, extract=4096)
     assert 'extract' in settings()['models']
 
