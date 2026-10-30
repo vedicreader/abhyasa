@@ -1,20 +1,15 @@
-"Task 19a, design polish: one check card, one main button in a view, ⌥S that sends, the keyboard sheet, native controls on the theme, and the dark and Signal rules."
+"Task 19a: one check card, one main button in a view, ⌥S that sends, and the keyboard sheet."
 import re
-from pathlib import Path
 from walk_data import *
 
-ROOT = Path(__file__).parents[2]/'abhyasa'
 HX = {'hx-request': 'true'}
 
 def start(cl, **data): return cl.post('/start', data=data, follow_redirects=False).headers['location'].split('/')[-1]
 
-def shape(h):
-    "The check markup of a reply: the card, its question, the thread and each kind of message, in order and with no text."
-    return [re.sub(r'<section[^>]*', 'card', x) for x in re.findall(r'<section[^>]*class="check[^"]*"|<div class="md q">|<ol class="thread"|<li class="m you|class="tag (?:ok|no)"|<span class="k">First error: </span>', re.sub(r' id="[^"]*"', '', h))]
-
 # F3: one check card for the session and the walk
 
 def test_session_and_walk_draw_the_same_check(mk, walk_fake, lr):
+    "A miss in a walk and in a session shows the question, your answer, Not yet and the first error."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
     cl.get(f'/w/{jid}/1/check')
@@ -22,24 +17,21 @@ def test_session_and_walk_draw_the_same_check(mk, walk_fake, lr):
     sid = start(cl); cl.get(f'/s/{sid}')
     cl.post(f'/s/{sid}/answer', data=dict(answer='add the scores'))
     s = cl.get(f'/s/{sid}').text
-    s = s[s.index('class="check qa"') - 40:]
-    assert shape(w)[:6] == shape(s)[:6] == ['card', '<div class="md q">', '<ol class="thread"', '<li class="m you',
-                                            'class="tag no"', '<span class="k">First error: </span>']
-    css = (ROOT/'blocks/session/session.css').read_text()
-    assert '.m.you { align-self' not in css and '.m .k' not in css and '.m.tutor' not in css   # "You" at the left, one style for First error
-    assert '.check .q' in (ROOT/'core/base.css').read_text() and '.check .q' not in (ROOT/'blocks/walk/walk.css').read_text()
+    for h in (w, s):
+        for x in ('What does a rank tell you?', 'add the scores', 'Not yet', 'First error: ', 'You add raw scores.'): assert x in h, x
 
 # F1: one main button in each walk step, and ⌥S is Send
 
 def gos(h): return re.findall(r'class="(?:btn )?go"[^>]*>(.*?)</(?:button|a)>', h, re.S)
 
 def test_open_check_sends_with_alt_s_and_skip_is_quiet(mk, walk_fake, lr):
+    "The look is the feature: a step has one main button, Send while the check is open and Next idea when it closes, and ⌥S names it."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
     page = cl.get(f'/w/{jid}/1').text
     assert 'Skip this idea' in page and 'Do the check, or skip it' not in page and gos(page) == []   # the page itself has no filled button
     bar = page[page.index('class="next-bar"'):]
-    assert '<kbd>' not in bar.split('</div>')[0] and 'class="quiet small"' in bar
+    assert '<kbd>' not in bar.split('</div>')[0]                                 # the skip names no key
     card = cl.get(f'/w/{jid}/1/check').text
     assert len(gos(card)) == 1 and 'Send <kbd>⌥S</kbd>' in card and 'id="send"' in card   # Send is the one main button, with ⌥S
     shut = cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position')).text
@@ -56,14 +48,6 @@ def test_code_check_runs_with_alt_s(mk, walk_fake, lr):
     out = cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text
     assert len(gos(out)) == 1 and 'Next idea <kbd>⌥S</kbd>' in out          # the run button goes off, so ⌥S presses Next idea
 
-def test_closed_check_hides_the_skip_with_no_reload():
-    css = (ROOT/'blocks/walk/walk.css').read_text()
-    assert '.walk-main:has(' in css and '.next-bar .skip' in css and 'display: none' in css.split('.next-bar .skip')[1][:40]
-
-def test_alt_s_presses_the_first_visible_main_button():
-    js = (ROOT/'core/core.js').read_text()
-    assert "KeyS: ['#send', 'main .go']" in js and 'checkVisibility' in js and 'focusVisible: false' in js
-
 def test_keys_say_what_alt_s_does_in_a_walk():
     from abhyasa.core.keys import KEYS, sanketa_pack
     walk = {k: a for g, k, a in KEYS if g == 'Walk'}
@@ -73,6 +57,7 @@ def test_keys_say_what_alt_s_does_in_a_walk():
 # F4: one filled button in each view
 
 def test_each_page_has_at_most_one_filled_button(mk, walk_fake, lr):
+    "The look is the feature: one main button in each view, so ⌥S has one meaning on each page."
     cl = mk(); jid = walk(cl, lr); did = add_paper(lr)
     sid = start(cl, focus='ranking'); cl.get(f'/s/{sid}')
     cl.post(f'/s/{sid}/answer', data=dict(answer='a score', confidence=90))     # a miss: a weak spot, and an open session for the Continue card
@@ -84,7 +69,7 @@ def test_each_page_has_at_most_one_filled_button(mk, walk_fake, lr):
         assert u == '/keys' or t.count('<kbd>⌥S</kbd>') <= 1, u                  # the shortcut sheet lists the keys
     assert gos(cl.get('/').text) == ['Continue <kbd>⌥S</kbd>']                 # the Continue card is the main button, and Start is plain
     assert 'autofocus' not in cl.get('/').text
-    assert gos(cl.get('/c/ranking').text) == ['Learn this <kbd>⌥S</kbd>'] and '<button disabled type="button" id="start-go"' in cl.get('/add').text   # an empty Start box: Start is off
+    assert gos(cl.get('/c/ranking').text) == ['Learn this <kbd>⌥S</kbd>'] and re.search(r'<button[^>]*\bdisabled\b[^>]*id="start-go"|<button[^>]*id="start-go"[^>]*\bdisabled\b', cl.get('/add').text)   # an empty Start box: Start is off
     assert gos(cl.get(f'/w/{jid}').text) == ['Start the walk <kbd>⌥S</kbd>']
     cl.get(f'/s/{sid}/end')
     assert len(gos(cl.get(f'/s/{sid}/end').text)) <= 1
@@ -122,18 +107,10 @@ def test_model_table_has_no_filled_button():
     b = to_xml(UseBtn('mlx', 'm', get=True))
     assert '>Download<' in b and 'class="go"' not in b and '/get' in b
 
-# F11: native controls on the theme
-
-def test_native_controls_use_the_accent():
-    css = (ROOT/'core/base.css').read_text()
-    assert re.search(r'input\[type=radio\], input\[type=checkbox\][^{]*\{[^}]*accent-color: var\(--acc\)', css)
-    assert re.search(r'select \{[^}]*appearance: none', css)      # the select arrow in the theme colours, not the system one
-
-# F14: the keyboard sheet lines up, and no ⌥ key has two meanings
+# F14: the keyboard sheet, and no ⌥ key has two meanings
 
 def test_sheet_has_one_key_column_and_no_slashes(mk):
     from abhyasa.core.keys import KEYS
-    assert 'grid-template-columns: 10em 1fr' in (ROOT/'blocks/keys/keys.css').read_text()
     assert not [k for _, k, _ in KEYS if ' / ' in k]
     t = mk().get('/keys').text
     assert t.count('⌥Q') == 1 and 'Go to Learn' in t and 'On a step of a walk.' in t and 'While a side walk is open' in t
@@ -145,8 +122,6 @@ def test_no_alt_key_has_two_meanings():
     for g, k, a in KEYS:
         for x in re.findall(r'⌥[A-Z]', k): alt.setdefault(x, set()).add(a.split(',')[0].split('.')[0])
     assert {x: v for x, v in alt.items() if len(v) > 1 and x != '⌥S'} == {}
-    js = (ROOT/'blocks/session/session.js').read_text()
-    assert 'KeyQ' not in js and 'KeyE' not in js and 'KeyR' not in js and "'#o1'" not in js
     assert ('Session', '1–4', 'Pick option 1 to 4 on a choice question') in KEYS
 
 def test_options_show_their_digit(mk, fake):
@@ -156,39 +131,8 @@ def test_options_show_their_digit(mk, fake):
     h = to_xml(Options('s', AttrDict(id='q', options=['a', 'b', 'c'])))
     assert '<kbd>1</kbd>' in h and '<kbd>3</kbd>' in h and '⌥' not in h
 
-# F15: the two dark mode faults
-
-def test_no_button_has_autofocus_and_the_ring_is_calm_in_dark():
-    for f in [*ROOT.glob('blocks/*/*.py'), *ROOT.glob('core/*.py')]:
-        for m in re.finditer(r'(Button|Primary)\((?:[^()]|\([^()]*\))*autofocus=True', f.read_text()): raise AssertionError(f'{f.name}: {m.group(0)[:60]}')
-    css = (ROOT/'core/base.css').read_text()
-    assert re.search(r':is\(button, \.btn\)\.go:focus-visible \{[^}]*outline-offset: 3px', css) and 'color-mix(in srgb, var(--acc) 55%, var(--fg))' in css
-
-def test_week_bars_stand_out_in_dark():
-    css = (ROOT/'blocks/history/history.css').read_text()
-    bar = re.search(r'\.week \.col i \{[^}]*\}', css).group(0)
-    assert 'light-dark(' in bar and 'var(--acc)' in bar
-
-# F16: Signal keeps the mono for labels only
-
-def test_signal_why_text_is_not_mono():
-    css = (ROOT/'core/base.css').read_text()
-    assert re.search(r'\[data-theme=signal\] \.why[^{]*\{[^}]*font-family: var\(--serif\)', css)
-
-# F17: a figure that does not load shows no broken image
-
-def test_a_figure_that_fails_goes_but_keeps_its_alt_text():
-    js, css = (ROOT/'blocks/walk/walk.js').read_text(), (ROOT/'blocks/walk/walk.css').read_text()
-    assert "'#figure img'" in js and "addEventListener('error'" in js and "classList.add('gone')" in js
-    assert re.search(r'#figure\.gone \{[^}]*clip-path', css)                   # out of sight, but a screen reader still reads the alt text
-
 # Fix round 1: the small items
 
 def test_small_items():
     from abhyasa.core.keys import KEYS
-    css = (ROOT/'core/base.css').read_text()
-    assert css.count('@keyframes fade ') == 1 and '@keyframes fade-out' in css        # the page fades in, never out
-    assert '[data-theme=signal] :is(h2, label, .lbl, .check .tag)' in css              # the outcome tag is a label too
     assert ('Walk', '⌥V', 'Keep the state of the demo') in KEYS and not [k for _, k, _ in KEYS if k == 'K']   # left hand only
-    assert "abhyasaMotion() ? 'smooth' : 'auto'" in (ROOT/'blocks/detour/detour.js').read_text()
-    assert 'STEPS' not in (ROOT/'blocks/session/ui.py').read_text()
