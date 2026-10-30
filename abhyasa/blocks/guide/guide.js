@@ -268,13 +268,13 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     open('');
     const b = micButton();
     if (!b || !window.abhyasaMic) { heard('Type your question. The mic is not ready.'); return; }
-    heard('Listening. Let go of the key to send.');
+    heard('The mic is on. Release the key to send.');
     abhyasaMic(b);
   }
   async function endTalk() {
     const b = micButton();
     if (!b || !window.abhyasaDict || abhyasaDict.btn !== b) return;
-    heard('Writing down what you said.');
+    heard('The app writes what you said.');
     await abhyasaMic(b);   // the second press stops it; the last words still come in
     const end = performance.now() + 15000;
     while (performance.now() < end && (b.classList.contains('busy') || b.classList.contains('on'))) await new Promise(ok => setTimeout(ok, 100));

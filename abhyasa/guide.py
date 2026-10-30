@@ -308,7 +308,7 @@ def guard(s) -> str:
     if isinstance(r, str): return r
     raise Withheld(str(r.get('why') or r))
 
-# %% ../nbs/21_guide.ipynb #g068
+# %% ../nbs/21_guide.ipynb #g069
 GUIDE_SP = register('guide.board', 'Screen guide', 'How the tutor explains a part of the page with a board drawn over it.', """You explain one thing on a learning page to a learner who said "I don't get X". You draw on the page and you speak one short line for each step.
 - Reply with JSON lines only: one JSON object on each line, no other text.
 - The first line is {"op":"v","n":1,"sure":S,"need":N}. S is how sure you are that your answer is right and complete, from 0 to 1. N is "none" when the page is enough, "vault" when you need the learner's own notes, or "web" when you need a source from the web.
@@ -330,7 +330,7 @@ An example reply for "I don't get alpha bar" on a page with the formula m1:
 {"op":"step","say":"It starts near one and falls toward zero as t grows."}
 {"op":"sketch","at":{"a":"m1","pt":[1050,0]},"pts":[[0,50],[500,400],[1000,950]],"w":3}""")
 
-# %% ../nbs/21_guide.ipynb #g070
+# %% ../nbs/21_guide.ipynb #g071
 def page_text(ctx) -> str:
     "The anchors of `ctx`, one line each, with the demo and the video."
     out = []
@@ -356,7 +356,7 @@ def board_prompt(ctx, said:str, sources=(), tier:str='tutor') -> str:
     srcs = '\n'.join(f"Source {k}: " + fence(s.get('title') or '', s.get('text') or '') for k, s in enumerate(sources, 1))
     return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + f"Tier: {tier}\nReply with the JSON lines."
 
-# %% ../nbs/21_guide.ipynb #g072
+# %% ../nbs/21_guide.ipynb #g073
 NO_SOURCE = "In the tutor's own words. No source found."
 WITH_SOURCE = "In the tutor's own words, with quotes from the sources below."
 LABEL = dict(page='your source', vault='your vault', web='web')
@@ -379,7 +379,7 @@ def _done(tier, b, srcs, t0) -> AttrDict:
     return AttrDict(tier=tier, steps=b.steps, sources=ss, sure=b.sure, failed=b.failed and not b.steps, dropped=len(b.dropped),
                     end=WITH_SOURCE if used else NO_SOURCE, ms=round((time.monotonic() - t0) * 1000))
 
-# %% ../nbs/21_guide.ipynb #g074
+# %% ../nbs/21_guide.ipynb #g075
 def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None) -> list:
     "Sources from the web for `said`, each with a passage that is word for word in its page."
     from abhyasa import research as R
@@ -402,7 +402,7 @@ def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None) -> list:
         return [dict(title=page.title or page.url, text=p, url=page.url, label=LABEL['web'])]
     return []
 
-# %% ../nbs/21_guide.ipynb #g075
+# %% ../nbs/21_guide.ipynb #g076
 def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=None, note=None, lr=None) -> AttrDict:
     """The board for `said` on the page `ctx`: from the tutor when it is sure, else from your `sources` (the vault), else from the
     web when `web` (default: the setting `research.on`). `note(text)` hears what the guide does while it waits."""
@@ -416,7 +416,7 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     b = board('tutor', page)
     if b.steps and (b.sure or 0) >= SURE: return _done('tutor', b, page, t0)
     best = (b, 'tutor', page)
-    note('Looking in your vault.')
+    note('The tutor looks in your vault.')
     ps = ground(guard(f"{said} {ctx.get('concept') or ctx.get('step') or ''}"), list(sources), k=3) if sources else []
     if ps:
         srcs = page + [dict(title=label(p), text=p.text, url=p.get('url') or '', label=LABEL['vault']) for p in ps]
@@ -424,7 +424,7 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
         if b.steps and (b.sure or 0) >= SURE: return _done('vault', b, srcs, t0)
         if b.steps: best = (b, 'vault', srcs)
     if web if web is not None else val('research.on'):
-        note('Looking on the web.')
+        note('The tutor looks on the web.')
         if (ws := web_sources(ask, ctx, said, search, fetch, lr)):
             srcs = page + ws
             b = board('web', srcs)
