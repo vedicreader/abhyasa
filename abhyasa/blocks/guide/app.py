@@ -81,8 +81,10 @@ def connect(app, ctx):
 
     async def ask_(req):
         """The board for one question, as server-sent events. Before each step of its work: a state event
-        `{"wait": text, "state": "reading"|"asking"|"searching"|"saving"|"drawing", "model", "where": "on this Mac"|"hosted", "who",
-        "query", "sources"}`, with only the fields that apply (`abhyasa.guide`, *Never caught unaware*). `{"step": {…}, "k": n,
+        `{"wait": text, "state": "reading"|"asking"|"searching"|"saving", "model", "where": "on this Mac"|"hosted", "who", "query",
+        "sources"}`, with only the fields that apply (`abhyasa.guide`, *Never caught unaware*). The server sends "reading" for a web
+        page. The page sets "reading" itself while it reads the page, and "drawing" when the first step or the board comes and the
+        board starts: the server never sends "drawing". `{"step": {…}, "k": n,
         "tier": "tutor", "point": look}` for each step of a sure tutor board as soon as it is whole. `{"saved": {"title", "url", "undo"}}` when the
         guide filed a web page in the vault: a POST to `undo` takes it away. Then `{"board": …, "point": look}` (the whole board, also after its
         steps; with `hint` when the board counts as a hint on the open check), or `{"error": text}`. The model runs on a thread; the

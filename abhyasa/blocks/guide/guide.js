@@ -322,6 +322,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   let asks = 0, ctl = null, busy = 0, drew = false;   // a newer question takes the place of an older one: its request stops, and its steps go nowhere
   const STOPPED = 'Stopped. The tutor got the question, but the guide shows no answer.';
   const status = e => window.abhyasaBoard && abhyasaBoard.status ? abhyasaBoard.status(e) : say(e.wait);
+  const drawing = () => status({wait: 'Draws the board on the page.', state: 'drawing', where: HERE});   // the page sets this state: the server never sends it
   function halt() {   // Stop or Esc while the guide works: the request ends, so the server closes the model stream
     if (!busy || !ctl) return false;
     ctl.abort(); busy = 0;
@@ -393,7 +394,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
           if (m.error) say(m.error);
           if (m.step) got.push(m.step);
           if (m.step && !live) {
-            last.step_ms = Math.round(performance.now() - t0); mark(); drew = true;
+            last.step_ms = Math.round(performance.now() - t0); mark(); drew = true; drawing();
             live = abhyasaBoard.play({steps: [m.step], tier: m.tier || 'tutor', sources: [], streaming: true}, opts());
           } else if (m.step) live = live.then(() => n === asks && abhyasaBoard.add(m.step));
           if (m.board) {
@@ -401,7 +402,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
             if (saved) m.board.saved = saved;
             hintLine(m.board.hint);
             last.board_ms = Math.round(performance.now() - t0); last.server_ms = m.board.ms; last.tier = m.board.tier;
-            if (!live) { mark(); drew = true; await abhyasaBoard.play(m.board, opts()); }
+            if (!live) { mark(); drew = true; drawing(); await abhyasaBoard.play(m.board, opts()); }
             else {
               await live;
               const b = abhyasaBoard.state;   // null when the learner stopped the board

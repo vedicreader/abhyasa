@@ -226,3 +226,11 @@ def test_the_name_of_the_idea_is_not_a_figure_word(page):
     assert not about('why does softmax use exp')
     page.evaluate("""() => document.querySelector('figure').insertAdjacentHTML('beforeend', '<figcaption>Scaled dot-product attention</figcaption>')""")
     assert about('what is scaled here') and not about('why does softmax use exp')
+
+def test_the_page_shows_the_drawing_state_when_the_first_step_comes(page):
+    "The server never sends the drawing state: the page shows it when the first step comes, before the board plays."
+    page.evaluate("() => { window.states = []; const s = abhyasaBoard.status; abhyasaBoard.status = e => { states.push(e.state); return s(e); }; }")
+    page.reply = sse(ASKS, dict(step=STEP, k=1, tier='tutor'))
+    page.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('what is this')")
+    page.wait_for_function('abhyasaBoard.state && !abhyasaBoard.state.streaming', timeout=5000)
+    assert page.evaluate('states') == ['reading', 'asking', 'drawing']
