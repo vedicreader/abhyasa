@@ -14,7 +14,7 @@
 // marks and chips fade in for 150 ms.
 //
 // API (window.abhyasaBoard):
-//   play(board, {labels, fast, quiet, auto, host, who, onVoice, point})   play a checked board; it stops the board that shows now.
+//   play(board, {labels, fast, quiet, auto, host, who, onVoice, point, voiceAt, notice})   play a checked board; it stops the board that shows now.
 //     labels  {anchorId: {label: [x0, y0, x1, y1]}}, the label boxes of a figure, 0 to 1000 of the anchor. Default {}.
 //     fast    draw each step at once, with no voice and no pointer flight. Default false.
 //     quiet   no voice: the words are timed by their letters. host.speak is not called. Default false.
@@ -28,6 +28,8 @@
 //               'dot'   a small filled dot under the target, that pulses one time (no pulse with reduced motion).
 //               'ring'  a short arrow and a ring on the target, thinner and smaller than a circle, at half the ink.
 //             An unknown look gives the default.
+//     voiceAt {model, where, who}: the voice that speaks the board, shown after the Voice button as "Kokoro · on this Mac". Default none.
+//     notice  {text, href, link}: one quiet line in the strip for this board, with a local link when `href` is a local path. Default none.
 //     host    the hooks of the page that shows the board. Each one is optional:
 //       resolve(id) -> Element|null   the element of anchor `id`. Default: document.querySelector('[data-guide-id="<id>"]').
 //                                     A formula element names its parts in data-parts: JSON [[tex, elementId], ...]; the
@@ -50,6 +52,8 @@
 //                        streaming board shows, or when its steps are not the first steps of `board` (then play `board`).
 //                        An `end` of '' shows no end line: the stream ended with no whole board.
 //   stop()  note(text)  next()  back()  again()  seekVideo(t)  boxOf(at)  normTex(tex)
+//   speakBrowser(text, onWord, done)   the default speak (speechSynthesis), for a host speak that falls back to it.
+//   notice({text, href, link})          set the quiet line of the board that shows now (see play).
 //   status(event)        the state line in the strip while the guide works: the `wait` text of a state event of the guide route
 //                        ({wait, state, model, where, who, query, sources}), a chip "on this Mac" or "hosted · <who>", the seconds
 //                        after 3 s while it asks, and Stop.
@@ -523,8 +527,14 @@
     }
     if (st.tellAt === st.i && !st.quiet) parts.push(el('p', 'board-tell', 'The guide speaks its steps. Turn the voice off here.'));   // it stays until the step changes
     else st.tellAt = null;
+    if (st.notice && st.notice.text) {   // one quiet line for this board: the voice fell back, or a natural voice is ready
+      const n = el('p', 'board-tell board-notice', st.notice.text + ' ');
+      if (st.notice.link && /^\/(?!\/)/.test(String(st.notice.href || ''))) { const a = el('a', '', st.notice.link); a.href = st.notice.href; n.append(a); }
+      parts.push(n);
+    }
     const keys = el('p', 'board-keys', 'A again · S back · D next · Esc stop');
     if (st.onVoice) keys.append(' ', button(st.quiet ? 'Voice on' : 'Voice off', 'board-voice', () => setVoice(st.quiet)));
+    if (st.voiceAt && st.voiceAt.model && !st.quiet) { const c = chip(st.voiceAt); keys.append(' ', el('span', 'board-voice-at', st.voiceAt.model), ...(c ? [' ', c] : [])); }
     keys.append(' ', button('Stop', 'board-stop', () => stop('learner')));
     parts.push(keys);
     s.replaceChildren(...parts);
@@ -768,7 +778,7 @@
   }
 
   // Play a checked board. See the API at the top of this file.
-  async function play(board, {labels = {}, fast = false, quiet: q = false, auto = true, host: hk = {}, who = null, onVoice = null, point = 'tick'} = {}) {
+  async function play(board, {labels = {}, fast = false, quiet: q = false, auto = true, host: hk = {}, who = null, onVoice = null, point = 'tick', voiceAt = null, notice = null} = {}) {
     if (st) stop();
     const h = {...HOST};
     for (const k of ['resolve', 'speak', 'demo']) if (typeof (hk || {})[k] === 'function') h[k] = hk[k];
@@ -779,6 +789,7 @@
     st = {board, labels, host: h, fast, quiet: q || fast, auto: auto && !fast, i: 0, gen: 0, lit: -1, timers: [], rate: +(localStorage.getItem('board-rate') || 1), first: null,
           t0: performance.now(), stepAt: 0, ptr: {pos: null, f: null}, streaming: !!board.streaming, wait: false,
           who: who && typeof who === 'object' ? who : null, point: LOOKS.includes(point) ? point : LOOKS[0], onVoice: !fast && typeof onVoice === 'function' ? onVoice : null,
+          voiceAt: voiceAt && typeof voiceAt === 'object' ? voiceAt : null, notice: notice && typeof notice === 'object' ? notice : null,
           marks: board.steps.flatMap(marksOf)};
     // An empty answer box with the focus (a check takes it when it loads) lets go of it, so A, S and D work. A box with your text
     // keeps it: then the keys type, and a click outside the box gives them to the board. Esc gives the focus back.
@@ -803,7 +814,10 @@
   }).observe(document.body, {childList: true, subtree: true});
   if (document.body) watch(); else addEventListener('DOMContentLoaded', watch);
   const view = p => [p[0] - scrollX, p[1] - scrollY];
-  window.abhyasaBoard = {play, add, finish, stop: () => stop(), note, status, seekVideo, demoAnchors, fitDemo, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
+  window.abhyasaBoard = {play, add, finish, stop: () => stop(), note, status, seekVideo, demoAnchors, fitDemo,
+                         speakBrowser: (text, onWord, done) => st ? voice(text, onWord, done) : undefined,
+                         notice: n => { if (st && n && typeof n === 'object') { st.notice = n; caption(); } },
+                         next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
                          get state() {
                            if (!st) return null;
                            const t = performance.now(), mine = st.marks.filter(m => m.step === st.i && !/^(clear|demo_set|video_at)$/.test(m.o.op));

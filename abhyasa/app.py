@@ -54,7 +54,7 @@ class LocalOnly:
 
 def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=None, hosts=LOCAL_HOSTS):
     "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect, `hosts` the Host names it answers."
-    from abhyasa.voice import Speech
+    from abhyasa.voice import Speech, Speaker
     if transcribe is None: from abhyasa.voice import transcribe
     ask = ask if isinstance(ask, Router) else Router(ask or route_ask())   # a model for each task, from the settings
     hooks.clear(); RouteOverrides.nav.clear(); RouteOverrides.subtabs.clear(); RouteOverrides.gear = None
@@ -70,7 +70,7 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
         sources = [VaultSource(learning), *([vs] if (vs := VedicSource()).dbs() else []), *([story] if story.ok() else [])]
         if story in sources: story.ready()   # the first read starts on the pool now
     svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources, pool=pool), ask=ask, transcribe=transcribe,
-               speech=Speech(transcribe), pool=pool, sessions={}, sources=sources,
+               speech=Speech(transcribe), speaker=Speaker(), pool=pool, sessions={}, sources=sources,
                research=Researcher(learning, ask))   # research has its own pool of one worker, so a long search never holds a demo or a note
     app.state.blocks = connect_all(app, blocks(*([names] if names else [])), **svc)
     try: svc['research'].resume()   # a restart stopped the searches of the steps that are still pending: look again on the research pool

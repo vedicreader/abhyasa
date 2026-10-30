@@ -2,7 +2,7 @@
 
 A concept can have one explainer video. The concept page shows it with its tools (find, paste, remove); the walk step shows it
 through the `step_needs` hook. The ask route adds the cues of the video on the page from the vault."""
-import asyncio, json, logging, queue, secrets, threading, time
+import asyncio, base64, json, logging, queue, secrets, threading, time
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook, run as run_hook
@@ -14,10 +14,11 @@ from . import ui
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
-CAPS = ('ask', 'learning', 'sources')
+CAPS = ('ask', 'learning', 'sources', 'speaker')
 IMAGES = (b'\x89PNG\r\n\x1a\n', b'\xff\xd8\xff', b'GIF87a', b'GIF89a')
 FIGURE_BYTES = 8_000_000
 ASK_BYTES = 200_000
+SAY_CHARS = 600   # the most characters of one spoken line: a step says one short line
 POLL = .25        # the seconds between two looks at whether the page still reads the board
 INFO_EVERY = 30.  # the seconds that the names of the models on each page stay, while no model setting changes
 SAVES = 50        # the most pages that the guide saved and that Undo can take back in this run
@@ -42,8 +43,15 @@ def speech() -> dict:
     lab = next((k['label'] for k in KNOWN if k['model'] == m), '')
     return dict(model='Gemma' if e == 'gemma' else lab.split(' (')[0].split(' ')[0] or 'The speech model', where='on this Mac', who='')
 
+def voice_out() -> dict:
+    "Who reads the board aloud: the engine of the setting `voice.out`, its name, and where it runs. Only OpenAI is hosted."
+    from abhyasa.voice import out_current, out_where
+    e, m, v, _ = out_current()
+    name = dict(browser='The browser', kokoro='Kokoro', openai='OpenAI').get(e) or m.split('/')[-1]
+    return dict(engine=e, model=name, voice=v, where=out_where(e), who='OpenAI' if e == 'openai' else '')
+
 def connect(app, ctx):
-    ask, lr, sources = ctx.ask, ctx.learning, ctx.sources
+    ask, lr, sources, speaker = ctx.ask, ctx.learning, ctx.sources, ctx.speaker
     saves = {}   # the key of each Undo -> what the guide saved, for this run of the app only
     info_ = [0., None, None]   # the time, the names, and the model settings that they are for
 
@@ -55,17 +63,37 @@ def connect(app, ctx):
             g = where_of(getattr(guide_ask(ask), 'model', ''))
             routed = hasattr(getattr(ask, 'dflt', None), 'via')
             info_[:] = time.monotonic(), dict(model=g, vision=where_of(ask.name('guide_vision') or dflt_model()) if routed else g, speech=speech()), now
-        return {**info_[1], 'voice': bool(val('guide.voice')), 'point': val('guide.point')}
+        return {**info_[1], 'voice': bool(val('guide.voice')), 'point': val('guide.point'), 'out': voice_out(), 'say': Routes.say}
     figs = FigureCache(cfg_dir()/'guide-figures.json')
     warmed, warm_lock = [-WARM_EVERY], threading.Lock()
 
     def warm():
-        "Start the backend of the guide job in the background, with no model call, at most once in `WARM_EVERY` seconds. The app starts it too."
+        "Start the backend of the guide job in the background, with no model call, at most once in `WARM_EVERY` seconds, and load the natural voice. The app starts both too."
         with warm_lock:
-            if time.monotonic() - warmed[0] < WARM_EVERY or not hasattr(ask, 'warm'): return Response(status_code=204)
+            if time.monotonic() - warmed[0] < WARM_EVERY: return Response(status_code=204)
             warmed[0] = time.monotonic()
-        ask.warm(['guide'])
+        if hasattr(ask, 'warm'): ask.warm(['guide'])
+        speaker.warm()   # nothing for the browser voice or OpenAI; else the model loads on the voice worker
         return Response(status_code=204)
+
+    async def say(req):
+        """One line in the natural voice of the settings. JSON `{text, engine, model, voice, speed}` in (only `text` is needed); JSON
+        `{audio: base64 WAV, words: [start of each word in s], engine, model, voice, speed, where, who, cached}` out. 409 when the
+        setting is the browser voice: then the page speaks. 403 when the guard withheld a line for OpenAI. The lines of this run are
+        kept in memory (`Speaker`), so a line said again comes at once."""
+        try: d = json.loads(await req.body() or b'{}')
+        except ValueError: d = None
+        if not isinstance(d, dict): return JSONResponse(dict(error='Send JSON with the text.'), status_code=400)
+        text = ' '.join(str(d.get('text') or '').split())[:SAY_CHARS]
+        if not text: return JSONResponse(dict(error='There is no text to say.'), status_code=400)
+        kw = {k: d[k] for k in ('engine', 'model', 'voice', 'speed') if d.get(k)}
+        try: r = await asyncio.to_thread(speaker.say, text, **kw)
+        except Withheld: return JSONResponse(dict(error=WITHHELD), status_code=403)
+        except ValueError as e: return JSONResponse(dict(error=str(e)), status_code=409 if 'browser' in str(e) else 400)
+        except Exception as e:
+            log.warning('guide: voice %r', e)
+            return JSONResponse(dict(error='The natural voice could not say this line.'), status_code=502)
+        return JSONResponse(dict(audio=base64.b64encode(r.pop('wav')).decode(), **r, who='OpenAI' if r['engine'] == 'openai' else ''))
 
     async def figure(req, alt:str=''):
         "The label boxes of a figure. The image is in memory for one vision call, and is not kept."
@@ -194,6 +222,8 @@ def connect(app, ctx):
     app.post(Routes.figure)(figure)
     app.post(Routes.undo)(undo)
     app.post(Routes.voice)(voice)
+    app.post(Routes.say)(say)
+    speaker.warm()   # the first line of the first board should not wait for the model to load
     app.post(Routes.video)(paste)
     app.post(Routes.find)(find)
     app.post(Routes.drop)(drop)

@@ -1,5 +1,5 @@
 "Settings: every value that you can change, in groups. Each value saves when it changes. The rarely changed values are under a closed `More`."
-import os
+import os, time, base64
 from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, THEMES, MODES, parse_value
@@ -9,12 +9,13 @@ from . import ui
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
-CAPS = ('speech', 'ask', 'pool', 'learning')
+CAPS = ('speech', 'speaker', 'ask', 'pool', 'learning')
 
 def connect(app, ctx):
-    sp, lr, jobs = ctx.speech, ctx.learning, {}
+    sp, lr, jobs, spk = ctx.speech, ctx.learning, {}, ctx.speaker
     has_key = lambda: bool(voice.openai_key()[0])
     speech = lambda oob=False: ui.Speech(sp, has_key(), oob)
+    out_part = lambda oob=False: ui.VoiceOut(spk, has_key(), oob)
 
     def value_of(r):
         "The value of row `r` now: from the profile for a Learning row, else from the settings file."
@@ -36,6 +37,7 @@ def connect(app, ctx):
         n = count(g)
         if g == 'look': return ui.Look()
         if g == 'stt': return ui.SpeechGroup(sp, has_key(), jobs, n)
+        if g == 'voice': return ui.VoiceGroup(spk, has_key(), n)
         if g == 'models': return ui.ModelsGroup(n)
         if g == 'prompts': return ui.Prompts(n)
         return ui.RowGroup(g, n, value_of)
@@ -100,7 +102,11 @@ def connect(app, ctx):
     def get(engine:str, model:str):
         "Download `model` in the background, then use it; the page shows a progress line."
         if voice.cached(model) or engine == 'openai': return use(engine, model)
-        if (j := jobs.get(model)) and j.state in ('downloading', 'loading'): return speech(), ui.Jobs(jobs, oob=True)
+        return fetch_job(engine, model, lambda: sp.use(engine, model), sp, speech)
+
+    def fetch_job(engine, model, then, worker, part):
+        "Download `model` on the pool, then `then()` (a future that loads it on `worker`). The reply is `part()` with the progress lines."
+        if (j := jobs.get(model)) and j.state in ('downloading', 'loading'): return part(), ui.Jobs(jobs, oob=True)
         for k in [k for k, o in jobs.items() if o.state in ('done', 'failed')]: jobs.pop(k)   # show only the new line
         j = jobs[model] = AttrDict(model=model, engine=engine, total=0, state='downloading', error='', shown=False)
         def run():
@@ -109,18 +115,18 @@ def connect(app, ctx):
                 except Exception: j.total = 0   # the line shows bytes without a total
                 voice.fetch(model)
                 j.state = 'loading'
-                sp.use(engine, model).result()
-                j.state = 'failed' if sp.status.startswith('failed') else 'done'
-                if j.state == 'failed': j.error = sp.status
+                if (f := then()) is not None: f.result()
+                j.state = 'failed' if worker.status.startswith('failed') else 'done'
+                if j.state == 'failed': j.error = worker.status
             except Exception as e: j.state, j.error = 'failed', str(e)
         ctx.pool.submit(run)
-        return speech(), ui.Jobs(jobs, oob=True)
+        return part(), ui.Jobs(jobs, oob=True)
 
     def jobs_():
         "The progress lines; when a job ends, the speech section too."
         ended = [j for j in jobs.values() if j.state in ('done', 'failed') and not j.shown]
         for j in ended: j.shown = True
-        return (ui.Jobs(jobs), speech(oob=True)) if ended else ui.Jobs(jobs)
+        return (ui.Jobs(jobs), speech(oob=True), out_part(oob=True)) if ended else ui.Jobs(jobs)
 
     def status(): return ui.Status(sp)
 
@@ -191,6 +197,43 @@ def connect(app, ctx):
 
     def prompt_default(name:str): return prompt_(name, '')
 
+    def out(engine:str='', model:str='', voice_:str=''):
+        "Save the speaking engine, its model and its voice. A new engine starts from its own defaults. The voice model warms when it is here."
+        if engine not in voice.OUT_ENGINES: return Response('unknown voice engine', status_code=400)
+        if engine == 'openai' and not has_key(): return out_part()
+        same = engine == val('voice.out')
+        keep = lambda v, k: v.strip() or (val(k) if same else '')
+        m, v = ('', '') if engine == 'browser' else (keep(model, 'voice.out_model'), keep(voice_, 'voice.out_voice'))
+        voice.update_settings('voice', out=engine, out_model=m, out_voice=v)
+        spk.warm()
+        return out_part()
+
+    def out_route(engine:str='', model:str='', voice:str=''): return out(engine, model, voice)   # the form names it `voice`
+
+    def out_get(engine:str, model:str):
+        "Download a voice model in the background, then use it."
+        if engine not in ('kokoro', 'hf'): return Response('unknown voice engine', status_code=400)
+        if voice.cached(model): return out(engine, model)
+        def then():
+            voice.update_settings('voice', out=engine, out_model=model, out_voice='')
+            return spk.warm()
+        return fetch_job(engine, model, then, spk, out_part)
+
+    def out_search(q:str=''):
+        try: rows = voice.search_models(q, kind='tts')
+        except Exception as e: return P(f'Hugging Face did not answer: {e}', cls='mute')
+        return ui.OutFound(rows, val('voice.out_model') or (voice.DFLT_KOKORO if val('voice.out') == 'kokoro' else ''))
+
+    async def out_sample():
+        "The sample line in the voice of the settings, with the time to the audio: JSON {audio, words, ms, where}."
+        import asyncio
+        t = time.time()
+        try: r = await asyncio.to_thread(spk.say, ui.SAMPLE)
+        except Exception as e: return JSONResponse(dict(error=str(e)[:200]), status_code=409 if 'browser' in str(e) else 400)
+        return JSONResponse(dict(audio=base64.b64encode(r.pop('wav')).decode(), **r, ms=round((time.time() - t) * 1000)))
+
+    def out_status(): return ui.OutStatus(spk)
+
 
     RouteOverrides.gear = Routes.base
     app.get(Routes.base)(page)
@@ -212,3 +255,8 @@ def connect(app, ctx):
     app.post(Routes.look)(look_)
     app.post(Routes.prompt)(prompt_)
     app.post(Routes.prompt_default)(prompt_default)
+    app.post(Routes.out)(out_route)
+    app.post(Routes.out_get)(out_get)
+    app.get(Routes.out_search)(out_search)
+    app.post(Routes.out_sample)(out_sample)
+    app.get(Routes.out_status)(out_status)

@@ -38,6 +38,14 @@ tick = ["pobblebonk>=0.0.6"]
 demo = ["rupaka[check]>=0.0.7"]
 dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.6", "rupaka[check]>=0.0.7", "gheasy>=0.0.18"]
 models = ["ramabana>=0.2.96"]   # now a core dependency; the extra stays so that old installs still resolve
+voice = [
+    "espeakng-loader>=0.2",
+    "misaki>=0.9",
+    "mlx-audio>=0.5",
+    "num2words>=0.5",
+    "phonemizer-fork>=3.3",
+    "spacy>=3.8",
+]
 
 [project.scripts]
 abhyasa = "abhyasa.app:main"

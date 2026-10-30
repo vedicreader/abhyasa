@@ -25,6 +25,7 @@ GROUPS = dict(look=('Look', 'Pick the colours of the app.'),
               research=('Research', 'Set how the tutor finds a source on the web for a step that has none.'),
               runner=('Code runner', 'Set the limits for the code that you run in a check.'),
               stt=('Speech to text', 'Pick the model that writes down what you say.'),
+              voice=('Speaking voice', 'Pick the voice that reads the steps of the screen guide aloud.'),
               guide=('Screen guide', 'Set what the screen guide does when it explains a part of the page.'),
               models=('Models', 'Pick the model for each task. "Default" uses the default model.'),
               lists=('Lists', 'Set how many items show in the lists of the app.'),
@@ -131,6 +132,13 @@ add('stt.longest', 'stt', 'Longest segment', 'The text shows after this time, al
 add('guide.voice', 'guide', 'Voice', 'The guide speaks each step aloud. When this is off, the words of each step light up with no sound.', True)
 add('guide.point', 'guide', 'Point mark', 'How a point mark of the guide looks. Each look is weaker than a circle, so the part that you asked about stands out. Tick is a short pen tick. Dot is a small dot that pulses one time. Ring is a thin, small ring.', 'tick',
     choices=('tick', 'dot', 'ring'));
+
+# %% ../nbs/16_settings.ipynb #37a7bc62
+add('voice.out', 'voice', 'Speaking engine', 'Who reads the steps aloud: the browser, Kokoro on this Mac, OpenAI, or a Hugging Face model on this Mac.', 'browser',
+    choices=('browser', 'kokoro', 'openai', 'hf'), ui=False, reset=False)
+add('voice.out_model', 'voice', 'Voice model', 'The model of the speaking voice. Empty uses the default of the engine.', '', ui=False, reset=False)
+add('voice.out_voice', 'voice', 'Voice', 'The voice of the model. Empty uses the default of the engine.', '', ui=False, reset=False)
+add('voice.out_speed', 'voice', 'Speed', 'How fast the natural voice speaks. 1 is the normal speed. The browser voice uses the speed of the board.', 1., .5, 2.);
 
 # %% ../nbs/16_settings.ipynb #6d9f3f9f
 TASK_HELP = dict(question='Writes each question and its hidden answer.', grade='Reads your answer and grades it.', hint='Gives the next hint.',
