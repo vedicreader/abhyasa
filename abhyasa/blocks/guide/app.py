@@ -107,8 +107,9 @@ def connect(app, ctx):
         def run():
             try:
                 b = explain(ask, ctx_, said, sources=sources, lr=lr, stop=stop, on_state=tell, on_step=lambda s, k: q.put(dict(step=s, k=k, tier='tutor', point=look)))
-                if b.steps and 'check' in ctx_.by and not stop.is_set():   # a board on an open check counts as one hint on it
-                    if (h := next((x for x in run_hook('guide_board', ctx_.page, b) if x), None)): b['hint'] = h
+                h = next((x for x in run_hook('guide_board', ctx_.page, b) if x), None) if b.get('hint') and not stop.is_set() else None
+                if h: b['hint'] = h   # the board was about the open check (`on_check`): the line that the check shows
+                else: b.pop('hint', None)
                 q.put(dict(board=b, point=look))
             except Withheld: q.put(dict(error=WITHHELD))
             except Exception as e: log.warning('guide: %r', e); q.put(dict(error='The tutor could not answer. Try again.'))

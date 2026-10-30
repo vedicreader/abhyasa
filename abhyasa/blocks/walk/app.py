@@ -569,9 +569,9 @@ def connect(app, ctx):
 
     @hook('guide_board')
     def board_hint(page, board):
-        "A board of the screen guide on the open check of a walk step counts as one hint on that check. The line that the check shows, or None."
+        "A board of the screen guide about the open check of a walk step (`board.hint`, from `guide.on_check`) counts as one hint on that check. The line that the check shows, or None."
         m = re.fullmatch(r'/w/([^/]+)/(\d+)', str(page or ''))
-        if not m or not board.get('steps'): return None
+        if not m or not board.get('steps') or not board.get('hint'): return None
         j, s = live(m[1], int(m[2]))
         if not s: return None
         try: n = tutor.board_hint(s.q.id, ' '.join(x['say'] for x in board['steps']))

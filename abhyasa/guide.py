@@ -6,12 +6,13 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
-           'FOCUS', 'SHOWN', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL',
-           'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext',
-           'clean_context', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why', 'vision_ask', 'Withheld',
-           'guard', 'safe_query', 'guarded', 'figure_check', 'focus_text', 'page_text', 'board_prompt', 'video_id',
-           'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'guide_ask',
-           'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
+           'FOCUS', 'SHOWN', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'WATCH', 'CHECK_ASK', 'FILLER', 'OFF_CHECK',
+           'COUNTS', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at',
+           'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels', 'FigureCache',
+           'keeps_images', 'vision_why', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'figure_check',
+           'focus_text', 'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer', 'file_video',
+           'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'guide_ask', 'video_source',
+           'web_sources', 'unsave', 'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -458,15 +459,15 @@ def page_text(ctx) -> str:
         out.append('Video transcript:\n' + '\n'.join(f'[{c[0]:.0f} s] {c[1]}' for c in v['cues'][:200]))
     return '\n'.join(out)
 
-def board_prompt(ctx, said:str, sources=(), tier:str='tutor') -> str:
-    "The request for a board on `said`, with what the learner showed (`focus_text`), the page of `ctx` and the numbered `sources`, each in a fence."
+def board_prompt(ctx, said:str, sources=(), tier:str='tutor', note:str='') -> str:
+    "The request for a board on `said`, with what the learner showed (`focus_text`), the page of `ctx`, the numbered `sources`, each in a fence, and the lines of `note`."
     from abhyasa.ground import fence
     head = [f"Learner: {json.dumps(said)}", f"Page: {ctx.get('title') or ctx.get('page') or ''}"]
     if ctx.get('step'): head.append(f"Step: {ctx['step']}")
     if ctx.get('concept'): head.append(f"Concept: {ctx['concept']}")
     srcs = '\n'.join(f"Source {k}: " + fence(s.get('title') or '', s.get('text') or '') for k, s in enumerate(sources, 1))
     if (fx := focus_text(ctx)): head.append(f"\n{fx}")
-    return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + f"Tier: {tier}\nReply with the JSON lines."
+    return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + (f"{note}\n" if note else '') + f"Tier: {tier}\nReply with the JSON lines."
 
 # %% ../nbs/21_guide.ipynb #gv01
 WATCH = 'https://www.youtube.com/watch?v='
@@ -534,6 +535,24 @@ def video_of(lr, vid:str) -> AttrDict|None:
     m = json.loads(d.get('meta') or '{}')
     return AttrDict(id=vid, title=_s(d.get('title') or '', 200), channel=_s(m.get('channel') or '', 100), url=WATCH + vid, cues=m.get('cues') or [])
 
+# %% ../nbs/21_guide.ipynb #gh02
+CHECK_ASK = re.compile(r"\b(?:check|question|answer|hint|quiz)\b", re.I)
+FILLER = set('don dont get got understand explain explains mean means meaning does did not can could tell show here there please part'.split())
+OFF_CHECK = 'The open check is not part of this question. Do not mark the check, and do not explain it or give its answer.'
+COUNTS = ' This board counts as one hint on the open check.'
+
+def asked_words(s:str) -> set:
+    "The main words of `s` (`ground.main_words`) with a light plural stem, without the words that every question has."
+    from abhyasa.ground import main_words, stem
+    return {stem(w) for w in main_words(s)} - FILLER
+
+def on_check(ctx, said:str) -> bool:
+    "Whether a board on `said` counts as a hint on the open check of `ctx` (the anchor `check`)."
+    if not (c := (ctx.get('by') or {}).get('check')): return False
+    if any('check' in f['anchors'] for f in ctx.get('focus') or ()) or CHECK_ASK.search(said or ''): return True
+    mine = asked_words(said or '')
+    return bool(mine) and len(mine & asked_words(c.get('text') or '')) >= min(2, len(mine))
+
 # %% ../nbs/21_guide.ipynb #g073
 NO_SOURCE = "In the tutor's own words. No source found."
 WITH_SOURCE = "In the tutor's own words, with quotes from the sources below."
@@ -562,12 +581,12 @@ def _page_sources(ctx) -> list:
     out = [dict(title=ctx.get('source') or 'The passage', text=p, label=LABEL['page'], url='')] if p and ctx.get('source') else []
     return out + ([v] if (v := video_source(ctx.get('video'))) else [])
 
-def _done(tier, b, srcs, t0) -> AttrDict:
+def _done(tier, b, srcs, t0, hint:bool=False) -> AttrDict:
     used = {s['quote']['src'] for s in b.steps if s.get('quote')}
     if any(x['op'] == 'video_at' for s in b.steps for x in s['strokes']): used |= {k for k, s in enumerate(srcs, 1) if s.get('video')}
     ss = [dict(n=k, title=s.get('title', ''), url=s.get('url', ''), label=s['label'], quoted=k in used) for k, s in enumerate(srcs, 1)]
     return AttrDict(tier=tier, steps=b.steps, sources=ss, sure=b.sure, failed=b.failed and not b.steps, dropped=len(b.dropped),
-                    end=WITH_SOURCE if used else NO_SOURCE, ms=round((time.monotonic() - t0) * 1000))
+                    end=WITH_SOURCE if used else NO_SOURCE, ms=round((time.monotonic() - t0) * 1000), hint=hint and bool(b.steps))
 
 # %% ../nbs/21_guide.ipynb #gn02
 from .llm import WHO, HERE, where_of   # one place for where a model runs: the Settings page uses it too
@@ -645,7 +664,8 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     web when `web` (default: the setting `research.on`). `on_state(event)` gets a state event before each step of the work, and
     `{"saved": ...}` when a web page goes into the vault (see *Never caught unaware*); `note(text)` gets only the `wait` line. With a model that
     can stream, `on_step(step, k)` gets each step of a sure tutor board as soon as it is whole (`stream_board`). When the
-    `threading.Event` `stop` is set, the stream closes and no next tier starts."""
+    `threading.Event` `stop` is set, the stream closes and no next tier starts. `hint` is True when the board counts as a hint on
+    the open check (`on_check`); the first state event says so."""
     from abhyasa.settings import val
     from abhyasa.ground import ground, label
     from ramabana.agent import mask_secrets
@@ -655,13 +675,17 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
         if note and 'wait' in e: note(e['wait'])
     ctx = ctx if isinstance(ctx, PageContext) else clean_context(ctx)   # a raw dict from a host, also with `by`, is cleaned
     said, ask = ' '.join(str(said or '').split())[:300], guide_ask(ask)   # each model call guards its prompt for its own route
+    hint = on_check(ctx, said)
+    off = 'check' in ctx.by and not hint   # an open check that this board may not touch
     def board(tier, srcs, on_step=None):
-        c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier), prompt('guide.board')
+        c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier, OFF_CHECK if off else ''), prompt('guide.board')
+        if off: c.by.pop('check')
         return stream_board(ask.stream(p, sp), c, on_step, stop=stop) if on_step and hasattr(ask, 'stream') else parse_board(ask(p, sp), c)
     page, w = _page_sources(ctx), where_of(getattr(ask, 'model', ''))
-    tell(_asks(w))
+    first = _asks(w)
+    tell(dict(first, wait=first['wait'] + COUNTS, hint=True) if hint else first)
     b = board('tutor', page, on_step)
-    if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('tutor', b, page, t0)
+    if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('tutor', b, page, t0, hint)
     best = (b, 'tutor', page)
     if sources: tell(_ev('Looks in your vault.', 'searching', where=HERE))
     ps = ground(mask_secrets(f"{said} {ctx.get('concept') or ctx.get('step') or ''}"), list(sources), k=3) if sources else []   # a search of the vault on this Mac
@@ -669,16 +693,16 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
         srcs = page + [dict(title=label(p), text=p.text, url=p.get('url') or '', label=LABEL['vault']) for p in ps]
         tell(dict(_asks(w, f"Sends {_n(len(ps), 'passage')} from your vault"), sources=len(ps)))
         b = board('vault', srcs)
-        if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('vault', b, srcs, t0)
+        if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('vault', b, srcs, t0, hint)
         if b.steps: best = (b, 'vault', srcs)
     if web if web is not None else val('research.on'):
         if (ws := web_sources(ask, ctx, said, search, fetch, lr, tell)) and not (stop is not None and stop.is_set()):
             srcs = page + ws
             tell(dict(_asks(w, f"Sends {_n(len(ws), 'passage')} from the web"), sources=len(ws)))
             b = board('web', srcs)
-            if b.steps: return _done('web', b, srcs, t0)
+            if b.steps: return _done('web', b, srcs, t0, hint)
     b, tier, srcs = best
-    return _done(tier if b.steps and (b.sure or 0) >= SURE else 'tutor', b, srcs if tier == 'tutor' else page, t0)
+    return _done(tier if b.steps and (b.sure or 0) >= SURE else 'tutor', b, srcs if tier == 'tutor' else page, t0, hint)
 
 # %% ../nbs/21_guide.ipynb #gs02
 def stream_board(chunks, ctx, on_step=None, sure:float=SURE, stop=None) -> AttrDict:

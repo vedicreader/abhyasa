@@ -841,6 +841,12 @@ def test_a_board_on_an_open_check_counts_as_one_hint(mk, walk_fake, lr):
     assert evs[-1]['board']['hint'] == 'Hint 2 of 6 used (from the board).'
     card = cl.get(f'/w/{jid}/1/check').text
     assert 'Hint 2 (from the board)' in card and 'The check asks about the place of an item.' in card
+    assert evs[0]['hint'] is True and evs[0]['wait'].endswith('This board counts as one hint on the open check.')   # said before the ask
+    ctx['anchors'] += [dict(id='passage', kind='passage', text='The Kamba Ramayanam is a Tamil epic.')]   # an off-topic question on the same open check
+    walk_fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='It is a Tamil epic.'), dict(op='box', at='passage')])
+    evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='Who wrote the Kamba Ramayanam?', ctx=ctx)).text.splitlines() if l.startswith('data: ')]
+    assert 'hint' not in evs[0] and 'hint' not in evs[-1]['board'] and evs[-1]['board']['steps']
+    assert 'Hint 3' not in cl.get(f'/w/{jid}/1/check').text   # the learner keeps the hint
     ctx['anchors'] = [dict(id='passage', kind='passage', text='Ranks.')]   # a board that does not show the check is not a hint
     evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='I do not get ranks', ctx=ctx)).text.splitlines() if l.startswith('data: ')]
     assert 'hint' not in evs[-1]['board']
