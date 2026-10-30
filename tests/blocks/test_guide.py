@@ -53,3 +53,14 @@ def test_ask_streams_a_board(mk, fake):
 
 def test_ask_needs_words(mk):
     assert mk().post('/guide/ask', json=dict(said='  ', ctx={})).status_code == 400
+
+def test_hyper_e_and_hold_to_talk():
+    "Hyper+E needs all four modifiers; a hold of 300 ms or more talks through the voice block's mic, a tap opens the box."
+    js = GUIDE_JS.read_text()
+    assert "e.metaKey && e.altKey && e.ctrlKey && e.shiftKey" in js and "e.code !== 'KeyE'" in js
+    assert 'HOLD = 300' in js and "getElementById('mic-float')" in js and 'abhyasaMic(' in js
+    assert "addEventListener('keyup'" in js and '/^(Meta|Alt|Control|Shift)/' in js   # macOS sends no keyup for E while ⌘ is down
+
+def test_keys_table_names_the_guide_key():
+    from abhyasa.core.keys import KEYS
+    assert ('Guide', '⌃⌥⇧⌘E', 'Explain this: hold to talk, tap to type (Caps+E)') in KEYS

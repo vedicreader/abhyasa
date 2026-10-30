@@ -195,5 +195,108 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
             source: src ? cut(src.textContent) : '', anchors: anchors.slice(0, 40), demo, ...(video && {video: {id: video.dataset.vid}})};
   }
 
-  window.abhyasaGuide = {capture, texParts, labelsOf};
+  // --- asking ----------------------------------------------------------------------------------------------------------
+  const form = () => document.getElementById('guide-form'), box = () => document.getElementById('guide-box');
+  const heard = t => { const h = form() && form().querySelector('.guide-heard'); if (h) h.textContent = t; };
+  const say = t => window.abhyasaBoard && abhyasaBoard.note(t);
+  function open(text) {
+    const f = form(), b = box();
+    if (!f || !b) return;
+    const sel = cut(String(getSelection() || ''), 80);
+    f.hidden = false; heard('');
+    b.value = text != null ? text : sel ? `I don't get "${sel}"` : '';
+    b.focus(); b.setSelectionRange(b.value.length, b.value.length);
+  }
+  function close() { if (form()) form().hidden = true; }
+
+  // Ask the tutor: read the page, post the question with it, and play the board that comes back. The times go into
+  // `abhyasaGuideLast`: from the press of Explain to the board, and to the first mark.
+  async function ask(said) {
+    said = cut(said, 300);
+    if (!said) return;
+    close();
+    const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0};
+    say('The tutor reads the page.');
+    try {
+      const ctx = await capture();
+      last.capture_ms = Math.round(performance.now() - t0);
+      const labels = Object.fromEntries(ctx.anchors.filter(a => a.labels).map(a => [a.id, a.labels]));
+      const r = await fetch(me.ask, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({said, ctx})});
+      if (!r.ok) return say(cut(await r.text(), 200) || 'The tutor could not answer. Try again.');
+      const rd = r.body.getReader(), dec = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const {value, done} = await rd.read();
+        if (done) break;
+        buf += dec.decode(value, {stream: true});
+        let k;
+        while ((k = buf.indexOf('\n\n')) >= 0) {
+          const ev = buf.slice(0, k); buf = buf.slice(k + 2);
+          if (!ev.startsWith('data: ')) continue;
+          const m = JSON.parse(ev.slice(6));
+          if (m.wait) say(m.wait);
+          if (m.error) say(m.error);
+          if (m.board) {
+            last.board_ms = Math.round(performance.now() - t0); last.server_ms = m.board.ms; last.tier = m.board.tier;
+            document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
+            await abhyasaBoard.play(m.board, {labels, quiet: !!window.abhyasaGuideQuiet});
+          }
+        }
+      }
+    } catch (e) { say('The tutor could not answer. Make sure that abhyasa runs, then try again.'); }
+  }
+
+  // --- Hyper+E: hold to talk, tap to type -------------------------------------------------------------------------------
+  // Hyper is ⌃⌥⇧⌘ (Caps Lock with a key remapper). A hold of HOLD ms or more starts the mic of the voice block into the box;
+  // the release stops it, and the words go to the tutor when the last of them is in. A tap opens the box. macOS sends no
+  // keyup for E while ⌘ is down, so the keyup of any of the four modifiers is a release too.
+  const HOLD = 300;
+  let held = null, mic = null;
+  function micButton() {
+    const tpl = document.getElementById('mic-float');
+    if (!tpl) return null;
+    if (!mic || !mic.isConnected) {
+      mic = Object.assign(document.createElement('button'), {type: 'button', id: 'guide-mic', hidden: true});
+      mic.innerHTML = '<span class="say">Speak</span><i class="lvl"></i>';   // fixed markup, as the voice block makes it
+      for (const k of ['vad', 'start', 'seg', 'stop', 'events']) mic.dataset[k] = tpl.dataset[k];
+      mic.dataset.into = 'guide-box';
+      form().append(mic);
+    }
+    return mic;
+  }
+  function talk() {
+    open('');
+    const b = micButton();
+    if (!b || !window.abhyasaMic) { heard('Type your question. The mic is not ready.'); return; }
+    heard('Listening. Let go of the key to send.');
+    abhyasaMic(b);
+  }
+  async function endTalk() {
+    const b = micButton();
+    if (!b || !window.abhyasaDict || abhyasaDict.btn !== b) return;
+    heard('Writing down what you said.');
+    await abhyasaMic(b);   // the second press stops it; the last words still come in
+    const end = performance.now() + 15000;
+    while (performance.now() < end && (b.classList.contains('busy') || b.classList.contains('on'))) await new Promise(ok => setTimeout(ok, 100));
+    if (box().value.trim()) ask(box().value); else heard('The mic heard nothing. Type your question.');
+  }
+  addEventListener('keydown', e => {
+    if (e.code !== 'KeyE' || !(e.metaKey && e.altKey && e.ctrlKey && e.shiftKey)) return;
+    e.preventDefault(); e.stopImmediatePropagation();   // before core.js, which would press the ⌥E button of a concept page
+    if (e.repeat || held) return;
+    held = {timer: setTimeout(() => { if (held) { held.talking = true; talk(); } }, HOLD)};
+  }, true);
+  const release = e => {
+    if (!held || !(e.code === 'KeyE' || /^(Meta|Alt|Control|Shift)/.test(e.key || ''))) return;
+    const h = held; held = null; clearTimeout(h.timer);
+    if (h.talking) endTalk(); else open();
+  };
+  addEventListener('keyup', release, true);
+  addEventListener('blur', () => release({code: 'KeyE'}));
+
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#guide-go')) { e.preventDefault(); open(); } });
+  document.addEventListener('submit', e => { if (e.target.id === 'guide-form') { e.preventDefault(); ask(box().value); } });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.id === 'guide-box') { e.preventDefault(); e.stopPropagation(); close(); } });
+
+  window.abhyasaGuide = {capture, texParts, labelsOf, ask, open};
 })();

@@ -298,6 +298,6 @@
     if (ms.some(m => !(m.target.closest && m.target.closest('#board-host, #guide-strip')))) follow();
   }).observe(document.body, {childList: true, subtree: true});
   if (document.body) watch(); else addEventListener('DOMContentLoaded', watch);
-  window.abhyasaBoard = {play, stop, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
+  window.abhyasaBoard = {play, stop, note, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
                          get state() { return st && {i: st.i, steps: st.board.steps.length, tier: st.board.tier, first: st.first}; }};
 })();
