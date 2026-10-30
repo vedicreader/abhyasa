@@ -546,12 +546,13 @@ def test_two_writers_on_one_walk_lose_no_field(mk, walk_fake, lr):
 
 
 def fake_web(monkeypatch, pdf_title='Attention Is All You Need'):
-    "The PDF and crawl readers file the test pages and fetch nothing; no DNS, no fetch of the start page."
+    "The PDF and crawl readers file the test pages and fetch nothing; no DNS, no fetch of the start page or of an arXiv HTML page."
     from fastcore.utils import L
     from vishalakshi.core import Vault
     monkeypatch.setattr(Vault, 'pdf', lambda self, url, **kw: self.add(PAGES, pdf_title, source=url, kind='pdf'))
     monkeypatch.setattr(Vault, 'crawl', lambda self, start_url, max_pages=10, **kw: L([self.add([(k, 'From the docs. ' + t) for k, t in PAGES], 'Attention docs', source=start_url, kind='web')]))
     monkeypatch.setattr('abhyasa.sources._final', lambda u: u)
+    monkeypatch.setattr('abhyasa.sources.read_arxiv_html', lambda aid: None)   # no arXiv HTML page, so the PDF reader runs
     monkeypatch.setattr('socket.getaddrinfo', lambda host, port, *a, **k: [(2, 1, 6, '', ('93.184.216.34', port or 0))])
 
 def test_link_in_the_document_field_makes_a_link_walk(mk, walk_fake, lr, monkeypatch):
