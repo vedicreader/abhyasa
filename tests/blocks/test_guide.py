@@ -18,6 +18,14 @@ def test_figure_labels_are_found_once(mk, fake):
     assert cl.post('/guide/figure', content=PNG).json()['labels']['b'] == [480, 880, 540, 960]
     assert sum('You find the text labels' in sp for _, sp in fake.calls) == n == 1
 
+def test_figure_alt_passes_the_guard(mk, fake):
+    "A secret in the alt text of a figure never reaches the vision call: the route sends the alt through `guard` first."
+    fake.rules['You find the text labels'] = LABELS
+    secret = 'sk-test1234567890abcdefXYZ'
+    assert mk().post(f'/guide/figure?alt=A+triangle+{secret}', content=PNG + b'alt').status_code == 200
+    ps = [p for p, sp in fake.calls if 'You find the text labels' in sp]
+    assert ps and all(secret not in p and secret not in sp for p, sp in fake.calls) and '[SECRET]' in ps[-1]
+
 def test_figure_route_takes_only_images(mk):
     assert mk().post('/guide/figure', content=b'<svg onload=alert(1)>').status_code == 415
 
