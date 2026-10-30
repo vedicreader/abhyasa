@@ -241,7 +241,7 @@ def connect(app, ctx):
             if added := getattr(ds, 'added', None):
                 filed.append(dict(root=name, docs=[dict(x) for x in added], at=time.time(), notebooks=sum(str(x.url).endswith('.ipynb') for x in added)))
         st.update(said='Planning the walk')
-        if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), ctx.sources, False)
+        if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), ctx.sources, False, chips=ids)   # the plan sees the documents of the chips
         elif docs:
             n = val('links.pages')
             j = journey_from_sources(lr, ask, docs[:n], title=' and '.join(names), subject=subject,

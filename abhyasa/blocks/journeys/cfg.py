@@ -8,6 +8,7 @@ class Routes:
     path_add = '/path/{jid}/add'    # add a topic by name
     path_split = '/path/{jid}/split'  # split a step into smaller ones
     path_drop = '/path/{jid}/drop'  # remove the walk
+    path_sources = '/path/{jid}/sources'  # make the path a walk, with a passage from your sources on each step
     one = '/j/{jid}'                # the old routes: GET redirects to `path`, and the POSTs still work for old pages
     step = '/j/{jid}/step'
     add = '/j/{jid}/add'

@@ -124,6 +124,13 @@ def Path_(j, pg):
                     Button('Add', data_wait='Adding…'), hx_post=at(Routes.path_add, j), hx_target='#path', hx_swap='outerHTML', cls='add-topic'),
                id='path')
 
+def UseSources(j):
+    "On a walk with no source: make it a walk that reads your sources, with a passage and a check on each step."
+    if j.get('mode') == 'walk': return ''
+    return Form(Button('Use sources for this walk', cls='small', data_wait='Reading your sources…'),
+                Span('abhyasa finds a passage in your sources for each step, and gives each step a check.', cls='mute'),
+                action=at(Routes.path_sources, j), method='post', cls='use-sources row')
+
 def JourneyPage(j, pg, after=(), others=(), actions=()):
     near = [*([H2('After this' if pg.finished else 'Next to this path'),
                Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
@@ -131,7 +138,7 @@ def JourneyPage(j, pg, after=(), others=(), actions=()):
                               hx_target='#path', hx_swap='outerHTML')) for c in after], cls='plain')] if after else []),
             *([H2('Your other walks'), JourneyList(others, lead=False)] if others else [])]
     return (H1(j.title), P('Your goal: ', Span(j.get('goal', ''), cls='goal'), Span(f"  · changed {ago(j.get('updated'))}", cls='mute'), cls='mute'),
-            Div(*actions, cls='row') if actions else '', Path_(j, pg), Div(*near, cls='refs') if near else '',
+            Div(*actions, cls='row') if actions else '', UseSources(j), Path_(j, pg), Div(*near, cls='refs') if near else '',
             Form(Button('Remove this walk', cls='small quiet danger'), action=at(Routes.path_drop, j), method='post',
                  hx_confirm='Remove this walk? Its concepts and what you learned stay.', cls='drop'))
 
