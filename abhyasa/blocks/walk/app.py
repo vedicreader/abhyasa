@@ -15,7 +15,7 @@ from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, _topic_walk, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
-from abhyasa.walk import tutor_note, open_short, step_meta, code_task, nb_spec, validate_nb_spec, leela_back
+from abhyasa.walk import tutor_note, open_short, step_meta, code_task, nb_spec, validate_nb_spec, leela_back, leela_found
 from abhyasa.contract import path_why
 from abhyasa.nb import spec_notebook
 from abhyasa.research import to_research, wants_source
@@ -169,7 +169,7 @@ def connect(app, ctx):
         if not (b := (leela_back(lr, j) if back is None else back).get(i)): return None
         j = lr.journey(j.id)
         s = j.steps[i]
-        if s.get('done'): return ui.FromLeela(j, i, b, ui.GoOn(j.id, i))
+        if s.get('done'): return ui.FromLeela(j, i, b, (ui.GoOn(j.id, i), leela_line(j, i, say='Open the lesson in Leela', vault=vault)))
         if s['check']['kind'] != 'notebook': return None
         return ui.FromLeela(j, i, b, ui.NbGo(j.id, i, leela_link(j, i, vault=vault), spec=bool(s.get('nb')), opened=s.get('leela_at')))
 
@@ -639,8 +639,11 @@ def connect(app, ctx):
         return FileResponse(p)
 
     def result(jid:str, i:int, n:str):
-        "One image of a run that Leela filed for step `i`: only `<assets>/leela/<jid>/<i>/<n>.png`, `n` one digit, a PNG file of at most `MAX_RESULT` bytes."
-        if not re.fullmatch(r'[0-9]', n) or not walk_of(jid, i): return Response(status_code=404)
+        """One image of a run that Leela filed for step `i`: only `<assets>/leela/<jid>/<i>/<n>.png`, `n` one digit, listed by the run of
+        the step that `run_ok` accepts, and a PNG file of at most `MAX_RESULT` bytes."""
+        if not re.fullmatch(r'[0-9]', n) or not (j := walk_of(jid, i)): return Response(status_code=404)
+        run = (leela_found(lr, j).get(i) or AttrDict(run=None)).run
+        if not run or f'leela/{jid}/{i}/{n}.png' not in run.get('images', []): return Response(status_code=404)
         root = (Path(lr.vault.assets())/'leela').resolve()
         p = (root/jid/str(i)/f'{n}.png').resolve()
         try:

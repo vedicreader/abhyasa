@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/walk.html.md"""
 
 # %% auto #0
 __all__ = ['NOTE_SP', 'NOTE_TOPIC_SP', 'NB_ONLY', 'NB_SP', 'NB_SHAPE', 'PREDICTIONS', 'tutor_note', 'step_meta', 'open_short',
-           'code_task', 'refused_import', 'run_code', 'nb_prompt', 'nb_spec', 'leela_back', 'PKG', 'validate_nb_spec',
-           'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
+           'code_task', 'refused_import', 'run_code', 'nb_prompt', 'nb_spec', 'leela_found', 'leela_back', 'PKG',
+           'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
 
 # %% ../nbs/15_walk.ipynb #i05
 import ast, re, json, sys, time, uuid
@@ -211,6 +211,7 @@ def nb_spec(lr, ask, j, i:int) -> AttrDict|None:
 
 # %% ../nbs/15_walk.ipynb #lb03
 from .journey import _jlock
+from .store import slugify
 
 def _at(a) -> float: return a['at'] if type(a.get('at')) in (int, float) else 0
 
@@ -222,20 +223,31 @@ def _from_leela(lr, jid:str) -> list:
 # %% ../nbs/15_walk.ipynb #lb05
 PREDICTIONS = ('predict', 'demo')   # the kinds of a prediction that Leela files: a card prediction, or a prediction in a demo
 
-def leela_back(lr, j) -> dict:
-    "Step -> `AttrDict(check, prediction, run)`: what Leela filed for walk `j`. A step whose check passed is marked done."
+def _same_step(lr, s, a) -> bool:
+    "Whether attempt `a` is on the concept of step `s`: its slug, or the slug of the concept name (Leela slugifies the lesson name)."
+    c = a.get('concept')
+    return isinstance(c, str) and bool(c) and c in (s['slug'], slugify((lr.concept(s['slug']) or {}).get('name') or ''))
+
+def leela_found(lr, j) -> dict:
+    "Step -> `AttrDict(check, prediction, run)`: what Leela filed for walk `j`. It writes nothing."
     out = {}
     for a in _from_leela(lr, j.id):
         i, k = a.get('step'), a.get('kind')
-        if type(i) is not int or not 0 <= i < len(j.steps): continue
+        if type(i) is not int or not 0 <= i < len(j.steps) or not _same_step(lr, j.steps[i], a): continue
         b = out.setdefault(i, AttrDict(check=None, prediction=None, run=None))
         if k == 'code' and b.check is None: b.check = a
         elif k in PREDICTIONS and b.prediction is None: b.prediction = a
         elif k == 'run' and b.run is None and run_ok(a): b.run = a
+    return {i: b for i, b in out.items() if any(b.values())}
+
+# %% ../nbs/15_walk.ipynb #lb07
+def leela_back(lr, j) -> dict:
+    "Step -> `AttrDict(check, prediction, run)`, as `leela_found`. A step whose check passed is marked done."
+    out = leela_found(lr, j)
     for i, b in out.items():
         if not (b.check and b.check.get('correct') is True): continue
         with _jlock(j.id):
             now = lr.journey(j.id)
-            if now and i < len(now.steps) and not now.steps[i].get('done'):
+            if now and i < len(now.steps) and now.steps[i]['slug'] == j.steps[i]['slug'] and not now.steps[i].get('done'):
                 lr.walk_step(j.id, i, done=dict(outcome='solid', by='leela', aid=str(b.check.get('id', '')), at=time.time()))
-    return {i: b for i, b in out.items() if any(b.values())}
+    return out

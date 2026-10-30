@@ -49,16 +49,48 @@ def test_run_attempt_shows_metrics_and_images(mk, lr, walk_fake):
 
 def test_unsafe_results_are_refused(mk, lr, walk_fake, tmp_path):
     cl = mk(); jid = nb_step(cl, lr)
-    file_run(lr, jid, 1)
+    file_run(lr, jid, 1, n=4)
     (lr.vault.assets()/'x.png').write_bytes(PNG)
     for bad in (f'/w/{jid}/0/result/..%2F..%2Fx.png', f'/w/{jid}/1/result/9.png', f'/w/{jid}/1/result/00.png', f'/w/{jid}/1/result/a.png',
                 f'/w/{jid}/99/result/0.png', '/w/nope/1/result/0.png'):
         assert cl.get(bad).status_code == 404, bad
     d = lr.vault.assets()/'leela'/jid/'1'
-    (d/'2.png').write_bytes(b'<svg onload=alert(1)>')                      # not a PNG
-    (d/'3.png').write_bytes(PNG + b'\0' * (2 << 20))                       # too big
-    (d/'4.png').symlink_to(tmp_path/'out.png'); (tmp_path/'out.png').write_bytes(PNG)   # a link out of the assets
-    for n in (2, 3, 4): assert cl.get(f'/w/{jid}/1/result/{n}.png').status_code == 404, n
+    (d/'1.png').write_bytes(b'<svg onload=alert(1)>')                      # not a PNG
+    (d/'2.png').write_bytes(PNG + b'\0' * (2 << 20))                      # too big
+    (d/'3.png').unlink(); (tmp_path/'out.png').write_bytes(PNG); (d/'3.png').symlink_to(tmp_path/'out.png')   # a link out of the assets
+    assert cl.get(f'/w/{jid}/1/result/0.png').status_code == 200
+    for n in (1, 2, 3): assert cl.get(f'/w/{jid}/1/result/{n}.png').status_code == 404, n
+
+def test_image_needs_an_accepted_run(mk, lr, walk_fake):
+    "A PNG in the right folder is served only when a run that `run_ok` accepts lists it."
+    cl = mk(); jid = nb_step(cl, lr)
+    d = lr.vault.assets()/'leela'/jid/'1'; d.mkdir(parents=True); (d/'0.png').write_bytes(PNG); (d/'5.png').write_bytes(PNG)
+    assert cl.get(f'/w/{jid}/1/result/0.png').status_code == 404              # no run
+    lr.record('softmax', 'Run', kind='run', images=[f'leela/{jid}/1/0.png'], metrics={f'm{k}': k for k in range(13)}, **meta(jid, 1))
+    assert cl.get(f'/w/{jid}/1/result/0.png').status_code == 404              # a run that run_ok refuses
+    file_run(lr, jid, 1, n=1)
+    assert cl.get(f'/w/{jid}/1/result/0.png').status_code == 200
+    assert cl.get(f'/w/{jid}/1/result/5.png').status_code == 404              # in the folder, but the run does not list it
+
+def test_attempt_on_another_concept_is_dropped(mk, lr, walk_fake):
+    "The attempt must be on the concept of the step at its index, so a dropped or moved step never shows the results of another."
+    cl = mk(); jid = nb_step(cl, lr)
+    file_check(lr, jid, 2)                                                    # filed on softmax, but step 2 is another idea
+    file_run(lr, jid, 2)
+    page = cl.get(f'/w/{jid}/2').text
+    assert 'From Leela' not in page and not lr.journey(jid).steps[2].get('done')
+    assert cl.get(f'/w/{jid}/2/result/0.png').status_code == 404
+
+def test_card_links_to_the_lesson(mk, lr, walk_fake, monkeypatch, tmp_path):
+    "A done step: Open the lesson in Leela, with the vault key, when Leela runs; else the Get Leela line."
+    from abhyasa.contract import vault_key
+    cl = mk(); jid = nb_step(cl, lr)
+    file_check(lr, jid, 1)
+    page = cl.get(f'/w/{jid}/1').text
+    assert 'Get Leela' in page and 'Open the lesson in Leela' not in page
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
+    page = cl.get(f'/w/{jid}/1').text
+    assert 'Open the lesson in Leela ↗' in page and f'http://127.0.0.1:5011/learn?walk={jid}&amp;step=1&amp;v={vault_key(lr.vault.path)}' in page
 
 def test_untrusted_attempts_change_nothing(mk, lr, walk_fake):
     "An attempt from another app changes nothing; a run that `run_ok` refuses shows no card; a text from Leela is escaped."
