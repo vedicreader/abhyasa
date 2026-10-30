@@ -9,11 +9,12 @@
 // marker under the glyphs (multiply on a light surface, screen on a dark one). Rings, underlines and sketches are
 // perfect-freehand strokes with pressure, drawn on as a pen does. Arrows are one light Rough.js stroke with a filled head.
 // Labels are pastel chips with a coloured bar and a thin leader line; a chip never covers its target. Marks of earlier steps
-// fade to 45 %. The words of the spoken line light up as they are said. With prefers-reduced-motion, the pointer jumps, and
+// fade to 45 %. A point is always weaker than a circle, so the circle stays the main mark of a step: see `point` in the API.
+// The words of the spoken line light up as they are said. With prefers-reduced-motion, the pointer jumps, and
 // marks and chips fade in for 150 ms.
 //
 // API (window.abhyasaBoard):
-//   play(board, {labels, fast, quiet, auto, host, who, onVoice})   play a checked board; it stops the board that shows now.
+//   play(board, {labels, fast, quiet, auto, host, who, onVoice, point})   play a checked board; it stops the board that shows now.
 //     labels  {anchorId: {label: [x0, y0, x1, y1]}}, the label boxes of a figure, 0 to 1000 of the anchor. Default {}.
 //     fast    draw each step at once, with no voice and no pointer flight. Default false.
 //     quiet   no voice: the words are timed by their letters. host.speak is not called. Default false.
@@ -21,6 +22,11 @@
 //     who     {model, where, who}: the model that wrote the board, shown in the strip as "Claude Sonnet · hosted". Default none.
 //     onVoice onVoice(on) when the learner turns the voice off or on in the strip. With it, the strip has a Voice button, and the
 //             first board with a voice says once: "The guide speaks its steps. Turn the voice off here." Default none.
+//     point   the look of a point mark (the setting guide.point), each one weaker than a circle. Default 'tick'.
+//               'tick'  a short thin arrow that stops just before the target, with no ring.
+//               'dot'   a small filled dot under the target, that pulses one time (no pulse with reduced motion).
+//               'ring'  a short arrow and a ring on the target, thinner and smaller than a circle, at half the ink.
+//             An unknown look gives the default.
 //     host    the hooks of the page that shows the board. Each one is optional:
 //       resolve(id) -> Element|null   the element of anchor `id`. Default: document.querySelector('[data-guide-id="<id>"]').
 //                                     A formula element names its parts in data-parts: JSON [[tex, elementId], ...]; the
@@ -55,7 +61,7 @@
 // Events on document: board:first (the first mark shows), board:stop (detail.by is 'learner' after Esc or Stop, else '').
 (() => {
   if (window.abhyasaBoard) return;
-  const NS = 'http://www.w3.org/2000/svg', WAIT = 1200;
+  const NS = 'http://www.w3.org/2000/svg', WAIT = 1200, LOOKS = ['tick', 'dot', 'ring'];
   let pf = null, st = null;   // the pen module, and the board that shows now
   const script = src => new Promise((ok, no) => document.head.append(Object.assign(document.createElement('script'), {src, onload: ok, onerror: no})));
   const libs = async base => {
@@ -216,15 +222,15 @@
     let target = b && {x: b.x, y: b.y, w: b.w, h: b.h};
     for (const e of [m.g, m.hl, m.el, m.lead]) if (e) e.style.display = '';
     const pathIn = (g, cls) => { const p = svgEl('path', cls); g.append(p); return p; };
-    const arrow = (from, to, at = 0) => {   // one light Rough.js stroke, then a filled head that springs in
+    const arrow = (from, to, at = 0, w = 1, cls = 'board-fill') => {   // one light Rough.js stroke, then a filled head that springs in; `w` scales its weight
       const c = [(from[0] + to[0]) / 2 + (to[1] - from[1]) * .18, (from[1] + to[1]) / 2 - (to[0] - from[0]) * .18];
-      const shaft = rc.curve([from, c, to], {stroke: ink, strokeWidth: 1.8, roughness: .7, bowing: .6, disableMultiStroke: true, preserveVertices: true, seed: m.seed});
+      const shaft = rc.curve([from, c, to], {stroke: ink, strokeWidth: 1.8 * w, roughness: .7, bowing: .6, disableMultiStroke: true, preserveVertices: true, seed: m.seed});
       m.g.append(shaft);
       const line = shaft.querySelector('path'), L = line ? line.getTotalLength() : 0, dur = clamp(L * 1.4, 380, 640);
       if (line) { line.setAttribute('stroke-linecap', 'round'); parts.push({kind: 'dash', el: line, L, at, dur}); }
       let tip = to, a = Math.atan2(to[1] - c[1], to[0] - c[0]);
       if (L) { const P = line.getPointAtLength(L), Q = line.getPointAtLength(Math.max(0, L - 10)); tip = [P.x, P.y]; a = Math.atan2(P.y - Q.y, P.x - Q.x); }   // the head turns with the end of the line
-      parts.push({kind: 'head', el: pathIn(m.g, 'board-fill'), tip, a, at: at + dur * .92});
+      parts.push({kind: 'head', el: pathIn(m.g, cls), tip, a, w, at: at + dur * .92});
       return at + dur;
     };
     if (o.op === 'circle') {
@@ -234,7 +240,7 @@
         const inset = Math.min(size * .42, b.w / 2 - 1);
         parts.push(stroke(m.hl, press(dense([[b.x + inset, b.y + b.h * .55], [b.x + b.w - inset, b.y + b.h * .5]]), .9, 1, .9), {size, thin: 0, dur: 420}));
       }
-      parts.push(stroke(pathIn(m.g, 'board-fill'), press(ring(b, b.glyphs ? 9 : 12, m.seed)), {size: 3.3, at: b.glyphs ? 160 : 0}));
+      parts.push(stroke(pathIn(m.g, 'board-fill board-ring'), press(ring(b, b.glyphs ? 9 : 12, m.seed)), {size: 3.3, at: b.glyphs ? 160 : 0}));
     }
     if (o.op === 'underline') parts.push(stroke(pathIn(m.g, 'board-fill'), press(dense([[b.x - 3, b.y + b.h + 5], [b.x + b.w * .5, b.y + b.h + 7], [b.x + b.w + 4, b.y + b.h + 3]])), {size: 3.5}));
     if (o.op === 'box') {   // a soft glow that blooms, then settles: no frame on the text
@@ -244,11 +250,25 @@
       m.el.classList.toggle('on-dark', m.dark);
       parts.push({kind: 'glow', el: m.el, at: 0, dur: 1200});
     }
-    if (o.op === 'point') {
-      if (!m.off) m.off = freePlace(b);
-      const cx = b.x + b.w / 2, cy = b.y + b.h / 2, r = Math.max(b.w, b.h) / 2 + 9, a = Math.atan2(m.off[1], m.off[0]);
-      const end = arrow([cx + m.off[0], cy + m.off[1]], [cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
-      parts.push(stroke(pathIn(m.g, 'board-fill'), press(ring(b, 6, m.seed)), {size: 2.8, at: end - 80}));   // the ring is the last child: it is on the target
+    if (o.op === 'point') {   // weaker than a circle in each look (see `point` in the API), so a circle stays the main mark
+      const look = st.point, cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      m.g.dataset.look = look;
+      if (look === 'dot') {   // a small dot under the target; one soft pulse goes out from it
+        const x = cx, y = b.pt ? cy : b.y + b.h + 7, dot = svgEl('circle', 'board-weak board-dot');
+        dot.setAttribute('cx', x.toFixed(1)); dot.setAttribute('cy', y.toFixed(1)); m.g.append(dot);
+        parts.push({kind: 'dot', el: dot, at: 0, dur: 260});
+        if (!reduced() && !m.still) { const p = svgEl('circle', 'board-pulse'); p.setAttribute('cx', x.toFixed(1)); p.setAttribute('cy', y.toFixed(1)); m.g.append(p); parts.push({kind: 'pulse', el: p, at: 120, dur: 700}); }
+      } else {
+        if (!m.off) m.off = freePlace(b);
+        const a = Math.atan2(m.off[1], m.off[0]), ca = Math.cos(a), sa = Math.sin(a);
+        if (look === 'tick') {   // a short thin arrow that stops 6 px before the edge of the target: no ring, so it never looks like a circle
+          const e = Math.min(Math.abs(ca) > 1e-6 ? b.w / 2 / Math.abs(ca) : 1e9, Math.abs(sa) > 1e-6 ? b.h / 2 / Math.abs(sa) : 1e9) + 6;
+          arrow([cx + ca * (e + 30), cy + sa * (e + 30)], [cx + ca * e, cy + sa * e], 0, .75, 'board-weak');
+        } else {   // 'ring': a short arrow and a ring, thinner and smaller than a circle, at half the ink
+          const r = Math.max(b.w, b.h) / 2 + 7, end = arrow([cx + ca * (r + 36), cy + sa * (r + 36)], [cx + ca * r, cy + sa * r], 0, .7, 'board-weak');
+          parts.push(stroke(pathIn(m.g, 'board-weak board-ring'), press(ring(b, 4, m.seed)), {size: 1.8, at: end - 80}));   // the ring is the last child: it is on the target
+        }
+      }
     }
     if (o.op === 'arrow') {
       const f = locate(o.from), t = locate(o.to);
@@ -331,9 +351,11 @@
       }
       if (p.kind === 'dash') { p.el.style.strokeDasharray = p.L; p.el.style.strokeDashoffset = p.L * (1 - f); p.el.style.opacity = f > 0 ? 1 : 0; }
       if (p.kind === 'head') {
-        const s = still ? (k >= 0 ? 1 : 0) : spring(q, .32, .55), [ex, ey] = p.tip, a = p.a, L = 12 * s, W = 6.5 * s, c = Math.cos(a), si = Math.sin(a);
+        const s = (still ? (k >= 0 ? 1 : 0) : spring(q, .32, .55)) * (p.w || 1), [ex, ey] = p.tip, a = p.a, L = 12 * s, W = 6.5 * s, c = Math.cos(a), si = Math.sin(a);
         p.el.setAttribute('d', s <= 0 ? '' : `M${ex + c * 2} ${ey + si * 2} L${ex - L * c + W * si} ${ey - L * si - W * c} Q${ex - L * .7 * c} ${ey - L * .7 * si} ${ex - L * c - W * si} ${ey - L * si + W * c} Z`);
       }
+      if (p.kind === 'dot') p.el.setAttribute('r', (3.2 * (still ? (k >= 0 ? 1 : 0) : spring(q, .32, .55))).toFixed(2));
+      if (p.kind === 'pulse') { const u = clamp(q / p.dur); p.el.setAttribute('r', (3.2 + 11 * smooth(u)).toFixed(2)); p.el.style.opacity = q < 0 || u >= 1 ? 0 : (.55 * (1 - u)).toFixed(3); }
       if (p.kind === 'glow') {   // Clicky's bubble glow: strong at first, then it settles
         const settle = still ? 0 : Math.exp(-Math.max(0, q) / 380), a = still ? fade : clamp(q / 220), d = m.dark;
         Object.assign(p.el.style, {opacity: op * a, boxShadow: `0 0 0 1.5px color-mix(in srgb, var(--board-ink) ${(38 + 30 * settle).toFixed(0)}%, transparent), ` +
@@ -691,7 +713,7 @@
   }
 
   // Play a checked board. See the API at the top of this file.
-  async function play(board, {labels = {}, fast = false, quiet: q = false, auto = true, host: hk = {}, who = null, onVoice = null} = {}) {
+  async function play(board, {labels = {}, fast = false, quiet: q = false, auto = true, host: hk = {}, who = null, onVoice = null, point = 'tick'} = {}) {
     if (st) stop();
     const h = {...HOST};
     for (const k of ['resolve', 'speak', 'demo']) if (typeof (hk || {})[k] === 'function') h[k] = hk[k];
@@ -701,7 +723,7 @@
     if (board.streaming) board = {...board, steps: [...board.steps]};   // add() grows the steps of its own copy
     st = {board, labels, host: h, fast, quiet: q || fast, auto: auto && !fast, i: 0, gen: 0, lit: -1, timers: [], rate: +(localStorage.getItem('board-rate') || 1), first: null,
           t0: performance.now(), stepAt: 0, ptr: {pos: null, f: null}, streaming: !!board.streaming, wait: false,
-          who: who && typeof who === 'object' ? who : null, onVoice: !fast && typeof onVoice === 'function' ? onVoice : null,
+          who: who && typeof who === 'object' ? who : null, point: LOOKS.includes(point) ? point : LOOKS[0], onVoice: !fast && typeof onVoice === 'function' ? onVoice : null,
           marks: board.steps.flatMap(marksOf)};
     // An empty answer box with the focus (a check takes it when it loads) lets go of it, so A, S and D work. A box with your text
     // keeps it: then the keys type, and a click outside the box gives them to the board. Esc gives the focus back.
