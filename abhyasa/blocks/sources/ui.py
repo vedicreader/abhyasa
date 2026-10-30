@@ -19,7 +19,7 @@ def Act(r):
     "Undo for one hour after Start filed a folder or a repo, then Remove."
     if not r.get('root'): return ''
     if r.get('undo'):
-        return Quiet('Undo', small=True, type='button', hx_post=Routes.unfile, hx_vals=dict(jid=r.undo, root=r.root), hx_target='closest li', hx_swap='outerHTML')
+        return Quiet('Undo', small=True, type='button', hx_post=Routes.unfile, hx_vals=dict(jid=r.undo, root=r.root, row=1), hx_target='closest li', hx_swap='outerHTML')
     return Quiet('Remove', small=True, type='button', hx_post=Routes.remove, hx_vals=dict(shelf=r.shelf, root=r.root), hx_target='closest li', hx_swap='outerHTML',
                  hx_confirm=f'Remove {r.root} from your vault? Your walks keep their steps.')
 

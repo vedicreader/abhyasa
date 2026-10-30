@@ -132,5 +132,5 @@ def ConceptPage(c, by, attempts, groups=()):
     return (css(), H1(c.name), head, Md(c.statement or '', cls='statement'), Div(*run('concept_actions', c), cls='row'), GroupField(c, groups), Div(*refs, cls='refs'))
 
 def Subjects(subs):
-    return (H2('Subjects'), Ul(*[Li(A(r['subject'] or 'general', href=f"{Routes.base}?subject={r['subject'] or ''}"),
+    return (H2('Subjects'), Ul(*[Li(A(label(r['subject']), href=f"{Routes.base}?subject={r['subject'] or ''}"),
                                      Span(f"  {n_of(r['n'], 'concept')}", cls='mute')) for r in subs], cls='plain'))

@@ -78,15 +78,52 @@ def test_an_old_folder_has_remove(mk, lr):
     assert rows(cl.get('/sources').text) == [] and not lr.vault.shelf('notebooks').t.docs(where="json_extract(meta, '$.root') = 'notes'")
     assert 'nothing to remove' in cl.post('/sources/remove', data=dict(shelf='notebooks', root='notes')).text
 
-def test_a_paper_with_two_copies_is_one_row(mk, lr):
-    "The PDF copy and the HTML copy of one arXiv paper show as one row, with both copies inside it."
-    a = lr.vault.add('Attention is a weighted sum.', 'Attention Is All You Need', source='https://arxiv.org/pdf/1706.03762', kind='pdf')['doc_id']
-    b = lr.vault.add('Attention is a weighted sum of values.', 'Attention Is All You Need (HTML)', source='https://arxiv.org/html/1706.03762v7', kind='web')['doc_id']
+def test_a_paper_with_its_copies_is_one_row(mk, lr):
+    "The PDF copy, the HTML copy (`abs/<id>`) and a changed HTML copy (`abs/<id>?html=<sha>`) of one arXiv paper show as one row, with the copies inside it."
+    add = lambda src, t: lr.vault.add(f'Attention is a weighted sum. {t}', t, source=src, kind='pdf')['doc_id']
+    a = add('https://arxiv.org/pdf/1706.03762', 'Attention Is All You Need')
+    b = add('https://arxiv.org/abs/1706.03762', 'Attention Is All You Need (HTML)')
+    c = add('https://arxiv.org/abs/1706.03762?html=0123456789', 'Attention Is All You Need (HTML, new)')
     lr.put_journey(dict(id='w-att', title='Attention', mode='walk', source=dict(shelf='store', doc_id=a, title='Attention Is All You Need'),
-                        steps=[dict(slug='ranking', read=dict(shelf='store', doc_id=b, text='Attention is a weighted sum of values.'))]))
+                        steps=[dict(slug='ranking', read=dict(shelf='store', doc_id=d, text='Attention is a weighted sum.')) for d in (b, c)]))
     h = mk().get('/sources').text
-    assert len(rows(h)) == 1 and '2 copies' in rows(h)[0]
-    assert f'href="/v/store/{a}"' in h and f'href="/v/store/{b}"' in h
+    assert len(rows(h)) == 1 and '3 copies' in rows(h)[0]
+    assert all(f'href="/v/store/{d}"' in h for d in (a, b, c))
+
+def test_paper_id_from_any_arxiv_link():
+    "One id for each form of an arXiv link: abs, pdf and html, a version, a query, and the old form of an id. Another link has none."
+    from abhyasa.blocks.sources.app import _paper
+    for u in ('https://arxiv.org/pdf/1706.03762', 'https://arxiv.org/pdf/1706.03762v7.pdf', 'https://arxiv.org/abs/1706.03762?html=0123456789',
+              'arxiv.org/abs/1706.03762v2', 'https://arxiv.org/html/1706.03762v7', 'https://www.arxiv.org/abs/1706.03762#s1'):
+        assert _paper(u) == '1706.03762', u
+    assert _paper('https://arxiv.org/abs/hep-th/9901001v2?html=ab') == 'hep-th/9901001'
+    assert _paper('https://example.org/1706.03762') == '' and _paper('/tmp/attention.pdf') == ''
+
+def test_one_undo_limit_for_the_walk_and_sources(mk, lr):
+    "The walk page and Sources read the one Undo limit in core: just inside it both show Undo, just outside it neither does."
+    from abhyasa.core import UNDO_FOR
+    ds = folder(lr, 'course')
+    for at, shows in ((time.time() - UNDO_FOR + 60, True), (time.time() - UNDO_FOR - 60, False)):
+        lr.put_journey(dict(id='w-course', title='Walk through course', mode='walk', steps=[], source=dict(url='/tmp/course', docs=ds), filed=[dict(root='course', docs=ds, at=at)]))
+        cl = mk()
+        assert ('Added course' in cl.get('/w/w-course').text) == shows
+        assert ('hx-post="/walk/unfile"' in cl.get('/sources').text) == shows
+
+def test_undo_on_sources_gives_a_row(mk, lr):
+    "Undo on Sources swaps its row for a list item that says what it removed; the walk page keeps its plain line."
+    ds = folder(lr, 'course')
+    lr.put_journey(dict(id='w-course', title='Walk', mode='walk', steps=[], source=dict(docs=ds), filed=[dict(root='course', docs=ds, at=time.time())]))
+    cl = mk()
+    hx = {'HX-Request': 'true'}
+    li = BeautifulSoup(cl.post('/walk/unfile', data=dict(jid='w-course', root='course', row='1'), headers=hx).text, 'html.parser').find()
+    assert li.name == 'li' and li.p.get_text() == 'Removed course from your vault: 3 documents.'
+    assert BeautifulSoup(cl.post('/walk/unfile', data=dict(jid='w-course', root='course'), headers=hx).text, 'html.parser').find().name == 'p'
+
+def test_subjects_show_their_labels(mk, lr):
+    "Your learning names each subject by its label: ML, and General for no subject."
+    lr.put('Loose idea', 'An idea with no subject.', '')
+    h = mk().get('/learning').text
+    assert '>ML</a>' in h and '>General</a>' in h and '>general</a>' not in h
 
 def test_pasted_text_and_web_kinds(mk, lr):
     "A walk from pasted text shows as `text`; a page that research found shows as `from the web`."

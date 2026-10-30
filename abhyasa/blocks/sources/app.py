@@ -4,10 +4,10 @@ import json, re, time
 from datetime import datetime, timezone
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page, Part, RouteOverrides, n_of
+from abhyasa.core import Page, Part, RouteOverrides, n_of, can_undo
 from abhyasa.ground import VedicSource, index_ramabana, index_notebooks, RAMA_CFG
 from abhyasa.journey import for_talk
-from abhyasa.sources import ARXIV_ID, WEB, YOURS, source_of, vault_roots, root_docs
+from abhyasa.sources import ARXIV_ID, ARXIV_LINK, WEB, YOURS, source_of, vault_roots, root_docs
 import abhyasa.talk   # `Learning.talks`
 from . import ui
 from .cfg import Routes
@@ -18,7 +18,6 @@ CAPS = ('learning', 'sources')
 INDEXERS = dict(
     ramabana=('ramabana sessions', 'One document for each session from ~/.config/ramabana, on the shelf "ramabana".'),
     notebooks=('leela agent sessions', 'Each notebook in a _leela_agent_sessions folder under ~/code, on the shelf "notebooks".'))
-UNDO_FOR = 3600   # as the walk block: Undo shows for one hour after Start filed a folder or a repo
 TEXT = 'text'
 
 def _refs(j):
@@ -29,10 +28,14 @@ def _refs(j):
         if (h := source_of(s.get('read') or {}).href): out.append(tuple(h.split('/')[2:4]))
     return [(sh, d) for sh, d in dict.fromkeys(out) if sh and d]
 
+ARXIV_HTML = re.compile(rf'(?:https?://)?(?:www\.)?arxiv\.org/html/({ARXIV_ID.pattern})/?', re.I)
+
 def _paper(source) -> str:
-    "The arXiv id of the paper at `source`, with no version, so its PDF and its HTML copy are one row; '' for another document."
-    s = str(source or '')
-    return re.sub(r'v\d+$', '', m.group()) if 'arxiv.org/' in s and (m := ARXIV_ID.search(s)) else ''
+    """The arXiv id of the paper at `source` (an `arxiv.org/abs`, `pdf` or `html` link, with any query), with no version, so the PDF
+    copy and the HTML copy (`abs/<id>`, or `abs/<id>?html=<sha>` for a changed copy) are one row; '' for another document."""
+    s = re.split(r'[?#]', str(source or '').strip(), maxsplit=1)[0]
+    m = ARXIV_LINK.fullmatch(s) or ARXIV_HTML.fullmatch(s)
+    return re.sub(r'v\d+$', '', m[1]) if m else ''
 
 def _added(d) -> float:
     "When the vault filed document `d`: its `added_at` is a UTC time as text, `2026-10-30 01:38:44`, or a number."
@@ -94,7 +97,7 @@ def connect(app, ctx):
             if r.root and (jf := roots.get(r.root)):
                 j, f = jf
                 r.at = f.get('at') or r.at
-                if time.time() - f.get('at', 0) < UNDO_FOR: r.undo = j.id
+                if can_undo(f): r.undo = j.id
         return sorted(out.values(), key=lambda r: -(r.at or 0))
 
     def page():

@@ -11,7 +11,7 @@ from abhyasa.model import DEPTHS
 from abhyasa.sources import source_of
 
 __all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'SubTabs', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
-           'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill']
+           'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -317,6 +317,12 @@ def Pill(word:str):
 def Empty(text, action=None, cls=''):
     "The one empty state: a muted line and at most one link. Never a box."
     return P(text, *((' ', action) if action is not None else ()), cls=f'mute empty {cls}'.strip())
+
+UNDO_FOR = 3600   # seconds after Start that Undo shows for a folder or a repo that Start filed: the walk page and Sources read it
+
+def can_undo(f, now=None) -> bool:
+    "True when the filing `f` (`at`, `undone`) is not undone and is less than `UNDO_FOR` seconds old."
+    return not f.get('undone') and (now or time.time()) - f.get('at', 0) < UNDO_FOR
 
 def Part(label, *c, more=None, more_label='More', **kw):
     "A section of a page: the small H2 label, the content, and an optional closed `More` part in one style."
