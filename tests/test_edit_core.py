@@ -1,6 +1,6 @@
 "The shared editor core: the Undo of a walk path, the Undo bar, the history list, the editor list, a live field and the rewrite prompt."
 from fasthtml.common import to_xml, Input
-from abhyasa.edit import restore_steps
+from abhyasa.edit import restore_steps, undo_line, CODE_GONE
 from abhyasa.core.edit import UndoBar, HistoryList, EditList, Live, edit_keys, edit_assets, EDIT_BAR_SECS
 from abhyasa.core.keys import KEYS
 
@@ -11,8 +11,19 @@ def test_undo_keeps_run_fields_and_research():
            dict(slug='a', read=dict(text='w', researched=True), check=dict(kind='demo'), note='N'), dict(slug='c')]
     out = restore_steps(before, now)
     assert [s['slug'] for s in out] == ['a', 'b']
-    assert out[0]['read']['text'] == 'w' and out[0]['check'] == dict(kind='short') and out[0]['note'] == 'N'
+    assert out[0]['read']['text'] == 'w' and out[0]['check'] == dict(kind='short') and 'note' not in out[0]   # the note is content: Undo takes back the new note
     assert out[1]['done'] == dict(outcome='solid') and out[1]['qid'] == 'q7' and out[1]['read_at'] == 5.
+
+def test_undo_gives_back_the_old_note():
+    assert restore_steps([dict(slug='a', note='Old.')], [dict(slug='a', note='New.', qid='q1')]) == [dict(slug='a', note='Old.', qid='q1')]
+
+def test_undo_keeps_the_code_of_a_check_made_again():
+    "A check made again after the change keeps its new code, and the editor gets one plain line. The same check gets its old code back."
+    before, now = [dict(slug='a', qid='q1', code=dict(stub='old'), status='todo')], [dict(slug='a', qid='q2', code=dict(stub='new'), status='skipped')]
+    assert restore_steps(before, now) == [dict(slug='a', qid='q2', code=dict(stub='new'), status='todo')]
+    assert undo_line(before, now) == CODE_GONE == 'This check was made again after the change. Undo cannot bring the old code back.'
+    same = [dict(slug='a', qid='q1', code=dict(stub='new'))]
+    assert restore_steps(before, same)[0]['code'] == dict(stub='old') and undo_line(before, same) == ''
 
 def test_undo_bar_is_polite_and_names_the_change():
     h = to_xml(UndoBar('Moved “Softmax” to slide 5.', '/t/x/undo', '/t/x/history'))
