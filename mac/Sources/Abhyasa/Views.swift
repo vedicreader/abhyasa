@@ -12,8 +12,16 @@ struct WebView: NSViewRepresentable {
 
 struct MainView: View {
     let model: AppModel
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
+        phase.onAppear {
+            // the guide's menu bar mark and its first-use sheet open Settings with this
+            Guide.shared.openSettings = { [openSettings] in NSApp.activate(); openSettings() }
+        }
+    }
+
+    @ViewBuilder var phase: some View {
         switch model.supervisor.phase {
         case .ready:
             WebView(web: model.web)
@@ -89,7 +97,7 @@ struct SettingsView: View {
     let model: AppModel
     @State private var s = Prefs.load()
     @State private var typing = false
-    @State private var guide = Guide.enabled
+    private let guide = Guide.shared.status
     private static let other = "\u{1}other"
 
     /// the list item: the model, or "Type another model id" for an id that the list does not have
@@ -120,9 +128,9 @@ struct SettingsView: View {
                 TextField("Vault", text: $s.vault)
                 Button("Choose…") { choose() }
             }
-            Toggle("Screen guide over other apps", isOn: $guide)
-                .onChange(of: guide) { _, on in Guide.shared.setEnabled(on) }
-            Text("Tap \(GuideText.key) to type a question about the window in front. Hold \(GuideText.key) to say it. The tutor draws the answer over the window. Esc stops it.")
+            // off until the learner pushes Start in the first-use sheet; turning it on shows that sheet the first time
+            Toggle("Screen guide over other apps", isOn: Binding(get: { guide.on }, set: { Guide.shared.setEnabled($0) }))
+            Text("Tap \(GuideText.key) to type a question about the window in front. Hold \(GuideText.key) to say it. The tutor draws the answer over the window. Esc stops it. The guide is off until you turn it on.")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
                 Spacer()

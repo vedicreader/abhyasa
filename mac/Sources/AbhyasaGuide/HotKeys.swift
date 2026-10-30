@@ -2,13 +2,16 @@ import Carbon.HIToolbox
 import Foundation
 
 /// The guide's keys as Carbon hot keys (`RegisterEventHotKey`): they give a press and a release, and they need no permission
-/// (no event tap, no Input Monitoring). ⌥` is always held while the guide is on. `Esc` is held only while a board shows.
+/// (no event tap, no Input Monitoring). The guide key is Caps+E: the owner's Caps Lock is Hyper (⌃⌥⇧⌘), so the key is ⌃⌥⇧⌘E,
+/// the same key as the page guide. It is held only while the guide is on. `Esc` is held only while a board shows.
 @MainActor
 public final class HotKeys {
     public struct Key: Equatable, Sendable {
         public var code: UInt32
         public var mods: UInt32
-        public static let guide = Key(code: UInt32(kVK_ANSI_Grave), mods: UInt32(optionKey))
+        /// Hyper+E: Control, Option, Shift and Command with E
+        public static let hyper = UInt32(controlKey | optionKey | shiftKey | cmdKey)
+        public static let guide = Key(code: UInt32(kVK_ANSI_E), mods: hyper)
         public static let escape = Key(code: UInt32(kVK_Escape), mods: 0)
     }
     enum ID: UInt32 { case guide = 1, escape = 2 }

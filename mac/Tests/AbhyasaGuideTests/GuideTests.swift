@@ -162,6 +162,27 @@ let both = [laptop, monitor]
         #expect(try #require(GuideEvent.parse(#"{"board": {}}"#)).isLast)
         #expect(try !#require(GuideEvent.parse(#"{"step": {}, "k": 0}"#)).isLast)
     }
+
+    @Test func aWaitCanTellTheStateAndWhoGetsTheText() throws {
+        let e = try #require(GuideEvent.parse(#"{"wait": "Asks Claude Sonnet.", "state": "asking", "model": "Claude Sonnet", "where": "hosted", "who": "Anthropic"}"#))
+        #expect(e.kind == .wait("Asks Claude Sonnet."))
+        #expect(e.status == GuideEvent.Status(state: "asking", model: "Claude Sonnet", place: "hosted", who: "Anthropic"))
+        let q = try #require(GuideEvent.parse(#"{"wait": "Searches the web.", "state": "searching", "query": "rnn speed", "sources": 2}"#))
+        #expect(q.status?.query == "rnn speed" && q.status?.sources == 2 && q.status?.model == nil)
+    }
+
+    @Test func anOldWaitHasNoStatus() throws {
+        #expect(try #require(GuideEvent.parse(#"{"wait": "w"}"#)).status == nil)
+        #expect(try #require(GuideEvent.parse(#"{"wait": "w", "state": 3}"#)).status == nil)   // a wrong type reads as missing
+    }
+
+    @Test func aSavedEventHasItsTitleAndUndo() throws {
+        let e = try #require(GuideEvent.parse(#"{"saved": {"title": "Attention", "url": "https://x.org/a", "undo": "/guide/undo/7"}}"#))
+        #expect(e.kind == .saved(GuideEvent.Saved(title: "Attention", url: "https://x.org/a", undo: "/guide/undo/7")))
+        #expect(!e.isLast)
+        let bare = try #require(GuideEvent.parse(#"{"saved": {}}"#))
+        #expect(bare.kind == .saved(GuideEvent.Saved(title: "", url: "", undo: "")))
+    }
 }
 
 @Suite struct KeyMachineTests {
@@ -237,7 +258,7 @@ let both = [laptop, monitor]
     @Test func theWordsNameTheAppAndTheKey() {
         #expect(GuideText.windowOnly("Preview").contains("Preview"))
         #expect(GuideText.accessBody("Xcode").contains("Accessibility"))
-        #expect(GuideText.micOn.contains("⌥`"))
+        #expect(GuideText.micOn.contains("Caps+E"))
         #expect(GuideText.end == "In the tutor's own words. No source found.")
     }
 }
