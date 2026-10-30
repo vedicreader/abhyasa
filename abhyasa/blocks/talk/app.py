@@ -238,15 +238,19 @@ def connect(app, ctx):
         j = lr.journey(jid)
         return j if j and j.get('mode') == 'walk' and j.steps else None
 
-    def new(jid:str='', again:str=''):
+    def new(jid:str='', again:str='', tid:str=''):
         """Start the pool job that makes a talk from walk `jid`, unless one runs. The request does not wait for the model.
-        `again` with a talk made from the walk before: make that talk again from the walk (`talk_again`), with the same id and your edits."""
+        `again` (a number that is not 0) makes talk `tid` again from the walk (`talk_again`), with the same id and your edits; with no `tid`,
+        the newest talk of the walk. The job of a talk made again has the talk id as its key."""
         if not walk_of(jid := jid.strip()): return P('No such walk.', cls='req-err')
-        t = walk_talk(lr, jid) if again else None
-        if not (job := jobs.get(jid)) or job.done():
-            jobs[jid] = ctx.pool.submit(lambda: talk_again(lr, ask(), t.id, ctx.sources).id if t else talk_from_walk(lr, ask(), jid, sources=ctx.sources).id)
-            jobs[jid].again = bool(t)
-        return ui.Pending(jid, again=getattr(jobs[jid], 'again', False))
+        if (a := again.strip()).isdecimal() and int(a):
+            t = lr.talk(tid.strip()) if tid.strip() else walk_talk(lr, jid)
+            if not t or (t.get('src') or {}).get('walk') != jid: return P('No such talk for this walk.', cls='req-err')
+            if not (job := jobs.get(t.id)) or job.done():
+                jobs[t.id] = ctx.pool.submit(lambda: talk_again(lr, ask(), t.id, ctx.sources).id); jobs[t.id].again = True
+            return ui.Pending(t.id, again=True)
+        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_walk(lr, ask(), jid, sources=ctx.sources).id)
+        return ui.Pending(jid)
 
     def find_sources(w):
         "Before the slides are made: mark the steps of walk `w` with no passage as pending, look for their web sources on the research pool, and wait."
@@ -270,9 +274,9 @@ def connect(app, ctx):
         "The state of the talk from walk `jid`, or of Fill the slides of talk `jid`: the pending card, a redirect to the editor, or a message."
         if not (j := jobs.get(jid.strip())): return P('No talk is being made from this walk. Try again.', cls='req-err')
         again = getattr(j, 'again', False)
-        if not j.done(): return ui.Pending(jid.strip(), fill=bool(lr.talk(jid.strip())), again=again)
+        if not j.done(): return ui.Pending(jid.strip(), fill=not again and bool(lr.talk(jid.strip())), again=again)
         if j.exception(): return P(NO_TALK, cls='req-err')   # never the words of a library
-        done = '?done=fill' if j.result() == jid.strip() else '?done=again' if again else ''   # Fill the slides: the job of a talk has the id of the talk
+        done = '?done=again' if again else '?done=fill' if j.result() == jid.strip() else ''   # Fill the slides: the job of a talk has the id of the talk
         return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=j.result()) + done})
 
     def walk_for(t): return lr.journey((t.get('src') or {}).get('walk') or '')

@@ -61,8 +61,8 @@ def test_again_through_the_app(mk, lr, talk_fake):
     cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='edit', notes='Mine.'))
     drop_and_add(lr, jid, lr.talk(tid).slides[1]['concept'])
     r = cl.post('/talk/new', data=dict(jid=jid, again='1'))
-    assert 'Making the talk again' in r.text or 'hx-get' in r.text
-    loc = wait_for(lambda: cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect'))
+    assert f'/talk/job?jid={tid}' in r.text   # the newest talk of the walk, with no tid; its job has the talk id
+    loc = wait_for(lambda: cl.get(f'/talk/job?jid={tid}').headers.get('hx-redirect'))
     assert loc == f'/t/{tid}?done=again' and len(lr.talks()) == n
     h = cl.get(loc).text
     assert AGAIN in h and GONE in h and "The walk changed" not in h and "3 ideas · 2 sections" in h
@@ -174,3 +174,34 @@ def test_second_talk_under_more(mk, lr, talk_fake):
     cl = mk(); jid = prep_walk(lr, walk(cl, lr)); tid = make_talk(cl, jid)
     tid2 = make_talk(cl, jid)
     assert tid2 != tid and lr.talk(tid) and lr.talk(tid2)
+
+def test_again_remakes_the_talk_it_is_pressed_in(mk, lr, talk_fake):
+    "With two talks of one walk, Make it again in the older talk remakes that talk, not the newest; a talk of another walk is refused."
+    cl = mk(); jid = prep_walk(lr, walk(cl, lr)); old = make_talk(cl, jid); new = make_talk(cl, jid)
+    drop_and_add(lr, jid, lr.talk(old).slides[1]['concept'])
+    h = cl.get(f'/t/{old}').text
+    assert f'name="tid" value="{old}"' in h
+    cl.post('/talk/new', data=dict(jid=jid, again='1', tid=old))
+    loc = wait_for(lambda: cl.get(f'/talk/job?jid={old}').headers.get('hx-redirect'))
+    assert loc == f'/t/{old}?done=again' and lr.edits('talk', old)[0].what == AGAIN and not lr.edits('talk', new)
+    other = lr.put_talk({**lr.talk(new), 'id': 'other-talk-ab12', 'src': {'walk': 'another-walk'}})
+    assert 'No such talk for this walk.' in cl.post('/talk/new', data=dict(jid=jid, again='1', tid=other.id)).text
+
+def test_again_zero_is_not_again(mk, lr, talk_fake):
+    "again=0 (or a word) makes a new talk as before; it does not remake the talk."
+    cl = mk(); jid = prep_walk(lr, walk(cl, lr)); tid = make_talk(cl, jid)
+    for v in ('0', 'no'):
+        cl.post('/talk/new', data=dict(jid=jid, again=v, tid=tid))
+        loc = wait_for(lambda: (h := cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect')) and 'done=again' not in h and h.split('/')[-1] != tid and h or None)
+        assert loc and not lr.edits('talk', tid)
+
+def test_after_page_with_a_parked_slide(mk, lr, talk_fake):
+    "After a run that showed a slide that is parked now, the After page and the recap file still open."
+    cl = mk(); jid = prep_walk(lr, walk(cl, lr)); tid = make_talk(cl, jid)
+    cl.post(f'/t/{tid}/start'); s2 = lr.talk(tid).slides[1]
+    cl.post(f'/t/{tid}/at', data=dict(slide=s2['id'], beat=1)); cl.post(f'/t/{tid}/end')
+    drop_and_add(lr, jid, s2['concept']); talk_again(lr, talk_fake, tid)
+    rid = lr.runs(tid)[0]['id']
+    assert cl.get(f'/t/{tid}/after?run={rid}').status_code == 200
+    r = cl.get(f'/t/{tid}/recap.html?run={rid}&look=1')
+    assert r.status_code == 200 and lr.talk(tid).slides[0]['title'] in r.text

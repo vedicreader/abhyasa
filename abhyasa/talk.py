@@ -557,21 +557,29 @@ def _set(s:dict, k:str, v):
     elif v is None: s['show'].pop(k[5:], None)
     else: s['show'][k[5:]] = v
 
-def _kept(s:dict, i:int, st:dict, f:dict|None, mk:dict|None) -> tuple:
-    "`(slide, marks)`: slide `s` of walk step `i` (`st`), with the new slide `f` in each part that you did not change."
+def _unpark(s:dict) -> dict:
+    "Parked slide `s` with the section that it had before it was parked."
+    s = deepcopy(s)
+    was = s.pop('was', '')
+    if parked(s): s['section'] = was
+    return s
+
+def _kept(s:dict, i:int, st:dict, f:dict|None, fm:str|None, mk:dict|None) -> tuple:
+    "`(slide, marks)`: slide `s` of walk step `i` (`st`), with the new slide `f` (made from the step with hash `fm`) in each part that you did not change."
     back = s.get('section') == GONE
     s = {**deepcopy(s), 'step': i, **({'section': (st.get('read') or {}).get('section') or ''} if back else {})}
+    s.pop('was', None)
     if not mk: return s, None   # a talk made before 0.0.14: the slide stays as it is
     now = slide_marks(s)
     mine = {p for p, h in mk['slide'].items() if now.get(p) != h and not (back and p == 'section')}
-    if f is None: return s, dict(mk, step=step_mark(st))   # the step did not change
+    if f is None: return s, mk   # no new slide: the slide and its marks stay
     new = {**deepcopy(f), 'id': s['id'], 'step': i}
     new['show'] = dict(new.get('show') or {})
     for p in mine:
         for k in SLIDE_PARTS[p]: _set(new, k, deepcopy(_key(s, k)))
-    if check_talk(dict(schema=TALK_SCHEMA, slides=[new])): return s, dict(mk, step=step_mark(st))
+    if check_talk(dict(schema=TALK_SCHEMA, slides=[new])): return s, mk
     made = slide_marks(new)
-    return new, dict(step=step_mark(st), slide={p: mk['slide'][p] if p in mine else made[p] for p in SLIDE_PARTS})
+    return new, dict(step=fm, slide={p: mk['slide'][p] if p in mine else made[p] for p in SLIDE_PARTS})
 
 # %% ../nbs/17_talk.ipynb #ag13
 def _next_id(ss): return max((int(s['id'][1:]) for s in ss if str(s.get('id', ''))[1:].isdecimal()), default=0) + 1
@@ -586,13 +594,14 @@ def again_slides(t:dict, j:dict, fresh:dict) -> dict:
         c = st.get('slug')
         if c in groups:
             s, *rest = groups.pop(c)
-            s, mk = _kept(s, i, st, fresh.get(c), marks.get(c))
+            s, mk = _kept(s, i, st, *fresh.get(c, (None, None)), marks.get(c))
             if mk: marks[c] = mk
-            out += [s, *rest]
+            out += [s, *map(_unpark, rest)]
         elif c not in made and c in fresh:   # a new idea; an idea whose slide you removed stays out
-            out.append(s := {**deepcopy(fresh[c]), 'id': f's{n}', 'step': i}); n += 1
-            marks[c] = dict(step=step_mark(st), slide=slide_marks(s))
-    gone = [{**deepcopy(s), 'section': GONE} for g in groups.values() for s in g]
+            f, fm = fresh[c]
+            out.append(s := {**deepcopy(f), 'id': f's{n}', 'step': i}); n += 1
+            marks[c] = dict(step=fm, slide=slide_marks(s))
+    gone = [{**deepcopy(s), 'section': GONE, 'was': s.get('was', '') if parked(s) else s.get('section') or ''} for g in groups.values() for s in g]
     return dict(slides=out + tail + gone, made_from=[st.get('slug') for _, st in steps], walk_at=j.get('updated'), marks=marks)
 
 # %% ../nbs/17_talk.ipynb #ag13b
@@ -603,6 +612,7 @@ def put_back(t:dict, j:dict|None, sid:str) -> list:
     if k is None: raise KeyError(f'no parked slide {sid!r}')
     s = deepcopy(ss.pop(k))
     st = next((x for x in (j or {}).get('steps') or [] if x.get('slug') == s.get('concept')), {})
+    s.pop('was', None)
     s.update(section=(st.get('read') or {}).get('section') or '', own=True)
     at = len([x for x in ss if not parked(x)])
     while at and ss[at-1].get('kind') in ('questions', 'recap'): at -= 1
@@ -620,10 +630,10 @@ def _needs(t:dict, j:dict) -> list:
     return [(i, st) for i, st in enumerate(j['steps']) if st.get('status') != 'skip' and need(st)]
 
 def _fresh(lr:Learning, ask, need:list, choice:bool, sources=None, fill:bool=True) -> dict:
-    "A new slide for each step of `need`, by concept."
+    "`(slide, the hash of the step that it is made from)` for each step of `need`, by concept."
     ss = [_idea(lr, ask, i, st, 'new', choice) for i, st in need]
     if fill: ss = fill_slides(lr, ask, ss, sources)
-    return {s['concept']: clean_slide(s) for s in ss}
+    return {s['concept']: (clean_slide(s), step_mark(st)) for s, (_, st) in zip(ss, need)}
 
 def talk_again(lr:Learning, ask, tid:str, sources=None, choice:bool|None=None) -> AttrDict:
     "Make talk `tid` again from its walk, with the same id, and keep your edits. The change is one history row, so one Undo takes it back."
@@ -919,7 +929,7 @@ def recap_html(t:dict, run:dict, resolve) -> str:
     ps = {s['id']: s for s in pub.slides}
     d = datetime.fromtimestamp(run.get('started') or time.time())
     out = [f'<header><h1>{e(str(t["title"]))}</h1><p class="meta">{d:%B} {d.day}, {d.year}</p></header>']
-    for s, _ in _shown(t, run):
+    for s, _ in _shown(on_stage(t), run):
         p, part = ps[s['id']], [f'<h2>{e(str(ps[s["id"]]["title"]))}</h2>']
         if p['section']: part.append(f'<p class="meta">{e(str(p["section"]))}</p>')
         if p['passage']: part.append(f'<blockquote>{e(str(p["passage"]))}</blockquote>')
@@ -934,6 +944,6 @@ def recap_html(t:dict, run:dict, resolve) -> str:
     if kept:
         qs = ''.join(f'<li><p>{e(str(q.get("text") or ""))}</p>' + (f'<p class="note">{e(str(q["note"]))}</p>' if q.get('note') else '') + '</li>' for q in kept)
         out.append(f'<section><h2>Questions from the room</h2><ul>{qs}</ul></section>')
-    if (srcs := _sources_html([s for s, _ in _shown(t, run) if ps[s['id']]['passage']])): out.append(srcs)
+    if (srcs := _sources_html([s for s, _ in _shown(on_stage(t), run) if ps[s['id']]['passage']])): out.append(srcs)
     return (f'<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             f'<title>{e(str(t["title"]))}</title><style>{RECAP_CSS}</style></head><body>{"".join(out)}</body></html>\n')

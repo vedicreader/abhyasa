@@ -50,17 +50,17 @@ def PresentWalk(jid, t=None, quiet=False):
                   hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')   # the old way: a new talk, with no edits
     return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, Details(Summary('More'), second, cls='talk-more'), cls='row')
 
-def again_input(t): return (Input(type='hidden', name='again', value='1'),) if t else ()
+def again_input(t): return (Input(type='hidden', name='again', value='1'), Input(type='hidden', name='tid', value=t['id'])) if t else ()
 
-def AgainLine(jid, ch):
-    "The walk changed after the talk was made (`ch`, from `walk_changes`): what changed, and Make it again. Nothing when nothing changed."
+def AgainLine(t, jid, ch):
+    "The walk `jid` changed after talk `t` was made (`ch`, from `walk_changes`): what changed, and Make it again for this talk. Nothing when nothing changed."
     parts = [f"{n_of(ch[k], 'idea')} {k}" for k in ('added', 'removed', 'moved') if ch and ch.get(k)]
     n = (ch or {}).get('changed') or 0
     if not parts and not n: return ''
     said = ' '.join(x for x in (f"The walk changed after this talk was made: {', '.join(parts)}." if parts else '',
                                 f"{n_of(n, 'idea')} changed in the walk. Make it again to take the changes." if n else '') if x)
     return Div(P(said, cls='mute'),
-               Form(Input(type='hidden', name='jid', value=jid), *again_input(True), Secondary('Make it again', data_wait='Making the talk again…'),
+               Form(Input(type='hidden', name='jid', value=jid), *again_input(t), Secondary('Make it again', data_wait='Making the talk again…'),
                     Small(' Your edits to slides stay in the new talk where the idea is the same.', cls='mute'),
                     hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new'), cls='talk-again')
 
@@ -331,7 +331,7 @@ def Editor(t, j, pj=None, changed=False, ch=None, bar=None, again=None):
     cut = P('This talk has the first steps of the walk, up to the Ideas in a walk setting (12 by default). Skipped steps are left out.', cls='mute') if pj and (j.get('more') or any(s.get('status') == 'skip' for s in pj.steps)) else ''
     old = P('The walk changed after this talk was made. Make it again to update it.', cls='mute') if changed else ''
     return (H1(f"{t['title']}, as a talk"),
-            P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), ' · ', A('Earlier versions', href=at(Routes.history, t['id'])), cls='mute'), cut, old, AgainLine(j.id, again) if j and again else '',
+            P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), ' · ', A('Earlier versions', href=at(Routes.history, t['id'])), cls='mute'), cut, old, AgainLine(t, j.id, again) if j and again else '',
             P('Each idea of the walk is one slide. The passage or the points, and the figure, show to the room. The speaker note is for you only. '
               'A change saves at once, and Undo takes it back. A change here does not change the walk.', cls='lead'),
             Div(Form(Primary('Present', data_wait='Starting…'), action=at(Routes.start, t['id']), method='post', hx_boost='false'), *Slot(t), cls='row talk-top'),
