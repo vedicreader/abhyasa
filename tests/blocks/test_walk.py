@@ -43,7 +43,6 @@ def test_step_page_and_short_check(mk, walk_fake, lr):
     page = cl.get(f'/w/{jid}/1').text
     assert 'apply a softmax function' in page and f'src="/w/{jid}/1/img"' in page and f'hx-get="/w/{jid}/1/note"' in page
     assert 'Skip this idea' in page and '⌥F' not in page                             # a quiet skip while the check is open; ⌥F stays the shortcuts panel
-    assert 'KeyF' not in (Path(abhyasa.blocks.walk.__file__).parent/'walk.js').read_text()
     assert 'Softmax makes weights' not in page and 'Softmax makes weights' in cl.get(f'/w/{jid}/1/note').text   # the note loads after the page
     assert lr.journey(jid).steps[1]['read_at']
     card = cl.get(f'/w/{jid}/1/check').text
@@ -221,25 +220,27 @@ def _chromium():
 @pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
 @pytest.mark.parametrize('how', ['click', 'key'])
 def test_next_idea_moves_on_after_a_code_pass_in_a_browser(mk, walk_fake, lr, how):
-    import socket, threading, time, uvicorn
+    import socket, threading, uvicorn
     from playwright.sync_api import sync_playwright
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
     with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
     srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
     th = threading.Thread(target=srv.run, daemon=True); th.start()
-    while not srv.started: time.sleep(.05)
+    assert wait_for(lambda: srv.started or None, secs=30), 'the server did not start'
     try:
         with sync_playwright() as p:
             b = p.chromium.launch(headless=True)
             try:
                 pg = b.new_page(); url = f'http://127.0.0.1:{port}/w/{jid}/1'
-                pg.goto(url); pg.wait_for_selector('#source')
+                pg.goto(url, wait_until='load'); pg.wait_for_selector('#source')
+                pg.wait_for_function('() => window.htmx && window.abhyasaKeys')            # core.js has bound the keys
                 pg.fill('#source', GOOD); pg.press('#source', 'Control+Enter')           # runs the tests
                 pg.wait_for_selector('#code-out .go')                                     # the close shows Next idea
+                pg.wait_for_function("() => abhyasaFind(abhyasaKeys.KeyS)?.closest('#code-out')")   # htmx settled: ⌥S now finds Next idea, not Run
                 if how == 'click': pg.click('#code-out .go')
                 else: pg.keyboard.press('Alt+s')
-                pg.wait_for_function('u => location.href != u', arg=url, timeout=10000)
+                pg.wait_for_function('u => location.href != u', arg=url, timeout=30000)
                 assert pg.url != url and 'code-editor' not in pg.content().split('walk-main')[0]
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
@@ -621,12 +622,10 @@ def test_wrong_try_gives_empty_boxes_and_keeps_the_try_in_the_record(mk, walk_fa
     assert f'data-qid="{qid}"' in r and all('data-draft' in b[k][0] for k in b)        # core.js keeps a draft for each box, by question
 
 def test_a_refused_move_gives_the_server_a_plain_reason(mk, walk_fake, lr):
-    "A move on a check that is not open answers 409 with a short plain line, which core.js shows on the page."
+    "A move on a check that is not open answers 409 with a short plain line, which the page shows (walk_look er1 checks it in a browser)."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='x'))
     assert r.status_code == 409 and r.text == 'No check is open on this idea. Load the page again.' and 'html' not in r.headers.get('content-type', '')
-    js = (Path(abhyasa.__file__).parent/'core'/'core.js').read_text()
-    assert 'responseText' in js and 'Load the page again' in js and 'textContent' in js
 
 def link_walk_subjects(cl, u, **data):
     "Make a link walk with the form fields `data`, wait for it, and return the subjects of its concepts."

@@ -17,6 +17,7 @@ TMP = Path(tempfile.mkdtemp(prefix='abhyasa-talk-look-'))
 os.environ['VISHALAKSHI_VAULT'] = os.environ['ABHYASA_VAULT'] = str(TMP/'vault.db')   # never the real vault
 os.environ['ABHYASA_CONFIG'] = str(TMP/'config')                                       # nor the real settings
 os.environ['RAMABANA_CONFIG'] = str(TMP/'ramabana.toml')                               # nor the real ramabana config
+os.environ.setdefault('LITESEARCH_CACHE', str(TMP/'litesearch'))                    # nor the shared litesearch lock of another run
 os.environ['ABHYASA_LEELA_FILE'] = str(TMP/'leela'/'serving.json')
 os.environ['XDG_CONFIG_HOME'] = str(TMP/'xdg')
 for k in ('ABHYASA_STT', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ABHYASA_MODEL'): os.environ.pop(k, None)
@@ -163,7 +164,7 @@ def present_opens_audience(pg, w):
     pg.wait_for_selector('#aud-live:not([hidden])', timeout=8000)
 
 def audience_type(pg, w):
-    "The audience h1 is 46 px and the passage 28 px; neither window scrolls sideways."
+    "The look is the feature: the room reads the screen from far away, so the audience h1 is 46 px and the passage 28 px; neither window scrolls sideways."
     au = w.au
     h1, ps = px(au, '#stage > section.stage:not([hidden]) h1'), px(au, '#stage > section.stage:not([hidden]) .passage')
     assert abs(h1 - 46) < .5 and abs(ps - 28) < .5, (h1, ps, au.evaluate("[innerWidth, innerHeight, document.getElementById('stage').getBoundingClientRect().toJSON()]"))
@@ -217,7 +218,7 @@ ZOOM = f"""(() => {{ const h = {DEMO}, st = document.getElementById('stage'), d 
   return {{z: +h.style.zoom * 1280 / st.clientWidth, alone: h.closest('section').classList.contains('demo-alone'),
           inside: r.bottom <= d.bottom + 1 && r.right <= d.right + 1, tall: h.parentElement.classList.contains('tall'), text: +h.style.zoom * parseFloat(getComputedStyle(h).fontSize)}}; }})()"""
 def demo_floor(pg, w):
-    "The demo zoom keeps its floor (0.55 of a slide 1280 px wide) at 1280 and 1000 px; a demo too tall for the floor shows alone on the slide."
+    "The look is the feature: the room must read the demo, so its zoom keeps its floor (0.55 of a slide 1280 px wide) at 1280 and 1000 px; a demo too tall for the floor shows alone, with text of 14 px or more."
     au = w.au
     for width in (1280, 1000):
         au.set_viewport_size(dict(width=width, height=round(width * 9 / 16))); pg.set_viewport_size(dict(width=width, height=800)); au.wait_for_timeout(300)
@@ -316,6 +317,11 @@ def server_tokens(s):
     h = re.sub(r'<span class="math (inline|display)">(.*?)</span>', lambda m: f'[{m[1][0]}:{m[2]}]', to_xml(Inline(s)))
     return html.unescape(re.sub(r'^<span class="">|</span>\s*$', '', h.strip()))
 
+def relink(pg, au):
+    "Reload the presenter, then the audience, so the audience's hello reaches the new presenter; wait until the presenter sees the audience live."
+    for x in (pg, au): x.reload(); settle(x)
+    pg.wait_for_selector('#aud-live:not([hidden])', timeout=15000)
+
 def maths(pg, w):
     "Maths in the title, the section, the points, the question and the options of slide 1 draws with KaTeX, the same in both windows."
     au, before, t0 = w.au, place(pg), w.lr.talk(w.tid)
@@ -326,7 +332,7 @@ def maths(pg, w):
     for c in CASES: assert pg.evaluate(TOKENS, c) == server_tokens(c), (c, pg.evaluate(TOKENS, c), server_tokens(c))   # the same maths as md_html
     w.lr.put_talk(t)
     try:
-        for x in (au, pg): x.reload(); settle(x)
+        relink(pg, au)
         pg.bring_to_front(); press(pg, 'g', '1'); wait_place(au, 's1', 1)
         parts = 'section[data-sid=s1] h1, section[data-sid=s1] .crumb, section[data-sid=s1] .points li'
         got = [x.evaluate(f"{SHOWN}('{parts}')") for x in (au, pg)]
@@ -338,7 +344,7 @@ def maths(pg, w):
         press(pg, 'Escape'); au.wait_for_selector('#stage .stage-ask', state='hidden')
     finally:
         w.lr.put_talk(t0)
-        for x in (au, pg): x.reload(); settle(x)
+        relink(pg, au)
         pg.bring_to_front(); press(pg, 'g', before[0][1:]); wait_place(au, before[0])
 
 def strangers(pg, w):
