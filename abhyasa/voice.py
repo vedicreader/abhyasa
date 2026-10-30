@@ -1,4 +1,4 @@
-"""Speech to text on this machine, for think-aloud answers.
+"""Speech to text on this machine, for think-aloud answers, and a natural voice that reads the guide aloud.
 
 Docs: https://vedicreader.github.io/abhyasa/voice.html.md"""
 
@@ -6,9 +6,13 @@ Docs: https://vedicreader.github.io/abhyasa/voice.html.md"""
 
 # %% auto #0
 __all__ = ['STT_SP', 'DFLT_GEMMA', 'GEMMA_E2B', 'DFLT_WHISPER', 'DFLT_PARAKEET', 'DFLT_OPENAI', 'DFLT_MODELS', 'ALIASES',
-           'OPENAI_URL', 'http_post', 'ENGINES', 'KNOWN', 'STT_WORDS', 'NOT_STT', 'resolve', 'current', 'unload',
-           'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence', 'cached',
-           'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'Dictation', 'Speech']
+           'OPENAI_URL', 'http_post', 'ENGINES', 'KNOWN', 'STT_WORDS', 'NOT_STT', 'TTS_WORDS', 'NOT_TTS', 'DFLT_KOKORO',
+           'DFLT_SPEECH', 'OUT_ENGINES', 'KOKORO_VOICES', 'OPENAI_VOICES', 'OPENAI_SPEECH', 'OUT_DFLT', 'SPACY_EN',
+           'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'resolve', 'current', 'unload', 'resident', 'openai_key',
+           'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence', 'cached', 'cache_bytes', 'is_stt',
+           'model_size', 'is_tts', 'search_models', 'fetch', 'remove', 'out_resolve', 'out_current', 'out_where',
+           'by_letters', 'word_times', 'to_wav', 'clean_wav', 'spacy_ready', 'kokoro_marks', 'speak', 'Speaker',
+           'Dictation', 'Speech']
 
 # %% ../nbs/05_voice.ipynb #v005
 import os, re, gc, json, time, uuid, inspect, tempfile, threading, wave
@@ -48,25 +52,28 @@ def current() -> tuple:
 
 # %% ../nbs/05_voice.ipynb #v018
 _res, _lock = AttrDict(key=None, obj=None, close=None), threading.RLock()
+_slots = dict(stt=(_res, _lock), tts=(AttrDict(key=None, obj=None, close=None), threading.RLock()))   # each slot has its own lock, so a load of one does not wait for the other
 
-def unload():
-    "Free the loaded speech model."
-    with _lock:
-        if _res.close and _res.obj is not None: _res.close(_res.obj)
-        _res.update(key=None, obj=None, close=None)
+def unload(slot:str='stt'):
+    "Free the loaded model of `slot`: `stt` (speech to text) or `tts` (the speaking voice)."
+    r, lock = _slots[slot]
+    with lock:
+        if r.close and r.obj is not None: r.close(r.obj)
+        r.update(key=None, obj=None, close=None)
         gc.collect()
         try:
             import mlx.core as mx; mx.clear_cache()
         except ImportError: pass
 
-def resident(key, load, close=None):
-    "The loaded speech model for `key`: when `key` is new, free the old model, then `load()` the new one."
-    with _lock:
-        if _res.key != key:
-            unload()
-            _res.obj = load()
-            _res.key, _res.close = key, close
-        return _res.obj
+def resident(key, load, close=None, slot:str='stt'):
+    "The loaded model of `slot` for `key`: when `key` is new, free the old model of the slot, then `load()` the new one."
+    r, lock = _slots[slot]
+    with lock:
+        if r.key != key:
+            unload(slot)
+            r.obj = load()
+            r.key, r.close = key, close
+        return r.obj
 
 # %% ../nbs/05_voice.ipynb #v022
 def _gemma_engine(model):
@@ -217,11 +224,21 @@ def model_size(model:str, api=None) -> int:
     from huggingface_hub import HfApi
     return sum(s.size or 0 for s in (api or HfApi()).model_info(model, files_metadata=True).siblings)
 
-def search_models(q:str='', limit:int=15, api=None) -> list:
-    "mlx-community speech to text models that match `q`, most downloaded first, with their size."
+TTS_WORDS = ('tts', 'kokoro', 'chatterbox', 'orpheus', 'csm-', 'sesame', 'marvis', 'voxcpm', 'spark', 'soprano', 'dia-', 'outetts', 'kitten',
+             'vibevoice', 'fish-audio', 'omnivoice', 'melotts', 'zonos', 'bark')
+NOT_TTS = ('asr', 'whisper', 'stt', 'tokenizer', 'codec', 'aligner', 'vad', 'snac', 'encodec', 'mimi')
+
+def is_tts(model:str, tag:str=None) -> bool:
+    "True when the repo looks like a text to speech model: its Hugging Face tag `tag` says so, or its name does."
+    m = model.lower()
+    return not any(w in m for w in NOT_TTS) and (tag == 'text-to-speech' or any(w in m for w in TTS_WORDS))
+
+def search_models(q:str='', limit:int=15, api=None, kind:str='stt') -> list:
+    "mlx-community models that match `q`, most downloaded first, with their size: speech to text, or text to speech when `kind` is `tts`."
     from huggingface_hub import HfApi
     api = api or HfApi()
-    ms = [m for m in api.list_models(author='mlx-community', search=q or None, sort='downloads', limit=400) if is_stt(m.id)][:limit]
+    ok = (lambda m: is_stt(m.id)) if kind == 'stt' else (lambda m: is_tts(m.id, getattr(m, 'pipeline_tag', None)))
+    ms = [m for m in api.list_models(author='mlx-community', search=q or None, sort='downloads', limit=400) if ok(m)][:limit]
     with ThreadPoolExecutor(8) as ex: sizes = list(ex.map(lambda m: model_size(m.id, api), ms))
     return [dict(model=m.id, downloads=m.downloads or 0, size=s) for m, s in zip(ms, sizes)]
 
@@ -238,12 +255,188 @@ def remove(model:str):
     "Delete `model` from the Hugging Face cache. Only a model that `fetch` downloaded."
     d = settings()
     if model not in d['downloaded']: raise ValueError(f'{model} was not downloaded by abhyasa, so it stays')
-    if _res.key and _res.key[1] == model: unload()
+    for slot, (r, _) in _slots.items():
+        if r.key and r.key[1] == model: unload(slot)
     from huggingface_hub import scan_cache_dir
     info = scan_cache_dir()
     revs = [r.commit_hash for repo in info.repos if repo.repo_id == model for r in repo.revisions]
     if revs: info.delete_revisions(*revs).execute()
     d['downloaded'].remove(model); save_settings(d)
+
+# %% ../nbs/05_voice.ipynb #fdd139f6
+DFLT_KOKORO = 'mlx-community/Kokoro-82M-bf16'
+DFLT_SPEECH = 'gpt-4o-mini-tts'
+OUT_ENGINES = ('browser', 'kokoro', 'openai', 'hf')
+KOKORO_VOICES = ('af_heart', 'af_bella', 'af_nicole', 'af_sarah', 'af_sky', 'af_nova', 'af_alloy', 'af_aoede', 'af_jessica', 'af_kore', 'af_river',
+                 'am_michael', 'am_fenrir', 'am_puck', 'am_echo', 'am_eric', 'am_liam', 'am_onyx', 'am_adam',
+                 'bf_emma', 'bf_isabella', 'bf_alice', 'bf_lily', 'bm_george', 'bm_fable', 'bm_lewis', 'bm_daniel')
+OPENAI_VOICES = ('marin', 'cedar', 'coral', 'alloy', 'ash', 'ballad', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse')
+OPENAI_SPEECH = (DFLT_SPEECH, 'tts-1', 'tts-1-hd')
+OUT_DFLT = dict(kokoro=(DFLT_KOKORO, 'af_heart'), openai=(DFLT_SPEECH, 'marin'), hf=('', ''))
+
+# %% ../nbs/05_voice.ipynb #6352ed0c
+def out_resolve(engine:str, model:str='', voice:str='') -> tuple:
+    "The engine, model and voice for a name; an empty model or voice gets the default of the engine. `browser` has no model."
+    if engine not in OUT_ENGINES: raise ValueError(f'unknown voice engine {engine!r}')
+    if engine == 'browser': return 'browser', '', ''
+    m, v = OUT_DFLT[engine]
+    if engine == 'hf' and not model: raise ValueError('Pick a Hugging Face model for the voice.')
+    return engine, model or m, voice or v
+
+def out_current() -> tuple:
+    "The voice in use: `(engine, model, voice, speed)` from the settings."
+    e = val('voice.out')
+    try: e, m, v = out_resolve(e, val('voice.out_model'), val('voice.out_voice'))
+    except ValueError: e, m, v = 'browser', '', ''   # `hf` with no model yet
+    return e, m, v, val('voice.out_speed')
+
+def out_where(engine:str) -> str: return 'hosted' if engine == 'openai' else 'on this Mac'
+
+# %% ../nbs/05_voice.ipynb #b44493cd
+def by_letters(text:str, secs:float) -> list:
+    "A start time in seconds for each word of `text` in audio of `secs` seconds: each word takes a share by its letters."
+    ws = text.split()
+    n, t, out = sum(len(w) + 1 for w in ws) or 1, 0., []
+    for w in ws: out.append(round(t, 3)); t += secs * (len(w) + 1) / n
+    return out
+
+def word_times(text:str, marks:dict, secs:float) -> list:
+    "The start time of each word of `text`: from `marks` (word index -> seconds) when the model gave one, else by its letters; never earlier than the word before."
+    out, last = [], 0.
+    for k, t in enumerate(by_letters(text, secs)):
+        last = max(last, marks.get(k, t)); out.append(round(last, 3))
+    return out
+
+# %% ../nbs/05_voice.ipynb #a9b7b223
+def to_wav(samples, rate:int) -> bytes:
+    "WAV bytes (mono, 16 bit) for float samples from -1 to 1."
+    import io, numpy as np
+    a = (np.clip(np.asarray(samples, dtype=np.float32).reshape(-1), -1, 1) * 32767).astype('<i2')
+    b = io.BytesIO()
+    with wave.open(b, 'wb') as w: w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate); w.writeframes(a.tobytes())
+    return b.getvalue()
+
+def clean_wav(audio:bytes) -> bytes:
+    "`audio` with a header that gives the true length of its samples."
+    import io
+    with wave.open(io.BytesIO(audio)) as w: ps, frames = w.getparams(), w.readframes(len(audio))
+    b = io.BytesIO()
+    with wave.open(b, 'wb') as o: o.setparams(ps._replace(nframes=0)); o.writeframes(frames)
+    return b.getvalue()
+
+# %% ../nbs/05_voice.ipynb #bf328804
+SPACY_EN = 'en_core_web_sm'
+
+def spacy_ready():
+    "Make the small English spaCy model importable: from its Hugging Face repo, unpacked one time into `cfg_dir()/'site'`."
+    import sys, zipfile, importlib, spacy
+    if spacy.util.is_package(SPACY_EN): return
+    d = cfg_dir()/'site'
+    if not (d/SPACY_EN).is_dir():
+        from huggingface_hub import hf_hub_download
+        with zipfile.ZipFile(hf_hub_download(f'spacy/{SPACY_EN}', f'{SPACY_EN}-any-py3-none-any.whl')) as z: z.extractall(d)
+    if str(d) not in sys.path: sys.path.append(str(d)); importlib.invalidate_caches()
+
+def _tts_load(model):
+    from mlx_audio.tts.utils import load
+    return load(model)
+
+# %% ../nbs/05_voice.ipynb #8da62d47
+def kokoro_marks(text:str, results, rate:int=24000) -> tuple:
+    "The audio parts and the word marks (word index -> seconds) from the results of a Kokoro pipeline for `text`."
+    import bisect, numpy as np
+    starts = [m.start() for m in re.finditer(r'\S+', text)]
+    parts, marks, t, pos = [], {}, 0., 0
+    for r in results:
+        if r.audio is None: continue
+        for tk in r.tokens or []:
+            i = text.find(tk.text, pos) if tk.text else -1
+            if i < 0: continue
+            pos = i + len(tk.text)
+            if getattr(tk, 'start_ts', None) is not None: marks.setdefault(bisect.bisect_right(starts, i) - 1, round(t + tk.start_ts, 3))
+        a = np.asarray(r.audio, dtype=np.float32).reshape(-1)
+        parts.append(a); t += len(a) / rate
+    return parts, marks
+
+# %% ../nbs/05_voice.ipynb #1a5a4ffc
+def _mlx_say(text, model, voice, speed, instructions=''):
+    import numpy as np
+    m = resident(('tts', model), lambda: _tts_load(model), slot='tts')
+    rate = getattr(m, 'sample_rate', 24000)
+    if hasattr(m, '_get_pipeline'):   # Kokoro: its pipeline gives the start time of each token
+        spacy_ready()
+        lang = voice[0] if voice and voice[0] in 'abefhijpz' else 'a'
+        parts, marks = kokoro_marks(text, m._get_pipeline(lang)(text, voice=voice or 'af_heart', speed=speed, split_pattern=None), rate)
+    else:
+        ps = inspect.signature(m.generate).parameters
+        rs = list(m.generate(text, **{k: v for k, v in dict(voice=voice, speed=speed).items() if v and k in ps}))
+        parts, marks, rate = [np.asarray(r.audio, dtype=np.float32).reshape(-1) for r in rs], {}, (rs[0].sample_rate if rs else rate)
+    return to_wav(np.concatenate(parts) if parts else np.zeros(0), rate), marks
+
+# %% ../nbs/05_voice.ipynb #9cf79ca9
+OPENAI_SPEECH_URL = 'https://api.openai.com/v1/audio/speech'
+OPENAI_SPEC = AttrDict(name='openai', local=False)   # the route for the guard: a model off this Mac
+
+def _openai_say(text, model, voice, speed, instructions=''):
+    key, _ = openai_key()
+    if not key: raise RuntimeError('There is no OpenAI key. Set one on the Settings page.')
+    from abhyasa.guide import guard
+    body = dict(model=model, voice=voice, input=guard(text, OPENAI_SPEC), response_format='wav', speed=speed)
+    if instructions and not model.startswith('tts-1'): body['instructions'] = guard(instructions, OPENAI_SPEC)
+    r = (http_post or __import__('httpx').post)(OPENAI_SPEECH_URL, headers={'Authorization': f'Bearer {key}'}, json=body, timeout=60)
+    r.raise_for_status()
+    return clean_wav(r.content), {}
+
+SAY = dict(kokoro=_mlx_say, hf=_mlx_say, openai=_openai_say)
+
+# %% ../nbs/05_voice.ipynb #c12dbf7c
+def speak(text:str, engine:str=None, model:str=None, voice:str=None, speed:float=None, instructions:str='') -> tuple:
+    "WAV bytes for `text`, and the start time in seconds of each of its words (split on white space)."
+    e, m, v, s = out_current()
+    if engine: e, m, v = out_resolve(engine, model or '', voice or '')
+    if e == 'browser': raise ValueError('The browser speaks with its own voice. There is no audio here.')
+    wav, marks = SAY[e](text, model or m, voice or v, float(speed or s), instructions)
+    return wav, word_times(text, marks, wav_seconds(wav))
+
+# %% ../nbs/05_voice.ipynb #40225f2f
+class Speaker:
+    "One worker thread for the speaking voice, and the lines that it said in this run."
+    def __init__(self, fn=None, most:int=64):
+        self.fn, self.most, self.lines, self.status, self.warmed = fn or speak, most, {}, 'not loaded', None
+        self.ex, self.lock = ThreadPoolExecutor(1, thread_name_prefix='voice'), threading.Lock()
+
+    def key(self, text:str, engine:str=None, model:str=None, voice:str=None, speed:float=None) -> tuple:
+        "The key of a line: `(engine, model, voice, speed, text)`, with the settings for what is not given."
+        e, m, v, s = out_current()
+        if engine: e, m, v = out_resolve(engine, model or '', voice or '')
+        return e, model or m, voice or v, float(speed or s), ' '.join(str(text or '').split())
+
+    def say(self, text:str, **kw) -> dict:
+        "The audio of one line: `dict(wav, words, engine, model, voice, speed, where, cached)`."
+        k = self.key(text, **kw)
+        if k[0] == 'browser': raise ValueError('The browser speaks with its own voice. There is no audio here.')
+        if not k[4]: raise ValueError('There is no text to say.')
+        with self.lock:
+            hit = k in self.lines
+            f = self.lines.pop(k) if hit else self.ex.submit(self.fn, k[4], *k[:4])
+            self.lines[k] = f   # the newest at the end
+            while len(self.lines) > self.most: self.lines.pop(next(iter(self.lines)))
+        try: wav, words = f.result()
+        except Exception:
+            with self.lock: self.lines.pop(k, None)   # a failed line is not kept, so the next request tries again
+            raise
+        return dict(wav=wav, words=words, engine=k[0], model=k[1], voice=k[2], speed=k[3], where=out_where(k[0]), cached=hit)
+
+    def warm(self):
+        "Load the voice in use on the worker with one short line; None when there is nothing to load."
+        e, m, v, s = out_current()
+        if e in ('browser', 'openai'): self.status = 'ready'; return None
+        if self.warmed == (e, m) and self.status != 'loading': return None
+        self.status, self.warmed = 'loading', (e, m)
+        def go():
+            try: self.fn('Ready.', e, m, v, s); self.status = 'ready'
+            except Exception as ex: self.status, self.warmed = f'failed: {ex}', None
+        return self.ex.submit(go)
 
 # %% ../nbs/05_voice.ipynb #v052
 class Dictation:
