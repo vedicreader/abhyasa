@@ -1,5 +1,5 @@
 "The guide block: the Explain button and the box on each page, the figure labels, the three tiers, and the explainer video."
-import json, pytest
+import json, re, pytest
 
 PNG = b'\x89PNG\r\n\x1a\n' + b'\0' * 64
 LABELS = dict(labels=[dict(text='a', box=[90, 400, 160, 500]), dict(text='b', box=[480, 880, 540, 960])])
@@ -118,7 +118,7 @@ def test_ask_streams_each_step_before_the_board(mk, fake):
     ctx = dict(page='/walk/x/step/1', anchors=[dict(id='passage', kind='passage', text='Some text.')])
     evs = [json.loads(l[6:]) for l in mk().post('/guide/ask', json=dict(said="I don't get this", ctx=ctx)).text.splitlines() if l.startswith('data: ')]
     steps, b = [e for e in evs if 'step' in e], evs[-1]['board']
-    assert [list(e) for e in evs] == [['wait', 'state', 'where']] + [['step', 'k', 'tier']] * 2 + [['board']]   # first: who gets the question
+    assert [list(e) for e in evs] == [['wait', 'state', 'where']] + [['step', 'k', 'tier', 'point']] * 2 + [['board', 'point']]   # first: who gets the question
     assert [(e['k'], e['tier']) for e in steps] == [(1, 'tutor'), (2, 'tutor')] and [e['step'] for e in steps] == b['steps']
     assert b['steps'][1]['strokes'] == [dict(op='underline', at='passage')]
 
@@ -310,3 +310,17 @@ def test_voice_off_is_kept(mk):
     cl = mk()
     assert cl.post('/guide/voice', data=dict(on='0')).status_code == 204 and val('guide.voice') is False
     cl.post('/guide/voice', data=dict(on='1')); assert val('guide.voice') is True
+
+def test_the_point_look_goes_to_the_page_and_the_events(mk, fake):
+    "The page script and the step and board events of the ask route carry the setting guide.point, so the page and the Mac overlay draw the same look."
+    from abhyasa.settings import set_val
+    fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='This is the passage.'), dict(op='point', at='passage')])
+    fake.stream = lambda p, sp='': iter([fake(p, sp)])
+    ctx = dict(page='/walk/x/step/1', anchors=[dict(id='passage', kind='passage', text='Some text.')])
+    cl = mk()
+    set_val('guide.point', 'dot')
+    try:
+        info = json.loads(re.search(r"data-info='([^']*)'", cl.get('/').text).group(1))
+        evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said="I don't get this", ctx=ctx)).text.splitlines() if l.startswith('data: ')]
+        assert info['point'] == 'dot' and [e['point'] for e in evs if 'step' in e or 'board' in e] == ['dot', 'dot']
+    finally: set_val('guide.point', 'tick')

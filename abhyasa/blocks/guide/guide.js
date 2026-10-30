@@ -329,7 +329,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const shown = stopShow();   // what the learner showed with the pointer while they asked
     close();
     const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0}, n = ++asks;
-    const opts = () => ({labels, quiet: !voiceOn(), who: asked, onVoice: setVoice}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
+    const opts = () => ({labels, quiet: !voiceOn(), who: asked, onVoice: setVoice, point: info.point}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
     let labels = {}, live = null, whole = false, asked = info.model || null, saved = null;   // live: the promise of the streaming board, with each add after it
     const got = [];   // the steps that came, for a stream that ends with no board event
     if (ctl) ctl.abort();

@@ -151,3 +151,18 @@ def test_reading_line_and_the_pointer_notice(page):
     assert page.evaluate('c => abhyasaGuide.readLine(c)', ctx) == 'Reads this page: the passage, the note and the check.'
     page.evaluate('abhyasaGuide.open()')
     assert page.evaluate("document.querySelector('#guide-form .guide-follow').textContent") == 'The guide follows your pointer while you ask.'
+
+def test_the_saved_point_look_reaches_the_board(page):
+    "A look that you save on the Settings page goes from the page to play(), and the point mark draws in that look."
+    from abhyasa.settings import set_val
+    try:
+        assert page.evaluate("async () => (await fetch('/settings/value', {method: 'POST', body: new URLSearchParams({name: 'guide.point', value: 'ring'})})).ok")
+        page.reload(); page.wait_for_function('window.abhyasaGuide && window.abhyasaBoard')
+        page.evaluate("""() => { const p = document.createElement('section'); p.id = 'passage'; p.dataset.guideId = 'passage'; p.textContent = 'Some words.';
+                                 document.querySelector('main').prepend(p);
+                                 const play = abhyasaBoard.play; abhyasaBoard.play = (b, o) => { window.gotPoint = o && o.point; return play(b, o); }; }""")
+        page.reply = sse(dict(step=dict(say='This is the passage.', strokes=[dict(op='point', at='passage')]), k=1, tier='tutor'))
+        page.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('what is this')")
+        page.wait_for_function("document.querySelector('#board-layer g[data-op=point]')", timeout=5000)
+        assert page.evaluate("[window.gotPoint, document.querySelector('#board-layer g[data-op=point]').dataset.look]") == ['ring', 'ring']
+    finally: set_val('guide.point', 'tick')

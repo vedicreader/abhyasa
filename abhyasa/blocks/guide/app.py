@@ -48,13 +48,13 @@ def connect(app, ctx):
     info_ = [0., None]
 
     def info():
-        "What the page tells before it sends: the model of the guide, the model that reads a figure, the speech engine, and the voice setting."
+        "What the page tells before it sends: the model of the guide, the model that reads a figure, the speech engine, the voice setting and the look of a point mark."
         if time.monotonic() - info_[0] > INFO_EVERY or info_[1] is None:
             from abhyasa.llm import dflt_model
             g = where_of(getattr(guide_ask(ask), 'model', ''))
             routed = hasattr(getattr(ask, 'dflt', None), 'via')
             info_[:] = time.monotonic(), dict(model=g, vision=where_of(ask.name('guide_vision') or dflt_model()) if routed else g, speech=speech())
-        return {**info_[1], 'voice': bool(val('guide.voice'))}
+        return {**info_[1], 'voice': bool(val('guide.voice')), 'point': val('guide.point')}
     figs = FigureCache(cfg_dir()/'guide-figures.json')
     warmed, warm_lock = [-WARM_EVERY], threading.Lock()
 
@@ -83,10 +83,11 @@ def connect(app, ctx):
         """The board for one question, as server-sent events. Before each step of its work: a state event
         `{"wait": text, "state": "reading"|"asking"|"searching"|"saving"|"drawing", "model", "where": "on this Mac"|"hosted", "who",
         "query", "sources"}`, with only the fields that apply (`abhyasa.guide`, *Never caught unaware*). `{"step": {…}, "k": n,
-        "tier": "tutor"}` for each step of a sure tutor board as soon as it is whole. `{"saved": {"title", "url", "undo"}}` when the
-        guide filed a web page in the vault: a POST to `undo` takes it away. Then `{"board": …}` (the whole board, also after its
+        "tier": "tutor", "point": look}` for each step of a sure tutor board as soon as it is whole. `{"saved": {"title", "url", "undo"}}` when the
+        guide filed a web page in the vault: a POST to `undo` takes it away. Then `{"board": …, "point": look}` (the whole board, also after its
         steps; with `hint` when the board counts as a hint on the open check), or `{"error": text}`. The model runs on a thread; the
-        page context is never stored. When the page stops reading, the model stream closes."""
+        page context is never stored. When the page stops reading, the model stream closes. `point` is the setting `guide.point`, for
+        the Mac overlay, which has no page of the app."""
         body = await req.body()
         try: d = json.loads(body) if len(body) <= ASK_BYTES else None
         except ValueError: d = None
@@ -96,7 +97,7 @@ def connect(app, ctx):
         if ctx_.get('video'):   # the cues come from the vault, never from the page
             if (v := await asyncio.to_thread(video_of, lr, ctx_.video['id'])): ctx_.video = v
             else: ctx_.pop('video')
-        q, stop = queue.Queue(), threading.Event()   # `stop`: the page stopped reading, so the model stream closes and lets go of its backend
+        q, stop, look = queue.Queue(), threading.Event(), val('guide.point')   # `stop`: the page stopped reading, so the model stream closes and lets go of its backend
         def tell(e):
             if 'saved' not in e: return q.put(e)
             k = secrets.token_urlsafe(9)
@@ -105,10 +106,10 @@ def connect(app, ctx):
             q.put(dict(saved=dict(title=e['saved']['title'], url=e['saved']['url'], undo=Routes.of(Routes.undo, key=k))))
         def run():
             try:
-                b = explain(ask, ctx_, said, sources=sources, lr=lr, stop=stop, on_state=tell, on_step=lambda s, k: q.put(dict(step=s, k=k, tier='tutor')))
+                b = explain(ask, ctx_, said, sources=sources, lr=lr, stop=stop, on_state=tell, on_step=lambda s, k: q.put(dict(step=s, k=k, tier='tutor', point=look)))
                 if b.steps and 'check' in ctx_.by and not stop.is_set():   # a board on an open check counts as one hint on it
                     if (h := next((x for x in run_hook('guide_board', ctx_.page, b) if x), None)): b['hint'] = h
-                q.put(dict(board=b))
+                q.put(dict(board=b, point=look))
             except Withheld: q.put(dict(error=WITHHELD))
             except Exception as e: log.warning('guide: %r', e); q.put(dict(error='The tutor could not answer. Try again.'))
         threading.Thread(target=run, daemon=True).start()

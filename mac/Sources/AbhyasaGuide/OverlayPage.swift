@@ -74,7 +74,8 @@ public enum OverlayPage {
         demo() {},   // no demo in another app
         assets: '/vendor/'
       };
-      const opts = () => ({host, labels: {}});
+      let point;   // the look of a point mark: the setting guide.point, from the step and board events of the server
+      const opts = () => ({host, labels: {}, point});
       window.overlay = {
         anchors(list) {
           document.getElementById('anchors').replaceChildren(...list.map(a => {
@@ -126,6 +127,7 @@ public enum OverlayPage {
         // and the board at the end finishes the streaming board, or plays as it is when no step came
         async event(m) {
           const n = gen;
+          if (typeof m.point === 'string') point = m.point;
           if (m.wait) return abhyasaBoard.note(m.wait);
           if (m.error) return abhyasaBoard.note(m.error);
           if (m.step && !live) live = abhyasaBoard.play({steps: [m.step], tier: m.tier || 'tutor', sources: [], streaming: true}, opts());

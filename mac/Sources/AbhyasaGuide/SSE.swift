@@ -41,8 +41,8 @@ public struct SSEParser {
     }
 }
 
-/// One event of the guide's ask route (abhyasa/blocks/guide/app.py): `{"wait": text}`, `{"step": {…}, "k": n, "tier": t}`,
-/// `{"board": {…}}`, `{"error": text}` or `{"saved": {"title", "url", "undo"}}`. A wait event can also tell the state:
+/// One event of the guide's ask route (abhyasa/blocks/guide/app.py): `{"wait": text}`, `{"step": {…}, "k": n, "tier": t, "point": look}`,
+/// `{"board": {…}, "point": look}`, `{"error": text}` or `{"saved": {"title", "url", "undo"}}`. A wait event can also tell the state:
 /// `{"wait", "state", "model", "where", "who", "query", "sources"}`. Each of these fields is optional, so an older server works
 /// too. `raw` is the JSON as it came, for board.js in the overlay.
 public struct GuideEvent: Equatable, Sendable {

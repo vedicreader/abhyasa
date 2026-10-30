@@ -22,6 +22,13 @@ import Testing
         #expect(!h.contains("http://") && !h.contains("https://"))
         #expect(h.contains("background: transparent"))
     }
+
+    @Test func thePointLookOfTheServerGoesToBoardJS() throws {
+        let e = try #require(GuideEvent.parse(#"{"step": {"say": "x", "strokes": []}, "k": 1, "tier": "tutor", "point": "dot"}"#))
+        #expect(e.kind == .step(1) && e.raw.contains(#""point": "dot""#))   // the raw event goes to overlay.event as it came
+        #expect(OverlayPage.html.contains("if (typeof m.point === 'string') point = m.point;"))
+        #expect(OverlayPage.html.contains("const opts = () => ({host, labels: {}, point});"))
+    }
 }
 
 /// The panels are made but never ordered front: no window shows and nothing takes the focus.
