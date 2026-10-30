@@ -325,8 +325,8 @@ import ipaddress, socket
 from urllib.parse import unquote, urljoin, urlparse
 
 def fetch_opts() -> dict:
-    "The limits of one fetch, from the settings: the time limit, the speed cap in bytes a second, and one retry."
-    return dict(timeout=val('links.timeout'), max_recv_speed=int(val('links.speed') * 1_000_000), retries=1)
+    "The limits of one fetch, from the settings: the time limit, the speed cap in bytes a second and one retry. `allow_private=False` refuses a private address also when `$FOSSICK_ALLOW_PRIVATE` is set."
+    return dict(timeout=val('links.timeout'), max_recv_speed=int(val('links.speed') * 1_000_000), retries=1, allow_private=False)
 
 def link_folder(url:str) -> str:
     "The scheme, host and folder of `url`: all of it up to the last `/` of its path."
@@ -464,7 +464,7 @@ def read_arxiv_html(aid:str, fetch=None) -> AttrDict|None:
     if fetch is None: from fossick import fetch
     url = ARXIV_HTML.format(aid=aid)
     try:
-        r = fetch(url, **PLAIN, **fetch_opts(), allow_private=False, max_bytes=PAGE_BYTES)
+        r = fetch(url, **PLAIN, **fetch_opts(), max_bytes=PAGE_BYTES)
         base = str(getattr(r, 'url', '') or url)
         if getattr(r, 'status', None) != 200 or urlparse(base).hostname != 'arxiv.org': return None
         b = (getattr(r, 'body', b'') or b'')[:PAGE_BYTES]
@@ -488,7 +488,7 @@ def save_figures(lr:Learning, aid:str, page, fetch=None) -> int:
         if not (isinstance(u, str) and u.startswith(base) and urlparse(u).hostname == 'arxiv.org' and in_scope(u, base)): continue
         p = (root/_plain(u[len(base):].split('?')[0])).resolve()
         if not p.is_relative_to(root) or p.suffix.lower() not in IMG_SUFFIXES or p.is_file(): continue
-        try: r = fetch(u, **PLAIN, **fetch_opts(), allow_private=False, max_bytes=PAGE_BYTES)
+        try: r = fetch(u, **PLAIN, **fetch_opts(), max_bytes=PAGE_BYTES)
         except Exception: continue
         f = urlparse(str(getattr(r, 'url', '') or u))   # the address after the redirects
         if f.scheme != 'https' or not (f.hostname == 'arxiv.org' or (f.hostname or '').endswith('.arxiv.org')): continue
@@ -763,7 +763,7 @@ def can_clone() -> bool:
 def gh_public(owner:str, name:str) -> dict|None:
     "What GitHub says of the repo `owner/name` (`private`, `size` in KB), or None when it has no such repo."
     from fossick import http_get
-    r = http_get(f'https://api.github.com/repos/{owner}/{name}', timeout=15)
+    r = http_get(f'https://api.github.com/repos/{owner}/{name}', timeout=15, allow_private=False)
     return json.loads(r.body) if r.status == 200 else None
 
 def file_repo(lr:Learning, url:str, shelf:str='notebooks', into=None) -> L:

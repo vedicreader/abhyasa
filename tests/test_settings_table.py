@@ -113,7 +113,7 @@ def test_most_reviews_a_day(lr, fake):
 def test_links_defaults():
     from abhyasa.sources import fetch_opts
     assert dflts('links') == {'links.pages': 8, 'links.cap': 20, 'links.timeout': 30, 'links.speed': 1., 'links.kept': 400_000, 'links.read': 100_000}
-    assert fetch_opts() == dict(timeout=30, max_recv_speed=1_000_000, retries=1)
+    assert fetch_opts() == dict(timeout=30, max_recv_speed=1_000_000, retries=1, allow_private=False)
 
 def test_link_reads_the_new_page_count():
     from abhyasa.store import temp_learning

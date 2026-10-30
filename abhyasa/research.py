@@ -130,7 +130,7 @@ def web_fetch(url:str) -> AttrDict:
     if not host or _local(host) or any(map(_local, _addrs(host))): raise LinkError(NOT_LOCAL)
     from fossick import fetch
     log.warning('research: fetch %s', url)   # a record of each page that research reads
-    r = fetch(url, **PLAIN, **fetch_opts(), allow_private=False, max_bytes=PAGE_BYTES)
+    r = fetch(url, **PLAIN, **fetch_opts(), max_bytes=PAGE_BYTES)
     if (getattr(r, 'status', 200) or 200) >= 400: raise LinkError('abhyasa could not read this link.')
     return page_text(r, url)
 
