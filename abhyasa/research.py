@@ -24,7 +24,7 @@ from urllib.parse import urlparse, unquote
 from fastcore.utils import *
 from .store import Learning, _union
 from .settings import val, source_root_why
-from .llm import ask_json, for_task, ramabana_worker
+from .llm import HOSTED, ask_json, for_task, ramabana_worker
 from .prompts import register, prompt
 from .journey import _jlock, chip_docs
 from .sources import doc_pages, link_kind, is_paper, file_link, LinkError, NOT_LOCAL, PLAIN, SHORT, fetch_opts, quoted, public_url, _clip
@@ -424,28 +424,27 @@ def want_agent(j, chips=(), failed:bool=False) -> bool:
 # %% ../nbs/18_research.ipynb #ga06
 LEAK_WORDS = 8   # a run of this many words of a local or vault file in a query or a link is the text of that file
 
-def pii_gate(text, mode:str='redact', kind:str='page') -> str:
-    """`text` through ramabana's read guard (`ramabana.agent.masking_guard`), as for a read that a hosted model gets: each API key or
-    private key is masked, and with `mode='redact'` each finding of personal data is masked (`[EMAIL]`); with `refuse`, text with
-    personal data gives `[withheld: <why>]`. Without ramabana (the models extra), the same gate of vishalakshi (`vishalakshi.pii.gated`)."""
-    t = str(text or '')
-    try:
-        from ramabana.agent import masking_guard
-        from shalya.core import ReadCheck, Refusal
-    except ImportError:
-        from vishalakshi.pii import gated
-        return gated(t, mode)
-    r = masking_guard(lambda: (mode, False))(ReadCheck('abhyasa', 'gather', kind, lambda: t, local=False))
-    return t if r is None else f'[withheld: {r.why}]' if isinstance(r, Refusal) else str(r)
+def pii_gate(text, mode:str='redact', model=None) -> str:
+    """`text` through ramabana's outgoing guard (`ramabana.guard.outgoing`) for `model` (default `HOSTED`, a model off this Mac). It
+    always masks each API key and private key. With `mode='redact'` it masks each finding of personal data (`[EMAIL]`); with `refuse`,
+    text with personal data gives `[withheld: <why>]`."""
+    from ramabana.guard import OutgoingRefused, outgoing
+    try: return outgoing(str(text or ''), model or HOSTED, mode)
+    except OutgoingRefused as e: return f'[withheld: {e}]'
 
 def _words(s) -> list: return re.findall(r'[a-z0-9]+', unquote(str(s or '')).lower())
 
 def leak(out, private=()) -> str:
-    """Why the text `out`, which leaves this computer (a search query, a link, a repo name), may not go: ramabana's guard finds a
-    secret or personal data in it, or it holds a run of `LEAK_WORDS` words from a local or vault file that the agent read (`private`, the words of
-    each file joined by spaces). '' when it may go."""
-    if (g := pii_gate(out, 'refuse', 'url')) != str(out or ''): return 'it holds personal data' if g.startswith('[withheld') else 'it holds a secret'
-    ws = _words(out)
+    """Why the text `out`, which leaves this computer (a search query, a link, a repo name), may not go: it holds a secret
+    (`ramabana.agent.mask_secrets`), personal data (`ramabana.guard.query`), or a run of `LEAK_WORDS` words from a local or vault
+    file that the agent read (`private`, the words of each file joined by spaces). '' when it may go."""
+    from ramabana.agent import mask_secrets
+    from ramabana.guard import OutgoingRefused, query
+    o = str(out or '')
+    if mask_secrets(o) != o: return 'it holds a secret'
+    try: query(o)
+    except OutgoingRefused: return 'it holds personal data'
+    ws = _words(o)
     runs = {' '.join(ws[k:k + LEAK_WORDS]) for k in range(len(ws) - LEAK_WORDS + 1)}
     return 'it holds text from your files' if any(r in t for r in runs for t in private) else ''
 
@@ -614,7 +613,7 @@ def put_notebook(lr:Learning, jid:str, idea, spec, st=None) -> str:
 STOPPED = 'Stopped. Call no more tools. Reply with one short line.'
 TIME_UP = 'The time is up. Call no more tools. Reply with one short line.'
 TEXTS = ('.md', '.txt', '.py', '.ipynb', '.rst', '.toml', '.yaml', '.yml', '.json', '.cfg', '.qmd', '.tex', '.html', '.js', '.ts', '.sh', '.r', '.jl')
-SECRET = re.compile(r'(?:^|/)(?:\.env[^/]*|\.ssh|\.aws|\.gnupg|\.netrc|id_[a-z0-9]+|[^/]*\.(?:pem|key|p12|pfx|keychain(?:-db)?|kdbx))(?:/|$)', re.I)
+SECRET = re.compile(r'(?:^|/)(?:\.env[^/]*|\.ssh|\.aws|\.gnupg|\.netrc|Keychains|id_[a-z0-9]+|[^/]*\.(?:pem|key|p12|pfx|keychain(?:-db)?|kdbx))(?:/|$)', re.I)
 
 def secret_path(p, top) -> bool:
     "Whether the file `p` under the folder `top` holds credentials: shalya's `denied` (the paths that ramabana never reads), and `SECRET` for the shapes that it does not list."

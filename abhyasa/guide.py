@@ -8,9 +8,9 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
            'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat', 'anchor_why',
            'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels',
-           'FigureCache', 'vision_ask', 'Withheld', 'pii_policy', 'guard', 'page_text', 'board_prompt', 'video_id',
-           'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'guide_ask',
-           'video_source', 'web_sources', 'explain']
+           'FigureCache', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'page_text', 'board_prompt',
+           'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of',
+           'guide_ask', 'video_source', 'web_sources', 'explain']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -266,10 +266,14 @@ FIGURE_SP = register('guide.figure', 'Figure labels', 'How the guide finds the l
 Return JSON: {"labels": [{"text": str, "box": [x0, y0, x1, y1]}]}""")
 
 def figure_labels(vision, img:bytes, alt:str='') -> dict|None:
-    "The labels in the figure image `img`, as text to a box from 0 to 1000, from the reply of `vision(prompt, img, sp)`. None when the call fails or its reply is not JSON, so that no one keeps an empty result."
+    """The labels in the figure image `img`, as text to a box from 0 to 1000, from the reply of `vision(prompt, img, sp)`. None when the
+    call fails or its reply is not JSON, so that no one keeps an empty result. A key in `alt` is masked here; `vision_ask` guards the
+    full prompt for the model of its route."""
     from abhyasa.llm import parse_json
-    p = f"The figure: {json.dumps(guard(alt)[:200])}\nFind its labels."
+    from ramabana.agent import mask_secrets
+    p = f"The figure: {json.dumps(mask_secrets(str(alt or ''))[:200])}\nFind its labels."
     try: r = parse_json(vision(p, img, prompt('guide.figure')) or '')
+    except Withheld: raise   # the guard of the call withheld the prompt: the route says so
     except Exception: return None
     out = {}
     for l in (r.get('labels') or [])[:MOST['labels']] if isinstance(r, dict) else ():
@@ -298,34 +302,40 @@ class FigureCache:
 # %% ../nbs/21_guide.ipynb #g060
 def vision_ask(ask, name:str=''):
     "A vision call `(prompt, img, sp) -> str` on the ramabana job `guide_vision`, or None when the routed model takes no picture."
-    if not hasattr(getattr(ask, 'dflt', None), 'via'): return lambda p, img, sp='': ask(p, sp)
+    if not hasattr(getattr(ask, 'dflt', None), 'via'): return lambda p, img, sp='': ask(guard(p), guard(sp))
     from abhyasa.llm import ramabana_agent, ramabana_oneshot, dflt_model
     from ramabana.core import accepts, resolve
     n = name or ask.name('hint') or dflt_model()
     try:
         if not accepts(resolve(n), 'image'): return None
     except Exception: return None
-    def call(p, img, sp=''): return ramabana_oneshot('guide_vision', n, ramabana_agent(n).compose(p, image=img), sp, 1024)
+    def call(p, img, sp=''):
+        def prep(_p, _sp, b): return ramabana_agent(n).compose(guard(p, b.spec), image=img), guard(sp, b.spec)
+        return ramabana_oneshot('guide_vision', n, p, sp, 1024, prep)
     return call
 
 # %% ../nbs/21_guide.ipynb #g062
 class Withheld(Exception):
-    "The guard withheld the text: it holds personal data, and ramabana's `cli.pii` is `refuse`."
+    "The guard withheld the text: it holds personal data and ramabana's `cli.pii` is `refuse`, or it is a web query with a secret or personal data."
 
-def pii_policy() -> tuple:
-    "`(mode, ner)` from ramabana's settings `cli.pii` and `cli.pii_ner`."
-    from ramabana.setup import setting
-    return setting('cli.pii', 'off') or 'off', bool(setting('cli.pii_ner', False))
-
-def guard(s) -> str:
-    "`s` as it may leave the Mac, through ramabana's `masking_guard`, read as a page for a hosted model."
+def guard(s, model=None, mode:str=None) -> str:
+    "`s` as it may go to `model` (a ramabana `ModelSpec`; default `HOSTED`), through ramabana's `outgoing`, with the PII policy `mode` (default `cli.pii`)."
     s = str(s or '')
     if not s.strip(): return s
-    from ramabana.agent import masking_guard
-    r = masking_guard(pii_policy)(AttrDict(kind='page', text=s, local=False))
-    if r is None: return s
-    if isinstance(r, str): return r
-    raise Withheld(str(r.get('why') or r))
+    from ramabana.guard import OutgoingRefused, outgoing
+    from abhyasa.llm import HOSTED
+    try: return outgoing(s, model or HOSTED, mode)
+    except OutgoingRefused as e: raise Withheld(str(e)) from e
+
+def safe_query(q:str) -> str:
+    "The web query `q` as it is, through ramabana's `query`; `Withheld` when it holds a secret or personal data."
+    from ramabana.guard import OutgoingRefused, query
+    try: return query(q)
+    except OutgoingRefused as e: raise Withheld(str(e)) from e
+
+def guarded(p, sp, b) -> tuple:
+    "The `prepare` of a routed call: the prompt `p` and the system prompt `sp` through `guard` for the model of the backend `b`."
+    return guard(p, b.spec), guard(sp, b.spec)
 
 # %% ../nbs/21_guide.ipynb #g069
 GUIDE_SP = register('guide.board', 'Screen guide', 'How the tutor explains a part of the page with a board drawn over it.', """You explain one thing on a learning page to a learner who said "I don't get X". You draw on the page and you speak one short line for each step.
@@ -396,7 +406,7 @@ def video_cues(cues) -> list:
 def find_explainer(name:str, topic:str='', search=None, n:int=5) -> AttrDict|None:
     "The first video that fossick's `search_yt` finds for the idea `name`, as `id`, `title`, `channel` and `url`; None when there is none."
     if search is None: from fossick import search_yt as search
-    q = guard(' '.join(f'{name} {topic} explained'.split())[:150])
+    q = safe_query(' '.join(f'{name} {topic} explained'.split())[:150])
     for h in search(q, n) or ():
         vid, d = str(h.get('id') or ''), h.get('duration')
         if not _VID.fullmatch(vid) or (_num(d) and not 60 <= d <= 3600): continue
@@ -447,10 +457,10 @@ WITH_SOURCE = "In the tutor's own words, with quotes from the sources below."
 LABEL = dict(page='your source', vault='your vault', web='web', video='video')
 
 def guide_ask(ask, name:str=''):
-    """The `ask` of the guide: the ramabana job `guide` on `name`, else on the model of hints (a fast one); a test model as it is.
-    Each prompt passes `guard` before the call."""
-    if hasattr(getattr(ask, 'dflt', None), 'via'): ask = ask.dflt.via('guide', name or ask.name('hint'), 2048)
-    def call(p, sp=''): return ask(guard(p), sp)
+    """The `ask` of the guide: the ramabana job `guide` on `name`, else on the model of hints (a fast one), with `guard` for the
+    model of each route (`guarded`); a test model as it is, with `guard` for a hosted model."""
+    if hasattr(getattr(ask, 'dflt', None), 'via'): return ask.dflt.via('guide', name or ask.name('hint'), 2048, guarded)
+    def call(p, sp=''): return ask(guard(p), guard(sp))
     return call
 
 def video_source(v) -> dict|None:
@@ -478,7 +488,8 @@ def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None) -> list:
     from abhyasa import research as R
     search, fetch = search or R.web_search, fetch or R.web_fetch
     topic = ctx.get('concept') or ctx.get('step') or ''
-    q = guard(' '.join(f'{said} {topic}'.split())[:200])
+    try: q = safe_query(' '.join(f'{said} {topic}'.split())[:200])
+    except Withheld: return []
     try: hits = R.candidates(search(q, 6), 6)
     except Exception: return []
     c = dict(name=topic or said, statement=said)
@@ -501,16 +512,17 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     web when `web` (default: the setting `research.on`). `note(text)` hears what the guide does while it waits."""
     from abhyasa.settings import val
     from abhyasa.ground import ground, label
+    from ramabana.agent import mask_secrets
     t0, note = time.monotonic(), note or (lambda s: None)
     ctx = ctx if isinstance(ctx, PageContext) else clean_context(ctx)   # a raw dict from a host, also with `by`, is cleaned
-    said, ask = guard(' '.join(str(said or '').split())[:300]), guide_ask(ask)
+    said, ask = ' '.join(str(said or '').split())[:300], guide_ask(ask)   # each model call guards its prompt for its own route
     def board(tier, srcs): return parse_board(ask(board_prompt(ctx, said, srcs, tier), prompt('guide.board')), by_id({**ctx, 'sources': srcs}))
     page = _page_sources(ctx)
     b = board('tutor', page)
     if b.steps and (b.sure or 0) >= SURE: return _done('tutor', b, page, t0)
     best = (b, 'tutor', page)
     note('The tutor looks in your vault.')
-    ps = ground(guard(f"{said} {ctx.get('concept') or ctx.get('step') or ''}"), list(sources), k=3) if sources else []
+    ps = ground(mask_secrets(f"{said} {ctx.get('concept') or ctx.get('step') or ''}"), list(sources), k=3) if sources else []   # a search of the vault on this Mac
     if ps:
         srcs = page + [dict(title=label(p), text=p.text, url=p.get('url') or '', label=LABEL['vault']) for p in ps]
         b = board('vault', srcs)

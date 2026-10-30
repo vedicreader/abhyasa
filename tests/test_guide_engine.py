@@ -118,12 +118,12 @@ def test_a_secret_never_leaves():
     explain(f, page_ctx(f'{PAGE} My key is {SECRET}.'), f"I don't get alpha bar {SECRET}", sources=[v],
             search=lambda q, n: qs.append(q) or [dict(title='x', href='https://example.org/x')], fetch=lambda u: AttrDict(url=u, title='x', text='nothing here'), web=True)
     sent = json.dumps([f.calls, qs, v.qs])
-    assert f.calls and qs and SECRET not in sent and '[SECRET]' in sent
+    assert f.calls and not qs and SECRET not in sent and '[SECRET]' in sent   # a web query with a key does not go
 
 def test_guard_masks_and_refuses(monkeypatch):
     assert SECRET not in guard(f'key {SECRET}')
-    import ramabana.setup
-    monkeypatch.setattr(ramabana.setup, 'setting', lambda k, d=None: 'refuse' if k == 'cli.pii' else d)
+    import ramabana.guard
+    monkeypatch.setattr(ramabana.guard, 'setting', lambda k, d=None: 'refuse' if k == 'cli.pii' else d)
     import pytest
     with pytest.raises(Withheld): guard('Mail me at ada.lovelace@example.com please.')
 
@@ -143,3 +143,20 @@ def test_a_raw_context_with_by_is_cleaned(monkeypatch):
     ctx = seen[0]
     assert 'evil' not in ctx and len(ctx.by['passage']['text']) == 300 and ctx.anchors[0]['text'] == 'q' * 300
     assert 'q' * 301 not in json.dumps(f.calls) and 'EVIL' not in json.dumps(f.calls)
+
+def test_the_routed_guide_guards_for_the_model_of_its_route(monkeypatch):
+    "With `cli.pii` redact, a guide or vision model on this Mac gets the mail address, and a hosted one gets `[EMAIL]`. A key is masked for both."
+    import ramabana.guard
+    from ramabana.core import ModelSpec
+    from ramabana.testing import fake_agent, FakeBackend
+    from abhyasa import llm
+    from abhyasa.guide import guide_ask, vision_ask
+    monkeypatch.setattr(ramabana.guard, 'setting', lambda k, d=None: 'redact' if k == 'cli.pii' else d)
+    a, _ = fake_agent()
+    monkeypatch.setitem(llm._ra, 'agent', a)
+    r = llm.Router(llm.RouteAsk('claude/sonnet'), models=lambda: {}, tokens=lambda: {})
+    for spec, mail in ((ModelSpec('mlx/gemma', 'mlx', 'gemma', ctx=4096), 'ada@example.com'), (ModelSpec('cloud', 'remote', 'cloud', ctx=4096), '[EMAIL]')):
+        be = FakeBackend(spec)
+        monkeypatch.setattr(a, '_be_or_none', lambda job='turn', be=be: be)
+        assert guide_ask(r)(f'mail ada@example.com key {SECRET}') == f'ONESHOT:mail {mail} key [SECRET]'
+        assert f'alt {mail} [SECRET]' in vision_ask(r)(f'alt ada@example.com {SECRET}', b'\x89PNG', 'sp')

@@ -18,6 +18,7 @@ IMAGES = (b'\x89PNG\r\n\x1a\n', b'\xff\xd8\xff', b'GIF87a', b'GIF89a')
 FIGURE_BYTES = 8_000_000
 ASK_BYTES = 200_000
 WITHHELD = 'The guide did not send this, because your privacy setting withholds it. Change it in Settings.'   # the guard refused: personal data and `cli.pii` refuse
+NO_QUERY = 'The tutor did not search, because the name of this idea holds a key or personal data. Paste a link.'   # `safe_query` refused the web query
 log = logging.getLogger(__name__)
 
 def why(e) -> str:
@@ -90,7 +91,8 @@ def connect(app, ctx):
         "The tutor finds a video for the concept with fossick's `search_yt`, and files it."
         c = concept_of(slug)
         try:
-            v = await asyncio.to_thread(find_explainer, c.name, c.get('subject') or '')
+            try: v = await asyncio.to_thread(find_explainer, c.name, c.get('subject') or '')
+            except Withheld: return video_part(c, NO_QUERY)
             if not v: return video_part(c, 'The tutor found no short video for this idea. Paste a link.')
             await asyncio.to_thread(file_video, lr, v.url, slug)
         except Withheld: return video_part(c, WITHHELD)
