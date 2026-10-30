@@ -30,8 +30,15 @@
 //                                     only when each gate of the demo is done (never show the result first). A host demo
 //                                     must do its own gate check.
 //       assets                        the URL folder of rough.js and perfect-freehand.mjs. Default '/vendor/'.
+//     A board with `streaming: true` waits for more steps: it can start with step 1 only. The strip shows no step count and
+//     no end line until finish(board).
+//   add(step) -> bool    add one checked step to the streaming board that shows now. When that board waits at its last step
+//                        with auto on, it goes on to the new step. False when no streaming board shows.
+//   finish(board) -> bool   the whole checked board for the streaming board that shows now: it adds the steps that are not
+//                        there yet, takes the tier, sources and end of `board`, and stops the wait for steps. False when no
+//                        streaming board shows, or when its steps are not the first steps of `board` (then play `board`).
 //   stop()  note(text)  next()  back()  again()  seekVideo(t)  boxOf(at)  normTex(tex)
-//   state    {i, steps, tier, first, done} or null. `done` is true when each mark of the step shows in full.
+//   state    {i, steps, tier, first, done, streaming} or null. `done` is true when each mark of the step shows in full.
 //   pointer  {tip, to, flying} in window pixels, or null: where the tip of the pointer is, and the point that it flies to.
 // Events on document: board:first (the first mark shows), board:stop.
 (() => {
@@ -421,7 +428,7 @@
     s.hidden = false;
     const top = el('div', 'board-top'), dots = el('span', 'board-dots');
     b.steps.forEach((_, k) => dots.append(el('i', k === st.i ? 'on' : '')));
-    top.append(el('span', 'pill tier-' + b.tier, TIER[b.tier] || 'tutor'), dots, el('span', 'board-n', `Step ${st.i + 1} of ${b.steps.length}`));
+    top.append(el('span', 'pill tier-' + b.tier, TIER[b.tier] || 'tutor'), dots, el('span', 'board-n', st.streaming ? `Step ${st.i + 1}` : `Step ${st.i + 1} of ${b.steps.length}`));
     const say = el('p', 'board-say');   // each word in its own span, so it can light up when it is said
     step.say.split(/\s+/).filter(Boolean).forEach((w, k) => { if (k) say.append(' '); say.append(el('span', k <= st.lit ? 'on' : '', w)); });
     const parts = [top, say];
@@ -431,7 +438,7 @@
       parts.push(q);
     }
     if (st.video) parts.push(st.video);
-    if (st.i === b.steps.length - 1) {
+    if (st.i === b.steps.length - 1 && !st.streaming) {
       const end = el('p', 'board-end', b.end || "In the tutor's own words. No source found.");
       (b.sources || []).filter(x => x.quoted).forEach(x => end.append(' ', link(x)));
       parts.push(end);
@@ -493,7 +500,7 @@
     quiet();
     i = Math.max(0, Math.min(st.board.steps.length - 1, i));
     const forward = i === st.i + 1, t = performance.now();
-    st.i = i; st.stepAt = t; st.lit = -1;
+    st.i = i; st.stepAt = t; st.lit = -1; st.wait = false;
     for (const m of st.marks) unmount(m);
     st.video = null;
     const run = (m, live) => {   // a mark that starts: `clear` takes away the marks before it
@@ -520,7 +527,26 @@
       light(1e9);
       mine.forEach((m, n) => { if (!started.has(n)) { started.add(n); run(m, true); } });
       if (st && st.auto && i < st.board.steps.length - 1) st.timers.push(setTimeout(() => show(i + 1), WAIT));
+      else if (st && st.auto && st.streaming) st.wait = true;   // the last step so far is said: the next step that comes plays at once
     });
+  }
+  function marksOf(s, k) { return s.strokes.map((o, n) => ({o, step: k, seed: 1 + k * 10 + n, parts: []})); }
+  function add(step) {   // see the API at the top of this file
+    if (!st || !st.streaming || !step || typeof step.say !== 'string' || !Array.isArray(step.strokes)) return false;
+    const k = st.board.steps.length;
+    st.board.steps.push(step); st.marks.push(...marksOf(step, k));
+    if (st.fast || (st.wait && st.i === k - 1)) show(k); else caption();
+    return true;
+  }
+  function finish(board) {   // see the API at the top of this file
+    if (!st || !st.streaming || !board || !Array.isArray(board.steps)) return false;
+    const have = st.board.steps;
+    if (board.steps.length < have.length || have.some((s, k) => s.say !== board.steps[k].say)) return false;
+    board.steps.slice(have.length).forEach(add);
+    Object.assign(st.board, board, {steps: have});
+    st.streaming = false;
+    caption();
+    return true;
   }
   function demo(set) { try { hooks().demo(set); } catch (e) { console.warn('board: demo', e); } }
   function rupaka(set) {   // the default demo: Rupaka.set, only when each gate is done
@@ -581,9 +607,10 @@
     if (hk && typeof hk.assets === 'string' && hk.assets) h.assets = hk.assets.endsWith('/') ? hk.assets : hk.assets + '/';
     await libs(h.assets);
     if (!board || !board.steps || !board.steps.length) { note(board && board.failed ? "The tutor's drawing failed. Say it again or type it." : 'The tutor did not answer. Try again.'); return; }
+    if (board.streaming) board = {...board, steps: [...board.steps]};   // add() grows the steps of its own copy
     st = {board, labels, host: h, fast, quiet: q || fast, auto: auto && !fast, i: 0, gen: 0, lit: -1, timers: [], rate: +(localStorage.getItem('board-rate') || 1), first: null,
-          t0: performance.now(), stepAt: 0, ptr: {pos: null, f: null},
-          marks: board.steps.flatMap((s, k) => s.strokes.map((o, n) => ({o, step: k, seed: 1 + k * 10 + n, parts: []})))};
+          t0: performance.now(), stepAt: 0, ptr: {pos: null, f: null}, streaming: !!board.streaming, wait: false,
+          marks: board.steps.flatMap(marksOf)};
     // An empty answer box with the focus (a check takes it when it loads) lets go of it, so A, S and D work. A box with your text
     // keeps it: then the keys type, and a click outside the box gives them to the board. Esc gives the focus back.
     const a = document.activeElement;
@@ -607,11 +634,11 @@
   }).observe(document.body, {childList: true, subtree: true});
   if (document.body) watch(); else addEventListener('DOMContentLoaded', watch);
   const view = p => [p[0] - scrollX, p[1] - scrollY];
-  window.abhyasaBoard = {play, stop, note, seekVideo, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
+  window.abhyasaBoard = {play, add, finish, stop, note, seekVideo, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
                          get state() {
                            if (!st) return null;
                            const t = performance.now(), mine = st.marks.filter(m => m.step === st.i && !/^(clear|demo_set|video_at)$/.test(m.o.op));
-                           return {i: st.i, steps: st.board.steps.length, tier: st.board.tier, first: st.first, done: !(st.ptr.now && (st.ptr.now.flying || st.ptr.now.busy)) && mine.every(m => m.drawn && (!m.ok || t - m.t0 >= (reduced() || m.still ? 150 : m.life)))};
+                           return {i: st.i, steps: st.board.steps.length, tier: st.board.tier, first: st.first, streaming: st.streaming, done: !(st.ptr.now && (st.ptr.now.flying || st.ptr.now.busy)) && mine.every(m => m.drawn && (!m.ok || t - m.t0 >= (reduced() || m.still ? 150 : m.life)))};
                          },
                          get pointer() {
                            if (!st || !st.ptr.now) return null;

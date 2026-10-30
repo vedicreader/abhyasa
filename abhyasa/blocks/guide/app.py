@@ -46,8 +46,9 @@ def connect(app, ctx):
         return JSONResponse(dict(key=k, labels=labels))
 
     async def ask_(req):
-        """The board for one question, as server-sent events: `{"wait": text}` while the guide looks in the vault or on the web, then
-        `{"board": …}`, or `{"error": text}`. The model runs on a thread; the page context is never stored."""
+        """The board for one question, as server-sent events: `{"step": {…}, "k": n, "tier": "tutor"}` for each step of a sure tutor
+        board as soon as it is whole, `{"wait": text}` while the guide looks in the vault or on the web, then `{"board": …}` (the
+        whole board, also after its steps), or `{"error": text}`. The model runs on a thread; the page context is never stored."""
         body = await req.body()
         try: d = json.loads(body) if len(body) <= ASK_BYTES else None
         except ValueError: d = None
@@ -59,7 +60,8 @@ def connect(app, ctx):
             else: ctx_.pop('video')
         q = queue.Queue()
         def run():
-            try: q.put(dict(board=explain(ask, ctx_, said, sources=sources, note=lambda t: q.put(dict(wait=t)), lr=lr)))
+            try: q.put(dict(board=explain(ask, ctx_, said, sources=sources, note=lambda t: q.put(dict(wait=t)), lr=lr,
+                                          on_step=lambda s, k: q.put(dict(step=s, k=k, tier='tutor')))))
             except Withheld: q.put(dict(error=WITHHELD))
             except Exception as e: log.warning('guide: %r', e); q.put(dict(error='The tutor could not answer. Try again.'))
         threading.Thread(target=run, daemon=True).start()
@@ -67,7 +69,7 @@ def connect(app, ctx):
             while True:
                 m = await asyncio.to_thread(q.get)
                 yield f'data: {json.dumps(m)}\n\n'
-                if 'wait' not in m: break
+                if 'wait' not in m and 'step' not in m: break
         return StreamingResponse(gen(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
     def video_part(c, msg=''):

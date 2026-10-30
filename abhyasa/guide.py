@@ -462,7 +462,8 @@ def guide_ask(ask, name:str=''):
     `stream(prompt, sp)`, with the same guard."""
     if hasattr(getattr(ask, 'dflt', None), 'via'): return ask.dflt.via('guide', name or ask.name('hint'), 2048, guarded)
     def call(p, sp=''): return ask(guard(p), guard(sp))
-    if callable(getattr(ask, 'stream', None)): call.stream = lambda p, sp='': ask.stream(guard(p), guard(sp))
+    if callable(s := getattr(ask, 'stream', None) or getattr(getattr(ask, 'dflt', None), 'stream', None)):   # a `Router` streams on its default
+        call.stream = lambda p, sp='': s(guard(p), guard(sp))
     return call
 
 def video_source(v) -> dict|None:

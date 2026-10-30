@@ -113,18 +113,23 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   }
   function close() { if (form()) form().hidden = true; }
 
-  // Ask the tutor: read the page, post the question with it, and play the board that comes back. The times go into
-  // `abhyasaGuideLast`: from the press of Explain to the board, and to the first mark.
+  // Ask the tutor: read the page, post the question with it, and play the board that comes back. A sure tutor sends each step
+  // when it is whole: the first step starts a streaming board, and each next step goes to abhyasaBoard.add. The board event at
+  // the end is the whole board: it finishes the streaming board, or plays as it is when no step came. The times go into
+  // `abhyasaGuideLast`: from the press of Explain to the first step, to the board, and to the first mark.
+  let asks = 0;   // a newer question takes the place of an older one, so the steps of the older one go nowhere
   async function ask(said) {
     said = cut(said, 300);
     if (!said) return;
     close();
-    const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0};
+    const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0}, n = ++asks;
+    const opts = () => ({labels, quiet: !!window.abhyasaGuideQuiet}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
+    let labels = {}, live = null;   // live: the promise of the streaming board, with each add after it
     say('The tutor reads the page.');
     try {
       const ctx = await capture();
       last.capture_ms = Math.round(performance.now() - t0);
-      const labels = Object.fromEntries(ctx.anchors.filter(a => a.labels).map(a => [a.id, a.labels]));
+      labels = Object.fromEntries(ctx.anchors.filter(a => a.labels).map(a => [a.id, a.labels]));
       const r = await fetch(me.ask, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({said, ctx})});
       if (!r.ok) return say(cut(await r.text(), 200) || 'The tutor could not answer. Try again.');
       const rd = r.body.getReader(), dec = new TextDecoder();
@@ -138,12 +143,21 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
           const ev = buf.slice(0, k); buf = buf.slice(k + 2);
           if (!ev.startsWith('data: ')) continue;
           const m = JSON.parse(ev.slice(6));
+          if (n !== asks) return rd.cancel();
           if (m.wait) say(m.wait);
           if (m.error) say(m.error);
+          if (m.step && !live) {
+            last.step_ms = Math.round(performance.now() - t0); mark();
+            live = abhyasaBoard.play({steps: [m.step], tier: m.tier || 'tutor', sources: [], streaming: true}, opts());
+          } else if (m.step) live = live.then(() => n === asks && abhyasaBoard.add(m.step));
           if (m.board) {
             last.board_ms = Math.round(performance.now() - t0); last.server_ms = m.board.ms; last.tier = m.board.tier;
-            document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
-            await abhyasaBoard.play(m.board, {labels, quiet: !!window.abhyasaGuideQuiet});
+            if (!live) { mark(); await abhyasaBoard.play(m.board, opts()); }
+            else {
+              await live;
+              const b = abhyasaBoard.state;   // null when the learner stopped the board
+              if (n === asks && b && b.streaming && !abhyasaBoard.finish(m.board)) await abhyasaBoard.play(m.board, opts());
+            }
           }
         }
       }

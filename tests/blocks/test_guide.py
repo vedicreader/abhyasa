@@ -109,6 +109,19 @@ def test_ask_streams_a_board(mk, fake):
     b = evs[-1]['board']
     assert b['tier'] == 'tutor' and b['steps'][0]['strokes'] == [dict(op='box', at='passage')]
 
+def test_ask_streams_each_step_before_the_board(mk, fake):
+    "A model that streams: each step of a sure tutor board is an event as soon as it is whole, and the whole board comes last."
+    reply = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='This is the passage.'), dict(op='box', at='passage'),
+                                              dict(op='step', say='Read it again.'), dict(op='underline', at='passage')])
+    fake.rules['Tier: tutor'] = reply
+    fake.stream = lambda p, sp='': (fake(p, sp)[i:i + 9] for i in range(0, len(reply), 9))
+    ctx = dict(page='/walk/x/step/1', anchors=[dict(id='passage', kind='passage', text='Some text.')])
+    evs = [json.loads(l[6:]) for l in mk().post('/guide/ask', json=dict(said="I don't get this", ctx=ctx)).text.splitlines() if l.startswith('data: ')]
+    steps, b = [e for e in evs if 'step' in e], evs[-1]['board']
+    assert [list(e) for e in evs] == [['step', 'k', 'tier']] * 2 + [['board']]
+    assert [(e['k'], e['tier']) for e in steps] == [(1, 'tutor'), (2, 'tutor')] and [e['step'] for e in steps] == b['steps']
+    assert b['steps'][1]['strokes'] == [dict(op='underline', at='passage')]
+
 def test_ask_needs_words(mk):
     assert mk().post('/guide/ask', json=dict(said='  ', ctx={})).status_code == 400
 
