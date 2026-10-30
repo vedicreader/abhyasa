@@ -568,7 +568,7 @@ wheels = [
 
 [[package]]
 name = "fossick"
-version = "0.1.22"
+version = "0.1.23"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -585,9 +585,9 @@ dependencies = [
     { name = "scrapling", extra = ["fetchers"] },
     { name = "yt-dlp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5a/19/eae66d48e4b6f7e9438c9e2610fbb3e9370af48b48b4d6b429521a75294e/fossick-0.1.22.tar.gz", hash = "sha256:aa38d89412346e67fa7414ea1a5dd25ef87fb623da8b593ff7adef2ebdf6ae9a", size = 103277, upload-time = "2026-10-28T02:55:47.861Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/9b/0ae4fc75c495dcd7b13bfce43273a865786c5de604f640d3ece69651161c/fossick-0.1.23.tar.gz", hash = "sha256:47cb3536fc085e1facf7459e79a7ce7ca94a9214d05d9d9c81d39b939080e791", size = 104201, upload-time = "2026-10-29T23:48:19.143Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/0d/23f3312b23948c3072526f8cc991473dce15655f5e8196402e71330579b8/fossick-0.1.22-py3-none-any.whl", hash = "sha256:971c4ec075a0b2f06471d961f89158f9773d4b4f0a5e92ef35f141ef8e2e4176", size = 103619, upload-time = "2026-10-28T02:55:46.174Z" },
+    { url = "https://files.pythonhosted.org/packages/45/1d/42a4bb4b8ae4b15796f2f8f110c09f3b59e08eff3febf27207bffe682fc1/fossick-0.1.23-py3-none-any.whl", hash = "sha256:76e8c24f6a0f94dfb44636c81880ed80fc6fce16bb2fa31f6e79aa3471bc53ba", size = 104542, upload-time = "2026-10-29T23:48:17.801Z" },
 ]
 
 [[package]]
@@ -629,7 +629,7 @@ wheels = [
 
 [[package]]
 name = "gheasy"
-version = "0.0.15"
+version = "0.0.18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cyclopts" },
@@ -638,9 +638,9 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "tomlkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3c/46/5f0651146b9ea46d86a87100f4e8ae9651e7f413f7b5b18e8a6f47a59451/gheasy-0.0.15.tar.gz", hash = "sha256:41502c4de173502a0fb7a3c6a32d3abecdee5aec29234561da9a556d2c2091be", size = 64222, upload-time = "2026-10-24T21:22:53.438Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/32/e7/e208ad38de430b4ae7028d55d8efb1b700a20ffee867836d2de64437556a/gheasy-0.0.18.tar.gz", hash = "sha256:e0ed3b4e5600a8647e7ba0a35eac1bf27c85c8f00f1519407b05da7f963eee68", size = 64781, upload-time = "2026-10-29T23:50:28.277Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/3a/5d5fe84fc42f6c3502b25c5da8cb3921426724605bf7fc4ffda5195aa8b9/gheasy-0.0.15-py3-none-any.whl", hash = "sha256:7f620752218a891a7f15d5d3c0fdd945a1985d6c91800455a24d56e695cf9838", size = 66436, upload-time = "2026-10-24T21:22:52.114Z" },
+    { url = "https://files.pythonhosted.org/packages/dc/5f/7ab3d3f941f58c4801d1223873eb91f5130895dc87abdd7ec404c72ac826/gheasy-0.0.18-py3-none-any.whl", hash = "sha256:e5a80a3150a7f8b17aa1aa0c5d6f041e3136f7acc3c74d7418ca8b477110826e", size = 67066, upload-time = "2026-10-29T23:50:27.041Z" },
 ]
 
 [[package]]
