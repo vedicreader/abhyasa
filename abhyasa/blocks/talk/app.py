@@ -14,14 +14,14 @@ from copy import deepcopy
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
 from abhyasa.core import Page, UndoBar, hook, n_of, pane_url, room_spec, run as run_hook
-from abhyasa.edit import edit_lock, rewrite as tutor_rewrite
+from abhyasa.edit import edit_lock, CTRL, rewrite as tutor_rewrite
 from abhyasa.sources import figure_path
 from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
 from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
                           public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go, log_main, end_run, log_beside,
-                          recap, recap_html, BEATS, FILLED)
+                          recap, recap_html, BEATS, FILLED, clean_slide)
 from . import ui
 from .cfg import Routes
 
@@ -45,9 +45,17 @@ class Bad(Exception):
 
 def text(s): return Response(s, status_code=400, media_type='text/plain')
 
+def no_marks(v): return CTRL.sub('', v) if isinstance(v, str) else v
+
+async def fields(req):
+    "The form of an editor request, with its query (`sid`, `at`), and each text with no control or direction mark (`CTRL`). The options come as a list."
+    form = await req.form()
+    f = {k: no_marks(v) for k, v in {**dict(req.query_params), **{k: v for k, v in form.items() if isinstance(v, str)}}.items()}
+    return f, [no_marks(o) for o in form.getlist('options')]
+
 def new_id(ss):
     "The next free slide id: one more than the largest number."
-    return f"s{max((int(s['id'][1:]) for s in ss if str(s.get('id', ''))[1:].isdigit()), default=0) + 1}"
+    return f"s{max((int(s['id'][1:]) for s in ss if str(s.get('id', ''))[1:].isdecimal()), default=0) + 1}"
 
 def blank(sid, kind, title, mins, **kw):
     "A slide with no step: a pause or a questions slide."
@@ -123,15 +131,17 @@ def rows(f, opts):
     if len(opts) < 2: return f
     keep = [k for k, o in enumerate(opts) if isinstance(o, str) and o.strip()]
     f = {**f, 'options': '\n'.join(opts[k].strip() for k in keep)}
-    if (a := f.get('answer', '').strip()).isdigit():
+    if (a := f.get('answer', '').strip()).isdecimal():
         if int(a) not in keep: raise Bad('Pick an option that has text.')
         f['answer'] = str(keep.index(int(a)))
     return f
 
 TITLE_MOST = 200
 NO_REWRITE = 'The tutor could not rewrite this. Nothing changed.'
+KEPT = 'Your edit was kept. The rewrite was not used.'
 IMG_LINK = re.compile(r'!\[([^\]]*)\]\(([^)\s]+)\)')   # a markdown image: its caption and its link
 FIGS_MOST = 24   # the most figures of one document that a slide offers
+FIG_DOCS = 64    # the most documents whose figures the editor keeps
 
 def points(s, pts):
     "Slide `s` with the points `pts`: a new list shows with its beat, and no points take the beat out."
@@ -296,16 +306,24 @@ def connect(app, ctx):
             ds += [p.get('doc_id') for p in (lr.concept(slug) or {}).get('provenance') or ()]
         return [d for d in dict.fromkeys(ds) if d]
 
+    figs = {}   # (doc id, the time it was filed, its hash) -> its figures: a document is read once, and again only when it changes
+
     def doc_figures(doc_id, seen):
-        "The figures in the text of document `doc_id`, as (image id, caption), in the order of the text. `seen` keeps each document read once."
-        if doc_id not in seen:
+        "The figures in the text of document `doc_id`, as (image id, caption), in the order of the text. `seen` keeps each document looked up once for each render."
+        if doc_id in seen: return seen[doc_id]
+        try: row = lr.vault.doc(doc_id) or {}
+        except Exception: row = {}
+        key = (doc_id, row.get('added_at'), row.get('hash'))
+        if key not in figs:
             out = []
             try:
                 d = lr.vault.document(doc_id, max_chars=400000, disk=False)
                 for alt, link in IMG_LINK.findall(d.text or ''):
-                    if (f := figure_path(lr, d.source or '', link)): out.append((f'asset:{f}', ' '.join(alt.split())))
+                    if (f := figure_path(lr, d.source or '', link)): out.append((f'asset:{f}', ' '.join(no_marks(alt).split())))
             except Exception: pass
-            seen[doc_id] = out[:FIGS_MOST]
+            if len(figs) >= FIG_DOCS: figs.pop(next(iter(figs)))   # the oldest document goes first
+            figs[key] = out[:FIGS_MOST]
+        seen[doc_id] = figs[key]
         return seen[doc_id]
 
     def figures(t, s, j=None, seen=None):
@@ -338,18 +356,22 @@ def connect(app, ctx):
 
     def save(t, ss, said, who='you', field=None):
         "Save the slides `ss` of talk `t` and keep the change in its history, as one step; call under `edit_lock`. A talk with a problem raises `Bad`."
+        ss = [clean_slide(x) for x in ss]   # an old slide with a control mark in a field gets clean on its next change
         if (ps := check_talk({**t, 'slides': ss})): raise Bad(ps[0])
         out = []
         rows = lr.add_edit('talk', t['id'], said, who, list(t['slides']), field=field, apply=lambda: out.append(lr.put_talk({**t, 'slides': ss})))
         return out[0], rows
 
     async def slide(req, tid:str):
-        form = await req.form()
-        f = {**dict(req.query_params), **{k: v for k, v in form.items() if isinstance(v, str)}}
-        try: f = rows(f, form.getlist('options'))
+        f, opts = await fields(req)
+        try: f = rows(f, opts)
         except Bad as e: return text(str(e))
         act = f.get('act', '')
         if act == 'rewrite': return redo(tid, f)
+        made = None
+        if act == 'primer':   # the model writes the question first, outside the lock; the lock is only for the change
+            if not (c := lr.concept(f.get('slug', ''))): return text('No such idea.')
+            made = c, ask_for_concept(lr, ask(), c.slug)
         with edit_lock('talk', tid):
             if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
             ss = deepcopy(list(t.slides))
@@ -403,8 +425,7 @@ def connect(app, ctx):
                     ss.insert(i + 1, new := blank(new_id(ss), 'questions', 'Questions', QUESTIONS_MIN))
                     said, row = 'Added a slide for questions.', new['id']
                 elif act == 'primer':
-                    if not (c := lr.concept(f.get('slug', ''))): raise Bad('No such idea.')
-                    a, p = ask_for_concept(lr, ask(), c.slug), c.get('statement') or ''
+                    (c, a), p = made, made[0].get('statement') or ''
                     ss.insert(i, new := dict(id=new_id(ss), kind='primer', concept=c.slug, title=c.name, section=ss[i].get('section') or '',
                                              show=dict(passage=p, figure=None, demo=None), beats=['passage'] if p else [], notes='', ask=a,
                                              mins=slide_minutes(dict(read=dict(text=p)), a)))
@@ -429,14 +450,20 @@ def connect(app, ctx):
         sh = s.get('show') or {}
         try: new = tutor_rewrite(ask(), dict(body=list(sh.get('body') or []), notes=s.get('notes') or ''), ins, context=sh.get('passage') or '')
         except Exception: return text(NO_REWRITE)   # never the words of a library
-        with edit_lock('talk', tid):
+        was = dict(body=list(sh.get('body') or []), notes=s.get('notes') or '')
+        with edit_lock('talk', tid):   # the rewrite goes on the slide as it is now: a field that you changed during the call keeps your edit
             t = lr.talk(tid); ss = deepcopy(list(t.slides))
             if (i := next((k for k, x in enumerate(ss) if x.get('id') == s['id']), None)) is None: return Response('No such slide.', status_code=404)
+            now = dict(body=list((ss[i].get('show') or {}).get('body') or []), notes=ss[i].get('notes') or '')
+            kept = [k for k in was if now[k] != was[k]]
+            if len(kept) == len(was): return text(KEPT)
+            said = f'Rewrote the points of slide {i + 1}: {ins}.' + (f' Your edit of the {ui.FIELDS[kept[0]]} was kept.' if kept else '')
             try:
-                note(points(ss[i], [p for p in new['body'] if p.strip()][:BODY_MOST]), new['notes'])
-                t2, hist = save(t, ss, f'Rewrote the points of slide {i + 1}: {ins}.', who='tutor')
+                if 'body' not in kept: points(ss[i], [p for p in new['body'] if p.strip()][:BODY_MOST])
+                if 'notes' not in kept: note(ss[i], new['notes'])
+                t2, hist = save(t, ss, said, who='tutor')
             except Bad: return text(NO_REWRITE)
-        return (*deck(t2, opened=s['id']), bar(t2, f'Rewrote the points of slide {i + 1}: {ins}.', hist, s['id']))
+        return (*deck(t2, opened=s['id']), bar(t2, said, hist, s['id']))
 
     def fig(tid:str, f:str=''):
         "A figure that a slide of the talk shows or can pick, for its small picture in the editor. No other file."
@@ -448,7 +475,7 @@ def connect(app, ctx):
     async def beat(req, tid:str):
         """One change to the beats of a slide: `move` (`at`, `to`), `drop` (`at`), or `add` (`kind`, a part, or `words` of the passage to light).
         The beats keep their stored form (`passage`, `body`, `lit:<words>` ...). The answer is the chips, with the Undo bar."""
-        f = {**dict(req.query_params), **{k: v for k, v in (await req.form()).items() if isinstance(v, str)}}
+        f, _ = await fields(req)
         act = f.get('act', '')
         with edit_lock('talk', tid):
             if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
@@ -500,7 +527,9 @@ def connect(app, ctx):
         with edit_lock('talk', tid):
             if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
             es = lr.edits('talk', tid)
-            e = first(x for x in es if x.id == id) if id else es[int(k)] if k.strip().isdigit() and int(k) < len(es) else None
+            try: n = int(k) if k.strip().isdecimal() else None
+            except ValueError: n = None
+            e = first(x for x in es if x.id == id) if id else es[n] if n is not None and n < len(es) else None
             if not e: return Response('No such change.', status_code=404)
             if e.before is None: return text('This change was too large to keep. It cannot come back.')
             try: save(t, e.before, f'Restored the version before “{e.what}”')

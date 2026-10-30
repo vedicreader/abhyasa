@@ -1,5 +1,6 @@
 "The talk editor in place: each change saves at once with an Undo, the history, add, copy, move and remove, the passage, the figure and the rewrite."
 from talk_data import *
+from abhyasa.talk import check_talk
 import json
 
 def paper_walk(cl, lr): return prep_walk(lr, walk(cl, lr))
@@ -8,12 +9,12 @@ def ids(lr, tid): return [s['id'] for s in lr.talk(tid).slides]
 
 def test_field_saves_at_once_with_undo(mk, lr, talk_fake):
     "A field saves at once, the answer has the Undo bar, and Undo gives back the old text."
-    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr)); sid = lr.talk(tid).slides[0]['id']
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr)); old = lr.talk(tid).slides; sid = old[0]['id']
     r = cl.post(f'/t/{tid}/slide', data=dict(sid=sid, act='edit', notes='Show the demo first.'))
     assert lr.talk(tid).slides[0]['notes'] == 'Show the demo first.' and 'id="undo-bar"' in r.text and 'Changed the' in r.text
     assert 'Changed the speaker note of slide 1.' in r.text and 'hx-swap-oob' in r.text
     cl.post(f'/t/{tid}/undo')
-    assert lr.talk(tid).slides[0]['notes'] != 'Show the demo first.'
+    assert lr.talk(tid).slides == old and not lr.edits('talk', tid)   # Undo gives back the exact old slides
 
 def test_a_live_field_answers_with_the_bar_only(mk, lr, talk_fake):
     "A live field (act=set, the slide in the query) answers with the bar only, so the text that you type stays; two saves of one field join."
@@ -208,3 +209,78 @@ def test_sections_are_labels_not_rows(mk, lr, talk_fake):
     deck = h[h.index('id="deck"'):]
     assert deck.index(secs[0]) < deck.index('data-id="s1"') < deck.index(secs[1]) < deck.index('data-id="s2"')
     assert 'data-i="1"' in deck[deck.index('data-id="s2"') - 200:deck.index('data-id="s2"') + 200]   # the row index skips the labels
+
+def test_no_control_marks_in_a_field(mk, lr, talk_fake):
+    "Each field that the editor sends loses its control and direction marks: the title, the points, the note, the question, the options, the Light words and the rewrite."
+    talk_fake.rules['Rewrite'] = dict(body=['Short.'], notes='New note.')
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr))
+    post = lambda **kw: cl.post(f'/t/{tid}/slide', data=dict(sid='s1', **kw))
+    post(act='edit', title='Seq\u202euential', body='One\x00 point.\nTwo\u200b points.', notes='A\x07 note.\nLine two.')
+    s = lr.talk(tid).slides[0]
+    assert (s['title'], s['show']['body'], s['notes']) == ('Sequential', ['One point.', 'Two points.'], 'A note.\nLine two.')
+    post(act='edit', kind='choice', q='Wh\u2066at?', options=['A\x1b', 'B', '', '', '', ''], answer='0')
+    assert lr.talk(tid).slides[0]['ask']['q'] == 'What?' and lr.talk(tid).slides[0]['ask']['options'] == ['A', 'B']
+    cl.post(f'/t/{tid}/beat?sid=s2', data=dict(act='add', words='softmax\u200b function'))
+    assert lr.talk(tid).slides[1]['beats'][-1] == 'lit:softmax function'
+    post(act='rewrite', text='simpler\u202e')
+    assert lr.edits('talk', tid)[0].what == 'Rewrote the points of slide 1: simpler.'
+    assert not check_talk(lr.talk(tid)) and check_talk({**lr.talk(tid), 'slides': [{**lr.talk(tid).slides[0], 'title': 'A\u202eB'}]}) == ['s1: the title has a control mark']
+
+def test_an_old_mark_is_cleaned_on_the_next_change(mk, lr, talk_fake):
+    "A slide saved before the check, with a mark in its note, gets clean on the next change, so the talk can still change."
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr))
+    t = dict(lr.talk(tid)); ss = [dict(x) for x in t['slides']]; ss[1]['notes'] = 'Old\r\n note.'
+    lr.v.set_meta(t['doc_id'], **{**{k: v for k, v in t.items() if k != 'doc_id'}, 'slides': ss})   # as an old version saved it
+    assert cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='edit', notes='New.')).status_code == 200
+    assert lr.talk(tid).slides[1]['notes'] == 'Old\n note.'
+
+def test_a_primer_asks_the_model_outside_the_lock(mk, lr, talk_fake, monkeypatch):
+    "The primer act writes its question before it takes the lock of the talk, so a slow model never holds up another change."
+    import abhyasa.blocks.talk.app as ta
+    from abhyasa.edit import edit_lock
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr)); held = []
+    real = ta.ask_for_concept
+    def spy(*a, **kw):   # another thread tries the lock: it gets it only when the request does not hold it
+        import threading
+        lk, res = edit_lock('talk', tid), []
+        th = threading.Thread(target=lambda: res.append(lk.acquire(blocking=False) and (lk.release() or True))); th.start(); th.join()
+        held.append(not res[0])
+        return real(*a, **kw)
+    monkeypatch.setattr(ta, 'ask_for_concept', spy)
+    r = cl.post(f'/t/{tid}/slide', data=dict(sid='s3', act='primer', slug='softmax'))
+    assert r.status_code == 200 and held == [False] and lr.talk(tid).slides[2]['kind'] == 'primer'
+
+def test_figures_of_a_document_are_read_once(mk, lr, talk_fake, monkeypatch):
+    "The editor reads the text of a source document once for its figures, and again only when the document changes."
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr)); f = lr.talk(tid).slides[1]['show']['figure']
+    reads = []
+    real = type(lr.vault).document
+    monkeypatch.setattr(type(lr.vault), 'document', lambda self, ref, *a, **kw: (reads.append(ref), real(self, ref, *a, **kw))[1])
+    editor_page(cl, tid); editor_page(cl, tid)
+    for _ in range(3): assert cl.get(f'/t/{tid}/fig', params=dict(f=f)).status_code == 200
+    assert len(reads) == 1
+
+def test_a_rewrite_keeps_your_edit(mk, lr, talk_fake):
+    "A field that you change while the tutor writes keeps your edit; the rewrite goes only on the fields that you did not change."
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr))
+    def slow(p, sp):   # while the model writes, you change the note
+        cl.post(f'/t/{tid}/slide?sid=s1', data=dict(act='set', notes='My note.'))
+        return dict(body=['Short.'], notes='Tutor note.')
+    talk_fake.rules['Rewrite'] = slow
+    r = cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='rewrite', text='simpler'))
+    s = lr.talk(tid).slides[0]
+    assert s['notes'] == 'My note.' and s['show']['body'] == ['Short.'] and 'Your edit of the speaker note was kept.' in r.text
+    def both(p, sp):   # you change both fields: nothing of the rewrite is used
+        cl.post(f'/t/{tid}/slide?sid=s1', data=dict(act='set', notes='Mine again.', body='My point.'))
+        return dict(body=['Tutor point.'], notes='Tutor note.')
+    talk_fake.rules['Rewrite'] = both
+    r = cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='rewrite', text='shorter'))
+    s = lr.talk(tid).slides[0]
+    assert r.status_code == 400 and r.text == 'Your edit was kept. The rewrite was not used.' and (s['notes'], s['show']['body']) == ('Mine again.', ['My point.'])
+
+def test_other_digits_give_400(mk, lr, talk_fake):
+    "A digit that int() cannot read, such as ², gives a 400 or a 404, never a 500."
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr))
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='edit', notes='One.'))
+    assert cl.post(f'/t/{tid}/restore', data=dict(k='²')).status_code == 404
+    assert cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='edit', kind='choice', q='Q?', options=['a', 'b', '', '', '', ''], answer='²')).status_code == 400

@@ -6,7 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/edit.html.md"""
 
 # %% auto #0
 __all__ = ['HISTORY_MOST', 'HISTORY_BYTES', 'EDIT_JOIN', 'WHO', 'WHAT_MOST', 'RUN_FIELDS', 'CODE_GONE', 'REWRITE_SP',
-           'INSTRUCTION_MOST', 'REWRITE_TEXT', 'REWRITE_LIST', 'edit_lock', 'restore_steps', 'undo_line', 'rewrite']
+           'INSTRUCTION_MOST', 'REWRITE_TEXT', 'REWRITE_LIST', 'CTRL', 'edit_lock', 'restore_steps', 'undo_line',
+           'rewrite']
 
 # %% ../nbs/20_edit.ipynb #e006
 import json, re, threading, time, uuid
@@ -154,9 +155,9 @@ Return JSON with the same keys as the fields that you get, and no other keys."""
 # %% ../nbs/20_edit.ipynb #e054
 INSTRUCTION_MOST, REWRITE_TEXT, REWRITE_LIST = 300, 2000, 8   # the most characters of an instruction and of a text, and the most items of a list
 
-_CTRL = re.compile(r'[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]')   # control and direction marks; a line end and a tab stay
+CTRL = re.compile(r'[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]')   # control and direction marks; a line end and a tab stay. The editors strip them from each field, and `check_talk` refuses them
 
-def _clean(x:str) -> str: return _CTRL.sub('', x).strip()[:REWRITE_TEXT]
+def _clean(x:str) -> str: return CTRL.sub('', x).strip()[:REWRITE_TEXT]
 
 def _texts(v):
     "`v` as a clean text, or a list of clean texts, with no control marks and at most `REWRITE_TEXT` characters each; None when it is not one of these, or is empty."
