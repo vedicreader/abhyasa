@@ -18,6 +18,19 @@ def test_figure_labels_are_found_once(mk, fake):
     assert cl.post('/guide/figure', content=PNG).json()['labels']['b'] == [480, 880, 540, 960]
     assert sum('You find the text labels' in sp for _, sp in fake.calls) == n == 1
 
+def test_a_failed_vision_call_is_not_kept(mk, fake):
+    "The first vision call fails, so the route keeps no labels: the next post of the same figure asks again and gets the labels."
+    tries = []
+    def flaky(p, sp):
+        tries.append(p)
+        if len(tries) == 1: raise RuntimeError('the model timed out')
+        return LABELS
+    fake.rules['You find the text labels'] = flaky
+    cl = mk()
+    assert cl.post('/guide/figure', content=PNG + b'flaky').json()['labels'] == {}
+    assert cl.post('/guide/figure', content=PNG + b'flaky').json()['labels'] == {'a': [90, 400, 160, 500], 'b': [480, 880, 540, 960]}
+    assert len(tries) == 2
+
 def test_figure_alt_passes_the_guard(mk, fake):
     "A secret in the alt text of a figure never reaches the vision call: the route sends the alt through `guard` first."
     fake.rules['You find the text labels'] = LABELS

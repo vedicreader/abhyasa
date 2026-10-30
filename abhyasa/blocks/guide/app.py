@@ -40,6 +40,7 @@ def connect(app, ctx):
         if (vision := vision_ask(ask)) is None: return JSONResponse(dict(key=k, labels={}, note='The model cannot see pictures.'))
         try: labels = await asyncio.to_thread(figure_labels, vision, img, alt)
         except Withheld: return JSONResponse(dict(error=WITHHELD, labels={}), status_code=403)
+        if labels is None: return JSONResponse(dict(key=k, labels={}))   # the call failed: keep nothing, so the next post asks again
         figs.put(k, labels)
         return JSONResponse(dict(key=k, labels=labels))
 

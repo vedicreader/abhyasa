@@ -262,12 +262,12 @@ FIGURE_SP = register('guide.figure', 'Figure labels', 'How the guide finds the l
 - At most 20 labels. A label has at most 12 characters. Do not give long sentences or captions.
 Return JSON: {"labels": [{"text": str, "box": [x0, y0, x1, y1]}]}""")
 
-def figure_labels(vision, img:bytes, alt:str='') -> dict:
-    "The labels in the figure image `img`, as text to a box from 0 to 1000, from the reply of `vision(prompt, img, sp)`."
+def figure_labels(vision, img:bytes, alt:str='') -> dict|None:
+    "The labels in the figure image `img`, as text to a box from 0 to 1000, from the reply of `vision(prompt, img, sp)`. None when the call fails or its reply is not JSON, so that no one keeps an empty result."
     from abhyasa.llm import parse_json
     p = f"The figure: {json.dumps(guard(alt)[:200])}\nFind its labels."
     try: r = parse_json(vision(p, img, prompt('guide.figure')) or '')
-    except Exception: return {}
+    except Exception: return None
     out = {}
     for l in (r.get('labels') or [])[:MOST['labels']] if isinstance(r, dict) else ():
         t = l.get('text') if isinstance(l, dict) else None

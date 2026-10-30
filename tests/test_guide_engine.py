@@ -51,7 +51,7 @@ def test_figure_labels_from_a_vision_reply():
                                                                                   dict(text='c', box=[0, 0, 2000, 10]), dict(text='', box=[1, 1, 2, 2])]))
     assert figure_labels(vision, b'\x89PNG', 'A right triangle') == {'a': [90, 400, 160, 500], 'b': [480, 880, 540, 960]}
     assert calls == [b'\x89PNG']
-    assert figure_labels(lambda p, img, sp='': 'not json', b'x') == {}
+    assert figure_labels(lambda p, img, sp='': 'not json', b'x') is None   # a failed reply: None, so no one keeps it
 
 def test_figure_cache_keeps_boxes_only(tmp_path):
     fc = FigureCache(tmp_path/'figs.json')
