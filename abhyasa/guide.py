@@ -593,8 +593,12 @@ def _page_sources(ctx) -> list:
     return out + ([v] if (v := video_source(ctx.get('video'))) else [])
 
 def _done(tier, b, srcs, t0, hint:bool=False) -> AttrDict:
-    used = {s['quote']['src'] for s in b.steps if s.get('quote')}
+    """The board `b` as the page gets it, with `srcs`, the sources of its request. The tier and the end line come from the sources
+    that the board quotes: a vault or web tier that quotes none of its own sources is the tutor, and a board that quotes nothing
+    is in the tutor's own words with no source."""
+    used = {s['quote']['src'] for s in b.steps if s.get('quote')} & set(range(1, len(srcs) + 1))
     if any(x['op'] == 'video_at' for s in b.steps for x in s['strokes']): used |= {k for k, s in enumerate(srcs, 1) if s.get('video')}
+    if tier != 'tutor' and not any(srcs[k - 1]['label'] == LABEL[tier] for k in used): tier = 'tutor'
     ss = [dict(n=k, title=s.get('title', ''), url=s.get('url', ''), label=s['label'], quoted=k in used) for k, s in enumerate(srcs, 1)]
     return AttrDict(tier=tier, steps=b.steps, sources=ss, sure=b.sure, failed=b.failed and not b.steps, dropped=len(b.dropped),
                     end=WITH_SOURCE if used else NO_SOURCE, ms=round((time.monotonic() - t0) * 1000), hint=hint and bool(b.steps))
@@ -717,7 +721,7 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
             b = board('web', srcs)
             if b.steps: return _done('web', b, srcs, t0, hint)
     b, tier, srcs = best
-    return _done(tier if b.steps and (b.sure or 0) >= SURE else 'tutor', b, srcs if tier == 'tutor' else page, t0, hint)
+    return _done(tier, b, srcs, t0, hint)   # the best board with the sources of its own request, so its quotes match the list
 
 # %% ../nbs/21_guide.ipynb #gs02
 def stream_board(chunks, ctx, on_step=None, sure:float=SURE, stop=None) -> AttrDict:

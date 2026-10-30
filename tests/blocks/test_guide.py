@@ -310,7 +310,8 @@ def test_a_saved_web_page_can_be_undone(mk, fake, lr, monkeypatch):
     on = abhyasa.settings.val
     monkeypatch.setattr(abhyasa.settings, 'val', lambda k: True if k == 'research.on' else on(k))
     weak = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.3), dict(op='step', say='One.'), dict(op='box', at='title')])
-    fake.rules.update({'Tier: tutor': weak, 'Tier: vault': weak, 'Tier: web': weak.replace('0.3', '0.8'), 'Return JSON: {"passage"': dict(passage=text[6:])})
+    quoted = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.8), dict(op='step', say='One.', src=1, quote=text[6:]), dict(op='box', at='title')])
+    fake.rules.update({'Tier: tutor': weak, 'Tier: vault': weak, 'Tier: web': quoted, 'Return JSON: {"passage"': dict(passage=text[6:])})
     cl = mk()
     ctx = dict(page='/c/ranking', slug='ranking', concept='Ranking', anchors=[dict(id='title', kind='title', text='Ranking')])
     evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='what is a rank', ctx=ctx)).text.splitlines() if l.startswith('data: ')]

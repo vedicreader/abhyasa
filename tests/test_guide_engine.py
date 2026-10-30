@@ -190,3 +190,13 @@ def test_each_passage_keeps_the_label_of_its_source():
     f = Fake({'Tier: vault': board(0.8, src=2, quote=note.split(', so')[0]), 'Tier: tutor': board(0.3, 'vault')})
     r = explain(f, page_ctx(), "I don't get alpha bar", sources=[v])
     assert [s['label'] for s in r.sources] == ['your source', 'your vault', 'vedicreader']
+
+def test_the_tier_and_the_end_line_agree():
+    "A sure vault board with no quote shows the tutor tier and No source found. A vault board that quotes only the page passage is the tutor, with the page quoted."
+    note = 'Alpha bar t is the product of the alphas up to step t, so it falls from one toward zero as t grows.'
+    v = Vault([passage('vault:notes', 'n1', 'My DDPM notes', note)])
+    r = explain(Fake({'Tier: vault': board(0.9), 'Tier: tutor': board(0.3, 'vault')}), page_ctx(), "I don't get alpha bar", sources=[v])
+    assert (r.tier, r.end) == ('tutor', "In the tutor's own words. No source found.") and not any(s['quoted'] for s in r.sources)
+    r = explain(Fake({'Tier: vault': board(0.9, src=1, quote=PAGE.rstrip('.')), 'Tier: tutor': board(0.3, 'vault')}), page_ctx(), "I don't get alpha bar", sources=[v])
+    assert (r.tier, r.end) == ('tutor', "In the tutor's own words, with quotes from the sources below.")
+    assert [(s['label'], s['quoted']) for s in r.sources] == [('your source', True), ('your vault', False)]
