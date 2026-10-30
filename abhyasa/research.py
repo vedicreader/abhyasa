@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from urllib.parse import urlparse, unquote
 from fastcore.utils import *
 from .store import Learning, _union
-from .settings import val
+from .settings import val, source_root_why
 from .llm import ask_json, for_task, ramabana_worker
 from .prompts import register, prompt
 from .journey import _jlock, chip_docs
@@ -623,11 +623,11 @@ def secret_path(p, top) -> bool:
     return denied(Path(p)) or bool(SECRET.search(str(Path(p).relative_to(top))))
 
 def _chip_roots(j) -> dict:
-    "The folders on disk of the folder and repo chips of walk `j`, by name: the only folders on this computer that the agent may read."
+    "The folders on disk of the folder and repo chips of walk `j`, by name: the only folders on this computer that the agent may read. A folder that `source_root_why` refuses (outside the home folder, hidden, or a link) is not one."
     out = {}
     for c in j.get('chips') or ():
         kind, _, v = str(c).partition(':')
-        if kind in ('folder', 'repo') and v: out[Path(v).expanduser().name] = Path(v).expanduser().resolve()
+        if kind in ('folder', 'repo') and v and not source_root_why(v): out[Path(v).expanduser().name] = Path(v).expanduser().resolve()
     return out
 
 def _nb_text(raw:str) -> str:

@@ -292,13 +292,14 @@ def connect(app, ctx):
     def from_goal(goal, ids, st, subject=''):
         "On the pool: file each chip that is not in the vault, then plan the walk to `goal` (or, with no goal, walk through the docs). Return the walk id."
         filed, notes, docs, names, counts = st.setdefault('filed', []), [], L(), [], {}   # `st.filed`: the Undo still works when the walk fails
-        for i in ids:
+        for i in list(ids):
             kind, _, v = i.partition(':')
             try: name, ds = file_chip(i, st)
             except Exception as e:   # one source that fails never stops the walk
                 log.warning('abhyasa could not file the source %r: %r', i, e)
                 why = f' {e}' if isinstance(e, LinkError) and not str(e).startswith('abhyasa could not') else ''
                 notes.append((f'abhyasa could not clone {v}.' if kind == 'gh' else f'abhyasa could not file {Path(v).name or v}.') + why)
+                if kind in ('folder', 'repo'): ids = [x for x in ids if x != i]   # a refused folder never reaches the plan or the agent
                 continue
             docs += ds; names.append(name); counts[i] = len(ds)
             if cut := getattr(ds, 'cut', ''): notes.append(f'{name}: {cut}')

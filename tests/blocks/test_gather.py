@@ -187,6 +187,7 @@ def test_secret_in_a_local_file_never_leaves(lr, monkeypatch, tmp_path):
     "A fake key in a local file: the model sees it masked, and it never goes out in a query or a link, nor into a log line (the PII gate of ramabana)."
     key = 'sk-test1234567890abcdefghij'
     top = tmp_path/'notes'; top.mkdir()
+    monkeypatch.setenv('HOME', str(tmp_path))   # the agent reads only a folder in the home folder
     (top/'keys.md').write_text(f'# Keys\n\nMy key is {key}. Softmax notes for the comic live here too.')
     j, did = walk(lr, [f'folder:{top}', 'vault:notes'])
     sent, said = [], []
@@ -203,3 +204,36 @@ def test_secret_in_a_local_file_never_leaves(lr, monkeypatch, tmp_path):
     R.gather(lr, j.id, threading.Event(), search=search, fetch=fetch)
     assert said and key not in said[0] and '[SECRET]' in said[0]
     assert not sent and key not in str(lr.journey(j.id).gather)
+
+def bad_roots(tmp_path, monkeypatch):
+    "A temp HOME with a hidden folder `~/.config/app`, and a folder outside HOME, each with a text file on softmax. The chips for them and for /etc."
+    home = tmp_path/'home'; cfg = home/'.config'/'app'; out = tmp_path/'outside'
+    for d in (cfg, out): d.mkdir(parents=True); (d/'notes.md').write_text(DOC)
+    monkeypatch.setenv('HOME', str(home))
+    return ['folder:/etc', 'folder:~/.config/app', f'folder:{out}']
+
+def test_agent_reads_no_refused_folder(lr, monkeypatch, tmp_path):
+    "A walk that holds chips for /etc, a hidden folder in HOME and a folder outside HOME: read_file refuses each file in them."
+    chips = bad_roots(tmp_path, monkeypatch)
+    j, did = walk(lr, chips + ['vault:notes'])
+    agent = Script([('read_file', dict(file=f, idea=1)) for f in ('etc/afpovertcp.cfg', '/etc/afpovertcp.cfg', 'app/notes.md', 'outside/notes.md')])
+    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
+    R.gather(lr, j.id, threading.Event())
+    outs = [r['outcome'] for r in lr.journey(j.id).gather if r['tool'] == 'read_file']
+    assert len(outs) == 4 and all(o.startswith('refused') for o in outs), outs
+
+def test_refused_folder_chips_are_not_kept(mk, lr, walk_fake, monkeypatch, tmp_path):
+    "Start a goal walk with chips for /etc, a hidden folder in HOME and a folder outside HOME: the walk keeps only the good chip, so gather never sees the others."
+    chips = bad_roots(tmp_path, monkeypatch)
+    lr.vault.shelf('notebooks').add(DOC, title='nbs/softmax', source='/tmp/notes/softmax.md', kind='md', meta=dict(root='notes'))
+    walk_fake.rules['You plan a learning path'] = PLAN
+    cl = mk(); rs = cl.app.state.svc['research']
+    asked = []
+    monkeypatch.setattr(rs, 'gather', lambda jid: asked.append(jid))
+    monkeypatch.setattr(rs, 'look_for', lambda jid, *a, **k: asked.append(jid))
+    r = cl.post('/walk/new', data=dict(q='learn softmax and attention for my model', sources=chips + ['vault:notes'], chips='1'))
+    for _ in range(400):
+        if asked or 'HX-Redirect' in r.headers: break
+        time.sleep(.05); r = cl.get(re.search(r'hx-get="([^"]+)"', r.text)[1].replace('&amp;', '&'))
+    assert 'HX-Redirect' in r.headers or asked, r.text
+    assert [j.chips for j in lr.journeys()] == [['vault:notes']]
