@@ -1,6 +1,7 @@
 import AppKit
 import Observation
 import AbhyasaCore
+import AbhyasaGuide
 
 /// The state of the app: the supervisor, the web view, the Dock badge and the settings.
 @MainActor @Observable
@@ -18,6 +19,8 @@ final class AppModel {
         supervisor = Supervisor(paths: .user, pin: res?.appending(path: "Pin"), settings: Prefs.load())
         supervisor.onReady = { [weak self] base in self?.ready(base) }
         web.onLoad = { [weak self] in self?.refreshBadge() }
+        // Caps+E over Abhyasa's own window opens the page's own guide box
+        Guide.shared.ownApp = { [weak self] in self?.web.run("(() => { if (window.abhyasaGuide) { abhyasaGuide.open(); return true } return false })()") { _ in } }
     }
 
     func start() {
@@ -27,6 +30,9 @@ final class AppModel {
     private func ready(_ base: URL) {
         web.port = supervisor.port
         web.go(pending ?? "/")
+        Guide.shared.model = supervisor.settings.model
+        Guide.shared.speechEngine = supervisor.settings.stt
+        Guide.shared.start(port: supervisor.port)
         pending = nil
         refreshBadge()
         badgeTimer?.invalidate()
@@ -57,6 +63,7 @@ final class AppModel {
 
     func quit() {
         badgeTimer?.invalidate()
+        Guide.shared.stop()
         supervisor.stop()
     }
 
