@@ -113,23 +113,24 @@
 - [ ] **Step 2–4:** run, implement, run.
 - [ ] **Step 5: Commit** `Open the guide with Hyper+E or the Explain button`.
 
-### Task 6: A YouTube explainer on a concept (left as a plan task)
+### Task 6: A YouTube explainer on a concept
 
-**Status (30 Oct 2026):** not built. fossick 0.1.23 gives `search_yt` and `read_yt`, and `read_yt` gives the transcript, but
-`_parse_vtt` removes the times. The board needs the time of each line (`video_at` seeks to it and links `&t=…s`). The owner's
-rule is to write no YouTube or transcript parser in abhyasa (dependency audit, finding 11). So the first step is upstream.
+**Status (30 Oct 2026):** built on `v0014-yt`, with fossick 0.1.24 (`read_yt(url, cues=True)` and `yt_link`). abhyasa has no
+transcript parser.
 
-What phase 1 already has: `video_at` in the board language, with its check (`cue_at`: the quote must be word for word in the
-cue at `t`, or the one before or after it); the capture reads `#guide-video[data-vid]`; `board.js` seeks a
-youtube-nocookie iframe with `postMessage` and links the time.
-
-**Steps when fossick has the cues:**
-- [ ] fossick: `read_yt(url, cues=True)` returns `cues: [(t, text)]` as well as `source` (cached by id, as now).
-- [ ] abhyasa: `find_explainer(name)` with `fossick.search_yt`; file the transcript with `Vault.youtube`, linked in the
-  concept's provenance; keep `cues` in the document meta.
-- [ ] guide block: `concept_more` shows the video (`youtube-nocookie.com/embed/<id>?enablejsapi=1`) as `#guide-video`; the
-  ask route adds `ctx.video.cues` from the vault.
-- [ ] Tests with fakes for `search_yt` and `read_yt`: the cues reach the prompt; `video_at` with words from the cue passes.
+- [x] fossick: `read_yt(url, cues=True)` gives `cues: [{start, end, text}]` in seconds, cached by id. `yt_link(id, s)`.
+- [x] Engine (`nbs/21_guide.ipynb`, "The explainer video"): `video_id` (by `yt_link`), `find_explainer` (`search_yt`, the query
+  through `guard`), `file_video` (`Vault.youtube`, then the cues from fossick's cache into the document meta with `set_meta`; the
+  link passes `public_url`, so `allow_private=False`), `set_video`, `concept_video`, `video_of` and `video_source`. A concept
+  keeps one video in its provenance as `src='video'`.
+- [x] `cue_quote`: the board seeks to the start of the cue that holds the quote, and quotes it as the transcript says it, with
+  `yt_link` to that time. The transcript is a source labelled *video* with the channel and title, so a step quote from it
+  passes the word-for-word check, and the end line names it.
+- [x] Gather agent: the tool `find_video(idea)` (`research.explainer_video`). The concept page: Find a video, paste a link,
+  Remove the video. The walk step shows the video through the `step_needs` hook. The embed is youtube-nocookie with
+  `enablejsapi=1` and no autoplay; the transcript is closed until you open it, and each time in it seeks the embed.
+- [x] The ask route takes only the video id from the page. The cues come from the vault.
+- [x] Tests with fakes for `search_yt` and `read_yt`. `guide_look` checks the seek time and the quote in Chromium and WebKit.
 
 ### Task 7: The browser check and the release checks
 

@@ -8,7 +8,10 @@ one browser at a time, closed at the end). Each check prints PASS or FAIL; the r
 1. "I don't get alpha bar" on the DDPM step: the circle lies on the alpha bar of the formula, and stays on it after a scroll and
    after the window changes size. A, S and D move the steps. The time from Send to the first mark is measured.
 2. "Explain a and b" on the triangle step: the vision call (faked) finds the labels once, and the pointer marks land on them.
-Screens: `guide-ddpm-<browser>.png` and `guide-triangle-<browser>.png`. The board voice is off (`abhyasaGuideQuiet`)."""
+3. The triangle idea has an explainer video (fossick's `read_yt` is faked, and a fake player stands in for youtube-nocookie, so
+   no call leaves the Mac). "What does the video say about a and b": the board seeks the embed to the start of the cue that
+   holds the quote, and the strip quotes that cue word for word with its `yt_link`. The concept page shows the same video.
+Screens: `guide-ddpm-<browser>.png`, `guide-triangle-<browser>.png`, `guide-video-<browser>.png` and `guide-video-concept-<browser>.png`. The board voice is off (`abhyasaGuideQuiet`)."""
 import argparse, json, os, re, socket, sys, tempfile, threading, time
 from pathlib import Path
 
@@ -60,9 +63,27 @@ def triangle(path):
     path.parent.mkdir(parents=True, exist_ok=True); im.save(path)
     return boxes
 
+VID = 'abc123def45'
+CUES = [dict(start=0.0, end=12.5, text='Here is a right triangle.'), dict(start=12.5, end=19.0, text='The two short sides are the legs, a and b.'),
+        dict(start=19.0, end=26.0, text='The long side is the hypotenuse.')]
+VIDEO_Q = 'the legs, a and b'   # in the cue at 12.5 s; the Fake gives a later time, 15 s, and the board must seek to 12.5 s
+
+def read_yt(url, force=False, cues=False, **kw):
+    "fossick's `read_yt`, faked: no network."
+    v = dict(title='Right triangles', channel='Maths Room', description='', duration=26, upload_date='20260101', source=' '.join(c['text'] for c in CUES))
+    return {**v, 'cues': CUES} if cues else v
+
+# The fake player: it takes the commands of the YouTube API and tells the page which time it was asked to seek to.
+PLAYER = '''<!doctype html><body style="margin:0;background:#222;color:#eee;font:16px sans-serif;display:grid;place-items:center;height:100vh">
+<div id="t">Fake player</div><script>addEventListener('message', e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; }
+if (m.func === 'seekTo') { document.getElementById('t').textContent = 'Seek to ' + m.args[0] + ' s'; parent.postMessage({fakePlayer: 'seek', t: m.args[0]}, '*'); } });</script>'''
+
 def board(p, sp):
     "The Fake tutor: a board for the page in the prompt, from its anchors."
     L = lambda *os: '\n'.join(json.dumps(o) for o in os)
+    if 'What does the video say' in p:
+        return L(dict(op='v', n=1, sure=0.9, need='none'), dict(op='step', say='The video names the two short sides.'),
+                 dict(op='video_at', t=15, quote=VIDEO_Q, w=0), dict(op='box', at='video', w=2))
     if 'figure (figure)' in p:
         return L(dict(op='v', n=1, sure=0.9, need='none'),
                  dict(op='step', say='Side a is the upright leg of the triangle.'), dict(op='point', at=dict(a='figure', label='a'), w=1),
@@ -92,6 +113,10 @@ def seed():
     jid = TestClient(app).post('/walk/new', data=dict(ref=d['doc_id'])).headers['hx-redirect'].split('/')[-1]
     s = lr.journey(jid).steps[0]
     lr.walk_step(jid, 0, read={**s['read'], 'text': PASSAGE})   # the passage with the formula, as an arXiv HTML source gives it
+    import fossick.core, abhyasa.sources
+    from abhyasa.guide import file_video
+    fossick.core.read_yt, abhyasa.sources.public_url = read_yt, lambda u: u   # no network
+    file_video(lr, VID, lr.journey(jid).steps[1]['slug'])
     return app, jid
 
 def serve(app):
@@ -190,6 +215,40 @@ def tri(page, base, jid, name, out):
     page.keyboard.press('Escape')
     return last
 
+def video(page, base, jid, name, out):
+    page.set_viewport_size(dict(width=1280, height=900))
+    page.route('https://www.youtube-nocookie.com/**', lambda r: r.fulfill(status=200, content_type='text/html', body=PLAYER))
+    page.goto(f'{base}/w/{jid}/1')
+    page.evaluate("window.__seeks = []; addEventListener('message', e => { if (e.data && e.data.fakePlayer === 'seek') __seeks.push(e.data.t); })")
+    src = page.get_attribute('#guide-video iframe', 'src') or ''
+    check(f'{name}: the step embeds the video from youtube-nocookie, with no autoplay',
+          src.startswith(f'https://www.youtube-nocookie.com/embed/{VID}?') and 'enablejsapi=1' in src and 'autoplay' not in src, src)
+    page.frame_locator('#guide-video iframe').locator('#t').wait_for()   # the fake player is ready for commands
+    last = ask(page, 'What does the video say about a and b')
+    page.wait_for_function('window.__seeks.length > 0', timeout=5000)
+    seeks = page.evaluate('window.__seeks')
+    check(f'{name}: the video seeks to the start of the right cue', seeks[-1] == 12.5, f'seeks {seeks}')
+    q = page.evaluate("(() => { const p = [...document.querySelectorAll('#guide-strip .board-quote')].find(x => x.querySelector('a[href*=\"youtube.com/watch\"]')); return p && [p.querySelector('q').textContent, p.querySelector('a').href, p.querySelector('.pill').textContent]; })()")
+    want = f'https://www.youtube.com/watch?v={VID}&t=12s'
+    check(f'{name}: the board quotes that cue word for word, with its link', q and q[0] == VIDEO_Q and VIDEO_Q in CUES[1]['text'] and q[1] == want and q[2] == 'video', str(q))
+    end = page.text_content('#guide-strip .board-end') or ''
+    check(f'{name}: the end line names the video as the source', 'Maths Room · Right triangles' in end, end)
+    page.screenshot(path=str(out/f'guide-video-{name}.png'))
+    page.keyboard.press('Escape')
+    slug = page.get_attribute('#guide-video', 'data-concept')
+    page.goto(f'{base}/c/{slug}')
+    t = page.text_content('#guide-video-slot') or ''
+    check(f'{name}: the concept page shows the video and a quiet transcript',
+          page.locator('#guide-video iframe').count() == 1 and 'Maths Room · Right triangles' in t and page.locator('#guide-video details:not([open])').count() == 1)
+    page.click('#guide-video summary'); page.wait_for_timeout(200)
+    page.evaluate("window.__seeks = []; addEventListener('message', e => { if (e.data && e.data.fakePlayer === 'seek') __seeks.push(e.data.t); })")
+    page.wait_for_timeout(300)
+    page.click('#guide-video a[data-t="19.0"]'); page.wait_for_function('window.__seeks.length > 0', timeout=5000)
+    check(f'{name}: a time in the transcript seeks the video', page.evaluate('window.__seeks')[-1] == 19, str(page.evaluate('window.__seeks')))
+    page.locator('#guide-video-slot').scroll_into_view_if_needed()
+    page.screenshot(path=str(out/f'guide-video-concept-{name}.png'))
+    return last
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', default=str(ROOT/'design'/'screens'))
@@ -209,6 +268,7 @@ def main():
                     page.on('pageerror', lambda e: check(f'{name}: no page error', False, str(e)))
                     times[name] = ddpm(page, base, jid, name, out)
                     tri(page, base, jid, name, out)
+                    video(page, base, jid, name, out)
                 finally: b.close()
     finally: srv.should_exit = True
     n = sum('You find the text labels' in sp for _, sp in FAKE.calls)
