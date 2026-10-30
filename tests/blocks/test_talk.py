@@ -95,12 +95,12 @@ def test_slot_and_phones(mk, talk_fake, lr):
     assert cl.post('/t/nope/slot', data=dict(minutes=30)).status_code == 404
 
 def test_editor_page(mk, talk_fake, lr):
-    "html has the class talk; one row for each slide; one main button, Present with ⌥S; room phones; the slide form for E."
+    "html has the class talk; one row for each slide; one main button, Present with ⌥S; room phones; the fields of each row for E."
     cl, tid = talk_of(mk, lr)
     page = cl.get(f'/t/{tid}').text
-    assert 'class="talk"' in page and page.count('class="slide"') == 5 and 'data-sid="s3"' in page
+    assert 'class="talk"' in page and page.count('class="edit-row') == 5 and 'data-id="s3"' in page
     assert page.count('class="go"') == 1 and 'Present <kbd>⌥S</kbd>' in page and 'Room phones' in page and 'name="phones"' in page
-    assert page.count('class="slide-edit"') == 5 and '/assets/talk.js' in page
+    assert page.count('class="edit-open"') == 5 and '/assets/talk.js' in page and '/assets/edit.js' in page
 
 def test_new_talk_needs_a_walk(mk, talk_fake, lr):
     "No talk from a journey that is not a walk, or a walk that is not there; the job of a walk with no talk says so."
@@ -238,7 +238,8 @@ def test_journey_talk_guards(mk, talk_fake, lr):
     assert 'No such walk.' in cl.post('/talk/journey', data=dict(jid=wid)).text and 'hx-post="/talk/journey"' not in cl.get(f'/j/{wid}').text.split('Your other walks')[0]
 
 def test_editor_keys_in_a_browser(mk, talk_fake, lr, tmp_path):
-    "In Chromium: W and S move the focus, ⇧S moves the slide, Q adds a pause, X twice takes a slide out, E opens the form, and a bad beat shows its problem as text."
+    """In Chromium: W and S move the focus, ⇧S moves the slide, Q adds a pause, X removes a slide at once and ⌘Z gives it back,
+    E opens the row, a field saves when you stop typing, a bad beat shows its problem as text, and the radio button saves the right option."""
     pw = pytest.importorskip('playwright.sync_api')
     import threading, time, uvicorn
     cl, tid = talk_of(mk, lr)
@@ -250,42 +251,47 @@ def test_editor_keys_in_a_browser(mk, talk_fake, lr, tmp_path):
         assert time.monotonic() < end, 'the server did not start in 10 s'
         time.sleep(.05)
     ids = lambda: [s['id'] for s in lr.talk(tid).slides]
+    rows = "document.querySelectorAll('#deck > li.edit-row')"
     try:
         with pw.sync_playwright() as p:
             if not Path(p.chromium.executable_path).exists(): pytest.skip("Playwright's Chromium is not installed")
             b = p.chromium.launch(headless=True)
             try:
                 pg = b.new_page(viewport=dict(width=1280, height=900)); pg.goto(f'http://127.0.0.1:{port}/t/{tid}'); pg.wait_for_load_state('networkidle')
-                focused = lambda: pg.evaluate("document.activeElement.dataset.sid || ''")
+                focused = lambda: pg.evaluate("document.activeElement.dataset.id || ''")
                 pg.keyboard.press('s'); pg.keyboard.press('s'); assert focused() == 's2'
                 pg.keyboard.press('w'); assert focused() == 's1'
-                pg.keyboard.press('Shift+S'); pg.wait_for_function("document.activeElement.dataset.sid === 's1' && document.querySelectorAll('#deck li.slide')[1].dataset.sid === 's1'")
+                pg.keyboard.press('Shift+S'); pg.wait_for_function(f"document.activeElement.dataset.id === 's1' && {rows}[1].dataset.id === 's1'")
                 assert ids()[:2] == ['s2', 's1']
-                pg.keyboard.press('q'); pg.wait_for_function("document.querySelectorAll('#deck li.slide').length === 6 && document.activeElement.dataset.sid === 's1'")
+                pg.keyboard.press('q'); pg.wait_for_function(f"{rows}.length === 6 && document.activeElement.dataset.id === 's1'")
                 assert lr.talk(tid).slides[2]['kind'] == 'pause' and lr.talk(tid).slides[2]['prompt'] == 'Talk to your neighbour.'
-                pg.keyboard.press('x'); assert pg.locator('#deck .sure').count() == 1 and len(ids()) == 6
-                pg.keyboard.press('x'); pg.wait_for_function("document.querySelectorAll('#deck li.slide').length === 5 && !!document.activeElement.dataset.sid")
-                pg.keyboard.press('w'); pg.keyboard.press('e')
-                sid = pg.evaluate("document.activeElement.closest('li.slide').dataset.sid")
-                assert pg.evaluate("document.activeElement.name") == 'notes'
-                pg.screenshot(path=str(tmp_path/'editor.png'), full_page=True)
-                pg.keyboard.press('Escape'); assert focused() == sid and pg.url.endswith(f'/t/{tid}')   # Esc closes the form, and does not go up
+                pg.wait_for_timeout(150)   # htmx settles the new list (20 ms) before its buttons work
+                pg.keyboard.press('x'); pg.wait_for_function(f"{rows}.length === 5 && !!document.activeElement.dataset.id")
+                assert len(ids()) == 5 and 'Removed' in pg.inner_text('#undo-bar')
+                pg.wait_for_timeout(150); pg.keyboard.press('Meta+z'); pg.wait_for_function(f"{rows}.length === 6")
+                assert len(ids()) == 6
+                pg.wait_for_timeout(150); pg.evaluate(f"{rows}[0].focus()"); pg.keyboard.press('e')
+                assert pg.evaluate("document.activeElement.name") == 'title'
+                pg.keyboard.press('Escape'); assert focused() == 's2' and pg.url.endswith(f'/t/{tid}')   # Esc goes back to the row, and does not go up
+                pg.keyboard.press('Escape'); assert not pg.evaluate(f"{rows}[0].querySelector('details').open")
                 pg.keyboard.press('e')
-                box = pg.locator(f'li.slide[data-sid="{sid}"] textarea[name=beats]')
-                box.fill('passage\nlit:<b>nope</b>'); pg.locator(f'li.slide[data-sid="{sid}"] form.slide-edit button').click()
+                pg.locator('li.edit-row[data-id="s2"] textarea[name=notes]').fill('Point at the figure first.')
+                pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('speaker note')")
+                assert lr.talk(tid).slides[0]['notes'] == 'Point at the figure first.'
+                box = pg.locator('li.edit-row[data-id="s2"] textarea[name=beats]')
+                box.fill('passage\nlit:<b>nope</b>'); box.blur()
                 pg.wait_for_selector('#deck .req-err')
                 err = pg.locator('#deck .req-err')
                 assert 'lights text that is not in the passage' in err.inner_text() and err.locator('b').count() == 0   # text, never HTML
                 assert pg.evaluate("document.querySelectorAll('.req-err').length") == 1
-                pg.reload(); pg.wait_for_load_state('networkidle')   # the bad beat stays in the box until the page loads again
-                notes = lr.talk(tid).slides[0]['notes']; sid = lr.talk(tid).slides[0]['id']   # the first slide has a choice question
-                pg.evaluate(f"document.querySelector('li.slide[data-sid=\"{sid}\"] details.edit').open = true")
-                pg.locator(f'li.slide[data-sid="{sid}"] input[type=radio][value="1"]').check()
-                pg.screenshot(path=str(tmp_path/'choice.png'), full_page=True)
-                pg.locator(f'li.slide[data-sid="{sid}"] form.slide-edit button').click()
-                pg.wait_for_function(f"document.activeElement.dataset.sid === '{sid}'")
-                a = lr.talk(tid).slides[0]['ask']   # the radio button sends the right option; the other fields stay
-                assert a['answer'] == 1 and a['options'] == CHOICE['options'] and lr.talk(tid).slides[0]['notes'] == notes
+                pg.screenshot(path=str(tmp_path/'editor.png'), full_page=True)
+                pg.reload(); pg.wait_for_load_state('networkidle')
+                notes = lr.talk(tid).slides[1]['notes']   # s1, the slide with a choice question, is second now
+                pg.evaluate("document.querySelector('li.edit-row[data-id=\"s1\"] details').open = true")
+                pg.locator('li.edit-row[data-id="s1"] input[type=radio][value="1"]').check()
+                pg.wait_for_function("document.getElementById('right-s1').textContent.startsWith('Option 2')")
+                a = lr.talk(tid).slides[1]['ask']   # the radio button sends the right option; the other fields stay
+                assert a['answer'] == 1 and a['options'] == CHOICE['options'] and lr.talk(tid).slides[1]['notes'] == notes
             finally: b.close()
     finally: srv.should_exit = True
 
@@ -312,7 +318,7 @@ def test_editor_options_and_guards(mk, talk_fake, lr):
     pause = lr.talk(tid).slides[1]['id']
     r = cl.post(f'/t/{tid}/slide', data=dict(sid=pause, act='edit', kind='choice', q='Q?', options='a\nb', answer='0'))
     assert r.status_code == 400 and r.text == 'This slide has no question for the room.' and lr.talk(tid).slides[1]['ask'] is None
-    assert 'class="quiet small danger"' in cl.get(f'/t/{tid}').text   # Take it out looks like a danger
+    assert 'data-key="X"' in cl.get(f'/t/{tid}').text and 'hx-confirm' not in cl.get(f'/t/{tid}').text   # Remove asks nothing: Undo gives the slide back
 
 # --- the presenter view, the audience view, hands and the talk keys --------------------------------------------------
 
@@ -934,7 +940,7 @@ def test_slide_maths_is_drawn(mk, talk_fake, lr):
     assert f'Why divide by {TEX}?</p>' not in p and f'To keep {TEX} small</li>' not in p
     nxt = p[p.index('id="next"'):]; nxt = nxt[:nxt.index('</div>\n', nxt.index('next-row'))]
     assert f'Softmax over {MATH}' in nxt and f'Softmax over {TEX}' not in nxt   # the Next row
-    assert f'Why divide by {MATH}?' in cl.get(f'/t/{tid}').text   # the Ask the room cell of the editor
+    assert f'Why divide by {MATH}?' in cl.get(f'/t/{tid}').text   # the question in the line of the editor row
 
 def test_slide_text_is_safe(mk, talk_fake, lr):
     "A title or a question with HTML in it shows no script on the presenter or the audience page."

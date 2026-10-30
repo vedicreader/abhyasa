@@ -1,6 +1,6 @@
 // The shared editor list (core/edit.py): keys, the drag by the grip, one open row at a time, live fields, ⌘Z and the Undo bar.
 // With the list in focus, and not a text box: W and S move the focus, ⇧W and ⇧S move the row, E opens it, Esc closes it, and a
-// letter (A, D, X, R, P, M) presses the button with that `data-key` in the row (A: in the list). Each move posts `act=move&to=<index>`
+// letter (A, Q, D, X, R, P, M) presses the button with that `data-key` in the row (A and Q: in the list). Each move posts `act=move&to=<index>`
 // to the `data-post` of the row. Only the grip drags. A drop outside the list does nothing.
 // ⌘Z presses Undo on the Undo bar, except in a text box, where it undoes the typing.
 (() => {
@@ -49,8 +49,8 @@
     } else if (k === 'E' && !e.shiftKey) {
       const d = li.querySelector(':scope > details');
       if (d) { e.preventDefault(); d.open = true; d.querySelector('.fields')?.querySelector(BOX)?.focus(); }
-    } else if (k === 'A' && !e.shiftKey) {
-      if (press(list, 'A')) e.preventDefault();
+    } else if ((k === 'A' || k === 'Q') && !e.shiftKey) {
+      if (press(list, k)) e.preventDefault();
     } else if ('DXRPM'.includes(k) && k && !e.shiftKey) {
       if (press(li, k)) e.preventDefault();
     }

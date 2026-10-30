@@ -57,8 +57,10 @@ STAGE_CASES = [(m, True) for m in OK] + [(m, False) for m in BAD]
 
 #: the rows of the talk keys, as (group, keys, action); the task that binds a list adds it to `KEYS` in `keys.py`
 PLAN_KEYS = [('Talk plan', 'W', 'Move the focus to the slide above'), ('Talk plan', 'S', 'Move the focus to the slide below'),
-             ('Talk plan', '⇧W ⇧S', 'Move the slide up or down'), ('Talk plan', 'E', 'Change the slide'), ('Talk plan', 'X', 'Take out the slide'),
-             ('Talk plan', 'Q', 'Add a pause after the slide'), ('Talk plan', '⌥S', 'Present the talk')]
+             ('Talk plan', '⇧W ⇧S', 'Move the slide up or down'), ('Talk plan', 'E', 'Edit the slide'), ('Talk plan', 'A', 'Add a slide after the slide'),
+             ('Talk plan', 'D', 'Duplicate the slide'), ('Talk plan', 'X', 'Remove the slide. Undo gives it back'),
+             ('Talk plan', 'Q', 'Add a pause after the slide'), ('Talk plan', 'R', 'Ask the tutor to rewrite the slide'),
+             ('Talk plan', '⌘Z', 'Undo the last change. In a text box, ⌘Z undoes the typing'), ('Talk plan', '⌥S', 'Present the talk')]
 TALK_KEYS = [('Talk', 'D', 'Next beat, then the next slide'), ('Talk', 'space', 'Next beat, then the next slide'), ('Talk', 'A', 'Back one beat'),
              ('Talk', 'Q', 'Ask the room, or close the question'), ('Talk', 'R', 'Show the result and the right answer'),
              ('Talk', '⌥S', 'The main button: start the talk, ask the room, vote again, end the talk'),

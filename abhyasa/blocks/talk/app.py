@@ -13,12 +13,13 @@ import math, random, re, secrets, time
 from copy import deepcopy
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
-from abhyasa.core import Page, hook, n_of, pane_url, room_spec, run as run_hook
+from abhyasa.core import Page, UndoBar, hook, n_of, pane_url, room_spec, run as run_hook
+from abhyasa.edit import edit_lock, rewrite as tutor_rewrite
 from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
 from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
-                          public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, new_run, log_go, log_main, end_run, log_beside,
+                          public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go, log_main, end_run, log_beside,
                           recap, recap_html)
 from . import ui
 from .cfg import Routes
@@ -120,17 +121,42 @@ def rows(f, opts):
         f['answer'] = str(keep.index(int(a)))
     return f
 
+TITLE_MOST = 200
+NO_REWRITE = 'The tutor could not rewrite this. Nothing changed.'
+
+def points(s, pts):
+    "Slide `s` with the points `pts`: a new list shows with its beat, and no points take the beat out."
+    had = bool((s.get('show') or {}).get('body'))
+    if len(pts) > BODY_MOST or any(len(p) > POINT_MOST for p in pts): raise Bad(f'Write at most {BODY_MOST} points, each in at most {POINT_MOST} characters.')
+    s['show'] = {**(s.get('show') or {}), 'body': pts}
+    if not pts or not had: s['beats'] = with_part(s.get('beats') or [], 'body', bool(pts))
+    return s
+
+def note(s, n):
+    if len(n) > NOTE_MOST: raise Bad(f'Write the note in at most {NOTE_MOST} characters.')
+    s['notes'] = n.strip()
+    return s
+
+def changed(f):
+    "The names of the fields that the form `f` changes, in the order of `ui.FIELDS`."
+    keys = {'title': 'title', 'body': 'body', 'notes': 'notes', 'prompt': 'prompt', 'beats': 'beats',
+            **{f'show_{p}': 'show' for p in PARTS}, **{k: 'ask' for k in ('kind', 'q', 'options', 'answer')}}
+    have = {keys[k] for k in f if k in keys}
+    return [k for k in ui.FIELDS if k in have]
+
 def edit(s, f):
     "Change slide `s` with the fields that the form `f` sends, and only those."
-    if 'notes' in f:
-        if len(f['notes']) > NOTE_MOST: raise Bad(f'Write the note in at most {NOTE_MOST} characters.')
-        s['notes'] = f['notes'].strip()
+    if 'title' in f:
+        if not (x := ' '.join(f['title'].split())): raise Bad('Write a title.')
+        if len(x) > TITLE_MOST: raise Bad(f'Write the title in at most {TITLE_MOST} characters.')
+        s['title'] = x
+    if 'prompt' in f:
+        if s.get('kind') != 'pause': raise Bad('Only a pause has a prompt.')
+        if not (x := f['prompt'].strip()) or len(x) > OPT_MOST: raise Bad(f'Write the prompt in 1 to {OPT_MOST} characters.')
+        s['prompt'] = x
+    if 'notes' in f: note(s, f['notes'])
     if 'beats' in f: s['beats'] = lines(f['beats'])
-    if 'body' in f:   # the points: a new list shows with its beat, and no points take the beat out
-        pts, had = lines(f['body']), bool((s.get('show') or {}).get('body'))
-        if len(pts) > BODY_MOST or any(len(p) > POINT_MOST for p in pts): raise Bad(f'Write at most {BODY_MOST} points, each in at most {POINT_MOST} characters.')
-        s['show'] = {**(s.get('show') or {}), 'body': pts}
-        if not pts or not had: s['beats'] = with_part(s.get('beats') or [], 'body', bool(pts))
+    if 'body' in f: points(s, lines(f['body']))
     for p in PARTS:
         if (v := f.get(f'show_{p}')) is None: continue
         if v not in ('on', 'off'): raise Bad(f'show_{p} is on or off.')
@@ -143,6 +169,27 @@ def edit(s, f):
         s['mins'] = max(1, (s.get('mins') or 0) + (val('talks.ask_min') if a else -val('talks.ask_min')))
     s['ask'] = a
     return s
+
+def lit_ok(b, passage):
+    "True when beat `b` is not a `lit:` beat on words of the passage, or its words are in `passage`."
+    return not str(b).startswith('lit:') or b[4:].startswith('#') or b[4:] in passage
+
+def set_passage(s, p):
+    "Slide `s` with the passage `p` (a dict with `text` and `src`, word for word from a source), or with no passage when `p` is None."
+    sh = {k: v for k, v in (s.get('show') or {}).items() if k != 'src'}
+    sh['passage'] = p['text'] if p else ''
+    if p and p.get('src'): sh['src'] = p['src']
+    s['show'] = sh
+    s['beats'] = with_part([b for b in s.get('beats') or [] if lit_ok(b, sh['passage'])], 'passage', bool(p))
+    return s
+
+def set_figure(s, f):
+    "Slide `s` with the figure `f` (an image id), or with no figure when `f` is empty."
+    s['show'] = {**(s.get('show') or {}), 'figure': f or None}
+    s['beats'] = with_part(s.get('beats') or [], 'figure', bool(f))
+    return s
+
+def title_of(s): return s.get('prompt') or 'Pause' if s.get('kind') == 'pause' else s.get('title') or 'Untitled'
 
 def stage_log(r):
     "The room parts of run `r` that a reload must show again: the result that shows, the pair prompt, and the slides whose answer was shown."
@@ -202,53 +249,184 @@ def connect(app, ctx):
         if j.exception(): return P(NO_TALK, cls='req-err')   # never the words of a library
         return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=j.result())})
 
+    def walk_for(t): return lr.journey((t.get('src') or {}).get('walk') or '')
+
     def one(req, tid:str):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
-        j = lr.journey((t.get('src') or {}).get('walk') or '')
+        j = walk_for(t)
         pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
         up = [(pj.title, f'/path/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j)), on='Learn', crumbs=[('Today', '/'), ('Learn', '/learn'), *up],
-                    extra=ui.assets(), wide=True)
-        req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys (talk.js) work only here
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j), choices(t)), on='Learn', crumbs=[('Today', '/'), ('Learn', '/learn'), *up],
+                    extra=ui.editor_assets(), wide=True)
+        req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys work only here
         return page
 
-    def change(t, ss):
-        "Save the slides `ss` when the talk has no problem, and give the slides part; else 400 with the first problem."
-        if (ps := check_talk({**t, 'slides': ss})): return text(ps[0])
-        return ui.Deck(lr.put_talk({**t, 'slides': ss}))
+    # --- the editor: each change saves at once, with an Undo, and goes into the history of the talk ------------------------
+
+    def passages(t, s, j=None):
+        "The passages of the idea of slide `s`, word for word: from the steps of its walk first, then from each place of the idea in its sources."
+        if not (slug := s.get('concept')): return []
+        rs = [st.get('read') or {} for st in ((j or {}).get('steps') or []) if st.get('slug') == slug]
+        rs += [{**p, 'text': p.get('passage') or ''} for p in reversed((lr.concept(slug) or {}).get('provenance') or ())]
+        out, seen = [], set()
+        for r in rs:
+            if not (x := (r.get('text') or '').strip()) or x in seen: continue
+            seen.add(x)
+            out.append(dict(text=r['text'], src={k: v for k in SOURCE_KEYS if (v := r.get(k) if k != 'src' else r.get(k) or 'doc') not in (None, '')}))
+        return out
+
+    def figures(t, s, j=None):
+        "The figures that slide `s` can show: its own, the figure of its walk step, and the figures of its idea in its sources. Only files that are there."
+        ok, slug = asset_resolver(lr), s.get('concept')
+        fs = [(s.get('show') or {}).get('figure')]
+        if slug:
+            fs += [f"asset:{(st.get('read') or {}).get('figure')}" for st in ((j or {}).get('steps') or []) if st.get('slug') == slug and (st.get('read') or {}).get('figure')]
+            c = lr.concept(slug) or {}
+            fs += [f'asset:{x}' for x in (c.get('image'), *[p.get('figure') for p in c.get('provenance') or ()]) if x]
+        return [f for f in dict.fromkeys(fs) if f and ok(f)]
+
+    def choices(t):
+        "The passages and the figures that each slide of talk `t` can pick, by slide id."
+        j = walk_for(t)
+        return {s['id']: dict(passages=passages(t, s, j), figures=figures(t, s, j)) for s in t['slides'] if s.get('kind') in ASKS}
+
+    def deck(t, **kw): return ui.Deck(t, choices(t), **kw), ui.Total(t, oob=True)
+
+    def bar(t, said, rows, row=''):
+        "The Undo bar after a change: what changed, and Undo for the newest change."
+        return UndoBar(said, Routes.of(Routes.undo, tid=t['id']), Routes.of(Routes.history, tid=t['id']), step=rows[0].id if rows else '', row=row,
+                       hx_target='#deck', hx_swap='outerHTML')
+
+    def save(t, ss, said, who='you', field=None):
+        "Save the slides `ss` of talk `t` and keep the change in its history, as one step; call under `edit_lock`. A talk with a problem raises `Bad`."
+        if (ps := check_talk({**t, 'slides': ss})): raise Bad(ps[0])
+        out = []
+        rows = lr.add_edit('talk', t['id'], said, who, list(t['slides']), field=field, apply=lambda: out.append(lr.put_talk({**t, 'slides': ss})))
+        return out[0], rows
 
     async def slide(req, tid:str):
-        if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
         form = await req.form()
-        f = {k: v for k, v in form.items() if isinstance(v, str)}
+        f = {**dict(req.query_params), **{k: v for k, v in form.items() if isinstance(v, str)}}
         try: f = rows(f, form.getlist('options'))
         except Bad as e: return text(str(e))
-        ss = deepcopy(list(t.slides))
-        if (i := next((k for k, s in enumerate(ss) if s.get('id') == f.get('sid')), None)) is None: return Response('No such slide.', status_code=404)
         act = f.get('act', '')
-        try:
-            if act in ('up', 'down'):
-                k = i - 1 if act == 'up' else i + 1
-                if 0 <= k < len(ss): ss[i], ss[k] = ss[k], ss[i]
-            elif act == 'drop': ss.pop(i)
-            elif act == 'edit': ss[i] = edit(ss[i], f)
-            elif act == 'pause':
-                prompt = f.get('prompt', '').strip() or PAUSE
-                if len(prompt) > OPT_MOST: raise Bad(f'Write the prompt in at most {OPT_MOST} characters.')
-                secs = number(f.get('secs') or 120, *SECS, f'A pause is {SECS[0]} to {SECS[1]} seconds.')
-                ss.insert(i + 1, blank(new_id(ss), 'pause', 'Pause', math.ceil(secs / 60), prompt=prompt, secs=secs))
-            elif act == 'questions': ss.insert(i + 1, blank(new_id(ss), 'questions', 'Questions', QUESTIONS_MIN))
-            elif act == 'primer':
-                if not (c := lr.concept(f.get('slug', ''))): raise Bad('No such idea.')
-                a, p = ask_for_concept(lr, ask(), c.slug), c.get('statement') or ''
-                ss.insert(i, dict(id=new_id(ss), kind='primer', concept=c.slug, title=c.name, section=ss[i].get('section') or '',
-                                  show=dict(passage=p, figure=None, demo=None), beats=['passage'] if p else [], notes='', ask=a,
-                                  mins=slide_minutes(dict(read=dict(text=p)), a)))
-            else: return text(f'Unknown change: {act}.')
-        except Bad as e: return text(str(e))
-        out = change(t, ss)
-        if f.get('from') == 'after' and not isinstance(out, Response): return ui.Added(t['id'], ss[i]['title'])   # from After the talk
-        return out
+        if act == 'rewrite': return redo(tid, f)
+        with edit_lock('talk', tid):
+            if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+            ss = deepcopy(list(t.slides))
+            i = next((k for k, s in enumerate(ss) if s.get('id') == f.get('sid')), None)
+            if i is None and not (act in ('add', 'pause') and not f.get('sid')): return Response('No such slide.', status_code=404)
+            at_end = len(ss) - 1 if i is None else i
+            said, field, row, opened, fresh = '', None, ss[i]['id'] if i is not None else '', '', ''
+            try:
+                if act in ('up', 'down', 'move'):
+                    k = (i - 1 if act == 'up' else i + 1) if act != 'move' else number(f.get('to', ''), 0, len(ss) - 1, 'Give a place in the list.')
+                    if 0 <= k < len(ss) and k != i: ss.insert(k, ss.pop(i))
+                    said = f'Moved “{title_of(ss[k])}” to slide {k + 1}.' if 0 <= k < len(ss) else ''
+                elif act == 'drop':
+                    s = ss.pop(i)
+                    said, row = f'Removed “{title_of(s)}”.', s['id']   # Undo gives the focus back to the slide that comes back
+                elif act in ('edit', 'set', 'title'):
+                    names = changed(f)
+                    ss[i] = edit(ss[i], f)
+                    said = f"Changed the {' and the '.join(ui.FIELDS[n] for n in names)} of slide {i + 1}." if names else ''
+                    field = f"{ss[i]['id']}/{names[0]}" if len(names) == 1 else None
+                    opened = ss[i]['id'] if act == 'edit' and 'ask' in names else ''
+                elif act == 'add':
+                    sec = ss[at_end].get('section') or '' if ss else ''
+                    new = dict(id=new_id(ss), kind='idea', concept='', title='New slide', section=sec, show=dict(passage='', figure=None, demo=None, body=[]),
+                               beats=[], notes='', ask=None, mins=1)
+                    ss.insert(at_end + 1, new)
+                    said, row, opened, fresh = 'Added a slide.', new['id'], new['id'], new['id']
+                elif act == 'dup':
+                    new = {**deepcopy(ss[i]), 'id': new_id(ss)}
+                    ss.insert(i + 1, new)
+                    said, row, opened, fresh = f'Copied “{title_of(new)}”.', new['id'], new['id'], new['id']
+                elif act == 'passage':
+                    if ss[i].get('kind') not in ASKS: raise Bad('This slide has no passage.')
+                    k = f.get('k', '').strip()
+                    ps = passages(t, ss[i], walk_for(t))
+                    p = ps[number(k, 0, len(ps) - 1, 'Pick a passage of this idea.')] if k else None
+                    ss[i] = set_passage(ss[i], p)
+                    said, opened = f'Changed the passage of slide {i + 1}.', ss[i]['id']
+                elif act == 'figure':
+                    if ss[i].get('kind') not in ASKS: raise Bad('This slide has no figure.')
+                    if (a := f.get('asset', '').strip()) and a not in figures(t, ss[i], walk_for(t)): raise Bad('Pick a figure of this idea.')
+                    ss[i] = set_figure(ss[i], a)
+                    said, opened = f'Changed the figure of slide {i + 1}.', ss[i]['id']
+                elif act == 'pause':
+                    prompt = f.get('prompt', '').strip() or PAUSE
+                    if len(prompt) > OPT_MOST: raise Bad(f'Write the prompt in at most {OPT_MOST} characters.')
+                    secs = number(f.get('secs') or 120, *SECS, f'A pause is {SECS[0]} to {SECS[1]} seconds.')
+                    ss.insert(at_end + 1, new := blank(new_id(ss), 'pause', 'Pause', math.ceil(secs / 60), prompt=prompt, secs=secs))
+                    said, row = 'Added a pause.', new['id']
+                elif act == 'questions':
+                    ss.insert(i + 1, new := blank(new_id(ss), 'questions', 'Questions', QUESTIONS_MIN))
+                    said, row = 'Added a slide for questions.', new['id']
+                elif act == 'primer':
+                    if not (c := lr.concept(f.get('slug', ''))): raise Bad('No such idea.')
+                    a, p = ask_for_concept(lr, ask(), c.slug), c.get('statement') or ''
+                    ss.insert(i, new := dict(id=new_id(ss), kind='primer', concept=c.slug, title=c.name, section=ss[i].get('section') or '',
+                                             show=dict(passage=p, figure=None, demo=None), beats=['passage'] if p else [], notes='', ask=a,
+                                             mins=slide_minutes(dict(read=dict(text=p)), a)))
+                    said, row = f'Added “{c.name}”.', new['id']
+                else: return text(f'Unknown change: {act}.')
+                if ss == list(t.slides) or not said:   # nothing changed: nothing to keep
+                    return Response(status_code=204) if act == 'set' else deck(t, opened=opened)
+                t2, hist = save(t, ss, said, field=field)
+            except Bad as e: return text(str(e))
+        if f.get('from') == 'after': return ui.Added(t['id'], ss[i]['title'])   # from After the talk
+        if act == 'set': return bar(t2, said, hist, row)   # a live field: the text that you type stays, and only the bar changes
+        out = (*deck(t2, opened=opened, fresh=fresh), bar(t2, said, hist, row))
+        return (*out, ui.Right(row, (slide_of(t2, row) or {}).get('ask'), oob=True)) if field and field.endswith('/ask') else out
+
+    def redo(tid, f):
+        "Rewrite the points and the note of a slide with a short instruction. The model call runs outside the lock; a failed rewrite changes nothing."
+        if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+        if not (s := slide_of(t, f.get('sid'))): return Response('No such slide.', status_code=404)
+        if s.get('kind') not in ASKS: return text('The tutor rewrites only a slide of an idea.')
+        ins = ' '.join((f.get('chip') or f.get('text') or '').split()).rstrip('.')
+        if not ins: return text('Tell the tutor what to change.')
+        sh = s.get('show') or {}
+        try: new = tutor_rewrite(ask(), dict(body=list(sh.get('body') or []), notes=s.get('notes') or ''), ins, context=sh.get('passage') or '')
+        except Exception: return text(NO_REWRITE)   # never the words of a library
+        with edit_lock('talk', tid):
+            t = lr.talk(tid); ss = deepcopy(list(t.slides))
+            if (i := next((k for k, x in enumerate(ss) if x.get('id') == s['id']), None)) is None: return Response('No such slide.', status_code=404)
+            try:
+                note(points(ss[i], [p for p in new['body'] if p.strip()][:BODY_MOST]), new['notes'])
+                t2, hist = save(t, ss, f'Rewrote the points of slide {i + 1}: {ins}.', who='tutor')
+            except Bad: return text(NO_REWRITE)
+        return (*deck(t2, opened=s['id']), bar(t2, f'Rewrote the points of slide {i + 1}: {ins}.', hist, s['id']))
+
+    def undo(tid:str, step:str=''):
+        "Take back the newest change of the talk (`step` is its id, so an old bar does nothing)."
+        with edit_lock('talk', tid):
+            if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+            top = first(lr.edits('talk', tid))
+            if top and top.before is None: return text('This change was too large to keep. Undo cannot take it back.')
+            try: e = lr.pop_edit('talk', tid, step or None, apply=lambda e: lr.put_talk({**lr.talk(tid), 'slides': e.before}))
+            except ValueError: return text('Undo cannot take back this change.')
+            t, hist = lr.talk(tid), lr.edits('talk', tid)
+        said = f'Undone: {e.what}' if e else 'Nothing to undo.'
+        return (*deck(t), bar(t, said, hist))
+
+    def history(tid:str):
+        if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+        return Page(f"Earlier versions of {t.title}", *ui.History(t, lr.edits('talk', tid)), on='Learn',
+                    crumbs=[('Learn', '/learn'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.editor_assets(), wide=True)
+
+    def restore(tid:str, id:str='', k:str=''):
+        "Go back to the version of the talk before one change (by its `id`, or by its place `k` in the history, newest first). A restore is a change too."
+        with edit_lock('talk', tid):
+            if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+            es = lr.edits('talk', tid)
+            e = first(x for x in es if x.id == id) if id else es[int(k)] if k.strip().isdigit() and int(k) < len(es) else None
+            if not e: return Response('No such change.', status_code=404)
+            if e.before is None: return text('This change was too large to keep. It cannot come back.')
+            try: save(t, e.before, f'Restored the version before “{e.what}”')
+            except Bad as x: return text(str(x))
+        return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=tid)})
 
     def slot(tid:str, minutes:str=None, phones:str=None):
         "The minutes of the slot (5 to 240), and room phones (`on` or `off`); each only when the form sends it."
@@ -260,17 +438,17 @@ def connect(app, ctx):
         if phones is not None:
             if phones not in ('on', 'off'): return text('Room phones is on or off.')
             t['phones'] = phones == 'on'
-        return ui.Deck(lr.put_talk(t))
+        return deck(lr.put_talk(t))
 
     # --- the run: the presenter window, the audience window, the place and the questions ----------------------------------
+
+    def slide_of(t, sid): return next((s for s in t['slides'] if s.get('id') == sid), None)
 
     def live(tid):
         "Talk `tid` and its open run (None when no run is open)."
         if not (t := lr.talk(tid)): return None, None
         r = lr.run(t.get('live') or '') if t.get('live') else None
         return t, (dict(r) if r and not r.get('ended') else None)
-
-    def slide_of(t, sid): return next((s for s in t['slides'] if s.get('id') == sid), None)
 
     def specs(t):
         "The demo spec of each slide that shows a demo, by slide id."
@@ -513,6 +691,9 @@ def connect(app, ctx):
     app.get(Routes.job)(job)
     app.get(Routes.one)(one)
     app.post(Routes.slide)(slide)
+    app.post(Routes.undo)(undo)
+    app.get(Routes.history)(history)
+    app.post(Routes.restore)(restore)
     app.post(Routes.slot)(slot)
     app.post(Routes.fill)(fill)
     app.post(Routes.start)(start)

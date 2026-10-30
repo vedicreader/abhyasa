@@ -1,13 +1,14 @@
 """Browser checks of a talk (Task 8 of the group talk plan), and the screens of the editor, the two windows and the page after the talk.
 
-Run: uv run --all-extras python tools/talk_look.py [--shots] [--out design/screens]
+Run: uv run --all-extras python tools/talk_look.py [--shots] [--out design/screens] [--editor-shots DIR]
 It makes a temporary vault and settings folder, runs the app with the `Fake` model on a free port, and opens it in Playwright's
 bundled Chromium (headless, one browser, closed at the end). The presenter window is 1280 by 800 and the audience window 1280 by 720.
 Each check prints PASS or FAIL; the run fails when one check fails, or when a page has a script error.
 The checks build on each other, in the order of `CHECKS`: one talk, from the editor to the page after the talk.
 `--only` runs only the checks that it names, so name a check with the checks before it.
 `--shots` also takes the screens `talk-<page>-<theme>-<mode>-<width>.png` at 1280 and 1000 px, light and dark, Paper and Signal,
-and the seven screens of the plan (`talk-editor.png`, `talk-presenter.png`, ... in Paper at 1280 px)."""
+and the seven screens of the plan (`talk-editor.png`, `talk-presenter.png`, ... in Paper at 1280 px).
+`--editor-shots DIR` takes the talk editor with a slide open, after an Undo, and with the rewrite prompt, in Paper dark and Signal light at 1280 px."""
 import argparse, os, shutil, socket, struct, sys, tempfile, threading, time, zlib
 from copy import deepcopy
 from pathlib import Path
@@ -39,11 +40,12 @@ abhyasa.research.web_search = lambda q, n: []
 cfg['leela'] = ''
 PRESENTER, AUDIENCE = dict(width=1280, height=800), dict(width=1280, height=720)
 LIT = 'softmax function'   # words of the passage of slide 2
+REWRITE = dict(body=['A recurrent model works one step at a time.', 'So it cannot use many cores at once.'], notes='Say it slowly.')
 
 def seed():
     "A vault with two concepts, and an app on it with the Fake model and the replies for a walk and a talk."
     ask = Fake({'Return JSON: {"concepts"': EXTRACT_REPLY, 'You write a short note': 'Softmax makes weights from scores. Look at what a large score does.',
-                'You write one small Python exercise': EXERCISE, **TALK_RULES},
+                'You write one small Python exercise': EXERCISE, **TALK_RULES, 'Rewrite these fields': REWRITE},
                dflt=dict(question='What does a rank tell you?', answer='Its position.', rubric=['position']))
     lr = temp_learning()
     lr.put('Ranking', 'Order items by a score.', 'ml', order=0)
@@ -125,31 +127,59 @@ def press(pg, *keys):
 
 # --- the checks: each takes (pg, w), where pg is the presenter page, and raises AssertionError ---------------------
 
+ROWS = '#deck > li.edit-row'
+
 def editor_keys(pg, w):
-    "The editor: rows in walk order, W and S move the focus, ⇧S moves the slide, ⌥F still opens the keyboard shortcuts; a lit: beat goes in through the form."
+    "The editor: rows in walk order, W and S move the focus, ⇧S moves the slide, ⌥F still opens the keyboard shortcuts; a lit: beat saves from its box."
     pg.goto(f'{w.B}/t/{w.tid}'); settle(pg)
-    sids = pg.eval_on_selector_all('#deck li.slide', 'els => els.map(e => e.dataset.sid)')
+    sids = pg.eval_on_selector_all(ROWS, 'els => els.map(e => e.dataset.id)')
     slides = w.lr.talk(w.tid).slides
     assert sids == [s['id'] for s in slides], sids
     steps = [s['step'] for s in slides if s['kind'] == 'idea']
     assert steps == sorted(steps) and len(steps) == 3, steps
-    focused = lambda: pg.evaluate("document.activeElement.dataset.sid || ''")
+    focused = lambda: pg.evaluate("document.activeElement.dataset.id || ''")
     press(pg, 's', 's'); assert focused() == 's2', focused()
     press(pg, 'w'); assert focused() == 's1', focused()
     press(pg, 'Shift+S')
-    pg.wait_for_function("document.querySelectorAll('#deck li.slide')[1].dataset.sid === 's1' && document.activeElement.dataset.sid === 's1'")
+    pg.wait_for_function(f"document.querySelectorAll('{ROWS}')[1].dataset.id === 's1' && document.activeElement.dataset.id === 's1'")
+    pg.wait_for_timeout(150)
     press(pg, 'Shift+W')
-    pg.wait_for_function("document.querySelectorAll('#deck li.slide')[0].dataset.sid === 's1' && document.activeElement.dataset.sid === 's1'")
+    pg.wait_for_function(f"document.querySelectorAll('{ROWS}')[0].dataset.id === 's1' && document.activeElement.dataset.id === 's1'")
     assert [s['id'] for s in w.lr.talk(w.tid).slides][:3] == ['s1', 's2', 's3']
     press(pg, 'Alt+f'); pg.wait_for_url('**/keys', timeout=8000)
     assert 'Talk plan' in pg.text_content('main'), pg.url
     pg.goto(f'{w.B}/t/{w.tid}'); settle(pg)
-    press(pg, 's', 's', 'e')   # the form of slide 2
-    assert focused() == '' and pg.evaluate("document.activeElement.closest('li.slide')?.dataset.sid") == 's2'
-    box = pg.locator('li.slide[data-sid="s2"] textarea[name=beats]')
-    box.fill(f'passage\nfigure\nlit:{LIT}'); pg.locator('li.slide[data-sid="s2"] form.slide-edit button').click()
-    pg.wait_for_function("document.activeElement.dataset.sid === 's2'")
+    press(pg, 's', 's', 'e')   # the open row of slide 2
+    assert pg.evaluate("document.activeElement.closest('li.edit-row')?.dataset.id") == 's2' and pg.evaluate('document.activeElement.name') == 'title'
+    box = pg.locator('li.edit-row[data-id="s2"] textarea[name=beats]')
+    box.fill(f'passage\nfigure\nlit:{LIT}'); box.blur()
+    pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('beats of slide 2')")
     assert w.lr.talk(w.tid).slides[1]['beats'] == ['passage', 'figure', f'lit:{LIT}'], w.lr.talk(w.tid).slides[1]['beats']
+    press(pg, 'Escape', 'Escape')
+
+def editor_undo(pg, w):
+    "X removes a slide at once and the Undo bar says so; ⌘Z gives it back in its place, with the focus on it. The Undo button is 44 px high or more."
+    pg.goto(f'{w.B}/t/{w.tid}'); settle(pg)
+    before = [s['id'] for s in w.lr.talk(w.tid).slides]
+    press(pg, 's', 's', 'x')
+    pg.wait_for_function(f"document.querySelectorAll('{ROWS}').length === {len(before) - 1}")
+    assert 'Removed' in pg.inner_text('#undo-bar') and pg.eval_on_selector('#undo-bar button', 'b => b.getBoundingClientRect().height') >= 44
+    pg.wait_for_timeout(150); press(pg, 'Meta+z')
+    pg.wait_for_function(f"document.querySelectorAll('{ROWS}').length === {len(before)}")
+    assert [s['id'] for s in w.lr.talk(w.tid).slides] == before and 'Undone' in pg.inner_text('#undo-bar')
+    pg.wait_for_function("document.activeElement.dataset.id === 's2'")
+
+def editor_rewrite(pg, w):
+    "R opens the row and puts the focus in Rewrite this slide; a chip asks the tutor; the points change and the passage stays."
+    pg.goto(f'{w.B}/t/{w.tid}'); settle(pg)
+    old = w.lr.talk(w.tid).slides[0]['show']['passage']
+    press(pg, 's', 'r')
+    assert pg.evaluate("document.activeElement.name") == 'text' and pg.evaluate("document.activeElement.closest('li.edit-row').dataset.id") == 's1'
+    pg.locator('li.edit-row[data-id="s1"] form.rewrite button[value="Simpler"]').click()
+    pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('Rewrote the points of slide 1')")
+    s = w.lr.talk(w.tid).slides[0]
+    assert s['show']['body'] == REWRITE['body'] and s['show']['passage'] == old
+    pg.wait_for_timeout(150); press(pg, 'Meta+z'); pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('Undone')")
 
 def present_opens_audience(pg, w):
     "⌥S on the editor opens the presenter view; the first D opens the audience window, whose URL has the run key, and goes to s2 beat 1."
@@ -430,7 +460,7 @@ def journey_points(pg, w):
     finally:
         au.close(); w.rq.post(f'{w.B}/t/{tid}/end', max_redirects=0)
 
-CHECKS = [editor_keys, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
+CHECKS = [editor_keys, editor_undo, editor_rewrite, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
           reload_audience, maths, strangers, audience_closed, stray_keys, end_and_after, present_journey, present_started_walk, journey_points]
 
 # --- the screens --------------------------------------------------------------------------------------------------
@@ -479,11 +509,35 @@ def screens(w, out, widths=(1280, 1000)):
         shutil.copyfile(out/f"talk-{name.removesuffix('-dark')}-{lk}-1280.png", out/f'talk-{name}.png'); shots.append(f'talk-{name}.png')
     return shots
 
+def editor_screens(w, out):
+    "The talk editor at 1280 px in Paper dark and Signal light: a slide open, the list after an Undo, and the rewrite prompt."
+    out.mkdir(parents=True, exist_ok=True)
+    B, tid, shots = w.B, w.tid, []
+    ed = w.ctx.new_page(); guard(ed, w.errs); ed.set_viewport_size(dict(width=1280, height=900))
+    try:
+        for theme, mode in (('paper', 'dark'), ('signal', 'light')):
+            look(w.rq, B, theme, mode)
+            def shot(name):
+                p = out/f'talk-editor-{name}-{theme}-{mode}-1280.png'; ed.screenshot(path=str(p)); shots.append(p.name)
+            ed.goto(f'{B}/t/{tid}'); settle(ed)
+            press(ed, 's', 's', 'e'); ed.wait_for_timeout(300)
+            ed.evaluate("document.querySelector('li.edit-row[data-id=\"s2\"]').scrollIntoView({block: 'start'}); scrollBy(0, -80)"); shot('open')
+            press(ed, 'Escape', 'Escape', 'x'); ed.wait_for_function("document.getElementById('undo-bar').textContent.includes('Removed')")
+            ed.wait_for_timeout(200); press(ed, 'Meta+z'); ed.wait_for_function("document.getElementById('undo-bar').textContent.includes('Undone')")
+            ed.wait_for_timeout(300); ed.evaluate('scrollTo(0, 0)'); shot('undo')
+            ed.goto(f'{B}/t/{tid}'); settle(ed)
+            press(ed, 's', 'r'); ed.keyboard.type('Add an example from daily life'); ed.wait_for_timeout(200)
+            ed.evaluate("document.querySelector('li.edit-row[data-id=\"s1\"] form.rewrite').scrollIntoView({block: 'center'})"); shot('rewrite')
+    finally:
+        ed.close(); look(w.rq, B, 'paper', 'light')
+    return shots
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--shots', action='store_true', help='also take the screens')
     ap.add_argument('--out', default=str(ROOT/'design/screens'))
     ap.add_argument('--only', nargs='*', default=None, help='run only the checks with these names')
+    ap.add_argument('--editor-shots', default=None, help='also take the screens of the talk editor in this folder')
     a = ap.parse_args()
     from playwright.sync_api import sync_playwright
     lr, app = seed()
@@ -508,6 +562,10 @@ def main():
                         bad += 1; tb = e.__traceback__
                         while tb.tb_next and tb.tb_next.tb_frame.f_code.co_filename == __file__: tb = tb.tb_next
                         print('FAIL', c.__name__, f'(line {tb.tb_lineno})', '-', str(e)[:300], flush=True)
+                if a.editor_shots:
+                    errs.clear(); n = len(editor_screens(w, Path(a.editor_shots)))
+                    if errs: bad += 1; print('FAIL editor screens - script errors on a page:', errs[:3], flush=True)
+                    print(n, 'editor screens in', a.editor_shots)
                 if a.shots:
                     errs.clear(); n = len(screens(w, Path(a.out)))
                     if errs: bad += 1; print('FAIL screens - script errors on a page:', errs[:3], flush=True)
