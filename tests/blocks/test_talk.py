@@ -98,7 +98,7 @@ def test_editor_page(mk, talk_fake, lr):
     "html has the class talk; one row for each slide; one main button, Present with ⌥S; room phones; the fields of each row for E."
     cl, tid = talk_of(mk, lr)
     page = cl.get(f'/t/{tid}').text
-    assert 'class="talk"' in page and page.count('class="edit-row') == 5 and 'data-id="s3"' in page
+    assert 'class="talk"' in page and page.count('data-i="') == 5 and 'data-id="s3"' in page
     assert page.count('class="go"') == 1 and 'Present <kbd>⌥S</kbd>' in page and 'Room phones' in page and 'name="phones"' in page
     assert page.count('class="edit-open"') == 5 and '/assets/talk.js' in page and '/assets/edit.js' in page
 
@@ -197,9 +197,14 @@ def test_fill_the_slides(mk, talk_fake, lr):
     assert 'Fill the slides' in ed and '2 slides have no points or no speaker note.' in ed and lr.talk(old.id) == before   # the GET only reads
     assert 'Fill the slides' not in cl.get(f'/t/{tid}').text   # a full talk does not offer it
     assert 'Filling the slides' in cl.post(f'/t/{old.id}/fill').text
-    assert wait_for(lambda: cl.get(f'/talk/job?jid={old.id}').headers.get('hx-redirect')) == f'/t/{old.id}'
+    assert wait_for(lambda: cl.get(f'/talk/job?jid={old.id}').headers.get('hx-redirect')) == f'/t/{old.id}?done=fill'
     s1, s2 = lr.talk(old.id).slides[:2]
     assert '**Watch for:**' in s1['notes'] and s2['show']['body'] == SLIDE['points'] and 'Fill the slides' not in cl.get(f'/t/{old.id}').text
+    es = lr.edits('talk', old.id)   # the fill is one change by the tutor: the editor offers Undo at once, and Undo gives back the bare slides
+    assert [(e.what, e.who) for e in es] == [('Filled the slides.', 'tutor')] and 'Filled the slides.' in cl.get(f'/t/{old.id}?done=fill').text
+    assert 'Filled the slides.' not in cl.get(f'/t/{old.id}').text
+    cl.post(f'/t/{old.id}/undo', data=dict(step=es[0].id))
+    assert lr.talk(old.id).slides == before.slides
     assert cl.post('/t/nope/fill').status_code == 404
     assert cl.post(f'/t/{old.id}/fill', headers={'Origin': 'https://evil.example'}).status_code == 403
 
@@ -238,8 +243,9 @@ def test_journey_talk_guards(mk, talk_fake, lr):
     assert 'No such walk.' in cl.post('/talk/journey', data=dict(jid=wid)).text and 'hx-post="/talk/journey"' not in cl.get(f'/j/{wid}').text.split('Your other walks')[0]
 
 def test_editor_keys_in_a_browser(mk, talk_fake, lr, tmp_path):
-    """In Chromium: W and S move the focus, ⇧S moves the slide, Q adds a pause, X removes a slide at once and ⌘Z gives it back,
-    E opens the row, a field saves when you stop typing, a bad beat shows its problem as text, and the radio button saves the right option."""
+    """In Chromium: W and S move the focus, ⇧S moves the slide, Q adds a pause, X removes a slide at once and ⌘Z gives it back, E opens the row,
+    a field saves when you stop typing, the beat chips move and go by keys, selected words make a Light beat, a bad beat shows its problem as text,
+    and the radio button saves the right option. Each key waits only for htmx to settle."""
     pw = pytest.importorskip('playwright.sync_api')
     import threading, time, uvicorn
     cl, tid = talk_of(mk, lr)
@@ -252,6 +258,7 @@ def test_editor_keys_in_a_browser(mk, talk_fake, lr, tmp_path):
         time.sleep(.05)
     ids = lambda: [s['id'] for s in lr.talk(tid).slides]
     rows = "document.querySelectorAll('#deck > li.edit-row')"
+    calm = "!document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling')"   # htmx has settled the last answer
     try:
         with pw.sync_playwright() as p:
             if not Path(p.chromium.executable_path).exists(): pytest.skip("Playwright's Chromium is not installed")
@@ -261,16 +268,15 @@ def test_editor_keys_in_a_browser(mk, talk_fake, lr, tmp_path):
                 focused = lambda: pg.evaluate("document.activeElement.dataset.id || ''")
                 pg.keyboard.press('s'); pg.keyboard.press('s'); assert focused() == 's2'
                 pg.keyboard.press('w'); assert focused() == 's1'
-                pg.keyboard.press('Shift+S'); pg.wait_for_function(f"document.activeElement.dataset.id === 's1' && {rows}[1].dataset.id === 's1'")
+                pg.keyboard.press('Shift+S'); pg.wait_for_function(f"document.activeElement.dataset.id === 's1' && {rows}[1].dataset.id === 's1' && {calm}")
                 assert ids()[:2] == ['s2', 's1']
-                pg.keyboard.press('q'); pg.wait_for_function(f"{rows}.length === 6 && document.activeElement.dataset.id === 's1'")
+                pg.keyboard.press('q'); pg.wait_for_function(f"{rows}.length === 6 && document.activeElement.dataset.id === 's1' && {calm}")
                 assert lr.talk(tid).slides[2]['kind'] == 'pause' and lr.talk(tid).slides[2]['prompt'] == 'Talk to your neighbour.'
-                pg.wait_for_timeout(150)   # htmx settles the new list (20 ms) before its buttons work
-                pg.keyboard.press('x'); pg.wait_for_function(f"{rows}.length === 5 && !!document.activeElement.dataset.id")
+                pg.keyboard.press('x'); pg.wait_for_function(f"{rows}.length === 5 && !!document.activeElement.dataset.id && {calm}")
                 assert len(ids()) == 5 and 'Removed' in pg.inner_text('#undo-bar')
-                pg.wait_for_timeout(150); pg.keyboard.press('Meta+z'); pg.wait_for_function(f"{rows}.length === 6")
+                pg.keyboard.press('Meta+z'); pg.wait_for_function(f"{rows}.length === 6 && {calm}")
                 assert len(ids()) == 6
-                pg.wait_for_timeout(150); pg.evaluate(f"{rows}[0].focus()"); pg.keyboard.press('e')
+                pg.evaluate(f"{rows}[0].focus()"); pg.keyboard.press('e')
                 assert pg.evaluate("document.activeElement.name") == 'title'
                 pg.keyboard.press('Escape'); assert focused() == 's2' and pg.url.endswith(f'/t/{tid}')   # Esc goes back to the row, and does not go up
                 pg.keyboard.press('Escape'); assert not pg.evaluate(f"{rows}[0].querySelector('details').open")
@@ -278,8 +284,25 @@ def test_editor_keys_in_a_browser(mk, talk_fake, lr, tmp_path):
                 pg.locator('li.edit-row[data-id="s2"] textarea[name=notes]').fill('Point at the figure first.')
                 pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('speaker note')")
                 assert lr.talk(tid).slides[0]['notes'] == 'Point at the figure first.'
-                box = pg.locator('li.edit-row[data-id="s2"] textarea[name=beats]')
-                box.fill('passage\nlit:<b>nope</b>'); box.blur()
+                # the beats are chips: X on a chip removes it at once, and the focus stays on the beats
+                assert pg.inner_text('#beats-s2').split('\n')[0].startswith('Passage') and pg.locator('#deck textarea[name=beats]').count() == 0
+                pg.evaluate("document.querySelector('#beats-s2 > li.edit-row').focus()"); pg.keyboard.press('s')
+                assert focused() == 's2:figure'
+                pg.keyboard.press('Shift+W'); pg.wait_for_function(f"document.querySelector('#beats-s2 > li').dataset.id === 's2:figure' && document.activeElement.dataset.id === 's2:figure' && {calm}")
+                assert lr.talk(tid).slides[0]['beats'] == ['figure', 'passage']
+                pg.keyboard.press('x'); pg.wait_for_function(f"document.querySelectorAll('#beats-s2 > li.edit-row').length === 1 && document.activeElement.dataset.id === 's2:passage' && {calm}")
+                assert lr.talk(tid).slides[0]['beats'] == ['passage']
+                pg.keyboard.press('Escape'); assert focused() == 's2'   # Esc on a beat goes back to the slide
+                # Light: words that you select in the passage go in the Light box; words not in the passage show their problem as text
+                pg.evaluate("""(() => { const q = document.querySelector('li.edit-row[data-id="s2"] blockquote[data-pick]'), t = document.createTreeWalker(q, NodeFilter.SHOW_TEXT);
+                    for (let n; (n = t.nextNode());) { const i = n.data.indexOf('softmax function'); if (i >= 0) { const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 16);
+                    getSelection().removeAllRanges(); getSelection().addRange(r); return; } } })()""")
+                pg.wait_for_function("document.querySelector('li.edit-row[data-id=\"s2\"] input[data-light]').value === 'softmax function'")
+                pg.locator('li.edit-row[data-id="s2"] form.light button').click()
+                pg.wait_for_function("document.querySelector('#beats-s2').textContent.includes('Light: softmax function')")
+                assert lr.talk(tid).slides[0]['beats'] == ['passage', 'lit:softmax function']
+                box = pg.locator('li.edit-row[data-id="s2"] input[data-light]')
+                box.fill('<b>nope</b>'); pg.locator('li.edit-row[data-id="s2"] form.light button').click()
                 pg.wait_for_selector('#deck .req-err')
                 err = pg.locator('#deck .req-err')
                 assert 'lights text that is not in the passage' in err.inner_text() and err.locator('b').count() == 0   # text, never HTML

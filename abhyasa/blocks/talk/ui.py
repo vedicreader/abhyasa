@@ -147,18 +147,74 @@ def Passage(s, post, ps):
                                                 *[Option(short(p['text'], 90), value=str(n), selected=n == k) for n, p in enumerate(ps)],
                                                 name='k', hx_post=post, hx_trigger='change', hx_vals=json.dumps(dict(act='passage')), hx_target='#deck', hx_swap='outerHTML')) if ps and (len(ps) > 1 or k < 0) else ''
     return Div(Span('Passage', cls='lbl'),
-               *((Blockquote(Inline(short(have, 400)), cls='passage'), SourceLine(slide_source(s))) if have else (P('This slide shows no passage.', cls='mute'),)),
+               *((Blockquote(Inline(have), cls='passage', data_pick='1'), SourceLine(slide_source(s))) if have else (P('This slide shows no passage.', cls='mute'),)),
                Div(pick, Quiet('Remove the passage', small=True, **act(post, 'passage', k='')) if have else '', cls='pick-row'), cls='passage-part')
 
-def Figure_(s, post, fs):
-    "The figure of the slide: its name, Remove, and the figures of its idea that can take its place."
-    f = (s.get('show') or {}).get('figure')
+def fig_url(tid, f): return f"{at(Routes.fig, tid)}?{urlencode(dict(f=f))}"
+
+def Figure_(s, post, fs, tid):
+    """The figure of the slide as a small picture with its caption, Remove the figure, and Pick another figure: the figures of the
+    source of the slide, each as a small picture. `fs` is a list of dicts with `id` (an image id) and `caption`."""
+    f, fs = (s.get('show') or {}).get('figure'), list(fs or ())
     if not f and not fs: return ''
-    others = [x for x in fs or () if x != f]
-    pick = Field('Pick another figure', Select(Option('Pick a figure', value='', disabled=True, selected=True), *[Option(x.split(':', 1)[-1], value=x) for x in others],
-                                               name='asset', hx_post=post, hx_trigger='change', hx_vals=json.dumps(dict(act='figure')), hx_target='#deck', hx_swap='outerHTML')) if others else ''
-    return Div(Span('Figure', cls='lbl'), P(f.split(':', 1)[-1] if f else 'This slide shows no figure.', cls='mute'),
-               Div(pick, Quiet('Remove the figure', small=True, **act(post, 'figure', asset='')) if f else '', cls='pick-row'), cls='figure-part')
+    cap = next((x.get('caption') for x in fs if x['id'] == f), '') if f else ''
+    others = [x for x in fs if x['id'] != f]
+    pick = Details(Summary('Pick another figure', cls='quiet small'),
+                   Div(*[Button(Img(src=fig_url(tid, x['id']), alt='', loading='lazy'), Span(x.get('caption') or f'Figure {n}', cls='cap'),
+                                cls='fig-choice', **act(post, 'figure', asset=x['id'])) for n, x in enumerate(others, 1)], cls='fig-pick'),
+                   cls='fig-more') if others else ''
+    shown = (Figure(Img(src=fig_url(tid, f), alt=cap or 'The figure of the slide', loading='lazy'), Figcaption(cap) if cap else '', cls='thumb')
+             if f else P('This slide shows no figure.', cls='mute'))
+    return Div(Span('Figure', cls='lbl'), shown, Div(Quiet('Remove the figure', small=True, **act(post, 'figure', asset='')) if f else '', pick, cls='pick-row'),
+               cls='figure-part')
+
+BEAT_NAMES = dict(passage='Passage', body='Points', figure='Figure', demo='Demo', ask='Question')
+BEAT_OF = dict(passage='passage', body='body', figure='figure', demo='demo')   # the part of `show` that each beat needs; `ask` needs a question
+
+def beat_name(b):
+    "A beat in plain words: Passage, Points, Figure, Demo, Question, or Light: and the words."
+    if str(b).startswith('lit:'): return f"Light: part {b[5:]}" if b.startswith('lit:#') else f'Light: {b[4:]}'
+    return BEAT_NAMES.get(b, b)
+
+def beat_ids(s):
+    "One id for each beat of slide `s`, from its words, so the focus follows a beat that moves."
+    seen, out = {}, []
+    for b in s.get('beats') or []:
+        n = seen[b] = seen.get(b, 0) + 1
+        out.append(f"{s['id']}:{b}" + (f':{n}' if n > 1 else ''))
+    return out
+
+def Beats(tid, s):
+    """The beats of slide `s` as a list of small chips, in the order of the talk: each press of D in the talk shows the next one. A chip
+    moves by the grip, by ⇧W ⇧S or by its arrows, and goes with ×  or X. The list is an editor list too (`edit.js`)."""
+    sid, bs = s['id'], s.get('beats') or []
+    post = lambda k: f"{at(Routes.beat, tid)}?{urlencode(dict(sid=sid, at=k))}"
+    swap = dict(hx_target=f'#beats-{sid}', hx_swap='outerHTML', type='button')
+    chips = [Li(Span(cls='grip', title='Drag to move', aria_hidden='true'), Span(beat_name(b), cls='chip-name'),
+                Button('↑', data_move=str(k - 1), disabled=k == 0, aria_label='Move the beat up', type='button', cls='chip-btn'),
+                Button('↓', data_move=str(k + 1), disabled=k == len(bs) - 1, aria_label='Move the beat down', type='button', cls='chip-btn'),
+                Button('×', data_key='X', aria_label=f'Remove the beat {beat_name(b)}', hx_post=post(k), hx_vals=json.dumps(dict(act='drop')), cls='chip-btn', **swap),
+                tabindex='0', data_id=i, data_post=post(k), cls='edit-row beat')
+             for k, (b, i) in enumerate(zip(bs, beat_ids(s)))]
+    return Ol(*chips, id=f'beats-{sid}', cls='beats', data_edit='1', aria_label='The beats, in order') if chips else Ol(
+        Li('No beats: the slide shows its title only.', cls='mute none'), id=f'beats-{sid}', cls='beats', data_edit='1')
+
+def AddBeat(tid, s, oob=False, open=False):
+    "Add a beat: the parts that the slide has and does not show yet, and Light, which lights words of the passage that you select (or write)."
+    sid, sh, bs = s['id'], s.get('show') or {}, s.get('beats') or []
+    url = f"{at(Routes.beat, tid)}?{urlencode(dict(sid=sid))}"
+    swap = dict(hx_post=url, hx_target=f'#beats-{sid}', hx_swap='outerHTML')
+    can = [b for b in BEAT_NAMES if b not in bs and (s.get('ask') if b == 'ask' else sh.get(BEAT_OF[b]))]
+    light = Form(Input(type='text', name='words', maxlength='200', placeholder='Select words in the passage, or write them', aria_label='Words to light', data_light='1'),
+                 Quiet('Light these words', small=True), Input(type='hidden', name='act', value='add'), cls='light', **swap) if (sh.get('passage') or '').strip() else ''
+    return Details(Summary('Add a beat', cls='quiet small'),
+                   Div(*[Quiet(BEAT_NAMES[b], small=True, hx_vals=json.dumps(dict(act='add', kind=b)), type='button', **swap) for b in can], cls='beat-menu') if can else '',
+                   light, id=f'addbeat-{sid}', cls='add-beat', open=open, **({'hx_swap_oob': 'true'} if oob else {}))
+
+def BeatsPart(tid, s):
+    return Div(Span('Beats', cls='lbl'), Beats(tid, s), AddBeat(tid, s),
+               Small('In the talk, each press of D shows the next beat. With a beat in focus: W and S move the focus, ⇧W and ⇧S move the beat, X removes it.', cls='mute help'),
+               cls='beats-part')
 
 def Rewrite(post):
     "Rewrite this slide: a short instruction, or one of three chips. The tutor changes the points and the note, never the passage."
@@ -167,36 +223,40 @@ def Rewrite(post):
                 Div(*[Quiet(c, small=True, type='submit', name='chip', value=c, data_wait='Rewriting…') for c in CHIPS],
                     Quiet('Rewrite', small=True, type='submit', data_wait='Rewriting…'), cls='chips'), cls='rewrite', **go)
 
-def Body(s, post, ch):
+def Body(tid, s, post, ch):
     "The fields of an open row: they save when you stop typing. Each change has an Undo."
     sh, k = s.get('show') or {}, s.get('kind')
     ideas = k in ('idea', 'primer')
-    beats = s.get('beats') or []
-    boxes = [Label(Input(type='checkbox', checked=p in beats, data_show=p), SHOWS[p], cls='box') for p in SHOWS if sh.get(p)]
     return [Field('Title', Live('title', Input(type='text', value=s.get('title') or '', maxlength='200'))),
             Field('Prompt', Live('prompt', Input(type='text', value=s.get('prompt') or '', maxlength='200'))) if k == 'pause' else '',
             Field('Points the room sees', Live('body', Textarea('\n'.join(sh.get('body') or []), rows='4')), 'One point on each line, at most 6.') if ideas else '',
             Field('Speaker note · only you see it', Live('notes', Textarea(s.get('notes') or '', rows='3'))),
             Passage(s, post, ch.get('passages')) if ideas else '',
-            Figure_(s, post, ch.get('figures')) if ideas else '',
-            Div(Span('What shows', cls='lbl'), *boxes, cls='boxes') if boxes else '',
-            Field('Beats', Live('beats', Textarea('\n'.join(beats), rows='3')),
-                  'Each press of D shows one more. Use passage, body (the points), figure, demo or ask, or lit: and words from the passage to light them.') if ideas else '',
+            Figure_(s, post, ch.get('figures'), tid) if ideas else '',
+            BeatsPart(tid, s) if ideas else '',
             Ask(s, post) if ideas else '',
             Rewrite(post) if ideas else '']
+
+def row_line(s):
+    "The short line of a slide row: what it shows, its minutes and its question."
+    a = s.get('ask') or {}
+    q = short(a.get('q'), 90) if a and a.get('kind') != 'none' else ''
+    return (meta(shows(s), f"{s.get('mins') or 0} min"), *((' · asks: ', Inline(q)) if q else ()))
+
+def Line(s, oob=False):
+    "The short line of a slide row, out of band after a change in its open row (such as a beat)."
+    return Span(*row_line(s), cls='line', **({'hx_swap_oob': f"outerHTML:#deck > li[data-id={s['id']}] > .head > .line"} if oob else {}))
 
 def Row(t, i, s, ch, opened='', fresh=''):
     "Slide `s` as row `i` of the editor list: the small picture, the title, what shows and its minutes, then the fields of the open row."
     sid = s['id']; post = f"{at(Routes.slide, t['id'])}?{urlencode(dict(sid=sid))}"
     title = 'Pause: ' + (s.get('prompt') or 'talk to your neighbour') if s.get('kind') == 'pause' else s.get('title') or ''
-    a = s.get('ask') or {}
-    q = short(a.get('q'), 90) if a and a.get('kind') != 'none' else ''
-    line = (meta(shows(s), f"{s.get('mins') or 0} min"), *((' · asks: ', Inline(q)) if q else ()))
+    line = row_line(s)
     ideas = s.get('kind') in ('idea', 'primer')
     acts = [Quiet('Duplicate', ' ', Kbd('D'), small=True, data_key='D', **act(post, 'dup')),
             Quiet('Remove', ' ', Kbd('X'), small=True, data_key='X', **act(post, 'drop')),
             Quiet('Rewrite', ' ', Kbd('R'), small=True, type='button', data_key='R', data_rewrite='1') if ideas else '']
-    return dict(id=sid, title=Inline(title), line=line, post=post, body=Body(s, post, ch.get(sid) or {}), acts=[x for x in acts if x],
+    return dict(id=sid, title=Inline(title), line=line, post=post, body=Body(t['id'], s, post, ch.get(sid) or {}), acts=[x for x in acts if x],
                 open=sid == opened, fresh=sid == fresh, cls=s.get('kind') or '', mini=Mini(s))
 
 def Total(t, oob=False):
@@ -211,8 +271,13 @@ def Deck(t, ch=None, opened='', fresh=''):
     add = [Quiet('Add a slide', ' ', Kbd('A'), data_key='A', data_after='1', **act(at(Routes.slide, t['id']), 'add')),
            Quiet('Add a pause', ' ', Kbd('Q'), data_key='Q', data_after='1', **act(at(Routes.slide, t['id']), 'pause', prompt=PAUSE_SAY, secs=120))]
     out = EditList(rows, 'deck', add=add, id='deck', aria_label='The slides')
-    for li, r in zip(out.children, rows):   # the small picture goes before the title of each row
-        head = li.children[2]; head.children = (r['mini'], *head.children)
+    kids, sec = [], None
+    for li, r, s in zip(out.children, rows, ss):
+        head = li.children[2]; head.children = (r['mini'], *head.children)   # the small picture goes before the title of each row
+        if (x := s.get('section')) and x != sec:   # a quiet label where a section of the walk starts; it is not a row
+            sec = x; kids.append(Li(Inline(x), cls='sec', role='presentation'))
+        kids.append(li)
+    out.children = (*kids, *out.children[len(rows):])
     return out
 
 PAUSE_SAY = 'Talk to your neighbour.'
@@ -232,9 +297,10 @@ def Fill(t):
     return Form(Quiet('Fill the slides', small=True, data_wait='Filling the slides…'), Small(f' {n} {have} no points or no speaker note.', cls='mute'),
                 hx_post=at(Routes.fill, t['id']), hx_target='this', hx_swap='outerHTML', cls='talk-new talk-fill')
 
-def Editor(t, j, pj=None, changed=False, ch=None):
+def Editor(t, j, pj=None, changed=False, ch=None, bar=None):
     """The editor of talk `t` from walk `j` (made from path `pj`, if given, which `changed` after): what it is, Present, the slot, then the slides.
-    `ch` has the passages and the figures that each slide can pick. A change saves at once, and the Undo bar at the foot can take it back."""
+    `ch` has the passages and the figures that each slide can pick. A change saves at once, and the Undo bar at the foot can take it back.
+    `bar` is the Undo bar to show when the page opens (after Fill the slides), else the empty bar."""
     ideas = sum(s.get('kind') == 'idea' for s in t['slides'])
     secs = len({s.get('section') for s in t['slides'] if s.get('kind') == 'idea' and s.get('section')})
     made = A('Made from your walk', href=f'/path/{pj.id}') if pj else A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'
@@ -249,7 +315,7 @@ def Editor(t, j, pj=None, changed=False, ch=None):
             P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the slide · ',
               Kbd('E'), ' edit · ', Kbd('A'), ' add a slide · ', Kbd('D'), ' duplicate · ', Kbd('X'), ' remove · ', Kbd('Q'), ' add a pause · ',
               Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo · ', Kbd('⌥S'), ' present', cls='mute keys-line'),
-            UndoBar(oob=False))
+            bar or UndoBar(oob=False))
 
 def History(t, rows):
     "The earlier versions of talk `t`: each change, newest first, with Restore this version."

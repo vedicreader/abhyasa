@@ -147,3 +147,64 @@ def test_talk_plan_keys():
     from abhyasa.core.keys import KEYS
     plan = {k for g, k, _ in KEYS if g == 'Talk plan'}
     assert plan == {'W', 'S', '⇧W ⇧S', 'E', 'A', 'D', 'X', 'Q', 'R', '⌘Z', '⌥S'}
+
+def test_figure_shows_as_a_picture(mk, lr, talk_fake):
+    "The figure shows as a small picture with its caption from the source, not as a path; Pick another figure offers the figures of the source."
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr)); f = lr.talk(tid).slides[1]['show']['figure']
+    h = editor_page(cl, tid)
+    row = h[h.index('data-id="s2"'):h.index('data-id="s3"')]
+    assert f'/t/{tid}/fig?f=asset%3Aattention%2Fimages%2Ffig2.png' in row and '<figcaption>Figure 2</figcaption>' in row
+    assert '<p class="mute">attention/images/fig2.png</p>' not in row and 'Remove the figure' in row
+    r = cl.get(f'/t/{tid}/fig', params=dict(f=f))
+    assert r.status_code == 200 and r.content.startswith(PNG) and r.headers['content-type'] == 'image/png'
+    assert cl.get(f'/t/{tid}/fig', params=dict(f='asset:attention/../vault.db')).status_code == 404 and cl.get('/t/nope/fig', params=dict(f=f)).status_code == 404
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='figure', asset=''))
+    h = editor_page(cl, tid); row = h[h.index('data-id="s2"'):h.index('data-id="s3"')]
+    assert 'Pick another figure' in row and 'class="fig-choice"' in row and '<span class="cap">Figure 2</span>' in row   # the figure of the source, by its caption
+
+def test_beats_are_chips(mk, lr, talk_fake):
+    "The beats show as chips in plain words; a beat moves, goes and comes back through its own route, and the stored form stays the same."
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr))
+    beats = lambda: lr.talk(tid).slides[1]['beats']
+    h = editor_page(cl, tid)
+    assert 'name="beats"' not in h and 'id="beats-s2"' in h and '<span class="chip-name">Passage</span>' in h and 'Add a beat' in h
+    url = f'/t/{tid}/beat'
+    r = cl.post(f'{url}?sid=s2&at=1', data=dict(act='move', to=0))
+    assert beats() == ['figure', 'passage'] and 'Changed the beats of slide 2.' in r.text and 'id="beats-s2"' in r.text and 'hx-swap-oob' in r.text
+    r = cl.post(f'{url}?sid=s2', data=dict(act='add', words='softmax function'))
+    assert beats() == ['figure', 'passage', 'lit:softmax function'] and 'Light: softmax function' in r.text
+    assert cl.post(f'{url}?sid=s2', data=dict(act='add', words='gradients')).status_code == 400 and len(beats()) == 3   # not in the passage
+    assert cl.post(f'{url}?sid=s2', data=dict(act='add', kind='passage')).text == 'The slide shows this part already.'
+    cl.post(f'{url}?sid=s2&at=0', data=dict(act='drop'))
+    assert beats() == ['passage', 'lit:softmax function']
+    r = cl.post(f'{url}?sid=s2', data=dict(act='add', kind='figure'))
+    assert beats() == ['passage', 'lit:softmax function', 'figure'] and '>Question<' in r.text   # the menu now offers only what the slide does not show
+    assert cl.post(f'{url}?sid=s2&at=9', data=dict(act='drop')).status_code == 400 and cl.post(f'{url}?sid=s99', data=dict(act='drop', at=0)).status_code == 404
+    assert len(lr.edits('talk', tid)) == 1   # one field: the beats of slide 2 join in one change
+    cl.post(f'/t/{tid}/undo')
+    assert beats() == ['passage', 'figure']
+
+def test_an_order_keeps_its_mix(mk, lr, talk_fake):
+    "An order question mixes its cards again only when the cards change, not on a save that changes nothing else."
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr))
+    right = ['Dot products', 'Divide by the root of dk', 'Softmax', 'Weigh the values']
+    post = lambda **kw: cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='edit', kind='order', options=right, **kw))
+    post(q='Put the steps in order.'); a = lr.talk(tid).slides[0]['ask']
+    for _ in range(5): post(q='Put the steps in order.')
+    assert lr.talk(tid).slides[0]['ask'] == a and len(lr.edits('talk', tid)) == 1   # the same save: no new mix, and nothing kept
+    post(q='Put the four steps in order.')
+    b = lr.talk(tid).slides[0]['ask']
+    assert (b['options'], b['answer']) == (a['options'], a['answer']) and b['q'] == 'Put the four steps in order.'   # a new question keeps the mix
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='edit', kind='order', q='Q?', options=[*right[:3], 'Add them up']))
+    c = lr.talk(tid).slides[0]['ask']
+    assert [c['options'][i] for i in c['answer']] == [*right[:3], 'Add them up']   # new cards: mixed again, and the right order stays
+
+def test_sections_are_labels_not_rows(mk, lr, talk_fake):
+    "Each section of the walk shows as a quiet label where it starts; it is not a row, so the keys and the moves skip it."
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr))
+    h = editor_page(cl, tid); ss = lr.talk(tid).slides
+    secs = list(dict.fromkeys(s['section'] for s in ss if s.get('section')))
+    assert h.count('<li role="presentation" class="sec">') == len(secs) == 2
+    deck = h[h.index('id="deck"'):]
+    assert deck.index(secs[0]) < deck.index('data-id="s1"') < deck.index(secs[1]) < deck.index('data-id="s2"')
+    assert 'data-i="1"' in deck[deck.index('data-id="s2"') - 200:deck.index('data-id="s2"') + 200]   # the row index skips the labels

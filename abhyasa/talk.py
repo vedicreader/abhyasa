@@ -6,13 +6,13 @@ Docs: https://vedicreader.github.io/abhyasa/talk.html.md"""
 
 # %% auto #0
 __all__ = ['TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'BODY_MOST',
-           'POINT_MOST', 'TALK_CASES', 'CHOICE_SP', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'IMAGE_TYPES',
-           'IMAGE_SUFFIXES', 'RECAP_CSS', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q',
-           'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_source',
-           'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk',
-           'talk_from_journey', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run',
-           'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak',
-           'recap', 'recap_html']
+           'POINT_MOST', 'TALK_CASES', 'CHOICE_SP', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'FILLED',
+           'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q',
+           'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes',
+           'slide_source', 'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk',
+           'walk_talk', 'talk_from_journey', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go',
+           'end_run', 'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split',
+           'weak', 'recap', 'recap_html']
 
 # %% ../nbs/17_talk.ipynb #bddba3f8
 import re, json, math, time, uuid, secrets, hashlib, base64, html
@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Callable
 from fastcore.utils import *
 from .store import Learning, slugify, _src
+from .edit import edit_lock
 from .journey import minutes, walk_for_talk
 from .llm import ask_json, for_task
 from .ground import concept_grounds, fence, fenced, link_of
@@ -417,14 +418,21 @@ def drop_talk(self:Learning, tid:str):
     if (t := self.talk(tid)): self.v.forget(t.doc_id)
 
 # %% ../nbs/17_talk.ipynb #sb45
+FILLED = 'Filled the slides.'
+
 def fill_talk(lr:Learning, ask, tid:str, sources=None) -> AttrDict:
-    "Fill each slide of talk `tid` that `needs_fill`, and save the talk. A slide that changed while the tutor wrote keeps the change."
+    "Fill each slide of talk `tid` that `needs_fill`, and save the talk with one history row. A slide that changed while the tutor wrote keeps the change."
     t = lr.talk(tid)
     if t is None: raise KeyError(f'no talk {tid!r}')
     was = {s['id']: s for s in t.slides}
     new = {s['id']: f for s, f in zip(t.slides, fill_slides(lr, ask, t.slides, sources)) if f is not s}
-    now = lr.talk(tid) or t
-    return lr.put_talk({**now, 'slides': [new[s['id']] if s['id'] in new and s == was[s['id']] else s for s in now.slides]})
+    with edit_lock('talk', tid):
+        now = lr.talk(tid) or t
+        ss = [new[s['id']] if s['id'] in new and s == was[s['id']] else s for s in now.slides]
+        if ss == list(now.slides): return now
+        out = []
+        lr.add_edit('talk', tid, FILLED, 'tutor', list(now.slides), apply=lambda: out.append(lr.put_talk({**now, 'slides': ss})))
+    return out[0]
 
 # %% ../nbs/17_talk.ipynb #pj22
 def walk_talk(lr:Learning, wid:str) -> AttrDict|None:

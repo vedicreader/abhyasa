@@ -1,7 +1,7 @@
 // The shared editor list (core/edit.py): keys, the drag by the grip, one open row at a time, live fields, ⌘Z and the Undo bar.
 // With the list in focus, and not a text box: W and S move the focus, ⇧W and ⇧S move the row, E opens it, Esc closes it, and a
 // letter (A, Q, D, X, R, P, M) presses the button with that `data-key` in the row (A and Q: in the list). Each move posts `act=move&to=<index>`
-// to the `data-post` of the row. Only the grip drags. A drop outside the list does nothing.
+// to the `data-post` of the row. Only the grip drags. A drop outside the list does nothing. A list in a line (flex) drops by the across place.
 // ⌘Z presses Undo on the Undo bar, except in a text box, where it undoes the typing.
 (() => {
   const BOX = 'textarea, input, select, [contenteditable]:not([contenteditable="false"])';
@@ -10,11 +10,15 @@
   const move = (li, to) => {
     const list = li.parentElement, n = rows(list).length;
     if (!li.dataset.post || to < 0 || to >= n || to === rows(list).indexOf(li)) return;
-    abhyasaEdit.focus = {list: list.id, id: li.dataset.id};
+    li._focus = {list: list.id, id: li.dataset.id};
     htmx.ajax('POST', li.dataset.post, {values: {act: 'move', to: String(to)}, source: li, target: list.id ? '#' + list.id : list, swap: 'outerHTML'});
   };
+  // htmx sets up new content in its settle step, about 20 ms after the swap. A list is set up at once after each swap (below), and a
+  // button again just before a key presses it, so a fast key never presses a button that htmx does not know yet.
+  const ready = el => { if (el && window.htmx) htmx.process(el); return el; };
   const press = (scope, k) => {
-    const b = scope?.querySelector(`[data-key="${k}"]`);
+    const own = b => scope.matches('li') ? rowOf(b) === scope : b.closest('ol[data-edit]') === scope;   // never a button of a list inside the row
+    const b = ready(scope && [...scope.querySelectorAll(`[data-key="${k}"]`)].find(own));
     if (b && !b.disabled) { b.click(); return true; }
     return false;
   };
@@ -25,7 +29,7 @@
     const t = e.target, inBox = t.matches?.(BOX);
     if (e.key.toLowerCase() === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
       if (inBox) return;   // the box undoes the typing
-      const b = document.querySelector('#undo-bar button');
+      const b = ready(document.querySelector('#undo-bar button'));
       if (b) { e.preventDefault(); b.click(); }
       return;
     }
@@ -86,7 +90,9 @@
     const r = drag.list.getBoundingClientRect();
     if (ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top - 8 || ev.clientY > r.bottom + 8) return null;
     const all = rows(drag.list);
-    let to = all.findIndex(x => ev.clientY < x.getBoundingClientRect().top + x.getBoundingClientRect().height / 2);
+    const cs = getComputedStyle(drag.list), across = cs.display.endsWith('flex') && !cs.flexDirection.startsWith('column');   // chips in a line, such as beats
+    let to = all.findIndex(x => { const b = x.getBoundingClientRect();
+      return across ? ev.clientY < b.top || (ev.clientY <= b.bottom && ev.clientX < b.left + b.width / 2) : ev.clientY < b.top + b.height / 2; });
     if (to < 0) to = all.length;
     return to;
   };
@@ -119,8 +125,13 @@
   // Undo (the button or ⌘Z) puts the focus back on the row that the change touched (`data-row` of the button), else on the bar.
   document.addEventListener('click', e => {
     const b = e.target.closest?.('#undo-bar button');
-    if (b) abhyasaEdit.focus = {id: b.dataset.row || '', undo: true};
+    if (b) b._focus = {id: b.dataset.row || '', undo: true};
   }, true);
+  // The element that sent a request can name where the focus goes after its answer (`el._focus`, as `{id}` of a row). It becomes the
+  // focus step just before the swap, so the delayed focus step of an earlier answer cannot take it first. An answer that only swaps out
+  // of band takes it after the request.
+  const take = e => { const el = e.detail.requestConfig?.elt || e.detail.elt; if (el?._focus) { abhyasaEdit.focus = el._focus; el._focus = null; } };
+  document.addEventListener('htmx:beforeSwap', take);
   // After a swap: the focus goes back to the moved row, and a new row gets the focus in its first field, with the text selected.
   const back = () => {
     const f = abhyasaEdit.focus;
@@ -131,6 +142,7 @@
     else return;   // the moved row is not back yet
     abhyasaEdit.focus = null;
   };
+  document.addEventListener('htmx:afterSwap', () => document.querySelectorAll('ol[data-edit]').forEach(ready));
   document.addEventListener('htmx:afterSettle', () => {
     back();
     document.querySelectorAll('ol[data-edit] > li.edit-row[data-fresh]').forEach(li => {
@@ -149,6 +161,6 @@
     quiet = setTimeout(() => bar.classList.remove('fresh'), 1000 * (+bar.dataset.secs || 8));
   };
   document.addEventListener('htmx:oobAfterSwap', e => { if (e.detail.target?.id === 'undo-bar') fresh(); });
-  document.addEventListener('htmx:afterRequest', () => setTimeout(back, 50));   // an Undo answer can swap only out of band: then no settle comes
+  document.addEventListener('htmx:afterRequest', e => { take(e); setTimeout(back, 50); });   // an Undo answer can swap only out of band: then no settle comes
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fresh); else fresh();
 })();

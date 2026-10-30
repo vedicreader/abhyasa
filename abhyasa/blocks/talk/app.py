@@ -9,18 +9,19 @@ run log on the server always has the place. The hands of the room and the result
 When the room is lost, ⌥B offers a primer on an idea that the slide needs, and the primer opens in the side pane of both windows,
 in the talk type (`pane=1&talk=1`). "End the talk" ends the run and opens "After the talk": where the room was unsure, the
 recap file for the room, a follow-up walk, and the primers to add to the talk."""
-import math, random, re, secrets, time
+import math, mimetypes, random, re, secrets, time
 from copy import deepcopy
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
 from abhyasa.core import Page, UndoBar, hook, n_of, pane_url, room_spec, run as run_hook
 from abhyasa.edit import edit_lock, rewrite as tutor_rewrite
+from abhyasa.sources import figure_path
 from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
 from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
                           public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go, log_main, end_run, log_beside,
-                          recap, recap_html)
+                          recap, recap_html, BEATS, FILLED)
 from . import ui
 from .cfg import Routes
 
@@ -106,10 +107,16 @@ def new_ask(old, f):
         return dict(a, options=opts, answer=order)
     if 'options' not in f and same: return dict(a, options=opts, answer=old.get('answer'))
     if 'options' not in f: raise Bad('Write the options in the right order, one on each line.')
+    if same and right_order(old) == opts: return dict(a, options=list(old['options']), answer=list(old['answer']))   # the same cards: the room keeps its order
     at = mixed(len(opts))   # the options are in the right order: the room sees them mixed
     shown = [None] * len(opts)
     for k, p in enumerate(at): shown[p] = opts[k]
     return dict(a, options=shown, answer=at)
+
+def right_order(a):
+    "The options of order question `a` in the right order, or None."
+    opts, ans = list(a.get('options') or []), a.get('answer')
+    return [opts[i] for i in ans] if isinstance(ans, list) and sorted(ans) == list(range(len(opts))) else None
 
 def rows(f, opts):
     "The editor sends one box for each option and a radio button on the right one: make them the lines of `options` and the index of `answer`."
@@ -123,6 +130,8 @@ def rows(f, opts):
 
 TITLE_MOST = 200
 NO_REWRITE = 'The tutor could not rewrite this. Nothing changed.'
+IMG_LINK = re.compile(r'!\[([^\]]*)\]\(([^)\s]+)\)')   # a markdown image: its caption and its link
+FIGS_MOST = 24   # the most figures of one document that a slide offers
 
 def points(s, pts):
     "Slide `s` with the points `pts`: a new list shows with its beat, and no points take the beat out."
@@ -247,16 +256,19 @@ def connect(app, ctx):
         if not (j := jobs.get(jid.strip())): return P('No talk is being made from this walk. Try again.', cls='req-err')
         if not j.done(): return ui.Pending(jid.strip(), fill=bool(lr.talk(jid.strip())))
         if j.exception(): return P(NO_TALK, cls='req-err')   # never the words of a library
-        return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=j.result())})
+        done = '?done=fill' if j.result() == jid.strip() else ''   # Fill the slides: the job of a talk has the id of the talk
+        return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=j.result()) + done})
 
     def walk_for(t): return lr.journey((t.get('src') or {}).get('walk') or '')
 
-    def one(req, tid:str):
+    def one(req, tid:str, done:str=''):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+        top = first(lr.edits('talk', tid)) if done == 'fill' else None   # after Fill the slides: the bar offers Undo at once
+        filled = bar(t, top.what, [top]) if top and top.what == FILLED else None
         j = walk_for(t)
         pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
         up = [(pj.title, f'/path/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j), choices(t)), on='Learn', crumbs=[('Today', '/'), ('Learn', '/learn'), *up],
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j), choices(t), filled), on='Learn', crumbs=[('Today', '/'), ('Learn', '/learn'), *up],
                     extra=ui.editor_assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys work only here
         return page
@@ -275,20 +287,47 @@ def connect(app, ctx):
             out.append(dict(text=r['text'], src={k: v for k in SOURCE_KEYS if (v := r.get(k) if k != 'src' else r.get(k) or 'doc') not in (None, '')}))
         return out
 
-    def figures(t, s, j=None):
-        "The figures that slide `s` can show: its own, the figure of its walk step, and the figures of its idea in its sources. Only files that are there."
-        ok, slug = asset_resolver(lr), s.get('concept')
-        fs = [(s.get('show') or {}).get('figure')]
+    def docs_of(s, j=None):
+        "The documents that slide `s` comes from: the source of its passage, its walk step, and the places of its idea."
+        slug = s.get('concept')
+        ds = [((s.get('show') or {}).get('src') or {}).get('doc_id')]
         if slug:
-            fs += [f"asset:{(st.get('read') or {}).get('figure')}" for st in ((j or {}).get('steps') or []) if st.get('slug') == slug and (st.get('read') or {}).get('figure')]
+            ds += [(st.get('read') or {}).get('doc_id') for st in ((j or {}).get('steps') or []) if st.get('slug') == slug]
+            ds += [p.get('doc_id') for p in (lr.concept(slug) or {}).get('provenance') or ()]
+        return [d for d in dict.fromkeys(ds) if d]
+
+    def doc_figures(doc_id, seen):
+        "The figures in the text of document `doc_id`, as (image id, caption), in the order of the text. `seen` keeps each document read once."
+        if doc_id not in seen:
+            out = []
+            try:
+                d = lr.vault.document(doc_id, max_chars=400000, disk=False)
+                for alt, link in IMG_LINK.findall(d.text or ''):
+                    if (f := figure_path(lr, d.source or '', link)): out.append((f'asset:{f}', ' '.join(alt.split())))
+            except Exception: pass
+            seen[doc_id] = out[:FIGS_MOST]
+        return seen[doc_id]
+
+    def figures(t, s, j=None, seen=None):
+        """The figures that slide `s` can show, each a dict with `id` (an image id) and `caption`: its own figure, the figures in the text
+        of its source, the figure of its walk step and the figures of its idea. Only files that are there."""
+        ok, slug, seen = asset_resolver(lr), s.get('concept'), {} if seen is None else seen
+        fs = [((s.get('show') or {}).get('figure'), '')]
+        for d in docs_of(s, j): fs += doc_figures(d, seen)
+        if slug:
+            fs += [(f"asset:{(st.get('read') or {}).get('figure')}", '') for st in ((j or {}).get('steps') or []) if st.get('slug') == slug and (st.get('read') or {}).get('figure')]
             c = lr.concept(slug) or {}
-            fs += [f'asset:{x}' for x in (c.get('image'), *[p.get('figure') for p in c.get('provenance') or ()]) if x]
-        return [f for f in dict.fromkeys(fs) if f and ok(f)]
+            fs += [(f'asset:{x}', '') for x in (c.get('image'), *[p.get('figure') for p in c.get('provenance') or ()]) if x]
+        caps = {}
+        for f, cap in fs:
+            if f and (cap or f not in caps): caps[f] = cap or caps.get(f, '')
+        return [dict(id=f, caption=c) for f, c in caps.items() if ok(f)]
 
     def choices(t):
         "The passages and the figures that each slide of talk `t` can pick, by slide id."
         j = walk_for(t)
-        return {s['id']: dict(passages=passages(t, s, j), figures=figures(t, s, j)) for s in t['slides'] if s.get('kind') in ASKS}
+        seen = {}
+        return {s['id']: dict(passages=passages(t, s, j), figures=figures(t, s, j, seen)) for s in t['slides'] if s.get('kind') in ASKS}
 
     def deck(t, **kw): return ui.Deck(t, choices(t), **kw), ui.Total(t, oob=True)
 
@@ -351,7 +390,7 @@ def connect(app, ctx):
                     said, opened = f'Changed the passage of slide {i + 1}.', ss[i]['id']
                 elif act == 'figure':
                     if ss[i].get('kind') not in ASKS: raise Bad('This slide has no figure.')
-                    if (a := f.get('asset', '').strip()) and a not in figures(t, ss[i], walk_for(t)): raise Bad('Pick a figure of this idea.')
+                    if (a := f.get('asset', '').strip()) and a not in [x['id'] for x in figures(t, ss[i], walk_for(t))]: raise Bad('Pick a figure of this idea.')
                     ss[i] = set_figure(ss[i], a)
                     said, opened = f'Changed the figure of slide {i + 1}.', ss[i]['id']
                 elif act == 'pause':
@@ -398,6 +437,46 @@ def connect(app, ctx):
                 t2, hist = save(t, ss, f'Rewrote the points of slide {i + 1}: {ins}.', who='tutor')
             except Bad: return text(NO_REWRITE)
         return (*deck(t2, opened=s['id']), bar(t2, f'Rewrote the points of slide {i + 1}: {ins}.', hist, s['id']))
+
+    def fig(tid:str, f:str=''):
+        "A figure that a slide of the talk shows or can pick, for its small picture in the editor. No other file."
+        if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+        if f not in {x['id'] for c in choices(t).values() for x in c['figures']} or not (p := asset_resolver(lr)(f)):
+            return Response('No such figure.', status_code=404)
+        return Response(p.read_bytes(), media_type=mimetypes.guess_type(p.name)[0] or 'application/octet-stream', headers={'Cache-Control': 'private, max-age=3600'})
+
+    async def beat(req, tid:str):
+        """One change to the beats of a slide: `move` (`at`, `to`), `drop` (`at`), or `add` (`kind`, a part, or `words` of the passage to light).
+        The beats keep their stored form (`passage`, `body`, `lit:<words>` ...). The answer is the chips, with the Undo bar."""
+        f = {**dict(req.query_params), **{k: v for k, v in (await req.form()).items() if isinstance(v, str)}}
+        act = f.get('act', '')
+        with edit_lock('talk', tid):
+            if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+            ss = deepcopy(list(t.slides))
+            if (i := next((k for k, s in enumerate(ss) if s.get('id') == f.get('sid')), None)) is None: return Response('No such slide.', status_code=404)
+            bs = list(ss[i].get('beats') or [])
+            try:
+                if ss[i].get('kind') not in ASKS: raise Bad('This slide has no beats.')
+                if act in ('move', 'drop'):
+                    k = number(f.get('at', ''), 0, len(bs) - 1, 'No such beat.')
+                    if act == 'drop': bs.pop(k)
+                    else: bs.insert(number(f.get('to', ''), 0, len(bs) - 1, 'Give a place in the list.'), bs.pop(k))
+                elif act == 'add':
+                    if (kind := f.get('kind', '')):
+                        if kind not in BEATS: raise Bad(f'Unknown beat: {kind}.')
+                        if kind in bs: raise Bad('The slide shows this part already.')
+                        bs.append(kind)
+                    else:
+                        if not (w := f.get('words', '').strip()): raise Bad('Select words in the passage, or write them.')
+                        if len(w) > OPT_MOST: raise Bad(f'Light at most {OPT_MOST} characters.')
+                        bs.append(f'lit:{w}')
+                else: return text(f'Unknown change: {act}.')
+                if bs == list(ss[i].get('beats') or []): return ui.Beats(tid, ss[i]), ui.AddBeat(tid, ss[i], oob=True)
+                ss[i]['beats'] = bs
+                t2, hist = save(t, ss, f'Changed the beats of slide {i + 1}.', field=f"{ss[i]['id']}/beats")
+            except Bad as e: return text(str(e))
+        s2 = slide_of(t2, ss[i]['id'])
+        return ui.Beats(tid, s2), ui.AddBeat(tid, s2, oob=True, open=act == 'add'), ui.Line(s2, oob=True), bar(t2, f'Changed the beats of slide {i + 1}.', hist, s2['id'])
 
     def undo(tid:str, step:str=''):
         "Take back the newest change of the talk (`step` is its id, so an old bar does nothing)."
@@ -691,6 +770,8 @@ def connect(app, ctx):
     app.get(Routes.job)(job)
     app.get(Routes.one)(one)
     app.post(Routes.slide)(slide)
+    app.post(Routes.beat)(beat)
+    app.get(Routes.fig)(fig)
     app.post(Routes.undo)(undo)
     app.get(Routes.history)(history)
     app.post(Routes.restore)(restore)

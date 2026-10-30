@@ -113,6 +113,11 @@ def run(pg, base, check, shots=None, name=''):
     check('the row text does not drag', len(POSTS) == n)
     h = pg.evaluate("Math.min(...[...document.querySelectorAll('#slides > li.edit-row')].map(l => l.getBoundingClientRect().height))")
     check('rows are 44 px high at least', h >= 44)
+    # a key in the 20 ms between a swap and the htmx settle: the new list is set up at once, so its button works
+    pg.evaluate("""document.addEventListener('htmx:afterSwap', () => { const li = document.querySelector('#slides > li.edit-row');
+        li.focus(); li.dispatchEvent(new KeyboardEvent('keydown', {key: 'x', code: 'KeyX', bubbles: true})); }, {once: true})""")
+    li(1).focus(); n = len(POSTS); pg.keyboard.press('Shift+W'); pg.wait_for_timeout(500)
+    check('a key right after a swap presses the button of the new list', [q[1].get('act') for q in POSTS[n:]] == ['move', 'x'])
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])

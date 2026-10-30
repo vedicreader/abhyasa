@@ -1,6 +1,7 @@
 // The talk editor. The keys, the drag, the live fields and ⌘Z are in core/edit.js ("Talk plan" in core/keys.py). Here: Add a slide and
-// Add a pause go after the slide that had the focus last, W or S with the focus on no row goes into the list, R opens the row and puts the focus in "Rewrite this slide", a part box shows
-// or hides its part at once, the title of a row follows its box, and a change that the talk cannot take shows its problem under the row.
+// Add a pause go after the slide that had the focus last, W or S with the focus on no row goes into the list, R opens the row and puts the focus in "Rewrite this slide",
+// the beats keep the focus when they change, words selected in the passage go in the Light box, the title of a row follows its box,
+// and a change that the talk cannot take shows its problem under the row.
 if (!window.abhyasaTalk) {
   window.abhyasaTalk = true;
   const rowOf = el => el?.closest?.('#deck > li.edit-row');
@@ -14,17 +15,21 @@ if (!window.abhyasaTalk) {
       if (sid) el._focus = {list: 'deck', id: sid};   // a new slide takes the focus in its title (edit.js)
       return;
     }
+    // `el._focus` names the row that gets the focus after the answer (edit.js)
+    // a change to a beat keeps the focus on the beats: a removed beat gives it to the beat after it, or to the slide when none is left
+    const chip = el?.closest?.('ol.beats > li.edit-row');
+    if (chip) {   // a move of the beat itself (edit.js) keeps its own focus
+      if (el === chip) return;
+      const next = chip.nextElementSibling || chip.previousElementSibling;
+      el._focus = {id: next?.dataset?.id || rowOf(chip)?.dataset.id || ''};
+      return;
+    }
     // a change in a row puts the focus back on that row after the swap; a removed row gives it to the row after it
     const li = rowOf(el);
     if (li && el !== li && !el.dataset?.live && el.getAttribute('hx-swap') !== 'none') {
       const act = e.detail.parameters.act, next = li.nextElementSibling?.matches('li.edit-row') ? li.nextElementSibling : li.previousElementSibling;
       el._focus = {list: 'deck', id: act === 'drop' ? next?.dataset?.id || '' : li.dataset.id};
     }
-  });
-  // The focus is set just before the swap, so the delayed focus step of an earlier answer (edit.js) cannot take it first.
-  document.addEventListener('htmx:beforeSwap', e => {
-    const el = e.detail.requestConfig?.elt || e.detail.elt, f = el?._focus;
-    if (f && window.abhyasaEdit) { abhyasaEdit.focus = f; el._focus = null; }
   });
   // With the focus on no row (as when the page opens), S goes to the first slide and W to the last, so the keys of the list work at once.
   document.addEventListener('keydown', e => {
@@ -42,10 +47,17 @@ if (!window.abhyasaTalk) {
     if (d) d.open = true;
     li.querySelector('form.rewrite input[name=text]')?.focus();
   });
-  document.addEventListener('change', e => {
-    const box = e.target.closest?.('input[data-show]'), li = rowOf(box);
-    if (!li || !li.dataset.post) return;
-    htmx.ajax('POST', li.dataset.post, {source: box, values: {act: 'edit', ['show_' + box.dataset.show]: box.checked ? 'on' : 'off'}, target: '#deck', swap: 'outerHTML'});
+  // Esc on a beat gives the focus back to its slide, so it never goes up a level (core.js).
+  document.addEventListener('keydown', e => {
+    const chip = e.target?.closest?.('ol.beats > li.edit-row');
+    if (e.key !== 'Escape' || e.defaultPrevented || !chip || e.target !== chip) return;
+    e.preventDefault(); rowOf(chip)?.focus();
+  }, true);
+  // Words that you select in the passage of an open row go in its Light box, so a Light beat lights exactly them.
+  document.addEventListener('selectionchange', () => {
+    const sel = getSelection(), node = sel?.anchorNode, q = (node?.nodeType === 3 ? node.parentElement : node)?.closest?.('#deck blockquote[data-pick]');
+    const words = sel?.toString().trim(), box = rowOf(q)?.querySelector('input[data-light]');
+    if (q && words && box && q.contains(sel.focusNode)) { box.value = words; rowOf(q).querySelector('details.add-beat').open = true; }
   });
   document.addEventListener('input', e => {
     const box = e.target, li = rowOf(box);

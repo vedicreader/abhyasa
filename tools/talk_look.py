@@ -128,6 +128,7 @@ def press(pg, *keys):
 # --- the checks: each takes (pg, w), where pg is the presenter page, and raises AssertionError ---------------------
 
 ROWS = '#deck > li.edit-row'
+CALM = "!document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling')"   # htmx has settled the last answer
 
 def editor_keys(pg, w):
     "The editor: rows in walk order, W and S move the focus, ⇧S moves the slide, ⌥F still opens the keyboard shortcuts; a lit: beat saves from its box."
@@ -141,8 +142,7 @@ def editor_keys(pg, w):
     press(pg, 's', 's'); assert focused() == 's2', focused()
     press(pg, 'w'); assert focused() == 's1', focused()
     press(pg, 'Shift+S')
-    pg.wait_for_function(f"document.querySelectorAll('{ROWS}')[1].dataset.id === 's1' && document.activeElement.dataset.id === 's1'")
-    pg.wait_for_timeout(150)
+    pg.wait_for_function(f"document.querySelectorAll('{ROWS}')[1].dataset.id === 's1' && document.activeElement.dataset.id === 's1' && {CALM}")
     press(pg, 'Shift+W')
     pg.wait_for_function(f"document.querySelectorAll('{ROWS}')[0].dataset.id === 's1' && document.activeElement.dataset.id === 's1'")
     assert [s['id'] for s in w.lr.talk(w.tid).slides][:3] == ['s1', 's2', 's3']
@@ -151,11 +151,26 @@ def editor_keys(pg, w):
     pg.goto(f'{w.B}/t/{w.tid}'); settle(pg)
     press(pg, 's', 's', 'e')   # the open row of slide 2
     assert pg.evaluate("document.activeElement.closest('li.edit-row')?.dataset.id") == 's2' and pg.evaluate('document.activeElement.name') == 'title'
-    box = pg.locator('li.edit-row[data-id="s2"] textarea[name=beats]')
-    box.fill(f'passage\nfigure\nlit:{LIT}'); box.blur()
-    pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('beats of slide 2')")
+    pg.locator('li.edit-row[data-id="s2"] details.add-beat > summary').click()
+    pg.locator('li.edit-row[data-id="s2"] input[data-light]').fill(LIT); pg.locator('li.edit-row[data-id="s2"] form.light button').click()
+    pg.wait_for_function(f"document.getElementById('beats-s2').textContent.includes('Light: {LIT}') && {CALM}")
     assert w.lr.talk(w.tid).slides[1]['beats'] == ['passage', 'figure', f'lit:{LIT}'], w.lr.talk(w.tid).slides[1]['beats']
-    press(pg, 'Escape', 'Escape')
+
+def editor_beats(pg, w):
+    "A beat chip drags by its grip to a place in the line of chips, and back; the stored beats follow."
+    pg.goto(f'{w.B}/t/{w.tid}'); settle(pg)
+    press(pg, 's', 's', 'e')
+    beats = lambda: w.lr.talk(w.tid).slides[1]['beats']
+    def drag(i, j):
+        pg.locator('#beats-s2').scroll_into_view_if_needed()
+        g = pg.locator('#beats-s2 > li.edit-row').nth(i).locator('.grip').bounding_box(); t = pg.locator('#beats-s2 > li.edit-row').nth(j).bounding_box()
+        pg.mouse.move(g['x'] + 3, g['y'] + 5); pg.mouse.down(); pg.mouse.move(t['x'] + 6, t['y'] + t['height'] / 2, steps=8); pg.mouse.up()
+        pg.wait_for_function(f"!!document.querySelector('#beats-s2') && {CALM}"); pg.wait_for_timeout(50)
+    drag(1, 0); pg.wait_for_function("document.querySelector('#beats-s2 > li').dataset.id === 's2:figure'")
+    assert beats() == ['figure', 'passage', f'lit:{LIT}'], beats()
+    assert pg.evaluate('document.activeElement.dataset.id') == 's2:figure'
+    drag(0, 2); pg.wait_for_function("document.querySelector('#beats-s2 > li').dataset.id === 's2:passage'")
+    assert beats() == ['passage', 'figure', f'lit:{LIT}'], beats()
 
 def editor_undo(pg, w):
     "X removes a slide at once and the Undo bar says so; ⌘Z gives it back in its place, with the focus on it. The Undo button is 44 px high or more."
@@ -164,7 +179,7 @@ def editor_undo(pg, w):
     press(pg, 's', 's', 'x')
     pg.wait_for_function(f"document.querySelectorAll('{ROWS}').length === {len(before) - 1}")
     assert 'Removed' in pg.inner_text('#undo-bar') and pg.eval_on_selector('#undo-bar button', 'b => b.getBoundingClientRect().height') >= 44
-    pg.wait_for_timeout(150); press(pg, 'Meta+z')
+    pg.wait_for_function(CALM); press(pg, 'Meta+z')
     pg.wait_for_function(f"document.querySelectorAll('{ROWS}').length === {len(before)}")
     assert [s['id'] for s in w.lr.talk(w.tid).slides] == before and 'Undone' in pg.inner_text('#undo-bar')
     pg.wait_for_function("document.activeElement.dataset.id === 's2'")
@@ -179,7 +194,7 @@ def editor_rewrite(pg, w):
     pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('Rewrote the points of slide 1')")
     s = w.lr.talk(w.tid).slides[0]
     assert s['show']['body'] == REWRITE['body'] and s['show']['passage'] == old
-    pg.wait_for_timeout(150); press(pg, 'Meta+z'); pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('Undone')")
+    pg.wait_for_function(CALM); press(pg, 'Meta+z'); pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('Undone')")
 
 def present_opens_audience(pg, w):
     "⌥S on the editor opens the presenter view; the first D opens the audience window, whose URL has the run key, and goes to s2 beat 1."
@@ -460,7 +475,7 @@ def journey_points(pg, w):
     finally:
         au.close(); w.rq.post(f'{w.B}/t/{tid}/end', max_redirects=0)
 
-CHECKS = [editor_keys, editor_undo, editor_rewrite, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
+CHECKS = [editor_keys, editor_beats, editor_undo, editor_rewrite, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
           reload_audience, maths, strangers, audience_closed, stray_keys, end_and_after, present_journey, present_started_walk, journey_points]
 
 # --- the screens --------------------------------------------------------------------------------------------------
@@ -521,9 +536,11 @@ def editor_screens(w, out):
                 p = out/f'talk-editor-{name}-{theme}-{mode}-1280.png'; ed.screenshot(path=str(p)); shots.append(p.name)
             ed.goto(f'{B}/t/{tid}'); settle(ed)
             press(ed, 's', 's', 'e'); ed.wait_for_timeout(300)
+            ed.set_viewport_size(dict(width=1280, height=1700))   # the whole open row: the fields, the figure, the beats and the question
             ed.evaluate("document.querySelector('li.edit-row[data-id=\"s2\"]').scrollIntoView({block: 'start'}); scrollBy(0, -80)"); shot('open')
+            ed.set_viewport_size(dict(width=1280, height=900))
             press(ed, 'Escape', 'Escape', 'x'); ed.wait_for_function("document.getElementById('undo-bar').textContent.includes('Removed')")
-            ed.wait_for_timeout(200); press(ed, 'Meta+z'); ed.wait_for_function("document.getElementById('undo-bar').textContent.includes('Undone')")
+            ed.wait_for_function(CALM); press(ed, 'Meta+z'); ed.wait_for_function("document.getElementById('undo-bar').textContent.includes('Undone')")
             ed.wait_for_timeout(300); ed.evaluate('scrollTo(0, 0)'); shot('undo')
             ed.goto(f'{B}/t/{tid}'); settle(ed)
             press(ed, 's', 'r'); ed.keyboard.type('Add an example from daily life'); ed.wait_for_timeout(200)

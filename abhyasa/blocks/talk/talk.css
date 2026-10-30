@@ -33,9 +33,45 @@
 #deck .pick-row { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: end; margin-top: var(--s1); }
 #deck .pick-row label { flex: 1 1 18em; }
 #deck .figure-part p { margin: 0; font-size: var(--t-small); }
-#deck .boxes { display: flex; gap: var(--s4); align-items: baseline; flex-wrap: wrap; }
-#deck .boxes .lbl { display: inline; }
-#deck label.box { display: inline-flex; gap: var(--s1); align-items: baseline; text-transform: none; letter-spacing: 0; font-size: var(--t-small); color: var(--ink2); }
+#deck .thumb { margin: 0; display: grid; gap: var(--s1); width: max-content; max-width: 100%; }
+#deck .thumb img { display: block; max-width: 240px; max-height: 135px; object-fit: contain; border: 1px solid var(--line); border-radius: var(--r-s); background: var(--page); }
+#deck .thumb figcaption { font-size: var(--t-meta); color: var(--mute); }
+#deck details.fig-more, #deck details.add-beat { margin: 0; }
+#deck :is(.fig-more, .add-beat) > summary { list-style: none; cursor: pointer; width: max-content; display: inline-flex; align-items: center; min-height: 44px;
+                                              padding: 0 var(--s2); font-size: var(--t-small); color: var(--mute); text-transform: none; letter-spacing: 0; }
+#deck :is(.fig-more, .add-beat) > summary:hover { color: var(--fg); }
+#deck :is(.fig-more, .add-beat) > summary::-webkit-details-marker { display: none; }
+#deck .fig-pick { display: flex; flex-wrap: wrap; gap: var(--s3); margin-top: var(--s2); }
+#deck .fig-choice { display: grid; gap: var(--s1); justify-items: start; padding: var(--s1); background: none; border: 1px solid transparent; border-radius: var(--r-s); cursor: pointer; color: var(--ink2); }
+#deck .fig-choice:hover, #deck .fig-choice:focus-visible { border-color: var(--line); }
+#deck .fig-choice img { width: 120px; height: 68px; object-fit: contain; border: 1px solid var(--line); border-radius: var(--r-s); background: var(--page); }
+#deck .fig-choice .cap { font-size: var(--t-meta); max-width: 120px; text-align: left; }
+
+/* the beats: small chips in the order of the talk; each moves by its grip, its arrows or ⇧W ⇧S, and goes with × or X */
+#deck ol.beats { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s2); }
+#deck ol.beats > li.edit-row { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 var(--s1) 0 var(--s2); border: 1px solid var(--line);
+                               border-radius: 999px; background: var(--page); font-size: var(--t-small); color: var(--fg); }
+#deck ol.beats > li.edit-row:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+#deck ol.beats > li.dragging { opacity: .5; }
+#deck ol.beats > li.drop-before { box-shadow: -3px 0 0 var(--acc); }
+#deck ol.beats > li.drop-after { box-shadow: 3px 0 0 var(--acc); }
+#deck ol.beats .grip { width: 8px; height: 18px; cursor: grab; touch-action: none; opacity: .5; margin-right: var(--s1);
+                       background: radial-gradient(circle, var(--mute) 1.2px, transparent 1.4px) 0 0 / 4px 6px; }
+#deck ol.beats .chip-name { padding-right: var(--s1); }
+#deck ol.beats .chip-btn { display: inline-grid; place-items: center; min-height: 32px; width: 32px; padding: 0; border: 0; background: none; box-shadow: none;
+                           color: var(--mute); cursor: pointer; border-radius: 999px; font: var(--t-small)/1 var(--serif); }
+#deck ol.beats .chip-btn:hover:not(:disabled) { color: var(--fg); background: var(--sunken); }
+#deck ol.beats .chip-btn:disabled { opacity: .3; cursor: default; background: none; }
+#deck ol.beats > li.none { font-size: var(--t-small); }
+#deck .beat-menu { display: flex; flex-wrap: wrap; gap: var(--s2); }
+#deck form.light { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: end; margin-top: var(--s1); }
+#deck form.light input { flex: 1 1 20em; }
+#deck .beats-part { display: grid; gap: var(--s2); }
+#deck blockquote[data-pick] { cursor: text; }
+
+/* a section of the walk: a quiet label between the rows, not a row */
+#deck > li.sec { list-style: none; padding: var(--s5) 0 var(--s1); font-size: var(--t-meta); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+#deck > li.sec + li.edit-row { border-top-color: transparent; }
 #deck .ask-fields { display: grid; gap: var(--s2); }
 #deck .opts { border: 0; padding: 0; margin: 0; display: grid; gap: var(--s1); }
 #deck .opts legend { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-transform: uppercase; color: var(--mute); padding: 0; margin-bottom: var(--s1); }

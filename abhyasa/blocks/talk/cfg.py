@@ -4,6 +4,8 @@ class Routes:
     job = '/talk/job'                  # the state of the talk while it is made
     one = '/t/{tid}'                   # the editor: the slides of the talk
     slide = '/t/{tid}/slide'           # one change to one slide; it saves at once, with an Undo
+    beat = '/t/{tid}/beat'             # move, remove or add one beat of a slide
+    fig = '/t/{tid}/fig'               # a small picture of a figure that a slide shows or can pick
     undo = '/t/{tid}/undo'             # take back the newest change
     history = '/t/{tid}/history'       # the earlier versions of the talk
     restore = '/t/{tid}/restore'       # go back to the version before one change
