@@ -174,6 +174,15 @@ def test_spend_estimated_in_the_log(mk, lr, monkeypatch):
     assert 'spend estimated: about $1.23' in lr.journey(j.id).gather[-1]['outcome']
     assert 'Spend' in mk().get(f'/w/{j.id}/gather/log').text
 
+def test_worker_names_its_tools(lr, monkeypatch):
+    "gather names each tool that it adds when it makes the worker, so ramabana's only_tools offers those tools and no other."
+    j, did = walk(lr)
+    agent, seen = Script([]), {}
+    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: seen.update(kw) or agent)
+    R.gather(lr, j.id, threading.Event())
+    assert seen['tools'] and sorted(seen['tools']) == sorted(agent.tools)
+    assert {'put_passage', 'read_doc', 'note'} <= set(seen['tools'])
+
 def test_reorder_keeps_the_idea(lr, monkeypatch):
     "The learner moves a step while the agent runs: the passage goes to the idea that the agent named, not to the step at its old place."
     j, did = walk(lr)

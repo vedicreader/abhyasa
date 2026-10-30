@@ -6,9 +6,9 @@ Docs: https://vedicreader.github.io/abhyasa/llm.html.md"""
 
 # %% auto #0
 __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'FALLBACK', 'ALL_TASKS', 'MAX_TOKENS', 'WORKER_SP',
-           'WORKER_CALLS', 'WORKER_STEPS', 'WORKER_DOLLARS', 'EST_RATE', 'VENDORS', 'WORKER_TOKENS', 'dflt_model',
-           'rishi_ask', 'parse_json', 'ask_json', 'Fake', 'model_ask', 'model_label', 'catalog', 'Router', 'for_task',
-           'ramabana_agent', 'ramabana_oneshot', 'RouteAsk', 'route_ask', 'token_rate', 'ramabana_worker']
+           'WORKER_CALLS', 'WORKER_STEPS', 'WORKER_DOLLARS', 'WORKER_TOKENS', 'dflt_model', 'rishi_ask', 'parse_json',
+           'ask_json', 'Fake', 'model_ask', 'model_label', 'catalog', 'Router', 'for_task', 'ramabana_agent',
+           'timeout_error', 'ramabana_oneshot', 'RouteAsk', 'route_ask', 'ramabana_worker']
 
 # %% ../nbs/02_llm.ipynb #c004
 import json, os, re
@@ -214,8 +214,13 @@ def _why(a, job:str, since:float) -> str:
     return '; '.join(n for n in notes if n) or 'no note'
 
 # %% ../nbs/02_llm.ipynb #8bfc31b2
+def timeout_error(job:str, e, name:str='') -> RuntimeError:
+    "The `RuntimeError` for the ramabana `OneshotTimeout` `e` on the job `job`: it names the model (`name`, else the route of `e`) and the seconds."
+    return RuntimeError(f'The {job} task got no answer from {name or e.route} through ramabana: {e.route} did not answer in {e.elapsed:.0f} seconds.')
+
 def ramabana_oneshot(job:str, name:str, prompt:str, sp:str='', max_tokens:int=MAX_TOKENS) -> str:
     "Ask `prompt` on the ramabana job `job`, pointed at the model `name`. Wait for a busy backend. Raise when no route answers."
+    from ramabana.runtime import OneshotTimeout
     a, since, held = ramabana_agent(name), time.time(), []
     _point(a, job, name)
     def fits(b):
@@ -224,6 +229,7 @@ def ramabana_oneshot(job:str, name:str, prompt:str, sp:str='', max_tokens:int=MA
         lk = _lock(b); lk.acquire(); held.append(lk)
         return True
     try: out = a.oneshot(prompt, sp, job=job, max_tokens=max_tokens, fits=fits)
+    except OneshotTimeout as e: raise timeout_error(job, e, name) from e
     finally:
         if held: held.pop().release()
     if out: return out
@@ -266,46 +272,15 @@ def route_ask(model:str=None):
 # %% ../nbs/02_llm.ipynb #gw002
 WORKER_SP = 'You are the source gatherer of abhyasa, a tutor.'
 WORKER_CALLS, WORKER_STEPS, WORKER_DOLLARS = 300, 80, 5.   # the caps of one turn: tool calls, model steps, dollars
-EST_RATE = 10 / 1e6   # dollars for each token (in and out) when the model reports no cost and fastllm has no price for it: a rate on the high side
-VENDORS = dict(claude='anthropic', anthropic='anthropic', codex='openai', openai='openai')   # ramabana runtime -> fastllm vendor
-
-def token_rate(spec) -> float:
-    "Dollars for each token of the model of the ramabana `spec`: fastllm's price table (`approx_pricing`, with no cache reads, so it does not count low), else `EST_RATE`."
-    if not (v := VENDORS.get(getattr(spec, 'runtime', ''))): return EST_RATE
-    try:
-        from fastllm.types import approx_pricing
-        return approx_pricing(spec.model_id, v, out=10, cache=0, inp=90) / 1e6
-    except Exception: return EST_RATE
 WORKER_TOKENS = 2_000_000   # the token cap of one turn, a backstop: the dollar cap, from the price of the model, stops a turn first
-_wk = {}
 
-def _worker_cls():
-    "The `Agent` class of the worker, made on first use: the model sees only the tools of `add_tool`."
-    if 'cls' not in _wk:
-        from ramabana.agent import Agent
-        from types import SimpleNamespace
-        class Worker(Agent):
-            "A ramabana `Agent` that offers the model only the tools that the caller added, not ramabana's memory and plan tools."
-            estimated = 0.   # the dollars of the turn from the tokens, when the model reports no cost
-            def _spend(self, use):
-                "Check the caps with the cost that the model reports, else with an estimate from the tokens at the price of the model (`token_rate`), so the dollar cap holds."
-                tok, cost = getattr(use, 'total_tokens', 0) or 0, getattr(use, 'cost', 0.) or 0.
-                if not cost and tok: self.estimated = cost = tok * token_rate(self.routing.spec('turn'))
-                return Agent._spend(self, SimpleNamespace(total_tokens=tok, cost=cost))
-            @property
-            def tools(self):
-                mine = {getattr(t, '__name__', '') for t in self.registry.tools}
-                return [t for t in Agent.tools.fget(self) if getattr(t, '__name__', '') in mine]
-        _wk['cls'] = Worker
-    return _wk['cls']
-
-def ramabana_worker(host=None, sp:str=WORKER_SP, turn:str=None, max_calls:int=WORKER_CALLS, max_steps:int=WORKER_STEPS, max_cost:float=WORKER_DOLLARS,
-                    max_tokens:int=WORKER_TOKENS):
-    "A new ramabana `Agent` on the turn `dflt_model(turn)`, with the shalya `host` (default: no folders) and no tools until the caller adds them. Never the agent of `ramabana_agent`. A turn stops at `max_tokens` tokens, and at `max_cost` dollars (estimated from the tokens when the model reports no cost)."
-    from ramabana.agent import Approvals
+def ramabana_worker(tools:list=(), host=None, sp:str=WORKER_SP, turn:str=None, max_calls:int=WORKER_CALLS, max_steps:int=WORKER_STEPS,
+                    max_cost:float=WORKER_DOLLARS, max_tokens:int=WORKER_TOKENS):
+    "A new ramabana `Agent` on the turn `dflt_model(turn)`, with the shalya `host` (default: no folders). The model sees only the tools named in `tools`, when the caller adds them. Never the agent of `ramabana_agent`. A turn stops at `max_tokens` tokens, and at `max_cost` dollars (estimated from the tokens when the model reports no cost)."
+    from ramabana.agent import Agent, Approvals
     from ramabana.core import Routing
     from ramabana.tools import NullHost
-    return _worker_cls()(host or NullHost(), routing=Routing(turn=dflt_model(turn)), cfg=None, sp=sp,
-                         approvals=Approvals(mode='ask', no_listener='refuse', timeout=0), readonly=True, subagents=False, extensions=False,
-                         global_skills=False, learned=False, compact=False, poll_every=0, auto_turns='off',
-                         max_tool_calls=max_calls, max_steps=max_steps, max_cost=max_cost, max_tokens=max_tokens)
+    return Agent(host or NullHost(), routing=Routing(turn=dflt_model(turn)), cfg=None, sp=sp, only_tools=list(tools),
+                 approvals=Approvals(mode='ask', no_listener='refuse', timeout=0), readonly=True, subagents=False, extensions=False,
+                 global_skills=False, learned=False, compact=False, poll_every=0, auto_turns='off',
+                 max_tool_calls=max_calls, max_steps=max_steps, max_cost=max_cost, max_tokens=max_tokens)

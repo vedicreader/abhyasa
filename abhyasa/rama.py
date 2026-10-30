@@ -13,6 +13,8 @@ from fastcore.utils import *
 from .store import Learning, usable_name
 from .model import DEPTHS
 from .tutor import Tutor, Session
+from .llm import timeout_error
+from ramabana.runtime import OneshotTimeout
 
 # %% ../nbs/07_rama.ipynb #c007
 _st = AttrDict(lr=None, tutor=None, sess=None, agent=None)
@@ -21,10 +23,15 @@ def _learning():
     if _st.lr is None: _st.lr = Learning(os.getenv('ABHYASA_VAULT') or os.getenv('VISHALAKSHI_VAULT'))
     return _st.lr
 
+def _ask(p, sp=''):
+    "One call on the agent of the latest command. A call past its deadline raises the `RuntimeError` of `timeout_error`, as in the app."
+    try: return _st.agent.oneshot(p, sp, job='oneshot')
+    except OneshotTimeout as e: raise timeout_error('oneshot', e) from e
+
 def _tutor(agent):
     "The tutor, made once. Its model is the agent of the latest command, so `/reload` or a new model takes effect."
     _st.agent = agent
-    if _st.tutor is None: _st.tutor = Tutor(_learning(), lambda p, sp='': _st.agent.oneshot(p, sp, job='oneshot'))
+    if _st.tutor is None: _st.tutor = Tutor(_learning(), _ask)
     return _st.tutor
 
 # %% ../nbs/07_rama.ipynb #c009

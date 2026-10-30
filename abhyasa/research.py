@@ -940,8 +940,9 @@ def gather(lr:Learning, jid:str, stop:threading.Event, ask=None, search=None, fe
         finally: lr.merge_journey(jid, gather_end=time.time(), gather_now=None)
         return AttrDict(passages=sum(r is not None for r in out), read=0, why=why)
     try:
-        a = ramabana_worker(sp=prompt('research.gather'))
-        for t in gather_tools(lr, jid, stop, search, fetch, paper, end, st): a.add_tool(t)
+        ts = gather_tools(lr, jid, stop, search, fetch, paper, end, st)
+        a = ramabana_worker(tools=[t.__name__ for t in ts], sp=prompt('research.gather'))
+        for t in ts: a.add_tool(t)
     except Exception as e: return plain(e)
     done, why, err, early = threading.Event(), '', None, False
     def watch():
