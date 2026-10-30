@@ -45,7 +45,7 @@ Each question goes through the same six steps:
 5.  Update. The result and your confidence change the floor, the ceiling and the next review date of the concept.
 6.  Teach. After a miss, the tutor teaches the smallest step that fixes your first error. Then it asks a check question.
 
-When you say “I don’t know X”, X becomes a concept, and it comes first the next time. The Strengths page shows your strong concepts, your weak spots with their reasons, and the ways that you learn best. “Practice my weak spots” starts a session on your weakest concepts.
+When you say “I don’t know X”, X becomes a concept, and it comes first the next time. Your learning, under You, shows your weak spots, and “Practice my weak spots” starts a session on them. “More about your strengths” shows your strong concepts, your weak spots with their reasons, and the ways that you learn best.
 
 | term | meaning |
 |----|----|
@@ -75,6 +75,7 @@ Each idea is one step. A step shows the passage from the source, word for word. 
 - Demo. You predict what a demo will do, lock in your prediction, and then change the inputs.
 - Order. You put the parts of the idea in the right order.
 - Code. You write a small Python function, and its tests run.
+- Notebook. For an idea that needs a library, the step gives a notebook task, and you do it in Leela (see “Open in Leela”).
 
 The tutor picks the kind that fits the idea and your profile. The step shows the reason. Reading never waits for a check. You can read the passage and press “Skip this idea” at any time. A skipped idea stays unseen in your record. A pass or a miss on a check changes your record, as an answer in a session does.
 
@@ -109,6 +110,37 @@ in your home folder, with no hidden folders and no links. For one hour, the walk
 
 A path alone, such as `~/code/course22`, asks one question: “Walk through it” or “Use it for a goal”.
 
+For a goal, the tutor plans the walk top down from the sources that you named. Each step reads its passage from one of
+those documents. Steps that build your goal get a notebook check. When the goal names two or more sources, or a source
+folder has more than 40 documents, an agent reads your sources and the web and finds a passage for each idea. A band on
+the walk says what it reads now. “Show what it did” opens its log in the side pane, and “Stop” stops it. abhyasa keeps a
+passage only when it is word for word in its document. The agent has no shell, a time limit (Settings, under Research)
+and a spend limit.
+
+When no passage is found, the step says why, for example “No page had a good quote.” Press “Find a source” to try again,
+or “Pick a passage yourself”.
+
+### Change the walk path
+
+Press “Change the walk” on the plan page, or on the rail of a step. Each change saves at once, and the Undo bar says what
+changed. ⌘Z undoes it. “Earlier versions” lists the changes, and you can go back to one.
+
+| key | what it does |
+|----|----|
+| W, S | move the focus to the idea above or below |
+| ⇧W, ⇧S | move the idea up or down. You can also drag its grip |
+| E | open the idea: its passage, its tutor note, its kind of check and its question |
+| A | add an idea after it: by name, from the concept tree or from a source |
+| P | split the idea into smaller ideas |
+| M | merge the idea with the next idea |
+| X | remove the idea. Undo gives it back |
+| R | ask the tutor to write the note and the question again. A text that you changed at that time stays |
+| ⌘Z | undo the last change. In a text box, ⌘Z undoes your typing |
+| ⌥S | continue the walk |
+
+“Pick another passage” shows only passages that are word for word in the walk documents. The editor also says how many
+checks are hands-on. A notebook step that builds your goal does not count.
+
 ## Rabbit holes
 
 A passage can use an idea that you do not know yet. The step then shows a “This needs” line with each idea that it needs. An idea that is not learned yet has a “Learn beside” button.
@@ -128,6 +160,22 @@ Press ⌥B to open the offer. Then press 1, 2 or 3. A primer or a side walk open
 
 The pane opens only pages of abhyasa. A pane address that points to another site is ignored.
 
+## The screen guide
+
+When you do not get a part of the page, press Caps+E (⌃⌥⇧⌘E), or press Explain in the top bar. Hold the keys to talk,
+or tap them to type. Then say what you do not get, for example “I don’t get alpha bar”.
+
+The tutor answers on the page, as a teacher does at a whiteboard. It circles a term in a formula, points to a label in a
+figure, moves the demo and speaks one short line for each step. The marks stay in place when you scroll.
+
+- A says and draws the step again, S goes back one step, and D goes to the next step. Esc stops the board.
+- A key that you type in a text box or in an editor stays in that box. The board does not move.
+- A pill says where the answer is from: the tutor, your vault or the web. A quote is word for word, with its link.
+- When a concept has an explainer video, the board can move the video to the right time and quote it. On a concept page,
+  “Find a video” looks on YouTube, or you can paste a link.
+
+No secret and no personal data leaves the Mac without ramabana’s guard.
+
 ## Teach a topic to a group
 
 You can present a walk to a group, as a talk. Each idea of the walk becomes one slide. The passage and the figure, or the demo, show to the room. The tutor note becomes your speaker note. The check of the idea becomes a question for the room.
@@ -136,7 +184,11 @@ You can present a walk to a group, as a talk. Each idea of the walk becomes one 
 
 On the plan of a walk, or on its path page, press “Present this walk”. The editor shows the slides in the order of the walk. A Questions slide and a recap slide come at the end. Set the minutes of your slot. A change to the talk does not change the walk.
 
-In the editor, W and S move the focus from slide to slide. ⇧W and ⇧S move a slide up or down. E opens the form that changes the slide. X takes out the slide (press X again to be sure). Q adds a pause after it. In the form, each line of “Beats” is one press of D: [`passage`](https://vedicreader.github.io/abhyasa/ground.html#passage), `figure`, `demo`, `ask`, or `lit:` and words from the passage. A `lit:` beat lights those words on the slide.
+The editor changes each slide in its row, and saves at once. W and S move the focus from slide to slide. ⇧W and ⇧S move a slide up or down, or you drag its grip. E opens the slide: its title, the points that the room sees, your speaker note, the passage, the figure, the beats and the question for the room. D duplicates the slide, X removes it, A adds a slide after it and Q adds a pause. R asks the tutor to rewrite the slide, with the chips Simpler, Add an example and Shorter. The Undo bar says what changed, and ⌘Z undoes it. “Earlier versions” lists the changes.
+
+The beats are chips, one press of D each: the passage, the points, the figure, the demo, the question, or words to light. Drag a chip, or move it with ⇧W and ⇧S. Select words in the passage to light them on the slide.
+
+When the walk changes, press “Make the talk again (keeps your edits)”. A part of a slide that you changed stays. A slide whose idea left the walk goes under “Not in the walk any more”, with “Put back” and “Remove”. “Make a second talk” is under More.
 
 In this version the room answers with hands. Keep “Room phones” at “No phones”.
 
@@ -207,6 +259,9 @@ A step that needs code has an “Open in Leela” link. The link opens Leela in 
 
 If Leela does not run, the step says so, and it links to the install page.
 
+What you do in Leela comes back to the step: your code check, your prediction and your run, with its images. A check
+that passes in Leela marks the step done, and the step offers “Next idea”. The walk end page shows “What you made”.
+
 ## Settings
 
 Settings has every value that you may want to change. The values are in 12 groups:
@@ -233,6 +288,10 @@ Some guards have no setting: the closed process with no network, the check of li
 ## Keyboard shortcuts
 
 All keys are for the left hand. ⌥ is the Option key. ⌥T, ⌥Q, ⌥R and ⌥G open the tabs Today, Learn, Library and You. ⌥1 to ⌥3 open a sub-tab. To see all the keys, press ⌥F, or press ? outside a text box.
+
+Caps+E (⌃⌥⇧⌘E) opens the screen guide. In the walk path editor and the talk editor, W and S move the focus, ⇧W and ⇧S
+move a row, E opens it, X removes it, R rewrites it and ⌘Z undoes the last change. On the Concepts page, ⌘Z undoes the
+last change that you made by hand.
 
 If you use [Sanketa](https://github.com/vedicreader/sanketa), it shows the same keys when abhyasa is in front. abhyasa writes the pack `~/.config/sanketa/packs/abhyasa.toml` when it starts. It does not write over a pack that you made.
 
