@@ -3,7 +3,12 @@ class Routes:
     journey = '/talk/journey'          # make a talk from a path (a walk with no source), on the pool
     job = '/talk/job'                  # the state of the talk while it is made
     one = '/t/{tid}'                   # the editor: the slides of the talk
-    slide = '/t/{tid}/slide'           # one change to one slide
+    slide = '/t/{tid}/slide'           # one change to one slide; it saves at once, with an Undo
+    beat = '/t/{tid}/beat'             # move, remove or add one beat of a slide
+    fig = '/t/{tid}/fig'               # a small picture of a figure that a slide shows or can pick
+    undo = '/t/{tid}/undo'             # take back the newest change
+    history = '/t/{tid}/history'       # the earlier versions of the talk
+    restore = '/t/{tid}/restore'       # go back to the version before one change
     slot = '/t/{tid}/slot'             # the minutes of the slot, and room phones
     fill = '/t/{tid}/fill'             # write the points and the notes of the slides that have none, on the pool
     start = '/t/{tid}/start'           # start a run (Task 6)
