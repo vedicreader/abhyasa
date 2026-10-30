@@ -230,7 +230,9 @@
     const step = st.board.steps[i], mine = st.marks.filter(m => m.step === i), started = new Set();
     caption();
     if (st.fast) { mine.forEach(run); return; }
-    const at = k => mine.forEach((m, n) => { if (!started.has(n) && (m.o.w ?? Math.round(n * step.say.split(/\s+/).length / Math.max(1, mine.length))) <= k) { started.add(n); run(m); if (st.first == null) { st.first = performance.now(); document.dispatchEvent(new CustomEvent('board:first')); } } });
+    // the first mark of a board draws at once, so the learner sees at once that the tutor answers
+    const wordOf = (m, n) => i === 0 && n === 0 ? 0 : m.o.w ?? Math.round(n * step.say.split(/\s+/).length / Math.max(1, mine.length));
+    const at = k => mine.forEach((m, n) => { if (!started.has(n) && wordOf(m, n) <= k) { started.add(n); run(m); if (st.first == null) { st.first = performance.now(); document.dispatchEvent(new CustomEvent('board:first')); } } });
     at(0);
     speak(step.say, at, () => {
       mine.forEach((m, n) => { if (!started.has(n)) { started.add(n); run(m); } });
@@ -269,7 +271,9 @@
   }
   function stop() {
     quiet();
+    const back = st && st.refocus;
     st = null;
+    if (back && back.isConnected && !document.activeElement.matches('textarea, input, select, [contenteditable]')) back.focus({preventScroll: true});
     const h = document.getElementById('board-host'); if (h) h.remove();
     const s = document.getElementById('guide-strip'); if (s) { s.hidden = true; s.replaceChildren(); }
     document.dispatchEvent(new CustomEvent('board:stop'));
@@ -282,6 +286,10 @@
     if (!board || !board.steps || !board.steps.length) { note(board && board.failed ? "The tutor's drawing failed. Say it again or type it." : 'The tutor did not answer. Try again.'); return; }
     st = {board, labels, fast, quiet: q || fast, auto: auto && !fast, i: 0, timers: [], rate: +(localStorage.getItem('board-rate') || 1), first: null,
           marks: board.steps.flatMap((s, k) => s.strokes.map((o, n) => ({o, step: k, seed: 1 + k * 10 + n})))};
+    // An empty answer box with the focus (a check takes it when it loads) lets go of it, so A, S and D work. A box with your text
+    // keeps it: then the keys type, and a click outside the box gives them to the board. Esc gives the focus back.
+    const a = document.activeElement;
+    if (a && a.matches && a.matches('textarea, input, select, [contenteditable]') && !a.value && !a.textContent) { st.refocus = a; a.blur(); }
     host();
     show(0);
     if (fast) for (let k = 1; k < board.steps.length; k++) show(k);

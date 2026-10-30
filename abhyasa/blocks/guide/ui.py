@@ -17,7 +17,7 @@ def Box():
     "The one-line box. A tap of Hyper+E opens it; held, the key fills it with what you say."
     return Form(Input(type='text', name='said', id='guide-box', aria_label=ASK, placeholder="I don't get …", autocomplete='off', maxlength='300'),
                 Button('Explain', type='submit', cls='small'), Span(cls='guide-heard mute', aria_live='polite'),
-                id='guide-form', cls='guide-form', hidden=True)
+                id='guide-form', cls='guide-form', hidden=True, hx_boost='false')
 
 def Strip():
     "The strip under the board: the tier, the step and its line, the sources, and the keys. board.js fills it, with text only."

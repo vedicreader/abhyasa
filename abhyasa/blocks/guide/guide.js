@@ -5,11 +5,11 @@
 // A formula is split into atoms: a command with its arguments, a {group} or one character, each with its _ and ^ scripts.
 // A run in round brackets is an atom too. Each atom with a letter in it gets \htmlId{g-<formula>-<k>}, so KaTeX gives it
 // its own element, and the board can draw on the exact part. The page does this, not the model.
-const TEX_ARGS = {frac: 2, dfrac: 2, tfrac: 2, binom: 2, sqrt: 1, bar: 1, hat: 1, tilde: 1, vec: 1, dot: 1, ddot: 1, overline: 1,
+var TEX_ARGS = {frac: 2, dfrac: 2, tfrac: 2, binom: 2, sqrt: 1, bar: 1, hat: 1, tilde: 1, vec: 1, dot: 1, ddot: 1, overline: 1,
                   underline: 1, widehat: 1, widetilde: 1, mathbf: 1, mathrm: 1, mathcal: 1, mathbb: 1, mathit: 1, mathsf: 1, mathtt: 1,
                   boldsymbol: 1, bm: 1, text: 1, textbf: 1, operatorname: 1};
-const TEX_INNER = {sqrt: 1, frac: 1, dfrac: 1, tfrac: 1, binom: 1};   // their arguments get ids of their own; an accent's do not
-const TEX_SKIP = /^(left|right|big|Big|bigg|Bigg|mid|cdot|times|quad|qquad|,|;|:|!| |cdots|ldots|dots|to|in|le|ge|leq|geq|ne|neq|approx|sim|propto|sum|prod|int|lim|log|exp|sin|cos|max|min|infty|partial|nabla|pm|mp)$/;
+var TEX_INNER = {sqrt: 1, frac: 1, dfrac: 1, tfrac: 1, binom: 1};   // their arguments get ids of their own; an accent's do not
+var TEX_SKIP = /^(left|right|big|Big|bigg|Bigg|mid|cdot|times|quad|qquad|,|;|:|!| |cdots|ldots|dots|to|in|le|ge|leq|geq|ne|neq|approx|sim|propto|sum|prod|int|lim|log|exp|sin|cos|max|min|infty|partial|nabla|pm|mp)$/;
 
 function texGroup(s, i) {   // the end of the {group} that starts at i
   let d = 0;
