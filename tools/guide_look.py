@@ -29,8 +29,6 @@ os.environ.setdefault('LITESEARCH_CACHE', str(TMP/'litesearch'))
 os.environ['ABHYASA_LEELA_FILE'] = str(TMP/'leela'/'serving.json')
 for k in ('ABHYASA_STT', 'OPENAI_API_KEY', 'ABHYASA_MODEL'): os.environ.pop(k, None)
 
-import abhyasa.voice
-abhyasa.voice.RAMABANA_KEYS = TMP/'keys.env'
 import rupaka.check
 rupaka.check.can_check = lambda: False
 from abhyasa.store import temp_learning

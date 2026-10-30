@@ -24,8 +24,6 @@ os.environ['XDG_CONFIG_HOME'] = str(TMP/'xdg')
 for k in ('ABHYASA_STT', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ABHYASA_MODEL'): os.environ.pop(k, None)
 sys.path[:0] = [str(ROOT/'tests')]
 
-import abhyasa.voice
-abhyasa.voice.RAMABANA_KEYS = TMP/'keys.env'
 import rupaka.check
 rupaka.check.can_check = lambda: False   # no browser inside the app for a demo check
 from abhyasa.store import temp_learning

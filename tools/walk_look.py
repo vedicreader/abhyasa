@@ -19,8 +19,6 @@ os.environ['ABHYASA_LEELA_FILE'] = str(TMP/'leela'/'serving.json')
 for k in ('ABHYASA_STT', 'OPENAI_API_KEY', 'ABHYASA_MODEL'): os.environ.pop(k, None)
 sys.path[:0] = [str(ROOT/'tests')]
 
-import abhyasa.voice
-abhyasa.voice.RAMABANA_KEYS = TMP/'keys.env'
 import rupaka.check
 rupaka.check.can_check = lambda: False   # no browser inside the app for a demo check
 from rupaka.spec import gallery
