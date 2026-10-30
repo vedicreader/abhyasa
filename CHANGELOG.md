@@ -11,6 +11,7 @@
 - The guide sends a figure picture to the vision model only when your question is about that figure, and it says so before it sends it.
 - The mic shows its level and where speech to text runs. The board has Stop and Voice off. The new setting `guide.voice` keeps your choice.
 - A board on an open check counts as one hint, and the check says so.
+- Settings, Models has the rows "Screen guide" and "Figure labels". Each row shows "on this Mac" or "hosted · <provider>". The default is the model for hints. A model that comes through two providers shows one time.
 
 ### Faster boards
 
