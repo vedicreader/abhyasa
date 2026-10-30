@@ -41,3 +41,15 @@ def test_formula_parts_keep_accents_whole():
     "An accent and its symbol are one part: no id inside the bar."
     marked, parts = tex_parts(r'\hat{y} = \frac{a}{b}')
     assert [t for t, _ in parts][:1] == [r'\hat{y}'] and r'\hat{\htmlId' not in marked and r'\frac{\htmlId' in marked
+
+def test_ask_streams_a_board(mk, fake):
+    fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='This is the passage.'), dict(op='box', at='passage')])
+    ctx = dict(page='/walk/x/step/1', anchors=[dict(id='passage', kind='passage', text='Some text.')])
+    r = mk().post('/guide/ask', json=dict(said="I don't get this", ctx=ctx))
+    assert r.headers['content-type'].startswith('text/event-stream')
+    evs = [json.loads(l[6:]) for l in r.text.splitlines() if l.startswith('data: ')]
+    b = evs[-1]['board']
+    assert b['tier'] == 'tutor' and b['steps'][0]['strokes'] == [dict(op='box', at='passage')]
+
+def test_ask_needs_words(mk):
+    assert mk().post('/guide/ask', json=dict(said='  ', ctx={})).status_code == 400
