@@ -88,3 +88,12 @@ def test_sources_fold_add_more(mk):
     more = s.select_one('section.sources-more > details.more')
     assert more.summary.get_text() == 'Add more sources' and not more.has_attr('open')
     assert more.select_one('button[hx-post="/add/vedicreader"]') and more.select_one('button[hx-post="/sources/index/ramabana"]')
+
+# The graph: Freeze, Fit and Lay out again moved under Adjust the view; graph.js still finds them by name, and its keys call the same functions.
+
+def test_graph_moves_view_buttons_under_adjust(mk, lr):
+    lr.put('Ranking', 'Order items by a score.', 'ml')
+    s = soup(mk().get('/graph').text)
+    adjust = s.select_one('#levers details.adjust')
+    assert [b['name'] for b in adjust.select('.acts button')][:3] == ['freeze', 'fit', 'reset'] and not adjust.has_attr('open')
+    assert not [b for b in s.select('#levers > .acts button')]

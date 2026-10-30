@@ -21,7 +21,7 @@ def _slide(name, title, lo=0, hi=100, val=50, step=1):
 def _tick(name, title, on=False): return Label(Input(type='checkbox', name=name, checked=on), title, cls='tick')
 
 def Levers(subjects):
-    "The quiet panel. Find, the layout and the legend show; the other levers are under a closed `Adjust the view`."
+    "The quiet panel. Find, the layout and the legend show; the other levers, also Freeze, Fit and Lay out again (their keys work at all times), are under a closed `Adjust the view`."
     modes = Div(*[Label(Input(type='radio', name='mode', value=v, checked=v == 'force'), t, Kbd(k), title=why, cls='mode')
                   for v, t, k, why in MODES], cls='modes')
     floors = [(str(i), d) for i, d in enumerate(DEPTHS)]
@@ -29,10 +29,10 @@ def Levers(subjects):
         _sec('Find', Input(type='search', name='q', placeholder='A concept', autocomplete='off'), keys='S'),
         P('Point at a concept and press E, or find a concept.', cls='hint', id='focus-name'),   # it changes on E, so it stays out of the fold
         _sec('Layout', modes, keys='1–4'),
-        Div(Button('Freeze', Kbd('␣'), type='button', name='freeze'), Button('Fit', Kbd('F'), type='button', name='fit'),
-            Button('Lay out again', Kbd('R'), type='button', name='reset'), cls='acts'),
         _sec('Colours', Div(cls='legend')),
         Details(Summary('Adjust the view'),
+            Div(Button('Freeze', Kbd('␣'), type='button', name='freeze'), Button('Fit', Kbd('F'), type='button', name='fit'),
+                Button('Lay out again', Kbd('R'), type='button', name='reset'), cls='acts'),
             _sec('Focus', _slide('steps', 'Steps out', 1, 4, 1), keys='E'),
             _sec('Space', _slide('spacing', 'Spacing'), _slide('link', 'Link length'), _slide('push', 'Push apart'),
                  _slide('size', 'Node size')),
