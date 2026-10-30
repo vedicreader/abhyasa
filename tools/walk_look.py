@@ -896,7 +896,7 @@ def ct1_concept_tree(pg, w):   # the sort button names the new concepts (`Sort 3
     deep = grp + ' > details.tree.grp:has(> summary .name:text-is("Pitri gana"))'
     is_open = lambda sel: pg.eval_on_selector(sel, 'd => d.open')
     assert is_open(subj) and not is_open(grp), 'the subject is open and its groups are closed'
-    assert pg.inner_text(grp + ' > summary').replace('\n', ' ').strip() == 'Nakshatras · 2', pg.inner_text(grp + ' > summary')
+    assert pg.inner_text(grp + ' > summary .name') + pg.inner_text(grp + ' > summary .n') == 'Nakshatras · 2', pg.inner_text(grp + ' > summary')
     assert not pg.is_visible('a:text-is("Ashvini")')
     pg.click(grp + ' > summary'); settle(pg, 150)
     assert is_open(grp) and pg.is_visible('a:text-is("Ashvini")') and not pg.is_visible('a:text-is("Magha")')
@@ -913,6 +913,45 @@ def ct1_concept_tree(pg, w):   # the sort button names the new concepts (`Sort 3
     pg.goto(w.B + '/concepts'); settle(pg, 200)
     pg.click('button:has-text("new concept")'); pg.wait_for_selector('.tally', timeout=20000)
     assert re.search(r'\d+ placed\. \d+ left for you', pg.inner_text('.tally')), 'the proposal says how many are placed and how many are left'
+    pg.click('.proposal button:has-text("Cancel")'); settle(pg, 150)
+
+def hs1_sort_by_hand(pg, w):
+    "Sort by hand: make a group, drag a concept onto it, undo with ⌘Z, move it with the keys (\"Move to…\"), rename a group, then see the preview of \"Sort everything again\" and cancel it."
+    FAKE.rules['Return JSON: {"places"'] = lambda p, sp: dict(places=[dict(slug=s, group=['Stars']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
+    pg.goto(w.B + '/concepts'); settle(pg, 200)
+    subj = 'details.tree.subj:has(> summary .name:text-is("Jyotisha"))'
+    pg.hover(subj + ' > summary'); pg.click(subj + ' > summary .act'); pg.wait_for_selector(subj + ' > .slot input[name=path]'); settle(pg, 150)   # htmx binds the new form
+    pg.fill(subj + ' > .slot input[name=path]', 'Rasis'); pg.press(subj + ' > .slot input[name=path]', 'Enter')
+    pg.wait_for_selector('.undo-bar:has-text("Made the group")'); settle(pg, 150)
+    pg.click(subj + ' > details.tree.loose > summary'); settle(pg, 150)
+    pg.eval_on_selector('summary[data-drop="Rasis"]', 's => s.scrollIntoView({block: "start"})')   # both ends of the drag in the window
+    grip, drop = pg.query_selector('li[data-slug="mesha"] > .handle').bounding_box(), pg.query_selector('summary[data-drop="Rasis"]').bounding_box()
+    assert grip['y'] < 880, 'the row is in the window'
+    pg.mouse.move(grip['x'] + 3, grip['y'] + 5); pg.mouse.down()
+    pg.mouse.move(drop['x'] + 30, drop['y'] + 8, steps=12); pg.mouse.up()
+    pg.wait_for_selector('.undo-bar:has-text("Moved “Mesha” to Rasis.")'); settle(pg, 150)
+    assert (w.lr.concept('mesha').group, w.lr.concept('mesha').group_by) == (['Rasis'], 'hand'), w.lr.concept('mesha')
+    assert pg.eval_on_selector('details.tree.grp:has(> summary[data-drop="Rasis"])', 'd => d.open'), 'the group that you dropped on is open'
+    pg.keyboard.press('Meta+z'); pg.wait_for_selector('.undo-bar:has-text("Made the group")'); settle(pg, 150)   # the bar now offers the change before
+    assert not w.lr.concept('mesha').get('group'), 'Undo took Mesha out of Rasis'
+    pg.click(subj + ' > details.tree.loose > summary'); settle(pg, 100)
+    pg.focus('li[data-slug="mesha"] .move-to'); pg.keyboard.press('Enter'); pg.wait_for_selector('li[data-slug="mesha"] select:focus'); settle(pg, 150)
+    pg.select_option('li[data-slug="mesha"] select', 'Rasis'); pg.keyboard.press('Tab'); pg.keyboard.press('Enter')
+    pg.wait_for_selector('.undo-bar:has-text("Moved “Mesha” to Rasis.")'); settle(pg, 150)
+    assert w.lr.concept('mesha').group == ['Rasis'], 'Move to… works with the keys'
+    grp = 'details.tree.grp:has(> summary[data-drop="nakshatras"])'
+    pg.hover(grp + ' > summary'); pg.click(grp + ' > summary .act'); pg.wait_for_selector(grp + ' > .slot input[name=name]')
+    assert pg.eval_on_selector(grp, 'd => d.open'), 'the group opens with its rename form'
+    pg.keyboard.press('Escape'); settle(pg, 100)
+    assert not pg.query_selector(grp + ' > .slot input'), 'Esc closes the form'
+    pg.hover(grp + ' > summary'); pg.click(grp + ' > summary .act'); pg.wait_for_selector(grp + ' > .slot input[name=name]'); settle(pg, 150)
+    pg.fill(grp + ' > .slot input[name=name]', 'Lunar mansions'); pg.keyboard.press('Enter')
+    pg.wait_for_selector('.undo-bar:has-text("Renamed the group")'); settle(pg, 150)
+    assert w.lr.concept('ashvini').group == ['Lunar mansions'] and ['Lunar mansions'] in w.lr.hand_groups('jyotisha')
+    pg.click('details.sort-more > summary'); settle(pg, 100)
+    assert len(pg.query_selector_all('.sort-again input[name=keep]:checked')) == 2, 'one ticked box for each group that you made'
+    pg.click('.sort-again button'); pg.wait_for_selector('.proposal', timeout=20000)
+    assert '2 groups that you made stay.' in pg.inner_text('.proposal') and w.lr.concept('mesha').group == ['Rasis'], pg.inner_text('.proposal')[:200]
     pg.click('.proposal button:has-text("Cancel")'); settle(pg, 150)
 
 def box_values(pg): return pg.evaluate("['#ans', '#think'].map(s => document.querySelector(s)?.value)")
@@ -1099,7 +1138,7 @@ CHECKS = [tb1_four_tabs_and_keys, f1_one_main_button_and_alt_s, f3_same_check_ca
           f9_start_box_reads_the_box, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela, t6f_open_in_leela_notes_the_time,
           d1_narrow_band, d2_pane_bar, d3_one_button_in_a_list, d4_session_bar_one_row, d5_small_faults, l1_demo_ladder, fb1_not_clear_note_reaches_the_simpler_demo,
-          s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_paper_link_in_the_start_box, r1_start_forms_show_no_error, ct1_concept_tree,
+          s1_source_link_opens_the_pane, s2_document_shows_its_images, s3_paper_link_in_the_start_box, r1_start_forms_show_no_error, ct1_concept_tree, hs1_sort_by_hand,
           dr1_wrong_try_leaves_empty_boxes, dr2_draft_survives_a_reload, er1_error_line_shows_the_server_reason,
           g1_graph_uses_the_window_and_fits, gr1_the_grips_show_and_resize, g2_clusters_have_labels_and_regions, rs1_topic_walk_shows_a_web_source,
     op1_open_check_survives_a_restart]   # last: it restarts the server

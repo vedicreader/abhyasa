@@ -18,7 +18,7 @@ def details(t, cls):
 
 def summary(t, name, n):
     "Whether the page has a summary for the branch `name` with the count `n`."
-    return re.search(rf'<summary><span class="name">{re.escape(name)}</span><span class="n">\s*·\s*{n}</span></summary>', t) is not None
+    return re.search(rf'<summary[^>]*><span class="name">{re.escape(name)}</span><span class="n">\s*·\s*{n}</span>(?:(?!</summary>).)*</summary>', t, re.S) is not None
 
 # The tree
 
@@ -359,3 +359,34 @@ def test_other_ways_to_add_concepts_place_them_too(mk, jy, fake, monkeypatch):
     fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Krittika', statement='The third nakshatra.')])
     cl.post('/j/jj/split', data=dict(slug='ashvini'))
     assert (jy.concept('krittika').group, jy.concept('krittika').group_by) == (['nakshatras'], 'placed')
+
+# Sort by hand (the engine)
+
+def test_rename_group_marks_hand_and_tutor_never_moves(lr):
+    for n in ('Ashvini', 'Bharani'): lr.put(n, '', 'jyotisha', group=['nakshatras'])
+    lr.save_groups('jyotisha'); lr.rename_group('jyotisha', ['nakshatras'], 'Lunar mansions')
+    cs = lr.concepts('jyotisha')
+    assert all(c.group == ['Lunar mansions'] and c.group_by == 'hand' for c in cs)
+    assert ['Lunar mansions'] in lr.hand_groups('jyotisha') and ['nakshatras'] not in lr.groups('jyotisha')
+    assert not lr.unsorted('jyotisha') and not lr.place('ashvini', ['Other'])
+
+def test_rename_into_existing_group_merges(lr):
+    lr.put('A', '', 's', group=['padas']); lr.put('B', '', 's', group=['Padas x'])
+    lr.save_groups('s'); lr.rename_group('s', ['Padas x'], 'PADAS')
+    assert [g for g in lr.groups('s') if g[0].lower() == 'padas'] == [['padas']] and lr.concept('b').group == ['padas']
+
+def test_hand_name_survives_extract(lr):
+    lr.put('Self-attention', 'x', 'ml'); lr.rename('self-attention', 'Attention over one sequence')
+    lr.put('Self-attention', 'y', 'ml')
+    assert lr.concept('self-attention').name == 'Attention over one sequence'
+
+def test_sort_everything_keeps_hand_unless_unticked(lr):
+    from abhyasa.llm import Fake
+    from abhyasa.sources import propose_groups, apply_groups
+    for n in ('H1', 'H2'): lr.put(n, '', 'ml', group=['H']); lr.set_group(n.lower(), ['H'])
+    for n in ('S1', 'S2', 'S3'): lr.put(n, '', 'ml', group=['Old'], group_by='sort')
+    fake = Fake({SORT: lambda p, sp: dict(places=[dict(slug=s, group=['New']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])})
+    p = propose_groups(lr, fake, 'ml', every=True); apply_groups(lr, p, every=True)
+    assert lr.concept('h1').group == ['H'] and lr.concept('s1').group == ['New']
+    p = propose_groups(lr, fake, 'ml', every=True, free=['h1', 'h2']); apply_groups(lr, p, every=True, free=['h1', 'h2'])
+    assert lr.concept('h1').group == ['New'] and lr.concept('h1').group_by == 'sort'

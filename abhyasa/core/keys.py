@@ -30,6 +30,7 @@ KEYS = [
     ('Session', '1–4', 'Pick option 1 to 4 on a choice question'),
     ('Session', '⌥↑ ⌥↓', 'Read an earlier question'),
     ('Concept', '⌥E', 'Show me a demo'),
+    ('Concepts', '⌘Z', 'Undo the last change that you made by hand'),
     ('Walk', '⌥S', 'Send the open check, or run the tests. Once the check closes, go to the next idea'),
     ('Walk', '⌥W', 'Ask for a hint'),
     ('Walk', '⌘↩', 'Send the answer, or run the tests'),

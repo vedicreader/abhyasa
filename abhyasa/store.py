@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/store.html.md"""
 
 # %% auto #0
 __all__ = ['log', 'SHELF', 'STATE', 'LISTS', 'SYMBOLS', 'SLUG_KEYS', 'GROUP_DEPTH', 'GROUP_LEN', 'slugify', 'usable_name',
-           'concept_text', 'Learning', 'clean_group', 'clean_subject', 'readable_name', 'tree', 'attempt_text',
-           'temp_learning']
+           'concept_text', 'Learning', 'clean_group', 'fold', 'under', 'clean_subject', 'readable_name', 'tree',
+           'attempt_text', 'temp_learning']
 
 # %% ../nbs/00_store.ipynb #c004
 import json, logging, re, threading, time, uuid, hashlib, unicodedata
@@ -125,10 +125,11 @@ def put(self:Learning,
         provenance=(),         # where it came from: dicts such as `{'src': 'vedicreader', 'ref': ...}`
         questions=(),          # ready questions: `{'q':..., 'a':..., 'depth':...}`
         **meta) -> AttrDict:
-    "Add a concept or add to one. Keep the learner state, merge the list fields and replace the other fields."
+    "Add a concept or add to one. Keep the learner state, merge the list fields and replace the other fields. A name that you set by hand stays."
     with self._lock:   # one step: look at the old concept, then write
         slug = slug or slugify(name)
         old = self.concept(slug) or {}
+        if old.get('named_by') == 'hand' and meta.get('named_by') != 'hand': name = old['name']   # a name that you set stays: use `rename`
         if old.get('group_by') in ('hand', 'sort', 'placed', 'undone'): meta.pop('group', None); meta.pop('group_by', None)   # a group that you, a saved sort or a placement set stays: use `set_group`
         elif 'group' in meta: meta['group'] = clean_group(meta['group'], subject or old.get('subject', ''))
         new = dict(name=name, statement=statement or old.get('statement', ''), subject=subject or old.get('subject', ''), slug=slug, **meta)
@@ -237,20 +238,36 @@ def _in_use(self:Learning, subject:str='') -> list:
     "The group paths that concepts of `subject` have now."
     return _paths(clean_group(c.get('group'), c.subject) for c in self.concepts(subject or None) if (c.subject or '') == (subject or ''))
 
+def _groups_doc(self:Learning, subject:str='') -> dict|None:
+    "The meta of the group list of `subject`: `groups` (the kept paths) and `hand` (the paths that you made or renamed); None when there is no list."
+    r = first(self.v.t.docs(where='source=?', where_args=[_src('groups', slugify(subject or 'general'))]))
+    return json.loads(r['meta'] or '{}') if r else None
+
+def _write_groups(self:Learning, subject:str, keep:list, hand:list):
+    "Write the group list of `subject`: the kept paths and the hand paths."
+    src, m = _src('groups', slugify(subject or 'general')), dict(subject=subject or '', groups=keep, hand=hand)
+    r = self.v.add('; '.join(' › '.join(g) for g in keep) or 'no groups', title=f"Groups of {subject or 'general'}", source=src, kind='groups', meta=m)
+    if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
+
 @patch
 def saved_groups(self:Learning, subject:str='') -> list|None:
     "The group paths kept for `subject` when a sort was saved; None when none was."
-    r = first(self.v.t.docs(where='source=?', where_args=[_src('groups', slugify(subject or 'general'))]))
-    return json.loads(r['meta'] or '{}').get('groups', []) if r else None
+    m = _groups_doc(self, subject)
+    return m.get('groups', []) if m is not None else None
 
 @patch
-def save_groups(self:Learning, subject:str='', groups=None) -> list:
-    "Keep the group paths of `subject`: `groups` (default: the ones in use) added to the ones kept before. A kept group is never dropped by the tutor. Return the list."
-    keep = _paths(self.saved_groups(subject) or [], _in_use(self, subject) if groups is None else groups)
-    src, m = _src('groups', slugify(subject or 'general')), dict(subject=subject or '', groups=keep)
-    r = self.v.add('; '.join(' › '.join(g) for g in keep) or 'no groups', title=f"Groups of {subject or 'general'}", source=src, kind='groups', meta=m)
-    if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
-    return keep
+def hand_groups(self:Learning, subject:str='') -> list:
+    "The group paths of `subject` that you made or renamed. The tutor never renames or drops them."
+    return (_groups_doc(self, subject) or {}).get('hand', [])
+
+@patch
+def save_groups(self:Learning, subject:str='', groups=None, replace:bool=False) -> list:
+    "Keep the group paths of `subject`: `groups` (default: the ones in use) added to the ones kept before. A kept group is never dropped by the tutor. With `replace`, the list becomes `groups` and the hand groups. Return the list."
+    with self._lock:
+        hand, new = self.hand_groups(subject), _in_use(self, subject) if groups is None else groups
+        keep = _paths(new, hand) if replace else _paths(self.saved_groups(subject) or [], new, hand)
+        _write_groups(self, subject, keep, hand)
+        return keep
 
 @patch
 def groups(self:Learning, subject:str='') -> list:
@@ -278,6 +295,98 @@ def place(self:Learning, slug:str, path) -> bool:
         if c is None or c.get('group') or c.get('group_by') in ('hand', 'undone') or not (g := clean_group(path, c.subject)): return False
         self.update(slug, group=g, group_by='placed')
         return True
+
+# %% ../nbs/00_store.ipynb #hs02
+def fold(s) -> str:
+    "`s` in lower case with no marks, so `Maghā` and `MAGHA` are one name."
+    return ''.join(ch for ch in unicodedata.normalize('NFKD', str(s or '')) if not unicodedata.combining(ch)).lower()
+
+def _key(g): return tuple(fold(x) for x in g)
+
+def under(g, path) -> bool:
+    "Whether the group `g` is the group `path` or a group below it. Case and marks do not count."
+    return bool(path) and len(g or []) >= len(path) and _key(g[:len(path)]) == _key(path)
+
+def _uniq(gs) -> list:
+    "The paths `gs`, each one time, in their order. Case and marks do not count."
+    seen = {}
+    for g in gs: seen.setdefault(_key(g), list(g))
+    return list(seen.values())
+
+def _spell(gs, g) -> list:
+    "`g` with each level spelled as a path in `gs` that is the same name in another case or with marks."
+    out = []
+    for x in g: out.append(next((p[-1] for p in gs if len(p) == len(out) + 1 and _key(p) == _key([*out, x])), x))
+    return out
+
+def _of(self:Learning, subject:str='') -> list:
+    "The concepts of `subject` only ('' is the concepts with no subject)."
+    return [c for c in self.concepts(subject or None) if (c.subject or '') == (subject or '')]
+
+@patch
+def rename(self:Learning, slug:str, name:str) -> AttrDict:
+    "Give concept `slug` the name `name`, set by hand: a new extract never renames it. The old name becomes an alias."
+    n = ' '.join(str(name or '').split())[:120]
+    if not usable_name(n): raise ValueError('Use two letters or digits or more in a name.')
+    with self._lock:
+        c = self.concept(slug)
+        if c is None: raise KeyError(f'no concept {slug!r}')
+        if n == c.name: return self.update(slug, named_by='hand')
+        return self.put(n, c.statement, c.subject, slug=slug, aliases=[c.name], named_by='hand')   # `put` makes the search text and the title again
+
+@patch
+def rename_group(self:Learning, subject:str, path, name:str) -> list:
+    "Give the group `path` of `subject` the last name `name`, set by hand. Its concepts and the groups below it move with it. A name of a group beside it joins the two. Return the slugs changed."
+    with self._lock:
+        path = _spell(self.groups(subject), clean_group(path, subject))
+        new = clean_group([*path[:-1], name], subject)
+        if not path or len(new) != len(path): raise ValueError('Use letters or digits in a group name.')
+        new = _spell([g for g in self.groups(subject) if _key(g) != _key(path)], new)   # a name of a group beside it: the two groups join
+        moved = []
+        for c in _of(self, subject):
+            if under(g := clean_group(c.get('group'), c.subject), path): self.update(c.slug, group=[*new, *g[len(path):]], group_by='hand'); moved.append(c.slug)
+        mv = lambda gs: [[*new, *g[len(path):]] if under(g, path) else list(g) for g in gs]
+        _write_groups(self, subject, _paths(mv(self.saved_groups(subject) or []), [new]), _uniq([*mv(self.hand_groups(subject)), new]))
+        return moved
+
+@patch
+def new_group(self:Learning, subject:str, path) -> list:
+    "Add the empty group `path` to `subject`, made by hand. Return the group list."
+    with self._lock:
+        g = _spell(self.groups(subject), clean_group(path, subject))
+        if not g: raise ValueError('Use letters or digits in a group name.')
+        _write_groups(self, subject, _paths(self.saved_groups(subject) or [], [g]), _uniq([*self.hand_groups(subject), g]))
+        return self.groups(subject)
+
+@patch
+def unmark_groups(self:Learning, subject:str, paths) -> list:
+    "Take the hand mark off the groups `paths` of `subject`, so the tutor can sort them again. Return the hand groups."
+    with self._lock:
+        m = _groups_doc(self, subject) or {}
+        hand = [g for g in m.get('hand', []) if _key(g) not in {_key(p) for p in paths}]
+        _write_groups(self, subject, m.get('groups', []), hand)
+        return hand
+
+_HELD = ('name', 'named_by', 'aliases', 'group', 'group_by', 'subject', 'subject_by')
+
+@patch
+def snapshot(self:Learning, slugs=(), subjects=()) -> AttrDict:
+    "The fields that a change by hand can touch, for the concepts `slugs` and the group lists of `subjects`, so `restore` can write them back."
+    return AttrDict(cs={s: {k: c.get(k) for k in _HELD} for s in slugs if (c := self.concept(s))},
+                    groups={s: _groups_doc(self, s) or {} for s in subjects})
+
+@patch
+def restore(self:Learning, snap) -> list:
+    "Write back the fields of `snap` (from `snapshot`). A concept that is gone stays gone. Return the slugs written."
+    with self._lock:
+        for s, m in snap['groups'].items(): _write_groups(self, s, m.get('groups', []), m.get('hand', []))
+        out = []
+        for s, m in snap['cs'].items():
+            if (c := self.concept(s)) is None: continue
+            self.update(s, **{**m, 'name': c.name, 'named_by': None})
+            if c.name != m['name']: self.put(m['name'], c.statement, slug=s)   # `put` makes the search text and the title again
+            self.update(s, named_by=m['named_by']); out.append(s)
+        return out
 
 # %% ../nbs/00_store.ipynb #sf06
 def clean_subject(s) -> str:
@@ -312,14 +421,18 @@ def repair_names(self:Learning) -> list:
 # %% ../nbs/00_store.ipynb #g006
 def _node(name, path): return AttrDict(name=name, path=path, kids={}, cs=[])
 
-def tree(concepts) -> list:
-    "The subject nodes of `concepts`, sorted by name, each with its groups and the count of concepts below it."
+def tree(concepts, groups=None) -> list:
+    "The subject nodes of `concepts`, sorted by name, each with its groups and the count of concepts below it. `groups` (`{subject: paths}`) adds groups with no concept, under a subject that shows."
     root = {}
+    def walk(n, g):
+        for x in g: n = n.kids.setdefault(x.lower(), _node(x, [*n.path, x]))
+        return n
     for c in concepts:
         s = c.get('subject') or ''
-        n = root.setdefault(s.lower(), _node(s, []))
-        for g in clean_group(c.get('group'), s): n = n.kids.setdefault(g.lower(), _node(g, [*n.path, g]))
-        n.cs.append(c)
+        walk(root.setdefault(s.lower(), _node(s, [])), clean_group(c.get('group'), s)).cs.append(c)
+    for s, gs in (groups or {}).items():
+        if (s or '').lower() in root:
+            for g in gs: walk(root[(s or '').lower()], g)
     def done(n):
         n.kids = [done(k) for _, k in sorted(n.kids.items())]
         n.cs = sorted(n.cs, key=lambda c: (c.get('order', 1e9), c['name'].lower()))
