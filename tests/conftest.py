@@ -13,7 +13,6 @@ from abhyasa.ground import passage
 from pathlib import Path
 from rupaka.spec import gallery
 import abhyasa.voice
-abhyasa.voice.RAMABANA_KEYS = Path(tempfile.mkdtemp())/'keys.env'   # never read the real ramabana keys
 
 class Notes:
     "A source with one passage that names Ranking."

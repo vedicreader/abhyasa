@@ -6,9 +6,9 @@ Docs: https://vedicreader.github.io/abhyasa/voice.html.md"""
 
 # %% auto #0
 __all__ = ['STT_SP', 'DFLT_GEMMA', 'GEMMA_E2B', 'DFLT_WHISPER', 'DFLT_PARAKEET', 'DFLT_OPENAI', 'DFLT_MODELS', 'ALIASES',
-           'OPENAI_URL', 'http_post', 'ENGINES', 'RAMABANA_KEYS', 'KNOWN', 'STT_WORDS', 'NOT_STT', 'resolve', 'current',
-           'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence',
-           'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'Dictation', 'Speech']
+           'OPENAI_URL', 'http_post', 'ENGINES', 'KNOWN', 'STT_WORDS', 'NOT_STT', 'resolve', 'current', 'unload',
+           'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence', 'cached',
+           'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'Dictation', 'Speech']
 
 # %% ../nbs/05_voice.ipynb #v005
 import os, re, gc, json, time, uuid, inspect, tempfile, threading, wave
@@ -110,32 +110,43 @@ def _openai(path, hint='', model=DFLT_OPENAI):
 ENGINES = dict(gemma=_gemma, mlx=_mlx, openai=_openai)
 
 # %% ../nbs/05_voice.ipynb #v030
-RAMABANA_KEYS = Path('~/.config/ramabana/keys.env').expanduser()
+from fastcore.xtras import atomic_save
+try: from ramabana.setup import keys_path, load_keys, save_key
+except ImportError:   # ramabana is an optional extra: the same three names, for plain `NAME=value` lines
+    def keys_path(): return Path('~/.config/ramabana/keys.env').expanduser()
+    def load_keys(path=None):
+        p, got = Path(path or keys_path()), []
+        for l in (p.read_text().splitlines() if p.exists() and not p.stat().st_mode & 0o077 else []):
+            k, _, v = l.strip().removeprefix('export ').partition('=')
+            if k.strip() not in os.environ and v: os.environ[k.strip()] = v.strip().strip('"\''); got.append(k.strip())
+        return got
+    def save_key(name, value, path=None):
+        p = Path(path or keys_path())
+        keep = [l for l in (p.read_text().splitlines() if p.exists() else []) if l.strip().removeprefix('export ').partition('=')[0].strip() != name]
+        with atomic_save(p, 'w') as f: f.write(''.join(l + '\n' for l in keep + [f'{name}={value}']))
+        p.chmod(0o600); os.environ[name] = value; return p
 
-def _env_value(p, name):
-    try: lines = Path(p).read_text().splitlines()
-    except OSError: return ''
-    for l in lines:
-        k, _, v = l.strip().removeprefix('export ').partition('=')
-        if k.strip() == name: return v.strip().strip('"\'')
-    return ''
+def _file_key(p, name='OPENAI_API_KEY'):
+    "`name` from the key file `p`, read by `load_keys`; no key stays in the environment."
+    got = load_keys(p)
+    k = os.environ.get(name, '') if name in got else ''
+    for n in got: os.environ.pop(n, None)
+    return k
 
 def openai_key() -> tuple:
     "The OpenAI key and where it is from; `('', '')` when there is none."
     if (k := os.getenv('OPENAI_API_KEY')): return k, 'environment'
-    for p in (cfg_dir()/'keys.env', RAMABANA_KEYS):
-        if (k := _env_value(p, 'OPENAI_API_KEY')): return k, str(p)
+    for p in (cfg_dir()/'keys.env', keys_path()):
+        if (k := _file_key(p)): return k, str(p)
     return '', ''
 
 def set_openai_key(key:str=''):
-    "Write `key` to abhyasa's `keys.env` (mode 0600); an empty key removes it. A key with other than letters, digits, `-` and `_` raises `ValueError`."
+    "Save `key` in abhyasa's `keys.env` (mode 0600); an empty key clears it. A key with other than letters, digits, `-` and `_` raises `ValueError`."
     if key.strip() and not re.fullmatch(r'[A-Za-z0-9_-]{8,300}', key.strip()): raise ValueError('An API key has only letters, digits, - and _.')
-    p = cfg_dir()/'keys.env'
-    p.parent.mkdir(parents=True, exist_ok=True)
-    keep = [l for l in (p.read_text().splitlines() if p.exists() else []) if l.strip().removeprefix('export ').partition('=')[0].strip() != 'OPENAI_API_KEY']
-    if key.strip(): keep.append(f'OPENAI_API_KEY={key.strip()}')
-    with os.fdopen(os.open(p, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w') as f: f.write(''.join(l + '\n' for l in keep))
-    os.chmod(p, 0o600)
+    old = os.environ.get('OPENAI_API_KEY')
+    save_key('OPENAI_API_KEY', key.strip(), cfg_dir()/'keys.env')
+    if old is None: os.environ.pop('OPENAI_API_KEY', None)   # `save_key` also sets the environment: only a file holds this key
+    else: os.environ['OPENAI_API_KEY'] = old
 
 def masked(key:str) -> str: return f'…{key[-4:]}' if key else ''
 

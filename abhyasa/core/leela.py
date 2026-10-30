@@ -1,17 +1,18 @@
 """Open in Leela: code with a library and tools are learned in Leela. abhyasa reads the address file that a running Leela writes and makes a link.
 It never calls Leela. The learner's browser opens the link. abhyasa writes its own address file, so Leela can link back to the walk.
 A running vedicreader gets a link to an episode page in the same way, from its own address file."""
-import json, os, re, tempfile
+import json, os, re
 from pathlib import Path
 from urllib.parse import urlparse
 from fasthtml.common import *
+from fastcore.xtras import atomic_save
 from abhyasa.contract import handoff, vault_key
 from .cfg import cfg
 
-__all__ = ['LEELA_INSTALL', 'loopback', 'leela_address', 'leela_base', 'leela_link', 'leela_line', 'abhyasa_address',
+__all__ = ['LEELA_INSTALL', 'LOCAL_HOSTS', 'loopback', 'leela_address', 'leela_base', 'leela_link', 'leela_line', 'abhyasa_address',
            'write_address', 'drop_address', 'vr_address', 'vr_base', 'vr_episode']
 LEELA_INSTALL = 'https://github.com/vedicreader/leela#install'
-LOCAL = ('127.0.0.1', 'localhost', '::1')
+LOCAL_HOSTS = ('127.0.0.1', 'localhost', '::1')
 
 def leela_address() -> Path:
     "The file that a running Leela writes: `$ABHYASA_LEELA_FILE` (a test or a trial sets it), else `$XDG_CONFIG_HOME/leela/serving.json`, else `~/.config/leela/serving.json`."
@@ -25,7 +26,7 @@ def loopback(url) -> str|None:
     if not isinstance(url, str) or re.search(r'[\\@\s\x00-\x1f\x7f]', url): return None
     try: u = urlparse(url); host, port = u.hostname, u.port
     except ValueError: return None
-    if u.scheme != 'http' or u.username is not None or u.password is not None or host not in LOCAL or type(port) is not int or not 0 < port < 65536: return None
+    if u.scheme != 'http' or u.username is not None or u.password is not None or host not in LOCAL_HOSTS or type(port) is not int or not 0 < port < 65536: return None
     return f"http://{'[::1]' if host == '::1' else host}:{port}"
 
 def is_loopback(url) -> bool:
@@ -72,12 +73,7 @@ def write_address(url:str, vault) -> Path:
     if not (url := loopback(url) or ''): raise ValueError('abhyasa writes only a loopback address with a port')
     f = abhyasa_address()
     f.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=f.parent, prefix='.serving-', suffix='.json')   # mkstemp makes the file with mode 0600
-    try:
-        with os.fdopen(fd, 'w') as o: json.dump(dict(url=url, pid=os.getpid(), vault=str(vault)), o)
-        os.replace(tmp, f)
-    except BaseException:
-        Path(tmp).unlink(missing_ok=True); raise
+    with atomic_save(f, 'w') as o: json.dump(dict(url=url, pid=os.getpid(), vault=str(vault)), o)   # a temp file made with mode 0600, then a rename
     return f
 
 def drop_address():
