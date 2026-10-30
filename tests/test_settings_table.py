@@ -11,7 +11,7 @@ def own_config(monkeypatch, tmp_path):
 def dflts(group): return {r.name: r.dflt for r in SETTINGS.values() if r.group == group}
 
 def test_groups_in_order():
-    assert list(GROUPS) == ['look', 'learning', 'walks', 'talks', 'checks', 'review', 'links', 'research', 'runner', 'stt', 'models', 'lists', 'prompts']
+    assert list(GROUPS) == ['look', 'learning', 'walks', 'talks', 'checks', 'review', 'links', 'research', 'runner', 'stt', 'guide', 'models', 'lists', 'prompts']
 
 def test_bad_values():
     (cfg_dir()/'settings.json').write_text(json.dumps(dict(walks=dict(steps=99, note='long', depth=2.6), checks=dict(one_ask='yes'), mine=dict(a=1))))

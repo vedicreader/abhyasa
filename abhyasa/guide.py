@@ -6,11 +6,12 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
-           'FOCUS', 'SHOWN', 'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat',
-           'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context',
-           'figure_labels', 'FigureCache', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'focus_text',
-           'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video',
-           'concept_video', 'video_of', 'guide_ask', 'video_source', 'web_sources', 'explain', 'stream_board']
+           'FOCUS', 'SHOWN', 'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'WHO', 'HERE',
+           'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext',
+           'clean_context', 'figure_labels', 'FigureCache', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded',
+           'focus_text', 'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer', 'file_video',
+           'set_video', 'concept_video', 'video_of', 'guide_ask', 'video_source', 'where_of', 'web_sources', 'unsave',
+           'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -497,6 +498,7 @@ def guide_ask(ask, name:str=''):
     `stream(prompt, sp)`, with the same guard."""
     if hasattr(getattr(ask, 'dflt', None), 'via'): return ask.dflt.via('guide', name or ask.name('hint'), 2048, guarded)
     def call(p, sp=''): return ask(guard(p), guard(sp))
+    call.model = getattr(ask, 'model', '') or ''   # a routed ask names its model too: `via` sets it
     if callable(s := getattr(ask, 'stream', None) or getattr(getattr(ask, 'dflt', None), 'stream', None)):   # a `Router` streams on its default
         call.stream = lambda p, sp='': s(guard(p), guard(sp))
     return call
@@ -520,60 +522,121 @@ def _done(tier, b, srcs, t0) -> AttrDict:
     return AttrDict(tier=tier, steps=b.steps, sources=ss, sure=b.sure, failed=b.failed and not b.steps, dropped=len(b.dropped),
                     end=WITH_SOURCE if used else NO_SOURCE, ms=round((time.monotonic() - t0) * 1000))
 
+# %% ../nbs/21_guide.ipynb #gn02
+WHO = dict(claude='Anthropic', anthropic='Anthropic', openai='OpenAI', codex='OpenAI', gemini='Google', copilot='GitHub', azure='Microsoft')
+HERE = 'on this Mac'
+
+def where_of(name:str) -> dict:
+    "Who runs the model `name`: `model` (its label), `where` (`on this Mac` or `hosted`) and `who` (the company of a hosted model). An unknown model is hosted, as the guard takes it."
+    from abhyasa.llm import model_label, provider_label, _on_mac
+    if not name: return dict(where='hosted')
+    pre = name.rpartition('/')[0]
+    if _on_mac(name): return dict(model=model_label(name).removeprefix('a local model: '), where=HERE, who='')
+    return dict(model=model_label(name), where='hosted', who=WHO.get(pre) or (provider_label(pre) if pre else ''))
+
+def _ev(wait:str, state:str, **kw) -> dict:
+    "One state event: `wait` and `state`, then each field of `kw` that applies."
+    return dict(wait=wait, state=state, **{k: v for k, v in kw.items() if v not in (None, '') or k == 'who' and 'model' in kw})
+
+def _asks(w:dict, what:str='') -> dict:
+    "The state event before a model call: `what` goes to the model of `w` (from `where_of`)."
+    m, here = w.get('model') or 'the tutor', w['where'] == HERE
+    wait = f"{what} to {m}." if what else f"Asks {m}." + ('' if here else ' It gets your question and the page text.')
+    return _ev(wait + (' Nothing leaves this Mac.' if here else ''), 'asking', **w)
+
+def _n(n:int, what:str) -> str: return f"{n} {what}{'' if n == 1 else 's'}"
+
 # %% ../nbs/21_guide.ipynb #g075
-def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None) -> list:
-    "Sources from the web for `said`, each with a passage that is word for word in its page."
+def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None, on_state=None) -> list:
+    """Sources from the web for `said`, each with a passage that is word for word in its page. `on_state` gets a state event before
+    the search (with the query word for word), before each read and model call, and before the page goes into the vault. Then it
+    gets `{"saved": ...}` when the guide added the page or its link to the concept: what `unsave` needs to take them away."""
     from abhyasa import research as R
-    search, fetch = search or R.web_search, fetch or R.web_fetch
+    search, fetch, tell = search or R.web_search, fetch or R.web_fetch, on_state or (lambda e: None)
     topic = ctx.get('concept') or ctx.get('step') or ''
     try: q = safe_query(' '.join(f'{said} {topic}'.split()))[:200]   # the guard reads the whole query, then it is cut
     except Withheld: return []
+    tell(_ev(f'Searches the web for: "{q}"', 'searching', where='hosted', query=q))
     try: hits = R.candidates(search(q, 6), 6)
     except Exception: return []
-    c = dict(name=topic or said, statement=said)
+    c, w = dict(name=topic or said, statement=said), where_of(getattr(ask, 'model', ''))
     for h in hits[:2]:
+        tell(_ev(f"Reads {R.site_of(h.url)}.", 'reading', where='hosted'))
         try: page = fetch(h.url)
         except Exception: continue
         page = AttrDict(url=page.url, title=' '.join(str(page.get('title') or h.title).split())[:200], text=str(page.get('text') or ''))
+        tell(_asks(w, f"Sends the page {page.title or R.site_of(page.url)}"))
         if not (p := R.pick_passage(ask, c, page)): continue
         if lr is not None:
-            try:
-                kept = R.file_page(lr, page, p)
-                if ctx.get('slug'): R.link_concept(lr, ctx['slug'], dict(src='web', shelf=kept.shelf, doc_id=kept.doc_id, title=page.title, url=page.url, passage=p, at=time.time()))
+            try: _file(lr, ctx, page, p, tell)
             except Exception: pass
         return [dict(title=page.title or page.url, text=p, url=page.url, label=LABEL['web'])]
     return []
 
+def _file(lr, ctx, page, p, tell):
+    "File `page` with its passage `p` in the vault and link it to the concept of `ctx`. Tell what was new, so that it can be undone."
+    from abhyasa import research as R
+    tell(_ev(f"Saves {page.title or page.url} to your vault.", 'saving', where=HERE))
+    sh, slug = lr.vault.shelf(lr.vault.route('web').name), ctx.get('slug') or ''
+    had = {d['id'] for d in sh.t.docs(where='source=? or source like ?', where_args=[page.url, page.url + '#research-%'])}
+    kept = R.file_page(lr, page, p)
+    linked = slug and any(x.get('src') == 'web' and x.get('doc_id') == kept.doc_id for x in (lr.concept(slug) or {}).get('provenance') or ())
+    if slug: R.link_concept(lr, slug, dict(src='web', shelf=kept.shelf, doc_id=kept.doc_id, title=page.title, url=page.url, passage=p, at=time.time()))
+    s = dict(title=page.title or page.url, url=page.url, shelf=kept.shelf, doc_id=kept.doc_id, slug=slug,
+             doc_new=kept.doc_id not in had, link_new=bool(slug) and not linked)
+    if s['doc_new'] or s['link_new']: tell(dict(saved=s))
+
+def unsave(lr, s) -> int:
+    "Take back what the guide saved (`s`, from a `saved` event): the link of the page to the concept, and the page when the guide added it. The count of changes."
+    from abhyasa.research import _clock
+    from abhyasa.sources import unfile
+    n = 0
+    if s.get('link_new') and s.get('slug'):
+        with _clock(s['slug']):
+            if (c := lr.concept(s['slug'])):
+                ps = c.get('provenance') or []
+                keep = [x for x in ps if not (x.get('src') == 'web' and x.get('doc_id') == s['doc_id'])]
+                if len(keep) < len(ps): lr.update(s['slug'], provenance=keep); n += 1
+    if s.get('doc_new'): n += unfile(lr, [dict(shelf=s['shelf'], doc_id=s['doc_id'])])
+    return n
+
 # %% ../nbs/21_guide.ipynb #g076
-def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=None, note=None, lr=None, on_step=None, stop=None) -> AttrDict:
+def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=None, note=None, lr=None, on_step=None, stop=None,
+            on_state=None) -> AttrDict:
     """The board for `said` on the page `ctx`: from the tutor when it is sure, else from your `sources` (the vault), else from the
-    web when `web` (default: the setting `research.on`). `note(text)` hears what the guide does while it waits. With a model that
+    web when `web` (default: the setting `research.on`). `on_state(event)` gets a state event before each step of the work, and
+    `{"saved": ...}` when a web page goes into the vault (see *Never caught unaware*); `note(text)` gets only the `wait` line. With a model that
     can stream, `on_step(step, k)` gets each step of a sure tutor board as soon as it is whole (`stream_board`). When the
     `threading.Event` `stop` is set, the stream closes and no next tier starts."""
     from abhyasa.settings import val
     from abhyasa.ground import ground, label
     from ramabana.agent import mask_secrets
-    t0, note = time.monotonic(), note or (lambda s: None)
+    t0 = time.monotonic()
+    def tell(e):
+        if on_state: on_state(e)
+        if note and 'wait' in e: note(e['wait'])
     ctx = ctx if isinstance(ctx, PageContext) else clean_context(ctx)   # a raw dict from a host, also with `by`, is cleaned
     said, ask = ' '.join(str(said or '').split())[:300], guide_ask(ask)   # each model call guards its prompt for its own route
     def board(tier, srcs, on_step=None):
         c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier), prompt('guide.board')
         return stream_board(ask.stream(p, sp), c, on_step, stop=stop) if on_step and hasattr(ask, 'stream') else parse_board(ask(p, sp), c)
-    page = _page_sources(ctx)
+    page, w = _page_sources(ctx), where_of(getattr(ask, 'model', ''))
+    tell(_asks(w))
     b = board('tutor', page, on_step)
     if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('tutor', b, page, t0)
     best = (b, 'tutor', page)
-    note('The tutor looks in your vault.')
+    if sources: tell(_ev('Looks in your vault.', 'searching', where=HERE))
     ps = ground(mask_secrets(f"{said} {ctx.get('concept') or ctx.get('step') or ''}"), list(sources), k=3) if sources else []   # a search of the vault on this Mac
     if ps:
         srcs = page + [dict(title=label(p), text=p.text, url=p.get('url') or '', label=LABEL['vault']) for p in ps]
+        tell(dict(_asks(w, f"Sends {_n(len(ps), 'passage')} from your vault"), sources=len(ps)))
         b = board('vault', srcs)
-        if b.steps and (b.sure or 0) >= SURE: return _done('vault', b, srcs, t0)
+        if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('vault', b, srcs, t0)
         if b.steps: best = (b, 'vault', srcs)
     if web if web is not None else val('research.on'):
-        note('The tutor looks on the web.')
-        if (ws := web_sources(ask, ctx, said, search, fetch, lr)):
+        if (ws := web_sources(ask, ctx, said, search, fetch, lr, tell)) and not (stop is not None and stop.is_set()):
             srcs = page + ws
+            tell(dict(_asks(w, f"Sends {_n(len(ws), 'passage')} from the web"), sources=len(ws)))
             b = board('web', srcs)
             if b.steps: return _done('web', b, srcs, t0)
     b, tier, srcs = best

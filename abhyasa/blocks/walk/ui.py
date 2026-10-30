@@ -299,7 +299,7 @@ def Turn(t, n):
         sure = f" · {t['confidence']}% sure" if t.get('confidence') is not None else ''
         return Msg(f'You{sure}', Md(t['text']) if t.get('text') else P('No answer.', cls='mute'), cls='you')
     if k == 'nudge': return Msg(Tag('nudge'), Md(t.get('text', '')), FirstError(t.get('first_error')))
-    if k == 'hint': return Msg(f'Hint {n}', Md(t.get('text', '')), cls='hint')
+    if k == 'hint': return Msg(f'Hint {n}' + (' (from the board)' if t.get('via') == 'board' else ''), Md(t.get('text', '')), cls='hint')
     if k == 'lesson': return Msg('Lesson', Md(t.get('text', '')))
     if k == 'close':
         ok = t.get('outcome') in ('solid', 'fragile')

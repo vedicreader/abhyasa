@@ -414,6 +414,18 @@ def hint(self:Tutor, qid:str) -> str:
     self.open.save(q)
     return h
 
+# %% ../nbs/03_tutor.ipynb #c027b
+@patch
+@_held
+def board_hint(self:Tutor, qid:str, text:str) -> int|None:
+    "Count the board that explained open question `qid` as its next hint, with `text` as its words. The count of hints now, or None when the ladder is used up."
+    q = self.open[qid]
+    if len(q.hints) >= len(HINTS): return None
+    q.hints.append(text)
+    q.setdefault('turns', []).append(dict(who='tutor', kind='hint', text=text, via='board'))
+    self.open.save(q)
+    return len(q.hints)
+
 # %% ../nbs/03_tutor.ipynb #c029
 @patch
 def _grade(self:Tutor, q, answer, thinking, confidence):

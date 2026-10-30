@@ -567,6 +567,19 @@ def connect(app, ctx):
         except KeyError: return no_check(lr.journey(jid), i)
         return reply(j, i)
 
+    @hook('guide_board')
+    def board_hint(page, board):
+        "A board of the screen guide on the open check of a walk step counts as one hint on that check. The line that the check shows, or None."
+        m = re.fullmatch(r'/w/([^/]+)/(\d+)', str(page or ''))
+        if not m or not board.get('steps'): return None
+        j, s = live(m[1], int(m[2]))
+        if not s: return None
+        try: n = tutor.board_hint(s.q.id, ' '.join(x['say'] for x in board['steps']))
+        except KeyError: return None   # another request closed the check
+        if n is None: return None
+        s.save()
+        return f'Hint {n} of {len(HINTS)} used (from the board).'
+
     def giveup(jid:str, i:int, confidence:int=None):
         j, s = live(jid, i)
         if not s: return no_check(j, i)

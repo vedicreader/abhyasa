@@ -118,7 +118,7 @@ def test_ask_streams_each_step_before_the_board(mk, fake):
     ctx = dict(page='/walk/x/step/1', anchors=[dict(id='passage', kind='passage', text='Some text.')])
     evs = [json.loads(l[6:]) for l in mk().post('/guide/ask', json=dict(said="I don't get this", ctx=ctx)).text.splitlines() if l.startswith('data: ')]
     steps, b = [e for e in evs if 'step' in e], evs[-1]['board']
-    assert [list(e) for e in evs] == [['step', 'k', 'tier']] * 2 + [['board']]
+    assert [list(e) for e in evs] == [['wait', 'state', 'where']] + [['step', 'k', 'tier']] * 2 + [['board']]   # first: who gets the question
     assert [(e['k'], e['tier']) for e in steps] == [(1, 'tutor'), (2, 'tutor')] and [e['step'] for e in steps] == b['steps']
     assert b['steps'][1]['strokes'] == [dict(op='underline', at='passage')]
 
@@ -263,3 +263,50 @@ def test_a_newer_question_does_not_wait_for_the_older_stream(mk, fake):
     finally: end()
     assert first and 'board' in evs[-1] and len(evs[-1]['board']['steps']) == 6
     assert took < 3 and shut and shut[0] - t0 < 2, (took, shut)   # the first stream closed soon after the page stopped reading
+
+# --- never caught unaware ---------------------------------------------------------------------------------------------------
+def test_the_first_event_says_who_gets_the_question(mk, fake):
+    "Before the model call, the route says what the guide does and where the text goes. A test model has no name: it is the tutor, hosted."
+    fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='One.'), dict(op='box', at='passage')])
+    evs = [json.loads(l[6:]) for l in mk().post('/guide/ask', json=dict(said='what', ctx=dict(anchors=[dict(id='passage', kind='passage', text='x')]))).text.splitlines()
+           if l.startswith('data: ')]
+    assert evs[0] == dict(wait='Asks the tutor. It gets your question and the page text.', state='asking', where='hosted')
+
+def test_a_routed_model_is_named_with_where_it_runs(mk, monkeypatch):
+    "The page names the routed model of the guide and of a figure, with on this Mac or hosted and the company, and the speech engine."
+    import html, re
+    from abhyasa.llm import Router
+    monkeypatch.setattr('abhyasa.blocks.guide.app.guide_ask', lambda ask: type('A', (), {'model': 'claude/sonnet'})())
+    info = json.loads(html.unescape(re.search(r"data-info='([^']*)'", mk().get('/').text).group(1)))
+    assert info['model'] == dict(model='Claude Sonnet', where='hosted', who='Anthropic')
+    assert info['speech'] == dict(model='Gemma', where='on this Mac', who='') and info['voice'] is True
+
+def test_a_saved_web_page_can_be_undone(mk, fake, lr, monkeypatch):
+    "The web tier files a page in the vault and links it to the concept. The route says so with an Undo route, and Undo takes both away."
+    import abhyasa.research, abhyasa.settings
+    text = 'Home. A rank is the place of an item in a list that is sorted by score.'
+    monkeypatch.setattr(abhyasa.research, 'web_search', lambda q, n: [dict(title='Ranks', href='https://example.org/ranks')])
+    monkeypatch.setattr(abhyasa.research, 'web_fetch', lambda u: abhyasa.research.AttrDict(url=u, title='Ranks explained', text=text))
+    on = abhyasa.settings.val
+    monkeypatch.setattr(abhyasa.settings, 'val', lambda k: True if k == 'research.on' else on(k))
+    weak = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.3), dict(op='step', say='One.'), dict(op='box', at='title')])
+    fake.rules.update({'Tier: tutor': weak, 'Tier: vault': weak, 'Tier: web': weak.replace('0.3', '0.8'), 'Return JSON: {"passage"': dict(passage=text[6:])})
+    cl = mk()
+    ctx = dict(page='/c/ranking', slug='ranking', concept='Ranking', anchors=[dict(id='title', kind='title', text='Ranking')])
+    evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='what is a rank', ctx=ctx)).text.splitlines() if l.startswith('data: ')]
+    states = [e.get('state') for e in evs if 'wait' in e]
+    assert 'searching' in states and 'saving' in states and evs[-1]['board']['tier'] == 'web'
+    q = next(e for e in evs if e.get('query'))
+    assert q['wait'] == f'Searches the web for: "{q["query"]}"' and q['where'] == 'hosted'
+    s = next(e['saved'] for e in evs if 'saved' in e)
+    assert (s['title'], s['url']) == ('Ranks explained', 'https://example.org/ranks') and s['undo'].startswith('/guide/undo/')
+    assert any(p.get('src') == 'web' for p in lr.concept('ranking').provenance)
+    assert cl.post(s['undo']).text == 'The guide took Ranks explained out of your vault.'
+    assert not any(p.get('src') == 'web' for p in lr.concept('ranking').provenance or ())
+    assert cl.post(s['undo']).text == 'There is nothing to undo.'
+
+def test_voice_off_is_kept(mk):
+    from abhyasa.settings import val
+    cl = mk()
+    assert cl.post('/guide/voice', data=dict(on='0')).status_code == 204 and val('guide.voice') is False
+    cl.post('/guide/voice', data=dict(on='1')); assert val('guide.voice') is True

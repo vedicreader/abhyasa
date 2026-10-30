@@ -829,3 +829,18 @@ def test_old_vault_pdf_walk_is_repaired_after_the_first_mark(mk, lr):
     assert repair_in_background(cl.app, lambda aid: 'Attention Is All You Need').result(timeout=10) == ['v']
     assert lr.journey('v').title == 'Attention Is All You Need'
     assert first(lr.vault.t.docs(where='id=?', where_args=[d['doc_id']]))['title'] == 'Attention Is All You Need'
+
+def test_a_board_on_an_open_check_counts_as_one_hint(mk, walk_fake, lr):
+    "The screen guide explains a part of a step with an open check: the board is the next hint of the check, and the check says so."
+    import json
+    cl = mk(); jid = walk(cl, lr); open_check(cl, lr, jid)
+    walk_fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='The check asks about the place of an item.'),
+                                                                     dict(op='box', at='check')])
+    ctx = dict(page=f'/w/{jid}/1', anchors=[dict(id='check', kind='check', text='What does a rank tell you?')])
+    evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='I do not get the check', ctx=ctx)).text.splitlines() if l.startswith('data: ')]
+    assert evs[-1]['board']['hint'] == 'Hint 2 of 6 used (from the board).'
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'Hint 2 (from the board)' in card and 'The check asks about the place of an item.' in card
+    ctx['anchors'] = [dict(id='passage', kind='passage', text='Ranks.')]   # a board that does not show the check is not a hint
+    evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='I do not get ranks', ctx=ctx)).text.splitlines() if l.startswith('data: ')]
+    assert 'hint' not in evs[-1]['board']
