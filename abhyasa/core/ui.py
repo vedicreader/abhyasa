@@ -46,12 +46,13 @@ def serve_assets(app):
     app.router.routes.insert(0, app.router.routes.pop())
 
 def HDRS():
-    "Headers for every page: the base theme, KaTeX, and the core script."
+    "Headers for every page: the base theme, KaTeX, the core script, and the board of the screen guide."
     return (Meta(charset='utf-8'), Meta(name='viewport', content='width=device-width, initial-scale=1'),
             Script(src='/vendor/htmx.min.js'), Script(src='/vendor/fasthtml.js'),
             asset_css(_here/'base.css'), asset_css(_here/'themes.css'),
             Link(rel='stylesheet', href='/vendor/katex.min.css'), Script(src='/vendor/katex.min.js', defer=True),
-            asset_css(_here/'pane.css'), asset_js(_here/'core.js'), asset_js(_here/'grip.js'), asset_js(_here/'pane.js'))
+            asset_css(_here/'pane.css'), asset_js(_here/'core.js'), asset_js(_here/'grip.js'), asset_js(_here/'pane.js'),
+            asset_css(_here/'board.css'), asset_js(_here/'board.js'))   # the board of the screen guide; its pen libraries load on first use
 
 THEMES = dict(paper='Warm paper, umber accent', ink='Calm, high contrast, dark first', manuscript='Palm leaf, saffron accent',
               clear='System font, plain and bright', sage='Soft green-grey, low glare', signal='Silver panels, orange controls')   # themes.css has the colours

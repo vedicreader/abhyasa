@@ -1,0 +1,23 @@
+/* The board of the screen guide (board.js): a layer over the page that never takes a click, its labels, and the strip. */
+:root { --board-ink: #b5551c; }
+[data-mode="dark"] { --board-ink: #f0a36b; }
+@media (prefers-color-scheme: dark) { [data-mode="auto"] { --board-ink: #f0a36b; } }
+#board-host { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 60; pointer-events: none; }
+#board-layer { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; }
+.board-label { position: absolute; font: 600 var(--t-meta, 14px)/1.3 var(--sans, -apple-system, sans-serif); color: var(--board-ink); white-space: nowrap;
+               background: color-mix(in srgb, var(--bg) 92%, transparent); padding: 1px 6px; border-radius: 3px; opacity: 0; transition: opacity .3s; }
+.board-label.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .board-label { transition: none; } }
+/* the strip at the foot of the window, while a board shows */
+.guide-strip { position: fixed; left: 0; right: 0; bottom: 0; z-index: 62; background: var(--bg); border-top: 1px solid var(--rule);
+               padding: var(--s3, 12px) var(--s5, 28px); box-shadow: 0 -4px 18px rgb(0 0 0 / .08); max-height: 40vh; overflow: auto; }
+.guide-strip[hidden] { display: none; }
+.guide-strip p { margin: 0 0 var(--s1, 4px); }
+.board-top { display: flex; gap: var(--s2, 8px); align-items: center; font-size: var(--t-meta, 14px); color: var(--mute); }
+.board-say { font-size: 1.15em; font-weight: 500; color: var(--fg); }
+.board-quote q { font-style: italic; }
+.board-end, .board-keys, .board-note { font-size: var(--t-meta, 14px); color: var(--mute); }
+.board-src { margin-left: var(--s1, 4px); }
+.pill.tier-vault { border-color: var(--good, #3e6e52); }
+.pill.tier-web { border-color: var(--acc); }
+@media print { #board-host, .guide-strip { display: none; } }
