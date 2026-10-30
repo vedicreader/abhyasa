@@ -24,7 +24,7 @@ from .model import learned
 from .settings import val
 from .llm import ask_json, for_task
 from .prompts import register, prompt
-from .sources import extract, _index, doc_pages, root_docs, from_vault, placement, is_id_title, ARXIV_LINK, ARXIV_ID, arxiv_title
+from .sources import extract, math_cut, _index, doc_pages, root_docs, from_vault, placement, is_id_title, ARXIV_LINK, ARXIV_ID, arxiv_title
 import abhyasa.profile  # adds Learning.profile
 from .method import check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND, DEPTH
 from .ground import ground, ground_text, clip, names, main_words, named_count, names_idea, fence, VedicStory
@@ -412,7 +412,7 @@ def _doc_read(lr:Learning, doc, words) -> dict|None:
     if not best: return None   # no paragraph names half of the main words: the doc is not a source for this idea
     _, t, page, head = best
     return dict(src=f'vault:{shelf}', shelf=shelf, doc_id=r['id'], ref=r['id'], title=_short(r['title']), url=m.get('url') or r['source'] or '',
-                text=clip(t, val('walks.passage')), section=head, page=page, figure=None, root=m.get('root') or '')
+                text=math_cut(t, val('walks.passage')), section=head, page=page, figure=None, root=m.get('root') or '')
 
 def _in_roots(lr, p, roots) -> bool:
     "Whether passage `p` comes from a source that the goal named: a vault document with its `meta.root` in `roots`, or a source whose name is in `roots`."
@@ -433,7 +433,7 @@ def _topic_read(c, sources, lr=None, doc='', roots=()) -> dict|None:
     code = lambda p: p.text.lstrip().startswith('```')   # a code block is not a passage to read
     ok = lambda p: not code(p) and (names(p, [name, *al]) or (names_idea(name, al, f'{p.title} {p.text}') and _in_roots(lr, p, roots)))
     p = first(p for p in ground(name, sources, 3, must=[name, *ws, *al], subject=c.get('subject') or '') if ok(p)) if sources else None
-    return p and dict(src=p.src, ref=p.ref, title=p.title, url=p.url, text=clip(p.text, val('walks.passage')), section=p.get('section') or '', figure=None,
+    return p and dict(src=p.src, ref=p.ref, title=p.title, url=p.url, text=math_cut(p.text, val('walks.passage')), section=p.get('section') or '', figure=None,
                    **{k: p[k] for k in ('episode', 'what') if p.get(k)})   # an episode keeps its id, and says that it is a summary
 
 def _topic_walk(lr:Learning, j, sources=None, tool:bool=False, refs=None, roots=(), **extra) -> AttrDict:

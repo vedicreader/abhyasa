@@ -5,7 +5,7 @@ from collections import defaultdict
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import n_of, Page, hook, run as run_hook, SourceLine, source_of
+from abhyasa.core import n_of, Page, hook, run as run_hook, SourceLine, source_of, Md
 from abhyasa.core.leela import leela_line, leela_link
 from abhyasa.settings import val, set_val
 from abhyasa.detect import detect, vault_title
@@ -628,7 +628,7 @@ def connect(app, ctx):
         "The passage of concept `c` in each walk, with its source line and a link to its step."
         rows = [(j, i, j.steps[i].get('read') or {}) for j, i in walks_of(c.slug)]
         rows = [x for x in rows if x[2].get('text')]
-        return Div(H2('In a walk'), *[Div(Blockquote(r['text'], SourceLine(source_of(r, j)), cls='quote'), P(A(f'{j.title}: read it in the walk', href=ui.at(Routes.step, j.id, i)), cls='mute'))
+        return Div(H2('In a walk'), *[Div(Blockquote(Md(r['text']), SourceLine(source_of(r, j)), cls='quote'), P(A(f'{j.title}: read it in the walk', href=ui.at(Routes.step, j.id, i)), cls='mute'))
                                       for j, i, r in rows], cls='walk-passages') if rows else None
 
     @hook('concept_more')

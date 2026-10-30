@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>[1706.03762] Attention Is All You Need</title>
+<script>document.title = 'not the paper';</script>
+</head>
+<body>
+<div class="ltx_page_main">
+<article class="ltx_document ltx_authors_1line">
+<h1 class="ltx_title ltx_title_document">Attention Is All You Need</h1>
+<nav class="ltx_TOC"><ol><li><a href="#S3">3 Model Architecture</a></li></ol></nav>
+<section id="S3" class="ltx_section">
+<h2 class="ltx_title ltx_title_section"><span class="ltx_tag ltx_tag_section">3 </span>Scaled Dot-Product Attention</h2>
+<div id="S3.p1" class="ltx_para">
+<p id="S3.p1.1" class="ltx_p">The input consists of queries and keys of dimension <math id="S3.p1.m1" class="ltx_Math" alttext="d_{k}" display="inline"><semantics><msub><mi>d</mi><mi>k</mi></msub><annotation encoding="application/x-tex">d_{k}</annotation></semantics></math>. We compute the dot products of the query with all keys, and we scale the dot products by <math id="S3.p1.m2" class="ltx_Math" alttext="\frac{1}{\sqrt{d_k}}" display="inline"><semantics><mfrac><mn>1</mn><msqrt><msub><mi>d</mi><mi>k</mi></msub></msqrt></mfrac><annotation encoding="application/x-tex">\frac{1}{\sqrt{d_k}}</annotation></semantics></math> before the softmax. A price of $5 is not maths.<script>alert('x')</script></p>
+</div>
+<table id="S3.E1" class="ltx_equation ltx_eqn_table">
+<tbody><tr class="ltx_equation ltx_eqn_row ltx_align_baseline">
+<td class="ltx_eqn_cell ltx_eqn_center_padleft"></td>
+<td class="ltx_eqn_cell ltx_align_center"><math id="S3.E1.m1" class="ltx_Math" alttext="\mathrm{Attention}(Q,K,V)=\mathrm{softmax}(\frac{QK^{T}}{\sqrt{d_{k}}})V" display="block"><semantics><mi>A</mi><annotation encoding="application/x-tex">\mathrm{Attention}(Q,K,V)=\mathrm{softmax}(\frac{QK^{T}}{\sqrt{d_{k}}})V</annotation></semantics></math></td>
+<td class="ltx_eqn_cell ltx_eqn_center_padright"></td>
+<td rowspan="1" class="ltx_eqn_cell ltx_eqn_eqno ltx_align_middle ltx_align_right"><span class="ltx_tag ltx_tag_equation ltx_align_right">(1)</span></td>
+</tr></tbody>
+</table>
+<div id="S3.p2" class="ltx_para">
+<p id="S3.p2.1" class="ltx_p">We suspect that for large values of <math id="S3.p2.m1" class="ltx_Math" alttext="d_{k}" display="inline"><semantics><mi>d</mi></semantics></math>, the dot products grow large in magnitude, pushing the softmax function into regions where it has extremely small gradients.</p>
+</div>
+<figure id="S3.F1" class="ltx_figure"><img src="x1.png" id="S3.F1.g1" class="ltx_graphics" alt="Refer to caption">
+<figcaption class="ltx_caption">Figure 1: Scaled Dot-Product Attention.</figcaption></figure>
+</section>
+</article>
+</div>
+</body>
+</html>

@@ -115,7 +115,7 @@ const maths = (tag, cls, text) => abhyasaMath(make(tag, cls), text);   // text w
 const sectionsOf = st => [...st.querySelectorAll(':scope > section.stage[data-sid]')];
 const sectionOf = (st, sid) => sectionsOf(st).find(s => s.dataset.sid === sid);
 
-// A `lit:` beat: the first match of its words in the passage, in text nodes only, goes in `mark.lit`. `lit:#id` lights a part.
+// A `lit:` beat: the first match of its words in the passage, in text nodes only and not in maths, goes in `mark.lit`. `lit:#id` lights a part.
 function light(sec, beat) {
   sec.querySelectorAll('mark.lit').forEach(m => m.replaceWith(...m.childNodes));
   sec.querySelectorAll('.lit').forEach(n => n.classList.remove('lit'));
@@ -127,7 +127,7 @@ function light(sec, beat) {
     if (!p) continue;
     const w = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
     for (let t; (t = w.nextNode());) {
-      const i = t.parentElement.closest('mark.lit') ? -1 : t.data.indexOf(words);
+      const i = t.parentElement.closest('mark.lit, .math, .katex') ? -1 : t.data.indexOf(words);   // never inside drawn maths
       if (i < 0) continue;
       const hit = t.splitText(i); hit.splitText(words.length);
       const m = make('mark', 'lit'); hit.replaceWith(m); m.append(hit);
