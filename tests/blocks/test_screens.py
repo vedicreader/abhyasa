@@ -97,3 +97,11 @@ def test_graph_moves_view_buttons_under_adjust(mk, lr):
     adjust = s.select_one('#levers details.adjust')
     assert [b['name'] for b in adjust.select('.acts button')][:3] == ['freeze', 'fit', 'reset'] and not adjust.has_attr('open')
     assert not [b for b in s.select('#levers > .acts button')]
+
+# You, Profile: Learn about me now is a closed part; its button still posts.
+
+def test_profile_folds_learn_about_me_now(mk, lr):
+    lr.set_profile(by='you', why='test', background='I write code.')
+    s = soup(mk().get('/you').text)
+    d = s.select_one('details.observe')
+    assert d.summary.get_text() == 'Learn about me now' and not d.has_attr('open') and d.select_one('button[hx-post="/you/observe"]')

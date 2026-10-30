@@ -92,7 +92,7 @@ def connect(app, ctx):
         if not groups and not any(n for _, n in wk) and not top:
             return Page('Your learning', ui.css(), H1('Your learning'), Empty('Nothing yet. Do a walk or a review.'), *run('learning_end'), on='You', sub='Your learning')
         return Page('Your learning', ui.css(), H1('Your learning'),
-                    P('This page keeps each session, with what moved. Open a session to read its questions again, or to continue it.', cls='mute'),
+                    P('Each session, with what moved. Open one to read it again or to continue it.', cls='mute'),
                     H2('This week'), ui.Week(wk),
                     P(f"{n_of(sum(n for _, n in wk), 'question')} in the last seven days · {n_of(ups, 'concept')} moved up.", cls='mute week-sum'),
                     *top, H2('What you learned'), ui.Learned(weeks(ss, by)),
