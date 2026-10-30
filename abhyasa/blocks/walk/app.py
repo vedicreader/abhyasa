@@ -944,7 +944,7 @@ def connect(app, ctx):
         "The passage of concept `c` in each walk, with its source line and a link to its step."
         rows = [(j, i, j.steps[i].get('read') or {}) for j, i in walks_of(c.slug)]
         rows = [x for x in rows if x[2].get('text')]
-        return Div(H2('In a walk'), *[Div(Blockquote(Md(r['text']), SourceLine(source_of(r, j)), cls='quote'), P(A(f'{j.title}: read it in the walk', href=ui.at(Routes.step, j.id, i)), cls='mute'))
+        return Div(H2('Passages'), *[Div(Blockquote(Md(r['text']), SourceLine(source_of(r, j)), cls='quote'), P(A(f'{j.title}: read it in the walk', href=ui.at(Routes.step, j.id, i)), cls='mute'))
                                       for j, i, r in rows], cls='walk-passages') if rows else None
 
     @hook('concept_more')

@@ -37,3 +37,25 @@ def test_plan_editor_folds_help_and_keys(mk, talk_fake, lr):
     assert about and about.summary.get_text() == 'About this' and 'removed idea keeps your answers' in about.get_text() and not about.has_attr('open')
     keys = s.select_one('main details.more .keys-line')
     assert keys and 'merge' in keys.get_text()
+
+# A concept page: Learn this is the one button; Rename or move and Add an explainer video are closed parts that still post.
+
+def test_concept_page_folds_rename_move_and_video(mk, lr):
+    lr.put('Ranking', 'Order items by a score.', 'ml')
+    s = soup(mk().get('/c/ranking').text)
+    assert [b.get_text(' ').split()[0] for b in s.select('main .go')] == ['Learn']
+    edit = s.select_one('details.concept-edit')
+    assert edit.summary.get_text() == 'Rename or move' and not edit.has_attr('open')
+    assert edit.select_one('#group-field')['hx-post'] == '/c/ranking/group' and edit.select_one('#name-field')['hx-post'] == '/c/ranking/rename'
+    vid = s.select_one('#guide-video-slot details')
+    assert vid.summary.get_text() == 'Add an explainer video' and vid.select_one('form.guide-paste')['hx-post'] == '/guide/video/ranking'
+
+def test_concept_rename_still_works(mk, lr):
+    lr.put('Ranking', 'Order items by a score.', 'ml')
+    cl = mk(); cl.post('/c/ranking/rename', data=dict(name='Rank order'))
+    assert lr.concept('ranking').name == 'Rank order'
+
+def test_video_tools_open_after_a_message(mk, lr):
+    lr.put('Ranking', 'Order items by a score.', 'ml')
+    h = mk().post('/guide/video/ranking/drop').text
+    assert 'The video is gone' in h and soup(h).select_one('details').has_attr('open')

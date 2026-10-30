@@ -60,7 +60,7 @@ def test_slide_passage_draws_maths(mk, lr, talk_fake):
         assert '<span class="math inline">\\sqrt{d_k}</span>' in page and '<script>alert(1)' not in page   # maths drawn, no script
 
 def test_concept_page_passage_draws_maths(mk, lr, walk_fake):
-    "The In a walk part of a concept page draws the maths of a passage, and keeps its source line."
+    "The Passages part of a concept page draws the maths of a passage, and keeps its source line."
     cl = mk(); jid = walk(cl, lr)
     i = next(k for k, s in enumerate(lr.journey(jid).steps) if s['slug'] == 'softmax')
     read = dict(lr.journey(jid).steps[i]['read'], text='We divide each by $\\sqrt{d_k}$.<script>alert(2)</script>')

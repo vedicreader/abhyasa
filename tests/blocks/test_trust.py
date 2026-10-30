@@ -142,11 +142,11 @@ def test_a_hostile_cite_is_escaped():
     assert safe(h) and '&lt;img src=x onerror=alert(2)&gt;' in h and '<a ' not in h
 
 def test_concept_page_passage_has_its_source_line(mk, lr, walk_fake):
-    "The In a walk part of a concept page shows each passage with its source line."
+    "The Passages part of a concept page shows each passage with its source line."
     cl = mk(); paper_walk(cl, lr)
     h = cl.get('/c/softmax').text
     part = h[h.index('walk-passages'):]
-    assert 'In a walk' in h and '>your source<' in part and 'Attention Is All You Need' in part and 'Open in your vault' in part
+    assert 'Passages' in h and '>your source<' in part and 'Attention Is All You Need' in part and 'Open in your vault' in part
 
 def test_old_talk_gets_its_source_from_the_walk(mk, lr, talk_fake):
     "A talk made before 0.0.13 kept no source for a vault passage. The editor and the room still name the source, from the walk step."

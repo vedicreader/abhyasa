@@ -146,9 +146,9 @@ def InJourneys(c, rows, js):
     "On a concept page: the walks that have this concept, and a way to add it to one."
     have = {j.id for j, _ in rows}
     pick = [j for j in js if j.id not in have]
-    return Div(*([Span('In your walks', cls='lbl'),
+    return Div(*([H2('In your walks'),
                   Ul(*[Li(A(j.title, href=at(Routes.path, j)), Span(f"  step {i + 1} of {len(j.steps)}", cls='mute')) for j, i in rows], cls='plain')] if rows else []),
-               Form(Span('Add this idea to a walk', cls='lbl'), Select(*[Option(j.title, value=j.id) for j in pick], name='jid', aria_label='Add this idea to a walk'), Input(type='hidden', name='slug', value=c.slug), Input(type='hidden', name='src', value='concept'),
+               Form(Label('Add this idea to a walk', fr='attach-jid', cls='lbl'), Select(*[Option(j.title, value=j.id) for j in pick], name='jid', id='attach-jid'), Input(type='hidden', name='slug', value=c.slug), Input(type='hidden', name='src', value='concept'),
                     Button('Add to the walk', cls='small'), hx_post=Routes.attach, hx_target='this', hx_swap='outerHTML', cls='attach row') if pick else '',
                cls='in-journeys')
 

@@ -199,20 +199,21 @@ def _src(p):
     return A(t, href=p['url']) if p.get('url') else t
 
 def ConceptPage(c, by, attempts, groups=()):
-    "The concept, its actions, then the reference sections in one quiet group (`.refs`)."
+    "The concept, its actions, Rename or move (closed), then the reference sections in one quiet group (`.refs`)."
     level = f'level: {DEPTHS[c.floor]}' if c.floor else 'not learned yet'   # the words of the needs line in a walk
     head = P(meta(c.subject, level), DepthBar(c.floor), *((' · ', meta(f"memory {recall(c):.0%}", when(c.due))) if c.seen else ()), cls='mute')
     refs = (*run('concept_more', c),
             *([H2('Misconceptions seen'), Ul(*[Li(Md(m)) for m in c.misconceptions])] if c.misconceptions else []),
             Div(Div(H2('Needs first'), Refs(c.prereqs, by)), Div(H2('Related'), Refs(c.related, by)), cls='pair')
-            if any(s in by for s in (*c.prereqs, *c.related)) else Empty('No other idea links to this one yet.'),
+            if any(s in by for s in (*c.prereqs, *c.related)) else '',
             H2('Your attempts'),
             Ul(*[Li(Md(a.question), Div(Span('Right' if a.correct else 'Not right', cls='ok k' if a.correct else 'no k'), Md(a.answer or 'no answer'), cls='mute'), *Said(a))
                  for a in attempts], cls='plain attempts')
             if attempts else Empty('You did not answer a question on this idea yet.'),
             *([H2('Seen in your work'), Cites(c.seen_in, label='')] if c.get('seen_in') else []),
             *([H2('Source'), Ul(*[Li(_src(p)) for p in c.provenance], cls='plain')] if c.provenance else []))
-    return (css(), H1(c.name, id='concept-name', data_concept=c.slug), head, Md(c.statement or '', cls='statement'), Div(*run('concept_actions', c), cls='row'), GroupField(c, groups), NameField(c), Div(id='undo-bar'), Div(*refs, cls='refs'))
+    return (css(), H1(c.name, id='concept-name', data_concept=c.slug), head, Md(c.statement or '', cls='statement'), Div(*run('concept_actions', c), cls='row'),
+            Details(Summary('Rename or move'), GroupField(c, groups), NameField(c), cls='more concept-edit'), Div(id='undo-bar'), Div(*refs, cls='refs'))   # rare: under a closed part
 
 def Subjects(subs):
     return (H2('Subjects'), Ul(*[Li(A(label(r['subject']), href=f"{Routes.base}?subject={r['subject'] or ''}"),

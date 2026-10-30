@@ -1,7 +1,7 @@
 "The concept graph on a canvas, with levers to arrange it. The arrangement stays in the browser."
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides, hook, asset_js, asset_css
+from abhyasa.core import Page, RouteOverrides, hook, asset_js, asset_css, Quiet
 from abhyasa.model import understanding
 from .cfg import Routes
 from .ui import Stage, Empty_
@@ -28,7 +28,7 @@ def connect(app, ctx):
         return JSONResponse(g)
 
     @hook('concept_actions')
-    def see(c): return A('See in the graph', href=f'{Routes.base}?subject={c.subject}&focus={c.slug}', cls='btn')
+    def see(c): return Quiet('See in the graph', href=f'{Routes.base}?subject={c.subject}&focus={c.slug}')
 
     RouteOverrides.subtabs.setdefault('Library', []).append(('Graph', Routes.base, 2))
     app.get(Routes.base)(page)

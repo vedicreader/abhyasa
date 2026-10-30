@@ -66,5 +66,6 @@ def VideoTools(slug:str, has=False, msg:str=''):
 
 def VideoSlot(v, slug:str, msg:str=''):
     "The concept page part: the video with its tools, or only the tools."
-    return Div(H2('Explainer video'), Video(v, slug, tools=True) if v else VideoTools(slug, msg=msg),
+    if not v: return Div(Details(Summary('Add an explainer video'), VideoTools(slug, msg=msg), cls='more', open=bool(msg)), id='guide-video-slot')   # no video: the tools wait under a closed part
+    return Div(H2('Explainer video'), Video(v, slug, tools=True),
                P(msg, cls='mute', role='status') if v and msg else '', id='guide-video-slot')
