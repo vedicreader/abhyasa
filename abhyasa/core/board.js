@@ -19,7 +19,8 @@
 //     fast    draw each step at once, with no voice and no pointer flight. Default false.
 //     quiet   no voice: the words are timed by their letters. host.speak is not called. Default false.
 //     auto    go to the next step 1.2 s after the line is said. Default true (false when fast).
-//     who     {model, where, who}: the model that wrote the board, shown in the strip as "Claude Sonnet · hosted". Default none.
+//     who     {model, where, who}: the model that wrote the board, shown in the strip as "Claude Sonnet · hosted · Anthropic", with the
+//             words of the chip of the state line. Default none.
 //     onVoice onVoice(on) when the learner turns the voice off or on in the strip. With it, the strip has a Voice button, and the
 //             first board with a voice says once: "The guide speaks its steps. Turn the voice off here." Default none.
 //     point   the look of a point mark (the setting guide.point), each one weaker than a circle. Default 'tick'.
@@ -489,7 +490,7 @@
     const top = el('div', 'board-top'), dots = el('span', 'board-dots');
     b.steps.forEach((_, k) => dots.append(el('i', k === st.i ? 'on' : '')));
     top.append(el('span', 'pill tier-' + b.tier, TIER[b.tier] || 'tutor'), dots, el('span', 'board-n', st.streaming ? `Step ${st.i + 1}` : `Step ${st.i + 1} of ${b.steps.length}`));
-    if (st.who && st.who.model) top.append(el('span', 'board-who', `${st.who.model} · ${st.who.where === HERE ? HERE : 'hosted'}`));
+    if (st.who && st.who.model) top.append(el('span', 'board-who', `${st.who.model} · ${(chip(st.who) || {textContent: 'hosted'}).textContent}`));   // the words of the chip of the state line
     const say = el('p', 'board-say');   // each word in its own span, so it can light up when it is said
     step.say.split(/\s+/).filter(Boolean).forEach((w, k) => { if (k) say.append(' '); say.append(el('span', k <= st.lit ? 'on' : '', w)); });
     const parts = [top, say];

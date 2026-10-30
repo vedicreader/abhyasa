@@ -5,8 +5,10 @@ nav .guide-go:hover, nav .guide-go.on { border-color: var(--acc); }
               display: flex; gap: var(--s2); align-items: center; padding: var(--s2) var(--s3); background: var(--bg); border: 1px solid var(--rule);
               border-radius: 8px; box-shadow: 0 6px 24px rgb(0 0 0 / .12); }
 .guide-form[hidden] { display: none; }
-.guide-form input { flex: 1; min-width: 0; }
-.guide-form .guide-heard { font-size: var(--t-meta); white-space: nowrap; }
+.guide-form input { flex: 1; min-width: min(320px, 60vw); }
+/* the line under the box (the first use, the mic): on its own row, so the box keeps its width */
+.guide-form .guide-heard { flex-basis: 100%; font-size: var(--t-meta); }
+.guide-form .guide-heard:empty { display: none; }
 @media print { .guide-go, .guide-form, .guide-strip { display: none; } }
 
 /* The explainer video: the embed at 16:9, a quiet source line, and a transcript that stays closed until you open it. */

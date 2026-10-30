@@ -105,7 +105,7 @@ def test_the_state_line_names_the_model_and_where_it_runs(page):
                                                                                saved=None, hint='Hint 2 of 6 used (from the board).')))
     page.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('what is this')")
     page.wait_for_function("abhyasaBoard.state && !abhyasaBoard.state.streaming")
-    assert page.evaluate("document.querySelector('#guide-strip .board-who').textContent") == 'Claude Sonnet · hosted'
+    assert page.evaluate("document.querySelector('#guide-strip .board-who').textContent") == 'Claude Sonnet · hosted · Anthropic'   # the words of the chip
     assert 'Hint 2 of 6 used (from the board).' in strip(page)
     assert page.evaluate("[...document.querySelectorAll('#guide-strip .board-btn')].map(b => b.textContent)") == ['Voice on', 'Stop']
     page.click('#guide-strip .board-stop')
@@ -166,3 +166,28 @@ def test_the_saved_point_look_reaches_the_board(page):
         page.wait_for_function("document.querySelector('#board-layer g[data-op=point]')", timeout=5000)
         assert page.evaluate("[window.gotPoint, document.querySelector('#board-layer g[data-op=point]').dataset.look]") == ['ring', 'ring']
     finally: set_val('guide.point', 'tick')
+
+def test_esc_while_the_guide_asks_stays_on_the_page(page, fake):
+    """Esc while the state line shows stops the guide, and the learner stays on the page: the Esc of core.js, which goes up to the
+    parent in the crumbs, does not run. Esc in the open box closes the box, and the page stays too."""
+    fake.rules = {'Tier: tutor': lambda p, sp: time.sleep(2) or '{"op":"v","n":1,"sure":0.9}', **fake.rules}   # a slow model, on the real route
+    page.unroute('**/guide/ask')
+    page.goto(page.url.rstrip('/') + '/c/ranking'); page.wait_for_function('window.abhyasaGuide && window.abhyasaBoard')
+    here = page.url
+    assert page.evaluate("!!document.querySelector('main .crumbs a.up')")   # without the fix, Esc clicks this link
+    page.evaluate("() => { abhyasaGuide.ask('what is this'); }")
+    page.wait_for_function("document.querySelector('#guide-strip .board-state[data-state=\"asking\"]')")
+    page.keyboard.press('Escape')
+    page.wait_for_function("document.getElementById('guide-strip').textContent.startsWith('Stopped.')")
+    page.wait_for_timeout(300)
+    assert page.url == here
+    page.evaluate('abhyasaGuide.open()')
+    page.keyboard.press('Escape')
+    page.wait_for_timeout(300)
+    assert page.url == here and page.evaluate("document.getElementById('guide-form').hidden")
+
+def test_the_first_use_line_keeps_the_box_wide(page):
+    "The first Explain in a new browser profile shows one line under the box. The line has its own row, so the box stays wide."
+    page.evaluate('abhyasaGuide.open()')
+    assert page.evaluate("document.querySelector('#guide-form .guide-heard').textContent").startswith('The tutor reads this page')
+    assert page.evaluate("document.getElementById('guide-box').getBoundingClientRect().width") > 300

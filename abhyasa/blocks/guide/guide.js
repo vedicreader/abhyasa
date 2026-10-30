@@ -271,7 +271,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (!localStorage.getItem('guide-told')) {   // the first Explain: one line, no sheet
       localStorage.setItem('guide-told', '1');
       const m = info.model || {};
-      heard(`The tutor reads this page and asks ${m.model || 'the tutor'} (${m.where === HERE ? HERE : 'hosted'}). Esc stops it.`);
+      heard(`The tutor reads this page and asks ${m.model || 'the tutor'} (${where(m) || 'hosted'}). Esc stops it.`);
     }
     b.value = text != null ? text : sel ? `I don't get "${sel}"` : '';
     b.focus(); b.setSelectionRange(b.value.length, b.value.length);
@@ -312,10 +312,13 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     return true;
   }
   document.addEventListener('board:stop', e => { if (e.detail && e.detail.by === 'learner') halt(); });
-  addEventListener('keydown', e => {   // Esc stops the guide while the state line shows, before a board draws
-    if (e.key !== 'Escape' || !busy || (window.abhyasaBoard && abhyasaBoard.state) || (e.target && e.target.id === 'guide-box')) return;
-    if (halt()) { e.preventDefault(); e.stopPropagation(); }
-  });
+  // Esc while the box is open closes it, and Esc while the state line shows stops the guide, before a board draws. It runs in the
+  // capture phase of the document, before the Esc of core.js, which goes up one level: the learner stays on the page.
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || (window.abhyasaBoard && abhyasaBoard.state)) return;
+    if (busy) halt(); else if (form() && !form().hidden) close(); else return;
+    e.preventDefault(); e.stopImmediatePropagation();
+  }, {capture: true});
   const voiceOn = () => info.voice !== false && !window.abhyasaGuideQuiet;
   function setVoice(on) {
     info.voice = on;
@@ -457,7 +460,6 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     e.preventDefault(); abhyasaBoard.seekVideo(+a.dataset.t);
   });
   document.addEventListener('submit', e => { if (e.target.id === 'guide-form') { e.preventDefault(); ask(box().value); } });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.id === 'guide-box') { e.preventDefault(); e.stopPropagation(); close(); } });
 
   window.abhyasaGuide = {capture, texParts: (...a) => abhyasaTex.texParts(...a), labelsOf, ask, open, gestures, focusOf, G, readLine, aboutFigure, halt};
 })();
