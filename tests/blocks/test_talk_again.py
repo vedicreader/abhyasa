@@ -27,7 +27,7 @@ def test_again_keeps_edits_moves_gone_and_adds_new(lr, talk_fake):
     a, b = t.slides[0]['concept'], t.slides[1]['concept']
     edit_slide(lr, t.id, a, notes='My words.')
     drop_and_add(lr, jid, b)
-    assert walk_changes(lr, lr.talk(t.id)) == AttrDict(added=1, removed=1, moved=0)
+    assert walk_changes(lr, lr.talk(t.id)) == AttrDict(added=1, removed=1, moved=0, changed=0)
     n = talk_again(lr, talk_fake, t.id)
     by = {s['concept']: s for s in n.slides if s['kind'] == 'idea'}
     assert by[a]['notes'] == 'My words.' and 'layer-norm' in by and n.id == t.id
@@ -117,3 +117,60 @@ def test_path_talk_keeps_its_behaviour(mk, lr, talk_fake):
     cl.post('/talk/journey', data=dict(jid=pj.id, again='1'))
     tid2 = wait_for(lambda: (h := cl.get(f'/talk/job?jid={pj.id}').headers.get('hx-redirect')) and h.split('/')[-1] != tid and h or None).split('/')[-1]
     assert tid2 != tid
+
+def again_with_a_parked_slide(cl, lr, talk_fake):
+    "A talk made again after the walk dropped idea 2: its slide is parked. Return (talk id, walk id, the parked slide)."
+    jid = prep_walk(lr, walk(cl, lr)); tid = make_talk(cl, jid)
+    drop_and_add(lr, jid, lr.talk(tid).slides[1]['concept'])
+    t = talk_again(lr, talk_fake, tid)
+    return tid, jid, next(s for s in t.slides if s.get('section') == GONE)
+
+def test_a_parked_slide_is_not_presented(mk, lr, talk_fake):
+    "A parked slide takes no minutes and no slide count; the presenter, the room and the run never get it; its row offers Put back and Remove."
+    cl = mk(); tid, jid, p = again_with_a_parked_slide(cl, lr, talk_fake)
+    t = lr.talk(tid); live = [s for s in t.slides if s.get('section') != GONE]
+    h = cl.get(f'/t/{tid}').text
+    assert f"About {sum(s['mins'] for s in live)} min" in h and 'Put back in the talk' in h and 'not in the talk' in h
+    assert f"{len(live)} slides" in cl.get('/learn').text
+    cl.post(f'/t/{tid}/start')
+    r = lr.run(lr.talk(tid).live)
+    pres = cl.get(f'/t/{tid}/present').text
+    assert f'data-sid="{p["id"]}"' not in pres and f'data-sid="{live[0]["id"]}"' in pres and r['at']['slide'] != p['id']
+    assert f'data-sid="{p["id"]}"' not in cl.get(f"/t/{tid}/audience?k={r['key']}").text
+    assert 'No such slide.' in cl.post(f'/t/{tid}/at', data=dict(slide=p['id'], beat=1)).text
+    assert any(s['id'] == p['id'] for s in lr.talk(tid).slides)   # starting and moving never drop the parked slide
+    cl.post(f'/t/{tid}/end')
+    assert any(s['id'] == p['id'] for s in lr.talk(tid).slides)
+
+def test_put_back_is_one_change(mk, lr, talk_fake):
+    "Put back in the talk moves the slide before the closing slides as one history row, and Undo parks it again; Remove works too."
+    cl = mk(); tid, jid, p = again_with_a_parked_slide(cl, lr, talk_fake)
+    before = lr.talk(tid).slides; n = len(lr.edits('talk', tid))
+    r = cl.post(f'/t/{tid}/slide', data=dict(sid=p['id'], act='back'))
+    ss = lr.talk(tid).slides
+    assert f'Put “{p["title"]}” back in the talk.' in r.text and len(lr.edits('talk', tid)) == n + 1
+    assert [s['kind'] for s in ss[-3:]] == ['idea', 'questions', 'recap'] and ss[-3]['id'] == p['id'] and ss[-3]['section'] != GONE
+    assert talk_again(lr, talk_fake, tid).slides[-3]['id'] == p['id']   # a later Make it again does not park it again
+    while len(lr.edits('talk', tid)) > n: cl.post(f'/t/{tid}/undo')
+    assert lr.talk(tid).slides == before
+    assert cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='back')).text == 'This slide is in the talk already.'
+    cl.post(f'/t/{tid}/slide', data=dict(sid=p['id'], act='drop'))
+    assert not any(s['id'] == p['id'] for s in lr.talk(tid).slides)
+
+def test_changed_ideas_line(mk, lr, talk_fake):
+    "A note that changes in the walk shows as a changed idea; Make it again takes it and keeps the note that you wrote on another slide."
+    cl = mk(); jid = prep_walk(lr, walk(cl, lr)); tid = make_talk(cl, jid)
+    a, b = [s['concept'] for s in lr.talk(tid).slides[:2]]
+    cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='edit', notes='Mine.'))
+    lr.walk_slug(jid, a, note='A new note in the walk.'); lr.walk_slug(jid, b, note='Another new note.')
+    h = cl.get(f'/t/{tid}').text
+    assert '2 ideas changed in the walk. Make it again to take the changes.' in h and 'The walk changed after this talk was made:' not in h
+    t = talk_again(lr, talk_fake, tid); by = {s.get('concept'): s for s in t.slides}
+    assert by[a]['notes'] == 'Mine.' and by[b]['notes'] == 'Another new note.' and walk_changes(lr, t).changed == 0
+    assert 'changed in the walk' not in cl.get(f'/t/{tid}').text
+
+def test_second_talk_under_more(mk, lr, talk_fake):
+    "Make a second talk (under More on the walk page) still makes a new talk with a new id."
+    cl = mk(); jid = prep_walk(lr, walk(cl, lr)); tid = make_talk(cl, jid)
+    tid2 = make_talk(cl, jid)
+    assert tid2 != tid and lr.talk(tid) and lr.talk(tid2)

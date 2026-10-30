@@ -7,7 +7,7 @@ from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Inline, Cites, SourceLine, meta, n_of, asset_css, asset_js, stage_assets, edit_assets, EditList, Live, UndoBar, HistoryList
 from fastcore.basics import AttrDict
-from abhyasa.talk import talk_minutes, public_ask, share_right, needs_fill, slide_source, GONE
+from abhyasa.talk import talk_minutes, public_ask, share_right, needs_fill, slide_source, GONE, parked
 from abhyasa.settings import val
 from .cfg import Routes
 
@@ -43,17 +43,23 @@ def PresentWalk(jid, t=None, quiet=False):
     """Make a talk from walk `jid`: the button gives way to the pending card. When talk `t` was made from it before: open that talk, or make it again
     from the walk (`again`), with your edits. `quiet` is for a page that has its own main button (the step page, the last page)."""
     btn = (lambda *a, **kw: Quiet(*a, small=True, **kw)) if quiet else Secondary
-    go = Form(Input(type='hidden', name='jid', value=jid), *again_input(t), btn('Make it again' if t else 'Present this walk', data_wait='Making the talk…'),
+    go = Form(Input(type='hidden', name='jid', value=jid), *again_input(t), btn('Make the talk again (keeps your edits)' if t else 'Present this walk', data_wait='Making the talk…'),
               hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
-    return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, cls='row') if t else go
+    if not t: return go
+    second = Form(Input(type='hidden', name='jid', value=jid), Quiet('Make a second talk', small=True, data_wait='Making the talk…'),
+                  hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')   # the old way: a new talk, with no edits
+    return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, Details(Summary('More'), second, cls='talk-more'), cls='row')
 
 def again_input(t): return (Input(type='hidden', name='again', value='1'),) if t else ()
 
 def AgainLine(jid, ch):
     "The walk changed after the talk was made (`ch`, from `walk_changes`): what changed, and Make it again. Nothing when nothing changed."
     parts = [f"{n_of(ch[k], 'idea')} {k}" for k in ('added', 'removed', 'moved') if ch and ch.get(k)]
-    if not parts: return ''
-    return Div(P(f"The walk changed after this talk was made: {', '.join(parts)}.", cls='mute'),
+    n = (ch or {}).get('changed') or 0
+    if not parts and not n: return ''
+    said = ' '.join(x for x in (f"The walk changed after this talk was made: {', '.join(parts)}." if parts else '',
+                                f"{n_of(n, 'idea')} changed in the walk. Make it again to take the changes." if n else '') if x)
+    return Div(P(said, cls='mute'),
                Form(Input(type='hidden', name='jid', value=jid), *again_input(True), Secondary('Make it again', data_wait='Making the talk again…'),
                     Small(' Your edits to slides stay in the new talk where the idea is the same.', cls='mute'),
                     hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new'), cls='talk-again')
@@ -82,7 +88,7 @@ def Pending(jid, fill=False, again=False):
 
 def TalkRow(t):
     "One talk in Learn: its title, its slide count and its slot, then Edit and a quiet Present that starts a run."
-    return Li(Div(A(t.title, href=at(Routes.one, t.id), cls='jt'), Span(meta(n_of(len(t.slides), 'slide'), f"a {t.minutes} min slot"), cls='mute'), cls='lrow-head'),
+    return Li(Div(A(t.title, href=at(Routes.one, t.id), cls='jt'), Span(meta(n_of(sum(not parked(s) for s in t.slides), 'slide'), f"a {t.minutes} min slot"), cls='mute'), cls='lrow-head'),
               Div(A('Edit', href=at(Routes.one, t.id), cls='btn small'),
                   Form(Quiet('Present', small=True, data_wait='Starting…'), action=at(Routes.start, t.id), method='post', hx_boost='false'), cls='lrow-acts'),
               cls='lrow')
@@ -265,6 +271,11 @@ def Row(t, i, s, ch, opened='', fresh=''):
     title = 'Pause: ' + (s.get('prompt') or 'talk to your neighbour') if s.get('kind') == 'pause' else s.get('title') or ''
     line = row_line(s)
     ideas = s.get('kind') in ('idea', 'primer')
+    if parked(s):   # its idea left the walk: put it back, or remove it
+        acts = [Quiet('Put back in the talk', small=True, **act(post, 'back')), Quiet('Remove', ' ', Kbd('X'), small=True, data_key='X', **act(post, 'drop'))]
+        see = Span(Quiet('Put back in the talk', small=True, **act(post, 'back')), Quiet('Remove', small=True, **act(post, 'drop')), cls='parked-acts')   # on the row, not only in the open row
+        return dict(id=sid, title=Inline(title), line=(*line, ' · not in the talk ', see), post=post, body=Body(t['id'], s, post, ch.get(sid) or {}), acts=acts,
+                    open=sid == opened, fresh=sid == fresh, cls=f"{s.get('kind') or ''} parked", mini=Mini(s))
     acts = [Quiet('Duplicate', ' ', Kbd('D'), small=True, data_key='D', **act(post, 'dup')),
             Quiet('Remove', ' ', Kbd('X'), small=True, data_key='X', **act(post, 'drop')),
             Quiet('Rewrite', ' ', Kbd('R'), small=True, type='button', data_key='R', data_rewrite='1') if ideas else '']

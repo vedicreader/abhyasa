@@ -227,6 +227,7 @@ def editor_again(pg, w):
     assert t.id == before.id and by['softmax']['title'] == 'Softmax, in my words' and by['softmax']['notes'] == 'Softmax gives weights that add to 1.'
     assert by['sequential-computation']['section'] == 'Not in the walk any more' and 'layer-norm' in by
     assert pg.locator('#deck li.sec', has_text='Not in the walk any more').count() == 1 and 'Softmax, in my words' in pg.inner_text('#deck')
+    assert 'Put back in the talk' in pg.inner_text('#deck > li.parked .line') and 'not in the talk' in pg.inner_text('#deck > li.parked')
     put_back(pg, w, old)
     t = w.lr.talk(w.tid)
     assert t.slides == before.slides and t.made_from == before.made_from and t.marks == before.marks

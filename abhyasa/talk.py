@@ -6,14 +6,15 @@ Docs: https://vedicreader.github.io/abhyasa/talk.html.md"""
 
 # %% auto #0
 __all__ = ['TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'BODY_MOST',
-           'POINT_MOST', 'TALK_CASES', 'CHOICE_SP', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'FILLED', 'GONE',
-           'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'clean_slide',
-           'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q', 'words_ask', 'ask_from_check',
-           'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_source', 'slide_notes', 'needs_fill',
-           'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk', 'talk_from_journey', 'slide_marks',
-           'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides', 'talk_again', 'image_type',
-           'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_output',
-           'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap', 'recap_html']
+           'POINT_MOST', 'GONE', 'TALK_CASES', 'CHOICE_SP', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'FILLED',
+           'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'parked', 'on_stage',
+           'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q', 'words_ask',
+           'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_source', 'slide_notes',
+           'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk', 'talk_from_journey',
+           'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides', 'put_back',
+           'talk_again', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round',
+           'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap',
+           'recap_html']
 
 # %% ../nbs/17_talk.ipynb #bddba3f8
 import re, json, math, time, uuid, secrets, hashlib, base64, html
@@ -45,6 +46,15 @@ RECAP_MIN = 2       # the minutes of a `recap` slide
 WORDS_MOST = 80     # the most characters of a words answer
 BODY_MOST = 6       # the most points in the body of a slide
 POINT_MOST = 300    # the most characters of one point
+GONE = 'Not in the walk any more'   # the section of the parked slides: their idea left the walk
+
+def parked(s:dict) -> bool:
+    "True when slide `s` is parked: its idea left the walk. The room never sees it, and it takes no minutes."
+    return s.get('section') == GONE
+
+def on_stage(t:dict) -> dict:
+    "Talk `t` with no parked slide: the talk that Present gives."
+    return AttrDict({**t, 'slides': [s for s in t['slides'] if not parked(s)]})
 
 # %% ../nbs/17_talk.ipynb #53afbe45
 _PART = dict(passage='passage', body='body', figure='figure', demo='demo', ask='question')
@@ -258,8 +268,8 @@ def slide_minutes(step:dict, ask:dict|None) -> int:
     return minutes(step) + (val('talks.ask_min') if ask and ask.get('kind') != 'none' else 0)
 
 def talk_minutes(t) -> int:
-    "The minutes of all the slides of talk `t`."
-    return sum(s.get('mins') or 0 for s in t['slides'])
+    "The minutes of the slides of talk `t` that are not parked."
+    return sum(s.get('mins') or 0 for s in t['slides'] if not parked(s))
 
 # %% ../nbs/17_talk.ipynb #664aec87
 def _idea_ask(lr:Learning, ask, s:dict, passage:str, choice:bool) -> tuple:
@@ -485,7 +495,6 @@ def talk_from_journey(lr:Learning, ask, jid:str, sources=None, again:bool=False,
     return lr.put_talk({**t, 'title': f'{t.title} · {d.day} {d:%b}'})
 
 # %% ../nbs/17_talk.ipynb #ag03
-GONE = 'Not in the walk any more'   # the section of the slides whose idea left the walk
 AGAIN = 'Made the talk again from the walk.'
 SLIDE_PARTS = dict(title=('title',), section=('section',), notes=('notes',), ask=('ask', 'mins'), beats=('beats',), cites=('cites',),
                    passage=('show.passage', 'show.src'), figure=('show.figure',), demo=('show.demo',), body=('show.body',))   # the parts of a slide, each with its keys
@@ -504,13 +513,16 @@ def step_mark(st:dict) -> str:
 
 # %% ../nbs/17_talk.ipynb #ag05
 def walk_changes(lr:Learning, t:dict) -> AttrDict:
-    "The ideas `added`, `removed` and `moved` in the walk of talk `t` since the talk was made."
+    "The ideas `added`, `removed`, `moved` and `changed` in the walk of talk `t` since the talk was made."
     made, j = t.get('made_from'), lr.journey((t.get('src') or {}).get('walk') or '')
-    if not made or j is None: return AttrDict(added=0, removed=0, moved=0)
-    now = [s.get('slug') for s in j.steps if s.get('status') != 'skip']
+    if not made or j is None: return AttrDict(added=0, removed=0, moved=0, changed=0)
+    steps = [s for s in j.steps if s.get('status') != 'skip']
+    now, marks = [s.get('slug') for s in steps], t.get('marks') or {}
     a, b = [x for x in made if x in now], [x for x in now if x in made]
     same = sum(m.size for m in SequenceMatcher(None, a, b, autojunk=False).get_matching_blocks())
-    return AttrDict(added=len(set(now) - set(made)), removed=len(set(made) - set(now)), moved=len(a) - same)
+    have = {s.get('concept') for s in t['slides'] if s.get('kind') == 'idea' and not s.get('own') and not parked(s)}
+    changed = sum(1 for s in steps if s.get('slug') in have and s.get('slug') in marks and marks[s['slug']].get('step') != step_mark(s))
+    return AttrDict(added=len(set(now) - set(made)), removed=len(set(made) - set(now)), moved=len(a) - same, changed=changed)
 
 # %% ../nbs/17_talk.ipynb #ag07
 STATE_KEYS = ('slides', 'made_from', 'walk_at', 'marks')
@@ -534,7 +546,7 @@ def _groups(ss:list) -> tuple:
     head, groups, cur = [], {}, None
     for s in ss[:k] + gone:
         c = s.get('concept')
-        if s.get('kind') == 'idea' and c and c not in groups: groups[c] = [s]; cur = c
+        if s.get('kind') == 'idea' and c and c not in groups and not s.get('own'): groups[c] = [s]; cur = c
         elif cur is None: head.append(s)
         else: groups[cur].append(s)
     return head, groups, ss[k:]
@@ -582,6 +594,19 @@ def again_slides(t:dict, j:dict, fresh:dict) -> dict:
             marks[c] = dict(step=step_mark(st), slide=slide_marks(s))
     gone = [{**deepcopy(s), 'section': GONE} for g in groups.values() for s in g]
     return dict(slides=out + tail + gone, made_from=[st.get('slug') for _, st in steps], walk_at=j.get('updated'), marks=marks)
+
+# %% ../nbs/17_talk.ipynb #ag13b
+def put_back(t:dict, j:dict|None, sid:str) -> list:
+    "The slides of talk `t` with the parked slide `sid` back in the talk; `j` is its walk, or None. A slide that is not parked raises `KeyError`."
+    ss = list(t['slides'])
+    k = next((i for i, s in enumerate(ss) if s.get('id') == sid and parked(s)), None)
+    if k is None: raise KeyError(f'no parked slide {sid!r}')
+    s = deepcopy(ss.pop(k))
+    st = next((x for x in (j or {}).get('steps') or [] if x.get('slug') == s.get('concept')), {})
+    s.update(section=(st.get('read') or {}).get('section') or '', own=True)
+    at = len([x for x in ss if not parked(x)])
+    while at and ss[at-1].get('kind') in ('questions', 'recap'): at -= 1
+    return [*ss[:at], s, *ss[at:]]
 
 # %% ../nbs/17_talk.ipynb #ag15
 def _needs(t:dict, j:dict) -> list:
@@ -670,7 +695,7 @@ def _points(s:dict) -> list:
 def public_deck(t:dict, resolve) -> AttrDict:
     "The part of talk `t` that the room can see; `resolve` turns an image id into a file."
     slides, images = [], {}
-    for s in t['slides']:
+    for s in on_stage(t)['slides']:   # a parked slide never goes to the room
         fig = _figure(resolve, (s.get('show') or {}).get('figure'))
         if fig: images[fig[0]] = fig[1:]
         src = slide_source(s) if _passage(s) else None
@@ -682,7 +707,8 @@ def public_deck(t:dict, resolve) -> AttrDict:
 def new_run(t:dict, now:float=None) -> dict:
     "A new run log of talk `t`, on its first idea slide."
     now = time.time() if now is None else now
-    sid = first(s['id'] for s in t['slides'] if s.get('kind') == 'idea') or first(s['id'] for s in t['slides'])
+    ss = on_stage(t)['slides']
+    sid = first(s['id'] for s in ss if s.get('kind') == 'idea') or first(s['id'] for s in ss)
     return dict(id=f'run-{secrets.token_hex(4)}', talk=t['id'], key=secrets.token_hex(8), started=now, ended=None, people=None,
                 at=dict(slide=sid, beat=1, blank=False, pane=None, ask=None), shown=[dict(slide=sid, at=now, secs=0.)],
                 asks={}, questions=[], beside=[])

@@ -22,7 +22,7 @@ from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
                           public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go, log_main, end_run, log_beside,
-                          recap, recap_html, BEATS, FILLED, clean_slide, talk_again, walk_changes, AGAIN, talk_state, with_state)
+                          recap, recap_html, BEATS, FILLED, clean_slide, talk_again, walk_changes, AGAIN, talk_state, with_state, on_stage, put_back)
 from . import ui
 from .cfg import Routes
 
@@ -428,6 +428,10 @@ def connect(app, ctx):
                     secs = number(f.get('secs') or 120, *SECS, f'A pause is {SECS[0]} to {SECS[1]} seconds.')
                     ss.insert(at_end + 1, new := blank(new_id(ss), 'pause', 'Pause', math.ceil(secs / 60), prompt=prompt, secs=secs))
                     said, row = 'Added a pause.', new['id']
+                elif act == 'back':   # a parked slide goes back in the talk, before the closing slides
+                    try: ss = put_back({**t, 'slides': ss}, walk_for(t), ss[i]['id'])
+                    except KeyError: raise Bad('This slide is in the talk already.')
+                    said = f'Put “{title_of(ss[next(k for k, x in enumerate(ss) if x["id"] == row)])}” back in the talk.'
                 elif act == 'questions':
                     ss.insert(i + 1, new := blank(new_id(ss), 'questions', 'Questions', QUESTIONS_MIN))
                     said, row = 'Added a slide for questions.', new['id']
@@ -564,10 +568,10 @@ def connect(app, ctx):
     def slide_of(t, sid): return next((s for s in t['slides'] if s.get('id') == sid), None)
 
     def live(tid):
-        "Talk `tid` and its open run (None when no run is open)."
+        "Talk `tid` on the stage (no parked slide) and its open run (None when no run is open). Save the talk from `lr.talk`, never from this one."
         if not (t := lr.talk(tid)): return None, None
         r = lr.run(t.get('live') or '') if t.get('live') else None
-        return t, (dict(r) if r and not r.get('ended') else None)
+        return on_stage(t), (dict(r) if r and not r.get('ended') else None)
 
     def specs(t):
         "The demo spec of each slide that shows a demo, by slide id."
@@ -581,7 +585,7 @@ def connect(app, ctx):
         t, r = live(tid)
         if not t: return Response('No such talk.', status_code=404)
         if not r:
-            r = new_run(t); lr.put_run(r); lr.put_talk({**t, 'live': r['id']})
+            r = new_run(t); lr.put_run(r); lr.put_talk({**lr.talk(tid), 'live': r['id']})
         return RedirectResponse(Routes.of(Routes.present, tid=tid), status_code=303)
 
     def page(req, title, c, cls):
@@ -741,7 +745,7 @@ def connect(app, ctx):
             if (rs := lr.runs(tid)): return RedirectResponse(f"{Routes.of(Routes.after, tid=tid)}?run={rs[0]['id']}", status_code=303)
             return text(NO_RUN)
         now = time.time(); close_side(r, now); end_run(r, now); lr.put_run(r)
-        lr.put_talk({**t, 'live': None})
+        lr.put_talk({**lr.talk(tid), 'live': None})
         return RedirectResponse(f"{Routes.of(Routes.after, tid=tid)}?run={r['id']}", status_code=303)
 
     def run_of(tid, rid):
