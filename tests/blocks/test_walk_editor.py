@@ -20,7 +20,7 @@ def test_editor_page(mk, lr, walk_fake):
     "The editor shows each idea as a row, one main button, the hands-on line, Add an idea and the empty Undo bar."
     cl = mk(); jid = paper_walk(cl, lr)
     t = cl.get(f'/w/{jid}/edit').text
-    assert 'the walk path' in t and 'id="steps"' in t and 'Start the walk' in t and 'id="undo-bar"' in t and 'Hands-on:' in t
+    assert 'the plan of the walk' in t and 'id="steps"' in t and 'Start the walk' in t and 'id="undo-bar"' in t and 'Hands-on:' in t
     assert 'Add an idea' in t and 'From the concept tree' in t and 'From a source' in t and 'Earlier versions' in t
     assert 'Change the walk' in cl.get(f'/w/{jid}').text   # the plan page links to the editor
 

@@ -296,6 +296,9 @@ details.more { margin-top: var(--s2); }
 details.more > summary { cursor: pointer; color: var(--mute); font-size: var(--t-small); padding: var(--s2) 0; list-style-position: inside; }
 details.more > summary:hover { color: var(--fg); }
 details.more[open] > summary { margin-bottom: var(--s1); }
+details.about { margin: calc(-1 * var(--s2)) 0 var(--s4); font-size: var(--t-meta); color: var(--mute); max-width: 60ch; }   /* the other sentences of a help line, closed (core/rows.py HelpLine) */
+details.about > summary { cursor: pointer; color: var(--mute); font-size: var(--t-meta); list-style-position: inside; }
+details.about p { margin: var(--s1) 0 0; line-height: 1.5; }
 
 /* Today, in order of weight (F12): the review line with its Start, then the journeys, then one line of links at the foot. */
 .review { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; margin: var(--s5) 0 var(--s4); }

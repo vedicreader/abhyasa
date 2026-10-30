@@ -788,8 +788,7 @@ def TalkLine(talks, changed=()):
     links = [x for k, t in enumerate(talks) for x in ((', ' if k else ''), A(f"{t['title']}, as a talk", href=f"/t/{t['id']}"),
                                                        ' (older than this walk)' if t['id'] in changed else '')]
     head = '1 talk was made from this walk: ' if len(talks) == 1 else f'{len(talks)} talks were made from this walk: '
-    return P(head, *links, '. A change here does not change a talk. To bring your changes into a talk, open it and press “Make it again”. '
-             'Your edits to its slides stay.', cls='mute talk-line')
+    return P(head, *links, '. A change here does not change a talk. To bring it in, open the talk and press “Make it again”.', cls='mute talk-line')
 
 def Editor(j, by, talks=(), opened='', pick=False, actions=(), changed=()):
     "The walk path editor: what the walk is, its one main button (and the quiet `actions` of other blocks, such as Present), the hands-on share, then the ideas. A change saves at once, and Undo takes it back."
@@ -798,18 +797,18 @@ def Editor(j, by, talks=(), opened='', pick=False, actions=(), changed=()):
     whence = f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', '')
     go = (Primary('Continue the walk', href=at(Routes.one, j['id'])) if j.get('started') else
           Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post'))
-    return (H1(f"{j['title']}, the walk path"),
+    return (H1(f"{j['title']}, the plan of the walk"),
             P(meta(whence, n_of(len(ss), 'idea'), f'about {mins} min'), ' · ', A('Earlier versions', href=at(Routes.history, j['id'])), cls='mute'),
             TalkLine(talks, changed),
-            P('A change saves at once, and Undo takes it back. An idea keeps your progress, its passage and its side walks when it moves. '
-              'A removed idea keeps your answers in the vault.', cls='lead'),
+            P('A change saves at once, and Undo takes it back.', cls='lead'),
+            Details(Summary('About this'), P('An idea keeps your progress, its passage and its side walks when it moves. A removed idea keeps your answers in the vault.'), cls='about'),
             Div(go, *actions, cls='row walk-top'), Hands(j), Steps(j, by, opened, pick=pick), UndoBar(oob=False),   # in the page under the list (walk.css)
-            P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('E'), ' edit · ',
-              Kbd('A'), ' add · ', Kbd('P'), ' split · ', Kbd('M'), ' merge · ', Kbd('X'), ' remove · ', Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo', cls='mute keys-line'))
+            Details(Summary('Keys'), P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('E'), ' edit · ',
+              Kbd('A'), ' add · ', Kbd('P'), ' split · ', Kbd('M'), ' merge · ', Kbd('X'), ' remove · ', Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo', cls='mute keys-line'), cls='more'))
 
 def History(j, rows):
     "The earlier versions of the path of walk `j`: each change, newest first, with Restore this version."
     return (H1(f"Earlier versions of {j['title']}"),
             P('Each line is one change. Restore this version gives back the path as it was before that change. Your progress stays. You can undo a restore too.', cls='lead'),
             HistoryList(rows, at(Routes.restore, j['id'])),
-            P(A('Back to the walk path', href=at(Routes.edit, j['id'])), cls='mute'))
+            P(A('Back to the plan of the walk', href=at(Routes.edit, j['id'])), cls='mute'))

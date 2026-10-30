@@ -759,7 +759,7 @@ def connect(app, ctx):
         if (no := not_walk(jid)): return no
         j, ts = lr.journey(jid), talks_of(jid)
         old = {t['id'] for t in ts if any(walk_changes(lr, t).values())}   # talks older than the walk: they offer Make it again
-        return Page(f"{j.title}, the walk path", *ui.Editor(j, by(), ts, opened=open, changed=old, pick=bool(pick), actions=run_hook('walk_actions', j, quiet=True)), on='Learn',
+        return Page(f"{j.title}, the plan of the walk", *ui.Editor(j, by(), ts, opened=open, changed=old, pick=bool(pick), actions=run_hook('walk_actions', j, quiet=True)), on='Learn',
                     crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def bar(j, said, rows, row=''):
@@ -906,7 +906,7 @@ def connect(app, ctx):
         if (no := not_walk(jid)): return no
         j = lr.journey(jid)
         return Page(f'Earlier versions of {j.title}', *ui.History(j, lr.edits('walk', jid)), on='Learn',
-                    crumbs=[*up, (f'{j.title}, the walk path', ui.at(Routes.edit, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
+                    crumbs=[*up, (f'{j.title}, the plan of the walk', ui.at(Routes.edit, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def restore(jid:str, id:str='', k:str=''):
         "Go back to the version of the path before one change (by its `id`, or by its place `k` in the history, newest first). A restore is a change too."
