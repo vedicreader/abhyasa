@@ -200,3 +200,12 @@ def test_the_tier_and_the_end_line_agree():
     r = explain(Fake({'Tier: vault': board(0.9, src=1, quote=PAGE.rstrip('.')), 'Tier: tutor': board(0.3, 'vault')}), page_ctx(), "I don't get alpha bar", sources=[v])
     assert (r.tier, r.end) == ('tutor', "In the tutor's own words, with quotes from the sources below.")
     assert [(s['label'], s['quoted']) for s in r.sources] == [('your source', True), ('your vault', False)]
+
+def test_a_web_search_with_no_passage_says_so_and_the_board_knows():
+    "The web pages have no passage: a state line says so, and the next request tells the model that the web was searched and gave nothing."
+    from abhyasa.guide import NO_WEB, WEB_NO_PASSAGE
+    evs = []
+    f = Fake({NO_WEB: board(0.6), 'Tier: tutor': board(0.3, 'web'), 'Return JSON: {"passage"': dict(passage='')})
+    r = explain(f, page_ctx(), "I don't get alpha bar", sources=[Vault()], web=True, on_state=evs.append,
+                search=lambda q, n: [dict(title='x', href='https://example.org/x')], fetch=lambda u: AttrDict(url=u, title='x', text='Nothing on alpha here.'))
+    assert WEB_NO_PASSAGE in [e.get('wait') for e in evs] and NO_WEB in f.calls[-1][0] and r.sure == 0.6 and r.tier == 'tutor'

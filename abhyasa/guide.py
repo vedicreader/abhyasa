@@ -7,12 +7,13 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
            'FOCUS', 'SHOWN', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'WATCH', 'CHECK_ASK', 'FILLER', 'OFF_CHECK',
-           'COUNTS', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR', 'norm_tex', 'flat', 'anchor_why', 'by_id',
-           'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels',
-           'FigureCache', 'keeps_images', 'vision_why', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded',
-           'figure_check', 'focus_text', 'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer',
-           'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'source_label',
-           'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
+           'COUNTS', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR', 'WEB_FAILED', 'WEB_NO_PAGE', 'WEB_NO_PASSAGE',
+           'NO_WEB', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board',
+           'PageContext', 'clean_context', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why', 'vision_ask',
+           'Withheld', 'guard', 'safe_query', 'guarded', 'figure_check', 'focus_text', 'page_text', 'board_prompt',
+           'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of',
+           'asked_words', 'on_check', 'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain',
+           'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -619,10 +620,16 @@ def _asks(w:dict, what:str='') -> dict:
 def _n(n:int, what:str) -> str: return f"{n} {what}{'' if n == 1 else 's'}"
 
 # %% ../nbs/21_guide.ipynb #g075
+WEB_FAILED = 'The web search did not work.'
+WEB_NO_PAGE = 'The web search found no page on this.'
+WEB_NO_PASSAGE = 'The web pages had no passage on this.'
+NO_WEB = 'The web was searched and gave no passage on this. Do not say that you need the web or that the web must check it. Give your best answer from the page and the sources.'
+
 def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None, on_state=None) -> list:
     """Sources from the web for `said`, each with a passage that is word for word in its page. `on_state` gets a state event before
     the search (with the query word for word), before each read and model call, and before the page goes into the vault. Then it
-    gets `{"saved": ...}` when the guide added the page or its link to the concept: what `unsave` needs to take them away."""
+    gets `{"saved": ...}` when the guide added the page or its link to the concept: what `unsave` needs to take them away. When the
+    web gives no passage, a state event says why (`WEB_FAILED`, `WEB_NO_PAGE`, `WEB_NO_PASSAGE`)."""
     from abhyasa import research as R
     search, fetch, tell = search or R.web_search, fetch or R.web_fetch, on_state or (lambda e: None)
     topic = ctx.get('concept') or ctx.get('step') or ''
@@ -630,7 +637,8 @@ def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None, on_state=N
     except Withheld: return []
     tell(_ev(f'Searches the web for: "{q}"', 'searching', where='hosted', query=q))
     try: hits = R.candidates(search(q, 6), 6)
-    except Exception: return []
+    except Exception: tell(_ev(WEB_FAILED, 'searching', where='hosted')); return []
+    if not hits: tell(_ev(WEB_NO_PAGE, 'searching', where='hosted')); return []
     c, w = dict(name=topic or said, statement=said), where_of(getattr(ask, 'model', ''))
     for h in hits[:2]:
         tell(_ev(f"Reads {R.site_of(h.url)}.", 'reading', where='hosted'))
@@ -643,6 +651,7 @@ def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None, on_state=N
             try: _file(lr, ctx, page, p, tell)
             except Exception: pass
         return [dict(title=page.title or page.url, text=p, url=page.url, label=LABEL['web'])]
+    tell(_ev(WEB_NO_PASSAGE, 'searching', where='hosted'))
     return []
 
 def _file(lr, ctx, page, p, tell):
@@ -692,8 +701,9 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     said, ask = ' '.join(str(said or '').split())[:300], guide_ask(ask)   # each model call guards its prompt for its own route
     hint = on_check(ctx, said)
     off = 'check' in ctx.by and not hint   # an open check that this board may not touch
-    def board(tier, srcs, on_step=None):
-        c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier, OFF_CHECK if off else ''), prompt('guide.board')
+    def board(tier, srcs, on_step=None, note=''):
+        note = '\n'.join(x for x in (OFF_CHECK if off else '', note) if x)
+        c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier, note), prompt('guide.board')
         if off: c.by.pop('check')
         return stream_board(ask.stream(p, sp), c, on_step, stop=stop) if on_step and hasattr(ask, 'stream') else parse_board(ask(p, sp), c)
     page, w = _page_sources(ctx), where_of(getattr(ask, 'model', ''))
@@ -720,6 +730,10 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
             tell(dict(_asks(w, f"Sends {_n(len(ws), 'passage')} from the web"), sources=len(ws)))
             b = board('web', srcs)
             if b.steps: return _done('web', b, srcs, t0, hint)
+        elif not ws and not (stop is not None and stop.is_set()) and (best[0].need == 'web' or not best[0].steps):
+            tell(_asks(w, 'Sends your question again, with no web passage,'))   # the web gave nothing: the board must not ask for it
+            b = board(best[1], best[2], note=NO_WEB)
+            if b.steps: best = (b, best[1], best[2])
     b, tier, srcs = best
     return _done(tier, b, srcs, t0, hint)   # the best board with the sources of its own request, so its quotes match the list
 
