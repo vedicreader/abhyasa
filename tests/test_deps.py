@@ -20,3 +20,10 @@ def test_rupaka_floor():
     lock = tomllib.loads((Path(__file__).parents[1]/'uv.lock').read_text())
     assert Version(next(p['version'] for p in lock['package'] if p['name'] == 'rupaka')) >= Version('0.0.7')
     assert Version(version('rupaka')) >= Version('0.0.7')
+
+def test_ramabana_is_a_core_dependency():
+    "The guide masks text with ramabana's `masking_guard`, and routing uses ramabana, so a plain install must have it. The `models` extra stays, so old installs still resolve."
+    pp = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']
+    assert 'ramabana>=0.2.95' in pp['dependencies']
+    assert 'models' in pp['optional-dependencies']
+    assert Version(version('ramabana')) >= Version('0.2.95')
