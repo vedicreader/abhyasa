@@ -40,31 +40,6 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     return out;
   }
 
-  // A rupaka demo: its inputs (from spec.state, with the label and range of the block that binds each one), its readouts, and
-  // whether all its gates are done. The blocks are built in the order of the spec, so the n-th block is the n-th [data-rk-type].
-  function demoOf(host) {
-    const s = host.rupaka, spec = s && s.spec;
-    if (!spec) return null;
-    const flat = [], walk = bs => (bs || []).forEach(b => { flat.push(b); walk(b.blocks); });
-    walk(spec.blocks);
-    const nodes = [...host.querySelectorAll('[data-rk-type]')], inputs = {}, anchors = [], readouts = [];
-    flat.forEach((b, n) => {
-      const node = nodes[n];
-      if (b.bind && Object.hasOwn(spec.state || {}, b.bind)) {
-        inputs[b.bind] = {value: s.st[b.bind], label: b.label || b.bind, ...(b.min != null && {min: b.min}), ...(b.max != null && {max: b.max}), ...(b.step != null && {step: b.step})};
-        if (node && seen(node)) { node.dataset.guideId = 'in:' + b.bind; anchors.push({id: 'in:' + b.bind, kind: 'input', text: `${b.label || b.bind} = ${JSON.stringify(s.st[b.bind])}`}); }
-      } else if (node && seen(node) && /readout|caption|bars|pixels|plot/.test(b.type)) {
-        const id = 'out:' + (readouts.length + 1);
-        node.dataset.guideId = id; readouts.push(cut(node.textContent, 120));
-        anchors.push({id, kind: 'readout', text: cut(node.textContent, 200) || b.label || b.type});
-      }
-    });
-    const gates = flat.filter(b => b.type === 'gate').map(b => b.id);
-    host.dataset.guideId = 'demo';
-    anchors.unshift({id: 'demo', kind: 'demo', text: cut((spec.title || '') + '. ' + (spec.ask || ''), 300)});
-    return {anchors, demo: {slug: spec.id || '', inputs, readouts, open: gates.every(g => s.st.gate && s.st.gate[g] === 'done')}};
-  }
-
   // The labels of a figure: found once on the server by a vision call, and kept there by the hash of the image.
   async function labelsOf(img) {
     if (!img.complete || !img.naturalWidth) return {};
@@ -94,7 +69,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     main.querySelectorAll('figcaption, .rk-title').forEach((c, n) => n < 4 && add(c, 'cap' + (n + 1), 'caption', textOf(c)));
     let demo = {};
     const rk = [...main.querySelectorAll('[data-rupaka][data-rk-ready="1"]')].find(seen);
-    if (rk) { const d = demoOf(rk); if (d) { anchors.push(...d.anchors); demo = d.demo; } }
+    if (rk) { const d = abhyasaBoard.demoAnchors(rk); if (d) { anchors.push(...d.anchors); demo = d.demo; } }
     const video = main.querySelector('#guide-video[data-vid]');
     if (video) add(video, 'video', 'video', cut(video.dataset.title || 'The explainer video'));
     const src = main.querySelector('#passage .src-line');

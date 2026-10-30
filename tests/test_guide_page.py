@@ -65,3 +65,23 @@ def test_inline_formulas_of_a_passage_are_anchors(page):
                                      const r = document.querySelector('[data-guide-id="m2"] #g-2-2').getBoundingClientRect();
                                      return [abhyasaBoard.boxOf({a: 'm2', tex: 'W_Q'}), {x: r.left + scrollX, w: r.width}]; }""")
     assert abs(box['x'] - part['x']) < 1 and abs(box['w'] - part['w']) < 1   # a mark on the token lands on W_Q, not on q or x
+
+def test_demo_anchors_have_the_agreed_ids(page):
+    """`abhyasaBoard.demoAnchors` names a rupaka demo as every host does: `demo`, `in:<bind>` for each key of spec.state, and `out:<n>`
+    for each readout that shows, from 1 in depth-first spec order. Blocks pair with [data-rk-type] nodes by index. An id over 40
+    characters is dropped, not cut."""
+    long = 'b' * 38   # 'in:' + 38 characters is 41
+    got = page.evaluate("""long => {
+      const h = document.createElement('div'); h.dataset.rupaka = '1';
+      const spec = {id: 'rrf', title: 'Fusion', ask: 'Move k.', state: {k: 3, [long]: 1}, blocks: [
+        {type: 'slider', bind: 'k', label: 'k', min: 0, max: 10}, {type: 'row', blocks: [{type: 'readout'}, {type: 'slider', bind: long}]},
+        {type: 'plot'}, {type: 'gate', id: 'g1'}]};
+      for (const [t, x] of [['slider', ''], ['row', ''], ['readout', 'score 0.25'], ['slider', ''], ['plot', 'a plot'], ['gate', '']])
+        { const n = Object.assign(document.createElement('div'), {textContent: x}); n.dataset.rkType = t; h.append(n); }
+      h.rupaka = {spec, st: {k: 3, [long]: 1, gate: {}}};
+      document.querySelector('main').append(h);
+      const d = abhyasaBoard.demoAnchors(h);
+      return [d.anchors.map(a => a.id), Object.keys(d.demo.inputs), d.demo.readouts, d.demo.open, d.demo.slug,
+              [...h.querySelectorAll('[data-guide-id]')].map(e => e.dataset.guideId), h.dataset.guideId];
+    }""", long)
+    assert got == [['demo', 'in:k', 'out:1', 'out:2'], ['k', long], ['score 0.25', 'a plot'], False, 'rrf', ['in:k', 'out:1', 'out:2'], 'demo']

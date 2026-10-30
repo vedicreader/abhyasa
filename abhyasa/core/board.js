@@ -39,6 +39,9 @@
 //                        streaming board shows, or when its steps are not the first steps of `board` (then play `board`).
 //                        An `end` of '' shows no end line: the stream ended with no whole board.
 //   stop()  note(text)  next()  back()  again()  seekVideo(t)  boxOf(at)  normTex(tex)
+//   demoAnchors(host) -> {anchors, demo: {slug, inputs, readouts, open}} | null   the anchors of the rupaka demo `host`: `demo` for
+//                        the host, `in:<bind>` for each input of spec.state, `out:<n>` for each readout that shows (n from 1, in
+//                        spec order). It sets data-guide-id on each one. An id of more than 40 characters is dropped, never cut.
 //   state    {i, steps, tier, first, done, streaming} or null. `done` is true when each mark of the step shows in full.
 //   pointer  {tip, to, flying} in window pixels, or null: where the tip of the pointer is, and the point that it flies to.
 // Events on document: board:first (the first mark shows), board:stop.
@@ -549,6 +552,34 @@
     caption();
     return true;
   }
+  // The anchors of a rupaka demo, for a host that reads the page (guide.js, Leela). The ids are fixed, so that every host and the
+  // engine agree: `demo` for the host; `in:<bind>` for each block whose bind is a key of spec.state; `out:<n>` for each readout,
+  // caption, bars, pixels or plot block that shows, n from 1 in the depth-first order of the spec. The blocks are built in the
+  // order of the spec, so the n-th block is the n-th [data-rk-type]. An id of more than 40 characters is dropped, never cut.
+  const cut = (s, n) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
+  function demoAnchors(host) {
+    const s = host && host.rupaka, spec = s && s.spec;
+    if (!spec) return null;
+    const flat = [], walk = bs => (bs || []).forEach(b => { flat.push(b); walk(b.blocks); });
+    walk(spec.blocks);
+    const nodes = [...host.querySelectorAll('[data-rk-type]')], inputs = {}, anchors = [], readouts = [];
+    const mark = (node, id, a) => { if (id.length <= 40) { node.dataset.guideId = id; anchors.push({id, ...a}); } };
+    flat.forEach((b, n) => {
+      const node = nodes[n];
+      if (b.bind && Object.hasOwn(spec.state || {}, b.bind)) {
+        inputs[b.bind] = {value: s.st[b.bind], label: b.label || b.bind, ...(b.min != null && {min: b.min}), ...(b.max != null && {max: b.max}), ...(b.step != null && {step: b.step})};
+        if (node && seen(node)) mark(node, 'in:' + b.bind, {kind: 'input', text: `${b.label || b.bind} = ${JSON.stringify(s.st[b.bind])}`});
+      } else if (node && seen(node) && /readout|caption|bars|pixels|plot/.test(b.type)) {
+        const id = 'out:' + (readouts.length + 1);
+        readouts.push(cut(node.textContent, 120));
+        mark(node, id, {kind: 'readout', text: cut(node.textContent, 200) || b.label || b.type});
+      }
+    });
+    const gates = flat.filter(b => b.type === 'gate').map(b => b.id);
+    host.dataset.guideId = 'demo';
+    anchors.unshift({id: 'demo', kind: 'demo', text: cut((spec.title || '') + '. ' + (spec.ask || ''), 300)});
+    return {anchors, demo: {slug: spec.id || '', inputs, readouts, open: gates.every(g => s.st.gate && s.st.gate[g] === 'done')}};
+  }
   function demo(set) { try { hooks().demo(set); } catch (e) { console.warn('board: demo', e); } }
   function rupaka(set) {   // the default demo: Rupaka.set, only when each gate is done
     const h = anchorEl('demo');
@@ -635,7 +666,7 @@
   }).observe(document.body, {childList: true, subtree: true});
   if (document.body) watch(); else addEventListener('DOMContentLoaded', watch);
   const view = p => [p[0] - scrollX, p[1] - scrollY];
-  window.abhyasaBoard = {play, add, finish, stop, note, seekVideo, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
+  window.abhyasaBoard = {play, add, finish, stop, note, seekVideo, demoAnchors, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
                          get state() {
                            if (!st) return null;
                            const t = performance.now(), mine = st.marks.filter(m => m.step === st.i && !/^(clear|demo_set|video_at)$/.test(m.o.op));
