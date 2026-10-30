@@ -87,6 +87,31 @@ public enum OverlayPage {
           }
           dispatchEvent(new Event('resize'));
         },
+        // show while you talk: a faint trail of the pointer and a soft ring on a gesture, in the board.css styles of the page guide
+        trail(pts) {   // a canvas, in the ink of board.css; with reduced motion only the rings show
+          let t = document.getElementById('board-trail');
+          if (!t) {
+            t = Object.assign(document.createElement('div'), {id: 'board-trail'});
+            const c = document.createElement('canvas');
+            Object.assign(c.style, {position: 'absolute', left: 0, top: 0, color: 'var(--board-ink)'});
+            t.append(c); document.body.append(t);
+          }
+          const c = t.querySelector('canvas'), k = devicePixelRatio || 1, w = innerWidth, h = innerHeight;
+          if (c.width !== Math.round(w * k)) { c.width = Math.round(w * k); c.height = Math.round(h * k); c.style.width = w + 'px'; c.style.height = h + 'px'; }
+          const g = c.getContext('2d');
+          g.setTransform(k, 0, 0, k, 0, 0); g.clearRect(0, 0, w, h);
+          if (pts.length < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+          Object.assign(g, {strokeStyle: getComputedStyle(c).color, globalAlpha: .35, lineWidth: 2.5, lineCap: 'round', lineJoin: 'round'});
+          g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.stroke();
+        },
+        ring(b, point) {
+          if (!document.getElementById('board-trail')) overlay.trail([]);
+          const r = Object.assign(document.createElement('div'), {className: 'board-trail-ring' + (point ? ' point' : '')}), pad = point ? 6 : 8;
+          Object.assign(r.style, {left: b[0] - pad + 'px', top: b[1] - pad + 'px', width: b[2] - b[0] + 2 * pad + 'px', height: b[3] - b[1] + 2 * pad + 'px'});
+          document.getElementById('board-trail').append(r);
+          setTimeout(() => r.remove(), \(Int(Gestures.fadeMs)));
+        },
+        endTrail() { const t = document.getElementById('board-trail'); if (t) t.remove(); },
         word(id, k) { const v = voices[id]; if (v) v.onWord(k); },
         done(id) { const v = voices[id]; delete voices[id]; if (v) v.done(); },
         begin() { gen++; live = null; calm(); },

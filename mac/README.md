@@ -72,6 +72,11 @@ window, asks the server and draws.
   asks if you want to open System Settings. The app never asks for a permission at launch.
 - The question goes to `/guide/ask` as `{"said", "ctx"}`. `ctx.title` is the app name and the window title, and
   `ctx.anchors` is the anchor list. The app reads the server-sent events (`wait`, `step`, `board`, `error`).
+- Show while you talk: while you hold the key, or while the strip is open, you can circle a part with the mouse or hold the
+  pointer still on it. A global monitor of mouse moves keeps the path in memory only while the guide asks (30 points a
+  second, the last 15 s). A faint trail and a soft ring show in the overlay panel. The question sends the gestures as
+  `ctx.focus`, with the anchors under each one. The rules are in `Gestures.swift`, the same as the page guide, and both test
+  against `tests/data/gesture_paths.json`. The monitor uses no new permission.
 - The board plays in a clear, click-through panel over the display of the window. The panel never takes the focus. Its web
   view loads `board.js` from the server, and the app puts one empty box on the page for each anchor. The voice is
   `AVSpeechSynthesizer`, with a mark for each word. The marks move when the window moves. The board goes 8 s after its

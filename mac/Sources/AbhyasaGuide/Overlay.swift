@@ -24,6 +24,8 @@ public final class Overlay: NSObject, WKScriptMessageHandler, WKNavigationDelega
     var sheets: [UInt32: Sheet] = [:]
     /// the display where the board shows now
     public private(set) var current: UInt32?
+    /// the display where the trail of the pointer shows now
+    var trailOn: UInt32?
 
     public override init() {
         super.init()
@@ -70,6 +72,42 @@ public final class Overlay: NSObject, WKScriptMessageHandler, WKNavigationDelega
     public func again() { if let c = current { run("overlay.again()", on: c) } }
     public func stop() { if let c = current { run("overlay.stop()", on: c) } }
 
+    // --- show while you talk: the trail of the pointer while the guide asks, in the same click-through panels ---------------
+    /// the trail (CG global points of the last 1.5 s), on the display that holds its last point
+    public func trail(_ pts: [CGPoint]) {
+        guard let last = pts.last else { return }
+        let ds = Display.all, h = Geometry.mainHeight(ds)
+        guard let d = Geometry.display(for: Geometry.appKit(fromCG: CGRect(origin: last, size: .zero), mainHeight: h), in: ds),
+              let s = sheet(for: d) else { return }
+        if let t = trailOn, t != d.id { endTrail() }
+        trailOn = d.id
+        let list = pts.map { p -> [Double] in
+            let r = Geometry.panel(fromCG: CGRect(origin: p, size: .zero), display: d, mainHeight: h)
+            return [Double(r.minX), Double(r.minY)]
+        }
+        guard let js = OverlayPage.js(list) else { return }
+        run("overlay.trail(\(js))", on: d.id)
+        if !s.panel.isVisible { s.panel.orderFrontRegardless() }
+    }
+
+    /// a soft ring on a gesture (its box in CG global points), on the display of the trail
+    public func ring(_ g: Gestures.Gesture) {
+        let ds = Display.all
+        guard let id = trailOn, let d = ds.first(where: { $0.id == id }) else { return }
+        let r = Geometry.panel(fromCG: CGRect(x: g.box[0], y: g.box[1], width: g.box[2] - g.box[0], height: g.box[3] - g.box[1]),
+                               display: d, mainHeight: Geometry.mainHeight(ds))
+        guard let js = OverlayPage.js([Double(r.minX), Double(r.minY), Double(r.maxX), Double(r.maxY)]) else { return }
+        run("overlay.ring(\(js), \(g.kind == .point))", on: id)
+    }
+
+    /// takes the trail away; its panel goes too when no board shows on it
+    public func endTrail() {
+        guard let id = trailOn else { return }
+        trailOn = nil
+        run("overlay.endTrail()", on: id)
+        if id != current { sheets[id]?.panel.orderOut(nil) }
+    }
+
     /// takes the panels away, with no board
     public func hide() {
         for s in sheets.values { s.panel.orderOut(nil) }
@@ -90,6 +128,7 @@ public final class Overlay: NSObject, WKScriptMessageHandler, WKNavigationDelega
         }
         sheets = [:]
         current = nil
+        trailOn = nil
     }
 
     func run(_ js: String, on id: UInt32) {

@@ -14,6 +14,7 @@ public final class Guide {
     let speaker = Speaker()
     let recorder = Recorder()
     let keys = HotKeys()
+    let trail = PointerTrail()
     var machine = KeyMachine()
     var client: GuideClient?
     var reading: Task<Snapshot, Never>?
@@ -41,7 +42,11 @@ public final class Guide {
         speaker.onWord = { [weak self] id, k in self?.overlay.word(id, k) }
         speaker.onDone = { [weak self] id in self?.overlay.done(id) }
         strip.model.onSend = { [weak self] t in self?.send(t) }
-        strip.model.onClose = { [weak self] in self?.strip.hide() }
+        strip.model.onClose = { [weak self] in self?.trail.stop(); self?.strip.hide() }
+        trail.text = { [weak self] in self?.strip.model.text ?? "" }
+        trail.onTrail = { [weak self] pts in self?.overlay.trail(pts) }
+        trail.onRing = { [weak self] g in self?.overlay.ring(g) }
+        trail.onEnd = { [weak self] in self?.overlay.endTrail() }
         strip.model.onSheet = { [weak self] yes in self?.answerSheet(yes) }
     }
 
@@ -60,6 +65,7 @@ public final class Guide {
 
     public func stop() {
         asking?.cancel()
+        trail.stop()
         keys.unregister()
         overlay.stop()
         overlay.hide()
@@ -117,6 +123,7 @@ public final class Guide {
     func open(talk: Bool) {
         if frontIsMe { ownApp?(); return }
         guard client != nil else { return }
+        trail.start()   // show while you talk: the pointer path, until the question goes or the strip closes
         Task {
             if let r = reading { snapshot = await r.value }
             let first = firstUseSheet()
@@ -154,13 +161,16 @@ public final class Guide {
     func send(_ said: String) {
         let said = AnchorList.cut(said, 300)
         guard !said.isEmpty, let client else { return }
+        let shown = trail.stop()   // what the learner showed with the pointer while they asked
         strip.release()
         strip.say(GuideText.reading)
         asking?.cancel()
         asking = Task {
             if snapshot == nil, let r = reading { snapshot = await r.value }
             let snap = snapshot ?? Snapshot(window: nil, items: [], limit: .noAccess, ms: 0)
-            let ctx = AnchorList.build(window: snap.window, items: snap.items, limit: snap.limit)
+            var ctx = AnchorList.build(window: snap.window, items: snap.items, limit: snap.limit)
+            let focus = PointerTrail.focus(shown, anchors: ctx.anchors)
+            if !focus.isEmpty { ctx.focus = focus }
             let displays = Display.all, h = Geometry.mainHeight(displays)
             let win = snap.window.map { Geometry.appKit(fromCG: $0.frame, mainHeight: h) } ?? .zero
             guard let d = Geometry.display(for: win, in: displays), let body = try? AnchorList.body(said: said, ctx: ctx) else { return }
