@@ -649,7 +649,7 @@ CHOICE = dict(demo='predict', short='short', order='order', code='code', noteboo
 SAY_KIND = dict(demo='a demo', short='a short answer', order='put in order', code='code', notebook='a notebook')
 FIELDS = dict(note='note', q='check question')   # the names of the fields of a step, for the Undo bar
 REWRITE_CHIPS = ('Simpler', 'Add an example', 'Shorter')
-REWRITE_HELP = 'The tutor rewrites the note and the check question. It never changes the passage.'
+REWRITE_HELP = 'Press Return to send, or pick a chip. The tutor rewrites the note and the check question. It never changes the passage.'
 SETTING = '/settings#g-walks'   # the Walks group of Settings, with the hands-on share
 
 def edit_url(jid, slug=''): return at(Routes.edit, jid) + (f'?{urlencode(dict(slug=slug))}' if slug else '')
@@ -697,10 +697,9 @@ def EditPassage(j, k, s, pick=False):
                cls='passage-part')
 
 def Rewrite_(post):
-    "Rewrite the note and the check question: a short instruction, or one of three chips. The tutor never changes the passage."
+    "Rewrite the note and the check question: a short instruction (Return sends it), or one of three chips. The row button Rewrite (R) puts the focus here. The tutor never changes the passage."
     return Form(Field_('Rewrite with the tutor', Input(type='text', name='text', maxlength='300', placeholder='Tell the tutor what to change', aria_label='What to change'), REWRITE_HELP),
-                Div(*[Quiet(c, small=True, type='submit', name='chip', value=c, data_wait='Rewriting…') for c in REWRITE_CHIPS],
-                    Quiet('Rewrite', small=True, type='submit', data_wait='Rewriting…'), cls='chips'),
+                Div(*[Quiet(c, small=True, type='submit', name='chip', value=c, data_wait='Rewriting…') for c in REWRITE_CHIPS], cls='chips'),
                 hx_post=post, hx_vals=json.dumps(dict(act='rewrite')), hx_target='#steps', hx_swap='outerHTML', cls='rewrite')
 
 def StepBody(j, k, s, by, pick=False):
@@ -786,10 +785,9 @@ def Editor(j, by, talks=(), opened='', pick=False, actions=()):
             TalkLine(talks),
             P('A change saves at once, and Undo takes it back. An idea keeps your progress, its passage and its side walks when it moves. '
               'A removed idea keeps your answers in the vault.', cls='lead'),
-            Div(go, *actions, cls='row walk-top'), Hands(j), Steps(j, by, opened, pick=pick),
+            Div(go, *actions, cls='row walk-top'), Hands(j), Steps(j, by, opened, pick=pick), UndoBar(oob=False),   # in the page under the list (walk.css)
             P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('E'), ' edit · ',
-              Kbd('A'), ' add · ', Kbd('P'), ' split · ', Kbd('M'), ' merge · ', Kbd('X'), ' remove · ', Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo', cls='mute keys-line'),
-            UndoBar(oob=False))
+              Kbd('A'), ' add · ', Kbd('P'), ' split · ', Kbd('M'), ' merge · ', Kbd('X'), ' remove · ', Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo', cls='mute keys-line'))
 
 def History(j, rows):
     "The earlier versions of the path of walk `j`: each change, newest first, with Restore this version."

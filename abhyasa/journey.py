@@ -511,6 +511,16 @@ def walk_state(j) -> AttrDict:
     return AttrDict(steps=steps, current=cur, done=sum(s.dot in ('done', 'known') for s in steps),
                     total=sum(s.dot != 'skipped' for s in steps), sections=secs)
 
+@patch
+def walk_slug(self:Learning, jid:str, slug:str, **kv) -> AttrDict|None:
+    "Merge `kv` into the step on concept `slug` of walk `jid`, wherever it is now, under the lock of the walk. None when the walk or the step is gone. A job that runs while you move steps uses this, never a place."
+    with _jlock(jid):
+        j = self.journey(jid)
+        if j is None or (s := first(s for s in j.steps if s.get('slug') == slug)) is None: return None
+        s.update(kv)
+        return self.put_journey(j)
+
+
 # %% ../nbs/11_journey.ipynb #w312
 STEP_MIN = dict(short=2, order=2, demo=3, code=6, notebook=10)
 

@@ -1053,6 +1053,11 @@ def we1_walk_path_editor(pg, w):
     assert [s['slug'] for s in w.lr.journey(jid).steps] == ss
     h = pg.eval_on_selector_all('#steps > li.edit-row', 'els => Math.min(...els.map(e => e.getBoundingClientRect().height))')
     assert h >= 44, h
+    pg.evaluate('window.scrollTo(0, document.body.scrollHeight)'); pg.wait_for_timeout(200)
+    over = pg.evaluate('''() => { const b = document.querySelector('#undo-bar').getBoundingClientRect();
+        return [...document.querySelectorAll('#steps > li')].filter(r => { const x = r.getBoundingClientRect(); return x.bottom > b.top && x.top < b.bottom && x.right > b.left && x.left < b.right; }).length; }''')
+    assert over == 0, f'the Undo bar covers {over} rows'
+    assert pg.eval_on_selector(f'#steps > li.edit-row[data-id="{ss[0]}"] form.rewrite', 'f => !f.querySelector("button:not([name=chip])")')   # one Rewrite button: the row button
 
 def editor_shots(pg, w, out):
     "The walk path editor with an idea open, the hands-on warning and an Undo bar, in Paper dark and Signal light, at 1280 px."

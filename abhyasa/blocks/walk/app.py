@@ -74,10 +74,25 @@ def connect(app, ctx):
     vault = lr.vault.path         # each Leela link names the vault of this app with its key
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
     up = [('Today', '/'), ('Learn', '/learn')]
-    writing = defaultdict(Lock)   # (walk, step) -> a lock, so the note and the check of one step do not write the note twice
+    writing = defaultdict(Lock)   # (walk, concept of the step) -> a lock, so the note and the check of one step do not write the note twice; a move keeps it
     links = {}                    # link -> the pool job that makes its walk, and `said`, the words of its state
 
     def by(): return {c.slug: c for c in lr.concepts()}
+
+    def slug_at(jid, i):
+        "The concept of step `i` of walk `jid` now, or ''."
+        j = lr.journey(jid)
+        return j.steps[i]['slug'] if j and 0 <= i < len(j.steps) else ''
+
+    def of_step(a, jid, i, slug):
+        "Whether attempt `a` is on the step of walk `jid` on concept `slug` (now at place `i`): by `idea`, or by the place for an old attempt with no `idea`."
+        return a.get('walk') == jid and (a['idea'] == slug if a.get('idea') else a.get('step') == i)
+
+    def held(jid, i): return writing[jid, slug_at(jid, i)]   # the lock of step `i`, by its concept
+
+    def put(j, i, **kv):
+        "Merge `kv` into step `i` of walk `j` as `j` has it, found again by its concept, so a move in the editor at the same time keeps it on the same idea. The walk now."
+        return lr.walk_slug(j['id'], j['steps'][i]['slug'], **kv) or lr.journey(j['id'])
     def go(jid, i): return Redirect(ui.at(Routes.step, jid, i))
     def missing(): return Page('Walk', H1('No such walk'), P(A('Your walks', href='/learn')), on='Learn', crumbs=up)
 
@@ -140,13 +155,13 @@ def connect(app, ctx):
         slug, aim = s['slug'], AIM[s['check']['kind']]
         if job_state(tutor, slug, aim) == 'none': ahead(j, i)
         if job_state(tutor, slug, aim) == 'running' and job_age(tutor, slug, aim) < val('walks.demo_wait'): return ui.Pending(j.id, i, s)
-        lr.walk_step(j.id, i, check=dict(short_check(lr, lr.concept(slug))))
+        put(j, i, check=dict(short_check(lr, lr.concept(slug))))
 
     def open_code(j, i, sid):
         "Open the code task of step `i` and keep its stub and visible tests on the step, so a reload shows the same task; None when it fails."
         try: t = code_task(tutor, lr.concept(j.steps[i]['slug']), session=sid, meta=step_meta(j, i))
         except Exception: return None
-        lr.walk_step(j.id, i, qid=t.q.id, code=dict(fname=t.fname, stub=t.stub, tests=t.tests))
+        put(j, i, qid=t.q.id, code=dict(fname=t.fname, stub=t.stub, tests=t.tests))
         return t.q
 
     def reply(j, i, r=None):
@@ -169,7 +184,7 @@ def connect(app, ctx):
 
     def closed(j, i, r):
         "Mark step `i` done with the outcome of its check."
-        j = lr.walk_step(j.id, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
+        j = put(j, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
         return reply(j, i, r), *ui.Filled(j, walk_state(j), by(), i)   # the dot of the idea fills in the outline
 
     looking, look_for = ctx.research.looking, ctx.research.look_for   # research runs on its own pool; the request does not wait
@@ -178,18 +193,18 @@ def connect(app, ctx):
     def halted(jid):
         "Whether Stop was asked for the gather agent of walk `jid`, which may still end its last call."
         return (ev := ctx.research.stops.get(jid)) is not None and ev.is_set()
-    nb_jobs, nb_lock = {}, Lock()   # (walk, step) -> the research pool job that writes the notebook spec of the step
+    nb_jobs, nb_lock = {}, Lock()   # (walk, concept of the step) -> the research pool job that writes the notebook spec of the step
 
     def nb_writing(jid, i):
         "Whether a job writes the notebook spec of step `i` of walk `jid` now."
-        return (f := nb_jobs.get((jid, i))) is not None and not f.done()
+        return (f := nb_jobs.get((jid, slug_at(jid, i)))) is not None and not f.done()
 
     def write_notebook(jid, i):
         "Start the job that writes the notebook spec of step `i` on the research pool, unless it runs or the step has a spec."
         with nb_lock:
             j = walk_of(jid, i)
             if not j or nb_writing(jid, i) or j.steps[i].get('nb') or j.steps[i]['check']['kind'] != 'notebook': return
-            nb_jobs[jid, i] = ctx.research.pool.submit(walk_engine.nb_spec, lr, ask, j, i)
+            nb_jobs[jid, j.steps[i]['slug']] = ctx.research.pool.submit(walk_engine.nb_spec, lr, ask, j, i)   # nb_spec writes to the step by its concept
 
     def nb_card(j, i):
         "The card of a notebook step: the notebook, the line while the tutor writes it, or the reason when it could not."
@@ -416,7 +431,7 @@ def connect(app, ctx):
         elif act == 'check' and way in (TOOL_WAYS if j.get('tool') else WALK_WAYS):
             kind = CHECK_KIND.get(way, 'short')
             floor = (lr.concept(j.steps[i]['slug']) or {}).get('floor') or 0
-            j = lr.walk_step(jid, i, check=dict(way=way, kind=kind, depth=(2 if floor < 2 else 3) if kind == 'short' else DEPTH[kind], why='you chose it'))
+            j = put(j, i, check=dict(way=way, kind=kind, depth=(2 if floor < 2 else 3) if kind == 'short' else DEPTH[kind], why='you chose it'))
         else: return Response(status_code=400)
         return ui.Plan(j, walk_state(j), by())
 
@@ -430,7 +445,7 @@ def connect(app, ctx):
     def step(jid:str, i:int):
         if not (j := walk_of(jid, i)): return missing()
         if not for_talk(j):   # a side walk of a talk is for the room: it keeps no read time and starts no demo
-            if not j.steps[i].get('read_at'): j = lr.walk_step(jid, i, read_at=time.time())
+            if not j.steps[i].get('read_at'): j = put(j, i, read_at=time.time())
             ahead(j, i + 1)
         back = leela_back(lr, j)
         j, b = lr.journey(jid), by()
@@ -444,7 +459,7 @@ def connect(app, ctx):
         "The tutor note of step `i`, loaded after the page; a failed note shows nothing."
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         try:
-            with writing[jid, i]: return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
+            with held(jid, i): return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
         except Exception: return ''
 
     def source(jid:str, i:int):
@@ -479,7 +494,7 @@ def connect(app, ctx):
     def check(jid:str, i:int):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         if (got := from_leela(j, i)) is not None: return got   # what came back from Leela takes the place of the check
-        with writing[jid, i]:
+        with held(jid, i):
             j = lr.journey(jid)
             if j.steps[i]['check']['kind'] == 'notebook': return card(j, i)   # it runs in Leela: abhyasa opens no question on it
             if not j.steps[i].get('done') and j.steps[i]['check']['kind'] in AIM and not demo(j.steps[i]):
@@ -494,7 +509,7 @@ def connect(app, ctx):
     def nb_again(jid:str, i:int):
         "Try again to write the notebook spec of step `i`, after the tutor could not."
         if not (j := walk_of(jid, i)) or j.steps[i]['check']['kind'] != 'notebook': return Response(status_code=404)
-        if j.steps[i].get('nb_why'): j = lr.walk_step(jid, i, nb_why='')
+        if j.steps[i].get('nb_why'): j = put(j, i, nb_why='')
         return card(j, i)
 
     def notebook(jid:str, i:int):
@@ -509,7 +524,7 @@ def connect(app, ctx):
         "Open in Leela: note the time on step `i` (`leela_at`), then go to the Leela link. When Leela does not run, go back to the step."
         if not walk_of(jid, i): return Response(status_code=404)
         if not (link := leela_link(lr.journey(jid), i, vault=vault)): return RedirectResponse(ui.at(Routes.step, jid, i), status_code=303)
-        lr.walk_step(jid, i, leela_at=time.time())
+        put(lr.journey(jid), i, leela_at=time.time())
         return RedirectResponse(link, status_code=303)
 
     def data(jid:str, i:int, name:str='', path:str=''):
@@ -520,7 +535,7 @@ def connect(app, ctx):
             if why := data_path_why(path.strip()): return Response(f'abhyasa did not keep this path: {why}. Use a folder in your home folder, as ~/Pictures/comic.', status_code=400)
             try: new = validate_nb_spec({**spec, 'data': [{**d, 'path': path.strip()} if d['name'] == name else d for d in spec['data']]})
             except ValueError as e: return Response(f'abhyasa did not keep this path: {e}.', status_code=400)
-            j = lr.walk_step(jid, i, nb=new)
+            j = put(j, i, nb=new)
         return card(j, i)
 
     def answer(jid:str, i:int, answer:str='', thinking:str='', confidence:int=None):
@@ -533,7 +548,7 @@ def connect(app, ctx):
     def run(jid:str, i:int, source:str=''):
         "Run the code of step `i` on its tests; the reply is the results part only."
         if len(source) > MAX_SOURCE: return Response(f'The code is too long. Send at most {MAX_SOURCE:,} characters.', status_code=413)
-        with writing[jid, i]:   # one run at a time, so a double click does not use two tries
+        with held(jid, i):   # one run at a time, so a double click does not use two tries
             j, s = live(jid, i)
             if not s or not j.steps[i].get('code'): return no_check(j, i) if s is None else Response('This check is not a code check.', status_code=409)
             r = s.code(source)
@@ -562,7 +577,9 @@ def connect(app, ctx):
         a = first(x for x in lr.attempts(slug) if x.id == ld.get('aid'))
         def job():
             if not (text := demo_lesson(tutor, a, ld['way'])) or isinstance(text, NoLesson): return   # an empty lesson or the fallback note is a failure
-            with writing[jid, i]: lr.walk_step(jid, i, ladder={**(lr.journey(jid).steps[i].get('ladder') or {}), 'lesson': text})
+            with writing[jid, slug]:   # by its concept: the step can move while the lesson is written
+                st = first(x for x in (lr.journey(jid) or {}).get('steps') or () if x['slug'] == slug)
+                if st is not None: lr.walk_slug(jid, slug, ladder={**(st.get('ladder') or {}), 'lesson': text})
         if a is not None: tutor.jobs[k] = ctx.pool.submit(job)
 
     def climb(jid, i, a):
@@ -574,7 +591,7 @@ def connect(app, ctx):
         elif k == 1: ld = dict(rung=1, aid=a.id, way=other_way(lr, slug, s['check']['way']), **({'simple': True} if simple else {}))
         elif simple: ld = dict(rung=1, aid=a.id, way=other_way(lr, slug, (s['check']['way'], old.get('way', ''))), simple=True)   # "Too simple": one more lesson, no simpler demo
         else: ld = {**old, 'rung': 2}
-        with writing[jid, i]: lr.walk_step(jid, i, ladder=ld)
+        with held(jid, i): put(lr.journey(jid), i, ladder=ld)
         if not backed(lr, slug, tutor.goal):   # the job starts now, so the help is often ready when the page asks
             if ld['rung'] == 1: lesson_job(jid, i, slug)
             else: simpler_demo(tutor, slug)
@@ -608,9 +625,9 @@ def connect(app, ctx):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         if not (ld := j.steps[i].get('ladder')):
             if not simpler or j.steps[i]['check']['kind'] != 'demo': return ui.Slot(jid, i, j.steps[i])
-            with writing[jid, i]: lr.walk_step(jid, i, ladder=(ld := dict(rung=2, asked=True)))
+            with held(jid, i): put(j, i, ladder=(ld := dict(rung=2, asked=True)))
         if simpler and not ld.get('asked'):
-            with writing[jid, i]: lr.walk_step(jid, i, ladder={**lr.journey(jid).steps[i]['ladder'], 'asked': True})
+            with held(jid, i): put(j, i, ladder={**lr.journey(jid).steps[i]['ladder'], 'asked': True})
         s = walk_of(jid, i).steps[i]; ld, slug = s['ladder'], s['slug']
         if not backed(lr, slug, tutor.goal):
             if ld['rung'] == 1 and not ld.get('asked'):
@@ -624,14 +641,14 @@ def connect(app, ctx):
         if not j or (s := j.steps[i])['check']['kind'] not in AIM or not (d := lr.demo(slug)) or d.concept != s['slug']:
             return JSONResponse(dict(ok=False), status_code=404)
         if (s.get('done') or {}).get('outcome') == 'skipped': return JSONResponse(dict(ok=False), status_code=409)
-        if first(a for a in lr.attempts(s['slug']) if (a.get('walk'), a.get('step'), a.get('demo'), a.get('gate')) == (jid, i, slug, gate)):
+        if first(a for a in lr.attempts(s['slug']) if of_step(a, jid, i, s['slug']) and (a.get('demo'), a.get('gate')) == (slug, gate)):
             return JSONResponse(dict(ok=True, again=True))   # one record for each gate of each demo: a second try comes after the answer showed
         st, floor0 = sitting(j), lr.concept(s['slug']).get('floor') or 0
         a = lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, st.id, confidence,
                                  kind=s['check']['kind'], method=s['check']['way'], **step_meta(j, i))
         st.noted(a, floor0)
-        with writing[jid, i]:
-            if not lr.journey(jid).steps[i].get('done'): lr.walk_step(jid, i, done=dict(outcome=a.outcome, aid=a.id, at=time.time()))
+        with held(jid, i):
+            if not lr.journey(jid).steps[i].get('done'): put(j, i, done=dict(outcome=a.outcome, aid=a.id, at=time.time()))
         ws, help_ = walk_state(lr.journey(jid)), climb(jid, i, a)
         # walk.js fills the dot, moves the progress line, and loads the help under the card when there is a `ladder`
         return JSONResponse(dict(ok=True, dot=ws.steps[i].dot, done=ws.done, total=ws.total, **({'ladder': help_} if help_ else {})))
@@ -642,7 +659,7 @@ def connect(app, ctx):
         try: kept = json.loads(state) if len(state) <= MAX_STATE else None
         except ValueError: kept = None
         if kept is None: return Response('The state is not valid.', status_code=400)
-        a = first(a for a in lr.attempts(j.steps[i]['slug']) if a.get('walk') == jid and a.get('step') == i and a.get('demo'))
+        a = first(a for a in lr.attempts(j.steps[i]['slug']) if of_step(a, jid, i, j.steps[i]['slug']) and a.get('demo'))
         if not a: return Response('Make a prediction first.', status_code=409)
         lr.mark_attempt(a.id, keep=kept)
         return JSONResponse(dict(ok=True))
@@ -655,7 +672,7 @@ def connect(app, ctx):
             if (qid := j.steps[i].get('qid')) in tutor.open:
                 tutor.open.pop(qid)
                 if (s := sessions.get(j.get('sitting') or '')) and s.q and s.q.id == qid: s.q = None; s.save()
-            lr.walk_step(jid, i, done=dict(outcome='skipped', at=time.time()))
+            put(j, i, done=dict(outcome='skipped', at=time.time()))
         ends = any(ix[-1] == i for _, ix in st.sections)
         if ends and (sid := j.get('sitting')) and (s := sessions.pop(sid, None) or Session.load(tutor, sid)) and not s.ended:
             s.end()   # the section ends here, on the POST, not on the GET of its summary
@@ -781,6 +798,7 @@ def connect(app, ctx):
                 if len(text) > NOTE_MOST: raise ValueError(f'Write the note in at most {NOTE_MOST} characters.')
                 op, said, field = on_step(slug, lambda s: s.update(note=text or None)), f'Changed the note of idea {k + 1}.', f'{slug}/note'
             elif act == 'q':
+                if (j.steps[k].get('check') or {}).get('kind', 'short') != 'short': raise ValueError('Only a short-answer check asks a question that you write.')
                 if len(text) > Q_MOST: raise ValueError(f'Write the check question in at most {Q_MOST} characters.')
                 def setq(s):
                     ck = {x: v for x, v in (s.get('check') or {}).items() if x != 'q'}
@@ -822,11 +840,18 @@ def connect(app, ctx):
         ins = ' '.join((f.get('chip') or f.get('text') or '').split()).rstrip('.')
         if not ins: return bad('Tell the tutor what to change.')
         k = [s['slug'] for s in j.steps].index(slug)
-        if not j.steps[k].get('note'):   # the note that the step would show: written now, so the tutor can rewrite it
-            try: tutor_note(lr, ctx.ask, j, k, ctx.sources); j = lr.journey(j.id)
-            except Exception: pass
+        if not j.steps[k].get('note'):   # the note that the step would show: written now (outside the lock), and kept with its own Undo
+            try: n = tutor_note(lr, ctx.ask, j, k, ctx.sources, save=False)
+            except Exception: n = ''
+            if n:
+                def first_note(t):
+                    if not t.get('note'): t['note'] = n
+                try: j = edit_walk(lr, j.id, on_step(slug, first_note), f'The tutor wrote the note of idea {k + 1}.', who='tutor')[0]
+                except (KeyError, ValueError): return bad(NO_REWRITE)
+                k = [s['slug'] for s in j.steps].index(slug)
         s = j.steps[k]
-        was = dict(note=s.get('note') or '', q=(s.get('check') or {}).get('q') or '')
+        short = (s.get('check') or {}).get('kind', 'short') == 'short'   # only a short-answer check asks a question that you can write
+        was = dict(note=s.get('note') or '', q=(s.get('check') or {}).get('q') or '' if short else '')
         fields = {x: v for x, v in was.items() if v.strip()}
         if not fields: return bad('Write a note or a check question first.')
         try: new = tutor_rewrite(ask, fields, ins, context=(s.get('read') or {}).get('text') or '')

@@ -45,8 +45,9 @@ def _trim(text:str, n:int=3, words:int=None) -> str:
 # %% ../nbs/15_walk.ipynb #i11
 _NO_TEXT = re.compile(r'no passage|was not provided', re.I)   # a failed note: it talks about a missing text
 
-def tutor_note(lr, ask, j, i:int, sources=None) -> str:
-    "The note for step `i` of walk `j`: kept on the step, else written from the idea and the passage, or from the idea and `sources` when the step has no passage."
+def tutor_note(lr, ask, j, i:int, sources=None, save:bool=True) -> str:
+    """The note for step `i` of walk `j`: kept on the step, else written from the idea and the passage, or from the idea and `sources` when the step has no passage.
+    The note goes on the step with the same concept, wherever it is then. With `save=False`, the note is only returned (the walk editor keeps it with an Undo)."""
     s = (lr.journey(j.id) or j).steps[i]
     if s.get('note'): return s['note']
     c, text = lr.concept(s['slug']), ((s.get('read') or {}).get('text') or '').strip()
@@ -59,14 +60,14 @@ def tutor_note(lr, ask, j, i:int, sources=None) -> str:
         sp = prompt('walk.note_topic')
     n = _trim(for_task(ask, 'note')(p, sp))
     if _NO_TEXT.search(n): n = _trim(c.get('statement', ''))
-    lr.walk_step(j.id, i, note=n)
+    if save: lr.walk_slug(j.id, s['slug'], note=n)
     return n
 
 # %% ../nbs/15_walk.ipynb #i13
 def step_meta(j, i:int) -> dict:
-    "The walk, the step, the section and the page of step `i`, for the record of each attempt. A side walk adds `from`, the step that opened it."
+    "The walk, the step (its place, and `idea`, the slug of its concept, which stays when the step moves), the section and the page of step `i`, for the record of each attempt. A side walk adds `from`, the step that opened it."
     r = j.steps[i].get('read') or {}
-    m = dict(walk=j.id, step=i, section=r.get('section'), page=r.get('page'))
+    m = dict(walk=j.id, step=i, idea=j.steps[i]['slug'], section=r.get('section'), page=r.get('page'))
     if j.get('parent'): m['from'] = '/'.join(map(str, j.parent.values()))
     return m
 
@@ -82,7 +83,7 @@ def open_short(tutor:Tutor, j, i:int, session:str) -> AttrDict:
     if own:
         why = 'you wrote this question'
         tutor.open[q.id].update(rubric=[f"the answer agrees with this: {c.get('statement', '')}"], why=why); q.why = why
-    lr.walk_step(j.id, i, qid=q.id)
+    lr.walk_slug(j.id, s['slug'], qid=q.id)
     return q
 
 # %% ../nbs/15_walk.ipynb #i17
@@ -202,16 +203,17 @@ def _filled(r):
 def nb_spec(lr, ask, j, i:int) -> AttrDict|None:
     "The notebook spec of step `i` of walk `j`: kept on the step, else written by the model and checked. None when two replies fail; then `nb_why` has the reason."
     s = (lr.journey(j.id) or j).steps[i]
+    slug = s['slug']   # the spec goes on the step with this concept, also when you move steps while the model writes
     if s.get('nb'): return AttrDict(s['nb'])
     p, why = nb_prompt(lr, j, i), ''
     for _ in range(2):
         try:
             spec = validate_nb_spec(_filled(ask_json(for_task(ask, 'exercise'), p + (f'\n\nYour last reply was refused: {why}. Write the spec again.' if why else ''), prompt('walk.notebook'))))
-            lr.walk_step(j.id, i, nb=spec, nb_why='')
+            lr.walk_slug(j.id, slug, nb=spec, nb_why='')
             return AttrDict(spec)
         except ValueError as e: why = str(e)
         except Exception as e: why = f'the model did not answer ({type(e).__name__})'; break
-    lr.walk_step(j.id, i, nb_why=why)
+    lr.walk_slug(j.id, slug, nb_why=why)
     return None
 
 # %% ../nbs/15_walk.ipynb #lb03

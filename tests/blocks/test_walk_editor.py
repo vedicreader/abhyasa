@@ -81,7 +81,7 @@ def test_tool_walk_has_no_code_check(mk, lr, walk_fake):
 def test_rewrite_changes_note_and_question_not_passage(mk, lr, walk_fake):
     walk_fake.rules['Rewrite these fields'] = dict(note='A short note.', q='What does softmax give?', passage='NOT THIS')
     cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[1]
-    post(cl, jid, slug=s, act='q', text='Why softmax?'); lr.walk_step(jid, 1, note='A long old note.')
+    post(cl, jid, slug=s, act='check', way='short'); post(cl, jid, slug=s, act='q', text='Why softmax?'); lr.walk_step(jid, 1, note='A long old note.')
     before = lr.journey(jid).steps[1]['read']
     r = post(cl, jid, slug=s, act='rewrite', chip='Simpler')
     st = lr.journey(jid).steps[1]
@@ -92,7 +92,7 @@ def test_rewrite_changes_note_and_question_not_passage(mk, lr, walk_fake):
 def test_a_rewrite_keeps_your_edit(mk, lr, walk_fake):
     "A field that you change during the model call keeps your edit; the model call runs outside the lock."
     cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[1]
-    post(cl, jid, slug=s, act='q', text='Why softmax?'); lr.walk_step(jid, 1, note='Old note.')
+    post(cl, jid, slug=s, act='check', way='short'); post(cl, jid, slug=s, act='q', text='Why softmax?'); lr.walk_step(jid, 1, note='Old note.')
     from abhyasa.edit import edit_lock
     def model(p, sp):
         got = []
@@ -210,3 +210,47 @@ def test_research_none_line_offers_a_pick(mk, lr, walk_fake):
     cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[0]
     lr.walk_step(jid, 0, read=dict(text=''), research='none')
     assert 'Pick a passage yourself' in cl.get(f'/w/{jid}/0/source').text
+
+def test_a_move_during_the_notebook_job_keeps_the_spec_on_its_idea(mk, lr, walk_fake):
+    "The notebook job finds its step by the concept: a move while the model writes the spec puts the spec on the same idea."
+    from abhyasa.contract import NB_SPEC_CASES
+    go, asked = threading.Event(), threading.Event()
+    def model(p, sp): asked.set(); go.wait(5); return NB_SPEC_CASES[0][0]
+    walk_fake.rules['Write one exercise and one real run'] = model
+    cl = mk(); jid = paper_walk(cl, lr); ss = slugs(lr, jid)
+    post(cl, jid, slug=ss[0], act='check', way='notebook')
+    assert asked.wait(5)
+    post(cl, jid, slug=ss[0], act='move', to=2); go.set()
+    assert wait_for(lambda: True if lr.journey(jid).steps[2].get('nb') else None)
+    j = lr.journey(jid)
+    assert j.steps[2]['slug'] == ss[0] and not j.steps[0].get('nb') and not j.steps[1].get('nb')
+
+def test_an_attempt_keeps_the_concept_of_its_step(mk, lr, walk_fake):
+    "Each attempt of a step keeps `idea`, the slug of the step, next to its place, so a move does not lose which step it was."
+    cl = mk(); jid = paper_walk(cl, lr); cl.post(f'/w/{jid}/start'); answer_step(cl, jid, 0)
+    s = slugs(lr, jid)[0]; a = lr.attempts(s, limit=1)[0]
+    assert (a['walk'], a['step'], a['idea']) == (jid, 0, s)
+
+def test_a_note_that_the_rewrite_writes_first_has_its_own_undo(mk, lr, walk_fake):
+    "With no note, the rewrite first writes the note, as its own change by the tutor; two Undos give back the step with no note."
+    walk_fake.rules['Rewrite these fields'] = dict(note='A short note.')
+    cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[1]; old = lr.journey(jid).steps
+    post(cl, jid, slug=s, act='rewrite', text='simpler')
+    es = lr.edits('walk', jid)
+    assert [e.what for e in es] == ['Rewrote the note of idea 2: simpler.', 'The tutor wrote the note of idea 2.'] and es[1].who == 'tutor'
+    cl.post(f'/w/{jid}/undo'); cl.post(f'/w/{jid}/undo')
+    assert lr.journey(jid).steps == old
+
+def test_your_question_only_on_a_short_check(mk, lr, walk_fake):
+    cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[2]
+    post(cl, jid, slug=s, act='check', way='predict')
+    r = post(cl, jid, slug=s, act='q', text='Why divide?')
+    assert r.status_code == 400 and 'short-answer' in r.text and 'q' not in lr.journey(jid).steps[2]['check']
+
+def test_one_rewrite_button_and_room_for_the_bar(mk, lr, walk_fake):
+    "The open idea has one Rewrite button (R, in the row actions); the rewrite box sends with Return or a chip. The Undo bar never sits over the list."
+    cl = mk(); jid = paper_walk(cl, lr)
+    t = cl.get(f'/w/{jid}/edit?open={slugs(lr, jid)[0]}').text
+    assert t.count('>Rewrite<') == 0 and t.count('data-rewrite="1"') == 3 and 'Press Return to send' in t
+    css = (Path(__file__).parents[2]/'abhyasa/blocks/walk/walk.css').read_text()
+    assert 'scroll-padding-bottom' in css and 'position: sticky' in css
