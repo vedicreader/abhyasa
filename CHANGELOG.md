@@ -2,6 +2,84 @@
 
 <!-- do not remove -->
 
+## 0.0.14
+
+### The walk path editor and the talk editor
+
+- A walk has an editor for its path. Open it with "Change the walk" on the plan page or on the rail of a step. The path page of a walk opens it too. Each change saves at once. There is no Save button.
+- In the walk path editor, you can move an idea (drag its grip, or ⇧W and ⇧S), skip it and bring it back, add an idea (by name, from the concept tree, or from a source), split it into smaller ideas (P), merge it with the next idea (M) and remove it (X). You can change the tutor note, the kind of check and the check question. "Pick another passage" shows only passages that are word for word in the walk documents.
+- "Rewrite" (R) asks the tutor to write the note and the check question again, with the chips Simpler, Add an example and Shorter. A text that you changed while the tutor wrote stays as you wrote it.
+- The walk path editor shows how many checks are hands-on, and says when the walk has more than the setting allows. A notebook step that builds your goal does not count.
+- A side walk stays with its idea when you move, merge or remove that idea, and Undo puts it back.
+- The talk editor changes a slide in its row: the title, the points that the room sees, the speaker note, the passage, the figure, the beats and the question for the room. It saves at once. There is no Save button.
+- The talk editor shows the figure as a small picture, with "Pick another figure" and "Remove the figure". The beats are chips that you drag or move with the keys. "Add a beat" adds a part that the slide has. Select words in the passage to light them.
+- In the talk editor, D duplicates a slide, X removes it, R rewrites it, A adds a slide and Q adds a pause. Sections show as labels between the slides.
+- Each editor has an Undo bar. It says what changed in one sentence. Undo (⌘Z) puts back that change exactly. In a text box, ⌘Z undoes your typing. "Earlier versions" lists the changes, and you can go back to one. That is a change too, so you can undo it.
+- "Fill the slides" keeps a row in Earlier versions, so you can undo it.
+
+### "Make it again" keeps your edits
+
+- "Make the talk again (keeps your edits)" makes a talk again from its walk. A part of a slide that you changed stays. A slide for a new idea, or for an idea whose step changed, is made again.
+- A slide whose idea left the walk goes under "Not in the walk any more". It is not in Present, in the minutes or in the room. Use "Put back" or "Remove". When the idea comes back to the walk, all its slides come back.
+- The talk editor says what changed in the walk since the talk was made: ideas added, removed, moved and changed.
+- "Make a second talk" is under More on the walk page. Undo after "Make it again" gives back the exact talk.
+
+### Concepts: sort by hand
+
+- On the Concepts page, you can rename a group, make a new group, and drag a concept by its handle onto a group. "Move to…" does the same with the keyboard.
+- On a concept page, the Name field renames the concept. The old name stays as an alias, so the find box still finds it.
+- Each change by hand shows an Undo bar, and ⌘Z undoes it.
+- "Sort everything again" is under More. It shows the whole new tree before you accept. Each group that you made stays, unless you clear its box.
+
+### Sources
+
+- The Ramayana episodes of vedicreader are a source. A passage from an episode has its Valmiki cite, for example "Bāla, sarga 1, verses 1-5". When vedicreader runs, "Open in vedicreader" opens the episode. The Sources page says how many episodes it found.
+- A walk to a goal is planned from the sources that the goal names, top down. Each step reads its passage from a document that the plan names. "Use sources for this walk" on a path does the same for a path that you have.
+- Research looks for each idea by its name, its subject and the walk title. It never sends the text of your goal. A quote must name the idea. A link to a paper goes to the paper reader. A paper that gives no quote is not kept.
+- When research finds no passage, the step says why: "The search found nothing.", "No page had a good quote." or "The page could not be read: <reason>." A step that waits too long for a source, also from before a restart, is tried again (setting: Look again after, 10 minutes).
+- For a goal that names two or more sources, or a source folder with more than 40 documents, an agent gathers the passages. A band on the walk says what it reads. "Show what it did" opens its log in the side pane. "Stop" stops it. The agent has no shell. abhyasa checks each passage word for word before it keeps it. A note from the agent is marked as its own words.
+- New settings for the agent: "Let an agent gather sources for a big goal" (on by default) and "Most minutes for the agent" (15). If the agent cannot start, the walk uses the simple search, and a line says why.
+- A YouTube explainer video can go with a concept. "Find a video" looks on YouTube, or you paste a link. "Remove the video" takes it away. The video shows on the concept page and on the walk step, from youtube-nocookie, with no autoplay. A quiet transcript shows the times, and a time moves the video to that place.
+- An arXiv paper is read from its HTML page first, so the passages keep their maths and the figures are saved. When there is no HTML page, abhyasa reads the PDF as before.
+- Passages on the concept page and on talk slides show maths. A passage is never cut inside a formula.
+- Lines of page data, such as "Last modified", are taken out of a web page before the word-for-word check and before abhyasa files the page.
+- A GitHub repo is cloned over HTTPS with fossick. The `repos` extra is gone. The GitHub API uses your gh token when gheasy is installed.
+
+### Leela: results and notebook steps
+
+- What you did in Leela comes back to the walk step: your code check, your prediction and your run, with its images. A check that passes in Leela marks the step done. The step then offers "Next idea".
+- The walk end page shows "What you made": the last images of your run, with the caption and the source line.
+- "Open the lesson in Leela" links to the lesson of the step. A result matches its step by the concept, so a change to the walk path does not move it to another step.
+- abhyasa shows only the images that an accepted run lists, and only PNG files from Leela's folder in the vault.
+- A notebook step on the Ramayana episodes names the real episode files on this Mac as its data.
+
+### Image demos
+
+- For an idea about images or noise, the tutor can make a demo that draws an image from a formula, with seeded noise. You can change this prompt on the Settings page (Image demos). This needs rupaka 0.0.7.
+
+### The screen guide
+
+- Press Caps+E (⌃⌥⇧⌘E), or the Explain button in the top bar. Hold the keys to talk, or tap them to type. Then say what you do not get, for example "I don't get alpha bar".
+- The tutor answers on the page, as a teacher does at a whiteboard. It circles a term in a formula, points to a label in a figure, moves a demo and speaks one short line for each step. The marks stay on their place when the page scrolls or changes size.
+- A, S and D say a step again, go back and go to the next step. Esc stops the board. A key that you type in a text box or in an editor stays in that box.
+- A pill says where the answer is from: the tutor, your vault or the web. A quote from a source is word for word and has its link. When the tutor is not sure, it looks in your vault, and then on the web.
+- When a concept has an explainer video, the board can move the video to the right time and quote what it says there.
+
+### Library and You
+
+- Sources in Library is now a list of your documents. Each row shows the title, the kind, the date it was added, and the walks and talks that use it.
+- A folder or a repo that Start filed is one row, with the count of its documents. For one hour it has Undo. After that, it has Remove.
+- An arXiv paper is one row, also when you have its HTML copy and its PDF copy.
+- The vedicreader line, the import and the index buttons are under "Add more sources".
+- Your learning shows "Your strengths": your weak spots and "Practice my weak spots". An empty Concepts page says "Concepts appear here when you start a walk."
+
+### Safety
+
+- No secret and no personal data leaves the Mac without the guard: the screen guide, the gather agent, the web queries, the links and the log go through ramabana's PII guard. The guard follows the ramabana setting `cli.pii`. When the guard withholds a text, the screen guide says so in one plain line.
+- Every page fetch refuses a private address (`allow_private=False`), also when `FOSSICK_ALLOW_PRIVATE` is set.
+- The path checks: the agent reads only files in the folders of your sources and in its own clones. It never reads through a link, and never a key file such as `.env` or a keychain file. A clone has the same rules as a folder on this Mac.
+- The agent has a time limit and a spend limit for each walk.
+
 ## 0.0.13
 
 - The app says "walk" for each journey: the pages, the notes, the docstrings and the vault titles. The path page moves to `/path/<id>`. An old `/j/<id>` link goes there.
