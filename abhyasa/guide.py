@@ -6,9 +6,11 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
-           'FIGURE_SP', 'GUIDE_SP', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat', 'anchor_why', 'by_id',
-           'cue_at', 'check_line', 'parse_board', 'clean_context', 'figure_labels', 'FigureCache', 'vision_ask',
-           'Withheld', 'pii_policy', 'guard', 'page_text', 'board_prompt', 'guide_ask', 'web_sources', 'explain']
+           'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat', 'anchor_why',
+           'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'clean_context', 'figure_labels', 'FigureCache',
+           'vision_ask', 'Withheld', 'pii_policy', 'guard', 'page_text', 'board_prompt', 'video_id', 'video_cues',
+           'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'guide_ask', 'video_source',
+           'web_sources', 'explain']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -90,12 +92,20 @@ def cue_at(cues, t:float):
         else: break
     return out
 
-def _in_cues(cues, t:float, quote:str) -> bool:
-    "Whether `quote` (3 words or more) is word for word in the cue at `t` with the cue before and after it."
-    if len(quote.split()) < 3 or not (c := cue_at(cues, t)): return False
+def cue_quote(cues, t:float, quote:str):
+    "`(start, words)` when `quote` (3 words or more) is word for word in the cue at `t` with the cue before and after it: the start of the cue where it begins, and the quote as the transcript says it. Else None."
+    if not isinstance(quote, str) or len(quote.split()) < 3 or not (c := cue_at(cues, t)): return None
     i = list(cues).index(c)
-    near = ' '.join(x[1] for x in cues[max(0, i - 1):i + 2])
-    return re.search(rf'(?<!\w){re.escape(flat(quote))}(?!\w)', flat(near)) is not None
+    near = cues[max(0, i - 1):i + 2]
+    parts = [' '.join(str(x[1]).split()) for x in near]
+    m = re.search(rf'(?<!\w){re.escape(" ".join(quote.split()))}(?!\w)', ' '.join(parts), re.I)
+    if not m: return None
+    at = 0
+    for k, p in enumerate(parts):
+        if m.start() < at + len(p) + 1: return near[k][0], m.group(0)
+        at += len(p) + 1
+
+def _in_cues(cues, t:float, quote:str) -> bool: return cue_quote(cues, t, quote) is not None
 
 # %% ../nbs/21_guide.ipynb #g028
 def _demo_why(o, ctx) -> str:
@@ -136,7 +146,7 @@ def check_line(o, ctx) -> str:
     if op == 'demo_set': return _demo_why(o, ctx)
     if op == 'video_at':
         v, t, q = ctx.get('video') or {}, o.get('t'), o.get('quote')
-        if not v.get('cues'): return 'no video on the page'
+        if not v.get('cues') or not re.fullmatch(r'[A-Za-z0-9_-]{11}', str(v.get('id') or '')): return 'no video on the page'
         if not (_num(t) and t >= 0 and isinstance(q, str) and len(q) <= 200): return 'a bad video mark'
         if not _in_cues(v['cues'], t, q): return 'the quote is not in the transcript at that time'
     return ''
@@ -149,6 +159,12 @@ def _quote(o, ctx):
     if not (isinstance(src, int) and 1 <= src <= len(ss) and isinstance(q, str)): return None
     if not (v := verbatim(q, ss[src - 1].get('text') or '')): return None
     return dict(src=src, text=v)
+
+def _video_mark(o, ctx) -> dict:
+    "The checked `video_at` line `o`, at the start of the cue that holds its quote, with the quote as the transcript says it and fossick's `yt_link` to that time."
+    from fossick import yt_link
+    t, q = cue_quote(ctx.video['cues'], o['t'], o['quote'])
+    return dict(op='video_at', t=t, quote=q, link=yt_link(ctx.video['id'], t), **({'w': o['w']} if 'w' in o else {}))
 
 def _objects(lines):
     "Each line as one object, or None when it is not one JSON object of 600 bytes or less. A step with its strokes inside it gives the step, then each stroke."
@@ -184,7 +200,7 @@ def parse_board(text:str, ctx) -> AttrDict:
                     out.steps.append(s)
             elif not out.steps: why = 'a stroke before the first step'
             elif len(out.steps[-1]['strokes']) >= LIMITS['strokes']: why = 'more than 6 strokes in a step'
-            else: out.steps[-1]['strokes'].append({k2: v for k2, v in o.items() if k2 != 'n' or o['op'] == 'clear'})
+            else: out.steps[-1]['strokes'].append(_video_mark(o, ctx) if o['op'] == 'video_at' else {k2: v for k2, v in o.items() if k2 != 'n' or o['op'] == 'clear'})
         if why:
             out.dropped.append((k, why)); run += 1
             if run >= 2: out.failed = True; break
@@ -356,10 +372,76 @@ def board_prompt(ctx, said:str, sources=(), tier:str='tutor') -> str:
     srcs = '\n'.join(f"Source {k}: " + fence(s.get('title') or '', s.get('text') or '') for k, s in enumerate(sources, 1))
     return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + f"Tier: {tier}\nReply with the JSON lines."
 
+# %% ../nbs/21_guide.ipynb #gv01
+WATCH = 'https://www.youtube.com/watch?v='
+_VID = re.compile(r'[A-Za-z0-9_-]{11}')
+
+def video_id(url_or_id:str) -> str:
+    "The id of a YouTube link or id, as fossick's `yt_link` reads it. Raise `ValueError` when it names no video."
+    from fossick import yt_link
+    s = str(url_or_id or '').strip()
+    if not s or len(s) > 300 or (not _VID.fullmatch(s) and not re.match(r'https?://(?:[a-z0-9-]+\.)?(?:youtube\.com|youtu\.be|youtube-nocookie\.com)/', s, re.I)):
+        raise ValueError('This is not a YouTube link.')
+    return re.search(r'v=([A-Za-z0-9_-]{11})', yt_link(s, 0)).group(1)
+
+def video_cues(cues) -> list:
+    "fossick's cues `{start, end, text}` as the board's `[start, text]`, with empty lines dropped."
+    return [[round(float(c['start']), 2), ' '.join(str(c['text']).split())] for c in cues or ()
+            if isinstance(c, dict) and _num(c.get('start')) and str(c.get('text') or '').strip()]
+
+# %% ../nbs/21_guide.ipynb #gv05
+def find_explainer(name:str, topic:str='', search=None, n:int=5) -> AttrDict|None:
+    "The first video that fossick's `search_yt` finds for the idea `name`, as `id`, `title`, `channel` and `url`; None when there is none."
+    if search is None: from fossick import search_yt as search
+    q = guard(' '.join(f'{name} {topic} explained'.split())[:150])
+    for h in search(q, n) or ():
+        vid, d = str(h.get('id') or ''), h.get('duration')
+        if not _VID.fullmatch(vid) or (_num(d) and not 60 <= d <= 3600): continue
+        return AttrDict(id=vid, title=_s(h.get('title') or '', 200), channel=_s(h.get('channel') or h.get('uploader') or '', 100), url=WATCH + vid)
+    return None
+
+# %% ../nbs/21_guide.ipynb #gv09
+def _yt_shelf(lr): return lr.vault.shelf(lr.vault.route('youtube').name)
+
+def file_video(lr, url:str, slug:str=None) -> AttrDict:
+    "File the YouTube video `url` in the vault with its cues, and make it the explainer of concept `slug`. Return its provenance entry."
+    from fossick.core import read_yt
+    from abhyasa.sources import public_url
+    vid = video_id(url)
+    u = public_url(WATCH + vid)
+    sh = _yt_shelf(lr)
+    r = sh.youtube(u)
+    if not r.get('doc_id'): raise ValueError(f"abhyasa could not file this video: {r.get('skipped') or 'no transcript'}.")
+    v = read_yt(u, cues=True)
+    sh.set_meta(r['doc_id'], cues=video_cues(v.get('cues')), vid=vid)
+    e = dict(src='video', shelf=sh.name, doc_id=r['doc_id'], vid=vid, url=u, title=_s(v.get('title') or '', 200),
+             channel=_s(v.get('channel') or '', 100), at=time.time())
+    if slug: set_video(lr, slug, e)
+    return AttrDict(e)
+
+def set_video(lr, slug:str, e=None):
+    "Make `e` the one explainer video of concept `slug`; None takes the video away. Under the lock of the concept."
+    from abhyasa.research import _clock
+    with _clock(slug):
+        if not (c := lr.concept(slug)): return None
+        return lr.update(slug, provenance=[p for p in c.get('provenance') or () if p.get('src') != 'video'] + ([e] if e else []))
+
+def concept_video(c) -> dict|None:
+    "The explainer video in the provenance of concept `c`, or None."
+    return next((p for p in reversed((c or {}).get('provenance') or ()) if p.get('src') == 'video' and _VID.fullmatch(str(p.get('vid') or ''))), None)
+
+def video_of(lr, vid:str) -> AttrDict|None:
+    "The filed video `vid` as the guide uses it: `id`, `title`, `channel`, `url` and `cues`. None when the vault does not have it."
+    if not _VID.fullmatch(str(vid or '')): return None
+    d = first(_yt_shelf(lr).t.docs(where='source=?', where_args=[WATCH + vid]))
+    if not d: return None
+    m = json.loads(d.get('meta') or '{}')
+    return AttrDict(id=vid, title=_s(d.get('title') or '', 200), channel=_s(m.get('channel') or '', 100), url=WATCH + vid, cues=m.get('cues') or [])
+
 # %% ../nbs/21_guide.ipynb #g073
 NO_SOURCE = "In the tutor's own words. No source found."
 WITH_SOURCE = "In the tutor's own words, with quotes from the sources below."
-LABEL = dict(page='your source', vault='your vault', web='web')
+LABEL = dict(page='your source', vault='your vault', web='web', video='video')
 
 def guide_ask(ask, name:str=''):
     """The `ask` of the guide: the ramabana job `guide` on `name`, else on the model of hints (a fast one); a test model as it is.
@@ -368,13 +450,21 @@ def guide_ask(ask, name:str=''):
     def call(p, sp=''): return ask(guard(p), sp)
     return call
 
+def video_source(v) -> dict|None:
+    "The video `v` (from `video_of`) as a source: its transcript, labelled *video*, with its channel and title."
+    if not v or not v.get('cues'): return None
+    return dict(title=' · '.join(x for x in (v.get('channel'), v.get('title')) if x) or 'The explainer video', text=' '.join(c[1] for c in v['cues']),
+                label=LABEL['video'], url=WATCH + v['id'], video=True)
+
 def _page_sources(ctx) -> list:
-    "The passage on the page as source 1, when the page names its source."
+    "The passage on the page as source 1, when the page names its source; then the transcript of the video on the page."
     p = (ctx.by.get('passage') or {}).get('text')
-    return [dict(title=ctx.get('source') or 'The passage', text=p, label=LABEL['page'], url='')] if p and ctx.get('source') else []
+    out = [dict(title=ctx.get('source') or 'The passage', text=p, label=LABEL['page'], url='')] if p and ctx.get('source') else []
+    return out + ([v] if (v := video_source(ctx.get('video'))) else [])
 
 def _done(tier, b, srcs, t0) -> AttrDict:
     used = {s['quote']['src'] for s in b.steps if s.get('quote')}
+    if any(x['op'] == 'video_at' for s in b.steps for x in s['strokes']): used |= {k for k, s in enumerate(srcs, 1) if s.get('video')}
     ss = [dict(n=k, title=s.get('title', ''), url=s.get('url', ''), label=s['label'], quoted=k in used) for k, s in enumerate(srcs, 1)]
     return AttrDict(tier=tier, steps=b.steps, sources=ss, sure=b.sure, failed=b.failed and not b.steps, dropped=len(b.dropped),
                     end=WITH_SOURCE if used else NO_SOURCE, ms=round((time.monotonic() - t0) * 1000))

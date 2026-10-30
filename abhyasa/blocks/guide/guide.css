@@ -8,3 +8,14 @@ nav .guide-go:hover, nav .guide-go.on { border-color: var(--acc); }
 .guide-form input { flex: 1; min-width: 0; }
 .guide-form .guide-heard { font-size: var(--t-meta); white-space: nowrap; }
 @media print { .guide-go, .guide-form, .guide-strip { display: none; } }
+
+/* The explainer video: the embed at 16:9, a quiet source line, and a transcript that stays closed until you open it. */
+.guide-video { margin: var(--s3) 0; max-width: 640px; }
+.guide-embed { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 6px; background: var(--rule); }
+.guide-video .src-line { margin: var(--s1) 0 0; }
+.guide-quiet summary { cursor: pointer; font-size: var(--t-meta); }
+.guide-transcript { max-height: 16rem; overflow-y: auto; font-size: var(--t-meta); color: var(--mute); }
+.guide-transcript p { margin: 2px 0; }
+.guide-transcript a { margin-right: var(--s1); font-variant-numeric: tabular-nums; }
+.guide-video-tools { margin-top: var(--s2); }
+.guide-paste input { flex: 1; min-width: 0; max-width: 28rem; }

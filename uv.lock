@@ -55,7 +55,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastcore", specifier = ">=1.8" },
-    { name = "fossick", specifier = ">=0.1.23" },
+    { name = "fossick", specifier = ">=0.1.24" },
     { name = "gheasy", marker = "extra == 'dev'", specifier = ">=0.0.18" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=7.3.0" },
     { name = "ipywidgets", specifier = ">=8.1" },
@@ -1356,7 +1356,7 @@ wheels = [
 
 [[package]]
 name = "fossick"
-version = "0.1.23"
+version = "0.1.24"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -1373,9 +1373,9 @@ dependencies = [
     { name = "scrapling", extra = ["fetchers"] },
     { name = "yt-dlp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2b/9b/0ae4fc75c495dcd7b13bfce43273a865786c5de604f640d3ece69651161c/fossick-0.1.23.tar.gz", hash = "sha256:47cb3536fc085e1facf7459e79a7ce7ca94a9214d05d9d9c81d39b939080e791", size = 104201, upload-time = "2026-10-29T23:48:19.143Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/65/98/61b4f67844a5f6869ecbc7f9e3cecaf90c55f22e2788853efb195a91bbf4/fossick-0.1.24.tar.gz", hash = "sha256:70fe2ec377db788ad8adfb1490351fc5860a03ffec35a1557fba8a6a991457ef", size = 104987, upload-time = "2026-10-30T05:57:37.743Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/45/1d/42a4bb4b8ae4b15796f2f8f110c09f3b59e08eff3febf27207bffe682fc1/fossick-0.1.23-py3-none-any.whl", hash = "sha256:76e8c24f6a0f94dfb44636c81880ed80fc6fce16bb2fa31f6e79aa3471bc53ba", size = 104542, upload-time = "2026-10-29T23:48:17.801Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/72/67b899d20dab0a9f2a8c008826331d6b64842472a932d973bea9b6e95085/fossick-0.1.24-py3-none-any.whl", hash = "sha256:f734efd039abf0a81f45b97c3acfc635cb5d5af0b042ae7b1f26eadb7ecbf24f", size = 105196, upload-time = "2026-10-30T05:57:36.417Z" },
 ]
 
 [[package]]

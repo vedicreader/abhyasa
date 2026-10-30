@@ -52,7 +52,7 @@ def HDRS():
             asset_css(_here/'base.css'), asset_css(_here/'themes.css'),
             Link(rel='stylesheet', href='/vendor/katex.min.css'), Script(src='/vendor/katex.min.js', defer=True),
             asset_css(_here/'pane.css'), asset_js(_here/'core.js'), asset_js(_here/'grip.js'), asset_js(_here/'pane.js'),
-            asset_css(_here/'board.css'), asset_js(_here/'board.js'))   # the board of the screen guide; its pen libraries load on first use
+            asset_css(_here/'board.css'), asset_js(_here/'texparts.js'), asset_js(_here/'board.js'))   # the board of the screen guide and its formula parts; its pen libraries load on first use
 
 THEMES = dict(paper='Warm paper, umber accent', ink='Calm, high contrast, dark first', manuscript='Palm leaf, saffron accent',
               clear='System font, plain and bright', sage='Soft green-grey, low glare', signal='Silver panels, orange controls')   # themes.css has the colours
