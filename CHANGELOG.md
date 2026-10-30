@@ -2,6 +2,41 @@
 
 <!-- do not remove -->
 
+## 0.0.15
+
+### The screen guide shows what it does
+
+- The guide line says what the guide does now: it reads the page, it asks a model, it searches the web, or it saves to your vault. It names the model and shows "on this Mac" or "hosted · <provider>". A web search shows its query word for word.
+- When the guide saves a web page to your vault, the end line says "Saved to your vault: <title>." with Undo.
+- The guide sends a figure picture to the vision model only when your question is about that figure, and it says so before it sends it.
+- The mic shows its level and where speech to text runs. The board has Stop and Voice off. The new setting `guide.voice` keeps your choice.
+- A board on an open check counts as one hint, and the check says so.
+
+### Faster boards
+
+- Step 1 of a sure tutor board draws while the model writes the rest. In tests, step 1 showed at about 5.5 s, before the whole board (about 8.7 s).
+- The app starts the guide model at launch and again when Caps+E goes down. Nothing is sent to the model.
+
+### Show while you talk
+
+- Circle a part with the pointer, or hold the pointer still on it, while you ask. The guide explains that part first. A faint trail and a ring show what the guide saw. Nothing is kept after you send the question.
+
+### The Mac app: the guide over other apps
+
+- Caps+E over any app reads the front window with Accessibility and draws the board over it. The guide is off until you start it from a first-use sheet that says what it reads and where it sends it.
+- A mark in the menu bar shows the state of the guide, with Stop, Voice off and Turn off.
+- The Mac app uses abhyasa 0.0.14 and has `make ship V=<version>` for a release.
+
+### Built on ramabana and rishi
+
+- The gather agent is a plain ramabana `Agent` with `only_tools`. ramabana estimates its cost.
+- Each text to a model and each web query goes through `ramabana.guard`, for the model of each route.
+- ramabana sessions and memory come from `ramabana.history.History`.
+- A model call that runs past its deadline gives a clear error.
+- The model list names an Ollama on another computer as hosted, not "on this Mac".
+- A file under a macOS `Keychains` folder counts as a secret.
+- abhyasa needs ramabana 0.2.96 and rishi 0.1.63. rishi 0.1.63 runs Claude one-shots on a Mac with an enterprise MCP config.
+
 ## 0.0.14
 
 ### The walk path editor and the talk editor
