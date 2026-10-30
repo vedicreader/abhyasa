@@ -57,9 +57,9 @@
 - Test: `tests/blocks/test_guide.py`, `tests/test_guide.py`
 
 **Interfaces:**
-- Produces (engine): `clean_context(raw:dict) -> AttrDict` (keeps only known keys, cuts text to 300 characters an anchor and 6000 in all), `tex_tokens(tex:str) -> list[str]`, `FIGURE_SP`, `figure_labels(vision, img:bytes, alt:str) -> dict[str, list[int]]`, `FigureCache(path)` with `get(key)`, `put(key, labels)` (keys are the SHA-1 of the image bytes; only boxes are kept).
+- Produces (engine): `clean_context(raw:dict) -> AttrDict` (keeps only known keys, cuts text to 300 characters an anchor and 6000 in all), `FIGURE_SP`, `figure_labels(vision, img:bytes, alt:str) -> dict[str, list[int]]`, `FigureCache(path)` with `get(key)`, `put(key, labels)` (keys are the SHA-1 of the image bytes; only boxes are kept).
 - Produces (block): `POST /guide/figure` (body: the image bytes; query `alt`) -> `{key, labels}`; `page_extra` adds the guide assets, the Explain button and the box.
-- Produces (JS): `abhyasaGuide.capture() -> {page, step, concept, anchors:[{id, kind, text, tex?, tokens?, labels?, inputs?}], demo:{inputs, open}, video?}`. Ids: element ids (`passage`, `figure`, `note`, `check`), `m1…` for each formula, `demo`, `in:<name>` for a demo input, `out:<n>` for a readout.
+- Produces (JS): `texParts(tex, f)` (the TeX parts, tested with node), `abhyasaGuide.capture() -> {page, step, concept, anchors:[{id, kind, text, tex?, tokens?, labels?, inputs?}], demo:{inputs, open}, video?}`. Ids: element ids (`passage`, `figure`, `note`, `check`), `m1…` for each formula, `demo`, `in:<name>` for a demo input, `out:<n>` for a readout.
 
 - [ ] **Step 1: Write failing tests**: `clean_context` drops unknown keys and cuts long text; `tex_tokens` of the DDPM formula holds `\bar\alpha_t`, `\sqrt{\bar\alpha_t}`, `\mathbf{x}_0` and `(1-\bar\alpha_t)`; `figure_labels` with a Fake vision reply gives `{'a': [...], 'b': [...]}` and drops boxes out of 0..1000; the route caches: a second post makes no vision call; the page has `#guide-go` with the text "Explain" and the guide script.
 - [ ] **Step 2: Run** the tests. Expected: fail.
@@ -113,18 +113,23 @@
 - [ ] **Step 2–4:** run, implement, run.
 - [ ] **Step 5: Commit** `Open the guide with Hyper+E or the Explain button`.
 
-### Task 6: A YouTube explainer on a concept
+### Task 6: A YouTube explainer on a concept (left as a plan task)
 
-**Files:**
-- Modify: `nbs/21_guide.ipynb`, `abhyasa/blocks/guide/app.py`, `ui.py`
-- Test: `tests/test_guide.py`, `tests/blocks/test_guide.py`
+**Status (30 Oct 2026):** not built. fossick 0.1.23 gives `search_yt` and `read_yt`, and `read_yt` gives the transcript, but
+`_parse_vtt` removes the times. The board needs the time of each line (`video_at` seeks to it and links `&t=…s`). The owner's
+rule is to write no YouTube or transcript parser in abhyasa (dependency audit, finding 11). So the first step is upstream.
 
-**Interfaces:**
-- Produces: `yt_id(url) -> str`, `timed_cues(vtt:str) -> list[(float, str)]` (with yt-dlp's `webvtt.parse_fragment`), `video_cues(url, extract=None, get=None) -> AttrDict(id, title, channel, cues)`, `find_explainer(name, search=None) -> list`, `file_explainer(lr, slug, v) -> AttrDict`, `cue_at(cues, t) -> (t, text)`, `stamp(vid, t) -> str` (`https://www.youtube.com/watch?v=…&t=…s`). `concept_more` shows the video (youtube-nocookie embed with `enablejsapi=1`), and `video_at` seeks it with `postMessage` and quotes the cue with its link.
+What phase 1 already has: `video_at` in the board language, with its check (`cue_at`: the quote must be word for word in the
+cue at `t`, or the one before or after it); the capture reads `#guide-video[data-vid]`; `board.js` seeks a
+youtube-nocookie iframe with `postMessage` and links the time.
 
-- [ ] **Step 1: Write failing tests** with fake `extract` and `get`: cues have times; the transcript is filed in the vault with `[m:ss]` lines and linked in the concept's provenance; `video_at` with a quote from the cue passes, and with other words drops.
-- [ ] **Step 2–4:** run, implement, run.
-- [ ] **Step 5: Commit** `Let a concept carry a YouTube explainer that the board can quote at a time`.
+**Steps when fossick has the cues:**
+- [ ] fossick: `read_yt(url, cues=True)` returns `cues: [(t, text)]` as well as `source` (cached by id, as now).
+- [ ] abhyasa: `find_explainer(name)` with `fossick.search_yt`; file the transcript with `Vault.youtube`, linked in the
+  concept's provenance; keep `cues` in the document meta.
+- [ ] guide block: `concept_more` shows the video (`youtube-nocookie.com/embed/<id>?enablejsapi=1`) as `#guide-video`; the
+  ask route adds `ctx.video.cues` from the vault.
+- [ ] Tests with fakes for `search_yt` and `read_yt`: the cues reach the prompt; `video_at` with words from the cue passes.
 
 ### Task 7: The browser check and the release checks
 

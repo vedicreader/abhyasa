@@ -25,4 +25,4 @@ def Strip():
 
 def Parts():
     return (Box(), Strip(), asset_css(_P/'guide.css'),
-            asset_js(_P/'guide.js', data_ask=Routes.ask, data_figure=Routes.figure, data_cues=Routes.of(Routes.cues, vid='')))
+            asset_js(_P/'guide.js', data_ask=Routes.ask, data_figure=Routes.figure))

@@ -126,3 +126,8 @@ def test_guard_masks_and_refuses(monkeypatch):
     monkeypatch.setattr(ramabana.setup, 'setting', lambda k, d=None: 'refuse' if k == 'cli.pii' else d)
     import pytest
     with pytest.raises(Withheld): guard('Mail me at ada.lovelace@example.com please.')
+
+def test_a_secret_in_a_figure_caption_never_reaches_the_vision_call():
+    seen = []
+    figure_labels(lambda p, img, sp='': seen.append(p) or '{"labels": []}', b'\x89PNG', f'A triangle. Key {SECRET}')
+    assert seen and SECRET not in seen[0] and '[SECRET]' in seen[0]
