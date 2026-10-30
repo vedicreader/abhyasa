@@ -67,7 +67,7 @@ def SortButton(subject='', n=0):
 
 def Listing(cs, q='', subject='', said='', new=0):
     "The normal view: the line of a failed sort, the find box and the sort action, then the tree."
-    if not cs and not q: return Empty('No concepts yet.', A('Add a source', href='/add'))
+    if not cs and not q: return Empty('Concepts appear here when you start a walk.', A('Start a walk', href='/learn'))
     hits = [c for c in cs if finds(c, q)] if q.strip() else cs
     body = Tree(hits, deep=bool(q.strip())) if hits else Empty(f'No concept matches “{q}”.', A('Search everything', href=f"/search?{urlencode(dict(q=q))}"))
     return (P(said, cls='req-err') if said else '', Counts(cs), Div(Find(q, subject), SortButton(subject, new), cls='tools'), body)

@@ -1,7 +1,7 @@
 "Your learning: past sessions with what moved, what you learned each week, and Continue: in the top bar and on Today."
 import time
 from fasthtml.common import *
-from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago
+from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago, Empty
 from abhyasa.settings import val
 from abhyasa.tutor import moved
 from abhyasa.journey import progress, parent_step, for_talk
@@ -88,11 +88,14 @@ def connect(app, ctx):
             groups.setdefault(day, []).append(ui.Row(s, title(s, by, js), moved(s.get('log') or []), back(s, js), lead=first))
         wk = week()
         ups = sum(len(ms) for w, ms in weeks([s for s in ss if (s.get('start') or 0) > time.time() - 7 * DAY], by))
+        top = run('learning_top')
+        if not groups and not any(n for _, n in wk) and not top:
+            return Page('Your learning', ui.css(), H1('Your learning'), Empty('Nothing yet. Do a walk or a review.'), *run('learning_end'), on='You', sub='Your learning')
         return Page('Your learning', ui.css(), H1('Your learning'),
                     P('This page keeps each session, with what moved. Open a session to read its questions again, or to continue it.', cls='mute'),
                     H2('This week'), ui.Week(wk),
                     P(f"{n_of(sum(n for _, n in wk), 'question')} in the last seven days · {n_of(ups, 'concept')} moved up.", cls='mute week-sum'),
-                    H2('What you learned'), ui.Learned(weeks(ss, by)),
+                    *top, H2('What you learned'), ui.Learned(weeks(ss, by)),
                     ui.Runs(list(groups.items())), *run('learning_end'), on='You', sub='Your learning')
 
     def one(sid:str):

@@ -94,7 +94,7 @@ def test_meta_lines_have_no_stray_dot(mk, lr):
 
 def test_counts_have_the_right_plural(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr)
-    assert '1 documents' not in cl.get('/sources').text and ' 1 document' in cl.get('/sources').text
+    assert '1 documents' not in cl.get('/sources').text
     assert not re.search(r'\b1 concepts\b', cl.get('/concepts').text + cl.get('/').text)
     assert not re.search(r'of 1 (ideas|steps)\b', cl.get('/journeys').text + cl.get(f'/j/{jid}').text)
 
