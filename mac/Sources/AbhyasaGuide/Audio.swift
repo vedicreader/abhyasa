@@ -35,4 +35,12 @@ public enum Audio {
     public static func pcm16(_ f: [Float]) -> [Int16] {
         f.map { Int16(max(-1, min(1, $0)) * 32767) }
     }
+
+    /// the level of the mic for the strip, from 0 (silence, -60 dBFS or less) to 1 (0 dBFS), from the RMS of `f`
+    public static func level(_ f: [Float]) -> Float {
+        guard !f.isEmpty else { return 0 }
+        let rms = (f.reduce(Float(0)) { $0 + $1 * $1 } / Float(f.count)).squareRoot()
+        guard rms > 0 else { return 0 }
+        return max(0, min(1, (20 * log10(rms) + 60) / 60))
+    }
 }

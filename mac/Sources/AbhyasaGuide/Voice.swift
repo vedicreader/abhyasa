@@ -4,9 +4,15 @@
 @MainActor
 public final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
     let synth = AVSpeechSynthesizer()
-    var now: (id: Int, text: String)?
+    /// the line that it says now: `text` is the whole line; `offset` is where the spoken part starts, after Voice off
+    var now: (id: Int, text: String, spoken: String, offset: Int)?
+    var at = 0
     public var onWord: ((Int, Int) -> Void)?
     public var onDone: ((Int) -> Void)?
+    /// Voice off: the lines go on with their word marks and their time, with no sound
+    public var muted = false {
+        didSet { if muted != oldValue { requeue() } }
+    }
 
     public override init() {
         super.init()
@@ -15,8 +21,26 @@ public final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
 
     public func speak(_ id: Int, _ text: String) {
         if synth.isSpeaking { now = nil; synth.stopSpeaking(at: .immediate) }
-        now = (id, text)
-        synth.speak(AVSpeechUtterance(string: text))
+        say(id, text, from: 0)
+    }
+
+    func say(_ id: Int, _ text: String, from offset: Int) {
+        let u16 = Array(text.utf16)
+        let spoken = String(decoding: u16[min(offset, u16.count)...], as: UTF16.self)
+        now = (id, text, spoken, offset)
+        at = offset
+        let u = AVSpeechUtterance(string: spoken)
+        u.volume = muted ? 0 : 1
+        synth.speak(u)
+    }
+
+    /// Voice off (or on) in the middle of a line: say the rest of the line again from the word that it says now, so the sound
+    /// stops (or starts) at once and the board keeps its place
+    func requeue() {
+        guard let n = now, synth.isSpeaking else { return }
+        now = nil
+        synth.stopSpeaking(at: .immediate)
+        say(n.id, n.text, from: at)
     }
 
     public func hush(_ id: Int) {
@@ -27,17 +51,18 @@ public final class Speaker: NSObject, AVSpeechSynthesizerDelegate {
 
     // the delegate can be called on any thread: each call goes to the main actor
     public nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, willSpeakRangeOfSpeechString r: NSRange, utterance u: AVSpeechUtterance) {
-        let text = u.speechString, at = r.location
+        let text = u.speechString, loc = r.location
         Task { @MainActor in
-            guard let n = self.now, n.text == text else { return }
-            self.onWord?(n.id, Audio.wordIndex(text, at: at))
+            guard let n = self.now, n.spoken == text else { return }
+            self.at = n.offset + loc
+            self.onWord?(n.id, Audio.wordIndex(n.text, at: self.at))
         }
     }
 
     public nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) {
         let text = u.speechString
         Task { @MainActor in
-            guard let n = self.now, n.text == text else { return }
+            guard let n = self.now, n.spoken == text else { return }
             self.now = nil
             self.onDone?(n.id)
         }
@@ -51,6 +76,8 @@ public final class Recorder {
     let engine = AVAudioEngine()
     let box = SampleBox()
     public private(set) var on = false
+    /// the level of the last buffer, from 0 to 1, for the strip while the mic is on
+    public var level: Float { box.level }
 
     public init() {}
 
@@ -88,7 +115,11 @@ public final class Recorder {
                 status.pointee = .haveData
                 return buf
             }
-            if let p = out.floatChannelData?[0] { box.add(Array(UnsafeBufferPointer(start: p, count: Int(out.frameLength)))) }
+            if let p = out.floatChannelData?[0] {
+                let s = Array(UnsafeBufferPointer(start: p, count: Int(out.frameLength)))
+                box.add(s)
+                box.set(level: Audio.level(s))
+            }
         }
     }
 
@@ -110,7 +141,10 @@ final class SampleBox: @unchecked Sendable {
     static let longest = 30.0
     let lock = NSLock()
     var samples: [Float] = []
-    func reset() { lock.withLock { samples = [] } }
+    var last: Float = 0
+    var level: Float { lock.withLock { last } }
+    func set(level: Float) { lock.withLock { last = level } }
+    func reset() { lock.withLock { samples = []; last = 0 } }
     func add(_ s: [Float]) { lock.withLock { if Double(samples.count) < Self.longest * 16000 { samples += s } } }
     func take() -> [Float] { lock.withLock { defer { samples = [] }; return samples } }
 }

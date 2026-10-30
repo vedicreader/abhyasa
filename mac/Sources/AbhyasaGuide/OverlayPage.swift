@@ -63,7 +63,10 @@ public enum OverlayPage {
           voices[id] = {onWord, done: () => {
             done();
             const s = window.abhyasaBoard && abhyasaBoard.state;   // the last line of a whole board: it goes after a short time
-            if (s && !s.streaming && s.i === s.steps - 1) linger = setTimeout(() => abhyasaBoard.stop(), \(Int(linger * 1000)));
+            if (s && !s.streaming && s.i === s.steps - 1) {   // Swift shows a quiet countdown; a key or a move keeps the board
+              linger = setTimeout(() => abhyasaBoard.stop(), \(Int(linger * 1000)));
+              post({op: 'linger', ms: \(Int(linger * 1000))});
+            }
           }};
           post({op: 'speak', id, text: String(text)});
           return () => { delete voices[id]; post({op: 'hush', id}); };
@@ -117,6 +120,7 @@ public enum OverlayPage {
         begin() { gen++; live = null; calm(); },
         note(t) { if (window.abhyasaBoard) abhyasaBoard.note(t); },
         again() { calm(); if (window.abhyasaBoard) abhyasaBoard.again(); },
+        keep() { calm(); },   // the learner moved or pushed a key in the countdown: the board stays until Stop
         stop() { calm(); if (window.abhyasaBoard) abhyasaBoard.stop(); },
         // one event of the ask route, as guide.js plays it: the first step starts a streaming board, each next step is added,
         // and the board at the end finishes the streaming board, or plays as it is when no step came

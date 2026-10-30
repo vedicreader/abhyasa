@@ -15,11 +15,12 @@ public final class Overlay: NSObject, WKScriptMessageHandler, WKNavigationDelega
 
     /// the server, for board.js and its files
     public var base: URL? { didSet { if base != oldValue { closeAll() } } }
-    /// calls from the page: `speak`, `hush`, `stop`, `first`
+    /// calls from the page: `speak`, `hush`, `stop`, `first` (the first mark shows), `linger` (the board goes in `ms`)
     public var onSpeak: ((Int, String) -> Void)?
     public var onHush: ((Int) -> Void)?
     public var onStop: (() -> Void)?
     public var onFirst: (() -> Void)?
+    public var onLinger: ((Double) -> Void)?
 
     var sheets: [UInt32: Sheet] = [:]
     /// the display where the board shows now
@@ -71,6 +72,7 @@ public final class Overlay: NSObject, WKScriptMessageHandler, WKNavigationDelega
     public func done(_ id: Int) { if let c = current { run("overlay.done(\(id))", on: c) } }
     public func again() { if let c = current { run("overlay.again()", on: c) } }
     public func stop() { if let c = current { run("overlay.stop()", on: c) } }
+    public func keep() { if let c = current { run("overlay.keep()", on: c) } }
 
     // --- show while you talk: the trail of the pointer while the guide asks, in the same click-through panels ---------------
     /// the trail (CG global points of the last 1.5 s), on the display that holds its last point
@@ -150,6 +152,7 @@ public final class Overlay: NSObject, WKScriptMessageHandler, WKNavigationDelega
         case "hush": if let id = d["id"] as? Int { onHush?(id) }
         case "stop": onStop?()
         case "first": onFirst?()
+        case "linger": onLinger?((d["ms"] as? Double ?? OverlayPage.linger * 1000) / 1000)
         default: break
         }
     }
