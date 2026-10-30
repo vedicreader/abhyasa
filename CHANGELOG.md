@@ -11,6 +11,7 @@
 - "Rewrite" (R) asks the tutor to write the note and the check question again, with the chips Simpler, Add an example and Shorter. A text that you changed while the tutor wrote stays as you wrote it.
 - The walk path editor shows how many checks are hands-on, and says when the walk has more than the setting allows. A notebook step that builds your goal does not count.
 - A side walk stays with its idea when you move, merge or remove that idea, and Undo puts it back.
+- Undo in the walk path editor gives back only what the editor changes: the order, the status, the note, the check and the passage. A side walk, a notebook, the Leela time and the research of a step that came after the change stay.
 - The talk editor changes a slide in its row: the title, the points that the room sees, the speaker note, the passage, the figure, the beats and the question for the room. It saves at once. There is no Save button.
 - The talk editor shows the figure as a small picture, with "Pick another figure" and "Remove the figure". The beats are chips that you drag or move with the keys. "Add a beat" adds a part that the slide has. Select words in the passage to light them.
 - In the talk editor, D duplicates a slide, X removes it, R rewrites it, A adds a slide and Q adds a pause. Sections show as labels between the slides.
@@ -79,6 +80,9 @@
 - Every page fetch refuses a private address (`allow_private=False`), also when `FOSSICK_ALLOW_PRIVATE` is set.
 - The path checks: the agent reads only files in the folders of your sources and in its own clones. It never reads through a link, and never a key file such as `.env` or a keychain file. A clone has the same rules as a folder on this Mac.
 - The agent has a time limit and a spend limit for each walk.
+- A folder or repo chip that the folder rules refuse (outside your home folder, hidden, or a link, for example `/etc` or `~/.config`) is not kept on the walk. The agent cannot read a file in it.
+- ramabana is now a dependency of abhyasa, so the guard is always there. The `models` extra stays, so an old install command still works.
+- A data path of a notebook step is good when your home folder is under a hidden folder. A hidden folder in your home folder is still refused.
 
 ## 0.0.13
 
