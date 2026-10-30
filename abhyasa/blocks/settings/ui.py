@@ -104,7 +104,7 @@ def Action(k, cur, s, key):
     return Span(*acts, cls='acts')
 
 def Where(k):
-    if k['engine'] == 'openai': return Span('cloud', cls='cloud', title='This engine sends audio off this machine.')
+    if k['engine'] == 'openai': return Span('hosted · OpenAI', cls='cloud', title='This engine sends audio off this machine.')
     return Span('on this Mac', cls='ok') if voice.cached(k['model']) else Span('not here', cls='mute')
 
 def Known(cur, s, key):
@@ -188,11 +188,13 @@ def Key(err=''):
 OTHER = '__other__'   # the list item that shows a text box for a model id
 
 def Pick(task, name, dflt_label, rows):
-    "The model list for one task: the default, then the models grouped by provider, then 'Type another model id'."
-    from abhyasa.llm import model_label, provider_label
+    "The model list for one task: the default, then one item for each model, grouped by provider, then 'Type another model id'. The title names the other routes to a model."
+    from abhyasa.llm import model_label, provider_label, one_each
+    rows = one_each(rows, keep=name)
     groups, ids = {}, {r['value'] for r in rows}
     for r in rows: groups.setdefault(r.get('provider', ''), []).append(r)
-    opt = lambda v, n: Option(n, value=v, selected=v == name, title=v)
+    also = {r['value']: r['also'] for r in rows}
+    opt = lambda v, n: Option(n, value=v, selected=v == name, title=v + (f" (also: {', '.join(also[v])})" if also.get(v) else ''))
     return Select(Option(dflt_label, value='', selected=not name),
                   Optgroup(opt(name, model_label(name)), label='Saved') if name and name not in ids else '',
                   *[Optgroup(*[opt(r['value'], r.get('name') or model_label(r['value'], p)) for r in rs], label=provider_label(p, [r['value'] for r in rs]))
@@ -210,13 +212,25 @@ def Typed(task, name):
                 Button('Back to the list', type='button', hx_post=Routes.model, hx_vals={'task': task, 'model': name},
                        hx_target=f'#{i}', hx_swap='outerHTML'), cls='acts')
 
+def in_use(task, router, name='') -> str:
+    "The model that `task` uses: `name`, else the model it borrows, else the default model."
+    from abhyasa.llm import DFLT_MODEL
+    if name: return name
+    if task == 'default': return router.model or DFLT_MODEL
+    return (router.name(BORROWS[task]) if task in BORROWS else '') or router.model or DFLT_MODEL
+
 def fallback(task, router) -> str:
     "What an empty model means for `task`: the model it borrows, else the default model."
     from abhyasa.llm import model_label, DFLT_MODEL
     if task == 'default': return f"abhyasa's default: {model_label(DFLT_MODEL)}"
-    dm = router.model or DFLT_MODEL
-    if task in BORROWS: return f'Same as {TASK_LABEL[BORROWS[task]].lower()}: {model_label(router.name(BORROWS[task]) or dm)}'
-    return f'Default: {model_label(dm)}'
+    if task in BORROWS: return f'Same as {TASK_LABEL[BORROWS[task]].lower()}: {model_label(in_use(task, router))}'
+    return f'Default: {model_label(in_use(task, router))}'
+
+def Where_(name):
+    "Where the model `name` runs: `on this Mac`, quiet, or `hosted · <company>`, with an outline."
+    from abhyasa.llm import where_chip, HERE
+    w = where_chip(name)
+    return Span(w, cls='where' + ('' if w == HERE else ' hosted'), title='Where the text goes for this task.')
 
 def ModelRow(task, router, rows, typing=False, set_by=''):
     "One model row: the list of models and a Test button. `set_by` says what sets the default model outside this page."
@@ -225,7 +239,7 @@ def ModelRow(task, router, rows, typing=False, set_by=''):
     name, i = (val(r.name) or ''), row_id(r)
     test = '' if task == 'default' else Span(Button('Test', type='button', cls='quiet small', hx_post=Routes.test, hx_vals={'task': task},
                                                     hx_include=f'#{i}-c', hx_target=f'#{i}-t', data_wait='Testing…'), Span(id=f'{i}-t', cls='mute'))
-    ctl = Div(Typed(task, name) if typing else Pick(task, name, fallback(task, router), rows), test, cls='mrow')
+    ctl = Div(Typed(task, name) if typing else Pick(task, name, fallback(task, router), rows), Where_(in_use(task, router, name)), test, cls='mrow')
     rng = Div(Span(f'{set_by} sets the model now, so this choice has no effect.', cls='no') if set_by else Span(f"default {model_label(DFLT_MODEL)}" if task == 'default' else
                                                                                                  f'default: the model for {TASK_LABEL[BORROWS[task]].lower()}' if task in BORROWS else 'default: the default model'),
               A('Use the default', href='#', cls='use', hx_post=Routes.model, hx_vals={'task': task, 'model': ''}, hx_target=f'#{i}', hx_swap='outerHTML') if name else '',
@@ -234,8 +248,9 @@ def ModelRow(task, router, rows, typing=False, set_by=''):
               Div(ctl, rng, cls='rgt'), cls='srow', id=i, data_find=f'{r.label} {r.help}'.lower())
 
 def Models(router, cat, set_by=''):
-    "The model rows: the default and the four main tasks, then the other tasks and the reply caps under More."
-    main, other = ('default', 'question', 'grade', 'hint', 'lesson'), ('extract', *BORROWS)
+    "The model rows: the default, the four main tasks and the screen guide, then the other tasks and the reply caps under More."
+    main = ('default', 'question', 'grade', 'hint', 'lesson', 'guide', 'guide_vision')
+    other = ('extract', *(t for t in BORROWS if t not in main))
     caps = [r for r in rows('models') if r.name.startswith('tokens.')]
     return Div(Ul(*[ModelRow(t, router, cat, set_by=set_by if t == 'default' else '') for t in main], cls='plain srows'),
                More('models', Ul(*[ModelRow(t, router, cat) for t in other], cls='plain srows'), Ul(*[Row(r, val(r.name)) for r in caps], cls='plain srows'),

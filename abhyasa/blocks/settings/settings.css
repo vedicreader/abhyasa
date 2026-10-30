@@ -60,3 +60,6 @@ h3.sub { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-tr
 #speech { margin-bottom: var(--s3); }
 .prompts summary .dot { margin-right: var(--s2); vertical-align: middle; }
 .srow textarea { width: 100%; min-width: 260px; font: var(--t-small)/1.5 var(--mono); }
+/* where the text of a task goes: on this Mac is quiet, a hosted model has a thin accent outline */
+.srow .mrow .where { font-size: var(--t-meta); color: var(--mute); white-space: nowrap; }
+.srow .mrow .where.hosted { color: var(--fg); border: 1px solid var(--acc); border-radius: var(--r-s); padding: 0 var(--s1); }

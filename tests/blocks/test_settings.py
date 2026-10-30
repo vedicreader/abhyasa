@@ -186,6 +186,76 @@ def test_type_another_model_id(mk, monkeypatch):
     assert '<select' in t and 'value="my/model" selected' in t and voice.settings()['models']['hint'] == 'my/model'
     voice.update_settings('models', hint='')
 
+class ViaFake(llm.Fake):
+    "A `Fake` that routes as `RouteAsk` does: `via(job, name)` gives an ask that names its model and keeps its job."
+    model, jobs = 'claude/sonnet', []
+    def via(self, job, name='', cap=None, prepare=None):
+        def ask(p, sp=''): self.jobs.append((job, ask.model)); return self(p, sp)
+        ask.model = name or self.model
+        return ask
+
+def test_the_guide_rows_show_and_save(mk, monkeypatch):
+    "Models has a Screen guide row and a Figure labels row. Each uses the model for hints until you pick one, and saves its own model."
+    monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [dict(value='claude/opus', name='Claude Opus', provider='claude')])
+    voice.update_settings('models', hint='claude/haiku')
+    cl = mk(['settings'])
+    t = cl.get('/settings/catalog').text
+    assert '>Screen guide<' in t and '>Figure labels<' in t and t.count('Same as hints: Claude Haiku') >= 3   # walk notes, the guide and figure labels
+    t = cl.post('/settings/model', data=dict(task='guide', model='claude/opus')).text
+    assert 'value="claude/opus" selected' in t and voice.settings()['models']['guide'] == 'claude/opus'
+    assert cl.app.state.svc['ask'].name('guide') == 'claude/opus' and cl.app.state.svc['ask'].name('guide_vision') == 'claude/haiku'
+    voice.update_settings('models', hint='', guide='')
+
+def test_a_saved_guide_model_routes_the_guide_job(lr):
+    "guide_ask goes to the job guide, on the saved model of the screen guide; the warm route starts the same model."
+    from abhyasa.guide import guide_ask
+    r = llm.Router(ViaFake(dflt='ok'), models=lambda: dict(hint='claude/haiku', guide='claude/opus'))
+    ask = guide_ask(r)
+    assert ask.model == 'claude/opus' and ask('hi') == 'ok' and r.dflt.jobs[-1] == ('guide', 'claude/opus')
+    warmed = []
+    r.dflt.warm = lambda names: warmed.append(names)
+    r.warm(['guide']).join()
+    assert warmed == [dict(guide='claude/opus')]
+
+def test_the_guide_events_name_the_saved_model(lr):
+    "The first state event of the guide names the model that Settings saved for the screen guide, and where it runs."
+    import json
+    from starlette.testclient import TestClient
+    from abhyasa.app import mk_app
+    voice.update_settings('models', guide='claude/opus')
+    f = ViaFake({'Tier: tutor': '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='One.'), dict(op='box', at='passage')])})
+    cl = TestClient(mk_app(lr, f, names=['guide'], hosts=('testserver',)))
+    evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='what', ctx=dict(anchors=[dict(id='passage', kind='passage', text='x')]))).text.splitlines()
+           if l.startswith('data: ')]
+    assert evs[0]['model'] == 'Claude Opus' and evs[0]['where'] == 'hosted' and evs[0]['who'] == 'Anthropic'
+    voice.update_settings('models', guide='')
+
+def test_where_names_a_local_and_a_hosted_model(mk, monkeypatch):
+    "Each model row says where its text goes: on this Mac for a local model, hosted and the company for the others. No network."
+    monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [])
+    monkeypatch.setattr(llm, '_on_mac', lambda value, provider='': value.startswith('mlx/'))
+    voice.update_settings('models', hint='mlx/gemma-4-e4b-it', grade='claude/haiku')
+    t = mk(['settings']).get('/settings/catalog').text
+    assert '<span class="where" title="Where the text goes for this task.">on this Mac</span>' in t
+    assert '<span class="where hosted" title="Where the text goes for this task.">hosted · Anthropic</span>' in t
+    assert llm.where_chip('mlx/gemma-4-e4b-it') == 'on this Mac' and llm.where_chip('openai/gpt-6-sol') == 'hosted · OpenAI'
+    voice.update_settings('models', hint='', grade='')
+
+def test_a_model_from_two_providers_shows_once(mk, monkeypatch):
+    "Claude Haiku 5.5 through Claude Code and through Copilot is one item: the Claude Code route, with the other route in its title."
+    import re
+    monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [
+        dict(value='claude/claude-haiku-5-5', name='Claude Haiku 5.5', provider='claude'), dict(value='copilot/claude-haiku-5.5', name='Claude Haiku 5.5', provider='copilot'),
+        dict(value='copilot/gpt-6.1-sol', name='GPT-6.1 Sol', provider='copilot'), dict(value='openai/gpt-6.1-sol', name='GPT-6.1 Sol', provider='openai'),
+        dict(value='codex/gpt-6.1-sol', name='GPT-6.1 Sol', provider='codex')])
+    t = mk(['settings']).get('/settings/catalog').text
+    sel = re.search(r'<select[^>]*models-hint[^>]*>(.*?)</select>', t, re.S) or re.search(r'aria-label="The model for hints"[^>]*>(.*?)</select>', t, re.S)
+    vals = re.findall(r'<option value="([^"]+)"', sel.group(1))
+    names = re.findall(r'>([^<]+)</option>', sel.group(1))
+    assert len(vals) == len(set(vals)) and len(names) == len(set(names))
+    assert 'claude/claude-haiku-5-5' in vals and 'copilot/claude-haiku-5.5' not in vals and 'codex/gpt-6.1-sol' in vals
+    assert 'title="codex/gpt-6.1-sol (also: copilot/gpt-6.1-sol, openai/gpt-6.1-sol)"' in sel.group(1)
+
 def test_theme_on_html(mk):
     "Each page has the theme and the mode from the settings on <html>; the Settings page has the Theme section."
     voice.update_settings('look', theme='paper', mode='auto')

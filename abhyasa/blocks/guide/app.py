@@ -53,7 +53,7 @@ def connect(app, ctx):
             from abhyasa.llm import dflt_model
             g = where_of(getattr(guide_ask(ask), 'model', ''))
             routed = hasattr(getattr(ask, 'dflt', None), 'via')
-            info_[:] = time.monotonic(), dict(model=g, vision=where_of(ask.name('hint') or dflt_model()) if routed else g, speech=speech())
+            info_[:] = time.monotonic(), dict(model=g, vision=where_of(ask.name('guide_vision') or dflt_model()) if routed else g, speech=speech())
         return {**info_[1], 'voice': bool(val('guide.voice'))}
     figs = FigureCache(cfg_dir()/'guide-figures.json')
     warmed, warm_lock = [-WARM_EVERY], threading.Lock()
