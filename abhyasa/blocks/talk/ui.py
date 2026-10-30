@@ -225,6 +225,10 @@ def lits(beats, passage):
     "Each `lit:` beat as [beat, text]: words of the passage, or `#id` for a part of the figure or the demo."
     return [[k + 1, b[4:]] for k, b in enumerate(beats) if b.startswith('lit:') and (b[4:].startswith('#') or b[4:] in passage)]
 
+def Said(passage):
+    "The paragraphs of a passage, each with its maths drawn, with the blank lines between them kept (the passage keeps its line breaks)."
+    return [x for k, p in enumerate(re.split(r'\n\s*\n', passage.strip())) for x in (['\n\n'] if k else []) + [Inline(p)]]
+
 def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):
     """One slide as `section.stage`: the crumb, the title, then each part that a beat shows. `s` is the slide of the talk (for its
     beats), `ps` its public part (what the room sees), and `demo` the slug and the spec of its live demo, or None."""
@@ -232,7 +236,7 @@ def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):
     hide = lambda k: here and k > at['beat']
     parts = []
     if kind in ('idea', 'primer'):
-        if ps['passage'] and (k := part_at(beats, 'passage')): parts.append(Blockquote(ps['passage'], cls='passage', data_at=k, hidden=hide(k)))
+        if ps['passage'] and (k := part_at(beats, 'passage')): parts.append(Blockquote(*Said(ps['passage']), cls='passage', data_at=k, hidden=hide(k)))
         if ps['body'] and (k := part_at(beats, 'body')): parts.append(Ul(*[Li(Inline(b)) for b in ps['body']], cls='points', data_at=k, hidden=hide(k)))
         if ps['figure'] and (k := part_at(beats, 'figure')):
             parts.append(Figure(Img(src=at_img(tid, ps['figure']), alt=f"The figure of {ps['title']}"), cls='fig', data_at=k, hidden=hide(k)))

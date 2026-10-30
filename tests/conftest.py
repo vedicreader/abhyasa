@@ -82,6 +82,7 @@ def no_web(monkeypatch):
     import abhyasa.sources
     def gh(o, n): raise AssertionError(f'a test asked GitHub about {o}/{n}')
     monkeypatch.setattr(abhyasa.sources, 'gh_public', gh)
+    monkeypatch.setattr(abhyasa.sources, 'read_arxiv_html', lambda aid, fetch=None: None)   # no arXiv HTML page: a paper is read from the fake PDF
 
 @pytest.fixture(autouse=True)
 def no_disk_names(tmp_path_factory):

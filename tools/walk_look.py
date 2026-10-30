@@ -854,7 +854,8 @@ def s3_paper_link_in_the_start_box(pg, w):
     import abhyasa.sources
     from vishalakshi.core import Vault
     from walk_data import PAGES
-    was = Vault.pdf, abhyasa.sources._final, abhyasa.sources._addrs
+    was = Vault.pdf, abhyasa.sources._final, abhyasa.sources._addrs, abhyasa.sources.read_arxiv_html
+    abhyasa.sources.read_arxiv_html = lambda aid, fetch=None: None   # no arXiv HTML page: the fake PDF is read
     Vault.pdf = lambda self, url, **kw: self.add([(k, 'From the PDF. ' + t) for k, t in PAGES], 'Attention Is All You Need', source=url, kind='pdf')
     abhyasa.sources._final, abhyasa.sources._addrs = (lambda u: u), (lambda host: {'93.184.216.34'})
     try:
@@ -869,7 +870,7 @@ def s3_paper_link_in_the_start_box(pg, w):
         pg.fill('#start-q', '1706.03762'); pg.wait_for_selector('#start-go.go')
         assert not pg.is_visible('input[name=pages]')
         pg.fill('#start-q', 'https://docs.example.dev/attention/'); pg.wait_for_selector('input[name=pages]', state='visible')
-    finally: Vault.pdf, abhyasa.sources._final, abhyasa.sources._addrs = was
+    finally: Vault.pdf, abhyasa.sources._final, abhyasa.sources._addrs, abhyasa.sources.read_arxiv_html = was
 
 def r1_start_forms_show_no_error(pg, w):
     "A form that starts something and redirects (Learn this, Make a walk, Start the walk) shows no error line and lands on the next page."
