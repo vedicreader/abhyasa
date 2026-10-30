@@ -70,3 +70,13 @@ def test_vault_doc_has_one_main_and_a_quiet_find(mk, lr):
     find = next(b for b in s.select('main button') if b.get_text().strip() == 'Only find its ideas')
     assert find['hx-post'] == f"/v/store/{d['doc_id']}/learn"
     assert s.select_one('main .lbl').get_text() == 'Your vault' and 'Concepts linked here' not in s.get_text()
+
+# The talk editor: Present is the one button; the long help and the list keys are in closed parts.
+
+def test_talk_editor_folds_help_and_keys(mk, talk_fake, lr):
+    cl = mk(); jid = walk(cl, lr); tid = make_talk(cl, jid)
+    s = soup(cl.get(f'/t/{tid}').text)
+    assert [b.get_text(' ').split()[0] for b in s.select('main .go')] == ['Present']
+    about = s.select_one('main details.about')
+    assert about and 'speaker note is for you only' in about.get_text() and not about.has_attr('open')
+    assert 'duplicate' in s.select_one('main details.more .keys-line').get_text()

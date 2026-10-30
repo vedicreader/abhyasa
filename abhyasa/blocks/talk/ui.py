@@ -333,13 +333,14 @@ def Editor(t, j, pj=None, changed=False, ch=None, bar=None, again=None):
     old = P('The walk changed after this talk was made. Make it again to update it.', cls='mute') if changed else ''
     return (H1(f"{t['title']}, as a talk"),
             P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), ' · ', A('Earlier versions', href=at(Routes.history, t['id'])), cls='mute'), cut, old, AgainLine(t, j.id, again) if j and again else '',
-            P('Each idea of the walk is one slide. The passage or the points, and the figure, show to the room. The speaker note is for you only. '
-              'A change saves at once, and Undo takes it back. A change here does not change the walk.', cls='lead'),
+            P('A change saves at once, and Undo takes it back.', cls='lead'),
+            Details(Summary('About this'), P('Each idea of the walk is one slide. The passage or the points, and the figure, show to the room. '
+                                             'The speaker note is for you only. A change here does not change the walk.'), cls='about'),
             Div(Form(Primary('Present', data_wait='Starting…'), action=at(Routes.start, t['id']), method='post', hx_boost='false'), *Slot(t), cls='row talk-top'),
             Part('The slides', Fill(t), Total(t), Deck(t, ch)),
-            P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the slide · ',
+            Details(Summary('Keys'), P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the slide · ',
               Kbd('E'), ' edit · ', Kbd('A'), ' add a slide · ', Kbd('D'), ' duplicate · ', Kbd('X'), ' remove · ', Kbd('Q'), ' add a pause · ',
-              Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo · ', Kbd('⌥S'), ' present', cls='mute keys-line'),
+              Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo · ', Kbd('⌥S'), ' present', cls='mute keys-line'), cls='more'),
             bar or UndoBar(oob=False))
 
 def History(t, rows):
