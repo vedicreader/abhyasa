@@ -7,10 +7,10 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
            'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat', 'anchor_why',
-           'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'clean_context', 'figure_labels', 'FigureCache',
-           'vision_ask', 'Withheld', 'pii_policy', 'guard', 'page_text', 'board_prompt', 'video_id', 'video_cues',
-           'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'guide_ask', 'video_source',
-           'web_sources', 'explain']
+           'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels',
+           'FigureCache', 'vision_ask', 'Withheld', 'pii_policy', 'guard', 'page_text', 'board_prompt', 'video_id',
+           'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'guide_ask',
+           'video_source', 'web_sources', 'explain']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -239,7 +239,10 @@ def _demo(d) -> dict:
     return dict(slug=_s(d.get('slug', ''), 80), inputs=ins, open=d.get('open') is True,
                 readouts=[_s(r, 120) for r in (d.get('readouts') or [])[:8] if _s(r, 120)])
 
-def clean_context(raw) -> AttrDict:
+class PageContext(AttrDict):
+    "A page context that `clean_context` made. `explain` cleans every other context, also one with a `by` key."
+
+def clean_context(raw) -> PageContext:
     "The page context `raw`, with only known keys, cut to size, and with `by` (its anchors by id)."
     raw = raw if isinstance(raw, dict) else {}
     anchors, total = [], 0
@@ -252,7 +255,7 @@ def clean_context(raw) -> AttrDict:
                concept=_s(raw.get('concept', ''), 200), slug=_s(raw.get('slug', ''), 80), source=_s(raw.get('source', ''), 300),
                anchors=anchors, demo=_demo(raw.get('demo')))
     if isinstance(raw.get('video'), dict) and isinstance(raw['video'].get('id'), str): ctx['video'] = dict(id=_s(raw['video']['id'], 11))
-    return by_id(ctx)
+    return PageContext(by_id(ctx))
 
 # %% ../nbs/21_guide.ipynb #g056
 from .prompts import register, prompt
@@ -499,7 +502,7 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     from abhyasa.settings import val
     from abhyasa.ground import ground, label
     t0, note = time.monotonic(), note or (lambda s: None)
-    ctx = ctx if 'by' in ctx else clean_context(ctx)
+    ctx = ctx if isinstance(ctx, PageContext) else clean_context(ctx)   # a raw dict from a host, also with `by`, is cleaned
     said, ask = guard(' '.join(str(said or '').split())[:300]), guide_ask(ask)
     def board(tier, srcs): return parse_board(ask(board_prompt(ctx, said, srcs, tier), prompt('guide.board')), by_id({**ctx, 'sources': srcs}))
     page = _page_sources(ctx)

@@ -131,3 +131,15 @@ def test_a_secret_in_a_figure_caption_never_reaches_the_vision_call():
     seen = []
     figure_labels(lambda p, img, sp='': seen.append(p) or '{"labels": []}', b'\x89PNG', f'A triangle. Key {SECRET}')
     assert seen and SECRET not in seen[0] and '[SECRET]' in seen[0]
+
+def test_a_raw_context_with_by_is_cleaned(monkeypatch):
+    "A host sends the page context as the browser gave it, with a `by` key: explain still cleans it, so a long anchor is cut and an unknown key goes."
+    import abhyasa.guide as G
+    seen, real = [], G.board_prompt
+    monkeypatch.setattr(G, 'board_prompt', lambda ctx, *a, **kw: seen.append(ctx) or real(ctx, *a, **kw))
+    raw = dict(page_ctx('q' * 1000), evil='EVIL', by={'passage': dict(id='passage', text='q' * 1000)})
+    f = Fake({'I don\'t get': board(0.9)})
+    explain(f, raw, "I don't get alpha bar")
+    ctx = seen[0]
+    assert 'evil' not in ctx and len(ctx.by['passage']['text']) == 300 and ctx.anchors[0]['text'] == 'q' * 300
+    assert 'q' * 301 not in json.dumps(f.calls) and 'EVIL' not in json.dumps(f.calls)
