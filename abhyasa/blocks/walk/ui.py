@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo
+from abhyasa.core import pane_link, SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -132,8 +132,73 @@ def FindSource(jid, i, s, looking=False):
     if s.get('research') == 'pending' and looking: return P(LOOKING, cls='mute looking', aria_live='polite')
     none = s.get('research') == 'none'
     go = Quiet('Look again' if none else 'Find a source', small=True, type='button', hx_post=at(Routes.source, jid, i), hx_target='#passage', hx_swap='outerHTML', data_wait=LOOKING)
+    if none and s.get('gather_none'):   # the gather agent read for this idea and found nothing: what it read is in its log
+        return (P(s.get('research_why') or NO_SOURCE, cls='mute no-source'), P(ShowLog(jid), ' ', go, cls='mute find-source'))
     why = P(s['research_why'], cls='mute no-source-why') if none and s.get('research_why') else ''
     return (P(NO_SOURCE, cls='mute no-source') if none else '', why, P(go, cls='mute find-source'))
+
+# --- the gather agent: the band, and the log of what it read and filed ------------------------------------------------
+
+TOOL_WORDS = dict(web_search='Searched the web', fetch_page='Read a page', gh_clone='Cloned a repo', read_gh_repo='Listed files in a repo',
+                  read_file='Read a file', file_source='Opened a source', docs='Listed documents', read_doc='Read a document',
+                  put_passage='Gave a passage', put_notebook='Gave a notebook', note='Note from the agent')
+
+def hm(t) -> str: return time.strftime('%H:%M', time.localtime(t)) if t else ''
+
+def ShowLog(jid): return pane_link('Show what it did', at(Routes.gather_log, jid), 'What the agent did', cls='pane-link show-log')
+
+def gather_counts(j) -> AttrDict:
+    "The documents that the agent read, the documents of the sources (at least the ones read), and the ideas with a passage of all the ideas."
+    read = sum(r.get('outcome') == 'read' for r in j.get('gather') or ())
+    ideas = [s for s in j['steps'] if s.get('status') != 'skip']
+    return AttrDict(read=read, total=max(j.get('gather_total') or 0, read), have=sum(bool((s.get('read') or {}).get('text')) for s in ideas), ideas=len(ideas))
+
+def gather_words(j) -> tuple:
+    "`38 of 120 documents read` and `7 of 10 ideas have a passage`."
+    n = gather_counts(j)
+    docs = f"{n.read} of {n_of(n.total, 'document')} read" if n.total > n.read else f"{n_of(n.read, 'document')} read"
+    return docs, f"{n.have} of {n_of(n.ideas, 'idea')} {'has' if n.ideas == 1 else 'have'} a passage"
+
+def GatherBand(j, running=False, stopping=False):
+    """The band of the gather agent of walk `j`: while it runs, what it read and the ideas with a passage, the document that it reads now,
+    `Show what it did` and `Stop`, and it asks again every 3 seconds. After it ends, one line that says how it ended. Nothing before it starts."""
+    if not j.get('gather_at'): return Div(id='gather')
+    docs, ideas = gather_words(j)
+    log = ShowLog(j['id']) if j.get('gather') else ''
+    if running:
+        nw = j.get('gather_now') or {}
+        now = ' '.join(x for x in ('Now: reading', nw.get('title') or '', f"({nw['site']})" if nw.get('site') else '', f"for idea {nw['i'] + 1}" if type(nw.get('i')) is int else '') if x)
+        stop = (Span('Stopping the agent…', cls='mute') if stopping else
+                Quiet('Stop', small=True, type='button', hx_post=at(Routes.gather_stop, j['id']), hx_target='#gather', hx_swap='outerHTML', data_wait='Stopping…'))
+        return Div(P(f"An agent is reading your sources. {docs}. {ideas}. Started {hm(j['gather_at'])}."),
+                   P(now, cls='mute now') if nw.get('title') else '', Div(log, stop, cls='row'),
+                   id='gather', cls='gather-band running', aria_live='polite', hx_get=at(Routes.gather, j['id']), hx_trigger='every 3s', hx_swap='outerHTML')
+    why = j.get('gather_why') or ''
+    if why.startswith('The agent could not start'): return Div(P(why, cls='mute'), id='gather', cls='gather-band')
+    how = {'you': 'You stopped the agent.', 'time': 'The time for the agent ended.'}.get(j.get('gather_stopped'))
+    if not how and not j.get('gather_end'): how = 'The agent stopped when abhyasa closed.'
+    line = f"{how} It read {docs.replace(' read', '')}." if how else f"The agent read {docs.replace(' read', '')}."
+    return Div(P(f"{line} {ideas}."), P(why, cls='mute') if why else '', Div(log, cls='row') if log else '', id='gather', cls='gather-band')
+
+def _target(r):
+    "The target of log row `r`: a link to the page on the web (a new tab) or to the document in your vault, else plain text."
+    t, u = r.get('target') or '', r.get('link') or ''
+    if u.startswith(('http://', 'https://')): return A(t or u, href=u, target='_blank', rel='noopener noreferrer')
+    if u.startswith('/'): return A(t or u, href=u)
+    return Span(t)
+
+def GatherLog(j):
+    "The log of the gather agent of walk `j`, newest first: the time, what it did, the target with its link, and the outcome. A note from the agent is marked as its own words."
+    rows = list(reversed(j.get('gather') or ()))
+    docs, ideas = gather_words(j)
+    def item(r):
+        idea = f" · idea {r['i'] + 1}" if type(r.get('i')) is int else ''
+        if r.get('tool') == 'note': return Li(Span(hm(r.get('at')), cls='k'), ' ', B(TOOL_WORDS['note']), ' ', Q(r.get('outcome') or '', cls='agent-note'), cls='glog note')
+        bad = str(r.get('outcome') or '').startswith(('refused', 'not read'))
+        return Li(Span(hm(r.get('at')), cls='k'), ' ', B(TOOL_WORDS.get(r.get('tool'), r.get('tool') or '')), ' ', _target(r), Span(f" · {r.get('outcome') or ''}{idea}", cls='mute'),
+                  cls='glog refused' if bad else 'glog')
+    return (H1('What the agent did'), P(f'{docs}. {ideas}. A note from the agent is its own words, not a source.', cls='mute'),
+            Ol(*map(item, rows), cls='gather-log') if rows else P('The agent did nothing yet.', cls='mute'))
 
 def Passage(j, s, c, i=None, looking=False):
     """The passage from the source, word for word, with its `SourceLine`; with no passage, the statement of the idea, marked as the

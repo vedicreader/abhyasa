@@ -6,8 +6,9 @@ Docs: https://vedicreader.github.io/abhyasa/llm.html.md"""
 
 # %% auto #0
 __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 'FALLBACK', 'ALL_TASKS', 'MAX_TOKENS',
-           'dflt_model', 'rishi_ask', 'parse_json', 'ask_json', 'Fake', 'model_ask', 'model_label', 'catalog', 'Router',
-           'for_task', 'ramabana_agent', 'ramabana_oneshot', 'RouteAsk', 'route_ask']
+           'WORKER_SP', 'WORKER_CALLS', 'WORKER_STEPS', 'WORKER_DOLLARS', 'dflt_model', 'rishi_ask', 'parse_json',
+           'ask_json', 'Fake', 'model_ask', 'model_label', 'catalog', 'Router', 'for_task', 'ramabana_agent',
+           'ramabana_oneshot', 'RouteAsk', 'route_ask', 'ramabana_worker']
 
 # %% ../nbs/02_llm.ipynb #c004
 import json, os, re
@@ -256,3 +257,31 @@ def route_ask(model:str=None):
     if _has_ramabana(): return RouteAsk(model)
     warnings.warn('abhyasa: ramabana (the models extra) is not installed. Each call uses a new rishi Chat, which is slower.')
     return rishi_ask(model)
+
+# %% ../nbs/02_llm.ipynb #gw002
+WORKER_SP = 'You are the source gatherer of abhyasa, a tutor.'
+WORKER_CALLS, WORKER_STEPS, WORKER_DOLLARS = 300, 80, 5.   # the caps of one turn: tool calls, model steps, dollars
+_wk = {}
+
+def _worker_cls():
+    "The `Agent` class of the worker, made on first use: the model sees only the tools of `add_tool`."
+    if 'cls' not in _wk:
+        from ramabana.agent import Agent
+        class Worker(Agent):
+            "A ramabana `Agent` that offers the model only the tools that the caller added, not ramabana's memory and plan tools."
+            @property
+            def tools(self):
+                mine = {getattr(t, '__name__', '') for t in self.registry.tools}
+                return [t for t in Agent.tools.fget(self) if getattr(t, '__name__', '') in mine]
+        _wk['cls'] = Worker
+    return _wk['cls']
+
+def ramabana_worker(host=None, sp:str=WORKER_SP, turn:str=None, max_calls:int=WORKER_CALLS, max_steps:int=WORKER_STEPS, max_cost:float=WORKER_DOLLARS):
+    "A new ramabana `Agent` on the turn `dflt_model(turn)`, with the shalya `host` (default: no folders) and no tools until the caller adds them. Never the agent of `ramabana_agent`."
+    from ramabana.agent import Approvals
+    from ramabana.core import Routing
+    from ramabana.tools import NullHost
+    return _worker_cls()(host or NullHost(), routing=Routing(turn=dflt_model(turn)), cfg=None, sp=sp,
+                         approvals=Approvals(mode='ask', no_listener='refuse', timeout=0), readonly=True, subagents=False, extensions=False,
+                         global_skills=False, learned=False, compact=False, poll_every=0, auto_turns='off',
+                         max_tool_calls=max_calls, max_steps=max_steps, max_cost=max_cost)

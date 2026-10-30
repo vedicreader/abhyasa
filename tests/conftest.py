@@ -86,6 +86,13 @@ def no_web(monkeypatch):
     monkeypatch.setattr(abhyasa.sources, 'read_arxiv_html', lambda aid, fetch=None: None)   # no arXiv HTML page: a paper is read from the fake PDF
 
 @pytest.fixture(autouse=True)
+def no_agent(monkeypatch):
+    "No test starts the real gather agent: a test that wants one passes a fake. A walk falls back to the simple search."
+    import abhyasa.research
+    def worker(**kw): raise RuntimeError('no agent in the tests')
+    monkeypatch.setattr(abhyasa.research, 'ramabana_worker', worker)
+
+@pytest.fixture(autouse=True)
 def no_disk_names(tmp_path_factory):
     "The Start box looks for named folders in an empty temp folder, not in the owner's code folders."
     from abhyasa.settings import set_val

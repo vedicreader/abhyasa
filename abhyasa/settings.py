@@ -111,6 +111,8 @@ add('research.per_walk', 'research', 'Steps to research in a walk', 'The most st
 add('research.results', 'research', 'Search results to read', 'How many search results the tutor looks at for one step. It reads the best 3 pages.', 5, 3, 10, more=True)
 add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk from a walk with no source waits for web sources. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s')
 add('research.retry', 'research', 'Look again after', 'A step that waits longer than this for a web source is looked for again. A restart can stop a search.', 10, 1, 120, more=True, unit='min')
+add('research.agent', 'research', 'Let an agent gather sources for a big goal', 'For a goal that names two or more sources or a big folder, an agent reads your sources and the web and gives a passage for each idea. abhyasa checks each passage word for word.', True)
+add('research.agent_minutes', 'research', 'Most minutes for the agent', 'The agent stops after this time. You can also stop it.', 15, 1, 60, more=True, unit='min')
 add('research.told', 'research', 'Web search line shown', 'The Start box said one time that a topic walk searches the web.', False, ui=False);
 add('sources.roots', 'research', 'Source folders', 'The folders where abhyasa looks for a source that you name. It looks two levels down. It never searches the whole disk.', '~/code/personal/orgs');
 

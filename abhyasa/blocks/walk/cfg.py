@@ -3,6 +3,9 @@ class Routes:
     job = '/walk/job'                 # the state of a walk from a link or a goal while it is made
     unfile = '/walk/unfile'           # Undo: forget what Start filed for a walk
     one = '/w/{jid}'                  # the plan before the start; then the current step
+    gather = '/w/{jid}/gather'        # the band of the gather agent: what it read and filed; it asks again every 3 s while the agent runs
+    gather_log = '/w/{jid}/gather/log'    # the log of the gather agent, newest first, each row with its link; it opens in the side pane
+    gather_stop = '/w/{jid}/gather/stop'  # POST: stop the gather agent
     plan = '/w/{jid}/plan'            # one change to the plan: the check of a step, or drop a step
     start = '/w/{jid}/start'          # start the walk and open a sitting
     step = '/w/{jid}/{i}'             # one idea: the passage, the figure, the note and the check

@@ -158,3 +158,15 @@ html.in-pane main { padding-bottom: 64px; }
 .walk-made .made img { width: 100%; max-width: 300px; aspect-ratio: 1; object-fit: cover; border-radius: var(--r-s); background: var(--line); }
 .walk-made .cap { font: var(--t-q)/1.4 var(--head); color: var(--fg); margin: 0 0 var(--s3); }
 @media (max-width: 640px) { .walk-made .made { grid-template-columns: 1fr; } }
+
+/* the gather agent: a quiet band over the plan and the step, and its log in the side pane */
+.gather-band { margin: var(--s2) 0 var(--s4); font-size: var(--t-small); color: var(--ink2); }
+.gather-band p { margin: 0 0 var(--s1); }
+.gather-band .now { font-size: var(--t-meta); overflow-wrap: anywhere; }
+.gather-band .row { display: flex; gap: var(--s3); align-items: baseline; }
+.gather-log { list-style: none; padding: 0; margin: var(--s3) 0 0; display: grid; gap: var(--s1); font-size: var(--t-small); }
+.gather-log .glog { color: var(--ink2); overflow-wrap: anywhere; }
+.gather-log .glog .k { color: var(--mute); font-variant-numeric: tabular-nums; }
+.gather-log .glog b { font-weight: 500; }
+.gather-log .glog.refused { color: var(--mute); }
+.gather-log .agent-note { font-style: italic; }

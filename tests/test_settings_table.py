@@ -311,6 +311,6 @@ def test_saves_from_many_threads():
 # Research
 
 def test_research_defaults():
-    assert dflts('research') == {'research.on': True, 'research.per_walk': 12, 'research.results': 5, 'research.wait': 90, 'research.retry': 10, 'research.told': False,
+    assert dflts('research') == {'research.on': True, 'research.per_walk': 12, 'research.results': 5, 'research.wait': 90, 'research.retry': 10, 'research.told': False, 'research.agent': True, 'research.agent_minutes': 15,
                                  'sources.roots': '~/code/personal/orgs'}
     assert set_val('research.per_walk', 99) == 30 and set_val('research.results', 1) == 3

@@ -18,7 +18,7 @@ from abhyasa.journey import journey_from_source, journey_from_text, journey_from
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task, nb_spec, validate_nb_spec, leela_back, leela_found
 from abhyasa.contract import path_why
 from abhyasa.nb import spec_notebook
-from abhyasa.research import to_research, wants_source
+from abhyasa.research import to_research, wants_source, want_agent
 from abhyasa.tutor import NoLesson
 from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said
 from . import ui
@@ -142,6 +142,11 @@ def connect(app, ctx):
         return reply(j, i, r), *ui.Filled(j, walk_state(j), by(), i)   # the dot of the idea fills in the outline
 
     looking, look_for = ctx.research.looking, ctx.research.look_for   # research runs on its own pool; the request does not wait
+    gathering = ctx.research.gathering   # the gather agent runs on its own pool, too
+
+    def halted(jid):
+        "Whether Stop was asked for the gather agent of walk `jid`, which may still end its last call."
+        return (ev := ctx.research.stops.get(jid)) is not None and ev.is_set()
     nb_jobs, nb_lock = {}, Lock()   # (walk, step) -> the research pool job that writes the notebook spec of the step
 
     def nb_writing(jid, i):
@@ -239,7 +244,7 @@ def connect(app, ctx):
 
     def from_goal(goal, ids, st, subject=''):
         "On the pool: file each chip that is not in the vault, then plan the walk to `goal` (or, with no goal, walk through the docs). Return the walk id."
-        filed, notes, docs, names = st.setdefault('filed', []), [], L(), []   # `st.filed`: the Undo still works when the walk fails
+        filed, notes, docs, names, counts = st.setdefault('filed', []), [], L(), [], {}   # `st.filed`: the Undo still works when the walk fails
         for i in ids:
             kind, _, v = i.partition(':')
             try: name, ds = file_chip(i, st)
@@ -248,7 +253,7 @@ def connect(app, ctx):
                 why = f' {e}' if isinstance(e, LinkError) and not str(e).startswith('abhyasa could not') else ''
                 notes.append((f'abhyasa could not clone {v}.' if kind == 'gh' else f'abhyasa could not file {Path(v).name or v}.') + why)
                 continue
-            docs += ds; names.append(name)
+            docs += ds; names.append(name); counts[i] = len(ds)
             if cut := getattr(ds, 'cut', ''): notes.append(f'{name}: {cut}')
             if added := getattr(ds, 'added', None):
                 filed.append(dict(root=name, docs=[dict(x) for x in added], at=time.time(), notebooks=sum(str(x.url).endswith('.ipynb') for x in added)))
@@ -263,9 +268,10 @@ def connect(app, ctx):
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no steps for this goal.' if goal else 'The tutor found no ideas in these sources.')
-        lr.merge_journey(j.id, filed=filed, notes=notes, chips=list(ids))
+        j = lr.merge_journey(j.id, filed=filed, notes=notes, chips=list(ids), chip_counts=counts)
         if goal:
-            research_new(j)
+            if want_agent(j): ctx.research.gather(j.id); write_notebooks(j)   # a big goal: the agent gathers the sources (D6)
+            else: research_new(j)
             if val('research.on') and not val('research.told'): set_val('research.told', True)
         return j.id
 
@@ -367,7 +373,8 @@ def connect(app, ctx):
         st = walk_state(j := lr.journey(jid))
         if j.get('started') and st.current is not None: return go(jid, st.current)
         h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j), vault=vault)
-        return Page(j.title, h1, ui.Filed(j), *rest, on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
+        band = ui.GatherBand(j, gathering(jid), halted(jid)) if j.get('gather_at') else ''
+        return Page(j.title, h1, ui.Filed(j), band, *rest, on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
 
     def plan(jid:str, i:int, act:str, way:str=''):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
@@ -396,7 +403,8 @@ def connect(app, ctx):
             ahead(j, i + 1)
         back = leela_back(lr, j)
         j, b = lr.journey(jid), by()
-        page = ui.StepPage(j, walk_state(j), b, i, needs=run_hook('step_needs', j, i, b.get(j.steps[i]['slug'])), back=back_to(j), vault=vault,
+        band = [ui.GatherBand(j, True, halted(jid))] if gathering(jid) else []   # while the agent runs, its band is on each step
+        page = ui.StepPage(j, walk_state(j), b, i, needs=[*band, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault,
                        present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
@@ -420,6 +428,22 @@ def connect(app, ctx):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         if val('research.on') and wants_source(j.steps[i]): look_for(jid, [i])
         return source(jid, i)
+
+    def gather_band(jid:str):
+        "The band of the gather agent, as it is now. It asks again every 3 s while the agent runs."
+        if not (j := walk_of(jid)): return Response(status_code=404)
+        return ui.GatherBand(j, gathering(jid), halted(jid))
+
+    def gather_log(jid:str):
+        "What the gather agent read and filed, newest first, each row with its link. It opens in the side pane."
+        if not (j := walk_of(jid)): return missing()
+        return Page('What the agent did', *ui.GatherLog(j), on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
+
+    def stop_gather(jid:str):
+        "Stop the gather agent: each tool refuses, and the turn is cancelled. What it filed stays."
+        if not walk_of(jid): return Response(status_code=404)
+        ctx.research.stop(jid)
+        return ui.GatherBand(lr.journey(jid), gathering(jid), halted(jid))
 
     def check(jid:str, i:int):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
@@ -688,6 +712,9 @@ def connect(app, ctx):
         pg = j.steps[i]['read'].get('page')
         return P(A('Read the passage again' + (f': p. {pg}' if pg else ''), href=ui.at(Routes.step, j.id, i)), cls='walk-again')
 
+    app.get(Routes.gather)(gather_band)   # before the step route `/w/{jid}/{i}`, which would take `gather` as a step
+    app.get(Routes.gather_log)(gather_log)
+    app.post(Routes.gather_stop)(stop_gather)
     app.post(Routes.new)(new)
     app.get(Routes.job)(job)
     app.post(Routes.unfile)(unfile_)
