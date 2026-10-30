@@ -71,6 +71,17 @@ public final class GuideClient: Sendable {
         return u
     }
 
+    /// one line in the natural voice of the Settings page, from `/guide/say`
+    public func say(_ text: String) async -> SayReply {
+        var r = URLRequest(url: base.appending(path: "guide/say"))
+        r.httpMethod = "POST"
+        r.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        r.httpBody = try? JSONSerialization.data(withJSONObject: ["text": text])
+        r.timeoutInterval = 60
+        guard let (d, resp) = try? await session.data(for: r) else { return .failed("abhyasa did not answer") }
+        return SayReply.parse(status: (resp as? HTTPURLResponse)?.statusCode ?? 0, d)
+    }
+
     /// the text of one WAV clip from `/voice/stt`
     public func stt(_ wav: Data) async throws -> String {
         var r = URLRequest(url: base.appending(path: "voice/stt"))

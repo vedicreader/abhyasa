@@ -82,6 +82,7 @@ public final class Guide {
         overlay.onLinger = { [weak self] s in self?.linger(s) }
         speaker.onWord = { [weak self] id, k in self?.overlay.word(id, k) }
         speaker.onDone = { [weak self] id in self?.overlay.done(id) }
+        speaker.fetch = { [weak self] t in await self?.client?.say(t) ?? .failed("no server") }
         strip.model.onSend = { [weak self] t in self?.send(t) }
         strip.model.onClose = { [weak self] in self?.closeStrip() }
         strip.model.onSheet = { [weak self] id, b in self?.answerSheet(id, b) }
