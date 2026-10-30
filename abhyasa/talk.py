@@ -6,17 +6,19 @@ Docs: https://vedicreader.github.io/abhyasa/talk.html.md"""
 
 # %% auto #0
 __all__ = ['TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'BODY_MOST',
-           'POINT_MOST', 'TALK_CASES', 'CHOICE_SP', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'FILLED',
-           'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask',
-           'words_q', 'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes',
-           'slide_source', 'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk',
-           'walk_talk', 'talk_from_journey', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go',
-           'end_run', 'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split',
-           'weak', 'recap', 'recap_html']
+           'POINT_MOST', 'TALK_CASES', 'CHOICE_SP', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'FILLED', 'GONE',
+           'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'clean_slide',
+           'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q', 'words_ask', 'ask_from_check',
+           'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_source', 'slide_notes', 'needs_fill',
+           'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk', 'talk_from_journey', 'slide_marks',
+           'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides', 'talk_again', 'image_type',
+           'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_output',
+           'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap', 'recap_html']
 
 # %% ../nbs/17_talk.ipynb #bddba3f8
 import re, json, math, time, uuid, secrets, hashlib, base64, html
 from copy import deepcopy
+from difflib import SequenceMatcher
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -400,7 +402,8 @@ def talk_from_walk(lr:Learning, ask, jid:str, choice:bool|None=None, sources=Non
     n = len(slides)
     slides += [_end(f's{n+1}', 'questions', 'Questions', QUESTIONS_MIN), _end(f's{n+2}', 'recap', 'What we covered', RECAP_MIN)]
     t = dict(id=_talk_id(j.title), kind='talk', schema=TALK_SCHEMA, title=j.title, src={'walk': jid}, made=time.time(),
-             minutes=0, phones=False, live=None, slides=slides)
+             minutes=0, phones=False, live=None, slides=slides, made_from=[s['slug'] for _, s in steps], walk_at=j.get('updated'),
+             marks={x['concept']: dict(step=step_mark(s), slide=slide_marks(x)) for x, (_, s) in zip(slides, steps)})
     t['minutes'] = 5 * math.ceil(talk_minutes(t) / 5)
     return lr.put_talk(t)
 
@@ -480,6 +483,140 @@ def talk_from_journey(lr:Learning, ask, jid:str, sources=None, again:bool=False,
     if not again: return talk_from_walk(lr, ask, w.id, sources=sources)
     t, d = talk_from_walk(lr, ask, w.id, sources=sources), datetime.now()
     return lr.put_talk({**t, 'title': f'{t.title} · {d.day} {d:%b}'})
+
+# %% ../nbs/17_talk.ipynb #ag03
+GONE = 'Not in the walk any more'   # the section of the slides whose idea left the walk
+AGAIN = 'Made the talk again from the walk.'
+SLIDE_PARTS = dict(title=('title',), section=('section',), notes=('notes',), ask=('ask', 'mins'), beats=('beats',), cites=('cites',),
+                   passage=('show.passage', 'show.src'), figure=('show.figure',), demo=('show.demo',), body=('show.body',))   # the parts of a slide, each with its keys
+
+def _key(s:dict, k:str): return (s.get('show') or {}).get(k[5:]) if k.startswith('show.') else s.get(k)
+def _hash(v) -> str: return hashlib.sha1(json.dumps(v, sort_keys=True, default=str).encode()).hexdigest()[:12]
+
+def slide_marks(s:dict) -> dict:
+    "The short hash of each part of slide `s` (`SLIDE_PARTS`)."
+    return {p: _hash([_key(s, k) for k in ks]) for p, ks in SLIDE_PARTS.items()}
+
+def step_mark(st:dict) -> str:
+    "The short hash of the parts of walk step `st` that its slide uses: the passage and its source, the note and the check."
+    c = st.get('check') or {}
+    return _hash([st.get('read') or {}, st.get('note') or '', c.get('kind'), c.get('q')])
+
+# %% ../nbs/17_talk.ipynb #ag05
+def walk_changes(lr:Learning, t:dict) -> AttrDict:
+    "The ideas `added`, `removed` and `moved` in the walk of talk `t` since the talk was made."
+    made, j = t.get('made_from'), lr.journey((t.get('src') or {}).get('walk') or '')
+    if not made or j is None: return AttrDict(added=0, removed=0, moved=0)
+    now = [s.get('slug') for s in j.steps if s.get('status') != 'skip']
+    a, b = [x for x in made if x in now], [x for x in now if x in made]
+    same = sum(m.size for m in SequenceMatcher(None, a, b, autojunk=False).get_matching_blocks())
+    return AttrDict(added=len(set(now) - set(made)), removed=len(set(made) - set(now)), moved=len(a) - same)
+
+# %% ../nbs/17_talk.ipynb #ag07
+STATE_KEYS = ('slides', 'made_from', 'walk_at', 'marks')
+
+def talk_state(t:dict) -> dict:
+    "The slides of talk `t` and what it keeps of its walk."
+    return {k: deepcopy(t.get(k)) for k in STATE_KEYS}
+
+def with_state(t:dict, before) -> dict:
+    "Talk `t` with `before`: a list of slides, or a `talk_state`."
+    return {**t, 'slides': before} if isinstance(before, list) else {**t, **before}
+
+# %% ../nbs/17_talk.ipynb #ag09
+def _groups(ss:list) -> tuple:
+    "`(head, groups, tail)`: the slides before the first idea, `{concept: [its slide, the slides after it]}`, and the closing slides."
+    k = len(ss)
+    while k and ss[k-1].get('section') == GONE: k -= 1
+    gone, ss = ss[k:], ss[:k]
+    k = len(ss)
+    while k and ss[k-1].get('kind') in ('questions', 'recap'): k -= 1
+    head, groups, cur = [], {}, None
+    for s in ss[:k] + gone:
+        c = s.get('concept')
+        if s.get('kind') == 'idea' and c and c not in groups: groups[c] = [s]; cur = c
+        elif cur is None: head.append(s)
+        else: groups[cur].append(s)
+    return head, groups, ss[k:]
+
+# %% ../nbs/17_talk.ipynb #ag11
+def _set(s:dict, k:str, v):
+    if not k.startswith('show.'): s[k] = v
+    elif v is None: s['show'].pop(k[5:], None)
+    else: s['show'][k[5:]] = v
+
+def _kept(s:dict, i:int, st:dict, f:dict|None, mk:dict|None) -> tuple:
+    "`(slide, marks)`: slide `s` of walk step `i` (`st`), with the new slide `f` in each part that you did not change."
+    back = s.get('section') == GONE
+    s = {**deepcopy(s), 'step': i, **({'section': (st.get('read') or {}).get('section') or ''} if back else {})}
+    if not mk: return s, None   # a talk made before 0.0.14: the slide stays as it is
+    now = slide_marks(s)
+    mine = {p for p, h in mk['slide'].items() if now.get(p) != h and not (back and p == 'section')}
+    if f is None: return s, dict(mk, step=step_mark(st))   # the step did not change
+    new = {**deepcopy(f), 'id': s['id'], 'step': i}
+    new['show'] = dict(new.get('show') or {})
+    for p in mine:
+        for k in SLIDE_PARTS[p]: _set(new, k, deepcopy(_key(s, k)))
+    if check_talk(dict(schema=TALK_SCHEMA, slides=[new])): return s, dict(mk, step=step_mark(st))
+    made = slide_marks(new)
+    return new, dict(step=step_mark(st), slide={p: mk['slide'][p] if p in mine else made[p] for p in SLIDE_PARTS})
+
+# %% ../nbs/17_talk.ipynb #ag13
+def _next_id(ss): return max((int(s['id'][1:]) for s in ss if str(s.get('id', ''))[1:].isdecimal()), default=0) + 1
+
+def again_slides(t:dict, j:dict, fresh:dict) -> dict:
+    "The `talk_state` of talk `t` made again from walk `j`, with the new slides `fresh` (by concept)."
+    made = t.get('made_from') or [s['concept'] for s in t['slides'] if s.get('kind') == 'idea' and s.get('concept')]
+    steps = [(i, st) for i, st in enumerate(j['steps']) if st.get('status') != 'skip']
+    head, groups, tail = _groups(list(t['slides']))
+    marks, out, n = dict(t.get('marks') or {}), list(head), _next_id(t['slides'])
+    for i, st in steps:
+        c = st.get('slug')
+        if c in groups:
+            s, *rest = groups.pop(c)
+            s, mk = _kept(s, i, st, fresh.get(c), marks.get(c))
+            if mk: marks[c] = mk
+            out += [s, *rest]
+        elif c not in made and c in fresh:   # a new idea; an idea whose slide you removed stays out
+            out.append(s := {**deepcopy(fresh[c]), 'id': f's{n}', 'step': i}); n += 1
+            marks[c] = dict(step=step_mark(st), slide=slide_marks(s))
+    gone = [{**deepcopy(s), 'section': GONE} for g in groups.values() for s in g]
+    return dict(slides=out + tail + gone, made_from=[st.get('slug') for _, st in steps], walk_at=j.get('updated'), marks=marks)
+
+# %% ../nbs/17_talk.ipynb #ag15
+def _needs(t:dict, j:dict) -> list:
+    "The steps `(i, step)` of walk `j` that need a new slide in talk `t`: a new idea, or a step that changed since the talk was made."
+    made = t.get('made_from') or [s['concept'] for s in t['slides'] if s.get('kind') == 'idea' and s.get('concept')]
+    have, marks = {s.get('concept') for s in t['slides'] if s.get('kind') == 'idea'}, t.get('marks') or {}
+    def need(st):
+        c = st.get('slug')
+        if c not in have: return c not in made
+        return c in marks and marks[c].get('step') != step_mark(st)
+    return [(i, st) for i, st in enumerate(j['steps']) if st.get('status') != 'skip' and need(st)]
+
+def _fresh(lr:Learning, ask, need:list, choice:bool, sources=None, fill:bool=True) -> dict:
+    "A new slide for each step of `need`, by concept."
+    ss = [_idea(lr, ask, i, st, 'new', choice) for i, st in need]
+    if fill: ss = fill_slides(lr, ask, ss, sources)
+    return {s['concept']: clean_slide(s) for s in ss}
+
+def talk_again(lr:Learning, ask, tid:str, sources=None, choice:bool|None=None) -> AttrDict:
+    "Make talk `tid` again from its walk, with the same id, and keep your edits. The change is one history row, so one Undo takes it back."
+    t = lr.talk(tid)
+    if t is None: raise KeyError(f'no talk {tid!r}')
+    wid = (t.get('src') or {}).get('walk') or ''
+    if (j := lr.journey(wid)) is None: raise KeyError(f'the walk of talk {tid!r} is gone')
+    choice = val('talks.choice') if choice is None else choice
+    fresh = _fresh(lr, ask, _needs(t, j), choice, sources)   # the model calls run outside the lock
+    with edit_lock('talk', tid):
+        now, j = lr.talk(tid) or t, lr.journey(wid) or j
+        late = [(i, st) for i, st in _needs(now, j) if st.get('slug') not in fresh]
+        fresh.update(_fresh(lr, None, late, False, fill=False))   # the walk changed during the calls: no model call here
+        new = again_slides(now, j, fresh)
+        if new == talk_state(now): return now
+        out = []
+        lr.add_edit('talk', tid, AGAIN, 'tutor', talk_state(now), apply=lambda: out.append(lr.put_talk(with_state(now, new))))
+    return out[0]
 
 # %% ../nbs/17_talk.ipynb #399b1dc2
 IMAGE_TYPES = {b'\x89PNG\r\n\x1a\n': 'image/png', b'\xff\xd8\xff': 'image/jpeg', b'GIF87a': 'image/gif', b'GIF89a': 'image/gif'}

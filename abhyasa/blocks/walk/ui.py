@@ -766,14 +766,17 @@ def Steps(j, by, opened='', fresh='', pick=False):
     out.children = (*kids, *out.children[len(rows):])
     return out
 
-def TalkLine(talks):
-    "The talks made from this walk, each with a link. A talk does not change when the walk changes: it offers Make it again."
+def TalkLine(talks, changed=()):
+    """The talks made from this walk, each with a link; a talk in `changed` is older than the walk now. A change here does not change a talk:
+    the talk offers Make it again, which keeps your edits to its slides."""
     if not talks: return ''
-    links = [x for k, t in enumerate(talks) for x in ((', ' if k else ''), A(f"{t['title']}, as a talk", href=f"/t/{t['id']}"))]
+    links = [x for k, t in enumerate(talks) for x in ((', ' if k else ''), A(f"{t['title']}, as a talk", href=f"/t/{t['id']}"),
+                                                       ' (older than this walk)' if t['id'] in changed else '')]
     head = '1 talk was made from this walk: ' if len(talks) == 1 else f'{len(talks)} talks were made from this walk: '
-    return P(head, *links, '. After your edits it offers “Make it again”.', cls='mute talk-line')
+    return P(head, *links, '. A change here does not change a talk. To bring your changes into a talk, open it and press “Make it again”. '
+             'Your edits to its slides stay.', cls='mute talk-line')
 
-def Editor(j, by, talks=(), opened='', pick=False, actions=()):
+def Editor(j, by, talks=(), opened='', pick=False, actions=(), changed=()):
     "The walk path editor: what the walk is, its one main button (and the quiet `actions` of other blocks, such as Present), the hands-on share, then the ideas. A change saves at once, and Undo takes it back."
     src, ss = j.get('source') or {}, j['steps']
     mins = sum(minutes(s) for s in ss if s.get('status') != 'skip')
@@ -782,7 +785,7 @@ def Editor(j, by, talks=(), opened='', pick=False, actions=()):
           Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post'))
     return (H1(f"{j['title']}, the walk path"),
             P(meta(whence, n_of(len(ss), 'idea'), f'about {mins} min'), ' · ', A('Earlier versions', href=at(Routes.history, j['id'])), cls='mute'),
-            TalkLine(talks),
+            TalkLine(talks, changed),
             P('A change saves at once, and Undo takes it back. An idea keeps your progress, its passage and its side walks when it moves. '
               'A removed idea keeps your answers in the vault.', cls='lead'),
             Div(go, *actions, cls='row walk-top'), Hands(j), Steps(j, by, opened, pick=pick), UndoBar(oob=False),   # in the page under the list (walk.css)

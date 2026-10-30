@@ -1,6 +1,7 @@
 """The talk: a walk made into slides for a group. "Present this walk" makes the talk on the pool, and the editor changes its slides.
 On a walk planned from a goal, "Present this walk" first makes a walk for the talk from its steps, in their order, and a second press opens
-the same talk. A change to the talk never changes the walk. Each change runs `check_talk`, and a talk with a problem is not saved.
+the same talk. A change to the talk never changes the walk. When the walk changes after the talk was made, the editor says what changed and offers
+"Make it again" (`talk_again`): the same talk takes the new walk, and each slide keeps the parts that you changed. Each change runs `check_talk`, and a talk with a problem is not saved.
 
 "Present" starts a run. The presenter window and the audience window (`/t/{tid}/audience?k=<run key>`) stay in step over the
 stage channel. Each key posts to the server first (`at`, `ask`), and the window sends the stage messages from the reply, so the
@@ -21,7 +22,7 @@ from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
                           public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go, log_main, end_run, log_beside,
-                          recap, recap_html, BEATS, FILLED, clean_slide)
+                          recap, recap_html, BEATS, FILLED, clean_slide, talk_again, walk_changes, AGAIN, talk_state, with_state)
 from . import ui
 from .cfg import Routes
 
@@ -237,11 +238,15 @@ def connect(app, ctx):
         j = lr.journey(jid)
         return j if j and j.get('mode') == 'walk' and j.steps else None
 
-    def new(jid:str=''):
-        "Start the pool job that makes a talk from walk `jid`, unless one runs. The request does not wait for the model."
+    def new(jid:str='', again:str=''):
+        """Start the pool job that makes a talk from walk `jid`, unless one runs. The request does not wait for the model.
+        `again` with a talk made from the walk before: make that talk again from the walk (`talk_again`), with the same id and your edits."""
         if not walk_of(jid := jid.strip()): return P('No such walk.', cls='req-err')
-        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_walk(lr, ask(), jid, sources=ctx.sources).id)
-        return ui.Pending(jid)
+        t = walk_talk(lr, jid) if again else None
+        if not (job := jobs.get(jid)) or job.done():
+            jobs[jid] = ctx.pool.submit(lambda: talk_again(lr, ask(), t.id, ctx.sources).id if t else talk_from_walk(lr, ask(), jid, sources=ctx.sources).id)
+            jobs[jid].again = bool(t)
+        return ui.Pending(jid, again=getattr(jobs[jid], 'again', False))
 
     def find_sources(w):
         "Before the slides are made: mark the steps of walk `w` with no passage as pending, look for their web sources on the research pool, and wait."
@@ -264,21 +269,23 @@ def connect(app, ctx):
     def job(jid:str=''):
         "The state of the talk from walk `jid`, or of Fill the slides of talk `jid`: the pending card, a redirect to the editor, or a message."
         if not (j := jobs.get(jid.strip())): return P('No talk is being made from this walk. Try again.', cls='req-err')
-        if not j.done(): return ui.Pending(jid.strip(), fill=bool(lr.talk(jid.strip())))
+        again = getattr(j, 'again', False)
+        if not j.done(): return ui.Pending(jid.strip(), fill=bool(lr.talk(jid.strip())), again=again)
         if j.exception(): return P(NO_TALK, cls='req-err')   # never the words of a library
-        done = '?done=fill' if j.result() == jid.strip() else ''   # Fill the slides: the job of a talk has the id of the talk
+        done = '?done=fill' if j.result() == jid.strip() else '?done=again' if again else ''   # Fill the slides: the job of a talk has the id of the talk
         return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=j.result()) + done})
 
     def walk_for(t): return lr.journey((t.get('src') or {}).get('walk') or '')
 
     def one(req, tid:str, done:str=''):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
-        top = first(lr.edits('talk', tid)) if done == 'fill' else None   # after Fill the slides: the bar offers Undo at once
-        filled = bar(t, top.what, [top]) if top and top.what == FILLED else None
+        said = dict(fill=FILLED, again=AGAIN).get(done)
+        top = first(lr.edits('talk', tid)) if said else None   # after Fill the slides or Make it again: the bar offers Undo at once
+        filled = bar(t, top.what, [top]) if top and top.what == said else None
         j = walk_for(t)
         pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
         up = [(pj.title, f'/path/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j), choices(t), filled), on='Learn', crumbs=[('Today', '/'), ('Learn', '/learn'), *up],
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j), choices(t), filled, None if pj or not j else walk_changes(lr, t)), on='Learn', crumbs=[('Today', '/'), ('Learn', '/learn'), *up],
                     extra=ui.editor_assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys work only here
         return page
@@ -511,7 +518,7 @@ def connect(app, ctx):
             if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
             top = first(lr.edits('talk', tid))
             if top and top.before is None: return text('This change was too large to keep. Undo cannot take it back.')
-            try: e = lr.pop_edit('talk', tid, step or None, apply=lambda e: lr.put_talk({**lr.talk(tid), 'slides': e.before}))
+            try: e = lr.pop_edit('talk', tid, step or None, apply=lambda e: lr.put_talk(with_state(lr.talk(tid), e.before)))
             except ValueError: return text('Undo cannot take back this change.')
             t, hist = lr.talk(tid), lr.edits('talk', tid)
         said = f'Undone: {e.what}' if e else 'Nothing to undo.'
@@ -532,8 +539,12 @@ def connect(app, ctx):
             e = first(x for x in es if x.id == id) if id else es[n] if n is not None and n < len(es) else None
             if not e: return Response('No such change.', status_code=404)
             if e.before is None: return text('This change was too large to keep. It cannot come back.')
-            try: save(t, e.before, f'Restored the version before “{e.what}”')
+            said = f'Restored the version before “{e.what}”'
+            try:
+                if isinstance(e.before, list): save(t, e.before, said)
+                else: lr.add_edit('talk', tid, said, 'you', talk_state(t), apply=lambda: lr.put_talk(with_state(t, e.before)))   # before Make it again
             except Bad as x: return text(str(x))
+            except ValueError: return text('This version cannot come back.')
         return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=tid)})
 
     def slot(tid:str, minutes:str=None, phones:str=None):

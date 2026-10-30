@@ -1,6 +1,6 @@
 """Browser checks of a talk (Task 8 of the group talk plan), and the screens of the editor, the two windows and the page after the talk.
 
-Run: uv run --all-extras python tools/talk_look.py [--shots] [--out design/screens] [--editor-shots DIR]
+Run: uv run --all-extras python tools/talk_look.py [--shots] [--out design/screens] [--editor-shots DIR] [--again-shot DIR]
 It makes a temporary vault and settings folder, runs the app with the `Fake` model on a free port, and opens it in Playwright's
 bundled Chromium (headless, one browser, closed at the end). The presenter window is 1280 by 800 and the audience window 1280 by 720.
 Each check prints PASS or FAIL; the run fails when one check fails, or when a page has a script error.
@@ -195,6 +195,41 @@ def editor_rewrite(pg, w):
     s = w.lr.talk(w.tid).slides[0]
     assert s['show']['body'] == REWRITE['body'] and s['show']['passage'] == old
     pg.wait_for_function(CALM); press(pg, 'Meta+z'); pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('Undone')")
+
+def change_walk(w):
+    "Give slide 2 your title, then change the walk: drop idea 1, change the note of idea 2 and add Layer norm. Return the old steps."
+    w.rq.post(f'{w.B}/t/{w.tid}/slide?sid=s2', form=dict(act='set', title='Softmax, in my words'))
+    j = w.lr.journey(w.jid); old = [dict(s) for s in j.steps]
+    c = w.lr.put('Layer norm', 'Layer norm scales the values of one layer to a mean of 0 and a variance of 1.', 'ml')
+    steps = [dict(s, note='Softmax gives weights that add to 1.') if s['slug'] == 'softmax' else s for s in j.steps[1:]]
+    w.lr.put_journey({**j, 'steps': [*steps, dict(slug=c.slug, status='todo', why='')]})
+    return old
+
+def make_again(pg, w):
+    "Press Make it again on the editor and wait for the talk to open again with its Undo bar."
+    pg.goto(f'{w.B}/t/{w.tid}'); settle(pg)
+    assert 'The walk changed after this talk was made: 1 idea added, 1 idea removed.' in pg.inner_text('.talk-again')
+    pg.locator('.talk-again button').click()
+    pg.wait_for_url(f'**/t/{w.tid}?done=again', timeout=20000); settle(pg)
+    assert 'Made the talk again from the walk.' in pg.inner_text('#undo-bar')
+
+def put_back(pg, w, old):
+    "Undo Make it again and your title, and give the walk its old steps, so the next checks see the talk as before."
+    pg.wait_for_function(CALM); press(pg, 'Meta+z'); pg.wait_for_function("document.getElementById('undo-bar').textContent.includes('Undone')")
+    w.rq.post(f'{w.B}/t/{w.tid}/undo')
+    j = w.lr.journey(w.jid); w.lr.put_journey({**j, 'steps': old})
+
+def editor_again(pg, w):
+    "Make it again keeps your title on its idea, takes the new note of the walk, puts the idea that left under Not in the walk any more, and ⌘Z takes it back."
+    before = w.lr.talk(w.tid); old = change_walk(w)
+    make_again(pg, w)
+    t = w.lr.talk(w.tid); by = {s.get('concept'): s for s in t.slides}
+    assert t.id == before.id and by['softmax']['title'] == 'Softmax, in my words' and by['softmax']['notes'] == 'Softmax gives weights that add to 1.'
+    assert by['sequential-computation']['section'] == 'Not in the walk any more' and 'layer-norm' in by
+    assert pg.locator('#deck li.sec', has_text='Not in the walk any more').count() == 1 and 'Softmax, in my words' in pg.inner_text('#deck')
+    put_back(pg, w, old)
+    t = w.lr.talk(w.tid)
+    assert t.slides == before.slides and t.made_from == before.made_from and t.marks == before.marks
 
 def present_opens_audience(pg, w):
     "⌥S on the editor opens the presenter view; the first D opens the audience window, whose URL has the run key, and goes to s2 beat 1."
@@ -475,7 +510,7 @@ def journey_points(pg, w):
     finally:
         au.close(); w.rq.post(f'{w.B}/t/{tid}/end', max_redirects=0)
 
-CHECKS = [editor_keys, editor_beats, editor_undo, editor_rewrite, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
+CHECKS = [editor_keys, editor_beats, editor_undo, editor_rewrite, editor_again, present_opens_audience, audience_type, beats_and_lit, laser, blank, demo, demo_floor, question, beside,
           reload_audience, maths, strangers, audience_closed, stray_keys, end_and_after, present_journey, present_started_walk, journey_points]
 
 # --- the screens --------------------------------------------------------------------------------------------------
@@ -549,12 +584,26 @@ def editor_screens(w, out):
         ed.close(); look(w.rq, B, 'paper', 'light')
     return shots
 
+def again_screen(w, out):
+    "The talk editor after Make it again, at 1280 px in Paper dark: your title kept on its idea, the new idea, and Not in the walk any more."
+    out.mkdir(parents=True, exist_ok=True)
+    ed = w.ctx.new_page(); guard(ed, w.errs); ed.set_viewport_size(dict(width=1280, height=900))
+    try:
+        look(w.rq, w.B, 'paper', 'dark')
+        old = change_walk(w); make_again(ed, w)
+        p = out/'talk-editor-again-paper-dark-1280.png'; ed.screenshot(path=str(p), full_page=True)
+        put_back(ed, w, old)
+    finally:
+        ed.close(); look(w.rq, w.B, 'paper', 'light')
+    return [p.name]
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('--shots', action='store_true', help='also take the screens')
     ap.add_argument('--out', default=str(ROOT/'design/screens'))
     ap.add_argument('--only', nargs='*', default=None, help='run only the checks with these names')
     ap.add_argument('--editor-shots', default=None, help='also take the screens of the talk editor in this folder')
+    ap.add_argument('--again-shot', default=None, help='also take the talk editor after Make it again in this folder')
     a = ap.parse_args()
     from playwright.sync_api import sync_playwright
     lr, app = seed()
@@ -583,6 +632,10 @@ def main():
                     errs.clear(); n = len(editor_screens(w, Path(a.editor_shots)))
                     if errs: bad += 1; print('FAIL editor screens - script errors on a page:', errs[:3], flush=True)
                     print(n, 'editor screens in', a.editor_shots)
+                if a.again_shot:
+                    errs.clear(); again_screen(w, Path(a.again_shot))
+                    if errs: bad += 1; print('FAIL again screen - script errors on a page:', errs[:3], flush=True)
+                    print('the again screen in', a.again_shot)
                 if a.shots:
                     errs.clear(); n = len(screens(w, Path(a.out)))
                     if errs: bad += 1; print('FAIL screens - script errors on a page:', errs[:3], flush=True)

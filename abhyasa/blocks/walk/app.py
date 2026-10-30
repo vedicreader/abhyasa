@@ -18,6 +18,7 @@ from abhyasa.journey import journey_from_source, journey_from_text, journey_from
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task, validate_nb_spec, leela_back, leela_found
 import abhyasa.walk as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.talk   # adds Learning.talks: the editor links the talks made from a walk
+from abhyasa.talk import walk_changes
 from abhyasa.edit import (edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, merge_steps, add_step, split_step,
                           passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite)
 from abhyasa.contract import data_path_why
@@ -738,8 +739,9 @@ def connect(app, ctx):
     def editor(jid:str, open:str='', pick:str=''):
         "The walk path editor: the ideas in order, each with its passage, note and check. A change saves at once, and Undo takes it back."
         if (no := not_walk(jid)): return no
-        j = lr.journey(jid)
-        return Page(f"{j.title}, the walk path", *ui.Editor(j, by(), talks_of(jid), opened=open, pick=bool(pick), actions=run_hook('walk_actions', j, quiet=True)), on='Learn',
+        j, ts = lr.journey(jid), talks_of(jid)
+        old = {t['id'] for t in ts if any(walk_changes(lr, t).values())}   # talks older than the walk: they offer Make it again
+        return Page(f"{j.title}, the walk path", *ui.Editor(j, by(), ts, opened=open, changed=old, pick=bool(pick), actions=run_hook('walk_actions', j, quiet=True)), on='Learn',
                     crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def bar(j, said, rows, row=''):

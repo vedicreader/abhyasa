@@ -231,3 +231,5 @@ html.present #rh-pane .rh-own { display: none; }
 .deck .ttl .web a { color: inherit; }
 .deck .ttl .src-line { margin-top: var(--s1); font-size: var(--t-small); }
 .deck .ttl .src-line .pill { font-size: var(--t-lbl); }
+.talk-again { margin: .5rem 0 1rem; }
+.talk-again p { margin: 0 0 .4rem; }
