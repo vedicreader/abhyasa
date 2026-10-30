@@ -248,13 +248,23 @@
     if (!gates.every(g => s.st.gate && s.st.gate[g] === 'done')) return;   // the gate is still closed: never show the result first
     try { Rupaka.set(h, set); } catch (e) { console.warn('board: demo', e); }
   }
+  function seekVideo(t) {   // the YouTube player API by postMessage: the embed has enablejsapi=1, and no autoplay
+    const f = document.querySelector('#guide-video iframe');
+    if (!f || !f.contentWindow) return;
+    const send = m => f.contentWindow.postMessage(JSON.stringify(m), 'https://www.youtube-nocookie.com');
+    send({event: 'listening', id: 'guide-video'});
+    send({event: 'command', func: 'seekTo', args: [t, true]});
+  }
+  const YT_LINK = /^https:\/\/www\.youtube\.com\/watch\?v=[A-Za-z0-9_-]{11}&t=\d+s$/;
   function video(o) {
     const f = document.querySelector('#guide-video iframe');
-    if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify({event: 'command', func: 'seekTo', args: [o.t, true]}), 'https://www.youtube-nocookie.com');
+    seekVideo(o.t);
+    if (f) f.closest('#guide-video').scrollIntoView({block: 'nearest'});
     const vid = (document.getElementById('guide-video') || {dataset: {}}).dataset.vid || '', p = el('p', 'board-quote');
     const mm = `${Math.floor(o.t / 60)}:${String(Math.floor(o.t % 60)).padStart(2, '0')}`;
     p.append(el('q', '', o.quote), ' ');
-    if (/^[A-Za-z0-9_-]{11}$/.test(vid)) { const a = el('a', 'board-src', `The video at ${mm}`); a.href = `https://www.youtube.com/watch?v=${vid}&t=${Math.floor(o.t)}s`; a.target = '_blank'; a.rel = 'noopener noreferrer'; p.append(a); }
+    const href = YT_LINK.test(o.link || '') ? o.link : /^[A-Za-z0-9_-]{11}$/.test(vid) ? `https://www.youtube.com/watch?v=${vid}&t=${Math.floor(o.t)}s` : '';   // the server's yt_link, else the same shape
+    if (href) { const a = el('a', 'board-src', `The video at ${mm}`); a.href = href; a.target = '_blank'; a.rel = 'noopener noreferrer'; p.append(el('span', 'pill', 'video'), ' ', a); }
     st.video = p; caption();
   }
 
@@ -306,6 +316,6 @@
     if (ms.some(m => !(m.target.closest && m.target.closest('#board-host, #guide-strip')))) follow();
   }).observe(document.body, {childList: true, subtree: true});
   if (document.body) watch(); else addEventListener('DOMContentLoaded', watch);
-  window.abhyasaBoard = {play, stop, note, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
+  window.abhyasaBoard = {play, stop, note, seekVideo, next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
                          get state() { return st && {i: st.i, steps: st.board.steps.length, tier: st.board.tier, first: st.first}; }};
 })();

@@ -295,6 +295,11 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   addEventListener('blur', () => release({code: 'KeyE'}));
 
   document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#guide-go')) { e.preventDefault(); open(); } });
+  document.addEventListener('click', e => {   // a time in the transcript seeks the video on the page; a click with a modifier opens YouTube
+    const a = e.target.closest && e.target.closest('#guide-video a[data-t]');
+    if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !window.abhyasaBoard || !abhyasaBoard.seekVideo) return;
+    e.preventDefault(); abhyasaBoard.seekVideo(+a.dataset.t);
+  });
   document.addEventListener('submit', e => { if (e.target.id === 'guide-form') { e.preventDefault(); ask(box().value); } });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && e.target.id === 'guide-box') { e.preventDefault(); e.stopPropagation(); close(); } });
 

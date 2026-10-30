@@ -64,3 +64,80 @@ def test_hyper_e_and_hold_to_talk():
 def test_keys_table_names_the_guide_key():
     from abhyasa.core.keys import KEYS
     assert ('Guide', '⌃⌥⇧⌘E', 'Explain this: hold to talk, tap to type (Caps+E)') in KEYS
+
+# --- the explainer video ---------------------------------------------------------------------------------------------
+CUES = [dict(start=0.0, end=4.0, text='Today we look at ranks.'), dict(start=42.0, end=48.0, text='A rank is the place of an item in the list.'),
+        dict(start=48.0, end=52.0, text='The first item has rank one.')]
+
+@pytest.fixture
+def yt(monkeypatch):
+    "fossick with no network: `read_yt` and `search_yt` give fixed videos, and the URL check passes. Each call is kept."
+    calls = []
+    def read_yt(url, force=False, cues=False, **kw):
+        calls.append(('read', url))
+        v = dict(title='Ranks in two minutes', channel='Maths Room', description='', duration=120, upload_date='20260101',
+                 source=' '.join(c['text'] for c in CUES) + f' ({url})')
+        return {**v, 'cues': CUES} if cues else v
+    def search_yt(q, n=10, **kw):
+        calls.append(('search', q))
+        return [dict(id='abc123def45', title='Ranks in two minutes', channel='Maths Room', duration=120)]
+    monkeypatch.setattr('fossick.core.read_yt', read_yt)
+    monkeypatch.setattr('fossick.search_yt', search_yt)
+    monkeypatch.setattr('abhyasa.sources.public_url', lambda u: u)
+    return calls
+
+def test_paste_a_video_on_a_concept(mk, lr, yt):
+    cl = mk()
+    assert 'Paste a YouTube link' in cl.get('/c/ranking').text
+    t = cl.post('/guide/video/ranking', data=dict(url='https://youtu.be/abc123def45?si=x')).text
+    assert 'https://www.youtube-nocookie.com/embed/abc123def45?enablejsapi=1&amp;rel=0' in t and 'autoplay' not in t
+    assert 'id="guide-video"' in t and 'data-vid="abc123def45"' in t and 'Maths Room · Ranks in two minutes' in t
+    assert '<summary class="mute">Transcript</summary>' in t and 'data-t="42.0"' in t
+    p = lr.concept('ranking').provenance[-1]
+    assert (p['src'], p['vid'], p['channel']) == ('video', 'abc123def45', 'Maths Room')
+    assert 'data-vid="abc123def45"' in cl.get('/c/ranking').text
+
+def test_a_bad_link_files_nothing(mk, lr, yt):
+    t = mk().post('/guide/video/ranking', data=dict(url='https://example.com/watch?v=abc123def45')).text
+    assert 'This is not a YouTube link.' in t and not yt and not any(p.get('src') == 'video' for p in lr.concept('ranking').provenance or ())
+
+def test_the_tutor_finds_a_video(mk, lr, yt):
+    t = mk().post('/guide/video/ranking/find').text
+    assert 'data-vid="abc123def45"' in t and yt[0] == ('search', 'Ranking ml explained')
+
+def test_remove_the_video(mk, lr, yt):
+    cl = mk()
+    cl.post('/guide/video/ranking', data=dict(url='abc123def45'))
+    t = cl.post('/guide/video/ranking/drop').text
+    assert 'The video is gone' in t and 'guide-video"' not in t and 'Find a video' in t
+
+def test_the_walk_step_shows_the_video(mk, lr, yt):
+    from abhyasa.core.hooks import HOOKS
+    mk().post('/guide/video/ranking', data=dict(url='abc123def45'))
+    f = next(f for f in HOOKS['step_needs'] if 'guide' in f.__module__)   # the hook of the guide; the walk block calls it with the step
+    assert 'youtube-nocookie.com/embed/abc123def45' in to_xml(f(None, 0, lr.concept('ranking')))
+    assert f(None, 0, lr.concept('reciprocal-rank-fusion')) is None and f(None, 0, None) is None
+
+def to_xml(p):
+    from fasthtml.common import to_xml as x
+    return x(p)
+
+def test_ask_points_at_a_moment_in_the_video(mk, lr, fake, yt):
+    "The cues come from the vault, not from the page. The board seeks to the start of the cue and quotes it with its link."
+    cl = mk()
+    cl.post('/guide/video/ranking', data=dict(url='abc123def45'))
+    fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='The video says what a rank is.'),
+                                                                  dict(op='video_at', t=45, quote='the place of an item in the list')])
+    ctx = dict(page='/c/ranking', anchors=[dict(id='title', kind='title', text='Ranking')], video=dict(id='abc123def45', cues=[[0, 'made up words']]))
+    r = cl.post('/guide/ask', json=dict(said="I don't get rank", ctx=ctx))
+    b = [json.loads(l[6:]) for l in r.text.splitlines() if l.startswith('data: ')][-1]['board']
+    assert b['steps'][0]['strokes'] == [dict(op='video_at', t=42.0, quote='the place of an item in the list', link='https://www.youtube.com/watch?v=abc123def45&t=42s')]
+    assert b['sources'] == [dict(n=1, title='Maths Room · Ranks in two minutes', url='https://www.youtube.com/watch?v=abc123def45', label='video', quoted=True)]
+    p = next(p for p, sp in fake.calls if 'Tier: tutor' in p)
+    assert '[42 s] A rank is the place of an item in the list.' in p and 'made up words' not in p
+
+def test_a_video_that_is_not_filed_gives_no_cues(mk, fake, yt):
+    fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='One.'), dict(op='video_at', t=1, quote='Today we look at ranks')])
+    r = mk().post('/guide/ask', json=dict(said='Explain', ctx=dict(video=dict(id='zzz123def45'), anchors=[dict(id='title', kind='title', text='x')])))
+    b = [json.loads(l[6:]) for l in r.text.splitlines() if l.startswith('data: ')][-1]['board']
+    assert b['steps'][0]['strokes'] == [] and b['sources'] == []
