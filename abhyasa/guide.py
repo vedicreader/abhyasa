@@ -6,11 +6,11 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
-           'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat', 'anchor_why',
-           'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels',
-           'FigureCache', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'page_text', 'board_prompt',
-           'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of',
-           'guide_ask', 'video_source', 'web_sources', 'explain', 'stream_board']
+           'FOCUS', 'SHOWN', 'FIGURE_SP', 'GUIDE_SP', 'WATCH', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'norm_tex', 'flat',
+           'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context',
+           'figure_labels', 'FigureCache', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'focus_text',
+           'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video',
+           'concept_video', 'video_of', 'guide_ask', 'video_source', 'web_sources', 'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -227,6 +227,24 @@ def _anchor(a) -> dict|None:
     if (ls := _labels(a.get('labels'))): out['labels'] = ls
     return out
 
+# %% ../nbs/21_guide.ipynb #gf02
+FOCUS = dict(items=5, anchors=4, words=80)
+SHOWN = ('circle', 'point')
+
+def _focus(raw, ids) -> list:
+    "The good items of `raw` that the learner showed with the pointer, with only the anchor ids in `ids`. At most 5, in the order of the host."
+    out = []
+    for f in raw if isinstance(raw, list) else ():
+        if len(out) >= FOCUS['items']: break
+        if not isinstance(f, dict) or f.get('kind') not in SHOWN or not _box(f.get('box')) or not isinstance(f.get('anchors'), list): continue
+        box, got = [round(x) for x in f['box']], list(dict.fromkeys(a for a in f['anchors'] if isinstance(a, str) and a in ids))[:FOCUS['anchors']]
+        if not got or not _box(box): continue
+        o = dict(kind=f['kind'], box=box, anchors=got)
+        if _num(f.get('t')) and f['t'] >= 0: o['t'] = round(f['t'])
+        if (w := _s(f.get('words', ''), FOCUS['words'])): o['words'] = w
+        out.append(o)
+    return out
+
 # %% ../nbs/21_guide.ipynb #g052
 def _demo(d) -> dict:
     if not isinstance(d, dict): return {}
@@ -254,6 +272,7 @@ def clean_context(raw) -> PageContext:
     ctx = dict(page=_s(raw.get('page', ''), 200), title=_s(raw.get('title', ''), 200), step=_s(raw.get('step', ''), 200),
                concept=_s(raw.get('concept', ''), 200), slug=_s(raw.get('slug', ''), 80), source=_s(raw.get('source', ''), 300),
                anchors=anchors, demo=_demo(raw.get('demo')))
+    if (fs := _focus(raw.get('focus'), {a['id'] for a in anchors})): ctx['focus'] = fs
     if isinstance(raw.get('video'), dict) and isinstance(raw['video'].get('id'), str): ctx['video'] = dict(id=_s(raw['video']['id'], 11))
     return PageContext(by_id(ctx))
 
@@ -359,6 +378,21 @@ An example reply for "I don't get alpha bar" on a page with the formula m1:
 {"op":"step","say":"It starts near one and falls toward zero as t grows."}
 {"op":"sketch","at":{"a":"m1","pt":[1050,0]},"pts":[[0,50],[500,400],[1000,950]],"w":3}""")
 
+# %% ../nbs/21_guide.ipynb #gf12
+def focus_text(ctx) -> str:
+    "What the learner showed with the pointer, as lines for the request, or '' when they showed nothing."
+    fs = ctx.get('focus') or ()
+    if not fs: return ''
+    out = ['The learner showed these parts with the pointer while they asked, the latest first:']
+    for k, f in enumerate(fs, 1):
+        l = f"{k}. {'circled' if f['kind'] == 'circle' else 'pointed at'} {', '.join(f['anchors'])}: box {json.dumps(f['box'])} of {f['anchors'][0]}"
+        if 't' in f: l += f", at {f['t'] / 1000:.1f} s"
+        if f.get('words'): l += f", near the words {json.dumps(f['words'])}"
+        out.append(l)
+    a = json.dumps(dict(a=fs[0]['anchors'][0], box=fs[0]['box']), separators=(',', ':'))
+    out.append(f"Step 1 must explain what the learner showed in item 1, and mark it: {a}, or a token, label or words inside it.")
+    return '\n'.join(out)
+
 # %% ../nbs/21_guide.ipynb #g071
 def page_text(ctx) -> str:
     "The anchors of `ctx`, one line each, with the demo and the video."
@@ -377,12 +411,13 @@ def page_text(ctx) -> str:
     return '\n'.join(out)
 
 def board_prompt(ctx, said:str, sources=(), tier:str='tutor') -> str:
-    "The request for a board on `said`, with the page of `ctx` and the numbered `sources`, each in a fence."
+    "The request for a board on `said`, with what the learner showed (`focus_text`), the page of `ctx` and the numbered `sources`, each in a fence."
     from abhyasa.ground import fence
     head = [f"Learner: {json.dumps(said)}", f"Page: {ctx.get('title') or ctx.get('page') or ''}"]
     if ctx.get('step'): head.append(f"Step: {ctx['step']}")
     if ctx.get('concept'): head.append(f"Concept: {ctx['concept']}")
     srcs = '\n'.join(f"Source {k}: " + fence(s.get('title') or '', s.get('text') or '') for k, s in enumerate(sources, 1))
+    if (fx := focus_text(ctx)): head.append(f"\n{fx}")
     return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + f"Tier: {tier}\nReply with the JSON lines."
 
 # %% ../nbs/21_guide.ipynb #gv01
