@@ -8,7 +8,7 @@ public enum Gestures {
     public static let hz = 30.0, keepMs = 15000.0, most = 600
     public static let dwellPx = 12.0, dwellMs = 400.0, travelPx = 40.0
     public static let turnDeg = 300.0, maxTurnDeg = 540.0, minSide = 24.0, closePx = 20.0, closeFrac = 0.35, thinPx = 3.0
-    public static let loopMs = 8000.0, nearMs = 1000.0, items = 5, fadeMs = 1500.0
+    public static let loopMs = 8000.0, nearMs = 1000.0, items = 5, fadeMs = 1500.0, lenFrac = 1.5, stepFrac = 0.5
 
     public struct Point: Equatable, Sendable {
         public var x, y, t: Double
@@ -30,7 +30,8 @@ public enum Gestures {
     static func dist(_ a: Point, _ x: Double, _ y: Double) -> Double { hypot(a.x - x, a.y - y) }
 
     /// the gestures in `path` (in time order), the latest first, at most 5. `end` is when the question ended (default: the last point).
-    /// A closed loop is a circle. A still pointer after a move is a point. A rest at the end of a circle is part of the circle.
+    /// A closed smooth loop is a circle: a shaking pointer is not, and a second loop on a circle in the same second is the same circle.
+    /// A still pointer after a move is a point. A rest at the end of a circle is part of the circle.
     public static func find(_ path: [Point], end: Double? = nil) -> [Gesture] {
         let pts = Array(path.suffix(most)), n = pts.count
         let end = end ?? pts.last?.t ?? 0
@@ -39,10 +40,11 @@ public enum Gestures {
         var circles: [Gesture] = []
         var i = 0
         while i < q.count - 2 {
-            var turn = 0.0, x0 = q[i].x, y0 = q[i].y, x1 = x0, y1 = y0, hit = -1
+            var turn = 0.0, x0 = q[i].x, y0 = q[i].y, x1 = x0, y1 = y0, hit = -1, len = 0.0, step = 0.0
             var j = i + 1
             while j < q.count {
                 x0 = min(x0, q[j].x); y0 = min(y0, q[j].y); x1 = max(x1, q[j].x); y1 = max(y1, q[j].y)
+                let d = dist(q[j], q[j - 1]); len += d; step = max(step, d)
                 if q[j].t - q[i].t > loopMs { break }
                 if j >= i + 2 {
                     let ax = q[j - 1].x - q[j - 2].x, ay = q[j - 1].y - q[j - 2].y, bx = q[j].x - q[j - 1].x, by = q[j].y - q[j - 1].y
@@ -53,8 +55,14 @@ public enum Gestures {
                 if abs(turn) >= turnDeg, min(w, h) >= minSide, dist(q[j], q[i]) <= max(closePx, closeFrac * max(w, h)) { hit = j; break }
                 j += 1
             }
-            if hit < 0 { i += 1; continue }
-            circles.append(Gesture(kind: .circle, box: [x0, y0, x1, y1].map { jsRound($0) }, t: jsRound(q[hit].t), t0: q[i].t))
+            // a smooth loop only: its path is not much longer than the round of its box, and no one step jumps across it
+            let half = (x1 - x0 + y1 - y0) / 2
+            if hit < 0 || len > lenFrac * .pi * half || step > stepFrac * half { i += 1; continue }
+            let box = [x0, y0, x1, y1].map { jsRound($0) }, t0 = q[i].t
+            let same = circles.contains { g in
+                g.t >= t0 - nearMs && min(box[2], g.box[2]) > max(box[0], g.box[0]) && min(box[3], g.box[3]) > max(box[1], g.box[1])
+            }
+            if !same { circles.append(Gesture(kind: .circle, box: box, t: jsRound(q[hit].t), t0: t0)) }
             i = hit
         }
         var points: [Gesture] = []

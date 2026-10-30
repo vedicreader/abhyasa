@@ -87,7 +87,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   // `gestures` finds what the learner showed: a closed loop is a circle, a still pointer after a move is a point. The same rules
   // are in the overlay (mac/Sources/AbhyasaGuide/Gestures.swift), and both test against tests/data/gesture_paths.json.
   const G = {hz: 30, keep: 15000, most: 600, dwellPx: 12, dwellMs: 400, travelPx: 40, turnDeg: 300, maxTurnDeg: 540, minSide: 24,
-             closePx: 20, closeFrac: .35, thinPx: 3, loopMs: 8000, nearMs: 1000, items: 5, fade: 1500};
+             closePx: 20, closeFrac: .35, thinPx: 3, loopMs: 8000, nearMs: 1000, items: 5, fade: 1500, lenFrac: 1.5, stepFrac: .5};
   const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   function gestures(pts, end) {   // pts [[x, y, t]] in time order -> [{kind, box: [x0, y0, x1, y1], t}], the latest first
     pts = (pts || []).slice(-G.most);
@@ -97,9 +97,10 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     for (const p of pts) if (!q.length || dist(p, q[q.length - 1]) >= G.thinPx) q.push(p);
     const circles = [];
     for (let i = 0; i < q.length - 2;) {
-      let turn = 0, x0 = q[i][0], y0 = q[i][1], x1 = x0, y1 = y0, hit = -1;
+      let turn = 0, x0 = q[i][0], y0 = q[i][1], x1 = x0, y1 = y0, hit = -1, len = 0, step = 0;
       for (let j = i + 1; j < q.length; j++) {
         x0 = Math.min(x0, q[j][0]); y0 = Math.min(y0, q[j][1]); x1 = Math.max(x1, q[j][0]); y1 = Math.max(y1, q[j][1]);
+        const d = dist(q[j], q[j - 1]); len += d; step = Math.max(step, d);
         if (q[j][2] - q[i][2] > G.loopMs) break;
         if (j >= i + 2) {
           const ax = q[j - 1][0] - q[j - 2][0], ay = q[j - 1][1] - q[j - 2][1], bx = q[j][0] - q[j - 1][0], by = q[j][1] - q[j - 1][1];
@@ -109,8 +110,12 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
         const w = x1 - x0, h = y1 - y0;
         if (Math.abs(turn) >= G.turnDeg && Math.min(w, h) >= G.minSide && dist(q[j], q[i]) <= Math.max(G.closePx, G.closeFrac * Math.max(w, h))) { hit = j; break; }
       }
-      if (hit < 0) { i++; continue; }
-      circles.push({kind: 'circle', box: [x0, y0, x1, y1].map(Math.round), t: Math.round(q[hit][2]), t0: q[i][2]});
+      // a smooth loop only: its path is not much longer than the round of its box, and no one step jumps across it (a shaking hand)
+      const half = (x1 - x0 + y1 - y0) / 2;
+      if (hit < 0 || len > G.lenFrac * Math.PI * half || step > G.stepFrac * half) { i++; continue; }
+      const box = [x0, y0, x1, y1].map(Math.round), t0 = q[i][2];   // a loop on an earlier circle of the last second is the same circle
+      if (!circles.some(g => g.t >= t0 - G.nearMs && Math.min(box[2], g.box[2]) > Math.max(box[0], g.box[0]) && Math.min(box[3], g.box[3]) > Math.max(box[1], g.box[1])))
+        circles.push({kind: 'circle', box, t: Math.round(q[hit][2]), t0});
       i = hit;
     }
     const points = [];
