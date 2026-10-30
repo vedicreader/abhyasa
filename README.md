@@ -173,6 +173,9 @@ figure, moves the demo and speaks one short line for each step. The marks stay i
 - A pill says where the answer is from: the tutor, your vault or the web. A quote is word for word, with its link.
 - When a concept has an explainer video, the board can move the video to the right time and quote it. On a concept page,
   “Find a video” looks on YouTube, or you can paste a link.
+- The browser speaks the steps by default. For a natural voice, open Settings, Speaking voice, and pick Kokoro (on this Mac,
+  `pip install abhyasa[voice]`), OpenAI (hosted, with your key) or a text to speech model from Hugging Face. The words light
+  up as the voice says them.
 
 The text that the guide sends to the model goes through ramabana’s guard. The guard always masks secrets. It masks personal
 data only when the ramabana setting `cli.pii` is `redact` or `refuse` (the default is `off`).

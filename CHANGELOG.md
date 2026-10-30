@@ -22,6 +22,16 @@
 
 - Circle a part with the pointer, or hold the pointer still on it, while you ask. The guide explains that part first. A faint trail and a ring show what the guide saw. Nothing is kept after you send the question.
 
+### A natural voice
+
+- The guide can read its steps in a natural voice. Settings, Speaking voice has four engines: the browser, Kokoro (on this Mac), OpenAI (hosted) and a Hugging Face model (on this Mac). Each engine shows where it runs.
+- Kokoro 82M (`mlx-community/Kokoro-82M-bf16`, voice `af_heart`) runs with mlx-audio and gives the time of each word, so the words light up as it says them. On an M-series Mac, a line takes about 0.1 to 0.2 s when the model is loaded, and 3.5 s for the first line after a start. Install it with `pip install abhyasa[voice]`.
+- OpenAI uses `gpt-4o-mini-tts` (voice `marin`) with your key. Each line passes the privacy guard before it goes. A line took about 2.9 s to its audio in a test.
+- Look up a text to speech model on Hugging Face, download it, and use it. Pick the voice and the speed, and click "Play a sample".
+- The board asks for each line as soon as its step comes, and the server keeps the lines of the run, so a step that you see again speaks at once. When the natural voice fails, the browser voice speaks, and the strip says so one time.
+- The browser voice stays the default. The first board with the browser voice says one time that a natural voice is ready, with a link to Settings.
+- The Mac overlay uses the same voice from the server, and the voice of the Mac when the setting is the browser voice.
+
 ### The Mac app: the guide over other apps
 
 - Caps+E over any app reads the front window with Accessibility and draws the board over it. The guide is off until you start it from a first-use sheet that says what it reads and where it sends it.
