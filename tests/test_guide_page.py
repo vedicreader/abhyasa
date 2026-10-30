@@ -44,3 +44,24 @@ def test_a_stream_with_steps_and_no_board_ends_the_board(page):
     assert (st['steps'], st['tier'], st['streaming']) == (1, 'tutor', False)
     assert page.evaluate("document.querySelector('#guide-strip .board-n').textContent") == 'Step 1 of 1'
     assert page.evaluate("!document.querySelector('#guide-strip .board-end')")
+
+QKV = ('Each input vector $x$ is linearly projected into a query $q = xW_Q$, a key $k = xW_K$ and a value $v = xW_V$. '
+       'A query is compared with keys to decide how much of each value to read.')
+
+def test_inline_formulas_of_a_passage_are_anchors(page):
+    """A walk-step passage with inline maths, made by abhyasa's own markdown (`Md`) and drawn by KaTeX as the page does. Each formula
+    is an anchor with its tokens, and W_Q is one token. The passage keeps the TeX as the page wrote it, also on a second ask, when
+    the formulas already carry the ids of their parts."""
+    from fasthtml.common import to_xml
+    from abhyasa.core.ui import Md
+    page.evaluate("""h => { const q = document.getElementById('passage'); q.innerHTML = h; render(q); }""", to_xml(Md(QKV)))
+    for _ in range(2):
+        ctx = page.evaluate('abhyasaGuide.capture()')
+        by = {a['id']: a for a in ctx['anchors']}
+        assert by['passage']['text'] == QKV[:300] and '\\htmlId' not in json.dumps(ctx)
+        fs = [(a['text'], a['tokens']) for a in ctx['anchors'] if a['kind'] == 'formula']
+        assert fs == [('x', ['x']), ('q = xW_Q', ['q', 'x', 'W_Q']), ('k = xW_K', ['k', 'x', 'W_K']), ('v = xW_V', ['v', 'x', 'W_V'])], fs
+    box, part = page.evaluate("""async () => { await document.fonts.ready;   // in one call: the KaTeX fonts move the glyphs when they load
+                                     const r = document.querySelector('[data-guide-id="m2"] #g-2-2').getBoundingClientRect();
+                                     return [abhyasaBoard.boxOf({a: 'm2', tex: 'W_Q'}), {x: r.left + scrollX, w: r.width}]; }""")
+    assert abs(box['x'] - part['x']) < 1 and abs(box['w'] - part['w']) < 1   # a mark on the token lands on W_Q, not on q or x

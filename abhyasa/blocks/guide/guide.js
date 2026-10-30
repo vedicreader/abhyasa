@@ -6,7 +6,10 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   const me = document.currentScript ? document.currentScript.dataset : {};
   const cut = (s, n = 300) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
   const seen = el => el && (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
-  const texOf = k => { const a = k.querySelector('annotation[encoding="application/x-tex"]'); return a ? a.textContent : ''; };
+  const texOf = k => {   // the TeX of a formula as the page wrote it: a marked formula keeps it in data-tex, and its annotation holds the ids
+    const h = k.closest('[data-tex]'); if (h) return h.dataset.tex;
+    const a = k.querySelector('annotation[encoding="application/x-tex"]'); return a ? a.textContent : '';
+  };
   const textOf = el => {   // the text of `el`, with each formula as its TeX between $ signs, and no hidden MathML
     if (!el) return '';
     const c = el.cloneNode(true);
