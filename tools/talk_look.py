@@ -17,6 +17,7 @@ TMP = Path(tempfile.mkdtemp(prefix='abhyasa-talk-look-'))
 os.environ['VISHALAKSHI_VAULT'] = os.environ['ABHYASA_VAULT'] = str(TMP/'vault.db')   # never the real vault
 os.environ['ABHYASA_CONFIG'] = str(TMP/'config')                                       # nor the real settings
 os.environ['RAMABANA_CONFIG'] = str(TMP/'ramabana.toml')                               # nor the real ramabana config
+os.environ.setdefault('LITESEARCH_CACHE', str(TMP/'litesearch'))                    # nor the shared litesearch lock of another run
 os.environ['ABHYASA_LEELA_FILE'] = str(TMP/'leela'/'serving.json')
 os.environ['XDG_CONFIG_HOME'] = str(TMP/'xdg')
 for k in ('ABHYASA_STT', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'ABHYASA_MODEL'): os.environ.pop(k, None)
