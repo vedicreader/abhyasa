@@ -756,9 +756,13 @@ def gh_name(s:str) -> str|None:
 # %% ../nbs/04_sources.ipynb #3b93837a
 REPO_MB = 500   # the biggest repo that abhyasa clones, in MB
 def gh_public(owner:str, name:str) -> dict|None:
-    "What GitHub says of the repo `owner/name` (`private`, `size` in KB), or None when it has no such repo."
+    "What GitHub says of the repo `owner/name` (`private`, `size` in KB), or None when it has no such repo. With gheasy installed, its `gh_token` gives a token, for more calls an hour."
     from fossick import http_get
-    r = http_get(f'https://api.github.com/repos/{owner}/{name}', timeout=15, allow_private=False)
+    try: from gheasy.core import gh_token; tok = gh_token()
+    except ImportError: tok = None
+    url, kw = f'https://api.github.com/repos/{owner}/{name}', dict(timeout=15, allow_private=False)
+    r = http_get(url, **kw, **({'headers': {'Authorization': f'Bearer {tok}'}} if tok else {}))
+    if tok and r.status == 401: r = http_get(url, **kw)   # a bad token: ask again with no token
     return json.loads(r.body) if r.status == 200 else None
 
 def clone_repo(url:str, timeout:float=600) -> tuple:
