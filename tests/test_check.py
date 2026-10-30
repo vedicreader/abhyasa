@@ -298,7 +298,7 @@ def test_run_isolated():
     assert result['checks'][0]['status'] == 'pass'
     started = time.monotonic()
     assert check.run_isolated('assert', 'f', 'while True: pass', [], total=.1) == {'timeout': True}
-    assert time.monotonic() - started < 3.1
+    assert time.monotonic() - started < 8   # the short `total` stops it, not the 10 s default (a busy machine can add some seconds)
 
 
 def test_hostile_code_does_not_pass_or_hang():

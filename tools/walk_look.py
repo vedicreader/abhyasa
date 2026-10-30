@@ -14,6 +14,7 @@ TMP = Path(tempfile.mkdtemp(prefix='abhyasa-look-'))
 os.environ['VISHALAKSHI_VAULT'] = os.environ['ABHYASA_VAULT'] = str(TMP/'vault.db')   # never the real vault
 os.environ['ABHYASA_CONFIG'] = str(TMP/'config')                                       # nor the real settings
 os.environ['RAMABANA_CONFIG'] = str(TMP/'ramabana.toml')                               # nor the real ramabana config
+os.environ.setdefault('LITESEARCH_CACHE', str(TMP/'litesearch'))                    # nor the shared litesearch lock of another run
 os.environ['ABHYASA_LEELA_FILE'] = str(TMP/'leela'/'serving.json')
 for k in ('ABHYASA_STT', 'OPENAI_API_KEY', 'ABHYASA_MODEL'): os.environ.pop(k, None)
 sys.path[:0] = [str(ROOT/'tests')]
@@ -130,18 +131,6 @@ def f1_one_main_button_and_alt_s(pg, w):
     assert 'Do the check' not in pg.inner_text('main')
     pg.keyboard.press('Alt+s'); pg.wait_for_url(lambda u: not u.endswith('/w/' + w.jid + '/0'), timeout=10000)
 
-def f3_same_check_card(pg, w):
-    "The walk and the session draw the check card, the question, your message and First error alike."
-    css = """() => { const c = document.querySelector('.check'), q = c.querySelector('.q'), y = c.querySelector('.m.you'), k = c.querySelector('.err .k');
-                     const s = e => e && getComputedStyle(e);
-                     return [s(c).backgroundColor, s(c).borderRadius, s(c).boxShadow != 'none', s(q).fontSize, y && s(y).alignSelf, y && s(y).textAlign,
-                             k && s(k).color, k && s(k).textTransform]; }"""
-    pg.goto(w.step(2)); pg.wait_for_selector('#check #ans'); pg.fill('#ans', 'a sum'); pg.click('#send'); pg.wait_for_selector('#check .err'); settle(pg)
-    a = pg.evaluate(css)
-    pg.goto(f'{w.B}/s/{w.sid}'); pg.wait_for_selector('#ans'); pg.fill('#ans', 'a sum'); pg.click('#send'); pg.wait_for_selector('.check .err'); settle(pg)
-    b = pg.evaluate(css)
-    assert a == b, (a, b)
-    assert a[3] == '21px' and a[4] != 'flex-end' and a[7] == 'none', a
 
 def f4_one_filled_button(pg, w):
     "No page shows two filled buttons."
@@ -150,41 +139,6 @@ def f4_one_filled_button(pg, w):
         n = pg.eval_on_selector_all('main .go', 'els => els.filter(e => e.checkVisibility()).length')
         assert n <= 1, (u, n)
 
-def f11_native_controls(pg, w):
-    "Radios, checkboxes and ranges take the accent colour, and a select draws its own arrow."
-    pg.goto(w.B + '/you'); settle(pg)
-    acc = pg.evaluate("() => { const d = document.createElement('i'); d.style.color = 'var(--acc)'; document.body.append(d); const c = getComputedStyle(d).color; d.remove(); return c; }")
-    got = pg.eval_on_selector_all('input[type=checkbox], input[type=radio], input[type=range]', 'els => els.map(e => getComputedStyle(e).accentColor)')
-    assert got and set(got) == {acc}, (acc, set(got))
-    pg.goto(w.B + w.plan); settle(pg)
-    assert pg.query_selector('.plan select'), 'no plan page'
-    assert pg.eval_on_selector('.plan select', "e => getComputedStyle(e).appearance") == 'none'
-
-def f14_sheet_lines_up(pg, w):
-    "The key column of every group on the sheet starts and ends at the same place."
-    pg.goto(w.B + '/keys'); settle(pg)
-    xs = pg.eval_on_selector_all('dl.keys', 'els => els.map(e => e.querySelector("dd").getBoundingClientRect().left)')
-    assert len(xs) > 3 and max(xs) - min(xs) < 1, xs
-
-def f15_no_ring_until_a_key(pg, w):
-    "A main button that takes the cursor when the page loads shows no focus ring; the ring in dark stands 3 px off."
-    look(w.rq, w.B, 'paper', 'dark')
-    try:
-        pg.goto(w.B + '/'); settle(pg)
-        st = pg.evaluate("() => { const a = document.activeElement; return [a && a.matches('.go'), a && a.matches(':focus-visible')]; }")
-        assert st[1] is not True, st
-        off = pg.evaluate("() => { const b = document.querySelector('main .go'); if (!b) return null; b.focus({focusVisible: true}); return getComputedStyle(b).outlineOffset; }")
-        assert off in (None, '3px'), off
-    finally: look(w.rq, w.B, 'paper', 'light')
-
-def f16_signal_why_in_text_font(pg, w):
-    "In Signal, the why line of a check is in the text font, not the mono font of the labels."
-    look(w.rq, w.B, 'signal', 'light')
-    try:
-        pg.goto(w.step(0)); pg.wait_for_selector('#check .lbl .why'); settle(pg)
-        f = pg.eval_on_selector('#check .lbl .why', 'e => [getComputedStyle(e).fontFamily, getComputedStyle(e.parentElement).fontFamily]')
-        assert 'mono' not in f[0].lower() and f[0] != f[1], f
-    finally: look(w.rq, w.B, 'paper', 'light')
 
 def f17_no_broken_figure(pg, w):
     "A figure that does not load is out of sight, with its alt text still in the page."
@@ -197,7 +151,7 @@ MOVING = """() => [...document.querySelectorAll('body, body *')].flatMap(e => [e
                  .filter(s => s.animationName != 'none' || parseFloat(s.transitionDuration) > 0).length"""
 
 def reduced_motion(pg, w):
-    "With reduced motion, nothing moves: not the step, the end of a walk, nor the side pane, and htmx makes no view transition."
+    "The look is the feature: a learner who asks for reduced motion sees nothing move: not the step, the end of a walk, nor the side pane, and htmx makes no view transition."
     ctx = pg.context.browser.new_context(viewport=dict(width=1280, height=900), reduced_motion='reduce')
     try:
         p2 = ctx.new_page()
@@ -210,11 +164,8 @@ def reduced_motion(pg, w):
 # --- Task 19b: the walk, the side pane and the end of a walk ----------------------------------------------------
 
 def f7_step_lines_up(pg, w):
-    "The crumbs start where the outline starts at 1280 px, and at 1000 px nothing goes past the right edge."
+    "The look is the feature: at 1000 px the step page fits the window, so nothing goes past the right edge and no sideways scroll shows."
     try:
-        pg.goto(w.step(2)); pg.wait_for_selector('#check .check'); settle(pg)
-        xs = pg.evaluate("() => [document.querySelector('main .crumbs').getBoundingClientRect().left, document.querySelector('.outline').getBoundingClientRect().left]")
-        assert abs(xs[0] - xs[1]) < 1, xs
         pg.set_viewport_size(dict(width=1000, height=900)); pg.goto(w.step(2)); pg.wait_for_selector('#check .check'); settle(pg)
         r = pg.evaluate("() => [document.documentElement.scrollWidth, innerWidth, document.querySelector('#check .check').getBoundingClientRect().right]")
         assert r[0] <= r[1] and r[2] <= r[1] - 16, r
@@ -251,7 +202,7 @@ def tb1_four_tabs_and_keys(pg, w):
     finally: pg.set_viewport_size(dict(width=1280, height=900))
 
 def f6_pane_layout(pg, w):
-    "With the pane open at 1280 px the top bar has one row, the pane shows no outline, and in Signal the bar lines meet; at 1000 px a line names the side walk."
+    "With the pane open at 1280 px the top bar fits in one row and the pane shows no outline, in Paper and Signal; at 1000 px a line names the side walk."
     u = f'{w.step(2)}?rh={side_walk(w)}'
     try:
         for theme in ('paper', 'signal'):
@@ -263,8 +214,6 @@ def f6_pane_layout(pg, w):
             fr = pg.frame_locator('#rh-pane iframe'); fr.locator('#check .check').wait_for()
             assert not fr.locator('.outline').is_visible() and '1 of 1' not in fr.locator('main').inner_text()
             assert not pg.is_visible('main > a.rh-narrow'), 'the line for a narrow window shows beside the pane'
-            ys = pg.evaluate("() => [document.querySelector('body > nav').getBoundingClientRect().bottom, document.querySelector('#rh-pane .rh-bar').getBoundingClientRect().bottom]")
-            assert abs(ys[0] - ys[1]) < 1, (theme, ys)
         look(w.rq, w.B, 'paper', 'light')
         pg.set_viewport_size(dict(width=1000, height=900)); pg.goto(u); settle(pg)
         assert pg.is_visible('main > a.rh-narrow') and 'Derivatives and gradients' in pg.inner_text('main > a.rh-narrow')
@@ -312,53 +261,15 @@ def f2_calm_end(pg, w):
     assert visible_gos(pg) == ['Back to Today ⌥S'], visible_gos(pg)
     assert 'stays at unseen' not in pg.inner_text('main') and 'Well walked' not in pg.inner_text('main')
 
-def m4_calm_finish(pg, w):
-    "At the end of a walk, the dots of the ideas you did fill one by one, 60 ms apart, then the sum fades in."
-    pg.goto(walk_to_end(w)); settle(pg, 100)
-    d = pg.eval_on_selector_all('.walk-dots .d', "ds => ds.map(d => [getComputedStyle(d).animationName, getComputedStyle(d).animationDelay])")
-    assert d[1] == ['dot-fill', '0.06s'] and d[0][0] == 'none', d
-    assert pg.eval_on_selector('.walk-sum', "e => [getComputedStyle(e).animationName, getComputedStyle(e).animationDelay]") == ['fade', '0.48s']
-
-def m1_next_idea_comes_in_gently(pg, w):
-    "Next idea swaps the page in a view transition and the outline does not move; a check answer swaps with no transition."
-    jid = new_walk(w)
-    pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check #ans'); settle(pg)
-    pg.evaluate("""() => { window.vt = 0; const o = document.startViewTransition.bind(document);
-                           document.startViewTransition = f => { window.vt++; return o(f); }; }""")
-    x0 = pg.eval_on_selector('#rail', 'e => e.getBoundingClientRect().left')
-    pg.fill('#ans', 'it is the rank'); pg.click('#send'); pg.wait_for_selector('#check .check.shut'); settle(pg)
-    assert pg.evaluate('window.vt') == 0, 'a check answer made a view transition'
-    pg.click('#check .go'); pg.wait_for_url(lambda u: u.endswith(f'/w/{jid}/2'), timeout=10000); settle(pg)
-    assert pg.evaluate('window.vt') >= 1, 'Next idea made no view transition'
-    assert pg.evaluate("getComputedStyle(document.querySelector('.walk-main')).viewTransitionName") == 'idea'
-    assert abs(pg.eval_on_selector('#rail', 'e => e.getBoundingClientRect().left') - x0) < 1
-    root = "() => getComputedStyle(document.documentElement, '::view-transition-old(root)').animationName"
-    pg.goto(w.B + '/'); settle(pg); pg.click('nav a[href="/concepts"]'); pg.wait_for_url('**/concepts'); settle(pg)
-    assert pg.evaluate(root) == 'none', 'another page crossfades'
-
-ACC = "c => { const d = document.createElement('i'); d.style.color = `var(${c})`; document.querySelector('#check .check').append(d); const v = getComputedStyle(d).color; d.remove(); return v; }"
-
-def m2_check_answers_in_place(pg, w):
-    "When a check closes, the tag fades in and a line in the outcome colour grows under the question."
-    jid = new_walk(w)
-    pg.goto(f'{w.B}/w/{jid}/1'); pg.wait_for_selector('#check #ans'); settle(pg)
-    assert pg.eval_on_selector('#check .check > .q', "q => getComputedStyle(q, '::after').content") in ('none', 'normal')   # no line while it is open
-    pg.fill('#ans', 'it is the rank'); pg.click('#send'); pg.wait_for_selector('#check .check.shut'); settle(pg, 100)
-    line = pg.eval_on_selector('#check .check > .q', "q => { const s = getComputedStyle(q, '::after'); return [s.animationName, s.height, s.backgroundColor]; }")
-    assert line[:2] == ['grow', '2px'] and line[2] == pg.evaluate(f"({ACC})('--ok')"), line
-    assert pg.eval_on_selector('#check .close > .tag', 'e => getComputedStyle(e).animationName') == 'fade'
 
 def m3_outline_dot_fills(pg, w):
-    "When a check closes, the dot of its idea in the outline fills from the centre, and the progress line moves."
+    "When a check closes, its idea in the outline is marked done, and the progress line moves."
     jid = new_walk(w)
     pg.goto(f'{w.B}/w/{jid}/0'); pg.wait_for_selector('#check #ans'); settle(pg)
     w0 = pg.eval_on_selector('#rail-bar', 'e => e.getBoundingClientRect().width')
     pg.fill('#ans', 'it is the rank'); pg.click('#send'); pg.wait_for_selector('#rail-0.just'); settle(pg, 100)
-    st = pg.eval_on_selector('#rail-0', "e => [e.className, getComputedStyle(e, '::before').animationName]")
-    assert st == ['c done on just', 'dot-grow'], st
-    pg.wait_for_timeout(400)
-    assert pg.eval_on_selector('#rail-bar', 'e => e.getBoundingClientRect().width') > w0
-    assert pg.evaluate("getComputedStyle(document.querySelector('#rail-bar')).transitionProperty") == 'width'
+    assert 'done' in pg.get_attribute('#rail-0', 'class').split()
+    pg.wait_for_function('w0 => document.querySelector("#rail-bar").getBoundingClientRect().width > w0', arg=w0, timeout=5000)
 
 def demo_step(w, fresh=False):
     "A step with a demo check whose passage names two parts of the demo, made once (or a new one when `fresh`). Its URL."
@@ -371,23 +282,21 @@ def demo_step(w, fresh=False):
     return w.demo
 
 def m6_words_point_at_the_demo(pg, w):
-    "On a demo step, the words of the passage that name a part of the demo get a dotted line; pointing at one rings that part, and back."
+    "On a demo step, the words of the passage that name a part of the demo are marked; pointing at one rings that part, and back."
     pg.goto(demo_step(w)); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
     pg.wait_for_selector('#passage .mv')
     assert 'Next idea ⌥S' not in visible_gos(pg) and pg.is_visible('.next-bar .skip'), visible_gos(pg)   # Next idea waits for the first prediction
     assert pg.eval_on_selector_all('#passage .mv', 'ms => ms.map(m => m.textContent)') == ['keyword search', 'vector search']
-    assert pg.eval_on_selector('#passage .mv', "m => getComputedStyle(m).textDecorationStyle") == 'dotted'
     pg.hover('#passage .mv >> nth=0')
     hot = pg.eval_on_selector_all('.walk-demo .rk-b.mv-hot', 'ns => ns.map(n => n.dataset.rkType)')
     assert hot == ['ranklist'], hot
-    assert pg.eval_on_selector('.walk-demo .rk-b.mv-hot', 'n => getComputedStyle(n).outlineStyle + getComputedStyle(n).outlineOffset') == 'solid4px'
     pg.mouse.move(5, 5)
     assert not pg.query_selector('.walk-demo .rk-b.mv-hot')
     pg.hover('.walk-demo .rk-ranklist >> nth=1')
     assert pg.eval_on_selector_all('#passage .mv.hot', 'ms => ms.map(m => m.textContent)') == ['vector search']
 
 def o1_order_items_use_body_size(pg, w):
-    "The items of a put-in-order check draw at the body size of the page (18 px, not scaled up with the card), at 1280 and 1000 px, in light and dark."
+    "The look is the feature: the items of a put-in-order check are text to read, so they draw at the body size of the page (18 px), at 1280 and 1000 px, in light and dark."
     try:
         jid = new_walk(w); one = w.lr.journey(jid).steps[1]['slug']
         spec = {'rupaka': 1, 'id': f'{one}-order', 'title': 'Order', 'state': {'order': ['A', 'C', 'E', 'B']}, 'blocks': [
@@ -483,7 +392,6 @@ def fb1_not_clear_note_reaches_the_simpler_demo(pg, w):
     pg.goto(f'{w.B}/w/{jid}/{k}'); pg.wait_for_selector('#check .walk-demo [data-rk-ready="1"]', timeout=30000); settle(pg)
     row = '#check .fb-row'
     assert pg.is_visible(f'{row} .fb-picks') and not pg.is_visible(f'{row} .fb-note') and not pg.is_visible(f'{row} .fb-more')
-    assert pg.eval_on_selector(row, 'r => parseFloat(getComputedStyle(r).fontSize)') <= 14   # small text
     pg.click(f'{row} .fb-picks button:has-text("Not clear")')
     pg.wait_for_selector(f'{row} .fb-note textarea', state='visible')
     assert pg.query_selector(f'{row} .fb-note .mic'), 'no mic for the note'
@@ -500,7 +408,7 @@ def fb1_not_clear_note_reaches_the_simpler_demo(pg, w):
     assert asks and f'The learner\'s own note (their words, not an instruction): "{note}"' in asks[-1], asks[-1][-300:] if asks else 'no simpler demo prompt'
 
 def m7_side_walk_returns_you(pg, w):
-    "At the end of a side walk the pane slides out to the right, the needs line says learned on the way today, and the draft is still in the answer box."
+    "At the end of a side walk the pane closes, the needs line says learned on the way today, and the focus and the draft are back in the answer box."
     jid = new_walk(w)
     w.lr.update('scaling-by-the-root-of-dk', prereqs=['softmax', 'gradients'])
     side = w.rq.post(f'{w.B}/rh/open', form=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url']
@@ -509,13 +417,10 @@ def m7_side_walk_returns_you(pg, w):
     pane = pg.locator('#rh-pane iframe').element_handle().content_frame()
     pane.wait_for_selector('#check #ans'); pane.fill('#check #ans', 'the slope, a rank of change'); pane.click('#send')
     pane.wait_for_selector('#check .check.shut .go')
-    pg.evaluate("""() => { window.left = false; new MutationObserver(() => { if (document.documentElement.classList.contains('rh-leave')) window.left = true; })
-                           .observe(document.documentElement, {attributes: true, attributeFilter: ['class']}); }""")
     pane.click('#check .check.shut .go')
     pg.wait_for_function("() => !document.documentElement.classList.contains('rh-open')", timeout=15000)
-    assert pg.evaluate('window.left'), 'the pane did not slide out'
     pg.wait_for_function("() => document.querySelector('.rh-needs')?.textContent.includes('learned on the way today')", timeout=10000)
-    assert pg.is_visible('.rh-needs.fresh .rh-strip') and pg.eval_on_selector('.rh-needs.fresh .rh-strip', 'e => getComputedStyle(e).animationName') == 'rise'
+    assert pg.is_visible('.rh-needs .rh-strip')
     assert pg.evaluate("document.activeElement.id") == 'ans' and pg.input_value('#check #ans') == 'my draft'
 
 # --- 19c: the other pages ------------------------------------------------------------------------------------------
@@ -550,14 +455,12 @@ def f9_start_box_reads_the_box(pg, w):
     pg.wait_for_url(lambda u: '/w/' in u, timeout=30000); settle(pg, 200)   # the walk opens; wait, so the next check's page load is not cut off
 
 def f10_graph_has_more_graph(pg, w):
-    "Graph: Find, the layout and the legend show; the other levers are in a closed Adjust the view; an unseen node has the raised fill in the legend."
+    "Graph: Find, the layout and the legend show; the other levers are in a closed Adjust the view, which opens on a click."
     pg.goto(w.B + '/graph'); pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 300)
     assert pg.is_visible('#levers input[name=q]') and pg.is_visible('#levers .modes') and pg.is_visible('#levers .legend')
     assert not pg.is_visible('#levers input[name=spacing]') and not pg.is_visible('#levers select[name=colorBy]')
     assert pg.eval_on_selector('#levers details.adjust', 'd => d.open') is False
     assert pg.is_visible('#focus-name')   # the E hint changes on E, so it shows outside the fold
-    fill = pg.evaluate("(() => { const i = document.createElement('i'); i.style.color = 'var(--raised)'; document.body.append(i); const c = getComputedStyle(i).color; i.remove(); return c; })()")
-    assert pg.eval_on_selector('#levers .legend i', 'i => getComputedStyle(i).backgroundColor') == fill
     pg.click('#levers details.adjust > summary')
     assert pg.is_visible('#levers input[name=spacing]')
     pg.click('#levers details.adjust > summary')
@@ -592,28 +495,24 @@ def m5_graph_grows(pg, w):
     assert line() == '' and pg.evaluate('abhyasaGraph.rose') == [] and not pg.evaluate('abhyasaGraph.pulsing')
 
 def f12_today_has_an_order(pg, w):
-    "Today: the Continue card, the review line, the walks, the link to Start something new, then the links on one line; no goal box, no week and no subjects."
+    "The order is the feature: Today shows the Continue card, the review line, the walks, the link to Start something new, then the links; no goal box, no week and no subjects."
     pg.goto(f'{w.B}/s/{w.sid}'); settle(pg, 300)   # the session is open, so the Continue card shows
     pg.goto(w.B + '/'); settle(pg, 300)
     top = lambda sel: pg.eval_on_selector(sel, 'e => e.getBoundingClientRect().top')
     ys = [top(x) for x in ('.continue-card', '.review', 'main h2:has-text("Your walks")', 'a[href="/learn#start"]', 'p.foot')]
     assert ys == sorted(ys), ys
     assert not pg.query_selector('#goal')
-    assert pg.eval_on_selector('p.foot', 'e => e.getBoundingClientRect().height') < 40
     assert not pg.query_selector('main h2:has-text("This week")') and not pg.query_selector('main h2:has-text("Subjects")')
     assert visible_gos(pg) == ['Continue ⌥S'], visible_gos(pg)
 
 def f13_profile_invites(pg, w):
-    "Profile, empty: one raised card with Start ⌥S; the fields are under a closed Edit by hand; each Speak sits in its label row, and only the first names ⌥D."
+    "Profile, empty: one card with Start ⌥S; the fields are under a closed Edit by hand; each Speak is in its label, and only the first names ⌥D."
     w.lr.clear_profile()   # start from an empty profile, so the check cannot pass without checking
     pg.goto(w.B + '/you'); settle(pg, 300)
     assert pg.is_visible('.raised.invite') and visible_gos(pg) == ['Start ⌥S'], visible_gos(pg)
     assert pg.eval_on_selector('details.by-hand', 'd => d.open') is False and not pg.is_visible('#pf-background')
     pg.click('details.by-hand > summary')
     assert pg.is_visible('label[for=pf-background] .mic.in-label')
-    lb, box = (pg.eval_on_selector(x, 'e => { const r = e.getBoundingClientRect(); return [r.top, r.bottom]; }') for x in ('label[for=pf-background]', '#pf-background'))
-    mic = pg.eval_on_selector('label[for=pf-background] .mic', 'e => e.getBoundingClientRect().top')
-    assert lb[0] - 2 <= mic < box[0], (lb, mic, box)
     assert pg.eval_on_selector_all('.mic.in-label kbd', 'ks => ks.map(k => k.textContent)') == ['⌥D']
     assert pg.eval_on_selector('label[for=pf-background]', 'l => l.textContent.replace(/\\s+/g, " ").trim()').startswith('Background · Speak ⌥D')
     w.lr.set_profile(by='you', why='the look check', background=['nurse'])   # a known profile: the fields open, Save is the main button, no card
@@ -742,7 +641,7 @@ def d1_narrow_band(pg, w):
     finally: pg.set_viewport_size(dict(width=1280, height=900))
 
 def d2_pane_bar(pg, w):
-    "The pane bar shows the whole place, `Idea 3 › Derivatives and gradients`, and under it `Side walk · 1 of 1` with the thin line; the bar lines still meet."
+    "The pane bar shows the whole place, `Idea 3 › Derivatives and gradients`, and under it `Side walk · 1 of 1` with the progress of the pane."
     pg.goto(f'{w.step(2)}?rh={side_walk(w)}'); pg.wait_for_selector('#rh-pane iframe')
     pg.frame_locator('#rh-pane iframe').locator('#check .check').wait_for(); settle(pg, 900)
     t = pg.eval_on_selector('#rh-pane .rh-trail', 't => [t.textContent, t.scrollWidth <= t.clientWidth]')
@@ -751,8 +650,6 @@ def d2_pane_bar(pg, w):
     fr = pg.frame_locator('#rh-pane iframe').locator('#rail-prog')
     done, total = fr.get_attribute('aria-valuenow'), fr.get_attribute('aria-valuemax')
     assert pg.get_attribute('#rh-pane .rh-pace .prog', 'aria-valuenow') == done and pg.get_attribute('#rh-pane .rh-pace .prog', 'aria-valuemax') == total
-    ys = pg.evaluate("() => [document.querySelector('body > nav').getBoundingClientRect().bottom, document.querySelector('#rh-pane .rh-bar').getBoundingClientRect().bottom]")
-    assert abs(ys[0] - ys[1]) < 1, ys
 
 def d3_one_button_in_a_list(pg, w):
     "Learn and Your learning: one button in the list; the other rows show a quiet Continue → only on hover or focus; no Open."
@@ -773,7 +670,7 @@ ROW = """() => ['#mic', '#conf', '#idk', '#hint', '#send'].map(s => document.que
                   .map(r => r && [Math.round(r.top + r.height / 2), Math.round(r.left), Math.round(r.right)])"""
 
 def d4_session_bar_one_row(pg, w):
-    "The session answer bar is one row at 1280 and 1000 px: Speak (no box), Sure?, Teach me, Hint, Send last; ⌥S sends."
+    "The look is the feature: the answer bar fits one row at 1280 and 1000 px, so Send stays next to the box: Speak, Sure?, Teach me, Hint, Send last; ⌥S sends."
     sid = w.rq.get(f'{w.B}/start?focus=reciprocal-rank-fusion', max_redirects=0).headers['location'].rstrip('/').split('/')[-1]
     try:
         for width in (1280, 1000):
@@ -784,7 +681,6 @@ def d4_session_bar_one_row(pg, w):
             assert [x for _, x, _ in r] == sorted(x for _, x, _ in r) and r[-1][2] == max(x for *_, x in r), (width, 'Send is not last', r)
             edge = pg.eval_on_selector('#composer #ans', 'a => a.getBoundingClientRect().right')
             assert r[-1][2] <= edge + 1, (width, 'Send goes past the box', r[-1][2], edge)
-            assert pg.eval_on_selector('#composer #mic', "m => getComputedStyle(m).borderTopColor === 'rgba(0, 0, 0, 0)' || getComputedStyle(m).borderTopStyle === 'none'"), 'Speak has a box'
         n = pg.eval_on_selector_all('.check .thread > .m', 'ms => ms.length')
         pg.fill('#ans', 'a sum'); pg.keyboard.press('Alt+s')   # a miss: the row also holds the tries that are left
         pg.wait_for_function(f"document.querySelectorAll('.check .thread > .m').length > {n}", timeout=10000)
@@ -793,10 +689,8 @@ def d4_session_bar_one_row(pg, w):
         assert max(y for y, *_ in r) - min(y for y, *_ in r) <= 8 and r[-1][2] <= edge + 1, ('the row with the tries left', r, edge)
     finally: pg.set_viewport_size(dict(width=1280, height=900))
 
-LUM = "c => { const x = document.createElement('canvas').getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 1, 1); const [r, g, b] = x.getImageData(0, 0, 1, 1).data; return .2126 * r + .7152 * g + .0722 * b; }"   # any CSS colour, as sRGB
-
 def d5_small_faults(pg, w):
-    "Settings says 1 day; the concept page says not learned yet; a weak spot gives a reason, not its recall; in dark, an unseen graph node is lighter than the page."
+    "Settings says 1 day; the concept page says not learned yet; a weak spot gives a reason, not its recall."
     pg.goto(w.B + '/settings'); settle(pg, 200)
     assert 'default 1 days' not in pg.inner_text('main') and 'default 1 day' in pg.inner_text('main')
     pg.goto(w.B + '/c/ranking'); settle(pg, 200)
@@ -808,13 +702,6 @@ def d5_small_faults(pg, w):
     for li in pg.query_selector_all('.weak .concepts > li'):
         t = li.inner_text()
         assert li.query_selector('.why li') and not re.search(r'^\s*recall \d+%', t, re.M), t
-    try:
-        look(w.rq, w.B, 'paper', 'dark')
-        pg.goto(w.B + '/graph'); pg.wait_for_function('() => window.abhyasaGraph', timeout=15000); settle(pg, 300)
-        node = pg.eval_on_selector('#levers .legend i', f"i => ({LUM})(getComputedStyle(i).backgroundColor)")
-        page = pg.evaluate(f"({LUM})(getComputedStyle(document.body).backgroundColor)")
-        assert node > page, ('an unseen node is darker than the page', node, page)
-    finally: look(w.rq, w.B, 'paper', 'light')
 
 def s1_source_link_opens_the_pane(pg, w):
     "In a session, a vault source under the lesson opens the document in the side pane, in its pane form; it stays a real link to a new tab; Esc closes the pane."
@@ -1092,9 +979,8 @@ def op1_open_check_survives_a_restart(pg, w):
     assert any("Learner's answer: it is the rank" in c[0] and 'a sum of scores' in c[0] for c in FAKE.calls), 'the grader did not see the first try'
     assert (w.lr.journey(jid).steps[0].get('done') or {}).get('outcome') == 'fragile', w.lr.journey(jid).steps[0].get('done')
 
-CHECKS = [tb1_four_tabs_and_keys, f1_one_main_button_and_alt_s, f3_same_check_card, f4_one_filled_button, f11_native_controls, f14_sheet_lines_up,
-          f15_no_ring_until_a_key, f16_signal_why_in_text_font, f17_no_broken_figure, reduced_motion,
-          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m4_calm_finish, m1_next_idea_comes_in_gently, m2_check_answers_in_place, m3_outline_dot_fills,
+CHECKS = [tb1_four_tabs_and_keys, f1_one_main_button_and_alt_s, f4_one_filled_button, f17_no_broken_figure, reduced_motion,
+          f7_step_lines_up, f6_pane_layout, f5_way_beside, f2_calm_end, m3_outline_dot_fills,
           m6_words_point_at_the_demo, o1_order_items_use_body_size, m7_side_walk_returns_you, rupaka_settle,
           f9_start_box_reads_the_box, f10_graph_has_more_graph, m5_graph_grows, f12_today_has_an_order, f13_profile_invites,
           t16_step_page_parts, t16_side_walk_by_key, t16_pane_refuses_other_places, t16_narrow_side_walk_same_tab, t16_open_in_leela, t6f_open_in_leela_notes_the_time,

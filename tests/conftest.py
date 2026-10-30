@@ -2,6 +2,7 @@ import os, tempfile
 os.environ['VISHALAKSHI_VAULT'] = os.environ['ABHYASA_VAULT'] = os.path.join(tempfile.mkdtemp(), 'vault.db')   # never the real vault
 os.environ['ABHYASA_CONFIG'] = tempfile.mkdtemp()   # nor the real settings and keys
 os.environ['RAMABANA_CONFIG'] = os.path.join(tempfile.mkdtemp(), 'config.toml')   # nor the real ramabana config
+os.environ.setdefault('LITESEARCH_CACHE', tempfile.mkdtemp(prefix='ls-'))   # nor the shared litesearch lock, which another run can hold for minutes
 for k in ('ABHYASA_STT', 'OPENAI_API_KEY'): os.environ.pop(k, None)
 import pytest
 from starlette.testclient import TestClient
