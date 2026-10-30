@@ -35,3 +35,15 @@ def test_a_pid_of_zero_or_less_is_not_alive(monkeypatch, tmp_path):
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); monkeypatch.setitem(cfg, 'leela', '')
     f = leela_file(tmp_path); f.write_text(json.dumps({**json.loads(f.read_text()), 'pid': 0}))   # the helper turns a pid of 0 into this pid
     assert leela_link(AttrDict(id='attention-ab12')) is None
+
+def test_address_is_rebuilt_from_its_parts(monkeypatch, tmp_path):
+    "A browser reads `\\` and `@` in another way than Python does. Such an address gives no link. A good one is rebuilt from its scheme, host and port."
+    from abhyasa.core.leela import loopback
+    for bad in ('http://evil.com\\@127.0.0.1:5010', 'http://evil.com@127.0.0.1:5010/', 'http://u:p@127.0.0.1:5010/', 'http://127.0.0.1:5010\\@evil.com/',
+                'https://127.0.0.1:5010/', 'http://127.0.0.1/', 'http://127.0.0.1:99999/', 'http://127.0.0.1:5010/\n', 'http://127.0.0.1:5010/ x', 5010, None, ['x']):
+        assert loopback(bad) is None, bad
+    assert loopback('http://127.0.0.1:5010/x?y=1#z') == 'http://127.0.0.1:5010' and loopback('http://[::1]:5010/') == 'http://[::1]:5010'
+    assert loopback('http://localhost:5010') == 'http://localhost:5010'
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); monkeypatch.setitem(cfg, 'leela', 'http://evil.com\\@127.0.0.1:5020/')
+    leela_file(tmp_path, url='http://evil.com\\@127.0.0.1:5011/')
+    assert leela_link(AttrDict(id='attention-ab12')) is None                                  # neither the file nor the setting gives a link

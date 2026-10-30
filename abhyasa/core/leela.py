@@ -8,7 +8,7 @@ from fasthtml.common import *
 from abhyasa.contract import handoff, vault_key
 from .cfg import cfg
 
-__all__ = ['LEELA_INSTALL', 'leela_address', 'leela_base', 'leela_link', 'leela_line', 'abhyasa_address',
+__all__ = ['LEELA_INSTALL', 'loopback', 'leela_address', 'leela_base', 'leela_link', 'leela_line', 'abhyasa_address',
            'write_address', 'drop_address', 'vr_address', 'vr_base', 'vr_episode']
 LEELA_INSTALL = 'https://github.com/vedicreader/leela#install'
 LOCAL = ('127.0.0.1', 'localhost', '::1')
@@ -18,10 +18,19 @@ def leela_address() -> Path:
     if f := os.getenv('ABHYASA_LEELA_FILE'): return Path(f)
     return Path(os.getenv('XDG_CONFIG_HOME') or Path.home()/'.config')/'leela'/'serving.json'
 
+def loopback(url) -> str|None:
+    """`url` rebuilt as `http://<host>:<port>` from its parsed parts, when it is `http://` on this computer with a port; else None.
+    A browser reads `\\` and `@` in another way than Python does (`http://evil.com\\@127.0.0.1:5010` goes to evil.com), so an address
+    with either, with a user name, or with a space or a control character is refused. Never put the raw string in a link."""
+    if not isinstance(url, str) or re.search(r'[\\@\s\x00-\x1f\x7f]', url): return None
+    try: u = urlparse(url); host, port = u.hostname, u.port
+    except ValueError: return None
+    if u.scheme != 'http' or u.username is not None or u.password is not None or host not in LOCAL or type(port) is not int or not 0 < port < 65536: return None
+    return f"http://{'[::1]' if host == '::1' else host}:{port}"
+
 def _local(url) -> bool:
-    "True when `url` is `http://` on this computer, with a port."
-    try: u = urlparse(url); return u.scheme == 'http' and u.hostname in LOCAL and u.port is not None
-    except (ValueError, TypeError, AttributeError): return False
+    "True when `url` is `http://` on this computer, with a port (`loopback`)."
+    return loopback(url) is not None
 
 def _alive(pid) -> bool:
     "True when `pid` is a process that runs. A pid of 0 or less names a process group, so it is not one."
@@ -34,8 +43,8 @@ def _served(f:Path, fallback:str='') -> str|None:
     "The loopback address in the address file `f` when its pid is alive, else `fallback`; None when neither is local."
     try: d = json.loads(f.read_text()) if f.stat().st_size < 4096 else None
     except (OSError, ValueError): d = None
-    if isinstance(d, dict) and _alive(d.get('pid') or 0) and _local(d.get('url')): return d['url']
-    return fallback if _local(fallback) else None
+    if isinstance(d, dict) and _alive(d.get('pid') or 0) and (u := loopback(d.get('url'))): return u
+    return loopback(fallback)
 
 def leela_base() -> str|None:
     "The address of a running Leela: from its address file when its pid is alive, else `cfg.leela`; None when neither is local."
@@ -60,7 +69,7 @@ def abhyasa_address() -> Path:
 def write_address(url:str, vault) -> Path:
     """Write `{url, pid, vault}` to `abhyasa_address()`, so Leela can link back to a walk. `url` must be a loopback URL with a port.
     The write is atomic (a temp file, then a rename), and only the owner can read the file (0600)."""
-    if not _local(url): raise ValueError(f'abhyasa writes only a loopback address, not {url!r}')
+    if not (url := loopback(url) or ''): raise ValueError('abhyasa writes only a loopback address with a port')
     f = abhyasa_address()
     f.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=f.parent, prefix='.serving-', suffix='.json')   # mkstemp makes the file with mode 0600
@@ -90,4 +99,4 @@ def vr_base() -> str|None:
 def vr_episode(eid:str) -> str|None:
     "The link to the page of Ramayana episode `eid` in a running vedicreader; None when it does not run or `eid` is not an episode id."
     if not (isinstance(eid, str) and re.fullmatch(r'[a-z0-9_]{1,80}', eid) and (b := vr_base())): return None
-    return f"{b.rstrip('/')}/story/ramayana/e/{eid}"
+    return f'{b}/story/ramayana/e/{eid}'

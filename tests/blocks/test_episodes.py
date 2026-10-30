@@ -67,3 +67,37 @@ def test_app_without_the_episodes(monkeypatch, lr, fake, tmp_path):
     assert not [s for s in app.state.svc['sources'] if s.name == 'vedicstory']
     t = TestClient(app).get('/sources').text
     assert 'Ramayana episodes' in t and 'Not found. Set VEDICREADER_ROOT' in t
+
+def test_episode_link_never_copies_a_tricky_address(monkeypatch, tmp_path):
+    "An address with `\\@` looks local to Python, but a browser goes to the other host. It gives no link."
+    monkeypatch.setitem(cfg, 'vedicreader', '')
+    vr_file(tmp_path, monkeypatch, url='http://evil.com\\@127.0.0.1:5010/')
+    assert '<a ' not in to_xml(SourceLine(source_of(EP))) and 'evil' not in to_xml(SourceLine(source_of(EP)))
+
+def test_episode_is_labelled_a_summary(monkeypatch, tmp_path):
+    "The episode text is vedicreader's summary, not the words of the poem: the line says so, then gives the sarga."
+    monkeypatch.setenv('ABHYASA_VR_FILE', str(tmp_path/'none.json')); monkeypatch.setitem(cfg, 'vedicreader', '')
+    p = VedicStory(VR).search('Nārada')[0]
+    h = to_xml(SourceLine(source_of(dict(p))))
+    assert 'Episode summary (vedicreader) · Bāla, sarga 1, verses 1-5' in h and '>your source<' in h
+    assert 'Episode summary (vedicreader) · Bāla, sarga 1, verses 1-5' in to_xml(SourceLine(source_of(_topic_read(AttrDict(name='Nārada', slug='narada'), [VedicStory(VR)]))))
+
+def test_tutor_question_keeps_the_episode_cite(lr, fake, tmp_path, monkeypatch):
+    "A tutor question on an episode keeps its cite and id in `grounds`, so its source line shows the sarga and the link; the model sees the sarga too."
+    vr_file(tmp_path, monkeypatch)
+    from abhyasa.tutor import Tutor
+    lr.put('Nārada', 'A sage who tells Vālmīki the story.', 'story')
+    t = Tutor(lr, fake, sources=[VedicStory(VR)], context=True)
+    q = t.open.get(t.ask_on(lr.concept('narada'), 1).id)
+    g = q.grounds[0]
+    assert (g['section'], g['episode'], g['what']) == ('Bāla, sarga 1, verses 1-5', 'valmiki_questions_narada', 'Episode summary (vedicreader)')
+    assert 'Bāla, sarga 1, verses 1-5' in q.ctx and 'Episode summary (vedicreader)' in q.ctx
+    h = to_xml(Cites(q.grounds))
+    assert 'Bāla, sarga 1, verses 1-5' in h and 'href="http://127.0.0.1:5010/story/ramayana/e/valmiki_questions_narada"' in h
+
+def test_talk_slide_keeps_the_episode_cite():
+    "A talk slide on an episode keeps the summary label, the sarga and the episode id."
+    from abhyasa.talk import _source, slide_source
+    src = _source({**EP, 'what': 'Episode summary (vedicreader)'})['src']
+    assert src['episode'] == 'valmiki_questions_narada' and src['what'] == 'Episode summary (vedicreader)'
+    assert slide_source(dict(show=dict(passage=EP['text'], src=src))).place == 'Episode summary (vedicreader) · Bāla, sarga 1, verses 1-5'

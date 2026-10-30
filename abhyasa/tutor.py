@@ -17,7 +17,7 @@ from .store import Learning, _src
 from .settings import val
 from .model import DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding
 from .llm import ask_json, for_task
-from .ground import VaultSource, ground, ground_text
+from .ground import VaultSource, ground, ground_text, link_of
 from .profile import PACES, profile_text, observe, calibration_text
 from .journey import current, name_gaps
 from .method import METHODS, TEXT_WAYS, EXAMPLES_TO, choose, methods_text, posterior, mean, way
@@ -334,7 +334,7 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, 
                                   [EXAMPLES_TO[e] for e in p.examples if e in EXAMPLES_TO], allowed)
     if note: q.why = f'{why}; {note}'.lstrip('; ')
     q.who = '\n'.join(x for x in (profile_text(p), calibration_text(AttrDict(st.calib)) if st.calib else '', methods_text(st, c.get('subject', ''))) if x)
-    q.update(ctx=ground_text(ps), grounds=[dict(src=p.src, ref=p.ref, title=p.title, url=p.url) for p in ps])
+    q.update(ctx=ground_text(ps), grounds=[link_of(p) for p in ps])
     if (ck := self.checks.pop(c['slug'], None)):   # the check of a lesson counts for the method of the lesson
         q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, method=ck[2], why=f'{why}; the check from the lesson'.lstrip('; '))
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)

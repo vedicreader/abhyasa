@@ -25,7 +25,7 @@ from fastcore.utils import *
 from .store import Learning, slugify, _src
 from .journey import minutes, walk_for_talk
 from .llm import ask_json, for_task
-from .ground import concept_grounds, fence, fenced
+from .ground import concept_grounds, fence, fenced, link_of
 from .sources import figure_path, source_of
 from .prompts import register, prompt
 from .settings import val
@@ -240,7 +240,7 @@ def _idea_ask(lr:Learning, ask, s:dict, passage:str, choice:bool) -> tuple:
     return None, dict(a, src=dict(check='code' if kind == 'code' else 'short')) if a else None
 
 # %% ../nbs/17_talk.ipynb #1242b4f9
-SOURCE_KEYS = ('src', 'ref', 'title', 'site', 'url', 'shelf', 'doc_id', 'section', 'page', 'at')   # what a slide keeps of the source of its passage
+SOURCE_KEYS = ('src', 'ref', 'title', 'site', 'url', 'shelf', 'doc_id', 'section', 'page', 'at', 'episode', 'what')   # what a slide keeps of the source of its passage
 
 def _source(r:dict) -> dict:
     """`{'src': ...}`: where the passage of `r` comes from (its kind, title, document, place, site and link), so the slide can name it
@@ -340,7 +340,7 @@ def fill_slide(lr:Learning, ask, s:dict, sources=None) -> dict:
         s['show']['body'], s['beats'] = b.points, ['body', *(['figure'] if fig else []), *[x for x in s.get('beats') or [] if x != 'body']]
     if not (s.get('notes') or '').strip(): s['notes'] = slide_notes(b)
     if _made_q(s, c.get('name') or s.get('title') or ''): s['ask'] = {**s['ask'], 'q': b.ask}
-    if ps and not s.get('cites'): s['cites'] = [dict(src=x.src, ref=x.ref, title=x.title, url=x.url) for x in ps]
+    if ps and not s.get('cites'): s['cites'] = [link_of(x) for x in ps]
     return s
 
 def fill_slides(lr:Learning, ask, slides:list, sources=None) -> list:
