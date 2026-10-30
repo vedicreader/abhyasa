@@ -19,7 +19,7 @@ __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'N
 import json, os, re, shutil
 from pathlib import Path
 from fastcore.utils import *
-from .store import Learning, SHELF, slugify, _union, clean_group, clean_subject, readable_name, usable_name
+from .store import Learning, SHELF, slugify, _union, clean_group, clean_subject, readable_name, usable_name, under
 from .settings import val, path_why, NO_FOLDER
 from .llm import ask_json, for_task
 from .prompts import register, prompt
@@ -226,13 +226,15 @@ SORT_SP = register('concepts.sort', 'Concept sorter', 'How the tutor sorts your 
 - Use plain names of one to three words, in the words of the subject. Spell a group the same way each time.
 - Give a group to each concept in the list. Do not leave a concept out. Copy its slug exactly.
 - When no group fits a concept, use the group "Other". Use "Other" only as the last resort, for a few concepts.
+- When the request says "Sort all these concepts again", the list has only the groups that the learner made. Keep these groups, with the same names. Make new groups for the other concepts.
 - A concept can have no subject. Then also give `subject`: one name from the list of subjects when one fits, or a short new name of one to three words. Give the group of the concept under that subject.""")
 
-def sort_prompt(subject:str, cs, groups=(), subjects=(), again:bool=False, closed:bool=False) -> str:
-    "The request for one batch: the subject (or the subjects that exist, for concepts with no subject), the groups so far, and one line for each concept. `again` asks for the concepts that got no place. `closed` allows only a group from the list: any other answer is []. "
+def sort_prompt(subject:str, cs, groups=(), subjects=(), again:bool=False, closed:bool=False, every:bool=False) -> str:
+    "The request for one batch: the subject (or the subjects that exist, for concepts with no subject), the groups so far, and one line for each concept. `again` asks for the concepts that got no place. `closed` allows only a group from the list: any other answer is []. `every` says that the sort starts again, and that the groups in the list are the groups that the learner made."
     item = lambda c: f"- {c.slug}: {quoted(c.name)}. {quoted(str(c.get('statement') or '')[:160])}"
     head = f"Subject: {quoted(subject)}\n" if subject else "Subject: none. These concepts have no subject.\nSubjects now: " + ('; '.join(map(quoted, subjects[:60])) or 'none') + '\n'
     return (head + (group_line(groups) or 'Groups of this subject now: none\n')
+            + ('\nSort all these concepts again. The groups in the list are the groups that the learner made.\n' if every else '')
             + ('\nThese concepts got no place the first time. Give a group to each one now.\n' if again else '')
             + ('\nUse only a group from the list, spelled the same way. Do not make a new group and do not use "Other". Use [] for a concept that fits no group in the list.\n' if closed else '')
             + '\nConcepts:\n' + '\n'.join(map(item, cs))
@@ -243,15 +245,15 @@ class Places(dict):
     "The result of a sort: `{slug: group}`, with `.subjects` (`{slug: subject}` for concepts that had none) and `.left` (the slugs that got no place)."
     def __init__(self, *a, subjects=None, left=None): super().__init__(*a); self.subjects, self.left = subjects or {}, left or []
 
-def propose_groups(lr:Learning, ask, subject:str=None, batch:int=None, only=None, closed:bool=False) -> Places:
-    "Ask the model for the group of each concept that has no group (and that you did not keep out of the groups by hand), `batch` concepts at a time for each subject; ask again once for the concepts that got no place. Concepts with no subject also get one. A concept with a group never moves. `only` limits it to these slugs. With `closed`, a group must be in the list of the subject, spelled the same way, and it asks one time for each batch; any other answer leaves the concept out. Save nothing."
+def propose_groups(lr:Learning, ask, subject:str=None, batch:int=None, only=None, closed:bool=False, every:bool=False, free=()) -> Places:
+    "Ask the model for the group of each concept that has no group (and that you did not keep out of the groups by hand), `batch` concepts at a time for each subject; ask again once for the concepts that got no place. Concepts with no subject also get one. A concept with a group never moves. `only` limits it to these slugs. With `closed`, a group must be in the list of the subject, spelled the same way, and it asks one time for each batch; any other answer leaves the concept out. With `every`, it sorts every concept again, except a concept that you moved by hand and that is not in `free`, and the list of groups is only the hand groups. Save nothing."
     batch, out, by = batch or val('lists.sort_batch'), Places(), {}
     have = [c['subject'] for c in lr.subjects() if c['subject']]
-    for c in lr.unsorted(subject):
+    for c in (lr.concepts(subject).filter(lambda c: c.get('group_by') != 'hand' or c.slug in free) if every else lr.unsorted(subject)):
         if only is None or c.slug in only: by.setdefault(c.subject or '', []).append(c)
     def place(s, part, gs, again=False):
         "Ask for the places of `part`; keep each one with a group. Return the slugs of `part` that got none."
-        r = ask_json(for_task(ask, 'extract'), sort_prompt(s, part.values(), gs, have, again, closed), prompt('concepts.sort'))
+        r = ask_json(for_task(ask, 'extract'), sort_prompt(s, part.values(), gs, have, again, closed, every), prompt('concepts.sort'))
         for p in (r.get('places') if isinstance(r, dict) else None) or []:
             if not (isinstance(p, dict) and p.get('slug') in part): continue
             sj = s or next((h for h in have if h.lower() == clean_subject(p.get('subject'))), clean_subject(p.get('subject')))
@@ -260,22 +262,35 @@ def propose_groups(lr:Learning, ask, subject:str=None, batch:int=None, only=None
                 if sj and not s: out.subjects[p['slug']] = sj
         return [k for k in part if k not in out]
     for s, cs in sorted(by.items()):
-        gs = lr.groups(s)
+        gs = [] if every else lr.groups(s)
+        if every:
+            for g in lr.hand_groups(s): add_group(gs, g)
         for i in range(0, len(cs), batch):
             part = {c.slug: c for c in cs[i:i + batch]}
             if (miss := place(s, part, gs)) and not closed: out.left += place(s, {k: part[k] for k in miss}, gs, True)
             elif miss: out.left += miss
     return out
 
-def apply_groups(lr:Learning, places:dict) -> list:
-    "Save the paths of `places` as a saved sort, and keep the group list of each subject. A concept with no subject gets its proposed subject first. Return the slugs that moved. A concept that has a group, that you moved by hand, or that is gone, stays."
-    moved, subjects = [], set()
+def apply_groups(lr:Learning, places:dict, every:bool=False, free=(), unmark=()) -> list:
+    "Save the paths of `places` as a saved sort, and keep the group list of each subject. A concept with no subject gets its proposed subject first. Return the slugs that moved. A concept that has a group, that you moved by hand, or that is gone, stays. With `every`, a concept with a group moves too, and so does a concept that you moved by hand when it is in `free`; the group list of each subject becomes the new groups and the hand groups. `unmark` (`(subject, path)`) takes the hand mark off those groups first. It is one step: when a write fails, it writes all back and raises."
+    with lr._lock:
+        cs = [c for c in map(lr.concept, places) if c]
+        snap = lr.snapshot([c.slug for c in cs], {*(c.subject or '' for c in cs), *getattr(places, 'subjects', {}).values(), *(s for s, _ in unmark)})
+        try: return _apply(lr, places, every, free, unmark)
+        except Exception: lr.restore(snap); raise
+
+def _apply(lr, places, every, free, unmark):
+    for s, g in unmark: lr.unmark_groups(s, [g])   # the groups that you unticked: the tutor sorts them now
+    moved, subjects = [], {}
     for slug, g in places.items():
         c = lr.concept(slug)
-        if c is None or c.get('group_by') == 'hand' or c.get('group'): continue   # a concept with a group is sorted: it stays
+        if c is None or (c.get('group_by') == 'hand' and slug not in free) or (c.get('group') and not every): continue   # a concept with a group is sorted: it stays
+        if c.get('group_by') == 'hand': c = lr.update(slug, group_by=None)   # you let the tutor sort it again
         if (sj := getattr(places, 'subjects', {}).get(slug)) and not c.subject: c = lr.set_subject(slug, sj); moved.append(slug)
-        if clean_group(g, c.subject): lr.set_group(slug, g, by='sort'); moved.append(slug); subjects.add(c.subject)
-    for s in subjects: lr.save_groups(s)   # the groups of the saved sort stay
+        if p := clean_group(g, c.subject):
+            if p != c.get('group'): moved.append(slug)
+            lr.set_group(slug, p, by='sort'); subjects.setdefault(c.subject, []).append(p)
+    for s, gs in subjects.items(): lr.save_groups(s, gs, replace=True) if every else lr.save_groups(s)   # the groups of the saved sort stay
     return list(dict.fromkeys(moved))
 
 def place_new(lr:Learning, ask, batch:int=None) -> list:

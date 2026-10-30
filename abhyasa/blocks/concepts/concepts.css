@@ -31,3 +31,33 @@ form.group-field input { min-width: 240px; }
 /* a concept that the tutor placed: a quiet mark and one Undo */
 .concepts .placed { font-size: .85em; margin-left: .6em; }
 .concepts form.undo { display: inline; margin-left: .4em; }
+
+/* Sort by hand: the actions are quiet until the row or the head has the pointer or the focus. */
+details.tree > summary .act { margin-left: var(--s3); }
+ul.concepts li .move-to { order: 4; }
+#concepts-view summary .act, ul.concepts li .move-to { opacity: 0; transition: opacity .15s; }
+#concepts-view summary:hover .act, #concepts-view summary:focus-within .act, ul.concepts li:hover .move-to, ul.concepts li:focus-within .move-to { opacity: 1; }
+@media (hover: none) { #concepts-view summary .act, ul.concepts li .move-to { opacity: 1; } }
+ul.concepts li { flex-wrap: wrap; }
+ul.concepts li .handle { order: -1; cursor: grab; color: var(--mute); touch-action: none; user-select: none; padding: 0 var(--s1); opacity: .45; }
+ul.concepts li:hover .handle { opacity: 1; }
+ul.concepts li > .slot { order: 9; flex-basis: 100%; }
+ul.concepts li > .slot:empty, details.tree > .slot:empty { display: none; }
+.tree-drag, .tree-drag * { cursor: grabbing !important; user-select: none; }
+ul.concepts li.dragging { opacity: .5; }
+details.tree > summary.drop-on { outline: 1px dashed var(--fg); outline-offset: 2px; }
+form.slot-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); margin: var(--s2) 0 var(--s3) var(--s5); font-size: var(--t-small); }
+form.slot-form label { display: flex; align-items: center; gap: var(--s2); margin: 0; }
+form.slot-form .lbl { white-space: nowrap; }
+form.slot-form input[type=text] { min-width: 240px; }
+details.tree > .slot form.slot-form { margin-left: 0; }
+/* the Undo bar: one quiet sentence and Undo; after 8 seconds it goes quieter */
+.undo-bar { display: flex; align-items: center; gap: var(--s3); margin: var(--s3) 0; font-size: var(--t-small); animation: undo-quiet .4s ease 8s forwards; }
+.undo-bar form { display: inline; }
+@keyframes undo-quiet { to { color: var(--mute); } }
+/* More › Sort everything again, at the foot */
+details.sort-more { margin-top: var(--s6); }
+form.sort-again { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s2); max-width: 60ch; }
+form.sort-again label.keep { display: flex; align-items: center; gap: var(--s2); margin: 0; font: inherit; font-size: var(--t-small); letter-spacing: normal; text-transform: none; color: var(--fg); }
+/* in the proposed tree: where a moved concept comes from */
+.proposal ul.concepts li .moved { font-size: var(--t-small); order: 1; }
