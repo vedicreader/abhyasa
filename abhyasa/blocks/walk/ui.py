@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline
+from abhyasa.core import SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -85,17 +85,12 @@ def LinkPending(url, said):
     return Div(P(said), P('This can take some minutes. When the walk is ready, it opens here and shows in your walks.', cls='mute'),
                cls='walk-link pending', style='animation: none', hx_get=f"{Routes.job}?{urlencode(dict(url=url))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
 
-UNDO_FOR = 3600   # seconds after Start that the walk page shows Undo for the folders and repos that Start filed
 
 def filed_words(f) -> str:
     "`11 notebooks`, `11 notebooks and 3 other files`, or `3 files`: what one filing added."
     nb, n = f.get('notebooks', 0), len(f.get('docs') or ())
     if not nb: return n_of(n, 'file')
     return n_of(nb, 'notebook') + (f" and {n_of(n - nb, 'other file')}" if n > nb else '')
-
-def can_undo(f, now=None) -> bool:
-    "True when the filing `f` is not undone and is less than `UNDO_FOR` seconds old."
-    return not f.get('undone') and (now or time.time()) - f.get('at', 0) < UNDO_FOR
 
 def Filed(j, now=None, job=''):
     "What Start filed for walk `j` (or, when the walk failed, for the pool job `job`), each with Undo for one hour, and the sources that it could not file."

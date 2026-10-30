@@ -61,9 +61,12 @@ def test_today_with_no_walk_links_to_start(mk):
     h = mk().get('/').text
     assert 'What do you want to learn?' not in h and 'No walks yet' in h and 'href="/learn#start"' in h
 
-def test_your_learning_has_the_week_and_subjects(mk):
-    h = mk().get('/learning').text
-    assert 'This week' in h and '>Subjects<' in h and '2 concepts' in h
+def test_your_learning_has_the_week_and_subjects(mk, lr):
+    "With no answer yet, Your learning has one line and the subjects; after a review it has the week."
+    cl = mk(); h = cl.get('/learning').text
+    assert 'Nothing yet. Do a walk or a review.' in h and 'This week' not in h and '>Subjects<' in h and '2 concepts' in h
+    lr.update('ranking', seen=1, floor=1)
+    assert 'This week' in cl.get('/learning').text
 
 # F13: Profile is not a wall of empty boxes
 

@@ -1,7 +1,7 @@
 "Your strengths and weak spots, from how well you know each concept, and the ways you learn best."
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page, hook, Primary
+from abhyasa.core import Page, Part, hook, Primary
 from abhyasa.settings import val
 from abhyasa.model import understanding
 from abhyasa.method import EXAMPLES_TO, methods_text
@@ -37,6 +37,17 @@ def connect(app, ctx):
                     P('The tutor teaches a weak concept in your best way. For a concept that is not weak, it sometimes uses a different way. This makes you better at that way too.', cls='mute'),
                     ui.Explore(p.get('explore', 'sometimes')),
                     on='You', sub='Your learning', crumbs=[('Today', '/'), ('You', '/learning'), ('Your learning', '/learning')])
+
+    @hook('learning_top')
+    def part():
+        "Your strengths on Your learning, after This week: the weak spots, and a way to practice them. Nothing before you see a concept."
+        rs = rows()
+        if not any(c.get('seen') for c, _ in rs): return None
+        weak = sorted((x for x in rs if x[1].weak), key=lambda x: x[1].score)[:val('lists.strengths')]
+        more = A('More about your strengths', href=Routes.base)
+        return Part('Your strengths', *ui.assets(),
+                    Div(Ul(*[ui.Concept(*x) for x in weak], cls='plain concepts'), Div(Primary('Practice my weak spots', href='/start?drill=1'), more, cls='row'), cls='weak')
+                    if weak else P('No weak spots now. ', more, cls='mute'), cls='strengths')
 
     @hook('today_end')
     def line(subject=None):

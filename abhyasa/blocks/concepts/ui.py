@@ -98,7 +98,7 @@ def SortButton(subject='', n=0):
 
 def Listing(cs, q='', subject='', said='', new=0, groups=None, hand=(), opened=(), bar=''):
     "The normal view: the Undo bar or the line of a failed sort, the find box and the sort action, the tree, then `More` with \"Sort everything again\"."
-    if not cs and not q: return Empty('No concepts yet.', A('Add a source', href='/add'))
+    if not cs and not q: return Empty('Concepts appear here when you start a walk.', A('Start a walk', href='/learn'))
     hits = [c for c in cs if finds(c, q)] if q.strip() else cs
     body = (Tree(hits, deep=bool(q.strip()), groups=None if q.strip() else groups, at=subject, opened=opened) if hits else
             Empty(f'No concept matches “{q}”.', A('Search everything', href=f"/search?{urlencode(dict(q=q))}")))
@@ -215,5 +215,5 @@ def ConceptPage(c, by, attempts, groups=()):
     return (css(), H1(c.name, id='concept-name'), head, Md(c.statement or '', cls='statement'), Div(*run('concept_actions', c), cls='row'), GroupField(c, groups), NameField(c), Div(id='undo-bar'), Div(*refs, cls='refs'))
 
 def Subjects(subs):
-    return (H2('Subjects'), Ul(*[Li(A(r['subject'] or 'general', href=f"{Routes.base}?subject={r['subject'] or ''}"),
+    return (H2('Subjects'), Ul(*[Li(A(label(r['subject']), href=f"{Routes.base}?subject={r['subject'] or ''}"),
                                      Span(f"  {n_of(r['n'], 'concept')}", cls='mute')) for r in subs], cls='plain'))

@@ -284,8 +284,13 @@ def connect(app, ctx):
             st.job = ctx.pool.submit(path_walk, j['id'])
         return ui.LinkPending(key, st.said)
 
-    def unfile_(jid:str='', root:str='', job:str=''):
-        "Undo, for one hour after Start: forget the docs that Start added for `root` (for walk `jid`, or for the pool job `job` when its walk failed), when each is still the same file."
+    def unfile_(jid:str='', root:str='', job:str='', row:str=''):
+        """Undo, for one hour after Start: forget the docs that Start added for `root` (for walk `jid`, or for the pool job `job` when its walk failed), when each is still the same file.
+        With `row`, the answer is a list item, for a row of a list such as Sources."""
+        said = undo(jid, root, job)
+        return Li(said, cls='lrow') if row else said
+
+    def undo(jid, root, job):
         st = links.get(job) if job else None
         if not (j := walk_of(jid) if jid else st): return Response(status_code=404)
         f = first(x for x in j.get('filed') or () if x['root'] == root and not x.get('undone'))
