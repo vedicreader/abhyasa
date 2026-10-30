@@ -8,8 +8,8 @@ Docs: https://vedicreader.github.io/abhyasa/research.html.md"""
 __all__ = ['log', 'SOCIAL', 'FILES', 'PAGE_BYTES', 'TEXT_TYPES', 'MOST', 'LEAST', 'WINDOW', 'PICK_SP', 'TOP', 'FOUND_NOTHING',
            'NO_QUOTE', 'research_query', 'site_of', 'usable', 'paper_link', 'candidates', 'web_search', 'web_fetch',
            'page_text', 'verbatim', 'pick_prompt', 'pick_passage', 'file_page', 'link_concept', 'wants_source',
-           'put_step', 'why_unread', 'names_idea', 'read_paper', 'research_step', 'to_research', 'mark_pending',
-           'research_walk', 'Researcher']
+           'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending', 'research_walk',
+           'Researcher']
 
 # %% ../nbs/18_research.ipynb #r006
 import hashlib, json, logging, re, threading, time
@@ -23,7 +23,7 @@ from .llm import ask_json, for_task
 from .prompts import register, prompt
 from .journey import _jlock
 from .sources import doc_pages, link_kind, is_paper, file_link, LinkError, NOT_LOCAL, PLAIN, SHORT, fetch_opts, quoted, _local, _addrs, _clip
-from .ground import fence, names, main_words, named_count
+from .ground import fence, names_idea
 from .walk import tutor_note   # adds Learning.walk_step, through `journey`
 
 log = logging.getLogger(__name__)
@@ -35,12 +35,16 @@ def _journey(lr:Learning, j) -> AttrDict:
     if w is None: raise KeyError(f'no journey {j!r}')
     return w
 
-def research_query(lr:Learning, j, i:int) -> str:
-    "The web search for step `i` of walk `j`: the name of its idea, the subject and the title of the walk, at most 120 characters. Never the goal text."
-    s = j.steps[i]; c = lr.concept(s['slug']) or {}
+def research_query(lr:Learning, j, i:int, wide:bool=False) -> str:
+    """The web search for step `i` of walk `j`, at most 120 characters: the name of its idea, with its first alias when the name does
+    not hold it. `wide`: the name, the subject and the title of the walk. Never the goal text."""
+    s = j.steps[i]; c = lr.concept(s['slug']) or {}; name = _flat(c.get('name') or s['slug'])
+    if not wide:
+        al = [a for a in map(_flat, c.get('aliases') or ()) if a and a.lower() not in name.lower()][:1]
+        return ' '.join([name, *al])[:120]
     title, goal = _flat(j.get('title')), _flat(j.get('goal'))
     if goal and goal.startswith(title): title = ''   # a title made from the start of the goal
-    parts = [c.get('name') or s['slug'], c.get('subject') or j.get('subject') or '', title]
+    parts = [name, c.get('subject') or j.get('subject') or '', title]
     return ' '.join(dict.fromkeys(_flat(x) for x in parts if x))[:120]
 
 def _flat(s) -> str: return ' '.join(str(s or '').split())
@@ -221,15 +225,25 @@ def why_unread(e) -> str:
     else: r = t[:80].rstrip('.') or type(e).__name__
     return f'The page could not be read: {r}.'
 
-def names_idea(c, title:str, passage:str) -> bool:
-    "Whether `passage` (with the page `title`) names idea `c`: its name or an alias, or each main word of its name. A weak match is no source."
-    name = c.get('name') or ''; ws = main_words(name)
-    return names(AttrDict(title=title, text=passage), [name, *(c.get('aliases') or ())]) or (bool(ws) and named_count(f'{title} {passage}', ws) == len(ws))
+def _shelf(lr:Learning, name:str): return lr.vault if name in ('store', lr.vault.name) else lr.vault.shelf(name)
+
+def _doc_ids(lr:Learning) -> set:
+    "The ids of the documents on the paper shelf and on the main shelf."
+    return {r['id'] for sh in (lr.vault.route('pdf'), lr.vault) for r in sh.t.docs(select='id')}
 
 def read_paper(lr:Learning, url:str) -> AttrDict:
-    "The paper at `url` (an arXiv link or a PDF), filed in the vault by the paper reader (`file_link`), as `url`, `title`, `text` and `kept`."
+    """The paper at `url` (an arXiv link or a PDF), filed in the vault by the paper reader (`file_link`), as `url`, `title`, `text` and
+    `kept`. `new` says that this read filed it: it was not in the vault before."""
+    before = _doc_ids(lr)
     d = file_link(lr, url, max_pages=1)[0]
-    return AttrDict(url=d.url, title=d.title, text='\n\n'.join(t for _, t in doc_pages(lr, d.doc_id, d.shelf).pages), kept=AttrDict(shelf=d.shelf, doc_id=d.doc_id))
+    return AttrDict(url=d.url, title=d.title, text='\n\n'.join(t for _, t in doc_pages(lr, d.doc_id, d.shelf).pages),
+                    kept=AttrDict(shelf=d.shelf, doc_id=d.doc_id), new=d.doc_id not in before)
+
+def _unfile(lr:Learning, page):
+    "Forget the paper `page` when this research filed it and it gave no good quote. A paper that was in the vault before stays."
+    if page.get('new') and page.get('kept'):
+        try: _shelf(lr, page.kept.shelf).forget(page.kept.doc_id)
+        except Exception as e: log.warning('research: could not forget %s: %r', page.kept.doc_id, e)
 
 def _search(search, q:str, n:int) -> L:
     "The candidates of the search for `q`; none when the search fails."
@@ -243,28 +257,31 @@ def research_step(lr:Learning, ask, j, i:int, search=None, fetch=None, renote:bo
     j = _journey(lr, j); s = j.steps[i]
     if not wants_source(s): return None
     search, fetch, c = search or web_search, fetch or web_fetch, lr.concept(s['slug']) or AttrDict(name=s['slug'])
-    paper, n, q, name = paper or partial(read_paper, lr), val('research.results'), research_query(lr, j, i), _flat(c.get('name') or s['slug'])
-    hs = _search(search, q, n)
-    if not hs and name != q: hs = _search(search, name, n)   # one more search, with the name of the idea only
-    read, unread = False, ''   # whether a page was read, and why the first page that failed was not
-    for h in hs[:TOP]:
-        try: page = (paper if h.get('paper') else fetch)(h.url)
-        except Exception as e: log.warning('research: could not read %s: %r', h.url, e); unread = unread or why_unread(e); continue
-        if not h.get('paper') and not usable(page.url):   # a redirect to a host that research does not read
-            unread = unread or 'The page could not be read: it moved to a site that abhyasa does not read.'; continue
-        read = True
-        page = AttrDict(url=page.url, title=_flat(page.get('title') or h.title)[:200], text=str(page.get('text') or ''), kept=page.get('kept'))
-        if not (passage := pick_passage(ask, c, page)) or not names_idea(c, page.title, passage): continue
-        now = time.time()
-        kept = page.kept or file_page(lr, page, passage)
-        r = _read(page, kept, passage, now)
-        link_concept(lr, s['slug'], dict(src='web', shelf=kept.shelf, doc_id=kept.doc_id, title=r['title'], url=page.url, passage=passage, at=now))
-        if (k := put_step(lr, j.id, s['slug'], i, read=r, research='found', research_at=now, research_why=None, note=None)) is None: return None   # the step left the walk, or got a source
-        if renote:
-            try: tutor_note(lr, ask, lr.journey(j.id), k)
-            except Exception as e: log.warning('research: no new note: %r', e)
-        return AttrDict(r)
-    why = FOUND_NOTHING if not hs else unread if unread and not read else NO_QUOTE
+    paper, n, al = paper or partial(read_paper, lr), val('research.results'), list(c.get('aliases') or ())
+    seen, hit, read, unread = set(), False, False, ''   # the links read, whether a search found any, whether a page was read, and why the first page that failed was not
+    for q in dict.fromkeys([research_query(lr, j, i), research_query(lr, j, i, wide=True)]):   # the idea first; then with the subject and the walk title
+        hs = [h for h in _search(search, q, n) if h.url not in seen][:TOP]
+        hit = hit or bool(hs)
+        for h in hs:
+            seen.add(h.url)
+            try: page = (paper if h.get('paper') else fetch)(h.url)
+            except Exception as e: log.warning('research: could not read %s: %r', h.url, e); unread = unread or why_unread(e); continue
+            if not h.get('paper') and not usable(page.url):   # a redirect to a host that research does not read
+                unread = unread or 'The page could not be read: it moved to a site that abhyasa does not read.'; continue
+            read = True
+            page = AttrDict(url=page.url, title=_flat(page.get('title') or h.title)[:200], text=str(page.get('text') or ''), kept=page.get('kept'), new=page.get('new'))
+            if not (passage := pick_passage(ask, c, page)) or not names_idea(c.get('name') or s['slug'], al, f'{page.title} {passage}'):
+                _unfile(lr, page); continue
+            now = time.time()
+            kept = page.kept or file_page(lr, page, passage)
+            r = _read(page, kept, passage, now)
+            link_concept(lr, s['slug'], dict(src='web', shelf=kept.shelf, doc_id=kept.doc_id, title=r['title'], url=page.url, passage=passage, at=now))
+            if (k := put_step(lr, j.id, s['slug'], i, read=r, research='found', research_at=now, research_why=None, note=None)) is None: return None   # the step left the walk, or got a source
+            if renote:
+                try: tutor_note(lr, ask, lr.journey(j.id), k)
+                except Exception as e: log.warning('research: no new note: %r', e)
+            return AttrDict(r)
+    why = FOUND_NOTHING if not hit else unread if unread and not read else NO_QUOTE
     put_step(lr, j.id, s['slug'], i, research='none', research_why=why, research_at=time.time())
     return None
 
@@ -305,8 +322,18 @@ def research_walk(lr:Learning, ask, j, ix=None, search=None, fetch=None) -> list
 class Researcher:
     "Research on its own pool of one worker, so a long search never holds a demo, a note or a lesson. It keeps the jobs of each walk."
     def __init__(self, lr:Learning, ask, workers:int=1, search=None, fetch=None):
-        self.lr, self.ask, self.search, self.fetch = lr, ask, search, fetch
+        self.lr, self.ask, self.search, self.fetch, self.born = lr, ask, search, fetch, time.time()
         self.pool, self.jobs, self.lock = ThreadPoolExecutor(workers, thread_name_prefix='research'), defaultdict(list), threading.Lock()
+
+    def resume(self) -> list:
+        "At start: look again, on the research pool, for each step that was pending before this run began. A restart stopped its search. Return the jobs."
+        if not val('research.on'): return []
+        out = []
+        for m in self.lr.journeys():
+            if not (j := self.lr.journey(m.get('id') or '')): continue
+            ix = [i for i, s in enumerate(j.get('steps') or ()) if wants_source(s) and s.get('research') == 'pending' and (s.get('research_at') or 0) < self.born]
+            if ix and (job := self.look_for(j.id, ix)): out.append(job)
+        return out
 
     def looking(self, jid:str, i:int) -> bool:
         "Whether a job looks for a source for step `i` of walk `jid` now."

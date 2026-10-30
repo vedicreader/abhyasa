@@ -7,9 +7,10 @@ Docs: https://vedicreader.github.io/abhyasa/ground.html.md"""
 # %% auto #0
 __all__ = ['KEEP', 'VR_ROOT', 'STOP', 'KANDAS', 'STORY_MAX', 'EPISODES_MAX', 'SUMMARY', 'STORY_GONE', 'STORY_BAD', 'RAMA_CFG',
            'SKIP_DIRS', 'TICK', 'passage', 'clip', 'link_of', 'label', 'cite', 'fts_query', 'VaultSource',
-           'VedicSource', 'fold', 'names', 'main_words', 'named_count', 'ground', 'ground_text', 'vr_cite',
-           'read_story', 'VedicStory', 'concept_grounds', 'fence', 'fenced', 'ramabana_memory', 'ramabana_sessions',
-           'index_ramabana', 'find_notebooks', 'nb_text', 'index_notebooks', 'tick', 'schedule', 'index_main']
+           'VedicSource', 'fold', 'names', 'main_words', 'named_count', 'stem', 'key_terms', 'names_idea', 'ground',
+           'ground_text', 'vr_cite', 'read_story', 'VedicStory', 'concept_grounds', 'fence', 'fenced',
+           'ramabana_memory', 'ramabana_sessions', 'index_ramabana', 'find_notebooks', 'nb_text', 'index_notebooks',
+           'tick', 'schedule', 'index_main']
 
 # %% ../nbs/09_ground.ipynb #c004
 import json, os, re, sqlite3, time, unicodedata
@@ -123,6 +124,32 @@ def named_count(text:str, words) -> int:
     "How many of `words` the text names as whole words (or with a plural `s` or `es`), without marks."
     t = fold(text)
     return sum(bool(re.search(rf'\b{re.escape(fold(w))}(?:e?s)?\b', t)) for w in words)
+
+def stem(w:str) -> str:
+    "A light plural stem of the word `w`, folded: `updates` gives `update`, `matches` gives `match`, and `class` stays."
+    w = fold(w)
+    if len(w) > 4 and w.endswith(('ches', 'shes', 'sses', 'xes', 'zes')): return w[:-2]
+    if len(w) > 3 and w.endswith('s') and not w.endswith(('ss', 'us', 'is')): return w[:-1]
+    return w
+
+def key_terms(name:str, aliases=()) -> list:
+    "The terms that name an idea: its name, its aliases, and each word of the name with a capital after its first letter, such as `LoRA` or `VAE`."
+    caps = [w for w in re.findall(r'[\w-]+', name or '') if re.search(r'.[A-Z]', w)]
+    return list(dict.fromkeys(t for t in [name, *aliases, *caps] if t and len(fold(t)) >= 3))
+
+def names_idea(name:str, aliases, text:str) -> bool:
+    """Whether `text` names the idea `name`: the name word for word, or another key term word for word (`key_terms`) and at least half
+    of the other main words of the name, after a light plural stem (`stem`). A name with no other key term needs each of its main
+    words. A weak match is no source."""
+    if names(AttrDict(title='', text=text), [name]): return True
+    have, ks = {stem(w) for w in re.findall(r'\w+', fold(text))}, key_terms(name, aliases)[1:]
+    if not ks: return bool(ws := main_words(name)) and all(stem(w) in have for w in ws)   # no key term: each main word of the name
+    for k in ks:
+        if not names(AttrDict(title='', text=text), [k]): continue
+        ks = {stem(w) for w in main_words(k)}
+        rest = [stem(w) for w in main_words(name) if stem(w) not in ks]
+        if 2 * sum(w in have for w in rest) >= len(rest): return True
+    return False
 
 def _strong(p, q) -> bool:
     "Whether the text of passage `p` names every main word of `q`. Its title does not count: the title of a verse names its book."

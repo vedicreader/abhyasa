@@ -74,6 +74,8 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
                speech=Speech(transcribe), pool=pool, sessions={}, sources=sources,
                research=Researcher(learning, ask))   # research has its own pool of one worker, so a long search never holds a demo or a note
     app.state.blocks = connect_all(app, blocks(*([names] if names else [])), **svc)
+    try: svc['research'].resume()   # a restart stopped the searches of the steps that are still pending: look again on the research pool
+    except Exception as e: logging.getLogger(__name__).warning('abhyasa could not look again for the pending sources: %r', e)
     app.state.svc = svc
     serve_assets(app)
     serve_feedback(app, learning)   # the feedback row under a demo or a lesson, in every block

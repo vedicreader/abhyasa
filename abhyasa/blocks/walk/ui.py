@@ -57,23 +57,17 @@ def page_of(j, i):
     "The title of the page of step `i` in a walk from a link; None in other walks."
     return (j['steps'][i].get('read') or {}).get('title') if (j.get('source') or {}).get('docs') else None
 
-def sections(j, st) -> list:
-    "The sections `(name, [indexes])` of walk `j`. When no step names a section, and the walk is not from a link, one section holds each idea."
-    if st.sections and not any(n for n, _ in st.sections) and not (j.get('source') or {}).get('docs'):
-        return [('', [i for _, ix in st.sections for i in ix])]
-    return st.sections
-
 def Plan(j, st, by):
     "The sections in reading order, each idea with its check. You can change the way of a check, or drop an idea. A walk from a link names each page once."
     mins = sum(minutes(s) for s in j['steps'])
-    secs, page, groups = [], None, sections(j, st)
+    secs, page = [], None
     ways = TOOL_WAYS if j.get('tool') else WALK_WAYS
-    for sec, ix in groups:
+    for sec, ix in st.sections:
         if (t := page_of(j, ix[0])) and t != page: secs.append(Li(H3(t), cls='page')); page = t
         secs.append(Li(Div(B(sec or 'The ideas'), Small(' · '.join(x for x in (pages([j['steps'][i] for i in ix]), f"{sum(minutes(j['steps'][i]) for i in ix)} min") if x)), cls='sh'),
                        Ul(*[PlanIdea(j['id'], i, j['steps'][i], by, ways) for i in ix])))
     n = len(j.get('more') or ())
-    return Div(Span(f"The walk · {n_of(len(groups), 'section')} · {n_of(len(j['steps']), 'idea')} · about {mins} min", cls='lbl'),
+    return Div(Span(f"The walk · {n_of(len(st.sections), 'section')} · {n_of(len(j['steps']), 'idea')} · about {mins} min", cls='lbl'),
                P('Each idea has one check. The tutor picks the check from the idea and from the ways that work for you. You can change any check.', cls='mute'),
                P(f"The tutor picked the main ideas. The source has {n} more {'idea' if n == 1 else 'ideas'}. They are in your concepts. "
                  'When a step needs one of them, you can learn it beside the walk.', cls='mute') if n else '',
@@ -129,7 +123,7 @@ def Rail(j, st, by, i, present=()):
     its first line, `The paper · 3 of 3` and the progress line, and a click opens it (walk.css). `present` is what other blocks add under it."""
     lbl = 'The paper' if j.get('source') else 'The walk'
     rows = []
-    for sec, ix in sections(j, st):
+    for sec, ix in st.sections:
         rows.append(Li(sec or 'The ideas', cls='sec' + (' on' if i in ix else '')))
         rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
     return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows)), *([Div(*present, cls='rail-acts')] if present else []),

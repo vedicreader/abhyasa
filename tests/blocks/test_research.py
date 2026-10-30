@@ -53,7 +53,7 @@ def test_a_topic_walk_finds_a_web_source(mk, web, lr):
     "The walk opens at once. On the pool, research reads the good page only, files it in the vault, and the step shows it with its links."
     cl = mk(); jid = topic(cl)
     until(lambda: state(lr, jid) == 'found')
-    assert web.read == [URL] and web.asked == ['Softmax ml']   # the local result is never read
+    assert web.read == [URL] and web.asked == ['Softmax']   # the local result is never read
     r = lr.journey(jid).steps[0]['read']
     assert r['text'] == QUOTE and r['site'] == 'example.org' and lr.vault.doc(r['doc_id'])['source'] == URL
     assert any(p.get('doc_id') == r['doc_id'] for p in lr.concept('softmax').provenance)   # linked to the concept
@@ -104,6 +104,17 @@ def test_one_ideas_heading(mk, web, lr, walk_fake):
     for i, d in enumerate(('d1', 'd2')): lr.walk_step(jid, i, read=dict(src='web', doc_id=d, text='A passage.', section=''))
     page = cl.get(f'/w/{jid}').text
     assert page.count('<b>The ideas</b>') == 1 and '1 section' in page and page.count('class="sh"') == 1
+    cl.post(f'/w/{jid}/start')
+    r = cl.post(f'/w/{jid}/0/next', follow_redirects=False)
+    assert r.headers['location'].endswith(f'/w/{jid}/1')   # the next idea, not "Section done": the plan has one section
+
+def test_pending_from_before_a_restart_is_looked_for_at_start(mk, web, lr):
+    "A step that was pending when the app stopped is looked for again when the app starts, on the research pool."
+    lr.put('Softmax', 'Softmax turns scores into weights.', 'ml')
+    jid = lr.put_journey(dict(id='softmax-cd34', title='Softmax', goal='Learn softmax', subject='ml', mode='walk',
+                              steps=[dict(slug='softmax', status='todo', why='', research='pending', research_at=time.time() - 60)])).id
+    mk()
+    until(lambda: state(lr, jid) == 'found')
 
 def test_research_off_means_no_search(mk, web, lr):
     "With research off, a topic walk does no web search, the step keeps the tutor's words, and Find a source does not show or search."

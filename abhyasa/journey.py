@@ -27,7 +27,7 @@ from .prompts import register, prompt
 from .sources import extract, _index, doc_pages, root_docs, from_vault, placement, is_id_title, ARXIV_LINK, ARXIV_ID, arxiv_title
 import abhyasa.profile  # adds Learning.profile
 from .method import check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND, DEPTH
-from .ground import ground, ground_text, clip, names, main_words, named_count, fence, VedicStory
+from .ground import ground, ground_text, clip, names, main_words, named_count, names_idea, fence, VedicStory
 
 # %% ../nbs/11_journey.ipynb #95721a6f
 STATUS = ('todo', 'known', 'skip')
@@ -425,13 +425,13 @@ def _in_roots(lr, p, roots) -> bool:
 def _topic_read(c, sources, lr=None, doc='', roots=()) -> dict|None:
     """The passage of concept `c`, as a `read`, or None. With `lr` and the `doc` of the step, the paragraph of that document that names
     the most main words of the name comes first. Else the first passage in `sources` that names the name or an alias, or, from a source
-    that the goal named (`roots`), every main word of the name. A weak match is no source: the step then has no passage, and research can look.
+    that the goal named (`roots`), a key term and half of the other main words of the name (`names_idea`). A weak match is no source: the step then has no passage, and research can look.
     A source for other subjects (`VedicSource`) gives only a strong match."""
     name = c.get('name') or c.slug
     ws, al = main_words(name), list(c.get('aliases') or ())
     if lr is not None and doc and (r := _doc_read(lr, doc, ws)): return r
     code = lambda p: p.text.lstrip().startswith('```')   # a code block is not a passage to read
-    ok = lambda p: not code(p) and (names(p, [name, *al]) or (bool(ws) and named_count(f'{p.title} {p.text}', ws) == len(ws) and _in_roots(lr, p, roots)))
+    ok = lambda p: not code(p) and (names(p, [name, *al]) or (names_idea(name, al, f'{p.title} {p.text}') and _in_roots(lr, p, roots)))
     p = first(p for p in ground(name, sources, 3, must=[name, *ws, *al], subject=c.get('subject') or '') if ok(p)) if sources else None
     return p and dict(src=p.src, ref=p.ref, title=p.title, url=p.url, text=clip(p.text, val('walks.passage')), section=p.get('section') or '', figure=None,
                    **{k: p[k] for k in ('episode', 'what') if p.get(k)})   # an episode keeps its id, and says that it is a summary
@@ -500,13 +500,14 @@ def walk_state(j) -> AttrDict:
     "The steps with a `dot`, the index of the current step, the counts, and the sections as `(name, [indexes])`."
     cur = next((i for i, s in enumerate(j['steps']) if not s.get('done') and s.get('status', 'todo') == 'todo'), None)
     steps = [AttrDict(s, dot=_dot(s, i == cur)) for i, s in enumerate(j['steps'])]
-    secs, last = [], None
+    secs, last, plan = [], None, not j.get('source')   # a topic or goal walk: the plan's sections, not one for each document
     for i, s in enumerate(steps):
         r = s.get('read') or {}
-        name = r.get('section') or ''
-        if secs and last == (r.get('doc_id'), name): secs[-1][1].append(i)
+        name = (s.get('section') if plan else r.get('section')) or ''
+        key = name if plan else (r.get('doc_id'), name)
+        if secs and last == key: secs[-1][1].append(i)
         else: secs.append((name, [i]))
-        last = (r.get('doc_id'), name)
+        last = key
     return AttrDict(steps=steps, current=cur, done=sum(s.dot in ('done', 'known') for s in steps),
                     total=sum(s.dot != 'skipped' for s in steps), sections=secs)
 
