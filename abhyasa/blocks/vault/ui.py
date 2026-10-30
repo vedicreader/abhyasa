@@ -1,7 +1,7 @@
 import json, time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, asset_css, DepthBar, Primary, doc_title
+from abhyasa.core import Md, asset_css, DepthBar, Primary, Quiet, doc_title
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -12,7 +12,8 @@ def css(): return asset_css(_P/'vault.css')
 def when(t):
     "A date for an epoch time, or for a `YYYY-MM-DD hh:mm:ss` string."
     if isinstance(t, (int, float)): return time.strftime('%d %b %Y, %H:%M', time.localtime(t))
-    return str(t or '')
+    try: return time.strftime('%d %b %Y', time.strptime(str(t)[:19], '%Y-%m-%d %H:%M:%S'))   # a stored date reads as a date, not a time stamp
+    except ValueError: return str(t or '')
 
 def memory_file(source):
     "The real file behind a ramabana memory document, if it is on this machine."
@@ -31,7 +32,7 @@ def Facts(d, meta):
     return P(' · '.join(b for b in bits if b), cls='mute')
 
 def Actions(d, meta, shelf):
-    "What you can do with this document: resume a session, open a file or a page, or learn from it."
+    "What you can do with this document: resume a session, open a file or a page, or learn from it: as a walk (the main button), or only find its ideas."
     src, out = d['source'] or '', []
     if d['kind'] == 'session' and (sid := meta.get('session')):
         cmd = f'ramabana --resume {sid}'
@@ -40,9 +41,10 @@ def Actions(d, meta, shelf):
     if src.startswith(('http://', 'https://')): out.append(A('Open the page', href=src, cls='btn'))
     if (f := memory_file(src)) or (src.startswith('/') and Path(src).exists() and (f := Path(src))):
         out.append(Code(str(f), cls='cmd'))
-    out.append(Primary('Learn from this', key=None, hx_post=Routes.learn.format(shelf=shelf, doc_id=d['id']), hx_target='#learned', data_wait='Reading the document…', data_skel='#learned'))
-    out.append(Button('Learn as a walk', cls='btn', hx_post='/walk/new', hx_vals=json.dumps(dict(shelf=shelf, ref=d['id'])), hx_target='#learned',
-                      title='One idea at a time, in the order of the document', data_wait='Making the walk…', data_skel='#learned'))
+    out.append(Primary('Learn as a walk', key=None, hx_post='/walk/new', hx_vals=json.dumps(dict(shelf=shelf, ref=d['id'])), hx_target='#learned',
+                       title='One idea at a time, in the order of the document', data_wait='Making the walk…', data_skel='#learned'))
+    out.append(Quiet('Only find its ideas', hx_post=Routes.learn.format(shelf=shelf, doc_id=d['id']), hx_target='#learned', title='Add the ideas of the document to your concepts, with no walk',
+                     data_wait='Reading the document…', data_skel='#learned'))
     return Div(*out, cls='row actions')
 
 def Linked(cs):
@@ -61,6 +63,6 @@ def Thread(turns):
 
 def DocPage(d, meta, text, shelf, linked, imgs=()):
     "The document page; `imgs` are the image links of the text that the page sends."
-    return (css(), Span(f'{shelf} shelf', cls='lbl'), H1(doc_title(d['title']) or d['id']), Facts(d, meta), Actions(d, meta, shelf),
-            Div(id='learned'), *Thread(meta.get('thread')), H2('Concepts linked here'), Linked(linked),
+    return (css(), Span('Your vault' if shelf == 'store' else f'Your vault · {shelf}', cls='lbl'), H1(doc_title(d['title']) or d['id']), Facts(d, meta), Actions(d, meta, shelf),
+            Div(id='learned'), *Thread(meta.get('thread')), *((H2('Concepts linked here'), Linked(linked)) if linked else ()),
             H2('Text'), Md(doc_title(text), cls=f"doc {d['kind']}", imgs=imgs))

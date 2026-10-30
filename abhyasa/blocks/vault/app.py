@@ -51,7 +51,7 @@ def connect(app, ctx):
         sh, d = _get(shelf, doc_id)
         if d is None: return Page('Not found', H1('No such document'), P(f'The {shelf} shelf has no document {doc_id}.', cls='mute'), on='Library', crumbs=[('Today', '/')])
         text, imgs = images(shelf, d, sh.document(doc_id, max_chars=200000).text)
-        return Page(doc_title(d['title']) or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id), imgs), on='Library', crumbs=[('Today', '/')])
+        return Page(doc_title(d['title']) or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id), imgs), on='Library', crumbs=[('Sources', '/sources')])
 
     def img(shelf:str, doc_id:str, f:str=''):
         "An image of the document, only from its own assets folder, only an image file and only under the size cap."

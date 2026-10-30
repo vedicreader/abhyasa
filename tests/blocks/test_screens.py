@@ -59,3 +59,14 @@ def test_video_tools_open_after_a_message(mk, lr):
     lr.put('Ranking', 'Order items by a score.', 'ml')
     h = mk().post('/guide/video/ranking/drop').text
     assert 'The video is gone' in h and soup(h).select_one('details').has_attr('open')
+
+# A vault document: Learn as a walk is the one button; Only find its ideas stays, as a quiet action on the same route as before.
+
+def test_vault_doc_has_one_main_and_a_quiet_find(mk, lr):
+    d = lr.vault.add([(0, 'Ranking orders items by a score.')], 'Ranking notes', source='/tmp/rank.txt', kind='text')
+    s = soup(mk().get(f"/v/store/{d['doc_id']}").text)
+    mains = s.select('main .go')
+    assert len(mains) == 1 and mains[0].get_text().strip() == 'Learn as a walk' and mains[0]['hx-post'] == '/walk/new'
+    find = next(b for b in s.select('main button') if b.get_text().strip() == 'Only find its ideas')
+    assert find['hx-post'] == f"/v/store/{d['doc_id']}/learn"
+    assert s.select_one('main .lbl').get_text() == 'Your vault' and 'Concepts linked here' not in s.get_text()

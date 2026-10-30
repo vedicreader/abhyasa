@@ -7,7 +7,7 @@ def test_viewer_shows_a_session_and_its_resume_command(mk, lr, tmp_path):
     doc_id = lr.vault.shelf('ramabana').t.docs()[0]['id']
     t = mk(['vault']).get(f'/v/ramabana/{doc_id}').text
     assert 'why does rrf use ranks' in t and 'Scores differ in scale' in t
-    assert 'ramabana --resume agent_1' in t and 'Learn from this' in t
+    assert 'ramabana --resume agent_1' in t and 'Only find its ideas' in t
 
 def test_viewer_learns_concepts_from_a_document(mk, lr, tmp_path):
     (tmp_path/'agent-history.jsonl').write_text(json.dumps(dict(session='agent_2', at=1., prompt='what is a rank', reply='A position in a list.', model='m')) + '\n')
