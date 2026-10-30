@@ -524,12 +524,12 @@ def connect(app, ctx):
 
     def open_leela(jid:str, i:int):
         "Open in Leela: note the time on step `i` (`leela_at`), then go to the Leela link. When Leela does not run, go back to the step."
-        if not walk_of(jid, i): return Response(status_code=404)
-        if not (link := leela_link(lr.journey(jid), i, vault=vault)): return RedirectResponse(ui.at(Routes.step, jid, i), status_code=303)
-        with _jlock(jid):   # the concept opened at this place: an older Leela lesson files no concept, so its results match only while the step there has it
-            j = lr.journey(jid)
-            lr.put_journey({**j, 'leela_opened': {**(j.get('leela_opened') or {}), str(i): j.steps[i]['slug']}})
-        put(lr.journey(jid), i, leela_at=time.time())
+        with _jlock(jid):   # one read of the walk: the link, the concept opened at this place and the stamp all name the same idea
+            if not (j := walk_of(jid, i)): return Response(status_code=404)
+            if not (link := leela_link(j, i, vault=vault)): return RedirectResponse(ui.at(Routes.step, jid, i), status_code=303)
+            slug = j.steps[i]['slug']   # an older Leela lesson files no concept, so its results match only while the step at this place has it
+            lr.put_journey({**j, 'leela_opened': {**(j.get('leela_opened') or {}), str(i): slug}})
+            lr.walk_slug(jid, slug, leela_at=time.time())
         return RedirectResponse(link, status_code=303)
 
     def data(jid:str, i:int, name:str='', path:str=''):

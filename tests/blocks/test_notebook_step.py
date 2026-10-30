@@ -48,6 +48,31 @@ def test_open_in_leela_notes_the_time(mk, lr, walk_fake, monkeypatch, tmp_path):
     card = cl.get(f'/w/{jid}/1/check').text
     assert 'Opened in Leela at ' in card and 'The result comes back here.' in card and 'Leela runs at' not in card
 
+def test_open_in_leela_stamps_the_idea_of_the_link(mk, lr, walk_fake, monkeypatch, tmp_path):
+    "An editor move from another request while Open in Leela runs: the stamp and the place map go to the idea that the link opens, not to the idea that moved in."
+    import threading
+    import abhyasa.blocks.walk.app as W
+    from abhyasa.journey import _jlock
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
+    cl = mk(); jid = nb_step(cl, lr)
+    a, b = [s['slug'] for s in lr.journey(jid).steps[:2]]
+    def swap():
+        with _jlock(jid):
+            j = lr.journey(jid); lr.put_journey({**j, 'steps': [j.steps[1], j.steps[0], *j.steps[2:]]})
+    mover, real = threading.Thread(target=swap), W.leela_link
+    def link(j, i=None, **kw):
+        out = real(j, i, **kw)
+        mover.start(); mover.join(.5)   # the move runs now, unless Open in Leela holds the lock of the walk
+        return out
+    monkeypatch.setattr(W, 'leela_link', link)
+    r = cl.post(f'/w/{jid}/1/leela', follow_redirects=False)
+    mover.join()
+    assert r.status_code == 303 and 'step=1' in r.headers['location']
+    j = lr.journey(jid)
+    assert j.leela_opened == {'1': b}
+    at = {s['slug']: s.get('leela_at') for s in j.steps}
+    assert at[b] and not at[a]
+
 def test_open_in_leela_with_no_leela(mk, lr, walk_fake):
     "With no Leela, the press goes back to the step and notes no time. An unknown step is 404."
     cl = mk(); jid = nb_step(cl, lr)
