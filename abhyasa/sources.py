@@ -21,7 +21,7 @@ import json, os, re, shutil
 from pathlib import Path
 from fastcore.utils import *
 from .store import Learning, SHELF, slugify, _union, clean_group, clean_subject, readable_name, usable_name, under
-from .settings import val, path_why, NO_FOLDER
+from .settings import val, source_root_why, NO_FOLDER
 from .llm import ask_json, for_task
 from .prompts import register, prompt
 
@@ -685,8 +685,8 @@ def tree_files(root) -> L:
 
 # %% ../nbs/04_sources.ipynb #442af40e
 def folder_why(p) -> str:
-    "Why abhyasa does not file the folder `p` (the rules of `settings.path_why`), or '' when it can."
-    return path_why(p) or ('' if Path(str(p)).expanduser().resolve().is_dir() else NO_FOLDER)
+    "Why abhyasa does not file the folder `p` (the rules of `settings.source_root_why`), or '' when it can."
+    return source_root_why(p) or ('' if Path(str(p)).expanduser().resolve().is_dir() else NO_FOLDER)
 
 # %% ../nbs/04_sources.ipynb #b5b78218
 def _file_tree(lr:Learning, root, shelf:str, name:str, url=None) -> L:

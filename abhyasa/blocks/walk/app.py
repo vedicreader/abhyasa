@@ -16,7 +16,7 @@ from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
 from abhyasa.journey import journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, _topic_walk, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task, nb_spec, validate_nb_spec, leela_back, leela_found
-from abhyasa.contract import path_why
+from abhyasa.contract import data_path_why
 from abhyasa.nb import spec_notebook
 from abhyasa.research import to_research, wants_source, want_agent
 from abhyasa.tutor import NoLesson
@@ -486,7 +486,7 @@ def connect(app, ctx):
         with _jlock(jid):   # read and write under the lock of the walk
             if not (j := walk_of(jid, i)) or not (spec := j.steps[i].get('nb')): return Response(status_code=404)
             if not any(d['name'] == name for d in spec['data']): return Response('The notebook has no data with this name.', status_code=400)
-            if why := path_why(path.strip()): return Response(f'abhyasa did not keep this path: {why}. Use a folder in your home folder, as ~/Pictures/comic.', status_code=400)
+            if why := data_path_why(path.strip()): return Response(f'abhyasa did not keep this path: {why}. Use a folder in your home folder, as ~/Pictures/comic.', status_code=400)
             try: new = validate_nb_spec({**spec, 'data': [{**d, 'path': path.strip()} if d['name'] == name else d for d in spec['data']]})
             except ValueError as e: return Response(f'abhyasa did not keep this path: {e}.', status_code=400)
             j = lr.walk_step(jid, i, nb=new)

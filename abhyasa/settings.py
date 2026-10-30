@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/settings.html.md"""
 
 # %% auto #0
 __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SETTINGS', 'NO_FOLDER', 'FIXED', 'add', 'cfg_dir',
-           'settings', 'save_settings', 'update_settings', 'top', 'fit', 'raw', 'val', 'dflt', 'path_why', 'roots',
-           'dropped_roots', 'set_val', 'reset', 'rows', 'reset_group', 'changed', 'clamped']
+           'settings', 'save_settings', 'update_settings', 'top', 'fit', 'raw', 'val', 'dflt', 'source_root_why',
+           'roots', 'dropped_roots', 'set_val', 'reset', 'rows', 'reset_group', 'changed', 'clamped']
 
 # %% ../nbs/16_settings.ipynb #2411ca2e
 import os, json, threading
@@ -255,8 +255,8 @@ def dflt(name:str): return SETTINGS[name].dflt
 # %% ../nbs/16_settings.ipynb #a1685b9e
 NO_FOLDER = 'abhyasa cannot find this folder.'
 
-def path_why(p) -> str:
-    "Why abhyasa does not read the folder path `p`: outside the home folder, the home folder itself, hidden, or a link. '' when it can."
+def source_root_why(p) -> str:
+    "Why abhyasa does not read the source folder `p`: outside the home folder, the home folder itself, hidden, or a link. '' when it can."
     p, home = Path(str(p)).expanduser(), Path.home().resolve()
     try: r = p.resolve()
     except (OSError, RuntimeError): return NO_FOLDER
@@ -268,12 +268,12 @@ def path_why(p) -> str:
 def _root_lines(): return [l.strip() for l in str(val('sources.roots') or '').splitlines() if l.strip()]
 
 def roots() -> list:
-    "The paths of the setting `sources.roots` that keep the rules of `path_why`, one for each line that is not empty."
-    return [l for l in _root_lines() if not path_why(l)]
+    "The paths of the setting `sources.roots` that keep the rules of `source_root_why`, one for each line that is not empty."
+    return [l for l in _root_lines() if not source_root_why(l)]
 
 def dropped_roots() -> list:
     "The lines of `sources.roots` that abhyasa does not use, each as (line, reason)."
-    return [(l, w) for l in _root_lines() if (w := path_why(l))]
+    return [(l, w) for l in _root_lines() if (w := source_root_why(l))]
 
 # %% ../nbs/16_settings.ipynb #1a846de0
 def set_val(name:str, v):

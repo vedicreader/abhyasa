@@ -105,6 +105,12 @@ def test_walk_made_writes_each_notebook(mk, lr, walk_fake, monkeypatch):
     assert ix and all(lr.journey(jid).steps[i]['check']['why'].endswith('runs in Leela') for i in ix)
     assert wait_for(lambda: all(lr.journey(jid).steps[i].get('nb') for i in ix) or None, 10)
 
+def test_path_why_is_the_old_name_of_data_path_why():
+    "Leela imports `abhyasa.contract.path_why`, so the old name stays. The folder rule of the settings has its own name."
+    from abhyasa import contract, settings
+    assert contract.path_why is contract.data_path_why and not hasattr(settings, 'path_why')
+    assert contract.data_path_why('~/a/../b') == 'the path has ..'
+
 def test_two_apps_link_their_own_vault(lr, walk_fake, monkeypatch, tmp_path):
     "Two apps in one process, on two vaults: the Leela link of each app has the key of its own vault."
     from starlette.testclient import TestClient

@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import urlencode, parse_qs
 
 __all__ = ['SAFE_NAMES', 'SAFE_NODES', 'safe_test', 'check_exercise', 'WALK_ID', 'PKG', 'DATA_NAME', 'NB_KEYS', 'RUN_MINUTES',
-           'has_directive', 'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES',
+           'has_directive', 'data_path_why', 'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES',
            'LEELA_ROUTE', 'TOPIC_MAX', 'VAULT_KEY', 'vault_key', 'Handoff', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'HANDOFF_BAD']
 
 # --- the test rule of an exercise --------------------------------------------------------------------------------------
@@ -72,8 +72,8 @@ def has_directive(text) -> bool:
     "Whether a line of `text` starts with `#|` after its leading white space: a notebook directive, as `#| setup` or `#| test`."
     return isinstance(text, str) and any(l.lstrip().startswith('#|') for l in text.splitlines())
 
-def path_why(p) -> str:
-    """Why `p` cannot be a data path, or an empty text when it can. A data path is one line, has no `..`, is inside the home folder
+def data_path_why(p) -> str:
+    """Why `p` cannot be the data path of an exercise, or an empty text when it can. A data path is one line, has no `..`, is inside the home folder
     (not the home folder itself) with `~` read and links followed, and has no part that starts with a dot (as `~/.ssh`)."""
     if not (_line(p, 500) and p.strip()): return 'give a path of one line'
     try: given, home = Path(p).expanduser(), Path.home().resolve()
@@ -84,6 +84,8 @@ def path_why(p) -> str:
     if q == home or not q.is_relative_to(home): return 'the path is not in your home folder'
     if any(x.startswith('.') for x in (*given.parts[1:], *q.relative_to(home).parts)): return 'a part of the path starts with a dot'
     return ''
+
+path_why = data_path_why   # the old name: Leela imports `abhyasa.contract.path_why`
 
 def _exercise_key(e:ValueError) -> str:
     "The spec key that an exercise error names: `task`, `fname` or `stub`, else `tests`."
@@ -116,7 +118,7 @@ def validate_nb_spec(spec) -> dict:
     for d in data:
         if not isinstance(d, dict): raise ValueError('data: each entry is an object {name, path, what, need}')
         if not (isinstance(d.get('name'), str) and DATA_NAME.fullmatch(d['name'])): raise ValueError('data: `name` must be an upper-case Python name, as EPISODES')
-        if why := path_why(d.get('path')): raise ValueError(f"data: {d['name']}: {why}")
+        if why := data_path_why(d.get('path')): raise ValueError(f"data: {d['name']}: {why}")
         if not _line(d.get('what', '')): raise ValueError('data: `what` must be a short text of one line')
         if type(d.get('need', False)) is not bool: raise ValueError('data: `need` must be true or false')
     if len({d['name'] for d in data}) != len(data): raise ValueError('data: two entries have the same name')
