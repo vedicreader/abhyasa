@@ -4,8 +4,9 @@ The keys work in `core.js` and in each block's js; `tests/test_keys.py` checks t
 import json, os
 from pathlib import Path
 from abhyasa.core.stage import PLAN_KEYS, TALK_KEYS
+from abhyasa.core.edit import edit_keys   # the editor keys: the talk editor and the walk path editor add their group with it
 
-__all__ = ['KEYS', 'MENU', 'BUNDLE', 'sanketa_pack', 'write_sanketa_pack']
+__all__ = ['edit_keys', 'KEYS', 'MENU', 'BUNDLE', 'sanketa_pack', 'write_sanketa_pack']
 
 BUNDLE = 'dev.vedicreader.abhyasa'
 #: (group, keys, action), in the order the page shows them; the keys are in Sanketa's key style

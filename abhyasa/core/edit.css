@@ -1,0 +1,49 @@
+/* The shared editor list and the Undo bar (core/edit.py). Muted, no boxes but the open row. Text is --t-small and up. */
+.edit-list { list-style: none; padding: 0; margin: 0; }
+.edit-list > li.edit-row { display: grid; grid-template-columns: 22px 28px minmax(0, 1fr) auto; gap: var(--s2) var(--s4); align-items: start;
+                           min-height: 44px; padding: var(--s3) var(--s2); border-top: 1px solid var(--line); }
+.edit-list > li.edit-row:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: var(--r-s); }
+.edit-list > li.edit-row.open { background: var(--raised); box-shadow: var(--lift); border-radius: var(--r); border-top-color: transparent; margin: var(--s2) 0; padding: var(--s4); }
+.edit-list .grip { position: static; grid-column: 1; width: 14px; height: 22px; margin-top: 4px; cursor: grab; touch-action: none;   /* not the side pane grip of pane.css */
+                   background: radial-gradient(circle, var(--mute) 1.4px, transparent 1.6px) 0 0 / 7px 7px; opacity: .6; }
+.edit-list .grip::before, .edit-list .grip::after { content: none; }
+.edit-list .grip:hover { opacity: 1; }
+.edit-list .no { grid-column: 2; color: var(--mute); font-size: var(--t-small); font-variant-numeric: tabular-nums; padding-top: 2px; }
+.edit-list .head { grid-column: 3; min-width: 0; }
+.edit-list .ttl { display: block; font-size: var(--t-list); }
+.edit-list .line { display: block; color: var(--mute); font-size: var(--t-small); margin-top: 2px; }
+.edit-list .edit-open { display: contents; }
+.edit-list .edit-open > summary { grid-column: 4; grid-row: 1; list-style: none; cursor: pointer; color: var(--mute); font-size: var(--t-small);
+                                  min-height: 44px; display: flex; align-items: center; gap: var(--s1); padding: 0 var(--s2); border-radius: var(--r-s); }
+.edit-list .edit-open > summary::-webkit-details-marker { display: none; }
+.edit-list .edit-open > summary:hover { color: var(--fg); }
+.edit-list .edit-open::details-content { grid-column: 3 / -1; }   /* a browser with this box: it holds .fields */
+.edit-list .fields { grid-column: 3 / -1; display: grid; gap: var(--s3); margin-top: var(--s2); }
+.edit-list .fields label { margin: 0 0 var(--s1); }
+.edit-list .fields textarea, .edit-list .fields input, .edit-list .fields select { font-size: var(--t-small); }
+.edit-list .row-acts { display: flex; flex-wrap: wrap; gap: var(--s1); align-items: center; }
+.edit-list button, .edit-history button { font-size: var(--t-small); min-height: 44px; }
+.edit-list > li.edit-row.skipped .ttl, .edit-list > li.edit-row.skipped .no { color: var(--mute); }
+.edit-list > li.dragging { opacity: .5; }
+.edit-list > li.drop-before { box-shadow: inset 0 2px 0 var(--acc); }
+.edit-list > li.drop-after { box-shadow: inset 0 -2px 0 var(--acc); }
+html:has(.edit-list > li.dragging) { cursor: grabbing; user-select: none; }
+.edit-list > li.edit-add { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: center; padding: var(--s4) 0 0; }
+
+/* The Undo bar: fixed at the foot of the window. It is bright after a change, then quiet. It never blocks the page. */
+.undo-bar { position: fixed; left: 50%; bottom: var(--s5); transform: translateX(-50%); z-index: 20; max-width: calc(100% - 2 * var(--s5));
+            display: flex; gap: var(--s4); align-items: center; padding: var(--s2) var(--s4); font-size: var(--t-small); color: var(--ink2);
+            background: var(--raised); border: 1px solid var(--line); border-radius: var(--r); opacity: .75; transition: opacity .3s, box-shadow .3s; }
+.undo-bar:empty { display: none; }
+.undo-bar.fresh { opacity: 1; box-shadow: var(--lift); color: var(--fg); animation: undo-in .2s ease-out; }
+.undo-bar button { font-size: var(--t-small); padding: var(--s1) var(--s3); min-height: 36px; }
+.undo-bar .hist { color: var(--mute); }
+@keyframes undo-in { from { transform: translate(-50%, 8px); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .undo-bar, .undo-bar.fresh { animation: none; transition: none; } }
+
+/* The history of one talk or one walk. */
+.edit-history { list-style: none; padding: 0; margin: 0; }
+.edit-history > li { display: grid; grid-template-columns: 11em minmax(0, 1fr) 4em auto; gap: var(--s4); align-items: center;
+                     min-height: 44px; border-top: 1px solid var(--line); font-size: var(--t-small); }
+.edit-history .at, .edit-history .who { color: var(--mute); }
+@media (max-width: 1100px) { .edit-history > li { grid-template-columns: 1fr auto; } .edit-history .at, .edit-history .who { grid-column: 1; } }

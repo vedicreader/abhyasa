@@ -22,3 +22,4 @@ website:
       - 17_talk.ipynb
       - 18_research.ipynb
       - 19_detect.ipynb
+      - 20_edit.ipynb
