@@ -630,7 +630,7 @@
   const watch = () => new MutationObserver(ms => {
     if (!st) return;
     if (!document.getElementById('board-host')) return stop();
-    if (ms.some(m => !(m.target.closest && m.target.closest('#board-host, #guide-strip, .board-hl')))) follow();
+    if (ms.some(m => !(m.target.closest && m.target.closest('#board-host, #guide-strip, .board-hl, #board-trail')))) follow();
   }).observe(document.body, {childList: true, subtree: true});
   if (document.body) watch(); else addEventListener('DOMContentLoaded', watch);
   const view = p => [p[0] - scrollX, p[1] - scrollY];
