@@ -10,7 +10,7 @@ __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORM
            'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels',
            'FigureCache', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'page_text', 'board_prompt',
            'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of',
-           'guide_ask', 'video_source', 'web_sources', 'explain']
+           'guide_ask', 'video_source', 'web_sources', 'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -458,9 +458,11 @@ LABEL = dict(page='your source', vault='your vault', web='web', video='video')
 
 def guide_ask(ask, name:str=''):
     """The `ask` of the guide: the ramabana job `guide` on `name`, else on the model of hints (a fast one), with `guard` for the
-    model of each route (`guarded`); a test model as it is, with `guard` for a hosted model."""
+    model of each route (`guarded`); a test model as it is, with `guard` for a hosted model. A model that can stream keeps its
+    `stream(prompt, sp)`, with the same guard."""
     if hasattr(getattr(ask, 'dflt', None), 'via'): return ask.dflt.via('guide', name or ask.name('hint'), 2048, guarded)
     def call(p, sp=''): return ask(guard(p), guard(sp))
+    if callable(getattr(ask, 'stream', None)): call.stream = lambda p, sp='': ask.stream(guard(p), guard(sp))
     return call
 
 def video_source(v) -> dict|None:
@@ -507,18 +509,21 @@ def web_sources(ask, ctx, said:str, search=None, fetch=None, lr=None) -> list:
     return []
 
 # %% ../nbs/21_guide.ipynb #g076
-def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=None, note=None, lr=None) -> AttrDict:
+def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=None, note=None, lr=None, on_step=None) -> AttrDict:
     """The board for `said` on the page `ctx`: from the tutor when it is sure, else from your `sources` (the vault), else from the
-    web when `web` (default: the setting `research.on`). `note(text)` hears what the guide does while it waits."""
+    web when `web` (default: the setting `research.on`). `note(text)` hears what the guide does while it waits. With a model that
+    can stream, `on_step(step, k)` gets each step of a sure tutor board as soon as it is whole (`stream_board`)."""
     from abhyasa.settings import val
     from abhyasa.ground import ground, label
     from ramabana.agent import mask_secrets
     t0, note = time.monotonic(), note or (lambda s: None)
     ctx = ctx if isinstance(ctx, PageContext) else clean_context(ctx)   # a raw dict from a host, also with `by`, is cleaned
     said, ask = ' '.join(str(said or '').split())[:300], guide_ask(ask)   # each model call guards its prompt for its own route
-    def board(tier, srcs): return parse_board(ask(board_prompt(ctx, said, srcs, tier), prompt('guide.board')), by_id({**ctx, 'sources': srcs}))
+    def board(tier, srcs, on_step=None):
+        c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier), prompt('guide.board')
+        return stream_board(ask.stream(p, sp), c, on_step) if on_step and hasattr(ask, 'stream') else parse_board(ask(p, sp), c)
     page = _page_sources(ctx)
-    b = board('tutor', page)
+    b = board('tutor', page, on_step)
     if b.steps and (b.sure or 0) >= SURE: return _done('tutor', b, page, t0)
     best = (b, 'tutor', page)
     note('The tutor looks in your vault.')
@@ -536,3 +541,25 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
             if b.steps: return _done('web', b, srcs, t0)
     b, tier, srcs = best
     return _done(tier if b.steps and (b.sure or 0) >= SURE else 'tutor', b, srcs if tier == 'tutor' else page, t0)
+
+# %% ../nbs/21_guide.ipynb #gs02
+def stream_board(chunks, ctx, on_step=None, sure:float=SURE) -> AttrDict:
+    "`parse_board` of the reply that comes in `chunks`. When the header says `sure` or more, `on_step(step, k)` gets each step when it is whole."
+    text, sent, seen = '', 0, -1
+    def send(b, whole):
+        nonlocal sent
+        if not on_step or (b.sure or 0) < sure: return
+        for s in b.steps[sent:len(b.steps) - (0 if whole else 1)]: sent += 1; on_step(s, sent)
+    it = iter(chunks)
+    try:
+        for c in it:
+            text += c
+            if on_step and (n := text.rfind('\n')) > seen: seen = n; send(parse_board(text[:n], ctx), False)
+    except Exception:
+        if not sent: raise
+        text = text[:text.rfind('\n') + 1]   # the reply broke after a step went out: keep its whole lines
+    finally:
+        if hasattr(it, 'close'): it.close()
+    b = parse_board(text, ctx)
+    send(b, True)
+    return b
