@@ -111,7 +111,7 @@ import Testing
         let py = try String(contentsOf: dir.appending(path: "pyproject.toml"), encoding: .utf8)
         let lock = try String(contentsOf: dir.appending(path: "uv.lock"), encoding: .utf8)
         // the pin names one released abhyasa with the app's extras, and the lock holds that same version from PyPI
-        let key = "abhyasa[whisper,tick,models]=="
+        let key = "abhyasa[whisper,tick,models,voice]=="   // voice: Kokoro needs its packages in the app
         let at = try #require(py.range(of: key))
         let v = py[at.upperBound...].prefix { $0.isNumber || $0 == "." }
         #expect(!v.isEmpty)
