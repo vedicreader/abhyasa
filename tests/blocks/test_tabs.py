@@ -48,5 +48,5 @@ def test_old_urls_still_work(mk):
     for u in ('/journeys', '/add', '/learning', '/graph', '/sources', '/you', '/you/strengths', '/settings', '/keys'): assert cl.get(u).status_code == 200, u
 
 def test_no_learn_query_link(mk):
-    "walk_look finds Leela links by /learn?; no abhyasa link may look like one."
+    "A Leela link starts with /learn?; no abhyasa link may look like one."
     assert '/learn?' not in mk().get('/').text
