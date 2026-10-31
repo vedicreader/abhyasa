@@ -19,6 +19,8 @@ final class AppModel {
         supervisor = Supervisor(paths: .user, pin: res?.appending(path: "Pin"), settings: Prefs.load())
         supervisor.onReady = { [weak self] base in self?.ready(base) }
         web.onLoad = { [weak self] in self?.refreshBadge() }
+        // the Keys panel asks for the guide over other apps: the first-use sheet shows, and the learner starts the guide from it
+        web.onGuideStart = { if !Guide.shared.status.on { Guide.shared.requestStart() } }
         // Caps+E over Abhyasa's own window opens the page's own guide box
         Guide.shared.ownApp = { [weak self] in self?.web.run("(() => { if (window.abhyasaGuide) { abhyasaGuide.open(); return true } return false })()") { _ in } }
     }

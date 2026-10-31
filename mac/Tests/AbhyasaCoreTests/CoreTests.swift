@@ -204,6 +204,15 @@ import Testing
         #expect(path("ABHYASA://concept/ranking") == "/c/ranking")
     }
 
+    @Test func onlyTheExactGuideLinkAsksForTheGuideSheet() {
+        let yes = { (s: String) in Links.isGuideStart(URL(string: s)!) }
+        #expect(yes("abhyasa://guide/start") && yes("ABHYASA://Guide/start"))
+        #expect(!yes("abhyasa://guide") && !yes("abhyasa://guide/stop") && !yes("abhyasa://guide/start/now"))
+        #expect(!yes("abhyasa://guide/start?on=1") && !yes("abhyasa://guide/start#x") && !yes("abhyasa://me@guide/start"))
+        #expect(!yes("http://guide/start") && !yes("abhyasa://concept/start"))
+        #expect(path("abhyasa://guide/start") == nil)   // not a page: a link from another app opens nothing
+    }
+
     @Test func todayAndEmptyOpenTheHomePage() {
         #expect(path("abhyasa://") == "/")
         #expect(path("abhyasa://today") == "/")
