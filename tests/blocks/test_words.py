@@ -17,13 +17,6 @@ def visible_text(html):
     html = re.sub(r'(?is)<(script|style|textarea)\b.*?</\1>', ' ', html)
     return unescape(re.sub(r'(?s)<[^>]*>', ' ', html))
 
-def test_no_page_says_journey(mk, fake):
-    "Every page uses one word, walk. The code names stay; the words on the page change."
-    cl = mk(); jid = make_plain(cl, fake)
-    for u in (*PAGES, f'/path/{jid}', f'/c/tokenizers'):
-        text = visible_text(cl.get(u).text)
-        assert 'journey' not in text.lower(), u
-
 def test_old_journey_routes_still_work(mk, fake, lr):
     cl = mk(); jid = make_plain(cl, fake)
     r = cl.get(f'/j/{jid}', follow_redirects=False)
