@@ -68,3 +68,10 @@ def test_a_failed_source_is_in_the_log(lr, caplog):
 def test_empty_clip_is_a_bad_request(mk):
     r = mk(['voice']).post('/voice/stt', content=b'')
     assert r.status_code == 400 and r.json()['text'] == ''
+
+# A very long query is cut to `Q_MOST` characters, so the page and the search stay small.
+
+def test_long_query_is_cut(mk):
+    from abhyasa.blocks.search.app import Q_MOST
+    h = BeautifulSoup(mk().get('/search', params=dict(q='x' * 5000)).text, 'html.parser')
+    assert h.select_one('h1.query').get_text() == f"“{'x' * Q_MOST}”"
