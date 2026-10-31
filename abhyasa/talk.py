@@ -962,7 +962,7 @@ def _fix_titles(x, ts) -> tuple:
 
 @patch
 def repair_id_titles(self:Learning) -> list:
-    "Give each title that is only an arXiv id, in a walk and in a talk, the title of the paper from the walk that reads it. The order of the lists stays. Return the ids that changed."
+    "Give each title that is only an arXiv id, in a walk, a talk and the sources of a concept, the title of the paper from the walk that reads it. The order of the lists stays. Return the ids that changed."
     ts, out, was = _paper_titles(self), [], {}
     for j in self.journeys() if ts else ():
         new, ch = _fix_titles(dict(j), ts)
@@ -971,6 +971,9 @@ def repair_id_titles(self:Learning) -> list:
         new, ch = _fix_titles({k: v for k, v in t.items() if k != 'doc_id'}, ts)
         if (w := (t.get('src') or {}).get('walk')) in was: ch = _same_marks(self, new, was[w]) or ch
         if ch: self.v.set_meta(self.put_talk(new).doc_id, updated=t.get('updated', 0)); out.append(t.id)
+    for c in self.concepts() if ts else ():   # the source of a concept that came from the paper, and its links
+        fixed = {k: _fix_titles(list(c.get(k) or ()), ts) for k in ('provenance', 'seen_in')}
+        if any(ch for _, ch in fixed.values()): self.update(c.slug, **{k: v for k, (v, ch) in fixed.items() if ch}); out.append(c.slug)
     return out
 
 def _same_marks(lr:Learning, t, old) -> bool:
