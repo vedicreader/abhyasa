@@ -2,6 +2,10 @@
 
 <!-- do not remove -->
 
+## 0.0.16
+
+- The Start box has "Pick a folder…" beside the field. On a Mac, it opens the folder chooser, and abhyasa adds the folder that you pick with the same checks as a typed path. While you drag files over the box, it shows a dashed outline and "Drop files to add them as sources." A dropped folder says "To add a folder, use Pick a folder." abhyasa refuses a source folder that you cannot read.
+
 ## 0.0.15
 
 ### The screen guide shows what it does
