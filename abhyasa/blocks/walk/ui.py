@@ -258,7 +258,7 @@ def Figure_(jid, i, s, c):
 def NextBar(jid, i, st, by):
     """Back to the idea before, and a quiet `Skip this idea` while the check is open. Once the check closes, the card holds
     Next idea, the one main button, and the skip goes (walk.css hides it at once, with no reload)."""
-    back = A(f"← {name(by, st.steps[i - 1])}", href=at(Routes.step, jid, i - 1), cls='mute') if i else Span()
+    back = A('← ', Inline(name(by, st.steps[i - 1])), href=at(Routes.step, jid, i - 1), cls='mute') if i else Span()   # a name can hold maths, as in the outline
     done = (st.steps[i].get('done') or {}).get('outcome')
     skip = '' if done else Form(Quiet('Skip this idea', small=True, id='skip'), action=at(Routes.next, jid, i), method='post', cls='skip')
     return Div(back, skip, cls='next-bar')
@@ -591,7 +591,7 @@ def SectionDone(j, sec, ix, ms, nxt, by):
     return (Span(sec or 'The ideas', cls='lbl'), H1('Section done'), P(lead, cls='lead-sum'),
             *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []),
             *([P('You skipped: ', ', '.join(skipped), '.', cls='mute')] if skipped else []),
-            P(f"Next: {name(by, j['steps'][nxt])}.", cls='next-step'), Div(Primary('Go on', href=at(Routes.step, j['id'], nxt)), cls='row'))
+            P('Next: ', Inline(name(by, j['steps'][nxt])), '.', cls='next-step'), Div(Primary('Go on', href=at(Routes.step, j['id'], nxt)), cls='row'))
 
 def Dots(st):
     "One dot for each idea of the walk, in the colours of the outline. The fill steps stop at 5, so the sum shows within 600 ms on any walk."

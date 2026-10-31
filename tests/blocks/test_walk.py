@@ -763,3 +763,15 @@ def test_a_board_on_an_open_check_counts_as_one_hint(mk, walk_fake, lr):
     ctx['anchors'] = [dict(id='passage', kind='passage', text='Ranks.')]   # a board that does not show the check is not a hint
     evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='I do not get ranks', ctx=ctx)).text.splitlines() if l.startswith('data: ')]
     assert 'hint' not in evs[-1]['board']
+
+def test_the_link_to_the_idea_before_draws_maths_as_the_outline_does(mk, lr):
+    "The link back to the idea before draws a name with maths as the outline does, not as raw `$` text."
+    import re
+    from fastcore.xml import to_xml
+    from abhyasa.core import Inline
+    lr.put('Why scale by $1/\\sqrt{d_k}$', 'The scale keeps the dot products small.', 'ml', slug='why-scale')
+    ck = dict(way='words', kind='short', depth=2)
+    lr.put_journey(dict(id='wm', title='Maths walk', mode='walk', started=1., steps=[dict(slug='why-scale', status='todo', check=ck), dict(slug='ranking', status='todo', check=ck)]))
+    t = mk().get('/w/wm/1').text
+    back = re.search(r'<div class="next-bar">\s*<a [^>]*>(.*?)</a>', t, re.S)[1]
+    assert to_xml(Inline('Why scale by $1/\\sqrt{d_k}$')).strip() in back and '← Why scale by $1/' not in t
