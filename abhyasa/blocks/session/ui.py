@@ -199,11 +199,12 @@ def EndPage(s, ms, j=None, pg=None, rel=()):
         f"You found {n_of(mis, 'misconception')}." if mis else '') if x)
     nxt = []
     if j and pg:
-        nxt = [H2('Your walk'), P(A(j.title, href=f'/path/{j.id}'), Span(f"  {pg.done} of {n_of(pg.total, 'step')}", cls='mute')),
+        home = f'/w/{j.id}' if j.get('mode') == 'walk' else f'/path/{j.id}'
+        nxt = [H2('Your walk'), P(A(j.title, href=home), Span(f"  {pg.done} of {n_of(pg.total, 'step')}", cls='mute')),
                Span(I(style=f"width:{100 * pg.done // max(pg.total, 1)}%"), cls='prog'),
                P(f"Next step: {pg.current.name}." if pg.current else 'You finished this walk.', cls='next-step'),
-               Div(Primary('Continue the walk', href=f'/start?journey={j.id}') if pg.current else
-                   Primary('See what comes after', href=f'/path/{j.id}'), cls='row')]
+               Div(Primary('Continue the walk', href=pg.current.get('href') or f'/start?journey={j.id}') if pg.current else
+                   Primary('See what comes after', href=home), cls='row')]
     elif rel:
         nxt = [H2('Related topics'), Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
                                              A('Learn', href=f'/start?focus={c.slug}', cls='btn small quiet')) for c in rel], cls='plain related')]

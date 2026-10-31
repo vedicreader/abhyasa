@@ -72,3 +72,14 @@ def test_drop(mk, fake, lr):
     jid = plan(cl, fake)
     cl.post(f'/j/{jid}/drop')
     assert lr.journey(jid) is None and 'No such walk' in cl.get(f'/j/{jid}').text
+
+def test_learn_counts_a_walk_as_its_outline_does(mk, lr):
+    "An idea that a check closed as fragile counts the same in the outline and in Learn: both use `walk_state`."
+    ck = dict(way='words', kind='short', depth=2)
+    lr.put_journey(dict(id='wf', title='Fragile walk', mode='walk', goal='learn ranking', started=1.,
+                        steps=[dict(slug='ranking', status='todo', check=ck, done=dict(outcome='fragile', at=1.)), dict(slug='reciprocal-rank-fusion', status='todo', check=ck)]))
+    cl = mk()
+    row, rail = cl.get('/learn').text, cl.get('/w/wf/1').text
+    assert 'Now: Reciprocal rank fusion' in row   # a fragile idea is not the current one: the walk goes on
+    n = re.search(r'aria-valuenow="(\d)"', rail)[1]
+    assert f'aria-valuenow="{n}" aria-valuemax="2"' in row and f'{n} of 2 ideas' in row   # one count: the row says what the outline says

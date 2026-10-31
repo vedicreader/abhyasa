@@ -7,7 +7,7 @@ from fastcore.utils import AttrDict
 from abhyasa.core import Page, hook, run as run_hook, Primary, n_of, Feedback, Msg
 from abhyasa.model import DEPTHS, pick
 from abhyasa.tutor import Session, HINTS, moved
-from abhyasa.journey import progress, related
+from abhyasa.journey import progress, walk_state, related
 from abhyasa.demo import show_ask
 from . import ui
 from .cfg import Routes
@@ -200,6 +200,12 @@ def connect(app, ctx):
         rail = ui.Rail(sid, past(sid, q), outcomes, q, oob=True)
         return ui.Section_(sid, q), ui.Composer(sid, q, oob=True), rail
 
+    def walked(j, by):
+        "How far walk `j` is, from `walk_state`: the counts, and the idea to do now with its `name` and `href`, or None."
+        ws = walk_state(j, by); i = ws.current
+        s = ws.steps[i] if i is not None else None
+        return AttrDict(done=ws.done, total=ws.total, current=s and AttrDict(name=(by.get(s['slug']) or {}).get('name', s['slug']), href=f'/w/{j.id}/{i}'))
+
     def end(sid:str):
         "End the session, and show what moved and what comes next."
         if (f := pre.pop(sid, None)): f.cancel()
@@ -210,7 +216,7 @@ def connect(app, ctx):
         for q in shown.pop(sid, ()): tl.pop(q.id, None); outcomes.pop(q.id, None)   # get() builds them again from the shelf
         j = lr.journey(s.journey) if s.journey else None
         by = {c.slug: c for c in lr.concepts()}
-        nxt_ = progress(lr, j, by=by) if j else None
+        nxt_ = (walked(j, by) if j.get('mode') == 'walk' else progress(lr, j, by=by)) if j else None
         last = s.log[-1]['concept'] if s.log else s.focus
         rel = [] if j else related(lr, last, 4, by=by) if last else []
         return Page('Session', *ui.EndPage(s, moved(s.log), j, nxt_, rel), on='Learn', crumbs=crumbs(s), extra=ui.assets())

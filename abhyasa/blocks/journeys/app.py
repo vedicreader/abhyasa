@@ -4,7 +4,8 @@ from fasthtml.common import *
 from abhyasa.core import Page, Part, RouteOverrides, hook, run
 from abhyasa.settings import val
 from abhyasa.profile import profile_text
-from abhyasa.journey import plan, progress, add_topic, split, beyond, with_step, for_talk
+from fastcore.basics import AttrDict
+from abhyasa.journey import plan, progress, walk_state, add_topic, split, beyond, with_step, for_talk
 from . import ui
 from .cfg import Routes
 
@@ -18,11 +19,19 @@ def connect(app, ctx):
 
     def by(): return {c.slug: c for c in lr.concepts()}
     def yours(): return [j for j in lr.journeys() if not for_talk(j)]   # a side walk of a talk is for the room, not yours
+    def state(j, b=None):
+        "How far `j` is: `walk_state` for a walk, `progress` for an old path. `current` is the step to do now, with its `name` and its place `i`, or None."
+        b = by() if b is None else b
+        if j.get('mode') != 'walk': return progress(lr, j, by=b)
+        ws = walk_state(j, b); i = ws.current
+        cur = None if i is None else AttrDict(ws.steps[i], i=i, name=(b.get(ws.steps[i]['slug']) or {}).get('name', ws.steps[i]['slug']))
+        return AttrDict(ws, current=cur, finished=cur is None and bool(ws.steps))
+
     def listed(skip=None):
         b = by()
-        return [(j, progress(lr, j, by=b)) for j in yours() if j.id != skip]
+        return [(j, state(j, b)) for j in yours() if j.id != skip]
 
-    def path(jid): return ui.Path_(j := lr.journey(jid), progress(lr, j))
+    def path(jid): return ui.Path_(j := lr.journey(jid), state(j))
 
     def learn():
         "The Learn tab: your walks, your talks (`learn_talks`) and Start something new (`learn_start`)."
@@ -42,7 +51,7 @@ def connect(app, ctx):
         j = lr.journey(jid)
         if not j: return Page('Walk', H1('No such walk'), P(A('All walks', href=Routes.learn)), on='Learn', crumbs=up)
         if j.get('mode') == 'walk' and not for_talk(j): return RedirectResponse(Routes.of(Routes.walk_edit, jid=jid), status_code=303)   # a walk has its own editor
-        pg = progress(lr, j)
+        pg = state(j)
         return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')], run('walk_actions', j)), on='Learn', crumbs=up, extra=ui.assets())
 
     def step(jid:str, slug:str, act:str):
@@ -102,7 +111,7 @@ def connect(app, ctx):
         if not (r.get('correct') and r.get('floor', 0) >= val('checks.goal') and r.get('depth') == r.get('floor')): return None
         s = lr.session(r.get('session') or '') if r.get('session') else None
         if not (s and s.get('journey') and (j := lr.journey(s.journey))) or r.concept not in [x['slug'] for x in j.steps]: return None
-        pg = progress(lr, j)
+        pg = state(j)
         return ui.StepDone(lr.concept(r.concept), pg.current.name if pg.current else '')
 
     RouteOverrides.nav.append(('Learn', Routes.learn, 1))
