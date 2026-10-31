@@ -51,6 +51,12 @@ public final class StripModel {
         self.line = line; self.chip = chip; chipHosted = hosted; self.detail = detail
     }
 
+    /// the words that the mic wrote, in the box to change: nothing goes until Return
+    public func transcript(_ words: String) {
+        typing = true; text = words; level = nil; stoppable = false
+        set(GuideText.changeIt)
+    }
+
     /// back to an empty strip, with no buttons
     public func clear() {
         set("")
@@ -241,6 +247,13 @@ public final class Strip {
     }
 
     public var isTyping: Bool { model.typing }
+
+    /// opens the box with the transcript in it and takes the key window: the learner just spoke into it
+    public func transcript(_ words: String, in visible: CGRect) {
+        show(line: "", typing: true, in: visible)
+        model.transcript(words)
+        resize()
+    }
 
     /// closes the box and gives the key window back to the app in front; the line of state stays on the screen
     public func release() {

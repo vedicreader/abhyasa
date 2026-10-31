@@ -289,7 +289,10 @@ public final class Guide {
             if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 strip.show(line: GuideText.heardNothing, typing: true, in: visibleFrame())
                 set(.ready)
-            } else { send(text) }
+            } else {   // the words stay in the box, to change; Return sends them
+                strip.transcript(text, in: visibleFrame())
+                set(.ready)
+            }
         }
     }
 

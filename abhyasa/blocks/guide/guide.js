@@ -514,9 +514,9 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     finally { if (busy === n) busy = 0; }
   }
 
-  // --- Hyper+E: hold to talk, tap to type -------------------------------------------------------------------------------
+  // --- Hyper+E: hold to talk, tap to type ----------------------------------------------------------------------------
   // Hyper is ⌃⌥⇧⌘ (Caps Lock with a key remapper). A hold of HOLD ms or more starts the mic of the voice block into the box;
-  // the release stops it, and the words go to the tutor when the last of them is in. A tap opens the box. macOS sends no
+  // the release stops it, and the words stay in the box when the last of them is in: the learner can change them, and Enter sends. A tap opens the box. macOS sends no
   // keyup for E while ⌘ is down, so the keyup of any of the four modifiers is a release too.
   const HOLD = 300;
   let held = null, mic = null;
@@ -549,8 +549,15 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const end = performance.now() + 15000;
     while (performance.now() < end && (b.classList.contains('busy') || b.classList.contains('on'))) await new Promise(ok => setTimeout(ok, 100));
     b.hidden = true;
-    if (box().value.trim()) ask(box().value); else heard('The mic heard nothing. Type your question.');
+    const x = box();   // the transcript stays in the box, so the learner can change it; Enter sends, Esc closes
+    if (!x.value.trim()) return heard('The mic heard nothing. Type your question.');
+    heard(EDIT);
+    x.focus(); x.setSelectionRange(x.value.length, x.value.length);   // the learner just spoke into the box: not a focus steal
   }
+  const EDIT = 'Change it if you need to. ↩ sends.';
+  document.addEventListener('keydown', e => {   // ⌘↩ sends too (a plain ↩ submits the form)
+    if (e.key === 'Enter' && e.metaKey && e.target === box() && !form().hidden) { e.preventDefault(); ask(box().value); }
+  });
   addEventListener('keydown', e => {
     if (e.code !== 'KeyE' || !(e.metaKey && e.altKey && e.ctrlKey && e.shiftKey)) return;
     e.preventDefault(); e.stopImmediatePropagation();   // before core.js, which would press the ⌥E button of a concept page

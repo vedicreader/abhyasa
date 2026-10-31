@@ -84,3 +84,16 @@ import Testing
         #expect(GuideText.sends(parts: 0, to: "Gemma", local: true) == "Sends your question and the window title to Gemma. Nothing leaves this Mac.")
     }
 }
+
+/// After the mic, the words stay in the strip's box to change. No launch, no window: the model only.
+@MainActor @Suite struct TranscriptTests {
+    @Test func theTranscriptIsInTheBoxAndNothingIsSent() {
+        let m = StripModel()
+        var sent: [String] = []
+        m.onSend = { sent.append($0) }
+        m.level = 0.5; m.stoppable = true
+        m.transcript("say that more simply")
+        #expect(m.typing && m.text == "say that more simply" && m.line == "Change it if you need to. ↩ sends.")
+        #expect(m.level == nil && !m.stoppable && sent.isEmpty)
+    }
+}

@@ -10,6 +10,8 @@ public enum GuideText {
     public static let micOn = "The mic is on. Let go of \(key) to send."
     public static let writing = "The app writes what you said."
     public static let heardNothing = "The mic heard nothing. Type your question."
+    /// after the mic wrote the words: they stay in the box until Return
+    public static let changeIt = "Change it if you need to. ↩ sends."
     public static let noMic = "Abhyasa cannot use the mic. Type your question."
     public static let noServer = "abhyasa does not run now. Open Abhyasa, then try again."
     public static let failed = "The tutor could not answer. Make sure that abhyasa runs, then try again."
