@@ -183,6 +183,17 @@ let both = [laptop, monitor]
         let bare = try #require(GuideEvent.parse(#"{"saved": {}}"#))
         #expect(bare.kind == .saved(GuideEvent.Saved(title: "", url: "", undo: "")))
     }
+
+    @Test func aShowEventOpensTheIdeaInAbhyasa() throws {
+        let e = try #require(GuideEvent.parse(#"{"show": {"href": "/c/ranking?show=", "title": "Ranking"}}"#))
+        #expect(e.kind == .show(GuideEvent.Show(href: "/c/ranking?show=", title: "Ranking")))
+        #expect(e.isLast)   // the route sends Show and no board
+        let find = try #require(GuideEvent.parse(#"{"show": {"href": "/concepts?q=gpt", "find": true}}"#))
+        #expect(find.kind == .show(GuideEvent.Show(href: "/concepts?q=gpt", find: true)))
+        #expect(GuideEvent.parse(#"{"show": {"html": "<div>"}}"#)?.kind == .other)   // a card of the web page is no use over another app
+        #expect(GuideText.show(GuideEvent.Show(href: "/c/ranking?show=", title: "Ranking")) == "Open Ranking in abhyasa to see it move.")
+        #expect(GuideClient.route("/c/ranking?show=a%20b", base: URL(string: "http://127.0.0.1:5000")!)?.absoluteString == "http://127.0.0.1:5000/c/ranking?show=a%20b")
+    }
 }
 
 @Suite struct KeyMachineTests {

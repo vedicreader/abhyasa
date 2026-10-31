@@ -42,11 +42,21 @@ public struct SSEParser {
 }
 
 /// One event of the guide's ask route (abhyasa/blocks/guide/app.py): `{"wait": text}`, `{"step": {…}, "k": n, "tier": t, "point": look}`,
-/// `{"board": {…}, "point": look}`, `{"error": text}` or `{"saved": {"title", "url", "undo"}}`. A wait event can also tell the state:
+/// `{"board": {…}, "point": look}`, `{"error": text}`, `{"saved": {"title", "url", "undo"}}`, or `{"show": {"href", "title", "find"}}` for "show me …"
+/// (Show: a moving demo in abhyasa, with no board; the overlay gives the link "Open in abhyasa"). A wait event can also tell the state:
 /// `{"wait", "state", "model", "where", "who", "query", "sources"}`. Each of these fields is optional, so an older server works
 /// too. `raw` is the JSON as it came, for board.js in the overlay.
 public struct GuideEvent: Equatable, Sendable {
-    public enum Kind: Equatable, Sendable { case wait(String), step(Int), board, error(String), saved(Saved), other }
+    public enum Kind: Equatable, Sendable { case wait(String), step(Int), board, error(String), saved(Saved), show(Show), other }
+
+    /// Show for "show me …": the local path that opens the Show slot of the idea in abhyasa, and the name of the idea. `find` is true when
+    /// no idea of the learner matches the window: then the path opens the Library with the words.
+    public struct Show: Equatable, Sendable {
+        public var href: String
+        public var title: String
+        public var find: Bool
+        public init(href: String, title: String = "", find: Bool = false) { self.href = href; self.title = title; self.find = find }
+    }
 
     /// a thing that the guide put in the vault, with the route that takes it out again
     public struct Saved: Equatable, Sendable {
@@ -83,6 +93,9 @@ public struct GuideEvent: Equatable, Sendable {
         if let s = o["saved"] as? [String: Any] {
             return e(.saved(Saved(title: s["title"] as? String ?? "", url: s["url"] as? String ?? "", undo: s["undo"] as? String ?? "")))
         }
+        if let s = o["show"] as? [String: Any], let h = s["href"] as? String {
+            return e(.show(Show(href: h, title: s["title"] as? String ?? "", find: s["find"] as? Bool ?? false)))
+        }
         if let t = o["wait"] as? String { return e(.wait(t)) }
         return e(.other)
     }
@@ -93,8 +106,8 @@ public struct GuideEvent: Equatable, Sendable {
         return s == Status() ? nil : s
     }
 
-    /// true for the last event of a question: the route ends the stream after a board or an error
+    /// true for the last event of a question: the route ends the stream after a board, an error or a show
     public var isLast: Bool {
-        switch kind { case .board, .error: true; default: false }
+        switch kind { case .board, .error, .show: true; default: false }
     }
 }

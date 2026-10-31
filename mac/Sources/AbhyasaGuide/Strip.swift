@@ -35,6 +35,8 @@ public final class StripModel {
     /// the countdown of the board's end: when it started and how long it is
     public var countdown: (start: Date, seconds: Double)?
     public var saved: GuideEvent.Saved?
+    /// Show for "show me …": the link "Open in abhyasa" to the Show slot of the idea
+    public var open: GuideEvent.Show?
     /// the last question over this window, while the next one follows up on it
     public var follows: String?
     public var sheet: Sheet?
@@ -44,6 +46,7 @@ public final class StripModel {
     @ObservationIgnored public var onStop: (() -> Void)?
     @ObservationIgnored public var onVoice: (() -> Void)?
     @ObservationIgnored public var onUndo: ((GuideEvent.Saved) -> Void)?
+    @ObservationIgnored public var onOpen: ((GuideEvent.Show) -> Void)?
     @ObservationIgnored public var onFresh: (() -> Void)?
 
     /// one line of state with its chip; the second line, the level and the saved line stay as they are
@@ -60,7 +63,7 @@ public final class StripModel {
     /// back to an empty strip, with no buttons
     public func clear() {
         set("")
-        level = nil; stoppable = false; board = false; countdown = nil; saved = nil; trail = false; follows = nil
+        level = nil; stoppable = false; board = false; countdown = nil; saved = nil; open = nil; trail = false; follows = nil
     }
 }
 
@@ -112,6 +115,9 @@ struct StripView: View {
                     Text(GuideText.saved(s.title)).font(.callout).foregroundStyle(.secondary).lineLimit(1)
                     if !s.undo.isEmpty { Button(GuideText.undo) { m.onUndo?(s) }.buttonStyle(.link) }
                 }
+            }
+            if let o = m.open {
+                Button(o.find ? GuideText.findInAbhyasa : GuideText.openInAbhyasa) { m.onOpen?(o) }.buttonStyle(.link)
             }
             if let f = m.follows {
                 HStack(spacing: 8) {

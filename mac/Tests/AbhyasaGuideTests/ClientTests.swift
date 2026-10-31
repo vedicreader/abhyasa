@@ -71,6 +71,15 @@ final class StreamServer: @unchecked Sendable {
         #expect(kinds == [.wait("Asks Claude Sonnet."), .board, .saved(GuideEvent.Saved(title: "Attention", url: "u", undo: "/guide/undo/1"))])
     }
 
+    @Test func aShowEventEndsTheStream() async throws {
+        let sse = "data: {\"show\": {\"href\": \"/c/ranking?show=\", \"title\": \"Ranking\"}}\n\n" + "data: {\"board\": {\"steps\": []}}\n\n"
+        let (s, c) = try serve(["/guide/ask": (200, "text/event-stream", sse)])
+        defer { s.stop() }
+        var kinds: [GuideEvent.Kind] = []
+        for try await e in c.ask(Data("{}".utf8)) { kinds.append(e.kind) }
+        #expect(kinds == [.show(GuideEvent.Show(href: "/c/ranking?show=", title: "Ranking"))])
+    }
+
     @Test func undoPostsToTheRoute() async throws {
         let (s, c) = try serve(["/guide/undo/1": (200, "application/json", "{}")])
         defer { s.stop() }

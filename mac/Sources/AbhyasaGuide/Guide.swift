@@ -91,6 +91,7 @@ public final class Guide {
         strip.model.onStop = { [weak self] in self?.stopQuestion() }
         strip.model.onVoice = { [weak self] in self?.toggleVoice() }
         strip.model.onUndo = { [weak self] s in self?.undo(s) }
+        strip.model.onOpen = { [weak self] s in self?.open(s) }
         strip.model.onFresh = { [weak self] in self?.startFresh() }
         trail.text = { [weak self] in self?.strip.model.text ?? "" }
         trail.onTrail = { [weak self] pts in self?.overlay.trail(pts) }
@@ -302,7 +303,7 @@ public final class Guide {
         guard !said.isEmpty, let client else { return }
         let shown = trail.stop()   // what the learner showed with the pointer while they asked
         strip.release()
-        strip.update { $0.trail = false; $0.level = nil; $0.stoppable = true; $0.saved = nil; $0.follows = nil }
+        strip.update { $0.trail = false; $0.level = nil; $0.stoppable = true; $0.saved = nil; $0.open = nil; $0.follows = nil }
         strip.say(GuideText.reading, chip: GuideText.onThisMac)
         set(.reading)
         drew = false
@@ -343,6 +344,11 @@ public final class Guide {
                         set(.ready)
                     case .saved(let s):
                         strip.update { $0.saved = s }
+                    case .show(let s):   // Show: a moving demo in abhyasa, not a board over this window
+                        strip.update { $0.stoppable = false; $0.board = false; $0.open = s }
+                        strip.say(GuideText.show(s))
+                        overlay.hide()
+                        set(.ready)
                     case .step, .board:
                         if case .board = e.kind, let b = GuideThread.board(e.raw) { thread.keep(said: said, says: b.says, tier: b.tier, key: key, now: clock) }
                         if !boardShows { boardShows = true; followWindow(snap.window) }
@@ -479,6 +485,14 @@ public final class Guide {
             $0.muted = m
             if self.drew { $0.line = m ? GuideText.drawingQuiet : GuideText.drawing }
         }
+    }
+
+    /// "Open in abhyasa": the Show slot of the idea, or the Library, in the browser. Only a path on the abhyasa server opens.
+    func open(_ s: GuideEvent.Show) {
+        guard let client, let u = GuideClient.route(s.href, base: client.base) else { return }
+        NSWorkspace.shared.open(u)
+        strip.update { $0.open = nil }
+        strip.hide()
     }
 
     func undo(_ s: GuideEvent.Saved) {

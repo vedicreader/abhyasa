@@ -31,6 +31,13 @@ public enum GuideText {
     public static let voiceOff = "Voice off"
     public static let voiceOn = "Voice on"
     public static let undo = "Undo"
+    public static let openInAbhyasa = "Open in abhyasa"
+    public static let findInAbhyasa = "Find it in abhyasa"
+    /// the line for "show me …" over another app: Show is a moving demo in abhyasa, in the Show slot of the idea
+    public static func show(_ s: GuideEvent.Show) -> String {
+        s.find ? "No idea in your vault matches this window. Find it in abhyasa, and say show me there."
+               : "Open \(s.title.isEmpty ? "this idea" : s.title) in abhyasa to see it move."
+    }
     public static let start = "Start"
     public static let turnOff = "Turn off the guide"
     public static let turnOn = "Turn on the guide…"
