@@ -121,7 +121,7 @@ and a spend limit.
 When no passage is found, the step says why, for example “No page had a good quote.” Press “Find a source” to try again,
 or “Pick a passage yourself”.
 
-### Change the walk path
+### Change the walk
 
 Press “Change the walk” on the plan page, or on the rail of a step. Each change saves at once, and the Undo bar says what
 changed. ⌘Z undoes it. “Earlier versions” lists the changes, and you can go back to one.
@@ -144,7 +144,7 @@ checks are hands-on. A notebook step that builds your goal does not count.
 
 ## Rabbit holes
 
-A passage can use an idea that you do not know yet. The step then shows a “This needs” line with each idea that it needs. An idea that is not learned yet has a “Learn beside” button.
+A passage can use an idea that you do not know yet. The step then shows a “This needs” line with each idea that it needs. An idea that is not learned yet has a “Learn it” button.
 
 You have three choices:
 
@@ -298,7 +298,7 @@ Some guards have no setting: the closed process with no network, the check of li
 
 All keys are for the left hand. ⌥ is the Option key. ⌥T, ⌥Q, ⌥R and ⌥G open the tabs Today, Learn, Library and You. ⌥1 to ⌥3 open a sub-tab. To see all the keys, press ⌥F, or press ? outside a text box.
 
-Caps+E (⌃⌥⇧⌘E) opens the screen guide. In the walk path editor and the talk editor, W and S move the focus, ⇧W and ⇧S
+Caps+E (⌃⌥⇧⌘E) opens the screen guide. On the page Change the walk and in the talk editor, W and S move the focus, ⇧W and ⇧S
 move a row, E opens it, X removes it, R rewrites it and ⌘Z undoes the last change. On the Concepts page, ⌘Z undoes the
 last change that you made by hand.
 
