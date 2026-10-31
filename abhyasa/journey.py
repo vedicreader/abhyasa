@@ -203,6 +203,7 @@ def plan(lr:Learning, ask, goal:str, who:str='', sources=None, srcmap=(), data=(
     pairs = [(root, t) for root, docs in srcmap for t, _ in docs]
     idx, subject, steps, slug_of = _index(lr), (r.get('subject') or '').lower().strip(), [], {}
     for s in r.get('steps') or []:
+        if not usable_name(s.get('name')) and not (s.get('slug') and lr.concept(s['slug'])): continue   # a name such as `x` is not an idea
         slug = s.get('slug') if s.get('slug') and lr.concept(s['slug']) else idx.get(s['name'].lower())
         if not slug:
             slug = slugify(s['name'])

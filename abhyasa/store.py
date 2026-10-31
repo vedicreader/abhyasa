@@ -157,6 +157,7 @@ def put(self:Learning,
         name = clean_name(name)
         slug = slug or slugify(name)
         old = self.concept(slug) or {}
+        if not old and not usable_name(name): raise ValueError(f'{name!r} is not the name of an idea. A name has two characters or more, with a letter or a digit.')   # an old tool filed `x`
         if old.get('named_by') == 'hand' and meta.get('named_by') != 'hand': name = old['name']   # a name that you set stays: use `rename`
         if old.get('group_by') in ('hand', 'sort', 'placed', 'undone'): meta.pop('group', None); meta.pop('group_by', None)   # a group that you, a saved sort or a placement set stays: use `set_group`
         elif 'group' in meta: meta['group'] = clean_group(meta['group'], subject or old.get('subject', ''))
@@ -574,7 +575,7 @@ def search(self:Learning, q:str, kind:str=None, limit:int=10) -> L:
 @patch
 def graph(self:Learning, subject:str=None) -> dict:
     "Nodes and links (prereq, related, gap) for a graph view. A link to a slug that has no concept is dropped."
-    cs = self.concepts(subject)
+    cs = self.concepts(subject).filter(lambda c: usable_name(c.name))   # a concept that an older tool filed as `x` stays out of the view
     have = set(cs.attrgot('slug'))
     nodes = [dict(id=c.slug, name=c.name, subject=c.subject, floor=c.floor, ceiling=c.ceiling, due=c.due, seen=c.seen, group=clean_group(c.get('group'), c.subject)) for c in cs]
     links = [dict(source=p, target=c.slug, kind='prereq') for c in cs for p in c.prereqs if p in have]

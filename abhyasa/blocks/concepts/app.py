@@ -5,7 +5,7 @@ from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, NotFound, RouteOverrides, hook, moved_to
 from abhyasa.settings import val
-from abhyasa.store import clean_group, clean_name, under, GROUP_DEPTH, GROUP_LEN
+from abhyasa.store import clean_group, clean_name, under, usable_name, GROUP_DEPTH, GROUP_LEN
 from abhyasa.sources import propose_groups, apply_groups, place_new
 from . import ui
 from .cfg import Routes
@@ -28,7 +28,7 @@ def connect(app, ctx):
     placing = threading.Lock()   # one placement of new concepts at a time
     st = AttrDict(id='', job=None, subject='', every=False, free=(), drop=(), kept=0)   # the one sort: its id, the pool job, the subject it sorts ('' for all); for "Sort everything again" also the hand concepts it may move, the hand groups that you unticked, and the count kept
 
-    def cs_of(subject=''): return lr.concepts(subject or None)
+    def cs_of(subject=''): return [c for c in lr.concepts(subject or None) if usable_name(c.name)]   # a concept that an older tool filed as `x` stays out of the list
 
     def subjects_of(subject=''): return [subject] if subject else sorted({c.subject or '' for c in cs_of()})
 
