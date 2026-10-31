@@ -96,7 +96,8 @@ def _is_doc_shelf(db, name:str) -> bool:
 @patch
 def doc_shelves(self:Learning) -> list:
     "The names of the shelves of the vault that hold documents, in the order of the vault. A store of names (`entities`) is not one."
-    return [s['store'] for s in self.vault.shelves() if _is_doc_shelf(self.vault.db, s['store'])]
+    names = [r['name'] for r in self.vault.db.q('select name from store_meta order by rowid')] if 'store_meta' in self.vault.db.t else []   # not `Vault.shelves`, which counts the documents of each store
+    return [n for n in names if _is_doc_shelf(self.vault.db, n)]
 
 @patch
 def doc_shelf(self:Learning, name:str):
