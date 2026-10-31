@@ -1209,6 +1209,7 @@ def research_state(j, running:bool=False, now:float=None) -> AttrDict:
     now, ss = now or time.time(), list(j.get('steps') or ())
     r_ = lambda s: s.get('read') or {}
     looked = [s for s in ss if s.get('status') != 'skip' and (s.get('research') or r_(s).get('researched') or r_(s).get('gathered'))]
+    if not looked and j.get('gather_at'): looked = [s for s in ss if s.get('status') != 'skip' and (wants_source(s) or r_(s).get('gathered'))]   # an older walk of the agent
     settled = [s for s in looked if r_(s).get('text') or s.get('research') in ('found', 'none')]
     start = max(j.get('research_start') or 0, j.get('gather_at') or 0)
     rows = [r for r in j.get('gather') or () if (r.get('at') or 0) >= start]

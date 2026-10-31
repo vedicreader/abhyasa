@@ -3,9 +3,11 @@ class Routes:
     job = '/walk/job'                 # the state of a walk from a link or a goal while it is made
     unfile = '/walk/unfile'           # Undo: forget what Start filed for a walk
     one = '/w/{jid}'                  # the plan before the start; then the current step
-    gather = '/w/{jid}/gather'        # the band of the gather agent: what it read and filed; it asks again every 3 s while the agent runs
+    gather = '/w/{jid}/gather'        # the line of research: what it reads now, the sources, the time left; it asks again every 3 s while research runs
     gather_log = '/w/{jid}/gather/log'    # the log of the gather agent, newest first, each row with its link; it opens in the side pane
-    gather_stop = '/w/{jid}/gather/stop'  # POST: stop the gather agent
+    gather_stop = '/w/{jid}/gather/stop'  # POST: stop the research of the walk: the agent and its sub-agents, or the search of each idea
+    gather_again = '/w/{jid}/gather/again'  # POST: Find sources again, for each idea with no source
+    status = '/walk/research.json'    # GET: the walks whose research runs now, and the walks whose research ended in the last hours, for the Mac app
     plan = '/w/{jid}/plan'            # one change to the plan: the check of a step, or drop a step
     edit = '/w/{jid}/edit'            # GET: the walk path editor; POST: one change to the path, kept with an Undo
     undo = '/w/{jid}/undo'            # POST: take back the newest change of the path

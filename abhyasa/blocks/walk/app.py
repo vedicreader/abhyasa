@@ -23,7 +23,7 @@ from abhyasa.edit import (edit_walk, undo_walk, restore_walk, move_step, skip_st
                           passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite)
 from abhyasa.contract import data_path_why
 from abhyasa.nb import spec_notebook
-from abhyasa.research import to_research, wants_source, want_agent
+from abhyasa.research import to_research, wants_source, want_agent, research_state
 from abhyasa.tutor import NoLesson
 from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said
 from . import ui
@@ -192,8 +192,34 @@ def connect(app, ctx):
     gathering = ctx.research.gathering   # the gather agent runs on its own pool, too
 
     def halted(jid):
-        "Whether Stop was asked for the gather agent of walk `jid`, which may still end its last call."
+        "Whether Stop was asked for the research of walk `jid`, which may still end its last call."
         return (ev := ctx.research.stops.get(jid)) is not None and ev.is_set()
+
+    def band(j, plan=False):
+        "The line of research of walk `j`, as it is now."
+        running = ctx.research.running(j['id'])
+        return ui.GatherBand(j, research_state(j, running), running and halted(j['id']), plan)
+
+    def seen(j):
+        "The learner opened walk `j` after its research ended: the notice on each page goes."
+        if j.get('research_end') and not j.get('research_seen') and not ctx.research.running(j['id']):
+            with _jlock(j['id']): lr.merge_journey(j['id'], research_seen=True)
+
+    @hook('page_extra')
+    def research_notice():
+        "On any page: a notice for each walk whose research ended in this run of abhyasa, until the learner opens the walk."
+        out = []
+        for jid in list(ctx.research.jobs):
+            if ctx.research.running(jid) or not (j := lr.journey(jid)) or for_talk(j): continue   # a side walk of a talk is for the room
+            if j.get('research_end') and not j.get('research_seen') and time.time() - j['research_end'] < 6 * 3600: out.append(ui.ResearchNotice(j))
+        return Div(*out, cls='research-notices') if out else ''
+
+    def status():
+        "For the Mac app: the walks whose research runs now, and the walks whose research ended in the last 6 hours, each with its title, its link and the time of its end."
+        def row(j): return dict(id=j['id'], title=j.get('title') or 'Walk', url=ui.sources_url(j['id']), end=j.get('research_end'), have=(s := research_state(j)).have, total=s.total)
+        js = [j for jid in list(ctx.research.jobs) if (j := lr.journey(jid)) and not for_talk(j)]
+        return JSONResponse(dict(running=[row(j) for j in js if ctx.research.running(j['id'])],
+                                 ended=[row(j) for j in js if not ctx.research.running(j['id']) and (j.get('research_end') or 0) > time.time() - 6 * 3600]))
     nb_jobs, nb_lock = {}, Lock()   # (walk, concept of the step) -> the research pool job that writes the notebook spec of the step
 
     def nb_writing(jid, i):
@@ -415,14 +441,16 @@ def connect(app, ctx):
         if ref: ctx.pool.submit(retitle, j.id)   # a vault PDF with an arXiv id for a name: the title of the paper comes after the page
         return Response(headers={'HX-Redirect': ui.at(Routes.one, j.id)})
 
-    def one(jid:str):
+    def one(jid:str, plan:str=''):
+        "The plan before the start; then the current step. `?plan=1` shows the plan and the line of research also after the start."
         if not (j := walk_of(jid)): return missing()
         leela_back(lr, j)   # a step that Leela checked is done, so the walk goes on from the next one
         st = walk_state(j := lr.journey(jid))
-        if j.get('started') and st.current is not None: return go(jid, st.current)
+        if j.get('started') and st.current is not None and not plan: return go(jid, st.current)
+        seen(j)
         h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j, quiet=True), vault=vault)   # Start is the main button; Present is quiet
-        band = ui.GatherBand(j, gathering(jid), halted(jid)) if j.get('gather_at') else ''
-        return Page(j.title, h1, ui.Filed(j), band, *rest, on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
+        band_ = band(j, plan=True)
+        return Page(j.title, h1, ui.Filed(j), band_, *rest, on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
 
     def plan(jid:str, i:int, act:str, way:str=''):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
@@ -451,8 +479,9 @@ def connect(app, ctx):
             ahead(j, i + 1)
         back = leela_back(lr, j)
         j, b = lr.journey(jid), by()
-        band = [ui.GatherBand(j, True, halted(jid))] if gathering(jid) else []   # while the agent runs, its band is on each step
-        page = ui.StepPage(j, walk_state(j), b, i, needs=[*band, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault,
+        seen(j)
+        line = [band(j)] if ctx.research.running(jid) or j.get('research_start') or j.get('gather_at') else []   # the line of research is on each step
+        page = ui.StepPage(j, walk_state(j), b, i, needs=[*line, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault,
                        present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
@@ -464,12 +493,13 @@ def connect(app, ctx):
             with held(jid, i): return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
         except Exception: return ''
 
-    def source(jid:str, i:int):
-        "The passage of step `i` as it is now. When a web source came, the note loads again, so it explains the passage. A GET only reads."
+    def source(jid:str, i:int, quiet:str=''):
+        """The passage of step `i` as it is now. When a web source came, the note loads again, so it explains the passage. A GET only reads.
+        `quiet`: the page asks while the learner reads, so a source that came shows only `A source is ready — show it`."""
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         s = j.steps[i]
-        out = ui.Passage(j, s, by().get(s['slug']), i, looking(jid, i))
-        return (out, ui.NoteSlot(jid, i, oob=True)) if (s.get('read') or {}).get('src') == 'web' else out
+        out = ui.Passage(j, s, by().get(s['slug']), i, looking(jid, i), quiet=bool(quiet))
+        return (out, ui.NoteSlot(jid, i, oob=True)) if (s.get('read') or {}).get('src') == 'web' and not quiet else out
 
     def find_source(jid:str, i:int):
         "Find a source: look for a web source for step `i` on the pool, also after a search that found nothing. Off in Settings, it does nothing."
@@ -477,10 +507,10 @@ def connect(app, ctx):
         if val('research.on') and wants_source(j.steps[i]): look_for(jid, [i])
         return source(jid, i)
 
-    def gather_band(jid:str):
-        "The band of the gather agent, as it is now. It asks again every 3 s while the agent runs."
+    def gather_band(jid:str, plan:str=''):
+        "The line of research, as it is now. It asks again every 3 s while research runs."
         if not (j := walk_of(jid)): return Response(status_code=404)
-        return ui.GatherBand(j, gathering(jid), halted(jid))
+        return band(j, bool(plan))
 
     def gather_log(jid:str):
         "What the gather agent read and filed, newest first, each row with its link. It opens in the side pane."
@@ -488,10 +518,19 @@ def connect(app, ctx):
         return Page('What the agent did', *ui.GatherLog(j), on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
 
     def stop_gather(jid:str):
-        "Stop the gather agent: each tool refuses, and the turn is cancelled. What it filed stays."
+        "Stop the research of the walk: each tool of the agent refuses, its turn and its sub-agents are cancelled, or the search of each idea ends after the one that runs. What it filed stays."
         if not walk_of(jid): return Response(status_code=404)
         ctx.research.stop(jid)
-        return ui.GatherBand(lr.journey(jid), gathering(jid), halted(jid))
+        return band(lr.journey(jid))
+
+    def again(jid:str):
+        "Find sources again: look again for each idea with no source, with the agent when the walk wants it, else with the search of each idea."
+        if not (j := walk_of(jid)): return Response(status_code=404)
+        if val('research.on') and not ctx.research.running(jid):
+            ix = [i for i, s in enumerate(j.steps) if wants_source(s)]
+            if ix and want_agent(j): ctx.research.gather(jid)
+            elif ix: ctx.research.look_for(jid, ix)
+        return band(lr.journey(jid))
 
     def check(jid:str, i:int):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
@@ -972,6 +1011,8 @@ def connect(app, ctx):
     app.get(Routes.passages)(pick_list)
     app.get(Routes.gather_log)(gather_log)
     app.post(Routes.gather_stop)(stop_gather)
+    app.post(Routes.gather_again)(again)
+    app.get(Routes.status)(status); app.router.routes.insert(0, app.router.routes.pop())   # before the static route for `.json`
     app.post(Routes.new)(new)
     app.get(Routes.job)(job)
     app.post(Routes.unfile)(unfile_)

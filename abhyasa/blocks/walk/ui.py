@@ -48,7 +48,8 @@ def WayPick(jid, i, s, ways=WALK_WAYS):
 def PlanIdea(jid, i, s, by, ways=WALK_WAYS):
     "One idea of the plan: its name, the label of its passage in small type, its check, and Drop."
     k = (s.get('check') or {}).get('kind', 'short')
-    return Li(Span(name(by, s), Small(source_of(s.get('read')).label, cls='src-lbl'), cls='n'), Span(KIND.get(k, k), cls='w'), WayPick(jid, i, s, ways),
+    wait = Small('looking for a source', cls='src-lbl looking') if s.get('research') == 'pending' and not (s.get('read') or {}).get('text') else ''
+    return Li(Span(name(by, s), Small(source_of(s.get('read')).label, cls='src-lbl'), wait, cls='n'), Span(KIND.get(k, k), cls='w'), WayPick(jid, i, s, ways),
               Button('Drop', type='button', cls='small quiet', title='Take this idea out of the walk', hx_post=at(Routes.plan, jid),
                      hx_vals=json.dumps(dict(i=i, act='drop')), hx_target='#plan', hx_swap='outerHTML'),
               cls='known' if s.get('status') == 'known' else None)
@@ -107,7 +108,8 @@ def Filed(j, now=None, job=''):
 def Idea(j, by, s, k, i, just=False):
     "One idea in the outline, with a dot for its state. `just`: its check closed now, so the dot fills (walk.css); it is swapped out of band."
     tag = dict(now='now', shaky='shaky', skipped='skipped', known='you know it').get(s.dot, '')
-    return Li(A(Inline(name(by, s)), href=at(Routes.step, j['id'], k)), Span(f' · {tag}', cls='k') if tag else '', id=f'rail-{k}',
+    got = Span(' · has a source', cls='k src-ready') if (s.get('read') or {}).get('researched') or (s.get('read') or {}).get('gathered') else ''   # research found it
+    return Li(A(Inline(name(by, s)), href=at(Routes.step, j['id'], k)), Span(f' · {tag}', cls='k') if tag else '', got, id=f'rail-{k}',
               cls=f"c {s.dot}" + (' on' if k == i else '') + (' just' if just else ''), **({'hx_swap_oob': 'true'} if just else {}))
 
 def Filled(j, st, by, i):
@@ -122,7 +124,8 @@ def Rail(j, st, by, i, present=()):
     for sec, ix in st.sections:
         rows.append(Li(sec or 'The ideas', cls='sec' + (' on' if i in ix else '')))
         rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
-    edit = P(A('Change the walk', href=at(Routes.edit, j['id'])), cls='change-walk')   # the walk path editor
+    src = (' · ', A('Sources', href=sources_url(j['id']), cls='see-build')) if j.get('research_start') or j.get('gather_at') else ()
+    edit = P(A('Change the walk', href=at(Routes.edit, j['id'])), *src, cls='change-walk')   # the walk path editor; the line of research
     return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows), edit), *([Div(*present, cls='rail-acts')] if present else []),
                  id='rail', cls='outline', aria_label='The walk')
 
@@ -168,27 +171,63 @@ def gather_words(j) -> tuple:
     docs = f"{n.read} of {n_of(n.total, 'document')} read" if n.total > n.read else f"{n_of(n.read, 'document')} read"
     return docs, f"{n.have} of {n_of(n.ideas, 'idea')} {'has' if n.ideas == 1 else 'have'} a passage"
 
-def GatherBand(j, running=False, stopping=False):
-    """The band of the gather agent of walk `j`: while it runs, what it read and the ideas with a passage, the document that it reads now,
-    `Show what it did` and `Stop`, and it asks again every 3 seconds. After it ends, one line that says how it ended. Nothing before it starts."""
-    if not j.get('gather_at'): return Div(id='gather')
-    docs, ideas = gather_words(j)
-    log = ShowLog(j['id']) if j.get('gather') else ''
-    if running:
-        nw = j.get('gather_now') or {}
-        n = idea_no(j, nw.get('idea'))
-        now = ' '.join(x for x in ('Now: reading', nw.get('title') or '', f"({nw['site']})" if nw.get('site') else '', f"for idea {n}" if n else '') if x)
-        stop = (Span('Stopping the agent…', cls='mute') if stopping else
-                Quiet('Stop', small=True, type='button', hx_post=at(Routes.gather_stop, j['id']), hx_target='#gather', hx_swap='outerHTML', data_wait='Stopping…'))
-        return Div(P(f"An agent is reading your sources. {docs}. {ideas}. Started {hm(j['gather_at'])}."),
-                   P(now, cls='mute now') if nw.get('title') else '', Div(log, stop, cls='row'),
-                   id='gather', cls='gather-band running', aria_live='polite', hx_get=at(Routes.gather, j['id']), hx_trigger='every 3s', hx_swap='outerHTML')
+START_NOW = "You can start now. Ideas without a source show the tutor's note, and they fill in as sources come."
+
+def left_words(secs) -> str:
+    "The time left as the learner reads it: `About 6 minutes left.`; nothing when it is not known."
+    if secs is None: return ''
+    if secs < 60: return 'Less than a minute left.'
+    m = round(secs / 60)
+    return f"About {m} minute{'' if m == 1 else 's'} left."
+
+def beat_words(secs) -> str:
+    "The time since the last step of research, so the learner sees that it is alive: `Last step 12 s ago.`"
+    if secs is None: return ''
+    return f'Last step {int(secs)} s ago.' if secs < 120 else f'Last step {int(secs // 60)} min ago.'
+
+def doing_words(s) -> str:
+    "What research does now: `Reads train_dreambooth_lora.py for idea 3.`"
+    if not s.doing: return 'Starts the search.'
+    return f"{'Does' if s.doing.startswith('a web search') else 'Reads'} {s.doing}" + (f' for idea {s.idea}' if s.idea else '') + '.'
+
+def ended_words(s) -> str:
+    "How research of a walk ended, with the time: `Research ended at 13:42.`"
+    t = hm(s.end_at)
+    return {'done': f'Research ended at {t}.', 'you': f'You stopped research at {t}.', 'time': f'The time for research ended at {t}.',
+            'closed': 'Research stopped because abhyasa closed.'}.get(s.ended, '')
+
+def sources_url(jid) -> str: return at(Routes.one, jid) + '?plan=1#gather'
+
+def GatherBand(j, s, stopping=False, plan=False):
+    """The line of research of walk `j`, from its state `s` (`research.research_state`), on the plan page and on each step. While it
+    runs: what it reads now, the ideas with a source, the time left, the time since its last step, `Stop`, `Show what it did` and
+    `See the build`; on the plan page, that the walk can start now. It asks again every 3 seconds. After it ends: the ideas with a source,
+    how it ended and when, the quotes that abhyasa refused, and `Find sources again` for the ideas with no source. Nothing before research starts."""
+    jid = j['id']
+    if not (s.running or s.ended or j.get('gather_at')): return Div(id='gather')
+    log = ShowLog(jid) if j.get('gather') else ''
+    see = '' if plan else A('See the build', href=sources_url(jid), cls='see-build')
+    have = f"Sources for {s.have} of {n_of(s.total, 'idea')}."
+    if s.running:
+        stop = (Span('Stopping…', cls='mute') if stopping else
+                Quiet('Stop', small=True, type='button', hx_post=at(Routes.gather_stop, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Stopping…'))
+        line = ' '.join(x for x in (doing_words(s), have, left_words(s.left), beat_words(s.beat)) if x)
+        return Div(P(line), P(START_NOW, cls='mute start-now') if plan else '', Div(log, see, stop, cls='row'), id='gather', cls='gather-band running',
+                   aria_live='polite', hx_get=at(Routes.gather, jid) + ('?plan=1' if plan else ''), hx_trigger='every 3s', hx_swap='outerHTML')
     why = j.get('gather_why') or ''
-    if why.startswith('The agent could not start'): return Div(P(why, cls='mute'), id='gather', cls='gather-band')
-    how = {'you': 'You stopped the agent.', 'time': 'The time for the agent ended.'}.get(j.get('gather_stopped'))
-    if not how and not j.get('gather_end'): how = 'The agent stopped when abhyasa closed.'
-    line = f"{how} It read {docs.replace(' read', '')}." if how else f"The agent read {docs.replace(' read', '')}."
-    return Div(P(f"{line} {ideas}."), P(why, cls='mute') if why else '', Div(log, cls='row') if log else '', id='gather', cls='gather-band')
+    refused = f" abhyasa refused {n_of(s.refused, 'quote')}. The log says why." if s.refused else ''
+    again = (Quiet('Find sources again', small=True, type='button', hx_post=at(Routes.gather_again, jid), hx_target='#gather', hx_swap='outerHTML',
+                   data_wait='Starting…') if s.have < s.total and val('research.on') else '')
+    return Div(P(f"{have} {ended_words(s)}{refused}"), P(why, cls='mute') if why else '', Div(log, see, again, cls='row'), id='gather', cls='gather-band')
+
+def ResearchNotice(j):
+    "The notice on any page when the research of walk `j` ended, with a link to the walk."
+    return Div(P(f"Sources for your walk \u2018{j.get('title') or 'Walk'}\u2019 are ready. ", A('Open the walk', href=sources_url(j['id']))),
+               cls='research-notice', role='status', style='max-width:60rem;margin:var(--s3) auto;padding:0 var(--s4);font-size:var(--t-small);color:var(--ink2)')   # on any page, where walk.css is not loaded
+
+def SourceReady(jid, i):
+    "The quiet line on a step whose source came while the learner reads: the page does not change until the learner asks."
+    return P(A('A source is ready \u2014 show it', href='#', hx_get=at(Routes.source, jid, i), hx_target='#passage', hx_swap='outerHTML'), cls='mute source-ready')
 
 def _target(r):
     "The target of log row `r`: a link to the page on the web (a new tab) or to the document in your vault, else plain text."
@@ -210,17 +249,19 @@ def GatherLog(j):
     return (H1('What the agent did'), P(f'{docs}. {ideas}. A note from the agent is its own words, not a source.', cls='mute'),
             Ol(*map(item, rows), cls='gather-log') if rows else P('The agent did nothing yet.', cls='mute'))
 
-def Passage(j, s, c, i=None, looking=False):
+def Passage(j, s, c, i=None, looking=False, quiet=False):
     """The passage from the source, word for word, with its `SourceLine`; with no passage, the statement of the idea, marked as the
     tutor's words. With `i`, a step with no passage can look for a source (`FindSource`).
     `data-moves` holds the words that the idea moves: walk.js links them to the parts of the demo."""
     r = s.get('read') or {}
     mv = dict(data_moves=json.dumps(list((c or {}).get('moves') or []))) if (c or {}).get('moves') else {}
+    if r.get('text') and quiet and i is not None:   # the source came while the learner reads: say so, and change nothing
+        return TutorWords((c or {}).get('statement', ''), SourceReady(j['id'], i), id='passage', **mv)
     if r.get('text'):
         also = [Div(Md(a.get('text') or ''), SourceLine(source_of(a, j)), cls='also') for a in r.get('also') or () if a.get('text')]   # a merge keeps both passages
         return Blockquote(Md(r['text']), SourceLine(source_of(r, j)), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', **mv)
     wait = i is not None and s.get('research') == 'pending' and looking and val('research.on')
-    poll = dict(hx_get=at(Routes.source, j['id'], i), hx_trigger='load delay:3s', hx_swap='outerHTML') if wait else {}
+    poll = dict(hx_get=at(Routes.source, j['id'], i) + '?quiet=1', hx_trigger='load delay:3s', hx_swap='outerHTML') if wait else {}
     return TutorWords((c or {}).get('statement', ''), FindSource(j['id'], i, s, looking) if i is not None else '',
                       id='passage', cls='pending' if wait else '', **poll, **mv)
 
