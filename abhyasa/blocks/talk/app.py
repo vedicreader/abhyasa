@@ -20,6 +20,7 @@ from abhyasa.sources import figure_path
 from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
 from abhyasa.llm import for_task
 from abhyasa.settings import val
+from abhyasa.prompts import lines
 from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
                           public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go, log_main, end_run, log_beside,
                           recap, recap_html, BEATS, FILLED, clean_slide, talk_again, walk_changes, AGAIN, talk_state, with_state, on_stage, put_back)
@@ -61,8 +62,6 @@ def new_id(ss):
 def blank(sid, kind, title, mins, **kw):
     "A slide with no step: a pause or a questions slide."
     return dict(id=sid, kind=kind, title=title, section='', show=dict(passage='', figure=None, demo=None), beats=[], notes='', ask=None, mins=mins, **kw)
-
-def lines(s): return [x.strip() for x in str(s).splitlines() if x.strip()]
 
 def number(s, lo, hi, say):
     "The whole number in `s` from `lo` to `hi`, else `Bad(say)`."

@@ -13,7 +13,7 @@ The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs,
 "Present this walk", or "Open the talk" and "Make it again", also on a walk planned from a goal; `quiet` is for a page with its own main button;
 `row` is for its row in a list, with one quiet control: "Present" or "Open the talk"); `walk_plan_more(j)` (under the plan of walk `j`: the add block puts Add a source there for a goal walk);
 `walk_add_sources(jid, ids)` (the walk block files the chips `ids` for walk `jid`, each on its own job, and each one joins the walk
-when it is filed: it gives the ids that it started); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`).
+when it is filed: it gives the ids that it started).
 `show_me(words, at)` ("show me …" in an answer box: the demo block gives the card of a demo made from `words`; `at` is the place, `{where: 'walk', concept, walk, step}` or
 `{where: 'session', qid}`, or `{where: 'guide', concept}` for "show me …" to the screen guide; on a walk step the card swaps into the place under the title).
 `goal_walk(j)` (the walk block made walk `j` from a goal on Start: the course block joins it to the course of its goal).

@@ -29,10 +29,6 @@ def loopback(url) -> str|None:
     if u.scheme != 'http' or u.username is not None or u.password is not None or host not in LOCAL_HOSTS or type(port) is not int or not 0 < port < 65536: return None
     return f"http://{'[::1]' if host == '::1' else host}:{port}"
 
-def is_loopback(url) -> bool:
-    "True when `url` is `http://` on this computer, with a port (`loopback`)."
-    return loopback(url) is not None
-
 def _alive(pid) -> bool:
     "True when `pid` is a process that runs. A pid of 0 or less names a process group, so it is not one."
     if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0: return False

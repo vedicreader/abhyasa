@@ -201,8 +201,6 @@ def OutStatus(speaker):
     poll = dict(hx_get=Routes.out_status, hx_trigger='every 1s', hx_swap='outerHTML') if speaker.status.startswith('loading') else {}
     return Span(speaker.status, id='out-status', cls='mute', **poll)
 
-def OutPost(**vals): return dict(hx_post=Routes.out, hx_vals=vals, hx_target='#voice-out', hx_swap='outerHTML')
-
 def OutEngine(engine, key):
     "The four engines, as radio buttons. OpenAI needs a key first."
     def one(e):

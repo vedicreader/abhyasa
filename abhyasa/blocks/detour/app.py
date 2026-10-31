@@ -1,9 +1,8 @@
 """Rabbit holes: learn a missing idea beside the step, then come back to the same place (spec 6.10).
 
-The block adds to the walk step only through hooks (`step_needs`, `check_after`, `walk_end`, `term_lookup`), and to Today and to a
+The block adds to the walk step only through hooks (`step_needs`, `check_after`, `walk_end`), and to Today and to a
 lesson (`today_next`, `lesson_extra`). It links to the walk by route strings. The side walk is a normal walk."""
 import logging, time
-from urllib.parse import urlencode
 from fasthtml.common import *
 from abhyasa.core import hook, run as run_hook
 from abhyasa.journey import needs, pick_way_down, detour, back_from, look_up, walk_state, parent_step, for_talk
@@ -117,12 +116,6 @@ def connect(app, ctx):
         o = (s.get('done') or {}).get('outcome') or 'skipped'
         c = lr.concept(j.get('slug') or '') or {}
         return ui.EndNote(c.get('name', j.title), o in GOOD, ui.step_url(pj.id, i), here(pj, i), j.get('slug'), o)
-
-    @hook('term_lookup')
-    def term_lookup(t, at=''):
-        "A term on the shelf as `{slug, name, statement, url}`, with the URL of its offer; None when it is not on the shelf."
-        if not (r := found(t)): return None
-        return dict(r, url=f"{Routes.term}?{urlencode(dict(t=r.slug, at=at))}")
 
     @hook('lesson_extra')
     def first_met(r):
