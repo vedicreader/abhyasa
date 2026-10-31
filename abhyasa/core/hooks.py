@@ -11,7 +11,9 @@ The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs,
 `check_after(j, i, q)` (under a check: the gaps that an answer points at); `walk_end(j)` (the end of a walk: a side walk sends
 `rh:done`); `concepts_added()` (a block added concepts from a source: the concepts block places the new ones in the groups of their subjects, on the pool); `walk_made(j)` (a block made topic walk `j`: the walk block looks for web sources for its steps on the pool); `walk_from_path(j)` (the path page asks to make path `j` a walk that reads your sources: the walk block does it on the pool and gives its pending card); `walk_actions(j, quiet=False, row=False)` (the plan of a walk, its step page, its last page and its path page: the talk adds
 "Present this walk", or "Open the talk" and "Make it again", also on a walk planned from a goal; `quiet` is for a page with its own main button;
-`row` is for its row in a list, with one quiet control: "Present" or "Open the talk"); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`).
+`row` is for its row in a list, with one quiet control: "Present" or "Open the talk"); `walk_plan_more(j)` (under the plan of walk `j`: the add block puts Add a source there for a goal walk);
+`walk_add_sources(jid, ids)` (the walk block files the chips `ids` for walk `jid`, each on its own job, and each one joins the walk
+when it is filed: it gives the ids that it started); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`).
 `guide_board(page, board)` (the screen guide drew `board` on the page at the path `page`, which shows a check: the walk block counts it
 as one hint on the open check of that step, and gives the line for the check).
 

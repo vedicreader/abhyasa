@@ -6,3 +6,4 @@ class Routes:
     files = '/learn/files'         # POST: several dropped files, each filed in the vault; it gives their ids
     pick = '/learn/pick'           # POST: the folder chooser of this Mac; it gives the path of each folder that you pick
     vedicreader = '/add/vedicreader'
+    walk_source = '/learn/walk-source'   # POST: Add a source to a goal walk that exists (`jid`); GET: its filing line

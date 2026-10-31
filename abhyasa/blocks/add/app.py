@@ -3,6 +3,7 @@ Also Find concepts only (`POST /add`), and the vedicreader import."""
 import asyncio, hashlib, logging, re, subprocess, sys, threading, time
 from fasthtml.common import *
 from pathlib import Path
+from urllib.parse import urlencode
 from abhyasa.core.leela import LOCAL_HOSTS
 from abhyasa.core import hook, run as run_hook, Primary, Secondary, Quiet, Pill, asset_css, asset_js, n_of
 from abhyasa.sources import extract, from_vault, from_vedicreader, folder_why, tree_files, vault_roots
@@ -32,6 +33,7 @@ CHIP = dict(paper='paper', repo='repo', site='site', doc='vault', topic='topic',
 NOT_YET = ('video', 'local', 'file_name')   # Start stays off: the line says why
 FOUND = 'abhyasa found these by their names, on this Mac and in your vault. It has read nothing from the web yet.'
 NO_GOAL = 'Write your goal in the box. abhyasa uses the sources below.'
+MORE = 'Add a folder, a repo or a link. abhyasa files it for this walk. The research agent then looks in it too.'
 NAMES_FOR, DISK_FOR = 300, 60   # seconds that the folder names, and the count of files in one folder, are kept
 STATE = dict(gh='a GitHub repo · cloned when you press Start', folder='a folder on this Mac · added when you press Start',
              repo='a repo on this Mac · added when you press Start', link='a link · read when you press Start', vedic='on this Mac', doc='in your vault')
@@ -265,6 +267,43 @@ def connect(app, ctx):
 
     def vedicreader(): return P(', '.join(f'{v} {k}' for k, v in from_vedicreader(lr).items()) + ' added.')
 
+    def Filing(j, said=()):
+        "What Add a source does now for walk `j`: each source that is still filing, and the lines of the last add. It asks again while a source files."
+        fs = j.get('filing') or ()
+        rows = [P(f"Filing {i.partition(':')[2].rstrip('/').split('/')[-1]}…", cls='mute') for i in fs]
+        poll = dict(hx_get=f'{Routes.walk_source}?{urlencode(dict(jid=j.id))}', hx_trigger='every 3s', hx_swap='outerHTML') if fs else {}
+        return Div(*rows, *[P(x, cls='req-err') for x in said], id='walk-src-out', **poll)
+
+    @hook('walk_plan_more')
+    def more_sources(j):
+        "Add a source, under the plan of a goal walk: the same parts as the Start box. abhyasa files each source on its own job."
+        if not (j.get('goal') or j.get('chips')): return None
+        return Div(H2('Add a source'), P(MORE, cls='mute'),
+                   Form(Input(type='hidden', name='jid', value=j.id),
+                        Input(type='text', name='q', id='walk-src-q', placeholder='Add a folder, a repo or a link', aria_label='Add a folder, a repo or a link', autocomplete='off'),
+                        Button('Add', cls='quiet small', id='walk-src-go'),
+                        Button(PICK, type='submit', name='pick', value='1', cls='quiet small', id='walk-src-pick') if can_pick() else '',
+                        hx_post=Routes.walk_source, hx_target='#walk-src-out', hx_swap='outerHTML', cls='addf', id='walk-src-form'),
+                   Filing(j), asset_css(_P/'add.css'), cls='walk-src')
+
+    async def walk_source(req, jid:str, q:str='', pick:str=''):
+        "Add the sources in `q` (or the folders that you pick) to walk `jid`: one chip for each, with the checks of the Start box. The walk block files each one."
+        if not (j := lr.journey(jid)): return Response(status_code=404)
+        said, qs = [], [q] if q.strip() else []
+        if pick:
+            if not can_pick() or (req.client.host if req.client else '') not in LOCAL_HOSTS: said.append(NOT_HERE)
+            else: qs += await asyncio.to_thread(choose_folder)
+        cs = on_disk([c for x in qs for c in named_sources(x, dict(title_index(lr.vault).values()), names(), vault_roots(lr))])
+        for c in cs:
+            if c.get('why'): said.append(f'{c.name}: {c.why}')
+        if q.strip() and not cs: said.append(f'abhyasa cannot use {q.strip()[:80]} as a source. Add the path of a folder, owner/name of a GitHub repo, or a link.')
+        run_hook('walk_add_sources', jid, [c.id for c in cs if not c.get('why')])   # the walk block files each one on its own job
+        return Filing(lr.journey(jid) or j, said)
+
+    def walk_filing(jid:str):
+        "The filing line of walk `jid`, asked again while a source files. A GET only reads."
+        return Filing(j) if (j := lr.journey(jid)) else Response(status_code=404)
+
     later('names', lambda: read_names(tuple(roots())))   # read the folder names one time, before the first read of the box
 
     @hook('learn_start')
@@ -280,3 +319,5 @@ def connect(app, ctx):
     app.post(Routes.files)(drops)
     app.post(Routes.pick)(pick)
     app.post(Routes.vedicreader)(vedicreader)
+    app.post(Routes.walk_source)(walk_source)
+    app.get(Routes.walk_source)(walk_filing)

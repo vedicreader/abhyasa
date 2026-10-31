@@ -34,6 +34,7 @@
 .start .schip.bad .st { color: var(--no, var(--mute)); }
 .start .schip.web { background: var(--sunken); border-color: transparent; }
 .start .schip.web a.st { text-decoration: underline; }
-.start .addf { display: flex; gap: var(--s2); align-items: center; margin-top: var(--s2); font-size: var(--t-small); }
-.start .addf input { max-width: 420px; }
+.start .addf, .walk-src .addf { display: flex; gap: var(--s2); align-items: center; margin-top: var(--s2); font-size: var(--t-small); }
+.start .addf input, .walk-src .addf input { max-width: 420px; }
 .start .chips-src .req-err { margin: 0; font-size: var(--t-small); }
+.walk-src { margin-top: var(--s4); }
