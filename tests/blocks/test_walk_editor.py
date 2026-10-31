@@ -66,7 +66,7 @@ def test_hands_count_three_numbers():
 
 def test_tool_walk_has_no_code_check(mk, lr, walk_fake):
     cl = mk(); jid = paper_walk(cl, lr); lr.merge_journey(jid, tool=True)
-    t = cl.get(f'/w/{jid}/edit').text
+    t = cl.get(f'/w/{jid}').text
     assert 'Write code' not in t and 'Notebook' in t and 'Predict a demo' in t
     assert post(cl, jid, slug=slugs(lr, jid)[0], act='check', way='code').status_code == 400
 
@@ -181,9 +181,11 @@ def test_no_control_marks_and_safe_digits(mk, lr, walk_fake):
 def test_history_and_restore(mk, lr, walk_fake):
     cl = mk(); jid = paper_walk(cl, lr); ss = slugs(lr, jid)
     post(cl, jid, slug=ss[0], act='remove')
-    assert 'Removed “' in cl.get(f'/w/{jid}/history').text
+    assert 'Removed “' in cl.get(f'/w/{jid}/history', headers={'HX-Request': 'true'}).text   # the fold Earlier versions loads it
+    assert cl.get(f'/w/{jid}/history', follow_redirects=False).headers['location'] == f'/w/{jid}#history'
+    assert cl.get(f'/w/{jid}/edit', follow_redirects=False).headers['location'] == f'/w/{jid}#plan'   # the old page: the plan is on the walk page
     r = cl.post(f'/w/{jid}/restore', data=dict(k='0'))
-    assert r.headers['hx-redirect'] == f'/w/{jid}/edit' and slugs(lr, jid) == ss and len(lr.edits('walk', jid)) == 2
+    assert r.headers['hx-redirect'] == f'/w/{jid}#plan' and slugs(lr, jid) == ss and len(lr.edits('walk', jid)) == 2
     assert cl.post(f'/w/{jid}/restore', data=dict(k='²')).status_code == 404
 
 def test_talk_line_links_the_talk(mk, lr, walk_fake):
@@ -191,7 +193,7 @@ def test_talk_line_links_the_talk(mk, lr, walk_fake):
     from talk_data import TALK_RULES
     from abhyasa.llm import Fake
     cl = mk(); jid = paper_walk(cl, lr); t = talk_from_walk(lr, Fake(TALK_RULES), jid)
-    page = cl.get(f'/w/{jid}/edit').text
+    page = cl.get(f'/w/{jid}').text
     assert '1 talk was made from this walk' in page and f'href="/t/{t.id}"' in page
 
 def test_old_path_page_of_a_walk_opens_the_walk_page(mk, lr, walk_fake):

@@ -39,43 +39,6 @@ def pages(steps):
     ps = sorted({s['read']['page'] for s in steps if (s.get('read') or {}).get('page')})
     return '' if not ps else f'p. {ps[0]}' if ps[0] == ps[-1] else f'p. {ps[0]}–{ps[-1]}'
 
-# --- the plan --------------------------------------------------------------------------------------------------------
-
-def WayPick(jid, i, s, ways=WALK_WAYS):
-    "The way of the check of one step; a change saves it at once."
-    way = (s.get('check') or {}).get('way')
-    return Select(*[Option(LABELS[w], value=w, selected=w == way) for w in ways], name='way', aria_label='The way of the check',
-                  hx_post=at(Routes.plan, jid), hx_vals=json.dumps(dict(i=i, act='check')), hx_trigger='change', hx_target='#plan', hx_swap='outerHTML')
-
-def PlanIdea(jid, i, s, by, ways=WALK_WAYS):
-    "One idea of the plan: its name, the label of its passage in small type, its check, and Drop."
-    k = (s.get('check') or {}).get('kind', 'short')
-    wait = Small('looking for a source', cls='src-lbl looking') if s.get('research') == 'pending' and not (s.get('read') or {}).get('text') else ''
-    return Li(Span(name(by, s), Small(source_of(s.get('read')).label, cls='src-lbl'), wait, cls='n'), Span(KIND.get(k, k), cls='w'), WayPick(jid, i, s, ways),
-              Button('Drop', type='button', cls='small quiet', title='Take this idea out of the walk', hx_post=at(Routes.plan, jid),
-                     hx_vals=json.dumps(dict(i=i, act='drop')), hx_target='#plan', hx_swap='outerHTML'),
-              cls='known' if s.get('status') == 'known' else None)
-
-def page_of(j, i):
-    "The title of the page of step `i` in a walk from a link; None in other walks."
-    return (j['steps'][i].get('read') or {}).get('title') if (j.get('source') or {}).get('docs') else None
-
-def Plan(j, st, by):
-    "The sections in reading order, each idea with its check. You can change the way of a check, or drop an idea. A walk from a link names each page once."
-    mins = sum(minutes(s) for s in j['steps'])
-    secs, page = [], None
-    ways = TOOL_WAYS if j.get('tool') else WALK_WAYS
-    for sec, ix in st.sections:
-        if (t := page_of(j, ix[0])) and t != page: secs.append(Li(H3(t), cls='page')); page = t
-        secs.append(Li(Div(B(sec or 'The ideas'), Small(' · '.join(x for x in (pages([j['steps'][i] for i in ix]), f"{sum(minutes(j['steps'][i]) for i in ix)} min") if x)), cls='sh'),
-                       Ul(*[PlanIdea(j['id'], i, j['steps'][i], by, ways) for i in ix])))
-    n = len(j.get('more') or ())
-    return Div(Span(f"The walk · {n_of(len(st.sections), 'section')} · {n_of(len(j['steps']), 'idea')} · about {mins} min", cls='lbl'),
-               P('Each idea has one check. You can change any check.', cls='mute'),
-               P(f"The tutor picked the main ideas. The source has {n} more {'idea' if n == 1 else 'ideas'}. They are in your concepts. "
-                 'When an idea needs one of them, you can learn it in a side walk.', cls='mute') if n else '',
-               Ol(*secs, cls='plan') if secs else P('The tutor found no ideas in this source.', cls='mute'), id='plan')
-
 def LinkPending(url, said):
     "A walk from a link that is still being made: the card asks the server again in 2 seconds."
     return Div(P(said), P('This can take some minutes. When the walk is ready, it opens here and shows in your walks.', cls='mute'),
@@ -136,7 +99,7 @@ def FindSource(jid, i, s, looking=False):
     if none and s.get('gather_none'):   # the gather agent read for this idea and found nothing: what it read is in its log
         return (P(s.get('research_why') or NO_SOURCE, cls='mute no-source'), P(ShowLog(jid), ' ', go, cls='mute find-source'))
     why = P(s['research_why'], cls='mute no-source-why') if none and s.get('research_why') else ''
-    own = (' ', A('Pick a passage yourself', href=f"{at(Routes.edit, jid)}?{urlencode(dict(open=s['slug'], pick=1))}#pick-{s['slug']}", cls='pick-own')) if none else ()
+    own = (' ', A('Pick a passage yourself', href=f"{at(Routes.one, jid)}?{urlencode(dict(open=s['slug'], pick=1))}#pick-{s['slug']}", cls='pick-own')) if none else ()
     return (P(NO_SOURCE, cls='mute no-source') if none else '', why, P(go, *own, cls='mute find-source'))
 
 # --- the gather agent: the band, and the log of what it read and filed ------------------------------------------------
@@ -884,25 +847,21 @@ def TalkLine(talks, changed=()):
     head = '1 talk was made from this walk: ' if len(talks) == 1 else f'{len(talks)} talks were made from this walk: '
     return P(head, *links, '. A change here does not change a talk. To bring it in, open the talk and press “Make it again”.', cls='mute talk-line')
 
-def Editor(j, by, talks=(), opened='', pick=False, actions=(), changed=(), band=''):
-    "The walk path editor: what the walk is, the line of research (`band`), its one main button (and the quiet `actions` of other blocks, such as Present), the hands-on share, then the ideas. A change saves at once, and Undo takes it back."
-    src, ss = j.get('source') or {}, j['steps']
-    mins = sum(minutes(s) for s in ss if s.get('status') != 'skip')
-    whence = f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', '')
-    go = (Primary('Continue the walk', href=at(Routes.one, j['id'])) if j.get('started') else
-          Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post'))
-    return (Span('Change the walk', cls='lbl'), H1(j['title']),
-            P(meta(whence, n_of(len(ss), 'idea'), f'about {mins} min'), ' · ', A('Earlier versions', href=at(Routes.history, j['id'])), cls='mute'),
-            band, TalkLine(talks, changed),
-            P('Each change saves at once. Undo takes it back.', cls='mute'),
-            Details(Summary('About this'), P('An idea keeps your progress, its passage and its side walks when it moves. A removed idea keeps your answers in the vault.'), cls='about'),
-            Div(go, *actions, cls='row walk-top'), Hands(j), Steps(j, by, opened, pick=pick), UndoBar(oob=False),   # in the page under the list (walk.css)
-            Details(Summary('Keys'), P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('E'), ' edit · ',
-              Kbd('A'), ' add · ', Kbd('P'), ' split · ', Kbd('M'), ' merge · ', Kbd('X'), ' remove · ', Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo', cls='mute keys-line'), cls='more'))
+def PlanPart(j, by, opened='', pick=False):
+    "The plan of the walk, to change in place: the hands-on share, the ideas as an editor list (each change saves at once, with Undo), and the earlier versions in a fold."
+    n = len(j.get('more') or ())
+    more = P(f"The tutor picked the main ideas. The source has {n} more {'idea' if n == 1 else 'ideas'}. They are in your concepts. "
+             'When an idea needs one of them, you can learn it in a side walk.', cls='mute') if n else ''
+    return Section(H2('The plan'), P('Each idea has one check. Each change saves at once. Undo takes it back.', cls='mute'), more,
+                   Details(Summary('About this'), P('An idea keeps your progress, its passage and its side walks when it moves. A removed idea keeps your answers in the vault.'), cls='about'),
+                   Hands(j), Steps(j, by, opened, pick=pick), UndoBar(oob=False),   # in the page under the list (walk.css)
+                   Details(Summary('Earlier versions'), Div(Span('Reading the changes…', cls='mute'), hx_get=at(Routes.history, j['id']), hx_trigger='intersect once', hx_swap='innerHTML'),
+                           id='history', cls='more'),
+                   Details(Summary('Keys'), P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('E'), ' edit · ',
+                     Kbd('A'), ' add · ', Kbd('P'), ' split · ', Kbd('M'), ' merge · ', Kbd('X'), ' remove · ', Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo', cls='mute keys-line'), cls='more'),
+                   id='plan', data_part='plan', cls='walk-plan')
 
 def History(j, rows):
-    "The earlier versions of the path of walk `j`: each change, newest first, with Restore this version."
-    return (H1(f"Earlier versions of {j['title']}"),
-            P('Each line is one change. “Restore this version” puts the walk back as it was before that change. Your progress stays. You can undo a restore too.', cls='lead'),
-            HistoryList(rows, at(Routes.restore, j['id'])),
-            P(A('← Change the walk', href=at(Routes.edit, j['id'])), cls='mute'))
+    "The earlier versions of walk `j`, for the fold on the walk page: each change, newest first, with Restore this version."
+    return (P('Each line is one change. “Restore this version” puts the walk back as it was before that change. Your progress stays. You can undo a restore too.', cls='mute'),
+            HistoryList(rows, at(Routes.restore, j['id'])))

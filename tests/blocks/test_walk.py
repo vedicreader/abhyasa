@@ -12,11 +12,12 @@ def test_plan_then_start(mk, walk_fake, lr):
     page = cl.get(f'/w/{jid}').text
     assert 'Attention Is All You Need' in page and page.index('1 Introduction') < page.index('3.2.1 Scaled Dot-Product Attention')
     assert 'Start the walk' in page and 'min' in page
-    cl.post(f'/w/{jid}/plan', data=dict(i=1, act='check', way='code'))
+    assert cl.post(f'/w/{jid}/plan', data=dict(i=0, act='drop')).status_code in (404, 405)   # the plan POST with no Undo goes: the plan changes in place
+    cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='check', way='code'))
     assert lr.journey(jid).steps[1]['check'] == dict(way='code', kind='code', depth=4, why='you chose it')
-    assert cl.post(f'/w/{jid}/plan', data=dict(i=1, act='check', way='board')).status_code == 400   # no board view yet
-    cl.post(f'/w/{jid}/plan', data=dict(i=0, act='drop'))
-    assert [s['slug'] for s in lr.journey(jid).steps][0] == 'softmax'
+    assert cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='check', way='board')).status_code == 400   # no board view yet
+    cl.post(f'/w/{jid}/edit', data=dict(slug='sequential-computation', act='remove'))
+    assert [s['slug'] for s in lr.journey(jid).steps][0] == 'softmax' and 'Undo' in cl.post(f'/w/{jid}/undo').text
     r = cl.post(f'/w/{jid}/start', follow_redirects=False)
     assert r.headers['location'] == f'/w/{jid}/0' and lr.journey(jid).started and lr.journey(jid).sitting
 
@@ -329,7 +330,7 @@ def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
     assert lr.journey(jid).tool is True
     plan = cl.get(f'/w/{jid}').text
     assert 'Open this in Leela for code and tools' in plan and LEELA_INSTALL in plan and '/learn?' not in plan   # no Leela: never a broken link
-    assert cl.post(f'/w/{jid}/plan', data=dict(i=1, act='check', way='code')).status_code == 400                # no library code check in abhyasa
+    assert cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='check', way='code')).status_code == 400   # no library code check in abhyasa
     leela_file(tmp_path); v = vault_key(lr.vault.path)                                                            # the link names the vault
     assert f'href="http://127.0.0.1:5011/learn?walk={jid}&amp;v={v}"' in cl.get(f'/w/{jid}').text
     cl.post(f'/w/{jid}/start')
@@ -759,7 +760,7 @@ def test_old_paper_walk_title_is_repaired_once(lr):
 def test_continue_card_of_a_walk_says_what_was_done(mk, walk_fake, lr):
     "The Continue card on Today says the ideas done in a walk, not the questions of a session."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    cl.post(f'/w/{jid}/plan', data=dict(i=1, act='check', way='words'))
+    cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='check', way='short'))
     cl.get(f'/w/{jid}/1/check'); cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position'))
     card = cl.get('/').text.split('class="continue-card"')[1].split('</div>')[0]
     assert ' of 3 ideas' in card and 'question' not in card

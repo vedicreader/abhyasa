@@ -12,7 +12,7 @@ def keys_of(path): return [k for _, k, _ in float_rows(path)]
 
 def test_each_page_gets_its_group():
     "The path of a page names its group of keys; a page with no keys of its own gets Everywhere."
-    want = {'/': 'Everywhere', '/learn': 'Everywhere', '/s/abc': 'Session', '/w/j1/2': 'Walk', '/w/j1': 'Walk', '/w/j1/edit': 'Change the walk',
+    want = {'/': 'Everywhere', '/learn': 'Everywhere', '/s/abc': 'Session', '/w/j1/2': 'Walk', '/w/j1': 'Change the walk', '/w/j1/edit': 'Change the walk',
             '/c/ranking': 'Concept', '/graph': 'Graph', '/settings': 'Settings', '/concepts': 'Concepts', '/t/t1': 'Talk plan'}
     assert {p: page_group(p) for p in want} == want
 

@@ -181,7 +181,7 @@ def test_undo_window_is_kept_on_the_server(mk, lr, walk_fake, home):
     jid = url.split('/')[-1]
     lr.merge_journey(jid, filed=[{**f, 'at': f['at'] - 3601} for f in lr.journey(jid)['filed']])
     assert 'The time for Undo is over.' in cl.post('/walk/unfile', data=dict(jid=jid, root='course22')).text
-    assert vault_roots(lr) == {'course22': 2} and 'Undo' not in cl.get(url).text
+    assert vault_roots(lr) == {'course22': 2} and 'hx-post="/walk/unfile"' not in cl.get(url).text
 
 def test_filing_keeps_the_meta_of_a_doc_from_another_tool(lr, home):
     "A notebook that another tool filed before keeps its meta, and Undo does not forget it."

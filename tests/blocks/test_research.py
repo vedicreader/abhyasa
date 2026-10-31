@@ -101,13 +101,14 @@ def test_no_source_then_find_a_source(mk, web, lr, walk_fake):
     assert len(web.asked) == n + 1 and '>from the web<' in cl.get(f'/w/{jid}/0').text
 
 def test_one_ideas_heading(mk, web, lr, walk_fake):
-    "A topic walk with no sections shows one heading, The ideas, in its plan, also when its steps quote different pages."
+    "A topic walk with no sections has no section row in its plan, also when its steps quote different pages, and Next idea does not stop at a section end."
     walk_fake.rules['You plan a learning path'] = dict(title='Softmax', subject='ml', steps=[*PLAN['steps'], dict(name='Attention', statement='Attention mixes values by weights.', slug='', why='The goal.', needs=['Softmax'], ways=['words'])])
     cl = mk(); jid = topic(cl)
     until(lambda: state(lr, jid, 0) != 'pending' and state(lr, jid, 1) != 'pending')
     for i, d in enumerate(('d1', 'd2')): lr.walk_step(jid, i, read=dict(src='web', doc_id=d, text='A passage.', section=''))
     page = cl.get(f'/w/{jid}').text
-    assert page.count('<b>The ideas</b>') == 1 and '1 section' in page and page.count('class="sh"') == 1
+    steps = page.split('id="steps"')[1].split('</ol>')[0]
+    assert 'role="presentation"' not in steps and steps.count('class="edit-row') == 2   # two ideas, no section row
     cl.post(f'/w/{jid}/start')
     r = cl.post(f'/w/{jid}/0/next', follow_redirects=False)
     assert r.headers['location'].endswith(f'/w/{jid}/1')   # the next idea, not "Section done": the plan has one section

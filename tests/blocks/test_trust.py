@@ -92,9 +92,9 @@ def test_editor_row_names_the_source(mk, lr, talk_fake):
     assert '>your source<' in ed and 'Attention Is All You Need' in ed and 'Open in your vault' in ed
 
 def test_plan_row_shows_the_label(mk, lr, walk_fake):
-    "The plan shows the label of the passage of each idea in small type."
+    "The plan on the walk page shows the label of the passage of each idea in its short line."
     cl = mk(); jid = paper_walk(cl, lr)
-    assert '<small class="src-lbl">your source</small>' in cl.get(f'/w/{jid}').text
+    assert 'passage: your source' in cl.get(f'/w/{jid}').text
 
 def test_recap_lists_each_source_once(lr):
     "The recap file ends with one list of sources: each source once, with its places, and still no script."

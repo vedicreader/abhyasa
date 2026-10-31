@@ -138,6 +138,6 @@ def test_continue_names_a_newer_session(mk, walk_fake, lr):
     sid = open_session(lr, time.time())
     bar = top(cl.get('/concepts').text)
     assert 'Continue: Ranking' in bar and f'href="/s/{sid}"' in bar
-    assert 'Continue: Ranking' in top(cl.get('/w/wk1/edit').text)   # on the walk, the newer session wins
+    assert 'Continue: Ranking' in top(cl.get('/w/wk1').text)   # on the walk page, the newer session wins
     card = cl.get('/').text.split('class="continue-card"')[1].split('</div>')[0]
     assert 'Ranking' in card and 'Softmax walk' not in card

@@ -90,11 +90,11 @@ def test_notice_on_any_page_and_the_mac_state(mk, lr, monkeypatch):
 
 
 def test_the_editor_shows_the_line_of_research(mk, lr, monkeypatch):
-    "Change the walk shows the line of research under the summary line, with Find sources again, and each idea with no source says so."
+    "The walk page shows the line of research in its sources, with Find sources again, and each idea of its plan with no source says so."
     j = walk(lr, research_end=time.time() - 5); cl = mk(); running(cl, monkeypatch, False)
-    page = cl.get(f'/w/{j.id}/edit').text
+    page = cl.get(f'/w/{j.id}').text
     assert '1 of 3 ideas have a source. Research ended at' in page and 'Find sources again' in page
-    assert page.index('id="gather"') < page.index('id="steps"')   # near the top, before the ideas
+    assert page.index('id="steps"') < page.index('id="gather"') < page.index('id="walk-src-form"')   # the plan, then the sources with Add a source
     assert page.count('no source yet') == 2 and page.count('data-main=') == 1   # one main button
 
 def test_sources_in_the_outline_before_research(mk, walk_fake, lr, monkeypatch):

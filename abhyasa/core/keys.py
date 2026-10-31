@@ -52,7 +52,7 @@ KEYS = [
     ('Change the walk', '⇧W ⇧S', 'Move the idea up or down'), ('Change the walk', 'E', 'Edit the idea'), ('Change the walk', 'A', 'Add an idea after the idea'),
     ('Change the walk', 'P', 'Split the idea into smaller ideas'), ('Change the walk', 'M', 'Merge the idea with the next idea'),
     ('Change the walk', 'X', 'Remove the idea. Undo gives it back'), ('Change the walk', 'R', 'Ask the tutor to rewrite the note and the check question'),
-    ('Change the walk', '⌘Z', 'Undo the last change. In a text box, ⌘Z undoes the typing'), ('Change the walk', '⌥S', 'Continue the walk'),
+    ('Change the walk', '⌘Z', 'Undo the last change. In a text box, ⌘Z undoes the typing'), ('Change the walk', '⌥S', 'Start, continue or review the walk'),
     *TALK_KEYS,
     ('Graph', '1–4', 'Layout: free, path, rings, groups'),
     ('Graph', 'S', 'Find a concept'),
@@ -121,7 +121,7 @@ def page_group(path:str) -> str:
     "The group of keys for the page at `path`; `Everywhere` for a page with no keys of its own."
     for pre, g in (('/s/', 'Session'), ('/c/', 'Concept'), ('/graph', 'Graph'), ('/settings', 'Settings'), ('/concepts', 'Concepts')):
         if path.startswith(pre): return g
-    if re.fullmatch(r'/w/[^/]+/edit/?', path): return 'Change the walk'
+    if re.fullmatch(r'/w/[^/]+(/edit)?/?', path): return 'Change the walk'   # the walk page has the plan to change in place
     if path.startswith('/w/'): return 'Walk'
     if re.fullmatch(r'/t/[^/]+/?', path): return 'Talk plan'
     return 'Everywhere'

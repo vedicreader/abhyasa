@@ -498,8 +498,9 @@ def connect(app, ctx):
         k = max((k for k, x in back.items() if x.run and x.run.get('images')), default=None)   # the last step with images: what you made
         return ui.WalkEnd(j, walk_state(j, b), moved(rows), b, sides, due, run_hook('walk_end', j), made=ui.WhatYouMade(j, k, back[k]) if k is not None else '')
 
-    def one(jid:str, plan:str=''):
-        "The walk page, in the state of the walk: new, going, finished, a side walk, or empty. `?plan=1` was the build view: it goes to the sources."
+    def one(jid:str, plan:str='', open:str='', pick:str=''):
+        """The walk page, in the state of the walk: new, going, finished, a side walk, or empty. The plan changes in place (`open` opens the row of one idea,
+        and `pick` its passage picker). `?plan=1` was the build view: it goes to the sources."""
         if plan: return RedirectResponse(ui.walk_url(jid, 'sources'), status_code=301)
         if not (j := walk_of(jid)): return missing()
         leela_back(lr, j)   # a step that Leela checked is done, so the walk goes on from the next one
@@ -509,23 +510,10 @@ def connect(app, ctx):
         ph = ui.phase(j, st)
         top = ended(j, b) if ph == 'finished' else Div(ui.SideTop(j, st, back_to(j)), *(run_hook('walk_end', j) if st.current is None else ())) if ph == 'side' else None   # a side walk that ends says what you learned on the way
         ts = talks_of(jid)
-        plan_ = Section(ui.Plan(j, st, b), P(A('Change the walk', href=ui.at(Routes.edit, jid)), cls='change-walk'), data_part='plan') if j.steps else ''
+        plan_ = ui.PlanPart(j, b, open, bool(pick)) if j.steps and not for_talk(j) else ''
         page = ui.WalkPage(j, st, b, plan_, band(j, plan=True), top=top, more=run_hook('walk_plan_more', j), talks=ts,
                            changed={t['id'] for t in ts if any(walk_changes(lr, t).values())}, actions=run_hook('walk_actions', j, quiet=True), vault=vault)
-        return Page(j.title, *page, on='Learn', crumbs=up, extra=ui.assets())
-
-    def plan(jid:str, i:int, act:str, way:str=''):
-        if not (j := walk_of(jid, i)): return Response(status_code=404)
-        if act == 'drop':
-            with _jlock(jid):   # under the lock of the walk, so a source that research writes now stays
-                j = lr.journey(jid); j.steps.pop(i)
-                j = lr.put_journey(j)
-        elif act == 'check' and way in (TOOL_WAYS if j.get('tool') else WALK_WAYS):
-            kind = CHECK_KIND.get(way, 'short')
-            floor = (lr.concept(j.steps[i]['slug']) or {}).get('floor') or 0
-            j = put(j, i, check=dict(way=way, kind=kind, depth=(2 if floor < 2 else 3) if kind == 'short' else DEPTH[kind], why='you chose it'))
-        else: return Response(status_code=400)
-        return ui.Plan(j, walk_state(j, b := by()), b)
+        return Page(j.title, *page, on='Learn', crumbs=up, extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def start(jid:str):
         if not (j := walk_of(jid)): return missing()
@@ -864,17 +852,13 @@ def connect(app, ctx):
         j = walk_of(jid)
         return None if j and not for_talk(j) else missing()
 
-    def editor(jid:str, open:str='', pick:str=''):
-        "The walk path editor: the ideas in order, each with its passage, note and check. A change saves at once, and Undo takes it back."
-        if (no := not_walk(jid)): return no
-        j, ts = lr.journey(jid), talks_of(jid)
-        old = {t['id'] for t in ts if any(walk_changes(lr, t).values())}   # talks older than the walk: they offer Make it again
-        return Page(f"Change the walk: {j.title}", *ui.Editor(j, by(), ts, opened=open, changed=old, pick=bool(pick), actions=run_hook('walk_actions', j, quiet=True), band=band(j)), on='Learn',
-                    crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
+    def editor(req, jid:str):
+        "The old page Change the walk: the plan is on the walk page now."
+        return RedirectResponse(ui.at(Routes.one, jid) + (f'?{q}' if (q := req.url.query) else '') + '#plan', status_code=301)
 
     def bar(j, said, rows, row=''):
         "The Undo bar after a change: what changed, and Undo for the newest change."
-        return UndoBar(said, ui.at(Routes.undo, j.id), ui.at(Routes.history, j.id), step=rows[0].id if rows else '', row=row,
+        return UndoBar(said, ui.at(Routes.undo, j.id), ui.walk_url(j.id, 'history'), step=rows[0].id if rows else '', row=row,
                        hx_target='#steps', hx_swap='outerHTML')
 
     def view(j, opened='', fresh=''): return ui.Steps(j, by(), opened=opened, fresh=fresh), ui.Hands(j, oob=True)
@@ -1012,11 +996,11 @@ def connect(app, ctx):
         said = f"Undone: {e.what}" + (f' {line}' if line else '') if e else 'Nothing to undo.'
         return (*view(j), bar(j, said, lr.edits('walk', jid)))
 
-    def history(jid:str):
+    def history(req, jid:str):
+        "The earlier versions of the walk: the fold on the walk page loads them; a plain GET goes to that fold."
         if (no := not_walk(jid)): return no
-        j = lr.journey(jid)
-        return Page(f'Earlier versions of {j.title}', *ui.History(j, lr.edits('walk', jid)), on='Learn',
-                    crumbs=[*up, (j.title, ui.at(Routes.one, jid)), ('Change the walk', ui.at(Routes.edit, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
+        if not req.headers.get('HX-Request'): return RedirectResponse(ui.walk_url(jid, 'history'), status_code=301)
+        return ui.History(lr.journey(jid), lr.edits('walk', jid))
 
     def restore(jid:str, id:str='', k:str=''):
         "Go back to the version of the path before one change (by its `id`, or by its place `k` in the history, newest first). A restore is a change too."
@@ -1028,7 +1012,7 @@ def connect(app, ctx):
         if not e: return Response('No such change.', status_code=404)
         try: restore_walk(lr, jid, e.id)
         except (KeyError, ValueError) as x: return bad(str(x))
-        return Response(headers={'HX-Redirect': ui.at(Routes.edit, jid)})
+        return Response(headers={'HX-Redirect': ui.walk_url(jid, 'plan')})
 
     def pick_list(jid:str, i:str='', q:str='', name:str=''):
         "The real passages that idea `i` (or a new idea `name`) can pick, with the words `q`. A GET only reads."
@@ -1088,7 +1072,6 @@ def connect(app, ctx):
     app.get(Routes.job)(job)
     app.post(Routes.unfile)(unfile_)
     app.get(Routes.one)(one)
-    app.post(Routes.plan)(plan)
     app.post(Routes.start)(start)
     app.get(Routes.step)(step)
     app.get(Routes.note)(note)

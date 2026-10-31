@@ -277,7 +277,7 @@ def connect(app, ctx):
     @hook('walk_plan_more')
     def more_sources(j):
         "Add a source, in the sources of each walk: the same parts as the Start box. abhyasa files each source on its own job."
-        return Div(H2('Add a source'), P(MORE, cls='mute'),
+        return Div(H3('Add a source'), P(MORE, cls='mute'),
                    Form(Input(type='hidden', name='jid', value=j.id),
                         Input(type='text', name='q', id='walk-src-q', placeholder='Add a folder, a repo or a link', aria_label='Add a folder, a repo or a link', autocomplete='off'),
                         Button('Add', cls='quiet small', id='walk-src-go'),

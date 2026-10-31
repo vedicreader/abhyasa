@@ -52,7 +52,7 @@ def test_change_line_and_button(mk, lr, talk_fake):
     assert 'Your edits to slides stay in the new talk where the idea is the same.' in h and 'A change here does not change the walk.' in h
     j = lr.journey(jid); j.steps = j.steps[1:]; lr.put_journey(j)
     assert 'The walk changed after this talk was made: 1 idea added, 1 idea removed.' in cl.get(f'/t/{tid}').text
-    assert '(older than this walk)' in cl.get(f'/w/{jid}/edit').text
+    assert '(older than this walk)' in cl.get(f'/w/{jid}').text
 
 def test_again_through_the_app(mk, lr, talk_fake):
     "Make it again posts again=1: the job keeps the talk id, opens it with the Undo bar, and keeps your edit."
