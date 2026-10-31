@@ -39,6 +39,7 @@ def test_undo_gives_back_the_exact_old_steps(mk, lr, walk_fake):
 def test_a_note_edit_can_be_undone(mk, lr, walk_fake):
     "A live note answers with the bar only; two saves join; Undo gives back the old note (the note is not a run field)."
     cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[1]
+    assert wait_for(lambda: True if {'nb', 'nb_why'} & set(lr.journey(jid).steps[1]) else None)   # the notebook spec job of the walk ends first
     lr.walk_step(jid, 1, note='The old note.'); old = lr.journey(jid).steps
     r = cl.post(f'/w/{jid}/edit?slug={s}', data=dict(act='set', note='My note.'))
     assert r.status_code == 200 and 'id="steps"' not in r.text and 'Changed the note of idea 2.' in r.text
