@@ -39,7 +39,7 @@ public enum OverlayPage {
     <!doctype html>
     <html><head><meta charset="utf-8">
     <link rel="stylesheet" href="/assets/base.css"><link rel="stylesheet" href="/assets/themes.css">
-    <link rel="stylesheet" href="/assets/board.css">
+    <link rel="stylesheet" href="/assets/hand.css"><link rel="stylesheet" href="/assets/board.css">
     <style>
     html, body { background: transparent !important; margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; }
     body { color-scheme: light dark; }

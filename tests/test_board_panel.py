@@ -127,8 +127,8 @@ def test_the_panel_covers_no_text_and_no_mark_at_1400(page):
     assert m[2] <= p[0], (m, p)
     marks = page.evaluate("[...document.querySelectorAll('#board-layer g[data-op=circle]')].map(g => { const b = g.getBoundingClientRect(); return [b.left, b.right]; })")
     assert marks and all(r <= p[0] for _, r in marks)
-    assert 'Caveat' in page.evaluate("getComputedStyle(document.querySelector('.board-panel-head')).fontFamily")
-    assert page.evaluate("document.fonts.check('25px Caveat')")
+    assert page.evaluate("getComputedStyle(document.querySelector('.board-panel-head')).fontFamily").startswith('"Patrick Hand"')
+    assert page.evaluate("document.fonts.ready.then(() => [...document.fonts].some(f => f.family.includes('Patrick Hand') && f.status === 'loaded'))")   # rupaka's file, served here
 
 def test_code_is_an_anchor(page):
     "The guide reads each `pre` of the page as an anchor `code1` to `code4`, so the board can mark a value in code."

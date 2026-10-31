@@ -4,6 +4,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from fasthtml.common import *
 from mdhtml import md2mdhtml, mdhtml2html
+from rupaka.render import assets as rk_assets, font_css
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
@@ -23,6 +24,11 @@ def _asset(path, mime):
     return f'/assets/{p.name}?v={hashlib.sha1(txt.encode()).hexdigest()[:10]}'
 
 for _f in (_here/'fonts').glob('*.woff2'): ASSETS[_f.name] = (_f.read_bytes(), 'font/woff2')   # base.css names them; local, so it works offline
+
+HAND = 'Patrick Hand'   # the hand font of the paper (OFL): the board panel, the Show cards and the Mac overlay. rupaka ships it
+for _f in rk_assets().fonts.glob('patrick-hand-*.woff2'): ASSETS[_f.name] = (_f.read_bytes(), 'font/woff2')
+ASSETS['hand.css'] = ('\n'.join(l for l in font_css(base='/assets/').splitlines() if f"'{HAND}'" in l), 'text/css')   # rupaka's @font-face rules of the hand font
+_HAND_CSS = f"/assets/hand.css?v={hashlib.sha1(ASSETS['hand.css'][0].encode()).hexdigest()[:10]}"
 
 def asset_js(path, **kw):
     "A `Script` for a block's own .js file."
@@ -51,7 +57,7 @@ def HDRS():
             asset_css(_here/'base.css'), asset_css(_here/'themes.css'),
             Link(rel='stylesheet', href='/vendor/katex.min.css'), Script(src='/vendor/katex.min.js', defer=True),
             asset_css(_here/'pane.css'), asset_js(_here/'core.js'), asset_js(_here/'grip.js'), asset_js(_here/'pane.js'),
-            asset_css(_here/'board.css'), asset_js(_here/'texparts.js'), asset_js(_here/'board.js'))   # the board of the screen guide and its formula parts; its pen libraries load on first use
+            Link(rel='stylesheet', href=_HAND_CSS), asset_css(_here/'board.css'), asset_js(_here/'texparts.js'), asset_js(_here/'board.js'))   # the hand font, the board of the screen guide and its formula parts; its pen libraries load on first use
 
 THEMES = dict(paper='Warm paper, umber accent', ink='Calm, high contrast, dark first', manuscript='Palm leaf, saffron accent',
               clear='System font, plain and bright', sage='Soft green-grey, low glare', signal='Silver panels, orange controls')   # themes.css has the colours

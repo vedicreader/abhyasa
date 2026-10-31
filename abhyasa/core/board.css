@@ -89,11 +89,11 @@
 
 
 /* The paper: one look for every picture of an idea. The side panel of the board, the Show card of the guide, the rupaka cards
-   (demo.css) and the Mac overlay (it loads this file) use these tokens and the hand font Caveat (OFL, core/fonts). */
-@font-face { font-family: 'Caveat'; font-style: normal; font-display: swap; font-weight: 400 700; src: url(/assets/caveat-latin-wght-normal.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+   (demo.css) and the Mac overlay use these tokens and the hand font Patrick Hand (OFL). rupaka ships the font: /assets/hand.css
+   has its @font-face rules (`font_css`), and each page and the Mac overlay load it beside this file. */
 :root { --paper: #fbf6ec; --paper-ink: #2b2620; --paper-mute: rgb(43 38 32 / .62); --paper-line: rgb(120 90 50 / .2);
         --paper-cell: #dfe9f5; --paper-cell-line: #6d8fb8; --paper-hot: #fbe3da; --paper-hot-line: #d88466;
-        --hand: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive; --paper-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+        --hand: 'Patrick Hand', 'Bradley Hand', 'Segoe Print', cursive; --paper-mono: ui-monospace, 'SF Mono', Menlo, monospace;
         --panel-w: min(440px, 36vw); --panel-top: 64px; }
 
 /* One place for a picture of an idea: fixed at the top right, under the top bar. While it shows (body.has-panel), board.js `room`
