@@ -21,11 +21,11 @@ def test_narrow_view_names_the_open_side_walk(mk, walk_fake, lr):
 # F5: the way beside is easy to find
 
 def test_each_unmet_need_can_be_learned_beside(mk, walk_fake, lr):
-    "Each need that you have not learned has Learn beside; only the first shows ⌥B."
+    "Each need that you have not learned has Learn it; only the first shows ⌥B."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
     page = cl.get(f'/w/{jid}/2').text
     line = page[page.index('class="rh-line"'):].split('id="rh-offer"')[0]
-    assert line.count('Learn beside') == 2 and line.count('<kbd>⌥B</kbd>') == 1 and 'data-t="softmax"' in line and 'data-t="gradients"' in line
+    assert line.count('Learn it') == 2 and line.count('<kbd>⌥B</kbd>') == 1 and 'data-t="softmax"' in line and 'data-t="gradients"' in line
     assert 'not learned yet' in line and 'you have not learned it' not in line and 'open beside' not in page
 
 # F2: a calm end to a walk, and a pass never reads as "nothing happened"

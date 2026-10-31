@@ -45,7 +45,7 @@ def test_a_miss_that_names_a_gap_offers_it(mk, walk_fake, lr):
     lr.walk_step(jid, 2, check=dict(way='words', kind='short', depth=2, why=''))
     cl.get(f'/w/{jid}/2/check')
     r = cl.post(f'/w/{jid}/2/answer', data=dict(answer='it is faster', confidence=70)).text
-    assert 'Your answer points at' in r and '⌥B' in r
+    assert 'Your answer shows a gap' in r and '⌥B' in r
 
 def test_term_offer_and_depth_limit(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
@@ -76,7 +76,7 @@ def test_term_lookup_on_get_writes_nothing(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     n = len(lr.concepts())
     t = cl.get('/rh/term', params=dict(t='layer norm', at=f'{jid}/2')).text
-    assert len(lr.concepts()) == n and 'not on your shelf' in t                          # a GET only finds; a POST adds it
+    assert len(lr.concepts()) == n and 'not in your concepts' in t                          # a GET only finds; a POST adds it
     walk_fake.rules['The idea: layer norm'] = dict(name='Layer norm', statement='Scale each vector to mean 0 and variance 1.')
     t = cl.post('/rh/term', data=dict(t='layer norm', at=f'{jid}/2')).text
     assert 'A quick primer' in t and lr.concept('layer-norm') and 'layer-norm' in lr.concept('scaling-by-the-root-of-dk').gaps
@@ -90,7 +90,7 @@ def test_walk_end_sends_done_and_the_key_is_listed(mk, walk_fake, lr):
     assert 'data-rh-done' in end and 'on the way' in end
     cl.post(f'/rh/back/{sid}')
     assert 'learned on the way today' in cl.get(f'/w/{jid}/2').text
-    assert ('Walk', '⌥B', 'Learn beside: learn a missing idea in the side pane') in KEYS
+    assert ('Walk', '⌥B', 'Learn a missing idea in a side walk') in KEYS
 
 def test_leave_early_then_finish_updates_the_result(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)

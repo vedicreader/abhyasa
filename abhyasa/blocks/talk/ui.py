@@ -457,7 +457,7 @@ def Presenter(t, deck, run, demos):
                Span('Present in your browser: open ', Code('', id='app-url'), ' ', Quiet('Copy', small=True, type='button', id='app-copy'),
                     id='aud-app', hidden=True), cls='aud')
     keys = [('D', 'or space: next'), ('A', 'back'), ('Q', 'ask the room'), ('R', 'show the answer'), ('E', 'into the demo'), ('X', 'laser'),
-            ('B', 'blank the room screen'), ('G', 'go to a slide'), ('⌥B', 'learn beside'), ('⌥Z', 'back to the slide'), ('esc', 'close')]
+            ('B', 'blank the room screen'), ('G', 'go to a slide'), ('⌥B', 'side walk'), ('⌥Z', 'back to the slide'), ('esc', 'close')]
     end = Form(Quiet('End the talk', small=True, type='submit'), action=at(Routes.end, tid), method='post', hx_boost='false', id='end-form')
     return Div(Div(Inline(t['title'], cls='t'), aud, Span(cls='gap'), Span(id='left'),
                    Span('0:00', id='clock', data_started=str(run['started']), data_slot=str(t['minutes'])), Small(f"of {t['minutes']} min"), end, cls='pv-top'),
@@ -484,9 +484,9 @@ WAYS = dict(primer=('A quick primer', 'The idea in short, beside the slide. Abou
             walk=('A short side walk', 'The idea and the ideas under it, beside the slide, one at a time.'))
 
 def BesideNone(c):
-    "The offer when the idea of the slide needs no other idea on your shelf."
-    said = f'{c.name} needs no other idea on your shelf.' if c else 'This slide has no idea that needs another idea.'
-    return Div(Span('Learn beside', cls='lbl'), P(said), P('Press Esc to close this.', cls='meta'), cls='bs-offer none')
+    "The offer when the idea of the slide needs no other idea in your concepts."
+    said = f'{c.name} needs no other idea in your concepts.' if c else 'This slide has no idea that needs another idea.'
+    return Div(Span('Side walk', cls='lbl'), P(said), P('Press Esc to close this.', cls='meta'), cls='bs-offer none')
 
 def BesideOffer(s, c, ns, n, pick):
     """The offer for the presenter only: the ideas that the idea of slide `s` needs, and two ways to open idea `n` beside the slide.
@@ -498,7 +498,7 @@ def BesideOffer(s, c, ns, n, pick):
                    type='button', cls='bs-way' + (' pick' if pick.how == how else ''), data_how=how, data_slug=n.slug)
             for k, (how, (title, body)) in enumerate(WAYS.items(), 1)]
     far = P(f"The tutor would open {n.name} as its own session: {pick.why}. In a talk, use the primer.", cls='meta') if pick.how == 'session' else ''
-    return Div(Span(f"Learn beside · {s.get('title') or ''}", cls='lbl'), P(f'{c.name} needs:', cls='lead-in'), Ul(*rows, cls='plain bs-needs'),
+    return Div(Span(f"Side walk · {s.get('title') or ''}", cls='lbl'), P(f'{c.name} needs:', cls='lead-in'), Ul(*rows, cls='plain bs-needs'),
                P(f'Open {n.name} beside the slide:', cls='lead-in'), Div(*ways, cls='bs-ways'), far,
                P('Press 1 or 2 to choose. Esc closes this. Only you see it.', cls='meta'), cls='bs-offer', data_slide=s['id'])
 

@@ -64,7 +64,7 @@ if (!window.abhyasaDetour) {
       const r = getSelection().getRangeAt(0).getBoundingClientRect();
       tool = document.createElement('button');
       tool.type = 'button'; tool.id = 'rh-sel'; tool.className = 'quiet'; tool.dataset.t = t;
-      tool.append('Learn beside ', Object.assign(document.createElement('kbd'), {textContent: '⌥B'}));
+      tool.append('Learn it ', Object.assign(document.createElement('kbd'), {textContent: '⌥B'}));
       tool.style.left = `${scrollX + Math.max(8, r.right - 150)}px`; tool.style.top = `${scrollY + r.bottom + 6}px`;
       document.body.append(tool);
     });

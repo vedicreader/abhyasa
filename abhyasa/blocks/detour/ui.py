@@ -18,8 +18,8 @@ def Ask(label, t, *c, cls='rh-ask'):
     return Button(label, *c, type='button', cls=f'quiet small {cls}', data_t=t)
 
 def Need(n, state, first):
-    "One idea that the step needs: its name, its state, and Learn beside on each one that you have not learned. Only the first shows ⌥B."
-    go = '' if state != 'missing' else Ask('Learn beside ', n.slug, Kbd('⌥B')) if first else Ask('Learn beside', n.slug)
+    "One idea that the step needs: its name, its state, and Learn it on each one that you have not learned. Only the first shows ⌥B."
+    go = '' if state != 'missing' else Ask('Learn it ', n.slug, Kbd('⌥B')) if first else Ask('Learn it', n.slug)
     return Span(A(n.name, href=f'/c/{n.slug}', cls='n'), Span(f' · {STATE[state]}', cls=f'st {state}'), go, cls='need')
 
 def Strip(name, ok, sid, outs):
@@ -42,7 +42,7 @@ def Needs(at, rows, strip=None):
 def GapLine(gaps):
     "After a miss that names a gap: the ideas your answer points at, and a way to learn the first one beside the step."
     names = ', '.join(name for _, name in gaps)
-    return P('Your answer points at: ', B(names), '. ', Ask('Learn beside ', gaps[0][0], Kbd('⌥B'), cls='rh-ask rh-gap'), cls='rh-gapline')
+    return P('Your answer shows a gap: ', B(names), '. ', Ask('Learn it ', gaps[0][0], Kbd('⌥B'), cls='rh-ask rh-gap'), cls='rh-gapline')
 
 WAYS = dict(primer='A quick primer', walk='A short side walk', session='Its own session ↗')
 
@@ -69,7 +69,7 @@ def Offer(c, pick, chain, here, limit=False):
 
 def NotFound(t, at):
     "A term that is not on the shelf: a GET writes nothing, so adding it is a choice."
-    return Section(P(f"“{t}” is not on your shelf yet."),
+    return Section(P(f"“{t}” is not in your concepts yet."),
                    Div(Button('Add it and learn it', type='button', cls='small', hx_post=Routes.term, hx_vals=json.dumps(dict(t=t, at=at)),
                               hx_target='#rh-offer', hx_swap='innerHTML', data_wait='Adding…'),
                        Button('Not now ', Kbd('Esc'), type='button', cls='quiet small rh-shut'), cls='row'),
