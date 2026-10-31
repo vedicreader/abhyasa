@@ -14,3 +14,4 @@
 .ask-card .kind-why { margin: 0; }
 .ask-card .ask-links { gap: var(--s3); align-items: baseline; flex-wrap: wrap; margin-top: var(--s2); }
 .ask-card .not-ready { color: var(--mute); font-size: .9em; }
+.show-row #show-demo { padding-left: 0; }   /* Show me lines up with the passage and the research line */

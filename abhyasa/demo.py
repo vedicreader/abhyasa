@@ -375,7 +375,7 @@ def route_ask(said:str='', c=None) -> AttrDict:
     if HANDS_ON.search(s): return AttrDict(kind='notebook', why='You asked to try it in code, so it opens in Leela.')
     if LIBRARY.search(s): return AttrDict(kind='notebook', why='This idea uses a library, so you try it in code in Leela.')
     if PHYSICAL.search(f"{s} {(c or {}).get('name', '')}"): return AttrDict(kind='explainer', why='This is a physical thing, so a 3D explainer shows it best.')
-    return AttrDict(kind='demo', why='A 2D demo: you predict first, then you see.')
+    return AttrDict(kind='demo', why='You predict first. Then the demo shows the rest.')
 
 # %% ../nbs/10_demo.ipynb #sm12
 def can_explain() -> bool:

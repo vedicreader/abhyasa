@@ -62,7 +62,7 @@ def connect(app, ctx):
         if (d := lr.demo_for(a.concept, aim='', key=a.key or None)): return DemoCard(d, a)
         return ui.AskPending(a) if job_state(tutor, a.concept, said=a.ask) == 'running' else ui.Failed()
 
-    def DemoCard(d, a): return ui.DemoCard(d, session=a.get('session', ''), ask=a.id)
+    def DemoCard(d, a): return ui.DemoCard(d, session=a.get('session', ''), ask=a.id, lead=False)   # the kind line of the ask says how it works
 
     def answer_ask(words, at, kind=''):
         """One ask for a demo at the place `at` (`where`, `concept`, `walk` and `step`, or `qid`): file it, pick its kind, start its demo, and give its card.
@@ -72,7 +72,7 @@ def connect(app, ctx):
         if c is None: return P('No such concept.', cls='mute')
         words = ' '.join(str(words or '').split())[:300]
         text = words or (f"The idea behind this check: {q['question']}" if q else '')
-        route = AttrDict(kind='demo', why='You asked for a 2D demo: you predict first, then you see.') if kind == 'demo' else route_ask(words, c)
+        route = AttrDict(kind='demo', why='You asked for a 2D demo. You predict first. Then the demo shows the rest.') if kind == 'demo' else route_ask(words, c)
         where = at.get('where') if at.get('where') in ('walk', 'session', 'guide') else 'concept'
         place = dict(walk=at['walk'], step=int(at['step'])) if where == 'walk' else dict(session=(q or {}).get('session', '')) if where == 'session' else {}
         a = lr.put_ask(c.slug, said=words, ask=text, where=where, kind=route.kind, **place)
