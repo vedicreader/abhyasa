@@ -747,14 +747,14 @@ def _ev(wait:str, state:str, **kw) -> dict:
 def _asks(w:dict, what:str='', thread:bool=False) -> dict:
     "The state event before a model call: `what` goes to the model of `w` (from `where_of`). With `thread`, the line says that the last questions go too."
     m, here = w.get('model') or 'the tutor', w['where'] == HERE
-    gets = ' It gets your question, the page text and your last questions on this page.' if thread else ' It gets your question and the page text.'
-    wait = f"{what} to {m}." if what else f"Asks {m}." + ('' if here else gets)
+    gets = 'your question, the page text and your last questions on this page' if thread else 'your question and the page text'
+    wait = f"{what or 'Sends ' + gets} to {m}."
     return _ev(wait + (' Nothing leaves this Mac.' if here else ''), 'asking', **w)
 
 def _n(n:int, what:str) -> str: return f"{n} {what}{'' if n == 1 else 's'}"
 
 # %% ../nbs/21_guide.ipynb #g075
-WEB_FAILED = 'The web search did not work.'
+WEB_FAILED = 'The web search failed.'
 WEB_NO_PAGE = 'The web search found no page on this.'
 WEB_NO_PASSAGE = 'The web pages had no passage on this.'
 NO_WEB = 'The web was searched and gave no passage on this. Do not say that you need the web or that the web must check it. Give your best answer from the page and the sources.'
@@ -867,7 +867,7 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
             b = board('web', srcs)
             if b.steps: return _done('web', b, srcs, t0, hint)
         elif not ws and not (stop is not None and stop.is_set()) and (best[0].need == 'web' or not best[0].steps):
-            tell(_asks(w, 'Sends your question again, with no web passage,'))   # the web gave nothing: the board must not ask for it
+            tell(_asks(w, 'Sends your question again, without a web passage,'))   # the web gave nothing: the board must not ask for it
             b = board(best[1], best[2], note=NO_WEB)
             if b.steps: best = (b, best[1], best[2])
     b, tier, srcs = best

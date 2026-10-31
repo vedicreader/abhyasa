@@ -12,12 +12,12 @@ ASK = 'Your question'
 def Go():
     "The Explain button, for a learner with no Hyper key. Hyper+E does the same."
     return Button('Explain', type='button', id='guide-go', cls='guide-go', aria_keyshortcuts='Control+Alt+Shift+Meta+E',
-                  title=f'Ask the tutor to explain a part of this page. {KEY} (Caps+E): hold to talk, tap to type.')
+                  title=f'Ask the tutor about this page. Caps+E ({KEY}): hold the keys to talk, or tap them to type.')
 
 def Box():
     "The one-line box. A tap of Hyper+E opens it; held, the key fills it with what you say. Under it: the last question that the next one follows up on."
     return Form(Input(type='text', name='said', id='guide-box', aria_label=ASK, placeholder='Ask about what you see', autocomplete='off', maxlength='300'),
-                Button('Explain', type='submit', cls='small'), Span('Hold Caps+E to talk', cls='guide-talk mute', title=f'{KEY}: hold to talk, tap to type'),
+                Button('Explain', type='submit', cls='small'), Span('Hold Caps+E to talk', cls='guide-talk mute', title=f'Caps+E ({KEY}): hold the keys to talk, or tap them to type.'),
                 Span(cls='guide-heard mute', aria_live='polite'),
                 P(cls='guide-follow mute', hidden=True),
                 P(Span(cls='guide-thread-said'), Button('×', type='button', cls='guide-fresh', title='Start fresh', aria_label='Start fresh'),
@@ -65,7 +65,7 @@ def VideoTools(slug:str, has=False, msg:str=''):
                     Button('Use this video', type='submit', cls='small quiet'), hx_post=u, **tgt, cls='row guide-paste'),
                Div(Button('Find a video', type='button', cls='small quiet', hx_post=Routes.of(Routes.find, slug=slug), **tgt, hx_disabled_elt='this'),
                    Button('Remove the video', type='button', cls='small quiet', hx_post=Routes.of(Routes.drop, slug=slug), **tgt) if has else '',
-                   Span('The tutor looks on YouTube …', cls='htmx-indicator mute'), cls='row'),
+                   Span('The tutor looks for a video on YouTube…', cls='htmx-indicator mute'), cls='row'),
                cls='guide-video-tools')
 
 def VideoSlot(v, slug:str, msg:str=''):

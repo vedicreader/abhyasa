@@ -353,7 +353,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (!localStorage.getItem('guide-told')) {   // the first Explain: one line, no sheet
       localStorage.setItem('guide-told', '1');
       const m = info.model || {};
-      heard(`The tutor reads this page and asks ${m.model || 'the tutor'} (${where(m) || 'hosted'}). Esc stops it.`);
+      heard(`When you ask, the guide sends your question and the page text to ${m.model || 'the tutor'} (${where(m) || 'hosted'}). Esc stops it.`);
     }
     b.value = text != null ? text : sel ? `Explain "${sel}"` : '';
     b.focus(); b.setSelectionRange(b.value.length, b.value.length);
@@ -389,7 +389,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   let asks = 0, ctl = null, busy = 0, drew = false;   // a newer question takes the place of an older one: its request stops, and its steps go nowhere
   const STOPPED = 'Stopped. The tutor got the question, but the guide shows no answer.';
   const status = e => window.abhyasaBoard && abhyasaBoard.status ? abhyasaBoard.status(e) : say(e.wait);
-  const drawing = () => status({wait: 'Draws the board on the page.', state: 'drawing', where: HERE});   // the page sets this state: the server never sends it
+  const drawing = () => status({wait: 'Draws over the page.', state: 'drawing', where: HERE});   // the page sets this state: the server never sends it
   function halt() {   // Stop or Esc while the guide works: the request ends, so the server closes the model stream
     if (!busy || !ctl) return false;
     ctl.abort(); busy = 0;
@@ -430,7 +430,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (!fellBack && window.abhyasaBoard) {
       fellBack = true;
       console.warn('guide: natural voice', why);
-      abhyasaBoard.notice({text: 'The natural voice did not answer, so the browser voice speaks.', href: '/settings#g-voice', link: 'Settings'});
+      abhyasaBoard.notice({text: 'The natural voice did not answer. The browser voice reads the steps now.', href: '/settings#g-voice', link: 'Settings'});
     }
     return window.abhyasaBoard && abhyasaBoard.speakBrowser(text, onWord, done);
   }
@@ -456,7 +456,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   function voiceOffer() {   // the first board with the browser voice says one time that a natural voice can read the steps
     if (natural() || !voiceOn() || localStorage.getItem('guide-voice-offered')) return null;
     localStorage.setItem('guide-voice-offered', '1');
-    return {text: 'A natural voice can read the steps: Kokoro runs on this Mac.', href: '/settings#g-voice', link: 'Turn it on in Settings'};
+    return {text: 'Kokoro can read the steps in a natural voice, on this Mac.', href: '/settings#g-voice', link: 'Turn it on in Settings'};
   }
   function setVoice(on) {
     info.voice = on;
@@ -512,7 +512,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
       const img = ctx.anchors.some(a => a.id === 'figure') && document.querySelector('[data-guide-id="figure"]');
       if (aboutFigure(said, ctx, img)) {   // the picture leaves the page only now, and the line says where it goes
         const v = info.vision || {};
-        if (!figs[img.src]) status({wait: `The guide sends this figure to ${v.model || 'the tutor'} to find its labels. The picture is not kept.`, state: 'asking', ...v});
+        if (!figs[img.src]) status({wait: `Sends the picture of this figure to ${v.model || 'the tutor'} to find its labels. abhyasa does not keep the picture.`, state: 'asking', ...v});
         ctx.anchors.find(a => a.id === 'figure').labels = await labelsOf(img);
         if (n !== asks) return;
       }
@@ -562,7 +562,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
         await live;
         if (n === asks && abhyasaBoard.state && abhyasaBoard.state.streaming) abhyasaBoard.finish({steps: got, tier: 'tutor', sources: [], end: ''});
       }
-    } catch (e) { if (e.name !== 'AbortError') say('The tutor could not answer. Make sure that abhyasa runs, then try again.'); }
+    } catch (e) { if (e.name !== 'AbortError') say('The tutor could not answer. Make sure that abhyasa is open, then try again.'); }
     finally { if (busy === n) busy = 0; }
   }
 
@@ -587,8 +587,8 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   function talk() {
     open('');
     const b = micButton();
-    if (!b || !window.abhyasaMic) { heard('Type your question. The mic is not ready.'); return; }
-    heard(`The mic is on. Let go of Caps+E to send. Speech: ${where(info.speech) || HERE}`);
+    if (!b || !window.abhyasaMic) { heard('abhyasa cannot use the mic. Type your question.'); return; }
+    heard(`The mic is on. Let go of Caps+E to stop. Speech: ${where(info.speech) || HERE}.`);
     b.hidden = false;   // its dot and level show while you talk
     abhyasaMic(b);
   }
@@ -596,7 +596,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const b = micButton();
     if (!b || !window.abhyasaDict || abhyasaDict.btn !== b) return;
     const sp = info.speech || {};
-    heard(`${sp.model || 'The app'} writes what you said. ${where(sp) || HERE}`);
+    heard(`${sp.model || 'The speech engine'} writes your words (${where(sp) || HERE}).`);
     await abhyasaMic(b);   // the second press stops it; the last words still come in
     const end = performance.now() + 15000;
     while (performance.now() < end && (b.classList.contains('busy') || b.classList.contains('on'))) await new Promise(ok => setTimeout(ok, 100));
@@ -606,7 +606,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     heard(EDIT);
     x.focus(); x.setSelectionRange(x.value.length, x.value.length);   // the learner just spoke into the box: not a focus steal
   }
-  const EDIT = 'Change it if you need to. ↩ sends.';
+  const EDIT = 'Change the words if you need to. Return sends them.';
   document.addEventListener('keydown', e => {   // ⌘↩ sends too (a plain ↩ submits the form)
     if (e.key === 'Enter' && e.metaKey && e.target === box() && !form().hidden) { e.preventDefault(); ask(box().value); }
   });

@@ -24,8 +24,8 @@ POLL = .25        # the seconds between two looks at whether the page still read
 INFO_EVERY = 30.  # the seconds that the names of the models on each page stay, while no model setting changes
 SAVES = 50        # the most pages that the guide saved and that Undo can take back in this run
 WARM_EVERY = 30.   # the least seconds between two warm calls of the guide backend
-WITHHELD = 'The guide did not send this, because your privacy setting withholds it. Change it in Settings.'   # the guard refused: personal data and `cli.pii` refuse
-NO_QUERY = 'The tutor did not search, because the name of this idea holds a key or personal data. Paste a link.'   # `safe_query` refused the web query
+WITHHELD = 'The guide did not send this. It holds personal data, and your privacy setting blocks it. You can change the setting in Settings.'   # the guard refused: personal data and `cli.pii` refuse
+NO_QUERY = 'The tutor did not search. The name of this idea holds a key or personal data. Paste a link.'   # `safe_query` refused the web query
 log = logging.getLogger(__name__)
 
 def why(e) -> str:
@@ -133,7 +133,7 @@ def connect(app, ctx):
         try: d = json.loads(body) if len(body) <= ASK_BYTES else None
         except ValueError: d = None
         said = ' '.join(str((d or {}).get('said') or '').split())
-        if not said: return Response('Say or type what you do not understand.', status_code=400, media_type='text/plain')
+        if not said: return Response('Say or type your question.', status_code=400, media_type='text/plain')
         raw_ = d.get('ctx') if isinstance(d.get('ctx'), dict) else {}
         ctx_ = clean_context({**raw_, 'thread': d.get('thread', raw_.get('thread'))})   # the thread of the page: in the body, or in the ctx (the Mac)
         if (words := show_ask(said)) is not None and (s := await asyncio.to_thread(show_of, words, ctx_)):   # "show me …": the demo, not a board
@@ -174,7 +174,7 @@ def connect(app, ctx):
         "Take away the web page that the guide saved, and its link to the concept."
         if not (s := saves.pop(key, None)): return Response('There is nothing to undo.', media_type='text/plain')
         n = unsave(lr, s)
-        return Response(f"The guide took {s['title']} out of your vault." if n else 'There is nothing to undo.', media_type='text/plain')
+        return Response(f"Removed {s['title']} from your vault." if n else 'There is nothing to undo.', media_type='text/plain')
 
     def voice(on:str=''):
         "Voice on or off for the boards of the guide: the setting `guide.voice`."
@@ -213,7 +213,7 @@ def connect(app, ctx):
     def drop(slug:str):
         "Take the video away from the concept. Its transcript stays in the vault."
         concept_of(slug); set_video(lr, slug)
-        return video_part(lr.concept(slug), 'The video is gone from this idea. Its transcript stays in your vault.')
+        return video_part(lr.concept(slug), 'This idea has no video now. Its transcript stays in your vault.')
 
     @hook('concept_more')
     def video(c): return video_part(c)
