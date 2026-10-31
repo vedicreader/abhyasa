@@ -25,7 +25,7 @@ from abhyasa.contract import data_path_why
 from abhyasa.nb import spec_notebook
 from abhyasa.research import to_research, wants_source, want_agent
 from abhyasa.tutor import NoLesson
-from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said
+from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said, show_ask
 from . import ui
 from .cfg import Routes
 
@@ -555,6 +555,8 @@ def connect(app, ctx):
     def answer(jid:str, i:int, answer:str='', thinking:str='', confidence:int=None):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
+        if (words := show_ask(answer)) is not None:   # "show me …" opens a demo under the title (the demo block); it uses no try
+            return reply(j, i), *run_hook('show_me', words, dict(where='walk', concept=j.steps[i]['slug'], walk=jid, step=i))
         try: r = s.answer(answer, thinking, confidence)
         except KeyError as e:
             if s.q.id in tutor.open: return failed('grade your answer', jid, i, e)

@@ -391,7 +391,7 @@ def put_ask(self:Learning, concept:str, said:str='', ask:str='', where:str='walk
     "File one ask for a demo of `concept`: your words `said`, the text `ask` that the demo is made from, the place `where` and `at` (walk and step, or session), and the kind."
     if where not in WHERES: raise ValueError(f'no place {where!r}')
     ask = ask or said
-    a = AttrDict(id=uuid.uuid4().hex[:12], concept=concept, said=said, ask=ask, key=ask_key(ask), where=where, kind=kind, at=time.time(), **at)
+    a = AttrDict(id=uuid.uuid4().hex[:12], concept=concept, said=said, ask=ask, key=ask_key(ask) if ask else '', where=where, kind=kind, at=time.time(), **at)
     self.v.add(f'Asked for a demo of {concept}: {ask}', title=f'Asked: {ask[:80]}', source=_src('ask', a.id), kind='ask', meta=dict(a), force=True)
     return a
 
@@ -406,9 +406,15 @@ def asks(self:Learning, concept:str=None, walk:str=None, session:str=None, limit
     w = [(f"json_extract(meta, '$.{k}')=?", v) for k, v in dict(concept=concept, walk=walk, session=session).items() if v is not None]
     rs = sorted((AttrDict(json.loads(r['meta'])) for r in self._docs('ask', ' and '.join(x for x, _ in w), [v for _, v in w])), key=lambda a: -a.at)[:limit]
     def full(a):
-        slug = (self.demo_for(a.concept, key=a.key) or {}).get('slug', '')
+        slug = (self.demo_for(a.concept, aim='', key=a.key) or {}).get('slug', '')   # an ask with no words and no check gets the plain demo
         return AttrDict(a, slug=slug, outcome=_outcome(self, a, slug) if slug else '')
     return L(rs).map(full)
+
+@patch
+def asked(self:Learning, aid:str) -> AttrDict|None:
+    "One ask by its id; None when there is none."
+    r = first(self.v.t.docs(where='source=?', where_args=[_src('ask', aid)]))
+    return AttrDict(json.loads(r['meta'])) if r else None
 
 # %% ../nbs/10_demo.ipynb #c049
 def import_gallery(learning:Learning, links:dict=None) -> L:
