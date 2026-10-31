@@ -1,12 +1,12 @@
 """Start something new, in Learn: one box that reads what you paste or drop and says what abhyasa will do (`detect`).
-Also Find concepts only (`POST /add`), and the vedicreader import."""
+Also Find concepts only (`POST /add`)."""
 import asyncio, hashlib, logging, re, subprocess, sys, threading, time
 from fasthtml.common import *
 from pathlib import Path
 from urllib.parse import urlencode
 from abhyasa.core.leela import LOCAL_HOSTS
 from abhyasa.core import hook, run as run_hook, Primary, Secondary, Quiet, Pill, asset_css, asset_js, n_of
-from abhyasa.sources import extract, from_vault, from_vedicreader, folder_why, tree_files, vault_roots
+from abhyasa.sources import extract, from_vault, folder_why, tree_files, vault_roots
 from abhyasa.settings import val, roots
 from abhyasa.detect import detect, vault_title, title_index, folder_names, named_sources, on_disk, fold, _goal
 from .cfg import Routes
@@ -36,7 +36,7 @@ NO_GOAL = 'Write your goal in the box. abhyasa uses the sources below.'
 MORE = 'Add a folder, a repo or a link. abhyasa files it in your vault for this walk, and the tutor looks in it too.'
 NAMES_FOR, DISK_FOR = 300, 60   # seconds that the folder names, and the count of files in one folder, are kept
 STATE = dict(gh='a GitHub repo · cloned when you press Start', folder='a folder on this Mac · added when you press Start',
-             repo='a repo on this Mac · added when you press Start', link='a link · read when you press Start', vedic='on this Mac', doc='in your vault')
+             repo='a repo on this Mac · added when you press Start', link='a link · read when you press Start', doc='in your vault')
 log = logging.getLogger(__name__)
 _osa, _picking = subprocess.run, threading.Lock()   # the runner of osascript (a test fakes it), and one chooser at a time
 
@@ -97,7 +97,7 @@ def _home(p) -> str:
 def Chip(c):
     "One source of the goal: its name, where it is, and what Start does with it. `×` removes it (start.js). A refused folder sends nothing."
     if c.kind == 'folder' and c.filed: where, st = n_of(c.count, 'document') if c.count else '', 'in your vault'
-    else: where, st = dict(folder=_home(c.path), repo=_home(c.path), gh=c.path, link=c.path, vedic='the Ramayana episodes').get(c.kind, ''), STATE.get(c.kind, '')
+    else: where, st = dict(folder=_home(c.path), repo=_home(c.path), gh=c.path, link=c.path).get(c.kind, ''), STATE.get(c.kind, '')
     bad = c.get('why')
     return Div(B(c.name), Span(Span(where, cls='where') if where else '', Span(bad or st, cls='st'), cls='w'),
                Button('×', type='button', cls='x', aria_label=f'Remove {c.name}', data_chip=c.id),
@@ -265,8 +265,6 @@ def connect(app, ctx):
 
     def page(): return RedirectResponse(Routes.start, status_code=303)   # the old Add page: the Start box in Learn has its place
 
-    def vedicreader(): return P(', '.join(f'{v} {k}' for k, v in from_vedicreader(lr).items()) + ' added.')
-
     def Filing(j, said=()):
         "What Add a source does now for walk `j`: each source that is still filing, and the lines of the last add. It asks again while a source files."
         fs = j.get('filing') or ()
@@ -317,6 +315,5 @@ def connect(app, ctx):
     app.post(Routes.file)(drop)
     app.post(Routes.files)(drops)
     app.post(Routes.pick)(pick)
-    app.post(Routes.vedicreader)(vedicreader)
     app.post(Routes.walk_source)(walk_source)
     app.get(Routes.walk_source)(walk_filing)

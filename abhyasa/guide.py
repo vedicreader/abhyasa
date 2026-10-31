@@ -690,11 +690,11 @@ def on_check(ctx, said:str) -> bool:
 # %% ../nbs/21_guide.ipynb #g073
 NO_SOURCE = "In the tutor's own words. No source found."
 WITH_SOURCE = "In the tutor's own words, with quotes from the sources below."
-LABEL = dict(page='your source', vault='your vault', web='web', video='video', vedicreader='vedicreader', vedicstory='vedicreader')
+LABEL = dict(page='your source', vault='your vault', web='web', video='video')
 VAULT_FLOOR = .6   # the least `ground.relevance` of a passage from your sources to the question: both of 2 main words, 2 of 3, 3 of 4 or 5
 
 def source_label(p) -> str:
-    "The label of passage `p` by its real source: *your vault* for a vault shelf, else the label of its source, such as *vedicreader*."
+    "The label of passage `p` by its real source: *your vault* for a vault shelf, else the label of its source, such as *web*."
     src = str(p.get('src') or '')
     return LABEL['vault'] if src.startswith('vault') else LABEL.get(src, src or LABEL['vault'])
 

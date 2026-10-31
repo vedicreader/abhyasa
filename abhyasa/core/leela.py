@@ -1,6 +1,5 @@
 """Open in Leela: code with a library and tools are learned in Leela. abhyasa reads the address file that a running Leela writes and makes a link.
-It never calls Leela. The learner's browser opens the link. abhyasa writes its own address file, so Leela can link back to the walk.
-A running vedicreader gets a link to an episode page in the same way, from its own address file."""
+It never calls Leela. The learner's browser opens the link. abhyasa writes its own address file, so Leela can link back to the walk."""
 import json, os, re
 from pathlib import Path
 from urllib.parse import urlparse
@@ -10,7 +9,7 @@ from abhyasa.contract import handoff, vault_key
 from .cfg import cfg
 
 __all__ = ['LEELA_INSTALL', 'LOCAL_HOSTS', 'loopback', 'leela_address', 'leela_base', 'leela_link', 'leela_line', 'abhyasa_address',
-           'write_address', 'drop_address', 'vr_address', 'vr_base', 'vr_episode']
+           'write_address', 'drop_address']
 LEELA_INSTALL = 'https://github.com/vedicreader/leela#install'
 LOCAL_HOSTS = ('127.0.0.1', 'localhost', '::1')
 
@@ -78,17 +77,3 @@ def drop_address():
     try: d = json.loads(f.read_text())
     except (OSError, ValueError): return
     if isinstance(d, dict) and d.get('pid') == os.getpid(): f.unlink(missing_ok=True)
-
-def vr_address() -> Path:
-    "The file that a running vedicreader writes: `$ABHYASA_VR_FILE` (a test sets it), else `$XDG_CONFIG_HOME/vedicreader/serving.json`, else `~/.config/vedicreader/serving.json`."
-    if f := os.getenv('ABHYASA_VR_FILE'): return Path(f)
-    return Path(os.getenv('XDG_CONFIG_HOME') or Path.home()/'.config')/'vedicreader'/'serving.json'
-
-def vr_base() -> str|None:
-    "The address of a running vedicreader on this computer, from its address file or `cfg.vedicreader`; None when it does not run."
-    return _served(vr_address(), cfg.vedicreader)
-
-def vr_episode(eid:str) -> str|None:
-    "The link to the page of Ramayana episode `eid` in a running vedicreader; None when it does not run or `eid` is not an episode id."
-    if not (isinstance(eid, str) and re.fullmatch(r'[a-z0-9_]{1,80}', eid) and (b := vr_base())): return None
-    return f'{b}/story/ramayana/e/{eid}'

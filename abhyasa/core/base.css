@@ -135,7 +135,7 @@ button.busy .secs:empty, .secs:empty { display: none; }
 @keyframes fade { from { opacity: 0; } }
 /* main only fades: a transform on it would hold the fixed composer of the session page inside it */
 main { animation: fade .2s ease-out; }
-.pending, .thread > li, .qa, #out > *, #vr > *, #learned > * { animation: rise .28s ease-out both; }
+.pending, .thread > li, .qa, #out > *, #learned > * { animation: rise .28s ease-out both; }
 /* a new page swaps in with no crossfade; only a part with its own view-transition-name moves (the idea of a walk) */
 ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 @media (prefers-reduced-motion: reduce) {

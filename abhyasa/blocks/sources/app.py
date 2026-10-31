@@ -1,10 +1,9 @@
 """Your sources: each document that your walks read, with its kind, the walks and talks that use it, and the date you added it.
-A folder or a repo that you filed is one row, and so is a paper with its PDF and its HTML copy. The vedicreader import is under More."""
+A folder or a repo that you filed is one row, and so is a paper with its PDF and its HTML copy."""
 import json, re
 from datetime import datetime, timezone
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, n_of, can_undo
-from abhyasa.ground import VedicSource
 from abhyasa.journey import for_talk
 from abhyasa.sources import ARXIV_ID, ARXIV_LINK, WEB, YOURS, source_of, vault_roots, root_docs
 import abhyasa.talk   # `Learning.talks`
@@ -96,17 +95,8 @@ def connect(app, ctx):
         return sorted(out.values(), key=lambda r: -(r.at or 0))
 
     def page():
-        vs = VedicSource()
-        return Page('Sources', H1('Sources'),
-            P('The documents that your walks read. The tutor does not change them.', cls='mute'),
-            ui.Rows(rows()),
-            Section(Details(Summary('Add more sources'),
-                P(f"vedicreader library: {len(vs.dbs())} verse databases in {vs.dir}." if vs.dbs() else 'vedicreader library: not found. Set VEDICREADER_ROOT to the vedicreader repo.', cls='mute'),
-                P(B('Ramayana episodes'), ': ', st.status() if (st := first(s for s in ctx.sources if getattr(s, 'name', '') == 'vedicstory')) else
-                  'Not found. Set VEDICREADER_ROOT to the vedicreader repo.', cls='mute'),
-                P('vedicreader: Sanskrit lessons and terms, and the jyotiṣa grahas, rāśis and nakṣatras, from the repo files.', cls='mute'),
-                Button('Import vedicreader', hx_post='/add/vedicreader', hx_target='#vr', data_wait='Importing…', data_skel='#vr'), Div(id='vr'), cls='more'), cls='sources-more'),   # rare: one closed part
-            on='Library', sub='Sources')
+        return Page('Sources', H1('Sources'), P('The documents that your walks read. The tutor does not change them.', cls='mute'),
+                    ui.Rows(rows()), on='Library', sub='Sources')
 
     def remove(shelf:str='notebooks', root:str=''):
         "Forget each document of the folder or repo `root` on `shelf`. The walks keep their steps and passages."

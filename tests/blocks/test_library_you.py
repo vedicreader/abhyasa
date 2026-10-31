@@ -44,13 +44,11 @@ def test_strengths_route_still_answers(mk):
 def test_sources_lists_documents_not_shelves(mk, lr, talk_fake):
     cl = mk(); jid = paper_walk(cl, lr); tid = make_talk(cl, jid)
     h = cl.get('/sources').text
-    assert 'Vault shelves' not in h and '>your source<' in h and f'href="/w/{jid}"' in h and '<summary>Add more sources</summary>' in h
+    assert 'Vault shelves' not in h and '>your source<' in h and f'href="/w/{jid}"' in h and 'vedicreader' not in h
     assert f'href="/t/{tid}"' in h   # the talk made from the walk
     did = lr.journey(jid).source['doc_id']
     assert f'href="/v/store/{did}"' in h and len(rows(h)) == 1 and 'Attention Is All You Need' in rows(h)[0]
     assert time.strftime('%b %Y') in rows(h)[0]   # the date it was added
-    more = BeautifulSoup(h, 'html.parser').select_one('details.more')
-    assert 'Import vedicreader' in more.text and 'Index ' not in more.text and not more.has_attr('open')
 
 def test_a_filed_folder_is_one_row_with_undo(mk, lr):
     "A folder that Start filed now is one row, with its count of documents and Undo, which goes to the walk's Undo."

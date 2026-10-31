@@ -1,4 +1,4 @@
-"""Add concepts to the concept graph from any text, from a vault document and from vedicreader.
+"""Add concepts to the concept graph from any text and from a vault document.
 
 Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 
@@ -8,14 +8,13 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'MATH_MOST', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'NOT_FOUND', 'log',
            'ARXIV_HTML', 'ARXIV_FIGS', 'READERS', 'PLAIN', 'LOCALE', 'LANGS', 'SHORT', 'EMPTY', 'ARXIV_LINK',
            'TREE_TYPES', 'TREE_SKIP', 'TREE_FILES', 'TREE_MB', 'TREE_TOTAL_MB', 'TREE_SEEN', 'TREE_TOP', 'CODE_DIRS',
-           'DOC_DIRS', 'COURSE', 'NO_READ', 'GH_NAME', 'NOT_REPOS', 'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU',
-           'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group', 'extract_prompt', 'doc_pages', 'locate',
-           'figure_path', 'placement', 'math_cut', 'extract', 'from_vault', 'sort_prompt', 'Places', 'propose_groups',
-           'apply_groups', 'place_new', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError', 'local_name',
-           'public_url', 'link_kind', 'reading_order', 'math_md', 'read_arxiv_html', 'save_figures', 'file_link',
-           'as_link', 'is_id_title', 'arxiv_title', 'is_paper', 'tree_ok', 'tree_rank', 'tree_files', 'folder_why',
-           'file_folder', 'vault_roots', 'root_docs', 'unfile', 'gh_name', 'gh_public', 'clone_repo', 'file_repo',
-           'source_of', 'plain', 'from_vedicreader']
+           'DOC_DIRS', 'COURSE', 'NO_READ', 'GH_NAME', 'NOT_REPOS', 'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'quoted',
+           'group_line', 'add_group', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'math_cut',
+           'extract', 'from_vault', 'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new',
+           'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError', 'local_name', 'public_url', 'link_kind',
+           'reading_order', 'math_md', 'read_arxiv_html', 'save_figures', 'file_link', 'as_link', 'is_id_title',
+           'arxiv_title', 'is_paper', 'tree_ok', 'tree_rank', 'tree_files', 'folder_why', 'file_folder', 'vault_roots',
+           'root_docs', 'unfile', 'gh_name', 'gh_public', 'clone_repo', 'file_repo', 'source_of']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re, shutil
@@ -841,9 +840,8 @@ def _txt1(x) -> str: return ' '.join(x.split())[:80] if isinstance(x, str) else 
 
 def source_of(read:dict, j:dict|None=None) -> AttrDict:
     """The source line of the passage `read` (a step `read`, a slide source or a cite) in walk `j`: its `label`, its `title`,
-    `href` (its document in the vault), `place` (the section and the page, or the site of a web page), `url` (a web page), `date`,
-    and `episode` (the id of a Ramayana episode, for its link to vedicreader). The place starts with `what`, the kind of text,
-    when the passage has one (a Ramayana episode is `Episode summary (vedicreader)`), so a summary never reads as a quote."""
+    `href` (its document in the vault), `place` (the section and the page, or the site of a web page), `url` (a web page) and `date`. The place starts with `what`, the kind of text,
+    when the passage has one (such as `Summary`), so a summary never reads as a quote."""
     r, s = read or {}, str((read or {}).get('src') or '')
     shelf, doc = r.get('shelf'), r.get('doc_id')
     if not (shelf and doc) and s.startswith('vault:'): shelf, doc = s[6:], str(r.get('ref') or '').split('#')[0]
@@ -853,70 +851,4 @@ def source_of(read:dict, j:dict|None=None) -> AttrDict:
     title = r.get('title') or ((j or {}).get('source') or {}).get('title') or r.get('site') or 'your text'
     other = '' if web or s.startswith('vault:') or s in ('text', 'doc') else s   # a source that is not in the vault, such as `notes`
     return AttrDict(label=label, title=str(title), href=f'/v/{shelf}/{doc}' if shelf and doc else '', place=' · '.join(x for x in (_txt1(r.get('what')), _place(r)) if x) or (r.get('site') or '' if web else other),
-                    url=url, date=_day(r.get('at')) if web else '', episode=str(r.get('episode') or '') if s == 'vedicstory' else '')
-
-# %% ../nbs/04_sources.ipynb #c020
-VR_ROOT = Path(os.getenv('VEDICREADER_ROOT', Path.home()/'code/personal/orgs/vedicreader'))
-
-def plain(s:str) -> str:
-    "The vedicreader text without its `{…}` marks and `[1,2]` citations."
-    return re.sub(r'\[\d+(?:,\s*\d+)*\]', '', re.sub(r'\{([^{}]*)\}', r'\1', s or '')).strip()
-
-# %% ../nbs/04_sources.ipynb #c022
-def _lesson_concepts(root):
-    d = root/'static/learn'
-    order, prev = json.loads((d/'order.json').read_text()), None
-    for ui, u in enumerate(order['units']):
-        for li, ls in enumerate(u['lessons']):
-            p = d/'lessons'/f"{ls['slug']}.json"
-            body = json.loads(p.read_text()).get('body', []) if p.exists() else []
-            recap = [plain(x) for b in body for x in b.get('recap', [])]
-            qs = [dict(q=plain(c['q']), a=plain(c['a']), depth=4) for b in body for c in b.get('check', [])]
-            yield dict(name=ls['title'], statement=' '.join([plain(ls['cap']), *recap]), subject='sanskrit', slug=f"sa-{ls['slug']}",
-                       prereqs=[prev] if prev else [], questions=qs, order=ui*100 + li, unit=u['name'],
-                       provenance=[dict(src='vedicreader', lesson=ls['slug'], url=f"https://vedicreader.com/v/learn/{ls['slug']}")])
-            prev = f"sa-{ls['slug']}"
-
-# %% ../nbs/04_sources.ipynb #c023
-def _term_concepts(root):
-    for p in sorted((root/'static/grammar/terms').glob('*.json')):
-        for t in json.loads(p.read_text()).get('terms', []):
-            en = ', '.join(t.get('en') or [])
-            yield dict(name=t.get('iast') or t['slug'], statement=plain(t.get('defn', '')), subject='sanskrit', slug=f"sa-term-{t['slug']}",
-                       aliases=[a for a in (t.get('sa'), *(t.get('en') or ())) if a], group=t.get('group', ''), order=1000,
-                       related=[f"sa-term-{r}" for r in t.get('related') or ()] + ([f"jy-term-{t['jy']}"] if t.get('jy') else []),
-                       provenance=[dict(src='vedicreader', term=t['slug'], cite=(t.get('src') or {}).get('cite', ''))],
-                       questions=[dict(q=f"What is {t.get('iast') or t['slug']} ({en})? Say what it is and where it is used.",
-                                       a=plain(t.get('defn', '')), depth=2)] if t.get('defn') else [])
-
-# %% ../nbs/04_sources.ipynb #c024
-RASI = [('Meṣa', 'Aries'), ('Vṛṣabha', 'Taurus'), ('Mithuna', 'Gemini'), ('Karkaṭa', 'Cancer'), ('Siṃha', 'Leo'), ('Kanyā', 'Virgo'),
-        ('Tulā', 'Libra'), ('Vṛścika', 'Scorpio'), ('Dhanus', 'Sagittarius'), ('Makara', 'Capricorn'), ('Kumbha', 'Aquarius'), ('Mīna', 'Pisces')]
-
-def _explain_name(kind, key):
-    "The name and aliases of one explained item; the rāśi file keys each sign by its number, 0 for Meṣa."
-    if kind == 'rasi' and key.isdigit(): nm, en = RASI[int(key)]; return nm, [en, 'rāśi', 'sign']
-    return key, [kind]
-
-def _explain_concepts(root):
-    for kind in ('graha', 'rasi', 'nakshatra'):
-        p = root/f'vr/jyotisha/explain/{kind}.json'
-        if not p.exists(): continue
-        for name, v in json.loads(p.read_text()).items():
-            secs = v.get('sections', {})
-            first_sec = next(iter(secs.values()), [])
-            st = plain(first_sec[0] if first_sec else '')[:900]
-            nm, al = _explain_name(kind, name)
-            yield dict(name=nm, statement=st, subject='jyotisha', slug=f"jy-{kind}-{slugify(nm)}", kind=kind, order=2000,
-                       aliases=al, provenance=[dict(src='vedicreader', explain=kind, key=name)])
-
-# %% ../nbs/04_sources.ipynb #c026
-def from_vedicreader(lr:Learning, root=None, parts=('lessons', 'terms', 'explain')) -> dict:
-    "Add the lessons, terms and jyotiṣa explanations of vedicreader as concepts. Keep the learner state on the shelf."
-    root, n = Path(root or VR_ROOT), {}
-    gens = dict(lessons=_lesson_concepts, terms=_term_concepts, explain=_explain_concepts)
-    for part in parts:
-        n[part] = 0
-        for c in gens[part](root):
-            lr.put(**c); n[part] += 1
-    return n
+                    url=url, date=_day(r.get('at')) if web else '')

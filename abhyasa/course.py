@@ -88,7 +88,7 @@ def change_course(self:Learning, cid:str, f) -> AttrDict:
         return self.put_course(c)
 
 # %% ../nbs/22_course.ipynb #cs016
-KINDS = dict(gh='a GitHub repo', folder='a folder', repo='a folder', link='a link', vault='your vault', doc='a document', vedic='the Ramayana')
+KINDS = dict(gh='a GitHub repo', folder='a folder', repo='a folder', link='a link', vault='your vault', doc='a document')
 
 def is_goal_walk(j) -> bool:
     "Whether `j` is a walk planned from a goal: a walk with a goal, no source document and no parent, not for a talk."

@@ -99,8 +99,7 @@ fastai/diffusion-nbs.” The box finds the sources that the goal names and shows
 - a folder on this Mac, by its name or its path. abhyasa looks for a name only in the source folders (Settings, under
   Research). The default is `~/code/personal/orgs`, two levels down. It never searches the whole disk.
 - a folder or a repo that is in your vault already;
-- a public GitHub repo, as `owner/name` or as a link;
-- vedicreader, for the Ramayana episodes.
+- a public GitHub repo, as `owner/name` or as a link.
 
 Press × to remove a source, or add one with “Add a folder, a repo or a link”. On a Mac, “Pick folders…” opens the
 folder chooser. Hold ⌘ to pick more than one folder. You can also drop a PDF, a `.md` or a `.txt` file on the box. abhyasa reads nothing before you press
@@ -363,7 +362,7 @@ The web app is made from blocks in `abhyasa/blocks`:
 | `concepts` | the list of concepts, and one page for each concept with its state |
 | `graph` | the concept graph. You can color it by depth, by how well you know each concept, by subject or by due date |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |
-| [`add`](https://vedicreader.github.io/abhyasa/settings.html#add) | the Start box: read what you paste or drop, then make a walk or find concepts; the vedicreader import |
+| [`add`](https://vedicreader.github.io/abhyasa/settings.html#add) | the Start box: read what you paste or drop, then make a walk or find concepts |
 | `walk` | a walk: one step for each idea, with a passage, a note and a check |
 | [`detour`](https://vedicreader.github.io/abhyasa/journey.html#detour) | rabbit holes: a primer, a side walk or a session for an idea that a step needs, with the side pane |
 | `demo` | interactive demos from rupaka: on a concept page, under a lesson after a miss, and one page for each demo |

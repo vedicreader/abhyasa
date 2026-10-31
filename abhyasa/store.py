@@ -149,7 +149,7 @@ def put(self:Learning,
         prereqs=(),            # slugs this concept needs first
         related=(),            # slugs linked to it, in any direction
         aliases=(),            # other names
-        provenance=(),         # where it came from: dicts such as `{'src': 'vedicreader', 'ref': ...}`
+        provenance=(),         # where it came from: dicts such as `{'src': 'pasted', 'at': ...}`
         questions=(),          # ready questions: `{'q':..., 'a':..., 'depth':...}`
         **meta) -> AttrDict:
     "Add a concept or add to one. Keep the learner state, merge the list fields and replace the other fields. A name that you set by hand stays."
