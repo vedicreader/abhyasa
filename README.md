@@ -185,8 +185,9 @@ figure, moves the demo and speaks one short line for each step. The marks stay i
 - You can ask a follow-up question, such as “say that more simply” or “why?”. The guide sends your last 3 questions on
   this page with it. “Follows up on: …” shows under the box, with × to start fresh. A new page or 10 minutes with no question
   clears them.
-- To show how parts of an idea connect, the guide draws a diagram card beside the text: named boxes with arrows between
-  them. The card never covers text or a control.
+- To show a process, a cycle or a small tree, the guide draws a diagram card at the top right of the window: named boxes
+  with arrows between them, with no crossings. The card never covers the page text. For a formula, the guide gives an
+  example from day-to-day life instead, and marks the formula on the page.
 - After a check grades your answer, ask “explain the gaps”. The guide names the problem in your answer, explains the idea
   that fixes it, and shows the path to a right answer. While you have tries left, it stops before the final answer.
 - On the page of an idea, ask “show me …”. The guide opens a demo of your words in a small card. × or Esc closes it.
