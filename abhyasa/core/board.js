@@ -23,7 +23,7 @@
 //     who     {model, where, who}: the model that wrote the board, shown in the strip as "Claude Sonnet · hosted · Anthropic", with the
 //             words of the chip of the state line. Default none.
 //     onVoice onVoice(on) when the learner turns the voice off or on in the strip. With it, the strip has a Voice button, and the
-//             first board with a voice says once: "The guide speaks its steps. Turn the voice off here." Default none.
+//             first board with a voice says once: "The tutor speaks each step aloud. Voice off stops the voice." Default none.
 //     point   the look of a point mark (the setting guide.point), each one weaker than a circle. Default 'tick'.
 //               'tick'  a short thin arrow that stops just before the target, with no ring.
 //               'dot'   a small filled dot under the target, that pulses one time (no pulse with reduced motion).
@@ -823,7 +823,7 @@
       if (b.saved && b.saved.title) {   // a thing that stays after the board: say it, with Undo
         const sv = el('p', 'board-saved', `Saved to your vault: ${b.saved.title}. `), u = String(b.saved.undo || '');
         if (/^\/(?!\/)/.test(u)) sv.append(button('Undo', 'board-undo', async () => {
-          try { const r = await fetch(u, {method: 'POST'}); sv.textContent = (await r.text()).slice(0, 200); } catch (e) { sv.textContent = 'abhyasa could not undo this. Try again.'; }
+          try { const r = await fetch(u, {method: 'POST'}); sv.textContent = (await r.text()).slice(0, 200); } catch (e) { sv.textContent = 'abhyasa could not remove it. Try again, or remove it in your vault.'; }
           if (st) st.board.saved = null;
         }));
         parts.push(sv);
@@ -834,7 +834,7 @@
       st.told = true;
       if (!localStorage.getItem('board-voice-told')) { localStorage.setItem('board-voice-told', '1'); st.tellAt = st.i; }
     }
-    if (st.tellAt === st.i && !st.quiet) parts.push(el('p', 'board-tell', 'The guide speaks its steps. Turn the voice off here.'));   // it stays until the step changes
+    if (st.tellAt === st.i && !st.quiet) parts.push(el('p', 'board-tell', 'The tutor speaks each step aloud. Voice off stops the voice.'));   // it stays until the step changes
     else st.tellAt = null;
     if (st.notice && st.notice.text) {   // one quiet line for this board: the voice fell back, or a natural voice is ready
       const n = el('p', 'board-tell board-notice', st.notice.text + ' ');
@@ -1094,7 +1094,7 @@
     for (const k of ['resolve', 'speak', 'demo']) if (typeof (hk || {})[k] === 'function') h[k] = hk[k];
     if (hk && typeof hk.assets === 'string' && hk.assets) h.assets = hk.assets.endsWith('/') ? hk.assets : hk.assets + '/';
     await libs(h.assets);
-    if (!board || !board.steps || !board.steps.length) { note(board && board.failed ? "The tutor's drawing failed. Say it again or type it." : 'The tutor did not answer. Try again.'); return; }
+    if (!board || !board.steps || !board.steps.length) { note(board && board.failed ? 'The tutor could not draw this board. Ask again.' : 'The tutor did not answer. Try again.'); return; }
     if (board.streaming) board = {...board, steps: [...board.steps]};   // add() grows the steps of its own copy
     st = {board, labels, host: h, fast, quiet: q || fast, auto: auto && !fast, i: 0, gen: 0, lit: -1, timers: [], rate: +(localStorage.getItem('board-rate') || 1), first: null,
           t0: performance.now(), stepAt: 0, ptr: {pos: null, f: null}, streaming: !!board.streaming, wait: false,

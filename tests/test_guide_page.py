@@ -87,7 +87,7 @@ def test_demo_anchors_have_the_agreed_ids(page):
     assert got == [['demo', 'in:k', 'out:1', 'out:2'], ['k', long], ['score 0.25', 'a plot'], False, 'rrf', ['in:k', 'out:1', 'out:2'], 'demo']
 
 # --- never caught unaware ---------------------------------------------------------------------------------------------------
-ASKS = dict(wait='Asks Claude Sonnet. It gets your question and the page text.', state='asking', model='Claude Sonnet', where='hosted', who='Anthropic')
+ASKS = dict(wait='Sends your question and the page text to Claude Sonnet.', state='asking', model='Claude Sonnet', where='hosted', who='Anthropic')
 strip = lambda page: page.evaluate("document.getElementById('guide-strip').textContent")
 
 def test_the_state_line_names_the_model_and_where_it_runs(page):
@@ -99,7 +99,7 @@ def test_the_state_line_names_the_model_and_where_it_runs(page):
     assert 'Searches the web for: "alpha bar"' in t and 'hosted' in t and 'Stop' in t
     page.evaluate("abhyasaBoard.status(%s)" % json.dumps(ASKS))
     assert page.evaluate("document.querySelector('#guide-strip .board-where').textContent") == 'hosted · Anthropic'
-    page.evaluate("abhyasaBoard.status({wait: 'Asks Gemma 4 E4B. Nothing leaves this Mac.', state: 'asking', model: 'Gemma 4 E4B', where: 'on this Mac', who: ''})")
+    page.evaluate("abhyasaBoard.status({wait: 'Sends your question and the page text to Gemma 4 E4B. Nothing leaves this Mac.', state: 'asking', model: 'Gemma 4 E4B', where: 'on this Mac', who: ''})")
     assert page.evaluate("document.querySelector('#guide-strip .board-where').textContent") == 'on this Mac'
     page.reply = sse(ASKS, dict(step=STEP, k=1, tier='tutor'), dict(board=dict(tier='tutor', steps=[STEP], sources=[], end="In the tutor's own words. No source found.",
                                                                                saved=None, hint='Hint 2 of 6 used (from the board).')))
@@ -113,14 +113,14 @@ def test_the_state_line_names_the_model_and_where_it_runs(page):
 
 def test_saved_shows_with_undo(page):
     "A page that the guide saved shows at the end, with Undo. Undo posts to the route and shows its answer."
-    page.route('**/guide/undo/k1', lambda r: r.fulfill(status=200, body='The guide took Ranks out of your vault.'))
+    page.route('**/guide/undo/k1', lambda r: r.fulfill(status=200, body='Removed Ranks from your vault.'))
     page.reply = sse(dict(saved=dict(title='Ranks', url='https://example.org/r', undo='/guide/undo/k1')),
                      dict(board=dict(tier='web', steps=[STEP], sources=[], end='x')))
     page.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('what is this')")
     page.wait_for_function("document.querySelector('#guide-strip .board-saved')")
     assert page.evaluate("document.querySelector('#guide-strip .board-saved').textContent") == 'Saved to your vault: Ranks. Undo'
     page.click('#guide-strip .board-undo')
-    page.wait_for_function("document.querySelector('#guide-strip .board-saved').textContent.startsWith('The guide took')")
+    page.wait_for_function("document.querySelector('#guide-strip .board-saved').textContent.startsWith('Removed Ranks')")
 
 def test_stop_before_the_board_ends_the_request(page, fake):
     "Stop in the state line while the model writes, before a board draws: the request ends, and the line says that the guide shows no answer."

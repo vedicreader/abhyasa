@@ -54,7 +54,7 @@ def test_figure_alt_passes_the_guard(mk, fake):
     ps = [p for p, sp in fake.calls if 'You find the text labels' in sp]
     assert ps and all(secret not in p and secret not in sp for p, sp in fake.calls) and '[SECRET]' in ps[-1]
 
-WITHHELD = 'The guide did not send this, because your privacy setting withholds it. Change it in Settings.'
+WITHHELD = 'The guide did not send this. It holds personal data, and your privacy setting blocks it. You can change the setting in Settings.'
 
 def test_each_route_answers_a_withheld_text_plainly(mk, fake, lr, monkeypatch):
     "With `cli.pii` refuse, the guard withholds personal data: each guide route answers with one plain line, not a 500."
@@ -211,7 +211,7 @@ def test_remove_the_video(mk, lr, yt):
     cl = mk()
     cl.post('/guide/video/ranking', data=dict(url='abc123def45'))
     t = cl.post('/guide/video/ranking/drop').text
-    assert 'The video is gone' in t and 'guide-video"' not in t and 'Find a video' in t
+    assert 'This idea has no video now' in t and 'guide-video"' not in t and 'Find a video' in t
 
 def test_the_walk_step_shows_the_video(mk, lr, yt):
     from abhyasa.core.hooks import HOOKS
@@ -291,7 +291,7 @@ def test_the_first_event_says_who_gets_the_question(mk, fake):
     fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='One.'), dict(op='box', at='passage')])
     evs = [json.loads(l[6:]) for l in mk().post('/guide/ask', json=dict(said='what', ctx=dict(anchors=[dict(id='passage', kind='passage', text='x')]))).text.splitlines()
            if l.startswith('data: ')]
-    assert evs[0] == dict(wait='Asks the tutor. It gets your question and the page text.', state='asking', where='hosted')
+    assert evs[0] == dict(wait='Sends your question and the page text to the tutor.', state='asking', where='hosted')
 
 def test_a_routed_model_is_named_with_where_it_runs(mk, monkeypatch):
     "The page names the routed model of the guide and of a figure, with on this Mac or hosted and the company, and the speech engine."
@@ -323,7 +323,7 @@ def test_a_saved_web_page_can_be_undone(mk, fake, lr, monkeypatch):
     s = next(e['saved'] for e in evs if 'saved' in e)
     assert (s['title'], s['url']) == ('Ranks explained', 'https://example.org/ranks') and s['undo'].startswith('/guide/undo/')
     assert any(p.get('src') == 'web' for p in lr.concept('ranking').provenance)
-    assert cl.post(s['undo']).text == 'The guide took Ranks explained out of your vault.'
+    assert cl.post(s['undo']).text == 'Removed Ranks explained from your vault.'
     assert not any(p.get('src') == 'web' for p in lr.concept('ranking').provenance or ())
     assert cl.post(s['undo']).text == 'There is nothing to undo.'
 

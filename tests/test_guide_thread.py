@@ -82,7 +82,7 @@ def test_the_transcript_stays_in_the_box_until_enter(page):
     for m in mods: page.keyboard.down(m)
     page.keyboard.down('KeyE'); page.wait_for_timeout(450); page.keyboard.up('KeyE')
     for m in reversed(mods): page.keyboard.up(m)
-    page.wait_for_function("document.querySelector('#guide-form .guide-heard').textContent === 'Change it if you need to. ↩ sends.'")
+    page.wait_for_function("document.querySelector('#guide-form .guide-heard').textContent === 'Change the words if you need to. Return sends them.'")
     assert page.evaluate("(() => { const b = document.getElementById('guide-box'); return [b.value, document.activeElement === b, b.selectionStart === b.value.length]; })()") == ['say that more simple', True, True]
     page.wait_for_timeout(300)
     assert len(page.asked) == 1   # no auto-send
