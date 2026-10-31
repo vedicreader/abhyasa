@@ -189,10 +189,10 @@ document.addEventListener('htmx:beforeSwap', e => {
   if (st && st.skel) st.skel.remove();   // before the swap, so the new content takes the place of the placeholder with no jump
 });
 
-// The reason that the server gives for a refused request: its body, when the status is 4xx and the body is a short line of plain text.
+// The reason that the server gives for a refused request: its body, when the status is 4xx or 503 (the model failed) and the body is a short line of plain text.
 const abhyasaWhy = xhr => {
   const t = (xhr.responseText || '').trim(), type = xhr.getResponseHeader('Content-Type') || '';
-  return xhr.status >= 400 && xhr.status < 500 && t && !/html|json/i.test(type) && !t.startsWith('<') ? t.slice(0, 200) : '';
+  return (xhr.status >= 400 && xhr.status < 500 || xhr.status === 503) && t && !/html|json/i.test(type) && !t.startsWith('<') ? t.slice(0, 200) : '';
 };
 
 document.addEventListener('htmx:afterRequest', e => {

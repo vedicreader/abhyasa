@@ -1,6 +1,6 @@
 """One sitting with the tutor: ask, struggle, grade, teach. The next question is fetched while you read the feedback.
 Each session is saved on the shelf as it goes; a URL of a session that is not in memory loads it from the shelf."""
-import time
+import logging, time
 from concurrent.futures import wait
 from fasthtml.common import *
 from fastcore.utils import AttrDict
@@ -13,6 +13,7 @@ from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'tutor', 'pool', 'sessions')
+log = logging.getLogger(__name__)
 
 WHY = {'its prereqs are in place': 'You know the ideas that it needs.', 'you started it': 'You started it.',
        'it is next to the concept you chose': 'It is next to the idea you chose.'}
@@ -48,6 +49,22 @@ def connect(app, ctx):
         return q
 
     def ahead(sid): pre[sid] = ctx.pool.submit(sessions[sid].next)
+
+    def failed(what, sid, e):
+        "A call to the model that failed: the log gets the error, and the page a plain line. A 503 keeps the answer in its box."
+        log.warning('the tutor could not %s in session %s: %r', what, sid, e)
+        return Response(f'The tutor could not {what}. Try again.', status_code=503, media_type='text/plain')
+
+    def NoQuestion(sid):
+        "The line in place of a question that the model did not write, with a way to try again."
+        return Div(P('The tutor could not write the next question.', cls='req-err'), A('Try again', href=at(Routes.page, sid), cls='btn'), id='composer')
+
+    def try_nxt(sid):
+        "`nxt`, or the error when the model failed."
+        try: return nxt(sid), None
+        except Exception as e:
+            log.warning('the tutor could not write a question in session %s: %r', sid, e)
+            return None, e
 
     def live(sid):
         "The session and its open question, or None when the question is closed (a second click, an old tab)."
@@ -98,7 +115,9 @@ def connect(app, ctx):
             if sid not in pre: ahead(sid)
             wait([pre[sid]], timeout=.5)
             if not pre[sid].done(): return layout(s, ui.Chat(sid, waiting=True), ui.Composer(sid))
-            if not (cur := nxt(sid)): return Redirect(at(Routes.end, sid))
+            cur, e = try_nxt(sid)
+            if e: return layout(s, ui.Chat(sid), NoQuestion(sid))
+            if not cur: return Redirect(at(Routes.end, sid))
         return layout(s, ui.Chat(sid, (cur, entries(cur))), ui.Composer(sid, cur), cur)
 
     def over(sid): return Response(headers={'HX-Redirect': at(Routes.end, sid)})
@@ -107,16 +126,19 @@ def connect(app, ctx):
         "The section that `Waiting` loads; it waits for the question that is fetched ahead."
         s, q = live(sid)
         if not s: return ui.Done()
-        if not (q and sid not in pre): q = nxt(sid)
+        if not (q and sid not in pre):
+            q, e = try_nxt(sid)
+            if e: return NoQuestion(sid)
         return (ui.Section_(sid, q, entries(q)), ui.Composer(sid, q, oob=True)) if q else over(sid)
 
     def answer(sid:str, answer:str='', thinking:str='', confidence:int=None):
         s, q = live(sid)
         if not q: return Response(status_code=204)
         try: r = s.answer(answer, thinking, confidence)
-        except KeyError:
-            if q.id in tutor.open: raise   # a real error, not a closed question
+        except KeyError as e:
+            if q.id in tutor.open: return failed('grade your answer', sid, e)   # a real error, not a closed question
             return Response(status_code=204)   # another request closed it while this one waited
+        except Exception as e: return failed('grade your answer', sid, e)
         you = ui.You(you_said(q) or answer, thinking, confidence)
         opts = (ui.Options(sid, q, chosen(q), done=r.done, oob=True, right=r.correct and you_said(q)),) if q.get('options') else ()
         if not r.done:
@@ -130,9 +152,10 @@ def connect(app, ctx):
         if not q: return Response(status_code=204)
         tried = bool(q.tries)
         try: r = s.answer(dont_know=True, confidence=confidence) if dont_know and not tried else s.give_up()
-        except KeyError:
-            if q.id in tutor.open: raise
+        except KeyError as e:
+            if q.id in tutor.open: return failed('close the question', sid, e)
             return Response(status_code=204)
+        except Exception as e: return failed('close the question', sid, e)
         ahead(sid); outcomes[q.id] = r.outcome
         opts = (ui.Options(sid, q, chosen(q), done=True, oob=True),) if q.get('options') else ()
         you = ui.You('Teach me.' if tried else "I don't know.")
@@ -143,16 +166,18 @@ def connect(app, ctx):
         if not q: return Response(status_code=204)
         if len(q.hints) >= len(HINTS): return Li(Span('No more hints', cls='lbl'), P('Send your best answer, or ask the tutor to teach you.'), cls='m tutor hint')
         try: h = s.hint()
-        except KeyError:
-            if q.id in tutor.open: raise
+        except KeyError as e:
+            if q.id in tutor.open: return failed('give a hint', sid, e)
             return Response(status_code=204)
+        except Exception as e: return failed('give a hint', sid, e)
         return keep(q, ui.Hint(len(q.hints), h))
 
     def teach(sid:str, qid:str, another:int=0):
         "A lesson when you ask for it, or the same idea in another way; the outcome stays as it is."
         s = get(sid)
         if not s or qid not in tutor.shut: return Response(status_code=204)
-        lesson = s.teach(qid, bool(another))
+        try: lesson = s.teach(qid, bool(another))
+        except Exception as e: return failed('teach this idea', sid, e)
         sq = tutor.shut[qid]
         out = ui.Lesson(lesson, sq.get('method', '') if another else ''), Feedback('lesson', aid=sq.get('aid', ''), way=sq.get('method', '')), ui.AnotherWay(sid, qid)
         if (q := next((x for x in shown.get(sid, ()) if x.id == qid), None)): redraw_close(q, out)
@@ -166,7 +191,8 @@ def connect(app, ctx):
         if not (s := get(sid)): return ui.Done()
         s, q = live(sid)
         if q and sid not in pre: return Response(status_code=204)   # a second press: this question is on the page
-        q = nxt(sid)
+        q, e = try_nxt(sid)
+        if e: return failed('write the next question', sid, e)
         if not q: return over(sid)
         rail = ui.Rail(sid, past(sid, q), outcomes, q, oob=True)
         return ui.Section_(sid, q), ui.Composer(sid, q, oob=True), rail

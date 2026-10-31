@@ -75,3 +75,21 @@ def test_long_query_is_cut(mk):
     from abhyasa.blocks.search.app import Q_MOST
     h = BeautifulSoup(mk().get('/search', params=dict(q='x' * 5000)).text, 'html.parser')
     assert h.select_one('h1.query').get_text() == f"“{'x' * Q_MOST}”"
+
+# A model that fails, or that gives JSON with no question, gave error 500 on the session page. Now the page says so and has Try again.
+
+def test_session_page_when_the_model_gives_no_question(mk, fake):
+    fake.dflt = '[1, 2]'
+    cl = mk()
+    sid = cl.get('/start?focus=ranking', follow_redirects=False).headers['location'].split('/')[-1]
+    r = cl.get(f'/s/{sid}')
+    assert r.status_code == 200 and 'The tutor could not write the next question.' in r.text and f'href="/s/{sid}"' in r.text
+
+def test_a_failed_grade_keeps_the_answer(mk, fake):
+    cl = mk()
+    sid = cl.get('/start?focus=ranking', follow_redirects=False).headers['location'].split('/')[-1]
+    assert cl.get(f'/s/{sid}').status_code == 200
+    def down(p, sp): raise RuntimeError('the route timed out')
+    fake.rules['You grade one answer'] = down
+    r = cl.post(f'/s/{sid}/answer', data=dict(answer='A rank is a position.'))
+    assert r.status_code == 503 and r.text == 'The tutor could not grade your answer. Try again.'

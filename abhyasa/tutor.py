@@ -340,9 +340,9 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, 
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
         qp, ask = question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else (), q.method, read), for_task(self.ask, 'question')
-        r = ask_json(ask, qp, prompt('tutor'))
+        r = ask_json(ask, qp, prompt('tutor'), need=('question',))
         if val('checks.one_ask') and asks_twice(r.get('question')):   # one more try, with the question that asked twice
-            r = ask_json(ask, f"{qp}\n\nYour last question asked twice: {r['question']!r}. Write it again with one ask: one question word and one question mark.", prompt('tutor'))
+            r = ask_json(ask, f"{qp}\n\nYour last question asked twice: {r['question']!r}. Write it again with one ask: one question word and one question mark.", prompt('tutor'), need=('question',))
         q.update(question=with_code(r['question'], r.get('code') or ''), answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))
