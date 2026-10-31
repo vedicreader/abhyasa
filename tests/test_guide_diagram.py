@@ -1,6 +1,8 @@
 "The diagram card of the board, and the sketch on a figure only, in a headless browser."
 import socket, threading, time, pytest
+from contextlib import contextmanager
 from test_board_js import _chromium
+from walk_data import walk
 
 pytestmark = pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
 
@@ -21,29 +23,45 @@ TANGLE = diagram(['one', 'two', 'three', 'four'], [(0, 1), (1, 2), (2, 3), (3, 0
 PASSAGE = ('Each input vector is projected into a query, a key and a value. A query is compared with keys to decide how much of '
            'each value to read. The scores go through a softmax, so the weights add to one.')
 
-@pytest.fixture
-def browser(mk):
-    "A function that opens one headless page of the app at a viewport size, with a passage in the main column; one browser for the test."
+@contextmanager
+def served(app):
+    "The base url of `app` on a free local port, and one headless browser; both stop at the end."
     import uvicorn
     from playwright.sync_api import sync_playwright
     with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
-    srv = uvicorn.Server(uvicorn.Config(mk().app, host='127.0.0.1', port=port, log_level='error'))
+    srv = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=port, log_level='error'))
     th = threading.Thread(target=srv.run, daemon=True); th.start()
     while not srv.started: time.sleep(.05)
     try:
         with sync_playwright() as p:
             b = p.chromium.launch(headless=True)
-            try:
-                def page(w=1600, h=900, reduced=False):
-                    pg = b.new_page(viewport=dict(width=w, height=h), reduced_motion='reduce' if reduced else 'no-preference')
-                    pg.goto(f'http://127.0.0.1:{port}/'); pg.wait_for_function('window.abhyasaBoard')
-                    pg.evaluate("""t => { const p = document.createElement('p'); p.id = 'passage'; p.dataset.guideId = 'passage'; p.textContent = t;
-                                          document.querySelector('main').prepend(p); }""", PASSAGE)
-                    return pg
-                yield page
+            try: yield f'http://127.0.0.1:{port}', b
             finally: b.close()
     finally:
         srv.should_exit = True; th.join(5)
+
+@pytest.fixture
+def browser(mk):
+    "A function that opens one headless page of the app at a viewport size, with a passage in the main column; one browser for the test."
+    with served(mk().app) as (url, b):
+        def page(w=1600, h=900, reduced=False):
+            pg = b.new_page(viewport=dict(width=w, height=h), reduced_motion='reduce' if reduced else 'no-preference')
+            pg.goto(url + '/'); pg.wait_for_function('window.abhyasaBoard')
+            pg.evaluate("""t => { const p = document.createElement('p'); p.id = 'passage'; p.dataset.guideId = 'passage'; p.textContent = t;
+                                  document.querySelector('main').prepend(p); }""", PASSAGE)
+            return pg
+        yield page
+
+@pytest.fixture
+def step_page(mk, walk_fake, lr):
+    "A function that opens the first step of a real walk at a viewport size: the outline at the left, the passage column, the tutor note."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    with served(cl.app) as (url, b):
+        def page(w, h):
+            pg = b.new_page(viewport=dict(width=w, height=h))
+            pg.goto(f'{url}/w/{jid}/0'); pg.wait_for_function('window.abhyasaBoard')
+            return pg
+        yield page
 
 PLAY = "ss => abhyasaBoard.play({steps: ss, tier: 'tutor', sources: []}, {fast: true})"
 
@@ -175,3 +193,25 @@ def test_a_card_never_goes_under_the_strip(browser):
     got = pg.evaluate(LOOK)
     strip = pg.evaluate("document.getElementById('guide-strip').getBoundingClientRect().top")
     assert got and got['dock'] == 'wide' and got['card']['y'] + got['card']['h'] <= strip, (got, strip)
+
+# A cycle of 5 with short words on each arrow.
+FIVE = diagram(['Ask a question', 'Make a guess', 'Test the guess', 'Look at the result', 'Change the guess'],
+               [(0, 1, 'think'), (1, 2, 'try it'), (2, 3, 'measure'), (3, 4, 'learn'), (4, 0, 'ask again')], 'cycle')
+
+@pytest.mark.parametrize('w,h', [(1440, 900), (1280, 800)])
+def test_on_a_walk_step_a_cycle_docks_at_the_top_right(step_page, w, h):
+    """On a real walk step (the outline at the left and the passage column), the owner's cycle stands at the top right beside
+    the text, not over the strip: each node in full, all 3 words shown, no overlap, each arrow from border to border, and no
+    page text under the card. A cycle of 5 does the same."""
+    pg = step_page(w, h)
+    assert pg.evaluate("!!document.querySelector('#rail.outline')")   # the page has the outline at the left
+    for d, n in [(CYCLE, 3), (FIVE, 5)]:
+        show(pg, dict(op='box', at='passage'), d)
+        got = pg.evaluate(LOOK)
+        assert got and got['dock'] == 'side', (w, got)
+        check_clean(got, n_tags=n)
+        assert len(got['edges']) == n and got['covered'] == [], got
+        c = got['card']
+        assert c['right'] <= 40 and got['navBottom'] <= c['y'] <= got['navBottom'] + 40, c
+        k = pg.evaluate("(document.querySelector('.board-diagram-in').style.transform.match(/scale\\(([\\d.]+)\\)/) || [0, 1])[1]")
+        assert float(k) >= .8, k   # the text is at 80 % of its size or more

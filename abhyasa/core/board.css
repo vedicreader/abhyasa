@@ -104,4 +104,5 @@
                    border: 1px solid color-mix(in srgb, var(--board-ink) 30%, transparent);
                    font: 500 11.5px/1.35 -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Segoe UI', sans-serif; }
 .board-edge-text[hidden] { display: none; }
+.board-edge-text.wrap { white-space: normal; overflow-wrap: anywhere; text-wrap: balance; text-align: center; border-radius: 8px; padding: 1px 6px; }   /* in a loop: as wide as the column at most */
 @media print { .board-diagram { display: none; } }

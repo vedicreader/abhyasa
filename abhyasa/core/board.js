@@ -71,7 +71,8 @@
 //   diagram  {nodes: [{id, text}], edges: [{from, to, text}], layout: 'row'|'tree'|'cycle', at}: a card fixed at the top right of
 //            the window, under the top bar and beside all the page text (`at` does not set the place). With no room there, it
 //            stands over the strip at the full width of the window. Each node is as wide as its text needs, in at most 3 lines.
-//            A cycle is a ring; a row or a tree is layers, left to right or top to bottom, whichever is clean and fits. The words
+//            A cycle is a ring, or a loop (a column with one arrow back up its side) when no ring fits beside the page text; a
+//            row or a tree is layers, left to right or top to bottom, whichever is clean and fits. The words
 //            of an edge drop when no free place is near its middle. A diagram with a crossing or an edge through a node, or one
 //            that does not fit, is not drawn: the step shows without it. The card has data-dock 'side' or 'wide', and each
 //            edge path has data-from, data-to and data-ends (x0 y0 x1 y1 in card pixels before its scale).
@@ -365,7 +366,10 @@
   // and no other words; words with no free place drop. A layout with a crossing or with an edge through a node is not drawn: the
   // step shows without its diagram. The card is fixed at the top right, under the top bar and beside the page text; when there is
   // no room there, it stands over the strip at the full width of the window.
-  const DG = {gap: 26, rank: 52, pad: 14, side: 16, rim: 2, lines: 3, widths: [150, 196, 240], arc: 44, perms: 20000};
+  // `loop`: the column widths of a loop, widest first; `lane`: the gap from the column to the arrow back up; `k` and `kw`: the
+  // smallest scale at the side and in the wide place; `min`: the narrowest side place.
+  const DG = {gap: 26, rank: 52, pad: 14, side: 16, rim: 2, lines: 3, widths: [150, 196, 240], loop: [150, 120, 88],
+              lane: 12, arc: 44, perms: 20000, k: .8, kw: .75, min: 100};
   const onFigure = e => !!e && (/^(img|canvas|video|svg|picture)$/i.test(e.tagName) || !!e.closest('figure, svg, canvas, [data-guide-id="figure"]'));
   const hits = (r, q, p = 0) => r.x < q.x + q.w + p && q.x < r.x + r.w + p && r.y < q.y + q.h + p && q.y < r.y + r.h + p;
   const inside = (b, p, g = 0) => p[0] > b.x - g && p[0] < b.x + b.w + g && p[1] > b.y - g && p[1] < b.y + b.h + g;
@@ -420,10 +424,14 @@
   }
   // A ring: the nodes in the order of their cycle (when the edges go once round all of them), on an ellipse just large enough
   // that each arc between two nodes shows. An edge between two nodes next to each other is the arc between them.
-  function layoutRing(ss, edges, s) {
-    const n = ss.length, next = {}, order = [0];
+  function cycleOrder(n, edges) {   // the nodes in the order of the edges from node 0, while they go to a new node
+    const next = {}, order = [0];
     for (const e of edges) (next[e.f] = next[e.f] || []).push(e.t);
     while (order.length < n) { const t = (next[order[order.length - 1]] || []).find(x => !order.includes(x)); if (t == null) break; order.push(t); }
+    return order;
+  }
+  function layoutRing(ss, edges, s) {
+    const n = ss.length, order = cycleOrder(n, edges);
     const at = []; (order.length === n ? order : [...Array(n).keys()]).forEach((k, i) => { at[k] = i; });
     const ang = k => -Math.PI / 2 + 2 * Math.PI * at[k] / n, ell = (R, a) => [R * Math.cos(a), .78 * R * Math.sin(a)];
     const two = e => edges.some(x => x.f === e.t && x.t === e.f);
@@ -443,6 +451,41 @@
       if (lines.every(l => l.pts && length(l.pts) >= DG.arc * s)) return {kind: 'ring', ring: [0, 0], bs, lines, order: order.length === n ? order : [...Array(n).keys()]};
     }
     return null;
+  }
+  function rounded(ps, r) {   // the polyline `ps` with each corner cut by a quarter curve of radius `r` (or less on a short side)
+    const out = [ps[0]];
+    for (let i = 1; i < ps.length - 1; i++) {
+      const [a, b, c] = [ps[i - 1], ps[i], ps[i + 1]], la = Math.hypot(b[0] - a[0], b[1] - a[1]), lc = Math.hypot(c[0] - b[0], c[1] - b[1]), q = Math.min(r, la / 2, lc / 2);
+      const p0 = [b[0] + (a[0] - b[0]) * q / la, b[1] + (a[1] - b[1]) * q / la], p1 = [b[0] + (c[0] - b[0]) * q / lc, b[1] + (c[1] - b[1]) * q / lc];
+      for (let k = 0; k <= 8; k++) { const u = k / 8, w = (1 - u) ** 2, m = 2 * u * (1 - u), v = u * u; out.push([w * p0[0] + m * b[0] + v * p1[0], w * p0[1] + m * b[1] + v * p1[1]]); }
+    }
+    out.push(ps[ps.length - 1]);
+    return out;
+  }
+  // A loop: the nodes of a cycle in a column, an arrow down from each to the next, and one arrow from the last node down, up the
+  // right side and into the top of the first. Its words go under the last node. It takes only the edges of the cycle, each once.
+  function layoutLoop(ss, edges, s, tags) {
+    const n = ss.length, order = cycleOrder(n, edges), pos = [];
+    if (n < 3 || order.length < n) return null;
+    order.forEach((k, i) => { pos[k] = i; });
+    const kinds = edges.map(e => pos[e.t] === pos[e.f] + 1 ? 'down' : pos[e.f] === n - 1 && pos[e.t] === 0 ? 'back' : null);
+    if (kinds.includes(null) || new Set(edges.map(e => e.f + ':' + e.t)).size < edges.length) return null;
+    const W = Math.max(...ss.map(z => z.w)), bs = [], tagH = [];
+    edges.forEach((e, k) => { if (kinds[k] === 'down') tagH[pos[e.f]] = tags[k] ? tags[k].h : 0; });
+    let y = 0;
+    order.forEach((k, i) => { bs[k] = {x: -ss[k].w / 2, y, w: ss[k].w, h: ss[k].h}; y += ss[k].h + Math.max(34 * s, (tagH[i] || 0) + 26); });
+    const first = bs[order[0]], last = bs[order[n - 1]], lane = W / 2 + DG.lane * s, out = 14;
+    const lines = edges.map((e, k) => {
+      if (kinds[k] === 'down') return {k, f: e.f, t: e.t, pts: clip(dense([centre(bs[e.f]), centre(bs[e.t])], 3), bs[e.f], bs[e.t])};
+      const yb = last.y + last.h + out, yt = first.y - out, ps = [centre(last), [0, yb], [lane, yb], [lane, yt], [0, yt], centre(first)];
+      const pts = clip(dense(rounded(ps, 10), 3), last, first);
+      if (!pts) return {k, f: e.f, t: e.t, pts};
+      let d = 0, at = 0;   // the words of this edge: under the middle of its part below the last node
+      for (let i = 1; i < pts.length; i++) { const g = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); if (!at && pts[i][0] >= 10 && pts[i][1] >= yb - 1) at = d + g; d += g; }
+      return {k, f: e.f, t: e.t, pts, us: [at / d], from: [10, yb - 40]};
+    });
+    if (lines.some(l => !l.pts)) return null;
+    return {kind: 'loop', bs, lines, order, pad: 10};
   }
   // Layers: a rank for each node from the edges (an edge that closes a loop counts backwards), a stand-in point in each rank
   // that a long edge passes, and in each rank the order with the fewest crossings (the order of the model when two are equal).
@@ -528,8 +571,9 @@
     }
     return true;
   }
-  // The words of each edge in a pill on its middle (on a ring: just outside its arc); moved along the edge or to one side when
-  // that place is taken by a node or other words, and dropped when no place is free. A place on no other edge is better.
+  // The words of each edge in a pill on its middle (on a ring: just outside its arc; on the arrow back of a loop: under the
+  // last node); moved along the edge or to one side when that place is taken by a node or other words, and dropped when no
+  // place is free. A place on no other edge is better.
   function placeTags(v, tags) {
     const put = [], out = [];
     for (const l of v.lines) {
@@ -537,10 +581,11 @@
       if (!z) continue;
       const P = l.pts, L = length(P), cands = [];
       const at = u => { let d = u * L; for (let i = 1; i < P.length; i++) { const g = Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); if (d <= g || i === P.length - 1) { const t = g ? Math.min(1, d / g) : 0; return [P[i - 1][0] + (P[i][0] - P[i - 1][0]) * t, P[i - 1][1] + (P[i][1] - P[i - 1][1]) * t, (P[i][0] - P[i - 1][0]) / (g || 1), (P[i][1] - P[i - 1][1]) / (g || 1)]; } d -= g; } };
-      for (const u of [.5, .4, .6, .3, .7]) {
+      const c0 = l.from || v.ring;   // a ring, or an edge with its own centre: outside first, so the line shows
+      for (const u of l.us || [.5, .4, .6, .3, .7]) {
         const [x, y, tx, ty] = at(u), nx = -ty, ny = tx, d = (Math.abs(nx) * z.w + Math.abs(ny) * z.h) / 2 + 5;
-        const side = v.ring && (x - v.ring[0]) * nx + (y - v.ring[1]) * ny < 0 ? -1 : 1;   // on a ring: outside the arc first, so the arc shows
-        for (const o of v.ring ? [side, 0, -side] : [0, 1, -1]) cands.push({x: x + nx * d * o - z.w / 2, y: y + ny * d * o - z.h / 2, w: z.w, h: z.h});
+        const side = c0 && (x - c0[0]) * nx + (y - c0[1]) * ny < 0 ? -1 : 1;
+        for (const o of c0 ? [side, 0, -side] : [0, 1, -1]) cands.push({x: x + nx * d * o - z.w / 2, y: y + ny * d * o - z.h / 2, w: z.w, h: z.h});
       }
       const free = (r, strict) => !v.bs.some(b => hits(r, b, 4)) && !put.some(q => hits(r, q, 4)) && (!strict || !v.lines.some(o => o !== l && o.pts.some(p => inside(r, p, 3))));
       const pick = cands.find(r => free(r, true)) || cands.find(r => free(r, false));
@@ -549,32 +594,35 @@
     return out;
   }
   // Each clean layout of the diagram of mark `m`, in the order of choice, with its edge words placed and the size of its card.
+  // A cycle tries a ring, then a loop in a column at each width of DG.loop.
   function variants(m) {
-    const o = m.o, d = m.dg, ss = d.nodes.map(e => ({w: e.offsetWidth, h: e.offsetHeight}));
+    const o = m.o, d = m.dg, out = [];
     const ix = Object.fromEntries(o.nodes.map((x, k) => [x.id, k])), edges = (o.edges || []).map(e => ({f: ix[e.from], t: ix[e.to]}));
-    const tags = d.tags.map(t => t && {w: t.offsetWidth, h: t.offsetHeight});
-    const tag = {w: Math.max(0, ...tags.map(t => t ? t.w : 0)), h: Math.max(0, ...tags.map(t => t ? t.h : 0))};
-    const kinds = o.layout === 'cycle' ? ['ring'] : o.layout === 'tree' ? ['down', 'right'] : ['right', 'down'], out = [];
-    for (const kind of kinds) for (const s of [1, 1.3, 1.6]) {
-      const v = kind === 'ring' ? layoutRing(ss, edges, s) : layoutLayers(ss, edges, kind, s, tag);
+    const looks = o.layout === 'cycle' ? [['ring', d.sizes[0]], ...d.sizes.slice(1).map(z => ['loop', z])]
+                : (o.layout === 'tree' ? ['down', 'right'] : ['right', 'down']).map(k => [k, d.sizes[0]]);
+    for (const [kind, sz] of looks) for (const s of [1, 1.3, 1.6]) {
+      const ss = sz.ss, tags = sz.tags, tag = {w: Math.max(0, ...tags.map(t => t ? t.w : 0)), h: Math.max(0, ...tags.map(t => t ? t.h : 0))};
+      const v = kind === 'ring' ? layoutRing(ss, edges, s) : kind === 'loop' ? layoutLoop(ss, edges, s, tags) : layoutLayers(ss, edges, kind, s, tag);
       if (!v || !clean(v)) continue;
-      v.tags = placeTags(v, tags); v.drops = tags.filter((t, k) => t && !v.tags[k]).length;
+      v.sz = sz; v.tags = placeTags(v, tags); v.drops = tags.filter((t, k) => t && !v.tags[k]).length;
       const all = [...v.bs, ...v.tags.filter(Boolean), ...v.lines.flatMap(l => l.pts.map(p => ({x: p[0] - 7, y: p[1] - 7, w: 14, h: 14})))];
       const x0 = Math.min(...all.map(b => b.x)), y0 = Math.min(...all.map(b => b.y));
-      v.dx = DG.pad - x0; v.dy = DG.pad - y0;
-      v.W = Math.ceil(Math.max(...all.map(b => b.x + b.w)) + v.dx + DG.pad); v.H = Math.ceil(Math.max(...all.map(b => b.y + b.h)) + v.dy + DG.pad);
+      const pad = v.pad || DG.pad; v.dx = pad - x0; v.dy = pad - y0;
+      v.W = Math.ceil(Math.max(...all.map(b => b.x + b.w)) + v.dx + pad); v.H = Math.ceil(Math.max(...all.map(b => b.y + b.h)) + v.dy + pad);
       out.push(v);
       if (!v.drops) break;   // more space only to find room for words that dropped
     }
     return out;
   }
-  // The layout and place for the card now: the side place when the card fits it at 85 % or more, else the wide place at 75 % or
-  // more; fewer dropped words first. Null when no clean layout fits: then the step shows without its diagram.
+  // The layout and place for the card now: the side place when the card fits it at 80 % or more, else the wide place at 75 % or
+  // more; fewer dropped words first, then a ring before a loop, then the larger scale. Null when no clean layout fits: then the
+  // step shows without its diagram.
   function choose(vs, r) {
     let best = null;
+    const tenth = x => Math.round(x * 10) / 10;   // a scale 5 % smaller is not worse
     for (const v of vs) {
-      const ks = Math.min(1, r.side.w / v.W, r.side.h / v.H), kw = Math.min(1, r.wide.w / v.W, r.wide.h / v.H);
-      const c = r.side.w >= 160 && ks >= .85 ? {v, dock: 'side', k: ks, score: v.drops} : kw >= .75 ? {v, dock: 'wide', k: kw, score: v.drops + 1.5} : null;
+      const ks = Math.min(1, r.side.w / v.W, r.side.h / v.H), kw = Math.min(1, r.wide.w / v.W, r.wide.h / v.H), more = v.drops + (v.kind === 'loop' ? .5 : 0);
+      const c = r.side.w >= DG.min && ks >= DG.k ? {v, dock: 'side', k: ks, score: more + tenth(1 - ks)} : kw >= DG.kw ? {v, dock: 'wide', k: kw, score: more + tenth(1 - kw) + 2.5} : null;
       if (c && (!best || c.score < best.score)) best = c;
     }
     return best;
@@ -585,6 +633,7 @@
     v.order.forEach((k, n) => { shows[k] = n * 140; });
     d.svg.replaceChildren();
     d.svg.setAttribute('width', v.W); d.svg.setAttribute('height', v.H);
+    sizeTo(d, v.sz);
     v.bs.forEach((b, k) => { Object.assign(d.nodes[k].style, {left: b.x + v.dx + 'px', top: b.y + v.dy + 'px'}); parts.push({kind: 'node', el: d.nodes[k], at: shows[k], dur: 260}); });
     d.tags.forEach(t => { if (t) { t.hidden = true; t.dataset.dropped = '1'; } });
     for (const l of v.lines) {
@@ -612,12 +661,34 @@
     const tags = (o.edges || []).map(e => e.text ? inner.appendChild(el('span', 'board-edge-text', e.text)) : null);
     card.style.visibility = 'hidden'; host().append(card);
     inner.style.width = '2000px';   // room to measure
-    for (const e of nodes) {   // as narrow as its text, and wider only when the text needs more than 3 lines
-      const cs = getComputedStyle(e), lh = parseFloat(cs.lineHeight) || 16, padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
-      for (const w of DG.widths) { e.style.maxWidth = w + 'px'; if (Math.round((e.offsetHeight - padY) / lh) <= DG.lines) break; }
-      e.style.width = Math.ceil(e.getBoundingClientRect().width) + 1 + 'px';   // fixed, so the text never wraps again in the card
-    }
     m.el = card; m.dg = {inner, svg, nodes, tags};
+    m.dg.sizes = [measure(m.dg, DG.widths, DG.lines)];
+    if (o.layout === 'cycle') m.dg.sizes.push(...DG.loop.map(w => measure(m.dg, [w], Infinity, true)));
+  }
+  // The size of each node and pill of card `d`: a node is as narrow as its text, in the first of `widths` where it has at most
+  // `lines` lines. `column`: each node has the width of the widest, and a pill wraps at that width. Text is never cut.
+  function measure(d, widths, lines, column = false) {
+    const nw = d.nodes.map(e => {
+      const cs = getComputedStyle(e), lh = parseFloat(cs.lineHeight) || 16, padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+      e.style.width = '';
+      for (const w of widths) { e.style.maxWidth = w + 'px'; if (Math.round((e.offsetHeight - padY) / lh) <= lines) break; }
+      return Math.ceil(e.getBoundingClientRect().width) + 1;
+    });
+    const W = Math.max(...nw), z = {nw: column ? nw.map(() => W) : nw, wrap: column ? W : 0, tw: []};
+    sizeTo(d, z);
+    z.ss = d.nodes.map(e => ({w: e.offsetWidth, h: e.offsetHeight}));
+    z.tw = d.tags.map(t => t && (z.wrap ? Math.ceil(t.getBoundingClientRect().width) + 1 : 0));
+    sizeTo(d, z);
+    z.tags = d.tags.map(t => t && {w: t.offsetWidth, h: t.offsetHeight});
+    return z;
+  }
+  function sizeTo(d, z) {   // fix the width of each node and pill to the sizes `z`, so the text never wraps again in the card
+    d.nodes.forEach((e, k) => { e.style.width = e.style.maxWidth = z.nw[k] + 'px'; });
+    d.tags.forEach((t, k) => {
+      if (!t) return;
+      t.classList.toggle('wrap', !!z.wrap);
+      t.style.maxWidth = z.wrap ? z.wrap + 'px' : ''; t.style.width = z.tw[k] ? z.tw[k] + 'px' : '';
+    });
   }
   function placeDiagram(m) {
     if (!m.el) { buildDiagram(m); m.dv = variants(m); }
