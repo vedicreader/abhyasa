@@ -10,4 +10,4 @@ Modules:
 - `abhyasa.core.pane`: The side pane: a page of this app beside the page, after vedicreader's `vr/core/pane.py`.
 - `abhyasa.core.stage`: The stage bundle: the presenter window and the audience window of a talk, in step over a checked `BroadcastChannel`."""
 
-__version__ = "0.0.15"
+__version__ = "0.0.16"
