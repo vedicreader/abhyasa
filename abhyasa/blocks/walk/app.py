@@ -26,7 +26,7 @@ from abhyasa.edit import (edit_walk, undo_walk, restore_walk, move_step, skip_st
 from abhyasa.research import to_research, wants_source, want_agent, research_state
 from abhyasa.jobs import job_start, job_end, track, Said, seen_jobs
 from abhyasa.tutor import NoLesson
-from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said, show_ask
+from abhyasa.demo import queue_demo, job_state, job_age, job_key, rung, backed, other_way, demo_lesson, simpler_demo, said, show_ask
 from . import ui
 from .cfg import Routes
 
@@ -144,14 +144,14 @@ def connect(app, ctx):
     def ahead(j, i):
         "Start the demo of step `i` when its check is a demo or an order, it has no outcome, and it has no demo yet (spec 6.5)."
         if not 0 <= i < len(j.steps) or (s := j.steps[i]).get('done') or s['check']['kind'] not in AIM or demo(s): return
-        queue_demo(tutor, s['slug'], aim=AIM[s['check']['kind']])
+        queue_demo(tutor, s['slug'], aim=AIM[s['check']['kind']], quiet=True)   # the page shows its wait; the chip does not list it
 
     def no_demo(j, i):
         "The pending card while the demo of step `i` is made; None when the wait is over, so the step uses a short answer."
         s = j.steps[i]
         slug, aim = s['slug'], AIM[s['check']['kind']]
         if job_state(tutor, slug, aim) == 'none': ahead(j, i)
-        if job_state(tutor, slug, aim) == 'running' and job_age(tutor, slug, aim) < val('walks.demo_wait'): return ui.Pending(j.id, i, s)
+        if job_state(tutor, slug, aim) == 'running' and job_age(tutor, slug, aim) < val('walks.demo_wait'): return ui.Pending(j.id, i, s, job=job_key(slug, aim))
         put(j, i, check=dict(short_check(lr, lr.concept(slug))))
 
     def no_check(j, i):
@@ -682,11 +682,16 @@ def connect(app, ctx):
         ld = lr.journey(jid).steps[i]['ladder']
         a = first(x for x in lr.attempts(slug) if x.id == ld.get('aid'))
         def job():
-            if not (text := demo_lesson(tutor, a, ld['way'])) or isinstance(text, NoLesson): return   # an empty lesson or the fallback note is a failure
+            if not (text := demo_lesson(tutor, a, ld['way'])) or isinstance(text, NoLesson): return False   # an empty lesson or the fallback note is a failure
             with writing[jid, slug]:   # by its concept: the step can move while the lesson is written
                 st = first(x for x in (lr.journey(jid) or {}).get('steps') or () if x['slug'] == slug)
                 if st is not None: lr.walk_slug(jid, slug, ladder={**(st.get('ladder') or {}), 'lesson': text})
-        if a is not None: tutor.jobs[k] = ctx.pool.submit(job)
+            return True
+        c = lr.concept(slug)
+        if a is not None:   # one rung of the ladder: a quiet row, so it does not crowd the chip
+            tutor.jobs[k] = track(lr, f'lesson:{slug}', lambda: ctx.pool.submit(job), 'lesson', title=f"Lesson: {c.name if c else slug}", said='Writes a lesson in another way',
+                                  url=ui.at(Routes.step, jid, i), obj=f'walk:{jid}', quiet=True,
+                                  ok=lambda r: dict(said='The lesson is ready.') if r else dict(state='failed', why='The tutor could not write a lesson this time.'))
 
     def climb(jid, i, a):
         "After the wrong prediction `a` in the demo check of step `i`, keep the next rung of the demo ladder on the step. The URL of its help, or ''."
@@ -710,14 +715,14 @@ def connect(app, ctx):
         if ld['rung'] == 1 and not ld.get('asked'):
             if ld.get('lesson') or stop: return ui.Ladder(jid, i, ld, more=not ld.get('simple'))   # after "Too simple", no link to a simpler demo
             jb = tutor.jobs.get(f'{slug}:lesson')
-            if jb is not None and not jb.done(): return ui.Ladder(jid, i, ld, pending='The tutor is writing a lesson in another way. You can read the passage while you wait.')
+            if jb is not None and not jb.done(): return ui.Ladder(jid, i, ld, pending='The tutor is writing a lesson in another way. You can read the passage while you wait.', job=f'lesson:{slug}')
             lost = first(x for x in lr.attempts(slug) if x.id == ld.get('aid')) is None   # no attempt: a new job cannot help
             return ui.Ladder(jid, i, ld, failed='The tutor could not write a lesson this time.', retry=not lost)
         # the simpler demo: after the second wrong prediction, or when you asked for it
         if (d := lr.demo_for(slug, aim='simpler')) and not said(lr, slug, 'unclear'): return ui.Ladder(jid, i, ld, demo=d, show=bool(show) or bool(ld.get('asked')))   # after "Not clear", a new one
         st = job_state(tutor, slug, 'simpler')
         if stop and st != 'failed': return ui.Ladder(jid, i, ld)
-        if st == 'running': return ui.Ladder(jid, i, ld, pending='The tutor is making a simpler demo of this idea. You can read the passage while you wait.')
+        if st == 'running': return ui.Ladder(jid, i, ld, pending='The tutor is making a simpler demo of this idea. You can read the passage while you wait.', job=job_key(slug, 'simpler'))
         return ui.Ladder(jid, i, ld, failed='The tutor could not make a simpler demo this time.', retry=True)
 
     def ladder(jid:str, i:int, show:str=''):
@@ -1068,8 +1073,10 @@ def connect(app, ctx):
         if not (words := ' '.join(CTRL.sub('', words).split())[:WORDS_MOST]): return P('Write what should change, or pick a chip.', cls='req-err')
         key = f'improve:{jid}:' + hashlib.sha1(words.encode()).hexdigest()[:12]
         if not (st := links.get(key)) or st.job.done():
-            st = links[key] = AttrDict(said='The tutor reads what you asked')
-            st.job = ctx.pool.submit(improve_job, jid, words, st)
+            st = links[key] = Said(lr, key, said='The tutor reads what you asked')
+            st.job = track(lr, key, lambda: ctx.pool.submit(improve_job, jid, words, st), 'improve', title=f'Improve: {j.title}', said=st.said,
+                           url=ui.walk_url(jid, 'improve'), obj=f'walk:{jid}', ok=lambda r: dict(said='The tutor proposes changes. Keep or skip each one.'),
+                           why=lambda e: 'The tutor could not propose changes.')
         return ui.ImprovePending(jid, key, st.said)
 
     def proposal(jid:str, key:str=''):

@@ -9,7 +9,8 @@ from starlette.responses import RedirectResponse
 from rupaka.render import bundle, version
 from abhyasa.core import hook, Msg
 from abhyasa.core.leela import leela_link
-from abhyasa.demo import show, queue_demo, job_state, job_age, job_stage, ROUTES, REFUSED
+from abhyasa.demo import show, queue_demo, job_state, job_age, job_stage, job_key, ROUTES, REFUSED
+from abhyasa.jobs import seen_jobs
 from . import ui
 from .cfg import Routes
 
@@ -49,13 +50,15 @@ def connect(app, ctx):
         aim = '3d' if three else a.get('aim', '') if not kind else ''
         if job_state(tutor, a.concept, aim, a.ask) == 'running':
             wait = ui.AskPending(a, '3d' if three else kind, aim, job_age(tutor, a.concept, aim, a.ask), job_stage(tutor, a.concept, aim, a.ask),
-                                 ui.WHILE_3D if three and not kind else '')
+                                 ui.WHILE_3D if three and not kind else '', job=job_key(a.concept, aim, a.ask))
             if not (three and not kind): return wait
-            if not lr.demo_for(a.concept, key=a.key or None) and job_state(tutor, a.concept, '', a.ask) != 'running': queue_demo(tutor, a.concept, said=a.ask)
+            if not lr.demo_for(a.concept, key=a.key or None) and job_state(tutor, a.concept, '', a.ask) != 'running': queue_demo(tutor, a.concept, said=a.ask, quiet=True)   # the 2D demo beside a 3D ask: the row of the 3D job is in the chip
             return ui.WhileThree(wait, shown(a, 'demo'))   # the 2D demo while the 3D explainer builds
-        if (d := lr.demo_for(a.concept, aim=aim, key=a.key or None)): return ui.DemoCard(d, session=a.get('session', ''), ask=a.id, lead=False)   # the kind line of the card says how it works
+        if (d := lr.demo_for(a.concept, aim=aim, key=a.key or None)):
+            seen_jobs(lr, job_key(a.concept, aim, a.ask))   # the demo is on the page: its row is not news in the chip
+            return ui.DemoCard(d, session=a.get('session', ''), ask=a.id, lead=False)   # the kind line of the card says how it works
         if not three: return ui.Failed()
-        if not lr.demo_for(a.concept, key=a.key or None): queue_demo(tutor, a.concept, aim='', said=a.ask)
+        if not lr.demo_for(a.concept, key=a.key or None): queue_demo(tutor, a.concept, aim='', said=a.ask, quiet=True)
         return Div(P(REFUSED, cls='mute refused'), shown(a, 'demo'))
 
     def values_of(at, q):

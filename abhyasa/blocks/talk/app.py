@@ -21,6 +21,7 @@ from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_t
 from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.prompts import lines
+from abhyasa.jobs import track, seen_jobs
 from abhyasa.talk import (check_talk, talk_from_walk, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
                           public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go, log_main, end_run, log_beside,
                           recap, recap_html, BEATS, FILLED, clean_slide, talk_again, walk_changes, AGAIN, talk_state, with_state, on_stage, put_back)
@@ -233,6 +234,13 @@ def connect(app, ctx):
     jobs = {}   # walk id -> the pool job that makes its talk
 
     def ask(): return for_task(ctx.ask, 'talk')   # on each call, so a change in Settings works at once
+
+    def make_job(key, f, title, said, url):
+        """Start the pool job `f` that gives a talk id, with its row `talk:<key>`. When it ends, the row links to the talk, and opening the talk
+        is seeing it. The row is not quiet: a talk takes a minute, so the activity chip lists it."""
+        jobs[key] = track(lr, f'talk:{key}', lambda: ctx.pool.submit(f), 'talk', title=title, said=said, url=url, obj=f'talk:{key}',
+                          ok=lambda tid: dict(said='The talk is ready.', url=Routes.of(Routes.one, tid=tid), obj=f'talk:{tid}'), why=lambda e: NO_TALK)
+        return jobs[key]
     def walk_of(jid):
         j = lr.journey(jid)
         return j if j and j.get('mode') == 'walk' and j.steps else None
@@ -246,9 +254,9 @@ def connect(app, ctx):
             t = lr.talk(tid.strip()) if tid.strip() else walk_talk(lr, jid)
             if not t or (t.get('src') or {}).get('walk') != jid: return P('No such talk for this walk.', cls='req-err')
             if not (job := jobs.get(t.id)) or job.done():
-                jobs[t.id] = ctx.pool.submit(lambda: talk_again(lr, ask(), t.id, ctx.sources).id); jobs[t.id].again = True
+                make_job(t.id, lambda: talk_again(lr, ask(), t.id, ctx.sources).id, f'Talk: {t.title}', 'Making the talk again', Routes.of(Routes.one, tid=t.id)).again = True
             return ui.Pending(t.id, again=True)
-        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(from_walk, jid)
+        if not (job := jobs.get(jid)) or job.done(): make_job(jid, lambda: from_walk(jid), f'Talk: {walk_of(jid).title}', 'Making the talk', f'/w/{jid}')
         return ui.Pending(jid)
 
     def from_walk(jid):
@@ -259,7 +267,7 @@ def connect(app, ctx):
     def fill(tid:str):
         "Start the pool job that writes the content of the slides of talk `tid` that have none (Fill the slides). The request does not wait for the model."
         if not lr.talk(tid): return Response('No such talk.', status_code=404)
-        if not (job := jobs.get(tid)) or job.done(): jobs[tid] = ctx.pool.submit(lambda: fill_talk(lr, ask(), tid, ctx.sources).id)
+        if not (job := jobs.get(tid)) or job.done(): make_job(tid, lambda: fill_talk(lr, ask(), tid, ctx.sources).id, f'Talk: {lr.talk(tid).title}', 'Filling the slides', Routes.of(Routes.one, tid=tid))
         return ui.Pending(tid, fill=True)
 
     def job(jid:str=''):
@@ -275,6 +283,7 @@ def connect(app, ctx):
 
     def one(req, tid:str, done:str=''):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+        seen_jobs(lr, f'talk:{tid}')   # opening the talk is seeing the job that made it
         said = dict(fill=FILLED, again=AGAIN).get(done)
         top = first(lr.edits('talk', tid)) if said else None   # after Fill the slides or Make it again: the bar offers Undo at once
         filled = bar(t, top.what, [top]) if top and top.what == said else None

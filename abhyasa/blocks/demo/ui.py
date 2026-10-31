@@ -4,7 +4,7 @@ from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import asset_css, asset_js, Feedback, Quiet
 from abhyasa.core.leela import LEELA_INSTALL
-from abhyasa.demo import KINDS
+from abhyasa.demo import KINDS, STAGES
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -78,16 +78,17 @@ def ShowCard(a, route, body, leela, two_d=None, three_d=None):
     slot = Div(id=f'three-{a.id}', cls='three-slot') if route.kind == 'demo' else ''   # Show it in 3D comes here, above the 2D demo, which stays
     return Div(slot, Kind(route.kind, route.why, a.said), body, links, cls='ask-card', id=f'ask-{a.id}', data_ask=a.id)   # each kind line on its own card: the 3D part, with its label, comes above
 
-STAGES = dict(queued='Waits for the demo before it', writing='Writes the demo', fixing='A try failed the checks. Writes it again')
+WAIT = 'job, every 30s'   # a part that waits for a job: it loads again on an event of the stream (core.js), and every 30 seconds when the stream is not there
 
 def Plan(stage:str, secs:float):
-    "The real stage of the job that makes the demo (`job_stage`), and the seconds so far: it changes at each look, so Show is never silent, and it never says a stage that is not true."
-    return Div(Span(STAGES.get(stage, STAGES['writing']), cls='on'), Span(f'{int(secs)} s', cls='mute secs'), cls='row show-plan')
+    """The real stage of the job that makes the demo (`job_stage`), and the seconds so far: the stage changes on the event of the job, and
+    demo.js counts the seconds, so Show is never silent, and it never says a stage that is not true."""
+    return Div(Span(STAGES.get(stage, STAGES['writing']), cls='on'), Span(f'{int(secs)} s', cls='mute secs', data_secs=str(int(secs))), cls='row show-plan')
 
-def AskPending(a, kind='', aim='', secs:float=0, stage:str='writing', lead:str=''):
-    """The demo of ask `a` (with `kind`, its 3D explainer or its 2D demo; with `aim`, its simpler demo) is not ready: its stage, and a look at
-    the server again in 2 seconds. `lead` is a line that goes with the wait, so it goes when the demo comes."""
+def AskPending(a, kind='', aim='', secs:float=0, stage:str='writing', lead:str='', job:str=''):
+    """The demo of ask `a` (with `kind`, its 3D explainer or its 2D demo; with `aim`, its simpler demo) is not ready: its stage. It loads again
+    on each event of its job row `job` (a new stage, the end), and every 30 seconds. `lead` is a line that goes with the wait, so it goes when the demo comes."""
     three = kind == '3d'
     what = 'a 3D explainer' if three else 'a simpler demo' if aim == 'simpler' else 'a demo'
     return Div(P(f"The tutor makes {what} of {'what you asked' if a.said else 'this idea'}.", cls='mute making'), Plan(stage, secs), P(lead, cls='mute') if lead else '',
-               hx_get=Routes.of(Routes.asked, aid=a.id) + (f'?kind={kind}' if kind else ''), hx_trigger='load delay:2s', hx_swap='outerHTML', cls='demo-card pending', data_ask=a.id)
+               hx_get=Routes.of(Routes.asked, aid=a.id) + (f'?kind={kind}' if kind else ''), hx_trigger=WAIT, hx_swap='outerHTML', cls='demo-card pending', data_ask=a.id, data_job=job)

@@ -64,14 +64,15 @@ def connect(app, ctx):
         return JSONResponse(dict(running=keep(run), ended=keep(end)))
 
     def changes(rows, last, ups):
-        "The events since the last read: a row that changed, and a walk of a running job that changed (a passage came, a source was filed)."
+        """The events since the last read: one for each row that changed (two rows of one object are two events, so a part that waits for one
+        key always hears it), and one for a walk of a running job that changed (a passage came, a source was filed)."""
         out = {}
         for k, r in rows.items():
-            if last is not None and last.get(k) != (r.state, r.get('said'), r.get('end')): out[r.get('obj') or k] = dict(key=k, obj=r.get('obj') or k, state=r.state)
+            if last is not None and last.get(k) != (r.state, r.get('said'), r.get('end')): out[k] = dict(key=k, obj=r.get('obj') or k, state=r.state)
         for r in rows.values():
             if r.state != 'running' or not (o := r.get('obj') or '').startswith('walk:'): continue
             u = (lr.journey(o[5:]) or {}).get('updated')
-            if o in ups and ups[o] != u: out.setdefault(o, dict(key=r.key, obj=o, state='running'))
+            if o in ups and ups[o] != u and not any(e['obj'] == o for e in out.values()): out[r.key] = dict(key=r.key, obj=o, state='running')
             ups[o] = u
         return list(out.values())
 

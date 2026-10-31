@@ -153,10 +153,10 @@ def NameField(c, said='', bad=False):
 def _sort_id(sid, subject): return Input(type='hidden', name='sort', value=sid), Input(type='hidden', name='subject', value=subject)
 
 def SortPending(sid, cs, subject=''):
-    "The sort runs in the background: the card asks the server again in 2 seconds. The tree below stays, so you can read it."
+    "The sort runs in the background: the card loads again on the event of its job row (`sort:<sid>`), and every 30 seconds. The tree below stays, so you can read it."
     return (Div(P('The tutor is sorting your concepts…'), P('This can take a minute. You can read your concepts while you wait.', cls='mute'),
                 Form(*_sort_id(sid, subject), Quiet('Cancel'), hx_post=Routes.cancel, hx_target='#concepts-view', hx_swap='innerHTML'),
-                cls='pending', hx_get=Routes.sort + (f"?{urlencode(dict(subject=subject))}" if subject else ''), hx_trigger='load delay:2s', hx_target='#concepts-view', hx_swap='innerHTML'),
+                cls='pending', hx_get=Routes.sort + (f"?{urlencode(dict(subject=subject))}" if subject else ''), hx_trigger='job, every 30s', hx_target='#concepts-view', hx_swap='innerHTML', data_job=f'sort:{sid}'),
             Tree(cs))
 
 def Proposal(sid, subject, cs, moved, hand, placed=0, left=(), kept=None):   # `cs`: the new concepts, or every concept for "Sort everything again"

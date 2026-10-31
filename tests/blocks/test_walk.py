@@ -303,15 +303,20 @@ def test_wrong_predictions_climb_the_demo_ladder(mk, walk_fake, lr):
     ld = lr.journey(jid).steps[2]['ladder']
     assert ld['rung'] == 1 and ld['way'] in TEXT_WAYS
     part = cl.get(r['ladder']).text
-    assert 'The tutor is writing a lesson in another way' in part and 'load delay:2s' in part   # pending: the page asks again
+    assert 'The tutor is writing a lesson in another way' in part and 'hx-trigger="job, every 30s"' in part and f'data-job="lesson:{slug}"' in part   # pending: it loads again on the event of its row
+    row = lr.job(f'lesson:{slug}')
+    assert (row.kind, row.state, row.quiet, row.url) == ('lesson', 'running', True, f'/w/{jid}/2')   # one rung of the ladder: a quiet row
     teach.set(); made(cl, f'{slug}:lesson')
+    assert wait_for(lambda: lr.job(f'lesson:{slug}').state == 'done' or None)
     part = cl.get(r['ladder']).text
     assert 'Positions are shared.' in part and f'Lesson · {LABELS[ld["way"]].lower()}' in part and 'class="go' not in part   # one quiet block, no new main button
     assert f'hx-get="/w/{jid}/2/ladder"' in cl.get(f'/w/{jid}/2/check').text        # a reload loads the help again
     r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate='second', picked='0', ans='1', ok='false')).json()
     part = cl.get(r['ladder']).text
-    assert 'The tutor is making a simpler demo' in part and 'load delay:2s' in part and 'Positions are shared.' in part
+    assert 'The tutor is making a simpler demo' in part and f'data-job="demo:{slug}:simpler"' in part and 'Positions are shared.' in part
+    assert lr.job(f'demo:{slug}:simpler').state == 'running' and lr.job(f'demo:{slug}:simpler').quiet
     small_job.set(); small = made(cl, f'{slug}:simpler')
+    assert wait_for(lambda: lr.job(f'demo:{slug}:simpler').state == 'done' or None)
     assert small.aim == 'simpler' and lr.demo_for(slug, aim='').slug == d.slug        # the simpler demo is never the plain demo
     part = cl.get(r['ladder']).text
     assert 'Show a simpler demo' in part and 'data-rupaka' not in part and 'class="go' not in part
@@ -339,7 +344,7 @@ def test_one_gate_demo_can_ask_for_a_simpler_demo(mk, walk_fake, lr):
     assert not lr.journey(jid).steps[2]['ladder'].get('asked') and f'{slug}:simpler' not in jobs
     assert f'{slug}:simpler' not in cl.app.state.svc['tutor'].jobs                     # nothing is made until you ask
     part = cl.post(r['ladder'] + '?simpler=1').text
-    assert 'The tutor is making a simpler demo' in part and 'load delay:2s' in part and 'Positions are shared.' in part
+    assert 'The tutor is making a simpler demo' in part and 'hx-trigger="job, every 30s"' in part and 'Positions are shared.' in part
     assert lr.journey(jid).steps[2]['ladder']['asked']
     hold.set(); small = made(cl, f'{slug}:simpler')
     part = cl.get(r['ladder']).text                                                     # the poll after the job: the demo shows

@@ -1,9 +1,10 @@
 "Settings: every value that you can change, in groups, in a few tabs. Each value saves when it changes. The rarely changed values are under a closed `More`."
-import os, time, base64
+import os, threading, time, base64
 from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, THEMES, MODES, parse_value
 from abhyasa import voice
+from abhyasa.jobs import track, job_said, seen_jobs
 from abhyasa.settings import GROUPS, SETTINGS, rows, val, fit, set_val, reset, reset_group
 from . import ui
 from .cfg import Routes
@@ -112,23 +113,31 @@ def connect(app, ctx):
         if (j := jobs.get(model)) and j.state in ('downloading', 'loading'): return part(), ui.Jobs(jobs, oob=True)
         for k in [k for k, o in jobs.items() if o.state in ('done', 'failed')]: jobs.pop(k)   # show only the new line
         j = jobs[model] = AttrDict(model=model, engine=engine, total=0, state='downloading', error='', shown=False)
+        key = ui.job_key(model)
+        def tick():
+            "While the model downloads, its line goes to the row every 2 seconds, so the progress lines move on the event of the row."
+            while j.state == 'downloading': job_said(lr, key, ui.job_line(j)); time.sleep(2)
         def run():
             try:
                 try: j.total = voice.model_size(model)
                 except Exception: j.total = 0   # the line shows bytes without a total
+                threading.Thread(target=tick, daemon=True).start()
                 voice.fetch(model)
-                j.state = 'loading'
+                j.state = 'loading'; job_said(lr, key, ui.job_line(j))
                 if (f := then()) is not None: f.result()
                 j.state = 'failed' if worker.status.startswith('failed') else 'done'
                 if j.state == 'failed': j.error = worker.status
             except Exception as e: j.state, j.error = 'failed', str(e)
-        ctx.pool.submit(run)
+            return j
+        track(lr, key, lambda: ctx.pool.submit(run), 'download', title=f'Download: {ui.job_name(model)}', said=ui.job_line(j),
+              url='/settings#g-voice' if model == voice.POCKET else '/settings#g-stt', obj=key,
+              ok=lambda j: dict(said=ui.job_line(j)) if j.state == 'done' else dict(state='failed', why=ui.job_line(j)))
         return part(), ui.Jobs(jobs, oob=True)
 
     def jobs_():
         "The progress lines; when a job ends, the speech section too."
         ended = [j for j in jobs.values() if j.state in ('done', 'failed') and not j.shown]
-        for j in ended: j.shown = True
+        for j in ended: j.shown = True; seen_jobs(lr, ui.job_key(j.model))   # the line on this page is the news
         return (ui.Jobs(jobs), speech(oob=True), out_part(oob=True)) if ended else ui.Jobs(jobs)
 
     def status(): return ui.Status(sp)

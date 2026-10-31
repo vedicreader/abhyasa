@@ -245,19 +245,26 @@ def VoiceGroup(speaker, key, n):
     "Speaking voice: the engine, its voice and the speed of OpenAI. The speed row is in `VoiceOut`, and it is hidden for the other engines."
     return Group('voice', n, extra=(VoiceOut(speaker, key),))
 
-def Job(j):
-    n = 'The voice (Pocket TTS)' if j.model == voice.POCKET else j.model
+def job_name(model) -> str: return 'The voice (Pocket TTS)' if model == voice.POCKET else model
+
+def job_line(j) -> str:
+    "The line of the download `j` as it is now: the bytes so far, loading, failed or ready."
+    n = job_name(j.model)
     if j.state == 'downloading':
         done, tot = voice.cache_bytes(j.model), j.total
-        return Li(f'Downloading {n}: {size(done) or "0 MB"}' + (f' of {size(tot)} ({min(done / tot, 1):.0%})' if tot else ''))
-    if j.state == 'loading': return Li(f'Loading {n} into memory…')
-    if j.state == 'failed': return Li(f'{n} failed: {j.error}', cls='no')
-    return Li(f'{n} is ready and in use.', cls='ok')
+        return f'Downloading {n}: {size(done) or "0 MB"}' + (f' of {size(tot)} ({min(done / tot, 1):.0%})' if tot else '')
+    if j.state == 'loading': return f'Loading {n} into memory…'
+    if j.state == 'failed': return f'{n} failed: {j.error}'
+    return f'{n} is ready and in use.'
+
+def Job(j): return Li(job_line(j), cls='no' if j.state == 'failed' else 'ok' if j.state == 'done' else None)
+
+def job_key(model) -> str: return f'download:{model}'
 
 def Jobs(jobs, oob=False):
-    "Progress lines; they ask again each second while a download runs."
-    run = any(j.state in ('downloading', 'loading') for j in jobs.values())
-    poll = dict(hx_get=Routes.jobs, hx_trigger='every 1s', hx_swap='outerHTML') if run else {}
+    "Progress lines. While a download runs, they load again on each event of its job row (a new line, the end), and every 30 seconds."
+    run = [m for m, j in jobs.items() if j.state in ('downloading', 'loading')]
+    poll = dict(hx_get=Routes.jobs, hx_trigger='job, every 30s', hx_swap='outerHTML', data_job=' '.join(map(job_key, run))) if run else {}
     return Div(Ul(*[Job(j) for j in jobs.values()], cls='plain jobs') if jobs else '', id='jobs', **poll, **(dict(hx_swap_oob='true') if oob else {}))
 
 def Found(rows, cur):

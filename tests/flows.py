@@ -263,7 +263,7 @@ def improve(cl, jid, words):
     "Send `words` to Improve the walk, and ask again until the proposal comes. Gives its HTML."
     r = cl.post(f'/w/{jid}/improve', data=dict(words=words))
     for _ in range(200):
-        if 'load delay:2s' not in r.text: return r.text
+        if 'improve-wait' not in r.text: return r.text
         time.sleep(.05); r = cl.get(re.search(r'hx-get="([^"]+)"', r.text)[1].replace('&amp;', '&'))
     raise AssertionError('no proposal came')
 

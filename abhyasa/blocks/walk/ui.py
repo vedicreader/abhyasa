@@ -412,9 +412,9 @@ def Slot(jid, i, s):
     "The place for the help under a demo check. walk.js fills it after a wrong prediction; a reload fills it when the step has help."
     return Div(id='ladder', cls='ladder', **(dict(hx_get=at(Routes.ladder, jid, i), hx_trigger='load', hx_swap='outerHTML') if s.get('ladder') else {}))
 
-def Ladder(jid, i, ld, demo=None, show=False, pending='', failed='', retry=False, more=False):
+def Ladder(jid, i, ld, demo=None, show=False, pending='', failed='', retry=False, more=False, job=''):
     """The help under a demo check after a wrong prediction, as one quiet block with no main button: the lesson in another way (`ld`),
-    then a simpler demo. `pending` says what the tutor makes while the page asks again in 2 seconds. `more` adds the quiet button that asks for the simpler demo.
+    then a simpler demo. `pending` says what the tutor makes; the block loads again on the event of its job row `job`, and every 30 seconds. `more` adds the quiet button that asks for the simpler demo.
     `failed` is the plain line after a job failed; `retry` adds a button that POSTs to start the job again."""
     url = at(Routes.ladder, jid, i)
     out = [Div(Span(f"Lesson · {LABELS[ld['way']].lower()}" if ld.get('way') in LABELS else 'Lesson', cls='lbl'), Md(ld['lesson']),
@@ -424,13 +424,13 @@ def Ladder(jid, i, ld, demo=None, show=False, pending='', failed='', retry=False
     elif demo is not None and show: out += [Span('A simpler demo', cls='lbl'), Demo(demo.spec), Feedback('demo', slug=demo.slug)]
     elif more: out.append(Div(Quiet('Show a simpler demo', type='button', hx_post=f'{url}?simpler=1', hx_target='#ladder', hx_swap='outerHTML'), cls='row acts'))
     elif demo is not None: out.append(Div(Span('A simpler demo', cls='lbl'), Quiet('Show a simpler demo', type='button', hx_get=f'{url}?show=1', hx_target='#ladder', hx_swap='outerHTML'), cls='row acts'))
-    poll = dict(hx_get=url, hx_trigger='load delay:2s', hx_swap='outerHTML') if pending else {}
+    poll = dict(hx_get=url, hx_trigger=WAIT, hx_swap='outerHTML', data_job=job) if pending else {}
     return Div(*out, id='ladder', cls='ladder' + (' pending' if pending else ''), aria_live='polite', **poll, **({'data_demo': demo.slug} if demo is not None and show else {}))
 
-def Pending(jid, i, s):
-    "The demo of the step is not ready: the card asks the server again in 2 seconds."
+def Pending(jid, i, s, job=''):
+    "The demo of the step is not ready: the card loads again on the event of its job row `job`, and every 30 seconds."
     return Check(CardHead(s), P('The tutor is making the demo for this idea. This can take a minute. You can read the passage while you wait.', cls='mute'),
-                 cls='pending', hx_get=at(Routes.check, jid, i), hx_trigger='load delay:2s', hx_target='#check', hx_swap='innerHTML')
+                 cls='pending', hx_get=at(Routes.check, jid, i), hx_trigger=WAIT, hx_target='#check', hx_swap='innerHTML', data_job=job)
 
 
 # --- the notebook check: it runs in Leela ---------------------------------------------------------------------------
@@ -642,8 +642,8 @@ def Improve(j, finished=False):
                    Div(id='improve-out', aria_live='polite'), id='improve', cls='improve', data_part='improve', data_act='improve')
 
 def ImprovePending(jid, key, said):
-    "Improve the walk while the tutor works: the line of what it does now. It asks again in 2 seconds."
-    return Div(P(said + '…', cls='mute'), hx_get=f"{at(Routes.improve, jid)}?{urlencode(dict(key=key))}", hx_trigger='load delay:2s', hx_swap='outerHTML', cls='improve-wait')
+    "Improve the walk while the tutor works: the line of what it does now. It loads again on each event of its job row `key`, and every 30 seconds."
+    return Div(P(said + '…', cls='mute'), hx_get=f"{at(Routes.improve, jid)}?{urlencode(dict(key=key))}", hx_trigger=WAIT, hx_swap='outerHTML', cls='improve-wait', data_job=key)
 
 def change_words(c, by) -> str:
     "One proposed change in words: `Make the check of “Softmax” easier.`"

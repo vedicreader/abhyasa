@@ -7,6 +7,7 @@ from abhyasa.core import Page, NotFound, RouteOverrides, hook, moved_to
 from abhyasa.settings import val
 from abhyasa.store import clean_group, clean_name, under, listed, GROUP_DEPTH, GROUP_LEN
 from abhyasa.sources import propose_groups, apply_groups, place_new
+from abhyasa.jobs import track, job_end, seen_jobs
 from . import ui
 from .cfg import Routes
 
@@ -81,8 +82,12 @@ def connect(app, ctx):
             mark, keep = hand(subject), set(keep or [])
             drop = [(s, g) for s, g in mark if json.dumps([s, ui.path_text(g)]) not in keep] if every else []
             free = [c.slug for c in cs_of(subject) if c.get('group_by') == 'hand' and any(s == (c.subject or '') and under(c.get('group') or [], g) for s, g in drop)]
-            st.update(id=uuid.uuid4().hex[:8], subject=subject, every=bool(every), free=free, drop=drop, kept=len(mark) - len(drop),
-                      job=ctx.pool.submit(run_sort, subject, bool(every), free))
+            sid = uuid.uuid4().hex[:8]
+            url = Routes.base + (f"?{urlencode(dict(subject=subject))}" if subject else '')
+            st.update(id=sid, subject=subject, every=bool(every), free=free, drop=drop, kept=len(mark) - len(drop),
+                      job=track(lr, f'sort:{sid}', lambda: ctx.pool.submit(run_sort, subject, bool(every), free), 'sort', obj=f'sort:{sid}', url=url,
+                                title=f"Sort: {ui.label(subject) if subject else 'your concepts'}", said='The tutor sorts your concepts',
+                                ok=lambda r: dict(said='The new tree is ready. Accept it or cancel.'), why=lambda e: 'The tutor could not sort your concepts.'))
         return view(subject)
 
     def sort_state(subject:str=''):
@@ -97,12 +102,15 @@ def connect(app, ctx):
         except Exception as e:
             log.warning('abhyasa could not save the sorted tree: %r', e)
             return P('abhyasa could not save the tree. Nothing changed. Try again.', cls='req-err')
+        seen_jobs(lr, f'sort:{st.id}')
         st.update(id='', job=None, subject='', every=False, free=(), drop=(), kept=0); undos.clear()   # an old Undo would undo part of the sort
         return Response(headers={'HX-Redirect': Routes.base + (f"?{urlencode(dict(subject=subject))}" if subject else '')})
 
     def cancel(sort:str='', subject:str=''):
         "Drop the sort. Nothing is saved. A job that still runs ends on the pool, and its result is not used."
-        if sort == st.id and mine(subject): st.update(id='', job=None, subject='')
+        if sort == st.id and mine(subject):
+            job_end(lr, f'sort:{st.id}', 'stopped'); seen_jobs(lr, f'sort:{st.id}')   # a sort that you cancel is not news
+            st.update(id='', job=None, subject='')
         return view(subject)
 
     def undo(slug:str):

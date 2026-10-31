@@ -22,4 +22,11 @@ if (!window.abhyasaDemo) {
     const no = 'The tutor did not save this. Try again.';
     fetch(card.dataset.url, {method: 'POST', body}).then(r => d.settle(r.ok, no)).catch(() => d.settle(false, no));
   });
+  // The seconds of a demo that the tutor makes: they count here, because the card loads again only on an event of its job.
+  setInterval(() => {
+    for (const s of document.querySelectorAll('.show-plan .secs[data-secs]')) {
+      s.t0 ??= performance.now();
+      s.textContent = `${Math.round(+s.dataset.secs + (performance.now() - s.t0) / 1000)} s`;
+    }
+  }, 1000);
 }

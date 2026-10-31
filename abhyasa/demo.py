@@ -6,15 +6,16 @@ Docs: https://vedicreader.github.io/abhyasa/demo.html.md"""
 
 # %% auto #0
 __all__ = ['SLOT', 'VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK',
-           'ORDER_AIM', 'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'SHOW_ME',
-           'SEE_IT', 'YES', 'OFFER', 'KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS',
-           'STEPS', 'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE', 'REFUSED', 'WHERES', 'ROUTES',
-           'demo_text', 'since_demo', 'rung', 'keep_rung', 'no_slots', 'want_demo', 'clean_note', 'quoted',
-           'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'queue_demo', 'job_state',
-           'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close',
-           'show_ask', 'show_reply', 'route_ask', 'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp',
-           'gates_of', 'calc', 'gate_answers', 'says', 'leaks', 'scrub', 'explainer_prompt', 'scene_errors',
-           'explainer_for', 'explain_ask', 'make_explainer', 'show', 'import_gallery']
+           'ORDER_AIM', 'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'STAGES',
+           'SHOW_ME', 'SEE_IT', 'YES', 'OFFER', 'KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'PHYSICAL', 'SCENE_BLOCKS',
+           'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE', 'REFUSED',
+           'WHERES', 'ROUTES', 'demo_text', 'since_demo', 'rung', 'keep_rung', 'no_slots', 'want_demo', 'clean_note',
+           'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'job_key',
+           'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way', 'simpler_demo',
+           'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'route_ask', 'can_explain', 'scene_catalog',
+           'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says', 'leaks', 'scrub',
+           'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show',
+           'import_gallery']
 
 # %% ../nbs/10_demo.ipynb #c005
 import ast, hashlib, json, math, operator as op, re, threading, time, uuid
@@ -29,6 +30,7 @@ from .model import update, _back
 from .method import way, choose, TEXT_WAYS, EXAMPLES_TO, FEEDBACK
 from .prompts import register, prompt, lines, need_lines
 from .settings import val
+from .jobs import track, job_said
 
 
 # %% ../nbs/10_demo.ipynb #c007
@@ -284,6 +286,7 @@ def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, 
 
 # %% ../nbs/10_demo.ipynb #c035
 _POOL = ThreadPoolExecutor(1)
+STAGES = dict(queued='Waits for the demo before it', writing='Writes the demo', fixing='A try failed the checks. Writes it again')
 
 def ask_key(said:str) -> str:
     "A short key for the ask `said`: the same words in another case or spacing give the same key."
@@ -291,13 +294,29 @@ def ask_key(said:str) -> str:
 
 def _key(slug, aim, said=''): return (f'{slug}:{aim}' if aim else slug) + (f'#{ask_key(said)}' if said else '')
 
-def queue_demo(tutor, slug:str, first_error:str='', aim:str='', said:str=''):
-    "Start a background job that makes a demo for `slug` with the aim `aim` (and the ask `said`), or a 3D explainer for the aim `3d`; the running job if there is one."
+def job_key(slug:str, aim:str='', said:str='') -> str:
+    "The key of the job row of the demo job of `slug` with the aim `aim` and the ask `said`."
+    return f'demo:{_key(slug, aim, said)}'
+
+class _Tries(list):
+    "The tries of a demo job that failed the checks (`job_stage`). Each new one also writes the stage `fixing` to the row `key`."
+    def __init__(self, lr, key): super().__init__(); self.lr, self.key = lr, key
+    def append(self, x): super().append(x); job_said(self.lr, self.key, STAGES['fixing'])
+
+def queue_demo(tutor, slug:str, first_error:str='', aim:str='', said:str='', quiet:bool=False):
+    """Start a background job that makes a demo for `slug` with the aim `aim` (and the ask `said`), or a 3D explainer for the aim `3d`; the running job if there is one.
+    The job has a row (`job_key`) whose line is its stage. `quiet`: the activity chip does not list it."""
     k = _key(slug, aim, said)
     j = tutor.jobs.get(k)
     if j is not None and not j.done(): return j
-    log = []   # each try that failed the checks: the real stage of the job (`job_stage`)
-    j = tutor.jobs[k] = (tutor.pool or _POOL).submit(make_explainer if aim == '3d' else make_demo, tutor.learning, tutor.ask, slug, first_error, aim=aim, said=said, log=log)
+    lr, key = tutor.learning, job_key(slug, aim, said)
+    log, make = _Tries(lr, key), make_explainer if aim == '3d' else make_demo   # each try that failed the checks: the real stage of the job
+    def run(*a, **kw): job_said(lr, key, STAGES['writing']); return make(*a, **kw)
+    c = lr.concept(slug)
+    what = '3D explainer' if aim == '3d' else 'Simpler demo' if aim == 'simpler' else 'Demo'
+    j = tutor.jobs[k] = track(lr, key, lambda: (tutor.pool or _POOL).submit(run, lr, tutor.ask, slug, first_error, aim=aim, said=said, log=log), 'demo',
+                              ok=lambda d: dict(said='The demo is ready.') if d else dict(state='failed', why='The tutor could not make a demo this time.'),
+                              title=f"{what}: {c.name if c else slug}", said=STAGES['queued'], url=f'/c/{slug}', obj=key, quiet=quiet)
     j.at, j.log = time.time(), log
     return j
 
@@ -348,7 +367,7 @@ def simpler_demo(tutor, slug:str, first_error:str='') -> AttrDict:
     "The second rung for concept `slug`: `demo`, the newest simpler demo; else `demo_pending` and a queued job; else nothing, once `_back` steps back. After \"Not clear\", an older simpler demo does not count."
     if (d := tutor.learning.demo_for(slug, aim='simpler')) and not said(tutor.learning, slug, 'unclear'): return AttrDict(demo=d.slug)
     if backed(tutor.learning, slug, tutor.goal): return AttrDict()
-    queue_demo(tutor, slug, first_error, aim='simpler')
+    queue_demo(tutor, slug, first_error, aim='simpler', quiet=True)   # a rung of the ladder: its card waits, the chip does not list it
     return AttrDict(demo_pending=True, demo_aim='simpler')
 
 # %% ../nbs/10_demo.ipynb #ld19
@@ -370,7 +389,7 @@ def _climb(tutor, q, r):
     if (d := lr.demo_for(q.concept, aim='')):
         r.demo = d.slug   # a plain demo: not an order check, not a simpler demo
         if not k and q.get('aid'): lr.mark_attempt(q.aid, shown_demo=d.slug)
-    elif not k and want_demo(lr.concept(q.concept)): queue_demo(tutor, q.concept, r.get('first_error', '')); r.demo_pending = True
+    elif not k and want_demo(lr.concept(q.concept)): queue_demo(tutor, q.concept, r.get('first_error', ''), quiet=True); r.demo_pending = True
 
 def on_close(tutor, q, r):
     "After each close: keep the misses since the demo on the concept, and after a miss, go down the demo ladder."

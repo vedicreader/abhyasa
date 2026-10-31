@@ -73,12 +73,12 @@ def RowPresent(jid, t=None):
                 hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
 
 def Pending(jid, fill=False, again=False):
-    "A talk that is still being made, filled (`fill`) or made again (`again`): the card asks the server again in 2 seconds."
+    "A talk that is still being made, filled (`fill`) or made again (`again`): the card loads again on the event of its job row (`talk:<jid>`), and every 30 seconds."
     said = (('Filling the slides…', 'The tutor writes the points and the speaker notes of each slide that has none. This can take a minute.') if fill else
             ('Making the talk again…', 'The tutor writes a slide for each new idea. Your edits to slides stay where the idea is the same.') if again else
             ('Making the talk…', 'The tutor writes the points and the speaker notes of each slide, and a question for the room from each check. This can take a minute.'))
     return Div(P(said[0]), P(said[1], cls='mute'),
-               cls='talk-new pending', hx_get=f"{Routes.job}?{urlencode(dict(jid=jid))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
+               cls='talk-new pending', hx_get=f"{Routes.job}?{urlencode(dict(jid=jid))}", hx_trigger='job, every 30s', hx_swap='outerHTML', data_job=f'talk:{jid}')
 
 def made_on(t, hour=False) -> str:
     "When talk `t` was made: `made 31 Oct`, with the hour too when `hour`."
