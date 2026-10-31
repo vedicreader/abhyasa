@@ -2,6 +2,19 @@
 
 <!-- do not remove -->
 
+## 0.0.16
+
+### Fixes from a real-vault audit
+
+- Library, Sources no longer gives error 500. A vault also keeps stores that are not shelves of documents, such as the store of names (`entities`). abhyasa now opens only the shelves that hold documents (`Learning.doc_shelves`, `Learning.doc_shelf`). The tutor's vault search, a document on another shelf, and the arXiv repair use the same rule.
+- A link or a form never adds a new shelf to your vault. Before, the vault viewer (`/v/<shelf>/<id>`) and a walk from a document made an empty shelf for any name in the link.
+- When the model gives no question, or a call to the model fails, a session and a walk show a plain line and Try again. Before, the session page gave error 500. A failed grade or hint gives the line "The tutor could not grade your answer. Try again." and your answer stays in its box.
+- "Add to a walk" on a concept page now gives the new step a check. Before, the walk pages gave error 500 after it. An old walk step with no check gets a short-answer check when it loads.
+- `ask_json` takes `need`: a reply must be one JSON object with text in those keys, or it gets one more try.
+- The log now has the error when a source, a tutor note or a code task fails. The page still shows nothing for them.
+- An empty voice clip gives error 400, not 500.
+- A search query is cut at 500 characters, and a long word in a hit wraps.
+
 ## 0.0.15
 
 ### The screen guide shows what it does
