@@ -1,4 +1,5 @@
 "Your learning, resume after a restart, Continue, and the end of a session."
+import time
 from starlette.testclient import TestClient
 from abhyasa.app import mk_app
 from conftest import Notes
@@ -106,3 +107,36 @@ def test_review_the_misses_lines_up_on_each_row(mk, lr):
     finally: srv.should_exit = True
     assert [c for *_, c in xs] == ['Review the misses'] * 3, xs   # first on each row, also before Continue
     assert len({t for t, _, _ in xs} | {r for _, r, _ in xs}) == 1, xs   # one column: each title and each Review the misses
+
+def open_session(lr, at):
+    "An open session on Ranking that you used last at `at`."
+    lr.log_session('old-open', 'open', start=at - 60, updated=at, focus='ranking', concepts=['ranking'], log=[], open=True)
+    return 'old-open'
+
+def a_walk(lr):
+    "A walk of two ideas that you did not open yet."
+    return lr.put_journey(dict(id='wk1', title='Softmax walk', mode='walk', goal='learn softmax', steps=[dict(slug='ranking', status='todo'), dict(slug='reciprocal-rank-fusion', status='todo')]))
+
+def top(page): return page.split('id="continue"')[0].rsplit('<a ', 1)[1] + page.split('id="continue"')[1].split('</a>')[0]
+
+def test_continue_names_the_walk_that_you_used_last(mk, walk_fake, lr):
+    "A walk that you made, a session that you used after it, then the walk that you open now: the top bar and Today continue the walk, on the walk and on other pages."
+    a_walk(lr); open_session(lr, time.time()); cl = mk()
+    assert 'Continue: Ranking' in top(cl.get('/concepts').text)   # before you open the walk, the session is the newest place
+    step = cl.get('/w/wk1/0').text
+    assert 'Continue: Softmax walk' in top(step)
+    assert 'Continue: Softmax walk' in top(cl.get('/concepts').text)
+    card = cl.get('/').text.split('class="continue-card"')[1].split('</div>')[0]
+    assert 'Softmax walk' in card and '0 of 2 ideas' in card and 'Ranking' not in card
+
+def test_continue_names_a_newer_session(mk, walk_fake, lr):
+    "A walk that you read an hour ago and a session that you used after it: the top bar and Today continue the session, also on the plan of the walk."
+    a_walk(lr); cl = mk(); cl.get('/w/wk1/0')
+    hour = time.time() - 3600
+    lr.merge_journey('wk1', here=dict(step=0, at=hour), steps=[{**s, 'read_at': hour if k == 0 else None} for k, s in enumerate(lr.journey('wk1').steps)])
+    sid = open_session(lr, time.time())
+    bar = top(cl.get('/concepts').text)
+    assert 'Continue: Ranking' in bar and f'href="/s/{sid}"' in bar
+    assert 'Continue: Ranking' in top(cl.get('/w/wk1/edit').text)   # on the walk, the newer session wins
+    card = cl.get('/').text.split('class="continue-card"')[1].split('</div>')[0]
+    assert 'Ranking' in card and 'Softmax walk' not in card

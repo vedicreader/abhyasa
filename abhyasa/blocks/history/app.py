@@ -1,5 +1,6 @@
 "Your learning: past sessions with what moved, what you learned each week, and Continue: in the top bar and on Today."
 import time
+from fastcore.basics import AttrDict
 from fasthtml.common import *
 from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago, Empty
 from abhyasa.settings import val
@@ -117,23 +118,41 @@ def connect(app, ctx):
                     H2('The questions'), *([ui.Question(r, own(r)) for r in log] if log else [P(s.get('summary') or 'No questions.', cls='mute')]),
                     on='You', crumbs=[*up, ('Your learning', Routes.base)])
 
+    def used_at(j):
+        "When you last used walk `j`: the idea that you were on, an idea that you read or closed, Open in Leela, or the start. Else the time of its last change."
+        ts = [j.get('started') or 0, (j.get('here') or {}).get('at') or 0]
+        for s in j.get('steps') or ():
+            d = s.get('done')
+            ts += [s.get('read_at') or 0, s.get('leela_at') or 0, (d.get('at') or 0) if isinstance(d, dict) else 0]
+        return max(ts) or j.get('updated') or 0
+
+    def newest():
+        """The place that you used last, or None: the newest open session, or a walk that is not finished and that you used after it.
+        Each has `title`, `href`, `at` (the time that you used it) and `done` (what was done there)."""
+        by, js = names()
+        best = None
+        if (s := latest_open()):
+            j = js.get(s.get('journey') or '')
+            pg = j and j.get('mode') == 'walk' and progress(lr, opener(j, js)[0] or j, by=by)   # a walk says its ideas, not questions
+            best = AttrDict(title=title(s, by, js), href=back(s, js), at=s.get('updated') or s.get('end') or s.get('start') or 0,
+                            done=f"{pg.done} of {n_of(pg.total, 'idea')}" if pg else n_of(len(s.get('log') or []), 'question') + ' done')
+        for j in js.values():   # the newest change first: a use of a walk changes it, so a walk with an older change was not used later
+            if best and (j.get('updated') or 0) <= best.at: break
+            if for_talk(j) or best and used_at(j) <= best.at: continue   # a side walk of a talk is for the room
+            if (pg := progress(lr, j, by=by)).current:
+                best = AttrDict(title=j.title, href=f'/w/{j.id}' if j.get('mode') == 'walk' else f"{Routes.start}?journey={j.id}", at=used_at(j),
+                                done=f"{pg.done} of {n_of(pg.total, 'idea')}")
+        return best
+
     @hook('nav_extra')
     def continue_link():
-        "Continue where you stopped: the newest open session, else the newest walk that is not finished."
-        if (s := latest_open()):
-            by, js = names()
-            return ui.Continue(s, title(s, by, js), href=back(s, js))
-        for j in [j for j in lr.journeys() if not for_talk(j)][:3]:   # a side walk of a talk is for the room
-            if (pg := progress(lr, j)).current: return A(f'Continue: {j.title}', ui.Kbd('⌥C'), href=f'/w/{j.id}' if j.get('mode') == 'walk' else f"{Routes.start}?journey={j.id}", id='continue')
+        "Continue where you stopped: the place that you used last, an open session or a walk that is not finished."
+        if (p := newest()): return ui.Continue(p.title, p.href)
 
     @hook('today_top')
     def continue_card(subject=None):
-        if not (s := latest_open()): return None
-        by, js = names()
-        j = js.get(s.get('journey') or '')
-        pg = j and j.get('mode') == 'walk' and progress(lr, opener(j, js)[0] or j)   # a walk says its ideas, not questions
-        done = f"{pg.done} of {n_of(pg.total, 'idea')}" if pg else ''
-        return ui.css(), ui.Continue(s, title(s, by, js), big=True, href=back(s, js), done=done)   # the card style is in history.css
+        if not (p := newest()): return None
+        return ui.css(), ui.Continue(p.title, p.href, big=True, done=p.done, at=p.at)   # the card style is in history.css
 
     RouteOverrides.nav.append(('You', Routes.base, 3))
     RouteOverrides.subtabs.setdefault('You', []).append(('Your learning', Routes.base, 0))

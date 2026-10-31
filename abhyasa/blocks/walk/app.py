@@ -520,6 +520,7 @@ def connect(app, ctx):
         if not (j := walk_of(jid, i)): return missing()
         if not for_talk(j):   # a side walk of a talk is for the room: it keeps no read time and starts no demo
             if not j.steps[i].get('read_at'): j = put(j, i, read_at=time.time())
+            if (h := j.get('here') or {}).get('step') != i or time.time() - (h.get('at') or 0) > 60: j = lr.merge_journey(jid, here=dict(step=i, at=time.time()))   # the idea that you are on, for Continue
             ahead(j, i + 1)
         back = leela_back(lr, j)
         j, b = lr.journey(jid), by()

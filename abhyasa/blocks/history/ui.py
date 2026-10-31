@@ -21,14 +21,12 @@ def Week(days):
 def Move(m):
     return Span(A(m['name'], href=f"/c/{m['concept']}"), f" {DEPTHS[m['before']]} → {DEPTHS[m['after']]}", cls='mv')
 
-def Continue(s, title, big=False, href=None, done=''):
-    "The way back into an open session, one key away; `href` is where it goes when it is not the session page. `done` says what a walk did, in place of the questions."
-    href = href or Routes.of(Routes.page, sid=s['id'])
+def Continue(title, href, big=False, done='', at=0):
+    "The way back to the place that you used last, one key away. `done` says what was done there; `at` is the time that you used it."
     if not big: return A(f'Continue: {title}', Kbd('⌥C'), href=href, id='continue', title='Continue where you stopped')
-    n = len(s.get('log') or [])
     return Div(Span('Continue where you stopped', cls='lbl'),
-               P(A(title, href=href), Span(f"  · {done or n_of(n, 'question') + ' done'} · {ago(s.get('updated'))}", cls='mute')),
-               Div(Primary('Continue', href=href, rank=1), cls='row'), cls='continue-card', data_at=str(s.get('updated') or 0))   # on Today; Today keeps the newest top card
+               P(A(title, href=href), Span(f"  · {done} · {ago(at)}", cls='mute')),
+               Div(Primary('Continue', href=href, rank=1), cls='row'), cls='continue-card', data_at=str(at or 0))   # on Today; Today keeps the newest top card
 
 def Row(s, title, ms, href=None, lead=False):
     """One past session: when, what, how it went, what moved, and what you can do next. The title opens the session.

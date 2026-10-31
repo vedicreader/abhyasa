@@ -71,6 +71,7 @@
 - Measured on a walk of 4 ideas with one attached folder (real web, real model): the first source came at 18 to 21 s (before: 32 s with the old agent, 36 s with the search of each idea). The whole run took 79 to 124 s (before: 46 s with the old agent, 117 s with the search of each idea). On a small walk the time of each model step is most of the time. A walk with many ideas gets more from the sub-agents. We did not measure that yet.
 - Fixed: one search result with a very long link stopped the whole search with "File name too long" (fossick tests a link as a path, and Python 3.12 raises for a path of more than 1,024 characters).
 - Change the walk shows the research line under the summary line: how research ended, how many ideas have a source, the quotes that abhyasa left out, "Find sources again", and Stop while research runs. Each idea with no source says "no source yet" in its row. The outline of each idea has "Sources" when an idea has no source, also when research did not run. Then the line says "Research did not look for sources yet." and gives "Find sources".
+- Continue in the top bar and the Continue card on Today go to the place that you used last: an open session or a walk that is not finished. A walk counts from the time that you opened, read or closed an idea in it. Before, an older open session came first, so on a walk the top bar could say "Continue" with another, older topic.
 
 ## 0.0.15
 
