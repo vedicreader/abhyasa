@@ -95,9 +95,9 @@ def TabCount(t, n, oob=False):
     return Span(Span(f' · {n}', cls='n') if n else '', Span(cls='dot on') if n else '', id=f'ixn-{t}', **(dict(hx_swap_oob='true') if oob else {}))
 
 def Tab(t, i, n, on):
-    "One tab: a link to `?tab=<t>`, so it works with no script too. ⌥1 to ⌥7 pick it (settings.js); ← and → move along the row."
+    "One tab: a link to `?tab=<t>`, so it works with no script too. ⌥1 to ⌥7 pick it (settings.js); ← and → move along the row. No boost: settings.js shows the tab, so a click loads no page."
     return A(TABS[t][0], TabCount(t, n), href=f'?tab={t}', role='tab', id=f'ix-{t}', aria_controls=f't-{t}', aria_selected='true' if on else 'false',
-             tabindex='0' if on else '-1', title=f'⌥{i}', cls='on' if on else None, data_tab=t)
+             tabindex='0' if on else '-1', title=f'⌥{i}', cls='on' if on else None, data_tab=t, hx_boost='false')
 
 def Tabs(on, counts):
     "The tab row, and the box that finds a setting in all the tabs."

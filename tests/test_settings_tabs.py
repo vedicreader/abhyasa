@@ -109,6 +109,7 @@ def test_tabs_in_a_browser(site):
     xs = pg.evaluate("[...document.querySelectorAll('#models li.srow.model select')].filter(s => s.checkVisibility()).map(s => Math.round(s.getBoundingClientRect().left))")
     assert len(xs) >= 5 and max(xs) - min(xs) <= 1, xs                                          # the Default list starts where the others start
     box = pg.evaluate(ROW_BOX)
+    asks = []; pg.on('request', lambda r: asks.append(r.url) if '/settings?tab=' in r.url else None)
     pg.click('#ix-voice')
     assert shown(pg, 'voice'); wait_eq(pg, SELECTED, ['voice']); pg.wait_for_url('**/settings?tab=voice')
     now = pg.evaluate(ROW_BOX)
@@ -118,6 +119,7 @@ def test_tabs_in_a_browser(site):
     pg.keyboard.press('End'); assert shown(pg, 'look')
     pg.keyboard.press('ArrowRight'); assert shown(pg, 'models')                   # it goes round
     pg.keyboard.press('ArrowLeft'); assert shown(pg, 'look')
+    assert not asks, asks                                                         # a tab loads no page: a late page would undo the keys
     pg.keyboard.press('Home'); assert shown(pg, 'models')
     pg.keyboard.press('Alt+Digit4')
     assert shown(pg, 'learning'); pg.wait_for_url('**?tab=learning')
