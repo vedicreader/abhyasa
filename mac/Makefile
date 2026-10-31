@@ -59,9 +59,10 @@ test:
 build:
 	swift build
 
-# locks the pinned project again after a change to the abhyasa pin in Resources/Pin/pyproject.toml
+# locks the pinned project again after a change to the abhyasa pin in Resources/Pin/pyproject.toml; it reads abhyasa fresh from the
+# index, so a release that uv has not seen yet does not fail the lock
 lock:
-	"$$UV" lock --project Resources/Pin
+	"$$UV" lock --project Resources/Pin --refresh-package abhyasa
 
 # swift build in release mode; no Metal shaders here, so xcodebuild is not necessary
 bundle:
