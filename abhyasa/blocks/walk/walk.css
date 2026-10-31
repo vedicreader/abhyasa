@@ -35,6 +35,10 @@ main.wide:has(.walk-layout) > .crumbs { max-width: 984px; margin-inline: auto; }
 .walk-dots .d { display: block; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--rule); }
 .outline li.c:is(.done, .known)::before, .walk-dots .d:is(.done, .known) { background: var(--acc); border-color: var(--acc); }
 .outline li.c.shaky::before, .walk-dots .d.shaky { background: color-mix(in srgb, var(--no) 40%, var(--bg)); border-color: var(--no); }
+/* the same dot before each idea of the plan */
+.plan-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--rule); margin-right: var(--s2); vertical-align: .05em; }
+.plan-dot:is(.done, .known) { background: var(--acc); border-color: var(--acc); }
+.plan-dot.shaky { background: color-mix(in srgb, var(--no) 40%, var(--bg)); border-color: var(--no); }
 .outline li.c.skipped a { text-decoration: line-through; }
 /* the dot fills from the centre when the check closes (an out-of-band swap from the answer); the progress line moves with it */
 @keyframes dot-grow { from { transform: scale(.4); } }

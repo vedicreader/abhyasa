@@ -11,7 +11,7 @@ from abhyasa.tutor import HINTS
 from abhyasa.settings import val
 from abhyasa.llm import dflt_model, where_chip
 from abhyasa.core.leela import leela_line, LEELA_INSTALL
-from abhyasa.journey import minutes, TOOL_WAYS, SHAKY, hands_count, hands_most
+from abhyasa.journey import minutes, TOOL_WAYS, SHAKY, hands_count, hands_most, walk_state
 from abhyasa.research import wants_source
 from .cfg import Routes
 
@@ -814,14 +814,20 @@ def step_line(j, s, writing=False):
     return meta(KIND.get(kind, kind), LABELS.get(ck.get('way'), '').lower() if kind == 'short' else '',
                 f"passage: {source_of(r, j).label}" if (r.get('text') or '').strip() else 'no source yet')
 
-def StepRow(j, k, s, by, opened='', fresh='', pick=False, nb=()):
+DOT_SAYS = dict(done='done', shaky='shaky', known='you know it', skipped='skipped', now='now', todo='to do')
+
+def PlanDot(dot):
+    "The dot of an idea in the plan, as in the outline: filled when it is done or known, half filled when it is shaky."
+    return Span(cls=f'plan-dot {dot}', role='img', aria_label=DOT_SAYS.get(dot, dot), title=DOT_SAYS.get(dot, dot))
+
+def StepRow(j, k, s, by, opened='', fresh='', pick=False, nb=(), dot='todo'):
     "Step `s` as row `k` of the editor list: its title and short line, Skip, then the fields of the open row. `nb`: the concepts whose notebook a job writes now."
     slug, n = s['slug'], len(j['steps'])
     acts = [Quiet('Split', ' ', Kbd('P'), small=True, data_key='P', data_wait='Splitting…', **edit_act(j['id'], 'split', slug=slug)),
             Quiet('Merge with next', ' ', Kbd('M'), small=True, data_key='M', disabled=k == n - 1, **edit_act(j['id'], 'merge', slug=slug)),
             Quiet('Remove', ' ', Kbd('X'), small=True, data_key='X', **edit_act(j['id'], 'remove', slug=slug)),
             Quiet('Rewrite', ' ', Kbd('R'), small=True, type='button', data_key='R', data_rewrite='1')]
-    return dict(id=slug, title=Inline(name(by, s)), line=step_line(j, s, slug in nb), post=edit_url(j['id'], slug), body=StepBody(j, k, s, by, pick and slug == opened),
+    return dict(id=slug, title=Span(PlanDot(dot), Inline(name(by, s))), line=step_line(j, s, slug in nb), post=edit_url(j['id'], slug), body=StepBody(j, k, s, by, pick and slug == opened),
                 acts=acts, open=slug == opened, fresh=slug == fresh, cls='skipped' if s.get('status') == 'skip' else '')
 
 def AddIdea(j, by):
@@ -842,8 +848,8 @@ def AddIdea(j, by):
 
 def Steps(j, by, opened='', fresh='', pick=False, nb=()):
     "The ideas of the walk as an editor list, with a quiet label where a section starts, and Add an idea under it. Each change swaps it whole."
-    ss = j['steps']
-    rows = [StepRow(j, k, s, by, opened, fresh, pick, nb) for k, s in enumerate(ss)]
+    ss, st = j['steps'], walk_state(j, by)   # the same dots as the outline
+    rows = [StepRow(j, k, s, by, opened, fresh, pick, nb, st.steps[k].dot) for k, s in enumerate(ss)]
     out = EditList(rows, 'walk-path', add=[AddIdea(j, by)], id='steps', aria_label='The ideas of the walk')
     kids, sec = [], None
     for li, s in zip(out.children, ss):

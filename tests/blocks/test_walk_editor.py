@@ -276,3 +276,15 @@ def test_a_long_name_is_refused_and_marks_go(mk, lr, walk_fake):
     post(cl, jid, act='add', name='Layer‮ norm')
     p = [c for c in walk_fake.calls if 'The idea: ' in c[0]][-1][0]
     assert '<source title="idea">Layer norm</source>' in p
+
+def test_the_plan_marks_each_idea_as_the_outline_does(mk, lr):
+    "The plan on the walk page has the same dot for each idea as the outline: done, shaky and to do."
+    import re
+    ck = dict(way='words', kind='short', depth=2)
+    lr.put('Softmax', 'Softmax makes weights that add to 1.', 'ml')
+    lr.put_journey(dict(id='wd', title='Dots walk', mode='walk', started=1., steps=[dict(slug='ranking', status='todo', check=ck, done=dict(outcome='solid', at=1.)),
+                        dict(slug='reciprocal-rank-fusion', status='todo', check=ck, done=dict(outcome='fragile', at=2.)), dict(slug='softmax', status='todo', check=ck)]))
+    cl = mk()
+    plan = cl.get('/w/wd').text
+    rail = cl.get('/w/wd/2').text
+    assert re.findall(r'class="plan-dot (\w+)"', plan) == ['done', 'shaky', 'now'] == re.findall(r'<li id="rail-\d" class="c (\w+)', rail)
