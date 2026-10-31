@@ -12,7 +12,7 @@ struct AbhyasaApp: App {
             MainView(model: model)
                 .frame(minWidth: 640, minHeight: 480)
                 .onOpenURL { model.open($0) }
-                .background(WindowOpener())   // a click on a notification of research opens this window
+                .background(WindowOpener())   // a notification, the Dock icon and the menu bar mark open this window again
         }
         .defaultSize(width: 1100, height: 800)
         .handlesExternalEvents(matching: [Links.scheme])
@@ -43,9 +43,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated { AppModel.shared.start(); ResearchWatch.shared.start() }
     }
 
-    /// while research of a walk runs, closing the window keeps the app in the menu bar, so research goes on
-    func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool {
-        MainActor.assumeIsolated { ResearchWatch.shared.quitOnLastWindow() }
+    /// as Leela: the app runs until you quit it. Closing the window leaves the menu bar mark and the server running
+    func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { Life.quitOnLastWindow }
+
+    /// a click on the Dock icon with no window open: the main window opens again
+    func applicationShouldHandleReopen(_ app: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if Life.reopen(visibleWindows: hasVisibleWindows) { MainActor.assumeIsolated { ResearchWatch.shared.show(path: nil) } }
+        return true
     }
 
     func applicationWillTerminate(_ n: Notification) {

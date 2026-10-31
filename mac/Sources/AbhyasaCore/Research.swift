@@ -46,11 +46,9 @@ public struct ResearchStatus: Decodable, Equatable, Sendable {
     public init(running: [ResearchWalk], ended: [ResearchWalk]) { self.running = running; self.ended = ended }
 }
 
-/// What the Mac app does with the research of walks: stay alive while it runs, and tell the learner when it ends.
+/// What the Mac app does with the research of walks: tell the learner when it ends. The app runs until you quit it (`Life`).
 public enum Research {
     public static let path = "jobs.json"   // the server keeps `walk/research.json` for an older app
-    /// the line, said one time, when the last window closes while research runs
-    public static let menuBarNote = "Abhyasa still looks for sources. It runs in the menu bar."
     public static let notifyTitle = "Sources are ready"
 
     /// the research rows of `/jobs.json`; a job of another kind is left out
@@ -58,12 +56,6 @@ public enum Research {
         guard let d = try? JSONDecoder().decode(JobsDoc.self, from: data) else { return nil }
         return ResearchStatus(running: d.running.compactMap(\.walk), ended: d.ended.compactMap(\.walk))
     }
-
-    /// whether the app quits when its last window closes: only when no research runs, so closing the window never stops it
-    public static func quitOnLastWindow(running: Int) -> Bool { running == 0 }
-
-    /// whether the app, kept alive in the menu bar with no window, quits now: research ended
-    public static func quitNow(running: Int, windows: Int, keptAlive: Bool) -> Bool { keptAlive && running == 0 && windows == 0 }
 
     /// the walks to tell the learner about: research ended after `since` (the start of the app), and not told yet (`told`: `id@end`)
     public static func toTell(_ s: ResearchStatus, since: Double, told: Set<String>) -> [ResearchWalk] {

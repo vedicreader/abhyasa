@@ -57,6 +57,8 @@ public final class Guide {
     public var ownApp: (() -> Void)?
     /// opens the Settings window of the app
     public var openSettings: (() -> Void)?
+    /// opens the main window of the app, from the menu bar mark
+    public var openApp: (() -> Void)?
     /// the model id and the speech engine of the Mac Settings (empty: the server default and the Settings page)
     public var model = ""
     public var speechEngine = ""
@@ -101,6 +103,8 @@ public final class Guide {
         mark.onVoice = { [weak self] in self?.toggleVoice() }
         mark.onTurn = { [weak self] on in self?.setEnabled(on) }
         mark.onSettings = { [weak self] in self?.openSettings?() }
+        mark.onOpen = { [weak self] in self?.openApp?() }
+        mark.onQuit = { NSApp.terminate(nil) }
     }
 
     /// the server is ready on `port`: the menu bar mark shows, and the key works from now on when the guide is on

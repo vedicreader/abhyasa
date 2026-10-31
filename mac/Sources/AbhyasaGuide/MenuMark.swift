@@ -1,7 +1,8 @@
 import AppKit
 
 /// The menu bar mark of the screen guide (P0 item 5): a small template glyph that follows the state, with no animation. Its
-/// menu has the state line, Stop, Voice off, Turn off (or on) the guide, and Settings.
+/// menu has the state line, Stop, Voice off, Turn off (or on) the guide, Settings, Open Abhyasa and Quit Abhyasa. The mark stays
+/// while the app runs, also with no window, so it is the way back to the window and to Quit.
 @MainActor
 public final class MenuMark: NSObject, NSMenuDelegate {
     var item: NSStatusItem?
@@ -12,6 +13,8 @@ public final class MenuMark: NSObject, NSMenuDelegate {
     /// true: turn on (the first-use sheet when it is due); false: turn off
     public var onTurn: ((Bool) -> Void)?
     public var onSettings: (() -> Void)?
+    public var onOpen: (() -> Void)?
+    public var onQuit: (() -> Void)?
 
     /// the items of the menu for `state`, as (title, enabled, checked); a pure part, for the tests
     nonisolated public static func items(_ state: GuideState, muted: Bool) -> [(title: String, enabled: Bool, checked: Bool)] {
@@ -19,7 +22,9 @@ public final class MenuMark: NSObject, NSMenuDelegate {
          (GuideText.stop, state.busy, false),
          (GuideText.voiceOff, state != .off, muted),
          (state == .off ? GuideText.turnOn : GuideText.turnOff, true, false),
-         (GuideText.settings, true, false)]
+         (GuideText.settings, true, false),
+         (GuideText.openApp, true, false),
+         (GuideText.quitApp, true, false)]
     }
 
     public func install() {
@@ -45,14 +50,14 @@ public final class MenuMark: NSObject, NSMenuDelegate {
     // the menu is made each time it opens, so it always says the state of now
     public func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
-        let acts: [Selector?] = [nil, #selector(stop), #selector(voice), #selector(turn), #selector(settings)]
+        let acts: [Selector?] = [nil, #selector(stop), #selector(voice), #selector(turn), #selector(settings), #selector(open), #selector(quit)]
         for (k, e) in Self.items(state, muted: muted).enumerated() {
             let mi = NSMenuItem(title: e.title, action: e.enabled ? acts[k] : nil, keyEquivalent: "")
             mi.target = self
             mi.isEnabled = e.enabled
             mi.state = e.checked ? .on : .off
             menu.addItem(mi)
-            if k == 0 || k == 2 { menu.addItem(.separator()) }
+            if k == 0 || k == 2 || k == 4 { menu.addItem(.separator()) }
         }
     }
 
@@ -60,4 +65,6 @@ public final class MenuMark: NSObject, NSMenuDelegate {
     @objc func voice() { onVoice?() }
     @objc func turn() { onTurn?(state == .off) }
     @objc func settings() { onSettings?() }
+    @objc func open() { onOpen?() }
+    @objc func quit() { onQuit?() }
 }

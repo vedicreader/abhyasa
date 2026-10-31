@@ -106,9 +106,10 @@ import Testing
         #expect(GuideState.server(nil, who: sonnet) == nil)
     }
 
-    @Test func theMenuHasTheStateStopVoiceTurnAndSettings() {
+    @Test func theMenuHasTheStateStopVoiceTurnSettingsOpenAndQuit() {
         let off = MenuMark.items(.off, muted: false)
-        #expect(off.map(\.title) == ["Screen guide: off.", "Stop", "Voice off", "Turn on the guide…", "Settings…"])
+        #expect(off.map(\.title) == ["Screen guide: off.", "Stop", "Voice off", "Turn on the guide…", "Settings…", "Open Abhyasa", "Quit Abhyasa"])
+        #expect(off[5].enabled && off[6].enabled)   // with no window, the mark is the way back and the way to quit
         #expect(!off[0].enabled && !off[1].enabled && !off[2].enabled)
         let busy = MenuMark.items(.drawing, muted: true)
         #expect(busy[1].enabled && busy[2].checked)

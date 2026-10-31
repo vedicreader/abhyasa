@@ -3,6 +3,11 @@
 Abhyasa.app is a SwiftUI window with a web view of the abhyasa server. The app starts the server. It stops the server
 when you quit. It is for macOS 26 on Apple Silicon.
 
+The app runs until you quit it, as Leela does. When you close the window, the app, its menu bar mark and the server
+keep running, so research, a demo or a download goes on. To open the window again, click the Dock icon, or choose
+Open Abhyasa in the menu of the mark. To stop the app and the server, choose Abhyasa > Quit (Command-Q), or Quit Abhyasa
+in the menu of the mark. macOS runs one copy of the app.
+
 ## How it works
 
 The bundle holds a small pinned project (`Contents/Resources/Pin`). The only dependency of the project is
@@ -48,6 +53,8 @@ The `whisper` extra installs `mlx-audio` for the speech engines. The `voice` ext
   microphone only to `http://127.0.0.1:<the server port>`.
 - Keys: no menu item uses Option and a letter, so Option-D, Option-S and Option-W go to the page.
 - Menu: File > New Session (Command-N), and Go > Today, Graph, Search (Command-F) and Add a Source.
+- Notifications: when the research of a walk ends, a notification says how many ideas have a source. A click opens the
+  walk. The app asks for permission the first time research runs, never at launch.
 - Dock badge: the number of due reviews, from `/due.json`. The app reads it each 5 minutes and after each page load.
   abhyasa 0.0.2 does not have `/due.json`. Thus the badge shows after the next release of the Python package.
 - Links: `abhyasa://concept/<slug>` opens the page of that concept. `abhyasa://vault/<shelf>/<doc_id>` opens that
@@ -79,7 +86,7 @@ window, asks the server and draws.
   says "The guide follows your pointer while you ask."
 - The menu bar mark follows the state: off, ready, listening, writing what you said, reading, asking, searching, saving and
   drawing. It is a small template glyph with no animation. Its menu has the state line, Stop, Voice off, Turn off the guide
-  (or Turn on the guide) and Settings.
+  (or Turn on the guide), Settings, Open Abhyasa and Quit Abhyasa. The mark stays while the app runs, also with no window.
 - The server's state events: a `wait` event can have `state`, `model`, `where`, `who`, `query` and `sources`. The strip shows
   the line with its chip, and the web query word for word. A `saved` event shows "Saved to your vault: <title>." with Undo,
   which posts to the route of the event (a path on the server only). Each field is optional, so an older server works too.

@@ -5,17 +5,10 @@ import Testing
 @Suite struct ResearchTests {
     let walk = ResearchWalk(id: "fine-tune-1a2b", title: "Fine-tune Diffusion for Comics", url: "/w/fine-tune-1a2b?plan=1#gather", end: 2000, have: 9, total: 11)
 
-    @Test func closingTheWindowQuitsOnlyWhenNoResearchRuns() {
-        #expect(Research.quitOnLastWindow(running: 0))
-        #expect(!Research.quitOnLastWindow(running: 1))
-        #expect(!Research.quitOnLastWindow(running: 3))
-    }
-
-    @Test func theAppInTheMenuBarQuitsWhenResearchEnds() {
-        #expect(Research.quitNow(running: 0, windows: 0, keptAlive: true))
-        #expect(!Research.quitNow(running: 1, windows: 0, keptAlive: true))   // research still runs
-        #expect(!Research.quitNow(running: 0, windows: 1, keptAlive: true))   // the learner opened the window again
-        #expect(!Research.quitNow(running: 0, windows: 0, keptAlive: false))  // the app was never kept alive: it quits as before
+    @Test func theAppRunsUntilYouQuitIt() {
+        #expect(!Life.quitOnLastWindow)                   // closing the window never quits: the server and research go on
+        #expect(Life.reopen(visibleWindows: false))       // the Dock icon opens the window again
+        #expect(!Life.reopen(visibleWindows: true))
     }
 
     @Test func notificationTextIsPlain() {
@@ -23,7 +16,6 @@ import Testing
         #expect(Research.notifyBody(walk) == "Sources for your walk \u{2018}Fine-tune Diffusion for Comics\u{2019} are ready. 9 of 11 ideas have a source.")
         let one = ResearchWalk(id: "a", title: "A", url: "/w/a", end: 1, have: 1, total: 1)
         #expect(Research.notifyBody(one).hasSuffix("1 of 1 idea has a source."))
-        #expect(Research.menuBarNote == "Abhyasa still looks for sources. It runs in the menu bar.")
     }
 
     @Test func tellsEachEndOnceAndNothingFromBeforeTheStart() {

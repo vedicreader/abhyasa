@@ -44,6 +44,8 @@ public enum GuideText {
     public static let useLocal = "Use a model on this Mac"
     public static let ok = "OK"
     public static let settings = "Settings…"
+    public static let openApp = "Open Abhyasa"
+    public static let quitApp = "Quit Abhyasa"
 
     // the where chip
     public static let onThisMac = "on this Mac"
