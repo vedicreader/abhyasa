@@ -81,3 +81,26 @@ def test_viewer_refuses_the_history_of_an_editor(mk, lr):
     d = lr.v.t.docs(where="kind='edits'")[0]['id']
     t = mk(['vault']).get(f'/v/learning/{d}').text
     assert 'No such document' in t and 'A secret slide' not in t
+
+def test_a_long_word_in_a_document_wraps(mk, lr):
+    "A text line with no space, as in a transliterated Sanskrit file (words joined by dots), wraps in the page: the page gets no side scroll."
+    import socket, threading, time, uvicorn, pytest
+    from test_board_js import _chromium
+    if not _chromium(): pytest.skip("Playwright's Chromium is not installed")
+    from playwright.sync_api import sync_playwright
+    long = '.'.join(['mūrtitve', 'parikalpitaḥ', 'śaśa', 'bhṛto', 'vartmā', 'apunar', 'janmanām'] * 12)
+    d = lr.vault.add(f'Header\n\n{long}\n\nThe end.', title='gretil bj', source='/tmp/vr/gretil_bj.txt', kind='txt')['doc_id']
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(mk().app, host='127.0.0.1', port=port, log_level='error'))
+    threading.Thread(target=srv.run, daemon=True).start()
+    while not srv.started: time.sleep(.05)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_page(viewport=dict(width=1100, height=800))
+                pg.goto(f'http://127.0.0.1:{port}/v/store/{d}', wait_until='load')
+                assert long[:40] in pg.content()
+                assert pg.evaluate("() => document.documentElement.scrollWidth <= window.innerWidth")
+            finally: b.close()
+    finally: srv.should_exit = True
