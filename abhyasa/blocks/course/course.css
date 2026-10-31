@@ -1,0 +1,23 @@
+/* The course page and the course line on Today: plain and calm, one main button. */
+.course-card { margin: var(--s3) 0 var(--s4); padding: var(--s4) var(--s5) var(--s5); background: var(--raised); --bg: var(--raised); box-shadow: var(--lift); border-radius: var(--r); }
+.course-card p { margin: 2px 0 0; }
+.course-card .row { margin-top: var(--s3); }
+.course-here { font-size: var(--t-body); }
+.course-why { color: var(--fg); }
+.course-bar { display: block; height: 3px; margin: var(--s2) 0 0; background: var(--line); border-radius: 2px; overflow: hidden; max-width: 28rem; }
+.course-bar i { display: block; height: 100%; background: var(--acc); }
+.course-stages > li { margin: 0 0 var(--s3); }
+.course-stage .row { gap: var(--s2); align-items: baseline; flex-wrap: wrap; }
+.course-stage .k { color: var(--mute); min-width: 1.2em; }
+.course-stage.skipped, .course-stage.known { opacity: .7; }
+.course-stage p { margin: 2px 0 0 1.7em; }
+.course-stage .course-bar { margin-left: 1.7em; }
+.course-block { margin: 0 0 var(--s2); }
+.course-qs > li { margin: 0 0 var(--s3); }
+.course-q p { margin: 0 0 var(--s1); }
+.course-q .row { gap: var(--s2); }
+.course-say { margin-top: var(--s2); max-width: 28rem; }
+.course-say input { width: 100%; }
+.course-ans { color: var(--acc); }
+.course-pending { color: var(--mute); }
+.course-end { margin-top: var(--s3); }

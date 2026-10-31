@@ -318,6 +318,7 @@ def connect(app, ctx):
             raise LinkError('The tutor found no steps for this goal.' if goal else 'The tutor found no ideas in these sources.')
         j = lr.merge_journey(j.id, filed=filed, notes=notes, chips=list(ids), chip_counts=counts)
         if goal:
+            run_hook('goal_walk', j)   # the course block joins the walk to the course of its goal
             if want_agent(j): ctx.research.gather(j.id); write_notebooks(j)   # a big goal: the agent gathers the sources (D6)
             else: research_new(j)
             if val('research.on') and not val('research.told'): set_val('research.told', True)
