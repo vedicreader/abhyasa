@@ -118,13 +118,15 @@ def connect(app, ctx):
         guide filed a web page in the vault: a POST to `undo` takes it away. Then `{"board": …, "point": look}` (the whole board, also after its
         steps; with `hint` when the board counts as a hint on the open check), or `{"error": text}`. The model runs on a thread; the
         page context is never stored. When the page stops reading, the model stream closes. `point` is the setting `guide.point`, for
-        the Mac overlay, which has no page of the app."""
+        the Mac overlay, which has no page of the app. `thread` (in the body, or in `ctx`) is the last 3 turns of the page,
+        `[{said, says, t}]`: `clean_context` keeps a good one, and the server keeps none of it after the question."""
         body = await req.body()
         try: d = json.loads(body) if len(body) <= ASK_BYTES else None
         except ValueError: d = None
         said = ' '.join(str((d or {}).get('said') or '').split())
         if not said: return Response('Say or type what you do not understand.', status_code=400, media_type='text/plain')
-        ctx_ = clean_context(d.get('ctx'))
+        raw_ = d.get('ctx') if isinstance(d.get('ctx'), dict) else {}
+        ctx_ = clean_context({**raw_, 'thread': d.get('thread', raw_.get('thread'))})   # the thread of the page: in the body, or in the ctx (the Mac)
         if ctx_.get('video'):   # the cues come from the vault, never from the page
             if (v := await asyncio.to_thread(video_of, lr, ctx_.video['id'])): ctx_.video = v
             else: ctx_.pop('video')
