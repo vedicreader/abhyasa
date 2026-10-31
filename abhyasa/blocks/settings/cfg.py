@@ -18,7 +18,6 @@ class Routes:
     prompt = '/settings/prompt'      # save the text of one tutor prompt; empty: the default
     prompt_default = '/settings/prompt/default'   # use the default text of one tutor prompt
     out = '/settings/voice'              # the speaking voice: the engine, the model and the voice
-    out_get = '/settings/voice/get'      # download a voice model in the background, then use it
-    out_search = '/settings/voice/search'   # look up text to speech models on Hugging Face
+    out_get = '/settings/voice/get'      # download the voice of Pocket TTS in the background, then use it
     out_sample = '/settings/voice/sample'   # say one sample line in the voice of the settings: JSON with base64 WAV
     out_status = '/settings/voice/status'   # the state of the voice model in use

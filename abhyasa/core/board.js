@@ -29,7 +29,7 @@
 //               'dot'   a small filled dot under the target, that pulses one time (no pulse with reduced motion).
 //               'ring'  a short arrow and a ring on the target, thinner and smaller than a circle, at half the ink.
 //             An unknown look gives the default.
-//     voiceAt {model, where, who}: the voice that speaks the board, shown after the Voice button as "Kokoro · on this Mac". Default none.
+//     voiceAt {model, where, who}: the voice that speaks the board, shown after the Voice button as "Pocket TTS · on this Mac". Default none.
 //     notice  {text, href, link}: one quiet line in the strip for this board, with a local link when `href` is a local path. Default none.
 //     host    the hooks of the page that shows the board. Each one is optional:
 //       resolve(id) -> Element|null   the element of anchor `id`. Default: document.querySelector('[data-guide-id="<id>"]').

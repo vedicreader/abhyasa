@@ -84,7 +84,7 @@ DFLT_TAB = next(iter(TABS))
 def tab_ids() -> dict:
     "Each id that a link to the page can name, with its tab: the groups (`g-voice`), the rows (`sr-walks-hands`) and the parts of a group."
     return ({f'g-{g}': t for g, t in TAB_OF.items()} | {row_id(r): TAB_OF[r.group] for r in SETTINGS.values()} |
-            dict(speech='voice', jobs='voice', found='voice', key='voice', models='models', look='look', **{'voice-out': 'voice', 'out-found': 'voice'}))
+            dict(speech='voice', jobs='voice', found='voice', key='voice', models='models', look='look', **{'voice-out': 'voice'}))
 
 def tab_for(tab:str='') -> str:
     "The tab that `?tab=` names, else the first tab."
@@ -189,11 +189,10 @@ def SpeechGroup(sp, key, jobs, n):
     return RowGroup('stt', n, lambda r: val(r.name), extra=(Speech(sp, key), Jobs(jobs)), more_extra=(Lookup(), Key()))
 
 # --- the speaking voice ----------------------------------------------------------------------------------------------
-OUT_LABEL = dict(browser='The browser', kokoro='Kokoro', openai='OpenAI', hf='A Hugging Face model')
-OUT_NOTE = dict(browser='The voice of the browser, or of the Mac in the overlay. It sounds like a machine.',
-                kokoro='A natural voice, 390 MB. It runs on this Mac and gives the time of each word.',
+OUT_LABEL = dict(pocket='Pocket TTS', openai='OpenAI', browser='The browser')
+OUT_NOTE = dict(pocket='A natural voice. It runs on this Mac. You download it one time (225 MB).',
                 openai='A natural voice. Each line goes to OpenAI, after the privacy guard. It needs a key.',
-                hf='A text to speech model from Hugging Face that mlx-audio can load. It runs on this Mac.')
+                browser='The voice of the browser, or of the Mac in the overlay. It needs no download, but it sounds like a machine.')
 SAMPLE = 'This is the voice of the guide. It reads each step aloud.'
 
 def OutWhere(engine):
@@ -206,7 +205,7 @@ def OutStatus(speaker):
     return Span(speaker.status, id='out-status', cls='mute', **poll)
 
 def OutEngine(engine, key):
-    "The four engines, as radio buttons. OpenAI needs a key first."
+    "The three engines, as radio buttons. OpenAI needs a key first."
     def one(e):
         off = e == 'openai' and not key
         return Label(Input(type='radio', name='engine', value=e, checked=e == engine, disabled=off),
@@ -215,66 +214,45 @@ def OutEngine(engine, key):
                 role='radiogroup', aria_label='Speaking engine', cls='out-engines')
 
 def OutModel(engine, model, speaker):
-    "The model of the voice: here or not, with Download; for OpenAI a list of its speech models."
-    if engine == 'browser': return ''
+    "For Pocket TTS: on this Mac, or Download; for OpenAI: a list of its speech models."
+    post = dict(hx_target='#voice-out', hx_swap='outerHTML')
     if engine == 'openai':
         return P(Label('Model ', Select(*[Option(m, value=m, selected=m == model) for m in voice.OPENAI_SPEECH], name='model', hx_post=Routes.out,
-                                        hx_vals={'engine': 'openai'}, hx_trigger='change', hx_target='#voice-out', hx_swap='outerHTML')), cls='out-line')
-    if not model: return P('Look up a model below, then click Download or Use.', cls='mute')
-    here = voice.cached(model)
-    return P('Model ', A(model, href=f'https://huggingface.co/{model}'), ' ',
-             Span('on this Mac', cls='ok') if here else Button('Download', hx_post=Routes.out_get, hx_vals={'engine': engine, 'model': model},
-                                                              hx_target='#voice-out', hx_swap='outerHTML', title='Download the model, then use it'),
-             ' ', OutStatus(speaker) if here else '', cls='out-line')
+                                        hx_vals={'engine': 'openai'}, hx_trigger='change', **post)), cls='out-line')
+    if engine != 'pocket': return ''
+    if voice.cached(model): return P(Span('on this Mac', cls='ok'), ' ', OutStatus(speaker), cls='out-line')
+    return P('The voice is not on this Mac yet. Until you download it, the browser speaks. ',
+             Button('Download', hx_post=Routes.out_get, hx_vals={'engine': 'pocket'}, title='Download the voice (225 MB), then use it', **post), cls='warn first-use')
 
-def OutVoice(engine, model, v):
-    "The voice of the model: a list for Kokoro and OpenAI, a text box for another model."
+def OutVoice(engine, v):
+    "The voice: a list of the voices of the engine."
     if engine == 'browser': return ''
-    post = dict(hx_post=Routes.out, hx_vals={'engine': engine, 'model': model}, hx_trigger='change', hx_target='#voice-out', hx_swap='outerHTML')
-    if engine in ('kokoro', 'openai'):
-        vs = voice.KOKORO_VOICES if engine == 'kokoro' else voice.OPENAI_VOICES
-        return P(Label('Voice ', Select(*[Option(x, value=x, selected=x == v) for x in vs], name='voice', **post)), cls='out-line')
-    return P(Label('Voice ', Input(type='text', name='voice', value=v, placeholder='empty: the default of the model', autocomplete='off', **post)), cls='out-line')
-
-def OutLookup():
-    return Div(Form(Input(type='search', name='q', placeholder='kokoro, qwen3-tts, chatterbox, csm…', aria_label='Look up voice models'),
-                    Button('Look up'), Spin('looking…'), hx_get=Routes.out_search, hx_target='#out-found', cls='row lookup'),
-               P('The list shows only mlx-community text to speech models.', cls='mute'), Div(id='out-found'))
-
-def OutFound(rows, cur):
-    "The text to speech models that Hugging Face gives for the search."
-    if not rows: return P('No text to speech models match. Try "kokoro", "tts" or "chatterbox".', cls='mute')
-    def row(r):
-        m = r['model']
-        e = 'kokoro' if m == voice.DFLT_KOKORO else 'hf'
-        act = (Span('In use', cls='inuse') if cur == m else
-               Button('Use' if voice.cached(m) else 'Download', hx_post=Routes.out if voice.cached(m) else Routes.out_get, hx_vals={'engine': e, 'model': m},
-                      hx_target='#voice-out', hx_swap='outerHTML'))
-        return Tr(Td(A(m, href=f'https://huggingface.co/{m}')), Td(size(r['size']), cls='n'), Td(f"{r['downloads']:,}", cls='n'),
-                  Td(Span('on this Mac', cls='ok') if voice.cached(m) else ''), Td(act))
-    return Table(Thead(Tr(*map(Th, ('Model', 'Size', 'Downloads', '', '')))), Tbody(*map(row, rows)), cls='models')
+    vs = voice.POCKET_VOICES if engine == 'pocket' else voice.OPENAI_VOICES
+    return P(Label('Voice ', Select(*[Option(x.replace('_', ' ').title(), value=x, selected=x == v) for x in vs], name='voice', hx_post=Routes.out,
+                                    hx_vals={'engine': engine}, hx_trigger='change', hx_target='#voice-out', hx_swap='outerHTML')), cls='out-line')
 
 def VoiceOut(speaker, key, oob=False):
-    "The speaking voice: the engine, the model, the voice, and Play a sample."
-    engine, model, v = val('voice.out'), val('voice.out_model'), val('voice.out_voice')
-    if engine != 'browser' and not (engine == 'hf' and not model): _, model, v = voice.out_resolve(engine, model, v)
-    return Div(OutEngine(engine, key), OutModel(engine, model, speaker), OutVoice(engine, model, v),
-               OutLookup() if engine == 'hf' else '',
+    "The speaking voice: the engine, the model, the voice, the speed for OpenAI, and Play a sample."
+    engine, model, v, _ = voice.out_current()
+    sp = SETTINGS['voice.out_speed']
+    return Div(OutEngine(engine, key), OutModel(engine, model, speaker), OutVoice(engine, v),
+               Ul(Row(sp, val(sp.name)), id='out-speed', cls='plain srows', hidden=engine != 'openai'),   # Pocket TTS and the browser have no speed here
                P(Button('Play a sample', type='button', cls='quiet', data_sample=Routes.out_sample, data_engine=engine, data_text=SAMPLE),
                  ' ', Span(cls='mute out-said', aria_live='polite'), cls='out-line'),
                id='voice-out', **(dict(hx_swap_oob='true') if oob else {}))
 
 def VoiceGroup(speaker, key, n):
-    "Speaking voice: the engine and its model and voice, then the speed."
-    return RowGroup('voice', n, lambda r: val(r.name), extra=(VoiceOut(speaker, key),))
+    "Speaking voice: the engine, its voice and the speed of OpenAI. The speed row is in `VoiceOut`, and it is hidden for the other engines."
+    return Group('voice', n, extra=(VoiceOut(speaker, key),))
 
 def Job(j):
+    n = 'The voice (Pocket TTS)' if j.model == voice.POCKET else j.model
     if j.state == 'downloading':
         done, tot = voice.cache_bytes(j.model), j.total
-        return Li(f'Downloading {j.model}: {size(done) or "0 MB"}' + (f' of {size(tot)} ({min(done / tot, 1):.0%})' if tot else ''))
-    if j.state == 'loading': return Li(f'Loading {j.model} into memory…')
-    if j.state == 'failed': return Li(f'{j.model} failed: {j.error}', cls='no')
-    return Li(f'{j.model} is ready and in use.', cls='ok')
+        return Li(f'Downloading {n}: {size(done) or "0 MB"}' + (f' of {size(tot)} ({min(done / tot, 1):.0%})' if tot else ''))
+    if j.state == 'loading': return Li(f'Loading {n} into memory…')
+    if j.state == 'failed': return Li(f'{n} failed: {j.error}', cls='no')
+    return Li(f'{n} is ready and in use.', cls='ok')
 
 def Jobs(jobs, oob=False):
     "Progress lines; they ask again each second while a download runs."

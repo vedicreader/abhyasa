@@ -456,7 +456,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   function voiceOffer() {   // the first board with the browser voice says one time that a natural voice can read the steps
     if (natural() || !voiceOn() || localStorage.getItem('guide-voice-offered')) return null;
     localStorage.setItem('guide-voice-offered', '1');
-    return {text: 'Kokoro can read the steps in a natural voice, on this Mac.', href: '/settings#g-voice', link: 'Turn it on in Settings'};
+    return {text: 'A natural voice can read the steps, on this Mac. It is a download of 225 MB.', href: '/settings#g-voice', link: 'Get it in Settings'};
   }
   function setVoice(on) {
     info.voice = on;

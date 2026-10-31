@@ -73,10 +73,10 @@ def test_first_use_offers_the_download(mk, monkeypatch):
     voice.update_settings('stt', engine='gemma', model='litert-community/gemma-4-E4B-it-litert-lm')
     monkeypatch.setattr(voice, 'cached', lambda m: False)
     t = mk(['settings']).get('/settings').text
-    line = t[t.index('first-use'):]; line = line[:line.index('</p>')]
+    line = t[t.index('The speech model is not'):]; line = line[:line.index('</p>')]
     assert 'The speech model is not on this Mac yet (1.0 GB)' in line and voice.DFLT_STT in line and 'Download' in line
     monkeypatch.setattr(voice, 'cached', lambda m: True)
-    assert 'not on this Mac yet' not in mk(['settings']).get('/settings').text
+    assert 'The speech model is not on this Mac' not in mk(['settings']).get('/settings').text
 
 def test_lookup(mk, monkeypatch):
     monkeypatch.setattr(voice, 'search_models', lambda q: [dict(model='mlx-community/whisper-tiny-asr-fp16', downloads=1200, size=80 * 2**20)])

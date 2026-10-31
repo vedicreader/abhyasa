@@ -44,11 +44,12 @@ def speech() -> dict:
     lab = next((k['label'] for k in KNOWN if k['model'] == m), '')
     return dict(model=lab.split(' (')[0].split(' ')[0] or 'The speech model', where='on this Mac', who='')
 
-def voice_out() -> dict:
-    "Who reads the board aloud: the engine of the setting `voice.out`, its name, and where it runs. Only OpenAI is hosted."
-    from abhyasa.voice import out_current, out_where
+def voice_out(here=None) -> dict:
+    "Who reads the board aloud: the engine of the setting `voice.out`, its name, and where it runs. Only OpenAI is hosted. The browser speaks until the local voice is on this Mac."
+    from abhyasa.voice import out_current, out_where, cached
     e, m, v, _ = out_current()
-    name = dict(browser='The browser', kokoro='Kokoro', openai='OpenAI').get(e) or m.split('/')[-1]
+    if e == 'pocket' and not (here or cached)(m): e, m, v = 'browser', '', ''
+    name = dict(browser='The browser', pocket='Pocket TTS', openai='OpenAI')[e]
     return dict(engine=e, model=name, voice=v, where=out_where(e), who='OpenAI' if e == 'openai' else '')
 
 def connect(app, ctx):
@@ -64,7 +65,7 @@ def connect(app, ctx):
             g = where_of(getattr(guide_ask(ask), 'model', ''))
             routed = hasattr(getattr(ask, 'dflt', None), 'via')
             info_[:] = time.monotonic(), dict(model=g, vision=where_of(ask.name('guide_vision') or dflt_model()) if routed else g, speech=speech()), now
-        return {**info_[1], 'voice': bool(val('guide.voice')), 'point': val('guide.point'), 'out': voice_out(), 'say': Routes.say}
+        return {**info_[1], 'voice': bool(val('guide.voice')), 'point': val('guide.point'), 'out': voice_out(speaker.here), 'say': Routes.say}
     figs = FigureCache(cfg_dir()/'guide-figures.json')
     warmed, warm_lock = [-WARM_EVERY], threading.Lock()
 

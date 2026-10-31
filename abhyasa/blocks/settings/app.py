@@ -213,19 +213,14 @@ def connect(app, ctx):
 
     def out_route(engine:str='', model:str='', voice:str=''): return out(engine, model, voice)   # the form names it `voice`
 
-    def out_get(engine:str, model:str):
-        "Download a voice model in the background, then use it."
-        if engine not in ('kokoro', 'hf'): return Response('unknown voice engine', status_code=400)
-        if voice.cached(model): return out(engine, model)
+    def out_get(engine:str='pocket'):
+        "Download the voice of Pocket TTS in the background, then use it."
+        if engine != 'pocket': return Response('unknown voice engine', status_code=400)
+        if voice.cached(voice.POCKET): return out(engine)
         def then():
-            voice.update_settings('voice', out=engine, out_model=model, out_voice='')
+            voice.update_settings('voice', out=engine)
             return spk.warm()
-        return fetch_job(engine, model, then, spk, out_part)
-
-    def out_search(q:str=''):
-        try: rows = voice.search_models(q, kind='tts')
-        except Exception as e: return P(f'Hugging Face did not answer: {e}', cls='mute')
-        return ui.OutFound(rows, val('voice.out_model') or (voice.DFLT_KOKORO if val('voice.out') == 'kokoro' else ''))
+        return fetch_job(engine, voice.POCKET, then, spk, out_part)
 
     async def out_sample():
         "The sample line in the voice of the settings, with the time to the audio: JSON {audio, words, ms, where}."
@@ -259,6 +254,5 @@ def connect(app, ctx):
     app.post(Routes.prompt_default)(prompt_default)
     app.post(Routes.out)(out_route)
     app.post(Routes.out_get)(out_get)
-    app.get(Routes.out_search)(out_search)
     app.post(Routes.out_sample)(out_sample)
     app.get(Routes.out_status)(out_status)

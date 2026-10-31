@@ -4,6 +4,7 @@ os.environ['ABHYASA_CONFIG'] = tempfile.mkdtemp()   # nor the real settings and 
 os.environ['RAMABANA_CONFIG'] = os.path.join(tempfile.mkdtemp(), 'config.toml')   # nor the real ramabana config
 os.environ.setdefault('LITESEARCH_CACHE', tempfile.mkdtemp(prefix='ls-'))   # nor the shared litesearch lock, which another run can hold for minutes
 for k in ('ABHYASA_STT', 'OPENAI_API_KEY'): os.environ.pop(k, None)
+if not os.getenv('ABHYASA_REAL_SPEECH'): os.environ['HF_HUB_CACHE'] = tempfile.mkdtemp(prefix='hf-')   # nor the real model cache: no model is "on this Mac"
 import pytest
 from starlette.testclient import TestClient
 from abhyasa.store import temp_learning

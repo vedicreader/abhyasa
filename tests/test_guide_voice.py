@@ -16,7 +16,7 @@ SILENT = """() => { window.played = [];
   HTMLMediaElement.prototype.play = function () { played.push(this.src); setTimeout(() => this.dispatchEvent(new Event('playing')), 10);
                                                   setTimeout(() => this.dispatchEvent(new Event('ended')), 100); return Promise.resolve(); };
   speechSynthesis.getVoices = () => [];
-  abhyasaGuide.info.out = {engine: 'kokoro', model: 'Kokoro', where: 'on this Mac', who: ''}; }"""
+  abhyasaGuide.info.out = {engine: 'pocket', model: 'Pocket TTS', where: 'on this Mac', who: ''}; }"""
 
 def natural(page, reply):
     "The page with the natural voice on, and `/guide/say` answered by `reply(body)` -> (status, json). Return the texts that it asked for."
@@ -31,12 +31,12 @@ def natural(page, reply):
 
 def test_the_page_speaks_each_line_with_the_route(page):
     "Each step asks the route for its line. The page plays the audio, lights each word, and the board goes on. The strip names the voice and where it runs."
-    asked = natural(page, lambda d: (200, dict(audio=wav(), words=[0, .05, .1, .15], engine='kokoro', where='on this Mac')))
+    asked = natural(page, lambda d: (200, dict(audio=wav(), words=[0, .05, .1, .15], engine='pocket', where='on this Mac')))
     page.reply = sse(dict(step=SAY, k=1, tier='tutor'), dict(board=dict(tier='tutor', steps=[SAY], sources=[], end='')))
     page.evaluate("abhyasaGuide.ask('what is this')")
     page.wait_for_function("window.played.length === 1 && [...document.querySelectorAll('#guide-strip .board-say span')].every(s => s.classList.contains('on'))", timeout=5000)
     assert asked[0] == 'Noise goes in slowly.' and page.evaluate('played[0]').startswith('blob:')
-    assert page.evaluate("document.querySelector('#guide-strip .board-voice-at').textContent") == 'Kokoro'
+    assert page.evaluate("document.querySelector('#guide-strip .board-voice-at').textContent") == 'Pocket TTS'
     assert 'on this Mac' in page.evaluate("document.querySelector('#guide-strip .board-keys').textContent")
     assert not page.evaluate("document.querySelector('#guide-strip .board-notice')")
 

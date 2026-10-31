@@ -130,11 +130,11 @@ add('guide.point', 'guide', 'Point mark', 'How the guide points to a part of the
     choices=('tick', 'dot', 'ring'));
 
 # %% ../nbs/16_settings.ipynb #37a7bc62
-add('voice.out', 'voice', 'Speaking engine', 'Who reads the steps aloud: the browser, Kokoro on this Mac, OpenAI, or a Hugging Face model on this Mac.', 'browser',
-    choices=('browser', 'kokoro', 'openai', 'hf'), ui=False, reset=False)
+add('voice.out', 'voice', 'Speaking engine', 'Who reads the steps aloud: Pocket TTS on this Mac, OpenAI, or the browser.', 'pocket',
+    choices=('pocket', 'openai', 'browser'), ui=False, reset=False)
 add('voice.out_model', 'voice', 'Voice model', 'The model of the speaking voice. Empty uses the default of the engine.', '', ui=False, reset=False)
 add('voice.out_voice', 'voice', 'Voice', 'The voice of the model. Empty uses the default of the engine.', '', ui=False, reset=False)
-add('voice.out_speed', 'voice', 'Speed', 'How fast the natural voice speaks. 1 is the normal speed. The browser voice uses the speed of the board.', 1., .5, 2.);
+add('voice.out_speed', 'voice', 'Speed', 'How fast the OpenAI voice speaks. 1 is the normal speed. The browser voice uses the speed of the board.', 1., .5, 2.);
 
 # %% ../nbs/16_settings.ipynb #6d9f3f9f
 TASK_HELP = dict(question='Writes each question and its hidden answer.', grade='Reads your answer and grades it.', hint='Gives the next hint.',
