@@ -2,6 +2,12 @@
 
 <!-- do not remove -->
 
+## 0.0.16
+
+- Each page has a small Keys button at the bottom left. It opens a panel with the main keys of the page, and each key is a button that does the action. The panel says how to talk to the guide (hold Caps+E) and how to dictate (⌥D). In Abhyasa.app it also has "Use the guide over other apps…", which shows the first-use sheet of the screen guide. ⌥⇧F opens the panel. "Hide this" or Settings, Look turns it off (the setting `look.keys_float`).
+- A short check on a walk has the Speak button (⌥D), and the guide box shows "Hold Caps+E to talk".
+- The Sanketa pack gives each key a label of six words or fewer, in the key style of Sanketa. Sanketa's lint finds no errors and no warnings.
+
 ## 0.0.15
 
 ### The screen guide shows what it does
