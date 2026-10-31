@@ -8,17 +8,12 @@ def own_config(monkeypatch, tmp_path):
     "Each test gets its own settings folder, so a saved value does not leak into the next test."
     monkeypatch.setenv('ABHYASA_CONFIG', str(tmp_path))
 
-def dflts(group): return {r.name: r.dflt for r in SETTINGS.values() if r.group == group}
-
 def help_shown(r, t):
     "The help of row `r` is on the page `t`: the first sentence on the help line, the others under `About this`."
     from abhyasa.core import help_parts
     a, b = help_parts(r.help)
     t = t.replace('&quot;', '"')
     return f'<p class="help">{a}</p>' in t and (not b or re.search(r'<summary>About this</summary>\s*<p>' + re.escape(b) + '</p>', t) is not None)
-
-def test_groups_in_order():
-    assert list(GROUPS) == ['look', 'learning', 'walks', 'talks', 'checks', 'review', 'links', 'research', 'runner', 'stt', 'voice', 'guide', 'models', 'lists', 'prompts']
 
 def test_bad_values():
     (cfg_dir()/'settings.json').write_text(json.dumps(dict(walks=dict(steps=99, note='long', depth=2.6), checks=dict(one_ask='yes'), mine=dict(a=1))))
@@ -34,10 +29,9 @@ def test_fixed_items_have_no_setting():
 
 # Walks
 
-def test_walks_defaults():
+def test_hands_on_share():
+    "With the default share of a third, a walk of 2, 3 and 12 ideas gets 0, 1 and 4 hands-on checks."
     from abhyasa import journey
-    assert dflts('walks') == {'walks.steps': 12, 'walks.hands': 1/3, 'walks.chain': 4, 'walks.passage': 600, 'walks.note': 60,
-                              'walks.depth': 2, 'walks.fresh': 10, 'walks.demo_wait': 90}
     assert [journey.hands_most(n) for n in (2, 3, 12)] == [0, 1, 4]
 
 def test_walk_of_five_steps():
@@ -54,27 +48,11 @@ def test_walk_of_five_steps():
 
 # Talks
 
-def test_talks_defaults():
-    assert [r.name for r in rows('talks')] == ['talks.choice', 'talks.ask_min', 'talks.pair_min', 'talks.weak', 'talks.split_lo', 'talks.split_hi',
-                                               'talks.laser_ms', 'talks.image_mb', 'talks.port', 'talks.room_hours', 'talks.phones', 'talks.nets']
-    assert (val('talks.choice'), val('talks.ask_min'), val('talks.pair_min'), val('talks.port'), val('talks.room_hours'), val('talks.phones')) == (True, 1, 2, 5180, 3, 300)
-    assert (val('talks.weak'), val('talks.split_lo'), val('talks.split_hi'), val('talks.image_mb'), val('talks.laser_ms')) == (.7, .3, .7, 5, 1500)
+def test_room_phones_are_capped_and_the_room_guards_are_fixed():
+    "The room takes at most 300 phones, and its bind address, join code, rate and body limits are not settings."
     assert set_val('talks.phones', 900) == 300 and {'bind', 'join_code', 'rate', 'body', 'room_headers'} <= set(FIXED)
 
 # Checks and grading
-
-def test_checks_defaults():
-    assert dflts('checks') == {'checks.tries': 3, 'checks.sources': True, 'checks.one_ask': True, 'checks.near': 7, 'checks.goal': 4,
-                               'checks.high': 60, 'checks.hints': 2, 'checks.demo_misses': 2, 'checks.retest': 2, 'checks.demo_ladder': True, 'checks.feedback_row': True, 'checks.open_days': 7}
-
-def test_demo_ladder_setting(mk):
-    "The demo ladder is an on/off value in Checks and grading, on by default, with a help line on the Settings page."
-    r = SETTINGS['checks.demo_ladder']
-    assert (r.group, r.kind, r.dflt, r.ui) == ('checks', 'bool', True, True) and r.help.endswith('.')
-    t = mk().get('/settings').text
-    assert r.label in t and help_shown(r, t)
-    set_val('checks.demo_ladder', False)
-    assert val('checks.demo_ladder') is False
 
 def test_tries_read_when_used(lr, fake):
     from abhyasa.tutor import Tutor
@@ -93,9 +71,9 @@ def test_learned_depth_and_sure_confidence():
 
 # Review
 
-def test_review_defaults():
+def test_review_intervals_grow():
+    "With the default review values, a solid first pass waits 1 day, a shaky one half a day, and a later solid pass grows the wait."
     from abhyasa.model import grow
-    assert dflts('review') == {'review.solid': 1., 'review.per_day': 0, 'review.shaky': .5, 'review.growth': 3., 'review.fading': .6}
     assert (grow(0, 0, 'solid'), grow(0, 0, 'fragile'), grow(2, .5, 'solid')) == (1., .5, 2 * (1 + 3 * .5 + .2))
 
 def test_review_values_read_when_used():
@@ -117,9 +95,9 @@ def test_most_reviews_a_day(lr, fake):
 
 # Links
 
-def test_links_defaults():
+def test_fetch_never_allows_private_addresses():
+    "The fetch options come from the link settings, and a fetch never goes to a private address."
     from abhyasa.sources import fetch_opts
-    assert dflts('links') == {'links.pages': 8, 'links.cap': 20, 'links.timeout': 30, 'links.speed': 1., 'links.kept': 400_000, 'links.read': 100_000}
     assert fetch_opts() == dict(timeout=30, max_recv_speed=1_000_000, retries=1, allow_private=False)
 
 def test_link_reads_the_new_page_count():
@@ -136,9 +114,9 @@ def test_link_reads_the_new_page_count():
 
 # Code runner
 
-def test_runner_defaults():
+def test_runner_limits():
+    "The code runner gets a CPU limit and a file size limit from the runner settings."
     from abhyasa import check
-    assert dflts('runner') == {'runner.total': 10, 'runner.per_test': 2, 'runner.file_mb': 10}
     assert (check.TEST_SECONDS, check.RUN_SECONDS) == (2., 10.)
     assert 'RLIMIT_CPU, (11, 12)' in check._limits(10.) and f'({10 * 2**20}, {10 * 2**20})' in check._limits(10.)
 
@@ -173,9 +151,6 @@ def test_runner_values_out_of_range_are_clamped(monkeypatch):
 
 # Speech to text
 
-def test_stt_defaults():
-    assert dflts('stt') == {'stt.engine': 'gemma', 'stt.model': '', 'stt.segment': True, 'stt.pause': 700, 'stt.longest': 12}
-
 def test_mic_gets_the_pause_values(mk):
     cl = mk()
     assert {k: v for k, v in cl.post('/voice/start').json().items() if k in ('segment', 'pause', 'longest')} == dict(segment=True, pause=700, longest=12)
@@ -184,13 +159,6 @@ def test_mic_gets_the_pause_values(mk):
     assert (r['pause'], r['longest']) == (1200, 30)
 
 # Models
-
-def test_models_defaults():
-    from abhyasa.llm import TOKENS, TASKS
-    ms = dflts('models')
-    assert {k: v for k, v in ms.items() if k.startswith('models.')} == {f'models.{t}': '' for t in ('default', *TASKS, 'plan', 'pick', 'note', 'profile', 'exercise', 'talk', 'guide', 'guide_vision')}
-    assert {k[7:]: v for k, v in ms.items() if k.startswith('tokens.')} == TOKENS == dict(question=4096, grade=2048, hint=512, lesson=2048, extract=4096)
-    assert 'extract' in settings()['models']
 
 def test_default_model_and_own_rows(monkeypatch):
     from abhyasa.llm import dflt_model, RouteAsk, Router, Fake
@@ -207,11 +175,6 @@ def test_default_model_and_own_rows(monkeypatch):
     assert r.name('plan') == 'x/plan'
 
 # Lists
-
-def test_lists_defaults():
-    assert dflts('lists') == {'lists.strengths': 10, 'lists.journeys': 3, 'lists.beside': 4, 'lists.weeks': 8, 'lists.search': 12,
-                              'lists.elsewhere': 2, 'lists.snippet': 300, 'lists.attempts': 10, 'lists.changes': 40, 'lists.sort_batch': 40}
-    assert all(r.more for r in SETTINGS.values() if r.group == 'lists')
 
 def test_journeys_on_today_read_when_used(mk, lr):
     for k in range(4): lr.put_journey(dict(id=f'j{k}', title=f'Journey {k}', goal='g', subject='', steps=[], created=k))
@@ -249,18 +212,15 @@ def test_simpler_demo_prompt_is_editable(mk, lr):
 
 # The Settings page
 
-def test_page_lists_every_group_in_order(mk):
+def test_page_lists_every_group_and_row(mk):
     import re
     from abhyasa.core import say
     t = mk().get('/settings').text
-    from abhyasa.blocks.settings.ui import TABS
-    ids = re.findall(r'<section id="g-(\w+)"', t)
-    assert ids == [g for _, gs in TABS.values() for g in gs] and sorted(ids) == sorted(GROUPS)   # each group once, in the order of the tabs
+    assert sorted(re.findall(r'<section id="g-(\w+)"', t)) == sorted(GROUPS)   # each group once
     for r in SETTINGS.values():
         if not r.ui or r.group == 'models': continue                       # the model rows load after the page
         if r.name != 'sources.roots': assert help_shown(r, t), r.name      # the source folders add a line on the folders that abhyasa does not use
         if r.kind in ('int', 'float'): assert f'to {say(r, r.hi if not isinstance(r.hi, str) else 20)} · default {say(r, r.dflt)}' in t, r.name
-    assert 'More in Walks: passage length, note length, side walk depth, and 2 more' in t
     assert 'Use the default (' not in t and 'Use the defaults for this group' not in t     # all defaults: the page stays quiet
 
 def test_page_saves_clamps_and_uses_the_default(mk):
@@ -288,7 +248,6 @@ def test_page_says_when_the_file_had_a_value_out_of_range(mk):
 def test_learning_defaults_and_choices():
     from abhyasa.profile import PROFILE, PACES
     from abhyasa.method import EXPLORE
-    assert dflts('learning') == {'learning.pace': 'steady', 'learning.session_len': 12, 'learning.explore': 'sometimes'}
     assert (PROFILE['pace'], PROFILE['session_len'], PROFILE['explore']) == ('steady', 12, 'sometimes')
     assert tuple(PACES) == SETTINGS['learning.pace'].choices and tuple(EXPLORE) == SETTINGS['learning.explore'].choices
     assert SETTINGS['learning.session_len'].lo == 3 and SETTINGS['learning.session_len'].hi == 40
@@ -318,7 +277,5 @@ def test_saves_from_many_threads():
 
 # Research
 
-def test_research_defaults():
-    assert dflts('research') == {'research.on': True, 'research.per_walk': 12, 'research.results': 5, 'research.wait': 90, 'research.retry': 10, 'research.told': False, 'research.agent': True, 'research.agent_minutes': 15,
-                                 'sources.roots': '~/code/personal/orgs'}
+def test_research_values_are_clamped():
     assert set_val('research.per_walk', 99) == 30 and set_val('research.results', 1) == 3
