@@ -22,6 +22,24 @@
 - The log now has the error when a source, a tutor note or a code task fails. The page still shows nothing for them.
 - An empty voice clip gives error 400, not 500.
 - A search query is cut at 500 characters, and a long word in a hit wraps.
+### You always know what research does
+
+- The plan and each step show one line of research: what it reads now ("Reads train_dreambooth_lora.py for idea 3"), "Sources for 4 of 11 ideas", the time left from the rate so far, and "Last step 12 s ago". It has Stop, "Show what it did" and "See the build".
+- The plan says that you can start now: an idea with no source shows the tutor's note, and it fills in when its source comes. The plan marks an idea that waits for a source, and the outline marks an idea that has one.
+- When a source comes while you read a step, the step shows "A source is ready — show it". The page does not change until you click.
+- "Sources" in the outline and "See the build" open the plan and the line of research also after the walk started (`/w/<walk>?plan=1`). Continue still goes to your step.
+- After research ends, the line says how and when: "Research ended at 13:42", "You stopped research", "The time for research ended", or "Research stopped because abhyasa closed". It counts the quotes that abhyasa refused, and it has "Find sources again" for the ideas with no source.
+- When research ends, each page shows "Sources for your walk '<title>' are ready" with a link, until you open the walk.
+- Mac app: when you close the window while research runs, Abhyasa stays in the menu bar and research goes on. It says so one time. When research ends, a macOS notification tells you, and a click opens the walk. Abhyasa asks for permission to notify the first time research runs, not at launch.
+
+### Research uses ramabana, and finds more sources
+
+- The research of a walk is a ramabana agent with ramabana's own read and web tools and its sub-agents (`delegate_search`): the lead reads the attached folders, and sub-agents look for the other ideas at the same time. abhyasa keeps its own checks on each read and each passage.
+- An attached GitHub repo is read from the clone that abhyasa made when it filed the chip. Research no longer asks GitHub for the repo again.
+- A real passage on the idea is no longer refused: plural forms, "-ing", the case, markdown marks, the row numbers of a file view, and a key term such as LoRA now count. The words of your own goal ("Indian comics") do not have to be in the passage. A refusal tells the agent why and what passes.
+- A site that refuses research (403, 401, 429 or a check for robots) is asked one time only for 15 minutes. A page and a search are kept for 15 minutes, so a retry and another idea do not fetch them again. One fetch waits at most 15 seconds, and research asks one site for one page at a time.
+- Measured on a walk of 4 ideas with one attached folder (real web, real model): the first source came at 18 to 21 s (before: 32 s with the old agent, 36 s with the search of each idea). The whole run took 79 to 124 s (before: 46 s with the old agent, 117 s with the search of each idea). On a small walk the time of each model step is most of the time. A walk with many ideas gets more from the sub-agents. We did not measure that yet.
+- Fixed: one search result with a very long link stopped the whole search with "File name too long" (fossick tests a link as a path, and Python 3.12 raises for a path of more than 1,024 characters).
 
 ## 0.0.15
 

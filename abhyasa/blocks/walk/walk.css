@@ -164,6 +164,8 @@ html.in-pane main { padding-bottom: 64px; }
 .gather-band p { margin: 0 0 var(--s1); }
 .gather-band .now { font-size: var(--t-meta); overflow-wrap: anywhere; }
 .gather-band .row { display: flex; gap: var(--s3); align-items: baseline; }
+.gather-band .start-now { color: var(--mute); }
+.src-lbl.looking, .source-ready { color: var(--mute); }
 .gather-log { list-style: none; padding: 0; margin: var(--s3) 0 0; display: grid; gap: var(--s1); font-size: var(--t-small); }
 .gather-log .glog { color: var(--ink2); overflow-wrap: anywhere; }
 .gather-log .glog .k { color: var(--mute); font-variant-numeric: tabular-nums; }

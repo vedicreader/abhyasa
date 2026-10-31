@@ -65,16 +65,20 @@ def test_a_topic_walk_finds_a_web_source(mk, web, lr):
     assert 'You are hacked' not in page
 
 def test_the_step_says_it_looks_then_shows_the_source(mk, web, lr, walk_fake):
-    "While the pool looks, the step says so and asks again. When the source comes, the passage shows and the note loads again."
+    """While the pool looks, the step says so and asks again, quietly. When the source comes, the quiet ask shows only `A source is ready —
+    show it`, so the page does not change while the learner reads; the link shows the passage, and the note loads again."""
     web.hold = threading.Event()
     cl = mk(); jid = topic(cl); cl.post(f'/w/{jid}/start')
     try:
         until(lambda: web.asked)
         page = cl.get(f'/w/{jid}/0').text
-        assert 'Looking for a source…' in page and f'hx-get="/w/{jid}/0/source"' in page and "In the tutor's words" in page
+        assert 'Looking for a source…' in page and f'hx-get="/w/{jid}/0/source?quiet=1"' in page and "In the tutor's words" in page
+        assert 'for idea 1. Sources for 0 of 1 idea.' in page and 'See the build' in page and 'Last step' in page   # the line of research on the step
         assert 'Looking for a source…' in cl.get(f'/w/{jid}/0/source').text
     finally: web.hold.set()
     until(lambda: state(lr, jid) == 'found')
+    q = cl.get(f'/w/{jid}/0/source?quiet=1').text
+    assert 'A source is ready' in q and QUOTE not in q and 'hx-trigger' not in q and f'hx-get="/w/{jid}/0/source"' in q
     r = cl.get(f'/w/{jid}/0/source').text
     assert QUOTE in r and '>from the web<' in r and 'hx-swap-oob' in r and f'hx-get="/w/{jid}/0/note"' in r
     assert QUOTE in [p for p, sp in walk_fake.calls if sp.startswith('You write a short note')][-1]   # the note explains the passage
