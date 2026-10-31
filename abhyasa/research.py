@@ -9,14 +9,14 @@ __all__ = ['log', 'SUBJECT_LABEL', 'MANY_SENSE', 'SOCIAL', 'FILES', 'URL_MOST', 
            'KEEP_SECS', 'KEEP_MOST', 'BLOCKS', 'REFUSED', 'META', 'TEXT_TYPES', 'MOST', 'LEAST', 'WINDOW', 'PICK_SP',
            'VIEW_ROW', 'MARKS', 'TOP', 'FOUND_NOTHING', 'NO_QUOTE', 'BIG_ROOT', 'AGENT_DOCS', 'TOOL_TEXT', 'LOG_MOST',
            'FILE_BYTES', 'LEAK_WORDS', 'FLUSH_ROWS', 'FLUSH_SECS', 'PASSAGE_WORDS', 'STOPPED', 'TIME_UP', 'TEXTS',
-           'SECRET', 'GATHER_SP', 'LEAD_SP', 'LEAD_TOOLS_OWN', 'NO_START', 'NONE_FOUND', 'CRASHED', 'subject_label',
-           'vague', 'research_query', 'site_of', 'usable', 'paper_link', 'candidates', 'forget_web', 'refused_site',
-           'web_search', 'web_fetch', 'drop_meta', 'page_text', 'plain_md', 'verbatim', 'idea_words', 'about_idea',
-           'pick_prompt', 'pick_passage', 'file_page', 'link_concept', 'wants_source', 'put_step', 'why_unread',
-           'read_paper', 'research_step', 'to_research', 'mark_pending', 'research_walk', 'Researcher', 'want_agent',
-           'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state', 'idea_at', 'idea_no', 'put_passage',
-           'put_notebook', 'secret_path', 'clone_dir', 'explainer_video', 'gather_tools', 'gather_prompt', 'gather',
-           'research_state']
+           'SECRET', 'GATHER_SP', 'LEAD_SP', 'LEAD_TOOLS_OWN', 'NO_START', 'NO_START_ANY', 'ELSE', 'START_WHY',
+           'NONE_FOUND', 'CRASHED', 'subject_label', 'vague', 'research_query', 'site_of', 'usable', 'paper_link',
+           'candidates', 'forget_web', 'refused_site', 'web_search', 'web_fetch', 'drop_meta', 'page_text', 'plain_md',
+           'verbatim', 'idea_words', 'about_idea', 'pick_prompt', 'pick_passage', 'file_page', 'link_concept',
+           'wants_source', 'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending',
+           'research_walk', 'Researcher', 'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state',
+           'idea_at', 'idea_no', 'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video',
+           'gather_tools', 'gather_prompt', 'start_why', 'gather', 'research_state']
 
 # %% ../nbs/18_research.ipynb #r006
 import hashlib, json, logging, os, re, shutil, threading, time
@@ -1072,7 +1072,15 @@ LEAD_SP = register('research.lead', 'Source lead', 'How the research agent finds
 - You cannot write files or run commands. Stop when each idea has a passage, or when a tool says that the time or the documents are used up. Then reply with one short line.""")
 LEAD_TOOLS_OWN = ('docs', 'read_doc', 'gh_clone', 'put_passage', 'put_notebook', 'find_video', 'note')   # abhyasa's own tools for the lead: the vault, a clone in its cache, and the tools that write, with their checks
 
-NO_START = 'The agent could not start: {}. The passages come from the simple search.'
+NO_START = 'The research agent could not start: {} The passages come from the simple search.'
+NO_START_ANY = 'The research agent could not start. The passages come from the simple search. "Show what it did" has the error.'
+ELSE = 'or pick another model in Settings > Models.'
+START_WHY = (   # a known cause in the error of a start that failed -> the cause and what to do, in plain words
+    (r'claude.*(not logged in|log ?in|sign(ed)? ?in|auth)', f'the Claude command is not signed in. Run claude in Terminal and sign in, {ELSE}'),
+    (r'not logged in|not signed in|unauthori[sz]ed|authenticat|api[ _-]?key|\b401\b', f'the model is not signed in, or it has no API key. Sign in, {ELSE}'),
+    (r'claude.*(not found|no such file)|filenotfounderror.*claude', f'the Claude command is not on this Mac. Install Claude Code, {ELSE}'),
+    (r'rate.?limit|usage limit|quota|overloaded|\b429\b', 'the model is busy or at its usage limit. Wait a few minutes, then push Find sources again.'),
+    (r'timed? ?out|connection|network|resolve', 'abhyasa could not connect to the model. Check the network, then push Find sources again.'))
 NONE_FOUND = 'No good source was found. The agent read {} for this idea.'
 CRASHED = 'The agent stopped with an error before it found a source.'
 
@@ -1089,6 +1097,12 @@ def gather_prompt(lr:Learning, j) -> str:
 def _reason(e) -> str:
     "A short reason from the error `e`, with no end stop."
     return (_flat(e)[:120].rstrip('.') or type(e).__name__)
+
+def start_why(e) -> str:
+    "The line for the learner when the research agent could not start with the error `e`: the known cause and what to do, else a general line."
+    raw = f'{type(e).__name__}: {_flat(e)}'
+    fix = first(t for rx, t in START_WHY if re.search(rx, raw, re.I))
+    return NO_START.format(fix) if fix else NO_START_ANY
 
 def _gather_end(lr:Learning, jid:str, st, stop, err=None):
     """End a run, also after an error: write the rows that wait, forget each paper that the agent filed and did not quote, and give
@@ -1129,8 +1143,9 @@ def gather(lr:Learning, jid:str, stop:threading.Event, ask=None, search=None, fe
                      gather_total=len(st.vault))
     def plain(e):
         "Fall back to the simple search, with the line that says why."
-        why = NO_START.format(_reason(e))
+        why = start_why(e)
         log.warning('research: the gather agent of %s could not start: %r', jid, e)
+        gather_row(lr, jid, 'start', '', f'{type(e).__name__}: {_flat(e)}')   # the raw error, for Show what it did
         lr.merge_journey(jid, gather_why=why)
         ix = [i for i, s in enumerate(_journey(lr, jid).steps) if wants_source(s)][:val('research.per_walk')]
         try: out = research_walk(lr, ask, jid, ix, search, fetch, stop)

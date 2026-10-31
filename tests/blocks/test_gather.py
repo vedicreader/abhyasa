@@ -99,8 +99,24 @@ def test_agent_cannot_start_falls_back(lr, monkeypatch):
     rs = R.Researcher(lr, Fake())
     out = rs.gather(j.id).result(10)
     j = lr.journey(j.id)
-    assert j.gather_why.startswith('The agent could not start:') and j.gather_why == 'The agent could not start: no claude here. The passages come from the simple search.'
+    assert j.gather_why == R.NO_START_ANY and 'no claude here' not in j.gather_why   # no known cause: the general line, with no raw error
     assert ran == [(j.id, [0, 1])] and out.why == j.gather_why and j.gather_end
+
+def test_a_start_that_is_not_signed_in_says_what_to_do(mk, lr, monkeypatch):
+    "The Claude command is not signed in: the research line says so in plain words and what to do. The raw error is only in Show what it did."
+    j, _ = walk(lr)
+    class ClaudeError(Exception): pass
+    def not_in(*a, **kw): raise ClaudeError('claude failed: Not logged in')
+    monkeypatch.setattr(R, 'ramabana_lead', not_in)
+    monkeypatch.setattr(R, 'research_walk', lambda lr_, ask, jid, ix=None, *a: [None] * len(ix))
+    R.Researcher(lr, Fake()).gather(j.id).result(10)
+    cl = mk()
+    b = cl.get(f'/w/{j.id}/gather', headers=HX).text
+    assert ('The research agent could not start: the Claude command is not signed in. Run claude in Terminal and sign in, '
+            'or pick another model in Settings &gt; Models.') in b
+    assert 'ClaudeError' not in b and 'Not logged in' not in b and 'Show what it did' in b
+    t = cl.get(f'/w/{j.id}/gather/log').text
+    assert 'Could not start the agent' in t and 'ClaudeError: claude failed: Not logged in' in t
 
 def test_want_agent_rules(lr):
     "1 chip and 10 docs: no agent; 2 chips: the agent; 1 chip with 41 docs: the agent; a failed model call: the agent."

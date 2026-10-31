@@ -150,7 +150,8 @@ def FindSource(jid, i, s, looking=False):
 
 TOOL_WORDS = dict(web_search='Searched the web', fetch_page='Read a page', gh_clone='Cloned a repo', read_gh_repo='Listed files in a repo',
                   read_file='Read a file', file_source='Opened a source', docs='Listed documents', read_doc='Read a document',
-                  put_passage='Gave a passage', put_notebook='Gave a notebook', note='Note from the agent', spend='Spend')
+                  put_passage='Gave a passage', put_notebook='Gave a notebook', note='Note from the agent', spend='Spend',
+                  start='Could not start the agent')
 
 def hm(t) -> str: return time.strftime('%H:%M', time.localtime(t)) if t else ''
 
