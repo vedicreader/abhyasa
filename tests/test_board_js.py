@@ -69,3 +69,30 @@ def test_a_streaming_board_takes_steps_as_they_come(mk):
             finally: b.close()
     finally:
         srv.should_exit = True; th.join(5)
+
+@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
+def test_reduced_motion_draws_a_point_with_no_pulse(mk):
+    "With reduced motion, a point mark shows its dot at once: no pulse and no running animation on the board."
+    import socket, threading, time, uvicorn
+    from playwright.sync_api import sync_playwright
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(mk().app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    play = "() => abhyasaBoard.play({steps: [{say: 'Look here now.', strokes: [{op: 'point', at: 't'}]}], tier: 'tutor', sources: []}, {quiet: true, auto: false, point: 'dot'})"
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_page(viewport=dict(width=1000, height=700), reduced_motion='reduce')
+                pg.goto(f'http://127.0.0.1:{port}/'); pg.wait_for_function('window.abhyasaBoard')
+                pg.evaluate("""() => document.body.insertAdjacentHTML('beforeend', '<div data-guide-id="t" style="position:absolute;left:420px;top:260px;width:90px;height:28px"></div>')""")
+                pg.evaluate(play)
+                pg.wait_for_function("document.querySelector('#board-layer circle.board-dot')", timeout=5000)
+                for _ in range(4):   # look a few times while the step plays
+                    assert pg.evaluate("document.querySelectorAll('.board-pulse').length") == 0
+                    assert pg.evaluate("document.getAnimations().filter(a => a.playState === 'running' && a.effect?.target?.closest?.('#board-layer')).length") == 0
+                    pg.wait_for_timeout(100)
+            finally: b.close()
+    finally:
+        srv.should_exit = True; th.join(5)
