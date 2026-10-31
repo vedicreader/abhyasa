@@ -48,9 +48,9 @@ def test_walk_of_five_steps():
 
 # Talks
 
-def test_room_phones_are_capped_and_the_room_guards_are_fixed():
-    "The room takes at most 300 phones, and its bind address, join code, rate and body limits are not settings."
-    assert set_val('talks.phones', 900) == 300 and {'bind', 'join_code', 'rate', 'body', 'room_headers'} <= set(FIXED)
+def test_values_are_capped_and_the_room_guards_are_fixed():
+    "A value above its top is capped, and the bind address, join code, rate and body limits of a room are not settings."
+    assert set_val('walks.steps', 900) == 30 and {'bind', 'join_code', 'rate', 'body', 'room_headers'} <= set(FIXED)
 
 # Checks and grading
 

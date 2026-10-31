@@ -72,12 +72,7 @@ add('talks.weak', 'talks', 'Unsure below', 'A slide is unsure below this share o
 add('talks.split_lo', 'talks', 'A split vote starts at', 'A vote is split from this share of right answers to the end value. Then the room talks in pairs.', .3, 0., 1., more=True, pct=True)
 add('talks.split_hi', 'talks', 'A split vote ends at', 'The top of a split vote. Above it, most of the room knows the answer.', .7, 0., 1., more=True, pct=True)
 add('talks.laser_ms', 'talks', 'Laser fade', 'How long the laser dot stays on the audience screen after the pointer stops.', 1500, 500, 5000, more=True, unit='ms')
-add('talks.image_mb', 'talks', 'Largest figure for the room', 'A figure larger than this does not go to the room.', 5, 1, 20, more=True, unit='MB')
-add('talks.port', 'talks', 'Room port', 'The port of the room that phones join.', 5180, 1024, 65000, more=True)
-add('talks.room_hours', 'talks', 'Room closes after', 'The room closes after this time, also when the talk did not end.', 3, 1, 8, more=True, unit='hours')
-add('talks.phones', 'talks', 'Most phones', 'The most phones that can join one room.', 300, 10, 300, more=True)
-# talks.nets only adds a warning at a new place. It never changes what a server binds to or accepts.
-add('talks.nets', 'talks', 'Places you opened a room', 'The Wi-Fi places where you opened a room before. The app warns you at a new place.', '', ui=False);
+add('talks.image_mb', 'talks', 'Largest figure for the room', 'A figure larger than this does not go to the room.', 5, 1, 20, more=True, unit='MB');
 
 # %% ../nbs/16_settings.ipynb #43f21485
 add('checks.tries', 'checks', 'Tries', 'How many answers you can give before the tutor teaches the idea.', 3, 1, 5)
