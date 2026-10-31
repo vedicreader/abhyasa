@@ -163,13 +163,17 @@ The pane opens only pages of abhyasa. A pane address that points to another site
 ## The screen guide
 
 When you do not get a part of the page, press Caps+E (⌃⌥⇧⌘E), or press Explain in the top bar. Hold the keys to talk,
-or tap them to type. Then say what you do not get, for example “I don’t get alpha bar”.
+or tap them to type. Then say what you do not get, for example “I don’t get alpha bar”. When you talk, the words stay in
+the box: change them if you need to, then push Return to send them.
 
 The tutor answers on the page, as a teacher does at a whiteboard. It circles a term in a formula, points to a label in a
 figure, moves the demo and speaks one short line for each step. The marks stay in place when you scroll.
 
 - A says and draws the step again, S goes back one step, and D goes to the next step. Esc stops the board.
 - A key that you type in a text box or in an editor stays in that box. The board does not move.
+- You can ask a follow-up question, such as “say that more simply” or “why?”. The guide sends your last 3 questions on
+  this page with it. “Follows up on: …” shows under the box, with × to start fresh. A new page or 10 minutes with no question
+  clears them.
 - A pill says where the answer is from: the tutor, your vault or the web. A quote is word for word, with its link.
 - When a concept has an explainer video, the board can move the video to the right time and quote it. On a concept page,
   “Find a video” looks on YouTube, or you can paste a link.
