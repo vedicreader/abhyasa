@@ -371,14 +371,6 @@ The web app is made from blocks in `abhyasa/blocks`:
 
 The top bar has four tabs: Today (⌥T), Learn (⌥Q), Library (⌥R) and You (⌥G). Library and You have sub-tabs under the page title. ⌥1, ⌥2 and ⌥3 open them. The gear at the right end opens Settings. Each page shows where you are, above its title. Esc goes up one level, and Back and Forward work.
 
-### ramabana
-
-In the ramabana terminal agent, the `/learn` extension gives you the tutor next to your code. To turn it on, make the file `~/.config/ramabana/extensions/abhyasa.py` with this line:
-
-``` python
-from abhyasa.rama import setup
-```
-
 ### Notebooks
 
 In leela or Jupyter, [`learn`](https://vedicreader.github.io/abhyasa/nb.html#learn) shows a question card. [`exercise`](https://vedicreader.github.io/abhyasa/nb.html#exercise) gives a code exercise, and its tests run in the kernel.

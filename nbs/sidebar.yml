@@ -9,7 +9,6 @@ website:
       - 04_sources.ipynb
       - 05_voice.ipynb
       - 06_check.ipynb
-      - 07_rama.ipynb
       - 08_nb.ipynb
       - 09_ground.ipynb
       - 10_demo.ipynb
