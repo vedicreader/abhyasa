@@ -6,13 +6,14 @@ Docs: https://vedicreader.github.io/abhyasa/demo.html.md"""
 
 # %% auto #0
 __all__ = ['VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'ORDER_AIM',
-           'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'SHOW_ME', 'KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY',
-           'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'REFUSED', 'WHERES', 'ROUTES',
-           'demo_text', 'since_demo', 'rung', 'keep_rung', 'want_demo', 'clean_note', 'quoted', 'last_feedback',
-           'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'queue_demo', 'job_state', 'job_age',
-           'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'route_ask',
-           'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp', 'explainer_prompt', 'scene_errors',
-           'explainer_for', 'explain_ask', 'make_explainer', 'show', 'import_gallery']
+           'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'SHOW_ME', 'SEE_IT', 'YES',
+           'OFFER', 'KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS',
+           'EXPLAINER_RULES', 'REFUSED', 'WHERES', 'ROUTES', 'demo_text', 'since_demo', 'rung', 'keep_rung',
+           'want_demo', 'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo',
+           'ask_key', 'queue_demo', 'job_state', 'job_age', 'backed', 'other_way', 'lesson_way', 'simpler_demo',
+           'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'route_ask', 'can_explain', 'scene_catalog',
+           'scene_example', 'explainer_sp', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask',
+           'make_explainer', 'show', 'import_gallery']
 
 # %% ../nbs/10_demo.ipynb #c005
 import hashlib, json, re, threading, time, uuid
@@ -241,6 +242,9 @@ IMAGES_LINE = register('demo.images', 'Image demos', 'What the tutor adds to eac
 AIMS = dict(order='demo.order', simpler='demo.simpler')   # the aim of a demo -> the prompt that the tutor adds
 ASKED_LINE = register('demo.asked', 'Demo you asked for', 'What the tutor adds to a demo that you asked for. Your words come after it.',
                       'The learner asked for this demo. Make the demo show the part of the idea that the ask names, not only the idea.')
+VALUES = 'Values from the page:'   # the ask of a Show on a page with code or a check ends with them
+VALUES_LINE = register('demo.values', 'Values from the page', 'What the tutor adds to a demo when the page has values, such as the inputs of a test.',
+                       'Use the values from the page in the demo. Put them in the state as the start values, with the names that the page uses, so that the learner sees the same numbers.')
 
 def _types(bs):
     "The block types in the blocks `bs`, with the blocks inside them."
@@ -256,7 +260,8 @@ def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, 
     ex, ask_ = None, ask
     if aim == 'order': ex = [s for s in gallery().values() if 'ranklist' in _types(s.get('blocks'))]
     pre = f"{way('order')} " if aim == 'order' else ''
-    extra = ' '.join(x for x in (prompt('demo.images'), aim in AIMS and f"{pre}{prompt(AIMS[aim])}", feedback_line(learning, slug, 'demo'), said and f"{prompt('demo.asked')} {quoted(said)}") if x)
+    extra = ' '.join(x for x in (prompt('demo.images'), aim in AIMS and f"{pre}{prompt(AIMS[aim])}", feedback_line(learning, slug, 'demo'), said and f"{prompt('demo.asked')} {quoted(said)}",
+                                 VALUES in (said or '') and prompt('demo.values')) if x)
     ask_ = lambda p, sp='': ask(f"{p}\n\n{extra}", sp)   # the image line, the aim, then what you said about the last demo
     spec = author(c, ask_, first_error, examples=ex, check=check, log=log)
     if spec is None: return None
@@ -359,13 +364,26 @@ CLOSE_HOOKS[:] = [f for f in CLOSE_HOOKS if getattr(f, '__name__', '') != 'on_cl
 SHOW_ME = re.compile(r"\A\s*(?:(?:yes|yeah|yep|ok|okay|sure|alright|now|then|so|go on|please)\b[\s,.!-]*)*(?:(?:can|could|will|would) you\s+)?(?:please\s+)?"
                      r"show\s+me\b[\s,:.!?-]*(.*)\Z", re.I | re.S)   # a spoken ask often starts with "yes" or "ok"
 
+SEE_IT = re.compile(r"\A\s*(?:(?:yes|yeah|yep|ok|okay|sure|alright|now|then|so|please)\b[\s,.!-]*)*"
+                    r"(?:i\s+want\s+to\s+see|i'?d\s+like\s+to\s+see|let\s+me\s+see|can\s+i\s+see|show\s+it\s+to\s+me|play\s+it|make\s+it\s+move)\b[\s,:.!?-]*(.*)\Z", re.I | re.S)
+
 def show_ask(text) -> str|None:
-    "The words after \"show me\" at the start of `text` ('' for a bare \"show me\"); None when `text` is not a \"show me\" ask."
-    m = SHOW_ME.match(str(text or ''))
+    "The words after \"show me\" (or \"I want to see\", \"let me see\", \"show it to me\", \"play it\") at the start of `text` ('' for a bare ask); None when `text` is not a Show ask."
+    m = SHOW_ME.match(str(text or '')) or SEE_IT.match(str(text or ''))
     return ' '.join(m[1].split()).rstrip('.!?') if m else None
 
+YES = re.compile(r"\A\s*(?:yes|yeah|yep|ok|okay|sure|please|go on|go ahead|do it)(?:[\s,]+please)?[\s.!]*\Z", re.I)
+OFFER = 'say show me'   # the Show offer at the end of a board
+
+def show_reply(said, thread=()) -> str|None:
+    "The words of a Show ask in `said` (`show_ask`), or '' for a bare \"yes\" or \"ok\" when the last board of the `thread` ended with the Show offer; else None."
+    if (w := show_ask(said)) is not None: return w
+    last = list(thread or ())[-1:]
+    if YES.match(str(said or '')) and last and OFFER in ' '.join(last[0].get('says') or ()).lower(): return ''
+    return None
+
 # %% ../nbs/10_demo.ipynb #sm08
-KINDS = dict(demo='A 2D demo', explainer='A 3D explainer', notebook='A notebook in Leela')
+KINDS = dict(demo='2D demo', explainer='3D explainer', notebook='Leela notebook')   # the one label of each Show card
 THREE_D = re.compile(r'\b(?:3\s*-?\s*d|three[\s-]*d(?:imensional)?)\b', re.I)
 HANDS_ON = re.compile(r'\b(?:try|code|coding|notebook|leela)\b', re.I)
 LIBRARY = re.compile(r'\b(?:library|package|api|pip|pytorch|torch|numpy|pandas|diffusers|transformers|sklearn|tensorflow|jax|keras)\b', re.I)
@@ -512,9 +530,11 @@ def asked(self:Learning, aid:str) -> AttrDict|None:
 ROUTES = {'demo': AttrDict(kind='demo', why='You asked for a 2D demo. You predict first. Then the demo shows the rest.'),
           '3d': AttrDict(kind='explainer', why='You asked for 3D. The scene builds one step at a time.')}
 
-def show(tutor, concept:str, words:str='', where:str='concept', kind:str=None, ask:str='', aim:str='', first_error:str='', **at) -> tuple:
-    "Show: file one ask on `concept` from your `words` (the demo is made from `ask`, else from the words), pick its kind, and start its job. Gives the ask and its route (`kind`, `why`)."
+def show(tutor, concept:str, words:str='', where:str='concept', kind:str=None, ask:str='', aim:str='', first_error:str='', values:str='', **at) -> tuple:
+    """Show: file one ask on `concept` from your `words` (the demo is made from `ask`, else from the words), pick its kind, and start its job. Gives the ask and its route (`kind`, `why`).
+    `values` are the values of the page (the code, the tests of the check): the demo starts from them."""
     lr = tutor.learning
+    if (values := ' '.join(str(values or '').split())[:600]): ask = f"{ask or words} {VALUES} {values}".strip()
     route = ROUTES.get(kind) or route_ask(words, lr.concept(concept))
     a = lr.put_ask(concept, said=words, ask=ask, where=where, kind=route.kind, **({'aim': aim} if aim else {}), **at)
     if route.kind == 'notebook': return a, route   # code runs in Leela

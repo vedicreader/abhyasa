@@ -260,10 +260,10 @@ def test_demo_block_makes_a_simpler_demo_after_not_clear(mk, lr):
     assert 'Show a simpler demo' in card and '"aim": "simpler"' in card and '/demo/ask' in card
     cl.post('/feedback', data=dict(on='demo', verdict='unclear', slug=d.slug, note=NOTE))
     first_ = cl.post('/demo/ask', data=dict(concept=S, aim='simpler', kind='demo', where='concept')).text
-    assert 'ask-card' in first_ and 'A simpler demo' in first_
+    assert 'ask-card' in first_ and 'a simpler demo' in first_
     cl.app.state.svc['tutor'].jobs[f'{S}:simpler'].result(timeout=30)
     aid = re.search(r'data-ask="([0-9a-f]{12})"', first_)[1]
-    assert lr.demo_for(S, aim='simpler') and 'A simpler demo' in cl.get(f'/demo/asked/{aid}').text
+    assert lr.demo_for(S, aim='simpler') and 'data-rupaka' in cl.get(f'/demo/asked/{aid}').text
 
 
 def test_a_note_is_quoted_as_the_learner_words():

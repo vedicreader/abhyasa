@@ -11,8 +11,8 @@
 // Labels are pastel chips with a coloured bar and a thin leader line; a chip never covers its target. Marks of earlier steps
 // fade to 45 %. A point is always weaker than a circle, so the circle stays the main mark of a step: see `point` in the API.
 // The words of the spoken line light up as they are said. With prefers-reduced-motion, the pointer jumps, and
-// marks and chips fade in for 150 ms. A sketch marks a part of a figure only. A diagram is a picture of an idea in a card at the
-// top right of the window: boxes sized to their text, laid out by code with no crossings, and arrows that draw on as a pen does.
+// marks and chips fade in for 150 ms. A sketch marks a part of a figure only. A picture of an idea is the side panel: a card on
+// warm paper at the top right of the window, that the rows of the board fill step by step, each linked to its thing on the page.
 //
 // API (window.abhyasaBoard):
 //   play(board, {labels, fast, quiet, auto, host, who, onVoice, point, voiceAt, notice})   play a checked board; it stops the board that shows now.
@@ -53,6 +53,7 @@
 //                        streaming board shows, or when its steps are not the first steps of `board` (then play `board`).
 //                        An `end` of '' shows no end line: the stream ended with no whole board.
 //   stop()  note(text)  next()  back()  again()  seekVideo(t)  boxOf(at)  normTex(tex)
+//   timeline()  [op, part, ms] for each part of each mark of the step that shows: the order in which they draw
 //   speakBrowser(text, onWord, done)   the default speak (speechSynthesis), for a host speak that falls back to it.
 //   notice({text, href, link})          set the quiet line of the board that shows now (see play).
 //   status(event)        the state line in the strip while the guide works: the `wait` text of a state event of the guide route
@@ -68,19 +69,16 @@
 // Strokes (see abhyasa.guide.OPS) are the ops of the server, plus these rules of the page:
 //   sketch   {at, pts}: drawn only when the element of its anchor is a figure (an img, svg, canvas or video, or inside a figure or
 //            [data-guide-id="figure"]). A sketch on any other anchor is dropped: it never draws over the words.
-//   diagram  {nodes: [{id, text}], edges: [{from, to, text}], layout: 'row'|'tree'|'cycle', at}: a card fixed at the top right of
-//            the window, under the top bar and beside all the page text (`at` does not set the place). With no room there, it
-//            stands over the strip at the full width of the window. Each node is as wide as its text needs, in at most 3 lines.
-//            A cycle is a ring, or a loop (a column with one arrow back up its side) when no ring fits beside the page text; a
-//            row or a tree is layers, left to right or top to bottom, whichever is clean and fits. The words
-//            of an edge drop when no free place is near its middle. A diagram with a crossing or an edge through a node, or one
-//            that does not fit, is not drawn: the step shows without it. The card has data-dock 'side' or 'wide', and each
-//            edge path has data-from, data-to and data-ends (x0 y0 x1 y1 in card pixels before its scale).
 //   panel    {title, head, cols, numbered}: starts the side panel, fixed at the top right of the window (#board-panel). The panel
 //            is the place of the tutor's small concrete example. A new panel line starts a new beat: its rows replace the rows before.
 //   row      {cells, to, at, chain}: one row of the panel that shows with its step and stays for the next steps. Each cell is a box;
-//            `to` comes after an arrow, in the accent. With `at`, a hand-drawn curve goes from that thing on the page to the first cell
-//            (the curve hides when the thing is not on the page; the row stays). With `chain`, the cells are words with arrows between.
+//            `to` comes after an arrow, in the accent. With `at`, the row draws its own circle on that thing at its word, a hand-drawn
+//            curve from it 120 ms later, then the row when the curve lands, each cell 80 ms after the one before (the circle and the
+//            curve hide when the thing is not on the page; the row stays). With `chain`, the cells are words with arrows between.
+//            On D next the panel and its rows stay as they are; only the rows of the new step come. While the panel shows, the
+//            body has the class `has-panel`, so the page column moves left. Below 1100 px the panel stands in the page, under
+//            the thing that its first row marks.
+//   Before a step draws, the page scrolls its first mark into view when it is off screen or under the strip.
 //   note     {text}: one quiet line of the panel.
 //   A circle, box, underline or label needs a thing under it: on a bare point, on a box of no size, or on a part of its anchor
 //   with no text and no picture in it, it is not drawn (it would be an empty mark). The server drops a bare point too.
@@ -272,7 +270,6 @@
   }
   function place(m) {
     const o = m.o;
-    if (o.op === 'diagram') return placeDiagram(m);
     if (PANEL.includes(o.op)) return placePanel(m);
     const svg = layer();
     const b = o.at !== undefined ? locate(o.at) : null;
@@ -298,8 +295,8 @@
     if (o.op === 'underline') parts.push(stroke(pathIn(m.g, 'board-fill'), press(dense([[b.x - 3, b.y + b.h + 5], [b.x + b.w * .5, b.y + b.h + 7], [b.x + b.w + 4, b.y + b.h + 3]])), {size: 3.5}));
     if (o.op === 'box') {   // a soft glow that blooms, then settles: no frame on the text
       if (!m.el) { m.el = Object.assign(document.createElement('div'), {className: 'board-glow'}); m.el.dataset.op = 'box'; m.el.dataset.step = m.step; host().querySelector('.board-glows').append(m.el); }
-      const pad = 10; m.el.hidden = false; m.dark = dark(b.el);
-      Object.assign(m.el.style, {left: b.x - pad + 'px', top: b.y - pad + 'px', width: b.w + 2 * pad + 'px', height: b.h + 2 * pad + 'px'});
+      const pad = 10, py = b.glyphs ? Math.min(pad, b.h * .25) : pad; m.el.hidden = false; m.dark = dark(b.el);   // on words: at most a quarter line above and below, so it stays inside its line
+      Object.assign(m.el.style, {left: b.x - pad + 'px', top: b.y - py + 'px', width: b.w + 2 * pad + 'px', height: b.h + 2 * py + 'px'});
       m.el.classList.toggle('on-dark', m.dark);
       parts.push({kind: 'glow', el: m.el, at: 0, dur: 1200});
     }
@@ -342,14 +339,23 @@
     return true;
   }
   // The side panel: one card at the top right of the window that the rows of the board fill, step by step (see the API).
+  const INLINE = 1100;   // below this window width the panel stands in the page
   function panelEl() {
     let p = document.getElementById('board-panel');
     if (!p) {
       p = el('div', 'board-panel', null); p.id = 'board-panel'; p.setAttribute('role', 'region'); p.setAttribute('aria-label', 'The example of the tutor');
       p.append(el('p', 'board-panel-title', ''), el('p', 'board-panel-head', ''), el('div', 'board-panel-cols', null), el('div', 'board-panel-rows', null));
       host().append(p);
+      document.body.classList.add('has-panel');
     }
     return p;
+  }
+  function panelGone() { const p = document.getElementById('board-panel'); if (p) p.remove(); if (!document.getElementById('guide-show')) document.body.classList.remove('has-panel'); }
+  function dockPanel(p, b) {   // in the page under the marked thing below 1100 px; else fixed at the top right (board.css)
+    const inline = innerWidth < INLINE && b && b.el;
+    p.classList.toggle('inline', !!inline);
+    if (inline) { const after = b.el.closest('pre, p, li, figure, section, .check') || b.el; if (after.nextElementSibling !== p) after.after(p); }
+    else if (p.parentElement !== host()) host().append(p);
   }
   const beatOf = m => { const k = st.marks.indexOf(m); return st.marks.slice(0, k + 1).filter(x => x.o.op === 'panel').length; };
   function placePanel(m) {
@@ -368,6 +374,8 @@
     }
     if (!p.dataset.beat) p.dataset.beat = beat;
     if (p.dataset.beat !== beat) return hide(m);   // a row of an older beat
+    const b = o.at !== undefined ? locate(o.at) : null;
+    if (!p.dataset.docked || (b && m === st.marks.find(x => x.o.op === 'row' && x.o.at !== undefined))) { dockPanel(p, b); p.dataset.docked = '1'; }
     if (!m.el || !m.el.isConnected) {
       m.el = el('div', o.op === 'note' ? 'board-panel-note' : 'board-row' + (o.chain ? ' chain' : ''), o.op === 'note' ? o.text : null);
       m.el.dataset.step = m.step; m.el.dataset.beat = beat;
@@ -380,29 +388,33 @@
       p.lastElementChild.append(m.el);
     }
     m.el.style.display = '';
-    parts.push({kind: 'node', el: m.el, at: 0, dur: 260});
     const r = m.el.getBoundingClientRect(), box = {x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height};
-    const b = o.at !== undefined ? locate(o.at) : null;
-    if (m.g) { m.g.replaceChildren(); m.g.style.display = ''; }
-    if (b) {   // the curve from the thing on the page to the first cell of the row
+    for (const e of [m.g, m.ring]) if (e) { e.replaceChildren(); e.style.display = ''; }
+    let land = 0;
+    if (b && inked(b)) {   // its own circle on the thing at its word, then the curve 120 ms later, from the circle to the first cell
+      if (!m.ring) { m.ring = svgEl('g'); m.ring.dataset.op = 'circle'; m.ring.dataset.step = m.step; layer().append(m.ring); }
       if (!m.g) { m.g = svgEl('g'); m.g.dataset.op = 'link'; m.g.dataset.step = m.step; layer().append(m.g); }
+      const rp = svgEl('path', 'board-fill board-ring'); m.ring.append(rp);
+      parts.push(stroke(rp, press(ring(b, b.glyphs ? 9 : 12, m.seed)), {size: 3.3}));
       const c0 = (m.el.querySelector('.board-cell, .board-word') || m.el).getBoundingClientRect();
-      const to = [c0.left + scrollX + Math.min(18, c0.width / 2), c0.top + scrollY - 3], from = [b.x + b.w + 4, b.y + b.h / 2];
-      inkArrow(m, parts, from, to, 120, .8);
-    } else if (m.g) m.g.style.display = 'none';
+      const to = [c0.left + scrollX + Math.min(18, c0.width / 2), c0.top + scrollY - 3], from = [b.x + b.w + 10, b.y + b.h / 2];
+      land = inkArrow(m, parts, from, to, 120, .8);
+    } else for (const e of [m.g, m.ring]) if (e) e.style.display = 'none';
+    if (o.op === 'note') parts.push({kind: 'node', el: m.el, at: land, dur: 260});
+    else [...m.el.children].forEach((c, k) => parts.push({kind: 'node', el: c, at: land + 80 * k, dur: 260}));   // the row when the curve lands, then each cell
     m.parts = parts; m.aim = box; m.box = box; m.ok = true;
     m.life = parts.reduce((t, q) => Math.max(t, q.at + (q.dur || 300)), 0) + 500;
     return true;
   }
   function hide(m) {
     m.ok = false;
-    for (const e of [m.g, m.hl, m.el, m.lead]) if (e) e.style.display = 'none';
+    for (const e of [m.g, m.hl, m.el, m.lead, m.ring]) if (e) e.style.display = 'none';
     return false;
   }
   function unmount(m) {
-    for (const e of [m.g, m.hl, m.el, m.lead]) if (e) e.remove();
-    m.g = m.hl = m.el = m.lead = null; m.parts = []; m.drawn = false; m.ok = false;
-    m.dg = m.dparts = m.key = m.dock = m.box = m.dv = m.pick = null; m.skip = false;   // a diagram builds its card again
+    for (const e of [m.g, m.hl, m.el, m.lead, m.ring]) if (e) e.remove();
+    m.g = m.hl = m.el = m.lead = m.ring = null; m.parts = []; m.drawn = false; m.ok = false;
+    m.box = null; m.skip = false;
   }
 
   // A chip: pastel, with a coloured bar, near its target and never on it. A thin leader line ends with a dot on the part.
@@ -443,363 +455,7 @@
     return true;
   }
 
-  // --- the diagram: a picture of an idea, laid out by code in a card at the top right of the window -------------------------
-  // The nodes are boxes sized to their text: at most 3 lines, never cut. The layout is code, not the model. `cycle` is a ring,
-  // with an arc on the outside between each two nodes. `row` and `tree` are layers: each node gets a rank from the edges, and the
-  // order in each rank is the one with the fewest crossings. They go left to right or top to bottom, whichever is clean and fits.
-  // An edge starts and ends on the borders of its nodes. Its words sit in a pill on its middle, moved so that they cover no node
-  // and no other words; words with no free place drop. A layout with a crossing or with an edge through a node is not drawn: the
-  // step shows without its diagram. The card is fixed at the top right, under the top bar and beside the page text; when there is
-  // no room there, it stands over the strip at the full width of the window.
-  // `loop`: the column widths of a loop, widest first; `lane`: the gap from the column to the arrow back up; `k` and `kw`: the
-  // smallest scale at the side and in the wide place; `min`: the narrowest side place.
-  const DG = {gap: 26, rank: 52, pad: 14, side: 16, rim: 2, lines: 3, widths: [150, 196, 240], loop: [150, 120, 88],
-              lane: 12, arc: 44, perms: 20000, k: .8, kw: .75, min: 100};
   const onFigure = e => !!e && (/^(img|canvas|video|svg|picture)$/i.test(e.tagName) || !!e.closest('figure, svg, canvas, [data-guide-id="figure"]'));
-  const hits = (r, q, p = 0) => r.x < q.x + q.w + p && q.x < r.x + r.w + p && r.y < q.y + q.h + p && q.y < r.y + r.h + p;
-  const inside = (b, p, g = 0) => p[0] > b.x - g && p[0] < b.x + b.w + g && p[1] > b.y - g && p[1] < b.y + b.h + g;
-  const centre = b => [b.x + b.w / 2, b.y + b.h / 2];
-  const MINE = '#board-host, #guide-strip, .board-hl, #board-trail, #guide-form, #guide-show';
-  function blockers() {   // the boxes of the page text and controls in the window: `flow` ones move with the page, `fixed` ones do not
-    const all = [...document.body.querySelectorAll('*')].filter(e => !e.closest(MINE));
-    const fixed = all.filter(e => getComputedStyle(e).position === 'fixed'), out = {flow: [], fixed: []};
-    for (const e of all) {
-      if (e.closest('body > nav')) continue;   // the top bar: the card stands under it
-      const own = /^(img|svg|canvas|video|iframe|input|textarea|select|button)$/i.test(e.tagName) || [...e.childNodes].some(n => n.nodeType === 3 && n.data.trim());
-      if (!own) continue;
-      const r = e.getBoundingClientRect();
-      if (r.width >= 1 && r.height >= 1) (fixed.some(f => f.contains(e)) ? out.fixed : out.flow).push({x: r.left, y: r.top, w: r.width, h: r.height});
-    }
-    return out;
-  }
-  // The two places for the card, in window pixels: `side` at the top right, beside all the page text and under the top bar, and
-  // `wide` over the strip at the full width. A page that moves under the side card never shows text under it.
-  function room() {
-    const b = blockers(), gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rh-gap')) || 0;
-    const nav = document.querySelector('body > nav'), top = (nav ? nav.offsetTop + nav.offsetHeight : 0) + DG.side;
-    const s = document.getElementById('guide-strip'), low = s && !s.hidden ? s.getBoundingClientRect().top : innerHeight;
-    const right = innerWidth - gap - DG.side, left = Math.max(DG.side, ...b.flow.map(r => r.x + r.w + 24));
-    let bottom = low - 12;
-    for (const r of b.fixed) if (r.x + r.w > left && r.x < right && r.y + r.h > top && r.y < bottom) bottom = Math.min(bottom, r.y - 12);
-    return {side: {w: right - left, h: bottom - top, top, right: gap + DG.side},
-            wide: {w: innerWidth - gap - 2 * DG.side, h: Math.min(innerHeight * .45, low - top - 8), left: DG.side, bottom: innerHeight - low + 8}};
-  }
-  // The part of the path `pts` (from the centre of box A to the centre of box B) outside both boxes, from border to border.
-  function clip(pts, A, B) {
-    let i = 0, j = pts.length - 1;
-    while (i < j && inside(A, pts[i], DG.rim)) i++;
-    while (j > i && inside(B, pts[j], DG.rim)) j--;
-    if (i === 0 || j === pts.length - 1 || j <= i) return null;
-    const edge = (b, p, q) => {   // p is in b, q is not: the point between them on the border of b (plus the rim)
-      let lo = 0, hi = 1;
-      for (let k = 0; k < 24; k++) { const u = (lo + hi) / 2; if (inside(b, [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u], DG.rim)) lo = u; else hi = u; }
-      return [p[0] + (q[0] - p[0]) * hi, p[1] + (q[1] - p[1]) * hi];
-    };
-    return [edge(A, pts[i - 1], pts[i]), ...pts.slice(i, j + 1), edge(B, pts[j + 1], pts[j])];
-  }
-  function smoothPath(ps) {   // a Catmull-Rom curve through the points, so a long edge bends gently round the ranks it passes
-    if (ps.length < 3) return ps;
-    const out = [], P = k => ps[Math.max(0, Math.min(ps.length - 1, k))];
-    for (let k = 0; k < ps.length - 1; k++) for (let i = 0; i < 12; i++) {
-      const u = i / 12, [a, b, c, d] = [P(k - 1), P(k), P(k + 1), P(k + 2)], f = (x0, x1, x2, x3) => .5 * (2 * x1 + (-x0 + x2) * u + (2 * x0 - 5 * x1 + 4 * x2 - x3) * u * u + (-x0 + 3 * x1 - 3 * x2 + x3) * u ** 3);
-      out.push([f(a[0], b[0], c[0], d[0]), f(a[1], b[1], c[1], d[1])]);
-    }
-    out.push(ps[ps.length - 1]);
-    return out;
-  }
-  // A ring: the nodes in the order of their cycle (when the edges go once round all of them), on an ellipse just large enough
-  // that each arc between two nodes shows. An edge between two nodes next to each other is the arc between them.
-  function cycleOrder(n, edges) {   // the nodes in the order of the edges from node 0, while they go to a new node
-    const next = {}, order = [0];
-    for (const e of edges) (next[e.f] = next[e.f] || []).push(e.t);
-    while (order.length < n) { const t = (next[order[order.length - 1]] || []).find(x => !order.includes(x)); if (t == null) break; order.push(t); }
-    return order;
-  }
-  function layoutRing(ss, edges, s) {
-    const n = ss.length, order = cycleOrder(n, edges);
-    const at = []; (order.length === n ? order : [...Array(n).keys()]).forEach((k, i) => { at[k] = i; });
-    const ang = k => -Math.PI / 2 + 2 * Math.PI * at[k] / n, ell = (R, a) => [R * Math.cos(a), .78 * R * Math.sin(a)];
-    const two = e => edges.some(x => x.f === e.t && x.t === e.f);
-    for (let R = 50; R < 900; R *= 1.05) {
-      const bs = ss.map((z, k) => { const [x, y] = ell(R, ang(k)); return {x: x - z.w / 2, y: y - z.h / 2, w: z.w, h: z.h}; });
-      if (bs.some((b, i) => bs.some((c, j) => j > i && hits(b, c, DG.gap * s)))) continue;
-      const lines = edges.map((e, k) => {
-        const d = (at[e.t] - at[e.f] + n) % n;
-        if (d === 1 || d === n - 1) {   // neighbours: the arc between them, the short way (a pair of arrows both ways: one further out)
-          const a0 = ang(e.f), da = (d === 1 ? 1 : -1) * 2 * Math.PI / n, r = n > 2 && d === n - 1 && two(e) ? R * 1.12 : R, pts = [centre(bs[e.f])];
-          for (let i = 1; i < 64; i++) pts.push(ell(r, a0 + da * i / 64));
-          pts.push(centre(bs[e.t]));
-          return {k, f: e.f, t: e.t, pts: clip(dense(pts, 3), bs[e.f], bs[e.t])};
-        }
-        return {k, f: e.f, t: e.t, pts: clip(dense([centre(bs[e.f]), centre(bs[e.t])], 3), bs[e.f], bs[e.t])};
-      });
-      if (lines.every(l => l.pts && length(l.pts) >= DG.arc * s)) return {kind: 'ring', ring: [0, 0], bs, lines, order: order.length === n ? order : [...Array(n).keys()]};
-    }
-    return null;
-  }
-  function rounded(ps, r) {   // the polyline `ps` with each corner cut by a quarter curve of radius `r` (or less on a short side)
-    const out = [ps[0]];
-    for (let i = 1; i < ps.length - 1; i++) {
-      const [a, b, c] = [ps[i - 1], ps[i], ps[i + 1]], la = Math.hypot(b[0] - a[0], b[1] - a[1]), lc = Math.hypot(c[0] - b[0], c[1] - b[1]), q = Math.min(r, la / 2, lc / 2);
-      const p0 = [b[0] + (a[0] - b[0]) * q / la, b[1] + (a[1] - b[1]) * q / la], p1 = [b[0] + (c[0] - b[0]) * q / lc, b[1] + (c[1] - b[1]) * q / lc];
-      for (let k = 0; k <= 8; k++) { const u = k / 8, w = (1 - u) ** 2, m = 2 * u * (1 - u), v = u * u; out.push([w * p0[0] + m * b[0] + v * p1[0], w * p0[1] + m * b[1] + v * p1[1]]); }
-    }
-    out.push(ps[ps.length - 1]);
-    return out;
-  }
-  // A loop: the nodes of a cycle in a column, an arrow down from each to the next, and one arrow from the last node down, up the
-  // right side and into the top of the first. Its words go under the last node. It takes only the edges of the cycle, each once.
-  function layoutLoop(ss, edges, s, tags) {
-    const n = ss.length, order = cycleOrder(n, edges), pos = [];
-    if (n < 3 || order.length < n) return null;
-    order.forEach((k, i) => { pos[k] = i; });
-    const kinds = edges.map(e => pos[e.t] === pos[e.f] + 1 ? 'down' : pos[e.f] === n - 1 && pos[e.t] === 0 ? 'back' : null);
-    if (kinds.includes(null) || new Set(edges.map(e => e.f + ':' + e.t)).size < edges.length) return null;
-    const W = Math.max(...ss.map(z => z.w)), bs = [], tagH = [];
-    edges.forEach((e, k) => { if (kinds[k] === 'down') tagH[pos[e.f]] = tags[k] ? tags[k].h : 0; });
-    let y = 0;
-    order.forEach((k, i) => { bs[k] = {x: -ss[k].w / 2, y, w: ss[k].w, h: ss[k].h}; y += ss[k].h + Math.max(34 * s, (tagH[i] || 0) + 26); });
-    const first = bs[order[0]], last = bs[order[n - 1]], lane = W / 2 + DG.lane * s, out = 14;
-    const lines = edges.map((e, k) => {
-      if (kinds[k] === 'down') return {k, f: e.f, t: e.t, pts: clip(dense([centre(bs[e.f]), centre(bs[e.t])], 3), bs[e.f], bs[e.t])};
-      const yb = last.y + last.h + out, yt = first.y - out, ps = [centre(last), [0, yb], [lane, yb], [lane, yt], [0, yt], centre(first)];
-      const pts = clip(dense(rounded(ps, 10), 3), last, first);
-      if (!pts) return {k, f: e.f, t: e.t, pts};
-      let d = 0, at = 0;   // the words of this edge: under the middle of its part below the last node
-      for (let i = 1; i < pts.length; i++) { const g = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); if (!at && pts[i][0] >= 10 && pts[i][1] >= yb - 1) at = d + g; d += g; }
-      return {k, f: e.f, t: e.t, pts, us: [at / d], from: [10, yb - 40]};
-    });
-    if (lines.some(l => !l.pts)) return null;
-    return {kind: 'loop', bs, lines, order, pad: 10};
-  }
-  // Layers: a rank for each node from the edges (an edge that closes a loop counts backwards), a stand-in point in each rank
-  // that a long edge passes, and in each rank the order with the fewest crossings (the order of the model when two are equal).
-  function layoutLayers(ss, edges, dir, s, tag) {
-    const n = ss.length, rev = new Set(), seen = Array(n).fill(0);
-    const dfs = a => { seen[a] = 1; edges.forEach((e, k) => { if (e.f !== a) return; if (seen[e.t] === 1) rev.add(k); else if (!seen[e.t]) dfs(e.t); }); seen[a] = 2; };
-    for (let k = 0; k < n; k++) if (!seen[k]) dfs(k);
-    const E = edges.map((e, k) => rev.has(k) ? {f: e.t, t: e.f, k} : {f: e.f, t: e.t, k}), rank = Array(n).fill(0);
-    for (let i = 0; i < n; i++) for (const e of E) rank[e.t] = Math.max(rank[e.t], rank[e.f] + 1);
-    for (let k = 0; k < n; k++) {   // a node with no edge in stands just before its first node out, so its edges stay short
-      if (E.some(e => e.t === k)) continue;
-      const outs = E.filter(e => e.f === k).map(e => rank[e.t]);
-      if (outs.length) rank[k] = Math.min(...outs) - 1;
-    }
-    const lo = Math.min(...rank); for (let k = 0; k < n; k++) rank[k] -= lo;
-    const size = [...ss], rk = [...rank], route = [], segs = [];
-    for (const e of E) {
-      const p = [e.f];
-      for (let r = rank[e.f] + 1; r < rank[e.t]; r++) { size.push({w: 10, h: 10, dummy: true}); rk.push(r); p.push(size.length - 1); }
-      p.push(e.t); route[e.k] = p;
-      for (let i = 1; i < p.length; i++) segs.push([p[i - 1], p[i]]);
-    }
-    const layers = []; rk.forEach((r, v) => (layers[r] = layers[r] || []).push(v));
-    for (let r = 0; r < layers.length; r++) layers[r] = layers[r] || [];
-    const crossings = ls => {
-      const p = {}; ls.forEach(L => L.forEach((v, i) => { p[v] = i; }));
-      let c = 0;
-      for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
-        const [a, b] = segs[i], [c2, d] = segs[j];
-        if (rk[a] === rk[c2] && a !== c2 && b !== d && (p[a] - p[c2]) * (p[b] - p[d]) < 0) c++;
-      }
-      return c;
-    };
-    const shift = ls => ls.reduce((t, L) => t + L.reduce((u, v, i) => u + (v < n ? Math.abs(i - L.filter(x => x < n).sort((a, b) => a - b).indexOf(v)) : 0), 0), 0);
-    const perms = a => a.length <= 1 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map(q => [x, ...q]));
-    let best = layers, bc = crossings(layers), bs0 = shift(layers);
-    if (bc && layers.reduce((t, L) => t * [1, 1, 2, 6, 24, 120, 720, 5040, 40320][Math.min(8, L.length)], 1) <= DG.perms) {
-      const opts = layers.map(perms), cur = [];
-      const walk = r => {
-        if (r === opts.length) { const c = crossings(cur), sh = shift(cur); if (c < bc || (c === bc && sh < bs0)) { best = cur.map(L => [...L]); bc = c; bs0 = sh; } return; }
-        for (const o of opts[r]) { cur[r] = o; walk(r + 1); }
-      };
-      walk(0);
-    }
-    // sizes along the ranks and across them: `down` has ranks from the top, `right` from the left
-    const down = dir === 'down', along = z => down ? z.h : z.w, across = z => down ? z.w : z.h;
-    const gapR = Math.max(DG.rank * s, (down ? tag.h : tag.w) + 28), pos = [];
-    let a = 0;
-    best.forEach(L => {
-      const deep = Math.max(...L.map(v => along(size[v]))), widths = L.map(v => across(size[v]));
-      const total = widths.reduce((t, w) => t + w, 0) + L.slice(1).reduce((t, v, i) => t + (size[v].dummy || size[L[i]].dummy ? 14 : DG.gap * s), 0);
-      let c = -total / 2;
-      L.forEach((v, i) => {
-        if (i) c += size[v].dummy || size[L[i - 1]].dummy ? 14 : DG.gap * s;
-        const z = size[v], q = a + (deep - along(z)) / 2;
-        pos[v] = down ? {x: c, y: q} : {x: q, y: c};
-        c += across(z);
-      });
-      a += deep + gapR;
-    });
-    const bs = ss.map((z, k) => ({x: pos[k].x, y: pos[k].y, w: z.w, h: z.h})), box = v => ({...pos[v], w: size[v].w, h: size[v].h});
-    const lines = edges.map((e, k) => {
-      let p = route[k].map(v => centre(box(v)));
-      if (rev.has(k)) p = p.reverse();
-      if (p.length === 2 && edges.some(x => x.f === e.t && x.t === e.f)) {   // arrows both ways: side by side
-        const [[x0, y0], [x1, y1]] = p, L = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / L * 7, ny = (x1 - x0) / L * 7;
-        p = [[x0 + nx, y0 + ny], [x1 + nx, y1 + ny]];
-      }
-      return {k, f: e.f, t: e.t, pts: clip(dense(smoothPath(p), 3), bs[e.f], bs[e.t])};
-    });
-    if (lines.some(l => !l.pts)) return null;
-    const order = [...bs.keys()].sort((x, y) => rank[x] - rank[y] || (down ? bs[x].x - bs[y].x : bs[x].y - bs[y].y));
-    return {kind: dir, bs, lines, order};
-  }
-  // Clean: no edge goes through a node that is not its own, and no two edges cross (except two edges of one node, at that node).
-  function clean(v) {
-    const cross = (p, q, r, s) => { const o = (a, b, c) => Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])); return o(p, q, r) * o(p, q, s) < 0 && o(r, s, p) * o(r, s, q) < 0; };
-    for (const l of v.lines) if (v.bs.some((b, i) => i !== l.f && i !== l.t && l.pts.some(p => inside(b, p, 3)))) return false;
-    for (let i = 0; i < v.lines.length; i++) for (let j = i + 1; j < v.lines.length; j++) {
-      const A = v.lines[i], B = v.lines[j];
-      if (A.f === B.f || A.f === B.t || A.t === B.f || A.t === B.t) continue;
-      for (let a = 1; a < A.pts.length; a++) for (let b = 1; b < B.pts.length; b++) if (cross(A.pts[a - 1], A.pts[a], B.pts[b - 1], B.pts[b])) return false;
-    }
-    return true;
-  }
-  // The words of each edge in a pill on its middle (on a ring: just outside its arc; on the arrow back of a loop: under the
-  // last node); moved along the edge or to one side when that place is taken by a node or other words, and dropped when no
-  // place is free. A place on no other edge is better.
-  function placeTags(v, tags) {
-    const put = [], out = [];
-    for (const l of v.lines) {
-      const z = tags[l.k];
-      if (!z) continue;
-      const P = l.pts, L = length(P), cands = [];
-      const at = u => { let d = u * L; for (let i = 1; i < P.length; i++) { const g = Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); if (d <= g || i === P.length - 1) { const t = g ? Math.min(1, d / g) : 0; return [P[i - 1][0] + (P[i][0] - P[i - 1][0]) * t, P[i - 1][1] + (P[i][1] - P[i - 1][1]) * t, (P[i][0] - P[i - 1][0]) / (g || 1), (P[i][1] - P[i - 1][1]) / (g || 1)]; } d -= g; } };
-      const c0 = l.from || v.ring;   // a ring, or an edge with its own centre: outside first, so the line shows
-      for (const u of l.us || [.5, .4, .6, .3, .7]) {
-        const [x, y, tx, ty] = at(u), nx = -ty, ny = tx, d = (Math.abs(nx) * z.w + Math.abs(ny) * z.h) / 2 + 5;
-        const side = c0 && (x - c0[0]) * nx + (y - c0[1]) * ny < 0 ? -1 : 1;
-        for (const o of c0 ? [side, 0, -side] : [0, 1, -1]) cands.push({x: x + nx * d * o - z.w / 2, y: y + ny * d * o - z.h / 2, w: z.w, h: z.h});
-      }
-      const free = (r, strict) => !v.bs.some(b => hits(r, b, 4)) && !put.some(q => hits(r, q, 4)) && (!strict || !v.lines.some(o => o !== l && o.pts.some(p => inside(r, p, 3))));
-      const pick = cands.find(r => free(r, true)) || cands.find(r => free(r, false));
-      if (pick) { put.push(pick); out[l.k] = pick; }
-    }
-    return out;
-  }
-  // Each clean layout of the diagram of mark `m`, in the order of choice, with its edge words placed and the size of its card.
-  // A cycle tries a ring, then a loop in a column at each width of DG.loop.
-  function variants(m) {
-    const o = m.o, d = m.dg, out = [];
-    const ix = Object.fromEntries(o.nodes.map((x, k) => [x.id, k])), edges = (o.edges || []).map(e => ({f: ix[e.from], t: ix[e.to]}));
-    const looks = o.layout === 'cycle' ? [['ring', d.sizes[0]], ...d.sizes.slice(1).map(z => ['loop', z])]
-                : (o.layout === 'tree' ? ['down', 'right'] : ['right', 'down']).map(k => [k, d.sizes[0]]);
-    for (const [kind, sz] of looks) for (const s of [1, 1.3, 1.6]) {
-      const ss = sz.ss, tags = sz.tags, tag = {w: Math.max(0, ...tags.map(t => t ? t.w : 0)), h: Math.max(0, ...tags.map(t => t ? t.h : 0))};
-      const v = kind === 'ring' ? layoutRing(ss, edges, s) : kind === 'loop' ? layoutLoop(ss, edges, s, tags) : layoutLayers(ss, edges, kind, s, tag);
-      if (!v || !clean(v)) continue;
-      v.sz = sz; v.tags = placeTags(v, tags); v.drops = tags.filter((t, k) => t && !v.tags[k]).length;
-      const all = [...v.bs, ...v.tags.filter(Boolean), ...v.lines.flatMap(l => l.pts.map(p => ({x: p[0] - 7, y: p[1] - 7, w: 14, h: 14})))];
-      const x0 = Math.min(...all.map(b => b.x)), y0 = Math.min(...all.map(b => b.y));
-      const pad = v.pad || DG.pad; v.dx = pad - x0; v.dy = pad - y0;
-      v.W = Math.ceil(Math.max(...all.map(b => b.x + b.w)) + v.dx + pad); v.H = Math.ceil(Math.max(...all.map(b => b.y + b.h)) + v.dy + pad);
-      out.push(v);
-      if (!v.drops) break;   // more space only to find room for words that dropped
-    }
-    return out;
-  }
-  // The layout and place for the card now: the side place when the card fits it at 80 % or more, else the wide place at 75 % or
-  // more; fewer dropped words first, then a ring before a loop, then the larger scale. Null when no clean layout fits: then the
-  // step shows without its diagram.
-  function choose(vs, r) {
-    let best = null;
-    const tenth = x => Math.round(x * 10) / 10;   // a scale 5 % smaller is not worse
-    for (const v of vs) {
-      const ks = Math.min(1, r.side.w / v.W, r.side.h / v.H), kw = Math.min(1, r.wide.w / v.W, r.wide.h / v.H), more = v.drops + (v.kind === 'loop' ? .5 : 0);
-      const c = r.side.w >= DG.min && ks >= DG.k ? {v, dock: 'side', k: ks, score: more + tenth(1 - ks)} : kw >= DG.kw ? {v, dock: 'wide', k: kw, score: more + tenth(1 - kw) + 2.5} : null;
-      if (c && (!best || c.score < best.score)) best = c;
-    }
-    return best;
-  }
-  // Draw the layout `v` in the card of mark `m`: the place of each node and pill, the edges, and the parts that paint them.
-  function drawDiagram(m, v) {
-    const d = m.dg, parts = [], shows = [];
-    v.order.forEach((k, n) => { shows[k] = n * 140; });
-    d.svg.replaceChildren();
-    d.svg.setAttribute('width', v.W); d.svg.setAttribute('height', v.H);
-    sizeTo(d, v.sz);
-    v.bs.forEach((b, k) => { Object.assign(d.nodes[k].style, {left: b.x + v.dx + 'px', top: b.y + v.dy + 'px'}); parts.push({kind: 'node', el: d.nodes[k], at: shows[k], dur: 260}); });
-    d.tags.forEach(t => { if (t) { t.hidden = true; t.dataset.dropped = '1'; } });
-    for (const l of v.lines) {
-      const pts = l.pts.map(([x, y]) => [x + v.dx, y + v.dy]), at = Math.max(shows[l.f], shows[l.t]) + 220, dur = clamp(length(pts) * 1.6, 320, 640);
-      const p = svgEl('path', 'board-fill'), e = pts[pts.length - 1];
-      p.dataset.from = m.o.nodes[l.f].id; p.dataset.to = m.o.nodes[l.t].id;
-      p.dataset.ends = [pts[0][0], pts[0][1], e[0], e[1]].map(x => x.toFixed(1)).join(' ');
-      d.svg.append(p);
-      parts.push(stroke(p, press(pts, .55, .75, .55), {size: 2.2, thin: .25, at, dur}));
-      const Q = pts[Math.max(0, pts.length - 5)], h = svgEl('path', 'board-fill'); d.svg.append(h);
-      parts.push({kind: 'head', el: h, tip: e, a: Math.atan2(e[1] - Q[1], e[0] - Q[0]), w: .75, at: at + dur * .92});
-      const t = d.tags[l.k], r = v.tags[l.k];
-      if (t && r) { t.hidden = false; delete t.dataset.dropped; Object.assign(t.style, {left: r.x + v.dx + 'px', top: r.y + v.dy + 'px'}); parts.push({kind: 'node', el: t, at: at + dur * .6, dur: 220}); }
-    }
-    Object.assign(d.inner.style, {width: v.W + 'px', height: v.H + 'px'});
-    m.el.dataset.kind = v.kind;
-    return parts;
-  }
-  function buildDiagram(m) {   // the card and its nodes, measured in the host; model text goes in with textContent only
-    const o = m.o, card = el('div', 'board-diagram', null), inner = el('div', 'board-diagram-in', null), svg = svgEl('svg', 'board-diagram-lines');
-    card.dataset.op = 'diagram'; card.dataset.step = m.step; card.dataset.layout = o.layout || 'row';
-    card.setAttribute('role', 'img'); card.setAttribute('aria-label', 'A diagram: ' + o.nodes.map(x => x.text).join(', '));
-    inner.append(svg); card.append(inner);
-    const nodes = o.nodes.map(x => { const e = el('div', 'board-node', x.text); e.dataset.id = x.id; inner.append(e); return e; });
-    const tags = (o.edges || []).map(e => e.text ? inner.appendChild(el('span', 'board-edge-text', e.text)) : null);
-    card.style.visibility = 'hidden'; host().append(card);
-    inner.style.width = '2000px';   // room to measure
-    m.el = card; m.dg = {inner, svg, nodes, tags};
-    m.dg.sizes = [measure(m.dg, DG.widths, DG.lines)];
-    if (o.layout === 'cycle') m.dg.sizes.push(...DG.loop.map(w => measure(m.dg, [w], Infinity, true)));
-  }
-  // The size of each node and pill of card `d`: a node is as narrow as its text, in the first of `widths` where it has at most
-  // `lines` lines. `column`: each node has the width of the widest, and a pill wraps at that width. Text is never cut.
-  function measure(d, widths, lines, column = false) {
-    const nw = d.nodes.map(e => {
-      const cs = getComputedStyle(e), lh = parseFloat(cs.lineHeight) || 16, padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
-      e.style.width = '';
-      for (const w of widths) { e.style.maxWidth = w + 'px'; if (Math.round((e.offsetHeight - padY) / lh) <= lines) break; }
-      return Math.ceil(e.getBoundingClientRect().width) + 1;
-    });
-    const W = Math.max(...nw), z = {nw: column ? nw.map(() => W) : nw, wrap: column ? W : 0, tw: []};
-    sizeTo(d, z);
-    z.ss = d.nodes.map(e => ({w: e.offsetWidth, h: e.offsetHeight}));
-    z.tw = d.tags.map(t => t && (z.wrap ? Math.ceil(t.getBoundingClientRect().width) + 1 : 0));
-    sizeTo(d, z);
-    z.tags = d.tags.map(t => t && {w: t.offsetWidth, h: t.offsetHeight});
-    return z;
-  }
-  function sizeTo(d, z) {   // fix the width of each node and pill to the sizes `z`, so the text never wraps again in the card
-    d.nodes.forEach((e, k) => { e.style.width = e.style.maxWidth = z.nw[k] + 'px'; });
-    d.tags.forEach((t, k) => {
-      if (!t) return;
-      t.classList.toggle('wrap', !!z.wrap);
-      t.style.maxWidth = z.wrap ? z.wrap + 'px' : ''; t.style.width = z.tw[k] ? z.tw[k] + 'px' : '';
-    });
-  }
-  function placeDiagram(m) {
-    if (!m.el) { buildDiagram(m); m.dv = variants(m); }
-    const s = document.getElementById('guide-strip'), card = m.el;
-    const key = [innerWidth, innerHeight, s && !s.hidden ? Math.round(s.getBoundingClientRect().top) : 0, document.documentElement.scrollHeight].join(':');
-    if (m.key !== key) {
-      m.key = key;
-      const r = room(), c = choose(m.dv, r);
-      if (!c) { m.skip = true; m.dparts = null; return hide(m); }   // no clean layout fits: the step shows without it
-      m.skip = false; m.dock = c.dock; card.dataset.dock = c.dock;
-      if (m.pick !== c.v) { m.pick = c.v; m.dparts = drawDiagram(m, c.v); }
-      const W = c.v.W * c.k, H = c.v.H * c.k;
-      card.style.visibility = ''; card.style.display = '';
-      Object.assign(card.style, c.dock === 'side' ? {left: '', bottom: '', top: r.side.top + 'px', right: r.side.right + 'px', width: W + 'px', height: H + 'px'}
-                                                  : {top: '', right: '', left: r.wide.left + 'px', bottom: r.wide.bottom + 'px', width: r.wide.w + 'px', height: H + 'px'});
-      m.dg.inner.style.left = c.dock === 'wide' ? (r.wide.w - W) / 2 + 'px' : '0';
-      m.dg.inner.style.transform = c.k < 1 ? `scale(${c.k.toFixed(3)})` : '';
-    }
-    if (m.skip) return hide(m);
-    card.style.display = '';
-    const b = card.getBoundingClientRect();   // the pointer rests just under the lower left corner of the card
-    m.box = {x: b.left + scrollX, y: b.top + scrollY, w: b.width, h: b.height};
-    m.parts = m.dparts; m.aim = {x: m.box.x - 30, y: m.box.y + m.box.h, w: 30, h: 0}; m.ok = true;
-    m.life = m.parts.reduce((t, p) => Math.max(t, p.at + (p.dur || 300)), 0) + 500;
-    return true;
-  }
 
   // Each part of a mark at time `t` (ms, performance.now).
   function paint(m, t) {
@@ -819,7 +475,7 @@
         const s = (still ? (k >= 0 ? 1 : 0) : spring(q, .32, .55)) * (p.w || 1), [ex, ey] = p.tip, a = p.a, L = 12 * s, W = 6.5 * s, c = Math.cos(a), si = Math.sin(a);
         p.el.setAttribute('d', s <= 0 ? '' : `M${ex + c * 2} ${ey + si * 2} L${ex - L * c + W * si} ${ey - L * si - W * c} Q${ex - L * .7 * c} ${ey - L * .7 * si} ${ex - L * c - W * si} ${ey - L * si + W * c} Z`);
       }
-      if (p.kind === 'node') {   // a node or the words of an edge of a diagram: it pops in on a spring
+      if (p.kind === 'node') {   // a part of the side panel: it pops in on a spring
         const s = still ? 1 : spring(q, .32, .6);
         Object.assign(p.el.style, {opacity: still ? (k >= 0 ? 1 : 0) : clamp(q / 200), transform: still || q >= p.dur * 3 ? '' : `scale(${(.9 + .1 * s).toFixed(3)})`});
       }
@@ -841,8 +497,8 @@
     }
     if (m.g) m.g.style.opacity = op;
     if (m.hl) m.hl.style.opacity = op;
-    if (m.o.op === 'diagram' && m.el) m.el.style.opacity = op;
-    if (m.o.op === 'row' && m.g) m.g.style.opacity = op;
+    if (m.o.op === 'row' && m.g) m.g.style.opacity = op * (st && m.step < st.i ? .3 / .45 : 1);   // the curves of earlier rows go to 30 %
+    if (m.ring) m.ring.style.opacity = op;
   }
   // Marks of earlier steps step back to 45 %, and a glow goes. A mark of the step before fades; the others are there at once.
   function dim(m, t) {
@@ -918,7 +574,7 @@
       host();
       const ms = st.marks.filter(m => m.drawn), t = performance.now();
       ms.forEach(m => { place(m); paint(m, t); });
-      const live = ms.filter(m => !m.skip);   // a diagram with no clean layout is not a lost mark
+      const live = ms.filter(m => !m.skip);   // a mark with no thing under it is not a lost mark
       if (live.length && !live.some(m => m.ok)) note('The page changed. Ask again.');
     });
   }
@@ -1004,7 +660,6 @@
     keys.append(' ', button('Stop', 'board-stop', () => stop('learner')));
     parts.push(keys);
     s.replaceChildren(...parts);
-    if (st.marks.some(m => m.drawn && m.o.op === 'diagram')) follow();   // the strip changed size: a diagram card stays above it
   }
   // The words of a step, with its maths: `$…$` is one part, and a bare W_Q or d_{k} (one letter with a short subscript) is maths too.
   // A part with maths is drawn by KaTeX where the page loaded it (trust off), else as text with <sub> elements. Model text never goes in as HTML.
@@ -1093,9 +748,10 @@
     i = Math.max(0, Math.min(st.board.steps.length - 1, i));
     const forward = i === st.i + 1, t = performance.now();
     st.i = i; st.stepAt = t; st.lit = -1; st.wait = false;
-    for (const m of st.marks) unmount(m);
-    const pn = document.getElementById('board-panel'); if (pn) pn.remove();   // the panel is built again from the marks of the steps up to this one
+    for (const m of st.marks) if (!(forward && PANEL.includes(m.o.op) && m.step < i)) unmount(m);   // on D next the panel and its rows stay
+    if (!forward) panelGone();   // else the panel is built again from the marks of the steps up to this one
     st.video = null;
+    into(st.marks.filter(m => m.step === i));
     const run = (m, live) => {   // a mark that starts: `clear` takes away the marks before it
       if (m.o.op === 'clear') { st.marks.filter(x => x.drawn && (m.o.n == null || x.step === m.o.n - 1)).forEach(unmount); return; }
       if (m.o.op === 'demo_set') return demo(m.o.set);
@@ -1122,6 +778,15 @@
       if (st && st.auto && i < st.board.steps.length - 1) st.timers.push(setTimeout(() => show(i + 1), WAIT));
       else if (st && st.auto && st.streaming) st.wait = true;   // the last step so far is said: the next step that comes plays at once
     });
+  }
+  // Scroll the first mark of `ms` into view when it is off screen or under the strip, before it draws.
+  function into(ms) {
+    const at = (ms.find(m => m.o.at !== undefined || m.o.from !== undefined) || {o: {}}).o, b = locate(at.at ?? at.from);
+    if (!b) return;
+    const s = document.getElementById('guide-strip'), low = innerHeight - (s && !s.hidden ? s.offsetHeight : 0) - 8, nav = document.querySelector('body > nav');
+    const high = (nav ? nav.getBoundingClientRect().bottom : 0) + 8, y = b.y - scrollY;
+    if (y >= high && y + Math.min(b.h, low - high) <= low) return;
+    scrollTo({top: Math.max(0, b.y - high - Math.max(0, (low - high - b.h) / 2)), behavior: reduced() || st.fast ? 'auto' : 'smooth'});
   }
   function marksOf(s, k) { return s.strokes.map((o, n) => ({o, step: k, seed: 1 + k * 10 + n, parts: []})); }
   function add(step) {   // see the API at the top of this file
@@ -1241,6 +906,7 @@
     st = null;
     if (back && back.isConnected && !document.activeElement.matches('textarea, input, select, [contenteditable]')) back.focus({preventScroll: true});
     for (const e of document.querySelectorAll('#board-host, .board-hl')) e.remove();
+    panelGone();
     const s = document.getElementById('guide-strip'); if (s) { s.hidden = true; s.replaceChildren(); }
     document.dispatchEvent(new CustomEvent('board:stop', {detail: {by: by === 'learner' ? 'learner' : ''}}));
   }
@@ -1278,7 +944,7 @@
   const watch = () => new MutationObserver(ms => {
     if (!st) return;
     if (!document.getElementById('board-host')) return stop();
-    if (ms.some(m => !(m.target.closest && m.target.closest('#board-host, #guide-strip, .board-hl, #board-trail')))) follow();
+    if (ms.some(m => !(m.target.closest && m.target.closest('#board-host, #board-panel, #guide-strip, .board-hl, #board-trail')))) follow();
   }).observe(document.body, {childList: true, subtree: true});
   if (document.body) watch(); else addEventListener('DOMContentLoaded', watch);
   const view = p => [p[0] - scrollX, p[1] - scrollY];
@@ -1286,6 +952,7 @@
                          speakBrowser: (text, onWord, done) => st ? voice(text, onWord, done) : undefined,
                          notice: n => { if (st && n && typeof n === 'object') { st.notice = n; caption(); } },
                          next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
+                         timeline: () => st ? st.marks.filter(m => m.step === st.i && m.drawn).flatMap(m => m.parts.map(p => [m.o.op, p.kind, Math.round(p.at)])) : [],   // the parts of this step and when each starts, in ms
                          get state() {
                            if (!st) return null;
                            const t = performance.now(), mine = st.marks.filter(m => m.step === st.i && !/^(clear|demo_set|video_at)$/.test(m.o.op));

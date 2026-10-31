@@ -17,23 +17,23 @@ def test_a_3d_ask_gives_a_card_with_the_scene(mk, fake, lr):
     fake.rules['You design one 3D explainer'] = SCENE
     cl = mk()
     r = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='show it in 3D')).text
-    assert 'A 3D explainer' in r and 'You asked for 3D' in r and 'Show a 2D demo' in r   # 2D is one click away
+    assert '3D explainer' in r and 'You asked for 3D' in r and 'Show a 2D demo' in r   # 2D is one click away
     assert len(wait_3d(cl, 'ranking')) == 1
     a = lr.asked(aid_of(r))
     assert a.kind == 'explainer'   # the record of the ask, as for a 2D ask
     d = lr.demo_for('ranking', aim='3d', key=a.key)
     assert d and d.spec['mode'] == 'learn' and lr.asks('ranking')[0].slug == d.slug
     card = cl.get(f'/demo/asked/{a.id}').text
-    assert 'A 3D explainer: watch it step by step.' in card and 'data-rupaka' in card and 'scene' in card
-    assert not [k for k in svc(cl)['tutor'].jobs if k.startswith('ranking#')]   # no 2D job until you ask for it
+    assert 'How an F-35B hovers' in card and 'data-rupaka' in card and 'scene' in card
+    assert [k for k in svc(cl)['tutor'].jobs if k.startswith('ranking#')]   # the 2D demo builds while the 3D explainer builds, so Show is never silent
 
 def test_show_it_in_3d_under_a_2d_demo_asks_for_the_explainer(mk, fake, lr):
     fake.rules['You design one 3D explainer'] = SCENE
     cl = mk()
     r = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='', kind='3d')).text
-    assert 'A 3D explainer' in r and 'You asked for 3D. The scene builds one step at a time.' in r
+    assert '3D explainer' in r and 'You asked for 3D. The scene builds one step at a time.' in r
     wait_3d(cl, 'ranking')
-    assert lr.asks('ranking')[0].kind == 'explainer' and 'A 3D explainer: watch it step by step.' in cl.get(f'/demo/asked/{aid_of(r)}').text
+    assert lr.asks('ranking')[0].kind == 'explainer' and 'How an F-35B hovers' in cl.get(f'/demo/asked/{aid_of(r)}').text
 
 def test_a_failed_3d_explainer_says_so_and_gives_the_2d_demo(mk, fake, lr):
     fake.rules['You design one 3D explainer'] = BAD
@@ -94,7 +94,7 @@ def test_a_3d_card_draws_a_scene_and_steps_forward(mk, lr):
                 pg.goto(f'http://127.0.0.1:{port}/demo/asked/{d_a.id}')
                 pg.wait_for_selector('[data-rk-gl="ready"]', timeout=30000)
                 assert [u for u in urls if '/rupaka/three.js' in u]
-                assert 'A 3D explainer: watch it step by step.' in pg.inner_text('.demo-card')
+                assert 'How an F-35B hovers' in pg.inner_text('.demo-card')
                 pg.wait_for_function('document.querySelector("[data-rk-still]")?.dataset.rkStill === "1"', timeout=15000)
                 assert pg.evaluate(DRAWN) > 8   # more than a blank fill: the floor, the bodies and their ink
                 assert pg.inner_text('.demo-card .count') == 'Step 1 of 6'

@@ -28,7 +28,7 @@ def test_show_me_on_a_walk_step_makes_a_demo_from_the_open_check(mk, walk_fake, 
     assert 'id="show-demo"' not in page and 'id="show-slot"' in page   # one Show me: in the row of the open check, after Hint and Explain
     assert card.count('id="show-demo"') == 1 and '⌥E' in card and card.index('id="hint"') < card.index('data-guide-open') < card.index('id="show-demo"') < card.index('id="idk"')
     r = cl.post('/demo/ask', data=dict(where='walk', concept=slug, walk=jid, step='1')).text
-    assert 'A 2D demo' in r and 'predict first' in r
+    assert '2D demo' in r and 'predict first' in r
     wait_asks(cl, slug)
     a = lr.asked(aid_of(r))
     assert (a.where, a.walk, a.step, a.said) == ('walk', jid, 1, '') and q.question in a.ask   # made from the open check
@@ -44,7 +44,7 @@ def test_show_me_in_a_session_is_a_tutor_message(mk, lr):
     qid = re.search(r'data-qid="([^"]+)"', page)[1]
     assert 'id="show-demo"' in page and f'#tl-{qid}' in page
     r = cl.post('/demo/ask', data=dict(where='session', qid=qid)).text
-    assert 'class="m tutor extra"' in r and 'A 2D demo' in r
+    assert 'class="m tutor extra"' in r and '2D demo' in r
     wait_asks(cl, 'ranking')
     a = lr.asked(aid_of(r))
     assert (a.where, a.session, a.concept) == ('session', sid, 'ranking')
@@ -68,7 +68,7 @@ def test_show_me_typed_in_a_walk_answer_box_uses_no_try(mk, walk_fake, lr):
     cl = mk(); jid, slug, q = walk_at(cl, lr)
     n0 = len(lr.attempts(slug))
     r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='show me how the scores become weights', confidence=50)).text
-    assert 'hx-swap-oob="innerHTML"' in r and 'id="show-slot"' in r and 'A 2D demo' in r
+    assert 'hx-swap-oob="innerHTML"' in r and 'id="show-slot"' in r and '2D demo' in r
     assert q.id in svc(cl)['tutor'].open and svc(cl)['tutor'].open[q.id].tries == [] and len(lr.attempts(slug)) == n0   # not graded
     wait_asks(cl, slug)
     a = lr.asks(walk=jid)[0]
@@ -80,7 +80,7 @@ def test_show_me_typed_in_a_session_uses_no_try(mk, lr):
     page = cl.get(f'/s/{sid}').text
     qid = re.search(r'data-qid="([^"]+)"', page)[1]
     r = cl.post(f'/s/{sid}/answer', data=dict(answer='Show me how a rank orders the list')).text
-    assert 'tutor extra' in r and 'A 2D demo' in r and 'more tries' not in r and 'Nudge' not in r
+    assert 'tutor extra' in r and '2D demo' in r and 'more tries' not in r and 'Nudge' not in r
     assert svc(cl)['tutor'].open[qid].tries == [] and lr.attempts('ranking') == []
     wait_asks(cl, 'ranking')
     assert lr.asks(session=sid)[0].said == 'how a rank orders the list'
@@ -103,7 +103,7 @@ def test_3d_and_leela_links_say_their_state(mk, walk_fake, lr, monkeypatch, tmp_
     assert 'Leela is not running' in r and '/learn?' not in r
     leela_file(tmp_path)
     r = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='let me try it in code')).text
-    assert 'A notebook in Leela' in r and 'try it in code' in r and '/learn?topic=Ranking' in r and 'Show a 2D demo' in r
+    assert 'Leela notebook' in r and 'try it in code' in r and '/learn?topic=Ranking' in r and 'Show a 2D demo' in r
     assert not [k for k in svc(cl)['tutor'].jobs if k.startswith('ranking#')]   # Leela: no 2D job until you ask for it
     two = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='let me try it in code', kind='demo')).text
-    assert 'A 2D demo' in two and len(wait_asks(cl, 'ranking')) == 1
+    assert '2D demo' in two and len(wait_asks(cl, 'ranking')) == 1

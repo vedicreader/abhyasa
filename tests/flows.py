@@ -259,4 +259,26 @@ def d_improve_walk(lr, cl, mp, fake):
     cl.post(f'/w/{jid}/undo')
     assert lr.journey(jid).steps[1]['check'].get('depth', 2) == d
 
-DRIVE = {'continue': d_continue, 'find_sources': d_find_sources, 'finish_walk': d_finish_walk, 'improve_walk': d_improve_walk}
+def events(cl, said, ctx, thread=None):
+    "The events of one question to the guide."
+    r = cl.post('/guide/ask', json=dict(said=said, ctx=ctx, **({'thread': thread} if thread else {})))
+    return [json.loads(l[6:]) for l in r.text.splitlines() if l.startswith('data: ')]
+
+def d_explain(lr, cl, mp, fake):
+    """Caps+E on an idea page: the board has its steps, with a side-panel row made from the words on the page, and it ends with the Show offer.
+    Then "yes" is Show: one show event with the card for the Show slot, no board, and one ask row."""
+    jid = started(cl, paper(lr, cl)); slug = lr.journey(jid).steps[1]['slug']
+    page(cl, f'/w/{jid}/1')
+    ctx = dict(page=f'/w/{jid}/1', slug=slug, anchors=[dict(id='code1', kind='code', text='weights = softmax(scores)')])
+    fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='Softmax turns the scores into weights.'),
+        dict(op='panel', head='Scores to weights'), dict(op='row', cells=['scores'], to='weights', at=dict(a='code1', text='softmax(scores)')),
+        dict(op='step', say='Say show me to see it move.')])
+    evs = events(cl, 'what does this line do', ctx)
+    b = evs[-1]['board']
+    assert len(b['steps']) == 2 and [s['op'] for s in b['steps'][0]['strokes']] == ['panel', 'row']
+    evs = events(cl, 'yes', ctx, [dict(said='what does this line do', says=[s['say'] for s in b['steps']])])
+    assert [list(e) for e in evs] == [['show']] and 'ask-card' in evs[0]['show']['html']
+    a = lr.asks(concept=slug)[0]
+    assert a.where == 'guide' and 'softmax(scores)' in a.ask
+
+DRIVE = {'explain': d_explain, 'continue': d_continue, 'find_sources': d_find_sources, 'finish_walk': d_finish_walk, 'improve_walk': d_improve_walk}

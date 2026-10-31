@@ -1,6 +1,10 @@
-/* A demo is the one raised surface of a concept page: you work with it, so it comes forward. */
-.demo-card { margin: var(--s6) 0 var(--s2); padding: var(--s5) var(--s5) var(--s4); background: var(--raised); --bg: var(--raised); box-shadow: var(--lift); border-radius: var(--r); }
-.demo-card.pending { box-shadow: none; background: var(--sunken); --bg: var(--sunken); }
+/* A demo is on the same paper as the side panel of the board (board.css tokens): one look for every picture of an idea. The
+   titles and labels of rupaka are in the hand font; the values stay in monospace. */
+.demo-card { margin: var(--s6) 0 var(--s2); padding: var(--s5) var(--s5) var(--s4); background: var(--paper); color: var(--paper-ink); border: 1px solid var(--paper-line);
+             box-shadow: var(--lift); border-radius: 12px; --bg: var(--paper); --fg: var(--paper-ink); --ink2: var(--paper-ink); --mute: var(--paper-mute); --line: var(--paper-line); }
+.demo-card .rk { --rk-head: var(--hand); }
+.demo-card .rk .rk-title, .demo-card .lbl { font-family: var(--hand); font-size: 1.3em; text-transform: none; letter-spacing: 0; }
+.demo-card.pending { box-shadow: none; }
 .demo-card .lead { margin: 0 0 var(--s1); }
 .demo-card .rk { max-width: 640px; }
 .demo-card .rk .rk-title { margin-top: var(--s1); }
@@ -14,3 +18,9 @@
 .ask-card .kind-why { margin: 0; }
 .ask-card .ask-links { gap: var(--s3); align-items: baseline; flex-wrap: wrap; margin-top: var(--s2); }
 .ask-card .not-ready { color: var(--mute); font-size: .9em; }
+/* The plan of a demo that the tutor makes now: its stages, the one now in the accent, and the seconds. */
+.show-plan { gap: var(--s2); flex-wrap: wrap; align-items: baseline; font-size: var(--t-meta); color: var(--mute); }
+.show-plan span + span:not(.secs)::before { content: '→'; margin-right: var(--s2); color: var(--mute); }
+.show-plan .on { color: var(--acc); font-weight: 600; }
+.show-plan .done { color: var(--fg); }
+.show-while > p { margin: var(--s3) 0 0; }

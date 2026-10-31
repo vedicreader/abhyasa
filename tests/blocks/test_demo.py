@@ -90,7 +90,7 @@ def test_two_misses_make_a_demo_under_the_lesson(mk, lr):
     assert 'Lesson' in first and 'demo-card' not in first
     cl.post(f'/s/{sid}/next')
     second = miss(cl, sid)
-    assert 'The tutor is making a demo' in second and '/demo/asked/' in second and 'm tutor extra' in second   # a tutor message in the thread, and its wait is an ask
+    assert 'The tutor makes a demo' in second and '/demo/asked/' in second and 'm tutor extra' in second   # a tutor message in the thread, and its wait is an ask
     wait_job(cl, 'ranking')
     card = cl.get(f'/demo/asked/{aid_of(second)}').text
     assert 'data-rupaka' in card
@@ -122,10 +122,10 @@ def test_the_ladder_after_a_demo_in_a_session(mk, lr, fake):
     cl.post(f'/s/{sid}/next'); second = miss(cl, sid)
     assert 'Lesson · ' in second and 'data-rupaka' in second and 'A simpler demo' not in second   # another way, and the demo stays
     cl.post(f'/s/{sid}/next'); third = miss(cl, sid)
-    assert 'The tutor is making a simpler demo' in third and '/demo/asked/' in third
+    assert 'The tutor makes a simpler demo' in third and '/demo/asked/' in third
     svc(cl)['tutor'].jobs['ranking:simpler'].result(timeout=120)
     card = cl.get(f'/demo/asked/{aid_of(third)}').text
-    assert 'A simpler demo' in card and 'data-rupaka' in card
+    assert 'data-rupaka' in card and lr.asked(aid_of(third)).aim == 'simpler'
     assert lr.demo_for('ranking', aim='').slug == 'reciprocal-rank-fusion'               # the simpler demo is never the plain demo
     cl.post(f'/s/{sid}/next'); fourth = miss(cl, sid)
     assert 'demo-card' not in fourth and 'Lesson · ' not in fourth                     # the third miss after the demo adds nothing

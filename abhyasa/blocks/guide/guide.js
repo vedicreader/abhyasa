@@ -116,6 +116,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
       anchors.push({id: 'figure', kind: 'figure', text: cut(cap ? cap.textContent : figure.alt), ...(labels && {labels: await labelsOf(figure)})});   // the caption, else the alt
     }
     main.querySelectorAll('figcaption, .rk-title').forEach((c, n) => n < 4 && add(c, 'cap' + (n + 1), 'caption', textOf(c)));
+    [...main.querySelectorAll('pre')].filter(seen).slice(0, 4).forEach((c, n) => add(c, 'code' + (n + 1), 'code', cut(c.textContent, 300)));   // code and its output: the values that the panel copies
     let demo = {};
     const rk = [...main.querySelectorAll('[data-rupaka][data-rk-ready="1"]')].find(seen);
     if (rk) { const d = abhyasaBoard.demoAnchors(rk); if (d) { anchors.push(...d.anchors); demo = d.demo; } }
@@ -123,7 +124,8 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (video) add(video, 'video', 'video', cut(video.dataset.title || 'The explainer video'));
     const src = passage && passage.querySelector('.src-line');
     return {page: location.pathname, title: document.title, step: h1 ? cut(h1.textContent, 200) : '', slug: (main.querySelector('[data-concept]') || {dataset: {}}).dataset.concept || '',
-            source: sourceOf(src), anchors: anchors.slice(0, 40), demo, ...(video && {video: {id: video.dataset.vid}})};
+            source: sourceOf(src), anchors: anchors.slice(0, 40), demo, ...(video && {video: {id: video.dataset.vid}}),
+            ...(main.querySelector('[data-act="open-leela"]') && {leela: true})};   // a notebook step: the board ends with Open in Leela
   }
 
   // --- show while you talk ---------------------------------------------------------------------------------------------
@@ -469,11 +471,15 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (!p) { p = Object.assign(document.createElement('p'), {className: 'guide-hint-used mute'}); (c.querySelector('form') || c).prepend(p); }
     p.textContent = text;
   }
+  function closeShow() {
+    const c = document.getElementById('guide-show'); if (c) c.remove();
+    if (!document.getElementById('board-panel')) document.body.classList.remove('has-panel');
+  }
   // "Show me …" to the guide: Show. On an idea page the card fills the Show slot of the idea (#show-slot); on any other page it
   // comes in the side panel at the top right, where the board builds its example. With no idea for the page, the panel links to the Library.
   function showDemo(sh, said) {
     if (window.abhyasaBoard) abhyasaBoard.stop();
-    const old = document.getElementById('guide-show'); if (old) old.remove();
+    closeShow();
     const slot = document.getElementById('show-slot'), html = typeof sh.html === 'string' && sh.html;
     if (html && slot) {   // the card of the demo block, from this app: htmx runs its wait and its scripts
       if (window.htmx) htmx.swap(slot, html, {swapStyle: 'innerHTML'}); else slot.innerHTML = html;
@@ -482,11 +488,14 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     }
     const c = Object.assign(document.createElement('aside'), {id: 'guide-show', className: 'guide-show'});
     c.setAttribute('aria-label', 'Show: a demo from the guide');
-    const head = Object.assign(document.createElement('p'), {className: 'guide-show-head mute', textContent: `Show: ${cut(said, 80)} `});
+    const head = Object.assign(document.createElement('p'), {className: 'guide-show-head mute', textContent: 'Show '});
     const x = Object.assign(document.createElement('button'), {type: 'button', className: 'guide-show-close', textContent: '×', title: 'Close the demo'});
-    x.setAttribute('aria-label', 'Close the demo'); x.addEventListener('click', () => c.remove());
+    x.setAttribute('aria-label', 'Close the demo'); x.addEventListener('click', closeShow);
     const body = Object.assign(document.createElement('div'), {className: 'guide-show-body'});
-    head.append(x); c.append(head, body); document.body.append(c);
+    head.append(x); c.append(head, body);
+    const main = document.querySelector('main'), h1 = main && main.querySelector('h1');
+    if (innerWidth < 1100 && main) { c.classList.add('inline'); h1 ? h1.after(c) : main.prepend(c); } else document.body.append(c);
+    document.body.classList.add('has-panel');
     if (html) { if (window.htmx) htmx.swap(body, html, {swapStyle: 'innerHTML'}); else body.innerHTML = html; }
     else if (/^\/(?!\/)/.test(String(sh.href || ''))) {
       const p = Object.assign(document.createElement('p'), {className: 'mute', textContent: sh.find ? 'This page names no idea of yours yet. ' : ''});
@@ -497,7 +506,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   document.addEventListener('keydown', e => {   // Esc closes the demo card when no board shows and the box is closed
     const c = document.getElementById('guide-show');
     if (e.key !== 'Escape' || !c || (window.abhyasaBoard && abhyasaBoard.state) || (form() && !form().hidden) || busy) return;
-    c.remove(); e.preventDefault(); e.stopImmediatePropagation();
+    closeShow(); e.preventDefault(); e.stopImmediatePropagation();
   }, {capture: true});
 
   async function ask(said) {

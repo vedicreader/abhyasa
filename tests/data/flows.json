@@ -1026,11 +1026,11 @@
     }
   },
   "demos": {
-    "about": "One idea: Explain and Show. Explain = the tutor talks and marks what you already see (the guide board). Show = a thing that you act on or watch (a rupaka spec). The rule says which one you get, where it shows, and which renderer draws it.",
+    "about": "One idea: Explain and Show. Explain = the tutor talks and marks what you already see, and builds a small concrete example from those values in the side panel at the top right (board.js). Show = a thing that you act on or watch (a rupaka spec), in the Show slot of the idea, or in the same top-right place on a page with no slot. Show never says no: with no demo yet, it makes one, and the card shows the plan while it waits. Code that runs is Leela.",
     "kinds": {
       "explain": {
-        "what": "board: steps with marks (circle, underline, arrow, label, point, sketch) and one spoken line each",
-        "renderer": "core/board.js",
+        "what": "board: steps with marks (circle, underline, arrow, label, point, sketch) and one spoken line each, and the side panel: rows built from the values on screen, one row in each step, each linked to its thing on the page by a circle and a curve",
+        "renderer": "core/board.js (marks and the side panel), core/board.css (the paper)",
         "engine": "guide.explain",
         "moves_floor": false
       },
@@ -1046,12 +1046,6 @@
         "engine": "demo.make_explainer",
         "moves_floor": false
       },
-      "diagram": {
-        "what": "nodes and edges that show how parts of an idea link",
-        "renderer": "today: board.js (placeDiagram). Proposed: a rupaka 'flow' block, mode learn, drawn in the Show slot",
-        "engine": "guide.explain (op diagram)",
-        "moves_floor": false
-      },
       "video": {
         "what": "the idea's explainer video at a time",
         "renderer": "Show slot embed; board op video_at seeks it",
@@ -1063,6 +1057,12 @@
         "renderer": "Leela (not abhyasa)",
         "engine": "walk.nb_spec, leela_link",
         "moves_floor": "only when Leela files a passed check"
+      },
+      "panel": {
+        "what": "the side panel of Explain: a title, a head, column names, rows (cells → answer), chain rows and a note; a new panel line is a new beat. A process is a panel with numbered rows",
+        "renderer": "board.js placePanel; later a rupaka learn spec grown with Rupaka.append (rupaka ask)",
+        "engine": "guide.explain (ops panel, row, note)",
+        "moves_floor": false
       }
     },
     "rules": [
@@ -1072,6 +1072,30 @@
         "kind": "route_ask(words): predict by default; explainer for 3D or a physical thing; notebook for try/code/library → Open in Leela",
         "renderer": "rupaka.js",
         "counts_try": false
+      },
+      {
+        "trigger": "Caps+E or Explain on any page, a question",
+        "surface": "the guide bar, marks over the page, and the side panel at the top right (body.has-panel moves the page column left; below 1100 px the panel stands in the page)",
+        "kind": "explain; when the Show slot has a spec, the board drives it (demo_set)",
+        "renderer": "board.js"
+      },
+      {
+        "trigger": "\"show me …\", \"I want to see it\", \"play it\", or a bare \"yes\" after the Show offer, to the guide on any abhyasa page",
+        "surface": "the Show slot of the idea when the page has one, else the top-right place; no board",
+        "kind": "route_ask, through show(); the values of the page (code, tests) seed the demo state",
+        "renderer": "rupaka.js"
+      },
+      {
+        "trigger": "Caps+E over another app (Mac overlay), a question",
+        "surface": "Mac overlay: marks and the side panel",
+        "kind": "explain",
+        "renderer": "board.js and board.css in the overlay web view"
+      },
+      {
+        "trigger": "Caps+E over another app: \"show me …\"",
+        "surface": "the strip ends with one line and the link \"Open in abhyasa\" (show event)",
+        "kind": "hand-off: /c/{slug}?show=<words> when the guide finds the idea by the window title, else /concepts?q=<words>",
+        "renderer": "rupaka.js in abhyasa"
       },
       {
         "trigger": "Show me in a review session",
@@ -1085,30 +1109,6 @@
         "surface": "concept page, part:show",
         "kind": "as above",
         "renderer": "rupaka.js"
-      },
-      {
-        "trigger": "Caps+E on an abhyasa page, a question that is not 'show me'",
-        "surface": "the guide bar and a board over the page",
-        "kind": "explain; when the page has a rupaka spec in part:show, the board drives it (demo_set) and draws no diagram of its own",
-        "renderer": "board.js"
-      },
-      {
-        "trigger": "Caps+E on an abhyasa idea page: 'show me …'",
-        "surface": "idea page, part:show (the guide hands off; no board)",
-        "kind": "route_ask",
-        "renderer": "rupaka.js"
-      },
-      {
-        "trigger": "Caps+E over another app (Mac overlay), a question",
-        "surface": "Mac overlay board",
-        "kind": "explain only; a diagram only when the window has no figure",
-        "renderer": "board.js in the overlay web view"
-      },
-      {
-        "trigger": "Caps+E over another app: 'show me …'",
-        "surface": "the overlay ends with one line and a link 'Open in abhyasa'",
-        "kind": "hand-off: the window title and the words go to /c/{slug}?show=<words> when the guide finds the concept, else to the Start box",
-        "renderer": "rupaka.js in abhyasa"
       },
       {
         "trigger": "a wrong answer on a predict check (walk) or a miss in a review",
@@ -1131,12 +1131,16 @@
     ],
     "never": [
       "A board and a Show card for the same ask.",
-      "A diagram drawn by the board when part:show has a spec.",
-      "A rupaka spec on a page of its own (/demo/{slug} goes; the demo opens in the Show slot of its idea).",
+      "A diagram: a picture of an idea in Explain is the side panel.",
+      "A mark with no thing under it (a bare point, or empty space).",
+      "A line about the board, the page or abhyasa, or an apology.",
+      "A rupaka spec on a page of its own (/demo/{slug} is a 301 to the concept page).",
+      "A Show that says no, or that is silent while it builds.",
       "Code that runs in abhyasa: code goes to Leela."
     ],
-    "one_engine": "show(lr, tutor, concept, said, where, kind=None) → ask row + job; one card ShowCard(ask) with three states (wait, ready, refused→2D). /demo/make and /demo/wait go; /demo/ask and /demo/asked stay.",
-    "events": "Each Show and each board writes one row with lr.put_ask (where, kind, said, slug). course rule 3 reads them: two or more on one idea and no right check since → check it now."
+    "one_engine": "demo.show(tutor, concept, words, where, kind, ask, aim, values) → ask row + job; one card ShowCard(ask) with one label (2D demo, 3D explainer, Leela notebook), its plan while it waits, the 2D demo while 3D builds. /demo/make and /demo/wait are gone; /demo/ask and /demo/asked/{aid} stay.",
+    "events": "Each Show and each board writes one row with lr.put_ask (where, kind, said, slug). course rule 3 reads them: two or more on one idea and no right check since → check it now.",
+    "stuck_order": "On an open short check: Hint, Explain, Show me (⌥E), Teach me (or I don't know); the side walk is Learn it. One Show me button on the idea page: in the row of the open check, else under the title."
   },
   "workflows": {
     "start_goal": {
@@ -1342,12 +1346,16 @@
           "page": "any",
           "action": "Caps+E, ask",
           "next": "same page",
-          "state_change": "ask row kind=board; hint count when a check is open"
+          "state_change": "the board streams marks and side-panel rows; hint count when a check is open"
+        },
+        {
+          "page": "idea",
+          "action": "say \"show me\" or \"yes\" after the offer",
+          "next": "same page",
+          "state_change": "ask row where=guide, its card in the Show slot"
         }
       ],
-      "background": "the board streams; the guide bar names the model and where it runs.",
-      "pending": true,
-      "pending_why": "no driver yet"
+      "background": "the board streams; the guide bar names the model and where it runs."
     },
     "open_in_leela": {
       "goal": "Do the hands-on part in code.",

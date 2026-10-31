@@ -399,3 +399,13 @@ def test_show_me_to_the_guide_gets_the_demo_and_no_board(mk, fake, lr):
     assert [list(e) for e in evs] == [['show']] and evs[0]['show'] == dict(href='/concepts?q=', find=True)
     evs = ask('show me', dict(page='Safari', title='Reciprocal rank fusion - Wikipedia'))   # the Mac: no html, only the link
     assert evs[0]['show'] == dict(href='/c/reciprocal-rank-fusion?show=', title='Reciprocal rank fusion')
+
+def test_yes_after_the_show_offer_is_show_with_the_values_of_the_page(mk, fake, lr):
+    "A bare \"yes\" after a board that ended with the Show offer is Show, not a board. The values in the code of the page go into the ask, so the demo starts from them."
+    cl = mk(); n = len(fake.calls)
+    th = [dict(said='what is k', says=['k softens the ranks.', 'Say show me to see it move.'])]
+    ctx = dict(page='/c/ranking', slug='ranking', anchors=[dict(id='code1', kind='code', text='assert rrf([1, 2], k=60) == 0.032')])
+    evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='yes', ctx=ctx, thread=th)).text.splitlines() if l.startswith('data: ')]
+    assert [list(e) for e in evs] == [['show']] and not any('Tier: tutor' in p for p, _ in fake.calls[n:])
+    a = lr.asks(concept='ranking')[0]
+    assert a.where == 'guide' and 'Values from the page: assert rrf([1, 2], k=60) == 0.032' in a.ask

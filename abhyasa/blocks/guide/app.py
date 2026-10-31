@@ -7,7 +7,7 @@ from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook, run as run_hook
 from urllib.parse import quote
-from abhyasa.demo import show_ask
+from abhyasa.demo import show_reply
 from abhyasa.ground import main_words
 from abhyasa.guide import (FigureCache, Withheld, clean_context, concept_video, explain, figure_labels, file_video, find_explainer, guide_ask, set_video,
                            unsave, video_of, vision_ask, vision_why, where_of)
@@ -129,7 +129,8 @@ def connect(app, ctx):
         if x is None: return dict(href=f"/concepts?q={quote(words or c.get('title') or '')}", find=True)
         out = dict(href=f'/c/{x.slug}' + (f'?show={quote(words)}' if words else '?show='), title=x.name)
         if str(c.get('page') or '').startswith('/'):   # a page of the app: the card comes here; the Mac opens the link
-            card = next((y for y in run_hook('show_me', words, dict(where='guide', concept=x.slug)) if y is not None), None)
+            vals = ' '.join(a['text'] for a in c.get('anchors') or () if a['kind'] in ('code', 'check'))   # the values of the page: the demo starts from them
+            card = next((y for y in run_hook('show_me', words, dict(where='guide', concept=x.slug, values=vals)) if y is not None), None)
             if card is not None: out['html'] = to_xml(card)
         return out
 
@@ -153,7 +154,7 @@ def connect(app, ctx):
         if not said: return Response('Say or type your question.', status_code=400, media_type='text/plain')
         raw_ = d.get('ctx') if isinstance(d.get('ctx'), dict) else {}
         ctx_ = clean_context({**raw_, 'thread': d.get('thread', raw_.get('thread'))})   # the thread of the page: in the body, or in the ctx (the Mac)
-        if (words := show_ask(said)) is not None and (s := await asyncio.to_thread(show_of, words, ctx_)):   # "show me …": Show, never a board
+        if (words := show_reply(said, ctx_.get('thread'))) is not None and (s := await asyncio.to_thread(show_of, words, ctx_)):   # "show me …", or "yes" after the offer: Show, never a board
             return StreamingResponse(iter([f'data: {json.dumps(dict(show=s))}\n\n']), media_type='text/event-stream', headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
         if ctx_.get('video'):   # the cues come from the vault, never from the page
             if (v := await asyncio.to_thread(video_of, lr, ctx_.video['id'])): ctx_.video = v

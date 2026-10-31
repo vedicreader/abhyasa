@@ -9,7 +9,7 @@ from starlette.responses import RedirectResponse
 from rupaka.render import bundle, version
 from abhyasa.core import hook, Msg
 from abhyasa.core.leela import leela_link
-from abhyasa.demo import show, queue_demo, job_state, REFUSED
+from abhyasa.demo import show, queue_demo, job_state, job_age, ROUTES, REFUSED
 from . import ui
 from .cfg import Routes
 
@@ -47,11 +47,22 @@ def connect(app, ctx):
         or the line that says the model made none. When the model makes no valid 3D explainer, the card says so and gives the 2D demo."""
         three = (kind or ('3d' if a.get('kind') == 'explainer' else 'demo')) == '3d'
         aim = '3d' if three else a.get('aim', '') if not kind else ''
-        if job_state(tutor, a.concept, aim, a.ask) == 'running': return ui.AskPending(a, '3d' if three else kind, aim)
-        if (d := lr.demo_for(a.concept, aim=aim, key=a.key or None)): return ui.DemoCard(d, session=a.get('session', ''), ask=a.id, lead=False)   # the kind line of the ask says how it works
+        if job_state(tutor, a.concept, aim, a.ask) == 'running':
+            wait = ui.AskPending(a, '3d' if three else kind, aim, job_age(tutor, a.concept, aim, a.ask))
+            if not (three and not kind): return wait
+            if not lr.demo_for(a.concept, key=a.key or None) and job_state(tutor, a.concept, '', a.ask) != 'running': queue_demo(tutor, a.concept, said=a.ask)
+            return ui.WhileThree(wait, shown(a, 'demo'))   # the 2D demo while the 3D explainer builds
+        if (d := lr.demo_for(a.concept, aim=aim, key=a.key or None)): return ui.DemoCard(d, session=a.get('session', ''), ask=a.id, lead=False)   # the kind line of the card says how it works
         if not three: return ui.Failed()
         if not lr.demo_for(a.concept, key=a.key or None): queue_demo(tutor, a.concept, aim='', said=a.ask)
         return Div(P(REFUSED, cls='mute refused'), shown(a, 'demo'))
+
+    def values_of(at, q):
+        "The values of the place `at` that the demo starts from: what the guide read on the page, the tests that a notebook step shows, else the open check."
+        if at.get('values'): return at['values']
+        if at.get('walk') and (j := lr.journey(at['walk'])) and 0 <= int(at.get('step', -1)) < len(j.steps):
+            if (ts := [t['test'] for t in (j.steps[int(at['step'])].get('nb') or {}).get('tests') or () if isinstance(t, dict) and t.get('shown') and t.get('test')]): return ' '.join(ts)
+        return ''
 
     def answer_ask(words, at, kind='', aim=''):
         """One ask for a demo at the place `at` (`where`, `concept`, `walk` and `step`, or `qid`): Show files it, picks its kind and starts its demo;
@@ -64,7 +75,7 @@ def connect(app, ctx):
         text = words or (f"The idea behind this check: {q['question']}" if q else '')
         where = at.get('where') if at.get('where') in ('walk', 'session', 'guide') else 'concept'
         place = dict(walk=at['walk'], step=int(at['step'])) if where == 'walk' else dict(session=(q or {}).get('session', '') or at.get('session', '')) if where == 'session' else {}
-        a, route = show(tutor, c.slug, words, where=where, kind=kind or None, ask=text, aim=aim if aim in ui.AIMS else '', **place)
+        a, route = show(tutor, c.slug, words, where=where, kind=kind or None, ask=text, aim=aim if aim in ui.AIMS else '', values=values_of(at, q), **place)
         vals = {**{k: str(v) for k, v in at.items() if v not in (None, '')}, 'said': words}
         def other(k): return dict(hx_post=Routes.ask, hx_vals=json.dumps({**vals, 'kind': k}), hx_target=f'#ask-{a.id}', hx_swap='outerHTML')   # the other kind, one click away
         body = P('Open it in Leela to try it in code. Or see a 2D demo or a 3D explainer first.', cls='mute') if route.kind == 'notebook' else shown(a)
@@ -123,7 +134,8 @@ def connect(app, ctx):
             if not (a := r.get('demo_ask') and lr.asked(r.demo_ask)):
                 a = lr.put_ask(r.concept, where='session', kind='demo', session=r.get('session', ''), **({'aim': r.demo_aim} if r.get('demo_aim') in ui.AIMS else {}))
                 r['demo_ask'] = a.id
-            return shown(a)
+            c = lr.concept(r.concept)
+            return ui.ShowCard(a, AttrDict(kind='demo', why='You missed it again. Predict first. Then the demo shows the rest.'), shown(a), leela_link(None, topic=c.name if c else r.concept, vault=lr.vault.path))   # the one card of Show
 
     for r, f in ((Routes.js, rk_js), (Routes.css, rk_css), (Routes.three, rk_three), (Routes.spec, spec)):
         app.get(r)(f)

@@ -40,10 +40,12 @@ nav .guide-go:hover, nav .guide-go.on { border-color: var(--acc); }
 .guide-form .guide-fresh { background: transparent; border: 0; box-shadow: none; color: var(--mute); padding: 0 var(--s1); font-size: var(--t-meta); line-height: 1; cursor: pointer; }
 .guide-form .guide-fresh:hover, .guide-form .guide-fresh:focus-visible { color: var(--fg); }
 
-/* "Show me …" to the guide on a page with no Show slot: the demo in the side panel at the top right, where the board builds its example. × or Esc closes it. */
-.guide-show { position: fixed; right: var(--s4, 16px); top: 64px; z-index: 61; width: min(520px, 92vw); max-height: calc(100vh - 220px);
-              overflow: auto; padding: var(--s2) var(--s3); background: var(--bg); border: 1px solid var(--rule); border-radius: 8px;
-              box-shadow: 0 6px 24px rgb(0 0 0 / .12); }
+/* "Show me …" to the guide on a page with no Show slot: the demo in the one place of a picture (board.css: the top right, and
+   body.has-panel moves the page column left; below 1100 px it stands in the page). The same paper as the side panel. × or Esc closes it. */
+.guide-show { position: fixed; right: 16px; top: var(--panel-top); z-index: 61; width: var(--panel-w); max-height: calc(100vh - 220px); box-sizing: border-box;
+              overflow: auto; padding: var(--s2) var(--s3); background: var(--paper); color: var(--paper-ink); border: 1px solid var(--paper-line); border-radius: 12px;
+              box-shadow: 0 1px 1.5px rgb(0 0 0 / .07), 0 14px 30px -14px rgb(30 20 10 / .35); }
+.guide-show.inline { position: static; width: auto; max-height: none; margin: var(--s3) 0; }
 .guide-show-head { display: flex; align-items: center; gap: var(--s1); margin: 0 0 var(--s2); font-size: var(--t-meta); }
 .guide-show-close { margin-left: auto; background: transparent; border: 0; box-shadow: none; color: var(--mute); padding: 0 var(--s1); font-size: var(--t-meta); line-height: 1; cursor: pointer; }
 .guide-show-close:hover, .guide-show-close:focus-visible { color: var(--fg); }
