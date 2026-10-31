@@ -2,7 +2,7 @@
 import json, logging, re, threading, uuid
 from urllib.parse import urlencode
 from fasthtml.common import *
-from fastcore.basics import AttrDict
+from fastcore.basics import AttrDict, first
 from abhyasa.core import Page, NotFound, RouteOverrides, hook, moved_to
 from abhyasa.settings import val
 from abhyasa.store import clean_group, clean_name, under, listed, GROUP_DEPTH, GROUP_LEN
@@ -132,13 +132,22 @@ def connect(app, ctx):
         finally:
             with link_lock: linking.discard(slug)
 
+    def there(link) -> bool:
+        "Whether the vault document of `link` is still in the vault: a check of its id, not a search. A link that is not to the vault stays."
+        s = str(link.get('src') or '')
+        if not s.startswith('vault:'): return True
+        d = str(link.get('doc_id') or link.get('ref') or '').split('#')[0]
+        return bool(d) and (sh := lr.doc_shelf(link.get('shelf') or s[6:])) is not None and first(sh.t.docs(where='id=?', where_args=[d])) is not None
+
     def one(slug:str):
         c = lr.concept(slug)
         if not c: return NotFound('Concept', H1('No such concept'), P(A('Your concepts', href=Routes.base)), on='Library', crumbs=[('Home', '/'), ('Library', Routes.base)])
+        live = [x for x in c.get('seen_in') or () if there(x)]   # a link to a document that left the vault would give a 404
         with link_lock:   # the GET does no search: old links come on the pool, and the next visit shows them
-            go = lr.stale_links(c) and slug not in linking
+            go = (lr.stale_links(c) or len(live) < len(c.get('seen_in') or ())) and slug not in linking
             if go: linking.add(slug)
         if go: ctx.pool.submit(relink, slug)
+        c = AttrDict(c, seen_in=live)
         return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=val('lists.attempts')), lr.groups(c.subject)),
                     on='Library', crumbs=[('Home', '/'), ('Library', Routes.base)])
 
