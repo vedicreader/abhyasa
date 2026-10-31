@@ -67,12 +67,14 @@ import Testing
     }
 
     @Test func speechSaysWhereItRuns() {
-        #expect(Speech.of("gemma") == .local("Gemma"))
+        #expect(Speech.of("mlx") == .local("Qwen3-ASR"))
+        #expect(Speech.of("gemma") == .local("Qwen3-ASR"))   // an old setting: the server reads it as mlx
         #expect(Speech.of("whisper") == .local("Whisper"))
+        #expect(Speech.of("mlx:mlx-community/whisper-large-v3-turbo-asr-fp16") == .local("Whisper"))
         #expect(Speech.of("openai:gpt-4o-transcribe") == .hosted("OpenAI"))
         #expect(Speech.of("") == .unknown)
-        #expect(Speech.of("openai").isHosted && !Speech.of("gemma").isHosted)
-        #expect(GuideText.speechChip(.local("Gemma")) == "speech: on this Mac")
+        #expect(Speech.of("openai").isHosted && !Speech.of("mlx").isHosted)
+        #expect(GuideText.speechChip(.local("Qwen3-ASR")) == "speech: on this Mac")
         #expect(GuideText.speechChip(.hosted("OpenAI")) == "speech: hosted · OpenAI")
     }
 }
@@ -193,7 +195,7 @@ import Testing
     }
 
     @Test func theVoiceSheetSaysWhereTheVoiceGoes() {
-        #expect(Guide.voiceSheet(.local("Gemma")).body[1] == "Gemma writes your words on this Mac. No sound leaves this Mac.")
+        #expect(Guide.voiceSheet(.local("Qwen3-ASR")).body[1] == "Qwen3-ASR writes your words on this Mac. No sound leaves this Mac.")
         #expect(Guide.voiceSheet(.hosted("OpenAI")).body[1] == "OpenAI writes your words. Your voice goes to OpenAI.")
         #expect(Guide.voiceSheet(.unknown).body[1].contains("Settings"))
         #expect(Guide.voiceSheet(.unknown).buttons.map(\.id) == ["ok"])

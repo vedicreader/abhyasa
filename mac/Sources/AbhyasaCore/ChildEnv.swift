@@ -28,7 +28,8 @@ public struct ServerSettings: Equatable, Sendable {
                                 ModelChoice(name: "Claude Opus", id: "claude/opus")]
     /// true when `model` is empty or in `models`
     public static func isListed(_ model: String) -> Bool { model.isEmpty || models.contains { $0.id == model } }
-    public static let engines = ["gemma", "whisper"]
+    /// the speech engines in the Settings list: `ABHYASA_STT` values; an old `gemma` still works on the server
+    public static let engines = [ModelChoice(name: "On this Mac (Qwen3-ASR)", id: "mlx"), ModelChoice(name: "Whisper", id: "whisper")]
 }
 
 /// The command lines and environments for uv and the server. A GUI app does not get the shell environment, so the

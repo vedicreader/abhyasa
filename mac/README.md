@@ -37,10 +37,10 @@ A change works on the next question. "Use the default" goes back to the text tha
 | setting | variable | default |
 |---|---|---|
 | Model | `ABHYASA_MODEL` (the model id) | Claude Sonnet, `claude/sonnet` (the server default) |
-| Speech engine | `ABHYASA_STT` | `gemma` |
+| Speech engine | `ABHYASA_STT` (`mlx` or `whisper`) | the Settings page of the app: `mlx` with Qwen3-ASR 0.6B |
 | Vault | `--vault` and `ABHYASA_VAULT` | your vault, `~/.vishalakshi/vault.db` |
 
-The `whisper` extra installs `mlx-audio` for the whisper engine. The `tick` extra is empty. It stays so that the pin resolves.
+The `whisper` extra installs `mlx-audio` for the speech engines. The `voice` extra installs `pocket-tts-mlx` for the voice of the guide. The `tick` extra is empty. It stays so that the pin resolves.
 
 ## Native parts
 

@@ -9,8 +9,8 @@ import Testing
     func body(_ o: [String: Any]) -> Data { try! JSONSerialization.data(withJSONObject: o) }
 
     @Test func aLineHasItsAudioAndItsWordTimes() {
-        let r = SayReply.parse(status: 200, body(["audio": wav.base64EncodedString(), "words": [0, 0.25, 0.5], "engine": "kokoro", "where": "on this Mac"]))
-        #expect(r == .line(wav: wav, words: [0, 0.25, 0.5], engine: "kokoro", hosted: false))
+        let r = SayReply.parse(status: 200, body(["audio": wav.base64EncodedString(), "words": [0, 0.25, 0.5], "engine": "pocket", "where": "on this Mac"]))
+        #expect(r == .line(wav: wav, words: [0, 0.25, 0.5], engine: "pocket", hosted: false))
         let o = SayReply.parse(status: 200, body(["audio": wav.base64EncodedString(), "words": [0.1], "engine": "openai", "where": "hosted"]))
         #expect(o == .line(wav: wav, words: [0.1], engine: "openai", hosted: true))
     }

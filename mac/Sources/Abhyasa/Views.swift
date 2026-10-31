@@ -134,7 +134,7 @@ struct SettingsView: View {
                 Note("The model that the tutor uses. Claude models need the claude command. To set a model for each task, use the Settings page in the app.")
                 Picker("Speech engine", selection: $s.stt) {
                     Text("From the Settings page").tag("")
-                    ForEach(ServerSettings.engines, id: \.self) { Text($0) }
+                    ForEach(ServerSettings.engines, id: \.id) { Text($0.name).tag($0.id) }
                 }
                 Note("The Settings page in the app sets the speech engine. An engine that you choose here replaces it.")
                 HStack {

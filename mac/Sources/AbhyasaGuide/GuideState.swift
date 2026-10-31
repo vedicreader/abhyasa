@@ -13,8 +13,8 @@ public enum Speech: Equatable, Sendable {
         switch e {
         case "": return .unknown
         case "openai": return .hosted("OpenAI")
-        case "gemma": return .local("Gemma")
-        case "whisper", "mlx": return .local("Whisper")
+        case "gemma", "mlx": return .local(id.lowercased().contains("whisper") ? "Whisper" : "Qwen3-ASR")   // gemma: the name before 0.0.16
+        case "whisper": return .local("Whisper")
         case "parakeet": return .local("Parakeet")
         default: return .unknown
         }
