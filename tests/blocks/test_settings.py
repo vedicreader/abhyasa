@@ -3,6 +3,7 @@ import os, time
 from pathlib import Path
 import pytest
 from abhyasa import voice
+from abhyasa.settings import set_val
 
 @pytest.fixture(autouse=True)
 def clean():
@@ -28,8 +29,9 @@ def test_use_switches_and_warms(mk):
     assert 'ready' in cl.get('/settings/status').text
 
 def test_segment_toggle(mk):
+    "Cut at pauses is a row of the settings table; the mic gets its value."
     cl = mk(['voice', 'settings'])
-    cl.post('/settings/segment', data=dict(on=0))
+    set_val('stt.segment', False)
     assert voice.settings()['stt']['segment'] is False
     assert cl.post('/voice/start').json()['segment'] is False
 

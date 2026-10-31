@@ -102,10 +102,6 @@ def connect(app, ctx):
         sp.use(engine, model)
         return speech()
 
-    def segment(on:int=0):
-        voice.update_settings('stt', segment=bool(on))
-        return Response(status_code=204)
-
     def get(engine:str, model:str):
         "Download `model` in the background, then use it; the page shows a progress line."
         if voice.cached(model) or engine == 'openai': return use(engine, model)
@@ -249,7 +245,6 @@ def connect(app, ctx):
     app.get(Routes.group_ask)(group_ask)
     app.post(Routes.group_default)(group_default)
     app.post(Routes.use)(use)
-    app.post(Routes.segment)(segment)
     app.post(Routes.get)(get)
     app.get(Routes.jobs)(jobs_)
     app.get(Routes.status)(status)

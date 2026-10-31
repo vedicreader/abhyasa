@@ -5,7 +5,6 @@ class Routes:
     group_ask = '/settings/group/ask'  # ask before a group goes back to its defaults
     group_default = '/settings/group/default'   # use the defaults of a group
     use = '/settings/use'            # switch the speech engine and model
-    segment = '/settings/segment'    # cut at pauses, on or off
     search = '/settings/search'      # look up speech models on Hugging Face
     get = '/settings/get'            # download a model in the background, then use it
     jobs = '/settings/jobs'          # the download progress lines
