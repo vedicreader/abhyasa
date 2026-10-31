@@ -4,8 +4,8 @@ The hooks: `today_top`, `today_next`, `today`, `today_end` (the parts of Today, 
 `learning_top` (the parts of Your learning after This week: Your strengths) and `learning_end` (the end of Your learning);
 `learn_talks` and `learn_start` (the parts of Learn after your walks: your talks, and Start something new); `start_more` (under More in
 the Start box: the goal box); `nav_extra` (the right of the top bar);
-`page_extra` (once at the end of each page); `concept_actions` and `concept_more` (a concept page); `answer_tools` (the session
-composer); `lesson_extra` (under a lesson).
+`page_extra` (once at the end of each page); `concept_actions` and `concept_more` (a concept page); `answer_tools(q, into)` (the session
+composer, and the answer row of a short check on a walk step); `lesson_extra` (under a lesson).
 
 The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs, and the strip after a side walk);
 `check_after(j, i, q)` (under a check: the gaps that an answer points at); `walk_end(j)` (the end of a walk: a side walk sends
