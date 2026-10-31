@@ -11,7 +11,8 @@
 // Labels are pastel chips with a coloured bar and a thin leader line; a chip never covers its target. Marks of earlier steps
 // fade to 45 %. A point is always weaker than a circle, so the circle stays the main mark of a step: see `point` in the API.
 // The words of the spoken line light up as they are said. With prefers-reduced-motion, the pointer jumps, and
-// marks and chips fade in for 150 ms.
+// marks and chips fade in for 150 ms. A sketch marks a part of a figure only. A diagram is a picture of an idea in a small card
+// beside the page text: boxes laid out by code (no two overlap), and arrows that draw on as a pen does.
 //
 // API (window.abhyasaBoard):
 //   play(board, {labels, fast, quiet, auto, host, who, onVoice, point, voiceAt, notice})   play a checked board; it stops the board that shows now.
@@ -64,6 +65,12 @@
 //                        spec order). It sets data-guide-id on each one. An id of more than 40 characters is dropped, never cut.
 //   state    {i, steps, tier, first, done, streaming} or null. `done` is true when each mark of the step shows in full.
 //   pointer  {tip, to, flying} in window pixels, or null: where the tip of the pointer is, and the point that it flies to.
+// Strokes (see abhyasa.guide.OPS) are the ops of the server, plus these rules of the page:
+//   sketch   {at, pts}: drawn only when the element of its anchor is a figure (an img, svg, canvas or video, or inside a figure or
+//            [data-guide-id="figure"]). A sketch on any other anchor is dropped: it never draws over the words.
+//   diagram  {nodes: [{id, text}], edges: [{from, to, text}], layout: 'row'|'tree'|'cycle', at}: a small card near the anchor `at`
+//            (else the first anchor of its step), at a place with no text and no control under it. On a narrow page it goes under
+//            the step line in the strip. The nodes are laid out by code, so no two overlap; a row that is too wide is a column.
 // Events on document: board:first (the first mark shows), board:stop (detail.by is 'learner' after Esc or Stop, else '').
 (() => {
   if (window.abhyasaBoard) return;
@@ -219,9 +226,12 @@
   // --- marks: `place` reads the page and builds the parts; `paint` sets them for one moment ------------------------------------
   const PASTEL = ['pink', 'green', 'blue', 'yellow', 'violet', 'peach'];
   function place(m) {
-    const o = m.o, svg = layer(), rc = rough.svg(svg), ink = css('--board-ink') || '#b5551c';
+    const o = m.o;
+    if (o.op === 'diagram') return placeDiagram(m);
+    const svg = layer(), rc = rough.svg(svg), ink = css('--board-ink') || '#b5551c';
     const b = o.at !== undefined ? locate(o.at) : null;
     if (o.at !== undefined && !b) return hide(m);
+    if (o.op === 'sketch' && !onFigure(b.el)) return hide(m);   // a sketch marks a part of a figure only: never a shape over the words
     if (!m.g && o.op !== 'label' && o.op !== 'box') { m.g = svgEl('g'); m.g.dataset.op = o.op; m.g.dataset.step = m.step; svg.append(m.g); }
     if (m.g) { m.g.replaceChildren(); m.g.style.display = ''; }
     const parts = [];
@@ -302,6 +312,7 @@
   function unmount(m) {
     for (const e of [m.g, m.hl, m.el, m.lead]) if (e) e.remove();
     m.g = m.hl = m.el = m.lead = null; m.parts = []; m.drawn = false; m.ok = false;
+    m.dg = m.dparts = m.key = m.dock = m.box = null;   // a diagram builds its card again
   }
 
   // A chip: pastel, with a coloured bar, near its target and never on it. A thin leader line ends with a dot on the part.
@@ -342,6 +353,191 @@
     return true;
   }
 
+  // --- the diagram: a picture of an idea, laid out by code in a small card beside the page text ----------------------------
+  // The nodes are boxes of text, the edges are pen strokes with a head, drawn one after the other. The layout is code, not the
+  // model: `row` (a column when the row is too wide), `tree` (one row for each level) or `cycle` (a circle large enough for the
+  // nodes). The card floats beside the text near its anchor, at a place with no text and no control under it; when there is no such
+  // place (a narrow page), it goes under the step line in the strip.
+  const DG = {gapX: 44, gapY: 52, gapIn: 28, pad: 14, margin: 24, edge: 7, room: 8};
+  const onFigure = e => !!e && (/^(img|canvas|video|svg|picture)$/i.test(e.tagName) || !!e.closest('figure, svg, canvas, [data-guide-id="figure"]'));
+  const hits = (r, q, p = 0) => r.x < q.x + q.w + p && q.x < r.x + r.w + p && r.y < q.y + q.h + p && q.y < r.y + r.h + p;
+  const MINE = '#board-host, #guide-strip, .board-hl, #board-trail, #guide-form, #guide-show';
+  function blockers() {   // the boxes of the page text and controls, in page pixels: a card never covers one
+    const out = [];
+    for (const e of document.body.querySelectorAll('*')) {
+      if (e.closest(MINE)) continue;
+      const own = /^(img|svg|canvas|video|iframe|input|textarea|select|button)$/i.test(e.tagName) || [...e.childNodes].some(n => n.nodeType === 3 && n.data.trim());
+      if (!own) continue;
+      const r = e.getBoundingClientRect();
+      if (r.width >= 1 && r.height >= 1) out.push({x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height});
+    }
+    return out;
+  }
+  // The layout of nodes of sizes `ss` ([{w, h}]) for `kind`: the top left of each node, in card pixels with no padding yet.
+  function layoutNodes(ss, edges, kind, tagW, tagH) {
+    const n = ss.length, pos = [];
+    if (kind === 'row' || kind === 'column') {
+      const row = kind === 'row', gap = row ? Math.max(DG.gapX, tagW + 16) : Math.max(DG.gapY - 16, tagH + 22), cross = Math.max(...ss.map(s => row ? s.h : s.w));
+      let at = 0;
+      ss.forEach(s => { pos.push(row ? {x: at, y: (cross - s.h) / 2} : {x: (cross - s.w) / 2, y: at}); at += (row ? s.w : s.h) + gap; });
+      return pos;
+    }
+    if (kind === 'tree') {   // levels from the roots (no arrow in), in the order that a walk from them finds the nodes
+      const level = Array(n).fill(-1), order = [], into = new Set(edges.map(e => e.t));
+      const walk = r => { level[r] = 0; const q = [r]; order.push(r);
+        while (q.length) { const a = q.shift(); for (const e of edges) if (e.f === a && level[e.t] < 0) { level[e.t] = level[a] + 1; order.push(e.t); q.push(e.t); } } };
+      for (let k = 0; k < n; k++) if (!into.has(k) && level[k] < 0) walk(k);
+      for (let k = 0; k < n; k++) if (level[k] < 0) walk(k);   // a cycle with no root: its first node starts it
+      const rows = [];
+      order.forEach(k => (rows[level[k]] = rows[level[k]] || []).push(k));
+      const widths = rows.map(r => r.reduce((s, k) => s + ss[k].w, 0) + DG.gapIn * (r.length - 1)), W = Math.max(...widths);
+      let y = 0;
+      rows.forEach((r, l) => {
+        const h = Math.max(...r.map(k => ss[k].h));
+        let x = (W - widths[l]) / 2;
+        r.forEach(k => { pos[k] = {x, y: y + (h - ss[k].h) / 2}; x += ss[k].w + DG.gapIn; });
+        y += h + Math.max(DG.gapY, tagH + 30);
+      });
+      return pos;
+    }
+    // cycle: the nodes on a flat ellipse from the top (the boxes are wide), as small as it can be with a gap between any two boxes
+    for (let R = 40, k = 0; k < 80; k++, R *= 1.06) {
+      pos.length = 0;
+      ss.forEach((s, i) => { const a = -Math.PI / 2 + 2 * Math.PI * i / n; pos.push({x: R * Math.cos(a) - s.w / 2, y: .7 * R * Math.sin(a) - s.h / 2}); });
+      const bs = pos.map((p, i) => ({...p, w: ss[i].w, h: ss[i].h}));
+      if (!bs.some((b, i) => bs.some((c, j) => j > i && hits(b, c, DG.room + 4)))) break;
+    }
+    return pos;
+  }
+  // Where a line from the centre of box `b` toward point `p` leaves the box, `gap` px outside it.
+  function rim(b, p, gap) {
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2, dx = p[0] - cx, dy = p[1] - cy;
+    const s = Math.min(Math.abs(dx) > 1e-6 ? (b.w / 2 + gap) / Math.abs(dx) : 1e9, Math.abs(dy) > 1e-6 ? (b.h / 2 + gap) / Math.abs(dy) : 1e9);
+    return [cx + dx * s, cy + dy * s];
+  }
+  // Lay out the diagram of mark `m` as `kind`, and build its edges: the parts of the mark and the size of its card.
+  function drawDiagram(m, kind) {
+    const o = m.o, d = m.dg, ss = d.nodes.map(e => ({w: e.offsetWidth, h: e.offsetHeight}));
+    const ix = Object.fromEntries(o.nodes.map((x, k) => [x.id, k])), edges = (o.edges || []).map(e => ({f: ix[e.from], t: ix[e.to]}));
+    const tags = d.tags.map(t => t && {w: t.offsetWidth, h: t.offsetHeight}), tagW = Math.max(0, ...tags.map(t => t ? t.w : 0)), tagH = Math.max(14, ...tags.map(t => t ? t.h : 0));
+    const pos = layoutNodes(ss, edges, kind, tagW, tagH), bs = pos.map((p, k) => ({x: p.x, y: p.y, w: ss[k].w, h: ss[k].h}));
+    const order = kind === 'tree' ? [...bs.keys()].sort((a, b) => bs[a].y - bs[b].y || bs[a].x - bs[b].x) : [...bs.keys()];
+    const shows = []; order.forEach((k, n) => { shows[k] = n * 140; });
+    const lines = [], marks = [];
+    edges.forEach((e, k) => {
+      const A = bs[e.f], B = bs[e.t], two = edges.some(x => x.f === e.t && x.t === e.f), far = kind === 'row' ? Math.abs(e.f - e.t) > 1 : kind === 'column' && Math.abs(e.f - e.t) > 1;
+      let pts, mid;
+      if (far) {   // past the nodes between: an arc under the row (or at the right of the column)
+        const row = kind === 'row', depth = 26 + 12 * Math.abs(e.f - e.t);
+        const p0 = row ? [A.x + A.w / 2, A.y + A.h + DG.edge] : [A.x + A.w + DG.edge, A.y + A.h / 2], p2 = row ? [B.x + B.w / 2, B.y + B.h + DG.edge] : [B.x + B.w + DG.edge, B.y + B.h / 2];
+        const base = row ? Math.max(...bs.map(b => b.y + b.h)) : Math.max(...bs.map(b => b.x + b.w)), c = row ? [(p0[0] + p2[0]) / 2, base + depth * 2] : [base + depth * 2, (p0[1] + p2[1]) / 2];
+        pts = []; for (let i = 0; i <= 24; i++) { const u = i / 24, s = 1 - u; pts.push([s * s * p0[0] + 2 * s * u * c[0] + u * u * p2[0], s * s * p0[1] + 2 * s * u * c[1] + u * u * p2[1]]); }
+        mid = pts[12]; mid = row ? [mid[0], mid[1] + 4 + tagH / 2] : [mid[0] + 6 + (tags[k] ? tags[k].w / 2 : 0), mid[1]];
+      } else {
+        const ca = [A.x + A.w / 2, A.y + A.h / 2], cb = [B.x + B.w / 2, B.y + B.h / 2], L = Math.hypot(cb[0] - ca[0], cb[1] - ca[1]) || 1;
+        const nx = -(cb[1] - ca[1]) / L, ny = (cb[0] - ca[0]) / L, off = two ? 6 : 0;   // two arrows between the same nodes go side by side
+        const p0 = rim(A, cb, DG.edge), p1 = rim(B, ca, DG.edge);
+        pts = [[p0[0] + nx * off, p0[1] + ny * off], [p1[0] + nx * off, p1[1] + ny * off]];
+        const side = kind === 'row' ? -1 : 1, lift = tags[k] ? (kind === 'row' ? tagH / 2 + 5 : tags[k].w / 2 + 6) : 0;
+        mid = [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2];
+        mid = kind === 'row' ? [mid[0], mid[1] + side * lift] : kind === 'cycle' ? (() => { const cx = 0, cy = 0, dx = cx - mid[0], dy = cy - mid[1], q = Math.hypot(dx, dy) || 1; return [mid[0] + dx / q * (tagH / 2 + 6), mid[1] + dy / q * (tagH / 2 + 6)]; })() : [mid[0] + lift, mid[1]];
+      }
+      lines.push({pts, at: Math.max(shows[e.f], shows[e.t]) + 220, k});
+      if (tags[k]) marks.push({k, x: mid[0] - tags[k].w / 2, y: mid[1] - tags[k].h / 2, w: tags[k].w, h: tags[k].h});
+    });
+    // the card: everything moved so that the top left of all boxes, arcs and edge words is at the padding
+    const all = [...bs, ...marks, ...lines.flatMap(l => l.pts.map(p => ({x: p[0] - 6, y: p[1] - 6, w: 12, h: 12})))];
+    const x0 = Math.min(...all.map(b => b.x)), y0 = Math.min(...all.map(b => b.y)), dx = DG.pad - x0, dy = DG.pad - y0;
+    const W = Math.ceil(Math.max(...all.map(b => b.x + b.w)) + dx + DG.pad), H = Math.ceil(Math.max(...all.map(b => b.y + b.h)) + dy + DG.pad);
+    const parts = [];
+    d.svg.replaceChildren();
+    d.svg.setAttribute('width', W); d.svg.setAttribute('height', H);
+    bs.forEach((b, k) => { Object.assign(d.nodes[k].style, {left: b.x + dx + 'px', top: b.y + dy + 'px'}); parts.push({kind: 'node', el: d.nodes[k], at: shows[k], dur: 260}); });
+    m.nodeBoxes = bs.map(b => ({x: b.x + dx, y: b.y + dy, w: b.w, h: b.h}));
+    lines.forEach(l => {
+      const pts = dense(l.pts.map(([x, y]) => [x + dx, y + dy]), 2), dur = clamp(length(pts) * 1.6, 320, 640);
+      const p = svgEl('path', 'board-fill'); d.svg.append(p);
+      parts.push(stroke(p, press(pts, .55, .75, .55), {size: 2.4, thin: .25, at: l.at, dur}));
+      const P = pts[pts.length - 1], Q = pts[Math.max(0, pts.length - 6)], h = svgEl('path', 'board-fill'); d.svg.append(h);
+      parts.push({kind: 'head', el: h, tip: P, a: Math.atan2(P[1] - Q[1], P[0] - Q[0]), w: .8, at: l.at + dur * .92});
+      const t = d.tags[l.k], mk = marks.find(x => x.k === l.k);
+      if (t && mk) { Object.assign(t.style, {left: mk.x + dx + 'px', top: mk.y + dy + 'px'}); parts.push({kind: 'node', el: t, at: l.at + dur * .6, dur: 220}); }
+    });
+    Object.assign(d.inner.style, {width: W + 'px', height: H + 'px'});
+    d.kind = kind; d.W = W; d.H = H;
+    return parts;
+  }
+  function buildDiagram(m) {   // the card and its nodes, measured in the host; model text goes in with textContent only
+    const o = m.o, card = el('div', 'board-diagram', null), inner = el('div', 'board-diagram-in', null), svg = svgEl('svg', 'board-diagram-lines');
+    card.dataset.op = 'diagram'; card.dataset.step = m.step; card.dataset.layout = o.layout || 'row';
+    card.setAttribute('role', 'img'); card.setAttribute('aria-label', 'A diagram: ' + o.nodes.map(x => x.text).join(', '));
+    inner.append(svg); card.append(inner);
+    const nodes = o.nodes.map(x => { const e = el('div', 'board-node', x.text); e.dataset.id = x.id; inner.append(e); return e; });
+    const tags = (o.edges || []).map(e => e.text ? inner.appendChild(el('span', 'board-edge-text', e.text)) : null);
+    card.style.visibility = 'hidden'; host().append(card);
+    inner.style.width = '2000px';   // room to measure: each node wraps at its own max width
+    m.el = card; m.dg = {inner, svg, nodes, tags};
+  }
+  function diagramAnchor(m) {   // the box that the card stands near: its own `at`, else the first anchor of its step, else the top of the main text
+    const own = m.o.at !== undefined ? locate(m.o.at) : null;
+    if (own) return own;
+    const other = st.marks.find(x => x.step === m.step && x !== m && x.o.at !== undefined && x.o.op !== 'diagram'), b = other && locate(other.o.at);
+    if (b) return b;
+    const main = (document.querySelector('main') || document.body).getBoundingClientRect();   // kept, so a scroll does not move the card
+    return m.home || (m.home = {x: main.left + scrollX, y: Math.max(main.top + scrollY, scrollY + 72), w: main.width, h: 0});
+  }
+  function freeSpot(W, H, a, others) {   // a place beside the text near `a`, in the window width, on no text, control or other card
+    const main = (document.querySelector('main') || document.body).getBoundingClientRect(), bl = blockers();
+    const xs = [a.x + a.w + DG.margin, main.right + scrollX + DG.margin, a.x - W - DG.margin, main.left + scrollX - W - DG.margin];
+    const ys = [0, 1, -1, 2, 3, 4, 6, 8, 11].map(k => a.y + k * 40);
+    for (const x of xs) {
+      if (x < scrollX + 8 || x + W > scrollX + innerWidth - 8) continue;
+      for (const y of ys) {
+        const r = {x, y, w: W, h: H};
+        if (y >= 8 && !bl.some(q => hits(r, q, DG.room)) && !others.some(q => hits(r, q, DG.room))) return r;
+      }
+    }
+    return null;
+  }
+  function dockDiagram(m, a) {   // beside the page text, else under the step line in the strip
+    const want = m.o.layout === 'tree' || m.o.layout === 'cycle' ? m.o.layout : 'row', card = m.el;
+    const others = st.marks.filter(x => x !== m && x.o.op === 'diagram' && x.ok && x.dock === 'page' && x.box).map(x => x.box);
+    const fit = () => { for (const k of [1, .9, .8]) { const r = freeSpot(m.dg.W * k, m.dg.H * k, a, others); if (r) return {...r, k}; } return null; };   // a little smaller, still easy to read
+    let parts = drawDiagram(m, want), r = fit();
+    if (!r && want === 'row') { parts = drawDiagram(m, 'column'); r = fit(); }
+    card.style.visibility = '';
+    if (r) {
+      m.dock = 'page'; m.box = {x: r.x, y: r.y, w: r.w, h: r.h}; card.classList.remove('in-strip'); host().append(card);
+      Object.assign(card.style, {left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px'});
+      m.dg.inner.style.transform = r.k < 1 ? `scale(${r.k})` : '';
+      return parts;
+    }
+    m.dock = 'strip'; m.box = null; card.classList.add('in-strip');
+    const s = strip(), room = Math.max(160, s.clientWidth - 2 * parseFloat(getComputedStyle(s).paddingLeft || 0)), tall = Math.max(140, innerHeight * .28);
+    const scale = () => Math.min(1, room / m.dg.W, Math.max(.8, tall / m.dg.H));   // smaller to fit the strip, but easy to read: a tall card scrolls
+    if (want === 'row') { parts = drawDiagram(m, 'row'); if (room / m.dg.W < .8) parts = drawDiagram(m, 'column'); }   // a row only when it fits
+    const k = scale();
+    Object.assign(card.style, {left: '', top: '', width: m.dg.W * k + 'px', height: m.dg.H * k + 'px'});
+    m.dg.inner.style.transform = k < 1 ? `scale(${k.toFixed(3)})` : '';
+    stripCard(m);
+    return parts;
+  }
+  function stripCard(m) {   // a docked card shows under the step line of its own step only
+    const s = strip(), say = s.querySelector('.board-say');
+    if (!st || m.step !== st.i) { m.el.remove(); return; }
+    if (say) say.after(m.el); else s.append(m.el);
+  }
+  function placeDiagram(m) {
+    if (!m.el) buildDiagram(m);
+    for (const e of [m.el]) e.style.display = '';
+    const a = diagramAnchor(m), key = [innerWidth, Math.round(a.x), Math.round(a.y), Math.round(a.w)].join(':');
+    if (m.key !== key || !m.dparts) { m.key = key; m.dparts = dockDiagram(m, a); }
+    else if (m.dock === 'strip' && !m.el.isConnected) stripCard(m);
+    m.parts = m.dparts; m.aim = m.dock === 'page' ? m.box : null; m.ok = true;
+    m.life = m.parts.reduce((s, p) => Math.max(s, p.at + (p.dur || 300)), 0) + 500;
+    return true;
+  }
+
   // Each part of a mark at time `t` (ms, performance.now).
   function paint(m, t) {
     if (!m.ok) return;
@@ -359,6 +555,10 @@
       if (p.kind === 'head') {
         const s = (still ? (k >= 0 ? 1 : 0) : spring(q, .32, .55)) * (p.w || 1), [ex, ey] = p.tip, a = p.a, L = 12 * s, W = 6.5 * s, c = Math.cos(a), si = Math.sin(a);
         p.el.setAttribute('d', s <= 0 ? '' : `M${ex + c * 2} ${ey + si * 2} L${ex - L * c + W * si} ${ey - L * si - W * c} Q${ex - L * .7 * c} ${ey - L * .7 * si} ${ex - L * c - W * si} ${ey - L * si + W * c} Z`);
+      }
+      if (p.kind === 'node') {   // a node or the words of an edge of a diagram: it pops in on a spring
+        const s = still ? 1 : spring(q, .32, .6);
+        Object.assign(p.el.style, {opacity: still ? (k >= 0 ? 1 : 0) : clamp(q / 200), transform: still || q >= p.dur * 3 ? '' : `scale(${(.9 + .1 * s).toFixed(3)})`});
       }
       if (p.kind === 'dot') p.el.setAttribute('r', (3.2 * (still ? (k >= 0 ? 1 : 0) : spring(q, .32, .55))).toFixed(2));
       if (p.kind === 'pulse') { const u = clamp(q / p.dur); p.el.setAttribute('r', (3.2 + 11 * smooth(u)).toFixed(2)); p.el.style.opacity = q < 0 || u >= 1 ? 0 : (.55 * (1 - u)).toFixed(3); }
@@ -378,6 +578,7 @@
     }
     if (m.g) m.g.style.opacity = op;
     if (m.hl) m.hl.style.opacity = op;
+    if (m.o.op === 'diagram' && m.el) m.el.style.opacity = op;
   }
   // Marks of earlier steps step back to 45 %, and a glow goes. A mark of the step before fades; the others are there at once.
   function dim(m, t) {
@@ -499,6 +700,7 @@
     const say = el('p', 'board-say');   // each word (or formula) in its own span, so it can light up when it is said
     sayParts(step.say).forEach((w, k) => { if (k) say.append(' '); say.append(texInto(el('span', k <= st.lit ? 'on' : '', null), w)); });
     const parts = [top, say];
+    parts.push(...st.marks.filter(m => m.step === st.i && m.o.op === 'diagram' && m.ok && m.dock === 'strip' && m.el).map(m => m.el));   // a diagram card on a narrow page: under the step line
     if (step.quote) {
       const src = b.sources[step.quote.src - 1] || {}, q = el('p', 'board-quote');
       q.append(el('q', '', step.quote.text), ' ', el('span', 'pill', src.label || 'source'), ' ', link(src));
