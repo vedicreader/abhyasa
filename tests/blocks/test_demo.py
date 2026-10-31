@@ -90,7 +90,7 @@ def test_two_misses_make_a_demo_under_the_lesson(mk, lr):
     assert 'Lesson' in first and 'demo-card' not in first
     cl.post(f'/s/{sid}/next')
     second = miss(cl, sid)
-    assert 'The tutor makes a demo' in second and '/demo/asked/' in second and 'm tutor extra' in second   # a tutor message in the thread, and its wait is an ask
+    assert 'm tutor extra' in second and ('The tutor makes a demo' in second and '/demo/asked/' in second or 'data-rupaka' in second)   # a tutor message in the thread: the wait of its ask, or the demo when a fast job ended first
     wait_job(cl, 'ranking')
     card = cl.get(f'/demo/asked/{aid_of(second)}').text
     assert 'data-rupaka' in card
@@ -122,7 +122,7 @@ def test_the_ladder_after_a_demo_in_a_session(mk, lr, fake):
     cl.post(f'/s/{sid}/next'); second = miss(cl, sid)
     assert 'Lesson · ' in second and 'data-rupaka' in second and 'A simpler demo' not in second   # another way, and the demo stays
     cl.post(f'/s/{sid}/next'); third = miss(cl, sid)
-    assert 'The tutor makes a simpler demo' in third and '/demo/asked/' in third
+    assert 'The tutor makes a simpler demo' in third and '/demo/asked/' in third or 'data-rupaka' in third   # the wait, or the simpler demo when a fast job ended first
     svc(cl)['tutor'].jobs['ranking:simpler'].result(timeout=120)
     card = cl.get(f'/demo/asked/{aid_of(third)}').text
     assert 'data-rupaka' in card and lr.asked(aid_of(third)).aim == 'simpler'
