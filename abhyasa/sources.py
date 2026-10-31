@@ -87,10 +87,10 @@ def _windows(text, size=12000):
 # %% ../nbs/04_sources.ipynb #w007
 def doc_pages(lr:Learning, ref:str, shelf:str='store') -> AttrDict:
     "Every chunk of one vault document in page order, as `(page, text)` with the page a reader sees (from 1)."
-    sh = lr.vault if shelf == 'store' else lr.vault.shelf(shelf)
-    if (d := sh.doc(ref)) is None and shelf == 'store':   # a notebook or a folder file is on its own shelf: look on each shelf but the concepts
-        for name in (s['store'] for s in lr.vault.shelves() if s['store'] not in ('store', SHELF)):
-            if (d := (o := lr.vault.shelf(name)).doc(ref)) is not None: sh = o; break
+    sh = lr.doc_shelf(shelf)
+    if (d := None if sh is None else sh.doc(ref)) is None and shelf == 'store':   # a notebook or a folder file is on its own shelf: look on each shelf but the concepts
+        for name in (n for n in lr.doc_shelves() if n not in ('store', SHELF)):
+            if (o := lr.doc_shelf(name)) is not None and (d := o.doc(ref)) is not None: sh = o; break
     if d is None: raise ValueError(f'no document in the vault matching {ref!r}')
     did = d['id'].replace("'", "''")
     cs = sorted(sh.store(where=f"doc_id='{did}'", select='content, page, rowid as rowid'), key=lambda c: (-1 if c['page'] is None else c['page'], c['rowid']))
@@ -161,8 +161,8 @@ def _strs(x): return [s for s in x if isinstance(s, str)] if isinstance(x, list)
 def _doc_source(lr, source):
     "The source path of the vault document that `source` names, or ''."
     if not (source and source.get('doc_id')): return ''
-    sh = lr.vault if source.get('shelf', 'store') == 'store' else lr.vault.shelf(source['shelf'])
-    return (sh.doc(source['doc_id']) or {}).get('source') or ''
+    sh = lr.doc_shelf(source.get('shelf') or 'store')
+    return ((None if sh is None else sh.doc(source['doc_id'])) or {}).get('source') or ''
 
 def _read(lr, ask, text, subject, pages):
     "Ask for the concepts of each window of the text, and return `(slug, concept, prereq slugs)` in the order of the replies."
@@ -720,14 +720,14 @@ def file_folder(lr:Learning, path, shelf:str='notebooks') -> L:
 # %% ../nbs/04_sources.ipynb #b809f261
 def vault_roots(lr:Learning, shelf:str='notebooks') -> dict:
     "Each folder or repo filed on `shelf` (its `meta.root`), to its count of documents."
-    sh = lr.vault.shelf(shelf)
-    q = f"select json_extract(meta, '$.root') as r, count(*) from [{sh.t.docs.name}] where r is not null group by r"
+    if (sh := lr.doc_shelf(shelf)) is None: return {}
+    q = f"select json_extract(meta, '$.root') as r, count(*) from [{sh.t.docs.name}] where json_valid(meta) and r is not null group by r"
     return dict(sh.db.execute(q).fetchall())
 
 def root_docs(lr:Learning, root:str, shelf:str='notebooks') -> L:
     "The documents of the folder or repo `root` on `shelf`, in path order, in the shape of `file_link`."
-    sh = lr.vault.shelf(shelf)
-    rows = sh.t.docs(where="json_extract(meta, '$.root') = ?", where_args=[root])
+    if (sh := lr.doc_shelf(shelf)) is None: return L()
+    rows = sh.t.docs(where="json_valid(meta) and json_extract(meta, '$.root') = ?", where_args=[root])
     ds = sorted(((json.loads(r['meta'] or '{}'), r) for r in rows), key=lambda x: str(x[0].get('path') or ''))
     return L(AttrDict(shelf=shelf, doc_id=r['id'], title=r['title'], url=m.get('url') or m.get('path') or r['source'], mtime=m.get('mtime')) for m, r in ds)
 
@@ -736,7 +736,7 @@ def unfile(lr:Learning, docs) -> int:
     "Forget the docs that one filing added, when each is still the same file (same id, same mtime). Returns the count."
     n = 0
     for x in map(AttrDict, docs):
-        sh = lr.vault if x.shelf == 'store' else lr.vault.shelf(x.shelf)
+        if (sh := lr.doc_shelf(x.shelf)) is None: continue
         r = first(sh.t.docs(where='id=?', where_args=[x.doc_id]))
         if r and json.loads(r['meta'] or '{}').get('mtime') == x.get('mtime'): sh.forget(x.doc_id); n += 1
     return n

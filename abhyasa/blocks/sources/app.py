@@ -48,9 +48,8 @@ def connect(app, ctx):
     lr = ctx.learning
 
     def shelves():
-        "The shelves of the vault by name, so a walk that names a shelf that is not there never makes one."
-        names = {s['store'] for s in lr.vault.shelves()}
-        return {n: lr.vault if n == 'store' else lr.vault.shelf(n) for n in names}
+        "The shelves of documents by name, so a walk that names a shelf that is not there never makes one. A store of names, or a shelf that does not open, is left out."
+        return {n: sh for n in lr.doc_shelves() if (sh := lr.doc_shelf(n)) is not None}
 
     def rows():
         "One row for each source, the newest first."
@@ -125,8 +124,7 @@ def connect(app, ctx):
 
     def remove(shelf:str='notebooks', root:str=''):
         "Forget each document of the folder or repo `root` on `shelf`. The walks keep their steps and passages."
-        if shelf not in shelves() or not (ds := root_docs(lr, root, shelf)): return Li(P('There is nothing to remove.', cls='mute'))
-        sh = lr.vault.shelf(shelf)
+        if (sh := lr.doc_shelf(shelf)) is None or not (ds := root_docs(lr, root, shelf)): return Li(P('There is nothing to remove.', cls='mute'))
         for d in ds: sh.forget(d.doc_id)
         return Li(P(f"Removed {root} from your vault: {n_of(len(ds), 'document')}.", cls='mute'))
 

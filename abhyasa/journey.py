@@ -172,8 +172,8 @@ def _nb_heading(path) -> str:
 
 def _heading(lr:Learning, d) -> str:
     "The first heading of document `d`: from its markdown cells for a notebook file, else from its text with the code blocks left out. '' when it has none."
-    sh = lr.vault if d.shelf == 'store' else lr.vault.shelf(d.shelf)
-    p = str(((sh.doc(d.doc_id) or {}).get('meta') or {}).get('path') or '')
+    sh = lr.doc_shelf(d.shelf)
+    p = str((((None if sh is None else sh.doc(d.doc_id)) or {}).get('meta') or {}).get('path') or '')
     if p.endswith('.ipynb') and Path(p).is_file(): return clip(_nb_heading(p), 80)
     try: pages = doc_pages(lr, d.doc_id, d.shelf).pages
     except Exception: return ''
@@ -369,11 +369,11 @@ def journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str=
 def _doc_at(lr:Learning, doc) -> tuple|None:
     "`(shelf, row)` of vault document `doc`: a `{shelf, doc_id}`, or a title (whole, or its last part) on a shelf that is not the learning shelf."
     if isinstance(doc, dict):
-        sh = lr.vault if doc['shelf'] == 'store' else lr.vault.shelf(doc['shelf'])
+        if (sh := lr.doc_shelf(doc['shelf'])) is None: return None
         r = first(sh.t.docs(where='id=?', where_args=[doc['doc_id']]))
         return (doc['shelf'], r) if r else None
-    for name in [s['store'] for s in lr.vault.shelves() if s['store'] != SHELF]:
-        sh = lr.vault if name == 'store' else lr.vault.shelf(name)
+    for name in [n for n in lr.doc_shelves() if n != SHELF]:
+        if (sh := lr.doc_shelf(name)) is None: continue
         if (r := first(sh.t.docs(where="title = ? or title like ?", where_args=[doc, f'%/{doc}']))): return name, r
     return None
 
@@ -783,7 +783,7 @@ def beyond(lr:Learning, j, k:int=5, goal:int=None) -> L:
 def _arxiv_of(j, lr=None) -> str:
     "The arXiv id of walk `j`, or an empty string: from its address, the addresses of its vault documents, the document that it reads (with `lr`), or its title when that is only an id."
     ds = [r for r in (*(j.get('docs') or [])[:1], j.get('source') or {}) if r.get('doc_id')]
-    docs = [lr.vault.shelf(r.get('shelf') or 'store').doc(r['doc_id']) for r in ds] if lr else []
+    docs = [sh.doc(r['doc_id']) for r in ds if (sh := lr.doc_shelf(r.get('shelf') or 'store')) is not None] if lr else []
     for u in [(j.get('source') or {}).get('url'), j.get('url'), *(r.get('url') for r in ds), *(d['source'] for d in docs if d)]:
         if m := ARXIV_LINK.fullmatch(u or '') or ARXIV_ID.fullmatch(Path(u or '').name.removesuffix('.pdf')): return ARXIV_ID.search(m[0]).group()
     t = re.sub(r'^arxiv:\s*', '', (j.get('title') or '').strip(), flags=re.I).removesuffix('.pdf')
@@ -799,8 +799,8 @@ def _retitle(self:Learning, j, t:str, aid:str=''):
     docs, src = j.get('docs'), j.get('source')
     n = self.put_journey({**j, 'title': t, **({'docs': [{**docs[0], 'title': t}, *docs[1:]]} if docs else {}), **({'source': {**src, 'title': t}} if src and src.get('title') else {})})
     for r in [*(docs or [])[:1], src or {}]:
-        sh = self.vault.shelf(r.get('shelf') or 'store')
-        if r.get('doc_id') and (d := sh.doc(r['doc_id'])) and is_id_title(d['title'], aid): sh.t.docs.update(dict(id=r['doc_id'], title=t))
+        sh = self.doc_shelf(r.get('shelf') or 'store')
+        if sh is not None and r.get('doc_id') and (d := sh.doc(r['doc_id'])) and is_id_title(d['title'], aid): sh.t.docs.update(dict(id=r['doc_id'], title=t))
     self.v.set_meta(n.doc_id, updated=j.get('updated', 0))   # a repair is not a change that you made: the order of the list stays
 
 @patch
@@ -810,7 +810,7 @@ def repair_titles(self:Learning) -> list:
     out = []
     for j in self.journeys():
         if not (is_id_title(j.title, _arxiv_of(j)) and j.get('docs')): continue
-        d = self.vault.shelf(j.docs[0]['shelf']).doc(j.docs[0]['doc_id'])
+        d = None if (sh := self.doc_shelf(j.docs[0].get('shelf') or 'store')) is None else sh.doc(j.docs[0]['doc_id'])
         if d and (t := (d['title'] or '').strip()) and not is_id_title(t, _arxiv_of(j)):
             self._retitle(j, t); out.append(j.id)
     self.v.add('The titles of the walks were repaired.', title='Titles repaired', source=_src('marker', 'titles'), kind='marker')

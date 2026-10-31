@@ -17,7 +17,7 @@ import json, os, re, sqlite3, time, unicodedata
 from pathlib import Path
 from fastcore.utils import *
 from fastcore.nbio import read_nb
-from .store import Learning, SHELF
+from .store import Learning, SHELF, log as _log
 
 # %% ../nbs/09_ground.ipynb #c006
 def passage(src, ref, title, text, url='', **kw) -> AttrDict:
@@ -56,16 +56,17 @@ class VaultSource:
     def __init__(self, learning:Learning, shelves=True): store_attr()
     def _doc(self, store, doc_id):
         "The title and source of one document, so a passage names its session or file, not its section."
-        try: return first(self.learning.v.shelf(store).t.docs(where='id=?', where_args=[doc_id])) or {}
-        except Exception: return {}
+        sh = self.learning.doc_shelf(store)
+        return (None if sh is None else first(sh.t.docs(where='id=?', where_args=[doc_id]))) or {}
     def _hits(self, q:str, n:int) -> list:
-        "The best `n` sections of each shelf, each with its `store` and its `score`."
-        v, want = self.learning.v, None if self.shelves is True else set(L(self.shelves))
+        "The best `n` sections of each shelf of documents, each with its `store` and its `score`. A shelf that fails is left out, so the others still give their hits."
+        lr, want = self.learning, None if self.shelves is True else set(L(self.shelves))
         out = []
-        for s in v.shelves():
+        for s in lr.vault.shelves():
             nm = s['store']
-            if nm == v.name or not s['docs'] or (want is not None and nm not in want): continue
-            out += [AttrDict(r, store=nm, text=' '.join(r['snippets'])[:500]) for r in v.shelf(nm).sections(q, limit=n)]
+            if nm == lr.v.name or not s['docs'] or (want is not None and nm not in want) or (sh := lr.doc_shelf(nm)) is None: continue
+            try: out += [AttrDict(r, store=nm, text=' '.join(r['snippets'])[:500]) for r in sh.sections(q, limit=n)]
+            except Exception as e: _log.warning('abhyasa could not search the shelf %r: %r', nm, e)
         return out
     def search(self, q:str, k:int=4) -> L:
         "Up to `2k` passages for `q`: the hits of all the shelves sorted by score before the cut. A tie goes to the hit that names more words of `q`."
