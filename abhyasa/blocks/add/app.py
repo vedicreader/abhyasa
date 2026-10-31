@@ -1,12 +1,11 @@
-"""Start something new, on Home: one box that reads what you paste or drop and says what abhyasa will do (`detect`).
-Also Find concepts only (`POST /add`)."""
+"""Start something new, on Home: one box that reads what you paste or drop and says what abhyasa will do (`detect`)."""
 import asyncio, hashlib, logging, re, subprocess, sys, threading, time
 from fasthtml.common import *
 from pathlib import Path
 from urllib.parse import urlencode
 from abhyasa.core.leela import LOCAL_HOSTS
-from abhyasa.core import hook, run as run_hook, Primary, Secondary, Quiet, Pill, asset_css, asset_js, n_of
-from abhyasa.sources import extract, from_vault, folder_why, tree_files, vault_roots
+from abhyasa.core import hook, run as run_hook, Primary, Secondary, Pill, asset_css, asset_js, n_of
+from abhyasa.sources import folder_why, tree_files, vault_roots
 from abhyasa.settings import val, roots
 from abhyasa.journey import keep_data
 from abhyasa.course import course_of, add_data
@@ -16,7 +15,6 @@ from .cfg import Routes
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask', 'pool')
 _P = Path(__file__).parent
-NO_DOC = 'No document in your vault has this name. To add a web page or a paper, paste its link.'
 WEB_ONCE = 'The tutor searches the web for sources. Your topic goes to the search engine.'
 OFF = ' Turn this off in Settings.'   # only when the `from the web` chip, with its own link, does not show
 CAN = 'Paste a link, a paper or a topic. Add a folder or a repo, or drop a file.'
@@ -136,8 +134,7 @@ def Read(r, f=None, told=True, q='', said=(), mine=()):
     start = (Primary('Start', data_wait=wait, data_skel='#walk-out', id='start-go', rank=6, data_act='start') if go else
              Primary('Start', disabled=True, id='start-go', type='button', hidden=bool(r.ask), rank=6, data_act='start'))   # off until it can start; a question: its answers start
     drop = (FOUND if shown and ok else 'abhyasa gets it only when you press Start.' if go and r.kind in ('paper', 'repo', 'site') else CAN)
-    foot = Div(start, Quiet('Find concepts only', hx_post=Routes.base, hx_target='#walk-out', data_wait='Reading and finding concepts…', data_skel='#walk-out')
-               if 'find' in r.options else '', '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
+    foot = Div(start, '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
     line = P(NO_GOAL, cls='will', id='start-will') if r.kind == 'empty' and cs else Line(r) if r.kind != 'ask' else P(B(r.ask.q), cls='will', id='start-will')
     return (line, P(WEB_ONCE + ('' if shown else OFF), cls='mute web-once') if r.kind in ('topic', 'goal') and val('research.on') and not told else '',
             Ask(r, cs[0].path if cs else q) if r.ask else Options(r, f), Chips(cs, said, mine) if shown else '', foot)
@@ -265,17 +262,6 @@ def connect(app, ctx):
         if not can_pick() or (req.client.host if req.client else '') not in LOCAL_HOSTS: return Response(NOT_HERE, status_code=403)
         return JSONResponse(dict(paths=await asyncio.to_thread(choose_folder)))
 
-    def add(subject:str='', text:str='', ref:str='', q:str=''):
-        text = text or q   # the Start box sends its text as `q`
-        if not (text.strip() or ref.strip()): return P('Paste text or name a document.', cls='mute')
-        try: slugs = from_vault(lr, ask, ref, subject) if ref.strip() else extract(lr, ask, text, subject, dict(src='pasted', at=time.time()))
-        except ValueError as e:
-            if not ref.strip(): return P(str(e), cls='mute')
-            log.warning('no concepts from the vault: %r', e)
-            return P(NO_DOC, cls='mute')
-        run_hook('concepts_added')   # the concepts block places the new concepts on the pool
-        return Ul(*[Li(A(lr.concept(s).name, href=f'/c/{s}')) for s in slugs], cls='plain')
-
     def page(): return RedirectResponse(Routes.start, status_code=303)   # the old Add page: the Start box on Home has its place
 
     def Filing(j, said=(), told=()):
@@ -336,7 +322,6 @@ def connect(app, ctx):
         return Box(), Div(id='walk-out'), asset_css(_P/'add.css'), asset_js(_P/'start.js', defer=True)
 
     app.get(Routes.base)(page)
-    app.post(Routes.base)(add)
     app.get(Routes.read)(read)
     app.post(Routes.file)(drop)
     app.post(Routes.files)(drops)

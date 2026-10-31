@@ -169,7 +169,7 @@ def _n(n, w): return f"{n} {w}{'' if n == 1 else 's'}"
 
 def _topic(t, research): return _reading('topic', LINES['topic' if research else 'own'], send=dict(topic=t))
 
-def _text(t, lines): return _reading('text', LINES['text'].format(lines=_n(lines, 'line')), options=('title', 'subject', 'find'), send=dict(text=t))
+def _text(t, lines): return _reading('text', LINES['text'].format(lines=_n(lines, 'line')), options=('title', 'subject'), send=dict(text=t))
 
 def _source(kind, u, pages):
     "The reading of one source of `kind` at `u`."

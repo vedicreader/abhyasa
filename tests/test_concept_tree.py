@@ -285,10 +285,9 @@ def wait_until(f, n=250):
 def test_new_concepts_are_placed_in_the_background_and_can_be_undone(mk, jy, fake):
     "A concept that comes into a subject with groups is placed on the pool, marked, and has an Undo. A failure only logs."
     jy.save_groups('jyotisha'); jy.set_group('mesha', [], by='hand')                  # kept out by hand: the tutor leaves it
-    fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Bharani', statement='The second nakshatra.')])
     fake.rules[SORT] = lambda p, sp: dict(places=[dict(slug=s, group=['nakshatras']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
     cl = mk()
-    r = cl.post('/add', data=dict(subject='jyotisha', text='Bharani is a nakshatra.'))
+    r = add_idea(jy, cl, fake, 'Bharani', 'The second nakshatra.')
     assert r.status_code == 200 and 'Bharani' in r.text
     c = wait_until(lambda: (c := jy.concept('bharani')) and c.get('group') and c)
     assert (c.group, c.group_by) == (['nakshatras'], 'placed')
@@ -299,6 +298,12 @@ def test_new_concepts_are_placed_in_the_background_and_can_be_undone(mk, jy, fak
     t = cl.get('/concepts').text
     assert 'Placed by the tutor' not in t and 'Sort ' in t and 'Bharani' in t
     cl.post('/c/ashvini/undo'); assert jy.concept('ashvini').group == ['nakshatras']      # only a placement by the tutor can be undone
+
+def add_idea(lr, cl, fake, name, statement):
+    "Add the idea `name` to the jyotisha walk `jj` with the walk editor: a new name is a new concept."
+    if not lr.journey('jj'): lr.put_journey(dict(id='jj', title='Stars', goal='Stars', subject='jyotisha', mode='walk', created=0, steps=[dict(slug='ashvini', status='todo', why='', check=dict(way='words', kind='short', depth=2))]))
+    fake.rules['The idea: '] = dict(name=name, statement=statement)
+    return cl.post('/w/jj/edit', data=dict(act='add', name=name))
 
 class Now:
     "A pool that runs a job at once, so a test waits on nothing."
@@ -315,8 +320,7 @@ def test_a_failed_placement_only_logs(mk, jy, fake, monkeypatch, caplog):
     monkeypatch.setattr('abhyasa.app.ThreadPoolExecutor', Now)
     jy.save_groups('jyotisha'); jy.set_group('mesha', [], by='hand')
     fake.rules[SORT] = lambda p, sp: (_ for _ in ()).throw(RuntimeError('model down'))
-    fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Rohini', statement='The fourth nakshatra.')])
-    with caplog.at_level('WARNING'): r = mk().post('/add', data=dict(subject='jyotisha', text='Rohini.'))
+    with caplog.at_level('WARNING'): r = add_idea(jy, mk(), fake, 'Rohini', 'The fourth nakshatra.')
     assert r.status_code == 200 and jy.concept('rohini').get('group') is None and 'could not place the new concepts' in caplog.text
 
 def test_an_undone_concept_is_not_placed_again(mk, jy, fake, monkeypatch):
@@ -325,12 +329,10 @@ def test_an_undone_concept_is_not_placed_again(mk, jy, fake, monkeypatch):
     jy.save_groups('jyotisha'); jy.set_group('mesha', [], by='hand')
     fake.rules[SORT] = lambda p, sp: dict(places=[dict(slug=s, group=['nakshatras']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
     cl = mk()
-    fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Bharani', statement='The second nakshatra.')])
-    cl.post('/add', data=dict(subject='jyotisha', text='Bharani.'))
+    add_idea(jy, cl, fake, 'Bharani', 'The second nakshatra.')
     assert jy.concept('bharani').group_by == 'placed'
     cl.post('/c/bharani/undo'); n = len(fake.calls)
-    fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Bharani', statement='Again.', group=['nakshatras']), dict(name='Rohini', statement='The fourth nakshatra.')])
-    cl.post('/add', data=dict(subject='jyotisha', text='Bharani and Rohini.'))
+    add_idea(jy, cl, fake, 'Bharani', 'Again.'); add_idea(jy, cl, fake, 'Rohini', 'The fourth nakshatra.')
     assert (jy.concept('bharani').group, jy.concept('bharani').group_by) == ([], 'undone') and jy.concept('rohini').group_by == 'placed'
     assert not any('- bharani:' in p for p, _ in fake.calls[n:] if SORT in p)
 

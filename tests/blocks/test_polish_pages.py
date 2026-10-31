@@ -1,18 +1,6 @@
-"Task 19c, the other pages: Add finds concepts, Home, Your learning, search and Profile."
+"Task 19c, the other pages: Home, Your learning, search and Profile."
 import re
 from walk_data import *
-
-# F9: Find concepts only
-
-def test_add_finds_concepts_from_the_text(mk, walk_fake, lr):
-    "Find concepts only shows for pasted text, with a Subject box; it posts to /add, and the concepts get that subject. A vault document works too."
-    f = mk().get('/learn/read', params=dict(q='A rank is a position.\nRanks are places.')).text
-    assert 'Find concepts only' in f and 'name="subject"' in f and 'hx-post="/add"' in f
-    t = mk(['add']).post('/add', data=dict(text='A rank is a position.', subject='ranks')).text
-    assert '<li>' in t and all(c.subject == 'ranks' for c in lr.concepts() if c.slug not in ('ranking', 'reciprocal-rank-fusion'))
-    did = add_paper(lr)
-    t = mk(['add']).post('/add', data=dict(ref=did, subject='papers')).text
-    assert '<li>' in t and any(c.subject == 'papers' for c in lr.concepts())
 
 # F12: Home
 

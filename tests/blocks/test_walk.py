@@ -487,8 +487,6 @@ def test_vault_name_with_no_document(mk, walk_fake, lr, caplog):
     with caplog.at_level('WARNING'): r = cl.post('/walk/new', data=dict(ref='No such paper'), headers=HX).text
     assert 'No document in your vault has this name. To add a web page or a paper, paste its link.' in r and 'Try again' not in r
     assert 'No such paper' in caplog.text
-    t = cl.post('/add', data=dict(ref='No such paper')).text
-    assert 'No document in your vault has this name' in t and 'matching' not in t
 
 def test_paper_link_says_paper(mk, walk_fake, lr, monkeypatch):
     "A paper link ignores the page count and its wait line says Reading the paper, with its page count; a docs link keeps its count of pages."

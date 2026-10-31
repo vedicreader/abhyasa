@@ -38,6 +38,7 @@ def test_web_line_shows_once(mk, lr, walk_fake):
 def test_add_opens_the_start_box(mk):
     r = mk().get('/add', follow_redirects=False)
     assert r.status_code == 303 and r.headers['location'] == '/#start'
+    assert mk().post('/add', data=dict(q='A rank is a position.')).status_code == 405   # Find concepts only is gone: Start makes a walk
 
 def test_start_is_off_until_it_can_start(mk):
     "Empty, a video and a question keep Start off. A paper turns it on and fills it."
@@ -55,7 +56,7 @@ def test_options_show_only_when_they_matter(mk):
     assert tick(opts='pages') and tick() and not tick(opts='tool')   # ticked, unless you took the tick off
     assert 'Pages to read' in cl.get('/learn/read', params=dict(q='https://docs.python.org/3/')).text
     t = cl.get('/learn/read', params=dict(q='a\nb')).text
-    assert 'name="title"' in t and 'name="subject"' in t and 'Find concepts only' in t and 'hx-post="/add"' in t
+    assert 'name="title"' in t and 'name="subject"' in t and 'Find concepts only' not in t and 'hx-post="/add"' not in t
     assert 'name="subject"' not in cl.get('/learn/read', params=dict(q='1706.03762')).text
 
 def test_answer_doc_walks_through_the_document_by_its_id(mk, lr, walk_fake):
@@ -71,10 +72,6 @@ def test_answer_doc_walks_through_the_document_by_its_id(mk, lr, walk_fake):
 def test_a_question_with_no_answer_does_not_start(mk, lr):
     lr.vault.add('Some text about nakshatras.', title='Nakshatras', source='test://n')
     assert 'Pick one answer first.' in mk().post('/walk/new', data=dict(q='Nakshatras')).text
-
-def test_find_concepts_only_takes_the_box(mk, lr):
-    t = mk(['add']).post('/add', data=dict(q='A rank is a position.', subject='ml')).text
-    assert '/c/rank' in t
 
 PDF = b'%PDF-1.4 x'
 

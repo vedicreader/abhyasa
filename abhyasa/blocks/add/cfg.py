@@ -1,5 +1,5 @@
 class Routes:
-    base = '/add'                  # GET: to the Start box on Home; POST: Find concepts only
+    base = '/add'                  # GET: to the Start box on Home
     start = '/#start'
     read = '/learn/read'           # what the Start box will do with its text
     file = '/learn/file'           # a dropped PDF, filed in the vault

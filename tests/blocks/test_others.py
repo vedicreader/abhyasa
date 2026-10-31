@@ -16,13 +16,6 @@ def test_search(mk):
     t = mk(['search']).get('/search?q=score').text
     assert 'In what you learned' in t and 'Order items by a score' in t
 
-def test_add_text(mk, lr):
-    t = mk(['add']).post('/add', data=dict(subject='ml', text='A rank is a position.')).text
-    assert '/c/rank' in t and lr.concept('rank').subject == 'ml'
-
-def test_add_needs_input(mk):
-    assert 'Paste text' in mk(['add']).post('/add', data=dict(subject='ml')).text
-
 def test_sources_page(mk):
     t = mk(['sources']).get('/sources').text
     assert 'Vault shelves' not in t and 'Index ' not in t and 'vedicreader' not in t and 'Sources appear here when you start a walk' in t
