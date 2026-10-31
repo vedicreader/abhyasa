@@ -45,6 +45,10 @@
 - The log now has the error when a source, a tutor note or a code task fails. The page still shows nothing for them.
 - An empty voice clip gives error 400, not 500.
 - A search query is cut at 500 characters, and a long word in a hit wraps.
+- A long run of text with no space in a vault document, such as a transliterated Sanskrit line with dots between the words, now wraps. Before, the page had a side scroll.
+- A diagram card of the guide never goes under the strip of the board. Before, on a walk step it could stand low on the page, behind the strip.
+- abhyasa reads the names of the shelves without a count of the documents in each store. SQLite no longer logs an error for the store of names on each page, and a walk step opens faster on a big vault.
+- The course card says the idea of "You are here" one time. On Your learning, "Review the misses" lines up with the title of each row.
 ### You always know what research does
 
 - The plan and each step show one line of research: what it reads now ("Reads train_dreambooth_lora.py for idea 3"), "Sources for 4 of 11 ideas", the time left from the rate so far, and "Last step 12 s ago". It has Stop, "Show what it did" and "See the build".
