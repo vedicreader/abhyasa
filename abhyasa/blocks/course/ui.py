@@ -34,7 +34,7 @@ def Here(st):
     "You are here: the stage and the idea."
     h = st.here
     if h: return P(f"Stage {h.stage} of {len(st.stages)}, idea {h.n} of {h.of}: ", B(h.name), '.', cls='course-here')
-    if st.finished: return P('You finished each stage.', cls='course-here')
+    if st.finished: return P('You finished all the stages.', cls='course-here')
     if st.current: return P(f"Stage {st.current.n} of {len(st.stages)}: ", B(st.current['name']), '.', cls='course-here')
     return P('The course has no stage yet.', cls='course-here')
 
@@ -109,8 +109,8 @@ def CoursePage(st, level):
             Stages(st, c['id']), Blocking(st, c['id']), Made(st), level, Sources(c), *assets())
 
 def TodayCard(st):
-    "Today's top line for the course that you used last: the course, what comes next and why, and Continue."
+    "Today's top line for the course that you used last: the course, what comes next and why, and Continue. `data-at` is when you used it."
     c, nx = st.course, st.next
     return Div(Span('Your course', cls='lbl'), P(A(c['title'], href=at(c['id'])), Span(f"  · {st.done} of {n_of(st.total, 'idea')}", cls='mute')),
                P(nx.why, cls='course-why'), Div(Primary('Continue', href=href(nx.go, c['id']), rank=1), cls='row') if nx.rule != 8 else '',
-               *assets(), cls='course-card today-course')
+               *assets(), cls='course-card today-course', data_at=str(max((c.get('here') or {}).get('at') or 0, c.get('created') or 0)))   # Today keeps the newest top card

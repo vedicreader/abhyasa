@@ -28,7 +28,7 @@ def Continue(s, title, big=False, href=None, done=''):
     n = len(s.get('log') or [])
     return Div(Span('Continue where you stopped', cls='lbl'),
                P(A(title, href=href), Span(f"  · {done or n_of(n, 'question') + ' done'} · {ago(s.get('updated'))}", cls='mute')),
-               Div(Primary('Continue', href=href, rank=1), cls='row'), cls='continue-card')   # on Today, before Start
+               Div(Primary('Continue', href=href, rank=1), cls='row'), cls='continue-card', data_at=str(s.get('updated') or 0))   # on Today; Today keeps the newest top card
 
 def Row(s, title, ms, href=None, lead=False):
     """One past session: when, what, how it went, what moved, and what you can do next. The title opens the session.

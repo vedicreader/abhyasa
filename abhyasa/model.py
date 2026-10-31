@@ -121,7 +121,7 @@ def understanding(c, now:float=None) -> AttrDict:
     why = [*(['you said you did not know it'] if _is_gap(c) and fl < 3 else []),
            *([f'a misconception: {mis[-1]}'] if mis else []),
            *([f'missed the last {mi} times'] if mi >= 2 else []),
-           *([f'right, but shaky at {DEPTHS[c["shaky"]]}'] if c.get('shaky') else []),
+           *([f'right, but shaky at the {DEPTHS[c["shaky"]]} level'] if c.get('shaky') else []),
            *([f'fading: recall {r:.0%}'] if c.get('seen') and r < val('review.fading') else [])]
     weak = bool(why) or mi > 0
     if c.get('seen', 0) >= 3 and min(c.get('ceiling', 6), 6) - fl >= 3: why.append('its level is not clear yet')

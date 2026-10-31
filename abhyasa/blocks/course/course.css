@@ -21,3 +21,6 @@
 .course-ans { color: var(--acc); }
 .course-pending { color: var(--mute); }
 .course-end { margin-top: var(--s3); }
+.course-stages { list-style: none; padding-left: 0; }   /* the number is the `.k` of each stage */
+.course-block { font-size: var(--t-list); line-height: 1.55; }
+.course-block a { white-space: nowrap; }

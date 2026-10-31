@@ -425,7 +425,7 @@ def blocking(lr:Learning, c, rows=None, by:dict=None, leela:bool=None, now:float
     nb = [(r, i) for r in live for i in _left(r) if r.j.steps[i]['check'].get('kind') == 'notebook']
     if ideas: out.append(AttrDict(kind='idea', line=f"{_n(len(ideas), 'idea')}: {_names(ideas)}.", act='Next idea', go=None))
     if live and (w := _weak_later(lr, rows, rows.index(live[0]), by, now)):
-        out.append(AttrDict(kind='weak', line=f"{w[0].name} is weak: {(understanding(w[0], now).reasons or ['you missed it'])[0]}.", act='Practice it', go=dict(kind='review', slug=w[0].slug)))
+        out.append(AttrDict(kind='weak', line=f"{w[0].name} is not solid yet: {(understanding(w[0], now).reasons or ['you missed it'])[0]}.", act='Practice it', go=dict(kind='review', slug=w[0].slug)))
     if nb: out.append(AttrDict(kind='notebook', line=f"{_n(len(nb), 'notebook')} to run in Leela: {_names([_name(by, r.j.steps[i]['slug']) for r, i in nb])}.", act='Open it', go=_step(*nb[0])))
     if nb and leela is False: out.append(AttrDict(kind='setup', line='Leela is not running. Start Leela to run the notebooks.', act='', go=None))
     for r, i in nb:
