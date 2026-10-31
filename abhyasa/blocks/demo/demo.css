@@ -3,6 +3,7 @@
 .demo-card { margin: var(--s6) 0 var(--s2); padding: var(--s5) var(--s5) var(--s4); background: var(--paper); color: var(--paper-ink); border: 1px solid var(--paper-line);
              box-shadow: var(--lift); border-radius: 12px; --bg: var(--paper); --fg: var(--paper-ink); --ink2: var(--paper-ink); --mute: var(--paper-mute); --line: var(--paper-line); }
 .demo-card .rk { --rk-head: var(--hand); }
+.ask-card .rk-mode { display: none; }   /* the card names its kind once, in its own label */
 .demo-card .rk .rk-title, .demo-card .lbl { font-family: var(--hand); font-size: 1.3em; text-transform: none; letter-spacing: 0; }
 .demo-card.pending { box-shadow: none; }
 .demo-card .lead { margin: 0 0 var(--s1); }

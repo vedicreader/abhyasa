@@ -49,6 +49,7 @@ def test_a_failed_route_falls_back_to_the_browser_voice(page):
     assert page.evaluate('played') == []
     n = page.evaluate("document.querySelector('#guide-strip .board-notice').textContent")
     assert n.startswith('The natural voice did not answer. The browser voice reads the steps now.')
+    assert page.evaluate("document.querySelector('#guide-strip .board-voice-at').textContent") == 'Browser voice'   # the strip names the voice that speaks now
 
 def test_stop_ends_the_natural_voice(page):
     "Stop while the line plays: the audio stops, and the board is gone."

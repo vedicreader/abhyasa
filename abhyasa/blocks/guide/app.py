@@ -112,21 +112,22 @@ def connect(app, ctx):
         figs.put(k, labels)   # an empty result before any figure had labels is not kept: the route can have lost the picture
         return JSONResponse(dict(key=k, labels=labels))
 
-    def page_concept(c):
-        "The concept of the page context `c`: its slug, else the concept whose name shares a main word with the idea, the step or the title. None when none does."
+    def page_concept(c, words=''):
+        """The concept of a "show me": the slug of the page, else a search of the asked `words`, then of the idea, the step and the title of the
+        page. A hit counts when its name shares two main words with the query, or one when it is the top hit. None when none does."""
         if c.get('slug') and (x := lr.concept(c.slug)): return x
-        q = ' '.join(x for x in (c.get('concept'), c.get('step'), c.get('title')) if x)
-        if not (ws := set(main_words(q))): return None
-        for h in lr.search(q, kind='concept', limit=5):
-            if (x := lr.concept_by_doc(h['doc_id'])) and ws & set(main_words(x.name)): return x
+        for q in (words, ' '.join(x for x in (c.get('concept'), c.get('step'), c.get('title')) if x)):
+            if not (ws := set(main_words(q))): continue
+            for k, h in enumerate(lr.search(q, kind='concept', limit=5)):
+                if (x := lr.concept_by_doc(h['doc_id'])) and len(n := ws & set(main_words(x.name))) >= (1 if k == 0 else 2): return x
         return None
 
     def show_of(words, c):
         """Show for "show me …" to the guide: it never says no. On a page of the app with an idea, `html` is the card of the `show_me` hook
         (the demo block makes the demo, or says that it makes it); `href` opens the Show slot of the idea in abhyasa (for the Mac). With no idea,
         `href` opens the Library with the words, and `find` says so."""
-        x = page_concept(c)
-        if x is None: return dict(href=f"/concepts?q={quote(words or c.get('title') or '')}", find=True)
+        x = page_concept(c, words)
+        if x is None: return dict(href=f"/concepts?q={quote(' '.join(main_words(words or c.get('title') or '')))}", find=True)   # the main words: the Library search finds them
         out = dict(href=f'/c/{x.slug}' + (f'?show={quote(words)}' if words else '?show='), title=x.name)
         if str(c.get('page') or '').startswith('/'):   # a page of the app: the card comes here; the Mac opens the link
             vals = ' '.join(a['text'] for a in c.get('anchors') or () if a['kind'] in ('code', 'check'))   # the values of the page: the demo starts from them

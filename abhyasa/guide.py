@@ -6,18 +6,19 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS',
-           'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'FIGURE_SP',
+           'UNSAFE', 'NUMBERS', 'KINDS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'FIGURE_SP',
            'FIGURE_TEST', 'GUIDE_SP', 'THREAD_RULE', 'WATCH', 'CHECK_ASK', 'TRY_ASK', 'FILLER', 'OFF_CHECK', 'COUNTS',
            'ON_TRY', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR', 'WEB_FAILED', 'WEB_NO_PAGE', 'WEB_NO_PASSAGE',
            'NO_WEB', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'plain_say', 'check_line',
            'parse_board', 'PageContext', 'clean_context', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why',
            'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'figure_check', 'focus_text', 'thread_text',
-           'try_text', 'page_text', 'offer_line', 'board_prompt', 'video_id', 'video_cues', 'find_explainer',
-           'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'source_label',
-           'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
+           'try_text', 'page_text', 'offer_line', 'panel_note', 'board_prompt', 'video_id', 'video_cues',
+           'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check',
+           'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
+from itertools import takewhile
 from pathlib import Path
 from fastcore.utils import *
 
@@ -210,7 +211,10 @@ def _video_mark(o, ctx) -> dict:
 def _stroke(o, ctx) -> dict:
     "The checked stroke line `o` as the page gets it."
     if o['op'] == 'video_at': return _video_mark(o, ctx)
-    if o['op'] == 'row': return {**{k: v for k, v in o.items() if k != 'n'}, 'cells': [str(c) for c in o['cells']], **({'to': str(o['to'])} if 'to' in o else {})}
+    if o['op'] == 'row':
+        cs, to = [str(c) for c in o['cells']], o.get('to')
+        if to is None and not o.get('chain') and len(cs) >= 2: cs, to = cs[:-1], cs[-1]   # the answer in a last cell: it goes after the arrow
+        return {**{k: v for k, v in o.items() if k not in ('n', 'to')}, 'cells': cs, **({'to': str(to)} if to is not None else {})}
     return {k: v for k, v in o.items() if k != 'n' or o['op'] == 'clear'}
 
 def _has_strokes(o) -> bool:
@@ -230,6 +234,17 @@ def _objects(lines):
             yield o
             yield from (s if isinstance(s, dict) else None for s in ss[:LIMITS['strokes'] + 1])
         else: yield o
+
+NUMBERS = dict(two=2, three=3, four=4, five=5, six=6, seven=7, eight=8, nine=9, ten=10)
+_COUNT = re.compile(r'\b(two|three|four|five|six|seven|eight|nine|ten|[2-9])\s+', re.I)
+
+def _counts(steps):
+    "A head that names a count of parts (\"three stages\") that its panel does not have loses the count."
+    ss = [s for st in steps for s in st['strokes'] if s['op'] in PANEL]
+    for k, s in enumerate(ss):
+        if s['op'] != 'panel' or not (m := _COUNT.search(s.get('head', ''))): continue
+        n = sum(1 for x in takewhile(lambda x: x['op'] != 'panel', ss[k + 1:]) if x['op'] == 'row')
+        if NUMBERS.get(m[1].lower(), int(m[1]) if m[1].isdigit() else 0) != n: s['head'] = _COUNT.sub('', s['head'], 1)
 
 def parse_board(text:str, ctx) -> AttrDict:
     "The checked board in the model's reply `text`: `steps`, `dropped` lines with why, `sure`, `need` and `failed`."
@@ -262,6 +277,7 @@ def parse_board(text:str, ctx) -> AttrDict:
             out.dropped.append((k, why)); run += 1
             if run >= 2: out.failed = True; break
         else: run = 0
+    _counts(out.steps)
     for st in out.steps:   # a row with `at` draws its own circle: a circle line on the same thing goes
         on = [json.dumps(s['at'], sort_keys=True) for s in st['strokes'] if s['op'] == 'row' and 'at' in s]
         if (two := [s for s in st['strokes'] if s['op'] == 'circle' and json.dumps(s['at'], sort_keys=True) in on]):
@@ -505,9 +521,9 @@ GUIDE_SP = register('guide.board', 'Screen guide', 'How the tutor explains a par
 - Strokes: {"op":"circle","at":A}, {"op":"box","at":A}, {"op":"underline","at":A}, {"op":"point","at":A}, {"op":"arrow","from":A,"to":A}, {"op":"label","at":A,"text":"at most 60 characters","side":"above|below|left|right"}, {"op":"sketch","at":A,"pts":[[x,y],…]} (only on a figure anchor, to mark a part of the figure: 2 to 64 points, 0 to 1000 in the box of the anchor), {"op":"clear"}. At most 4 strokes in a step. Add "w": the number of the word in "say" where the stroke starts, from 0.
 - Never use sketch for a picture of an idea, and never draw over the words of the page. A picture of an idea goes in the side panel. Never put a formula in boxes: mark the terms on the page's own formula.
 - For a formula or an abstract idea, give a day-to-day example in the spoken lines, and mark the parts of the page's own formula as you name them. For y = a·x² + b·x + c: the path of a thrown ball, the area of a square garden plus a strip, or the cost of a taxi ride with a fixed fee.
-- The side panel at the top right of the window holds a small concrete example that you build one row in each step. Use it for code, data, a formula or a process on the page. Start it with {"op":"panel","title":"2 to 4 words of the topic","head":"the task in a few words","cols":["the left column","the right column"]}. Then add one row in a step: {"op":"row","cells":["[18]"],"to":"47","at":A}: 1 to 5 cells and an optional "to", each of at most 24 characters. Copy the values of the rows from the page, the first values first, and give the row the anchor A of that value: the page circles the value and draws a curve to the row, so do not write a circle for it. For a process of 3 to 5 steps, use a panel with "numbered":true and one row for each step, or one chain row. {"op":"row","cells":["Guess","Compare","Adjust"],"chain":true} is a chain of words with arrows. {"op":"note","text":"at most 90 characters"} is one quiet line in the panel. A new panel line starts the next beat: go from the values on the page to the big idea.
+- The side panel (top right) holds a small example made from the values on the page, one row in each step. Start it with {"op":"panel","title":"2 to 4 words","head":"the task, with no number in it","cols":["left","right"]}. A row is {"op":"row","cells":["[18]"],"to":"47","at":A}: the input in 1 or 2 cells and the answer in "to", each of at most 24 characters, copied from the page. With "at", the page circles that value and links it to the row, so write no circle for it. {"op":"row","cells":["Guess","Compare","Adjust"],"chain":true} is a chain. {"op":"note","text":"…"} is one quiet line. For a process, use "numbered":true and one row for each step. A new panel line starts the next beat.
 - The learner can say show me on any page: abhyasa then makes a moving demo of the idea. End the last step with the offer that the request names, and with no other offer. Code that runs is in Leela. You still explain the idea.
-- Each say is one sentence of at most 20 words, with one idea and no semicolons. Say a code name as words the first time: for alpha_bar, say "alpha bar, the part of the clean image that stays".
+- Each say is one sentence of at most 20 words, with no semicolons. Say a code name as words the first time ("alpha bar" for alpha_bar).
 - Speak only about the idea and the page. Never apologise, never take back or correct an earlier board, and never say what the page or abhyasa can or cannot do.
 - A is an anchor from the page list: its id ("passage"), or {"a":id,"text":"words in it"}, {"a":id,"tex":"one of its tokens"}, {"a":id,"label":"one of its labels"}, {"a":id,"box":[x0,y0,x1,y1]} or {"a":id,"pt":[x,y]} (0 to 1000 of the anchor; a point can be outside it, from -1000 to 2000). Use only ids, tokens and labels that the list gives. Copy a token exactly.
 - Use the names that the learner sees: the labels in the figure, the symbols in the formula, the names of the sliders.
@@ -526,19 +542,6 @@ An example reply for "I don't get alpha bar" on a page with the formula m1:
 {"op":"label","at":{"a":"m1","tex":"\\\\bar\\\\alpha_t"},"text":"how much is left","side":"above","w":5}
 {"op":"step","say":"Think of a photo that fades: after t steps, alpha bar t is the part of the photo that you can still see."}
 {"op":"underline","at":{"a":"m1","tex":"\\\\bar\\\\alpha_t"},"w":5}
-An example reply for "I don't get this equation" on a page with the formula m2, y = a x^2 + b x + c:
-{"op":"v","n":1,"sure":0.9,"need":"none"}
-{"op":"step","say":"Think of a ball that you throw: y is its height, and x is the time since it left your hand."}
-{"op":"circle","at":{"a":"m2","tex":"y"},"w":7}
-{"op":"step","say":"c is the height of your hand when you let go, the fixed start, like the fee of a taxi before it moves."}
-{"op":"circle","at":{"a":"m2","tex":"c"},"w":0}
-{"op":"step","say":"b x is the push up, and a x squared pulls the ball down more each second. Say show me to see it move."}
-{"op":"circle","at":{"a":"m2","tex":"a"},"w":5}
-A side panel for a process, such as how a model learns:
-{"op":"panel","title":"how a model learns","head":"One round of practice","numbered":true}
-{"op":"row","cells":["Draw the curve"],"to":"a guess"}
-{"op":"row","cells":["Measure the error"],"to":"how far off"}
-{"op":"row","cells":["Change a, b and c"],"to":"a better curve"}
 An example side panel for "what does this code do" on a page with the output o1 of the code:
 {"op":"step","say":"Each line makes one practice question. The input is the start of the text, and the target is the next token."}
 {"op":"panel","title":"inputs and targets","head":"Make a question and its answer","cols":["Input","Target: the known answer"]}
@@ -603,8 +606,17 @@ def page_text(ctx) -> str:
 def offer_line(ctx) -> str:
     "The offer at the end of the last step, by the kind of page: Leela on a notebook step, Show on the page of an idea, else none."
     if ctx.get('leela'): return 'End the last step with: "Open it in Leela to run it."'
+    if (ctx.get('demo') or {}).get('slug'): return 'A demo is on the page: end the last step with no offer.'
     if ctx.get('slug') or ctx.get('concept'): return 'When a moving example helps and you build no side panel, end the last step with: "Say show me to see it move." Else end with no offer.'
     return 'End the last step with no offer.'
+
+def panel_note(ctx, said:str) -> str:
+    "The note for \"Explain <selection>\" when the selection is in code and holds two or more numbers: build the side panel from them."
+    m = re.match(r'\s*explain\s+"(.+?)"?\s*\Z', said or '', re.I | re.S)
+    sel = m and flat(m[1]).rstrip('…')
+    if not sel or len(re.findall(r'-?\d+(?:\.\d+)?', sel)) < 2: return ''
+    if not any(a['kind'] == 'code' and sel in flat(a.get('text')) for a in ctx.get('anchors') or ()): return ''
+    return 'Build the side panel from the values in the selection: one row for each input and its answer, with "at" on the value in the code.'
 
 def board_prompt(ctx, said:str, sources=(), tier:str='tutor', note:str='') -> str:
     "The request for a board on `said`, with what the learner showed (`focus_text`), the page of `ctx`, the earlier turns on the page (`thread_text`), the numbered `sources`, each in a fence, and the lines of `note`."
@@ -615,7 +627,7 @@ def board_prompt(ctx, said:str, sources=(), tier:str='tutor', note:str='') -> st
     srcs = '\n'.join(f"Source {k}: " + fence(s.get('title') or '', s.get('text') or '') for k, s in enumerate(sources, 1))
     if (fx := focus_text(ctx)): head.append(f"\n{fx}")
     th = f"{tx}\n\n" if (tx := thread_text(ctx)) else ''
-    return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + th + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + (f"{note}\n" if note else '') + f"{offer_line(ctx)}\nTier: {tier}\nReply with the JSON lines."
+    return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + th + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + (f"{note}\n" if note else '') + (f"{pn}\n" if (pn := panel_note(ctx, said)) else '') + f"{offer_line(ctx)}\nTier: {tier}\nReply with the JSON lines."
 
 # %% ../nbs/21_guide.ipynb #gv01
 WATCH = 'https://www.youtube.com/watch?v='

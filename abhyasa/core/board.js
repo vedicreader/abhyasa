@@ -57,6 +57,7 @@
 //   timeline()  [op, part, ms] for each part of each mark of the step that shows: the order in which they draw
 //   speakBrowser(text, onWord, done)   the default speak (speechSynthesis), for a host speak that falls back to it.
 //   notice({text, href, link})          set the quiet line of the board that shows now (see play).
+//   voiceAt({model, where, who})        name the voice that speaks the board that shows now, as after a fallback to the browser voice.
 //   status(event)        the state line in the strip while the guide works: the `wait` text of a state event of the guide route
 //                        ({wait, state, model, where, who, query, sources}), a chip "on this Mac" or "hosted · <who>", the seconds
 //                        after 3 s while it asks, and Stop.
@@ -414,8 +415,9 @@
       const rp = svgEl('path', 'board-fill board-ring'); m.ring.append(rp);
       parts.push(stroke(rp, press(ring(b, b.glyphs ? 9 : 12, m.seed)), {size: 3.3}));
       const c0 = (m.el.querySelector('.board-cell, .board-word') || m.el).getBoundingClientRect();
-      const to = [c0.left + scrollX + Math.min(18, c0.width / 2), c0.top + scrollY - 3], from = [b.x + b.w + 10, b.y + b.h / 2];
-      land = inkArrow(m, parts, from, to, 120, .8);
+      const inline = p.classList.contains('inline'), x0 = c0.left + scrollX, under = inline && x0 < b.x + b.w && b.x < c0.right + scrollX;
+      const to = [x0 + Math.min(18, c0.width / 2), c0.top + scrollY - 3], from = inline ? [b.x + b.w / 2, b.y + b.h + 8] : [b.x + b.w + 10, b.y + b.h / 2];
+      if (!under) land = inkArrow(m, parts, from, to, 120, .8);   // in the page, a curve goes down from the ring, never back up across the text
     } else for (const e of [m.g, m.ring]) if (e) e.style.display = 'none';
     if (o.op === 'note') parts.push({kind: 'node', el: m.el, at: land, dur: 260});
     else [...m.el.children].forEach((c, k) => parts.push({kind: 'node', el: c, at: land + 80 * k, dur: 260}));   // the row when the curve lands, then each cell
@@ -975,6 +977,7 @@
   window.abhyasaBoard = {play, add, finish, stop: () => stop(), note, status, room, seekVideo, demoAnchors, fitDemo,
                          speakBrowser: (text, onWord, done) => st ? voice(text, onWord, done) : undefined,
                          notice: n => { if (st && n && typeof n === 'object') { st.notice = n; caption(); } },
+                         voiceAt: v => { if (st && v && typeof v === 'object') { st.voiceAt = v; caption(); } },
                          next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,
                          timeline: () => st ? st.marks.filter(m => m.step === st.i && m.drawn).flatMap(m => m.parts.map(p => [m.o.op, p.kind, Math.round(p.at)])) : [],   // the parts of this step and when each starts, in ms
                          get state() {

@@ -17,7 +17,7 @@ def test_a_3d_ask_gives_a_card_with_the_scene(mk, fake, lr):
     fake.rules['You design one 3D explainer'] = SCENE
     cl = mk()
     r = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='show it in 3D')).text
-    assert '3D explainer' in r and 'You asked for 3D' in r and 'Show a 2D demo' in r   # 2D is one click away
+    assert '3D explainer' in r and 'You asked for 3D' in r and 'Show a 2D demo' not in r and 'while the 3D explainer builds' in r   # the 2D demo comes under it, with no link
     assert len(wait_3d(cl, 'ranking')) == 1
     a = lr.asked(aid_of(r))
     assert a.kind == 'explainer'   # the record of the ask, as for a 2D ask
@@ -26,6 +26,9 @@ def test_a_3d_ask_gives_a_card_with_the_scene(mk, fake, lr):
     card = cl.get(f'/demo/asked/{a.id}').text
     assert 'How an F-35B hovers' in card and 'data-rupaka' in card and 'scene' in card
     assert [k for k in svc(cl)['tutor'].jobs if k.startswith('ranking#')]   # the 2D demo builds while the 3D explainer builds, so Show is never silent
+    for k in [k for k in svc(cl)['tutor'].jobs if k.startswith('ranking')]: svc(cl)['tutor'].jobs[k].result(timeout=60)
+    ready = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='show it in 3D')).text
+    assert ready.count('class="lbl"') == 1 and 'while the 3D explainer builds' not in ready and 'Show a 2D demo' not in ready   # one label; no line that is not true now
 
 def test_show_it_in_3d_under_a_2d_demo_asks_for_the_explainer(mk, fake, lr):
     fake.rules['You design one 3D explainer'] = SCENE

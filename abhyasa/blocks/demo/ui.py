@@ -62,11 +62,14 @@ def TryLeela(href):
 
 def Kind(kind, why, said=''):
     "The line on top of an ask: which kind of demo, and why, in one line."
+    said = said if len(str(said or '').split()) >= 3 else ''   # the whole ask, or nothing: never a few words left after "show me"
     return Div(Span(KINDS[kind], cls='lbl'), P(why, *([' You asked: ', Q(said)] if said else []), cls='mute kind-why'), cls='ask-kind')
 
+WHILE_3D = 'Here is the 2D demo while the 3D explainer builds.'
+
 def WhileThree(three, two):
-    "A 3D explainer that builds: its wait, and the 2D demo under it, so the learner has a thing to do at once."
-    return Div(three, P('Here is the 2D demo while the 3D explainer builds.', cls='mute'), two, cls='show-while')
+    "A 3D explainer that builds: its wait (with the line `WHILE_3D`, which goes with it), and the 2D demo under it, so the learner has a thing to do at once."
+    return Div(three, two, cls='show-while')
 
 def ShowCard(a, route, body, leela, two_d=None, three_d=None):
     """The one card of Show, for each place: the kind and why, the demo (or its wait, or a note), then the other kinds and "Try it in Leela", one click away.
@@ -74,16 +77,16 @@ def ShowCard(a, route, body, leela, two_d=None, three_d=None):
     links = Div(*([Quiet('Show a 2D demo', type='button', **two_d)] if two_d else []), *([ThreeD(three_d)] if three_d else []), TryLeela(leela), cls='row ask-links')
     return Div(Kind(route.kind, route.why, a.said), body, links, cls='ask-card', id=f'ask-{a.id}', data_ask=a.id)
 
-PLAN = ('Read the idea', 'Write the demo', 'Check it', 'Show it')
+STAGES = dict(queued='Waits for the demo before it', writing='Writes the demo', fixing='A try failed the checks. Writes it again')
 
-def Plan(secs:float):
-    "The plan of a demo that the tutor makes now, with the stage that it is at and the seconds so far: it moves at each look, so Show is never silent."
-    k = 0 if secs < 4 else 1 if secs < 15 else 2
-    return Div(*[Span(p, cls='on' if i == k else 'done' if i < k else '') for i, p in enumerate(PLAN)], Span(f'{int(secs)} s', cls='mute secs'), cls='row show-plan')
+def Plan(stage:str, secs:float):
+    "The real stage of the job that makes the demo (`job_stage`), and the seconds so far: it changes at each look, so Show is never silent, and it never says a stage that is not true."
+    return Div(Span(STAGES.get(stage, STAGES['writing']), cls='on'), Span(f'{int(secs)} s', cls='mute secs'), cls='row show-plan')
 
-def AskPending(a, kind='', aim='', secs:float=0):
-    "The demo of ask `a` (with `kind`, its 3D explainer or its 2D demo; with `aim`, its simpler demo) is not ready: its plan, and a look at the server again in 2 seconds."
+def AskPending(a, kind='', aim='', secs:float=0, stage:str='writing', lead:str=''):
+    """The demo of ask `a` (with `kind`, its 3D explainer or its 2D demo; with `aim`, its simpler demo) is not ready: its stage, and a look at
+    the server again in 2 seconds. `lead` is a line that goes with the wait, so it goes when the demo comes."""
     three = kind == '3d'
     what = 'a 3D explainer' if three else 'a simpler demo' if aim == 'simpler' else 'a demo'
-    return Div(P(f"The tutor makes {what} of {'what you asked' if a.said else 'this idea'}.", cls='mute making'), Plan(secs),
+    return Div(P(f"The tutor makes {what} of {'what you asked' if a.said else 'this idea'}.", cls='mute making'), Plan(stage, secs), P(lead, cls='mute') if lead else '',
                hx_get=Routes.of(Routes.asked, aid=a.id) + (f'?kind={kind}' if kind else ''), hx_trigger='load delay:2s', hx_swap='outerHTML', cls='demo-card pending', data_ask=a.id)

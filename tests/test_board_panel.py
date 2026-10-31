@@ -183,3 +183,13 @@ def test_each_step_scrolls_its_marks_into_view(page):
     page.wait_for_timeout(200)
     r = page.evaluate("(() => { const g = [...document.querySelectorAll('.board-glow')].find(e => e.dataset.step === '2').getBoundingClientRect(); return [g.top, g.bottom, innerHeight]; })()")
     assert 50 <= r[0] and r[1] <= r[2], r
+
+def test_an_inline_panel_draws_no_curve_back_up(page):
+    "Below 1100 px the panel stands in the page under the marked line. A curve goes down from the ring, never back up across the text, and none when the row is right under the ring."
+    page.set_viewport_size(dict(width=1024, height=900))
+    page.evaluate(LONG)
+    play(page, [PANEL_STEP])
+    assert page.evaluate("document.getElementById('board-panel').classList.contains('inline')")
+    ring = page.evaluate("document.querySelector('#board-layer g[data-op=circle]').getBoundingClientRect().bottom")
+    links = page.evaluate("[...document.querySelectorAll('#board-layer g[data-op=link]')].filter(g => g.style.display !== 'none' && g.childElementCount).map(g => g.getBoundingClientRect().top)")
+    assert all(t >= ring - 2 for t in links), (ring, links)

@@ -409,3 +409,19 @@ def test_yes_after_the_show_offer_is_show_with_the_values_of_the_page(mk, fake, 
     assert [list(e) for e in evs] == [['show']] and not any('Tier: tutor' in p for p, _ in fake.calls[n:])
     a = lr.asks(concept='ranking')[0]
     assert a.where == 'guide' and 'Values from the page: assert rrf([1, 2], k=60) == 0.032' in a.ask
+
+def test_show_me_finds_the_idea_by_the_asked_words(mk, fake, lr):
+    "On Home, \"show me how attention works\" finds the attention idea by the asked words. A window title that shares one plain word with an idea that is not the top hit matches nothing."
+    lr.put('Attention', 'A query scores each key.', 'ml', slug='attention')
+    lr.put('Training loop in code', 'The loop that fits the weights.', 'ml', slug='training-loop')
+    cl = mk()
+    def show(said, ctx): return [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said=said, ctx=ctx)).text.splitlines() if l.startswith('data: ')][0]['show']
+    assert show('show me how attention works', dict(page='/'))['href'].startswith('/c/attention')
+    s = show('show me', dict(page='Chrome', title="gpt-dev.ipynb - Colab", step="Let's build GPT"))
+    assert s.get('find') and 'training' not in s['href']
+    assert show('show me how the moon sings', dict(page='/'))['href'] == '/concepts?q=moon%20sings'   # the Library search gets the main words
+
+def test_the_kind_line_echoes_a_whole_ask_or_nothing():
+    from fasthtml.common import to_xml
+    from abhyasa.blocks.demo.ui import Kind
+    assert 'You asked' not in to_xml(Kind('demo', 'You predict first.', 'it move')) and 'You asked' in to_xml(Kind('demo', 'You predict first.', 'how the noise grows'))

@@ -433,6 +433,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
       fellBack = true;
       console.warn('guide: natural voice', why);
       abhyasaBoard.notice({text: 'The natural voice did not answer. The browser voice reads the steps now.', href: '/settings#g-voice', link: 'Settings'});
+      abhyasaBoard.voiceAt({model: 'Browser voice', where: 'on this Mac'});   // the strip names the voice that speaks now
     }
     return window.abhyasaBoard && abhyasaBoard.speakBrowser(text, onWord, done);
   }

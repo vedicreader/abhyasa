@@ -10,10 +10,10 @@ __all__ = ['VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY',
            'OFFER', 'KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS',
            'EXPLAINER_RULES', 'REFUSED', 'WHERES', 'ROUTES', 'demo_text', 'since_demo', 'rung', 'keep_rung',
            'want_demo', 'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo',
-           'ask_key', 'queue_demo', 'job_state', 'job_age', 'backed', 'other_way', 'lesson_way', 'simpler_demo',
-           'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'route_ask', 'can_explain', 'scene_catalog',
-           'scene_example', 'explainer_sp', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask',
-           'make_explainer', 'show', 'import_gallery']
+           'ask_key', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way',
+           'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'route_ask', 'can_explain',
+           'scene_catalog', 'scene_example', 'explainer_sp', 'explainer_prompt', 'scene_errors', 'explainer_for',
+           'explain_ask', 'make_explainer', 'show', 'import_gallery']
 
 # %% ../nbs/10_demo.ipynb #c005
 import hashlib, json, re, threading, time, uuid
@@ -282,8 +282,9 @@ def queue_demo(tutor, slug:str, first_error:str='', aim:str='', said:str=''):
     k = _key(slug, aim, said)
     j = tutor.jobs.get(k)
     if j is not None and not j.done(): return j
-    j = tutor.jobs[k] = (tutor.pool or _POOL).submit(make_explainer if aim == '3d' else make_demo, tutor.learning, tutor.ask, slug, first_error, aim=aim, said=said)
-    j.at = time.time()
+    log = []   # each try that failed the checks: the real stage of the job (`job_stage`)
+    j = tutor.jobs[k] = (tutor.pool or _POOL).submit(make_explainer if aim == '3d' else make_demo, tutor.learning, tutor.ask, slug, first_error, aim=aim, said=said, log=log)
+    j.at, j.log = time.time(), log
     return j
 
 def job_state(tutor, slug:str, aim:str='', said:str='') -> str:
@@ -297,6 +298,12 @@ def job_age(tutor, slug:str, aim:str='', said:str='') -> float:
     "The seconds since the demo job of `slug` with the aim `aim` and the ask `said` started; 0 when there is no job."
     j = tutor.jobs.get(_key(slug, aim, said))
     return time.time() - getattr(j, 'at', time.time()) if j is not None else 0.
+
+def job_stage(tutor, slug:str, aim:str='', said:str='') -> str:
+    "The real stage of the demo job of `slug`: 'queued' (another job runs first), 'writing' (the model writes the spec), 'fixing' (a try failed the checks, and the model writes it again), or 'none'."
+    j = tutor.jobs.get(_key(slug, aim, said))
+    if j is None or j.done(): return 'none'
+    return 'fixing' if getattr(j, 'log', None) else 'writing' if j.running() else 'queued'
 
 # %% ../nbs/10_demo.ipynb #ld13
 def backed(learning:Learning, slug:str, goal:int=None) -> bool:

@@ -9,7 +9,7 @@ from starlette.responses import RedirectResponse
 from rupaka.render import bundle, version
 from abhyasa.core import hook, Msg
 from abhyasa.core.leela import leela_link
-from abhyasa.demo import show, queue_demo, job_state, job_age, ROUTES, REFUSED
+from abhyasa.demo import show, queue_demo, job_state, job_age, job_stage, ROUTES, REFUSED
 from . import ui
 from .cfg import Routes
 
@@ -48,7 +48,8 @@ def connect(app, ctx):
         three = (kind or ('3d' if a.get('kind') == 'explainer' else 'demo')) == '3d'
         aim = '3d' if three else a.get('aim', '') if not kind else ''
         if job_state(tutor, a.concept, aim, a.ask) == 'running':
-            wait = ui.AskPending(a, '3d' if three else kind, aim, job_age(tutor, a.concept, aim, a.ask))
+            wait = ui.AskPending(a, '3d' if three else kind, aim, job_age(tutor, a.concept, aim, a.ask), job_stage(tutor, a.concept, aim, a.ask),
+                                 ui.WHILE_3D if three and not kind else '')
             if not (three and not kind): return wait
             if not lr.demo_for(a.concept, key=a.key or None) and job_state(tutor, a.concept, '', a.ask) != 'running': queue_demo(tutor, a.concept, said=a.ask)
             return ui.WhileThree(wait, shown(a, 'demo'))   # the 2D demo while the 3D explainer builds
@@ -80,7 +81,7 @@ def connect(app, ctx):
         def other(k): return dict(hx_post=Routes.ask, hx_vals=json.dumps({**vals, 'kind': k}), hx_target=f'#ask-{a.id}', hx_swap='outerHTML')   # the other kind, one click away
         body = P('Open it in Leela to try it in code. Or see a 2D demo or a 3D explainer first.', cls='mute') if route.kind == 'notebook' else shown(a)
         return ui.ShowCard(a, route, body, leela_link(None, topic=c.name, vault=lr.vault.path),
-                           two_d=other('demo') if route.kind != 'demo' else None, three_d=other('3d') if route.kind != 'explainer' else None)
+                           two_d=other('demo') if route.kind == 'notebook' else None, three_d=other('3d') if route.kind != 'explainer' else None)   # a 3D card has its 2D demo under it
 
     def ask(concept:str='', said:str='', where:str='', walk:str='', step:str='', qid:str='', kind:str='', aim:str='', session:str=''):
         "Show me: a demo for the place in the form. In a session, it is a tutor message in the thread of the question."
