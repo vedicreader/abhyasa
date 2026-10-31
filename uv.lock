@@ -79,9 +79,9 @@ requires-dist = [
     { name = "ramabana", specifier = ">=0.2.96" },
     { name = "ramabana", marker = "extra == 'models'", specifier = ">=0.2.96" },
     { name = "rishi", specifier = ">=0.1.64" },
-    { name = "rupaka", specifier = ">=0.0.7" },
-    { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.7" },
-    { name = "rupaka", extras = ["check"], marker = "extra == 'dev'", specifier = ">=0.0.7" },
+    { name = "rupaka", specifier = ">=0.0.8" },
+    { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.8" },
+    { name = "rupaka", extras = ["check"], marker = "extra == 'dev'", specifier = ">=0.0.8" },
     { name = "spacy", marker = "extra == 'voice'", specifier = ">=3.8" },
     { name = "vidyut", specifier = ">=0.4" },
     { name = "vishalakshi", specifier = ">=0.1.35" },
@@ -4982,14 +4982,14 @@ wheels = [
 
 [[package]]
 name = "rupaka"
-version = "0.0.7"
+version = "0.0.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ef/b9/a03abec42abfece24e9edac8aa631d9bc7b9e2eb8486d7b16377c94c42dc/rupaka-0.0.7.tar.gz", hash = "sha256:a623e2d18fbb6340368d89bc113223b6682fc2b55be047a035acb2e7ccd8eb2d", size = 297169, upload-time = "2026-10-30T02:50:19.605Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/82/e8d4cb1ef8a0a02c92be3acdc14a2b55201f56958f9721bfc1637a64a52a/rupaka-0.0.8.tar.gz", hash = "sha256:31a1cbcf8767fdd34c9b3b01c358db889b550cac74f975872fdfb1bf88ce878a", size = 510043, upload-time = "2026-10-31T05:24:05.545Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/40/5c/5745e721b416ab9acb4e730a1607fef44ea0fa3abce0b2102658f9854de8/rupaka-0.0.7-py3-none-any.whl", hash = "sha256:6beeebc98e17dd2d25205c6fcb08feb7799d31aa819b37848099e531dbd8f28b", size = 327349, upload-time = "2026-10-30T02:50:18.044Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/be/df1f4db1350bed0cd38674d38e8e6c68cba6182805088bdfb08766ca9f8c/rupaka-0.0.8-py3-none-any.whl", hash = "sha256:a25b361356007f1aad1eaef1a57d545345343cf61d1566938ab3db0e59de7cac", size = 548599, upload-time = "2026-10-31T05:24:04.117Z" },
 ]
 
 [package.optional-dependencies]

@@ -24,7 +24,7 @@ dependencies = [
     "rishi>=0.1.64",
     "python-fasthtml>=0.14",
     "ipywidgets>=8.1",
-    "rupaka>=0.0.7",
+    "rupaka>=0.0.8",
     "vidyut>=0.4",
     "mdhtml>=0.1.38",
     "nh3>=0.3.7",
@@ -35,8 +35,8 @@ dependencies = [
 [project.optional-dependencies]
 whisper = ["mlx-audio>=0.5"]
 tick = []   # empty: abhyasa no longer indexes on a ramabana tick; the extra stays so that old pins still resolve
-demo = ["rupaka[check]>=0.0.7"]
-dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "rupaka[check]>=0.0.7", "gheasy>=0.0.18"]
+demo = ["rupaka[check]>=0.0.8"]
+dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "rupaka[check]>=0.0.8", "gheasy>=0.0.18"]
 models = ["ramabana>=0.2.96"]   # now a core dependency; the extra stays so that old installs still resolve
 voice = [
     "espeakng-loader>=0.2",

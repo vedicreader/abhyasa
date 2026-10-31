@@ -99,6 +99,7 @@ def test_3d_and_leela_links_say_their_state(mk, walk_fake, lr, monkeypatch, tmp_
     cl = mk()
     r = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='')).text
     assert 'Show it in 3D: not ready yet.' in r and ('It needs rupaka 0.0.8' in r) == (not can_explain())
+    assert can_explain() and '3D explainers come in the next version.' in r   # rupaka 0.0.8 has scenes; abhyasa makes no fake 3D view
     assert 'Leela is not running' in r and '/learn?' not in r
     leela_file(tmp_path)
     r = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='let me try it in code')).text

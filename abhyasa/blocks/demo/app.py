@@ -49,7 +49,7 @@ def connect(app, ctx):
 
     def three_d():
         "Why Show it in 3D is not ready yet."
-        return 'abhyasa does not make 3D explainers yet.' if can_explain() else 'It needs rupaka 0.0.8, with 3D scenes.'
+        return '3D explainers come in the next version.' if can_explain() else 'It needs rupaka 0.0.8, with 3D scenes.'
 
     def open_q(at):
         "The open question of the place `at`: by `qid` (a session), or the check of the walk step; None when no check is open."
