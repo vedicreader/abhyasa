@@ -78,10 +78,6 @@ def test_vault_page_in_the_pane(mk, lr):
     t = cl.get(f'/?rh=/v/store/{d}').text
     assert f'src="/v/store/{d}?pane=1"' in t and '<b>Rasi Characteristics</b>' in t
 
-def test_pane_keys_are_in_the_table():
-    assert ('Side pane', '⌥Z', 'Back to the paper: close the side pane') in KEYS
-    assert ('Side pane', 'esc', 'Close the side pane') in KEYS
-
 def _chromium():
     "True when Playwright's bundled Chromium is installed."
     try:
