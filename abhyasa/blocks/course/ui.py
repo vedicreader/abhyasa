@@ -38,11 +38,16 @@ def Here(st):
     if st.current: return P(f"Stage {st.current.n} of {len(st.stages)}: ", B(st.current['name']), '.', cls='course-here')
     return P('The course has no stage yet.', cls='course-here')
 
+def why_once(st) -> str:
+    "The reason of the next thing, without \"Next: X.\" when X is the idea of You are here."
+    nx, pre = st.next, f"Next: {st.next.name}. "
+    return nx.why[len(pre):] if st.here and nx.slug == st.here.slug and nx.why.startswith(pre) else nx.why
+
 def Next(st, cid):
     "The next thing to do, its reason in one line, and the one main button."
     nx = st.next
     btn = '' if nx.rule == 8 else Primary('Continue', href=href(nx.go, cid), focus=True, rank=1)
-    return Div(P(nx.why, cls='course-why'), Div(btn, cls='row') if btn else '', cls='course-next')
+    return Div(P(why_once(st), cls='course-why'), Div(btn, cls='row') if btn else '', cls='course-next')
 
 def Stage(r, cid):
     "One stage: its name (a link to its walk), its state, its progress, what it makes."

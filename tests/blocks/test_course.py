@@ -35,7 +35,7 @@ def test_course_page_says_where_you_are_and_what_is_next(mk, lr):
     assert r.headers['location'] == f'/course/{cid}'
     t = cl.get(f'/course/{cid}').text
     assert 'Stage 1 of 1, idea 3 of 3: <b>Sample</b>' in t and '2 of 3 ideas done.' in t
-    assert 'Next: Sample. You know the ideas that it needs.' in t and 'href="/w/gw/2"' in t
+    assert '>You know the ideas that it needs.<' in t and 'Next: Sample' not in t and 'href="/w/gw/2"' in t   # the idea of You are here shows once
     assert 'abhyasa could not clone huggingface/diffusers.' in t and '1 idea: Sample.' in t
     assert 'Ask me where I start' in t and 'huggingface/diffusers' in t
     assert t.count('class="btn go"') == 1   # one main button
@@ -93,7 +93,7 @@ def test_a_learner_who_knows_it_skips_the_foundation(mk, lr, fake):
     st = lr.course(c.id).stages
     assert (st[0]['status'], st[0]['walk']) == ('skipped', None)
     t = cl.get(f'/course/{c.id}').text
-    assert 'skipped' in t and 'Next: Noise. You know the ideas that it needs.' in t
+    assert 'skipped' in t and 'idea 1 of 3: <b>Noise</b>' in t and '>You know the ideas that it needs.<' in t
 
 def test_open_a_planned_stage_builds_it(mk, lr, fake):
     "Plan it now on a planned stage: the walk is built on the pool, then it opens."
