@@ -292,7 +292,7 @@ def talk_text(text, most=TALK_TEXT):
     said = ' '.join(out).strip()
     return said if len(said) <= 2 * most else said[:2 * most].rsplit(' ', 1)[0] + '…'
 
-def TalkStep(j, st, by, i):
+def TalkStep(j, st, by, i, figure=True):
     """One idea in the side pane of a talk (`in_talk`), for the room to read: a line that says where it is, the title, a short passage
     (`talk_text`), and the figure, in the talk type (pane.css, core/talktype.js fits it to the window). It has no check, no outline,
     no skip and no tutor note (the note prepares a learner for the check), so no question opens and nothing is logged."""
@@ -300,20 +300,20 @@ def TalkStep(j, st, by, i):
     said = 'a quick primer' if n == 1 else f'idea {i + 1} of {n}'
     r = s.get('read') or {}
     short = {**s, 'read': {**r, 'text': talk_text(r['text'])}} if r.get('text') else s
-    return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea', data_concept=s.get('slug')), Passage(j, short, c), Figure_(j['id'], i, s, c),
+    return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea', data_concept=s.get('slug')), Passage(j, short, c), Figure_(j['id'], i, s, c) if figure else '',
                P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
-def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None):
+def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None, figure=True):
     """One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title, `present` under the outline.
-    `result` is the card "From Leela": it takes the place of the check, so the page has it with no second request."""
-    if in_talk(): return TalkStep(j, st, by, i)
+    `result` is the card "From Leela": it takes the place of the check, so the page has it with no second request. `figure=False`: the file of the figure is not there, so no image."""
+    if in_talk(): return TalkStep(j, st, by, i, figure)
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
     head = Div(*[Inline(x) for x in (r.get('section'), r.get('page') and f"p. {r['page']}") if x], cls='sec-lbl')   # a section name can hold markdown, such as *gradient descent*
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING, data_part='check') if result is None else Div(result, id='check', data_part='check')
     return Div(Rail(j, st, by, i, present),
-               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea', data_concept=s.get('slug')), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c),
+               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea', data_concept=s.get('slug')), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c) if figure else '',
                    NoteSlot(j['id'], i), slot, leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 

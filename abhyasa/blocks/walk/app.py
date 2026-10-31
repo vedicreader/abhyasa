@@ -531,7 +531,8 @@ def connect(app, ctx):
         seen(j)
         line = [band(j)] if researching(jid) or j.get('research_start') or j.get('gather_at') else []   # the line of research is on each step
         page = ui.StepPage(j, walk_state(j, b), b, i, needs=[*line, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault,
-                       present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back))
+                       present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back),
+                       figure=figure_file(j, i) is not None)   # a figure whose file is not there draws no broken image
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     on='Home', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
 
@@ -793,12 +794,16 @@ def connect(app, ctx):
         rows = [r for r in (s.log if s else ()) if r['concept'] in slugs]
         return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), ix[-1] + 1, by()), on='Home', crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
 
-    def img(jid:str, i:int):
-        "The figure of step `i`, only from inside the vault assets and only as an image file."
-        if not (j := walk_of(jid, i)) or not (f := (j.steps[i].get('read') or {}).get('figure')): return Response(status_code=404)
+    def figure_file(j, i):
+        "The file of the figure of step `i`: only inside the vault assets, and only an image file that is there. None when there is none."
+        if not (f := (j.steps[i].get('read') or {}).get('figure')): return None
         root = Path(lr.vault.assets()).resolve()
         p = (root/f).resolve()
-        if not p.is_relative_to(root) or p.suffix.lower() not in FIGURES or not p.is_file(): return Response(status_code=404)
+        return p if p.is_relative_to(root) and p.suffix.lower() in FIGURES and p.is_file() else None
+
+    def img(jid:str, i:int):
+        "The figure of step `i`, only from inside the vault assets and only as an image file."
+        if not (j := walk_of(jid, i)) or not (p := figure_file(j, i)): return Response(status_code=404)
         return FileResponse(p)
 
     def result(jid:str, i:int, n:str):
