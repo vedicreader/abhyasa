@@ -5,7 +5,7 @@
 
 <img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/design/logo/abhyasa-icon.png" width="128" alt="abhyasa logo">
 
-[![Download for macOS](https://img.shields.io/badge/Download_for_macOS-Abhyasa.zip-2F2722?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/vedicreader/abhyasa/releases/download/mac-v0.0.14/Abhyasa.zip) [All releases](https://github.com/vedicreader/abhyasa/releases)
+[![Download for macOS](https://img.shields.io/badge/Download_for_macOS-Abhyasa.zip-2F2722?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/vedicreader/abhyasa/releases/download/mac-v0.0.15/Abhyasa.zip) [All releases](https://github.com/vedicreader/abhyasa/releases)
 
 [![](https://github.com/vedicreader/abhyasa/actions/workflows/test.yaml/badge.svg)](https://github.com/vedicreader/abhyasa/actions/workflows/test.yaml)
 
