@@ -8,7 +8,7 @@ public enum GuideText {
     public static let reading = "The tutor reads the window."
     /// U11: in the strip at key down, before the Accessibility read
     public static let readsWindow = "The guide reads this window."
-    public static let micOn = "The mic is on. Let go of \(key) to send."
+    public static let micOn = "The mic is on. Let go of \(key) to stop."
     public static let writing = "The speech engine writes your words."
     public static let heardNothing = "The mic heard nothing. Type your question."
     /// after the mic wrote the words: they stay in the box until Return

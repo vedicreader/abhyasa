@@ -165,7 +165,7 @@ import Testing
                 == "Sends your question, the window title and 38 text parts to Claude Sonnet.")
         #expect(GuideText.sends(parts: 1, to: "Gemma 4 E4B", local: true)
                 == "Sends your question, the window title and 1 text part to Gemma 4 E4B. Nothing leaves this Mac.")
-        #expect(GuideText.micOn == "The mic is on. Let go of Caps+E to send.")
+        #expect(GuideText.micOn == "The mic is on. Let go of Caps+E to stop.")
         #expect(GuideText.trail == "The guide follows your pointer while you ask.")
         #expect(GuideText.closesIn(8) == "The board closes in 8 seconds. Move the pointer or push a key to keep it.")
         #expect(GuideText.keys == "Caps+E again · Esc stop")
