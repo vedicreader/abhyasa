@@ -52,3 +52,13 @@ def test_vault_source_skips_a_store_of_names(lr):
     names_store(lr); notes(lr)
     hs = VaultSource(lr).search('softmax weights')
     assert [h['title'] for h in hs] == ['notes/rank']
+
+# A source that fails gives no passages, as before, but the log now says why. Before, the error was lost, and a broken shelf looked like no passages.
+
+def test_a_failed_source_is_in_the_log(lr, caplog):
+    from abhyasa.ground import concept_grounds
+    class Broken:
+        name = 'broken'
+        def search(self, q, k=4): raise RuntimeError('no such column: doc_id')
+    with caplog.at_level('WARNING'): assert list(concept_grounds(lr.concept('ranking'), [Broken()])) == []
+    assert 'no such column: doc_id' in caplog.text

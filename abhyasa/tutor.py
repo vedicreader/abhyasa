@@ -13,7 +13,7 @@ __all__ = ['HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'GRADE_SP', 'TEAC
 # %% ../nbs/03_tutor.ipynb #c004
 import functools, json, random, threading, time, uuid, weakref
 from fastcore.utils import *
-from .store import Learning, _src
+from .store import Learning, _src, log as _log
 from .settings import val
 from .model import DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding
 from .llm import ask_json, for_task
@@ -316,7 +316,7 @@ class Tutor:
         if not (use and self.sources): return L()
         terms = [c['name'], *(c.get('aliases') or [])]
         try: return ground(' '.join(terms[:4]), self.sources, 3, must=terms)
-        except Exception: return L()
+        except Exception as e: _log.warning('abhyasa could not find passages for %r: %r', c['name'], e); return L()
 
 # %% ../nbs/03_tutor.ipynb #c023
 @patch

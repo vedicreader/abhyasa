@@ -161,7 +161,7 @@ def connect(app, ctx):
     def open_code(j, i, sid):
         "Open the code task of step `i` and keep its stub and visible tests on the step, so a reload shows the same task; None when it fails."
         try: t = code_task(tutor, lr.concept(j.steps[i]['slug']), session=sid, meta=step_meta(j, i))
-        except Exception: return None
+        except Exception as e: log.warning('the tutor could not write the code task of %s step %s: %r', j.id, i, e); return None
         put(j, i, qid=t.q.id, code=dict(fname=t.fname, stub=t.stub, tests=t.tests))
         return t.q
 
@@ -462,7 +462,7 @@ def connect(app, ctx):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         try:
             with held(jid, i): return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
-        except Exception: return ''
+        except Exception as e: log.warning('the tutor could not write the note of %s step %s: %r', jid, i, e); return ''
 
     def source(jid:str, i:int):
         "The passage of step `i` as it is now. When a web source came, the note loads again, so it explains the passage. A GET only reads."

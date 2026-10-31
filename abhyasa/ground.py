@@ -71,7 +71,7 @@ class VaultSource:
     def search(self, q:str, k:int=4) -> L:
         "Up to `2k` passages for `q`: the hits of all the shelves sorted by score before the cut. A tie goes to the hit that names more words of `q`."
         try: hs = self._hits(q, k)
-        except Exception: return L()
+        except Exception as e: _log.warning('abhyasa could not search the vault: %r', e); return L()
         ws = main_words(q)
         hs = sorted(hs, key=lambda h: (-(h.get('score') or 0), -named_count(f"{h['title']} {h.text}", ws)))
         out = L()
@@ -297,7 +297,7 @@ def concept_grounds(c, sources, k:int=3) -> L:
     "Up to `k` passages from `sources` that name concept `c` (its name or an alias)."
     terms = [c.get('name') or c.get('slug') or '', *(c.get('aliases') or [])]
     try: return ground(' '.join(terms[:4]), sources, k, must=terms) if sources else L()
-    except Exception: return L()
+    except Exception as e: _log.warning('abhyasa could not find passages for %r: %r', terms[0], e); return L()
 
 _MARK = re.compile(r'</?\s*source\b[^>]*>?', re.I)
 
