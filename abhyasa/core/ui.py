@@ -11,7 +11,7 @@ from abhyasa.model import DEPTHS
 from abhyasa.sources import source_of
 
 __all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
-           'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo']
+           'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo', 'moved_to', 'subject_name']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -137,6 +137,11 @@ def Page(title, *c, on='', sub='', wide=False, extra=(), crumbs=(), pane=False):
             Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search'), gear, aria_label='Main'),
             Main(Crumbs(crumbs), Narrow(rh, side), *_under_title(c, sub and SubTabs(on, sub)), cls='wide' if wide else ''), PaneHost(rh, side), *run('page_extra'))
 
+def moved_to(new, part=''):
+    "The handler of an old path that went to `new` for good: a 301 that keeps the query, then goes to the part `part` of the page."
+    def go(req): return RedirectResponse(new + (f'?{q}' if (q := req.url.query) else '') + (f'#{part}' if part else ''), status_code=301)
+    return go
+
 def Narrow(rh, title=''):
     "Under 1100 px the side pane does not show: one line over the title names the side walk that is open, and opens it (pane.css shows it)."
     if not is_local(rh): return ''
@@ -215,6 +220,12 @@ def doc_title(t):
     return 'Walk: ' + t[len('Journey: '):] if isinstance(t, str) and t.startswith('Journey: ') else t
 
 # --- shared pieces (design review, section 5): a block uses these and does not make its own copy -----------------------
+
+def subject_name(name) -> str:
+    "A subject or a group name as a label: a short name such as `ml` in upper case, a name in lower case with a capital first letter, else as it is."
+    if not name: return 'General'
+    if len(name) <= 3 and name.isalpha() and name.islower(): return name.upper()
+    return name[:1].upper() + name[1:] if name.islower() else name
 
 def meta(*parts) -> str:
     "A meta line: the parts that are not empty, joined with ` · `."

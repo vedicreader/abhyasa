@@ -26,12 +26,12 @@ def test_today_review_line_counts_due_ideas(mk, lr):
     assert 'Start' in h[h.index('class="review-line"'):][:900]
     assert '0 due for review' not in h
 
-def test_your_learning_has_the_week_and_subjects(mk, lr):
-    "With no answer yet, Your learning has one line and the subjects; after a review it has the week."
-    cl = mk(); h = cl.get('/learning').text
-    assert 'Nothing yet. Do a walk or a review.' in h and 'This week' not in h and '>Subjects<' in h and '2 concepts' in h
+def test_progress_has_the_week_and_one_line_for_each_empty_part(mk, lr):
+    "With no answer yet, Progress has the week and one line for the strengths and for the sessions; after a review the strengths show their subjects."
+    cl = mk(); h = cl.get('/you').text
+    assert 'This week' in h and 'Your strengths show here after your first answers.' in h and 'No sessions yet.' in h
     lr.update('ranking', seen=1, floor=1)
-    assert 'This week' in cl.get('/learning').text
+    assert '>ML</a>' in cl.get('/you').text
 
 # Search shows each hit by its kind
 
@@ -55,7 +55,7 @@ def test_your_learning_leaves_out_closed_empty_sessions(mk, lr):
     "A session with no answers that is closed does not show; an open one does, so you can continue it."
     lr.log_session('gone1', '0 of 0 passed.', start=1., updated=1., log=[], ended=2.)
     lr.log_session('open1', 'An open session.', start=3., updated=3., log=[])
-    h = mk().get('/learning').text
+    h = mk().get('/you').text
     i = h.find('gone1'); assert i < 0, h[i - 300:i + 40]
     assert 'no answers yet · open' in h
 
@@ -63,9 +63,9 @@ def test_your_learning_leaves_out_closed_empty_sessions(mk, lr):
 
 def test_empty_profile_hides_what_has_no_data(mk, lr):
     "An empty profile with no answers has no calibration, no Learn about me now and no Clear; a known one has them."
-    h = mk().get('/you').text
+    h = mk().get('/you/profile').text
     for x in ('How well you know what you know', 'Learn about me now', 'Clear what abhyasa knows about you'): assert x not in h, x
     assert 'This stays in your vault on this Mac.' in h
     lr.set_profile(by='you', why='test', background=['nurse'])
-    h = mk().get('/you').text
+    h = mk().get('/you/profile').text
     for x in ('How well you know what you know', 'Learn about me now', 'Clear what abhyasa knows about you'): assert x in h, x

@@ -1,7 +1,7 @@
 "Your documents: one row for each source, with its kind, the walks and talks that use it, and the date that you added it."
 import time
 from fasthtml.common import *
-from abhyasa.core import Empty, Pill, Quiet, meta, n_of
+from abhyasa.core import Empty, Pill, Quiet, Primary, meta, n_of
 from .cfg import Routes
 
 EMPTY = 'Sources appear here when you start a walk from a paper, a link or a text.'
@@ -13,7 +13,7 @@ def day(t) -> str:
 def Used(used):
     "The walks and talks that quote a source, as links."
     if not used: return ''
-    return Span('Used in ', *[x for k, (t, h) in enumerate(used) for x in ((', ',) if k else ()) + (A(t, href=h),)], cls='mute used')
+    return Span('Used in ', *[x for k, (t, h) in enumerate(used) for x in ((', ',) if k else ()) + (A(t, href=h, data_act='used-in'),)], cls='mute used')
 
 def Act(r):
     "Undo for one hour after Start filed a folder or a repo, then Remove."
@@ -36,6 +36,17 @@ def Row(r):
     return Li(Div(name, Pill(r.kind), Span(meta(('filed ' if r.get('root') else 'added ') + day(r.at) if r.at else ''), cls='mute'), Used(r.used), cls='lrow-head'),
               Div(Act(r), cls='lrow-acts'), Inside(r), cls='srow lrow')
 
-def Rows(rs):
+def finds(r, q) -> bool:
+    "Whether each word of `q` is in the title of the source row `r`, or in the title of one of its documents."
+    t = ' '.join([r.title, *(x for x, _ in r.docs)]).lower()
+    return all(w in t for w in q.lower().split())
+
+def Find(q=''):
+    "The find box of the Sources tab: Find keeps the sources whose title has the words."
+    return Form(Input(type='search', name='q', value=q, placeholder='Find a source', aria_label='Find a source', autocomplete='off'),
+                Primary('Find', key='', data_act='find'), action=Routes.base, method='get', cls='find row', data_part='find')
+
+def Rows(rs, q=''):
     "Each source, the newest first; with none, one line."
-    return Ul(*map(Row, rs), cls='plain sources') if rs else Empty(EMPTY)
+    if not rs: return Empty(f'No source matches “{q}”.') if q.strip() else Empty(EMPTY)
+    return Ul(*map(Row, rs), cls='plain sources', data_part='sources')

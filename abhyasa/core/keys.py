@@ -118,7 +118,7 @@ FLOAT_MAX = 7
 
 def page_group(path:str) -> str:
     "The group of keys for the page at `path`; `Everywhere` for a page with no keys of its own."
-    for pre, g in (('/s/', 'Session'), ('/c/', 'Concept'), ('/graph', 'Graph'), ('/settings', 'Settings'), ('/concepts', 'Concepts')):
+    for pre, g in (('/s/', 'Session'), ('/c/', 'Concept'), ('/library/graph', 'Graph'), ('/settings', 'Settings'), ('/library', 'Concepts')):
         if path.startswith(pre): return g
     if re.fullmatch(r'/w/[^/]+(/edit)?/?', path): return 'Change the walk'   # the walk page has the plan to change in place
     if path.startswith('/w/'): return 'Walk'

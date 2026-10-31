@@ -707,7 +707,7 @@ def InWalks(c, rows, js):
     pick = [j for j in js if j['id'] not in {j['id'] for j, _ in rows}]
     return Div(*([H2('In your walks'), Ul(*[Li(A(j['title'], href=at(Routes.step, j['id'], i)), Span(f"  idea {i + 1} of {len(j['steps'])}", cls='mute')) for j, i in rows], cls='plain')] if rows else []),
                Form(Label('Add this idea to a walk', fr='attach-jid', cls='lbl'), Select(*[Option(j['title'], value=j['id']) for j in pick], name='jid', id='attach-jid'),
-                    Input(type='hidden', name='slug', value=c.slug), Button('Add to the walk', cls='small'),
+                    Input(type='hidden', name='slug', value=c.slug), Button('Add to the walk', cls='small', data_act='add-to-walk'),
                     hx_post=Routes.attach, hx_target='this', hx_swap='outerHTML', cls='attach row') if pick else '', cls='in-journeys')
 
 def StepDone(c, nxt):

@@ -121,7 +121,7 @@ def test_sort_runs_in_the_background_and_saves_only_on_accept(mk, jy, fake):
     r = cl.post('/concepts/sort/accept', data=dict(sort='0' * 8))
     assert 'This sort is old' in r.text and jy.concept('mesha').get('group') is None
     r = cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))
-    assert r.headers.get('HX-Redirect') == '/concepts'
+    assert r.headers.get('HX-Redirect') == '/library'
     assert (jy.concept('mesha').group, jy.concept('mesha').group_by) == (['Rasis'], 'sort')
     assert jy.concept('magha').group == ['mine'] and jy.concept('ashvini').group == ['nakshatras']   # a concept with a group never moves
     t = cl.get('/concepts').text
@@ -205,7 +205,7 @@ def test_two_subjects_do_not_mix(mk, jy, fake):
     r = cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t)))                  # the right id, but not the subject of the sort
     assert 'This sort is old' in r.text and jy.concept('ranking').get('group') is None
     r = cl.post('/concepts/sort/accept', data=dict(sort=sort_id(t), subject='ml'))
-    assert r.headers.get('HX-Redirect') == '/concepts?subject=ml'
+    assert r.headers.get('HX-Redirect') == '/library?subject=ml'
     assert jy.concept('ranking').group == ['Stars'] and jy.concept('mesha').get('group') is None
 
 # Every concept gets a place

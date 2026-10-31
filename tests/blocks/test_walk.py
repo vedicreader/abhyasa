@@ -191,13 +191,13 @@ def test_today_journeys_concept_and_review_links(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     assert f'href="/w/{jid}"' in cl.get('/').text and '0 of 3 ideas' in cl.get('/').text   # the journey row: one way to continue
     assert cl.get(f'/j/{jid}', follow_redirects=False).headers['location'] == f'/w/{jid}'   # an old link goes to the walk page
-    assert 'apply a softmax function' in cl.get('/c/softmax').text and f'/w/{jid}/1' in cl.get('/c/softmax').text
+    assert 'apply a softmax function' not in cl.get('/c/softmax').text and f'/w/{jid}/1' in cl.get('/c/softmax').text   # the walk has the passage
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
     cl.get(f'/w/{jid}/1/check'); cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position'))
     sid = cl.get('/start?focus=softmax', follow_redirects=False).headers['location'].split('/')[-1]
     cl.get(f'/s/{sid}'); r = cl.post(f'/s/{sid}/answer', data=dict(answer='rank'))
     assert 'Read the passage again: p. 4' in r.text and f'/w/{jid}/1' in r.text
-    assert f'/w/{jid}' in cl.get('/learning').text                                 # Continue goes to the walk, not a plain session
+    assert f'/w/{jid}' in cl.get('/you').text                                      # Continue goes to the walk, not a plain session
 
 def test_walk_from_a_link(mk, walk_fake, lr, monkeypatch):
     from fastcore.utils import L

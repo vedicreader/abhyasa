@@ -1,7 +1,7 @@
 "Your strengths and weak spots: each subject, the strong and the weak concepts with the reasons, and the ways you learn."
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import asset_css, DepthBar
+from abhyasa.core import asset_css, DepthBar, subject_name
 from abhyasa.method import METHODS, WALK_WAYS, LABELS, EXPLORE, posterior, mean, improving
 from .cfg import Routes
 
@@ -17,7 +17,7 @@ def Subject(name, rows):
     n = {k: sum(u.state == k for _, u in rows) for k in STATES}
     seen = [u for _, u in rows if u.state != 'unseen']
     fl = round(sum(u.floor for u in seen) / len(seen)) if seen else 0
-    return Li(A(name or 'general', href=f'{Routes.base}?subject={name}', cls='n'), DepthBar(fl),
+    return Li(A(subject_name(name), href=f'{Routes.you}?subject={name}#strengths', cls='n'), DepthBar(fl),
               Span(', '.join(f'{n[k]} {PLURAL.get(k, STATES[k]) if n[k] > 1 else STATES[k]}' for k in ('strong', 'weak', 'fading', 'gap') if n[k]) or f"{len(rows)} not started", cls='mute'))
 
 def Concept(c, u):
@@ -42,4 +42,4 @@ def Ways(st, subject='', prior=()):
 
 def Explore(v):
     "How often the tutor tries a new way now, and the link to the one place where you change it: the Profile page."
-    return P(f"{SAY_EXPLORE.get(v, SAY_EXPLORE['sometimes'])}. ", A('Change it on your profile', href='/you#sr-learning-explore'), cls='explore')
+    return P(f"{SAY_EXPLORE.get(v, SAY_EXPLORE['sometimes'])}. ", A('Change it on your profile', href='/you/profile#sr-learning-explore'), cls='explore')

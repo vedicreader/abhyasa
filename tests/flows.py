@@ -198,16 +198,36 @@ def b_idea_done(lr, cl, mp):
     jid = started(cl, paper(lr, cl)); lr.walk_step(jid, 1, check=dict(STEP)); done(lr, jid, 1)
     return f'/w/{jid}/1', {}
 
+def b_concept_in_walk(lr, cl, mp):
+    jid = started(cl, paper(lr, cl)); j = lr.journey(jid)
+    return f"/c/{j.steps[1]['slug']}", {'walk title': j.title}
+
+def b_concept_alone(lr, cl, mp):
+    paper(lr, cl)   # a walk to add the idea to
+    return '/c/ranking', {}
+
+def b_library_concepts(lr, cl, mp): return '/library', {}
+
+def b_library_sources(lr, cl, mp):
+    paper(lr, cl)
+    return '/library/sources', {}
+
+def b_you(lr, cl, mp):
+    jid = started(cl, paper(lr, cl)); done(lr, jid, 0)
+    return '/you', {}
+
 BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due,
          ('walk', 'new'): b_walk_new, ('walk', 'going'): b_walk_going, ('walk', 'researching'): b_walk_researching, ('walk', 'research_ended'): b_walk_research_ended,
-         ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty}
+         ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty,
+         ('concept', 'in_a_walk'): b_concept_in_walk, ('concept', 'not_in_a_walk'): b_concept_alone,
+         ('library', 'concepts'): b_library_concepts, ('library', 'sources'): b_library_sources, ('you', 'any'): b_you}
 
 # --- the drivers of the workflows ------------------------------------------------------------------------------------
 
 def d_continue(lr, cl, mp, fake):
     "On a page that is not the place, Continue in the top bar opens the idea that you used last."
     two_walks(lr)
-    pg = page(cl, '/concepts')
+    pg = page(cl, '/library')
     a = pg.acts['continue'][0]
     assert a.get('href') == '/w/wb/1', a.get('href')
     assert route_of(a.get('href')) == 'idea'

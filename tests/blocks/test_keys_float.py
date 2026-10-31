@@ -13,7 +13,7 @@ def keys_of(path): return [k for _, k, _ in float_rows(path)]
 def test_each_page_gets_its_group():
     "The path of a page names its group of keys; a page with no keys of its own gets Everywhere."
     want = {'/': 'Everywhere', '/s/abc': 'Session', '/w/j1/2': 'Walk', '/w/j1': 'Change the walk', '/w/j1/edit': 'Change the walk',
-            '/c/ranking': 'Concept', '/graph': 'Graph', '/settings': 'Settings', '/concepts': 'Concepts', '/t/t1': 'Talk plan'}
+            '/c/ranking': 'Concept', '/library/graph': 'Graph', '/settings': 'Settings', '/library': 'Concepts', '/t/t1': 'Talk plan'}
     assert {p: page_group(p) for p in want} == want
 
 def test_the_windows_of_a_talk_have_no_panel():
@@ -22,18 +22,18 @@ def test_the_windows_of_a_talk_have_no_panel():
 
 def test_every_page_starts_with_explain_dictate_and_search():
     "The first three rows are the same on each page: the guide, dictation and search. Each key shows once, and a page has at most seven rows."
-    for p in ('/', '/s/abc', '/w/j1/2', '/c/ranking', '/graph', '/settings', '/w/j1/edit'):
+    for p in ('/', '/s/abc', '/w/j1/2', '/c/ranking', '/library/graph', '/settings', '/w/j1/edit'):
         ks = keys_of(p)
         assert ks[:3] == ['⌃⌥⇧⌘E', '⌥D', '/'] and len(ks) == len(set(ks)) and 4 <= len(ks) <= FLOAT_MAX, (p, ks)
 
 def test_the_rows_of_a_page_come_from_its_group():
     "A session and a walk step add their own ⌥S, hint and more; Today adds the main button and Continue; the graph adds its own letters."
-    rows = {p: [(g, k) for g, k, _ in float_rows(p)] for p in ('/', '/s/abc', '/w/j1/2', '/c/ranking', '/graph')}
+    rows = {p: [(g, k) for g, k, _ in float_rows(p)] for p in ('/', '/s/abc', '/w/j1/2', '/c/ranking', '/library/graph')}
     assert rows['/'][3:] == [('Everywhere', '⌥S'), ('Everywhere', '⌥C')]
     assert rows['/s/abc'][3:] == [('Session', '⌥S'), ('Session', '⌥W'), ('Session', '⌥X'), ('Session', '⌥A')]
     assert rows['/w/j1/2'][3:] == [('Walk', '⌥S'), ('Walk', '⌥W'), ('Walk', '⌥B'), ('Everywhere', '⌥C')]
     assert rows['/c/ranking'][3:] == [('Concept', '⌥E'), ('Everywhere', '⌥C')]
-    assert ('Graph', 'F') in rows['/graph'] and ('Everywhere', '⌥S') not in rows['/s/abc']
+    assert ('Graph', 'F') in rows['/library/graph'] and ('Everywhere', '⌥S') not in rows['/s/abc']
 
 # --- the pill on a page --------------------------------------------------------------------------------------------------
 

@@ -108,7 +108,7 @@ def connect(app, ctx):
 
     def page(sid:str, q:str=''):
         s, cur = live(sid)
-        if not s: return Redirect('/learning')
+        if not s: return Redirect('/you')
         if s.ended: return Redirect(at(Routes.end, sid))
         if q and (old := next((x for x in shown.get(sid, ()) if x.id == q and x is not cur), None)):
             return layout(s, ui.Chat(sid, viewing=(old, entries(old))), Div(id='composer'), cur, viewing=q)
@@ -237,7 +237,7 @@ def connect(app, ctx):
 
     @hook('concept_actions')
     def learn_this(c):
-        return Form(Input(type='hidden', name='focus', value=c.slug), Primary('Learn this', data_wait='Starting…'), action=Routes.start, method='post')
+        return Form(Input(type='hidden', name='focus', value=c.slug), Primary('Review this', data_wait='Starting…', data_act='review'), action=Routes.start, method='post')
 
     app.post(Routes.start)(start)
     app.get(Routes.start)(start)   # a plain link can start a session too: Continue in the top bar, a step of a path

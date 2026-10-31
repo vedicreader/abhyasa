@@ -141,12 +141,13 @@ def test_a_hostile_cite_is_escaped():
     h = to_xml(Cites([dict(title=EVIL, src='notes', ref='n', url='javascript:alert(3)')]))
     assert safe(h) and '&lt;img src=x onerror=alert(2)&gt;' in h and '<a ' not in h
 
-def test_concept_page_passage_has_its_source_line(mk, lr, walk_fake):
-    "The Passages part of a concept page shows each passage with its source line."
-    cl = mk(); paper_walk(cl, lr)
+def test_concept_page_opens_the_idea_in_its_walk(mk, lr, walk_fake):
+    "A concept in a walk has no list of passages: its main action opens its idea in the walk, where the passage and its source line are."
+    cl = mk(); jid = paper_walk(cl, lr)
+    i = next(k for k, s in enumerate(lr.journey(jid).steps) if s['slug'] == 'softmax')
     h = cl.get('/c/softmax').text
-    part = h[h.index('walk-passages'):]
-    assert 'Passages' in h and '>your source<' in part and 'Attention Is All You Need' in part and 'Open in your vault' in part
+    assert 'walk-passages' not in h and f'href="/w/{jid}/{i}"' in h and 'data-act="open-in-walk"' in h and f'Open it in {lr.journey(jid).title}' in h
+    assert '>your source<' in cl.get(f'/w/{jid}/{i}').text
 
 def test_old_talk_gets_its_source_from_the_walk(mk, lr, talk_fake):
     "A talk made before 0.0.13 kept no source for a vault passage. The editor and the room still name the source, from the walk step."

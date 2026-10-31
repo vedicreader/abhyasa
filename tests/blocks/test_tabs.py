@@ -36,12 +36,12 @@ def test_tab_on_every_page(mk, talk_fake, lr):
         assert current_tab(cl.get(u).text) == tab, u
 
 def test_subtabs(mk):
-    "Library and You have sub-tabs; the page in force is marked. Strengths is part of Your learning. /library goes to Concepts."
-    h = mk().get('/sources').text
+    "Library and You have sub-tabs; the page in force is marked. Strengths is part of Progress. /library is Concepts."
+    h = mk().get('/library/sources').text
     assert sub_words(h) == ['Concepts', 'Sources', 'Graph'] and sub_in_force(h) == 'Sources'
-    assert sub_words(mk().get('/you').text) == ['Your learning', 'Profile']
-    assert sub_in_force(mk().get('/you/strengths').text) == 'Your learning'
-    assert mk().get('/library', follow_redirects=False).headers['location'] == '/concepts'
+    assert sub_in_force(mk().get('/library').text) == 'Concepts'
+    assert sub_words(mk().get('/you').text) == ['Progress', 'Profile'] and sub_in_force(mk().get('/you/profile').text) == 'Profile'
+    assert sub_in_force(mk().get('/you/strengths').text) == 'Progress'
 
 def test_old_urls_still_work(mk):
     cl = mk()

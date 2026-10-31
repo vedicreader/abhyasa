@@ -59,16 +59,6 @@ def test_slide_passage_draws_maths(mk, lr, talk_fake):
     for page in (cl.get(f'/t/{tid}/present').text, cl.get(f'/t/{tid}/audience?k={run["key"]}').text):
         assert '<span class="math inline">\\sqrt{d_k}</span>' in page and '<script>alert(1)' not in page   # maths drawn, no script
 
-def test_concept_page_passage_draws_maths(mk, lr, walk_fake):
-    "The Passages part of a concept page draws the maths of a passage, and keeps its source line."
-    cl = mk(); jid = walk(cl, lr)
-    i = next(k for k, s in enumerate(lr.journey(jid).steps) if s['slug'] == 'softmax')
-    read = dict(lr.journey(jid).steps[i]['read'], text='We divide each by $\\sqrt{d_k}$.<script>alert(2)</script>')
-    lr.walk_step(jid, i, read=read)
-    part = (h := cl.get('/c/softmax').text)[h.index('walk-passages'):]
-    assert '<span class="math inline">\\sqrt{d_k}</span>' in part and 'Attention Is All You Need' in part and 'src-line' in part
-    assert '<script>alert(2)' not in part
-
 def test_a_cut_never_splits_a_formula(lr):
     "The cap on a saved page and on a step passage moves a cut back to before a formula that it would split."
     from abhyasa.sources import _clip, extract, placement

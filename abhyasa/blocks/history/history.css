@@ -1,4 +1,4 @@
-/* Your learning: quiet columns for the week, rows for sessions on hairlines, the moves in the ok colour. */
+/* You → Progress: quiet columns for the week, rows for sessions on hairlines, the moves in the ok colour. */
 .week { display: flex; gap: var(--s4); align-items: flex-end; margin: var(--s4) 0 var(--s2); height: 92px; }
 .week .col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 34px; height: 100%; }
 .week .col i { display: block; width: 14px; border-radius: 2px 2px 0 0; background: light-dark(color-mix(in srgb, var(--acc) 70%, var(--bg)), color-mix(in srgb, var(--acc) 88%, var(--fg))); }   /* in dark, near the full accent, so a bar never looks like a line */
@@ -11,6 +11,9 @@
 .continue-card .row { margin-top: var(--s3); }
 .runs { --in: calc(var(--s7) + var(--s3)); }   /* the column of the title: the moves, the misconceptions and the text of the row buttons line up on it */
 .runs .rh { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; }
+.runs .past-fold > summary { cursor: pointer; list-style: none; } .runs .past-fold > summary::-webkit-details-marker { display: none; }
+.runs .past-fold[open] > summary .tt { color: var(--acc); }
+.runs .fold { margin: var(--s2) 0 var(--s3) var(--in); }
 .runs .t { font: var(--t-meta)/1 var(--mono); color: var(--mute); min-width: var(--s7); }
 .runs .tt { font-size: var(--t-body); }
 .runs .run.open .t { color: var(--acc); }

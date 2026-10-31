@@ -1,9 +1,9 @@
-"Every concept in a tree of groups, one concept's page, the sort of the concepts into groups, and the subjects on Your learning."
+"Every concept in a tree of groups, one concept's page, the sort of the concepts into groups."
 import json, logging, re, threading, uuid
 from urllib.parse import urlencode
 from fasthtml.common import *
 from fastcore.basics import AttrDict
-from abhyasa.core import Page, RouteOverrides, hook
+from abhyasa.core import Page, RouteOverrides, hook, moved_to
 from abhyasa.settings import val
 from abhyasa.store import clean_group, clean_name, under, GROUP_DEPTH, GROUP_LEN
 from abhyasa.sources import propose_groups, apply_groups, place_new
@@ -64,7 +64,7 @@ def connect(app, ctx):
     def index(subject:str='', q:str=''):
         name = ui.label(subject) if subject else 'Concepts'   # the display name, not the slug
         return Page(name, ui.css(), ui.js(), ui.H1(name), Div(view(subject, q), id='concepts-view', data_at=subject), on='Library', sub='Concepts',
-                    crumbs=[('Concepts', Routes.base)] if subject else [])   # a tab root has no crumb
+                    crumbs=[('Library', Routes.base)] if subject else [])   # a tab root has no crumb
 
     def run_sort(subject, every=False, free=()):
         "On the pool: the proposed group of each concept. Nothing is saved."
@@ -129,7 +129,7 @@ def connect(app, ctx):
             try: lr.connect(slug, ctx.sources); c = lr.concept(slug)
             except Exception: pass
         return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=val('lists.attempts')), lr.groups(c.subject)),
-                    on='Library', crumbs=[('Home', '/'), ('Concepts', Routes.base)])
+                    on='Library', crumbs=[('Home', '/'), ('Library', Routes.base)])
 
     # Undo: the smallest Undo for the changes by hand, in one place, until the shared editor core (Task 7) takes it over.
     # Each change keeps a snapshot of what it can touch; Undo (or ⌘Z) writes back the last one. It is in memory only.
@@ -213,15 +213,10 @@ def connect(app, ctx):
         step, _ = by_hand(f"Made the group “{' › '.join(g)}”.", [], [subject], lambda: lr.new_group(subject, g))
         return tree_after(at, subject, g, step, undos[-1].said)
 
-    @hook('learning_end')
-    def subjects(): return ui.Subjects(lr.subjects())
-
-    def library(): return Redirect(Routes.base)
-
     RouteOverrides.nav.append(('Library', Routes.base, 2))
     RouteOverrides.subtabs.setdefault('Library', []).append(('Concepts', Routes.base, 0))
     app.get(Routes.base)(index)
-    app.get(Routes.library)(library)
+    app.get(Routes.old)(moved_to(Routes.base))   # an old link, and the fallback of "show me" in the guide: `/concepts?q=…` finds in the Library
     app.get(Routes.sort)(sort_state)
     app.post(Routes.sort)(sort_start)
     app.post(Routes.accept)(accept)

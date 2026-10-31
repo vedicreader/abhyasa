@@ -3,7 +3,7 @@ A folder or a repo that you filed is one row, and so is a paper with its PDF and
 import json, re
 from datetime import datetime, timezone
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides, n_of, can_undo
+from abhyasa.core import Page, RouteOverrides, n_of, can_undo, moved_to
 from abhyasa.journey import for_talk
 from abhyasa.sources import ARXIV_ID, ARXIV_LINK, WEB, YOURS, source_of, vault_roots, root_docs
 import abhyasa.talk   # `Learning.talks`
@@ -94,9 +94,11 @@ def connect(app, ctx):
                 if can_undo(f): r.undo = j.id
         return sorted(out.values(), key=lambda r: -(r.at or 0))
 
-    def page():
+    def page(q:str=''):
+        "The Sources tab: each source, the newest first. `q` keeps the sources whose title has these words."
+        rs = rows()
         return Page('Sources', H1('Sources'), P('The documents that your walks read. The tutor does not change them.', cls='mute'),
-                    ui.Rows(rows()), on='Library', sub='Sources')
+                    ui.Find(q) if rs else '', ui.Rows([r for r in rs if ui.finds(r, q)], q), on='Library', sub='Sources')
 
     def remove(shelf:str='notebooks', root:str=''):
         "Forget each document of the folder or repo `root` on `shelf`. The walks keep their steps and passages."
@@ -106,4 +108,5 @@ def connect(app, ctx):
 
     RouteOverrides.subtabs.setdefault('Library', []).append(('Sources', Routes.base, 1))
     app.get(Routes.base)(page)
+    app.get(Routes.old)(moved_to(Routes.base))
     app.post(Routes.remove)(remove)

@@ -33,7 +33,7 @@ for (const ev of ['htmx:afterSwap', 'htmx:oobAfterSwap']) document.addEventListe
 window.abhyasaKeys = window.abhyasaKeys || {KeyS: ['#send', 'main .go']};
 // From any page: ⌥T, ⌥R and ⌥G go to the tabs, ⌥Q goes to Start something new on Home, ⌥C continues where you stopped, and ⌥1 to ⌥3 pick a sub-tab.
 // A session page sets its own ⌥1 to ⌥5 (session.js), after this.
-Object.assign(abhyasaKeys, {KeyT: 'nav a[href="/"]:not(.brand)', KeyQ: '#start-q', KeyR: 'nav a[href="/concepts"]', KeyG: 'nav a[href="/learning"]',
+Object.assign(abhyasaKeys, {KeyT: 'nav a[href="/"]:not(.brand)', KeyQ: '#start-q', KeyR: 'nav a[href="/library"]', KeyG: 'nav a[href="/you"]',
                             KeyC: ['#continue', '[data-part=continue-card] [data-act=continue]'], Digit1: '.subtabs a:nth-of-type(1)', Digit2: '.subtabs a:nth-of-type(2)', Digit3: '.subtabs a:nth-of-type(3)'});
 const abhyasaSeen = el => !el.disabled && (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
 function abhyasaFind(sel) {

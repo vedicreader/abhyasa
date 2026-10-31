@@ -1,2 +1,3 @@
 class Routes:
-    base = '/you/strengths'              # how well you know each concept, by subject, and the ways you learn
+    you = '/you'                         # You → Progress: the strengths are its part `#strengths`
+    base = '/you/strengths'              # the old page of the strengths: it goes to You → Progress (301)

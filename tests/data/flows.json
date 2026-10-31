@@ -762,9 +762,7 @@
             "open-in-walk",
             "review",
             "show-me"
-          ],
-          "pending": true,
-          "pending_why": "phase B"
+          ]
         },
         "not_in_a_walk": {
           "when": "no walk has a step on slug",
@@ -780,9 +778,7 @@
             "review",
             "add-to-walk",
             "show-me"
-          ],
-          "pending": true,
-          "pending_why": "phase B"
+          ]
         }
       },
       "entries": [
@@ -795,7 +791,8 @@
       "exits": [
         "idea",
         "review",
-        "library"
+        "library",
+        "doc (a source of the idea in your vault)"
       ]
     },
     "review": {
@@ -884,23 +881,21 @@
           "actions": [
             "find",
             "open concept"
-          ],
-          "pending": true,
-          "pending_why": "phase B"
+          ]
         },
         "sources": {
           "when": "tab sources",
           "must_show": [
             "part:sources",
-            "each source row links to the walk page section sources"
+            "act:used-in (each source row links to the walk page, section sources)",
+            "part:find"
           ],
           "must_not_show": [],
           "actions": [
+            "find",
             "open doc",
             "remove root"
-          ],
-          "pending": true,
-          "pending_why": "phase B"
+          ]
         }
       },
       "entries": [
@@ -961,9 +956,7 @@
             "part:strengths"
           ],
           "must_not_show": [],
-          "actions": [],
-          "pending": true,
-          "pending_why": "phase B"
+          "actions": []
         }
       },
       "entries": [

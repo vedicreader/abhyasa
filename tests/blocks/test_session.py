@@ -76,7 +76,7 @@ def test_today_and_concept_hooks(mk):
     today = cl.get('/').text
     assert re.search(r'Next: \w+ Ranking\.', today) and 'action="/start"' in today and '>Subjects<' not in today   # the subjects are on Your learning
     c = cl.get('/c/ranking').text
-    assert 'Learn this' in c and 'See in the graph' in c
+    assert 'Review this' in c and 'See in the graph' in c
 
 def test_mic_on_card_from_voice_block(mk):
     cl = mk()

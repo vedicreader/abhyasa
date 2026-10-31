@@ -1,8 +1,8 @@
-"Your learning: past sessions with what moved, what you learned each week, and Continue: in the top bar and on Today."
+"You → Progress: this week, your strengths, what you learned each week, and the past sessions, each with a fold that opens it. And Continue: in the top bar and on Home."
 import re, time
 from fastcore.basics import AttrDict
 from fasthtml.common import *
-from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago, Empty, page_req
+from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago, Empty, page_req, moved_to
 from abhyasa.settings import val
 from abhyasa.tutor import moved
 from abhyasa.journey import parent_step, is_open, last_place
@@ -72,7 +72,8 @@ def connect(app, ctx):
         rows = [(wk, [m for m in w.values() if m['after'] > m['before']]) for wk, w in out.items()]
         return [(wk, ms) for wk, ms in rows[::-1] if ms][:most or val('lists.weeks')]
 
-    def index():
+    def index(subject:str=''):
+        "You → Progress. `subject` keeps one subject in your strengths."
         ss, (by, js) = lr.sessions(500), names()
         groups, lead = {}, True   # the newest open session has the one Continue button
         for s in ss:
@@ -85,34 +86,29 @@ def connect(app, ctx):
             groups.setdefault(day, []).append(ui.Row(s, title(s, by, js), moved(s.get('log') or []), back(s, js), lead=first))
         wk = week()
         ups = sum(len(ms) for w, ms in weeks([s for s in ss if (s.get('start') or 0) > time.time() - 7 * DAY], by))
-        top = run('learning_top')
-        if not groups and not any(n for _, n in wk) and not top:
-            return Page('Your learning', ui.css(), H1('Your learning'), Empty('Nothing yet. Do a walk or a review.'), *run('learning_end'), on='You', sub='Your learning')
-        return Page('Your learning', ui.css(), H1('Your learning'),
-                    P('Each session, with what moved. Open one to read it again or to continue it.', cls='mute'),
-                    H2('This week'), ui.Week(wk),
-                    P(f"{n_of(sum(n for _, n in wk), 'question')} in the last seven days · {n_of(ups, 'concept')} moved up.", cls='mute week-sum'),
-                    *top, H2('What you learned'), ui.Learned(weeks(ss, by)),
-                    ui.Runs(list(groups.items())), *run('learning_end'), on='You', sub='Your learning')
+        return Page('Progress', ui.css(), H1('Your progress'),
+                    P('What you learned, and how well you know it. Open a session to read it again or to continue it.', cls='mute'),
+                    Section(H2('This week'), ui.Week(wk), P(f"{n_of(sum(n for _, n in wk), 'question')} in the last seven days · {n_of(ups, 'concept')} moved up.", cls='mute week-sum'),
+                            data_part='week'),
+                    *run('learning_top', subject=subject), H2('What you learned'), ui.Learned(weeks(ss, by)),
+                    ui.Runs(list(groups.items())), *run('learning_end'), on='You', sub='Progress')
 
     def one(sid:str):
-        s = lr.session(sid)
-        if not s: return Page('Session', H1('No such session'), P(A('Your learning', href=Routes.base)), on='You', crumbs=[*up, ('Your learning', Routes.base)])
+        "One past session, read only, for the fold of its row: what moved, a way on, and each question with its turns."
+        if not (s := lr.session(sid)): return P('This session is not there now.', cls='mute')
         by, js = names()
         log, ms = s.get('log') or [], moved(s.get('log') or [])
         by_q = {}
         for x in sorted(lr.attempts(session=sid, limit=1000), key=lambda x: x.at): by_q.setdefault((x.concept, x.question), []).append(x)   # oldest first
         own = lambda r: (by_q.get((r['concept'], r['question'])) or [None]).pop(0)   # each log row takes its own attempt, in order
         missed = [m['concept'] for m in ms if m['passed'] < m['asked']]
-        acts = [ui.Primary('Continue', href=back(s, js)) if is_open(s) else '',
-                A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn') if missed else '',
-                A('Continue the walk', href=back(s, js), cls='btn') if s.get('journey') and s.journey in js and not is_open(s) else '']
-        return Page('Session', ui.css(), H1(title(s, by, js)),
-                    P(f"{ago(s.get('start'))} · {sum(r['correct'] for r in log)} of {len(log)} passed" + (' · open' if is_open(s) else ''), cls='mute'),
-                    Div(*acts, cls='row') if any(acts) else '',
-                    *([H2('What moved'), Ul(*[Moved(m) for m in ms], cls='plain')] if ms else []),
-                    H2('The questions'), *([ui.Question(r, own(r)) for r in log] if log else [P(s.get('summary') or 'No questions.', cls='mute')]),
-                    on='You', crumbs=[*up, ('Your learning', Routes.base)])
+        acts = [A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn small') if missed else '',
+                A('Continue the walk', href=back(s, js), cls='btn small') if s.get('journey') and s.journey in js and not is_open(s) else '']
+        return Div(Div(*acts, cls='row') if any(acts) else '',
+                   *([H3('What moved'), Ul(*[Moved(m) for m in ms], cls='plain')] if ms else []),
+                   H3('The questions'), *([ui.Question(r, own(r)) for r in log] if log else [P(s.get('summary') or 'No questions.', cls='mute')]), cls='past')
+
+    def old_one(sid:str): return RedirectResponse(f'{Routes.base}#s-{sid}', status_code=301)
 
     def place():
         "The place that you used last (`last_place`), with its link and what was done there; None when there is none or its course card shows it."
@@ -139,6 +135,8 @@ def connect(app, ctx):
         return ui.css(), ui.Continue(p.title, p.href, big=True, done=p.done, at=p.at)   # the card style is in history.css
 
     RouteOverrides.nav.append(('You', Routes.base, 3))
-    RouteOverrides.subtabs.setdefault('You', []).append(('Your learning', Routes.base, 0))
+    RouteOverrides.subtabs.setdefault('You', []).append(('Progress', Routes.base, 0))
     app.get(Routes.base)(index)
     app.get(Routes.one)(one)
+    app.get(Routes.old)(moved_to(Routes.base))
+    app.get(Routes.old_one)(old_one)

@@ -9,12 +9,12 @@ def test_meet_on_today_until_known(mk, lr):
 
 def test_edit_and_undo(mk, lr):
     cl = mk()
-    assert 'data-mic' in cl.get('/you').text
-    r = cl.post('/you', data=dict(background='codes in Python\nknows Sanskrit grammar', examples=['code', 'maths'], pace='gentle', session_len='8')).text
+    assert 'data-mic' in cl.get('/you/profile').text
+    r = cl.post('/you/profile', data=dict(background='codes in Python\nknows Sanskrit grammar', examples=['code', 'maths'], pace='gentle', session_len='8')).text
     assert 'Saved' in r
     p = lr.profile()
     assert p.background == ['codes in Python', 'knows Sanskrit grammar'] and p.examples == ['code', 'maths'] and p.pace == 'gentle' and p.session_len == 8
-    page = cl.get('/you').text
+    page = cl.get('/you/profile').text
     assert 'What changed, and why' in page and 'codes in Python' in page and 'Undo' in page
     cid = [c for c in lr.profile().changes if c['field'] == 'pace'][0]['id']   # by id: two changes of one save can have the same time
     cl.post('/you/undo', data=dict(id=cid))
@@ -26,8 +26,8 @@ def test_onboarding(mk, lr, fake):
     assert page.count('data-mic') == 4 and 'What do you want to learn' in page
     fake.rules['make a short learner profile'] = dict(background=['writes Python'], goals=['read LLM papers'], examples=['code'], pace='steady', session_len=10, notes='')
     r = cl.post('/you/start', data=dict(who='I write Python', want='LLMs'), follow_redirects=False)
-    assert r.headers['location'] == '/you?new=1'
-    assert lr.profile().goals == ['read LLM papers'] and 'Your first conversation' in cl.get('/you?new=1').text
+    assert r.headers['location'] == '/you/profile?new=1'
+    assert lr.profile().goals == ['read LLM papers'] and 'Your first conversation' in cl.get('/you/profile?new=1').text
 
 def test_observe_now_and_clear(mk, lr, fake):
     cl = mk()
@@ -47,14 +47,14 @@ def test_profile_in_the_question(mk, lr, fake):
 
 def test_voice_everywhere(mk):
     cl = mk()
-    page = cl.get('/you').text
+    page = cl.get('/you/profile').text
     assert 'id="mic-float"' in page and 'data-mic' in page          # the voice block adds its floating mic to each page
     assert 'mic-float' not in mk(names=['today']).get('/').text   # without the voice block nothing breaks
 
 def test_calibration(mk, lr):
     cl = mk(); lr.set_profile(background=['codes in Python'])   # an empty profile with no answers shows no calibration
-    assert 'How well you know what you know' in cl.get('/you').text and 'After five answers' in cl.get('/you').text
+    assert 'How well you know what you know' in cl.get('/you/profile').text and 'After five answers' in cl.get('/you/profile').text
     for i, (ok, conf) in enumerate([(False, 90), (False, 90), (True, 90), (False, 70), (True, 30)]):
         lr.record('ranking', f'q{i}', correct=ok, confidence=conf, depth=3, session='s', final=True)
-    t = cl.get('/you').text
+    t = cl.get('/you/profile').text
     assert 'you were right in 1 of 4' in t and 'how could this be wrong?' in t

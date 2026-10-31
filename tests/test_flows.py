@@ -42,6 +42,6 @@ def test_nav_continue(mk, lr, walk_fake):
     assert 'continue' not in page(cl, f'/w/{b}/1').parts   # B is the place: on B there is no Continue
     home = page(cl, '/')
     assert 'continue' not in home.parts and home.parts.count('continue-card') == 1 and {e.get('href') for e in home.acts['continue']} == {f'/w/{b}/1'}
-    assert [e.get('href') for e in page(cl, '/concepts').acts['continue']] == [f'/w/{b}/1']
+    assert [e.get('href') for e in page(cl, '/library').acts['continue']] == [f'/w/{b}/1']
     assert 'continue' not in page(cl, f'/w/{a}/0').parts   # you open A: A is the place now
-    assert [e.get('href') for e in page(cl, '/concepts').acts['continue']] == [f'/w/{a}/0']
+    assert [e.get('href') for e in page(cl, '/library').acts['continue']] == [f'/w/{a}/0']

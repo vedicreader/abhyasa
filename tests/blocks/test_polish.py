@@ -47,15 +47,15 @@ def test_each_page_has_at_most_one_filled_button(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); did = add_paper(lr)
     sid = start(cl, focus='ranking'); cl.get(f'/s/{sid}')
     cl.post(f'/s/{sid}/answer', data=dict(answer='a score', confidence=90))     # a miss: a weak spot, and an open session for the Continue card
-    pages = ['/', '/journeys', f'/j/{jid}', f'/w/{jid}', '/settings', '/c/ranking', '/add', f'/v/store/{did}', '/you/strengths', '/you', '/you/start',
-             '/learning', f'/learning/{sid}', '/concepts', '/sources', '/keys', '/graph']
+    pages = ['/', '/journeys', f'/j/{jid}', f'/w/{jid}', '/settings', '/c/ranking', '/add', f'/v/store/{did}', '/you', '/you/profile', '/you/start',
+             f'/you/s/{sid}', '/library', '/library/sources', '/keys', '/library/graph']
     for u in pages:
         t = cl.get(u).text
         assert len(gos(t)) <= 1, (u, gos(t))
         assert u == '/keys' or t.count('<kbd>⌥S</kbd>') <= 1, u                  # the shortcut sheet lists the keys
     assert gos(cl.get('/').text) == ['Continue <kbd>⌥S</kbd>']                 # the Continue card is the main button, and Start is plain
     assert 'autofocus' not in cl.get('/').text
-    assert gos(cl.get('/c/ranking').text) == ['Learn this <kbd>⌥S</kbd>'] and re.search(r'<button[^>]*\bdisabled\b[^>]*id="start-go"|<button[^>]*id="start-go"[^>]*\bdisabled\b', cl.get('/add').text)   # an empty Start box: Start is off
+    assert gos(cl.get('/c/ranking').text) == ['Review this <kbd>⌥S</kbd>'] and re.search(r'<button[^>]*\bdisabled\b[^>]*id="start-go"|<button[^>]*id="start-go"[^>]*\bdisabled\b', cl.get('/add').text)   # an empty Start box: Start is off
     assert gos(cl.get(f'/w/{jid}').text) == ['Start the walk <kbd>⌥S</kbd>']
     cl.get(f'/s/{sid}/end')
     assert len(gos(cl.get(f'/s/{sid}/end').text)) <= 1

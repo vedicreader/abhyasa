@@ -212,14 +212,14 @@ def test_learning_on_both_pages(mk, lr):
     cl.post('/settings/value', data=dict(name='learning.session_len', value='99'))
     p = lr.profile()
     assert (p.pace, p.session_len) == ('gentle', 40)
-    t = cl.get('/you').text
+    t = cl.get('/you/profile').text
     assert 'value="gentle" checked' in t and 'value="40"' in t and 'Use the default (12)' in t
     cl.post('/you/setting', data=dict(name='learning.explore', value='often'))
     cl.post('/you/setting/default', data=dict(name='learning.pace'))
     assert (lr.profile().explore, lr.profile().pace) == ('often', 'steady')
     t = cl.get('/settings').text
     assert 'value="often" checked' in t and 'Learning<span id="ixn-learning"><span class="n"> · 2' in t
-    cl.post('/you', data=dict(background='writes code'))                                     # the main form does not touch them
+    cl.post('/you/profile', data=dict(background='writes code'))                                     # the main form does not touch them
     assert (lr.profile().explore, lr.profile().session_len) == ('often', 40)
 
 def test_saves_from_many_threads():

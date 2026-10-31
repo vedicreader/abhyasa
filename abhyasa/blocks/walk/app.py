@@ -1084,13 +1084,12 @@ def connect(app, ctx):
         m = re.match(r'/w/([^/?#]+)/\d+(?:[?#]|$)', url or '')
         return (j := m and walk_of(m.group(1))) and j.title or None
 
-    @hook('concept_more')
-    def passages(c):
-        "The passage of concept `c` in each walk, with its source line and a link to its step."
-        rows = [(j, i, j.steps[i].get('read') or {}) for j, i in walks_of(c.slug)]
-        rows = [x for x in rows if x[2].get('text')]
-        return Div(H2('Passages'), *[Div(Blockquote(Md(r['text']), SourceLine(source_of(r, j)), cls='quote'), P(A(f'{j.title}: read it in the walk', href=ui.at(Routes.step, j.id, i)), cls='mute'))
-                                      for j, i, r in rows], cls='walk-passages') if rows else None
+    @hook('concept_actions')
+    def open_in(c):
+        "The main action of a concept page in a walk: Open it in {walk}, at its idea in the walk that you used last. The walk has its passage."
+        if not (rows := walks_of(c.slug)): return None
+        j, i = max(rows, key=lambda x: max((x[0].get('here') or {}).get('at') or 0, x[0].get('started') or 0, x[0].get('updated') or 0))
+        return ui.Primary(f'Open it in {j.title}', href=ui.at(Routes.step, j.id, i), rank=1, data_act='open-in-walk')
 
     @hook('concept_more')
     def leela(c):

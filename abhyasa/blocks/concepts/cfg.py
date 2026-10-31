@@ -1,6 +1,6 @@
 class Routes:
-    base = '/concepts'
-    library = '/library'   # the Library tab: it opens Concepts
+    base = '/library'   # the Library tab Concepts: the tree of concepts, with the find box
+    old = '/concepts'   # the old path of Concepts: it goes to the Library (301), with its query
     one = '/c/{slug}'
     group = '/c/{slug}/group'
     move = '/c/{slug}/move'   # GET: the "Move to…" form of one row

@@ -1,4 +1,4 @@
-"Your learning: a quiet week of columns, what moved each week, and each past session with what moved and a way to continue."
+"You → Progress: a quiet week of columns, what moved each week, and each past session with what moved and a way to continue."
 import time
 from pathlib import Path
 from fasthtml.common import *
@@ -29,7 +29,7 @@ def Continue(title, href, big=False, done='', at=0):
                Div(Primary('Continue', href=href, rank=1, data_act='continue'), cls='row'), cls='continue-card', data_part='continue-card')
 
 def Row(s, title, ms, href=None, lead=False):
-    """One past session: when, what, how it went, what moved, and what you can do next. The title opens the session.
+    """One past session: when, what, how it went, what moved, and what you can do next. The head is a fold: it opens the session in place.
     Only the `lead` row (the newest open session) has the Continue button; an older open one has a quiet `Continue →` link."""
     log, open_ = s.get('log'), s.get('log') is not None and not s.get('ended')
     n, ok = (len(log), sum(r['correct'] for r in log)) if log is not None else (s.get('asked', 0), s.get('passed', 0))
@@ -40,11 +40,11 @@ def Row(s, title, ms, href=None, lead=False):
     go = href or Routes.of(Routes.page, sid=s['id'])
     acts = [A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn small quiet') if missed else '',   # first, so it lines up on each row
             (A('Continue', href=go, cls='btn small') if lead else Onward('Continue', go)) if open_ else '']
-    return Li(Div(Span(when, cls='t'), A(title, href=Routes.of(Routes.one, sid=s['id']) if log else None, cls='tt'),
-                  Span('  ' + meta(f"{ok} of {n} passed" if n else 'no answers yet', 'open' if open_ else ''), cls='mute'), cls='rh'),
-              P(*[x for m in up for x in (Move(m), '; ')][:-1], cls='moves') if up else '',
+    head = Summary(Span(when, cls='t'), Span(title, cls='tt'), Span('  ' + meta(f"{ok} of {n} passed" if n else 'no answers yet', 'open' if open_ else ''), cls='mute'), cls='rh')
+    fold = Details(head, Div(cls='fold'), hx_get=Routes.of(Routes.one, sid=s['id']), hx_trigger='toggle once', hx_target='find .fold', hx_swap='innerHTML', cls='past-fold') if log else Div(*head.children, cls='rh')
+    return Li(fold, P(*[x for m in up for x in (Move(m), '; ')][:-1], cls='moves') if up else '',
               P('Misconceptions found: ', '; '.join(mis), cls='mute mis') if mis else '',
-              Div(*acts, cls='acts') if any(acts) else '', cls='run' + (' open' if open_ else ''))
+              Div(*acts, cls='acts') if any(acts) else '', cls='run' + (' open' if open_ else ''), id=f"s-{s['id']}")
 
 def Runs(groups):
     "The sessions, grouped by day, newest first."

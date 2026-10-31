@@ -1,8 +1,9 @@
-"Your learning, resume after a restart, Continue, and the end of a session."
+"You → Progress, resume after a restart, Continue, and the end of a session."
 import time
 from starlette.testclient import TestClient
 from abhyasa.app import mk_app
 from conftest import Notes
+HX = {'HX-Request': 'true'}   # the fold of a past session loads with htmx
 
 def start(cl, **data):
     return cl.post('/start', data=data, follow_redirects=False).headers['location'].split('/')[-1]
@@ -33,11 +34,11 @@ def test_your_learning(mk, lr):
     sid = start(cl, focus='ranking')
     cl.get(f'/s/{sid}')
     cl.post(f'/s/{sid}/giveup', data=dict(dont_know=1))
-    page = cl.get('/learning').text
-    assert 'Your learning' in page and 'This week' in page and 'Ranking' in page and '0 of 1 passed' in page
-    assert 'Continue' in page and 'Review the misses' in page and f'/learning/{sid}' in page
-    one = cl.get(f'/learning/{sid}').text
-    assert 'What does a rank tell you?' in one and 'A gap' in one and 'href="/learning"' in one
+    page = cl.get('/you').text
+    assert 'Your progress' in page and 'This week' in page and 'Ranking' in page and '0 of 1 passed' in page
+    assert 'Continue' in page and 'Review the misses' in page and f'hx-get="/you/s/{sid}"' in page
+    one = cl.get(f'/you/s/{sid}', headers=HX).text
+    assert 'What does a rank tell you?' in one and 'A gap' in one
 
 def test_session_page_shows_the_feedback_on_a_question(mk, lr):
     "The page of one past session shows what you said about the lesson of a question (pick and note), as the concept page does; a question with none shows nothing."
@@ -45,10 +46,10 @@ def test_session_page_shows_the_feedback_on_a_question(mk, lr):
     sid = start(cl, focus='ranking')
     cl.get(f'/s/{sid}')
     cl.post(f'/s/{sid}/giveup', data=dict(dont_know=1))
-    assert 'Your feedback' not in cl.get(f'/learning/{sid}').text
+    assert 'Your feedback' not in cl.get(f'/you/s/{sid}', headers=HX).text
     a = lr.attempts(session=sid)[0]
     lr.mark_attempt(a.id, feedback_on='lesson', verdict='unclear', note='The second step lost me.')
-    one = cl.get(f'/learning/{sid}').text
+    one = cl.get(f'/you/s/{sid}', headers=HX).text
     assert 'Your feedback on the lesson: Not clear' in one and 'The second step lost me.' in one
 
 def test_session_page_matches_feedback_to_its_own_question(mk, lr):
@@ -60,7 +61,7 @@ def test_session_page_matches_feedback_to_its_own_question(mk, lr):
     first, second = sorted(lr.attempts(session=sid), key=lambda a: a.at)
     lr.mark_attempt(first.id, feedback_on='lesson', verdict='simple', note='First note.')
     lr.mark_attempt(second.id, feedback_on='lesson', verdict='unclear', note='Second note.')
-    one = cl.get(f'/learning/{sid}').text
+    one = cl.get(f'/you/s/{sid}', headers=HX).text
     assert one.count('Your feedback') == 2 and one.index('First note.') < one.index('Second note.')
     assert one.count('First note.') == one.count('Second note.') == 1
 
@@ -75,7 +76,7 @@ def test_continue_on_today_and_top_bar(mk):
 
 def test_old_summary_still_shows(mk, lr):
     lr.log_session('old1', '2 of 3 passed. Concepts: ranking.', start=1e9, end=1e9 + 60, concepts=['ranking'], passed=2, asked=3)
-    page = mk().get('/learning').text
+    page = mk().get('/you').text
     assert '2 of 3 passed' in page
 
 
@@ -99,7 +100,7 @@ def test_review_the_misses_lines_up_on_each_row(mk, lr):
             b = p.chromium.launch(headless=True)
             try:
                 pg = b.new_page(viewport=dict(width=1100, height=900))
-                pg.goto(f'http://127.0.0.1:{port}/learning', wait_until='load')
+                pg.goto(f'http://127.0.0.1:{port}/you', wait_until='load')
                 xs = pg.evaluate("""() => [...document.querySelectorAll('.runs .run')].map(li => {
                     const left = el => { const r = document.createRange(); r.selectNodeContents(el); return Math.round(r.getBoundingClientRect().left); };
                     const a = [...li.querySelectorAll('.acts a')].find(a => a.textContent === 'Review the misses');

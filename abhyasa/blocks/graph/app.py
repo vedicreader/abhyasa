@@ -1,7 +1,7 @@
 "The concept graph on a canvas, with levers to arrange it. The arrangement stays in the browser."
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Page, RouteOverrides, hook, asset_js, asset_css, Quiet
+from abhyasa.core import Page, RouteOverrides, hook, asset_js, asset_css, Quiet, moved_to
 from abhyasa.model import understanding
 from .cfg import Routes
 from .ui import Stage, Empty_
@@ -32,4 +32,5 @@ def connect(app, ctx):
 
     RouteOverrides.subtabs.setdefault('Library', []).append(('Graph', Routes.base, 2))
     app.get(Routes.base)(page)
+    app.get(Routes.old)(moved_to(Routes.base))
     app.get(Routes.data)(data)

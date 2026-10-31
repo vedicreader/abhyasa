@@ -2,7 +2,7 @@ import json
 from urllib.parse import urlencode
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Cites, Md, DepthBar, when, run, asset_css, asset_js, meta, n_of, Empty, Said, Primary, Secondary, Quiet, Part
+from abhyasa.core import subject_name, Cites, Md, DepthBar, when, run, asset_css, asset_js, meta, n_of, Empty, Said, Primary, Secondary, Quiet, Part
 from abhyasa.model import DEPTHS, recall
 from abhyasa.store import tree, fold
 from .cfg import Routes
@@ -14,11 +14,7 @@ def finds(c, q) -> bool:
     "Whether the find text `q` is in the name, an alias or the slug of `c`."
     return fold(q).strip() in fold(' '.join((c.name, c.slug, *(c.get('aliases') or ()))))
 
-def label(name) -> str:
-    "A subject or a group name as a label: a short name such as `ml` in upper case, a name in lower case with a capital first letter, else as it is."
-    if not name: return 'General'
-    if len(name) <= 3 and name.isalpha() and name.islower(): return name.upper()
-    return name[:1].upper() + name[1:] if name.islower() else name
+label = subject_name
 
 def path_text(path) -> str: return ' / '.join(path)
 
@@ -77,12 +73,13 @@ def Subject(n, deep=False, at=None, opened=()):
 
 def Tree(cs, deep=False, groups=None, at=None, opened=()):
     "The tree of `cs`. `groups` (`{subject: paths}`) adds the groups with no concept. On the page you can change (`at`), each part has its actions."
-    return Div(*[Subject(n, deep, at, opened) for n in tree(cs, groups)], cls='concept-tree')
+    return Div(*[Subject(n, deep, at, opened) for n in tree(cs, groups)], cls='concept-tree', data_part='groups')
 
 def Find(q='', subject=''):
     "The find box: it filters the tree as you type (concepts.js). Enter sends it, so it works with no script too."
     return Form(Input(type='search', name='q', value=q, id='find', placeholder='Find a concept', aria_label='Find a concept', autocomplete='off'),
-                *([Input(type='hidden', name='subject', value=subject)] if subject else []), action=Routes.base, method='get', cls='find')
+                *([Input(type='hidden', name='subject', value=subject)] if subject else []), Primary('Find', key='', data_act='find'),
+                action=Routes.base, method='get', cls='find', data_part='find')
 
 def Counts(cs):
     "The meta line over the tree: how many concepts, in how many subjects, and how many are not sorted yet."
@@ -214,7 +211,3 @@ def ConceptPage(c, by, attempts, groups=()):
             *([H2('Source'), Ul(*[Li(_src(p)) for p in c.provenance], cls='plain')] if c.provenance else []))
     return (css(), H1(c.name, id='concept-name', data_concept=c.slug), head, Md(c.statement or '', cls='statement'), Div(*run('concept_actions', c), cls='row'),
             Details(Summary('Rename or move'), GroupField(c, groups), NameField(c), cls='more concept-edit'), Div(id='undo-bar'), Div(*refs, cls='refs'))   # rare: under a closed part
-
-def Subjects(subs):
-    return (H2('Subjects'), Ul(*[Li(A(label(r['subject']), href=f"{Routes.base}?subject={r['subject'] or ''}"),
-                                     Span(f"  {n_of(r['n'], 'concept')}", cls='mute')) for r in subs], cls='plain'))
