@@ -20,7 +20,7 @@ import json, math, re, random, threading, time, uuid
 from fastcore.utils import *
 from pathlib import Path
 from fastcore.nbio import read_nb
-from .store import Learning, slugify, _src, clean_subject, usable_name, SHELF
+from .store import Learning, slugify, _src, clean_subject, usable_name, idea_name, real_idea, SHELF
 from .model import learned
 from .settings import val
 from .llm import ask_json, for_task
@@ -203,9 +203,10 @@ def plan(lr:Learning, ask, goal:str, who:str='', sources=None, srcmap=(), data=(
     pairs = [(root, t) for root, docs in srcmap for t, _ in docs]
     idx, subject, steps, slug_of = _index(lr), (r.get('subject') or '').lower().strip(), [], {}
     for s in r.get('steps') or []:
-        if not usable_name(s.get('name')) and not (s.get('slug') and lr.concept(s['slug'])): continue   # a name such as `x` is not an idea
+        if not idea_name(s.get('name')) and not (s.get('slug') and lr.concept(s['slug'])): continue   # a name such as `x` is not an idea
         slug = s.get('slug') if s.get('slug') and lr.concept(s['slug']) else idx.get(s['name'].lower())
         if not slug:
+            if not s.get('doc') and not real_idea(s['name'], s.get('statement', '')): continue   # with no document to read, a new idea needs a statement of 3 words or more
             slug = slugify(s['name'])
             needs = [slug_of[n.lower()] for n in s.get('needs') or () if n.lower() in slug_of]
             lr.put(s['name'], s.get('statement', ''), subject, slug=slug, prereqs=needs, ways=[w for w in s.get('ways') or () if w in WALK_WAYS], provenance=[dict(src='journey', goal=goal)])
@@ -790,7 +791,9 @@ def topic_slug(lr:Learning, ask, j, name:str, sources=None) -> str|None:
     if not slug:
         r = ask_json(for_task(ask, 'extract'), f"The idea: {fence('idea', name)}\nThe path it is part of: {j.title} ({j.get('goal', '')})\n\n"
                           'Return JSON: {"name": str, "statement": str}', prompt('primer'))
-        slug = lr.put(' '.join(CTRL_MARKS.sub('', str(r.get('name') or '')).split())[:NAME_MOST] or name, r.get('statement', ''), j.get('subject', ''), provenance=[dict(src='journey', journey=j.id)]).slug
+        nm = ' '.join(CTRL_MARKS.sub('', str(r.get('name') or '')).split())[:NAME_MOST] or name
+        if not real_idea(nm, r.get('statement', '')): return None   # no source text: the idea needs a statement of 3 words or more
+        slug = lr.put(nm, r.get('statement', ''), j.get('subject', ''), provenance=[dict(src='journey', journey=j.id)]).slug
         if sources:
             try: lr.connect(slug, sources)
             except Exception: pass
@@ -812,6 +815,7 @@ def name_gaps(lr:Learning, ask, slug:str, terms, sources=None) -> L:
             r = ask_json(for_task(ask, 'extract'), f"The idea: {t}\nIt comes up in: {c.name} ({c.get('subject') or 'general'})\n\n"
                               'Return JSON: {"name": str, "statement": str}', prompt('primer'))
             name = r.get('name') if usable_name(r.get('name')) else t
+            if not real_idea(name, r.get('statement', '')): continue   # no source text: a gap needs a statement of 3 words or more
             g = lr.put(name, r.get('statement', ''), c.get('subject', ''), aliases=[t] if t.lower() != name.lower() else [],
                        provenance=[dict(src='gap', of=slug, said=t, at=time.time())]).slug
             if sources:

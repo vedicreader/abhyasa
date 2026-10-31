@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/store.html.md"""
 
 # %% auto #0
 __all__ = ['log', 'SHELF', 'STATE', 'LISTS', 'SYMBOLS', 'NAME_LEN', 'SLUG_KEYS', 'GROUP_DEPTH', 'GROUP_LEN', 'slugify',
-           'usable_name', 'concept_text', 'Learning', 'clean_name', 'clean_group', 'fold', 'under', 'clean_subject',
-           'readable_name', 'tree', 'attempt_text', 'temp_learning']
+           'idea_name', 'real_idea', 'listed', 'usable_name', 'concept_text', 'Learning', 'clean_name', 'clean_group',
+           'fold', 'under', 'clean_subject', 'readable_name', 'tree', 'attempt_text', 'temp_learning']
 
 # %% ../nbs/00_store.ipynb #c004
 import json, logging, re, threading, time, uuid, hashlib, unicodedata
@@ -40,6 +40,19 @@ def slugify(s:str) -> str:
     t = re.sub(r'[+#&]', lambda m: SYMBOLS[m[0]], ' '.join(map(_latin, s.split())))
     t = unicodedata.normalize('NFKD', t).encode('ascii', 'ignore').decode()
     return re.sub(r'[^a-z0-9]+', '-', t.lower()).strip('-') or 'c-' + hashlib.sha1(s.encode()).hexdigest()[:8]
+
+def idea_name(name) -> bool:
+    "Whether `name` can name a new idea: it has a letter or a digit, and it is not one lower-case letter such as `x`. One capital letter, such as `C` or `R`, can."
+    n = str(name or '').strip()
+    return any(ch.isalnum() for ch in n) and not (len(n) == 1 and n.islower())
+
+def real_idea(name, statement) -> bool:
+    "Whether a new concept `name` with `statement` and no source text is an idea: an `idea_name`, and a statement of 3 words or more. A plan or a gap with no source uses it."
+    return idea_name(name) and len(str(statement or '').split()) >= 3
+
+def listed(c) -> bool:
+    "Whether concept `c` shows in Library and the graph: an `idea_name`, and not a statement of one word. The stray `x` of an old tool had the statement `x`."
+    return idea_name(c.get('name')) and len(str(c.get('statement') or '').split()) != 1
 
 def usable_name(name) -> bool:
     "Whether `name` has two characters at least, and a letter or a digit. A name such as `x` is not an idea."
@@ -157,7 +170,7 @@ def put(self:Learning,
         name = clean_name(name)
         slug = slug or slugify(name)
         old = self.concept(slug) or {}
-        if not old and not usable_name(name): raise ValueError(f'{name!r} is not the name of an idea. A name has two characters or more, with a letter or a digit.')   # an old tool filed `x`
+        if not old and not idea_name(name): raise ValueError(f'{name!r} is not the name of an idea. A name has a letter or a digit, and it is not one small letter such as x.')   # an old tool filed `x`
         if old.get('named_by') == 'hand' and meta.get('named_by') != 'hand': name = old['name']   # a name that you set stays: use `rename`
         if old.get('group_by') in ('hand', 'sort', 'placed', 'undone'): meta.pop('group', None); meta.pop('group_by', None)   # a group that you, a saved sort or a placement set stays: use `set_group`
         elif 'group' in meta: meta['group'] = clean_group(meta['group'], subject or old.get('subject', ''))
@@ -575,7 +588,7 @@ def search(self:Learning, q:str, kind:str=None, limit:int=10) -> L:
 @patch
 def graph(self:Learning, subject:str=None) -> dict:
     "Nodes and links (prereq, related, gap) for a graph view. A link to a slug that has no concept is dropped."
-    cs = self.concepts(subject).filter(lambda c: usable_name(c.name))   # a concept that an older tool filed as `x` stays out of the view
+    cs = self.concepts(subject).filter(listed)   # a concept that an older tool filed as `x` stays out of the view
     have = set(cs.attrgot('slug'))
     nodes = [dict(id=c.slug, name=c.name, subject=c.subject, floor=c.floor, ceiling=c.ceiling, due=c.due, seen=c.seen, group=clean_group(c.get('group'), c.subject)) for c in cs]
     links = [dict(source=p, target=c.slug, kind='prereq') for c in cs for p in c.prereqs if p in have]

@@ -359,7 +359,7 @@ def test_rename_group_marks_hand_and_tutor_never_moves(lr):
     assert not lr.unsorted('jyotisha') and not lr.place('ashvini', ['Other'])
 
 def test_rename_into_existing_group_merges(lr):
-    lr.put('Alpha', '', 's', slug='a', group=['padas']); lr.put('Beta', '', 's', slug='b', group=['Padas x'])
+    lr.put('A', '', 's', group=['padas']); lr.put('B', '', 's', group=['Padas x'])
     lr.save_groups('s'); lr.rename_group('s', ['Padas x'], 'PADAS')
     assert [g for g in lr.groups('s') if g[0].lower() == 'padas'] == [['padas']] and lr.concept('b').group == ['padas']
 

@@ -7,7 +7,7 @@ NBS = [('nbs/15_DDPM', '# Denoising diffusion\n\nDDPM training: we add noise to 
        ('nbs/17_DDPM_v2', '# DDPM, the second version\n\nA cleaner training loop for the same model, with callbacks for each part of the work.'),
        ('nbs/26_diffusion_unet', '# A diffusion U-net\n\nThe U-net takes a noisy image and the step t, and it predicts the noise in the image.')]
 PLAN = dict(title='Diffusion comic', subject='ml', steps=[dict(name='Noise schedule', statement='', doc='15_DDPM', why='The base.'),
-                                                          dict(name='Captions from the episodes', statement='', hands='notebook', makes='captions.jsonl', data=['EPISODES'])])
+                                                          dict(name='Captions from the episodes', statement='Write one caption for each episode.', hands='notebook', makes='captions.jsonl', data=['EPISODES'])])
 
 def course(lr):
     "File three notebooks of course22p2 on the notebooks shelf."
