@@ -51,6 +51,8 @@ Rules:
 - Keep it short and plain. Use LaTeX between $...$ for maths. Use the learner's subject terms correctly.
 - Put code in a fenced code block that names the language, for example ```python. Never write code inside a sentence.
 - The learner is an adult expert-learner; never be patronising, never praise effort, never pad.
+- Sound like a kind, clear person beside the learner. Talk to them as "you". Make one point at a time.
+  Never write like a report ("You assume that...", "It is important to note that...").
 - Write in ASD-STE100 Simplified Technical English at a US grade 9 reading level: short sentences (at most 20 words),
   active voice, one instruction per sentence, simple words. Technical terms of the subject are allowed."""
 
@@ -139,9 +141,11 @@ together, including the think-aloud, not the wording.
   A right result from wrong reasoning is not correct.
 - When the answer is right in substance and only the method or framing that the question names is missing, set `correct` true.
   Then use the deeper link in `feedback` to tie the answer to that method. Do not mark it wrong for missing words.
-- `first_error`: where the reasoning still goes wrong now, said in one sentence, WITHOUT the fix. Empty when correct.
+- `first_error`: the one place where the reasoning goes wrong now, in one short sentence that you say to them, WITHOUT the fix.
+  Say what is true, not what they think. BAD: "You assume that the key must be a condensed version of the value."
+  GOOD: "The key does not have to be a short form of the value." Empty when correct.
 - `misconception`: the wrong mental model behind the error, in under 12 words, or empty.
-- `feedback`: when correct, confirm in one line and add one deeper link or consequence. When wrong, keep it short. Reply to their
+- `feedback`: when correct, confirm in one line and add one deeper link or consequence. When wrong, keep it short: at most 3 sentences. Reply to their
   latest message: say in a few words what in it is right, if anything. Then ask ONE question that points at the next gap.
   Use one question mark only. Never repeat an earlier tutor turn. Never give the answer.
 - Show code in `feedback` only when it helps the next step, and then at most 4 lines. Never repeat code that is already in the
@@ -158,7 +162,10 @@ together, including the think-aloud, not the wording.
 - `grade`: 0-10, as real partial credit. Give 7-10 when the idea is right. Give 4-6 when part of it is right. Give 0-3 when it is wrong or missing.
   When `correct` is false, `grade` is 6 or less.
 - Write `feedback` and `first_error` in ASD-STE100 Simplified Technical English, grade 9: short sentences, active voice.
-  Speak to the learner as "you"; never say "the learner"."""
+  Speak to the learner as "you"; never say "the learner".
+- Sound like a kind, clear teacher who sits next to them, not like a report. Make one point at a time. Do not start with
+  "You assume", "Your answer", "It seems" or "The response". BAD: "Your answer fails to account for the bias term."
+  GOOD: "Close. Now add the bias. Where does b go in the sum?" Say each point in your own plain words."""
 
 def grade_prompt(q, answer, thinking='', confidence=None):
     "The prompt that grades the conversation on question `q`, with `answer` as the latest message of the learner."
@@ -179,10 +186,10 @@ def hint_prompt(q, level):
             + (f"The conversation so far:\n{thread_text(q)}\n" if q.get('turns') else f"Wrong tries so far: {json.dumps(q.tries)}\n")
             + (f"Hints already given:\n{given}\n" if given else '')
             + f"\nGive hint level {level + 1} of 6: {hints()[level]}\n" + _way(q.get('method'))
-            + "One or two sentences. Do not reveal the answer. Reply with the hint only.")
+            + "One or two short sentences, said to them as 'you'. Do not reveal the answer. Reply with the hint only.")
 
 # %% ../nbs/03_tutor.ipynb #c019
-TEACH = ("Teach the smallest step that fixes that first error, in under 120 words. Build on what they got right. "
+TEACH = ("Teach the smallest step that fixes that first error, in under 120 words. Talk to them as 'you', in short plain sentences, one point at a time. Build on what they got right. "
          "Then show the model answer briefly. End with one line that starts 'Check:' and asks them to predict "
          "something new that the fixed idea implies (they will answer it next).")
 
