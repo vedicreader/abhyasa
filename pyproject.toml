@@ -29,14 +29,14 @@ dependencies = [
     "mdhtml>=0.1.38",
     "nh3>=0.3.7",
     "fossick>=0.1.24",
-    "ramabana>=0.2.96",   # model routing, the guard (`ramabana.guard`), `History` and `Agent.oneshot_stream`
+    "ramabana>=0.2.96",   # model routing, the guard (`ramabana.guard`) and `Agent.oneshot_stream`
 ]
 
 [project.optional-dependencies]
 whisper = ["mlx-audio>=0.5"]
-tick = ["pobblebonk>=0.0.6"]
+tick = []   # empty: abhyasa no longer indexes on a ramabana tick; the extra stays so that old pins still resolve
 demo = ["rupaka[check]>=0.0.7"]
-dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "pobblebonk>=0.0.6", "rupaka[check]>=0.0.7", "gheasy>=0.0.18"]
+dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "rupaka[check]>=0.0.7", "gheasy>=0.0.18"]
 models = ["ramabana>=0.2.96"]   # now a core dependency; the extra stays so that old installs still resolve
 voice = [
     "espeakng-loader>=0.2",
@@ -49,14 +49,10 @@ voice = [
 
 [project.scripts]
 abhyasa = "abhyasa.app:main"
-abhyasa-index = "abhyasa.ground:index_main"
 
 [project.urls]
 Repository = "https://github.com/vedicreader/abhyasa"
 Documentation = "https://vedicreader.github.io/abhyasa/"
-
-[project.entry-points."ramabana.ticks"]
-abhyasa-index = "abhyasa.ground:tick"
 
 [project.entry-points.nbdev]
 abhyasa = "abhyasa._modidx:d"

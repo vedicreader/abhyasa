@@ -40,7 +40,7 @@ A change works on the next question. "Use the default" goes back to the text tha
 | Speech engine | `ABHYASA_STT` | `gemma` |
 | Vault | `--vault` and `ABHYASA_VAULT` | your vault, `~/.vishalakshi/vault.db` |
 
-The `whisper` extra installs `mlx-audio` for the whisper engine, and the `tick` extra installs `pobblebonk`.
+The `whisper` extra installs `mlx-audio` for the whisper engine. The `tick` extra is empty. It stays so that the pin resolves.
 
 ## Native parts
 

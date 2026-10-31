@@ -87,7 +87,7 @@ def test_sources_fold_add_more(mk):
     s = soup(mk().get('/sources').text)
     more = s.select_one('section.sources-more > details.more')
     assert more.summary.get_text() == 'Add more sources' and not more.has_attr('open')
-    assert more.select_one('button[hx-post="/add/vedicreader"]') and more.select_one('button[hx-post="/sources/index/ramabana"]')
+    assert more.select_one('button[hx-post="/add/vedicreader"]') and not more.select_one('button[hx-post^="/sources/index"]')
 
 # The graph: Freeze, Fit and Lay out again moved under Adjust the view; graph.js still finds them by name, and its keys call the same functions.
 

@@ -1,18 +1,27 @@
-from abhyasa.ground import index_ramabana
-import json
+def old_session(lr, sid, text):
+    "A session document as abhyasa filed it before 0.0.16: the vault keeps it, and nothing files new ones."
+    return lr.vault.shelf('ramabana').add(text, title=f'Session {sid}', source=f'ramabana://session/{sid}', kind='session',
+                                          meta=dict(session=sid, turns=1, first_at=1., last_at=1., model='m', roots=[]))['doc_id']
 
-def test_viewer_shows_a_session_and_its_resume_command(mk, lr, tmp_path):
-    (tmp_path/'agent-history.jsonl').write_text(json.dumps(dict(session='agent_1', at=1., prompt='why does rrf use ranks', reply='Scores differ in scale.', model='m')) + '\n')
-    index_ramabana(lr.vault, tmp_path)
-    doc_id = lr.vault.shelf('ramabana').t.docs()[0]['id']
+def test_viewer_shows_an_old_session_and_its_resume_command(mk, lr):
+    doc_id = old_session(lr, 'agent_1', '## why does rrf use ranks\n\nScores differ in scale.')
     t = mk(['vault']).get(f'/v/ramabana/{doc_id}').text
     assert 'why does rrf use ranks' in t and 'Scores differ in scale' in t
     assert 'ramabana --resume agent_1' in t and 'Only find its ideas' in t
 
-def test_viewer_learns_concepts_from_a_document(mk, lr, tmp_path):
-    (tmp_path/'agent-history.jsonl').write_text(json.dumps(dict(session='agent_2', at=1., prompt='what is a rank', reply='A position in a list.', model='m')) + '\n')
-    index_ramabana(lr.vault, tmp_path)
-    doc_id = lr.vault.shelf('ramabana').t.docs()[0]['id']
+def test_old_memory_and_agent_notebook_open_and_search(mk, lr):
+    "A memory document and a leela agent notebook that abhyasa filed before 0.0.16 open in the viewer, and search finds them."
+    from abhyasa.ground import VaultSource
+    m = lr.vault.shelf('ramabana').add('- Use RRF for hybrid search.', title='Memory: abc', source='ramabana://memory/abc', kind='memory', meta=dict(ref='memory/abc'))['doc_id']
+    n = lr.vault.shelf('notebooks').add('# Sandhi notes\n\nThe sandhi of a and i gives e.', title='_leela_agent_sessions/a', source='/tmp/proj/_leela_agent_sessions/a.ipynb',
+                                         kind='notebook', meta=dict(path='/tmp/proj/_leela_agent_sessions/a.ipynb', agent=True, mtime=1.))['doc_id']
+    cl = mk(['vault'])
+    assert 'Use RRF for hybrid search' in cl.get(f'/v/ramabana/{m}').text and 'The sandhi of a and i gives e' in cl.get(f'/v/notebooks/{n}').text
+    srcs = {p.src for q in ('hybrid search RRF', 'sandhi of a and i') for p in VaultSource(lr).search(q)}
+    assert {'vault:ramabana', 'vault:notebooks'} <= srcs, srcs
+
+def test_viewer_learns_concepts_from_a_document(mk, lr):
+    doc_id = old_session(lr, 'agent_2', '## what is a rank\n\nA position in a list.')
     t = mk(['vault']).post(f'/v/ramabana/{doc_id}/learn').text
     assert '/c/rank' in t
     assert lr.concept('rank').provenance[0]['src'] == 'vault:ramabana'

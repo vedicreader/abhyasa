@@ -30,7 +30,8 @@ def test_add_needs_input(mk):
 
 def test_sources_page(mk):
     t = mk(['sources']).get('/sources').text
-    assert 'Vault shelves' not in t and 'Index ramabana sessions' in t and 'Sources appear here when you start a walk' in t
+    assert 'Vault shelves' not in t and 'Index ' not in t and 'Import vedicreader' in t and 'Sources appear here when you start a walk' in t
+    assert mk(['sources']).post('/sources/index/ramabana').status_code == 404   # abhyasa no longer indexes ramabana or leela sessions
 
 def test_concept_seen_in_your_work(mk, lr):
     t = mk(['concepts']).get('/c/ranking').text

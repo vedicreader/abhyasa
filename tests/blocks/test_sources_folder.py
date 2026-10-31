@@ -184,7 +184,7 @@ def test_undo_window_is_kept_on_the_server(mk, lr, walk_fake, home):
     assert vault_roots(lr) == {'course22': 2} and 'Undo' not in cl.get(url).text
 
 def test_filing_keeps_the_meta_of_a_doc_from_another_tool(lr, home):
-    "A notebook that abhyasa-index filed before keeps its meta, and Undo does not forget it."
+    "A notebook that another tool filed before keeps its meta, and Undo does not forget it."
     from abhyasa.ground import index_notebooks
     d = home/'course22'
     index_notebooks(lr.vault, [d])

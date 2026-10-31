@@ -34,15 +34,11 @@ dev = [
     { name = "ipykernel" },
     { name = "nbdev" },
     { name = "notebook" },
-    { name = "pobblebonk" },
     { name = "pytest" },
     { name = "rupaka", extra = ["check"] },
 ]
 models = [
     { name = "ramabana" },
-]
-tick = [
-    { name = "pobblebonk" },
 ]
 voice = [
     { name = "espeakng-loader" },
@@ -78,8 +74,6 @@ requires-dist = [
     { name = "notebook", marker = "extra == 'dev'", specifier = ">=7.6.3" },
     { name = "num2words", marker = "extra == 'voice'", specifier = ">=0.5" },
     { name = "phonemizer-fork", marker = "extra == 'voice'", specifier = ">=3.3" },
-    { name = "pobblebonk", marker = "extra == 'dev'", specifier = ">=0.0.6" },
-    { name = "pobblebonk", marker = "extra == 'tick'", specifier = ">=0.0.6" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "python-fasthtml", specifier = ">=0.14" },
     { name = "ramabana", specifier = ">=0.2.96" },
