@@ -3,6 +3,9 @@
 .start label[for=start-q] { margin-top: 0; }
 .start textarea { font-size: var(--t-q); line-height: 1.5; min-height: calc(2lh + 12px); width: 100%; }
 .start.drag { outline: 2px dashed var(--acc); outline-offset: 4px; }
+/* The line that says the box takes files: it shows only while you drag files over the box. */
+.start .drop-cue { display: none; margin: var(--s3) 0 0; color: var(--acc); font-size: var(--t-small); font-weight: 600; }
+.start.drag .drop-cue { display: block; }
 .start .will { margin: var(--s2) 0 0; color: var(--ink2); font-size: var(--t-small); min-height: 1.5em; }
 .start .will b { font-weight: 600; color: var(--fg); }
 .start .web-once { margin: var(--s2) 0 0; font-size: var(--t-small); }
