@@ -356,15 +356,18 @@
       return false;
     };
     const add = b => { for (let i = Math.floor(b[0] / cell); i <= Math.floor(b[2] / cell); i++) for (let j = Math.floor(b[1] / cell); j <= Math.floor(b[3] / cell); j++) { const key = i * 1e5 + j; grid.has(key) ? grid.get(key).push(b) : grid.set(key, [b]); } };
-    const heads = words(hit, add);
+    const EDGE = 4, inside = b => b[0] >= EDGE && b[2] <= W - EDGE;
+    const into = b => { const dx = b[0] < EDGE ? EDGE - b[0] : Math.min(0, W - EDGE - b[2]); return dx ? [b[0] + dx, b[1], b[2] + dx, b[3]] : b; };   // a label that is wider than the room left moves into the view
+    const heads = words(hit, add, into);
     vis.forEach(n => { const x = t.applyX(n.x), y = t.applyY(n.y), r = rad(n) * k; add([x - r, y - r, x + r, y + r]); });   // labels do not cover nodes
     ctx.font = '13px ' + C.serif;
     for (const n of cand) {
       const x = t.applyX(n.x), y = t.applyY(n.y), r = rad(n) * k, w = width(n), must = n === hover || n === picked;
       if (x < -200 || y < -20 || x > W + 20 || y > H + 20) continue;
-      let b = [x + r + 4, y - 9, x + r + 4 + w, y + 9];
-      if (!must && hit(...b)) { b = [x - r - 4 - w, y - 9, x - r - 4, y + 9]; if (S.mode === 'path' || hit(...b)) continue; }   // in Path, a label on the left reads as the column before
-      add(b); placed.push([n, b]);
+      const right = [x + r + 4, y - 9, x + r + 4 + w, y + 9], left = [x - r - 4 - w, y - 9, x - r - 4, y + 9];
+      let b = inside(right) || !inside(left) ? right : left;   // at the right edge, the label goes at the left of its node
+      if (!must && hit(...b)) { if (b === left || S.mode === 'path' || !inside(left) || hit(...left)) continue; b = left; }   // in Path, a label on the left reads as the column before
+      b = into(b); add(b); placed.push([n, b]);
     }
     ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = C.bg;
     for (const [n, b] of placed) {
@@ -375,13 +378,13 @@
     }
     heads();
   }
-  function words(hit, add) {   // subject names and column heads, in small spaced capitals; a head that would cover something is left out
+  function words(hit, add, into) {   // subject names and column heads, in small spaced capitals; a head that would cover something is left out
     const big = c => c[3] !== 'col', font = c => (big(c) ? '600 12px ' : '500 11px ') + C.serif, keep = [];
     if ('letterSpacing' in ctx) ctx.letterSpacing = '1.5px';
     for (const c of [...captions].sort((a, b) => big(b) - big(a))) {
       ctx.font = font(c); const txt = c[2].toUpperCase(), w = ctx.measureText(txt).width, X = t.applyX(c[0]), Y = t.applyY(c[1]);
-      const x0 = big(c) && c[3] !== 'band' ? X - w / 2 : X, b = [x0 - 2, Y - 8, x0 + w + 2, Y + 8];
-      if (hit(...b)) continue; add(b); keep.push([c, txt, x0, Y]);
+      const b = into([(big(c) && c[3] !== 'band' ? X - w / 2 : X) - 2, Y - 8, (big(c) && c[3] !== 'band' ? X + w / 2 : X + w) + 2, Y + 8]);   // a head at an edge moves into the view
+      if (hit(...b)) continue; add(b); keep.push([c, txt, b[0] + 2, Y]);
     }
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
     return () => {
