@@ -11,8 +11,8 @@
 // Labels are pastel chips with a coloured bar and a thin leader line; a chip never covers its target. Marks of earlier steps
 // fade to 45 %. A point is always weaker than a circle, so the circle stays the main mark of a step: see `point` in the API.
 // The words of the spoken line light up as they are said. With prefers-reduced-motion, the pointer jumps, and
-// marks and chips fade in for 150 ms. A sketch marks a part of a figure only. A diagram is a picture of an idea in a small card
-// beside the page text: boxes laid out by code (no two overlap), and arrows that draw on as a pen does.
+// marks and chips fade in for 150 ms. A sketch marks a part of a figure only. A diagram is a picture of an idea in a card at the
+// top right of the window: boxes sized to their text, laid out by code with no crossings, and arrows that draw on as a pen does.
 //
 // API (window.abhyasaBoard):
 //   play(board, {labels, fast, quiet, auto, host, who, onVoice, point, voiceAt, notice})   play a checked board; it stops the board that shows now.
@@ -68,9 +68,13 @@
 // Strokes (see abhyasa.guide.OPS) are the ops of the server, plus these rules of the page:
 //   sketch   {at, pts}: drawn only when the element of its anchor is a figure (an img, svg, canvas or video, or inside a figure or
 //            [data-guide-id="figure"]). A sketch on any other anchor is dropped: it never draws over the words.
-//   diagram  {nodes: [{id, text}], edges: [{from, to, text}], layout: 'row'|'tree'|'cycle', at}: a small card near the anchor `at`
-//            (else the first anchor of its step), at a place with no text and no control under it. On a narrow page it goes under
-//            the step line in the strip. The nodes are laid out by code, so no two overlap; a row that is too wide is a column.
+//   diagram  {nodes: [{id, text}], edges: [{from, to, text}], layout: 'row'|'tree'|'cycle', at}: a card fixed at the top right of
+//            the window, under the top bar and beside all the page text (`at` does not set the place). With no room there, it
+//            stands over the strip at the full width of the window. Each node is as wide as its text needs, in at most 3 lines.
+//            A cycle is a ring; a row or a tree is layers, left to right or top to bottom, whichever is clean and fits. The words
+//            of an edge drop when no free place is near its middle. A diagram with a crossing or an edge through a node, or one
+//            that does not fit, is not drawn: the step shows without it. The card has data-dock 'side' or 'wide', and each
+//            edge path has data-from, data-to and data-ends (x0 y0 x1 y1 in card pixels before its scale).
 // Events on document: board:first (the first mark shows), board:stop (detail.by is 'learner' after Esc or Stop, else '').
 (() => {
   if (window.abhyasaBoard) return;
@@ -312,7 +316,7 @@
   function unmount(m) {
     for (const e of [m.g, m.hl, m.el, m.lead]) if (e) e.remove();
     m.g = m.hl = m.el = m.lead = null; m.parts = []; m.drawn = false; m.ok = false;
-    m.dg = m.dparts = m.key = m.dock = m.box = null;   // a diagram builds its card again
+    m.dg = m.dparts = m.key = m.dock = m.box = m.dv = m.pick = null; m.skip = false;   // a diagram builds its card again
   }
 
   // A chip: pastel, with a coloured bar, near its target and never on it. A thin leader line ends with a dot on the part.
@@ -353,118 +357,250 @@
     return true;
   }
 
-  // --- the diagram: a picture of an idea, laid out by code in a small card beside the page text ----------------------------
-  // The nodes are boxes of text, the edges are pen strokes with a head, drawn one after the other. The layout is code, not the
-  // model: `row` (a column when the row is too wide), `tree` (one row for each level) or `cycle` (a circle large enough for the
-  // nodes). The card floats beside the text near its anchor, at a place with no text and no control under it; when there is no such
-  // place (a narrow page), it goes under the step line in the strip.
-  const DG = {gapX: 44, gapY: 52, gapIn: 28, pad: 14, margin: 24, edge: 7, room: 8};
+  // --- the diagram: a picture of an idea, laid out by code in a card at the top right of the window -------------------------
+  // The nodes are boxes sized to their text: at most 3 lines, never cut. The layout is code, not the model. `cycle` is a ring,
+  // with an arc on the outside between each two nodes. `row` and `tree` are layers: each node gets a rank from the edges, and the
+  // order in each rank is the one with the fewest crossings. They go left to right or top to bottom, whichever is clean and fits.
+  // An edge starts and ends on the borders of its nodes. Its words sit in a pill on its middle, moved so that they cover no node
+  // and no other words; words with no free place drop. A layout with a crossing or with an edge through a node is not drawn: the
+  // step shows without its diagram. The card is fixed at the top right, under the top bar and beside the page text; when there is
+  // no room there, it stands over the strip at the full width of the window.
+  const DG = {gap: 26, rank: 52, pad: 14, side: 16, rim: 2, lines: 3, widths: [150, 196, 240], arc: 44, perms: 20000};
   const onFigure = e => !!e && (/^(img|canvas|video|svg|picture)$/i.test(e.tagName) || !!e.closest('figure, svg, canvas, [data-guide-id="figure"]'));
   const hits = (r, q, p = 0) => r.x < q.x + q.w + p && q.x < r.x + r.w + p && r.y < q.y + q.h + p && q.y < r.y + r.h + p;
+  const inside = (b, p, g = 0) => p[0] > b.x - g && p[0] < b.x + b.w + g && p[1] > b.y - g && p[1] < b.y + b.h + g;
+  const centre = b => [b.x + b.w / 2, b.y + b.h / 2];
   const MINE = '#board-host, #guide-strip, .board-hl, #board-trail, #guide-form, #guide-show';
-  function blockers() {   // the boxes of the page text and controls, in page pixels: a card never covers one
-    const out = [];
-    for (const e of document.body.querySelectorAll('*')) {
-      if (e.closest(MINE)) continue;
+  function blockers() {   // the boxes of the page text and controls in the window: `flow` ones move with the page, `fixed` ones do not
+    const all = [...document.body.querySelectorAll('*')].filter(e => !e.closest(MINE));
+    const fixed = all.filter(e => getComputedStyle(e).position === 'fixed'), out = {flow: [], fixed: []};
+    for (const e of all) {
+      if (e.closest('body > nav')) continue;   // the top bar: the card stands under it
       const own = /^(img|svg|canvas|video|iframe|input|textarea|select|button)$/i.test(e.tagName) || [...e.childNodes].some(n => n.nodeType === 3 && n.data.trim());
       if (!own) continue;
       const r = e.getBoundingClientRect();
-      if (r.width >= 1 && r.height >= 1) out.push({x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height});
+      if (r.width >= 1 && r.height >= 1) (fixed.some(f => f.contains(e)) ? out.fixed : out.flow).push({x: r.left, y: r.top, w: r.width, h: r.height});
     }
     return out;
   }
-  // The layout of nodes of sizes `ss` ([{w, h}]) for `kind`: the top left of each node, in card pixels with no padding yet.
-  function layoutNodes(ss, edges, kind, tagW, tagH) {
-    const n = ss.length, pos = [];
-    if (kind === 'row' || kind === 'column') {
-      const row = kind === 'row', gap = row ? Math.max(DG.gapX, tagW + 16) : Math.max(DG.gapY - 16, tagH + 22), cross = Math.max(...ss.map(s => row ? s.h : s.w));
-      let at = 0;
-      ss.forEach(s => { pos.push(row ? {x: at, y: (cross - s.h) / 2} : {x: (cross - s.w) / 2, y: at}); at += (row ? s.w : s.h) + gap; });
-      return pos;
+  // The two places for the card, in window pixels: `side` at the top right, beside all the page text and under the top bar, and
+  // `wide` over the strip at the full width. A page that moves under the side card never shows text under it.
+  function room() {
+    const b = blockers(), gap = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rh-gap')) || 0;
+    const nav = document.querySelector('body > nav'), top = (nav ? nav.offsetTop + nav.offsetHeight : 0) + DG.side;
+    const s = document.getElementById('guide-strip'), low = s && !s.hidden ? s.getBoundingClientRect().top : innerHeight;
+    const right = innerWidth - gap - DG.side, left = Math.max(DG.side, ...b.flow.map(r => r.x + r.w + 24));
+    let bottom = low - 12;
+    for (const r of b.fixed) if (r.x + r.w > left && r.x < right && r.y + r.h > top && r.y < bottom) bottom = Math.min(bottom, r.y - 12);
+    return {side: {w: right - left, h: bottom - top, top, right: gap + DG.side},
+            wide: {w: innerWidth - gap - 2 * DG.side, h: Math.min(innerHeight * .45, low - top - 8), left: DG.side, bottom: innerHeight - low + 8}};
+  }
+  // The part of the path `pts` (from the centre of box A to the centre of box B) outside both boxes, from border to border.
+  function clip(pts, A, B) {
+    let i = 0, j = pts.length - 1;
+    while (i < j && inside(A, pts[i], DG.rim)) i++;
+    while (j > i && inside(B, pts[j], DG.rim)) j--;
+    if (i === 0 || j === pts.length - 1 || j <= i) return null;
+    const edge = (b, p, q) => {   // p is in b, q is not: the point between them on the border of b (plus the rim)
+      let lo = 0, hi = 1;
+      for (let k = 0; k < 24; k++) { const u = (lo + hi) / 2; if (inside(b, [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u], DG.rim)) lo = u; else hi = u; }
+      return [p[0] + (q[0] - p[0]) * hi, p[1] + (q[1] - p[1]) * hi];
+    };
+    return [edge(A, pts[i - 1], pts[i]), ...pts.slice(i, j + 1), edge(B, pts[j + 1], pts[j])];
+  }
+  function smoothPath(ps) {   // a Catmull-Rom curve through the points, so a long edge bends gently round the ranks it passes
+    if (ps.length < 3) return ps;
+    const out = [], P = k => ps[Math.max(0, Math.min(ps.length - 1, k))];
+    for (let k = 0; k < ps.length - 1; k++) for (let i = 0; i < 12; i++) {
+      const u = i / 12, [a, b, c, d] = [P(k - 1), P(k), P(k + 1), P(k + 2)], f = (x0, x1, x2, x3) => .5 * (2 * x1 + (-x0 + x2) * u + (2 * x0 - 5 * x1 + 4 * x2 - x3) * u * u + (-x0 + 3 * x1 - 3 * x2 + x3) * u ** 3);
+      out.push([f(a[0], b[0], c[0], d[0]), f(a[1], b[1], c[1], d[1])]);
     }
-    if (kind === 'tree') {   // levels from the roots (no arrow in), in the order that a walk from them finds the nodes
-      const level = Array(n).fill(-1), order = [], into = new Set(edges.map(e => e.t));
-      const walk = r => { level[r] = 0; const q = [r]; order.push(r);
-        while (q.length) { const a = q.shift(); for (const e of edges) if (e.f === a && level[e.t] < 0) { level[e.t] = level[a] + 1; order.push(e.t); q.push(e.t); } } };
-      for (let k = 0; k < n; k++) if (!into.has(k) && level[k] < 0) walk(k);
-      for (let k = 0; k < n; k++) if (level[k] < 0) walk(k);   // a cycle with no root: its first node starts it
-      const rows = [];
-      order.forEach(k => (rows[level[k]] = rows[level[k]] || []).push(k));
-      const widths = rows.map(r => r.reduce((s, k) => s + ss[k].w, 0) + DG.gapIn * (r.length - 1)), W = Math.max(...widths);
-      let y = 0;
-      rows.forEach((r, l) => {
-        const h = Math.max(...r.map(k => ss[k].h));
-        let x = (W - widths[l]) / 2;
-        r.forEach(k => { pos[k] = {x, y: y + (h - ss[k].h) / 2}; x += ss[k].w + DG.gapIn; });
-        y += h + Math.max(DG.gapY, tagH + 30);
+    out.push(ps[ps.length - 1]);
+    return out;
+  }
+  // A ring: the nodes in the order of their cycle (when the edges go once round all of them), on an ellipse just large enough
+  // that each arc between two nodes shows. An edge between two nodes next to each other is the arc between them.
+  function layoutRing(ss, edges, s) {
+    const n = ss.length, next = {}, order = [0];
+    for (const e of edges) (next[e.f] = next[e.f] || []).push(e.t);
+    while (order.length < n) { const t = (next[order[order.length - 1]] || []).find(x => !order.includes(x)); if (t == null) break; order.push(t); }
+    const at = []; (order.length === n ? order : [...Array(n).keys()]).forEach((k, i) => { at[k] = i; });
+    const ang = k => -Math.PI / 2 + 2 * Math.PI * at[k] / n, ell = (R, a) => [R * Math.cos(a), .78 * R * Math.sin(a)];
+    const two = e => edges.some(x => x.f === e.t && x.t === e.f);
+    for (let R = 50; R < 900; R *= 1.05) {
+      const bs = ss.map((z, k) => { const [x, y] = ell(R, ang(k)); return {x: x - z.w / 2, y: y - z.h / 2, w: z.w, h: z.h}; });
+      if (bs.some((b, i) => bs.some((c, j) => j > i && hits(b, c, DG.gap * s)))) continue;
+      const lines = edges.map((e, k) => {
+        const d = (at[e.t] - at[e.f] + n) % n;
+        if (d === 1 || d === n - 1) {   // neighbours: the arc between them, the short way (a pair of arrows both ways: one further out)
+          const a0 = ang(e.f), da = (d === 1 ? 1 : -1) * 2 * Math.PI / n, r = n > 2 && d === n - 1 && two(e) ? R * 1.12 : R, pts = [centre(bs[e.f])];
+          for (let i = 1; i < 64; i++) pts.push(ell(r, a0 + da * i / 64));
+          pts.push(centre(bs[e.t]));
+          return {k, f: e.f, t: e.t, pts: clip(dense(pts, 3), bs[e.f], bs[e.t])};
+        }
+        return {k, f: e.f, t: e.t, pts: clip(dense([centre(bs[e.f]), centre(bs[e.t])], 3), bs[e.f], bs[e.t])};
       });
-      return pos;
+      if (lines.every(l => l.pts && length(l.pts) >= DG.arc * s)) return {kind: 'ring', ring: [0, 0], bs, lines, order: order.length === n ? order : [...Array(n).keys()]};
     }
-    // cycle: the nodes on a flat ellipse from the top (the boxes are wide), as small as it can be with a gap between any two boxes
-    for (let R = 40, k = 0; k < 80; k++, R *= 1.06) {
-      pos.length = 0;
-      ss.forEach((s, i) => { const a = -Math.PI / 2 + 2 * Math.PI * i / n; pos.push({x: R * Math.cos(a) - s.w / 2, y: .7 * R * Math.sin(a) - s.h / 2}); });
-      const bs = pos.map((p, i) => ({...p, w: ss[i].w, h: ss[i].h}));
-      if (!bs.some((b, i) => bs.some((c, j) => j > i && hits(b, c, DG.room + 4)))) break;
+    return null;
+  }
+  // Layers: a rank for each node from the edges (an edge that closes a loop counts backwards), a stand-in point in each rank
+  // that a long edge passes, and in each rank the order with the fewest crossings (the order of the model when two are equal).
+  function layoutLayers(ss, edges, dir, s, tag) {
+    const n = ss.length, rev = new Set(), seen = Array(n).fill(0);
+    const dfs = a => { seen[a] = 1; edges.forEach((e, k) => { if (e.f !== a) return; if (seen[e.t] === 1) rev.add(k); else if (!seen[e.t]) dfs(e.t); }); seen[a] = 2; };
+    for (let k = 0; k < n; k++) if (!seen[k]) dfs(k);
+    const E = edges.map((e, k) => rev.has(k) ? {f: e.t, t: e.f, k} : {f: e.f, t: e.t, k}), rank = Array(n).fill(0);
+    for (let i = 0; i < n; i++) for (const e of E) rank[e.t] = Math.max(rank[e.t], rank[e.f] + 1);
+    for (let k = 0; k < n; k++) {   // a node with no edge in stands just before its first node out, so its edges stay short
+      if (E.some(e => e.t === k)) continue;
+      const outs = E.filter(e => e.f === k).map(e => rank[e.t]);
+      if (outs.length) rank[k] = Math.min(...outs) - 1;
     }
-    return pos;
+    const lo = Math.min(...rank); for (let k = 0; k < n; k++) rank[k] -= lo;
+    const size = [...ss], rk = [...rank], route = [], segs = [];
+    for (const e of E) {
+      const p = [e.f];
+      for (let r = rank[e.f] + 1; r < rank[e.t]; r++) { size.push({w: 10, h: 10, dummy: true}); rk.push(r); p.push(size.length - 1); }
+      p.push(e.t); route[e.k] = p;
+      for (let i = 1; i < p.length; i++) segs.push([p[i - 1], p[i]]);
+    }
+    const layers = []; rk.forEach((r, v) => (layers[r] = layers[r] || []).push(v));
+    for (let r = 0; r < layers.length; r++) layers[r] = layers[r] || [];
+    const crossings = ls => {
+      const p = {}; ls.forEach(L => L.forEach((v, i) => { p[v] = i; }));
+      let c = 0;
+      for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
+        const [a, b] = segs[i], [c2, d] = segs[j];
+        if (rk[a] === rk[c2] && a !== c2 && b !== d && (p[a] - p[c2]) * (p[b] - p[d]) < 0) c++;
+      }
+      return c;
+    };
+    const shift = ls => ls.reduce((t, L) => t + L.reduce((u, v, i) => u + (v < n ? Math.abs(i - L.filter(x => x < n).sort((a, b) => a - b).indexOf(v)) : 0), 0), 0);
+    const perms = a => a.length <= 1 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map(q => [x, ...q]));
+    let best = layers, bc = crossings(layers), bs0 = shift(layers);
+    if (bc && layers.reduce((t, L) => t * [1, 1, 2, 6, 24, 120, 720, 5040, 40320][Math.min(8, L.length)], 1) <= DG.perms) {
+      const opts = layers.map(perms), cur = [];
+      const walk = r => {
+        if (r === opts.length) { const c = crossings(cur), sh = shift(cur); if (c < bc || (c === bc && sh < bs0)) { best = cur.map(L => [...L]); bc = c; bs0 = sh; } return; }
+        for (const o of opts[r]) { cur[r] = o; walk(r + 1); }
+      };
+      walk(0);
+    }
+    // sizes along the ranks and across them: `down` has ranks from the top, `right` from the left
+    const down = dir === 'down', along = z => down ? z.h : z.w, across = z => down ? z.w : z.h;
+    const gapR = Math.max(DG.rank * s, (down ? tag.h : tag.w) + 28), pos = [];
+    let a = 0;
+    best.forEach(L => {
+      const deep = Math.max(...L.map(v => along(size[v]))), widths = L.map(v => across(size[v]));
+      const total = widths.reduce((t, w) => t + w, 0) + L.slice(1).reduce((t, v, i) => t + (size[v].dummy || size[L[i]].dummy ? 14 : DG.gap * s), 0);
+      let c = -total / 2;
+      L.forEach((v, i) => {
+        if (i) c += size[v].dummy || size[L[i - 1]].dummy ? 14 : DG.gap * s;
+        const z = size[v], q = a + (deep - along(z)) / 2;
+        pos[v] = down ? {x: c, y: q} : {x: q, y: c};
+        c += across(z);
+      });
+      a += deep + gapR;
+    });
+    const bs = ss.map((z, k) => ({x: pos[k].x, y: pos[k].y, w: z.w, h: z.h})), box = v => ({...pos[v], w: size[v].w, h: size[v].h});
+    const lines = edges.map((e, k) => {
+      let p = route[k].map(v => centre(box(v)));
+      if (rev.has(k)) p = p.reverse();
+      if (p.length === 2 && edges.some(x => x.f === e.t && x.t === e.f)) {   // arrows both ways: side by side
+        const [[x0, y0], [x1, y1]] = p, L = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / L * 7, ny = (x1 - x0) / L * 7;
+        p = [[x0 + nx, y0 + ny], [x1 + nx, y1 + ny]];
+      }
+      return {k, f: e.f, t: e.t, pts: clip(dense(smoothPath(p), 3), bs[e.f], bs[e.t])};
+    });
+    if (lines.some(l => !l.pts)) return null;
+    const order = [...bs.keys()].sort((x, y) => rank[x] - rank[y] || (down ? bs[x].x - bs[y].x : bs[x].y - bs[y].y));
+    return {kind: dir, bs, lines, order};
   }
-  // Where a line from the centre of box `b` toward point `p` leaves the box, `gap` px outside it.
-  function rim(b, p, gap) {
-    const cx = b.x + b.w / 2, cy = b.y + b.h / 2, dx = p[0] - cx, dy = p[1] - cy;
-    const s = Math.min(Math.abs(dx) > 1e-6 ? (b.w / 2 + gap) / Math.abs(dx) : 1e9, Math.abs(dy) > 1e-6 ? (b.h / 2 + gap) / Math.abs(dy) : 1e9);
-    return [cx + dx * s, cy + dy * s];
+  // Clean: no edge goes through a node that is not its own, and no two edges cross (except two edges of one node, at that node).
+  function clean(v) {
+    const cross = (p, q, r, s) => { const o = (a, b, c) => Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])); return o(p, q, r) * o(p, q, s) < 0 && o(r, s, p) * o(r, s, q) < 0; };
+    for (const l of v.lines) if (v.bs.some((b, i) => i !== l.f && i !== l.t && l.pts.some(p => inside(b, p, 3)))) return false;
+    for (let i = 0; i < v.lines.length; i++) for (let j = i + 1; j < v.lines.length; j++) {
+      const A = v.lines[i], B = v.lines[j];
+      if (A.f === B.f || A.f === B.t || A.t === B.f || A.t === B.t) continue;
+      for (let a = 1; a < A.pts.length; a++) for (let b = 1; b < B.pts.length; b++) if (cross(A.pts[a - 1], A.pts[a], B.pts[b - 1], B.pts[b])) return false;
+    }
+    return true;
   }
-  // Lay out the diagram of mark `m` as `kind`, and build its edges: the parts of the mark and the size of its card.
-  function drawDiagram(m, kind) {
+  // The words of each edge in a pill on its middle (on a ring: just outside its arc); moved along the edge or to one side when
+  // that place is taken by a node or other words, and dropped when no place is free. A place on no other edge is better.
+  function placeTags(v, tags) {
+    const put = [], out = [];
+    for (const l of v.lines) {
+      const z = tags[l.k];
+      if (!z) continue;
+      const P = l.pts, L = length(P), cands = [];
+      const at = u => { let d = u * L; for (let i = 1; i < P.length; i++) { const g = Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); if (d <= g || i === P.length - 1) { const t = g ? Math.min(1, d / g) : 0; return [P[i - 1][0] + (P[i][0] - P[i - 1][0]) * t, P[i - 1][1] + (P[i][1] - P[i - 1][1]) * t, (P[i][0] - P[i - 1][0]) / (g || 1), (P[i][1] - P[i - 1][1]) / (g || 1)]; } d -= g; } };
+      for (const u of [.5, .4, .6, .3, .7]) {
+        const [x, y, tx, ty] = at(u), nx = -ty, ny = tx, d = (Math.abs(nx) * z.w + Math.abs(ny) * z.h) / 2 + 5;
+        const side = v.ring && (x - v.ring[0]) * nx + (y - v.ring[1]) * ny < 0 ? -1 : 1;   // on a ring: outside the arc first, so the arc shows
+        for (const o of v.ring ? [side, 0, -side] : [0, 1, -1]) cands.push({x: x + nx * d * o - z.w / 2, y: y + ny * d * o - z.h / 2, w: z.w, h: z.h});
+      }
+      const free = (r, strict) => !v.bs.some(b => hits(r, b, 4)) && !put.some(q => hits(r, q, 4)) && (!strict || !v.lines.some(o => o !== l && o.pts.some(p => inside(r, p, 3))));
+      const pick = cands.find(r => free(r, true)) || cands.find(r => free(r, false));
+      if (pick) { put.push(pick); out[l.k] = pick; }
+    }
+    return out;
+  }
+  // Each clean layout of the diagram of mark `m`, in the order of choice, with its edge words placed and the size of its card.
+  function variants(m) {
     const o = m.o, d = m.dg, ss = d.nodes.map(e => ({w: e.offsetWidth, h: e.offsetHeight}));
     const ix = Object.fromEntries(o.nodes.map((x, k) => [x.id, k])), edges = (o.edges || []).map(e => ({f: ix[e.from], t: ix[e.to]}));
-    const tags = d.tags.map(t => t && {w: t.offsetWidth, h: t.offsetHeight}), tagW = Math.max(0, ...tags.map(t => t ? t.w : 0)), tagH = Math.max(14, ...tags.map(t => t ? t.h : 0));
-    const pos = layoutNodes(ss, edges, kind, tagW, tagH), bs = pos.map((p, k) => ({x: p.x, y: p.y, w: ss[k].w, h: ss[k].h}));
-    const order = kind === 'tree' ? [...bs.keys()].sort((a, b) => bs[a].y - bs[b].y || bs[a].x - bs[b].x) : [...bs.keys()];
-    const shows = []; order.forEach((k, n) => { shows[k] = n * 140; });
-    const lines = [], marks = [];
-    edges.forEach((e, k) => {
-      const A = bs[e.f], B = bs[e.t], two = edges.some(x => x.f === e.t && x.t === e.f), far = kind === 'row' ? Math.abs(e.f - e.t) > 1 : kind === 'column' && Math.abs(e.f - e.t) > 1;
-      let pts, mid;
-      if (far) {   // past the nodes between: an arc under the row (or at the right of the column)
-        const row = kind === 'row', depth = 26 + 12 * Math.abs(e.f - e.t);
-        const p0 = row ? [A.x + A.w / 2, A.y + A.h + DG.edge] : [A.x + A.w + DG.edge, A.y + A.h / 2], p2 = row ? [B.x + B.w / 2, B.y + B.h + DG.edge] : [B.x + B.w + DG.edge, B.y + B.h / 2];
-        const base = row ? Math.max(...bs.map(b => b.y + b.h)) : Math.max(...bs.map(b => b.x + b.w)), c = row ? [(p0[0] + p2[0]) / 2, base + depth * 2] : [base + depth * 2, (p0[1] + p2[1]) / 2];
-        pts = []; for (let i = 0; i <= 24; i++) { const u = i / 24, s = 1 - u; pts.push([s * s * p0[0] + 2 * s * u * c[0] + u * u * p2[0], s * s * p0[1] + 2 * s * u * c[1] + u * u * p2[1]]); }
-        mid = pts[12]; mid = row ? [mid[0], mid[1] + 4 + tagH / 2] : [mid[0] + 6 + (tags[k] ? tags[k].w / 2 : 0), mid[1]];
-      } else {
-        const ca = [A.x + A.w / 2, A.y + A.h / 2], cb = [B.x + B.w / 2, B.y + B.h / 2], L = Math.hypot(cb[0] - ca[0], cb[1] - ca[1]) || 1;
-        const nx = -(cb[1] - ca[1]) / L, ny = (cb[0] - ca[0]) / L, off = two ? 6 : 0;   // two arrows between the same nodes go side by side
-        const p0 = rim(A, cb, DG.edge), p1 = rim(B, ca, DG.edge);
-        pts = [[p0[0] + nx * off, p0[1] + ny * off], [p1[0] + nx * off, p1[1] + ny * off]];
-        const side = kind === 'row' ? -1 : 1, lift = tags[k] ? (kind === 'row' ? tagH / 2 + 5 : tags[k].w / 2 + 6) : 0;
-        mid = [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2];
-        mid = kind === 'row' ? [mid[0], mid[1] + side * lift] : kind === 'cycle' ? (() => { const cx = 0, cy = 0, dx = cx - mid[0], dy = cy - mid[1], q = Math.hypot(dx, dy) || 1; return [mid[0] + dx / q * (tagH / 2 + 6), mid[1] + dy / q * (tagH / 2 + 6)]; })() : [mid[0] + lift, mid[1]];
-      }
-      lines.push({pts, at: Math.max(shows[e.f], shows[e.t]) + 220, k});
-      if (tags[k]) marks.push({k, x: mid[0] - tags[k].w / 2, y: mid[1] - tags[k].h / 2, w: tags[k].w, h: tags[k].h});
-    });
-    // the card: everything moved so that the top left of all boxes, arcs and edge words is at the padding
-    const all = [...bs, ...marks, ...lines.flatMap(l => l.pts.map(p => ({x: p[0] - 6, y: p[1] - 6, w: 12, h: 12})))];
-    const x0 = Math.min(...all.map(b => b.x)), y0 = Math.min(...all.map(b => b.y)), dx = DG.pad - x0, dy = DG.pad - y0;
-    const W = Math.ceil(Math.max(...all.map(b => b.x + b.w)) + dx + DG.pad), H = Math.ceil(Math.max(...all.map(b => b.y + b.h)) + dy + DG.pad);
-    const parts = [];
+    const tags = d.tags.map(t => t && {w: t.offsetWidth, h: t.offsetHeight});
+    const tag = {w: Math.max(0, ...tags.map(t => t ? t.w : 0)), h: Math.max(0, ...tags.map(t => t ? t.h : 0))};
+    const kinds = o.layout === 'cycle' ? ['ring'] : o.layout === 'tree' ? ['down', 'right'] : ['right', 'down'], out = [];
+    for (const kind of kinds) for (const s of [1, 1.3, 1.6]) {
+      const v = kind === 'ring' ? layoutRing(ss, edges, s) : layoutLayers(ss, edges, kind, s, tag);
+      if (!v || !clean(v)) continue;
+      v.tags = placeTags(v, tags); v.drops = tags.filter((t, k) => t && !v.tags[k]).length;
+      const all = [...v.bs, ...v.tags.filter(Boolean), ...v.lines.flatMap(l => l.pts.map(p => ({x: p[0] - 7, y: p[1] - 7, w: 14, h: 14})))];
+      const x0 = Math.min(...all.map(b => b.x)), y0 = Math.min(...all.map(b => b.y));
+      v.dx = DG.pad - x0; v.dy = DG.pad - y0;
+      v.W = Math.ceil(Math.max(...all.map(b => b.x + b.w)) + v.dx + DG.pad); v.H = Math.ceil(Math.max(...all.map(b => b.y + b.h)) + v.dy + DG.pad);
+      out.push(v);
+      if (!v.drops) break;   // more space only to find room for words that dropped
+    }
+    return out;
+  }
+  // The layout and place for the card now: the side place when the card fits it at 85 % or more, else the wide place at 75 % or
+  // more; fewer dropped words first. Null when no clean layout fits: then the step shows without its diagram.
+  function choose(vs, r) {
+    let best = null;
+    for (const v of vs) {
+      const ks = Math.min(1, r.side.w / v.W, r.side.h / v.H), kw = Math.min(1, r.wide.w / v.W, r.wide.h / v.H);
+      const c = r.side.w >= 160 && ks >= .85 ? {v, dock: 'side', k: ks, score: v.drops} : kw >= .75 ? {v, dock: 'wide', k: kw, score: v.drops + 1.5} : null;
+      if (c && (!best || c.score < best.score)) best = c;
+    }
+    return best;
+  }
+  // Draw the layout `v` in the card of mark `m`: the place of each node and pill, the edges, and the parts that paint them.
+  function drawDiagram(m, v) {
+    const d = m.dg, parts = [], shows = [];
+    v.order.forEach((k, n) => { shows[k] = n * 140; });
     d.svg.replaceChildren();
-    d.svg.setAttribute('width', W); d.svg.setAttribute('height', H);
-    bs.forEach((b, k) => { Object.assign(d.nodes[k].style, {left: b.x + dx + 'px', top: b.y + dy + 'px'}); parts.push({kind: 'node', el: d.nodes[k], at: shows[k], dur: 260}); });
-    m.nodeBoxes = bs.map(b => ({x: b.x + dx, y: b.y + dy, w: b.w, h: b.h}));
-    lines.forEach(l => {
-      const pts = dense(l.pts.map(([x, y]) => [x + dx, y + dy]), 2), dur = clamp(length(pts) * 1.6, 320, 640);
-      const p = svgEl('path', 'board-fill'); d.svg.append(p);
-      parts.push(stroke(p, press(pts, .55, .75, .55), {size: 2.4, thin: .25, at: l.at, dur}));
-      const P = pts[pts.length - 1], Q = pts[Math.max(0, pts.length - 6)], h = svgEl('path', 'board-fill'); d.svg.append(h);
-      parts.push({kind: 'head', el: h, tip: P, a: Math.atan2(P[1] - Q[1], P[0] - Q[0]), w: .8, at: l.at + dur * .92});
-      const t = d.tags[l.k], mk = marks.find(x => x.k === l.k);
-      if (t && mk) { Object.assign(t.style, {left: mk.x + dx + 'px', top: mk.y + dy + 'px'}); parts.push({kind: 'node', el: t, at: l.at + dur * .6, dur: 220}); }
-    });
-    Object.assign(d.inner.style, {width: W + 'px', height: H + 'px'});
-    d.kind = kind; d.W = W; d.H = H;
+    d.svg.setAttribute('width', v.W); d.svg.setAttribute('height', v.H);
+    v.bs.forEach((b, k) => { Object.assign(d.nodes[k].style, {left: b.x + v.dx + 'px', top: b.y + v.dy + 'px'}); parts.push({kind: 'node', el: d.nodes[k], at: shows[k], dur: 260}); });
+    d.tags.forEach(t => { if (t) { t.hidden = true; t.dataset.dropped = '1'; } });
+    for (const l of v.lines) {
+      const pts = l.pts.map(([x, y]) => [x + v.dx, y + v.dy]), at = Math.max(shows[l.f], shows[l.t]) + 220, dur = clamp(length(pts) * 1.6, 320, 640);
+      const p = svgEl('path', 'board-fill'), e = pts[pts.length - 1];
+      p.dataset.from = m.o.nodes[l.f].id; p.dataset.to = m.o.nodes[l.t].id;
+      p.dataset.ends = [pts[0][0], pts[0][1], e[0], e[1]].map(x => x.toFixed(1)).join(' ');
+      d.svg.append(p);
+      parts.push(stroke(p, press(pts, .55, .75, .55), {size: 2.2, thin: .25, at, dur}));
+      const Q = pts[Math.max(0, pts.length - 5)], h = svgEl('path', 'board-fill'); d.svg.append(h);
+      parts.push({kind: 'head', el: h, tip: e, a: Math.atan2(e[1] - Q[1], e[0] - Q[0]), w: .75, at: at + dur * .92});
+      const t = d.tags[l.k], r = v.tags[l.k];
+      if (t && r) { t.hidden = false; delete t.dataset.dropped; Object.assign(t.style, {left: r.x + v.dx + 'px', top: r.y + v.dy + 'px'}); parts.push({kind: 'node', el: t, at: at + dur * .6, dur: 220}); }
+    }
+    Object.assign(d.inner.style, {width: v.W + 'px', height: v.H + 'px'});
+    m.el.dataset.kind = v.kind;
     return parts;
   }
   function buildDiagram(m) {   // the card and its nodes, measured in the host; model text goes in with textContent only
@@ -475,68 +611,37 @@
     const nodes = o.nodes.map(x => { const e = el('div', 'board-node', x.text); e.dataset.id = x.id; inner.append(e); return e; });
     const tags = (o.edges || []).map(e => e.text ? inner.appendChild(el('span', 'board-edge-text', e.text)) : null);
     card.style.visibility = 'hidden'; host().append(card);
-    inner.style.width = '2000px';   // room to measure: each node wraps at its own max width
+    inner.style.width = '2000px';   // room to measure
+    for (const e of nodes) {   // as narrow as its text, and wider only when the text needs more than 3 lines
+      const cs = getComputedStyle(e), lh = parseFloat(cs.lineHeight) || 16, padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+      for (const w of DG.widths) { e.style.maxWidth = w + 'px'; if (Math.round((e.offsetHeight - padY) / lh) <= DG.lines) break; }
+      e.style.width = Math.ceil(e.getBoundingClientRect().width) + 1 + 'px';   // fixed, so the text never wraps again in the card
+    }
     m.el = card; m.dg = {inner, svg, nodes, tags};
   }
-  function diagramAnchor(m) {   // the box that the card stands near: its own `at`, else an anchor of its step, of the board or of the passage, else the main text
-    const own = m.o.at !== undefined ? locate(m.o.at) : null;
-    if (own) return own;
-    const mine = x => x !== m && x.o.at !== undefined && x.o.op !== 'diagram';
-    for (const x of [...st.marks.filter(x => x.step === m.step && mine(x)), ...st.marks.filter(x => x.step !== m.step && mine(x))]) { const b = locate(x.o.at); if (b) return b; }
-    for (const id of ['passage', 'note']) { const b = locate(id); if (b) return b; }
-    const main = (document.querySelector('main') || document.body).getBoundingClientRect();   // kept, so a scroll does not move the card
-    return m.home || (m.home = {x: main.left + scrollX, y: Math.max(main.top + scrollY, scrollY + 72), w: main.width, h: 0});
-  }
-  function freeSpot(W, H, a, others) {   // a place beside the text near `a`, in the window, above the strip, on no text, control or other card
-    const main = (document.querySelector('main') || document.body).getBoundingClientRect(), bl = blockers();
-    const s = document.getElementById('guide-strip'), low = scrollY + innerHeight - (s && !s.hidden ? s.offsetHeight : 0) - 8;   // the strip is over the page: a card under it is lost
-    const xs = [a.x + a.w + DG.margin, main.right + scrollX + DG.margin, a.x - W - DG.margin, main.left + scrollX - W - DG.margin];
-    const ys = [0, 1, -1, 2, 3, 4, 6, 8, 11].map(k => a.y + k * 40);
-    for (const x of xs) {
-      if (x < scrollX + 8 || x + W > scrollX + innerWidth - 8) continue;
-      for (const y of ys) {
-        const r = {x, y, w: W, h: H};
-        if (y >= 8 && y + H <= low && !bl.some(q => hits(r, q, DG.room)) && !others.some(q => hits(r, q, DG.room))) return r;
-      }
-    }
-    return null;
-  }
-  function dockDiagram(m, a) {   // beside the page text, else under the step line in the strip
-    const want = m.o.layout === 'tree' || m.o.layout === 'cycle' ? m.o.layout : 'row', card = m.el;
-    const others = st.marks.filter(x => x !== m && x.o.op === 'diagram' && x.ok && x.dock === 'page' && x.box).map(x => x.box);
-    const fit = () => { for (const k of [1, .9, .8]) { const r = freeSpot(m.dg.W * k, m.dg.H * k, a, others); if (r) return {...r, k}; } return null; };   // a little smaller, still easy to read
-    let parts = drawDiagram(m, want), r = fit();
-    if (!r && want === 'row') { parts = drawDiagram(m, 'column'); r = fit(); }
-    card.style.visibility = '';
-    if (r) {
-      m.dock = 'page'; m.box = {x: r.x, y: r.y, w: r.w, h: r.h}; card.classList.remove('in-strip'); host().append(card);
-      Object.assign(card.style, {left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px'});
-      m.dg.inner.style.transform = r.k < 1 ? `scale(${r.k})` : '';
-      return parts;
-    }
-    m.dock = 'strip'; m.box = null; card.classList.add('in-strip');
-    const s = strip(), room = Math.max(160, s.clientWidth - 2 * parseFloat(getComputedStyle(s).paddingLeft || 0)), tall = Math.max(140, innerHeight * .28);
-    const scale = () => Math.min(1, room / m.dg.W, Math.max(.8, tall / m.dg.H));   // smaller to fit the strip, but easy to read: a tall card scrolls
-    if (want === 'row') { parts = drawDiagram(m, 'row'); if (room / m.dg.W < .8) parts = drawDiagram(m, 'column'); }   // a row only when it fits
-    const k = scale();
-    Object.assign(card.style, {left: '', top: '', width: m.dg.W * k + 'px', height: m.dg.H * k + 'px'});
-    m.dg.inner.style.transform = k < 1 ? `scale(${k.toFixed(3)})` : '';
-    stripCard(m);
-    return parts;
-  }
-  function stripCard(m) {   // a docked card shows under the step line of its own step only
-    const s = strip(), say = s.querySelector('.board-say');
-    if (!st || m.step !== st.i) { m.el.remove(); return; }
-    if (say) say.after(m.el); else s.append(m.el);
-  }
   function placeDiagram(m) {
-    if (!m.el) buildDiagram(m);
-    for (const e of [m.el]) e.style.display = '';
-    const a = diagramAnchor(m), key = [innerWidth, Math.round(a.x), Math.round(a.y), Math.round(a.w)].join(':');
-    if (m.key !== key || !m.dparts) { m.key = key; m.dparts = dockDiagram(m, a); }
-    else if (m.dock === 'strip' && !m.el.isConnected) stripCard(m);
-    m.parts = m.dparts; m.aim = m.dock === 'page' ? m.box : null; m.ok = true;
-    m.life = m.parts.reduce((s, p) => Math.max(s, p.at + (p.dur || 300)), 0) + 500;
+    if (!m.el) { buildDiagram(m); m.dv = variants(m); }
+    const s = document.getElementById('guide-strip'), card = m.el;
+    const key = [innerWidth, innerHeight, s && !s.hidden ? Math.round(s.getBoundingClientRect().top) : 0, document.documentElement.scrollHeight].join(':');
+    if (m.key !== key) {
+      m.key = key;
+      const r = room(), c = choose(m.dv, r);
+      if (!c) { m.skip = true; m.dparts = null; return hide(m); }   // no clean layout fits: the step shows without it
+      m.skip = false; m.dock = c.dock; card.dataset.dock = c.dock;
+      if (m.pick !== c.v) { m.pick = c.v; m.dparts = drawDiagram(m, c.v); }
+      const W = c.v.W * c.k, H = c.v.H * c.k;
+      card.style.visibility = ''; card.style.display = '';
+      Object.assign(card.style, c.dock === 'side' ? {left: '', bottom: '', top: r.side.top + 'px', right: r.side.right + 'px', width: W + 'px', height: H + 'px'}
+                                                  : {top: '', right: '', left: r.wide.left + 'px', bottom: r.wide.bottom + 'px', width: r.wide.w + 'px', height: H + 'px'});
+      m.dg.inner.style.left = c.dock === 'wide' ? (r.wide.w - W) / 2 + 'px' : '0';
+      m.dg.inner.style.transform = c.k < 1 ? `scale(${c.k.toFixed(3)})` : '';
+    }
+    if (m.skip) return hide(m);
+    card.style.display = '';
+    const b = card.getBoundingClientRect();   // the pointer rests just under the lower left corner of the card
+    m.box = {x: b.left + scrollX, y: b.top + scrollY, w: b.width, h: b.height};
+    m.parts = m.dparts; m.aim = {x: m.box.x - 30, y: m.box.y + m.box.h, w: 30, h: 0}; m.ok = true;
+    m.life = m.parts.reduce((t, p) => Math.max(t, p.at + (p.dur || 300)), 0) + 500;
     return true;
   }
 
@@ -655,8 +760,9 @@
       if (!st || !pf) return;
       host();
       const ms = st.marks.filter(m => m.drawn), t = performance.now();
-      const ok = ms.map(m => { const r = place(m); paint(m, t); return r; });
-      if (ms.length && !ok.some(Boolean)) note('The page changed. Ask again.');
+      ms.forEach(m => { place(m); paint(m, t); });
+      const live = ms.filter(m => !m.skip);   // a diagram with no clean layout is not a lost mark
+      if (live.length && !live.some(m => m.ok)) note('The page changed. Ask again.');
     });
   }
 
@@ -702,7 +808,6 @@
     const say = el('p', 'board-say');   // each word (or formula) in its own span, so it can light up when it is said
     sayParts(step.say).forEach((w, k) => { if (k) say.append(' '); say.append(texInto(el('span', k <= st.lit ? 'on' : '', null), w)); });
     const parts = [top, say];
-    parts.push(...st.marks.filter(m => m.step === st.i && m.o.op === 'diagram' && m.ok && m.dock === 'strip' && m.el).map(m => m.el));   // a diagram card on a narrow page: under the step line
     if (step.quote) {
       const src = b.sources[step.quote.src - 1] || {}, q = el('p', 'board-quote');
       q.append(el('q', '', step.quote.text), ' ', el('span', 'pill', src.label || 'source'), ' ', link(src));
@@ -742,6 +847,7 @@
     keys.append(' ', button('Stop', 'board-stop', () => stop('learner')));
     parts.push(keys);
     s.replaceChildren(...parts);
+    if (st.marks.some(m => m.drawn && m.o.op === 'diagram')) follow();   // the strip changed size: a diagram card stays above it
   }
   // The words of a step, with its maths: `$…$` is one part, and a bare W_Q or d_{k} (one letter with a short subscript) is maths too.
   // A part with maths is drawn by KaTeX where the page loaded it (trust off), else as text with <sub> elements. Model text never goes in as HTML.
