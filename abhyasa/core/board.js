@@ -478,11 +478,12 @@
     inner.style.width = '2000px';   // room to measure: each node wraps at its own max width
     m.el = card; m.dg = {inner, svg, nodes, tags};
   }
-  function diagramAnchor(m) {   // the box that the card stands near: its own `at`, else the first anchor of its step, else the top of the main text
+  function diagramAnchor(m) {   // the box that the card stands near: its own `at`, else an anchor of its step, of the board or of the passage, else the main text
     const own = m.o.at !== undefined ? locate(m.o.at) : null;
     if (own) return own;
-    const other = st.marks.find(x => x.step === m.step && x !== m && x.o.at !== undefined && x.o.op !== 'diagram'), b = other && locate(other.o.at);
-    if (b) return b;
+    const mine = x => x !== m && x.o.at !== undefined && x.o.op !== 'diagram';
+    for (const x of [...st.marks.filter(x => x.step === m.step && mine(x)), ...st.marks.filter(x => x.step !== m.step && mine(x))]) { const b = locate(x.o.at); if (b) return b; }
+    for (const id of ['passage', 'note']) { const b = locate(id); if (b) return b; }
     const main = (document.querySelector('main') || document.body).getBoundingClientRect();   // kept, so a scroll does not move the card
     return m.home || (m.home = {x: main.left + scrollX, y: Math.max(main.top + scrollY, scrollY + 72), w: main.width, h: 0});
   }
