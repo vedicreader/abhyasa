@@ -350,7 +350,7 @@
       p.append(el('p', 'board-panel-title', ''), el('p', 'board-panel-head', ''), el('div', 'board-panel-cols', null), el('div', 'board-panel-rows', null));
       host().append(p);
       room(true);
-      requestAnimationFrame(() => st && into(st.marks.filter(m => m.step === st.i)));   // after the layout settles: the mark of the step is in view
+      requestAnimationFrame(() => st && into(st.marks.filter(m => m.step === st.i && m.drawn).slice(-1)));   // after the layout settles: the newest mark of the step is in view
     }
     return p;
   }
@@ -714,7 +714,7 @@
   function light(k) {
     if (!st || k <= st.lit) return;
     st.lit = k;
-    if (st.later && st.later.length) { const now = st.later.filter(m => (m.o.w ?? 0) <= k); st.later = st.later.filter(m => !now.includes(m)); now.forEach(m => st.run(m, true)); }
+    if (st.later && st.later.length) { const now = st.later.filter(m => (m.o.w ?? 0) <= k); st.later = st.later.filter(m => !now.includes(m)); now.forEach(late); }
     document.querySelectorAll('#guide-strip .board-say > span').forEach((w, n) => w.classList.toggle('on', n <= k));
   }
   function link(src) {
@@ -835,9 +835,10 @@
     const old = new Set(have.strokes.map(o => JSON.stringify(o))), more = step.strokes.filter(o => !old.has(JSON.stringify(o)));
     const ms = more.map((o, j) => ({o, step: k, seed: 1 + k * 10 + have.strokes.length + j, parts: []}));
     have.strokes.push(...more); st.marks.push(...ms);
-    if (st.i === k && st.run) for (const m of ms) ((m.o.w ?? 0) <= st.lit ? st.run(m, true) : st.later.push(m));
+    if (st.i === k && st.run) for (const m of ms) ((m.o.w ?? 0) <= st.lit ? late(m) : st.later.push(m));
     return true;
   }
+  function late(m) { into([m]); st.run(m, true); }   // a stroke that came late: out of view, it scrolls in first, as the first mark does
   function finish(board) {   // see the API at the top of this file
     if (!st || !st.streaming || !board || !Array.isArray(board.steps)) return false;
     const have = st.board.steps;

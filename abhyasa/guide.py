@@ -7,14 +7,14 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS',
            'UNSAFE', 'NUMBERS', 'KINDS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'FIGURE_SP',
-           'FIGURE_TEST', 'GUIDE_SP', 'THREAD_RULE', 'WATCH', 'CHECK_ASK', 'TRY_ASK', 'FILLER', 'OFF_CHECK', 'COUNTS',
-           'ON_TRY', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR', 'WEB_FAILED', 'WEB_NO_PAGE', 'WEB_NO_PASSAGE',
-           'NO_WEB', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'plain_say', 'check_line',
-           'parse_board', 'PageContext', 'clean_context', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why',
-           'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'figure_check', 'focus_text', 'thread_text',
-           'try_text', 'page_text', 'offer_line', 'panel_note', 'board_prompt', 'video_id', 'video_cues',
-           'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check',
-           'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
+           'FIGURE_TEST', 'GUIDE_SP', 'THREAD_RULE', 'NUMS', 'VALUE_ASK', 'WATCH', 'CHECK_ASK', 'TRY_ASK', 'FILLER',
+           'OFF_CHECK', 'COUNTS', 'ON_TRY', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR', 'WEB_FAILED',
+           'WEB_NO_PAGE', 'WEB_NO_PASSAGE', 'NO_WEB', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote',
+           'plain_say', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels', 'FigureCache',
+           'keeps_images', 'vision_why', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'figure_check',
+           'focus_text', 'thread_text', 'try_text', 'page_text', 'offer_line', 'panel_note', 'board_prompt', 'video_id',
+           'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words',
+           'on_check', 'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -610,13 +610,22 @@ def offer_line(ctx) -> str:
     if ctx.get('slug') or ctx.get('concept'): return 'When a moving example helps and you build no side panel, end the last step with: "Say show me to see it move." Else end with no offer.'
     return 'End the last step with no offer.'
 
+NUMS = re.compile(r'-?\d+(?:\.\d+)?')
+VALUE_ASK = re.compile(r'\b(?:numbers?|values?|work(?:ed|s)?\s+(?:it\s+|this\s+|them\s+)?(?:out|through)|step\s+by\s+step|by\s+hand|worked\s+example|calculat\w*|comput\w*)\b', re.I)
+
 def panel_note(ctx, said:str) -> str:
-    "The note for \"Explain <selection>\" when the selection is in code and holds two or more numbers: build the side panel from them."
+    """The note that asks for the side panel: for \"Explain <selection>\" when the selection is in code and holds two or more numbers, and for a
+    typed ask about the numbers or values (\"work through the third test with its numbers\") on a page whose code holds two or more numbers."""
+    code = [flat(a.get('text')) for a in ctx.get('anchors') or () if a['kind'] == 'code']
     m = re.match(r'\s*explain\s+"(.+?)"?\s*\Z', said or '', re.I | re.S)
-    sel = m and flat(m[1]).rstrip('…')
-    if not sel or len(re.findall(r'-?\d+(?:\.\d+)?', sel)) < 2: return ''
-    if not any(a['kind'] == 'code' and sel in flat(a.get('text')) for a in ctx.get('anchors') or ()): return ''
-    return 'Build the side panel from the values in the selection: one row for each input and its answer, with "at" on the value in the code.'
+    if m:
+        sel = flat(m[1]).rstrip('…')
+        if len(NUMS.findall(sel)) >= 2 and any(sel in t for t in code):
+            return 'Build the side panel from the values in the selection: one row for each input and its answer, with "at" on the value in the code.'
+        return ''
+    if VALUE_ASK.search(said or '') and any(len(NUMS.findall(t)) >= 2 for t in code):
+        return 'Build the side panel from the values in the code: one row for each input and its answer, with "at" on the value in the code.'
+    return ''
 
 def board_prompt(ctx, said:str, sources=(), tier:str='tutor', note:str='') -> str:
     "The request for a board on `said`, with what the learner showed (`focus_text`), the page of `ctx`, the earlier turns on the page (`thread_text`), the numbered `sources`, each in a fence, and the lines of `note`."

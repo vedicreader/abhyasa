@@ -8,12 +8,12 @@ Docs: https://vedicreader.github.io/abhyasa/demo.html.md"""
 __all__ = ['VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'ORDER_AIM',
            'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'SHOW_ME', 'SEE_IT', 'YES',
            'OFFER', 'KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS',
-           'EXPLAINER_RULES', 'REFUSED', 'WHERES', 'ROUTES', 'demo_text', 'since_demo', 'rung', 'keep_rung',
-           'want_demo', 'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo',
-           'ask_key', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way',
-           'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'route_ask', 'can_explain',
-           'scene_catalog', 'scene_example', 'explainer_sp', 'explainer_prompt', 'scene_errors', 'explainer_for',
-           'explain_ask', 'make_explainer', 'show', 'import_gallery']
+           'EXPLAINER_RULES', 'GATES_LINE', 'REFUSED', 'WHERES', 'ROUTES', 'demo_text', 'since_demo', 'rung',
+           'keep_rung', 'want_demo', 'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note',
+           'make_demo', 'ask_key', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way',
+           'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'route_ask',
+           'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'explainer_prompt',
+           'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show', 'import_gallery']
 
 # %% ../nbs/10_demo.ipynb #c005
 import hashlib, json, re, threading, time, uuid
@@ -448,10 +448,22 @@ def explainer_sp() -> str:
     return (f"{prompt('demo.explainer')}\nThe shape of a spec:\n{SHAPE}\nUse only these blocks and fns:\n{scene_catalog()}\n\n"
             f"An example of a good explainer:\n{json.dumps(scene_example(), ensure_ascii=False)}\n\nReturn JSON only.")
 
-def explainer_prompt(c, said:str='') -> str:
-    "The prompt that asks for a 3D explainer of concept `c` (a dict with name, statement and subject), for the ask `said`."
+GATES_LINE = register('demo.gates', 'Open predictions', 'What the tutor adds to a 3D explainer when a 2D demo of the same ask asks the learner to predict. The questions come after it.',
+                      'The learner predicts these in a 2D demo of the same idea now. Never say their answers, and never show or say a result that gives them away:')
+
+def gates_of(spec) -> list:
+    "The questions of the gates of a demo `spec`: what the learner predicts there."
+    def walk(bs):
+        for b in bs or []:
+            if b.get('type') == 'gate' and b.get('prompt'): yield ' '.join(str(b['prompt']).split())
+            yield from walk(b.get('blocks'))
+    return list(walk((spec or {}).get('blocks')))
+
+def explainer_prompt(c, said:str='', gates=()) -> str:
+    "The prompt that asks for a 3D explainer of concept `c` (a dict with name, statement and subject), for the ask `said`. `gates` are the open predictions of its 2D demo: the explainer never gives them away."
     return (f"Concept: {c['name']} (subject: {c.get('subject') or 'general'})\nStatement: {c.get('statement') or '(none given)'}\n"
-            + (f"{prompt('demo.asked')} {quoted(said)}\n" if said else '') + '\nDesign one 3D explainer of this idea. Return the JSON spec only.')
+            + (f"{prompt('demo.asked')} {quoted(said)}\n" if said else '')
+            + (f"{prompt('demo.gates')} " + ' '.join(quoted(g) for g in gates) + '\n' if gates else '') + '\nDesign one 3D explainer of this idea. Return the JSON spec only.')
 
 # %% ../nbs/10_demo.ipynb #ex14
 def scene_errors(spec) -> list:
@@ -465,11 +477,11 @@ def scene_errors(spec) -> list:
 # %% ../nbs/10_demo.ipynb #ex18
 REFUSED = 'abhyasa could not make a 3D explainer for this idea. Here is the 2D demo.'
 
-def explainer_for(concept, ask, said:str='', log:list=None) -> dict|None:
+def explainer_for(concept, ask, said:str='', log:list=None, gates=()) -> dict|None:
     "A valid 3D explainer spec (`mode` learn) of `concept` for the ask `said`, from the model `ask`, with one repair; None when it cannot make one."
     c = concept if isinstance(concept, dict) else dict(name=str(concept))
     slug, log = c.get('slug') or slugify(c['name']), [] if log is None else log
-    p, sp = explainer_prompt(c, said), explainer_sp()
+    p, sp = explainer_prompt(c, said, gates), explainer_sp()
     for i in range(2):
         try: reply = ask(p, sp)
         except Exception as e: log.append(dict(tries=i + 1, errors=[f'model: {e}'])); return None
@@ -497,7 +509,8 @@ def make_explainer(learning:Learning, ask, slug:str, first_error:str='', aim:str
     k = ask_key(said) if said else None
     if (d := learning.demo_for(slug, aim='3d', key=k)): return d
     if (c := learning.concept(slug)) is None: return None
-    if (spec := explainer_for(c, explain_ask(ask), said, log)) is None: return None
+    two = learning.demo_for(slug, aim='', key=k)   # the 2D demo of the same ask, under the 3D card: its predictions stay the learner's to make
+    if (spec := explainer_for(c, explain_ask(ask), said, log, gates_of(two.spec) if two else ())) is None: return None
     return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", aim='3d', asked=dict(key=k, said=said) if said else None)
 
 # %% ../nbs/10_demo.ipynb #sm16

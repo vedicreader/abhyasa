@@ -119,6 +119,7 @@ def test_show_it_in_3d_keeps_the_seeded_2d_demo(mk, fake, lr):
     card = ev['show']['html']
     aid = re.search(r'data-ask="([0-9a-f]{12})"', card)[1]
     assert f'id="three-{aid}"' in card and f'id="three-btn-{aid}"' in card
+    assert card.index(f'id="three-{aid}"') < card.index('2D demo</span>') < card.index('demo-card')   # the 3D part comes above the 2D card and its own label
     btn = [json.loads(H.unescape(v)) for v in re.findall(r"hx-vals='([^']*)'", card) if '"3d"' in v][0]
     r = cl.post('/demo/ask', data=btn).text
     assert '3D explainer' in r and 'The tutor makes a demo' not in r and f'id="three-btn-{aid}"' in r and 'hx-swap-oob' in r   # only the 3D part; the button goes

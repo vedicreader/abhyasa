@@ -219,3 +219,15 @@ def test_a_step_that_comes_again_grows_in_place(page):
     assert page.evaluate('abhyasaBoard.state.steps') == 1
     page.evaluate('s => abhyasaBoard.add(s)', dict(n=2, say='Then it adds up.', strokes=[]))
     assert page.evaluate('abhyasaBoard.state.steps') == 2
+
+def test_a_late_stroke_out_of_view_scrolls_in(page):
+    "A row of step 1 that comes late, on a thing far down the page, scrolls that thing into view before its ring draws."
+    page.evaluate("""() => document.body.insertAdjacentHTML('beforeend', '<pre data-guide-id="far" style="position:absolute;left:40px;top:2600px;margin:0">assert f(1.0) == 1.414</pre><div style="height:3200px"></div>')""")
+    s1 = dict(n=1, say='Each test is a question.', strokes=[dict(op='box', at='card')])
+    play(page, [s1], streaming=True)
+    y0 = page.evaluate('scrollY')
+    page.evaluate('s => abhyasaBoard.add(s)', {**s1, 'strokes': [*s1['strokes'], dict(op='row', cells=['1.0'], to='1.414', at=dict(a='far', text='1.414'))]})
+    page.wait_for_function("document.querySelector('#board-layer g[data-op=circle]')")
+    page.wait_for_timeout(300)
+    r = page.evaluate("(() => { const g = document.querySelector('#board-layer g[data-op=circle]').getBoundingClientRect(), s = document.getElementById('guide-strip'); return [g.top, g.bottom, s.getBoundingClientRect().top]; })()")
+    assert page.evaluate('scrollY') > y0 and 0 <= r[0] and r[1] <= r[2], r
