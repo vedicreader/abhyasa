@@ -6,7 +6,7 @@ from pathlib import Path
 from abhyasa.core.stage import PLAN_KEYS, TALK_KEYS
 from abhyasa.core.edit import edit_keys   # the editor keys: the talk editor and the walk path editor add their group with it
 
-__all__ = ['edit_keys', 'KEYS', 'MENU', 'SHORT', 'short', 'pack_keys', 'FLOAT', 'page_group', 'float_rows', 'BUNDLE', 'sanketa_pack', 'write_sanketa_pack']
+__all__ = ['edit_keys', 'KEYS', 'MENU', 'SHORT', 'short', 'pack_keys', 'FLOAT', 'page_group', 'float_rows', 'has_float', 'BUNDLE', 'sanketa_pack', 'write_sanketa_pack']
 
 BUNDLE = 'dev.vedicreader.abhyasa'
 #: (group, keys, action), in the order the page shows them; the keys are in Sanketa's key style
@@ -41,7 +41,7 @@ KEYS = [
     ('Walk', '⌥V', 'Keep the state of the demo'),
     ('Walk', '⌥B', 'Learn beside: learn a missing idea in the side pane'),
     ('Side pane', '⌥Z', 'Back to the paper: close the side pane'),
-    ('Guide', '⌃⌥⇧⌘E', 'Explain this: tap to type, hold to talk (Caps+E)'),
+    ('Guide', '⌃⌥⇧⌘E', 'Explain this: hold to talk, tap to type (Caps+E)'),
     ('Guide', 'A', 'Say and draw the step again'),
     ('Guide', 'S', 'Go back one step'),
     ('Guide', 'D', 'Go to the next step'),
@@ -79,7 +79,7 @@ SHORT = {
     'Send the answer, or run the tests': 'Send the answer, or run tests',
     'Learn beside: learn a missing idea in the side pane': 'Learn a missing idea beside',
     'Back to the paper: close the side pane': 'Close the side pane',
-    'Explain this: tap to type, hold to talk (Caps+E)': 'Explain this. Hold to talk',
+    'Explain this: hold to talk, tap to type (Caps+E)': 'Explain this. Hold to talk',
     'Move the focus to the slide above': 'Focus the slide above', 'Move the focus to the slide below': 'Focus the slide below',
     'Remove the slide. Undo gives it back': 'Remove the slide', 'Ask the tutor to rewrite the slide': 'Tutor rewrites the slide',
     'Undo the last change. In a text box, ⌘Z undoes the typing': 'Undo the last change',
@@ -125,6 +125,10 @@ def page_group(path:str) -> str:
     if path.startswith('/w/'): return 'Walk'
     if re.fullmatch(r'/t/[^/]+/?', path): return 'Talk plan'
     return 'Everywhere'
+
+def has_float(path:str) -> bool:
+    "Whether the page at `path` has the Keys panel: not the presenter and audience windows of a talk, which a room can see."
+    return not re.fullmatch(r'/t/[^/]+/(present|audience)/?', path)
 
 def float_rows(path:str) -> list:
     "The (group, keys, action) rows of the Keys panel on the page at `path`: at most `FLOAT_MAX`, each key once."

@@ -1,7 +1,7 @@
 "Every keyboard shortcut on one page, from the table in `core/keys.py`; ⌥F or ? opens it from any page. The Keys panel shows the most useful keys of each page."
 from fasthtml.common import *
 from abhyasa.core import Page, hook, page_req
-from abhyasa.core.keys import KEYS, MENU
+from abhyasa.core.keys import KEYS, MENU, has_float
 from abhyasa.settings import val, set_val
 from . import ui
 from .cfg import Routes
@@ -36,10 +36,11 @@ if (!window.abhyasaHelp) { window.abhyasaHelp = true; document.addEventListener(
 
     @hook('page_extra')
     def keys_float():
-        "The Keys pill and its panel, on each page but a page in the side pane, while the setting `look.keys_float` is on."
+        "The Keys pill and its panel, on each page but a page in the side pane or a window of a talk, while the setting `look.keys_float` is on."
         req = page_req()
-        if not val('look.keys_float') or (req is not None and req.query_params.get('pane') == '1'): return None
-        return ui.Float(req.url.path if req is not None else '/', Routes.base, Routes.float)
+        path = req.url.path if req is not None else '/'
+        if not val('look.keys_float') or not has_float(path) or (req is not None and req.query_params.get('pane') == '1'): return None
+        return ui.Float(path, Routes.base, Routes.float)
 
     app.get(Routes.base)(page)
     app.post(Routes.float)(float_)

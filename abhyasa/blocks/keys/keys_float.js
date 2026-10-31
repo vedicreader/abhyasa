@@ -1,21 +1,22 @@
 // The Keys panel (keys/ui.py `Float`): a quiet pill at the bottom left of each page. A click, or ⌥⇧F, opens a small panel with the
 // most useful keys of the page, and each row does what its key does. Esc closes it. It opens by itself one time, for a new learner, and
 // then it remembers open or closed. It never takes the focus on load. It steps out of the way of the guide box, the board strip, the
-// composer and the Send button of a check: it moves to the top, or it hides while it would cover one of them.
+// composer, and the controls of the page (Send on a check, a box, a button): it moves to the top, or it hides while it would cover one.
 if (!window.abhyasaKF) {
   const STORE = 'abhyasa-keys-float';
-  const AVOID = '#send, #guide-form, #guide-strip, #composer, .mic-float.on, .mic-float.busy';
+  const HARD = '#send, #guide-form, #guide-strip, #composer, .mic-float.on, .mic-float.busy';   // never under the pill or the panel
+  const SOFT = ':is(button, .btn, input, textarea, select, iframe):not(#kf *, nav *)';             // the pill and a panel that opened by itself keep off these too
   const BOX = 'textarea, input[type=text], input[type=search], input:not([type])';
   const $ = id => document.getElementById(id);
   const seen = el => el && !el.disabled && (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
-  let lastBox = null;
+  let lastBox = null, auto = false;   // `auto`: the panel opened by itself, for a new learner
 
   const isOpen = () => $('kf-panel') && !$('kf-panel').hidden;
   function show(open, keep) {
     const p = $('kf-panel'), b = $('kf-pill');
     if (!p) return;
     p.hidden = !open; b.setAttribute('aria-expanded', String(open));
-    if (keep) localStorage.setItem(STORE, open ? 'open' : 'closed');
+    if (keep) { localStorage.setItem(STORE, open ? 'open' : 'closed'); auto = false; }
     if (open) mark();
     place();
   }
@@ -53,18 +54,24 @@ if (!window.abhyasaKF) {
     }
   }
 
-  // Out of the way: the pill hides while it covers a part that it must not cover. The open panel goes to the top left, else it hides too.
+  // Out of the way. The pill hides while it would cover a control. The open panel goes to the top left when it would cover one; a panel
+  // that opened by itself then closes, and a panel that you opened stays where it covers none of the parts in HARD, else it hides.
   const hit = (r, others) => others.some(o => r.left < o.right && r.right > o.left && r.top < o.bottom && r.bottom > o.top);
+  const rects = sel => [...document.querySelectorAll(sel)].filter(seen).map(e => e.getBoundingClientRect()).filter(r => r.width && r.height);
   function place() {
     const kf = $('kf'), p = $('kf-panel');
     if (!kf) return;
-    const others = [...document.querySelectorAll(AVOID)].filter(seen).map(e => e.getBoundingClientRect()).filter(r => r.width && r.height);
+    const hard = rects(HARD), all = [...hard, ...rects(SOFT)], at = () => p.getBoundingClientRect();
     kf.classList.remove('kf-top'); p.classList.remove('kf-away');
-    kf.classList.toggle('kf-away', hit($('kf-pill').getBoundingClientRect(), others));
-    if (p.hidden) return;
-    if (!hit(p.getBoundingClientRect(), others)) return;
+    kf.classList.toggle('kf-away', hit($('kf-pill').getBoundingClientRect(), all));
+    if (p.hidden || !hit(at(), all)) return;
     kf.classList.add('kf-top');
-    if (hit(p.getBoundingClientRect(), others)) p.classList.add('kf-away');
+    if (!hit(at(), all)) return;
+    if (auto) { kf.classList.remove('kf-top'); show(false, false); return; }
+    kf.classList.remove('kf-top');   // it covers a control at both places: low, unless it covers a part in HARD there
+    if (!hit(at(), hard)) return;
+    kf.classList.add('kf-top');
+    if (hit(at(), hard)) p.classList.add('kf-away');
   }
 
   function init() {
@@ -74,7 +81,7 @@ if (!window.abhyasaKF) {
     if (document.documentElement.classList.contains('in-pane')) { kf.remove(); return; }
     if (/\bAbhyasa\//.test(navigator.userAgent)) $('kf-mac').hidden = false;   // Abhyasa.app names itself in the user agent (WebController.swift)
     const s = localStorage.getItem(STORE);
-    if (s === null) localStorage.setItem(STORE, 'closed');   // open one time for a new learner, then closed until you open it
+    if (s === null) { localStorage.setItem(STORE, 'closed'); auto = true; }   // open one time for a new learner, then closed until you open it
     show(s === null || s === 'open', false);
   }
   window.abhyasaKF = {init, show, place};
@@ -95,8 +102,8 @@ if (!window.abhyasaKF) {
       show(open, true);
       if (open) { const b = [...document.querySelectorAll('#kf .kf-do')].find(x => !x.disabled); if (b) b.focus(); }
     } else if (e.key === 'Escape' && isOpen() && !$('kf-panel').classList.contains('kf-away')) {
-      const inBox = e.target.matches && e.target.matches('textarea, input, select, [contenteditable]') && !$('kf').contains(e.target);
-      if (inBox) return;   // the first Esc in a box only leaves the box (core.js)
+      const a = document.activeElement;
+      if (a && a !== document.body && !$('kf').contains(a)) return;   // a part of the page with the focus keeps its own Esc (a box, a row, the graph)
       e.preventDefault(); e.stopImmediatePropagation();
       const inside = $('kf').contains(document.activeElement);
       show(false, true);

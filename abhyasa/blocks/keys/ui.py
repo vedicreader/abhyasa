@@ -36,7 +36,7 @@ def act(g, k) -> dict:
 
 def Row(g, k, a):
     "One key of the panel: a button that does what the key does, with the key at its right."
-    return Li(Button(Span(LABEL.get(k) or short(a)), Kbd(SHOWN.get(k, k)), type='button', cls='kf-do', title=f'{a} ({k})', **act(g, k)))
+    return Li(Button(Span(LABEL.get(k) or short(a)), Kbd(SHOWN.get(k, k), cls='kf-key'), type='button', cls='kf-do', title=f'{a} ({k})', **act(g, k)))
 
 def Float(path:str, base:str, set_url:str):
     "The pill and its panel, closed in the HTML: keys_float.js opens it the first time and when you open it. Nothing takes the focus on load."

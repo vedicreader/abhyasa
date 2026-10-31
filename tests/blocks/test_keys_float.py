@@ -2,7 +2,7 @@
 import socket, threading
 import pytest
 from walk_data import walk, wait_for
-from abhyasa.core.keys import float_rows, page_group, FLOAT_MAX
+from abhyasa.core.keys import float_rows, page_group, has_float, FLOAT_MAX
 from abhyasa.blocks.keys.ui import GUIDE_LINE, TALK_LINE, GUIDE_LINK
 from abhyasa.settings import val, reset
 
@@ -15,6 +15,10 @@ def test_each_page_gets_its_group():
     want = {'/': 'Everywhere', '/learn': 'Everywhere', '/s/abc': 'Session', '/w/j1/2': 'Walk', '/w/j1': 'Walk', '/w/j1/edit': 'Walk path',
             '/c/ranking': 'Concept', '/graph': 'Graph', '/settings': 'Settings', '/concepts': 'Concepts', '/t/t1': 'Talk plan'}
     assert {p: page_group(p) for p in want} == want
+
+def test_the_windows_of_a_talk_have_no_panel():
+    "The presenter and the audience windows of a talk show on a room screen: they get no Keys panel. The talk editor does."
+    assert not has_float('/t/t1/present') and not has_float('/t/t1/audience') and has_float('/t/t1') and has_float('/')
 
 def test_every_page_starts_with_explain_dictate_and_search():
     "The first three rows are the same on each page: the guide, dictation and search. Each key shows once, and a page has at most seven rows."
