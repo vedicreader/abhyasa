@@ -268,7 +268,7 @@ def test_theme_switch(mk):
     "The look route saves the theme and the mode; the next page has them. An unknown name changes nothing."
     cl = mk(['settings', 'today'])
     assert cl.post('/settings/look', data=dict(theme='ink', mode='dark')).status_code == 204
-    assert voice.settings()['look'] == dict(theme='ink', mode='dark')
+    assert voice.settings()['look'] == dict(theme='ink', mode='dark', keys_float=True)
     assert 'data-theme="ink" data-mode="dark"' in cl.get('/').text
     assert cl.post('/settings/look', data=dict(theme='neon', mode='dark')).status_code == 400
     assert voice.settings()['look']['theme'] == 'ink'

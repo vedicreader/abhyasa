@@ -52,7 +52,7 @@ def test_keys_say_what_alt_s_does_in_a_walk():
     from abhyasa.core.keys import KEYS, sanketa_pack
     walk = {k: a for g, k, a in KEYS if g == 'Walk'}
     assert walk['⌥S'].startswith('Send the open check') and 'next idea' in walk['⌥S'] and walk['⌥W'] == 'Ask for a hint'
-    assert 'Send the open check' in sanketa_pack()                             # the Sanketa pack comes from the same table
+    assert 'Send, run tests, or next idea' in sanketa_pack()                   # the Sanketa pack comes from the same table, in six words
 
 # F4: one filled button in each view
 

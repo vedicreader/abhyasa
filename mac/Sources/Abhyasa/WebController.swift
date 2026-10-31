@@ -9,6 +9,8 @@ final class WebController: NSObject, WKUIDelegate, WKNavigationDelegate {
     let view: WKWebView
     var port = 0
     var onLoad: (() -> Void)?
+    /// the Keys panel of a server page asks for the first-use sheet of the screen guide (`abhyasa://guide/start`)
+    var onGuideStart: (() -> Void)?
 
     override init() {
         let c = WKWebViewConfiguration()
@@ -59,6 +61,12 @@ final class WebController: NSObject, WKUIDelegate, WKNavigationDelegate {
         guard let u = action.request.url else { return decisionHandler(.cancel) }
         if Links.isServer(u, port: port) || u.scheme == "about" || u.scheme == "blob" || u.scheme == "data" {
             return decisionHandler(.allow)
+        }
+        if Links.isGuideStart(u) {   // only from a page of the server, in the main frame; never passed on to the system
+            let from: WKFrameInfo? = action.sourceFrame
+            if action.targetFrame?.isMainFrame ?? true, let o = from?.securityOrigin,
+               Links.isServer(scheme: o.protocol, host: o.host, port: o.port, server: port) { onGuideStart?() }
+            return decisionHandler(.cancel)
         }
         if let local = Links.path(u) { go(local) } else { NSWorkspace.shared.open(u) }
         decisionHandler(.cancel)

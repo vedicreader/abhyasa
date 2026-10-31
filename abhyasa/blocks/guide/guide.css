@@ -9,6 +9,9 @@ nav .guide-go:hover, nav .guide-go.on { border-color: var(--acc); }
 /* the line under the box (the first use, the mic): on its own row, so the box keeps its width */
 .guide-form .guide-heard { flex-basis: 100%; font-size: var(--t-meta); }
 .guide-form .guide-heard:empty { display: none; }
+/* where the mic shows while you talk: the key that talks, until the mic is on */
+.guide-form .guide-talk { font-size: var(--t-meta); white-space: nowrap; }
+.guide-form:has(#guide-mic:not([hidden])) .guide-talk { display: none; }
 @media print { .guide-go, .guide-form, .guide-strip { display: none; } }
 
 /* The explainer video: the embed at 16:9, a quiet source line, and a transcript that stays closed until you open it. */

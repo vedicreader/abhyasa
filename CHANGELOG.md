@@ -6,6 +6,9 @@
 
 - You can ask the guide a follow-up question, such as "say that more simply" or "why?". The guide sends your last 3 questions on this page and the lines of their boards with the new question. Under the box, "Follows up on: <your last question>" shows, with × to start fresh. The guide forgets the questions when you go to another page, after 10 minutes with no question, or when you push ×. It keeps them in memory only. The Mac guide does the same for each window.
 - When you speak with Caps+E, the guide shows what it heard in the box and sends nothing yet. Change the words if you need to, then push Return to send them. Esc closes the box. The Mac guide does the same in its strip.
+- Each page has a small Keys button at the bottom left. It opens a panel with the main keys of the page, and each key is a button that does the action. The panel says how to talk to the guide (hold Caps+E) and how to dictate (⌥D). In Abhyasa.app it also has "Use the guide over other apps…", which shows the first-use sheet of the screen guide. ⌥⇧F opens the panel. "Hide this" or Settings, Look turns it off (the setting `look.keys_float`).
+- A short check on a walk has the Speak button (⌥D), and the guide box shows "Hold Caps+E to talk".
+- The Sanketa pack gives each key a label of six words or fewer, in the key style of Sanketa. Sanketa's lint finds no errors and no warnings.
 
 ## 0.0.15
 

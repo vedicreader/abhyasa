@@ -37,7 +37,7 @@ def connect(app, ctx):
 
     def section(g):
         n = count(g)
-        if g == 'look': return ui.Look()
+        if g == 'look': return ui.Look(n)
         if g == 'stt': return ui.SpeechGroup(sp, has_key(), jobs, n)
         if g == 'voice': return ui.VoiceGroup(spk, has_key(), n)
         if g == 'models': return ui.ModelsGroup(n)

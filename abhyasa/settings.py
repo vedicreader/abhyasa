@@ -47,6 +47,7 @@ def add(name:str, group:str, label:str, help:str, dflt, lo=None, hi=None, more:b
 # %% ../nbs/16_settings.ipynb #b9e18e8c
 add('look.theme', 'look', 'Theme', 'The colours of the app.', 'paper', ui=False, reset=False)
 add('look.mode', 'look', 'Light or dark', 'Auto follows the Mac.', 'auto', ui=False, reset=False)
+add('look.keys_float', 'look', 'Keys button', 'A small Keys button at the bottom left of each page. It shows the most useful keys of the page.', True)
 add('learning.pace', 'learning', 'Pace', 'How big each step is. Gentle uses small steps. Fast uses bigger steps.', 'steady',
     choices=('gentle', 'steady', 'fast'), store='profile')
 add('learning.session_len', 'learning', 'Questions in a session', 'How many questions the tutor asks in one session.', 12, 3, 40, store='profile')

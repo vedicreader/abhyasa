@@ -35,6 +35,13 @@ public enum Links {
         }
     }
 
+    /// true only for `abhyasa://guide/start`: a page of the app asks to show the first-use sheet of the screen guide.
+    /// The sheet starts nothing by itself: the learner pushes Start in it. No path, query or fragment more.
+    public static func isGuideStart(_ url: URL) -> Bool {
+        url.scheme?.lowercased() == scheme && url.host()?.lowercased() == "guide" && url.user == nil
+            && url.pathComponents.filter { $0 != "/" } == ["start"] && url.query == nil && url.fragment == nil
+    }
+
     /// true only for http://127.0.0.1:<port>, the server that the app started
     public static func isServer(_ url: URL?, port: Int) -> Bool {
         guard let url, port > 0 else { return false }

@@ -11,7 +11,7 @@ from abhyasa.core.leela import vr_episode
 from abhyasa.model import DEPTHS
 from abhyasa.sources import source_of
 
-__all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'SubTabs', 'in_talk', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
+__all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo']
 
 _here = Path(__file__).parent
@@ -85,6 +85,10 @@ def Crumbs(crumbs):
         last = i == len(crumbs) - 1
         out += [A(('← ' if last and len(crumbs) == 1 else '') + t, href=h, cls='up' if last else None, title='Esc' if last else None), Span('›', cls='sep')]
     return Div(*out[:-1], cls='crumbs', role='navigation', aria_label='Where you are')
+
+def page_req():
+    "The request of the page that is drawn now, or None: a `page_extra` part reads its path with it."
+    return _req.get()
 
 def in_talk() -> bool:
     "Whether this page is in the side pane of a talk (`pane=1&talk=1`): it draws in the talk type, with no check."
