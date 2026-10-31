@@ -1,3 +1,5 @@
+from abhyasa.ground import passage
+
 def test_voice_stt(mk):
     assert mk(['voice']).post('/voice/stt?hint=rrf', content=b'1234').json() == dict(text='4 bytes about rrf')
 
@@ -26,10 +28,24 @@ def test_sources_page(mk):
     assert 'Vault shelves' not in t and 'Index ' not in t and 'vedicreader' not in t and 'Sources appear here when you start a walk' in t
     assert mk(['sources']).post('/sources/index/ramabana').status_code == 404   # abhyasa no longer indexes ramabana or leela sessions
 
-def test_concept_seen_in_your_work(mk, lr):
-    t = mk(['concepts']).get('/c/ranking').text
+def test_concept_seen_in_your_work(lr, fake):
+    "The concept page GET does no search of the sources: the pool finds the links, and the next visit shows them."
+    import threading
+    from abhyasa.app import mk_app
+    from starlette.testclient import TestClient
+    from walk_data import wait_for
+    asked = []
+    class Notes:
+        name = 'notes'
+        def search(self, q, k=4):
+            asked.append(threading.current_thread().name)
+            return [passage('vault:notes', 'n1', 'My ranking notes', 'Ranking orders items by score.', url='https://example.org/notes')]
+    cl = TestClient(mk_app(lr, fake, names=['concepts'], sources=[Notes()], hosts=('testserver',)))
+    t = cl.get('/c/ranking').text
+    assert 'Ranking' in t and wait_for(lambda: lr.concept('ranking').get('seen_in') or None)[0]['src'] == 'vault:notes'
+    assert asked and all(n.startswith('ThreadPoolExecutor') for n in asked), asked   # the pool of the app, not the thread of the request
+    t = cl.get('/c/ranking').text
     assert 'Seen in your work' in t and 'My ranking notes' in t and 'https://example.org/notes' in t
-    assert lr.concept('ranking').seen_in[0]['src'] == 'vault:notes'
 
 def test_due_json(mk, lr):
     cl = mk(['today'])

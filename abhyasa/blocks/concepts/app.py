@@ -122,12 +122,22 @@ def connect(app, ctx):
         try: ctx.pool.submit(place_job)
         except Exception as e: log.warning('the tutor could not start to place the new concepts: %r', e)
 
+    linking, link_lock = set(), threading.Lock()   # the concepts whose links the pool finds now
+
+    def relink(slug):
+        "On the pool: find where concept `slug` shows up in your sources again. A failure only goes in the log."
+        try: lr.connect(slug, ctx.sources)
+        except Exception as e: log.warning('abhyasa could not find the links of %s: %r', slug, e)
+        finally:
+            with link_lock: linking.discard(slug)
+
     def one(slug:str):
         c = lr.concept(slug)
         if not c: return Page('Concept', ui.P('No such concept.'), on='Library')
-        if lr.stale_links(c):
-            try: lr.connect(slug, ctx.sources); c = lr.concept(slug)
-            except Exception: pass
+        with link_lock:   # the GET does no search: old links come on the pool, and the next visit shows them
+            go = lr.stale_links(c) and slug not in linking
+            if go: linking.add(slug)
+        if go: ctx.pool.submit(relink, slug)
         return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=val('lists.attempts')), lr.groups(c.subject)),
                     on='Library', crumbs=[('Home', '/'), ('Library', Routes.base)])
 
