@@ -39,3 +39,12 @@ nav .guide-go:hover, nav .guide-go.on { border-color: var(--acc); }
 .guide-thread-said { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .guide-form .guide-fresh { background: transparent; border: 0; box-shadow: none; color: var(--mute); padding: 0 var(--s1); font-size: var(--t-meta); line-height: 1; cursor: pointer; }
 .guide-form .guide-fresh:hover, .guide-form .guide-fresh:focus-visible { color: var(--fg); }
+
+/* "Show me …" to the guide: the demo in a small card at the right, above the strip. × or Esc closes it. */
+.guide-show { position: fixed; right: var(--s4, 16px); bottom: calc(var(--composer-h, 0px) + 24px); z-index: 61; width: min(520px, 92vw); max-height: 70vh;
+              overflow: auto; padding: var(--s2) var(--s3); background: var(--bg); border: 1px solid var(--rule); border-radius: 8px;
+              box-shadow: 0 6px 24px rgb(0 0 0 / .12); }
+.guide-show-head { display: flex; align-items: center; gap: var(--s1); margin: 0 0 var(--s2); font-size: var(--t-meta); }
+.guide-show-close { margin-left: auto; background: transparent; border: 0; box-shadow: none; color: var(--mute); padding: 0 var(--s1); font-size: var(--t-meta); line-height: 1; cursor: pointer; }
+.guide-show-close:hover, .guide-show-close:focus-visible { color: var(--fg); }
+@media print { .guide-show { display: none; } }

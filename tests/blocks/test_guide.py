@@ -362,3 +362,35 @@ def test_page_info_names_the_new_guide_model_after_a_save(mk, monkeypatch):
         assert cl.post('/settings/model', data=dict(task='guide', model='openai/gpt-5')).status_code == 200
         assert info() != first and 'GPT' in info().upper()
     finally: set_val('models.guide', '')
+
+SURE_BOARD = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='Your answer says that alpha bar grows.'),
+                                              dict(op='underline', at=dict(a='try', text='grows'))])
+TRIED = [dict(id='check', kind='check', text='Why does alpha bar fall toward zero as t grows?'),
+         dict(id='try', kind='try', text='Alpha bar grows with t.', answer='Alpha bar grows with t, because more noise is added.', outcome='Not yet',
+              feedback='Look at what each alpha is: a number below one.', error='Alpha bar does not grow: it is a product of numbers below one.',
+              gaps=['cumulative product'], state='open', left=2)]
+
+def test_explain_the_gaps_sends_the_graded_try(mk, fake):
+    "\"Explain the gaps\" with the learner's try on the page: the prompt has the try, its feedback, Error line and gaps, and the rule for an answer."
+    from abhyasa.guide import ON_TRY
+    fake.rules['Tier: tutor'] = SURE_BOARD
+    evs = [json.loads(l[6:]) for l in mk().post('/guide/ask', json=dict(said='explain the gaps', ctx=dict(page='/s/x', anchors=TRIED))).text.splitlines() if l.startswith('data: ')]
+    p, sp = next((p, sp) for p, sp in fake.calls if 'Tier: tutor' in p)
+    assert all(s in p for s in ('Alpha bar grows with t, because more noise is added.', 'a number below one', 'a product of numbers below one',
+                                '"cumulative product"', 'The check is open, with 2 tries left.', ON_TRY))
+    assert 'Step 1 names the problem in their answer' in sp and 'stop before the final answer' in sp
+    assert evs[-1]['board']['steps'][0]['strokes'] == [dict(op='underline', at=dict(a='try', text='grows'))]
+
+def test_show_me_to_the_guide_gets_the_demo_and_no_board(mk, fake, lr):
+    "\"Show me …\" to the guide on the page of an idea: one show event with the card of the demo, no board and no board call. With no idea, a board."
+    cl = mk()
+    n = len(fake.calls)
+    evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='show me how the noise grows', ctx=dict(page='/c/ranking', slug='ranking'))).text.splitlines() if l.startswith('data: ')]
+    assert [list(e) for e in evs] == [['show']] and 'ask-card' in evs[0]['show']['html']
+    assert not any('Tier: tutor' in p for p, _ in fake.calls[n:])
+    a = lr.asks(concept='ranking')[0]
+    assert (a.where, a.said) == ('guide', 'how the noise grows')
+    for k in [k for k in cl.app.state.svc['tutor'].jobs if k.startswith('ranking#')]: cl.app.state.svc['tutor'].jobs[k].result(timeout=60)
+    fake.rules['Tier: tutor'] = SURE_BOARD.replace('try', 'passage')
+    evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='show me how the noise grows', ctx=dict(page='/'))).text.splitlines() if l.startswith('data: ')]
+    assert 'board' in evs[-1] and not any('show' in e for e in evs)

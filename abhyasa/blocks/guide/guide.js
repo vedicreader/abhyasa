@@ -34,6 +34,32 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   };
   const figs = {};   // figure src -> labels, for this page load
 
+  // The last graded try of a check, from its thread (a walk step or a session): the learner's answer, the outcome, the feedback,
+  // the Error line, the gaps that the answer points at, whether the check is closed, and the tries that are left. Each field has
+  // the bound of the server (TRY in abhyasa.guide). Null when the check has no graded try yet.
+  const TRY = {answer: 400, feedback: 500, error: 240, outcome: 40, gaps: 5, gap: 60};
+  const plain = (el, drop, n) => {   // the text of `el` with its formulas as TeX, without the parts that `drop` names
+    if (!el) return '';
+    const c = el.cloneNode(true);
+    c.querySelectorAll('.katex').forEach(k => k.replaceWith(`$${texOf(k)}$`));
+    c.querySelectorAll(`${SKIP}, ${drop}`).forEach(x => x.remove());
+    return cut(c.textContent, n);
+  };
+  function tryOf(chk) {
+    const you = [...chk.querySelectorAll('.thread > li.you')].pop();
+    let fb = you && you.nextElementSibling;
+    while (fb && (fb.matches('.you, .hint, .extra') || !fb.matches('li.m'))) fb = fb.nextElementSibling;   // the reply to the try: a nudge or the close
+    if (!you || !fb) return null;
+    const gaps = [...chk.querySelectorAll('.rh-gapline b')].flatMap(b => b.textContent.split(',')).map(g => cut(g, TRY.gap)).filter(Boolean).slice(0, TRY.gaps);
+    const left = /\b(\d+|one|two)\s+(?:more\s+)?tr(?:y|ies)\b/i.exec(((chk.querySelector('.conf .mute') || document.getElementById('left') || {}).textContent) || '');
+    const n = left ? ({one: 1, two: 2}[left[1].toLowerCase()] ?? +left[1]) : null;
+    const closed = chk.matches('.shut, .done') || !!chk.querySelector('.check.shut, .check.done, .thread > li.close');
+    const tag = fb.querySelector('.tag');
+    return {el: you, answer: plain(you, '.lbl, .thought', TRY.answer), outcome: tag ? cut(tag.textContent, TRY.outcome) : '',
+            feedback: plain(fb, '.lbl, .tag, .err, .lesson, .now, .cites, .feedback, form', TRY.feedback),
+            error: cut(plain(fb.querySelector('.err'), '.k', TRY.error), TRY.error), gaps, state: closed ? 'closed' : 'open', ...(n != null && !closed && {left: n})};
+  }
+
   // Each formula on the page gets ids on its parts, once, when the guide first reads it. It looks the same as before.
   function markMath(root) {
     const out = [];
@@ -75,7 +101,11 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const passage = main.querySelector('#passage') || main.querySelector('.walk-passages blockquote');   // a concept page shows its passage from a walk
     add(main.querySelector('.statement'), 'statement', 'text', textOf(main.querySelector('.statement')));   // the statement of a concept page
     add(passage, 'passage', 'passage', textOf(passage));
-    for (const [sel, kind] of [['#note', 'note'], ['#check', 'check']]) add(main.querySelector(sel), sel.slice(1), kind, textOf(main.querySelector(sel)));
+    add(main.querySelector('#note'), 'note', 'note', textOf(main.querySelector('#note')));
+    const chk = main.querySelector('#check') || main.querySelector('#chat .check.qa');   // the check of a walk step, else the question of a session
+    add(chk, 'check', 'check', textOf(chk));
+    const tried = chk && seen(chk) && tryOf(chk);   // the learner's last graded try, so the guide can explain the gaps in it
+    if (tried) { const {el, ...t} = tried; el.dataset.guideId = 'try'; anchors.push({id: 'try', kind: 'try', text: cut(t.answer, 300), ...t}); }
     for (const host of markMath(main)) {
       anchors.push({id: host.dataset.guideId, kind: 'formula', text: host.dataset.tex, tokens: JSON.parse(host.dataset.parts || '[]').map(p => p[0])});
     }
@@ -333,7 +363,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   // What the read takes, in one line: "Reads this page: the passage, the note, 2 formulas and 1 figure."
   function readLine(ctx) {
     const k = kind => ctx.anchors.filter(a => a.kind === kind).length, n = (x, w) => `${x} ${w}${x === 1 ? '' : 's'}`, out = [];
-    for (const [kind, w] of [['passage', 'the passage'], ['note', 'the note'], ['check', 'the check'], ['demo', 'the demo'], ['video', 'the video']]) if (k(kind)) out.push(w);
+    for (const [kind, w] of [['passage', 'the passage'], ['note', 'the note'], ['check', 'the check'], ['try', 'your last try'], ['demo', 'the demo'], ['video', 'the video']]) if (k(kind)) out.push(w);
     if (k('formula')) out.push(n(k('formula'), 'formula'));
     if (k('figure')) out.push(n(k('figure'), 'figure'));
     return out.length ? `Reads this page: ${out.length > 1 ? out.slice(0, -1).join(', ') + ' and ' + out[out.length - 1] : out[0]}.` : 'Reads this page.';
@@ -439,6 +469,27 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (!p) { p = Object.assign(document.createElement('p'), {className: 'guide-hint-used mute'}); (c.querySelector('form') || c).prepend(p); }
     p.textContent = text;
   }
+  // "Show me …" to the guide: the demo comes in a small card (the card of the demo block, or a link "Open the demo"), not a board.
+  function showDemo(sh, said) {
+    if (window.abhyasaBoard) abhyasaBoard.stop();
+    const old = document.getElementById('guide-show'); if (old) old.remove();
+    const c = Object.assign(document.createElement('aside'), {id: 'guide-show', className: 'guide-show'});
+    c.setAttribute('aria-label', 'A demo from the guide');
+    const head = Object.assign(document.createElement('p'), {className: 'guide-show-head mute', textContent: `A demo for: ${cut(said, 80)} `});
+    const x = Object.assign(document.createElement('button'), {type: 'button', className: 'guide-show-close', textContent: '×', title: 'Close the demo'});
+    x.setAttribute('aria-label', 'Close the demo'); x.addEventListener('click', () => c.remove());
+    const body = Object.assign(document.createElement('div'), {className: 'guide-show-body'});
+    head.append(x); c.append(head, body); document.body.append(c);
+    if (typeof sh.html === 'string' && sh.html) {   // the card of the demo block, from this app: htmx runs its wait and its scripts
+      if (window.htmx) htmx.swap(body, sh.html, {swapStyle: 'innerHTML'}); else body.innerHTML = sh.html;
+    } else if (/^\/(?!\/)/.test(String(sh.href || ''))) body.append(Object.assign(document.createElement('a'), {href: sh.href, textContent: 'Open the demo'}));
+  }
+  document.addEventListener('keydown', e => {   // Esc closes the demo card when no board shows and the box is closed
+    const c = document.getElementById('guide-show');
+    if (e.key !== 'Escape' || !c || (window.abhyasaBoard && abhyasaBoard.state) || (form() && !form().hidden) || busy) return;
+    c.remove(); e.preventDefault(); e.stopImmediatePropagation();
+  }, {capture: true});
+
   async function ask(said) {
     said = cut(said, 300);
     if (!said) return;
@@ -485,6 +536,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
           if (m.wait) { if (m.state === 'asking' && m.model) asked = {model: m.model, where: m.where, who: m.who}; status(m); }
           if (m.saved) saved = m.saved;
           if (m.error) say(m.error);
+          if (m.show) { busy = 0; showDemo(m.show, said); }
           if (m.step) got.push(m.step);
           if (natural() && voiceOn()) for (const s of m.step ? [m.step] : m.board ? m.board.steps || [] : []) if (s && s.say) line(s.say).catch(() => {});   // each line before it is needed
           if (m.step && !live) {

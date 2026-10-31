@@ -269,3 +269,44 @@ def test_demo_set_keeps_each_value_in_its_input(page):
                                tier: 'tutor', sources: []}, {quiet: true, fast: true});
       return calls; }""")
     assert got == [{'k': 10}, {'k': 2.5, 'shape': 'triangle', 'on': True}]
+
+def test_the_capture_has_the_last_graded_try(page):
+    """A walk check with a try, the nudge on it and the gaps it points at, made by the real parts of the walk: the capture has the
+    anchor `try` with the answer, the outcome, the feedback, the Error line, the gaps and the tries left. A session question gives
+    the same, and after the close the check is closed."""
+    from fasthtml.common import to_xml, Div, Span
+    from abhyasa.core.ui import Check
+    from abhyasa.blocks.walk.ui import Turn
+    from abhyasa.blocks.detour.ui import GapLine
+    from abhyasa.blocks.session import ui as S
+    you = dict(who='you', text='Alpha bar grows with t.', confidence=50)
+    nudge = dict(who='tutor', kind='nudge', text='Look at what each alpha is.', first_error='Alpha bar does not grow.')
+    walk = Div(Check(Div('Check', cls='lbl'), 'Why does alpha bar fall?', Turn(you, 0), Turn(nudge, 0),
+                     foot=(GapLine([('cumulative-product', 'cumulative product'), ('noise', 'noise schedule')]), Div(Span('2 tries left', cls='mute'), cls='row conf'))), id='check')
+    page.evaluate("h => document.querySelector('main').insertAdjacentHTML('beforeend', h)", to_xml(walk))
+    t = {a['id']: a for a in page.evaluate('abhyasaGuide.capture()')['anchors']}['try']
+    assert {k: t.get(k) for k in ('kind', 'answer', 'outcome', 'feedback', 'error', 'gaps', 'state', 'left')} == dict(
+        kind='try', answer='Alpha bar grows with t.', outcome='Not yet', feedback='Look at what each alpha is.', error='Alpha bar does not grow.',
+        gaps=['cumulative product', 'noise schedule'], state='open', left=2)
+    assert page.evaluate("document.querySelector('[data-guide-id=try]').classList.contains('you')")
+    page.evaluate("document.getElementById('check').remove()")
+    turns = [dict(who='you', text='It grows.'), dict(who='tutor', kind='nudge', text='Look again.'), dict(who='you', text='It falls, as a product.'),
+             dict(who='tutor', kind='close', outcome='gap', text='Alpha bar is a product.')]
+    chat = Div(Check(Div('Alpha bar', cls='head'), 'Why does alpha bar fall?', *S.Turns(turns), cls='qa'), id='chat')
+    page.evaluate("h => { document.querySelector('main').insertAdjacentHTML('beforeend', h); }", to_xml(chat))
+    t = {a['id']: a for a in page.evaluate('abhyasaGuide.capture()')['anchors']}['try']
+    assert (t['answer'], t['outcome'], t['state'], 'left' in t) == ('It falls, as a product.', 'A gap', 'closed', False)
+
+def test_a_show_event_opens_the_demo_card_and_no_board(page):
+    "A show event puts the demo in a small card: the card of the demo block as it is, or the link \"Open the demo\". No board draws, and × closes the card."
+    page.reply = sse(dict(show=dict(html='<div class="ask-card" id="ask-x"><p>A 2D demo</p></div>')))
+    page.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('show me how the noise grows')")
+    page.wait_for_selector('#guide-show .ask-card')
+    assert page.evaluate("document.querySelector('#guide-show .guide-show-head').textContent").startswith('A demo for: show me how the noise grows')
+    assert page.evaluate('abhyasaBoard.state') is None and page.evaluate("document.getElementById('guide-strip').hidden")
+    page.reply = sse(dict(show=dict(href='/c/ranking')))
+    page.evaluate("abhyasaGuide.ask('show me the ranks')")
+    page.wait_for_selector('#guide-show a[href="/c/ranking"]')
+    assert page.evaluate("document.querySelectorAll('#guide-show').length") == 1 and page.evaluate("document.querySelector('#guide-show a').textContent") == 'Open the demo'
+    page.click('#guide-show .guide-show-close')
+    assert page.evaluate("!document.getElementById('guide-show')")
