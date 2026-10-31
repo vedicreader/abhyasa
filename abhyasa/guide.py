@@ -27,7 +27,7 @@ FIELDS = dict(step={'say', 'src', 'quote'}, circle={'at'}, box={'at'}, underline
               label={'at', 'text', 'side'}, sketch={'at', 'pts'}, point={'at'}, clear={'n'}, demo_set={'set'}, video_at={'t', 'quote'},
               diagram={'nodes', 'edges', 'layout', 'at'})
 LIMITS = dict(steps=6, strokes=6, lines=60, line_bytes=600, pts=64, say=160, text=60, quote_min=40, quote_max=600, set=6,
-              nodes=6, edges=8, node_text=40, edge_text=30, diagram_bytes=1500)
+              nodes=5, edges=8, node_text=32, edge_text=30, edge_words=3, diagram_bytes=1500)
 SIDES = ('above', 'below', 'left', 'right')
 LAYOUTS = ('row', 'tree', 'cycle')
 NODE_ID = re.compile(r'\A[A-Za-z0-9_-]{1,12}\Z')
@@ -135,11 +135,11 @@ def _kind(at, ctx) -> str:
     return (ctx.by.get(at if isinstance(at, str) else at['a']) or {}).get('kind', '')
 
 def _diagram_why(o, ctx) -> str:
-    "Why the diagram line `o` drops, or '': 2 to 6 nodes with short text and their own ids, at most 8 edges between known nodes."
+    "Why the diagram line `o` drops, or '': 2 to 5 nodes with short text and their own ids, at most 8 edges of at most 3 words between known nodes."
     ns, es = o.get('nodes'), o.get('edges', [])
     if 'at' in o and (why := anchor_why(o['at'], ctx)): return why
     if o.get('layout', 'row') not in LAYOUTS: return 'a bad layout'
-    if not (isinstance(ns, list) and 2 <= len(ns) <= LIMITS['nodes']): return 'a diagram needs 2 to 6 nodes'
+    if not (isinstance(ns, list) and 2 <= len(ns) <= LIMITS['nodes']): return 'a diagram needs 2 to 5 nodes'
     ids = []
     for n in ns:
         if not isinstance(n, dict) or set(n) - {'id', 'text'} or not isinstance(n.get('id'), str) or not NODE_ID.match(n['id']): return 'a bad node'
@@ -153,7 +153,7 @@ def _diagram_why(o, ctx) -> str:
         f, t = e.get('from'), e.get('to')
         if not (isinstance(f, str) and isinstance(t, str) and f in ids and t in ids): return 'an edge to an unknown node'
         if f == t or (f, t) in seen: return 'a bad edge'
-        if 'text' in e and not _short(e['text'], LIMITS['edge_text']): return 'a bad edge text'
+        if 'text' in e and not (_short(e['text'], LIMITS['edge_text']) and len(e['text'].split()) <= LIMITS['edge_words']): return 'a bad edge text'
         seen.add((f, t))
     return ''
 
@@ -502,7 +502,9 @@ GUIDE_SP = register('guide.board', 'Screen guide', 'How the tutor explains a par
 - The first line is {"op":"v","n":1,"sure":S,"need":N}. S is how sure you are that your answer is right and complete, from 0 to 1. N is "none" when the page is enough, "vault" when you need the learner's own notes, or "web" when you need a source from the web.
 - Then write 2 or 3 steps (up to 4 when the learner asks about their answer). A step is one line {"op":"step","say":"…"}, and its strokes follow it, each on its own line. "say" is one spoken sentence of at most 160 characters, in plain short words. Step 1 must be useful alone.
 - Strokes: {"op":"circle","at":A}, {"op":"box","at":A}, {"op":"underline","at":A}, {"op":"point","at":A}, {"op":"arrow","from":A,"to":A}, {"op":"label","at":A,"text":"at most 60 characters","side":"above|below|left|right"}, {"op":"sketch","at":A,"pts":[[x,y],…]} (only on a figure anchor, to mark a part of the figure: 2 to 64 points, 0 to 1000 in the box of the anchor), {"op":"clear"}. At most 4 strokes in a step. Add "w": the number of the word in "say" where the stroke starts, from 0.
-- For a picture of an idea (its parts and how they connect), use {"op":"diagram","nodes":[{"id":"q","text":"query: what I look for"},…],"edges":[{"from":"q","to":"k","text":"compare"}],"layout":"row|tree|cycle"}: 2 to 6 nodes with at most 40 characters each, and at most 8 edges with at most 30 characters each. The page draws it in a small card beside the text. Never use sketch for a picture of an idea, and never draw over the words of the page.
+- Use a diagram only for a structure that words cannot show: a process of 3 to 5 steps, a cycle, or a small tree. Write {"op":"diagram","nodes":[{"id":"d","text":"Draw the curve"},…],"edges":[{"from":"d","to":"m","text":"compare"}],"layout":"row|tree|cycle"}: 2 to 5 nodes with at most 32 characters each, and at most 8 edges with at most 3 words each. The page draws it in a card at the top right of the window. Never draw a diagram that restates a formula or lists its terms: mark the terms on the page's own formula. Never use sketch for a picture of an idea, and never draw over the words of the page.
+- For a formula or an abstract idea, give a day-to-day example in the spoken lines, and mark the parts of the page's own formula as you name them. For y = a·x² + b·x + c: the path of a thrown ball, the area of a square garden plus a strip, or the cost of a taxi ride with a fixed fee.
+- When a moving example would help, say in the last step: "Say show me to see it move." Then the learner can open a demo.
 - A is an anchor from the page list: its id ("passage"), or {"a":id,"text":"words in it"}, {"a":id,"tex":"one of its tokens"}, {"a":id,"label":"one of its labels"}, {"a":id,"box":[x0,y0,x1,y1]} or {"a":id,"pt":[x,y]} (0 to 1000 of the anchor; a point can be outside it, from -1000 to 2000). Use only ids, tokens and labels that the list gives. Copy a token exactly.
 - Use the names that the learner sees: the labels in the figure, the symbols in the formula, the names of the sliders.
 - In step 1, mark the part that the learner asked about with a circle or a box. Use at most one point in step 1, on one other part that gives context. Do not point at each part that you name. In a later step, you can point at a part when you name it.
@@ -518,8 +520,18 @@ An example reply for "I don't get alpha bar" on a page with the formula m1:
 {"op":"step","say":"Alpha bar t is how much of the clean picture is left at step t."}
 {"op":"circle","at":{"a":"m1","tex":"\\\\bar\\\\alpha_t"},"w":0}
 {"op":"label","at":{"a":"m1","tex":"\\\\bar\\\\alpha_t"},"text":"how much is left","side":"above","w":5}
-{"op":"step","say":"So the noisy picture at step t keeps alpha bar t of the clean picture."}
-{"op":"diagram","nodes":[{"id":"x0","text":"clean picture"},{"id":"xt","text":"noisy picture at step t"}],"edges":[{"from":"x0","to":"xt","text":"keeps alpha bar t"}],"layout":"row","w":2}""")
+{"op":"step","say":"Think of a photo that fades: after t steps, alpha bar t is the part of the photo that you can still see."}
+{"op":"underline","at":{"a":"m1","tex":"\\\\bar\\\\alpha_t"},"w":5}
+An example reply for "I don't get this equation" on a page with the formula m2, y = a x^2 + b x + c:
+{"op":"v","n":1,"sure":0.9,"need":"none"}
+{"op":"step","say":"Think of a ball that you throw: y is its height, and x is the time since it left your hand."}
+{"op":"circle","at":{"a":"m2","tex":"y"},"w":7}
+{"op":"step","say":"c is the height of your hand when you let go, the fixed start, like the fee of a taxi before it moves."}
+{"op":"circle","at":{"a":"m2","tex":"c"},"w":0}
+{"op":"step","say":"b x is the push up, and a x squared pulls the ball down more each second. Say show me to see it move."}
+{"op":"circle","at":{"a":"m2","tex":"a"},"w":5}
+A diagram line for a cycle, such as how a model learns:
+{"op":"diagram","nodes":[{"id":"d","text":"Draw the curve"},{"id":"m","text":"Measure the error"},{"id":"f","text":"Change a, b and c"}],"edges":[{"from":"d","to":"m","text":"compare"},{"from":"m","to":"f","text":"go downhill"},{"from":"f","to":"d","text":"try again"}],"layout":"cycle"}""")
 
 # %% ../nbs/21_guide.ipynb #gf12
 def focus_text(ctx) -> str:

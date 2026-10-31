@@ -4,16 +4,22 @@ from test_board_js import _chromium
 
 pytestmark = pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
 
-TEXTS = ['query: what I look for', 'key: what each word offers', 'value: what each word gives', 'score', 'softmax: weights that add to one', 'the mix']
-EDGES = dict(row=[('n0', 'n1', 'compare'), ('n1', 'n3', 'gives'), ('n3', 'n4'), ('n4', 'n5', 'mix the values'), ('n0', 'n5', 'reads')],
-             tree=[('n0', 'n1', 'compare'), ('n0', 'n2'), ('n1', 'n3', 'gives'), ('n1', 'n4'), ('n2', 'n5', 'mix')],
-             cycle=[('n0', 'n1', 'next'), ('n1', 'n2'), ('n2', 'n3'), ('n3', 'n4'), ('n4', 'n5'), ('n5', 'n0', 'back')])
+def diagram(texts, edges, layout, at='passage'):
+    "A diagram line with a node for each of `texts` (ids n0, n1, ...) and an edge for each (from, to, words) of `edges`."
+    es = [{'from': f'n{f}', 'to': f'n{t}', **({'text': x[0]} if x else {})} for f, t, *x in edges]
+    return dict(op='diagram', nodes=[dict(id=f'n{k}', text=s) for k, s in enumerate(texts)], edges=es, layout=layout, at=at)
+
+# The two diagrams that the owner saw broken: a cycle of 3 with words on each arrow, and a row of 4 with long arrows.
+CYCLE = diagram(['Draw curve using a, b, c', 'Measure error against data points', 'Adjust a, b, c to reduce error'],
+                [(0, 1, 'compare with data'), (1, 2, 'find a downhill direction'), (2, 0, 'try the updated curve')], 'cycle')
+ROW = diagram(['Read the question', 'Find the formula', 'Put in the numbers', 'Check the units'],
+              [(0, 1, 'pick one'), (1, 2, 'fill in'), (2, 3, 'then check')], 'row')
+QUAD = diagram(['y = a·x² + b·x + c', 'a·x²: the bend', 'b·x: the slope', 'c: the start height'],
+               [(0, 1, 'has'), (0, 2, 'has'), (0, 3, 'has'), (1, 2, 'adds to')], 'row')
+# A ring of 4 with both cross lines: the two cross lines cross in the middle, so no clean ring exists.
+TANGLE = diagram(['one', 'two', 'three', 'four'], [(0, 1), (1, 2), (2, 3), (3, 0), (0, 2), (1, 3)], 'cycle')
 PASSAGE = ('Each input vector is projected into a query, a key and a value. A query is compared with keys to decide how much of '
            'each value to read. The scores go through a softmax, so the weights add to one.')
-
-def diagram(layout, at='passage'):
-    edges = [{'from': f, 'to': t, **({'text': x[0]} if x else {})} for f, t, *x in EDGES[layout]]
-    return dict(op='diagram', nodes=[dict(id=f'n{k}', text=t) for k, t in enumerate(TEXTS)], edges=edges, layout=layout, at=at)
 
 @pytest.fixture
 def browser(mk):
@@ -41,57 +47,111 @@ def browser(mk):
 
 PLAY = "ss => abhyasaBoard.play({steps: ss, tier: 'tutor', sources: []}, {fast: true})"
 
-# The card, its nodes, and each element of the page with text or a control under the card, in page pixels.
+def show(pg, *strokes):
+    "Play one step with `strokes` at once, and wait until each mark shows in full."
+    pg.evaluate(PLAY, [dict(say='The parts and how they connect.', strokes=list(strokes))])
+    pg.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done')
+
+# What a test reads from the card: each node and each pill that shows (card pixels before the scale), whether a node cuts its
+# text, the ends of each edge, the card in window pixels, the top bar, and each element of the page with text that the card
+# covers now or that can move under it (the side card is fixed, so a page that scrolls can bring text under it).
 LOOK = """() => {
-  const card = document.querySelector('.board-diagram'), box = e => { const r = e.getBoundingClientRect(); return {x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height}; };
-  const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-  const c = box(card), covered = [];
+  const card = document.querySelector('.board-diagram');
+  if (!card || getComputedStyle(card).display === 'none') return null;
+  const own = e => ({x: e.offsetLeft, y: e.offsetTop, w: e.offsetWidth, h: e.offsetHeight});
+  const c = card.getBoundingClientRect(), nav = document.querySelector('body > nav').getBoundingClientRect(), covered = [];
   for (const e of document.body.querySelectorAll('*')) {
-    if (e.closest('#board-host, #guide-strip, .board-hl, #guide-form')) continue;
-    const own = /^(img|svg|canvas|input|textarea|select|button)$/i.test(e.tagName) || [...e.childNodes].some(n => n.nodeType === 3 && n.data.trim());
-    const r = box(e);
-    if (own && r.w >= 1 && r.h >= 1 && hit(c, r)) covered.push(e.tagName + ' ' + e.textContent.slice(0, 40));
+    if (e.closest('#board-host, #guide-strip, .board-hl, #guide-form, body > nav')) continue;
+    const text = /^(img|svg|canvas|input|textarea|select|button)$/i.test(e.tagName) || [...e.childNodes].some(n => n.nodeType === 3 && n.data.trim());
+    const r = e.getBoundingClientRect();
+    if (text && r.width >= 1 && r.height >= 1 && r.left < c.right && c.left < r.right) covered.push(e.tagName + ' ' + e.textContent.slice(0, 40));
   }
-  return {card: c, nodes: [...card.querySelectorAll('.board-node')].map(box), texts: [...card.querySelectorAll('.board-node')].map(e => e.textContent),
-          heads: card.querySelectorAll('path').length, where: card.parentElement.id || card.parentElement.className, covered,
-          afterSay: !!card.previousElementSibling && card.previousElementSibling.classList.contains('board-say')};
+  const nodes = [...card.querySelectorAll('.board-node')];
+  return {dock: card.dataset.dock, kind: card.dataset.kind, card: {x: c.left, y: c.top, w: c.width, h: c.height, right: innerWidth - c.right},
+          navBottom: nav.bottom, ids: nodes.map(e => e.dataset.id), nodes: nodes.map(own),
+          cut: nodes.filter(e => e.scrollWidth > e.clientWidth || e.scrollHeight > e.clientHeight).map(e => e.textContent),
+          tags: [...card.querySelectorAll('.board-edge-text:not([hidden])')].map(own),
+          edges: [...card.querySelectorAll('path[data-ends]')].map(p => ({from: p.dataset.from, to: p.dataset.to, ends: p.dataset.ends.split(' ').map(Number)})),
+          covered};
 }"""
 
-def overlap(a, b): return a['x'] < b['x'] + b['w'] and b['x'] < a['x'] + a['w'] and a['y'] < b['y'] + b['h'] and b['y'] < a['y'] + a['h']
+def overlap(a, b, p=0): return a['x'] < b['x'] + b['w'] + p and b['x'] < a['x'] + a['w'] + p and a['y'] < b['y'] + b['h'] + p and b['y'] < a['y'] + a['h'] + p
 
-def test_a_diagram_card_draws_each_node_beside_the_text(browser):
-    """On a wide page, each layout draws all 6 nodes in a card in the board layer: no two nodes overlap, each node is inside the card,
-    each edge has its stroke and its head, and the card covers no element of the page with text or a control."""
+def to_border(b, x, y):
+    "How far the point (x, y) is from the border of box `b`, in px."
+    dx, dy = max(b['x'] - x, 0, x - b['x'] - b['w']), max(b['y'] - y, 0, y - b['y'] - b['h'])
+    if dx or dy: return (dx * dx + dy * dy) ** .5
+    return min(x - b['x'], b['x'] + b['w'] - x, y - b['y'], b['y'] + b['h'] - y)
+
+def check_clean(got, n_tags=None):
+    "No node cuts its text, no pill covers a node or another pill, and each edge starts and ends on the border of its nodes."
+    assert got['cut'] == [], got['cut']
+    ns, ts = got['nodes'], got['tags']
+    assert not [(i, j) for i in range(len(ns)) for j in range(i + 1, len(ns)) if overlap(ns[i], ns[j], 8)], ns
+    assert not [(t, n) for t in ts for n in ns if overlap(t, n)], (ts, ns)
+    assert not [(i, j) for i in range(len(ts)) for j in range(i + 1, len(ts)) if overlap(ts[i], ts[j])], ts
+    box = dict(zip(got['ids'], ns))
+    for e in got['edges']:
+        x0, y0, x1, y1 = e['ends']
+        assert to_border(box[e['from']], x0, y0) <= 4 and to_border(box[e['to']], x1, y1) <= 4, e
+    if n_tags is not None: assert len(ts) == n_tags, ts
+
+def test_a_cycle_of_three_is_a_clean_ring_at_the_top_right(browser):
+    """The owner's cycle: a ring with each node in full, the words of each arrow on no node and no other words, each arrow from
+    border to border. The card is at the top right under the top bar, and no page text is under it or can move under it."""
     pg = browser()
-    for layout in ('row', 'tree', 'cycle'):
-        pg.evaluate(PLAY, [dict(say='The parts and how they connect.', strokes=[dict(op='box', at='passage'), diagram(layout)])])
-        pg.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done')
-        got = pg.evaluate(LOOK)
-        ns = got['nodes']
-        assert got['texts'] == TEXTS and got['where'] == 'board-host', (layout, got['where'])
-        assert not [(i, j) for i in range(6) for j in range(i + 1, 6) if overlap(ns[i], ns[j])], (layout, ns)
-        c = got['card']
-        assert all(c['x'] <= n['x'] and n['x'] + n['w'] <= c['x'] + c['w'] + .5 and c['y'] <= n['y'] and n['y'] + n['h'] <= c['y'] + c['h'] + .5 for n in ns), layout
-        assert got['heads'] == 2 * len(EDGES[layout]) and got['covered'] == [], (layout, got['covered'])
-        pg.evaluate('abhyasaBoard.stop()')
-
-def test_on_a_narrow_page_the_card_goes_under_the_step_line(browser):
-    "With no room beside the text, the card is in the strip, just under the spoken line, and its nodes still do not overlap."
-    pg = browser(700, 800)
-    pg.evaluate(PLAY, [dict(say='The parts.', strokes=[diagram('row')])])
-    pg.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done')
+    show(pg, dict(op='box', at='passage'), CYCLE)
     got = pg.evaluate(LOOK)
-    assert got['where'] == 'guide-strip' and got['afterSay'] and len(got['nodes']) == 6
-    ns = got['nodes']
-    assert not [(i, j) for i in range(6) for j in range(i + 1, 6) if overlap(ns[i], ns[j])]
+    assert got and got['kind'] == 'ring' and got['dock'] == 'side', got
+    check_clean(got)
+    assert len(got['edges']) == 3 and len(got['tags']) >= 2, got['tags']
+    c = got['card']
+    assert c['right'] <= 40 and got['navBottom'] <= c['y'] <= got['navBottom'] + 40, c
+    assert got['covered'] == [], got['covered']
+
+def test_a_row_of_four_is_clean_with_its_words(browser):
+    "A process of 4 steps: 4 nodes in full, 3 arrows from border to border, all 3 pills shown, and the card at the top right."
+    pg = browser()
+    show(pg, ROW)
+    got = pg.evaluate(LOOK)
+    assert got and got['dock'] == 'side' and got['kind'] in ('right', 'down'), got
+    check_clean(got, n_tags=3)
+    assert len(got['edges']) == 3 and got['covered'] == [] and got['card']['right'] <= 40
+
+def test_the_quadratic_row_is_clean_or_not_drawn(browser):
+    "The owner's row of the parts of a formula, with an arrow past the nodes between: it shows clean (layers, no crossing), or not at all."
+    pg = browser()
+    show(pg, QUAD)
+    got = pg.evaluate(LOOK)
+    if got: check_clean(got); assert got['covered'] == []
+
+def test_a_diagram_that_cannot_be_clean_is_not_drawn(browser):
+    "A ring with two crossing lines is not drawn, the other mark of the step shows, and the strip does not say that the page changed."
+    pg = browser()
+    show(pg, dict(op='box', at='passage'), TANGLE)
+    assert pg.evaluate(LOOK) is None
+    assert pg.evaluate("document.querySelector('.board-glow').style.display") != 'none'
+    assert not pg.evaluate("!!document.querySelector('#guide-strip .board-note')")
+
+def test_on_a_narrow_window_the_card_stands_over_the_strip(browser):
+    "With no room beside the text, the card has the full width of the window just over the strip, and is still clean. The strip keeps only its words and controls."
+    pg = browser(700, 800)
+    show(pg, ROW)
+    got = pg.evaluate(LOOK)
+    assert got and got['dock'] == 'wide', got
+    check_clean(got)
+    strip = pg.evaluate("document.getElementById('guide-strip').getBoundingClientRect().top")
+    c = got['card']
+    assert c['y'] + c['h'] <= strip and c['x'] <= 20 and c['right'] <= 20, (c, strip)
+    assert pg.evaluate("document.querySelectorAll('#guide-strip .board-diagram').length") == 0
 
 def test_reduced_motion_shows_the_diagram_at_once(browser):
     "With reduced motion, a board that is not fast shows each node of its diagram in full soon after it starts: no pop and no pen."
     pg = browser(reduced=True)
-    pg.evaluate("ss => abhyasaBoard.play({steps: ss, tier: 'tutor', sources: []}, {quiet: true})", [dict(say='The parts.', strokes=[diagram('tree')])])
+    pg.evaluate("ss => abhyasaBoard.play({steps: ss, tier: 'tutor', sources: []}, {quiet: true})", [dict(say='The parts.', strokes=[ROW])])
     pg.wait_for_selector('.board-diagram .board-node')
     pg.wait_for_timeout(400)
-    assert pg.evaluate("[...document.querySelectorAll('.board-diagram .board-node')].map(e => getComputedStyle(e).opacity)") == ['1'] * 6
+    assert pg.evaluate("[...document.querySelectorAll('.board-diagram .board-node')].map(e => getComputedStyle(e).opacity)") == ['1'] * 4
 
 def test_a_sketch_on_a_part_that_is_not_a_figure_is_dropped(browser):
     "A sketch on the passage draws nothing. The same sketch on a figure draws its stroke."
@@ -100,24 +160,18 @@ def test_a_sketch_on_a_part_that_is_not_a_figure_is_dropped(browser):
                            i.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="200" height="120" fill="%23eee"/></svg>');
                            const f = document.createElement('figure'); f.append(i); document.querySelector('main').append(f); }""")
     pts = [[0, 100], [500, 500], [1000, 900]]
-    pg.evaluate(PLAY, [dict(say='A curve.', strokes=[dict(op='sketch', at='passage', pts=pts)])])
-    pg.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done')
+    show(pg, dict(op='sketch', at='passage', pts=pts))
     assert pg.evaluate("document.querySelectorAll('#board-layer g[data-op=sketch]').length") == 0
-    pg.evaluate(PLAY, [dict(say='A curve.', strokes=[dict(op='sketch', at='figure', pts=pts)])])
-    pg.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done')
+    show(pg, dict(op='sketch', at='figure', pts=pts))
     assert pg.evaluate("[...document.querySelectorAll('#board-layer g[data-op=sketch] path')].some(p => (p.getAttribute('d') || '').length > 20)")
 
 def test_a_card_never_goes_under_the_strip(browser):
-    """A short window where the only free place beside the text is low: the card does not go there, under the strip of the board
-    (the strip is over the page). It goes under the step line in the strip, or above the strip."""
+    """A page with text across the whole width: there is no side place, so the card stands over the strip (the strip is over the
+    page), never under it."""
     pg = browser(1440, 650)
-    pg.evaluate("""() => { const a = document.querySelector('[data-guide-id=passage]').getBoundingClientRect(), b = document.createElement('div');
-                          b.textContent = 'Text that the card may not cover.';
-                          Object.assign(b.style, {position: 'absolute', left: '0', top: '0', width: '100%', height: (a.top + scrollY + 400) + 'px', zIndex: '-1'});
-                          document.body.append(b); }""")
-    pg.evaluate(PLAY, [dict(say='Three parts.', strokes=[dict(op='diagram', nodes=[dict(id='a', text='input'), dict(id='b', text='model'), dict(id='c', text='output')],
-                                                               edges=[{'from': 'a', 'to': 'b'}, {'from': 'b', 'to': 'c'}], layout='row', at='passage')])])
-    pg.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done')
-    got = pg.evaluate("""() => { const c = document.querySelector('.board-diagram'), s = document.getElementById('guide-strip');
-                                 return {where: c.parentElement.id || c.parentElement.className, bottom: c.getBoundingClientRect().bottom, strip: s.getBoundingClientRect().top}; }""")
-    assert got['where'] == 'guide-strip' or got['bottom'] <= got['strip'], got
+    pg.evaluate("""() => { const b = document.createElement('div'); b.textContent = 'Text across the page. '.repeat(60);
+                          document.querySelector('main').style.maxWidth = 'none'; document.querySelector('main').append(b); }""")
+    show(pg, diagram(['input', 'model', 'output'], [(0, 1), (1, 2)], 'row'))
+    got = pg.evaluate(LOOK)
+    strip = pg.evaluate("document.getElementById('guide-strip').getBoundingClientRect().top")
+    assert got and got['dock'] == 'wide' and got['card']['y'] + got['card']['h'] <= strip, (got, strip)
