@@ -269,7 +269,7 @@ def connect(app, ctx):
 
     def retitle(jid):
         "On the pool: give a walk named by an arXiv id the title of its paper. A failure of the network keeps the id."
-        try: lr.retitle_paper(jid)
+        try: lr.retitle_paper(jid) and lr.repair_id_titles()   # the steps of the walk keep the id too
         except Exception as e: log.warning('abhyasa could not get the title of the paper: %r', e)
 
     def link_walk(url, pages, tool=False, subject=''):

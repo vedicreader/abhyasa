@@ -88,10 +88,14 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     return app
 
 def repair_in_background(app, title_of=None):
-    "After the start: give the old papers with an arXiv id for a title their real title, on the pool of the app. Return the future; nothing waits for it."
+    "After the start: give the old papers with an arXiv id for a title their real title, then their steps and talks, on the pool of the app. Return the future; nothing waits for it."
     def run():
-        try: return app.state.svc['learning'].repair_paper_titles(title_of)
-        except Exception as e: log.warning('abhyasa could not repair the titles of the papers: %r', e)
+        lr = app.state.svc['learning']
+        try: out = lr.repair_paper_titles(title_of)
+        except Exception as e: out = None; log.warning('abhyasa could not repair the titles of the papers: %r', e)
+        try: lr.repair_id_titles()   # the steps and the talks of a walk that has its title now
+        except Exception as e: log.warning('abhyasa could not give the talks the titles of their papers: %r', e)
+        return out
     return app.state.svc['pool'].submit(run)
 
 def main():

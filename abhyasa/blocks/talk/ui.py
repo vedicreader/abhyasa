@@ -1,5 +1,6 @@
 "The talk on the page: the editor with one row for each slide (an `EditList`: each field saves at once, with an Undo), and the parts on other pages."
 import json, math, re
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
@@ -79,9 +80,13 @@ def Pending(jid, fill=False, again=False):
     return Div(P(said[0]), P(said[1], cls='mute'),
                cls='talk-new pending', hx_get=f"{Routes.job}?{urlencode(dict(jid=jid))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
 
-def TalkRow(t):
-    "One talk in Teach on Home: its title, its slide count and its slot, then Edit and a quiet Present that starts a run."
-    return Li(Div(A(t.title, href=at(Routes.one, t.id), cls='jt'), Span(meta(n_of(sum(not parked(s) for s in t.slides), 'slide'), f"a {t.minutes} min slot"), cls='mute'), cls='lrow-head'),
+def made_on(t, hour=False) -> str:
+    "When talk `t` was made: `made 31 Oct`, with the hour too when `hour`."
+    return 'made ' + datetime.fromtimestamp(t.get('made') or t.get('updated') or 0).strftime('%-d %b, %H:%M' if hour else '%-d %b') if t.get('made') or t.get('updated') else ''
+
+def TalkRow(t, when=''):
+    "One talk in Teach on Home: its title, its slide count and its slot (and `when`, for two talks with one title), then Edit and a quiet Present that starts a run."
+    return Li(Div(A(t.title, href=at(Routes.one, t.id), cls='jt'), Span(meta(n_of(sum(not parked(s) for s in t.slides), 'slide'), f"a {t.minutes} min slot", when), cls='mute'), cls='lrow-head'),
               Div(A('Edit', href=at(Routes.one, t.id), cls='btn small'),
                   Form(Quiet('Present', small=True, data_wait='Starting…'), action=at(Routes.start, t.id), method='post', hx_boost='false'), cls='lrow-acts'),
               cls='lrow')
@@ -89,8 +94,10 @@ def TalkRow(t):
 TEACH = 'To teach a walk to a group, press Present on the walk. abhyasa makes the slides, and you change them before you present.'
 
 def Teach(ts):
-    "Teach, on Home: a row for each talk, and how to make one from a walk."
-    return Part('Teach', Ul(*[TalkRow(t) for t in ts], cls='plain talks') if ts else '', P(TEACH, cls='mute'), data_part='teach')
+    "Teach, on Home: a row for each talk, and how to make one from a walk. Two talks with one title say when each was made, with the hour on the same day."
+    n, days = Counter(t.title for t in ts), Counter((t.title, made_on(t)) for t in ts)
+    when = lambda t: made_on(t, days[t.title, made_on(t)] > 1) if n[t.title] > 1 else ''
+    return Part('Teach', Ul(*[TalkRow(t, when(t)) for t in ts], cls='plain talks') if ts else '', P(TEACH, cls='mute'), data_part='teach')
 
 # --- the editor ------------------------------------------------------------------------------------------------------
 

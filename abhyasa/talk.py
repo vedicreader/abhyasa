@@ -26,10 +26,10 @@ from typing import Callable
 from fastcore.utils import *
 from .store import Learning, slugify, _src
 from .edit import edit_lock, CTRL
-from .journey import minutes
+from .journey import minutes, _arxiv_of
 from .llm import ask_json, for_task
 from .ground import concept_grounds, fence, fenced, link_of
-from .sources import figure_path, source_of
+from .sources import figure_path, source_of, is_id_title, ARXIV_ID
 from .prompts import register, prompt
 from .settings import val
 from rupaka import poll
@@ -936,3 +936,47 @@ def recap_html(t:dict, run:dict, resolve) -> str:
     if (srcs := _sources_html([s for s, _ in _shown(on_stage(t), run) if ps[s['id']]['passage']])): out.append(srcs)
     return (f'<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             f'<title>{e(str(t["title"]))}</title><style>{RECAP_CSS}</style></head><body>{"".join(out)}</body></html>\n')
+
+# %% ../nbs/17_talk.ipynb #pti2
+def _id_of(t) -> str:
+    "The arXiv id that the title `t` is, or ''."
+    t = re.sub(r'^arxiv:\s*', '', str(t or '').strip(), flags=re.I).removesuffix('.pdf')
+    return t if ARXIV_ID.fullmatch(t) else ''
+
+def _paper_titles(lr:Learning) -> dict:
+    "Each arXiv id that a walk with a real title reads, mapped to that title."
+    return {aid: j.title for j in lr.journeys() if (aid := _arxiv_of(j, lr)) and not is_id_title(j.title, aid)}
+
+def _fix_titles(x, ts) -> tuple:
+    "`x` (a dict, a list or a value) with each `title` that is only an arXiv id in `ts` given its title, and whether it changed."
+    if isinstance(x, list):
+        ys = [_fix_titles(v, ts) for v in x]
+        return [y for y, _ in ys], any(c for _, c in ys)
+    if not isinstance(x, dict): return x, False
+    out, ch = {}, False
+    for k, v in x.items():
+        if k == 'title' and isinstance(v, str) and _id_of(v) in ts: out[k], c = ts[_id_of(v)], True
+        else: out[k], c = _fix_titles(v, ts)
+        ch = ch or c
+    return out, ch
+
+@patch
+def repair_id_titles(self:Learning) -> list:
+    "Give each title that is only an arXiv id, in a walk and in a talk, the title of the paper from the walk that reads it. The order of the lists stays. Return the ids that changed."
+    ts, out, was = _paper_titles(self), [], {}
+    for j in self.journeys() if ts else ():
+        new, ch = _fix_titles(dict(j), ts)
+        if ch: was[j.id] = j; self.v.set_meta(self.put_journey(new).doc_id, updated=j.get('updated', 0)); out.append(j.id)
+    for t in self.talks() if ts else ():
+        new, ch = _fix_titles({k: v for k, v in t.items() if k != 'doc_id'}, ts)
+        if (w := (t.get('src') or {}).get('walk')) in was: ch = _same_marks(self, new, was[w]) or ch
+        if ch: self.v.set_meta(self.put_talk(new).doc_id, updated=t.get('updated', 0)); out.append(t.id)
+    return out
+
+def _same_marks(lr:Learning, t, old) -> bool:
+    "Move the mark of each step of talk `t` whose walk was `old` to the new title, when the mark was of the old step: a new title is not a change of the walk. Whether a mark moved."
+    j, ch = lr.journey(old.id), False
+    for slug, m in (t.get('marks') or {}).items():
+        a, b = (first(s for s in w.steps if s['slug'] == slug) for w in (old, j))
+        if a and b and m.get('step') == step_mark(a) != step_mark(b): m['step'], ch = step_mark(b), True
+    return ch

@@ -960,3 +960,19 @@ def test_the_foot_draws_the_maths_of_the_talk_title(mk, talk_fake, lr):
     lr.put_talk(t)
     p = cl.get(f'/t/{tid}/present').text
     assert f'Scaling by {MATH}' in p and f'<span>Scaling by {TEX}</span>' not in p
+
+def test_teach_tells_two_talks_of_one_walk_apart(mk, lr):
+    "Two talks with one title on Home say when each was made; on the same day, with the hour too. A talk with its own title says nothing more."
+    import time
+    from abhyasa.talk import talk_from_walk
+    from abhyasa.llm import Fake
+    jid = journey_of(lr)
+    lr.merge_journey(jid, mode='walk', steps=[{**s, 'check': dict(way='words', kind='short', depth=2)} for s in lr.journey(jid).steps])
+    at = lambda h, m: time.mktime((2026, 10, 29, h, m, 0, 0, 0, -1))
+    for k, (h, m) in enumerate(((10, 0), (14, 30))):
+        t = talk_from_walk(lr, Fake({}), jid, choice=False, fill=False)
+        lr.put_talk({**t, 'id': f'twin-{k}', 'made': at(h, m)})
+        lr.drop_talk(t.id)
+    t = talk_from_walk(lr, Fake({}), jid, choice=False, fill=False); lr.put_talk({**t, 'title': 'Ranking for the team'})
+    home = mk().get('/').text
+    assert 'made 29 Oct, 10:00' in home and 'made 29 Oct, 14:30' in home and home.count('made 29 Oct') == 2
