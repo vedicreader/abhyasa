@@ -298,15 +298,23 @@ def test_the_capture_has_the_last_graded_try(page):
     assert (t['answer'], t['outcome'], t['state'], 'left' in t) == ('It falls, as a product.', 'A gap', 'closed', False)
 
 def test_a_show_event_opens_the_demo_card_and_no_board(page):
-    "A show event puts the demo in a small card: the card of the demo block as it is, or the link \"Open the demo\". No board draws, and × closes the card."
+    """A show event on a page with no Show slot puts the demo in the side panel at the top right: the card of the demo block as it is, or a
+    link to the demo of the idea. No board draws, and × closes the panel. On a page with a Show slot, the card fills the slot and no panel opens."""
     page.reply = sse(dict(show=dict(html='<div class="ask-card" id="ask-x"><p>A 2D demo</p></div>')))
     page.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('show me how the noise grows')")
     page.wait_for_selector('#guide-show .ask-card')
-    assert page.evaluate("document.querySelector('#guide-show .guide-show-head').textContent").startswith('A demo for: show me how the noise grows')
+    assert page.evaluate("document.querySelector('#guide-show .guide-show-head').textContent").startswith('Show: show me how the noise grows')
+    r = page.evaluate("(() => { const b = document.getElementById('guide-show').getBoundingClientRect(); return [innerWidth - b.right, b.top]; })()")
+    assert r[0] < 40 and r[1] < 120   # the top right of the window
     assert page.evaluate('abhyasaBoard.state') is None and page.evaluate("document.getElementById('guide-strip').hidden")
-    page.reply = sse(dict(show=dict(href='/c/ranking')))
+    page.reply = sse(dict(show=dict(href='/c/ranking?show=', title='Ranking')))
     page.evaluate("abhyasaGuide.ask('show me the ranks')")
-    page.wait_for_selector('#guide-show a[href="/c/ranking"]')
-    assert page.evaluate("document.querySelectorAll('#guide-show').length") == 1 and page.evaluate("document.querySelector('#guide-show a').textContent") == 'Open the demo'
+    page.wait_for_selector('#guide-show a[href="/c/ranking?show="]')
+    assert page.evaluate("document.querySelectorAll('#guide-show').length") == 1 and page.evaluate("document.querySelector('#guide-show a').textContent") == 'Open the demo of Ranking'
     page.click('#guide-show .guide-show-close')
+    assert page.evaluate("!document.getElementById('guide-show')")
+    page.evaluate("""() => { const d = document.createElement('div'); d.id = 'show-slot'; (document.querySelector('main') || document.body).append(d); }""")
+    page.reply = sse(dict(show=dict(html='<div class="ask-card" id="ask-y"><p>A 2D demo</p></div>', href='/c/ranking?show=')))
+    page.evaluate("abhyasaGuide.ask('yes, show me')")
+    page.wait_for_selector('#show-slot .ask-card')
     assert page.evaluate("!document.getElementById('guide-show')")

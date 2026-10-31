@@ -382,15 +382,20 @@ def test_explain_the_gaps_sends_the_graded_try(mk, fake):
     assert evs[-1]['board']['steps'][0]['strokes'] == [dict(op='underline', at=dict(a='try', text='grows'))]
 
 def test_show_me_to_the_guide_gets_the_demo_and_no_board(mk, fake, lr):
-    "\"Show me …\" to the guide on the page of an idea: one show event with the card of the demo, no board and no board call. With no idea, a board."
+    """"Show me …" to the guide on the page of an idea: one show event with the card of the demo and the link to the Show slot, no board and
+    no board call. Show never says no: with no idea on the page, the event links to the Library with the words; over another app (the Mac),
+    it links to the idea that the window title names."""
     cl = mk()
     n = len(fake.calls)
-    evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='show me how the noise grows', ctx=dict(page='/c/ranking', slug='ranking'))).text.splitlines() if l.startswith('data: ')]
+    def ask(said, ctx): return [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said=said, ctx=ctx)).text.splitlines() if l.startswith('data: ')]
+    evs = ask('show me how the noise grows', dict(page='/c/ranking', slug='ranking'))
     assert [list(e) for e in evs] == [['show']] and 'ask-card' in evs[0]['show']['html']
+    assert evs[0]['show']['href'] == '/c/ranking?show=how%20the%20noise%20grows'
     assert not any('Tier: tutor' in p for p, _ in fake.calls[n:])
     a = lr.asks(concept='ranking')[0]
     assert (a.where, a.said) == ('guide', 'how the noise grows')
     for k in [k for k in cl.app.state.svc['tutor'].jobs if k.startswith('ranking#')]: cl.app.state.svc['tutor'].jobs[k].result(timeout=60)
-    fake.rules['Tier: tutor'] = SURE_BOARD.replace('try', 'passage')
-    evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='show me how the noise grows', ctx=dict(page='/'))).text.splitlines() if l.startswith('data: ')]
-    assert 'board' in evs[-1] and not any('show' in e for e in evs)
+    evs = ask('Yes, show me.', dict(page='/'))
+    assert [list(e) for e in evs] == [['show']] and evs[0]['show'] == dict(href='/concepts?q=', find=True)
+    evs = ask('show me', dict(page='Safari', title='Reciprocal rank fusion - Wikipedia'))   # the Mac: no html, only the link
+    assert evs[0]['show'] == dict(href='/c/reciprocal-rank-fusion?show=', title='Reciprocal rank fusion')

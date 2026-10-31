@@ -76,6 +76,14 @@
 //            of an edge drop when no free place is near its middle. A diagram with a crossing or an edge through a node, or one
 //            that does not fit, is not drawn: the step shows without it. The card has data-dock 'side' or 'wide', and each
 //            edge path has data-from, data-to and data-ends (x0 y0 x1 y1 in card pixels before its scale).
+//   panel    {title, head, cols, numbered}: starts the side panel, fixed at the top right of the window (#board-panel). The panel
+//            is the place of the tutor's small concrete example. A new panel line starts a new beat: its rows replace the rows before.
+//   row      {cells, to, at, chain}: one row of the panel that shows with its step and stays for the next steps. Each cell is a box;
+//            `to` comes after an arrow, in the accent. With `at`, a hand-drawn curve goes from that thing on the page to the first cell
+//            (the curve hides when the thing is not on the page; the row stays). With `chain`, the cells are words with arrows between.
+//   note     {text}: one quiet line of the panel.
+//   A circle, box, underline or label needs a thing under it: on a bare point, on a box of no size, or on a part of its anchor
+//   with no text and no picture in it, it is not drawn (it would be an empty mark). The server drops a bare point too.
 // Events on document: board:first (the first mark shows), board:stop (detail.by is 'learner' after Esc or Stop, else '').
 (() => {
   if (window.abhyasaBoard) return;
@@ -229,13 +237,47 @@
   }
 
   // --- marks: `place` reads the page and builds the parts; `paint` sets them for one moment ------------------------------------
-  const PASTEL = ['pink', 'green', 'blue', 'yellow', 'violet', 'peach'];
+  const PASTEL = ['pink', 'green', 'blue', 'yellow', 'violet', 'peach'], MARKS = ['circle', 'box', 'underline', 'label'], PANEL = ['panel', 'row', 'note'];
+  // Whether the box `b` of a mark holds a thing to mark: words, a formula part or a picture. A mark on empty space is not drawn.
+  const REPLACED = /^(IMG|SVG|CANVAS|VIDEO|INPUT|TEXTAREA|SELECT|BUTTON|IFRAME|PICTURE)$/i;
+  const meets = (r, b) => r.width > 0 && r.height > 0 && r.left + scrollX < b.x + b.w && b.x < r.right + scrollX && r.top + scrollY < b.y + b.h && b.y < r.bottom + scrollY;
+  function inked(b) {
+    if (b.pt || b.w < 2 || b.h < 2) return false;
+    if (b.glyphs) return true;
+    const el = b.el;
+    if (!el) return false;
+    if (REPLACED.test(el.tagName) || el.ownerSVGElement) return meets(el.getBoundingClientRect(), b);
+    const tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT), r = document.createRange();
+    for (let n, k = 0; (n = tw.nextNode()) && k < 3000; k++) {
+      if (n.nodeType === 1) { if ((REPLACED.test(n.tagName) || n.tagName.toLowerCase() === 'svg') && seen(n) && meets(n.getBoundingClientRect(), b)) return true; continue; }
+      if (!n.data.trim()) continue;
+      r.selectNodeContents(n);
+      if ([...r.getClientRects()].some(q => meets(q, b))) return true;
+    }
+    return false;
+  }
+  // One light Rough.js stroke from `from` to `to` in the group of mark `m`, then a filled head that springs in. `w` scales its weight. It adds its parts and gives when it ends.
+  function inkArrow(m, parts, from, to, at = 0, w = 1, cls = 'board-fill') {
+    const rc = rough.svg(layer()), ink = css('--board-ink') || '#b5551c';
+    const c = [(from[0] + to[0]) / 2 + (to[1] - from[1]) * .18, (from[1] + to[1]) / 2 - (to[0] - from[0]) * .18];
+    const shaft = rc.curve([from, c, to], {stroke: ink, strokeWidth: 1.8 * w, roughness: .7, bowing: .6, disableMultiStroke: true, preserveVertices: true, seed: m.seed});
+    m.g.append(shaft);
+    const line = shaft.querySelector('path'), L = line ? line.getTotalLength() : 0, dur = clamp(L * 1.4, 380, 640);
+    if (line) { line.setAttribute('stroke-linecap', 'round'); parts.push({kind: 'dash', el: line, L, at, dur}); }
+    let tip = to, a = Math.atan2(to[1] - c[1], to[0] - c[0]);
+    if (L) { const P = line.getPointAtLength(L), Q = line.getPointAtLength(Math.max(0, L - 10)); tip = [P.x, P.y]; a = Math.atan2(P.y - Q.y, P.x - Q.x); }   // the head turns with the end of the line
+    const head = svgEl('path', cls); m.g.append(head);
+    parts.push({kind: 'head', el: head, tip, a, w, at: at + dur * .92});
+    return at + dur;
+  }
   function place(m) {
     const o = m.o;
     if (o.op === 'diagram') return placeDiagram(m);
-    const svg = layer(), rc = rough.svg(svg), ink = css('--board-ink') || '#b5551c';
+    if (PANEL.includes(o.op)) return placePanel(m);
+    const svg = layer();
     const b = o.at !== undefined ? locate(o.at) : null;
     if (o.at !== undefined && !b) return hide(m);
+    if (MARKS.includes(o.op) && !inked(b)) { m.skip = true; return hide(m); }   // no thing under it: no empty mark
     if (o.op === 'sketch' && !onFigure(b.el)) return hide(m);   // a sketch marks a part of a figure only: never a shape over the words
     if (!m.g && o.op !== 'label' && o.op !== 'box') { m.g = svgEl('g'); m.g.dataset.op = o.op; m.g.dataset.step = m.step; svg.append(m.g); }
     if (m.g) { m.g.replaceChildren(); m.g.style.display = ''; }
@@ -243,17 +285,7 @@
     let target = b && {x: b.x, y: b.y, w: b.w, h: b.h};
     for (const e of [m.g, m.hl, m.el, m.lead]) if (e) e.style.display = '';
     const pathIn = (g, cls) => { const p = svgEl('path', cls); g.append(p); return p; };
-    const arrow = (from, to, at = 0, w = 1, cls = 'board-fill') => {   // one light Rough.js stroke, then a filled head that springs in; `w` scales its weight
-      const c = [(from[0] + to[0]) / 2 + (to[1] - from[1]) * .18, (from[1] + to[1]) / 2 - (to[0] - from[0]) * .18];
-      const shaft = rc.curve([from, c, to], {stroke: ink, strokeWidth: 1.8 * w, roughness: .7, bowing: .6, disableMultiStroke: true, preserveVertices: true, seed: m.seed});
-      m.g.append(shaft);
-      const line = shaft.querySelector('path'), L = line ? line.getTotalLength() : 0, dur = clamp(L * 1.4, 380, 640);
-      if (line) { line.setAttribute('stroke-linecap', 'round'); parts.push({kind: 'dash', el: line, L, at, dur}); }
-      let tip = to, a = Math.atan2(to[1] - c[1], to[0] - c[0]);
-      if (L) { const P = line.getPointAtLength(L), Q = line.getPointAtLength(Math.max(0, L - 10)); tip = [P.x, P.y]; a = Math.atan2(P.y - Q.y, P.x - Q.x); }   // the head turns with the end of the line
-      parts.push({kind: 'head', el: pathIn(m.g, cls), tip, a, w, at: at + dur * .92});
-      return at + dur;
-    };
+    const arrow = (from, to, at, w, cls) => inkArrow(m, parts, from, to, at, w, cls);
     if (o.op === 'circle') {
       if (b.glyphs) {   // a marker through the middle of the glyphs: they stay sharp and get a tint
         const blend = dark(b.el) ? 'screen' : 'multiply', size = Math.max(8, b.h * .92);
@@ -307,6 +339,59 @@
     if (o.op === 'label') { if (!placeLabel(m, b)) return hide(m); parts.push({kind: 'chip', at: 0, dur: 900}); }
     m.parts = parts; m.aim = target; m.ok = true;
     m.life = parts.reduce((s, p) => Math.max(s, p.at + (p.dur || 300)), 0) + (parts.some(p => p.kind === 'head') ? 500 : 0);
+    return true;
+  }
+  // The side panel: one card at the top right of the window that the rows of the board fill, step by step (see the API).
+  function panelEl() {
+    let p = document.getElementById('board-panel');
+    if (!p) {
+      p = el('div', 'board-panel', null); p.id = 'board-panel'; p.setAttribute('role', 'region'); p.setAttribute('aria-label', 'The example of the tutor');
+      p.append(el('p', 'board-panel-title', ''), el('p', 'board-panel-head', ''), el('div', 'board-panel-cols', null), el('div', 'board-panel-rows', null));
+      host().append(p);
+    }
+    return p;
+  }
+  const beatOf = m => { const k = st.marks.indexOf(m); return st.marks.slice(0, k + 1).filter(x => x.o.op === 'panel').length; };
+  function placePanel(m) {
+    const o = m.o, p = panelEl(), beat = String(beatOf(m)), parts = [];
+    if (o.op === 'panel') {
+      if (p.dataset.beat !== beat) {   // a new beat: its own title, heading and columns, and none of the rows before
+        p.dataset.beat = beat; p.classList.toggle('numbered', !!o.numbered);
+        const [t, h, cs, rs] = p.children;
+        t.textContent = o.title || ''; h.textContent = o.head || '';
+        cs.replaceChildren(...(o.cols || []).map(c => el('span', '', c)));
+        [...rs.children].forEach(r => { if (r.dataset.beat !== beat) r.remove(); });
+        parts.push({kind: 'node', el: p, at: 0, dur: 260});
+      }
+      m.parts = parts; m.aim = null; m.ok = true; m.life = 300;
+      return true;
+    }
+    if (!p.dataset.beat) p.dataset.beat = beat;
+    if (p.dataset.beat !== beat) return hide(m);   // a row of an older beat
+    if (!m.el || !m.el.isConnected) {
+      m.el = el('div', o.op === 'note' ? 'board-panel-note' : 'board-row' + (o.chain ? ' chain' : ''), o.op === 'note' ? o.text : null);
+      m.el.dataset.step = m.step; m.el.dataset.beat = beat;
+      if (o.op === 'row') {
+        const n = [...p.querySelectorAll('.board-row')].length + 1;
+        if (p.classList.contains('numbered')) m.el.append(el('span', 'board-row-n', String(n)));
+        o.cells.forEach((c, k) => { if (k && o.chain) m.el.append(el('span', 'board-row-arrow', '→')); m.el.append(el('span', o.chain ? 'board-word' : 'board-cell', c)); });
+        if (o.to != null) m.el.append(el('span', 'board-row-arrow long', '⟶'), el('span', 'board-cell board-target', o.to));
+      }
+      p.lastElementChild.append(m.el);
+    }
+    m.el.style.display = '';
+    parts.push({kind: 'node', el: m.el, at: 0, dur: 260});
+    const r = m.el.getBoundingClientRect(), box = {x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height};
+    const b = o.at !== undefined ? locate(o.at) : null;
+    if (m.g) { m.g.replaceChildren(); m.g.style.display = ''; }
+    if (b) {   // the curve from the thing on the page to the first cell of the row
+      if (!m.g) { m.g = svgEl('g'); m.g.dataset.op = 'link'; m.g.dataset.step = m.step; layer().append(m.g); }
+      const c0 = (m.el.querySelector('.board-cell, .board-word') || m.el).getBoundingClientRect();
+      const to = [c0.left + scrollX + Math.min(18, c0.width / 2), c0.top + scrollY - 3], from = [b.x + b.w + 4, b.y + b.h / 2];
+      inkArrow(m, parts, from, to, 120, .8);
+    } else if (m.g) m.g.style.display = 'none';
+    m.parts = parts; m.aim = box; m.box = box; m.ok = true;
+    m.life = parts.reduce((t, q) => Math.max(t, q.at + (q.dur || 300)), 0) + 500;
     return true;
   }
   function hide(m) {
@@ -757,6 +842,7 @@
     if (m.g) m.g.style.opacity = op;
     if (m.hl) m.hl.style.opacity = op;
     if (m.o.op === 'diagram' && m.el) m.el.style.opacity = op;
+    if (m.o.op === 'row' && m.g) m.g.style.opacity = op;
   }
   // Marks of earlier steps step back to 45 %, and a glow goes. A mark of the step before fades; the others are there at once.
   function dim(m, t) {
@@ -1008,6 +1094,7 @@
     const forward = i === st.i + 1, t = performance.now();
     st.i = i; st.stepAt = t; st.lit = -1; st.wait = false;
     for (const m of st.marks) unmount(m);
+    const pn = document.getElementById('board-panel'); if (pn) pn.remove();   // the panel is built again from the marks of the steps up to this one
     st.video = null;
     const run = (m, live) => {   // a mark that starts: `clear` takes away the marks before it
       if (m.o.op === 'clear') { st.marks.filter(x => x.drawn && (m.o.n == null || x.step === m.o.n - 1)).forEach(unmount); return; }

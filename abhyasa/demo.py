@@ -356,7 +356,8 @@ def on_close(tutor, q, r):
 CLOSE_HOOKS[:] = [f for f in CLOSE_HOOKS if getattr(f, '__name__', '') != 'on_close'] + [on_close]
 
 # %% ../nbs/10_demo.ipynb #sm02
-SHOW_ME = re.compile(r"\A\s*(?:please[\s,]+)?(?:(?:can|could|will) you\s+)?show\s+me\b[\s,:.!?-]*(.*)\Z", re.I | re.S)
+SHOW_ME = re.compile(r"\A\s*(?:(?:yes|yeah|yep|ok|okay|sure|alright|now|then|so|go on|please)\b[\s,.!-]*)*(?:(?:can|could|will|would) you\s+)?(?:please\s+)?"
+                     r"show\s+me\b[\s,:.!?-]*(.*)\Z", re.I | re.S)   # a spoken ask often starts with "yes" or "ok"
 
 def show_ask(text) -> str|None:
     "The words after \"show me\" at the start of `text` ('' for a bare \"show me\"); None when `text` is not a \"show me\" ask."

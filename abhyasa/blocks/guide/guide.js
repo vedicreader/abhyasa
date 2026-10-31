@@ -469,20 +469,30 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (!p) { p = Object.assign(document.createElement('p'), {className: 'guide-hint-used mute'}); (c.querySelector('form') || c).prepend(p); }
     p.textContent = text;
   }
-  // "Show me …" to the guide: the demo comes in a small card (the card of the demo block, or a link "Open the demo"), not a board.
+  // "Show me …" to the guide: Show. On an idea page the card fills the Show slot of the idea (#show-slot); on any other page it
+  // comes in the side panel at the top right, where the board builds its example. With no idea for the page, the panel links to the Library.
   function showDemo(sh, said) {
     if (window.abhyasaBoard) abhyasaBoard.stop();
     const old = document.getElementById('guide-show'); if (old) old.remove();
+    const slot = document.getElementById('show-slot'), html = typeof sh.html === 'string' && sh.html;
+    if (html && slot) {   // the card of the demo block, from this app: htmx runs its wait and its scripts
+      if (window.htmx) htmx.swap(slot, html, {swapStyle: 'innerHTML'}); else slot.innerHTML = html;
+      slot.scrollIntoView({block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+      return;
+    }
     const c = Object.assign(document.createElement('aside'), {id: 'guide-show', className: 'guide-show'});
-    c.setAttribute('aria-label', 'A demo from the guide');
-    const head = Object.assign(document.createElement('p'), {className: 'guide-show-head mute', textContent: `A demo for: ${cut(said, 80)} `});
+    c.setAttribute('aria-label', 'Show: a demo from the guide');
+    const head = Object.assign(document.createElement('p'), {className: 'guide-show-head mute', textContent: `Show: ${cut(said, 80)} `});
     const x = Object.assign(document.createElement('button'), {type: 'button', className: 'guide-show-close', textContent: '×', title: 'Close the demo'});
     x.setAttribute('aria-label', 'Close the demo'); x.addEventListener('click', () => c.remove());
     const body = Object.assign(document.createElement('div'), {className: 'guide-show-body'});
     head.append(x); c.append(head, body); document.body.append(c);
-    if (typeof sh.html === 'string' && sh.html) {   // the card of the demo block, from this app: htmx runs its wait and its scripts
-      if (window.htmx) htmx.swap(body, sh.html, {swapStyle: 'innerHTML'}); else body.innerHTML = sh.html;
-    } else if (/^\/(?!\/)/.test(String(sh.href || ''))) body.append(Object.assign(document.createElement('a'), {href: sh.href, textContent: 'Open the demo'}));
+    if (html) { if (window.htmx) htmx.swap(body, html, {swapStyle: 'innerHTML'}); else body.innerHTML = html; }
+    else if (/^\/(?!\/)/.test(String(sh.href || ''))) {
+      const p = Object.assign(document.createElement('p'), {className: 'mute', textContent: sh.find ? 'This page names no idea of yours yet. ' : ''});
+      p.append(Object.assign(document.createElement('a'), {href: sh.href, textContent: sh.find ? 'Find it in your library' : `Open the demo of ${cut(sh.title || 'this idea', 60)}`}));
+      body.append(p);
+    }
   }
   document.addEventListener('keydown', e => {   // Esc closes the demo card when no board shows and the box is closed
     const c = document.getElementById('guide-show');

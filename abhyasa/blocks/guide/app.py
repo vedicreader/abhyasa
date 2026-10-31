@@ -6,7 +6,9 @@ import asyncio, base64, json, logging, queue, secrets, threading, time
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook, run as run_hook
+from urllib.parse import quote
 from abhyasa.demo import show_ask
+from abhyasa.ground import main_words
 from abhyasa.guide import (FigureCache, Withheld, clean_context, concept_video, explain, figure_labels, file_video, find_explainer, guide_ask, set_video,
                            unsave, video_of, vision_ask, vision_why, where_of)
 from abhyasa.settings import SETTINGS, raw, val, set_val
@@ -110,11 +112,26 @@ def connect(app, ctx):
         figs.put(k, labels)   # an empty result before any figure had labels is not kept: the route can have lost the picture
         return JSONResponse(dict(key=k, labels=labels))
 
+    def page_concept(c):
+        "The concept of the page context `c`: its slug, else the concept whose name shares a main word with the idea, the step or the title. None when none does."
+        if c.get('slug') and (x := lr.concept(c.slug)): return x
+        q = ' '.join(x for x in (c.get('concept'), c.get('step'), c.get('title')) if x)
+        if not (ws := set(main_words(q))): return None
+        for h in lr.search(q, kind='concept', limit=5):
+            if (x := lr.concept_by_doc(h['doc_id'])) and ws & set(main_words(x.name)): return x
+        return None
+
     def show_of(words, c):
-        "The demo for \"show me …\" to the guide: the card of the `show_me` hook (the demo block), else a link to the idea. None when the page names no idea."
-        if not (c.get('slug') and lr.concept(c.slug)): return None
-        card = next((x for x in run_hook('show_me', words, dict(where='guide', concept=c.slug)) if x is not None), None)
-        return dict(html=to_xml(card)) if card is not None else dict(href=f'/c/{c.slug}')
+        """Show for "show me …" to the guide: it never says no. On a page of the app with an idea, `html` is the card of the `show_me` hook
+        (the demo block makes the demo, or says that it makes it); `href` opens the Show slot of the idea in abhyasa (for the Mac). With no idea,
+        `href` opens the Library with the words, and `find` says so."""
+        x = page_concept(c)
+        if x is None: return dict(href=f"/concepts?q={quote(words or c.get('title') or '')}", find=True)
+        out = dict(href=f'/c/{x.slug}' + (f'?show={quote(words)}' if words else '?show='), title=x.name)
+        if str(c.get('page') or '').startswith('/'):   # a page of the app: the card comes here; the Mac opens the link
+            card = next((y for y in run_hook('show_me', words, dict(where='guide', concept=x.slug)) if y is not None), None)
+            if card is not None: out['html'] = to_xml(card)
+        return out
 
     async def ask_(req):
         """The board for one question, as server-sent events. Before each step of its work: a state event
@@ -128,8 +145,7 @@ def connect(app, ctx):
         page context is never stored. When the page stops reading, the model stream closes. `point` is the setting `guide.point`, for
         the Mac overlay, which has no page of the app. `thread` (in the body, or in `ctx`) is the last 3 turns of the page,
         `[{said, says, t}]`: `clean_context` keeps a good one, and the server keeps none of it after the question. A question that starts
-        with "show me" on a page of an idea gets one event `{"show": {"html": card}}` (the card of the `show_me` hook) or
-        `{"show": {"href": link}}`, and no board."""
+        with "show me" gets one event `{"show": {"html": card, "href": link, "title": name}}` (`show_of`), and no board."""
         body = await req.body()
         try: d = json.loads(body) if len(body) <= ASK_BYTES else None
         except ValueError: d = None
@@ -137,7 +153,7 @@ def connect(app, ctx):
         if not said: return Response('Say or type your question.', status_code=400, media_type='text/plain')
         raw_ = d.get('ctx') if isinstance(d.get('ctx'), dict) else {}
         ctx_ = clean_context({**raw_, 'thread': d.get('thread', raw_.get('thread'))})   # the thread of the page: in the body, or in the ctx (the Mac)
-        if (words := show_ask(said)) is not None and (s := await asyncio.to_thread(show_of, words, ctx_)):   # "show me …": the demo, not a board
+        if (words := show_ask(said)) is not None and (s := await asyncio.to_thread(show_of, words, ctx_)):   # "show me …": Show, never a board
             return StreamingResponse(iter([f'data: {json.dumps(dict(show=s))}\n\n']), media_type='text/event-stream', headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
         if ctx_.get('video'):   # the cues come from the vault, never from the page
             if (v := await asyncio.to_thread(video_of, lr, ctx_.video['id'])): ctx_.video = v

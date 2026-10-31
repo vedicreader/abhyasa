@@ -11,8 +11,8 @@ def ctx(**kw):
                       demo=dict(inputs=dict(t=dict(value=500, min=0, max=1000)), open=False), **kw))
 
 def test_the_list_is_closed():
-    "The 12 ops of the list, and nothing that runs code."
-    assert set(OPS) == {'step', 'circle', 'box', 'underline', 'arrow', 'label', 'sketch', 'point', 'clear', 'demo_set', 'video_at', 'diagram'}
+    "The 15 ops of the list (12 marks and moves, and the 3 lines of the side panel), and nothing that runs code."
+    assert set(OPS) == {'step', 'circle', 'box', 'underline', 'arrow', 'label', 'sketch', 'point', 'clear', 'demo_set', 'video_at', 'diagram', 'panel', 'row', 'note'}
     for bad in [dict(op='eval', js='1'), dict(op='label', at='passage', text='x', css='color:red'), dict(op='label', at='passage', text='<svg onload=x>')]:
         assert check_line(bad, ctx())
 
