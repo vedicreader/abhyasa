@@ -105,3 +105,19 @@ def test_home_counts_a_walk_as_its_outline_does(mk, lr):
     assert 'Now: Reciprocal rank fusion' in row   # a fragile idea is not the current one: the walk goes on
     n = re.search(r'aria-valuenow="(\d)"', rail)[1]
     assert f'aria-valuenow="{n}" aria-valuemax="2"' in row and f'{n} of 2 ideas' in row   # one count: the row says what the outline says
+
+def test_the_kept_open_question_shows_with_no_model_call(mk, fake, lr):
+    "An old session kept its open question only in its `open` field. The migration puts it on the shelf, so the check of the step shows it, and the model is not asked."
+    lr.put('Softmax', 'Softmax makes weights that add to 1.', 'ml')
+    lr.put_journey(dict(id='old-q', title='Old path', goal='Learn softmax', subject='ml', created=500., steps=[dict(slug='softmax', status='todo')]))
+    q = dict(id='q95bd0fc81', concept='softmax', name='Softmax', statement='', subject='ml', floor=0, depth=2, kind='recall', why='', session='s9',
+             question='Why do the softmax weights add to 1?', answer='It divides each weight by the sum.', rubric=['divides by the sum'], method='words',
+             hints=[], tries=[], turns=[dict(who='tutor', kind='question', text='Why do the softmax weights add to 1?')], at=2000.)
+    lr.log_session('s9', 'The open session.', journey='old-q', start=2000., updated=2100., log=[], open=q)
+    assert lr.open_q(q['id']) is None   # the shelf does not have it
+    cl = mk(); wait_for(lambda: migrated(lr))
+    lr.walk_step('old-q', 0, check=dict(way='words', kind='short', depth=2))   # a short check: the step opens no demo
+    def boom(p, sp): raise AssertionError('the check asked the model')
+    fake.rules.clear(); fake.dflt = boom
+    t = cl.get('/w/old-q/0/check').text
+    assert lr.journey('old-q').steps[0]['qid'] == q['id'] and 'Why do the softmax weights add to 1?' in t and 'could not write the check' not in t

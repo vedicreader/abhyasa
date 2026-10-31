@@ -745,14 +745,22 @@ def _with_runs(j, ss) -> AttrDict:
     return AttrDict(j, sitting=o.id if o else None, started=min(starts) if starts else j.get('created') or time.time(),
                     here=dict(step=slugs.index(k), at=max(map(_sat, ss))) if k in slugs else None)
 
+def _keep_open(lr:Learning, ss):
+    """Put the open question of the newest open session in `ss` on the shelf, with its id and its text, so the step of the walk shows it.
+    An old session kept the only copy in its `open` field. A learner copy with no answer key cannot be graded, so it stays off."""
+    import abhyasa.tutor   # adds Learning.put_open_q; the tutor imports this module, so the import is here
+    q = (first(s for s in ss if is_open(s)) or {}).get('open') or {}
+    if q.get('id') and 'answer' in q and lr.open_q(q['id']) is None: lr.put_open_q(q)
+
 def walk_path(lr:Learning, j) -> AttrDict:
     """Path `j` (an old walk with no `mode`) as a topic walk with the same id, one time, with the progress of its sessions (`_with_runs`).
     A walk stays as it is. No step is searched now: `step_read` finds the passage of a step when its idea opens."""
     with _jlock(j['id']):
         j = lr.journey(j['id']) or j
         if j.get('mode') == 'walk': return j
-        w = _topic_walk(lr, AttrDict(j), find=False)
-        return lr.put_journey(_with_runs(w, lr.sessions(1000, journey=w.id)))
+        w, ss = _topic_walk(lr, AttrDict(j), find=False), lr.sessions(1000, journey=j['id'])
+        _keep_open(lr, ss)
+        return lr.put_journey(_with_runs(w, ss))
 
 def walk_paths(lr:Learning) -> list:
     "Make each old path a topic walk (`walk_path`). The ids of the walks that changed."
