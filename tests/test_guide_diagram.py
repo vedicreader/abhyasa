@@ -106,3 +106,18 @@ def test_a_sketch_on_a_part_that_is_not_a_figure_is_dropped(browser):
     pg.evaluate(PLAY, [dict(say='A curve.', strokes=[dict(op='sketch', at='figure', pts=pts)])])
     pg.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done')
     assert pg.evaluate("[...document.querySelectorAll('#board-layer g[data-op=sketch] path')].some(p => (p.getAttribute('d') || '').length > 20)")
+
+def test_a_card_never_goes_under_the_strip(browser):
+    """A short window where the only free place beside the text is low: the card does not go there, under the strip of the board
+    (the strip is over the page). It goes under the step line in the strip, or above the strip."""
+    pg = browser(1440, 650)
+    pg.evaluate("""() => { const a = document.querySelector('[data-guide-id=passage]').getBoundingClientRect(), b = document.createElement('div');
+                          b.textContent = 'Text that the card may not cover.';
+                          Object.assign(b.style, {position: 'absolute', left: '0', top: '0', width: '100%', height: (a.top + scrollY + 400) + 'px', zIndex: '-1'});
+                          document.body.append(b); }""")
+    pg.evaluate(PLAY, [dict(say='Three parts.', strokes=[dict(op='diagram', nodes=[dict(id='a', text='input'), dict(id='b', text='model'), dict(id='c', text='output')],
+                                                               edges=[{'from': 'a', 'to': 'b'}, {'from': 'b', 'to': 'c'}], layout='row', at='passage')])])
+    pg.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done')
+    got = pg.evaluate("""() => { const c = document.querySelector('.board-diagram'), s = document.getElementById('guide-strip');
+                                 return {where: c.parentElement.id || c.parentElement.className, bottom: c.getBoundingClientRect().bottom, strip: s.getBoundingClientRect().top}; }""")
+    assert got['where'] == 'guide-strip' or got['bottom'] <= got['strip'], got

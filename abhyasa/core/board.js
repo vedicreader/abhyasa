@@ -487,15 +487,16 @@
     const main = (document.querySelector('main') || document.body).getBoundingClientRect();   // kept, so a scroll does not move the card
     return m.home || (m.home = {x: main.left + scrollX, y: Math.max(main.top + scrollY, scrollY + 72), w: main.width, h: 0});
   }
-  function freeSpot(W, H, a, others) {   // a place beside the text near `a`, in the window width, on no text, control or other card
+  function freeSpot(W, H, a, others) {   // a place beside the text near `a`, in the window, above the strip, on no text, control or other card
     const main = (document.querySelector('main') || document.body).getBoundingClientRect(), bl = blockers();
+    const s = document.getElementById('guide-strip'), low = scrollY + innerHeight - (s && !s.hidden ? s.offsetHeight : 0) - 8;   // the strip is over the page: a card under it is lost
     const xs = [a.x + a.w + DG.margin, main.right + scrollX + DG.margin, a.x - W - DG.margin, main.left + scrollX - W - DG.margin];
     const ys = [0, 1, -1, 2, 3, 4, 6, 8, 11].map(k => a.y + k * 40);
     for (const x of xs) {
       if (x < scrollX + 8 || x + W > scrollX + innerWidth - 8) continue;
       for (const y of ys) {
         const r = {x, y, w: W, h: H};
-        if (y >= 8 && !bl.some(q => hits(r, q, DG.room)) && !others.some(q => hits(r, q, DG.room))) return r;
+        if (y >= 8 && y + H <= low && !bl.some(q => hits(r, q, DG.room)) && !others.some(q => hits(r, q, DG.room))) return r;
       }
     }
     return null;
