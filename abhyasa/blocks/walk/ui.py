@@ -108,7 +108,7 @@ def Filed(j, now=None, job=''):
 
 def Idea(j, by, s, k, i, just=False):
     "One idea in the outline, with a dot for its state. `just`: its check closed now, so the dot fills (walk.css); it is swapped out of band."
-    tag = dict(now='now', shaky='shaky', skipped='skipped', known='you know it').get(s.dot, '')
+    tag = 'known (learned elsewhere)' if s.get('elsewhere') else dict(now='now', shaky='shaky', skipped='skipped', known='you know it').get(s.dot, '')
     got = Span(' · has a source', cls='k src-ready') if (s.get('read') or {}).get('researched') or (s.get('read') or {}).get('gathered') else ''   # research found it
     return Li(A(Inline(name(by, s)), href=at(Routes.step, j['id'], k)), Span(f' · {tag}', cls='k') if tag else '', got, id=f'rail-{k}',
               cls=f"c {s.dot}" + (' on' if k == i else '') + (' just' if just else ''), **({'hx_swap_oob': 'true'} if just else {}))

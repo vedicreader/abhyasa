@@ -448,13 +448,14 @@ def _topic_read(c, sources, lr=None, doc='', roots=()) -> dict|None:
 def _topic_walk(lr:Learning, j, sources=None, tool:bool=False, refs=None, roots=(), **extra) -> AttrDict:
     """Save path `j` as a walk of its first `walks.steps` steps, in its order, with a passage and a check on each step. A step reads its `doc`
     first (`refs` maps `(root, title)` to its `{shelf, doc_id}`), then `sources` (`roots` are the sources that the goal named).
-    The other steps go in `more`, and `extra` goes on the walk."""
+    A step on a concept that you learned is `known`. The other steps go in `more`, and `extra` goes on the walk."""
     most = val('walks.steps')
     j.steps, more = j.steps[:most], [s['slug'] for s in j.steps[most:]]
     for s in j.steps:
         c = lr.concept(s['slug'])
         doc = (refs or {}).get((s.get('root'), s.get('doc'))) or s.get('doc') or ''
         s.update(read=_topic_read(c, sources, lr, doc, roots), check=_check(lr, c, tool, kind=s.get('hands') or ''), **_leela(c, tool))
+        if c and learned(c) and s.get('status', 'todo') == 'todo': s['status'] = 'known'   # an idea that you learned before: no new ask
     cap_hands(lr, j.steps, tool)
     return lr.put_journey({**j, 'mode': 'walk', 'source': None, 'started': None, 'sitting': None, 'tool': tool, 'more': more, **extra})
 
@@ -505,10 +506,18 @@ def _dot(s, now:bool) -> str:
     if s.get('status') == 'known': return 'known'
     return 'now' if now else 'todo'
 
-def walk_state(j) -> AttrDict:
-    "The steps with a `dot`, the index of the current step, the counts, and the sections as `(name, [indexes])`."
-    cur = next((i for i, s in enumerate(j['steps']) if not s.get('done') and s.get('status', 'todo') == 'todo'), None)
-    steps = [AttrDict(s, dot=_dot(s, i == cur)) for i, s in enumerate(j['steps'])]
+def _elsewhere(s, by, goal) -> bool:
+    "Whether step `s` has no outcome and is still to do, and `by` (slug -> concept) says that you learned its concept in a session or another walk."
+    c = by.get(s.get('slug')) if by else None
+    return c is not None and not s.get('done') and s.get('status', 'todo') == 'todo' and learned(c, goal)
+
+def walk_state(j, by:dict=None) -> AttrDict:
+    """The steps with a `dot`, the index of the current step, the counts, and the sections as `(name, [indexes])`. With `by` (slug -> concept),
+    a step on a concept that you learned in a session or in another walk is `known`, with `elsewhere`, and it is not the current step."""
+    goal = val('checks.goal') if by else None
+    away = [_elsewhere(s, by, goal) for s in j['steps']]
+    cur = next((i for i, s in enumerate(j['steps']) if not s.get('done') and s.get('status', 'todo') == 'todo' and not away[i]), None)
+    steps = [AttrDict(s, dot='known', elsewhere=True) if away[i] else AttrDict(s, dot=_dot(s, i == cur)) for i, s in enumerate(j['steps'])]
     secs, last, plan = [], None, not j.get('source')   # a topic or goal walk: the plan's sections, not one for each document
     for i, s in enumerate(steps):
         r = s.get('read') or {}

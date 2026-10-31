@@ -16,6 +16,7 @@ The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs,
 when it is filed: it gives the ids that it started); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`).
 `show_me(words, at)` ("show me …" in an answer box: the demo block gives the card of a demo made from `words`; `at` is the place, `{where: 'walk', concept, walk, step}` or
 `{where: 'session', qid}`; on a walk step the card swaps into the place under the title).
+`goal_walk(j)` (the walk block made walk `j` from a goal on Start: the course block joins it to the course of its goal).
 `guide_board(page, board)` (the screen guide drew `board` on the page at the path `page`, which shows a check: the walk block counts it
 as one hint on the open check of that step, and gives the line for the check).
 
