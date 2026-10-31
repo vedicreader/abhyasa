@@ -127,27 +127,9 @@ verify:
 gatekeeper:
 	spctl -a -t exec -vv $(APP)
 
-# V=<version> runs each step of an app release: the pin and the app version go to V, then lock, publish (release,
-# notarize, staple, check) and cask, then one commit in the tap and one in abhyasa, and a push of both.
-# It stops when V is empty or when abhyasa or the tap has changes that are not committed. Before it changes a file, it waits
-# up to 10 minutes for the abhyasa V wheel on PyPI's simple index (the index that uv reads), and stops if it does not come.
+# V=<version> runs each step of an app release with scripts/ship.sh: the pin and the app version go to V, then lock, publish
+# (release, notarize, staple, check) and cask, then one commit in the tap and one in abhyasa, and a push of both. It waits up to
+# 10 minutes for abhyasa V on PyPI before it changes a file. A failed step puts the files back as they were, and a second run
+# skips what is on GitHub already, so make ship V=<version> can always run again.
 ship:
-	test -n "$$V" || { echo "Give the version: make ship V=<version>" >&2; exit 1; }
-	test -z "$$(git -C .. status --porcelain)" || { echo "abhyasa has changes that are not committed" >&2; exit 1; }
-	test -z "$$(git -C "$$TAP" status --porcelain)" || { echo "$$TAP has changes that are not committed" >&2; exit 1; }
-	n=0; until curl -fsS https://pypi.org/simple/abhyasa/ | grep -q "abhyasa-$$V-py3-none-any.whl"; do \
-		n=$$((n + 1)); test $$n -le 40 || { echo "abhyasa $$V is not on PyPI after 10 minutes. Release it with nbdev-pypi, then run make ship again." >&2; exit 1; }; \
-		echo "Waiting for abhyasa $$V on PyPI ($$n of 40)"; sleep 15; done
-	python3 -c "import os,re,pathlib; p=pathlib.Path('Resources/Pin/pyproject.toml'); s=p.read_text(); f=lambda m: 'abhyasa['+','.join(x for x in m[1].split(',') if x.strip() not in ('','repos'))+']=='+os.environ['V']; t=re.sub(r'abhyasa\[([^\]]*)\]==[^\x22]+',f,s,count=1); t!=s or os.environ['V'] in s or exit('no abhyasa pin in '+str(p)); p.write_text(t)"
-	grep -n 'abhyasa\[' Resources/Pin/pyproject.toml
-	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $$V" Resources/Info.plist
-	$(MAKE) lock
-	# ZIP is exported with the name of the old version; with it unset, publish and cask make the name from the new Info.plist
-	env -u ZIP $(MAKE) publish
-	env -u ZIP $(MAKE) cask
-	git -C "$$TAP" add Casks/abhyasa.rb
-	git -C "$$TAP" commit -m "Abhyasa $$V"
-	git -C .. add mac/Resources README.md nbs/index.ipynb
-	git -C .. commit -m "Pin Abhyasa.app $$V to abhyasa $$V"
-	env -u GITHUB_TOKEN git -C "$$TAP" -c credential.helper= -c "credential.helper=!gh auth git-credential" push
-	env -u GITHUB_TOKEN git -C .. -c credential.helper= -c "credential.helper=!gh auth git-credential" push
+	MAKE="$(MAKE)" scripts/ship.sh
