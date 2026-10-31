@@ -84,7 +84,7 @@ add('checks.tries', 'checks', 'Tries', 'How many answers you can give before the
 add('checks.sources', 'checks', 'Use my sources', 'The tutor makes its questions from what you read and wrote.', True)
 add('checks.one_ask', 'checks', 'One ask per question', 'When a question asks two things, the tutor writes it again with one ask.', True, more=True)
 add('checks.near', 'checks', 'Shaky pass', 'A grade at or above this number is solid. A pass below it is shaky, and it comes back sooner.', 7, 5, 9, more=True)
-add('checks.goal', 'checks', 'Learned depth', 'The depth at which an idea counts as learned. 2 is recall, 3 is explain, 4 is apply and 5 is transfer.', 4, 2, 5, more=True)
+add('checks.goal', 'checks', 'Learned level', 'The level at which an idea counts as learned. 2 is recall, 3 is explain, 4 is apply and 5 is transfer.', 4, 2, 5, more=True)
 add('checks.high', 'checks', 'Sure confidence', 'At or above this confidence, you are sure. A sure answer that is wrong counts as a misconception.', 60, 40, 90, more=True, unit='%')
 add('checks.hints', 'checks', 'Hints before a pass is shaky', 'With this many hints, a right answer counts as shaky.', 2, 1, 4, more=True)
 add('checks.demo_misses', 'checks', 'Misses before a demo', 'After this many misses on an idea, the tutor makes a demo for it.', 2, 1, 5, more=True)
@@ -110,7 +110,7 @@ add('links.read', 'links', 'Characters read for each page', 'The most characters
 
 # %% ../nbs/16_settings.ipynb #rs02
 add('research.on', 'research', 'Find sources on the web', 'For an idea with no source, the tutor searches the web and quotes a page. The search engine gets your topic.', True)
-add('research.per_walk', 'research', 'Ideas to research in a walk', 'The most ideas of one new walk that get a web source. 0 means none.', 12, 0, 30)
+add('research.per_walk', 'research', 'Ideas with a web source in a walk', 'The most ideas of one new walk that get a web source. 0 means none.', 12, 0, 30)
 add('research.results', 'research', 'Search results to read', 'How many search results the tutor looks at for one idea. It reads the best 3 pages.', 5, 3, 10, more=True)
 add('research.wait', 'research', 'Wait for sources in a talk', 'How long a new talk waits for web sources when its walk has none. Then it uses the tutor\'s words, and research goes on.', 90, 10, 600, more=True, unit='s')
 add('research.retry', 'research', 'Look again after', 'An idea that waits longer than this for a web source gets a new search. A restart can stop a search.', 10, 1, 120, more=True, unit='min')
@@ -143,8 +143,8 @@ add('voice.out_speed', 'voice', 'Speed', 'How fast the natural voice speaks. 1 i
 
 # %% ../nbs/16_settings.ipynb #6d9f3f9f
 TASK_HELP = dict(question='Writes each question and its hidden answer.', grade='Reads your answer and grades it.', hint='Gives the next hint.',
-                 lesson='Teaches the smallest step after a miss.', extract='Finds the ideas in a text.', plan='Plans the steps toward a goal.',
-                 pick='Picks the main ideas of a long source for a walk.', note='Writes the note under the passage of a step.',
+                 lesson='Teaches the smallest step after a miss.', extract='Finds the ideas in a text.', plan='Plans the ideas of a walk to a goal.',
+                 pick='Picks the main ideas of a long source for a walk.', note='Writes the tutor note under the passage of an idea.',
                  profile='Learns about you from your answers.', exercise='Writes a code exercise and its tests.',
                  talk='Writes a choice question for a talk from a short check.',
                  guide='Explains a part of the page when you ask the screen guide.',

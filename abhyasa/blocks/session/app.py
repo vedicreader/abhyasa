@@ -204,7 +204,7 @@ def connect(app, ctx):
         "End the session, and show what moved and what comes next."
         if (f := pre.pop(sid, None)): f.cancel()
         s = get(sid)
-        if not s: return Page('Session', H1('No such session'), P('It is not on the shelf.', cls='mute'), on='Learn', crumbs=[('Today', '/')])
+        if not s: return Page('Session', H1('No such session'), P('It is not in your vault.', cls='mute'), on='Learn', crumbs=[('Today', '/')])
         if not s.ended: s.end()
         sessions.pop(sid, None)
         for q in shown.pop(sid, ()): tl.pop(q.id, None); outcomes.pop(q.id, None)   # get() builds them again from the shelf

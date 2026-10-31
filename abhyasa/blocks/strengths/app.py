@@ -58,7 +58,7 @@ def connect(app, ctx):
         if not c.get('seen') and not c.get('gaps'): return None
         u, by = understanding(c), {x.slug: x for x in lr.concepts()}
         gaps = [by[g] for g in c.get('gaps') or () if g in by]
-        return Section(H3('How well you know it'), P(f"{ui.STATES[u.state].capitalize()}. " + ('; '.join(u.reasons) + '.' if u.reasons else ''), cls='mute'),
+        return Section(H3('How well you know it'), P(ui.STATES[u.state].capitalize() + (f": {'; '.join(u.reasons)}." if u.reasons else '.'), cls='mute'),
                        P('Gaps you named: ', *[A(g.name, href=f'/c/{g.slug}') for g in gaps], cls='mute gaps') if gaps else '',
                        P(t, cls='mute') if (t := methods_text(lr.stats(), c.get('subject', ''))) else '', cls='known')
 

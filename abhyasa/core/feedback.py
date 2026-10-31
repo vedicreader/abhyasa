@@ -48,7 +48,7 @@ def serve_feedback(app, learning):
             return Response('Choose Too simple, Just right or Not clear.', status_code=400)
         if len(note) > most: return Response(f'Write at most {most} characters.', status_code=413)
         try: learning.give_feedback(on, verdict, note, slug=slug, aid=aid, way=way)
-        except KeyError: return Response('This demo or lesson is not on the shelf.', status_code=404)
+        except KeyError: return Response('This demo or lesson is not in your vault.', status_code=404)
         except ValueError: return Response('Choose Too simple, Just right or Not clear.', status_code=400)
         return FeedbackSaid(verdict)
     app.post(FEEDBACK_URL)(post)

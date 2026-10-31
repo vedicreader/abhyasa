@@ -11,7 +11,7 @@ from .cfg import Routes
 _P = Path(__file__).parent
 OUTCOME = {k: OUTCOMES[k][0] for k in ('solid', 'fragile', 'misconception', 'gap')}
 WORDS = {1: 'One more try', 2: 'Two more tries'}
-GRADING, HINTING, TEACHING, NEXT = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'Thinking of the next question…'
+GRADING, HINTING, TEACHING, NEXT = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'The tutor writes the next question…'
 OPT_KEYS = '1234'   # no ⌥: the cursor is on an option, not in a box (session.js)
 
 def assets(): return asset_css(_P/'session.css'), asset_js(_P/'session.js')
@@ -146,7 +146,7 @@ def Composer(sid, q=None, ready=None, oob=False):
     if q is None:   # closed, or the first question is not written yet
         nxt = Primary('Next', id='send', hx_post=at(Routes.next), hx_target='#chat', hx_swap='innerHTML',
                       data_wait=NEXT, data_skel='#chat', focus=True) if ready is not None else ''
-        return Div(Div(Ready(sid, ready) if ready is not None else Span('Writing the first question', cls='ready mute wait'),
+        return Div(Div(Ready(sid, ready) if ready is not None else Span('The tutor writes the first question', cls='ready mute wait'),
                        A('End session', href=at(Routes.end), cls='btn quiet'), nxt, cls='row bar'), **kw)
     tl = dict(hx_target=f'#{tl_id(q)}', hx_swap='beforeend', data_skel=f'#{tl_id(q)}')
     tried, out = bool(q.get('tries')), Out(sid, q)
@@ -171,7 +171,7 @@ def Out(sid, q, oob=False):
 def Ready(sid, ready):
     "Whether the next question is written yet; it asks again each second, out of the progress bar."
     if ready: return Span('The next question is ready.', cls='ready mute', id='ready')
-    return Span('Writing the next question', cls='ready mute wait', id='ready', data_quiet='1',
+    return Span('The tutor writes the next question', cls='ready mute wait', id='ready', data_quiet='1',
                 hx_get=Routes.at(Routes.ready, sid), hx_trigger='load delay:1s', hx_swap='outerHTML')
 
 def Done():
