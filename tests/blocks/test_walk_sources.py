@@ -82,4 +82,4 @@ def test_add_a_source_picks_several_folders(mk, lr, walk_fake, home, monkeypatch
     jid = walk(cl, home).split('/')[-1]
     cl.post('/learn/walk-source', data=dict(jid=jid, pick='1'))
     j = until(lambda: (x := lr.journey(jid)) and len(x['chips']) == 3 and not x.get('filing') and x)
-    assert j['chips'][1:] == [f'folder:{home/"more"}', f'folder:{o}']
+    assert set(j['chips'][1:]) == {f'folder:{home/"more"}', f'folder:{o}'}   # each folder files on its own job, so they join in either order
