@@ -7,7 +7,7 @@ from fastcore.utils import first, AttrDict
 from abhyasa.store import temp_learning
 from abhyasa.llm import Fake
 from abhyasa.tutor import Tutor
-from abhyasa.settings import SETTINGS, val, set_val
+from abhyasa.settings import val, set_val
 from abhyasa.method import posterior
 from abhyasa.demo import (VERDICTS, NOTE_MAX, CONFUSES_MAX, SIMPLER_AIM, clean_note, last_feedback, feedback_line, make_demo, lesson_way, rung)
 import abhyasa.demo as demo_mod

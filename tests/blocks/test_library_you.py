@@ -1,11 +1,8 @@
 "Library and You: the Sources list of your documents, Your strengths on Your learning, and the empty lines of the four pages."
 import time
-from starlette.testclient import TestClient
 from bs4 import BeautifulSoup
 from talk_data import *
 from test_tabs import current_tab
-from abhyasa.app import mk_app
-from abhyasa.store import temp_learning
 
 def seen_concepts(lr):
     "Two misses on ranking: a weak spot."

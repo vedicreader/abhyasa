@@ -1,8 +1,7 @@
-"One word, walk: no page says journey, the old `/j/` routes still work, and each walk has a kind."
+"The old `/j/` routes still work, and each walk has a kind."
 import re
 from html import unescape
 
-PAGES = ('/', '/journeys', '/learning', '/keys', '/settings', '/add', '/concepts')
 PLAN = dict(title='How LLMs work', subject='ml', steps=[
     dict(name='Tokenizers', statement='A tokenizer cuts text into tokens.', slug='', why='The model reads tokens.', needs=[]),
     dict(name='Attention', statement='Weights from query-key dot products.', slug='', why='The core of a transformer.', needs=['Tokenizers'])])
