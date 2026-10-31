@@ -107,10 +107,9 @@ def test_walk_end_shows_what_you_made(mk, lr, walk_fake):
     cl = mk(); jid = nb_step(cl, lr)
     file_check(lr, jid, 1); file_run(lr, jid, 1, n=3)
     cl.post(f'/w/{jid}/0/next')
-    r = cl.get(f'/w/{jid}', follow_redirects=False)
-    assert r.headers.get('location', r.headers.get('hx-redirect')) == f'/w/{jid}/2'   # Leela's check moved the walk on, past idea 2
+    assert 'Continue: idea 3 of 3' in cl.get(f'/w/{jid}').text   # Leela's check moved the walk on, past idea 2
     cl.post(f'/w/{jid}/2/next')
-    page = cl.get(f'/w/{jid}/2/done').text
+    page = cl.get(f'/w/{jid}').text
     assert 'What you made' in page and f'src="/w/{jid}/1/result/2.png"' in page and 'Idea 2' in page
     assert 'Leela never changes the walk.' in page and 'abhyasa wrote this from Leela' in page
     assert 'Vālmīki asks Nārada' in page and 'Attention Is All You Need' in page   # the caption, and the source line of the passage

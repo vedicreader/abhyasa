@@ -271,7 +271,7 @@ def test_new_walk_errors_are_plain_messages(mk, walk_fake, lr):
 def test_today_journeys_concept_and_review_links(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     assert f'href="/w/{jid}"' in cl.get('/').text and '0 of 3 ideas' in cl.get('/').text   # the journey row: one way to continue
-    assert f'href="/w/{jid}"' in cl.get(f'/j/{jid}').text
+    assert cl.get(f'/j/{jid}', follow_redirects=False).headers['location'] == f'/w/{jid}'   # an old link goes to the walk page
     assert 'apply a softmax function' in cl.get('/c/softmax').text and f'/w/{jid}/1' in cl.get('/c/softmax').text
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
     cl.get(f'/w/{jid}/1/check'); cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position'))

@@ -216,3 +216,10 @@ main:has(#steps) { padding-bottom: calc(44px + 2 * var(--s5)); }
 .outline .rail-acts { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); }
 .outline .rail-acts :is(.btn, button) { padding-left: 0; padding-right: 0; font-size: var(--t-small); }
 .show-row #show-demo { padding-left: 0; }   /* Show me (the demo block) lines up with the research line and the passage */
+
+/* the walk page: the title of the walk at the top of the outline, where you are, the sources and the quiet talks line */
+.outline .rail-title { margin: 0 0 var(--s2); font: var(--t-body)/1.3 var(--head); }
+.outline .rail-title a { color: var(--fg); text-decoration: none; } .outline .rail-title a:hover { text-decoration: underline; }
+.walk-here { margin-top: var(--s4); }
+.walk-sources, .walk-plan, .walk-result { margin-top: var(--s6); }
+.walk-talks { margin-top: var(--s6); font-size: var(--t-small); }

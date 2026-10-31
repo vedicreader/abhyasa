@@ -50,15 +50,15 @@ def finish(cl, lr, jid, sides=False):
         sid = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url'].split('/')[2]
         cl.get(f'/w/{sid}/0/check'); cl.post(f'/w/{sid}/0/answer', data=dict(answer='the rank is a position', confidence=90))
         cl.post(f'/rh/back/{sid}')
-    cl.post(f'/w/{jid}/2/next')
-    return cl.get(f'/w/{jid}/2/done').text
+    assert cl.post(f'/w/{jid}/2/next', follow_redirects=False).headers['location'] == f'/w/{jid}'   # the end of the walk is on its page
+    return cl.get(f'/w/{jid}').text
 
 def test_the_end_of_a_walk_is_calm(mk, walk_fake, lr):
-    "The last page says You finished the walk, has one dot for each idea, sums up the whole walk, and goes back to Today."
+    "The walk page of a finished walk says You finished the walk, has one dot for each idea, sums up the whole walk, and offers a review as its one main button."
     walk_fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')
     cl = mk(); jid = walk(cl, lr)
     t = finish(cl, lr, jid, sides=True)
-    assert '<h1>You finished the walk</h1>' in t and 'Section done' not in t and 'You did no checks' not in t
+    assert '<h2>You finished the walk.</h2>' in t and 'Section done' not in t and 'Start the walk' not in t and 'You did no checks' not in t
     dots = re.findall(r'<i class="d (\w+)"', t)
     assert dots == ['skipped', 'done', 'skipped'], dots
     assert '3 ideas from Attention Is All You Need. 1 solid, 2 skipped.' in t
@@ -66,7 +66,7 @@ def test_the_end_of_a_walk_is_calm(mk, walk_fake, lr):
     assert 'You also learned Derivatives and gradients on the way.' in t
     assert re.search(r'The first review is (today|tomorrow|in \d+ days)\.', t)
     gos = re.findall(r'class="btn go"[^>]*>(.*?)</a>', t)
-    assert gos == ['Back to Today <kbd>⌥S</kbd>'] and re.search(r'href="/graph"[^>]*>See the graph</a>', t) and 'Back to your walks' not in t
+    assert gos == ['Review this walk <kbd>⌥S</kbd>'] and 'Back to Today' not in t   # each check was solid or skipped: no weak idea
     assert 'Well walked' not in t                                                     # the H1 closes the page: no closing line
 
 # F8: side walks, ways and tries

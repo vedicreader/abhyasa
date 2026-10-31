@@ -219,7 +219,7 @@ def connect(app, ctx):
 
     def status():
         "For the Mac app: the walks whose research runs now, and the walks whose research ended in the last 6 hours, each with its title, its link and the time of its end."
-        def row(j): return dict(id=j['id'], title=j.get('title') or 'Walk', url=ui.sources_url(j['id']), end=j.get('research_end'), have=(s := research_state(j)).have, total=s.total)
+        def row(j): return dict(id=j['id'], title=j.get('title') or 'Walk', url=ui.walk_url(j['id'], 'sources'), end=j.get('research_end'), have=(s := research_state(j)).have, total=s.total)
         js = [j for jid in list(ctx.research.jobs) if (j := lr.journey(jid)) and not for_talk(j)]
         return JSONResponse(dict(running=[row(j) for j in js if ctx.research.running(j['id'])],
                                  ended=[row(j) for j in js if not ctx.research.running(j['id']) and (j.get('research_end') or 0) > time.time() - 6 * 3600]))
@@ -485,16 +485,34 @@ def connect(app, ctx):
         if ref: ctx.pool.submit(retitle, j.id)   # a vault PDF with an arXiv id for a name: the title of the paper comes after the page
         return Response(headers={'HX-Redirect': ui.at(Routes.one, j.id)})
 
+    def ended(j, b):
+        "The end of walk `j`, for its page: what moved in each sitting, the side walks, the first review, what other blocks add, and what you made in Leela."
+        back = leela_back(lr, j)
+        sid = j.get('sitting')
+        live_ = sessions.get(sid) if sid else None
+        logs = [x.get('log') or [] for x in sorted(lr.sessions(limit=None, journey=j.id), key=lambda x: x.get('start') or 0) if not (live_ and x.get('id') == sid)]
+        rows = [r for log in logs for r in log] + (live_.log if live_ else [])   # the whole walk: every sitting, in order
+        sides = [((b.get(d['slug']) or {}).get('name', d['slug']), d.get('outcome') in ('solid', 'fragile')) for st in j.steps for d in st.get('detours') or ()]
+        now, slugs = time.time(), {st['slug'] for st in j.steps if (st.get('done') or {}).get('outcome') not in (None, 'skipped')}
+        due = min((c.due for k in slugs if (c := b.get(k)) and c.get('due') and c.due > now), default=None)
+        k = max((k for k, x in back.items() if x.run and x.run.get('images')), default=None)   # the last step with images: what you made
+        return ui.WalkEnd(j, walk_state(j, b), moved(rows), b, sides, due, run_hook('walk_end', j), made=ui.WhatYouMade(j, k, back[k]) if k is not None else '')
+
     def one(jid:str, plan:str=''):
-        "The plan before the start; then the current step. `?plan=1` shows the plan and the line of research also after the start."
+        "The walk page, in the state of the walk: new, going, finished, a side walk, or empty. `?plan=1` was the build view: it goes to the sources."
+        if plan: return RedirectResponse(ui.walk_url(jid, 'sources'), status_code=301)
         if not (j := walk_of(jid)): return missing()
         leela_back(lr, j)   # a step that Leela checked is done, so the walk goes on from the next one
-        st = walk_state(j := lr.journey(jid), by())   # an idea learned elsewhere is known
-        if j.get('started') and st.current is not None and not plan: return go(jid, st.current)
+        j, b = lr.journey(jid), by()
+        st = walk_state(j, b)   # an idea learned elsewhere is known
         seen(j)
-        h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j, quiet=True), vault=vault)   # Start is the main button; Present is quiet
-        band_ = band(j, plan=True)
-        return Page(j.title, h1, ui.Filed(j), band_, *rest, *run_hook('walk_plan_more', j), on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
+        ph = ui.phase(j, st)
+        top = ended(j, b) if ph == 'finished' else Div(ui.SideTop(j, st, back_to(j)), *(run_hook('walk_end', j) if st.current is None else ())) if ph == 'side' else None   # a side walk that ends says what you learned on the way
+        ts = talks_of(jid)
+        plan_ = Section(ui.Plan(j, st, b), P(A('Change the walk', href=ui.at(Routes.edit, jid)), cls='change-walk'), data_part='plan') if j.steps else ''
+        page = ui.WalkPage(j, st, b, plan_, band(j, plan=True), top=top, more=run_hook('walk_plan_more', j), talks=ts,
+                           changed={t['id'] for t in ts if any(walk_changes(lr, t).values())}, actions=run_hook('walk_actions', j, quiet=True), vault=vault)
+        return Page(j.title, *page, on='Learn', crumbs=up, extra=ui.assets())
 
     def plan(jid:str, i:int, act:str, way:str=''):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
@@ -798,31 +816,19 @@ def connect(app, ctx):
         ends = any(ix[-1] == i for _, ix in st.sections)
         if ends and (sid := j.get('sitting')) and (s := sessions.pop(sid, None) or Session.load(tutor, sid)) and not s.ended:
             s.end()   # the section ends here, on the POST, not on the GET of its summary
+        last = i + 1 >= len(j.steps)
         # a plain 303, not HX-Redirect: htmx follows it and swaps the page in place, so the next idea comes in with a view transition
-        return RedirectResponse(ui.at(Routes.done, jid, i) if ends else ui.at(Routes.step, jid, i + 1), status_code=303)
+        return RedirectResponse(ui.at(Routes.one, jid) if last else ui.at(Routes.done, jid, i) if ends else ui.at(Routes.step, jid, i + 1), status_code=303)
 
     def done(jid:str, i:int):
-        "The summary of the section of step `i`. It changes nothing: Next idea ended the sitting, and the next step opens a new one."
+        "The summary of the section of step `i`. It changes nothing: Next idea ended the sitting, and the next step opens a new one. After the last idea, the walk page has the end."
         if not (j := walk_of(jid, i)): return missing()
-        back = leela_back(lr, j)
-        j = lr.journey(jid)
         sec, ix = next((sec, ix) for sec, ix in walk_state(j).sections if i in ix)
+        if ix[-1] + 1 >= len(j.steps): return RedirectResponse(ui.at(Routes.one, jid), status_code=303)
         slugs = {j.steps[k]['slug'] for k in ix}
         s = (sessions.get(sid) or Session.load(tutor, sid)) if (sid := j.get('sitting')) else None
         rows = [r for r in (s.log if s else ()) if r['concept'] in slugs]
-        nxt = ix[-1] + 1 if ix[-1] + 1 < len(j.steps) else None
-        crumbs = [*up, (j.title, ui.at(Routes.one, jid))]
-        if nxt is not None: return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), nxt, by()), on='Learn', crumbs=crumbs, extra=ui.assets())
-        b = by()
-        logs = [x.get('log') or [] for x in sorted(lr.sessions(limit=None, journey=jid), key=lambda x: x.get('start') or 0) if x.get('id') != sid]
-        rows = [r for log in logs for r in log] + (s.log if s else [])   # the whole walk: every sitting, in order
-        sides = [((b.get(d['slug']) or {}).get('name', d['slug']), d.get('outcome') in ('solid', 'fragile')) for st in j.steps for d in st.get('detours') or ()]
-        now, slugs = time.time(), {st['slug'] for st in j.steps if (st.get('done') or {}).get('outcome') not in (None, 'skipped')}
-        due = min((c.due for k in slugs if (c := b.get(k)) and c.get('due') and c.due > now), default=None)
-        k = max((k for k, x in back.items() if x.run and x.run.get('images')), default=None)   # the last step with images: what you made
-        made = ui.WhatYouMade(j, k, back[k]) if k is not None else ''
-        return Page('You finished the walk', *ui.WalkDone(j, walk_state(j), moved(rows), b, sides, due, run_hook('walk_end', j), run_hook('walk_actions', j, quiet=True), made=made),
-                    on='Learn', crumbs=crumbs, extra=ui.assets())
+        return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), ix[-1] + 1, by()), on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
 
     def img(jid:str, i:int):
         "The figure of step `i`, only from inside the vault assets and only as an image file."

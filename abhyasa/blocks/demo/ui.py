@@ -53,12 +53,12 @@ def ShowMe(at, label='Show me ', key=True):
     "The button Show me (⌥E): a demo made from the open check, or from the idea. `at` names the place: `where`, and `concept`, `walk` and `step`, or `qid`."
     vals = json.dumps({k: str(v) for k, v in at.items() if v not in (None, '')})
     tgt = dict(hx_target=f"#tl-{at['qid']}", hx_swap='beforeend') if at.get('where') == 'session' else dict(hx_target='#show-slot', hx_swap='innerHTML')
-    return Button(label, Kbd('⌥E') if key else '', type='button', id='show-demo', cls='quiet', hx_post=Routes.ask, hx_vals=vals,
+    return Button(label, Kbd('⌥E') if key else '', type='button', id='show-demo', cls='quiet', hx_post=Routes.ask, hx_vals=vals, data_act='show-me',
                   data_wait='Making a demo…', title='A demo of this idea, made from the open check. You can also type "show me …" in the answer box.', **tgt)
 
 def StepShow(at):
     "The walk step: Show me under the title, and the place where its demo comes."
-    return Div(ShowMe(at), Div(id='show-slot', cls='demo-slot show-slot'), asset_js(_P/'demo.js'), cls='row show-row')
+    return Div(ShowMe(at), Div(id='show-slot', cls='demo-slot show-slot', data_part='show'), asset_js(_P/'demo.js'), cls='row show-row')
 
 def SessionShow(qid):
     "The session: Show me in the composer of question `qid`. Its demo comes as a tutor message in the thread."

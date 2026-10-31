@@ -276,14 +276,13 @@ def connect(app, ctx):
 
     @hook('walk_plan_more')
     def more_sources(j):
-        "Add a source, under the plan of a goal walk: the same parts as the Start box. abhyasa files each source on its own job."
-        if not (j.get('goal') or j.get('chips')): return None
+        "Add a source, in the sources of each walk: the same parts as the Start box. abhyasa files each source on its own job."
         return Div(H2('Add a source'), P(MORE, cls='mute'),
                    Form(Input(type='hidden', name='jid', value=j.id),
                         Input(type='text', name='q', id='walk-src-q', placeholder='Add a folder, a repo or a link', aria_label='Add a folder, a repo or a link', autocomplete='off'),
                         Button('Add', cls='quiet small', id='walk-src-go'),
                         Button(PICK, type='submit', name='pick', value='1', cls='quiet small', id='walk-src-pick') if can_pick() else '',
-                        hx_post=Routes.walk_source, hx_target='#walk-src-out', hx_swap='outerHTML', cls='addf', id='walk-src-form'),
+                        hx_post=Routes.walk_source, hx_target='#walk-src-out', hx_swap='outerHTML', cls='addf', id='walk-src-form', data_act='add-source'),
                    Filing(j), asset_css(_P/'add.css'), cls='walk-src')
 
     async def walk_source(req, jid:str, q:str='', pick:str=''):

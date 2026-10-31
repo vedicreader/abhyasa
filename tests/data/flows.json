@@ -443,9 +443,7 @@
             "start",
             "edit plan",
             "add-source"
-          ],
-          "pending": true,
-          "pending_why": "step 3: one walk page"
+          ]
         },
         "researching": {
           "when": "walk.jobs.research.state == running",
@@ -463,9 +461,7 @@
             "stop",
             "show-log",
             "start or continue"
-          ],
-          "pending": true,
-          "pending_why": "step 3: one walk page"
+          ]
         },
         "research_ended": {
           "when": "walk.jobs.research.state in done|stopped|closed",
@@ -479,10 +475,9 @@
           ],
           "actions": [
             "find-again",
-            "add-source"
-          ],
-          "pending": true,
-          "pending_why": "step 3: one walk page"
+            "add-source",
+            "start or continue"
+          ]
         },
         "going": {
           "when": "walk.started and walk.current is not None",
@@ -502,9 +497,7 @@
             "edit plan",
             "find-again",
             "add-source"
-          ],
-          "pending": true,
-          "pending_why": "step 3: one walk page"
+          ]
         },
         "finished": {
           "when": "walk.started and walk.current is None and steps not empty",
@@ -527,7 +520,7 @@
             "open course when walk.course"
           ],
           "pending": true,
-          "pending_why": "step 3: one walk page"
+          "pending_why": "step 5: Improve the walk"
         },
         "side_walk": {
           "when": "walk.parent is set",
@@ -541,9 +534,7 @@
           "actions": [
             "back",
             "continue"
-          ],
-          "pending": true,
-          "pending_why": "step 3: one walk page"
+          ]
         },
         "empty": {
           "when": "steps empty",
@@ -556,9 +547,7 @@
           ],
           "actions": [
             "home"
-          ],
-          "pending": true,
-          "pending_why": "step 3: one walk page"
+          ]
         }
       },
       "entries": [
@@ -617,9 +606,7 @@
             "explain",
             "learn-it (side walk)",
             "next"
-          ],
-          "pending": true,
-          "pending_why": "step 3: data-part on the idea page"
+          ]
         },
         "waiting_source": {
           "when": "not steps[i].read.text and steps[i].research == pending",
@@ -667,9 +654,7 @@
             "next",
             "show-me",
             "review"
-          ],
-          "pending": true,
-          "pending_why": "step 3: data-part on the idea page"
+          ]
         },
         "known_elsewhere": {
           "when": "walk_state(j, by).steps[i].elsewhere",
@@ -742,7 +727,8 @@
       "exits": [
         "idea (next, back, a side walk)",
         "walk",
-        "course"
+        "course",
+        "doc (the source line of the passage)"
       ]
     },
     "concept": {
@@ -1248,9 +1234,7 @@
           "state_change": "walk.jobs.research"
         }
       ],
-      "background": "research runs on its own pool; walk.jobs.research is the one state that the walk page, the idea outline, the activity chip and the Mac read.",
-      "pending": true,
-      "pending_why": "no driver yet"
+      "background": "research runs on its own pool; walk.jobs.research is the one state that the walk page, the idea outline, the activity chip and the Mac read."
     },
     "add_source": {
       "goal": "Add a folder, a repo or a link to a walk or a course that exists.",
@@ -1302,9 +1286,7 @@
           "state_change": "session made"
         }
       ],
-      "background": "reviews are due later; Home says so.",
-      "pending": true,
-      "pending_why": "no driver yet"
+      "background": "reviews are due later; Home says so."
     },
     "review_due": {
       "goal": "Keep what you learned.",

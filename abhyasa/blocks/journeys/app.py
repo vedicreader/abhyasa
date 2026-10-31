@@ -50,7 +50,7 @@ def connect(app, ctx):
     def one(jid:str):
         j = lr.journey(jid)
         if not j: return Page('Walk', H1('No such walk'), P(A('All walks', href=Routes.learn)), on='Learn', crumbs=up)
-        if j.get('mode') == 'walk' and not for_talk(j): return RedirectResponse(Routes.of(Routes.walk_edit, jid=jid), status_code=303)   # a walk has its own editor
+        if j.get('mode') == 'walk' and not for_talk(j): return RedirectResponse(Routes.of(Routes.walk, jid=jid), status_code=301)   # a walk has its own page
         pg = state(j)
         return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')], run('walk_actions', j)), on='Learn', crumbs=up, extra=ui.assets())
 
@@ -79,7 +79,9 @@ def connect(app, ctx):
 
     def old(jid:str, req):
         "An old link to `/j/{jid}`, from a page, Leela or a vault document: go to the path, with the same query."
-        return RedirectResponse(Routes.of(Routes.path, jid=jid) + (f'?{q}' if (q := req.url.query) else ''), status_code=303)
+        j = lr.journey(jid)
+        to = Routes.of(Routes.walk if j and j.get('mode') == 'walk' else Routes.path, jid=jid)
+        return RedirectResponse(to + (f'?{q}' if (q := req.url.query) else ''), status_code=301 if j and j.get('mode') == 'walk' else 303)
 
     def attach(jid:str, slug:str, src:str=''):
         "Add a concept to a walk: from a concept page (a note), or from the path page (the path again)."

@@ -5,6 +5,9 @@ from urllib.parse import urlsplit
 import lxml.html
 from fastcore.basics import AttrDict
 from starlette.routing import Match
+from abhyasa.journey import walk_from_topic
+from abhyasa.llm import Fake
+from walk_data import walk
 
 SPEC = json.loads((Path(__file__).parent/'data'/'flows.json').read_text())
 
@@ -129,7 +132,69 @@ def b_reviews_due(lr, cl, mp):
     due(lr, 'ranking', 'reciprocal-rank-fusion')
     return '/', dict(n=2)
 
-BUILD = {('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due}
+PLAN = dict(title='Softmax and attention', subject='ml', steps=[dict(name=n, statement=f'{n} is one idea.', slug='', why='The goal.', needs=[], ways=['words'])
+                                                                for n in ('Softmax', 'Attention', 'Keys')])
+
+def paper(lr, cl):
+    "A walk of three ideas from the attention paper, made through the app, each with its passage."
+    return walk(cl, lr)
+
+def topic(lr, **kv):
+    "A topic walk of three ideas that research looks at: the first has a source, the second has none, the third waits."
+    j = walk_from_topic(lr, Fake({'You plan a learning path': PLAN}), 'learn softmax and attention')
+    now = time.time()
+    lr.walk_step(j.id, 0, research='found', research_at=now - 40, read=dict(text='Softmax turns scores into weights.', researched=True, src='web', url='https://example.org/s'))
+    lr.walk_step(j.id, 1, research='none', research_at=now - 20)
+    lr.walk_step(j.id, 2, research='pending', research_at=now - 60)
+    return lr.merge_journey(j.id, research_start=now - 60, research_beat=now - 12, gather=[dict(tool='web_search', target='softmax', at=now - 30, outcome='read')], **kv).id
+
+def running(cl, mp, on=True):
+    "Make the research of each walk look as if it runs now (until job rows exist)."
+    mp.setattr(cl.app.state.svc['research'], 'running', lambda jid, but=0: on)
+
+def started(cl, jid):
+    assert cl.post(f'/w/{jid}/start', follow_redirects=False).status_code == 303
+    return jid
+
+def b_walk_new(lr, cl, mp): return f'/w/{paper(lr, cl)}', {}
+
+def b_walk_going(lr, cl, mp):
+    jid = started(cl, paper(lr, cl)); done(lr, jid, 0)
+    return f'/w/{jid}', dict(n=2, total=3)
+
+def b_walk_researching(lr, cl, mp):
+    jid = topic(lr); running(cl, mp)
+    return f'/w/{jid}', dict(have=1, total=3)
+
+def b_walk_research_ended(lr, cl, mp):
+    jid = topic(lr, research_end=time.time())
+    return f'/w/{jid}', {}
+
+def b_walk_finished(lr, cl, mp):
+    jid = started(cl, paper(lr, cl)); done(lr, jid, 0, 2); done(lr, jid, 1, outcome='fragile')
+    return f'/w/{jid}', {}
+
+def b_walk_side(lr, cl, mp):
+    jid = paper(lr, cl)
+    lr.put_journey(dict(id='side', title='Softmax first', mode='walk', parent=dict(walk=jid, step=1, slug='softmax'), depth=1, slug='ranking',
+                        steps=[dict(slug='ranking', status='todo', check=dict(STEP))]))
+    return '/w/side', {}
+
+def b_walk_empty(lr, cl, mp):
+    lr.put_journey(dict(id='none', title='An empty source', mode='walk', steps=[]))
+    return '/w/none', {}
+
+def b_idea_reading(lr, cl, mp):
+    jid = started(cl, paper(lr, cl)); lr.walk_step(jid, 1, check=dict(STEP))   # a short check: the code check goes (step 7)
+    return f'/w/{jid}/1', {}
+
+def b_idea_done(lr, cl, mp):
+    jid = started(cl, paper(lr, cl)); done(lr, jid, 1)
+    return f'/w/{jid}/1', {}
+
+BUILD = {('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due,
+         ('walk', 'new'): b_walk_new, ('walk', 'going'): b_walk_going, ('walk', 'researching'): b_walk_researching, ('walk', 'research_ended'): b_walk_research_ended,
+         ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty}
 
 # --- the drivers of the workflows ------------------------------------------------------------------------------------
 
@@ -142,4 +207,23 @@ def d_continue(lr, cl, mp):
     assert route_of(a.get('href')) == 'idea'
     page(cl, a.get('href'))
 
-DRIVE = {'continue': d_continue}
+def d_find_sources(lr, cl, mp):
+    "From an idea, the title in the outline opens the walk page; its sources part has the research line with Stop and Show what it did."
+    jid = started(cl, topic(lr)); running(cl, mp)
+    a = page(cl, f'/w/{jid}/1').acts['walk'][0]
+    assert a.get('href') == f'/w/{jid}'
+    pg = page(cl, a.get('href'))
+    assert pg.has('part:sources') and pg.has('label:1 of 3 ideas have a source.') and pg.works('stop') and pg.works('show-log')
+    assert cl.post(f'/w/{jid}/gather/stop').status_code == 200
+
+def d_finish_walk(lr, cl, mp):
+    "Next idea on the last idea opens the walk page in its finished state; Review the weak ideas starts a review."
+    jid = started(cl, paper(lr, cl)); done(lr, jid, 0); done(lr, jid, 1, outcome='fragile')
+    r = cl.post(f'/w/{jid}/2/next', follow_redirects=False)
+    assert r.headers['location'] == f'/w/{jid}'
+    pg = page(cl, r.headers['location'])
+    assert pg.has('part:result') and pg.has('label:You finished the walk.') and not pg.has('act:start')
+    go = pg.acts['review'][0].get('href')
+    assert cl.get(go, follow_redirects=False).headers['location'].startswith('/s/')
+
+DRIVE = {'continue': d_continue, 'find_sources': d_find_sources, 'finish_walk': d_finish_walk}

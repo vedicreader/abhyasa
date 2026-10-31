@@ -194,9 +194,10 @@ def test_talk_line_links_the_talk(mk, lr, walk_fake):
     page = cl.get(f'/w/{jid}/edit').text
     assert '1 talk was made from this walk' in page and f'href="/t/{t.id}"' in page
 
-def test_old_path_page_of_a_walk_opens_the_editor(mk, lr, walk_fake):
+def test_old_path_page_of_a_walk_opens_the_walk_page(mk, lr, walk_fake):
     cl = mk(); jid = paper_walk(cl, lr)
-    assert cl.get(f'/path/{jid}', follow_redirects=False).headers['location'] == f'/w/{jid}/edit'
+    r = cl.get(f'/path/{jid}', follow_redirects=False)
+    assert r.status_code == 301 and r.headers['location'] == f'/w/{jid}'
 
 def test_research_none_line_offers_a_pick(mk, lr, walk_fake):
     cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[0]

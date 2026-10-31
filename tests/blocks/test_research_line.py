@@ -31,19 +31,19 @@ def running(cl, monkeypatch, on=True):
     return rs
 
 def test_the_line_while_research_runs(mk, lr, monkeypatch):
-    "While research runs, the plan and each step show what it reads, the sources, the time left and the last step, with Stop and the way back to the build."
+    "While research runs, the walk page and each step show what it reads, the sources, the time left and the last step, with Stop; the outline links the sources of the walk page."
     j = walk(lr); cl = mk(); running(cl, monkeypatch)
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
     assert 'Reads attention.md for idea 3. 1 of 3 ideas have a source. Less than a minute left. Last step 12 s ago.' in b
     assert 'Search words go to the web.' in b   # where the words go
-    assert '>Stop<' in b and 'every 3s' in b and f'href="/w/{j.id}?plan=1#gather"' in b
+    assert '>Stop<' in b and 'every 3s' in b and 'See the build' not in b
     cl.post(f'/w/{j.id}/start')
     step = cl.get(f'/w/{j.id}/1').text
-    assert '1 of 3 ideas have a source.' in step and 'See the build' in step and f'href="/w/{j.id}?plan=1#gather" class="see-build">Sources<' in step   # the line, and the link in the outline
+    assert '1 of 3 ideas have a source.' in step and f'href="/w/{j.id}#sources" class="see-build">Sources<' in step   # the line, and the link in the outline
     assert 'has a source' in step   # the idea with a source is marked in the outline
-    plan = cl.get(f'/w/{j.id}?plan=1').text   # the build stays in reach after the start
-    assert 'You can start now.' in plan and '1 of 3 ideas have a source.' in plan and 'looking for a source' in plan
-    assert cl.get(f'/w/{j.id}', follow_redirects=False).status_code in (302, 303)   # Continue still goes to the step
+    assert cl.get(f'/w/{j.id}?plan=1', follow_redirects=False).headers['location'] == f'/w/{j.id}#sources'   # the old build view: the sources of the walk page
+    page = cl.get(f'/w/{j.id}').text   # the walk page after the start: no jump to the step
+    assert 'You can start now.' in page and '1 of 3 ideas have a source.' in page and 'Continue: idea 1 of 3' in page and f'href="/w/{j.id}/0"' in page
 
 def test_the_heartbeat_moves(mk, lr, monkeypatch):
     "The time since the last step grows while nothing happens, and goes back down after a step."
@@ -80,10 +80,10 @@ def test_notice_on_any_page_and_the_mac_state(mk, lr, monkeypatch):
     j = walk(lr, research_end=time.time() - 5, research_seen=False); cl = mk(); rs = running(cl, monkeypatch, False)
     rs.jobs[j.id] = []   # the walk had research in this run of abhyasa
     page = cl.get('/learn').text
-    assert 'Sources for your walk' in page and 'Softmax and attention' in page and f'href="/w/{j.id}?plan=1#gather"' in page
+    assert 'Sources for your walk' in page and 'Softmax and attention' in page and f'href="/w/{j.id}#sources"' in page
     st = cl.get('/walk/research.json').json()
     assert st['running'] == [] and st['ended'][0]['id'] == j.id and st['ended'][0]['title'] == 'Softmax and attention' and (st['ended'][0]['have'], st['ended'][0]['total']) == (1, 3)
-    cl.get(f'/w/{j.id}?plan=1')   # the learner opens the walk
+    cl.get(f'/w/{j.id}')   # the learner opens the walk
     assert 'Sources for your walk' not in cl.get('/learn').text
     monkeypatch.setattr(rs, 'running', lambda jid, but=0: True)
     assert cl.get('/walk/research.json').json()['running'][0]['id'] == j.id
@@ -102,8 +102,8 @@ def test_sources_in_the_outline_before_research(mk, walk_fake, lr, monkeypatch):
     j = walk_from_topic(lr, Fake({'You plan a learning path': PLAN}), 'learn softmax and attention'); cl = mk(); rs = running(cl, monkeypatch, False)
     assert not j.get('research_start') and not j.get('gather_at')
     rail = cl.get(f'/w/{j.id}/0').text.split('id="rail"')[1].split('</aside>')[0]
-    assert f'href="/w/{j.id}?plan=1#gather"' in rail and '>Sources<' in rail
-    plan = cl.get(f'/w/{j.id}?plan=1').text
+    assert f'href="/w/{j.id}#sources"' in rail and '>Sources<' in rail
+    plan = cl.get(f'/w/{j.id}').text
     assert '0 of 3 ideas have a source. Research did not look for sources yet.' in plan and '>Find sources<' in plan.replace('</button>', '<')
     asked = []
     monkeypatch.setattr(rs, 'look_for', lambda jid, ix=None: asked.append(ix))

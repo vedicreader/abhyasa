@@ -17,7 +17,13 @@ PLANNING = 'The tutor plans the walk. This takes about half a minute…'
 def assets(): return asset_css(_P/'journeys.css'), asset_js(_P/'journeys.js')
 
 def at(r, j): return Routes.of(r, jid=j.id)
-def go(j): return Routes.of(Routes.walk, jid=j.id) if j.get('mode') == 'walk' else f"{Routes.start}?journey={j.id}"
+def go(j, pg=None):
+    "Where Continue goes: the idea to do now of a walk (or its page), or a session on a path."
+    if j.get('mode') != 'walk': return f"{Routes.start}?journey={j.id}"
+    i = (pg.current or {}).get('i') if pg is not None else None
+    return Routes.of(Routes.walk, jid=j.id) + (f'/{i}' if i is not None else '')
+
+def page_of(j): return Routes.of(Routes.walk if j.get('mode') == 'walk' else Routes.path, jid=j.id)
 
 def kind_of(j) -> str:
     "What walk `j` reads, for its pill: `path` (planned from a goal), `repo`, `paper`, `site`, `text` or `topic`."
@@ -64,11 +70,11 @@ def Row(j, pg, sides=(), lead=False, js=None):
     (`walk_actions` with `row`), and its side walks folded under it. Only the `lead` row (the current walk) has a button;
     the others have a quiet `Continue →` link."""
     word = 'Start the walk' if fresh(j, pg) else 'Continue'
-    go_on = (A(word, href=go(j), cls='btn small') if lead and pg.current else Onward(word, go(j)) if pg.current
-             else Onward('See what comes after', at(Routes.path, j)))
+    go_on = (A(word, href=go(j, pg), cls='btn small') if lead and pg.current else Onward(word, go(j, pg)) if pg.current
+             else Onward('See what comes after', page_of(j)))
     pid = paper_id(j)
     now = f"Now: {pg.current.name}" if pg.current else 'Finished'
-    head = Div(Div(A(j.title, href=at(Routes.path, j), cls='jt'), Pill(kind_of(j)), Span(pid, cls='paper-id mute') if pid else '', cls='jrow-l1'),
+    head = Div(Div(A(j.title, href=page_of(j), cls='jt'), Pill(kind_of(j)), Span(pid, cls='paper-id mute') if pid else '', cls='jrow-l1'),
                Div(Bar(pg.done, pg.total), Span(f"{pg.done} of {n_of(pg.total, 'idea')}", cls='mute'), Span(now, cls='mute now', title=now), cls='jrow-l2'),
                cls='jrow-head')
     folded = Details(Summary(n_of(len(sides), 'side walk')), Ul(*[SideWalk(*x, js=js) for x in sides], cls='plain'), cls='side-walks') if sides else ''

@@ -73,7 +73,7 @@ def test_the_step_says_it_looks_then_shows_the_source(mk, web, lr, walk_fake):
         until(lambda: web.asked)
         page = cl.get(f'/w/{jid}/0').text
         assert 'Looking for a source…' in page and f'hx-get="/w/{jid}/0/source?quiet=1"' in page and "In the tutor's words" in page
-        assert 'for idea 1. 0 of 1 idea has a source.' in page and 'See the build' in page and 'Last step' in page   # the line of research on the step
+        assert 'for idea 1. 0 of 1 idea has a source.' in page and 'Last step' in page   # the line of research on the step
         assert 'Looking for a source…' in cl.get(f'/w/{jid}/0/source').text
     finally: web.hold.set()
     until(lambda: state(lr, jid) == 'found')

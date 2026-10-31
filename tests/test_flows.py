@@ -26,7 +26,7 @@ def test_page_state(pid, sid, mk, lr, walk_fake, monkeypatch):
     for a in pg.acts: assert pg.works(a), f'{pid}/{sid}: {a} goes nowhere'
     if st['actions']:
         assert len(pg.primary) == 1, f'{pid}/{sid}: {len(pg.primary)} main buttons'
-        assert pg.primary[0].get('data-act') in [a.split()[0] for a in st['actions']], f"{pid}/{sid}: the main button is {pg.primary[0].get('data-act')}"
+        assert pg.primary[0].get('data-act') in [x.split()[0] for a in st['actions'] for x in a.split(' or ')], f"{pid}/{sid}: the main button is {pg.primary[0].get('data-act')}"
 
 @pytest.mark.parametrize('wid', SPEC['workflows'])
 def test_workflow(wid, mk, lr, walk_fake, monkeypatch):

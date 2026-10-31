@@ -76,14 +76,6 @@ def Plan(j, st, by):
                  'When an idea needs one of them, you can learn it in a side walk.', cls='mute') if n else '',
                Ol(*secs, cls='plan') if secs else P('The tutor found no ideas in this source.', cls='mute'), id='plan')
 
-def PlanPage(j, st, by, actions=(), vault=None):
-    src = j.get('source') or {}
-    go = (Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post')
-          if j['steps'] else '')
-    go = (go, A('Change the walk', href=at(Routes.edit, j['id']), cls='change-walk'))
-    return (H1(j['title']), P(f"From your vault: {src['title']}." if src.get('title') else f"From the link: {src['url']} · {n_of(len(src['docs']), 'page')}." if src.get('docs') else j.get('goal', ''), cls='mute'),
-            leela_line(j, vault=vault) if j.get('tool') else '', Plan(j, st, by), Div(go, *actions, cls='row'))
-
 def LinkPending(url, said):
     "A walk from a link that is still being made: the card asks the server again in 2 seconds."
     return Div(P(said), P('This can take some minutes. When the walk is ready, it opens here and shows in your walks.', cls='mute'),
@@ -126,10 +118,10 @@ def Rail(j, st, by, i, present=()):
     for sec, ix in st.sections:
         rows.append(Li(Inline(sec) if sec else 'The ideas', cls='sec' + (' on' if i in ix else '')))
         rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
-    src = (' · ', A('Sources', href=sources_url(j['id']), cls='see-build')) if has_sources_line(j) else ()
-    edit = P(A('Change the walk', href=at(Routes.edit, j['id'])), *src, cls='change-walk')   # the walk path editor; the line of research
-    return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows), edit), *([Div(*present, cls='rail-acts')] if present else []),
-                 id='rail', cls='outline', aria_label='The walk')
+    src = (' · ', A('Sources', href=walk_url(j['id'], 'sources'), cls='see-build')) if has_sources_line(j) else ()
+    edit = P(A('Change the walk', href=walk_url(j['id'], 'plan')), *src, cls='change-walk')   # the plan and the line of research, on the walk page
+    return Aside(P(A(Inline(j['title']), href=walk_url(j['id']), data_act='walk'), cls='rail-title'), Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows), edit), *([Div(*present, cls='rail-acts')] if present else []),
+                 id='rail', cls='outline', aria_label='The walk', data_part='outline')
 
 def FindSource(jid, i, s, looking=False):
     """Under the tutor's words of step `i`: while the tutor looks for a source on the web, a quiet line (the passage asks again in
@@ -160,7 +152,7 @@ def idea_no(j, slug) -> int|None:
     "The number (from 1) of the step on the concept `slug` in walk `j` now, or None."
     return next((k + 1 for k, s in enumerate(j['steps']) if s['slug'] == slug), None) if slug else None
 
-def ShowLog(jid): return pane_link('Show what it did', at(Routes.gather_log, jid), 'What the agent did', cls='pane-link show-log')
+def ShowLog(jid): return pane_link('Show what it did', at(Routes.gather_log, jid), 'What the agent did', cls='pane-link show-log', data_act='show-log')
 
 def gather_counts(j) -> AttrDict:
     "The documents that the agent read, the documents of the sources (at least the ones read), and the ideas with a passage of all the ideas."
@@ -205,7 +197,7 @@ def who_words(j) -> str:
     m = dflt_model()
     return f'The agent runs on {m} ({where_chip(m)}). Search words go to the web.'
 
-def sources_url(jid) -> str: return at(Routes.one, jid) + '?plan=1#gather'
+def walk_url(jid, part='') -> str: return at(Routes.one, jid) + (f'#{part}' if part else '')
 
 def has_sources_line(j) -> bool:
     "Whether walk `j` has a line of research to show: research ran, or research is on and an idea has no source."
@@ -214,33 +206,32 @@ def has_sources_line(j) -> bool:
 def GatherBand(j, s, stopping=False, plan=False):
     """The line of research of walk `j`, from its state `s` (`research.research_state`), on the plan page and on each step. While it
     runs: what it reads now, the ideas with a source, the time left, the time since its last step, `Stop`, `Show what it did` and
-    `See the build`; on the plan page, that the walk can start now. It asks again every 3 seconds. After it ends: the ideas with a source,
+    on the walk page, that the walk can start now. It asks again every 3 seconds. After it ends: the ideas with a source,
     how it ended and when, the quotes that abhyasa refused, and `Find sources again` for the ideas with no source. Nothing before research starts."""
     jid = j['id']
     if not (s.running or s.ended or j.get('gather_at')):   # research never ran: Find sources for the ideas with no source, when research is on
         n = gather_counts(j)
         if not (val('research.on') and n.have < n.ideas): return Div(id='gather')
-        go = Quiet('Find sources', small=True, type='button', hx_post=at(Routes.gather_again, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Starting…')
+        go = Quiet('Find sources', small=True, type='button', hx_post=at(Routes.gather_again, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Starting…', data_act='find-again')
         return Div(P(f"{n.have} of {n_of(n.ideas, 'idea')} {'has' if n.ideas == 1 else 'have'} a source. Research did not look for sources yet."),
                    Div(go, cls='row'), id='gather', cls='gather-band')
     log = ShowLog(jid) if j.get('gather') else ''
-    see = '' if plan else A('See the build', href=sources_url(jid), cls='see-build')
     have = f"{s.have} of {n_of(s.total, 'idea')} {'has' if s.total == 1 else 'have'} a source."
     if s.running:
         stop = (Span('Stopping…', cls='mute') if stopping else
-                Quiet('Stop', small=True, type='button', hx_post=at(Routes.gather_stop, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Stopping…'))
+                Quiet('Stop', small=True, type='button', hx_post=at(Routes.gather_stop, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Stopping…', data_act='stop'))
         line = ' '.join(x for x in (doing_words(s), have, left_words(s.left), beat_words(s.beat)) if x)
-        return Div(P(line), P(who_words(j), cls='mute') if who_words(j) else '', P(START_NOW, cls='mute start-now') if plan else '', Div(log, see, stop, cls='row'), id='gather', cls='gather-band running',
+        return Div(P(line), P(who_words(j), cls='mute') if who_words(j) else '', P(START_NOW, cls='mute start-now') if plan else '', Div(log, stop, cls='row'), id='gather', cls='gather-band running',
                    aria_live='polite', hx_get=at(Routes.gather, jid) + ('?plan=1' if plan else ''), hx_trigger='every 3s', hx_swap='outerHTML')
     why = j.get('gather_why') or ''
     refused = f" abhyasa left out {n_of(s.refused, 'quote')} that did not match the source word for word." if s.refused else ''
     again = (Quiet('Find sources again', small=True, type='button', hx_post=at(Routes.gather_again, jid), hx_target='#gather', hx_swap='outerHTML',
-                   data_wait='Starting…') if s.have < s.total and val('research.on') else '')
-    return Div(P(f"{have} {ended_words(s)}{refused}"), P(why, cls='mute') if why else '', Div(log, see, again, cls='row'), id='gather', cls='gather-band')
+                   data_wait='Starting…', data_act='find-again') if s.have < s.total and val('research.on') else '')
+    return Div(P(f"{have} {ended_words(s)}{refused}"), P(why, cls='mute') if why else '', Div(log, again, cls='row'), id='gather', cls='gather-band')
 
 def ResearchNotice(j):
     "The notice on any page when the research of walk `j` ended, with a link to the walk."
-    return Div(P(f"Sources for your walk \u2018{j.get('title') or 'Walk'}\u2019 are ready. ", A('Open the walk', href=sources_url(j['id']))),
+    return Div(P(f"Sources for your walk \u2018{j.get('title') or 'Walk'}\u2019 are ready. ", A('Open the walk', href=walk_url(j['id'], 'sources'))),
                cls='research-notice', role='status', style='max-width:60rem;margin:var(--s3) auto;padding:0 var(--s4);font-size:var(--t-small);color:var(--ink2)')   # on any page, where walk.css is not loaded
 
 def SourceReady(jid, i):
@@ -274,14 +265,14 @@ def Passage(j, s, c, i=None, looking=False, quiet=False):
     r = s.get('read') or {}
     mv = dict(data_moves=json.dumps(list((c or {}).get('moves') or []))) if (c or {}).get('moves') else {}
     if r.get('text') and quiet and i is not None:   # the source came while the learner reads: say so, and change nothing
-        return TutorWords((c or {}).get('statement', ''), SourceReady(j['id'], i), id='passage', **mv)
+        return TutorWords((c or {}).get('statement', ''), SourceReady(j['id'], i), id='passage', data_part='passage', **mv)
     if r.get('text'):
         also = [Div(Md(a.get('text') or ''), SourceLine(source_of(a, j)), cls='also') for a in r.get('also') or () if a.get('text')]   # a merge keeps both passages
-        return Blockquote(Md(r['text']), SourceLine(source_of(r, j)), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', **mv)
+        return Blockquote(Md(r['text']), SourceLine(source_of(r, j)), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', data_part='passage', **mv)
     wait = i is not None and s.get('research') == 'pending' and looking and val('research.on')
     poll = dict(hx_get=at(Routes.source, j['id'], i) + '?quiet=1', hx_trigger='load delay:3s', hx_swap='outerHTML') if wait else {}
     return TutorWords((c or {}).get('statement', ''), FindSource(j['id'], i, s, looking) if i is not None else '',
-                      id='passage', cls='pending' if wait else '', **poll, **mv)
+                      id='passage', cls='pending' if wait else '', data_part='passage', **poll, **mv)
 
 def fig_caption(r) -> str:
     "The caption of the figure of a passage, as the paper gives it: `caption`, or the alt text of the image of `figure` in the passage."
@@ -309,7 +300,7 @@ def Note(text):
 
 def NoteSlot(jid, i, oob=False):
     "The place of the tutor note, which loads after the page. Out of band, it loads the note again: a new passage gives a new note."
-    return Div(id='note', hx_get=at(Routes.note, jid, i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1', **({'hx_swap_oob': 'true'} if oob else {}))
+    return Div(id='note', hx_get=at(Routes.note, jid, i), hx_trigger='load', hx_swap='innerHTML', data_quiet='1', data_part='note', **({'hx_swap_oob': 'true'} if oob else {}))
 
 def BackFoot(b, pace=''):
     """In a side walk: the way back to the step that opened it. In the side pane it stays at the foot, and ⌥Z does the same.
@@ -351,7 +342,7 @@ def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault
     r = s.get('read') or {}
     head = Div(*[Inline(x) for x in (r.get('section'), r.get('page') and f"p. {r['page']}") if x], cls='sec-lbl')   # a section name can hold markdown, such as *gradient descent*
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
-               id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING) if result is None else Div(result, id='check')
+               id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING, data_part='check') if result is None else Div(result, id='check', data_part='check')
     return Div(Rail(j, st, by, i, present),
                Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea', data_concept=s.get('slug')), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c),
                    NoteSlot(j['id'], i), slot, leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
@@ -391,7 +382,7 @@ def Thread(q):
 
 def GoOn(jid, i, hidden=False):
     "Next idea: the one main button of a step once its check is closed. A demo check holds it hidden until the first prediction."
-    return Form(Primary('Next idea', focus=True), action=at(Routes.next, jid, i), method='post', cls='row go-on', hidden=hidden)
+    return Form(Primary('Next idea', focus=True, data_act='next'), action=at(Routes.next, jid, i), method='post', cls='row go-on', hidden=hidden)
 
 def CardHead(s, q=None):
     ck = s.get('check') or {}
@@ -422,7 +413,7 @@ def Short(jid, i, s, q, after=()):
         foot = Form(Textarea(name='answer', id='ans', rows=2, autofocus=True, data_draft='answer', aria_label='Your answer', placeholder='Your answer. ⌘↵ sends.'),
                     Textarea(name='thinking', id='think', rows=1, data_draft='thinking', aria_label='Think aloud', placeholder='Think aloud: how did you get there?'),
                     Div(Confidence(), Span(f"{left} {'try' if left == 1 else 'tries'} left" if tries else '', cls='mute'), cls='row conf'),
-                    Div(Primary('Send', id='send', data_wait=GRADING, title='⌘↵ sends too'), hint, out, *run_hook('answer_tools', q, 'ans'), cls='row acts'),   # the voice block: Speak ⌥D
+                    Div(Primary('Send', id='send', data_wait=GRADING, title='⌘↵ sends too', data_act='send'), hint, out, *run_hook('answer_tools', q, 'ans'), cls='row acts'),   # the voice block: Speak ⌥D
                     hx_post=at(Routes.answer, jid, i), data_qid=q['id'], **tgt)
     return Check(CardHead(s, q), q['question'], *Thread(q), foot=(*after, foot), shut=shut)
 
@@ -698,22 +689,66 @@ def when_review(due, now=None):
     days = round((time.mktime(lt[:3] + (12, 0, 0) + lt[6:]) - time.mktime(now[:3] + (12, 0, 0) + now[6:])) / 86400)
     return 'today' if days <= 0 else 'tomorrow' if days == 1 else f'in {days} days'
 
-def WalkDone(j, st, ms, by, sides=(), due=None, end=(), present=(), made=''):
-    """The end of a walk: a row of dots for all the ideas, a short sum of the walk, what moved, the side walks that you did, the
-    first review, and Back to Today. `sides` is `(name, learned)`. `end` is what other blocks add (`walk_end`): when it holds
-    a way out (the end of a side walk), the page does not add its own. `present` is the quiet Present of the talk block (`walk_actions`).
-    `made` is what came back from Leela last (`WhatYouMade`)."""
+def weak_of(j) -> list:
+    "The concepts of the ideas of walk `j` that a check closed with a miss or as shaky, in order."
+    return [s['slug'] for s in j['steps'] if (o := (s.get('done') or {}).get('outcome')) and o not in ('solid', 'skipped')]
+
+def WalkEnd(j, st, ms, by, sides=(), due=None, end=(), made=''):
+    """The end of a walk, on its page: a row of dots for all the ideas, a short sum, what moved, the side walks that you did, what you
+    made in Leela (`made`), the first review, what other blocks add (`walk_end`), and Review the weak ideas, the main button. `sides` is `(name, learned)`."""
     outs = [(s.get('done') or {}).get('outcome') for s in j['steps']]
     counts = [f"{outs.count('solid')} solid", f"{sum(o in SHAKY for o in outs)} shaky", f"{outs.count('skipped')} skipped"]
     counts = ', '.join(c for c in counts if not c.startswith('0 '))
     lead = f"{n_of(len(outs), 'idea')} from {j['title']}." + (f" {counts}." if counts else '')
     learned, looked = [n for n, ok in sides if ok], [n for n, ok in sides if not ok]
     also = [P(f"You also {verb} {' and '.join(ns)} on the way.", cls='mute') for verb, ns in (('learned', learned), ('looked at', looked)) if ns]
-    go = '' if end else Div(Primary('Back to Today', href='/'), Secondary('See the graph', href='/graph'), cls='row')
-    return (H1('You finished the walk'), Dots(st),
-            Div(P(lead, cls='lead-sum'), *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []), *also,
-                P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', cls='walk-sum', style=f"--n:{min(len(outs), 5)}"),
-            made, *end, go, *([Div(*present, cls='row')] if present else []))
+    weak = weak_of(j)
+    to = weak[0] if weak else next((s['slug'] for s in j['steps'] if (s.get('done') or {}).get('outcome') not in (None, 'skipped')), j['steps'][0]['slug'])
+    go = Primary('Review the weak ideas' if weak else 'Review this walk', href=f'/start?{urlencode(dict(focus=to))}', data_act='review')
+    return Section(H2('You finished the walk.'), Dots(st),
+                   Div(P(lead, cls='lead-sum'), *([H3('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []), *also,
+                       P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', cls='walk-sum', style=f"--n:{min(len(outs), 5)}"),
+                   made, *end, Div(go, cls='row'), id='result', data_part='result', cls='walk-result')
+
+def phase(j, st) -> str:
+    "The state of walk `j` on its page: `empty`, `side` (a side walk), `new`, `going` or `finished`."
+    if not j['steps']: return 'empty'
+    if j.get('parent'): return 'side'
+    if not j.get('started'): return 'new'
+    return 'going' if st.current is not None else 'finished'
+
+def Here(j, st, by):
+    "Where you are in a walk that you started: the idea to do now, and Continue: idea n of N, the main button."
+    i = st.current
+    return Div(P('Next: ', Inline(name(by, st.steps[i])), cls='mute'),
+               Div(Primary(f"Continue: idea {i + 1} of {len(st.steps)}", href=at(Routes.step, j['id'], i), data_act='continue'), cls='row'),
+               cls='walk-here', data_part='here')
+
+def SideTop(j, st, back):
+    "A side walk: Back to the paper, the main button, and a quiet way on to the idea to do now."
+    go = A(f"Continue: idea {st.current + 1} of {len(st.steps)} →", href=at(Routes.step, j['id'], st.current), cls='onward', data_act='continue') if st.current is not None else ''
+    return Div(Primary('Back to the paper', href=back.href if back else '/', data_act='back'), go, cls='row walk-top')
+
+def Sources(j, band, more=()):
+    "The sources of the walk: the line of research with Stop, Show what it did and Find sources again, what Start filed with its Undo, and Add a source (`more`)."
+    return Section(H2('Sources'), band, Filed(j), *more, id='sources', data_part='sources', cls='walk-sources')
+
+def Talks(talks=(), changed=(), actions=()):
+    "Quiet, at the foot: the talks made from the walk, and what other blocks add (Present, the course)."
+    if not (talks or actions): return ''
+    return Div(TalkLine(talks, changed), Div(*actions, cls='row') if actions else '', data_part='talks', cls='walk-talks')
+
+def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), actions=(), vault=None):
+    """One page for one walk. The head says what the walk is. Then the part of its state (`phase`): Start the walk, where you are,
+    the end of the walk (`top`, the `WalkEnd`), or Back to the paper. Then the plan (`plan`), the sources (`band`, `more`) and the talks."""
+    src, ph = j.get('source') or {}, phase(j, st)
+    whence = f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', '')
+    mins = sum(minutes(s) for s in j['steps'] if s.get('status') != 'skip')
+    head = (H1(j['title']), P(meta(whence, n_of(len(j['steps']), 'idea'), f'about {mins} min' if j['steps'] else ''), cls='mute'), leela_line(j, vault=vault) if j.get('tool') else '')
+    if ph == 'empty': return (*head, P('The tutor found no ideas in this source.', cls='mute'), Filed(j), Div(Primary('Home', href='/', data_act='home'), cls='row'))   # what Start filed keeps its Undo
+    if ph == 'new': top = Div(Form(Primary('Start the walk', data_wait='Starting…', data_act='start'), action=at(Routes.start, j['id']), method='post'), cls='row walk-top')
+    elif ph == 'going': top = Here(j, st, by)
+    return (*head, top, plan, Sources(j, band, more), '' if ph == 'side' else Talks(talks, changed, actions))
 
 # --- the walk path editor (core/edit.py: an `EditList`; each change saves at once, with an Undo) ----------------------
 
