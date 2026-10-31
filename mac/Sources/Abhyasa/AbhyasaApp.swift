@@ -12,6 +12,7 @@ struct AbhyasaApp: App {
             MainView(model: model)
                 .frame(minWidth: 640, minHeight: 480)
                 .onOpenURL { model.open($0) }
+                .background(WindowOpener())   // a click on a notification of research opens this window
         }
         .defaultSize(width: 1100, height: 800)
         .handlesExternalEvents(matching: [Links.scheme])
@@ -39,12 +40,15 @@ struct AbhyasaApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ n: Notification) {
-        MainActor.assumeIsolated { AppModel.shared.start() }
+        MainActor.assumeIsolated { AppModel.shared.start(); ResearchWatch.shared.start() }
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
+    /// while research of a walk runs, closing the window keeps the app in the menu bar, so research goes on
+    func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool {
+        MainActor.assumeIsolated { ResearchWatch.shared.quitOnLastWindow() }
+    }
 
     func applicationWillTerminate(_ n: Notification) {
-        MainActor.assumeIsolated { AppModel.shared.quit() }
+        MainActor.assumeIsolated { ResearchWatch.shared.stop(); AppModel.shared.quit() }
     }
 }
