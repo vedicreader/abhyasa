@@ -862,7 +862,7 @@ def connect(app, ctx):
         if (no := not_walk(jid)): return no
         j, ts = lr.journey(jid), talks_of(jid)
         old = {t['id'] for t in ts if any(walk_changes(lr, t).values())}   # talks older than the walk: they offer Make it again
-        return Page(f"Change the walk: {j.title}", *ui.Editor(j, by(), ts, opened=open, changed=old, pick=bool(pick), actions=run_hook('walk_actions', j, quiet=True)), on='Learn',
+        return Page(f"Change the walk: {j.title}", *ui.Editor(j, by(), ts, opened=open, changed=old, pick=bool(pick), actions=run_hook('walk_actions', j, quiet=True), band=band(j)), on='Learn',
                     crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def bar(j, said, rows, row=''):

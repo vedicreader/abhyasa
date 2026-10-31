@@ -88,3 +88,25 @@ def test_notice_on_any_page_and_the_mac_state(mk, lr, monkeypatch):
     monkeypatch.setattr(rs, 'running', lambda jid, but=0: True)
     assert cl.get('/walk/research.json').json()['running'][0]['id'] == j.id
 
+
+def test_the_editor_shows_the_line_of_research(mk, lr, monkeypatch):
+    "Change the walk shows the line of research under the summary line, with Find sources again, and each idea with no source says so."
+    j = walk(lr, research_end=time.time() - 5); cl = mk(); running(cl, monkeypatch, False)
+    page = cl.get(f'/w/{j.id}/edit').text
+    assert '1 of 3 ideas have a source. Research ended at' in page and 'Find sources again' in page
+    assert page.index('id="gather"') < page.index('id="steps"')   # near the top, before the ideas
+    assert page.count('no source yet') == 2 and page.count('data-main=') == 1   # one main button
+
+def test_sources_in_the_outline_before_research(mk, walk_fake, lr, monkeypatch):
+    "A walk with ideas that have no source, and no research yet: the outline of an idea has Sources, and the line offers Find sources."
+    j = walk_from_topic(lr, Fake({'You plan a learning path': PLAN}), 'learn softmax and attention'); cl = mk(); rs = running(cl, monkeypatch, False)
+    assert not j.get('research_start') and not j.get('gather_at')
+    rail = cl.get(f'/w/{j.id}/0').text.split('id="rail"')[1].split('</aside>')[0]
+    assert f'href="/w/{j.id}?plan=1#gather"' in rail and '>Sources<' in rail
+    plan = cl.get(f'/w/{j.id}?plan=1').text
+    assert '0 of 3 ideas have a source. Research did not look for sources yet.' in plan and '>Find sources<' in plan.replace('</button>', '<')
+    asked = []
+    monkeypatch.setattr(rs, 'look_for', lambda jid, ix=None: asked.append(ix))
+    monkeypatch.setattr(R, 'want_agent', lambda *a, **k: False)
+    cl.post(f'/w/{j.id}/gather/again', headers=HX)
+    assert asked == [[0, 1, 2]]   # Find sources starts the search of each idea

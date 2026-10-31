@@ -12,6 +12,7 @@ from abhyasa.settings import val
 from abhyasa.llm import dflt_model, where_chip
 from abhyasa.core.leela import leela_line, LEELA_INSTALL
 from abhyasa.journey import minutes, TOOL_WAYS, SHAKY, hands_count, hands_most
+from abhyasa.research import wants_source
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -125,7 +126,7 @@ def Rail(j, st, by, i, present=()):
     for sec, ix in st.sections:
         rows.append(Li(Inline(sec) if sec else 'The ideas', cls='sec' + (' on' if i in ix else '')))
         rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
-    src = (' · ', A('Sources', href=sources_url(j['id']), cls='see-build')) if j.get('research_start') or j.get('gather_at') else ()
+    src = (' · ', A('Sources', href=sources_url(j['id']), cls='see-build')) if has_sources_line(j) else ()
     edit = P(A('Change the walk', href=at(Routes.edit, j['id'])), *src, cls='change-walk')   # the walk path editor; the line of research
     return Aside(Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows), edit), *([Div(*present, cls='rail-acts')] if present else []),
                  id='rail', cls='outline', aria_label='The walk')
@@ -206,13 +207,22 @@ def who_words(j) -> str:
 
 def sources_url(jid) -> str: return at(Routes.one, jid) + '?plan=1#gather'
 
+def has_sources_line(j) -> bool:
+    "Whether walk `j` has a line of research to show: research ran, or research is on and an idea has no source."
+    return bool(j.get('research_start') or j.get('gather_at') or (val('research.on') and any(wants_source(s) for s in j['steps'])))
+
 def GatherBand(j, s, stopping=False, plan=False):
     """The line of research of walk `j`, from its state `s` (`research.research_state`), on the plan page and on each step. While it
     runs: what it reads now, the ideas with a source, the time left, the time since its last step, `Stop`, `Show what it did` and
     `See the build`; on the plan page, that the walk can start now. It asks again every 3 seconds. After it ends: the ideas with a source,
     how it ended and when, the quotes that abhyasa refused, and `Find sources again` for the ideas with no source. Nothing before research starts."""
     jid = j['id']
-    if not (s.running or s.ended or j.get('gather_at')): return Div(id='gather')
+    if not (s.running or s.ended or j.get('gather_at')):   # research never ran: Find sources for the ideas with no source, when research is on
+        n = gather_counts(j)
+        if not (val('research.on') and n.have < n.ideas): return Div(id='gather')
+        go = Quiet('Find sources', small=True, type='button', hx_post=at(Routes.gather_again, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Starting…')
+        return Div(P(f"{n.have} of {n_of(n.ideas, 'idea')} {'has' if n.ideas == 1 else 'have'} a source. Research did not look for sources yet."),
+                   Div(go, cls='row'), id='gather', cls='gather-band')
     log = ShowLog(jid) if j.get('gather') else ''
     see = '' if plan else A('See the build', href=sources_url(jid), cls='see-build')
     have = f"{s.have} of {n_of(s.total, 'idea')} {'has' if s.total == 1 else 'have'} a source."
@@ -788,7 +798,7 @@ def step_line(j, s):
     kind = ck.get('kind', 'short')
     if kind == 'notebook' and not s.get('nb'): return meta(KIND.get(kind), 'Writing the notebook…')
     return meta(KIND.get(kind, kind), LABELS.get(ck.get('way'), '').lower() if kind == 'short' else '',
-                f"passage: {source_of(r, j).label}" if (r.get('text') or '').strip() else 'no passage yet')
+                f"passage: {source_of(r, j).label}" if (r.get('text') or '').strip() else 'no source yet')
 
 def StepRow(j, k, s, by, opened='', fresh='', pick=False):
     "Step `s` as row `k` of the editor list: its title and short line, Skip, then the fields of the open row."
@@ -839,8 +849,8 @@ def TalkLine(talks, changed=()):
     head = '1 talk was made from this walk: ' if len(talks) == 1 else f'{len(talks)} talks were made from this walk: '
     return P(head, *links, '. A change here does not change a talk. To bring it in, open the talk and press “Make it again”.', cls='mute talk-line')
 
-def Editor(j, by, talks=(), opened='', pick=False, actions=(), changed=()):
-    "The walk path editor: what the walk is, its one main button (and the quiet `actions` of other blocks, such as Present), the hands-on share, then the ideas. A change saves at once, and Undo takes it back."
+def Editor(j, by, talks=(), opened='', pick=False, actions=(), changed=(), band=''):
+    "The walk path editor: what the walk is, the line of research (`band`), its one main button (and the quiet `actions` of other blocks, such as Present), the hands-on share, then the ideas. A change saves at once, and Undo takes it back."
     src, ss = j.get('source') or {}, j['steps']
     mins = sum(minutes(s) for s in ss if s.get('status') != 'skip')
     whence = f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', '')
@@ -848,7 +858,7 @@ def Editor(j, by, talks=(), opened='', pick=False, actions=(), changed=()):
           Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post'))
     return (Span('Change the walk', cls='lbl'), H1(j['title']),
             P(meta(whence, n_of(len(ss), 'idea'), f'about {mins} min'), ' · ', A('Earlier versions', href=at(Routes.history, j['id'])), cls='mute'),
-            TalkLine(talks, changed),
+            band, TalkLine(talks, changed),
             P('Each change saves at once. Undo takes it back.', cls='mute'),
             Details(Summary('About this'), P('An idea keeps your progress, its passage and its side walks when it moves. A removed idea keeps your answers in the vault.'), cls='about'),
             Div(go, *actions, cls='row walk-top'), Hands(j), Steps(j, by, opened, pick=pick), UndoBar(oob=False),   # in the page under the list (walk.css)
