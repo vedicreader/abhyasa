@@ -11,9 +11,9 @@ __all__ = ['STATUS', 'NO_CHECK', 'PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', '
            'builds_goal', 'hands_count', 'journey_from_source', 'journey_from_text', 'journey_from_sources', 'data_row',
            'keep_data', 'folder_list', 'data_entries', 'with_data', 'walk_from_topic', 'walk_state', 'minutes', 'needs',
            'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk', 'is_open',
-           'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up', 'topic_slug', 'add_topic',
-           'name_gaps', 'split_parts', 'split', 'related', 'with_step', 'beyond', 'paper_id', 'WALK_ID', 'LEELA_ROUTE',
-           'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES']
+           'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up', 'topic_slug', 'name_gaps',
+           'split_parts', 'related', 'with_step', 'paper_id', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key',
+           'handoff', 'read_handoff', 'HANDOFF_CASES']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
@@ -807,12 +807,6 @@ def topic_slug(lr:Learning, ask, j, name:str, sources=None) -> str|None:
             except Exception: pass
     return slug
 
-def add_topic(lr:Learning, ask, jid:str, name:str, before:str=None, sources=None) -> AttrDict:
-    "Add topic `name` to walk `jid`, as a concept on the shelf. Return the walk."
-    j = lr.journey(jid)
-    if not (slug := topic_slug(lr, ask, j, name, sources)): return j
-    return lr.journey_add(jid, slug, before, why='you added it')
-
 # %% ../nbs/11_journey.ipynb #17219547
 def name_gaps(lr:Learning, ask, slug:str, terms, sources=None) -> L:
     "Find or add a concept for each idea in `terms`, and keep it as a gap of `slug`. Return the gap slugs."
@@ -841,12 +835,6 @@ def split_parts(lr:Learning, ask, jid:str, slug:str, sources=None) -> L:
     have = {s['slug'] for s in j.steps}
     new = L(s for s in extract(lr, ask, text, c.subject or j.get('subject') or '', dict(src='journey', journey=jid, split=slug)) if s != slug and s not in have)
     for s in new: lr.link(slug, s)
-    return new
-
-def split(lr:Learning, ask, jid:str, slug:str, sources=None) -> L:
-    "Find the parts of step `slug`, add them before it as steps and prereqs, and return their slugs."
-    c, new = lr.concept(slug), split_parts(lr, ask, jid, slug, sources)
-    for s in new: lr.journey_add(jid, s, before=slug, why=f'a part of {c.name}')
     return new
 
 # %% ../nbs/11_journey.ipynb #cl36
@@ -879,14 +867,6 @@ def related(lr:Learning, slug:str, k:int=6, goal:int=None, by:dict=None) -> L:
 def with_step(lr:Learning, slug:str) -> L:
     "`(walk, index)` for each walk that has step `slug`."
     return L((j, i) for j in lr.journeys() for i, s in enumerate(j.steps) if s['slug'] == slug)
-
-def beyond(lr:Learning, j, k:int=5, goal:int=None) -> L:
-    "Up to `k` concepts that build on the steps of walk `j` and are not in it."
-    by, have = {c.slug: c for c in lr.concepts()}, {s['slug'] for s in j['steps']}
-    out = L()
-    for s in j['steps'][::-1]:
-        out += [x for x in related(lr, s['slug'], k, goal, by) if x.slug not in have and x.slug not in out.attrgot('slug')]
-    return out[:k]
 
 # %% ../nbs/11_journey.ipynb #jt-1
 def _arxiv_of(j, lr=None) -> str:

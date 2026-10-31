@@ -21,7 +21,7 @@ __all__ = ['log', 'SUBJECT_LABEL', 'MANY_SENSE', 'SOCIAL', 'FILES', 'URL_MOST', 
 # %% ../nbs/18_research.ipynb #r006
 import hashlib, json, logging, os, re, shutil, threading, time
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse, unquote
 from fastcore.utils import *
 from .store import Learning, _union
@@ -529,17 +529,6 @@ class Researcher:
     def active(self) -> list:
         "The ids of the walks whose research runs now."
         return [jid for jid in list(self.jobs) if self.running(jid)]
-
-    def run(self, jid:str, timeout:float=None) -> bool:
-        """Look for the sources of walk `jid`, and wait until each job of the walk ends, at most `timeout` seconds in all (default: the
-        setting `research.wait`). Return False when the time is up: the jobs go on, and their steps stay pending until they end."""
-        self.look_for(jid)
-        end = time.monotonic() + (val('research.wait') if timeout is None else timeout)
-        for x in list(self.jobs[jid]):
-            try: x.job.result(max(0, end - time.monotonic()))
-            except FutureTimeout: log.warning('research: the time for %s is up; the job goes on', jid); return False
-            except Exception as e: log.warning('research: the job of %s failed: %r', jid, e)
-        return True
 
 # %% ../nbs/18_research.ipynb #ga02
 BIG_ROOT, AGENT_DOCS, TOOL_TEXT, LOG_MOST, FILE_BYTES = 40, 200, 12_000, 600, 2_000_000   # a big source; the most documents, the characters of one reply, the rows of the log, the bytes of one file
