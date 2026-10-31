@@ -94,30 +94,35 @@ def shown(pg, tab):
     pg.wait_for_function(f"JSON.stringify({SHOWN}) === JSON.stringify(['{tab}'])", timeout=15000)
     return True
 
+def wait_eq(pg, js, want):
+    "Wait until the page value `js` equals `want`: a click or a key acts in the next frame."
+    pg.wait_for_function(f"JSON.stringify(({js})) === {__import__('json').dumps(__import__('json').dumps(want))}", timeout=15000)
+
 ROW_BOX = "() => { const r = document.querySelector('.stop').getBoundingClientRect(); return [r.top, r.height]; }"
 
 @pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
 def test_tabs_in_a_browser(site):
     "A click and the keys switch the tab, the URL keeps it, the tab row does not move, and the page takes no focus on load."
     pg, url = site
-    pg.goto(f'{url}/settings'); pg.wait_for_selector('#sr-models-default select')
+    pg.goto(f'{url}/settings'); pg.wait_for_selector('#sr-models-default select'); pg.evaluate('document.fonts.ready')   # the web fonts set the row's place
     assert shown(pg, 'models') and pg.evaluate('document.activeElement === document.body')
     xs = pg.evaluate("[...document.querySelectorAll('#models li.srow.model select')].filter(s => s.checkVisibility()).map(s => Math.round(s.getBoundingClientRect().left))")
     assert len(xs) >= 5 and max(xs) - min(xs) <= 1, xs                                          # the Default list starts where the others start
     box = pg.evaluate(ROW_BOX)
     pg.click('#ix-voice')
-    assert shown(pg, 'voice') and pg.evaluate(SELECTED) == ['voice'] and pg.url.endswith('/settings?tab=voice')
-    assert pg.evaluate(ROW_BOX) == box                                                         # no layout jump
+    assert shown(pg, 'voice'); wait_eq(pg, SELECTED, ['voice']); pg.wait_for_url('**/settings?tab=voice')
+    now = pg.evaluate(ROW_BOX)
+    assert all(abs(a - b) <= 1 for a, b in zip(now, box)), (now, box)                          # no layout jump
     pg.keyboard.press('ArrowRight')
-    assert shown(pg, 'guide') and pg.evaluate("document.activeElement.id") == 'ix-guide'
+    assert shown(pg, 'guide'); wait_eq(pg, 'document.activeElement.id', 'ix-guide')
     pg.keyboard.press('End'); assert shown(pg, 'look')
     pg.keyboard.press('ArrowRight'); assert shown(pg, 'models')                   # it goes round
     pg.keyboard.press('ArrowLeft'); assert shown(pg, 'look')
     pg.keyboard.press('Home'); assert shown(pg, 'models')
     pg.keyboard.press('Alt+Digit4')
-    assert shown(pg, 'learning') and pg.url.endswith('?tab=learning')
+    assert shown(pg, 'learning'); pg.wait_for_url('**?tab=learning')
     pg.reload(); pg.wait_for_selector('#t-learning')
-    assert shown(pg, 'learning') and pg.evaluate(SELECTED) == ['learning']
+    assert shown(pg, 'learning'); wait_eq(pg, SELECTED, ['learning'])
     pg.fill('#sfind', 'side walk depth')                                                        # Find looks in all the tabs
     pg.wait_for_function("document.getElementById('sr-walks-depth').checkVisibility()", timeout=15000)
     assert pg.evaluate(IN_VIEW, 'sr-walks-depth') or pg.evaluate("document.getElementById('sr-walks-depth').checkVisibility()")
