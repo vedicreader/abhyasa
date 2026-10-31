@@ -24,8 +24,9 @@ def walk_at(cl, lr, i=1):
 
 def test_show_me_on_a_walk_step_makes_a_demo_from_the_open_check(mk, walk_fake, lr):
     cl = mk(); jid, slug, q = walk_at(cl, lr)
-    page = cl.get(f'/w/{jid}/1').text
-    assert 'id="show-demo"' in page and '⌥E' in page and 'id="show-slot"' in page
+    page, card = cl.get(f'/w/{jid}/1').text, cl.get(f'/w/{jid}/1/check').text
+    assert 'id="show-demo"' not in page and 'id="show-slot"' in page   # one Show me: in the row of the open check, after Hint and Explain
+    assert card.count('id="show-demo"') == 1 and '⌥E' in card and card.index('id="hint"') < card.index('data-guide-open') < card.index('id="show-demo"') < card.index('id="idk"')
     r = cl.post('/demo/ask', data=dict(where='walk', concept=slug, walk=jid, step='1')).text
     assert 'A 2D demo' in r and 'predict first' in r
     wait_asks(cl, slug)

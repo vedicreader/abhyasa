@@ -1,5 +1,6 @@
+import re
 import abhyasa.demo   # patches Learning with put_demo and record_prediction
-"The demo block: rupaka served offline, the concept-page action, the demo page, the prediction log, and a demo after two misses."
+"The demo block: rupaka served offline, the Show slot of the concept page, no demo page of its own, the prediction log, and a demo after two misses."
 import json
 from rupaka.spec import gallery
 
@@ -13,29 +14,38 @@ def test_rupaka_served_offline(mk):
     assert js.status_code == 200 and "Rupaka.block('gate'" in js.text and 'immutable' in js.headers['cache-control']
     assert css.status_code == 200 and '--rk-fg' in css.text
 
-def test_make_then_wait_gives_the_demo(mk, lr):
+def aid_of(html): return re.search(r'data-ask="([0-9a-f]{12})"', html)[1]
+
+def test_the_concept_page_show_slot_makes_then_shows_the_demo(mk, lr):
+    "The concept page has one Show me and its Show slot. Show files an ask and starts the job; the ask is the one wait; a second Show starts no job."
     cl = mk()
-    first = cl.post('/demo/make', data=dict(concept='reciprocal-rank-fusion')).text
-    assert 'demo-card' in first
+    page = cl.get('/c/reciprocal-rank-fusion').text
+    assert page.count('id="show-demo"') == 1 and 'id="show-slot"' in page and '/demo/make' not in page
+    first = cl.post('/demo/ask', data=dict(where='concept', concept='reciprocal-rank-fusion')).text
+    assert 'ask-card' in first
     wait_job(cl, 'reciprocal-rank-fusion')
     d = lr.demo_for('reciprocal-rank-fusion')
     assert d.by.startswith('model:') and d.spec['concept'] == 'reciprocal-rank-fusion'
-    card = cl.get('/demo/wait/reciprocal-rank-fusion').text
+    card = cl.get(f'/demo/asked/{aid_of(first)}').text
     assert 'data-rupaka' in card and 'type="application/json"' in card and '/rupaka/rupaka.js?v=' in card
-    assert 'Reciprocal rank fusion' in cl.post('/demo/make', data=dict(concept='reciprocal-rank-fusion')).text   # no second job
+    n = len(svc(cl)['tutor'].jobs)
+    assert 'Reciprocal rank fusion' in cl.post('/demo/ask', data=dict(where='concept', concept='reciprocal-rank-fusion')).text and len(svc(cl)['tutor'].jobs) == n   # no second job
+    assert cl.post('/demo/make', data=dict(concept='ranking')).status_code in (404, 405) and cl.get('/demo/wait/ranking').status_code == 404   # one engine
 
 def test_failed_job_says_so(mk, fake):
     fake.rules['You design one interactive demo'] = 'no demo'
     cl = mk()
-    cl.post('/demo/make', data=dict(concept='ranking'))
+    a = aid_of(cl.post('/demo/ask', data=dict(where='concept', concept='ranking')).text)
     wait_job(cl, 'ranking')
-    assert 'did not make a demo that passes' in cl.get('/demo/wait/ranking').text
+    assert 'did not make a demo that passes' in cl.get(f'/demo/asked/{a}').text
 
-def test_demo_page_and_json(mk, lr):
+def test_a_demo_has_no_page_of_its_own(mk, lr):
+    "The old page of a demo goes to the Show slot of its idea, on the concept page. The spec JSON stays."
     lr.put_demo(gallery()['reciprocal-rank-fusion'], 'reciprocal-rank-fusion')
     cl = mk()
-    page = cl.get('/demo/reciprocal-rank-fusion').text
-    assert 'data-rupaka' in page and 'href="/c/reciprocal-rank-fusion"' in page
+    r = cl.get('/demo/reciprocal-rank-fusion', follow_redirects=False)
+    assert (r.status_code, r.headers['location']) == (301, '/c/reciprocal-rank-fusion')
+    assert cl.get('/demo/nope', follow_redirects=False).headers['location'] == '/concepts'
     assert cl.get('/demo/reciprocal-rank-fusion.json').json()['id'] == 'reciprocal-rank-fusion'
     assert cl.get('/demo/nope.json').status_code == 404
 
@@ -80,9 +90,9 @@ def test_two_misses_make_a_demo_under_the_lesson(mk, lr):
     assert 'Lesson' in first and 'demo-card' not in first
     cl.post(f'/s/{sid}/next')
     second = miss(cl, sid)
-    assert 'The tutor is making a demo' in second and '/demo/wait/ranking' in second and 'm tutor extra' in second   # a tutor message in the thread
+    assert 'The tutor is making a demo' in second and '/demo/asked/' in second and 'm tutor extra' in second   # a tutor message in the thread, and its wait is an ask
     wait_job(cl, 'ranking')
-    card = cl.get('/demo/wait/ranking').text
+    card = cl.get(f'/demo/asked/{aid_of(second)}').text
     assert 'data-rupaka' in card
     cl.post(f'/s/{sid}/next')
     third = miss(cl, sid)
@@ -91,8 +101,8 @@ def test_two_misses_make_a_demo_under_the_lesson(mk, lr):
 def test_an_order_demo_is_not_the_plain_demo(mk, lr):
     lr.put_demo(gallery()['reciprocal-rank-fusion'], 'reciprocal-rank-fusion', aim='order')
     cl = mk()
-    assert 'Show me a demo' in cl.get('/c/reciprocal-rank-fusion').text
-    cl.post('/demo/make', data=dict(concept='reciprocal-rank-fusion'))           # the order demo does not count: a plain demo job starts
+    assert 'Show me' in cl.get('/c/reciprocal-rank-fusion').text
+    cl.post('/demo/ask', data=dict(where='concept', concept='reciprocal-rank-fusion'))   # the order demo does not count: a plain demo job starts
     d = svc(cl)['tutor'].jobs['reciprocal-rank-fusion'].result(timeout=120)
     assert d.aim == '' and lr.demo_for('reciprocal-rank-fusion', aim='') is not None
 
@@ -112,9 +122,9 @@ def test_the_ladder_after_a_demo_in_a_session(mk, lr, fake):
     cl.post(f'/s/{sid}/next'); second = miss(cl, sid)
     assert 'Lesson · ' in second and 'data-rupaka' in second and 'A simpler demo' not in second   # another way, and the demo stays
     cl.post(f'/s/{sid}/next'); third = miss(cl, sid)
-    assert 'The tutor is making a simpler demo' in third and '/demo/wait/ranking?aim=simpler' in third
+    assert 'The tutor is making a simpler demo' in third and '/demo/asked/' in third
     svc(cl)['tutor'].jobs['ranking:simpler'].result(timeout=120)
-    card = cl.get('/demo/wait/ranking?aim=simpler').text
+    card = cl.get(f'/demo/asked/{aid_of(third)}').text
     assert 'A simpler demo' in card and 'data-rupaka' in card
     assert lr.demo_for('ranking', aim='').slug == 'reciprocal-rank-fusion'               # the simpler demo is never the plain demo
     cl.post(f'/s/{sid}/next'); fourth = miss(cl, sid)

@@ -635,7 +635,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   addEventListener('keyup', release, true);
   addEventListener('blur', () => release({code: 'KeyE'}));
 
-  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#guide-go')) { e.preventDefault(); open(); } });
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#guide-go, [data-guide-open]')) { e.preventDefault(); open(); } });   // Explain in the top bar, or in the row of a check
   document.addEventListener('click', e => {   // Start fresh: the next question has no thread; the box keeps the focus
     if (!(e.target.closest && e.target.closest('#guide-form .guide-fresh'))) return;
     e.preventDefault(); fresh(); if (box()) box().focus();

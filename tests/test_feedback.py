@@ -1,3 +1,4 @@
+import re
 "Feedback on demos and lessons: the engine data, the prompts, the ladder, the method model, the profile, and the quiet row on the pages."
 import json, re
 from concurrent.futures import ThreadPoolExecutor
@@ -171,14 +172,18 @@ def test_not_clear_notes_feed_what_confuses_you():
 
 # --- the web app ---------------------------------------------------------------------------------------------------
 
+def card_of(cl, lr, slug):
+    "The card of the plain demo of `slug`, as Show gives it: an ask with no words, and its card."
+    return cl.get(f"/demo/asked/{lr.put_ask(slug, where='concept').id}").text
+
 def test_demo_page_has_the_quiet_row(mk, lr):
     d = lr.put_demo(gallery()['reciprocal-rank-fusion'], S)
     cl = mk()
-    page = cl.get(f'/demo/{d.slug}').text
+    page = card_of(cl, lr, S)
     for w in ('Too simple', 'Just right', 'Not clear', 'What was unclear?', 'data-mic', 'maxlength="500"'): assert w in page, w
     assert 'hx-post="/feedback"' in page and 'class="go' not in page.split('fb-row')[1][:2000]
     set_val('checks.feedback_row', False)
-    try: assert 'Too simple' not in cl.get(f'/demo/{d.slug}').text
+    try: assert 'Too simple' not in card_of(cl, lr, S)
     finally: set_val('checks.feedback_row', True)
 
 def test_the_post_validates(mk, lr):
@@ -251,13 +256,14 @@ def test_not_clear_makes_a_new_simpler_demo_when_an_old_one_is_there():
 def test_demo_block_makes_a_simpler_demo_after_not_clear(mk, lr):
     d = lr.put_demo(gallery()['reciprocal-rank-fusion'], S)
     cl = mk()
-    card = cl.get(f'/demo/{d.slug}').text
-    assert 'Show a simpler demo' in card and '"aim": "simpler"' in card
+    card = card_of(cl, lr, S)
+    assert 'Show a simpler demo' in card and '"aim": "simpler"' in card and '/demo/ask' in card
     cl.post('/feedback', data=dict(on='demo', verdict='unclear', slug=d.slug, note=NOTE))
-    first_ = cl.post('/demo/make', data=dict(concept=S, aim='simpler')).text
-    assert 'demo-card' in first_
+    first_ = cl.post('/demo/ask', data=dict(concept=S, aim='simpler', kind='demo', where='concept')).text
+    assert 'ask-card' in first_ and 'A simpler demo' in first_
     cl.app.state.svc['tutor'].jobs[f'{S}:simpler'].result(timeout=30)
-    assert lr.demo_for(S, aim='simpler') and 'A simpler demo' in cl.get(f'/demo/wait/{S}?aim=simpler').text
+    aid = re.search(r'data-ask="([0-9a-f]{12})"', first_)[1]
+    assert lr.demo_for(S, aim='simpler') and 'A simpler demo' in cl.get(f'/demo/asked/{aid}').text
 
 
 def test_a_note_is_quoted_as_the_learner_words():

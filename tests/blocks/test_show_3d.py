@@ -52,7 +52,7 @@ def test_three_js_is_served_beside_rupaka_js(mk, lr):
     r = cl.get('/rupaka/three.js')
     assert r.status_code == 200 and r.headers['content-type'].startswith('text/javascript') and 'RupakaTHREE' in r.text
     d = lr.put_demo(gallery()['reciprocal-rank-fusion'], 'reciprocal-rank-fusion')
-    page = cl.get(f'/demo/{d.slug}').text
+    page = cl.get(f"/demo/asked/{lr.put_ask('reciprocal-rank-fusion', where='concept').id}").text
     assert '/rupaka/rupaka.js' in page and 'three.js' not in page   # rupaka loads it only when a scene mounts
 
 # --- in a headless browser ---------------------------------------------------------------------------------------------
@@ -77,6 +77,7 @@ def test_a_3d_card_draws_a_scene_and_steps_forward(mk, lr):
     from playwright.sync_api import sync_playwright
     flat = lr.put_demo(gallery()['reciprocal-rank-fusion'], 'reciprocal-rank-fusion')
     d = lr.put_demo(SCENE, 'ranking', aim='3d')
+    flat_a, d_a = lr.put_ask('reciprocal-rank-fusion', where='concept'), lr.put_ask('ranking', where='concept', kind='explainer')   # a demo shows as the card of its ask
     with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
     srv = uvicorn.Server(uvicorn.Config(mk().app, host='127.0.0.1', port=port, log_level='error'))
     th = threading.Thread(target=srv.run, daemon=True); th.start()
@@ -88,9 +89,9 @@ def test_a_3d_card_draws_a_scene_and_steps_forward(mk, lr):
                 pg = b.new_page(viewport=dict(width=1000, height=900))
                 urls = []
                 pg.on('request', lambda r: urls.append(r.url))
-                pg.goto(f'http://127.0.0.1:{port}/demo/{flat.slug}'); pg.wait_for_selector('.rk')
+                pg.goto(f'http://127.0.0.1:{port}/demo/asked/{flat_a.id}'); pg.wait_for_selector('.rk')
                 assert not [u for u in urls if 'three.js' in u] and pg.evaluate('!window.RupakaTHREE')
-                pg.goto(f'http://127.0.0.1:{port}/demo/{d.slug}')
+                pg.goto(f'http://127.0.0.1:{port}/demo/asked/{d_a.id}')
                 pg.wait_for_selector('[data-rk-gl="ready"]', timeout=30000)
                 assert [u for u in urls if '/rupaka/three.js' in u]
                 assert 'A 3D explainer: watch it step by step.' in pg.inner_text('.demo-card')

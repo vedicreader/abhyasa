@@ -360,6 +360,10 @@ def Done(jid, i, s):
            else 'This check is not open. Load the page again.')
     return Check(CardHead(s), P(say), foot=GoOn(jid, i), cls='done')
 
+def Explain():
+    "Explain in the row of a check: it opens the guide (guide.js), as Caps+E does."
+    return Button('Explain', type='button', cls='quiet', data_guide_open='1', data_act='explain', title='The tutor explains what you see on this page. Caps+E does the same.')
+
 def Short(jid, i, s, q, after=()):
     "A short-answer check: the question, the thread so far, what other blocks add (`after`), then the answer box, or the close and Next idea."
     if q is None: return Done(jid, i, s)
@@ -376,7 +380,8 @@ def Short(jid, i, s, q, after=()):
         foot = Form(Textarea(name='answer', id='ans', rows=2, autofocus=True, data_draft='answer', aria_label='Your answer', placeholder='Your answer. ⌘↵ sends.'),
                     Textarea(name='thinking', id='think', rows=1, data_draft='thinking', aria_label='Think aloud', placeholder='Think aloud: how did you get there?'),
                     Div(Confidence(), Span(f"{left} {'try' if left == 1 else 'tries'} left" if tries else '', cls='mute'), cls='row conf'),
-                    Div(Primary('Send', id='send', data_wait=GRADING, title='⌘↵ sends too', data_act='send'), hint, out, *run_hook('answer_tools', q, 'ans'), cls='row acts'),   # the voice block: Speak ⌥D
+                    Div(Primary('Send', id='send', data_wait=GRADING, title='⌘↵ sends too', data_act='send'), hint, Explain(), *run_hook('check_show', jid, i, s), out,
+                        *run_hook('answer_tools', q, 'ans'), cls='row acts'),   # stuck: Hint, Explain, Show (the demo block), Teach me; then the voice block: Speak ⌥D
                     hx_post=at(Routes.answer, jid, i), data_qid=q['id'], **tgt)
     return Check(CardHead(s, q), q['question'], *Thread(q), foot=(*after, foot), shut=shut)
 

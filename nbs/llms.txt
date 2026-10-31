@@ -4,6 +4,7 @@
 
 ## Modules
 
+- `abhyasa.blocks.demo.app`: Interactive demos from rupaka: Show. One engine (`abhyasa.demo.show`) and one card for each place: the Show slot of a walk step and of a concept page, the thread of a session, the card under a lesson, and "show me …" to the guide. Each Show is an ask, so `/demo/asked/{aid}` is its one wait. The kind of each ask says why, and 3D and Leela are one click away. A 3D explainer is a rupaka scene. rupaka loads three.js from `Routes.three` only when a scene mounts, so a page with no scene never loads it.
 - `abhyasa.blocks.detour.app`: Rabbit holes: learn a missing idea beside the step, then come back to the same place (spec 6.10).
 - `abhyasa.blocks.guide.app`: The screen guide: Hyper+E or Explain on any page, and the tutor answers with a board drawn over the page.
 - `abhyasa.blocks.talk.app`: The talk: a walk made into slides for a group. "Present this walk" makes the talk on the pool, and the editor changes its slides. On a walk planned from a goal, "Present this walk" first makes a walk for the talk from its steps, in their order, and a second press opens the same talk. A change to the talk never changes the walk. When the walk changes after the talk was made, the editor says what changed and offers "Make it again" (`talk_again`): the same talk takes the new walk, and each slide keeps the parts that you changed. Each change runs `check_talk`, and a talk with a problem is not saved.

@@ -7,12 +7,12 @@ Docs: https://vedicreader.github.io/abhyasa/demo.html.md"""
 # %% auto #0
 __all__ = ['VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'ORDER_AIM',
            'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'SHOW_ME', 'KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY',
-           'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'REFUSED', 'WHERES', 'demo_text',
-           'since_demo', 'rung', 'keep_rung', 'want_demo', 'clean_note', 'quoted', 'last_feedback', 'feedback_line',
-           'said', 'lesson_note', 'make_demo', 'ask_key', 'queue_demo', 'job_state', 'job_age', 'backed', 'other_way',
-           'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'route_ask', 'can_explain',
-           'scene_catalog', 'scene_example', 'explainer_sp', 'explainer_prompt', 'scene_errors', 'explainer_for',
-           'explain_ask', 'make_explainer', 'import_gallery']
+           'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'REFUSED', 'WHERES', 'ROUTES',
+           'demo_text', 'since_demo', 'rung', 'keep_rung', 'want_demo', 'clean_note', 'quoted', 'last_feedback',
+           'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'queue_demo', 'job_state', 'job_age',
+           'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'route_ask',
+           'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp', 'explainer_prompt', 'scene_errors',
+           'explainer_for', 'explain_ask', 'make_explainer', 'show', 'import_gallery']
 
 # %% ../nbs/10_demo.ipynb #c005
 import hashlib, json, re, threading, time, uuid
@@ -498,7 +498,7 @@ def asks(self:Learning, concept:str=None, walk:str=None, session:str=None, limit
     w = [(f"json_extract(meta, '$.{k}')=?", v) for k, v in dict(concept=concept, walk=walk, session=session).items() if v is not None]
     rs = sorted((AttrDict(json.loads(r['meta'])) for r in self._docs('ask', ' and '.join(x for x, _ in w), [v for _, v in w])), key=lambda a: -a.at)[:limit]
     def full(a):
-        slug = (self.demo_for(a.concept, aim='3d' if a.get('kind') == 'explainer' else '', key=a.key) or {}).get('slug', '')   # an ask with no words and no check gets the plain demo
+        slug = (self.demo_for(a.concept, aim='3d' if a.get('kind') == 'explainer' else a.get('aim', ''), key=a.key or None) or {}).get('slug', '')   # an ask with no words and no check gets the plain demo
         return AttrDict(a, slug=slug, outcome=_outcome(self, a, slug) if slug else '')
     return L(rs).map(full)
 
@@ -507,6 +507,20 @@ def asked(self:Learning, aid:str) -> AttrDict|None:
     "One ask by its id; None when there is none."
     r = first(self.v.t.docs(where='source=?', where_args=[_src('ask', aid)]))
     return AttrDict(json.loads(r['meta'])) if r else None
+
+# %% ../nbs/10_demo.ipynb #x1a1be87
+ROUTES = {'demo': AttrDict(kind='demo', why='You asked for a 2D demo. You predict first. Then the demo shows the rest.'),
+          '3d': AttrDict(kind='explainer', why='You asked for 3D. The scene builds one step at a time.')}
+
+def show(tutor, concept:str, words:str='', where:str='concept', kind:str=None, ask:str='', aim:str='', first_error:str='', **at) -> tuple:
+    "Show: file one ask on `concept` from your `words` (the demo is made from `ask`, else from the words), pick its kind, and start its job. Gives the ask and its route (`kind`, `why`)."
+    lr = tutor.learning
+    route = ROUTES.get(kind) or route_ask(words, lr.concept(concept))
+    a = lr.put_ask(concept, said=words, ask=ask, where=where, kind=route.kind, **({'aim': aim} if aim else {}), **at)
+    if route.kind == 'notebook': return a, route   # code runs in Leela
+    job = '3d' if route.kind == 'explainer' else aim
+    if not lr.demo_for(concept, aim=job, key=a.key or None) or (aim and said(lr, concept, 'unclear')): queue_demo(tutor, concept, first_error, aim=job, said=a.ask)
+    return a, route
 
 # %% ../nbs/10_demo.ipynb #c049
 def import_gallery(learning:Learning, links:dict=None) -> L:
