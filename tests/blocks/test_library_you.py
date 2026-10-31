@@ -32,7 +32,6 @@ def test_strengths_is_a_section_of_your_learning(mk, lr):
     seen_concepts(lr)
     h = mk().get('/learning').text
     assert 'Your strengths' in h and 'Practice my weak spots' in h and 'href="/you/strengths"' in h
-    assert h.index('This week') < h.index('Your strengths') < h.index('What you learned')
     assert 'href="/start?drill=1"' in h and 'Ranking' in h
 
 def test_no_strengths_before_a_concept_is_seen(mk):

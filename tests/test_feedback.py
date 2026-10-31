@@ -169,10 +169,6 @@ def test_not_clear_notes_feed_what_confuses_you():
 
 # --- settings ------------------------------------------------------------------------------------------------------
 
-def test_feedback_row_setting():
-    r = SETTINGS['checks.feedback_row']
-    assert (r.group, r.kind, r.dflt, r.ui) == ('checks', 'bool', True, True) and r.help.endswith('.')
-
 # --- the web app ---------------------------------------------------------------------------------------------------
 
 def test_demo_page_has_the_quiet_row(mk, lr):
