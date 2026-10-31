@@ -7,14 +7,14 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'MATH_MOST', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'NOT_FOUND', 'log',
            'ARXIV_HTML', 'ARXIV_FIGS', 'READERS', 'PLAIN', 'LOCALE', 'LANGS', 'SHORT', 'EMPTY', 'ARXIV_LINK',
-           'TREE_TYPES', 'TREE_SKIP', 'TREE_FILES', 'TREE_MB', 'TREE_TOTAL_MB', 'TREE_SEEN', 'GH_NAME', 'NOT_REPOS',
-           'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group',
-           'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'math_cut', 'extract', 'from_vault',
-           'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts', 'link_folder',
-           'in_scope', 'link_sel', 'LinkError', 'local_name', 'public_url', 'link_kind', 'reading_order', 'math_md',
-           'read_arxiv_html', 'save_figures', 'file_link', 'as_link', 'is_id_title', 'arxiv_title', 'is_paper',
-           'tree_ok', 'tree_files', 'folder_why', 'file_folder', 'vault_roots', 'root_docs', 'unfile', 'gh_name',
-           'gh_public', 'clone_repo', 'file_repo', 'source_of', 'plain', 'from_vedicreader']
+           'TREE_TYPES', 'TREE_SKIP', 'TREE_FILES', 'TREE_MB', 'TREE_TOTAL_MB', 'TREE_SEEN', 'NO_READ', 'GH_NAME',
+           'NOT_REPOS', 'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'VR_ROOT', 'RASI', 'quoted', 'group_line',
+           'add_group', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'math_cut', 'extract',
+           'from_vault', 'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts',
+           'link_folder', 'in_scope', 'link_sel', 'LinkError', 'local_name', 'public_url', 'link_kind', 'reading_order',
+           'math_md', 'read_arxiv_html', 'save_figures', 'file_link', 'as_link', 'is_id_title', 'arxiv_title',
+           'is_paper', 'tree_ok', 'tree_files', 'folder_why', 'file_folder', 'vault_roots', 'root_docs', 'unfile',
+           'gh_name', 'gh_public', 'clone_repo', 'file_repo', 'source_of', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re, shutil
@@ -684,9 +684,13 @@ def tree_files(root) -> L:
     return out
 
 # %% ../nbs/04_sources.ipynb #442af40e
+NO_READ = 'abhyasa cannot read this folder. Check that you can open it in Finder.'
+
 def folder_why(p) -> str:
-    "Why abhyasa does not file the folder `p` (the rules of `settings.source_root_why`), or '' when it can."
-    return source_root_why(p) or ('' if Path(str(p)).expanduser().resolve().is_dir() else NO_FOLDER)
+    "Why abhyasa does not file the folder `p` (the rules of `settings.source_root_why`), or '' when it can. It must be a folder that you can read."
+    if why := source_root_why(p): return why
+    r = Path(str(p)).expanduser().resolve()
+    return NO_FOLDER if not r.is_dir() else '' if os.access(r, os.R_OK | os.X_OK) else NO_READ
 
 # %% ../nbs/04_sources.ipynb #b5b78218
 def _file_tree(lr:Learning, root, shelf:str, name:str, url=None) -> L:
