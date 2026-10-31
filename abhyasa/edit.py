@@ -201,7 +201,7 @@ from .research import verbatim, MOST as PASSAGE_MOST
 _all_ = ['hands_count']
 
 # %% ../nbs/20_edit.ipynb #b42a5962
-CHECK_KINDS = ('short', 'demo', 'order', 'code', 'notebook')   # the kinds of a check
+CHECK_KINDS = ('short', 'demo', 'order', 'notebook')   # the kinds of a check
 
 def _at(steps, slug) -> int:
     "The index of the step on `slug`. A slug that is not in the walk raises `KeyError`."

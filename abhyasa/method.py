@@ -122,8 +122,8 @@ def choose(st, subject:str='', weak:bool=False, rng=None, explore:str='sometimes
     return best, ''
 
 # %% ../nbs/13_method.ipynb #wk04
-CHECK_KIND = dict(demo='demo', order='order', code='code')
-DEPTH = dict(short=2, demo=2, order=2, code=4, notebook=4)   # a notebook check is the code way with a library: it runs in Leela
+CHECK_KIND = dict(demo='demo', order='order', code='notebook')   # the code way is a notebook check: it runs in Leela
+DEPTH = dict(short=2, demo=2, order=2, notebook=4)
 
 def check_for(c, st, rng=None, explore:str='sometimes', prior=(), last:str='', hands:bool=True) -> AttrDict:
     "The way, kind, depth and reason for one check of concept `c`. A hands-on way of the idea comes before its text ways; `hands=False` leaves the hands-on ways out."

@@ -76,7 +76,7 @@ def RowGroup(g, n, value, extra=(), more_extra=()):
 
 #: The tabs of the page: (label, groups), the most used first. Each group of `GROUPS` is in one tab, and a tab shows its groups in this order.
 TABS = dict(models=('Models', ('models', 'prompts')), voice=('Voice', ('voice', 'stt')), guide=('Screen guide', ('guide',)),
-            learning=('Learning', ('learning', 'checks', 'review', 'runner')), walks=('Walks and talks', ('walks', 'talks')),
+            learning=('Learning', ('learning', 'checks', 'review')), walks=('Walks and talks', ('walks', 'talks')),
             sources=('Sources', ('research', 'links')), look=('Look', ('look', 'lists')))
 TAB_OF = {g: t for t, (_, gs) in TABS.items() for g in gs}
 DFLT_TAB = next(iter(TABS))

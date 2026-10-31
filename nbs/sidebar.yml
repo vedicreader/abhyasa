@@ -8,7 +8,6 @@ website:
       - 03_tutor.ipynb
       - 04_sources.ipynb
       - 05_voice.ipynb
-      - 06_check.ipynb
       - 08_nb.ipynb
       - 09_ground.ipynb
       - 10_demo.ipynb

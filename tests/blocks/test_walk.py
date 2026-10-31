@@ -14,7 +14,7 @@ def test_plan_then_start(mk, walk_fake, lr):
     assert 'Start the walk' in page and 'min' in page
     assert cl.post(f'/w/{jid}/plan', data=dict(i=0, act='drop')).status_code in (404, 405)   # the plan POST with no Undo goes: the plan changes in place
     cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='check', way='code'))
-    assert lr.journey(jid).steps[1]['check'] == dict(way='code', kind='code', depth=4, why='you chose it')
+    assert lr.journey(jid).steps[1]['check'] == dict(way='code', kind='notebook', depth=4, why='you chose it')   # the code way is a notebook in Leela
     assert cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='check', way='board')).status_code == 400   # no board view yet
     cl.post(f'/w/{jid}/edit', data=dict(slug='sequential-computation', act='remove'))
     assert [s['slug'] for s in lr.journey(jid).steps][0] == 'softmax' and 'Undo' in cl.post(f'/w/{jid}/undo').text
@@ -94,15 +94,6 @@ def test_miss_hint_and_dont_know(mk, walk_fake, lr):
     assert lr.journey(jid).steps[1]['done']['outcome'] in ('gap', 'misconception') and lr.journey(jid).steps[1]['done']['aid']
     assert 'Next idea' in cl.post(f'/w/{jid}/1/answer', data=dict(answer='late')).text               # a closed check takes no more answers
 
-def test_code_check_falls_back_to_a_text_way(mk, walk_fake, lr):
-    walk_fake.rules['You write one small Python exercise'] = 'no exercise today'                 # the tutor could not make a code task
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    assert 'What does a rank tell you?' in cl.get(f'/w/{jid}/1/check').text                      # a short card when the code task fails
-    cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank'))
-    assert lr.attempts('softmax', limit=1)[0].method in TEXT_WAYS                                  # the record and the credit name a text way
-    assert lr.journey(jid).steps[1]['check']['kind'] == 'code'                                     # the plan keeps its check
-
 def test_demo_check_is_made_ahead_and_logged(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 2, check=dict(way='demo', kind='demo', depth=2, why='a demo fits'))
@@ -172,79 +163,6 @@ def test_a_gate_logs_once_and_a_skipped_demo_is_closed(mk, walk_fake, lr):
     assert 'walk-demo' not in cl.get(f'/w/{jid}/1/check').text                     # a skipped demo shows as closed
     assert cl.post(f'/w/{jid}/1/predict', data=dict(slug=s.slug, gate=g, picked='1', ans='1', ok='true')).status_code == 409
     assert not lr.attempts('softmax')
-
-def test_code_check_in_the_browser(mk, walk_fake, lr):
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why='your best way here: code'))
-    card = cl.get(f'/w/{jid}/1/check').text
-    assert 'code-editor' in card and 'def softmax(x, t=1.0):' in card and 'm = max(x)' not in card
-    assert 'max(softmax([1000.0, 1001.0]))' not in card                            # a hidden test stays hidden
-    assert 'Run the tests' in card and 'Hint' in card and "I don&#x27;t know" in card.replace("'", '&#x27;')
-    assert cl.get(f'/w/{jid}/1/check').text.count('code-editor') == card.count('code-editor')   # a reload keeps one task
-    assert lr.journey(jid).steps[1]['code']['fname'] == 'softmax'
-    r = cl.post(f'/w/{jid}/1/run', data=dict(source='def softmax(x\n')).text
-    assert 'line 1' in r and 'Try 1 of 3. A syntax error does not count as a try.' in r                                          # a syntax error does not count as a try
-    r = cl.post(f'/w/{jid}/1/run', data=dict(source=NAIVE)).text
-    assert '2 of 3 tests pass' in r and 'It does not fail on large scores' in r and 'm = max(x)' not in r
-    assert 'code-editor' not in r and 'max(softmax([1000.0, 1001.0]))' not in r   # only the results part comes back
-    r = cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text
-    assert 'Next idea' in r and lr.attempts('softmax', limit=1)[0].kind == 'code'
-    assert lr.journey(jid).steps[1]['done']['outcome'] == 'fragile'                # a pass after a failing try is not clean
-
-def test_code_check_hides_a_failing_hidden_test(mk, walk_fake, lr):
-    secret = 'assert softmax([0.0, 1.0]) == [0.123456, 0.876544]'
-    walk_fake.rules['You write one small Python exercise'] = dict(EXERCISE, tests=EXERCISE['tests'][:2] + [dict(test=secret, say='A secret weight check', hidden=True)])
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    cl.get(f'/w/{jid}/1/check')
-    r = cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text
-    assert 'A secret weight check' in r and 'fail' in r and '2 of 3 tests pass' in r
-    for leak in ('0.123456', '0.876544', 'softmax([0.0, 1.0])', '0.2689', '0.7310'): assert leak not in r
-
-def test_code_run_refuses_a_closed_or_missing_check(mk, walk_fake, lr):
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    assert cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).status_code == 409   # the check was never loaded
-    assert cl.post('/w/nope/1/run', data=dict(source=GOOD)).status_code == 404
-    cl.get(f'/w/{jid}/1/check')
-    assert 'Next idea' in cl.post(f'/w/{jid}/1/giveup').text
-    assert 'Next idea' in cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text and lr.attempts('softmax', limit=5)[0].kind == 'code'
-    assert len(lr.attempts('softmax', limit=9)) == 1                                # a closed check takes no more runs
-
-def _chromium():
-    "True when Playwright's bundled Chromium is installed."
-    try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p: return Path(p.chromium.executable_path).exists()
-    except Exception: return False
-
-@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
-@pytest.mark.parametrize('how', ['click', 'key'])
-def test_next_idea_moves_on_after_a_code_pass_in_a_browser(mk, walk_fake, lr, how):
-    import socket, threading, uvicorn
-    from playwright.sync_api import sync_playwright
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
-    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
-    th = threading.Thread(target=srv.run, daemon=True); th.start()
-    assert wait_for(lambda: srv.started or None, secs=30), 'the server did not start'
-    try:
-        with sync_playwright() as p:
-            b = p.chromium.launch(headless=True)
-            try:
-                pg = b.new_page(); url = f'http://127.0.0.1:{port}/w/{jid}/1'
-                pg.goto(url, wait_until='load'); pg.wait_for_selector('#source')
-                pg.wait_for_function('() => window.htmx && window.abhyasaKeys')            # core.js has bound the keys
-                pg.fill('#source', GOOD); pg.press('#source', 'Control+Enter')           # runs the tests
-                pg.wait_for_selector('#code-out .go')                                     # the close shows Next idea
-                pg.wait_for_function("() => abhyasaFind(abhyasaKeys.KeyS)?.closest('#code-out')")   # htmx settled: ⌥S now finds Next idea, not Run
-                if how == 'click': pg.click('#code-out .go')
-                else: pg.keyboard.press('Alt+s')
-                pg.wait_for_function('u => location.href != u', arg=url, timeout=30000)
-                assert pg.url != url and 'code-editor' not in pg.content().split('walk-main')[0]
-            finally: b.close()
-    finally: srv.should_exit = True; th.join(5)
 
 HX = {'hx-request': 'true'}   # htmx asks for a part; without it FastHTML wraps the reply in a page
 
@@ -321,8 +239,11 @@ def test_link_walk_shows_only_its_own_messages(mk, walk_fake, lr, monkeypatch):
     assert 'allow_private' not in t and 'FOSSICK' not in t and 'abhyasa could not make a walk from this link' in t   # a library message never shows
 
 
+CODE_WAY = dict(concepts=[{**c, 'ways': ['code', 'maths']} if c['name'] == 'Softmax' else c for c in EXTRACT_REPLY['concepts']])   # Softmax with a code way
+
 def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
     from abhyasa.core.leela import LEELA_INSTALL
+    walk_fake.rules['Return JSON: {"concepts"'] = CODE_WAY
     from abhyasa.contract import vault_key
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path))
     cl = mk(); assert 'Code steps open in Leela' in cl.get('/learn/read', params=dict(q='github.com/a/b')).text
@@ -330,7 +251,8 @@ def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
     assert lr.journey(jid).tool is True
     plan = cl.get(f'/w/{jid}').text
     assert 'Open this in Leela for code and tools' in plan and LEELA_INSTALL in plan and '/learn?' not in plan   # no Leela: never a broken link
-    assert cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='check', way='code')).status_code == 400   # no library code check in abhyasa
+    cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='check', way='code'))
+    assert lr.journey(jid).steps[1]['check']['kind'] == 'notebook'                                                  # code runs in Leela
     leela_file(tmp_path); v = vault_key(lr.vault.path)                                                            # the link names the vault
     assert f'href="http://127.0.0.1:5011/learn?walk={jid}&amp;v={v}"' in cl.get(f'/w/{jid}').text
     cl.post(f'/w/{jid}/start')
@@ -339,15 +261,13 @@ def test_tool_walk_opens_in_leela(mk, walk_fake, lr, monkeypatch, tmp_path):
     assert 'code-editor' not in step                                                                              # the check here is short, order or notebook
     assert '/learn?' not in cl.get(f'/w/{jid}/0').text                                                           # an idea with no code way has no link
 
-def test_code_card_and_concept_page_offer_leela_only_when_it_runs(mk, walk_fake, lr, monkeypatch, tmp_path):
+def test_concept_page_offers_leela_only_when_it_runs(mk, walk_fake, lr, monkeypatch, tmp_path):
+    "A concept with a code way links to Leela from its page, only when Leela runs."
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path))
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    card = cl.get(f'/w/{jid}/1/check').text
-    assert 'code-editor' in card and 'Leela' not in card and 'Leela' not in cl.get('/c/softmax').text   # quiet when Leela is not running
+    walk_fake.rules['Return JSON: {"concepts"'] = CODE_WAY
+    cl = mk(); walk(cl, lr)
+    assert 'Leela' not in cl.get('/c/softmax').text   # quiet when Leela is not running
     leela_file(tmp_path)
-    card = cl.get(f'/w/{jid}/1/check').text
-    assert 'code-editor' in card and f'/learn?walk={jid}&amp;step=1' in card                           # the small stdlib check stays in abhyasa
     assert '/learn?topic=Softmax' in cl.get('/c/softmax').text
 
 # The demo ladder in a walk: a wrong prediction gets a lesson in another way under the card, and a second one a simpler demo
@@ -506,15 +426,6 @@ def test_a_failed_walk_shows_a_plain_line_and_logs_the_error(mk, walk_fake, lr, 
     assert 'req-err' in r.text and 'litellm' not in r.text and 'upstream' not in r.text and 'Try again' in r.text
     assert 'litellm.APIError' in caplog.text
 
-def test_code_run_refuses_a_source_that_is_too_long(mk, walk_fake, lr):
-    "More than 100 000 characters of code is refused with 413, and it uses no try."
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    cl.get(f'/w/{jid}/1/check')
-    big = GOOD + '\n#' + 'x' * (100_000 - len(GOOD))
-    assert len(big) > 100_000 and cl.post(f'/w/{jid}/1/run', data=dict(source=big)).status_code == 413
-    assert not lr.attempts('softmax') and 'Next idea' not in cl.get(f'/w/{jid}/1/check').text
-
 def test_only_the_post_of_next_idea_ends_the_sitting(mk, walk_fake, lr):
     "A GET of the section summary (also a `?rh=` frame load) does not end the sitting. Next idea at the end of a section does."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
@@ -525,7 +436,7 @@ def test_only_the_post_of_next_idea_ends_the_sitting(mk, walk_fake, lr):
     assert cl.post(f'/w/{jid}/0/next', follow_redirects=False).headers['location'] == f'/w/{jid}/0/done'
     assert s.ended and sid not in live
     assert 'Section done' in cl.get(f'/w/{jid}/0/done').text
-    cl.get(f'/w/{jid}/1/check')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2)); cl.get(f'/w/{jid}/1/check')
     assert lr.journey(jid).sitting != sid                                              # the next step opens a new sitting
 
 def test_two_writers_on_one_walk_lose_no_field(mk, walk_fake, lr):
@@ -658,7 +569,8 @@ def test_link_walk_uses_the_subject_field(mk, walk_fake, lr, monkeypatch):
     jid = link_walk_subjects(mk(), 'https://docs.example.dev/b/', subject=' NLP!\n- x ')
     assert lr.journey(jid).subject == 'nlp - x'
     assert {c.subject for c in lr.concepts() if c.slug in ('softmax', 'sequential-computation')} == {'nlp - x'}
-    assert 'Subject: "nlp - x"' in walk_fake.calls[-1][0] and '"subject": str' not in walk_fake.calls[-1][0]
+    p = next(c[0] for c in walk_fake.calls if 'Return JSON: {"concepts"' in c[0])   # the call that finds the ideas
+    assert 'Subject: "nlp - x"' in p and '"subject": str' not in p
 
 def open_check(cl, lr, jid):
     "Start walk `jid`, open the short check of step 1, give one wrong try and get one hint."

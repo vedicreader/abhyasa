@@ -22,7 +22,7 @@ def test_bad_values():
     assert set_val('walks.chain', -3) == 2 and json.loads((cfg_dir()/'settings.json').read_text())['walks']['chain'] == 2
 
 def test_fixed_items_have_no_setting():
-    "No setting for the closed code runner, the link checks for local addresses, plain HTTP, link kinds, the HTML allowlist, the pane URL check, local-only hosts, the test allowlist, the grade scale or the depth ladder."
+    "No setting for the link checks for local addresses, plain HTTP, link kinds, the HTML allowlist, the pane URL check, local-only hosts, the test allowlist, the grade scale or the depth ladder."
     assert not [n for n in SETTINGS for w in FIXED if w in n]
     labels = ' '.join(f'{r.name} {r.label} {r.help}'.lower() for r in SETTINGS.values())
     for w in ('sandbox', 'audit hook', 'network', 'localhost', 'allowlist', 'grade scale', 'depth ladder', 'python -i'): assert w not in labels
@@ -112,43 +112,6 @@ def test_link_reads_the_new_page_count():
     assert len(file_link(lr, 'https://example.org/docs/', read=read, final=lambda u: u)) == 3
     assert [c['max_pages'] for c in calls] == [8, 3] and calls[1]['timeout'] == 10
 
-# Code runner
-
-def test_runner_limits():
-    "The code runner gets a CPU limit and a file size limit from the runner settings."
-    from abhyasa import check
-    assert (check.TEST_SECONDS, check.RUN_SECONDS) == (2., 10.)
-    assert 'RLIMIT_CPU, (11, 12)' in check._limits(10.) and f'({10 * 2**20}, {10 * 2**20})' in check._limits(10.)
-
-def test_run_reads_the_new_limits():
-    from abhyasa.check import run_isolated, snippet, _limits
-    slow = 'def f():\n    import time\n    time.sleep(1.2)\n    return 1'
-    assert run_isolated('assert', 'f', slow, ['assert f() == 1'])['checks'][0]['status'] == 'pass'   # 2 s for each test
-    set_val('runner.per_test', 1); set_val('runner.total', 5); set_val('runner.file_mb', 1)
-    assert run_isolated('assert', 'f', slow, ['assert f() == 1'])['checks'][0]['status'] != 'pass'   # 1 s: the test stops
-    assert "RUN_SECONDS = 5.0" in snippet('assert', 'f', []) and 'RLIMIT_CPU, (6, 7)' in _limits(5.) and f'({2**20}, {2**20})' in _limits(5.)
-
-def test_runner_values_out_of_range_are_clamped(monkeypatch):
-    "A runner value out of range in the file reaches the closed process at the top of its range: 60 s, 10 s a test, 100 MB."
-    from abhyasa import check
-    (cfg_dir()/'settings.json').write_text(json.dumps(dict(runner=dict(total=999, per_test='99', file_mb=10**6))))
-    seen, fed = {}, threading.Event()
-    class Stdin:
-        def write(self, code): seen.update(code=code.decode()); fed.set()
-        def close(self): pass
-    def empty():
-        r, w = os.pipe(); os.close(w)
-        return open(r, 'rb')
-    class Popen:
-        def __init__(self, cmd, **kw): self.pid, self.returncode, self.stdin, self.stdout, self.stderr = 0, 0, Stdin(), empty(), empty()
-        def __enter__(self): return self
-        def __exit__(self, *a): self.stdout.close(); self.stderr.close()
-        def wait(self, timeout=None): seen.update(timeout=timeout); return 0
-    monkeypatch.setattr(check.subprocess, 'Popen', Popen)
-    check.run_isolated('assert', 'f', 'def f(): return 1', ['assert f() == 1'])
-    assert fed.wait(2) and round(seen['timeout']) == 62 and 'RUN_SECONDS = 60.0' in seen['code'] and 'TEST_SECONDS = 10.0' in seen['code']
-    assert 'RLIMIT_CPU, (61, 62)' in seen['code'] and f'({100 * 2**20}, {100 * 2**20})' in seen['code']
-
 # Speech to text
 
 def test_mic_gets_the_pause_values(mk):
@@ -180,7 +143,7 @@ def test_all_prompts_registered(mk):
     from abhyasa.prompts import PROMPTS, set_prompt, prompt
     from abhyasa.tutor import depth_ask
     t = mk().get('/settings').text
-    for n in ('primer', 'profile.onboard', 'profile.observe', 'exercise', 'demo.order', 'demo.simpler', 'depths', 'tutor', 'hints', 'walk.pick', 'walk.plan'):
+    for n in ('primer', 'profile.onboard', 'profile.observe', 'demo.order', 'demo.simpler', 'depths', 'tutor', 'hints', 'walk.pick', 'walk.plan'):
         assert n in PROMPTS and f'pr-{n.replace(".", "-")}' in t
     with pytest.raises(ValueError, match='5 lines'): set_prompt('depths', 'one line only')
     with pytest.raises(ValueError, match='6 lines'): set_prompt('hints', 'one\ntwo')

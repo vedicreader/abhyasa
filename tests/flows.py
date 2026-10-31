@@ -195,7 +195,7 @@ def b_idea_reading(lr, cl, mp):
     return f'/w/{jid}/1', {}
 
 def b_idea_done(lr, cl, mp):
-    jid = started(cl, paper(lr, cl)); done(lr, jid, 1)
+    jid = started(cl, paper(lr, cl)); lr.walk_step(jid, 1, check=dict(STEP)); done(lr, jid, 1)
     return f'/w/{jid}/1', {}
 
 BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due,

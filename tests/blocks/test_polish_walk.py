@@ -85,16 +85,6 @@ def test_best_way_needs_two_passes():
     assert 'Your best way' not in to_xml(Ways(dict(methods={'*': {'example': (0, 1)}})))
     assert 'Your best way' in to_xml(Ways(dict(methods={'*': {'example': (2, 0)}})))
 
-def test_code_check_counts_tries_in_one_place(mk, walk_fake, lr):
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    card = cl.get(f'/w/{jid}/1/check').text
-    assert 'tries left' not in card
-    out = cl.post(f'/w/{jid}/1/run', data=dict(source=NAIVE)).text
-    assert re.search(r'Try 1 of 3 · \d of 3 tests pass', out) and 'try 1 ·' not in out
-    syn = cl.post(f'/w/{jid}/1/run', data=dict(source='def softmax(:')).text
-    assert 'Try 2 of 3. A syntax error does not count as a try.' in syn
-
 # The outline and the passage answer the check
 
 def test_m3_the_outline_dot_fills(mk, walk_fake, lr):

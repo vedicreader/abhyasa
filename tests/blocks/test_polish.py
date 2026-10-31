@@ -40,14 +40,6 @@ def test_open_check_sends_with_alt_s_and_skip_is_quiet(mk, walk_fake, lr):
     assert 'Skip this idea' not in page                                        # a closed check: the next bar holds only the way back
     assert 'Next idea' not in page.split('id="check"')[1].split('class="next-bar"')[1]
 
-def test_code_check_runs_with_alt_s(mk, walk_fake, lr):
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    card = cl.get(f'/w/{jid}/1/check').text
-    assert gos(card) and 'Run the tests <kbd>⌥S</kbd>' in card and len(gos(card)) == 1
-    out = cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD)).text
-    assert len(gos(out)) == 1 and 'Next idea <kbd>⌥S</kbd>' in out          # the run button goes off, so ⌥S presses Next idea
-
 # F4: one filled button in each view
 
 def test_each_page_has_at_most_one_filled_button(mk, walk_fake, lr):
@@ -67,15 +59,6 @@ def test_each_page_has_at_most_one_filled_button(mk, walk_fake, lr):
     assert gos(cl.get(f'/w/{jid}').text) == ['Start the walk <kbd>⌥S</kbd>']
     cl.get(f'/s/{sid}/end')
     assert len(gos(cl.get(f'/s/{sid}/end').text)) <= 1
-
-def test_reloaded_closed_code_check_has_next_idea_as_main(mk, walk_fake, lr):
-    "A code check that closed in this run, drawn again: Next idea is the one main button, and Run the tests is off."
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
-    lr.walk_step(jid, 1, check=dict(way='code', kind='code', depth=4, why=''))
-    cl.get(f'/w/{jid}/1/check'); cl.post(f'/w/{jid}/1/run', data=dict(source=GOOD))
-    card = cl.get(f'/w/{jid}/1/check').text
-    assert gos(card) == ['Next idea <kbd>⌥S</kbd>'] and card.count('id="run"') == 1 and 'hx-swap-oob' not in card
-    assert re.search(r'<button[^>]*id="run"[^>]*disabled|<button[^>]*disabled[^>]*id="run"', card) and 'data-focus="1"' in card
 
 # F14: no ⌥ key has two meanings
 

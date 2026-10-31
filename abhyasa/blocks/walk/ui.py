@@ -17,7 +17,7 @@ from .cfg import Routes
 
 _P = Path(__file__).parent
 OUTCOME = {k: t for k, (t, _) in OUTCOMES.items() if k != 'nudge'}
-KIND = dict(short='short answer', code='code', demo='predict · demo', order='predict · order', notebook='notebook · in Leela')
+KIND = dict(short='short answer', demo='predict · demo', order='predict · order', notebook='notebook · in Leela')
 GRADING, HINTING, TEACHING, WRITING = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'The tutor writes the check…'
 LOOKING = 'Looking for a source…'
 NO_SOURCE = 'The tutor found no good source on the web.'
@@ -422,70 +422,11 @@ def Pending(jid, i, s):
                  cls='pending', hx_get=at(Routes.check, jid, i), hx_trigger='load delay:2s', hx_target='#check', hx_swap='innerHTML')
 
 
-# --- the code check --------------------------------------------------------------------------------------------------
-
-RUNNING = 'Running the tests…'
-RESULT = dict(error='error', timeout='timeout')   # a status that is not pass or fail, as its own word
-
-def Result(c, texts):
-    "One test result. A hidden test shows its label and status only: never its text, its expected value or your value."
-    return Li(Span(RESULT.get(c['status'], c['status']), cls='st'), Span(c['label']), '' if c['hidden'] else Code(texts[c['i']]), cls=c['status'])
-
-def closed(q): return first(t for t in q.get('turns') or () if t.get('kind') == 'close')
-
-def passing(ok, n):
-    "How many tests pass, as people say it: `2 of 3 tests pass`, `the test passes`."
-    return f"{ok} of {n} tests pass" if n != 1 else 'the test passes' if ok else 'the test fails'
-
-def CodeOut(jid, i, q, r=None, oob=True):
-    """The results part of a code check: hints, the results of the last run, the first error, and the close. The editor is not in it.
-    After a run that closes the check, `oob` also turns off Run the tests, so Next idea is the one main button."""
-    texts = [t if isinstance(t, str) else t['test'] for t in q.tests]
-    close = closed(q)
-    out = [Div(Span(f'Hint {n}', cls='lbl'), Md(h), cls='hint') for n, h in enumerate(q.get('hints') or (), 1)]
-    if r and r.get('syntax'):
-        out += [Div(Span('Syntax error: ', cls='k'), f'{r.syntax}.', cls='err'), P(f"Try {val('checks.tries') - r.tries_left + 1} of {val('checks.tries')}. A syntax error does not count as a try.", cls='mute')]
-    elif r and 'checks' in r:
-        n = val('checks.tries') - r.tries_left + bool(r.done and r.get('correct'))
-        out += [Ul(*[Result(c, texts) for c in r.checks], cls='results') if r.checks else '',
-                FirstError(r.first_error),
-                P(f"Try {n} of {val('checks.tries')} · {passing(r.passed, r.total)}", cls='mute')]
-    if close:
-        out += [Tag(close.get('outcome')),
-                Div(Span('Lesson', cls='lbl'), Md(close['lesson']), cls='lesson') if close.get('lesson') else '', GoOn(jid, i),
-                RunOff(oob=True) if oob else '']
-    return Div(*out, id='code-out', aria_live='polite')
-
-def RunOff(oob=False):
-    "Run the tests on a closed check: plain and off, so ⌥S presses Next idea."
-    return Button('Run the tests', type='submit', form='run-form', id='run', disabled=True, **({'hx_swap_oob': 'true'} if oob else {}))
-
-def CodeCheck(jid, i, s, q, after=(), vault=None):
-    "A code check: the task, a plain editor with the stub, the visible tests, and Run. A run swaps only the results."
-    if q is None: return Done(jid, i, s)
-    if not s.get('code'): return Short(jid, i, s, q, after)
-    c = s['code']
-    draft = q['tries'][-1]['answer'] if q.get('tries') else c['stub']
-    tgt = dict(hx_target='#code-out', hx_swap='innerHTML')
-    hint = Button('Hint ', Kbd('⌥W'), type='button', id='hint', cls='quiet', hx_post=at(Routes.hint, jid, i), data_wait=HINTING, **tgt,
-                  disabled=len(q.get('hints') or ()) >= len(HINTS))
-    idk = Button('Teach me' if q.get('tries') else "I don't know", type='button', id='idk', cls='quiet', hx_post=at(Routes.giveup, jid, i),
-                 data_wait=TEACHING, **tgt)
-    form = Form(Textarea(draft, name='source', id='source', cls='code-editor', rows=max(6, draft.count('\n') + 3), spellcheck='false', autofocus=True,
-                         aria_label='Your code'),
-                Details(Summary('The tests you can see'), Ul(*[Li(Code(t)) for t in c['tests']], cls='tests'), open=True),
-                id='run-form', hx_post=at(Routes.run, jid, i), **tgt)
-    # Run is outside the form, so the results can hold Next idea with no nested form. On a closed check, Next idea is the main button.
-    run = RunOff() if closed(q) else Primary('Run the tests', type='submit', form='run-form', id='run', data_wait=RUNNING, title='⌘↵ runs them too')
-    return Check(CardHead(s, q), q['question'], foot=(form, CodeOut(jid, i, q, oob=False), Div(run, hint, idk, cls='row acts'),
-                                                   leela_line(AttrDict(id=jid), i, say='Go further with real code in Leela', quiet=True, vault=vault)), cls='code-check')
-
 # --- the notebook check: it runs in Leela ---------------------------------------------------------------------------
 
 NB_WRITING = 'Writing the notebook…'
 NB_HEAD = 'Check · notebook · runs in Leela'
 NO_LEELA = 'Leela is not running. Start Leela, then press ⌥S again.'
-PICK_FOLDER = 'The path on this Mac'
 
 def NbHead(): return Div(Span(NB_HEAD), cls='lbl')
 
@@ -495,13 +436,12 @@ def Opened(t):
 
 def NbGo(jid, i, link=None, spec=True, opened=None):
     """Open in Leela, the main button: when Leela runs, a form that notes the time on the step and opens Leela in a new tab, else a press
-    that looks again, with how to get Leela. `spec` adds Download the notebook. `opened` is the time of the last press (`leela_at`)."""
-    dl = Quiet('Download the notebook', href=at(Routes.notebook, jid, i), download=True) if spec else ''
-    if link: return Form(Primary('Open in Leela', type='submit'), dl,
+    that looks again, with how to get Leela. `opened` is the time of the last press (`leela_at`)."""
+    if link: return Form(Primary('Open in Leela', type='submit'),
                          Span(Opened(opened) if opened else f"Leela runs at {link.split('//', 1)[-1].split('/', 1)[0]}.", cls='mute state'),
                          method='post', action=at(Routes.leela, jid, i), target='_blank', rel='noopener', hx_boost='false', data_check=at(Routes.check, jid, i),
                          cls='row acts nb-go leela-go')
-    return Div(Primary('Open in Leela', type='button', hx_get=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), dl,
+    return Div(Primary('Open in Leela', type='button', hx_get=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'),
                P(NO_LEELA, ' ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='mute state'), cls='row acts nb-go')
 
 def NbPending(jid, i, link=None, opened=None):
@@ -515,21 +455,21 @@ def NbFailed(jid, i, why, link=None, opened=None):
                  foot=(Div(Quiet('Try again', type='button', hx_post=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), cls='row acts'),
                        NbGo(jid, i, link, spec=False, opened=opened)), cls='nb-check')
 
-def DataRow(jid, i, d):
-    "One data path of the notebook. An entry with `need` is a folder that you name, so it has a path field."
-    if not d.get('need'): return Div(Code(d['name']), ' ', Span(d['path'], cls='path'), Span(f" · {d['what']}", cls='mute') if d.get('what') else '', cls='nb-data')
-    return Form(Label(Span(PICK_FOLDER, cls='lbl'), Input(name='path', value=d['path'], spellcheck='false', aria_label=f"The folder for {d['name']}"), cls='nb-pick'),
-                Input(type='hidden', name='name', value=d['name']), Quiet('Keep', small=True), Span(Code(d['name']), f" · {d['what']}" if d.get('what') else '', cls='mute'),
-                hx_post=at(Routes.data, jid, i), hx_target='#check', hx_swap='innerHTML', cls='nb-data need')
+NEED = 'Add this folder under Your data on the walk page, or set it in Leela.'
+
+def DataRow(d):
+    "One data path of the notebook. An entry with `need` is a folder that you name: add it under Your data, or set it in Leela."
+    return Div(Code(d['name']), ' ', Span(d['path'], cls='path'), Span(f" · {d['what']}", cls='mute') if d.get('what') else '',
+               P(NEED, cls='mute') if d.get('need') else '', cls='nb-data need' if d.get('need') else 'nb-data')
 
 def NotebookCard(jid, i, s, link=None):
     """The card "The notebook" of a step whose check runs in Leela: the task, the tests you can see, the data, the packages, what the run
-    makes, its time and the prediction. Open in Leela is the main button (a link when Leela runs). Download the notebook is quiet."""
+    makes, its time and the prediction. Open in Leela is the main button (a link when Leela runs)."""
     nb = s['nb']
     r = nb['run']
     shown = [t['test'] for t in nb['tests'] if t['shown']]
     hidden = len(nb['tests']) - len(shown)
-    parts = [Dt('Data'), Dd(*[DataRow(jid, i, d) for d in nb['data']] or ['none']),
+    parts = [Dt('Data'), Dd(*[DataRow(d) for d in nb['data']] or ['none']),
              Dt('Packages'), Dd(', '.join(nb.get('requires', [])) or 'none for this one'),
              *([Dt('It makes'), Dd(Code(r['makes']))] if r.get('makes') else []),
              Dt('Run time'), Dd(f"about {r['minutes']:g} min (an estimate)"),
@@ -539,7 +479,7 @@ def NotebookCard(jid, i, s, link=None):
                                P('This step runs in Leela, in a notebook with its packages. abhyasa does not run this code.', cls='mute nb-where')),
                  foot=NbGo(jid, i, link, opened=s.get('leela_at')), cls='nb-check')
 
-CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck, code=CodeCheck)   # check kind -> card; `notebook` has its own card (NotebookCard)
+CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck)   # check kind -> card; `notebook` has its own card (NotebookCard)
 
 # --- what comes back from Leela: every text is Leela's data, so it is cut to one plain line and the page escapes it ---------
 
@@ -771,10 +711,10 @@ def StepDone(c, nxt):
 
 # --- the walk path editor (core/edit.py: an `EditList`; each change saves at once, with an Undo) ----------------------
 
-CHOICES = dict(predict='Predict a demo', short='Short answer', order='Put in order', code='Write code', notebook='Notebook')   # the check kinds that you can pick
-CHOICE_OF = dict(predict=('demo', 'demo'), order=('order', 'order'), code=('code', 'code'), notebook=('code', 'notebook'))   # choice -> (way, kind); `short` keeps a text way
-CHOICE = dict(demo='predict', short='short', order='order', code='code', notebook='notebook')   # kind -> choice
-SAY_KIND = dict(demo='a demo', short='a short answer', order='put in order', code='code', notebook='a notebook')
+CHOICES = dict(predict='Predict a demo', short='Short answer', order='Put in order', notebook='Notebook in Leela')   # the check kinds that you can pick
+CHOICE_OF = dict(predict=('demo', 'demo'), order=('order', 'order'), notebook=('code', 'notebook'))   # choice -> (way, kind); `short` keeps a text way
+CHOICE = dict(demo='predict', short='short', order='order', notebook='notebook')   # kind -> choice
+SAY_KIND = dict(demo='a demo', short='a short answer', order='put in order', notebook='a notebook')
 FIELDS = dict(note='note', q='check question')   # the names of the fields of a step, for the Undo bar
 REWRITE_CHIPS = ('Simpler', 'Add an example', 'Shorter')
 REWRITE_HELP = 'Press Return to send, or pick a chip. The tutor rewrites the note and the check question. It never changes the passage.'
@@ -835,7 +775,7 @@ def StepBody(j, k, s, by, pick=False):
     c, ck, post = by.get(s['slug']) or {}, s.get('check') or {}, edit_url(j['id'], s['slug'])
     kind, tool = ck.get('kind', 'short'), bool(j.get('tool'))
     h, n, _ = hands_count(j['steps'])
-    kinds = Select(*[Option(t, value=v, selected=v == CHOICE.get(kind)) for v, t in CHOICES.items() if not (tool and v == 'code')], name='way',
+    kinds = Select(*[Option(t, value=v, selected=v == CHOICE.get(kind)) for v, t in CHOICES.items()], name='way',
                    aria_label='The kind of the check', hx_post=post, hx_trigger='change', hx_vals=json.dumps(dict(act='check')), hx_target='#steps', hx_swap='outerHTML')
     return [Div(Span('Idea', cls='lbl'), P(Inline(c.get('statement') or c.get('name') or s['slug'])), cls='idea-part'),
             EditPassage(j, k, s, pick),

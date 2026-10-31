@@ -41,7 +41,7 @@ Each question goes through the same six steps:
 1.  Pick. The code chooses the next concept and the depth. A due review comes first. Then a new concept comes, if you know its prerequisites. The app shows the reason.
 2.  Ask. A model writes one question at that depth, in one way to learn, such as code or an analogy. It also writes a correct answer and a rubric. You do not see them.
 3.  Struggle. You answer. If your answer is wrong, the tutor shows your first error. It gives a small hint, but not the fix. You can ask for hints, one at a time.
-4.  Grade. The model grades your answer and your think-aloud. The code grades choice questions and code exercises.
+4.  Grade. The model grades your answer and your think-aloud. The code grades choice questions. Code that you write runs in Leela.
 5.  Update. The result and your confidence change the floor, the ceiling and the next review date of the concept.
 6.  Teach. After a miss, the tutor teaches the smallest step that fixes your first error. Then it asks a check question.
 
@@ -65,7 +65,7 @@ When you say “I don’t know X”, X becomes a concept, and it comes first the
 
 ## Learn a paper, a topic or a link as a walk
 
-A walk takes you through one source, one idea at a time. You can make a walk from a paper in your vault, a text that you paste, a topic, or a link. Paste it into the Start box in Learn. One line says what abhyasa will do with it. When two readings are likely, the box asks you to pick one.
+A walk takes you through one source, one idea at a time. You can make a walk from a paper in your vault, a text that you paste, a topic, or a link. Paste it into the Start box on Home. One line says what abhyasa will do with it. When two readings are likely, the box asks you to pick one.
 
 The tutor reads the source and picks the main ideas. A walk has 12 ideas by default. You can change this number in Settings, under Walks. Before you start, the plan page shows each idea and the kind of check for it. You can change the kind for an idea there.
 
@@ -74,16 +74,11 @@ Each idea is one step. A step shows the passage from the source, word for word. 
 - Short answer. You write the idea in your own words, and the tutor grades it.
 - Demo. You predict what a demo will do, lock in your prediction, and then change the inputs.
 - Order. You put the parts of the idea in the right order.
-- Code. You write a small Python function, and its tests run.
-- Notebook. For an idea that needs a library, the step gives a notebook task, and you do it in Leela (see “Open in Leela”).
+- Notebook. For an idea that you learn with code, the step gives a notebook task, and you do it in Leela (see “Open in Leela”). abhyasa runs no code.
 
 The tutor picks the kind that fits the idea and your profile. The step shows the reason. Reading never waits for a check. You can read the passage and press “Skip this idea” at any time. A skipped idea stays unseen in your record. A pass or a miss on a check changes your record, as an answer in a session does.
 
-On a walk step, ⌥S sends your answer, or runs the tests. When the check is closed, ⌥S goes to the next idea. ⌥W asks for a hint. In a demo, ⌥V keeps the state of the demo. ⌥F still shows all the keys.
-
-### Code runs in a closed process
-
-The tests of a code check run in a closed process with no network. Each test has 2 seconds, and the whole run has 10 seconds. You can change these limits in Settings, under Code runner. On macOS, a `sandbox-exec` profile stops the network and stops writes outside a temporary folder. On other systems, the guard is best-effort, so run abhyasa in your own container if you need more. abhyasa installs no libraries. Its code checks use only the Python standard library.
+On a walk step, ⌥S sends your answer. When the check is closed, ⌥S goes to the next idea. ⌥W asks for a hint. In a demo, ⌥V keeps the state of the demo. ⌥F still shows all the keys.
 
 ### A walk from a link
 
@@ -111,10 +106,11 @@ in your home folder, that you can read, with no hidden folders and no links. For
 ### Your data
 
 Some folders are not to learn from. They are the data that you plan to run the exercises on, for example a folder of
-Ramayana episodes for a walk that trains a diffusion model. Under “Add a source”, choose “My data for the exercises”, or add
-the folder under “Your data” on the course page. Give it a short note. abhyasa does not file the folder and does not learn
+Ramayana episodes for a walk that trains a diffusion model. In the Start box, tick “My data” on the folder. Under “Add a source”
+on the walk page, choose “My data for the exercises”, or add the folder under “Your data” on the course page. Give it a short note. abhyasa does not file the folder and does not learn
 from it. The course and its walks keep it, the tutor that writes a notebook step sees its name, its note and its files, and
-the notebook in Leela runs on it. × removes it.
+the notebook in Leela runs on it, also a notebook that the tutor wrote before you added the folder. The walk page shows
+your data under Sources. × removes it.
 
 A path alone, such as `~/code/course22`, asks one question: “Walk through it” or “Use it for a goal”.
 
@@ -283,9 +279,9 @@ Settings has a Talks group. It has the minutes for each question, the time to ta
 
 ## Open in Leela
 
-abhyasa does not install libraries for you, and it runs only short exercises that use the standard library. A library or a command-line tool is better to learn in [Leela](https://github.com/vedicreader/leela). Leela has the tool environments, code lookup and an agent tutor.
+abhyasa runs no code, and it does not install libraries for you. Code, a library or a command-line tool is better to learn in [Leela](https://github.com/vedicreader/leela). Leela has the tool environments, code lookup and an agent tutor.
 
-When you add a link, tick “It is a library or a command-line tool”. This makes a tool walk. A tool walk asks short-answer and order checks here, and it has no code check.
+When you add a link, tick “It is a library or a command-line tool”. This makes a tool walk. A tool walk asks short-answer and order checks here, and its code steps are notebooks in Leela.
 
 A step that needs code has an “Open in Leela” link. The link opens Leela in a new tab, on the same walk and step. abhyasa never calls Leela. It reads the file that a running Leela writes, and it makes a link only to an address on this computer.
 
@@ -359,14 +355,13 @@ The web app is made from blocks in `abhyasa/blocks`:
 
 | block | what it does |
 |----|----|
-| `today` | the home page: continue, the next review and your walks |
-| `journeys` | your walks. Say a goal, and the tutor makes a path of steps. You can move, skip, add or split a step |
+| `today` | Home: continue, the reviews that are due, your courses and walks, Teach (your talks) and the Start box |
 | `history` | your learning: each past session with what changed, and what you learned each week. Continue (⌥C) is in the top bar |
 | `profile` | what abhyasa knows about you: a short first conversation, your edits, and the changes that the tutor makes, each with its reason |
 | `strengths` | your strong concepts, your weak spots and the ways that you learn best |
 | `session` | one sitting with the tutor: one question at a time, with hints, confidence and “I don’t know” |
 | `voice` | a microphone for each text box. ⌥D speaks into the box that has the focus, on any page |
-| [`settings`](https://vedicreader.github.io/abhyasa/settings.html#settings) | every value that you may change, in groups: the look, learning, walks, checks, review, links, the code runner, speech, models, list lengths and the tutor prompts. Each number shows its range and its default. A change works on the next question |
+| [`settings`](https://vedicreader.github.io/abhyasa/settings.html#settings) | every value that you may change, in groups: the look, learning, walks, checks, review, links, speech, models, list lengths and the tutor prompts. Each number shows its range and its default. A change works on the next question |
 | `concepts` | the list of concepts, and one page for each concept with its state |
 | `graph` | the concept graph. You can color it by depth, by how well you know each concept, by subject or by due date |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |
@@ -376,16 +371,15 @@ The web app is made from blocks in `abhyasa/blocks`:
 | `demo` | interactive demos from rupaka: on a concept page, under a lesson after a miss, and one page for each demo |
 | `keys` | the keyboard shortcuts (⌥F) |
 
-The top bar has four tabs: Today (⌥T), Learn (⌥Q), Library (⌥R) and You (⌥G). Library and You have sub-tabs under the page title. ⌥1, ⌥2 and ⌥3 open them. The gear at the right end opens Settings. Each page shows where you are, above its title. Esc goes up one level, and Back and Forward work.
+The top bar has three tabs: Home (⌥T), Library (⌥R) and You (⌥G). ⌥Q goes to the Start box on Home. Library and You have sub-tabs under the page title. ⌥1, ⌥2 and ⌥3 open them. The gear at the right end opens Settings. Each page shows where you are, above its title. Esc goes up one level, and Back and Forward work.
 
 ### Notebooks
 
-In leela or Jupyter, [`learn`](https://vedicreader.github.io/abhyasa/nb.html#learn) shows a question card. [`exercise`](https://vedicreader.github.io/abhyasa/nb.html#exercise) gives a code exercise, and its tests run in the kernel.
+In leela or Jupyter, [`learn`](https://vedicreader.github.io/abhyasa/nb.html#learn) shows a question card.
 
 ``` python
-from abhyasa.nb import learn, exercise
+from abhyasa.nb import learn
 learn('reciprocal-rank-fusion')
-ex = exercise('reciprocal-rank-fusion')
 ```
 
 ## Where the data is

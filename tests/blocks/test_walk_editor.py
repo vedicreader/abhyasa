@@ -1,6 +1,7 @@
 "The walk path editor: each change saves at once with an Undo; moves keep progress, side walks and research; the hands-on share only warns; passages are real."
 from walk_data import *
 import threading
+from fastcore.utils import first
 from abhyasa.edit import hands_count
 
 def paper_walk(cl, lr): return walk(cl, lr)
@@ -57,12 +58,13 @@ def test_notebook_kind_queues_the_spec(mk, lr, walk_fake, monkeypatch):
     queued = []; monkeypatch.setattr('abhyasa.walk.nb_spec', lambda lr, ask, j, i: queued.append(i))
     cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[0]
     r = post(cl, jid, slug=s, act='check', way='notebook')
-    assert lr.journey(jid).steps[0]['check']['kind'] == 'notebook' and '1 notebook builds your goal.' in r.text
-    wait_for(lambda: True if queued == [0] else None)
-    assert queued == [0]
+    assert lr.journey(jid).steps[0]['check']['kind'] == 'notebook' and 'Hands-on checks: 2 of 3 ideas' in r.text   # a notebook that you pick is hands-on
+    assert wait_for(lambda: True if 0 in queued else None)
 
 def test_hands_count_three_numbers():
-    assert hands_count([dict(check=dict(kind='demo')), dict(check=dict(kind='notebook')), dict(check=dict(kind='short'), status='skip')]) == (1, 2, 1)
+    "Hands-on checks, the ideas that count, and the notebooks that build the goal. A notebook that you pick is hands-on."
+    assert hands_count([dict(check=dict(kind='demo')), dict(check=dict(kind='notebook'), hands='notebook'), dict(check=dict(kind='short'), status='skip')]) == (1, 2, 1)
+    assert hands_count([dict(check=dict(kind='notebook', why='you chose it'))]) == (1, 1, 0)
 
 def test_tool_walk_has_no_code_check(mk, lr, walk_fake):
     cl = mk(); jid = paper_walk(cl, lr); lr.merge_journey(jid, tool=True)
@@ -210,7 +212,9 @@ def test_a_move_during_the_notebook_job_keeps_the_spec_on_its_idea(mk, lr, walk_
     "The notebook job finds its step by the concept: a move while the model writes the spec puts the spec on the same idea."
     from abhyasa.contract import NB_SPEC_CASES
     go, asked = threading.Event(), threading.Event()
-    def model(p, sp): asked.set(); go.wait(5); return NB_SPEC_CASES[0][0]
+    def model(p, sp):
+        if 'Sequential computation' in p: asked.set(); go.wait(5)   # hold only the job of the idea that moves
+        return NB_SPEC_CASES[0][0]
     walk_fake.rules['Write one exercise and one real run'] = model
     cl = mk(); jid = paper_walk(cl, lr); ss = slugs(lr, jid)
     post(cl, jid, slug=ss[0], act='check', way='notebook')
@@ -218,7 +222,7 @@ def test_a_move_during_the_notebook_job_keeps_the_spec_on_its_idea(mk, lr, walk_
     post(cl, jid, slug=ss[0], act='move', to=2); go.set()
     assert wait_for(lambda: True if lr.journey(jid).steps[2].get('nb') else None)
     j = lr.journey(jid)
-    assert j.steps[2]['slug'] == ss[0] and not j.steps[0].get('nb') and not j.steps[1].get('nb')
+    assert j.steps[2]['slug'] == ss[0] and not first(s for s in j.steps if s['slug'] == ss[2]).get('nb')   # the third idea has no notebook
 
 def test_an_attempt_keeps_the_concept_of_its_step(mk, lr, walk_fake):
     "Each attempt of a step keeps `idea`, the slug of the step, next to its place, so a move does not lose which step it was."
@@ -229,7 +233,9 @@ def test_an_attempt_keeps_the_concept_of_its_step(mk, lr, walk_fake):
 def test_a_note_that_the_rewrite_writes_first_has_its_own_undo(mk, lr, walk_fake):
     "With no note, the rewrite first writes the note, as its own change by the tutor; two Undos give back the step with no note."
     walk_fake.rules['Rewrite these fields'] = dict(note='A short note.')
-    cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[1]; old = lr.journey(jid).steps
+    cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[1]
+    assert wait_for(lambda: lr.journey(jid).steps[1].get('nb_why') or None)   # the notebook job of idea 2 ends first
+    old = lr.journey(jid).steps
     post(cl, jid, slug=s, act='rewrite', text='simpler')
     es = lr.edits('walk', jid)
     assert [e.what for e in es] == ['Rewrote the note of idea 2: simpler.', 'The tutor wrote the note of idea 2.'] and es[1].who == 'tutor'

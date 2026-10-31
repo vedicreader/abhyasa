@@ -138,18 +138,6 @@ if (!window.abhyasaWalk) {
   new MutationObserver(link).observe(document.documentElement, {subtree: true, attributes: true, attributeFilter: ['data-rk-ready']});
   document.addEventListener('htmx:afterSettle', link);
 
-  // The code editor: Tab adds 4 spaces, and Shift-Tab takes away up to 4. ⌘↵ runs the tests (core.js presses the Run button).
-  document.addEventListener('keydown', e => {
-    const t = e.target;
-    if (e.key !== 'Tab' || e.altKey || e.metaKey || e.ctrlKey || !t.matches || !t.matches('.code-editor')) return;
-    e.preventDefault();
-    const v = t.value, a = t.selectionStart, b = t.selectionEnd;
-    if (!e.shiftKey && a === b) { t.setRangeText('    ', a, b, 'end'); return; }
-    const from = v.lastIndexOf('\n', a - 1) + 1, lines = v.slice(from, b).split('\n');
-    const out = lines.map(l => e.shiftKey ? l.replace(/^ {1,4}/, '') : '    ' + l).join('\n');
-    t.setRangeText(out, from, b, 'select');
-    t.setSelectionRange(Math.max(from, a + (out.length - (b - from)) * 0 + (lines[0].length - out.split('\n')[0].length) * -1), from + out.length);
-  });
 }
 
 // The walk path editor. The keys, the drag, the live fields and ⌘Z are in core/edit.js ("Walk path" in core/keys.py). Here: Add an idea goes after

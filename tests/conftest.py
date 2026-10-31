@@ -53,11 +53,10 @@ def mk(lr, fake):
 
 @pytest.fixture
 def walk_fake(fake, monkeypatch):
-    "The `fake` that `mk` uses, with the replies for a walk: the extract of the paper, the tutor note, and the code exercise. No demo check starts a browser."
+    "The `fake` that `mk` uses, with the replies for a walk: the extract of the paper and the tutor note. No demo check starts a browser."
     monkeypatch.setattr('rupaka.check.can_check', lambda: False)
-    from walk_data import EXTRACT_REPLY, EXERCISE
-    fake.rules.update({'Return JSON: {"concepts"': EXTRACT_REPLY, 'You write a short note': 'Softmax makes weights from scores. Look at what a large score does.',
-                       'You write one small Python exercise': EXERCISE})
+    from walk_data import EXTRACT_REPLY
+    fake.rules.update({'Return JSON: {"concepts"': EXTRACT_REPLY, 'You write a short note': 'Softmax makes weights from scores. Look at what a large score does.'})
     return fake
 
 @pytest.fixture

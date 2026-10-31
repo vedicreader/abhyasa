@@ -26,15 +26,6 @@ EXTRACT_REPLY = dict(concepts=[
          aliases=[], prereqs=['Softmax'], section='3.2.1 Scaled Dot-Product Attention', quote='the dot products grow large in magnitude',
          figure='', ways=['demo', 'maths'], moves=['dot products', 'weights'], when=None, who=['Vaswani'])])
 
-EXERCISE = dict(task='Write softmax(x, t=1.0). It returns weights that add to 1. It must not fail on large scores.', fname='softmax',
-                stub='import math\n\ndef softmax(x, t=1.0):\n    ...',
-                tests=['assert round(sum(softmax([1.0, 2.0, 3.0])), 6) == 1.0', 'assert softmax([0.0, 0.0]) == [0.5, 0.5]',
-                       dict(test='assert max(softmax([1000.0, 1001.0])) < 1', say='It does not fail on large scores', hidden=True)],
-                solution='import math\ndef softmax(x, t=1.0):\n    m = max(x)\n    e = [math.exp((v - m) / t) for v in x]\n    return [v / sum(e) for v in e]')
-
-GOOD = 'import math\ndef softmax(x, t=1.0):\n    m = max(x)\n    e = [math.exp((v - m) / t) for v in x]\n    return [v / sum(e) for v in e]'
-NAIVE = 'import math\ndef softmax(x, t=1.0):\n    e = [math.exp(v / t) for v in x]\n    return [v / sum(e) for v in e]'
-
 def wait_for(f, secs=5.):
     "The first value of `f()` that is not None, asked every 0.1 s for `secs`; None at the end."
     end = time.monotonic() + secs

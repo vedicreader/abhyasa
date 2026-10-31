@@ -1,6 +1,6 @@
 """The guided walk: a paper, a text, a topic or a link as one idea at a time, in reading order. The plan, the step page, its check,
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
-import hashlib, json, logging, re, tempfile, time
+import hashlib, json, logging, re, time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, wait as wait_all
 from threading import Lock
@@ -16,15 +16,13 @@ from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
 from abhyasa.journey import with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
-from abhyasa.walk import tutor_note, open_short, step_meta, code_task, validate_nb_spec, leela_back, leela_found
+from abhyasa.walk import tutor_note, open_short, step_meta, leela_back, leela_found
 from abhyasa.course import course_of, drop_data
 import abhyasa.walk as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.talk   # adds Learning.talks: the editor links the talks made from a walk
 from abhyasa.talk import walk_changes
 from abhyasa.edit import (edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, merge_steps, add_step, split_step,
                           passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite, links_in, propose, improve_walk)
-from abhyasa.contract import data_path_why
-from abhyasa.nb import spec_notebook
 from abhyasa.research import to_research, wants_source, want_agent, research_state
 from abhyasa.tutor import NoLesson
 from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said, show_ask
@@ -37,7 +35,6 @@ FIGURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a step (spec 6.3), empty until the step is used
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
 MAX_STATE = 20_000                   # the most chars of a kept demo state
-MAX_SOURCE = 100_000                 # the most chars of code that a run takes
 MAX_RESULT = 2 << 20                 # the most bytes of one image of a run from Leela
 PNG = b'\x89PNG\r\n\x1a\n'
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
@@ -134,7 +131,7 @@ def connect(app, ctx):
         if k == 'notebook': return nb_card(j, i)
         if k in AIM: return ui.CHECKS[k](j.id, i, s, demo(s))
         q = question(j, i)
-        return ui.CHECKS.get(k, ui.Short)(j.id, i, s, q, after=run_hook('check_after', j, i, q) if q else (), **(dict(vault=vault) if k == 'code' else {}))
+        return ui.CHECKS.get(k, ui.Short)(j.id, i, s, q, after=run_hook('check_after', j, i, q) if q else ())
 
     def back_to(j):
         "The way back from side walk `j` to the step that opened it, and the trail for the side pane; None for a walk with no parent."
@@ -142,12 +139,6 @@ def connect(app, ctx):
         if not pj: return None
         parts = [[f"Idea {t.step + 1}", ui.at(Routes.step, t.walk, t.step)] for t in trail(lr, j.id)[:-1] if t.step is not None]
         return AttrDict(href=ui.at(Routes.step, pj.id, i), here=f"idea {i + 1} of {len(pj.steps)}", trail=parts)
-
-    def as_short(j, i):
-        "Walk `j` with the check of step `i` as a short answer in a text way, when its code task could not be made (spec 6.5)."
-        s = j.steps[i]
-        if s['check']['kind'] == 'short': return j
-        return AttrDict({**j, 'steps': [*j.steps[:i], {**s, 'check': dict(short_check(lr, lr.concept(s['slug'])))}, *j.steps[i + 1:]]})
 
     def ahead(j, i):
         "Start the demo of step `i` when its check is a demo or an order, it has no outcome, and it has no demo yet (spec 6.5)."
@@ -162,22 +153,10 @@ def connect(app, ctx):
         if job_state(tutor, slug, aim) == 'running' and job_age(tutor, slug, aim) < val('walks.demo_wait'): return ui.Pending(j.id, i, s)
         put(j, i, check=dict(short_check(lr, lr.concept(slug))))
 
-    def open_code(j, i, sid):
-        "Open the code task of step `i` and keep its stub and visible tests on the step, so a reload shows the same task; None when it fails."
-        try: t = code_task(tutor, lr.concept(j.steps[i]['slug']), session=sid, meta=step_meta(j, i))
-        except Exception as e: log.warning('the tutor could not write the code task of %s step %s: %r', j.id, i, e); return None
-        put(j, i, qid=t.q.id, code=dict(fname=t.fname, stub=t.stub, tests=t.tests))
-        return t.q
-
-    def reply(j, i, r=None):
-        "The reply to a move on a check: the results part for a code check, else the whole card."
-        q = question(j, i)
-        return ui.CodeOut(j.id, i, q, r) if q and j.steps[i].get('code') else card(j, i)
-
     def no_check(j, i):
         "The reply to a move on a check that is not open: the closed card, or 409 when the check was never loaded."
         if not j: return Response(status_code=404)
-        if j.steps[i].get('done'): return reply(j, i)
+        if j.steps[i].get('done'): return card(j, i)
         return Response('No check is open on this idea. Load the page again.', status_code=409)
 
     def live(jid, i):
@@ -190,7 +169,7 @@ def connect(app, ctx):
     def closed(j, i, r):
         "Mark step `i` done with the outcome of its check."
         j = put(j, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
-        return reply(j, i, r), *ui.Filled(j, walk_state(j, b := by()), b, i)   # the dot of the idea fills in the outline
+        return card(j, i), *ui.Filled(j, walk_state(j, b := by()), b, i)   # the dot of the idea fills in the outline
 
     looking, look_for = ctx.research.looking, ctx.research.look_for   # research runs on its own pool; the request does not wait
     gathering = ctx.research.gathering   # the gather agent runs on its own pool, too
@@ -606,7 +585,7 @@ def connect(app, ctx):
                 j = lr.journey(jid)
             if not j.steps[i].get('done') and j.steps[i]['check']['kind'] not in AIM and j.steps[i].get('qid') not in tutor.open:
                 s = sitting(j)
-                try: s.q = (open_code(j, i, s.id) if j.steps[i]['check']['kind'] == 'code' else None) or open_short(tutor, as_short(j, i), i, s.id)
+                try: s.q = open_short(tutor, j, i, s.id)
                 except Exception as e:
                     log.warning('the tutor could not write the check of %s step %s: %r', jid, i, e)
                     return Div(P('The tutor could not write the check.', cls='req-err'),
@@ -620,14 +599,6 @@ def connect(app, ctx):
         if j.steps[i].get('nb_why'): j = put(j, i, nb_why='')
         return card(j, i)
 
-    def notebook(jid:str, i:int):
-        "The notebook of step `i` as a Jupyter file to download: the task, the setup, the stub, the tests and the run."
-        if not (j := walk_of(jid, i)) or not (spec := j.steps[i].get('nb')): return Response(status_code=404)
-        name = f'{jid}-{i}.ipynb'
-        try: p = spec_notebook(spec, Path(tempfile.mkdtemp(prefix='abhyasa-nb-'))/name)
-        except ValueError: return Response('The notebook of this step is not valid. Write it again.', status_code=409)
-        return FileResponse(p, media_type='application/x-ipynb+json', headers={'Content-Disposition': f'attachment; filename="{name}"'})
-
     def open_leela(jid:str, i:int):
         "Open in Leela: note the time on step `i` (`leela_at`), then go to the Leela link. When Leela does not run, go back to the step."
         with _jlock(jid):   # one read of the walk: the link, the concept opened at this place and the stamp all name the same idea
@@ -639,17 +610,6 @@ def connect(app, ctx):
             lr.walk_slug(jid, slug, leela_at=time.time())
         return RedirectResponse(link, status_code=303)
 
-    def data(jid:str, i:int, name:str='', path:str=''):
-        "Set the path of the data entry `name` of the notebook of step `i`, as the folder of your images. A path outside your home folder is refused."
-        with _jlock(jid):   # read and write under the lock of the walk
-            if not (j := walk_of(jid, i)) or not (spec := j.steps[i].get('nb')): return Response(status_code=404)
-            if not any(d['name'] == name for d in spec['data']): return Response('The notebook has no data with this name.', status_code=400)
-            if why := data_path_why(path.strip()): return Response(f'abhyasa did not keep this path: {why}. Use a path in your home folder, such as ~/Pictures/comic.', status_code=400)
-            try: new = validate_nb_spec({**spec, 'data': [{**d, 'path': path.strip()} if d['name'] == name else d for d in spec['data']]})
-            except ValueError as e: return Response(f'abhyasa did not keep this path: {e}.', status_code=400)
-            j = put(j, i, nb=new)
-        return card(j, i)
-
     def failed(what, jid, i, e):
         "A call to the model that failed: the log gets the error, and the page a plain line. A 503 keeps the answer in its box."
         log.warning('the tutor could not %s on %s step %s: %r', what, jid, i, e)
@@ -659,22 +619,13 @@ def connect(app, ctx):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
         if (words := show_ask(answer)) is not None:   # "show me …" opens a demo under the title (the demo block); it uses no try
-            return reply(j, i), *run_hook('show_me', words, dict(where='walk', concept=j.steps[i]['slug'], walk=jid, step=i))
+            return card(j, i), *run_hook('show_me', words, dict(where='walk', concept=j.steps[i]['slug'], walk=jid, step=i))
         try: r = s.answer(answer, thinking, confidence)
         except KeyError as e:
             if s.q.id in tutor.open: return failed('grade your answer', jid, i, e)
             return no_check(lr.journey(jid), i)   # another request closed it while this one waited
         except Exception as e: return failed('grade your answer', jid, i, e)
-        return closed(j, i, r) if r.done else reply(j, i)
-
-    def run(jid:str, i:int, source:str=''):
-        "Run the code of step `i` on its tests; the reply is the results part only."
-        if len(source) > MAX_SOURCE: return Response(f'The code is too long. Send at most {MAX_SOURCE:,} characters.', status_code=413)
-        with held(jid, i):   # one run at a time, so a double click does not use two tries
-            j, s = live(jid, i)
-            if not s or not j.steps[i].get('code'): return no_check(j, i) if s is None else Response('This check is not a code check.', status_code=409)
-            r = s.code(source)
-            return closed(j, i, r) if r.done else reply(j, i, r)
+        return closed(j, i, r) if r.done else card(j, i)
 
     def hint(jid:str, i:int):
         j, s = live(jid, i)
@@ -685,7 +636,7 @@ def connect(app, ctx):
             if s.q.id in tutor.open: return failed('give a hint', jid, i, e)
             return no_check(lr.journey(jid), i)
         except Exception as e: return failed('give a hint', jid, i, e)
-        return reply(j, i)
+        return card(j, i)
 
     @hook('guide_board')
     def board_hint(page, board):
@@ -912,7 +863,6 @@ def connect(app, ctx):
     def new_check(j, s, way):
         "The check of step `s` for the choice `way`: a kind of the editor (short, predict, order, code, notebook) or a way of the walk. The question that you wrote stays (the change adds it)."
         old, tool = s.get('check') or {}, bool(j.get('tool'))
-        if way == 'code' and tool: raise ValueError('A walk on a tool has no Write code check. Pick Notebook.')
         if way == 'short': w, kind = (old.get('way') if old.get('way') in TEXT_WAYS and old.get('way') != 'code' else 'words'), 'short'
         elif way in ui.CHOICE_OF: w, kind = ui.CHOICE_OF[way]
         elif way in (TOOL_WAYS if tool else WALK_WAYS): w, kind = way, CHECK_KIND.get(way, 'short')
@@ -1188,7 +1138,6 @@ def connect(app, ctx):
     app.post(Routes.answer)(answer)
     app.post(Routes.hint)(hint)
     app.post(Routes.giveup)(giveup)
-    app.post(Routes.run)(run)
     app.post(Routes.predict)(predict)
     app.post(Routes.keep)(keep)
     app.get(Routes.ladder)(ladder)
@@ -1197,8 +1146,6 @@ def connect(app, ctx):
     app.get(Routes.done)(done)
     app.get(Routes.img)(img)
     app.get(Routes.result)(result); app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's static route for `.png`
-    app.get(Routes.notebook)(notebook)
-    app.post(Routes.data)(data)
     app.post(Routes.leela)(open_leela)
     app.get(Routes.leela)(open_leela)   # Abhyasa.app opens the target=_blank form of Open in Leela as a GET
     app.get(Routes.source)(source)

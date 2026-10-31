@@ -23,7 +23,6 @@ GROUPS = dict(look=('Look', 'Pick the colours of the app.'),
               review=('Review', 'Set when an idea comes back for review.'),
               links=('Links', 'Set how much of a link the tutor reads.'),
               research=('Research', 'Set how the tutor finds a source on the web for an idea that has none.'),
-              runner=('Code runner', 'Set the limits for the code that you run in a check.'),
               stt=('Speech to text', 'Pick the model that writes down what you say.'),
               voice=('Speaking voice', 'Pick the voice that reads the steps of the screen guide aloud.'),
               guide=('Screen guide', 'Set what the screen guide does when it explains a part of the page.'),
@@ -114,11 +113,6 @@ add('research.agent_minutes', 'research', 'Most minutes for the agent', 'The age
 add('research.told', 'research', 'Web search line shown', 'The Start box said one time that a topic walk searches the web.', False, ui=False);
 add('sources.roots', 'research', 'Source folders', 'Where abhyasa looks for a source that you name. It looks two levels down. It never searches the whole disk.', '~/code/personal/orgs');
 
-# %% ../nbs/16_settings.ipynb #4412f5ae
-add('runner.total', 'runner', 'Total time', 'How long your code can run for all the tests together. Then the run stops.', 10, 5, 60, more=True, unit='s')
-add('runner.per_test', 'runner', 'Time for each test', 'How long one test can run. Then the test fails.', 2, 1, 10, more=True, unit='s')
-add('runner.file_mb', 'runner', 'Largest file', 'The largest file that your code can write.', 10, 1, 100, more=True, unit='MB');
-
 # %% ../nbs/16_settings.ipynb #ec6cb843
 add('stt.engine', 'stt', 'Engine', 'The speech engine.', 'mlx', ui=False, reset=False)
 add('stt.model', 'stt', 'Model', 'The speech model. Empty uses the default of the engine.', '', ui=False, reset=False)
@@ -140,13 +134,13 @@ add('voice.out_speed', 'voice', 'Speed', 'How fast the OpenAI voice speaks. 1 is
 TASK_HELP = dict(question='Writes each question and its hidden answer.', grade='Reads your answer and grades it.', hint='Gives the next hint.',
                  lesson='Teaches the smallest step after a miss.', extract='Finds the ideas in a text.', plan='Plans the ideas of a walk to a goal.',
                  pick='Picks the main ideas of a long source for a walk.', note='Writes the tutor note under the passage of an idea.',
-                 profile='Learns about you from your answers.', exercise='Writes a code exercise and its tests.',
+                 profile='Learns about you from your answers.',
                  talk='Writes a choice question for a talk from a short check.',
                  guide='Explains a part of the page when you ask the screen guide.',
                  guide_vision='Reads the labels of a figure for the screen guide. Pick a model that can see pictures.')
-BORROWS = dict(plan='extract', pick='extract', note='hint', profile='extract', exercise='question', talk='question', guide='hint', guide_vision='hint')
+BORROWS = dict(plan='extract', pick='extract', note='hint', profile='extract', talk='question', guide='hint', guide_vision='hint')
 TASK_LABEL = dict(question='Questions', grade='Grades', hint='Hints', lesson='Lessons', extract='Ideas in a text', plan='Plans',
-                  pick='Main ideas', note='Walk notes', profile='Your profile', exercise='Code exercises', talk='Talk questions',
+                  pick='Main ideas', note='Walk notes', profile='Your profile', talk='Talk questions',
                   guide='Screen guide', guide_vision='Figure labels')
 
 add('models.default', 'models', 'Default model', 'The model for each task that has no model of its own. '

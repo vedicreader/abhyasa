@@ -8,8 +8,8 @@ Docs: https://vedicreader.github.io/abhyasa/journey.html.md"""
 __all__ = ['STATUS', 'NO_CHECK', 'PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS', 'PICK_SP', 'SHAKY',
            'STEP_MIN', 'READY', 'PRIMER_SP', 'NAME_MOST', 'CTRL_MARKS', 'current', 'plan_prompt', 'near_goal',
            'chip_docs', 'source_map', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most', 'cap_hands',
-           'hands_count', 'journey_from_source', 'journey_from_text', 'journey_from_sources', 'data_row', 'keep_data',
-           'folder_list', 'data_entries', 'with_data', 'walk_from_topic', 'walk_state', 'minutes', 'needs',
+           'builds_goal', 'hands_count', 'journey_from_source', 'journey_from_text', 'journey_from_sources', 'data_row',
+           'keep_data', 'folder_list', 'data_entries', 'with_data', 'walk_from_topic', 'walk_state', 'minutes', 'needs',
            'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk', 'is_open',
            'used_at', 'last_place', 'walk_path', 'walk_paths', 'look_up', 'topic_slug', 'add_topic', 'name_gaps',
            'split_parts', 'split', 'related', 'with_step', 'beyond', 'paper_id', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX',
@@ -38,9 +38,12 @@ STATUS = ('todo', 'known', 'skip')
 NO_CHECK = dict(way='words', kind='short', depth=2, why='you added it')
 
 def _jmeta(r):
+    "A walk from its vault row. A step with no check gets one, and an old code check (0.0.15 and older) is a notebook check: code runs in Leela."
     j = AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']})
     if j.get('mode') == 'walk':
-        for s in j.get('steps') or (): s.setdefault('check', dict(NO_CHECK))
+        for s in j.get('steps') or ():
+            s.setdefault('check', dict(NO_CHECK))
+            if s['check'].get('kind') == 'code': s['check'] = {**s['check'], 'kind': 'notebook', 'depth': DEPTH['notebook']}
     return j
 
 @patch
@@ -221,7 +224,7 @@ GOAL_WHY = 'it builds your goal'
 
 def _check(lr:Learning, c, tool:bool=False, hands:bool|str=True, needs=(), kind:str='') -> AttrDict:
     """The check for concept `c`, from `check_for` with the stats and the profile of the learner. `hands=False` gives no hands-on check.
-    The code way on a tool walk, or on a step that `needs` packages, gives a `notebook` check, and so does `hands='notebook'`.
+    The code way gives a `notebook` check (on a tool walk or a step that `needs` packages, with the reason that it needs a library), and so does `hands='notebook'`.
     `kind='notebook'` is a step that the plan marks as one that builds the goal."""
     if kind == 'notebook': return AttrDict(way='code', kind='notebook', depth=DEPTH['notebook'], why=GOAL_WHY)
     if hands == 'notebook': return AttrDict(way='code', kind='notebook', depth=DEPTH['notebook'], why=NB_WHY)
@@ -229,7 +232,7 @@ def _check(lr:Learning, c, tool:bool=False, hands:bool|str=True, needs=(), kind:
     own = c.get('ways') or ()
     if tool: c = AttrDict(c, ways=[w for w in own or TEXT_WAYS if w in TOOL_WAYS or (w == 'code' and w in own)] or ['words'])
     ck = check_for(c, lr.stats(), random.Random(), p.get('explore', 'sometimes'), [EXAMPLES_TO[e] for e in p.examples if e in EXAMPLES_TO], hands=hands)
-    return AttrDict(ck, kind='notebook', depth=DEPTH['notebook'], why=NB_WHY) if lib and ck.kind == 'code' else ck
+    return AttrDict(ck, why=NB_WHY) if lib and ck.kind == 'notebook' else ck
 
 # %% ../nbs/11_journey.ipynb #w302b
 SHORT_WAYS = tuple(w for w in TEXT_WAYS if CHECK_KIND.get(w, 'short') == 'short')
@@ -286,11 +289,15 @@ def cap_hands(lr:Learning, steps:list, tool:bool=False) -> list:
         if n > most: s['check'] = _check(lr, lr.concept(s['slug']) or AttrDict(slug=s['slug']), tool, hands=False)
     return steps
 
+def builds_goal(s) -> bool:
+    "Whether step `s` is a notebook that builds the goal: the plan marks it `hands='notebook'`, or its check says so."
+    return s.get('hands') == 'notebook' or (s.get('check') or {}).get('why') == GOAL_WHY
+
 def hands_count(steps) -> tuple:
-    "`(hands-on checks that are not notebooks, steps not skipped, notebook steps)` of `steps`. A notebook check counts only as a notebook. A skipped step does not count."
+    "`(hands-on checks, steps not skipped, notebooks that build the goal)` of `steps`. A notebook that builds the goal is not a hands-on check. A skipped step does not count."
     ss = [s for s in steps if s.get('status') != 'skip']
-    kinds = [(s.get('check') or {}).get('kind', 'short') for s in ss]
-    return sum(k not in ('short', 'notebook') for k in kinds), len(ss), kinds.count('notebook')
+    goal = [builds_goal(s) for s in ss]
+    return sum((s.get('check') or {}).get('kind', 'short') != 'short' and not g for s, g in zip(ss, goal)), len(ss), sum(goal)
 
 # %% ../nbs/11_journey.ipynb #w304
 def _leela(c, tool:bool) -> dict:
