@@ -9,6 +9,7 @@
 - Each page has a small Keys button at the bottom left. It opens a panel with the main keys of the page, and each key is a button that does the action. The panel says how to talk to the guide (hold Caps+E) and how to dictate (⌥D). In Abhyasa.app it also has "Use the guide over other apps…", which shows the first-use sheet of the screen guide. ⌥⇧F opens the panel. "Hide this" or Settings, Look turns it off (the setting `look.keys_float`).
 - A short check on a walk has the Speak button (⌥D), and the guide box shows "Hold Caps+E to talk".
 - The Sanketa pack gives each key a label of six words or fewer, in the key style of Sanketa. Sanketa's lint finds no errors and no warnings.
+- The Start box has "Pick a folder…" beside the field. On a Mac, it opens the folder chooser, and abhyasa adds the folder that you pick with the same checks as a typed path. While you drag files over the box, it shows a dashed outline and "Drop files to add them as sources." A dropped folder says "To add a folder, use Pick a folder." abhyasa refuses a source folder that you cannot read.
 
 ## 0.0.15
 

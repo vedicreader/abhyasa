@@ -1,6 +1,7 @@
 // The Start box. After 250 ms with no typing, the server reads the box (/learn/read) and says what it will do; it makes no
-// network call. A dropped PDF goes to the vault; a dropped .md or .txt goes into the box as text. Bound one time, on the
-// document, so it works after an hx-boost page change too.
+// network call. A dropped PDF goes to the vault; a dropped .md or .txt goes into the box as text. While you drag files over
+// the box, a dashed outline and one line show that it takes them. Pick a folder opens the folder chooser of this Mac
+// (/learn/pick). Bound one time, on the document, so it works after an hx-boost page change too.
 if (!window.abhyasaStart) {
   window.abhyasaStart = true;
   let timer = null, inflight = null;
@@ -35,11 +36,21 @@ if (!window.abhyasaStart) {
     if (s) s.textContent = text;
   };
   const box = e => e.target.closest && e.target.closest('#start-form');
-  document.addEventListener('dragover', e => { const f = box(e); if (f && e.dataTransfer.types.includes('Files')) { e.preventDefault(); f.classList.add('drag'); } });
+  const over = e => { const f = box(e); if (f && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); f.classList.add('drag'); } };
+  document.addEventListener('dragenter', over);
+  document.addEventListener('dragover', over);
   document.addEventListener('dragleave', e => { const f = box(e); if (f && !f.contains(e.relatedTarget)) f.classList.remove('drag'); });
+  document.addEventListener('dragend', () => form()?.classList.remove('drag'));
+  // A dropped folder: a browser gives no path for it. The Mac app or a browser that gives a file:// link gives the path.
+  const folderPath = dt => {
+    const u = (dt.getData && dt.getData('text/uri-list') || '').split(/\r?\n/).find(l => l.startsWith('file:///'));
+    try { return u ? decodeURIComponent(new URL(u).pathname) : ''; } catch { return ''; }
+  };
   document.addEventListener('drop', async e => {
     const f = box(e); if (!f) return;
     e.preventDefault(); f.classList.remove('drag');
+    const entry = e.dataTransfer.items?.[0]?.webkitGetAsEntry?.();
+    if (entry && entry.isDirectory) { const p = folderPath(e.dataTransfer); if (p) add(p); else say('To add a folder, use Pick a folder.'); return; }
     const file = e.dataTransfer.files[0]; if (!file) return;
     const name = file.name.toLowerCase(), q = document.getElementById('start-q'), fl = document.getElementById('start-file');
     if (/\.(md|txt)$/.test(name)) {
@@ -63,9 +74,21 @@ if (!window.abhyasaStart) {
     if ([...k.querySelectorAll('input')].some(i => i.name === name && i.value === value)) return;
     const i = document.createElement('input'); i.type = 'hidden'; i.name = name; i.value = value; k.append(i);
   };
-  const add = () => {
-    const a = document.getElementById('start-add'); const v = a && a.value.trim(); if (!v) return;
-    keep('extra', v); a.value = ''; read().then(() => document.getElementById('start-add')?.focus());
+  const add = (v) => {   // the path or the name in the field, or `v`: a folder that you picked or dropped
+    const a = document.getElementById('start-add'); v = (v ?? (a ? a.value : '')).trim(); if (!v) return;
+    keep('extra', v); if (a) a.value = ''; read().then(() => document.getElementById('start-add')?.focus());
+  };
+  const pick = async b => {   // the folder chooser opens only for your click; Cancel gives no path and changes nothing
+    const f = form(); if (!f || b.disabled) return;
+    b.disabled = true;
+    try {
+      const r = await fetch(f.dataset.pick, {method: 'POST', headers: {'HX-Request': 'true'}});
+      if (!r.ok) { say(await r.text()); return; }
+      const {path} = await r.json(); if (!path) return;
+      const a = document.getElementById('start-add'); if (a) a.value = path;
+      add(path);
+    } catch { say('abhyasa could not open the folder chooser. Type the path of the folder.'); }
+    finally { b.disabled = false; }
   };
   document.addEventListener('click', e => {
     const x = e.target.closest && e.target.closest('#start-form .schip .x');
@@ -78,6 +101,8 @@ if (!window.abhyasaStart) {
       return;
     }
     if (e.target.closest && e.target.closest('#start-add-go')) { e.preventDefault(); add(); return; }
+    const pb = e.target.closest && e.target.closest('#start-pick');
+    if (pb) { e.preventDefault(); pick(pb); return; }
     const g = e.target.closest && e.target.closest('#start-as-goal');
     if (g) {   // Use it for a goal: the folder becomes a source, and the box waits for the goal
       e.preventDefault();

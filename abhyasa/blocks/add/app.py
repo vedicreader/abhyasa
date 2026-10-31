@@ -1,8 +1,9 @@
 """Start something new, in Learn: one box that reads what you paste or drop and says what abhyasa will do (`detect`).
 Also Find concepts only (`POST /add`), and the vedicreader import."""
-import asyncio, hashlib, logging, re, time
+import asyncio, hashlib, logging, re, subprocess, sys, threading, time
 from fasthtml.common import *
 from pathlib import Path
+from abhyasa.core.leela import LOCAL_HOSTS
 from abhyasa.core import hook, run as run_hook, Primary, Secondary, Quiet, Pill, asset_css, asset_js, n_of
 from abhyasa.sources import extract, from_vault, from_vedicreader, folder_why, tree_files, vault_roots
 from abhyasa.settings import val, roots
@@ -13,7 +14,14 @@ __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask', 'pool')
 _P = Path(__file__).parent
 NO_DOC = 'No document in your vault has this name. To add a web page or a paper, paste its link.'
-WEB_ONCE = 'The tutor will search the web for sources. Your topic goes to the search. Turn this off in Settings.'
+WEB_ONCE = 'The tutor will search the web for sources. Your topic goes to the search.'
+OFF = ' Turn this off in Settings.'   # only when the `from the web` chip, with its own link, does not show
+CAN = 'Paste a link, a paper or a topic. Add a folder or a repo, or drop a file.'
+CUE = 'Drop files to add them as sources.'
+PICK = 'Pick a folder…'
+PICK_SAY = 'Pick a folder to learn from'
+PICK_WAIT = 600   # seconds that the folder chooser stays open
+NOT_HERE = 'abhyasa opens the folder chooser only on this Mac.'
 DROP_MB = 50
 DROP_WAIT = 60   # seconds that a drop waits for the vault to read the PDF; then the pool goes on and the request answers
 STILL = 'abhyasa is still reading this PDF. It shows in your vault when it is done.'
@@ -27,6 +35,23 @@ NAMES_FOR, DISK_FOR = 300, 60   # seconds that the folder names, and the count o
 STATE = dict(gh='a GitHub repo · cloned when you press Start', folder='a folder on this Mac · added when you press Start',
              repo='a repo on this Mac · added when you press Start', link='a link · read when you press Start', vedic='on this Mac', doc='in your vault')
 log = logging.getLogger(__name__)
+_osa, _picking = subprocess.run, threading.Lock()   # the runner of osascript (a test fakes it), and one chooser at a time
+
+def can_pick() -> bool:
+    "The folder chooser of macOS opens only when abhyasa runs on a Mac."
+    return sys.platform == 'darwin'
+
+def choose_folder() -> str:
+    "Open the folder chooser of macOS and give the path of the folder that you pick, or '' when you cancel or it times out."
+    if not _picking.acquire(blocking=False): return ''   # a chooser is open already
+    try: r = _osa(['osascript', '-e', f'POSIX path of (choose folder with prompt "{PICK_SAY}")'], capture_output=True, text=True, timeout=PICK_WAIT)
+    except (OSError, subprocess.SubprocessError) as e:
+        log.info('abhyasa did not get a folder from the chooser: %r', e)
+        return ''
+    finally: _picking.release()
+    return r.stdout.strip().rstrip('/') if r.returncode == 0 else ''   # Cancel: osascript stops with an error (-128)
+
+def Pick(): return Button(PICK, type='button', cls='quiet small', id='start-pick') if can_pick() else ''
 
 def Line(r):
     "The quiet line: a small chip with the kind, the first sentence in bold, then the rest."
@@ -78,7 +103,7 @@ def Chips(cs, said=()):
            if val('research.on') else '')
     return Div(Span('Sources for this goal', cls='lbl'), *map(Chip, cs), web, *[P(x, cls='req-err') for x in said],
                Div(Input(type='text', id='start-add', placeholder='Add a folder, a repo or a link', aria_label='Add a folder, a repo or a link', autocomplete='off'),
-                   Button('Add', type='button', cls='quiet small', id='start-add-go'), cls='addf'),
+                   Button('Add', type='button', cls='quiet small', id='start-add-go'), Pick(), cls='addf'),
                Input(type='hidden', name='chips', value='1'), cls='chips-src', aria_label='Sources for this goal')
 
 def Read(r, f=None, told=True, q='', said=()):
@@ -90,11 +115,11 @@ def Read(r, f=None, told=True, q='', said=()):
     wait = WAIT.get(r.kind, 'Making the walk…')
     start = (Primary('Start', data_wait=wait, data_skel='#walk-out', id='start-go') if go else
              Button('Start', ' ', Kbd('⌥S'), disabled=True, id='start-go', type='button', hidden=bool(r.ask)))   # a question: its answers start
-    drop = (FOUND if shown and ok else 'abhyasa gets it only when you press Start.' if go and r.kind in ('paper', 'repo', 'site') else 'You can also drop a file here.')
+    drop = (FOUND if shown and ok else 'abhyasa gets it only when you press Start.' if go and r.kind in ('paper', 'repo', 'site') else CAN)
     foot = Div(start, Quiet('Find concepts only', hx_post=Routes.base, hx_target='#walk-out', data_wait='Reading and finding concepts…', data_skel='#walk-out')
-               if 'find' in r.options else '', Span(drop, cls='start-drop'), cls='foot')
+               if 'find' in r.options else '', '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
     line = P(NO_GOAL, cls='will', id='start-will') if r.kind == 'empty' and cs else Line(r) if r.kind != 'ask' else P(B(r.ask.q), cls='will', id='start-will')
-    return (line, P(WEB_ONCE, cls='mute web-once') if r.kind in ('topic', 'goal') and val('research.on') and not told else '',
+    return (line, P(WEB_ONCE + ('' if shown else OFF), cls='mute web-once') if r.kind in ('topic', 'goal') and val('research.on') and not told else '',
             Ask(r, cs[0].path if cs else q) if r.ask else Options(r, f), Chips(cs, said) if shown else '', foot)
 
 def connect(app, ctx):
@@ -165,7 +190,8 @@ def connect(app, ctx):
                     Input(type='hidden', name='file', value=file, id='start-file'), Say(r := reading(q, file=file, doc=doc)[0]), Doc(r, file, doc),
                     Div(id='start-keep', hidden=True),   # the sources that you added (`extra`) and removed (`drop`): start.js keeps them over each read
                     Div(*Read(r, told=val('research.told'), q=q), id='start-read', data_quiet='1'),
-                    hx_post='/walk/new', hx_target='#walk-out', id='start-form', cls='start raised', data_read=Routes.read, data_drop=Routes.file)
+                    P(CUE, cls='drop-cue', aria_hidden='true'),   # shows only while you drag files over the box (start.js, add.css)
+                    hx_post='/walk/new', hx_target='#walk-out', id='start-form', cls='start raised', data_read=Routes.read, data_drop=Routes.file, data_pick=Routes.pick)
 
     def read(q:str='', pick:str='', file:str='', pages:str='', tool:str='', title:str='', subject:str='', opts:str='', doc:str='',
              extra:list[str]=None, drop:list[str]=None):
@@ -196,6 +222,11 @@ def connect(app, ctx):
         d = d or {}
         return Box(d.get('title') or stem, name, d.get('doc_id') or d.get('id') or '')
 
+    async def pick(req):
+        "Open the folder chooser of this Mac, for a click in the box. The path goes back to start.js, which adds it as you add a typed path."
+        if not can_pick() or (req.client.host if req.client else '') not in LOCAL_HOSTS: return Response(NOT_HERE, status_code=403)
+        return JSONResponse(dict(path=await asyncio.to_thread(choose_folder)))
+
     def add(subject:str='', text:str='', ref:str='', q:str=''):
         text = text or q   # the Start box sends its text as `q`
         if not (text.strip() or ref.strip()): return P('Paste text or name a document.', cls='mute')
@@ -223,4 +254,5 @@ def connect(app, ctx):
     app.post(Routes.base)(add)
     app.get(Routes.read)(read)
     app.post(Routes.file)(drop)
+    app.post(Routes.pick)(pick)
     app.post(Routes.vedicreader)(vedicreader)
