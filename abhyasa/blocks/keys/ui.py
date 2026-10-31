@@ -8,7 +8,7 @@ from abhyasa.core.keys import short, page_group, float_rows
 _P = Path(__file__).parent
 WHERE = {'Everywhere': 'On every page.', 'Session': 'While you answer a question.', 'Concept': 'On a concept page.',
          'Walk': 'On a step of a walk.', 'Side pane': 'While a side walk is open beside the paper.',
-         'Talk plan': 'In the editor of a talk.', 'Walk path': 'In the editor of a walk path.', 'Talk': 'In the presenter window of a talk.',
+         'Talk plan': 'In the editor of a talk.', 'Change the walk': 'On the page that changes a walk.', 'Talk': 'In the presenter window of a talk.',
          'Graph': 'When the graph has the focus: click it first.', 'Mac app': 'In the menus of Abhyasa.app.'}
 
 def css(): return asset_css(_P/'keys.css')
@@ -19,8 +19,8 @@ def Group(name, rows):
                    Dl(*[x for _, k, a in rows for x in (Dt(Kbd(k)), Dd(a))], cls='keys'))
 
 # --- the Keys panel: a quiet pill at the bottom left of each page ---------------------------------------------------------
-GUIDE_LINE = 'Explain: press Caps+E on any page, and the tutor draws on it.'
-TALK_LINE = 'Hold Caps+E to talk to the guide. ⌥D types what you say into a box.'
+GUIDE_LINE = 'Press Caps+E on any page. The tutor explains it and draws on it.'
+TALK_LINE = 'Hold Caps+E to talk to the guide. ⌥D writes what you say into a text box.'
 MAC_GUIDE = 'Use the guide over other apps…'
 GUIDE_LINK = 'abhyasa://guide/start'   # Abhyasa.app shows the first-use sheet of its screen guide (WebController.swift)
 SHOWN = {'⌃⌥⇧⌘E': 'Caps+E'}          # the name of a key in the panel, when its symbols are long

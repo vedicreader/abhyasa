@@ -20,7 +20,7 @@ KEYS = [
     ('Everywhere', '⌥1–⌥3', 'Pick a sub-tab'),
     ('Everywhere', '⌥F or ?', 'Show the keyboard shortcuts'),
     ('Everywhere', '⌥⇧F', 'Open or close the Keys panel'),
-    ('Everywhere', '⌥D', 'Dictate into the box with focus'),
+    ('Everywhere', '⌥D', 'Speak into the text box'),
     ('Everywhere', '/', 'Search what you learned'),
     ('Everywhere', '⌘↩', 'Send the form from a box'),
     ('Everywhere', 'esc', 'Go up one level'),
@@ -39,7 +39,7 @@ KEYS = [
     ('Walk', '⌥W', 'Ask for a hint'),
     ('Walk', '⌘↩', 'Send the answer, or run the tests'),
     ('Walk', '⌥V', 'Keep the state of the demo'),
-    ('Walk', '⌥B', 'Learn beside: learn a missing idea in the side pane'),
+    ('Walk', '⌥B', 'Learn a missing idea in a side walk'),
     ('Side pane', '⌥Z', 'Back to the paper: close the side pane'),
     ('Guide', '⌃⌥⇧⌘E', 'Explain this: hold to talk, tap to type (Caps+E)'),
     ('Guide', 'A', 'Say and draw the step again'),
@@ -48,11 +48,11 @@ KEYS = [
     ('Guide', 'esc', 'Stop the board'),
     ('Side pane', 'esc', 'Close the side pane'),
     *PLAN_KEYS,
-    ('Walk path', 'W', 'Move the focus to the idea above'), ('Walk path', 'S', 'Move the focus to the idea below'),
-    ('Walk path', '⇧W ⇧S', 'Move the idea up or down'), ('Walk path', 'E', 'Edit the idea'), ('Walk path', 'A', 'Add an idea after the idea'),
-    ('Walk path', 'P', 'Split the idea into smaller ideas'), ('Walk path', 'M', 'Merge the idea with the next idea'),
-    ('Walk path', 'X', 'Remove the idea. Undo gives it back'), ('Walk path', 'R', 'Ask the tutor to rewrite the note and the check question'),
-    ('Walk path', '⌘Z', 'Undo the last change. In a text box, ⌘Z undoes the typing'), ('Walk path', '⌥S', 'Continue the walk'),
+    ('Change the walk', 'W', 'Move the focus to the idea above'), ('Change the walk', 'S', 'Move the focus to the idea below'),
+    ('Change the walk', '⇧W ⇧S', 'Move the idea up or down'), ('Change the walk', 'E', 'Edit the idea'), ('Change the walk', 'A', 'Add an idea after the idea'),
+    ('Change the walk', 'P', 'Split the idea into smaller ideas'), ('Change the walk', 'M', 'Merge the idea with the next idea'),
+    ('Change the walk', 'X', 'Remove the idea. Undo gives it back'), ('Change the walk', 'R', 'Ask the tutor to rewrite the note and the check question'),
+    ('Change the walk', '⌘Z', 'Undo the last change. In a text box, ⌘Z undoes the typing'), ('Change the walk', '⌥S', 'Continue the walk'),
     *TALK_KEYS,
     ('Graph', '1–4', 'Layout: free, path, rings, groups'),
     ('Graph', 'S', 'Find a concept'),
@@ -77,7 +77,7 @@ SHORT = {
     'Undo the last change that you made by hand': 'Undo your last change',
     'Send the open check, or run the tests. Once the check closes, go to the next idea': 'Send, run tests, or next idea',
     'Send the answer, or run the tests': 'Send the answer, or run tests',
-    'Learn beside: learn a missing idea in the side pane': 'Learn a missing idea beside',
+    'Learn a missing idea in a side walk': 'Side walk for a missing idea',
     'Back to the paper: close the side pane': 'Close the side pane',
     'Explain this: hold to talk, tap to type (Caps+E)': 'Explain this. Hold to talk',
     'Move the focus to the slide above': 'Focus the slide above', 'Move the focus to the slide below': 'Focus the slide below',
@@ -91,7 +91,7 @@ SHORT = {
     'Go into the demo. Esc comes out': 'Go into the demo', 'Go to a slide: G, then its number': 'G, then a slide number',
     'With no phones: the option that most hands chose': 'Option that most hands chose',
     'In the audience window: fill the screen': 'Fill the screen (audience window)',
-    'Learn beside: learn a missing idea in the side pane, next to the slide': 'Learn a missing idea beside',
+    'Learn a missing idea in a side walk, next to the slide': 'Side walk for a missing idea',
     'Back to the paper: close the side pane, and the slide grows back': 'Close the side pane',
     'Close the open question, the demo focus or the side pane. It never ends the talk': 'Close the question, demo or pane',
 }
@@ -114,14 +114,14 @@ FLOAT = {'Everywhere': [('Everywhere', '⌥S'), ('Everywhere', '⌥C')],
          'Walk': [('Walk', '⌥S'), ('Walk', '⌥W'), ('Walk', '⌥B')],
          'Concept': [('Concept', '⌥E'), ('Everywhere', '⌥C')],
          'Graph': [('Graph', 'S'), ('Graph', 'F'), ('Graph', 'R')],
-         'Walk path': [('Walk path', '⌥S')], 'Talk plan': [('Talk plan', '⌥S')]}
+         'Change the walk': [('Change the walk', '⌥S')], 'Talk plan': [('Talk plan', '⌥S')]}
 FLOAT_MAX = 7
 
 def page_group(path:str) -> str:
     "The group of keys for the page at `path`; `Everywhere` for a page with no keys of its own."
     for pre, g in (('/s/', 'Session'), ('/c/', 'Concept'), ('/graph', 'Graph'), ('/settings', 'Settings'), ('/concepts', 'Concepts')):
         if path.startswith(pre): return g
-    if re.fullmatch(r'/w/[^/]+/edit/?', path): return 'Walk path'
+    if re.fullmatch(r'/w/[^/]+/edit/?', path): return 'Change the walk'
     if path.startswith('/w/'): return 'Walk'
     if re.fullmatch(r'/t/[^/]+/?', path): return 'Talk plan'
     return 'Everywhere'

@@ -55,5 +55,5 @@ def test_pack_keys_once_per_group_and_in_key_style():
     rows = pack_rows()
     assert len({(k, g) for k, _, g in rows}) == len(rows)
     ks = {(g, k) for k, _, g in rows}
-    assert ('Graph', 's') in ks and ('Everywhere', '⌥F / ?') in ks and ('Walk path', '⇧W / ⇧S') in ks and ('Everywhere', '⌥⇧F') in ks
+    assert ('Graph', 's') in ks and ('Everywhere', '⌥F / ?') in ks and ('Change the walk', '⇧W / ⇧S') in ks and ('Everywhere', '⌥⇧F') in ks
     assert ('Everywhere', '⌥D') in ks and ('Guide', '⌃⌥⇧⌘E') in ks

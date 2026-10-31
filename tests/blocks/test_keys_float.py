@@ -12,7 +12,7 @@ def keys_of(path): return [k for _, k, _ in float_rows(path)]
 
 def test_each_page_gets_its_group():
     "The path of a page names its group of keys; a page with no keys of its own gets Everywhere."
-    want = {'/': 'Everywhere', '/learn': 'Everywhere', '/s/abc': 'Session', '/w/j1/2': 'Walk', '/w/j1': 'Walk', '/w/j1/edit': 'Walk path',
+    want = {'/': 'Everywhere', '/learn': 'Everywhere', '/s/abc': 'Session', '/w/j1/2': 'Walk', '/w/j1': 'Walk', '/w/j1/edit': 'Change the walk',
             '/c/ranking': 'Concept', '/graph': 'Graph', '/settings': 'Settings', '/concepts': 'Concepts', '/t/t1': 'Talk plan'}
     assert {p: page_group(p) for p in want} == want
 
@@ -47,11 +47,11 @@ def test_the_pill_is_on_each_page_but_the_side_pane(mk):
     assert 'Keys: concept' in cl.get('/c/ranking').text and 'Show me a demo' in cl.get('/c/ranking').text
 
 def test_a_walk_check_shows_the_walk_keys_and_a_mic(mk, walk_fake, lr):
-    "A walk step lists Ask for a hint and Learn beside; its short check has the Speak button with ⌥D, from the voice block."
+    "A walk step lists Ask for a hint and a side walk for a missing idea; its short check has the Speak button with ⌥D, from the voice block."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
     t = cl.get(f'/w/{jid}/1').text
-    assert 'Keys: walk' in t and 'Ask for a hint' in t and 'Learn a missing idea beside' in t and 'data-code="KeyW"' in t
+    assert 'Keys: walk' in t and 'Ask for a hint' in t and 'Side walk for a missing idea' in t and 'data-code="KeyW"' in t
     card = cl.get(f'/w/{jid}/1/check').text
     assert 'data-into="ans"' in card and '⌥D' in card
 
