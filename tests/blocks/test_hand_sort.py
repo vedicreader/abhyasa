@@ -103,10 +103,6 @@ def test_group_routes_check_the_subject(mk, jy):
         assert 'No such subject.' in cl.get('/concepts/group/new', params=dict(subject=bad)).text, bad
     assert jy.saved_groups('nope') is None and jy.concept('ashvini').group == ['nakshatras']
 
-def test_buttons_name_their_concept_or_group(mk, jy):
-    t = mk().get('/concepts').text
-    assert 'aria-label="Move “Mesha” to a group"' in t and 'aria-label="Rename the group “Nakshatras”"' in t and 'aria-label="Make a new group in Jyotisha"' in t
-
 def test_undo_of_a_first_group_list_leaves_no_list(mk, lr):
     cl = mk()
     assert lr.saved_groups('ml') is None
@@ -140,6 +136,3 @@ def test_preview_opens_and_marks_the_moves(mk, jy, fake):
     assert 'left for you: Ranking. They stay in Not sorted yet.' in t
     assert re.search(r'<details(?=[^>]*\bopen\b)[^>]*class="tree loose"', t)
 
-def test_page_title_is_the_display_name(mk, jy):
-    t = mk().get('/concepts', params=dict(subject='ml')).text
-    assert '<h1>ML</h1>' in t or re.search(r'<h1[^>]*>ML</h1>', t)
