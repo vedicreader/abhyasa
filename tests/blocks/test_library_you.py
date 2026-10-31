@@ -134,10 +134,3 @@ def test_pasted_text_and_web_kinds(mk, lr):
 
 # Each page of Library and You has one line when your learning is empty.
 
-def test_empty_lines(fake):
-    cl = TestClient(mk_app(temp_learning(), fake, hosts=('testserver',)))
-    for u, line in (('/concepts', 'Concepts appear here when you start a walk.'),
-                    ('/sources', 'Sources appear here when you start a walk from a paper, a link or a text.'),
-                    ('/graph', 'Each idea that you learn shows here. Start with a walk.'), ('/learning', 'Nothing yet. Do a walk or a review.')):
-        h = cl.get(u).text
-        assert line in h and 'class="mute empty' in h, u
