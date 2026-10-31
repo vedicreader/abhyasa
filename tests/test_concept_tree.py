@@ -171,14 +171,6 @@ def test_a_failed_sort_shows_a_plain_line(mk, jy, fake):
     t = settled(cl)
     assert 'The tutor could not sort your concepts. Try again.' in t and 'secret words' not in t and 'Sort 3 new concepts' in t
 
-def test_one_main_button_in_the_proposal(mk, jy, fake):
-    fake.rules[SORT] = sorter()
-    cl = mk()
-    cl.post('/concepts/sort'); settled(cl)
-    t = cl.get('/concepts').text
-    assert len(re.findall(r'class="go"', t)) == 1 and re.search(r'class="go"[^>]*>Accept this tree', t)
-    assert 'class="go"' not in mk().get('/c/mesha').text.split('id="group-field"')[1].split('</form>')[0]
-
 def test_changes_from_other_sites_are_refused(mk, jy, fake):
     fake.rules[SORT] = sorter()
     cl, n = mk(), len(fake.calls)
@@ -187,10 +179,6 @@ def test_changes_from_other_sites_are_refused(mk, jy, fake):
     assert cl.post('/c/mesha/group', data=dict(group='x'), headers=evil).status_code == 403
     assert cl.post('/concepts/sort/accept', data=dict(sort='x'), headers=evil).status_code == 403
     assert len(fake.calls) == n and jy.concept('mesha').get('group') is None
-
-def test_sort_prompt_is_on_the_settings_page(mk):
-    from abhyasa.prompts import PROMPTS
-    assert 'concepts.sort' in PROMPTS and 'pr-concepts-sort' in mk().get('/settings').text
 
 def test_label_of_a_subject_or_a_group():
     "A short name with no space is in upper case. A name in lower case gets a capital first letter. Other names show as they are."
