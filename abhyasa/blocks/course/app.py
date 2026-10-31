@@ -59,11 +59,6 @@ def connect(app, ctx):
         pend = ui.Pending(cid, 'level', jobs[cid, 'level'].said) if running(cid, 'level') else ui.Pending(cid, 'plan', ui.PLANNING) if running(cid, 'plan') else None
         return Page(st.course.title, *ui.CoursePage(st, ui.Level(st.course, pending=pend)), on='Learn', crumbs=up)
 
-    def of(jid:str):
-        "The course of goal walk `jid`: it joins one first. A walk that is not a goal walk opens as it is."
-        c = join_course(lr, jid) if (j := lr.journey(jid)) else None
-        return Redirect(ui.at(c.id) if c else Routes.of_(Routes.walk, jid=jid) if j else '/learn')
-
     def level(cid:str):
         "Write the questions of Where you start on the pool. The part asks again until they come."
         if not (c := lr.course(cid)): return Response(status_code=404)
@@ -150,7 +145,6 @@ def connect(app, ctx):
         except Exception as e: log.warning('abhyasa could not keep the ask on the course: %r', e)
         return None
 
-    app.get(Routes.of)(of)          # before `/course/{cid}`
     app.get(Routes.job)(job)
     app.post(Routes.level)(level)
     app.post(Routes.answer)(answer)

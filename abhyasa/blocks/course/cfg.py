@@ -1,6 +1,5 @@
 class Routes:
     one = '/course/{cid}'                  # the course page: the goal, you are here, next and why, the stages, what blocks the goal, the sources
-    of = '/course/of/{jid}'                # the course of a goal walk: join it, then open its page
     level = '/course/{cid}/level'          # POST: write the questions of "where do you start" on the pool
     answer = '/course/{cid}/answer'        # POST: one answer, by a tap or in words
     stage = '/course/{cid}/stage/{key}'    # build the walk of a stage on the pool, then open it

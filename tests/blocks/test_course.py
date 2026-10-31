@@ -30,9 +30,8 @@ def test_course_page_says_where_you_are_and_what_is_next(mk, lr):
     "Two ideas done: you are at idea 3, the reason says why, Continue opens it, and the failed clone and Leela show as blocking rows."
     goal_walk(lr, done=2)
     cl = mk()
-    r = cl.get('/course/of/gw', follow_redirects=False)
-    cid = lr.journey('gw').course
-    assert r.headers['location'] == f'/course/{cid}'
+    cid = join_course(lr, 'gw').id
+    assert lr.journey('gw').course == cid
     t = cl.get(f'/course/{cid}').text
     assert 'Stage 1 of 1, idea 3 of 3: <b>Sample</b>' in t and '2 of 3 ideas done.' in t
     assert '>You know the ideas that it needs.<' in t and 'Next: Sample' not in t and 'href="/w/gw/2"' in t   # the idea of You are here shows once
