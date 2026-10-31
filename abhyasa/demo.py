@@ -8,15 +8,16 @@ Docs: https://vedicreader.github.io/abhyasa/demo.html.md"""
 __all__ = ['VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'ORDER_AIM',
            'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'SHOW_ME', 'SEE_IT', 'YES',
            'OFFER', 'KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS',
-           'EXPLAINER_RULES', 'GATES_LINE', 'REFUSED', 'WHERES', 'ROUTES', 'demo_text', 'since_demo', 'rung',
-           'keep_rung', 'want_demo', 'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note',
-           'make_demo', 'ask_key', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way',
-           'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'route_ask',
-           'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'explainer_prompt',
-           'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show', 'import_gallery']
+           'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE', 'REFUSED', 'WHERES', 'ROUTES',
+           'demo_text', 'since_demo', 'rung', 'keep_rung', 'want_demo', 'clean_note', 'quoted', 'last_feedback',
+           'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'queue_demo', 'job_state', 'job_age',
+           'job_stage', 'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask',
+           'show_reply', 'route_ask', 'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of',
+           'calc', 'gate_answers', 'says', 'leaks', 'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for',
+           'explain_ask', 'make_explainer', 'show', 'import_gallery']
 
 # %% ../nbs/10_demo.ipynb #c005
-import hashlib, json, re, threading, time, uuid
+import ast, hashlib, json, math, operator as op, re, threading, time, uuid
 from concurrent.futures import ThreadPoolExecutor
 from fastcore.utils import *
 import rupaka
@@ -459,6 +460,75 @@ def gates_of(spec) -> list:
             yield from walk(b.get('blocks'))
     return list(walk((spec or {}).get('blocks')))
 
+_FNS = dict(sin=math.sin, cos=math.cos, tan=math.tan, exp=math.exp, log=math.log, sqrt=math.sqrt, abs=abs, min=min, max=max,
+            floor=math.floor, ceil=math.ceil, round=round, pi=math.pi, e=math.e)
+_OPS = {ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv, ast.Pow: op.pow}
+
+def _isnum(x) -> bool: return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+
+def calc(expr, st:dict):
+    "The number of a rupaka `expr` formula (+ - * / ^, its functions, pi and e) over the number state `st`; None when it is not one."
+    def ev(n):
+        if isinstance(n, ast.Expression): return ev(n.body)
+        if isinstance(n, ast.Constant) and _isnum(n.value): return n.value
+        if isinstance(n, ast.Name) and (_isnum(v := st.get(n.id, _FNS.get(n.id))) or callable(v)): return v
+        if isinstance(n, ast.BinOp) and type(n.op) in _OPS: return _OPS[type(n.op)](ev(n.left), ev(n.right))
+        if isinstance(n, ast.UnaryOp) and isinstance(n.op, (ast.USub, ast.UAdd)): return -ev(n.operand) if isinstance(n.op, ast.USub) else ev(n.operand)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and callable(_FNS.get(n.func.id)) and not n.keywords: return _FNS[n.func.id](*map(ev, n.args))
+        raise ValueError(type(n).__name__)
+    try: v = ev(ast.parse(str(expr).replace('^', '**'), mode='eval'))
+    except Exception: return None
+    return v if _isnum(v) else None
+
+def gate_answers(spec) -> list:
+    "`(question, answer)` for each gate of a demo `spec` whose right answer the server can know: `{is: value}`, a key of the state, or an `expr` derive over the state."
+    st = dict((spec or {}).get('state') or {})
+    for d in (spec or {}).get('derive') or ():
+        if d.get('fn') == 'expr' and not d.get('over') and d.get('out') and (v := calc(d.get('expr'), st)) is not None: st[d['out']] = v
+    def walk(bs):
+        for b in bs or []:
+            if b.get('type') == 'gate' and b.get('prompt'):
+                a = b.get('answer')
+                v = a.get('is') if isinstance(a, dict) else st.get(a) if isinstance(a, str) else None
+                if _isnum(v) or (isinstance(v, str) and v.strip()): yield ' '.join(str(b['prompt']).split()), v
+            yield from walk(b.get('blocks'))
+    return list(walk((spec or {}).get('blocks')))
+
+NOT_TEXT = {'id', 'type', 'bind', 'after', 'rupaka', 'mode', 'concept', 'fn', 'out', 'expr', 'answer', 'lock', 'x', 'y', 'angle'}
+NUMBER = re.compile(r'(?<![\w.])-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?!\w)')   # a number on its own (20,000 is one number): not in 0.2, 12, 2D or x2
+
+def says(text:str, v) -> bool:
+    "Whether `text` says the answer `v`: a number within 0.1 % of it (2.0 says 2; 0.2, 12 and 2D do not), or a text as a whole word."
+    if _isnum(v): return any(abs(float(m[0].replace(',', '')) - v) <= max(1e-9, 1e-3 * abs(v)) for m in NUMBER.finditer(text))
+    return bool(re.search(rf'(?<!\w){re.escape(str(v).strip())}(?!\w)', text, re.I))
+
+def _texts(o):
+    "Each string of a spec that a learner reads or hears: every value, but not ids, binds, formulas and answers."
+    if isinstance(o, str): yield o
+    elif isinstance(o, dict):
+        for k, v in o.items():
+            if k not in NOT_TEXT: yield from _texts(v)
+    elif isinstance(o, list):
+        for v in o: yield from _texts(v)
+
+def leaks(spec, answers) -> list:
+    "The questions of `answers` (`gate_answers`) whose right answer the text of `spec` says."
+    ts = list(_texts(spec))
+    return [q for q, v in answers if any(says(t, v) for t in ts)]
+
+def scrub(o, answers):
+    "`o` with each sentence that says an answer of `answers` taken out; a string with nothing left says to predict first."
+    if isinstance(o, str):
+        if not any(says(o, v) for _, v in answers): return o
+        keep = [x for x in re.split(r'(?<=[.!?])\s+', o) if not any(says(x, v) for _, v in answers)]
+        return ' '.join(keep) or 'Predict it in the 2D demo first.'
+    if isinstance(o, dict): return {k: v if k in NOT_TEXT else scrub(v, answers) for k, v in o.items()}
+    if isinstance(o, list): return [scrub(v, answers) for v in o]
+    return o
+
+GAVE_LINE = register('demo.gave', 'An answer given away', 'What the tutor says to the model when its 3D explainer says the answer of a prediction of the 2D demo. The questions come after it.',
+                     'Your explainer gave away the answer to these questions, which the learner must predict first. Write it again, and do not say or show these answers:')
+
 def explainer_prompt(c, said:str='', gates=()) -> str:
     "The prompt that asks for a 3D explainer of concept `c` (a dict with name, statement and subject), for the ask `said`. `gates` are the open predictions of its 2D demo: the explainer never gives them away."
     return (f"Concept: {c['name']} (subject: {c.get('subject') or 'general'})\nStatement: {c.get('statement') or '(none given)'}\n"
@@ -477,12 +547,15 @@ def scene_errors(spec) -> list:
 # %% ../nbs/10_demo.ipynb #ex18
 REFUSED = 'abhyasa could not make a 3D explainer for this idea. Here is the 2D demo.'
 
-def explainer_for(concept, ask, said:str='', log:list=None, gates=()) -> dict|None:
-    "A valid 3D explainer spec (`mode` learn) of `concept` for the ask `said`, from the model `ask`, with one repair; None when it cannot make one."
+def explainer_for(concept, ask, said:str='', log:list=None, two=None) -> dict|None:
+    """A valid 3D explainer spec (`mode` learn) of `concept` for the ask `said`, from the model `ask`, with one repair; None when it cannot make one.
+    `two` is the spec of the 2D demo of the same ask: the prompt names its predictions, and a spec that says one of their answers gets one
+    more try. When that try says it too, the sentences that say it go."""
     c = concept if isinstance(concept, dict) else dict(name=str(concept))
-    slug, log = c.get('slug') or slugify(c['name']), [] if log is None else log
-    p, sp = explainer_prompt(c, said, gates), explainer_sp()
-    for i in range(2):
+    slug, log, answers, gave = c.get('slug') or slugify(c['name']), [] if log is None else log, gate_answers(two), False
+    p0 = p = explainer_prompt(c, said, gates_of(two))
+    sp, i = explainer_sp(), 0
+    while i < 2:
         try: reply = ask(p, sp)
         except Exception as e: log.append(dict(tries=i + 1, errors=[f'model: {e}'])); return None
         try: spec = parse_json(reply)
@@ -490,10 +563,16 @@ def explainer_for(concept, ask, said:str='', log:list=None, gates=()) -> dict|No
         else:
             if isinstance(spec, dict):
                 spec = {**spec, 'rupaka': SCHEMA, 'mode': 'learn', 'id': spec.get('id') or f'{slug}-3d', 'concept': slug}
-                if not (errs := scene_errors(spec) + list(validate(spec))): return spec
+                if not (errs := scene_errors(spec) + list(validate(spec))):
+                    if not (bad := leaks(spec, answers)): return spec
+                    if not gave:   # the backstop: the model gave away a prediction of the 2D demo; one more try, which does not count as a repair
+                        gave = True; log.append(dict(tries=i + 1, errors=[f'gave away the answer to: {q}' for q in bad]))
+                        p = f"{p0}\n\n{prompt('demo.gave')} " + ' '.join(quoted(q) for q in bad); continue
+                    spec = scrub(spec, answers)
+                    return spec if not (scene_errors(spec) + list(validate(spec))) else None
             else: spec, errs = None, ['reply: the reply is not a JSON object']
         log.append(dict(tries=i + 1, errors=errs))
-        p = repair_prompt(spec or reply, errs)
+        p, i = repair_prompt(spec or reply, errs), i + 1
     return None
 
 # %% ../nbs/10_demo.ipynb #ex26
@@ -510,7 +589,7 @@ def make_explainer(learning:Learning, ask, slug:str, first_error:str='', aim:str
     if (d := learning.demo_for(slug, aim='3d', key=k)): return d
     if (c := learning.concept(slug)) is None: return None
     two = learning.demo_for(slug, aim='', key=k)   # the 2D demo of the same ask, under the 3D card: its predictions stay the learner's to make
-    if (spec := explainer_for(c, explain_ask(ask), said, log, gates_of(two.spec) if two else ())) is None: return None
+    if (spec := explainer_for(c, explain_ask(ask), said, log, two.spec if two else None)) is None: return None
     return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", aim='3d', asked=dict(key=k, said=said) if said else None)
 
 # %% ../nbs/10_demo.ipynb #sm16
