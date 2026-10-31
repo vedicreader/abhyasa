@@ -61,9 +61,9 @@ class VaultSource:
         "The best `n` sections of each shelf of documents, each with its `store` and its `score`. A shelf that fails is left out, so the others still give their hits."
         lr, want = self.learning, None if self.shelves is True else set(L(self.shelves))
         out = []
-        for s in lr.vault.shelves():
-            nm = s['store']
-            if nm == lr.v.name or not s['docs'] or (want is not None and nm not in want) or (sh := lr.doc_shelf(nm)) is None: continue
+        for nm in lr.doc_shelves():   # not `Vault.shelves`, which counts the documents of each store on each search
+            if nm == lr.v.name or (want is not None and nm not in want) or (sh := lr.doc_shelf(nm)) is None: continue
+            if not lr.vault.db.q(f"select 1 from [{'docs' if nm == 'store' else nm + '_docs'}] limit 1"): continue   # an empty shelf
             try: out += [AttrDict(r, store=nm, text=' '.join(r['snippets'])[:500]) for r in sh.sections(q, limit=n)]
             except Exception as e: _log.warning('abhyasa could not search the shelf %r: %r', nm, e)
         return out
