@@ -412,7 +412,9 @@ This example runs offline. [`temp_learning`](https://vedicreader.github.io/abhya
 from abhyasa.store import temp_learning
 from abhyasa.llm import Fake
 from abhyasa.tutor import Tutor
+```
 
+``` python
 lr = temp_learning()
 lr.put('Ranking', 'Order items by a score.', 'ml')
 fake = Fake({'You grade one answer': dict(correct=True, grade=8, first_error='', misconception='', feedback='Yes. Only the order counts.')},
