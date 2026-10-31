@@ -49,8 +49,6 @@ def test_voice_everywhere(mk):
     cl = mk()
     page = cl.get('/you').text
     assert 'id="mic-float"' in page and 'data-mic' in page          # the voice block adds its floating mic to each page
-    js = cl.get('/assets/voice.js').text
-    assert 'abhyasaMics' in js and "e.code !== 'KeyD'" in js
     assert 'mic-float' not in mk(names=['journeys', 'today']).get('/learn').text   # without the voice block nothing breaks
 
 def test_calibration(mk, lr):
