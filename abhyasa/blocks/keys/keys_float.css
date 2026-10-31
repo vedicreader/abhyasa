@@ -1,0 +1,25 @@
+/* The Keys pill at the bottom left, over the composer when a page has one, and its small panel. Quiet: no fill, one hairline. */
+.kf { position: fixed; left: var(--s4); bottom: calc(var(--composer-h, 0px) + var(--s4)); z-index: 30; font-size: var(--t-meta); }
+.kf-pill { background: var(--bg); border: 1px solid var(--rule); box-shadow: none; color: var(--mute); padding: 2px var(--s3); font-size: var(--t-meta);
+           border-radius: 999px; }
+.kf-pill:hover, .kf-pill[aria-expanded=true] { color: var(--fg); border-color: var(--acc); background: var(--bg); box-shadow: none; }
+.kf-panel { position: absolute; left: 0; bottom: calc(100% + var(--s2)); width: min(300px, calc(100vw - 2 * var(--s4))); max-height: calc(100vh - 120px);
+            overflow: auto; background: var(--raised); border: 1px solid var(--rule); border-radius: var(--r); box-shadow: var(--lift); padding: var(--s3); }
+.kf-panel[hidden] { display: none; }
+.kf.kf-top .kf-panel { position: fixed; top: 64px; bottom: auto; left: var(--s4); }
+.kf.kf-away .kf-pill, .kf-panel.kf-away { visibility: hidden; }
+.kf-head { margin: 0 0 var(--s1); font-size: var(--t-lbl); letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+.kf-rows { list-style: none; margin: 0; padding: 0; }
+.kf-do { display: flex; width: 100%; justify-content: space-between; align-items: baseline; gap: var(--s3); margin: 0; padding: var(--s1) var(--s2);
+         background: transparent; border: 0; box-shadow: none; border-radius: var(--r-s); color: var(--fg); font-size: var(--t-small); text-align: left; }
+.kf-do:hover { background: var(--bg); box-shadow: none; }
+.kf-do:disabled { color: var(--mute); opacity: .6; background: transparent; }
+.kf-do kbd { flex: none; }
+.kf-line { margin: var(--s2) 0 0; font-size: var(--t-meta); line-height: 1.4; }
+.kf-mac { display: block; margin-top: var(--s2); font-size: var(--t-meta); }
+.kf-mac[hidden] { display: none; }
+.kf-foot { display: flex; flex-wrap: wrap; gap: var(--s3); align-items: baseline; margin-top: var(--s3); }
+.kf-all { font-size: var(--t-meta); }
+.kf-quiet { background: transparent; border: 0; box-shadow: none; padding: 0; color: var(--mute); font-size: var(--t-meta); text-decoration: underline; }
+.kf-quiet:hover { background: transparent; box-shadow: none; color: var(--fg); }
+@media print { .kf { display: none; } }
