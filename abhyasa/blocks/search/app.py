@@ -55,13 +55,13 @@ def connect(app, ctx):
 
     def search(q:str=''):
         q = ' '.join(q.split())[:Q_MOST]
-        if not q: return Page('Search', H1('Search'), P('Type in the box at the top.', cls='mute'), crumbs=[('Today', '/')])
+        if not q: return Page('Search', H1('Search'), P('Type in the box at the top.', cls='mute'), crumbs=[('Home', '/')])
         by = {c.slug: c for c in lr.concepts()}
         mine = [x for h in lr.search(q, limit=val('lists.search')) if (x := Hit(h, by)) is not None]
         try: other = lr.v.elsewhere(q, limit=val('lists.elsewhere'), max_read=val('lists.snippet'))
         except Exception: other = []
         return Page('Search', H1(f'“{q}”', cls='query'),
                     H2('In what you learned'), Ul(*mine, cls='plain hits') if mine else Empty('Nothing found.'),
-                    H2('In your vault'), Elsewhere(other), crumbs=[('Today', '/')])
+                    H2('In your vault'), Elsewhere(other), crumbs=[('Home', '/')])
 
     app.get(Routes.base)(search)

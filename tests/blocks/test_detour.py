@@ -32,7 +32,7 @@ def test_side_walk_logs_from_and_comes_back(mk, walk_fake, lr):
     assert r.headers['location'] == f'/w/{jid}/2'
     page = cl.get(f'/w/{jid}/2').text
     assert 'Back on the paper' in page and 'on the way' in page
-    assert sid not in cl.get('/learn').text.split('class="side-walks"')[0]                    # listed under its parent only
+    assert sid not in cl.get('/').text.split('class="side-walks"')[0]                    # listed under its parent only
     s2 = cl.get('/start?focus=gradients', follow_redirects=False).headers['location'].split('/')[-1]
     cl.get(f'/s/{s2}')
     walk_fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')   # lesson_extra shows at a close
@@ -182,12 +182,11 @@ def test_history_continue_does_not_open_a_gone_parent_step(mk, walk_fake, lr):
     assert f'/w/{jid}/{len(pj.steps) + 3}' not in page
 
 def test_a_side_walk_row_opens_beside_its_parent_step(mk, walk_fake, lr):
-    "In Your journeys, a side walk opens in the pane beside the step that opened it. With no parent step, it opens its own page."
+    "On Home, a side walk opens in the pane beside the step that opened it. With no parent step, it opens its own page."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
     sid = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url'].split('/')[2]
-    for page in (cl.get('/journeys').text, cl.get('/').text):
-        side = page.split('class="side-walks"')[1]
-        assert f'href="/w/{jid}/2?rh=/w/{sid}/0"' in side, side[:400]
+    side = cl.get('/').text.split('class="side-walks"')[1]
+    assert f'href="/w/{jid}/2?rh=/w/{sid}/0"' in side, side[:400]
     assert f'src="/w/{sid}/0?pane=1"' in cl.get(f'/w/{jid}/2?rh=/w/{sid}/0').text
     j = lr.journey(sid); lr.put_journey({**j, 'parent': dict(walk=jid, step=99), 'depth': 1})
-    assert f'href="/w/{sid}"' in cl.get('/journeys').text                                  # the parent step is gone: its own page
+    assert f'href="/w/{sid}"' in cl.get('/').text                                  # the parent step is gone: its own page

@@ -12,9 +12,9 @@ BUNDLE = 'dev.vedicreader.abhyasa'
 #: (group, keys, action), in the order the page shows them; the keys are in Sanketa's key style
 KEYS = [
     ('Everywhere', '⌥S', 'Press the main button'),
-    ('Everywhere', '⌥T', 'Go to Today'),
+    ('Everywhere', '⌥T', 'Go to Home'),
     ('Everywhere', '⌥C', 'Continue where you stopped'),
-    ('Everywhere', '⌥Q', 'Go to Learn'),
+    ('Everywhere', '⌥Q', 'Start something new'),
     ('Everywhere', '⌥R', 'Go to Library'),
     ('Everywhere', '⌥G', 'Go to You'),
     ('Everywhere', '⌥1–⌥3', 'Pick a sub-tab'),

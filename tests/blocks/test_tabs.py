@@ -1,4 +1,4 @@
-"The top bar: four tabs, Continue, Search and a gear; the tab in force; the sub-tabs of Library and You; and the old URLs."
+"The top bar: three tabs, Continue, Search and a gear; the tab in force; the sub-tabs of Library and You; and the old URLs."
 import re
 
 def _top(h): return re.search(r'<nav[^>]*aria-label="Main"[^>]*>(.*?)</nav>', h, re.S).group(1)
@@ -21,17 +21,17 @@ def sub_in_force(h):
     m = re.search(r'<nav[^>]*class="subtabs"[^>]*>.*?<a [^>]*aria-current="page"[^>]*>(.*?)</a>', h, re.S)
     return _text(m.group(1)) if m else ''
 
-def test_bar_has_four_tabs_and_a_gear(mk):
+def test_bar_has_three_tabs_and_a_gear(mk):
     h = mk().get('/').text
-    assert nav_words(h) == ['Today', 'Learn', 'Library', 'You'] and 'href="/settings"' in h
+    assert nav_words(h) == ['Home', 'Library', 'You'] and 'href="/settings"' in h
 
 def test_tab_on_every_page(mk, talk_fake, lr):
-    "Each page marks its tab: a walk, a path, a session and a talk are in Learn; a concept, a demo and a vault document are in Library."
+    "Each page marks its tab: Home, a walk, a path, a session and a talk are in Home; a concept, a demo and a vault document are in Library."
     from talk_data import walk, prep_walk, make_talk
     cl = mk(); jid = walk(cl, lr); tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
     sid = cl.post('/start', data={}, follow_redirects=False).headers['location'].split('/')[-1]
-    for u, tab in ((f'/w/{jid}', 'Learn'), (f'/w/{jid}/1', 'Learn'), (f'/path/{jid}', 'Learn'), (f'/j/{jid}', 'Learn'), (f'/s/{sid}', 'Learn'),
-                   (f'/t/{tid}', 'Learn'), ('/w/nope', 'Learn'), ('/c/ranking', 'Library'), ('/c/nope', 'Library'), ('/v/learning/nope', 'Library'),
+    for u, tab in (('/', 'Home'), ('/learn', 'Home'), (f'/w/{jid}', 'Home'), (f'/w/{jid}/1', 'Home'), (f'/path/{jid}', 'Home'), (f'/j/{jid}', 'Home'), (f'/s/{sid}', 'Home'),
+                   (f'/t/{tid}', 'Home'), ('/w/nope', 'Home'), ('/c/ranking', 'Library'), ('/c/nope', 'Library'), ('/v/learning/nope', 'Library'),
                    (f'/learning/{sid}', 'You'), ('/settings', ''), ('/search?q=rank', ''), ('/keys', '')):
         assert current_tab(cl.get(u).text) == tab, u
 
@@ -45,7 +45,7 @@ def test_subtabs(mk):
 
 def test_old_urls_still_work(mk):
     cl = mk()
-    for u in ('/journeys', '/add', '/learning', '/graph', '/sources', '/you', '/you/strengths', '/settings', '/keys'): assert cl.get(u).status_code == 200, u
+    for u in ('/learn', '/journeys', '/add', '/learning', '/graph', '/sources', '/you', '/you/strengths', '/settings', '/keys'): assert cl.get(u).status_code == 200, u
 
 def test_no_learn_query_link(mk):
     "A Leela link starts with /learn?; no abhyasa link may look like one."

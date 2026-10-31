@@ -12,7 +12,7 @@ def keys_of(path): return [k for _, k, _ in float_rows(path)]
 
 def test_each_page_gets_its_group():
     "The path of a page names its group of keys; a page with no keys of its own gets Everywhere."
-    want = {'/': 'Everywhere', '/learn': 'Everywhere', '/s/abc': 'Session', '/w/j1/2': 'Walk', '/w/j1': 'Change the walk', '/w/j1/edit': 'Change the walk',
+    want = {'/': 'Everywhere', '/s/abc': 'Session', '/w/j1/2': 'Walk', '/w/j1': 'Change the walk', '/w/j1/edit': 'Change the walk',
             '/c/ranking': 'Concept', '/graph': 'Graph', '/settings': 'Settings', '/concepts': 'Concepts', '/t/t1': 'Talk plan'}
     assert {p: page_group(p) for p in want} == want
 
@@ -166,7 +166,7 @@ def test_the_panel_closes_on_the_next_page_keeps_off_the_rail_and_lets_the_guide
             try:
                 pg = b.new_page(viewport=dict(width=1440, height=900))
                 pg.goto(base + '/'); pg.wait_for_function(ready)                              # the first visit: it opens one time
-                pg.goto(base + '/learn'); pg.wait_for_function(ready)
+                pg.goto(base + '/concepts'); pg.wait_for_function(ready)
                 assert not pg.is_visible('#kf-panel')
                 pg.click('#kf-pill'); assert pg.is_visible('#kf-panel')                      # you open it on this page
                 pg.goto(f'{base}/w/{jid}/1'); pg.wait_for_selector('#rail'); pg.wait_for_function(ready)

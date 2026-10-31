@@ -160,8 +160,6 @@ for t, n in dict(question=4096, grade=2048, hint=512, lesson=2048, extract=4096)
 
 # %% ../nbs/16_settings.ipynb #265e285d
 add('lists.strengths', 'lists', 'Weak and strong ideas', 'How many weak spots and strong ideas the Strengths page shows.', 10, 3, 50, more=True)
-add('lists.journeys', 'lists', 'Walks on Today', 'How many of your walks show on Today.', 3, 1, 10, more=True)
-add('lists.beside', 'lists', 'Other walks on a walk page', 'How many other walks show at the foot of a walk.', 4, 0, 20, more=True)
 add('lists.weeks', 'lists', 'Weeks in your history', 'How many weeks the history of your learning shows.', 8, 1, 52, more=True)
 add('lists.search', 'lists', 'Search results', 'How many results from what you learned the search shows.', 12, 3, 50, more=True)
 add('lists.elsewhere', 'lists', 'Results from other sources', 'How many results from your other sources the search shows.', 2, 0, 10, more=True)

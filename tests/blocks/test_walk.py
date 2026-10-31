@@ -737,7 +737,7 @@ def test_paper_walk_is_named_for_the_paper(mk, walk_fake, lr, monkeypatch):
     assert '<h1>Attention Is All You Need</h1>' in page and '1706.03762' not in page.split('<h1>')[0].split('<title>')[-1]
     cl.post(f'/w/{jid}/start')
     crumbs = cl.get(f'/w/{jid}/0').text
-    assert 'Today' in crumbs and '>Attention Is All You Need<' in crumbs and '>1706.03762<' not in crumbs
+    assert 'Home' in crumbs and '>Attention Is All You Need<' in crumbs and '>1706.03762<' not in crumbs
     for url in ('/', '/journeys'):
         t = cl.get(url).text
         assert 'Attention Is All You Need' in t and 'class="paper-id mute"' in t and '>1706.03762<' in t

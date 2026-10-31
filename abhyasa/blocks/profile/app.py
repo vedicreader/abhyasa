@@ -12,7 +12,7 @@ CAPS = ('learning', 'ask')
 def connect(app, ctx):
     lr = ctx.learning
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
-    up = [('Today', '/')]
+    up = [('Home', '/')]
 
     def page(new:str=''):
         p = lr.profile()

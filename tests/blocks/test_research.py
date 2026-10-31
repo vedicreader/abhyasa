@@ -144,7 +144,6 @@ def test_research_off_means_no_search(mk, web, lr):
 
 def test_start_box_says_the_search_sees_the_topic(mk, web):
     cl = mk()
-    assert 'The tutor searches the web for sources. The search engine sees your topic.' in cl.get('/add').text   # the goal box under More
     assert 'looks for sources on the web' in cl.get('/learn/read', params=dict(q='how attention works')).text
 
 def test_a_journey_talk_shows_the_web_source(mk, web, lr, talk_fake):

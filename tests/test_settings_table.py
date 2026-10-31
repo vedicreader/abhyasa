@@ -174,15 +174,6 @@ def test_default_model_and_own_rows(monkeypatch):
     set_val('models.plan', 'x/plan')
     assert r.name('plan') == 'x/plan'
 
-# Lists
-
-def test_journeys_on_today_read_when_used(mk, lr):
-    for k in range(4): lr.put_journey(dict(id=f'j{k}', title=f'Journey {k}', goal='g', subject='', steps=[], created=k))
-    cl = mk()
-    assert 'See all 4 in Learn' in cl.get('/').text
-    set_val('lists.journeys', 5)
-    assert 'See all 4 in Learn' not in cl.get('/').text
-
 # Prompts
 
 def test_all_prompts_registered(mk):

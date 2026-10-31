@@ -124,6 +124,12 @@ def two_walks(lr):
                             steps=[dict(slug='ranking', status='todo', check=dict(STEP)), dict(slug='reciprocal-rank-fusion', status='todo', check=dict(STEP))]))
     return 'wa', 'wb'
 
+def b_home_empty(lr, cl, mp): return '/', {}
+
+def b_home_going(lr, cl, mp):
+    two_walks(lr)
+    return '/', {}
+
 def b_course_going(lr, cl, mp):
     goal_walk(lr, 1)
     return '/', {}
@@ -192,7 +198,7 @@ def b_idea_done(lr, cl, mp):
     jid = started(cl, paper(lr, cl)); done(lr, jid, 1)
     return f'/w/{jid}/1', {}
 
-BUILD = {('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due,
+BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due,
          ('walk', 'new'): b_walk_new, ('walk', 'going'): b_walk_going, ('walk', 'researching'): b_walk_researching, ('walk', 'research_ended'): b_walk_research_ended,
          ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty}
 

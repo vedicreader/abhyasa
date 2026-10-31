@@ -31,9 +31,9 @@ for (const ev of ['htmx:afterSwap', 'htmx:oobAfterSwap']) document.addEventListe
 // A block adds keys with `abhyasaKeys.KeyX = '#selector'`, or a list of selectors: the first one that names a button you can
 // see and use wins. ⌥S presses the main button of any page: Send when there is one, else the one filled button.
 window.abhyasaKeys = window.abhyasaKeys || {KeyS: ['#send', 'main .go']};
-// From any page: ⌥T, ⌥Q, ⌥R and ⌥G go to the four tabs, ⌥C continues where you stopped, and ⌥1 to ⌥3 pick a sub-tab.
+// From any page: ⌥T, ⌥R and ⌥G go to the tabs, ⌥Q goes to Start something new on Home, ⌥C continues where you stopped, and ⌥1 to ⌥3 pick a sub-tab.
 // A session page sets its own ⌥1 to ⌥5 (session.js), after this.
-Object.assign(abhyasaKeys, {KeyT: 'nav a[href="/"]:not(.brand)', KeyQ: 'nav a[href="/learn"]', KeyR: 'nav a[href="/concepts"]', KeyG: 'nav a[href="/learning"]',
+Object.assign(abhyasaKeys, {KeyT: 'nav a[href="/"]:not(.brand)', KeyQ: '#start-q', KeyR: 'nav a[href="/concepts"]', KeyG: 'nav a[href="/learning"]',
                             KeyC: ['#continue', '[data-part=continue-card] [data-act=continue]'], Digit1: '.subtabs a:nth-of-type(1)', Digit2: '.subtabs a:nth-of-type(2)', Digit3: '.subtabs a:nth-of-type(3)'});
 const abhyasaSeen = el => !el.disabled && (el.checkVisibility ? el.checkVisibility() : el.offsetParent !== null);
 function abhyasaFind(sel) {
@@ -42,7 +42,8 @@ function abhyasaFind(sel) {
 document.addEventListener('keydown', e => {
   if (!e.altKey) return;
   const el = abhyasaFind(abhyasaKeys[e.code]) || (e.code === 'KeyC' && document.querySelector('#continue'));   // Continue works when the top bar has no room for it
-  if (el) { e.preventDefault(); el.click(); }
+  if (el) { e.preventDefault(); el.matches('textarea, input') ? el.focus() : el.click(); }
+  else if (e.code === 'KeyQ') { e.preventDefault(); location.href = '/#start'; }   // the Start box is on Home
 });
 // Continue in the top bar shows only when it has room for its first words (about 8 em). Else it goes, and ⌥C still works.
 function abhyasaRoom() {

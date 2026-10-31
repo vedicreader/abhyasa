@@ -176,7 +176,7 @@ def Ready(sid, ready):
 
 def Done():
     "A session that is not here any more: the ways out."
-    return (Section(H1('This session is over'), P(A('Your learning', href='/learning'), ' · ', A('Today', href='/')), cls='qa done'),
+    return (Section(H1('This session is over'), P(A('Your learning', href='/learning'), ' · ', A('Home', href='/')), cls='qa done'),
             Div(id='composer', hx_swap_oob='true'))
 
 def Moved(m):
@@ -211,4 +211,4 @@ def EndPage(s, ms, j=None, pg=None, rel=()):
     return (H1('Done for now' if n else 'Session'), P(f"{ok} of {n} passed · about {mins} min. ", lead, cls='lead-sum'),
             *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []),
             *nxt,
-            Div(A('Your learning', href='/learning', cls='btn quiet'), A('Today ', Kbd('⌥T'), href='/', cls='btn quiet'), cls='row'))
+            Div(A('Your learning', href='/learning', cls='btn quiet'), A('Home ', Kbd('⌥T'), href='/', cls='btn quiet'), cls='row'))

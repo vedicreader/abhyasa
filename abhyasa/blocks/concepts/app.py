@@ -129,7 +129,7 @@ def connect(app, ctx):
             try: lr.connect(slug, ctx.sources); c = lr.concept(slug)
             except Exception: pass
         return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=val('lists.attempts')), lr.groups(c.subject)),
-                    on='Library', crumbs=[('Today', '/'), ('Concepts', Routes.base)])
+                    on='Library', crumbs=[('Home', '/'), ('Concepts', Routes.base)])
 
     # Undo: the smallest Undo for the changes by hand, in one place, until the shared editor core (Task 7) takes it over.
     # Each change keeps a snapshot of what it can touch; Undo (or ⌘Z) writes back the last one. It is in memory only.

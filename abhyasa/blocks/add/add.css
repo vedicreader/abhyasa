@@ -18,8 +18,6 @@
 .start .foot { display: flex; gap: var(--s4); align-items: center; margin-top: var(--s4); flex-wrap: wrap; }
 .start .start-drop { color: var(--mute); font-size: var(--t-meta); }
 .start .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.start-more { margin-top: var(--s4); }
-.start-more .goal-form { margin-top: var(--s3); }
 /* The sources of a goal: one quiet row for each, a dashed border for a source that Start adds. */
 .start .chips-src { display: flex; flex-direction: column; gap: var(--s2); margin: var(--s4) 0 0; }
 .start .chips-src .lbl { margin: 0 0 var(--s1); }

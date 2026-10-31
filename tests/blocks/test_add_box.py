@@ -35,7 +35,7 @@ def test_pick_needs_a_mac(mk, home, monkeypatch):
     monkeypatch.setattr(add_app, 'can_pick', lambda: False)
     cl = local(mk())
     assert cl.post('/learn/pick').status_code == 403 and not calls
-    assert 'id="start-pick"' not in cl.get('/learn').text   # no button where no chooser opens
+    assert 'id="start-pick"' not in cl.get('/').text   # no button where no chooser opens
 
 def test_pick_gives_the_path_and_a_cancel_gives_nothing(mk, home, monkeypatch):
     cl = local(mk())
@@ -86,7 +86,7 @@ def research():
 
 def test_the_box_says_what_you_can_do_once(mk, home, research):
     cl = mk()
-    h = cl.get('/learn').text
+    h = cl.get('/').text
     assert add_app.CAN in h and add_app.CUE in h and 'id="start-pick"' in h and 'You can also drop a file here.' not in h
     h = cl.get('/learn/read', params=dict(q='how noise works', extra=[str(home/'course22')])).text
     assert h.count('Turn this off in Settings') == 1 and 'id="start-pick"' in h   # the chooser is beside the field
@@ -123,7 +123,7 @@ def test_drag_cue_drops_and_pick_in_a_browser(mk, home):
                 pg = b.new_page()
                 picked = []
                 pg.route('**/learn/pick', lambda r: (picked.append(1), r.fulfill(status=200, content_type='application/json', body=json.dumps(dict(paths=[str(home/'course22')])))))
-                pg.goto(f'http://127.0.0.1:{port}/learn'); pg.wait_for_selector('#start-form')
+                pg.goto(f'http://127.0.0.1:{port}/'); pg.wait_for_selector('#start-form')
                 cue = pg.locator('#start-form .drop-cue')
                 assert not cue.is_visible()
                 pg.evaluate(DRAG, ['dragenter', 'file'])
@@ -166,7 +166,7 @@ def test_dropping_two_files_adds_two_chips(mk, home):
             b = p.chromium.launch(headless=True)
             try:
                 pg = b.new_page()
-                pg.goto(f'http://127.0.0.1:{port}/learn'); pg.wait_for_selector('#start-form')
+                pg.goto(f'http://127.0.0.1:{port}/'); pg.wait_for_selector('#start-form')
                 pg.evaluate(TWO)
                 pg.wait_for_function("() => document.querySelectorAll('#start-form .schip input[name=sources]').length === 2")
                 ids = pg.eval_on_selector_all('#start-form .schip input[name=sources]', 'xs => xs.map(x => x.value)')

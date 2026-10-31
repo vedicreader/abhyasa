@@ -288,7 +288,7 @@ def connect(app, ctx):
         j = walk_for(t)
         pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
         up = [(pj.title, f'/path/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j), choices(t), filled, None if pj or not j else walk_changes(lr, t)), on='Learn', crumbs=[('Today', '/'), ('Learn', '/learn'), *up],
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j), choices(t), filled, None if pj or not j else walk_changes(lr, t)), on='Home', crumbs=[('Home', '/'), *up],
                     extra=ui.editor_assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys work only here
         return page
@@ -533,8 +533,8 @@ def connect(app, ctx):
 
     def history(tid:str):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
-        return Page(f"Earlier versions of {t.title}", *ui.History(t, lr.edits('talk', tid)), on='Learn',
-                    crumbs=[('Learn', '/learn'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.editor_assets(), wide=True)
+        return Page(f"Earlier versions of {t.title}", *ui.History(t, lr.edits('talk', tid)), on='Home',
+                    crumbs=[('Home', '/'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.editor_assets(), wide=True)
 
     def restore(tid:str, id:str='', k:str=''):
         "Go back to the version of the talk before one change (by its `id`, or by its place `k` in the history, newest first). A restore is a change too."
@@ -765,7 +765,7 @@ def connect(app, ctx):
         names = {s['id']: name_of(s) for s in t['slides']}
         cn = {x.slug: x.name for x in lr.concepts()}
         return Page('After the talk', *ui.After(t, r, recap(t, r, cn), names, cn),
-                    on='Learn', crumbs=[('Learn', '/learn'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.assets(), wide=True)
+                    on='Home', crumbs=[('Home', '/'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))], extra=ui.assets(), wide=True)
 
     def name_of(s):
         "The name of the idea of slide `s`, else its title."
@@ -808,9 +808,9 @@ def connect(app, ctx):
         return ui.RowPresent(j.id, t, path=True) if row else ui.PresentJourney(j.id, t)
 
     @hook('learn_talks')
-    def your_talks():
-        "Your talks, in Learn after your walks."
-        return ui.YourTalks(ts) if (ts := lr.talks()) else None
+    def teach():
+        "Teach, on Home after your courses and walks: your talks, and how to make one."
+        return ui.Teach(lr.talks())
 
     app.post(Routes.new)(new)
     app.post(Routes.journey)(from_journey)

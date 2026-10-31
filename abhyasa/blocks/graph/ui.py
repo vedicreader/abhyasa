@@ -52,7 +52,7 @@ def Levers(subjects):
 
 def Empty_():
     "The graph with no concepts: one line in the middle, and a link to Add."
-    return Empty('Each idea that you learn shows here.', A('Start a walk', href='/learn#start'), cls='graph-empty')
+    return Empty('Each idea that you learn shows here.', A('Start a walk', href='/#start'), cls='graph-empty')
 
 def Stage(url, subjects, subject='', focus=''):
     "The canvas and its panel. The wrapper takes keyboard focus, so the keys work only here."

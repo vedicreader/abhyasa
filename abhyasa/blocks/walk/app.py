@@ -77,7 +77,7 @@ def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
     vault = lr.vault.path         # each Leela link names the vault of this app with its key
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
-    up = [('Today', '/'), ('Learn', '/learn')]
+    up = [('Home', '/')]
     writing = defaultdict(Lock)   # (walk, concept of the step) -> a lock, so the note and the check of one step do not write the note twice; a move keeps it
     links = {}                    # link -> the pool job that makes its walk, and `said`, the words of its state
 
@@ -98,7 +98,7 @@ def connect(app, ctx):
         "Merge `kv` into step `i` of walk `j` as `j` has it, found again by its concept, so a move in the editor at the same time keeps it on the same idea. The walk now."
         return lr.walk_slug(j['id'], j['steps'][i]['slug'], **kv) or lr.journey(j['id'])
     def go(jid, i): return Redirect(ui.at(Routes.step, jid, i))
-    def missing(): return Page('Walk', H1('No such walk'), P(A('Your walks', href='/learn')), on='Learn', crumbs=up)
+    def missing(): return Page('Walk', H1('No such walk'), P(A('Your walks', href='/')), on='Home', crumbs=up)
 
     def walk_of(jid, i=None):
         "The walk `jid`, and step `i` when it is there; None for an unknown walk or step."
@@ -517,7 +517,7 @@ def connect(app, ctx):
         plan_ = ui.PlanPart(j, b, open, bool(pick)) if j.steps and not for_talk(j) else ''
         page = ui.WalkPage(j, st, b, plan_, band(j, plan=True), top=top, more=run_hook('walk_plan_more', j), talks=ts,
                            changed={t['id'] for t in ts if any(walk_changes(lr, t).values())}, actions=run_hook('walk_actions', j, quiet=True), vault=vault)
-        return Page(j.title, *page, on='Learn', crumbs=up, extra=(*edit_assets(), *ui.assets()), wide=True)
+        return Page(j.title, *page, on='Home', crumbs=up, extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def start(jid:str):
         if not (j := walk_of(jid)): return missing()
@@ -539,7 +539,7 @@ def connect(app, ctx):
         page = ui.StepPage(j, walk_state(j, b), b, i, needs=[*line, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault,
                        present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
-                    on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
+                    on='Home', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
 
     def note(jid:str, i:int):
         "The tutor note of step `i`, loaded after the page; a failed note shows nothing."
@@ -570,7 +570,7 @@ def connect(app, ctx):
     def gather_log(jid:str):
         "What the gather agent read and filed, newest first, each row with its link. It opens in the side pane."
         if not (j := walk_of(jid)): return missing()
-        return Page('What the agent did', *ui.GatherLog(j), on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
+        return Page('What the agent did', *ui.GatherLog(j), on='Home', crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
 
     def stop_gather(jid:str):
         "Stop the research of the walk: each tool of the agent refuses, its turn and its sub-agents are cancelled, or the search of each idea ends after the one that runs. What it filed stays."
@@ -820,7 +820,7 @@ def connect(app, ctx):
         slugs = {j.steps[k]['slug'] for k in ix}
         s = (sessions.get(sid) or Session.load(tutor, sid)) if (sid := j.get('sitting')) else None
         rows = [r for r in (s.log if s else ()) if r['concept'] in slugs]
-        return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), ix[-1] + 1, by()), on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
+        return Page('Section done', *ui.SectionDone(j, sec, ix, moved(rows), ix[-1] + 1, by()), on='Home', crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=ui.assets())
 
     def img(jid:str, i:int):
         "The figure of step `i`, only from inside the vault assets and only as an image file."

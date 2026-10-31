@@ -131,7 +131,7 @@ def test_a_parked_slide_is_not_presented(mk, lr, talk_fake):
     t = lr.talk(tid); live = [s for s in t.slides if s.get('section') != GONE]
     h = cl.get(f'/t/{tid}').text
     assert f"About {sum(s['mins'] for s in live)} min" in h and 'Put back in the talk' in h and 'not in the talk' in h
-    assert f"{len(live)} slides" in cl.get('/learn').text
+    assert f"{len(live)} slides" in cl.get('/').text
     cl.post(f'/t/{tid}/start')
     r = lr.run(lr.talk(tid).live)
     pres = cl.get(f'/t/{tid}/present').text

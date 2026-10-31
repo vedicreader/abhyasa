@@ -31,10 +31,10 @@ def test_change_the_slides(mk, talk_fake, lr):
     cl.post(f'/t/{tid}/slot', data=dict(minutes=40))
     assert 'of a 40 min slot' in cl.get(f'/t/{tid}').text and lr.journey(jid).steps == before   # the walk does not change
 
-def test_talks_in_learn_and_search(mk, talk_fake, lr):
+def test_talks_in_teach_and_search(mk, talk_fake, lr):
     cl = mk(); tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
-    page = cl.get('/learn').text
-    assert 'Your talks' in page and f'href="/t/{tid}"' in page
+    page = cl.get('/').text
+    assert '>Teach<' in page and f'href="/t/{tid}"' in page
     assert cl.get('/search?q=Attention').status_code == 200 and cl.get('/t/nope').status_code == 404
     found = cl.get('/search?q=talk Attention').text
     assert f'href="/t/{tid}"' in found and 'A talk · 5 slides' in found   # search finds the talk, with its slide count
@@ -896,11 +896,10 @@ def test_present_on_the_end_of_a_walk(mk, talk_fake, lr):
     assert page.count('Present this walk') == 1
 
 def test_present_in_the_journeys_list(mk, talk_fake, lr):
-    "A walk and a plain journey each have a quiet Present on their row in Learn; the journey row makes its talk from the journey."
-    cl = mk(); jid = walk_started(cl, lr); plain = journey_of(lr)
-    page = cl.get('/learn').text
-    assert page.count('>Present</button>') == 2 and 'Present this walk' not in page and page.count('hx-post="/talk/journey"') == 1
-    assert plain in page
+    "A walk has a quiet Present on its row on Home."
+    cl = mk(); walk_started(cl, lr)
+    page = cl.get('/').text
+    assert page.count('>Present</button>') == 1 and 'Present this walk' not in page
 
 def test_a_walk_with_a_talk_opens_it(mk, talk_fake, lr):
     "After a talk exists for the walk: its step page and its last page show Open the talk and, under More, Make the talk again and Make a second talk. Its row in Learn shows Open the talk only."
@@ -910,7 +909,7 @@ def test_a_walk_with_a_talk_opens_it(mk, talk_fake, lr):
         page = cl.get(u).text
         assert 'Open the talk' in page and f'href="/t/{tid}"' in page and 'Make the talk again (keeps your edits)' in page and 'Present this walk' not in page, u
         assert 'name="again" value="1"' in page and 'Make a second talk' in page, u
-    row = cl.get('/learn').text.split('class="jrow lrow"')[1]
+    row = cl.get('/').text.split('class="jrow lrow"')[1]
     assert re.search(rf'<a [^>]*href="/t/{tid}"[^>]*>Open the talk</a>', row) and 'Make it again' not in row
 
 def test_no_present_on_a_side_walk_or_a_talk_walk(mk, talk_fake, lr):
@@ -920,7 +919,7 @@ def test_no_present_on_a_side_walk_or_a_talk_walk(mk, talk_fake, lr):
     talk = lr.put_journey({**j, 'id': 'talk-walk-ab12', 'title': 'Talk walk', 'parent': dict(**{'for': 'talk'})}).id
     for w in (side, talk):
         assert 'Present this walk' not in cl.get(f'/w/{w}/1').text and 'Present this walk' not in cl.get(f'/w/{w}').text
-    assert cl.get('/learn').text.count('>Present</button>') == 1   # the walk of `jid` only
+    assert cl.get('/').text.count('>Present</button>') == 1   # the walk of `jid` only
 
 # --- maths in a slide, and the words question ---------------------------------------------------------------------
 

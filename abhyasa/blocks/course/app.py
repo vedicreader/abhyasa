@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 def connect(app, ctx):
     lr, ask = ctx.learning, ctx.ask
-    up = [('Today', '/'), ('Learn', '/learn')]
+    up = [('Home', '/')]
     jobs = {}   # (course, kind) -> AttrDict(job, said): one pool job of each kind for each course
 
     def who(): return profile_text(lr.profile())
@@ -50,7 +50,7 @@ def connect(app, ctx):
             except Exception as e: log.warning('abhyasa could not build stage %s of %s: %r', key, cid, e)
         return cid
 
-    def missing(): return Page('Course', H1('No such course'), P(A('Learn', href='/learn')), on='Learn', crumbs=up)
+    def missing(): return Page('Course', H1('No such course'), P(A('Home', href='/')), on='Home', crumbs=up)
 
     def state(cid): return course_state(lr, cid, leela=leela_base() is not None)
 
@@ -58,7 +58,7 @@ def connect(app, ctx):
         if not (st := state(cid)): return missing()
         grow(st.course)
         pend = ui.Pending(cid, 'level', jobs[cid, 'level'].said) if running(cid, 'level') else ui.Pending(cid, 'plan', ui.PLANNING) if running(cid, 'plan') else None
-        return Page(st.course.title, *ui.CoursePage(st, ui.Level(st.course, pending=pend)), on='Learn', crumbs=up)
+        return Page(st.course.title, *ui.CoursePage(st, ui.Level(st.course, pending=pend)), on='Home', crumbs=up)
 
     def level(cid:str):
         "Write the questions of Where you start on the pool. The part asks again until they come."
@@ -81,9 +81,9 @@ def connect(app, ctx):
         if s.get('walk') and lr.journey(s['walk']): return Redirect(Routes.of_(Routes.walk, jid=s['walk']))
         crumbs = [*up, (c.title, ui.at(cid))]
         if s.get('status') == 'skipped' and not plan and not running(cid, key):
-            return Page(s['name'], H1(s['name']), ui.Skipped(cid, s), on='Learn', crumbs=crumbs)
+            return Page(s['name'], H1(s['name']), ui.Skipped(cid, s), on='Home', crumbs=crumbs)
         st = submit(cid, key, ui.BUILDING, build, cid, key)
-        return Page(s['name'], H1(s['name']), ui.Pending(cid, key, st.said), on='Learn', crumbs=crumbs)
+        return Page(s['name'], H1(s['name']), ui.Pending(cid, key, st.said), on='Home', crumbs=crumbs)
 
     def stage(cid:str, key:str): return open_stage(cid, key, plan=False)
     def plan_stage(cid:str, key:str): return open_stage(cid, key, plan=True)

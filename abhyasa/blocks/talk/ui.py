@@ -88,15 +88,17 @@ def Pending(jid, fill=False, again=False):
                cls='talk-new pending', hx_get=f"{Routes.job}?{urlencode(dict(jid=jid))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
 
 def TalkRow(t):
-    "One talk in Learn: its title, its slide count and its slot, then Edit and a quiet Present that starts a run."
+    "One talk in Teach on Home: its title, its slide count and its slot, then Edit and a quiet Present that starts a run."
     return Li(Div(A(t.title, href=at(Routes.one, t.id), cls='jt'), Span(meta(n_of(sum(not parked(s) for s in t.slides), 'slide'), f"a {t.minutes} min slot"), cls='mute'), cls='lrow-head'),
               Div(A('Edit', href=at(Routes.one, t.id), cls='btn small'),
                   Form(Quiet('Present', small=True, data_wait='Starting…'), action=at(Routes.start, t.id), method='post', hx_boost='false'), cls='lrow-acts'),
               cls='lrow')
 
-def YourTalks(ts):
-    "Your talks, in Learn: one row for each."
-    return Part('Your talks', Ul(*[TalkRow(t) for t in ts], cls='plain talks'))
+TEACH = 'To teach a walk to a group, press Present on the walk. abhyasa makes the slides, and you change them before you present.'
+
+def Teach(ts):
+    "Teach, on Home: a row for each talk, and how to make one from a walk."
+    return Part('Teach', Ul(*[TalkRow(t) for t in ts], cls='plain talks') if ts else '', P(TEACH, cls='mute'), data_part='teach')
 
 # --- the editor ------------------------------------------------------------------------------------------------------
 

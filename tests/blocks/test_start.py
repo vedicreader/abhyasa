@@ -1,4 +1,4 @@
-"The Start box in Learn: it reads what you paste, says what it will do, asks only when in doubt, and starts a walk."
+"The Start box on Home: it reads what you paste, says what it will do, asks only when in doubt, and starts a walk."
 import re
 
 def test_detect_never_touches_the_network(monkeypatch):
@@ -37,16 +37,16 @@ def test_web_line_shows_once(mk, lr, walk_fake):
 
 def test_add_opens_the_start_box(mk):
     r = mk().get('/add', follow_redirects=False)
-    assert r.status_code == 303 and r.headers['location'] == '/learn#start'
+    assert r.status_code == 303 and r.headers['location'] == '/#start'
 
 def test_start_is_off_until_it_can_start(mk):
     "Empty, a video and a question keep Start off. A paper turns it on and fills it."
     cl = mk()
     for q in ('', 'https://youtu.be/x', 'The moon spends about one day in each of the lunar mansions.', '~/code/course22'):
         h = cl.get('/learn/read', params=dict(q=q)).text
-        assert re.search(r'<button disabled type="button"( hidden)? id="start-go"', h), q
+        assert re.search(r'<button[^>]*\bdisabled\b[^>]*id="start-go"', h), q
     h = cl.get('/learn/read', params=dict(q='1706.03762')).text
-    assert 'data-wait="Reading the paper…" data-skel="#walk-out" id="start-go"' in h and 'class="go"' in h
+    assert 'data-wait="Reading the paper…" data-skel="#walk-out" data-act="start" id="start-go"' in h and 'class="go"' in h
 
 def test_options_show_only_when_they_matter(mk):
     cl = mk()

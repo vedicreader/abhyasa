@@ -169,7 +169,7 @@
   "pages": {
     "home": {
       "path": "/",
-      "purpose": "Go on with what you do, do the reviews that are due, or start something new.",
+      "purpose": "Go on with what you do, do the reviews that are due, teach a walk to a group, or start something new.",
       "main_action": "Continue",
       "object": "learner",
       "replaces": [
@@ -190,9 +190,7 @@
           ],
           "actions": [
             "start"
-          ],
-          "pending": true,
-          "pending_why": "step 5: the Start box on Home"
+          ]
         },
         "going": {
           "when": "last_place(lr) is not None",
@@ -200,7 +198,8 @@
             "part:continue-card",
             "act:continue",
             "part:walks",
-            "part:start"
+            "part:start",
+            "part:teach (your talks, and how to make one from a walk)"
           ],
           "must_not_show": [
             "part:continue (the top bar)"
@@ -209,10 +208,9 @@
             "continue",
             "start",
             "open walk",
-            "open course"
-          ],
-          "pending": true,
-          "pending_why": "step 5: the Start box on Home"
+            "open course",
+            "open talk"
+          ]
         },
         "course_going": {
           "when": "last_place(lr) is a step of a walk with walk.course",
@@ -264,7 +262,8 @@
         "review",
         "library",
         "you",
-        "settings"
+        "settings",
+        "talk"
       ]
     },
     "course": {
@@ -1014,7 +1013,8 @@
         }
       },
       "entries": [
-        "walk section talks"
+        "home part:teach",
+        "walk part:talks"
       ],
       "exits": [
         "walk"

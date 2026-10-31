@@ -79,12 +79,12 @@ def test_notice_on_any_page_and_the_mac_state(mk, lr, monkeypatch):
     "When research ends, each page has a notice with a link to the walk, until the learner opens it. The Mac app reads the state as JSON."
     j = walk(lr, research_end=time.time() - 5, research_seen=False); cl = mk(); rs = running(cl, monkeypatch, False)
     rs.jobs[j.id] = []   # the walk had research in this run of abhyasa
-    page = cl.get('/learn').text
+    page = cl.get('/').text
     assert 'Sources for your walk' in page and 'Softmax and attention' in page and f'href="/w/{j.id}#sources"' in page
     st = cl.get('/walk/research.json').json()
     assert st['running'] == [] and st['ended'][0]['id'] == j.id and st['ended'][0]['title'] == 'Softmax and attention' and (st['ended'][0]['have'], st['ended'][0]['total']) == (1, 3)
     cl.get(f'/w/{j.id}')   # the learner opens the walk
-    assert 'Sources for your walk' not in cl.get('/learn').text
+    assert 'Sources for your walk' not in cl.get('/').text
     monkeypatch.setattr(rs, 'running', lambda jid, but=0: True)
     assert cl.get('/walk/research.json').json()['running'][0]['id'] == j.id
 

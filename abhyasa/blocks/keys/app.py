@@ -17,7 +17,7 @@ def connect(app, ctx):
         back = '' if val('look.keys_float') else P('You hid the Keys button. ', Button('Show the Keys button', type='button', cls='small quiet', onclick=SHOW), cls='mute')
         return Page('Keyboard shortcuts', ui.css(), H1('Keyboard shortcuts'),
                     P('All keys are for the left hand. ⌥ is the Option key. Sanketa shows the same list when abhyasa is in front.', cls='mute'),
-                    back, *[ui.Group(k, v) for k, v in groups.items()], crumbs=[('Today', '/')])
+                    back, *[ui.Group(k, v) for k, v in groups.items()], crumbs=[('Home', '/')])
 
     def float_(on:str=''):
         "The setting `look.keys_float`: Hide this in the panel sets it off, and the keys page sets it on again."

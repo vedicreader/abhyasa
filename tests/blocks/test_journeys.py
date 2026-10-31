@@ -21,7 +21,7 @@ def test_plan_and_path(mk, fake, lr):
     assert 'How LLMs work' in page and page.index('Tokenizers') < page.index('Ranking') < page.index('Attention')
     assert 'step tokenizers' not in page and 'class="step new now"' in page            # the first step is the one to do now
     assert f'href="/start?journey={jid}"' in page and 'Continue: Tokenizers' in page
-    assert 'class="crumbs"' in page and 'href="/learn"' in page                      # a way up
+    assert 'class="crumbs"' in page and 'href="/"' in page                           # a way up
     assert 'data-mic' in page                                                         # say a topic to add
 
 def test_empty_goal(mk):
@@ -50,10 +50,8 @@ def test_continue_a_journey(mk, fake, lr):
 def test_today_and_concept_page(mk, fake):
     cl = mk()
     today = cl.get('/').text
-    assert 'href="/learn#start"' in today and 'No walks yet' in today
-    jid = plan(cl, fake)
-    today = cl.get('/').text
-    assert 'How LLMs work' in today and '0 of 3 ideas' in today and '>path<' in today and 'Now: Tokenizers' in today
+    assert 'data-part="start"' in today and 'data-part="walks"' not in today   # no walk yet: Home has the Start box only
+    plan(cl, fake)
     c = cl.get('/c/ranking').text
     assert 'In your walks' in c and 'idea 2 of 3' in c
 
@@ -79,7 +77,7 @@ def test_learn_counts_a_walk_as_its_outline_does(mk, lr):
     lr.put_journey(dict(id='wf', title='Fragile walk', mode='walk', goal='learn ranking', started=1.,
                         steps=[dict(slug='ranking', status='todo', check=ck, done=dict(outcome='fragile', at=1.)), dict(slug='reciprocal-rank-fusion', status='todo', check=ck)]))
     cl = mk()
-    row, rail = cl.get('/learn').text, cl.get('/w/wf/1').text
+    row, rail = cl.get('/').text, cl.get('/w/wf/1').text
     assert 'Now: Reciprocal rank fusion' in row   # a fragile idea is not the current one: the walk goes on
     n = re.search(r'aria-valuenow="(\d)"', rail)[1]
     assert f'aria-valuenow="{n}" aria-valuemax="2"' in row and f'{n} of 2 ideas' in row   # one count: the row says what the outline says

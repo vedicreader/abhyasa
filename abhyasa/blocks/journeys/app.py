@@ -1,7 +1,7 @@
 """Walks: a goal and a path of steps to it, that you can see and change. The list, the path page, and what they add to Today,
 to a concept page and to a session. The code calls a walk a journey; the page says walk."""
 from fasthtml.common import *
-from abhyasa.core import Page, Part, RouteOverrides, hook, run
+from abhyasa.core import Page, hook, run
 from abhyasa.settings import val
 from abhyasa.profile import profile_text
 from fastcore.basics import AttrDict
@@ -15,7 +15,7 @@ CAPS = ('learning', 'ask', 'sources')
 def connect(app, ctx):
     lr = ctx.learning
     ask = ctx.ask   # the engine picks the model of each task (`for_task`) on each call, so a settings change works at once
-    up = [('Today', '/'), ('Learn', Routes.learn)]
+    up = [('Home', '/')]
 
     def by(): return {c.slug: c for c in lr.concepts()}
     def yours(): return [j for j in lr.journeys() if not for_talk(j)]   # a side walk of a talk is for the room, not yours
@@ -27,19 +27,9 @@ def connect(app, ctx):
         cur = None if i is None else AttrDict(ws.steps[i], i=i, name=(b.get(ws.steps[i]['slug']) or {}).get('name', ws.steps[i]['slug']))
         return AttrDict(ws, current=cur, finished=cur is None and bool(ws.steps))
 
-    def listed(skip=None):
-        b = by()
-        return [(j, state(j, b)) for j in yours() if j.id != skip]
-
     def path(jid): return ui.Path_(j := lr.journey(jid), state(j))
 
-    def learn():
-        "The Learn tab: your walks, your talks (`learn_talks`) and Start something new (`learn_start`)."
-        return Page('Learn', H1('Learn'), Part('Your walks', ui.JourneyList(listed(), empty='No walks yet. Start one below.')),
-                    *run('learn_talks'), Section(H2('Start something new'), *run('learn_start'), id='start'),
-                    on='Learn', extra=ui.assets())
-
-    def index(): return RedirectResponse(Routes.learn, status_code=303)   # the old list: Learn has it now
+    def index(): return RedirectResponse('/', status_code=303)   # the old list: Home has it now
 
     def new(goal:str=''):
         if not goal.strip(): return P('Say or type what you want to learn.', cls='req-err')
@@ -49,10 +39,10 @@ def connect(app, ctx):
 
     def one(jid:str):
         j = lr.journey(jid)
-        if not j: return Page('Walk', H1('No such walk'), P(A('All walks', href=Routes.learn)), on='Learn', crumbs=up)
+        if not j: return Page('Walk', H1('No such walk'), P(A('Your walks', href='/')), on='Home', crumbs=up)
         if j.get('mode') == 'walk' and not for_talk(j): return RedirectResponse(Routes.of(Routes.walk, jid=jid), status_code=301)   # a walk has its own page
         pg = state(j)
-        return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), listed(jid)[:val('lists.beside')], run('walk_actions', j)), on='Learn', crumbs=up, extra=ui.assets())
+        return Page(j.title, *ui.JourneyPage(j, pg, beyond(lr, j), run('walk_actions', j)), on='Home', crumbs=up, extra=ui.assets())
 
     def step(jid:str, slug:str, act:str):
         if not lr.journey(jid): return Response(status_code=404)
@@ -69,7 +59,7 @@ def connect(app, ctx):
 
     def drop(jid:str):
         lr.drop_journey(jid)
-        return Redirect(Routes.learn)
+        return Redirect('/')
 
     def use_sources(jid:str):
         "Make the path `jid` a walk with a passage from your sources on each step. The walk block does it on the pool (`walk_from_path`) and gives the pending card."
@@ -90,18 +80,6 @@ def connect(app, ctx):
         if src == 'concept': return P('Added to ', A(j.title, href=Routes.of(Routes.path, jid=jid)), '.', cls='mute')
         return path(jid)
 
-    @hook('today')
-    def on_today(subject=None):
-        "Your walks on Today: at most `lists.journeys` rows, then a link to all of them in Learn and to Start something new."
-        js = listed()
-        more = [A(f'See all {len(js)} in Learn', href=Routes.learn), ' · '] if len(js) > (n := val('lists.journeys')) else []
-        return (H2('Your walks'), ui.JourneyList(js[:n], lead=False), P(*more, A('Start something new', href=f'{Routes.learn}#start'), cls='mute'), *ui.assets())
-
-    @hook('start_more')
-    def goal_box():
-        "Under More in the Start box: plan a path of concepts from a goal, with no source."
-        return Div(P('Plan a walk from a goal, with no source', cls='lbl'), ui.GoalForm(compact=True, label=False))
-
     @hook('concept_more')
     def in_journeys(c):
         rows, js = [(j, i) for j, i in with_step(lr, c.slug) if not for_talk(j)], yours()
@@ -116,9 +94,7 @@ def connect(app, ctx):
         pg = state(j)
         return ui.StepDone(lr.concept(r.concept), pg.current.name if pg.current else '')
 
-    RouteOverrides.nav.append(('Learn', Routes.learn, 1))
     app.get(Routes.base)(index)
-    app.get(Routes.learn)(learn)
     app.post(Routes.new)(new)
     app.post(Routes.attach)(attach)
     app.get(Routes.path)(one)

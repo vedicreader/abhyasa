@@ -31,10 +31,10 @@ def connect(app, ctx):
 
     def page(slug:str):
         d = lr.demo(slug)
-        if not d: return Page('Demo', H1('Demo'), P('No such demo.', cls='mute'), on='Library', crumbs=[('Today', '/')])
+        if not d: return Page('Demo', H1('Demo'), P('No such demo.', cls='mute'), on='Library', crumbs=[('Home', '/')])
         c = lr.concept(d.concept)
         back = P('A demo for ', A(c.name, href=f'/c/{c.slug}'), '.', cls='mute') if c else ''
-        return Page(d.spec.get('title') or 'Demo', back, ui.DemoCard(d, link=False), on='Library', crumbs=[('Today', '/'), *([(c.name, f'/c/{c.slug}')] if c else [])])
+        return Page(d.spec.get('title') or 'Demo', back, ui.DemoCard(d, link=False), on='Library', crumbs=[('Home', '/'), *([(c.name, f'/c/{c.slug}')] if c else [])])
 
     def made(concept, session='', aim=''):
         "The newest demo of `concept` with the aim `aim` (a plain demo or a simpler demo, never a walk order check), or the state of its job."

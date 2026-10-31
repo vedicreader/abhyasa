@@ -26,7 +26,7 @@ def Moved(m):
 
 def connect(app, ctx):
     lr = ctx.learning
-    up = [('Today', '/')]
+    up = [('Home', '/')]
 
     def names():
         "Concept names by slug, and walks by id: to name a session."

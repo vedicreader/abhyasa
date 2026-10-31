@@ -1,20 +1,14 @@
 "A walk as a path: a vertical line of steps, each with its state, its depth and why it is there; the current step in the accent."
 import json
 from pathlib import Path
-from urllib.parse import quote, urlparse
 from fasthtml.common import *
-from abhyasa.core.hooks import run
-from abhyasa.core import Md, DepthBar, asset_css, asset_js, ago, Primary, n_of, Onward, Pill, Empty
-from abhyasa.journey import parent_step, walk_state, paper_id
-from abhyasa.sources import is_paper
-from abhyasa.settings import val
+from abhyasa.core import DepthBar, asset_css, ago, Primary, n_of
 from .cfg import Routes
 
 _P = Path(__file__).parent
 STATE = dict(new='new', started='started', learned='learned', known='you know it', skipped='skipped', missing='not in your concepts')
-PLANNING = 'The tutor plans the walk. This takes about half a minute…'
 
-def assets(): return asset_css(_P/'journeys.css'), asset_js(_P/'journeys.js')
+def assets(): return asset_css(_P/'journeys.css'),
 
 def at(r, j): return Routes.of(r, jid=j.id)
 def go(j, pg=None):
@@ -23,82 +17,7 @@ def go(j, pg=None):
     i = (pg.current or {}).get('i') if pg is not None else None
     return Routes.of(Routes.walk, jid=j.id) + (f'/{i}' if i is not None else '')
 
-def page_of(j): return Routes.of(Routes.walk if j.get('mode') == 'walk' else Routes.path, jid=j.id)
-
-def kind_of(j) -> str:
-    "What walk `j` reads, for its pill: `path` (planned from a goal), `repo`, `paper`, `site`, `text` or `topic`."
-    if j.get('mode') != 'walk': return 'path'
-    src = j.get('source') or {}
-    url = src.get('url') or ''
-    if j.get('tool') or urlparse(url).hostname in ('github.com', 'www.github.com'): return 'repo'
-    if paper_id(j) or is_paper(url) or src.get('doc_id'): return 'paper'
-    if src.get('docs'): return 'site'
-    if j.get('id') and any((s.get('read') or {}).get('doc_id') == j['id'] for s in j.get('steps') or []): return 'text'
-    return 'topic'
-
 def Bar(done, total): return Span(I(style=f"width:{100 * done // max(total, 1)}%"), cls='prog', role='progressbar', aria_valuenow=str(done), aria_valuemax=str(total))
-
-def GoalForm(compact=False, label=True):
-    "The box where a walk starts: say or type a goal. The planner suggests a path that you can change. `label=False` when a fold names it."
-    return Form(Label('What do you want to learn?', fr='goal') if label else '',
-                Textarea(name='goal', id='goal', rows=1 if compact else 2, data_mic='label', aria_label='Your goal',
-                         placeholder='For example: how LLMs work, from tokens to training. ⌘↵ plans the walk.'),
-                Div(Button('Plan a walk', cls='plan', data_wait=PLANNING, data_skel='#plan-out'),
-                    Span('The tutor suggests the ideas. You can change each one.', cls='mute'), cls='row'),
-                P('The tutor searches the web for sources. The search engine sees your topic.', cls='mute') if val('research.on') else '',
-                Div(id='plan-out'), hx_post=Routes.new, hx_target='#plan-out', cls='goal-form' if compact else 'goal-form raised')
-
-def beside(j, js):
-    "The step that opened side walk `j`, with the side walk at its current step in the pane (`?rh=`); its own page when that step is gone."
-    pj, i = parent_step(None, j, js)
-    if not pj: return go(j)
-    k = walk_state(j).current
-    return f"/w/{pj.id}/{i}?rh=" + quote(f"/w/{j.id}/{k if k is not None else 0}", safe='/')
-
-def SideWalk(j, pg, js=None):
-    "One side walk under the walk that opened it: its title, the idea it was for, and its progress. It opens beside the step that opened it."
-    i = (j.get('parent') or {}).get('step')
-    return Li(A(j.title, href=beside(j, js or {})), Span(f"  for idea {i + 1} · {pg.done} of {n_of(pg.total, 'idea')}" if isinstance(i, int) else f"  {pg.done} of {n_of(pg.total, 'idea')}", cls='mute'))
-
-def fresh(j, pg) -> bool:
-    "True when walk `j` is not started: a walk with no start time, or a path with each step new."
-    return not j.get('started') if j.get('mode') == 'walk' else all(s.state == 'new' for s in pg.steps)
-
-def Row(j, pg, sides=(), lead=False, js=None):
-    """One walk in a list, as one block of two quiet lines: its title, its kind and its paper id; then its progress and the step to do now.
-    At the right, one way on and a quiet Present
-    (`walk_actions` with `row`), and its side walks folded under it. Only the `lead` row (the current walk) has a button;
-    the others have a quiet `Continue →` link."""
-    word = 'Start the walk' if fresh(j, pg) else 'Continue'
-    go_on = (A(word, href=go(j, pg), cls='btn small') if lead and pg.current else Onward(word, go(j, pg)) if pg.current
-             else Onward('See what comes after', page_of(j)))
-    pid = paper_id(j)
-    now = f"Now: {pg.current.name}" if pg.current else 'Finished'
-    head = Div(Div(A(j.title, href=page_of(j), cls='jt'), Pill(kind_of(j)), Span(pid, cls='paper-id mute') if pid else '', cls='jrow-l1'),
-               Div(Bar(pg.done, pg.total), Span(f"{pg.done} of {n_of(pg.total, 'idea')}", cls='mute'), Span(now, cls='mute now', title=now), cls='jrow-l2'),
-               cls='jrow-head')
-    folded = Details(Summary(n_of(len(sides), 'side walk')), Ul(*[SideWalk(*x, js=js) for x in sides], cls='plain'), cls='side-walks') if sides else ''
-    return Li(head, Div(go_on, *run('walk_actions', j, row=True), cls='lrow-acts'), folded, cls='jrow lrow')
-
-def root_of(j, ids):
-    "The id of the first walk up the parents of side walk `j` that is not a side walk, when it is in `ids`; else None."
-    seen = set()
-    while j and j.get('depth') and (p := (j.get('parent') or {}).get('walk')) in ids and p not in seen:
-        seen.add(p); j = ids[p][0]
-    return None if j is None or j.get('depth') else j.id
-
-def JourneyList(js, empty='No walks yet.', lead=True):
-    """The walks, each with its side walks under it. A side walk whose walk is gone has its own line.
-    With `lead`, the first walk with a step to do (the newest, as Continue in the top bar) has the one button."""
-    ids = {j.id: (j, pg) for j, pg in js}
-    sides = {}
-    for j, pg in js:
-        if j.get('depth') and (r := root_of(j, ids)): sides.setdefault(r, []).append((j, pg))
-    under = {j.id for x in sides.values() for j, _ in x}
-    top = next((j.id for j, pg in js if j.id not in under and pg.current), None) if lead else None
-    byid = {k: v[0] for k, v in ids.items()}
-    rows = [Row(j, pg, sides.get(j.id, ()), j.id == top, byid) for j, pg in js if j.id not in under]
-    return Ul(*rows, cls='plain journeys') if rows else Empty(empty)
 
 def Act(j, s, act, label, title):
     return Button(label, type='button', cls='small quiet', title=title, hx_post=at(Routes.path_step, j), hx_vals=json.dumps(dict(slug=s.slug, act=act)),
@@ -137,12 +56,11 @@ def UseSources(j):
                 Span('abhyasa finds a passage in your sources for each step, and gives each step a check.', cls='mute'),
                 hx_post=at(Routes.path_sources, j), hx_swap='outerHTML', cls='use-sources row')
 
-def JourneyPage(j, pg, after=(), others=(), actions=()):
+def JourneyPage(j, pg, after=(), actions=()):
     near = [*([H2('After this' if pg.finished else 'Near this walk'),
                Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
                        Button('Add to the walk', type='button', cls='small quiet', hx_post=Routes.attach, hx_vals=json.dumps(dict(jid=j.id, slug=c.slug)),
-                              hx_target='#path', hx_swap='outerHTML')) for c in after], cls='plain')] if after else []),
-            *([H2('Your other walks'), JourneyList(others, lead=False)] if others else [])]
+                              hx_target='#path', hx_swap='outerHTML')) for c in after], cls='plain')] if after else [])]
     return (H1(j.title), P('Your goal: ', Span(j.get('goal', ''), cls='goal'), Span(f"  · changed {ago(j.get('updated'))}", cls='mute'), cls='mute'),
             Div(*actions, cls='row') if actions else '', UseSources(j), Path_(j, pg), Div(*near, cls='refs') if near else '',
             Form(Button('Remove this walk', cls='small quiet danger'), action=at(Routes.path_drop, j), method='post',

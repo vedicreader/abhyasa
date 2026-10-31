@@ -1,4 +1,4 @@
-"Task 19c, the other pages: Add finds concepts, Today, Your learning, search and Profile."
+"Task 19c, the other pages: Add finds concepts, Home, Your learning, search and Profile."
 import re
 from walk_data import *
 
@@ -14,14 +14,7 @@ def test_add_finds_concepts_from_the_text(mk, walk_fake, lr):
     t = mk(['add']).post('/add', data=dict(ref=did, subject='papers')).text
     assert '<li>' in t and any(c.subject == 'papers' for c in lr.concepts())
 
-# F12: Today
-
-def test_today_shows_at_most_three_walks(mk, walk_fake, lr):
-    "With five walks, Today lists three and links to all five in Learn."
-    cl = mk()
-    for i in range(5): walk(cl, lr)
-    h = cl.get('/').text
-    assert h.count('class="jrow lrow"') == 3 and 'See all 5 in Learn' in h
+# F12: Home
 
 def test_today_review_line_counts_due_ideas(mk, lr):
     "The review line says how many ideas are due, with Start; with nothing due it names the next idea."

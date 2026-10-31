@@ -1,4 +1,4 @@
-"""Start something new, in Learn: one box that reads what you paste or drop and says what abhyasa will do (`detect`).
+"""Start something new, on Home: one box that reads what you paste or drop and says what abhyasa will do (`detect`).
 Also Find concepts only (`POST /add`)."""
 import asyncio, hashlib, logging, re, subprocess, sys, threading, time
 from fasthtml.common import *
@@ -130,8 +130,8 @@ def Read(r, f=None, told=True, q='', said=()):
     ok = [c for c in cs if not c.get('why')]
     go = r.kind not in ('empty', 'ask', *NOT_YET) and not r.ask and bool(r.send) and (r.kind != 'sources' or bool(ok))
     wait = WAIT.get(r.kind, 'Making the walk…')
-    start = (Primary('Start', data_wait=wait, data_skel='#walk-out', id='start-go') if go else
-             Button('Start', ' ', Kbd('⌥S'), disabled=True, id='start-go', type='button', hidden=bool(r.ask)))   # a question: its answers start
+    start = (Primary('Start', data_wait=wait, data_skel='#walk-out', id='start-go', rank=6, data_act='start') if go else
+             Primary('Start', disabled=True, id='start-go', type='button', hidden=bool(r.ask), rank=6, data_act='start'))   # off until it can start; a question: its answers start
     drop = (FOUND if shown and ok else 'abhyasa gets it only when you press Start.' if go and r.kind in ('paper', 'repo', 'site') else CAN)
     foot = Div(start, Quiet('Find concepts only', hx_post=Routes.base, hx_target='#walk-out', data_wait='Reading and finding concepts…', data_skel='#walk-out')
                if 'find' in r.options else '', '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
@@ -273,7 +273,7 @@ def connect(app, ctx):
         run_hook('concepts_added')   # the concepts block places the new concepts on the pool
         return Ul(*[Li(A(lr.concept(s).name, href=f'/c/{s}')) for s in slugs], cls='plain')
 
-    def page(): return RedirectResponse(Routes.start, status_code=303)   # the old Add page: the Start box in Learn has its place
+    def page(): return RedirectResponse(Routes.start, status_code=303)   # the old Add page: the Start box on Home has its place
 
     def Filing(j, said=(), told=()):
         "What Add a source does now for walk `j`: each source that is still filing, and the lines of the last add. It asks again while a source files."
@@ -329,9 +329,8 @@ def connect(app, ctx):
 
     @hook('learn_start')
     def start():
-        "Start something new, in Learn: the box, the place for its result, and More (`start_more`: the goal box of the walks block)."
-        return (Box(), Div(id='walk-out'), Details(Summary('More'), *run_hook('start_more'), cls='more start-more'),
-                asset_css(_P/'add.css'), asset_js(_P/'start.js', defer=True))
+        "Start something new, on Home: the box and the place for its result."
+        return Box(), Div(id='walk-out'), asset_css(_P/'add.css'), asset_js(_P/'start.js', defer=True)
 
     app.get(Routes.base)(page)
     app.post(Routes.base)(add)

@@ -1,6 +1,6 @@
 class Routes:
-    base = '/add'                  # GET: to the Start box in Learn; POST: Find concepts only
-    start = '/learn#start'
+    base = '/add'                  # GET: to the Start box on Home; POST: Find concepts only
+    start = '/#start'
     read = '/learn/read'           # what the Start box will do with its text
     file = '/learn/file'           # a dropped PDF, filed in the vault
     files = '/learn/files'         # POST: several dropped files, each filed in the vault; it gives their ids

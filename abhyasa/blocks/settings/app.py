@@ -50,7 +50,7 @@ def connect(app, ctx):
         return Page('Settings', H1('Settings'), P('The tutor works well with the defaults. Change a value only when you want to.', cls='mute lead-page'),
                     Div(ui.Tabs(on, {t: tab_count(t) for t in ui.TABS}),
                         Div(*[ui.Panel(t, on, *map(section, gs)) for t, (_, gs) in ui.TABS.items()], cls='sgroups'), cls='slayout'),
-                    extra=ui.assets(), crumbs=[('Today', '/')], wide=True)
+                    extra=ui.assets(), crumbs=[('Home', '/')], wide=True)
 
     def store(r, v):
         "Save the value `v` of row `r`, made to fit its row. Return the value in use."

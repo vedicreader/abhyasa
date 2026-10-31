@@ -1,16 +1,4 @@
 /* A journey: a path of steps on one vertical line, as a subway map is. Done steps are filled; the step to do now has a ring. */
-.goal-form label { margin-top: var(--s2); }
-.goal-form.raised { margin: var(--s5) 0 var(--s2); padding: var(--s4) var(--s5) var(--s5); } .goal-form.raised label { margin-top: 0; }
-.goal-form .row { margin-top: var(--s3); }
-/* The head of a walk row: two quiet lines in one block. Line 1 has the title, the kind and the paper id; line 2 has the progress and "Now",
-   cut with an ellipsis only when it is longer than the line. */
-.jrow-head { min-width: 0; }
-.jrow-l1, .jrow-l2 { display: flex; align-items: center; gap: var(--s1) var(--s3); min-width: 0; }
-.jrow-l1 { flex-wrap: wrap; } .jrow-l1 .jt { font-size: var(--t-list); color: var(--fg); }
-.jrow-l2 { margin-top: 2px; } .jrow-l2 > * { flex: none; } .jrow-l2 .mute { font-size: var(--t-meta); }
-.jrow-l2 .prog { width: 56px; margin: 0; }
-.jrow-l2 .now { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.paper-id { font-size: var(--t-meta); }
 .phead { margin: var(--s5) 0 var(--s1); } .phead .prog { max-width: 420px; }
 .goal { font-style: italic; color: var(--ink2); }
 .path { list-style: none; padding: 0; margin: var(--s6) 0 var(--s3); }
@@ -41,8 +29,3 @@
 .drop { margin-top: var(--s8); } .danger:hover { color: var(--bad); }
 .in-journeys { margin: var(--s5) 0 0; } .in-journeys .attach { margin-top: var(--s3); } .in-journeys select { width: auto; font-size: var(--t-small); }
 .step-done { padding: 2px 0; } .step-done .lbl { color: var(--ok); } .step-done p { margin: 0; }
-/* The side walks of a row: folded to one quiet line under it. */
-.jrow .side-walks { grid-column: 1 / -1; margin: 0 0 0 var(--s4); font-size: var(--t-small); }
-.jrow .side-walks > summary { cursor: pointer; color: var(--mute); font-size: var(--t-meta); list-style-position: inside; width: fit-content; }
-.jrow .side-walks > summary:hover, .jrow .side-walks[open] > summary { color: var(--fg); }
-.jrow .side-walks ul { margin: 2px 0 0; } .jrow .side-walks li { padding: var(--s2) 0; }

@@ -98,7 +98,7 @@ def SortButton(subject='', n=0):
 
 def Listing(cs, q='', subject='', said='', new=0, groups=None, hand=(), opened=(), bar=''):
     "The normal view: the Undo bar or the line of a failed sort, the find box and the sort action, the tree, then `More` with \"Sort everything again\"."
-    if not cs and not q: return Empty('Concepts appear here when you start a walk.', A('Start a walk', href='/learn'))
+    if not cs and not q: return Empty('Concepts appear here when you start a walk.', A('Start a walk', href='/#start'))
     hits = [c for c in cs if finds(c, q)] if q.strip() else cs
     body = (Tree(hits, deep=bool(q.strip()), groups=None if q.strip() else groups, at=subject, opened=opened) if hits else
             Empty(f'No concept matches “{q}”.', A('Search everything', href=f"/search?{urlencode(dict(q=q))}")))

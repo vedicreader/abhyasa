@@ -49,7 +49,7 @@ def test_voice_everywhere(mk):
     cl = mk()
     page = cl.get('/you').text
     assert 'id="mic-float"' in page and 'data-mic' in page          # the voice block adds its floating mic to each page
-    assert 'mic-float' not in mk(names=['journeys', 'today']).get('/learn').text   # without the voice block nothing breaks
+    assert 'mic-float' not in mk(names=['today']).get('/').text   # without the voice block nothing breaks
 
 def test_calibration(mk, lr):
     cl = mk(); lr.set_profile(background=['codes in Python'])   # an empty profile with no answers shows no calibration

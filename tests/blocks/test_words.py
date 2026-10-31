@@ -25,11 +25,9 @@ def test_old_journey_routes_still_work(mk, fake, lr):
     assert cl.post(f'/j/{jid}/step', data=dict(slug=lr.journey(jid).steps[0]['slug'], act='skip')).status_code == 200
     assert cl.post(f'/path/{jid}/step', data=dict(slug=lr.journey(jid).steps[1]['slug'], act='skip')).status_code == 200
     assert cl.get(f'/path/{jid}').status_code == 200
-    assert f'href="/path/{jid}"' in cl.get('/journeys').text                      # links in the app go to the new route
 
 def test_kind_pill(lr):
-    from abhyasa.blocks.journeys.ui import kind_of
-    assert kind_of(dict(mode='plan', steps=[])) == 'path'
+    from abhyasa.blocks.today.ui import kind_of
     assert kind_of(dict(mode='walk', tool=True, source=dict(url='https://github.com/a/b'), steps=[])) == 'repo'
     assert kind_of(dict(mode='walk', source=dict(url='https://github.com/a/b'), steps=[])) == 'repo'
     assert kind_of(dict(mode='walk', source=dict(url='https://arxiv.org/abs/1706.03762', docs=[{}]), steps=[])) == 'paper'

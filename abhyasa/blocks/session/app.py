@@ -4,7 +4,7 @@ import logging, time
 from concurrent.futures import wait
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import Page, hook, run as run_hook, Primary, n_of, Feedback, Msg
+from abhyasa.core import Page, hook, run as run_hook, Primary, Secondary, n_of, Feedback, Msg
 from abhyasa.model import DEPTHS, pick
 from abhyasa.tutor import Session, HINTS, moved
 from abhyasa.journey import progress, walk_state, related
@@ -93,7 +93,7 @@ def connect(app, ctx):
     def crumbs(s):
         "Today, then the walk of the session, if it has one."
         j = lr.journey(s.journey) if s and s.journey else None
-        return [('Today', '/'), *([(j.title, f'/path/{j.id}')] if j else [])]
+        return [('Home', '/'), *([(j.title, f'/path/{j.id}')] if j else [])]
 
     def start(subject:str='', focus:str='', journey:str='', drill:str=''):
         s = Session(tutor, focus=focus or None, subject=subject or None, journey=journey or None, drill=bool(drill))
@@ -104,7 +104,7 @@ def connect(app, ctx):
     def layout(s, chat, composer, cur=None, viewing=None):
         "The page: the earlier questions on the left, and one question with the composer on the right."
         rail = ui.Rail(s.id, past(s.id, cur), outcomes, cur, viewing)
-        return Page('Learn', Div(rail, Div(chat, composer, cls='main'), cls='session-layout'), wide=True, extra=ui.assets(), on='Learn', crumbs=crumbs(s))
+        return Page('Learn', Div(rail, Div(chat, composer, cls='main'), cls='session-layout'), wide=True, extra=ui.assets(), on='Home', crumbs=crumbs(s))
 
     def page(sid:str, q:str=''):
         s, cur = live(sid)
@@ -210,7 +210,7 @@ def connect(app, ctx):
         "End the session, and show what moved and what comes next."
         if (f := pre.pop(sid, None)): f.cancel()
         s = get(sid)
-        if not s: return Page('Session', H1('No such session'), P('It is not in your vault.', cls='mute'), on='Learn', crumbs=[('Today', '/')])
+        if not s: return Page('Session', H1('No such session'), P('It is not in your vault.', cls='mute'), on='Home', crumbs=[('Home', '/')])
         if not s.ended: s.end()
         sessions.pop(sid, None)
         for q in shown.pop(sid, ()): tl.pop(q.id, None); outcomes.pop(q.id, None)   # get() builds them again from the shelf
@@ -219,19 +219,21 @@ def connect(app, ctx):
         nxt_ = (walked(j, by) if j.get('mode') == 'walk' else progress(lr, j, by=by)) if j else None
         last = s.log[-1]['concept'] if s.log else s.focus
         rel = [] if j else related(lr, last, 4, by=by) if last else []
-        return Page('Session', *ui.EndPage(s, moved(s.log), j, nxt_, rel), on='Learn', crumbs=crumbs(s), extra=ui.assets())
+        return Page('Session', *ui.EndPage(s, moved(s.log), j, nxt_, rel), on='Home', crumbs=crumbs(s), extra=ui.assets())
 
     @hook('today_next')
     def start_here(subject=None):
         cs, now = ctx.learning.concepts(subject), time.time()
         n = sum(1 for c in cs if c.seen and c.due and c.due <= now)
         p = None if n else pick(ctx.learning.concepts(), subject=subject)
-        said = (f"Review: {n_of(n, 'idea')} {'is' if n == 1 else 'are'} due.",) if n else \
-               (f"Next: {DEPTHS[p[1]]} {p[0].name}. ", Span(plain_why(p[2]), cls='why')) if p else ('Nothing is due. Start something new, or pick a concept.',)
+        if not (n or p): return None
+        said = (f"Review: {n_of(n, 'idea')} {'is' if n == 1 else 'are'} due.",) if n else (f"Next: {DEPTHS[p[1]]} {p[0].name}. ", Span(plain_why(p[2]), cls='why'))
+        go = f"Start{' ' + subject if subject else ''}"
         return Div(P(*said, cls='review-line'),
                    Form(Input(type='hidden', name='subject', value=subject or ''),
-                        Primary(f"Start{' ' + subject if subject else ''}", data_wait='Starting…', focus=True, rank=3, data_act='review'), action=Routes.start, method='post'),
-                   cls='review', data_part='reviews')
+                        Primary(go, data_wait='Starting…', focus=True, rank=3, data_act='review') if n else Secondary(go, data_wait='Starting…', data_act='review'),
+                        action=Routes.start, method='post'),
+                   cls='review', data_part='reviews')   # only due reviews make it the main action; a new idea is a second way
 
     @hook('concept_actions')
     def learn_this(c):

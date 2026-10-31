@@ -1,9 +1,9 @@
 """Blocks add to each other's pages without importing each other (vedicreader's `vr/core/hooks.py`).
 
-The hooks: `today_top`, `today_next`, `today`, `today_end` (the parts of Today, in that order; `today_end` parts go on one line);
+The hooks: `today_top`, `today_next`, `learn_talks`, `learn_start`, `today_end` (the parts of Home, in that order: Continue, the reviews,
+Teach after your courses and walks, Start something new, and the foot, whose parts go on one line);
 `learning_top` (the parts of Your learning after This week: Your strengths) and `learning_end` (the end of Your learning);
-`learn_talks` and `learn_start` (the parts of Learn after your walks: your talks, and Start something new); `start_more` (under More in
-the Start box: the goal box); `nav_extra` (the right of the top bar);
+`nav_extra` (the right of the top bar);
 `page_extra` (once at the end of each page); `concept_actions` and `concept_more` (a concept page); `answer_tools(q, into)` (the session
 composer, and the answer row of a short check on a walk step); `lesson_extra` (under a lesson).
 
