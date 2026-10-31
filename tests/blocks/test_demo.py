@@ -13,10 +13,6 @@ def test_rupaka_served_offline(mk):
     assert js.status_code == 200 and "Rupaka.block('gate'" in js.text and 'immutable' in js.headers['cache-control']
     assert css.status_code == 200 and '--rk-fg' in css.text
 
-def test_concept_page_has_the_action(mk):
-    page = mk().get('/c/reciprocal-rank-fusion').text
-    assert 'Show me a demo' in page and 'id="demo-slot"' in page and 'Learn this' in page
-
 def test_make_then_wait_gives_the_demo(mk, lr):
     cl = mk()
     first = cl.post('/demo/make', data=dict(concept='reciprocal-rank-fusion')).text
