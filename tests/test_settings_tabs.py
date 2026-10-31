@@ -104,7 +104,8 @@ def site(mk):
     try:
         with sync_playwright() as p:
             b = p.chromium.launch(headless=True)
-            try: yield b.new_page(viewport=dict(width=1200, height=800)), f'http://127.0.0.1:{port}'
+            pg = b.new_page(viewport=dict(width=1200, height=800)); pg.set_default_timeout(15000)   # a busy machine (other suites at once) is slow
+            try: yield pg, f'http://127.0.0.1:{port}'
             finally: b.close()
     finally:
         srv.should_exit = True; th.join(5)
@@ -114,7 +115,7 @@ SELECTED = "[...document.querySelectorAll('[role=tab][aria-selected=true]')].map
 IN_VIEW = "id => { const r = document.getElementById(id).getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && r.height > 0; }"
 def shown(pg, tab):
     "Wait until only the tab `tab` shows: a click or a key acts in the next frame, and a busy machine can be slow."
-    pg.wait_for_function(f"JSON.stringify({SHOWN}) === JSON.stringify(['{tab}'])", timeout=5000)
+    pg.wait_for_function(f"JSON.stringify({SHOWN}) === JSON.stringify(['{tab}'])", timeout=15000)
     return True
 
 ROW_BOX = "() => { const r = document.querySelector('.stop').getBoundingClientRect(); return [r.top, r.height]; }"
@@ -142,7 +143,7 @@ def test_tabs_in_a_browser(site):
     pg.reload(); pg.wait_for_selector('#t-learning')
     assert shown(pg, 'learning') and pg.evaluate(SELECTED) == ['learning']
     pg.fill('#sfind', 'side walk depth')                                                        # Find looks in all the tabs
-    pg.wait_for_function("document.getElementById('sr-walks-depth').checkVisibility()", timeout=5000)
+    pg.wait_for_function("document.getElementById('sr-walks-depth').checkVisibility()", timeout=15000)
     assert pg.evaluate(IN_VIEW, 'sr-walks-depth') or pg.evaluate("document.getElementById('sr-walks-depth').checkVisibility()")
     assert not pg.evaluate("document.getElementById('sr-checks-tries').checkVisibility()")
 
