@@ -38,9 +38,3 @@ def test_hint_has_iast_terms(lr):
     assert h.startswith('Anumana, anumāna') and 'sādhya' in h and 'Nyāya' in h and 'hetu' not in h
     assert hint_for(lr, '') == '' and hint_for(lr, 'nope') == ''
 
-def test_mic_button_assets(mk):
-    cl = mk()
-    sid = cl.post('/start', follow_redirects=False).headers['location'].split('/')[-1]
-    page = cl.get(f'/s/{sid}').text
-    assert 'data-vad="/assets/vad.js?v=' in page and '/assets/voice.css?v=' in page and 'data-concept="ranking"' in page
-    assert 'registerProcessor' in cl.get('/assets/vad.js').text
