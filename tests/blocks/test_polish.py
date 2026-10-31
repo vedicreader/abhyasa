@@ -18,7 +18,7 @@ def test_session_and_walk_draw_the_same_check(mk, walk_fake, lr):
     cl.post(f'/s/{sid}/answer', data=dict(answer='add the scores'))
     s = cl.get(f'/s/{sid}').text
     for h in (w, s):
-        for x in ('What does a rank tell you?', 'add the scores', 'Not yet', 'First error: ', 'You add raw scores.'): assert x in h, x
+        for x in ('What does a rank tell you?', 'add the scores', 'Not yet', 'Error: ', 'You add raw scores.'): assert x in h, x
 
 # F1: one main button in each walk step, and ⌥S is Send
 

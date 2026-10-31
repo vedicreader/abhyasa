@@ -104,7 +104,7 @@ ul.plain li .md :is(h1, h2, h3) { font: 600 var(--t-body)/1.5 var(--serif); lett
 .md pre { margin: 0 0 .8em; padding: var(--s2) 0 var(--s2) var(--s4); border-left: 2px solid var(--rule); overflow-x: auto; font-size: var(--t-small); line-height: 1.55; white-space: pre; }
 .md :not(pre) > code { font-size: .9em; }
 .md .math.display { display: block; margin: .4em 0; overflow-x: auto; overflow-y: hidden; }
-.k + .md, .k + .md > p:first-child { display: inline; }   /* a label and its text on one line: "Thinking: …", "First error: …" */
+.k + .md, .k + .md > p:first-child { display: inline; }   /* a label and its text on one line: "Thinking: …", "Error: …" */
 
 .htmx-indicator { opacity: 0; transition: opacity .2s; } .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { opacity: 1; }
 .spin { color: var(--mute); font-size: var(--t-small); font-style: italic; }

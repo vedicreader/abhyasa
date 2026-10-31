@@ -26,7 +26,7 @@ def test_tag_has_one_colour_map():
 def test_check_card():
     "A closed card shows the question, each message, the first error and the foot."
     h = to_xml(Check(Span_('Check'), 'What does a rank tell you?', Msg('You', 'a sum'), Msg(Tag('nudge'), FirstError('You add raw scores.')), foot='F', shut=True))
-    for x in ('What does a rank tell you?', 'a sum', 'Not yet', 'First error: ', 'You add raw scores.', 'F</section>'): assert x in h, x
+    for x in ('What does a rank tell you?', 'a sum', 'Not yet', 'Error: ', 'You add raw scores.', 'F</section>'): assert x in h, x
     assert 'id="tl-1"' in to_xml(Check('', None, thread_id='tl-1'))               # an empty thread stays as a swap target
     assert FirstError('') == ''
 

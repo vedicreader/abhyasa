@@ -293,7 +293,7 @@ def Msg(label, *c, cls='', **kw):
 
 def FirstError(text):
     "The first error in an answer, in one style for the walk and the session."
-    return Div(Span('First error: ', cls='k'), Md(text), cls='err') if text else ''
+    return Div(Span('Error: ', cls='k'), Md(text), cls='err') if text else ''
 
 def Confidence(keys=False):
     "Five steps for how sure you are. With `keys`, ⌥1 to ⌥5 pick one (the session binds them)."

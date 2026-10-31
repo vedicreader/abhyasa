@@ -98,7 +98,7 @@ def test_chat_keeps_each_turn_in_order(mk):
     sid = start(cl)
     cl.get(f'/s/{sid}')
     r1 = cl.post(f'/s/{sid}/answer', data=dict(answer='add the scores', thinking='they are numbers', confidence=70)).text
-    assert 'add the scores' in r1 and 'Not yet' in r1 and 'First error' in r1
+    assert 'add the scores' in r1 and 'Not yet' in r1 and 'Error: ' in r1
     assert 'id="left"' in r1 and 'Two more tries' in r1 and 'Teach me' in r1    # the composer learns the tries left, by oob swaps
     h1 = cl.post(f'/s/{sid}/hint').text
     cl.post(f'/s/{sid}/answer', data=dict(answer='scale them first', confidence=50))
