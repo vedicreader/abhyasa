@@ -146,16 +146,21 @@ def _diagram_why(o, ctx) -> str:
         if not _short(n.get('text'), LIMITS['node_text']): return 'a bad node text'
         ids.append(n['id'])
     if len(set(ids)) < len(ids): return 'two nodes with one id'
-    if not (isinstance(es, list) and len(es) <= LIMITS['edges']): return 'a diagram has at most 8 edges'
-    seen = set()
-    for e in es:
-        if not isinstance(e, dict) or set(e) - {'from', 'to', 'text'}: return 'a bad edge'
+    if not isinstance(es, list): return 'a bad edge list'
+    return ''   # a bad edge, or a bad word on an edge, drops alone in `_edges`: the diagram stays
+
+def _edges(o) -> list:
+    "The edges of diagram `o` that can be drawn: between two known nodes, not to itself, not twice, at most 8. Words that are empty, long or more than 3 words drop, and the edge stays."
+    ids, out, seen = {n['id'] for n in o['nodes']}, [], set()
+    for e in o.get('edges') or ():
+        if not isinstance(e, dict): continue
         f, t = e.get('from'), e.get('to')
-        if not (isinstance(f, str) and isinstance(t, str) and f in ids and t in ids): return 'an edge to an unknown node'
-        if f == t or (f, t) in seen: return 'a bad edge'
-        if 'text' in e and not (_short(e['text'], LIMITS['edge_text']) and len(e['text'].split()) <= LIMITS['edge_words']): return 'a bad edge text'
+        if not (isinstance(f, str) and isinstance(t, str) and f in ids and t in ids) or f == t or (f, t) in seen: continue
         seen.add((f, t))
-    return ''
+        w = ' '.join(str(e.get('text') or '').split())
+        ok = w and _short(w, LIMITS['edge_text']) and len(w.split()) <= LIMITS['edge_words']
+        out.append({'from': f, 'to': t, **({'text': w} if ok else {})})
+    return out[:LIMITS['edges']]
 
 def check_line(o, ctx) -> str:
     "Why the reply line `o` drops, or '' when it is good. `ctx` comes from `by_id`."
@@ -208,7 +213,7 @@ def _video_mark(o, ctx) -> dict:
 def _diagram(o) -> dict:
     "The checked diagram line `o` as the page gets it: its text with single spaces, and the layout `row` when it names none."
     sp = lambda s: ' '.join(s.split())
-    edges = [{'from': e['from'], 'to': e['to'], **({'text': sp(e['text'])} if e.get('text') else {})} for e in o.get('edges') or ()]
+    edges = _edges(o)
     return dict(op='diagram', layout=o.get('layout', 'row'), nodes=[dict(id=n['id'], text=sp(n['text'])) for n in o['nodes']], edges=edges,
                 **{k: o[k] for k in ('at', 'w') if k in o})
 
