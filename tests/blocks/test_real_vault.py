@@ -62,3 +62,9 @@ def test_a_failed_source_is_in_the_log(lr, caplog):
         def search(self, q, k=4): raise RuntimeError('no such column: doc_id')
     with caplog.at_level('WARNING'): assert list(concept_grounds(lr.concept('ranking'), [Broken()])) == []
     assert 'no such column: doc_id' in caplog.text
+
+# An empty clip is a bad request, not an error of the server.
+
+def test_empty_clip_is_a_bad_request(mk):
+    r = mk(['voice']).post('/voice/stt', content=b'')
+    assert r.status_code == 400 and r.json()['text'] == ''
