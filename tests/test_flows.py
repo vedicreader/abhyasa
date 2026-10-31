@@ -34,7 +34,7 @@ def test_workflow(wid, mk, lr, walk_fake, monkeypatch):
     w = SPEC['workflows'][wid]
     if w.get('pending'): pytest.skip(f"the spec leads: {w.get('pending_why', 'no code yet')}")
     assert wid in DRIVE, f'{wid} has no driver'
-    DRIVE[wid](lr, mk(), monkeypatch)
+    DRIVE[wid](lr, mk(), monkeypatch, walk_fake)
 
 def test_nav_continue(mk, lr, walk_fake):
     "nav.continue: on the walk of the place the top bar has no Continue; on Home there is none in the bar and the card points at the newest place; elsewhere the bar points at it."

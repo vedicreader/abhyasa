@@ -198,7 +198,7 @@ BUILD = {('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('h
 
 # --- the drivers of the workflows ------------------------------------------------------------------------------------
 
-def d_continue(lr, cl, mp):
+def d_continue(lr, cl, mp, fake):
     "On a page that is not the place, Continue in the top bar opens the idea that you used last."
     two_walks(lr)
     pg = page(cl, '/concepts')
@@ -207,7 +207,7 @@ def d_continue(lr, cl, mp):
     assert route_of(a.get('href')) == 'idea'
     page(cl, a.get('href'))
 
-def d_find_sources(lr, cl, mp):
+def d_find_sources(lr, cl, mp, fake):
     "From an idea, the title in the outline opens the walk page; its sources part has the research line with Stop and Show what it did."
     jid = started(cl, topic(lr)); running(cl, mp)
     a = page(cl, f'/w/{jid}/1').acts['walk'][0]
@@ -216,7 +216,7 @@ def d_find_sources(lr, cl, mp):
     assert pg.has('part:sources') and pg.has('label:1 of 3 ideas have a source.') and pg.works('stop') and pg.works('show-log')
     assert cl.post(f'/w/{jid}/gather/stop').status_code == 200
 
-def d_finish_walk(lr, cl, mp):
+def d_finish_walk(lr, cl, mp, fake):
     "Next idea on the last idea opens the walk page in its finished state; Review the weak ideas starts a review."
     jid = started(cl, paper(lr, cl)); done(lr, jid, 0); done(lr, jid, 1, outcome='fragile')
     r = cl.post(f'/w/{jid}/2/next', follow_redirects=False)
@@ -226,4 +226,31 @@ def d_finish_walk(lr, cl, mp):
     go = pg.acts['review'][0].get('href')
     assert cl.get(go, follow_redirects=False).headers['location'].startswith('/s/')
 
-DRIVE = {'continue': d_continue, 'find_sources': d_find_sources, 'finish_walk': d_finish_walk}
+def improve(cl, jid, words):
+    "Send `words` to Improve the walk, and ask again until the proposal comes. Gives its HTML."
+    r = cl.post(f'/w/{jid}/improve', data=dict(words=words))
+    for _ in range(200):
+        if 'load delay:2s' not in r.text: return r.text
+        time.sleep(.05); r = cl.get(re.search(r'hx-get="([^"]+)"', r.text)[1].replace('&amp;', '&'))
+    raise AssertionError('no proposal came')
+
+def key_of(html): return re.search(r'name="key" value="([^"]+)"', html)[1]
+
+def d_improve_walk(lr, cl, mp, fake):
+    "Change the plan in place with Undo; then Improve the walk: the tutor proposes, you keep, and one Undo takes it back."
+    jid = paper(lr, cl)
+    cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='skip'))
+    assert lr.journey(jid).steps[1]['status'] == 'skip'
+    cl.post(f'/w/{jid}/undo')
+    assert lr.journey(jid).steps[1]['status'] == 'todo'
+    fake.rules['You propose changes to one learning walk'] = dict(changes=[dict(op='easier', idea='softmax', why='Less to do.')])
+    assert page(cl, f'/w/{jid}').works('improve')
+    d = lr.journey(jid).steps[1]['check'].get('depth', 2)
+    p = improve(cl, jid, 'Make the walk simpler.')
+    cl.post(f'/w/{jid}/improve/apply', data=dict(key=key_of(p)))
+    e = lr.edits('walk', jid)[0]
+    assert lr.journey(jid).steps[1]['check']['depth'] == max(1, d - 1) and e.who == 'tutor' and e.what == 'Improved the walk: 1 change.'
+    cl.post(f'/w/{jid}/undo')
+    assert lr.journey(jid).steps[1]['check'].get('depth', 2) == d
+
+DRIVE = {'continue': d_continue, 'find_sources': d_find_sources, 'finish_walk': d_finish_walk, 'improve_walk': d_improve_walk}

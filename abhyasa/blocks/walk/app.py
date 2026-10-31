@@ -21,7 +21,7 @@ import abhyasa.walk as walk_engine   # `walk_engine.nb_spec` is read on each cal
 import abhyasa.talk   # adds Learning.talks: the editor links the talks made from a walk
 from abhyasa.talk import walk_changes
 from abhyasa.edit import (edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, merge_steps, add_step, split_step,
-                          passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite)
+                          passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite, links_in, propose, improve_walk)
 from abhyasa.contract import data_path_why
 from abhyasa.nb import spec_notebook
 from abhyasa.research import to_research, wants_source, want_agent, research_state
@@ -47,7 +47,7 @@ KEPT = 'Your edit was kept. The rewrite was not used.'
 FILE_WAIT = 20   # seconds that the plan of a goal waits for its sources; a slower one, such as a big clone, joins the walk when it is filed
 FILERS = 3       # the sources that file at the same time, each on its own job, off the pool of the app
 NO_ADD, NO_SPLIT = 'The tutor could not add this idea. Nothing changed.', 'The tutor could not split this idea. Nothing changed.'
-NOTE_MOST, Q_MOST = 2000, 500        # the most characters of a tutor note and of a check question that you write
+NOTE_MOST, Q_MOST, WORDS_MOST = 2000, 500, 1000   # the most characters of a tutor note, of a check question that you write, and of what you ask Improve the walk to change
 EDIT_ACTS = ('move', 'skip', 'back', 'remove', 'split', 'merge', 'add', 'pick', 'note', 'check', 'q', 'rewrite')
 
 class Kept(Exception):
@@ -339,6 +339,10 @@ def connect(app, ctx):
         "On the filer, when the chip `i` is filed after its walk `jid` was made: it joins the chips of the walk, with its count, its Undo and its notes."
         try: o = fut.result()
         except Exception as e: o = AttrDict(notes=[f'abhyasa could not file {i}.'], bad=True); log.warning('abhyasa could not file %r: %r', i, e)
+        join(jid, i, o)
+
+    def join(jid, i, o):
+        "The chip `i` that `file_one` filed as `o` joins walk `jid`."
         with _jlock(jid):
             if not (j := lr.journey(jid)): return
             chips = [x for x in j.get('chips') or () if not (o.get('bad') and x == i)]
@@ -1023,6 +1027,61 @@ def connect(app, ctx):
         ps = real_passages(lr, j, k, q, name=name, sources=ctx.sources)
         return ui.PickList(jid, ps, slug=j.steps[k]['slug'] if k is not None else '', name=name)
 
+    # --- Improve the walk: your words, a proposal of changes with the ops of the editor, and the ones that you keep, with one Undo ---------
+
+    def improve_job(jid, words, st):
+        "On the pool: file each link in `words` (it joins the sources of the walk, with its Undo), then ask the tutor for the changes."
+        docs = {}
+        for u in links_in(words):
+            st.update(said=f'Getting the pages from {u}')
+            o = file_one(f'link:{u}', st)
+            join(jid, f'link:{u}', o)
+            if o.get('docs'): docs[u] = [dict(shelf=d.shelf, doc_id=d.doc_id) for d in o.docs]
+        st.update(said='The tutor reads what you asked', docs=docs)
+        j, b = lr.journey(jid), by()
+        return propose(ask, j, {k: c.name for k, c in b.items()}, words, ui.weak_of(j), list(docs))
+
+    def improve(jid:str, words:str=''):
+        "Improve the walk: start the job that files the links in `words` and asks the tutor for changes. The answer is the pending line."
+        if not (j := walk_of(jid)) or for_talk(j): return Response(status_code=404)
+        if not (words := ' '.join(CTRL.sub('', words).split())[:WORDS_MOST]): return P('Write what should change, or pick a chip.', cls='req-err')
+        key = f'improve:{jid}:' + hashlib.sha1(words.encode()).hexdigest()[:12]
+        if not (st := links.get(key)) or st.job.done():
+            st = links[key] = AttrDict(said='The tutor reads what you asked')
+            st.job = ctx.pool.submit(improve_job, jid, words, st)
+        return ui.ImprovePending(jid, key, st.said)
+
+    def proposal(jid:str, key:str=''):
+        "The proposal as it is now: the pending line, the changes to keep or skip, or a plain line when the tutor could not make one. A GET only reads."
+        if not key.startswith(f'improve:{jid}:') or not (st := links.get(key)): return P('This proposal is gone. Ask the tutor again.', cls='mute')
+        if not st.job.done(): return ui.ImprovePending(jid, key, st.said)
+        if (e := st.job.exception()):
+            log.warning('the tutor could not propose changes to %s: %r', jid, e)
+            return P('The tutor could not propose changes. Try again.', cls='req-err')
+        return ui.Proposal(jid, key, st.job.result(), by())
+
+    def said_out(*c): return Div(*c, id='improve-out', aria_live='polite', hx_swap_oob='true')
+
+    async def improve_apply(req, jid:str):
+        "Apply the changes that you kept (`c<k>` is keep or skip) as one change with an Undo. The ideas that the changes do not touch keep their progress."
+        form = await req.form()
+        key = form.get('key', '')
+        if not (j := walk_of(jid)) or for_talk(j) or not key.startswith(f'improve:{jid}:') or not (st := links.get(key)) or not st.job.done() or st.job.exception():
+            return said_out(P('This proposal is gone. Ask the tutor again.', cls='mute')), HttpHeader('HX-Reswap', 'none')
+        kept = [c for k, c in enumerate(st.job.result()) if form.get(f'c{k}', 'keep') == 'keep']
+        if not kept: return said_out(P('You skipped each change. Nothing changed.', cls='mute')), HttpHeader('HX-Reswap', 'none')
+        old = {s['slug'] for s in j.steps}
+        try: j2, rows = improve_walk(lr, ask, jid, kept, ctx.sources, st.get('docs'))
+        except (KeyError, ValueError) as e: return bad(str(e))
+        except Exception as e:   # never the words of a library
+            log.warning('the tutor could not improve %s: %r', jid, e)
+            return bad('The tutor could not make these changes. Nothing changed.')
+        links.pop(key, None)
+        if rows is None: return said_out(P('Nothing changed.', cls='mute')), HttpHeader('HX-Reswap', 'none')
+        run_hook('concepts_added')
+        got = queue_new(j2, old)
+        return (*view(j2, fresh=got), bar(j2, rows[0].what, rows), said_out(P(f"Applied {n_of(len(kept), 'change')}. Undo takes them back.", cls='mute')))
+
     def walks_of(slug):
         "`(walk, index)` for each walk that has a step on concept `slug`."
         return [(j, i) for j, i in with_step(lr, slug) if j.get('mode') == 'walk' and not for_talk(j)]
@@ -1064,6 +1123,9 @@ def connect(app, ctx):
     app.get(Routes.history)(history)
     app.post(Routes.restore)(restore)
     app.get(Routes.passages)(pick_list)
+    app.post(Routes.improve)(improve)
+    app.get(Routes.improve)(proposal)
+    app.post(Routes.improve_apply)(improve_apply)
     app.get(Routes.gather_log)(gather_log)
     app.post(Routes.gather_stop)(stop_gather)
     app.post(Routes.gather_again)(again)

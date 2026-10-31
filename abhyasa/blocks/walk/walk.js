@@ -194,6 +194,14 @@ if (!window.abhyasaWalkEdit) {
     const p = Object.assign(document.createElement('p'), {className: 'req-err', role: 'alert', textContent: xhr.responseText || 'The walk cannot take this change.'});
     (rowOf(elt)?.querySelector('.fields') || elt.closest('.add-idea') || elt).append(p);
   });
+  // Improve the walk: a chip puts its words in the box, after what you wrote, and the cursor goes to the end.
+  document.addEventListener('click', e => {
+    const c = e.target.closest && e.target.closest('#improve [data-fill]');
+    if (!c) return;
+    const t = c.closest('form').querySelector('textarea');
+    t.value = (t.value.trim() ? t.value.trim() + ' ' : '') + c.dataset.fill;
+    t.focus(); t.setSelectionRange(t.value.length, t.value.length);
+  });
   // A link from a step ("Pick a passage yourself") opens the editor at the passage picker of that idea.
   const toPick = () => { const d = location.hash.startsWith('#pick-') && document.getElementById(location.hash.slice(1)); if (d) { d.open = true; d.scrollIntoView({block: 'center'}); d.querySelector('input')?.focus(); } };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', toPick); else toPick();

@@ -12,6 +12,8 @@ class Routes:
     undo = '/w/{jid}/undo'            # POST: take back the newest change of the path
     history = '/w/{jid}/history'      # the earlier versions of the plan, for the fold on the walk page
     restore = '/w/{jid}/restore'      # POST: go back to the version before one change
+    improve = '/w/{jid}/improve'      # POST: Improve the walk, from your words: start the job; GET (?key=): the pending line, then the changes to keep or skip
+    improve_apply = '/w/{jid}/improve/apply'   # POST: apply the changes that you kept, as one change with an Undo
     passages = '/w/{jid}/passages'    # GET: the real passages that an idea can pick (?i=&q=, or ?name=&q= for a new idea)
     start = '/w/{jid}/start'          # start the walk and open a sitting
     step = '/w/{jid}/{i}'             # one idea: the passage, the figure, the note and the check

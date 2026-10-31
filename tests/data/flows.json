@@ -424,7 +424,8 @@
         "plan": "the ideas in order, each with its check kind. Edit in place: move, skip, remove, check kind, add, split, merge, rewrite, with Undo. 'Earlier versions' is a fold.",
         "sources": "the research line (state of walk.jobs.research), Stop, Show what it did (pane), Find sources again, Add a source, what Start filed with Undo",
         "result": "after the end: what moved, what you made (Leela), the next review date",
-        "talks": "quiet: Present, Open the talk (secondary product)"
+        "talks": "quiet: Present, Open the talk (secondary product)",
+        "improve": "a quiet fold 'Improve the walk' (closed until you open it) with one box 'What should change?' and chips Simpler, Harder, Add an idea (and From your weak ideas on a finished walk). A link in the box is a source: abhyasa files it. The tutor proposes changes with the editor ops only (add with a source, remove, skip, move, split, an easier or a harder check), each with a one-line why; you Keep or Skip each one, then Apply the kept changes, as one change with Undo."
       },
       "states": {
         "new": {
@@ -433,7 +434,8 @@
             "part:plan",
             "act:start",
             "label:Start the walk",
-            "part:sources"
+            "part:sources",
+            "act:improve"
           ],
           "must_not_show": [
             "act:continue",
@@ -442,7 +444,8 @@
           "actions": [
             "start",
             "edit plan",
-            "add-source"
+            "add-source",
+            "improve"
           ]
         },
         "researching": {
@@ -460,7 +463,8 @@
           "actions": [
             "stop",
             "show-log",
-            "start or continue"
+            "start or continue",
+            "improve"
           ]
         },
         "research_ended": {
@@ -476,7 +480,8 @@
           "actions": [
             "find-again",
             "add-source",
-            "start or continue"
+            "start or continue",
+            "improve"
           ]
         },
         "going": {
@@ -486,7 +491,8 @@
             "act:continue",
             "label:Continue: idea {n} of {total}",
             "part:plan",
-            "part:sources"
+            "part:sources",
+            "act:improve"
           ],
           "must_not_show": [
             "act:start",
@@ -496,7 +502,8 @@
             "continue",
             "edit plan",
             "find-again",
-            "add-source"
+            "add-source",
+            "improve"
           ]
         },
         "finished": {
@@ -518,9 +525,7 @@
             "improve",
             "find-again",
             "open course when walk.course"
-          ],
-          "pending": true,
-          "pending_why": "step 5: Improve the walk"
+          ]
         },
         "side_walk": {
           "when": "walk.parent is set",
@@ -529,7 +534,8 @@
             "label:Back to the paper"
           ],
           "must_not_show": [
-            "part:talks"
+            "part:talks",
+            "act:improve"
           ],
           "actions": [
             "back",
@@ -1252,7 +1258,7 @@
       "pending_why": "no driver yet"
     },
     "improve_walk": {
-      "goal": "Change a walk before, during or after you do it.",
+      "goal": "Change a walk before, during or after you do it, in your own words, with no page that feels full.",
       "steps": [
         {
           "page": "walk",
@@ -1261,15 +1267,19 @@
           "state_change": "edit history (lr.edits('walk', jid))"
         },
         {
-          "page": "walk (finished)",
-          "action": "Improve: the tutor proposes changes from your weak ideas and new sources; accept each",
+          "page": "walk",
+          "action": "open Improve the walk; write what should change, or pick Simpler, Harder or Add an idea (a finished walk also has From your weak ideas); a link in the words is a source; Ask the tutor",
           "next": "walk",
-          "state_change": "a proposal, then edits with Undo"
+          "state_change": "each link is filed and joins walk.chips (with its Undo in walk.filed); the job keeps the proposal: changes with the editor ops, each with a why"
+        },
+        {
+          "page": "walk",
+          "action": "Keep or Skip each change, then Apply the kept changes",
+          "next": "walk",
+          "state_change": "one change by the tutor in lr.edits('walk', jid), with Undo and in Earlier versions; an added idea from a link has its passage from that link; progress on the other ideas stays"
         }
       ],
-      "background": "none",
-      "pending": true,
-      "pending_why": "no driver yet"
+      "background": "the pending line while the links file and the tutor reads (the job of the walk block, no job row yet)"
     },
     "finish_walk": {
       "goal": "See what moved and what comes next.",

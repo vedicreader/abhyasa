@@ -673,6 +673,41 @@ def WalkEnd(j, st, ms, by, sides=(), due=None, end=(), made=''):
                        P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', cls='walk-sum', style=f"--n:{min(len(outs), 5)}"),
                    made, *end, Div(go, cls='row'), id='result', data_part='result', cls='walk-result')
 
+IMPROVE_CHIPS = (('Simpler', 'Make the walk simpler.'), ('Harder', 'Make the walk harder.'), ('Add an idea', 'Add the idea '))
+WEAK_CHIP = ('From your weak ideas', 'Help me with the ideas that I got wrong or was not sure of.')
+IMPROVE_SAY = 'What should change? For example: Add attention, from https://…'
+
+def Improve(j, finished=False):
+    """Improve the walk: one quiet fold with one box, "What should change?", and chips that put words in it. A link in the words is a source.
+    The tutor proposes changes, and you keep or skip each one. A finished walk has one more chip: From your weak ideas."""
+    chips = [*IMPROVE_CHIPS, *([WEAK_CHIP] if finished else [])]
+    return Details(Summary('Improve the walk', cls='quiet'),
+                   Form(Textarea(name='words', rows='2', maxlength='1000', placeholder=IMPROVE_SAY, aria_label='What should change?'),
+                        Div(*[Quiet(t, small=True, type='button', data_fill=v) for t, v in chips], cls='chips'),
+                        Div(Secondary('Ask the tutor', data_wait='Asking the tutor…'), cls='row'),
+                        hx_post=at(Routes.improve, j['id']), hx_target='#improve-out', hx_swap='innerHTML', cls='improve-form'),
+                   Div(id='improve-out', aria_live='polite'), id='improve', cls='improve', data_part='improve', data_act='improve')
+
+def ImprovePending(jid, key, said):
+    "Improve the walk while the tutor works: the line of what it does now. It asks again in 2 seconds."
+    return Div(P(said + '…', cls='mute'), hx_get=f"{at(Routes.improve, jid)}?{urlencode(dict(key=key))}", hx_trigger='load delay:2s', hx_swap='outerHTML', cls='improve-wait')
+
+def change_words(c, by) -> str:
+    "One proposed change in words: `Make the check of “Softmax” easier.`"
+    n = name(by, dict(slug=c.slug)) if c.slug else c.name
+    return dict(add=f"Add “{c.name}”" + (f" as idea {c.to}" if c.to else '') + (f", from {c.link}" if c.link else '') + '.',
+                remove=f"Remove “{n}”.", skip=f"Skip “{n}” in the walk. You can bring it back.", move=f"Move “{n}” to idea {c.to}.", split=f"Split “{n}” into smaller ideas.",
+                easier=f"Make the check of “{n}” easier.", harder=f"Make the check of “{n}” harder.")[c.op]
+
+def Proposal(jid, key, cs, by):
+    "The changes that the tutor proposes, each with its reason and Keep or Skip, then Apply the kept changes. Progress on the other ideas stays."
+    if not cs: return P('The tutor found nothing to change. Say it in other words.', cls='mute')
+    pick = lambda k: Span(*[Label(Input(type='radio', name=f'c{k}', value=v, checked=v == 'keep'), f' {v.title()}') for v in ('keep', 'skip')], cls='keep-skip')
+    rows = [Li(Div(Span(change_words(c, by), cls='what'), pick(k), cls='change-head'), P(c.why, cls='mute why') if c.why else '', cls='change') for k, c in enumerate(cs)]
+    return Form(Span('The tutor proposes', cls='lbl'), Ul(*rows, cls='plain changes'), Input(type='hidden', name='key', value=key),
+                Div(Secondary('Apply the kept changes', data_wait='Applying…', data_act='apply'), cls='row'),
+                hx_post=at(Routes.improve_apply, jid), hx_target='#steps', hx_swap='outerHTML', cls='proposal')
+
 def phase(j, st) -> str:
     "The state of walk `j` on its page: `empty`, `side` (a side walk), `new`, `going` or `finished`."
     if not j['steps']: return 'empty'
@@ -711,7 +746,7 @@ def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), act
     if ph == 'empty': return (*head, P('The tutor found no ideas in this source.', cls='mute'), Filed(j), Div(Primary('Home', href='/', data_act='home'), cls='row'))   # what Start filed keeps its Undo
     if ph == 'new': top = Div(Form(Primary('Start the walk', data_wait='Starting…', data_act='start'), action=at(Routes.start, j['id']), method='post'), cls='row walk-top')
     elif ph == 'going': top = Here(j, st, by)
-    return (*head, top, plan, Sources(j, band, more), '' if ph == 'side' else Talks(talks, changed, actions))
+    return (*head, top, '' if ph == 'side' else Improve(j, ph == 'finished'), plan, Sources(j, band, more), '' if ph == 'side' else Talks(talks, changed, actions))
 
 # --- the walk path editor (core/edit.py: an `EditList`; each change saves at once, with an Undo) ----------------------
 
