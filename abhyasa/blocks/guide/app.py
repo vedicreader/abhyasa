@@ -39,10 +39,10 @@ def speech() -> dict:
     "Who writes what you say: the speech engine of the settings, and where it runs. Only the OpenAI engine is hosted."
     from abhyasa.voice import current, KNOWN
     try: e, m = current()
-    except Exception: e, m = 'gemma', ''
+    except Exception: e, m = 'mlx', ''
     if e == 'openai': return dict(model='OpenAI', where='hosted', who='OpenAI')
     lab = next((k['label'] for k in KNOWN if k['model'] == m), '')
-    return dict(model='Gemma' if e == 'gemma' else lab.split(' (')[0].split(' ')[0] or 'The speech model', where='on this Mac', who='')
+    return dict(model=lab.split(' (')[0].split(' ')[0] or 'The speech model', where='on this Mac', who='')
 
 def voice_out() -> dict:
     "Who reads the board aloud: the engine of the setting `voice.out`, its name, and where it runs. Only OpenAI is hosted."

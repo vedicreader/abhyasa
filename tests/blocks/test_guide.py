@@ -300,7 +300,7 @@ def test_a_routed_model_is_named_with_where_it_runs(mk, monkeypatch):
     monkeypatch.setattr('abhyasa.blocks.guide.app.guide_ask', lambda ask: type('A', (), {'model': 'claude/sonnet'})())
     info = json.loads(html.unescape(re.search(r"data-info='([^']*)'", mk().get('/').text).group(1)))
     assert info['model'] == dict(model='Claude Sonnet', where='hosted', who='Anthropic')
-    assert info['speech'] == dict(model='Gemma', where='on this Mac', who='') and info['voice'] is True
+    assert info['speech'] == dict(model='Qwen3-ASR', where='on this Mac', who='') and info['voice'] is True
 
 def test_a_saved_web_page_can_be_undone(mk, fake, lr, monkeypatch):
     "The web tier files a page in the vault and links it to the concept. The route says so with an Undo route, and Undo takes both away."

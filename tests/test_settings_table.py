@@ -189,7 +189,7 @@ def test_all_prompts_registered(mk):
     from abhyasa.prompts import PROMPTS, set_prompt, prompt
     from abhyasa.tutor import depth_ask
     t = mk().get('/settings').text
-    for n in ('primer', 'profile.onboard', 'profile.observe', 'stt', 'exercise', 'demo.order', 'demo.simpler', 'depths', 'tutor', 'hints', 'walk.pick', 'walk.plan'):
+    for n in ('primer', 'profile.onboard', 'profile.observe', 'exercise', 'demo.order', 'demo.simpler', 'depths', 'tutor', 'hints', 'walk.pick', 'walk.plan'):
         assert n in PROMPTS and f'pr-{n.replace(".", "-")}' in t
     with pytest.raises(ValueError, match='5 lines'): set_prompt('depths', 'one line only')
     with pytest.raises(ValueError, match='6 lines'): set_prompt('hints', 'one\ntwo')

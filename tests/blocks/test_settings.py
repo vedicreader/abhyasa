@@ -7,22 +7,22 @@ from abhyasa.settings import set_val
 
 @pytest.fixture(autouse=True)
 def clean():
-    voice.save_settings(voice.settings() | dict(stt=dict(engine='gemma', model='', segment=True), downloaded=[], prompts={}))
+    voice.save_settings(voice.settings() | dict(stt=dict(engine='mlx', model='', segment=True), downloaded=[], prompts={}))
     voice.set_openai_key('')
     yield
     voice.set_openai_key('')
 
 def test_page(mk):
     t = mk().get('/settings').text
-    assert '>Settings<' in t and 'Gemma 4 E4B (LiteRT)' in t and 'In use' in t
+    assert '>Settings<' in t and 'Qwen3-ASR 0.6B (8 bit)' in t and 'Whisper large-v3-turbo' in t and 'In use' in t
     assert 'sends your audio off this Mac' in t and 'There is no key' in t
     assert '>Models<' in t and 'Look up models' in t
 
 def test_use_switches_and_warms(mk):
     cl = mk(['voice', 'settings'])
-    t = cl.post('/settings/use', data=dict(engine='mlx', model=voice.DFLT_PARAKEET)).text
-    assert voice.current() == ('mlx', voice.DFLT_PARAKEET)
-    assert 'Parakeet TDT 0.6B v3' in t
+    t = cl.post('/settings/use', data=dict(engine='mlx', model=voice.DFLT_WHISPER)).text
+    assert voice.current() == ('mlx', voice.DFLT_WHISPER)
+    assert 'Whisper large-v3-turbo' in t
     for _ in range(50):
         if 'ready' in cl.get('/settings/status').text: break
         time.sleep(.02)
@@ -53,7 +53,7 @@ def test_key_with_a_newline_is_refused(mk):
 def test_openai_needs_a_key(mk):
     cl = mk(['settings'])
     cl.post('/settings/use', data=dict(engine='openai', model='gpt-4o-transcribe'))
-    assert voice.current()[0] == 'gemma'
+    assert voice.current() == ('mlx', voice.DFLT_STT)
     voice.set_openai_key('sk-x-1111')
     cl.post('/settings/use', data=dict(engine='openai', model='gpt-4o-transcribe'))
     assert voice.current() == ('openai', 'gpt-4o-transcribe')
@@ -67,6 +67,16 @@ def test_openai_engine_with_fake_http(monkeypatch):
     voice.set_openai_key('sk-x-2222')
     assert voice.transcribe(voice.silence(), 'openai', hint='Nyāya') == 'pratyakṣa'
     assert sent['url'] == voice.OPENAI_URL and sent['data']['prompt'] == 'Nyāya' and sent['headers']['Authorization'] == 'Bearer sk-x-2222'
+
+def test_first_use_offers_the_download(mk, monkeypatch):
+    "When the model in use is not on this Mac, the speech part says so and offers Download, with the size. An old Gemma setting gets Qwen3-ASR."
+    voice.update_settings('stt', engine='gemma', model='litert-community/gemma-4-E4B-it-litert-lm')
+    monkeypatch.setattr(voice, 'cached', lambda m: False)
+    t = mk(['settings']).get('/settings').text
+    line = t[t.index('first-use'):]; line = line[:line.index('</p>')]
+    assert 'The speech model is not on this Mac yet (1.0 GB)' in line and voice.DFLT_STT in line and 'Download' in line
+    monkeypatch.setattr(voice, 'cached', lambda m: True)
+    assert 'not on this Mac yet' not in mk(['settings']).get('/settings').text
 
 def test_lookup(mk, monkeypatch):
     monkeypatch.setattr(voice, 'search_models', lambda q: [dict(model='mlx-community/whisper-tiny-asr-fp16', downloads=1200, size=80 * 2**20)])

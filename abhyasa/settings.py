@@ -120,7 +120,7 @@ add('runner.per_test', 'runner', 'Time for each test', 'How long one test can ru
 add('runner.file_mb', 'runner', 'Largest file', 'The largest file that your code can write.', 10, 1, 100, more=True, unit='MB');
 
 # %% ../nbs/16_settings.ipynb #ec6cb843
-add('stt.engine', 'stt', 'Engine', 'The speech engine.', 'gemma', ui=False, reset=False)
+add('stt.engine', 'stt', 'Engine', 'The speech engine.', 'mlx', ui=False, reset=False)
 add('stt.model', 'stt', 'Model', 'The speech model. Empty uses the default of the engine.', '', ui=False, reset=False)
 add('stt.segment', 'stt', 'Cut at pauses', 'The text shows after each pause. When this is off, the text comes in fixed blocks of time.', True)
 add('stt.pause', 'stt', 'Pause before a cut', 'How long a pause must be before the text of what you said shows.', 700, 300, 2000, more=True, unit='ms')

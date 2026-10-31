@@ -15,8 +15,6 @@ def size(n:int) -> str:
     "Bytes as MB or GB."
     return '' if not n else f'{n / 2**30:.1f} GB' if n >= 2**30 else f'{n / 2**20:.0f} MB'
 
-def pct(x): return '' if x is None else f'{x:.0%}'
-
 def reset_attrs(name): return dict(hx_post=Routes.default, hx_vals={'name': name}, hx_target=f'#{row_id(SETTINGS[name])}', hx_swap='outerHTML')
 
 def dropped() -> str:
@@ -151,18 +149,24 @@ def Where(k):
     return Span('on this Mac', cls='ok') if voice.cached(k['model']) else Span('not downloaded', cls='mute')
 
 def Known(cur, s, key):
-    "The models we measured, with the numbers from the voice notebook; then the models that this page downloaded."
-    hd = Tr(*map(Th, ('Model', 'Where', '5 s', 'Clip A', 'Clip B', 'Terms', 'Memory', '')))
+    "The models we know, with the numbers from the voice notebook; then the models that this page downloaded."
+    hd = Tr(*map(Th, ('Model', 'Where', 'Size', '5 s', 'Terms', '')))
     def row(k):
         b = k.get('bench') or {}
-        return Tr(Td(Div(k['label']), Div(k['note'], cls='mute')), Td(Where(k), cls='n'),
-                  Td(f"{b['seg5']:.2f} s" if 'seg5' in b else '', cls='n'), Td(pct(b.get('wer_a')), cls='n'), Td(pct(b.get('wer_b')), cls='n'),
-                  Td(f"{b['terms']}/9" if 'terms' in b else '', cls='n'), Td(f"{b['mem']:.1f} GB" if 'mem' in b else '', cls='n'),
+        return Tr(Td(Div(k['label']), Div(k['note'], cls='mute')), Td(Where(k), cls='n'), Td(f"{b['gb']:.1f} GB" if 'gb' in b else '', cls='n'),
+                  Td(f"{b['seg5']:.2f} s" if 'seg5' in b else '', cls='n'), Td(f"{b['terms']}/9" if 'terms' in b else '', cls='n'),
                   Td(Action(k, cur, s, key)), cls='cur' if (k['engine'], k['model']) == cur else '')
     ids = {k['model'] for k in voice.KNOWN}
-    more = [dict(engine='mlx', model=m, label=m.split('/')[-1], note='downloaded by this page') for m in s['downloaded'] if m not in ids and not voice.is_tts(m)]
+    more = [dict(engine='mlx', model=m, label=m.split('/')[-1], note='downloaded by this page') for m in s['downloaded'] if m not in ids and voice.is_stt(m)]
     if cur[1] not in ids | set(s['downloaded']): more.append(dict(engine=cur[0], model=cur[1], label=cur[1].split('/')[-1], note='in use'))
     return Table(Thead(hd), Tbody(*map(row, voice.KNOWN + more)), cls='models')
+
+def FirstUse(cur):
+    "A line with Download when the local model in use is not on this Mac yet: the first use."
+    if cur[0] != 'mlx' or voice.cached(cur[1]): return ''
+    gb = next((k['bench']['gb'] for k in voice.KNOWN if k['model'] == cur[1] and 'gb' in k.get('bench', {})), None)
+    return P(f'The speech model is not on this Mac yet{f" ({gb:.1f} GB)" if gb else ""}. Download it one time, then you can speak your answers. ',
+             UseBtn(*cur, get=True), cls='warn first-use')
 
 def Speech(sp, key, oob=False):
     "The model in use and the known models, with their numbers."
@@ -173,10 +177,10 @@ def Speech(sp, key, oob=False):
         P(Strong(known), ' ', Span(f'{cur[0]} · {cur[1]}', cls='mute'), ' ', Status(sp), cls='inuse-line'),
         P(f'The speech engine is set to {env} outside this page ($ABHYASA_STT), so a choice here has no effect. '
           'In Abhyasa.app, open Abhyasa, then Settings, and set Speech engine to "From the Settings page".', cls='warn') if env else '',
+        FirstUse(cur),
         P('Only one model is in memory at a time.', cls='mute'),
-        Details(Summary('About these numbers'), P('Clip A is English speech. Clip B has Nyāya terms in IAST and maths words. The model gets these terms as a hint. '
-                  'The numbers are word error rates on this Mac, with the model already loaded. Terms: the number of key terms written correctly. '
-                  '"5 s" is the time for one 5-second segment.', cls='mute'), cls='about'),
+        Details(Summary('About these numbers'), P('"5 s" is the time to write down 5 seconds of speech on this Mac, with the model loaded. '
+                  'Terms: how many of 9 key terms (Nyāya terms in IAST and maths words) the model wrote correctly, with these terms as a hint.', cls='mute'), cls='about'),
         Known(cur, s, key),
         Span(Spin('switching…'), id='use-sp'), id='speech', **(dict(hx_swap_oob='true') if oob else {}))
 
