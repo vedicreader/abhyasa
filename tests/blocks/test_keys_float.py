@@ -143,6 +143,52 @@ def test_the_pill_in_a_browser(mk, walk_fake, lr):
         reset('look.keys_float')
         srv.should_exit = True; th.join(5)
 
+RAIL_TEXT = """() => { const p = document.getElementById('kf-panel');
+  if (!p.checkVisibility({checkVisibilityCSS: true, visibilityProperty: true})) return 0;
+  const a = p.getBoundingClientRect(), r = document.createRange();
+  return [...document.querySelectorAll('#rail summary, #rail li, #rail .rail-acts > *')].filter(e => e.checkVisibility()).filter(e => {
+    r.selectNodeContents(e); return [...r.getClientRects()].some(o => o.width && a.left < o.right && a.right > o.left && a.top < o.bottom && a.bottom > o.top); }).length; }"""
+
+@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
+def test_the_panel_closes_on_the_next_page_keeps_off_the_rail_and_lets_the_guide_card_go_first(mk, walk_fake, lr):
+    "The panel that you open does not stay open on the next page; at 1440x900 on a walk step it covers no text of the outline; Esc closes a guide demo card before the panel."
+    import json, uvicorn
+    from playwright.sync_api import sync_playwright
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    assert wait_for(lambda: srv.started or None, secs=30), 'the server did not start'
+    base, ready = f'http://127.0.0.1:{port}', 'window.abhyasaKF && document.getElementById("kf").dataset.ready'
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_page(viewport=dict(width=1440, height=900))
+                pg.goto(base + '/'); pg.wait_for_function(ready)                              # the first visit: it opens one time
+                pg.goto(base + '/learn'); pg.wait_for_function(ready)
+                assert not pg.is_visible('#kf-panel')
+                pg.click('#kf-pill'); assert pg.is_visible('#kf-panel')                      # you open it on this page
+                pg.goto(f'{base}/w/{jid}/1'); pg.wait_for_selector('#rail'); pg.wait_for_function(ready)
+                assert not pg.is_visible('#kf-panel')                                         # the next page opens with it closed
+                pg.evaluate("const o = document.querySelector('#rail ol'); [...o.children].forEach(li => o.append(li.cloneNode(true), li.cloneNode(true)))")
+                assert pg.evaluate("document.getElementById('rail').getBoundingClientRect().bottom") > 500   # a long walk: its outline goes down past the panel
+                pg.evaluate('document.activeElement.blur()'); pg.click('#kf-pill'); pg.evaluate('abhyasaKF.place()')
+                assert pg.evaluate(RAIL_TEXT) == 0                                            # open on a walk step, it covers no text of the outline
+                assert pg.is_visible('#kf-panel') and pg.evaluate("document.getElementById('kf-panel').getBoundingClientRect().width") < 256   # it gets narrow at the left of the outline
+                pg.evaluate('abhyasaKF.show(false, true)')
+                pg.route('**/guide/ask', lambda r: r.fulfill(status=200, headers={'Content-Type': 'text/event-stream'},
+                                                              body=f"data: {json.dumps(dict(show=dict(href='/c/ranking')))}\n\n"))
+                pg.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('show me the ranks')"); pg.wait_for_selector('#guide-show')
+                pg.click('#kf-pill'); assert pg.is_visible('#kf-panel')
+                pg.evaluate('document.activeElement.blur()')
+                pg.keyboard.press('Escape')                                                   # the first Esc closes the card, which is on top
+                assert pg.evaluate("!document.getElementById('guide-show')") and pg.is_visible('#kf-panel')
+                pg.keyboard.press('Escape'); assert not pg.is_visible('#kf-panel')           # the second Esc closes the panel
+            finally: b.close()
+    finally:
+        srv.should_exit = True; th.join(5)
+
 def test_settings_look_has_the_keys_button_switch(mk):
     "Settings, Look shows the switch of the Keys button under the themes, so you can turn it on again there too."
     t = mk().get('/settings?tab=look').text

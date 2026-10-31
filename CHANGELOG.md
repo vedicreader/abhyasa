@@ -23,6 +23,7 @@
 - A goal walk has "Add a source" under its plan. Type a path, a repo or a link, or use Pick folders. abhyasa files each source on its own job, and the source joins the walk when it is filed. A line shows each source that is still filing.
 - Each source of a goal files on its own job, at the same time as the others. The plan waits at most 20 seconds for the sources. A source that takes longer, such as the clone of a big repo, joins the walk when it is filed. Until then, the walk says "abhyasa is still filing <name>."
 - A big code repo, such as huggingface/diffusers, files what a learner needs. abhyasa files at most 400 files in this order: the top README, the notebooks, the READMEs of `examples/`, its training scripts (`train*.py`), its other scripts, the English docs, the other text and the other code. Docs in other languages come last. One top folder gives at most 160 files until each other top folder has its files. Before, a repo with a notebook lost all of its `.py` files, and `docs/` used all 400 places. A course (one file in ten is a notebook) still files no other `.py`. The research agent reads the other files when it needs them.
+- The Keys panel opens closed on each new page, also when you opened it on the page before. It opens by itself only on your first visit. It does not cover the text of the walk outline: it gets narrow at the left of the outline, or it hides. Esc closes a guide demo card or the guide box first, then the panel.
 
 ### A course to your goal
 
