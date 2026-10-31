@@ -201,9 +201,9 @@ figure, moves the demo and speaks one short line for each step. The marks stay i
 - A pill says where the answer is from: the tutor, your vault or the web. A quote is word for word, with its link.
 - When a concept has an explainer video, the board can move the video to the right time and quote it. On a concept page,
   “Find a video” looks on YouTube, or you can paste a link.
-- The browser speaks the steps by default. For a natural voice, open Settings, Speaking voice, and pick Kokoro (on this Mac,
-  `pip install abhyasa[voice]`), OpenAI (hosted, with your key) or a text to speech model from Hugging Face. The words light
-  up as the voice says them.
+- A natural voice reads the steps: Pocket TTS, on this Mac (`pip install abhyasa[voice]`). Its voice is `caro_davy`, and Settings,
+  Speaking voice, has 20 other English voices. Download it there one time (225 MB). Until then, the browser speaks. You can also
+  pick OpenAI (hosted, with your key) or the browser. The words light up as the voice says them.
 
 The text that the guide sends to the model goes through ramabana’s guard. The guard always masks secrets. It masks personal
 data only when the ramabana setting `cli.pii` is `redact` or `refuse` (the default is `off`).
@@ -347,7 +347,7 @@ The app answers only requests from this Mac. These variables change the defaults
 |----|----|----|
 | `ABHYASA_VAULT` | the vault file | your vault: `$VISHALAKSHI_VAULT`, then `~/.vishalakshi/vault.db` |
 | `ABHYASA_MODEL` | the model id for questions, grades, hints and lessons. Choose the model in Settings. | `claude/sonnet` (Claude Sonnet) |
-| `ABHYASA_STT` | the speech-to-text engine: `gemma`, `whisper`, `parakeet`, `openai` or `mlx:<repo>`. It has priority over the Settings page. | the Settings page, then `gemma` |
+| `ABHYASA_STT` | the speech-to-text engine: `mlx`, `whisper`, `openai` or `mlx:<repo>`. It has priority over the Settings page. An old `gemma` reads as `mlx`. | the Settings page, then `mlx` (Qwen3-ASR 0.6B) |
 
 ## Other ways to use it
 
@@ -391,6 +391,18 @@ ex = exercise('reciprocal-rank-fusion')
 ## Where the data is
 
 All data is on the `learning` shelf of your vault. Each concept, attempt and session is one document in the vault. Thus your other tools can search it. The tests use a vault in a temporary folder. They never open your real vault.
+
+## Speech models and their licences
+
+abhyasa does all speech on your Mac with two packages. The models download on first use, from Hugging Face.
+
+| what | package (extra) | model | licence |
+|----|----|----|----|
+| speech to text | [mlx-audio](https://github.com/Blaizzy/mlx-audio) (`whisper`) | [Qwen3-ASR 0.6B, 8 bit](https://huggingface.co/mlx-community/Qwen3-ASR-0.6B-8bit) (1.0 GB), or Whisper large-v3-turbo | Apache-2.0; Whisper: MIT |
+| the voice of the guide | [pocket-tts-mlx](https://github.com/jishnuvenugopal/pocket-tts-mlx) (`voice`) | [Pocket TTS](https://huggingface.co/kyutai/pocket-tts-without-voice-cloning) by Kyutai (225 MB) | code: MIT; weights: CC-BY-4.0 |
+
+The Pocket TTS weights are by [Kyutai](https://kyutai.org), under the [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) licence.
+OpenAI speech is a choice in Settings. It sends your audio or the text off your Mac, and it needs your key.
 
 ## Demos
 
