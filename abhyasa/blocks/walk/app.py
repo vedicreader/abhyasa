@@ -15,8 +15,9 @@ from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
-from abhyasa.journey import NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
+from abhyasa.journey import with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task, validate_nb_spec, leela_back, leela_found
+from abhyasa.course import course_of, drop_data
 import abhyasa.walk as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.talk   # adds Learning.talks: the editor links the talks made from a walk
 from abhyasa.talk import walk_changes
@@ -236,8 +237,15 @@ def connect(app, ctx):
             if not j or nb_writing(jid, i) or j.steps[i].get('nb') or j.steps[i]['check']['kind'] != 'notebook': return
             nb_jobs[jid, j.steps[i]['slug']] = ctx.research.pool.submit(walk_engine.nb_spec, lr, ask, j, i)   # nb_spec writes to the step by its concept
 
+    def with_folders(j, i):
+        "Walk `j` with each of its data folders in the notebook spec of step `i`: a folder that you added after the tutor wrote the spec joins it, so Leela gets it."
+        spec = j.steps[i].get('nb')
+        if spec and (d := with_data(spec.get('data'), j.get('data'))) != list(spec.get('data') or ()): return put(j, i, nb={**spec, 'data': d})
+        return j
+
     def nb_card(j, i):
         "The card of a notebook step: the notebook, the line while the tutor writes it, or the reason when it could not."
+        j = with_folders(j, i)
         s, link = j.steps[i], leela_link(j, i, vault=vault)
         if s.get('nb'): return ui.NotebookCard(j.id, i, s, link)
         if not s.get('nb_why'): write_notebook(j.id, i)
@@ -316,7 +324,7 @@ def connect(app, ctx):
             return v, file_link(lr, v)
         if kind == 'vault': return v, root_docs(lr, v)
         if kind == 'doc' and (d := lr.vault.doc(v)): return d['title'], L([AttrDict(shelf='store', doc_id=d['id'], title=d['title'], url=d['source'])])
-        return v, L()   # vedicreader: the walk reads it as a source, it is not filed
+        return v, L()   # a kind that abhyasa does not know: nothing to file
 
     filer = ThreadPoolExecutor(FILERS, thread_name_prefix='abhyasa-file')
 
@@ -362,7 +370,15 @@ def connect(app, ctx):
         for i in new: filer.submit(file_one, i, AttrDict(said='')).add_done_callback(lambda f, i=i: joined(jid, i, f))
         return new
 
-    def from_goal(goal, ids, st, subject=''):
+    def mine(paths, notes):
+        "Your data folders `paths` as rows; a folder that abhyasa cannot use adds its line to `notes`."
+        rows = []
+        for p in paths:
+            try: rows = keep_data(rows, p)
+            except ValueError as e: notes.append(f'{Path(p).name}: {e}')
+        return rows
+
+    def from_goal(goal, ids, st, subject='', data=()):
         """On the pool: file each chip that is not in the vault, each on its own job, then plan the walk to `goal` (or, with no goal, walk
         through the docs). A goal waits at most `FILE_WAIT` seconds: a source that is still filing joins the walk when it is filed. Return the walk id."""
         filed, notes, docs, names, counts = st.setdefault('filed', []), [], L(), [], {}   # `st.filed`: the Undo still works when the walk fails
@@ -378,7 +394,8 @@ def connect(app, ctx):
             docs += o.docs; names.append(o.name); counts[i] = len(o.docs)
             if o.filed: filed.append(o.filed)
         st.update(said='Planning the walk')
-        if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), ctx.sources, False, chips=ids)   # the plan sees the documents of the chips
+        rows = mine(data, notes)
+        if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), ctx.sources, False, chips=ids, data=rows)   # the plan sees the documents of the chips and your data
         elif docs:
             n = val('links.pages')
             j = journey_from_sources(lr, ask, docs[:n], title=' and '.join(names), subject=subject,
@@ -388,7 +405,7 @@ def connect(app, ctx):
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no steps for this goal.' if goal else 'The tutor found no ideas in these sources.')
-        j = lr.merge_journey(j.id, filed=filed, notes=notes, chips=list(ids), chip_counts=counts, filing=late)
+        j = lr.merge_journey(j.id, filed=filed, notes=notes, chips=list(ids), chip_counts=counts, filing=late, **({'data': rows} if rows else {}))
         for i in late: jobs[i].add_done_callback(lambda f, i=i: joined(j.id, i, f))   # it can be done now: then it joins at once
         if goal:
             run_hook('goal_walk', j)   # the course block joins the walk to the course of its goal
@@ -397,14 +414,21 @@ def connect(app, ctx):
             if val('research.on') and not val('research.told'): set_val('research.told', True)
         return j.id
 
-    def goal_walk(goal, ids, subject=''):
-        "Start the pool job that files the chips `ids` and makes the walk, unless one is running. The request does not wait."
-        key = 'goal:' + hashlib.sha1(json.dumps([goal, ids]).encode()).hexdigest()[:12]
+    def goal_walk(goal, ids, subject='', data=()):
+        "Start the pool job that files the chips `ids` and makes the walk with your `data` folders, unless one is running. The request does not wait."
+        key = 'goal:' + hashlib.sha1(json.dumps([goal, ids, list(data)]).encode()).hexdigest()[:12]
         st = links.get(key)
         if not st or st.job.done():
             st = links[key] = AttrDict(said='Planning the walk')
-            st.job = ctx.pool.submit(from_goal, goal, ids, st, subject)
+            st.job = ctx.pool.submit(from_goal, goal, ids, st, subject, data)
         return ui.LinkPending(key, st.said)
+
+    def data_drop(jid:str, path:str=''):
+        "Remove one data folder: from the course of the walk and each of its walks, else from the walk. The folder stays on the disk."
+        if not (j := walk_of(jid)): return Response(status_code=404)
+        if (c := course_of(lr, jid)): drop_data(lr, c.id, path)
+        else: lr.merge_journey(jid, data=[d for d in j.get('data') or () if d['path'] != path])
+        return ui.YourData(lr.journey(jid))
 
     def unfile_(jid:str='', root:str='', job:str='', row:str=''):
         """Undo, for one hour after Start: forget the docs that Start added for `root` (for walk `jid`, or for the pool job `job` when its walk failed), when each is still the same file.
@@ -432,15 +456,17 @@ def connect(app, ctx):
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
     def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str='',
-            q:str='', pick:str='', file:str='', opts:str='', doc:str='', sources:list[str]=None, chips:str=''):
+            q:str='', pick:str='', file:str='', opts:str='', doc:str='', sources:list[str]=None, chips:str='', mine:list[str]=None):
         if (q.strip() or chips) and not any(x.strip() for x in (ref, text, topic, url)):   # the Start box: its reading says which field it is
             t = vault_title(lr.vault, q) if not file else None
             r = detect(q, dict([t]) if t else {}, research=val('research.on'), file=file, pick=pick, doc=doc, roots_in_vault=vault_roots(lr))   # `ref` is a document id
             ids = [x for x in (sources or []) if x] if chips else r.send.get('sources', [])   # the chips that the box showed, less the ones that you removed
             goal = r.kind == 'goal' or (chips and r.kind == 'topic')   # a topic with sources that you added is a goal
             if (goal or r.kind in ('sources', 'folder')) and (r.send or chips):
+                ours = [x for x in ids if x in (mine or ()) and x.startswith('folder:')]   # the folders that you ticked as your data: not filed
+                ids = [x for x in ids if x not in ours]
                 if not goal and not ids: return P('Add a source first.', cls='req-err')
-                return goal_walk(q.strip() if goal else '', ids, clean_subject(subject))
+                return goal_walk(q.strip() if goal else '', ids, clean_subject(subject), [x.partition(':')[2] for x in ours])
             if chips and not q.strip(): return P('Write your goal first.', cls='req-err')
             if not r.send: return P(r.line if r.kind != 'ask' else 'Pick one answer first.', cls='req-err')
             ref, text, topic, url = (r.send.get(k, '') for k in ('ref', 'text', 'topic', 'url'))
@@ -607,6 +633,7 @@ def connect(app, ctx):
         with _jlock(jid):   # one read of the walk: the link, the concept opened at this place and the stamp all name the same idea
             if not (j := walk_of(jid, i)): return Response(status_code=404)
             if not (link := leela_link(j, i, vault=vault)): return RedirectResponse(ui.at(Routes.step, jid, i), status_code=303)
+            j = with_folders(j, i)
             slug = j.steps[i]['slug']   # an older Leela lesson files no concept, so its results match only while the step at this place has it
             lr.put_journey({**j, 'leela_opened': {**(j.get('leela_opened') or {}), str(i): slug}})
             lr.walk_slug(jid, slug, leela_at=time.time())
@@ -1153,6 +1180,7 @@ def connect(app, ctx):
     app.get(Routes.old)(old_path)
     app.post(Routes.attach)(attach)
     app.post(Routes.start)(start)
+    app.post(Routes.data_drop)(data_drop)
     app.get(Routes.step)(step)
     app.get(Routes.note)(note)
     app.get(Routes.check)(check)

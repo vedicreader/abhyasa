@@ -283,7 +283,7 @@ def _idea_ask(lr:Learning, ask, s:dict, passage:str, choice:bool) -> tuple:
     return None, dict(a, src=dict(check='code' if kind == 'code' else 'short')) if a else None
 
 # %% ../nbs/17_talk.ipynb #1242b4f9
-SOURCE_KEYS = ('src', 'ref', 'title', 'site', 'url', 'shelf', 'doc_id', 'section', 'page', 'at', 'episode', 'what')   # what a slide keeps of the source of its passage
+SOURCE_KEYS = ('src', 'ref', 'title', 'site', 'url', 'shelf', 'doc_id', 'section', 'page', 'at', 'what')   # what a slide keeps of the source of its passage
 
 def _source(r:dict) -> dict:
     """`{'src': ...}`: where the passage of `r` comes from (its kind, title, document, place, site and link), so the slide can name it

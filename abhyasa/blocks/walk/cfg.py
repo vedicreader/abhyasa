@@ -18,6 +18,7 @@ class Routes:
     improve = '/w/{jid}/improve'      # POST: Improve the walk, from your words: start the job; GET (?key=): the pending line, then the changes to keep or skip
     improve_apply = '/w/{jid}/improve/apply'   # POST: apply the changes that you kept, as one change with an Undo
     passages = '/w/{jid}/passages'    # GET: the real passages that an idea can pick (?i=&q=, or ?name=&q= for a new idea)
+    data_drop = '/w/{jid}/data/drop'  # POST: remove one data folder from the walk (and from its course and the other walks of the course)
     start = '/w/{jid}/start'          # start the walk and open a sitting
     step = '/w/{jid}/{i}'             # one idea: the passage, the figure, the note and the check
     note = '/w/{jid}/{i}/note'        # the tutor note, loaded after the page

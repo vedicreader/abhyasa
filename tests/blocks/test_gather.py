@@ -59,7 +59,7 @@ def walk(lr, chips=()):
     "A goal walk of two steps with no passage, and a vault document of the chip `vault:notes` with a real sentence on softmax."
     did = lr.vault.shelf('notebooks').add(DOC, title='nbs/softmax', source='/tmp/notes/softmax.md', kind='md', meta=dict(root='notes', path='/tmp/notes/softmax.md'))['doc_id']
     j = walk_from_topic(lr, Fake({'You plan a learning path': PLAN}), 'learn softmax and attention')
-    return lr.merge_journey(j.id, chips=list(chips) or ['vault:notes', 'vedic:ramayana']), did
+    return lr.merge_journey(j.id, chips=list(chips) or ['vault:notes', 'gh:fastai/course22p2']), did
 
 def test_agent_quote_refused_and_stop(lr, monkeypatch):
     "A quote that is not in the doc is refused; the real sentence is filed; Stop after the third call ends the job, and the rows stay."

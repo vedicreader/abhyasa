@@ -727,9 +727,18 @@ def SideTop(j, st, back):
     go = A(f"Continue: idea {st.current + 1} of {len(st.steps)} →", href=at(Routes.step, j['id'], st.current), cls='onward', data_act='continue') if st.current is not None else ''
     return Div(Primary('Back to the paper', href=back.href if back else '/', data_act='back'), go, cls='row walk-top')
 
+DATA_SAY = 'The exercises of this walk run on these folders. abhyasa does not file them.'
+
+def YourData(j):
+    "Your data: each folder that the exercises run on (`walk.data`), with its note and ×. Add a source adds one."
+    rows = [Li(B(d['path']), Span(f" · {d['note']}", cls='mute') if d.get('note') else '',
+               Button('×', type='button', cls='x', aria_label=f"Remove {d['path']}", hx_post=at(Routes.data_drop, j['id']), hx_vals=json.dumps(dict(path=d['path'])),
+                      hx_target='#walk-data', hx_swap='outerHTML')) for d in j.get('data') or ()]
+    return Div(H3('Your data'), P(DATA_SAY, cls='mute'), Ul(*rows, cls='plain walk-data'), id='walk-data', data_part='data') if rows else Div(id='walk-data')
+
 def Sources(j, band, more=()):
-    "The sources of the walk: the line of research with Stop, Show what it did and Find sources again, what Start filed with its Undo, and Add a source (`more`)."
-    return Section(H2('Sources'), band, Filed(j), *more, id='sources', data_part='sources', cls='walk-sources')
+    "The sources of the walk: the line of research with Stop, Show what it did and Find sources again, what Start filed with its Undo, your data, and Add a source (`more`)."
+    return Section(H2('Sources'), band, Filed(j), YourData(j), *more, id='sources', data_part='sources', cls='walk-sources')
 
 def Talks(talks=(), changed=(), actions=()):
     "Quiet, at the foot: the talks made from the walk, and what other blocks add (Present, the course)."

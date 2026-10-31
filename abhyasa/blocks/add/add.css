@@ -39,3 +39,4 @@
 .walk-src .tick { display: flex; gap: var(--s1); align-items: center; }
 .start .chips-src .req-err { margin: 0; font-size: var(--t-small); }
 .walk-src { margin-top: var(--s4); }
+.schip .mine { font-size: var(--t-meta); color: var(--mute); white-space: nowrap; }

@@ -112,7 +112,7 @@ def test_m3_the_outline_dot_fills(mk, walk_fake, lr):
     assert 'rail-' not in miss                                                       # no swap while a check stays open
 
 def test_m6_words_in_the_passage_point_at_the_demo(mk, walk_fake, lr):
-    "The passage names the words that the idea moves, so the page can point them at the demo (walk_look m6 checks the pointing)."
+    "The passage names the words that the idea moves, so the page can point them at the demo."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     page = cl.get(f'/w/{jid}/2').text
     quote = re.search(r'<blockquote [^>]*id="passage"[^>]*>', page).group(0)

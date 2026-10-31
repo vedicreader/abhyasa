@@ -116,7 +116,11 @@ def connect(app, ctx):
     @hook('goal_walk')
     def joined(j):
         "The walk block made goal walk `j`: it joins its course."
-        try: return join_course(lr, j)
+        try:
+            c = join_course(lr, j)
+            for d in (lr.journey(j['id']) or {}).get('data') or () if c else ():   # your data from the Start box goes on the course
+                if d['path'] not in {x['path'] for x in lr.course(c.id).get('data') or ()}: c = add_data(lr, c.id, d['path'], d.get('note', ''))
+            return c
         except Exception as e: log.warning('abhyasa could not join walk %s to a course: %r', j.get('id'), e)
 
     @hook('step_needs')

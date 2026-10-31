@@ -625,7 +625,7 @@ def test_wrong_try_gives_empty_boxes_and_keeps_the_try_in_the_record(mk, walk_fa
     assert f'data-qid="{qid}"' in r and all('data-draft' in b[k][0] for k in b)        # core.js keeps a draft for each box, by question
 
 def test_a_refused_move_gives_the_server_a_plain_reason(mk, walk_fake, lr):
-    "A move on a check that is not open answers 409 with a short plain line, which the page shows (walk_look er1 checks it in a browser)."
+    "A move on a check that is not open answers 409 with a short plain line, which the page shows."
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='x'))
     assert r.status_code == 409 and r.text == 'No check is open on this idea. Load the page again.' and 'html' not in r.headers.get('content-type', '')

@@ -98,6 +98,10 @@
     "place": {
       "store": "last_place(lr) (derived, new function, see nav.continue)",
       "new": true
+    },
+    "walk.data": {
+      "store": "lr.journey(jid)['data'] = [{path, note}]; your data folders, from the course, Add a source (My data) or the Start box (My data). The walk page shows them under part:sources as part:data, with ×",
+      "new": false
     }
   },
   "nav": {

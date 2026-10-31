@@ -234,3 +234,4 @@ main:has(#steps) { padding-bottom: calc(44px + 2 * var(--s5)); }
 .proposal .why { margin: var(--s1) 0 0; font-size: var(--t-small); }
 .in-journeys { margin: var(--s5) 0 0; } .in-journeys .attach { margin-top: var(--s3); } .in-journeys select { width: auto; font-size: var(--t-small); }
 .step-done { padding: 2px 0; } .step-done .lbl { color: var(--ok); } .step-done p { margin: 0; }
+.walk-data li { display: flex; align-items: baseline; gap: var(--s2); } .walk-data .x { margin-left: auto; }

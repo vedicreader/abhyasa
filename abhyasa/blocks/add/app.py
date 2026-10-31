@@ -39,6 +39,7 @@ MORE = 'Add a folder, a repo or a link. abhyasa files it in your vault for this 
 USE = (('learn', 'Learn from it'), ('data', 'My data for the exercises'))   # what a folder that you add is for
 DATA_ONLY = 'Only a folder on this Mac can be your data.'
 KEPT = 'Kept {} as your data for the exercises. abhyasa does not file it.'
+MINE = 'Your data: the exercises run on this folder, and abhyasa does not file it.'
 NAMES_FOR, DISK_FOR = 300, 60   # seconds that the folder names, and the count of files in one folder, are kept
 STATE = dict(gh='a GitHub repo · cloned when you press Start', folder='a folder on this Mac · added when you press Start',
              repo='a repo on this Mac · added when you press Start', link='a link · read when you press Start', doc='in your vault')
@@ -104,26 +105,28 @@ def _home(p) -> str:
     h = str(Path.home())
     return '~' + p[len(h):] if p == h or p.startswith(h + '/') else p
 
-def Chip(c):
-    "One source of the goal: its name, where it is, and what Start does with it. `×` removes it (start.js). A refused folder sends nothing."
+def Chip(c, mine=()):
+    """One source of the goal: its name, where it is, and what Start does with it. `×` removes it (start.js). A refused folder sends nothing.
+    A folder on this Mac has My data: the exercises run on it, and abhyasa does not file it (`mine` has the ids that you ticked)."""
     if c.kind == 'folder' and c.filed: where, st = n_of(c.count, 'document') if c.count else '', 'in your vault'
     else: where, st = dict(folder=_home(c.path), repo=_home(c.path), gh=c.path, link=c.path).get(c.kind, ''), STATE.get(c.kind, '')
     bad = c.get('why')
-    return Div(B(c.name), Span(Span(where, cls='where') if where else '', Span(bad or st, cls='st'), cls='w'),
+    tick = Label(Input(type='checkbox', name='mine', value=c.id, checked=c.id in mine), ' My data', cls='tick mine', title=MINE) if c.kind == 'folder' and not c.filed and not bad else ''
+    return Div(B(c.name), Span(Span(where, cls='where') if where else '', Span(bad or st, cls='st'), cls='w'), tick,
                Button('×', type='button', cls='x', aria_label=f'Remove {c.name}', data_chip=c.id),
                '' if bad else Input(type='hidden', name='sources', value=c.id),
                cls='schip' + (' bad' if bad else '' if c.filed else ' new'))
 
-def Chips(cs, said=()):
+def Chips(cs, said=(), mine=()):
     "The sources for this goal, the web when research is on, and the field that adds a source."
     web = (Div(B('from the web'), Span('for what your sources do not have'), A('Turn this off in Settings', href='/settings#g-research', cls='st'), cls='schip web')
            if val('research.on') else '')
-    return Div(Span('Sources for this goal', cls='lbl'), *map(Chip, cs), web, *[P(x, cls='req-err') for x in said],
+    return Div(Span('Sources for this goal', cls='lbl'), *[Chip(c, mine) for c in cs], web, *[P(x, cls='req-err') for x in said],
                Div(Input(type='text', id='start-add', placeholder='Add a folder, a repo or a link', aria_label='Add a folder, a repo or a link', autocomplete='off'),
                    Button('Add', type='button', cls='quiet small', id='start-add-go'), Pick(), cls='addf'),
                Input(type='hidden', name='chips', value='1'), cls='chips-src', aria_label='Sources for this goal')
 
-def Read(r, f=None, told=True, q='', said=()):
+def Read(r, f=None, told=True, q='', said=(), mine=()):
     "What the box will do: the quiet line, the question or the options, the sources of a goal, and the Start button."
     f, cs = f or {}, r.get('chips') or []
     shown = r.kind in ('goal', 'sources') or (r.kind == 'empty' and cs)
@@ -137,7 +140,7 @@ def Read(r, f=None, told=True, q='', said=()):
                if 'find' in r.options else '', '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
     line = P(NO_GOAL, cls='will', id='start-will') if r.kind == 'empty' and cs else Line(r) if r.kind != 'ask' else P(B(r.ask.q), cls='will', id='start-will')
     return (line, P(WEB_ONCE + ('' if shown else OFF), cls='mute web-once') if r.kind in ('topic', 'goal') and val('research.on') and not told else '',
-            Ask(r, cs[0].path if cs else q) if r.ask else Options(r, f), Chips(cs, said) if shown else '', foot)
+            Ask(r, cs[0].path if cs else q) if r.ask else Options(r, f), Chips(cs, said, mine) if shown else '', foot)
 
 def connect(app, ctx):
     lr = ctx.learning
@@ -214,10 +217,10 @@ def connect(app, ctx):
                     hx_post='/walk/new', hx_target='#walk-out', id='start-form', cls='start raised', data_read=Routes.read, data_drop=Routes.file, data_drops=Routes.files, data_pick=Routes.pick)
 
     def read(q:str='', pick:str='', file:str='', pages:str='', tool:str='', title:str='', subject:str='', opts:str='', doc:str='',
-             extra:list[str]=None, drop:list[str]=None):
+             extra:list[str]=None, drop:list[str]=None, mine:list[str]=None):
         f = dict(pages=pages, title=title, subject=subject, **({'tool': tool or 'off'} if 'tool' in opts.split(',') else {}))   # the box was shown and you set it
         r, said = reading(q, pick, file, pages, doc, extra or (), set(drop or ()))
-        return (*Read(r, f, told=val('research.told'), q=q, said=said), Say(r, oob=True), Doc(r, file, doc, oob=True))
+        return (*Read(r, f, told=val('research.told'), q=q, said=said, mine=set(mine or ())), Say(r, oob=True), Doc(r, file, doc, oob=True))
 
     async def keep_drop(f, kinds=('.pdf',)):
         "File the dropped file `f` in the vault on the pool: `(doc, stem, name)`, or `(None, line, name)` with what went wrong."
