@@ -1,0 +1,68 @@
+"Your data: a folder that the exercises run on. It is not filed as a source, it shows on the course page, and it goes to Leela in the notebook spec."
+import time
+import abhyasa.walk as walk_engine
+from abhyasa.contract import _GOOD
+from abhyasa.course import join_course
+from abhyasa.llm import Fake
+
+def course_walk(lr):
+    "A goal walk of two ideas, as the stage of its course. The second idea has a notebook check."
+    for n in ('Captions', 'LoRA'): lr.put(n, f'{n} for a comic.', 'ml')
+    lr.put_journey(dict(id='gw', title='Comic', goal='Make a Ramayana comic with a LoRA', mode='walk', source=None, started=None, created=1.,
+                        steps=[dict(slug='captions', status='todo', check=dict(way='words', kind='short', depth=2)),
+                               dict(slug='lora', status='todo', check=dict(way='code', kind='notebook', depth=3))], chips=[], chip_counts={}))
+    return join_course(lr, 'gw')
+
+def episodes(tmp_path, monkeypatch):
+    "A home folder with one data folder in it: the Ramayana episodes."
+    monkeypatch.setenv('HOME', str(tmp_path.resolve()))
+    d = tmp_path.resolve()/'ramayana'; d.mkdir(); (d/'episodes.json').write_text('{}'); (d/'characters.json').write_text('[]')
+    return d
+
+MINE = [dict(path='~/ramayana', note='The episodes that my scenarios run on.')]
+
+def test_add_a_source_as_data_is_not_filed(mk, lr, tmp_path, monkeypatch):
+    "Add a source with My data for the exercises: the folder goes on the course and its walk, and abhyasa files nothing. Learn from it is the default."
+    d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
+    cl = mk()
+    t = cl.get('/w/gw').text
+    assert 'value="learn" checked' in t and 'My data for the exercises' in t
+    r = cl.post('/learn/walk-source', data=dict(jid='gw', q=str(d), use='data', note=MINE[0]['note']))
+    assert r.status_code == 200 and 'Kept ramayana as your data for the exercises' in r.text
+    j = lr.journey('gw')
+    assert j.data == MINE and lr.course(c.id).data == MINE
+    assert j.chips == [] and not j.get('filing') and lr.course(c.id).sources == []   # not a source: nothing is filed
+    assert not lr.vault.shelf('notebooks').sources()
+
+def test_only_a_folder_can_be_data(mk, lr, tmp_path, monkeypatch):
+    "A GitHub repo or a path outside the home folder is not your data: the line says why, and nothing is kept."
+    episodes(tmp_path, monkeypatch); course_walk(lr)
+    cl = mk()
+    assert 'Only a folder on this Mac can be your data.' in cl.post('/learn/walk-source', data=dict(jid='gw', q='fastai/diffusion-nbs', use='data')).text
+    assert 'not in your home folder' in cl.post('/learn/walk-source', data=dict(jid='gw', q='/etc', use='data')).text
+    assert not lr.journey('gw').get('data')
+
+def test_course_page_shows_your_data_and_removes_one(mk, lr, tmp_path, monkeypatch):
+    "The course page adds a folder under Your data, shows its note, and × removes it from the course and its walk."
+    d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
+    cl = mk()
+    assert 'Your data' in cl.get(f'/course/{c.id}').text
+    r = cl.post(f'/course/{c.id}/data', data=dict(path=str(d), note=MINE[0]['note']))
+    assert '~/ramayana' in r.text and MINE[0]['note'] in r.text and lr.journey('gw').data == MINE
+    assert '~/ramayana' in cl.get(f'/course/{c.id}').text
+    assert 'no folder' in cl.post(f'/course/{c.id}/data', data=dict(path='~/nothing')).text
+    r = cl.post(f'/course/{c.id}/data/drop', data=dict(path='~/ramayana'))
+    assert '~/ramayana' not in r.text and lr.course(c.id).data == [] and lr.journey('gw').data == []
+
+def test_data_goes_to_leela_in_the_notebook_spec(lr, tmp_path, monkeypatch):
+    "The tutor that writes the notebook step sees the folder, its note and its files. The spec that Leela reads has the folder, also when the model leaves it out."
+    d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
+    from abhyasa.course import add_data
+    add_data(lr, c.id, str(d), MINE[0]['note'])
+    spec = {**_GOOD, 'data': []}
+    f = Fake({'Return JSON: {"task"': spec})
+    got = walk_engine.nb_spec(lr, f, lr.journey('gw'), 1)
+    p = f.calls[-1][0]
+    assert 'RAMAYANA' in p and '~/ramayana' in p and MINE[0]['note'] in p and 'characters.json, episodes.json' in p
+    want = dict(name='RAMAYANA', path='~/ramayana', what=f"{MINE[0]['note']} It holds: characters.json, episodes.json.", need=False)
+    assert got.data == [want] and lr.journey('gw').steps[1]['nb']['data'] == [want]

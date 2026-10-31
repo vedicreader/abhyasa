@@ -8,8 +8,8 @@ Docs: https://vedicreader.github.io/abhyasa/course.html.md"""
 __all__ = ['GROW_AT', 'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST', 'ANSWERS', 'KINDS', 'LEVEL_SP', 'SAID', 'STAGES_SP', 'LEFT',
            'ASK_KINDS', 'new_course', 'is_goal_walk', 'chip_sources', 'join_course', 'course_of', 'ensure_courses',
            'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level', 'level_done', 'stages_prompt',
-           'plan_stages', 'stage_brief', 'build_stage', 'stage_rows', 'due_stage', 'next_up', 'add_ask', 'blocking',
-           'course_state', 'set_here', 'active_course']
+           'plan_stages', 'stage_brief', 'build_stage', 'add_data', 'drop_data', 'stage_rows', 'due_stage', 'next_up',
+           'add_ask', 'blocking', 'course_state', 'set_here', 'active_course']
 
 # %% ../nbs/22_course.ipynb #cs006
 import json, re, threading, time
@@ -20,7 +20,7 @@ from .settings import val
 from .llm import ask_json, for_task
 from .prompts import register, prompt
 from .ground import clip
-from .journey import walk_from_topic, walk_state, for_talk, _jlock, _new_id
+from .journey import walk_from_topic, walk_state, for_talk, _jlock, _new_id, keep_data
 from .walk import leela_found
 from .guide import guard
 
@@ -33,10 +33,10 @@ ANSWERS = dict(yes='Yes', some='A little', no='No')   # an answer to a level que
 
 # %% ../nbs/22_course.ipynb #cs010
 def new_course(goal:str, title:str='', subject:str='', sources=()) -> dict:
-    "The fields of a new course to `goal`, with no stage."
+    "The fields of a new course to `goal`, with no stage and no data folder."
     goal = ' '.join(str(goal or '').split())
     title = title or clip(goal, 60)
-    return dict(id=_new_id(title), goal=goal, title=title, subject=subject, makes='', sources=list(sources), stages=[], level=None,
+    return dict(id=_new_id(title), goal=goal, title=title, subject=subject, makes='', sources=list(sources), data=[], stages=[], level=None,
                 here=None, asks=[], proposal=None, done_at=None, v=0, created=time.time())
 
 @patch
@@ -131,7 +131,7 @@ def join_course(lr:Learning, j) -> AttrDict|None:
                 c.sources += [s for s in chip_sources(j) if s['id'] not in have]
                 c.stages.append(dict(key=key, name=j.title, makes=makes, ideas=[], foundation=False, skip_if='', short=False, walk=j.id, status='ready'))
             c = lr.change_course(c.id, add)
-        lr.merge_journey(j.id, course=c.id, stage=key)
+        lr.merge_journey(j.id, course=c.id, stage=key, **({'data': c.data} if c.get('data') and not j.get('data') else {}))   # a walk that joins gets your data
         return lr.course(c.id)
 
 def course_of(lr:Learning, jid:str) -> AttrDict|None:
@@ -288,7 +288,7 @@ def build_stage(lr:Learning, ask, cid:str, key:str, sources=None, who:str='') ->
     if not skip: _set_stage(lr, cid, key, status='building', why='')
     try:
         chips = [s['id'] for s in c.sources if s.get('status') == 'ready']
-        j = walk_from_topic(lr, ask, stage_brief(lr, c, st), who, sources, chips=chips)
+        j = walk_from_topic(lr, ask, stage_brief(lr, c, st), who, sources, chips=chips, data=c.get('data') or ())
         seen = set(_slugs(lr, c))
         steps = [s for s in j.steps if s['slug'] not in seen]
         if not steps:
@@ -300,6 +300,22 @@ def build_stage(lr:Learning, ask, cid:str, key:str, sources=None, who:str='') ->
         raise
     _set_stage(lr, cid, key, walk=j.id, status='ready')
     return j
+
+# %% ../nbs/22_course.ipynb #cd02
+def _set_data(lr:Learning, cid:str, f) -> AttrDict:
+    "Change the data folders of course `cid` with `f` (the old list to the new list) under its lock. The walks of its stages get the new list."
+    c = lr.change_course(cid, lambda c: c.update(data=f(c.get('data') or [])))
+    for s in c.stages:
+        if s.get('walk') and lr.journey(s['walk']): lr.merge_journey(s['walk'], data=c.data)
+    return c
+
+def add_data(lr:Learning, cid:str, path, note:str='') -> AttrDict:
+    "Keep the folder `path` with `note` on course `cid` and its walks as your data. A `ValueError` says in one line why abhyasa cannot."
+    return _set_data(lr, cid, lambda ds: keep_data(ds, path, note))
+
+def drop_data(lr:Learning, cid:str, path:str) -> AttrDict:
+    "Remove the data folder `path` from course `cid` and its walks. The folder stays on the disk."
+    return _set_data(lr, cid, lambda ds: [d for d in ds if d['path'] != path])
 
 # %% ../nbs/22_course.ipynb #cs049
 LEFT = ('ready', 'planned', 'building')   # the states of a stage that is not finished

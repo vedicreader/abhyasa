@@ -4,6 +4,8 @@ class Routes:
     answer = '/course/{cid}/answer'        # POST: one answer, by a tap or in words
     stage = '/course/{cid}/stage/{key}'    # build the walk of a stage on the pool, then open it
     job = '/course/{cid}/job'              # the state of a pool job of the course: ?k=level, plan or a stage key
+    data = '/course/{cid}/data'            # POST: keep a folder as your data, which the exercises run on
+    data_drop = '/course/{cid}/data/drop'  # POST: remove one data folder
     walk = '/w/{jid}'                      # the walk block: a walk
     step = '/w/{jid}/{i}'                  # the walk block: one step
     start = '/start'                       # the session block: ?focus= starts a session on one idea

@@ -108,6 +108,14 @@ abhyasa reads only `.ipynb`, `.md`, `.txt` and `.py` files
 (no `.py` in a folder with notebooks), at most 400 files and 200 MB, and it never runs their code. It reads only folders
 in your home folder, that you can read, with no hidden folders and no links. For one hour, the walk page shows “Added course22: 24 notebooks.” with Undo.
 
+### Your data
+
+Some folders are not to learn from. They are the data that you plan to run the exercises on, for example a folder of
+Ramayana episodes for a walk that trains a diffusion model. Under “Add a source”, choose “My data for the exercises”, or add
+the folder under “Your data” on the course page. Give it a short note. abhyasa does not file the folder and does not learn
+from it. The course and its walks keep it, the tutor that writes a notebook step sees its name, its note and its files, and
+the notebook in Leela runs on it. × removes it.
+
 A path alone, such as `~/code/course22`, asks one question: “Walk through it” or “Use it for a goal”.
 
 For a goal, the tutor plans the walk top down from the sources that you named. Each step reads its passage from one of

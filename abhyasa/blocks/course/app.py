@@ -1,5 +1,5 @@
-"""The course: one page for each goal, with where you are, what comes next and why, the stages, what blocks the goal, the sources and
-"Where you start". It adds the course line to Today (`today_top`), keeps your place from each step of a course walk (`step_needs`),
+"""The course: one page for each goal, with where you are, what comes next and why, the stages, what blocks the goal, the sources,
+your data and "Where you start". It adds the course line to Today (`today_top`), keeps your place from each step of a course walk (`step_needs`),
 links a course walk to its course (`walk_actions`, `walk_end`), and joins a new goal walk to its course (`goal_walk`)."""
 import logging, re
 from fasthtml.common import *
@@ -8,7 +8,7 @@ from abhyasa.core.leela import leela_base
 from abhyasa.profile import profile_text
 from abhyasa.journey import last_place
 from abhyasa.course import (course_state, join_course, course_of, ensure_courses, ask_level, answer_level, level_done, plan_stages,
-                            build_stage, due_stage, set_here, add_ask, is_goal_walk)
+                            build_stage, due_stage, set_here, add_ask, is_goal_walk, add_data, drop_data)
 from . import ui
 from .cfg import Routes
 
@@ -103,6 +103,16 @@ def connect(app, ctx):
         if k == 'plan': return Response(headers={'HX-Redirect': ui.at(cid)})
         return Response(headers={'HX-Redirect': Routes.of_(Routes.walk, jid=st.job.result())})
 
+    def data(cid:str, path:str='', note:str=''):
+        "Keep the folder `path` as your data on the course and its walks. It is not filed."
+        if not lr.course(cid): return Response(status_code=404)
+        try: return ui.Data(add_data(lr, cid, path, note))
+        except ValueError as e: return ui.Data(lr.course(cid), err=str(e))
+
+    def data_drop(cid:str, path:str=''):
+        "Remove one data folder from the course and its walks. The folder stays on the disk."
+        return ui.Data(drop_data(lr, cid, path)) if lr.course(cid) else Response(status_code=404)
+
     @hook('goal_walk')
     def joined(j):
         "The walk block made goal walk `j`: it joins its course."
@@ -147,6 +157,8 @@ def connect(app, ctx):
         return None
 
     app.get(Routes.job)(job)
+    app.post(Routes.data)(data)
+    app.post(Routes.data_drop)(data_drop)
     app.post(Routes.level)(level)
     app.post(Routes.answer)(answer)
     app.get(Routes.stage)(stage)

@@ -8,6 +8,8 @@ from abhyasa.core.leela import LOCAL_HOSTS
 from abhyasa.core import hook, run as run_hook, Primary, Secondary, Quiet, Pill, asset_css, asset_js, n_of
 from abhyasa.sources import extract, from_vault, folder_why, tree_files, vault_roots
 from abhyasa.settings import val, roots
+from abhyasa.journey import keep_data
+from abhyasa.course import course_of, add_data
 from abhyasa.detect import detect, vault_title, title_index, folder_names, named_sources, on_disk, fold, _goal
 from .cfg import Routes
 
@@ -34,6 +36,9 @@ NOT_YET = ('video', 'local', 'file_name')   # Start stays off: the line says why
 FOUND = 'abhyasa found these by their names, on this Mac and in your vault. It has read nothing from the web yet.'
 NO_GOAL = 'Write your goal in the box. abhyasa uses the sources below.'
 MORE = 'Add a folder, a repo or a link. abhyasa files it in your vault for this walk, and the tutor looks in it too.'
+USE = (('learn', 'Learn from it'), ('data', 'My data for the exercises'))   # what a folder that you add is for
+DATA_ONLY = 'Only a folder on this Mac can be your data.'
+KEPT = 'Kept {} as your data for the exercises. abhyasa does not file it.'
 NAMES_FOR, DISK_FOR = 300, 60   # seconds that the folder names, and the count of files in one folder, are kept
 STATE = dict(gh='a GitHub repo · cloned when you press Start', folder='a folder on this Mac · added when you press Start',
              repo='a repo on this Mac · added when you press Start', link='a link · read when you press Start', doc='in your vault')
@@ -57,6 +62,11 @@ def choose_folder() -> list:
     finally: _picking.release()
     if r.returncode: return []   # Cancel: osascript stops with an error (-128)
     return list(dict.fromkeys(x.rstrip('/') or '/' for x in r.stdout.splitlines() if x.strip()))
+
+def Use():
+    "One choice for what you add: learn from it (the default), or your data, which the exercises run on and abhyasa does not file."
+    return Div(*[Label(Input(type='radio', name='use', value=v, checked=v == 'learn'), ' ', t, cls='tick') for v, t in USE],
+               Input(type='text', name='note', placeholder='A note on your data (optional)', aria_label='A note on your data', autocomplete='off'), cls='use')
 
 def Pick(): return Button(PICK, type='button', cls='quiet small', id='start-pick') if can_pick() else ''
 
@@ -265,12 +275,24 @@ def connect(app, ctx):
 
     def page(): return RedirectResponse(Routes.start, status_code=303)   # the old Add page: the Start box in Learn has its place
 
-    def Filing(j, said=()):
+    def Filing(j, said=(), told=()):
         "What Add a source does now for walk `j`: each source that is still filing, and the lines of the last add. It asks again while a source files."
         fs = j.get('filing') or ()
         rows = [P(f"Filing {i.partition(':')[2].rstrip('/').split('/')[-1]}…", cls='mute') for i in fs]
         poll = dict(hx_get=f'{Routes.walk_source}?{urlencode(dict(jid=j.id))}', hx_trigger='every 3s', hx_swap='outerHTML') if fs else {}
-        return Div(*rows, *[P(x, cls='req-err') for x in said], id='walk-src-out', **poll)
+        return Div(*rows, *[P(x, cls='mute') for x in told], *[P(x, cls='req-err') for x in said], id='walk-src-out', **poll)
+
+    def keep_mine(j, cs, note, said) -> list:
+        "Keep each folder in `cs` as your data: on the course of walk `j` and its walks, else on the walk. Nothing is filed. The lines to show."
+        told, c = [], course_of(lr, j.id)
+        for x in cs:
+            if x.kind != 'folder' or not x.path: said.append(f'{x.name}: {DATA_ONLY}'); continue
+            try:
+                if c: add_data(lr, c.id, x.path, note)
+                else: lr.merge_journey(j.id, data=keep_data((lr.journey(j.id) or j).get('data'), x.path, note))
+                told.append(KEPT.format(x.name))
+            except ValueError as e: said.append(f'{x.name}: {e}')
+        return told
 
     @hook('walk_plan_more')
     def more_sources(j):
@@ -279,21 +301,23 @@ def connect(app, ctx):
                    Form(Input(type='hidden', name='jid', value=j.id),
                         Input(type='text', name='q', id='walk-src-q', placeholder='Add a folder, a repo or a link', aria_label='Add a folder, a repo or a link', autocomplete='off'),
                         Button('Add', cls='quiet small', id='walk-src-go'),
-                        Button(PICK, type='submit', name='pick', value='1', cls='quiet small', id='walk-src-pick') if can_pick() else '',
+                        Button(PICK, type='submit', name='pick', value='1', cls='quiet small', id='walk-src-pick') if can_pick() else '', Use(),
                         hx_post=Routes.walk_source, hx_target='#walk-src-out', hx_swap='outerHTML', cls='addf', id='walk-src-form', data_act='add-source'),
                    Filing(j), asset_css(_P/'add.css'), cls='walk-src')
 
-    async def walk_source(req, jid:str, q:str='', pick:str=''):
-        "Add the sources in `q` (or the folders that you pick) to walk `jid`: one chip for each, with the checks of the Start box. The walk block files each one."
+    async def walk_source(req, jid:str, q:str='', pick:str='', use:str='learn', note:str=''):
+        """Add the sources in `q` (or the folders that you pick) to walk `jid`: one chip for each, with the checks of the Start box. The walk block files each one.
+        With `use=data`, each folder is your data, with `note`: it is kept on the course and the walk, and it is not filed."""
         if not (j := lr.journey(jid)): return Response(status_code=404)
         said, qs = [], [q] if q.strip() else []
         if pick:
             if not can_pick() or (req.client.host if req.client else '') not in LOCAL_HOSTS: said.append(NOT_HERE)
             else: qs += await asyncio.to_thread(choose_folder)
-        cs = on_disk([c for x in qs for c in named_sources(x, dict(title_index(lr.vault).values()), names(), vault_roots(lr))])
-        for c in cs:
-            if c.get('why'): said.append(f'{c.name}: {c.why}')
-        if q.strip() and not cs: said.append(f'abhyasa cannot use {q.strip()[:80]} as a source. Add the path of a folder, owner/name of a GitHub repo, or a link.')
+        found = [c for x in qs for c in named_sources(x, dict(title_index(lr.vault).values()), names(), vault_roots(lr))]
+        if q.strip() and not found: said.append(f'abhyasa cannot use {q.strip()[:80]} as a source. Add the path of a folder, owner/name of a GitHub repo, or a link.')
+        if use == 'data': return Filing(lr.journey(jid) or j, said, keep_mine(j, found, note, said))
+        cs = on_disk(found)
+        said[:0] = [f'{c.name}: {c.why}' for c in cs if c.get('why')]
         run_hook('walk_add_sources', jid, [c.id for c in cs if not c.get('why')])   # the walk block files each one on its own job
         return Filing(lr.journey(jid) or j, said)
 

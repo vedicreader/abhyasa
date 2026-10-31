@@ -36,5 +36,8 @@
 .start .schip.web a.st { text-decoration: underline; }
 .start .addf, .walk-src .addf { display: flex; gap: var(--s2); align-items: center; margin-top: var(--s2); font-size: var(--t-small); }
 .start .addf input, .walk-src .addf input { max-width: 420px; }
+.walk-src .addf { flex-wrap: wrap; }
+.walk-src .use { display: flex; gap: var(--s3); align-items: center; flex-wrap: wrap; flex-basis: 100%; }   /* Learn from it, or My data */
+.walk-src .tick { display: flex; gap: var(--s1); align-items: center; }
 .start .chips-src .req-err { margin: 0; font-size: var(--t-small); }
 .walk-src { margin-top: var(--s4); }

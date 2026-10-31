@@ -18,6 +18,9 @@
 .course-q .row { gap: var(--s2); }
 .course-say { margin-top: var(--s2); max-width: 28rem; }
 .course-say input { width: 100%; }
+.course-data .x { margin-left: var(--s2); }
+.course-add { display: flex; gap: var(--s2); flex-wrap: wrap; max-width: 36rem; }
+.course-add input { flex: 1 1 12rem; }
 .course-ans { color: var(--acc); }
 .course-pending { color: var(--mute); }
 .course-end { margin-top: var(--s3); }

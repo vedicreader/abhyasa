@@ -1,4 +1,4 @@
-"The course page and its parts: the goal, You are here, the next idea and why, the stages, what blocks the goal, the sources, and Where you start."
+"The course page and its parts: the goal, You are here, the next idea and why, the stages, what blocks the goal, the sources, your data, and Where you start."
 import json
 from pathlib import Path
 from urllib.parse import urlencode
@@ -13,6 +13,7 @@ SOURCE = dict(ready='ready', filing='filing', failed='failed')
 PLANNING = 'abhyasa plans the stages of your course. This takes about half a minute.'
 ASKING = 'The tutor writes a few short questions.'
 BUILDING = 'abhyasa plans the ideas of this stage. This takes about half a minute.'
+DATA_SAY = 'The exercises in Leela run on the files in these folders. abhyasa does not file them and does not learn from them.'
 
 def assets(): return (asset_css(_P/'course.css'),)
 
@@ -74,6 +75,17 @@ def Sources(c):
                P(s['why'], cls='mute') if s.get('status') == 'failed' and s.get('why') else '') for s in c.get('sources') or ()]
     return Part('Sources', Ul(*rows, cls='plain course-sources') if rows else Empty('This course has no sources of its own. The tutor reads your vault.'))
 
+def Data(c, err=''):
+    "Your data: the folders that the exercises run on, each with its note and ×, and the field that adds one."
+    cid, go = c['id'], dict(hx_target='#course-data', hx_swap='outerHTML')
+    rows = [Li(B(d['path']), Span(f" · {d['note']}", cls='mute') if d.get('note') else '',
+               Button('×', type='button', cls='x', aria_label=f"Remove {d['path']}", hx_post=Routes.of_(Routes.data_drop, cid=cid), hx_vals=json.dumps(dict(path=d['path'])), **go))
+            for d in c.get('data') or ()]
+    add = Form(Input(name='path', placeholder='~/path/to/your/data', aria_label='The path of a data folder', autocomplete='off'),
+               Input(name='note', placeholder='What is in it (optional)', aria_label='A note on this data', autocomplete='off'),
+               Button('Add', cls='quiet small'), hx_post=Routes.of_(Routes.data, cid=cid), cls='course-add', **go)
+    return Part('Your data', P(DATA_SAY, cls='mute'), Ul(*rows, cls='plain course-data') if rows else '', add, P(err, cls='req-err') if err else '', id='course-data')
+
 def Made(st):
     if not st.made: return ''
     return Part('What you made', Ul(*[Li(f"Stage {m.stage}: {m.name} · {n_of(m.images, 'image')} from Leela") for m in st.made], cls='plain'))
@@ -113,11 +125,11 @@ def Level(c, err='', pending=None):
     return Section(H2('Where you start'), *body, P(err, cls='req-err') if err else '', id='course-level', cls='course-level')
 
 def CoursePage(st, level):
-    "The whole course page, in order of weight: the goal, You are here, the next idea, the stages, what blocks the goal, Where you start, the sources."
+    "The whole course page, in order of weight: the goal, You are here, the next idea, the stages, what blocks the goal, Where you start, the sources, your data."
     c = st.course
     return (H1(c['title']), P('Your goal: ', Q(c['goal']), *([' · ', f"You make {c['makes']}."] if c.get('makes') else []), cls='mute'),
             Div(Span('You are here', cls='lbl'), Here(st), P(f"{st.done} of {n_of(st.total, 'idea')} done.", cls='mute'), Bar(st.done, st.total), Next(st, c['id']), cls='course-card'),
-            Stages(st, c['id']), Blocking(st, c['id']), Made(st), level, Sources(c), *assets())
+            Stages(st, c['id']), Blocking(st, c['id']), Made(st), level, Sources(c), Data(c), *assets())
 
 def TodayCard(st):
     "Today's top line for the course of the place that you used last: the course, what comes next and why, and Continue."

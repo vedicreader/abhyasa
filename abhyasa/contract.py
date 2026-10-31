@@ -5,7 +5,7 @@ import ast, hashlib, math, re
 from pathlib import Path
 from urllib.parse import urlencode, parse_qs
 
-__all__ = ['SAFE_NAMES', 'SAFE_NODES', 'safe_test', 'check_exercise', 'WALK_ID', 'PKG', 'DATA_NAME', 'NB_KEYS', 'RUN_MINUTES',
+__all__ = ['SAFE_NAMES', 'SAFE_NODES', 'safe_test', 'check_exercise', 'WALK_ID', 'PKG', 'DATA_NAME', 'DATA_MOST', 'NB_KEYS', 'RUN_MINUTES',
            'has_directive', 'data_path_why', 'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES',
            'LEELA_ROUTE', 'TOPIC_MAX', 'VAULT_KEY', 'vault_key', 'Handoff', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'HANDOFF_BAD']
 
@@ -53,6 +53,7 @@ def check_exercise(r) -> dict:
 WALK_ID = re.compile(r'\A[a-z0-9-]{1,48}\Z')                  # the form of a walk id (`journey._new_id`)
 PKG = re.compile(r'\A[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z')      # one package name, with no extra and no version (Leela's `_NAME`)
 DATA_NAME = re.compile(r'\A[A-Z][A-Z0-9_]{0,39}\Z')           # the name of a data path in the notebook: an upper-case Python name
+DATA_MOST = 8                                                  # the most data entries of a spec, and the most data folders of a course
 NB_KEYS = ('task', 'fname', 'stub', 'tests', 'requires', 'data', 'run', 'demo')
 RUN_MINUTES = 600                                              # the most minutes that a run can say
 
@@ -115,7 +116,7 @@ def validate_nb_spec(spec) -> dict:
     if not (isinstance(req, list) and len(req) <= 5): raise ValueError('requires: give a list of at most 5 package names')
     if bad := [n for n in req if not (isinstance(n, str) and PKG.fullmatch(n))]: raise ValueError(f'requires: {str(bad[0])[:40]!r} is not a package name')
     data = spec.get('data', [])
-    if not (isinstance(data, list) and len(data) <= 8): raise ValueError('data: give a list of at most 8 data entries')
+    if not (isinstance(data, list) and len(data) <= DATA_MOST): raise ValueError(f'data: give a list of at most {DATA_MOST} data entries')
     for d in data:
         if not isinstance(d, dict): raise ValueError('data: each entry is an object {name, path, what, need}')
         if not (isinstance(d.get('name'), str) and DATA_NAME.fullmatch(d['name'])): raise ValueError('data: `name` must be an upper-case Python name, as EPISODES')
