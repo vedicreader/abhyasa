@@ -27,7 +27,7 @@ public struct ResearchStatus: Decodable, Equatable, Sendable {
 public enum Research {
     public static let path = "walk/research.json"
     /// the line, said one time, when the last window closes while research runs
-    public static let menuBarNote = "Abhyasa keeps finding sources. It is in the menu bar."
+    public static let menuBarNote = "Abhyasa still looks for sources. It runs in the menu bar."
     public static let notifyTitle = "Sources are ready"
 
     public static func parse(_ data: Data) -> ResearchStatus? { try? JSONDecoder().decode(ResearchStatus.self, from: data) }

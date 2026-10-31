@@ -23,7 +23,7 @@ import Testing
         #expect(Research.notifyBody(walk) == "Sources for your walk \u{2018}Fine-tune Diffusion for Comics\u{2019} are ready. 9 of 11 ideas have a source.")
         let one = ResearchWalk(id: "a", title: "A", url: "/w/a", end: 1, have: 1, total: 1)
         #expect(Research.notifyBody(one).hasSuffix("1 of 1 idea has a source."))
-        #expect(Research.menuBarNote == "Abhyasa keeps finding sources. It is in the menu bar.")
+        #expect(Research.menuBarNote == "Abhyasa still looks for sources. It runs in the menu bar.")
     }
 
     @Test func tellsEachEndOnceAndNothingFromBeforeTheStart() {

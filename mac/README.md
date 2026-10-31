@@ -18,7 +18,7 @@ then `/usr/local/bin`, then `~/.local/bin`, then the folders in `PATH`. If it fi
    last line that uv writes.
 3. The app gets a free port on 127.0.0.1 and starts `abhyasa --port <port> --vault <vault>`.
 4. The app waits until `/health` is ok, then loads the page.
-5. If the server stops by itself, the app shows the last lines of its log and a "Start Again" button.
+5. If the server stops by itself, the app shows the last lines of its log and a "Start again" button.
 
 A GUI app does not get the shell environment, so the app sets the environment of the server. `PATH` starts with the
 environment's `bin`, then `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` and the system folders. The default

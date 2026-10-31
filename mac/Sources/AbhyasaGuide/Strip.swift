@@ -64,7 +64,8 @@ public final class StripModel {
     }
 }
 
-/// Muted and legible (as in Sanketa): a plain material, the system font, no boxes inside boxes.
+/// Muted and legible (as in Sanketa): a near-opaque surface (review 2.1: legibility over glass), the system font at 13 pt and
+/// up, one filled button at most, no boxes inside boxes.
 struct StripView: View {
     @Bindable var m: StripModel
     @FocusState private var focus: Bool
@@ -72,21 +73,23 @@ struct StripView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let s = m.sheet {
-                Text(s.title).font(.headline)
-                ForEach(Array(s.body.enumerated()), id: \.offset) { _, p in
-                    Text(p).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-                HStack {
-                    Spacer()
-                    ForEach(s.buttons, id: \.id) { b in
-                        if b.main { Button(b.title) { m.onSheet?(s.id, b.id) }.keyboardShortcut(.defaultAction) }
-                        else { Button(b.title) { m.onSheet?(s.id, b.id) } }
+                Text(s.title).font(.system(size: 15, weight: .semibold))
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(s.body.enumerated()), id: \.offset) { _, p in
+                        Text(p).font(.body).fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                HStack(spacing: 16) {
+                    Spacer()
+                    ForEach(s.buttons, id: \.id) { b in
+                        if b.main { Button(b.title) { m.onSheet?(s.id, b.id) }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction) }
+                        else { Button(b.title) { m.onSheet?(s.id, b.id) }.buttonStyle(.borderless) }
+                    }
+                }.padding(.top, 4)
             }
             if m.typing {
-                TextField(GuideText.ask, text: $m.text, prompt: Text("I don't get …"))
-                    .textFieldStyle(.plain).font(.title3).focused($focus)
+                TextField(GuideText.ask, text: $m.text, prompt: Text(GuideText.askPrompt))
+                    .textFieldStyle(.plain).font(.system(size: 17)).focused($focus)
                     .onSubmit { m.onSend?(m.text) }
                     .onExitCommand { m.onClose?() }
                     .onAppear { focus = true }
@@ -94,36 +97,39 @@ struct StripView: View {
             if !m.line.isEmpty || m.stoppable {
                 HStack(spacing: 8) {
                     if let l = m.level { Level(value: l) }
-                    Text(m.line).font(.callout).foregroundStyle(.secondary).lineLimit(2)
+                    Text(m.line).font(.body).lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if !m.chip.isEmpty { Chip(text: m.chip, hosted: m.chipHosted) }
-                    if m.board { Button(m.muted ? GuideText.voiceOn : GuideText.voiceOff) { m.onVoice?() }.controlSize(.small) }
-                    if m.stoppable { Button(GuideText.stop) { m.onStop?() }.controlSize(.small) }
+                    if m.board { Button(m.muted ? GuideText.voiceOn : GuideText.voiceOff) { m.onVoice?() }.buttonStyle(.borderless) }
+                    if m.stoppable { Button(GuideText.stop) { m.onStop?() }.buttonStyle(.borderless) }
                 }
             }
             if !m.detail.isEmpty {
-                Text(m.detail).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                Text(m.detail).font(.callout).foregroundStyle(.secondary).lineLimit(2)
             }
             if let s = m.saved {
                 HStack(spacing: 8) {
                     Text(GuideText.saved(s.title)).font(.callout).foregroundStyle(.secondary).lineLimit(1)
-                    if !s.undo.isEmpty { Button(GuideText.undo) { m.onUndo?(s) }.buttonStyle(.link).controlSize(.small) }
+                    if !s.undo.isEmpty { Button(GuideText.undo) { m.onUndo?(s) }.buttonStyle(.link) }
                 }
             }
             if let f = m.follows {
-                HStack(spacing: 6) {
-                    Text(GuideText.followsUp(f)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                HStack(spacing: 8) {
+                    Text(GuideText.followsUp(f)).font(.callout).foregroundStyle(.secondary).lineLimit(1)
                     Button("×") { m.onFresh?() }.buttonStyle(.plain).foregroundStyle(.secondary)
                         .help(GuideText.startFresh).accessibilityLabel(GuideText.startFresh)
                 }
             }
-            if m.trail { Text(GuideText.trail).font(.caption).foregroundStyle(.tertiary) }
+            if m.trail { Text(GuideText.trail).font(.callout).foregroundStyle(.secondary) }
             if let c = m.countdown { Countdown(start: c.start, seconds: c.seconds) }
         }
-        .padding(.horizontal, 18).padding(.vertical, 14)
+        .padding(.horizontal, 16).padding(.vertical, 12)
         .frame(width: StripPanel.size.width, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.94), in: StripView.shape)
+        .overlay(StripView.shape.strokeBorder(Color.primary.opacity(0.1), lineWidth: 1))
     }
+
+    static let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
 }
 
 /// The where chip: quiet text on this Mac, a thin accent outline when the text leaves the Mac.
@@ -160,7 +166,7 @@ struct Countdown: View {
         TimelineView(.periodic(from: start, by: 0.25)) { t in
             let left = max(0, seconds - t.date.timeIntervalSince(start))
             VStack(alignment: .leading, spacing: 4) {
-                Text(GuideText.closesIn(Int(left.rounded(.up)))).font(.caption).foregroundStyle(.tertiary)
+                Text(GuideText.closesIn(Int(left.rounded(.up)))).font(.subheadline).foregroundStyle(.secondary)
                 GeometryReader { g in
                     Rectangle().fill(.tertiary).frame(width: g.size.width * left / seconds, height: 1)
                 }.frame(height: 1)

@@ -93,7 +93,7 @@ import Testing
         m.onSend = { sent.append($0) }
         m.level = 0.5; m.stoppable = true
         m.transcript("say that more simply")
-        #expect(m.typing && m.text == "say that more simply" && m.line == "Change it if you need to. ↩ sends.")
+        #expect(m.typing && m.text == "say that more simply" && m.line == GuideText.changeIt)
         #expect(m.level == nil && !m.stoppable && sent.isEmpty)
     }
 }

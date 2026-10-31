@@ -195,7 +195,7 @@ import Testing
     @Test func theVoiceSheetSaysWhereTheVoiceGoes() {
         #expect(Guide.voiceSheet(.local("Gemma")).body[1] == "Gemma writes your words on this Mac. No sound leaves this Mac.")
         #expect(Guide.voiceSheet(.hosted("OpenAI")).body[1] == "OpenAI writes your words. Your voice goes to OpenAI.")
-        #expect(Guide.voiceSheet(.unknown).body[1].contains("Settings page"))
+        #expect(Guide.voiceSheet(.unknown).body[1].contains("Settings"))
         #expect(Guide.voiceSheet(.unknown).buttons.map(\.id) == ["ok"])
     }
 }
