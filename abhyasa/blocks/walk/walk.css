@@ -215,3 +215,4 @@ main:has(#steps) { padding-bottom: calc(44px + 2 * var(--s5)); }
 /* The quiet actions under the outline (Course, Present) line up with "Change the walk" at the left edge, in the same size */
 .outline .rail-acts { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); }
 .outline .rail-acts :is(.btn, button) { padding-left: 0; padding-right: 0; font-size: var(--t-small); }
+.show-row #show-demo { padding-left: 0; }   /* Show me (the demo block) lines up with the research line and the passage */

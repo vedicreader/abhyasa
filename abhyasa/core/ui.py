@@ -350,7 +350,7 @@ def SourceLine(src, room=False):
     go = (A('Open the page', href=src.url, target='_blank', rel='noopener noreferrer', cls='src-open') if web
           else A('Open in your vault', href=src.href, cls='src-open') if local
           else A('Open in vedicreader', href=vr, target='_blank', rel='noopener noreferrer', cls='src-open') if vr else '')
-    return line(Pill(src.label), name, *bits(src.place, src.date and f'read on {src.date}'), go)
+    return line(Pill(src.label), name, *([Inline(src.place)] if re.search(r'[*_$`]', src.place or '') else bits(src.place)), *bits(src.date and f'read on {src.date}'), go)   # a place can hold markdown, such as a section name
 
 def TutorWords(text, *c, note=False, cls='', **kw):
     """The tutor's own words, never a quote: a dashed rule at the left, the label `In the tutor's words` (or `The tutor's note`
