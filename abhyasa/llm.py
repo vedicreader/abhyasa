@@ -7,9 +7,10 @@ Docs: https://vedicreader.github.io/abhyasa/llm.html.md"""
 # %% auto #0
 __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'WHO', 'HERE', 'FALLBACK', 'ALL_TASKS', 'WARM',
            'MAX_TOKENS', 'HOSTED', 'WORKER_SP', 'WORKER_CALLS', 'WORKER_STEPS', 'WORKER_DOLLARS', 'WORKER_TOKENS',
-           'dflt_model', 'rishi_ask', 'parse_json', 'ask_json', 'Fake', 'model_ask', 'model_label', 'provider_label',
-           'where_of', 'where_chip', 'catalog', 'one_each', 'Router', 'for_task', 'ramabana_agent', 'timeout_error',
-           'ramabana_oneshot', 'ramabana_stream', 'RouteAsk', 'route_ask', 'ramabana_worker']
+           'LEAD_TOOLS', 'SUB_STEPS', 'dflt_model', 'rishi_ask', 'parse_json', 'ask_json', 'Fake', 'model_ask',
+           'model_label', 'provider_label', 'where_of', 'where_chip', 'catalog', 'one_each', 'Router', 'for_task',
+           'ramabana_agent', 'timeout_error', 'ramabana_oneshot', 'ramabana_stream', 'RouteAsk', 'route_ask',
+           'ramabana_worker', 'ramabana_lead']
 
 # %% ../nbs/02_llm.ipynb #c004
 import json, os, re
@@ -372,3 +373,26 @@ def ramabana_worker(tools:list=(), host=None, sp:str=WORKER_SP, turn:str=None, m
                  approvals=Approvals(mode='ask', no_listener='refuse', timeout=0), readonly=True, subagents=False, extensions=False,
                  global_skills=False, learned=False, compact=False, poll_every=0, auto_turns='off',
                  max_tool_calls=max_calls, max_steps=max_steps, max_cost=max_cost, max_tokens=max_tokens)
+
+LEAD_TOOLS = ('ls', 'grep', 'outline', 'view_file', 'notebook_cells', 'view_cell', 'web_search', 'read_url', 'delegate_search', 'set_plan', 'update_todo')   # ramabana's tools that only read, and its fan-out to sub-agents
+SUB_STEPS = 16   # the most model steps of one sub-agent
+
+def ramabana_lead(read_roots=(), tools:list=(), sp:str=WORKER_SP, turn:str=None, minutes:float=15, max_calls:int=WORKER_CALLS,
+                  max_steps:int=WORKER_STEPS, max_cost:float=WORKER_DOLLARS, max_tokens:int=WORKER_TOKENS) -> tuple:
+    """`(agent, host)`: a new ramabana `Agent` made by ramabana's `mk_agent`, with its own read and web tools (`LEAD_TOOLS`) and its
+    sub-agents (`delegate_search`, at most 4 at once in the whole tree), on the turn `dflt_model(turn)`. Its sub-agents run on ramabana's
+    `subagent` route. The folders `read_roots` are open for reads only; its one folder that it may write is a new empty one. It has no
+    Python (`python='off'`), no vault, and no approvals listener, so each tool that writes is refused. The model sees only `LEAD_TOOLS` and
+    the tools named in `tools`, when the caller adds them. The caps: `max_calls` tool calls in the whole tree, `max_steps` model steps,
+    `max_tokens` tokens and `max_cost` dollars for a turn, and `minutes` for a sub-agent."""
+    import tempfile
+    from ramabana.agent import mk_agent
+    from ramabana.core import Routing
+    scratch = tempfile.mkdtemp(prefix='abhyasa-lead-')
+    a, host = mk_agent((scratch,), routing=Routing(turn=dflt_model(turn)), approve='ask', web=True, pii='redact', python='off',
+                       read_roots=tuple(str(r) for r in read_roots), cfg=None, sp=sp, only_tools=[*LEAD_TOOLS, *tools], subagents=True,
+                       subagent_writes=False, subagent_steps=SUB_STEPS, subagent_timeout=minutes * 60, subagent_depth=1, extensions=False,
+                       global_skills=False, learned=False, compact=False, poll_every=0, auto_turns='off',
+                       max_tool_calls=max_calls, max_steps=max_steps, max_cost=max_cost, max_tokens=max_tokens)
+    host.scratch = scratch
+    return a, host

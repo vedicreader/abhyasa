@@ -88,8 +88,9 @@ def no_web(monkeypatch):
 def no_agent(monkeypatch):
     "No test starts the real gather agent: a test that wants one passes a fake. A walk falls back to the simple search."
     import abhyasa.research
-    def worker(**kw): raise RuntimeError('no agent in the tests')
+    def worker(*a, **kw): raise RuntimeError('no agent in the tests')
     monkeypatch.setattr(abhyasa.research, 'ramabana_worker', worker)
+    monkeypatch.setattr(abhyasa.research, 'ramabana_lead', worker)
 
 @pytest.fixture(autouse=True)
 def no_disk_names(tmp_path_factory):

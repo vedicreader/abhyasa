@@ -20,19 +20,40 @@ def agent_on():
     yield
     for k in ('research.on', 'research.agent'): set_val(k, True)
 
+class Host:
+    "A fake ramabana host: `gather_tools` puts its `read_url`, `web_search` and `read` on it."
+    def add_root(self, p, readonly=False): pass
+
 class Script:
-    "A fake ramabana `Agent`: `ask` runs the tool calls of `script` in order, until `cancel`. A callable in the script runs as it is."
-    def __init__(self, script): self.script, self.tools, self.cancelled, self.calls = script, {}, False, 0
+    """A fake ramabana `Agent`: `ask` runs the tool calls of `script` in order, until `cancel`. A callable in the script runs as it is.
+    A tool that abhyasa does not add is a read of ramabana's host: `fetch_page`, `read_file` and `web_search`."""
+    def __init__(self, script): self.script, self.tools, self.cancelled, self.calls, self.host, self.said = script, {}, False, 0, Host(), []
     def add_tool(self, f): self.tools[f.__name__] = f
+    def call(self, name, kw):
+        "Run one tool call, and keep what it said in `said`."
+        if name in self.tools: out = self.tools[name](**kw)
+        elif name == 'fetch_page': out = self.host.read_url(kw['url'], idea=kw.get('idea', 0)).text
+        elif name == 'read_file': out = self.host.read(kw['file'], idea=kw.get('idea', 0))
+        elif name == 'web_search': out = self.host.web_search(kw['query'])
+        else: raise KeyError(name)
+        self.said.append((name, out))
+        return out
     def ask(self, prompt, **kw):
         for x in self.script:
             if self.cancelled: break
             if callable(x): x(); continue
-            self.tools[x[0]](**x[1])
+            self.call(*x)
             self.calls += 1
         return AttrDict(state='cancelled' if self.cancelled else 'complete', reply='Done.', error='')
     def cancel(self): self.cancelled = True
     def close(self): pass
+
+def lead(agent, seen=None):
+    "A fake `ramabana_lead` that gives `agent` and its host, and keeps what it was asked in `seen`."
+    def mk(read_roots=(), tools=(), **kw):
+        if seen is not None: seen.update(kw, read_roots=list(read_roots), tools=list(tools))
+        return agent, agent.host
+    return mk
 
 def walk(lr, chips=()):
     "A goal walk of two steps with no passage, and a vault document of the chip `vault:notes` with a real sentence on softmax."
@@ -47,7 +68,7 @@ def test_agent_quote_refused_and_stop(lr, monkeypatch):
     agent = Script([('put_passage', dict(idea=1, doc_id=did, quote='words not in doc, and not a sentence of it at all')),
                     ('put_passage', dict(idea=1, doc_id=did, quote=QUOTE)), ('read_doc', dict(doc_id=did, idea=2)), stop.set,
                     *[('read_doc', dict(doc_id=did, idea=2))] * 100])
-    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
+    monkeypatch.setattr(R, 'ramabana_lead', lead(agent))
     out = R.gather(lr, j.id, stop)
     j = lr.journey(j.id)
     assert j.steps[0]['read']['text'] == QUOTE and j.steps[0]['read']['doc_id'] == did
@@ -69,10 +90,10 @@ def test_agent_off_runs_plain_research(lr, monkeypatch):
     assert ran == [j.id] and not lr.journey(j.id).get('gather_at')
 
 def test_agent_cannot_start_falls_back(lr, monkeypatch):
-    "When ramabana_worker raises, the walk says why, and research_walk runs for the steps with no passage."
+    "When ramabana_lead raises, the walk says why, and research_walk runs for the steps with no passage."
     j, _ = walk(lr)
-    def broken(**kw): raise RuntimeError('no claude here')
-    monkeypatch.setattr(R, 'ramabana_worker', broken)
+    def broken(*a, **kw): raise RuntimeError('no claude here')
+    monkeypatch.setattr(R, 'ramabana_lead', broken)
     ran = []
     monkeypatch.setattr(R, 'research_walk', lambda lr_, ask, jid, ix=None, *a: ran.append((jid, ix)) or [None] * len(ix))
     rs = R.Researcher(lr, Fake())
@@ -113,7 +134,7 @@ def test_band_runs_then_stop(mk, lr, monkeypatch):
     "While the agent runs, the band asks again every 3 s and names the document that it reads now. Stop ends the job, and the band says so."
     j, did = walk(lr)
     agent = Script([('read_doc', dict(doc_id=did, idea=1)), lambda: until(lambda: agent.cancelled)])
-    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
+    monkeypatch.setattr(R, 'ramabana_lead', lead(agent))
     cl = mk(); rs = cl.app.state.svc['research']
     job = rs.gather(j.id)
     until(lambda: lr.journey(j.id).get('gather'))   # the watch writes the rows that wait within 2 s
@@ -157,7 +178,7 @@ def test_crash_goes_back_to_find_a_source(mk, lr, monkeypatch):
     "When the agent crashes, each step with no passage goes back to Find a source, with a plain reason, and the band says why."
     j, did = walk(lr)
     def boom(): raise RuntimeError('the model process died')
-    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: Script([('read_doc', dict(doc_id=did, idea=1)), boom]))
+    monkeypatch.setattr(R, 'ramabana_lead', lead(Script([('read_doc', dict(doc_id=did, idea=1)), boom])))
     out = R.gather(lr, j.id, threading.Event())
     assert out.why == 'The agent stopped with an error: the model process died.'
     cl = mk(); cl.post(f'/w/{j.id}/start')
@@ -169,7 +190,7 @@ def test_spend_estimated_in_the_log(mk, lr, monkeypatch):
     "When the model gives no cost, the worker estimates it from the tokens, and the log says so."
     j, did = walk(lr)
     agent = Script([('read_doc', dict(doc_id=did, idea=1))]); agent.estimated = 1.234
-    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
+    monkeypatch.setattr(R, 'ramabana_lead', lead(agent))
     R.gather(lr, j.id, threading.Event())
     assert 'spend estimated: about $1.23' in lr.journey(j.id).gather[-1]['outcome']
     assert 'Spend' in mk().get(f'/w/{j.id}/gather/log').text
@@ -178,7 +199,7 @@ def test_worker_names_its_tools(lr, monkeypatch):
     "gather names each tool that it adds when it makes the worker, so ramabana's only_tools offers those tools and no other."
     j, did = walk(lr)
     agent, seen = Script([]), {}
-    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: seen.update(kw) or agent)
+    monkeypatch.setattr(R, 'ramabana_lead', lead(agent, seen))
     R.gather(lr, j.id, threading.Event())
     assert seen['tools'] and sorted(seen['tools']) == sorted(agent.tools)
     assert {'put_passage', 'read_doc', 'note'} <= set(seen['tools'])
@@ -187,7 +208,7 @@ def test_reorder_keeps_the_idea(lr, monkeypatch):
     "The learner moves a step while the agent runs: the passage goes to the idea that the agent named, not to the step at its old place."
     j, did = walk(lr)
     agent = Script([lambda: lr.journey_step(j.id, 'softmax', 'down'), ('put_passage', dict(idea=1, doc_id=did, quote=QUOTE))])
-    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
+    monkeypatch.setattr(R, 'ramabana_lead', lead(agent))
     R.gather(lr, j.id, threading.Event())
     ss = lr.journey(j.id).steps
     assert [s['slug'] for s in ss] == ['attention', 'softmax'] and ss[1]['read']['text'] == QUOTE and not (ss[0].get('read') or {}).get('text')
@@ -204,13 +225,9 @@ def test_secret_in_a_local_file_never_leaves(lr, monkeypatch, tmp_path):
     def fetch(u): sent.append(u); raise AssertionError('no fetch')
     agent = Script([('read_file', dict(file='notes/keys.md', idea=1)), ('web_search', dict(query=f'softmax {key}', idea=1)),
                     ('fetch_page', dict(url=f'https://example.org/q?key={key}', idea=1)), ('note', dict(text=f'the key is {key}'))])
-    real = agent.add_tool
-    def add(f):
-        if f.__name__ == 'read_file': g = lambda **kw: said.append(f(**kw)) or said[-1]; g.__name__ = f.__name__; return real(g)
-        return real(f)
-    agent.add_tool = add
-    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
+    monkeypatch.setattr(R, 'ramabana_lead', lead(agent))
     R.gather(lr, j.id, threading.Event(), search=search, fetch=fetch)
+    said = [out for name, out in agent.said if name == 'read_file']
     assert said and key not in said[0] and '[SECRET]' in said[0]
     assert not sent and key not in str(lr.journey(j.id).gather)
 
@@ -226,7 +243,7 @@ def test_agent_reads_no_refused_folder(lr, monkeypatch, tmp_path):
     chips = bad_roots(tmp_path, monkeypatch)
     j, did = walk(lr, chips + ['vault:notes'])
     agent = Script([('read_file', dict(file=f, idea=1)) for f in ('etc/afpovertcp.cfg', '/etc/afpovertcp.cfg', 'app/notes.md', 'outside/notes.md')])
-    monkeypatch.setattr(R, 'ramabana_worker', lambda **kw: agent)
+    monkeypatch.setattr(R, 'ramabana_lead', lead(agent))
     R.gather(lr, j.id, threading.Event())
     outs = [r['outcome'] for r in lr.journey(j.id).gather if r['tool'] == 'read_file']
     assert len(outs) == 4 and all(o.startswith('refused') for o in outs), outs
