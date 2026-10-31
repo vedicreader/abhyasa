@@ -4,10 +4,11 @@ import logging, time
 from concurrent.futures import wait
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import Page, hook, Primary, n_of, Feedback
+from abhyasa.core import Page, hook, run as run_hook, Primary, n_of, Feedback, Msg
 from abhyasa.model import DEPTHS, pick
 from abhyasa.tutor import Session, HINTS, moved
 from abhyasa.journey import progress, related
+from abhyasa.demo import show_ask
 from . import ui
 from .cfg import Routes
 
@@ -134,6 +135,8 @@ def connect(app, ctx):
     def answer(sid:str, answer:str='', thinking:str='', confidence:int=None):
         s, q = live(sid)
         if not q: return Response(status_code=204)
+        if (words := show_ask(answer)) is not None:   # "show me …" opens a demo in the thread (the demo block); it uses no try
+            return keep(q, ui.You(answer), *[Msg('', x, cls='tutor extra') for x in run_hook('show_me', words, dict(where='session', qid=q.id))])
         try: r = s.answer(answer, thinking, confidence)
         except KeyError as e:
             if q.id in tutor.open: return failed('grade your answer', sid, e)   # a real error, not a closed question

@@ -12,6 +12,8 @@ The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs,
 `rh:done`); `concepts_added()` (a block added concepts from a source: the concepts block places the new ones in the groups of their subjects, on the pool); `walk_made(j)` (a block made topic walk `j`: the walk block looks for web sources for its steps on the pool); `walk_from_path(j)` (the path page asks to make path `j` a walk that reads your sources: the walk block does it on the pool and gives its pending card); `walk_actions(j, quiet=False, row=False)` (the plan of a walk, its step page, its last page and its path page: the talk adds
 "Present this walk", or "Open the talk" and "Make it again", also on a walk planned from a goal; `quiet` is for a page with its own main button;
 `row` is for its row in a list, with one quiet control: "Present" or "Open the talk"); `term_lookup(term, at)` (a selected term as `{slug, name, statement, url}`).
+`show_me(words, at)` ("show me …" in an answer box: the demo block gives the card of a demo made from `words`; `at` is the place, `{where: 'walk', concept, walk, step}` or
+`{where: 'session', qid}`; on a walk step the card swaps into the place under the title).
 `guide_board(page, board)` (the screen guide drew `board` on the page at the path `page`, which shows a check: the walk block counts it
 as one hint on the open check of that step, and gives the line for the check).
 

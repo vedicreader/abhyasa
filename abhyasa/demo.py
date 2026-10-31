@@ -6,13 +6,14 @@ Docs: https://vedicreader.github.io/abhyasa/demo.html.md"""
 
 # %% auto #0
 __all__ = ['VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'ORDER_AIM',
-           'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'demo_text', 'since_demo', 'rung', 'keep_rung', 'want_demo',
-           'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'queue_demo',
-           'job_state', 'job_age', 'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close',
-           'import_gallery']
+           'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'SHOW_ME', 'KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY',
+           'PHYSICAL', 'WHERES', 'demo_text', 'since_demo', 'rung', 'keep_rung', 'want_demo', 'clean_note', 'quoted',
+           'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'queue_demo', 'job_state',
+           'job_age', 'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask',
+           'route_ask', 'can_explain', 'import_gallery']
 
 # %% ../nbs/10_demo.ipynb #c005
-import json, threading, time
+import hashlib, json, re, threading, time, uuid
 from concurrent.futures import ThreadPoolExecutor
 from fastcore.utils import *
 import rupaka
@@ -40,16 +41,17 @@ def demo_text(spec) -> str:
 _DEMO_LOCK = threading.Lock()
 
 @patch
-def put_demo(self:Learning, spec:dict, concept:str, by:str='hand', checked:float=None, aim:str='') -> AttrDict:
-    "Store `spec` as a demo of `concept` with the aim `aim`."
+def put_demo(self:Learning, spec:dict, concept:str, by:str='hand', checked:float=None, aim:str='', asked:dict=None) -> AttrDict:
+    "Store `spec` as a demo of `concept` with the aim `aim`. `asked` is the ask that the demo answers: `{key, said}`."
     spec = upgrade(spec)
     slug = slugify(spec['id'])
     with _DEMO_LOCK:   # two demo jobs at once: the second sees the demo of the first
         old = self.demo(slug) or {}
-        if old and (old.get('concept'), old.get('aim', '')) != (concept, aim):   # a model picks the id
-            slug = slugify('-'.join(x for x in (concept, aim, spec['id']) if x)); old = self.demo(slug) or {}
+        key = (asked or {}).get('key', '')
+        if old and (old.get('concept'), old.get('aim', ''), (old.get('asked') or {}).get('key', '')) != (concept, aim, key):   # a model picks the id
+            slug = slugify('-'.join(x for x in (concept, aim, key, spec['id']) if x)); old = self.demo(slug) or {}
         m = dict(slug=slug, concept=concept, spec=spec, schema=spec['rupaka'], rupaka=rupaka.__version__, by=by,
-                 checked=checked, aim=aim, at=time.time(), stats=old.get('stats') or dict(shown=0, right=0))
+                 checked=checked, aim=aim, at=time.time(), stats=old.get('stats') or dict(shown=0, right=0), **({'asked': dict(asked)} if asked else {}))
         r = self.v.add(f'{demo_text(spec)}\n\nDemo {slug} for {concept}', title=spec.get('title') or slug, source=_src('demo', slug), kind='demo', meta=m)
         if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
         return self.demo(slug)
@@ -70,9 +72,9 @@ def demos(self:Learning, concept:str=None) -> L:
     return L(sorted(map(_meta, rs), key=lambda d: -d.get('at', 0)))
 
 @patch
-def demo_for(self:Learning, concept:str, aim:str=None) -> AttrDict|None:
-    "The newest demo of `concept`, or of `concept` with the aim `aim`; None when there is none."
-    return first(d for d in self.demos(concept) if aim is None or d.get('aim', '') == aim)
+def demo_for(self:Learning, concept:str, aim:str=None, key:str=None) -> AttrDict|None:
+    "The newest demo of `concept`, or of `concept` with the aim `aim`; None when there is none. A demo made for an ask is found only by the `key` of its ask."
+    return first(d for d in self.demos(concept) if (aim is None or d.get('aim', '') == aim) and (d.get('asked') or {}).get('key') == (key or None))
 
 # %% ../nbs/10_demo.ipynb #ld11
 def since_demo(learning:Learning, slug:str):
@@ -235,13 +237,15 @@ SIMPLER_AIM = register('demo.simpler', 'Simpler demo', 'What the tutor adds to a
 IMAGES_LINE = register('demo.images', 'Image demos', 'What the tutor adds to each demo prompt, so that an idea about images or noise gets an image.',
                        'For an idea about images or noise, use a `field` fn to make an n × n image from a formula over `i`, `j` and the state, with `noise(i, j)` for seeded noise, and show it with a `pixels` block.')
 AIMS = dict(order='demo.order', simpler='demo.simpler')   # the aim of a demo -> the prompt that the tutor adds
+ASKED_LINE = register('demo.asked', 'Demo you asked for', 'What the tutor adds to a demo that you asked for. Your words come after it.',
+                      'The learner asked for this demo. Make the demo show the part of the idea that the ask names, not only the idea.')
 
 def _types(bs):
     "The block types in the blocks `bs`, with the blocks inside them."
     for b in bs or []: yield b.get('type'); yield from _types(b.get('blocks'))
 
-def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, log:list=None, aim:str='') -> AttrDict|None:
-    "A new checked demo for concept `slug` with the aim `aim`, stored on the shelf; None when the model fails."
+def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, log:list=None, aim:str='', said:str='') -> AttrDict|None:
+    "A new checked demo for concept `slug` with the aim `aim`, stored on the shelf; None when the model fails. `said` is the ask of the learner: the demo shows it."
     c = learning.concept(slug)
     if c is None: return None
     if check is None:
@@ -250,36 +254,41 @@ def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, 
     ex, ask_ = None, ask
     if aim == 'order': ex = [s for s in gallery().values() if 'ranklist' in _types(s.get('blocks'))]
     pre = f"{way('order')} " if aim == 'order' else ''
-    extra = ' '.join(x for x in (prompt('demo.images'), aim in AIMS and f"{pre}{prompt(AIMS[aim])}", feedback_line(learning, slug, 'demo')) if x)
+    extra = ' '.join(x for x in (prompt('demo.images'), aim in AIMS and f"{pre}{prompt(AIMS[aim])}", feedback_line(learning, slug, 'demo'), said and f"{prompt('demo.asked')} {quoted(said)}") if x)
     ask_ = lambda p, sp='': ask(f"{p}\n\n{extra}", sp)   # the image line, the aim, then what you said about the last demo
     spec = author(c, ask_, first_error, examples=ex, check=check, log=log)
     if spec is None: return None
-    return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", checked=time.time() if check else None, aim=aim)
+    return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", checked=time.time() if check else None, aim=aim,
+                             asked=dict(key=ask_key(said), said=said) if said else None)
 
 # %% ../nbs/10_demo.ipynb #c035
 _POOL = ThreadPoolExecutor(1)
 
-def _key(slug, aim): return f'{slug}:{aim}' if aim else slug
+def ask_key(said:str) -> str:
+    "A short key for the ask `said`: the same words in another case or spacing give the same key."
+    return hashlib.sha1(' '.join(str(said or '').lower().split()).encode()).hexdigest()[:8]
 
-def queue_demo(tutor, slug:str, first_error:str='', aim:str=''):
-    "Start a background job that makes a demo for `slug` with the aim `aim`; the running job if there is one."
-    k = _key(slug, aim)
+def _key(slug, aim, said=''): return (f'{slug}:{aim}' if aim else slug) + (f'#{ask_key(said)}' if said else '')
+
+def queue_demo(tutor, slug:str, first_error:str='', aim:str='', said:str=''):
+    "Start a background job that makes a demo for `slug` with the aim `aim` (and the ask `said`); the running job if there is one."
+    k = _key(slug, aim, said)
     j = tutor.jobs.get(k)
     if j is not None and not j.done(): return j
-    j = tutor.jobs[k] = (tutor.pool or _POOL).submit(make_demo, tutor.learning, tutor.ask, slug, first_error, aim=aim)
+    j = tutor.jobs[k] = (tutor.pool or _POOL).submit(make_demo, tutor.learning, tutor.ask, slug, first_error, aim=aim, said=said)
     j.at = time.time()
     return j
 
-def job_state(tutor, slug:str, aim:str='') -> str:
-    "'running', 'failed', 'done' or 'none' for the demo job of `slug` with the aim `aim`."
-    j = tutor.jobs.get(_key(slug, aim))
+def job_state(tutor, slug:str, aim:str='', said:str='') -> str:
+    "'running', 'failed', 'done' or 'none' for the demo job of `slug` with the aim `aim` and the ask `said`."
+    j = tutor.jobs.get(_key(slug, aim, said))
     if j is None: return 'none'
     if not j.done(): return 'running'
     return 'done' if not j.exception() and j.result() else 'failed'
 
-def job_age(tutor, slug:str, aim:str='') -> float:
-    "The seconds since the demo job of `slug` with the aim `aim` started; 0 when there is no job."
-    j = tutor.jobs.get(_key(slug, aim))
+def job_age(tutor, slug:str, aim:str='', said:str='') -> float:
+    "The seconds since the demo job of `slug` with the aim `aim` and the ask `said` started; 0 when there is no job."
+    j = tutor.jobs.get(_key(slug, aim, said))
     return time.time() - getattr(j, 'at', time.time()) if j is not None else 0.
 
 # %% ../nbs/10_demo.ipynb #ld13
@@ -343,6 +352,69 @@ def on_close(tutor, q, r):
     return r
 
 CLOSE_HOOKS[:] = [f for f in CLOSE_HOOKS if getattr(f, '__name__', '') != 'on_close'] + [on_close]
+
+# %% ../nbs/10_demo.ipynb #sm02
+SHOW_ME = re.compile(r"\A\s*(?:please[\s,]+)?(?:(?:can|could|will) you\s+)?show\s+me\b[\s,:.!?-]*(.*)\Z", re.I | re.S)
+
+def show_ask(text) -> str|None:
+    "The words after \"show me\" at the start of `text` ('' for a bare \"show me\"); None when `text` is not a \"show me\" ask."
+    m = SHOW_ME.match(str(text or ''))
+    return ' '.join(m[1].split()).rstrip('.!?') if m else None
+
+# %% ../nbs/10_demo.ipynb #sm08
+KINDS = dict(demo='A 2D demo', explainer='A 3D explainer', notebook='A notebook in Leela')
+THREE_D = re.compile(r'\b(?:3\s*-?\s*d|three[\s-]*d(?:imensional)?)\b', re.I)
+HANDS_ON = re.compile(r'\b(?:try|code|coding|notebook|leela)\b', re.I)
+LIBRARY = re.compile(r'\b(?:library|package|api|pip|pytorch|torch|numpy|pandas|diffusers|transformers|sklearn|tensorflow|jax|keras)\b', re.I)
+PHYSICAL = re.compile(r'\b(?:pendulum|spring|orbit|planet|gear|lever|pulley|projectile|magnet|lens|prism|molecule|atom|torque|gyroscope|engine)s?\b', re.I)
+
+def route_ask(said:str='', c=None) -> AttrDict:
+    "The kind of demo for the ask `said` on concept `c` (`demo`, `explainer` or `notebook`), and why, in one line. A plain ask gets a 2D demo."
+    s = str(said or '')
+    if THREE_D.search(s): return AttrDict(kind='explainer', why='You asked for 3D, so a 3D explainer shows it.')
+    if HANDS_ON.search(s): return AttrDict(kind='notebook', why='You asked to try it in code, so it opens in Leela.')
+    if LIBRARY.search(s): return AttrDict(kind='notebook', why='This idea uses a library, so you try it in code in Leela.')
+    if PHYSICAL.search(f"{s} {(c or {}).get('name', '')}"): return AttrDict(kind='explainer', why='This is a physical thing, so a 3D explainer shows it best.')
+    return AttrDict(kind='demo', why='A 2D demo: you predict first, then you see.')
+
+# %% ../nbs/10_demo.ipynb #sm12
+def can_explain() -> bool:
+    "True when the installed rupaka has the `scene` block and the top-level key `mode`, so it can make a 3D explainer."
+    from rupaka.spec import TOP, manifests
+    return 'mode' in TOP and 'scene' in manifests()
+
+# %% ../nbs/10_demo.ipynb #sm16
+WHERES = ('walk', 'session', 'guide', 'concept')
+
+@patch
+def put_ask(self:Learning, concept:str, said:str='', ask:str='', where:str='walk', kind:str='demo', **at) -> AttrDict:
+    "File one ask for a demo of `concept`: your words `said`, the text `ask` that the demo is made from, the place `where` and `at` (walk and step, or session), and the kind."
+    if where not in WHERES: raise ValueError(f'no place {where!r}')
+    ask = ask or said
+    a = AttrDict(id=uuid.uuid4().hex[:12], concept=concept, said=said, ask=ask, key=ask_key(ask) if ask else '', where=where, kind=kind, at=time.time(), **at)
+    self.v.add(f'Asked for a demo of {concept}: {ask}', title=f'Asked: {ask[:80]}', source=_src('ask', a.id), kind='ask', meta=dict(a), force=True)
+    return a
+
+def _outcome(learning, a, slug) -> str:
+    "'right' or 'wrong' from the first prediction on demo `slug` for the ask `a`; '' when there is none."
+    ps = [x for x in learning.attempts(a.concept, limit=200) if x.get('asked') == a.id and x.get('demo') == slug]
+    return ('right' if ps[-1].correct else 'wrong') if ps else ''
+
+@patch
+def asks(self:Learning, concept:str=None, walk:str=None, session:str=None, limit:int=200) -> L:
+    "Your asks for a demo, newest first, each with `slug` (its demo, when it is made) and `outcome` (`right`, `wrong` or '')."
+    w = [(f"json_extract(meta, '$.{k}')=?", v) for k, v in dict(concept=concept, walk=walk, session=session).items() if v is not None]
+    rs = sorted((AttrDict(json.loads(r['meta'])) for r in self._docs('ask', ' and '.join(x for x, _ in w), [v for _, v in w])), key=lambda a: -a.at)[:limit]
+    def full(a):
+        slug = (self.demo_for(a.concept, aim='', key=a.key) or {}).get('slug', '')   # an ask with no words and no check gets the plain demo
+        return AttrDict(a, slug=slug, outcome=_outcome(self, a, slug) if slug else '')
+    return L(rs).map(full)
+
+@patch
+def asked(self:Learning, aid:str) -> AttrDict|None:
+    "One ask by its id; None when there is none."
+    r = first(self.v.t.docs(where='source=?', where_args=[_src('ask', aid)]))
+    return AttrDict(json.loads(r['meta'])) if r else None
 
 # %% ../nbs/10_demo.ipynb #c049
 def import_gallery(learning:Learning, links:dict=None) -> L:

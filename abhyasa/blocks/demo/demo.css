@@ -8,3 +8,9 @@
 .demo-slot { flex-basis: 100%; }
 .demo-slot:empty { display: none; }
 .row > .demo-slot .demo-card { margin-top: var(--s3); }
+/* Show me: the button under the title of a walk step, and the answer to an ask: its kind and why, the demo, then 3D and Leela. */
+.show-row { margin: var(--s2) 0; flex-wrap: wrap; }
+.ask-card .ask-kind { margin: var(--s2) 0 0; }
+.ask-card .kind-why { margin: 0; }
+.ask-card .ask-links { gap: var(--s3); align-items: baseline; flex-wrap: wrap; margin-top: var(--s2); }
+.ask-card .not-ready { color: var(--mute); font-size: .9em; }
