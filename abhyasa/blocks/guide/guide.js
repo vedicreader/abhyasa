@@ -469,6 +469,27 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (!p) { p = Object.assign(document.createElement('p'), {className: 'guide-hint-used mute'}); (c.querySelector('form') || c).prepend(p); }
     p.textContent = text;
   }
+  // "Show me …" to the guide: the demo comes in a small card (the card of the demo block, or a link "Open the demo"), not a board.
+  function showDemo(sh, said) {
+    if (window.abhyasaBoard) abhyasaBoard.stop();
+    const old = document.getElementById('guide-show'); if (old) old.remove();
+    const c = Object.assign(document.createElement('aside'), {id: 'guide-show', className: 'guide-show'});
+    c.setAttribute('aria-label', 'A demo from the guide');
+    const head = Object.assign(document.createElement('p'), {className: 'guide-show-head mute', textContent: `A demo for: ${cut(said, 80)} `});
+    const x = Object.assign(document.createElement('button'), {type: 'button', className: 'guide-show-close', textContent: '×', title: 'Close the demo'});
+    x.setAttribute('aria-label', 'Close the demo'); x.addEventListener('click', () => c.remove());
+    const body = Object.assign(document.createElement('div'), {className: 'guide-show-body'});
+    head.append(x); c.append(head, body); document.body.append(c);
+    if (typeof sh.html === 'string' && sh.html) {   // the card of the demo block, from this app: htmx runs its wait and its scripts
+      if (window.htmx) htmx.swap(body, sh.html, {swapStyle: 'innerHTML'}); else body.innerHTML = sh.html;
+    } else if (/^\/(?!\/)/.test(String(sh.href || ''))) body.append(Object.assign(document.createElement('a'), {href: sh.href, textContent: 'Open the demo'}));
+  }
+  document.addEventListener('keydown', e => {   // Esc closes the demo card when no board shows and the box is closed
+    const c = document.getElementById('guide-show');
+    if (e.key !== 'Escape' || !c || (window.abhyasaBoard && abhyasaBoard.state) || (form() && !form().hidden) || busy) return;
+    c.remove(); e.preventDefault(); e.stopImmediatePropagation();
+  }, {capture: true});
+
   async function ask(said) {
     said = cut(said, 300);
     if (!said) return;
@@ -515,6 +536,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
           if (m.wait) { if (m.state === 'asking' && m.model) asked = {model: m.model, where: m.where, who: m.who}; status(m); }
           if (m.saved) saved = m.saved;
           if (m.error) say(m.error);
+          if (m.show) { busy = 0; showDemo(m.show, said); }
           if (m.step) got.push(m.step);
           if (natural() && voiceOn()) for (const s of m.step ? [m.step] : m.board ? m.board.steps || [] : []) if (s && s.say) line(s.say).catch(() => {});   // each line before it is needed
           if (m.step && !live) {
