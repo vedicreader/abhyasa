@@ -109,3 +109,21 @@ def test_walk_check_when_the_model_fails(mk, walk_fake, lr):
     walk_fake.rules['You grade one answer'] = down
     r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position'))
     assert r.status_code == 503 and r.text == 'The tutor could not grade your answer. Try again.'
+
+# "Add to a walk" on a concept page added a step with no check, and the walk pages then gave error 500 (KeyError: 'check').
+
+def test_a_concept_added_to_a_walk_has_a_check(mk, walk_fake, lr):
+    from walk_data import walk
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    n = len(lr.journey(jid).steps)
+    assert 'Added to' in cl.post('/journeys/attach', data=dict(jid=jid, slug='ranking', src='concept')).text
+    assert lr.journey(jid).steps[n]['check']['kind']
+    for u in (f'/w/{jid}/{n - 1}', f'/w/{jid}/{n}', f'/w/{jid}/{n}/check'): assert cl.get(u).status_code == 200, u
+
+def test_an_old_walk_step_with_no_check(mk, walk_fake, lr):
+    from walk_data import walk
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    j = lr.journey(jid); j.steps.append(dict(slug='ranking', status='todo', why='you added it')); lr.put_journey(j)   # as abhyasa 0.0.15 left it
+    n = len(j.steps) - 1
+    assert lr.journey(jid).steps[n]['check']['kind'] == 'short'
+    for u in (f'/w/{jid}/{n - 1}', f'/w/{jid}/{n}', f'/w/{jid}/{n}/check'): assert cl.get(u).status_code == 200, u
