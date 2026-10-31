@@ -250,7 +250,7 @@ HX = {'hx-request': 'true'}   # htmx asks for a part; without it FastHTML wraps 
 def test_ways_in(mk, walk_fake, lr):
     cl = mk()
     add = cl.get('/add').text
-    assert 'Paste a link, a paper, a topic, a file name or some text' in add and 'hx-post="/walk/new"' in add
+    assert 'What do you want to learn?' in add and 'hx-post="/walk/new"' in add
     did = add_paper(lr)
     assert 'Learn as a walk' in cl.get(f'/v/store/{did}').text
     jid = cl.post('/walk/new', data=dict(text=PAGES[1][1], title='My notes')).headers['hx-redirect'].split('/')[-1]
@@ -573,7 +573,7 @@ def test_vault_name_with_no_document(mk, walk_fake, lr, caplog):
     "A vault name that matches no document gives a plain message, and the log keeps a line."
     cl = mk()
     with caplog.at_level('WARNING'): r = cl.post('/walk/new', data=dict(ref='No such paper'), headers=HX).text
-    assert 'No document in your vault has this name. To add a web page or a paper, use A link.' in r and 'Try again' not in r
+    assert 'No document in your vault has this name. To add a web page or a paper, paste its link.' in r and 'Try again' not in r
     assert 'No such paper' in caplog.text
     t = cl.post('/add', data=dict(ref='No such paper')).text
     assert 'No document in your vault has this name' in t and 'matching' not in t

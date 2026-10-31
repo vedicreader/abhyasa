@@ -34,15 +34,15 @@ def test_the_line_while_research_runs(mk, lr, monkeypatch):
     "While research runs, the plan and each step show what it reads, the sources, the time left and the last step, with Stop and the way back to the build."
     j = walk(lr); cl = mk(); running(cl, monkeypatch)
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
-    assert 'Reads attention.md for idea 3. Sources for 1 of 3 ideas. Less than a minute left. Last step 12 s ago.' in b
+    assert 'Reads attention.md for idea 3. 1 of 3 ideas have a source. Less than a minute left. Last step 12 s ago.' in b
     assert 'Search words go to the web.' in b   # where the words go
     assert '>Stop<' in b and 'every 3s' in b and f'href="/w/{j.id}?plan=1#gather"' in b
     cl.post(f'/w/{j.id}/start')
     step = cl.get(f'/w/{j.id}/1').text
-    assert 'Sources for 1 of 3 ideas.' in step and 'See the build' in step and f'href="/w/{j.id}?plan=1#gather" class="see-build">Sources<' in step   # the line, and the link in the outline
+    assert '1 of 3 ideas have a source.' in step and 'See the build' in step and f'href="/w/{j.id}?plan=1#gather" class="see-build">Sources<' in step   # the line, and the link in the outline
     assert 'has a source' in step   # the idea with a source is marked in the outline
     plan = cl.get(f'/w/{j.id}?plan=1').text   # the build stays in reach after the start
-    assert 'You can start now.' in plan and 'Sources for 1 of 3 ideas.' in plan and 'looking for a source' in plan
+    assert 'You can start now.' in plan and '1 of 3 ideas have a source.' in plan and 'looking for a source' in plan
     assert cl.get(f'/w/{j.id}', follow_redirects=False).status_code in (302, 303)   # Continue still goes to the step
 
 def test_the_heartbeat_moves(mk, lr, monkeypatch):
@@ -65,7 +65,7 @@ def test_the_line_after_research_ends(mk, lr, monkeypatch):
                      (dict(research_end=end, research_stopped='time'), f'The time for research ended at {hm}.'), ({}, 'Research stopped because abhyasa closed.')):
         j = walk(lr, **kv)
         b = cl.get(f'/w/{j.id}/gather', headers=HX).text
-        assert f'Sources for 1 of 3 ideas. {said}' in b and 'Find sources again' in b and 'every 3s' not in b, (said, b)
+        assert f'1 of 3 ideas have a source. {said}' in b and 'Find sources again' in b and 'every 3s' not in b, (said, b)
 
 def test_find_sources_again(mk, lr, monkeypatch):
     "Find sources again looks for each idea with no source."

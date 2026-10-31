@@ -17,9 +17,9 @@ from .cfg import Routes
 _P = Path(__file__).parent
 OUTCOME = {k: t for k, (t, _) in OUTCOMES.items() if k != 'nudge'}
 KIND = dict(short='short answer', code='code', demo='predict · demo', order='predict · order', notebook='notebook · in Leela')
-GRADING, HINTING, TEACHING, WRITING = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'Writing the check…'
+GRADING, HINTING, TEACHING, WRITING = 'Grading…', 'Writing a hint…', 'Writing a lesson…', 'The tutor writes the check…'
 LOOKING = 'Looking for a source…'
-NO_SOURCE = 'No good source was found on the web.'
+NO_SOURCE = 'The tutor found no good source on the web.'
 LEAD = dict(demo='Predict first. Then the demo shows the rest.', order='Put the steps in order first. Then the demo shows the right order.')
 
 def assets(): return asset_css(_P/'walk.css'), asset_js(_P/'walk.js')
@@ -72,7 +72,7 @@ def Plan(j, st, by):
     return Div(Span(f"The walk · {n_of(len(st.sections), 'section')} · {n_of(len(j['steps']), 'idea')} · about {mins} min", cls='lbl'),
                P('Each idea has one check. You can change any check.', cls='mute'),
                P(f"The tutor picked the main ideas. The source has {n} more {'idea' if n == 1 else 'ideas'}. They are in your concepts. "
-                 'When a step needs one of them, you can learn it beside the walk.', cls='mute') if n else '',
+                 'When an idea needs one of them, you can learn it in a side walk.', cls='mute') if n else '',
                Ol(*secs, cls='plan') if secs else P('The tutor found no ideas in this source.', cls='mute'), id='plan')
 
 def PlanPage(j, st, by, actions=(), vault=None):
@@ -123,7 +123,7 @@ def Rail(j, st, by, i, present=()):
     lbl = 'The paper' if j.get('source') else 'The walk'
     rows = []
     for sec, ix in st.sections:
-        rows.append(Li(sec or 'The ideas', cls='sec' + (' on' if i in ix else '')))
+        rows.append(Li(Inline(sec) if sec else 'The ideas', cls='sec' + (' on' if i in ix else '')))
         rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
     src = (' · ', A('Sources', href=sources_url(j['id']), cls='see-build')) if j.get('research_start') or j.get('gather_at') else ()
     edit = P(A('Change the walk', href=at(Routes.edit, j['id'])), *src, cls='change-walk')   # the walk path editor; the line of research
@@ -214,7 +214,7 @@ def GatherBand(j, s, stopping=False, plan=False):
     if not (s.running or s.ended or j.get('gather_at')): return Div(id='gather')
     log = ShowLog(jid) if j.get('gather') else ''
     see = '' if plan else A('See the build', href=sources_url(jid), cls='see-build')
-    have = f"Sources for {s.have} of {n_of(s.total, 'idea')}."
+    have = f"{s.have} of {n_of(s.total, 'idea')} {'has' if s.total == 1 else 'have'} a source."
     if s.running:
         stop = (Span('Stopping…', cls='mute') if stopping else
                 Quiet('Stop', small=True, type='button', hx_post=at(Routes.gather_stop, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Stopping…'))
@@ -222,7 +222,7 @@ def GatherBand(j, s, stopping=False, plan=False):
         return Div(P(line), P(who_words(j), cls='mute') if who_words(j) else '', P(START_NOW, cls='mute start-now') if plan else '', Div(log, see, stop, cls='row'), id='gather', cls='gather-band running',
                    aria_live='polite', hx_get=at(Routes.gather, jid) + ('?plan=1' if plan else ''), hx_trigger='every 3s', hx_swap='outerHTML')
     why = j.get('gather_why') or ''
-    refused = f" abhyasa refused {n_of(s.refused, 'quote')}. The log says why." if s.refused else ''
+    refused = f" abhyasa left out {n_of(s.refused, 'quote')} that did not match the source word for word." if s.refused else ''
     again = (Quiet('Find sources again', small=True, type='button', hx_post=at(Routes.gather_again, jid), hx_target='#gather', hx_swap='outerHTML',
                    data_wait='Starting…') if s.have < s.total and val('research.on') else '')
     return Div(P(f"{have} {ended_words(s)}{refused}"), P(why, cls='mute') if why else '', Div(log, see, again, cls='row'), id='gather', cls='gather-band')
@@ -234,7 +234,7 @@ def ResearchNotice(j):
 
 def SourceReady(jid, i):
     "The quiet line on a step whose source came while the learner reads: the page does not change until the learner asks."
-    return P(A('A source is ready \u2014 show it', href='#', hx_get=at(Routes.source, jid, i), hx_target='#passage', hx_swap='outerHTML'), cls='mute source-ready')
+    return P(A('A source is ready. Show it', href='#', hx_get=at(Routes.source, jid, i), hx_target='#passage', hx_swap='outerHTML'), cls='mute source-ready')
 
 def _target(r):
     "The target of log row `r`: a link to the page on the web (a new tab) or to the document in your vault, else plain text."
@@ -338,7 +338,7 @@ def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault
     if in_talk(): return TalkStep(j, st, by, i)
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
-    head = Div(*[Span(x) for x in (r.get('section'), r.get('page') and f"p. {r['page']}") if x], cls='sec-lbl')
+    head = Div(*[Inline(x) for x in (r.get('section'), r.get('page') and f"p. {r['page']}") if x], cls='sec-lbl')   # a section name can hold markdown, such as *gradient descent*
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING) if result is None else Div(result, id='check')
     return Div(Rail(j, st, by, i, present),
@@ -520,7 +520,7 @@ def CodeCheck(jid, i, s, q, after=(), vault=None):
 NB_WRITING = 'Writing the notebook…'
 NB_HEAD = 'Check · notebook · runs in Leela'
 NO_LEELA = 'Leela is not running. Start Leela, then press ⌥S again.'
-PICK_FOLDER = 'Pick the folder of your images'
+PICK_FOLDER = 'The path on this Mac'
 
 def NbHead(): return Div(Span(NB_HEAD), cls='lbl')
 
@@ -720,8 +720,8 @@ def edit_url(jid, slug=''): return at(Routes.edit, jid) + (f'?{urlencode(dict(sl
 def hands_words(j):
     "The hands-on line of walk `j`, and whether the walk is over its share. It only warns."
     h, n, nb = hands_count(j['steps'])
-    line = f"Hands-on: {h} of {n} ideas ({round(100 * h / n) if n else 0}%). Your setting is about {round(100 * val('walks.hands'))}%."
-    return line + (f' Notebooks that build your goal: {nb}.' if nb else ''), h > hands_most(n)
+    line = f"Hands-on checks: {h} of {n} ideas ({round(100 * h / n) if n else 0}%). Your setting: about {round(100 * val('walks.hands'))}%."
+    return line + (f" {n_of(nb, 'notebook')} {'builds' if nb == 1 else 'build'} your goal." if nb else ''), h > hands_most(n)
 
 def Hands(j, oob=False):
     "The hands-on share of the walk against your setting. Over the share, a quiet link to the setting. Nothing blocks."
@@ -845,10 +845,10 @@ def Editor(j, by, talks=(), opened='', pick=False, actions=(), changed=()):
     whence = f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', '')
     go = (Primary('Continue the walk', href=at(Routes.one, j['id'])) if j.get('started') else
           Form(Primary('Start the walk', data_wait='Starting…'), action=at(Routes.start, j['id']), method='post'))
-    return (H1(f"{j['title']}, the plan of the walk"),
+    return (Span('Change the walk', cls='lbl'), H1(j['title']),
             P(meta(whence, n_of(len(ss), 'idea'), f'about {mins} min'), ' · ', A('Earlier versions', href=at(Routes.history, j['id'])), cls='mute'),
             TalkLine(talks, changed),
-            P('A change saves at once, and Undo takes it back.', cls='lead'),
+            P('Each change saves at once. Undo takes it back.', cls='mute'),
             Details(Summary('About this'), P('An idea keeps your progress, its passage and its side walks when it moves. A removed idea keeps your answers in the vault.'), cls='about'),
             Div(go, *actions, cls='row walk-top'), Hands(j), Steps(j, by, opened, pick=pick), UndoBar(oob=False),   # in the page under the list (walk.css)
             Details(Summary('Keys'), P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('E'), ' edit · ',
@@ -857,6 +857,6 @@ def Editor(j, by, talks=(), opened='', pick=False, actions=(), changed=()):
 def History(j, rows):
     "The earlier versions of the path of walk `j`: each change, newest first, with Restore this version."
     return (H1(f"Earlier versions of {j['title']}"),
-            P('Each line is one change. Restore this version gives back the path as it was before that change. Your progress stays. You can undo a restore too.', cls='lead'),
+            P('Each line is one change. “Restore this version” puts the walk back as it was before that change. Your progress stays. You can undo a restore too.', cls='lead'),
             HistoryList(rows, at(Routes.restore, j['id'])),
-            P(A('Back to the plan of the walk', href=at(Routes.edit, j['id'])), cls='mute'))
+            P(A('← Change the walk', href=at(Routes.edit, j['id'])), cls='mute'))

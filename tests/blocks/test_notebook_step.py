@@ -17,7 +17,7 @@ def test_notebook_card_and_download(mk, lr, walk_fake, tmp_path):
     cl = mk(); jid = nb_step(cl, lr)
     card = cl.get(f'/w/{jid}/1/check').text
     for say in ('Check · notebook · runs in Leela', 'Open in Leela', '(an estimate)', 'none for this one', 'captions.jsonl', 'Predict: How many episodes',
-                'Pick the folder of your images', 'Download the notebook', 'Leela is not running. Start Leela, then press ⌥S again.', 'Get Leela',
+                'The path on this Mac', 'Download the notebook', 'Leela is not running. Start Leela, then press ⌥S again.', 'Get Leela',
                 '1 more test that you cannot see.', 'abhyasa does not run this code'):
         assert say in card, say
     assert 'no people and no place' not in card                                         # a hidden test shows nothing of itself

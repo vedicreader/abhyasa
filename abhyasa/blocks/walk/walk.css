@@ -212,3 +212,6 @@ p.hands a, .talk-line a, .change-walk a { color: var(--mute); }
 html:has(#steps) { scroll-padding-bottom: calc(44px + 4 * var(--s5)); }
 main:has(#steps) .undo-bar { position: sticky; left: auto; bottom: var(--s3); transform: none; width: max-content; margin: var(--s3) auto; animation: none; }
 main:has(#steps) { padding-bottom: calc(44px + 2 * var(--s5)); }
+/* The quiet actions under the outline (Course, Present) line up with "Change the walk" at the left edge, in the same size */
+.outline .rail-acts { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s1); }
+.outline .rail-acts :is(.btn, button) { padding-left: 0; padding-right: 0; font-size: var(--t-small); }

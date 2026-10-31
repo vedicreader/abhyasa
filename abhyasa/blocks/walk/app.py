@@ -41,7 +41,7 @@ MAX_RESULT = 2 << 20                 # the most bytes of one image of a run from
 PNG = b'\x89PNG\r\n\x1a\n'
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
 AS_LINK = 'This is a link, so the tutor reads it from the web.'
-NO_DOC = 'No document in your vault has this name. To add a web page or a paper, use A link.'
+NO_DOC = 'No document in your vault has this name. To add a web page or a paper, paste its link.'
 NO_REWRITE = 'The tutor could not rewrite this. Nothing changed.'
 KEPT = 'Your edit was kept. The rewrite was not used.'
 FILE_WAIT = 20   # seconds that the plan of a goal waits for its sources; a slower one, such as a big clone, joins the walk when it is filed
@@ -624,7 +624,7 @@ def connect(app, ctx):
         with _jlock(jid):   # read and write under the lock of the walk
             if not (j := walk_of(jid, i)) or not (spec := j.steps[i].get('nb')): return Response(status_code=404)
             if not any(d['name'] == name for d in spec['data']): return Response('The notebook has no data with this name.', status_code=400)
-            if why := data_path_why(path.strip()): return Response(f'abhyasa did not keep this path: {why}. Use a folder in your home folder, as ~/Pictures/comic.', status_code=400)
+            if why := data_path_why(path.strip()): return Response(f'abhyasa did not keep this path: {why}. Use a path in your home folder, such as ~/Pictures/comic.', status_code=400)
             try: new = validate_nb_spec({**spec, 'data': [{**d, 'path': path.strip()} if d['name'] == name else d for d in spec['data']]})
             except ValueError as e: return Response(f'abhyasa did not keep this path: {e}.', status_code=400)
             j = put(j, i, nb=new)
@@ -862,7 +862,7 @@ def connect(app, ctx):
         if (no := not_walk(jid)): return no
         j, ts = lr.journey(jid), talks_of(jid)
         old = {t['id'] for t in ts if any(walk_changes(lr, t).values())}   # talks older than the walk: they offer Make it again
-        return Page(f"{j.title}, the plan of the walk", *ui.Editor(j, by(), ts, opened=open, changed=old, pick=bool(pick), actions=run_hook('walk_actions', j, quiet=True)), on='Learn',
+        return Page(f"Change the walk: {j.title}", *ui.Editor(j, by(), ts, opened=open, changed=old, pick=bool(pick), actions=run_hook('walk_actions', j, quiet=True)), on='Learn',
                     crumbs=[*up, (j.title, ui.at(Routes.one, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def bar(j, said, rows, row=''):
@@ -1009,7 +1009,7 @@ def connect(app, ctx):
         if (no := not_walk(jid)): return no
         j = lr.journey(jid)
         return Page(f'Earlier versions of {j.title}', *ui.History(j, lr.edits('walk', jid)), on='Learn',
-                    crumbs=[*up, (f'{j.title}, the plan of the walk', ui.at(Routes.edit, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
+                    crumbs=[*up, (j.title, ui.at(Routes.one, jid)), ('Change the walk', ui.at(Routes.edit, jid))], extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def restore(jid:str, id:str='', k:str=''):
         "Go back to the version of the path before one change (by its `id`, or by its place `k` in the history, newest first). A restore is a change too."

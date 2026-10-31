@@ -51,13 +51,13 @@ def test_hands_share_only_warns(mk, lr, walk_fake):
     cl = mk(); jid = paper_walk(cl, lr)
     for s in lr.journey(jid).steps: r = post(cl, jid, slug=s['slug'], act='check', way='predict')
     assert all(s['check']['kind'] != 'short' for s in lr.journey(jid).steps)
-    assert 'Your setting is about 33%.' in r.text and 'Change the setting' in r.text and 'Hands-on: 3 of 3 ideas (100%).' in r.text
+    assert 'Your setting: about 33%.' in r.text and 'Change the setting' in r.text and 'Hands-on checks: 3 of 3 ideas (100%).' in r.text
 
 def test_notebook_kind_queues_the_spec(mk, lr, walk_fake, monkeypatch):
     queued = []; monkeypatch.setattr('abhyasa.walk.nb_spec', lambda lr, ask, j, i: queued.append(i))
     cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[0]
     r = post(cl, jid, slug=s, act='check', way='notebook')
-    assert lr.journey(jid).steps[0]['check']['kind'] == 'notebook' and 'Notebooks that build your goal: 1.' in r.text
+    assert lr.journey(jid).steps[0]['check']['kind'] == 'notebook' and '1 notebook builds your goal.' in r.text
     wait_for(lambda: True if queued == [0] else None)
     assert queued == [0]
 

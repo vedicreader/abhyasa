@@ -124,7 +124,7 @@ def test_band_and_log_routes(mk, lr):
     lr.merge_journey(j.id, gather=rows, gather_at=now - 70, gather_end=now, gather_total=12)
     cl = mk()
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
-    assert 'Sources for 0 of 2 ideas. Research ended at' in b and 'abhyasa refused 1 quote. The log says why.' in b and 'Show what it did' in b and 'every 3s' not in b
+    assert '0 of 2 ideas have a source. Research ended at' in b and 'abhyasa left out 1 quote that did not match the source word for word.' in b and 'Show what it did' in b and 'every 3s' not in b
     assert 'Find sources again' in b
     h = cl.get(f'/w/{j.id}/gather/log').text
     assert h.index('Note from the agent') < h.index('Read a document') < h.index('Gave a passage') < h.index('Read a page') < h.index('Searched the web')
@@ -140,15 +140,15 @@ def test_band_runs_then_stop(mk, lr, monkeypatch):
     job = rs.gather(j.id)
     until(lambda: lr.journey(j.id).get('gather'))   # the watch writes the rows that wait within 2 s
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
-    assert 'Reads nbs/softmax for idea 1. Sources for 0 of 2 ideas.' in b and 'Last step' in b
+    assert 'Reads nbs/softmax for idea 1. 0 of 2 ideas have a source.' in b and 'Last step' in b
     assert 'idea 1' in cl.get(f'/w/{j.id}/gather/log').text and 'every 3s' in b and '>Stop<' in b
-    assert 'Sources for 0 of 2 ideas' in cl.get(f'/w/{j.id}/0').text   # the step page has the line while it runs
+    assert '0 of 2 ideas have a source' in cl.get(f'/w/{j.id}/0').text   # the step page has the line while it runs
     p = cl.get(f'/w/{j.id}?plan=1').text   # the plan and the line can be reached after the start
     assert 'You can start now.' in p and 'id="gather"' in p
     assert 'Stopping' in cl.post(f'/w/{j.id}/gather/stop', headers=HX).text or job.done()
     job.result(10)
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
-    assert 'Sources for 0 of 2 ideas. You stopped research at' in b and 'every 3s' not in b
+    assert '0 of 2 ideas have a source. You stopped research at' in b and 'every 3s' not in b
     h = cl.get(f'/w/{j.id}/1').text
     assert 'No good source was found. The agent read 0 documents for this idea.' in h and 'Show what it did' in h   # its one read was for idea 1
 
