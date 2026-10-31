@@ -2,7 +2,7 @@
 import re
 from walk_data import walk, leela_file
 from rupaka.spec import validate, gallery
-from abhyasa.demo import ask_key, can_explain
+from abhyasa.demo import ask_key
 
 def svc(cl): return cl.app.state.svc
 
@@ -98,8 +98,7 @@ def test_3d_and_leela_links_say_their_state(mk, walk_fake, lr, monkeypatch, tmp_
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path))
     cl = mk()
     r = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='')).text
-    assert 'Show it in 3D: not ready yet.' in r and ('It needs rupaka 0.0.8' in r) == (not can_explain())
-    assert can_explain() and '3D explainers come in the next version.' in r   # rupaka 0.0.8 has scenes; abhyasa makes no fake 3D view
+    assert 'Show it in 3D' in r and '"kind": "3d"' in r and 'Show a 2D demo' not in r   # a 2D demo: 3D is one click away
     assert 'Leela is not running' in r and '/learn?' not in r
     leela_file(tmp_path)
     r = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='let me try it in code')).text
@@ -107,6 +106,3 @@ def test_3d_and_leela_links_say_their_state(mk, walk_fake, lr, monkeypatch, tmp_
     assert not [k for k in svc(cl)['tutor'].jobs if k.startswith('ranking#')]   # Leela: no 2D job until you ask for it
     two = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='let me try it in code', kind='demo')).text
     assert 'A 2D demo' in two and len(wait_asks(cl, 'ranking')) == 1
-    r = cl.post('/demo/ask', data=dict(where='concept', concept='ranking', said='show it in 3D')).text
-    assert 'A 3D explainer' in r and '3D explainers are not ready yet, so here is a 2D demo.' in r
-    assert lr.asks('ranking')[0].kind == 'explainer'
