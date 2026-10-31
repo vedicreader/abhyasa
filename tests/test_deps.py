@@ -12,14 +12,14 @@ def test_fossick_floor():
     assert Version(version('fossick')) >= Version('0.1.24')
 
 def test_rupaka_floor():
-    "rupaka 0.0.7 has the `field` fn and the `pixels` block, and 0.0.6 has `Rupaka.state`, `set`, `settle` with an answer, `options`, `open` and `rupaka.poll`, so each extra must ask for it, and the lock must have it."
+    "rupaka 0.0.8 has the 3D scene blocks and the top-level key `mode` (`can_explain`), 0.0.7 has the `field` fn and the `pixels` block, and 0.0.6 has `Rupaka.state`, `set`, `settle` with an answer, `options`, `open` and `rupaka.poll`, so each extra must ask for it, and the lock must have it."
     pp = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']
     deps = pp['dependencies'] + [d for ds in pp['optional-dependencies'].values() for d in ds]
     rs = [d for d in deps if d.startswith('rupaka')]
-    assert rs and all(d.endswith('>=0.0.7') for d in rs), rs
+    assert rs and all(d.endswith('>=0.0.8') for d in rs), rs
     lock = tomllib.loads((Path(__file__).parents[1]/'uv.lock').read_text())
-    assert Version(next(p['version'] for p in lock['package'] if p['name'] == 'rupaka')) >= Version('0.0.7')
-    assert Version(version('rupaka')) >= Version('0.0.7')
+    assert Version(next(p['version'] for p in lock['package'] if p['name'] == 'rupaka')) >= Version('0.0.8')
+    assert Version(version('rupaka')) >= Version('0.0.8')
 
 def test_ramabana_is_a_core_dependency():
     "The guide and research guard text with `ramabana.guard`, routing uses ramabana, and the gather worker uses `only_tools` (0.2.96), so a plain install must have it. The `models` extra stays, so old installs still resolve."
