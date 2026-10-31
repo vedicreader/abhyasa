@@ -93,3 +93,19 @@ def test_a_failed_grade_keeps_the_answer(mk, fake):
     fake.rules['You grade one answer'] = down
     r = cl.post(f'/s/{sid}/answer', data=dict(answer='A rank is a position.'))
     assert r.status_code == 503 and r.text == 'The tutor could not grade your answer. Try again.'
+
+# The same in a walk: a check that the model could not write shows a line and Try again, and a failed grade is a 503 with a plain line.
+
+def test_walk_check_when_the_model_fails(mk, walk_fake, lr):
+    from walk_data import walk
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why='plain words fit'))
+    walk_fake.dflt = '[1, 2]'
+    card = cl.get(f'/w/{jid}/1/check')
+    assert card.status_code == 200 and 'The tutor could not write the check.' in card.text and f'hx-get="/w/{jid}/1/check"' in card.text
+    walk_fake.dflt = dict(question='What does a rank tell you?', answer='Its position.', rubric=['position'])
+    assert 'What does a rank tell you?' in cl.get(f'/w/{jid}/1/check').text
+    def down(p, sp): raise RuntimeError('the route timed out')
+    walk_fake.rules['You grade one answer'] = down
+    r = cl.post(f'/w/{jid}/1/answer', data=dict(answer='the rank is a position'))
+    assert r.status_code == 503 and r.text == 'The tutor could not grade your answer. Try again.'

@@ -504,7 +504,11 @@ def connect(app, ctx):
                 j = lr.journey(jid)
             if not j.steps[i].get('done') and j.steps[i]['check']['kind'] not in AIM and j.steps[i].get('qid') not in tutor.open:
                 s = sitting(j)
-                s.q = (open_code(j, i, s.id) if j.steps[i]['check']['kind'] == 'code' else None) or open_short(tutor, as_short(j, i), i, s.id)
+                try: s.q = (open_code(j, i, s.id) if j.steps[i]['check']['kind'] == 'code' else None) or open_short(tutor, as_short(j, i), i, s.id)
+                except Exception as e:
+                    log.warning('the tutor could not write the check of %s step %s: %r', jid, i, e)
+                    return Div(P('The tutor could not write the check.', cls='req-err'),
+                               Button('Try again', hx_get=ui.at(Routes.check, jid, i), hx_target='closest div', hx_swap='outerHTML'))
                 s.save()
         return card(lr.journey(jid), i)
 
@@ -543,11 +547,19 @@ def connect(app, ctx):
             j = put(j, i, nb=new)
         return card(j, i)
 
+    def failed(what, jid, i, e):
+        "A call to the model that failed: the log gets the error, and the page a plain line. A 503 keeps the answer in its box."
+        log.warning('the tutor could not %s on %s step %s: %r', what, jid, i, e)
+        return Response(f'The tutor could not {what}. Try again.', status_code=503, media_type='text/plain')
+
     def answer(jid:str, i:int, answer:str='', thinking:str='', confidence:int=None):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
         try: r = s.answer(answer, thinking, confidence)
-        except KeyError: return no_check(lr.journey(jid), i)   # another request closed it while this one waited
+        except KeyError as e:
+            if s.q.id in tutor.open: return failed('grade your answer', jid, i, e)
+            return no_check(lr.journey(jid), i)   # another request closed it while this one waited
+        except Exception as e: return failed('grade your answer', jid, i, e)
         return closed(j, i, r) if r.done else reply(j, i)
 
     def run(jid:str, i:int, source:str=''):
@@ -564,7 +576,10 @@ def connect(app, ctx):
         if not s: return no_check(j, i)
         try:
             if len(tutor.open[s.q.id].hints) < len(HINTS): s.hint()
-        except KeyError: return no_check(lr.journey(jid), i)
+        except KeyError as e:
+            if s.q.id in tutor.open: return failed('give a hint', jid, i, e)
+            return no_check(lr.journey(jid), i)
+        except Exception as e: return failed('give a hint', jid, i, e)
         return reply(j, i)
 
     @hook('guide_board')
@@ -584,7 +599,10 @@ def connect(app, ctx):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
         try: r = s.give_up(confidence=confidence or 0) if tutor.open[s.q.id].tries else s.answer(dont_know=True, confidence=confidence)
-        except KeyError: return no_check(lr.journey(jid), i)
+        except KeyError as e:
+            if s.q.id in tutor.open: return failed('close the check', jid, i, e)
+            return no_check(lr.journey(jid), i)
+        except Exception as e: return failed('close the check', jid, i, e)
         return closed(j, i, r)
 
     def lesson_job(jid, i, slug):
