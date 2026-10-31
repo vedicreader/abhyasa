@@ -45,3 +45,23 @@ def test_tab_keys():
     assert not any('Settings' in a for _, _, a in KEYS)
     talk = (ROOT/'blocks/talk/talk.js').read_text()
     assert all(f"'Key{k}'" in talk for k in 'QR') and 'Digit1' in talk   # the presenter window ignores them
+
+def pack_rows():
+    "The (keys, action, group) of each [[keys]] table of the pack, read back as TOML."
+    import tomllib
+    return [(r['keys'], r['action'], r['group']) for r in tomllib.loads(sanketa_pack())['keys']]
+
+def test_pack_actions_are_short():
+    "Sanketa warns about an action of more than six words: each action of the pack has six or fewer, and the page keeps the long text."
+    long = [(k, a) for k, a, _ in pack_rows() if len(a.split()) > 6]
+    assert not long, long
+    from abhyasa.core.keys import SHORT
+    assert set(SHORT) <= {a for _, _, a in KEYS}, 'a short label for an action that is not in the table'
+
+def test_pack_keys_once_per_group_and_in_key_style():
+    "The lint error rule: no two keys with the same keys text in one group. Plain letters are lower case, and choices have ` / `."
+    rows = pack_rows()
+    assert len({(k, g) for k, _, g in rows}) == len(rows)
+    ks = {(g, k) for k, _, g in rows}
+    assert ('Graph', 's') in ks and ('Everywhere', '⌥F / ?') in ks and ('Walk path', '⇧W / ⇧S') in ks and ('Everywhere', '⌥⇧F') in ks
+    assert ('Everywhere', '⌥D') in ks and ('Guide', '⌃⌥⇧⌘E') in ks
