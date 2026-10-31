@@ -152,6 +152,19 @@ def test_warm_starts_the_guide_job_at_most_once_in_a_while(mk, monkeypatch):
     assert seen == [['guide']]
     assert 'data-warm="/guide/warm"' in cl.get('/').text
 
+def test_ask_sends_the_thread_of_the_page_to_the_model(mk, fake):
+    "The thread in the body (the page) or in the ctx (the Mac) reaches the prompt with the lines said; a bad thread does not."
+    fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='Simply: less is left.')])
+    th = [dict(said="I don't get alpha bar", says=['Alpha bar is the share that is left.'], t='tutor')]
+    cl = mk()
+    for body in (dict(said='say that more simply', ctx={}, thread=th), dict(said='say that more simply', ctx=dict(thread=th))):
+        n = len(fake.calls)
+        evs = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=body).text.splitlines() if l.startswith('data: ')]
+        assert '"Alpha bar is the share that is left."' in fake.calls[n][0] and 'your last questions on this page' in evs[0]['wait']
+    n = len(fake.calls)
+    cl.post('/guide/ask', json=dict(said='say that more simply', ctx={}, thread='not a list'))
+    assert 'Earlier on this page' not in fake.calls[n][0]
+
 def test_ask_needs_words(mk):
     assert mk().post('/guide/ask', json=dict(said='  ', ctx={})).status_code == 400
 

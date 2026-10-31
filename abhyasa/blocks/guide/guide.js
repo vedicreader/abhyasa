@@ -274,6 +274,40 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     return focusOf(gs.map(g => ({...g, words: wordsAt(shown.said, g.t)})), anchors.filter(a => ctx.anchors.some(x => x.id === a.id)));
   }
 
+  // --- the thread of the page ------------------------------------------------------------------------------------------
+  // A follow-up ("say that more simply", "why?") means the last board. So the page keeps the last 3 turns on this page, each the
+  // question, the lines that its board said and its tier, and sends them with the next question. They are in memory only: the
+  // thread clears when the page changes, after 10 minutes with no question, or with Start fresh. Nothing goes to disk, and the
+  // server keeps none of it. The bounds are the server's too (`clean_context`): a cut line or turn there is cut here first.
+  const TH = {turns: 3, said: 300, says: 6, say: 160, total: 1500, idle: 600000};
+  const pageKey = () => location.pathname;
+  let thread = {page: pageKey(), at: 0, turns: []};
+  const size = t => t.said.length + t.says.reduce((n, x) => n + x.length, 0);
+  function fresh() { thread = {page: pageKey(), at: 0, turns: []}; threadLine(); }
+  function turns() {   // the thread now; an old one or one of another page goes first
+    if (thread.turns.length && (thread.page !== pageKey() || Date.now() - thread.at > TH.idle)) fresh();
+    return thread.turns;
+  }
+  function keep(said, board, page) {   // the turn of a board that the learner saw, on the page where they asked
+    const says = (board && board.steps || []).map(x => cut(x && x.say, TH.say)).filter(Boolean).slice(0, TH.says);
+    if (!says.length || page !== pageKey()) return;
+    const ts = [...turns(), {said: cut(said, TH.said), says, t: board.tier || 'tutor'}].slice(-TH.turns);
+    while (ts.length && ts.reduce((n, t) => n + size(t), 0) > TH.total) ts.shift();
+    thread = {page, at: Date.now(), turns: ts};
+  }
+  function threadLine() {   // "Follows up on: <the last question>", with Start fresh, under the box while a thread exists
+    const p = form() && form().querySelector('.guide-thread'), ts = turns();
+    if (!p) return;
+    p.hidden = !ts.length;
+    const last = ts.length ? ts[ts.length - 1].said : '';
+    p.querySelector('.guide-thread-said').textContent = last ? `Follows up on: ${last.length > 60 ? last.slice(0, 59) + '…' : last}` : '';
+  }
+  document.addEventListener('htmx:afterSwap', e => {   // a new main page (a link of the app, hx-boost): a new thread
+    const t = e.detail && e.detail.target, main = document.querySelector('main');
+    if (t && (t === document.body || t.tagName === 'MAIN' || (main && t.contains(main)))) fresh();
+  });
+  addEventListener('popstate', () => fresh());
+
   // --- asking ----------------------------------------------------------------------------------------------------------
   const form = () => document.getElementById('guide-form'), box = () => document.getElementById('guide-box');
   const heard = t => { const h = form() && form().querySelector('.guide-heard'); if (h) h.textContent = t; };
@@ -282,7 +316,10 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const f = form(), b = box();
     if (!f || !b) return;
     const sel = cut(String(getSelection() || ''), 80);
-    f.hidden = false; heard(''); startShow();
+    f.hidden = false; heard(''); threadLine(); startShow();
+    const st = document.getElementById('guide-strip');   // a follow-up opens the box while the board strip shows: the box goes over the strip
+    f.style.bottom = '';
+    if (st && !st.hidden && st.offsetHeight + 8 > parseFloat(getComputedStyle(f).bottom)) f.style.bottom = st.offsetHeight + 8 + 'px';
     if (!localStorage.getItem('guide-told')) {   // the first Explain: one line, no sheet
       localStorage.setItem('guide-told', '1');
       const m = info.model || {};
@@ -407,7 +444,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     if (!said) return;
     const shown = stopShow();   // what the learner showed with the pointer while they asked
     close();
-    const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0}, n = ++asks;
+    const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0}, n = ++asks, page = pageKey();
     const offer = voiceOffer();
     const opts = () => ({labels, quiet: !voiceOn(), who: asked, onVoice: setVoice, point: info.point, ...(natural() && {host: {speak: speakNatural}, voiceAt: info.out}), ...(offer && {notice: offer})}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
     let labels = {}, live = null, whole = false, asked = info.model || null, saved = null;   // live: the promise of the streaming board, with each add after it
@@ -429,7 +466,9 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
         if (n !== asks) return;
       }
       labels = Object.fromEntries(ctx.anchors.filter(a => a.labels).map(a => [a.id, a.labels]));
-      const r = await fetch(me.ask, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({said, ctx}), signal: me_.signal});
+      const th = turns().map(t => ({...t}));   // the last questions on this page go too, and the server's line says so
+      if (th.length) thread.at = Date.now();
+      const r = await fetch(me.ask, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({said, ctx, ...(th.length && {thread: th})}), signal: me_.signal});
       if (!r.ok) return say(cut(await r.text(), 200) || 'The tutor could not answer. Try again.');
       const rd = r.body.getReader(), dec = new TextDecoder();
       let buf = '';
@@ -453,7 +492,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
             live = abhyasaBoard.play({steps: [m.step], tier: m.tier || 'tutor', sources: [], streaming: true}, opts());
           } else if (m.step) live = live.then(() => n === asks && abhyasaBoard.add(m.step));
           if (m.board) {
-            whole = true; busy = 0;
+            whole = true; busy = 0; keep(said, m.board, page);
             if (saved) m.board.saved = saved;
             hintLine(m.board.hint);
             last.board_ms = Math.round(performance.now() - t0); last.server_ms = m.board.ms; last.tier = m.board.tier;
@@ -467,6 +506,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
         }
       }
       if (live && !whole && n === asks) {   // the stream ended after steps, with no board: end the board with the steps that came
+        keep(said, {steps: got, tier: 'tutor'}, page);
         await live;
         if (n === asks && abhyasaBoard.state && abhyasaBoard.state.streaming) abhyasaBoard.finish({steps: got, tier: 'tutor', sources: [], end: ''});
       }
@@ -474,9 +514,9 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     finally { if (busy === n) busy = 0; }
   }
 
-  // --- Hyper+E: hold to talk, tap to type -------------------------------------------------------------------------------
+  // --- Hyper+E: hold to talk, tap to type ----------------------------------------------------------------------------
   // Hyper is ⌃⌥⇧⌘ (Caps Lock with a key remapper). A hold of HOLD ms or more starts the mic of the voice block into the box;
-  // the release stops it, and the words go to the tutor when the last of them is in. A tap opens the box. macOS sends no
+  // the release stops it, and the words stay in the box when the last of them is in: the learner can change them, and Enter sends. A tap opens the box. macOS sends no
   // keyup for E while ⌘ is down, so the keyup of any of the four modifiers is a release too.
   const HOLD = 300;
   let held = null, mic = null;
@@ -509,8 +549,15 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const end = performance.now() + 15000;
     while (performance.now() < end && (b.classList.contains('busy') || b.classList.contains('on'))) await new Promise(ok => setTimeout(ok, 100));
     b.hidden = true;
-    if (box().value.trim()) ask(box().value); else heard('The mic heard nothing. Type your question.');
+    const x = box();   // the transcript stays in the box, so the learner can change it; Enter sends, Esc closes
+    if (!x.value.trim()) return heard('The mic heard nothing. Type your question.');
+    heard(EDIT);
+    x.focus(); x.setSelectionRange(x.value.length, x.value.length);   // the learner just spoke into the box: not a focus steal
   }
+  const EDIT = 'Change it if you need to. ↩ sends.';
+  document.addEventListener('keydown', e => {   // ⌘↩ sends too (a plain ↩ submits the form)
+    if (e.key === 'Enter' && e.metaKey && e.target === box() && !form().hidden) { e.preventDefault(); ask(box().value); }
+  });
   addEventListener('keydown', e => {
     if (e.code !== 'KeyE' || !(e.metaKey && e.altKey && e.ctrlKey && e.shiftKey)) return;
     e.preventDefault(); e.stopImmediatePropagation();   // before core.js, which would press the ⌥E button of a concept page
@@ -527,6 +574,10 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   addEventListener('blur', () => release({code: 'KeyE'}));
 
   document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#guide-go')) { e.preventDefault(); open(); } });
+  document.addEventListener('click', e => {   // Start fresh: the next question has no thread; the box keeps the focus
+    if (!(e.target.closest && e.target.closest('#guide-form .guide-fresh'))) return;
+    e.preventDefault(); fresh(); if (box()) box().focus();
+  });
   document.addEventListener('click', e => {   // a time in the transcript seeks the video on the page; a click with a modifier opens YouTube
     const a = e.target.closest && e.target.closest('#guide-video a[data-t]');
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !window.abhyasaBoard || !abhyasaBoard.seekVideo) return;
@@ -534,5 +585,6 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   });
   document.addEventListener('submit', e => { if (e.target.id === 'guide-form') { e.preventDefault(); ask(box().value); } });
 
-  window.abhyasaGuide = {capture, texParts: (...a) => abhyasaTex.texParts(...a), labelsOf, ask, open, gestures, focusOf, G, readLine, aboutFigure, halt, speakNatural, info};
+  window.abhyasaGuide = {capture, texParts: (...a) => abhyasaTex.texParts(...a), labelsOf, ask, open, gestures, focusOf, G, readLine, aboutFigure, halt, speakNatural, info,
+                        thread: () => turns().map(t => ({...t, says: [...t.says]})), fresh};
 })();

@@ -53,14 +53,15 @@ public struct Anchor: Equatable, Sendable, Encodable {
 }
 
 /// The context that goes to the guide's ask route. The server keeps `page`, `title`, `anchors` (with `id`, `kind` and
-/// `text`) and `focus` (what the learner showed with the pointer), and drops the other keys. `app` and `role` are there for a
-/// later server. With no focus, the JSON has no `focus` key.
+/// `text`), `focus` (what the learner showed with the pointer) and `thread` (the last questions over this window), and drops
+/// the other keys. `app` and `role` are there for a later server. With no focus or no thread, the JSON has no key for it.
 public struct GuideContext: Equatable, Sendable, Encodable {
     public var page: String
     public var title: String
     public var app: String
     public var anchors: [Anchor]
     public var focus: [Gestures.Focus]? = nil
+    public var thread: [GuideThread.Turn]? = nil
 }
 
 /// Why the guide reads less than it can. The strip shows the words.

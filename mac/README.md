@@ -66,8 +66,12 @@ window, asks the server and draws.
   sheet never shows by itself at launch. The 0.0.14 switch (`guide`, on by default) is not used.
 - Key: Caps+E. Caps Lock is Hyper (⌃⌥⇧⌘), so the hot key is ⌃⌥⇧⌘E, the same key as the page guide. A tap opens a small strip at
   the top of the screen, where you type your question. A hold opens the mic; the release sends what you said to `/voice/stt`.
+  The words that come back stay in the strip's box: change them if you need to, then push Return to send them.
   While a board shows, a tap says the step again, and `Esc` stops the board. The app takes `Esc` only while a board shows. The
   key is a Carbon hot key, so it needs no permission. Over Abhyasa's own window, the key opens the page's own guide box.
+- Follow-up questions: the guide keeps your last 3 questions over the window in front, with the lines of their boards, in memory
+  only. It sends them with the next question, and the strip shows "Follows up on: <your last question>" with × (Start fresh).
+  It forgets them when the window changes (the app or the window title), after 10 minutes with no question, or with ×.
 - Signs: at key down, before the read, the strip says "The guide reads this window." Then it says what it read ("Reads Safari:
   the window title and 38 parts with text."). Before the request goes, it says what leaves the Mac and to which model, with a
   chip: `on this Mac`, or `hosted · Anthropic`. While the mic is on, a level moves, and a chip tells where speech to text runs

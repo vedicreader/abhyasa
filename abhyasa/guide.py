@@ -6,14 +6,14 @@ Docs: https://vedicreader.github.io/abhyasa/guide.html.md"""
 
 # %% auto #0
 __all__ = ['OPS', 'FIELDS', 'LIMITS', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'KINDS', 'ANCHOR_ID', 'MOST',
-           'FOCUS', 'SHOWN', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'WATCH', 'CHECK_ASK', 'FILLER', 'OFF_CHECK',
-           'COUNTS', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR', 'WEB_FAILED', 'WEB_NO_PAGE', 'WEB_NO_PASSAGE',
-           'NO_WEB', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'check_line', 'parse_board',
-           'PageContext', 'clean_context', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why', 'vision_ask',
-           'Withheld', 'guard', 'safe_query', 'guarded', 'figure_check', 'focus_text', 'page_text', 'board_prompt',
-           'video_id', 'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of',
-           'asked_words', 'on_check', 'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain',
-           'stream_board']
+           'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD_RULE', 'WATCH',
+           'CHECK_ASK', 'FILLER', 'OFF_CHECK', 'COUNTS', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR',
+           'WEB_FAILED', 'WEB_NO_PAGE', 'WEB_NO_PASSAGE', 'NO_WEB', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at',
+           'cue_quote', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels', 'FigureCache',
+           'keeps_images', 'vision_why', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'figure_check',
+           'focus_text', 'thread_text', 'page_text', 'board_prompt', 'video_id', 'video_cues', 'find_explainer',
+           'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'source_label',
+           'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
@@ -248,6 +248,25 @@ def _focus(raw, ids) -> list:
         out.append(o)
     return out
 
+# %% ../nbs/21_guide.ipynb #gt02
+THREAD = dict(turns=3, said=300, says=6, say=160, total=1500)
+TIERS = ('tutor', 'vault', 'web')
+
+def _turn(t) -> dict|None:
+    "One good turn of a thread: the question `said`, the lines `says` of its board, and its tier `t`. None when it is bad."
+    if not isinstance(t, dict) or not (said := _s(t.get('said', ''), THREAD['said'])) or not isinstance(t.get('says'), list): return None
+    says = [s for s in (_s(x, THREAD['say']) for x in t['says'][:THREAD['says']]) if s]
+    if not says or any(UNSAFE.search(s) for s in says): return None
+    return dict(said=said, says=says, t=t.get('t') if t.get('t') in TIERS else 'tutor')
+
+def _size(t) -> int: return len(t['said']) + sum(map(len, t['says']))
+
+def _thread(raw) -> list:
+    "The good turns of `raw`, the oldest first: the last 3, with at most 1500 characters in all. The oldest turn goes first."
+    out = [t for t in map(_turn, raw[-10:] if isinstance(raw, list) else ()) if t][-THREAD['turns']:]
+    while out and sum(map(_size, out)) > THREAD['total']: out.pop(0)
+    return out
+
 # %% ../nbs/21_guide.ipynb #g052
 def _demo(d) -> dict:
     if not isinstance(d, dict): return {}
@@ -276,6 +295,7 @@ def clean_context(raw) -> PageContext:
                concept=_s(raw.get('concept', ''), 200), slug=_s(raw.get('slug', ''), 80), source=_s(raw.get('source', ''), 300),
                anchors=anchors, demo=_demo(raw.get('demo')))
     if (fs := _focus(raw.get('focus'), {a['id'] for a in anchors})): ctx['focus'] = fs
+    if (th := _thread(raw.get('thread'))): ctx['thread'] = th
     if isinstance(raw.get('video'), dict) and isinstance(raw['video'].get('id'), str): ctx['video'] = dict(id=_s(raw['video']['id'], 11))
     return PageContext(by_id(ctx))
 
@@ -443,6 +463,17 @@ def focus_text(ctx) -> str:
     out.append(f"Step 1 must explain what the learner showed in item 1, and mark it: {a}, or a token, label or words inside it.")
     return '\n'.join(out)
 
+# %% ../nbs/21_guide.ipynb #gt11
+THREAD_RULE = ('The new question can refer to these earlier questions and boards. Answer the new question. '
+               'Do not give a board again that the learner saw, unless they ask for it.')
+
+def thread_text(ctx) -> str:
+    "The earlier turns on this page in a fence, the oldest first, with the rule for them; '' when there are none."
+    from abhyasa.ground import fence
+    if not (th := ctx.get('thread')): return ''
+    turns = '\n'.join(f"{k}. Learner: {json.dumps(t['said'])}\n   Board ({t['t']}): " + ' '.join(json.dumps(s) for s in t['says']) for k, t in enumerate(th, 1))
+    return f"Earlier on this page, the oldest first:\n{fence('earlier on this page', turns)}\n{THREAD_RULE}"
+
 # %% ../nbs/21_guide.ipynb #g071
 def page_text(ctx) -> str:
     "The anchors of `ctx`, one line each, with the demo and the video."
@@ -461,14 +492,15 @@ def page_text(ctx) -> str:
     return '\n'.join(out)
 
 def board_prompt(ctx, said:str, sources=(), tier:str='tutor', note:str='') -> str:
-    "The request for a board on `said`, with what the learner showed (`focus_text`), the page of `ctx`, the numbered `sources`, each in a fence, and the lines of `note`."
+    "The request for a board on `said`, with what the learner showed (`focus_text`), the page of `ctx`, the earlier turns on the page (`thread_text`), the numbered `sources`, each in a fence, and the lines of `note`."
     from abhyasa.ground import fence
     head = [f"Learner: {json.dumps(said)}", f"Page: {ctx.get('title') or ctx.get('page') or ''}"]
     if ctx.get('step'): head.append(f"Step: {ctx['step']}")
     if ctx.get('concept'): head.append(f"Concept: {ctx['concept']}")
     srcs = '\n'.join(f"Source {k}: " + fence(s.get('title') or '', s.get('text') or '') for k, s in enumerate(sources, 1))
     if (fx := focus_text(ctx)): head.append(f"\n{fx}")
-    return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + (f"{note}\n" if note else '') + f"Tier: {tier}\nReply with the JSON lines."
+    th = f"{tx}\n\n" if (tx := thread_text(ctx)) else ''
+    return '\n'.join(head) + f"\n\n{fence('the page', page_text(ctx))}\n\n" + th + (f"{srcs}\n\n" if srcs else 'No sources.\n\n') + (f"{note}\n" if note else '') + f"Tier: {tier}\nReply with the JSON lines."
 
 # %% ../nbs/21_guide.ipynb #gv01
 WATCH = 'https://www.youtube.com/watch?v='
@@ -611,10 +643,11 @@ def _ev(wait:str, state:str, **kw) -> dict:
     "One state event: `wait` and `state`, then each field of `kw` that applies."
     return dict(wait=wait, state=state, **{k: v for k, v in kw.items() if v not in (None, '') or k == 'who' and 'model' in kw})
 
-def _asks(w:dict, what:str='') -> dict:
-    "The state event before a model call: `what` goes to the model of `w` (from `where_of`)."
+def _asks(w:dict, what:str='', thread:bool=False) -> dict:
+    "The state event before a model call: `what` goes to the model of `w` (from `where_of`). With `thread`, the line says that the last questions go too."
     m, here = w.get('model') or 'the tutor', w['where'] == HERE
-    wait = f"{what} to {m}." if what else f"Asks {m}." + ('' if here else ' It gets your question and the page text.')
+    gets = ' It gets your question, the page text and your last questions on this page.' if thread else ' It gets your question and the page text.'
+    wait = f"{what} to {m}." if what else f"Asks {m}." + ('' if here else gets)
     return _ev(wait + (' Nothing leaves this Mac.' if here else ''), 'asking', **w)
 
 def _n(n:int, what:str) -> str: return f"{n} {what}{'' if n == 1 else 's'}"
@@ -707,7 +740,7 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
         if off: c.by.pop('check')
         return stream_board(ask.stream(p, sp), c, on_step, stop=stop) if on_step and hasattr(ask, 'stream') else parse_board(ask(p, sp), c)
     page, w = _page_sources(ctx), where_of(getattr(ask, 'model', ''))
-    first = _asks(w)
+    first = _asks(w, thread=bool(ctx.get('thread')))
     tell(dict(first, wait=first['wait'] + COUNTS, hint=True) if hint else first)
     b = board('tutor', page, on_step)
     if (b.steps and (b.sure or 0) >= SURE) or (stop is not None and stop.is_set()): return _done('tutor', b, page, t0, hint)

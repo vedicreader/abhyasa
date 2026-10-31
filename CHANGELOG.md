@@ -2,6 +2,11 @@
 
 <!-- do not remove -->
 
+## 0.0.16
+
+- You can ask the guide a follow-up question, such as "say that more simply" or "why?". The guide sends your last 3 questions on this page and the lines of their boards with the new question. Under the box, "Follows up on: <your last question>" shows, with × to start fresh. The guide forgets the questions when you go to another page, after 10 minutes with no question, or when you push ×. It keeps them in memory only. The Mac guide does the same for each window.
+- When you speak with Caps+E, the guide shows what it heard in the box and sends nothing yet. Change the words if you need to, then push Return to send them. Esc closes the box. The Mac guide does the same in its strip.
+
 ## 0.0.15
 
 ### The screen guide shows what it does
