@@ -1,11 +1,12 @@
 "Your learning: past sessions with what moved, what you learned each week, and Continue: in the top bar and on Today."
-import time
+import re, time
 from fastcore.basics import AttrDict
 from fasthtml.common import *
-from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago, Empty
+from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago, Empty, page_req
 from abhyasa.settings import val
 from abhyasa.tutor import moved
-from abhyasa.journey import progress, parent_step, for_talk
+from abhyasa.journey import parent_step, is_open, last_place
+from abhyasa.course import course_of
 from . import ui
 from .cfg import Routes
 
@@ -48,11 +49,6 @@ def connect(app, ctx):
         pj, i = opener(j, js)
         if pj: return f'/w/{pj.id}/{i}'
         return f'/w/{j.id}' if j and j.get('mode') == 'walk' else Routes.of(Routes.page, sid=s['id'])
-
-    def is_open(s): return s.get('log') is not None and not s.get('ended') and bool(s.get('log') or s.get('open'))
-
-    def latest_open():
-        return next((s for s in lr.sessions(30) if is_open(s)), None)
 
     def week(now=None):
         "Questions answered on each of the last seven days, oldest first."
@@ -118,40 +114,28 @@ def connect(app, ctx):
                     H2('The questions'), *([ui.Question(r, own(r)) for r in log] if log else [P(s.get('summary') or 'No questions.', cls='mute')]),
                     on='You', crumbs=[*up, ('Your learning', Routes.base)])
 
-    def used_at(j):
-        "When you last used walk `j`: the idea that you were on, an idea that you read or closed, Open in Leela, or the start. Else the time of its last change."
-        ts = [j.get('started') or 0, (j.get('here') or {}).get('at') or 0]
-        for s in j.get('steps') or ():
-            d = s.get('done')
-            ts += [s.get('read_at') or 0, s.get('leela_at') or 0, (d.get('at') or 0) if isinstance(d, dict) else 0]
-        return max(ts) or j.get('updated') or 0
+    def place():
+        "The place that you used last (`last_place`), with its link and what was done there; None when there is none or its course card shows it."
+        if not (p := last_place(lr)): return None
+        if p.get('session'): return AttrDict(p, href=Routes.of(Routes.page, sid=p.session), done=n_of(p.done, 'question') + ' done')
+        c = course_of(lr, p.walk) if p.course else None
+        return AttrDict(p, href=f'/w/{p.walk}/{p.step}', course=c, done=f"{p.done} of {n_of(p.total, 'idea')}")
 
-    def newest():
-        """The place that you used last, or None: the newest open session, or a walk that is not finished and that you used after it.
-        Each has `title`, `href`, `at` (the time that you used it) and `done` (what was done there)."""
-        by, js = names()
-        best = None
-        if (s := latest_open()):
-            j = js.get(s.get('journey') or '')
-            pg = j and j.get('mode') == 'walk' and progress(lr, opener(j, js)[0] or j, by=by)   # a walk says its ideas, not questions
-            best = AttrDict(title=title(s, by, js), href=back(s, js), at=s.get('updated') or s.get('end') or s.get('start') or 0,
-                            done=f"{pg.done} of {n_of(pg.total, 'idea')}" if pg else n_of(len(s.get('log') or []), 'question') + ' done')
-        for j in js.values():   # the newest change first: a use of a walk changes it, so a walk with an older change was not used later
-            if best and (j.get('updated') or 0) <= best.at: break
-            if for_talk(j) or best and used_at(j) <= best.at: continue   # a side walk of a talk is for the room
-            if (pg := progress(lr, j, by=by)).current:
-                best = AttrDict(title=j.title, href=f'/w/{j.id}' if j.get('mode') == 'walk' else f"{Routes.start}?journey={j.id}", at=used_at(j),
-                                done=f"{pg.done} of {n_of(pg.total, 'idea')}")
-        return best
+    def here_of(p):
+        "Whether the page that is drawn now is the place `p` (its walk, or a side walk of it), Home, or a review: there, the top bar has no Continue."
+        path = (req := page_req()) and req.url.path or ''
+        if path == '/' or path.startswith('/s/'): return True
+        m = re.match(r'/w/([^/]+)', path)
+        return bool(m and p.get('walk') and (m[1] == p.walk or ((lr.journey(m[1]) or {}).get('parent') or {}).get('walk') == p.walk))
 
     @hook('nav_extra')
     def continue_link():
-        "Continue where you stopped: the place that you used last, an open session or a walk that is not finished."
-        if (p := newest()): return ui.Continue(p.title, p.href)
+        "Continue where you stopped: the place that you used last, on each page that is not that place."
+        if (p := place()) and not here_of(p): return ui.Continue(p.course.title if p.get('course') else p.title, p.href)
 
     @hook('today_top')
     def continue_card(subject=None):
-        if not (p := newest()): return None
+        if subject or not (p := place()) or p.get('course'): return None   # a course walk: the course card is the top card
         return ui.css(), ui.Continue(p.title, p.href, big=True, done=p.done, at=p.at)   # the card style is in history.css
 
     RouteOverrides.nav.append(('You', Routes.base, 3))

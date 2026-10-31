@@ -1,0 +1,1376 @@
+{
+  "version": 1,
+  "about": "The spec of each page, each state and each workflow of abhyasa after the consolidation. A test (tests.md) builds the data of each state with temp_learning() and fakes, GETs the page, and checks must_show, must_not_show and the links to exits. Element names are data-part (a section) and data-act (an action) attributes; tests select [data-part=X] and [data-act=Y]. Labels are the on-screen words (ASD-STE100). The repo copy (tests/data/flows.json) is the source of truth; the design copy is history. An item is `kind:value`: part:X and act:Y check the first word of the value, label: checks the words (with {name} from the builder), one:X checks that exactly one [data-part=X] shows. Words after the first in part: and act: are a note. A state or a workflow with \"pending\": true has no code yet, and the test skips it.",
+  "data": {
+    "about": "The stored fields that decide each state. store: where the field lives. new: true when the field does not exist today.",
+    "walk.started": {
+      "store": "lr.journey(jid)['started']",
+      "new": false
+    },
+    "walk.steps[i].done": {
+      "store": "lr.journey(jid).steps[i]['done'] = {outcome, at}",
+      "new": false
+    },
+    "walk.steps[i].read": {
+      "store": "lr.journey(jid).steps[i]['read'] (text, src, researched, gathered)",
+      "new": false
+    },
+    "walk.steps[i].research": {
+      "store": "lr.journey(jid).steps[i]['research'] in pending|found|none",
+      "new": false
+    },
+    "walk.current": {
+      "store": "walk_state(j, by).current (derived; None when every step is done, skipped or known)",
+      "new": false
+    },
+    "walk.here": {
+      "store": "lr.journey(jid)['here'] = {step, at}; written by GET of the idea page",
+      "new": true
+    },
+    "walk.jobs.research": {
+      "store": "lr.journey(jid)['jobs']['research'] = {state: running|done|stopped|failed|closed, start, end, have, total, why, seen}",
+      "new": true,
+      "replaces": "research_start, research_end, gather_at, gather_end, research_seen, research_stopped, and Researcher.running() for the page"
+    },
+    "walk.jobs.build": {
+      "store": "lr.journey(jid)['jobs']['build'] = {state, said, start, end, why}",
+      "new": true,
+      "replaces": "walk block `links` dict (memory)"
+    },
+    "walk.jobs.filing": {
+      "store": "lr.journey(jid)['jobs']['filing'] = {state, roots, why}",
+      "new": true,
+      "replaces": "j.filing"
+    },
+    "walk.parent": {
+      "store": "lr.journey(jid)['parent'] = {walk, step} (side walk)",
+      "new": false
+    },
+    "walk.course": {
+      "store": "lr.journey(jid)['course']",
+      "new": false
+    },
+    "walk.steps[i].check.kind": {
+      "store": "short|demo|order|notebook (code goes, see drop.md)",
+      "new": false
+    },
+    "walk.steps[i].qid": {
+      "store": "lr.journey(jid).steps[i]['qid']; open when qid in tutor.open (runtime; the fixture opens it with GET /check)",
+      "new": false
+    },
+    "leela.back": {
+      "store": "leela_back(lr, j)[i] (attempts with app=leela)",
+      "new": false
+    },
+    "course.level.qs": {
+      "store": "lr.course(cid)['level']['qs'] (each with answer)",
+      "new": false
+    },
+    "course.stages": {
+      "store": "lr.course(cid)['stages'][k] = {key, name, walk, status}",
+      "new": false
+    },
+    "course.jobs": {
+      "store": "lr.course(cid)['jobs'][kind] = {state, said, start, end, why}; kind level|plan|stage:<key>",
+      "new": true,
+      "replaces": "course block `jobs` dict (memory)"
+    },
+    "course.here": {
+      "store": "lr.course(cid)['here'] = {walk, step, slug, at}",
+      "new": false
+    },
+    "course_state": {
+      "store": "course_state(lr, cid) (derived): here, next, blocking, finished",
+      "new": false
+    },
+    "session.open": {
+      "store": "lr.session(sid): log is not None and not ended and (log or open)",
+      "new": false
+    },
+    "concept.due": {
+      "store": "lr.concepts(): seen and due <= now",
+      "new": false
+    },
+    "demo": {
+      "store": "lr.demo_for(slug, aim, key); lr.asks(concept)",
+      "new": false
+    },
+    "place": {
+      "store": "last_place(lr) (derived, new function, see nav.continue)",
+      "new": true
+    }
+  },
+  "nav": {
+    "top_bar": [
+      {
+        "label": "Home",
+        "href": "/",
+        "key": "⌥Q"
+      },
+      {
+        "label": "Library",
+        "href": "/library",
+        "tabs": [
+          "Concepts",
+          "Sources",
+          "Graph"
+        ]
+      },
+      {
+        "label": "You",
+        "href": "/you",
+        "tabs": [
+          "Progress",
+          "Profile"
+        ]
+      },
+      {
+        "part": "continue",
+        "rule": "nav.continue"
+      },
+      {
+        "part": "activity",
+        "rule": "nav.activity"
+      },
+      {
+        "part": "explain",
+        "label": "Explain",
+        "key": "Caps+E"
+      },
+      {
+        "part": "search"
+      },
+      {
+        "part": "settings",
+        "href": "/settings"
+      }
+    ],
+    "continue": {
+      "rule": "last_place(lr) gives one place or None. A place is (walk, step) or (session). Candidates: (1) each walk that is not for a talk and has walk.current not None; a side walk counts as the step of its parent (walk.parent); its time is max(walk.here.at, the newest steps[i].read_at, walk.started). (2) each open session with no journey; its time is session.updated. The newest candidate wins. The step of a walk place is walk.here.step when that step is not done, else walk.current.",
+      "show_when": "place is not None AND the page is not the place's walk (/w/{jid} or /w/{jid}/{i} with the same jid, or the parent walk of a side walk) AND the page is not Home (Home shows the same place as its card) AND the page is not a review session.",
+      "label": "Continue: {walk title}  (a course walk: Continue: {course title})",
+      "href": "/w/{jid}/{step} or /s/{sid}",
+      "one_function": "The top bar, the Home card and the course card call last_place. history.continue_link, history.continue_card and the course today_top card are replaced by it.",
+      "cost": "One query per page: the newest 10 walks by updated, and the newest open session. No progress() over all concepts."
+    },
+    "activity": {
+      "rule": "Jobs from walk.jobs.*, course.jobs.* and demo jobs with state running, or with state in done|failed and seen false and end within 6 hours.",
+      "show_when": "at least one such job",
+      "label": "running: '{n} running'; ended: 'Ready: {what}' or 'Failed: {what}'",
+      "opens": "a small list; each row links to the page of the object (the walk page, section sources; the course page). Opening the object page sets seen=true.",
+      "replaces": [
+        "walk research_notice (page_extra)",
+        "LinkPending as the only sign of a link walk",
+        "course Pending as the only sign of a stage build"
+      ],
+      "transport": "one SSE stream GET /events while a job runs (else no connection); the Mac app reads GET /jobs.json (replaces /walk/research.json)"
+    }
+  },
+  "pages": {
+    "home": {
+      "path": "/",
+      "purpose": "Go on with what you do, do the reviews that are due, or start something new.",
+      "main_action": "Continue",
+      "object": "learner",
+      "replaces": [
+        "/ (Today)",
+        "/learn (Learn)"
+      ],
+      "states": {
+        "empty": {
+          "when": "no walk (lr.journeys() empty, less talk side walks) and no course",
+          "must_show": [
+            "part:start",
+            "label:What do you want to learn?"
+          ],
+          "must_not_show": [
+            "part:continue-card",
+            "part:walks",
+            "act:continue"
+          ],
+          "actions": [
+            "start"
+          ],
+          "pending": true,
+          "pending_why": "step 5: the Start box on Home"
+        },
+        "going": {
+          "when": "last_place(lr) is not None",
+          "must_show": [
+            "part:continue-card",
+            "act:continue",
+            "part:walks",
+            "part:start"
+          ],
+          "must_not_show": [
+            "part:continue (the top bar)"
+          ],
+          "actions": [
+            "continue",
+            "start",
+            "open walk",
+            "open course"
+          ],
+          "pending": true,
+          "pending_why": "step 5: the Start box on Home"
+        },
+        "course_going": {
+          "when": "last_place(lr) is a step of a walk with walk.course",
+          "must_show": [
+            "one:continue-card",
+            "label:Your course",
+            "part:course-why (the reason line course_state.next.why)",
+            "act:continue"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "continue",
+            "open course"
+          ]
+        },
+        "reviews_due": {
+          "when": "count of concept.due > 0",
+          "must_show": [
+            "part:reviews",
+            "label:Review: {n} ideas are due.",
+            "act:review"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "review"
+          ]
+        },
+        "starting": {
+          "when": "a walk.jobs.build with state running (goal, link or folder walk being made)",
+          "must_show": [
+            "part:activity",
+            "the build line walk.jobs.build.said"
+          ],
+          "must_not_show": [],
+          "actions": [],
+          "pending": true,
+          "pending_why": "step 8: job rows and the activity chip"
+        }
+      },
+      "entries": [
+        "nav",
+        "brand",
+        "launch"
+      ],
+      "exits": [
+        "idea",
+        "walk",
+        "course",
+        "review",
+        "library",
+        "you",
+        "settings"
+      ]
+    },
+    "course": {
+      "path": "/course/{cid}",
+      "purpose": "See where you are on the way to your goal, what comes next and why, and what stands in the way.",
+      "main_action": "Continue",
+      "object": "course",
+      "replaces": [
+        "/course/{cid}",
+        "/course/of/{jid}",
+        "/course/{cid}/stage/{key} (pending page)"
+      ],
+      "states": {
+        "no_level": {
+          "when": "course.level.qs empty and no course.jobs.level running",
+          "must_show": [
+            "part:level",
+            "act:ask-level",
+            "label:Ask me where I start",
+            "part:stages",
+            "part:sources"
+          ],
+          "must_not_show": [
+            "part:questions"
+          ],
+          "actions": [
+            "ask-level",
+            "continue"
+          ],
+          "pending": true,
+          "pending_why": "phase B: data-part on the course page"
+        },
+        "level_open": {
+          "when": "course.level.qs not empty and at least one has no answer",
+          "must_show": [
+            "part:questions",
+            "label:Yes",
+            "label:A little",
+            "label:No"
+          ],
+          "must_not_show": [
+            "act:ask-level"
+          ],
+          "actions": [
+            "answer"
+          ],
+          "pending": true,
+          "pending_why": "phase B: data-part on the course page"
+        },
+        "planning": {
+          "when": "course.jobs.plan.state == running or course.jobs.level.state == running",
+          "must_show": [
+            "part:level",
+            "the line course.jobs.<kind>.said"
+          ],
+          "must_not_show": [
+            "part:questions"
+          ],
+          "actions": [],
+          "pending": true,
+          "pending_why": "phase B: data-part on the course page"
+        },
+        "going": {
+          "when": "course_state.here is not None and not course_state.finished",
+          "must_show": [
+            "part:here",
+            "act:continue",
+            "part:stages",
+            "part:blocking",
+            "part:sources",
+            "act:add-source"
+          ],
+          "must_not_show": [
+            "label:You reached your goal."
+          ],
+          "actions": [
+            "continue",
+            "open stage walk",
+            "add-source",
+            "ask-level"
+          ],
+          "pending": true,
+          "pending_why": "phase B: data-part on the course page"
+        },
+        "stage_building": {
+          "when": "a course.jobs['stage:<key>'] with state running",
+          "must_show": [
+            "the stage row with label:abhyasa plans it now",
+            "part:activity"
+          ],
+          "must_not_show": [],
+          "actions": [],
+          "pending": true,
+          "pending_why": "phase B: data-part on the course page"
+        },
+        "source_failed": {
+          "when": "a course source with status failed",
+          "must_show": [
+            "part:blocking",
+            "the source row with its why",
+            "act:retry-source"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "retry-source"
+          ],
+          "pending": true,
+          "pending_why": "phase B: data-part on the course page"
+        },
+        "finished": {
+          "when": "course_state.finished",
+          "must_show": [
+            "label:You reached your goal.",
+            "part:made",
+            "part:reviews"
+          ],
+          "must_not_show": [
+            "act:continue"
+          ],
+          "actions": [
+            "review"
+          ],
+          "pending": true,
+          "pending_why": "phase B: data-part on the course page"
+        }
+      },
+      "entries": [
+        "home",
+        "walk",
+        "idea",
+        "nav.continue"
+      ],
+      "exits": [
+        "idea",
+        "walk",
+        "review",
+        "home"
+      ]
+    },
+    "walk": {
+      "path": "/w/{jid}",
+      "purpose": "One page for one walk: its plan, its sources and its build, and where you are in it.",
+      "main_action": "Start the walk | Continue | Review",
+      "object": "walk",
+      "replaces": [
+        "/w/{jid} (plan)",
+        "/w/{jid}?plan=1 (build view)",
+        "/w/{jid}/edit",
+        "/w/{jid}/history",
+        "/w/{jid}/plan (POST)",
+        "/w/{jid}/{i}/done (walk end)",
+        "/path/{jid}",
+        "/j/{jid}",
+        "/w/{jid}/gather/log (page; it stays as a pane)"
+      ],
+      "sections": {
+        "plan": "the ideas in order, each with its check kind. Edit in place: move, skip, remove, check kind, add, split, merge, rewrite, with Undo. 'Earlier versions' is a fold.",
+        "sources": "the research line (state of walk.jobs.research), Stop, Show what it did (pane), Find sources again, Add a source, what Start filed with Undo",
+        "result": "after the end: what moved, what you made (Leela), the next review date",
+        "talks": "quiet: Present, Open the talk (secondary product)"
+      },
+      "states": {
+        "new": {
+          "when": "not walk.started and steps not empty",
+          "must_show": [
+            "part:plan",
+            "act:start",
+            "label:Start the walk",
+            "part:sources"
+          ],
+          "must_not_show": [
+            "act:continue",
+            "part:result"
+          ],
+          "actions": [
+            "start",
+            "edit plan",
+            "add-source"
+          ],
+          "pending": true,
+          "pending_why": "step 3: one walk page"
+        },
+        "researching": {
+          "when": "walk.jobs.research.state == running",
+          "must_show": [
+            "part:sources",
+            "label:{have} of {total} ideas have a source.",
+            "act:stop",
+            "act:show-log",
+            "label:You can start now."
+          ],
+          "must_not_show": [
+            "act:find-again"
+          ],
+          "actions": [
+            "stop",
+            "show-log",
+            "start or continue"
+          ],
+          "pending": true,
+          "pending_why": "step 3: one walk page"
+        },
+        "research_ended": {
+          "when": "walk.jobs.research.state in done|stopped|closed",
+          "must_show": [
+            "part:sources",
+            "label:Research ended at",
+            "act:find-again (the builder makes have < total)"
+          ],
+          "must_not_show": [
+            "act:stop"
+          ],
+          "actions": [
+            "find-again",
+            "add-source"
+          ],
+          "pending": true,
+          "pending_why": "step 3: one walk page"
+        },
+        "going": {
+          "when": "walk.started and walk.current is not None",
+          "must_show": [
+            "part:here",
+            "act:continue",
+            "label:Continue: idea {n} of {total}",
+            "part:plan",
+            "part:sources"
+          ],
+          "must_not_show": [
+            "act:start",
+            "part:result"
+          ],
+          "actions": [
+            "continue",
+            "edit plan",
+            "find-again",
+            "add-source"
+          ],
+          "pending": true,
+          "pending_why": "step 3: one walk page"
+        },
+        "finished": {
+          "when": "walk.started and walk.current is None and steps not empty",
+          "must_show": [
+            "part:result",
+            "label:You finished the walk.",
+            "act:review",
+            "act:improve",
+            "part:plan",
+            "part:sources"
+          ],
+          "must_not_show": [
+            "act:start",
+            "label:Start the walk"
+          ],
+          "actions": [
+            "review",
+            "improve",
+            "find-again",
+            "open course when walk.course"
+          ],
+          "pending": true,
+          "pending_why": "step 3: one walk page"
+        },
+        "side_walk": {
+          "when": "walk.parent is set",
+          "must_show": [
+            "act:back",
+            "label:Back to the paper"
+          ],
+          "must_not_show": [
+            "part:talks"
+          ],
+          "actions": [
+            "back",
+            "continue"
+          ],
+          "pending": true,
+          "pending_why": "step 3: one walk page"
+        },
+        "empty": {
+          "when": "steps empty",
+          "must_show": [
+            "label:The tutor found no ideas in this source."
+          ],
+          "must_not_show": [
+            "act:start",
+            "act:continue"
+          ],
+          "actions": [
+            "home"
+          ],
+          "pending": true,
+          "pending_why": "step 3: one walk page"
+        }
+      },
+      "entries": [
+        "home",
+        "course",
+        "idea (crumb and outline title)",
+        "activity",
+        "library sources"
+      ],
+      "exits": [
+        "idea",
+        "course",
+        "review",
+        "talk",
+        "home",
+        "concept"
+      ]
+    },
+    "idea": {
+      "path": "/w/{jid}/{i}",
+      "purpose": "Learn one idea: read the passage, see it, answer the check.",
+      "main_action": "Send (the check), then Next idea",
+      "object": "walk step (a concept in a walk)",
+      "replaces": [
+        "/w/{jid}/{i}",
+        "/w/{jid}/{i}/done (section summary becomes a line on the next idea)"
+      ],
+      "parts": [
+        "outline (part:outline; its title links to the walk page)",
+        "passage",
+        "show (part:show: the Show slot)",
+        "note",
+        "check",
+        "next",
+        "needs (side walks)",
+        "video"
+      ],
+      "states": {
+        "reading": {
+          "when": "not steps[i].done and steps[i].check.kind in short|demo|order and steps[i].read.text",
+          "must_show": [
+            "part:outline",
+            "part:passage",
+            "part:show",
+            "act:show-me",
+            "part:note",
+            "part:check"
+          ],
+          "must_not_show": [
+            "label:Looking for a source…"
+          ],
+          "actions": [
+            "send",
+            "hint",
+            "show-me",
+            "explain",
+            "learn-it (side walk)",
+            "next"
+          ],
+          "pending": true,
+          "pending_why": "step 3: data-part on the idea page"
+        },
+        "waiting_source": {
+          "when": "not steps[i].read.text and steps[i].research == pending",
+          "must_show": [
+            "part:passage",
+            "label:Looking for a source…",
+            "part:note",
+            "part:check"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "send",
+            "pick a passage (walk page plan)"
+          ],
+          "pending": true,
+          "pending_why": "step 3: data-part on the idea page"
+        },
+        "no_source": {
+          "when": "not steps[i].read.text and steps[i].research == none",
+          "must_show": [
+            "label:The tutor found no good source on the web.",
+            "act:look-again"
+          ],
+          "must_not_show": [
+            "label:Looking for a source…"
+          ],
+          "actions": [
+            "look-again",
+            "send"
+          ],
+          "pending": true,
+          "pending_why": "step 3: data-part on the idea page"
+        },
+        "done": {
+          "when": "steps[i].done.outcome in solid|fragile|wrong|gave_up",
+          "must_show": [
+            "part:check (closed card)",
+            "act:next",
+            "label:Next idea"
+          ],
+          "must_not_show": [
+            "act:send"
+          ],
+          "actions": [
+            "next",
+            "show-me",
+            "review"
+          ],
+          "pending": true,
+          "pending_why": "step 3: data-part on the idea page"
+        },
+        "known_elsewhere": {
+          "when": "walk_state(j, by).steps[i].elsewhere",
+          "must_show": [
+            "label:known (learned elsewhere)",
+            "act:next"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "next",
+            "send"
+          ],
+          "pending": true,
+          "pending_why": "step 3: data-part on the idea page"
+        },
+        "notebook": {
+          "when": "steps[i].check.kind == notebook and not leela.back[i]",
+          "must_show": [
+            "part:check",
+            "act:open-leela",
+            "label:Open in Leela"
+          ],
+          "must_not_show": [
+            "act:send",
+            "act:run"
+          ],
+          "actions": [
+            "open-leela"
+          ],
+          "pending": true,
+          "pending_why": "step 3: data-part on the idea page"
+        },
+        "from_leela": {
+          "when": "leela.back[i] exists",
+          "must_show": [
+            "label:From Leela",
+            "act:next"
+          ],
+          "must_not_show": [
+            "act:send"
+          ],
+          "actions": [
+            "next",
+            "open-leela"
+          ],
+          "pending": true,
+          "pending_why": "step 3: data-part on the idea page"
+        },
+        "last_idea_done": {
+          "when": "steps[i].done and walk.current is None",
+          "must_show": [
+            "act:next",
+            "label:See the end of the walk"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "next → walk (finished)"
+          ],
+          "pending": true,
+          "pending_why": "step 3: data-part on the idea page"
+        }
+      },
+      "entries": [
+        "walk",
+        "home (Continue)",
+        "nav.continue",
+        "course",
+        "concept"
+      ],
+      "exits": [
+        "idea (next, back, a side walk)",
+        "walk",
+        "course"
+      ]
+    },
+    "concept": {
+      "path": "/c/{slug}",
+      "purpose": "One idea outside a walk: what it is, how well you know it, where it shows up.",
+      "main_action": "Review this | Open in your walk",
+      "object": "concept",
+      "states": {
+        "in_a_walk": {
+          "when": "with_step(lr, slug) has a walk not for a talk",
+          "must_show": [
+            "act:open-in-walk",
+            "label:Open it in {walk title}",
+            "part:show",
+            "part:strength"
+          ],
+          "must_not_show": [
+            "part:passages (a list of passages from walks: the walk has them)"
+          ],
+          "actions": [
+            "open-in-walk",
+            "review",
+            "show-me"
+          ],
+          "pending": true,
+          "pending_why": "phase B"
+        },
+        "not_in_a_walk": {
+          "when": "no walk has a step on slug",
+          "must_show": [
+            "act:review",
+            "act:add-to-walk",
+            "part:show"
+          ],
+          "must_not_show": [
+            "act:open-in-walk"
+          ],
+          "actions": [
+            "review",
+            "add-to-walk",
+            "show-me"
+          ],
+          "pending": true,
+          "pending_why": "phase B"
+        }
+      },
+      "entries": [
+        "library",
+        "search",
+        "graph",
+        "review end",
+        "idea needs"
+      ],
+      "exits": [
+        "idea",
+        "review",
+        "library"
+      ]
+    },
+    "review": {
+      "path": "/s/{sid}",
+      "purpose": "Answer the questions that are due, so you keep what you learned.",
+      "main_action": "Send",
+      "object": "session",
+      "replaces": [
+        "/start (stays as the POST that makes a session)",
+        "/s/{sid}/end (becomes the ended state)"
+      ],
+      "states": {
+        "open": {
+          "when": "session.open",
+          "must_show": [
+            "part:thread",
+            "part:composer",
+            "act:send",
+            "act:show-me"
+          ],
+          "must_not_show": [
+            "part:moved"
+          ],
+          "actions": [
+            "send",
+            "hint",
+            "teach",
+            "show-me",
+            "end"
+          ],
+          "pending": true,
+          "pending_why": "phase B"
+        },
+        "ended": {
+          "when": "session.ended",
+          "must_show": [
+            "part:moved",
+            "act:home"
+          ],
+          "must_not_show": [
+            "act:send"
+          ],
+          "actions": [
+            "home",
+            "review again"
+          ],
+          "pending": true,
+          "pending_why": "phase B"
+        }
+      },
+      "entries": [
+        "home (reviews)",
+        "course (weak idea)",
+        "walk finished (Review)",
+        "concept"
+      ],
+      "exits": [
+        "home",
+        "concept",
+        "idea"
+      ]
+    },
+    "library": {
+      "path": "/library",
+      "purpose": "Find a concept, a source or a link between ideas.",
+      "main_action": "Find",
+      "object": "vault",
+      "tabs": {
+        "concepts": "/library",
+        "sources": "/library/sources",
+        "graph": "/library/graph"
+      },
+      "replaces": [
+        "/concepts",
+        "/sources",
+        "/graph"
+      ],
+      "states": {
+        "concepts": {
+          "when": "tab concepts",
+          "must_show": [
+            "part:find",
+            "part:groups"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "find",
+            "open concept"
+          ],
+          "pending": true,
+          "pending_why": "phase B"
+        },
+        "sources": {
+          "when": "tab sources",
+          "must_show": [
+            "part:sources",
+            "each source row links to the walk page section sources"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "open doc",
+            "remove root"
+          ],
+          "pending": true,
+          "pending_why": "phase B"
+        }
+      },
+      "entries": [
+        "nav"
+      ],
+      "exits": [
+        "concept",
+        "doc",
+        "walk"
+      ]
+    },
+    "doc": {
+      "path": "/v/{shelf}/{doc_id}",
+      "purpose": "Read one document of your vault, and learn from it.",
+      "main_action": "Learn as a walk",
+      "object": "vault document",
+      "states": {
+        "any": {
+          "when": "doc exists",
+          "must_show": [
+            "act:learn-walk"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "learn-walk"
+          ],
+          "pending": true,
+          "pending_why": "phase B"
+        }
+      },
+      "entries": [
+        "library",
+        "idea passage source line"
+      ],
+      "exits": [
+        "walk"
+      ]
+    },
+    "you": {
+      "path": "/you",
+      "purpose": "See what moved and what the tutor knows about you.",
+      "main_action": "Save",
+      "object": "learner",
+      "tabs": {
+        "progress": "/you (this week, how well you know each subject, past sessions)",
+        "profile": "/you/profile"
+      },
+      "replaces": [
+        "/learning",
+        "/you/strengths",
+        "/learning/{sid} (becomes a fold in a row)"
+      ],
+      "states": {
+        "any": {
+          "when": "always",
+          "must_show": [
+            "part:week",
+            "part:strengths"
+          ],
+          "must_not_show": [],
+          "actions": [],
+          "pending": true,
+          "pending_why": "phase B"
+        }
+      },
+      "entries": [
+        "nav"
+      ],
+      "exits": [
+        "concept",
+        "review"
+      ]
+    },
+    "settings": {
+      "path": "/settings",
+      "purpose": "Change models, voice, look and the rules of the tutor.",
+      "main_action": "none (each change saves)",
+      "object": "settings",
+      "states": {
+        "any": {
+          "when": "always",
+          "must_show": [
+            "part:tabs"
+          ],
+          "must_not_show": [],
+          "actions": [],
+          "pending": true,
+          "pending_why": "phase B"
+        }
+      },
+      "entries": [
+        "nav gear"
+      ],
+      "exits": []
+    },
+    "talk": {
+      "path": "/t/{tid}",
+      "purpose": "Secondary: make a walk into a talk for a room, and present it.",
+      "main_action": "Present",
+      "object": "talk",
+      "states": {
+        "any": {
+          "when": "talk exists",
+          "must_show": [
+            "act:present"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "present",
+            "edit slides"
+          ],
+          "pending": true,
+          "pending_why": "phase B"
+        }
+      },
+      "entries": [
+        "walk section talks"
+      ],
+      "exits": [
+        "walk"
+      ]
+    }
+  },
+  "demos": {
+    "about": "One idea: Explain and Show. Explain = the tutor talks and marks what you already see (the guide board). Show = a thing that you act on or watch (a rupaka spec). The rule says which one you get, where it shows, and which renderer draws it.",
+    "kinds": {
+      "explain": {
+        "what": "board: steps with marks (circle, underline, arrow, label, point, sketch) and one spoken line each",
+        "renderer": "core/board.js",
+        "engine": "guide.explain",
+        "moves_floor": false
+      },
+      "predict": {
+        "what": "2D rupaka spec, mode predict: you predict at each gate, then you see",
+        "renderer": "rupaka.js",
+        "engine": "demo.make_demo",
+        "moves_floor": true
+      },
+      "explainer": {
+        "what": "3D rupaka scene, mode learn: it builds one step at a time; no prediction",
+        "renderer": "rupaka.js + three.js",
+        "engine": "demo.make_explainer",
+        "moves_floor": false
+      },
+      "diagram": {
+        "what": "nodes and edges that show how parts of an idea link",
+        "renderer": "today: board.js (placeDiagram). Proposed: a rupaka 'flow' block, mode learn, drawn in the Show slot",
+        "engine": "guide.explain (op diagram)",
+        "moves_floor": false
+      },
+      "video": {
+        "what": "the idea's explainer video at a time",
+        "renderer": "Show slot embed; board op video_at seeks it",
+        "engine": "guide.find_explainer",
+        "moves_floor": false
+      },
+      "notebook": {
+        "what": "hands-on code",
+        "renderer": "Leela (not abhyasa)",
+        "engine": "walk.nb_spec, leela_link",
+        "moves_floor": "only when Leela files a passed check"
+      }
+    },
+    "rules": [
+      {
+        "trigger": "Show me (⌥E) on an idea page, or 'show me …' typed in the check box",
+        "surface": "idea page, part:show (the Show slot under the passage)",
+        "kind": "route_ask(words): predict by default; explainer for 3D or a physical thing; notebook for try/code/library → Open in Leela",
+        "renderer": "rupaka.js",
+        "counts_try": false
+      },
+      {
+        "trigger": "Show me in a review session",
+        "surface": "review page, a tutor message in the thread",
+        "kind": "as above",
+        "renderer": "rupaka.js",
+        "counts_try": false
+      },
+      {
+        "trigger": "Show me on a concept page",
+        "surface": "concept page, part:show",
+        "kind": "as above",
+        "renderer": "rupaka.js"
+      },
+      {
+        "trigger": "Caps+E on an abhyasa page, a question that is not 'show me'",
+        "surface": "the guide bar and a board over the page",
+        "kind": "explain; when the page has a rupaka spec in part:show, the board drives it (demo_set) and draws no diagram of its own",
+        "renderer": "board.js"
+      },
+      {
+        "trigger": "Caps+E on an abhyasa idea page: 'show me …'",
+        "surface": "idea page, part:show (the guide hands off; no board)",
+        "kind": "route_ask",
+        "renderer": "rupaka.js"
+      },
+      {
+        "trigger": "Caps+E over another app (Mac overlay), a question",
+        "surface": "Mac overlay board",
+        "kind": "explain only; a diagram only when the window has no figure",
+        "renderer": "board.js in the overlay web view"
+      },
+      {
+        "trigger": "Caps+E over another app: 'show me …'",
+        "surface": "the overlay ends with one line and a link 'Open in abhyasa'",
+        "kind": "hand-off: the window title and the words go to /c/{slug}?show=<words> when the guide finds the concept, else to the Start box",
+        "renderer": "rupaka.js in abhyasa"
+      },
+      {
+        "trigger": "a wrong answer on a predict check (walk) or a miss in a review",
+        "surface": "the check card, part:ladder",
+        "kind": "a simpler predict demo, or a lesson in another way (adapt)",
+        "renderer": "rupaka.js"
+      },
+      {
+        "trigger": "the walk plan gives a step the check kind demo or order",
+        "surface": "the check card",
+        "kind": "predict (it is the check; it moves floor)",
+        "renderer": "rupaka.js"
+      },
+      {
+        "trigger": "a talk slide with a demo",
+        "surface": "presenter and audience windows",
+        "kind": "predict or explainer, driven by the stage channel",
+        "renderer": "rupaka.js"
+      }
+    ],
+    "never": [
+      "A board and a Show card for the same ask.",
+      "A diagram drawn by the board when part:show has a spec.",
+      "A rupaka spec on a page of its own (/demo/{slug} goes; the demo opens in the Show slot of its idea).",
+      "Code that runs in abhyasa: code goes to Leela."
+    ],
+    "one_engine": "show(lr, tutor, concept, said, where, kind=None) → ask row + job; one card ShowCard(ask) with three states (wait, ready, refused→2D). /demo/make and /demo/wait go; /demo/ask and /demo/asked stay.",
+    "events": "Each Show and each board writes one row with lr.put_ask (where, kind, said, slug). course rule 3 reads them: two or more on one idea and no right check since → check it now."
+  },
+  "workflows": {
+    "start_goal": {
+      "goal": "From a goal and some folders to the first idea.",
+      "steps": [
+        {
+          "page": "home",
+          "action": "type the goal in part:start, add chips, press Start",
+          "next": "home",
+          "state_change": "walk.jobs.build=running; course made (join_course)"
+        },
+        {
+          "page": "home",
+          "action": "wait (the activity chip says what files)",
+          "next": "course",
+          "state_change": "walk made; course.stages[0].walk set; walk.jobs.research=running"
+        },
+        {
+          "page": "course",
+          "action": "Ask me where I start, answer",
+          "next": "course",
+          "state_change": "course.level.qs answered; course.jobs.plan=running → stages"
+        },
+        {
+          "page": "course",
+          "action": "Continue",
+          "next": "idea",
+          "state_change": "walk.started; walk.here; course.here"
+        }
+      ],
+      "background": "build, filing and research jobs. The activity chip shows each one on every page; the course page shows each stage and source state.",
+      "pending": true,
+      "pending_why": "no driver yet"
+    },
+    "start_source": {
+      "goal": "Learn a paper, a link or a vault document.",
+      "steps": [
+        {
+          "page": "home",
+          "action": "paste the link or pick the document, Start",
+          "next": "walk (new)",
+          "state_change": "walk made (link: walk.jobs.build first)"
+        },
+        {
+          "page": "walk",
+          "action": "read the plan, change a check if you like, Start the walk",
+          "next": "idea",
+          "state_change": "walk.started"
+        }
+      ],
+      "background": "a link walk is built in the background; the activity chip says when it is ready.",
+      "pending": true,
+      "pending_why": "no driver yet"
+    },
+    "learn_idea": {
+      "goal": "The core loop: read, see, answer, adapt.",
+      "steps": [
+        {
+          "page": "idea",
+          "action": "read the passage and the note",
+          "next": "idea",
+          "state_change": "steps[i].read_at; walk.here"
+        },
+        {
+          "page": "idea",
+          "action": "Show me (optional)",
+          "next": "idea",
+          "state_change": "ask row; demo job"
+        },
+        {
+          "page": "idea",
+          "action": "answer the check, Send",
+          "next": "idea",
+          "state_change": "attempt; concept floor and due; steps[i].done when it closes"
+        },
+        {
+          "page": "idea",
+          "action": "wrong: Hint, a simpler demo (ladder), Teach me, or Learn it (side walk)",
+          "next": "idea or side walk idea",
+          "state_change": "hints; ladder; side walk with parent"
+        },
+        {
+          "page": "idea",
+          "action": "Next idea",
+          "next": "idea, or walk (finished) after the last idea",
+          "state_change": "section end ends the sitting"
+        }
+      ],
+      "background": "the note, the check and the demo of the next idea are made ahead on the pool.",
+      "pending": true,
+      "pending_why": "no driver yet"
+    },
+    "find_sources": {
+      "goal": "See the build of a walk, stop it, or run it again.",
+      "steps": [
+        {
+          "page": "idea",
+          "action": "click the walk title in the outline",
+          "next": "walk",
+          "state_change": "none"
+        },
+        {
+          "page": "walk",
+          "action": "read part:sources; Stop, Show what it did, or Find sources again",
+          "next": "walk",
+          "state_change": "walk.jobs.research"
+        }
+      ],
+      "background": "research runs on its own pool; walk.jobs.research is the one state that the walk page, the idea outline, the activity chip and the Mac read.",
+      "pending": true,
+      "pending_why": "no driver yet"
+    },
+    "add_source": {
+      "goal": "Add a folder, a repo or a link to a walk or a course that exists.",
+      "steps": [
+        {
+          "page": "walk",
+          "action": "Add a source in part:sources",
+          "next": "walk",
+          "state_change": "walk.jobs.filing; then research looks in it for ideas with no passage"
+        }
+      ],
+      "background": "filing and research; the activity chip.",
+      "pending": true,
+      "pending_why": "no driver yet"
+    },
+    "improve_walk": {
+      "goal": "Change a walk before, during or after you do it.",
+      "steps": [
+        {
+          "page": "walk",
+          "action": "edit the plan in place (move, skip, check kind, add, split, rewrite); Undo",
+          "next": "walk",
+          "state_change": "edit history (lr.edits('walk', jid))"
+        },
+        {
+          "page": "walk (finished)",
+          "action": "Improve: the tutor proposes changes from your weak ideas and new sources; accept each",
+          "next": "walk",
+          "state_change": "a proposal, then edits with Undo"
+        }
+      ],
+      "background": "none",
+      "pending": true,
+      "pending_why": "no driver yet"
+    },
+    "finish_walk": {
+      "goal": "See what moved and what comes next.",
+      "steps": [
+        {
+          "page": "idea",
+          "action": "Next idea on the last idea",
+          "next": "walk (finished)",
+          "state_change": "sitting ends"
+        },
+        {
+          "page": "walk",
+          "action": "Review the weak ideas, or Back to the course",
+          "next": "review or course",
+          "state_change": "session made"
+        }
+      ],
+      "background": "reviews are due later; Home says so.",
+      "pending": true,
+      "pending_why": "no driver yet"
+    },
+    "review_due": {
+      "goal": "Keep what you learned.",
+      "steps": [
+        {
+          "page": "home",
+          "action": "Review",
+          "next": "review",
+          "state_change": "session made"
+        },
+        {
+          "page": "review",
+          "action": "answer each question",
+          "next": "review (ended)",
+          "state_change": "floor, due"
+        }
+      ],
+      "background": "none",
+      "pending": true,
+      "pending_why": "no driver yet"
+    },
+    "continue": {
+      "goal": "Go back to where you stopped.",
+      "steps": [
+        {
+          "page": "any page that is not the place",
+          "action": "Continue in the top bar",
+          "next": "idea or review",
+          "state_change": "none"
+        }
+      ],
+      "background": "none"
+    },
+    "explain": {
+      "goal": "Ask about what you see.",
+      "steps": [
+        {
+          "page": "any",
+          "action": "Caps+E, ask",
+          "next": "same page",
+          "state_change": "ask row kind=board; hint count when a check is open"
+        }
+      ],
+      "background": "the board streams; the guide bar names the model and where it runs.",
+      "pending": true,
+      "pending_why": "no driver yet"
+    },
+    "open_in_leela": {
+      "goal": "Do the hands-on part in code.",
+      "steps": [
+        {
+          "page": "idea (notebook)",
+          "action": "Open in Leela",
+          "next": "Leela",
+          "state_change": "steps[i].leela_at"
+        },
+        {
+          "page": "idea",
+          "action": "come back",
+          "next": "idea (from_leela)",
+          "state_change": "Leela attempts → steps[i].done by leela"
+        }
+      ],
+      "background": "Leela writes attempts; abhyasa reads them on the next GET.",
+      "pending": true,
+      "pending_why": "no driver yet"
+    }
+  }
+}

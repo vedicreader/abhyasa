@@ -10,9 +10,10 @@ __all__ = ['STATUS', 'NO_CHECK', 'DONE', 'PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB
            'plan_prompt', 'near_goal', 'chip_docs', 'source_map', 'plan', 'short_check', 'pick_prompt', 'main_steps',
            'hands_most', 'cap_hands', 'hands_count', 'journey_from_source', 'journey_from_text', 'journey_from_sources',
            'walk_from_topic', 'walk_state', 'minutes', 'needs', 'pick_way_down', 'detour', 'parent_at', 'parent_step',
-           'trail', 'back_from', 'for_talk', 'journey_walk', 'walk_for_talk', 'journey_changed', 'look_up',
-           'topic_slug', 'add_topic', 'name_gaps', 'split_parts', 'split', 'related', 'with_step', 'beyond', 'paper_id',
-           'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES']
+           'trail', 'back_from', 'for_talk', 'is_open', 'used_at', 'last_place', 'journey_walk', 'walk_for_talk',
+           'journey_changed', 'look_up', 'topic_slug', 'add_topic', 'name_gaps', 'split_parts', 'split', 'related',
+           'with_step', 'beyond', 'paper_id', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff',
+           'read_handoff', 'HANDOFF_CASES']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
@@ -657,6 +658,33 @@ def for_talk(j) -> bool:
     "Whether walk `j` is for a talk: a side walk that a talk opened beside a slide, or the walk that a talk was made from, from a path."
     p = (j or {}).get('parent')
     return isinstance(p, dict) and ('talk' in p or p.get('for') == 'talk')
+
+# %% ../nbs/11_journey.ipynb #lp02
+def is_open(s) -> bool:
+    "Whether filed session `s` is open: it has a log, it did not end, and it has an answer or an open question."
+    return s.get('log') is not None and not s.get('ended') and bool(s.get('log') or s.get('open'))
+
+def used_at(j) -> float:
+    "When you last used walk `j`: the idea that you were on, the newest idea that you read, or the start; else when it was made."
+    return max([(j.get('here') or {}).get('at') or 0, j.get('started') or 0, *((s.get('read_at') or 0) for s in j['steps'])]) or j.get('created') or j.get('updated') or 0
+
+def last_place(lr:Learning, by:dict=None, most:int=10) -> AttrDict|None:
+    """The place that you used last, or None. A walk place has `walk`, `step`, `title`, `done`, `total` and `course`; a session place has
+    `session` and `title`. Each has `at`, the time that you used it."""
+    by, best = _by(lr, by), None
+    for j in lr.journeys()[:most]:
+        if j.get('mode') != 'walk' or for_talk(j) or (at := used_at(j)) <= (best.at if best else 0): continue
+        if (ws := walk_state(j, by)).current is None: continue
+        pj, i = parent_step(lr, j) if j.get('parent') else (None, None)
+        if pj is not None: j, ws = pj, walk_state(pj, by)
+        else:
+            h = (j.get('here') or {}).get('step')
+            i = h if isinstance(h, int) and 0 <= h < len(j.steps) and not j.steps[h].get('done') else ws.current
+        best = AttrDict(walk=j.id, step=i, title=j.title, done=ws.done, total=ws.total, course=j.get('course'), at=at)
+    s = first(s for s in lr.sessions(30) if not s.get('journey') and is_open(s))
+    if s and (at := s.get('updated') or s.get('start') or 0) > (best.at if best else 0):
+        best = AttrDict(session=s.id, title=s.get('focus') and (by.get(s.focus) or {}).get('name') or s.get('subject') or 'Review', done=len(s.get('log') or ()), at=at)
+    return best
 
 # %% ../nbs/11_journey.ipynb #pj02
 def _to_present(lr:Learning, j) -> list:

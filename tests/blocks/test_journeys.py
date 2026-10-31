@@ -56,7 +56,6 @@ def test_today_and_concept_page(mk, fake):
     assert 'How LLMs work' in today and '0 of 3 ideas' in today and '>path<' in today and 'Now: Tokenizers' in today
     c = cl.get('/c/ranking').text
     assert 'In your walks' in c and 'idea 2 of 3' in c
-    assert 'Continue: How LLMs work' in cl.get('/concepts').text                     # the top bar continues the journey
 
 def test_step_done_in_the_thread(mk, fake, lr):
     cl = mk()

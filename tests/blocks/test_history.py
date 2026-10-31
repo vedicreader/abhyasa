@@ -15,7 +15,7 @@ def test_resume_after_a_restart(mk, lr, fake):
     cl2 = TestClient(mk_app(lr, fake, transcribe=lambda a, hint='': '', sources=[Notes()], hosts=('testserver',)))             # a restart: nothing in memory
     page = cl2.get(f'/s/{sid}').text
     assert 'What does a rank tell you?' in page and 'add the scores' in page and 'Not yet' in page      # the same question, its thread
-    assert 'Continue: Ranking' not in page and 'id="continue"' in page
+    assert 'id="continue"' not in page   # a review has no Continue in the top bar
     r = cl2.post(f'/s/{sid}/answer', data=dict(answer='its rank position', confidence=80)).text
     assert 'Right, but shaky' in r
 
@@ -70,7 +70,8 @@ def test_continue_on_today_and_top_bar(mk):
     sid = start(cl)
     cl.get(f'/s/{sid}')
     today = cl.get('/').text
-    assert 'Continue where you stopped' in today and f'href="/s/{sid}"' in today and 'id="continue"' in today
+    assert 'Continue where you stopped' in today and f'href="/s/{sid}"' in today and 'id="continue"' not in today   # Home has the card, so the top bar has none
+    assert f'href="/s/{sid}"' in top(cl.get('/concepts').text)
 
 def test_old_summary_still_shows(mk, lr):
     lr.log_session('old1', '2 of 3 passed. Concepts: ranking.', start=1e9, end=1e9 + 60, concepts=['ranking'], passed=2, asked=3)
@@ -124,8 +125,8 @@ def test_continue_names_the_walk_that_you_used_last(mk, walk_fake, lr):
     a_walk(lr); open_session(lr, time.time()); cl = mk()
     assert 'Continue: Ranking' in top(cl.get('/concepts').text)   # before you open the walk, the session is the newest place
     step = cl.get('/w/wk1/0').text
-    assert 'Continue: Softmax walk' in top(step)
-    assert 'Continue: Softmax walk' in top(cl.get('/concepts').text)
+    assert 'id="continue"' not in step   # on the place itself, the top bar has no Continue
+    assert 'Continue: Softmax walk' in top(cl.get('/concepts').text) and 'href="/w/wk1/0"' in top(cl.get('/concepts').text)
     card = cl.get('/').text.split('class="continue-card"')[1].split('</div>')[0]
     assert 'Softmax walk' in card and '0 of 2 ideas' in card and 'Ranking' not in card
 

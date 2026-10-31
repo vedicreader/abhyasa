@@ -6,8 +6,9 @@ from fasthtml.common import *
 from abhyasa.core import Page, hook, run as run_hook
 from abhyasa.core.leela import leela_base
 from abhyasa.profile import profile_text
+from abhyasa.journey import last_place
 from abhyasa.course import (course_state, join_course, course_of, ensure_courses, ask_level, answer_level, level_done, plan_stages,
-                            build_stage, due_stage, set_here, active_course, add_ask, is_goal_walk)
+                            build_stage, due_stage, set_here, add_ask, is_goal_walk)
 from . import ui
 from .cfg import Routes
 
@@ -130,10 +131,10 @@ def connect(app, ctx):
 
     @hook('today_top')
     def today(subject=None):
-        "Today's top line: what comes next in the course that you used last, with its reason, and Continue."
+        "Today's top line when the place that you used last (`last_place`) is in a course walk: what comes next in the course, with its reason, and Continue."
         try: ensure_courses(lr)   # an older goal walk gets its course, one time
         except Exception as e: log.warning('abhyasa could not give a course to the goal walks: %r', e)
-        if subject or not (c := active_course(lr)) or not (st := state(c.id)): return None
+        if subject or not (p := last_place(lr)) or not p.get('walk') or not (c := course_of(lr, p.walk)) or not (st := state(c.id)): return None
         return ui.TodayCard(st)
 
     @hook('guide_board')

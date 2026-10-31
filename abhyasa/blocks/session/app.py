@@ -224,8 +224,8 @@ def connect(app, ctx):
                (f"Next: {DEPTHS[p[1]]} {p[0].name}. ", Span(plain_why(p[2]), cls='why')) if p else ('Nothing is due. Start something new, or pick a concept.',)
         return Div(P(*said, cls='review-line'),
                    Form(Input(type='hidden', name='subject', value=subject or ''),
-                        Primary(f"Start{' ' + subject if subject else ''}", data_wait='Starting…', focus=True, rank=3), action=Routes.start, method='post'),
-                   cls='review')
+                        Primary(f"Start{' ' + subject if subject else ''}", data_wait='Starting…', focus=True, rank=3, data_act='review'), action=Routes.start, method='post'),
+                   cls='review', data_part='reviews')
 
     @hook('concept_actions')
     def learn_this(c):

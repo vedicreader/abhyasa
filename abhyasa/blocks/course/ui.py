@@ -120,8 +120,8 @@ def CoursePage(st, level):
             Stages(st, c['id']), Blocking(st, c['id']), Made(st), level, Sources(c), *assets())
 
 def TodayCard(st):
-    "Today's top line for the course that you used last: the course, what comes next and why, and Continue. `data-at` is when you used it."
+    "Today's top line for the course of the place that you used last: the course, what comes next and why, and Continue."
     c, nx = st.course, st.next
     return Div(Span('Your course', cls='lbl'), P(A(c['title'], href=at(c['id'])), Span(f"  · {st.done} of {n_of(st.total, 'idea')}", cls='mute')),
-               P(nx.why, cls='course-why'), Div(Primary('Continue', href=href(nx.go, c['id']), rank=1), cls='row') if nx.rule != 8 else '',
-               *assets(), cls='course-card today-course', data_at=str(max((c.get('here') or {}).get('at') or 0, c.get('created') or 0)))   # Today keeps the newest top card
+               P(nx.why, cls='course-why', data_part='course-why'), Div(Primary('Continue', href=href(nx.go, c['id']), rank=1, data_act='continue'), cls='row') if nx.rule != 8 else '',
+               *assets(), cls='course-card today-course', data_part='continue-card')
