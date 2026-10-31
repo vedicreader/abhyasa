@@ -73,6 +73,8 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     app.state.blocks = connect_all(app, blocks(*([names] if names else [])), **svc)
     try: close_jobs(learning)   # no job lives across a restart: a row that says `running` is `closed` now
     except Exception as e: logging.getLogger(__name__).warning('abhyasa could not close the old job rows: %r', e)
+    try: hooks.run('app_start')   # after close_jobs, so the row of a job that starts now stays `running`
+    except Exception as e: logging.getLogger(__name__).warning('abhyasa could not start the jobs of the start: %r', e)
     try: svc['research'].resume()   # a restart stopped the searches of the steps that are still pending: look again on the research pool
     except Exception as e: logging.getLogger(__name__).warning('abhyasa could not look again for the pending sources: %r', e)
     app.state.svc = svc

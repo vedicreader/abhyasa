@@ -20,6 +20,9 @@ when it is filed: it gives the ids that it started).
 `guide_board(page, board)` (the screen guide drew `board` on the page at the path `page`, which shows a check: the walk block counts it
 as one hint on the open check of that step, and gives the line for the check).
 
+The start: `app_start()` (once, after the app connected its blocks and closed the old job rows: a block starts its jobs of the start on the pool,
+such as the walk block, which makes the old paths walks).
+
 The side pane: `pane_title(url)` (the title of the page at the local path `url`, for the pane bar and the line under 1100 px)."""
 from collections import defaultdict
 

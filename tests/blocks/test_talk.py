@@ -128,8 +128,8 @@ def journey_of(lr, n=0):
     return lr.put_journey(dict(id='ranking-basics-ab12', title='Ranking basics', goal='Learn how to rank results', subject='ml', steps=ss)).id
 
 def journey_talk(cl, jid, **kw):
-    "Home makes the old path `jid` a walk; make a talk from it through the app and wait for the job; return the talk id."
-    cl.get('/'); cl.post('/talk/new', data=dict(jid=jid, **kw))
+    "Its old link makes the path `jid` a walk; make a talk from it through the app and wait for the job; return the talk id."
+    cl.get(f'/path/{jid}'); cl.post('/talk/new', data=dict(jid=jid, **kw))
     return wait_for(lambda: cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect')).split('/')[-1]
 
 def test_the_room_sees_the_points(mk, talk_fake, lr):

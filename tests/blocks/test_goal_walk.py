@@ -53,13 +53,14 @@ def test_weak_match_is_no_source(lr):
     assert _topic_read(dict(slug='s', name='Run Stable Diffusion 1.5 on your Mac'), [VaultSource(lr)], lr, roots=['course22']) is None
 
 def test_an_old_path_link_makes_it_a_walk(mk, lr, fake):
-    "An old link to a path makes it a walk with a passage from your sources and a check on each step, then opens the walk page."
+    "An old link to a path makes it a walk with a check on each step, then opens the walk page. The passage from your sources comes when the idea opens."
     fake.rules['You plan a learning path'] = dict(title='Ranks', subject='ml', steps=[dict(name='Ranking', slug='ranking', statement='', why='')])
     from abhyasa.journey import plan
-    j = plan(lr, fake, 'learn to rank')
     cl = mk()
+    j = plan(lr, fake, 'learn to rank')
     assert cl.get(f'/path/{j.id}', follow_redirects=False).headers['location'] == f'/w/{j.id}'
     w = lr.journey(j.id)
-    assert w.mode == 'walk' and w.goal == 'learn to rank'
-    assert w.steps[0]['read']['title'] == 'My ranking notes' and w.steps[0]['check']
+    assert w.mode == 'walk' and w.goal == 'learn to rank' and w.steps[0]['check']
+    cl.get(f'/w/{j.id}/0/note')
+    assert lr.journey(j.id).steps[0]['read']['title'] == 'My ranking notes'
     assert 'Start the walk' in cl.get(f'/w/{j.id}').text

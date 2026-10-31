@@ -11,9 +11,9 @@ __all__ = ['STATUS', 'NO_CHECK', 'PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', '
            'builds_goal', 'hands_count', 'journey_from_source', 'journey_from_text', 'journey_from_sources', 'data_row',
            'keep_data', 'folder_list', 'data_entries', 'with_data', 'walk_from_topic', 'walk_state', 'minutes', 'needs',
            'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk', 'is_open',
-           'used_at', 'last_place', 'walk_path', 'walk_paths', 'look_up', 'topic_slug', 'add_topic', 'name_gaps',
-           'split_parts', 'split', 'related', 'with_step', 'beyond', 'paper_id', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX',
-           'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES']
+           'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up', 'topic_slug', 'add_topic',
+           'name_gaps', 'split_parts', 'split', 'related', 'with_step', 'beyond', 'paper_id', 'WALK_ID', 'LEELA_ROUTE',
+           'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
@@ -478,16 +478,18 @@ def _topic_read(c, sources, lr=None, doc='', roots=()) -> dict|None:
     return p and dict(src=p.src, ref=p.ref, title=p.title, url=p.url, text=math_cut(p.text, val('walks.passage')), section=p.get('section') or '', figure=None,
                    **({'what': p.what} if p.get('what') else {}))   # the kind of text, such as a summary
 
-def _topic_walk(lr:Learning, j, sources=None, tool:bool=False, refs=None, roots=(), **extra) -> AttrDict:
+def _topic_walk(lr:Learning, j, sources=None, tool:bool=False, refs=None, roots=(), find:bool=True, **extra) -> AttrDict:
     """Save path `j` as a walk of its first `walks.steps` steps, in its order, with a passage and a check on each step. A step reads its `doc`
     first (`refs` maps `(root, title)` to its `{shelf, doc_id}`), then `sources` (`roots` are the sources that the goal named).
+    With `find=False` no step is searched now: a step with no passage gets `read_later`, and `step_read` finds it when the idea opens.
     A step on a concept that you learned is `known`. The other steps go in `more`, and `extra` goes on the walk."""
     most = val('walks.steps')
     j.steps, more = j.steps[:most], [s['slug'] for s in j.steps[most:]]
     for s in j.steps:
         c = lr.concept(s['slug'])
         doc = (refs or {}).get((s.get('root'), s.get('doc'))) or s.get('doc') or ''
-        s.update(read=_topic_read(c, sources, lr, doc, roots), check=_check(lr, c, tool, kind=s.get('hands') or ''), **_leela(c, tool))
+        read = _topic_read(c, sources, lr, doc, roots) if find else s.get('read')
+        s.update(read=read, check=_check(lr, c, tool, kind=s.get('hands') or ''), **_leela(c, tool), **({} if find or read else {'read_later': True}))
         if c and learned(c) and s.get('status', 'todo') == 'todo': s['status'] = 'known'   # an idea that you learned before: no new ask
     cap_hands(lr, j.steps, tool)
     return lr.put_journey({**j, 'mode': 'walk', 'source': None, 'started': None, 'sitting': None, 'tool': tool, 'more': more, **extra})
@@ -718,17 +720,48 @@ def last_place(lr:Learning, by:dict=None, most:int=10) -> AttrDict|None:
     return best
 
 # %% ../nbs/11_journey.ipynb #pj02
-def walk_path(lr:Learning, j, sources=None) -> AttrDict:
-    "Path `j` (an old walk with no `mode`) as a topic walk with the same id, one time. A walk stays as it is."
+def _last_rows(ss) -> dict:
+    "The last answer to each concept in the sessions `ss`, by its slug."
+    rows = sorted((r for s in ss for r in s.get('log') or () if r.get('outcome')), key=lambda r: r.get('at') or 0)
+    return {r['concept']: r for r in rows}
+
+def _sat(s) -> float: return s.get('updated') or s.get('end') or s.get('start') or 0
+
+def _with_runs(j, ss) -> AttrDict:
+    """Walk `j` with the progress of the sessions `ss` of its path, newest first. A step with answers is done with the outcome of its last
+    answer, as `walk_state` counts it. The newest open session is the sitting, and the step of its open question keeps the question.
+    `started` is the first start of a session, and `here` is the last activity."""
+    if not ss: return j
+    last, o = _last_rows(ss), first(s for s in ss if is_open(s))
+    q = (o or {}).get('open') or {}
+    for s in j.steps:
+        if s['slug'] == q.get('concept'): s['qid'] = q['id']   # the learner works on this question now, so the step is not done
+        elif (r := last.get(s['slug'])) and not s.get('done'): s['done'] = dict(outcome=r['outcome'], at=r.get('at') or 0)
+    slugs = [s['slug'] for s in j.steps]
+    k = q.get('concept') or max(last.values(), key=lambda r: r.get('at') or 0, default={}).get('concept')
+    starts = [x for s in ss if (x := s.get('start') or _sat(s))]
+    return AttrDict(j, sitting=o.id if o else None, started=min(starts) if starts else j.get('created') or time.time(),
+                    here=dict(step=slugs.index(k), at=max(map(_sat, ss))) if k in slugs else None)
+
+def walk_path(lr:Learning, j) -> AttrDict:
+    """Path `j` (an old walk with no `mode`) as a topic walk with the same id, one time, with the progress of its sessions (`_with_runs`).
+    A walk stays as it is. No step is searched now: `step_read` finds the passage of a step when its idea opens."""
     with _jlock(j['id']):
         j = lr.journey(j['id']) or j
         if j.get('mode') == 'walk': return j
-        w = _topic_walk(lr, AttrDict(j), sources)
-        return lr.merge_journey(w.id, started=time.time()) if lr.sessions(limit=1, journey=w.id) else w
+        w = _topic_walk(lr, AttrDict(j), find=False)
+        return lr.put_journey(_with_runs(w, lr.sessions(1000, journey=w.id)))
 
-def walk_paths(lr:Learning, sources=None) -> list:
+def walk_paths(lr:Learning) -> list:
     "Make each old path a topic walk (`walk_path`). The ids of the walks that changed."
-    return [walk_path(lr, j, sources).id for j in lr.journeys() if j.get('mode') != 'walk']
+    return [walk_path(lr, j).id for j in lr.journeys() if j.get('mode') != 'walk']
+
+def step_read(lr:Learning, jid:str, slug:str, sources=None) -> AttrDict|None:
+    "Find the passage of the step on `slug` of walk `jid` that `walk_path` left for later (`read_later`), one time, and save it. The walk now, or None when the step needs no search."
+    s = first(s for s in (lr.journey(jid) or {}).get('steps') or () if s.get('slug') == slug)
+    if not (s and s.get('read_later')): return None
+    c = lr.concept(slug)
+    return lr.walk_slug(jid, slug, read=_topic_read(c, sources, lr, s.get('doc') or '') if c else None, read_later=None)
 
 # %% ../nbs/11_journey.ipynb #rh20
 def look_up(lr:Learning, ask, term:str, at:str='', sources=None) -> AttrDict|None:

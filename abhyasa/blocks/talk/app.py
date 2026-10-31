@@ -17,7 +17,7 @@ from starlette.responses import JSONResponse, RedirectResponse
 from abhyasa.core import Page, UndoBar, hook, n_of, pane_url, room_spec, run as run_hook
 from abhyasa.edit import edit_lock, CTRL, rewrite as tutor_rewrite
 from abhyasa.sources import figure_path
-from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk
+from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, step_read
 from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.prompts import lines
@@ -248,8 +248,13 @@ def connect(app, ctx):
             if not (job := jobs.get(t.id)) or job.done():
                 jobs[t.id] = ctx.pool.submit(lambda: talk_again(lr, ask(), t.id, ctx.sources).id); jobs[t.id].again = True
             return ui.Pending(t.id, again=True)
-        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_walk(lr, ask(), jid, sources=ctx.sources).id)
+        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(from_walk, jid)
         return ui.Pending(jid)
+
+    def from_walk(jid):
+        "On the pool: find the passage of each step that an old path left for later (`step_read`), then make the talk. The talk id."
+        for s in (lr.journey(jid) or {}).get('steps') or (): step_read(lr, jid, s['slug'], ctx.sources)
+        return talk_from_walk(lr, ask(), jid, sources=ctx.sources).id
 
     def fill(tid:str):
         "Start the pool job that writes the content of the slides of talk `tid` that have none (Fill the slides). The request does not wait for the model."

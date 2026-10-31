@@ -15,7 +15,7 @@ from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
-from abhyasa.journey import with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
+from abhyasa.journey import with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
 from abhyasa.walk import tutor_note, open_short, step_meta, leela_back, leela_found
 from abhyasa.course import course_of, drop_data
 import abhyasa.walk as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
@@ -534,7 +534,11 @@ def connect(app, ctx):
         "The tutor note of step `i`, loaded after the page; a failed note shows nothing."
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         try:
-            with held(jid, i): return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
+            with held(jid, i):
+                if (w := step_read(lr, jid, j.steps[i]['slug'], ctx.sources)):   # an old path: its passage comes now, when the idea opens
+                    s = w.steps[i]
+                    return ui.Note(tutor_note(lr, ctx.ask, w, i, ctx.sources)), ui.Passage(w, s, lr.concept(s['slug']), i, looking(jid, i))(hx_swap_oob='true')
+                return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
         except Exception as e: log.warning('the tutor could not write the note of %s step %s: %r', jid, i, e); return ''
 
     def source(jid:str, i:int, quiet:str=''):
@@ -820,15 +824,25 @@ def connect(app, ctx):
 
     def old_path(req, jid:str):
         "An old link to a path (`/path/{jid}`, `/j/{jid}`), from a page, Leela or a vault document: the path becomes a walk, then the walk page opens, with the same query."
-        if (j := lr.journey(jid)): walk_path(lr, j, ctx.sources)
+        if (j := lr.journey(jid)): walk_path(lr, j)
         return RedirectResponse(ui.at(Routes.one, jid) + (f'?{q}' if (q := req.url.query) else ''), status_code=301)
 
-    @hook('today_top')
-    def paths(subject=None):
-        "Before Home lists your walks: each old path becomes a topic walk, one time. Nothing on the page."
-        try: walk_paths(lr, ctx.sources)
-        except Exception as e: log.warning('abhyasa could not make the old paths walks: %r', e)
-        return None
+    def migrate():
+        "On the research pool: each old path becomes a topic walk, one time, with its job row. No row when there is no path."
+        if not any(j.get('mode') != 'walk' for j in lr.journeys()): return []
+        job_start(lr, 'walk:paths', 'migrate', title='Your old paths become walks', said='Making your old paths walks', quiet=True)
+        try: ids = walk_paths(lr)
+        except Exception as e:
+            log.warning('abhyasa could not make the old paths walks: %r', e)
+            job_end(lr, 'walk:paths', 'failed', why='abhyasa could not make your old paths walks. It tries again at the next start.')
+            return []
+        job_end(lr, 'walk:paths', 'done')
+        return ids
+
+    @hook('app_start')
+    def paths():
+        "At the start: make the old paths walks on the research pool, as the scan for pending sources does. The start and Home do not wait for it."
+        return ctx.research.pool.submit(migrate)
 
     def attach(jid:str, slug:str):
         "Add a concept to a walk, from its concept page."
