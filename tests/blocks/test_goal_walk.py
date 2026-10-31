@@ -52,18 +52,14 @@ def test_weak_match_is_no_source(lr):
                                     source='/tmp/course22/pytorch-image-models/README.md', kind='md', meta=dict(root='course22'))
     assert _topic_read(dict(slug='s', name='Run Stable Diffusion 1.5 on your Mac'), [VaultSource(lr)], lr, roots=['course22']) is None
 
-def test_use_sources_for_a_path(mk, lr, fake):
-    "A walk with no source shows the button. The POST makes it a walk with a passage and a check on each step."
+def test_an_old_path_link_makes_it_a_walk(mk, lr, fake):
+    "An old link to a path makes it a walk with a passage from your sources and a check on each step, then opens the walk page."
     fake.rules['You plan a learning path'] = dict(title='Ranks', subject='ml', steps=[dict(name='Ranking', slug='ranking', statement='', why='')])
     from abhyasa.journey import plan
     j = plan(lr, fake, 'learn to rank')
     cl = mk()
-    assert 'Use sources for this walk' in cl.get(f'/path/{j.id}').text
-    r = cl.post(f'/path/{j.id}/sources')
-    assert 'Reading your sources for each step' in r.text   # the pending card of a walk job: the request does not wait
-    assert wait_for_walk(cl, r) == f'/w/{j.id}'
+    assert cl.get(f'/path/{j.id}', follow_redirects=False).headers['location'] == f'/w/{j.id}'
     w = lr.journey(j.id)
     assert w.mode == 'walk' and w.goal == 'learn to rank'
     assert w.steps[0]['read']['title'] == 'My ranking notes' and w.steps[0]['check']
-    assert 'Use sources for this walk' not in cl.get(f'/path/{j.id}').text
-    assert cl.post(f'/path/{j.id}/sources').headers['HX-Redirect'] == f'/w/{j.id}'   # a walk already: it opens
+    assert 'Start the walk' in cl.get(f'/w/{j.id}').text

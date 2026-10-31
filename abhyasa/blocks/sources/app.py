@@ -62,7 +62,7 @@ def connect(app, ctx):
 
         def row(key, **kw): return out.setdefault(key, AttrDict(dict(docs=[], used=[], at=0, root='', shelf='', undo='', copies=False), **kw))
         for j in js:
-            used = [(j.title, Routes.of(Routes.walk if j.get('mode') == 'walk' else Routes.path, jid=j.id))] + [(t.title, Routes.of(Routes.talk, tid=t.id)) for t in talks.get(j.id, ())]
+            used = [(j.title, Routes.of(Routes.walk, jid=j.id))] + [(t.title, Routes.of(Routes.talk, tid=t.id)) for t in talks.get(j.id, ())]
             got = False
             for sh, did in _refs(j):
                 if not (d := doc(sh, did)): continue

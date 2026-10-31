@@ -15,7 +15,7 @@ from abhyasa.profile import profile_text
 from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
-from abhyasa.journey import NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, _topic_walk, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
+from abhyasa.journey import NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
 from abhyasa.walk import tutor_note, open_short, step_meta, code_task, validate_nb_spec, leela_back, leela_found
 import abhyasa.walk as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.talk   # adds Learning.talks: the editor links the talks made from a walk
@@ -404,24 +404,6 @@ def connect(app, ctx):
         if not st or st.job.done():
             st = links[key] = AttrDict(said='Planning the walk')
             st.job = ctx.pool.submit(from_goal, goal, ids, st, subject)
-        return ui.LinkPending(key, st.said)
-
-    def path_walk(jid):
-        "On the pool: make the path `jid` a walk, with a passage from your sources and a check on each step, then look for web sources. Return the walk id."
-        with _jlock(jid):
-            if not (j := lr.journey(jid)): raise LinkError('This walk is not there now.')
-            if j.get('mode') != 'walk': j = _topic_walk(lr, j, ctx.sources)
-        research_new(j)
-        return j.id
-
-    @hook('walk_from_path')
-    def from_path(j):
-        "Start the pool job that makes path `j` a walk, unless one is running. The pending card is the same as for a walk from a goal."
-        key = f"path:{j['id']}"
-        st = links.get(key)
-        if not st or st.job.done():
-            st = links[key] = AttrDict(said='Reading your sources for each step')
-            st.job = ctx.pool.submit(path_walk, j['id'])
         return ui.LinkPending(key, st.said)
 
     def unfile_(jid:str='', root:str='', job:str='', row:str=''):
@@ -856,6 +838,39 @@ def connect(app, ctx):
         j = walk_of(jid)
         return None if j and not for_talk(j) else missing()
 
+    def old_path(req, jid:str):
+        "An old link to a path (`/path/{jid}`, `/j/{jid}`), from a page, Leela or a vault document: the path becomes a walk, then the walk page opens, with the same query."
+        if (j := lr.journey(jid)): walk_path(lr, j, ctx.sources)
+        return RedirectResponse(ui.at(Routes.one, jid) + (f'?{q}' if (q := req.url.query) else ''), status_code=301)
+
+    @hook('today_top')
+    def paths(subject=None):
+        "Before Home lists your walks: each old path becomes a topic walk, one time. Nothing on the page."
+        try: walk_paths(lr, ctx.sources)
+        except Exception as e: log.warning('abhyasa could not make the old paths walks: %r', e)
+        return None
+
+    def attach(jid:str, slug:str):
+        "Add a concept to a walk, from its concept page."
+        if not (j := walk_of(jid)) or for_talk(j) or not lr.concept(slug): return P('No such walk or concept.', cls='mute')
+        j = lr.journey_add(jid, slug, why='you added it')
+        return P('Added to ', A(j.title, href=ui.at(Routes.step, jid, len(j.steps) - 1)), '.', cls='mute')
+
+    @hook('concept_more')
+    def in_walks(c):
+        "On a concept page: the walks that have this idea, and a way to add it to another walk."
+        rows, js = walks_of(c.slug), [j for j in lr.journeys() if j.get('mode') == 'walk' and not for_talk(j) and not j.get('depth')]
+        return ui.InWalks(c, rows, js) if rows or js else None
+
+    @hook('lesson_extra')
+    def step_done(r):
+        "A note in a session of a walk when the close makes one of its ideas learned."
+        if not (r.get('correct') and r.get('floor', 0) >= val('checks.goal') and r.get('depth') == r.get('floor')): return None
+        s = lr.session(r.get('session') or '') if r.get('session') else None
+        if not (s and s.get('journey') and (j := walk_of(s.journey))) or r.concept not in [x['slug'] for x in j.steps]: return None
+        b = by(); i = walk_state(j, b).current
+        return ui.StepDone(lr.concept(r.concept), ui.name(b, j.steps[i]) if i is not None else '')
+
     def editor(req, jid:str):
         "The old page Change the walk: the plan is on the walk page now."
         return RedirectResponse(ui.at(Routes.one, jid) + (f'?{q}' if (q := req.url.query) else '') + '#plan', status_code=301)
@@ -1134,6 +1149,9 @@ def connect(app, ctx):
     app.get(Routes.job)(job)
     app.post(Routes.unfile)(unfile_)
     app.get(Routes.one)(one)
+    app.get(Routes.path)(old_path)
+    app.get(Routes.old)(old_path)
+    app.post(Routes.attach)(attach)
     app.post(Routes.start)(start)
     app.get(Routes.step)(step)
     app.get(Routes.note)(note)

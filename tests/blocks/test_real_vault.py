@@ -116,7 +116,7 @@ def test_a_concept_added_to_a_walk_has_a_check(mk, walk_fake, lr):
     from walk_data import walk
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     n = len(lr.journey(jid).steps)
-    assert 'Added to' in cl.post('/journeys/attach', data=dict(jid=jid, slug='ranking', src='concept')).text
+    assert 'Added to' in cl.post('/walk/attach', data=dict(jid=jid, slug='ranking')).text
     assert lr.journey(jid).steps[n]['check']['kind']
     for u in (f'/w/{jid}/{n - 1}', f'/w/{jid}/{n}', f'/w/{jid}/{n}/check'): assert cl.get(u).status_code == 200, u
 

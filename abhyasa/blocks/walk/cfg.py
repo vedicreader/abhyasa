@@ -1,4 +1,7 @@
 class Routes:
+    attach = '/walk/attach'           # POST: add a concept to a walk, from its concept page
+    path = '/path/{jid}'              # an old link to a path: the path becomes a walk, and the link goes to the walk page
+    old = '/j/{jid}'                  # an older link to a path or a walk: the same
     new = '/walk/new'                 # make a walk from a vault document, a text, a topic or a link
     job = '/walk/job'                 # the state of a walk from a link or a goal while it is made
     unfile = '/walk/unfile'           # Undo: forget what Start filed for a walk

@@ -10,11 +10,10 @@ __all__ = ['TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 
            'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'parked', 'on_stage',
            'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q', 'words_ask',
            'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_source', 'slide_notes',
-           'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk', 'talk_from_journey',
-           'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides', 'put_back',
-           'talk_again', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round',
-           'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap',
-           'recap_html']
+           'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk', 'slide_marks',
+           'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides', 'put_back', 'talk_again',
+           'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round', 'log_main',
+           'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap', 'recap_html']
 
 # %% ../nbs/17_talk.ipynb #bddba3f8
 import re, json, math, time, uuid, secrets, hashlib, base64, html
@@ -27,7 +26,7 @@ from typing import Callable
 from fastcore.utils import *
 from .store import Learning, slugify, _src
 from .edit import edit_lock, CTRL
-from .journey import minutes, walk_for_talk
+from .journey import minutes
 from .llm import ask_json, for_task
 from .ground import concept_grounds, fence, fenced, link_of
 from .sources import figure_path, source_of
@@ -483,16 +482,6 @@ def fill_talk(lr:Learning, ask, tid:str, sources=None) -> AttrDict:
 def walk_talk(lr:Learning, wid:str) -> AttrDict|None:
     "The newest talk made from walk `wid`, or None."
     return first(t for t in lr.talks() if (t.get('src') or {}).get('walk') == wid)
-
-def talk_from_journey(lr:Learning, ask, jid:str, sources=None, again:bool=False, research=None) -> AttrDict:
-    """A talk from path `jid` (a walk with no source), made from its walk for a talk. A second call gives the same talk, unless `again`: then a new talk has the date in its title.
-    `research(walk)` runs on the walk before a new talk is made, so a step can get a source from the web and its slide can show it."""
-    w = walk_for_talk(lr, jid, sources, again)
-    if not again and (t := walk_talk(lr, w.id)): return t
-    if research: research(w)
-    if not again: return talk_from_walk(lr, ask, w.id, sources=sources)
-    t, d = talk_from_walk(lr, ask, w.id, sources=sources), datetime.now()
-    return lr.put_talk({**t, 'title': f'{t.title} · {d.day} {d:%b}'})
 
 # %% ../nbs/17_talk.ipynb #ag03
 AGAIN = 'Made the talk again from the walk.'

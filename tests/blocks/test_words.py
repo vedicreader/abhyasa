@@ -1,4 +1,4 @@
-"The old `/j/` routes still work, and each walk has a kind."
+"Each walk has a kind, and an old walk shows as a walk."
 import re
 from html import unescape
 
@@ -6,25 +6,16 @@ PLAN = dict(title='How LLMs work', subject='ml', steps=[
     dict(name='Tokenizers', statement='A tokenizer cuts text into tokens.', slug='', why='The model reads tokens.', needs=[]),
     dict(name='Attention', statement='Weights from query-key dot products.', slug='', why='The core of a transformer.', needs=['Tokenizers'])])
 
-def make_plain(cl, fake):
-    "Plan a plain walk from a goal with the fake planner, and return its id."
+def make_plain(cl, fake, lr):
+    "Plan a walk from a goal with the fake planner, and return its id."
+    from abhyasa.journey import walk_from_topic
     fake.rules['You plan a learning path'] = PLAN
-    return cl.post('/journeys/new', data=dict(goal='I want to learn how LLMs work')).headers['hx-redirect'].split('/')[-1]
+    return walk_from_topic(lr, fake, 'I want to learn how LLMs work').id
 
 def visible_text(html):
     "The words a person sees: no scripts, styles, textarea content (prompt bodies), tags or attributes."
     html = re.sub(r'(?is)<(script|style|textarea)\b.*?</\1>', ' ', html)
     return unescape(re.sub(r'(?s)<[^>]*>', ' ', html))
-
-def test_old_journey_routes_still_work(mk, fake, lr):
-    cl = mk(); jid = make_plain(cl, fake)
-    r = cl.get(f'/j/{jid}', follow_redirects=False)
-    assert r.status_code == 303 and r.headers['location'] == f'/path/{jid}'
-    r = cl.get(f'/j/{jid}?from=leela', follow_redirects=False)
-    assert r.headers['location'] == f'/path/{jid}?from=leela'                      # the query string stays
-    assert cl.post(f'/j/{jid}/step', data=dict(slug=lr.journey(jid).steps[0]['slug'], act='skip')).status_code == 200
-    assert cl.post(f'/path/{jid}/step', data=dict(slug=lr.journey(jid).steps[1]['slug'], act='skip')).status_code == 200
-    assert cl.get(f'/path/{jid}').status_code == 200
 
 def test_kind_pill(lr):
     from abhyasa.blocks.today.ui import kind_of
@@ -39,7 +30,7 @@ def test_kind_pill(lr):
 def test_old_walk_title_shows_as_walk(mk, fake, lr):
     "A new walk document has the title `Walk: …`. An old one keeps `Journey: …` in the vault, and the page shows `Walk: …`."
     from abhyasa.store import _src
-    cl = mk(); jid = make_plain(cl, fake)
+    cl = mk(); jid = make_plain(cl, fake, lr)
     assert lr.v.t.docs(where='source=?', where_args=[_src('journey', jid)])[0]['title'] == 'Walk: How LLMs work'
     r = lr.v.add('Journey: Old walk (old-1)\n\nGoal: g', title='Journey: Old walk', source=_src('journey', 'old-1'), kind='journey', meta=dict(id='old-1', title='Old walk', steps=[]))
     assert lr.v.t.docs(where='source=?', where_args=[_src('journey', 'old-1')])[0]['title'] == 'Journey: Old walk'   # the stored title stays

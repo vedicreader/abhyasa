@@ -45,11 +45,11 @@ def connect(app, ctx):
                     Section(H2('Start something new'), *run('learn_start'), id='start', data_part='start'),
                     Foot(run('today_end', subject or None)), on='Home')
 
-    def learn(): return RedirectResponse(Routes.base, status_code=301)   # the old Learn tab: Home has its walks and its Start box
+    def old(): return RedirectResponse(Routes.base, status_code=301)   # the old Learn tab and list of walks: Home has the walks and the Start box
 
     def due(): return JSONResponse(dict(due=n_due(lr.concepts())))   # the Mac app's Dock badge
 
     RouteOverrides.nav.append(('Home', Routes.base, 0))
     app.get(Routes.base)(home)
-    app.get(Routes.learn)(learn)
+    for r in (Routes.learn, Routes.journeys): app.get(r)(old)
     app.get(Routes.due)(due)

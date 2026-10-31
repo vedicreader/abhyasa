@@ -146,19 +146,6 @@ def test_start_box_says_the_search_sees_the_topic(mk, web):
     cl = mk()
     assert 'looks for sources on the web' in cl.get('/learn/read', params=dict(q='how attention works')).text
 
-def test_a_journey_talk_shows_the_web_source(mk, web, lr, talk_fake):
-    "A talk from a journey looks for sources before it makes the slides, so the slide shows the passage and the editor names the page."
-    talk_fake.rules.update({'You find one passage': dict(passage=QUOTE)})
-    lr.put('Softmax', 'Softmax turns scores into weights.', 'ml')
-    jid = lr.put_journey(dict(id='softmax-ab12', title='Softmax', goal='Learn softmax', subject='ml', steps=[dict(slug='softmax', status='todo', why='')])).id
-    cl = mk(); cl.post('/talk/journey', data=dict(jid=jid))
-    tid = until(lambda: cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect')).split('/')[-1]
-    s = lr.talk(tid).slides[0]
-    assert s['show']['passage'] == QUOTE and s['show']['src']['url'] == URL and s['show']['src']['src'] == 'web'
-    assert cl.app.state.svc['research'].jobs[lr.talk(tid).src['walk']]   # the same registry as a walk, with pending marks
-    ed = cl.get(f'/t/{tid}').text
-    assert '>from the web<' in ed and '<span>example.org</span>' in ed and f'href="{URL}"' in ed
-
 def test_a_long_research_job_does_not_block_a_demo_or_a_note(mk, web, lr):
     "Research has its own pool. Two walks that wait on the web leave the main pool free for a demo, a note or a lesson."
     web.hold = threading.Event()
@@ -170,20 +157,3 @@ def test_a_long_research_job_does_not_block_a_demo_or_a_note(mk, web, lr):
         assert 'Softmax makes weights' in cl.get(f'/w/{a}/0/note').text
     finally: web.hold.set()
     until(lambda: state(lr, a) == 'found' and state(lr, b) == 'found')
-
-def test_a_journey_talk_goes_on_when_the_time_is_up(mk, web, lr, talk_fake, monkeypatch):
-    "When research takes longer than its time, the talk is made with the tutor's words, and the step stays pending, so research can finish later."
-    talk_fake.rules.update({'You find one passage': dict(passage=QUOTE)})
-    web.hold = threading.Event()
-    lr.put('Softmax', 'Softmax turns scores into weights.', 'ml')
-    jid = lr.put_journey(dict(id='softmax-ab12', title='Softmax', goal='Learn softmax', subject='ml', steps=[dict(slug='softmax', status='todo', why='')])).id
-    cl = mk(); rs = cl.app.state.svc['research']
-    run = rs.run
-    monkeypatch.setattr(rs, 'run', lambda jid, timeout=None: run(jid, timeout=.3))
-    try:
-        cl.post('/talk/journey', data=dict(jid=jid))
-        tid = until(lambda: cl.get(f'/talk/job?jid={jid}').headers.get('hx-redirect')).split('/')[-1]
-        t = lr.talk(tid); wid = t.src['walk']
-        assert t.slides[0]['show']['passage'] == '' and 'src' not in t.slides[0]['show'] and state(lr, wid) == 'pending'
-    finally: web.hold.set()
-    until(lambda: state(lr, wid) == 'found')

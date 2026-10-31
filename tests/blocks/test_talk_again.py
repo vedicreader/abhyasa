@@ -105,19 +105,6 @@ def test_model_call_outside_the_lock(lr, talk_fake):
     talk_again(lr, Fake({**TALK_RULES, 'You write one slide of a talk': slide}), t.id)
     assert free and all(free)
 
-def test_path_talk_keeps_its_behaviour(mk, lr, talk_fake):
-    "A talk from a path does not show the new line, and Make it again on a path still makes a new talk."
-    from walk_data import EXTRACT_REPLY
-    cl = mk(); jid = prep_walk(lr, walk(cl, lr))
-    pj = lr.put_journey(dict(id='softmax-path-ab12', title='Softmax path', goal='Learn softmax', subject='ml',
-                             steps=[dict(slug=s, status='todo', why='') for s in ('softmax', 'sequential-computation')]))
-    cl.post('/talk/journey', data=dict(jid=pj.id))
-    tid = wait_for(lambda: cl.get(f'/talk/job?jid={pj.id}').headers.get('hx-redirect')).split('/')[-1]
-    assert 'The walk changed after this talk was made:' not in cl.get(f'/t/{tid}').text
-    cl.post('/talk/journey', data=dict(jid=pj.id, again='1'))
-    tid2 = wait_for(lambda: (h := cl.get(f'/talk/job?jid={pj.id}').headers.get('hx-redirect')) and h.split('/')[-1] != tid and h or None).split('/')[-1]
-    assert tid2 != tid
-
 def again_with_a_parked_slide(cl, lr, talk_fake):
     "A talk made again after the walk dropped idea 2: its slide is parked. Return (talk id, walk id, the parked slide)."
     jid = prep_walk(lr, walk(cl, lr)); tid = make_talk(cl, jid)

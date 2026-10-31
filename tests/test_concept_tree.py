@@ -335,17 +335,17 @@ def test_an_undone_concept_is_not_placed_again(mk, jy, fake, monkeypatch):
     assert not any('- bharani:' in p for p, _ in fake.calls[n:] if SORT in p)
 
 def test_other_ways_to_add_concepts_place_them_too(mk, jy, fake, monkeypatch):
-    "A topic that you add to a journey and a step that you split make new concepts. The concepts block places them."
+    "An idea that you add to a walk and an idea that you split make new concepts. The concepts block places them."
     monkeypatch.setattr('abhyasa.app.ThreadPoolExecutor', Now)
     jy.save_groups('jyotisha'); jy.set_group('mesha', [], by='hand')
     fake.rules[SORT] = lambda p, sp: dict(places=[dict(slug=s, group=['nakshatras']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
-    jy.put_journey(dict(id='jj', title='Stars', goal='Stars', subject='jyotisha', mode='plan', created=0, steps=[dict(slug='ashvini', status='todo', why='')]))
+    jy.put_journey(dict(id='jj', title='Stars', goal='Stars', subject='jyotisha', mode='walk', created=0, steps=[dict(slug='ashvini', status='todo', why='', check=dict(way='words', kind='short', depth=2))]))
     cl = mk()
     fake.rules['The idea: '] = dict(name='Bharani', statement='The second nakshatra.')
-    cl.post('/j/jj/add', data=dict(name='Bharani'))
+    cl.post('/w/jj/edit', data=dict(act='add', name='Bharani'))
     assert (jy.concept('bharani').group, jy.concept('bharani').group_by) == (['nakshatras'], 'placed')
     fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Krittika', statement='The third nakshatra.')])
-    cl.post('/j/jj/split', data=dict(slug='ashvini'))
+    cl.post('/w/jj/edit', data=dict(act='split', slug='ashvini'))
     assert (jy.concept('krittika').group, jy.concept('krittika').group_by) == (['nakshatras'], 'placed')
 
 # Sort by hand (the engine)

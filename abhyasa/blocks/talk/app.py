@@ -17,11 +17,11 @@ from starlette.responses import JSONResponse, RedirectResponse
 from abhyasa.core import Page, UndoBar, hook, n_of, pane_url, room_spec, run as run_hook
 from abhyasa.edit import edit_lock, CTRL, rewrite as tutor_rewrite
 from abhyasa.sources import figure_path
-from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, journey_walk, journey_changed
+from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk
 from abhyasa.llm import for_task
 from abhyasa.settings import val
 from abhyasa.prompts import lines
-from abhyasa.talk import (check_talk, talk_from_walk, talk_from_journey, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
+from abhyasa.talk import (check_talk, talk_from_walk, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
                           public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go, log_main, end_run, log_beside,
                           recap, recap_html, BEATS, FILLED, clean_slide, talk_again, walk_changes, AGAIN, talk_state, with_state, on_stage, put_back)
 from . import ui
@@ -251,18 +251,6 @@ def connect(app, ctx):
         if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_walk(lr, ask(), jid, sources=ctx.sources).id)
         return ui.Pending(jid)
 
-    def find_sources(w):
-        "Before the slides are made: mark the steps of walk `w` with no passage as pending, look for their web sources on the research pool, and wait."
-        ctx.research.run(w.id)
-
-    def plain(j): return bool(j and j.get('mode') != 'walk' and not for_talk(j) and j.steps)   # a path: a walk with no source
-
-    def from_journey(jid:str='', again:str=''):
-        "Start the pool job that makes a talk from path `jid`, or finds the one made before. `again` makes a new walk and a new talk."
-        if not plain(lr.journey(jid := jid.strip())): return P('No such walk.', cls='req-err')
-        if not (job := jobs.get(jid)) or job.done(): jobs[jid] = ctx.pool.submit(lambda: talk_from_journey(lr, ask(), jid, ctx.sources, again=bool(again), research=find_sources).id)
-        return ui.Pending(jid)
-
     def fill(tid:str):
         "Start the pool job that writes the content of the slides of talk `tid` that have none (Fill the slides). The request does not wait for the model."
         if not lr.talk(tid): return Response('No such talk.', status_code=404)
@@ -287,8 +275,8 @@ def connect(app, ctx):
         filled = bar(t, top.what, [top]) if top and top.what == said else None
         j = walk_for(t)
         pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
-        up = [(pj.title, f'/path/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, pj and journey_changed(lr, j), choices(t), filled, None if pj or not j else walk_changes(lr, t)), on='Home', crumbs=[('Home', '/'), *up],
+        up = [(pj.title, f'/w/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, choices(t), filled, None if pj or not j else walk_changes(lr, t)), on='Home', crumbs=[('Home', '/'), *up],
                     extra=ui.editor_assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys work only here
         return page
@@ -795,17 +783,12 @@ def connect(app, ctx):
 
     @hook('walk_actions')
     def present(j, quiet=False, row=False):
-        """On a walk (its plan, its step, its last page) and on its path page: make a talk from the walk, or open the one made before.
-        On a path (a walk with no source): the same from the path. `quiet` gives a quiet button, for a page that has its own main button.
+        """On a walk (its plan, its step, its last page): make a talk from the walk, or open the one made before.
+        `quiet` gives a quiet button, for a page that has its own main button.
         `row` gives one quiet control for its row in a list: Present, or Open the talk."""
-        if j.get('mode') == 'walk':
-            if not j.steps or j.get('depth') or for_talk(j): return None
-            t = walk_talk(lr, j.id)
-            return ui.RowPresent(j.id, t) if row else ui.PresentWalk(j.id, t, quiet)
-        if not plain(j): return None
-        w = journey_walk(lr, j.id)
-        t = w and walk_talk(lr, w.id)
-        return ui.RowPresent(j.id, t, path=True) if row else ui.PresentJourney(j.id, t)
+        if j.get('mode') != 'walk' or not j.steps or j.get('depth') or for_talk(j): return None
+        t = walk_talk(lr, j.id)
+        return ui.RowPresent(j.id, t) if row else ui.PresentWalk(j.id, t, quiet)
 
     @hook('learn_talks')
     def teach():
@@ -813,7 +796,6 @@ def connect(app, ctx):
         return ui.Teach(lr.talks())
 
     app.post(Routes.new)(new)
-    app.post(Routes.journey)(from_journey)
     app.get(Routes.job)(job)
     app.get(Routes.one)(one)
     app.post(Routes.slide)(slide)

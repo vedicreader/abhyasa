@@ -40,4 +40,4 @@ def test_old_list_routes_go_home(mk):
     r = cl.get('/learn', follow_redirects=False)
     assert r.status_code == 301 and r.headers['location'] == '/'
     r = cl.get('/journeys', follow_redirects=False)
-    assert r.status_code == 303 and r.headers['location'] == '/'
+    assert r.status_code == 301 and r.headers['location'] == '/'

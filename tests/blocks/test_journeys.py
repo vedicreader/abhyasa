@@ -1,78 +1,59 @@
-"Journeys: plan from a goal, change the path, continue it, and see it on Today and on a concept page."
+"Old paths become walks on Home, with their progress; old links go to the walk page; a concept page lists its walks; a session of a walk says when an idea is done."
 import re
-from starlette.testclient import TestClient
-from abhyasa.app import mk_app
+from abhyasa.journey import plan as plan_path
 
 PLAN = dict(title='How LLMs work', subject='ml', steps=[
     dict(name='Tokenizers', statement='A tokenizer cuts text into tokens.', slug='', why='The model reads tokens.', needs=[]),
     dict(name='Ranking', statement='', slug='ranking', why='You rank the next token.', needs=['Tokenizers']),
     dict(name='Attention', statement='Weights from query-key dot products.', slug='', why='The core of a transformer.', needs=['Ranking'])])
 
-def plan(cl, fake):
+def old_path(lr, fake):
+    "A path as abhyasa made it before 0.0.16: a goal and its steps, with no `mode`. Its second step is marked known."
     fake.rules['You plan a learning path'] = PLAN
-    r = cl.post('/journeys/new', data=dict(goal='I want to learn how LLMs work'))
-    return r.headers['hx-redirect'].split('/')[-1]
+    j = plan_path(lr, fake, 'I want to learn how LLMs work')
+    lr.merge_journey(j.id, steps=[{**s, 'status': 'known'} if s['slug'] == 'ranking' else s for s in j.steps])
+    return j.id
 
-def test_plan_and_path(mk, fake, lr):
-    cl = mk()
-    jid = plan(cl, fake)
-    assert lr.concept('tokenizers').subject == 'ml' and lr.concept('ranking').floor == 0
-    page = cl.get(f'/j/{jid}').text
-    assert 'How LLMs work' in page and page.index('Tokenizers') < page.index('Ranking') < page.index('Attention')
-    assert 'step tokenizers' not in page and 'class="step new now"' in page            # the first step is the one to do now
-    assert f'href="/start?journey={jid}"' in page and 'Continue: Tokenizers' in page
-    assert 'class="crumbs"' in page and 'href="/"' in page                           # a way up
-    assert 'data-mic' in page                                                         # say a topic to add
+def test_an_old_path_becomes_a_walk_on_home(mk, fake, lr):
+    "Home makes the old path a walk with the same id: each step has a check, the known step stays known, and the row counts it."
+    cl = mk(); jid = old_path(lr, fake)
+    home = cl.get('/').text
+    j = lr.journey(jid)
+    assert j.mode == 'walk' and [s['slug'] for s in j.steps] == ['tokenizers', 'ranking', 'attention'] and all(s['check'] for s in j.steps)
+    assert j.steps[1]['status'] == 'known' and j.steps[1]['read']['title'] == 'My ranking notes'   # a passage from your sources
+    assert 'How LLMs work' in home and '1 of 3 ideas' in home and 'Now: Tokenizers' in home and f'href="/w/{jid}"' in home
 
-def test_empty_goal(mk):
-    assert 'Say or type' in mk().post('/journeys/new', data=dict(goal=' ')).text
+def test_old_path_links_go_to_the_walk_page(mk, fake, lr):
+    "An old link to a path makes it a walk and opens the walk page, with the same query. The path routes that changed a path are gone."
+    cl = mk(); jid = old_path(lr, fake)
+    r = cl.get(f'/j/{jid}?from=leela', follow_redirects=False)
+    assert r.status_code == 301 and r.headers['location'] == f'/w/{jid}?from=leela' and lr.journey(jid).mode == 'walk'
+    assert cl.get(f'/path/{jid}', follow_redirects=False).headers['location'] == f'/w/{jid}'
+    for u in (f'/path/{jid}/step', f'/j/{jid}/drop', f'/path/{jid}/sources', '/journeys/new', '/talk/journey'):
+        assert cl.post(u).status_code in (404, 405), u
 
-def test_change_the_path(mk, fake, lr):
-    cl = mk()
-    jid = plan(cl, fake)
-    r = cl.post(f'/j/{jid}/step', data=dict(slug='attention', act='up')).text
-    assert r.index('Attention') < r.index('Ranking') and 'id="path"' in r
-    r = cl.post(f'/j/{jid}/step', data=dict(slug='tokenizers', act='known')).text
-    assert 'you know it' in r and 'Continue: Attention' in r                         # the path goes on
-    cl.post(f'/j/{jid}/step', data=dict(slug='ranking', act='remove'))
-    assert [s['slug'] for s in lr.journey(jid).steps] == ['tokenizers', 'attention']
-    fake.rules['The idea: '] = dict(name='Mamba', statement='Mamba is a selective state-space model.')
-    assert 'Mamba' in cl.post(f'/j/{jid}/add', data=dict(name='Mamba')).text
-
-def test_continue_a_journey(mk, fake, lr):
-    cl = mk()
-    jid = plan(cl, fake)
-    r = cl.get(f'/start?journey={jid}', follow_redirects=False)
-    sid = r.headers['location'].split('/')[-1]
-    page = cl.get(f'/s/{sid}').text
-    assert 'Tokenizers' in page and f'href="/path/{jid}"' in page                     # the session names its walk, its parent
-
-def test_today_and_concept_page(mk, fake):
-    cl = mk()
-    today = cl.get('/').text
-    assert 'data-part="start"' in today and 'data-part="walks"' not in today   # no walk yet: Home has the Start box only
-    plan(cl, fake)
+def test_concept_page_lists_its_walks(mk, fake, lr):
+    "A concept page names each walk that has the idea, with a link to the idea, and adds the idea to another walk."
+    cl = mk(); jid = old_path(lr, fake); cl.get('/')
     c = cl.get('/c/ranking').text
-    assert 'In your walks' in c and 'idea 2 of 3' in c
+    assert 'In your walks' in c and 'idea 2 of 3' in c and f'href="/w/{jid}/1"' in c
+    lr.put_journey(dict(id='w2', title='Second walk', mode='walk', steps=[dict(slug='tokenizers', status='todo', check=dict(way='words', kind='short', depth=2))]))
+    r = cl.post('/walk/attach', data=dict(jid='w2', slug='ranking')).text
+    assert 'Added to' in r and 'href="/w/w2/1"' in r and lr.journey('w2').steps[1]['check']['kind']
 
 def test_step_done_in_the_thread(mk, fake, lr):
-    cl = mk()
-    jid = plan(cl, fake)
+    "In a session of a walk, the close that makes an idea learned says so, and names the next idea."
+    cl = mk(); jid = old_path(lr, fake); cl.get('/')
     lr.update('tokenizers', floor=3, ceiling=6, seen=1)
     sid = cl.get(f'/start?journey={jid}', follow_redirects=False).headers['location'].split('/')[-1]
-    cl.get(f'/s/{sid}')
+    page = cl.get(f'/s/{sid}').text
+    assert 'Tokenizers' in page and f'href="/w/{jid}"' in page   # the session names its walk
     fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')
     r = cl.post(f'/s/{sid}/answer', data=dict(answer='tokens', confidence=90)).text
-    assert 'Idea done' in r and 'Next in the walk: Ranking' in r
+    assert 'Idea done' in r and 'Next in the walk: Attention' in r
 
-def test_drop(mk, fake, lr):
-    cl = mk()
-    jid = plan(cl, fake)
-    cl.post(f'/j/{jid}/drop')
-    assert lr.journey(jid) is None and 'No such walk' in cl.get(f'/j/{jid}').text
-
-def test_learn_counts_a_walk_as_its_outline_does(mk, lr):
-    "An idea that a check closed as fragile counts the same in the outline and in Learn: both use `walk_state`."
+def test_home_counts_a_walk_as_its_outline_does(mk, lr):
+    "An idea that a check closed as fragile counts the same in the outline and on Home: both use `walk_state`."
     ck = dict(way='words', kind='short', depth=2)
     lr.put_journey(dict(id='wf', title='Fragile walk', mode='walk', goal='learn ranking', started=1.,
                         steps=[dict(slug='ranking', status='todo', check=ck, done=dict(outcome='fragile', at=1.)), dict(slug='reciprocal-rank-fusion', status='todo', check=ck)]))

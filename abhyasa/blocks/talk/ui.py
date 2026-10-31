@@ -65,19 +65,11 @@ def AgainLine(t, jid, ch):
                     Small(' Your edits to slides stay in the new talk where the idea is the same.', cls='mute'),
                     hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new'), cls='talk-again')
 
-def RowPresent(jid, t=None, path=False):
-    """The one quiet control on the row of walk `jid` in a list: "Open the talk" when talk `t` was made from it, else "Present", which makes the talk.
-    `path` makes the talk from a path (a walk with no source)."""
+def RowPresent(jid, t=None):
+    """The one quiet control on the row of walk `jid` in a list: "Open the talk" when talk `t` was made from it, else "Present", which makes the talk."""
     if t: return A('Open the talk', href=at(Routes.one, t.id), cls='quiet')
     return Form(Input(type='hidden', name='jid', value=jid), Quiet('Present', small=True, data_wait='Making the talk…', title='Make a talk from this walk'),
-                hx_post=Routes.journey if path else Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
-
-def PresentJourney(jid, t=None):
-    "Make a talk from path `jid` (a walk with no source). When talk `t` was made from it before: open that talk, or make it again."
-    def go(label, *again): return Form(Input(type='hidden', name='jid', value=jid), *again, Secondary(label, data_wait='Making the talk…'),
-                                      hx_post=Routes.journey, hx_target='this', hx_swap='outerHTML', cls='talk-new')
-    if not t: return go('Present this walk')
-    return Div(Secondary('Open the talk', href=at(Routes.one, t.id)), go('Make it again', Input(type='hidden', name='again', value='1')), cls='row')
+                hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
 
 def Pending(jid, fill=False, again=False):
     "A talk that is still being made, filled (`fill`) or made again (`again`): the card asks the server again in 2 seconds."
@@ -323,18 +315,17 @@ def Fill(t):
     return Form(Quiet('Fill the slides', small=True, data_wait='Filling the slides…'), Small(f' {n} {have} no points or no speaker note.', cls='mute'),
                 hx_post=at(Routes.fill, t['id']), hx_target='this', hx_swap='outerHTML', cls='talk-new talk-fill')
 
-def Editor(t, j, pj=None, changed=False, ch=None, bar=None, again=None):
-    """The editor of talk `t` from walk `j` (made from path `pj`, if given, which `changed` after): what it is, Present, the slot, then the slides.
+def Editor(t, j, pj=None, ch=None, bar=None, again=None):
+    """The editor of talk `t` from walk `j` (made for the talk from the old path `pj`, if given): what it is, Present, the slot, then the slides.
     `ch` has the passages and the figures that each slide can pick. A change saves at once, and the Undo bar at the foot can take it back.
     `bar` is the Undo bar to show when the page opens (after Fill the slides or Make it again), else the empty bar.
     `again` has what changed in walk `j` after the talk was made (`walk_changes`): the page then offers Make it again."""
     ins = [s for s in t['slides'] if s.get('kind') == 'idea' and s.get('section') != GONE]   # a slide whose idea left the walk is not counted
     ideas, secs = len(ins), len({s.get('section') for s in ins if s.get('section')})
-    made = A('Made from your walk', href=f'/path/{pj.id}') if pj else A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'
+    made = A('Made from your walk', href=f'/w/{pj.id}') if pj else A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'
     cut = P('This talk has the first steps of the walk, up to the Ideas in a walk setting (12 by default). Skipped steps are left out.', cls='mute') if pj and (j.get('more') or any(s.get('status') == 'skip' for s in pj.steps)) else ''
-    old = P('The walk changed after this talk was made. Make it again to update it.', cls='mute') if changed else ''
     return (H1(f"{t['title']}, as a talk"),
-            P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), ' · ', A('Earlier versions', href=at(Routes.history, t['id'])), cls='mute'), cut, old, AgainLine(t, j.id, again) if j and again else '',
+            P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), ' · ', A('Earlier versions', href=at(Routes.history, t['id'])), cls='mute'), cut, AgainLine(t, j.id, again) if j and again else '',
             P('A change saves at once, and Undo takes it back.', cls='lead'),
             Details(Summary('About this'), P('Each idea of the walk is one slide. The passage or the points, and the figure, show to the room. '
                                              'The speaker note is for you only. A change here does not change the walk.'), cls='about'),

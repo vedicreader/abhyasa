@@ -7,7 +7,7 @@ from fastcore.utils import AttrDict
 from abhyasa.core import Page, hook, run as run_hook, Primary, Secondary, n_of, Feedback, Msg
 from abhyasa.model import DEPTHS, pick
 from abhyasa.tutor import Session, HINTS, moved
-from abhyasa.journey import progress, walk_state, related
+from abhyasa.journey import walk_state, related
 from abhyasa.demo import show_ask
 from . import ui
 from .cfg import Routes
@@ -91,9 +91,9 @@ def connect(app, ctx):
     def chosen(q): return {t['text'] for t in q.get('turns') or () if t['who'] == 'you'}
 
     def crumbs(s):
-        "Today, then the walk of the session, if it has one."
+        "Home, then the walk of the session, if it has one."
         j = lr.journey(s.journey) if s and s.journey else None
-        return [('Home', '/'), *([(j.title, f'/path/{j.id}')] if j else [])]
+        return [('Home', '/'), *([(j.title, f'/w/{j.id}')] if j else [])]
 
     def start(subject:str='', focus:str='', journey:str='', drill:str=''):
         s = Session(tutor, focus=focus or None, subject=subject or None, journey=journey or None, drill=bool(drill))
@@ -216,7 +216,7 @@ def connect(app, ctx):
         for q in shown.pop(sid, ()): tl.pop(q.id, None); outcomes.pop(q.id, None)   # get() builds them again from the shelf
         j = lr.journey(s.journey) if s.journey else None
         by = {c.slug: c for c in lr.concepts()}
-        nxt_ = (walked(j, by) if j.get('mode') == 'walk' else progress(lr, j, by=by)) if j else None
+        nxt_ = walked(j, by) if j else None
         last = s.log[-1]['concept'] if s.log else s.focus
         rel = [] if j else related(lr, last, 4, by=by) if last else []
         return Page('Session', *ui.EndPage(s, moved(s.log), j, nxt_, rel), on='Home', crumbs=crumbs(s), extra=ui.assets())

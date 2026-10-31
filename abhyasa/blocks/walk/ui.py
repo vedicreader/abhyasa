@@ -748,6 +748,18 @@ def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), act
     elif ph == 'going': top = Here(j, st, by)
     return (*head, top, '' if ph == 'side' else Improve(j, ph == 'finished'), plan, Sources(j, band, more), '' if ph == 'side' else Talks(talks, changed, actions))
 
+def InWalks(c, rows, js):
+    "On a concept page: the walks that have idea `c` (`(walk, index)`), each linked to its idea, and a way to add it to another walk."
+    pick = [j for j in js if j['id'] not in {j['id'] for j, _ in rows}]
+    return Div(*([H2('In your walks'), Ul(*[Li(A(j['title'], href=at(Routes.step, j['id'], i)), Span(f"  idea {i + 1} of {len(j['steps'])}", cls='mute')) for j, i in rows], cls='plain')] if rows else []),
+               Form(Label('Add this idea to a walk', fr='attach-jid', cls='lbl'), Select(*[Option(j['title'], value=j['id']) for j in pick], name='jid', id='attach-jid'),
+                    Input(type='hidden', name='slug', value=c.slug), Button('Add to the walk', cls='small'),
+                    hx_post=Routes.attach, hx_target='this', hx_swap='outerHTML', cls='attach row') if pick else '', cls='in-journeys')
+
+def StepDone(c, nxt):
+    "A note in the thread when an idea of the walk is learned."
+    return Div(Span('Idea done', cls='lbl'), P(f"You learned {c.name}. " + (f"Next in the walk: {nxt}." if nxt else 'That was the last idea of the walk.')), cls='step-done')
+
 # --- the walk path editor (core/edit.py: an `EditList`; each change saves at once, with an Undo) ----------------------
 
 CHOICES = dict(predict='Predict a demo', short='Short answer', order='Put in order', code='Write code', notebook='Notebook')   # the check kinds that you can pick
