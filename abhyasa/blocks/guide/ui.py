@@ -7,7 +7,7 @@ from .cfg import Routes
 
 _P = Path(__file__).parent
 KEY = '⌃⌥⇧⌘E'
-ASK = 'What do you not understand?'
+ASK = 'Your question'
 
 def Go():
     "The Explain button, for a learner with no Hyper key. Hyper+E does the same."
@@ -16,7 +16,7 @@ def Go():
 
 def Box():
     "The one-line box. A tap of Hyper+E opens it; held, the key fills it with what you say. Under it: the last question that the next one follows up on."
-    return Form(Input(type='text', name='said', id='guide-box', aria_label=ASK, placeholder="I don't get …", autocomplete='off', maxlength='300'),
+    return Form(Input(type='text', name='said', id='guide-box', aria_label=ASK, placeholder='Ask about what you see', autocomplete='off', maxlength='300'),
                 Button('Explain', type='submit', cls='small'), Span('Hold Caps+E to talk', cls='guide-talk mute', title=f'{KEY}: hold to talk, tap to type'),
                 Span(cls='guide-heard mute', aria_live='polite'),
                 P(cls='guide-follow mute', hidden=True),

@@ -355,7 +355,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
       const m = info.model || {};
       heard(`The tutor reads this page and asks ${m.model || 'the tutor'} (${where(m) || 'hosted'}). Esc stops it.`);
     }
-    b.value = text != null ? text : sel ? `I don't get "${sel}"` : '';
+    b.value = text != null ? text : sel ? `Explain "${sel}"` : '';
     b.focus(); b.setSelectionRange(b.value.length, b.value.length);
   }
   function close() { stopShow(); if (form()) form().hidden = true; }
