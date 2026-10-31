@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import asset_css, asset_js, Primary, meta, n_of, pane_link
+from abhyasa.core import asset_css, asset_js, Primary, meta, n_of, pane_link, short_title
 from abhyasa.settings import val
 from .cfg import Routes
 
@@ -75,8 +75,8 @@ def NotFound(t, at):
                        Button('Not now ', Kbd('Esc'), type='button', cls='quiet small rh-shut'), cls='row'),
                    cls='rh-offer-card', role='dialog', aria_label=f'Learn {t}')
 
-def EndNote(name, ok, back, here, slug, outcome):
+def EndNote(name, ok, back, here, slug, outcome, walk=''):
     "The end of a side walk: what you learned, and the way back. detour.js sends `rh:done` from `data-rh-done`."
     return Div(P('You ', 'learned ' if ok else 'looked at ', B(name), ' on the way.', cls='lead-sum'),
-               Primary(f'← Back to the paper: {here}', href=back, rank=0), *assets(),
+               Primary(f"← Back to {short_title(walk) or 'the paper'}: {here}", href=back, rank=0), *assets(),
                cls='rh-end', data_rh_done=json.dumps(dict(slug=slug, outcome=outcome)))

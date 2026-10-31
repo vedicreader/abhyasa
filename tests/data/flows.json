@@ -538,7 +538,7 @@
           "when": "walk.parent is set",
           "must_show": [
             "act:back",
-            "label:Back to the paper"
+            "label:Back to {parent}"
           ],
           "must_not_show": [
             "part:talks",

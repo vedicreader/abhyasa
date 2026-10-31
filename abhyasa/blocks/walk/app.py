@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, wait as wait_all
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import n_of, Page, NotFound, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
+from abhyasa.core import n_of, Page, NotFound, short_title, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
 from abhyasa.core.leela import leela_line, leela_link
 from abhyasa.settings import val, set_val
 from abhyasa.detect import detect, vault_title
@@ -139,7 +139,7 @@ def connect(app, ctx):
         pj, i = parent_step(lr, j)
         if not pj: return None
         parts = [[f"Idea {t.step + 1}", ui.at(Routes.step, t.walk, t.step)] for t in trail(lr, j.id)[:-1] if t.step is not None]
-        return AttrDict(href=ui.at(Routes.step, pj.id, i), here=f"idea {i + 1} of {len(pj.steps)}", trail=parts)
+        return AttrDict(href=ui.at(Routes.step, pj.id, i), here=f"idea {i + 1} of {len(pj.steps)}", trail=parts, title=short_title(pj.title))
 
     def ahead(j, i):
         "Start the demo of step `i` when its check is a demo or an order, it has no outcome, and it has no demo yet (spec 6.5)."
@@ -506,11 +506,13 @@ def connect(app, ctx):
         st = walk_state(j, b)   # an idea learned elsewhere is known
         seen(j)
         ph = ui.phase(j, st)
-        top = ended(j, b) if ph == 'finished' else Div(ui.SideTop(j, st, back_to(j)), *(run_hook('walk_end', j) if st.current is None else ())) if ph == 'side' else None   # a side walk that ends says what you learned on the way
+        bk = back_to(j) if ph == 'side' else None
+        top = ended(j, b) if ph == 'finished' else Div(ui.SideTop(j, st, bk), *(run_hook('walk_end', j) if st.current is None else ())) if ph == 'side' else None   # a side walk that ends says what you learned on the way
         ts = talks_of(jid)
         plan_ = ui.PlanPart(j, b, open, bool(pick), nb_now(j)) if j.steps and not for_talk(j) else ''
         page = ui.WalkPage(j, st, b, plan_, band(j, plan=True), top=top, more=run_hook('walk_plan_more', j), talks=ts,
-                           changed={t['id'] for t in ts if any(walk_changes(lr, t).values())}, actions=run_hook('walk_actions', j, quiet=True), vault=vault)
+                           changed={t['id'] for t in ts if any(walk_changes(lr, t).values())}, actions=run_hook('walk_actions', j, quiet=True), vault=vault,
+                           lead=ui.side_lead(j, b, bk))
         return Page(j.title, *page, on='Home', crumbs=up, extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def start(jid:str):

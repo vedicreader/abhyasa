@@ -10,7 +10,7 @@ from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
 from abhyasa.model import DEPTHS
 from abhyasa.sources import source_of
 
-__all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
+__all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo', 'moved_to', 'subject_name']
 
 _here = Path(__file__).parent
@@ -136,6 +136,11 @@ def Page(title, *c, on='', sub='', wide=False, extra=(), crumbs=(), pane=False):
             A('Search ', Kbd('/'), href='/search', cls='nav-search'),   # beside the side pane, in place of the box (pane.css)
             Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search'), gear, aria_label='Main'),
             Main(Crumbs(crumbs), Narrow(rh, side), *_under_title(c, sub and SubTabs(on, sub)), cls='wide' if wide else ''), PaneHost(rh, side), *run('page_extra'))
+
+def short_title(t, most:int=40) -> str:
+    "The short title of a walk or a paper, for a line that names it: the part before a colon or a dash, cut at a word to about `most` characters."
+    t = re.split(r'\s*[:—–]\s+|\s+-\s+', ' '.join(str(t or '').split()))[0]
+    return t if len(t) <= most else t[:most].rsplit(' ', 1)[0] + '…'
 
 def NotFound(title, *c, **kw):
     "The friendly page of a walk, an idea, a concept, a course or a document that is not there, with the status 404."

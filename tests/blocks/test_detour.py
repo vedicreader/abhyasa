@@ -16,7 +16,11 @@ def test_needs_line_and_side_walk_beside(mk, walk_fake, lr):
     sid = r['url'].split('/')[2]
     assert lr.journey(sid).parent == dict(walk=jid, step=2, idea=lr.journey(jid).steps[2]['slug']) and r['title'].startswith('Derivatives')
     pane = cl.get(r['url'] + '?pane=1').text
-    assert '<nav' not in pane and 'Back to the paper: idea 3 of 3' in pane and '⌥Z' in pane
+    from abhyasa.core import short_title
+    back = short_title(lr.journey(jid).title)
+    assert '<nav' not in pane and f'Back to {back}: idea 3 of 3' in pane and '⌥Z' in pane   # it names the walk that opened it
+    side = cl.get(f'/w/{sid}').text
+    assert f'Back to {back}' in side and f'the basics, for {back}' in side and 'enough to read' not in side   # the short lead
     assert f'src="/w/{sid}/0?pane=1"' in cl.get(f'/w/{jid}/2?rh=/w/{sid}/0').text        # a reload keeps the pane open
     for bad in ('https://evil.example/', '//evil.example/', '/\\evil.example/'):
         assert 'rh-pane' not in cl.get(f'/w/{jid}/2', params=dict(rh=bad)).text         # no pane for a URL off the app

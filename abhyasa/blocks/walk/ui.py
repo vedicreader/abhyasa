@@ -274,7 +274,7 @@ def NoteSlot(jid, i, oob=False):
 def BackFoot(b, pace=''):
     """In a side walk: the way back to the step that opened it. In the side pane it stays at the foot, and ⌥Z does the same.
     It tells the pane bar the trail and the pace (`Side walk · 1 of 1`); the bar reads the progress line from the outline."""
-    return A(f"← Back to the paper: {b.here} ", Kbd('⌥Z'), href=b.href, cls='rh-back walk-back', data_rh_trail=json.dumps(b.trail), data_rh_pace=pace)
+    return A(f"← Back to {b.get('title') or 'the paper'}: {b.here} ", Kbd('⌥Z'), href=b.href, cls='rh-back walk-back', data_rh_trail=json.dumps(b.trail), data_rh_pace=pace)
 
 TALK_TEXT = 240   # about the characters of the passage of a primer in a talk: a short note, as in the mockup (shots/a5-beside.png)
 
@@ -676,9 +676,9 @@ def Here(j, st, by):
                cls='walk-here', data_part='here')
 
 def SideTop(j, st, back):
-    "A side walk: Back to the paper, the main button, and a quiet way on to the idea to do now."
+    "A side walk: Back to the walk that opened it (by its short title), the main button, and a quiet way on to the idea to do now."
     go = A(f"Continue: idea {st.current + 1} of {len(st.steps)} →", href=at(Routes.step, j['id'], st.current), cls='onward', data_act='continue') if st.current is not None else ''
-    return Div(Primary('Back to the paper', href=back.href if back else '/', data_act='back'), go, cls='row walk-top')
+    return Div(Primary(f"Back to {back.get('title') or 'the paper'}" if back else 'Back to the paper', href=back.href if back else '/', data_act='back'), go, cls='row walk-top')
 
 DATA_SAY = 'The exercises of this walk run on these folders. abhyasa does not file them.'
 
@@ -698,11 +698,16 @@ def Talks(talks=(), changed=(), actions=()):
     if not (talks or actions): return ''
     return Div(TalkLine(talks, changed), Div(*actions, cls='row') if actions else '', data_part='talks', cls='walk-talks')
 
-def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), actions=(), vault=None):
+def side_lead(j, by, back) -> str:
+    "The short lead of side walk `j`: its idea and the short title of the walk that opened it. '' for another walk, or when the walk that opened it is gone."
+    if not back or not j.get('slug'): return ''
+    return f"{name(by, dict(slug=j['slug']))}: the basics, for {back.title}"
+
+def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), actions=(), vault=None, lead=''):
     """One page for one walk. The head says what the walk is. Then the part of its state (`phase`): Start the walk, where you are,
     the end of the walk (`top`, the `WalkEnd`), or Back to the paper. Then the plan (`plan`), the sources (`band`, `more`) and the talks."""
     src, ph = j.get('source') or {}, phase(j, st)
-    whence = f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', '')
+    whence = lead or (f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', ''))
     mins = sum(minutes(s) for s in j['steps'] if s.get('status') != 'skip')
     head = (H1(j['title']), P(meta(whence, n_of(len(j['steps']), 'idea'), f'about {mins} min' if j['steps'] else ''), cls='mute'), leela_line(j, vault=vault) if j.get('tool') else '')
     if ph == 'empty': return (*head, P('The tutor found no ideas in this source.', cls='mute'), Filed(j), Div(Primary('Home', href='/', data_act='home'), cls='row'))   # what Start filed keeps its Undo
@@ -738,9 +743,10 @@ def edit_url(jid, slug=''): return at(Routes.edit, jid) + (f'?{urlencode(dict(sl
 def hands_words(j):
     "The hands-on line of walk `j`, and whether the walk is over its share. It only warns."
     h, n, nb = hands_count(j['steps'])
-    k = n - nb   # a notebook that builds the goal is not one of the ideas that the setting counts
-    line = f"Hands-on checks: {h} of {n_of(k, 'idea')} ({round(100 * h / k) if k else 0}%). Your setting: about {round(100 * val('walks.hands'))}%."
-    return line + (f" {nb} more {'idea is a notebook that builds' if nb == 1 else 'ideas are notebooks that build'} your goal." if nb else ''), h > hands_most(n)
+    m, pct = h + nb, round(100 * val('walks.hands'))   # a notebook that builds the goal is hands-on, but the setting does not count it
+    line = f"{m} of {n_of(n, 'idea')} {'has' if m == 1 or n == 1 else 'have'} a hands-on check"
+    if not nb: return f"{line}. You set about {pct}%.", h > hands_most(n)
+    return f"{line}: {nb} {'is a notebook' if nb == 1 else 'are notebooks'} for your goal. You set about {pct}% for the other ideas.", h > hands_most(n)
 
 def Hands(j, oob=False):
     "The hands-on share of the walk against your setting. Over the share, a quiet link to the setting. Nothing blocks."

@@ -190,7 +190,8 @@ def b_walk_side(lr, cl, mp):
     jid = paper(lr, cl)
     lr.put_journey(dict(id='side', title='Softmax first', mode='walk', parent=dict(walk=jid, step=1, slug='softmax'), depth=1, slug='ranking',
                         steps=[dict(slug='ranking', status='todo', check=dict(STEP))]))
-    return '/w/side', {}
+    from abhyasa.core import short_title
+    return '/w/side', dict(parent=short_title(lr.journey(jid).title))   # Back to names the walk that opened it
 
 def b_walk_empty(lr, cl, mp):
     lr.put_journey(dict(id='none', title='An empty source', mode='walk', steps=[]))

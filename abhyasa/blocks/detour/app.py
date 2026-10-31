@@ -115,7 +115,7 @@ def connect(app, ctx):
         s = next((s for s in reversed(j.steps) if s['slug'] == j.get('slug')), {})
         o = (s.get('done') or {}).get('outcome') or 'skipped'
         c = lr.concept(j.get('slug') or '') or {}
-        return ui.EndNote(c.get('name', j.title), o in GOOD, ui.step_url(pj.id, i), here(pj, i), j.get('slug'), o)
+        return ui.EndNote(c.get('name', j.title), o in GOOD, ui.step_url(pj.id, i), here(pj, i), j.get('slug'), o, pj.title)
 
     @hook('lesson_extra')
     def first_met(r):

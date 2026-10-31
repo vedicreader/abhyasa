@@ -26,7 +26,7 @@ def test_hands_line_counts_the_goal_notebooks_apart(mk, lr):
     lr.put_journey(dict(id='wg', title='Goal walk', mode='walk', steps=[dict(slug='ranking', status='todo', check=CK),
                         *[dict(slug=s, status='todo', check=nb, hands='notebook') for s in ('reciprocal-rank-fusion',)]]))
     t = mk().get('/w/wg').text
-    assert 'Hands-on checks: 0 of 1 idea (0%).' in t and '1 more idea is a notebook that builds your goal.' in t
+    assert '1 of 2 ideas has a hands-on check: 1 is a notebook for your goal. You set about 33% for the other ideas.' in t
 
 def test_home_counts_agree(mk, lr):
     "Home counts an idea that you answered on as started, and a walk row counts a shaky idea, so the counts agree with Progress and the outline."
