@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 from fasthtml.common import to_xml
 from abhyasa.core.pane import is_local, is_web, pane_url, pane_link, PaneHost
-from abhyasa.core.keys import KEYS
 
 HOSTILE = ('https://evil.example/x', '//evil.example', '/\\evil.example', '\\\\evil.example', 'javascript:alert(1)', 'JaVaScRiPt:alert(1)',
            'data:text/html,hi', 'w/g', '', None, 3, '/\t/evil.example', '/\n/evil.example', ' /w/g', '/w/g\x00', '/w\\..\\x')
