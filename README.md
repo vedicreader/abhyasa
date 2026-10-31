@@ -102,8 +102,8 @@ fastai/diffusion-nbs.” The box finds the sources that the goal names and shows
 - a public GitHub repo, as `owner/name` or as a link;
 - vedicreader, for the Ramayana episodes.
 
-Press × to remove a source, or add one with “Add a folder, a repo or a link”. On a Mac, “Pick a folder…” opens the
-folder chooser. You can also drop a PDF, a `.md` or a `.txt` file on the box. abhyasa reads nothing before you press
+Press × to remove a source, or add one with “Add a folder, a repo or a link”. On a Mac, “Pick folders…” opens the
+folder chooser. Hold ⌘ to pick more than one folder. You can also drop a PDF, a `.md` or a `.txt` file on the box. abhyasa reads nothing before you press
 Start. Then it files each new folder in your vault and clones each public GitHub repo over HTTPS, then plans the walk.
 abhyasa reads only `.ipynb`, `.md`, `.txt` and `.py` files
 (no `.py` in a folder with notebooks), at most 400 files and 200 MB, and it never runs their code. It reads only folders
@@ -120,6 +120,16 @@ and a spend limit.
 
 When no passage is found, the step says why, for example “No page had a good quote.” Press “Find a source” to try again,
 or “Pick a passage yourself”.
+
+### A course to your goal
+
+A goal that you type on Start makes a course. The walk that Start makes is stage 1 of the course. “Course” on the walk
+opens the course page. It shows your goal, “You are here”, the next idea and the reason for it, the stages, what stands
+between you and the goal, and the sources of the course.
+
+“Ask me where I start” is the level check. It asks a few short questions about what you know. Answer each one with Yes,
+A little or No, by a tap or by voice. abhyasa then plans the stages. It skips a stage of basics that you know, and it
+makes a stage that you know a little short.
 
 ### Change the walk
 
@@ -175,6 +185,11 @@ figure, moves the demo and speaks one short line for each step. The marks stay i
 - You can ask a follow-up question, such as “say that more simply” or “why?”. The guide sends your last 3 questions on
   this page with it. “Follows up on: …” shows under the box, with × to start fresh. A new page or 10 minutes with no question
   clears them.
+- To show how parts of an idea connect, the guide draws a diagram card beside the text: named boxes with arrows between
+  them. The card never covers text or a control.
+- After a check grades your answer, ask “explain the gaps”. The guide names the problem in your answer, explains the idea
+  that fixes it, and shows the path to a right answer. While you have tries left, it stops before the final answer.
+- On the page of an idea, ask “show me …”. The guide opens a demo of your words in a small card. × or Esc closes it.
 - A pill says where the answer is from: the tutor, your vault or the web. A quote is word for word, with its link.
 - When a concept has an explainer video, the board can move the video to the right time and quote it. On a concept page,
   “Find a video” looks on YouTube, or you can paste a link.
