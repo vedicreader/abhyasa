@@ -176,7 +176,7 @@ def b_walk_going(lr, cl, mp):
 
 def b_walk_researching(lr, cl, mp):
     jid = topic(lr); running(lr, jid)
-    return f'/w/{jid}', dict(have=1, total=3)
+    return f'/w/{jid}', dict(have=1, total=3, has='has')   # one idea has a source
 
 def b_walk_research_ended(lr, cl, mp):
     jid = topic(lr, research_end=time.time())
@@ -245,7 +245,7 @@ def d_find_sources(lr, cl, mp, fake):
     a = page(cl, f'/w/{jid}/1').acts['walk'][0]
     assert a.get('href') == f'/w/{jid}'
     pg = page(cl, a.get('href'))
-    assert pg.has('part:sources') and pg.has('label:1 of 3 ideas have a source.') and pg.works('stop') and pg.works('show-log')
+    assert pg.has('part:sources') and pg.has('label:1 of 3 ideas has a source.') and pg.works('stop') and pg.works('show-log')
     assert cl.post(f'/w/{jid}/gather/stop').status_code == 200
 
 def d_finish_walk(lr, cl, mp, fake):

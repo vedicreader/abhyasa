@@ -459,7 +459,7 @@
           "when": "walk.jobs.research.state == running",
           "must_show": [
             "part:sources",
-            "label:{have} of {total} ideas have a source.",
+            "label:{have} of {total} ideas {has} a source.",
             "act:stop",
             "act:show-log",
             "label:You can start now."

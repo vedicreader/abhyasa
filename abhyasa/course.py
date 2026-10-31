@@ -415,9 +415,9 @@ def next_up(lr:Learning, c, rows=None, by:dict=None, now:float=None) -> AttrDict
         i = i if i is not None else r.ws.current
         slug = r.j.steps[i]['slug']
         cc = by.get(slug)
-        if cc is None or ready(cc, by): return out(4, 'You chose it.' if chose else f'Next: {_name(by, slug)}. You know the ideas that it needs.', _step(r, i), slug, r)
+        if cc is None or ready(cc, by): return out(4, 'You opened this idea last, so you go on from it.' if chose else f'Next: {_name(by, slug)}. You know the ideas that it needs.', _step(r, i), slug, r)
         p = min((by[p] for p in cc.get('prereqs') or () if p in by and by[p].get('floor', 0) < 3), key=lambda x: x.get('floor', 0))
-        return out(5, f'You chose it. {cc.name} needs {p.name} first.' if chose else f'Next: {p.name} first. {cc.name} needs it.', _step(r, i), slug, r)
+        return out(5, f'You opened {cc.name} last. It needs {p.name} first.' if chose else f'Next: {p.name} first. {cc.name} needs it.', _step(r, i), slug, r)
     if (w := _weak_later(lr, rows, k, by, now)): return out(6, f"Practice {w[0].name}. Stage {w[1].n} builds on it.", dict(kind='review', slug=w[0].slug), w[0].slug, w[1])
     return out(7, f"Stage {r.n} is next: {r['name']}." + (f" It makes {r['makes']}." if r.get('makes') else ''), dict(kind='stage', key=r['key']), '', r)
 

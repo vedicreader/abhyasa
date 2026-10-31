@@ -122,7 +122,7 @@ def understanding(c, now:float=None) -> AttrDict:
            *([f'a misconception: {mis[-1]}'] if mis else []),
            *([f'missed the last {mi} times'] if mi >= 2 else []),
            *([f'right, but shaky at the {DEPTHS[c["shaky"]]} level'] if c.get('shaky') else []),
-           *([f'fading: recall {r:.0%}'] if c.get('seen') and r < val('review.fading') else [])]
+           *([f'recall is down to {r:.0%}'] if c.get('seen') and r < val('review.fading') else [])]   # the state already says fading
     weak = bool(why) or mi > 0
     if c.get('seen', 0) >= 3 and min(c.get('ceiling', 6), 6) - fl >= 3: why.append('its level is not clear yet')
     strong = fl >= 3 and r >= .8 and not mi and not why

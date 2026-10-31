@@ -47,7 +47,8 @@ def Row(j, ws, by, sides=(), lead=False, js=None):
     pid = paper_id(j)
     now = f"Now: {(by.get(ws.steps[i]['slug']) or {}).get('name') or ws.steps[i]['slug']}" if i is not None else 'Finished'
     head = Div(Div(A(j.title, href=walk_at(j.id), cls='jt'), Pill(kind_of(j)), Span(pid, cls='paper-id mute') if pid else '', cls='jrow-l1'),
-               Div(Bar(ws.done, ws.total), Span(f"{ws.done} of {n_of(ws.total, 'idea')}", cls='mute'), Span(now, cls='mute now', title=now), cls='jrow-l2'),
+               Div(Bar(ws.done, ws.total), Span(f"{ws.done} of {n_of(ws.total, 'idea')}" + (f" · {sh} shaky" if (sh := sum(s.dot == 'shaky' for s in ws.steps)) else ''), cls='mute'),
+                   Span(now, cls='mute now', title=now), cls='jrow-l2'),   # a shaky idea is not done, and it is not the idea to do now
                cls='jrow-head')
     folded = Details(Summary(n_of(len(sides), 'side walk')), Ul(*[SideWalk(*x, js=js) for x in sides], cls='plain'), cls='side-walks') if sides else ''
     return Li(head, Div(go_on, *run('walk_actions', j, row=True), cls='lrow-acts'), folded, cls='jrow lrow')

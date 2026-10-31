@@ -36,16 +36,16 @@ def test_the_line_while_research_runs(mk, lr, monkeypatch):
     "While research runs, the walk page and each step show what it reads, the sources, the time left and the last step, with Stop; the outline links the sources of the walk page."
     j = walk(lr); cl = mk(); running(cl, monkeypatch, j=j)
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
-    assert 'Reads attention.md for idea 3. 1 of 3 ideas have a source. Less than a minute left. Last step 12 s ago.' in b
+    assert 'Reads attention.md for idea 3. 1 of 3 ideas has a source. Less than a minute left. Last step 12 s ago.' in b
     assert 'Search words go to the web.' in b   # where the words go
     assert '>Stop<' in b and 'hx-trigger="job, every 30s"' in b and f'data-job="walk:{j.id}"' in b and 'See the build' not in b   # it waits on the stream
     cl.post(f'/w/{j.id}/start')
     step = cl.get(f'/w/{j.id}/1').text
-    assert '1 of 3 ideas have a source.' in step and f'href="/w/{j.id}#sources" class="see-build">Sources<' in step   # the line, and the link in the outline
+    assert '1 of 3 ideas has a source.' in step and f'href="/w/{j.id}#sources" class="see-build">Sources<' in step   # the line, and the link in the outline
     assert 'has a source' in step   # the idea with a source is marked in the outline
     assert cl.get(f'/w/{j.id}?plan=1', follow_redirects=False).headers['location'] == f'/w/{j.id}#sources'   # the old build view: the sources of the walk page
     page = cl.get(f'/w/{j.id}').text   # the walk page after the start: no jump to the step
-    assert 'You can start now.' in page and '1 of 3 ideas have a source.' in page and 'Continue: idea 1 of 3' in page and f'href="/w/{j.id}/0"' in page
+    assert 'You can start now.' in page and '1 of 3 ideas has a source.' in page and 'Continue: idea 1 of 3' in page and f'href="/w/{j.id}/0"' in page
 
 def test_the_heartbeat_moves(mk, lr, monkeypatch):
     "The time since the last step grows while nothing happens, and goes back down after a step."
@@ -67,7 +67,7 @@ def test_the_line_after_research_ends(mk, lr, monkeypatch):
                      (dict(research_end=end, research_stopped='time'), f'The time for research ended at {hm}.'), ({}, 'Research stopped because abhyasa closed.')):
         j = walk(lr, **kv)
         b = cl.get(f'/w/{j.id}/gather', headers=HX).text
-        assert f'1 of 3 ideas have a source. {said}' in b and 'Find sources again' in b and 'data-job' not in b, (said, b)
+        assert f'1 of 3 ideas has a source. {said}' in b and 'Find sources again' in b and 'data-job' not in b, (said, b)
 
 def test_find_sources_again(mk, lr, monkeypatch):
     "Find sources again looks for each idea with no source."
@@ -89,7 +89,7 @@ def test_the_chip_tells_when_research_ends_and_the_mac_state(mk, lr, monkeypatch
     assert cl.get('/walk/research.json').json()['running'][0]['id'] == j.id   # the old path, for an older Mac app
     R._ended(lr, j.id)   # it ends while the learner is on another page
     page = cl.get('/library').text
-    assert 'Ready: Softmax and attention' in page and f'href="/w/{j.id}#sources"' in page and '1 of 3 ideas have a source.' in page and 'data-stream' not in page
+    assert 'Ready: Softmax and attention' in page and f'href="/w/{j.id}#sources"' in page and '1 of 3 ideas has a source.' in page and 'data-stream' not in page
     st = cl.get('/walk/research.json').json()
     assert st['running'] == [] and st['ended'][0]['id'] == j.id and st['ended'][0]['title'] == 'Softmax and attention' and (st['ended'][0]['have'], st['ended'][0]['total']) == (1, 3)
     cl.get(f'/w/{j.id}')   # the learner opens the walk
@@ -100,7 +100,7 @@ def test_the_editor_shows_the_line_of_research(mk, lr, monkeypatch):
     "The walk page shows the line of research in its sources, with Find sources again, and each idea of its plan with no source says so."
     j = walk(lr, research_end=time.time() - 5); cl = mk(); running(cl, monkeypatch, False)
     page = cl.get(f'/w/{j.id}').text
-    assert '1 of 3 ideas have a source. Research ended at' in page and 'Find sources again' in page
+    assert '1 of 3 ideas has a source. Research ended at' in page and 'Find sources again' in page
     assert page.index('id="steps"') < page.index('id="gather"') < page.index('id="walk-src-form"')   # the plan, then the sources with Add a source
     assert page.count('no source yet') == 2 and page.count('data-main=') == 1   # one main button
 

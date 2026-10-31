@@ -43,5 +43,5 @@ def test_weak_spot_says_why(mk, lr):
     lr.update('reciprocal-rank-fusion', misses=1, seen=1, last=__import__('time').time(), stability=30.)
     t = mk().get('/you/strengths').text
     weak = t[t.index('Weak spots'):t.index('Practice my weak spots')]
-    assert 'missed the last time' in weak and 'recall 100%' not in weak and 'recall ' not in weak.replace('fading: recall', ''), weak
+    assert 'missed the last time' in weak and 'recall 100%' not in weak and 'recall ' not in weak.replace('recall is down to', ''), weak
 

@@ -47,13 +47,13 @@ def test_today_shows_the_course_line(mk, lr):
     assert lr.journey('gw').course
 
 def test_step_keeps_your_place(mk, lr):
-    "Opening an idea of a course walk keeps it as the place where you are: the course page then says You chose it."
+    "Opening an idea of a course walk keeps it as the place where you are: the course page then says that you opened it last."
     goal_walk(lr, done=1); c = join_course(lr, 'gw')
     lr.update('denoise', floor=3)
     cl = mk()
     assert cl.get('/w/gw/2').status_code == 200
     assert lr.course(c.id).here['slug'] == 'sample'
-    assert 'You chose it.' in cl.get(f'/course/{c.id}').text
+    assert 'You opened this idea last, so you go on from it.' in cl.get(f'/course/{c.id}').text
 
 def test_known_elsewhere_shows_on_the_step(mk, lr):
     "An idea that a session closed at the learned depth shows as known (learned elsewhere) in the walk, and the walk goes past it."

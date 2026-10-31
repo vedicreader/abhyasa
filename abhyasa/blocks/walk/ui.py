@@ -129,11 +129,15 @@ def gather_counts(j) -> AttrDict:
     ideas = [s for s in j['steps'] if s.get('status') != 'skip']
     return AttrDict(read=read, total=max(j.get('gather_total') or 0, read), have=sum(bool((s.get('read') or {}).get('text')) for s in ideas), ideas=len(ideas))
 
+def of_ideas(have, ideas, what) -> str:
+    "`7 of 10 ideas have a source`, with `has` when one idea is meant: `1 of 9 ideas has a source`."
+    return f"{have} of {n_of(ideas, 'idea')} {'has' if have == 1 or ideas == 1 else 'have'} {what}"
+
 def gather_words(j) -> tuple:
     "`38 of 120 documents read` and `7 of 10 ideas have a passage`."
     n = gather_counts(j)
     docs = f"{n.read} of {n_of(n.total, 'document')} read" if n.total > n.read else f"{n_of(n.read, 'document')} read"
-    return docs, f"{n.have} of {n_of(n.ideas, 'idea')} {'has' if n.ideas == 1 else 'have'} a passage"
+    return docs, of_ideas(n.have, n.ideas, 'a passage')
 
 START_NOW = "You can start now. Ideas without a source show the tutor's note, and they fill in as sources come."
 
@@ -182,10 +186,11 @@ def GatherBand(j, s, stopping=False, plan=False):
         n = gather_counts(j)
         if not (val('research.on') and n.have < n.ideas): return Div(id='gather')
         go = Quiet('Find sources', small=True, type='button', hx_post=at(Routes.gather_again, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Starting…', data_act='find-again')
-        return Div(P(f"{n.have} of {n_of(n.ideas, 'idea')} {'has' if n.ideas == 1 else 'have'} a source. Research did not look for sources yet."),
+        return Div(P(f"{of_ideas(n.have, n.ideas, 'a source')}. Research did not look for sources yet."),
                    Div(go, cls='row'), id='gather', cls='gather-band')
     log = ShowLog(jid) if j.get('gather') else ''
-    have = f"{s.have} of {n_of(s.total, 'idea')} {'has' if s.total == 1 else 'have'} a source."
+    n = gather_counts(j)   # each idea of the walk that is not skipped, not only the ideas that research looked at
+    have = f"{of_ideas(n.have, n.ideas, 'a source')}."
     if s.running:
         stop = (Span('Stopping…', cls='mute') if stopping else
                 Quiet('Stop', small=True, type='button', hx_post=at(Routes.gather_stop, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Stopping…', data_act='stop'))
@@ -195,7 +200,7 @@ def GatherBand(j, s, stopping=False, plan=False):
     why = j.get('gather_why') or ''
     refused = f" abhyasa left out {n_of(s.refused, 'quote')} that did not match the source word for word." if s.refused else ''
     again = (Quiet('Find sources again', small=True, type='button', hx_post=at(Routes.gather_again, jid), hx_target='#gather', hx_swap='outerHTML',
-                   data_wait='Starting…', data_act='find-again') if s.have < s.total and val('research.on') else '')
+                   data_wait='Starting…', data_act='find-again') if n.have < n.ideas and val('research.on') else '')
     return Div(P(f"{have} {ended_words(s)}{refused}"), P(why, cls='mute') if why else '', Div(log, again, cls='row'), id='gather', cls='gather-band')
 
 def SourceReady(jid, i):
@@ -733,8 +738,9 @@ def edit_url(jid, slug=''): return at(Routes.edit, jid) + (f'?{urlencode(dict(sl
 def hands_words(j):
     "The hands-on line of walk `j`, and whether the walk is over its share. It only warns."
     h, n, nb = hands_count(j['steps'])
-    line = f"Hands-on checks: {h} of {n} ideas ({round(100 * h / n) if n else 0}%). Your setting: about {round(100 * val('walks.hands'))}%."
-    return line + (f" {n_of(nb, 'notebook')} {'builds' if nb == 1 else 'build'} your goal." if nb else ''), h > hands_most(n)
+    k = n - nb   # a notebook that builds the goal is not one of the ideas that the setting counts
+    line = f"Hands-on checks: {h} of {n_of(k, 'idea')} ({round(100 * h / k) if k else 0}%). Your setting: about {round(100 * val('walks.hands'))}%."
+    return line + (f" {nb} more {'idea is a notebook that builds' if nb == 1 else 'ideas are notebooks that build'} your goal." if nb else ''), h > hands_most(n)
 
 def Hands(j, oob=False):
     "The hands-on share of the walk against your setting. Over the share, a quiet link to the setting. Nothing blocks."
@@ -854,9 +860,8 @@ def TalkLine(talks, changed=()):
 def PlanPart(j, by, opened='', pick=False, nb=()):
     "The plan of the walk, to change in place: the hands-on share, the ideas as an editor list (each change saves at once, with Undo), and the earlier versions in a fold."
     n = len(j.get('more') or ())
-    more = P(f"The tutor picked the main ideas. The source has {n} more {'idea' if n == 1 else 'ideas'}. They are in your concepts. "
-             'When an idea needs one of them, you can learn it in a side walk.', cls='mute') if n else ''
-    return Section(H2('The plan'), P('Each idea has one check. Each change saves at once. Undo takes it back.', cls='mute'), more,
+    more = P(f"The source has {n} more {'idea' if n == 1 else 'ideas'}. Learn one in a side walk when you need it.", cls='mute') if n else ''
+    return Section(H2('The plan'), more,
                    Details(Summary('About this'), P('An idea keeps your progress, its passage and its side walks when it moves. A removed idea keeps your answers in the vault.'), cls='about'),
                    Hands(j), Steps(j, by, opened, pick=pick, nb=nb), UndoBar(oob=False),   # in the page under the list (walk.css)
                    Details(Summary('Earlier versions'), Div(Span('Reading the changes…', cls='mute'), hx_get=at(Routes.history, j['id']), hx_trigger='intersect once', hx_swap='innerHTML'),

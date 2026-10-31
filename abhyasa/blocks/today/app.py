@@ -23,6 +23,11 @@ def Foot(parts):
     for x in parts: out += [*([' · '] if out else []), *(x if isinstance(x, tuple) else (x,))]
     return P(*out, cls='mute foot') if out else ''
 
+def learned_line(cs) -> str:
+    "`2 of 286 ideas learned · 4 started`: an idea that you answered on but did not learn yet is started, so the line agrees with Progress."
+    n, k = sum(learned(c) for c in cs), sum(bool(c.get('seen')) and not learned(c) for c in cs)
+    return f"{n} of {n_of(len(cs), 'idea')} learned" + (f" · {k} started" if k else '')
+
 def connect(app, ctx):
     lr = ctx.learning
 
@@ -39,7 +44,7 @@ def connect(app, ctx):
         cs = lr.concepts()
         courses, js, b = walks(cs)
         return Page('Home', ui.css(), H1(f'Home · {subject}' if subject else 'Home'),
-                    P(f"{sum(learned(c) for c in cs)} of {n_of(len(cs), 'idea')} learned", cls='mute'),
+                    P(learned_line(cs), cls='mute'),
                     *top, *run('today_next', subject or None), ui.Walks(courses, js, b),
                     *(run('learn_talks') if courses or js else ()),
                     Section(H2('Start something new'), *run('learn_start'), id='start', data_part='start'),

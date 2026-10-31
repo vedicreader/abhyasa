@@ -20,8 +20,9 @@ def connect(app, ctx):
     def counted(r):
         "A research row that ended says how many ideas of its walk have a source now."
         if r.get('kind') != 'research' or r.state == 'running' or not (j := lr.journey((r.get('obj') or '')[5:])): return r
-        s = research_state(j)
-        return AttrDict(r, said=f"{s.have} of {n_of(s.total, 'idea')} {'has' if s.total == 1 else 'have'} a source.")
+        ideas = [s for s in j.steps if s.get('status') != 'skip']   # each idea of the walk, as the research line counts them
+        have = sum(bool((s.get('read') or {}).get('text')) for s in ideas)
+        return AttrDict(r, said=f"{have} of {n_of(len(ideas), 'idea')} {'has' if have == 1 or len(ideas) == 1 else 'have'} a source.")
 
     def now(): return [counted(r) for r in activity(lr)]
 

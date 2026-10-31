@@ -192,7 +192,10 @@ def Refs(slugs, by):
     return Ul(*[Li(A(by[s].name, href=Routes.of(s)), DepthBar(by[s].floor)) for s in have], cls='plain') if have else Empty('Nothing yet.')
 
 def _src(p):
-    t = p.get('title') or p.get('lesson') or p.get('term') or p.get('key') or ('A walk' if p.get('src') == 'journey' else p.get('src'))   # the stored name stays
+    if p.get('src') == 'journey' and not p.get('title'):   # a walk added it: its goal, or a link to the walk
+        if p.get('journey'): return A('The walk that added it', href=f"/w/{p['journey']}")
+        return f"The plan for your goal: {p['goal']}" if p.get('goal') else 'A walk that you made'
+    t = p.get('title') or p.get('lesson') or p.get('term') or p.get('key') or p.get('src')   # the stored name stays
     return A(t, href=p['url']) if p.get('url') else t
 
 def ConceptPage(c, by, attempts, groups=()):
