@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.20">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="One stored row for each background job: what runs, what ended, and where to see it. The activity chip, the event stream and the Mac app read these rows.">
+
+<title>jobs – abhyasa</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./favicon.svg" rel="icon" type="image/svg+xml">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-17888a1159294d3eb470f19f6f52f5a5.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-66a38d7287321bc50e069add96f8c30e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="jobs – abhyasa">
+<meta property="og:description" content="One stored row for each background job: what runs, what ended, and where to see it. The activity chip, the event stream and the Mac app read these rows.">
+<meta property="og:site_name" content="abhyasa">
+<meta name="twitter:title" content="jobs – abhyasa">
+<meta name="twitter:description" content="One stored row for each background job: what runs, what ended, and where to see it. The activity chip, the event stream and the Mac app read these rows.">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">abhyasa</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./jobs.html">jobs</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">abhyasa</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./store.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">store</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">model</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./llm.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">llm</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tutor.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">tutor</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sources.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">sources</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./voice.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">voice</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./nb.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">nb</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ground.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ground</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./demo.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">demo</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./journey.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">walk paths</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./profile.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">profile</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./method.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">method</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./prompts.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">prompts</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./walk.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">walk</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./settings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">settings</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./talk.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">talk</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./research.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">research</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./detect.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">detect</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./edit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">edit</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./guide.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">guide</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./course.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">course</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./jobs.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">jobs</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#the-row" id="toc-the-row" class="nav-link active" data-scroll-target="#the-row">The row</a></li>
+  <li><a href="#start-end-and-a-pool-job" id="toc-start-end-and-a-pool-job" class="nav-link" data-scroll-target="#start-end-and-a-pool-job">Start, end, and a pool job</a></li>
+  <li><a href="#seen-closed-and-the-activity" id="toc-seen-closed-and-the-activity" class="nav-link" data-scroll-target="#seen-closed-and-the-activity">Seen, closed, and the activity</a></li>
+  <li><a href="#tests" id="toc-tests" class="nav-link" data-scroll-target="#tests">Tests</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/vedicreader/abhyasa/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="jobs.html.md"><i class="bi bi-file-code"></i>Markdown</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">jobs</h1>
+</div>
+
+<div>
+  <div class="description">
+    One stored row for each background job: what runs, what ended, and where to see it. The activity chip, the event stream and the Mac app read these rows.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<p>abhyasa does slow work in the background: it looks for sources, makes a walk from a link or a goal, files a folder, plans a course, and writes the notebook of a step. Each such job has one row here. A row has a <code>kind</code>, a <code>state</code> (<code>running</code>, <code>done</code>, <code>failed</code>, <code>stopped</code> or <code>closed</code>), a <a href="https://vedicreader.github.io/abhyasa/demo.html#said"><code>said</code></a> line, the <code>start</code> and <code>end</code> times, a <code>title</code>, and a <code>url</code>: the page of its object.</p>
+<p>The rows are on one document of the learning shelf, so they survive a restart. The pool future of a job stays in memory; the row is the truth for the pages. At a start, each row that still says <code>running</code> becomes <code>closed</code>: no job lives across a restart.</p>
+<p>The rows live on the learning shelf of the vault, next to the concepts and the walks.</p>
+<section id="the-row" class="level2">
+<h2 class="anchored" data-anchor-id="the-row">The row</h2>
+<p><code>ENDED</code> are the states of a job that does not run. <code>FRESH</code> is how long an ended job shows in the activity chip, until you open its page. <code>KEEP</code> is how long an ended row stays at all.</p>
+<p>The rows are the meta of one document. Its text never changes, so a write changes only the meta.</p>
+<div id="900c45f2" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.803933+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.811773+00:00&quot;,&quot;total&quot;:0.007844855000001871}}" data-execution_count="6">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L40" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="learning.job" class="level3">
+<h3 class="anchored" data-anchor-id="learning.job">Learning.job</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> job(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    key:<span class="bu">str</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>fastcore.basics.AttrDict <span class="op">|</span> <span class="va">None</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The job row <code>key</code>, or None.</em></p>
+</section>
+</div>
+<div id="0859135b" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.811901+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.815852+00:00&quot;,&quot;total&quot;:0.003954853999999841}}" data-execution_count="7">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L33" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="learning.jobs" class="level3">
+<h3 class="anchored" data-anchor-id="learning.jobs">Learning.jobs</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> jobs()<span class="op">-&gt;</span><span class="bu">dict</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Each job row by its key, as an <code>AttrDict</code> with its <code>key</code>.</em></p>
+</section>
+</div>
+<p>A change merges into one row. An ended row older than <code>KEEP</code> goes at the same time.</p>
+<div id="3e397f45" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.818032+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.821539+00:00&quot;,&quot;total&quot;:0.003510812000001806}}" data-execution_count="9">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L54" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="job_version" class="level3">
+<h3 class="anchored" data-anchor-id="job_version">job_version</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> job_version()<span class="op">-&gt;</span><span class="bu">int</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>A count that goes up at each change of a row in this run.</em></p>
+</section>
+</div>
+<div id="bb50fed6" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.821652+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.826137+00:00&quot;,&quot;total&quot;:0.004488452000003917}}" data-execution_count="10">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L46" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="learning.put_job" class="level3">
+<h3 class="anchored" data-anchor-id="learning.put_job">Learning.put_job</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> put_job(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    key:<span class="bu">str</span>, <span class="op">**</span>kv</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>fastcore.basics.AttrDict:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Merge <code>kv</code> into the job row <code>key</code> and save it. Ended rows older than <code>KEEP</code> go.</em></p>
+</section>
+</div>
+</section>
+<section id="start-end-and-a-pool-job" class="level2">
+<h2 class="anchored" data-anchor-id="start-end-and-a-pool-job">Start, end, and a pool job</h2>
+<p><a href="https://vedicreader.github.io/abhyasa/jobs.html#job_start"><code>job_start</code></a> writes a running row. <code>obj</code> is the object of the job, such as <code>walk:&lt;id&gt;</code> or <code>course:&lt;id&gt;</code>; its page marks the end as seen. <code>quiet</code> keeps a job out of the chip, such as the research of a side walk of a talk. <a href="https://vedicreader.github.io/abhyasa/jobs.html#job_end"><code>job_end</code></a> closes it.</p>
+<div id="0100341e" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.828169+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.832123+00:00&quot;,&quot;total&quot;:0.003957557999996197}}" data-execution_count="12">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L63" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="job_end" class="level3">
+<h3 class="anchored" data-anchor-id="job_end">job_end</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> job_end(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    lr:abhyasa.store.Learning, key:<span class="bu">str</span>, state:<span class="bu">str</span><span class="op">=</span><span class="st">'done'</span>, why:<span class="bu">str</span><span class="op">=</span><span class="st">''</span>, <span class="op">**</span>kv</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>fastcore.basics.AttrDict <span class="op">|</span> <span class="va">None</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Note that the job <code>key</code> ended now in <code>state</code>, with <code>why</code> for a failure. <code>kv</code> can change its <a href="https://vedicreader.github.io/abhyasa/demo.html#said"><code>said</code></a>, <code>url</code> or <code>obj</code>. None when there is no row.</em></p>
+</section>
+</div>
+<div id="370e8cfa" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.832232+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.836494+00:00&quot;,&quot;total&quot;:0.004265373999999156}}" data-execution_count="13">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L59" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="job_start" class="level3">
+<h3 class="anchored" data-anchor-id="job_start">job_start</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> job_start(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    lr:abhyasa.store.Learning, key:<span class="bu">str</span>, kind:<span class="bu">str</span>, title:<span class="bu">str</span><span class="op">=</span><span class="st">''</span>, said:<span class="bu">str</span><span class="op">=</span><span class="st">''</span>, url:<span class="bu">str</span><span class="op">=</span><span class="st">''</span>, obj:<span class="bu">str</span><span class="op">=</span><span class="st">''</span>,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    quiet:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>fastcore.basics.AttrDict:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Note that the job <code>key</code> of <code>kind</code> runs now, with its <code>title</code>, its <a href="https://vedicreader.github.io/abhyasa/demo.html#said"><code>said</code></a> line, the <code>url</code> of its page and its object <code>obj</code>.</em></p>
+</section>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/jobs.html#track"><code>track</code></a> gives a pool future its row: running now, then <code>done</code> or <code>failed</code> when it ends. <code>ok</code> maps the result to more fields of the row, such as the link of the walk that the job made.</p>
+<div id="330e14c4" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.838316+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.842673+00:00&quot;,&quot;total&quot;:0.004360482999999249}}" data-execution_count="15">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L69" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="track" class="level3">
+<h3 class="anchored" data-anchor-id="track">track</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> track(</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    lr:abhyasa.store.Learning, key:<span class="bu">str</span>, fut, kind:<span class="bu">str</span>, ok:NoneType<span class="op">=</span><span class="va">None</span>, why:NoneType<span class="op">=</span><span class="va">None</span>, <span class="op">**</span>kw</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Start the row <code>key</code> of the pool future <code>fut</code>, and end it when <code>fut</code> ends: <code>ok(result)</code> gives more fields, <code>why(error)</code> the line of a failure. Return <code>fut</code>.</em></p>
+</section>
+</div>
+<p>A job that runs long says what it does now. <a href="https://vedicreader.github.io/abhyasa/jobs.html#said"><code>Said</code></a> is the state of one pool job, and a new <a href="https://vedicreader.github.io/abhyasa/demo.html#said"><code>said</code></a> goes to its row too, so a page that reads the row sees the step.</p>
+<div id="299ab64a" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.844394+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.847810+00:00&quot;,&quot;total&quot;:0.0034198609999975815}}" data-execution_count="17">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L81" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="said" class="level3">
+<h3 class="anchored" data-anchor-id="said">Said</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> Said(</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    lr:abhyasa.store.Learning, key:<span class="bu">str</span>, <span class="op">**</span>kw</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The state of one pool job, for its card; <code>update(said=…)</code> also writes the line to the row <code>key</code> of <code>lr</code>.</em></p>
+</section>
+</div>
+</section>
+<section id="seen-closed-and-the-activity" class="level2">
+<h2 class="anchored" data-anchor-id="seen-closed-and-the-activity">Seen, closed, and the activity</h2>
+<p>Opening the page of an object marks its ended jobs as seen. At a start of the app, a row that says <code>running</code> has no job any more: it becomes <code>closed</code>.</p>
+<div id="8c585bc4" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.849755+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.853292+00:00&quot;,&quot;total&quot;:0.0035417200000154025}}" data-execution_count="19">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L98" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="close_jobs" class="level3">
+<h3 class="anchored" data-anchor-id="close_jobs">close_jobs</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> close_jobs(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    lr:abhyasa.store.Learning</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">int</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>At a start: each row that says <code>running</code> becomes <code>closed</code>, as its job did not live across the restart. Return the count.</em></p>
+</section>
+</div>
+<div id="0bb1d1b4" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.853396+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.858065+00:00&quot;,&quot;total&quot;:0.004673238000009405}}" data-execution_count="20">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L91" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="seen_jobs" class="level3">
+<h3 class="anchored" data-anchor-id="seen_jobs">seen_jobs</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> seen_jobs(</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    lr:abhyasa.store.Learning, obj:<span class="bu">str</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">int</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Mark each ended job of the object <code>obj</code> as seen. Return the count that changed.</em></p>
+</section>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/jobs.html#activity"><code>activity</code></a> is what the chip lists: each job that runs, then each ended job that is <code>done</code>, <code>failed</code> or <code>closed</code>, not seen, and less than <code>FRESH</code> old. A job that you stopped is not news. A quiet job never shows.</p>
+<div id="19174f5f" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.862499+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.867466+00:00&quot;,&quot;total&quot;:0.004971017999992}}" data-execution_count="22">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L115" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="chip_words" class="level3">
+<h3 class="anchored" data-anchor-id="chip_words">chip_words</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> chip_words(</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    rows</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">str</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The words of the chip: <code>2 running</code> while a job runs, else <code>Ready: {title}</code>, <code>Failed: {title}</code> or <code>Stopped: {title}</code>, with the count of the others.</em></p>
+</section>
+</div>
+<div id="02c561c5" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.867593+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.872950+00:00&quot;,&quot;total&quot;:0.00536106499998823}}" data-execution_count="23">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/jobs.py#L106" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="activity" class="level3">
+<h3 class="anchored" data-anchor-id="activity">activity</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> activity(</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    lr:abhyasa.store.Learning, now:<span class="bu">float</span><span class="op">=</span><span class="va">None</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span>fastcore.foundation.L:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The rows for the activity chip: the running jobs, newest first, then the ended jobs that are new to you.</em></p>
+</section>
+</div>
+</section>
+<section id="tests" class="level2">
+<h2 class="anchored" data-anchor-id="tests">Tests</h2>
+<p>A temporary vault for the tests.</p>
+<div id="jb25" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.873106+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.873872+00:00&quot;,&quot;total&quot;:0.0007708429999979671}}" data-execution_count="24">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> abhyasa.store <span class="im">import</span> temp_learning</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>A job starts with a running row and no end; the row is in the chip.</p>
+<div id="jb27" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>lr <span class="op">=</span> temp_learning()</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> job_start(lr, <span class="st">'walk:w1:research'</span>, <span class="st">'research'</span>, title<span class="op">=</span><span class="st">'Softmax'</span>, said<span class="op">=</span><span class="st">'Finding sources'</span>, url<span class="op">=</span><span class="st">'/w/w1#sources'</span>, obj<span class="op">=</span><span class="st">'walk:w1'</span>)</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>test_eq((r.state, r.end, r.key), (<span class="st">'running'</span>, <span class="va">None</span>, <span class="st">'walk:w1:research'</span>))</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>test_eq([x.key <span class="cf">for</span> x <span class="kw">in</span> activity(lr)], [<span class="st">'walk:w1:research'</span>])</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>test_eq(chip_words(activity(lr)), <span class="st">'1 running'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Its end is news until you open the walk.</p>
+<div id="jb29" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>v <span class="op">=</span> job_version()</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>job_end(lr, <span class="st">'walk:w1:research'</span>, said<span class="op">=</span><span class="st">'2 of 3 ideas have a source'</span>)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> job_version() <span class="op">&gt;</span> v</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>test_eq(chip_words(activity(lr)), <span class="st">'Ready: Softmax'</span>)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>test_eq(seen_jobs(lr, <span class="st">'walk:w1'</span>), <span class="dv">1</span>)</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>test_eq(activity(lr), [])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>An old end and a quiet job do not show; a job that you stopped is not news.</p>
+<div id="jb31" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>job_start(lr, <span class="st">'k2'</span>, <span class="st">'build'</span>, title<span class="op">=</span><span class="st">'Old'</span>)<span class="op">;</span> job_end(lr, <span class="st">'k2'</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>test_eq(activity(lr, now<span class="op">=</span>time.time() <span class="op">+</span> FRESH <span class="op">+</span> <span class="dv">1</span>), [])</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>job_start(lr, <span class="st">'k3'</span>, <span class="st">'research'</span>, title<span class="op">=</span><span class="st">'Talk'</span>, quiet<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>job_start(lr, <span class="st">'k4'</span>, <span class="st">'research'</span>, title<span class="op">=</span><span class="st">'Mine'</span>)<span class="op">;</span> job_end(lr, <span class="st">'k4'</span>, <span class="st">'stopped'</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>test_eq([x.key <span class="cf">for</span> x <span class="kw">in</span> activity(lr)], [<span class="st">'k2'</span>])   <span class="co"># k2 is new now; k3 is quiet and k4 was stopped</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>test_eq(job_end(lr, <span class="st">'nope'</span>), <span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>A restart closes each running row, and the chip says so.</p>
+<div id="jb33" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>job_start(lr, <span class="st">'k5'</span>, <span class="st">'build'</span>, title<span class="op">=</span><span class="st">'Diffusion'</span>)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>test_eq(close_jobs(lr), <span class="dv">2</span>)   <span class="co"># k3 and k5</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>test_eq(lr.job(<span class="st">'k5'</span>).state, <span class="st">'closed'</span>)</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>test_eq(chip_words(activity(lr)), <span class="st">'Stopped: Diffusion and 1 more'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/jobs.html#track"><code>track</code></a> ends the row of a pool future: <code>done</code> with the fields of <code>ok</code>, or <code>failed</code> with the line of <code>why</code>.</p>
+<div id="jb90" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:37.875609+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:37.876332+00:00&quot;,&quot;total&quot;:0.0007268999999894277}}" data-execution_count="25">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> concurrent.futures <span class="im">import</span> ThreadPoolExecutor</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="jb35" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>pool <span class="op">=</span> ThreadPoolExecutor(<span class="dv">1</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>track(lr, <span class="st">'b1'</span>, pool.submit(<span class="kw">lambda</span>: <span class="st">'w9'</span>), <span class="st">'build'</span>, ok<span class="op">=</span><span class="kw">lambda</span> jid: <span class="bu">dict</span>(url<span class="op">=</span><span class="ss">f'/w/</span><span class="sc">{</span>jid<span class="sc">}</span><span class="ss">'</span>, obj<span class="op">=</span><span class="ss">f'walk:</span><span class="sc">{</span>jid<span class="sc">}</span><span class="ss">'</span>), title<span class="op">=</span><span class="st">'A link'</span>).result()</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>pool.shutdown(wait<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>test_eq((lr.job(<span class="st">'b1'</span>).state, lr.job(<span class="st">'b1'</span>).url, lr.job(<span class="st">'b1'</span>).obj), (<span class="st">'done'</span>, <span class="st">'/w/w9'</span>, <span class="st">'walk:w9'</span>))</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>pool <span class="op">=</span> ThreadPoolExecutor(<span class="dv">1</span>)</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>f <span class="op">=</span> track(lr, <span class="st">'b2'</span>, pool.submit(<span class="kw">lambda</span>: <span class="dv">1</span> <span class="op">/</span> <span class="dv">0</span>), <span class="st">'build'</span>, why<span class="op">=</span><span class="kw">lambda</span> e: <span class="st">'No walk.'</span>, title<span class="op">=</span><span class="st">'Bad'</span>)</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>pool.shutdown(wait<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>test_eq((lr.job(<span class="st">'b2'</span>).state, lr.job(<span class="st">'b2'</span>).why), (<span class="st">'failed'</span>, <span class="st">'No walk.'</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>A new line of a running job goes to its row.</p>
+<div id="jb37" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>job_start(lr, <span class="st">'b3'</span>, <span class="st">'build'</span>, title<span class="op">=</span><span class="st">'Paper'</span>, said<span class="op">=</span><span class="st">'Reading the paper…'</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>st <span class="op">=</span> Said(lr, <span class="st">'b3'</span>, said<span class="op">=</span><span class="st">'Reading the paper…'</span>)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>st.update(said<span class="op">=</span><span class="st">'Reading 2 of 3 pages…'</span>)</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>test_eq((st.said, lr.job(<span class="st">'b3'</span>).said), (<span class="st">'Reading 2 of 3 pages…'</span>, <span class="st">'Reading 2 of 3 pages…'</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>An ended row older than <code>KEEP</code> goes at the next change.</p>
+<div id="jb39" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>lr.put_job(<span class="st">'b2'</span>, end<span class="op">=</span>time.time() <span class="op">-</span> KEEP <span class="op">-</span> <span class="dv">1</span>)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>lr.put_job(<span class="st">'b3'</span>, said<span class="op">=</span><span class="st">'Reading 3 of 3 pages…'</span>)</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> lr.job(<span class="st">'b2'</span>) <span class="kw">is</span> <span class="va">None</span> <span class="kw">and</span> lr.job(<span class="st">'b3'</span>) <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/vedicreader\.github\.io\/abhyasa");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/vedicreader/abhyasa/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>

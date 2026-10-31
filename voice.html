@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.20">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="Speech to text on this machine, for think-aloud answers, and a natural voice that reads the guide aloud.">
+
+<title>voice – abhyasa</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./favicon.svg" rel="icon" type="image/svg+xml">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-17888a1159294d3eb470f19f6f52f5a5.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-66a38d7287321bc50e069add96f8c30e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="voice – abhyasa">
+<meta property="og:description" content="Speech to text on this machine, for think-aloud answers, and a natural voice that reads the guide aloud.">
+<meta property="og:site_name" content="abhyasa">
+<meta name="twitter:title" content="voice – abhyasa">
+<meta name="twitter:description" content="Speech to text on this machine, for think-aloud answers, and a natural voice that reads the guide aloud.">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">abhyasa</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./voice.html">voice</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">abhyasa</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./store.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">store</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">model</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./llm.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">llm</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tutor.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">tutor</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sources.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">sources</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./voice.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">voice</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./nb.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">nb</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ground.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ground</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./demo.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">demo</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./journey.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">walk paths</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./profile.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">profile</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./method.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">method</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./prompts.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">prompts</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./walk.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">walk</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./settings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">settings</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./talk.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">talk</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./research.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">research</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./detect.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">detect</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./edit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">edit</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./guide.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">guide</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./course.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">course</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./jobs.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">jobs</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#engines" id="toc-engines" class="nav-link active" data-scroll-target="#engines">Engines</a></li>
+  <li><a href="#settings" id="toc-settings" class="nav-link" data-scroll-target="#settings">Settings</a></li>
+  <li><a href="#one-model-in-memory" id="toc-one-model-in-memory" class="nav-link" data-scroll-target="#one-model-in-memory">One model in memory</a></li>
+  <li><a href="#openai" id="toc-openai" class="nav-link" data-scroll-target="#openai">OpenAI</a></li>
+  <li><a href="#transcribe" id="toc-transcribe" class="nav-link" data-scroll-target="#transcribe">Transcribe</a></li>
+  <li><a href="#models" id="toc-models" class="nav-link" data-scroll-target="#models">Models</a></li>
+  <li><a href="#a-natural-voice" id="toc-a-natural-voice" class="nav-link" data-scroll-target="#a-natural-voice">A natural voice</a>
+  <ul class="collapse">
+  <li><a href="#the-time-of-each-word" id="toc-the-time-of-each-word" class="nav-link" data-scroll-target="#the-time-of-each-word">The time of each word</a></li>
+  <li><a href="#wav" id="toc-wav" class="nav-link" data-scroll-target="#wav">WAV</a></li>
+  <li><a href="#pocket-tts" id="toc-pocket-tts" class="nav-link" data-scroll-target="#pocket-tts">Pocket TTS</a></li>
+  <li><a href="#openai-1" id="toc-openai-1" class="nav-link" data-scroll-target="#openai-1">OpenAI</a></li>
+  <li><a href="#speak" id="toc-speak" class="nav-link" data-scroll-target="#speak">speak</a></li>
+  <li><a href="#tests-with-a-fake-model" id="toc-tests-with-a-fake-model" class="nav-link" data-scroll-target="#tests-with-a-fake-model">Tests with a fake model</a></li>
+  <li><a href="#one-worker-for-the-voice" id="toc-one-worker-for-the-voice" class="nav-link" data-scroll-target="#one-worker-for-the-voice">One worker for the voice</a></li>
+  </ul></li>
+  <li><a href="#segments-in-order" id="toc-segments-in-order" class="nav-link" data-scroll-target="#segments-in-order">Segments in order</a>
+  <ul class="collapse">
+  <li><a href="#tests-with-a-fake-engine" id="toc-tests-with-a-fake-engine" class="nav-link" data-scroll-target="#tests-with-a-fake-engine">Tests with a fake engine</a></li>
+  </ul></li>
+  <li><a href="#real-models" id="toc-real-models" class="nav-link" data-scroll-target="#real-models">Real models</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/vedicreader/abhyasa/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="voice.html.md"><i class="bi bi-file-code"></i>Markdown</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">voice</h1>
+</div>
+
+<div>
+  <div class="description">
+    Speech to text on this machine, for think-aloud answers, and a natural voice that reads the guide aloud.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<p>This module turns a spoken answer into text. With the local engines, the audio does not go off the machine. The web app records while you talk. It cuts the audio into segments at your pauses and sends each segment here. This module transcribes the segments one at a time, in order. The text goes into the think-aloud box while you continue to talk.</p>
+<p>The module also speaks. <a href="https://vedicreader.github.io/abhyasa/voice.html#speak"><code>speak</code></a> turns one line of the screen guide into WAV audio, with the start time of each word, so the board can light each word as it is said.</p>
+<p>These are the imports of the module.</p>
+<section id="engines" class="level2">
+<h2 class="anchored" data-anchor-id="engines">Engines</h2>
+<p>There are two engines. <code>mlx</code> runs on this machine. <code>openai</code> sends the audio to OpenAI.</p>
+<ul>
+<li><code>mlx</code> runs any speech to text model that mlx-audio can load. The default is Qwen3-ASR 0.6B (8 bit, 1.0 GB). Whisper large-v3-turbo is the second model on the Settings page, and the search finds the others. Install mlx-audio with <code>pip install abhyasa[whisper]</code>.</li>
+<li><code>openai</code> uses the OpenAI transcription API. It is off until you set a key. It sends the audio off the machine.</li>
+</ul>
+<p>Each engine gets a hint: the name of the concept and its terms. Qwen3-ASR reads it as hot words, Whisper as its initial prompt, and OpenAI as its prompt.</p>
+<p>The table gives the numbers on this machine (an M-series Mac), with each model warm. “Clip A” is the English test clip of the model layer (<code>rishi/nbs/speech.wav</code>). “Clip B” is a clip in a cloned voice with Nyāya terms in IAST and technical terms. “Terms” is the fraction of the 9 key terms in clip B that the engine wrote correctly. “5 s” is the time for one 5-second segment.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>model</th>
+<th>load</th>
+<th>5 s</th>
+<th>clip A</th>
+<th>clip B, no hint / hint</th>
+<th>terms, no hint / hint</th>
+<th>Sanskrit CER</th>
+<th>memory</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>mlx-community/Qwen3-ASR-0.6B-8bit</code></td>
+<td>3.8 s</td>
+<td>0.14 s</td>
+<td>6%</td>
+<td>13% / 0%</td>
+<td>5 / 9</td>
+<td>16%</td>
+<td>2.0 GB</td>
+</tr>
+<tr class="even">
+<td><code>mlx-community/whisper-large-v3-turbo-asr-fp16</code></td>
+<td>4.8 s</td>
+<td>0.68 s</td>
+<td>6%</td>
+<td>4% / 0%</td>
+<td>8 / 9</td>
+<td>10%</td>
+<td>2.3 GB</td>
+</tr>
+<tr class="odd">
+<td><code>mlx-community/Qwen3-ASR-1.7B-8bit</code></td>
+<td>3.6 s</td>
+<td>0.25 s</td>
+<td>6%</td>
+<td>6% / 0%</td>
+<td>7 / 9</td>
+<td>14%</td>
+<td>3.6 GB</td>
+</tr>
+<tr class="even">
+<td><code>mlx-community/parakeet-tdt-0.6b-v3</code></td>
+<td>4.9 s</td>
+<td>0.15 s</td>
+<td>6%</td>
+<td>4% / 4%</td>
+<td>7 / 7</td>
+<td>Latin script</td>
+<td>3.2 GB</td>
+</tr>
+<tr class="odd">
+<td><code>mlx-community/Voxtral-Mini-4B-Realtime-2602-4bit</code></td>
+<td>3.7 s</td>
+<td>2.21 s</td>
+<td>6%</td>
+<td>6% / 6%</td>
+<td>7 / 7</td>
+<td>22%</td>
+<td>5.5 GB</td>
+</tr>
+<tr class="even">
+<td><code>UsefulSensors/moonshine-base</code></td>
+<td>3.9 s</td>
+<td>0.07 s</td>
+<td>100%</td>
+<td>8% / 8%</td>
+<td>6 / 6</td>
+<td>Latin script</td>
+<td>0.8 GB</td>
+</tr>
+<tr class="odd">
+<td><code>Mediform/canary-1b-v2-mlx-q8</code></td>
+<td>4.2 s</td>
+<td>0.08 s</td>
+<td>6%</td>
+<td>4% / 4%</td>
+<td>8 / 8</td>
+<td>Latin script</td>
+<td>1.4 GB</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>“load” is a cold start of a cached model in a new process, with the Python imports. The first download takes longer.</li>
+<li>“memory” is the MLX peak.</li>
+<li>“Sanskrit CER” is the character error rate on a 9-second Nyāya sūtra (from vachaka), after the vachaka normalization.</li>
+<li>Moonshine gave no text for the 24-second clip A. It is good only for short segments.</li>
+<li>For Sanskrit speech, use Qwen3-ASR or Whisper with the hint, or vachaka.</li>
+</ul>
+<p>Qwen3-ASR 0.6B is the default. With the hint, it has no errors on clip B and it writes all 9 terms. One 5-second segment takes 0.14 s. Before 0.0.16, the default was Gemma 4 E4B on LiteRT. It had the same score, but it was 5 times slower, and its model was 3.7 GB.</p>
+<p><code>DFLT_STT</code> is the default model of the <code>mlx</code> engine. The other constants are the named models. <code>ALIASES</code> keeps the old engine names: <code>whisper</code> and <code>parakeet</code> are the <code>mlx</code> engine with a fixed model. <code>gemma</code> was the default engine before 0.0.16, so it becomes the <code>mlx</code> engine with the default model. <code>POCKET</code> is the Hugging Face repo of the local voice (see “A natural voice” below), and <code>POCKET_FILES</code> are the files of its English model and of its default voice. The repo has many languages, so abhyasa gets only these files.</p>
+</section>
+<section id="settings" class="level2">
+<h2 class="anchored" data-anchor-id="settings">Settings</h2>
+<p>The settings are in <code>settings.json</code> in <a href="https://vedicreader.github.io/abhyasa/settings.html#cfg_dir"><code>cfg_dir()</code></a>. The <a href="https://vedicreader.github.io/abhyasa/settings.html#settings"><code>settings</code></a> module keeps the table of values and the file; this module uses its <code>stt</code> section. The web app changes the settings, and the next segment uses the change. You do not have to restart.</p>
+<p>Without a file, you get the defaults. A change to one key keeps the other keys.</p>
+<div id="v012" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>test_eq({k: settings()[<span class="st">'stt'</span>][k] <span class="cf">for</span> k <span class="kw">in</span> (<span class="st">'engine'</span>, <span class="st">'model'</span>, <span class="st">'segment'</span>)}, <span class="bu">dict</span>(engine<span class="op">=</span><span class="st">'mlx'</span>, model<span class="op">=</span><span class="st">''</span>, segment<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'stt'</span>, segment<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>test_eq(val(<span class="st">'stt.segment'</span>), <span class="va">False</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'stt'</span>, segment<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/journey.html#current"><code>current</code></a> gives the engine and model in use. <code>$ABHYASA_STT</code> has priority over the settings. It can be an engine (<code>mlx</code>), an old name (<code>whisper</code>, <code>gemma</code>), or an engine and a model (<code>mlx:mlx-community/whisper-large-v3-turbo-asr-fp16</code>). An old settings file with <code>gemma</code> and a LiteRT model gets the default model. Nothing writes the file again.</p>
+<div id="591f5d81" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.633240+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.662688+00:00&quot;,&quot;total&quot;:0.029453022000012652}}" data-execution_count="7">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/journey.py#L77" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="current" class="level3">
+<h3 class="anchored" data-anchor-id="current">current</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> current()<span class="op">-&gt;</span><span class="bu">tuple</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The engine and model in use: <code>$ABHYASA_STT</code>, else the settings.</em></p>
+</section>
+</div>
+<div id="6b717323" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.662831+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.678925+00:00&quot;,&quot;total&quot;:0.016097964000010734}}" data-execution_count="8">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L36" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="resolve" class="level3">
+<h3 class="anchored" data-anchor-id="resolve">resolve</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> resolve(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    engine:<span class="bu">str</span>, model:<span class="bu">str</span><span class="op">=</span><span class="st">''</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">tuple</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The engine and model for a name: aliases become <code>mlx</code>, <code>engine:model</code> splits, an empty model gets the default.</em></p>
+</section>
+</div>
+<p>The settings give Qwen3-ASR by default. An old <code>gemma</code> setting gives the same, also with its old model. The environment variable has priority.</p>
+<div id="v016" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>test_eq(current(), (<span class="st">'mlx'</span>, DFLT_STT))</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>test_eq(resolve(<span class="st">'gemma'</span>, <span class="st">'litert-community/gemma-4-E4B-it-litert-lm'</span>), (<span class="st">'mlx'</span>, DFLT_STT))</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>test_eq(resolve(<span class="st">'parakeet'</span>), (<span class="st">'mlx'</span>, DFLT_PARAKEET))</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>test_eq(resolve(<span class="st">'mlx:mlx-community/whisper-tiny-asr-fp16'</span>), (<span class="st">'mlx'</span>, <span class="st">'mlx-community/whisper-tiny-asr-fp16'</span>))</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: resolve(<span class="st">'kokoro'</span>), contains<span class="op">=</span><span class="st">'unknown'</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>os.environ[<span class="st">'ABHYASA_STT'</span>] <span class="op">=</span> <span class="st">'whisper'</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>test_eq(current(), (<span class="st">'mlx'</span>, DFLT_WHISPER))</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>os.environ[<span class="st">'ABHYASA_STT'</span>] <span class="op">=</span> <span class="st">'gemma'</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>test_eq(current(), (<span class="st">'mlx'</span>, DFLT_STT))</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> os.environ[<span class="st">'ABHYASA_STT'</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="one-model-in-memory" class="level2">
+<h2 class="anchored" data-anchor-id="one-model-in-memory">One model in memory</h2>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#resident"><code>resident</code></a> keeps one model loaded in each slot: <code>stt</code> for speech to text, <code>tts</code> for the speaking voice. When the app asks for a different model in a slot, it frees the old model of that slot first. Two large models for the same job in memory at the same time can make the Mac slow.</p>
+<div id="d8acecaf" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.682748+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.687427+00:00&quot;,&quot;total&quot;:0.004682736000006571}}" data-execution_count="10">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L65" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="resident" class="level3">
+<h3 class="anchored" data-anchor-id="resident">resident</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> resident(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    key, load, close:NoneType<span class="op">=</span><span class="va">None</span>, slot:<span class="bu">str</span><span class="op">=</span><span class="st">'stt'</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The loaded model of <code>slot</code> for <code>key</code>: when <code>key</code> is new, free the old model of the slot, then <code>load()</code> the new one.</em></p>
+</section>
+</div>
+<div id="7951a4e8" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.687547+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.691770+00:00&quot;,&quot;total&quot;:0.004227533000005224}}" data-execution_count="11">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L54" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="unload" class="level3">
+<h3 class="anchored" data-anchor-id="unload">unload</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> unload(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    slot:<span class="bu">str</span><span class="op">=</span><span class="st">'stt'</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Free the loaded model of <code>slot</code>: <code>stt</code> (speech to text) or <code>tts</code> (the speaking voice).</em></p>
+</section>
+</div>
+<p>A new key frees the old model. The same key does not load again. A model in the <code>tts</code> slot does not free the model in the <code>stt</code> slot.</p>
+<div id="v020" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>freed <span class="op">=</span> []</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>resident(<span class="st">'a'</span>, <span class="kw">lambda</span>: <span class="st">'A'</span>, freed.append)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>test_eq(resident(<span class="st">'a'</span>, <span class="kw">lambda</span>: <span class="st">'other'</span>), <span class="st">'A'</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>test_eq(resident(<span class="st">'b'</span>, <span class="kw">lambda</span>: <span class="st">'B'</span>), <span class="st">'B'</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>test_eq(freed, [<span class="st">'A'</span>])</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>test_eq(resident(<span class="st">'k'</span>, <span class="kw">lambda</span>: <span class="st">'K'</span>, slot<span class="op">=</span><span class="st">'tts'</span>), <span class="st">'K'</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>test_eq((resident(<span class="st">'b'</span>, <span class="kw">lambda</span>: <span class="st">'other'</span>), freed), (<span class="st">'B'</span>, [<span class="st">'A'</span>]))</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>unload()<span class="op">;</span> unload(<span class="st">'tts'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Each engine is a function that takes a WAV path, a hint and a model, and returns text.</p>
+<p>The <code>mlx</code> engine gives the hint to a model that accepts one: Whisper as <code>initial_prompt</code>, Qwen3-ASR as <code>hotwords</code>.</p>
+<p>A Whisper-like model gets <code>initial_prompt</code>. A Qwen3-like model gets a list of hot words. A model without either gets nothing.</p>
+<div id="v026" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> _W:</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> generate(<span class="va">self</span>, audio, initial_prompt<span class="op">=</span><span class="va">None</span>): <span class="cf">pass</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> _Q:</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> generate(<span class="va">self</span>, audio, hotwords<span class="op">=</span><span class="va">None</span>): <span class="cf">pass</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>test_eq(_hint_kw(_W(), <span class="st">'Nyāya, hetu'</span>), <span class="bu">dict</span>(initial_prompt<span class="op">=</span><span class="st">'Nyāya, hetu'</span>))</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>test_eq(_hint_kw(_Q(), <span class="st">'Nyāya, hetu'</span>), <span class="bu">dict</span>(hotwords<span class="op">=</span>[<span class="st">'Nyāya'</span>, <span class="st">'hetu'</span>]))</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>test_eq(_hint_kw(_W(), <span class="st">''</span>), {})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="openai" class="level2">
+<h2 class="anchored" data-anchor-id="openai">OpenAI</h2>
+<p>The <code>openai</code> engine posts the WAV to the OpenAI transcription API, with the hint as its <a href="https://vedicreader.github.io/abhyasa/prompts.html#prompt"><code>prompt</code></a>. <code>http_post</code> is <code>httpx.post</code> unless a test puts a fake in its place.</p>
+<p>The key comes from the first of these places that has <code>OPENAI_API_KEY</code>: the environment, the abhyasa <code>keys.env</code>, then the ramabana <code>keys.env</code>. ramabana says where its file is (<code>$RAMABANA_CONFIG</code>, else <code>~/.config/ramabana/keys.env</code>). abhyasa reads both files with ramabana’s <code>load_keys</code>. It refuses a file that other users can read, and it runs <code>!command</code> values. abhyasa only reads the ramabana file. <a href="https://vedicreader.github.io/abhyasa/voice.html#set_openai_key"><code>set_openai_key</code></a> writes the abhyasa file with <code>save_key</code> (atomic, mode 0600). ramabana is an optional extra. Without it, abhyasa reads and writes plain <code>NAME=value</code> lines. <a href="https://vedicreader.github.io/abhyasa/voice.html#masked"><code>masked</code></a> shows only the last 4 characters.</p>
+<div id="20c00161" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.703980+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.707562+00:00&quot;,&quot;total&quot;:0.0035857119999889164}}" data-execution_count="15">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L144" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="masked" class="level3">
+<h3 class="anchored" data-anchor-id="masked">masked</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> masked(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    key:<span class="bu">str</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">str</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</div>
+<div id="56203ecc" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.707668+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.711551+00:00&quot;,&quot;total&quot;:0.0038880879999965146}}" data-execution_count="16">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L136" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="set_openai_key" class="level3">
+<h3 class="anchored" data-anchor-id="set_openai_key">set_openai_key</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> set_openai_key(</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    key:<span class="bu">str</span><span class="op">=</span><span class="st">''</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Save <code>key</code> in abhyasa’s <code>keys.env</code> (mode 0600); an empty key clears it. A key with other than letters, digits, <code>-</code> and <code>_</code> raises <code>ValueError</code>.</em></p>
+</section>
+</div>
+<div id="15ecf3fa" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.711680+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.715834+00:00&quot;,&quot;total&quot;:0.0041580930000009175}}" data-execution_count="17">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L129" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="openai_key" class="level3">
+<h3 class="anchored" data-anchor-id="openai_key">openai_key</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> openai_key()<span class="op">-&gt;</span><span class="bu">tuple</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The OpenAI key and where it is from; <code>('', '')</code> when there is none.</em></p>
+</section>
+</div>
+<p>A key in the abhyasa file comes back with its source, and the file has mode 0600. When the abhyasa file has no key, abhyasa reads the ramabana file. This test points ramabana to a temp folder.</p>
+<div id="v032" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>os.environ[<span class="st">'RAMABANA_CONFIG'</span>] <span class="op">=</span> <span class="bu">str</span>(Path(tempfile.mkdtemp())<span class="op">/</span><span class="st">'config.toml'</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>test_eq(openai_key(), (<span class="st">''</span>, <span class="st">''</span>))</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>keys_path().write_text(<span class="st">'export OPENAI_API_KEY="sk-ramabana-0000"</span><span class="ch">\n</span><span class="st">'</span>)<span class="op">;</span> keys_path().chmod(<span class="bn">0o600</span>)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>test_eq(openai_key(), (<span class="st">'sk-ramabana-0000'</span>, <span class="bu">str</span>(keys_path())))</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>test_eq(os.getenv(<span class="st">'OPENAI_API_KEY'</span>), <span class="va">None</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>set_openai_key(<span class="st">'sk-test-1234'</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>test_eq(openai_key(), (<span class="st">'sk-test-1234'</span>, <span class="bu">str</span>(cfg_dir()<span class="op">/</span><span class="st">'keys.env'</span>)))</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="bu">oct</span>((cfg_dir()<span class="op">/</span><span class="st">'keys.env'</span>).stat().st_mode <span class="op">&amp;</span> <span class="bn">0o777</span>), <span class="st">'0o600'</span>)</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>test_eq(masked(<span class="st">'sk-test-1234'</span>), <span class="st">'…1234'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The engine sends the model, the hint and the WAV, with the key in the header. This test uses a fake HTTP client.</p>
+<div id="v034" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> _R:</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> raise_for_status(<span class="va">self</span>): <span class="cf">pass</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> json(<span class="va">self</span>): <span class="cf">return</span> <span class="bu">dict</span>(text<span class="op">=</span><span class="st">'hetu and sādhya'</span>)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>sent <span class="op">=</span> {}</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> fake_post(url, <span class="op">**</span>kw): sent.update(url<span class="op">=</span>url, <span class="op">**</span>kw)<span class="op">;</span> <span class="cf">return</span> _R()</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>http_post <span class="op">=</span> fake_post</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> Path(tempfile.mkdtemp())<span class="op">/</span><span class="st">'a.wav'</span><span class="op">;</span> p.write_bytes(<span class="st">b'RIFF'</span>)</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>test_eq(_openai(p, <span class="st">'hetu'</span>), <span class="st">'hetu and sādhya'</span>)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>test_eq(sent[<span class="st">'data'</span>], <span class="bu">dict</span>(model<span class="op">=</span>DFLT_OPENAI, response_format<span class="op">=</span><span class="st">'json'</span>, prompt<span class="op">=</span><span class="st">'hetu'</span>))</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>test_eq(sent[<span class="st">'headers'</span>][<span class="st">'Authorization'</span>], <span class="st">'Bearer sk-test-1234'</span>)</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>set_openai_key(<span class="st">''</span>)</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>keys_path().unlink()</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: _openai(p), contains<span class="op">=</span><span class="st">'no OpenAI key'</span>)</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>http_post <span class="op">=</span> <span class="va">None</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>A key with a newline or a space can add a second line to the file. Thus <a href="https://vedicreader.github.io/abhyasa/voice.html#set_openai_key"><code>set_openai_key</code></a> refuses it.</p>
+<div id="984cd642" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: set_openai_key(<span class="st">'sk-a</span><span class="ch">\n</span><span class="st">OTHER=1'</span>), contains<span class="op">=</span><span class="st">'only letters'</span>)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: set_openai_key(<span class="st">'sk a b c d e'</span>), contains<span class="op">=</span><span class="st">'only letters'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="transcribe" class="level2">
+<h2 class="anchored" data-anchor-id="transcribe">Transcribe</h2>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#transcribe"><code>transcribe</code></a> accepts a path or bytes. It writes bytes to a temporary file and removes the file after use. Without an engine, it uses <a href="https://vedicreader.github.io/abhyasa/journey.html#current"><code>current()</code></a>, so a change on the Settings page applies to the next segment.</p>
+<div id="4ab4fb93" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.718832+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.723694+00:00&quot;,&quot;total&quot;:0.004865416999990657}}" data-execution_count="19">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L147" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="transcribe-1" class="level3">
+<h3 class="anchored" data-anchor-id="transcribe-1">transcribe</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> transcribe(</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    audio, engine:<span class="bu">str</span><span class="op">=</span><span class="va">None</span>, hint:<span class="bu">str</span><span class="op">=</span><span class="st">''</span>, model:<span class="bu">str</span><span class="op">=</span><span class="va">None</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">str</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Text for a WAV file or WAV bytes. <code>hint</code> lists words that the speaker can use, such as the name of the concept.</em></p>
+</section>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#wav_seconds"><code>wav_seconds</code></a> gives the length of a clip in seconds. <a href="https://vedicreader.github.io/abhyasa/voice.html#silence"><code>silence</code></a> makes a clip of silence. The app uses this clip to warm a model.</p>
+<div id="57155d01" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.725538+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.729252+00:00&quot;,&quot;total&quot;:0.003718781000003446}}" data-execution_count="21">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L165" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="silence" class="level3">
+<h3 class="anchored" data-anchor-id="silence">silence</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> silence(</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    secs:<span class="bu">float</span><span class="op">=</span><span class="fl">0.5</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">bytes</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>WAV bytes of silence: 16 kHz, mono, 16 bit.</em></p>
+</section>
+</div>
+<div id="4bcfe604" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.729404+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.733442+00:00&quot;,&quot;total&quot;:0.004040594000002784}}" data-execution_count="22">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L158" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="wav_seconds" class="level3">
+<h3 class="anchored" data-anchor-id="wav_seconds">wav_seconds</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> wav_seconds(</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    audio:<span class="bu">bytes</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">float</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The length of WAV bytes, in seconds; 0 when they are not WAV.</em></p>
+</section>
+</div>
+<p>Half a second of silence is 0.5 seconds. Bytes that are not WAV give 0.</p>
+<div id="v040" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>test_eq(wav_seconds(silence()), <span class="fl">.5</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>test_eq(wav_seconds(<span class="st">b'nope'</span>), <span class="fl">0.</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="models" class="level2">
+<h2 class="anchored" data-anchor-id="models">Models</h2>
+<p><code>KNOWN</code> lists the models that the Settings page shows first: the two local models that we measured (see the table above), and two OpenAI models. <a href="https://vedicreader.github.io/abhyasa/voice.html#cached"><code>cached</code></a> tells if a model is in the Hugging Face cache. It does not use the network. The repo of the local voice (<code>POCKET</code>, below) has many languages, so for that repo <a href="https://vedicreader.github.io/abhyasa/voice.html#cached"><code>cached</code></a> looks for its English model only.</p>
+<div id="086c20b6" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.736417+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.740504+00:00&quot;,&quot;total&quot;:0.0040917190000016035}}" data-execution_count="24">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L187" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="cache_bytes" class="level3">
+<h3 class="anchored" data-anchor-id="cache_bytes">cache_bytes</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cache_bytes(</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>    model:<span class="bu">str</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">int</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The bytes of <code>model</code> in the Hugging Face cache so far, with the files that are still downloading.</em></p>
+</section>
+</div>
+<div id="2a773e60" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.740627+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.744559+00:00&quot;,&quot;total&quot;:0.0039352869999902396}}" data-execution_count="25">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L180" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="cached" class="level3">
+<h3 class="anchored" data-anchor-id="cached">cached</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cached(</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    model:<span class="bu">str</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">bool</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>True when <code>model</code> is in the Hugging Face cache; for the local voice, when its English model is there.</em></p>
+</section>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#search_models"><code>search_models</code></a> looks up mlx-community speech to text models on Hugging Face, with their size. It drops text to speech, aligners and diarization models, which the <code>mlx</code> engine cannot use. <a href="https://vedicreader.github.io/abhyasa/voice.html#model_size"><code>model_size</code></a> gives the size of a download: for the local voice, only its English files.</p>
+<div id="42794ffe" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.748353+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.753017+00:00&quot;,&quot;total&quot;:0.00466684599999212}}" data-execution_count="27">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L208" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="search_models" class="level3">
+<h3 class="anchored" data-anchor-id="search_models">search_models</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> search_models(</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>    q:<span class="bu">str</span><span class="op">=</span><span class="st">''</span>, limit:<span class="bu">int</span><span class="op">=</span><span class="dv">15</span>, api:NoneType<span class="op">=</span><span class="va">None</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">list</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>mlx-community speech to text models that match <code>q</code>, most downloaded first, with their size.</em></p>
+</section>
+</div>
+<div id="e0290114" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.753124+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.759859+00:00&quot;,&quot;total&quot;:0.006738084000005529}}" data-execution_count="28">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L202" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="model_size" class="level3">
+<h3 class="anchored" data-anchor-id="model_size">model_size</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> model_size(</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    model:<span class="bu">str</span>, api:NoneType<span class="op">=</span><span class="va">None</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">int</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The bytes that a download of <code>model</code> gets from Hugging Face.</em></p>
+</section>
+</div>
+<div id="1c869d84" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.759965+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.766506+00:00&quot;,&quot;total&quot;:0.006544751000006954}}" data-execution_count="29">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L197" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="is_stt" class="level3">
+<h3 class="anchored" data-anchor-id="is_stt">is_stt</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> is_stt(</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>    model:<span class="bu">str</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">bool</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>True when the repo name looks like a speech to text model.</em></p>
+</section>
+</div>
+<p>The filter keeps speech to text and drops the others.</p>
+<div id="v046" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>test_eq([is_stt(m) <span class="cf">for</span> m <span class="kw">in</span> (<span class="st">'mlx-community/Qwen3-ASR-0.6B-8bit'</span>, <span class="st">'mlx-community/whisper-tiny-asr-fp16'</span>, <span class="st">'mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16'</span>, <span class="st">'mlx-community/silero-vad'</span>, POCKET)],</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>        [<span class="va">True</span>, <span class="va">True</span>, <span class="va">False</span>, <span class="va">False</span>, <span class="va">False</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#search_models"><code>search_models</code></a> gives only the speech to text models, and <a href="https://vedicreader.github.io/abhyasa/voice.html#model_size"><code>model_size</code></a> counts only the English files of the local voice. This test uses a fake Hugging Face API, so it does not use the network.</p>
+<div id="0becf992" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> _Api:</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> list_models(<span class="va">self</span>, <span class="op">**</span>kw): <span class="cf">return</span> [AttrDict(<span class="bu">id</span><span class="op">=</span>i, downloads<span class="op">=</span>n) <span class="cf">for</span> i, n <span class="kw">in</span> ((<span class="st">'mlx-community/Kokoro-82M-bf16'</span>, <span class="dv">9</span>), (<span class="st">'mlx-community/whisper-tiny-asr-fp16'</span>, <span class="dv">8</span>))]</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> model_info(<span class="va">self</span>, m, files_metadata<span class="op">=</span><span class="va">True</span>): <span class="cf">return</span> AttrDict(siblings<span class="op">=</span>[AttrDict(rfilename<span class="op">=</span>f, size<span class="op">=</span><span class="dv">10</span>) <span class="cf">for</span> f <span class="kw">in</span> (<span class="op">*</span>POCKET_FILES, <span class="st">'languages/french/model.safetensors'</span>)])</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>test_eq(search_models(<span class="st">''</span>, api<span class="op">=</span>_Api()), [<span class="bu">dict</span>(model<span class="op">=</span><span class="st">'mlx-community/whisper-tiny-asr-fp16'</span>, downloads<span class="op">=</span><span class="dv">8</span>, size<span class="op">=</span><span class="dv">40</span>)])</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>test_eq(model_size(POCKET, _Api()), <span class="dv">30</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#fetch"><code>fetch</code></a> downloads a model and notes it in the settings. The local voice gets only its English model and its default voice: it loads them, so they are in memory for the first line. <a href="https://vedicreader.github.io/abhyasa/voice.html#remove"><code>remove</code></a> deletes a model from the cache, but only a model that <a href="https://vedicreader.github.io/abhyasa/voice.html#fetch"><code>fetch</code></a> downloaded. Other entries in the cache belong to other programs.</p>
+<div id="f4c24116" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.772423+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.779591+00:00&quot;,&quot;total&quot;:0.007172045000004346}}" data-execution_count="31">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L226" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="remove" class="level3">
+<h3 class="anchored" data-anchor-id="remove">remove</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> remove(</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>    model:<span class="bu">str</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Delete <code>model</code> from the Hugging Face cache. Only a model that <a href="https://vedicreader.github.io/abhyasa/voice.html#fetch"><code>fetch</code></a> downloaded.</em></p>
+</section>
+</div>
+<div id="758c447e" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.779708+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.786532+00:00&quot;,&quot;total&quot;:0.006827530000009574}}" data-execution_count="32">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L217" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="fetch" class="level3">
+<h3 class="anchored" data-anchor-id="fetch">fetch</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> fetch(</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>    model:<span class="bu">str</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Download <code>model</code> into the Hugging Face cache; note it when it was not there before.</em></p>
+</section>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#remove"><code>remove</code></a> refuses a model that abhyasa did not download.</p>
+<div id="v050" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: remove(DFLT_WHISPER), contains<span class="op">=</span><span class="st">'stays'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="a-natural-voice" class="level2">
+<h2 class="anchored" data-anchor-id="a-natural-voice">A natural voice</h2>
+<p>The board of the screen guide says one line for each step. The browser can say it with its own voice (<code>speechSynthesis</code>), but that voice sounds like a machine. <a href="https://vedicreader.github.io/abhyasa/voice.html#speak"><code>speak</code></a> gives a natural voice. There are two engines:</p>
+<ul>
+<li><code>pocket</code> runs Kyutai’s Pocket TTS on this Mac, with the pocket-tts-mlx package. The download is 225 MB. It has 21 English voices, and it makes a line of 4 seconds in less than 1 second. Install it with <code>pip install abhyasa[voice]</code>.</li>
+<li><code>openai</code> sends the line to the OpenAI speech API. It is off until you set a key. Each line passes ramabana’s guard first.</li>
+</ul>
+<p><code>browser</code> is the third choice of the setting <code>voice.out</code>. Then the page speaks, and this module makes no audio. The default is <code>pocket</code>. Until its model is on this Mac, the browser speaks: <a href="https://vedicreader.github.io/abhyasa/voice.html#speaker"><code>Speaker</code></a> refuses the line with the word “browser”, and the page uses its own voice.</p>
+<p>Licences: the pocket-tts-mlx code is MIT. The Pocket TTS weights (<code>kyutai/pocket-tts-without-voice-cloning</code>, by Kyutai) are CC-BY-4.0.</p>
+<p>These are the defaults. <code>POCKET_VOICES</code> are the 21 English voices of Pocket TTS. <code>caro_davy</code> is first: the owner chose it by ear. The OpenAI voices are the voices of its speech API.</p>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#out_resolve"><code>out_resolve</code></a> fills in the default model and voice of an engine. Before 0.0.16 the local voices were <code>kokoro</code> and <code>hf</code>: they become <code>pocket</code>, and a voice that Pocket does not have becomes <code>caro_davy</code>. Thus an old settings file works, and nothing writes it again. <a href="https://vedicreader.github.io/abhyasa/voice.html#out_current"><code>out_current</code></a> gives the voice of the settings, with its speed. <a href="https://vedicreader.github.io/abhyasa/voice.html#out_where"><code>out_where</code></a> says where the voice runs.</p>
+<div id="c001c343" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.795452+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.801692+00:00&quot;,&quot;total&quot;:0.0062429559999941375}}" data-execution_count="35">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L261" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="out_where" class="level3">
+<h3 class="anchored" data-anchor-id="out_where">out_where</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> out_where(</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>    engine:<span class="bu">str</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">str</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</div>
+<div id="2069df94" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.801783+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.805924+00:00&quot;,&quot;total&quot;:0.004143364999976029}}" data-execution_count="36">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L257" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="out_current" class="level3">
+<h3 class="anchored" data-anchor-id="out_current">out_current</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> out_current()<span class="op">-&gt;</span><span class="bu">tuple</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The voice in use: <code>(engine, model, voice, speed)</code> from the settings.</em></p>
+</section>
+</div>
+<div id="e3b50f42" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.806020+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.810938+00:00&quot;,&quot;total&quot;:0.004921090999999933}}" data-execution_count="37">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L248" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="out_resolve" class="level3">
+<h3 class="anchored" data-anchor-id="out_resolve">out_resolve</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> out_resolve(</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>    engine:<span class="bu">str</span>, model:<span class="bu">str</span><span class="op">=</span><span class="st">''</span>, voice:<span class="bu">str</span><span class="op">=</span><span class="st">''</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">tuple</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The engine, model and voice for a name; an empty model or voice gets the default of the engine. <code>browser</code> has no model.</em></p>
+</section>
+</div>
+<p>The settings give Pocket with <code>caro_davy</code>. An old Kokoro or Hugging Face setting gives the same, with its old model and voice still in the file. OpenAI keeps its voice. An unknown engine is an error.</p>
+<div id="f36cba42" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>test_eq(out_current(), (<span class="st">'pocket'</span>, POCKET, <span class="st">'caro_davy'</span>, <span class="fl">1.</span>))</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>test_eq(out_resolve(<span class="st">'pocket'</span>, <span class="st">''</span>, <span class="st">'mary'</span>), (<span class="st">'pocket'</span>, POCKET, <span class="st">'mary'</span>))</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> old <span class="kw">in</span> (<span class="bu">dict</span>(out<span class="op">=</span><span class="st">'kokoro'</span>, out_model<span class="op">=</span><span class="st">'mlx-community/Kokoro-82M-bf16'</span>, out_voice<span class="op">=</span><span class="st">'bm_george'</span>), <span class="bu">dict</span>(out<span class="op">=</span><span class="st">'hf'</span>, out_model<span class="op">=</span><span class="st">'mlx-community/csm-1b'</span>, out_voice<span class="op">=</span><span class="st">''</span>)):</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>    update_settings(<span class="st">'voice'</span>, <span class="op">**</span>old)</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>    test_eq(out_current()[:<span class="dv">3</span>], (<span class="st">'pocket'</span>, POCKET, <span class="st">'caro_davy'</span>))</span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'voice'</span>, out<span class="op">=</span><span class="st">'pocket'</span>, out_model<span class="op">=</span><span class="st">''</span>, out_voice<span class="op">=</span><span class="st">''</span>)</span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>test_eq(out_resolve(<span class="st">'openai'</span>, <span class="st">''</span>, <span class="st">'coral'</span>), (<span class="st">'openai'</span>, DFLT_SPEECH, <span class="st">'coral'</span>))</span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: out_resolve(<span class="st">'espeak'</span>), contains<span class="op">=</span><span class="st">'unknown'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="the-time-of-each-word" class="level3">
+<h3 class="anchored" data-anchor-id="the-time-of-each-word">The time of each word</h3>
+<p>The board lights each word when the voice says it. Pocket TTS and OpenAI give no word times. Thus <a href="https://vedicreader.github.io/abhyasa/voice.html#by_letters"><code>by_letters</code></a> shares the length of the audio among the words by their letters.</p>
+<div id="d9143cff" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.813177+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.817985+00:00&quot;,&quot;total&quot;:0.004812439000005497}}" data-execution_count="39">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L264" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="by_letters" class="level3">
+<h3 class="anchored" data-anchor-id="by_letters">by_letters</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> by_letters(</span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>    text:<span class="bu">str</span>, secs:<span class="bu">float</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">list</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>A start time in seconds for each word of <code>text</code> in audio of <code>secs</code> seconds: each word takes a share by its letters.</em></p>
+</section>
+</div>
+<p>Two words of 2 and 6 letters in 1 second: the first word starts at 0, the second after 3/10 of the second.</p>
+<div id="b313c06f" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>test_eq(by_letters(<span class="st">'is hidden'</span>, <span class="fl">1.</span>), [<span class="fl">0.</span>, <span class="fl">.3</span>])</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>test_eq(by_letters(<span class="st">''</span>, <span class="fl">1.</span>), [])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="wav" class="level3">
+<h3 class="anchored" data-anchor-id="wav">WAV</h3>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#to_wav"><code>to_wav</code></a> makes WAV bytes (mono, 16 bit) from the float samples of a model. <a href="https://vedicreader.github.io/abhyasa/voice.html#clean_wav"><code>clean_wav</code></a> writes the header of a WAV again with its true length. OpenAI streams its WAV, so its header can give a wrong length.</p>
+<div id="7dd04246" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.822970+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.827965+00:00&quot;,&quot;total&quot;:0.00499901799997815}}" data-execution_count="41">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L280" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="clean_wav" class="level3">
+<h3 class="anchored" data-anchor-id="clean_wav">clean_wav</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> clean_wav(</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>    audio:<span class="bu">bytes</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">bytes</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em><code>audio</code> with a header that gives the true length of its samples.</em></p>
+</section>
+</div>
+<div id="5875331b" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.828104+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.833217+00:00&quot;,&quot;total&quot;:0.005117659999996249}}" data-execution_count="42">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L272" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="to_wav" class="level3">
+<h3 class="anchored" data-anchor-id="to_wav">to_wav</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb36"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> to_wav(</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>    samples, rate:<span class="bu">int</span></span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">bytes</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>WAV bytes (mono, 16 bit) for float samples from -1 to 1.</em></p>
+</section>
+</div>
+<p>One second of samples at 24 kHz is one second of WAV. A header that says the data is very long becomes a header with the true length.</p>
+<div id="f4bc09e6" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.833666+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.837080+00:00&quot;,&quot;total&quot;:0.003418108999994729}}" data-execution_count="43">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb37"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a>test_eq(wav_seconds(to_wav([<span class="fl">0.</span>] <span class="op">*</span> <span class="dv">24000</span>, <span class="dv">24000</span>)), <span class="fl">1.</span>)</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> struct</span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a>w <span class="op">=</span> to_wav([<span class="fl">0.</span>] <span class="op">*</span> <span class="dv">2400</span>, <span class="dv">24000</span>)</span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a>bad <span class="op">=</span> w[:<span class="dv">4</span>] <span class="op">+</span> struct.pack(<span class="st">'&lt;I'</span>, <span class="bn">0xFFFFFFFF</span>) <span class="op">+</span> w[<span class="dv">8</span>:<span class="dv">40</span>] <span class="op">+</span> struct.pack(<span class="st">'&lt;I'</span>, <span class="bn">0xFFFFFFFF</span>) <span class="op">+</span> w[<span class="dv">44</span>:]   <span class="co"># as a stream: the RIFF and data sizes are unknown</span></span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>test_eq(wav_seconds(clean_wav(bad)), <span class="fl">.1</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="pocket-tts" class="level3">
+<h3 class="anchored" data-anchor-id="pocket-tts">Pocket TTS</h3>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#_pocket"><code>_pocket</code></a> loads the model one time into the <code>tts</code> slot of <a href="https://vedicreader.github.io/abhyasa/voice.html#resident"><code>resident</code></a>, and keeps the state of each voice that it used. <a href="https://vedicreader.github.io/abhyasa/voice.html#_pocket_say"><code>_pocket_say</code></a> makes the audio of one line. <code>normalize=True</code> makes the voices equally loud: some, such as <code>stuart_bell</code> and <code>peter_yearsley</code>, are quiet. Pocket TTS has no speed, so the speed setting is only for OpenAI. When pocket-tts-mlx is not installed, the error says how to install it.</p>
+</section>
+<section id="openai-1" class="level3">
+<h3 class="anchored" data-anchor-id="openai-1">OpenAI</h3>
+<p>The <code>openai</code> engine posts the line to the OpenAI speech API and asks for WAV. <code>instructions</code> can set the tone (“calm, like a teacher”); only the <code>gpt-4o</code> models read it. The owner’s rule is that each text that goes to a hosted model passes ramabana’s guard (<a href="https://vedicreader.github.io/abhyasa/guide.html#guard"><code>abhyasa.guide.guard</code></a>, with <a href="https://vedicreader.github.io/ramabana/guard.html#outgoing"><code>ramabana.guard.outgoing</code></a>). It masks a secret and refuses personal data when the privacy setting says so.</p>
+</section>
+<section id="speak" class="level3">
+<h3 class="anchored" data-anchor-id="speak">speak</h3>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#speak"><code>speak</code></a> gives the WAV bytes of one line and the start time of each of its words. Without an engine, it uses the voice of the settings. For the browser voice, it refuses: the page speaks then.</p>
+<div id="4a34407d" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.843788+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.849186+00:00&quot;,&quot;total&quot;:0.005401451000011548}}" data-execution_count="47">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L322" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="speak-1" class="level3">
+<h3 class="anchored" data-anchor-id="speak-1">speak</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb38"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> speak(</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>    text:<span class="bu">str</span>, engine:<span class="bu">str</span><span class="op">=</span><span class="va">None</span>, model:<span class="bu">str</span><span class="op">=</span><span class="va">None</span>, voice:<span class="bu">str</span><span class="op">=</span><span class="va">None</span>, speed:<span class="bu">float</span><span class="op">=</span><span class="va">None</span>, instructions:<span class="bu">str</span><span class="op">=</span><span class="st">''</span></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">tuple</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>WAV bytes for <code>text</code>, and the start time in seconds of each of its words (split on white space).</em></p>
+</section>
+</div>
+</section>
+<section id="tests-with-a-fake-model" class="level3">
+<h3 class="anchored" data-anchor-id="tests-with-a-fake-model">Tests with a fake model</h3>
+<p>A fake Pocket TTS: it gives 0.25 s of silence for each word, and it notes each voice state that it makes. The loader is a fake too, so the test downloads nothing.</p>
+<div id="e40a5039" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.849343+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.850008+00:00&quot;,&quot;total&quot;:0.0006694730000162963}}" data-execution_count="48">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb39"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="46701411" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb40"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> _Pocket:</span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>    sample_rate <span class="op">=</span> <span class="dv">24000</span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>): <span class="va">self</span>.said, <span class="va">self</span>.voices <span class="op">=</span> [], []</span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> get_state_for_audio_prompt(<span class="va">self</span>, v): <span class="va">self</span>.voices.append(v)<span class="op">;</span> <span class="cf">return</span> <span class="bu">dict</span>(voice<span class="op">=</span>v)</span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> generate_audio(<span class="va">self</span>, st, text, normalize<span class="op">=</span><span class="va">False</span>):</span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.said.append((st[<span class="st">'voice'</span>], text, normalize))</span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> np.zeros(<span class="dv">6000</span> <span class="op">*</span> <span class="bu">len</span>(text.split()), np.float32)</span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>loads <span class="op">=</span> []</span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a>_real_load, _pocket_load <span class="op">=</span> _pocket_load, (<span class="kw">lambda</span>: loads.append(<span class="dv">1</span>) <span class="kw">or</span> (_Pocket(), {}))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#speak"><code>speak</code></a> gives one second of WAV for four words, and a time for each word that goes up. The second line does not load the model again, and a voice state loads one time.</p>
+<div id="afcd7a76" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb41"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>wav, words <span class="op">=</span> speak(<span class="st">'Noise goes in, slowly.'</span>, <span class="st">'pocket'</span>)</span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>test_eq(wav_seconds(wav), <span class="fl">1.</span>)</span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>test_eq(words, by_letters(<span class="st">'Noise goes in, slowly.'</span>, <span class="fl">1.</span>))</span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>test_eq(words, <span class="bu">sorted</span>(words))</span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>speak(<span class="st">'Again.'</span>, <span class="st">'pocket'</span>, voice<span class="op">=</span><span class="st">'mary'</span>)<span class="op">;</span> speak(<span class="st">'Once more.'</span>, <span class="st">'pocket'</span>, voice<span class="op">=</span><span class="st">'mary'</span>)</span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>pk <span class="op">=</span> _slots[<span class="st">'tts'</span>][<span class="dv">0</span>].obj[<span class="dv">0</span>]</span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a>test_eq((loads, pk.voices, pk.said[<span class="op">-</span><span class="dv">1</span>]), ([<span class="dv">1</span>], [<span class="st">'caro_davy'</span>, <span class="st">'mary'</span>], (<span class="st">'mary'</span>, <span class="st">'Once more.'</span>, <span class="va">True</span>)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The settings choose the voice when <a href="https://vedicreader.github.io/abhyasa/voice.html#speak"><code>speak</code></a> has no engine. The browser voice makes no audio here.</p>
+<div id="17b18d2a" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb42"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'voice'</span>, out<span class="op">=</span><span class="st">'pocket'</span>, out_voice<span class="op">=</span><span class="st">'paul'</span>)</span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>speak(<span class="st">'hello'</span>)</span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a>test_eq(pk.said[<span class="op">-</span><span class="dv">1</span>][<span class="dv">0</span>], <span class="st">'paul'</span>)</span>
+<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'voice'</span>, out<span class="op">=</span><span class="st">'browser'</span>, out_voice<span class="op">=</span><span class="st">''</span>)</span>
+<span id="cb42-5"><a href="#cb42-5" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: speak(<span class="st">'hello'</span>), contains<span class="op">=</span><span class="st">'browser'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The OpenAI engine refuses with no key. With a key, it sends the text after the guard, with the model, the voice and the tone. Here a fake guard puts a mark on each text, so the test sees that each text passed it.</p>
+<div id="cdaf7b99" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.851666+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.888031+00:00&quot;,&quot;total&quot;:0.0363708130000191}}" data-execution_count="49">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb43"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> abhyasa.guide</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="a90f6d76" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb44"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>real_guard, abhyasa.guide.guard <span class="op">=</span> abhyasa.guide.guard, <span class="kw">lambda</span> s, model<span class="op">=</span><span class="va">None</span>, mode<span class="op">=</span><span class="va">None</span>: <span class="ss">f'[</span><span class="sc">{</span>model<span class="sc">.</span>name<span class="sc">}</span><span class="ss">] </span><span class="sc">{</span>s<span class="sc">}</span><span class="ss">'</span></span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: speak(<span class="st">'hello'</span>, <span class="st">'openai'</span>), contains<span class="op">=</span><span class="st">'no OpenAI key'</span>)</span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a>set_openai_key(<span class="st">'sk-test-1234'</span>)</span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> _W:</span>
+<span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a>    content <span class="op">=</span> to_wav([<span class="fl">0.</span>] <span class="op">*</span> <span class="dv">12000</span>, <span class="dv">24000</span>)</span>
+<span id="cb44-6"><a href="#cb44-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> raise_for_status(<span class="va">self</span>): <span class="cf">pass</span></span>
+<span id="cb44-7"><a href="#cb44-7" aria-hidden="true" tabindex="-1"></a>sent <span class="op">=</span> {}</span>
+<span id="cb44-8"><a href="#cb44-8" aria-hidden="true" tabindex="-1"></a>http_post <span class="op">=</span> <span class="kw">lambda</span> url, <span class="op">**</span>kw: sent.update(url<span class="op">=</span>url, <span class="op">**</span>kw) <span class="kw">or</span> _W()</span>
+<span id="cb44-9"><a href="#cb44-9" aria-hidden="true" tabindex="-1"></a>wav, words <span class="op">=</span> speak(<span class="st">'Look at the noise.'</span>, <span class="st">'openai'</span>, instructions<span class="op">=</span><span class="st">'calm, like a teacher'</span>)</span>
+<span id="cb44-10"><a href="#cb44-10" aria-hidden="true" tabindex="-1"></a>test_eq(sent[<span class="st">'url'</span>], OPENAI_SPEECH_URL)</span>
+<span id="cb44-11"><a href="#cb44-11" aria-hidden="true" tabindex="-1"></a>test_eq(sent[<span class="st">'json'</span>], <span class="bu">dict</span>(model<span class="op">=</span>DFLT_SPEECH, voice<span class="op">=</span><span class="st">'marin'</span>, <span class="bu">input</span><span class="op">=</span><span class="st">'[openai] Look at the noise.'</span>, response_format<span class="op">=</span><span class="st">'wav'</span>, speed<span class="op">=</span><span class="fl">1.</span>, instructions<span class="op">=</span><span class="st">'[openai] calm, like a teacher'</span>))</span>
+<span id="cb44-12"><a href="#cb44-12" aria-hidden="true" tabindex="-1"></a>test_eq((wav_seconds(wav), <span class="bu">len</span>(words)), (<span class="fl">.5</span>, <span class="dv">4</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p><code>tts-1</code> does not read <code>instructions</code>, so the engine does not send them. Then the test puts back the real guard, the real HTTP client and the real loader.</p>
+<div id="4fdee7de" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb45"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>speak(<span class="st">'Hi.'</span>, <span class="st">'openai'</span>, <span class="st">'tts-1'</span>, instructions<span class="op">=</span><span class="st">'calm'</span>)</span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="st">'instructions'</span> <span class="kw">not</span> <span class="kw">in</span> sent[<span class="st">'json'</span>]</span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a>abhyasa.guide.guard, http_post <span class="op">=</span> real_guard, <span class="va">None</span></span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>set_openai_key(<span class="st">''</span>)</span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a>_pocket_load <span class="op">=</span> _real_load</span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a>unload(<span class="st">'tts'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="one-worker-for-the-voice" class="level3">
+<h3 class="anchored" data-anchor-id="one-worker-for-the-voice">One worker for the voice</h3>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#speaker"><code>Speaker</code></a> has one worker thread for all the calls of the speaking voice, separate from the speech to text worker. Thus a line of the board does not wait for a segment of dictation. It keeps the lines that it said in this run (at most <code>most</code>), by engine, model, voice, speed and text. The board asks for the same line again when the learner goes back a step, and that line then comes at once. Two requests for the same line share one call. <code>warm</code> loads the model in use with one short line, so the first line of a board does not wait for the load. The browser voice and OpenAI have nothing to load.</p>
+<p>A model that is not on this Mac yet is not downloaded for a line: the Settings page shows its download. Until then, <code>say</code> refuses the line with the word “browser”, as for the browser voice, so the page and the Mac app speak with their own voice.</p>
+<div id="e64765d0" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.896440+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.901735+00:00&quot;,&quot;total&quot;:0.005299299000000701}}" data-execution_count="51">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L331" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="speaker" class="level3">
+<h3 class="anchored" data-anchor-id="speaker">Speaker</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb46"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> Speaker(</span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a>    fn:NoneType<span class="op">=</span><span class="va">None</span>, most:<span class="bu">int</span><span class="op">=</span><span class="dv">64</span>, here:NoneType<span class="op">=</span><span class="va">None</span></span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>One worker thread for the speaking voice, and the lines that it said in this run.</em></p>
+</section>
+</div>
+<p>A fake voice counts its calls. The same line comes from the cache, and a new speed is a new line.</p>
+<div id="1096632c" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb47"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>calls <span class="op">=</span> []</span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> fake_speak(text, engine, model, voice, speed):</span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>    calls.append((text, engine, voice, speed))<span class="op">;</span> time.sleep(<span class="fl">.02</span>)</span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> to_wav([<span class="fl">0.</span>] <span class="op">*</span> <span class="dv">2400</span>, <span class="dv">24000</span>), by_letters(text, <span class="fl">.1</span>)</span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a>sk <span class="op">=</span> Speaker(fake_speak, most<span class="op">=</span><span class="dv">2</span>, here<span class="op">=</span><span class="kw">lambda</span> m: <span class="va">True</span>)</span>
+<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: sk.say(<span class="st">'hi'</span>, engine<span class="op">=</span><span class="st">'browser'</span>), contains<span class="op">=</span><span class="st">'browser'</span>)</span>
+<span id="cb47-7"><a href="#cb47-7" aria-hidden="true" tabindex="-1"></a>r <span class="op">=</span> sk.say(<span class="st">'Look  here.'</span>, engine<span class="op">=</span><span class="st">'pocket'</span>)</span>
+<span id="cb47-8"><a href="#cb47-8" aria-hidden="true" tabindex="-1"></a>test_eq((r[<span class="st">'cached'</span>], r[<span class="st">'where'</span>], r[<span class="st">'voice'</span>], r[<span class="st">'words'</span>]), (<span class="va">False</span>, <span class="st">'on this Mac'</span>, <span class="st">'caro_davy'</span>, by_letters(<span class="st">'Look here.'</span>, <span class="fl">.1</span>)))</span>
+<span id="cb47-9"><a href="#cb47-9" aria-hidden="true" tabindex="-1"></a>test_eq(sk.say(<span class="st">'Look here.'</span>, engine<span class="op">=</span><span class="st">'pocket'</span>)[<span class="st">'cached'</span>], <span class="va">True</span>)</span>
+<span id="cb47-10"><a href="#cb47-10" aria-hidden="true" tabindex="-1"></a>sk.say(<span class="st">'Look here.'</span>, engine<span class="op">=</span><span class="st">'pocket'</span>, speed<span class="op">=</span><span class="fl">1.5</span>)</span>
+<span id="cb47-11"><a href="#cb47-11" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="bu">len</span>(calls), <span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Two requests at the same time for a new line make one call. The cache keeps at most <code>most</code> lines: the oldest goes first.</p>
+<div id="709c0257" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb48"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> ThreadPoolExecutor(<span class="dv">2</span>) <span class="im">as</span> ex: <span class="bu">list</span>(ex.<span class="bu">map</span>(<span class="kw">lambda</span> _: sk.say(<span class="st">'Both at once.'</span>, engine<span class="op">=</span><span class="st">'pocket'</span>), <span class="bu">range</span>(<span class="dv">2</span>)))</span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="bu">len</span>(calls), <span class="dv">3</span>)</span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="bu">len</span>(sk.lines), <span class="dv">2</span>)</span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a>test_eq(sk.say(<span class="st">'Look here.'</span>, engine<span class="op">=</span><span class="st">'pocket'</span>)[<span class="st">'cached'</span>], <span class="va">False</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>A failed line is not kept. <code>warm</code> loads the voice of the settings one time, and does nothing for the browser voice. A model that is not here is not warmed, and a line for it says that the browser speaks.</p>
+<div id="d2d7cf5a" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb49"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>sk <span class="op">=</span> Speaker(<span class="kw">lambda</span> <span class="op">*</span>a: <span class="dv">1</span> <span class="op">/</span> <span class="dv">0</span>, here<span class="op">=</span><span class="kw">lambda</span> m: <span class="va">True</span>)</span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: sk.say(<span class="st">'x'</span>, engine<span class="op">=</span><span class="st">'pocket'</span>))</span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>test_eq(sk.lines, {})</span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'voice'</span>, out<span class="op">=</span><span class="st">'browser'</span>)</span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>test_is(Speaker(fake_speak).warm(), <span class="va">None</span>)</span>
+<span id="cb49-6"><a href="#cb49-6" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'voice'</span>, out<span class="op">=</span><span class="st">'pocket'</span>)</span>
+<span id="cb49-7"><a href="#cb49-7" aria-hidden="true" tabindex="-1"></a>sk <span class="op">=</span> Speaker(fake_speak, here<span class="op">=</span><span class="kw">lambda</span> m: <span class="va">True</span>)<span class="op">;</span> calls.clear()</span>
+<span id="cb49-8"><a href="#cb49-8" aria-hidden="true" tabindex="-1"></a>sk.warm().result()<span class="op">;</span> test_is(sk.warm(), <span class="va">None</span>)</span>
+<span id="cb49-9"><a href="#cb49-9" aria-hidden="true" tabindex="-1"></a>test_eq((sk.status, calls), (<span class="st">'ready'</span>, [(<span class="st">'Ready.'</span>, <span class="st">'pocket'</span>, <span class="st">'caro_davy'</span>, <span class="fl">1.</span>)]))</span>
+<span id="cb49-10"><a href="#cb49-10" aria-hidden="true" tabindex="-1"></a>sk <span class="op">=</span> Speaker(fake_speak, here<span class="op">=</span><span class="kw">lambda</span> m: <span class="va">False</span>)</span>
+<span id="cb49-11"><a href="#cb49-11" aria-hidden="true" tabindex="-1"></a>test_is(sk.warm(), <span class="va">None</span>)</span>
+<span id="cb49-12"><a href="#cb49-12" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: sk.say(<span class="st">'x'</span>), contains<span class="op">=</span><span class="st">'browser'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="segments-in-order" class="level2">
+<h2 class="anchored" data-anchor-id="segments-in-order">Segments in order</h2>
+<p>The browser sends one segment each time you stop to think. <a href="https://vedicreader.github.io/abhyasa/voice.html#speech"><code>Speech</code></a> has one worker thread for all the model calls. Thus only one model is in memory, and the segments run one at a time, in the order they came. A <a href="https://vedicreader.github.io/abhyasa/voice.html#dictation"><code>Dictation</code></a> collects the segments of one answer. <code>next</code> gives the text in the order of the segment numbers, also when a slow request arrives late. When the browser sends a segment again (after an error), the code does not use it two times.</p>
+<div id="76d47378" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.908079+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.912872+00:00&quot;,&quot;total&quot;:0.004795778000016071}}" data-execution_count="53">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L377" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="dictation" class="level3">
+<h3 class="anchored" data-anchor-id="dictation">Dictation</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb50"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> Dictation(</span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>    speech, hint:<span class="bu">str</span><span class="op">=</span><span class="st">''</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The segments of one spoken answer: each is transcribed on the speech worker, and the text comes out in order.</em></p>
+</section>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/voice.html#speech"><code>Speech</code></a> owns the worker. <code>warm</code> loads the model in use with half a second of silence, so the first segment does not wait for it. <code>use</code> changes the engine and model, saves the change, and warms the new model.</p>
+<div id="6e639e85" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:34.916446+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:34.920886+00:00&quot;,&quot;total&quot;:0.0044439080000131526}}" data-execution_count="55">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/voice.py#L413" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="speech" class="level3">
+<h3 class="anchored" data-anchor-id="speech">Speech</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb51"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> Speech(</span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>    fn:NoneType<span class="op">=</span><span class="va">None</span></span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>One worker thread for every speech model call, and the open dictations.</em></p>
+</section>
+</div>
+<section id="tests-with-a-fake-engine" class="level3">
+<h3 class="anchored" data-anchor-id="tests-with-a-fake-engine">Tests with a fake engine</h3>
+<p>This fake engine is slow on even segments, so the requests finish out of order. The text must still come out in order.</p>
+<div id="v056" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb52"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>calls <span class="op">=</span> []</span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> slow_fake(audio, hint<span class="op">=</span><span class="st">''</span>):</span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>    n <span class="op">=</span> <span class="bu">int</span>(audio.decode())</span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>    calls.append(n)</span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a>    time.sleep(<span class="fl">.05</span> <span class="cf">if</span> n <span class="op">%</span> <span class="dv">2</span> <span class="op">==</span> <span class="dv">0</span> <span class="cf">else</span> <span class="dv">0</span>)</span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="ss">f'segment </span><span class="sc">{</span>n<span class="sc">}</span><span class="ss"> (</span><span class="sc">{</span>hint<span class="sc">}</span><span class="ss">)'</span></span>
+<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>sp <span class="op">=</span> Speech(slow_fake)</span>
+<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> sp.runs[sp.start(<span class="st">'hetu'</span>)]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Segments 0 to 5 arrive out of order, from several threads. Segment 3 comes two times.</p>
+<div id="v058" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb53"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>order <span class="op">=</span> [<span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">3</span>, <span class="dv">5</span>, <span class="dv">4</span>]</span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> ThreadPoolExecutor(<span class="dv">4</span>) <span class="im">as</span> ex: added <span class="op">=</span> <span class="bu">list</span>(ex.<span class="bu">map</span>(<span class="kw">lambda</span> n: d.add(n, <span class="bu">str</span>(n).encode()), order))</span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="bu">sum</span>(added), <span class="dv">6</span>)</span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>d.stop(<span class="dv">6</span>)</span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a>out <span class="op">=</span> []</span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="kw">not</span> (r <span class="op">:=</span> d.<span class="bu">next</span>(<span class="dv">5</span>)).get(<span class="st">'done'</span>): out.append(r)</span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>test_eq([r[<span class="st">'seq'</span>] <span class="cf">for</span> r <span class="kw">in</span> out], <span class="bu">list</span>(<span class="bu">range</span>(<span class="dv">6</span>)))</span>
+<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>test_eq(out[<span class="dv">0</span>][<span class="st">'text'</span>], <span class="st">'segment 0 (hetu)'</span>)</span>
+<span id="cb53-9"><a href="#cb53-9" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="bu">sorted</span>(calls), <span class="bu">list</span>(<span class="bu">range</span>(<span class="dv">6</span>)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>All the model calls ran on the one worker thread, one at a time.</p>
+<div id="v060" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb54"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a>seen <span class="op">=</span> <span class="bu">set</span>()</span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a>sp.submit(<span class="kw">lambda</span>: seen.add(threading.current_thread().name)).result()</span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="bu">len</span>(seen), <span class="dv">1</span>)</span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>test_eq(d.pending, <span class="dv">0</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>An engine error gives an empty text with the error. It does not stop the segments after it.</p>
+<div id="v062" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb55"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> flaky(audio, hint<span class="op">=</span><span class="st">''</span>):</span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> audio <span class="op">==</span> <span class="st">b'bad'</span>: <span class="cf">raise</span> <span class="pp">RuntimeError</span>(<span class="st">'no model'</span>)</span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">'ok'</span></span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>sp <span class="op">=</span> Speech(flaky)</span>
+<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> sp.runs[sp.start()]</span>
+<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>d.add(<span class="dv">0</span>, <span class="st">b'bad'</span>)<span class="op">;</span> d.add(<span class="dv">1</span>, <span class="st">b'good'</span>)<span class="op">;</span> d.stop(<span class="dv">2</span>)</span>
+<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>test_eq(d.<span class="bu">next</span>(<span class="dv">5</span>), <span class="bu">dict</span>(seq<span class="op">=</span><span class="dv">0</span>, text<span class="op">=</span><span class="st">''</span>, error<span class="op">=</span><span class="st">'no model'</span>))</span>
+<span id="cb55-8"><a href="#cb55-8" aria-hidden="true" tabindex="-1"></a>test_eq(d.<span class="bu">next</span>(<span class="dv">5</span>), <span class="bu">dict</span>(seq<span class="op">=</span><span class="dv">1</span>, text<span class="op">=</span><span class="st">'ok'</span>))</span>
+<span id="cb55-9"><a href="#cb55-9" aria-hidden="true" tabindex="-1"></a>test_eq(d.<span class="bu">next</span>(<span class="dv">5</span>), <span class="bu">dict</span>(done<span class="op">=</span><span class="va">True</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Without <code>stop</code>, <code>next</code> waits and then gives None. <code>use</code> saves the choice and warms the new model with silence.</p>
+<div id="v064" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb56"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> sp.runs[sp.start()]</span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>test_is(d.<span class="bu">next</span>(<span class="fl">.05</span>), <span class="va">None</span>)</span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a>heard <span class="op">=</span> []</span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a>sp <span class="op">=</span> Speech(<span class="kw">lambda</span> a, hint<span class="op">=</span><span class="st">''</span>: heard.append(wav_seconds(a)) <span class="kw">or</span> <span class="st">''</span>)</span>
+<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a>sp.use(<span class="st">'parakeet'</span>).result()</span>
+<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a>test_eq(current(), (<span class="st">'mlx'</span>, DFLT_PARAKEET))</span>
+<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a>test_eq(heard, [<span class="fl">.5</span>])</span>
+<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> sp.status.startswith(<span class="st">'ready'</span>), sp.status</span>
+<span id="cb56-9"><a href="#cb56-9" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'stt'</span>, engine<span class="op">=</span><span class="st">'mlx'</span>, model<span class="op">=</span><span class="st">''</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="real-models" class="level2">
+<h2 class="anchored" data-anchor-id="real-models">Real models</h2>
+<p>These tests use a real clip and real models. They are slow. Run them with <code>nbdev-test --flags slow</code>.</p>
+<div id="v066" class="cell" data-slow="true">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb57"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a>clip <span class="op">=</span> first(p <span class="cf">for</span> p <span class="kw">in</span> (Path(<span class="st">'../../rishi/nbs/speech.wav'</span>), Path(<span class="st">'../../../rishi/nbs/speech.wav'</span>)) <span class="cf">if</span> p.exists())   <span class="co"># from the repo or a worktree</span></span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> clip:</span>
+<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> e <span class="kw">in</span> (<span class="st">'mlx'</span>, <span class="st">'whisper'</span>): <span class="cf">assert</span> transcribe(clip, e, hint<span class="op">=</span><span class="st">'Tennyson'</span>).strip(), e</span>
+<span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a>    unload()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="06008b52" class="cell" data-slow="true">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb58"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a>wav, words <span class="op">=</span> speak(<span class="st">'The forward process adds a little noise at each step.'</span>, <span class="st">'pocket'</span>)</span>
+<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> wav_seconds(wav) <span class="op">&gt;</span> <span class="dv">1</span> <span class="kw">and</span> words, words</span>
+<span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a>unload(<span class="st">'tts'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/vedicreader\.github\.io\/abhyasa");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/vedicreader/abhyasa/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>

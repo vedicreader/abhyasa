@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.20">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="One table for each value that you can change, and the file that keeps your changes.">
+
+<title>settings – abhyasa</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./favicon.svg" rel="icon" type="image/svg+xml">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-17888a1159294d3eb470f19f6f52f5a5.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-66a38d7287321bc50e069add96f8c30e.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="settings – abhyasa">
+<meta property="og:description" content="One table for each value that you can change, and the file that keeps your changes.">
+<meta property="og:site_name" content="abhyasa">
+<meta name="twitter:title" content="settings – abhyasa">
+<meta name="twitter:description" content="One table for each value that you can change, and the file that keeps your changes.">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">abhyasa</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./settings.html">settings</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">abhyasa</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./store.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">store</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">model</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./llm.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">llm</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tutor.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">tutor</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sources.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">sources</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./voice.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">voice</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./nb.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">nb</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./ground.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ground</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./demo.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">demo</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./journey.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">walk paths</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./profile.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">profile</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./method.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">method</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./prompts.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">prompts</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./walk.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">walk</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./settings.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">settings</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./talk.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">talk</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./research.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">research</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./detect.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">detect</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./edit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">edit</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./guide.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">guide</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./course.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">course</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./jobs.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">jobs</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#the-groups" id="toc-the-groups" class="nav-link active" data-scroll-target="#the-groups">The groups</a></li>
+  <li><a href="#the-table" id="toc-the-table" class="nav-link" data-scroll-target="#the-table">The table</a></li>
+  <li><a href="#the-file" id="toc-the-file" class="nav-link" data-scroll-target="#the-file">The file</a></li>
+  <li><a href="#read-one-value" id="toc-read-one-value" class="nav-link" data-scroll-target="#read-one-value">Read one value</a></li>
+  <li><a href="#change-one-value" id="toc-change-one-value" class="nav-link" data-scroll-target="#change-one-value">Change one value</a></li>
+  <li><a href="#what-stays-fixed" id="toc-what-stays-fixed" class="nav-link" data-scroll-target="#what-stays-fixed">What stays fixed</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/vedicreader/abhyasa/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="settings.html.md"><i class="bi bi-file-code"></i>Markdown</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">settings</h1>
+</div>
+
+<div>
+  <div class="description">
+    One table for each value that you can change, and the file that keeps your changes.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<p>Each value that a person can change is a row in one table, <code>SETTINGS</code>. A row has a group, a name, a label, one line of help, a type, a default and, for a number, a range. The engine, the web app and the Settings page all read this table. Thus each value has one place.</p>
+<p>Your changes go in <code>settings.json</code> in <a href="https://vedicreader.github.io/abhyasa/settings.html#cfg_dir"><code>cfg_dir()</code></a>. The code reads a value when it uses it, so a change works at once, with no restart. A saved value outside its range gets the nearest end of the range. A saved value of the wrong type gets the default. A bad file never stops the app.</p>
+<p>This module imports only the standard library and fastcore. Each engine module reads its values from here, so the import must stay light.</p>
+<section id="the-groups" class="level2">
+<h2 class="anchored" data-anchor-id="the-groups">The groups</h2>
+<p>The Settings page shows the groups in this order. Each group has a label and one lead line.</p>
+</section>
+<section id="the-table" class="level2">
+<h2 class="anchored" data-anchor-id="the-table">The table</h2>
+<p><a href="https://vedicreader.github.io/abhyasa/settings.html#add"><code>add</code></a> puts one row in <code>SETTINGS</code>. The name is <code>section.key</code>: the section of <code>settings.json</code> and the key in it. The type comes from the default. <code>more</code> puts the row under the closed “More” part of its group. <code>store='profile'</code> marks a value that the vault keeps in your profile, not this file. <code>hi</code> can be the name of another row. Then that value is the top of the range. <code>ui=False</code> marks a value that its group shows with its own controls. <code>reset=False</code> keeps a value when you use the defaults of its group: the theme, and the speech engine and model.</p>
+<div id="a0ca1554" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.382918+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.397327+00:00&quot;,&quot;total&quot;:0.014413529999984576}}" data-execution_count="5">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L36" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="add" class="level3">
+<h3 class="anchored" data-anchor-id="add">add</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> add(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    name:<span class="bu">str</span>, group:<span class="bu">str</span>, label:<span class="bu">str</span>, <span class="bu">help</span>:<span class="bu">str</span>, dflt, lo:NoneType<span class="op">=</span><span class="va">None</span>, hi:NoneType<span class="op">=</span><span class="va">None</span>, more:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    choices:NoneType<span class="op">=</span><span class="va">None</span>, unit:<span class="bu">str</span><span class="op">=</span><span class="st">''</span>, pct:<span class="bu">bool</span><span class="op">=</span><span class="va">False</span>, store:<span class="bu">str</span><span class="op">=</span><span class="st">'file'</span>, ui:<span class="bu">bool</span><span class="op">=</span><span class="va">True</span>, reset:<span class="bu">bool</span><span class="op">=</span><span class="va">True</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Add the setting <code>name</code> to <code>SETTINGS</code> and return its row.</em></p>
+</section>
+</div>
+<p>The <strong>Look</strong> group keeps its own controls: the theme swatches and the mode. The <strong>Learning</strong> group holds the three values of your profile.</p>
+<p>The <strong>Walks</strong> group sets the size of a walk and of a side walk.</p>
+<p>The <strong>Talks</strong> group sets how a talk runs: the questions, the time, the vote and the room.</p>
+<p>The <strong>Checks and grading</strong> group sets the tries, the grade of a shaky pass, and when an idea counts as learned.</p>
+<p>The <strong>Review</strong> group sets the time to the next review. A daily limit on review is new: 0 means no limit, as before.</p>
+<p>The <strong>Links</strong> group sets how much of a link the tutor gets. The pages read by default can not be more than the page cap.</p>
+<p>The <strong>Research</strong> group sets the web search for a step with no source. The tutor searches the web for the idea, reads the best pages, and quotes one passage word for word. When research is off, the tutor does no web search, and the step says that the text is in the tutor’s words.</p>
+<p>The <strong>Speech to text</strong> group keeps the engine and the model, and the pauses at which the mic cuts what you say. The <strong>Screen guide</strong> group has the voice and the look of a point mark. A point mark is weaker than a circle in each look, so a circle is always the main mark of a step. The default is <code>tick</code>, because it has no ring that looks like a circle.</p>
+<p>The <strong>Speaking voice</strong> group picks who reads the steps of the screen guide aloud. <code>pocket</code> runs Pocket TTS on this Mac. <code>openai</code> sends each line to OpenAI. <code>browser</code> is the voice of the browser (or of the Mac in the overlay). The <code>voice</code> module reads these values. The default is <code>pocket</code>. Until its model is downloaded, the browser speaks. A value from before 0.0.16 (<code>kokoro</code> or <code>hf</code>) is not one of the choices, so it reads as <code>pocket</code>. The speed is only for OpenAI: Pocket TTS has no speed.</p>
+<p>The <strong>Models</strong> group has the default model and one model for each task. An empty value uses the default model. The tasks after <a href="https://vedicreader.github.io/abhyasa/sources.html#extract"><code>extract</code></a> borrow the model of an older task when they have none: <code>BORROWS</code> says which. The screen guide (<code>guide</code>) and its figure labels (<code>guide_vision</code>) use the model for hints until you pick one. The reply caps are in tokens.</p>
+<p>The <strong>Lists</strong> group sets how many items show in the lists of the app. All of it is under “More”.</p>
+<p>Each group except <strong>Prompts</strong> has rows, and each row is in a group. The Prompts group lists the prompts of <code>prompts.PROMPTS</code>.</p>
+<div id="f5e14bad" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">set</span>(GROUPS) <span class="op">-</span> {<span class="st">'prompts'</span>} <span class="op">==</span> {r.group <span class="cf">for</span> r <span class="kw">in</span> SETTINGS.values()}</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="bu">all</span>(r.kind <span class="op">!=</span> <span class="st">'int'</span> <span class="kw">or</span> r.lo <span class="op">&lt;=</span> r.dflt <span class="cf">for</span> r <span class="kw">in</span> SETTINGS.values())</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">len</span>(SETTINGS)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="the-file" class="level2">
+<h2 class="anchored" data-anchor-id="the-file">The file</h2>
+<p><code>DFLT_SETTINGS</code> is the default of each section: the rows that the file keeps, the saved prompt texts and the models that the Settings page downloaded. <a href="https://vedicreader.github.io/abhyasa/settings.html#settings"><code>settings()</code></a> gives the saved settings over the defaults. A section that is not a dict in the file is ignored, and a top-level key that is not known is dropped.</p>
+<div id="b05424a9" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.424787+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.429257+00:00&quot;,&quot;total&quot;:0.004474095000006173}}" data-execution_count="18">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L166" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="cfg_dir" class="level3">
+<h3 class="anchored" data-anchor-id="cfg_dir">cfg_dir</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> cfg_dir()<span class="op">-&gt;</span>pathlib.Path:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The folder for abhyasa’s settings and keys: <code>$ABHYASA_CONFIG</code>, else <code>~/.config/abhyasa</code>.</em></p>
+</section>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/settings.html#_saved"><code>_saved</code></a> reads the file only when it changed, so a value read in a loop costs one <code>stat</code>.</p>
+<div id="61502a76" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.432474+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.437139+00:00&quot;,&quot;total&quot;:0.004668529000014132}}" data-execution_count="20">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L191" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="settings" class="level3">
+<h3 class="anchored" data-anchor-id="settings">settings</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> settings()<span class="op">-&gt;</span><span class="bu">dict</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The saved settings over the defaults.</em></p>
+</section>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/settings.html#save_settings"><code>save_settings</code></a> writes the file: first a temporary file with its own name, then a rename, so a crash never leaves half a file. A lock keeps two changes from the web app apart. It does not keep a value that is the default. <a href="https://vedicreader.github.io/abhyasa/settings.html#update_settings"><code>update_settings</code></a> changes keys in one section.</p>
+<div id="74aefcb3" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.441146+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.445694+00:00&quot;,&quot;total&quot;:0.0045524319999969975}}" data-execution_count="22">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L219" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="update_settings" class="level3">
+<h3 class="anchored" data-anchor-id="update_settings">update_settings</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> update_settings(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    section:<span class="bu">str</span>, <span class="op">**</span>kw</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">dict</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Change some keys in one section of the settings.</em></p>
+</section>
+</div>
+<div id="8ee30b82" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.445828+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.450057+00:00&quot;,&quot;total&quot;:0.004232784000009815}}" data-execution_count="23">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L203" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="save_settings" class="level3">
+<h3 class="anchored" data-anchor-id="save_settings">save_settings</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> save_settings(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    d:<span class="bu">dict</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">dict</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Write all the settings.</em></p>
+</section>
+</div>
+<p>With no file, <a href="https://vedicreader.github.io/abhyasa/settings.html#settings"><code>settings()</code></a> gives the defaults. A change in one section keeps the others.</p>
+<div id="9d394d98" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>test_eq(settings()[<span class="st">'walks'</span>][<span class="st">'steps'</span>], <span class="dv">12</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'stt'</span>, segment<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>test_eq(settings()[<span class="st">'stt'</span>][<span class="st">'segment'</span>], <span class="va">False</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>test_eq(settings()[<span class="st">'look'</span>], <span class="bu">dict</span>(theme<span class="op">=</span><span class="st">'paper'</span>, mode<span class="op">=</span><span class="st">'auto'</span>, keys_float<span class="op">=</span><span class="va">True</span>))</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'stt'</span>, segment<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>A file from before this table still loads: its sections update the defaults, and the new sections get their defaults.</p>
+<div id="ba0750cc" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>_path().write_text(json.dumps(<span class="bu">dict</span>(stt<span class="op">=</span><span class="bu">dict</span>(engine<span class="op">=</span><span class="st">'mlx'</span>, model<span class="op">=</span><span class="st">'m'</span>, segment<span class="op">=</span><span class="va">True</span>), models<span class="op">=</span><span class="bu">dict</span>(question<span class="op">=</span><span class="st">''</span>, grade<span class="op">=</span><span class="st">''</span>, hint<span class="op">=</span><span class="st">''</span>, lesson<span class="op">=</span><span class="st">''</span>),</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>                                   tokens<span class="op">=</span><span class="bu">dict</span>(question<span class="op">=</span><span class="st">''</span>, grade<span class="op">=</span><span class="st">''</span>, hint<span class="op">=</span><span class="st">''</span>, lesson<span class="op">=</span><span class="st">''</span>, extract<span class="op">=</span><span class="st">''</span>), look<span class="op">=</span><span class="bu">dict</span>(theme<span class="op">=</span><span class="st">'ink'</span>, mode<span class="op">=</span><span class="st">'dark'</span>), prompts<span class="op">=</span>{}, downloaded<span class="op">=</span>[])))</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> settings()</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>test_eq((d[<span class="st">'stt'</span>][<span class="st">'engine'</span>], d[<span class="st">'stt'</span>][<span class="st">'pause'</span>], d[<span class="st">'look'</span>][<span class="st">'theme'</span>], d[<span class="st">'walks'</span>][<span class="st">'steps'</span>], d[<span class="st">'models'</span>][<span class="st">'extract'</span>]), (<span class="st">'mlx'</span>, <span class="dv">700</span>, <span class="st">'ink'</span>, <span class="dv">12</span>, <span class="st">''</span>))</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>save_settings(<span class="bu">dict</span>(prompts<span class="op">=</span>{}, downloaded<span class="op">=</span>[]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>A file that is not JSON, or a section that is not a dict, gives the defaults. An unknown top-level key is dropped.</p>
+<div id="1524bf6b" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>_path().write_text(<span class="st">'{not json'</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>test_eq(settings()[<span class="st">'walks'</span>][<span class="st">'steps'</span>], <span class="dv">12</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>_path().write_text(json.dumps(<span class="bu">dict</span>(walks<span class="op">=</span><span class="dv">5</span>, mine<span class="op">=</span><span class="dv">1</span>)))</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> settings()</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>test_eq((d[<span class="st">'walks'</span>][<span class="st">'steps'</span>], <span class="st">'mine'</span> <span class="kw">in</span> d), (<span class="dv">12</span>, <span class="va">False</span>))</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>save_settings(<span class="bu">dict</span>(prompts<span class="op">=</span>{}, downloaded<span class="op">=</span>[]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="read-one-value" class="level2">
+<h2 class="anchored" data-anchor-id="read-one-value">Read one value</h2>
+<p><a href="https://vedicreader.github.io/abhyasa/settings.html#fit"><code>fit</code></a> makes a saved value fit its row. A number outside the range gets the nearest end. A value of the wrong type gets the default. A whole number can come as <code>12.0</code> from a form; it stays a whole number. A choice must be one of the choices.</p>
+<div id="864b6141" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.454141+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.459603+00:00&quot;,&quot;total&quot;:0.0054669630000034886}}" data-execution_count="25">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L230" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="fit" class="level3">
+<h3 class="anchored" data-anchor-id="fit">fit</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> fit(</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    r, v</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The value <code>v</code> made to fit row <code>r</code>: clamped to the range, or the default for the wrong type.</em></p>
+</section>
+</div>
+<div id="087a8ccd" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.459728+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.463938+00:00&quot;,&quot;total&quot;:0.004215399999992542}}" data-execution_count="26">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L226" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="top" class="level3">
+<h3 class="anchored" data-anchor-id="top">top</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> top(</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    r</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The top of the range of row <code>r</code>: a number, or the value of the row that <code>r.hi</code> names.</em></p>
+</section>
+</div>
+<p><a href="https://vedicreader.github.io/abhyasa/settings.html#val"><code>val</code></a> gives the value of a row now: the saved value made to fit, else the default. The engine calls it each time it needs the value.</p>
+<div id="112a196c" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.466109+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.470178+00:00&quot;,&quot;total&quot;:0.004073314999999411}}" data-execution_count="28">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L256" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="dflt" class="level3">
+<h3 class="anchored" data-anchor-id="dflt">dflt</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> dflt(</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    name:<span class="bu">str</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</div>
+<div id="d9de7b49" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.470335+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.474789+00:00&quot;,&quot;total&quot;:0.004458185000004278}}" data-execution_count="29">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L249" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="val" class="level3">
+<h3 class="anchored" data-anchor-id="val">val</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> val(</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    name:<span class="bu">str</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The value of the setting <code>name</code> now.</em></p>
+</section>
+</div>
+<div id="968a5d8a" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.474917+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.479296+00:00&quot;,&quot;total&quot;:0.00438374600000202}}" data-execution_count="30">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L243" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="raw" class="level3">
+<h3 class="anchored" data-anchor-id="raw">raw</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> raw(</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    name:<span class="bu">str</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The saved value of <code>name</code> as it is in the file, or None.</em></p>
+</section>
+</div>
+<p><code>sources.roots</code> is a text list, one path for each line. A source folder has the same rules as a folder that you name: it must be in your home folder, it must not be the home folder itself, and no part of it can be hidden or a link. <a href="https://vedicreader.github.io/abhyasa/settings.html#source_root_why"><code>source_root_why</code></a> gives the reason when a path breaks a rule. <a href="https://vedicreader.github.io/abhyasa/settings.html#roots"><code>roots</code></a> gives the paths that keep the rules, and <a href="https://vedicreader.github.io/abhyasa/settings.html#dropped_roots"><code>dropped_roots</code></a> gives the others with their reasons, so the Settings page can show them.</p>
+<div id="25a81a06" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.482397+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.486579+00:00&quot;,&quot;total&quot;:0.004185925999991014}}" data-execution_count="32">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L277" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="dropped_roots" class="level3">
+<h3 class="anchored" data-anchor-id="dropped_roots">dropped_roots</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> dropped_roots()<span class="op">-&gt;</span><span class="bu">list</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The lines of <code>sources.roots</code> that abhyasa does not use, each as (line, reason).</em></p>
+</section>
+</div>
+<div id="aa1e46e5" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.486702+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.490787+00:00&quot;,&quot;total&quot;:0.0040891839999801505}}" data-execution_count="33">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L273" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="roots" class="level3">
+<h3 class="anchored" data-anchor-id="roots">roots</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> roots()<span class="op">-&gt;</span><span class="bu">list</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The paths of the setting <code>sources.roots</code> that keep the rules of <a href="https://vedicreader.github.io/abhyasa/settings.html#source_root_why"><code>source_root_why</code></a>, one for each line that is not empty.</em></p>
+</section>
+</div>
+<div id="3960b01d" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.490904+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.495882+00:00&quot;,&quot;total&quot;:0.004982325999975501}}" data-execution_count="34">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L261" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="source_root_why" class="level3">
+<h3 class="anchored" data-anchor-id="source_root_why">source_root_why</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> source_root_why(</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    p</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">str</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Why abhyasa does not read the source folder <code>p</code>: outside the home folder, the home folder itself, hidden, or a link. ’’ when it can.</em></p>
+</section>
+</div>
+<div id="f9f95de6" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>test_eq(roots(), [<span class="st">'~/code/personal/orgs'</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>A saved 50 ideas becomes 30, the most. A string gives the default. A share above 1 becomes 1.</p>
+<div id="9cdf7a7f" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'walks'</span>, steps<span class="op">=</span><span class="dv">50</span>, hands<span class="op">=</span><span class="st">'a lot'</span>, note<span class="op">=</span><span class="fl">40.0</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>test_eq((val(<span class="st">'walks.steps'</span>), val(<span class="st">'walks.hands'</span>), val(<span class="st">'walks.note'</span>)), (<span class="dv">30</span>, <span class="dv">1</span><span class="op">/</span><span class="dv">3</span>, <span class="dv">40</span>))</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'walks'</span>, hands<span class="op">=</span><span class="fl">1.5</span>, steps<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>test_eq((val(<span class="st">'walks.hands'</span>), val(<span class="st">'walks.steps'</span>)), (<span class="fl">1.</span>, <span class="dv">3</span>))</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>save_settings(<span class="bu">dict</span>(prompts<span class="op">=</span>{}, downloaded<span class="op">=</span>[]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The top of the pages read by default is the page cap.</p>
+<div id="aa2572dc" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'links'</span>, pages<span class="op">=</span><span class="dv">40</span>, cap<span class="op">=</span><span class="dv">10</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>test_eq((val(<span class="st">'links.pages'</span>), val(<span class="st">'links.cap'</span>)), (<span class="dv">10</span>, <span class="dv">10</span>))</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>save_settings(<span class="bu">dict</span>(prompts<span class="op">=</span>{}, downloaded<span class="op">=</span>[]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The look of a point mark is one of three choices. A look that is not a choice gives the default, <code>tick</code>.</p>
+<div id="gp02" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'guide'</span>, point<span class="op">=</span><span class="st">'dot'</span>)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>test_eq(val(<span class="st">'guide.point'</span>), <span class="st">'dot'</span>)</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'guide'</span>, point<span class="op">=</span><span class="st">'arrow'</span>)</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>test_eq((val(<span class="st">'guide.point'</span>), SETTINGS[<span class="st">'guide.point'</span>].choices), (<span class="st">'tick'</span>, (<span class="st">'tick'</span>, <span class="st">'dot'</span>, <span class="st">'ring'</span>)))</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>save_settings(<span class="bu">dict</span>(prompts<span class="op">=</span>{}, downloaded<span class="op">=</span>[]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="change-one-value" class="level2">
+<h2 class="anchored" data-anchor-id="change-one-value">Change one value</h2>
+<p><a href="https://vedicreader.github.io/abhyasa/settings.html#set_val"><code>set_val</code></a> saves a value made to fit its row, and returns it. <a href="https://vedicreader.github.io/abhyasa/settings.html#reset"><code>reset</code></a> puts back the default of one row, and <a href="https://vedicreader.github.io/abhyasa/settings.html#reset_group"><code>reset_group</code></a> of each row in a group. <a href="https://vedicreader.github.io/abhyasa/settings.html#changed"><code>changed</code></a> is true when a value is not its default. <a href="https://vedicreader.github.io/abhyasa/settings.html#clamped"><code>clamped</code></a> gives the value in the file when it was outside the range, so the page can say so.</p>
+<div id="c52f7ab1" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.501935+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.506598+00:00&quot;,&quot;total&quot;:0.00466786799998431}}" data-execution_count="36">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L312" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="clamped" class="level3">
+<h3 class="anchored" data-anchor-id="clamped">clamped</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> clamped(</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    name:<span class="bu">str</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The number in the file for <code>name</code> when it was outside the range, else None.</em></p>
+</section>
+</div>
+<div id="1dc86f2d" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.506726+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.510855+00:00&quot;,&quot;total&quot;:0.004133386999995992}}" data-execution_count="37">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L310" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="changed" class="level3">
+<h3 class="anchored" data-anchor-id="changed">changed</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> changed(</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>    name:<span class="bu">str</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">bool</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</div>
+<div id="82a9a345" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.510984+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.515750+00:00&quot;,&quot;total&quot;:0.004770238999981302}}" data-execution_count="38">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L301" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="reset_group" class="level3">
+<h3 class="anchored" data-anchor-id="reset_group">reset_group</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> reset_group(</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>    group:<span class="bu">str</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">list</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Use the default of each row of <code>group</code> that the file keeps and that a group reset can change. Return their names.</em></p>
+</section>
+</div>
+<div id="ca0f49b6" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.515874+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.520154+00:00&quot;,&quot;total&quot;:0.00428446999998755}}" data-execution_count="39">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L297" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="rows" class="level3">
+<h3 class="anchored" data-anchor-id="rows">rows</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> rows(</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    group:<span class="bu">str</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>)<span class="op">-&gt;</span><span class="bu">list</span>:</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>The rows of <code>group</code>, in table order.</em></p>
+</section>
+</div>
+<div id="314c1fd2" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.520308+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.525029+00:00&quot;,&quot;total&quot;:0.004725305000022217}}" data-execution_count="40">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L288" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="reset" class="level3">
+<h3 class="anchored" data-anchor-id="reset">reset</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> reset(</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>    name:<span class="bu">str</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Use the default of the setting <code>name</code> again.</em></p>
+</section>
+</div>
+<div id="8d478584" class="cell" data-quarto-private-1="{&quot;key&quot;:&quot;execution&quot;,&quot;value&quot;:{&quot;iopub.execute_input&quot;:&quot;2026-10-31T20:03:36.525152+00:00&quot;,&quot;shell.execute_reply&quot;:&quot;2026-10-31T20:03:36.529630+00:00&quot;,&quot;total&quot;:0.004481980000008434}}" data-execution_count="41">
+<hr>
+<p><a href="https://github.com/vedicreader/abhyasa/blob/main/abhyasa/settings.py#L282" target="_blank" style="float:right; font-size:smaller">source</a></p>
+<section id="set_val" class="level3">
+<h3 class="anchored" data-anchor-id="set_val">set_val</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> set_val(</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>    name:<span class="bu">str</span>, v</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>):</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><em>Save the value <code>v</code> of the setting <code>name</code>, made to fit its row. Return the value in use.</em></p>
+</section>
+</div>
+<p>The source folders drop the root of the disk, the home folder itself and a hidden folder.</p>
+<div id="a02e3c2e" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>set_val(<span class="st">'sources.roots'</span>, <span class="st">'/</span><span class="ch">\n</span><span class="st">~</span><span class="ch">\n</span><span class="st">~/.ssh</span><span class="ch">\n</span><span class="st">~/code/personal/orgs</span><span class="ch">\n</span><span class="st">'</span>)</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>test_eq(roots(), [<span class="st">'~/code/personal/orgs'</span>])</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>test_eq([l <span class="cf">for</span> l, _ <span class="kw">in</span> dropped_roots()], [<span class="st">'/'</span>, <span class="st">'~'</span>, <span class="st">'~/.ssh'</span>])</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>reset(<span class="st">'sources.roots'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>A value saved out of range is saved as the end of the range. <a href="https://vedicreader.github.io/abhyasa/settings.html#reset"><code>reset</code></a> and <a href="https://vedicreader.github.io/abhyasa/settings.html#reset_group"><code>reset_group</code></a> put back the defaults.</p>
+<div id="3e79c5c4" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>test_eq(set_val(<span class="st">'walks.steps'</span>, <span class="dv">99</span>), <span class="dv">30</span>)</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>test_eq(raw(<span class="st">'walks.steps'</span>), <span class="dv">30</span>)</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> changed(<span class="st">'walks.steps'</span>) <span class="kw">and</span> <span class="kw">not</span> changed(<span class="st">'walks.note'</span>)</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>reset(<span class="st">'walks.steps'</span>)</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>test_eq(val(<span class="st">'walks.steps'</span>), <span class="dv">12</span>)</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>set_val(<span class="st">'checks.tries'</span>, <span class="dv">5</span>)<span class="op">;</span> set_val(<span class="st">'checks.near'</span>, <span class="dv">8</span>)</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>test_eq(<span class="bu">sorted</span>(reset_group(<span class="st">'checks'</span>)), [<span class="st">'checks.near'</span>, <span class="st">'checks.tries'</span>])</span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>test_eq((val(<span class="st">'checks.tries'</span>), val(<span class="st">'checks.near'</span>)), (<span class="dv">3</span>, <span class="dv">7</span>))</span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'walks'</span>, steps<span class="op">=</span><span class="dv">50</span>)</span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>test_eq(clamped(<span class="st">'walks.steps'</span>), <span class="dv">50</span>)</span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a><span class="co"># a number typed by hand as text works, and text that is not a number gives the default</span></span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>update_settings(<span class="st">'tokens'</span>, hint<span class="op">=</span><span class="st">'900'</span>, grade<span class="op">=</span><span class="st">'many'</span>)</span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>test_eq((val(<span class="st">'tokens.hint'</span>), val(<span class="st">'tokens.grade'</span>)), (<span class="dv">900</span>, <span class="dv">2048</span>))</span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a><span class="co"># a value that the profile keeps has no reset here</span></span>
+<span id="cb29-15"><a href="#cb29-15" aria-hidden="true" tabindex="-1"></a>test_fail(<span class="kw">lambda</span>: reset(<span class="st">'learning.pace'</span>), contains<span class="op">=</span><span class="st">'profile'</span>)</span>
+<span id="cb29-16"><a href="#cb29-16" aria-hidden="true" tabindex="-1"></a>save_settings(<span class="bu">dict</span>(prompts<span class="op">=</span>{}, downloaded<span class="op">=</span>[]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>The speaking engine is <code>browser</code> until you change it, and a value that is not an engine gives the default.</p>
+<div id="ffb7f208" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>test_eq((val(<span class="st">'voice.out'</span>), val(<span class="st">'voice.out_speed'</span>)), (<span class="st">'pocket'</span>, <span class="fl">1.</span>))</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>test_eq(fit(SETTINGS[<span class="st">'voice.out'</span>], <span class="st">'kokoro'</span>), <span class="st">'pocket'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="what-stays-fixed" class="level2">
+<h2 class="anchored" data-anchor-id="what-stays-fixed">What stays fixed</h2>
+<p>Some values keep you safe, so they have no setting: the link checks for local addresses, plain HTTP, the link kinds, the HTML allowlist, the check of a pane address, the local-only hosts, the test allowlist, the grade scale and the depth ladder. The room for phones keeps its safety limits fixed too: the bind rule, the join code, the rate limits, the body size and the headers. <code>FIXED</code> names them, and no row may have one of these words in its name.</p>
+<div id="780f1a37" class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> <span class="kw">not</span> [n <span class="cf">for</span> n <span class="kw">in</span> SETTINGS <span class="cf">for</span> w <span class="kw">in</span> FIXED <span class="cf">if</span> w <span class="kw">in</span> n]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/vedicreader\.github\.io\/abhyasa");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/vedicreader/abhyasa/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
