@@ -307,6 +307,7 @@ p.foot { margin-top: var(--s7); }
 
 /* Search: each hit by its kind, a plain title, a short line and a quiet meta line. */
 ul.hits li > p { margin: 2px 0 0; }
+ul.hits a.hit, h1.query { overflow-wrap: anywhere; }   /* a long word, such as a pasted link, wraps */
 ul.hits li > p.mute:not(.line) { font-size: var(--t-meta); }
 
 /* The feedback row under a demo or a lesson (core/feedback.py): one quiet line of small text, with no motion. */

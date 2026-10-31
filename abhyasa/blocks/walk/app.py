@@ -161,7 +161,7 @@ def connect(app, ctx):
     def open_code(j, i, sid):
         "Open the code task of step `i` and keep its stub and visible tests on the step, so a reload shows the same task; None when it fails."
         try: t = code_task(tutor, lr.concept(j.steps[i]['slug']), session=sid, meta=step_meta(j, i))
-        except Exception: return None
+        except Exception as e: log.warning('the tutor could not write the code task of %s step %s: %r', j.id, i, e); return None
         put(j, i, qid=t.q.id, code=dict(fname=t.fname, stub=t.stub, tests=t.tests))
         return t.q
 
@@ -239,7 +239,7 @@ def connect(app, ctx):
 
     def paper_said(docs):
         "The wait line of a paper: its page count when the vault knows it."
-        try: n = (lr.vault if docs[0].shelf == 'store' else lr.vault.shelf(docs[0].shelf)).doc(docs[0].doc_id)['pages']
+        try: n = lr.doc_shelf(docs[0].shelf).doc(docs[0].doc_id)['pages']
         except Exception: n = None
         return f"Reading the paper: {n_of(n, 'page')}…" if n else 'Reading the paper…'
 
@@ -394,7 +394,7 @@ def connect(app, ctx):
         if url.strip(): return link_walk(url.strip(), pages, tool, subject)
         if (u := as_link(ref)): return Div(P(AS_LINK, cls='mute'), link_walk(u, '', tool, subject))   # a link in the vault document field
         try:
-            if ref and (lr.vault if shelf == 'store' else lr.vault.shelf(shelf)).doc(ref) is None:
+            if ref and ((sh := lr.doc_shelf(shelf)) is None or sh.doc(ref) is None):
                 log.warning('the tutor could not make a walk: no vault document matches %r', ref)
                 return P(NO_DOC, cls='req-err')
             if ref: j = journey_from_source(lr, ask, ref, shelf, subject, tool)
@@ -462,7 +462,7 @@ def connect(app, ctx):
         if not (j := walk_of(jid, i)): return Response(status_code=404)
         try:
             with held(jid, i): return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
-        except Exception: return ''
+        except Exception as e: log.warning('the tutor could not write the note of %s step %s: %r', jid, i, e); return ''
 
     def source(jid:str, i:int):
         "The passage of step `i` as it is now. When a web source came, the note loads again, so it explains the passage. A GET only reads."
@@ -504,7 +504,11 @@ def connect(app, ctx):
                 j = lr.journey(jid)
             if not j.steps[i].get('done') and j.steps[i]['check']['kind'] not in AIM and j.steps[i].get('qid') not in tutor.open:
                 s = sitting(j)
-                s.q = (open_code(j, i, s.id) if j.steps[i]['check']['kind'] == 'code' else None) or open_short(tutor, as_short(j, i), i, s.id)
+                try: s.q = (open_code(j, i, s.id) if j.steps[i]['check']['kind'] == 'code' else None) or open_short(tutor, as_short(j, i), i, s.id)
+                except Exception as e:
+                    log.warning('the tutor could not write the check of %s step %s: %r', jid, i, e)
+                    return Div(P('The tutor could not write the check.', cls='req-err'),
+                               Button('Try again', hx_get=ui.at(Routes.check, jid, i), hx_target='closest div', hx_swap='outerHTML'))
                 s.save()
         return card(lr.journey(jid), i)
 
@@ -543,11 +547,19 @@ def connect(app, ctx):
             j = put(j, i, nb=new)
         return card(j, i)
 
+    def failed(what, jid, i, e):
+        "A call to the model that failed: the log gets the error, and the page a plain line. A 503 keeps the answer in its box."
+        log.warning('the tutor could not %s on %s step %s: %r', what, jid, i, e)
+        return Response(f'The tutor could not {what}. Try again.', status_code=503, media_type='text/plain')
+
     def answer(jid:str, i:int, answer:str='', thinking:str='', confidence:int=None):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
         try: r = s.answer(answer, thinking, confidence)
-        except KeyError: return no_check(lr.journey(jid), i)   # another request closed it while this one waited
+        except KeyError as e:
+            if s.q.id in tutor.open: return failed('grade your answer', jid, i, e)
+            return no_check(lr.journey(jid), i)   # another request closed it while this one waited
+        except Exception as e: return failed('grade your answer', jid, i, e)
         return closed(j, i, r) if r.done else reply(j, i)
 
     def run(jid:str, i:int, source:str=''):
@@ -564,7 +576,10 @@ def connect(app, ctx):
         if not s: return no_check(j, i)
         try:
             if len(tutor.open[s.q.id].hints) < len(HINTS): s.hint()
-        except KeyError: return no_check(lr.journey(jid), i)
+        except KeyError as e:
+            if s.q.id in tutor.open: return failed('give a hint', jid, i, e)
+            return no_check(lr.journey(jid), i)
+        except Exception as e: return failed('give a hint', jid, i, e)
         return reply(j, i)
 
     @hook('guide_board')
@@ -584,7 +599,10 @@ def connect(app, ctx):
         j, s = live(jid, i)
         if not s: return no_check(j, i)
         try: r = s.give_up(confidence=confidence or 0) if tutor.open[s.q.id].tries else s.answer(dont_know=True, confidence=confidence)
-        except KeyError: return no_check(lr.journey(jid), i)
+        except KeyError as e:
+            if s.q.id in tutor.open: return failed('close the check', jid, i, e)
+            return no_check(lr.journey(jid), i)
+        except Exception as e: return failed('close the check', jid, i, e)
         return closed(j, i, r)
 
     def lesson_job(jid, i, slug):

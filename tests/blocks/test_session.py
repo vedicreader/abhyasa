@@ -259,9 +259,9 @@ def test_second_answer_to_a_closed_question_is_204(mk, fake):
     for t in ts: t.join()
     assert sorted(out) == [200, 204], out                                           # the second caller finds it closed
 
-def test_other_key_errors_are_not_hidden(mk, fake):
-    import pytest
+def test_other_key_errors_are_not_hidden(mk, fake, caplog):
     def broken(p, sp): raise KeyError('a bug in the grader')
     fake.rules['You grade one answer'] = broken
     cl = mk(); sid = start(cl); cl.get(f'/s/{sid}')
-    with pytest.raises(KeyError): cl.post(f'/s/{sid}/answer', data=dict(answer='x'))   # only a closed question gives 204
+    with caplog.at_level('WARNING'): r = cl.post(f'/s/{sid}/answer', data=dict(answer='x'))   # only a closed question gives 204
+    assert r.status_code == 503 and 'a bug in the grader' in caplog.text   # the page says that it failed, and the log has the error

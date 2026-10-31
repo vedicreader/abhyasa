@@ -87,6 +87,26 @@ class Learning:
 
     def __repr__(self): return f'Learning({self.v.path!r}: {len(self._docs("concept"))} concepts)'
 
+# %% ../nbs/00_store.ipynb #ds02
+def _is_doc_shelf(db, name:str) -> bool:
+    "Whether the store `name` holds documents: it has a `docs` table and a `doc_id` column."
+    try: return f"{'' if name == 'store' else name + '_'}docs" in db.t and 'doc_id' in db.t[name].columns_dict
+    except Exception: return False
+
+@patch
+def doc_shelves(self:Learning) -> list:
+    "The names of the shelves of the vault that hold documents, in the order of the vault. A store of names (`entities`) is not one."
+    return [s['store'] for s in self.vault.shelves() if _is_doc_shelf(self.vault.db, s['store'])]
+
+@patch
+def doc_shelf(self:Learning, name:str):
+    "The shelf of documents `name`, or None when the vault has no such shelf. It never makes a shelf."
+    if name == self.vault.name: return self.vault
+    if name == self.v.name: return self.v
+    if not name or not _is_doc_shelf(self.vault.db, name): return None
+    try: return self.vault.shelf(name)
+    except Exception as e: log.warning('abhyasa could not open the shelf %r: %r', name, e); return None
+
 # %% ../nbs/00_store.ipynb #c015
 @patch
 def concept(self:Learning, slug:str) -> AttrDict|None:

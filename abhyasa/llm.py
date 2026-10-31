@@ -49,12 +49,18 @@ def parse_json(s:str):
             except json.JSONDecodeError: continue
     raise ValueError(f'no JSON in the reply: {s[:200]!r}')
 
-def ask_json(ask, prompt:str, sp:str='', tries:int=2):
-    "Ask for JSON and parse it. On a bad reply, ask one more time with the parse error."
+def _check(r, need):
+    "`r`, when it is a JSON object with text in each key of `need`; else a ValueError that says what is missing."
+    if need and not (isinstance(r, dict) and all(isinstance(r.get(k), str) and r[k].strip() for k in need)):
+        raise ValueError(f"the reply must be one JSON object with text in {', '.join(need)}")
+    return r
+
+def ask_json(ask, prompt:str, sp:str='', tries:int=2, need=()):
+    "Ask for JSON and parse it. On a bad reply, or one with no text in a key of `need`, ask one more time with the error."
     p = prompt + '\n\nReply with only one JSON value and no other text.'
     for i in range(tries):
         out = ask(p, sp)
-        try: return parse_json(out)
+        try: return _check(parse_json(out), need)
         except ValueError as e:
             if i == tries - 1: raise
             p = f'{prompt}\n\nYour last reply was not valid JSON ({e}). Reply with only one JSON value.'

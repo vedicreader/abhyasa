@@ -7,6 +7,7 @@ from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning',)
+Q_MOST = 500   # the most characters of a query: a longer paste is cut, so one search stays fast
 
 def short(s, n=None):
     "The first `n` characters of `s`, cut at a word."
@@ -53,12 +54,13 @@ def connect(app, ctx):
     lr = ctx.learning
 
     def search(q:str=''):
-        if not q.strip(): return Page('Search', H1('Search'), P('Type in the box at the top.', cls='mute'), crumbs=[('Today', '/')])
+        q = ' '.join(q.split())[:Q_MOST]
+        if not q: return Page('Search', H1('Search'), P('Type in the box at the top.', cls='mute'), crumbs=[('Today', '/')])
         by = {c.slug: c for c in lr.concepts()}
         mine = [x for h in lr.search(q, limit=val('lists.search')) if (x := Hit(h, by)) is not None]
         try: other = lr.v.elsewhere(q, limit=val('lists.elsewhere'), max_read=val('lists.snippet'))
         except Exception: other = []
-        return Page('Search', H1(f'“{q}”'),
+        return Page('Search', H1(f'“{q}”', cls='query'),
                     H2('In what you learned'), Ul(*mine, cls='plain hits') if mine else Empty('Nothing found.'),
                     H2('In your vault'), Elsewhere(other), crumbs=[('Today', '/')])
 

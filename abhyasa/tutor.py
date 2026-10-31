@@ -13,7 +13,7 @@ __all__ = ['HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'GRADE_SP', 'TEAC
 # %% ../nbs/03_tutor.ipynb #c004
 import functools, json, random, threading, time, uuid, weakref
 from fastcore.utils import *
-from .store import Learning, _src
+from .store import Learning, _src, log as _log
 from .settings import val
 from .model import DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding
 from .llm import ask_json, for_task
@@ -316,7 +316,7 @@ class Tutor:
         if not (use and self.sources): return L()
         terms = [c['name'], *(c.get('aliases') or [])]
         try: return ground(' '.join(terms[:4]), self.sources, 3, must=terms)
-        except Exception: return L()
+        except Exception as e: _log.warning('abhyasa could not find passages for %r: %r', c['name'], e); return L()
 
 # %% ../nbs/03_tutor.ipynb #c023
 @patch
@@ -340,9 +340,9 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, 
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
         qp, ask = question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else (), q.method, read), for_task(self.ask, 'question')
-        r = ask_json(ask, qp, prompt('tutor'))
+        r = ask_json(ask, qp, prompt('tutor'), need=('question',))
         if val('checks.one_ask') and asks_twice(r.get('question')):   # one more try, with the question that asked twice
-            r = ask_json(ask, f"{qp}\n\nYour last question asked twice: {r['question']!r}. Write it again with one ask: one question word and one question mark.", prompt('tutor'))
+            r = ask_json(ask, f"{qp}\n\nYour last question asked twice: {r['question']!r}. Write it again with one ask: one question word and one question mark.", prompt('tutor'), need=('question',))
         q.update(question=with_code(r['question'], r.get('code') or ''), answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))

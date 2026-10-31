@@ -33,7 +33,7 @@ def connect(app, ctx):
     sp = ctx.speech
 
     async def stt(req, hint:str=''):
-        audio = await req.body()
+        if not (audio := await req.body()): return JSONResponse(dict(text='', error='There is no sound in the clip.'), status_code=400)
         try: return JSONResponse(dict(text=await asyncio.wrap_future(sp.submit(sp.fn, audio, hint=hint))))
         except Exception as e: return JSONResponse(dict(text='', error=str(e)), status_code=500)
 
