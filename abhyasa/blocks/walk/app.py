@@ -186,7 +186,7 @@ def connect(app, ctx):
     def closed(j, i, r):
         "Mark step `i` done with the outcome of its check."
         j = put(j, i, done=dict(outcome=r.outcome, aid=tutor.shut[j.steps[i]['qid']].get('aid'), at=time.time()))
-        return reply(j, i, r), *ui.Filled(j, walk_state(j), by(), i)   # the dot of the idea fills in the outline
+        return reply(j, i, r), *ui.Filled(j, walk_state(j, b := by()), b, i)   # the dot of the idea fills in the outline
 
     looking, look_for = ctx.research.looking, ctx.research.look_for   # research runs on its own pool; the request does not wait
     gathering = ctx.research.gathering   # the gather agent runs on its own pool, too
@@ -418,7 +418,7 @@ def connect(app, ctx):
     def one(jid:str):
         if not (j := walk_of(jid)): return missing()
         leela_back(lr, j)   # a step that Leela checked is done, so the walk goes on from the next one
-        st = walk_state(j := lr.journey(jid))
+        st = walk_state(j := lr.journey(jid), by())   # an idea learned elsewhere is known
         if j.get('started') and st.current is not None: return go(jid, st.current)
         h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j, quiet=True), vault=vault)   # Start is the main button; Present is quiet
         band = ui.GatherBand(j, gathering(jid), halted(jid)) if j.get('gather_at') else ''
@@ -435,14 +435,14 @@ def connect(app, ctx):
             floor = (lr.concept(j.steps[i]['slug']) or {}).get('floor') or 0
             j = put(j, i, check=dict(way=way, kind=kind, depth=(2 if floor < 2 else 3) if kind == 'short' else DEPTH[kind], why='you chose it'))
         else: return Response(status_code=400)
-        return ui.Plan(j, walk_state(j), by())
+        return ui.Plan(j, walk_state(j, b := by()), b)
 
     def start(jid:str):
         if not (j := walk_of(jid)): return missing()
         with _jlock(jid):   # read and write under the lock of the walk, so a source that research writes now stays
             if not (j := lr.journey(jid)).get('started'): j = lr.put_journey({**j, 'started': time.time(), 'steps': [{**RUN, **s} for s in j.steps]})
         sitting(j)
-        return go(jid, walk_state(lr.journey(jid)).current or 0)
+        return go(jid, walk_state(lr.journey(jid), by()).current or 0)
 
     def step(jid:str, i:int):
         if not (j := walk_of(jid, i)): return missing()
@@ -452,7 +452,7 @@ def connect(app, ctx):
         back = leela_back(lr, j)
         j, b = lr.journey(jid), by()
         band = [ui.GatherBand(j, True, halted(jid))] if gathering(jid) else []   # while the agent runs, its band is on each step
-        page = ui.StepPage(j, walk_state(j), b, i, needs=[*band, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault,
+        page = ui.StepPage(j, walk_state(j, b), b, i, needs=[*band, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault,
                        present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     on='Learn', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
@@ -685,7 +685,7 @@ def connect(app, ctx):
         st.noted(a, floor0)
         with held(jid, i):
             if not lr.journey(jid).steps[i].get('done'): put(j, i, done=dict(outcome=a.outcome, aid=a.id, at=time.time()))
-        ws, help_ = walk_state(lr.journey(jid)), climb(jid, i, a)
+        ws, help_ = walk_state(lr.journey(jid), by()), climb(jid, i, a)
         # walk.js fills the dot, moves the progress line, and loads the help under the card when there is a `ladder`
         return JSONResponse(dict(ok=True, dot=ws.steps[i].dot, done=ws.done, total=ws.total, **({'ladder': help_} if help_ else {})))
 
