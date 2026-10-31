@@ -76,3 +76,33 @@ def test_old_summary_still_shows(mk, lr):
     page = mk().get('/learning').text
     assert '2 of 3 passed' in page
 
+
+def test_review_the_misses_lines_up_on_each_row(mk, lr):
+    "Your learning in a browser: on an open row (with Continue), an older open row and an ended row, the text of Review the misses starts at the title column."
+    import socket, threading, time, uvicorn, pytest
+    from test_board_js import _chromium
+    if not _chromium(): pytest.skip("Playwright's Chromium is not installed")
+    from playwright.sync_api import sync_playwright
+    q = 'What does a rank tell you?'
+    row = lambda: dict(qid='q', concept='ranking', name='Ranking', depth=1, question=q, correct=False, outcome='gap', floor=0, turns=[dict(who='tutor', text=q)])
+    now = time.time()
+    for k, ended in enumerate((False, False, True)):
+        lr.log_session(f'miss{k}', f'run {k}', start=now - 60 * k, updated=now - 60 * k, concepts=['ranking'], passed=0, asked=1, log=[row()], ended=ended)
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(mk().app, host='127.0.0.1', port=port, log_level='error'))
+    threading.Thread(target=srv.run, daemon=True).start()
+    while not srv.started: time.sleep(.05)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_page(viewport=dict(width=1100, height=900))
+                pg.goto(f'http://127.0.0.1:{port}/learning', wait_until='load')
+                xs = pg.evaluate("""() => [...document.querySelectorAll('.runs .run')].map(li => {
+                    const left = el => { const r = document.createRange(); r.selectNodeContents(el); return Math.round(r.getBoundingClientRect().left); };
+                    const a = [...li.querySelectorAll('.acts a')].find(a => a.textContent === 'Review the misses');
+                    return [left(li.querySelector('.tt')), a && left(a), li.querySelector('.acts a').textContent]; })""")
+            finally: b.close()
+    finally: srv.should_exit = True
+    assert [c for *_, c in xs] == ['Review the misses'] * 3, xs   # first on each row, also before Continue
+    assert len({t for t, _, _ in xs} | {r for _, r, _ in xs}) == 1, xs   # one column: each title and each Review the misses

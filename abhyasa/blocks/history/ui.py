@@ -40,8 +40,8 @@ def Row(s, title, ms, href=None, lead=False):
     missed = [m['concept'] for m in ms if m['passed'] < m['asked']]
     when = time.strftime('%H:%M', time.localtime(s.get('start') or s.get('updated') or 0))
     go = href or Routes.of(Routes.page, sid=s['id'])
-    acts = [(A('Continue', href=go, cls='btn small') if lead else Onward('Continue', go)) if open_ else '',
-            A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn small quiet') if missed else '']
+    acts = [A('Review the misses', href=f"{Routes.start}?focus={missed[0]}", cls='btn small quiet') if missed else '',   # first, so it lines up on each row
+            (A('Continue', href=go, cls='btn small') if lead else Onward('Continue', go)) if open_ else '']
     return Li(Div(Span(when, cls='t'), A(title, href=Routes.of(Routes.one, sid=s['id']) if log else None, cls='tt'),
                   Span('  ' + meta(f"{ok} of {n} passed" if n else 'no answers yet', 'open' if open_ else ''), cls='mute'), cls='rh'),
               P(*[x for m in up for x in (Move(m), '; ')][:-1], cls='moves') if up else '',
