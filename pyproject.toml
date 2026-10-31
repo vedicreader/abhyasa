@@ -33,19 +33,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-whisper = ["mlx-audio>=0.5"]
+whisper = ["mlx-audio>=0.6.1"]   # speech to text on this Mac: Qwen3-ASR, Whisper and the other mlx-community models
 tick = []   # empty: abhyasa no longer indexes on a ramabana tick; the extra stays so that old pins still resolve
 demo = ["rupaka[check]>=0.0.8"]
 dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "rupaka[check]>=0.0.8", "gheasy>=0.0.18"]
 models = ["ramabana>=0.2.96"]   # now a core dependency; the extra stays so that old installs still resolve
-voice = [
-    "espeakng-loader>=0.2",
-    "misaki>=0.9",
-    "mlx-audio>=0.5",
-    "num2words>=0.5",
-    "phonemizer-fork>=3.3",
-    "spacy>=3.8",
-]
+voice = ["mlx-audio>=0.6.1", "pocket-tts-mlx>=0.3"]   # the voice on this Mac: Pocket TTS (MIT code, CC-BY-4.0 weights by Kyutai)
 
 [project.scripts]
 abhyasa = "abhyasa.app:main"
