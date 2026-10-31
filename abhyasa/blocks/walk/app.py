@@ -997,5 +997,6 @@ def connect(app, ctx):
     app.get(Routes.notebook)(notebook)
     app.post(Routes.data)(data)
     app.post(Routes.leela)(open_leela)
+    app.get(Routes.leela)(open_leela)   # Abhyasa.app opens the target=_blank form of Open in Leela as a GET
     app.get(Routes.source)(source)
     app.post(Routes.source)(find_source)

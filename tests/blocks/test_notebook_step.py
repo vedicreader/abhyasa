@@ -45,6 +45,8 @@ def test_open_in_leela_notes_the_time(mk, lr, walk_fake, monkeypatch, tmp_path):
     r = cl.post(f'/w/{jid}/1/leela', follow_redirects=False)
     assert r.status_code == 303 and r.headers['location'] == f'http://127.0.0.1:5011/learn?walk={jid}&step=1&v={vault_key(lr.vault.path)}'
     assert lr.journey(jid).steps[1]['leela_at'] > 0
+    g = cl.get(f'/w/{jid}/1/leela', follow_redirects=False)   # the Mac app sends the new-window form as a GET
+    assert g.status_code == 303 and g.headers['location'] == r.headers['location']
     card = cl.get(f'/w/{jid}/1/check').text
     assert 'Opened in Leela at ' in card and 'The result comes back here.' in card and 'Leela runs at' not in card
 
