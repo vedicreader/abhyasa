@@ -9,6 +9,7 @@ from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
 from abhyasa.settings import val
+from abhyasa.llm import dflt_model, where_chip
 from abhyasa.core.leela import leela_line, LEELA_INSTALL
 from abhyasa.journey import minutes, TOOL_WAYS, SHAKY, hands_count, hands_most
 from .cfg import Routes
@@ -196,6 +197,12 @@ def ended_words(s) -> str:
     return {'done': f'Research ended at {t}.', 'you': f'You stopped research at {t}.', 'time': f'The time for research ended at {t}.',
             'closed': 'Research stopped because abhyasa closed.'}.get(s.ended, '')
 
+def who_words(j) -> str:
+    "Who does the research of an agent, and where the words go: `The agent runs on claude/sonnet (hosted · Anthropic). Search words go to the web.`"
+    if (j.get('gather_at') or 0) < (j.get('research_start') or 0): return 'Search words go to the web.'
+    m = dflt_model()
+    return f'The agent runs on {m} ({where_chip(m)}). Search words go to the web.'
+
 def sources_url(jid) -> str: return at(Routes.one, jid) + '?plan=1#gather'
 
 def GatherBand(j, s, stopping=False, plan=False):
@@ -212,7 +219,7 @@ def GatherBand(j, s, stopping=False, plan=False):
         stop = (Span('Stopping…', cls='mute') if stopping else
                 Quiet('Stop', small=True, type='button', hx_post=at(Routes.gather_stop, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Stopping…'))
         line = ' '.join(x for x in (doing_words(s), have, left_words(s.left), beat_words(s.beat)) if x)
-        return Div(P(line), P(START_NOW, cls='mute start-now') if plan else '', Div(log, see, stop, cls='row'), id='gather', cls='gather-band running',
+        return Div(P(line), P(who_words(j), cls='mute') if who_words(j) else '', P(START_NOW, cls='mute start-now') if plan else '', Div(log, see, stop, cls='row'), id='gather', cls='gather-band running',
                    aria_live='polite', hx_get=at(Routes.gather, jid) + ('?plan=1' if plan else ''), hx_trigger='every 3s', hx_swap='outerHTML')
     why = j.get('gather_why') or ''
     refused = f" abhyasa refused {n_of(s.refused, 'quote')}. The log says why." if s.refused else ''

@@ -35,6 +35,7 @@ def test_the_line_while_research_runs(mk, lr, monkeypatch):
     j = walk(lr); cl = mk(); running(cl, monkeypatch)
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
     assert 'Reads attention.md for idea 3. Sources for 1 of 3 ideas. Less than a minute left. Last step 12 s ago.' in b
+    assert 'Search words go to the web.' in b   # where the words go
     assert '>Stop<' in b and 'every 3s' in b and f'href="/w/{j.id}?plan=1#gather"' in b
     cl.post(f'/w/{j.id}/start')
     step = cl.get(f'/w/{j.id}/1').text
