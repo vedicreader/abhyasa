@@ -6,7 +6,7 @@ def names_store(lr):
     "The store of names that vishalakshi keeps beside the main shelf: columns kind, canon and freq, and no doc_id."
     lr.vault.db.get_graph('store', ann=False)
     lr.vault.db.get_graph('dialog0', ann=False)   # a store of names of another shelf: `dialog0_entities`
-    assert {'entities', 'dialog0_entities'} <= {s['store'] for s in lr.vault.shelves()}
+    assert {'entities', 'dialog0_entities'} <= set(lr.vault.db.table_names())   # the tables are in the vault; vishalakshi 0.1.36 no longer lists them as shelves
 
 def notes(lr):
     "One folder file on the notebooks shelf; return its doc id."
