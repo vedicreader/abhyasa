@@ -151,3 +151,17 @@ def test_two_apps_link_their_own_vault(lr, walk_fake, monkeypatch, tmp_path):
         r = cl.post(f'/w/{jid}/1/leela', follow_redirects=False)
         assert r.headers['location'].endswith(f'&v={vault_key(l.vault.path)}'), r.headers['location']
     assert vault_key(lr.vault.path) != vault_key(lr2.vault.path)
+
+def test_plan_says_writing_only_while_a_job_runs(mk, lr, walk_fake):
+    "The plan row of a notebook step says Writing the notebook only while its job row runs. Else it says when the notebook is written, or that the tutor could not write it."
+    from abhyasa.jobs import job_start, job_end
+    cl = mk(); jid = nb_step(cl, lr, spec=None); key = f"walk:{jid}:nb:{lr.journey(jid).steps[1]['slug']}"
+    assert wait_for(lambda: None if any(r.state == 'running' for r in lr.jobs().values()) else True)
+    lr.walk_step(jid, 1, nb_why=None)   # the fake gives no spec, so an early job could not write it
+    plan = cl.get(f'/w/{jid}').text
+    assert 'Writing the notebook…' not in plan and 'the notebook is written when you open the idea' in plan
+    job_start(lr, key, 'notebook')
+    assert 'Writing the notebook…' in cl.get(f'/w/{jid}').text
+    job_end(lr, key, 'failed'); lr.walk_step(jid, 1, nb_why='the model did not answer')
+    plan = cl.get(f'/w/{jid}').text
+    assert 'Writing the notebook…' not in plan and 'the tutor could not write the notebook' in plan

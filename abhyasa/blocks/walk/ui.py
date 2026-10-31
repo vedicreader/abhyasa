@@ -431,6 +431,8 @@ def Pending(jid, i, s):
 # --- the notebook check: it runs in Leela ---------------------------------------------------------------------------
 
 NB_WRITING = 'Writing the notebook…'
+NB_LATER = 'the notebook is written when you open the idea'
+NB_NONE = 'the tutor could not write the notebook'
 NB_HEAD = 'Check · notebook · runs in Leela'
 NO_LEELA = 'Leela is not running. Start Leela, then press ⌥S again.'
 
@@ -791,23 +793,23 @@ def StepBody(j, k, s, by, pick=False):
                    'The tutor asks your question as it is.') if kind == 'short' else '',
             Rewrite_(post)]
 
-def step_line(j, s):
-    "The short line of a step row: the kind of its check, its way, and the source of its passage."
+def step_line(j, s, writing=False):
+    "The short line of a step row: the kind of its check, its way, and the source of its passage. A notebook step says `writing` only while its job runs."
     if s.get('status') == 'skip': return 'skipped · you can bring it back'
     ck, r = s.get('check') or {}, s.get('read') or {}
     kind = ck.get('kind', 'short')
-    if kind == 'notebook' and not s.get('nb'): return meta(KIND.get(kind), 'Writing the notebook…')
+    if kind == 'notebook' and not s.get('nb'): return meta(KIND.get(kind), NB_WRITING if writing else NB_NONE if s.get('nb_why') else NB_LATER)
     return meta(KIND.get(kind, kind), LABELS.get(ck.get('way'), '').lower() if kind == 'short' else '',
                 f"passage: {source_of(r, j).label}" if (r.get('text') or '').strip() else 'no source yet')
 
-def StepRow(j, k, s, by, opened='', fresh='', pick=False):
-    "Step `s` as row `k` of the editor list: its title and short line, Skip, then the fields of the open row."
+def StepRow(j, k, s, by, opened='', fresh='', pick=False, nb=()):
+    "Step `s` as row `k` of the editor list: its title and short line, Skip, then the fields of the open row. `nb`: the concepts whose notebook a job writes now."
     slug, n = s['slug'], len(j['steps'])
     acts = [Quiet('Split', ' ', Kbd('P'), small=True, data_key='P', data_wait='Splitting…', **edit_act(j['id'], 'split', slug=slug)),
             Quiet('Merge with next', ' ', Kbd('M'), small=True, data_key='M', disabled=k == n - 1, **edit_act(j['id'], 'merge', slug=slug)),
             Quiet('Remove', ' ', Kbd('X'), small=True, data_key='X', **edit_act(j['id'], 'remove', slug=slug)),
             Quiet('Rewrite', ' ', Kbd('R'), small=True, type='button', data_key='R', data_rewrite='1')]
-    return dict(id=slug, title=Inline(name(by, s)), line=step_line(j, s), post=edit_url(j['id'], slug), body=StepBody(j, k, s, by, pick and slug == opened),
+    return dict(id=slug, title=Inline(name(by, s)), line=step_line(j, s, slug in nb), post=edit_url(j['id'], slug), body=StepBody(j, k, s, by, pick and slug == opened),
                 acts=acts, open=slug == opened, fresh=slug == fresh, cls='skipped' if s.get('status') == 'skip' else '')
 
 def AddIdea(j, by):
@@ -826,10 +828,10 @@ def AddIdea(j, by):
                        Div(id='add-picks'), cls='add-forms'),
                    id='add-idea', cls='add-idea')
 
-def Steps(j, by, opened='', fresh='', pick=False):
+def Steps(j, by, opened='', fresh='', pick=False, nb=()):
     "The ideas of the walk as an editor list, with a quiet label where a section starts, and Add an idea under it. Each change swaps it whole."
     ss = j['steps']
-    rows = [StepRow(j, k, s, by, opened, fresh, pick) for k, s in enumerate(ss)]
+    rows = [StepRow(j, k, s, by, opened, fresh, pick, nb) for k, s in enumerate(ss)]
     out = EditList(rows, 'walk-path', add=[AddIdea(j, by)], id='steps', aria_label='The ideas of the walk')
     kids, sec = [], None
     for li, s in zip(out.children, ss):
@@ -849,14 +851,14 @@ def TalkLine(talks, changed=()):
     head = '1 talk was made from this walk: ' if len(talks) == 1 else f'{len(talks)} talks were made from this walk: '
     return P(head, *links, '. A change here does not change a talk. To bring it in, open the talk and press “Make it again”.', cls='mute talk-line')
 
-def PlanPart(j, by, opened='', pick=False):
+def PlanPart(j, by, opened='', pick=False, nb=()):
     "The plan of the walk, to change in place: the hands-on share, the ideas as an editor list (each change saves at once, with Undo), and the earlier versions in a fold."
     n = len(j.get('more') or ())
     more = P(f"The tutor picked the main ideas. The source has {n} more {'idea' if n == 1 else 'ideas'}. They are in your concepts. "
              'When an idea needs one of them, you can learn it in a side walk.', cls='mute') if n else ''
     return Section(H2('The plan'), P('Each idea has one check. Each change saves at once. Undo takes it back.', cls='mute'), more,
                    Details(Summary('About this'), P('An idea keeps your progress, its passage and its side walks when it moves. A removed idea keeps your answers in the vault.'), cls='about'),
-                   Hands(j), Steps(j, by, opened, pick=pick), UndoBar(oob=False),   # in the page under the list (walk.css)
+                   Hands(j), Steps(j, by, opened, pick=pick, nb=nb), UndoBar(oob=False),   # in the page under the list (walk.css)
                    Details(Summary('Earlier versions'), Div(Span('Reading the changes…', cls='mute'), hx_get=at(Routes.history, j['id']), hx_trigger='intersect once', hx_swap='innerHTML'),
                            id='history', cls='more'),
                    Details(Summary('Keys'), P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('E'), ' edit · ',

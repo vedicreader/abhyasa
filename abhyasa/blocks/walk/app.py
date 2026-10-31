@@ -198,6 +198,11 @@ def connect(app, ctx):
         "Whether a job writes the notebook spec of step `i` of walk `jid` now."
         return (f := nb_jobs.get((jid, slug_at(jid, i)))) is not None and not f.done()
 
+    def nb_now(j):
+        "The concepts of the steps of walk `j` whose notebook a job writes now, from the job rows."
+        rows = lr.jobs()
+        return {s['slug'] for s in j['steps'] if (r := rows.get(f"walk:{j['id']}:nb:{s['slug']}")) and r.state == 'running'}
+
     def write_notebook(jid, i):
         "Start the job that writes the notebook spec of step `i` on the research pool, unless it runs or the step has a spec."
         with nb_lock:
@@ -503,7 +508,7 @@ def connect(app, ctx):
         ph = ui.phase(j, st)
         top = ended(j, b) if ph == 'finished' else Div(ui.SideTop(j, st, back_to(j)), *(run_hook('walk_end', j) if st.current is None else ())) if ph == 'side' else None   # a side walk that ends says what you learned on the way
         ts = talks_of(jid)
-        plan_ = ui.PlanPart(j, b, open, bool(pick)) if j.steps and not for_talk(j) else ''
+        plan_ = ui.PlanPart(j, b, open, bool(pick), nb_now(j)) if j.steps and not for_talk(j) else ''
         page = ui.WalkPage(j, st, b, plan_, band(j, plan=True), top=top, more=run_hook('walk_plan_more', j), talks=ts,
                            changed={t['id'] for t in ts if any(walk_changes(lr, t).values())}, actions=run_hook('walk_actions', j, quiet=True), vault=vault)
         return Page(j.title, *page, on='Home', crumbs=up, extra=(*edit_assets(), *ui.assets()), wide=True)
@@ -874,7 +879,7 @@ def connect(app, ctx):
         return UndoBar(said, ui.at(Routes.undo, j.id), ui.walk_url(j.id, 'history'), step=rows[0].id if rows else '', row=row,
                        hx_target='#steps', hx_swap='outerHTML')
 
-    def view(j, opened='', fresh=''): return ui.Steps(j, by(), opened=opened, fresh=fresh), ui.Hands(j, oob=True)
+    def view(j, opened='', fresh=''): return ui.Steps(j, by(), opened=opened, fresh=fresh, nb=nb_now(j)), ui.Hands(j, oob=True)
 
     def new_check(j, s, way):
         "The check of step `s` for the choice `way`: a kind of the editor (short, predict, order, code, notebook) or a way of the walk. The question that you wrote stays (the change adds it)."
