@@ -1,4 +1,4 @@
-"The settings table: each group has the values that the code used before, and the engine reads a saved value when it uses it."
+"The settings table: bad and out-of-range values are clamped, and the engine reads a saved value when it uses it."
 import json, os, re, threading
 import pytest
 from abhyasa.settings import SETTINGS, GROUPS, FIXED, val, set_val, settings, cfg_dir, rows
