@@ -29,3 +29,10 @@ nav .guide-go:hover, nav .guide-go.on { border-color: var(--acc); }
 .guide-form #guide-mic[hidden] { display: none; }
 .guide-form #guide-mic { position: relative; }
 .guide-hint-used { font-size: var(--t-meta); margin: 0 0 var(--s2); }
+
+/* The thread: one quiet line under the box, the last question on this page, with × to start fresh. */
+.guide-form .guide-thread { flex-basis: 100%; margin: 0; display: flex; align-items: center; gap: var(--s1); font-size: var(--t-meta); }
+.guide-form .guide-thread[hidden] { display: none; }
+.guide-thread-said { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guide-form .guide-fresh { background: transparent; border: 0; box-shadow: none; color: var(--mute); padding: 0 var(--s1); font-size: var(--t-meta); line-height: 1; cursor: pointer; }
+.guide-form .guide-fresh:hover, .guide-form .guide-fresh:focus-visible { color: var(--fg); }
