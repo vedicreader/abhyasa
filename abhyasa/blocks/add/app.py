@@ -18,11 +18,12 @@ WEB_ONCE = 'The tutor will search the web for sources. Your topic goes to the se
 OFF = ' Turn this off in Settings.'   # only when the `from the web` chip, with its own link, does not show
 CAN = 'Paste a link, a paper or a topic. Add a folder or a repo, or drop a file.'
 CUE = 'Drop files to add them as sources.'
-PICK = 'Pick a folder…'
-PICK_SAY = 'Pick a folder to learn from'
+PICK = 'Pick folders…'
+PICK_SAY = 'Pick one or more folders to learn from. Hold ⌘ to pick more than one.'
 PICK_WAIT = 600   # seconds that the folder chooser stays open
 NOT_HERE = 'abhyasa opens the folder chooser only on this Mac.'
 DROP_MB = 50
+DROP_MOST = 20   # the most files in one drop
 DROP_WAIT = 60   # seconds that a drop waits for the vault to read the PDF; then the pool goes on and the request answers
 STILL = 'abhyasa is still reading this PDF. It shows in your vault when it is done.'
 WAIT = dict(paper='Reading the paper…', repo='Getting the repository…', site='Getting the pages from the link…', topic='Planning the walk…',
@@ -41,15 +42,19 @@ def can_pick() -> bool:
     "The folder chooser of macOS opens only when abhyasa runs on a Mac."
     return sys.platform == 'darwin'
 
-def choose_folder() -> str:
-    "Open the folder chooser of macOS and give the path of the folder that you pick, or '' when you cancel or it times out."
-    if not _picking.acquire(blocking=False): return ''   # a chooser is open already
-    try: r = _osa(['osascript', '-e', f'POSIX path of (choose folder with prompt "{PICK_SAY}")'], capture_output=True, text=True, timeout=PICK_WAIT)
+PICK_ASK = (f'set fs to choose folder with prompt "{PICK_SAY}" with multiple selections allowed', 'set out to ""',
+            'repeat with f in fs', 'set out to out & POSIX path of f & linefeed', 'end repeat', 'return out')   # one path on each line
+
+def choose_folder() -> list:
+    "Open the folder chooser of macOS and give the path of each folder that you pick, or [] when you cancel or it times out."
+    if not _picking.acquire(blocking=False): return []   # a chooser is open already
+    try: r = _osa(['osascript', *[x for l in PICK_ASK for x in ('-e', l)]], capture_output=True, text=True, timeout=PICK_WAIT)
     except (OSError, subprocess.SubprocessError) as e:
         log.info('abhyasa did not get a folder from the chooser: %r', e)
-        return ''
+        return []
     finally: _picking.release()
-    return r.stdout.strip().rstrip('/') if r.returncode == 0 else ''   # Cancel: osascript stops with an error (-128)
+    if r.returncode: return []   # Cancel: osascript stops with an error (-128)
+    return list(dict.fromkeys(x.rstrip('/') or '/' for x in r.stdout.splitlines() if x.strip()))
 
 def Pick(): return Button(PICK, type='button', cls='quiet small', id='start-pick') if can_pick() else ''
 
@@ -169,6 +174,9 @@ def connect(app, ctx):
         r = detect(q, dict([t]) if t else {}, research=val('research.on'), pages=p, file=file, pick=pick, doc=doc, names=nm, roots_in_vault=rv, counts=counts, docs=docs)
         said, more = [], []
         for e in (x.strip() for x in extra if x.strip()):
+            if e.startswith('doc:'):   # a dropped file, filed in the vault
+                if d := lr.vault.doc(e[4:]): more.append(AttrDict(kind='doc', name=d['title'], path='', count=None, filed=True, id=e))
+                continue
             got = named_sources(e, docs, nm, rv)
             more += got
             if not got: said.append(f'abhyasa cannot use {e[:80]} as a source. Add the path of a folder, owner/name of a GitHub repo, or a link.')
@@ -191,7 +199,7 @@ def connect(app, ctx):
                     Div(id='start-keep', hidden=True),   # the sources that you added (`extra`) and removed (`drop`): start.js keeps them over each read
                     Div(*Read(r, told=val('research.told'), q=q), id='start-read', data_quiet='1'),
                     P(CUE, cls='drop-cue', aria_hidden='true'),   # shows only while you drag files over the box (start.js, add.css)
-                    hx_post='/walk/new', hx_target='#walk-out', id='start-form', cls='start raised', data_read=Routes.read, data_drop=Routes.file, data_pick=Routes.pick)
+                    hx_post='/walk/new', hx_target='#walk-out', id='start-form', cls='start raised', data_read=Routes.read, data_drop=Routes.file, data_drops=Routes.files, data_pick=Routes.pick)
 
     def read(q:str='', pick:str='', file:str='', pages:str='', tool:str='', title:str='', subject:str='', opts:str='', doc:str='',
              extra:list[str]=None, drop:list[str]=None):
@@ -199,33 +207,48 @@ def connect(app, ctx):
         r, said = reading(q, pick, file, pages, doc, extra or (), set(drop or ()))
         return (*Read(r, f, told=val('research.told'), q=q, said=said), Say(r, oob=True), Doc(r, file, doc, oob=True))
 
-    async def drop(f:UploadFile):
-        "A dropped PDF: file it in the vault on the pool, then show the box with its name in it and its id in the form."
+    async def keep_drop(f, kinds=('.pdf',)):
+        "File the dropped file `f` in the vault on the pool: `(doc, stem, name)`, or `(None, line, name)` with what went wrong."
         name, most = Path(f.filename or 'dropped.pdf').name, DROP_MB * 2**20
-        big = P(f'This file is too big. The most is {DROP_MB} MB.', cls='req-err')
-        if not name.lower().endswith('.pdf'): return P('Drop a PDF, a .md or a .txt file.', cls='req-err')
-        if f.size is not None and f.size > most: return big
+        big, ext = f'This file is too big. The most is {DROP_MB} MB.', Path(name).suffix.lower()
+        if ext not in kinds: return None, 'Drop a PDF, a .md or a .txt file.', name
+        if f.size is not None and f.size > most: return None, big, name
         data = await f.read(most + 1)   # never more than the limit in memory
-        if len(data) > most: return big
-        if b'%PDF-' not in data[:1024]: return P('This file is not a PDF.', cls='req-err')
+        if len(data) > most: return None, big, name
+        if ext == '.pdf' and b'%PDF-' not in data[:1024]: return None, 'This file is not a PDF.', name
         stem = Path(name).stem.strip() or 'dropped'
         safe = re.sub(r'[^\w.-]+', '-', stem)[:80]
-        p = Path(lr.vault.assets('drops'))/f'{hashlib.sha1(data).hexdigest()[:10]}-{safe}.pdf'   # one file for each content: a second drop never writes over the first
+        p = Path(lr.vault.assets('drops'))/f'{hashlib.sha1(data).hexdigest()[:10]}-{safe}{ext}'   # one file for each content: a second drop never writes over the first
         p.parent.mkdir(parents=True, exist_ok=True)
         if not p.exists(): p.write_bytes(data)
-        fut = ctx.pool.submit(lr.vault.pdf, str(p), title=stem)
+        fut = ctx.pool.submit(lr.vault.pdf, str(p), title=stem) if ext == '.pdf' else ctx.pool.submit(lr.vault.add_file, str(p), title=stem)
         try: d = await asyncio.wait_for(asyncio.shield(asyncio.wrap_future(fut)), DROP_WAIT)
-        except asyncio.TimeoutError: return P(STILL, cls='req-err')   # `shield`: the pool job goes on
+        except asyncio.TimeoutError: return None, STILL, name   # `shield`: the pool job goes on
         except Exception as e:
-            log.warning('abhyasa could not file the dropped PDF: %r', e)
-            return P('abhyasa could not read this PDF.', cls='req-err')
-        d = d or {}
+            log.warning('abhyasa could not file the dropped file: %r', e)
+            return None, 'abhyasa could not read this PDF.' if ext == '.pdf' else f'abhyasa could not read {name}.', name
+        return d or {}, stem, name
+
+    async def drop(f:UploadFile):
+        "A dropped PDF: file it in the vault on the pool, then show the box with its name in it and its id in the form."
+        d, stem, name = await keep_drop(f)
+        if d is None: return P(stem, cls='req-err')   # `stem` is the line that says what went wrong
         return Box(d.get('title') or stem, name, d.get('doc_id') or d.get('id') or '')
 
+    async def drops(fs:list[UploadFile]):
+        "Several dropped files: file each one in the vault. The ids go back to start.js, which adds each one as a source of the goal."
+        ids, said = [], []
+        for f in fs[:DROP_MOST]:
+            d, stem, name = await keep_drop(f, ('.pdf', '.md', '.txt'))
+            if d is None: said.append(f'{name}: {stem}')
+            elif i := d.get('doc_id') or d.get('id'): ids.append(f'doc:{i}')
+        if len(fs) > DROP_MOST: said.append(f'abhyasa adds at most {DROP_MOST} files in one drop.')
+        return JSONResponse(dict(ids=ids, said=said))
+
     async def pick(req):
-        "Open the folder chooser of this Mac, for a click in the box. The path goes back to start.js, which adds it as you add a typed path."
+        "Open the folder chooser of this Mac, for a click in the box. The paths go back to start.js, which adds each one as you add a typed path."
         if not can_pick() or (req.client.host if req.client else '') not in LOCAL_HOSTS: return Response(NOT_HERE, status_code=403)
-        return JSONResponse(dict(path=await asyncio.to_thread(choose_folder)))
+        return JSONResponse(dict(paths=await asyncio.to_thread(choose_folder)))
 
     def add(subject:str='', text:str='', ref:str='', q:str=''):
         text = text or q   # the Start box sends its text as `q`
@@ -254,5 +277,6 @@ def connect(app, ctx):
     app.post(Routes.base)(add)
     app.get(Routes.read)(read)
     app.post(Routes.file)(drop)
+    app.post(Routes.files)(drops)
     app.post(Routes.pick)(pick)
     app.post(Routes.vedicreader)(vedicreader)

@@ -1,7 +1,7 @@
 // The Start box. After 250 ms with no typing, the server reads the box (/learn/read) and says what it will do; it makes no
 // network call. A dropped PDF goes to the vault; a dropped .md or .txt goes into the box as text. While you drag files over
-// the box, a dashed outline and one line show that it takes them. Pick a folder opens the folder chooser of this Mac
-// (/learn/pick). Bound one time, on the document, so it works after an hx-boost page change too.
+// the box, a dashed outline and one line show that it takes them. Drop several files or folders, and each one is a source of the
+// goal. Pick folders opens the folder chooser of this Mac (/learn/pick), where you can pick more than one. Bound one time, on the document, so it works after an hx-boost page change too.
 if (!window.abhyasaStart) {
   window.abhyasaStart = true;
   let timer = null, inflight = null;
@@ -42,16 +42,32 @@ if (!window.abhyasaStart) {
   document.addEventListener('dragleave', e => { const f = box(e); if (f && !f.contains(e.relatedTarget)) f.classList.remove('drag'); });
   document.addEventListener('dragend', () => form()?.classList.remove('drag'));
   // A dropped folder: a browser gives no path for it. The Mac app or a browser that gives a file:// link gives the path.
-  const folderPath = dt => {
-    const u = (dt.getData && dt.getData('text/uri-list') || '').split(/\r?\n/).find(l => l.startsWith('file:///'));
-    try { return u ? decodeURIComponent(new URL(u).pathname) : ''; } catch { return ''; }
+  const filePaths = dt => (dt.getData && dt.getData('text/uri-list') || '').split(/\r?\n/).filter(l => l.startsWith('file:///')).map(u => {
+    try { return decodeURIComponent(new URL(u).pathname).replace(/\/$/, ''); } catch { return ''; }
+  }).filter(Boolean);
+  const NO_PATH = 'To add a folder, use Pick folders.';
+  const many = async (f, dt, dirs, files) => {   // several items: each folder and each file is a source of the goal
+    const paths = filePaths(dt), vs = [], said = [];
+    for (const d of dirs) { const p = paths.find(x => x.split('/').pop() === d.name); if (p) vs.push(p); else if (!said.includes(NO_PATH)) said.push(NO_PATH); }
+    if (files.length) {
+      const body = new FormData(); for (const x of files) body.append('fs', x);
+      say(`Reading ${files.length} files…`);
+      try {
+        const r = await fetch(f.dataset.drops, {method: 'POST', body, headers: {'HX-Request': 'true'}});
+        const got = await r.json(); vs.push(...got.ids); said.push(...got.said);
+      } catch { said.push('abhyasa could not send these files. Try again.'); }
+    }
+    await addAll(vs);
+    if (said.length) say(said.join(' '));
   };
   document.addEventListener('drop', async e => {
     const f = box(e); if (!f) return;
     e.preventDefault(); f.classList.remove('drag');
-    const entry = e.dataTransfer.items?.[0]?.webkitGetAsEntry?.();
-    if (entry && entry.isDirectory) { const p = folderPath(e.dataTransfer); if (p) add(p); else say('To add a folder, use Pick a folder.'); return; }
-    const file = e.dataTransfer.files[0]; if (!file) return;
+    const dt = e.dataTransfer, dirs = [...(dt.items || [])].map(i => i.webkitGetAsEntry?.()).filter(x => x && x.isDirectory);
+    const names = new Set(dirs.map(d => d.name)), files = [...(dt.files || [])].filter(x => !(dirs.length && names.has(x.name)));
+    if (dirs.length + files.length > 1) return many(f, dt, dirs, files);
+    if (dirs.length) { const p = filePaths(dt)[0]; if (p) add(p); else say(NO_PATH); return; }
+    const file = files[0]; if (!file) return;
     const name = file.name.toLowerCase(), q = document.getElementById('start-q'), fl = document.getElementById('start-file');
     if (/\.(md|txt)$/.test(name)) {
       q.value = await file.text(); q.dispatchEvent(new Event('input', {bubbles: true}));
@@ -78,15 +94,18 @@ if (!window.abhyasaStart) {
     const a = document.getElementById('start-add'); v = (v ?? (a ? a.value : '')).trim(); if (!v) return;
     keep('extra', v); if (a) a.value = ''; read().then(() => document.getElementById('start-add')?.focus());
   };
+  const addAll = vs => {   // several sources at once: keep each one, then read the box one time
+    vs = vs.map(v => v.trim()).filter(Boolean); if (!vs.length) return Promise.resolve();
+    for (const v of vs) keep('extra', v);
+    return read().then(() => document.getElementById('start-add')?.focus());
+  };
   const pick = async b => {   // the folder chooser opens only for your click; Cancel gives no path and changes nothing
     const f = form(); if (!f || b.disabled) return;
     b.disabled = true;
     try {
       const r = await fetch(f.dataset.pick, {method: 'POST', headers: {'HX-Request': 'true'}});
       if (!r.ok) { say(await r.text()); return; }
-      const {path} = await r.json(); if (!path) return;
-      const a = document.getElementById('start-add'); if (a) a.value = path;
-      add(path);
+      const {paths} = await r.json(); if (paths?.length) await addAll(paths);   // one chip for each folder
     } catch { say('abhyasa could not open the folder chooser. Type the path of the folder.'); }
     finally { b.disabled = false; }
   };
