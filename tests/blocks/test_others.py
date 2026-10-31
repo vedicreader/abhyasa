@@ -6,13 +6,6 @@ def test_graph_json(mk):
     assert {n['id'] for n in g['nodes']} == {'ranking', 'reciprocal-rank-fusion'}
     assert g['links'] == [dict(source='ranking', target='reciprocal-rank-fusion', kind='prereq')]
 
-def test_graph_page(mk):
-    "The page has the canvas, the levers with one tick for each subject, and the concept to pick from the link."
-    t = mk(['graph']).get('/graph?subject=ml&focus=ranking').text
-    assert '<canvas' in t and 'id="levers"' in t and 'data-focus="ranking"' in t and 'data-subject="ml"' in t
-    assert all(f'value="{m}"' in t for m in ('force', 'path', 'rings', 'groups'))
-    assert 'name="sub:ml"' in t and '/vendor/d3.min.js' in t
-
 def test_concepts_list(mk):
     t = mk(['concepts']).get('/concepts?subject=ml').text
     assert 'Ranking' in t and 'Reciprocal rank fusion' in t

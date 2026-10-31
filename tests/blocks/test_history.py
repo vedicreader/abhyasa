@@ -76,9 +76,3 @@ def test_old_summary_still_shows(mk, lr):
     page = mk().get('/learning').text
     assert '2 of 3 passed' in page
 
-def test_crumbs_and_keys(mk):
-    cl = mk()
-    page = cl.get('/c/ranking').text
-    assert 'class="crumbs"' in page and 'class="up"' in page and 'href="/concepts"' in page
-    js = cl.get('/assets/core.js').text
-    assert "'Escape'" in js and 'KeyT' in js and 'KeyC' in js

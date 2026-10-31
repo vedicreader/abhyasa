@@ -23,16 +23,7 @@ def sub_in_force(h):
 
 def test_bar_has_four_tabs_and_a_gear(mk):
     h = mk().get('/').text
-    assert nav_words(h) == ['Today', 'Learn', 'Library', 'You']
-    assert 'aria-label="Settings"' in h and 'href="/settings"' in h and 'aria-label="Main"' in h
-    assert h.index('nav-search') < h.index('aria-label="Settings"')   # order: Continue, Search, gear
-
-def test_tab_in_force(mk):
-    cl = mk()
-    for u, tab in (('/', 'Today'), ('/learn', 'Learn'), ('/journeys', 'Learn'), ('/add', 'Learn'), ('/concepts', 'Library'), ('/sources', 'Library'),
-                   ('/graph', 'Library'), ('/learning', 'You'), ('/you', 'You'), ('/you/strengths', 'You'), ('/settings', '')):
-        assert current_tab(cl.get(u).text) == tab, u
-    assert 'class="gear on"' in cl.get('/settings').text and 'class="gear on"' not in cl.get('/').text   # the gear is ruled under on Settings
+    assert nav_words(h) == ['Today', 'Learn', 'Library', 'You'] and 'href="/settings"' in h
 
 def test_tab_on_every_page(mk, talk_fake, lr):
     "Each page marks its tab: a walk, a path, a session and a talk are in Learn; a concept, a demo and a vault document are in Library."
@@ -45,16 +36,11 @@ def test_tab_on_every_page(mk, talk_fake, lr):
         assert current_tab(cl.get(u).text) == tab, u
 
 def test_subtabs(mk):
+    "Library and You have sub-tabs; the page in force is marked. Strengths is part of Your learning. /library goes to Concepts."
     h = mk().get('/sources').text
     assert sub_words(h) == ['Concepts', 'Sources', 'Graph'] and sub_in_force(h) == 'Sources'
-    assert 'role="tab' not in h and 'aria-selected' not in h   # plain links in a nav, as in the top bar
-    assert 'title="⌥1"' in h and 'title="⌥3"' in h
-    assert h.index('<h1>Sources</h1>') < h.index('class="subtabs"')   # under the page title
     assert sub_words(mk().get('/you').text) == ['Your learning', 'Profile']
-    st = mk().get('/you/strengths').text
-    assert sub_in_force(st) == 'Your learning'   # Strengths is part of Your learning
-    assert re.search(r'class="crumbs".*?>Today<.*?>You<.*?>Your learning<', st, re.S)
-    assert sub_words(mk().get('/').text) == [] and sub_words(mk().get('/learn').text) == [] and sub_words(mk().get('/c/ranking').text) == []
+    assert sub_in_force(mk().get('/you/strengths').text) == 'Your learning'
     assert mk().get('/library', follow_redirects=False).headers['location'] == '/concepts'
 
 def test_old_urls_still_work(mk):

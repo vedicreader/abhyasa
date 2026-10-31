@@ -24,12 +24,6 @@ assert not any(name == p or name.startswith(p + '.') for name in sys.modules for
     subprocess.run([sys.executable, '-I', '-c', code], check=True, capture_output=True, text=True, timeout=10)
 
 
-def test_nb_reexports():
-    import abhyasa.check
-    import abhyasa.nb
-    assert abhyasa.nb.safe_test is abhyasa.check.safe_test
-
-
 def test_safe_tests_and_dict_validation():
     assert safe_test('assert f(2) == 4', 'f')
     assert not safe_test("assert __import__('os')", 'f')

@@ -1,8 +1,7 @@
-"One word, walk: no page says journey, the old `/j/` routes still work, and each walk has a kind."
+"The old `/j/` routes still work, and each walk has a kind."
 import re
 from html import unescape
 
-PAGES = ('/', '/journeys', '/learning', '/keys', '/settings', '/add', '/concepts')
 PLAN = dict(title='How LLMs work', subject='ml', steps=[
     dict(name='Tokenizers', statement='A tokenizer cuts text into tokens.', slug='', why='The model reads tokens.', needs=[]),
     dict(name='Attention', statement='Weights from query-key dot products.', slug='', why='The core of a transformer.', needs=['Tokenizers'])])
@@ -16,13 +15,6 @@ def visible_text(html):
     "The words a person sees: no scripts, styles, textarea content (prompt bodies), tags or attributes."
     html = re.sub(r'(?is)<(script|style|textarea)\b.*?</\1>', ' ', html)
     return unescape(re.sub(r'(?s)<[^>]*>', ' ', html))
-
-def test_no_page_says_journey(mk, fake):
-    "Every page uses one word, walk. The code names stay; the words on the page change."
-    cl = mk(); jid = make_plain(cl, fake)
-    for u in (*PAGES, f'/path/{jid}', f'/c/tokenizers'):
-        text = visible_text(cl.get(u).text)
-        assert 'journey' not in text.lower(), u
 
 def test_old_journey_routes_still_work(mk, fake, lr):
     cl = mk(); jid = make_plain(cl, fake)

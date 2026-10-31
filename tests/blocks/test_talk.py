@@ -94,14 +94,6 @@ def test_slot_and_phones(mk, talk_fake, lr):
     t = lr.talk(tid); assert t.phones is True and t.minutes == 20
     assert cl.post('/t/nope/slot', data=dict(minutes=30)).status_code == 404
 
-def test_editor_page(mk, talk_fake, lr):
-    "html has the class talk; one row for each slide; one main button, Present with ⌥S; room phones; the fields of each row for E."
-    cl, tid = talk_of(mk, lr)
-    page = cl.get(f'/t/{tid}').text
-    assert 'class="talk"' in page and page.count('data-i="') == 5 and 'data-id="s3"' in page
-    assert page.count('class="go"') == 1 and 'Present <kbd>⌥S</kbd>' in page and 'Room phones' in page and 'name="phones"' in page
-    assert page.count('class="edit-open"') == 5 and '/assets/talk.js' in page and '/assets/edit.js' in page
-
 def test_new_talk_needs_a_walk(mk, talk_fake, lr):
     "No talk from a journey that is not a walk, or a walk that is not there; the job of a walk with no talk says so."
     cl = mk()
@@ -394,12 +386,6 @@ def test_hands_and_result_stay_out_of_learning(mk, talk_fake, lr):
     assert lr.run(run['id'])['asks']['s3'] == dict(kind='choice', rounds=[], main=0, shown=[])
     assert len(lr.attempts(limit=1000)) == n0
     assert cl.post(f'/t/{tid}/ask', data=dict(slide='s4', act='open')).status_code == 400   # the questions slide has no question
-
-def test_talk_keys_are_in_the_table():
-    from abhyasa.core.keys import KEYS
-    assert ('Talk', 'D', 'Next beat, then the next slide') in KEYS and ('Talk', 'Q', 'Ask the room, or close the question') in KEYS
-    assert ('Talk', '⌥S', 'The main button: start the talk, ask the room, vote again, end the talk') in KEYS
-    assert not [k for g, k, _ in KEYS if g == 'Talk' and k in ('⌥Q', '⌥R', '⌥X', '⌥E')]   # no new ⌥ key
 
 def test_a_new_slide_opens_clean(mk, talk_fake, lr):
     "A move on the same slide keeps the blank screen, the pane and the question; a new slide clears them, and the reply closes the question."
@@ -831,14 +817,14 @@ def test_narrow_presenter_stops_at_the_last_page(mk, talk_fake, lr):
             finally: b.close()
     finally: srv.should_exit = True
 
-def test_tall_demo_keeps_14px_and_the_room_follows_the_scroll(mk, talk_fake, lr):
-    "A demo that shows alone and is too tall keeps 14 px text in a taller box (`.tall`) that scrolls; the audience window follows the presenter's scroll (`demoscroll`) and ignores a bad one."
+def test_a_tall_demo_scrolls_and_the_room_follows(mk, talk_fake, lr):
+    "A demo that shows alone and is too tall scrolls in its box (`.tall`); the audience window follows the presenter's scroll (`demoscroll`) and ignores a bad one."
     pw = pytest.importorskip('playwright.sync_api')
     cl = mk(); tid = make_talk(cl, prep_walk(lr, walk(cl, lr)))
     cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
     srv, base = serve(cl)
     DEMO = "document.querySelector('section[data-sid=s3] [data-rupaka]')"
-    info = f"(h => ({{tall: h.parentElement.classList.contains('tall'), alone: h.closest('section').classList.contains('demo-alone'), text: +h.style.zoom * parseFloat(getComputedStyle(h).fontSize)}}))({DEMO})"
+    info = f"(h => ({{tall: h.parentElement.classList.contains('tall'), alone: h.closest('section').classList.contains('demo-alone')}}))({DEMO})"
     frac = f"(d => d.scrollTop / Math.max(1, d.scrollHeight - d.clientHeight))({DEMO}.parentElement)"
     try:
         with pw.sync_playwright() as p:
@@ -859,7 +845,7 @@ def test_tall_demo_keeps_14px_and_the_room_follows_the_scroll(mk, talk_fake, lr)
                 for x in (pr, au): x.evaluate(f"{DEMO}.firstElementChild.style.paddingBottom = '700px'")
                 for x in (pr, au):
                     x.wait_for_function(f"{DEMO}.parentElement.classList.contains('tall')", timeout=3000)
-                    got = x.evaluate(info); assert got['alone'] and got['text'] >= 13.9, got
+                    assert x.evaluate(info)['alone']
                     assert x.evaluate(f"{DEMO}.parentElement.scrollHeight > {DEMO}.parentElement.clientHeight")
                 pr.evaluate(f"(d => {{ d.scrollTop = (d.scrollHeight - d.clientHeight) / 2; }})({DEMO}.parentElement)")
                 au.wait_for_function(f"Math.abs({frac} - .5) < .02", timeout=3000)

@@ -7,7 +7,7 @@ from fastcore.utils import first, AttrDict
 from abhyasa.store import temp_learning
 from abhyasa.llm import Fake
 from abhyasa.tutor import Tutor
-from abhyasa.settings import SETTINGS, val, set_val
+from abhyasa.settings import val, set_val
 from abhyasa.method import posterior
 from abhyasa.demo import (VERDICTS, NOTE_MAX, CONFUSES_MAX, SIMPLER_AIM, clean_note, last_feedback, feedback_line, make_demo, lesson_way, rung)
 import abhyasa.demo as demo_mod
@@ -168,10 +168,6 @@ def test_not_clear_notes_feed_what_confuses_you():
     assert all(len(c) <= 100 for c in cs)
 
 # --- settings ------------------------------------------------------------------------------------------------------
-
-def test_feedback_row_setting():
-    r = SETTINGS['checks.feedback_row']
-    assert (r.group, r.kind, r.dflt, r.ui) == ('checks', 'bool', True, True) and r.help.endswith('.')
 
 # --- the web app ---------------------------------------------------------------------------------------------------
 

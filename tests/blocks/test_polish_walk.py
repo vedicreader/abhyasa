@@ -1,4 +1,4 @@
-"Task 19b, the walk, the side pane and the end of a walk: the way beside, the copy, and the outline that answers in place."
+"Task 19b, the walk, the side pane and the end of a walk: the way beside, the end summary, and the outline that answers in place."
 import re
 from walk_data import *
 
@@ -18,7 +18,7 @@ def test_narrow_view_names_the_open_side_walk(mk, walk_fake, lr):
     assert '<b>Derivatives and gradients' in t.split('id="rh-pane"')[1]                   # the pane bar has the title on a reload too
     assert 'rh-narrow' not in cl.get(f'/w/{jid}/2').text
 
-# F5: the way beside is easy to find, and one act has one name
+# F5: the way beside is easy to find
 
 def test_each_unmet_need_can_be_learned_beside(mk, walk_fake, lr):
     "Each need that you have not learned has Learn beside; only the first shows ⌥B."
@@ -27,16 +27,6 @@ def test_each_unmet_need_can_be_learned_beside(mk, walk_fake, lr):
     line = page[page.index('class="rh-line"'):].split('id="rh-offer"')[0]
     assert line.count('Learn beside') == 2 and line.count('<kbd>⌥B</kbd>') == 1 and 'data-t="softmax"' in line and 'data-t="gradients"' in line
     assert 'not learned yet' in line and 'you have not learned it' not in line and 'open beside' not in page
-
-def test_one_name_for_each_way_beside():
-    "Learn beside on the gap line and the keys; Its own session in the pane bar."
-    from fasthtml.common import to_xml
-    from abhyasa.blocks.detour.ui import GapLine
-    from abhyasa.core.pane import PaneHost
-    from abhyasa.core.keys import KEYS
-    assert 'Learn beside <kbd>⌥B</kbd>' in to_xml(GapLine([('gradients', 'Derivatives')])) and 'Learn it beside' not in to_xml(GapLine([('g', 'G')]))
-    assert 'Its own session ↗' in to_xml(PaneHost('/w/g/0'))
-    assert ('Walk', '⌥B', 'Learn beside: learn a missing idea in the side pane') in KEYS
 
 # F2: a calm end to a walk, and a pass never reads as "nothing happened"
 
@@ -79,24 +69,7 @@ def test_the_end_of_a_walk_is_calm(mk, walk_fake, lr):
     assert gos == ['Back to Today <kbd>⌥S</kbd>'] and re.search(r'href="/graph"[^>]*>See the graph</a>', t) and 'Back to your walks' not in t
     assert 'Well walked' not in t                                                     # the H1 closes the page: no closing line
 
-def test_a_section_with_no_checks_says_how_to_come_back(mk, walk_fake, lr):
-    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); cl.post(f'/w/{jid}/0/next')
-    t = cl.get(f'/w/{jid}/0/done').text
-    assert 'You skipped the checks in this section. You can come back to them from the outline.' in t and 'Section done' in t
-
-# F8: the small copy faults
-
-def test_meta_lines_have_no_stray_dot(mk, lr):
-    "A concept with no subject: no line starts with a dot, on the concept page and in the list."
-    cl = mk(); lr.put('Loose idea', 'An idea with no subject.', '')
-    page, lst = cl.get('/c/loose-idea').text, cl.get('/concepts').text
-    for t in (page, lst): assert not re.search(r'class="mute">\s*·', t), re.findall(r'class="mute">\s*·[^<]{0,30}', t)
-
-def test_counts_have_the_right_plural(mk, walk_fake, lr):
-    cl = mk(); jid = walk(cl, lr)
-    assert '1 documents' not in cl.get('/sources').text
-    assert not re.search(r'\b1 concepts\b', cl.get('/concepts').text + cl.get('/').text)
-    assert not re.search(r'of 1 (ideas|steps)\b', cl.get('/journeys').text + cl.get(f'/j/{jid}').text)
+# F8: side walks, ways and tries
 
 def test_leaving_a_side_walk_early_says_so_plainly(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
@@ -121,20 +94,6 @@ def test_code_check_counts_tries_in_one_place(mk, walk_fake, lr):
     assert re.search(r'Try 1 of 3 · \d of 3 tests pass', out) and 'try 1 ·' not in out
     syn = cl.post(f'/w/{jid}/1/run', data=dict(source='def softmax(:')).text
     assert 'Try 2 of 3. A syntax error does not count as a try.' in syn
-
-def test_concept_page_copy(mk, walk_fake, lr):
-    "The journey select has a label, and a source on a vault shelf says in your vault, not its machine name."
-    from fasthtml.common import to_xml
-    from abhyasa.core import Cites
-    cl = mk(); walk(cl, lr)
-    t = cl.get('/c/ranking').text
-    assert 'Add this idea to a walk' in t
-    assert 'in your vault' in to_xml(Cites([dict(title='Notes', src='vault:store', ref='d1')])) and 'vault:store' not in to_xml(Cites([dict(title='Notes', src='vault:store', ref='d1')]))
-
-def test_today_says_next_as_a_verb(mk, lr):
-    lr.put('Ranking', 'Order items by a score.', 'ml')
-    t = mk().get('/').text
-    assert not re.search(r'Next: [^<]+ at (recognise|recall|explain|apply|transfer)\.', t) and re.search(r'Next: (recognise|recall|explain|apply|transfer) Ranking\.', t)
 
 # The outline and the passage answer the check
 

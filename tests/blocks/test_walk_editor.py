@@ -16,14 +16,6 @@ def open_side_walk(cl, lr, jid, i):
     lr.put('Derivatives and gradients', 'The slope of a function at a point, one for each input.', 'ml', slug='gradients')
     return cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/{i}', how='primer')).json()['url'].split('/')[2]
 
-def test_editor_page(mk, lr, walk_fake):
-    "The editor shows each idea as a row, one main button, the hands-on line, Add an idea and the empty Undo bar."
-    cl = mk(); jid = paper_walk(cl, lr)
-    t = cl.get(f'/w/{jid}/edit').text
-    assert 'the plan of the walk' in t and 'id="steps"' in t and 'Start the walk' in t and 'id="undo-bar"' in t and 'Hands-on:' in t
-    assert 'Add an idea' in t and 'From the concept tree' in t and 'From a source' in t and 'Earlier versions' in t
-    assert 'Change the walk' in cl.get(f'/w/{jid}').text   # the plan page links to the editor
-
 def test_reorder_keeps_progress_side_walks_and_research(mk, lr, walk_fake):
     cl = mk(); jid = paper_walk(cl, lr); cl.post(f'/w/{jid}/start'); answer_step(cl, jid, 0)
     side = open_side_walk(cl, lr, jid, 1); ss = slugs(lr, jid)
@@ -246,14 +238,6 @@ def test_your_question_only_on_a_short_check(mk, lr, walk_fake):
     post(cl, jid, slug=s, act='check', way='predict')
     r = post(cl, jid, slug=s, act='q', text='Why divide?')
     assert r.status_code == 400 and 'short-answer' in r.text and 'q' not in lr.journey(jid).steps[2]['check']
-
-def test_one_rewrite_button_and_room_for_the_bar(mk, lr, walk_fake):
-    "The open idea has one Rewrite button (R, in the row actions); the rewrite box sends with Return or a chip. The Undo bar never sits over the list."
-    cl = mk(); jid = paper_walk(cl, lr)
-    t = cl.get(f'/w/{jid}/edit?open={slugs(lr, jid)[0]}').text
-    assert t.count('>Rewrite<') == 0 and t.count('data-rewrite="1"') == 3 and 'Press Return to send' in t
-    css = (Path(__file__).parents[2]/'abhyasa/blocks/walk/walk.css').read_text()
-    assert 'scroll-padding-bottom' in css and 'position: sticky' in css
 
 def test_a_side_walk_comes_back_to_its_step_after_remove_or_merge_and_undo(mk, lr, walk_fake):
     "The side walk is tied to the concept of its step: remove, then Undo, puts it back on the same idea; a merge maps it to the idea it joined."

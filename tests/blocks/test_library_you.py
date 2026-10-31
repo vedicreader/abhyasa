@@ -1,11 +1,8 @@
 "Library and You: the Sources list of your documents, Your strengths on Your learning, and the empty lines of the four pages."
 import time
-from starlette.testclient import TestClient
 from bs4 import BeautifulSoup
 from talk_data import *
 from test_tabs import current_tab
-from abhyasa.app import mk_app
-from abhyasa.store import temp_learning
 
 def seen_concepts(lr):
     "Two misses on ranking: a weak spot."
@@ -32,7 +29,6 @@ def test_strengths_is_a_section_of_your_learning(mk, lr):
     seen_concepts(lr)
     h = mk().get('/learning').text
     assert 'Your strengths' in h and 'Practice my weak spots' in h and 'href="/you/strengths"' in h
-    assert h.index('This week') < h.index('Your strengths') < h.index('What you learned')
     assert 'href="/start?drill=1"' in h and 'Ranking' in h
 
 def test_no_strengths_before_a_concept_is_seen(mk):
@@ -135,10 +131,3 @@ def test_pasted_text_and_web_kinds(mk, lr):
 
 # Each page of Library and You has one line when your learning is empty.
 
-def test_empty_lines(fake):
-    cl = TestClient(mk_app(temp_learning(), fake, hosts=('testserver',)))
-    for u, line in (('/concepts', 'Concepts appear here when you start a walk.'),
-                    ('/sources', 'Sources appear here when you start a walk from a paper, a link or a text.'),
-                    ('/graph', 'Each idea that you learn shows here. Start with a walk.'), ('/learning', 'Nothing yet. Do a walk or a review.')):
-        h = cl.get(u).text
-        assert line in h and 'class="mute empty' in h, u

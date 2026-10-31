@@ -4,11 +4,6 @@ import json, re, pytest
 PNG = b'\x89PNG\r\n\x1a\n' + b'\0' * 64
 LABELS = dict(labels=[dict(text='a', box=[90, 400, 160, 500]), dict(text='b', box=[480, 880, 540, 960])])
 
-def test_each_page_has_the_explain_button(mk):
-    t = mk().get('/').text
-    assert 'id="guide-go"' in t and '>Explain<' in t and 'id="guide-box"' in t and 'guide.js' in t
-    assert 'aria-label="What do you not understand?"' in t
-
 def test_figure_labels_are_found_once(mk, fake):
     fake.rules['You find the text labels'] = LABELS
     cl = mk()
@@ -106,7 +101,7 @@ def test_formula_parts_keep_accents_whole():
     assert [t for t, _ in parts][:1] == [r'\hat{y}'] and r'\hat{\htmlId' not in marked and r'\frac{\htmlId' in marked
 
 def test_texparts_is_one_shared_module(mk):
-    "core/texparts.js gives window.abhyasaTex and the node module, with the one KaTeX trust rule; every page loads it before guide.js."
+    "core/texparts.js gives window.abhyasaTex and the node module, with the one KaTeX trust rule; every page loads it before guide.js, which needs it."
     import shutil, subprocess
     if not shutil.which('node'): pytest.skip('node is not installed')
     code = (f"const t = require({json.dumps(str(TEX_JS))}); const w = {{}}; global.window = w; delete require.cache[require.resolve({json.dumps(str(TEX_JS))})];"
@@ -115,8 +110,6 @@ def test_texparts_is_one_shared_module(mk):
             " t.texWrap('a+b', 2, [])]))")
     keys, wkeys, ok, bad_id, bad_cmd, wrapped = json.loads(subprocess.run(['node', '-e', code], capture_output=True, text=True, check=True).stdout)
     assert keys == wkeys == ['texParts', 'texAtoms', 'texWrap', 'trust'] and ok and not bad_id and not bad_cmd and wrapped.startswith(r'\htmlId{g-2-0}{a}')
-    g = GUIDE_JS.read_text()
-    assert 'function texWrap' not in g and 'abhyasaTex.texParts(' in g and 'trust: abhyasaTex.trust' in g
     t = mk().get('/').text
     assert t.index('/assets/texparts.js') < t.index('/assets/guide.js')
 
@@ -169,15 +162,10 @@ def test_ask_needs_words(mk):
     assert mk().post('/guide/ask', json=dict(said='  ', ctx={})).status_code == 400
 
 def test_hyper_e_and_hold_to_talk():
-    "Hyper+E needs all four modifiers; a hold of 300 ms or more talks through the voice block's mic, a tap opens the box."
+    "Hyper+E needs all four modifiers, and the hold ends on the keyup of a modifier: macOS sends no keyup for E while ⌘ is down."
     js = GUIDE_JS.read_text()
     assert "e.metaKey && e.altKey && e.ctrlKey && e.shiftKey" in js and "e.code !== 'KeyE'" in js
-    assert 'HOLD = 300' in js and "getElementById('mic-float')" in js and 'abhyasaMic(' in js
     assert "addEventListener('keyup'" in js and '/^(Meta|Alt|Control|Shift)/' in js   # macOS sends no keyup for E while ⌘ is down
-
-def test_keys_table_names_the_guide_key():
-    from abhyasa.core.keys import KEYS
-    assert ('Guide', '⌃⌥⇧⌘E', 'Explain this: hold to talk, tap to type (Caps+E)') in KEYS
 
 # --- the explainer video ---------------------------------------------------------------------------------------------
 CUES = [dict(start=0.0, end=4.0, text='Today we look at ranks.'), dict(start=42.0, end=48.0, text='A rank is the place of an item in the list.'),

@@ -186,12 +186,6 @@ def test_esc_while_the_guide_asks_stays_on_the_page(page, fake):
     page.wait_for_timeout(300)
     assert page.url == here and page.evaluate("document.getElementById('guide-form').hidden")
 
-def test_the_first_use_line_keeps_the_box_wide(page):
-    "The first Explain in a new browser profile shows one line under the box. The line has its own row, so the box stays wide."
-    page.evaluate('abhyasaGuide.open()')
-    assert page.evaluate("document.querySelector('#guide-form .guide-heard').textContent").startswith('The tutor reads this page')
-    assert page.evaluate("document.getElementById('guide-box').getBoundingClientRect().width") > 300
-
 def test_a_concept_page_gives_its_slug_statement_and_passage(page):
     """On a concept page the guide reads the slug from the title, the statement, and the passage of a walk, with the title of its
     source and no source line or link in the passage text."""

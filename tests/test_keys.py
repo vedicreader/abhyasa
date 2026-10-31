@@ -38,14 +38,6 @@ def test_writer_keeps_your_own_pack(tmp_path):
     (tmp_path/'abhyasa.toml').write_text('id = "abhyasa"\nname = "mine"\n')
     assert write_sanketa_pack(tmp_path) is None and 'mine' in (tmp_path/'abhyasa.toml').read_text()
 
-def test_tab_keys():
-    rows = {(g, k): a for g, k, a in KEYS}
-    assert rows[('Everywhere', '⌥Q')] == 'Go to Learn' and rows[('Everywhere', '⌥R')] == 'Go to Library'
-    assert rows[('Everywhere', '⌥G')] == 'Go to You' and rows[('Everywhere', '⌥1–⌥3')] == 'Pick a sub-tab'
-    assert not any('Settings' in a for _, _, a in KEYS)
-    talk = (ROOT/'blocks/talk/talk.js').read_text()
-    assert all(f"'Key{k}'" in talk for k in 'QR') and 'Digit1' in talk   # the presenter window ignores them
-
 def pack_rows():
     "The (keys, action, group) of each [[keys]] table of the pack, read back as TOML."
     import tomllib

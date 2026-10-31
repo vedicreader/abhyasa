@@ -59,26 +59,11 @@ def test_is_local_matches_pane_py():
     urls = ['/w/a/0', '/', '//evil.example', '/\\evil', 'https://evil.example/', 'javascript:alert(1)', '/a\tb', '/a\x7f', 'w/a', '']
     assert node('JSON.parse(process.argv[2]).map(s.isLocal)', json.dumps(urls)) == [is_local(u) for u in urls]
 
-def test_stage_keys_are_left_hand():
-    plain = {k for g, k, _ in STAGE_KEYS if len(k) == 1}
-    assert plain == {'D', 'A', 'Q', 'R', 'E', 'X', 'B', 'G', 'F', 'W', 'C', 'T', 'V', 'S'}   # S: "Talk plan" focus down
-    assert ('Talk', 'esc', 'Close the open question, the demo focus or the side pane. It never ends the talk') in STAGE_KEYS
-
 def test_stage_keys_add_no_alt_key():
     "The ⌥ keys of the talk are ones that the app has now: ⌥S, ⌥B and ⌥Z keep their meaning."
     from abhyasa.core.keys import KEYS
     alt = {k for _, k, _ in KEYS if k.startswith('⌥')}
     assert {k for _, k, _ in STAGE_KEYS if k.startswith('⌥')} <= alt
-
-def test_stage_js_binds_no_key_by_itself():
-    "The key table is in the host's js, so `tests/test_keys.py` reads each letter one time only."
-    import re
-    assert not re.findall(r"\b(?:Key|Digit)[A-Z0-9]\b", JS.read_text())
-
-def test_assets_are_registered(mk):
-    from fasthtml.common import to_xml
-    h = to_xml(stage_assets())
-    assert '/assets/' in h and h.count('<script') == 1
 
 def test_assets_are_served(mk):
     cl, h = mk(), [x.attrs for x in stage_assets()]

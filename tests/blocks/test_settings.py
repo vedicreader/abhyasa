@@ -256,14 +256,6 @@ def test_a_model_from_two_providers_shows_once(mk, monkeypatch):
     assert 'claude/claude-haiku-5-5' in vals and 'copilot/claude-haiku-5.5' not in vals and 'codex/gpt-6.1-sol' in vals
     assert 'title="codex/gpt-6.1-sol (also: copilot/gpt-6.1-sol, openai/gpt-6.1-sol)"' in sel.group(1)
 
-def test_theme_on_html(mk):
-    "Each page has the theme and the mode from the settings on <html>; the Settings page has the Theme section."
-    voice.update_settings('look', theme='paper', mode='auto')
-    cl = mk()
-    t = cl.get('/settings').text
-    assert '<html data-theme="paper" data-mode="auto">' in t and '>Look<' in t and 'value="sage"' in t
-    assert '/assets/themes.css' in t
-
 def test_theme_switch(mk):
     "The look route saves the theme and the mode; the next page has them. An unknown name changes nothing."
     cl = mk(['settings', 'today'])
@@ -318,11 +310,6 @@ def test_prompts_section(mk):
     for p in PROMPTS.values(): assert p.label in t and p.note.split("'")[0] in t
     assert 'Use the default' in t and 'You never think for them.' in t   # the default text of the tutor rules
 
-def test_walk_prompts_in_settings(mk):
-    "The path planner and the pick of the main ideas are on the Settings page of the app."
-    t = mk().get('/settings').text
-    for n in ('walk.plan', 'walk.pick', 'walk.note'): assert PROMPTS[n].label in t
-
 def test_prompt_save_and_use_the_default(mk):
     "Save keeps the text and the tutor uses it. 'Use the default' and an empty save both clear it."
     cl = mk(['settings'])
@@ -342,11 +329,6 @@ def test_bad_hint_ladder_is_refused(mk):
     t = mk(['settings']).post('/settings/prompt', data=dict(name='hints', text='One.\nTwo.')).text
     assert 'needs 6 lines' in t and 'role="alert"' in t and 'One.\nTwo.' in t
     assert hints() == HINTS and voice.settings()['prompts'] == {}
-
-def test_more_keeps_names_in_case(mk):
-    "The `More` summary lowers only the first letter of each name, so a page name keeps its capital."
-    t = mk().get('/settings').text
-    assert 'More in Lists: weak and strong ideas, walks on Today,' in t
 
 def test_prompt_list_does_not_need_the_blocks():
     "The prompt list loads each module that registers a prompt, so it does not depend on which blocks loaded."

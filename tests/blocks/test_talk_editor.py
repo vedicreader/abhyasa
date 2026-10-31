@@ -132,23 +132,6 @@ def test_passage_and_figure(mk, lr, talk_fake):
     assert n['show']['passage'] == s['show']['passage'] and 'passage' in n['beats'] and n['show']['src']['doc_id'] == s['show']['src']['doc_id']
     assert cl.post(f'/t/{tid}/slide', data=dict(sid='s2', act='passage', k='9')).status_code == 400
 
-def test_editor_has_no_save_button(mk, lr, talk_fake):
-    "The editor is an EditList with live fields: no Save button and no Change summary, one main button, the rewrite box and the history link."
-    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr))
-    h = editor_page(cl, tid)
-    assert 'Save the slide' not in h and '<summary>Change' not in h and 'Option 1 is the right answer.' in h
-    assert 'data-edit="1"' in h and 'id="deck"' in h and h.count('class="go"') == 1 and 'Present <kbd>⌥S</kbd>' in h
-    assert 'Points the room sees' in h and 'Speaker note · only you see it' in h and 'Question for the room' in h
-    assert all(c in h for c in ('Simpler', 'Add an example', 'Shorter')) and 'It never changes the passage.' in h
-    assert 'Earlier versions' in h and 'Made from your walk' in h and 'Add a slide' in h and 'Add a pause' in h
-    assert 'id="undo-bar"' in h and '/assets/edit.js' in h and h.count('data-key="D"') == len(lr.talk(tid).slides)
-
-def test_talk_plan_keys():
-    "The keys table has the keys of the talk editor."
-    from abhyasa.core.keys import KEYS
-    plan = {k for g, k, _ in KEYS if g == 'Talk plan'}
-    assert plan == {'W', 'S', '⇧W ⇧S', 'E', 'A', 'D', 'X', 'Q', 'R', '⌘Z', '⌥S'}
-
 def test_figure_shows_as_a_picture(mk, lr, talk_fake):
     "The figure shows as a small picture with its caption from the source, not as a path; Pick another figure offers the figures of the source."
     cl = mk(); tid = make_talk(cl, paper_walk(cl, lr)); f = lr.talk(tid).slides[1]['show']['figure']

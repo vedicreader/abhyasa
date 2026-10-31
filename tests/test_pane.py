@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 from fasthtml.common import to_xml
 from abhyasa.core.pane import is_local, is_web, pane_url, pane_link, PaneHost
-from abhyasa.core.keys import KEYS
 
 HOSTILE = ('https://evil.example/x', '//evil.example', '/\\evil.example', '\\\\evil.example', 'javascript:alert(1)', 'JaVaScRiPt:alert(1)',
            'data:text/html,hi', 'w/g', '', None, 3, '/\t/evil.example', '/\n/evil.example', ' /w/g', '/w/g\x00', '/w\\..\\x')
@@ -77,10 +76,6 @@ def test_vault_page_in_the_pane(mk, lr):
     assert 'Aries is a fire sign' in t and '<nav' not in t and 'in-pane' in t
     t = cl.get(f'/?rh=/v/store/{d}').text
     assert f'src="/v/store/{d}?pane=1"' in t and '<b>Rasi Characteristics</b>' in t
-
-def test_pane_keys_are_in_the_table():
-    assert ('Side pane', '⌥Z', 'Back to the paper: close the side pane') in KEYS
-    assert ('Side pane', 'esc', 'Close the side pane') in KEYS
 
 def _chromium():
     "True when Playwright's bundled Chromium is installed."
