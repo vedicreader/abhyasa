@@ -7,18 +7,20 @@ Docs: https://vedicreader.github.io/abhyasa/demo.html.md"""
 # %% auto #0
 __all__ = ['VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'ORDER_AIM',
            'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'SHOW_ME', 'KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY',
-           'PHYSICAL', 'WHERES', 'demo_text', 'since_demo', 'rung', 'keep_rung', 'want_demo', 'clean_note', 'quoted',
-           'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'queue_demo', 'job_state',
-           'job_age', 'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask',
-           'route_ask', 'can_explain', 'import_gallery']
+           'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'REFUSED', 'WHERES', 'demo_text',
+           'since_demo', 'rung', 'keep_rung', 'want_demo', 'clean_note', 'quoted', 'last_feedback', 'feedback_line',
+           'said', 'lesson_note', 'make_demo', 'ask_key', 'queue_demo', 'job_state', 'job_age', 'backed', 'other_way',
+           'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'route_ask', 'can_explain',
+           'scene_catalog', 'scene_example', 'explainer_sp', 'explainer_prompt', 'scene_errors', 'explainer_for',
+           'explain_ask', 'make_explainer', 'import_gallery']
 
 # %% ../nbs/10_demo.ipynb #c005
 import hashlib, json, re, threading, time, uuid
 from concurrent.futures import ThreadPoolExecutor
 from fastcore.utils import *
 import rupaka
-from rupaka.spec import upgrade, gallery
-from rupaka.agent import author
+from rupaka.spec import upgrade, gallery, validate, SCHEMA
+from rupaka.agent import author, catalog, parse_json, repair_prompt, SHAPE
 from .store import Learning, slugify, _src
 from .tutor import CLOSE_HOOKS, LESSON_HOOKS, LESSON_NOTES
 from .model import update, _back
@@ -271,11 +273,11 @@ def ask_key(said:str) -> str:
 def _key(slug, aim, said=''): return (f'{slug}:{aim}' if aim else slug) + (f'#{ask_key(said)}' if said else '')
 
 def queue_demo(tutor, slug:str, first_error:str='', aim:str='', said:str=''):
-    "Start a background job that makes a demo for `slug` with the aim `aim` (and the ask `said`); the running job if there is one."
+    "Start a background job that makes a demo for `slug` with the aim `aim` (and the ask `said`), or a 3D explainer for the aim `3d`; the running job if there is one."
     k = _key(slug, aim, said)
     j = tutor.jobs.get(k)
     if j is not None and not j.done(): return j
-    j = tutor.jobs[k] = (tutor.pool or _POOL).submit(make_demo, tutor.learning, tutor.ask, slug, first_error, aim=aim, said=said)
+    j = tutor.jobs[k] = (tutor.pool or _POOL).submit(make_explainer if aim == '3d' else make_demo, tutor.learning, tutor.ask, slug, first_error, aim=aim, said=said)
     j.at = time.time()
     return j
 
@@ -383,6 +385,95 @@ def can_explain() -> bool:
     from rupaka.spec import TOP, manifests
     return 'mode' in TOP and 'scene' in manifests()
 
+# %% ../nbs/10_demo.ipynb #ex02
+SCENE_BLOCKS, SCENE_FNS, STEPS = ('scene', 'body', 'force', 'label3d', 'shot', 'caption'), ('expr',), (3, 6)
+
+def _only(part, names): return [x for x in re.split(r'\n(?=- )', part) if (m := re.match(r'- (\w+):', x)) and m[1] in names]
+
+def scene_catalog() -> str:
+    "The scene blocks and the `expr` fn from rupaka's `catalog`, as text for the prompt."
+    bl, fs = catalog().split('\n\nFNS')
+    return ('BLOCKS (a 3D explainer has no gate, so no block has "after" or "lock")\n' + '\n'.join(_only(bl, SCENE_BLOCKS))
+            + '\n\nFNS (each derive entry has "fn" and "out")\n' + '\n'.join(_only(fs, SCENE_FNS)))
+
+# %% ../nbs/10_demo.ipynb #ex06
+def scene_example() -> dict:
+    "rupaka's F-35B scene as an explainer: no gate, no `after`, and `mode` learn."
+    s = json.loads((Path(rupaka.__file__).parent/'blocks'/'scene'/'example.json').read_text())
+    def strip(bs): return [{k: strip(v) if k == 'blocks' else v for k, v in b.items() if k != 'after'} for b in bs if b.get('type') != 'gate']
+    return {**s, 'id': 'f35b-hover', 'mode': 'learn', 'ask': 'Step through the scene with D.', 'blocks': strip(s['blocks'])}
+
+# %% ../nbs/10_demo.ipynb #ex10
+EXPLAINER_RULES = register('demo.explainer', '3D explainer', 'The rules that the tutor gives the model when it makes a 3D explainer: a scene that builds step by step, with no prediction.',
+                           """You design one 3D explainer: a scene that shows how one idea works, step by step. You write a JSON spec. You never write code.
+Rules:
+- One idea. The spec has "mode": "learn". It has no gate, and no block has "after" or "lock".
+- One scene block at the top level, with "bind": "step" and 3 to 6 "steps". Each step is one spoken line of at most 200 characters.
+- The state has "step": 1 and "cam": "wide". The scene has one shot with "bind": "cam", and a shot with a "step" where the view must move.
+- A part that a step adds has "step": n. The first step shows the whole thing in its simplest form.
+- Make the idea a physical model. Use bodies for the parts, forces for pushes and flows, and label3d chips to name the parts.
+- For an abstract idea (vectors, attention, noise), each item is a box or a sphere, a size or a height is a value, and an arrow is a flow or an effect. Label what each shape stands for.
+- At most 30 bodies, 6 forces and 8 labels. Sizes from 0.2 to 12 units. y is up.
+- Text uses {path} for state values. No HTML. Write text in ASD-STE100 Simplified Technical English, US grade 9: short sentences, active voice, simple words.
+- Facts must be correct. Use only facts that you are sure of. A shape that is only a sketch says so in the scene label.""")
+
+def explainer_sp() -> str:
+    "The system prompt of a 3D explainer: the rules, the shape of a spec, the scene blocks and one example."
+    return (f"{prompt('demo.explainer')}\nThe shape of a spec:\n{SHAPE}\nUse only these blocks and fns:\n{scene_catalog()}\n\n"
+            f"An example of a good explainer:\n{json.dumps(scene_example(), ensure_ascii=False)}\n\nReturn JSON only.")
+
+def explainer_prompt(c, said:str='') -> str:
+    "The prompt that asks for a 3D explainer of concept `c` (a dict with name, statement and subject), for the ask `said`."
+    return (f"Concept: {c['name']} (subject: {c.get('subject') or 'general'})\nStatement: {c.get('statement') or '(none given)'}\n"
+            + (f"{prompt('demo.asked')} {quoted(said)}\n" if said else '') + '\nDesign one 3D explainer of this idea. Return the JSON spec only.')
+
+# %% ../nbs/10_demo.ipynb #ex14
+def scene_errors(spec) -> list:
+    "The errors of `spec` as an abhyasa explainer: one top-level scene with `bind` and 3 to 6 steps. rupaka's `validate` checks the rest."
+    ss, (lo, hi) = [b for b in spec.get('blocks') or () if isinstance(b, dict) and b.get('type') == 'scene'], STEPS
+    if len(ss) != 1: return [f'the explainer must have one scene block at the top level, not {len(ss)}']
+    errs = [] if ss[0].get('bind') else ['the scene must have "bind": "step", with "step": 1 in the state']
+    if not lo <= (n := len(ss[0].get('steps') or ())) <= hi: errs.append(f'the scene must have {lo} to {hi} steps, one spoken line each, not {n}')
+    return errs
+
+# %% ../nbs/10_demo.ipynb #ex18
+REFUSED = 'abhyasa could not make a 3D explainer for this idea. Here is the 2D demo.'
+
+def explainer_for(concept, ask, said:str='', log:list=None) -> dict|None:
+    "A valid 3D explainer spec (`mode` learn) of `concept` for the ask `said`, from the model `ask`, with one repair; None when it cannot make one."
+    c = concept if isinstance(concept, dict) else dict(name=str(concept))
+    slug, log = c.get('slug') or slugify(c['name']), [] if log is None else log
+    p, sp = explainer_prompt(c, said), explainer_sp()
+    for i in range(2):
+        try: reply = ask(p, sp)
+        except Exception as e: log.append(dict(tries=i + 1, errors=[f'model: {e}'])); return None
+        try: spec = parse_json(reply)
+        except ValueError as e: spec, errs = None, [f'reply: {e}']
+        else:
+            if isinstance(spec, dict):
+                spec = {**spec, 'rupaka': SCHEMA, 'mode': 'learn', 'id': spec.get('id') or f'{slug}-3d', 'concept': slug}
+                if not (errs := scene_errors(spec) + list(validate(spec))): return spec
+            else: spec, errs = None, ['reply: the reply is not a JSON object']
+        log.append(dict(tries=i + 1, errors=errs))
+        p = repair_prompt(spec or reply, errs)
+    return None
+
+# %% ../nbs/10_demo.ipynb #ex26
+def explain_ask(ask):
+    "The model of 3D explainers: the `ask` of 2D demos, with each prompt through the guard."
+    from abhyasa.guide import guard   # guide is a later module
+    f = lambda p, sp='': ask(guard(p), guard(sp))
+    f.model = getattr(ask, 'model', 'unknown')
+    return f
+
+def make_explainer(learning:Learning, ask, slug:str, first_error:str='', aim:str='3d', said:str='', log:list=None) -> AttrDict|None:
+    "The 3D explainer of concept `slug` for the ask `said`: from the shelf, else new from the model and stored with the aim `3d`; None when the model makes none."
+    k = ask_key(said) if said else None
+    if (d := learning.demo_for(slug, aim='3d', key=k)): return d
+    if (c := learning.concept(slug)) is None: return None
+    if (spec := explainer_for(c, explain_ask(ask), said, log)) is None: return None
+    return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", aim='3d', asked=dict(key=k, said=said) if said else None)
+
 # %% ../nbs/10_demo.ipynb #sm16
 WHERES = ('walk', 'session', 'guide', 'concept')
 
@@ -406,7 +497,7 @@ def asks(self:Learning, concept:str=None, walk:str=None, session:str=None, limit
     w = [(f"json_extract(meta, '$.{k}')=?", v) for k, v in dict(concept=concept, walk=walk, session=session).items() if v is not None]
     rs = sorted((AttrDict(json.loads(r['meta'])) for r in self._docs('ask', ' and '.join(x for x, _ in w), [v for _, v in w])), key=lambda a: -a.at)[:limit]
     def full(a):
-        slug = (self.demo_for(a.concept, aim='', key=a.key) or {}).get('slug', '')   # an ask with no words and no check gets the plain demo
+        slug = (self.demo_for(a.concept, aim='3d' if a.get('kind') == 'explainer' else '', key=a.key) or {}).get('slug', '')   # an ask with no words and no check gets the plain demo
         return AttrDict(a, slug=slug, outcome=_outcome(self, a, slug) if slug else '')
     return L(rs).map(full)
 
