@@ -78,6 +78,12 @@ def Made(st):
     if not st.made: return ''
     return Part('What you made', Ul(*[Li(f"Stage {m.stage}: {m.name} · {n_of(m.images, 'image')} from Leela") for m in st.made], cls='plain'))
 
+def Skipped(cid, s):
+    "A skipped stage: why you skipped it, and a quiet button that plans its walk anyway."
+    return Div(P('You skipped this stage. ' + (s.get('why') or ''), cls='mute'),
+               Form(Quiet('Plan it anyway', small=True), action=Routes.of_(Routes.stage, cid=cid, key=s['key']), method='post'),
+               P(A('Back to the course', href=at(cid))), cls='course-skipped')
+
 def Pending(cid, k, said):
     "A pool job of the course that is still running: the part asks the server again in 2 seconds."
     return Div(P(said), cls='course-pending', hx_get=f"{Routes.of_(Routes.job, cid=cid)}?{urlencode(dict(k=k))}", hx_trigger='load delay:2s', hx_swap='outerHTML')

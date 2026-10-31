@@ -79,12 +79,18 @@ def connect(app, ctx):
         submit(cid, 'plan', ui.PLANNING, plan_then_build, cid)
         return ui.Level(c, pending=ui.Pending(cid, 'plan', ui.PLANNING))
 
-    def stage(cid:str, key:str):
-        "Open the walk of stage `key`; a stage with no walk is built on the pool first."
+    def open_stage(cid, key, plan):
+        "Open the walk of stage `key`; a stage with no walk is built on the pool first. A GET does not build a skipped stage: it offers Plan it anyway."
         if not (c := lr.course(cid)) or not (s := first(s for s in c.stages if s['key'] == key)): return missing()
         if s.get('walk') and lr.journey(s['walk']): return Redirect(Routes.of_(Routes.walk, jid=s['walk']))
+        crumbs = [*up, (c.title, ui.at(cid))]
+        if s.get('status') == 'skipped' and not plan and not running(cid, key):
+            return Page(s['name'], H1(s['name']), ui.Skipped(cid, s), on='Learn', crumbs=crumbs)
         st = submit(cid, key, ui.BUILDING, build, cid, key)
-        return Page(s['name'], H1(s['name']), ui.Pending(cid, key, st.said), on='Learn', crumbs=[*up, (c.title, ui.at(cid))])
+        return Page(s['name'], H1(s['name']), ui.Pending(cid, key, st.said), on='Learn', crumbs=crumbs)
+
+    def stage(cid:str, key:str): return open_stage(cid, key, plan=False)
+    def plan_stage(cid:str, key:str): return open_stage(cid, key, plan=True)
 
     def job(cid:str, k:str=''):
         "The state of the pool job `k` of course `cid`: the pending part, the result, or a plain line."
@@ -149,5 +155,5 @@ def connect(app, ctx):
     app.post(Routes.level)(level)
     app.post(Routes.answer)(answer)
     app.get(Routes.stage)(stage)
-    app.post(Routes.stage)(stage)
+    app.post(Routes.stage)(plan_stage)
     app.get(Routes.one)(one)

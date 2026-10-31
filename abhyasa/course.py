@@ -279,11 +279,13 @@ def _set_stage(lr, cid, key, **kv):
     return lr.change_course(cid, f)
 
 def build_stage(lr:Learning, ask, cid:str, key:str, sources=None, who:str='') -> AttrDict:
-    "Make the walk of stage `key` of course `cid`, or give the walk that it has. On a failure the stage is `planned` again, and the error goes up."
+    """Make the walk of stage `key` of course `cid`, or give the walk that it has. On a failure the stage is `planned` again, and the error goes up.
+    A skipped stage stays `skipped` until its walk is made: a failure does not change it."""
     c = lr.course(cid)
     if c is None or (st := first(s for s in c.stages if s['key'] == key)) is None: raise KeyError(f'no stage {key!r} in course {cid!r}')
     if st.get('walk') and (j := lr.journey(st['walk'])): return j
-    _set_stage(lr, cid, key, status='building', why='')
+    skip = st.get('status') == 'skipped'
+    if not skip: _set_stage(lr, cid, key, status='building', why='')
     try:
         chips = [s['id'] for s in c.sources if s.get('status') == 'ready']
         j = walk_from_topic(lr, ask, stage_brief(lr, c, st), who, sources, chips=chips)
@@ -294,7 +296,7 @@ def build_stage(lr:Learning, ask, cid:str, key:str, sources=None, who:str='') ->
             raise ValueError('The planner gave no new ideas for this stage.')
         j = lr.merge_journey(j.id, steps=steps, title=st['name'], goal=c.goal, course=cid, stage=key, chips=chips)
     except Exception as e:
-        _set_stage(lr, cid, key, status='planned', why=str(e) if isinstance(e, ValueError) else 'abhyasa could not plan this stage. Try again.')
+        if not skip: _set_stage(lr, cid, key, status='planned', why=str(e) if isinstance(e, ValueError) else 'abhyasa could not plan this stage. Try again.')
         raise
     _set_stage(lr, cid, key, walk=j.id, status='ready')
     return j

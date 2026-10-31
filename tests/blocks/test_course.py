@@ -109,6 +109,27 @@ def test_open_a_planned_stage_builds_it(mk, lr, fake):
     jid = lr.course(c.id).stages[1]['walk']
     assert r.headers['HX-Redirect'] == f'/w/{jid}' and lr.journey(jid).stage == 's2'
 
+def test_a_skipped_stage_is_not_built_by_a_get_and_stays_skipped_when_its_build_fails(mk, lr, fake):
+    "A GET of a skipped stage builds nothing: it shows the stage as skipped, with Plan it anyway. That POST builds it; a failed build keeps it skipped."
+    goal_walk(lr, done=3); c = join_course(lr, 'gw')
+    lr.change_course(c.id, lambda c: c.stages.insert(0, dict(key='s0', name='How a neural network learns', makes='', ideas=['Loss'], foundation=True,
+                                                             walk=None, status='skipped', why='You know it: How a neural network learns')))
+    fake.rules['You plan a learning path'] = dict(title='Nets', subject='ml', steps=[dict(name='Noise', statement='n', why='w')])   # no new idea: the build fails
+    cl = mk()
+    t = cl.get(f'/course/{c.id}/stage/s0').text
+    assert 'You skipped this stage. You know it: How a neural network learns' in t and 'Plan it anyway' in t
+    assert f'action="/course/{c.id}/stage/s0" method="post"' in t and 'abhyasa plans the ideas' not in t
+    assert lr.course(c.id).stages[0]['status'] == 'skipped' and not lr.journeys().filter(lambda j: j.get('stage') == 's0')
+    r = follow(cl, cl.post(f'/course/{c.id}/stage/s0'))
+    assert 'abhyasa could not plan this stage. Try again.' in r.text
+    s0 = lr.course(c.id).stages[0]
+    assert (s0['status'], s0['why'], s0['walk']) == ('skipped', 'You know it: How a neural network learns', None)
+    assert 'skipped' in cl.get(f'/course/{c.id}').text
+    fake.rules['You plan a learning path'] = dict(title='Nets', subject='ml', steps=[dict(name='Loss', statement='How wrong the net is.', why='w')])
+    r = follow(cl, cl.post(f'/course/{c.id}/stage/s0'))
+    s0 = lr.course(c.id).stages[0]
+    assert r.headers['HX-Redirect'] == f"/w/{s0['walk']}" and s0['status'] == 'ready'
+
 def test_goal_on_start_makes_a_course(mk, lr, walk_fake):
     "A goal walk from the Start box joins a new course, and its plan page links to the course."
     walk_fake.rules['You plan a learning path'] = dict(title='Ranks', subject='ml', steps=[dict(name='Ranking', slug='ranking', statement='', why='')])
