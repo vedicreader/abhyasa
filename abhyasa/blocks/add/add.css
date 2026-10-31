@@ -21,6 +21,9 @@
 /* The sources of a goal: one quiet row for each, a dashed border for a source that Start adds. */
 .start .chips-src { display: flex; flex-direction: column; gap: var(--s2); margin: var(--s4) 0 0; }
 .start .chips-src .lbl { margin: 0 0 var(--s1); }
+.start .more-src { display: flex; flex-direction: column; gap: var(--s2); }
+.start .more-src > summary { cursor: pointer; color: var(--mute); font-size: var(--t-meta); }
+.start .more-src[open] > summary { margin-bottom: var(--s1); }
 .start .schip { display: flex; gap: var(--s3); align-items: baseline; padding: var(--s2) var(--s3); border: 1px solid var(--line); border-radius: var(--r-s); font-size: var(--t-small); color: var(--ink2); }
 .start .schip b { font-weight: 600; color: var(--fg); overflow-wrap: anywhere; flex: none; max-width: 40%; }
 .start .schip .w { flex: 1; min-width: 0; overflow-wrap: break-word; }

@@ -115,17 +115,22 @@ def Chip(c, mine=()):
                '' if bad else Input(type='hidden', name='sources', value=c.id),
                cls='schip' + (' bad' if bad else '' if c.filed else ' new'))
 
+CHIPS_SHOWN = 5   # the chips that show; the others are in the fold "Show all N sources", so the list never pushes the box down far
+
 def Chips(cs, said=(), mine=()):
-    "The sources for this goal, the web when research is on, and the field that adds a source."
+    "The sources for this goal (the first `CHIPS_SHOWN`, then a fold with all of them), the web when research is on, and the field that adds a source."
     web = (Div(B('from the web'), Span('for what your sources do not have'), A('Turn this off in Settings', href='/settings#g-research', cls='st'), cls='schip web')
            if val('research.on') else '')
-    return Div(Span('Sources for this goal', cls='lbl'), *[Chip(c, mine) for c in cs], web, *[P(x, cls='req-err') for x in said],
+    chips = [Chip(c, mine) for c in cs]
+    if len(chips) > CHIPS_SHOWN + 1:   # a fold for one more chip only takes room
+        chips[CHIPS_SHOWN:] = [Details(Summary(f'Show all {len(cs)} sources', cls='quiet small'), *chips[CHIPS_SHOWN:], cls='more-src')]
+    return Div(Span('Sources for this goal', cls='lbl'), *chips, web, *[P(x, cls='req-err') for x in said],
                Div(Input(type='text', id='start-add', placeholder='Add a folder, a repo or a link', aria_label='Add a folder, a repo or a link', autocomplete='off'),
                    Button('Add', type='button', cls='quiet small', id='start-add-go'), Pick(), cls='addf'),
                Input(type='hidden', name='chips', value='1'), cls='chips-src', aria_label='Sources for this goal')
 
 def Read(r, f=None, told=True, q='', said=(), mine=()):
-    "What the box will do: the quiet line, the question or the options, the sources of a goal, and the Start button."
+    "What the box will do: the quiet line, the question or the options, the Start button, then the sources of a goal, so Start shows however many sources there are."
     f, cs = f or {}, r.get('chips') or []
     shown = r.kind in ('goal', 'sources') or (r.kind == 'empty' and cs)
     ok = [c for c in cs if not c.get('why')]
@@ -137,7 +142,7 @@ def Read(r, f=None, told=True, q='', said=(), mine=()):
     foot = Div(start, '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
     line = P(NO_GOAL, cls='will', id='start-will') if r.kind == 'empty' and cs else Line(r) if r.kind != 'ask' else P(B(r.ask.q), cls='will', id='start-will')
     return (line, P(WEB_ONCE + ('' if shown else OFF), cls='mute web-once') if r.kind in ('topic', 'goal') and val('research.on') and not told else '',
-            Ask(r, cs[0].path if cs else q) if r.ask else Options(r, f), Chips(cs, said, mine) if shown else '', foot)
+            Ask(r, cs[0].path if cs else q) if r.ask else Options(r, f), foot, Chips(cs, said, mine) if shown else '')
 
 def connect(app, ctx):
     lr = ctx.learning

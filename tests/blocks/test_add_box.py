@@ -181,3 +181,47 @@ def test_drops_route_files_each_and_refuses_other_types(mk, home):
     fs = [('fs', ('a.md', b'# A\n\nAttention mixes the tokens.', 'text/markdown')), ('fs', ('b.png', b'x', 'image/png'))]
     got = cl.post('/learn/files', files=fs).json()
     assert len(got['ids']) == 1 and got['said'] == ['b.png: Drop a PDF, a .md or a .txt file.']
+
+# Start comes before the sources, so the learner sees it however many sources there are.
+
+def many_folders(home, n=30):
+    "`n` folders in the temp home, each with one note, as the sources of a goal."
+    ps = []
+    for k in range(n):
+        (d := home/f'notes{k:02d}').mkdir(); (d/'a.md').write_text('# Noise\n'); ps.append(str(d))
+    return ps
+
+def test_start_comes_before_the_sources(mk, home):
+    "The line of what Start does and the Start button come before the chips. With many sources, the first 5 show, and the others are in a fold."
+    h = mk().get('/learn/read', params=dict(q='how noise works', extra=many_folders(home))).text
+    assert h.index('id="start-will"') < h.index('id="start-go"') < h.index('class="chips-src"') and h.count('name="sources"') == 30
+    fold = h[h.index('class="more-src"'):h.index('</details>', h.index('class="more-src"'))]
+    assert 'Show all 30 sources' in fold and fold.count('class="schip') == 25   # 5 show, 25 in the fold; each still goes with the form
+
+@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
+def test_start_is_in_view_with_30_sources(mk, home):
+    "In a window of 1280×800 at the Start box, with 30 sources, the Start button is in view with no scroll."
+    import socket, threading, time, uvicorn
+    from playwright.sync_api import sync_playwright
+    ps = many_folders(home)
+    cl = mk()
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_page(viewport=dict(width=1280, height=800))
+                pg.goto(f'http://127.0.0.1:{port}/#start'); pg.wait_for_selector('#start-form')
+                pg.evaluate("ps => { const k = document.getElementById('start-keep'); for (const v of ps) { const i = document.createElement('input'); i.type = 'hidden'; i.name = 'extra'; i.value = v; k.append(i); } }", ps)
+                pg.fill('#start-q', 'how noise works'); pg.dispatch_event('#start-q', 'input')
+                pg.wait_for_function("() => document.querySelectorAll('#start-form input[name=sources]').length === 30")
+                pg.wait_for_selector('#start-go:not([disabled])')
+                pg.focus('#start-q')   # the learner is at the box
+                r = pg.eval_on_selector('#start-go', 'e => { const r = e.getBoundingClientRect(); return [r.top, r.bottom]; }')
+                assert 0 <= r[0] and r[1] <= 800, r
+                assert pg.locator('#start-form .chips-src > .schip:not(.web)').count() == 5   # the others wait in the fold
+            finally: b.close()
+    finally: srv.should_exit = True; th.join(5)
