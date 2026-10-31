@@ -53,6 +53,7 @@
 //                        streaming board shows, or when its steps are not the first steps of `board` (then play `board`).
 //                        An `end` of '' shows no end line: the stream ended with no whole board.
 //   stop()  note(text)  next()  back()  again()  seekVideo(t)  boxOf(at)  normTex(tex)
+//   room(on)    the page column makes room for the picture of an idea at the top right, or takes its place back (see has-panel above)
 //   timeline()  [op, part, ms] for each part of each mark of the step that shows: the order in which they draw
 //   speakBrowser(text, onWord, done)   the default speak (speechSynthesis), for a host speak that falls back to it.
 //   notice({text, href, link})          set the quiet line of the board that shows now (see play).
@@ -76,7 +77,7 @@
 //            curve from it 120 ms later, then the row when the curve lands, each cell 80 ms after the one before (the circle and the
 //            curve hide when the thing is not on the page; the row stays). With `chain`, the cells are words with arrows between.
 //            On D next the panel and its rows stay as they are; only the rows of the new step come. While the panel shows, the
-//            body has the class `has-panel`, so the page column moves left. Below 1100 px the panel stands in the page, under
+//            body has the class `has-panel`, and the page column moves left with its width kept. Below 1100 px the panel stands in the page, under
 //            the thing that its first row marks.
 //   Before a step draws, the page scrolls its first mark into view when it is off screen or under the strip.
 //   note     {text}: one quiet line of the panel.
@@ -346,11 +347,27 @@
       p = el('div', 'board-panel', null); p.id = 'board-panel'; p.setAttribute('role', 'region'); p.setAttribute('aria-label', 'The example of the tutor');
       p.append(el('p', 'board-panel-title', ''), el('p', 'board-panel-head', ''), el('div', 'board-panel-cols', null), el('div', 'board-panel-rows', null));
       host().append(p);
-      document.body.classList.add('has-panel');
+      room(true);
+      requestAnimationFrame(() => st && into(st.marks.filter(m => m.step === st.i)));   // after the layout settles: the mark of the step is in view
     }
     return p;
   }
-  function panelGone() { const p = document.getElementById('board-panel'); if (p) p.remove(); if (!document.getElementById('guide-show')) document.body.classList.remove('has-panel'); }
+  function panelGone() { const p = document.getElementById('board-panel'); if (p) p.remove(); room(!!document.getElementById('guide-show')); }
+  // One place for a picture of an idea (this panel, or the Show card of the guide): while it shows, the body has `has-panel`, and the page
+  // column moves left into the free gutter with its width kept, so no line wraps again and no mark moves down. Only when the gutter is
+  // too small does the column get narrower. Below 1100 px the picture stands in the page, so the column stays.
+  function room(on) {
+    const main = document.querySelector('main'), pic = document.getElementById('board-panel') || document.getElementById('guide-show');
+    document.body.classList.toggle('has-panel', !!on);
+    if (!main) return;
+    main.style.marginLeft = main.style.maxWidth = '';
+    if (!on || !pic || innerWidth < INLINE || pic.classList.contains('inline')) return;
+    const r = main.getBoundingClientRect(), over = r.right - (pic.getBoundingClientRect().left - 24);
+    if (over <= 0) return;
+    const shift = Math.min(over, Math.max(0, r.left - 16));
+    main.style.marginLeft = r.left - shift + 'px';   // the right margin stays auto: the width stays
+    if (over > shift) main.style.maxWidth = r.width - (over - shift) + 'px';
+  }
   function dockPanel(p, b) {   // in the page under the marked thing below 1100 px; else fixed at the top right (board.css)
     const inline = innerWidth < INLINE && b && b.el;
     p.classList.toggle('inline', !!inline);
@@ -367,8 +384,8 @@
         t.textContent = o.title || ''; h.textContent = o.head || '';
         cs.replaceChildren(...(o.cols || []).map(c => el('span', '', c)));
         [...rs.children].forEach(r => { if (r.dataset.beat !== beat) r.remove(); });
-        parts.push({kind: 'node', el: p, at: 0, dur: 260});
       }
+      parts.push({kind: 'node', el: p, at: 0, dur: 260});   // also when the board places it again (a scroll, a resize): the pop-in keeps its own clock
       m.parts = parts; m.aim = null; m.ok = true; m.life = 300;
       return true;
     }
@@ -558,7 +575,10 @@
     if (!st) { ticking = false; return; }
     const t = performance.now();
     paintPointer(t);
-    for (const m of st.marks) if (m.drawn && (m.dirty || t - m.t0 < m.life + 50 || t - st.stepAt < 400)) { paint(m, t); m.dirty = false; }
+    for (const m of st.marks) if (m.drawn) {
+      if (m.dirty || t - m.t0 < m.life + 50 || t - st.stepAt < 400) { paint(m, t); m.dirty = false; m.settled = false; }
+      else if (!m.settled) { paint(m, t + 1e6); m.settled = true; }   // the end state of each part, also when the last frames came late (a faint panel)
+    }
     requestAnimationFrame(tick);
   }
   const clock = () => { if (!ticking) { ticking = true; requestAnimationFrame(tick); } };
@@ -779,12 +799,15 @@
       else if (st && st.auto && st.streaming) st.wait = true;   // the last step so far is said: the next step that comes plays at once
     });
   }
-  // Scroll the first mark of `ms` into view when it is off screen or under the strip, before it draws.
+  // Scroll the marks of `ms` (the marks of one step) into view before they draw, when one of them is off screen, just above the top
+  // bar or under the strip: all of them when they fit in the window, else the first one.
   function into(ms) {
-    const at = (ms.find(m => m.o.at !== undefined || m.o.from !== undefined) || {o: {}}).o, b = locate(at.at ?? at.from);
-    if (!b) return;
+    const bs = ms.map(m => m.o.at ?? m.o.from).filter(a => a !== undefined).map(locate).filter(Boolean);
+    if (!bs.length) return;
     const s = document.getElementById('guide-strip'), low = innerHeight - (s && !s.hidden ? s.offsetHeight : 0) - 8, nav = document.querySelector('body > nav');
-    const high = (nav ? nav.getBoundingClientRect().bottom : 0) + 8, y = b.y - scrollY;
+    const high = (nav ? Math.max(0, nav.getBoundingClientRect().bottom) : 0) + 8;
+    const top = Math.min(...bs.map(b => b.y)), bot = Math.max(...bs.map(b => b.y + b.h)), b = bot - top <= low - high ? {y: top, h: bot - top} : bs[0];
+    const y = b.y - scrollY;
     if (y >= high && y + Math.min(b.h, low - high) <= low) return;
     scrollTo({top: Math.max(0, b.y - high - Math.max(0, (low - high - b.h) / 2)), behavior: reduced() || st.fast ? 'auto' : 'smooth'});
   }
@@ -939,6 +962,7 @@
   addEventListener('keydown', onKey, true);
   addEventListener('scroll', follow, {capture: true, passive: true});
   addEventListener('resize', follow);
+  addEventListener('resize', () => { if (document.body.classList.contains('has-panel')) room(true); });
   if (window.ResizeObserver) new ResizeObserver(follow).observe(document.documentElement);
   // A new page (an htmx swap of the body) takes the layer away: the board stops. A change inside the page moves the marks.
   const watch = () => new MutationObserver(ms => {
@@ -948,7 +972,7 @@
   }).observe(document.body, {childList: true, subtree: true});
   if (document.body) watch(); else addEventListener('DOMContentLoaded', watch);
   const view = p => [p[0] - scrollX, p[1] - scrollY];
-  window.abhyasaBoard = {play, add, finish, stop: () => stop(), note, status, seekVideo, demoAnchors, fitDemo,
+  window.abhyasaBoard = {play, add, finish, stop: () => stop(), note, status, room, seekVideo, demoAnchors, fitDemo,
                          speakBrowser: (text, onWord, done) => st ? voice(text, onWord, done) : undefined,
                          notice: n => { if (st && n && typeof n === 'object') { st.notice = n; caption(); } },
                          next: () => st && show(st.i + 1), back: () => st && show(st.i - 1), again: () => st && show(st.i), boxOf, normTex,

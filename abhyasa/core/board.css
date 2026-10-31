@@ -96,13 +96,9 @@
         --hand: 'Caveat', 'Bradley Hand', 'Segoe Print', cursive; --paper-mono: ui-monospace, 'SF Mono', Menlo, monospace;
         --panel-w: min(440px, 36vw); --panel-top: 64px; }
 
-/* One place for a picture of an idea: fixed at the top right, under the top bar. While it shows (body.has-panel), the page column
-   moves left, so the panel never covers the text or a mark. Below 1100 px it stands in the page (.inline). */
-@media (min-width: 1100px) {
-  body.has-panel main { margin-left: max(var(--s5, 24px), min((100vw - 740px) / 2, 100vw - 740px - var(--panel-w) - 40px)); margin-right: calc(var(--panel-w) + 40px);   /* it moves only as far as it must */
-                        transition: margin .25s ease; }
-}
-@media (prefers-reduced-motion: reduce) { body.has-panel main { transition: none; } }
+/* One place for a picture of an idea: fixed at the top right, under the top bar. While it shows (body.has-panel), board.js `room`
+   moves the page column left into the free gutter with its width kept, so the picture covers no text and no mark. Below 1100 px the
+   picture stands in the page (.inline). */
 
 /* The side panel (board.js): the tutor's small concrete example. A small title, a bold heading, the names of the two columns,
    then one row for each step: light boxes, an arrow, and the answer in the warm accent. A curve in the ink links the thing on the

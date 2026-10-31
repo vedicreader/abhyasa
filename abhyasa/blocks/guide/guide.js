@@ -473,7 +473,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   }
   function closeShow() {
     const c = document.getElementById('guide-show'); if (c) c.remove();
-    if (!document.getElementById('board-panel')) document.body.classList.remove('has-panel');
+    if (!document.getElementById('board-panel') && window.abhyasaBoard) abhyasaBoard.room(false);
   }
   // "Show me …" to the guide: Show. On an idea page the card fills the Show slot of the idea (#show-slot); on any other page it
   // comes in the side panel at the top right, where the board builds its example. With no idea for the page, the panel links to the Library.
@@ -495,7 +495,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     head.append(x); c.append(head, body);
     const main = document.querySelector('main'), h1 = main && main.querySelector('h1');
     if (innerWidth < 1100 && main) { c.classList.add('inline'); h1 ? h1.after(c) : main.prepend(c); } else document.body.append(c);
-    document.body.classList.add('has-panel');
+    if (window.abhyasaBoard) abhyasaBoard.room(true);   // the page column moves left, with its width kept
     if (html) { if (window.htmx) htmx.swap(body, html, {swapStyle: 'innerHTML'}); else body.innerHTML = html; }
     else if (/^\/(?!\/)/.test(String(sh.href || ''))) {
       const p = Object.assign(document.createElement('p'), {className: 'mute', textContent: sh.find ? 'This page names no idea of yours yet. ' : ''});

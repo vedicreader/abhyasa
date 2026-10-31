@@ -177,6 +177,7 @@ def test_the_panel_closes_on_the_next_page_keeps_off_the_rail_and_lets_the_guide
                 assert pg.evaluate(RAIL_TEXT) == 0                                            # open on a walk step, it covers no text of the outline
                 assert pg.is_visible('#kf-panel') and pg.evaluate("document.getElementById('kf-panel').getBoundingClientRect().width") < 256   # it gets narrow at the left of the outline
                 pg.evaluate('abhyasaKF.show(false, true)')
+                pg.set_viewport_size(dict(width=1000, height=900))   # the guide card stands in the page here; at 1440 the column moves left into the gutter of the card
                 pg.route('**/guide/ask', lambda r: r.fulfill(status=200, headers={'Content-Type': 'text/event-stream'},
                                                               body=f"data: {json.dumps(dict(show=dict(href='/c/ranking')))}\n\n"))
                 pg.evaluate("abhyasaGuideQuiet = true; abhyasaGuide.ask('show me the ranks')"); pg.wait_for_selector('#guide-show')

@@ -138,3 +138,48 @@ def test_code_is_an_anchor(page):
     assert code and code[0]['id'] == 'code1' and '[1.0, -1.0]' in code[0]['text']
     b, pre = page.evaluate("[abhyasaBoard.boxOf({a: 'code1', text: '[1.0, -1.0]'}), (r => ({x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height}))(document.querySelector('main pre, body > pre').getBoundingClientRect())]")
     assert b and pre['x'] <= b['x'] and b['x'] + b['w'] <= pre['x'] + pre['w'] + 1 and pre['y'] <= b['y'] <= pre['y'] + pre['h']
+
+LONG = """() => { const m = document.querySelector('main'); const p = document.createElement('pre'); p.dataset.guideId = 'm'; p.style.whiteSpace = 'pre-wrap';
+  p.textContent = 'x = tensor([18, 47, 56]) and more text to the right edge of the column ' + 'y'.repeat(60); m.prepend(p); }"""
+PANEL_STEP = dict(say='The values.', strokes=[dict(op='panel', title='tensors and targets', head='Make a question'), dict(op='row', cells=['[18]'], to='47', at=dict(a='m', text='tensor([18, 47, 56])'))])
+
+def test_a_panel_is_whole_after_its_pop_in(page):
+    "With motion on, a panel that a panel line opens ends at full opacity, with no transform: it never stays faint."
+    page.emulate_media(reduced_motion='no-preference')
+    page.evaluate(LONG)
+    play(page, [PANEL_STEP])
+    page.wait_for_timeout(1200)
+    assert page.evaluate("getComputedStyle(document.getElementById('board-panel')).opacity") == '1'
+    assert page.evaluate("document.getElementById('board-panel').style.transform") == ''
+
+@pytest.mark.parametrize('w', [1280, 1400, 1728])
+def test_the_column_moves_and_keeps_its_width(page, w):
+    "While the panel shows, the page column moves left into the free gutter with its width kept, the panel covers it not, and the page does not jump."
+    page.set_viewport_size(dict(width=w, height=900))
+    page.evaluate(LONG)
+    box = "(() => { const b = document.querySelector('main').getBoundingClientRect(); return [b.left, b.right, b.width]; })()"
+    before = page.evaluate(box)
+    play(page, [PANEL_STEP])
+    page.wait_for_timeout(300)
+    after, y0 = page.evaluate(box), page.evaluate('scrollY')
+    pl = page.evaluate("document.getElementById('board-panel').getBoundingClientRect().left")
+    assert after[2] == before[2] or w < 1400, (w, before, after)   # at 1280 the gutter can be too small: then it narrows only as much as it must
+    assert after[1] <= pl - 23 and page.evaluate("document.body.classList.contains('has-panel')")
+    page.wait_for_timeout(800)
+    assert page.evaluate('scrollY') == y0
+    ring = page.evaluate("(() => { const b = document.querySelector('#board-layer g[data-op=circle]').getBoundingClientRect(); return [b.top, b.bottom]; })()")
+    assert 0 <= ring[0] and ring[1] <= 900
+    page.evaluate('abhyasaBoard.stop()')
+    assert page.evaluate(box) == before   # the column takes its place back
+
+def test_each_step_scrolls_its_marks_into_view(page):
+    "Step 3 marks a line above the window: when step 3 starts, the page scrolls it into view."
+    page.evaluate("""() => document.body.insertAdjacentHTML('beforeend', '<p data-guide-id="low" style="position:absolute;left:40px;top:2600px;margin:0">Low on the page</p><div style="height:3200px"></div>')""")
+    steps = [dict(say='One.', strokes=[dict(op='box', at='low')]), dict(say='Two.', strokes=[dict(op='box', at='low')]), dict(say='Three.', strokes=[dict(op='box', at='card')])]
+    play(page, steps)
+    page.evaluate('abhyasaBoard.next()'); page.wait_for_function('abhyasaBoard.state.i === 1 && abhyasaBoard.state.done')
+    assert page.evaluate('scrollY') > 1500
+    page.evaluate('abhyasaBoard.next()'); page.wait_for_function('abhyasaBoard.state.i === 2 && abhyasaBoard.state.done')
+    page.wait_for_timeout(200)
+    r = page.evaluate("(() => { const g = [...document.querySelectorAll('.board-glow')].find(e => e.dataset.step === '2').getBoundingClientRect(); return [g.top, g.bottom, innerHeight]; })()")
+    assert 50 <= r[0] and r[1] <= r[2], r
