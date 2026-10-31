@@ -1,6 +1,7 @@
 class Routes:
     js = '/rupaka/rupaka.js'
     css = '/rupaka/rupaka.css'
+    three = '/rupaka/three.js'   # rupaka loads it beside rupaka.js when a scene mounts
     spec = '/demo/{slug}.json'
     page = '/demo/{slug}'
     make = '/demo/make'

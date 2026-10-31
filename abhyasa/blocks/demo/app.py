@@ -1,12 +1,13 @@
 """Interactive demos from rupaka: a page per demo, the concept-page action, the demo under a lesson, and the prediction log.
-Show me (⌥E) on a walk step and in a session: a demo made from your words or from the open check, with its kind and why, and 3D and Leela one click away."""
+Show me (⌥E) on a walk step and in a session: a demo made from your words or from the open check, with its kind and why, and 3D and Leela one click away.
+A 3D explainer is a rupaka scene. rupaka loads three.js from `Routes.three` only when a scene mounts, so a page with no scene never loads it."""
 import json
 from fasthtml.common import *
 from fastcore.utils import AttrDict
 from rupaka.render import bundle, version
 from abhyasa.core import Page, hook, Msg
 from abhyasa.core.leela import leela_link
-from abhyasa.demo import queue_demo, job_state, said, route_ask, can_explain
+from abhyasa.demo import queue_demo, job_state, said, route_ask, REFUSED
 from . import ui
 from .cfg import Routes
 
@@ -20,6 +21,9 @@ def connect(app, ctx):
 
     def rk_js(): return Response(js, media_type='text/javascript', headers=cache)
     def rk_css(): return Response(css, media_type='text/css', headers=cache)
+    def rk_three(): return Response(three(), media_type='text/javascript', headers=cache)
+    three = lambda: _three.setdefault('js', bundle('three'))   # built on first use, from the copy in rupaka: no network
+    _three = {}
 
     def spec(slug:str):
         d = lr.demo(slug)
@@ -47,45 +51,47 @@ def connect(app, ctx):
 
     def wait(concept:str, session:str='', aim:str=''): return made(concept, session, aim)
 
-    def three_d():
-        "Why Show it in 3D is not ready yet."
-        return '3D explainers come in the next version.' if can_explain() else 'It needs rupaka 0.0.8, with 3D scenes.'
-
     def open_q(at):
         "The open question of the place `at`: by `qid` (a session), or the check of the walk step; None when no check is open."
         qid = at.get('qid')
         if not qid and at.get('walk') and (j := lr.journey(at['walk'])) and 0 <= int(at.get('step', -1)) < len(j.steps): qid = j.steps[int(at['step'])].get('qid')
         return tutor.open.get(qid) if qid else None
 
-    def shown(a):
-        "The demo of ask `a`, or its wait, or the line that says the model made none."
-        if (d := lr.demo_for(a.concept, aim='', key=a.key or None)): return DemoCard(d, a)
-        return ui.AskPending(a) if job_state(tutor, a.concept, said=a.ask) == 'running' else ui.Failed()
+    def start(a, aim):
+        "Start the job of ask `a`: a 3D explainer for the aim `3d`, else a 2D demo. No job when the demo is on the shelf."
+        if not lr.demo_for(a.concept, aim=aim, key=a.key or None): queue_demo(tutor, a.concept, aim=aim, said=a.ask)
+
+    def shown(a, kind=''):
+        """The demo of ask `a` (its 3D explainer for the kind `explainer`, or for `kind='3d'`), or its wait, or the line that says the model made none.
+        When the model makes no valid 3D explainer, the card says so and gives the 2D demo."""
+        three = (kind or ('3d' if a.get('kind') == 'explainer' else 'demo')) == '3d'
+        if (d := lr.demo_for(a.concept, aim='3d' if three else '', key=a.key or None)): return DemoCard(d, a)
+        if job_state(tutor, a.concept, '3d' if three else '', a.ask) == 'running': return ui.AskPending(a, '3d' if three else kind)
+        if not three: return ui.Failed()
+        start(a, '')
+        return Div(P(REFUSED, cls='mute refused'), shown(a, 'demo'))
 
     def DemoCard(d, a): return ui.DemoCard(d, session=a.get('session', ''), ask=a.id, lead=False)   # the kind line of the ask says how it works
 
     def answer_ask(words, at, kind=''):
         """One ask for a demo at the place `at` (`where`, `concept`, `walk` and `step`, or `qid`): file it, pick its kind, start its demo, and give its card.
-        The demo is made from your `words`, else from the open check; with neither, it is the plain demo of the idea. `kind='demo'` asks for the 2D demo."""
+        The demo is made from your `words`, else from the open check; with neither, it is the plain demo of the idea. `kind='demo'` asks for the 2D demo, and `kind='3d'` for the 3D explainer."""
         q = open_q(at)
         c = lr.concept(at.get('concept') or (q or {}).get('concept') or '')
         if c is None: return P('No such concept.', cls='mute')
         words = ' '.join(str(words or '').split())[:300]
         text = words or (f"The idea behind this check: {q['question']}" if q else '')
-        route = AttrDict(kind='demo', why='You asked for a 2D demo. You predict first. Then the demo shows the rest.') if kind == 'demo' else route_ask(words, c)
+        route = (AttrDict(kind='demo', why='You asked for a 2D demo. You predict first. Then the demo shows the rest.') if kind == 'demo' else
+                 AttrDict(kind='explainer', why='You asked for 3D. The scene builds one step at a time.') if kind == '3d' else route_ask(words, c))
         where = at.get('where') if at.get('where') in ('walk', 'session', 'guide') else 'concept'
         place = dict(walk=at['walk'], step=int(at['step'])) if where == 'walk' else dict(session=(q or {}).get('session', '')) if where == 'session' else {}
         a = lr.put_ask(c.slug, said=words, ask=text, where=where, kind=route.kind, **place)
-        two_d = None
-        if route.kind == 'notebook':
-            body = P('Open it in Leela to try it in code. Or see a 2D demo first.', cls='mute')
-            two_d = dict(hx_post=Routes.ask, hx_vals=json.dumps({**{k: str(v) for k, v in at.items() if v not in (None, '')}, 'said': words, 'kind': 'demo'}),
-                         hx_target=f'#ask-{a.id}', hx_swap='outerHTML')
-        else:
-            if route.kind == 'explainer': route = AttrDict(route, why=f'{route.why} 3D explainers are not ready yet, so here is a 2D demo.')
-            if not lr.demo_for(c.slug, aim='', key=a.key or None): queue_demo(tutor, c.slug, said=text)
-            body = shown(a)
-        return ui.AskCard(a, route, body, three_d(), leela_link(None, topic=c.name, vault=lr.vault.path), two_d)
+        vals = {**{k: str(v) for k, v in at.items() if v not in (None, '')}, 'said': words}
+        def other(k): return dict(hx_post=Routes.ask, hx_vals=json.dumps({**vals, 'kind': k}), hx_target=f'#ask-{a.id}', hx_swap='outerHTML')   # the other kind, one click away
+        if route.kind == 'notebook': body = P('Open it in Leela to try it in code. Or see a 2D demo or a 3D explainer first.', cls='mute')
+        else: start(a, '3d' if route.kind == 'explainer' else ''); body = shown(a)
+        return ui.AskCard(a, route, body, leela_link(None, topic=c.name, vault=lr.vault.path),
+                          two_d=other('demo') if route.kind != 'demo' else None, three_d=other('3d') if route.kind != 'explainer' else None)
 
     def ask(concept:str='', said:str='', where:str='', walk:str='', step:str='', qid:str='', kind:str=''):
         "Show me: a demo for the place in the form. In a session, it is a tutor message in the thread of the question."
@@ -94,10 +100,10 @@ def connect(app, ctx):
         out = answer_ask(said, at, kind)
         return Msg('', out, cls='tutor extra') if where == 'session' and not kind else out
 
-    def asked(aid:str):
-        "The demo of an ask, when it is ready; else the wait again."
+    def asked(aid:str, kind:str=''):
+        "The demo of an ask (or with `kind`, its 3D explainer or its 2D demo), when it is ready; else the wait again."
         a = lr.asked(aid)
-        return shown(a) if a else ui.Failed()
+        return shown(a, kind if kind in ('3d', 'demo') else '') if a else ui.Failed()
 
     @hook('show_me')
     def typed(words, at):
@@ -129,7 +135,7 @@ def connect(app, ctx):
         if r.get('demo') and (d := lr.demo(r.demo)): return ui.DemoCard(d, session=r.get('session', ''))
         if r.get('demo_pending'): return ui.Pending(r.concept, r.get('demo_aim', ''))
 
-    for r, f in ((Routes.js, rk_js), (Routes.css, rk_css), (Routes.spec, spec)):
+    for r, f in ((Routes.js, rk_js), (Routes.css, rk_css), (Routes.three, rk_three), (Routes.spec, spec)):
         app.get(r)(f)
         app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's own `/{fname}.{ext:static}` route
     app.get(Routes.page)(page)
