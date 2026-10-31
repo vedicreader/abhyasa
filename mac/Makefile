@@ -142,8 +142,9 @@ ship:
 	grep -n 'abhyasa\[' Resources/Pin/pyproject.toml
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $$V" Resources/Info.plist
 	$(MAKE) lock
-	$(MAKE) publish
-	$(MAKE) cask
+	# ZIP is exported with the name of the old version; with it unset, publish and cask make the name from the new Info.plist
+	env -u ZIP $(MAKE) publish
+	env -u ZIP $(MAKE) cask
 	git -C "$$TAP" add Casks/abhyasa.rb
 	git -C "$$TAP" commit -m "Abhyasa $$V"
 	git -C .. add mac/Resources README.md nbs/index.ipynb
