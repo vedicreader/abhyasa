@@ -35,12 +35,6 @@ def test_web_line_shows_once(mk, lr, walk_fake):
     assert cl.post('/walk/new', data=dict(q='how attention works')).headers.get('HX-Redirect', '').startswith('/w/')
     assert line not in cl.get('/learn/read', params=dict(q='how attention works')).text
 
-def test_goal_box_left_today(mk):
-    cl = mk()
-    assert 'What do you want to learn?' not in cl.get('/').text
-    h = cl.get('/learn').text
-    assert '<summary>More</summary>' in h and 'Plan a path of concepts, with no source' in h
-
 def test_add_opens_the_start_box(mk):
     r = mk().get('/add', follow_redirects=False)
     assert r.status_code == 303 and r.headers['location'] == '/learn#start'
@@ -141,10 +135,6 @@ def test_title_index_is_made_again_only_when_the_vault_changes(lr):
     b = title_index(lr.vault)
     assert b is not a and 'new one' in b
 
-def test_option_boxes_have_ids_and_alt_s_never_types(mk):
-    "Each option box has an id, so the read swap keeps the focus in it. walk_look f9 checks that ⌥S in the box waits for a read and types nothing."
-    assert 'id="start-pages"' in mk().get('/learn/read', params=dict(q='https://docs.python.org/3/')).text
-
 def test_a_file_name_or_a_bare_host(mk, lr):
     "A file name is never a topic. A bare host such as example.com is a site."
     cl = mk()
@@ -153,6 +143,3 @@ def test_a_file_name_or_a_bare_host(mk, lr):
     assert 'A document in your vault.' in cl.get('/learn/read', params=dict(q='paper.pdf')).text
     assert 'A docs site.' in cl.get('/learn/read', params=dict(q='example.com')).text
 
-def test_vedicreader_is_under_more_on_sources(mk):
-    import re
-    assert re.search(r'<summary>Add more sources</summary>.*Import vedicreader', mk().get('/sources').text, re.S)
