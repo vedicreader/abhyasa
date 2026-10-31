@@ -7,14 +7,15 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 # %% auto #0
 __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'MATH_MOST', 'SORT_SP', 'ARXIV_ID', 'LOCAL_ENDS', 'NOT_LOCAL', 'NOT_FOUND', 'log',
            'ARXIV_HTML', 'ARXIV_FIGS', 'READERS', 'PLAIN', 'LOCALE', 'LANGS', 'SHORT', 'EMPTY', 'ARXIV_LINK',
-           'TREE_TYPES', 'TREE_SKIP', 'TREE_FILES', 'TREE_MB', 'TREE_TOTAL_MB', 'TREE_SEEN', 'NO_READ', 'GH_NAME',
-           'NOT_REPOS', 'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'VR_ROOT', 'RASI', 'quoted', 'group_line',
-           'add_group', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'math_cut', 'extract',
-           'from_vault', 'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts',
-           'link_folder', 'in_scope', 'link_sel', 'LinkError', 'local_name', 'public_url', 'link_kind', 'reading_order',
-           'math_md', 'read_arxiv_html', 'save_figures', 'file_link', 'as_link', 'is_id_title', 'arxiv_title',
-           'is_paper', 'tree_ok', 'tree_files', 'folder_why', 'file_folder', 'vault_roots', 'root_docs', 'unfile',
-           'gh_name', 'gh_public', 'clone_repo', 'file_repo', 'source_of', 'plain', 'from_vedicreader']
+           'TREE_TYPES', 'TREE_SKIP', 'TREE_FILES', 'TREE_MB', 'TREE_TOTAL_MB', 'TREE_SEEN', 'TREE_TOP', 'CODE_DIRS',
+           'DOC_DIRS', 'COURSE', 'NO_READ', 'GH_NAME', 'NOT_REPOS', 'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU',
+           'VR_ROOT', 'RASI', 'quoted', 'group_line', 'add_group', 'extract_prompt', 'doc_pages', 'locate',
+           'figure_path', 'placement', 'math_cut', 'extract', 'from_vault', 'sort_prompt', 'Places', 'propose_groups',
+           'apply_groups', 'place_new', 'fetch_opts', 'link_folder', 'in_scope', 'link_sel', 'LinkError', 'local_name',
+           'public_url', 'link_kind', 'reading_order', 'math_md', 'read_arxiv_html', 'save_figures', 'file_link',
+           'as_link', 'is_id_title', 'arxiv_title', 'is_paper', 'tree_ok', 'tree_rank', 'tree_files', 'folder_why',
+           'file_folder', 'vault_roots', 'root_docs', 'unfile', 'gh_name', 'gh_public', 'clone_repo', 'file_repo',
+           'source_of', 'plain', 'from_vedicreader']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re, shutil
@@ -644,9 +645,12 @@ from urllib.parse import quote
 from .ground import SKIP_DIRS, index_notebooks
 
 # %% ../nbs/04_sources.ipynb #83fe9565
-TREE_TYPES = ('.ipynb', '.md', '.txt', '.py')   # in this order: the caps keep the notebooks first
+TREE_TYPES = ('.ipynb', '.md', '.txt', '.py')
 TREE_SKIP = SKIP_DIRS | {'data', 'datasets'}
 TREE_FILES, TREE_MB, TREE_TOTAL_MB, TREE_SEEN = 400, 20, 200, 20_000   # the most files, MB of one file, MB of one filing, names looked at
+TREE_TOP = 160   # the most files from one top folder, until each other top folder has its files
+CODE_DIRS, DOC_DIRS = ('examples', 'scripts'), ('docs', 'doc')
+COURSE = 0.1     # a folder with this part of its files as notebooks is a course: its other code is in its notebooks
 
 def tree_ok(p, root, most:int=None) -> bool:
     "Whether abhyasa may read the file `p` under the folder `root`: not a link, not a hard link, at most `most` bytes (default `TREE_MB` MB), and inside `root` after each link is resolved."
@@ -657,28 +661,59 @@ def tree_ok(p, root, most:int=None) -> bool:
         return st.st_nlink == 1 and st.st_size <= most and p.resolve().is_relative_to(Path(root).resolve())
     except OSError: return False
 
-def tree_files(root) -> L:
-    """The files under the folder `root` that abhyasa files, in path order. No link, no hard link, nothing outside `root`,
-    no `.py` when the folder has notebooks, at most `TREE_FILES` files and `TREE_TOTAL_MB` MB. `cut` says why it stopped early, or is ''."""
-    root, got, seen, nbs = Path(root).resolve(), [], 0, False
+def tree_rank(rel, course:bool=False, want=()) -> int|None:
+    """The place of the file at the path `rel` (in its folder) in the filing order, from 0, or None when abhyasa does not file it:
+    the files that you name (`want`), the top README, the notebooks, the READMEs of `examples/`, its training scripts, its other
+    scripts, the English docs, the other text, the other code (none in a course), and last the docs in other languages."""
+    rel = Path(rel)
+    parts, name, suf = rel.parts, rel.name.lower(), rel.suffix.lower()
+    top, readme = parts[0] if len(parts) > 1 else '', name.startswith('readme')
+    if rel.as_posix() in want: return 0
+    if readme and not top: return 1
+    if suf == '.ipynb': return 2
+    if readme and top in CODE_DIRS: return 3
+    if suf == '.py' and top in CODE_DIRS: return 4 if name.startswith('train') else 5
+    if top in DOC_DIRS and suf != '.py':
+        langs = [p for p in parts[1:-1] if _locale(p)]
+        return 6 if all(p.lower().startswith('en') for p in langs) else 9
+    if suf == '.py': return None if course else 8
+    return 7
+
+def tree_files(root, want=()) -> L:
+    """The files under the folder `root` that abhyasa files, in path order. No link, no hard link, nothing outside `root`.
+    At most `TREE_FILES` files and `TREE_TOTAL_MB` MB, taken in the order of `tree_rank`. One top folder gives at most `TREE_TOP`
+    files until each other top folder has its files; then the room that is left takes the rest, in the same order. `want`: paths
+    in `root` to file first. `cut` says why it stopped early, or is ''."""
+    root, got, seen, nbs, n = Path(root).resolve(), [], 0, 0, 0
     for dp, dns, fns in os.walk(root):   # `os.walk` does not go into a link to a folder
         dns[:] = sorted(d for d in dns if d not in TREE_SKIP and not d.startswith('.'))
         for f in sorted(fns):
             seen += 1
             p = Path(dp)/f
             if f.startswith('.') or p.suffix.lower() not in TREE_TYPES or p.is_symlink(): continue
-            nbs = nbs or p.suffix.lower() == '.ipynb'
+            n += 1; nbs += p.suffix.lower() == '.ipynb'   # a course: counted before the caps
             if tree_ok(p, root):
-                try: got.append((p, p.lstat().st_size))
+                try: got.append((p, p.relative_to(root), p.lstat().st_size))
                 except OSError: continue
         if seen >= TREE_SEEN: break
-    if nbs: got = [(p, n) for p, n in got if p.suffix.lower() != '.py']   # the code of a course is in its notebooks
-    got.sort(key=lambda x: (TREE_TYPES.index(x[0].suffix.lower()), str(x[0])))
-    keep, total, cut = [], 0, ''
-    for p, n in got:
-        if len(keep) == TREE_FILES: cut = f'abhyasa stopped at {TREE_FILES} files.'; break
-        if total + n > TREE_TOTAL_MB * 2**20: cut = f'abhyasa stopped at {TREE_TOTAL_MB} MB.'; break
+    want = {Path(w).as_posix() for w in want}
+    course = nbs >= COURSE * n > 0
+    got = sorted(((k, len(r.parts), str(r), p, r, n) for p, r, n in got if (k := tree_rank(r, course, want)) is not None), key=lambda x: x[:3])
+    keep, held, tops, total, cut = [], [], {}, 0, ''
+    def take(p, n):
+        nonlocal total, cut
+        if len(keep) == TREE_FILES: cut = f'abhyasa stopped at {TREE_FILES} files.'; return False
+        if total + n > TREE_TOTAL_MB * 2**20: cut = f'abhyasa stopped at {TREE_TOTAL_MB} MB.'; return False
         keep.append(p); total += n
+        return True
+    for *_, p, r, n in got:
+        t = r.parts[0] if len(r.parts) > 1 else ''
+        if tops.get(t, 0) >= TREE_TOP: held.append((p, n)); continue
+        if not take(p, n): break
+        tops[t] = tops.get(t, 0) + 1
+    if not cut:
+        for p, n in held:
+            if not take(p, n): break
     out = L(sorted(keep))
     out.cut = cut
     return out
@@ -693,10 +728,10 @@ def folder_why(p) -> str:
     return NO_FOLDER if not r.is_dir() else '' if os.access(r, os.R_OK | os.X_OK) else NO_READ
 
 # %% ../nbs/04_sources.ipynb #b5b78218
-def _file_tree(lr:Learning, root, shelf:str, name:str, url=None) -> L:
-    "File the files of the folder `root` on `shelf`, with `meta.root=name` and `meta.url=url(path in root)`. The docs, and in `added` the new ones."
+def _file_tree(lr:Learning, root, shelf:str, name:str, url=None, want=()) -> L:
+    "File the files of the folder `root` on `shelf`, with `meta.root=name` and `meta.url=url(path in root)`. `want`: paths in `root` to file first. The docs, and in `added` the new ones."
     root, sh = Path(root).resolve(), lr.vault.shelf(shelf)
-    files = tree_files(root)
+    files = tree_files(root, want)
     key = lambda d: d['meta'].get('path') or d['source']
     had = {key(d): d for d in sh.sources()}
     if nbs := [p for p in files if p.suffix.lower() == '.ipynb']: index_notebooks(lr.vault, (), shelf, files=nbs)
@@ -715,11 +750,11 @@ def _file_tree(lr:Learning, root, shelf:str, name:str, url=None) -> L:
     docs.added, docs.cut = added, files.cut
     return docs
 
-def file_folder(lr:Learning, path, shelf:str='notebooks') -> L:
+def file_folder(lr:Learning, path, shelf:str='notebooks', want=()) -> L:
     "File the folder `path` in your home folder on `shelf`. Each doc keeps `meta.root` (the folder name) and `meta.path`. Raises `LinkError` for a folder that abhyasa does not file."
     if why := folder_why(path): raise LinkError(why)
     r = Path(path).expanduser().resolve()
-    return _file_tree(lr, r, shelf, r.name)
+    return _file_tree(lr, r, shelf, r.name, want=want)
 
 # %% ../nbs/04_sources.ipynb #b809f261
 def vault_roots(lr:Learning, shelf:str='notebooks') -> dict:
@@ -779,10 +814,10 @@ def clone_repo(url:str, timeout:float=600) -> tuple:
     try: return g, Path(gh_clone(f'https://github.com/{g}', timeout=timeout)).resolve()
     except Exception as e: raise LinkError(f'abhyasa could not clone {g}.') from e
 
-def file_repo(lr:Learning, url:str, shelf:str='notebooks') -> L:
+def file_repo(lr:Learning, url:str, shelf:str='notebooks', want=()) -> L:
     "Clone the public GitHub repo `url` (a link or `owner/name`) with `clone_repo`, then file it on `shelf`. Raises `LinkError` with a plain reason."
     g, d = clone_repo(url)
-    return _file_tree(lr, d, shelf, g, url=lambda rel: f'https://github.com/{g}/blob/HEAD/{quote(rel)}')
+    return _file_tree(lr, d, shelf, g, url=lambda rel: f'https://github.com/{g}/blob/HEAD/{quote(rel)}', want=want)
 
 # %% ../nbs/04_sources.ipynb #so0i
 from datetime import datetime

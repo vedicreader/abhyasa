@@ -2,6 +2,7 @@
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
 import hashlib, json, logging, re, tempfile, time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, wait as wait_all
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
@@ -43,6 +44,8 @@ AS_LINK = 'This is a link, so the tutor reads it from the web.'
 NO_DOC = 'No document in your vault has this name. To add a web page or a paper, use A link.'
 NO_REWRITE = 'The tutor could not rewrite this. Nothing changed.'
 KEPT = 'Your edit was kept. The rewrite was not used.'
+FILE_WAIT = 20   # seconds that the plan of a goal waits for its sources; a slower one, such as a big clone, joins the walk when it is filed
+FILERS = 3       # the sources that file at the same time, each on its own job, off the pool of the app
 NO_ADD, NO_SPLIT = 'The tutor could not add this idea. Nothing changed.', 'The tutor could not split this idea. Nothing changed.'
 NOTE_MOST, Q_MOST = 2000, 500        # the most characters of a tutor note and of a check question that you write
 EDIT_ACTS = ('move', 'skip', 'back', 'remove', 'split', 'merge', 'add', 'pick', 'note', 'check', 'q', 'rewrite')
@@ -315,22 +318,61 @@ def connect(app, ctx):
         if kind == 'doc' and (d := lr.vault.doc(v)): return d['title'], L([AttrDict(shelf='store', doc_id=d['id'], title=d['title'], url=d['source'])])
         return v, L()   # vedicreader: the walk reads it as a source, it is not filed
 
+    filer = ThreadPoolExecutor(FILERS, thread_name_prefix='abhyasa-file')
+
+    def file_one(i, st):
+        "On the filer: file the chip `i`. What it gave: `name`, `docs`, `notes`, `filed` (the Undo row, or None), and `bad` for a folder that is refused."
+        kind, _, v = i.partition(':')
+        try: name, ds = file_chip(i, st)
+        except Exception as e:   # one source that fails never stops the walk
+            log.warning('abhyasa could not file the source %r: %r', i, e)
+            why = f' {e}' if isinstance(e, LinkError) and not str(e).startswith('abhyasa could not') else ''
+            return AttrDict(notes=[(f'abhyasa could not clone {v}.' if kind == 'gh' else f'abhyasa could not file {Path(v).name or v}.') + why],
+                            bad=kind in ('folder', 'repo'))   # a refused folder never reaches the plan or the agent
+        added = getattr(ds, 'added', None)
+        return AttrDict(name=name, docs=ds, notes=[f'{name}: {cut}'] if (cut := getattr(ds, 'cut', '')) else [],
+                        filed=dict(root=name, docs=[dict(x) for x in added], at=time.time(), notebooks=sum(str(x.url).endswith('.ipynb') for x in added)) if added else None)
+
+    def still(i): return f"abhyasa is still filing {i.partition(':')[2].rstrip('/').split('/')[-1]}. The walk uses it when it is filed."
+
+    def joined(jid, i, fut):
+        "On the filer, when the chip `i` is filed after its walk `jid` was made: it joins the chips of the walk, with its count, its Undo and its notes."
+        try: o = fut.result()
+        except Exception as e: o = AttrDict(notes=[f'abhyasa could not file {i}.'], bad=True); log.warning('abhyasa could not file %r: %r', i, e)
+        with _jlock(jid):
+            if not (j := lr.journey(jid)): return
+            chips = [x for x in j.get('chips') or () if not (o.get('bad') and x == i)]
+            if not o.get('bad') and i not in chips: chips.append(i)
+            lr.put_journey({**j, 'chips': chips, 'filing': [x for x in j.get('filing') or () if x != i],
+                            'chip_counts': {**(j.get('chip_counts') or {}), **({i: len(o.docs)} if 'docs' in o else {})},
+                            'filed': [*(j.get('filed') or ()), *([o.filed] if o.get('filed') else [])],
+                            'notes': [n for n in j.get('notes') or () if n != still(i)] + o.notes})
+
+    @hook('walk_add_sources')
+    def add_sources(jid, ids):
+        "File the chips `ids` for the walk `jid` that it does not have, each on its own job. Each one joins the walk when it is filed. Gives the ids that it started."
+        with _jlock(jid):
+            if not (j := lr.journey(jid)): return []
+            new = [i for i in dict.fromkeys(ids) if i and i not in (j.get('chips') or ()) and i not in (j.get('filing') or ())]
+            if new: lr.put_journey({**j, 'filing': [*(j.get('filing') or ()), *new]})
+        for i in new: filer.submit(file_one, i, AttrDict(said='')).add_done_callback(lambda f, i=i: joined(jid, i, f))
+        return new
+
     def from_goal(goal, ids, st, subject=''):
-        "On the pool: file each chip that is not in the vault, then plan the walk to `goal` (or, with no goal, walk through the docs). Return the walk id."
+        """On the pool: file each chip that is not in the vault, each on its own job, then plan the walk to `goal` (or, with no goal, walk
+        through the docs). A goal waits at most `FILE_WAIT` seconds: a source that is still filing joins the walk when it is filed. Return the walk id."""
         filed, notes, docs, names, counts = st.setdefault('filed', []), [], L(), [], {}   # `st.filed`: the Undo still works when the walk fails
-        for i in list(ids):
-            kind, _, v = i.partition(':')
-            try: name, ds = file_chip(i, st)
-            except Exception as e:   # one source that fails never stops the walk
-                log.warning('abhyasa could not file the source %r: %r', i, e)
-                why = f' {e}' if isinstance(e, LinkError) and not str(e).startswith('abhyasa could not') else ''
-                notes.append((f'abhyasa could not clone {v}.' if kind == 'gh' else f'abhyasa could not file {Path(v).name or v}.') + why)
-                if kind in ('folder', 'repo'): ids = [x for x in ids if x != i]   # a refused folder never reaches the plan or the agent
-                continue
-            docs += ds; names.append(name); counts[i] = len(ds)
-            if cut := getattr(ds, 'cut', ''): notes.append(f'{name}: {cut}')
-            if added := getattr(ds, 'added', None):
-                filed.append(dict(root=name, docs=[dict(x) for x in added], at=time.time(), notebooks=sum(str(x.url).endswith('.ipynb') for x in added)))
+        jobs = {i: filer.submit(file_one, i, st) for i in dict.fromkeys(ids)}
+        wait_all(jobs.values(), timeout=FILE_WAIT if goal else None)
+        late = [i for i, f in jobs.items() if not f.done()]
+        for i in late: jobs[i].add_done_callback(lambda f: (o := f.result()).get('filed') and filed.append(o.filed))   # its Undo, also when the walk fails
+        for i, f in jobs.items():
+            if i in late: notes.append(still(i)); continue
+            o = f.result(); notes += o.notes
+            if o.get('bad'): ids = [x for x in ids if x != i]
+            if 'docs' not in o: continue
+            docs += o.docs; names.append(o.name); counts[i] = len(o.docs)
+            if o.filed: filed.append(o.filed)
         st.update(said='Planning the walk')
         if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), ctx.sources, False, chips=ids)   # the plan sees the documents of the chips
         elif docs:
@@ -342,7 +384,8 @@ def connect(app, ctx):
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no steps for this goal.' if goal else 'The tutor found no ideas in these sources.')
-        j = lr.merge_journey(j.id, filed=filed, notes=notes, chips=list(ids), chip_counts=counts)
+        j = lr.merge_journey(j.id, filed=filed, notes=notes, chips=list(ids), chip_counts=counts, filing=late)
+        for i in late: jobs[i].add_done_callback(lambda f, i=i: joined(j.id, i, f))   # it can be done now: then it joins at once
         if goal:
             if want_agent(j): ctx.research.gather(j.id); write_notebooks(j)   # a big goal: the agent gathers the sources (D6)
             else: research_new(j)
@@ -450,7 +493,7 @@ def connect(app, ctx):
         seen(j)
         h1, *rest = ui.PlanPage(j, st, by(), run_hook('walk_actions', j, quiet=True), vault=vault)   # Start is the main button; Present is quiet
         band_ = band(j, plan=True)
-        return Page(j.title, h1, ui.Filed(j), band_, *rest, on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
+        return Page(j.title, h1, ui.Filed(j), band_, *rest, *run_hook('walk_plan_more', j), on='Learn', crumbs=up, extra=ui.assets())   # Undo for what Start filed, under the title
 
     def plan(jid:str, i:int, act:str, way:str=''):
         if not (j := walk_of(jid, i)): return Response(status_code=404)

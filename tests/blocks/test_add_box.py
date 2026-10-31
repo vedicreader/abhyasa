@@ -40,11 +40,22 @@ def test_pick_needs_a_mac(mk, home, monkeypatch):
 def test_pick_gives_the_path_and_a_cancel_gives_nothing(mk, home, monkeypatch):
     cl = local(mk())
     calls = chooser(monkeypatch, f'{home/"course22"}/\n')
-    assert cl.post('/learn/pick').json() == dict(path=str(home/'course22'))
+    assert cl.post('/learn/pick').json() == dict(paths=[str(home/'course22')])
     args, kw = calls[0]
     assert args[:2] == ['osascript', '-e'] and 'choose folder' in args[2] and kw['timeout'] == add_app.PICK_WAIT   # a list, no shell
+    assert 'with multiple selections allowed' in args[2] and args.count('-e') == len(add_app.PICK_ASK)
     chooser(monkeypatch, '', code=1)
-    assert cl.post('/learn/pick').json() == dict(path='')
+    assert cl.post('/learn/pick').json() == dict(paths=[])
+
+def test_pick_several_folders_gives_a_chip_for_each(mk, home, monkeypatch):
+    "The chooser gives one POSIX path on each line. Each folder is one path, and the box shows one chip for each."
+    cl = local(mk())
+    (home/'fastbook').mkdir(); (home/'My notes').mkdir()
+    chooser(monkeypatch, f'{home/"course22"}/\n{home/"fastbook"}/\n{home/"My notes"}/\n')
+    paths = cl.post('/learn/pick').json()['paths']
+    assert paths == [str(home/'course22'), str(home/'fastbook'), str(home/'My notes')]
+    h = cl.get('/learn/read', params=dict(q='how noise works', extra=paths)).text
+    for x in paths: assert f'name="sources" value="folder:{x}"' in h
 
 def test_a_picked_path_has_the_checks_of_a_typed_path(mk, home, monkeypatch):
     "start.js adds the picked path as `extra`, as it adds a typed path. A file or a folder that you cannot read is refused with the same line."
@@ -54,7 +65,7 @@ def test_a_picked_path_has_the_checks_of_a_typed_path(mk, home, monkeypatch):
     try:
         for p, why in ((f, NO_FOLDER), (shut, NO_READ)):
             chooser(monkeypatch, f'{p}\n')
-            got = cl.post('/learn/pick').json()['path']
+            got, = cl.post('/learn/pick').json()['paths']
             assert got == str(p)
             picked = cl.get('/learn/read', params=dict(q='how noise works', extra=[got])).text
             typed = cl.get('/learn/read', params=dict(q='how noise works', extra=[str(p)])).text
@@ -111,7 +122,7 @@ def test_drag_cue_drops_and_pick_in_a_browser(mk, home):
             try:
                 pg = b.new_page()
                 picked = []
-                pg.route('**/learn/pick', lambda r: (picked.append(1), r.fulfill(status=200, content_type='application/json', body=json.dumps(dict(path=str(home/'course22'))))))
+                pg.route('**/learn/pick', lambda r: (picked.append(1), r.fulfill(status=200, content_type='application/json', body=json.dumps(dict(paths=[str(home/'course22')])))))
                 pg.goto(f'http://127.0.0.1:{port}/learn'); pg.wait_for_selector('#start-form')
                 cue = pg.locator('#start-form .drop-cue')
                 assert not cue.is_visible()
@@ -124,7 +135,7 @@ def test_drag_cue_drops_and_pick_in_a_browser(mk, home):
                 pg.wait_for_function("() => document.getElementById('start-q').value.startsWith('Softmax')")
                 assert pg.input_value('#start-file') == 'notes.txt' and not cue.is_visible()
                 pg.evaluate(DRAG, ['drop', 'dir'])                                       # a folder has no path in a browser
-                pg.wait_for_function("() => document.getElementById('start-say').textContent === 'To add a folder, use Pick a folder.'")
+                pg.wait_for_function("() => document.getElementById('start-say').textContent === 'To add a folder, use Pick folders.'")
                 pg.fill('#start-q', ''); pg.dispatch_event('#start-q', 'input')
                 pg.wait_for_function("() => document.getElementById('start-will')?.textContent && !document.getElementById('start-will').classList.contains('req-err')")
                 pg.click('#start-pick')                                                  # the route is faked: no chooser opens
@@ -132,3 +143,41 @@ def test_drag_cue_drops_and_pick_in_a_browser(mk, home):
                 assert picked and pg.locator('#start-keep input[name=extra]').evaluate('i => i.value') == str(home/'course22')
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
+
+TWO = """() => {
+  const f = document.getElementById('start-form'), dt = new DataTransfer();
+  dt.items.add(new File(['# Noise\\n\\nA diffusion model adds noise, then learns to remove it.'], 'noise.md', {type: 'text/markdown'}));
+  dt.items.add(new File(['The sampler removes the noise in small steps.'], 'steps.txt', {type: 'text/plain'}));
+  f.querySelector('textarea').dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, dataTransfer: dt}));
+}"""
+
+@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
+def test_dropping_two_files_adds_two_chips(mk, home):
+    "Two files in one drop: abhyasa files each one in the vault, and the box shows a chip for each. The box keeps no text."
+    import socket, threading, time, uvicorn
+    from playwright.sync_api import sync_playwright
+    cl = mk()
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_page()
+                pg.goto(f'http://127.0.0.1:{port}/learn'); pg.wait_for_selector('#start-form')
+                pg.evaluate(TWO)
+                pg.wait_for_function("() => document.querySelectorAll('#start-form .schip input[name=sources]').length === 2")
+                ids = pg.eval_on_selector_all('#start-form .schip input[name=sources]', 'xs => xs.map(x => x.value)')
+                names = pg.eval_on_selector_all('#start-form .schip:not(.web) b', 'xs => xs.map(x => x.textContent)')
+                assert all(i.startswith('doc:') for i in ids) and sorted(names) == ['noise', 'steps']
+                assert pg.input_value('#start-q') == ''
+            finally: b.close()
+    finally: srv.should_exit = True; th.join(5)
+
+def test_drops_route_files_each_and_refuses_other_types(mk, home):
+    cl = mk()
+    fs = [('fs', ('a.md', b'# A\n\nAttention mixes the tokens.', 'text/markdown')), ('fs', ('b.png', b'x', 'image/png'))]
+    got = cl.post('/learn/files', files=fs).json()
+    assert len(got['ids']) == 1 and got['said'] == ['b.png: Drop a PDF, a .md or a .txt file.']
