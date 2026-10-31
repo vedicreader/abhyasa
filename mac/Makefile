@@ -129,11 +129,15 @@ gatekeeper:
 
 # V=<version> runs each step of an app release: the pin and the app version go to V, then lock, publish (release,
 # notarize, staple, check) and cask, then one commit in the tap and one in abhyasa, and a push of both.
-# It stops when V is empty or when abhyasa or the tap has changes that are not committed.
+# It stops when V is empty or when abhyasa or the tap has changes that are not committed. Before it changes a file, it waits
+# up to 10 minutes for the abhyasa V wheel on PyPI's simple index (the index that uv reads), and stops if it does not come.
 ship:
 	test -n "$$V" || { echo "Give the version: make ship V=<version>" >&2; exit 1; }
 	test -z "$$(git -C .. status --porcelain)" || { echo "abhyasa has changes that are not committed" >&2; exit 1; }
 	test -z "$$(git -C "$$TAP" status --porcelain)" || { echo "$$TAP has changes that are not committed" >&2; exit 1; }
+	n=0; until curl -fsS https://pypi.org/simple/abhyasa/ | grep -q "abhyasa-$$V-py3-none-any.whl"; do \
+		n=$$((n + 1)); test $$n -le 40 || { echo "abhyasa $$V is not on PyPI after 10 minutes. Release it with nbdev-pypi, then run make ship again." >&2; exit 1; }; \
+		echo "Waiting for abhyasa $$V on PyPI ($$n of 40)"; sleep 15; done
 	python3 -c "import os,re,pathlib; p=pathlib.Path('Resources/Pin/pyproject.toml'); s=p.read_text(); f=lambda m: 'abhyasa['+','.join(x for x in m[1].split(',') if x.strip() not in ('','repos'))+']=='+os.environ['V']; t=re.sub(r'abhyasa\[([^\]]*)\]==[^\x22]+',f,s,count=1); t!=s or os.environ['V'] in s or exit('no abhyasa pin in '+str(p)); p.write_text(t)"
 	grep -n 'abhyasa\[' Resources/Pin/pyproject.toml
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $$V" Resources/Info.plist

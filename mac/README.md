@@ -130,4 +130,5 @@ not commit or push. The cask depends on the `uv` formula. `make -n` and `make -i
 
 `make ship V=<version>` does all of a release in one step. It sets the abhyasa pin and the app version to V, runs
 `make lock`, `make publish` and `make cask`, commits the tap and abhyasa, and pushes both. It stops when V is empty, or when
-abhyasa or the tap has changes that are not committed.
+abhyasa or the tap has changes that are not committed. Before it changes a file, it waits up to 10 minutes for abhyasa V on
+PyPI, and stops if it does not come.
