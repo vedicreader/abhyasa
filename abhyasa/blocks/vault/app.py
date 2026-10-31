@@ -23,8 +23,7 @@ def connect(app, ctx):
     def _get(shelf, doc_id):
         "The shelf and the docs row, or None when the shelf name is unsafe, the document is not there, or it is an open question or the history of an editor."
         if not _SHELF.match(shelf): return None, None
-        try: sh = lr.vault if shelf == 'store' else lr.vault.shelf(shelf)
-        except Exception: return None, None
+        if (sh := lr.doc_shelf(shelf)) is None: return None, None   # never a new shelf, and never a store of names
         d = first(sh.t.docs(where='id=?', where_args=[doc_id]))
         return (None, None) if d and d['kind'] in ('open-q', 'edits') else (sh, d)   # an open question has its answer key, and a history has old text that you took out: the page never shows them
 

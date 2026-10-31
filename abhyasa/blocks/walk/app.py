@@ -239,7 +239,7 @@ def connect(app, ctx):
 
     def paper_said(docs):
         "The wait line of a paper: its page count when the vault knows it."
-        try: n = (lr.vault if docs[0].shelf == 'store' else lr.vault.shelf(docs[0].shelf)).doc(docs[0].doc_id)['pages']
+        try: n = lr.doc_shelf(docs[0].shelf).doc(docs[0].doc_id)['pages']
         except Exception: n = None
         return f"Reading the paper: {n_of(n, 'page')}…" if n else 'Reading the paper…'
 
@@ -394,7 +394,7 @@ def connect(app, ctx):
         if url.strip(): return link_walk(url.strip(), pages, tool, subject)
         if (u := as_link(ref)): return Div(P(AS_LINK, cls='mute'), link_walk(u, '', tool, subject))   # a link in the vault document field
         try:
-            if ref and (lr.vault if shelf == 'store' else lr.vault.shelf(shelf)).doc(ref) is None:
+            if ref and ((sh := lr.doc_shelf(shelf)) is None or sh.doc(ref) is None):
                 log.warning('the tutor could not make a walk: no vault document matches %r', ref)
                 return P(NO_DOC, cls='req-err')
             if ref: j = journey_from_source(lr, ask, ref, shelf, subject, tool)

@@ -25,6 +25,27 @@ def test_sources_page_with_a_store_of_names(mk, lr):
     assert r.status_code == 200
     assert 'notes' in [li.get_text(' ', strip=True).split(' ')[0] for li in BeautifulSoup(r.text, 'html.parser').select('ul.sources > li')]
 
+# The vault viewer opened any shelf name in the link, so a GET added a new empty shelf to the vault, and a store of names gave an error.
+
+def test_vault_viewer_never_makes_a_shelf(mk, lr):
+    names_store(lr); did = notes(lr)
+    cl, before = mk(), shelves(lr)
+    for u in ('/v/entities/x', '/v/dialog0_entities/x', '/v/nope/x', '/v/r/x'):
+        r = cl.get(u)
+        assert r.status_code == 200 and 'No such document' in r.text, u
+    assert shelves(lr) == before
+    assert 'Softmax makes weights' in cl.get(f'/v/notebooks/{did}').text
+
+# A walk from a document on a shelf that is not a shelf of documents says that there is no such document. It does not make the shelf.
+
+def test_walk_from_a_store_of_names(mk, lr):
+    names_store(lr)
+    cl, before = mk(), shelves(lr)
+    for sh in ('entities', 'nope'):
+        r = cl.post('/walk/new', data=dict(ref='x', shelf=sh))
+        assert r.status_code == 200 and 'req-err' in r.text, sh
+    assert shelves(lr) == before
+
 # The tutor finds passages on each shelf of documents. A store of names does not stop it.
 
 def test_vault_source_skips_a_store_of_names(lr):
