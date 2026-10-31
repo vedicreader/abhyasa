@@ -15,7 +15,7 @@ __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'ask', 'pool')
 _P = Path(__file__).parent
 NO_DOC = 'No document in your vault has this name. To add a web page or a paper, paste its link.'
-WEB_ONCE = 'The tutor will search the web for sources. Your topic goes to the search.'
+WEB_ONCE = 'The tutor searches the web for sources. Your topic goes to the search engine.'
 OFF = ' Turn this off in Settings.'   # only when the `from the web` chip, with its own link, does not show
 CAN = 'Paste a link, a paper or a topic. Add a folder or a repo, or drop a file.'
 CUE = 'Drop files to add them as sources.'
@@ -33,7 +33,7 @@ CHIP = dict(paper='paper', repo='repo', site='site', doc='vault', topic='topic',
 NOT_YET = ('video', 'local', 'file_name')   # Start stays off: the line says why
 FOUND = 'abhyasa found these by their names, on this Mac and in your vault. It has read nothing from the web yet.'
 NO_GOAL = 'Write your goal in the box. abhyasa uses the sources below.'
-MORE = 'Add a folder, a repo or a link. abhyasa files it for this walk. The research agent then looks in it too.'
+MORE = 'Add a folder, a repo or a link. abhyasa files it in your vault for this walk, and the tutor looks in it too.'
 NAMES_FOR, DISK_FOR = 300, 60   # seconds that the folder names, and the count of files in one folder, are kept
 STATE = dict(gh='a GitHub repo · cloned when you press Start', folder='a folder on this Mac · added when you press Start',
              repo='a repo on this Mac · added when you press Start', link='a link · read when you press Start', vedic='on this Mac', doc='in your vault')
@@ -195,7 +195,7 @@ def connect(app, ctx):
 
     def Box(q='', file='', doc=''):
         "The Start box. The read part comes from `/learn/read` after 250 ms with no typing (start.js)."
-        return Form(Label('Paste a link, a paper, a topic, a file name or some text', fr='start-q'),
+        return Form(Label('What do you want to learn?', fr='start-q'),
                     Textarea(q, name='q', id='start-q', rows=2, data_mic='label', aria_describedby='start-will'),
                     Input(type='hidden', name='file', value=file, id='start-file'), Say(r := reading(q, file=file, doc=doc)[0]), Doc(r, file, doc),
                     Div(id='start-keep', hidden=True),   # the sources that you added (`extra`) and removed (`drop`): start.js keeps them over each read

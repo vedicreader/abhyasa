@@ -55,7 +55,7 @@ def test_today_and_concept_page(mk, fake):
     today = cl.get('/').text
     assert 'How LLMs work' in today and '0 of 3 ideas' in today and '>path<' in today and 'Now: Tokenizers' in today
     c = cl.get('/c/ranking').text
-    assert 'In your walks' in c and 'step 2 of 3' in c
+    assert 'In your walks' in c and 'idea 2 of 3' in c
     assert 'Continue: How LLMs work' in cl.get('/concepts').text                     # the top bar continues the journey
 
 def test_step_done_in_the_thread(mk, fake, lr):
@@ -66,7 +66,7 @@ def test_step_done_in_the_thread(mk, fake, lr):
     cl.get(f'/s/{sid}')
     fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')
     r = cl.post(f'/s/{sid}/answer', data=dict(answer='tokens', confidence=90)).text
-    assert 'Step done' in r and 'Next in the walk: Ranking' in r
+    assert 'Idea done' in r and 'Next in the walk: Ranking' in r
 
 def test_drop(mk, fake, lr):
     cl = mk()

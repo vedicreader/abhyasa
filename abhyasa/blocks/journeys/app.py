@@ -26,7 +26,7 @@ def connect(app, ctx):
 
     def learn():
         "The Learn tab: your walks, your talks (`learn_talks`) and Start something new (`learn_start`)."
-        return Page('Learn', H1('Learn'), Part('Your walks', ui.JourneyList(listed(), empty='No walks yet. Paste something below.')),
+        return Page('Learn', H1('Learn'), Part('Your walks', ui.JourneyList(listed(), empty='No walks yet. Start one below.')),
                     *run('learn_talks'), Section(H2('Start something new'), *run('learn_start'), id='start'),
                     on='Learn', extra=ui.assets())
 
@@ -35,7 +35,7 @@ def connect(app, ctx):
     def new(goal:str=''):
         if not goal.strip(): return P('Say or type what you want to learn.', cls='req-err')
         try: j = plan(lr, ask, goal.strip(), profile_text(lr.profile()), ctx.sources)
-        except Exception as e: return P(f'The planner did not give a path ({e}). Try again, or say the goal in other words.', cls='req-err')
+        except Exception as e: return P(f'The tutor could not plan a walk ({e}). Try again, or say the goal in other words.', cls='req-err')
         return Response(headers={'HX-Redirect': Routes.of(Routes.path, jid=j.id)})
 
     def one(jid:str):
@@ -89,7 +89,7 @@ def connect(app, ctx):
     @hook('start_more')
     def goal_box():
         "Under More in the Start box: plan a path of concepts from a goal, with no source."
-        return Div(P('Plan a path of concepts, with no source', cls='lbl'), ui.GoalForm(compact=True, label=False))
+        return Div(P('Plan a walk from a goal, with no source', cls='lbl'), ui.GoalForm(compact=True, label=False))
 
     @hook('concept_more')
     def in_journeys(c):

@@ -11,8 +11,8 @@ from abhyasa.settings import val
 from .cfg import Routes
 
 _P = Path(__file__).parent
-STATE = dict(new='new', started='started', learned='learned', known='you know it', skipped='skipped', missing='not on the shelf')
-PLANNING = 'Planning a path. This takes about half a minute…'
+STATE = dict(new='new', started='started', learned='learned', known='you know it', skipped='skipped', missing='not in your concepts')
+PLANNING = 'The tutor plans the walk. This takes about half a minute…'
 
 def assets(): return asset_css(_P/'journeys.css'), asset_js(_P/'journeys.js')
 
@@ -36,10 +36,10 @@ def GoalForm(compact=False, label=True):
     "The box where a walk starts: say or type a goal. The planner suggests a path that you can change. `label=False` when a fold names it."
     return Form(Label('What do you want to learn?', fr='goal') if label else '',
                 Textarea(name='goal', id='goal', rows=1 if compact else 2, data_mic='label', aria_label='Your goal',
-                         placeholder='For example: how LLMs work, from tokens to training. ⌘↵ plans a path.'),
-                Div(Button('Plan a path', cls='plan', data_wait=PLANNING, data_skel='#plan-out'),
-                    Span('The tutor suggests the steps. You can change each one.', cls='mute'), cls='row'),
-                P('The tutor searches the web for sources. The search sees your topic.', cls='mute') if val('research.on') else '',
+                         placeholder='For example: how LLMs work, from tokens to training. ⌘↵ plans the walk.'),
+                Div(Button('Plan a walk', cls='plan', data_wait=PLANNING, data_skel='#plan-out'),
+                    Span('The tutor suggests the ideas. You can change each one.', cls='mute'), cls='row'),
+                P('The tutor searches the web for sources. The search engine sees your topic.', cls='mute') if val('research.on') else '',
                 Div(id='plan-out'), hx_post=Routes.new, hx_target='#plan-out', cls='goal-form' if compact else 'goal-form raised')
 
 def beside(j, js):
@@ -101,14 +101,14 @@ def Act(j, s, act, label, title):
 def Step(j, s, i, n, now):
     "One step: a dot on the line, the concept, its state, why it is in the path, and the changes you can make."
     acts = [Act(j, s, 'up', '↑', 'Move up') if i else '', Act(j, s, 'down', '↓', 'Move down') if i < n - 1 else '',
-            Act(j, s, 'todo', 'Learn it', 'Put it back in the path') if s.state in ('known', 'skipped') else Act(j, s, 'known', 'I know it', 'Mark it known: the path goes on'),
+            Act(j, s, 'todo', 'Learn it', 'Put it back in the walk') if s.state in ('known', 'skipped') else Act(j, s, 'known', 'I know it', 'Mark it known. The walk goes on.'),
             Act(j, s, 'skip', 'Skip', 'Leave it out for now') if s.state not in ('skipped', 'known') else '',
-            Button('Split', type='button', cls='small quiet', title='Split it into smaller steps', hx_post=at(Routes.path_split, j), hx_vals=json.dumps(dict(slug=s.slug)),
+            Button('Split', type='button', cls='small quiet', title='Split it into smaller ideas', hx_post=at(Routes.path_split, j), hx_vals=json.dumps(dict(slug=s.slug)),
                    hx_target='#path', hx_swap='outerHTML', data_wait='Splitting…') if s.state in ('new', 'started') else '',
-            Act(j, s, 'remove', 'Remove', 'Take it out of the path')]
+            Act(j, s, 'remove', 'Remove', 'Take it out of the walk')]
     head = Div(A(s.name, href=f'/c/{s.slug}', cls='name') if s.c else Span(s.name, cls='name'), DepthBar(s.c.floor) if s.c else '',
                Span(STATE[s.state] + (' · now' if now else ''), cls='st'), cls='step-head')
-    learn = A('Learn this step', href=f"{Routes.start}?focus={s.slug}", cls='btn small quiet') if s.state in ('new', 'started') and not now else ''
+    learn = A('Learn this idea', href=f"{Routes.start}?focus={s.slug}", cls='btn small quiet') if s.state in ('new', 'started') and not now else ''
     return Li(Span(cls='dot', aria_hidden='true'), head, P(s.why, cls='why') if s.get('why') else '', Div(learn, *acts, cls='acts'),
               cls=f"step {s.state}" + (' now' if now else ''), id=f'step-{s.slug}')
 
@@ -117,7 +117,7 @@ def Path_(j, pg):
     cur = pg.current.slug if pg.current else None
     way = (Primary('Continue the walk' if j.get('mode') == 'walk' else f'Continue: {pg.current.name}', href=go(j)) if pg.current
            else P('You finished this walk. See what comes after it, below.', cls='done-note'))
-    return Div(Div(Span(f"{pg.done} of {n_of(pg.total, 'step')}", cls='lbl'), Bar(pg.done, pg.total), cls='phead'), Div(way, cls='row'),
+    return Div(Div(Span(f"{pg.done} of {n_of(pg.total, 'idea')}", cls='lbl'), Bar(pg.done, pg.total), cls='phead'), Div(way, cls='row'),
                Ol(*[Step(j, s, i, len(pg.steps), s.slug == cur) for i, s in enumerate(pg.steps)], cls='path'),
                Form(Input(type='text', name='name', id='add-topic', data_mic='1', aria_label='Add a topic',
                           placeholder='Add a topic, for example: rotary position embeddings'),
@@ -132,9 +132,9 @@ def UseSources(j):
                 hx_post=at(Routes.path_sources, j), hx_swap='outerHTML', cls='use-sources row')
 
 def JourneyPage(j, pg, after=(), others=(), actions=()):
-    near = [*([H2('After this' if pg.finished else 'Next to this path'),
+    near = [*([H2('After this' if pg.finished else 'Near this walk'),
                Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
-                       Button('Add to the path', type='button', cls='small quiet', hx_post=Routes.attach, hx_vals=json.dumps(dict(jid=j.id, slug=c.slug)),
+                       Button('Add to the walk', type='button', cls='small quiet', hx_post=Routes.attach, hx_vals=json.dumps(dict(jid=j.id, slug=c.slug)),
                               hx_target='#path', hx_swap='outerHTML')) for c in after], cls='plain')] if after else []),
             *([H2('Your other walks'), JourneyList(others, lead=False)] if others else [])]
     return (H1(j.title), P('Your goal: ', Span(j.get('goal', ''), cls='goal'), Span(f"  · changed {ago(j.get('updated'))}", cls='mute'), cls='mute'),
@@ -147,12 +147,12 @@ def InJourneys(c, rows, js):
     have = {j.id for j, _ in rows}
     pick = [j for j in js if j.id not in have]
     return Div(*([H2('In your walks'),
-                  Ul(*[Li(A(j.title, href=at(Routes.path, j)), Span(f"  step {i + 1} of {len(j.steps)}", cls='mute')) for j, i in rows], cls='plain')] if rows else []),
+                  Ul(*[Li(A(j.title, href=at(Routes.path, j)), Span(f"  idea {i + 1} of {len(j.steps)}", cls='mute')) for j, i in rows], cls='plain')] if rows else []),
                Form(Label('Add this idea to a walk', fr='attach-jid', cls='lbl'), Select(*[Option(j.title, value=j.id) for j in pick], name='jid', id='attach-jid'), Input(type='hidden', name='slug', value=c.slug), Input(type='hidden', name='src', value='concept'),
                     Button('Add to the walk', cls='small'), hx_post=Routes.attach, hx_target='this', hx_swap='outerHTML', cls='attach row') if pick else '',
                cls='in-journeys')
 
 def StepDone(c, nxt):
     "A note in the thread when a step of the walk is learned."
-    return Div(Span('Step done', cls='lbl'), P(f"You learned {c.name}. " + (f"Next in the walk: {nxt}." if nxt else 'That was the last step of the walk.')),
+    return Div(Span('Idea done', cls='lbl'), P(f"You learned {c.name}. " + (f"Next in the walk: {nxt}." if nxt else 'That was the last idea of the walk.')),
                cls='step-done')

@@ -26,7 +26,7 @@ def test_web_line_shows_once(mk, lr, walk_fake):
     "The line about the web search shows until a topic walk is made. A topic walk that fails does not count."
     from abhyasa.settings import set_val, val
     set_val('research.told', False)   # the settings folder is shared by the tests
-    cl = mk(); line = 'Your topic goes to the search.'
+    cl = mk(); line = 'Your topic goes to the search engine.'
     assert line in cl.get('/learn/read', params=dict(q='how attention works')).text
     walk_fake.rules['You plan a learning path'] = dict(title='Nothing', subject='ml', steps=[])
     assert 'req-err' in cl.post('/walk/new', data=dict(q='how attention works')).text and not val('research.told')
