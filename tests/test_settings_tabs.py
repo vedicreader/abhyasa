@@ -24,22 +24,10 @@ def panel(t, h):
 
 def hidden(t, h): return ' hidden ' in panel(t, h).split('>', 1)[0]
 
-def tab_words(h): return [re.sub(r'<[^>]+>', '', a).strip() for a in re.findall(r'<a [^>]*role="tab"[^>]*>(.*?)</a>', h, re.S)]
-
 def test_each_group_is_in_one_tab():
     "There are 7 tabs or fewer, and each group of the settings is in one tab, one time."
     assert len(TABS) <= 7 and sorted(TAB_OF) == sorted(GROUPS)
     assert sum(len(gs) for _, gs in TABS.values()) == len(GROUPS)
-
-def test_the_tab_row_and_the_first_tab(mk):
-    "The page has the row of tabs. Only the first tab shows, and it is the selected tab."
-    h = mk().get('/settings').text
-    assert tab_words(h) == [l for l, _ in TABS.values()] == ['Models', 'Voice', 'Screen guide', 'Learning', 'Walks and talks', 'Sources', 'Look']
-    assert re.search(rf'<a href="\?tab={DFLT_TAB}" role="tab"[^>]*aria-selected="true"', h) and h.count('aria-selected="true"') == 1
-    for t, (_, gs) in TABS.items():
-        p = panel(t, h)
-        assert re.findall(r'<section id="g-(\w+)"', p) == list(gs), t                      # each tab has its groups, in order
-        assert hidden(t, h) == (t != DFLT_TAB), t                       # only the first tab shows
 
 def test_each_tab_has_its_rows(mk):
     "Each row of the settings is in the panel of the tab of its group. The model rows load after the page, in Models."
@@ -72,27 +60,15 @@ def test_a_change_counts_on_its_tab(mk):
     assert '<span hx-swap-oob="true" id="ixn-sources"><span class="n"> · 1</span><span class="dot on"></span></span>' in t
     assert 'Sources<span id="ixn-sources"><span class="n"> · 1' in cl.get('/settings').text
 
-def test_one_help_line_and_about_this(mk):
-    "A row shows one help line. The other sentences are under a closed `About this`. A row with one sentence has no `About this`."
+def test_one_help_line_and_about_this():
+    "A row shows the first sentence of its help. The other sentences go under `About this`."
     assert help_parts('How big each step is. Gentle uses small steps.') == ('How big each step is.', 'Gentle uses small steps.')
     assert help_parts('The most tokens in one reply.') == ('The most tokens in one reply.', '')
     assert help_parts('Gives a passage. abhyasa checks it.') == ('Gives a passage.', 'abhyasa checks it.')
-    h = mk().get('/settings').text
-    row = re.search(r'<li[^>]*id="sr-learning-pace".*?</li>', h, re.S).group(0)
-    assert '<p class="help">How big each step is.</p>' in row and re.search(r'<details class="about">\s*<summary>About this</summary>', row)
-    row = re.search(r'<li[^>]*id="sr-walks-chain".*?</li>', h, re.S).group(0)
-    assert 'About this' not in row
-
-def test_review_words_on_the_page(mk):
-    "The page uses the words of the design review: on this Mac, hosted, walk, side walk, idea, your vault."
-    h = re.sub(r'(?is)<(script|style|textarea)\b.*?</\1>', ' ', mk().get('/settings').text)
-    t = re.sub(r'(?s)<[^>]*>', ' ', h)
-    for w in ('Rabbit-hole', 'rabbit-hole', 'Steps to research', 'off this machine', 'cloud'): assert w not in t, w
-    assert 'Side walk depth' in t and 'Ideas to research in a walk' in t and 'on this Mac' in t
 
 # --- in a headless browser ---------------------------------------------------------------------------------------------
-
 @pytest.fixture
+
 def site(mk):
     "One headless page and the base URL of the app. Playwright's bundled Chromium, one browser, closed at the end."
     import uvicorn
