@@ -10,7 +10,7 @@ from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
 from abhyasa.model import DEPTHS
 from abhyasa.sources import source_of
 
-__all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
+__all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo', 'moved_to', 'subject_name']
 
 _here = Path(__file__).parent
@@ -136,6 +136,10 @@ def Page(title, *c, on='', sub='', wide=False, extra=(), crumbs=(), pane=False):
             A('Search ', Kbd('/'), href='/search', cls='nav-search'),   # beside the side pane, in place of the box (pane.css)
             Form(Input(type='search', name='q', placeholder='Search what you learned  /', aria_label='Search'), action='/search'), gear, aria_label='Main'),
             Main(Crumbs(crumbs), Narrow(rh, side), *_under_title(c, sub and SubTabs(on, sub)), cls='wide' if wide else ''), PaneHost(rh, side), *run('page_extra'))
+
+def NotFound(title, *c, **kw):
+    "The friendly page of a walk, an idea, a concept, a course or a document that is not there, with the status 404."
+    return FtResponse(Page(title, *c, **kw), status_code=404)
 
 def moved_to(new, part=''):
     "The handler of an old path that went to `new` for good: a 301 that keeps the query, then goes to the part `part` of the page."

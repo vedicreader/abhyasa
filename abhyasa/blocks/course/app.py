@@ -3,7 +3,7 @@ your data and "Where you start". It adds the course line to Today (`today_top`),
 links a course walk to its course (`walk_actions`, `walk_end`), and joins a new goal walk to its course (`goal_walk`)."""
 import logging, re
 from fasthtml.common import *
-from abhyasa.core import Page, hook, run as run_hook
+from abhyasa.core import Page, NotFound, hook, run as run_hook
 from abhyasa.core.leela import leela_base
 from abhyasa.jobs import track, seen_jobs
 from abhyasa.profile import profile_text
@@ -58,7 +58,7 @@ def connect(app, ctx):
             except Exception as e: log.warning('abhyasa could not build stage %s of %s: %r', key, cid, e)
         return cid
 
-    def missing(): return Page('Course', H1('No such course'), P(A('Home', href='/')), on='Home', crumbs=up)
+    def missing(): return NotFound('Course', H1('No such course'), P(A('Home', href='/')), on='Home', crumbs=up)
 
     def state(cid): return course_state(lr, cid, leela=leela_base() is not None)
 

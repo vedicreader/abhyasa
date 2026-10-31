@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, wait as wait_all
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import n_of, Page, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
+from abhyasa.core import n_of, Page, NotFound, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
 from abhyasa.core.leela import leela_line, leela_link
 from abhyasa.settings import val, set_val
 from abhyasa.detect import detect, vault_title
@@ -97,7 +97,7 @@ def connect(app, ctx):
         "Merge `kv` into step `i` of walk `j` as `j` has it, found again by its concept, so a move in the editor at the same time keeps it on the same idea. The walk now."
         return lr.walk_slug(j['id'], j['steps'][i]['slug'], **kv) or lr.journey(j['id'])
     def go(jid, i): return Redirect(ui.at(Routes.step, jid, i))
-    def missing(): return Page('Walk', H1('No such walk'), P(A('Your walks', href='/')), on='Home', crumbs=up)
+    def missing(): return NotFound('Walk', H1('No such walk'), P(A('Your walks', href='/')), on='Home', crumbs=up)
 
     def walk_of(jid, i=None):
         "The walk `jid`, and step `i` when it is there; None for an unknown walk or step."
@@ -829,7 +829,8 @@ def connect(app, ctx):
 
     def old_path(req, jid:str):
         "An old link to a path (`/path/{jid}`, `/j/{jid}`), from a page, Leela or a vault document: the path becomes a walk, then the walk page opens, with the same query."
-        if (j := lr.journey(jid)): walk_path(lr, j)
+        if not (j := lr.journey(jid)): return missing()
+        walk_path(lr, j)
         return RedirectResponse(ui.at(Routes.one, jid) + (f'?{q}' if (q := req.url.query) else ''), status_code=301)
 
     def migrate():

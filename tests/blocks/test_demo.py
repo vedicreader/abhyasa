@@ -45,7 +45,7 @@ def test_a_demo_has_no_page_of_its_own(mk, lr):
     cl = mk()
     r = cl.get('/demo/reciprocal-rank-fusion', follow_redirects=False)
     assert (r.status_code, r.headers['location']) == (301, '/c/reciprocal-rank-fusion')
-    assert cl.get('/demo/nope', follow_redirects=False).headers['location'] == '/concepts'
+    assert cl.get('/demo/nope', follow_redirects=False).headers['location'] == '/library'
     assert cl.get('/demo/reciprocal-rank-fusion.json').json()['id'] == 'reciprocal-rank-fusion'
     assert cl.get('/demo/nope.json').status_code == 404
 

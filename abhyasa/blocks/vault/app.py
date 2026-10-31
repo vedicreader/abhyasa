@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import quote
 from fasthtml.common import *
 from fastcore.utils import first
-from abhyasa.core import Page, hook, run as run_hook, doc_title
+from abhyasa.core import Page, NotFound, hook, run as run_hook, doc_title
 from abhyasa.sources import extract, figure_path
 from . import ui
 from .cfg import Routes
@@ -48,7 +48,7 @@ def connect(app, ctx):
 
     def doc(shelf:str, doc_id:str):
         sh, d = _get(shelf, doc_id)
-        if d is None: return Page('Not found', H1('No such document'), P(f'The {shelf} shelf has no document {doc_id}.', cls='mute'), on='Library', crumbs=[('Home', '/')])
+        if d is None: return NotFound('Not found', H1('No such document'), P(f'The {shelf} shelf has no document {doc_id}.', cls='mute'), on='Library', crumbs=[('Home', '/')])
         text, imgs = images(shelf, d, sh.document(doc_id, max_chars=200000).text)
         return Page(doc_title(d['title']) or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id), imgs), on='Library', crumbs=[('Sources', '/sources')])
 

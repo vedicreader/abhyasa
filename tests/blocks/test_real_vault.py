@@ -32,7 +32,7 @@ def test_vault_viewer_never_makes_a_shelf(mk, lr):
     cl, before = mk(), shelves(lr)
     for u in ('/v/entities/x', '/v/dialog0_entities/x', '/v/nope/x', '/v/r/x'):
         r = cl.get(u)
-        assert r.status_code == 200 and 'No such document' in r.text, u
+        assert r.status_code == 404 and 'No such document' in r.text, u
     assert shelves(lr) == before
     assert 'Softmax makes weights' in cl.get(f'/v/notebooks/{did}').text
 

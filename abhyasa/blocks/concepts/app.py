@@ -3,7 +3,7 @@ import json, logging, re, threading, uuid
 from urllib.parse import urlencode
 from fasthtml.common import *
 from fastcore.basics import AttrDict
-from abhyasa.core import Page, RouteOverrides, hook, moved_to
+from abhyasa.core import Page, NotFound, RouteOverrides, hook, moved_to
 from abhyasa.settings import val
 from abhyasa.store import clean_group, clean_name, under, GROUP_DEPTH, GROUP_LEN
 from abhyasa.sources import propose_groups, apply_groups, place_new
@@ -133,7 +133,7 @@ def connect(app, ctx):
 
     def one(slug:str):
         c = lr.concept(slug)
-        if not c: return Page('Concept', ui.P('No such concept.'), on='Library')
+        if not c: return NotFound('Concept', H1('No such concept'), P(A('Your concepts', href=Routes.base)), on='Library', crumbs=[('Home', '/'), ('Library', Routes.base)])
         with link_lock:   # the GET does no search: old links come on the pool, and the next visit shows them
             go = lr.stale_links(c) and slug not in linking
             if go: linking.add(slug)

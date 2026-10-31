@@ -34,7 +34,7 @@ def connect(app, ctx):
     def page(slug:str):
         "A demo has no page of its own: it opens in the Show slot of its idea, on the concept page."
         d = lr.demo(slug)
-        return RedirectResponse(f'/c/{d.concept}' if d and lr.concept(d.concept) else '/concepts', status_code=301)
+        return RedirectResponse(f'/c/{d.concept}' if d and lr.concept(d.concept) else '/library', status_code=301)   # one 301: not through the old /concepts
 
     def open_q(at):
         "The open question of the place `at`: by `qid` (a session), or the check of the walk step; None when no check is open."
