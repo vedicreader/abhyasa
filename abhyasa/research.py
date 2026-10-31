@@ -28,7 +28,8 @@ from .store import Learning, _union
 from .settings import val, source_root_why
 from .llm import HOSTED, ask_json, for_task, ramabana_worker, ramabana_lead
 from .prompts import register, prompt
-from .journey import _jlock, chip_docs
+from .journey import _jlock, chip_docs, for_talk
+from .jobs import job_start, job_end
 from .sources import doc_pages, link_kind, is_paper, file_link, LinkError, NOT_LOCAL, PLAIN, SHORT, fetch_opts, quoted, public_url, _clip
 from .sources import math_cut, gh_name, clone_repo, source_of, tree_ok
 from .contract import validate_nb_spec
@@ -463,13 +464,16 @@ def research_walk(lr:Learning, ask, j, ix=None, search=None, fetch=None, stop=No
     return out
 
 def _began(lr:Learning, jid:str):
-    "Note on walk `jid` that a research job starts now: it has not ended, nobody stopped it, and its end is not seen yet."
-    with _jlock(jid): lr.merge_journey(jid, research_start=time.time(), research_beat=time.time(), research_end=None, research_stopped=None, research_seen=False)
+    "Note on walk `jid` that a research job starts now: it has not ended and nobody stopped it. Its job row (`walk:<id>:research`) runs."
+    with _jlock(jid): j = lr.merge_journey(jid, research_start=time.time(), research_beat=time.time(), research_end=None, research_stopped=None)
+    job_start(lr, f'walk:{jid}:research', 'research', title=j.get('title') or 'Walk', said='Looking for sources', url=f'/w/{jid}#sources', obj=f'walk:{jid}', quiet=for_talk(j))
 
 def _ended(lr:Learning, jid:str, stopped=None):
-    "Note on walk `jid` that its research ended now (`stopped`: 'you' or 'time' when it did not end by itself), and that nothing reads now."
+    """Note on walk `jid` that its research ended now (`stopped`: 'you' or 'time' when it did not end by itself), and that nothing reads now.
+    Its job row ends: `stopped` when you stopped it, else `done`."""
     with _jlock(jid):
-        if lr.journey(jid): lr.merge_journey(jid, research_end=time.time(), research_stopped=stopped, research_seen=False, gather_now=None)
+        if lr.journey(jid): lr.merge_journey(jid, research_end=time.time(), research_stopped=stopped, gather_now=None)
+    job_end(lr, f'walk:{jid}:research', 'stopped' if stopped == 'you' else 'done', said='The search for sources ended.')
 
 class Researcher:
     "Research on its own pool of one worker, so a long search never holds a demo, a note or a lesson. It keeps the jobs of each walk."

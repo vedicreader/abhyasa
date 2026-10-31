@@ -5,6 +5,7 @@ import logging, re
 from fasthtml.common import *
 from abhyasa.core import Page, hook, run as run_hook
 from abhyasa.core.leela import leela_base
+from abhyasa.jobs import track, seen_jobs
 from abhyasa.profile import profile_text
 from abhyasa.journey import last_place
 from abhyasa.course import (course_state, join_course, course_of, ensure_courses, ask_level, answer_level, level_done, plan_stages,
@@ -24,13 +25,20 @@ def connect(app, ctx):
     def who(): return profile_text(lr.profile())
 
     def submit(cid, k, said, f, *a):
-        "Start the pool job `k` of course `cid`, unless one runs. The job."
+        "Start the pool job `k` of course `cid`, unless one runs, with its job row. The job."
         st = jobs.get((cid, k))
         if not st or st.job.done():
-            st = jobs[cid, k] = AttrDict(said=said, job=ctx.pool.submit(f, *a))
+            c = lr.course(cid)
+            what = ui.JOB_WORDS.get(k) or first(s['name'] for s in c.get('stages') or () if s['key'] == k) or 'A stage'
+            stage = k not in ui.JOB_WORDS   # a stage build makes a walk: the row links to it when it is ready
+            st = jobs[cid, k] = AttrDict(said=said, job=track(lr, f'course:{cid}:{k}', ctx.pool.submit(f, *a), 'course', title=f'{c.title}: {what}', said=said,
+                                                            url=ui.at(cid), obj=f'course:{cid}', why=lambda e: 'abhyasa could not do it. Try again.',
+                                                            ok=(lambda jid: dict(url=Routes.of_(Routes.walk, jid=jid), obj=f'walk:{jid}')) if stage else None))
         return st
 
-    def running(cid, k) -> bool: return (st := jobs.get((cid, k))) is not None and not st.job.done()
+    def running(cid, k) -> bool:
+        "Whether the job `k` of course `cid` runs now, from its job row."
+        return (r := lr.job(f'course:{cid}:{k}')) is not None and r.state == 'running' and (cid, k) in jobs
 
     def build(cid, key):
         "On the pool: make the walk of stage `key`, then let the walk block look for its sources (`walk_made`)."
@@ -56,6 +64,7 @@ def connect(app, ctx):
 
     def one(cid:str):
         if not (st := state(cid)): return missing()
+        seen_jobs(lr, f'course:{cid}')
         grow(st.course)
         pend = ui.Pending(cid, 'level', jobs[cid, 'level'].said) if running(cid, 'level') else ui.Pending(cid, 'plan', ui.PLANNING) if running(cid, 'plan') else None
         return Page(st.course.title, *ui.CoursePage(st, ui.Level(st.course, pending=pend)), on='Home', crumbs=up)

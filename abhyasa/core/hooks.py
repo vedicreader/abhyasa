@@ -3,7 +3,7 @@
 The hooks: `today_top`, `today_next`, `learn_talks`, `learn_start`, `today_end` (the parts of Home, in that order: Continue, the reviews,
 Teach after your courses and walks, Start something new, and the foot, whose parts go on one line);
 `learning_top(subject='')` (the parts of You → Progress after This week: Your strengths, of one subject when `subject` is given) and `learning_end` (the end of Progress);
-`nav_extra` (the right of the top bar);
+`nav_extra` (the right of the top bar: Continue, the activity chip, Explain, in the connect order);
 `page_extra` (once at the end of each page); `concept_actions` and `concept_more` (a concept page); `answer_tools(q, into)` (the session
 composer, and the answer row of a short check on a walk step); `lesson_extra` (under a lesson).
 

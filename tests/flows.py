@@ -7,6 +7,7 @@ from fastcore.basics import AttrDict
 from starlette.routing import Match
 from abhyasa.journey import walk_from_topic
 from abhyasa.llm import Fake
+from abhyasa.jobs import job_start
 from walk_data import walk
 
 SPEC = json.loads((Path(__file__).parent/'data'/'flows.json').read_text())
@@ -134,6 +135,11 @@ def b_course_going(lr, cl, mp):
     goal_walk(lr, 1)
     return '/', {}
 
+def b_home_starting(lr, cl, mp):
+    "A goal walk is being made: its job row runs, as the Start box writes it."
+    job_start(lr, 'build:goal1', 'build', title='Fine-tune diffusion for comics', said='Planning the walk')
+    return '/', dict(said='Planning the walk')
+
 def b_reviews_due(lr, cl, mp):
     due(lr, 'ranking', 'reciprocal-rank-fusion')
     return '/', dict(n=2)
@@ -154,9 +160,9 @@ def topic(lr, **kv):
     lr.walk_step(j.id, 2, research='pending', research_at=now - 60)
     return lr.merge_journey(j.id, research_start=now - 60, research_beat=now - 12, gather=[dict(tool='web_search', target='softmax', at=now - 30, outcome='read')], **kv).id
 
-def running(cl, mp, on=True):
-    "Make the research of each walk look as if it runs now (until job rows exist)."
-    mp.setattr(cl.app.state.svc['research'], 'running', lambda jid, but=0: on)
+def running(lr, jid):
+    "The research of walk `jid` runs now: its job row says so. No fake is needed."
+    job_start(lr, f'walk:{jid}:research', 'research', title=lr.journey(jid).title, said='Looking for sources', url=f'/w/{jid}#sources', obj=f'walk:{jid}')
 
 def started(cl, jid):
     assert cl.post(f'/w/{jid}/start', follow_redirects=False).status_code == 303
@@ -169,7 +175,7 @@ def b_walk_going(lr, cl, mp):
     return f'/w/{jid}', dict(n=2, total=3)
 
 def b_walk_researching(lr, cl, mp):
-    jid = topic(lr); running(cl, mp)
+    jid = topic(lr); running(lr, jid)
     return f'/w/{jid}', dict(have=1, total=3)
 
 def b_walk_research_ended(lr, cl, mp):
@@ -216,7 +222,7 @@ def b_you(lr, cl, mp):
     jid = started(cl, paper(lr, cl)); done(lr, jid, 0)
     return '/you', {}
 
-BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due,
+BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due, ('home', 'starting'): b_home_starting,
          ('walk', 'new'): b_walk_new, ('walk', 'going'): b_walk_going, ('walk', 'researching'): b_walk_researching, ('walk', 'research_ended'): b_walk_research_ended,
          ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty,
          ('concept', 'in_a_walk'): b_concept_in_walk, ('concept', 'not_in_a_walk'): b_concept_alone,
@@ -235,7 +241,7 @@ def d_continue(lr, cl, mp, fake):
 
 def d_find_sources(lr, cl, mp, fake):
     "From an idea, the title in the outline opens the walk page; its sources part has the research line with Stop and Show what it did."
-    jid = started(cl, topic(lr)); running(cl, mp)
+    jid = started(cl, topic(lr)); running(lr, jid)
     a = page(cl, f'/w/{jid}/1').acts['walk'][0]
     assert a.get('href') == f'/w/{jid}'
     pg = page(cl, a.get('href'))

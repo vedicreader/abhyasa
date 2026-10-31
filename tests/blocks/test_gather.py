@@ -148,7 +148,7 @@ def test_band_and_log_routes(mk, lr):
     assert 'Show what it did' in cl.get(f'/w/{j.id}').text   # the plan page has the band
 
 def test_band_runs_then_stop(mk, lr, monkeypatch):
-    "While the agent runs, the band asks again every 3 s and names the document that it reads now. Stop ends the job, and the band says so."
+    "While the agent runs, the band waits on the event stream of its walk and names the document that it reads now. Stop ends the job, and the band says so."
     j, did = walk(lr)
     agent = Script([('read_doc', dict(doc_id=did, idea=1)), lambda: until(lambda: agent.cancelled)])
     monkeypatch.setattr(R, 'ramabana_lead', lead(agent))
@@ -157,14 +157,15 @@ def test_band_runs_then_stop(mk, lr, monkeypatch):
     until(lambda: lr.journey(j.id).get('gather'))   # the watch writes the rows that wait within 2 s
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
     assert 'Reads nbs/softmax for idea 1. 0 of 2 ideas have a source.' in b and 'Last step' in b
-    assert 'idea 1' in cl.get(f'/w/{j.id}/gather/log').text and 'every 3s' in b and '>Stop<' in b
+    assert 'idea 1' in cl.get(f'/w/{j.id}/gather/log').text and f'data-job="walk:{j.id}"' in b and '>Stop<' in b
     assert '0 of 2 ideas have a source' in cl.get(f'/w/{j.id}/0').text   # the step page has the line while it runs
     p = cl.get(f'/w/{j.id}?plan=1').text   # the plan and the line can be reached after the start
     assert 'You can start now.' in p and 'id="gather"' in p
     assert 'Stopping' in cl.post(f'/w/{j.id}/gather/stop', headers=HX).text or job.done()
     job.result(10)
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
-    assert '0 of 2 ideas have a source. You stopped research at' in b and 'every 3s' not in b
+    assert '0 of 2 ideas have a source. You stopped research at' in b and 'data-job' not in b
+    assert lr.job(f'walk:{j.id}:research').state == 'stopped'   # its job row ended too
     h = cl.get(f'/w/{j.id}/1').text
     assert 'No good source was found. The agent read 0 documents for this idea.' in h and 'Show what it did' in h   # its one read was for idea 1
 

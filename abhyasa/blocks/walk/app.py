@@ -24,6 +24,7 @@ from abhyasa.talk import walk_changes
 from abhyasa.edit import (edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, merge_steps, add_step, split_step,
                           passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite, links_in, propose, improve_walk)
 from abhyasa.research import to_research, wants_source, want_agent, research_state
+from abhyasa.jobs import job_start, job_end, track, Said, seen_jobs
 from abhyasa.tutor import NoLesson
 from abhyasa.demo import queue_demo, job_state, job_age, rung, backed, other_way, demo_lesson, simpler_demo, said, show_ask
 from . import ui
@@ -178,31 +179,19 @@ def connect(app, ctx):
         "Whether Stop was asked for the research of walk `jid`, which may still end its last call."
         return (ev := ctx.research.stops.get(jid)) is not None and ev.is_set()
 
+    def researching(jid):
+        "Whether the research of walk `jid` runs now, from its job row: the row is the truth for the pages."
+        return (r := lr.job(f'walk:{jid}:research')) is not None and r.state == 'running'
+
     def band(j, plan=False):
         "The line of research of walk `j`, as it is now."
-        running = ctx.research.running(j['id'])
+        running = researching(j['id'])
         return ui.GatherBand(j, research_state(j, running), running and halted(j['id']), plan)
 
     def seen(j):
-        "The learner opened walk `j` after its research ended: the notice on each page goes."
-        if j.get('research_end') and not j.get('research_seen') and not ctx.research.running(j['id']):
-            with _jlock(j['id']): lr.merge_journey(j['id'], research_seen=True)
+        "The learner opened walk `j`: each job of the walk that ended is seen, so the activity chip stops showing it."
+        seen_jobs(lr, f"walk:{j['id']}")
 
-    @hook('page_extra')
-    def research_notice():
-        "On any page: a notice for each walk whose research ended in this run of abhyasa, until the learner opens the walk."
-        out = []
-        for jid in list(ctx.research.jobs):
-            if ctx.research.running(jid) or not (j := lr.journey(jid)) or for_talk(j): continue   # a side walk of a talk is for the room
-            if j.get('research_end') and not j.get('research_seen') and time.time() - j['research_end'] < 6 * 3600: out.append(ui.ResearchNotice(j))
-        return Div(*out, cls='research-notices') if out else ''
-
-    def status():
-        "For the Mac app: the walks whose research runs now, and the walks whose research ended in the last 6 hours, each with its title, its link and the time of its end."
-        def row(j): return dict(id=j['id'], title=j.get('title') or 'Walk', url=ui.walk_url(j['id'], 'sources'), end=j.get('research_end'), have=(s := research_state(j)).have, total=s.total)
-        js = [j for jid in list(ctx.research.jobs) if (j := lr.journey(jid)) and not for_talk(j)]
-        return JSONResponse(dict(running=[row(j) for j in js if ctx.research.running(j['id'])],
-                                 ended=[row(j) for j in js if not ctx.research.running(j['id']) and (j.get('research_end') or 0) > time.time() - 6 * 3600]))
     nb_jobs, nb_lock = {}, Lock()   # (walk, concept of the step) -> the research pool job that writes the notebook spec of the step
 
     def nb_writing(jid, i):
@@ -214,7 +203,9 @@ def connect(app, ctx):
         with nb_lock:
             j = walk_of(jid, i)
             if not j or nb_writing(jid, i) or j.steps[i].get('nb') or j.steps[i]['check']['kind'] != 'notebook': return
-            nb_jobs[jid, j.steps[i]['slug']] = ctx.research.pool.submit(walk_engine.nb_spec, lr, ask, j, i)   # nb_spec writes to the step by its concept
+            slug = j.steps[i]['slug']
+            nb_jobs[jid, slug] = track(lr, f'walk:{jid}:nb:{slug}', ctx.research.pool.submit(walk_engine.nb_spec, lr, ask, j, i), 'notebook',   # nb_spec writes to the step by its concept
+                                       title=f"The notebook of {(lr.concept(slug) or {}).get('name', slug)}", said=ui.NB_WRITING, url=ui.at(Routes.step, jid, i), obj=f'walk:{jid}', quiet=True)
 
     def with_folders(j, i):
         "Walk `j` with each of its data folders in the notebook spec of step `i`: a folder that you added after the tutor wrote the spec joins it, so Leela gets it."
@@ -283,9 +274,16 @@ def connect(app, ctx):
         st = links.get(url)
         if not st or st.job.done():
             paper = is_paper(url)   # one paper: the count of pages to read does not apply
-            st = links[url] = AttrDict(said='Reading the paper…' if paper else 'Getting the pages from the link…')
-            st.job = ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() and not paper else None, st, tool, subject)
+            st = links[url] = Said(lr, ui.build_key(url), said='Reading the paper…' if paper else 'Getting the pages from the link…')
+            st.job = built(url, ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() and not paper else None, st, tool, subject),
+                           f'A walk from {url}', st.said)
         return ui.LinkPending(url, st.said)
+
+    def built(k, fut, title, said):
+        "Give the pool job `fut` that makes a walk its job row: running, then `done` with the link of the walk, or `failed` with the reason."
+        return track(lr, ui.build_key(k), fut, 'build', title=title, said=said,
+                     ok=lambda jid: dict(url=ui.at(Routes.one, jid), obj=f'walk:{jid}', title=(lr.journey(jid) or {}).get('title') or title, said='The walk is ready.'),
+                     why=lambda e: str(e) if isinstance(e, LinkError) else NO_LINK)
 
     def file_chip(i, st):
         "On the pool: file the source of the chip id `i` (`gh:`, `folder:`, `repo:`, `link:`), or get its docs (`vault:`, `doc:`). Returns (name, docs)."
@@ -338,6 +336,7 @@ def connect(app, ctx):
                             'chip_counts': {**(j.get('chip_counts') or {}), **({i: len(o.docs)} if 'docs' in o else {})},
                             'filed': [*(j.get('filed') or ()), *([o.filed] if o.get('filed') else [])],
                             'notes': [n for n in j.get('notes') or () if n != still(i)] + o.notes})
+            if not lr.journey(jid).get('filing'): job_end(lr, f'walk:{jid}:filing', said='The sources are filed.')   # the last one is in
 
     @hook('walk_add_sources')
     def add_sources(jid, ids):
@@ -345,7 +344,10 @@ def connect(app, ctx):
         with _jlock(jid):
             if not (j := lr.journey(jid)): return []
             new = [i for i in dict.fromkeys(ids) if i and i not in (j.get('chips') or ()) and i not in (j.get('filing') or ())]
-            if new: lr.put_journey({**j, 'filing': [*(j.get('filing') or ()), *new]})
+            if new:
+                lr.put_journey({**j, 'filing': [*(j.get('filing') or ()), *new]})
+                job_start(lr, f'walk:{jid}:filing', 'filing', title=j.title, said=f"Filing {n_of(len(new) + len(j.get('filing') or ()), 'source')}",
+                          url=ui.walk_url(jid, 'sources'), obj=f'walk:{jid}', quiet=for_talk(j))
         for i in new: filer.submit(file_one, i, AttrDict(said='')).add_done_callback(lambda f, i=i: joined(jid, i, f))
         return new
 
@@ -398,8 +400,8 @@ def connect(app, ctx):
         key = 'goal:' + hashlib.sha1(json.dumps([goal, ids, list(data)]).encode()).hexdigest()[:12]
         st = links.get(key)
         if not st or st.job.done():
-            st = links[key] = AttrDict(said='Planning the walk')
-            st.job = ctx.pool.submit(from_goal, goal, ids, st, subject, data)
+            st = links[key] = Said(lr, ui.build_key(key), said='Planning the walk')
+            st.job = built(key, ctx.pool.submit(from_goal, goal, ids, st, subject, data), goal or 'A walk through your sources', st.said)
         return ui.LinkPending(key, st.said)
 
     def data_drop(jid:str, path:str=''):
@@ -522,7 +524,7 @@ def connect(app, ctx):
         back = leela_back(lr, j)
         j, b = lr.journey(jid), by()
         seen(j)
-        line = [band(j)] if ctx.research.running(jid) or j.get('research_start') or j.get('gather_at') else []   # the line of research is on each step
+        line = [band(j)] if researching(jid) or j.get('research_start') or j.get('gather_at') else []   # the line of research is on each step
         page = ui.StepPage(j, walk_state(j, b), b, i, needs=[*line, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault,
                        present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back))
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
@@ -1120,7 +1122,6 @@ def connect(app, ctx):
     app.get(Routes.gather_log)(gather_log)
     app.post(Routes.gather_stop)(stop_gather)
     app.post(Routes.gather_again)(again)
-    app.get(Routes.status)(status); app.router.routes.insert(0, app.router.routes.pop())   # before the static route for `.json`
     app.post(Routes.new)(new)
     app.get(Routes.job)(job)
     app.post(Routes.unfile)(unfile_)

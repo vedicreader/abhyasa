@@ -13,6 +13,7 @@ ul.attempts .ok { color: var(--ok); } ul.attempts .no { color: var(--no); }
 /* The tree: quiet, a hairline under each branch head, the count muted beside the name. */
 #concepts-view .tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3) var(--s5); margin: var(--s4) 0 var(--s5); }
 #concepts-view .find input { min-width: 260px; }
+.find.row { margin-top: 0; gap: var(--s2); }
 #concepts-view .sort-form .mute { font-size: var(--t-small); }
 details.tree > summary { cursor: pointer; padding: var(--s2) 0; list-style-position: inside; }
 details.tree > summary .n { color: var(--mute); font-size: var(--t-meta); }

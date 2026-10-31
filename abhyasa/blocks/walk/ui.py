@@ -1,5 +1,5 @@
 "A walk on the page: the plan, then one idea at a time with the outline at the left, the passage, the figure, the tutor note and one check."
-import json, re, time
+import hashlib, json, re, time
 from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
@@ -27,6 +27,8 @@ def assets(): return asset_css(_P/'walk.css'), asset_js(_P/'walk.js')
 
 def at(r, jid, i=None): return Routes.of(r, jid=jid, **({} if i is None else dict(i=i)))
 
+WAIT = 'job, every 30s'   # a part that waits for a job: it loads again on an event of the stream (core.js), and every 30 seconds when the stream is not there
+
 def name(by, s): return (by.get(s['slug']) or {}).get('name') or s['slug']
 
 def Bar(done, total, oob=False):
@@ -39,10 +41,14 @@ def pages(steps):
     ps = sorted({s['read']['page'] for s in steps if (s.get('read') or {}).get('page')})
     return '' if not ps else f'p. {ps[0]}' if ps[0] == ps[-1] else f'p. {ps[0]}–{ps[-1]}'
 
+def build_key(k) -> str:
+    "The key of the job row of the walk made from the link or the goal key `k`."
+    return 'build:' + hashlib.sha1(str(k).encode()).hexdigest()[:12]
+
 def LinkPending(url, said):
-    "A walk from a link that is still being made: the card asks the server again in 2 seconds."
-    return Div(P(said), P('This can take some minutes. When the walk is ready, it opens here and shows in your walks.', cls='mute'),
-               cls='walk-link pending', style='animation: none', hx_get=f"{Routes.job}?{urlencode(dict(url=url))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
+    "A walk from a link that is still being made: the card loads again when its job changes (the event stream), or every 30 seconds."
+    return Div(P(said), P('This can take some minutes. When the walk is ready, it opens here. The activity chip at the top says when it is ready.', cls='mute'),
+               cls='walk-link pending', style='animation: none', hx_get=f"{Routes.job}?{urlencode(dict(url=url))}", hx_trigger=WAIT, hx_swap='outerHTML', data_job=build_key(url))
 
 
 def filed_words(f) -> str:
@@ -169,7 +175,7 @@ def has_sources_line(j) -> bool:
 def GatherBand(j, s, stopping=False, plan=False):
     """The line of research of walk `j`, from its state `s` (`research.research_state`), on the plan page and on each step. While it
     runs: what it reads now, the ideas with a source, the time left, the time since its last step, `Stop`, `Show what it did` and
-    on the walk page, that the walk can start now. It asks again every 3 seconds. After it ends: the ideas with a source,
+    on the walk page, that the walk can start now. It loads again on each event of its walk in the stream. After it ends: the ideas with a source,
     how it ended and when, the quotes that abhyasa refused, and `Find sources again` for the ideas with no source. Nothing before research starts."""
     jid = j['id']
     if not (s.running or s.ended or j.get('gather_at')):   # research never ran: Find sources for the ideas with no source, when research is on
@@ -185,17 +191,12 @@ def GatherBand(j, s, stopping=False, plan=False):
                 Quiet('Stop', small=True, type='button', hx_post=at(Routes.gather_stop, jid), hx_target='#gather', hx_swap='outerHTML', data_wait='Stopping…', data_act='stop'))
         line = ' '.join(x for x in (doing_words(s), have, left_words(s.left), beat_words(s.beat)) if x)
         return Div(P(line), P(who_words(j), cls='mute') if who_words(j) else '', P(START_NOW, cls='mute start-now') if plan else '', Div(log, stop, cls='row'), id='gather', cls='gather-band running',
-                   aria_live='polite', hx_get=at(Routes.gather, jid) + ('?plan=1' if plan else ''), hx_trigger='every 3s', hx_swap='outerHTML')
+                   aria_live='polite', hx_get=at(Routes.gather, jid) + ('?plan=1' if plan else ''), hx_trigger=WAIT, hx_swap='outerHTML', data_job=f'walk:{jid}')
     why = j.get('gather_why') or ''
     refused = f" abhyasa left out {n_of(s.refused, 'quote')} that did not match the source word for word." if s.refused else ''
     again = (Quiet('Find sources again', small=True, type='button', hx_post=at(Routes.gather_again, jid), hx_target='#gather', hx_swap='outerHTML',
                    data_wait='Starting…', data_act='find-again') if s.have < s.total and val('research.on') else '')
     return Div(P(f"{have} {ended_words(s)}{refused}"), P(why, cls='mute') if why else '', Div(log, again, cls='row'), id='gather', cls='gather-band')
-
-def ResearchNotice(j):
-    "The notice on any page when the research of walk `j` ended, with a link to the walk."
-    return Div(P(f"Sources for your walk \u2018{j.get('title') or 'Walk'}\u2019 are ready. ", A('Open the walk', href=walk_url(j['id'], 'sources'))),
-               cls='research-notice', role='status', style='max-width:60rem;margin:var(--s3) auto;padding:0 var(--s4);font-size:var(--t-small);color:var(--ink2)')   # on any page, where walk.css is not loaded
 
 def SourceReady(jid, i):
     "The quiet line on a step whose source came while the learner reads: the page does not change until the learner asks."
@@ -233,7 +234,7 @@ def Passage(j, s, c, i=None, looking=False, quiet=False):
         also = [Div(Md(a.get('text') or ''), SourceLine(source_of(a, j)), cls='also') for a in r.get('also') or () if a.get('text')]   # a merge keeps both passages
         return Blockquote(Md(r['text']), SourceLine(source_of(r, j)), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', data_part='passage', **mv)
     wait = i is not None and s.get('research') == 'pending' and looking and val('research.on')
-    poll = dict(hx_get=at(Routes.source, j['id'], i) + '?quiet=1', hx_trigger='load delay:3s', hx_swap='outerHTML') if wait else {}
+    poll = dict(hx_get=at(Routes.source, j['id'], i) + '?quiet=1', hx_trigger=WAIT, hx_swap='outerHTML', data_job=f"walk:{j['id']}") if wait else {}
     return TutorWords((c or {}).get('statement', ''), FindSource(j['id'], i, s, looking) if i is not None else '',
                       id='passage', cls='pending' if wait else '', data_part='passage', **poll, **mv)
 
@@ -450,9 +451,9 @@ def NbGo(jid, i, link=None, spec=True, opened=None):
                P(NO_LEELA, ' ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='mute state'), cls='row acts nb-go')
 
 def NbPending(jid, i, link=None, opened=None):
-    "The notebook spec is not written yet: the card asks the server again in 2 seconds. Leela can open the step now."
+    "The notebook spec is not written yet: the card loads again when its job ends (the event stream). Leela can open the step now."
     return Check(NbHead(), P(NB_WRITING, cls='mute making'), foot=NbGo(jid, i, link, spec=False, opened=opened), cls='pending nb-check', aria_live='polite',
-                 hx_get=at(Routes.check, jid, i), hx_trigger='load delay:2s', hx_target='#check', hx_swap='innerHTML')
+                 hx_get=at(Routes.check, jid, i), hx_trigger=WAIT, hx_target='#check', hx_swap='innerHTML', data_job=f'walk:{jid}')
 
 def NbFailed(jid, i, why, link=None, opened=None):
     "The tutor could not write the notebook spec: the reason and Try again. Leela can still open the step and make its own lesson."

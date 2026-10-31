@@ -96,9 +96,12 @@ def Skipped(cid, s):
                Form(Quiet('Plan it anyway', small=True), action=Routes.of_(Routes.stage, cid=cid, key=s['key']), method='post'),
                P(A('Back to the course', href=at(cid))), cls='course-skipped')
 
+JOB_WORDS = dict(level='Where you start', plan='The stages')   # the job of a course, in the activity chip; another job builds a stage
+
 def Pending(cid, k, said):
-    "A pool job of the course that is still running: the part asks the server again in 2 seconds."
-    return Div(P(said), cls='course-pending', hx_get=f"{Routes.of_(Routes.job, cid=cid)}?{urlencode(dict(k=k))}", hx_trigger='load delay:2s', hx_swap='outerHTML')
+    "A pool job of the course that is still running: the part loads again when the job changes (the event stream), or every 30 seconds."
+    return Div(P(said), cls='course-pending', hx_get=f"{Routes.of_(Routes.job, cid=cid)}?{urlencode(dict(k=k))}", hx_trigger='job, every 30s', hx_swap='outerHTML',
+               data_job=f'course:{cid}')
 
 def _answer(cid, q, a):
     return Button(ANSWERS[a], type='button', cls='small', hx_post=Routes.of_(Routes.answer, cid=cid), hx_vals=json.dumps(dict(key=q['key'], answer=a)),

@@ -45,7 +45,7 @@ Each question goes through the same six steps:
 5.  Update. The result and your confidence change the floor, the ceiling and the next review date of the concept.
 6.  Teach. After a miss, the tutor teaches the smallest step that fixes your first error. Then it asks a check question.
 
-When you say “I don’t know X”, X becomes a concept, and it comes first the next time. Your learning, under You, shows your weak spots, and “Practice my weak spots” starts a session on them. “More about your strengths” shows your strong concepts, your weak spots with their reasons, and the ways that you learn best.
+When you say “I don’t know X”, X becomes a concept, and it comes first the next time. Progress, under You, shows your strong concepts and your weak spots with their reasons, and “Practice my weak spots” starts a session on them. A closed part shows the ways that you learn best.
 
 | term | meaning |
 |----|----|
@@ -356,13 +356,14 @@ The web app is made from blocks in `abhyasa/blocks`:
 | block | what it does |
 |----|----|
 | `today` | Home: continue, the reviews that are due, your courses and walks, Teach (your talks) and the Start box |
-| `history` | your learning: each past session with what changed, and what you learned each week. Continue (⌥C) is in the top bar |
+| `history` | You → Progress: this week, what you learned each week, and each past session with what changed, in a fold. Continue (⌥C) is in the top bar |
+| `jobs` | the activity chip in the top bar: what runs in the background and what ended, each with a link to its page. One event stream tells a page when a job changes |
 | `profile` | what abhyasa knows about you: a short first conversation, your edits, and the changes that the tutor makes, each with its reason |
-| `strengths` | your strong concepts, your weak spots and the ways that you learn best |
+| `strengths` | on Progress: your strong concepts, your weak spots and the ways that you learn best |
 | `session` | one sitting with the tutor: one question at a time, with hints, confidence and “I don’t know” |
 | `voice` | a microphone for each text box. ⌥D speaks into the box that has the focus, on any page |
 | [`settings`](https://vedicreader.github.io/abhyasa/settings.html#settings) | every value that you may change, in groups: the look, learning, walks, checks, review, links, speech, models, list lengths and the tutor prompts. Each number shows its range and its default. A change works on the next question |
-| `concepts` | the list of concepts, and one page for each concept with its state |
+| `concepts` | Library → Concepts: the tree of concepts, and one page for each concept with its state and Open it in your walk |
 | `graph` | the concept graph. You can color it by depth, by how well you know each concept, by subject or by due date |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |
 | [`add`](https://vedicreader.github.io/abhyasa/settings.html#add) | the Start box: read what you paste or drop, then make a walk or find concepts |

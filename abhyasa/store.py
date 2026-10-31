@@ -563,7 +563,7 @@ def search(self:Learning, q:str, kind:str=None, limit:int=10) -> L:
         for h in hs:
             if (r := rows.get(h['doc_id'])) is None: continue
             m = json.loads(r['meta'] or '{}')
-            if r['kind'] in ('stats', 'marker', 'groups', 'open-q', 'edits') or (r['kind'] == 'session' and not _answers(m)): continue
+            if r['kind'] in ('stats', 'marker', 'groups', 'open-q', 'edits', 'jobs') or (r['kind'] == 'session' and not _answers(m)): continue
             if r['kind'] == 'attempt':   # two attempts with the same words are two records, but one hit
                 if (k := (r['title'], h.get('snippet'))) in seen: continue
                 seen.add(k)

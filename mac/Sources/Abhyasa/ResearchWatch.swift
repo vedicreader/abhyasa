@@ -4,7 +4,7 @@ import UserNotifications
 import AbhyasaCore
 
 /// Keeps research of walks going when the window closes, and tells the learner when it ends.
-/// It asks the server for `/walk/research.json` every 5 seconds. While research runs, closing the last window keeps the app in the
+/// It asks the server for `/jobs.json` every 5 seconds and reads its research rows. While research runs, closing the last window keeps the app in the
 /// menu bar; when research ends there, the app quits as before. Each end of research gives a macOS notification; a click opens the walk.
 /// It asks for permission to notify only the first time research runs, never at launch.
 @MainActor

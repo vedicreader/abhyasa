@@ -21,8 +21,8 @@ def goal_walk(lr, done=0):
 def follow(cl, r, tries=200):
     "Ask the pending part again until it gives an answer that is not pending; give that answer."
     for _ in range(tries):
-        if 'HX-Redirect' in r.headers or 'hx-trigger="load delay:2s"' not in r.text: return r
-        m = re.search(r'hx-get="([^"]+)"', r.text); assert m, r.text
+        if 'HX-Redirect' in r.headers or not re.search(r'course-pending|walk-link pending', r.text): return r
+        m = re.search(r'hx-get="([^"]*/job[^"]*)"', r.text); assert m, r.text   # the pending part, not the activity chip
         time.sleep(.05); r = cl.get(m[1].replace('&amp;', '&'))
     raise AssertionError('the job did not end')
 

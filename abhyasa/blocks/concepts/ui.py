@@ -79,7 +79,7 @@ def Find(q='', subject=''):
     "The find box: it filters the tree as you type (concepts.js). Enter sends it, so it works with no script too."
     return Form(Input(type='search', name='q', value=q, id='find', placeholder='Find a concept', aria_label='Find a concept', autocomplete='off'),
                 *([Input(type='hidden', name='subject', value=subject)] if subject else []), Primary('Find', key='', data_act='find'),
-                action=Routes.base, method='get', cls='find', data_part='find')
+                action=Routes.base, method='get', cls='find row', data_part='find')
 
 def Counts(cs):
     "The meta line over the tree: how many concepts, in how many subjects, and how many are not sorted yet."

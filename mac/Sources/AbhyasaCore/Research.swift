@@ -14,7 +14,30 @@ public struct ResearchWalk: Decodable, Equatable, Sendable {
     }
 }
 
-/// `/walk/research.json`: the walks whose research runs now, and the walks whose research ended in the last hours.
+/// One row of `/jobs.json`: a background job of any kind. A research row also has the walk id and its count of ideas with a source.
+struct JobRow: Decodable {
+    let kind: String?
+    let id: String?
+    let title: String?
+    let url: String?
+    let end: Double?
+    let have: Int?
+    let total: Int?
+
+    /// the walk of a research row; nil for a job of another kind
+    var walk: ResearchWalk? {
+        guard kind == "research", let id else { return nil }
+        return ResearchWalk(id: id, title: title ?? "Walk", url: url ?? "", end: end, have: have ?? 0, total: total ?? 0)
+    }
+}
+
+/// `/jobs.json`: the jobs that run now, and the jobs that ended in the last hours.
+struct JobsDoc: Decodable {
+    let running: [JobRow]
+    let ended: [JobRow]
+}
+
+/// The research part of `/jobs.json`: the walks whose research runs now, and the walks whose research ended in the last hours.
 public struct ResearchStatus: Decodable, Equatable, Sendable {
     public let running: [ResearchWalk]
     public let ended: [ResearchWalk]
@@ -25,12 +48,16 @@ public struct ResearchStatus: Decodable, Equatable, Sendable {
 
 /// What the Mac app does with the research of walks: stay alive while it runs, and tell the learner when it ends.
 public enum Research {
-    public static let path = "walk/research.json"
+    public static let path = "jobs.json"   // the server keeps `walk/research.json` for an older app
     /// the line, said one time, when the last window closes while research runs
     public static let menuBarNote = "Abhyasa still looks for sources. It runs in the menu bar."
     public static let notifyTitle = "Sources are ready"
 
-    public static func parse(_ data: Data) -> ResearchStatus? { try? JSONDecoder().decode(ResearchStatus.self, from: data) }
+    /// the research rows of `/jobs.json`; a job of another kind is left out
+    public static func parse(_ data: Data) -> ResearchStatus? {
+        guard let d = try? JSONDecoder().decode(JobsDoc.self, from: data) else { return nil }
+        return ResearchStatus(running: d.running.compactMap(\.walk), ended: d.ended.compactMap(\.walk))
+    }
 
     /// whether the app quits when its last window closes: only when no research runs, so closing the window never stops it
     public static func quitOnLastWindow(running: Int) -> Bool { running == 0 }

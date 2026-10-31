@@ -279,10 +279,10 @@ def connect(app, ctx):
     def page(): return RedirectResponse(Routes.start, status_code=303)   # the old Add page: the Start box on Home has its place
 
     def Filing(j, said=(), told=()):
-        "What Add a source does now for walk `j`: each source that is still filing, and the lines of the last add. It asks again while a source files."
+        "What Add a source does now for walk `j`: each source that is still filing, and the lines of the last add. It loads again on each event of the walk in the stream while a source files."
         fs = j.get('filing') or ()
         rows = [P(f"Filing {i.partition(':')[2].rstrip('/').split('/')[-1]}…", cls='mute') for i in fs]
-        poll = dict(hx_get=f'{Routes.walk_source}?{urlencode(dict(jid=j.id))}', hx_trigger='every 3s', hx_swap='outerHTML') if fs else {}
+        poll = dict(hx_get=f'{Routes.walk_source}?{urlencode(dict(jid=j.id))}', hx_trigger='job, every 30s', hx_swap='outerHTML', data_job=f'walk:{j.id}') if fs else {}
         return Div(*rows, *[P(x, cls='mute') for x in told], *[P(x, cls='req-err') for x in said], id='walk-src-out', **poll)
 
     def keep_mine(j, cs, note, said) -> list:

@@ -248,6 +248,29 @@ const abhyasaQ = () => {
 window.addEventListener('load', abhyasaQ);
 document.addEventListener('htmx:afterSettle', abhyasaQ);
 
+// The event stream of the background jobs (the jobs block). It is open only while a part waits for a job: the activity chip with a
+// running job ([data-stream]), or a part with `data-job` that is not the chip. Each event names a job (`key`) and its object (`obj`);
+// each part whose `data-job` has that object, that key, or `*` loads again (its hx-trigger has `job`). The server sends `end` when no
+// job runs, and the stream shuts. A part that waits also asks every 30 s, so a page with no stream still moves on.
+let abhyasaStream = null;
+function abhyasaJobs() {
+  if (abhyasaStream || !window.EventSource || !document.querySelector('[data-stream], [data-job]:not(#activity)')) return;
+  const v = document.getElementById('activity')?.dataset.v ?? '';
+  const es = abhyasaStream = new EventSource('/events' + (v ? '?v=' + v : ''));
+  const shut = () => { es.close(); if (abhyasaStream === es) abhyasaStream = null; };
+  es.onmessage = e => {
+    let d; try { d = JSON.parse(e.data); } catch { return; }
+    for (const el of document.querySelectorAll('[data-job]')) {
+      const ks = el.dataset.job.split(' ');
+      if (d.obj === '*' || ks.includes('*') || ks.includes(d.obj) || ks.includes(d.key)) htmx.trigger(el, 'job');
+    }
+  };
+  es.addEventListener('end', shut);
+  es.onerror = shut;   // the parts ask every 30 s; the next swap opens a new stream
+}
+document.addEventListener('DOMContentLoaded', abhyasaJobs);
+document.addEventListener('htmx:afterSettle', abhyasaJobs);
+
 // The theme and the mode are data-theme and data-mode on <html>. A choice in #look (the Settings page) shows at once; its form
 // saves it. Then 'abhyasa:theme' tells the parts that read colours from CSS (the graph) to read them again. So does a change of
 // the Mac between light and dark.

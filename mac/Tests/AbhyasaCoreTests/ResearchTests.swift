@@ -34,9 +34,10 @@ import Testing
     }
 
     @Test func parsesTheServerStateAndOpensOnlyAWalkPage() throws {
-        let json = #"{"running": [{"id": "r", "title": "R", "url": "/w/r?plan=1#gather", "end": null, "have": 0, "total": 3}], "ended": []}"#
+        let json = #"{"running": [{"key": "walk:r:research", "kind": "research", "id": "r", "title": "R", "url": "/w/r#sources", "end": null, "have": 0, "total": 3},"# +
+                   #" {"key": "build:1", "kind": "build", "title": "A walk from a link", "url": "", "end": null}], "ended": []}"#
         let s = try #require(Research.parse(Data(json.utf8)))
-        #expect(s.running.count == 1 && s.running[0].end == nil && s.ended.isEmpty)
+        #expect(s.running.count == 1 && s.running[0].id == "r" && s.running[0].end == nil && s.ended.isEmpty)   // a build is not research
         #expect(Research.walkPath(walk) == "/w/fine-tune-1a2b?plan=1#gather")
         #expect(Research.walkPath(ResearchWalk(id: "x", title: "X", url: "https://evil.example/w/x", end: 1, have: 0, total: 1)) == nil)
         #expect(Research.parse(Data("not json".utf8)) == nil)
@@ -44,7 +45,7 @@ import Testing
 
     @Test func statusReadsTheServer() async throws {
         let p = try Port.free()
-        let s = FakeServer(["/walk/research.json": (200, #"{"running": [], "ended": []}"#)])
+        let s = FakeServer(["/jobs.json": (200, #"{"running": [], "ended": []}"#)])
         try s.start(port: p)
         defer { s.stop() }
         #expect(await Research.status(Port.base(p)) == .idle)

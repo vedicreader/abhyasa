@@ -1,0 +1,15 @@
+/* The activity chip in the top bar: a small quiet fold, with a list under it. It shows only when it has a summary. */
+.activity { position: relative; white-space: nowrap; }
+.activity:not(:has(summary)) { display: none; }
+.activity > summary { list-style: none; cursor: pointer; font-size: var(--t-small); color: var(--ink2); padding: 2px var(--s3); border-radius: 999px; background: var(--sunken); }
+.activity > summary::-webkit-details-marker { display: none; }
+.activity > summary.running::before { content: ''; display: inline-block; width: 6px; height: 6px; margin-right: var(--s2); border-radius: 50%; background: var(--acc); vertical-align: middle; animation: activity-beat 1.6s ease-in-out infinite; }
+.activity > summary.failed, .activity > summary.closed { color: var(--no); }
+.activity-list { position: absolute; right: 0; top: calc(100% + var(--s2)); z-index: 30; min-width: 18rem; max-width: 26rem; white-space: normal;
+                 padding: var(--s3) var(--s4); background: var(--raised); box-shadow: var(--lift); border-radius: var(--r); }
+.activity-list ul.plain li { border: 0; }
+.activity-list li { display: flex; flex-direction: column; gap: 2px; padding: var(--s2) 0; font-size: var(--t-small); }
+.activity-list li .mute { font-size: var(--t-lbl); }
+.activity-list li.failed a, .activity-list li.failed > span:first-child { color: var(--no); }
+@keyframes activity-beat { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .activity > summary.running::before { animation: none; } }

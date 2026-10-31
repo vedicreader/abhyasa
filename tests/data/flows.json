@@ -28,18 +28,18 @@
       "new": true
     },
     "walk.jobs.research": {
-      "store": "lr.journey(jid)['jobs']['research'] = {state: running|done|stopped|failed|closed, start, end, have, total, why, seen}",
-      "new": true,
+      "store": "lr.journey(jid)['jobs']['research'] = {state: running|done|stopped|failed|closed, start, end, have, total, why, seen} — built as the row walk:<jid>:research of `jobs`",
+      "new": false,
       "replaces": "research_start, research_end, gather_at, gather_end, research_seen, research_stopped, and Researcher.running() for the page"
     },
     "walk.jobs.build": {
-      "store": "lr.journey(jid)['jobs']['build'] = {state, said, start, end, why}",
-      "new": true,
+      "store": "lr.journey(jid)['jobs']['build'] = {state, said, start, end, why} — built as the row build:<hash> of `jobs`",
+      "new": false,
       "replaces": "walk block `links` dict (memory)"
     },
     "walk.jobs.filing": {
-      "store": "lr.journey(jid)['jobs']['filing'] = {state, roots, why}",
-      "new": true,
+      "store": "lr.journey(jid)['jobs']['filing'] = {state, roots, why} — built as the row walk:<jid>:filing of `jobs`",
+      "new": false,
       "replaces": "j.filing"
     },
     "walk.parent": {
@@ -71,8 +71,8 @@
       "new": false
     },
     "course.jobs": {
-      "store": "lr.course(cid)['jobs'][kind] = {state, said, start, end, why}; kind level|plan|stage:<key>",
-      "new": true,
+      "store": "lr.course(cid)['jobs'][kind] = {state, said, start, end, why}; kind level|plan|stage:<key> — built as the row course:<cid>:<kind> of `jobs`",
+      "new": false,
       "replaces": "course block `jobs` dict (memory)"
     },
     "course.here": {
@@ -102,6 +102,11 @@
     "walk.data": {
       "store": "lr.journey(jid)['data'] = [{path, note}]; your data folders, from the course, Add a source (My data) or the Start box (My data). The walk page shows them under part:sources as part:data, with ×",
       "new": false
+    },
+    "jobs": {
+      "store": "lr.jobs()[key] = {kind, state: running|done|failed|stopped|closed, title, said, start, end, url, obj, why, seen, quiet}: one document of the learning shelf (abhyasa.jobs), so the rows survive a restart",
+      "new": false,
+      "keys": "walk:<jid>:research, walk:<jid>:filing, walk:<jid>:nb:<slug>, build:<hash> (a link or goal walk), course:<cid>:<level|plan|stage key>"
     }
   },
   "nav": {
@@ -158,7 +163,7 @@
       "cost": "One query per page: the newest 10 walks by updated, and the newest open session. No progress() over all concepts."
     },
     "activity": {
-      "rule": "Jobs from walk.jobs.*, course.jobs.* and demo jobs with state running, or with state in done|failed and seen false and end within 6 hours.",
+      "rule": "abhyasa.jobs.activity(lr): the rows with state running, then the rows with state done, failed or closed that are not seen and ended less than 6 hours ago. A quiet row (a side walk of a talk, a notebook spec) never shows.",
       "show_when": "at least one such job",
       "label": "running: '{n} running'; ended: 'Ready: {what}' or 'Failed: {what}'",
       "opens": "a small list; each row links to the page of the object (the walk page, section sources; the course page). Opening the object page sets seen=true.",
@@ -243,15 +248,14 @@
           ]
         },
         "starting": {
-          "when": "a walk.jobs.build with state running (goal, link or folder walk being made)",
+          "when": "a job row of kind build that runs (a goal, link or folder walk being made)",
           "must_show": [
             "part:activity",
-            "the build line walk.jobs.build.said"
+            "label:1 running",
+            "label:{said}"
           ],
           "must_not_show": [],
-          "actions": [],
-          "pending": true,
-          "pending_why": "step 8: job rows and the activity chip"
+          "actions": []
         }
       },
       "entries": [
