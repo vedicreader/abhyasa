@@ -50,10 +50,19 @@ public enum GuideText {
         parts == 0 ? "Reads \(app): the window title only." : "Reads \(app): the window title and \(parts) \(parts == 1 ? "part" : "parts") with text."
     }
 
-    public static func sends(parts: Int, to model: String, local: Bool) -> String {
-        let what = parts == 0 ? "your question and the window title" : "your question, the window title and \(parts) text \(parts == 1 ? "part" : "parts")"
+    public static func sends(parts: Int, to model: String, local: Bool, thread: Bool = false) -> String {
+        var items = ["your question", "the window title"]
+        if parts > 0 { items.append("\(parts) text \(parts == 1 ? "part" : "parts")") }
+        if thread { items.append("your last questions on this window") }
+        let what = items.dropLast().joined(separator: ", ") + " and " + items.last!
         return "Sends \(what) to \(model)." + (local ? " Nothing leaves this Mac." : "")
     }
+
+    /// the thread: the last question over this window, under the box, with Start fresh
+    public static func followsUp(_ said: String) -> String {
+        "Follows up on: " + (said.count > 60 ? String(said.prefix(59)) + "…" : said)
+    }
+    public static let startFresh = "Start fresh"
 
     /// the saved line at the end of a board (P0 item 2)
     public static func saved(_ title: String) -> String { "Saved to your vault: \(title)." }

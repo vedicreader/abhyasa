@@ -35,6 +35,8 @@ public final class StripModel {
     /// the countdown of the board's end: when it started and how long it is
     public var countdown: (start: Date, seconds: Double)?
     public var saved: GuideEvent.Saved?
+    /// the last question over this window, while the next one follows up on it
+    public var follows: String?
     public var sheet: Sheet?
     @ObservationIgnored public var onSend: ((String) -> Void)?
     @ObservationIgnored public var onClose: (() -> Void)?
@@ -42,6 +44,7 @@ public final class StripModel {
     @ObservationIgnored public var onStop: (() -> Void)?
     @ObservationIgnored public var onVoice: (() -> Void)?
     @ObservationIgnored public var onUndo: ((GuideEvent.Saved) -> Void)?
+    @ObservationIgnored public var onFresh: (() -> Void)?
 
     /// one line of state with its chip; the second line, the level and the saved line stay as they are
     public func set(_ line: String, chip: String = "", hosted: Bool = false, detail: String = "") {
@@ -51,7 +54,7 @@ public final class StripModel {
     /// back to an empty strip, with no buttons
     public func clear() {
         set("")
-        level = nil; stoppable = false; board = false; countdown = nil; saved = nil; trail = false
+        level = nil; stoppable = false; board = false; countdown = nil; saved = nil; trail = false; follows = nil
     }
 }
 
@@ -99,6 +102,13 @@ struct StripView: View {
                 HStack(spacing: 8) {
                     Text(GuideText.saved(s.title)).font(.callout).foregroundStyle(.secondary).lineLimit(1)
                     if !s.undo.isEmpty { Button(GuideText.undo) { m.onUndo?(s) }.buttonStyle(.link).controlSize(.small) }
+                }
+            }
+            if let f = m.follows {
+                HStack(spacing: 6) {
+                    Text(GuideText.followsUp(f)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    Button("×") { m.onFresh?() }.buttonStyle(.plain).foregroundStyle(.secondary)
+                        .help(GuideText.startFresh).accessibilityLabel(GuideText.startFresh)
                 }
             }
             if m.trail { Text(GuideText.trail).font(.caption).foregroundStyle(.tertiary) }

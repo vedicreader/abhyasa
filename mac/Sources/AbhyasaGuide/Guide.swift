@@ -36,6 +36,8 @@ public final class Guide {
     let keys = HotKeys()
     let trail = PointerTrail()
     var machine = KeyMachine()
+    /// the last questions over the window in front (`GuideThread`): in memory only
+    var thread = GuideThread()
     var client: GuideClient?
     var reading: Task<Snapshot, Never>?
     var snapshot: Snapshot?
@@ -89,6 +91,7 @@ public final class Guide {
         strip.model.onStop = { [weak self] in self?.stopQuestion() }
         strip.model.onVoice = { [weak self] in self?.toggleVoice() }
         strip.model.onUndo = { [weak self] s in self?.undo(s) }
+        strip.model.onFresh = { [weak self] in self?.startFresh() }
         trail.text = { [weak self] in self?.strip.model.text ?? "" }
         trail.onTrail = { [weak self] pts in self?.overlay.trail(pts) }
         trail.onRing = { [weak self] g in self?.overlay.ring(g) }
@@ -228,10 +231,21 @@ public final class Guide {
                     $0.level = 0
                 } else { $0.chip = GuideText.onThisMac }
             }
+            let follows = thread.current(key: Self.threadKey(snap), now: clock).last?.said
+            strip.update { $0.follows = follows }
             set(talk ? .listening : .ready)
             strip.sheet(firstUseSheet() ?? (talk ? voiceSheet() : nil))
             if talk { await startTalk() }
         }
+    }
+
+    /// the key of the thread: the app and the title of the window that the read found
+    static func threadKey(_ snap: Snapshot) -> String { GuideThread.key(bundle: snap.window?.bundle ?? "", title: snap.window?.title ?? "") }
+
+    /// Start fresh: the next question has no thread
+    func startFresh() {
+        thread.clear()
+        strip.update { $0.follows = nil }
     }
 
     func closeStrip() {
@@ -285,7 +299,7 @@ public final class Guide {
         guard !said.isEmpty, let client else { return }
         let shown = trail.stop()   // what the learner showed with the pointer while they asked
         strip.release()
-        strip.update { $0.trail = false; $0.level = nil; $0.stoppable = true; $0.saved = nil }
+        strip.update { $0.trail = false; $0.level = nil; $0.stoppable = true; $0.saved = nil; $0.follows = nil }
         strip.say(GuideText.reading, chip: GuideText.onThisMac)
         set(.reading)
         drew = false
@@ -296,13 +310,15 @@ public final class Guide {
             var ctx = context(snap)
             let focus = PointerTrail.focus(shown, anchors: ctx.anchors)
             if !focus.isEmpty { ctx.focus = focus }
+            let key = Self.threadKey(snap), turns = thread.current(key: key, now: clock)
+            if !turns.isEmpty { ctx.thread = turns; thread.asked(now: clock) }
             let displays = Display.all, h = Geometry.mainHeight(displays)
             let win = snap.window.map { Geometry.appKit(fromCG: $0.frame, mainHeight: h) } ?? .zero
             guard let d = Geometry.display(for: win, in: displays), let body = try? AnchorList.body(said: said, ctx: ctx) else { return }
             // U12: before the request, what leaves the Mac and to whom
             let parts = Lines.parts(ctx.anchors)
             who = Who.guess(model, names: names)
-            strip.say(GuideText.sends(parts: parts, to: who.model, local: who.local), chip: who.chip, hosted: !who.local,
+            strip.say(GuideText.sends(parts: parts, to: who.model, local: who.local, thread: !turns.isEmpty), chip: who.chip, hosted: !who.local,
                       detail: GuideText.reads(snap.window?.app ?? "this app", parts: parts))
             set(.asking(who))
             overlay.show(on: d, boxes: OverlayPage.boxes(ctx.anchors, display: d, mainHeight: h))
@@ -325,6 +341,7 @@ public final class Guide {
                     case .saved(let s):
                         strip.update { $0.saved = s }
                     case .step, .board:
+                        if case .board = e.kind, let b = GuideThread.board(e.raw) { thread.keep(said: said, says: b.says, tier: b.tier, key: key, now: clock) }
                         if !boardShows { boardShows = true; followWindow(snap.window) }
                         overlay.event(e.raw)
                     case .other: break
