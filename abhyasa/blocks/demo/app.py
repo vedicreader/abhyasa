@@ -2,7 +2,7 @@
 concept page, the thread of a session, the card under a lesson, and "show me …" to the guide. Each Show is an ask, so `/demo/asked/{aid}`
 is its one wait. The kind of each ask says why, and 3D and Leela are one click away.
 A 3D explainer is a rupaka scene. rupaka loads three.js from `Routes.three` only when a scene mounts, so a page with no scene never loads it."""
-import json
+import json, re
 from fasthtml.common import *
 from fastcore.utils import AttrDict
 from starlette.responses import RedirectResponse
@@ -65,10 +65,11 @@ def connect(app, ctx):
             if (ts := [t['test'] for t in (j.steps[int(at['step'])].get('nb') or {}).get('tests') or () if isinstance(t, dict) and t.get('shown') and t.get('test')]): return ' '.join(ts)
         return ''
 
-    def answer_ask(words, at, kind='', aim=''):
+    def answer_ask(words, at, kind='', aim='', into=''):
         """One ask for a demo at the place `at` (`where`, `concept`, `walk` and `step`, or `qid`): Show files it, picks its kind and starts its demo;
         this gives its card. The demo is made from your `words`, else from the open check; with neither, it is the plain demo of the idea.
-        `kind='demo'` asks for the 2D demo, `kind='3d'` for the 3D explainer, and `aim='simpler'` for a simpler demo."""
+        `kind='demo'` asks for the 2D demo, `kind='3d'` for the 3D explainer, and `aim='simpler'` for a simpler demo. With `into` (the id of a
+        card with a 2D demo), the 3D explainer comes in that card, above its 2D demo: the demo that you predict on stays, with the same values."""
         q = open_q(at)
         c = lr.concept(at.get('concept') or (q or {}).get('concept') or '')
         if c is None: return P('No such concept.', cls='mute')
@@ -77,17 +78,21 @@ def connect(app, ctx):
         where = at.get('where') if at.get('where') in ('walk', 'session', 'guide') else 'concept'
         place = dict(walk=at['walk'], step=int(at['step'])) if where == 'walk' else dict(session=(q or {}).get('session', '') or at.get('session', '')) if where == 'session' else {}
         a, route = show(tutor, c.slug, words, where=where, kind=kind or None, ask=text, aim=aim if aim in ui.AIMS else '', values=values_of(at, q), **place)
+        if into:   # Show it in 3D on a 2D card: only the 3D part, into the card; the button goes
+            return Div(Span(ui.KINDS['explainer'], cls='lbl'), P(route.why, cls='mute kind-why'), shown(a, '3d'), Span(id=f'three-btn-{into}', hx_swap_oob='true'))
         vals = {**{k: str(v) for k, v in at.items() if v not in (None, '')}, 'said': words}
         def other(k): return dict(hx_post=Routes.ask, hx_vals=json.dumps({**vals, 'kind': k}), hx_target=f'#ask-{a.id}', hx_swap='outerHTML')   # the other kind, one click away
+        def three(): return dict(hx_post=Routes.ask, hx_vals=json.dumps({**vals, 'kind': '3d', 'into': a.id}), hx_target=f'#three-{a.id}', hx_swap='innerHTML', id=f'three-btn-{a.id}')
         body = P('Open it in Leela to try it in code. Or see a 2D demo or a 3D explainer first.', cls='mute') if route.kind == 'notebook' else shown(a)
         return ui.ShowCard(a, route, body, leela_link(None, topic=c.name, vault=lr.vault.path),
-                           two_d=other('demo') if route.kind == 'notebook' else None, three_d=other('3d') if route.kind != 'explainer' else None)   # a 3D card has its 2D demo under it
+                           two_d=other('demo') if route.kind == 'notebook' else None,
+                           three_d=(three() if route.kind == 'demo' else other('3d')) if route.kind != 'explainer' else None)   # a 3D card has its 2D demo under it
 
-    def ask(concept:str='', said:str='', where:str='', walk:str='', step:str='', qid:str='', kind:str='', aim:str='', session:str=''):
-        "Show me: a demo for the place in the form. In a session, it is a tutor message in the thread of the question."
-        at = dict(where=where, concept=concept, walk=walk, step=step, qid=qid, session=session)
+    def ask(concept:str='', said:str='', where:str='', walk:str='', step:str='', qid:str='', kind:str='', aim:str='', session:str='', values:str='', into:str=''):
+        "Show me: a demo for the place in the form. In a session, it is a tutor message in the thread of the question. `values` are the values of the page that the guide read, so each job of the ask starts from them."
+        at = dict(where=where, concept=concept, walk=walk, step=step, qid=qid, session=session, values=values)
         if where == 'walk' and not (walk and step.isdecimal()): return Response('Name the walk and the step.', status_code=400)
-        out = answer_ask(said, at, kind, aim)
+        out = answer_ask(said, at, kind, aim, into=into if kind == '3d' and re.fullmatch(r'[0-9a-f]{12}', into or '') else '')
         return Msg('', out, cls='tutor extra') if where == 'session' and not kind else out
 
     def asked(aid:str, kind:str=''):

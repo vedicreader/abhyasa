@@ -904,13 +904,16 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
 
 # %% ../nbs/21_guide.ipynb #gs02
 def stream_board(chunks, ctx, on_step=None, sure:float=SURE, stop=None) -> AttrDict:
-    """`parse_board` of the reply that comes in `chunks`. When the header says `sure` or more, `on_step(step, k)` gets each step when it is whole.
-    When the `threading.Event` `stop` is set, it reads no more chunks and closes the stream, so the model call ends and lets go of its backend."""
-    text, sent, seen = '', 0, -1
+    """`parse_board` of the reply that comes in `chunks`. When the header says `sure` or more, `on_step(step, k)` gets each step as soon as
+    its first mark is in, and again each time its strokes change, so the first mark does not wait for the rows of a panel or for the next
+    step. The page adds the strokes that it does not have yet. When the `threading.Event` `stop` is set, it reads no more chunks and closes
+    the stream, so the model call ends and lets go of its backend."""
+    text, sent, seen = '', {}, -1   # the strokes of each step that went out, as JSON
     def send(b, whole):
-        nonlocal sent
         if not on_step or (b.sure or 0) < sure: return
-        for s in b.steps[sent:len(b.steps) - (0 if whole else 1)]: sent += 1; on_step(s, sent)
+        for k, s in enumerate(b.steps, 1):
+            if k == len(b.steps) and not whole and not s['strokes']: break   # the newest step goes out with its first mark
+            if sent.get(k) != (j := json.dumps(s['strokes'], sort_keys=True)): sent[k] = j; on_step(s, k)
     it = iter(chunks)
     try:
         for c in it:

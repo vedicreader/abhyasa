@@ -437,9 +437,13 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     }
     return window.abhyasaBoard && abhyasaBoard.speakBrowser(text, onWord, done);
   }
+  function wavSecs(b) {   // the length of a WAV in seconds, from its header: the data bytes over the bytes per second
+    const v = new DataView(b.buffer, b.byteOffset, b.byteLength), rate = b.length >= 44 ? v.getUint32(28, true) : 0;
+    return rate ? Math.max(0, b.length - 44) / rate : 10;
+  }
   function speakNatural(text, onWord, done) {   // the host speak of board.js: see its API
-    let audio = null, url = null, tick = 0, stopped = false, hush = null;
-    const clean = () => { clearInterval(tick); if (audio) { audio.pause(); audio.removeAttribute('src'); } if (url) URL.revokeObjectURL(url); audio = url = null; };
+    let audio = null, url = null, tick = 0, guard = 0, stopped = false, hush = null;
+    const clean = () => { clearInterval(tick); clearTimeout(guard); if (audio) { audio.pause(); audio.removeAttribute('src'); } if (url) URL.revokeObjectURL(url); audio = url = null; };
     const fail = why => { if (stopped) return; clean(); hush = browserVoice(text, onWord, done, why); };
     line(text).then(d => {
       if (stopped) return;
@@ -449,8 +453,11 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
       let k = 0;
       const mark = () => { while (audio && k < words.length && words[k] <= audio.currentTime + .02) onWord(k++); };
       audio.addEventListener('playing', () => { clearInterval(tick); tick = setInterval(mark, 40); mark(); });
-      audio.addEventListener('ended', () => { while (k < words.length) onWord(k++); clean(); done(); });
+      let over = false;
+      const end = () => { if (over) return; over = true; while (k < words.length) onWord(k++); clean(); done(); };
+      audio.addEventListener('ended', end);
       audio.addEventListener('error', () => fail('the audio did not play'));
+      guard = setTimeout(end, wavSecs(bytes) * 1000 + 2000);   // a line whose end never comes (no audio out, a stuck player): the board goes on after its length + 2 s
       const r = audio.play();
       if (r && r.catch) r.catch(e => fail(e && e.message));
     }).catch(e => fail(e && e.message));
@@ -557,7 +564,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
           if (m.saved) saved = m.saved;
           if (m.error) say(m.error);
           if (m.show) { busy = 0; showDemo(m.show, said); }
-          if (m.step) got.push(m.step);
+          if (m.step) { const k = (m.step.n || got.length + 1) - 1; if (k < got.length) got[k] = m.step; else got.push(m.step); }   // a step comes again as it grows
           if (natural() && voiceOn()) for (const s of m.step ? [m.step] : m.board ? m.board.steps || [] : []) if (s && s.say) line(s.say).catch(() => {});   // each line before it is needed
           if (m.step && !live) {
             last.step_ms = Math.round(performance.now() - t0); mark(); drew = true; drawing();

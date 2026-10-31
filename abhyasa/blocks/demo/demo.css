@@ -25,3 +25,4 @@
 .show-plan .on { color: var(--acc); font-weight: 600; }
 .show-plan .done { color: var(--fg); }
 .show-while > p { margin: var(--s3) 0 0; }
+.three-slot:empty { display: none; }

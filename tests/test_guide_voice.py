@@ -71,3 +71,14 @@ def test_the_browser_voice_offers_the_natural_voice_once(page):
     page.evaluate("abhyasaBoard.stop(); abhyasaGuide.ask('and this')")
     page.wait_for_function("abhyasaBoard.state")
     assert not page.evaluate("document.querySelector('#guide-strip .board-notice')")
+
+def test_a_line_that_never_ends_goes_on_after_its_length(page):
+    "The audio plays but its end never comes (no audio out): after the length of the line plus 2 s, the board lights all its words and goes on."
+    asked = natural(page, lambda d: (200, dict(audio=wav(.2), words=[0, .05, .1, .15], engine='pocket', where='on this Mac')))
+    page.evaluate("""() => { HTMLMediaElement.prototype.play = function () { played.push(this.src); setTimeout(() => this.dispatchEvent(new Event('playing')), 10); return Promise.resolve(); }; }""")
+    two = dict(say='Then it goes on.', strokes=[dict(op='box', at='passage')])
+    page.reply = sse(dict(board=dict(tier='tutor', steps=[SAY, two], sources=[], end='')))
+    page.evaluate("abhyasaGuide.ask('what is this')")
+    page.wait_for_function("window.played.length === 1")
+    assert page.evaluate('abhyasaBoard.state.i') == 0
+    page.wait_for_function("abhyasaBoard.state && abhyasaBoard.state.i === 1", timeout=6000)   # 0.2 s + 2 s, then the wait between steps

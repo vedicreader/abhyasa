@@ -46,7 +46,8 @@
 //       assets                        the URL folder of rough.js and perfect-freehand.mjs. Default '/vendor/'.
 //     A board with `streaming: true` waits for more steps: it can start with step 1 only. The strip shows no step count and
 //     no end line until finish(board).
-//   add(step) -> bool    add one checked step to the streaming board that shows now. When that board waits at its last step
+//   add(step) -> bool    add one checked step to the streaming board that shows now. A step with the `n` of a step that is here
+//                        grows it: its new strokes draw at their word (the server sends a step with its first mark, then again). When that board waits at its last step
 //                        with auto on, it goes on to the new step. False when no streaming board shows.
 //   finish(board) -> bool   the whole checked board for the streaming board that shows now: it adds the steps that are not
 //                        there yet, takes the tier, sources and end of `board`, and stops the wait for steps. False when no
@@ -362,8 +363,9 @@
     document.body.classList.toggle('has-panel', !!on);
     if (!main) return;
     main.style.marginLeft = main.style.maxWidth = '';
-    if (!on || !pic || innerWidth < INLINE || pic.classList.contains('inline')) return;
-    const r = main.getBoundingClientRect(), over = r.right - (pic.getBoundingClientRect().left - 24);
+    if (!on || innerWidth < INLINE || (pic && pic.classList.contains('inline'))) return;
+    const left = pic ? pic.getBoundingClientRect().left : innerWidth - 16 - Math.min(440, innerWidth * .36);   // before the panel comes: its place (board.css --panel-w)
+    const r = main.getBoundingClientRect(), over = r.right - (left - 24);
     if (over <= 0) return;
     const shift = Math.min(over, Math.max(0, r.left - 16));
     main.style.marginLeft = r.left - shift + 'px';   // the right margin stays auto: the width stays
@@ -409,11 +411,11 @@
     const r = m.el.getBoundingClientRect(), box = {x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height};
     for (const e of [m.g, m.ring]) if (e) { e.replaceChildren(); e.style.display = ''; }
     let land = 0;
-    if (b && inked(b)) {   // its own circle on the thing at its word, then the curve 120 ms later, from the circle to the first cell
+    const twin = b && st.marks.some(x => x !== m && x.step === m.step && x.o.op === 'circle' && JSON.stringify(x.o.at) === JSON.stringify(o.at));
+    if (b && inked(b)) {   // its own circle on the thing at its word (none when a circle line has it), then the curve 120 ms later, from the circle to the first cell
       if (!m.ring) { m.ring = svgEl('g'); m.ring.dataset.op = 'circle'; m.ring.dataset.step = m.step; layer().append(m.ring); }
       if (!m.g) { m.g = svgEl('g'); m.g.dataset.op = 'link'; m.g.dataset.step = m.step; layer().append(m.g); }
-      const rp = svgEl('path', 'board-fill board-ring'); m.ring.append(rp);
-      parts.push(stroke(rp, press(ring(b, b.glyphs ? 9 : 12, m.seed)), {size: 3.3}));
+      if (!twin) { const rp = svgEl('path', 'board-fill board-ring'); m.ring.append(rp); parts.push(stroke(rp, press(ring(b, b.glyphs ? 9 : 12, m.seed)), {size: 3.3})); }
       const c0 = (m.el.querySelector('.board-cell, .board-word') || m.el).getBoundingClientRect();
       const inline = p.classList.contains('inline'), x0 = c0.left + scrollX, under = inline && x0 < b.x + b.w && b.x < c0.right + scrollX;
       const to = [x0 + Math.min(18, c0.width / 2), c0.top + scrollY - 3], from = inline ? [b.x + b.w / 2, b.y + b.h + 8] : [b.x + b.w + 10, b.y + b.h / 2];
@@ -712,6 +714,7 @@
   function light(k) {
     if (!st || k <= st.lit) return;
     st.lit = k;
+    if (st.later && st.later.length) { const now = st.later.filter(m => (m.o.w ?? 0) <= k); st.later = st.later.filter(m => !now.includes(m)); now.forEach(m => st.run(m, true)); }
     document.querySelectorAll('#guide-strip .board-say > span').forEach((w, n) => w.classList.toggle('on', n <= k));
   }
   function link(src) {
@@ -773,6 +776,7 @@
     for (const m of st.marks) if (!(forward && PANEL.includes(m.o.op) && m.step < i)) unmount(m);   // on D next the panel and its rows stay
     if (!forward) panelGone();   // else the panel is built again from the marks of the steps up to this one
     st.video = null;
+    if (innerWidth >= INLINE && st.marks.some(m => m.step <= i && PANEL.includes(m.o.op))) room(true);   // the column makes room first, so the scroll below is the last one
     into(st.marks.filter(m => m.step === i));
     const run = (m, live) => {   // a mark that starts: `clear` takes away the marks before it
       if (m.o.op === 'clear') { st.marks.filter(x => x.drawn && (m.o.n == null || x.step === m.o.n - 1)).forEach(unmount); return; }
@@ -785,6 +789,7 @@
       if (live) { const land = fly(m, now); if (!first) m.t0 = Math.max(now, land - 120); }   // the mark draws from the tip of the pointer
       m.dirty = true; paint(m, now);
     };
+    st.run = run; st.later = [];   // a stroke of this step that comes later (grow) starts with `run` at its word
     st.marks.filter(m => m.step < i).forEach(m => { if (m.o.op !== 'demo_set' && m.o.op !== 'video_at') run(m, false); });
     const step = st.board.steps[i], mine = st.marks.filter(m => m.step === i), started = new Set();
     caption();
@@ -816,16 +821,28 @@
   function marksOf(s, k) { return s.strokes.map((o, n) => ({o, step: k, seed: 1 + k * 10 + n, parts: []})); }
   function add(step) {   // see the API at the top of this file
     if (!st || !st.streaming || !step || typeof step.say !== 'string' || !Array.isArray(step.strokes)) return false;
+    if (step.n >= 1 && step.n <= st.board.steps.length) return grow(step.n - 1, step);   // a step that is here: it has more strokes now
     const k = st.board.steps.length;
     st.board.steps.push(step); st.marks.push(...marksOf(step, k));
     if ((st.fast || st.wait) && st.i === k - 1) show(k); else caption();
+    return true;
+  }
+  // Step `k` again, with more strokes: the server sends a step as soon as its first mark is in, then again as it grows (a panel and its
+  // rows). The strokes that are new draw at their word, or at once when the line passed it.
+  function grow(k, step) {
+    const have = st.board.steps[k];
+    if (have.say !== step.say) return false;
+    const old = new Set(have.strokes.map(o => JSON.stringify(o))), more = step.strokes.filter(o => !old.has(JSON.stringify(o)));
+    const ms = more.map((o, j) => ({o, step: k, seed: 1 + k * 10 + have.strokes.length + j, parts: []}));
+    have.strokes.push(...more); st.marks.push(...ms);
+    if (st.i === k && st.run) for (const m of ms) ((m.o.w ?? 0) <= st.lit ? st.run(m, true) : st.later.push(m));
     return true;
   }
   function finish(board) {   // see the API at the top of this file
     if (!st || !st.streaming || !board || !Array.isArray(board.steps)) return false;
     const have = st.board.steps;
     if (board.steps.length < have.length || have.some((s, k) => s.say !== board.steps[k].say)) return false;
-    board.steps.slice(have.length).forEach(add);
+    board.steps.forEach((s, k) => k < have.length ? grow(k, s) : add({...s, n: undefined}));   // the strokes that a step here does not have yet, and the steps that are not here
     Object.assign(st.board, board, {steps: have});
     st.streaming = false;
     caption();

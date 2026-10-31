@@ -193,3 +193,29 @@ def test_an_inline_panel_draws_no_curve_back_up(page):
     ring = page.evaluate("document.querySelector('#board-layer g[data-op=circle]').getBoundingClientRect().bottom")
     links = page.evaluate("[...document.querySelectorAll('#board-layer g[data-op=link]')].filter(g => g.style.display !== 'none' && g.childElementCount).map(g => g.getBoundingClientRect().top)")
     assert all(t >= ring - 2 for t in links), (ring, links)
+
+def test_at_1280_the_ring_is_above_the_strip(page):
+    "At 1280 px, with motion on, the column makes room before the board scrolls: the ring of step 1 ends fully above the strip, and the page does not move after."
+    page.set_viewport_size(dict(width=1280, height=900))
+    page.emulate_media(reduced_motion='no-preference')
+    page.evaluate("""() => document.querySelector('main').insertAdjacentHTML('beforeend', '<div style="height:1400px"></div><pre data-guide-id="m" style="white-space:pre-wrap">x = tensor([18, 47, 56]) and more words that wrap when the column gets narrow ' + 'y'.repeat(120) + '</pre><div style="height:1400px"></div>')""")
+    play(page, [PANEL_STEP])
+    page.wait_for_timeout(1500)
+    y0 = page.evaluate('scrollY')
+    r = page.evaluate("(() => { const g = document.querySelector('#board-layer g[data-op=circle]').getBoundingClientRect(), s = document.getElementById('guide-strip'); return [g.top, g.bottom, s.getBoundingClientRect().top]; })()")
+    assert 0 <= r[0] and r[1] <= r[2], r
+    page.wait_for_timeout(800)
+    assert page.evaluate('scrollY') == y0
+
+def test_a_step_that_comes_again_grows_in_place(page):
+    "The server sends step 1 with its first mark, then again with its rows. The board keeps step 1 and adds only the new rows; then step 2 comes as a new step."
+    s1 = dict(n=1, say='Each test is a question.', strokes=[dict(op='panel', head='Make a question')])
+    play(page, [s1], streaming=True)
+    assert panel(page)['rows'] == []
+    page.evaluate('s => abhyasaBoard.add(s)', {**s1, 'strokes': [*s1['strokes'], row(['[18]'], '47', 'tensor([18])')]})
+    page.wait_for_function("document.querySelectorAll('.board-row').length === 1")
+    page.evaluate('s => abhyasaBoard.add(s)', {**s1, 'strokes': [*s1['strokes'], row(['[18]'], '47', 'tensor([18])'), row(['[18, 47]'], '56', 'tensor([18, 47])')]})
+    page.wait_for_function("document.querySelectorAll('.board-row').length === 2")
+    assert page.evaluate('abhyasaBoard.state.steps') == 1
+    page.evaluate('s => abhyasaBoard.add(s)', dict(n=2, say='Then it adds up.', strokes=[]))
+    assert page.evaluate('abhyasaBoard.state.steps') == 2

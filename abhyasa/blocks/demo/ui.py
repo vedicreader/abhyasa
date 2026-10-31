@@ -75,7 +75,8 @@ def ShowCard(a, route, body, leela, two_d=None, three_d=None):
     """The one card of Show, for each place: the kind and why, the demo (or its wait, or a note), then the other kinds and "Try it in Leela", one click away.
     `two_d` and `three_d` hold the htmx attributes of "Show a 2D demo" and "Show it in 3D" when the ask went to another kind."""
     links = Div(*([Quiet('Show a 2D demo', type='button', **two_d)] if two_d else []), *([ThreeD(three_d)] if three_d else []), TryLeela(leela), cls='row ask-links')
-    return Div(Kind(route.kind, route.why, a.said), body, links, cls='ask-card', id=f'ask-{a.id}', data_ask=a.id)
+    slot = Div(id=f'three-{a.id}', cls='three-slot') if route.kind == 'demo' else ''   # Show it in 3D comes here, above the 2D demo, which stays
+    return Div(Kind(route.kind, route.why, a.said), slot, body, links, cls='ask-card', id=f'ask-{a.id}', data_ask=a.id)
 
 STAGES = dict(queued='Waits for the demo before it', writing='Writes the demo', fixing='A try failed the checks. Writes it again')
 

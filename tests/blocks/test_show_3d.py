@@ -1,5 +1,5 @@
 "Show it in 3D: the 3D route gives a card with a scene, a failed explainer gives the 2D demo, three.js comes from rupaka beside rupaka.js, and a scene draws in a headless browser."
-import socket, threading, time, pytest
+import json, re, socket, threading, time, pytest
 from rupaka.spec import gallery
 from abhyasa.demo import scene_example, REFUSED
 from test_show_me import svc, aid_of
@@ -106,3 +106,22 @@ def test_a_3d_card_draws_a_scene_and_steps_forward(mk, lr):
             finally: b.close()
     finally:
         srv.should_exit = True; th.join(5)
+
+def test_show_it_in_3d_keeps_the_seeded_2d_demo(mk, fake, lr):
+    """"yes, show me it move" makes a 2D demo from the values of the page. Show it in 3D on that card asks for the 3D explainer with the same values,
+    puts it in the card above the 2D demo, and takes the button away. The 2D demo stays, and no second 2D job starts."""
+    import html as H
+    fake.rules['You design one 3D explainer'] = SCENE
+    cl = mk(); t = svc(cl)['tutor']
+    ctx = dict(page='/c/ranking', slug='ranking', anchors=[dict(id='code1', kind='code', text='assert rrf([1, 2], k=60) == 0.032')])
+    ev = [json.loads(l[6:]) for l in cl.post('/guide/ask', json=dict(said='yes, show me it move', ctx=ctx)).text.splitlines() if l.startswith('data: ')][0]
+    for k in list(t.jobs): t.jobs[k].result(timeout=60)
+    card = ev['show']['html']
+    aid = re.search(r'data-ask="([0-9a-f]{12})"', card)[1]
+    assert f'id="three-{aid}"' in card and f'id="three-btn-{aid}"' in card
+    btn = [json.loads(H.unescape(v)) for v in re.findall(r"hx-vals='([^']*)'", card) if '"3d"' in v][0]
+    r = cl.post('/demo/ask', data=btn).text
+    assert '3D explainer' in r and 'The tutor makes a demo' not in r and f'id="three-btn-{aid}"' in r and 'hx-swap-oob' in r   # only the 3D part; the button goes
+    assert sorted(k.split('#')[0] for k in t.jobs) == ['ranking', 'ranking:3d']   # one 2D job and one 3D job
+    asks = lr.asks('ranking')
+    assert {a.ask for a in asks} == {'it move Values from the page: assert rrf([1, 2], k=60) == 0.032'}   # every job of the ask has the values
