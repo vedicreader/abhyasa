@@ -1,10 +1,11 @@
-import json
+import json, re
 from urllib.parse import urlencode
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import subject_name, Cites, Md, DepthBar, when, run, asset_css, asset_js, meta, n_of, Empty, Said, Primary, Secondary, Quiet, Part
 from abhyasa.model import DEPTHS, recall
 from abhyasa.store import tree, fold
+from abhyasa.demo import no_slots, SLOT
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -198,6 +199,27 @@ def _src(p):
     t = p.get('title') or p.get('lesson') or p.get('term') or p.get('key') or p.get('src')   # the stored name stays
     return A(t, href=p['url']) if p.get('url') else t
 
+CODE_LINE = re.compile(r'^\s{2,}\S|^\s*(def|for|while|if|elif|else|return|import|from|class|print)\b|\S\s*[-+*/]?=\s*\S')
+
+def as_code(t:str) -> str:
+    "`t` with each paragraph of two lines or more that reads as code in a fence, so its lines and its indent stay. Text with a fence stays as it is."
+    t = str(t or '')
+    if '```' in t: return t
+    code = lambda p: '\n' in p.strip() and 2 * sum(bool(CODE_LINE.search(l)) for l in p.strip().split('\n')) > len(p.strip().split('\n'))
+    return '\n\n'.join(f"```\n{p.strip(chr(10))}\n```" if code(p) else p for p in re.split(r'\n[ \t]*\n', t))
+
+def asked(q:str) -> str:
+    "The question of an attempt as the page shows it: code keeps its lines, and no slot such as `{x1}` shows (an old attempt kept them)."
+    return as_code(no_slots(q) or SLOT.sub('…', str(q or '')))
+
+def Attempts(attempts):
+    "Your attempts, newest first. The same question asked again is one row: its newest answer, then the earlier answers in a fold."
+    rows = {}
+    for a in attempts: rows.setdefault(' '.join(asked(a.question).split()), []).append(a)
+    def said(a): return (Div(Span('Right' if a.correct else 'Not right', cls='ok k' if a.correct else 'no k'), Md(as_code(a.answer) if a.answer else 'no answer'), cls='mute'), *Said(a))
+    return Ul(*[Li(Md(asked(a.question)), *said(a), Details(Summary(n_of(len(more), 'earlier answer')), Ul(*[Li(*said(x)) for x in more], cls='plain'), cls='more') if more else '')
+                for a, *more in rows.values()], cls='plain attempts')
+
 def ConceptPage(c, by, attempts, groups=()):
     "The concept, its actions, Rename or move (closed), then the reference sections in one quiet group (`.refs`)."
     level = f'level: {DEPTHS[c.floor]}' if c.floor else 'not learned yet'   # the words of the needs line in a walk
@@ -207,9 +229,7 @@ def ConceptPage(c, by, attempts, groups=()):
             Div(Div(H2('Needs first'), Refs(c.prereqs, by)), Div(H2('Related'), Refs(c.related, by)), cls='pair')
             if any(s in by for s in (*c.prereqs, *c.related)) else '',
             H2('Your attempts'),
-            Ul(*[Li(Md(a.question), Div(Span('Right' if a.correct else 'Not right', cls='ok k' if a.correct else 'no k'), Md(a.answer or 'no answer'), cls='mute'), *Said(a))
-                 for a in attempts], cls='plain attempts')
-            if attempts else Empty('You did not answer a question on this idea yet.'),
+            Attempts(attempts) if attempts else Empty('You did not answer a question on this idea yet.'),
             *([H2('Seen in your work'), Cites(c.seen_in, label='')] if c.get('seen_in') else []),
             *([H2('Source'), Ul(*[Li(_src(p)) for p in c.provenance], cls='plain')] if c.provenance else []))
     return (css(), H1(c.name, id='concept-name', data_concept=c.slug), head, Md(c.statement or '', cls='statement'), Div(*run('concept_actions', c), cls='row'),
