@@ -122,6 +122,13 @@ def test_the_pill_in_a_browser(mk, walk_fake, lr):
                     pg.evaluate('abhyasaKF.show(true, false)'); pg.click('#guide-go'); pg.wait_for_selector('#guide-form:not([hidden])')
                     pg.evaluate('abhyasaKF.place()')
                     assert pg.evaluate(COVERS, '#guide-form') == 0, (w, h, 'guide box')
+                assert not pg.is_visible('#kf-mac')                                               # a browser has no guide over other apps
+                mac = b.new_page(user_agent=pg.evaluate('navigator.userAgent') + ' Abhyasa/0.0.16')
+                try:
+                    mac.goto(base + '/'); mac.wait_for_function('document.getElementById("kf").dataset.ready')
+                    mac.evaluate('abhyasaKF.show(true, false)')
+                    assert mac.is_visible('#kf-mac') and mac.get_attribute('#kf-mac', 'href') == GUIDE_LINK   # Abhyasa.app shows the link
+                finally: mac.close()
                 pg.goto(base + '/'); pg.wait_for_function('document.getElementById("kf").dataset.ready')
                 pg.evaluate('abhyasaKF.show(true, false)'); pg.click('#kf-hide')
                 pg.wait_for_function('!document.getElementById("kf")')
@@ -131,3 +138,9 @@ def test_the_pill_in_a_browser(mk, walk_fake, lr):
     finally:
         reset('look.keys_float')
         srv.should_exit = True; th.join(5)
+
+def test_settings_look_has_the_keys_button_switch(mk):
+    "Settings, Look shows the switch of the Keys button under the themes, so you can turn it on again there too."
+    t = mk().get('/settings?tab=look').text
+    sec = t[t.index('id="g-look"'):t.index('id="g-lists"')]
+    assert 'Keys button' in sec and 'type="checkbox"' in sec and 'value="sage"' in sec

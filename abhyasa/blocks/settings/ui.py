@@ -114,13 +114,13 @@ def TabMap():
     "The ids and the tabs, for settings.js. It is in the head, so a link such as /settings#g-voice draws the right tab first, with no jump."
     return Script(f'window.abhyasaSettingTabs = {json.dumps(dict(ids=tab_ids(), tabs=list(TABS)))};')
 
-def Look():
-    "The theme and the mode. A click changes the page at once (core.js), and the form saves the choice."
+def Look(n=0):
+    "The theme and the mode (a click changes the page at once in core.js, and the form saves the choice), then the rows of the group: the Keys button."
     t, m = look()
     def theme(k, note):
         return Label(Input(type='radio', name='theme', value=k, checked=k == t), Span(I(), I(), I(), cls='sw', data_theme=k),
                      Span(Span(k.capitalize(), cls='nm', data_theme=k), Small(note)))
-    return Group('look', 0, extra=(
+    return RowGroup('look', n, lambda r: val(r.name), extra=(
         Form(Div(*[theme(k, n) for k, n in THEMES.items()], cls='themes', role='radiogroup', aria_label='Theme'),
              Div(*[Label(Input(type='radio', name='mode', value=k, checked=k == m), 'Auto, as the Mac' if k == 'auto' else k.capitalize())
                    for k in MODES], cls='modes-pick', role='radiogroup', aria_label='Light or dark'),
