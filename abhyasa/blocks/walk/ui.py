@@ -634,15 +634,19 @@ def WalkEnd(j, st, ms, by, sides=(), due=None, end=(), made=''):
 IMPROVE_CHIPS = (('Simpler', 'Make the walk simpler.'), ('Harder', 'Make the walk harder.'), ('Add an idea', 'Add the idea '))
 WEAK_CHIP = ('From your weak ideas', 'Help me with the ideas that I got wrong or was not sure of.')
 IMPROVE_SAY = 'What should change? For example: Add attention, from https://…'
+FIX_SAY = 'Lock each idea that is good. Fix the rest asks the tutor to redo the other ideas: their order, their checks, and the ideas that are missing. Your words go with it.'
 
 def Improve(j, finished=False):
     """Improve the walk: one quiet fold with one box, "What should change?", and chips that put words in it. A link in the words is a source.
-    The tutor proposes changes, and you keep or skip each one. A finished walk has one more chip: From your weak ideas."""
+    The tutor proposes changes, and you keep or skip each one. A finished walk has one more chip: From your weak ideas.
+    Fix the rest, next to Ask the tutor, asks the tutor to redo only the ideas that are not locked, with the words in the box."""
     chips = [*IMPROVE_CHIPS, *([WEAK_CHIP] if finished else [])]
     return Details(Summary('Improve the walk', cls='quiet'),
                    Form(Textarea(name='words', rows='2', maxlength='1000', placeholder=IMPROVE_SAY, aria_label='What should change?'),
                         Div(*[Quiet(t, small=True, type='button', data_fill=v) for t, v in chips], cls='chips'),
-                        Div(Secondary('Ask the tutor', data_wait='Asking the tutor…'), cls='row'),
+                        Div(Secondary('Ask the tutor', data_wait='Asking the tutor…'),
+                            Quiet('Fix the rest', name='fix', value='1', data_wait='Asking the tutor…', data_act='fix', title='The tutor redoes each idea that is not locked.'), cls='row'),
+                        P(FIX_SAY, cls='mute fix-say'),
                         hx_post=at(Routes.improve, j['id']), hx_target='#improve-out', hx_swap='innerHTML', cls='improve-form'),
                    Div(id='improve-out', aria_live='polite'), id='improve', cls='improve', data_part='improve', data_act='improve')
 
@@ -825,6 +829,21 @@ def PlanDot(dot):
     "The dot of an idea in the plan, as in the outline: filled when it is done or known, half filled when it is shaky."
     return Span(cls=f'plan-dot {dot}', role='img', aria_label=DOT_SAYS.get(dot, dot), title=DOT_SAYS.get(dot, dot))
 
+LOCK_SVG = NotStr('<svg viewBox="0 0 12 14" width="10" height="12" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/>'
+                  '<path d="M3.5 6V4a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>')
+LOCKED_SAYS = 'Locked: Improve and Fix the rest do not change this idea. An edit by hand unlocks it.'
+
+def LockMark(slug, on, oob=False):
+    "The small lock mark of a locked idea in the plan. An empty mark when it is not locked, so a live edit can clear it out of band."
+    return Span(LOCK_SVG if on else '', id=f'mark-{slug}', cls='lock-mark', role='img' if on else None, aria_label='Locked' if on else None,
+                title=LOCKED_SAYS if on else None, **({'hx_swap_oob': 'true'} if oob else {}))
+
+def LockBtn(jid, slug, on, oob=False):
+    "The quiet Lock toggle of an idea: Keep this idea. It posts lock or unlock, with Undo."
+    return Quiet('Locked' if on else 'Lock', small=True, id=f'lock-{slug}', data_lock='1', data_act='lock', aria_pressed='true' if on else 'false',
+                 title='Unlock this idea' if on else 'Keep this idea: Improve and Fix the rest do not change it', **edit_act(jid, 'unlock' if on else 'lock', slug=slug),
+                 **({'hx_swap_oob': 'true'} if oob else {}))
+
 def StepRow(j, k, s, by, opened='', fresh='', pick=False, nb=(), dot='todo'):
     "Step `s` as row `k` of the editor list: its title and short line, Skip, then the fields of the open row. `nb`: the concepts whose notebook a job writes now."
     slug, n = s['slug'], len(j['steps'])
@@ -832,7 +851,7 @@ def StepRow(j, k, s, by, opened='', fresh='', pick=False, nb=(), dot='todo'):
             Quiet('Merge with next', ' ', Kbd('M'), small=True, data_key='M', disabled=k == n - 1, **edit_act(j['id'], 'merge', slug=slug)),
             Quiet('Remove', ' ', Kbd('X'), small=True, data_key='X', **edit_act(j['id'], 'remove', slug=slug)),
             Quiet('Rewrite', ' ', Kbd('R'), small=True, type='button', data_key='R', data_rewrite='1')]
-    return dict(id=slug, title=Span(PlanDot(dot), Inline(name(by, s))), line=step_line(j, s, slug in nb), post=edit_url(j['id'], slug), body=StepBody(j, k, s, by, pick and slug == opened),
+    return dict(id=slug, title=Span(PlanDot(dot), Inline(name(by, s)), ' ', LockMark(slug, s.get('locked'))), line=step_line(j, s, slug in nb), post=edit_url(j['id'], slug), body=StepBody(j, k, s, by, pick and slug == opened),
                 acts=acts, open=slug == opened, fresh=slug == fresh, cls='skipped' if s.get('status') == 'skip' else '')
 
 def AddIdea(j, by):
@@ -852,14 +871,15 @@ def AddIdea(j, by):
                    id='add-idea', cls='add-idea')
 
 def Steps(j, by, opened='', fresh='', pick=False, nb=()):
-    "The ideas of the walk as an editor list, with a quiet label where a section starts, and Add an idea under it. Each change swaps it whole."
+    "The ideas of the walk as an editor list, with a quiet label where a section starts, and Add an idea under it. Each row has Skip and Lock. Each change swaps it whole."
     ss, st = j['steps'], walk_state(j, by)   # the same dots as the outline
     rows = [StepRow(j, k, s, by, opened, fresh, pick, nb, st.steps[k].dot) for k, s in enumerate(ss)]
     out = EditList(rows, 'walk-path', add=[AddIdea(j, by)], id='steps', aria_label='The ideas of the walk')
     kids, sec = [], None
     for li, s in zip(out.children, ss):
         skip = s.get('status') == 'skip'
-        li.children = (*li.children[:3], Quiet('Bring back' if skip else 'Skip', small=True, data_skip='1', **edit_act(j['id'], 'back' if skip else 'skip', slug=s['slug'])), *li.children[3:])
+        li.children = (*li.children[:3], Quiet('Bring back' if skip else 'Skip', small=True, data_skip='1', **edit_act(j['id'], 'back' if skip else 'skip', slug=s['slug'])),
+                       LockBtn(j['id'], s['slug'], s.get('locked')), *li.children[3:])
         if (x := (s.get('read') or {}).get('section')) and x != sec: sec = x; kids.append(Li(Inline(x), cls='sec', role='presentation'))
         kids.append(li)
     out.children = (*kids, *out.children[len(rows):])

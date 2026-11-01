@@ -170,8 +170,13 @@ p.hands { font-size: var(--t-small); color: var(--ink2); margin: var(--s4) 0 var
 p.hands.over { color: var(--fg); }
 p.hands a, .talk-line a, .change-walk a { color: var(--mute); }
 .change-walk { font-size: var(--t-small); margin: var(--s3) 0 0; }
-#steps > li.edit-row { grid-template-columns: 22px 28px minmax(0, 1fr) auto auto; }
+#steps > li.edit-row { grid-template-columns: 22px 28px minmax(0, 1fr) auto auto auto; }
 #steps > li.edit-row > [data-skip] { grid-column: 5; grid-row: 1; color: var(--mute); }
+#steps > li.edit-row > [data-lock] { grid-column: 6; grid-row: 1; color: var(--mute); }
+#steps > li.edit-row > [data-lock][aria-pressed="true"] { color: var(--fg); }
+#steps .lock-mark { color: var(--mute); }
+#steps .lock-mark svg { vertical-align: -.05em; }
+.improve .fix-say { font-size: var(--t-small); margin: var(--s1) 0 0; }
 #steps > li.edit-row.skipped .line { font-style: italic; }
 #steps > li.sec { list-style: none; padding: var(--s5) 0 var(--s1); font-size: var(--t-small); color: var(--mute); }
 #steps .row-acts [data-key="X"] { color: var(--no); }

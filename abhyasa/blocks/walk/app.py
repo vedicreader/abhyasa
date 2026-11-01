@@ -22,7 +22,7 @@ import abhyasa.walk as walk_engine   # `walk_engine.nb_spec` is read on each cal
 import abhyasa.talk   # adds Learning.talks: the editor links the talks made from a walk
 from abhyasa.talk import walk_changes
 from abhyasa.edit import (edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, merge_steps, add_step, split_step,
-                          passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite, links_in, propose, improve_walk)
+                          passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite, links_in, propose, improve_walk, lock_step)
 from abhyasa.research import to_research, wants_source, want_agent, research_state
 from abhyasa.jobs import job_start, job_end, track, Said, seen_jobs
 from abhyasa.tutor import NoLesson
@@ -46,8 +46,9 @@ KEPT = 'Your edit was kept. The rewrite was not used.'
 FILE_WAIT = 20   # seconds that the plan of a goal waits for its sources; a slower one, such as a big clone, joins the walk when it is filed
 FILERS = 3       # the sources that file at the same time, each on its own job, off the pool of the app
 NO_ADD, NO_SPLIT = 'The tutor could not add this idea. Nothing changed.', 'The tutor could not split this idea. Nothing changed.'
+FIXING = 'The tutor looks at the ideas that are not locked'   # the pending line of Fix the rest
 NOTE_MOST, Q_MOST, WORDS_MOST = 2000, 500, 1000   # the most characters of a tutor note, of a check question that you write, and of what you ask Improve the walk to change
-EDIT_ACTS = ('move', 'skip', 'back', 'remove', 'split', 'merge', 'add', 'pick', 'note', 'check', 'q', 'rewrite')
+EDIT_ACTS = ('move', 'skip', 'back', 'remove', 'split', 'merge', 'add', 'pick', 'note', 'check', 'q', 'rewrite', 'lock', 'unlock')
 
 class Kept(Exception):
     "A rewrite that came after you changed each of its fields: your edits stay, and the rewrite is not used."
@@ -926,8 +927,11 @@ def connect(app, ctx):
         nm = lambda x: ui.name(b, dict(slug=x))
         text = (f.get(act, '') if live else f.get('text', '')).strip()
         field, opened, row, fresh = None, '', slug, ''
+        was_locked = k is not None and bool(j.steps[k].get('locked'))
         try:
-            if act == 'move':
+            if act in ('lock', 'unlock'):
+                op, said = (lambda ss: lock_step(ss, slug, act == 'lock')), (f'Locked “{nm(slug)}”. Improve and Fix the rest do not change it.' if act == 'lock' else f'Unlocked “{nm(slug)}”.')
+            elif act == 'move':
                 to = place(f.get('to', ''), len(slugs))
                 op, said = (lambda ss: move_step(ss, slug, to)), f'Moved “{nm(slug)}” to idea {to + 1}.'
             elif act in ('skip', 'back'):
@@ -971,12 +975,13 @@ def connect(app, ctx):
                 rows, got = lr.edits('walk', jid), queue_new(j2, old)
                 if act == 'add': return (*view(j2, opened=got, fresh=got), bar(j2, rows[0].what, rows, got))
                 return (*view(j2), bar(j2, rows[0].what, rows, slug))
-            j2, rows = edit_walk(lr, jid, op, said, field=field)
+            j2, rows = edit_walk(lr, jid, op, said, field=field, touch=None if act in ('lock', 'unlock') else slug)   # an edit by hand unlocks the idea
         except KeyError as e: return Response(str(e.args[0] if e.args else 'Not found.'), status_code=404)
         except ValueError as e: return bad(str(e))
         if rows is None: return Response(status_code=204) if live else view(j2, opened=opened)
         if act == 'check' and j2.steps[k2 := [s['slug'] for s in j2.steps].index(slug)]['check']['kind'] == 'notebook': write_notebook(jid, k2)
-        if live: return bar(j2, said, rows, row)   # a live field: the text that you type stays, and only the bar changes
+        if live:   # a live field: the text that you type stays, and only the bar changes, and the lock when the edit took it off
+            return (bar(j2, said, rows, row), ui.LockBtn(jid, slug, False, oob=True), ui.LockMark(slug, False, oob=True)) if was_locked else bar(j2, said, rows, row)
         return (*view(j2, opened=opened), bar(j2, said, rows, row))
 
     def redo(j, slug, f):
@@ -1009,7 +1014,7 @@ def connect(app, ctx):
             if 'q' in fields and 'q' not in kept: t['check'] = {**t['check'], 'q': new['q']}
         names = ' and the '.join(ui.FIELDS[x] for x in fields)
         said = lambda old, now: f'Rewrote the {names} of idea {k + 1}: {ins}.' + (f' Your edit of the {ui.FIELDS[kept[0]]} was kept.' if kept else '')
-        try: j2, rows = edit_walk(lr, j.id, on_step(slug, apply), said, who='tutor')   # on the step as it is now: a field that you changed keeps your edit
+        try: j2, rows = edit_walk(lr, j.id, on_step(slug, apply), said, who='tutor', touch=slug)   # on the step as it is now: a field that you changed keeps your edit. You asked for it, so it unlocks the idea
         except Kept: return bad(KEPT)
         except KeyError: return Response('This idea is not in the walk now.', status_code=404)
         except ValueError: return bad(NO_REWRITE)
@@ -1054,26 +1059,27 @@ def connect(app, ctx):
 
     # --- Improve the walk: your words, a proposal of changes with the ops of the editor, and the ones that you keep, with one Undo ---------
 
-    def improve_job(jid, words, st):
-        "On the pool: file each link in `words` (it joins the sources of the walk, with its Undo), then ask the tutor for the changes."
+    def improve_job(jid, words, st, fix=False):
+        "On the pool: file each link in `words` (it joins the sources of the walk, with its Undo), then ask the tutor for the changes. With `fix`, only for the ideas that are not locked."
         docs = {}
         for u in links_in(words):
             st.update(said=f'Getting the pages from {u}')
             o = file_one(f'link:{u}', st)
             join(jid, f'link:{u}', o)
             if o.get('docs'): docs[u] = [dict(shelf=d.shelf, doc_id=d.doc_id) for d in o.docs]
-        st.update(said='The tutor reads what you asked', docs=docs)
+        st.update(said=FIXING if fix else 'The tutor reads what you asked', docs=docs)
         j, b = lr.journey(jid), by()
-        return propose(ask, j, {k: c.name for k, c in b.items()}, words, ui.weak_of(j), list(docs))
+        return propose(ask, j, {k: c.name for k, c in b.items()}, words, ui.weak_of(j), list(docs), fix=fix)
 
-    def improve(jid:str, words:str=''):
-        "Improve the walk: start the job that files the links in `words` and asks the tutor for changes. The answer is the pending line."
+    def improve(jid:str, words:str='', fix:str=''):
+        "Improve the walk: start the job that files the links in `words` and asks the tutor for changes. Fix the rest (`fix`) needs no words. The answer is the pending line."
         if not (j := walk_of(jid)) or for_talk(j): return Response(status_code=404)
-        if not (words := ' '.join(CTRL.sub('', words).split())[:WORDS_MOST]): return P('Write what should change, or pick a chip.', cls='req-err')
-        key = f'improve:{jid}:' + hashlib.sha1(words.encode()).hexdigest()[:12]
+        fix = bool(fix)
+        if not (words := ' '.join(CTRL.sub('', words).split())[:WORDS_MOST]) and not fix: return P('Write what should change, or pick a chip.', cls='req-err')
+        key = f'improve:{jid}:' + hashlib.sha1((('fix:' if fix else '') + words).encode()).hexdigest()[:12]
         if not (st := links.get(key)) or st.job.done():
-            st = links[key] = Said(lr, key, said='The tutor reads what you asked')
-            st.job = track(lr, key, lambda: ctx.pool.submit(improve_job, jid, words, st), 'improve', title=f'Improve: {j.title}', said=st.said,
+            st = links[key] = Said(lr, key, said=FIXING if fix else 'The tutor reads what you asked', fix=fix)
+            st.job = track(lr, key, lambda: ctx.pool.submit(improve_job, jid, words, st, fix), 'improve', title=f"{'Fix the rest' if fix else 'Improve'}: {j.title}", said=st.said,
                            url=ui.walk_url(jid, 'improve'), obj=f'walk:{jid}', ok=lambda r: dict(said='The tutor proposes changes. Keep or skip each one.'),
                            why=lambda e: 'The tutor could not propose changes.')
         return ui.ImprovePending(jid, key, st.said)
@@ -1098,7 +1104,7 @@ def connect(app, ctx):
         kept = [c for k, c in enumerate(st.job.result()) if form.get(f'c{k}', 'keep') == 'keep']
         if not kept: return said_out(P('You skipped each change. Nothing changed.', cls='mute')), HttpHeader('HX-Reswap', 'none')
         old = {s['slug'] for s in j.steps}
-        try: j2, rows = improve_walk(lr, ask, jid, kept, ctx.sources, st.get('docs'))
+        try: j2, rows = improve_walk(lr, ask, jid, kept, ctx.sources, st.get('docs'), fix=bool(st.get('fix')))
         except (KeyError, ValueError) as e: return bad(str(e))
         except Exception as e:   # never the words of a library
             log.warning('the tutor could not improve %s: %r', jid, e)
