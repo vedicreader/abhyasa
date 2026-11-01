@@ -99,8 +99,14 @@ def connect(app, ctx):
     def go(jid, i): return Redirect(ui.at(Routes.step, jid, i))
     def missing(): return NotFound('Walk', H1('No such walk'), P(A('Your walks', href='/')), on='Home', crumbs=up)
 
+    one_name = set()   # the walks whose stored specs have one data name for each folder now
+
     def walk_of(jid, i=None):
-        "The walk `jid`, and step `i` when it is there; None for an unknown walk or step."
+        "The walk `jid`, and step `i` when it is there; None for an unknown walk or step. The first read gives one data name to each folder of its specs."
+        if jid not in one_name:
+            one_name.add(jid)
+            try: lr.join_data_names(jid)
+            except Exception as e: log.warning('abhyasa could not join the data names of walk %s: %r', jid, e)
         j = lr.journey(jid)
         if not j or j.get('mode') != 'walk' or (i is not None and not 0 <= i < len(j.steps)): return None
         return j

@@ -28,15 +28,15 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS
            'propose', 'improve_walk', 'new_course', 'is_goal_walk', 'chip_sources', 'join_course', 'course_of',
            'ensure_courses', 'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level',
            'level_done', 'stages_prompt', 'walk_started', 'stage_stays', 'fix_count', 'plan_stages', 'lock_stage',
-           'stage_brief', 'build_stage', 'add_data', 'drop_data', 'fill_data', 'name_data', 'stage_rows', 'due_stage',
-           'next_up', 'add_ask', 'blocking', 'course_state', 'set_here', 'active_course', 'course_from', 'courses_from',
-           'go_back', 'subject_label', 'vague', 'research_query', 'file_page', 'link_concept', 'wants_source',
-           'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending', 'research_walk',
-           'Researcher', 'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state', 'idea_at',
-           'idea_no', 'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video', 'gather_tools',
-           'gather_prompt', 'start_why', 'gather', 'research_state', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key',
-           'handoff', 'read_handoff', 'HANDOFF_CASES', 'PKG', 'RUN_SAY', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok',
-           'RUN_CASES']
+           'stage_brief', 'build_stage', 'add_data', 'drop_data', 'fill_data', 'name_data', 'join_names', 'stage_rows',
+           'due_stage', 'next_up', 'add_ask', 'blocking', 'course_state', 'set_here', 'active_course', 'course_from',
+           'courses_from', 'go_back', 'subject_label', 'vague', 'research_query', 'file_page', 'link_concept',
+           'wants_source', 'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending',
+           'research_walk', 'Researcher', 'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state',
+           'idea_at', 'idea_no', 'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video',
+           'gather_tools', 'gather_prompt', 'start_why', 'gather', 'research_state', 'WALK_ID', 'LEELA_ROUTE',
+           'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'PKG', 'RUN_SAY', 'validate_nb_spec',
+           'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
 
 # %% ../nbs/04_path.ipynb #eeb72429
 import json, math, re, random, threading, time, uuid
@@ -1945,6 +1945,39 @@ def name_data(lr:Learning, jid:str, name:str, path, note:str='') -> dict:
         ids = [jid]
     for w in ids: fill_data(lr, w)
     return first(d for d in lr.journey(jid).data if d.get('name') == name)
+
+# %% ../nbs/04_path.ipynb #jn02
+import logging
+
+def join_names(j) -> tuple:
+    """Walk `j` with one data name for each `what` in the notebook specs of its steps, and the changes `[(step, old, new)]`.
+    The name is the name under Your data (`j.data`) when an entry has it, else the first name used. With no change, `j` itself."""
+    yours, by = {d.get('name') for d in j.get('data') or ()} - {None, ''}, {}
+    for s in j.get('steps') or ():
+        for d in (s.get('nb') or {}).get('data') or ():
+            if isinstance(d, dict) and isinstance(d.get('name'), str) and (w := _what_key(d.get('what'))): by.setdefault(w, []).append(d['name'])
+    named = [dict(name=first(n for n in ns if n in yours) or ns[0], what=w) for w, ns in by.items()]
+    steps, out = [], []
+    for k, s in enumerate(j.get('steps') or ()):
+        if (nb := s.get('nb')) and (new := same_names(nb, named)) is not nb:
+            out += [(k, a['name'], b['name']) for a, b in zip(nb['data'], new['data']) if isinstance(a, dict) and a.get('name') != b.get('name')]
+            s = {**s, 'nb': new}
+        steps.append(s)
+    return (AttrDict({**j, 'steps': steps}), out) if out else (j, [])
+
+@patch
+def join_data_names(self:Learning, jid:str) -> list:
+    """Give one name to one folder in the stored notebook specs of walk `jid` (`join_names`), and log each change. Each step that names the folder
+    then has its path from Your data (`fill_data`). The place of the walk in the list stays. Gives the changes `[(step, old, new)]`."""
+    with _jlock(jid):
+        if not (j := self.journey(jid)): return []
+        n, out = join_names(j)
+        if not out: return []
+        for k, a, b in out: logging.getLogger(__name__).info('Walk %s, step %d: the data name %s is now %s, the name of the same folder in the walk.', jid, k, a, b)
+        n = self.put_journey(n)
+        if n.get('data'): n = fill_data(self, jid)
+        self.v.set_meta(n.doc_id, updated=j.get('updated', 0))   # a repair is not a change that you made: the order of the list stays
+    return out
 
 # %% ../nbs/04_path.ipynb #cs049
 LEFT = ('ready', 'planned', 'building')   # the states of a stage that is not finished

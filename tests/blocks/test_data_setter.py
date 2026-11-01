@@ -121,6 +121,22 @@ def test_change_gives_a_new_folder_for_the_same_name(mk, lr, tmp_path, monkeypat
     names = {d['name']: d['path'] for d in lr.journey('gw').steps[1]['nb']['data']}
     assert names['EPISODES'] == '~/comics2' and names['RAMAYANA'] == '~/ramayana'
 
+@pytest.mark.parametrize('first', ['/w/gw', '/course/{cid}'])
+def test_two_stored_names_for_one_folder_join_on_the_first_read(mk, lr, tmp_path, monkeypatch, first):
+    "Two stored specs name the same images IMAGES and COMIC_IMAGES. The first read of the walk or the course joins them: the pages ask for one image folder."
+    episodes(tmp_path, monkeypatch); c = course_walk(lr)
+    lr.walk_step('gw', 0, check=dict(way='code', kind='notebook', depth=3), nb=validate_nb_spec({**_GOOD, 'data': [IMGS]}))
+    lr.walk_step('gw', 1, nb=validate_nb_spec({**_GOOD, 'task': 'Load COMIC_IMAGES.', 'data': [EPS, {**IMGS, 'name': 'COMIC_IMAGES', 'what': IMGS['what'].upper()}]}))
+    assert [d['name'] for d in walk_engine.missing_data(lr.journey('gw'))] == ['IMAGES', 'EPISODES', 'COMIC_IMAGES']
+    cl = mk()
+    assert cl.get(first.format(cid=c.id)).status_code == 200
+    s1 = lr.journey('gw').steps[1]['nb']
+    assert (s1['task'], s1['data'][1]['name'], s1['data'][1]['what']) == ('Load IMAGES.', 'IMAGES', IMGS['what'].upper())   # only the name changes
+    part = lxml.html.fromstring(cl.get('/w/gw').text).xpath('//*[@data-part="data"]')[0]
+    assert [f.get('data-name') for f in part.xpath('.//*[@data-act="set-data"]')] == ['IMAGES', 'EPISODES']
+    pg = lxml.html.fromstring(cl.get(f'/course/{c.id}').text)
+    assert [li.text_content().split(':')[0].strip() for li in pg.xpath('//li[contains(@class, "setup")][.//*[@data-act="set-data"]]')] == ['IMAGES', 'EPISODES']
+
 def _chromium():
     try:
         from playwright.sync_api import sync_playwright

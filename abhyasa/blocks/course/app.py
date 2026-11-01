@@ -60,7 +60,16 @@ def connect(app, ctx):
 
     def missing(): return NotFound('Course', H1('No such course'), P(A('Home', href='/')), on='Home', crumbs=up)
 
-    def state(cid): return course_state(lr, cid, leela=leela_base() is not None)
+    one_name = set()   # the walks whose stored specs have one data name for each folder now
+
+    def state(cid):
+        "The state of course `cid`. The first read of each walk of the course gives one data name to each folder of its specs."
+        for s in (c := lr.course(cid)) and c.get('stages') or ():
+            if (w := s.get('walk')) and w not in one_name:
+                one_name.add(w)
+                try: lr.join_data_names(w)
+                except Exception as e: log.warning('abhyasa could not join the data names of walk %s: %r', w, e)
+        return course_state(lr, cid, leela=leela_base() is not None)
 
     def one(cid:str):
         if not (st := state(cid)): return missing()
