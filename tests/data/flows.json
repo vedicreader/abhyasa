@@ -1165,7 +1165,7 @@
       {
         "trigger": "Show me (⌥E) on an idea page, or 'show me …' typed in the check box",
         "surface": "idea page, part:show (the Show slot under the passage)",
-        "kind": "route_ask(words): predict by default; explainer for 3D or a physical thing; notebook for try/code/library → Open in Leela",
+        "kind": "demo_kind(words): predict by default; explainer for 3D or a physical thing; notebook for try/code/library → Open in Leela",
         "renderer": "rupaka.js",
         "counts_try": false
       },
@@ -1178,7 +1178,7 @@
       {
         "trigger": "\"show me …\", \"I want to see it\", \"play it\", or a bare \"yes\" after the Show offer, to the guide on any abhyasa page",
         "surface": "the Show slot of the idea when the page has one, else the top-right place; no board",
-        "kind": "route_ask, through show(); the values of the page (code, tests) seed the demo state",
+        "kind": "demo_kind, through show(); the values of the page (code, tests) seed the demo state",
         "renderer": "rupaka.js"
       },
       {

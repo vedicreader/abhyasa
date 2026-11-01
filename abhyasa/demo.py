@@ -12,7 +12,7 @@ __all__ = ['SLOT', 'VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDB
            'WHERES', 'ROUTES', 'demo_text', 'since_demo', 'rung', 'keep_rung', 'no_slots', 'want_demo', 'clean_note',
            'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'job_key',
            'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way', 'simpler_demo',
-           'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'route_ask', 'can_explain', 'scene_catalog',
+           'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind', 'can_explain', 'scene_catalog',
            'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says', 'leaks', 'scrub',
            'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show',
            'import_gallery']
@@ -428,7 +428,7 @@ HANDS_ON = re.compile(r'\b(?:try|code|coding|notebook|leela)\b', re.I)
 LIBRARY = re.compile(r'\b(?:library|package|api|pip|pytorch|torch|numpy|pandas|diffusers|transformers|sklearn|tensorflow|jax|keras)\b', re.I)
 PHYSICAL = re.compile(r'\b(?:pendulum|spring|orbit|planet|gear|lever|pulley|projectile|magnet|lens|prism|molecule|atom|torque|gyroscope|engine)s?\b', re.I)
 
-def route_ask(said:str='', c=None) -> AttrDict:
+def demo_kind(said:str='', c=None) -> AttrDict:
     "The kind of demo for the ask `said` on concept `c` (`demo`, `explainer` or `notebook`), and why, in one line. A plain ask gets a 2D demo."
     s = str(said or '')
     if THREE_D.search(s): return AttrDict(kind='explainer', why='You asked for 3D, so a 3D explainer shows it.')
@@ -665,7 +665,7 @@ def show(tutor, concept:str, words:str='', where:str='concept', kind:str=None, a
     `values` are the values of the page (the code, the tests of the check): the demo starts from them."""
     lr = tutor.learning
     if (values := ' '.join(str(values or '').split())[:600]): ask = f"{ask or words} {VALUES} {values}".strip()
-    route = ROUTES.get(kind) or route_ask(words, lr.concept(concept))
+    route = ROUTES.get(kind) or demo_kind(words, lr.concept(concept))
     a = lr.put_ask(concept, said=words, ask=ask, where=where, kind=route.kind, **({'aim': aim} if aim else {}), **at)
     if route.kind == 'notebook': return a, route   # code runs in Leela
     job = '3d' if route.kind == 'explainer' else aim
