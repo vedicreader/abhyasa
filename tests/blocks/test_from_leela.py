@@ -43,7 +43,7 @@ def test_run_attempt_shows_metrics_and_images(mk, lr, walk_fake):
     for say in ('1,000 steps in 38 min 30 s on Apple GPU (mps). Last loss 0.083.', 'You said 0.15. It was 0.091.', 'Images are copies in your vault.',
                 f'src="/w/{jid}/1/result/0.png"', f'src="/w/{jid}/1/result/1.png"'):
         assert say in page, say
-    assert not lr.journey(jid).steps[1].get('done') and 'Open in Leela' in page   # a run with no passed check does not end the step
+    assert not lr.journey(jid).steps[1].get('done') and f'action="/w/{jid}/1/next"' in page   # a run with no passed check does not end the step
     r = cl.get(f'/w/{jid}/1/result/0.png')
     assert r.status_code == 200 and r.headers['content-type'] == 'image/png' and r.content == PNG and r.headers['x-content-type-options'] == 'nosniff'
 
@@ -133,3 +133,16 @@ def test_an_old_result_with_no_concept_needs_the_opened_concept(mk, lr, walk_fak
     assert lr.journey(jid).leela_opened == {'1': 'softmax'} and 'Last loss 0.5.' in cl.get(f'/w/{jid}/1').text
     cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='move', to=0))
     assert all('Last loss 0.5.' not in cl.get(f'/w/{jid}/{i}').text for i in range(3))   # never on another step
+
+def test_a_filed_result_offers_the_next_step(mk, lr, walk_fake, monkeypatch, tmp_path):
+    "After Open in Leela, a run comes back: the card drops the line Opened in Leela and offers Next idea, with the link to the lesson."
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
+    cl = mk(); jid = nb_step(cl, lr)
+    cl.post(f'/w/{jid}/1/leela', follow_redirects=False)
+    assert 'Opened in Leela at ' in cl.get(f'/w/{jid}/1/check').text
+    file_run(lr, jid, 1)
+    for card in (cl.get(f'/w/{jid}/1/check').text, cl.get(f'/w/{jid}/1').text):
+        assert 'From Leela' in card and 'Last loss 0.083.' in card
+        assert 'Opened in Leela at ' not in card and 'The result comes back here.' not in card
+        assert f'action="/w/{jid}/1/next"' in card and 'Next idea' in card and 'Open the lesson in Leela ↗' in card
+    assert not lr.journey(jid).steps[1].get('done')   # a run is not a check

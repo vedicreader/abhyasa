@@ -228,14 +228,13 @@ def connect(app, ctx):
         return ui.NbFailed(j.id, i, s['nb_why'], link, s.get('leela_at'))
 
     def from_leela(j, i, back=None):
-        """The card "From Leela" of step `i`, or None. A done step gets Next idea. A notebook step that is not done keeps Open in Leela.
-        Another step that is not done keeps its own check, so it gets no card."""
+        """The card "From Leela" of step `i`, or None. A done step, and a notebook step that is not done, get Next idea and the link to the lesson:
+        the result came back, so the card does not say "Opened in Leela" again. Another step that is not done keeps its own check, so it gets no card."""
         if not (b := (leela_back(lr, j) if back is None else back).get(i)): return None
         j = lr.journey(j.id)
         s = j.steps[i]
-        if s.get('done'): return ui.FromLeela(j, i, b, (ui.GoOn(j.id, i), leela_line(j, i, say='Open the lesson in Leela', vault=vault)))
-        if s['check']['kind'] != 'notebook': return None
-        return ui.FromLeela(j, i, b, ui.NbGo(j.id, i, leela_link(j, i, vault=vault), spec=bool(s.get('nb')), opened=s.get('leela_at')))
+        if not s.get('done') and s['check']['kind'] != 'notebook': return None
+        return ui.FromLeela(j, i, b, (ui.GoOn(j.id, i), leela_line(j, i, say='Open the lesson in Leela', vault=vault)))
 
     def write_notebooks(j):
         "Start the job that writes the notebook spec of each notebook step of walk `j`, on the research pool."
