@@ -116,7 +116,7 @@ def test_the_course_depth_uses_the_level_check(mk, walk_fake, lr):
 
 @pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
 def test_the_pane_and_the_explain_panel_share_the_right_side(mk, walk_fake, lr):
-    "With the Explain panel open, a side walk opens in the pane; the panel moves into the page, the strip keeps out of the pane, and both come back on close."
+    """After the guide explains X, one line offers to learn X. With the Explain panel open, a side walk opens in the pane; the panel moves into the page, the strip keeps out of the pane, and both come back on close."""
     from playwright.sync_api import sync_playwright
     cl = mk(); jid = step(cl, lr)
     with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
@@ -131,6 +131,8 @@ def test_the_pane_and_the_explain_panel_share_the_right_side(mk, walk_fake, lr):
             try:
                 pg = b.new_page(viewport=dict(width=1280, height=900), reduced_motion='reduce')
                 pg.goto(f'http://127.0.0.1:{port}/w/{jid}/2'); pg.wait_for_selector('#check #ans'); pg.wait_for_function('window.abhyasaBoard')
+                pg.evaluate("document.dispatchEvent(new CustomEvent('abhyasa:guide-said', {detail: {said: \"I don't get gradients\"}}))")
+                assert pg.locator('#rh-offer .rh-after-guide .rh-ask').inner_text() == 'Learn gradients'   # after the guide: the way to go deeper
                 pg.evaluate("ss => abhyasaBoard.play({steps: ss, tier: 'tutor', sources: []}, {quiet: true, auto: false})", steps)
                 pg.wait_for_selector('#board-panel')
                 assert not pg.evaluate("document.getElementById('board-panel').classList.contains('inline')")   # at the top right first
