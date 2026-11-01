@@ -29,9 +29,9 @@ html.rh-open.rh-leave #rh-pane { transform: translateX(100%); transition: transf
 .grip:hover::after, .grip:focus-visible::after, html.grip-drag .grip::after { background: var(--acc); opacity: 1; }
 html.grip-drag, html.grip-drag * { cursor: col-resize !important; user-select: none !important; }
 html.grip-drag #rh-pane iframe { pointer-events: none; }
-/* the first-time tip beside the grip of the pane */
-.grip-tip { position: absolute; z-index: 3; left: var(--s4); top: calc(50% + 28px); margin: 0; max-width: 14em; pointer-events: none; font-size: var(--t-meta);
-            color: var(--mute); background: var(--page); padding: var(--s1) var(--s2); border-left: 2px solid var(--acc); transition: opacity .3s; }
+/* the first-time tip of the grip: a line in the flow of the pane, under its bar, so it covers no card of the page in the pane */
+.grip-tip { flex: none; margin: 0; pointer-events: none; font-size: var(--t-meta); color: var(--mute); background: var(--page);
+            padding: var(--s1) var(--s5); border-bottom: 1px solid var(--line); border-left: 2px solid var(--acc); transition: opacity .3s; }
 .grip-tip.gone { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .grip-tip, .grip::before, .grip::after { transition: none; } }
 

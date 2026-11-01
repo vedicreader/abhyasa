@@ -106,7 +106,7 @@
     if (!p || !WIDE.matches || localStorage.getItem('rh-grip-tip') || p.querySelector('.grip-tip')) return;   // under 1100 px the pane does not show
     localStorage.setItem('rh-grip-tip', '1');
     const t = Object.assign(document.createElement('p'), {className: 'grip-tip', textContent: 'Drag this edge to make the pane wider.'});
-    t.setAttribute('role', 'status'); p.append(t);
+    t.setAttribute('role', 'status'); p.querySelector('iframe').before(t);   // in the flow under the bar: it covers no part of the page in the pane
     const off = () => { clearTimeout(timer); t.classList.add('gone'); setTimeout(() => t.remove(), 300); };
     const timer = setTimeout(off, 8000);
     p.addEventListener('abhyasa:grip', off, {once: true});

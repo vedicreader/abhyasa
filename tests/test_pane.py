@@ -190,3 +190,29 @@ def test_pane_in_a_browser(mk):
                 pg.wait_for_selector('main a.rh-back'); assert pg.locator('main a.rh-back').get_attribute('href') == f'/s/{sid}'   # narrow: the same tab, with a way back
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
+
+
+@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
+def test_grip_tip_covers_nothing(mk):
+    "At 1440 px, the first-time tip of the grip stands between the bar and the page in the pane: it covers no part of the bar or of the page."
+    import socket, threading, time, uvicorn
+    from playwright.sync_api import sync_playwright
+    cl = mk()
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_page(viewport=dict(width=1440, height=900))
+                pg.goto(f'http://127.0.0.1:{port}/'); pg.wait_for_load_state()
+                pg.evaluate("localStorage.removeItem('rh-grip-tip'); abhyasaPane.open('/keys', 'Keyboard shortcuts')")
+                pg.wait_for_selector('#rh-pane .grip-tip')
+                box = lambda sel: pg.locator(sel).bounding_box()
+                tip, bar, fr = box('#rh-pane .grip-tip'), box('#rh-pane .rh-bar'), box('#rh-pane iframe')
+                assert tip['height'] > 0 and bar['y'] + bar['height'] <= tip['y'] + 1     # under the bar
+                assert tip['y'] + tip['height'] <= fr['y'] + 1                             # over the page in the pane, not on it
+            finally: b.close()
+    finally: srv.should_exit = True; th.join(5)
