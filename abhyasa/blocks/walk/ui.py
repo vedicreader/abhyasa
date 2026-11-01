@@ -702,11 +702,11 @@ def SideTop(j, st, back):
 DATA_SAY = 'The exercises of this walk run on these folders. abhyasa does not file them.'
 
 def YourData(j):
-    """Your data: each folder that the exercises run on (`walk.data`), with its note and ×, then a folder setter for each data name that the
+    """Your data: each folder that the exercises run on (`walk.data`), as `EPISODES · ~/path · note` with ×, then a folder setter for each data name that the
     steps need and that has no folder yet. Add a source adds one too."""
     need = setters(j['id'], missing_data(j))
     need = Div(P(f"The steps need {n_of(len(need), 'more folder')} on this Mac:", cls='mute'), Div(*need, cls='data-sets'), cls='walk-need') if need else ''
-    rows = [Li(B(d['path']), Span(f" · {d['note']}", cls='mute') if d.get('note') else '',
+    rows = [Li(*((Code(d['name']), ' · ') if d.get('name') else ()), B(d['path']), Span(f" · {d['note']}", cls='mute') if d.get('note') else '',
                Button('×', type='button', cls='x', aria_label=f"Remove {d['path']}", hx_post=at(Routes.data_drop, j['id']), hx_vals=json.dumps(dict(path=d['path'])),
                       hx_target='#walk-data', hx_swap='outerHTML')) for d in j.get('data') or ()]
     if not (rows or need): return Div(id='walk-data')

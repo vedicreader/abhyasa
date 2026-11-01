@@ -1,4 +1,5 @@
 "Your data: a folder that the exercises run on. It is not filed as a source, it shows on the course and walk pages, the Start box can keep one, and it goes to Leela in the notebook spec."
+import lxml.html
 import re, time
 import abhyasa.path as walk_engine
 from abhyasa.contract import _GOOD
@@ -81,6 +82,20 @@ def test_walk_page_shows_your_data_and_removes_one(mk, lr, tmp_path, monkeypatch
     lr.put_journey(dict(id='solo', title='Solo', mode='walk', steps=[dict(slug='lora', status='todo', check=dict(way='words', kind='short', depth=2))], data=MINE))
     cl.post('/w/solo/data/drop', data=dict(path='~/ramayana'))
     assert lr.journey('solo').data == [] and 'data-part="data"' not in cl.get('/w/solo').text
+
+def test_walk_page_shows_the_name_of_each_folder(mk, lr, tmp_path, monkeypatch):
+    "A Your data row on the walk page reads `EPISODES · ~/path · note`, and its × still removes it. A row with no name shows the path first."
+    from abhyasa.path import name_data, add_data
+    d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
+    (d.parent/'other').mkdir()
+    name_data(lr, 'gw', 'EPISODES', str(d), 'The comic episodes.')
+    add_data(lr, c.id, str(d.parent/'other'))
+    cl = mk()
+    rows = lxml.html.fromstring(cl.get('/w/gw').text).xpath('//ul[contains(@class, "walk-data")]/li')
+    assert [' '.join(li.text_content().split()) for li in rows] == ['EPISODES · ~/ramayana · The comic episodes.×', '~/other×']
+    assert rows[0].xpath('.//button')[0].get('aria-label') == 'Remove ~/ramayana'
+    cl.post('/w/gw/data/drop', data=dict(path='~/ramayana'))
+    assert [r['path'] for r in lr.journey('gw').data] == ['~/other'] and 'EPISODES · ' not in cl.get('/w/gw').text
 
 def test_a_spec_written_before_a_folder_gets_it(mk, lr, tmp_path, monkeypatch):
     "A notebook spec that the tutor wrote before you added a folder gets the folder when the check shows, so Leela reads it."
