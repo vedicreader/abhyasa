@@ -179,8 +179,9 @@ def drop_meta(text:str) -> str:
 TEXT_TYPES = ('text/html', 'application/xhtml+xml', 'text/plain')
 
 def page_text(r, url:str='') -> AttrDict:
-    "The `url`, `title` and `text` of the response `r`: an HTML page as markdown, plain text as it is. Any other Content-Type raises `LinkError`."
-    ct = str(({k.lower(): v for k, v in dict(getattr(r, 'headers', None) or {}).items()}).get('content-type') or '').split(';')[0].strip().lower()
+    "The `url`, `title` and `text` of the response `r`: an HTML page as markdown, plain text as it is. Any other Content-Type (shalya's `page_type`) raises `LinkError`."
+    from shalya.host import page_type
+    ct = page_type(r)
     if ct not in TEXT_TYPES: raise LinkError('abhyasa reads only web pages (HTML or plain text).')
     url = str(getattr(r, 'url', '') or url)
     if ct == 'text/plain':
