@@ -6,7 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/walk.html.md"""
 
 # %% auto #0
 __all__ = ['NOTE_SP', 'NOTE_TOPIC_SP', 'NB_SP', 'NB_SHAPE', 'PREDICTIONS', 'tutor_note', 'step_meta', 'open_short', 'nb_prompt',
-           'nb_spec', 'leela_found', 'leela_back', 'PKG', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
+           'nb_spec', 'leela_found', 'leela_back', 'PKG', 'RUN_SAY', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok',
+           'RUN_CASES']
 
 # %% ../nbs/15_walk.ipynb #i05
 import re, json, time
@@ -18,8 +19,8 @@ from .settings import val
 from .prompts import register, prompt
 from .tutor import Tutor, Session
 import abhyasa.journey  # adds Learning.walk_step
-from .contract import PKG, validate_nb_spec, NB_SPEC_CASES, run_ok, RUN_CASES
-_all_ = ['PKG', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
+from .contract import PKG, RUN_SAY, validate_nb_spec, NB_SPEC_CASES, run_ok, RUN_CASES
+_all_ = ['PKG', 'RUN_SAY', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
 
 # %% ../nbs/15_walk.ipynb #i07
 NOTE_SP = register('walk.note', 'Walk note', 'How the tutor writes the short note under the passage of each step in a walk.',
@@ -109,6 +110,7 @@ NB_SHAPE = """Return JSON: {"task": str, "fname": str, "stub": str, "tests": [{"
 - `requires` has at most 5 package names, with no version, as torch or diffusers. Give [] when the standard library is enough.
 - Use only the data of this step: each entry with its `name` and `path`, word for word. Never write another path.
 - For data that the step needs and the list does not have, give a new upper-case name, as EPISODES, with `path` "" and `need` true. Its `what` says what the folder holds.
+- The run cell of the lesson has no code: the learner writes the run. `run.say` starts with "Write the run here:" and gives its steps in one line, by the function name and the data names, as: Write the run here: read EPISODES, call caption on each episode, then call save_result with the count.
 - `run.minutes` is a number from 0 to 600. `run.predict` is a question with a number answer, or an empty text."""
 
 # %% ../nbs/15_walk.ipynb #2e192bd2

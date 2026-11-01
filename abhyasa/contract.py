@@ -5,7 +5,7 @@ import ast, hashlib, math, re
 from pathlib import Path
 from urllib.parse import urlencode, parse_qs
 
-__all__ = ['SAFE_NAMES', 'SAFE_NODES', 'safe_test', 'check_exercise', 'WALK_ID', 'PKG', 'DATA_NAME', 'DATA_MOST', 'NB_KEYS', 'RUN_MINUTES',
+__all__ = ['SAFE_NAMES', 'SAFE_NODES', 'safe_test', 'check_exercise', 'WALK_ID', 'PKG', 'DATA_NAME', 'DATA_MOST', 'NB_KEYS', 'RUN_MINUTES', 'RUN_SAY',
            'has_directive', 'data_path_why', 'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES',
            'LEELA_ROUTE', 'TOPIC_MAX', 'VAULT_KEY', 'vault_key', 'Handoff', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'HANDOFF_BAD']
 
@@ -56,6 +56,7 @@ DATA_NAME = re.compile(r'\A[A-Z][A-Z0-9_]{0,39}\Z')           # the name of a da
 DATA_MOST = 8                                                  # the most data entries of a spec, and the most data folders of a course
 NB_KEYS = ('task', 'fname', 'stub', 'tests', 'requires', 'data', 'run', 'demo')
 RUN_MINUTES = 600                                              # the most minutes that a run can say
+RUN_SAY = 'Write the run here:'                                 # the start of `run.say`: the run cell of the lesson has no code, so the learner writes it
 
 def _text(x, most:int=2000) -> bool: return isinstance(x, str) and len(x) <= most
 
@@ -98,7 +99,8 @@ def validate_nb_spec(spec) -> dict:
     `task`, `fname`, `stub` or `tests` (the exercise rule, `say` 1 to 200 characters, `shown` a bool), `requires` (at most 5 names that
     match `PKG`), `data` (an upper-case `name`, a `path` inside the home folder or '' for a folder that the learner must add, text `what`,
     bool `need`), `run` (a text `say`, `minutes` from 0 to `RUN_MINUTES`, text `makes` and `predict`) or `demo` (a text). Each text but `task`
-    and `stub` is one line (`str.isprintable`). An empty `requires` is left out of the result, as Leela's exercise spec wants."""
+    and `stub` is one line (`str.isprintable`). An empty `requires` is left out of the result, as Leela's exercise spec wants. The run cell
+    of the lesson has no code, so `run.say` starts with `RUN_SAY`: it tells the learner to write the run, and gives its steps."""
     if not isinstance(spec, dict): raise ValueError('spec: the spec is not a JSON object')
     rows = spec.get('tests')
     if not (isinstance(rows, list) and all(isinstance(t, dict) for t in rows)): raise ValueError('tests: give a list of test objects {test, say, shown}')
@@ -127,12 +129,14 @@ def validate_nb_spec(spec) -> dict:
     run = spec.get('run')
     if not isinstance(run, dict): raise ValueError('run: the spec has no run')
     if not (_line(run.get('say'), 500) and run['say'].strip()): raise ValueError('run: `say` must say what the run does, in one line')
+    say = run['say'] if run['say'].startswith(RUN_SAY) else f"{RUN_SAY} {run['say'].strip()}"
+    if not _line(say, 500): raise ValueError('run: `say` is too long')
     if not (_number(run.get('minutes')) and 0 <= run['minutes'] <= RUN_MINUTES): raise ValueError(f'run: `minutes` must be a number from 0 to {RUN_MINUTES}')
     if not (_line(run.get('makes', '')) and _line(run.get('predict', ''), 300)): raise ValueError('run: `makes` and `predict` must be short texts of one line')
     if not _line(spec.get('demo', ''), 100): raise ValueError('demo: `demo` must be the slug of a demo, or empty')
     return dict(task=ex['task'], fname=ex['fname'], stub=ex['stub'], tests=tests, **(dict(requires=list(req)) if req else {}),
                 data=[dict(name=d['name'], path=d.get('path', ''), what=d.get('what', ''), need=d.get('need', False)) for d in data],
-                run=dict(say=run['say'], makes=run.get('makes', ''), minutes=run['minutes'], predict=run.get('predict', '')), demo=spec.get('demo', ''))
+                run=dict(say=say, makes=run.get('makes', ''), minutes=run['minutes'], predict=run.get('predict', '')), demo=spec.get('demo', ''))
 
 _GOOD = dict(task='Write `caption(ep, places, chars)`. It gives one line for one episode: the summary, the names of the people who act, and the place. Then run it on all the episodes.',
              fname='caption', stub='def caption(ep, places, chars):\n    ...',
@@ -148,6 +152,7 @@ _GOOD = dict(task='Write `caption(ep, places, chars)`. It gives one line for one
 NB_SPEC_CASES = [(_GOOD, None),
                  ({**_GOOD, 'requires': ['torch', 'diffusers', 'transformers', 'peft', 'accelerate']}, None),
                  ({**_GOOD, 'data': [{**_GOOD['data'][1], 'path': ''}]}, None),
+                 ({**_GOOD, 'run': {**_GOOD['run'], 'say': 'x' * 490}}, 'run'),
                  ({**_GOOD, 'requires': list('abcdef')}, 'requires'),
                  ({**_GOOD, 'requires': ['torch; rm -rf ~']}, 'requires'),
                  ({**_GOOD, 'data': [{**_GOOD['data'][0], 'path': '/etc/passwd'}]}, 'data'),

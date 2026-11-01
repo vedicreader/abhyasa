@@ -91,6 +91,7 @@ def test_nb_spec_writes_the_step(mk, lr, walk_fake):
     assert 'Writing the notebook…' in first or 'Open in Leela' in first
     assert wait_for(lambda: lr.journey(jid).steps[1].get('nb'), 10) == validate_nb_spec({**GOOD, 'data': [{**d, 'path': '', 'need': True} for d in GOOD['data']]})
     assert 'Open in Leela' in cl.get(f'/w/{jid}/1/check').text
+    assert lr.journey(jid).steps[1]['nb']['run']['say'] == 'Write the run here: Run it on all episodes. Write one line to captions.jsonl for each.'   # the run cell has no code: the learner writes it
 
 def test_bad_spec_twice_leaves_nb_unset(mk, lr, walk_fake):
     walk_fake.rules[NB_RULE] = {**GOOD, 'data': [{**GOOD['data'][0], 'name': 'episodes'}]}
