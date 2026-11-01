@@ -8,8 +8,8 @@ Docs: https://vedicreader.github.io/abhyasa/course.html.md"""
 __all__ = ['GROW_AT', 'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST', 'ANSWERS', 'KINDS', 'LEVEL_SP', 'SAID', 'STAGES_SP', 'LEFT',
            'ASK_KINDS', 'new_course', 'is_goal_walk', 'chip_sources', 'join_course', 'course_of', 'ensure_courses',
            'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level', 'level_done', 'stages_prompt',
-           'plan_stages', 'stage_brief', 'build_stage', 'add_data', 'drop_data', 'stage_rows', 'due_stage', 'next_up',
-           'add_ask', 'blocking', 'course_state', 'set_here', 'active_course']
+           'plan_stages', 'lock_stage', 'stage_brief', 'build_stage', 'add_data', 'drop_data', 'stage_rows',
+           'due_stage', 'next_up', 'add_ask', 'blocking', 'course_state', 'set_here', 'active_course']
 
 # %% ../nbs/22_course.ipynb #cs006
 import json, re, threading, time
@@ -220,9 +220,9 @@ STAGES_SP = register('course.stages', 'Course planner', 'How the tutor plans the
 - `makes` says what the learner has at the end of the stage, in a few words. Write in ASD-STE100 Simplified Technical English.""")
 
 def stages_prompt(c, who:str='') -> str:
-    "The prompt that plans the stages of course `c`, with the answers of the learner and the stages that have a walk."
+    "The prompt that plans the stages of course `c`, with the answers of the learner and the stages that stay: each with a walk, and each that is locked."
     lv = '\n'.join(f"- {q['key']}: {q['q']} Answer: {ANSWERS.get(q.get('answer'), 'no answer')}" for q in (c.get('level') or {}).get('qs') or ())
-    have = '\n'.join(f"- {s['name']}" + (f" (makes {s['makes']})" if s.get('makes') else '') for s in c.get('stages') or () if s.get('walk'))
+    have = '\n'.join(f"- {s['name']}" + (f" (makes {s['makes']})" if s.get('makes') else '') for s in c.get('stages') or () if s.get('walk') or s.get('locked'))
     return (f"Goal: {c['goal']}\n" + (f"About the learner:\n{who}\n" if who else '') + (f"What the learner told you:\n{lv}\n" if lv else '')
             + (f"The stages that the course has now:\n{have}\n" if have else '')
             + '\nReturn JSON: {"title": str (3 to 6 words), "makes": str, "stages": [{"name": str, "makes": str, "ideas": [str], "foundation": bool, "skip_if": str}]}')
@@ -237,16 +237,18 @@ def _stage(x, key, q) -> dict|None:
                 foundation=base, skip_if=(q or {}).get('key', ''), short=base and ans == 'some', walk=None,
                 status='skipped' if base and ans == 'yes' else 'planned', why=f"You know it: {q['idea'] or q['q']}" if base and ans == 'yes' else '')
 
-def plan_stages(lr:Learning, ask, cid:str, who:str='') -> AttrDict:
-    "Plan the stages of course `cid` with the planner and your answers. The stages with a walk stay; the others are planned again."
+def _stays(s, fix) -> bool: return bool(s.get('locked') or (not fix and s.get('walk')))
+
+def plan_stages(lr:Learning, ask, cid:str, who:str='', fix:bool=False) -> AttrDict:
+    "Plan the stages of course `cid` with the planner and your answers. The locked stages and the stages with a walk stay; the others are planned again. With `fix`, only the locked stages stay."
     c = lr.course(cid)
     if c is None: raise KeyError(f'no course {cid!r}')
-    r = ask_json(_guarded(for_task(ask, 'plan')), stages_prompt(c, who), prompt('course.stages'))
+    r = ask_json(_guarded(for_task(ask, 'plan')), stages_prompt({**c, 'stages': [s for s in c.stages if _stays(s, fix)]}, who), prompt('course.stages'))
     qs = (c.get('level') or {}).get('qs') or ()
     by_key, by_idea = {q['key']: q for q in qs}, {fold(q.get('idea')): q for q in qs if q.get('idea')}
     def f(c):
-        built = [s for s in c.stages if s.get('walk')]
-        have, front, back, ks = {fold(s['name']) for s in built}, [], [], list(built)
+        built = [s for s in c.stages if _stays(s, fix)]
+        have, front, back, ks = {fold(s['name']) for s in built}, [], [], list(c.stages if fix else built)   # Fix the rest gives no key of a stage that goes
         for x in (r.get('stages') if isinstance(r, dict) else None) or ():
             sk = str(x.get('skip_if') or '') if isinstance(x, dict) else ''
             if not (st := _stage(x, _next_key(ks), by_key.get(sk) or by_idea.get(fold(sk)))) or fold(st['name']) in have: continue
@@ -254,6 +256,15 @@ def plan_stages(lr:Learning, ask, cid:str, who:str='') -> AttrDict:
             (front if st['foundation'] else back).append(st)
         c.stages = front + built + back
         c.update(makes=c.get('makes') or clip(str(r.get('makes') or ''), 120), planned_at=time.time())
+    return lr.change_course(cid, f)
+
+# %% ../nbs/22_course.ipynb #lk11
+def lock_stage(lr:Learning, cid:str, key:str, on:bool=True) -> AttrDict:
+    "Lock stage `key` of course `cid`, or unlock it. A stage that is not there raises `KeyError`."
+    def f(c):
+        if (s := first(s for s in c.stages if s['key'] == key)) is None: raise KeyError(f'no stage {key!r} in course {cid!r}')
+        if on: s['locked'] = True
+        else: s.pop('locked', None)
     return lr.change_course(cid, f)
 
 # %% ../nbs/22_course.ipynb #cs045
