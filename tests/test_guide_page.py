@@ -339,3 +339,29 @@ def test_a_show_event_opens_the_demo_card_and_no_board(page):
     page.evaluate("abhyasaGuide.ask('yes, show me')")
     page.wait_for_selector('#show-slot .ask-card')
     assert page.evaluate("!document.getElementById('guide-show')")
+
+def play(pg, steps):
+    pg.evaluate("ss => abhyasaBoard.play({steps: ss, tier: 'tutor', sources: [], streaming: false}, {quiet: true, auto: false})", steps)
+    pg.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done', timeout=5000)
+
+def test_code_is_an_anchor(page):
+    "The guide reads each `pre` of the page as an anchor `code1` to `code4`, so the board can mark a value in code."
+    page.evaluate("""() => { const m = document.querySelector('main') || document.body; const p = document.createElement('pre'); p.textContent = 'assert add_noise_loss([1.0, 1.0], [1.0, -1.0], 0.5, [1.0, 1.0]) == ([1.414, 0.0], 2.0)'; m.prepend(p); }""")
+    ctx = page.evaluate('abhyasaGuide.capture()')
+    code = [a for a in ctx['anchors'] if a['kind'] == 'code']
+    assert code and code[0]['id'] == 'code1' and '[1.0, -1.0]' in code[0]['text']
+    b, pre = page.evaluate("[abhyasaBoard.boxOf({a: 'code1', text: '[1.0, -1.0]'}), (r => ({x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height}))(document.querySelector('main pre, body > pre').getBoundingClientRect())]")
+    assert b and pre['x'] <= b['x'] and b['x'] + b['w'] <= pre['x'] + pre['w'] + 1 and pre['y'] <= b['y'] <= pre['y'] + pre['h']
+
+def test_the_panel_covers_no_text_and_no_mark_at_1400(page):
+    "On the app page at 1400 by 900, the side panel of rupaka's board is at the top right, and the page column moves left while the panel shows: the panel covers no text of main and no mark. The panel is on paper, in the hand font."
+    page.set_viewport_size(dict(width=1400, height=900))
+    page.evaluate("""() => { const m = document.querySelector('main'); const p = document.createElement('pre'); p.dataset.guideId = 'm'; p.textContent = 'x = tensor([18, 47, 56]) and more text to the right edge of the column ' + 'y'.repeat(60); p.style.whiteSpace = 'pre-wrap'; m.prepend(p); }""")
+    play(page, [dict(say='The values.', strokes=[dict(op='panel', head='Make a question'), dict(op='row', cells=['[18]'], to='47', at=dict(a='m', text='tensor([18, 47, 56])'))])])
+    page.wait_for_timeout(400)   # the column moves
+    p, m = [page.evaluate(f"(() => {{ const b = document.querySelector('{q}').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }})()") for q in ('#board-panel', 'main')]
+    assert m[2] <= p[0], (m, p)
+    marks = page.evaluate("[...document.querySelectorAll('#board-layer g[data-op=circle]')].map(g => { const b = g.getBoundingClientRect(); return [b.left, b.right]; })")
+    assert marks and all(r <= p[0] for _, r in marks)
+    assert page.evaluate("getComputedStyle(document.querySelector('.board-panel-head')).fontFamily").startswith('"Patrick Hand"')
+    assert page.evaluate("document.fonts.ready.then(() => [...document.fonts].some(f => f.family.includes('Patrick Hand') && f.status === 'loaded'))")   # rupaka's file, served here
