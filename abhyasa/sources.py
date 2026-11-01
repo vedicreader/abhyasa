@@ -702,14 +702,10 @@ def gh_name(s:str) -> str|None:
 # %% ../nbs/04_sources.ipynb #3b93837a
 REPO_MB = 500   # the biggest repo that abhyasa clones, in MB
 def gh_public(owner:str, name:str) -> dict|None:
-    "What GitHub says of the repo `owner/name` (`private`, `size` in KB), or None when it has no such repo. With gheasy installed, its `gh_token` gives a token, for more calls an hour."
-    from fossick import http_get
-    try: from gheasy.core import gh_token; tok = gh_token()
-    except ImportError: tok = None
-    url, kw = f'https://api.github.com/repos/{owner}/{name}', dict(timeout=15, allow_private=False)
-    r = http_get(url, **kw, **({'headers': {'Authorization': f'Bearer {tok}'}} if tok else {}))
-    if tok and r.status == 401: r = http_get(url, **kw)   # a bad token: ask again with no token
-    return json.loads(r.body) if r.status == 200 else None
+    "What GitHub says of the repo `owner/name` (`private`, `size` in KB), from gheasy's `gh_repo_info`. None when it has no such repo, or when GitHub does not answer (a rate limit, no network): then abhyasa does not know that it is public."
+    from gheasy.core import gh_repo_info
+    try: return gh_repo_info(owner, name)
+    except Exception as e: log.warning('abhyasa could not ask GitHub about %s/%s: %r', owner, name, e); return None
 
 def clone_repo(url:str, timeout:float=600) -> tuple:
     "`(owner/name, folder)` for the public GitHub repo `url` (a link or `owner/name`), cloned or brought up to date by fossick's `gh_clone` in its cache. Raises `LinkError` with a plain reason."
