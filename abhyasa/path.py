@@ -17,22 +17,23 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS
            'NO_START', 'NO_START_ANY', 'ELSE', 'START_WHY', 'NONE_FOUND', 'CRASHED', 'plan_prompt', 'near_goal',
            'chip_docs', 'source_map', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most', 'cap_hands',
            'builds_goal', 'hands_count', 'journey_from_source', 'journey_from_text', 'journey_from_sources', 'data_row',
-           'keep_data', 'folder_list', 'data_entries', 'with_data', 'walk_names', 'same_names', 'walk_from_topic',
-           'minutes', 'needs', 'gap_size', 'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from',
-           'for_talk', 'is_open', 'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up',
-           'topic_slug', 'name_gaps', 'split_parts', 'related', 'with_step', 'paper_id', 'tutor_note', 'step_meta',
-           'open_short', 'nb_prompt', 'nb_spec', 'leela_found', 'leela_back', 'edit_lock', 'restore_steps', 'undo_line',
-           'rewrite', 'move_step', 'skip_step', 'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent',
-           'edit_walk', 'undo_walk', 'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages',
-           'pick_read', 'links_in', 'propose', 'improve_walk', 'new_course', 'is_goal_walk', 'chip_sources',
-           'join_course', 'course_of', 'ensure_courses', 'level_prompt', 'level_questions', 'read_answer', 'ask_level',
-           'answer_level', 'level_done', 'stages_prompt', 'walk_started', 'stage_stays', 'fix_count', 'plan_stages',
-           'lock_stage', 'stage_brief', 'build_stage', 'add_data', 'drop_data', 'stage_rows', 'due_stage', 'next_up',
-           'add_ask', 'blocking', 'course_state', 'set_here', 'active_course', 'course_from', 'courses_from', 'go_back',
-           'subject_label', 'vague', 'research_query', 'file_page', 'link_concept', 'wants_source', 'put_step',
-           'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending', 'research_walk', 'Researcher',
-           'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state', 'idea_at', 'idea_no',
-           'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video', 'gather_tools',
+           'keep_data', 'folder_list', 'with_stop', 'data_entries', 'with_data', 'walk_names', 'same_names',
+           'short_what', 'data_line', 'missing_data', 'walk_from_topic', 'minutes', 'needs', 'gap_size',
+           'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk', 'is_open',
+           'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up', 'topic_slug', 'name_gaps',
+           'split_parts', 'related', 'with_step', 'paper_id', 'tutor_note', 'step_meta', 'open_short', 'nb_prompt',
+           'nb_spec', 'leela_found', 'leela_back', 'edit_lock', 'restore_steps', 'undo_line', 'rewrite', 'move_step',
+           'skip_step', 'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent', 'edit_walk', 'undo_walk',
+           'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages', 'pick_read', 'links_in',
+           'propose', 'improve_walk', 'new_course', 'is_goal_walk', 'chip_sources', 'join_course', 'course_of',
+           'ensure_courses', 'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level',
+           'level_done', 'stages_prompt', 'walk_started', 'stage_stays', 'fix_count', 'plan_stages', 'lock_stage',
+           'stage_brief', 'build_stage', 'add_data', 'drop_data', 'fill_data', 'name_data', 'stage_rows', 'due_stage',
+           'next_up', 'add_ask', 'blocking', 'course_state', 'set_here', 'active_course', 'course_from', 'courses_from',
+           'go_back', 'subject_label', 'vague', 'research_query', 'file_page', 'link_concept', 'wants_source',
+           'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending', 'research_walk',
+           'Researcher', 'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state', 'idea_at',
+           'idea_no', 'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video', 'gather_tools',
            'gather_prompt', 'start_why', 'gather', 'research_state', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key',
            'handoff', 'read_handoff', 'HANDOFF_CASES', 'PKG', 'RUN_SAY', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok',
            'RUN_CASES']
@@ -46,7 +47,7 @@ from .learner import Learning, slugify, _src, meta_of, clean_subject, usable_nam
 from .models import ask_json, for_task, guard
 from .sources import extract, math_cut, _index, doc_pages, root_docs, from_vault, placement, is_id_title, arxiv_ref, arxiv_title, ground, ground_text, clip, names, main_words, named_count, names_idea, fence
 import abhyasa.learner
-from .contract import data_path_why, DATA_MOST
+from .contract import data_path_why, DATA_MOST, DATA_NAME
 
 # %% ../nbs/04_path.ipynb #2e2725f3
 @patch
@@ -335,18 +336,19 @@ def journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str=
     return _save_walk(lr, ask, _new_id(title), title, steps, dict(url=docs[0].url, docs=[dict(d) for d in docs]), f'Read {title}', _fill_subject(lr, [s for v in got.values() for s in v], subject), tool, **extra)
 
 # %% ../nbs/04_path.ipynb #dt02
-def data_row(path, note='') -> dict:
-    "The data folder `path` as a row `{path, note}`, with `~` for the home folder. A `ValueError` says in one line why abhyasa cannot use it."
+def data_row(path, note='', name='') -> dict:
+    "The data folder `path` as a row `{path, note}` (and `name`, when given), with `~` for the home folder. A `ValueError` says in one line why abhyasa cannot use it."
+    if name and not DATA_NAME.fullmatch(str(name)): raise ValueError(f'{str(name)[:40]} is not a data name, as EPISODES.')
     p = str(path or '').strip()
     if why := data_path_why(p): raise ValueError(f'abhyasa cannot use this folder: {why}.')
     q = Path(p).expanduser().resolve()
     if not q.is_dir(): raise ValueError('abhyasa finds no folder at this path.')
-    return dict(path=f'~/{q.relative_to(Path.home().resolve())}', note=clip(' '.join(str(note or '').split()), 199))
+    return dict(path=f'~/{q.relative_to(Path.home().resolve())}', note=clip(' '.join(str(note or '').split()), 199), **({'name': name} if name else {}))
 
-def keep_data(rows, path, note='') -> list:
-    "`rows` with the data folder `path` and its `note` at the end, one time for each path. A `ValueError` says why abhyasa cannot add it."
-    r = data_row(path, note)
-    rows = [d for d in rows or () if d['path'] != r['path']]
+def keep_data(rows, path, note='', name='') -> list:
+    "`rows` with the data folder `path`, its `note` and its data `name` at the end, one time for each path and each name. A `ValueError` says why abhyasa cannot add it."
+    r = data_row(path, note, name)
+    rows = [d for d in rows or () if d['path'] != r['path'] and not (name and d.get('name') == name)]
     if len(rows) >= DATA_MOST: raise ValueError(f'You can keep at most {DATA_MOST} data folders.')
     return [*rows, r]
 
@@ -358,17 +360,26 @@ def folder_list(path, most:int=10) -> str:
 
 def _one_line(s) -> str: return ''.join(ch for ch in ' '.join(str(s).split()) if ch.isprintable())
 
+def with_stop(s) -> str:
+    "`s` as one line that ends with a stop: a text that ends with `.`, `!` or `?` gets no second stop. '' stays ''."
+    s = _one_line(s).rstrip()
+    return s if not s or s[-1] in '.!?' else s + '.'
+
 def data_entries(rows, taken=()) -> list:
-    "The data folders `rows` as data entries `{name, path, what, need}` of a notebook spec. Each name is new: not in `taken`, and not used twice."
-    out, used = [], set(taken)
-    for d in list(rows or ())[:DATA_MOST]:
-        base = re.sub(r'[^A-Z0-9]+', '_', Path(d['path']).name.upper()).strip('_') or 'DATA'
-        base, k = (base if base[0].isalpha() else f'D_{base}')[:36], 2
-        name = base
-        while name in used: name, k = f'{base}_{k}', k + 1
-        used.add(name)
+    """The data folders `rows` as data entries `{name, path, what, need}` of a notebook spec. A row with a `name` keeps it. Each other name is new:
+    not in `taken`, and not used twice."""
+    rows, out, used = list(rows or ())[:DATA_MOST], [], set(taken)
+    named = {d['name'] for d in rows if DATA_NAME.fullmatch(str(d.get('name') or ''))} - used
+    used |= named
+    for d in rows:
+        if (name := d.get('name')) not in named:
+            base = re.sub(r'[^A-Z0-9]+', '_', Path(d['path']).name.upper()).strip('_') or 'DATA'
+            base, k = (base if base[0].isalpha() else f'D_{base}')[:36], 2
+            name = base
+            while name in used: name, k = f'{base}_{k}', k + 1
+            used.add(name)
         ls = folder_list(d['path'])
-        what = _one_line(' '.join(x for x in (d.get('note') or 'Your data folder.', f'It holds: {ls}.' if ls else '') if x))
+        what = ' '.join(x for x in (with_stop(d.get('note')) or 'Your data folder.', f'It holds: {ls}.' if ls else '') if x)
         out.append(dict(name=name, path=d['path'], what=clip(what, 199), need=False))
     return out
 
@@ -416,6 +427,28 @@ def same_names(spec, named) -> dict:
     return {**spec, 'task': sub(spec.get('task')), 'stub': sub(spec.get('stub')),
             'data': [{**e, 'name': new.get(e.get('name'), e.get('name'))} if isinstance(e, dict) else e for e in spec['data']],
             **({'run': {**run, 'say': sub(run.get('say')), 'predict': sub(run.get('predict'))}} if isinstance(run, dict) else {})}
+
+# %% ../nbs/04_path.ipynb #ds02
+def short_what(w, most:int=80) -> str:
+    "The first sentence of `w`, at most about `most` characters, with no stop at its end and no \"folder of\" at its start, to go after a name and a colon."
+    s = re.split(r'(?<=[.!?])\s', _one_line(w), maxsplit=1)[0].rstrip('.!? ')
+    s = re.sub(r'^(?:an?\s+|the\s+)?folder\s+(?:of|with)\s+', '', s, flags=re.I)
+    if len(s) > most: s = s[:most].rsplit(' ', 1)[0].rstrip(',;:') + '…'
+    if s[1:2].islower() or s[:2] == 'A ': s = s[:1].lower() + s[1:]
+    return f'the {s}' if re.match(r'[a-z]+ of ', s) and not re.match(r'(?:an?|the) ', s) else s
+
+def data_line(d) -> str:
+    "The line that asks for the folder of data entry `d`: `EPISODES: the text of the comic episodes. Set its folder.`"
+    return f"{d['name']}: {w}. Set its folder." if (w := short_what(d.get('what'))) else f"Set the folder of {d['name']}."
+
+def missing_data(j, i:int|None=None) -> list:
+    "The data entries `{name, what}` that the notebook specs of walk `j` (or of step `i` only) name, and that no folder under Your data (`j.data`) has."
+    own = data_entries(j.get('data'))
+    by, out = {**{o['path']: o for o in own}, **{o['name']: o for o in own}}, {}
+    for k, s in enumerate(j.get('steps') or ()):
+        for d in ((s.get('nb') or {}).get('data') or ()) if i in (None, k) else ():
+            if isinstance(d, dict) and isinstance(d.get('name'), str) and _own(d, by)['need']: out.setdefault(d['name'], dict(name=d['name'], what=d.get('what') or ''))
+    return list(out.values())
 
 # %% ../nbs/04_path.ipynb #w308
 def _doc_at(lr:Learning, doc) -> tuple|None:
@@ -1892,6 +1925,27 @@ def drop_data(lr:Learning, cid:str, path:str) -> AttrDict:
     "Remove the data folder `path` from course `cid` and its walks. The folder stays on the disk."
     return _set_data(lr, cid, lambda ds: [d for d in ds if d['path'] != path])
 
+# %% ../nbs/04_path.ipynb #cd06
+def fill_data(lr:Learning, jid:str) -> AttrDict:
+    "Walk `jid` with its data folders in the notebook spec of each of its steps, so the spec that Leela reads has each path that you set."
+    with _jlock(jid):
+        j, changed = lr.journey(jid), False
+        for s in j.steps:
+            if (nb := s.get('nb')) and (d := with_data(nb.get('data'), j.get('data'))) != list(nb.get('data') or ()): s['nb'], changed = {**nb, 'data': d}, True
+        return lr.put_journey(j) if changed else j
+
+def name_data(lr:Learning, jid:str, name:str, path, note:str='') -> dict:
+    """Keep the folder `path` under Your data with the data name `name` and `note`: on the course of walk `jid` and its walks, else on the walk.
+    Each notebook step of those walks then has the path in its spec. Gives the row. A `ValueError` says in one line why abhyasa cannot."""
+    if not lr.journey(jid): raise ValueError('This walk is not there now.')
+    f = lambda ds: keep_data(ds, path, note, name)
+    if c := course_of(lr, jid): ids = [s['walk'] for s in _set_data(lr, c.id, f).stages if s.get('walk') and lr.journey(s['walk'])]
+    else:
+        with _jlock(jid): lr.merge_journey(jid, data=f(lr.journey(jid).get('data')))
+        ids = [jid]
+    for w in ids: fill_data(lr, w)
+    return first(d for d in lr.journey(jid).data if d.get('name') == name)
+
 # %% ../nbs/04_path.ipynb #cs049
 LEFT = ('ready', 'planned', 'building')   # the states of a stage that is not finished
 
@@ -2021,9 +2075,10 @@ def blocking(lr:Learning, c, rows=None, by:dict=None, leela:bool=None, now:float
         out.append(AttrDict(kind='weak', line=f"{w[0].name} is not solid yet: {(understanding(w[0], now).reasons or ['you missed it'])[0]}.", act='Practice it', go=dict(kind='review', slug=w[0].slug)))
     if nb: out.append(AttrDict(kind='notebook', line=f"{_n(len(nb), 'notebook')} to run in Leela: {_names([_concept_name(by, r.j.steps[i]['slug']) for r, i in nb])}.", act='Open it', go=_stage_step(*nb[0])))
     if nb and leela is False: out.append(AttrDict(kind='setup', line='Leela is not running. Start Leela to run the notebooks.', act='', go=None))
+    asked = set()
     for r, i in nb:
-        for d in (r.j.steps[i].get('nb') or {}).get('data') or ():
-            if not str(d.get('path') or '').strip(): out.append(AttrDict(kind='setup', line=f"Set the folder of {d.get('what') or d.get('name')}.", act='Set it', go=_stage_step(r, i)))
+        for d in missing_data(r.j, i):
+            if d['name'] not in asked: asked.add(d['name']); out.append(AttrDict(kind='setup', line=data_line(d), act='Set it', go=_stage_step(r, i), data=d, walk=r.j.id))
     for s in c.get('sources') or ():
         if s.get('status') == 'failed': out.append(AttrDict(kind='source', line=s.get('why') or f"abhyasa could not file {s['root']}.", act='', go=None))
         elif s.get('status') == 'filing': out.append(AttrDict(kind='source', line=f"abhyasa still files {s['root']}.", act='', go=None))
