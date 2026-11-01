@@ -128,14 +128,14 @@ def test_your_data_gives_the_real_paths(lr, tmp_path, monkeypatch):
     assert got.data[1]['what'].startswith(MINE[0]['note'])
 
 def test_idea_page_says_which_data_is_missing(mk, lr, tmp_path, monkeypatch):
-    "Before Open in Leela, the card names each data entry with no folder and what it holds. Open in Leela still works. When you add the folder, the line goes."
+    "Before Open in Leela, the card has a folder setter for each data entry with no folder. Open in Leela still works. When you add a folder, its setter goes."
     from abhyasa.path import add_data
     d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
     lr.walk_step('gw', 1, nb=walk_engine.validate_nb_spec({**_GOOD, 'data': [{**INVENTED[0], 'path': '', 'need': True}, {**INVENTED[1], 'path': '', 'need': True}]}))
     cl = mk()
     card = cl.get('/w/gw/1/check').text
-    assert 'This step needs EPISODES (the text of your comic episodes) and RAMAYANA. Add their folders under Your data on the walk page.' in card
+    assert 'This step needs 2 folders on this Mac:' in card and card.count('data-act="set-data"') == 2
     assert 'Open in Leela' in card and '~/comics' not in card
     add_data(lr, c.id, str(d), MINE[0]['note'])
     card = cl.get('/w/gw/1/check').text
-    assert 'This step needs EPISODES (the text of your comic episodes). Add its folder under Your data on the walk page.' in card and '~/ramayana' in card
+    assert 'This step needs 1 folder on this Mac:' in card and 'data-name="EPISODES"' in card and 'data-name="RAMAYANA"' not in card and '~/ramayana' in card

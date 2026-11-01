@@ -12,14 +12,14 @@ def nb_step(cl, lr, i=1, spec=GOOD):
     return jid
 
 def test_notebook_card(mk, lr, walk_fake, tmp_path):
-    "The notebook card shows the task, the data and the run, and Open in Leela. abhyasa offers no download and no path field: a folder that the notebook needs goes under Your data, or Leela asks for it."
+    "The notebook card shows the task, the data and the run, and Open in Leela. abhyasa offers no download. A folder that the notebook needs gets a folder setter, which keeps it under Your data."
     cl = mk(); jid = nb_step(cl, lr)
     card = cl.get(f'/w/{jid}/1/check').text
     for say in ('Check · notebook · runs in Leela', 'Open in Leela', '(an estimate)', 'none for this one', 'captions.jsonl', 'Predict: How many episodes',
-                'This step needs EPISODES (episodes) and IMAGES (the images to train on). Add their folders under Your data on the walk page.', 'Leela is not running. Start Leela, then press ⌥S again.', 'Get Leela',
+                'This step needs 2 folders on this Mac:', 'data-name="EPISODES"', 'data-name="IMAGES"', 'Leela is not running. Start Leela, then press ⌥S again.', 'Get Leela',
                 '1 more test that you cannot see.', 'abhyasa does not run this code'):
         assert say in card, say
-    assert 'no people and no place' not in card and 'Download the notebook' not in card and 'name="path"' not in card
+    assert 'no people and no place' not in card and 'Download the notebook' not in card and 'under Your data on the walk page' not in card
     assert lr.journey(jid).steps[1].get('qid') is None                                   # abhyasa opens no question on a notebook step
     assert cl.get(f'/w/{jid}/1/notebook').status_code == 404 and cl.post(f'/w/{jid}/1/data', data=dict(name='IMAGES', path='~/x')).status_code in (404, 405)
 

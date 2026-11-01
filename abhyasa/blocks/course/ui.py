@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
-from abhyasa.core import asset_css, Primary, Secondary, Quiet, Part, Empty, n_of
+from abhyasa.core import asset_css, Primary, Secondary, Quiet, Part, Empty, n_of, run as run_hook
 from abhyasa.path import ANSWERS, level_done, stage_stays
 from .cfg import Routes
 
@@ -82,9 +82,14 @@ def Stages(st, cid):
               Span(FIX_SAY, cls='mute'), cls='row course-fix') if n else ''
     return Part('Stages', Ol(*[Stage(r, cid) for r in st.stages], cls='plain course-stages'), fix, id='course-stages')
 
+def Act(b, st, cid):
+    "The one action of a row: a link, or for a data name with no folder, Set it, which opens the folder setter in place (from the add block)."
+    if b.get('data') and (got := run_hook('data_setter', b.data, b.walk, closed=True)): return got[0]
+    return A(b.act, href=href(b.go, cid) if b.go else href(st.next.go, cid))
+
 def Blocking(st, cid):
     "What stands between you and the goal: one line and at most one action for each row."
-    rows = [Li(b.line, *((' ', A(b.act, href=href(b.go, cid) if b.go else href(st.next.go, cid))) if b.act else ()), cls=f'course-block {b.kind}') for b in st.blocking]
+    rows = [Li(b.line, *((' ', Act(b, st, cid)) if b.act else ()), cls=f'course-block {b.kind}') for b in st.blocking]
     return Part('What stands between you and the goal', Ul(*rows, cls='plain') if rows else Empty('Nothing. You reached your goal.' if st.finished else 'Nothing now.'))
 
 def Sources(c):

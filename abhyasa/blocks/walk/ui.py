@@ -12,7 +12,7 @@ from abhyasa.models import dflt_model, where_chip
 from abhyasa.core.leela import leela_line, LEELA_INSTALL
 from abhyasa.path import minutes, TOOL_WAYS, hands_count, hands_most
 from abhyasa.learner import SHAKY, walk_state
-from abhyasa.path import wants_source
+from abhyasa.path import wants_source, missing_data
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -479,11 +479,16 @@ def DataRow(d):
     return Div(Code(d['name']), ' ', Span(d['path'], cls='path') if d.get('path') else '', Span(f" · {d['what']}", cls='mute') if d.get('what') else '',
                cls='nb-data' if d.get('path') else 'nb-data need')
 
-def DataNeed(data):
-    "The line before Open in Leela that names each data entry with no folder under Your data, and what it holds. None when each has one."
+def setters(jid, data):
+    "The folder setter of each data entry in `data` (from the add block), for walk `jid`."
+    return [x for d in data for x in run_hook('data_setter', d, jid)]
+
+def DataNeed(jid, i, data):
+    """Before Open in Leela: `This step needs 2 folders on this Mac:` and a folder setter for each data entry with no folder under Your data.
+    When the walk needs no more folders (the event `data-done`), the card loads again. None when each entry has a folder."""
     if not (gone := [d for d in data if not d.get('path')]): return None
-    say = ' and '.join(f"{d['name']}" + (f" ({d['what'].rstrip('. ')})" if d.get('what') else '') for d in gone)
-    return P(f"This step needs {say}. Add {'its folder' if len(gone) == 1 else 'their folders'} under Your data on the walk page.", cls='nb-need', data_part='data-need')
+    return Div(P(f"This step needs {n_of(len(gone), 'folder')} on this Mac:", cls='nb-need-say'), Div(*setters(jid, gone), cls='data-sets'),
+               cls='nb-need', data_part='data-need', hx_get=at(Routes.check, jid, i), hx_trigger='data-done from:body', hx_target='#check', hx_swap='innerHTML')
 
 def NotebookCard(jid, i, s, link=None):
     """The card "The notebook" of a step whose check runs in Leela: the task, the tests you can see, the data, the packages, what the run
@@ -499,7 +504,7 @@ def NotebookCard(jid, i, s, link=None):
              *([Dt('Before the run'), Dd(f"Predict: {r['predict']}")] if r.get('predict') else [])]
     tests = Div(Pre('\n'.join(shown), cls='tests') if shown else '', P(n_of(hidden, 'more test') + ' that you cannot see.', cls='mute') if hidden else '')
     return Check(NbHead(), Div(Div(Md(nb['task']), cls='q'), tests, Dl(*parts, cls='nb-parts'),
-                               P('This step runs in Leela, in a notebook with its packages. abhyasa does not run this code.', cls='mute nb-where'), DataNeed(nb['data'])),
+                               P('This step runs in Leela, in a notebook with its packages. abhyasa does not run this code.', cls='mute nb-where'), DataNeed(jid, i, nb['data'])),
                  foot=NbGo(jid, i, link, opened=s.get('leela_at')), cls='nb-check')
 
 CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck)   # check kind -> card; `notebook` has its own card (NotebookCard)
@@ -697,11 +702,15 @@ def SideTop(j, st, back):
 DATA_SAY = 'The exercises of this walk run on these folders. abhyasa does not file them.'
 
 def YourData(j):
-    "Your data: each folder that the exercises run on (`walk.data`), with its note and ×. Add a source adds one."
+    """Your data: each folder that the exercises run on (`walk.data`), with its note and ×, then a folder setter for each data name that the
+    steps need and that has no folder yet. Add a source adds one too."""
+    need = setters(j['id'], missing_data(j))
+    need = Div(P(f"The steps need {n_of(len(need), 'more folder')} on this Mac:", cls='mute'), Div(*need, cls='data-sets'), cls='walk-need') if need else ''
     rows = [Li(B(d['path']), Span(f" · {d['note']}", cls='mute') if d.get('note') else '',
                Button('×', type='button', cls='x', aria_label=f"Remove {d['path']}", hx_post=at(Routes.data_drop, j['id']), hx_vals=json.dumps(dict(path=d['path'])),
                       hx_target='#walk-data', hx_swap='outerHTML')) for d in j.get('data') or ()]
-    return Div(H3('Your data'), P(DATA_SAY, cls='mute'), Ul(*rows, cls='plain walk-data'), id='walk-data', data_part='data') if rows else Div(id='walk-data')
+    if not (rows or need): return Div(id='walk-data')
+    return Div(H3('Your data'), P(DATA_SAY, cls='mute') if rows else '', Ul(*rows, cls='plain walk-data') if rows else '', need, id='walk-data', data_part='data')
 
 def Sources(j, band, more=()):
     "The sources of the walk: the line of research with Stop, Show what it did and Find sources again, what Start filed with its Undo, your data, and Add a source (`more`)."

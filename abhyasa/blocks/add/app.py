@@ -4,11 +4,11 @@ from fasthtml.common import *
 from pathlib import Path
 from urllib.parse import urlencode
 from abhyasa.core.leela import LOCAL_HOSTS
-from abhyasa.core import hook, run as run_hook, Primary, Secondary, Pill, asset_css, asset_js, n_of
+from abhyasa.core import hook, run as run_hook, Primary, Secondary, Quiet, Pill, asset_css, asset_js, n_of
 from fossick import is_pdf
 from abhyasa.sources import folder_why, tree_files, vault_roots
 from abhyasa.learner import val, roots
-from abhyasa.path import keep_data, course_of, add_data
+from abhyasa.path import keep_data, course_of, add_data, name_data, missing_data, short_what
 from abhyasa.sources import detect, vault_title, title_index, folder_names, named_sources, on_disk, fold_trim as fold, _goal
 from .cfg import Routes
 
@@ -23,6 +23,9 @@ PICK = 'Pick folders…'
 PICK_SAY = 'Pick one or more folders to learn from. Hold ⌘ to pick more than one.'
 PICK_WAIT = 600   # seconds that the folder chooser stays open
 NOT_HERE = 'abhyasa opens the folder chooser only on this Mac.'
+DATA_PICK = 'Pick a folder'
+DATA_PASTE = 'or paste a path'
+DATA_EMPTY = 'Pick a folder, or paste its path.'
 DROP_MB = 50
 DROP_MOST = 20   # the most files in one drop
 DROP_WAIT = 60   # seconds that a drop waits for the vault to read the PDF; then the pool goes on and the request answers
@@ -51,10 +54,11 @@ def can_pick() -> bool:
 PICK_ASK = (f'set fs to choose folder with prompt "{PICK_SAY}" with multiple selections allowed', 'set out to ""',
             'repeat with f in fs', 'set out to out & POSIX path of f & linefeed', 'end repeat', 'return out')   # one path on each line
 
-def choose_folder() -> list:
-    "Open the folder chooser of macOS and give the path of each folder that you pick, or [] when you cancel or it times out."
+def choose_folder(say:str=PICK_SAY) -> list:
+    "Open the folder chooser of macOS with the prompt `say`, and give the path of each folder that you pick, or [] when you cancel or it times out."
     if not _picking.acquire(blocking=False): return []   # a chooser is open already
-    try: r = _osa(['osascript', *[x for l in PICK_ASK for x in ('-e', l)]], capture_output=True, text=True, timeout=PICK_WAIT)
+    ask = [l.replace(PICK_SAY, say.replace('"', '')) for l in PICK_ASK]
+    try: r = _osa(['osascript', *[x for l in ask for x in ('-e', l)]], capture_output=True, text=True, timeout=PICK_WAIT)
     except (OSError, subprocess.SubprocessError) as e:
         log.info('abhyasa did not get a folder from the chooser: %r', e)
         return []
@@ -66,6 +70,27 @@ def Use():
     "One choice for what you add: learn from it (the default), or your data, which the exercises run on and abhyasa does not file."
     return Div(*[Label(Input(type='radio', name='use', value=v, checked=v == 'learn'), ' ', t, cls='tick') for v, t in USE],
                Input(type='text', name='note', placeholder='A note on your data (optional)', aria_label='A note on your data', autocomplete='off'), cls='use')
+
+def _set_url(jid, e): return f"{Routes.data_set}?{urlencode(dict(jid=jid, name=e['name'], what=e.get('what') or ''))}"
+
+def DataSetter(entry, where, err='', closed=False):
+    """The folder setter of data entry `entry` (`{name, what}`) of walk `where`: the name, a short form of what it holds, Pick a folder (the folder
+    chooser of this Mac) and a quiet field for a path. The folder goes under Your data with that name. `closed` gives only Set it, which opens it in place."""
+    if closed: return Quiet('Set it', small=True, type='button', hx_get=_set_url(where, entry), hx_target='this', hx_swap='outerHTML', data_act='set-data')
+    name, what = entry['name'], short_what(entry.get('what'))
+    keep = [Input(type='hidden', name=k, value=v) for k, v in dict(jid=where, name=name, what=entry.get('what') or '').items()]
+    pick = Secondary(DATA_PICK, type='button', hx_post=Routes.data_set, hx_vals='{"pick": "1"}', hx_include='closest form', hx_target='closest form',
+                     hx_swap='outerHTML', data_act='pick-data') if can_pick() else ''
+    return Form(Div(Code(name), Span(f' · {what}', cls='mute') if what else '', cls='data-set-head'),
+                Div(pick, Input(type='text', name='path', placeholder=DATA_PASTE, aria_label=f'The path of the folder of {name}', autocomplete='off', cls='data-set-path'),
+                    Quiet('Use it', small=True), cls='row data-set-acts'),
+                P(err, cls='req-err') if err else '', *keep, hx_post=Routes.data_set, hx_target='this', hx_swap='outerHTML', cls='data-set', data_act='set-data', data_name=name)
+
+def DataSet(entry, path, where):
+    "The setter after you set the folder: `EPISODES: ~/comics/episodes ✓` and Change, which opens the setter again in place."
+    return Div(Code(entry['name']), f': {path} ', Span('✓', cls='ok', aria_label='set'), ' ',
+               Quiet('Change', small=True, type='button', hx_get=_set_url(where, entry), hx_target='closest .data-set', hx_swap='outerHTML'),
+               cls='data-set done', data_name=entry['name'])
 
 def Pick(): return Button(PICK, type='button', cls='quiet small', id='start-pick') if can_pick() else ''
 
@@ -333,6 +358,34 @@ def connect(app, ctx):
 
     later('names', lambda: read_names(tuple(roots())))   # read the folder names one time, before the first read of the box
 
+    @hook('page_extra')
+    def data_css():
+        "The style of the folder setter, once on each page: the idea, walk and course pages show it."
+        return asset_css(_P/'data.css')
+
+    @hook('data_setter')
+    def data_setter(entry, where, closed=False):
+        "The folder setter of data entry `entry` of walk `where`, for the idea page, the walk page and the course page."
+        return DataSetter(entry, where, closed=closed)
+
+    def data_open(jid:str, name:str='', what:str=''):
+        "The open folder setter of data name `name` of walk `jid`: Set it and Change ask for it. A GET only reads."
+        return DataSetter(dict(name=name, what=what), jid) if lr.journey(jid) else Response(status_code=404)
+
+    async def data_set(req, jid:str, name:str='', what:str='', path:str='', pick:str=''):
+        """Keep the folder that you pick (or the path that you paste) under Your data as `name`: on the course of walk `jid`, else on the walk.
+        Each step that names it gets the path. When the walk needs no more folders, the event `data-done` tells the page."""
+        if not lr.journey(jid): return Response(status_code=404)
+        e = dict(name=name, what=what)
+        if pick:
+            if not can_pick() or (req.client.host if req.client else '') not in LOCAL_HOSTS: return DataSetter(e, jid, NOT_HERE)
+            if not (got := await asyncio.to_thread(choose_folder, f'Pick the folder of {name}.')): return DataSetter(e, jid)   # Cancel
+            path = got[0]
+        if not path.strip(): return DataSetter(e, jid, DATA_EMPTY)
+        try: row = name_data(lr, jid, name, path, what)
+        except ValueError as err: return DataSetter(e, jid, str(err))
+        return (DataSet(e, row['path'], jid), HtmxResponseHeaders(trigger='data-done')) if not missing_data(lr.journey(jid)) else DataSet(e, row['path'], jid)
+
     @hook('learn_start')
     def start():
         "Start something new, on Home: the box, with the place for its result under Start."
@@ -344,4 +397,6 @@ def connect(app, ctx):
     app.post(Routes.files)(drops)
     app.post(Routes.pick)(pick)
     app.post(Routes.walk_source)(walk_source)
+    app.get(Routes.data_set)(data_open)
+    app.post(Routes.data_set)(data_set)
     app.get(Routes.walk_source)(walk_filing)
