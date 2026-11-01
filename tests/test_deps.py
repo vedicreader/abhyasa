@@ -29,8 +29,15 @@ def test_rupaka_floor():
     assert Version(version('rupaka')) >= Version('0.0.9')
 
 def test_ramabana_is_a_core_dependency():
-    "The guide and research guard text with `ramabana.guard`, routing uses ramabana, and the gather worker uses `only_tools` (0.2.96), so a plain install must have it. The `models` extra stays, so old installs still resolve."
+    "The guide and research guard text with `ramabana.guard`, and routing uses ramabana. 0.2.103 gives `available_models(ttl=)`, `model_label`, `oneshot(wait=, strict=)`, `ask(deadline=, stop=)`, `model_agent` and `read_key`. The `models` extra stays, so old installs still resolve."
     pp = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']
-    assert 'ramabana>=0.2.96' in pp['dependencies']
+    assert any(d.startswith('ramabana>=0.2.103') for d in pp['dependencies'])
     assert 'models' in pp['optional-dependencies']
-    assert Version(version('ramabana')) >= Version('0.2.96')
+    assert Version(version('ramabana')) >= Version('0.2.103')
+
+def test_shalya_gheasy_floors():
+    "shalya 0.1.28 gives `LocalHost(url_ok=, on_read=)` and `read_page`. gheasy 0.0.20 gives `gh_repo_info`. abhyasa imports both, so a plain install must have them."
+    deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
+    for p, v in (('shalya', '0.1.28'), ('gheasy', '0.0.20')):
+        assert any(d.startswith(f'{p}>={v}') for d in deps), p
+        assert Version(version(p)) >= Version(v), p
