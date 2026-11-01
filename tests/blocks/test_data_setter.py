@@ -82,14 +82,23 @@ def test_the_course_list_asks_for_each_name_once(mk, lr, tmp_path, monkeypatch):
     cl = mk()
     pg = lxml.html.fromstring(cl.get(f'/course/{c.id}').text)
     lines = [' '.join(li.text_content().split()) for li in pg.xpath('//li[contains(@class, "setup")][.//*[@data-act="set-data"]]')]
-    assert lines == ['EPISODES: the text of the comic episodes. Set its folder. Set it', 'IMAGES: your own Indian comic panel images. Set its folder. Set it']
-    assert not any('..' in x or 'Folder of' in x for x in lines)
+    assert lines == ['EPISODES: the text of the comic episodes. Set it', 'IMAGES: your own Indian comic panel images. Set it']   # one action, and the capital of Indian stays
+    assert not any('..' in x or 'Folder of' in x or 'Set its folder' in x for x in lines)
     go = pg.xpath('//li[contains(@class, "setup")]//button[@data-act="set-data"]')[0].get('hx-get')
     form = cl.get(go).text
     assert 'name="name" value="EPISODES"' in form and 'or paste a path' in form
     assert '~/comics' in set_data(cl, 'EPISODES', path='~/comics').text
     page = cl.get(f'/course/{c.id}').text
     assert 'EPISODES: the text' not in page and 'IMAGES: your own' in page
+
+def test_a_course_line_keeps_the_capital_of_a_name(mk, lr, tmp_path, monkeypatch):
+    "A `what` that starts with a name of a people keeps its capital on the course list. A common first word gets a small letter."
+    episodes(tmp_path, monkeypatch); c = course_walk(lr)
+    lr.walk_step('gw', 1, nb=validate_nb_spec({**_GOOD, 'data': [{**IMGS, 'name': 'COMIC_IMAGES', 'what': 'Indian comic page or panel images (jpg or png) that you choose and name.'},
+                                                                   {**EPS, 'what': 'The text of the comic episodes.'}]}))
+    pg = lxml.html.fromstring(mk().get(f'/course/{c.id}').text)
+    lines = [' '.join(li.text_content().split()) for li in pg.xpath('//li[contains(@class, "setup")][.//*[@data-act="set-data"]]')]
+    assert lines == ['COMIC_IMAGES: Indian comic page or panel images (jpg or png) that you choose and name. Set it', 'EPISODES: the text of the comic episodes. Set it']
 
 def test_the_walk_page_lists_the_names_with_no_folder(mk, lr, tmp_path, monkeypatch):
     "Your data on the walk page has a setter for each name that a step needs and that has no folder. A walk with no course keeps the folder on the walk."
