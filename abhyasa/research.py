@@ -6,17 +6,17 @@ Docs: https://vedicreader.github.io/abhyasa/research.html.md"""
 
 # %% auto #0
 __all__ = ['log', 'SUBJECT_LABEL', 'MANY_SENSE', 'SOCIAL', 'FILES', 'URL_MOST', 'PAGE_BYTES', 'BOT_WALL', 'FETCH_SECS',
-           'KEEP_SECS', 'KEEP_MOST', 'BLOCKS', 'REFUSED', 'META', 'TEXT_TYPES', 'MOST', 'LEAST', 'WINDOW', 'PICK_SP',
-           'VIEW_ROW', 'MARKS', 'TOP', 'FOUND_NOTHING', 'NO_QUOTE', 'BIG_ROOT', 'AGENT_DOCS', 'TOOL_TEXT', 'LOG_MOST',
-           'FILE_BYTES', 'LEAK_WORDS', 'FLUSH_ROWS', 'FLUSH_SECS', 'PASSAGE_WORDS', 'STOPPED', 'TIME_UP', 'TEXTS',
-           'SECRET', 'GATHER_SP', 'LEAD_SP', 'LEAD_TOOLS_OWN', 'NO_START', 'NO_START_ANY', 'ELSE', 'START_WHY',
-           'NONE_FOUND', 'CRASHED', 'subject_label', 'vague', 'research_query', 'site_of', 'usable', 'paper_link',
-           'candidates', 'forget_web', 'refused_site', 'web_search', 'web_fetch', 'drop_meta', 'page_text', 'plain_md',
-           'verbatim', 'idea_words', 'about_idea', 'pick_prompt', 'pick_passage', 'file_page', 'link_concept',
-           'wants_source', 'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending',
-           'research_walk', 'Researcher', 'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state',
-           'idea_at', 'idea_no', 'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video',
-           'gather_tools', 'gather_prompt', 'start_why', 'gather', 'research_state']
+           'KEEP_SECS', 'BLOCKS', 'REFUSED', 'META', 'TEXT_TYPES', 'MOST', 'LEAST', 'WINDOW', 'PICK_SP', 'VIEW_ROW',
+           'MARKS', 'TOP', 'FOUND_NOTHING', 'NO_QUOTE', 'BIG_ROOT', 'AGENT_DOCS', 'TOOL_TEXT', 'LOG_MOST', 'FILE_BYTES',
+           'LEAK_WORDS', 'FLUSH_ROWS', 'FLUSH_SECS', 'PASSAGE_WORDS', 'STOPPED', 'TIME_UP', 'TEXTS', 'SECRET',
+           'GATHER_SP', 'LEAD_SP', 'LEAD_TOOLS_OWN', 'NO_START', 'NO_START_ANY', 'ELSE', 'START_WHY', 'NONE_FOUND',
+           'CRASHED', 'subject_label', 'vague', 'research_query', 'site_of', 'usable', 'paper_link', 'candidates',
+           'forget_web', 'refused_site', 'web_search', 'web_fetch', 'drop_meta', 'page_text', 'plain_md', 'verbatim',
+           'idea_words', 'about_idea', 'pick_prompt', 'pick_passage', 'file_page', 'link_concept', 'wants_source',
+           'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending', 'research_walk',
+           'Researcher', 'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state', 'idea_at',
+           'idea_no', 'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video', 'gather_tools',
+           'gather_prompt', 'start_why', 'gather', 'research_state']
 
 # %% ../nbs/18_research.ipynb #r006
 import hashlib, json, logging, os, re, shutil, threading, time
@@ -127,64 +127,47 @@ def candidates(hits, n:int) -> L:
 PAGE_BYTES = 5_000_000   # the most bytes of one page
 BOT_WALL = 'abhyasa could not read this page: the site shows a check for robots.'
 
-FETCH_SECS, KEEP_SECS, KEEP_MOST = 15, 900, 256   # the time for one fetch of research; how long a page, a search and a site that refused stay known; the most of each
+FETCH_SECS, KEEP_SECS = 15, 900   # the time for one fetch of research; how long fossick keeps a page, a search and a site that refused
 BLOCKS = (401, 403, 429)   # a site that answers with one of these refused research
 REFUSED = 'abhyasa could not read this page: the site refused the request.'
-_PAGES, _HITS, _BLOCKED, _SITES, _KLOCK = {}, {}, {}, {}, threading.Lock()
-
-def _kept(box:dict, key):
-    "The value under `key` in `box` while it is younger than `KEEP_SECS`; else None."
-    with _KLOCK:
-        if (v := box.get(key)) and time.time() - v[0] < KEEP_SECS: return v[1]
-        box.pop(key, None)
-
-def _keep(box:dict, key, value):
-    "Keep `value` under `key` in `box`, with the time. The oldest goes when `box` has more than `KEEP_MOST`. Return `value`."
-    with _KLOCK:
-        box[key] = (time.time(), value)
-        while len(box) > KEEP_MOST: box.pop(next(iter(box)))
-    return value
+_WALLS = {}   # site -> the time that it showed a check for robots; fossick keeps the statuses in `BLOCKS`
 
 def forget_web():
-    "Forget the pages, the searches and the sites that refused, which research keeps for `KEEP_SECS` seconds."
-    with _KLOCK:
-        for b in (_PAGES, _HITS, _BLOCKED): b.clear()
+    "Forget the pages, the searches and the sites that refused, which fossick and research keep for `KEEP_SECS` seconds."
+    from fossick import forget
+    forget(); _WALLS.clear()
 
 def refused_site(url:str) -> bool:
-    "Whether the site of `url` refused research (`BLOCKS`, or a check for robots) in the last `KEEP_SECS` seconds."
-    return bool(_kept(_BLOCKED, site_of(url)))
-
-def _site_lock(url:str) -> threading.Lock:
-    "The lock of the site of `url`: research asks one site for one page at a time."
-    with _KLOCK: return _SITES.setdefault(site_of(url), threading.Lock())
+    "Whether the site of `url` showed research a check for robots in the last `KEEP_SECS` seconds. fossick remembers a status in `BLOCKS` for its host."
+    return time.time() - _WALLS.get(site_of(url), 0) < KEEP_SECS
 
 def web_search(q:str, n:int) -> list:
     """The top `n` web results for `q`, from fossick, as dicts with `title`, `href` and `body`. fossick's `curate` removes copy sites,
-    puts the best sites for the question first, and puts a third result from one site lower. A search that gave results in the
-    last `KEEP_SECS` seconds comes from memory."""
-    if (hs := _kept(_HITS, (q, n))): return hs
+    puts the best sites for the question first, and puts a third result from one site lower. fossick keeps a search that gave
+    results for `KEEP_SECS` seconds."""
     from fossick import search, curate   # here, so that the import of this module stays light
-    hs = curate(q, search(q, n=n, timeout=min(val('links.timeout'), 30)))[0]
-    return _keep(_HITS, (q, n), hs) if hs else hs
+    return curate(q, search(q, n=n, timeout=min(val('links.timeout'), 30), cache=KEEP_SECS))[0]
 
 def web_fetch(url:str) -> AttrDict:
     """The page at `url` as `url`, `title` and `text`, from one plain fetch of at most `FETCH_SECS` seconds. A link to this computer
-    or to a local network raises `LinkError`. A page read in the last `KEEP_SECS` seconds comes from memory. A site that refused
-    (`refused_site`) is not asked again: `LinkError` at once. Research asks one site for one page at a time."""
+    or to a local network raises `LinkError`. fossick keeps a page for `KEEP_SECS` seconds, asks one host for one page at a time,
+    and does not ask a host that refused (`BLOCKS`) again: `LinkError` at once. A site with a check for robots (`refused_site`) is
+    not asked again either."""
     public_url(url)
-    if (p := _kept(_PAGES, url)): return p
-    if refused_site(url): raise LinkError(REFUSED)
-    from fossick import fetch
-    with _site_lock(url):
-        if (p := _kept(_PAGES, url)): return p
-        log.warning('research: fetch %s', url)   # a record of each page that research reads
-        r = fetch(url, **PLAIN, **{**fetch_opts(), 'timeout': min(val('links.timeout'), FETCH_SECS)}, max_bytes=PAGE_BYTES)
+    if refused_site(url): raise LinkError(BOT_WALL)
+    from fossick import fetch, BlockedURL
+    log.warning('research: fetch %s', url)   # a record of each page that research asks for; fossick can give it from memory
+    try: r = fetch(url, **PLAIN, **{**fetch_opts(), 'timeout': min(val('links.timeout'), FETCH_SECS)}, max_bytes=PAGE_BYTES,
+                   cache=KEEP_SECS, per_host=True, remember_blocks=BLOCKS)
+    except BlockedURL as e:
+        if 'does not ask it again' in str(e): raise LinkError(REFUSED) from e   # a host that refused in the last `KEEP_SECS` seconds
+        raise
     st = getattr(r, 'status', 200) or 200
-    if st in BLOCKS: _keep(_BLOCKED, site_of(url), st); raise LinkError(REFUSED)
+    if st in BLOCKS: raise LinkError(REFUSED)
     if st >= 400: raise LinkError('abhyasa could not read this link.')
     from fossick.search import usable as readable
-    if not readable(r, min_chars=0): _keep(_BLOCKED, site_of(url), 'robots'); raise LinkError(BOT_WALL)   # a check for robots: no model reads it
-    return _keep(_PAGES, url, page_text(r, url))
+    if not readable(r, min_chars=0): _WALLS[site_of(url)] = time.time(); raise LinkError(BOT_WALL)   # a check for robots: no model reads it
+    return page_text(r, url)
 
 META = re.compile(r'[ \t]*(?:[-*+][ \t]+)?[*_]{0,2}(?:last[ \t]+(?:modified|updated|edited|changed)|modified|updated|created|published|posted(?:[ \t]+on)?'
                   r'|date|authors?|by|description|tags|categories|category|keywords|reading[ \t]+time)[ \t]*(?::[*_]{0,2}|[*_]{1,2}[ \t]*:)', re.I)
