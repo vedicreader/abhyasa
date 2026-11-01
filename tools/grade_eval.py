@@ -6,7 +6,7 @@ expected `correct`, and for each wrong case it checks that the nudge is short. `
 import argparse, re
 from itertools import cycle, islice
 from fastcore.utils import *
-from abhyasa.llm import Router, rishi_ask, for_task, ask_json
+from abhyasa.llm import Router, route_ask, for_task, ask_json
 from abhyasa.tutor import GRADE_SP, TUTOR_SP, grade_prompt, question_prompt, with_code, one_ask
 
 NEURON = AttrDict(name='Neuron as a weighted sum', depth=3, method='words', kind='explain',
@@ -113,6 +113,6 @@ if __name__ == '__main__':
     p.add_argument('--runs', type=int, default=1)
     p.add_argument('--questions', type=int, default=0, help='also write this many questions and check each one')
     a = p.parse_args()
-    ask = Router(rishi_ask(a.model))
+    ask = Router(route_ask(a.model))
     bad = run(for_task(ask, 'grade'), a.runs) + run_questions(for_task(ask, 'question'), a.questions)
     raise SystemExit(1 if bad else 0)

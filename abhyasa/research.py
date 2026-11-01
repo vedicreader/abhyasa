@@ -726,8 +726,7 @@ SECRET = re.compile(r'(?:^|/)(?:\.env[^/]*|\.ssh|\.aws|\.gnupg|\.netrc|Keychains
 
 def secret_path(p, top) -> bool:
     "Whether the file `p` under the folder `top` holds credentials: shalya's `denied` (the paths that ramabana never reads), and `SECRET` for the shapes that it does not list."
-    try: from shalya.core import denied
-    except ImportError: denied = lambda _: False
+    from shalya.core import denied
     return denied(Path(p)) or bool(SECRET.search(str(Path(p).relative_to(top))))
 
 def clone_dir(g:str) -> Path|None:
@@ -750,8 +749,7 @@ def _chip_roots(j) -> dict:
 
 def _run_idea() -> int:
     "The number of the idea that a sub-agent of ramabana works on now: its question starts with `Idea N:`. 0 for the lead, or with no ramabana run."
-    try: from ramabana.runtime import current_run
-    except ImportError: return 0
+    from ramabana.runtime import current_run
     r = current_run()
     while r is not None:
         if (m := re.match(r'\s*Idea (\d+)\b', str(getattr(r, 'question', '') or ''))): return int(m[1])

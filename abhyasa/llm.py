@@ -7,10 +7,10 @@ Docs: https://vedicreader.github.io/abhyasa/llm.html.md"""
 # %% auto #0
 __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 'HERE', 'FALLBACK', 'ALL_TASKS', 'WARM',
            'MAX_TOKENS', 'HOSTED', 'WORKER_SP', 'WORKER_CALLS', 'WORKER_STEPS', 'WORKER_DOLLARS', 'WORKER_TOKENS',
-           'LEAD_TOOLS', 'SUB_STEPS', 'dflt_model', 'rishi_ask', 'parse_json', 'ask_json', 'Fake', 'model_ask',
-           'model_label', 'provider_label', 'where_of', 'where_chip', 'catalog', 'one_each', 'Router', 'for_task',
-           'ramabana_agent', 'timeout_error', 'ramabana_oneshot', 'ramabana_stream', 'RouteAsk', 'route_ask',
-           'ramabana_worker', 'ramabana_lead']
+           'LEAD_TOOLS', 'SUB_STEPS', 'dflt_model', 'parse_json', 'ask_json', 'Fake', 'model_ask', 'model_label',
+           'provider_label', 'where_of', 'where_chip', 'catalog', 'one_each', 'Router', 'for_task', 'ramabana_agent',
+           'no_answer', 'ramabana_oneshot', 'ramabana_stream', 'RouteAsk', 'route_ask', 'ramabana_worker',
+           'ramabana_lead']
 
 # %% ../nbs/02_llm.ipynb #c004
 import json, os, re
@@ -23,17 +23,6 @@ DFLT_MODEL = 'claude/sonnet'
 def dflt_model(model:str=None) -> str:
     "`model`, else `$ABHYASA_MODEL`, else the setting `models.default`, else `DFLT_MODEL`."
     return model or os.getenv('ABHYASA_MODEL') or val('models.default') or DFLT_MODEL
-
-def rishi_ask(model:str=None):
-    "An `ask(prompt, sp='')` on a new `rishi.Chat` (the model layer) for each call, on `dflt_model(model)`."
-    from rishi import Chat, resp_text
-    model = dflt_model(model)
-    def ask(prompt, sp=''):
-        chat = Chat(model, sp=sp)
-        try: return resp_text(chat(prompt))
-        finally: chat.close()
-    ask.model = model
-    return ask
 
 # %% ../nbs/02_llm.ipynb #c008
 def parse_json(s:str):
@@ -145,8 +134,7 @@ def catalog(ttl:float=300.) -> list:
 
 # %% ../nbs/02_llm.ipynb #one02
 def _rank(p:str) -> int:
-    try: from ramabana.core import READY_ORDER
-    except ImportError: READY_ORDER = ('claude', 'codex', 'copilot', 'anthropic', 'openai', 'gemini')
+    from ramabana.core import READY_ORDER
     return READY_ORDER.index(p) if p in READY_ORDER else len(READY_ORDER)
 
 def one_each(rows:list, keep:str='') -> list:
@@ -212,20 +200,16 @@ def for_task(ask, task:str):
     return ask.for_(task) if hasattr(ask, 'for_') else ask
 
 # %% ../nbs/02_llm.ipynb #6868c771
-import warnings, importlib.util
+import warnings
 MAX_TOKENS = 4096   # the reply cap of a call with no task; ramabana's own cap of 1024 can cut a long reply
-_ra, _ra_lock, _locks = {}, threading.RLock(), {}
+_ra, _ra_lock = {}, threading.RLock()
 
 def ramabana_agent(turn:str=None):
-    "The one ramabana `Agent` of this process, made on first use on the turn `dflt_model(turn)`: no folders, no tool that acts, no files."
+    "The one ramabana `Agent` of this process, made on first use by ramabana's `model_agent` on the turn `dflt_model(turn)`: no folders, no tool that acts, no files."
     with _ra_lock:
         if 'agent' not in _ra:
-            from ramabana.agent import Agent, Approvals
-            from ramabana.core import Routing
-            from ramabana.tools import NullHost
-            _ra['agent'] = Agent(NullHost(), routing=Routing(turn=dflt_model(turn)), cfg=None, sp='You are the model of abhyasa, a tutor.',
-                                 approvals=Approvals(mode='ask', no_listener='refuse', timeout=0), readonly=True, subagents=False,
-                                 extensions=False, global_skills=False, learned=False, compact=False, poll_every=0, auto_turns='off')
+            from ramabana.agent import model_agent
+            _ra['agent'] = model_agent(dflt_model(turn), sp='You are the model of abhyasa, a tutor.')
         return _ra['agent']
 
 # %% ../nbs/02_llm.ipynb #705a441e
@@ -236,64 +220,30 @@ def _point(a, job:str, name:str):
         try: a.routing.set(name, job=job)
         except Exception as e: raise RuntimeError(f'The {job} task: ramabana does not know the model {name!r} ({e}).') from e
 
-def _lock(b):
-    "The abhyasa lock of the backend `b`: one call at a time on each backend."
-    with _ra_lock: return _locks.setdefault((b.spec.backend, b.spec.model_id), threading.Lock())
-
-def _why(a, job:str, since:float) -> str:
-    "The notes of ramabana on why `job` got no answer: the models it put aside since `since`, else the note of the route."
-    notes = [f'{n} {w}' for n, (w, t) in a.routing.down.items() if t >= since] or [a.routing.notes.get(job, '')]
-    return '; '.join(n for n in notes if n) or 'no note'
-
 # %% ../nbs/02_llm.ipynb #8bfc31b2
-def timeout_error(job:str, e, name:str='') -> RuntimeError:
-    "The `RuntimeError` for the ramabana `OneshotTimeout` `e` on the job `job`: it names the model (`name`, else the route of `e`) and the seconds."
-    return RuntimeError(f'The {job} task got no answer from {name or e.route} through ramabana: {e.route} did not answer in {e.elapsed:.0f} seconds.')
+def no_answer(job:str, name:str, e) -> RuntimeError:
+    "The `RuntimeError` for ramabana's `OneshotEmpty` or `OneshotTimeout` `e` on the job `job`: it names the task, the model `name` (else the route of `e`) and why."
+    why = f'{e.route} did not answer in {e.elapsed:.0f} seconds.' if isinstance(e, TimeoutError) else e.why
+    return RuntimeError(f"The {job} task got no answer from {name or getattr(e, 'route', '')} through ramabana: {why}")
 
 HOSTED = AttrDict(name='hosted', local=False)   # the model that a guard takes when it does not know the route: one off this Mac
 
-def _one_lock():
-    "A `fits(b)` for ramabana's one-shot calls, and `let_go()`, which lets go of the lock that it holds."
-    held = []
-    def let_go():
-        if held: held.pop().release()
-    def fits(b):
-        "Let go of the lock of the route before, then wait for the lock of `b`: one lock at a time, so no deadlock."
-        let_go(); lk = _lock(b); lk.acquire(); held.append(lk)
-        return True
-    return fits, let_go
-
 def ramabana_oneshot(job:str, name:str, prompt:str, sp:str='', max_tokens:int=MAX_TOKENS, prepare=None) -> str:
-    "Ask `prompt` on the ramabana job `job`, pointed at the model `name`. Wait for a busy backend. Raise when no route answers. `prepare(prompt, sp, backend)` gives the text for each route, so a guard knows the model that gets it."
-    from ramabana.runtime import OneshotTimeout
-    a, since = ramabana_agent(name), time.time()
+    "Ask `prompt` on the ramabana job `job`, pointed at the model `name`. Wait for a busy backend. Raise `no_answer` when no route answers. `prepare(prompt, sp, backend)` gives the text for each route, so a guard knows the model that gets it."
+    from ramabana.runtime import OneshotEmpty, OneshotTimeout
+    a = ramabana_agent(name)
     _point(a, job, name)
-    fits, let_go = _one_lock()
-    try: out = a.oneshot(prompt, sp, job=job, max_tokens=max_tokens, fits=fits, **({'prepare': prepare} if prepare else {}))
-    except OneshotTimeout as e: raise timeout_error(job, e, name) from e
-    finally: let_go()
-    if out: return out
-    raise RuntimeError(f'The {job} task got no answer from {name} through ramabana: {_why(a, job, since)}')
+    try: return a.oneshot(prompt, sp, job=job, max_tokens=max_tokens, prepare=prepare, wait=True, strict=True)
+    except (OneshotEmpty, OneshotTimeout) as e: raise no_answer(job, name, e) from e
 
 # %% ../nbs/02_llm.ipynb #st002
 def ramabana_stream(job:str, name:str, prompt:str, sp:str='', max_tokens:int=MAX_TOKENS, prepare=None):
-    "The reply of `ramabana_oneshot`, one chunk at a time as the model sends it. A route that cannot stream gives the whole reply as one chunk. Raise when no route answers."
-    from ramabana.runtime import OneshotTimeout, StreamUnsupported
-    a, since, said = ramabana_agent(name), time.time(), False
+    "The reply of `ramabana_oneshot`, one chunk at a time as the model sends it. A route that cannot stream gives the whole reply as one chunk. Raise `no_answer` when no route answers."
+    from ramabana.runtime import OneshotEmpty, OneshotTimeout
+    a = ramabana_agent(name)
     _point(a, job, name)
-    fits, let_go = _one_lock()
-    try:
-        try:
-            for d in a.oneshot_stream(prompt, sp, job=job, max_tokens=max_tokens, fits=fits, **({'prepare': prepare} if prepare else {})):
-                said = said or bool(d)
-                yield d
-        except StreamUnsupported:
-            let_go()
-            yield ramabana_oneshot(job, name, prompt, sp, max_tokens, prepare)
-            return
-        except OneshotTimeout as e: raise timeout_error(job, e, name) from e
-    finally: let_go()
-    if not said: raise RuntimeError(f'The {job} task got no answer from {name} through ramabana: {_why(a, job, since)}')
+    try: yield from a.oneshot_stream(prompt, sp, job=job, max_tokens=max_tokens, prepare=prepare, wait=True, strict=True, fallback=True)
+    except (OneshotEmpty, OneshotTimeout) as e: raise no_answer(job, name, e) from e
 
 # %% ../nbs/02_llm.ipynb #4129a0e0
 class RouteAsk:
@@ -320,15 +270,9 @@ class RouteAsk:
                 a.warm_backend(task)   # starts the backend under the lock of the `Agent`, so a call at the same time waits for it
             except Exception as e: warnings.warn(f'abhyasa could not start the model of the {task} task: {e}')
 
-def _has_ramabana() -> bool:
-    try: return importlib.util.find_spec('ramabana') is not None
-    except (ImportError, ValueError): return False
-
-def route_ask(model:str=None):
-    "The default `ask`: a `RouteAsk` when ramabana is installed, else `rishi_ask`."
-    if _has_ramabana(): return RouteAsk(model)
-    warnings.warn('abhyasa: ramabana (the models extra) is not installed. Each call uses a new rishi Chat, which is slower.')
-    return rishi_ask(model)
+def route_ask(model:str=None) -> RouteAsk:
+    "The default `ask`: a `RouteAsk` on `model`."
+    return RouteAsk(model)
 
 # %% ../nbs/02_llm.ipynb #gw002
 WORKER_SP = 'You are the source gatherer of abhyasa, a tutor.'
@@ -337,14 +281,10 @@ WORKER_TOKENS = 2_000_000   # the token cap of one turn, a backstop: the dollar 
 
 def ramabana_worker(tools:list=(), host=None, sp:str=WORKER_SP, turn:str=None, max_calls:int=WORKER_CALLS, max_steps:int=WORKER_STEPS,
                     max_cost:float=WORKER_DOLLARS, max_tokens:int=WORKER_TOKENS):
-    "A new ramabana `Agent` on the turn `dflt_model(turn)`, with the shalya `host` (default: no folders). The model sees only the tools named in `tools`, when the caller adds them. Never the agent of `ramabana_agent`. A turn stops at `max_tokens` tokens, and at `max_cost` dollars (estimated from the tokens when the model reports no cost)."
-    from ramabana.agent import Agent, Approvals
-    from ramabana.core import Routing
-    from ramabana.tools import NullHost
-    return Agent(host or NullHost(), routing=Routing(turn=dflt_model(turn)), cfg=None, sp=sp, only_tools=list(tools),
-                 approvals=Approvals(mode='ask', no_listener='refuse', timeout=0), readonly=True, subagents=False, extensions=False,
-                 global_skills=False, learned=False, compact=False, poll_every=0, auto_turns='off',
-                 max_tool_calls=max_calls, max_steps=max_steps, max_cost=max_cost, max_tokens=max_tokens)
+    "A new ramabana `Agent`, made by ramabana's `model_agent` on the turn `dflt_model(turn)`, with the shalya `host` (default: no folders). The model sees only the tools named in `tools`, when the caller adds them. Never the agent of `ramabana_agent`. A turn stops at `max_tokens` tokens, and at `max_cost` dollars (estimated from the tokens when the model reports no cost)."
+    from ramabana.agent import model_agent
+    return model_agent(dflt_model(turn), sp=sp, host=host, only_tools=list(tools), max_tool_calls=max_calls, max_steps=max_steps,
+                       max_cost=max_cost, max_tokens=max_tokens)
 
 LEAD_TOOLS = ('ls', 'grep', 'outline', 'view_file', 'notebook_cells', 'view_cell', 'web_search', 'read_url', 'delegate_search', 'set_plan', 'update_todo')   # ramabana's tools that only read, and its fan-out to sub-agents
 SUB_STEPS = 16   # the most model steps of one sub-agent
