@@ -132,6 +132,17 @@ if (!window.abhyasaStart) {
   document.addEventListener('keydown', e => {
     if (e.target.id === 'start-add' && e.key === 'Enter') { e.preventDefault(); add(); }   // Enter adds; it never sends the form
   });
+  // While a walk is made, its pending card is in #walk-out under Start, and the buttons that start stay off, so a second press cannot start a second walk.
+  // A read draws the buttons again, so each swap checks again. When the card goes (the walk failed), the buttons come back.
+  const hold = () => {
+    const on = !!document.querySelector('#walk-out .pending');
+    for (const b of document.querySelectorAll('#start-read button.go, #start-read button[name=pick]')) {
+      if (on && !b.disabled) { b.disabled = true; b.dataset.held = '1'; }
+      else if (!on && b.dataset.held) { b.disabled = false; delete b.dataset.held; }
+    }
+  };
+  document.addEventListener('htmx:afterSettle', hold);
+  document.addEventListener('htmx:afterRequest', () => setTimeout(hold));   // after core.js turns the pressed button on again
   // /add opens Learn with the cursor in the box
   const focus = () => { if (location.hash === '#start') document.getElementById('start-q')?.focus({preventScroll: false}); };
   if (document.readyState === 'complete') focus(); else addEventListener('load', () => setTimeout(focus));   // after voice.js adds the mic

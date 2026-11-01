@@ -46,8 +46,9 @@ def build_key(k) -> str:
     return 'build:' + hashlib.sha1(str(k).encode()).hexdigest()[:12]
 
 def LinkPending(url, said):
-    "A walk from a link that is still being made: the card loads again when its job changes (the event stream), or every 30 seconds."
-    return Div(P(said), P('This can take some minutes. When the walk is ready, it opens here. The activity chip at the top says when it is ready.', cls='mute'),
+    "A walk from a link or a goal that is still being made: the card loads again when its job changes (the event stream), or every 30 seconds."
+    return Div(P(B(said if said.endswith('…') else f'{said}…')),
+               P('When the walk is ready, it opens here. You can leave this page. The chip at the top tells you when it is ready. ', A('See the job', href='#activity'), cls='mute'),
                cls='walk-link pending', style='animation: none', hx_get=f"{Routes.job}?{urlencode(dict(url=url))}", hx_trigger=WAIT, hx_swap='outerHTML', data_job=build_key(url))
 
 

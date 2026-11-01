@@ -129,10 +129,11 @@ def Chips(cs, said=(), mine=()):
                    Button('Add', type='button', cls='quiet small', id='start-add-go'), Pick(), cls='addf'),
                Input(type='hidden', name='chips', value='1'), cls='chips-src', aria_label='Sources for this goal')
 
-def Read(r, f=None, told=True, q='', said=(), mine=()):
-    "What the box will do: the quiet line, the question or the options, the Start button, then the sources of a goal, so Start shows however many sources there are."
-    f, cs = f or {}, r.get('chips') or []
-    shown = r.kind in ('goal', 'sources') or (r.kind == 'empty' and cs)
+def has_srcs(r): return r.kind in ('goal', 'sources') or (r.kind == 'empty' and bool(r.get('chips')))   # the box shows the sources
+
+def Read(r, f=None, told=True, q=''):
+    "What the box will do: the quiet line, the question or the options, and the Start button. The sources (`Srcs`) come after the slot of the result."
+    f, cs, shown = f or {}, r.get('chips') or [], has_srcs(r)
     ok = [c for c in cs if not c.get('why')]
     go = r.kind not in ('empty', 'ask', *NOT_YET) and not r.ask and bool(r.send) and (r.kind != 'sources' or bool(ok))
     wait = WAIT.get(r.kind, 'Making the walk…')
@@ -142,7 +143,11 @@ def Read(r, f=None, told=True, q='', said=(), mine=()):
     foot = Div(start, '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
     line = P(NO_GOAL, cls='will', id='start-will') if r.kind == 'empty' and cs else Line(r) if r.kind != 'ask' else P(B(r.ask.q), cls='will', id='start-will')
     return (line, P(WEB_ONCE + ('' if shown else OFF), cls='mute web-once') if r.kind in ('topic', 'goal') and val('research.on') and not told else '',
-            Ask(r, cs[0].path if cs else q) if r.ask else Options(r, f), foot, Chips(cs, said, mine) if shown else '')
+            Ask(r, cs[0].path if cs else q) if r.ask else Options(r, f), foot)
+
+def Srcs(r, said=(), mine=(), oob=False):
+    "The sources of a goal, under the slot of the result. A read changes them out of band, so the slot keeps the pending card."
+    return Div(Chips(r.get('chips') or [], said, mine) if has_srcs(r) else '', id='start-chips', **({'hx_swap_oob': 'true'} if oob else {}))
 
 def connect(app, ctx):
     lr = ctx.learning
@@ -209,20 +214,22 @@ def connect(app, ctx):
         return Input(type='hidden', name='doc', value=v, id='start-doc', **({'hx_swap_oob': 'true'} if oob else {}))
 
     def Box(q='', file='', doc=''):
-        "The Start box. The read part comes from `/learn/read` after 250 ms with no typing (start.js)."
+        """The Start box. The read part comes from `/learn/read` after 250 ms with no typing (start.js). The result of Start goes in `#walk-out`, under the button;
+    `hx-disinherit` keeps its pending card on its own target."""
         return Form(Label('What do you want to learn?', fr='start-q'),
                     Textarea(q, name='q', id='start-q', rows=2, data_mic='label', aria_describedby='start-will'),
                     Input(type='hidden', name='file', value=file, id='start-file'), Say(r := reading(q, file=file, doc=doc)[0]), Doc(r, file, doc),
                     Div(id='start-keep', hidden=True),   # the sources that you added (`extra`) and removed (`drop`): start.js keeps them over each read
                     Div(*Read(r, told=val('research.told'), q=q), id='start-read', data_quiet='1'),
-                    P(CUE, cls='drop-cue', aria_hidden='true'),   # shows only while you drag files over the box (start.js, add.css)
-                    hx_post='/walk/new', hx_target='#walk-out', id='start-form', cls='start raised', data_read=Routes.read, data_drop=Routes.file, data_drops=Routes.files, data_pick=Routes.pick)
+                    Div(id='walk-out', aria_live='polite'),   # the result of Start, under the button: the pending card, then the walk
+                    Srcs(r), P(CUE, cls='drop-cue', aria_hidden='true'),   # the cue shows only while you drag files over the box (start.js, add.css)
+                    hx_post='/walk/new', hx_target='#walk-out', hx_disinherit='*', id='start-form', cls='start raised', data_read=Routes.read, data_drop=Routes.file, data_drops=Routes.files, data_pick=Routes.pick)
 
     def read(q:str='', pick:str='', file:str='', pages:str='', tool:str='', title:str='', subject:str='', opts:str='', doc:str='',
              extra:list[str]=None, drop:list[str]=None, mine:list[str]=None):
         f = dict(pages=pages, title=title, subject=subject, **({'tool': tool or 'off'} if 'tool' in opts.split(',') else {}))   # the box was shown and you set it
         r, said = reading(q, pick, file, pages, doc, extra or (), set(drop or ()))
-        return (*Read(r, f, told=val('research.told'), q=q, said=said, mine=set(mine or ())), Say(r, oob=True), Doc(r, file, doc, oob=True))
+        return (*Read(r, f, told=val('research.told'), q=q), Srcs(r, said, set(mine or ()), oob=True), Say(r, oob=True), Doc(r, file, doc, oob=True))
 
     async def keep_drop(f, kinds=('.pdf',)):
         "File the dropped file `f` in the vault on the pool: `(doc, stem, name)`, or `(None, line, name)` with what went wrong."
@@ -323,8 +330,8 @@ def connect(app, ctx):
 
     @hook('learn_start')
     def start():
-        "Start something new, on Home: the box and the place for its result."
-        return Box(), Div(id='walk-out'), asset_css(_P/'add.css'), asset_js(_P/'start.js', defer=True)
+        "Start something new, on Home: the box, with the place for its result under Start."
+        return Box(), asset_css(_P/'add.css'), asset_js(_P/'start.js', defer=True)
 
     app.get(Routes.base)(page)
     app.get(Routes.read)(read)

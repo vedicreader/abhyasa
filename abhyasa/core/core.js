@@ -270,6 +270,12 @@ function abhyasaJobs() {
 }
 document.addEventListener('DOMContentLoaded', abhyasaJobs);
 document.addEventListener('htmx:afterSettle', abhyasaJobs);
+// A link to #activity (See the job, on a pending card) opens the activity chip in the top bar.
+document.addEventListener('click', e => {
+  const a = e.target.closest && e.target.closest('a[href="#activity"]'), d = document.getElementById('activity');
+  if (!a || !d || !d.querySelector('summary')) return;
+  e.preventDefault(); d.open = true; d.querySelector('summary').focus();
+});
 
 // The theme and the mode are data-theme and data-mode on <html>. A choice in #look (the Settings page) shows at once; its form
 // saves it. Then 'abhyasa:theme' tells the parts that read colours from CSS (the graph) to read them again. So does a change of
