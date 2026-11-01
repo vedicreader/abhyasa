@@ -1099,15 +1099,6 @@ def _gather_end(lr:Learning, jid:str, st, stop, err=None):
                          **({'gather_why': f'The agent stopped with an error: {_reason(err)}.'} if err is not None else {}))
     _ended(lr, jid, st.stopped or ('you' if stop.is_set() else None))
 
-def _halt(a):
-    "Stop the ramabana agent `a` and each sub-agent: cancel its turn, then its run tree and its background runs, each with its children."
-    try: a.cancel()
-    except Exception as e: log.warning('research: could not cancel the agent: %r', e)
-    runs = [getattr(a, 'run', lambda: None)(), *getattr(a, '_side_runs', lambda: [])()]
-    for r in runs:
-        try: r is not None and r.request_cancel()
-        except Exception as e: log.warning('research: could not stop a sub-agent: %r', e)
-
 def gather(lr:Learning, jid:str, stop:threading.Event, ask=None, search=None, fetch=None, paper=None) -> AttrDict:
     """Let a ramabana agent (`ramabana_lead`, with ramabana's read and web tools and its sub-agents) gather a passage for each step of walk `jid` that has none, with `gather_tools`, for at most
     `research.agent_minutes` and `AGENT_DOCS` documents. `stop` ends it: each tool refuses, and the turn is cancelled. Return
@@ -1133,18 +1124,15 @@ def gather(lr:Learning, jid:str, stop:threading.Event, ask=None, search=None, fe
             if t.__name__ in LEAD_TOOLS_OWN: a.add_tool(t)
     except Exception as e: return plain(e)
     done, why, err, early = threading.Event(), '', None, False
-    def watch():
-        "Cancel the turn on Stop, or when the time is up. Write the rows that wait every `FLUSH_SECS` seconds."
+    def rows():
+        "Write the rows that wait every `FLUSH_SECS` seconds, while the turn runs."
         while not done.wait(.5):
             try: flush_rows(lr, jid, st, FLUSH_SECS)
             except Exception as e: log.warning('research: could not write the log of the gather agent: %r', e)
-            if stop.is_set() or time.monotonic() > end:
-                if not stop.is_set(): st.stopped = st.stopped or 'time'; stop.set()
-                _halt(a)
-                return
-    threading.Thread(target=watch, name=f'gather-watch-{jid}', daemon=True).start()
+    threading.Thread(target=rows, name=f'gather-rows-{jid}', daemon=True).start()
     try:
-        r = a.ask(gather_prompt(lr, _journey(lr, jid)), result=True)
+        r = a.ask(gather_prompt(lr, _journey(lr, jid)), result=True, deadline=max(end - time.monotonic(), 1.), stop=stop)   # ramabana halts the turn and its sub-agents
+        if time.monotonic() > end and not stop.is_set(): st.stopped = st.stopped or 'time'
         early = r.state == 'failed' and not st.read and not st.passages
         if not early:
             if (r.reply or '').strip() and r.state != 'cancelled' and not stop.is_set(): gather_row(lr, jid, 'note', '', r.reply, st=st)

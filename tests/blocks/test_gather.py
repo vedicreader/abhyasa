@@ -25,9 +25,9 @@ class Host:
     def add_root(self, p, readonly=False): pass
 
 class Script:
-    """A fake ramabana `Agent`: `ask` runs the tool calls of `script` in order, until `cancel`. A callable in the script runs as it is.
+    """A fake ramabana `Agent`: `ask` runs the tool calls of `script` in order, until `stop` is set (ramabana's `ask(stop=)`). A callable in the script runs as it is.
     A tool that abhyasa does not add is a read of ramabana's host: `fetch_page`, `read_file` and `web_search`."""
-    def __init__(self, script): self.script, self.tools, self.cancelled, self.calls, self.host, self.said = script, {}, False, 0, Host(), []
+    def __init__(self, script): self.script, self.tools, self.stop, self.calls, self.host, self.said = script, {}, None, 0, Host(), []
     def add_tool(self, f): self.tools[f.__name__] = f
     def call(self, name, kw):
         "Run one tool call, and keep what it said in `said`."
@@ -38,14 +38,16 @@ class Script:
         else: raise KeyError(name)
         self.said.append((name, out))
         return out
-    def ask(self, prompt, **kw):
+    @property
+    def cancelled(self): return self.stop is not None and self.stop.is_set()
+    def ask(self, prompt, stop=None, deadline=None, **kw):
+        self.stop = stop
         for x in self.script:
             if self.cancelled: break
             if callable(x): x(); continue
             self.call(*x)
             self.calls += 1
         return AttrDict(state='cancelled' if self.cancelled else 'complete', reply='Done.', error='')
-    def cancel(self): self.cancelled = True
     def close(self): pass
 
 def lead(agent, seen=None):
@@ -154,7 +156,7 @@ def test_band_runs_then_stop(mk, lr, monkeypatch):
     monkeypatch.setattr(R, 'ramabana_lead', lead(agent))
     cl = mk(); rs = cl.app.state.svc['research']
     job = rs.gather(j.id)
-    until(lambda: lr.journey(j.id).get('gather'))   # the watch writes the rows that wait within 2 s
+    until(lambda: lr.journey(j.id).get('gather'))   # the rows that wait are written within 2 s
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
     assert 'Reads nbs/softmax for idea 1. 0 of 2 ideas have a source.' in b and 'Last step' in b
     assert 'idea 1' in cl.get(f'/w/{j.id}/gather/log').text and f'data-job="walk:{j.id}"' in b and '>Stop<' in b
