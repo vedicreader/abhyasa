@@ -62,6 +62,16 @@ def test_term_offer_and_depth_limit(mk, walk_fake, lr):
     t = cl.get('/rh/term', params=dict(t='softmax', at=f'{b}/0')).text
     assert 'Its own course' in t and 'A quick look' not in t                              # at the limit, the chooser has one choice
 
+def test_a_concept_does_not_say_learn_it_first_on_its_own_page(mk, walk_fake, lr):
+    "On the page or the step of an idea, its chooser says Pick a way to learn it, not Learn it first. On another step, the idea is one to learn first."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    c = lr.concept('gradients')
+    for at in ('/c/gradients', *(f'{jid}/{k}' for k, s in enumerate(lr.journey(jid).steps) if s['slug'] == 'gradients')):
+        t = cl.get('/rh/term', params=dict(t='gradients', at=at)).text
+        assert f'Pick a way to learn {c.name}' in t and f'Learn {c.name} first' not in t, at
+    t = cl.get('/rh/term', params=dict(t='gradients', at=f'{jid}/2')).text
+    assert f'Learn {c.name} first' in t
+
 def test_open_and_back_refuse_bad_input(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
     n = len(lr.journeys())

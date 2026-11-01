@@ -47,8 +47,10 @@ def connect(app, ctx):
     def deep(j): return bool(j) and (j.get('depth') or 0) >= val('walks.depth')
 
     def offer(c, j, i):
+        "The chooser for concept `c` at this place. On the page or the step of `c` itself, `c` is not a thing to learn first."
         pick = pick_way_down(lr, c.slug)
-        return ui.Offer(c, pick, [(lr.concept(s) or {}).get('name', s) for s in pick.chain], here(j, i), limit=deep(j))
+        own = c.slug == (j.steps[i]['slug'] if j else i)
+        return ui.Offer(c, pick, [(lr.concept(s) or {}).get('name', s) for s in pick.chain], here(j, i), limit=deep(j), own=own)
 
     def found(t):
         "The concept for term `t` by slug, name or alias, or None. It writes nothing."

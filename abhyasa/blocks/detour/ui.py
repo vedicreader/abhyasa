@@ -59,9 +59,10 @@ def Way(k, how, slug, meta, pick=False, why=''):
     return Button(Span(str(k), cls='k'), B(WAYS[how]), Span(f' · {meta}', cls='meta'), Span(f"The tutor's pick: {why}.", cls='why') if pick else '',
                   type='button', cls='rh-way' + (' pick' if pick else ''), data_how=how, data_slug=slug)
 
-def Offer(c, pick, chain, here, limit=False):
+def Offer(c, pick, chain, here, limit=False, own=False):
     """The chooser for "I don't get X": the tutor's pick first, with its reason, then the other two depths as quiet options.
-    Quick and Side walk open beside this page; Its own course opens the course page. At the depth limit, only its own course."""
+    Quick and Side walk open beside this page; Its own course opens the course page. At the depth limit, only its own course.
+    On the page of X itself (`own`), the head does not say to learn X first."""
     n = len(chain)
     meta = dict(primer='beside this page · 2 min · one check',
                 walk=f"beside this page · {n_of(n, 'idea')}" if n > 1 else f"beside this page · up to {val('walks.chain')} ideas",
@@ -69,7 +70,7 @@ def Offer(c, pick, chain, here, limit=False):
     order = ['course'] if limit else [pick.how, *(h for h in WAYS if h != pick.how)]
     why = 'you are two side walks down, so it opens as its own course' if limit else pick.why
     ways = [Way(k, h, c.slug, meta[h], pick=k == 1, why=why) for k, h in enumerate(order, 1)]
-    return Section(H2(f"Learn {c.name} first"), Div(ways[0], cls='rh-pick'), Div(*ways[1:], cls='rh-ways') if ways[1:] else '',
+    return Section(H2(f"Pick a way to learn {c.name}" if own else f"Learn {c.name} first"), Div(ways[0], cls='rh-pick'), Div(*ways[1:], cls='rh-ways') if ways[1:] else '',
                    Div(Span(f"Your place stays: {here}.", cls='mute'), Button('Not now ', Kbd('Esc'), type='button', cls='quiet small rh-shut'), cls='rh-foot-row'),
                    cls='rh-offer-card', role='dialog', aria_label=f'Learn {c.name}')
 
