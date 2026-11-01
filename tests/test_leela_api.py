@@ -6,7 +6,7 @@ NAMES = {'store': 'Learning slugify', 'sources': 'WEB source_of', 'journey': 'wa
          'model': 'recall understanding update', 'method': 'METHODS TEXT_WAYS', 'prompts': 'PROMPTS prompt register set_prompt',
          'tutor': 'HINTS TUTOR_SP', 'walk': 'run_ok', 'guide': 'explain norm_tex stream_board', 'ground': 'VaultSource',
          'llm': 'Router route_ask', 'talk': 'TALK_SCHEMA TALK_CASES check_talk new_run', 'core.stage': 'STAGE_V STAGE_TYPES STAGE_CASES',
-         'demo': '', 'settings': ''}
+         'demo': '', 'settings': '', 'nb': ''}   # `nb` lost SAFE_NAMES, safe_test and validate_exercise to `contract` in 0.0.16
 
 @pytest.mark.parametrize('mod', NAMES)
 def test_leela_names_import(mod):
