@@ -103,34 +103,13 @@ def _openai(path, hint='', model=DFLT_OPENAI):
 ENGINES = dict(mlx=_mlx, openai=_openai)
 
 # %% ../nbs/05_voice.ipynb #v030
-from fastcore.xtras import atomic_save
-try: from ramabana.setup import keys_path, load_keys, save_key
-except ImportError:   # ramabana is an optional extra: the same three names, for plain `NAME=value` lines
-    def keys_path(): return Path('~/.config/ramabana/keys.env').expanduser()
-    def load_keys(path=None):
-        p, got = Path(path or keys_path()), []
-        for l in (p.read_text().splitlines() if p.exists() and not p.stat().st_mode & 0o077 else []):
-            k, _, v = l.strip().removeprefix('export ').partition('=')
-            if k.strip() not in os.environ and v: os.environ[k.strip()] = v.strip().strip('"\''); got.append(k.strip())
-        return got
-    def save_key(name, value, path=None):
-        p = Path(path or keys_path())
-        keep = [l for l in (p.read_text().splitlines() if p.exists() else []) if l.strip().removeprefix('export ').partition('=')[0].strip() != name]
-        with atomic_save(p, 'w') as f: f.write(''.join(l + '\n' for l in keep + [f'{name}={value}']))
-        p.chmod(0o600); os.environ[name] = value; return p
-
-def _file_key(p, name='OPENAI_API_KEY'):
-    "`name` from the key file `p`, read by `load_keys`; no key stays in the environment."
-    got = load_keys(p)
-    k = os.environ.get(name, '') if name in got else ''
-    for n in got: os.environ.pop(n, None)
-    return k
+from ramabana.setup import keys_path, read_key, save_key
 
 def openai_key() -> tuple:
     "The OpenAI key and where it is from; `('', '')` when there is none."
     if (k := os.getenv('OPENAI_API_KEY')): return k, 'environment'
     for p in (cfg_dir()/'keys.env', keys_path()):
-        if (k := _file_key(p)): return k, str(p)
+        if (k := read_key('OPENAI_API_KEY', p)): return k, str(p)
     return '', ''
 
 def set_openai_key(key:str=''):
