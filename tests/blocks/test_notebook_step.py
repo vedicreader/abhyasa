@@ -16,7 +16,7 @@ def test_notebook_card(mk, lr, walk_fake, tmp_path):
     cl = mk(); jid = nb_step(cl, lr)
     card = cl.get(f'/w/{jid}/1/check').text
     for say in ('Check · notebook · runs in Leela', 'Open in Leela', '(an estimate)', 'none for this one', 'captions.jsonl', 'Predict: How many episodes',
-                'Add this folder under Your data on the walk page, or set it in Leela.', 'Leela is not running. Start Leela, then press ⌥S again.', 'Get Leela',
+                'This step needs EPISODES (episodes) and IMAGES (the images to train on). Add their folders under Your data on the walk page.', 'Leela is not running. Start Leela, then press ⌥S again.', 'Get Leela',
                 '1 more test that you cannot see.', 'abhyasa does not run this code'):
         assert say in card, say
     assert 'no people and no place' not in card and 'Download the notebook' not in card and 'name="path"' not in card
@@ -89,11 +89,11 @@ def test_nb_spec_writes_the_step(mk, lr, walk_fake):
     cl = mk(); jid = nb_step(cl, lr, spec=None)
     first = cl.get(f'/w/{jid}/1/check').text
     assert 'Writing the notebook…' in first or 'Open in Leela' in first
-    assert wait_for(lambda: lr.journey(jid).steps[1].get('nb'), 10) == validate_nb_spec(GOOD)
+    assert wait_for(lambda: lr.journey(jid).steps[1].get('nb'), 10) == validate_nb_spec({**GOOD, 'data': [{**d, 'path': '', 'need': True} for d in GOOD['data']]})
     assert 'Open in Leela' in cl.get(f'/w/{jid}/1/check').text
 
 def test_bad_spec_twice_leaves_nb_unset(mk, lr, walk_fake):
-    walk_fake.rules[NB_RULE] = {**GOOD, 'data': [{**GOOD['data'][0], 'path': '/etc/passwd'}]}
+    walk_fake.rules[NB_RULE] = {**GOOD, 'data': [{**GOOD['data'][0], 'name': 'episodes'}]}
     cl = mk(); jid = nb_step(cl, lr, spec=None)
     cl.get(f'/w/{jid}/1/check')
     why = wait_for(lambda: lr.journey(jid).steps[1].get('nb_why') or None, 10)

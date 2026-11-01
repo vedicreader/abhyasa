@@ -403,11 +403,22 @@ def data_entries(rows, taken=()) -> list:
         out.append(dict(name=name, path=d['path'], what=clip(what, 199), need=False))
     return out
 
+def _own(e, by) -> dict:
+    "Data entry `e` on your folders `by` (by name and by path): the name and path of its folder, else no path and `need`."
+    o = by.get(e.get('name') if isinstance(e.get('name'), str) else '') or by.get(e.get('path') if isinstance(e.get('path'), str) else '')
+    return {**e, 'name': o['name'], 'path': o['path'], 'what': e.get('what') or o['what'], 'need': False} if o else {**e, 'path': '', 'need': True}
+
 def with_data(entries, rows) -> list:
-    "The data entries `entries`, then an entry for each data folder in `rows` that they do not have, at most `DATA_MOST` in all."
-    es = list(entries or ())
-    have = {e['path'] for e in es}
-    return [*es, *data_entries([d for d in rows or () if d['path'] not in have], [e['name'] for e in es])][:DATA_MOST]
+    """The data entries `entries` on your data folders `rows` only, then an entry for each folder that they do not name, at most `DATA_MOST` in all.
+    An entry with the name or the path of a folder gets that folder. Any other entry has no path and `need`: the learner adds its folder."""
+    own = data_entries(rows)
+    by = {**{o['path']: o for o in own}, **{o['name']: o for o in own}}
+    out, used = [], set()
+    for e in entries if isinstance(entries, (list, tuple)) else ():
+        if isinstance(e, dict) and (e := _own(e, by)).get('name') in used: continue
+        if isinstance(e, dict): used.add(e.get('name'))
+        out.append(e)
+    return [*out, *[o for o in own if o['name'] not in used]][:DATA_MOST]
 
 # %% ../nbs/11_journey.ipynb #w308
 def _doc_at(lr:Learning, doc) -> tuple|None:

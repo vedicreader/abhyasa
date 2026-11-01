@@ -96,9 +96,9 @@ def _exercise_key(e:ValueError) -> str:
 def validate_nb_spec(spec) -> dict:
     """The notebook spec of a walk step, checked, with only the keys of the contract. A `ValueError` starts with the key that fails:
     `task`, `fname`, `stub` or `tests` (the exercise rule, `say` 1 to 200 characters, `shown` a bool), `requires` (at most 5 names that
-    match `PKG`), `data` (an upper-case `name`, a `path` inside the home folder, text `what`, bool `need`), `run` (a text `say`, `minutes`
-    from 0 to `RUN_MINUTES`, text `makes` and `predict`) or `demo` (a text). Each text but `task` and `stub` is one line (`str.isprintable`).
-    An empty `requires` is left out of the result, as Leela's exercise spec wants."""
+    match `PKG`), `data` (an upper-case `name`, a `path` inside the home folder or '' for a folder that the learner must add, text `what`,
+    bool `need`), `run` (a text `say`, `minutes` from 0 to `RUN_MINUTES`, text `makes` and `predict`) or `demo` (a text). Each text but `task`
+    and `stub` is one line (`str.isprintable`). An empty `requires` is left out of the result, as Leela's exercise spec wants."""
     if not isinstance(spec, dict): raise ValueError('spec: the spec is not a JSON object')
     rows = spec.get('tests')
     if not (isinstance(rows, list) and all(isinstance(t, dict) for t in rows)): raise ValueError('tests: give a list of test objects {test, say, shown}')
@@ -120,7 +120,7 @@ def validate_nb_spec(spec) -> dict:
     for d in data:
         if not isinstance(d, dict): raise ValueError('data: each entry is an object {name, path, what, need}')
         if not (isinstance(d.get('name'), str) and DATA_NAME.fullmatch(d['name'])): raise ValueError('data: `name` must be an upper-case Python name, as EPISODES')
-        if why := data_path_why(d.get('path')): raise ValueError(f"data: {d['name']}: {why}")
+        if d.get('path', '') != '' and (why := data_path_why(d['path'])): raise ValueError(f"data: {d['name']}: {why}")
         if not _line(d.get('what', '')): raise ValueError('data: `what` must be a short text of one line')
         if type(d.get('need', False)) is not bool: raise ValueError('data: `need` must be true or false')
     if len({d['name'] for d in data}) != len(data): raise ValueError('data: two entries have the same name')
@@ -131,7 +131,7 @@ def validate_nb_spec(spec) -> dict:
     if not (_line(run.get('makes', '')) and _line(run.get('predict', ''), 300)): raise ValueError('run: `makes` and `predict` must be short texts of one line')
     if not _line(spec.get('demo', ''), 100): raise ValueError('demo: `demo` must be the slug of a demo, or empty')
     return dict(task=ex['task'], fname=ex['fname'], stub=ex['stub'], tests=tests, **(dict(requires=list(req)) if req else {}),
-                data=[dict(name=d['name'], path=d['path'], what=d.get('what', ''), need=d.get('need', False)) for d in data],
+                data=[dict(name=d['name'], path=d.get('path', ''), what=d.get('what', ''), need=d.get('need', False)) for d in data],
                 run=dict(say=run['say'], makes=run.get('makes', ''), minutes=run['minutes'], predict=run.get('predict', '')), demo=spec.get('demo', ''))
 
 _GOOD = dict(task='Write `caption(ep, places, chars)`. It gives one line for one episode: the summary, the names of the people who act, and the place. Then run it on all the episodes.',
@@ -147,6 +147,7 @@ _GOOD = dict(task='Write `caption(ep, places, chars)`. It gives one line for one
 
 NB_SPEC_CASES = [(_GOOD, None),
                  ({**_GOOD, 'requires': ['torch', 'diffusers', 'transformers', 'peft', 'accelerate']}, None),
+                 ({**_GOOD, 'data': [{**_GOOD['data'][1], 'path': ''}]}, None),
                  ({**_GOOD, 'requires': list('abcdef')}, 'requires'),
                  ({**_GOOD, 'requires': ['torch; rm -rf ~']}, 'requires'),
                  ({**_GOOD, 'data': [{**_GOOD['data'][0], 'path': '/etc/passwd'}]}, 'data'),

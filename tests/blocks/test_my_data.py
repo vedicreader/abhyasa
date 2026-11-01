@@ -105,3 +105,37 @@ def test_start_box_keeps_a_folder_as_your_data(mk, lr, walk_fake, tmp_path, monk
     j = lr.journey(jid)
     assert j.data == [dict(path='~/ramayana', note='')] and fid not in (j.get('chips') or ()) and not lr.vault.shelf('notebooks').sources()
     assert lr.course(j.course).data == j.data
+
+INVENTED = [dict(name='EPISODES', path='~/comics/episodes.txt', what='the text of your comic episodes', need=False),
+            dict(name='RAMAYANA', path='~/data/ramayana', what='', need=False)]
+
+def test_a_spec_never_keeps_an_invented_path(lr, tmp_path, monkeypatch):
+    "With no Your data, the paths that the model wrote go. Each entry keeps its name and what it holds, with no path, so the learner adds that folder."
+    episodes(tmp_path, monkeypatch); course_walk(lr)
+    f = Fake({'Return JSON: {"task"': {**_GOOD, 'data': INVENTED}})
+    got = walk_engine.nb_spec(lr, f, lr.journey('gw'), 1)
+    assert 'The learner has no data folders yet.' in f.calls[-1][0]
+    assert [(d['name'], d['path'], d['need']) for d in got.data] == [('EPISODES', '', True), ('RAMAYANA', '', True)]
+    assert got.data[0]['what'] == 'the text of your comic episodes'
+
+def test_your_data_gives_the_real_paths(lr, tmp_path, monkeypatch):
+    "With a folder under Your data, the entry with its name gets its real path, and the note of the folder when the model gave no `what`. An entry that Your data does not have keeps no path."
+    from abhyasa.course import add_data
+    d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
+    add_data(lr, c.id, str(d), MINE[0]['note'])
+    got = walk_engine.nb_spec(lr, Fake({'Return JSON: {"task"': {**_GOOD, 'data': INVENTED}}), lr.journey('gw'), 1)
+    assert [(e['name'], e['path'], e['need']) for e in got.data] == [('EPISODES', '', True), ('RAMAYANA', '~/ramayana', False)]
+    assert got.data[1]['what'].startswith(MINE[0]['note'])
+
+def test_idea_page_says_which_data_is_missing(mk, lr, tmp_path, monkeypatch):
+    "Before Open in Leela, the card names each data entry with no folder and what it holds. Open in Leela still works. When you add the folder, the line goes."
+    from abhyasa.course import add_data
+    d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
+    lr.walk_step('gw', 1, nb=walk_engine.validate_nb_spec({**_GOOD, 'data': [{**INVENTED[0], 'path': '', 'need': True}, {**INVENTED[1], 'path': '', 'need': True}]}))
+    cl = mk()
+    card = cl.get('/w/gw/1/check').text
+    assert 'This step needs EPISODES (the text of your comic episodes) and RAMAYANA. Add their folders under Your data on the walk page.' in card
+    assert 'Open in Leela' in card and '~/comics' not in card
+    add_data(lr, c.id, str(d), MINE[0]['note'])
+    card = cl.get('/w/gw/1/check').text
+    assert 'This step needs EPISODES (the text of your comic episodes). Add its folder under Your data on the walk page.' in card and '~/ramayana' in card

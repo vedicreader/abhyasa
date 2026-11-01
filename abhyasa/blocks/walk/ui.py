@@ -468,12 +468,16 @@ def NbFailed(jid, i, why, link=None, opened=None):
                  foot=(Div(Quiet('Try again', type='button', hx_post=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), cls='row acts'),
                        NbGo(jid, i, link, spec=False, opened=opened)), cls='nb-check')
 
-NEED = 'Add this folder under Your data on the walk page, or set it in Leela.'
-
 def DataRow(d):
-    "One data path of the notebook. An entry with `need` is a folder that you name: add it under Your data, or set it in Leela."
-    return Div(Code(d['name']), ' ', Span(d['path'], cls='path'), Span(f" · {d['what']}", cls='mute') if d.get('what') else '',
-               P(NEED, cls='mute') if d.get('need') else '', cls='nb-data need' if d.get('need') else 'nb-data')
+    "One data entry of the notebook: its name, its folder under Your data, and what it holds. An entry with no path is a folder that you must add."
+    return Div(Code(d['name']), ' ', Span(d['path'], cls='path') if d.get('path') else '', Span(f" · {d['what']}", cls='mute') if d.get('what') else '',
+               cls='nb-data' if d.get('path') else 'nb-data need')
+
+def DataNeed(data):
+    "The line before Open in Leela that names each data entry with no folder under Your data, and what it holds. None when each has one."
+    if not (gone := [d for d in data if not d.get('path')]): return None
+    say = ' and '.join(f"{d['name']}" + (f" ({d['what'].rstrip('. ')})" if d.get('what') else '') for d in gone)
+    return P(f"This step needs {say}. Add {'its folder' if len(gone) == 1 else 'their folders'} under Your data on the walk page.", cls='nb-need', data_part='data-need')
 
 def NotebookCard(jid, i, s, link=None):
     """The card "The notebook" of a step whose check runs in Leela: the task, the tests you can see, the data, the packages, what the run
@@ -489,7 +493,7 @@ def NotebookCard(jid, i, s, link=None):
              *([Dt('Before the run'), Dd(f"Predict: {r['predict']}")] if r.get('predict') else [])]
     tests = Div(Pre('\n'.join(shown), cls='tests') if shown else '', P(n_of(hidden, 'more test') + ' that you cannot see.', cls='mute') if hidden else '')
     return Check(NbHead(), Div(Div(Md(nb['task']), cls='q'), tests, Dl(*parts, cls='nb-parts'),
-                               P('This step runs in Leela, in a notebook with its packages. abhyasa does not run this code.', cls='mute nb-where')),
+                               P('This step runs in Leela, in a notebook with its packages. abhyasa does not run this code.', cls='mute nb-where'), DataNeed(nb['data'])),
                  foot=NbGo(jid, i, link, opened=s.get('leela_at')), cls='nb-check')
 
 CHECKS = dict(short=Short, demo=DemoCheck, order=DemoCheck)   # check kind -> card; `notebook` has its own card (NotebookCard)
