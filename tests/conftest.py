@@ -5,6 +5,14 @@ os.environ['RAMABANA_CONFIG'] = os.path.join(tempfile.mkdtemp(), 'config.toml') 
 os.environ.setdefault('LITESEARCH_CACHE', tempfile.mkdtemp(prefix='ls-'))   # nor the shared litesearch lock, which another run can hold for minutes
 for k in ('ABHYASA_STT', 'OPENAI_API_KEY'): os.environ.pop(k, None)
 if not os.getenv('ABHYASA_REAL_SPEECH'): os.environ['HF_HUB_CACHE'] = tempfile.mkdtemp(prefix='hf-')   # nor the real model cache: no model is "on this Mac"
+import socket
+_connect = socket.socket.connect
+def _local_only(self, addr):
+    "No test reaches the network: a socket connects only to this computer. A job that outlives its test, with its fakes undone, gets a plain OSError."
+    host = addr[0] if isinstance(addr, tuple) else None
+    if host is not None and not (host in ('localhost', '::1') or str(host).startswith('127.')): raise OSError(f'tests reach no network: {host}')
+    return _connect(self, addr)
+if not os.getenv('ABHYASA_REAL_SPEECH'): socket.socket.connect = _local_only
 import pytest
 from starlette.testclient import TestClient
 from abhyasa.store import temp_learning
