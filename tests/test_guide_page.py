@@ -111,6 +111,19 @@ def test_the_state_line_names_the_model_and_where_it_runs(page):
     page.click('#guide-strip .board-stop')
     assert page.evaluate('abhyasaBoard.state') is None
 
+def test_the_local_flag_of_the_host_sets_the_chip(page):
+    "A host flag `local` sets the chip: true is on this Mac, false is hosted, whatever `where` says. With no flag, only on this Mac is local. The voice line keeps the same rule."
+    chip = lambda ev: page.evaluate("ev => { abhyasaBoard.status(ev); return document.querySelector('#guide-strip .board-where').textContent }", ev)
+    ask = dict(wait='Thinks.', state='asking', model='M', who='')
+    assert chip({**ask, 'where': 'in this browser', 'local': True}) == 'on this Mac'
+    assert chip({**ask, 'where': 'on this Mac', 'local': False, 'who': 'X'}) == 'hosted · X'
+    assert chip({**ask, 'where': 'on this Mac'}) == 'on this Mac' and chip({**ask, 'where': 'in this browser'}) == 'hosted'
+    page.evaluate("s => abhyasaBoard.play({steps: [s], tier: 'tutor', sources: []}, {quiet: false, auto: false})", STEP)
+    keys = lambda v: page.evaluate("v => { abhyasaBoard.voiceAt(v); return document.querySelector('#guide-strip .board-keys').textContent }", v)
+    assert 'Browser voice on this Mac' in keys(dict(model='Browser voice', where='in the browser', local=True)).replace('\xa0', ' ').replace('  ', ' ')
+    assert 'hosted' not in keys(dict(model='Browser voice', where='in the browser', local=True))
+    assert 'hosted' in keys(dict(model='Browser voice', where='in the browser'))
+
 def test_saved_shows_with_undo(page):
     "A page that the guide saved shows at the end, with Undo. Undo posts to the route and shows its answer."
     page.route('**/guide/undo/k1', lambda r: r.fulfill(status=200, body='Removed Ranks from your vault.'))

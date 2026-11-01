@@ -29,7 +29,8 @@
 //               'dot'   a small filled dot under the target, that pulses one time (no pulse with reduced motion).
 //               'ring'  a short arrow and a ring on the target, thinner and smaller than a circle, at half the ink.
 //             An unknown look gives the default.
-//     voiceAt {model, where, who}: the voice that speaks the board, shown after the Voice button as "Pocket TTS · on this Mac". Default none.
+//     voiceAt {model, where, who, local}: the voice that speaks the board, shown after the Voice button as "Pocket TTS · on this Mac". Default none.
+//             `local: true` says that it runs on this Mac, and `local: false` that it is hosted. With no `local`, only the `where` "on this Mac" is local.
 //     notice  {text, href, link}: one quiet line in the strip for this board, with a local link when `href` is a local path. Default none.
 //     host    the hooks of the page that shows the board. Each one is optional:
 //       resolve(id) -> Element|null   the element of anchor `id`. Default: document.querySelector('[data-guide-id="<id>"]').
@@ -58,9 +59,9 @@
 //   timeline()  [op, part, ms] for each part of each mark of the step that shows: the order in which they draw
 //   speakBrowser(text, onWord, done)   the default speak (speechSynthesis), for a host speak that falls back to it.
 //   notice({text, href, link})          set the quiet line of the board that shows now (see play).
-//   voiceAt({model, where, who})        name the voice that speaks the board that shows now, as after a fallback to the browser voice.
+//   voiceAt({model, where, who, local}) name the voice that speaks the board that shows now, as after a fallback to the browser voice.
 //   status(event)        the state line in the strip while the guide works: the `wait` text of a state event of the guide route
-//                        ({wait, state, model, where, who, query, sources}), a chip "on this Mac" or "hosted · <who>", the seconds
+//                        ({wait, state, model, where, who, local, query, sources}), a chip "on this Mac" or "hosted · <who>", the seconds
 //                        after 3 s while it asks, and Stop.
 //   A board can carry `saved` ({title, url, undo}: "Saved to your vault: <title>. Undo" at the end; Undo posts to the local
 //   path `undo`) and `hint` (a line for the open check, shown at the end).
@@ -651,9 +652,12 @@
   let ticker = 0;   // the seconds of the state line
   function note(text) { clearInterval(ticker); const s = strip(); s.hidden = false; s.replaceChildren(el('p', 'board-note', text)); }
   const HERE = 'on this Mac';
+  // The one rule for local: the flag `local` of the host when it sends one (true: on this Mac, false: hosted). With no flag, only the
+  // `where` "on this Mac" is local, and any other `where` is hosted.
+  const isLocal = w => typeof w.local === 'boolean' ? w.local : w.where === HERE;
   function chip(w) {   // where the text goes: "on this Mac" (quiet), or "hosted · <who>" (outlined)
-    if (!w || !w.where) return null;
-    const here = w.where === HERE, c = el('span', 'board-where' + (here ? '' : ' hosted'), here ? HERE : w.who ? `hosted · ${w.who}` : 'hosted');
+    if (!w || (!w.where && typeof w.local !== 'boolean')) return null;
+    const here = isLocal(w), c = el('span', 'board-where' + (here ? '' : ' hosted'), here ? HERE : w.who ? `hosted · ${w.who}` : 'hosted');
     if (w.model) c.title = w.model;
     return c;
   }
