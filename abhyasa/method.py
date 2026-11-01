@@ -9,9 +9,9 @@ __all__ = ['METHODS', 'LABELS', 'EXAMPLES_TO', 'TEXT_WAYS', 'WALK_WAYS', 'CREDIT
            'DEPTH', 'way', 'credit', 'posterior', 'mean', 'improving', 'choose', 'check_for', 'methods_text']
 
 # %% ../nbs/13_method.ipynb #d8a6bd5c
-import json, random, threading, time
+import random, threading, time
 from fastcore.utils import *
-from .store import Learning, _src
+from .store import Learning, meta_of, _src
 from .prompts import register, prompt
 
 # %% ../nbs/13_method.ipynb #d475cb12
@@ -49,15 +49,14 @@ EMPTY = dict(methods={}, recent={}, calib={})
 @patch
 def stats(self:Learning) -> AttrDict:
     "The cached stats: method counts for each subject (`*` is all), recent credits, and calibration."
-    r = first(self.v.t.docs(where='source=?', where_args=[_SRC]))
-    return AttrDict({**EMPTY, **(json.loads(r['meta'] or '{}') if r else {})})
+    r = self.v.by_source(_SRC)
+    return AttrDict({**EMPTY, **(meta_of(r) if r else {})})
 
 @patch
 def set_stats(self:Learning, **kv):
     "Change fields of the stats document."
     m = {**{k: v for k, v in self.stats().items() if k in EMPTY}, **kv}
-    r = self.v.add('How you learn: method counts.', title='How you learn', source=_SRC, kind='stats', meta=m)
-    if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
+    r = self.v.put('How you learn: method counts.', title='How you learn', source=_SRC, kind='stats', meta=m)
 
 # %% ../nbs/13_method.ipynb #75b5259d
 def credit(st, method:str, subject:str, kind:str, w:float=1.) -> dict:

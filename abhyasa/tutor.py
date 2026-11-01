@@ -13,7 +13,7 @@ __all__ = ['HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'GRADE_SP', 'TEAC
 # %% ../nbs/03_tutor.ipynb #c004
 import functools, json, random, threading, time, uuid, weakref
 from fastcore.utils import *
-from .store import Learning, _src, log as _log
+from .store import Learning, meta_of, _src, log as _log
 from .settings import val
 from .model import DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding
 from .llm import ask_json, for_task
@@ -235,8 +235,8 @@ def _held(f):
 @patch
 def open_q(self:Learning, qid:str) -> AttrDict|None:
     "The document of question `qid` as its meta, with the full question in `q`; None when the shelf does not have it."
-    r = first(self.v.t.docs(where='source=?', where_args=[_src(OPEN_KIND, qid)]))
-    return AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']}) if r else None
+    r = self.v.by_source(_src(OPEN_KIND, qid))
+    return AttrDict({**meta_of(r), 'doc_id': r['id']}) if r else None
 
 @patch
 def put_open_q(self:Learning, q, status:str='open', end:str='') -> AttrDict|None:

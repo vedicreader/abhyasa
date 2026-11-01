@@ -15,7 +15,7 @@ __all__ = ['HISTORY_MOST', 'HISTORY_BYTES', 'EDIT_JOIN', 'WHO', 'WHAT_MOST', 'RU
 # %% ../nbs/20_edit.ipynb #e006
 import json, re, threading, time, uuid
 from fastcore.utils import *
-from .store import Learning, _src
+from .store import Learning, meta_of, _src
 from .llm import ask_json
 from .prompts import register, prompt
 from .ground import fence
@@ -54,14 +54,13 @@ def edit_lock(kind:str, doc:str) -> threading.RLock:
 
 @patch
 def _edit_rows(self:Learning, kind, doc) -> list:
-    r = first(self.v.t.docs(where='source=?', where_args=[_hsrc(kind, doc)]))
-    return json.loads(r['meta'] or '{}').get('edits', []) if r else []
+    r = self.v.by_source(_hsrc(kind, doc))
+    return meta_of(r).get('edits', []) if r else []
 
 @patch
 def _put_edits(self:Learning, kind, doc, rows):
     m, t = dict(of=kind, doc=doc, edits=rows), f'Changes to the {kind} {doc}'
-    r = self.v.add(t, title=t, source=_hsrc(kind, doc), kind='edits', meta=m)
-    if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
+    r = self.v.put(t, title=t, source=_hsrc(kind, doc), kind='edits', meta=m)
 
 # %% ../nbs/20_edit.ipynb #e012
 @patch
@@ -115,7 +114,7 @@ def pop_edit(self:Learning, kind:str, doc:str, eid:str=None, apply=None) -> Attr
 def drop_edits(self:Learning, kind:str, doc:str):
     "Remove the history of `doc`."
     _check(kind, doc)
-    if (r := first(self.v.t.docs(where='source=?', where_args=[_hsrc(kind, doc)]))): self.v.forget(r['id'])
+    if (r := self.v.by_source(_hsrc(kind, doc))): self.v.forget(r['id'])
 
 # %% ../nbs/20_edit.ipynb #e042
 RUN_FIELDS = ('done', 'qid', 'read_at')   # the fields that the walk writes as you learn, not the editor
@@ -393,7 +392,7 @@ def _found(lr, j, name, sources=None):
     for ref in _doc_refs(j):
         if not (at := _doc_at(lr, ref)): continue
         shelf, r = at
-        m = json.loads(r['meta'] or '{}') if isinstance(r['meta'], str) else (r['meta'] or {})
+        m = meta_of(r) if isinstance(r['meta'], str) else (r['meta'] or {})
         for page, texts in _doc_texts(lr, shelf, r, m).items():
             for head, t in _paras('\n\n'.join(texts)):
                 n += 1

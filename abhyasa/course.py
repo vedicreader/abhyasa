@@ -15,7 +15,7 @@ __all__ = ['GROW_AT', 'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST', 'ANSWERS', 'KINDS', 
 # %% ../nbs/22_course.ipynb #cs006
 import json, re, threading, time
 from fastcore.utils import *
-from .store import Learning, _src, fold
+from .store import Learning, meta_of, _src, fold
 from .model import learned, ready, recall, understanding
 from .settings import val
 from .llm import ask_json, for_task
@@ -46,16 +46,15 @@ def put_course(self:Learning, c:dict) -> AttrDict:
     c = {k: v for k, v in dict(c).items() if k != 'doc_id'}
     c.update(updated=time.time(), v=(c.get('v') or 0) + 1)
     text = f"Course: {c['title']} ({c['id']})\n\nGoal: {c.get('goal', '')}\n\nStages: {', '.join(s['name'] for s in c.get('stages') or ())}"
-    r = self.v.add(text, title=f"Course: {c['title']}", source=_src('course', c['id']), kind='course', meta=c)
-    if not r.get('changed'): self.v.set_meta(r['doc_id'], **c)
+    r = self.v.put(text, title=f"Course: {c['title']}", source=_src('course', c['id']), kind='course', meta=c)
     return self.course(c['id'])
 
-def _cmeta(r): return AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']})
+def _cmeta(r): return AttrDict({**meta_of(r), 'doc_id': r['id']})
 
 @patch
 def course(self:Learning, cid:str) -> AttrDict|None:
     "One course by id."
-    r = first(self.v.t.docs(where='source=?', where_args=[_src('course', cid)]))
+    r = self.v.by_source(_src('course', cid))
     return _cmeta(r) if r else None
 
 @patch

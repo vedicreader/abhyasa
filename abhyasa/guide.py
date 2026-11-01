@@ -667,6 +667,8 @@ def find_explainer(name:str, topic:str='', search=None, n:int=5) -> AttrDict|Non
     return None
 
 # %% ../nbs/21_guide.ipynb #gv09
+from .store import meta_of
+
 def _yt_shelf(lr): return lr.vault.shelf(lr.vault.route('youtube').name)
 
 def file_video(lr, url:str, slug:str=None) -> AttrDict:
@@ -699,9 +701,9 @@ def concept_video(c) -> dict|None:
 def video_of(lr, vid:str) -> AttrDict|None:
     "The filed video `vid` as the guide uses it: `id`, `title`, `channel`, `url` and `cues`. None when the vault does not have it."
     if not _VID.fullmatch(str(vid or '')): return None
-    d = first(_yt_shelf(lr).t.docs(where='source=?', where_args=[WATCH + vid]))
+    d = _yt_shelf(lr).by_source(WATCH + vid)
     if not d: return None
-    m = json.loads(d.get('meta') or '{}')
+    m = meta_of(d)
     return AttrDict(id=vid, title=_s(d.get('title') or '', 200), channel=_s(m.get('channel') or '', 100), url=WATCH + vid, cues=m.get('cues') or [])
 
 # %% ../nbs/21_guide.ipynb #gh02

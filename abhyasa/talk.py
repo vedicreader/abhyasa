@@ -24,7 +24,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable
 from fastcore.utils import *
-from .store import Learning, slugify, _src
+from .store import Learning, slugify, _src, meta_of
 from .edit import edit_lock, CTRL
 from .journey import minutes, _arxiv_of
 from .llm import ask_json, for_task
@@ -417,7 +417,7 @@ def talk_from_walk(lr:Learning, ask, jid:str, choice:bool|None=None, sources=Non
     return lr.put_talk(t)
 
 # %% ../nbs/17_talk.ipynb #bef7d579
-def _tmeta(r): return AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']})
+def _tmeta(r): return AttrDict({**meta_of(r), 'doc_id': r['id']})
 
 @patch
 def put_talk(self:Learning, t:dict) -> AttrDict:
@@ -426,8 +426,7 @@ def put_talk(self:Learning, t:dict) -> AttrDict:
     if (ps := check_talk(t)): raise ValueError('; '.join(ps))
     t['updated'] = time.time()
     text = f"Talk: {t['title']} ({t['id']})\n\nSlides: {', '.join(s.get('title') or '' for s in t['slides'])}"
-    r = self.v.add(text, title=f"Talk: {t['title']}", source=_src('talk', t['id']), kind='talk', meta=t)
-    if not r.get('changed'): self.v.set_meta(r['doc_id'], **t)
+    r = self.v.put(text, title=f"Talk: {t['title']}", source=_src('talk', t['id']), kind='talk', meta=t)
     return self.talk(t['id'])
 
 # %% ../nbs/17_talk.ipynb #347943e7
@@ -448,7 +447,7 @@ def _old_sources(lr:Learning, t:AttrDict) -> AttrDict:
 @patch
 def talk(self:Learning, tid:str) -> AttrDict|None:
     "One talk by id. A slide of an old talk gets the source of its passage (`_old_sources`)."
-    r = first(self.v.t.docs(where='source=?', where_args=[_src('talk', tid)]))
+    r = self.v.by_source(_src('talk', tid))
     return _old_sources(self, _tmeta(r)) if r else None
 
 @patch
@@ -770,14 +769,13 @@ def log_beside(run:dict, slug:str, slide:str, at:float, secs:float, ask:dict|Non
 def put_run(self:Learning, r:dict) -> AttrDict:
     "Save run `r`, and replace an earlier one with the same id."
     r = {k: v for k, v in dict(r).items() if k != 'doc_id'}
-    d = self.v.add(f"Talk run: {r['talk']} ({r['id']})", title=f"Talk run {r['id']}", source=_src('run', r['id']), kind='talk-run', meta=r)
-    if not d.get('changed'): self.v.set_meta(d['doc_id'], **r)
+    d = self.v.put(f"Talk run: {r['talk']} ({r['id']})", title=f"Talk run {r['id']}", source=_src('run', r['id']), kind='talk-run', meta=r)
     return self.run(r['id'])
 
 @patch
 def run(self:Learning, rid:str) -> AttrDict|None:
     "One run by id."
-    r = first(self.v.t.docs(where='source=?', where_args=[_src('run', rid)]))
+    r = self.v.by_source(_src('run', rid))
     return _tmeta(r) if r else None
 
 @patch

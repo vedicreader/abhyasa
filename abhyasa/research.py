@@ -276,7 +276,7 @@ _FILING = threading.Lock()
 
 def _stored(lr:Learning, sh, source:str, passage:str):
     "The id of the document filed under `source`, when its stored text has `passage` (or no passage is asked for); else None."
-    d = first(sh.t.docs(where='source=?', where_args=[source]))
+    d = sh.by_source(source)
     if d and (not passage or verbatim(passage, ' '.join(t for _, t in doc_pages(lr, d['id'], sh.name).pages))): return d['id']
 
 def file_page(lr:Learning, page, passage:str='') -> AttrDict:
@@ -285,7 +285,7 @@ def file_page(lr:Learning, page, passage:str='') -> AttrDict:
     with _FILING:
         if (did := _stored(lr, sh, page.url, passage)): return AttrDict(shelf=sh.name, doc_id=did)
         src = page.url
-        if first(sh.t.docs(where='source=?', where_args=[src])):   # another copy of the page: a new version, with its own id
+        if sh.by_source(src):   # another copy of the page: a new version, with its own id
             src = f"{page.url}#research-{hashlib.sha1(page.text.encode()).hexdigest()[:10]}"
             if (did := _stored(lr, sh, src, passage)): return AttrDict(shelf=sh.name, doc_id=did)
         r = sh.add(page.text, page.title or site_of(page.url), source=src, kind='web', meta=dict(url=page.url, via='research'), refresh=False)
@@ -646,7 +646,7 @@ def _file_local(lr:Learning, d) -> AttrDict:
     "File the local file `d` (a file in a folder of a chip that the vault did not have) on the notebooks shelf. Return its `shelf` and `doc_id`."
     sh = lr.vault.shelf('notebooks')
     with _FILING:
-        if (old := first(sh.t.docs(where='source=?', where_args=[d.path]))): return AttrDict(shelf=sh.name, doc_id=old['id'])
+        if (old := sh.by_source(d.path)): return AttrDict(shelf=sh.name, doc_id=old['id'])
         r = sh.add(d.text, d.title, source=d.path, kind=Path(d.path).suffix.lstrip('.') or 'text', meta=dict(root=d.root, path=d.path, via='gather'), refresh=False)
     return AttrDict(shelf=sh.name, doc_id=r['doc_id'])
 
@@ -924,7 +924,7 @@ def gather_tools(lr:Learning, jid:str, stop:threading.Event, search=None, fetch=
         if raw is None:
             row('read_file', f, 'refused: not a text file in a folder of your sources', '', slug_of(idea)); return 'Refused: abhyasa reads only a text file in a folder of your sources.'
         if not count(str(p)): return full('read_file', f, idea)
-        old = first(lr.vault.shelf('notebooks').t.docs(where='source=?', where_args=[str(p)]))
+        old = lr.vault.shelf('notebooks').by_source(str(p))
         if old:
             st.vault[old['id']] = AttrDict(shelf='notebooks', root=top.name)
             d = AttrDict(_vault_doc(lr, old['id'], 'notebooks', top.name), id=old['id'])

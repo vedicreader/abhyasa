@@ -10,17 +10,17 @@ __all__ = ['EXTRACT_SP', 'IMG_SUFFIXES', 'MATH_MOST', 'SORT_SP', 'NOT_LOCAL', 'N
            'TREE_MB', 'TREE_TOTAL_MB', 'TREE_SEEN', 'TREE_TOP', 'CODE_DIRS', 'DOC_DIRS', 'COURSE', 'NO_READ',
            'NOT_REPOS', 'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'quoted', 'group_line', 'add_group',
            'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'math_cut', 'extract', 'from_vault',
-           'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts', 'link_folder',
-           'in_scope', 'link_sel', 'LinkError', 'arxiv_ref', 'public_url', 'link_kind', 'reading_order',
-           'read_arxiv_html', 'save_figures', 'file_link', 'as_link', 'is_id_title', 'arxiv_title', 'is_paper',
-           'tree_ok', 'tree_rank', 'tree_files', 'folder_why', 'file_folder', 'vault_roots', 'root_docs', 'unfile',
-           'gh_name', 'gh_public', 'clone_repo', 'file_repo', 'source_of']
+           'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts', 'LinkError',
+           'arxiv_ref', 'public_url', 'link_kind', 'reading_order', 'read_arxiv_html', 'save_figures', 'file_link',
+           'as_link', 'is_id_title', 'arxiv_title', 'is_paper', 'tree_ok', 'tree_rank', 'tree_files', 'folder_why',
+           'file_folder', 'vault_roots', 'root_docs', 'unfile', 'gh_name', 'gh_public', 'clone_repo', 'file_repo',
+           'source_of']
 
 # %% ../nbs/04_sources.ipynb #c004
 import json, os, re, shutil
 from pathlib import Path
 from fastcore.utils import *
-from .store import Learning, SHELF, slugify, _union, clean_group, clean_subject, readable_name, usable_name, under
+from .store import Learning, SHELF, slugify, meta_of, _union, clean_group, clean_subject, readable_name, usable_name, under
 from .settings import val, source_root_why, NO_FOLDER
 from .llm import ask_json, for_task
 from .prompts import register, prompt
@@ -89,7 +89,7 @@ def doc_pages(lr:Learning, ref:str, shelf:str='store') -> AttrDict:
     "Every chunk of one vault document in page order, as `(page, text)` with the page a reader sees (from 1)."
     sh = lr.doc_shelf(shelf)
     if (d := None if sh is None else sh.doc(ref)) is None and shelf == 'store':   # a notebook or a folder file is on its own shelf: look on each shelf but the concepts
-        for name in (n for n in lr.doc_shelves() if n not in ('store', SHELF)):
+        for name in (n for n in lr.vault.shelf_names() if n not in ('store', SHELF)):
             if (o := lr.doc_shelf(name)) is not None and (d := o.doc(ref)) is not None: sh = o; break
     if d is None: raise ValueError(f'no document in the vault matching {ref!r}')
     did = d['id'].replace("'", "''")
@@ -323,15 +323,11 @@ def place_new(lr:Learning, ask, batch:int=None) -> list:
 # %% ../nbs/04_sources.ipynb #lk02
 from urllib.parse import unquote, urljoin, urlparse
 from fossick import arxiv_id, local_host, gh_repo
+from vishalakshi.acquire import url_folder as link_folder, in_scope   # the folder of a link, and whether a link is in it
 
 def fetch_opts() -> dict:
     "The limits of one fetch, from the settings: the time limit, the speed cap in bytes a second and one retry. `allow_private=False` refuses a private address also when `$FOSSICK_ALLOW_PRIVATE` is set."
     return dict(timeout=val('links.timeout'), max_recv_speed=int(val('links.speed') * 1_000_000), retries=1, allow_private=False)
-
-def link_folder(url:str) -> str:
-    "The scheme, host and folder of `url`: all of it up to the last `/` of its path."
-    u = urlparse(url)
-    return f"{u.scheme}://{u.netloc}{u.path[:u.path.rfind('/') + 1] or '/'}"
 
 def _plain(path:str) -> str:
     "`path` with its percent codes decoded, again until none is left, as a server can do."
@@ -340,16 +336,7 @@ def _plain(path:str) -> str:
         path = p
     return path
 
-def in_scope(url:str, start:str) -> bool:
-    "Whether `url`, without its query and fragment, is in the folder of `start`. A path with `..`, also in percent codes, is never in it."
-    u, path = urlparse(url), _plain(urlparse(url).path)
-    return '..' not in re.split(r'[/\\]', path) and f"{u.scheme}://{u.netloc}{path}".startswith(_plain(link_folder(start)))
 
-def link_sel(start:str) -> str:
-    "The CSS selector of the links into the folder of `start`: from the root of the site, in full, or relative. None has `..` or `%2e`."
-    f, up = link_folder(start).replace('"', '%22'), ':not([href*=".."]):not([href*="%2e" i])'
-    return (f'a[href^="{urlparse(f).path}"]{up}, a[href^="{f}"]{up}, '
-            f'a[href]:not([href*=":"]):not([href^="/"]):not([href^="#"]){up}')
 
 # %% ../nbs/04_sources.ipynb #lk04
 NOT_LOCAL = 'abhyasa does not read links to this computer or to a local network.'
@@ -430,7 +417,7 @@ def _file_html(lr:Learning, aid:str, page) -> AttrDict:
     "File the text of the arXiv HTML `page` of paper `aid` on the shelf of papers, never over another text. Return its `shelf`, `doc_id`, `title` and `url`."
     from vishalakshi.core import content_hash
     sh, text, src = lr.vault.shelf(lr.vault.route('arxiv').name), _clip(page.text), f'https://arxiv.org/abs/{aid}'
-    if (d := first(sh.t.docs(where='source=?', where_args=[src]))) and json.loads(d['meta'] or '{}').get('content_hash') != content_hash(text):
+    if (d := sh.by_source(src)) and meta_of(d).get('content_hash') != content_hash(text):
         src += '?html=' + hashlib.sha1(text.encode()).hexdigest()[:10]   # a query keeps the link and the assets folder of the paper
     r = sh.add(text, page.get('title') or aid, source=src, kind='arxiv', refresh=False,
                meta=dict(url=page.get('url') or ARXIV_HTML.format(aid=aid), via='arxiv-html', aid=aid))
@@ -520,7 +507,7 @@ def file_link(lr:Learning, url:str, max_pages:int=None, read=None, final=None, t
             up, was = link_folder(scope), link_folder(url)
             if urlparse(start).netloc == urlparse(url).netloc and was != up and was.startswith(up): scope = url   # a redirect up the same host, also to its root, keeps the folder of the link
     f = fetch_opts()
-    kw = dict(crawl=dict(max_pages=cap, follow_sel=link_sel(scope), **PLAIN, **f), url={**PLAIN, **f}, pdf=f, arxiv=f, github=dict(code=False)).get(how, {})
+    kw = dict(crawl=dict(max_pages=cap, scope=scope, **PLAIN, **f), url={**PLAIN, **f}, pdf=f, arxiv=f, github=dict(code=False)).get(how, {})
     shelves, docs = [lr.vault.route(kind), lr.vault], L()   # a reader can file on the shelf of the kind or on the main shelf
     for r in _filed(read(how, start, **kw)):
         sh, d = first(((s, s.doc(r['doc_id'])) for s in shelves), lambda x: x[1]) or (None, None)
@@ -691,7 +678,7 @@ def root_docs(lr:Learning, root:str, shelf:str='notebooks') -> L:
     "The documents of the folder or repo `root` on `shelf`, in path order, in the shape of `file_link`."
     if (sh := lr.doc_shelf(shelf)) is None: return L()
     rows = sh.t.docs(where="json_valid(meta) and json_extract(meta, '$.root') = ?", where_args=[root])
-    ds = sorted(((json.loads(r['meta'] or '{}'), r) for r in rows), key=lambda x: str(x[0].get('path') or ''))
+    ds = sorted(((meta_of(r), r) for r in rows), key=lambda x: str(x[0].get('path') or ''))
     return L(AttrDict(shelf=shelf, doc_id=r['id'], title=r['title'], url=m.get('url') or m.get('path') or r['source'], mtime=m.get('mtime')) for m, r in ds)
 
 # %% ../nbs/04_sources.ipynb #b67461d7
@@ -701,7 +688,7 @@ def unfile(lr:Learning, docs) -> int:
     for x in map(AttrDict, docs):
         if (sh := lr.doc_shelf(x.shelf)) is None: continue
         r = first(sh.t.docs(where='id=?', where_args=[x.doc_id]))
-        if r and json.loads(r['meta'] or '{}').get('mtime') == x.get('mtime'): sh.forget(x.doc_id); n += 1
+        if r and meta_of(r).get('mtime') == x.get('mtime'): sh.forget(x.doc_id); n += 1
     return n
 
 # %% ../nbs/04_sources.ipynb #3675758b

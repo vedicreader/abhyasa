@@ -24,7 +24,7 @@ from fastcore.utils import *
 import rupaka
 from rupaka.spec import upgrade, gallery, validate, SCHEMA, fmt_text, run as spec_state
 from rupaka.agent import author, catalog, parse_json, repair_prompt, SHAPE
-from .store import Learning, slugify, _src
+from .store import Learning, meta_of, slugify, _src
 from .tutor import CLOSE_HOOKS, LESSON_HOOKS, LESSON_NOTES
 from .model import update, _back
 from .method import way, choose, TEXT_WAYS, EXAMPLES_TO, FEEDBACK
@@ -58,17 +58,16 @@ def put_demo(self:Learning, spec:dict, concept:str, by:str='hand', checked:float
             slug = slugify('-'.join(x for x in (concept, aim, key, spec['id']) if x)); old = self.demo(slug) or {}
         m = dict(slug=slug, concept=concept, spec=spec, schema=spec['rupaka'], rupaka=rupaka.__version__, by=by,
                  checked=checked, aim=aim, at=time.time(), stats=old.get('stats') or dict(shown=0, right=0), **({'asked': dict(asked)} if asked else {}))
-        r = self.v.add(f'{demo_text(spec)}\n\nDemo {slug} for {concept}', title=spec.get('title') or slug, source=_src('demo', slug), kind='demo', meta=m)
-        if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
+        r = self.v.put(f'{demo_text(spec)}\n\nDemo {slug} for {concept}', title=spec.get('title') or slug, source=_src('demo', slug), kind='demo', meta=m)
         return self.demo(slug)
 
 # %% ../nbs/10_demo.ipynb #c011
-def _meta(r): return AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']})
+def _meta(r): return AttrDict({**meta_of(r), 'doc_id': r['id']})
 
 @patch
 def demo(self:Learning, slug:str) -> AttrDict|None:
     "One demo by slug."
-    r = first(self.v.t.docs(where='source=?', where_args=[_src('demo', slug)]))
+    r = self.v.by_source(_src('demo', slug))
     return _meta(r) if r else None
 
 @patch
@@ -164,8 +163,8 @@ def clean_note(s) -> str:
 # %% ../nbs/10_demo.ipynb #fb05
 def _attempt(learning, aid):
     "The attempt `aid`; None when there is none."
-    r = first(learning.v.t.docs(where='source=?', where_args=[_src('attempt', aid)]))
-    return AttrDict(json.loads(r['meta'] or '{}')) if r else None
+    r = learning.v.by_source(_src('attempt', aid))
+    return AttrDict(meta_of(r)) if r else None
 
 def _short(note, n=60):
     "The start of `note`, cut at a word, at most `n` characters and the dots."
@@ -645,7 +644,7 @@ def _outcome(learning, a, slug) -> str:
 def asks(self:Learning, concept:str=None, walk:str=None, session:str=None, limit:int=200) -> L:
     "Your asks for a demo, newest first, each with `slug` (its demo, when it is made) and `outcome` (`right`, `wrong` or '')."
     w = [(f"json_extract(meta, '$.{k}')=?", v) for k, v in dict(concept=concept, walk=walk, session=session).items() if v is not None]
-    rs = sorted((AttrDict(json.loads(r['meta'])) for r in self._docs('ask', ' and '.join(x for x, _ in w), [v for _, v in w])), key=lambda a: -a.at)[:limit]
+    rs = sorted((AttrDict(meta_of(r)) for r in self._docs('ask', ' and '.join(x for x, _ in w), [v for _, v in w])), key=lambda a: -a.at)[:limit]
     def full(a):
         slug = (self.demo_for(a.concept, aim='3d' if a.get('kind') == 'explainer' else a.get('aim', ''), key=a.key or None) or {}).get('slug', '')   # an ask with no words and no check gets the plain demo
         return AttrDict(a, slug=slug, outcome=_outcome(self, a, slug) if slug else '')
@@ -654,8 +653,8 @@ def asks(self:Learning, concept:str=None, walk:str=None, session:str=None, limit
 @patch
 def asked(self:Learning, aid:str) -> AttrDict|None:
     "One ask by its id; None when there is none."
-    r = first(self.v.t.docs(where='source=?', where_args=[_src('ask', aid)]))
-    return AttrDict(json.loads(r['meta'])) if r else None
+    r = self.v.by_source(_src('ask', aid))
+    return AttrDict(meta_of(r)) if r else None
 
 # %% ../nbs/10_demo.ipynb #x1a1be87
 ROUTES = {'demo': AttrDict(kind='demo', why='You asked for a 2D demo. You predict first. Then the demo shows the rest.'),

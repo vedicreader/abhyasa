@@ -42,7 +42,7 @@ def connect(app, ctx):
 
     def shelves():
         "The shelves of documents by name, so a walk that names a shelf that is not there never makes one. A store of names, or a shelf that does not open, is left out."
-        return {n: sh for n in lr.doc_shelves() if (sh := lr.doc_shelf(n)) is not None}
+        return {n: sh for n in lr.vault.shelf_names() if (sh := lr.doc_shelf(n)) is not None}
 
     def rows():
         "One row for each source, the newest first."

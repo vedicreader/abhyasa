@@ -10,9 +10,9 @@ __all__ = ['LEARNING', 'PROFILE', 'LIST_FIELDS', 'EXAMPLES', 'PACES', 'LABELS', 
            'calibration_text']
 
 # %% ../nbs/12_profile.ipynb #f8e3e421
-import json, time, uuid
+import time, uuid
 from fastcore.utils import *
-from .store import Learning, _src
+from .store import Learning, meta_of, _src
 from .llm import ask_json, for_task
 from .prompts import register, prompt
 from .settings import val, fit, SETTINGS
@@ -51,8 +51,8 @@ def clean(k, v):
 @patch
 def profile(self:Learning) -> AttrDict:
     "The learner profile, with its list of changes, newest first."
-    r = first(self.v.t.docs(where='source=?', where_args=[_SRC]))
-    m = json.loads(r['meta'] or '{}') if r else {}
+    r = self.v.by_source(_SRC)
+    m = meta_of(r) if r else {}
     return AttrDict({**PROFILE, 'changes': [], **{k: v for k, v in m.items() if k in (*PROFILE, 'changes', 'at')}, 'known': bool(r)})
 
 # %% ../nbs/12_profile.ipynb #082b2756
@@ -66,8 +66,7 @@ def set_profile(self:Learning, by:str='you', why:str='', **kv) -> list:
         if v != p[k]: ch.append(dict(id=uuid.uuid4().hex[:10], at=time.time(), field=k, old=p[k], new=v, by=by, why=why)); p[k] = v
     if not ch: return []
     m = {**{k: p[k] for k in PROFILE}, 'changes': [*ch[::-1], *p.changes][:200], 'at': time.time()}
-    r = self.v.add(profile_text(p) or 'An empty profile.', title='About you', source=_SRC, kind='profile', meta=m)
-    if not r.get('changed'): self.v.set_meta(r['doc_id'], **m)
+    r = self.v.put(profile_text(p) or 'An empty profile.', title='About you', source=_SRC, kind='profile', meta=m)
     return ch
 
 # %% ../nbs/12_profile.ipynb #570b8b73
@@ -84,7 +83,7 @@ def undo_profile(self:Learning, ref) -> list:
 @patch
 def clear_profile(self:Learning):
     "Remove the profile and its changes."
-    if (r := first(self.v.t.docs(where='source=?', where_args=[_SRC]))): self.v.forget(r['id'])
+    if (r := self.v.by_source(_SRC)): self.v.forget(r['id'])
 
 # %% ../nbs/12_profile.ipynb #7ec0ede8
 ONBOARD_QS = (('who', 'What do you do, and what do you know well already?', 'For example: I write Python each day. I know Sanskrit grammar.'),

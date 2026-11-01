@@ -20,7 +20,7 @@ import json, math, re, random, threading, time, uuid
 from fastcore.utils import *
 from pathlib import Path
 from fastcore.nbio import read_nb
-from .store import Learning, slugify, _src, clean_subject, usable_name, idea_name, real_idea, SHELF
+from .store import Learning, slugify, _src, meta_of, clean_subject, usable_name, idea_name, real_idea, SHELF
 from .model import learned
 from .settings import val
 from .llm import ask_json, for_task
@@ -39,7 +39,7 @@ NO_CHECK = dict(way='words', kind='short', depth=2, why='you added it')
 
 def _jmeta(r):
     "A walk from its vault row. A step with no check gets one, and an old code check (0.0.15 and older) is a notebook check: code runs in Leela."
-    j = AttrDict({**json.loads(r['meta'] or '{}'), 'doc_id': r['id']})
+    j = AttrDict({**meta_of(r), 'doc_id': r['id']})
     if j.get('mode') == 'walk':
         for s in j.get('steps') or ():
             s.setdefault('check', dict(NO_CHECK))
@@ -53,14 +53,13 @@ def put_journey(self:Learning, j:dict) -> AttrDict:
     j.update(updated=time.time(), steps=[dict(s) for s in j.get('steps', [])])
     names = [(self.concept(s['slug']) or {}).get('name', s['slug']) for s in j['steps']]
     text = f"Walk: {j['title']} ({j['id']})\n\nGoal: {j.get('goal', '')}\n\nSteps: {', '.join(names)}"
-    r = self.v.add(text, title=f"Walk: {j['title']}", source=_src('journey', j['id']), kind='journey', meta=j)
-    if not r.get('changed'): self.v.set_meta(r['doc_id'], **j)
+    r = self.v.put(text, title=f"Walk: {j['title']}", source=_src('journey', j['id']), kind='journey', meta=j)
     return self.journey(j['id'])
 
 @patch
 def journey(self:Learning, jid:str) -> AttrDict|None:
     "One walk by id."
-    r = first(self.v.t.docs(where='source=?', where_args=[_src('journey', jid)]))
+    r = self.v.by_source(_src('journey', jid))
     return _jmeta(r) if r else None
 
 @patch
@@ -427,7 +426,7 @@ def _doc_at(lr:Learning, doc) -> tuple|None:
         if (sh := lr.doc_shelf(doc['shelf'])) is None: return None
         r = first(sh.t.docs(where='id=?', where_args=[doc['doc_id']]))
         return (doc['shelf'], r) if r else None
-    for name in [n for n in lr.doc_shelves() if n != SHELF]:
+    for name in [n for n in lr.vault.shelf_names() if n != SHELF]:
         if (sh := lr.doc_shelf(name)) is None: continue
         if (r := first(sh.t.docs(where="title = ? or title like ?", where_args=[doc, f'%/{doc}']))): return name, r
     return None
@@ -457,7 +456,7 @@ def _doc_read(lr:Learning, doc, words) -> dict|None:
     "The paragraph of vault document `doc` that names the most of `words` (half of them or more), word for word, as a `read`. None when no paragraph does, or when the vault does not have the doc."
     if not (at := _doc_at(lr, doc)): return None
     shelf, r = at
-    m = json.loads(r['meta'] or '{}') if isinstance(r['meta'], str) else (r['meta'] or {})
+    m = meta_of(r)
     if not (by := _doc_texts(lr, shelf, r, m)): return None
     best, need = None, max(1, math.ceil(len(words) / 2))
     for page, texts in by.items():
@@ -864,7 +863,7 @@ def split_parts(lr:Learning, ask, jid:str, slug:str, sources=None) -> L:
 @patch
 def repair_subjects(self:Learning) -> list:
     "One time on a vault: give the subject of its walk to each concept of the walk that has none (a walk with no subject uses the most common one of its concepts). The group stays. A concept that you moved by hand stays. Return the slugs that changed."
-    if first(self.v.t.docs(where='source=?', where_args=[_src('marker', 'subjects')])): return []
+    if self.v.by_source(_src('marker', 'subjects')): return []
     out = []
     for j in self.journeys():
         slugs = [s['slug'] if isinstance(s, dict) else s for s in (*j.steps, *(j.get('more') or ()))]
@@ -918,7 +917,7 @@ def _retitle(self:Learning, j, t:str, aid:str=''):
 @patch
 def repair_titles(self:Learning) -> list:
     "One time for each shelf, give each walk whose title is only an arXiv id the title of its vault document, when that has a real one. Return the ids that changed."
-    if first(self.v.t.docs(where='source=?', where_args=[_src('marker', 'titles')])): return []
+    if self.v.by_source(_src('marker', 'titles')): return []
     out = []
     for j in self.journeys():
         if not (is_id_title(j.title, _arxiv_of(j)) and j.get('docs')): continue
@@ -933,7 +932,7 @@ def repair_titles(self:Learning) -> list:
 def repair_paper_titles(self:Learning, title_of=None) -> list:
     "Give each walk and each PDF in the vault that is titled with only an arXiv id the title of its paper, from `title_of(id)` (default: arXiv). Return the ids of the walks that changed. The mark is set only when no id failed from the network."
     mark = _src('marker', 'paper-titles-2')   # the first mark was set while a walk from a vault document had no id: that start did not repair it
-    if first(self.v.t.docs(where='source=?', where_args=[mark])): return []
+    if self.v.by_source(mark): return []
     title_of = title_of or partial(arxiv_title, strict=True)
     got, retry, out = {}, False, []
     def title(aid):
