@@ -79,7 +79,7 @@ def test_figure_route_takes_only_images(mk):
     assert mk().post('/guide/figure', content=b'<svg onload=alert(1)>').status_code == 415
 
 GUIDE_JS = __import__('pathlib').Path(__file__).parents[2]/'abhyasa/blocks/guide/guide.js'
-TEX_JS = __import__('pathlib').Path(__file__).parents[2]/'abhyasa/core/texparts.js'
+TEX_JS = __import__('rupaka.board', fromlist=['assets']).assets().tex   # rupaka's formula parts, which guide.js reads as window.abhyasaTex
 
 def tex_parts(tex):
     import shutil, subprocess
@@ -101,7 +101,7 @@ def test_formula_parts_keep_accents_whole():
     assert [t for t, _ in parts][:1] == [r'\hat{y}'] and r'\hat{\htmlId' not in marked and r'\frac{\htmlId' in marked
 
 def test_texparts_is_one_shared_module(mk):
-    "core/texparts.js gives window.abhyasaTex and the node module, with the one KaTeX trust rule; every page loads it before guide.js, which needs it."
+    "rupaka's texparts.js gives window.abhyasaTex and the node module, with the one KaTeX trust rule; every page loads it (in the board bundle) before guide.js, which needs it."
     import shutil, subprocess
     if not shutil.which('node'): pytest.skip('node is not installed')
     code = (f"const t = require({json.dumps(str(TEX_JS))}); const w = {{}}; global.window = w; delete require.cache[require.resolve({json.dumps(str(TEX_JS))})];"
@@ -111,7 +111,7 @@ def test_texparts_is_one_shared_module(mk):
     keys, wkeys, ok, bad_id, bad_cmd, wrapped = json.loads(subprocess.run(['node', '-e', code], capture_output=True, text=True, check=True).stdout)
     assert keys == wkeys == ['texParts', 'texAtoms', 'texWrap', 'trust'] and ok and not bad_id and not bad_cmd and wrapped.startswith(r'\htmlId{g-2-0}{a}')
     t = mk().get('/').text
-    assert t.index('/assets/texparts.js') < t.index('/assets/guide.js')
+    assert t.index('/assets/board.js') < t.index('/assets/guide.js')
 
 def test_ask_streams_a_board(mk, fake):
     fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='This is the passage.'), dict(op='box', at='passage')])

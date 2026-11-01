@@ -5,6 +5,7 @@ from pathlib import Path
 from fasthtml.common import *
 from mdhtml import md2mdhtml, mdhtml2html
 from rupaka.render import assets as rk_assets, font_css
+from rupaka.board import assets as board_assets, bundle as board_bundle, LIBS as BOARD_LIBS
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
@@ -30,6 +31,13 @@ for _f in rk_assets().fonts.glob('patrick-hand-*.woff2'): ASSETS[_f.name] = (_f.
 ASSETS['hand.css'] = ('\n'.join(l for l in font_css(base='/assets/').splitlines() if f"'{HAND}'" in l), 'text/css')   # rupaka's @font-face rules of the hand font
 _HAND_CSS = f"/assets/hand.css?v={hashlib.sha1(ASSETS['hand.css'][0].encode()).hexdigest()[:10]}"
 
+def _text_asset(name, text, mime):
+    "Register `text` as the asset `name`, and give its URL with the content hash."
+    ASSETS[name] = (text, mime)
+    return f'/assets/{name}?v={hashlib.sha1(text.encode()).hexdigest()[:10]}'
+
+_BOARD_CSS, _BOARD_JS = _text_asset('board.css', board_bundle('css'), 'text/css'), _text_asset('board.js', board_bundle('js'), 'text/javascript')   # rupaka's board under the old names: the Mac overlay loads them by name
+
 def asset_js(path, **kw):
     "A `Script` for a block's own .js file."
     return Script(src=_asset(path, 'text/javascript'), **kw)
@@ -47,8 +55,11 @@ def serve_assets(app):
         return Response(txt, media_type=mime, headers={'Cache-Control': 'public, max-age=31536000, immutable'})
     app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's own `/{fname}.{ext:static}` route
     from starlette.staticfiles import StaticFiles
+    from starlette.routing import Route
     app.mount('/vendor', StaticFiles(directory=_here/'vendor'), name='vendor')   # htmx, KaTeX and d3, pinned, so the app works offline
     app.router.routes.insert(0, app.router.routes.pop())
+    def lib(f): return lambda req: FileResponse(f, media_type='text/javascript')
+    for name in BOARD_LIBS: app.router.routes.insert(0, Route(f'/vendor/{name}', lib(board_assets().libs/name)))   # rupaka's pen libraries of the board, at the URLs that it loads by default: before the mount
 
 def HDRS():
     "Headers for every page: the base theme, KaTeX, the core script, and the board of the screen guide."
@@ -57,7 +68,7 @@ def HDRS():
             asset_css(_here/'base.css'), asset_css(_here/'themes.css'),
             Link(rel='stylesheet', href='/vendor/katex.min.css'), Script(src='/vendor/katex.min.js', defer=True),
             asset_css(_here/'pane.css'), asset_js(_here/'core.js'), asset_js(_here/'grip.js'), asset_js(_here/'pane.js'),
-            Link(rel='stylesheet', href=_HAND_CSS), asset_css(_here/'board.css'), asset_js(_here/'texparts.js'), asset_js(_here/'board.js'))   # the hand font, the board of the screen guide and its formula parts; its pen libraries load on first use
+            Link(rel='stylesheet', href=_HAND_CSS), Link(rel='stylesheet', href=_BOARD_CSS), Script(src=_BOARD_JS))   # the hand font, and rupaka's board of the screen guide with its formula parts first; its pen libraries load on first use
 
 THEMES = dict(paper='Warm paper, umber accent', ink='Calm, high contrast, dark first', manuscript='Palm leaf, saffron accent',
               clear='System font, plain and bright', sage='Soft green-grey, low glare', signal='Silver panels, orange controls')   # themes.css has the colours

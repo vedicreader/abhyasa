@@ -1,5 +1,5 @@
-// The screen guide on the page: it reads what the page shows (the anchors), asks the tutor, and gives the board to board.js.
-// The model never sends code. Only the anchors that this file finds can carry a mark. Formula parts come from core/texparts.js.
+// The screen guide on the page: it reads what the page shows (the anchors), asks the tutor, and gives the board to rupaka's board.js.
+// The model never sends code. Only the anchors that this file finds can carry a mark. Formula parts come from rupaka's texparts.js (in /assets/board.js).
 
 // --- what the page shows --------------------------------------------------------------------------------------------
 if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {

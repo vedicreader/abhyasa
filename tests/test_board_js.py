@@ -1,27 +1,9 @@
-"The board renderer in core: the vendored pen libraries, and the rules that keep model text out of the page code."
-import hashlib, re, pytest
+"The board of the screen guide comes from rupaka: the app serves rupaka's files under the old URLs, so each page and the Mac overlay load it by name."
+import re
 from pathlib import Path
+from rupaka.board import assets, bundle
 
-CORE = Path(__file__).parents[1]/'abhyasa/core'
-PINNED = {'rough.js': '6853af8619532f3939b156cd16824d2e14f31e71d3df306ad5558eeafacab194',              # roughjs 4.6.6, bundled/rough.js
-          'perfect-freehand.mjs': '0ddf0e44c727ab39d7211af95685bf12234236f0e2eca376091e5791a71626e4'}  # perfect-freehand 1.2.2, dist/esm/index.mjs
-
-def test_vendored_pens_are_pinned():
-    for name, h in PINNED.items(): assert hashlib.sha256((CORE/'vendor'/name).read_bytes()).hexdigest() == h, name
-
-def test_licences_are_kept():
-    t = (CORE/'vendor/LICENSES.md').read_text()
-    for s in ('Rough.js 4.6.6', 'Preet Shihn', 'perfect-freehand 1.2.2', 'Stephen Ruiz', 'MIT License'): assert s in t, s
-
-def test_model_text_goes_in_as_text():
-    "board.js never writes HTML: each say, label, quote and title goes in with textContent, and a link is http(s) or a local path."
-    js = (CORE/'board.js').read_text()
-    assert 'innerHTML' not in js and 'insertAdjacentHTML' not in js and 'outerHTML' not in js and 'eval(' not in js
-    assert 'textContent' in js and "noopener" in js and r"/^(https?:\/\/|\/(?!\/))/" in js
-
-def test_every_page_loads_the_board(mk):
-    t = mk().get('/').text
-    assert re.search(r'/assets/board\.js\?v=', t) and re.search(r'/assets/board\.css\?v=', t)
+MAC = Path(__file__).parents[1]/'mac/Sources/AbhyasaGuide/OverlayPage.swift'
 
 def _chromium():
     "True when Playwright's bundled Chromium is installed."
@@ -30,69 +12,33 @@ def _chromium():
         with sync_playwright() as p: return Path(p.chromium.executable_path).exists()
     except Exception: return False
 
-STEP = lambda say, at: dict(say=say, strokes=[dict(op='box', at=at)])
+def test_every_page_loads_the_board(mk):
+    t = mk().get('/').text
+    assert re.search(r'/assets/board\.js\?v=', t) and re.search(r'/assets/board\.css\?v=', t)
+    assert 'texparts.js' not in t   # the board bundle has the formula parts first
 
-@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
-def test_a_streaming_board_takes_steps_as_they_come(mk):
-    "A board that starts with step 1 waits at it, goes on when add() gives step 2, and shows its end line only after finish()."
-    import socket, threading, time, uvicorn
-    from playwright.sync_api import sync_playwright
-    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
-    srv = uvicorn.Server(uvicorn.Config(mk().app, host='127.0.0.1', port=port, log_level='error'))
-    th = threading.Thread(target=srv.run, daemon=True); th.start()
-    while not srv.started: time.sleep(.05)
-    s1, s2 = STEP('One word.', 'a'), STEP('Two words.', 'b')
-    try:
-        with sync_playwright() as p:
-            b = p.chromium.launch(headless=True)
-            try:
-                pg = b.new_page(viewport=dict(width=1000, height=700))
-                pg.goto(f'http://127.0.0.1:{port}/'); pg.wait_for_function('window.abhyasaBoard')
-                pg.evaluate("""() => document.body.insertAdjacentHTML('beforeend', '<p data-guide-id="a">Alpha</p><p data-guide-id="b">Beta</p>')""")
-                assert pg.evaluate('s => abhyasaBoard.add(s)', s2) is False   # no board shows
-                pg.evaluate("s => abhyasaBoard.play({steps: [s], tier: 'tutor', sources: [], streaming: true}, {quiet: true})", s1)
-                pg.wait_for_function('abhyasaBoard.state && abhyasaBoard.state.done')
-                pg.wait_for_timeout(1500)   # step 1 is said, and with no step 2 the board waits at it
-                assert pg.evaluate('abhyasaBoard.state') | {'first': 0} == dict(i=0, steps=1, tier='tutor', first=0, streaming=True, done=True)
-                assert pg.evaluate("document.querySelector('#guide-strip .board-n').textContent") == 'Step 1'
-                assert pg.evaluate("!document.querySelector('#guide-strip .board-end')")
-                assert pg.evaluate('s => abhyasaBoard.add(s)', s2) is True
-                pg.wait_for_function('abhyasaBoard.state.i === 1')   # it goes on at once
-                assert pg.evaluate("abhyasaBoard.finish({steps: [{say: 'Not the same.', strokes: []}], tier: 'tutor', sources: []})") is False
-                assert pg.evaluate("ss => abhyasaBoard.finish({steps: ss, tier: 'vault', sources: [], end: 'The end line.'})", [s1, s2]) is True
-                st = pg.evaluate('abhyasaBoard.state')
-                assert (st['steps'], st['streaming'], st['tier']) == (2, False, 'vault')
-                assert pg.evaluate("document.querySelector('#guide-strip .board-end').textContent") == 'The end line.'
-                assert pg.evaluate("document.querySelector('#guide-strip .board-n').textContent") == 'Step 2 of 2'
-                pg.evaluate("() => abhyasaBoard.play({steps: [{say: 'Whole.', strokes: []}], tier: 'tutor', sources: []}, {quiet: true})")
-                assert pg.evaluate('s => abhyasaBoard.add(s)', s2) is False   # a whole board takes no steps
-            finally: b.close()
-    finally:
-        srv.should_exit = True; th.join(5)
+def test_the_board_urls_serve_rupakas_bundles(mk):
+    "`/assets/board.js` is rupaka's script with the formula parts first and the old name `abhyasaBoard`; `/assets/board.css` starts with the paper tokens."
+    c = mk()
+    js, css = c.get('/assets/board.js'), c.get('/assets/board.css')
+    assert (js.status_code, css.status_code) == (200, 200)
+    assert js.text == bundle('js') and css.text == bundle('css')
+    assert js.headers['content-type'].startswith('text/javascript') and css.headers['content-type'].startswith('text/css')
+    assert 'abhyasaBoard' in js.text and 'abhyasaTex' in js.text and js.text.index('rupakaTex') < js.text.index('rupakaBoard')
 
-@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
-def test_reduced_motion_draws_a_point_with_no_pulse(mk):
-    "With reduced motion, a point mark shows its dot at once: no pulse and no running animation on the board."
-    import socket, threading, time, uvicorn
-    from playwright.sync_api import sync_playwright
-    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
-    srv = uvicorn.Server(uvicorn.Config(mk().app, host='127.0.0.1', port=port, log_level='error'))
-    th = threading.Thread(target=srv.run, daemon=True); th.start()
-    while not srv.started: time.sleep(.05)
-    play = "() => abhyasaBoard.play({steps: [{say: 'Look here now.', strokes: [{op: 'point', at: 't'}]}], tier: 'tutor', sources: []}, {quiet: true, auto: false, point: 'dot'})"
-    try:
-        with sync_playwright() as p:
-            b = p.chromium.launch(headless=True)
-            try:
-                pg = b.new_page(viewport=dict(width=1000, height=700), reduced_motion='reduce')
-                pg.goto(f'http://127.0.0.1:{port}/'); pg.wait_for_function('window.abhyasaBoard')
-                pg.evaluate("""() => document.body.insertAdjacentHTML('beforeend', '<div data-guide-id="t" style="position:absolute;left:420px;top:260px;width:90px;height:28px"></div>')""")
-                pg.evaluate(play)
-                pg.wait_for_function("document.querySelector('#board-layer circle.board-dot')", timeout=5000)
-                for _ in range(4):   # look a few times while the step plays
-                    assert pg.evaluate("document.querySelectorAll('.board-pulse').length") == 0
-                    assert pg.evaluate("document.getAnimations().filter(a => a.playState === 'running' && a.effect?.target?.closest?.('#board-layer')).length") == 0
-                    pg.wait_for_timeout(100)
-            finally: b.close()
-    finally:
-        srv.should_exit = True; th.join(5)
+def test_the_pen_libraries_come_from_rupaka(mk):
+    "The board loads its pen libraries from `/vendor/` by default: the app serves rupaka's copies there, and the other vendor files as before."
+    c = mk()
+    for name in ('rough.js', 'perfect-freehand.mjs'):
+        r = c.get(f'/vendor/{name}')
+        assert r.status_code == 200 and r.headers['content-type'].startswith('text/javascript'), name
+        assert r.content == (assets().libs/name).read_bytes(), name
+    assert c.get('/vendor/htmx.min.js').status_code == 200 and c.get('/vendor/LICENSES.md').status_code == 404
+
+def test_the_mac_overlay_names_the_served_files(mk):
+    "The Mac overlay loads the board, its style and the hand font by name, and the pen libraries from `/vendor/`: each URL is served."
+    swift, c = MAC.read_text(), mk()
+    for url in ('/assets/board.js', '/assets/board.css', '/assets/hand.css'): assert f'href="{url}"' in swift or f'src="{url}"' in swift and c.get(url).status_code == 200, url
+    assert "assets: '/vendor/'" in swift
+    fonts = re.findall(r"url\('?/assets/([^')]+\.woff2)", c.get('/assets/hand.css').text)
+    assert fonts and all(c.get(f'/assets/{f}').status_code == 200 for f in fonts)

@@ -1145,7 +1145,7 @@
     "kinds": {
       "explain": {
         "what": "board: steps with marks (circle, underline, arrow, label, point, sketch) and one spoken line each, and the side panel: rows built from the values on screen, one row in each step, each linked to its thing on the page by a circle and a curve",
-        "renderer": "core/board.js (marks and the side panel), core/board.css (the paper)",
+        "renderer": "rupaka.board: board.js (marks and the side panel), board.css and paper.css (the paper)",
         "engine": "guide.explain",
         "moves_floor": false
       },

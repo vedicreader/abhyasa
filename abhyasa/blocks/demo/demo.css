@@ -1,4 +1,4 @@
-/* A demo is on the same paper as the side panel of the board (board.css tokens): one look for every picture of an idea. The
+/* A demo is on the same paper as the side panel of the board (the paper tokens of rupaka's paper.css): one look for every picture of an idea. The
    titles and labels of rupaka are in the hand font; the values stay in monospace. */
 .demo-card { margin: var(--s6) 0 var(--s2); padding: var(--s5) var(--s5) var(--s4); background: var(--paper); color: var(--paper-ink); border: 1px solid var(--paper-line);
              box-shadow: var(--lift); border-radius: 12px; --bg: var(--paper); --fg: var(--paper-ink); --ink2: var(--paper-ink); --mute: var(--paper-mute); --line: var(--paper-line); }
