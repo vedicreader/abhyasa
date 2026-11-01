@@ -100,6 +100,20 @@ def test_no_source_then_find_a_source(mk, web, lr, walk_fake):
     until(lambda: state(lr, jid) == 'found')
     assert len(web.asked) == n + 1 and '>from the web<' in cl.get(f'/w/{jid}/0').text
 
+def test_look_again_counts_while_the_last_search_ends(mk, web, lr, walk_fake, monkeypatch):
+    "Look again just after a search wrote its result, while its job still ends, starts a new search: the step is no longer looked for."
+    walk_fake.rules['You find one passage'] = dict(passage='Softmax makes weights from scores, and they add up to 1 and lie between 0 and 1.')
+    go, ended = threading.Event(), abhyasa.research._ended
+    monkeypatch.setattr(abhyasa.research, '_ended', lambda *a, **kw: (go.wait(10), ended(*a, **kw)))   # the job holds after it wrote the result
+    cl = mk(); jid = topic(cl); cl.post(f'/w/{jid}/start')
+    try:
+        until(lambda: state(lr, jid) == 'none')
+        walk_fake.rules['You find one passage'] = dict(passage=QUOTE)
+        cl.post(f'/w/{jid}/0/source')
+        assert state(lr, jid) == 'pending'   # the press is kept, not dropped as a search that runs
+    finally: go.set()
+    until(lambda: state(lr, jid) == 'found')
+
 def test_one_ideas_heading(mk, web, lr, walk_fake):
     "A topic walk with no sections has no section row in its plan, also when its steps quote different pages, and Next idea does not stop at a section end."
     walk_fake.rules['You plan a learning path'] = dict(title='Softmax', subject='ml', steps=[*PLAN['steps'], dict(name='Attention', statement='Attention mixes values by weights.', slug='', why='The goal.', needs=['Softmax'], ways=['words'])])

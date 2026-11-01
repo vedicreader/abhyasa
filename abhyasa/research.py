@@ -497,8 +497,10 @@ class Researcher:
         return out
 
     def looking(self, jid:str, i:int) -> bool:
-        "Whether a job looks for a source for step `i` of walk `jid` now."
-        return any(i in x.ix and not x.job.done() for x in self.jobs[jid])
+        "Whether a job looks for a source for step `i` of walk `jid` now: the step is still pending, so a job that wrote its result and ends does not count."
+        if not any(i in x.ix and not x.job.done() for x in self.jobs[jid]): return False
+        j = self.lr.journey(jid)
+        return bool(j) and 0 <= i < len(j.steps) and j.steps[i].get('research') == 'pending'
 
     def look_for(self, jid:str, ix=None):
         "Mark the steps `ix` of walk `jid` (default: `to_research`) as pending, and start one job that looks for their sources in order. Return the job, or None."
