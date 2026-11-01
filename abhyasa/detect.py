@@ -10,12 +10,13 @@ __all__ = ['HINT', 'LINES', 'VIDEO', 'GITHUB', 'BARE', 'TLDS', 'DOMAIN', 'FILE_N
            'on_disk', 'detect', 'title_index', 'vault_title']
 
 # %% ../nbs/19_detect.ipynb #d006
-import re, threading, unicodedata
+import re, threading
 from pathlib import Path
 from urllib.parse import urlparse
 from fastcore.utils import *
 from .sources import ARXIV_ID, ARXIV_LINK, as_link, is_paper, local_name, gh_name, folder_why
 from .ground import SKIP_DIRS
+from .store import fold as store_fold
 from .settings import val
 
 # %% ../nbs/19_detect.ipynb #d008
@@ -44,8 +45,8 @@ LINES = dict(
 
 # %% ../nbs/19_detect.ipynb #d010
 def fold(s) -> str:
-    "`s` in lower case with no marks, and with the spaces at its ends removed."
-    return ''.join(ch for ch in unicodedata.normalize('NFKD', str(s or '')) if not unicodedata.combining(ch)).lower().strip()
+    "`s` folded as `store.fold` does, with the spaces at its ends removed."
+    return store_fold(s).strip()
 
 # %% ../nbs/19_detect.ipynb #d013
 VIDEO = ('youtube.com', 'youtu.be', 'vimeo.com')

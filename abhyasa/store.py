@@ -14,6 +14,7 @@ import json, logging, re, threading, time, uuid, hashlib, unicodedata
 from pathlib import Path
 from fastcore.utils import *
 from vishalakshi import Vault
+from litesearch import fold_text
 
 log = logging.getLogger(__name__)
 
@@ -344,8 +345,8 @@ def place(self:Learning, slug:str, path) -> bool:
 
 # %% ../nbs/00_store.ipynb #hs02
 def fold(s) -> str:
-    "`s` in lower case with no marks, so `Maghā` and `MAGHA` are one name."
-    return ''.join(ch for ch in unicodedata.normalize('NFKD', str(s or '')) if not unicodedata.combining(ch)).lower()
+    "`s` in lower case with no marks (litesearch `fold_text`), so `Maghā` and `MAGHA` are one name, and `संधि` gives `samdhi`."
+    return fold_text(str(s or ''))
 
 def _key(g): return tuple(fold(x) for x in g)
 

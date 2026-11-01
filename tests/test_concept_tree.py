@@ -53,6 +53,13 @@ def test_rows_carry_the_words_to_find(mk, jy):
     t = mk().get('/concepts').text
     assert 'data-find="magha magha"' in t and 'concepts.js' in t and 'id="find"' in t
 
+def test_find_a_devanagari_name_in_either_script(mk, jy):
+    "A Devanagari name is found by its ASCII key, as the server folds it, and by the Devanagari word, as the browser folds it."
+    jy.put('संधि', 'Sounds change where words meet.', 'sanskrit')
+    cl = mk()
+    assert 'संधि' in cl.get('/concepts', params=dict(q='samdhi')).text and 'संधि' in cl.get('/concepts', params=dict(q='संधि')).text
+    assert 'data-find="samdhi संधि"' in cl.get('/concepts').text
+
 # A move by hand
 
 def test_group_field_moves_a_concept_by_hand(mk, jy):

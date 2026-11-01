@@ -5,6 +5,7 @@ from fasthtml.common import *
 from abhyasa.core import subject_name, Cites, Md, DepthBar, when, run, asset_css, asset_js, meta, n_of, Empty, Said, Primary, Secondary, Quiet, Part
 from abhyasa.model import DEPTHS, recall
 from abhyasa.store import tree, fold
+from litesearch import DEVANAGARI
 from abhyasa.demo import no_slots, SLOT
 from .cfg import Routes
 
@@ -14,6 +15,11 @@ def css(): return asset_css(_P/'concepts.css')
 def finds(c, q) -> bool:
     "Whether the find text `q` is in the name, an alias or the slug of `c`."
     return fold(q).strip() in fold(' '.join((c.name, c.slug, *(c.get('aliases') or ()))))
+
+def find_words(c) -> str:
+    "The words that the find box matches for `c` (concepts.js): each name folded, and a Devanagari name as it is, because the browser does not transliterate."
+    ns = (c.name, *(c.get('aliases') or ()))
+    return ' '.join([*map(fold, ns), *(x.lower() for x in ns if DEVANAGARI.search(x))])
 
 label = subject_name
 
@@ -44,7 +50,7 @@ def Row(c, at=None):
                 if c.get('group_by') == 'placed' and c.get('group') else ()),
               *((Span(f"from {c.was} → {' › '.join(c.get('group') or []) or 'Not sorted yet'}", cls='mute moved'),) if c.get('was') else ()),
               *((_act('Move to…', 'move-to', aria_label=f'Move “{c.name}” to a group', **_opens(Routes.move_of(c.slug), at)), Slot()) if edit else ()),
-              data_find=' '.join(fold(x) for x in (c.name, *(c.get('aliases') or ()))),
+              data_find=find_words(c),
               **({'data_slug': c.slug, 'data_subject': c.subject or '', 'data_post': Routes.group_of(c.slug)} if edit else {}))
 
 def ConceptList(cs, at=None): return Ul(*[Row(c, at) for c in cs], cls='plain concepts'), css()
