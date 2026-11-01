@@ -84,11 +84,28 @@ def test_open_in_leela_with_no_leela(mk, lr, walk_fake):
     assert r.status_code == 303 and r.headers['location'] == f'/w/{jid}/1' and 'leela_at' not in lr.journey(jid).steps[1]
     assert cl.post(f'/w/{jid}/99/leela', follow_redirects=False).status_code == 404
 
+def test_a_load_starts_no_job(mk, lr, walk_fake, monkeypatch):
+    "A load of the card or the page of a notebook step with no spec starts no model call. The card says the notebook is not written yet, and Write the notebook (a POST) starts the job."
+    cl = mk(); jid = nb_step(cl, lr, spec=None)
+    assert wait_for(lambda: None if any(r.state == 'running' for r in lr.jobs().values()) else True)
+    lr.walk_step(jid, 1, nb_why=None)   # the early job of the new walk had no spec from the fake
+    calls = []
+    monkeypatch.setattr('abhyasa.path.nb_spec', lambda *a: calls.append(a))
+    for _ in range(2):
+        card = cl.get(f'/w/{jid}/1/check').text
+        assert 'The notebook is not written yet.' in card and 'Write the notebook' in card and f'hx-post="/w/{jid}/1/check"' in card
+    assert cl.get(f'/w/{jid}/1').status_code == 200 and cl.get(f'/w/{jid}').status_code == 200
+    assert not calls                                                                     # no GET started the job
+    cl.post(f'/w/{jid}/1/check')
+    assert wait_for(lambda: calls or None, 5) and len(calls) == 1                         # the press did
+
 def test_nb_spec_writes_the_step(mk, lr, walk_fake):
+    "Write the notebook (a POST) starts the job, and the spec comes onto the step."
     walk_fake.rules[NB_RULE] = GOOD
     cl = mk(); jid = nb_step(cl, lr, spec=None)
-    first = cl.get(f'/w/{jid}/1/check').text
+    first = cl.post(f'/w/{jid}/1/check').text
     assert 'Writing the notebook…' in first or 'Open in Leela' in first
+    assert f"walk:{jid}:nb:{lr.journey(jid).steps[1]['slug']}" in lr.jobs()
     assert wait_for(lambda: lr.journey(jid).steps[1].get('nb'), 10) == validate_nb_spec({**GOOD, 'data': [{**d, 'path': '', 'need': True} for d in GOOD['data']]})
     assert 'Open in Leela' in cl.get(f'/w/{jid}/1/check').text
     assert lr.journey(jid).steps[1]['nb']['run']['say'] == 'Write the run here: Run it on all episodes. Write one line to captions.jsonl for each.'   # the run cell has no code: the learner writes it
@@ -96,7 +113,7 @@ def test_nb_spec_writes_the_step(mk, lr, walk_fake):
 def test_bad_spec_twice_leaves_nb_unset(mk, lr, walk_fake):
     walk_fake.rules[NB_RULE] = {**GOOD, 'data': [{**GOOD['data'][0], 'name': 'episodes'}]}
     cl = mk(); jid = nb_step(cl, lr, spec=None)
-    cl.get(f'/w/{jid}/1/check')
+    cl.post(f'/w/{jid}/1/check')
     why = wait_for(lambda: lr.journey(jid).steps[1].get('nb_why') or None, 10)
     assert why.startswith('data') and not lr.journey(jid).steps[1].get('nb')
     card = cl.get(f'/w/{jid}/1/check').text
@@ -160,7 +177,7 @@ def test_plan_says_writing_only_while_a_job_runs(mk, lr, walk_fake):
     assert wait_for(lambda: None if any(r.state == 'running' for r in lr.jobs().values()) else True)
     lr.walk_step(jid, 1, nb_why=None)   # the fake gives no spec, so an early job could not write it
     plan = cl.get(f'/w/{jid}').text
-    assert 'Writing the notebook…' not in plan and 'the notebook is written when you open the idea' in plan
+    assert 'Writing the notebook…' not in plan and 'the notebook is not written yet' in plan
     job_start(lr, key, 'notebook')
     assert 'Writing the notebook…' in cl.get(f'/w/{jid}').text
     job_end(lr, key, 'failed'); lr.walk_step(jid, 1, nb_why='the model did not answer')

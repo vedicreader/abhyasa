@@ -435,7 +435,8 @@ def Pending(jid, i, s, job=''):
 # --- the notebook check: it runs in Leela ---------------------------------------------------------------------------
 
 NB_WRITING = 'Writing the notebook…'
-NB_LATER = 'the notebook is written when you open the idea'
+NB_LATER = 'the notebook is not written yet'
+NB_NOT_YET = 'The notebook is not written yet.'
 NB_NONE = 'the tutor could not write the notebook'
 NB_HEAD = 'Check · notebook · runs in Leela'
 NO_LEELA = 'Leela is not running. Start Leela, then press ⌥S again.'
@@ -460,6 +461,12 @@ def NbPending(jid, i, link=None, opened=None):
     "The notebook spec is not written yet: the card loads again when its job ends (the event stream). Leela can open the step now."
     return Check(NbHead(), P(NB_WRITING, cls='mute making'), foot=NbGo(jid, i, link, spec=False, opened=opened), cls='pending nb-check', aria_live='polite',
                  hx_get=at(Routes.check, jid, i), hx_trigger=WAIT, hx_target='#check', hx_swap='innerHTML', data_job=f'walk:{jid}')
+
+def NbNotYet(jid, i, link=None, opened=None):
+    "The notebook spec is not written and no job writes it: Write the notebook starts the job. Leela can open the step now."
+    return Check(NbHead(), P(NB_NOT_YET, cls='mute'),
+                 foot=(Div(Quiet('Write the notebook', type='button', hx_post=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), cls='row acts'),
+                       NbGo(jid, i, link, spec=False, opened=opened)), cls='nb-check')
 
 def NbFailed(jid, i, why, link=None, opened=None):
     "The tutor could not write the notebook spec: the reason and Try again. Leela can still open the step and make its own lesson."

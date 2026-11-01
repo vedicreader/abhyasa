@@ -222,13 +222,14 @@ def connect(app, ctx):
         return j
 
     def nb_card(j, i):
-        "The card of a notebook step: the notebook, the line while the tutor writes it, or the reason when it could not."
+        """The card of a notebook step: the notebook, the line while the tutor writes it, the reason when it could not, or Write the notebook.
+        A load of the card starts no model call: only the press (a POST) starts the job."""
         j = with_folders(j, i)
         s, link = j.steps[i], leela_link(j, i, vault=vault)
         if s.get('nb'): return ui.NotebookCard(j.id, i, s, link)
-        if not s.get('nb_why'): write_notebook(j.id, i)
-        if nb_writing(j.id, i) or not s.get('nb_why'): return ui.NbPending(j.id, i, link, s.get('leela_at'))
-        return ui.NbFailed(j.id, i, s['nb_why'], link, s.get('leela_at'))
+        if nb_writing(j.id, i): return ui.NbPending(j.id, i, link, s.get('leela_at'))
+        if s.get('nb_why'): return ui.NbFailed(j.id, i, s['nb_why'], link, s.get('leela_at'))
+        return ui.NbNotYet(j.id, i, link, s.get('leela_at'))
 
     def from_leela(j, i, back=None):
         """The card "From Leela" of step `i`, or None. A done step, and a notebook step that is not done, get Next idea and the link to the lesson:
@@ -610,10 +611,11 @@ def connect(app, ctx):
         return card(lr.journey(jid), i)
 
     def nb_again(jid:str, i:int):
-        "Try again to write the notebook spec of step `i`, after the tutor could not."
+        "Write the notebook: start the job that writes the notebook spec of step `i`, the first time or again after the tutor could not."
         if not (j := walk_of(jid, i)) or j.steps[i]['check']['kind'] != 'notebook': return Response(status_code=404)
         if j.steps[i].get('nb_why'): j = put(j, i, nb_why='')
-        return card(j, i)
+        write_notebook(jid, i)
+        return card(lr.journey(jid), i)
 
     def open_leela(jid:str, i:int):
         "Open in Leela: note the time on step `i` (`leela_at`), then go to the Leela link. When Leela does not run, go back to the step."
