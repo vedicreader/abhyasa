@@ -2,8 +2,12 @@
 
 nbdev 3 on hatchling. Two kinds of code live here:
 
-- The engine (`store`, `model`, `llm`, `tutor`, `sources`, `voice`, `ground`, `nb`, `demo`, `journey`, `profile`, `method`, `research`, `detect`, `edit`): the notebooks under `nbs/` are the
-  source, and `abhyasa/*.py` is generated. Edit the notebook. Run `uv run nbdev-prepare` (with a hyphen). Never edit a generated file.
+- The engine, in six notebooks, each of which imports only from the ones above it: `00_learner` (settings, prompts, the store, the learner model, jobs),
+  `01_models` (llm, voice), `02_sources` (ground, sources, detect, quote trust), `03_tutor` (tutor, notebook checks), `04_path` (walk, journey, course,
+  edit, research of each step) and `05_show` (guide, demo, talk). The notebooks under `nbs/` are the source, and `abhyasa/*.py` is generated. Edit the
+  notebook. Run `uv run nbdev-prepare` (with a hyphen). Never edit a generated file.
+- The old module names (`abhyasa.store`, `abhyasa.walk`, …) are hand-written aliases in `abhyasa/_alias.py` for one or two releases. Put new code in
+  the six modules, not in an alias. Leela imports some old names: `tests/test_leela_api.py` lists them.
 - The web app (`abhyasa/app.py`, `abhyasa/core/`, `abhyasa/blocks/`): plain Python written by hand, tested with `uv run pytest`.
 
 ## Blocks
