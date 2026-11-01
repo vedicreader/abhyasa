@@ -2,25 +2,9 @@ website:
   sidebar:
     contents:
       - index.ipynb
-      - 00_store.ipynb
-      - 01_model.ipynb
-      - 02_llm.ipynb
+      - 00_learner.ipynb
+      - 01_models.ipynb
+      - 02_sources.ipynb
       - 03_tutor.ipynb
-      - 04_sources.ipynb
-      - 05_voice.ipynb
-      - 08_nb.ipynb
-      - 09_ground.ipynb
-      - 10_demo.ipynb
-      - 11_journey.ipynb
-      - 12_profile.ipynb
-      - 13_method.ipynb
-      - 14_prompts.ipynb
-      - 15_walk.ipynb
-      - 16_settings.ipynb
-      - 17_talk.ipynb
-      - 18_research.ipynb
-      - 19_detect.ipynb
-      - 20_edit.ipynb
-      - 21_guide.ipynb
-      - 22_course.ipynb
-      - 23_jobs.ipynb
+      - 04_path.ipynb
+      - 05_show.ipynb

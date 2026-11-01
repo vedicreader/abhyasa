@@ -362,13 +362,13 @@ The web app is made from blocks in `abhyasa/blocks`:
 | `strengths` | on Progress: your strong concepts, your weak spots and the ways that you learn best |
 | `session` | one sitting with the tutor: one question at a time, with hints, confidence and “I don’t know” |
 | `voice` | a microphone for each text box. ⌥D speaks into the box that has the focus, on any page |
-| [`settings`](https://vedicreader.github.io/abhyasa/settings.html#settings) | every value that you may change, in groups: the look, learning, walks, checks, review, links, speech, models, list lengths and the tutor prompts. Each number shows its range and its default. A change works on the next question |
+| [`settings`](https://vedicreader.github.io/abhyasa/learner.html#settings) | every value that you may change, in groups: the look, learning, walks, checks, review, links, speech, models, list lengths and the tutor prompts. Each number shows its range and its default. A change works on the next question |
 | `concepts` | Library → Concepts: the tree of concepts, and one page for each concept with its state and Open it in your walk |
 | `graph` | the concept graph. You can color it by depth, by how well you know each concept, by subject or by due date |
 | `search` | one search over the `learning` shelf and the other shelves of your vault |
-| [`add`](https://vedicreader.github.io/abhyasa/settings.html#add) | the Start box: read what you paste or drop, then make a walk or find concepts |
+| [`add`](https://vedicreader.github.io/abhyasa/learner.html#add) | the Start box: read what you paste or drop, then make a walk or find concepts |
 | `walk` | a walk: one step for each idea, with a passage, a note and a check |
-| [`detour`](https://vedicreader.github.io/abhyasa/journey.html#detour) | rabbit holes: a primer, a side walk or a session for an idea that a step needs, with the side pane |
+| [`detour`](https://vedicreader.github.io/abhyasa/path.html#detour) | rabbit holes: a primer, a side walk or a session for an idea that a step needs, with the side pane |
 | `demo` | interactive demos from rupaka: on a concept page, under a lesson after a miss, and one page for each demo |
 | `keys` | the keyboard shortcuts (⌥F) |
 
@@ -376,10 +376,10 @@ The top bar has three tabs: Home (⌥T), Library (⌥R) and You (⌥G). ⌥Q goe
 
 ### Notebooks
 
-In leela or Jupyter, [`learn`](https://vedicreader.github.io/abhyasa/nb.html#learn) shows a question card.
+In leela or Jupyter, [`learn`](https://vedicreader.github.io/abhyasa/tutor.html#learn) shows a question card.
 
 ``` python
-from abhyasa.nb import learn
+from abhyasa.tutor import learn
 learn('reciprocal-rank-fusion')
 ```
 
@@ -408,15 +408,15 @@ Some ideas are easier to see than to read. A demo is one interactive figure from
 - “Show me a demo” (⌥E) on a concept page shows the newest demo, or makes one.
 - abhyasa keeps each prediction as an attempt with `kind='demo'`. A prediction changes the learner model of the concept, as an answer does. A prediction with a reason counts at depth 3 (explain). A prediction without a reason counts at depth 2 (recall).
 
-`abhyasa.demo.import_gallery(learning)` keeps the rupaka gallery demos, such as vowel sandhi, for the concepts that match.
+`abhyasa.show.import_gallery(learning)` keeps the rupaka gallery demos, such as vowel sandhi, for the concepts that match.
 
 ## Example
 
-This example runs offline. [`temp_learning`](https://vedicreader.github.io/abhyasa/store.html#temp_learning) makes a shelf in a temporary vault, and [`Fake`](https://vedicreader.github.io/abhyasa/llm.html#fake) takes the place of the model.
+This example runs offline. [`temp_learning`](https://vedicreader.github.io/abhyasa/learner.html#temp_learning) makes a shelf in a temporary vault, and [`Fake`](https://vedicreader.github.io/abhyasa/models.html#fake) takes the place of the model.
 
 ``` python
-from abhyasa.store import temp_learning
-from abhyasa.llm import Fake
+from abhyasa.learner import temp_learning
+from abhyasa.models import Fake
 from abhyasa.tutor import Tutor
 ```
 
