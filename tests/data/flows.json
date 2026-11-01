@@ -107,6 +107,14 @@
       "store": "lr.jobs()[key] = {kind, state: running|done|failed|stopped|closed, title, said, start, end, url, obj, why, seen, quiet}: one document of the learning shelf (abhyasa.jobs), so the rows survive a restart",
       "new": false,
       "keys": "walk:<jid>:research, walk:<jid>:filing, walk:<jid>:nb:<slug>, build:<hash> (a link or goal walk), course:<cid>:<level|plan|stage key>, demo:<slug>[:<aim>][#<ask key>] (a demo or a 3D explainer; quiet when it starts by itself: the demo of a step, a simpler demo, the demo after a miss), lesson:<slug> (a rung of the demo ladder; quiet), improve:<jid>:<hash> (Improve the walk), talk:<jid or tid> (Present, Fill the slides, Make it again), sort:<sid> (Sort my concepts), download:<model> (a model in Settings). Each part that waits for one of them has data-job=<key> and loads again on its event, with a fallback poll of 30 s"
+    },
+    "walk.steps[i].locked": {
+      "store": "lr.journey(jid).steps[i]['locked'] = True: Lock (Keep this idea) on the plan. Improve and Fix the rest never change, move or remove it; a hand edit unlocks it, and Undo locks it again",
+      "new": true
+    },
+    "course.stages[k].locked": {
+      "store": "lr.course(cid)['stages'][k]['locked'] = True: Lock on the course page. A replan and Fix the rest keep the stage and its walk as they are",
+      "new": true
     }
   },
   "nav": {
@@ -396,6 +404,22 @@
           ],
           "pending": true,
           "pending_why": "phase B: data-part on the course page"
+        },
+        "stage_locked": {
+          "when": "course.stages[k].locked for some k (the builder locks the stage of the goal walk)",
+          "must_show": [
+            "act:lock",
+            "label:Locked",
+            "act:fix",
+            "label:Fix the rest",
+            "act:continue"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "continue",
+            "lock",
+            "fix"
+          ]
         }
       },
       "entries": [
@@ -428,11 +452,11 @@
         "/w/{jid}/gather/log (page; it stays as a pane)"
       ],
       "sections": {
-        "plan": "the ideas in order, each with its check kind. Edit in place: move, skip, remove, check kind, add, split, merge, rewrite, with Undo. 'Earlier versions' is a fold.",
+        "plan": "the ideas in order, each with its check kind. Edit in place: move, skip, remove, check kind, add, split, merge, rewrite, with Undo. Each idea has a quiet Lock toggle (Keep this idea): a locked idea shows a small lock mark, and Improve and Fix the rest never change, move or remove it. An edit by hand unlocks it, with Undo. 'Earlier versions' is a fold.",
         "sources": "the research line (state of walk.jobs.research), Stop, Show what it did (pane), Find sources again, Add a source, what Start filed with Undo",
         "result": "after the end: what moved, what you made (Leela), the next review date",
         "talks": "quiet: Present, Open the talk (secondary product)",
-        "improve": "a quiet fold 'Improve the walk' (closed until you open it) with one box 'What should change?' and chips Simpler, Harder, Add an idea (and From your weak ideas on a finished walk). A link in the box is a source: abhyasa files it. The tutor proposes changes with the editor ops only (add with a source, remove, skip, move, split, an easier or a harder check), each with a one-line why; you Keep or Skip each one, then Apply the kept changes, as one change with Undo."
+        "improve": "a quiet fold 'Improve the walk' (closed until you open it) with one box 'What should change?' and chips Simpler, Harder, Add an idea (and From your weak ideas on a finished walk). A link in the box is a source: abhyasa files it. The tutor proposes changes with the editor ops only (add with a source, remove, skip, move, split, an easier or a harder check), each with a one-line why; you Keep or Skip each one, then Apply the kept changes, as one change with Undo. Next to Ask the tutor: Fix the rest. The tutor redoes only the ideas that are not locked (their order, their checks, and the ideas that are missing between them), with the words in the box, in the same proposal (Keep or Skip, then Apply, with one Undo)."
       },
       "states": {
         "new": {
@@ -442,7 +466,9 @@
             "act:start",
             "label:Start the walk",
             "part:sources",
-            "act:improve"
+            "act:improve",
+            "act:lock",
+            "act:fix"
           ],
           "must_not_show": [
             "act:continue",
@@ -452,7 +478,9 @@
             "start",
             "edit plan",
             "add-source",
-            "improve"
+            "improve",
+            "lock",
+            "fix"
           ]
         },
         "researching": {
@@ -499,7 +527,9 @@
             "label:Continue: idea {n} of {total}",
             "part:plan",
             "part:sources",
-            "act:improve"
+            "act:improve",
+            "act:lock",
+            "act:fix"
           ],
           "must_not_show": [
             "act:start",
@@ -510,7 +540,9 @@
             "edit plan",
             "find-again",
             "add-source",
-            "improve"
+            "improve",
+            "lock",
+            "fix"
           ]
         },
         "finished": {
@@ -521,7 +553,9 @@
             "act:review",
             "act:improve",
             "part:plan",
-            "part:sources"
+            "part:sources",
+            "act:lock",
+            "act:fix"
           ],
           "must_not_show": [
             "act:start",
@@ -531,7 +565,9 @@
             "review",
             "improve",
             "find-again",
-            "open course when walk.course"
+            "open course when walk.course",
+            "lock",
+            "fix"
           ]
         },
         "side_walk": {
@@ -547,6 +583,28 @@
           "actions": [
             "back",
             "continue"
+          ]
+        },
+        "locked": {
+          "when": "walk.steps[i].locked for some i (the builder locks two ideas of a new walk)",
+          "must_show": [
+            "part:plan",
+            "act:lock",
+            "label:Locked",
+            "act:fix",
+            "label:Fix the rest",
+            "act:start"
+          ],
+          "must_not_show": [
+            "act:continue",
+            "part:result"
+          ],
+          "actions": [
+            "start",
+            "lock",
+            "fix",
+            "edit plan",
+            "improve"
           ]
         },
         "empty": {
@@ -1152,18 +1210,18 @@
         {
           "page": "home",
           "action": "wait (the activity chip says what files)",
-          "next": "course",
-          "state_change": "walk made; course.stages[0].walk set; walk.jobs.research=running"
+          "next": "walk",
+          "state_change": "walk made; the walk opens when it is ready (/w/{jid}); course.stages[0].walk set; walk.jobs.research=running"
         },
         {
-          "page": "course",
-          "action": "Ask me where I start, answer",
-          "next": "course",
-          "state_change": "course.level.qs answered; course.jobs.plan=running → stages"
+          "page": "walk",
+          "action": "lock the ideas that are good; Fix the rest (in Improve the walk), Keep or Skip each change, Apply",
+          "next": "walk",
+          "state_change": "walk.steps[i].locked; one change by the tutor with Undo"
         },
         {
-          "page": "course",
-          "action": "Continue",
+          "page": "walk",
+          "action": "Continue (or Start the walk)",
           "next": "idea",
           "state_change": "walk.started; walk.here; course.here"
         }
@@ -1373,6 +1431,42 @@
       "background": "Leela writes attempts; abhyasa reads them on the next GET.",
       "pending": true,
       "pending_why": "no driver yet"
+    },
+    "lock_and_fix": {
+      "goal": "Correct a walk or a course: lock the parts that are good, and fix the rest.",
+      "steps": [
+        {
+          "page": "walk",
+          "action": "Lock two ideas (Keep this idea)",
+          "next": "walk",
+          "state_change": "walk.steps[i].locked = True; each lock is a change with Undo"
+        },
+        {
+          "page": "walk",
+          "action": "open Improve the walk; write what should change (or nothing); Fix the rest",
+          "next": "walk",
+          "state_change": "the job keeps the proposal: changes to the ideas that are not locked only"
+        },
+        {
+          "page": "walk",
+          "action": "Keep or Skip each change, then Apply the kept changes; Undo",
+          "next": "walk",
+          "state_change": "one change by the tutor in lr.edits; the locked ideas stay byte for byte; Undo takes it back"
+        },
+        {
+          "page": "walk",
+          "action": "edit a locked idea by hand",
+          "next": "walk",
+          "state_change": "the edit unlocks it; Undo locks it again"
+        },
+        {
+          "page": "course",
+          "action": "Lock a stage; Fix the rest",
+          "next": "course",
+          "state_change": "course.jobs.plan=running; the stages that are not locked are planned again; a locked stage and its walk stay"
+        }
+      ],
+      "background": "the pending line while the tutor reads (walk), and the plan job of the course (course.jobs.plan)"
     }
   }
 }

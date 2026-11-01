@@ -193,6 +193,22 @@ def b_walk_side(lr, cl, mp):
     from abhyasa.core import short_title
     return '/w/side', dict(parent=short_title(lr.journey(jid).title))   # Back to names the walk that opened it
 
+def lock(cl, jid, *slugs):
+    "Lock the ideas `slugs` of walk `jid` with the Lock toggle of the plan."
+    for s in slugs: assert cl.post(f'/w/{jid}/edit', data=dict(slug=s, act='lock')).status_code == 200
+
+def b_walk_locked(lr, cl, mp):
+    jid = paper(lr, cl); ss = [s['slug'] for s in lr.journey(jid).steps]
+    lock(cl, jid, ss[0], ss[2])
+    return f'/w/{jid}', {}
+
+def b_course_locked(lr, cl, mp):
+    "The course of the goal walk, with the stage of the walk locked on the course page."
+    from abhyasa.course import join_course
+    goal_walk(lr); cid = join_course(lr, 'gw').id
+    assert cl.post(f'/course/{cid}/lock', data=dict(key=lr.course(cid).stages[0]['key'], on='1')).status_code == 200
+    return f'/course/{cid}', {}
+
 def b_walk_empty(lr, cl, mp):
     lr.put_journey(dict(id='none', title='An empty source', mode='walk', steps=[]))
     return '/w/none', {}
@@ -225,7 +241,8 @@ def b_you(lr, cl, mp):
 
 BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due, ('home', 'starting'): b_home_starting,
          ('walk', 'new'): b_walk_new, ('walk', 'going'): b_walk_going, ('walk', 'researching'): b_walk_researching, ('walk', 'research_ended'): b_walk_research_ended,
-         ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty,
+         ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty, ('walk', 'locked'): b_walk_locked,
+         ('course', 'stage_locked'): b_course_locked,
          ('concept', 'in_a_walk'): b_concept_in_walk, ('concept', 'not_in_a_walk'): b_concept_alone,
          ('library', 'concepts'): b_library_concepts, ('library', 'sources'): b_library_sources, ('you', 'any'): b_you}
 
@@ -286,6 +303,40 @@ def d_improve_walk(lr, cl, mp, fake):
     cl.post(f'/w/{jid}/undo')
     assert lr.journey(jid).steps[1]['check'].get('depth', 2) == d
 
+def d_lock_and_fix(lr, cl, mp, fake):
+    """Lock two ideas; Fix the rest with words: the proposal leaves the locked ideas out, the apply keeps them byte for byte, and Undo takes it back.
+    A hand edit unlocks an idea, and Undo locks it again. On the course page, a locked stage and its walk stay after Fix the rest."""
+    jid = paper(lr, cl); ss = [s['slug'] for s in lr.journey(jid).steps]
+    lock(cl, jid, ss[0], ss[2])
+    pg = page(cl, f'/w/{jid}')
+    assert pg.has('label:Locked') and pg.works('lock') and pg.works('fix')
+    was = [json.dumps(s, sort_keys=True) for s in lr.journey(jid).steps]
+    fake.rules['You redo the ideas of one learning walk'] = dict(changes=[dict(op='remove', idea=ss[0], why='x'), dict(op='harder', idea=ss[1], why='A real test.')])
+    r = cl.post(f'/w/{jid}/improve', data=dict(words='make the rest harder', fix='1'))
+    for _ in range(200):
+        if 'improve-wait' not in r.text: break
+        time.sleep(.05); r = cl.get(re.search(r'hx-get="([^"]+)"', r.text)[1].replace('&amp;', '&'))
+    assert r.text.count('class="change"') == 1
+    cl.post(f'/w/{jid}/improve/apply', data=dict(key=key_of(r.text)))
+    now = [json.dumps(s, sort_keys=True) for s in lr.journey(jid).steps]
+    assert (now[0], now[2]) == (was[0], was[2]) and now[1] != was[1] and lr.edits('walk', jid)[0].what == 'Fixed the rest of the walk: 1 change.'
+    cl.post(f'/w/{jid}/undo')
+    assert [json.dumps(s, sort_keys=True) for s in lr.journey(jid).steps] == was
+    cl.post(f'/w/{jid}/edit', data=dict(slug=ss[0], act='skip'))
+    assert 'locked' not in lr.journey(jid).steps[0]
+    cl.post(f'/w/{jid}/undo')
+    assert lr.journey(jid).steps[0]['locked'] is True
+    url, _ = b_course_locked(lr, cl, mp); cid = url.split('/')[-1]
+    keep = json.dumps(lr.course(cid).stages[0], sort_keys=True)
+    fake.rules['You plan a course to one learner'] = dict(title='x', makes='x', stages=[dict(name='Your comic data', makes='captions.jsonl', ideas=['Captions'])])
+    assert page(cl, url).works('fix')
+    r = cl.post(f'/course/{cid}/fix')
+    for _ in range(200):
+        if 'HX-Redirect' in r.headers: break
+        time.sleep(.05); r = cl.get(f'/course/{cid}/job?k=plan')
+    c = lr.course(cid)
+    assert json.dumps(c.stages[0], sort_keys=True) == keep and [s['name'] for s in c.stages][1:] == ['Your comic data']
+
 def events(cl, said, ctx, thread=None):
     "The events of one question to the guide."
     r = cl.post('/guide/ask', json=dict(said=said, ctx=ctx, **({'thread': thread} if thread else {})))
@@ -308,4 +359,4 @@ def d_explain(lr, cl, mp, fake):
     a = lr.asks(concept=slug)[0]
     assert a.where == 'guide' and 'softmax(scores)' in a.ask
 
-DRIVE = {'explain': d_explain, 'continue': d_continue, 'find_sources': d_find_sources, 'finish_walk': d_finish_walk, 'improve_walk': d_improve_walk}
+DRIVE = {'explain': d_explain, 'continue': d_continue, 'find_sources': d_find_sources, 'finish_walk': d_finish_walk, 'improve_walk': d_improve_walk, 'lock_and_fix': d_lock_and_fix}
