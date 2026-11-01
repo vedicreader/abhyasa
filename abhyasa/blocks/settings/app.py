@@ -126,7 +126,7 @@ def connect(app, ctx):
                 j.state = 'loading'; job_said(lr, key, ui.job_line(j))
                 if (f := then()) is not None: f.result()
                 j.state = 'failed' if worker.status.startswith('failed') else 'done'
-                if j.state == 'failed': j.error = worker.status
+                if j.state == 'failed': j.error = worker.status.removeprefix('failed: ')
             except Exception as e: j.state, j.error = 'failed', str(e)
             return j
         track(lr, key, lambda: ctx.pool.submit(run), 'download', title=f'Download: {ui.job_name(model)}', said=ui.job_line(j),

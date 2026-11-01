@@ -199,10 +199,15 @@ def OutWhere(engine):
     "Where the voice runs: `on this Mac`, or `hosted · OpenAI`."
     return Span('hosted · OpenAI', cls='where hosted', title='Each line goes off this Mac.') if engine == 'openai' else Span('on this Mac', cls='where')
 
+def out_failed(speaker) -> str:
+    "Why the voice model did not load, as one plain line; '' when it did not fail."
+    return speaker.status.removeprefix('failed: ') if speaker.status.startswith('failed: ') else ''
+
 def OutStatus(speaker):
-    "The state of the voice model; it asks again each second while the model loads."
+    "The state of the voice model; it asks again each second while the model loads. A failure is one plain line, with no prefix."
     poll = dict(hx_get=Routes.out_status, hx_trigger='every 1s', hx_swap='outerHTML') if speaker.status.startswith('loading') else {}
-    return Span(speaker.status, id='out-status', cls='mute', **poll)
+    if (why := out_failed(speaker)): return Span(why, id='out-status', cls='out-failed', **poll)
+    return Span(Span('on this Mac', cls='ok'), ' ', Span(speaker.status, cls='mute'), id='out-status', **poll)
 
 def OutEngine(engine, key):
     "The three engines, as radio buttons. OpenAI needs a key first."
@@ -220,7 +225,7 @@ def OutModel(engine, model, speaker):
         return P(Label('Model ', Select(*[Option(m, value=m, selected=m == model) for m in voice.OPENAI_SPEECH], name='model', hx_post=Routes.out,
                                         hx_vals={'engine': 'openai'}, hx_trigger='change', **post)), cls='out-line')
     if engine != 'pocket': return ''
-    if voice.cached(model): return P(Span('on this Mac', cls='ok'), ' ', OutStatus(speaker), cls='out-line')
+    if voice.cached(model): return P(OutStatus(speaker), cls='out-line')
     return P('The voice is not on this Mac yet. Until you download it, the browser speaks. ',
              Button('Download', hx_post=Routes.out_get, hx_vals={'engine': 'pocket'}, title='Download the voice (225 MB), then use it', **post), cls='warn first-use')
 
@@ -238,7 +243,7 @@ def VoiceOut(speaker, key, oob=False):
     return Div(OutEngine(engine, key), OutModel(engine, model, speaker), OutVoice(engine, v),
                Ul(Row(sp, val(sp.name)), id='out-speed', cls='plain srows', hidden=engine != 'openai'),   # Pocket TTS and the browser have no speed here
                P(Button('Play a sample', type='button', cls='quiet', data_sample=Routes.out_sample, data_engine=engine, data_text=SAMPLE),
-                 ' ', Span(cls='mute out-said', aria_live='polite'), cls='out-line'),
+                 ' ', Span(cls='mute out-said', aria_live='polite'), cls='out-line out-sample'),   # hidden while the voice failed (settings.css): the status line says why
                id='voice-out', **(dict(hx_swap_oob='true') if oob else {}))
 
 def VoiceGroup(speaker, key, n):

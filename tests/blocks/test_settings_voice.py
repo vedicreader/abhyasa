@@ -82,3 +82,18 @@ def test_play_a_sample(mk, monkeypatch):
     cl.post('/settings/voice', data=dict(engine='pocket'))
     d = cl.post('/settings/voice/sample').json()
     assert d['audio'] and d['where'] == 'on this Mac' and d['ms'] >= 0 and len(d['words']) == 12
+
+def test_a_missing_voice_says_so_one_time(mk, monkeypatch):
+    "When Pocket TTS is not installed, the voice part says so in one plain line, with no `failed:` prefix, and Play a sample hides (settings.css)."
+    def no_pocket(*a, **kw): raise RuntimeError(voice.POCKET_MISSING)
+    monkeypatch.setattr(voice, 'speak', no_pocket); monkeypatch.setattr(voice, 'cached', lambda m: True)
+    cl = mk(['settings'])
+    cl.post('/settings/voice', data=dict(engine='pocket'))
+    for _ in range(200):
+        if 'loading' not in (s := cl.get('/settings/voice/status').text): break
+        time.sleep(.02)
+    assert voice.POCKET_MISSING == 'Pocket TTS is not installed. Install it with: pip install "abhyasa[voice]". Until then, the browser speaks.'
+    assert 'out-failed' in s and 'failed:' not in s and 'on this Mac' not in s
+    part = re.search(r'<div[^>]*id="voice-out".*', cl.get('/settings').text, re.S)[0]
+    said = voice.POCKET_MISSING.replace('"', '&quot;')
+    assert part.count(said) + part.count(voice.POCKET_MISSING) == 1 and 'failed:' not in part and 'class="out-line out-sample"' in part

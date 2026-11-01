@@ -99,6 +99,7 @@ h3.sub { font: 500 var(--t-lbl)/1.4 var(--serif); letter-spacing: .14em; text-tr
 .out-engines .where, .out-line .where { font-size: var(--t-meta); color: var(--mute); white-space: nowrap; }
 .out-engines .where.hosted { color: var(--fg); border: 1px solid var(--acc); border-radius: var(--r-s); padding: 0 var(--s1); }
 .out-line { margin: 0 0 var(--s2); font-size: var(--t-small); }
+#voice-out:has(.out-failed) .out-sample { display: none; }   /* the voice did not load: the status line says why, one time */
 #voice-out { margin-bottom: var(--s3); }
 #voice-out label { font: var(--t-body)/1.45 var(--serif); letter-spacing: 0; text-transform: none; color: var(--fg); margin: 0; }
 #voice-out .out-engines small { font-size: var(--t-small); }

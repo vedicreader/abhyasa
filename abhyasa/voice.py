@@ -7,11 +7,11 @@ Docs: https://vedicreader.github.io/abhyasa/voice.html.md"""
 # %% auto #0
 __all__ = ['DFLT_STT', 'DFLT_WHISPER', 'DFLT_PARAKEET', 'DFLT_OPENAI', 'DFLT_MODELS', 'ALIASES', 'POCKET', 'POCKET_FILES',
            'OPENAI_URL', 'http_post', 'ENGINES', 'KNOWN', 'STT_WORDS', 'NOT_STT', 'POCKET_VOICES', 'DFLT_SPEECH',
-           'OUT_ENGINES', 'OPENAI_VOICES', 'OPENAI_SPEECH', 'OUT_DFLT', 'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY',
-           'resolve', 'current', 'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe',
-           'wav_seconds', 'silence', 'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch',
-           'remove', 'out_resolve', 'out_current', 'out_where', 'by_letters', 'to_wav', 'clean_wav', 'speak', 'Speaker',
-           'Dictation', 'Speech']
+           'OUT_ENGINES', 'OPENAI_VOICES', 'OPENAI_SPEECH', 'OUT_DFLT', 'POCKET_MISSING', 'OPENAI_SPEECH_URL',
+           'OPENAI_SPEC', 'SAY', 'resolve', 'current', 'unload', 'resident', 'openai_key', 'set_openai_key', 'masked',
+           'transcribe', 'wav_seconds', 'silence', 'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models',
+           'fetch', 'remove', 'out_resolve', 'out_current', 'out_where', 'by_letters', 'to_wav', 'clean_wav', 'speak',
+           'Speaker', 'Dictation', 'Speech']
 
 # %% ../nbs/05_voice.ipynb #v005
 import os, re, gc, json, time, uuid, inspect, tempfile, threading, wave
@@ -286,10 +286,12 @@ def clean_wav(audio:bytes) -> bytes:
     return b.getvalue()
 
 # %% ../nbs/05_voice.ipynb #bf328804
+POCKET_MISSING = 'Pocket TTS is not installed. Install it with: pip install "abhyasa[voice]". Until then, the browser speaks.'
+
 def _pocket_load():
     "The Pocket TTS model (English), and an empty dict for the states of its voices."
     try: from pocket_tts_mlx import TTSModel
-    except ImportError: raise RuntimeError('The voice on this Mac needs pocket-tts-mlx. Install it with: pip install "abhyasa[voice]"') from None
+    except ImportError: raise RuntimeError(POCKET_MISSING) from None
     return TTSModel.load_model(), {}
 
 def _pocket(model, voice):
