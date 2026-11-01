@@ -1,11 +1,14 @@
 "The Start box on Home: it reads what you paste, says what it will do, asks only when in doubt, and starts a walk."
-import re
+import json, re
+from pathlib import Path
+
+CASES = json.loads((Path(__file__).parents[1]/'data'/'detect_cases.json').read_text())   # the shapes that the box knows, as in the detect notebook
 
 def test_detect_never_touches_the_network(monkeypatch):
     import socket
     monkeypatch.setattr(socket, 'getaddrinfo', lambda *a, **k: (_ for _ in ()).throw(AssertionError('network')))
-    from abhyasa.detect import detect, DETECT_CASES
-    for t, ti, _ in DETECT_CASES: detect(t, ti)
+    from abhyasa.detect import detect
+    for t, ti, _ in CASES['cases']: detect(t, ti)
 
 def test_read_route_says_what_it_will_do(mk):
     h = mk().get('/learn/read', params=dict(q='1706.03762')).text

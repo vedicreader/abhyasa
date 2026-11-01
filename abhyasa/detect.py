@@ -6,8 +6,8 @@ Docs: https://vedicreader.github.io/abhyasa/detect.html.md"""
 
 # %% auto #0
 __all__ = ['HINT', 'LINES', 'VIDEO', 'GITHUB', 'BARE', 'TLDS', 'DOMAIN', 'FILE_NAME', 'COMMON_DIRS', 'QUOTED', 'PATH_WORDS',
-           'GOAL_WORDS', 'DETECT_CASES', 'GOAL', 'SKIP_KINDS', 'fold', 'as_url', 'source_of', 'folder_names', 'is_path',
-           'named_sources', 'on_disk', 'detect', 'title_index', 'vault_title']
+           'GOAL_WORDS', 'SKIP_KINDS', 'fold', 'as_url', 'source_of', 'folder_names', 'is_path', 'named_sources',
+           'on_disk', 'detect', 'title_index', 'vault_title']
 
 # %% ../nbs/19_detect.ipynb #d006
 import re, threading, unicodedata
@@ -233,20 +233,6 @@ def detect(text:str, titles=(), research:bool=True, pages:int=8, file:str='', fo
         q = 'Is this a topic or a text?'
         return _reading('ask', q, ask=AttrDict(q=q, a=('A topic', 'topic'), b=('A text', 'text')))
     return _text(t, 1) if t.endswith('.') and len(words) > 12 else _topic(t, research)
-
-# %% ../nbs/19_detect.ipynb #d020
-DETECT_CASES = [('1706.03762', (), 'paper'), ('arxiv:1706.03762v5', (), 'paper'), ('  https://arxiv.org/abs/1706.03762  ', (), 'paper'),
-                ('https://x.org/a.pdf', (), 'paper'), ('github.com/vedicreader/fossick', (), 'repo'), ('https://github.com/a/b', (), 'repo'),
-                ('https://docs.python.org/3/library/asyncio.html', (), 'site'), ('Nakshatras', ('Nakshatras',), 'ask'),
-                ('how attention works', (), 'topic'), ('nakṣatra', (), 'topic'), ('a\nb', (), 'text'), ('x' * 300, (), 'text'),
-                ('The moon spends about one day in each of the lunar mansions.', (), 'ask'), ('https://youtu.be/x', (), 'video'),
-                ('http://127.1/', (), 'local'), ('http://printer.local/', (), 'local'), ('', (), 'empty'), ('   ', (), 'empty'),
-                ('~/code/course22', (), 'folder'), ('/Users/me/My notes', (), 'folder'),
-                ('github.com/a/b ~/code/fastbook', (), 'sources'), ('~/code/course22p2 ~/code/fastbook', (), 'sources'), ('1706.03762\n2005.14165', (), 'sources'),
-                ('example.com', (), 'site'), ('node.js', (), 'topic'), ('paper.pdf', (), 'file_name'), ('paper.pdf', ('paper',), 'doc')]
-GOAL = 'I want to fine-tune (SFT) my own diffusion model to make my own Ramayana comic from the episodes in vedicreader. Use course22, course22p2 and fastbook, top down. Also fastai/diffusion-nbs.'
-DETECT_CASES += [('~/code/x', (), 'folder'), ('/tmp/x', (), 'folder'), ('fastai/diffusion-nbs', (), 'repo'), (GOAL, (), 'goal'),
-                 ('help me learn how attention works in a transformer', (), 'goal')]
 
 # %% ../nbs/19_detect.ipynb #d036
 SKIP_KINDS = ('journey', 'talk', 'concept')
