@@ -7,9 +7,10 @@ from abhyasa.core import Page, NotFound, hook, run as run_hook
 from abhyasa.core.leela import leela_base
 from abhyasa.jobs import track, seen_jobs
 from abhyasa.profile import profile_text
-from abhyasa.journey import last_place
+from abhyasa.journey import last_place, parent_at
+from abhyasa.core import is_local
 from abhyasa.course import (course_state, join_course, course_of, ensure_courses, ask_level, answer_level, level_done, plan_stages,
-                            build_stage, due_stage, set_here, add_ask, is_goal_walk, add_data, drop_data, lock_stage)
+                            build_stage, due_stage, set_here, add_ask, is_goal_walk, add_data, drop_data, lock_stage, go_back)
 from . import ui
 from .cfg import Routes
 
@@ -67,7 +68,21 @@ def connect(app, ctx):
         seen_jobs(lr, f'course:{cid}')
         grow(st.course)
         pend = ui.Pending(cid, 'level', jobs[cid, 'level'].said) if running(cid, 'level') else ui.Pending(cid, 'plan', ui.PLANNING) if running(cid, 'plan') else None
-        return Page(st.course.title, *ui.CoursePage(st, ui.Level(st.course, pending=pend)), on='Home', crumbs=up)
+        return Page(st.course.title, *ui.CoursePage(st, ui.Level(st.course, pending=pend), origin(st.course)), on='Home', crumbs=up)
+
+    def origin(c):
+        "The place that opened course `c` as a rabbit hole, as `(url, name)`: the step (found by its concept), or the local page. None for another course."
+        o = c.get('origin') or {}
+        if (pj := lr.journey(o['walk']) if isinstance(o.get('walk'), str) else None) and (i := parent_at(pj, o)) is not None:
+            return Routes.of_(Routes.step, jid=pj.id, i=i), f"{pj.title}, idea {i + 1}"
+        if is_local(o.get('page')): return o['page'], o.get('title') or 'the page'
+        return None
+
+    def enough(cid:str):
+        "Enough: keep the time that you went back, then go to the place that opened the course."
+        if not (c := lr.course(cid)) or not (b := origin(c)): return Response(status_code=404)
+        go_back(lr, cid)
+        return Redirect(b[0])
 
     def level(cid:str):
         "Write the questions of Where you start on the pool. The part asks again until they come."
@@ -187,6 +202,7 @@ def connect(app, ctx):
     app.post(Routes.data_drop)(data_drop)
     app.post(Routes.lock)(lock)
     app.post(Routes.fix)(fix)
+    app.post(Routes.back)(enough)
     app.post(Routes.level)(level)
     app.post(Routes.answer)(answer)
     app.get(Routes.stage)(stage)

@@ -8,7 +8,7 @@ Teach after your courses and walks, Start something new, and the foot, whose par
 composer, and the answer row of a short check on a walk step); `lesson_extra` (under a lesson).
 
 The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs, and the strip after a side walk);
-`check_after(j, i, q)` (under a check: the gaps that an answer points at); `walk_end(j)` (the end of a walk: a side walk sends
+`check_after(j, i, q)` (under a check: the gaps that an answer points at); `check_stuck(jid, i, s, q)` (the stuck row of an open short check, after Teach me: the detour block adds Learn it); `walk_end(j)` (the end of a walk: a side walk sends
 `rh:done`); `concepts_added()` (a block added concepts from a source: the concepts block places the new ones in the groups of their subjects, on the pool); `walk_made(j)` (a block made topic walk `j`: the walk block looks for web sources for its steps on the pool); `walk_actions(j, quiet=False, row=False)` (the walk page, its step page and its row on Home: the talk adds
 "Present this walk", or "Open the talk" and "Make it again", also on a walk planned from a goal; `quiet` is for a page with its own main button;
 `row` is for its row in a list, with one quiet control: "Present" or "Open the talk"); `walk_plan_more(j)` (under the plan of walk `j`: the add block puts Add a source there for a goal walk);

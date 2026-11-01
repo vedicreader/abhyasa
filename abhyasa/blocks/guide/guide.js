@@ -577,6 +577,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
             whole = true; busy = 0; keep(said, m.board, page);
             if (saved) m.board.saved = saved;
             hintLine(m.board.hint);
+            document.dispatchEvent(new CustomEvent('abhyasa:guide-said', {detail: {said}}));   // the detour block offers to go deeper on X
             last.board_ms = Math.round(performance.now() - t0); last.server_ms = m.board.ms; last.tier = m.board.tier;
             if (!live) { mark(); drew = true; drawing(); await abhyasaBoard.play(m.board, opts()); }
             else {

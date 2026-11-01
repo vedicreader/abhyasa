@@ -386,7 +386,7 @@ def Short(jid, i, s, q, after=()):
                     Textarea(name='thinking', id='think', rows=1, data_draft='thinking', aria_label='Think aloud', placeholder='Think aloud: how did you get there?'),
                     Div(Confidence(), Span(f"{left} {'try' if left == 1 else 'tries'} left" if tries else '', cls='mute'), cls='row conf'),
                     Div(Primary('Send', id='send', data_wait=GRADING, title='⌘↵ sends too', data_act='send'), hint, Explain(), *run_hook('check_show', jid, i, s), out,
-                        *run_hook('answer_tools', q, 'ans'), cls='row acts'),   # stuck: Hint, Explain, Show (the demo block), Teach me; then the voice block: Speak ⌥D
+                        *run_hook('check_stuck', jid, i, s, q), *run_hook('answer_tools', q, 'ans'), cls='row acts'),   # stuck: Hint, Explain, Show (the demo block), Teach me, Learn it (the detour block); then the voice block: Speak ⌥D
                     hx_post=at(Routes.answer, jid, i), data_qid=q['id'], **tgt)
     return Check(CardHead(s, q), q['question'], *Thread(q), foot=(*after, foot), shut=shut)
 

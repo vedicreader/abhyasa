@@ -1,13 +1,22 @@
-// Rabbit holes (the detour block). ⌥B opens the offer to learn a missing idea: for the selected term in the passage, else for the
-// gap that your answer points at, else for the first idea in the needs line that you have not learned. In the offer, 1, 2 and 3
-// choose and Esc closes it. 1 or 2 opens the side walk in the side pane (pane.js); 3 opens it in a new tab.
+// Rabbit holes (the detour block): "I don't get X". ⌥B opens the chooser for a missing idea: for the selected term in the passage,
+// else for the gap that your answer points at, else for the first idea in the needs line that you have not learned. "I don't get
+// this" on a concept page, Learn it in the stuck row of a check, and the line after the guide open the same chooser. In the chooser,
+// 1, 2 and 3 choose in the order shown (the tutor's pick is 1) and Esc closes it. A quick look and a side walk open in the side pane
+// (pane.js); its own course opens the course page in this tab (the top page, also from the pane).
 // When the pane closes (⌥Z, Esc, ×, or the end of the side walk), the page asks the server to keep the result on the step
 // (/rh/back) and puts the new needs line in place. The page is not drawn again, so its scroll and the draft in the answer box stay.
 if (!window.abhyasaDetour) {
   window.abhyasaDetour = true;
   const root = document.documentElement, inPane = () => root.classList.contains('in-pane');
+  let place = null;   // the place of the open chooser: '<walk>/<step>', or '/c/<slug>' on a concept page
   const box = () => document.getElementById('rh-offer');
-  const at = () => document.querySelector('.rh-needs')?.dataset.at;
+  const at = () => place || document.querySelector('.rh-needs')?.dataset.at;
+  const boxFor = x => {   // the box of the chooser: the one in the needs line, else a new one under the row of the button that asked
+    if (box()) return box();
+    const row = x && (x.closest('.row') || x), b = document.createElement('div');
+    b.id = 'rh-offer'; b.setAttribute('aria-live', 'polite'); row?.after(b);
+    return b;
+  };
   const isOpen = () => !!box()?.querySelector('.rh-offer-card');
   let tool = null;
   const hideTool = () => { tool?.remove(); tool = null; };
@@ -26,8 +35,9 @@ if (!window.abhyasaDetour) {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tip); else tip();
   document.addEventListener('htmx:afterSettle', e => { if (e.detail.target === document.body) tip(); });
 
-  const offer = t => {
-    const b = box(), a = at();
+  const offer = (t, x) => {
+    if (x?.dataset.at) place = x.dataset.at; else if (document.querySelector('.rh-needs')) place = null;
+    const b = boxFor(x), a = at();
     if (!b || !a || !t) return false;
     hideTool(); document.querySelector('.rh-tip')?.remove();
     htmx.ajax('GET', `/rh/term?${new URLSearchParams({t, at: a})}`, {target: b, swap: 'innerHTML'}).then(() => {
@@ -37,17 +47,15 @@ if (!window.abhyasaDetour) {
     return true;
   };
   const choose = w => {
-    const how = w.dataset.how, tab = how === 'session' ? window.open('', '_blank') : null;   // opened now, in the key press, so no pop-up block
     box().querySelectorAll('.rh-way').forEach(x => x.disabled = true);
-    fetch('/rh/open', {method: 'POST', body: new URLSearchParams({slug: w.dataset.slug, at: at(), how})})
+    fetch('/rh/open', {method: 'POST', body: new URLSearchParams({slug: w.dataset.slug, at: at(), how: w.dataset.how})})
       .then(r => r.ok ? r.json() : Promise.reject(r))
       .then(r => {
         shut();
-        if (r.how !== 'session') { tab?.close(); window.abhyasaPane.open(r.url, r.title); }
-        else if (tab) tab.location = r.url;
-        else if (!window.open(r.url, '_blank')) location.assign(r.url);
+        if (r.how !== 'course') window.abhyasaPane.open(r.url, r.title);
+        else (inPane() ? window.top : window).location.assign(r.url);   // its own course leaves the exercise: the top page goes there
       })
-      .catch(() => { tab?.close(); box().querySelectorAll('.rh-way').forEach(x => x.disabled = false); say('The tutor could not make the side walk. Try again.'); });
+      .catch(() => { box().querySelectorAll('.rh-way').forEach(x => x.disabled = false); say(w.dataset.how === 'course' ? 'abhyasa could not make the course. Try again.' : 'The tutor could not make the side walk. Try again.'); });
   };
 
   // The selected term in the passage, at most 80 characters, or ''.
@@ -75,7 +83,18 @@ if (!window.abhyasaDetour) {
     if (!x) return;
     if (x.matches('.rh-way')) choose(x);
     else if (x.matches('.rh-shut')) shut();
-    else offer(x.dataset.t);
+    else offer(x.dataset.t, x);
+  });
+
+  // After the guide explains "I don't get X" (or "explain X") on a page with a place: one quiet line that offers the chooser for X.
+  const ASKED = /^(?:i\s+(?:still\s+)?(?:don'?t|do\s+not)\s+(?:get|understand)|explain|what\s+is|what's)\s+(?:the\s+|a\s+|an\s+)?["“]?(.{2,80}?)["”]?\s*[?.!]?$/i;
+  document.addEventListener('abhyasa:guide-said', e => {
+    const m = ASKED.exec(String(e.detail?.said || '').trim()), b = box();
+    if (!m || !b || !at() || inPane() || isOpen()) return;
+    const p = document.createElement('p'), k = document.createElement('button');
+    p.className = 'rh-after-guide mute'; p.append('Still not clear? ');
+    k.type = 'button'; k.className = 'quiet small rh-ask'; k.dataset.t = m[1]; k.textContent = `Learn ${m[1]}`;
+    p.append(k); b.replaceChildren(p);
   });
   // Before core.js and pane.js (capture), so Esc closes the offer first, and a number in the offer does not reach the page.
   document.addEventListener('keydown', e => {

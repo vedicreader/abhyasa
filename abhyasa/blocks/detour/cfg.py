@@ -4,6 +4,7 @@ class Routes:
     back = '/rh/back/{sid}'          # keep the result of a side walk on the step that opened it, then go to that step
     step = '/w/{jid}/{i}'            # the walk block's step page, by value: this block does not import the walk block
     walk = '/w/{jid}'                # the walk block's plan or current step
+    course = '/course/{cid}'         # the course block's course page: its own course for a big gap
     def of(route, **kw):
         for k, v in kw.items(): route = route.replace('{' + k + '}', str(v))
         return route

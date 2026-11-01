@@ -50,6 +50,7 @@ def why_once(st) -> str:
 
 def Next(st, cid):
     "The next thing to do, its reason in one line, and the one main button."
+    if not st.stages: return Div(P('Answer the questions of Where you start. Then abhyasa plans the stages.', cls='course-why'), cls='course-next')   # not "You reached your goal"
     nx = st.next
     btn = '' if nx.rule == 8 else Primary('Continue', href=href(nx.go, cid), focus=True, rank=1, data_act='continue')
     return Div(P(why_once(st), cls='course-why'), Div(btn, cls='row') if btn else '', cls='course-next')
@@ -144,12 +145,25 @@ def Level(c, err='', pending=None):
                   Div(Quiet('Ask me where I start', type='button', hx_post=Routes.of_(Routes.level, cid=cid), hx_target='#course-level', hx_swap='outerHTML'), cls='row')]
     return Section(H2('Where you start'), *body, P(err, cls='req-err') if err else '', id='course-level', cls='course-level')
 
-def CoursePage(st, level):
-    "The whole course page, in order of weight: the goal, You are here, the next idea, the stages, what blocks the goal, Where you start, the sources, your data."
+def Origin(st, back):
+    """The line of a course that a rabbit hole opened: where it came from, and the way back. `back` is `(url, name)` of the place.
+    When the course is done, the way back is the main button; before that, it is a quiet "Enough: go back"."""
+    c, (url, name) = st.course, back
+    go = Routes.of_(Routes.back, cid=c['id'])
+    if st.finished: return Div(P('You finished this course. Go back to the place where you asked: ', A(name, href=url), '.'),
+                               Form(Primary(f'Go back to {name}', type='submit', rank=1, data_act='go-back'), method='post', action=go), cls='course-origin', data_part='origin')
+    return Div(P('You are learning ', B(c['title']), ' as its own course, from ', A(name, href=url), '. '),
+               Form(Quiet('Enough: go back', type='submit', small=True, data_act='go-back'), method='post', action=go), cls='course-origin', data_part='origin')
+
+def CoursePage(st, level, back=None):
+    """The whole course page, in order of weight: the goal, You are here, the next idea, the stages, what blocks the goal, Where you start, the sources, your data.
+    A course with no stage puts Where you start first. A course from a rabbit hole has its origin line under the goal (`back`)."""
     c = st.course
+    first = not c.get('stages')
     return (H1(c['title']), P('Your goal: ', Q(c['goal']), *([' · ', f"You make {c['makes']}."] if c.get('makes') else []), cls='mute'),
+            Origin(st, back) if back else '', level if first else '',
             Div(Span('You are here', cls='lbl'), Here(st), P(f"{st.done} of {n_of(st.total, 'idea')} done.", cls='mute'), Bar(st.done, st.total), Next(st, c['id']), cls='course-card'),
-            Stages(st, c['id']), Blocking(st, c['id']), Made(st), level, Sources(c), Data(c), *assets())
+            Stages(st, c['id']), Blocking(st, c['id']), Made(st), '' if first else level, Sources(c), Data(c), *assets())
 
 def TodayCard(st):
     "Today's top line for the course of the place that you used last: the course, what comes next and why, and Continue."

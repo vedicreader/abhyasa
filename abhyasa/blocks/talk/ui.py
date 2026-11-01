@@ -496,14 +496,14 @@ def BesideNone(c):
 
 def BesideOffer(s, c, ns, n, pick):
     """The offer for the presenter only: the ideas that the idea of slide `s` needs, and two ways to open idea `n` beside the slide.
-    1 is the primer and 2 the side walk; the tutor's pick (`pick_way_down`) is marked. Its own session never opens in a talk."""
+    1 is the primer and 2 the side walk; the tutor's pick (`pick_way_down`) is marked. Its own course never opens in a talk."""
     rows = [Li(B(x.name) if x.slug == n.slug else Button(x.name, type='button', cls='quiet small bs-need', data_need=x.slug),
                Span(' · learned' if x.ok else ' · not learned yet', cls='mute')) for x in ns]
     ways = [Button(Span(B(title), ' ', Kbd(str(k))), Span(body, cls='body'),
                    Span(f"The tutor's pick: {pick.why}.", cls='why') if pick.how == how else '',
                    type='button', cls='bs-way' + (' pick' if pick.how == how else ''), data_how=how, data_slug=n.slug)
             for k, (how, (title, body)) in enumerate(WAYS.items(), 1)]
-    far = P(f"The tutor would open {n.name} as its own session: {pick.why}. In a talk, use the primer.", cls='meta') if pick.how == 'session' else ''
+    far = P(f"The tutor would open {n.name} as its own course: {pick.why}. In a talk, use the primer.", cls='meta') if pick.how == 'course' else ''
     return Div(Span(f"Side walk · {s.get('title') or ''}", cls='lbl'), P(f'{c.name} needs:', cls='lead-in'), Ul(*rows, cls='plain bs-needs'),
                P(f'Open {n.name} beside the slide:', cls='lead-in'), Div(*ways, cls='bs-ways'), far,
                P('Press 1 or 2 to choose. Esc closes this. Only you see it.', cls='meta'), cls='bs-offer', data_slide=s['id'])

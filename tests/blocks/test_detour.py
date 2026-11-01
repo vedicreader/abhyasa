@@ -54,18 +54,21 @@ def test_a_miss_that_names_a_gap_offers_it(mk, walk_fake, lr):
 def test_term_offer_and_depth_limit(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
     t = cl.get('/rh/term', params=dict(t='gradients', at=f'{jid}/2')).text
-    assert 'A quick primer' in t and 'A short side walk' in t and 'Its own session' in t
+    assert 'A quick look' in t and 'A side walk' in t and 'Its own course' in t
     a = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url'].split('/')[2]
     b = cl.post('/rh/open', data=dict(slug='softmax', at=f'{a}/0', how='primer')).json()['url'].split('/')[2]
     r = cl.post('/rh/open', data=dict(slug='softmax', at=f'{b}/0', how='primer')).json()
-    assert r['how'] == 'session'                                                          # past the limit: only its own session
+    assert r['how'] == 'course' and r['url'].startswith('/course/')                      # past the limit: only its own course
     t = cl.get('/rh/term', params=dict(t='softmax', at=f'{b}/0')).text
-    assert 'Its own session' in t and 'A quick primer' not in t                           # at the limit, the offer has one choice
+    assert 'Its own course' in t and 'A quick look' not in t                              # at the limit, the chooser has one choice
 
 def test_open_and_back_refuse_bad_input(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
     n = len(lr.journeys())
-    for d, code in [(dict(slug='gradients', at=f'{jid}/2', how='drop'), 400),     # only primer, walk or session
+    for d, code in [(dict(slug='gradients', at=f'{jid}/2', how='drop'), 400),     # only primer, walk or course
+                    (dict(slug='gradients', at=f'{jid}/2', how='session'), 400),  # the old third way is gone: its own course took its place
+                    (dict(slug='gradients', at='/c/nope', how='primer'), 404),     # no such concept page
+                    (dict(slug='gradients', at='//evil.example/c/x', how='primer'), 400),
                     (dict(slug='gradients', at=f'{jid}/9', how='primer'), 404),     # no such step
                     (dict(slug='gradients', at=jid, how='primer'), 400),            # no step at all
                     (dict(slug='gradients', at=f'{jid}/x', how='primer'), 400),
@@ -83,7 +86,7 @@ def test_term_lookup_on_get_writes_nothing(mk, walk_fake, lr):
     assert len(lr.concepts()) == n and 'not in your concepts' in t                          # a GET only finds; a POST adds it
     walk_fake.rules['The idea: layer norm'] = dict(name='Layer norm', statement='Scale each vector to mean 0 and variance 1.')
     t = cl.post('/rh/term', data=dict(t='layer norm', at=f'{jid}/2')).text
-    assert 'A quick primer' in t and lr.concept('layer-norm') and 'layer-norm' in lr.concept('scaling-by-the-root-of-dk').gaps
+    assert 'A quick look' in t and lr.concept('layer-norm') and 'layer-norm' in lr.concept('scaling-by-the-root-of-dk').gaps
 
 def test_walk_end_sends_done_and_the_key_is_listed(mk, walk_fake, lr):
     walk_fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')

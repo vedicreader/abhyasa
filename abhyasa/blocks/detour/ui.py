@@ -1,4 +1,4 @@
-"The parts of a detour: the needs line under the title of a step, the offer of three ways down, the gap line, and the way back."
+"The parts of a detour: the needs line under the title of a step, the chooser of three depths, the gap line, the link to its own course, and the way back."
 import json
 from pathlib import Path
 from fasthtml.common import *
@@ -12,10 +12,11 @@ STATE = dict(learned='learned', today='learned on the way today', missing='not l
 def assets(): return asset_css(_P/'detour.css'), asset_js(_P/'detour.js')
 
 def step_url(jid, i): return Routes.of(Routes.step, jid=jid, i=i)
+def course_url(cid): return Routes.of(Routes.course, cid=cid)
 
-def Ask(label, t, *c, cls='rh-ask'):
-    "A button that opens the offer for idea or term `t` (detour.js)."
-    return Button(label, *c, type='button', cls=f'quiet small {cls}', data_t=t)
+def Ask(label, t, *c, cls='rh-ask', **kw):
+    "A button that opens the chooser for idea or term `t` (detour.js). `data_at` names the place when the page has no needs line."
+    return Button(label, *c, type='button', cls=f'quiet small {cls}', data_t=t, **kw)
 
 def Need(n, state, first):
     "One idea that the step needs: its name, its state, and Learn it on each one that you have not learned. Only the first shows ⌥B."
@@ -33,38 +34,43 @@ def Strip(name, ok, sid, outs):
     return Div(P('Back on the paper. You ', 'learned ' if ok else 'looked at ', B(name), ' on the way.'),
                P(counts, ' · ', A('See the side walk', href=url), cls='mute'), cls='rh-strip')
 
-def Needs(at, rows, strip=None):
-    "The needs line, the strip when you just came back, and the place for the offer. `rows` is `(need, state)`."
+def OwnCourse(c, st):
+    "The line on the step that opened its own course for an idea: the link to the course, and how far you got when you came back."
+    link = A('Open the course', href=course_url(c['id']), data_act='own-course')
+    if not (c.get('origin') or {}).get('back_at'): return P('You are learning ', B(c['title']), ' as its own course. ', link, cls='rh-own-course')
+    got = f"{st.done} of {n_of(st.total, 'idea')} done" if st and st.total else 'no stage yet'
+    return P('Back from the course ', B(c['title']), f': {got}. ', link, cls='rh-own-course back')
+
+def Needs(at, rows, strip=None, own=()):
+    "The needs line, the strip when you just came back, the lines of its own courses, and the place for the chooser. `rows` is `(need, state)`."
     first = next((n.slug for n, st in rows if st == 'missing'), None)
     line = Div(Span('This needs', cls='lbl'), *[Need(n, st, n.slug == first) for n, st in rows], cls='rh-line') if rows else ''
-    return Div(strip or '', line, Div(id='rh-offer', aria_live='polite'), *assets(), cls='rh-needs', data_at=at)
+    return Div(strip or '', *own, line, Div(id='rh-offer', aria_live='polite'), *assets(), cls='rh-needs', data_at=at, data_part='needs')
 
 def GapLine(gaps):
     "After a miss that names a gap: the ideas your answer points at, and a way to learn the first one beside the step."
     names = ', '.join(name for _, name in gaps)
     return P('Your answer shows a gap: ', B(names), '. ', Ask('Learn it ', gaps[0][0], Kbd('⌥B'), cls='rh-ask rh-gap'), cls='rh-gapline')
 
-WAYS = dict(primer='A quick primer', walk='A short side walk', session='Its own session ↗')
+WAYS = dict(primer='A quick look', walk='A side walk', course='Its own course')
 
-def Way(k, how, slug, title, meta, body, why=''):
-    return Button(Div(B(title), Span(str(k), cls='k'), cls='wt'), Span(meta, cls='meta'), Span(body, cls='body'),
-                  Span(f"The tutor's pick: {why}.", cls='why') if why else '', type='button', cls='rh-way' + (' pick' if why else ''),
-                  data_how=how, data_slug=slug)
+def Way(k, how, slug, meta, pick=False, why=''):
+    "One depth: its key, its name and where it opens. The tutor's pick also has its reason."
+    return Button(Span(str(k), cls='k'), B(WAYS[how]), Span(f' · {meta}', cls='meta'), Span(f"The tutor's pick: {why}.", cls='why') if pick else '',
+                  type='button', cls='rh-way' + (' pick' if pick else ''), data_how=how, data_slug=slug)
 
 def Offer(c, pick, chain, here, limit=False):
-    "One sunken card: how to learn idea `c` before you go on. The tutor's pick is marked. At the depth limit, only its own session."
-    names = ', '.join(chain)
-    walk = f"{names}. One check on each." if len(chain) > 1 else f"The tutor plans up to {val('walks.chain')} ideas. One check on each."
-    ways = [('primer', 'beside this page · 2 min', 'The idea in short, and one check.'),
-            ('walk', f"beside this page · {len(chain)} ideas" if len(chain) > 1 else f"beside this page · up to {val('walks.chain')} ideas", walk),
-            ('session', 'a new tab · as long as you need', f"{c.name} from the start, as its own walk. This page stays open.")]
-    if limit: ways = ways[2:]
-    why = 'you are two side walks down, so this one opens in a new tab' if limit else pick.why
-    cards = [Way(k, how, c.slug, WAYS[how], meta, body, why if how == ('session' if limit else pick.how) else '') for k, (how, meta, body) in enumerate(ways, 1)]
-    return Section(Div(Span('Learn it first, then come back', cls='lbl'), Span('Esc closes this', cls='lbl'), cls='rh-head'),
-                   H2(f"{c.name}: how do you want to learn it?"), Div(*cards, cls='rh-ways'),
-                   Div(Span(f"Your place here stays: {here}, and the open check.", cls='mute'),
-                       Button('Not now ', Kbd('Esc'), type='button', cls='quiet small rh-shut'), cls='rh-foot-row'),
+    """The chooser for "I don't get X": the tutor's pick first, with its reason, then the other two depths as quiet options.
+    Quick and Side walk open beside this page; Its own course opens the course page. At the depth limit, only its own course."""
+    n = len(chain)
+    meta = dict(primer='beside this page · 2 min · one check',
+                walk=f"beside this page · {n_of(n, 'idea')}" if n > 1 else f"beside this page · up to {val('walks.chain')} ideas",
+                course='a new goal · where you start, then stages')
+    order = ['course'] if limit else [pick.how, *(h for h in WAYS if h != pick.how)]
+    why = 'you are two side walks down, so it opens as its own course' if limit else pick.why
+    ways = [Way(k, h, c.slug, meta[h], pick=k == 1, why=why) for k, h in enumerate(order, 1)]
+    return Section(H2(f"Learn {c.name} first"), Div(ways[0], cls='rh-pick'), Div(*ways[1:], cls='rh-ways') if ways[1:] else '',
+                   Div(Span(f"Your place stays: {here}.", cls='mute'), Button('Not now ', Kbd('Esc'), type='button', cls='quiet small rh-shut'), cls='rh-foot-row'),
                    cls='rh-offer-card', role='dialog', aria_label=f'Learn {c.name}')
 
 def NotFound(t, at):

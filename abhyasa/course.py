@@ -10,7 +10,7 @@ __all__ = ['GROW_AT', 'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST', 'ANSWERS', 'KINDS', 
            'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level', 'level_done', 'stages_prompt',
            'walk_started', 'stage_stays', 'fix_count', 'plan_stages', 'lock_stage', 'stage_brief', 'build_stage',
            'add_data', 'drop_data', 'stage_rows', 'due_stage', 'next_up', 'add_ask', 'blocking', 'course_state',
-           'set_here', 'active_course']
+           'set_here', 'active_course', 'course_from', 'courses_from', 'go_back']
 
 # %% ../nbs/22_course.ipynb #cs006
 import json, re, threading, time
@@ -514,3 +514,30 @@ def set_here(lr:Learning, j, i:int, now:float=None) -> AttrDict|None:
 def active_course(lr:Learning) -> AttrDict|None:
     "The course that you used last: the newest `here`, else the newest course."
     return first(sorted(lr.courses(), key=lambda c: -max((c.get('here') or {}).get('at') or 0, c.get('created') or 0)))
+
+# %% ../nbs/22_course.ipynb #rc02
+def _same_place(a, b) -> bool: return all(a.get(k) == b.get(k) for k in ('slug', 'walk', 'idea', 'page'))
+
+def course_from(lr:Learning, slug:str, origin:dict) -> AttrDict:
+    "The course to learn concept `slug` as its own goal, linked to the place `origin` (`{walk, step}` or `{page}`) that it came from."
+    c = lr.concept(slug)
+    if c is None: raise KeyError(f'no concept {slug!r}')
+    o, data = dict(slug=slug), []
+    if 'walk' in origin:
+        pj = lr.journey(origin['walk'])
+        if pj is None or not 0 <= origin.get('step', -1) < len(pj.steps): raise KeyError(f"no step {origin.get('step')!r} in walk {origin['walk']!r}")
+        o.update(walk=pj.id, step=origin['step'], idea=pj.steps[origin['step']]['slug'], title=pj.title)   # the step by its concept too: it can move
+        data = list(pj.get('data') or ())
+    elif isinstance(origin.get('page'), str) and origin['page'].startswith('/') and not origin['page'].startswith('//'): o.update(page=origin['page'], title=origin.get('title') or '')
+    else: raise ValueError('name the walk and step, or the local page, that the course comes from')
+    with _JOIN:
+        if (old := first(x for x in lr.courses() if _same_place(x.get('origin') or {}, o))): return old
+        return lr.put_course({**new_course(f'Learn {c.name} from the start', c.name, c.get('subject') or ''), 'origin': {**o, 'at': time.time()}, 'data': data})
+
+def courses_from(lr:Learning, jid:str, idea:str=None) -> L:
+    "The courses that walk `jid` opened as rabbit holes, at the step on concept `idea` when it is given, the newest first."
+    return L(x for x in lr.courses() if (o := x.get('origin') or {}).get('walk') == jid and (idea is None or o.get('idea') == idea))
+
+def go_back(lr:Learning, cid:str) -> AttrDict:
+    "Keep the time that you went back from course `cid` to the place that it came from. Return the origin."
+    return lr.change_course(cid, lambda c: c.update(origin={**(c.get('origin') or {}), 'back_at': time.time()})).origin

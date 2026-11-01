@@ -6,14 +6,14 @@ Docs: https://vedicreader.github.io/abhyasa/journey.html.md"""
 
 # %% auto #0
 __all__ = ['STATUS', 'NO_CHECK', 'PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS', 'PICK_SP', 'SHAKY',
-           'STEP_MIN', 'READY', 'PRIMER_SP', 'NAME_MOST', 'CTRL_MARKS', 'current', 'plan_prompt', 'near_goal',
-           'chip_docs', 'source_map', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most', 'cap_hands',
-           'builds_goal', 'hands_count', 'journey_from_source', 'journey_from_text', 'journey_from_sources', 'data_row',
-           'keep_data', 'folder_list', 'data_entries', 'with_data', 'walk_from_topic', 'walk_state', 'minutes', 'needs',
-           'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk', 'is_open',
-           'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up', 'topic_slug', 'name_gaps',
-           'split_parts', 'related', 'with_step', 'paper_id', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key',
-           'handoff', 'read_handoff', 'HANDOFF_CASES']
+           'STEP_MIN', 'READY', 'COURSE_AT', 'PRIMER_SP', 'NAME_MOST', 'CTRL_MARKS', 'current', 'plan_prompt',
+           'near_goal', 'chip_docs', 'source_map', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most',
+           'cap_hands', 'builds_goal', 'hands_count', 'journey_from_source', 'journey_from_text',
+           'journey_from_sources', 'data_row', 'keep_data', 'folder_list', 'data_entries', 'with_data',
+           'walk_from_topic', 'walk_state', 'minutes', 'needs', 'gap_size', 'pick_way_down', 'detour', 'parent_at',
+           'parent_step', 'trail', 'back_from', 'for_talk', 'is_open', 'used_at', 'last_place', 'walk_path',
+           'walk_paths', 'step_read', 'look_up', 'topic_slug', 'name_gaps', 'split_parts', 'related', 'with_step',
+           'paper_id', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES']
 
 # %% ../nbs/11_journey.ipynb #aae14397
 import json, math, re, random, threading, time, uuid
@@ -616,16 +616,25 @@ def _chain(slug, by, seen) -> list:
 
 def _ideas(n): return f"{n} {'idea' if n == 1 else 'ideas'} that you have not learned yet"
 
+COURSE_AT = 6   # a gap of this many ideas or more is a big topic: the tutor picks its own course
+
+def gap_size(c) -> int:
+    "The number of ideas that concept `c` builds on, as the tutor said when it added it (`size`), from 0 to 20."
+    try: return min(20, max(0, int((c or {}).get('size') or 0)))
+    except (TypeError, ValueError): return 0
+
 def pick_way_down(lr:Learning, slug:str, by:dict=None) -> AttrDict:
-    "How to learn concept `slug` before you go on: a `primer`, a side `walk` or its own `session`, with why in one line."
+    """How to learn concept `slug` before you go on: a quick `primer`, a side `walk`, or its own `course`, with why in one line.
+    The gap is the unready prereqs on the shelf, or the size that the tutor gave, the larger of the two."""
     by = _by(lr, by)
     if slug not in by: raise KeyError(f'no concept {slug!r}')
     chain = _chain(slug, by, set())
-    if by[slug].get('floor', 0) in (1, 2): how, why = 'primer', 'you met it before, so a short primer is enough'
-    elif len(chain) == 1: how, why = 'primer', 'it needs no other idea that you have not learned'
-    elif len(chain) <= val('walks.chain'): how, why = 'walk', f'it builds on {_ideas(len(chain) - 1)}'
-    else: how, why = 'session', f'it builds on {_ideas(len(chain) - 1)}, too many for a side walk'
-    return AttrDict(how=how, why=why, chain=chain)
+    n = max(len(chain) - 1, gap_size(by[slug]))
+    if n >= COURSE_AT or len(chain) > val('walks.chain'): how, why = 'course', f'a big topic: {_ideas(n)}'
+    elif by[slug].get('floor', 0) in (1, 2): how, why = 'primer', 'you met it before, so a quick look is enough'
+    elif n == 0: how, why = 'primer', 'it needs no other idea that you have not learned'
+    else: how, why = 'walk', f'it builds on {_ideas(n)}'
+    return AttrDict(how=how, why=why, chain=chain, size=n)
 
 # %% ../nbs/11_journey.ipynb #rh16
 def _step(lr:Learning, c, sources, check, why:str='') -> dict:
@@ -826,11 +835,12 @@ def name_gaps(lr:Learning, ask, slug:str, terms, sources=None) -> L:
         if not (g := idx.get(t.lower())):
             if not usable_name(t): continue   # a term such as `x` is not an idea
             r = ask_json(for_task(ask, 'extract'), f"The idea: {t}\nIt comes up in: {c.name} ({c.get('subject') or 'general'})\n\n"
-                              'Return JSON: {"name": str, "statement": str}', prompt('primer'))
+                              'size: how many other ideas a beginner must learn before this one, from 0 to 20.\n'
+                              'Return JSON: {"name": str, "statement": str, "size": int}', prompt('primer'))
             name = r.get('name') if usable_name(r.get('name')) else t
             if not real_idea(name, r.get('statement', '')): continue   # no source text: a gap needs a statement of 3 words or more
             g = lr.put(name, r.get('statement', ''), c.get('subject', ''), aliases=[t] if t.lower() != name.lower() else [],
-                       provenance=[dict(src='gap', of=slug, said=t, at=time.time())]).slug
+                       provenance=[dict(src='gap', of=slug, said=t, at=time.time())], **({'size': n} if (n := gap_size(r)) else {})).slug
             if sources:
                 try: lr.connect(g, sources)
                 except Exception: pass

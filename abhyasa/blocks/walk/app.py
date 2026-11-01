@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, wait as wait_all
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import n_of, Page, NotFound, short_title, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
+from abhyasa.core import is_local, n_of, Page, NotFound, short_title, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
 from abhyasa.core.leela import leela_line, leela_link
 from abhyasa.settings import val, set_val
 from abhyasa.detect import detect, vault_title
@@ -138,6 +138,9 @@ def connect(app, ctx):
     def back_to(j):
         "The way back from side walk `j` to the step that opened it, and the trail for the side pane; None for a walk with no parent."
         pj, i = parent_step(lr, j)
+        if not pj and (j.get('depth') or 0) > 0 and is_local(p := (j.get('parent') or {}).get('page')):   # a side walk from a concept page
+            m = re.fullmatch(r'/c/([^/?#]+)', p)
+            return AttrDict(href=p, here='its page', trail=[], title=(m and (lr.concept(m[1]) or {}).get('name')) or 'the page')
         if not pj: return None
         parts = [[f"Idea {t.step + 1}", ui.at(Routes.step, t.walk, t.step)] for t in trail(lr, j.id)[:-1] if t.step is not None]
         return AttrDict(href=ui.at(Routes.step, pj.id, i), here=f"idea {i + 1} of {len(pj.steps)}", trail=parts, title=short_title(pj.title))

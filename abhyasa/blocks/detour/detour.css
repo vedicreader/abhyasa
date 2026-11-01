@@ -16,21 +16,20 @@
 .rh-strip { margin: 0 0 var(--s4); padding: 2px 0 2px var(--s4); border-left: 2px solid color-mix(in srgb, var(--ok) 55%, transparent); }
 .rh-strip p { margin: 2px 0; } .rh-strip b { font-weight: 600; }
 
-/* the offer: one sunken card with three ways down */
-.rh-offer-card { background: var(--sunken); border-radius: var(--r); padding: var(--s4) var(--s5) var(--s4); margin: 0 0 var(--s5); }
-.rh-offer-card h2 { font: 400 var(--t-q)/1.3 var(--serif); text-transform: none; letter-spacing: 0; color: var(--fg); margin: 2px 0 var(--s3); }
-.rh-head, .rh-foot-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3); }
-.rh-foot-row { margin-top: var(--s3); font-size: var(--t-small); }
-.rh-ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--s3); }
-.rh-way { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: var(--s1); text-align: left; font: inherit; color: var(--fg); background: var(--raised);
-  border: 1px solid transparent; border-radius: var(--r-s); padding: var(--s3) var(--s3) var(--s3); box-shadow: none; cursor: pointer; }
-.rh-way:hover, .rh-way:focus-visible { border-color: var(--rule); background: var(--raised); }
-.rh-way.pick { border-color: var(--acc); }
-.rh-way .wt { display: flex; justify-content: space-between; gap: var(--s2); } .rh-way .wt b { font-weight: 500; font-size: var(--t-body); }
-.rh-way .k { font-size: var(--t-meta); color: var(--mute); }
+/* the chooser: "I don't get X". The tutor's pick first, with its reason; the other two depths as quiet lines under it. */
+.rh-offer-card { background: var(--sunken); border-radius: var(--r); padding: var(--s3) var(--s4); margin: 0 0 var(--s5); max-width: 36em; }
+.rh-offer-card h2 { font: 400 var(--t-body)/1.3 var(--serif); text-transform: none; letter-spacing: 0; color: var(--fg); margin: 0 0 var(--s2); }
+.rh-foot-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3); margin-top: var(--s2); font-size: var(--t-small); }
+.rh-way { display: block; width: 100%; text-align: left; font: inherit; color: var(--fg); background: none; border: 0; border-radius: var(--r-s);
+  padding: var(--s1) var(--s2); box-shadow: none; cursor: pointer; }
+.rh-way:hover, .rh-way:focus-visible { background: var(--raised); }
+.rh-way b { font-weight: 500; }
+.rh-way .k { display: inline-block; width: 1.4em; font-size: var(--t-meta); color: var(--mute); }
 .rh-way .meta { font-size: var(--t-meta); color: var(--mute); }
-.rh-way .body { font-size: var(--t-small); line-height: 1.4; }
-.rh-way .why { font-size: var(--t-meta); font-style: italic; color: var(--acc); }
+.rh-way .why { display: block; margin: 2px 0 0 1.4em; font-size: var(--t-small); font-style: italic; color: var(--ink2); }
+.rh-pick .rh-way { background: var(--raised); }
+.rh-ways .rh-way { font-size: var(--t-small); color: var(--ink2); }
+.rh-own-course { font-size: var(--t-small); margin: 0 0 var(--s3); color: var(--ink2); }
 
 /* the gap line on a check, and the tool on a selected term */
 .check .rh-gapline { font-size: var(--t-small); margin: var(--s1) 0 var(--s3); }
