@@ -502,12 +502,15 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const body = Object.assign(document.createElement('div'), {className: 'guide-show-body'});
     head.append(x); c.append(head, body);
     const main = document.querySelector('main'), h1 = main && main.querySelector('h1');
-    if (innerWidth < 1100 && main) { c.classList.add('inline'); h1 ? h1.after(c) : main.prepend(c); } else document.body.append(c);
+    if ((innerWidth < 1100 || document.documentElement.classList.contains('rh-open')) && main) {   // the side pane owns the right side (board.js)
+      c.classList.add('inline'); h1 ? h1.after(c) : main.prepend(c); } else document.body.append(c);
     if (window.abhyasaBoard) abhyasaBoard.room(true);   // the page column moves left, with its width kept
     if (html) { if (window.htmx) htmx.swap(body, html, {swapStyle: 'innerHTML'}); else body.innerHTML = html; }
     else if (/^\/(?!\/)/.test(String(sh.href || ''))) {
       const p = Object.assign(document.createElement('p'), {className: 'mute', textContent: sh.find ? 'This page names no idea of yours yet. ' : ''});
-      p.append(Object.assign(document.createElement('a'), {href: sh.href, textContent: sh.find ? 'Find it in your library' : `Open the demo of ${cut(sh.title || 'this idea', 60)}`}));
+      const a = Object.assign(document.createElement('a'), {href: sh.href, textContent: sh.find ? 'Find it in your library' : `Open the demo of ${cut(sh.title || 'this idea', 60)}`});
+      if (!sh.find) { a.dataset.pane = '1'; a.dataset.title = sh.title || ''; }   // the demo supports the page: it opens in the side pane (pane.js)
+      p.append(a);
       body.append(p);
     }
   }

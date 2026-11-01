@@ -1,4 +1,5 @@
 "The side pane: local URLs only, the host markup, a page in a pane, the keys, and the pane in a browser."
+import re
 from pathlib import Path
 import pytest
 from fasthtml.common import to_xml
@@ -41,7 +42,7 @@ def test_pane_link_is_a_real_link():
 def test_host_draws_the_pane_or_nothing():
     h = to_xml(PaneHost('/w/g-1a2b/0', 'Derivatives', trail=[('Attention · idea 5', '/w/a/4')]))
     assert 'id="rh-pane"' in h and 'src="/w/g-1a2b/0?pane=1"' in h and 'role="separator"' in h and 'aria-orientation="vertical"' in h
-    assert 'Its own session ↗' in h and 'href="/w/g-1a2b/0" target="_blank"' in h and 'Attention · idea 5' in h and '<b>Derivatives</b>' in h
+    assert 'New tab ↗' in h and 'href="/w/g-1a2b/0" target="_blank"' in h and 'Attention · idea 5' in h and '<b>Derivatives</b>' in h
     for bad in HOSTILE: assert PaneHost(bad) == '', bad
     assert 'evil' not in to_xml(PaneHost('/w/g', trail=[('Out', 'https://evil.example/')]))   # a trail part that leaves the app has no link
 
@@ -66,7 +67,24 @@ def test_source_links_open_the_pane():
     h = to_xml(Cites([dict(title='Rasi Characteristics', src='vault:store', ref='d1#4'), dict(title='Notes', src='notes', ref='n', url='https://example.org/n'),
                       dict(title='Ashtadhyayi 1 2', src='vedicreader', ref='a:1', url='')]))
     assert 'href="/v/store/d1"' in h and 'data-pane="/v/store/d1?pane=1"' in h and 'data-title="Rasi Characteristics"' in h
-    assert h.count('data-pane') == 1 and 'href="https://example.org/n"' in h and '<span>Ashtadhyayi 1 2</span>' in h
+    assert h.count('data-pane') == 2 and 'href="https://example.org/n"' in h and '<span>Ashtadhyayi 1 2</span>' in h
+
+def test_side_link_is_the_one_rule():
+    "A local page that supports the exercise opens in the pane; a web page opens in a new tab with noopener; any other link is text."
+    from abhyasa.core import side_link
+    assert 'data-pane="/c/softmax?pane=1"' in to_xml(side_link('Softmax', '/c/softmax'))
+    w = to_xml(side_link('Paper', 'https://arxiv.org/abs/1706.03762'))
+    assert 'target="_blank"' in w and 'noopener' in w and 'data-pane' not in w
+    for bad in ('javascript:alert(1)', '//evil.example/', 'file:///etc/passwd', ''): assert 'href' not in to_xml(side_link('x', bad)), bad
+
+def test_step_links_that_support_the_exercise_open_in_the_pane(mk, walk_fake, lr):
+    "On a step, Open in your vault and the names in the needs line open in the pane; the outline stays in the same tab."
+    from walk_data import walk
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.put('Derivatives and gradients', 'The slope of a function at a point.', 'ml', slug='gradients'); lr.update('scaling-by-the-root-of-dk', prereqs=['softmax', 'gradients'])
+    t = cl.get(f'/w/{jid}/2').text
+    assert re.search(r'<a [^>]*data-pane="/v/[^"]*"[^>]*class="pane-link src-open"[^>]*>Open in your vault', t)
+    assert 'data-pane="/c/gradients?pane=1"' in t and f'href="/w/{jid}/1"' in t and f'data-pane="/w/{jid}/1' not in t
 
 def test_vault_page_in_the_pane(mk, lr):
     "The document page in the pane has no nav; a page with the document in `rh` names it in the pane bar."

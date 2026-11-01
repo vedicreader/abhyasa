@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import asset_css, asset_js, Primary, meta, n_of, pane_link, short_title
+from abhyasa.core import asset_css, asset_js, Primary, meta, n_of, pane_link, side_link, short_title
 from abhyasa.settings import val
 from .cfg import Routes
 
@@ -20,7 +20,7 @@ def Ask(label, t, *c, cls='rh-ask'):
 def Need(n, state, first):
     "One idea that the step needs: its name, its state, and Learn it on each one that you have not learned. Only the first shows ⌥B."
     go = '' if state != 'missing' else Ask('Learn it ', n.slug, Kbd('⌥B')) if first else Ask('Learn it', n.slug)
-    return Span(A(n.name, href=f'/c/{n.slug}', cls='n'), Span(f' · {STATE[state]}', cls=f'st {state}'), go, cls='need')
+    return Span(side_link(n.name, f'/c/{n.slug}', n.name, cls='pane-link n'), Span(f' · {STATE[state]}', cls=f'st {state}'), go, cls='need')
 
 def Strip(name, ok, sid, outs):
     "The strip after a side walk: what you learned on the way, and how the checks went. When you left before a check, the way to finish it."

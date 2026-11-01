@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import run as run_hook, pane_link, SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, EditList, Live, UndoBar, HistoryList
+from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, EditList, Live, UndoBar, HistoryList
 from abhyasa.model import DEPTHS
 from abhyasa.method import LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -211,9 +211,7 @@ def SourceReady(jid, i):
 def _target(r):
     "The target of log row `r`: a link to the page on the web (a new tab) or to the document in your vault, else plain text."
     t, u = r.get('target') or '', r.get('link') or ''
-    if u.startswith(('http://', 'https://')): return A(t or u, href=u, target='_blank', rel='noopener noreferrer')
-    if u.startswith('/'): return A(t or u, href=u)
-    return Span(t)
+    return side_link(t or u, u, t) if u.startswith(('http://', 'https://', '/')) else Span(t)
 
 def GatherLog(j):
     "The log of the gather agent of walk `j`, newest first: the time, what it did, the target with its link, and the outcome. A note from the agent is marked as its own words."
@@ -584,7 +582,7 @@ def WhatYouMade(j, i, b):
 def Moved(m):
     "One concept after the checks: from what depth to what depth, in words that never read as nothing happened."
     said, count = moved_words(m)
-    return Li(A(m['name'], href=f"/c/{m['concept']}"), DepthBar(m['after']), ' ', Span(said, cls='moved'), Span(f"  · {count}", cls='mute') if count else '')
+    return Li(side_link(m['name'], f"/c/{m['concept']}", m['name']), DepthBar(m['after']), ' ', Span(said, cls='moved'), Span(f"  · {count}", cls='mute') if count else '')
 
 def SectionDone(j, sec, ix, ms, nxt, by):
     "The end of a section that is not the last one: what moved, the ideas you skipped, and Go on."

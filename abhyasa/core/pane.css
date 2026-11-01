@@ -35,7 +35,7 @@ html.grip-drag #rh-pane iframe { pointer-events: none; }
 .grip-tip.gone { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .grip-tip, .grip::before, .grip::after { transition: none; } }
 
-/* the bar: where you are, Its own session, and close */
+/* the bar: where you are, New tab, and close */
 .rh-bar { min-height: var(--nav-h); display: flex; flex-direction: column; justify-content: center; padding: var(--s1) var(--s5); border-bottom: 1px solid var(--line); font-size: var(--t-meta); }
 /* the second row: the pace of a side walk and its thin progress line, in the height of the top bar */
 .rh-pace { display: flex; align-items: center; gap: var(--s3); font: var(--t-lbl)/1.4 var(--serif); color: var(--mute); }

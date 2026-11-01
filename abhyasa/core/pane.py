@@ -24,7 +24,7 @@ from urllib.parse import urlsplit, urlunsplit
 from fasthtml.common import A, Aside, B, Button, Div, Header, Iframe, Span
 from abhyasa.stagekit import is_local, _BAD
 
-__all__ = ['is_local', 'is_web', 'pane_url', 'pane_link', 'PaneHost']
+__all__ = ['is_local', 'is_web', 'pane_url', 'pane_link', 'side_link', 'PaneHost']
 
 _WEB = re.compile(r'https?://[^\s/?#\\]+[^\s\\]*\Z', re.I)   # http or https, a host, and no space
 
@@ -44,6 +44,13 @@ def pane_link(label, href:str, title:str='', cls:str='pane-link', **kw):
     "A real link to `href` in a new tab; `pane.js` opens it in the side pane on a wide screen, or in the same tab on a narrow one."
     return A(label, href=href, target='_blank', data_pane=pane_url(href), data_title=title or None, cls=cls, **kw)
 
+def side_link(label, href:str, title:str='', **kw):
+    """The one rule for a link on a learning page to a page that supports the exercise: a local page opens in the side pane
+    (`pane_link`), so the page keeps its scroll, its draft and its open check; a web page opens in a new tab; any other link is text."""
+    if is_local(href): return pane_link(label, href, title, **{'cls': 'pane-link', **kw})
+    if is_web(href): return A(label, href=href, target='_blank', rel='noopener noreferrer', **kw)
+    return Span(label, **{k: v for k, v in kw.items() if k == 'cls'})
+
 def _trail(trail, title):
     "The trail in the bar: each part a link when it is local, then the page in the pane."
     out = []
@@ -51,10 +58,10 @@ def _trail(trail, title):
     return Div(*out, B(title), cls='rh-trail')
 
 def PaneHost(url, title:str='', trail=()):
-    "The side pane open on `url`: the bar (the trail, Its own session, ×), the grip, and the page in a frame. Nothing when `url` is not local."
+    "The side pane open on `url`: the bar (the trail, New tab, ×), the grip, and the page in a frame. Nothing when `url` is not local."
     if not is_local(url): return ''
     title = title or 'Side pane'
-    bar = Header(Div(_trail(trail, title), A('Its own session ↗', href=url, target='_blank', cls='rh-own', title='Open this page in a new tab'),
+    bar = Header(Div(_trail(trail, title), A('New tab ↗', href=url, target='_blank', cls='rh-own', title='Open this page in a new tab'),
                      Button('×', type='button', cls='rh-x', title='Close (Esc)', aria_label='Close the side pane'), cls='rh-top'), cls='rh-bar')
     grip = Div(cls='grip', role='separator', aria_orientation='vertical', aria_label='Resize the side pane', tabindex='0',
                title='Drag to resize. Double-click to reset.')

@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from abhyasa.core import n_of, moved_words, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary, Feedback
+from abhyasa.core import side_link, n_of, moved_words, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary, Feedback
 from abhyasa.model import DEPTHS
 from abhyasa.settings import val
 from abhyasa.method import LABELS as WAYS
@@ -183,7 +183,7 @@ def Moved(m):
     "One concept of the session: from what depth to what depth, and how many passed."
     up, down = m['after'] > m['before'], m['after'] < m['before']
     said, count = moved_words(m)
-    return Li(A(m['name'], href=f"/c/{m['concept']}"), DepthBar(m['after']), ' ',
+    return Li(side_link(m['name'], f"/c/{m['concept']}", m['name']), DepthBar(m['after']), ' ',
               Span(said, cls='moved up' if up else 'moved down' if down else 'moved'),
               Span(f"  · {count}", cls='mute') if count else '',
               *([P('Misconception: ', ', '.join(m['misconceptions']), cls='mute mis')] if m['misconceptions'] else []))
@@ -206,7 +206,7 @@ def EndPage(s, ms, j=None, pg=None, rel=()):
                Div(Primary('Continue the walk', href=pg.current.get('href') or f'/start?journey={j.id}') if pg.current else
                    Primary('See what comes after', href=home), cls='row')]
     elif rel:
-        nxt = [H2('Related topics'), Ul(*[Li(A(c.name, href=f'/c/{c.slug}'), DepthBar(c.floor), ' ',
+        nxt = [H2('Related topics'), Ul(*[Li(side_link(c.name, f'/c/{c.slug}', c.name), DepthBar(c.floor), ' ',
                                              A('Learn', href=f'/start?focus={c.slug}', cls='btn small quiet')) for c in rel], cls='plain related')]
     return (H1('Done for now' if n else 'Session'), P(f"{ok} of {n} passed · about {mins} min. ", lead, cls='lead-sum'),
             *([H2('What moved'), Ul(*map(Moved, ms), cls='plain moved-list')] if ms else []),

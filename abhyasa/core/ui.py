@@ -361,7 +361,7 @@ def Part(label, *c, more=None, more_label='More', **kw):
 
 def SourceLine(src, room=False):
     """The one line under a passage (decision 6): the label in a pill, the title, the place, and the link that opens it. A page in your vault
-    opens in the side pane, and `Open in your vault` opens it in full. A web page (`Open the page`) opens in a new tab. `src` comes from `source_of`.
+    opens in the side pane, and `Open in your vault` too: it supports the exercise, so the page keeps its place. A web page (`Open the page`) opens in a new tab. `src` comes from `source_of`.
     With `room`, the line is text only, for the room: no link."""
     if not src: return ''
     bits = lambda *xs: [Span(x) for x in xs if x]
@@ -370,7 +370,7 @@ def SourceLine(src, room=False):
     local, web = is_local(src.href), is_web(src.url)
     name = pane_link(src.title, src.href, src.title) if local else A(src.title, href=src.url, target='_blank', rel='noopener noreferrer') if web else Span(src.title)
     go = (A('Open the page', href=src.url, target='_blank', rel='noopener noreferrer', cls='src-open') if web
-          else A('Open in your vault', href=src.href, cls='src-open') if local else '')
+          else pane_link('Open in your vault', src.href, src.title, cls='pane-link src-open') if local else '')
     return line(Pill(src.label), name, *([Inline(src.place)] if re.search(r'[*_$`]', src.place or '') else bits(src.place)), *bits(src.date and f'read on {src.date}'), go)   # a place can hold markdown, such as a section name
 
 def TutorWords(text, *c, note=False, cls='', **kw):
