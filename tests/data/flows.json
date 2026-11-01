@@ -104,7 +104,7 @@
       "new": false
     },
     "jobs": {
-      "store": "lr.jobs()[key] = {kind, state: running|done|failed|stopped|closed, title, said, start, end, url, obj, why, seen, quiet}: one document of the learning shelf (abhyasa.jobs), so the rows survive a restart",
+      "store": "lr.jobs()[key] = {kind, state: running|done|failed|stopped|closed, title, said, start, end, url, obj, why, seen, quiet}: the job ledger of the vault file (vishalakshi Vault.ledger, through abhyasa.jobs), so the rows survive a restart",
       "new": false,
       "keys": "walk:<jid>:research, walk:<jid>:filing, walk:<jid>:nb:<slug>, build:<hash> (a link or goal walk), course:<cid>:<level|plan|stage key>, demo:<slug>[:<aim>][#<ask key>] (a demo or a 3D explainer; quiet when it starts by itself: the demo of a step, a simpler demo, the demo after a miss), lesson:<slug> (a rung of the demo ladder; quiet), improve:<jid>:<hash> (Improve the walk), talk:<jid or tid> (Present, Fill the slides, Make it again), sort:<sid> (Sort my concepts), download:<model> (a model in Settings). Each part that waits for one of them has data-job=<key> and loads again on its event, with a fallback poll of 30 s"
     },

@@ -207,3 +207,23 @@ def test_a_download_has_a_row_and_its_lines_swap_on_the_event(mk, lr, monkeypatc
     assert (row.kind, row.state, row.url) == ('download', 'running', '/settings#g-stt') and f'Download: {m}' in chip(cl.get('/settings').text)
     assert any(e['key'] == f'download:{m}' and e['state'] == 'done' for e in events_until(cl, gate.set))
     assert 'ready and in use' in cl.get('/settings/jobs').text and lr.job(f'download:{m}').seen
+
+
+# A vault from abhyasa 0.0.15 keeps its job rows in one document. The app moves them to the ledger at its first read.
+
+def test_an_old_jobs_document_moves_to_the_ledger(mk, lr):
+    "The rows of the old document show in the chip and in `/jobs.json`, with the same shape. A row that ran is closed. A bad row is left out."
+    import time
+    from abhyasa.jobs import OLD
+    now = time.time()
+    rows = {'walk:w8:research': dict(kind='research', state='running', title='Old walk', said='Looking for sources', start=now - 60, url='/w/w8', obj='walk:w8'),
+            'build:b8': dict(kind='build', state='done', title='Old link', said='Ready.', start=now - 90, end=now - 30, url='/w/w9', seen=False),
+            'odd': ['not', 'a', 'row']}
+    lr.v.add('The background jobs of abhyasa.', title='abhyasa jobs', source=OLD, kind='jobs', meta=dict(rows=rows))
+    cl = mk()
+    assert lr.v.by_source(OLD) is None and lr.job('odd') is None
+    j = cl.get('/jobs.json').json()
+    assert j['running'] == [] and [r['key'] for r in j['ended']] == ['walk:w8:research', 'build:b8']
+    assert j['ended'][1] == dict(key='build:b8', kind='build', state='done', title='Old link', said='Ready.', why='', start=now - 90, end=now - 30, url='/w/w9', seen=False)
+    assert 'Stopped: Old walk and 1 more' in chip(cl.get('/').text)
+    with cl.stream('GET', '/events') as r: assert lines(r) == ['event: end']   # no job runs

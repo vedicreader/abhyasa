@@ -27,7 +27,7 @@ def connect(app, ctx):
     def now(): return [counted(r) for r in activity(lr)]
 
     @hook('nav_extra')
-    def chip(): return ui.Chip(now())
+    def chip(): return ui.Chip(now(), job_version(lr))
 
     def inside(): return ui.Inside(now())
 
@@ -85,7 +85,7 @@ def connect(app, ctx):
             while time.monotonic() - t0 < MOST and not await req.is_disconnected():
                 rs = await asyncio.to_thread(lr.jobs)
                 out = await asyncio.to_thread(changes, rs, last, ups)
-                if last is None and v >= 0 and v != job_version(): out = [dict(key='*', obj='*', state='')]
+                if last is None and v >= 0 and v != job_version(lr): out = [dict(key='*', obj='*', state='')]
                 for e in out: yield f'data: {json.dumps(e)}\n\n'
                 if not any(r.state == 'running' for r in rs.values()): break
                 last = {k: (r.state, r.get('said'), r.get('end')) for k, r in rs.items()}

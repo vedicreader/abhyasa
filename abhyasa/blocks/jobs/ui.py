@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, Quiet
-from abhyasa.jobs import chip_words, job_version
+from abhyasa.jobs import chip_words
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -22,8 +22,8 @@ def Inside(rows):
     return (Summary(chip_words(rows), cls='running' if run else rows[0].state, data_part='activity', **({'data_stream': '1'} if run else {})),
             Div(Ul(*map(Row, rows), cls='plain'), clear, cls='activity-list'))
 
-def Chip(rows):
+def Chip(rows, v:int=0):
     """The activity chip: a small fold in the top bar while a job runs or a result is new. An event of the stream (`job`) loads its
-    inside again, so it opens and changes in place. `data-v` is the count of changes when the page was drawn."""
-    return asset_css(_P/'jobs.css'), Details(*Inside(rows), id='activity', cls='activity', data_job='*', data_v=str(job_version()),
+    inside again, so it opens and changes in place. `data-v` is `v`, the count of changes when the page was drawn."""
+    return asset_css(_P/'jobs.css'), Details(*Inside(rows), id='activity', cls='activity', data_job='*', data_v=str(v),
                    hx_get=Routes.chip, hx_trigger='job', hx_swap='innerHTML')
