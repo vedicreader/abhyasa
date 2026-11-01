@@ -20,7 +20,8 @@ classifiers = [
 ]
 dependencies = [
     "fastcore>=1.8",
-    "vishalakshi>=0.1.36",
+    "vishalakshi>=0.1.38",
+    "litesearch>=0.1.62",   # `fold_text` and the notebook outputs in `ipynb_parse`
     "rishi>=0.1.64",
     "python-fasthtml>=0.14",
     "ipywidgets>=8.1",
@@ -28,7 +29,7 @@ dependencies = [
     "vidyut>=0.4",
     "mdhtml>=0.1.38",
     "nh3>=0.3.7",
-    "fossick>=0.1.24",
+    "fossick>=0.1.25",
     "ramabana>=0.2.96",   # model routing, the guard (`ramabana.guard`) and `Agent.oneshot_stream`
 ]
 

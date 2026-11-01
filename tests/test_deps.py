@@ -6,10 +6,17 @@ from pathlib import Path
 from packaging.version import Version
 
 def test_fossick_floor():
-    "fossick 0.1.23 checks each redirect, verifies TLS with the macOS keychain, and clones over HTTPS only. 0.1.24 gives the timed cues of a video (`read_yt(cues=True)`) and `yt_link`. So abhyasa must ask for it, and the venv must have it."
+    "fossick 0.1.23 checks each redirect, verifies TLS with the macOS keychain, and clones over HTTPS only. 0.1.24 gives the timed cues of a video (`read_yt(cues=True)`) and `yt_link`. 0.1.25 keeps the web memory (`fetch(cache=, per_host=, remember_blocks=)`), reads arXiv HTML and gives `arxiv_id`, `local_host`, `gh_repo` and `is_pdf`. So abhyasa must ask for it, and the venv must have it."
     deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
-    assert 'fossick>=0.1.24' in deps
-    assert Version(version('fossick')) >= Version('0.1.24')
+    assert 'fossick>=0.1.25' in deps
+    assert Version(version('fossick')) >= Version('0.1.25')
+
+def test_store_floors():
+    "litesearch 0.1.62 gives `fold_text` and the notebook outputs. vishalakshi 0.1.38 gives `slug`, `put`, `by_source`, `add_tree`, `crawl(scope=)` and the job `Ledger`."
+    deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
+    for p, v in (('litesearch', '0.1.62'), ('vishalakshi', '0.1.38')):
+        assert any(d.startswith(f'{p}>={v}') for d in deps), p
+        assert Version(version(p)) >= Version(v), p
 
 def test_rupaka_floor():
     "rupaka 0.0.9 ships the hand font Patrick Hand (`font_css`), 0.0.8 has the 3D scene blocks and the top-level key `mode` (`can_explain`), 0.0.7 has the `field` fn and the `pixels` block, and 0.0.6 has `Rupaka.state`, `set`, `settle` with an answer, `options`, `open` and `rupaka.poll`, so each extra must ask for it, and the lock must have it."

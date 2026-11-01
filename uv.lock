@@ -15,6 +15,7 @@ dependencies = [
     { name = "fastcore" },
     { name = "fossick" },
     { name = "ipywidgets" },
+    { name = "litesearch" },
     { name = "mdhtml" },
     { name = "nh3" },
     { name = "python-fasthtml" },
@@ -56,10 +57,11 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastcore", specifier = ">=1.8" },
-    { name = "fossick", specifier = ">=0.1.24" },
+    { name = "fossick", specifier = ">=0.1.25" },
     { name = "gheasy", marker = "extra == 'dev'", specifier = ">=0.0.18" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=7.3.0" },
     { name = "ipywidgets", specifier = ">=8.1" },
+    { name = "litesearch", specifier = ">=0.1.62" },
     { name = "mdhtml", specifier = ">=0.1.38" },
     { name = "mlx-audio", marker = "extra == 'voice'", specifier = ">=0.6.1" },
     { name = "mlx-audio", marker = "extra == 'whisper'", specifier = ">=0.6.1" },
@@ -76,7 +78,7 @@ requires-dist = [
     { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.9" },
     { name = "rupaka", extras = ["check"], marker = "extra == 'dev'", specifier = ">=0.0.9" },
     { name = "vidyut", specifier = ">=0.4" },
-    { name = "vishalakshi", specifier = ">=0.1.36" },
+    { name = "vishalakshi", specifier = ">=0.1.38" },
 ]
 provides-extras = ["demo", "dev", "models", "tick", "voice", "whisper"]
 
@@ -1358,7 +1360,7 @@ wheels = [
 
 [[package]]
 name = "fossick"
-version = "0.1.24"
+version = "0.1.25"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -1375,9 +1377,9 @@ dependencies = [
     { name = "scrapling", extra = ["fetchers"] },
     { name = "yt-dlp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/65/98/61b4f67844a5f6869ecbc7f9e3cecaf90c55f22e2788853efb195a91bbf4/fossick-0.1.24.tar.gz", hash = "sha256:70fe2ec377db788ad8adfb1490351fc5860a03ffec35a1557fba8a6a991457ef", size = 104987, upload-time = "2026-10-30T05:57:37.743Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/f1/a1f991889a2a1a3cc038a45a92ba96931a28b4655cc04058a70176cd984a/fossick-0.1.25.tar.gz", hash = "sha256:0f7d5b2f4c438372c8cb1ad13bd2b713e076a1230ffe5c792aef867fe0838b5e", size = 104280, upload-time = "2026-11-01T08:35:35.558Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/72/67b899d20dab0a9f2a8c008826331d6b64842472a932d973bea9b6e95085/fossick-0.1.24-py3-none-any.whl", hash = "sha256:f734efd039abf0a81f45b97c3acfc635cb5d5af0b042ae7b1f26eadb7ecbf24f", size = 105196, upload-time = "2026-10-30T05:57:36.417Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/29/a9e9357a84ab62ade20a79285be42c2592c9ff5bd8678bd9cdca5c604114/fossick-0.1.25-py3-none-any.whl", hash = "sha256:642dfccb20bcadbc66bcd19be9c0b9dbe874563db76a286085b93b08446b8624", size = 110136, upload-time = "2026-11-01T08:35:34.115Z" },
 ]
 
 [[package]]
@@ -2327,7 +2329,7 @@ wheels = [
 
 [[package]]
 name = "litesearch"
-version = "0.1.61"
+version = "0.1.62"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "adhara", marker = "sys_platform != 'win32'" },
@@ -2342,9 +2344,9 @@ dependencies = [
     { name = "tokenizers" },
     { name = "usearch" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a8/b3/36ad0ddc931231d0c290770a2fa4fadc5a56c88159d2854e14ca9f5220a7/litesearch-0.1.61.tar.gz", hash = "sha256:4cec536dd2ab46c6b87ad59bff9267b3e8da0d40777dc4f31be0d2266f21270a", size = 91424, upload-time = "2026-10-25T05:41:52.633Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/de/a8427dd43048e5e397fa71aa81e393c9eb719f87a44fcca8de6ed4c417d2/litesearch-0.1.62.tar.gz", hash = "sha256:883408d25bafae271a9221ece6eee997df565e076d86507df798238532ce078a", size = 91968, upload-time = "2026-11-01T08:51:39.043Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/57/422dcbc04542b8d38c1e84fe53a0dcc6fdab0b99e59e2302a84bc81c9122/litesearch-0.1.61-py3-none-any.whl", hash = "sha256:d3144d40b16fd53602c93dc0fe8c2b1bb457ee4548b904764da4b2387b42d3d8", size = 97311, upload-time = "2026-10-25T05:41:49.347Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/2b/bb8f85f2c66452a7cbab160be158afec06e204bd73655fafc0f8f6df6523/litesearch-0.1.62-py3-none-any.whl", hash = "sha256:0c8b7edbabcdf745b9dee87c30b6243257d230df0e8242f8841c2ae2e1dd93f7", size = 97822, upload-time = "2026-11-01T08:51:37.473Z" },
 ]
 
 [[package]]
@@ -5407,7 +5409,7 @@ wheels = [
 
 [[package]]
 name = "vishalakshi"
-version = "0.1.36"
+version = "0.1.38"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
@@ -5427,9 +5429,9 @@ dependencies = [
     { name = "varga" },
     { name = "vruksha" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/30/26/c3453443a20b7680d53a6780b3df51ba6c9b0eae0fd6b8f190aa7088a822/vishalakshi-0.1.36.tar.gz", hash = "sha256:7336506aad9fd93535ca5d4fd0ab1d20f3e3a5286f854f7306146c564e070905", size = 117398, upload-time = "2026-10-31T06:38:32.436Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/64/74/219d78b25eb127ab1987505b3c6d983bb58e506b4402ea4dadaa1c0cca80/vishalakshi-0.1.38.tar.gz", hash = "sha256:a46f81d25f0502134e604c628d6f10b0d75129a7a91b46ed24398bd537744c0a", size = 123632, upload-time = "2026-11-01T09:14:21.949Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/23/c2/c0ecd5146c893bf47c5ff37077d4581da8ea8f48d40aa47edd94fcacdb03/vishalakshi-0.1.36-py3-none-any.whl", hash = "sha256:d6a3bdb1c32352e946b38fd7b915fcdf3a1c5fb196c449a1f949c2d225931b62", size = 117596, upload-time = "2026-10-31T06:38:31.044Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/77/10979fa7093f974cad04437521f860385ee35dec476a03173ef349ada4dd/vishalakshi-0.1.38-py3-none-any.whl", hash = "sha256:7a3c420abd7a1dcf125cd84c401a122076fda0b74c006dce822ebb4be4792042", size = 123795, upload-time = "2026-11-01T09:14:20.658Z" },
 ]
 
 [[package]]
