@@ -25,7 +25,7 @@ from .model import learned
 from .settings import val
 from .llm import ask_json, for_task
 from .prompts import register, prompt
-from .sources import extract, math_cut, _index, doc_pages, root_docs, from_vault, placement, is_id_title, ARXIV_LINK, ARXIV_ID, arxiv_title
+from .sources import extract, math_cut, _index, doc_pages, root_docs, from_vault, placement, is_id_title, arxiv_ref, arxiv_title
 import abhyasa.profile  # adds Learning.profile
 from .method import check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND, DEPTH
 from .ground import ground, ground_text, clip, names, main_words, named_count, names_idea, fence
@@ -897,9 +897,9 @@ def _arxiv_of(j, lr=None) -> str:
     ds = [r for r in (*(j.get('docs') or [])[:1], j.get('source') or {}) if r.get('doc_id')]
     docs = [sh.doc(r['doc_id']) for r in ds if (sh := lr.doc_shelf(r.get('shelf') or 'store')) is not None] if lr else []
     for u in [(j.get('source') or {}).get('url'), j.get('url'), *(r.get('url') for r in ds), *(d['source'] for d in docs if d)]:
-        if m := ARXIV_LINK.fullmatch(u or '') or ARXIV_ID.fullmatch(Path(u or '').name.removesuffix('.pdf')): return ARXIV_ID.search(m[0]).group()
+        if aid := arxiv_ref(u or '') or arxiv_ref(Path(u or '').name.removesuffix('.pdf')): return aid
     t = re.sub(r'^arxiv:\s*', '', (j.get('title') or '').strip(), flags=re.I).removesuffix('.pdf')
-    return t if ARXIV_ID.fullmatch(t) else ''
+    return t if arxiv_ref(t) == t else ''
 
 def paper_id(j) -> str:
     "The arXiv id of the paper that walk `j` reads, or an empty string. Empty too when the title of `j` is that id."
@@ -945,8 +945,7 @@ def repair_paper_titles(self:Learning, title_of=None) -> list:
     for j in self.journeys():
         if (aid := _arxiv_of(j, self)) and is_id_title(j.title, aid) and (t := title(aid)): self._retitle(j, t, aid); out.append(j.id)
     for d in self.vault.t.docs(where="kind in ('pdf', 'arxiv')"):
-        m = ARXIV_LINK.fullmatch(d['source'] or '') or ARXIV_ID.fullmatch(d['title'])
-        if m and is_id_title(d['title'], aid := ARXIV_ID.search(m[0]).group()) and (t := title(aid)):
+        if (aid := arxiv_ref(d['source'] or '') or arxiv_ref(d['title'] or '')) and is_id_title(d['title'], aid) and (t := title(aid)):
             self.vault.t.docs.update(dict(id=d['id'], title=t))
     if not retry: self.v.add('The titles of the papers were repaired.', title='Paper titles repaired', source=mark, kind='marker')
     return out

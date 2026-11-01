@@ -14,7 +14,8 @@ import re, threading
 from pathlib import Path
 from urllib.parse import urlparse
 from fastcore.utils import *
-from .sources import ARXIV_ID, ARXIV_LINK, as_link, is_paper, local_name, gh_name, folder_why
+from fossick import arxiv_id, local_host
+from .sources import as_link, is_paper, gh_name, folder_why
 from .ground import SKIP_DIRS
 from .store import fold as store_fold
 from .settings import val
@@ -64,7 +65,7 @@ def as_url(s:str) -> str|None:
 def source_of(s:str, folders=()) -> tuple|None:
     "The kind of the one word `s` as a source, and its link or path; None when `s` does not have the shape of a source."
     s = s.strip()
-    if re.match(r'arxiv:', s, re.I) or ARXIV_ID.fullmatch(s) or ARXIV_LINK.fullmatch(s): return 'paper', as_link(s) or s
+    if re.match(r'arxiv:', s, re.I) or arxiv_id(s): return 'paper', as_link(s) or s
     if s.startswith(('/', '~')) or (s and fold(s) in {fold(f) for f in folders}): return 'folder', s
     if s.lower().startswith('file:'): return 'local', s
     if not as_url(s) and (g := gh_name(s)): return 'repo', f'https://github.com/{g}'
@@ -73,7 +74,7 @@ def source_of(s:str, folders=()) -> tuple|None:
     except ValueError: return None
     if not host: return None
     if any(host == h or host.endswith('.' + h) for h in VIDEO): return 'video', u
-    if local_name(host): return 'local', u
+    if local_host(host): return 'local', u
     if is_paper(u): return 'paper', u
     if host in GITHUB and len([p for p in urlparse(u).path.split('/') if p]) >= 2: return 'repo', u
     return 'site', u

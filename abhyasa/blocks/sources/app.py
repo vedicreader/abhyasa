@@ -1,11 +1,12 @@
 """Your sources: each document that your walks read, with its kind, the walks and talks that use it, and the date you added it.
 A folder or a repo that you filed is one row, and so is a paper with its PDF and its HTML copy."""
-import json, re
+import json
 from datetime import datetime, timezone
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, n_of, can_undo, moved_to
 from abhyasa.journey import for_talk
-from abhyasa.sources import ARXIV_ID, ARXIV_LINK, WEB, YOURS, source_of, vault_roots, root_docs
+from fossick import arxiv_id
+from abhyasa.sources import WEB, YOURS, source_of, vault_roots, root_docs
 import abhyasa.talk   # `Learning.talks`
 from . import ui
 from .cfg import Routes
@@ -23,14 +24,11 @@ def _refs(j):
         if (h := source_of(s.get('read') or {}).href): out.append(tuple(h.split('/')[2:4]))
     return [(sh, d) for sh, d in dict.fromkeys(out) if sh and d]
 
-ARXIV_HTML = re.compile(rf'(?:https?://)?(?:www\.)?arxiv\.org/html/({ARXIV_ID.pattern})/?', re.I)
-
 def _paper(source) -> str:
-    """The arXiv id of the paper at `source` (an `arxiv.org/abs`, `pdf` or `html` link, with any query), with no version, so the PDF
-    copy and the HTML copy (`abs/<id>`, or `abs/<id>?html=<sha>` for a changed copy) are one row; '' for another document."""
-    s = re.split(r'[?#]', str(source or '').strip(), maxsplit=1)[0]
-    m = ARXIV_LINK.fullmatch(s) or ARXIV_HTML.fullmatch(s)
-    return re.sub(r'v\d+$', '', m[1]) if m else ''
+    """The arXiv id of the paper at `source` (an `arxiv.org/abs`, `pdf` or `html` link, with any query), with no version (fossick
+    `arxiv_id`), so the PDF copy and the HTML copy (`abs/<id>`, or `abs/<id>?html=<sha>` for a changed copy) are one row; '' for another document."""
+    s = str(source or '').strip()
+    return (arxiv_id(s) or '') if 'arxiv.org/' in s.lower() else ''
 
 def _added(d) -> float:
     "When the vault filed document `d`: its `added_at` is a UTC time as text, `2026-10-30 01:38:44`, or a number."

@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from abhyasa.core.leela import LOCAL_HOSTS
 from abhyasa.core import hook, run as run_hook, Primary, Secondary, Pill, asset_css, asset_js, n_of
+from fossick import is_pdf
 from abhyasa.sources import folder_why, tree_files, vault_roots
 from abhyasa.settings import val, roots
 from abhyasa.journey import keep_data
@@ -244,7 +245,7 @@ def connect(app, ctx):
         if f.size is not None and f.size > most: return None, big, name
         data = await f.read(most + 1)   # never more than the limit in memory
         if len(data) > most: return None, big, name
-        if ext == '.pdf' and b'%PDF-' not in data[:1024]: return None, 'This file is not a PDF.', name
+        if ext == '.pdf' and not is_pdf(data): return None, 'This file is not a PDF.', name
         stem = Path(name).stem.strip() or 'dropped'
         safe = re.sub(r'[^\w.-]+', '-', stem)[:80]
         p = Path(lr.vault.assets('drops'))/f'{hashlib.sha1(data).hexdigest()[:10]}-{safe}{ext}'   # one file for each content: a second drop never writes over the first

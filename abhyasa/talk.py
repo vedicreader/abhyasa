@@ -29,7 +29,7 @@ from .edit import edit_lock, CTRL
 from .journey import minutes, _arxiv_of
 from .llm import ask_json, for_task
 from .ground import concept_grounds, fence, fenced, link_of
-from .sources import figure_path, source_of, is_id_title, ARXIV_ID
+from .sources import figure_path, source_of, is_id_title, arxiv_ref
 from .prompts import register, prompt
 from .settings import val
 from rupaka import poll
@@ -941,7 +941,7 @@ def recap_html(t:dict, run:dict, resolve) -> str:
 def _id_of(t) -> str:
     "The arXiv id that the title `t` is, or ''."
     t = re.sub(r'^arxiv:\s*', '', str(t or '').strip(), flags=re.I).removesuffix('.pdf')
-    return t if ARXIV_ID.fullmatch(t) else ''
+    return t if arxiv_ref(t) == t else ''
 
 def _paper_titles(lr:Learning) -> dict:
     "Each arXiv id that a walk with a real title reads, mapped to that title."
