@@ -450,11 +450,11 @@ def Opened(t):
 def NbGo(jid, i, link=None, spec=True, opened=None):
     """Open in Leela, the main button: when Leela runs, a form that notes the time on the step and opens Leela in a new tab, else a press
     that looks again, with how to get Leela. `opened` is the time of the last press (`leela_at`)."""
-    if link: return Form(Primary('Open in Leela', type='submit'),
+    if link: return Form(Primary('Open in Leela', type='submit', data_act='open-leela'),
                          Span(Opened(opened) if opened else f"Leela runs at {link.split('//', 1)[-1].split('/', 1)[0]}.", cls='mute state'),
                          method='post', action=at(Routes.leela, jid, i), target='_blank', rel='noopener', hx_boost='false', data_check=at(Routes.check, jid, i),
                          cls='row acts nb-go leela-go')
-    return Div(Primary('Open in Leela', type='button', hx_get=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'),
+    return Div(Primary('Open in Leela', type='button', hx_get=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML', data_act='open-leela'),
                P(NO_LEELA, ' ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='mute state'), cls='row acts nb-go')
 
 def NbPending(jid, i, link=None, opened=None):

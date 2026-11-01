@@ -222,6 +222,18 @@ def b_idea_done(lr, cl, mp):
     jid = started(cl, paper(lr, cl)); lr.walk_step(jid, 1, check=dict(STEP)); done(lr, jid, 1)
     return f'/w/{jid}/1', {}
 
+def needs_data(lr, cl):
+    "A started paper walk whose step 1 is a notebook check that names EPISODES and IMAGES, with no folder for either."
+    from abhyasa.contract import _GOOD, validate_nb_spec
+    jid = started(cl, paper(lr, cl))
+    data = [dict(name=n, path='', need=True, what=w) for n, w in (('EPISODES', 'Text of the comic episodes.'), ('IMAGES', 'Your comic panel images.'))]
+    lr.walk_step(jid, 1, check=dict(way='code', kind='notebook', depth=4, why=''), nb=validate_nb_spec({**_GOOD, 'data': data}))
+    return jid
+
+def b_idea_notebook(lr, cl, mp): return f'/w/{needs_data(lr, cl)}/1', {}
+
+def b_walk_needs_data(lr, cl, mp): return f'/w/{needs_data(lr, cl)}', {}
+
 def b_concept_in_walk(lr, cl, mp):
     jid = started(cl, paper(lr, cl)); j = lr.journey(jid)
     return f"/c/{j.steps[1]['slug']}", {'walk title': j.title}
@@ -261,6 +273,7 @@ BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('ide
          ('walk', 'new'): b_walk_new, ('walk', 'going'): b_walk_going, ('walk', 'researching'): b_walk_researching, ('walk', 'research_ended'): b_walk_research_ended,
          ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty, ('walk', 'locked'): b_walk_locked,
          ('course', 'stage_locked'): b_course_locked, ('course', 'from_rabbit'): b_course_from_rabbit, ('idea', 'own_course'): b_idea_own_course,
+         ('idea', 'notebook'): b_idea_notebook, ('walk', 'needs_data'): b_walk_needs_data,
          ('concept', 'in_a_walk'): b_concept_in_walk, ('concept', 'not_in_a_walk'): b_concept_alone,
          ('library', 'concepts'): b_library_concepts, ('library', 'sources'): b_library_sources, ('you', 'any'): b_you}
 

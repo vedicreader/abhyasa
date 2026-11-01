@@ -645,6 +645,23 @@
           "actions": [
             "home"
           ]
+        },
+        "needs_data": {
+          "when": "a notebook step names data that has no folder under Your data (walk.data, or the data of its course)",
+          "must_show": [
+            "part:here",
+            "act:continue",
+            "part:data (Your data)",
+            "act:set-data (one folder setter for each data name with no folder)",
+            "label:The steps need 2 more folders on this Mac:"
+          ],
+          "must_not_show": [
+            "act:start"
+          ],
+          "actions": [
+            "continue",
+            "set-data"
+          ]
         }
       },
       "entries": [
@@ -769,21 +786,23 @@
           "pending_why": "step 3: data-part on the idea page"
         },
         "notebook": {
-          "when": "steps[i].check.kind == notebook and not leela.back[i]",
+          "when": "steps[i].check.kind == notebook and not leela.back[i] (the builder gives the step two data names with no folder)",
           "must_show": [
             "part:check",
             "act:open-leela",
-            "label:Open in Leela"
+            "label:Open in Leela",
+            "part:data-need",
+            "act:set-data (one folder setter for each data name with no folder)",
+            "label:This step needs 2 folders on this Mac:"
           ],
           "must_not_show": [
             "act:send",
             "act:run"
           ],
           "actions": [
-            "open-leela"
-          ],
-          "pending": true,
-          "pending_why": "step 3: data-part on the idea page"
+            "open-leela",
+            "set-data"
+          ]
         },
         "from_leela": {
           "when": "leela.back[i] exists",
