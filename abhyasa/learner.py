@@ -1520,11 +1520,12 @@ def current(lr:Learning, j, skip=(), goal:int=None) -> str|None:
     return first(s for s in left if s not in skip) or first(left)
 
 # %% ../nbs/00_learner.ipynb #w310
-_KEYED, _KEYED_LOCK = weakref.WeakValueDictionary(), threading.Lock()   # a lock that no caller holds goes away
+_KEYED, _WEAK, _KEYED_LOCK = {}, weakref.WeakValueDictionary(), threading.Lock()
 
-def keyed_lock(kind:str, key, rlock:bool=True):
-    "The one lock of `key` in `kind` (such as a walk id or a concept slug), so that two writers of one thing take turns. With `rlock`, the thread that holds it can take it again."
-    with _KEYED_LOCK: return _KEYED.setdefault((kind, key), (threading.RLock if rlock else threading.Lock)())
+def keyed_lock(kind:str, key, rlock:bool=True, weak:bool=False):
+    """The one lock of `key` in `kind` (such as a walk id or a concept slug), so that two writers of one thing take turns. With `rlock`,
+    the thread that holds it can take it again. With `weak`, a lock that no caller holds goes away: use it only with `with`."""
+    with _KEYED_LOCK: return (_WEAK if weak else _KEYED).setdefault((kind, key), (threading.RLock if rlock else threading.Lock)())
 
 def _jlock(jid) -> threading.RLock:
     "The lock of walk `jid`, so that two writers do not read, change and write it at the same time."

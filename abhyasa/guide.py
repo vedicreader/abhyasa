@@ -11,16 +11,17 @@ __all__ = ['OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SID
            'OFF_CHECK', 'COUNTS', 'ON_TRY', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR', 'WEB_FAILED',
            'WEB_NO_PAGE', 'WEB_NO_PASSAGE', 'NO_WEB', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote',
            'plain_say', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'figure_labels', 'FigureCache',
-           'keeps_images', 'vision_why', 'vision_ask', 'Withheld', 'guard', 'safe_query', 'guarded', 'figure_check',
-           'focus_text', 'thread_text', 'try_text', 'page_text', 'offer_line', 'panel_note', 'board_prompt', 'video_id',
-           'video_cues', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words',
-           'on_check', 'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
+           'keeps_images', 'vision_why', 'vision_ask', 'figure_check', 'focus_text', 'thread_text', 'try_text',
+           'page_text', 'offer_line', 'panel_note', 'board_prompt', 'video_id', 'video_cues', 'find_explainer',
+           'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'source_label',
+           'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'stream_board']
 
 # %% ../nbs/21_guide.ipynb #g006
 import hashlib, json, math, re, threading, time
 from itertools import takewhile
 from pathlib import Path
 from fastcore.utils import *
+from .models import Withheld, guard, safe_query, guarded   # the guard
 
 # %% ../nbs/21_guide.ipynb #g008
 OPS = ('step', 'circle', 'box', 'underline', 'arrow', 'label', 'sketch', 'point', 'clear', 'demo_set', 'video_at', 'panel', 'row', 'note')
@@ -479,29 +480,6 @@ def vision_ask(ask, name:str='', job:str='guide_vision'):
         def prep(_p, _sp, b): return ramabana_agent(n).compose(guard(p, b.spec), image=img), guard(sp, b.spec)
         return ramabana_oneshot(job, n, p, sp, 1024, prep)
     return call
-
-# %% ../nbs/21_guide.ipynb #g062
-class Withheld(Exception):
-    "The guard withheld the text: it holds personal data and ramabana's `cli.pii` is `refuse`, or it is a web query with a secret or personal data."
-
-def guard(s, model=None, mode:str=None) -> str:
-    "`s` as it may go to `model` (a ramabana `ModelSpec`; default `HOSTED`), through ramabana's `outgoing`, with the PII policy `mode` (default `cli.pii`)."
-    s = str(s or '')
-    if not s.strip(): return s
-    from ramabana.guard import OutgoingRefused, outgoing
-    from abhyasa.llm import HOSTED
-    try: return outgoing(s, model or HOSTED, mode)
-    except OutgoingRefused as e: raise Withheld(str(e)) from e
-
-def safe_query(q:str) -> str:
-    "The web query `q` as it is, through ramabana's `query`; `Withheld` when it holds a secret or personal data."
-    from ramabana.guard import OutgoingRefused, query
-    try: return query(q)
-    except OutgoingRefused as e: raise Withheld(str(e)) from e
-
-def guarded(p, sp, b) -> tuple:
-    "The `prepare` of a routed call: the prompt `p` and the system prompt `sp` through `guard` for the model of the backend `b`."
-    return guard(p, b.spec), guard(sp, b.spec)
 
 # %% ../nbs/21_guide.ipynb #g060d
 FIGURE_TEST = ('Encoder', 'Decoder')   # the labels in the test picture of Settings, `blocks/settings/figure-test.png`
