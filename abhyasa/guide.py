@@ -778,7 +778,7 @@ def _done(tier, b, srcs, t0, hint:bool=False) -> AttrDict:
                     end=WITH_SOURCE if used else NO_SOURCE, ms=round((time.monotonic() - t0) * 1000), hint=hint and bool(b.steps))
 
 # %% ../nbs/21_guide.ipynb #gn02
-from .llm import WHO, HERE, where_of   # one place for where a model runs: the Settings page uses it too
+from .llm import HERE, where_of   # one place for where a model runs: the Settings page uses it too
 
 def _ev(wait:str, state:str, **kw) -> dict:
     "One state event: `wait` and `state`, then each field of `kw` that applies."
