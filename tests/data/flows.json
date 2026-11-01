@@ -786,7 +786,7 @@
           "pending_why": "step 3: data-part on the idea page"
         },
         "notebook": {
-          "when": "steps[i].check.kind == notebook and not leela.back[i] (the builder gives the step two data names with no folder)",
+          "when": "steps[i].check.kind == notebook and steps[i].nb and not leela.back[i] (the builder gives the step two data names with no folder)",
           "must_show": [
             "part:check",
             "act:open-leela",
@@ -802,6 +802,24 @@
           "actions": [
             "open-leela",
             "set-data"
+          ]
+        },
+        "notebook_no_spec": {
+          "when": "steps[i].check.kind == notebook and not steps[i].nb (the tutor has not written the notebook spec)",
+          "must_show": [
+            "part:check",
+            "label:The notebook is not written yet.",
+            "act:write-notebook",
+            "label:Write the notebook",
+            "act:open-leela (quiet)"
+          ],
+          "must_not_show": [
+            "act:send",
+            "act:run"
+          ],
+          "actions": [
+            "write-notebook",
+            "open-leela"
           ]
         },
         "from_leela": {

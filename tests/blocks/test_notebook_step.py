@@ -99,6 +99,22 @@ def test_a_load_starts_no_job(mk, lr, walk_fake, monkeypatch):
     cl.post(f'/w/{jid}/1/check')
     assert wait_for(lambda: calls or None, 5) and len(calls) == 1                         # the press did
 
+def test_write_the_notebook_is_the_main_action_before_a_spec(mk, lr, walk_fake, monkeypatch):
+    "With no spec, Write the notebook is the main button and Open in Leela is quiet. With the spec, Open in Leela is the main button."
+    import lxml.html
+    cl = mk(); jid = nb_step(cl, lr, spec=None)
+    assert wait_for(lambda: None if any(r.state == 'running' for r in lr.jobs().values()) else True)
+    lr.walk_step(jid, 1, nb_why=None)
+    monkeypatch.setattr('abhyasa.path.nb_spec', lambda *a: None)
+    main = lambda: {e.get('data-act'): bool(e.get('data-main')) for e in lxml.html.fromstring(cl.get(f'/w/{jid}/1/check').text).xpath('//*[@data-act]')}
+    assert main() == {'write-notebook': True, 'open-leela': False}
+    assert 'press Open in Leela again' in cl.get(f'/w/{jid}/1/check').text
+    lr.walk_step(jid, 1, nb_why='the model gave no spec')
+    assert main() == {'write-notebook': True, 'open-leela': False}                      # Try again is the main button too
+    lr.walk_step(jid, 1, nb_why=None, nb=validate_nb_spec(GOOD))
+    acts = main()
+    assert acts['open-leela'] and 'write-notebook' not in acts
+
 def test_nb_spec_writes_the_step(mk, lr, walk_fake):
     "Write the notebook (a POST) starts the job, and the spec comes onto the step."
     walk_fake.rules[NB_RULE] = GOOD

@@ -232,6 +232,13 @@ def needs_data(lr, cl):
 
 def b_idea_notebook(lr, cl, mp): return f'/w/{needs_data(lr, cl)}/1', {}
 
+def b_idea_notebook_no_spec(lr, cl, mp):
+    "A started paper walk whose step 1 is a notebook check with no spec: no job writes it, and a load starts none."
+    jid = started(cl, paper(lr, cl))
+    mp.setattr('abhyasa.path.nb_spec', lambda *a: None)
+    lr.walk_step(jid, 1, check=dict(way='code', kind='notebook', depth=4, why=''), nb=None, nb_why=None)
+    return f'/w/{jid}/1', {}
+
 def b_walk_needs_data(lr, cl, mp): return f'/w/{needs_data(lr, cl)}', {}
 
 def b_concept_in_walk(lr, cl, mp):
@@ -273,7 +280,7 @@ BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('ide
          ('walk', 'new'): b_walk_new, ('walk', 'going'): b_walk_going, ('walk', 'researching'): b_walk_researching, ('walk', 'research_ended'): b_walk_research_ended,
          ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty, ('walk', 'locked'): b_walk_locked,
          ('course', 'stage_locked'): b_course_locked, ('course', 'from_rabbit'): b_course_from_rabbit, ('idea', 'own_course'): b_idea_own_course,
-         ('idea', 'notebook'): b_idea_notebook, ('walk', 'needs_data'): b_walk_needs_data,
+         ('idea', 'notebook'): b_idea_notebook, ('idea', 'notebook_no_spec'): b_idea_notebook_no_spec, ('walk', 'needs_data'): b_walk_needs_data,
          ('concept', 'in_a_walk'): b_concept_in_walk, ('concept', 'not_in_a_walk'): b_concept_alone,
          ('library', 'concepts'): b_library_concepts, ('library', 'sources'): b_library_sources, ('you', 'any'): b_you}
 

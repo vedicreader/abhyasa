@@ -439,7 +439,7 @@ NB_LATER = 'the notebook is not written yet'
 NB_NOT_YET = 'The notebook is not written yet.'
 NB_NONE = 'the tutor could not write the notebook'
 NB_HEAD = 'Check · notebook · runs in Leela'
-NO_LEELA = 'Leela is not running. Start Leela, then press ⌥S again.'
+NO_LEELA = 'Leela is not running. Start Leela, then press {} again.'
 
 def NbHead(): return Div(Span(NB_HEAD), cls='lbl')
 
@@ -448,14 +448,15 @@ def Opened(t):
     return f"Opened in Leela at {time.strftime('%H:%M', time.localtime(t))}. The result comes back here."
 
 def NbGo(jid, i, link=None, spec=True, opened=None):
-    """Open in Leela, the main button: when Leela runs, a form that notes the time on the step and opens Leela in a new tab, else a press
-    that looks again, with how to get Leela. `opened` is the time of the last press (`leela_at`)."""
-    if link: return Form(Primary('Open in Leela', type='submit', data_act='open-leela'),
+    """Open in Leela: when Leela runs, a form that notes the time on the step and opens Leela in a new tab, else a press that looks again,
+    with how to get Leela. `opened` is the time of the last press (`leela_at`). It is the main button only when the notebook `spec` is written."""
+    btn = Primary if spec else Quiet
+    if link: return Form(btn('Open in Leela', type='submit', data_act='open-leela'),
                          Span(Opened(opened) if opened else f"Leela runs at {link.split('//', 1)[-1].split('/', 1)[0]}.", cls='mute state'),
                          method='post', action=at(Routes.leela, jid, i), target='_blank', rel='noopener', hx_boost='false', data_check=at(Routes.check, jid, i),
                          cls='row acts nb-go leela-go')
-    return Div(Primary('Open in Leela', type='button', hx_get=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML', data_act='open-leela'),
-               P(NO_LEELA, ' ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='mute state'), cls='row acts nb-go')
+    return Div(btn('Open in Leela', type='button', hx_get=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML', data_act='open-leela'),
+               P(NO_LEELA.format('⌥S' if spec else 'Open in Leela'), ' ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='mute state'), cls='row acts nb-go')
 
 def NbPending(jid, i, link=None, opened=None):
     "The notebook spec is not written yet: the card loads again when its job ends (the event stream). Leela can open the step now."
@@ -463,15 +464,15 @@ def NbPending(jid, i, link=None, opened=None):
                  hx_get=at(Routes.check, jid, i), hx_trigger=WAIT, hx_target='#check', hx_swap='innerHTML', data_job=f'walk:{jid}')
 
 def NbNotYet(jid, i, link=None, opened=None):
-    "The notebook spec is not written and no job writes it: Write the notebook starts the job. Leela can open the step now."
+    "The notebook spec is not written and no job writes it: Write the notebook, the main button, starts the job. Open in Leela is a quiet action."
     return Check(NbHead(), P(NB_NOT_YET, cls='mute'),
-                 foot=(Div(Quiet('Write the notebook', type='button', hx_post=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), cls='row acts'),
+                 foot=(Div(Primary('Write the notebook', type='button', data_act='write-notebook', hx_post=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), cls='row acts'),
                        NbGo(jid, i, link, spec=False, opened=opened)), cls='nb-check')
 
 def NbFailed(jid, i, why, link=None, opened=None):
-    "The tutor could not write the notebook spec: the reason and Try again. Leela can still open the step and make its own lesson."
+    "The tutor could not write the notebook spec: the reason and Try again, the main button. Leela can still open the step and make its own lesson."
     return Check(NbHead(), P(f'The tutor could not write the notebook: {why}.', cls='mute'),
-                 foot=(Div(Quiet('Try again', type='button', hx_post=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), cls='row acts'),
+                 foot=(Div(Primary('Try again', type='button', data_act='write-notebook', hx_post=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), cls='row acts'),
                        NbGo(jid, i, link, spec=False, opened=opened)), cls='nb-check')
 
 def DataRow(d):
