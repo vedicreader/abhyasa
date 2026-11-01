@@ -1,0 +1,6 @@
+.films .film-cards { display: grid; gap: var(--s4); }
+.film-card { margin: 0; display: grid; gap: var(--s2); }
+.film-card video { width: 100%; aspect-ratio: 16 / 9; border-radius: var(--r); background: #15171c; }
+.film-card figcaption, .film-card.make, .film-card.pending { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s3); }
+.film-card .n { font-weight: 600; }
+.film-card figcaption .quiet { margin-left: auto; }
