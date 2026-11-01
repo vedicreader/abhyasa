@@ -115,6 +115,18 @@
     "course.stages[k].locked": {
       "store": "lr.course(cid)['stages'][k]['locked'] = True: Lock on the course page. A replan and Fix the rest keep the stage and its walk as they are. Fix the rest also keeps each stage whose walk you started (walk.started, or a step done or shaky), because a replan has no Undo",
       "new": true
+    },
+    "course.origin": {
+      "store": "lr.course(cid)['origin'] = {slug, walk, step, idea, title, at, back_at} or {slug, page, title, at, back_at}",
+      "new": true
+    },
+    "concept.size": {
+      "store": "lr.concept(slug)['size']: the ideas that it builds on, from the tutor when it adds a term (name_gaps)",
+      "new": true
+    },
+    "side_walk.parent.page": {
+      "store": "lr.journey(sid)['parent'] = {page: '/c/<slug>'} for a side walk from a concept page",
+      "new": true
     }
   },
   "nav": {
@@ -420,6 +432,19 @@
             "lock",
             "fix"
           ]
+        },
+        "from_rabbit": {
+          "when": "course.origin is set (course_from: its own course from a rabbit hole) and course.stages is empty",
+          "must_show": [
+            "part:origin",
+            "label:as its own course, from",
+            "act:go-back",
+            "label:Where you start"
+          ],
+          "must_not_show": [
+            "label:You finished this course."
+          ],
+          "actions": []
         }
       },
       "entries": [
@@ -429,7 +454,8 @@
         "nav.continue"
       ],
       "exits": [
-        "idea",
+        "idea (a stage walk; Enough: go back to the step that opened this course)",
+        "concept (Enough: go back to the concept page that opened this course)",
         "walk",
         "review",
         "home"
@@ -634,8 +660,8 @@
         "review",
         "talk",
         "home",
-        "concept",
-        "doc (the source line of a passage in the plan)"
+        "concept (in the pane)",
+        "doc (in the pane: the source line of a passage in the plan, a target of Show what it did)"
       ]
     },
     "idea": {
@@ -787,6 +813,19 @@
           ],
           "pending": true,
           "pending_why": "step 3: data-part on the idea page"
+        },
+        "own_course": {
+          "when": "courses_from(lr, jid, steps[i].slug) is not empty (a rabbit hole opened its own course from this step)",
+          "must_show": [
+            "part:needs",
+            "label:as its own course",
+            "act:own-course"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "send",
+            "own-course"
+          ]
         }
       },
       "entries": [
@@ -797,10 +836,11 @@
         "concept"
       ],
       "exits": [
-        "idea (next, back, a side walk)",
+        "idea (next, back, a side walk: a quick look or a side walk, in the pane)",
         "walk",
-        "course",
-        "doc (the source line of the passage)"
+        "course (its own course for a big gap; the link to it on the step)",
+        "concept (in the pane: a name in the needs line, What moved)",
+        "doc (in the pane: the source line of the passage, Open in your vault)"
       ]
     },
     "concept": {
@@ -851,7 +891,8 @@
         "idea needs"
       ],
       "exits": [
-        "idea",
+        "idea (a side walk from I don't get this, in the pane; Open it in the walk)",
+        "course (its own course from I don't get this)",
         "review",
         "library",
         "doc (a source of the idea in your vault)"
@@ -913,7 +954,7 @@
       ],
       "exits": [
         "home",
-        "concept",
+        "concept (in the pane: What moved, Related topics)",
         "idea"
       ]
     },
@@ -1467,6 +1508,97 @@
         }
       ],
       "background": "the pending line while the tutor reads (walk), and the plan job of the course (course.jobs.plan)"
+    },
+    "rabbit": {
+      "goal": "I don't get X: a quick look or a side walk in the side pane, or its own course, then back to the same place.",
+      "entries": [
+        "idea: Learn it ⌥B in the needs line",
+        "idea: a selected term in the passage (Learn it ⌥B)",
+        "idea: the gap line after a miss",
+        "idea: Learn it in the stuck row (Hint, Explain, Show, Teach me, Learn it)",
+        "idea: Still not clear? Learn X, after the guide explains X",
+        "concept: I don't get this"
+      ],
+      "depths": {
+        "quick": {
+          "how": "primer",
+          "opens": "the side pane at 1100 px or more; the same tab with a back link below",
+          "made": "a side walk of one step and one short check (depth + 1)",
+          "exits": [
+            "⌥Z, Back or × closes the pane",
+            "the end note: You learned X on the way, rh:done, the pane closes"
+          ],
+          "back": "POST /rh/back/{sid}: steps[i].detours on the parent step"
+        },
+        "side_walk": {
+          "how": "walk",
+          "opens": "the side pane (as quick)",
+          "made": "a side walk of up to walks.chain ideas, the unready prereqs first",
+          "exits": [
+            "as quick"
+          ],
+          "back": "as quick"
+        },
+        "own_course": {
+          "how": "course",
+          "opens": "the course page in the same tab (the top page, also from the pane)",
+          "made": "course_from: a course with origin {walk, step, idea} or {page}, the data of the walk, no stage",
+          "exits": [
+            "Ask me where I start, then the stages (the course machinery)",
+            "Enough: go back (POST /course/{cid}/back): origin.back_at, then the step",
+            "You finished this course: Go back to the step (the main button)"
+          ],
+          "back": "the step shows Back from the course X: n of m ideas done, and Open the course"
+        }
+      },
+      "pick": {
+        "rule": "pick_way_down: n = max(unready prereqs on the shelf, concept.size); course when n >= COURSE_AT (6) or the chain is longer than walks.chain; else primer when you met it (depth 1 or 2) or n == 0; else walk",
+        "limit": "at walks.depth side walks down, only its own course"
+      },
+      "states": {
+        "chooser": "#rh-offer has .rh-offer-card: the pick first (.rh-pick), the other two depths in .rh-ways",
+        "in_pane": "html.rh-open; the pane bar has the trail and the pace",
+        "back": "the needs line has the strip Back on the paper, or the line Back from the course"
+      },
+      "steps": [
+        {
+          "page": "idea",
+          "action": "Learn it in the stuck row (or ⌥B)",
+          "next": "idea",
+          "state_change": "the chooser opens; the tutor's pick is first, with its reason"
+        },
+        {
+          "page": "idea",
+          "action": "1: a quick look",
+          "next": "idea (in the pane)",
+          "state_change": "side walk made: parent {walk, step, idea}, depth 1"
+        },
+        {
+          "page": "idea",
+          "action": "answer the side check, then Next idea in the pane",
+          "next": "idea",
+          "state_change": "rh:done closes the pane; steps[i].detours gets the outcome"
+        },
+        {
+          "page": "idea",
+          "action": "select a big term, Add it and learn it, then 1: its own course",
+          "next": "course",
+          "state_change": "concept.size from the tutor; course.origin; course.data from the walk"
+        },
+        {
+          "page": "course",
+          "action": "Enough: go back",
+          "next": "idea",
+          "state_change": "course.origin.back_at; the step says Back from the course"
+        },
+        {
+          "page": "concept",
+          "action": "I don't get this, then 1: a quick look",
+          "next": "concept",
+          "state_change": "side walk with parent {page}; the end goes back to the concept page"
+        }
+      ],
+      "background": "the side walk is made in the request; the course plans its stages on the pool after Where you start."
     }
   }
 }

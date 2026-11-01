@@ -240,10 +240,27 @@ def b_you(lr, cl, mp):
     jid = started(cl, paper(lr, cl)); done(lr, jid, 0)
     return '/you', {}
 
+def rabbit_step(lr, cl):
+    "A started walk on the paper whose step 3 needs gradients, which you did not learn."
+    jid = started(cl, paper(lr, cl))
+    lr.put('Derivatives and gradients', 'The slope of a function at a point.', 'ml', slug='gradients')
+    lr.update('scaling-by-the-root-of-dk', prereqs=['softmax', 'gradients']); lr.walk_step(jid, 2, check=dict(STEP))
+    return jid
+
+def b_idea_own_course(lr, cl, mp):
+    from abhyasa.course import course_from
+    jid = rabbit_step(lr, cl); course_from(lr, 'gradients', dict(walk=jid, step=2))
+    return f'/w/{jid}/2', {}
+
+def b_course_from_rabbit(lr, cl, mp):
+    from abhyasa.course import course_from
+    jid = rabbit_step(lr, cl)
+    return f"/course/{course_from(lr, 'gradients', dict(walk=jid, step=2)).id}", {}
+
 BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due, ('home', 'starting'): b_home_starting,
          ('walk', 'new'): b_walk_new, ('walk', 'going'): b_walk_going, ('walk', 'researching'): b_walk_researching, ('walk', 'research_ended'): b_walk_research_ended,
          ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty, ('walk', 'locked'): b_walk_locked,
-         ('course', 'stage_locked'): b_course_locked,
+         ('course', 'stage_locked'): b_course_locked, ('course', 'from_rabbit'): b_course_from_rabbit, ('idea', 'own_course'): b_idea_own_course,
          ('concept', 'in_a_walk'): b_concept_in_walk, ('concept', 'not_in_a_walk'): b_concept_alone,
          ('library', 'concepts'): b_library_concepts, ('library', 'sources'): b_library_sources, ('you', 'any'): b_you}
 
@@ -360,4 +377,32 @@ def d_explain(lr, cl, mp, fake):
     a = lr.asks(concept=slug)[0]
     assert a.where == 'guide' and 'softmax(scores)' in a.ask
 
-DRIVE = {'explain': d_explain, 'continue': d_continue, 'find_sources': d_find_sources, 'finish_walk': d_finish_walk, 'improve_walk': d_improve_walk, 'lock_and_fix': d_lock_and_fix}
+def d_rabbit(lr, cl, mp, fake):
+    """I don't get X: Learn it in the stuck row opens the chooser with the pick first; a quick look is a side walk of the step whose end
+    reports back; a big selected term opens its own course with the step as its origin; Enough: go back returns to the step; and on a
+    concept page, the side walk goes back to the concept page."""
+    fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')
+    fake.rules['The idea: diffusion model'] = dict(name='Diffusion model', statement='A model that learns to undo noise, step by step.', size=8)
+    jid = rabbit_step(lr, cl); at = f'{jid}/2'
+    card = cl.get(f'/w/{jid}/2/check').text
+    t = re.search(r'class="[^"]*rh-stuck[^"]*" data-t="([^"]+)"|data-t="([^"]+)"[^>]*class="[^"]*rh-stuck', card)
+    term = t[1] or t[2]
+    offer = cl.get('/rh/term', params=dict(t=term, at=at)).text
+    assert re.findall(r'data-how="(\w+)"[^>]*class="rh-way', offer)[0] == 'primer'
+    r = cl.post('/rh/open', data=dict(slug=term, at=at, how='primer')).json(); sid = r['url'].split('/')[2]
+    assert route_of(r['url']) == 'idea' and lr.journey(sid).parent['walk'] == jid
+    cl.get(f'/w/{sid}/0/check'); cl.post(f'/w/{sid}/0/answer', data=dict(answer='the slope', confidence=90))
+    assert 'data-rh-done' in cl.post(f'/w/{sid}/0/next', params=dict(pane=1)).text
+    assert cl.post(f'/rh/back/{sid}', follow_redirects=False).headers['location'] == f'/w/{jid}/2'
+    assert page(cl, f'/w/{jid}/2').has('label:learned on the way today')
+    cl.post('/rh/term', data=dict(t='diffusion model', at=at))
+    r = cl.post('/rh/open', data=dict(slug='diffusion-model', at=at, how='course')).json()
+    assert route_of(r['url']) == 'course'
+    pg = page(cl, r['url'])
+    assert pg.has('part:origin') and pg.works('go-back') and lr.course(r['url'].split('/')[2]).origin['walk'] == jid
+    assert page(cl, f'/w/{jid}/2').has('act:own-course')
+    assert cl.post(f"{r['url']}/back", follow_redirects=False).headers['location'] == f'/w/{jid}/2'
+    r = cl.post('/rh/open', data=dict(slug='gradients', at='/c/gradients', how='primer')).json(); sid = r['url'].split('/')[2]
+    assert cl.post(f'/rh/back/{sid}', follow_redirects=False).headers['location'] == '/c/gradients'
+
+DRIVE = {'rabbit': d_rabbit, 'explain': d_explain, 'continue': d_continue, 'find_sources': d_find_sources, 'finish_walk': d_finish_walk, 'improve_walk': d_improve_walk, 'lock_and_fix': d_lock_and_fix}
