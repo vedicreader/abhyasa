@@ -1,4 +1,4 @@
-"""The loop: pick, ask, let the learner struggle, grade, update, teach the smallest step.
+"""The tutor: ask, grade, hint and teach one concept, in the app or in a notebook.
 
 Docs: https://vedicreader.github.io/abhyasa/tutor.html.md"""
 
@@ -8,20 +8,15 @@ Docs: https://vedicreader.github.io/abhyasa/tutor.html.md"""
 __all__ = ['HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'GRADE_SP', 'TEACH', 'OPEN_KIND', 'CLOSE_HOOKS', 'LESSON_HOOKS',
            'LESSON_NOTES', 'MISSES', 'SHAKY', 'depth_ask', 'one_ask', 'asks_twice', 'question_prompt', 'with_code',
            'bridges', 'thread_text', 'grade_prompt', 'hint_prompt', 'teach_prompt', 'hints', 'stale', 'Open', 'Tutor',
-           'public', 'reviews_today', 'review_open', 'paced', 'flow', 'NoLesson', 'Session', 'retests', 'moved']
+           'public', 'reviews_today', 'review_open', 'paced', 'flow', 'NoLesson', 'Session', 'retests', 'moved',
+           'tutor', 'Card', 'fb_html', 'learn', 'demo_view']
 
-# %% ../nbs/03_tutor.ipynb #c004
-import functools, json, random, threading, time, uuid, weakref
+# %% ../nbs/03_tutor.ipynb #1e5f9956
+import functools, json, random, threading, time, uuid, weakref, html
 from fastcore.utils import *
-from .store import Learning, meta_of, _src, log as _log
-from .settings import val
-from .model import DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding
-from .llm import ask_json, for_task
-from .ground import VaultSource, ground, ground_text, link_of
-from .profile import PACES, profile_text, observe, calibration_text
-from .journey import current, name_gaps
-from .method import METHODS, TEXT_WAYS, EXAMPLES_TO, choose, methods_text, posterior, mean, way
-from .prompts import register, prompt, lines, need_lines
+from .learner import Learning, meta_of, _src, log as _log, val, DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding, PACES, profile_text, observe, calibration_text, current, METHODS, TEXT_WAYS, EXAMPLES_TO, choose, methods_text, posterior, mean, way, register, prompt, lines, need_lines, keyed_lock
+from .models import ask_json, for_task, route_ask
+from .sources import VaultSource, ground, ground_text, link_of
 
 # %% ../nbs/03_tutor.ipynb #c006
 HINTS = ('Point their attention at the part of the problem that matters. Name nothing.',
@@ -219,11 +214,9 @@ def hints() -> tuple:
 
 # %% ../nbs/03_tutor.ipynb #oq31
 OPEN_KIND = 'open-q'
-_QLOCKS, _QLOCK = weakref.WeakValueDictionary(), threading.Lock()   # a lock that no caller holds goes away
-
 def _qlock(qid) -> threading.RLock:
-    "The lock of open question `qid`, so that one caller at a time loads, changes and writes it."
-    with _QLOCK: return _QLOCKS.setdefault(qid, threading.RLock())
+    "The lock of open question `qid`, so that one caller at a time loads, changes and writes it. A lock that no caller holds goes away."
+    return keyed_lock(OPEN_KIND, qid, weak=True)
 
 def _held(f):
     "Run `f(self, qid, ...)` under the lock of question `qid`. A second caller waits, then finds the question as the first caller left it."
@@ -451,6 +444,7 @@ def _heard(self:Tutor, q, g):
     "Act on what the grader heard: keep each idea you say you do not know as a gap, and switch to the way you ask for."
     if (gs := [x for x in g.get('gaps') or [] if isinstance(x, str) and x.strip()]):
         q.gaps = [*q.get('gaps', []), *gs]
+        from abhyasa.journey import name_gaps   # here: the planner imports this module
         job = lambda: name_gaps(self.learning, for_task(self.ask, 'extract'), q.concept, gs, self.sources)
         if self.pool: self.pool.submit(job)
         else:
@@ -718,3 +712,74 @@ def moved(log) -> list:
         m['after'], m['asked'], m['passed'] = r.get('floor', m['after']), m['asked'] + 1, m['passed'] + bool(r.get('correct'))
         if r.get('misconception') and r['misconception'] not in m['misconceptions']: m['misconceptions'].append(r['misconception'])
     return list(out.values())
+
+# %% ../nbs/03_tutor.ipynb #tu0243
+_st = AttrDict(tutor=None)
+
+def tutor(learning=None, ask=None) -> Tutor:
+    "The tutor of the notebook, made one time: the default vault and `route_ask`, unless you give others."
+    import abhyasa.demo   # registers the demo hook of the tutor; it imports this module, so it loads here
+    if _st.tutor is None or learning is not None or ask is not None:
+        _st.tutor = Tutor(learning or Learning(os.getenv('ABHYASA_VAULT') or os.getenv('VISHALAKSHI_VAULT')), ask or route_ask())
+    return _st.tutor
+
+def _esc(s): return html.escape(s or '').replace('\n', '<br>')
+
+# %% ../nbs/03_tutor.ipynb #tu0245
+class Card:
+    "A question card widget over a `Session`: answer, think aloud, confidence, hint, and next."
+    def __init__(self, sess:Session):
+        import ipywidgets as w
+        self.s, self.w = sess, w
+        self.q = w.HTMLMath(); self.fb = w.HTMLMath()
+        self.ans = w.Textarea(placeholder='Your answer', layout=w.Layout(width='100%', height='70px'))
+        self.think = w.Textarea(placeholder='Think aloud: how you got there, what you are unsure of', layout=w.Layout(width='100%', height='90px'))
+        self.conf = w.IntSlider(50, 0, 100, description='Confidence')
+        b = lambda t, f, st='': (x := w.Button(description=t, button_style=st), x.on_click(lambda _: self._do(f)), x)[-1]
+        self.buttons = w.HBox([b('Send', self._send, 'primary'), b('Hint', self._hint), b("I don't know", self._idk), b('Next', self._next)])
+        self.demo = w.Output()
+        self.box = w.VBox([self.q, self.ans, self.think, self.conf, self.buttons, self.fb, self.demo])
+        self._next()
+
+    def _do(self, f):
+        try: f()
+        except Exception as e: self.fb.value = f'<b>Error</b>: {_esc(str(e))}'
+
+    def _show(self, q):
+        if q is None: self.q.value, self.fb.value = '<b>Nothing to learn or review right now.</b>', ''; return
+        opts = ''.join(f'<li>{i}. {_esc(o)}</li>' for i, o in enumerate(q.options)) if q.get('options') else ''
+        self.q.value = (f"<small>{_esc(q.name)} · {DEPTHS[q.depth]} · {_esc(q.why)}</small><p style='font-size:1.2em'>{_esc(q.question)}</p>"
+                        + (f'<ul style="list-style:none">{opts}</ul><small>Answer with the number.</small>' if opts else ''))
+        self.ans.value = self.think.value = self.fb.value = ''
+
+    def _send(self):
+        r = self.s.answer(self.ans.value, self.think.value, self.conf.value)
+        self.fb.value = fb_html(r); self._demo(r)
+    def _demo(self, r):
+        from IPython.display import display
+        self.demo.clear_output()
+        if (v := demo_view(r, self.s.tutor.learning)):
+            with self.demo: display(v)
+    def _hint(self): self.fb.value = f'<i>Hint:</i> {_esc(self.s.hint())}'
+    def _idk(self): r = self.s.answer(dont_know=True); self.fb.value = fb_html(r); self._demo(r)
+    def _next(self): self._show(self.s.next())
+    def _ipython_display_(self):
+        from IPython.display import display
+        display(self.box)
+
+# %% ../nbs/03_tutor.ipynb #tu0247
+def fb_html(r) -> str:
+    "A result as HTML."
+    if not r.done: return f"<b>Not yet.</b> {_esc(r.feedback)}<br><small>{r.tries_left} more tries.</small>"
+    parts = [f"<b>{r.outcome}</b>", _esc(r.feedback), _esc(r.lesson), f"<small>Floor now {DEPTHS[r.floor]}. Press Next.</small>"]
+    return '<br><br>'.join(p for p in parts if p)
+
+def learn(focus:str=None, subject:str=None, limit:int=12) -> Card:
+    "A question card for a session, on one concept when you name it."
+    return Card(Session(tutor(), focus=focus, subject=subject, limit=limit))
+
+# %% ../nbs/03_tutor.ipynb #9f86cab1
+def demo_view(r, learning):
+    "The demo of result `r` as a notebook output, or None."
+    from rupaka.render import show
+    return show(d.spec) if r.get('demo') and (d := learning.demo(r.demo)) else None
