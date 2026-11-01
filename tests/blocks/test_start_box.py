@@ -112,3 +112,15 @@ def test_the_pending_line_is_in_view_after_start(mk, lr, walk_fake, held, tmp_pa
     finally:
         held.gate.set(); held.done.wait(20)
         srv.should_exit = True; th.join(5)
+
+def test_a_folder_inside_a_source_is_not_a_second_source(mk, tmp_path, monkeypatch):
+    "A goal names `abhyasa`: the repo `abhyasa` and the folder `abhyasa/abhyasa` in it both have the name. Only the repo is a source, as it files the folder too."
+    from abhyasa.settings import set_val
+    monkeypatch.setattr(Path, 'home', lambda: tmp_path)   # a root of the sources is in the home folder
+    code = tmp_path/'code'
+    (repo := code/'abhyasa').mkdir(parents=True); (repo/'.git').mkdir(); (repo/'README.md').write_text('# abhyasa\n')
+    (inner := repo/'abhyasa').mkdir(); (inner/'app.py').write_text('x = 1\n')
+    (other := code/'notes'/'abhyasa').mkdir(parents=True); (other/'a.md').write_text('# Notes\n')   # the same name, not inside the repo
+    set_val('sources.roots', str(code))
+    h = mk().get('/learn/read', params=dict(q='I want to market abhyasa')).text
+    assert f'value="repo:{repo}"' in h and f'value="folder:{other}"' in h and f'folder:{inner}"' not in h

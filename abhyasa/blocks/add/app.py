@@ -115,6 +115,11 @@ def Chip(c, mine=()):
                '' if bad else Input(type='hidden', name='sources', value=c.id),
                cls='schip' + (' bad' if bad else '' if c.filed else ' new'))
 
+def outer(cs) -> list:
+    "The chips `cs` less each folder inside another folder chip that abhyasa can file: the outer folder files it too."
+    tops = [Path(c.path) for c in cs if c.kind in ('folder', 'repo') and not c.filed and not c.get('why')]
+    return [c for c in cs if c.kind not in ('folder', 'repo') or c.filed or not any(t in Path(c.path).parents for t in tops)]
+
 CHIPS_SHOWN = 5   # the chips that show; the others are in the fold "Show all N sources", so the list never pushes the box down far
 
 def Chips(cs, said=(), mine=()):
@@ -203,7 +208,7 @@ def connect(app, ctx):
             more += got
             if not got: said.append(f'abhyasa cannot use {e[:80]} as a source. Add the path of a folder, owner/name of a GitHub repo, or a link.')
         cs = {c.id: c for c in [*(r.chips if r.kind in ('goal', 'sources') else ()), *more] if c.id not in drop}
-        cs = on_disk(list(cs.values()))
+        cs = outer(on_disk(list(cs.values())))   # a folder in a repo that is a source is not a second source
         if r.kind == 'goal' or (more and r.kind == 'topic'): r = _goal(s, cs, val('research.on'))   # the line follows the chips; a topic with sources that you added is a goal
         elif r.kind in ('sources', 'empty'): r = AttrDict(r, chips=cs)
         return r, said
@@ -317,7 +322,7 @@ def connect(app, ctx):
         found = [c for x in qs for c in named_sources(x, dict(title_index(lr.vault).values()), names(), vault_roots(lr))]
         if q.strip() and not found: said.append(f'abhyasa cannot use {q.strip()[:80]} as a source. Add the path of a folder, owner/name of a GitHub repo, or a link.')
         if use == 'data': return Filing(lr.journey(jid) or j, said, keep_mine(j, found, note, said))
-        cs = on_disk(found)
+        cs = outer(on_disk(found))
         said[:0] = [f'{c.name}: {c.why}' for c in cs if c.get('why')]
         run_hook('walk_add_sources', jid, [c.id for c in cs if not c.get('why')])   # the walk block files each one on its own job
         return Filing(lr.journey(jid) or j, said)
