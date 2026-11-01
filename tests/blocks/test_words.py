@@ -8,7 +8,7 @@ PLAN = dict(title='How LLMs work', subject='ml', steps=[
 
 def make_plain(cl, fake, lr):
     "Plan a walk from a goal with the fake planner, and return its id."
-    from abhyasa.journey import walk_from_topic
+    from abhyasa.path import walk_from_topic
     fake.rules['You plan a learning path'] = PLAN
     return walk_from_topic(lr, fake, 'I want to learn how LLMs work').id
 
@@ -29,7 +29,7 @@ def test_kind_pill(lr):
 
 def test_old_walk_title_shows_as_walk(mk, fake, lr):
     "A new walk document has the title `Walk: …`. An old one keeps `Journey: …` in the vault, and the page shows `Walk: …`."
-    from abhyasa.store import _src
+    from abhyasa.learner import _src
     cl = mk(); jid = make_plain(cl, fake, lr)
     assert lr.v.t.docs(where='source=?', where_args=[_src('journey', jid)])[0]['title'] == 'Walk: How LLMs work'
     r = lr.v.add('Journey: Old walk (old-1)\n\nGoal: g', title='Journey: Old walk', source=_src('journey', 'old-1'), kind='journey', meta=dict(id='old-1', title='Old walk', steps=[]))

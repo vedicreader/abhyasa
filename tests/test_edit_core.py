@@ -1,6 +1,6 @@
 "The shared editor core: the Undo of a walk path and the history list."
 from fasthtml.common import to_xml
-from abhyasa.edit import restore_steps, undo_line, CODE_GONE
+from abhyasa.path import restore_steps, undo_line, CODE_GONE
 from abhyasa.core.edit import HistoryList
 
 def test_undo_keeps_run_fields_and_research():

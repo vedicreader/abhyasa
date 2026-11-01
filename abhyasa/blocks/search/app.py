@@ -2,7 +2,7 @@
 import re, time
 from fasthtml.common import *
 from abhyasa.core import Page, Md, Empty, meta, n_of, ago, doc_title
-from abhyasa.settings import val
+from abhyasa.learner import val
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']

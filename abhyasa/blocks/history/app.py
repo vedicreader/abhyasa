@@ -3,10 +3,9 @@ import re, time
 from fastcore.basics import AttrDict
 from fasthtml.common import *
 from abhyasa.core import n_of, moved_words, Page, RouteOverrides, hook, run, ago, Empty, page_req, moved_to
-from abhyasa.settings import val
+from abhyasa.learner import val
 from abhyasa.tutor import moved
-from abhyasa.journey import parent_step, is_open, last_place
-from abhyasa.course import course_of
+from abhyasa.path import parent_step, is_open, last_place, course_of
 from . import ui
 from .cfg import Routes
 

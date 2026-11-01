@@ -4,7 +4,7 @@ import pytest
 from walk_data import walk, wait_for
 from abhyasa.core.keys import float_rows, page_group, has_float, FLOAT_MAX
 from abhyasa.blocks.keys.ui import GUIDE_LINE, TALK_LINE, GUIDE_LINK
-from abhyasa.settings import val, reset
+from abhyasa.learner import val, reset
 
 def keys_of(path): return [k for _, k, _ in float_rows(path)]
 

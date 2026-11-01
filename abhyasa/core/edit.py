@@ -2,7 +2,7 @@
 
 `edit.js` does the work in the browser: the keys of the list, the drag by the grip, one open row at a time, the post of a live
 field to its row, ⌘Z, and the quiet Undo bar after `EDIT_BAR_SECS`. `edit.css` is their style. An editor page loads
-`edit_assets()`; `HDRS` does not. The history in the vault, the Undo of a walk path and the rewrite are in `abhyasa.edit`.
+`edit_assets()`; `HDRS` does not. The history in the vault, the Undo of a walk path and the rewrite are in `abhyasa.path`.
 
 An editor page has one `UndoBar()` (empty) in the page. After each change, the route sends `UndoBar(said, undo, history, step)`
 with its answer, and htmx puts its content in the bar out of band, so the bar says what changed."""

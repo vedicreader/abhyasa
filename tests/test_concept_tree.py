@@ -378,7 +378,7 @@ def test_hand_name_survives_extract(lr):
     assert lr.concept('self-attention').name == 'Attention over one sequence'
 
 def test_sort_everything_keeps_hand_unless_unticked(lr):
-    from abhyasa.llm import Fake
+    from abhyasa.models import Fake
     from abhyasa.sources import propose_groups, apply_groups
     for n in ('H1', 'H2'): lr.put(n, '', 'ml', group=['H']); lr.set_group(n.lower(), ['H'])
     for n in ('S1', 'S2', 'S3'): lr.put(n, '', 'ml', group=['Old'], group_by='sort')

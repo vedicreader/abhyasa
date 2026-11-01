@@ -1,11 +1,11 @@
 """The background jobs, in one place: the activity chip in the top bar (`nav_extra`), the event stream that tells a page that a job
-changed, and the state of the jobs for the Mac app. The rows are in `abhyasa.jobs`; the blocks that run a job write them."""
+changed, and the state of the jobs for the Mac app. The rows are in `abhyasa.learner`; the blocks that run a job write them."""
 import asyncio, json, time
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook, n_of
-from abhyasa.jobs import activity, ENDED, FRESH, job_version
-from abhyasa.research import research_state
+from abhyasa.learner import activity, ENDED, FRESH, job_version
+from abhyasa.path import research_state
 from . import ui
 from .cfg import Routes
 

@@ -56,7 +56,7 @@ def test_open_in_leela_stamps_the_idea_of_the_link(mk, lr, walk_fake, monkeypatc
     "An editor move from another request while Open in Leela runs: the stamp and the place map go to the idea that the link opens, not to the idea that moved in."
     import threading
     import abhyasa.blocks.walk.app as W
-    from abhyasa.journey import _jlock
+    from abhyasa.learner import _jlock
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
     cl = mk(); jid = nb_step(cl, lr)
     a, b = [s['slug'] for s in lr.journey(jid).steps[:2]]
@@ -142,7 +142,7 @@ def test_two_apps_link_their_own_vault(lr, walk_fake, monkeypatch, tmp_path):
     "Two apps in one process, on two vaults: the Leela link of each app has the key of its own vault."
     from starlette.testclient import TestClient
     from abhyasa.app import mk_app
-    from abhyasa.store import temp_learning
+    from abhyasa.learner import temp_learning
     from abhyasa.contract import vault_key
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
     lr2 = temp_learning()
@@ -155,7 +155,7 @@ def test_two_apps_link_their_own_vault(lr, walk_fake, monkeypatch, tmp_path):
 
 def test_plan_says_writing_only_while_a_job_runs(mk, lr, walk_fake):
     "The plan row of a notebook step says Writing the notebook only while its job row runs. Else it says when the notebook is written, or that the tutor could not write it."
-    from abhyasa.jobs import job_start, job_end
+    from abhyasa.learner import job_start, job_end
     cl = mk(); jid = nb_step(cl, lr, spec=None); key = f"walk:{jid}:nb:{lr.journey(jid).steps[1]['slug']}"
     assert wait_for(lambda: None if any(r.state == 'running' for r in lr.jobs().values()) else True)
     lr.walk_step(jid, 1, nb_why=None)   # the fake gives no spec, so an early job could not write it

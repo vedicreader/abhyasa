@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, hook, asset_js, asset_css, Quiet, moved_to
-from abhyasa.model import understanding
+from abhyasa.learner import understanding
 from .cfg import Routes
 from .ui import Stage, Empty_
 

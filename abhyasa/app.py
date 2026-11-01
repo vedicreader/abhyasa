@@ -4,17 +4,16 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from starlette.middleware.base import BaseHTTPMiddleware
 from fasthtml.common import *
-from abhyasa.core import cfg, RouteOverrides, connect_all, serve_assets, serve_feedback, HDRS, look_before
-from abhyasa.core import hooks
+from abhyasa.core import cfg, RouteOverrides, connect_all, serve_assets, serve_feedback, HDRS, look_before, hooks
 from abhyasa.core.keys import write_sanketa_pack
 from abhyasa.core.leela import write_address, drop_address, LOCAL_HOSTS
 from abhyasa.blocks import blocks
-from abhyasa.store import Learning
+from abhyasa.learner import Learning
 from abhyasa.tutor import Tutor
-from abhyasa.llm import route_ask, Router
-from abhyasa.ground import VaultSource
-from abhyasa.research import Researcher
-from abhyasa.jobs import close_jobs
+from abhyasa.models import route_ask, Router
+from abhyasa.sources import VaultSource
+from abhyasa.path import Researcher
+from abhyasa.learner import close_jobs
 
 log = logging.getLogger(__name__)
 
@@ -55,13 +54,13 @@ class LocalOnly:
 
 def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=None, hosts=LOCAL_HOSTS):
     "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect, `hosts` the Host names it answers."
-    from abhyasa.voice import Speech, Speaker
-    if transcribe is None: from abhyasa.voice import transcribe
+    from abhyasa.models import Speech, Speaker
+    if transcribe is None: from abhyasa.models import transcribe
     ask = ask if isinstance(ask, Router) else Router(ask or route_ask())   # a model for each task, from the settings
     hooks.clear(); RouteOverrides.nav.clear(); RouteOverrides.subtabs.clear(); RouteOverrides.gear = None
     try: learning.repair_subjects()   # one time on a vault: a concept in General gets the subject of its walk
     except Exception as e: logging.getLogger(__name__).warning('abhyasa could not repair the subjects of the concepts: %r', e)
-    from abhyasa.voice import cfg_dir
+    from abhyasa.models import cfg_dir
     cfg_dir().mkdir(parents=True, exist_ok=True)
     app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False, bodykw=dict(hx_boost='true'), before=look_before,
                        key_fname=str(cfg_dir()/'.sesskey'))   # not the working folder: an app may start in /, which is read only   # htmx and fasthtml.js come from core/vendor; links load in place
@@ -100,7 +99,7 @@ def repair_in_background(app, title_of=None):
 
 def warm_catalog(app):
     "After the start: get the model list on the pool of the app, so the Models tab of Settings has it at once. Return the future."
-    from abhyasa import llm
+    from abhyasa import models as llm
     return app.state.svc['pool'].submit(llm.catalog)
 
 def main():

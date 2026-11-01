@@ -15,16 +15,15 @@ from copy import deepcopy
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
 from abhyasa.core import Page, UndoBar, hook, n_of, pane_url, room_spec, run as run_hook
-from abhyasa.edit import edit_lock, CTRL, rewrite as tutor_rewrite
+from abhyasa.path import edit_lock, CTRL, rewrite as tutor_rewrite
 from abhyasa.sources import figure_path
-from abhyasa.journey import needs, pick_way_down, detour, walk_from_topic, for_talk, step_read
-from abhyasa.llm import for_task
-from abhyasa.settings import val
-from abhyasa.prompts import lines
-from abhyasa.jobs import track, seen_jobs
-from abhyasa.talk import (check_talk, talk_from_walk, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST, QUESTIONS_MIN,
-                          public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go, log_main, end_run, log_beside,
-                          recap, recap_html, BEATS, FILLED, clean_slide, talk_again, walk_changes, AGAIN, talk_state, with_state, on_stage, put_back)
+from abhyasa.path import needs, pick_way_down, detour, walk_from_topic, for_talk, step_read
+from abhyasa.models import for_task
+from abhyasa.learner import val, lines, track, seen_jobs
+from abhyasa.show import (check_talk, talk_from_walk, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST,
+    QUESTIONS_MIN, public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go,
+    log_main, end_run, log_beside, recap, recap_html, BEATS, FILLED, clean_slide, talk_again, walk_changes, AGAIN,
+    talk_state, with_state, on_stage, put_back)
 from . import ui
 from .cfg import Routes
 

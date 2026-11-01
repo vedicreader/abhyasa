@@ -36,7 +36,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
 
   // The last graded try of a check, from its thread (a walk step or a session): the learner's answer, the outcome, the feedback,
   // the Error line, the gaps that the answer points at, whether the check is closed, and the tries that are left. Each field has
-  // the bound of the server (TRY in abhyasa.guide). Null when the check has no graded try yet.
+  // the bound of the server (TRY in abhyasa.show). Null when the check has no graded try yet.
   const TRY = {answer: 400, feedback: 500, error: 240, outcome: 40, gaps: 5, gap: 60};
   const plain = (el, drop, n) => {   // the text of `el` with its formulas as TeX, without the parts that `drop` names
     if (!el) return '';

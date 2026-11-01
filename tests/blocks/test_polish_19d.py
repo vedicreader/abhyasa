@@ -23,7 +23,7 @@ def test_pane_trail_starts_at_the_idea(mk, walk_fake, lr):
 def test_settings_say_one_day(mk):
     "A count unit takes the plural rule: `default 1 day`, `0.5 days`; a short unit (min, s, MB) stays as it is."
     from abhyasa.core.rows import say
-    from abhyasa.settings import SETTINGS as ROWS
+    from abhyasa.learner import SETTINGS as ROWS
     r = ROWS['review.solid']
     assert say(r, 1.) == '1 day' and say(r, .5) == '0.5 days' and say(r, 2) == '2 days' and say(ROWS['walks.fresh'], 1) == '1 min'
     assert 'default 1 days' not in mk().get('/settings').text and 'default 1 day' in mk().get('/settings').text

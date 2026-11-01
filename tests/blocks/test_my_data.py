@@ -1,9 +1,9 @@
 "Your data: a folder that the exercises run on. It is not filed as a source, it shows on the course and walk pages, the Start box can keep one, and it goes to Leela in the notebook spec."
 import re, time
-import abhyasa.walk as walk_engine
+import abhyasa.path as walk_engine
 from abhyasa.contract import _GOOD
-from abhyasa.course import join_course
-from abhyasa.llm import Fake
+from abhyasa.path import join_course
+from abhyasa.models import Fake
 from test_goal_walk import wait_for_walk
 
 def course_walk(lr):
@@ -58,7 +58,7 @@ def test_course_page_shows_your_data_and_removes_one(mk, lr, tmp_path, monkeypat
 def test_data_goes_to_leela_in_the_notebook_spec(lr, tmp_path, monkeypatch):
     "The tutor that writes the notebook step sees the folder, its note and its files. The spec that Leela reads has the folder, also when the model leaves it out."
     d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
-    from abhyasa.course import add_data
+    from abhyasa.path import add_data
     add_data(lr, c.id, str(d), MINE[0]['note'])
     spec = {**_GOOD, 'data': []}
     f = Fake({'Return JSON: {"task"': spec})
@@ -70,7 +70,7 @@ def test_data_goes_to_leela_in_the_notebook_spec(lr, tmp_path, monkeypatch):
 
 def test_walk_page_shows_your_data_and_removes_one(mk, lr, tmp_path, monkeypatch):
     "The walk page shows each data folder with its note under Sources; × removes it from the course and its walk. A walk with no course keeps it on the walk."
-    from abhyasa.course import add_data
+    from abhyasa.path import add_data
     d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
     add_data(lr, c.id, str(d), MINE[0]['note'])
     cl = mk()
@@ -84,7 +84,7 @@ def test_walk_page_shows_your_data_and_removes_one(mk, lr, tmp_path, monkeypatch
 
 def test_a_spec_written_before_a_folder_gets_it(mk, lr, tmp_path, monkeypatch):
     "A notebook spec that the tutor wrote before you added a folder gets the folder when the check shows, so Leela reads it."
-    from abhyasa.course import add_data
+    from abhyasa.path import add_data
     d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
     lr.walk_step('gw', 1, nb={**_GOOD, 'data': []})
     add_data(lr, c.id, str(d), MINE[0]['note'])
@@ -120,7 +120,7 @@ def test_a_spec_never_keeps_an_invented_path(lr, tmp_path, monkeypatch):
 
 def test_your_data_gives_the_real_paths(lr, tmp_path, monkeypatch):
     "With a folder under Your data, the entry with its name gets its real path, and the note of the folder when the model gave no `what`. An entry that Your data does not have keeps no path."
-    from abhyasa.course import add_data
+    from abhyasa.path import add_data
     d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
     add_data(lr, c.id, str(d), MINE[0]['note'])
     got = walk_engine.nb_spec(lr, Fake({'Return JSON: {"task"': {**_GOOD, 'data': INVENTED}}), lr.journey('gw'), 1)
@@ -129,7 +129,7 @@ def test_your_data_gives_the_real_paths(lr, tmp_path, monkeypatch):
 
 def test_idea_page_says_which_data_is_missing(mk, lr, tmp_path, monkeypatch):
     "Before Open in Leela, the card names each data entry with no folder and what it holds. Open in Leela still works. When you add the folder, the line goes."
-    from abhyasa.course import add_data
+    from abhyasa.path import add_data
     d, c = episodes(tmp_path, monkeypatch), course_walk(lr)
     lr.walk_step('gw', 1, nb=walk_engine.validate_nb_spec({**_GOOD, 'data': [{**INVENTED[0], 'path': '', 'need': True}, {**INVENTED[1], 'path': '', 'need': True}]}))
     cl = mk()

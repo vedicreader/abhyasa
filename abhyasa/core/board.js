@@ -1,5 +1,5 @@
 // The board of the screen guide: marks drawn over the page, one step at a time, with one spoken line for each step.
-// The server checked each mark (abhyasa.guide.check_line). Each mark is kept as its anchor plus an offset, and is drawn again
+// The server checked each mark (abhyasa.show.check_line). Each mark is kept as its anchor plus an offset, and is drawn again
 // when the page scrolls or changes size, so it stays on its thing. Text from the model goes in with textContent only.
 // Rough.js and perfect-freehand (core/vendor, MIT) load on the first board.
 //
@@ -69,7 +69,7 @@
 //                        spec order). It sets data-guide-id on each one. An id of more than 40 characters is dropped, never cut.
 //   state    {i, steps, tier, first, done, streaming} or null. `done` is true when each mark of the step shows in full.
 //   pointer  {tip, to, flying} in window pixels, or null: where the tip of the pointer is, and the point that it flies to.
-// Strokes (see abhyasa.guide.OPS) are the ops of the server, plus these rules of the page:
+// Strokes (see abhyasa.show.OPS) are the ops of the server, plus these rules of the page:
 //   sketch   {at, pts}: drawn only when the element of its anchor is a figure (an img, svg, canvas or video, or inside a figure or
 //            [data-guide-id="figure"]). A sketch on any other anchor is dropped: it never draws over the words.
 //   panel    {title, head, cols, numbered}: starts the side panel, fixed at the top right of the window (#board-panel). The panel

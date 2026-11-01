@@ -52,7 +52,7 @@ def test_a_demo_has_no_page_of_its_own(mk, lr):
 def test_two_demos_with_one_id_at_the_same_time_get_two_slugs(lr, monkeypatch):
     "Two demo jobs that run at once with the same spec id file under two slugs, one for each concept."
     import threading, time
-    from abhyasa.store import Learning
+    from abhyasa.learner import Learning
     real = Learning.demo
     def slow(self, slug): r = real(self, slug); time.sleep(.05); return r   # widen the gap between the check and the add
     monkeypatch.setattr(Learning, 'demo', slow)
@@ -132,7 +132,7 @@ def test_the_ladder_after_a_demo_in_a_session(mk, lr, fake):
 
 def test_identical_misses_each_count(mk, lr):
     "Misses with the same words are separate attempts: the history keeps each try, and the ladder counts each miss."
-    from abhyasa.demo import rung
+    from abhyasa.show import rung
     lr.put_demo(gallery()['reciprocal-rank-fusion'], 'ranking')
     cl = mk(); sid = start(cl, focus='ranking'); cl.get(f'/s/{sid}')
     miss(cl, sid); cl.post(f'/s/{sid}/next'); miss(cl, sid)

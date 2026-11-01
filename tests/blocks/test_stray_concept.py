@@ -1,5 +1,5 @@
 "A concept such as `x` with the statement `x`: no tool can file a new one, and one that an older tool filed stays in the vault but out of the lists. `C` is an idea, and `Bias` with the statement `x` stays out of the lists."
-from abhyasa.store import STATE, concept_text, _src
+from abhyasa.learner import STATE, concept_text, _src
 
 def stray(lr):
     "File the concept `x` as the old ramabana tool did, past the name check of `put`."

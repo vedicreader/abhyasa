@@ -1,6 +1,6 @@
 "The talk editor in place: each change saves at once with an Undo, the history, add, copy, move and remove, the passage, the figure and the rewrite."
 from talk_data import *
-from abhyasa.talk import check_talk
+from abhyasa.show import check_talk
 import json
 
 def paper_walk(cl, lr): return prep_walk(lr, walk(cl, lr))
@@ -220,7 +220,7 @@ def test_an_old_mark_is_cleaned_on_the_next_change(mk, lr, talk_fake):
 def test_a_primer_asks_the_model_outside_the_lock(mk, lr, talk_fake, monkeypatch):
     "The primer act writes its question before it takes the lock of the talk, so a slow model never holds up another change."
     import abhyasa.blocks.talk.app as ta
-    from abhyasa.edit import edit_lock
+    from abhyasa.path import edit_lock
     cl = mk(); tid = make_talk(cl, paper_walk(cl, lr)); held = []
     real = ta.ask_for_concept
     def spy(*a, **kw):   # another thread tries the lock: it gets it only when the request does not hold it

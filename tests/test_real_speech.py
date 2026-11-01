@@ -1,6 +1,6 @@
 "One real check of the speech on this Mac: Pocket TTS says a line with caro_davy, and Qwen3-ASR writes it down. The first run downloads about 1.2 GB, so the test runs only with ABHYASA_REAL_SPEECH=1 and the extras `voice` and `whisper`."
 import io, os, re, time, wave, pytest
-from abhyasa import voice
+from abhyasa import models as voice
 
 pytestmark = pytest.mark.skipif(not os.getenv('ABHYASA_REAL_SPEECH'), reason='set ABHYASA_REAL_SPEECH=1 to run the real speech models')
 LINE = 'A prime number has exactly two divisors: one and itself.'

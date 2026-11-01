@@ -8,25 +8,24 @@ from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import is_local, n_of, Page, NotFound, short_title, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
 from abhyasa.core.leela import leela_line, leela_link
-from abhyasa.settings import val, set_val
-from abhyasa.detect import detect, vault_title
-from abhyasa.store import clean_subject
-from abhyasa.profile import profile_text
-from abhyasa.method import WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
+from abhyasa.learner import val, set_val
+from abhyasa.sources import detect, vault_title
+from abhyasa.learner import clean_subject, profile_text, WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
-from abhyasa.journey import with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, walk_state, short_check, with_step, trail, parent_step, for_talk, _jlock
-from abhyasa.walk import tutor_note, open_short, step_meta, leela_back, leela_found
-from abhyasa.course import course_of, drop_data
-import abhyasa.walk as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
-import abhyasa.talk   # adds Learning.talks: the editor links the talks made from a walk
-from abhyasa.talk import walk_changes
-from abhyasa.edit import (edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, merge_steps, add_step, split_step,
-                          passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite, links_in, propose, improve_walk, lock_step)
-from abhyasa.research import to_research, wants_source, want_agent, research_state
-from abhyasa.jobs import job_start, job_end, track, Said, seen_jobs
+from abhyasa.path import with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, short_check, with_step, trail, parent_step, for_talk
+from abhyasa.learner import walk_state, _jlock
+from abhyasa.path import tutor_note, open_short, step_meta, leela_back, leela_found, course_of, drop_data
+import abhyasa.path as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
+import abhyasa.show   # adds Learning.talks: the editor links the talks made from a walk
+from abhyasa.show import walk_changes
+from abhyasa.path import (edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, merge_steps, add_step, split_step,
+    passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite, links_in, propose, improve_walk,
+    lock_step)
+from abhyasa.path import to_research, wants_source, want_agent, research_state
+from abhyasa.learner import job_start, job_end, track, Said, seen_jobs
 from abhyasa.tutor import NoLesson
-from abhyasa.demo import queue_demo, job_state, job_age, job_key, rung, backed, other_way, demo_lesson, simpler_demo, said, show_ask
+from abhyasa.show import queue_demo, job_state, job_age, job_key, rung, backed, other_way, demo_lesson, simpler_demo, said, show_ask
 from . import ui
 from .cfg import Routes
 

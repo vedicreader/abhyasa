@@ -2,7 +2,7 @@
 from fasthtml.common import *
 from abhyasa.core import Page, hook, page_req
 from abhyasa.core.keys import KEYS, MENU, has_float
-from abhyasa.settings import val, set_val
+from abhyasa.learner import val, set_val
 from . import ui
 from .cfg import Routes
 

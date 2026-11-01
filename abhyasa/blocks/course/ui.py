@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from abhyasa.core import asset_css, Primary, Secondary, Quiet, Part, Empty, n_of
-from abhyasa.course import ANSWERS, level_done, stage_stays
+from abhyasa.path import ANSWERS, level_done, stage_stays
 from .cfg import Routes
 
 _P = Path(__file__).parent

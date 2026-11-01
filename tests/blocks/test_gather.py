@@ -1,11 +1,11 @@
 "The gather agent (D6): a ramabana agent gathers the sources of a big goal. Each passage passes the word-for-word check; the band and the log show what it did; Stop ends it."
 import re, threading, time
 from fastcore.basics import AttrDict
-from abhyasa.settings import set_val
-from abhyasa.journey import walk_from_topic
-from abhyasa.llm import Fake
+from abhyasa.learner import set_val
+from abhyasa.path import walk_from_topic
+from abhyasa.models import Fake
 import pytest
-import abhyasa.research as R
+import abhyasa.path as R
 
 HX = {'HX-Request': 'true'}
 QUOTE = 'The softmax function turns a list of scores into weights. Each weight is between 0 and 1, and the weights add up to 1.'

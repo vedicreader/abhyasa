@@ -5,14 +5,14 @@ from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, EditList, Live, UndoBar, HistoryList
-from abhyasa.model import DEPTHS
-from abhyasa.method import LABELS, WALK_WAYS
+from abhyasa.learner import DEPTHS, METHOD_LABELS as LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
-from abhyasa.settings import val
-from abhyasa.llm import dflt_model, where_chip
+from abhyasa.learner import val
+from abhyasa.models import dflt_model, where_chip
 from abhyasa.core.leela import leela_line, LEELA_INSTALL
-from abhyasa.journey import minutes, TOOL_WAYS, SHAKY, hands_count, hands_most, walk_state
-from abhyasa.research import wants_source
+from abhyasa.path import minutes, TOOL_WAYS, hands_count, hands_most
+from abhyasa.learner import SHAKY, walk_state
+from abhyasa.path import wants_source
 from .cfg import Routes
 
 _P = Path(__file__).parent

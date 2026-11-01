@@ -4,10 +4,9 @@ from urllib.parse import urlencode
 from fasthtml.common import *
 from fastcore.basics import AttrDict, first
 from abhyasa.core import Page, NotFound, RouteOverrides, hook, moved_to
-from abhyasa.settings import val
-from abhyasa.store import clean_group, clean_name, under, listed, GROUP_DEPTH, GROUP_LEN
+from abhyasa.learner import val, clean_group, clean_name, under, listed, GROUP_DEPTH, GROUP_LEN
 from abhyasa.sources import propose_groups, apply_groups, place_new
-from abhyasa.jobs import track, job_end, seen_jobs
+from abhyasa.learner import track, job_end, seen_jobs
 from . import ui
 from .cfg import Routes
 

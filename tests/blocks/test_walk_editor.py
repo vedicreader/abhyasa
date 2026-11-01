@@ -2,7 +2,7 @@
 from walk_data import *
 import threading
 from fastcore.utils import first
-from abhyasa.edit import hands_count
+from abhyasa.path import hands_count
 
 def paper_walk(cl, lr): return walk(cl, lr)
 def slugs(lr, jid): return [s['slug'] for s in lr.journey(jid).steps]
@@ -24,7 +24,7 @@ def test_reorder_keeps_progress_side_walks_and_research(mk, lr, walk_fake):
     j = lr.journey(jid)
     assert [s['slug'] for s in j.steps][:2] == [ss[1], ss[0]] and j.steps[1].get('done')
     assert lr.journey(side).parent['step'] == 0 and 'Moved “' in r.text and 'to idea 1.' in r.text
-    from abhyasa.research import put_step
+    from abhyasa.path import put_step
     assert put_step(lr, jid, ss[2], 2, read=dict(text='x', src='web')) in (None, 2)   # finds the step by slug
 
 def test_undo_gives_back_the_exact_old_steps(mk, lr, walk_fake):
@@ -88,7 +88,7 @@ def test_a_rewrite_keeps_your_edit(mk, lr, walk_fake):
     "A field that you change during the model call keeps your edit; the model call runs outside the lock."
     cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[1]
     post(cl, jid, slug=s, act='check', way='short'); post(cl, jid, slug=s, act='q', text='Why softmax?'); lr.walk_step(jid, 1, note='Old note.')
-    from abhyasa.edit import edit_lock
+    from abhyasa.path import edit_lock
     def model(p, sp):
         got = []
         t = threading.Thread(target=lambda: got.append(edit_lock('walk', jid).acquire(timeout=2) and edit_lock('walk', jid).release() is None)); t.start(); t.join()
@@ -192,9 +192,9 @@ def test_history_and_restore(mk, lr, walk_fake):
     assert cl.post(f'/w/{jid}/restore', data=dict(k='²')).status_code == 404
 
 def test_talk_line_links_the_talk(mk, lr, walk_fake):
-    from abhyasa.talk import talk_from_walk
+    from abhyasa.show import talk_from_walk
     from talk_data import TALK_RULES
-    from abhyasa.llm import Fake
+    from abhyasa.models import Fake
     cl = mk(); jid = paper_walk(cl, lr); t = talk_from_walk(lr, Fake(TALK_RULES), jid)
     page = cl.get(f'/w/{jid}').text
     assert '1 talk was made from this walk' in page and f'href="/t/{t.id}"' in page

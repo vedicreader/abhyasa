@@ -3,9 +3,8 @@
 import time
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, run, n_of
-from abhyasa.model import learned
-from abhyasa.journey import walk_state, for_talk
-from abhyasa.course import stage_rows
+from abhyasa.learner import learned, walk_state
+from abhyasa.path import for_talk, stage_rows
 from . import ui
 from .cfg import Routes
 

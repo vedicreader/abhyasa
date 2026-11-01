@@ -5,12 +5,11 @@ import logging, re
 from fasthtml.common import *
 from abhyasa.core import Page, NotFound, hook, run as run_hook
 from abhyasa.core.leela import leela_base
-from abhyasa.jobs import track, seen_jobs
-from abhyasa.profile import profile_text
-from abhyasa.journey import last_place, parent_at
+from abhyasa.learner import track, seen_jobs, profile_text
+from abhyasa.path import last_place, parent_at
 from abhyasa.core import is_local
-from abhyasa.course import (course_state, join_course, course_of, ensure_courses, ask_level, answer_level, level_done, plan_stages,
-                            build_stage, due_stage, set_here, add_ask, is_goal_walk, add_data, drop_data, lock_stage, go_back)
+from abhyasa.path import (course_state, join_course, course_of, ensure_courses, ask_level, answer_level, level_done, plan_stages,
+    build_stage, due_stage, set_here, add_ask, is_goal_walk, add_data, drop_data, lock_stage, go_back)
 from . import ui
 from .cfg import Routes
 

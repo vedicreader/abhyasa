@@ -4,10 +4,10 @@ import json
 from datetime import datetime, timezone
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, n_of, can_undo, moved_to
-from abhyasa.journey import for_talk
+from abhyasa.path import for_talk
 from fossick import arxiv_id
 from abhyasa.sources import WEB, YOURS, source_of, vault_roots, root_docs
-import abhyasa.talk   # `Learning.talks`
+import abhyasa.show   # `Learning.talks`
 from . import ui
 from .cfg import Routes
 

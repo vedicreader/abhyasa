@@ -2,7 +2,7 @@
 import re
 from walk_data import walk, leela_file
 from rupaka.spec import validate, gallery
-from abhyasa.demo import ask_key
+from abhyasa.show import ask_key
 
 def svc(cl): return cl.app.state.svc
 

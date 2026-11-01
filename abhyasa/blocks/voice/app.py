@@ -4,7 +4,7 @@ from pathlib import Path
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook, asset_js, asset_css
-from abhyasa.settings import val
+from abhyasa.learner import val
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect', 'MicButton', 'hint_for']

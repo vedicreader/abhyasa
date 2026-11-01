@@ -3,9 +3,7 @@ from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
 from abhyasa.core import side_link, n_of, moved_words, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary, Feedback
-from abhyasa.model import DEPTHS
-from abhyasa.settings import val
-from abhyasa.method import LABELS as WAYS
+from abhyasa.learner import DEPTHS, val, METHOD_LABELS as WAYS
 from .cfg import Routes
 
 _P = Path(__file__).parent

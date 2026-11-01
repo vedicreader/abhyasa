@@ -2,7 +2,7 @@
 import threading, time
 import pytest
 from fastcore.basics import AttrDict
-from abhyasa.settings import set_val
+from abhyasa.learner import set_val
 from abhyasa.sources import LinkError
 import abhyasa.research
 

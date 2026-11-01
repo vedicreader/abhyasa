@@ -2,8 +2,7 @@
 import json, os, sys, time, types, pytest
 from pathlib import Path
 from fastcore.nbio import new_nb, mk_cell, write_nb
-from abhyasa.sources import file_folder, file_repo, unfile, doc_pages, vault_roots, LinkError
-from abhyasa.detect import named_sources
+from abhyasa.sources import file_folder, file_repo, unfile, doc_pages, vault_roots, LinkError, named_sources
 
 def two_notebooks(d):
     "Write 01_a.ipynb and 02_b.ipynb in the folder `d`."
@@ -145,7 +144,7 @@ def test_removed_chip_is_not_filed(mk, lr, walk_fake, home):
     assert vault_roots(lr) == {} and lr.journey(url.split('/')[-1])['chips'] == []
 
 def test_read_route_shows_the_chips(mk, lr, home):
-    from abhyasa.settings import set_val
+    from abhyasa.learner import set_val
     (org := home/'org').mkdir(); (home/'course22').rename(org/'course22')
     set_val('sources.roots', str(org))
     lr.vault.shelf('notebooks').add('Notes.', title='fb/01', source='/x/01.ipynb', kind='notebook', meta=dict(root='fastbook', path='/x/01.ipynb'))
@@ -185,7 +184,7 @@ def test_undo_window_is_kept_on_the_server(mk, lr, walk_fake, home):
 
 def test_filing_keeps_the_meta_of_a_doc_from_another_tool(lr, home):
     "A notebook that another tool filed before keeps its meta, and Undo does not forget it."
-    from abhyasa.ground import index_notebooks
+    from abhyasa.sources import index_notebooks
     d = home/'course22'
     index_notebooks(lr.vault, [d])
     before = {x['id']: x['meta'] for x in lr.vault.shelf('notebooks').sources()}
@@ -210,7 +209,7 @@ def test_failed_walk_after_filing_keeps_undo(mk, lr, walk_fake, home):
 
 def test_settings_drop_bad_source_folders(mk, home):
     "The root of the disk, the home folder and a hidden folder are not source folders, and the Settings page says so."
-    from abhyasa.settings import set_val, roots
+    from abhyasa.learner import set_val, roots
     (home/'code').mkdir()
     set_val('sources.roots', f'/\n~\n{home}/.hidden\n{home}/code')
     assert roots() == [f'{home}/code']
@@ -222,7 +221,7 @@ def test_settings_drop_bad_source_folders(mk, home):
 def test_old_caches_are_read_again_on_the_pool(mk, home, monkeypatch):
     "When the folder names or a folder count are old, the read answers at once with the old value, and the pool reads them again."
     import abhyasa.blocks.add.app as A
-    from abhyasa.settings import set_val
+    from abhyasa.learner import set_val
     (org := home/'org').mkdir(); (home/'course22').rename(org/'course22'); set_val('sources.roots', str(org))
     cl = mk(); p = str(org/'course22')
     assert 'A folder with 2 notebooks.' in cl.get('/learn/read', params=dict(q=p)).text

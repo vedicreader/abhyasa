@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import n_of, meta, Md, DepthBar, asset_css, ago, Primary, Onward, Said
-from abhyasa.model import DEPTHS
+from abhyasa.learner import DEPTHS
 from .cfg import Routes
 
 _P = Path(__file__).parent

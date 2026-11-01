@@ -1,12 +1,12 @@
 "Trust (decision 6 of 0.0.13): every passage has one source line with a label, the tutor's words have a dashed rule and no link, and the recap lists each source once."
 import json, re, time
 from fastcore.basics import first
-from abhyasa.store import _src
+from abhyasa.learner import _src
 from fasthtml.common import to_xml
 from abhyasa.core import SourceLine, TutorWords, Cites, source_of
-from abhyasa.llm import Fake
-from abhyasa.settings import set_val
-from abhyasa.talk import talk_from_walk, new_run, log_go, recap_html, asset_resolver
+from abhyasa.models import Fake
+from abhyasa.learner import set_val
+from abhyasa.show import talk_from_walk, new_run, log_go, recap_html, asset_resolver
 from talk_data import make_talk, talk_walk, TALK_RULES
 from walk_data import walk as paper_walk
 

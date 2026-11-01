@@ -1,7 +1,7 @@
 "The Speaking voice group of the Settings page: pick the engine and the voice, download Pocket TTS, and play a sample. No test uses the network or the real cache."
 import re, threading, time, pytest
-from abhyasa import voice
-from abhyasa.settings import val, reset, update_settings
+from abhyasa import models as voice
+from abhyasa.learner import val, reset, update_settings
 
 @pytest.fixture(autouse=True)
 def clean(monkeypatch):

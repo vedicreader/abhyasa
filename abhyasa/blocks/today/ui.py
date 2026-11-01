@@ -4,7 +4,8 @@ from urllib.parse import quote, urlparse
 from fasthtml.common import *
 from abhyasa.core.hooks import run
 from abhyasa.core import asset_css, n_of, Onward, Pill, Part
-from abhyasa.journey import parent_step, walk_state, paper_id
+from abhyasa.path import parent_step, paper_id
+from abhyasa.learner import walk_state
 from abhyasa.sources import is_paper
 
 _P = Path(__file__).parent

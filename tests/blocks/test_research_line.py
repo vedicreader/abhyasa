@@ -1,10 +1,10 @@
 "The line of research on the walk: what it does now, the sources, the time left and the last step; how it ended; the activity chip on any page; the state for the Mac app."
 import time
 import pytest
-import abhyasa.research as R
-from abhyasa.journey import walk_from_topic
-from abhyasa.llm import Fake
-from abhyasa.jobs import job_start
+import abhyasa.path as R
+from abhyasa.path import walk_from_topic
+from abhyasa.models import Fake
+from abhyasa.learner import job_start
 
 HX = {'HX-Request': 'true'}
 PLAN = dict(title='Softmax and attention', subject='ml', steps=[dict(name='Softmax', statement='Softmax turns scores into weights.', slug='', why='Weights.', needs=[], ways=['words']),

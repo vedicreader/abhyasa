@@ -1,6 +1,6 @@
 "A walk to a goal from the sources that it names: the notebook first in a search, the chips on Start, and sources for a path."
 import re, time
-from abhyasa.ground import VaultSource
+from abhyasa.sources import VaultSource
 
 GOAL = 'fine-tune my own diffusion model to make a Ramayana comic from the vedicreader episodes'
 NBS = [('nbs/15_DDPM', '# Denoising diffusion\n\nDDPM training: we add noise to each image, and the noise schedule sets how much noise we add at each step t.'),
@@ -47,7 +47,7 @@ def test_goal_on_start_uses_the_chips(mk, lr, walk_fake):
 
 def test_weak_match_is_no_source(lr):
     "A README in a named folder names only some words of the idea: it is not a source, so the step has no passage."
-    from abhyasa.journey import _topic_read
+    from abhyasa.path import _topic_read
     lr.vault.shelf('notebooks').add('Run training on a pool of local GPUs. The stable releases are on PyPI.', title='pytorch-image-models/README',
                                     source='/tmp/course22/pytorch-image-models/README.md', kind='md', meta=dict(root='course22'))
     assert _topic_read(dict(slug='s', name='Run Stable Diffusion 1.5 on your Mac'), [VaultSource(lr)], lr, roots=['course22']) is None
@@ -55,7 +55,7 @@ def test_weak_match_is_no_source(lr):
 def test_an_old_path_link_makes_it_a_walk(mk, lr, fake):
     "An old link to a path makes it a walk with a check on each step, then opens the walk page. The passage from your sources comes when the idea opens."
     fake.rules['You plan a learning path'] = dict(title='Ranks', subject='ml', steps=[dict(name='Ranking', slug='ranking', statement='', why='')])
-    from abhyasa.journey import plan
+    from abhyasa.path import plan
     cl = mk()
     j = plan(lr, fake, 'learn to rank')
     assert cl.get(f'/path/{j.id}', follow_redirects=False).headers['location'] == f'/w/{j.id}'

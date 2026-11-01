@@ -444,7 +444,7 @@ def _heard(self:Tutor, q, g):
     "Act on what the grader heard: keep each idea you say you do not know as a gap, and switch to the way you ask for."
     if (gs := [x for x in g.get('gaps') or [] if isinstance(x, str) and x.strip()]):
         q.gaps = [*q.get('gaps', []), *gs]
-        from abhyasa.journey import name_gaps   # here: the planner imports this module
+        from abhyasa.path import name_gaps   # here: the planner imports this module
         job = lambda: name_gaps(self.learning, for_task(self.ask, 'extract'), q.concept, gs, self.sources)
         if self.pool: self.pool.submit(job)
         else:

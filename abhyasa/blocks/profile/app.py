@@ -1,8 +1,7 @@
 "What abhyasa knows about you: the profile page, the first conversation, and the line on Today until you have one."
 from fasthtml.common import *
 from abhyasa.core import n_of, Page, RouteOverrides, hook, parse_value, RangeLine, row_id
-from abhyasa.settings import SETTINGS, fit
-from abhyasa.profile import PROFILE, LIST_FIELDS, ONBOARD_QS, onboard, observe, calibration
+from abhyasa.learner import SETTINGS, fit, PROFILE, LIST_FIELDS, ONBOARD_QS, onboard, observe, calibration
 from . import ui
 from .cfg import Routes
 

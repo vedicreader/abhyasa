@@ -150,7 +150,7 @@ def test_the_pane_and_the_explain_panel_share_the_right_side(mk, walk_fake, lr):
 
 def test_a_finished_course_offers_the_way_back_as_the_main_button(mk, walk_fake, lr):
     "When each stage of the course is done, Go back to the step is the one main button."
-    from abhyasa.course import course_from
+    from abhyasa.path import course_from
     cl = mk(); jid = step(cl, lr)
     c = course_from(lr, 'gradients', dict(walk=jid, step=2))
     lr.put_journey(dict(id='k1', title='Gradients', mode='walk', started=time.time(), steps=[dict(slug='gradients', status='todo', check=dict(way='words', kind='short', depth=2))]))

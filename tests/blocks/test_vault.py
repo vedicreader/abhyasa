@@ -11,7 +11,7 @@ def test_viewer_shows_an_old_session_and_its_resume_command(mk, lr):
 
 def test_old_memory_and_agent_notebook_open_and_search(mk, lr):
     "A memory document and a leela agent notebook that abhyasa filed before 0.0.16 open in the viewer, and search finds them."
-    from abhyasa.ground import VaultSource
+    from abhyasa.sources import VaultSource
     m = lr.vault.shelf('ramabana').add('- Use RRF for hybrid search.', title='Memory: abc', source='ramabana://memory/abc', kind='memory', meta=dict(ref='memory/abc'))['doc_id']
     n = lr.vault.shelf('notebooks').add('# Sandhi notes\n\nThe sandhi of a and i gives e.', title='_leela_agent_sessions/a', source='/tmp/proj/_leela_agent_sessions/a.ipynb',
                                          kind='notebook', meta=dict(path='/tmp/proj/_leela_agent_sessions/a.ipynb', agent=True, mtime=1.))['doc_id']

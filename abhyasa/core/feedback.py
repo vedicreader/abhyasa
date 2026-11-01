@@ -2,7 +2,7 @@
 can speak into (a box with `data-mic` gets the mic of the voice block). One piece for every block, and one route that the app adds."""
 import json, uuid
 from fasthtml.common import *
-from abhyasa.settings import val
+from abhyasa.learner import val
 from .ui import Quiet
 
 __all__ = ['FEEDBACK_URL', 'PICKS', 'Feedback', 'FeedbackSaid', 'Said', 'serve_feedback']
@@ -10,7 +10,7 @@ __all__ = ['FEEDBACK_URL', 'PICKS', 'Feedback', 'FeedbackSaid', 'Said', 'serve_f
 FEEDBACK_URL = '/feedback'
 PICKS = dict(simple='Too simple', right='Just right', unclear='Not clear')   # the verdict -> its words on the row
 THANKS = dict(simple='Thank you. The next one goes further.', right='Thank you.', unclear='Thank you. The tutor uses your note next time.')
-NOTE_MAX = 500   # the same as `abhyasa.demo.NOTE_MAX`; this module does not load the demo engine to draw a page
+NOTE_MAX = 500   # the same as `abhyasa.show.NOTE_MAX`; this module does not load the demo engine to draw a page
 
 def Feedback(kind, slug='', aid='', way='', simpler=None):
     """The row under a demo (`slug`) or a lesson (its attempt `aid`, taught in the way `way`). `simpler` holds the htmx attributes of a quiet
@@ -41,8 +41,8 @@ def FeedbackSaid(verdict): return THANKS[verdict]
 
 def serve_feedback(app, learning):
     "Add the one route of the row: a POST (the app takes it only from itself, `LocalOnly`) with a known verdict and a short note."
-    from abhyasa.demo import VERDICTS, FEEDBACK_ON, NOTE_MAX as most
-    from abhyasa.method import METHODS
+    from abhyasa.show import VERDICTS, FEEDBACK_ON, NOTE_MAX as most
+    from abhyasa.learner import METHODS
     def post(on:str='', verdict:str='', note:str='', slug:str='', aid:str='', way:str=''):
         if on not in FEEDBACK_ON or verdict not in VERDICTS or (way and way not in METHODS):
             return Response('Choose Too simple, Just right or Not clear.', status_code=400)

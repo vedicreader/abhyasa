@@ -5,10 +5,11 @@ from concurrent.futures import wait
 from fasthtml.common import *
 from fastcore.utils import AttrDict
 from abhyasa.core import Page, hook, run as run_hook, Primary, Secondary, n_of, Feedback, Msg
-from abhyasa.model import DEPTHS, pick
+from abhyasa.learner import DEPTHS, pick
 from abhyasa.tutor import Session, HINTS, moved
-from abhyasa.journey import walk_state, related
-from abhyasa.demo import show_ask
+from abhyasa.learner import walk_state
+from abhyasa.path import related
+from abhyasa.show import show_ask
 from . import ui
 from .cfg import Routes
 

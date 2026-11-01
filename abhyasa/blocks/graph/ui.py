@@ -1,7 +1,7 @@
 "The levers beside the graph. `graph.js` reads and writes them by `name`; it does not make its own controls."
 from fasthtml.common import *
 from abhyasa.core import Empty
-from abhyasa.model import DEPTHS
+from abhyasa.learner import DEPTHS
 
 __all__ = ['Levers', 'Stage', 'Empty_']
 

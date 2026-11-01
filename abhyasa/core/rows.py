@@ -1,7 +1,7 @@
 "One setting row: the label and its help at the left, the control, the range and the default at the right. The Settings page and the Profile page use it."
 import re
 from fasthtml.common import *
-from abhyasa.settings import top
+from abhyasa.learner import top
 
 __all__ = ['row_id', 'shown', 'say', 'parse_value', 'Choice', 'SettingRow', 'RangeLine', 'help_parts', 'HelpLine']
 

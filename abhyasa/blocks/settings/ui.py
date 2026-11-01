@@ -4,8 +4,8 @@ from pathlib import Path
 from fasthtml.common import *
 from fasthtml.svg import Svg, Path as SvgPath, Circle as SvgCircle, Rect as SvgRect, Ellipse as SvgEllipse
 from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say, Choice, HelpLine
-from abhyasa import voice
-from abhyasa.settings import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped, dropped_roots
+from abhyasa import models as voice
+from abhyasa.learner import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped, dropped_roots
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -308,7 +308,7 @@ OTHER = '__other__'   # the list item that shows a text box for a model id
 
 def Pick(task, name, dflt_label, rows):
     "The model list for one task: the default, then one item for each model, grouped by provider, then 'Type another model id'. The title names the other routes to a model."
-    from abhyasa.llm import model_label, provider_label, one_each
+    from abhyasa.models import model_label, provider_label, one_each
     rows = one_each(rows, keep=name)
     groups, ids = {}, {r['value'] for r in rows}
     for r in rows: groups.setdefault(r.get('provider', ''), []).append(r)
@@ -333,27 +333,27 @@ def Typed(task, name):
 
 def in_use(task, router, name='') -> str:
     "The model that `task` uses: `name`, else the model it borrows, else the default model."
-    from abhyasa.llm import DFLT_MODEL
+    from abhyasa.models import DFLT_MODEL
     if name: return name
     if task == 'default': return router.model or DFLT_MODEL
     return (router.name(BORROWS[task]) if task in BORROWS else '') or router.model or DFLT_MODEL
 
 def fallback(task, router) -> str:
     "What an empty model means for `task`: the model it borrows, else the default model."
-    from abhyasa.llm import model_label, DFLT_MODEL
+    from abhyasa.models import model_label, DFLT_MODEL
     if task == 'default': return f'Default: {model_label(DFLT_MODEL)}'
     if task in BORROWS: return f'Same as {TASK_LABEL[BORROWS[task]].lower()}: {model_label(in_use(task, router))}'
     return f'Default: {model_label(in_use(task, router))}'
 
 def Where_(name):
     "Where the model `name` runs: `on this Mac`, quiet, or `hosted · <company>`, with an outline."
-    from abhyasa.llm import where_chip, HERE
+    from abhyasa.models import where_chip, HERE
     w = where_chip(name)
     return Span(w, cls='where' + ('' if w == HERE else ' hosted'), title='Where the text goes for this task.')
 
 def ModelRow(task, router, rows, typing=False, set_by=''):
     "One model row: the list of models and a Test button. `set_by` says what sets the default model outside this page."
-    from abhyasa.llm import model_label, DFLT_MODEL
+    from abhyasa.models import model_label, DFLT_MODEL
     r = SETTINGS['models.' + task]
     name, i = (val(r.name) or ''), row_id(r)
     test = Span(cls='mtest') if task == 'default' else Span(Button('Test', type='button', cls='quiet small', hx_post=Routes.test, hx_vals={'task': task},
@@ -381,13 +381,13 @@ def ModelsGroup(n):
 
 def registry() -> dict:
     "The editable prompts. Each engine module adds its own when it loads."
-    import abhyasa.tutor, abhyasa.demo, abhyasa.nb, abhyasa.voice, abhyasa.journey, abhyasa.walk, abhyasa.profile, abhyasa.method, abhyasa.sources, abhyasa.talk, abhyasa.edit
-    from abhyasa.prompts import PROMPTS
+    import abhyasa.tutor, abhyasa.show, abhyasa.models, abhyasa.path, abhyasa.learner, abhyasa.sources
+    from abhyasa.learner import PROMPTS
     return PROMPTS
 
 def PromptItem(p, text=None, err='', said=''):
     "One prompt: its label, a note on what it changes, and a raised editor with the text in use. `err` says why a text was refused."
-    from abhyasa.prompts import saved, prompt
+    from abhyasa.learner import saved, prompt
     mine, pid = p.name in saved(), 'pr-' + p.name.replace('.', '-')
     return Details(Summary(Span(cls='dot' + (' on' if mine else '')), Span(p.label, cls='nm'), Span('Your text' if mine else 'The default', cls='mute state')),
                    P(p.note, cls='mute note'),

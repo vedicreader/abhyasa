@@ -28,7 +28,7 @@ def test_a_failed_vision_call_is_not_kept(mk, fake):
 
 def test_an_empty_first_result_is_not_kept(mk, fake):
     "While no figure has labels, an empty reply is not kept: it can come from a route that lost the picture. So the next post asks again."
-    from abhyasa.settings import cfg_dir
+    from abhyasa.learner import cfg_dir
     (cfg_dir()/'guide-figures.json').unlink(missing_ok=True)
     replies = [dict(labels=[]), LABELS]
     fake.rules['You find the text labels'] = lambda p, sp: replies.pop(0)
@@ -39,7 +39,7 @@ def test_an_empty_first_result_is_not_kept(mk, fake):
 
 def test_a_route_that_loses_pictures_says_so(mk, monkeypatch):
     "When the route of figure labels drops the picture, the figure route makes no call and its note names the model and the route."
-    import abhyasa.guide as G
+    import abhyasa.show as G
     monkeypatch.setattr(G, 'vision_ask', lambda ask, name='', job='': None)
     monkeypatch.setattr('abhyasa.blocks.guide.app.vision_ask', lambda ask, name='', job='': None)
     monkeypatch.setattr('abhyasa.blocks.guide.app.vision_why', lambda ask, name='': 'GPT-6.1 Sol does not get pictures on this route.')
@@ -59,7 +59,7 @@ WITHHELD = 'The guide did not send this. It holds personal data, and your privac
 def test_each_route_answers_a_withheld_text_plainly(mk, fake, lr, monkeypatch):
     "With `cli.pii` refuse, the guard withholds personal data: each guide route answers with one plain line, not a 500."
     import ramabana.guard, abhyasa.blocks.guide.app as ga
-    from abhyasa.guide import Withheld
+    from abhyasa.models import Withheld
     monkeypatch.setattr(ramabana.guard, 'setting', lambda k, d=None: 'refuse' if k == 'cli.pii' else d)
     fake.rules['You find the text labels'] = LABELS
     cl, pii = mk(), 'Mail jane.doe@example.com or call 415-555-0134'
@@ -137,7 +137,7 @@ def test_ask_streams_each_step_before_the_board(mk, fake):
 
 def test_warm_starts_the_guide_job_at_most_once_in_a_while(mk, monkeypatch):
     "Hyper+E posts to the warm route. The route starts the backend of the guide job only, and a second post soon after does nothing."
-    from abhyasa.llm import Router
+    from abhyasa.models import Router
     seen = []
     monkeypatch.setattr(Router, 'warm', lambda self, jobs=None: seen.append(jobs), raising=False)
     cl = mk()
@@ -296,7 +296,7 @@ def test_the_first_event_says_who_gets_the_question(mk, fake):
 def test_a_routed_model_is_named_with_where_it_runs(mk, monkeypatch):
     "The page names the routed model of the guide and of a figure, with on this Mac or hosted and the company, and the speech engine."
     import html, re
-    from abhyasa.llm import Router
+    from abhyasa.models import Router
     monkeypatch.setattr('abhyasa.blocks.guide.app.guide_ask', lambda ask: type('A', (), {'model': 'claude/sonnet'})())
     info = json.loads(html.unescape(re.search(r"data-info='([^']*)'", mk().get('/').text).group(1)))
     assert info['model'] == dict(model='Claude Sonnet', where='hosted', who='Anthropic')
@@ -328,14 +328,14 @@ def test_a_saved_web_page_can_be_undone(mk, fake, lr, monkeypatch):
     assert cl.post(s['undo']).text == 'There is nothing to undo.'
 
 def test_voice_off_is_kept(mk):
-    from abhyasa.settings import val
+    from abhyasa.learner import val
     cl = mk()
     assert cl.post('/guide/voice', data=dict(on='0')).status_code == 204 and val('guide.voice') is False
     cl.post('/guide/voice', data=dict(on='1')); assert val('guide.voice') is True
 
 def test_the_point_look_goes_to_the_page_and_the_events(mk, fake):
     "The page script and the step and board events of the ask route carry the setting guide.point, so the page and the Mac overlay draw the same look."
-    from abhyasa.settings import set_val
+    from abhyasa.learner import set_val
     fake.rules['Tier: tutor'] = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='This is the passage.'), dict(op='point', at='passage')])
     fake.stream = lambda p, sp='': iter([fake(p, sp)])
     ctx = dict(page='/walk/x/step/1', anchors=[dict(id='passage', kind='passage', text='Some text.')])
@@ -351,7 +351,7 @@ def test_page_info_names_the_new_guide_model_after_a_save(mk, monkeypatch):
     "The page says which model the guide asks. A save of a model on the Settings page shows the new name on the next page, with no wait of INFO_EVERY."
     import html, json, re
     from types import SimpleNamespace
-    from abhyasa.settings import val, set_val
+    from abhyasa.learner import val, set_val
     import abhyasa.blocks.guide.app as g
     monkeypatch.setattr(g, 'guide_ask', lambda ask: SimpleNamespace(model=val('models.guide')))
     info = lambda: json.loads(html.unescape(re.search(r"data-info='([^']*)'", cl.get('/').text)[1]))['model']['model']
@@ -372,7 +372,7 @@ TRIED = [dict(id='check', kind='check', text='Why does alpha bar fall toward zer
 
 def test_explain_the_gaps_sends_the_graded_try(mk, fake):
     "\"Explain the gaps\" with the learner's try on the page: the prompt has the try, its feedback, Error line and gaps, and the rule for an answer."
-    from abhyasa.guide import ON_TRY
+    from abhyasa.show import ON_TRY
     fake.rules['Tier: tutor'] = SURE_BOARD
     evs = [json.loads(l[6:]) for l in mk().post('/guide/ask', json=dict(said='explain the gaps', ctx=dict(page='/s/x', anchors=TRIED))).text.splitlines() if l.startswith('data: ')]
     p, sp = next((p, sp) for p, sp in fake.calls if 'Tier: tutor' in p)

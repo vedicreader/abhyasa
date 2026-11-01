@@ -7,11 +7,9 @@ route strings. The side walk is a normal walk; its own course is a normal course
 import logging, re, time
 from fasthtml.common import *
 from fastcore.utils import first
-from abhyasa.core import hook, run as run_hook
-from abhyasa.core import is_local
-from abhyasa.journey import needs, pick_way_down, detour, back_from, look_up, name_gaps, parent_step, for_talk
-from abhyasa.course import course_from, courses_from, course_state
-from abhyasa.settings import val
+from abhyasa.core import hook, run as run_hook, is_local
+from abhyasa.path import needs, pick_way_down, detour, back_from, look_up, name_gaps, parent_step, for_talk, course_from, courses_from, course_state
+from abhyasa.learner import val
 from . import ui
 from .cfg import Routes
 

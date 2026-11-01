@@ -7,12 +7,13 @@ from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook, run as run_hook
 from urllib.parse import quote
-from abhyasa.demo import show_reply
-from abhyasa.ground import main_words
-from abhyasa.guide import (FigureCache, Withheld, clean_context, concept_video, explain, figure_labels, file_video, find_explainer, guide_ask, set_video,
-                           unsave, video_of, vision_ask, vision_why, where_of)
-from abhyasa.settings import SETTINGS, raw, val, set_val
-from abhyasa.voice import cfg_dir
+from abhyasa.show import show_reply
+from abhyasa.sources import main_words
+from abhyasa.show import (FigureCache, clean_context, concept_video, explain, figure_labels, file_video, find_explainer, guide_ask,
+    set_video, unsave, video_of, vision_ask, vision_why, where_of)
+from abhyasa.models import Withheld
+from abhyasa.learner import SETTINGS, raw, val, set_val
+from abhyasa.models import cfg_dir
 from . import ui
 from .cfg import Routes
 
@@ -39,7 +40,7 @@ def is_image(b:bytes) -> bool: return b.startswith(IMAGES) or (b[:4] == b'RIFF' 
 
 def speech() -> dict:
     "Who writes what you say: the speech engine of the settings, and where it runs. Only the OpenAI engine is hosted."
-    from abhyasa.voice import current, KNOWN
+    from abhyasa.models import current, KNOWN
     try: e, m = current()
     except Exception: e, m = 'mlx', ''
     if e == 'openai': return dict(model='OpenAI', where='hosted', who='OpenAI')
@@ -48,7 +49,7 @@ def speech() -> dict:
 
 def voice_out(here=None) -> dict:
     "Who reads the board aloud: the engine of the setting `voice.out`, its name, and where it runs. Only OpenAI is hosted. The browser speaks until the local voice is on this Mac."
-    from abhyasa.voice import out_current, out_where, cached
+    from abhyasa.models import out_current, out_where, cached
     e, m, v, _ = out_current()
     if e == 'pocket' and not (here or cached)(m): e, m, v = 'browser', '', ''
     name = dict(browser='The browser', pocket='Pocket TTS', openai='OpenAI')[e]
@@ -63,7 +64,7 @@ def connect(app, ctx):
         "What the page tells before it sends: the model of the guide, the model that reads a figure, the speech engine, the voice setting and the look of a point mark."
         now = tuple(raw(n) for n in SETTINGS if n.startswith(('models.', 'stt.')))   # a save on the Settings page names the new model at once
         if time.monotonic() - info_[0] > INFO_EVERY or info_[1] is None or info_[2] != now:
-            from abhyasa.llm import dflt_model
+            from abhyasa.models import dflt_model
             g = where_of(getattr(guide_ask(ask), 'model', ''))
             routed = hasattr(getattr(ask, 'dflt', None), 'via')
             info_[:] = time.monotonic(), dict(model=g, vision=where_of(ask.name('guide_vision') or dflt_model()) if routed else g, speech=speech()), now
@@ -138,7 +139,7 @@ def connect(app, ctx):
     async def ask_(req):
         """The board for one question, as server-sent events. Before each step of its work: a state event
         `{"wait": text, "state": "reading"|"asking"|"searching"|"saving", "model", "where": "on this Mac"|"hosted", "who", "query",
-        "sources"}`, with only the fields that apply (`abhyasa.guide`, *Never caught unaware*). The server sends "reading" for a web
+        "sources"}`, with only the fields that apply (`abhyasa.show`, *Never caught unaware*). The server sends "reading" for a web
         page. The page sets "reading" itself while it reads the page, and "drawing" when the first step or the board comes and the
         board starts: the server never sends "drawing". `{"step": {…}, "k": n,
         "tier": "tutor", "point": look}` for each step of a sure tutor board as soon as it is whole. `{"saved": {"title", "url", "undo"}}` when the

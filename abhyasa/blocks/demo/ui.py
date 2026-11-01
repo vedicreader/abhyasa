@@ -4,7 +4,7 @@ from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import asset_css, asset_js, Feedback, Quiet
 from abhyasa.core.leela import LEELA_INSTALL
-from abhyasa.demo import KINDS, STAGES
+from abhyasa.show import DEMO_KINDS as KINDS, STAGES
 from .cfg import Routes
 
 _P = Path(__file__).parent

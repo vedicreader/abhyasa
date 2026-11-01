@@ -443,7 +443,7 @@ class Learning:
         self._lock = threading.RLock()   # a change of a group is one step: look, then write
         try: self.repair_names()   # a name that is a slug becomes words, one time
         except Exception as e: log.warning('abhyasa could not repair the names of the concepts: %r', e)
-        try: import abhyasa.journey; self.repair_titles()   # a walk titled with an arXiv id gets the title of its paper, one time
+        try: import abhyasa.path; self.repair_titles()   # a walk titled with an arXiv id gets the title of its paper, one time
         except Exception as e: log.warning('abhyasa could not repair the titles of the walks: %r', e)
         try: getattr(self, 'repair_subjects', lambda: 0)()   # the `journey` module adds it: a walk gives its subject to its concepts, one time
         except Exception as e: log.warning('abhyasa could not repair the subjects of the concepts: %r', e)
@@ -1293,7 +1293,7 @@ def onboard_prompt(answers:dict) -> str:
 
 def onboard(lr:Learning, ask, answers:dict) -> list:
     "Fill the profile from the onboarding answers. Return the changes."
-    from abhyasa.llm import ask_json, for_task   # here: the model layer imports this module
+    from abhyasa.models import ask_json, for_task   # here: the model layer imports this module
     r = ask_json(for_task(ask, 'profile'), onboard_prompt(answers), prompt('profile.onboard'))
     return lr.set_profile(by='onboarding', why='from what you said when you started', **{k: v for k, v in r.items() if k in PROFILE})
 
@@ -1330,7 +1330,7 @@ def observe_prompt(p, ev:str, st=None) -> str:
 # %% ../nbs/00_learner.ipynb #fc3b3102
 def observe(lr:Learning, ask, n:int=12) -> list:
     "Change the profile from the recent answers. Return the changes, each with its reason."
-    from abhyasa.llm import ask_json, for_task   # here: the model layer imports this module
+    from abhyasa.models import ask_json, for_task   # here: the model layer imports this module
     if not (ev := evidence(lr, n)): return []
     lr.set_stats(calib=dict(calibration(lr)))   # cached here, every few closes, so a question does not read all attempts
     r = ask_json(for_task(ask, 'profile'), observe_prompt(lr.profile(), ev, lr.stats()), prompt('profile.observe'))

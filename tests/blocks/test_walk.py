@@ -5,7 +5,7 @@ import abhyasa.blocks.walk
 import pytest
 
 def made(cl, key): return cl.app.state.svc['tutor'].jobs[key].result(timeout=30)   # wait on the demo job, not on the clock
-from abhyasa.method import TEXT_WAYS, LABELS
+from abhyasa.learner import TEXT_WAYS, METHOD_LABELS as LABELS
 
 def test_plan_then_start(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr)
@@ -289,7 +289,7 @@ def held(fake, key, words):
 
 def test_wrong_predictions_climb_the_demo_ladder(mk, walk_fake, lr):
     "The first wrong prediction shows a lesson in another way under the card. The second shows a simpler demo. The walk never waits on the model."
-    from abhyasa.demo import SIMPLER_AIM
+    from abhyasa.show import SIMPLER_AIM
     slug = 'scaling-by-the-root-of-dk'
     teach, small_job = held(walk_fake, 'Teach the smallest step', 'They predicted'), held(walk_fake, 'You design one interactive demo', SIMPLER_AIM)
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
@@ -328,7 +328,7 @@ def test_wrong_predictions_climb_the_demo_ladder(mk, walk_fake, lr):
 
 def test_one_gate_demo_can_ask_for_a_simpler_demo(mk, walk_fake, lr):
     "With one gate, the lesson after a wrong prediction has a quiet link. The link makes the simpler demo on demand: first a pending state, then the demo."
-    from abhyasa.demo import SIMPLER_AIM
+    from abhyasa.show import SIMPLER_AIM
     slug = 'scaling-by-the-root-of-dk'
     hold = held(walk_fake, 'You design one interactive demo', SIMPLER_AIM)
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
@@ -410,7 +410,7 @@ def test_a_prereq_does_not_stop_the_ladder_in_a_walk(mk, walk_fake, lr):
 
 def test_no_ladder_in_a_walk_when_the_setting_is_off(mk, walk_fake, lr):
     "With checks.demo_ladder off, a wrong prediction only shows the answer, as before."
-    from abhyasa.settings import set_val
+    from abhyasa.learner import set_val
     set_val('checks.demo_ladder', False)
     try:
         cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
@@ -659,7 +659,7 @@ def test_paper_walk_is_named_for_the_paper(mk, walk_fake, lr, monkeypatch):
 
 def test_old_paper_walk_title_is_repaired_once(lr):
     "A walk whose title is a bare arXiv id takes the title of its vault document, one time; a walk with a real title stays."
-    from abhyasa.store import Learning
+    from abhyasa.learner import Learning
     d = lr.vault.add(PAGES, 'Attention Is All You Need', source='https://arxiv.org/pdf/1706.03762', kind='pdf')
     mk_j = lambda i, t, doc: lr.put_journey(dict(id=i, title=t, mode='walk', steps=[], url='https://arxiv.org/pdf/1706.03762', source=dict(url='https://arxiv.org/pdf/1706.03762'),
                                                  docs=[dict(shelf='store', doc_id=doc, title=t, url='https://arxiv.org/pdf/1706.03762')]))
@@ -707,7 +707,7 @@ def test_title_repair_never_blocks_the_start(mk, lr):
     "The repair is a future on the pool: the call returns while arXiv is slow, and a load of the vault asks nothing."
     import threading
     from abhyasa.app import repair_in_background
-    from abhyasa.store import Learning
+    from abhyasa.learner import Learning
     old_paper_walk(lr); cl = mk(); go = threading.Event()
     f = repair_in_background(cl.app, lambda aid: go.wait(10) and 'Attention Is All You Need')
     try:

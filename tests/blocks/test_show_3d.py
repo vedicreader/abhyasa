@@ -1,7 +1,7 @@
 "Show it in 3D: the 3D route gives a card with a scene, a failed explainer gives the 2D demo, three.js comes from rupaka beside rupaka.js, and a scene draws in a headless browser."
 import json, re, socket, threading, time, pytest
 from rupaka.spec import gallery
-from abhyasa.demo import scene_example, REFUSED
+from abhyasa.show import scene_example, REFUSED
 from test_show_me import svc, aid_of
 
 SCENE = {**scene_example(), 'id': 'ranking-3d'}

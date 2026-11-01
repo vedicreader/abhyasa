@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, DepthBar, subject_name
-from abhyasa.method import METHODS, WALK_WAYS, LABELS, EXPLORE, posterior, mean, improving
+from abhyasa.learner import METHODS, WALK_WAYS, METHOD_LABELS as LABELS, EXPLORE, posterior, mean, improving
 from .cfg import Routes
 
 _P = Path(__file__).parent

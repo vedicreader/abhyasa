@@ -1,7 +1,7 @@
 """A slug is the stored id of a concept. These are the slugs that abhyasa 0.0.16 made, byte for byte. A new slug for an old name would
 leave the rows of that concept in the vault with no concept."""
 import pytest
-from abhyasa.store import slugify
+from abhyasa.learner import slugify
 
 SLUGS = [
     ('संधि', 'samdhi'),

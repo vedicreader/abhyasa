@@ -1,6 +1,6 @@
 "Pages over a vault with the shapes of a real vault: a store of names (`entities`) with no `doc_id`, shelves from other tools, and odd links."
 from bs4 import BeautifulSoup
-from abhyasa.ground import VaultSource
+from abhyasa.sources import VaultSource
 
 def names_store(lr):
     "The store of names that vishalakshi keeps beside the main shelf: columns kind, canon and freq, and no doc_id."
@@ -56,7 +56,7 @@ def test_vault_source_skips_a_store_of_names(lr):
 # A source that fails gives no passages, as before, but the log now says why. Before, the error was lost, and a broken shelf looked like no passages.
 
 def test_a_failed_source_is_in_the_log(lr, caplog):
-    from abhyasa.ground import concept_grounds
+    from abhyasa.sources import concept_grounds
     class Broken:
         name = 'broken'
         def search(self, q, k=4): raise RuntimeError('no such column: doc_id')

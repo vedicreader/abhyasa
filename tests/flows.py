@@ -5,9 +5,9 @@ from urllib.parse import urlsplit
 import lxml.html
 from fastcore.basics import AttrDict
 from starlette.routing import Match
-from abhyasa.journey import walk_from_topic
-from abhyasa.llm import Fake
-from abhyasa.jobs import job_start
+from abhyasa.path import walk_from_topic
+from abhyasa.models import Fake
+from abhyasa.learner import job_start
 from walk_data import walk
 
 SPEC = json.loads((Path(__file__).parent/'data'/'flows.json').read_text())
@@ -204,7 +204,7 @@ def b_walk_locked(lr, cl, mp):
 
 def b_course_locked(lr, cl, mp):
     "The course of the goal walk, with the stage of the walk locked on the course page, and one planned stage that Fix the rest plans again."
-    from abhyasa.course import join_course
+    from abhyasa.path import join_course
     goal_walk(lr); cid = join_course(lr, 'gw').id
     lr.change_course(cid, lambda c: c.stages.append(dict(key='s9', name='An old plan', makes='', ideas=['Old'], foundation=False, skip_if='', short=False, walk=None, status='planned')))
     assert cl.post(f'/course/{cid}/lock', data=dict(key=lr.course(cid).stages[0]['key'], on='1')).status_code == 200
@@ -248,12 +248,12 @@ def rabbit_step(lr, cl):
     return jid
 
 def b_idea_own_course(lr, cl, mp):
-    from abhyasa.course import course_from
+    from abhyasa.path import course_from
     jid = rabbit_step(lr, cl); course_from(lr, 'gradients', dict(walk=jid, step=2))
     return f'/w/{jid}/2', {}
 
 def b_course_from_rabbit(lr, cl, mp):
-    from abhyasa.course import course_from
+    from abhyasa.path import course_from
     jid = rabbit_step(lr, cl)
     return f"/course/{course_from(lr, 'gradients', dict(walk=jid, step=2)).id}", {}
 

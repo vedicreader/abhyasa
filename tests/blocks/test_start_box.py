@@ -10,7 +10,7 @@ PLAN = dict(title='Diffusion comic', subject='ml', steps=[dict(name='Noise sched
 @pytest.fixture(autouse=True)
 def no_research():
     "Research is off, so no job of the new walk looks on the web after the test. The settings folder is shared by the tests, so the old value comes back."
-    from abhyasa.settings import val, set_val
+    from abhyasa.learner import val, set_val
     old = val('research.on'); set_val('research.on', False)
     yield
     set_val('research.on', old)
@@ -115,7 +115,7 @@ def test_the_pending_line_is_in_view_after_start(mk, lr, walk_fake, held, tmp_pa
 
 def test_a_folder_inside_a_source_is_not_a_second_source(mk, tmp_path, monkeypatch):
     "A goal names `abhyasa`: the repo `abhyasa` and the folder `abhyasa/abhyasa` in it both have the name. Only the repo is a source, as it files the folder too."
-    from abhyasa.settings import set_val
+    from abhyasa.learner import set_val
     monkeypatch.setattr(Path, 'home', lambda: tmp_path)   # a root of the sources is in the home folder
     code = tmp_path/'code'
     (repo := code/'abhyasa').mkdir(parents=True); (repo/'.git').mkdir(); (repo/'README.md').write_text('# abhyasa\n')

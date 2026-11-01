@@ -4,7 +4,7 @@ from pathlib import Path
 import abhyasa.blocks.add.app as add_app
 from starlette.testclient import TestClient
 from abhyasa.sources import NO_READ
-from abhyasa.settings import NO_FOLDER
+from abhyasa.learner import NO_FOLDER
 
 @pytest.fixture
 def home(tmp_path, monkeypatch):
@@ -78,7 +78,7 @@ def test_a_picked_path_has_the_checks_of_a_typed_path(mk, home, monkeypatch):
 @pytest.fixture
 def research():
     "Research is on and its line is not told yet. The settings folder is shared by the tests, so the old values come back."
-    from abhyasa.settings import set_val, val
+    from abhyasa.learner import set_val, val
     old = val('research.on'), val('research.told')
     set_val('research.on', True); set_val('research.told', False)
     yield

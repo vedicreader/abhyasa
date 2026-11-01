@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, asset_js, Primary, meta, n_of, pane_link, side_link, short_title
-from abhyasa.settings import val
+from abhyasa.learner import val
 from .cfg import Routes
 
 _P = Path(__file__).parent

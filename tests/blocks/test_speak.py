@@ -1,8 +1,8 @@
 "The natural voice on the server: `/guide/say` gives the audio of one line with the time of each word, keeps the lines of the run, and guards a line for OpenAI."
 import base64, io, wave, pytest
 import numpy as np
-import abhyasa.voice as V
-from abhyasa.settings import update_settings, reset
+import abhyasa.models as V
+from abhyasa.learner import update_settings, reset
 
 class FakePocket:
     "A Pocket TTS with no download: 0.25 s of silence for each word."

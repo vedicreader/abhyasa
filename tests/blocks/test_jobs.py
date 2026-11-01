@@ -1,7 +1,7 @@
 "The background jobs in one place: a stored row for each job, the activity chip in the top bar, the event stream, and the state for the Mac app."
 import json, re, threading, time
 from fastcore.utils import L
-from abhyasa.jobs import job_start, job_end
+from abhyasa.learner import job_start, job_end
 from walk_data import PAGES, wait_for, walk
 
 def chip(h):
@@ -89,7 +89,7 @@ def test_a_source_that_files_has_a_row(mk, lr, monkeypatch):
 def test_a_course_job_has_a_row(mk, lr, fake):
     "Where you start: the job of its questions has a row on the course, and its part waits on the stream of the course."
     from test_course import goal_walk
-    from abhyasa.course import join_course
+    from abhyasa.path import join_course
     goal_walk(lr); c = join_course(lr, 'gw')
     gate = threading.Event()
     fake.rules['You find out what one learner knows'] = lambda p, sp: (gate.wait(5), dict(qs=[]))[1]
@@ -119,7 +119,7 @@ def hx_get(h): return re.search(r'hx-get="([^"]+)"', h)[1].replace('&amp;', '&')
 
 def test_a_demo_has_a_row_and_its_card_swaps_on_the_event(mk, walk_fake, lr):
     "Show me: the card waits on the row of its demo job; the row says the real stage; the end comes as an event, and the card then has the demo."
-    from abhyasa.demo import STAGES
+    from abhyasa.show import STAGES
     from rupaka.spec import gallery
     gate, n = threading.Event(), []
     def rule(p, sp):   # the first try fails the checks; the second waits for the test
@@ -195,7 +195,7 @@ def test_a_sort_has_a_row_and_its_card_swaps_on_the_event(mk, lr, fake):
 
 def test_a_download_has_a_row_and_its_lines_swap_on_the_event(mk, lr, monkeypatch):
     "Download a model in Settings: the progress lines wait on its row, which says the bytes so far; the end comes as an event."
-    from abhyasa import voice
+    from abhyasa import models as voice
     m, gate, got = 'mlx-community/whisper-tiny-asr-fp16', threading.Event(), []
     monkeypatch.setattr(voice, 'cached', lambda model: model in got)
     monkeypatch.setattr(voice, 'model_size', lambda model: 2**20)
@@ -214,7 +214,7 @@ def test_a_download_has_a_row_and_its_lines_swap_on_the_event(mk, lr, monkeypatc
 def test_an_old_jobs_document_moves_to_the_ledger(mk, lr):
     "The rows of the old document show in the chip and in `/jobs.json`, with the same shape. A row that ran is closed. A bad row is left out."
     import time
-    from abhyasa.jobs import OLD
+    from abhyasa.learner import OLD
     now = time.time()
     rows = {'walk:w8:research': dict(kind='research', state='running', title='Old walk', said='Looking for sources', start=now - 60, url='/w/w8', obj='walk:w8'),
             'build:b8': dict(kind='build', state='done', title='Old link', said='Ready.', start=now - 90, end=now - 30, url='/w/w9', seen=False),

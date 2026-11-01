@@ -1,6 +1,7 @@
 "Old paths become walks at the start, with their progress; old links go to the walk page; a concept page lists its walks; a session of a walk says when an idea is done."
 import re, time
-from abhyasa.journey import plan as plan_path, walk_state
+from abhyasa.path import plan as plan_path
+from abhyasa.learner import walk_state
 from walk_data import wait_for
 
 PLAN = dict(title='How LLMs work', subject='ml', steps=[
@@ -44,7 +45,7 @@ def test_an_old_path_keeps_its_progress(mk, fake, lr):
     """An old path with two sessions keeps its progress: a step with a pass is done, a step with a fragile answer is shaky, the newest open
     session is the sitting with its open question, and `started` and `here` come from the sessions. So a newer walk stays Continue."""
     from abhyasa.tutor import Tutor, public
-    from abhyasa.journey import last_place
+    from abhyasa.path import last_place
     for n in ('Softmax', 'Tokens'): lr.put(n, f'{n} is one idea.', 'ml')
     steps = [dict(slug=s, status='todo') for s in ('ranking', 'reciprocal-rank-fusion', 'softmax', 'tokens')]
     lr.put_journey(dict(id='old-p', title='Old path', goal='Learn ranking', subject='ml', created=500., steps=steps))

@@ -1,6 +1,6 @@
 "The talk block: make a talk from a walk, change its slides, and find it again."
 from talk_data import *
-from abhyasa.settings import val
+from abhyasa.learner import val
 import hashlib, json, pytest
 from fastcore.basics import AttrDict
 from pathlib import Path
@@ -158,7 +158,7 @@ def test_edit_the_points(mk, talk_fake, lr):
 
 def test_fill_the_slides(mk, talk_fake, lr):
     "An old talk with bare slides offers Fill the slides; the GET only reads, and the POST runs the job that fills them."
-    from abhyasa.talk import talk_from_walk
+    from abhyasa.show import talk_from_walk
     cl = mk(); tid = journey_talk(cl, journey_of(lr)); wid = lr.talk(tid).src['walk']
     old = talk_from_walk(lr, talk_fake, wid, fill=False); before = lr.talk(old.id)
     ed = cl.get(f'/t/{old.id}').text
@@ -905,7 +905,7 @@ def test_slide_text_is_safe(mk, talk_fake, lr):
 
 def test_words_question_reads_well():
     "The words question names the idea as a question when the name is a question, and asks what it is when the name is a noun phrase."
-    from abhyasa.talk import words_q
+    from abhyasa.show import words_q
     assert words_q(f'Why scale by {TEX}') == f'Say in one or two sentences: Why scale by {TEX}?'
     assert words_q('How does attention work?') == 'Say in one or two sentences: How does attention work?'
     assert words_q('Softmax') == 'Say in one or two sentences: what is "Softmax"?'
@@ -917,8 +917,8 @@ def test_words_question_reads_well():
 
 def test_a_failed_choice_gives_a_good_words_question(lr):
     "When the model gives no choice question, the words question reads well for a name that is a question."
-    from abhyasa.talk import ask_from_check
-    from abhyasa.llm import Fake
+    from abhyasa.show import ask_from_check
+    from abhyasa.models import Fake
     lr.put(f'Why scale by {TEX}', 'Divide the scores by the root of dk.', 'ml')
     slug = next(c.slug for c in lr.concepts() if c.name.startswith('Why scale'))
     a = ask_from_check(lr, Fake({}, dflt='not JSON'), slug)
@@ -926,8 +926,8 @@ def test_a_failed_choice_gives_a_good_words_question(lr):
 
 def test_the_slide_model_writes_the_words_question(lr):
     "A slide with the fallback words question takes the question that the slide model writes; a question that you wrote stays."
-    from abhyasa.talk import fill_slide, words_q
-    from abhyasa.llm import Fake
+    from abhyasa.show import fill_slide, words_q
+    from abhyasa.models import Fake
     from talk_data import SLIDE
     ask = Fake({'You write one slide of a talk': SLIDE})
     s = dict(id='s1', kind='idea', concept='ranking', title='Ranking', show=dict(passage='Order items by a score.'), beats=['passage'], notes='',
@@ -938,8 +938,8 @@ def test_the_slide_model_writes_the_words_question(lr):
 
 def test_an_old_words_question_gets_new_words(lr):
     "A slide with a passage and a note needs no model call, but its old words question gets the words of words_q; your own question stays."
-    from abhyasa.talk import fill_slide, old_words_q
-    from abhyasa.llm import Fake
+    from abhyasa.show import fill_slide, old_words_q
+    from abhyasa.models import Fake
     none = Fake({})
     s = dict(id='s6', kind='idea', concept='nope', title=f'Why scale by {TEX}', show=dict(passage='We scale the dot products.'), beats=['passage'],
              notes='Say why.', ask=dict(kind='words', q=old_words_q(f'Why scale by {TEX}'), most=80))
@@ -964,8 +964,8 @@ def test_the_foot_draws_the_maths_of_the_talk_title(mk, talk_fake, lr):
 def test_teach_tells_two_talks_of_one_walk_apart(mk, lr):
     "Two talks with one title on Home each say the day and the hour when they were made. A talk with its own title says nothing more."
     import time
-    from abhyasa.talk import talk_from_walk
-    from abhyasa.llm import Fake
+    from abhyasa.show import talk_from_walk
+    from abhyasa.models import Fake
     jid = journey_of(lr)
     lr.merge_journey(jid, mode='walk', steps=[{**s, 'check': dict(way='words', kind='short', depth=2)} for s in lr.journey(jid).steps])
     at = lambda h, m: time.mktime((2026, 10, 29, h, m, 0, 0, 0, -1))
@@ -980,8 +980,8 @@ def test_teach_tells_two_talks_of_one_walk_apart(mk, lr):
 def test_teach_shows_a_dated_twin_as_the_other_twins(mk, lr):
     "An older Make it again put the date in the title: `How a Neural Network Works · 29 Oct`. On Home its title has no date, and each twin says when it was made."
     import time
-    from abhyasa.talk import talk_from_walk
-    from abhyasa.llm import Fake
+    from abhyasa.show import talk_from_walk
+    from abhyasa.models import Fake
     jid = journey_of(lr)
     lr.merge_journey(jid, mode='walk', steps=[{**s, 'check': dict(way='words', kind='short', depth=2)} for s in lr.journey(jid).steps])
     at = lambda d, h, m: time.mktime((2026, 10, d, h, m, 0, 0, 0, -1))

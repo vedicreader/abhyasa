@@ -1,6 +1,6 @@
 "The course page, Where you start, the stages, and the course line on Today, with a temp vault and the Fake model."
 import re, time
-from abhyasa.course import join_course
+from abhyasa.path import join_course
 
 LEVEL = dict(questions=[dict(q='Do you know how a neural network learns?', idea='How a neural network learns'), dict(q='Have you used diffusers?', idea='The diffusers library')])
 STAGES = dict(title='Diffusion for comics', makes='a LoRA in your comic style', stages=[

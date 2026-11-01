@@ -171,7 +171,7 @@ def test_a_failed_side_walk_or_term_shows_a_plain_line_and_logs_the_error(mk, wa
 
 def test_parent_step_is_the_one_check_for_the_parent(mk, walk_fake, lr):
     "`parent_step` gives the parent walk and step of a side walk while they are there, else (None, None)."
-    from abhyasa.journey import parent_step
+    from abhyasa.path import parent_step
     cl = mk(); jid = walk(cl, lr); pj = lr.journey(jid)
     side = lambda p: dict(id='side', title='Side', mode='walk', depth=1, steps=[], parent=p)
     assert parent_step(lr, side(dict(walk=jid, step=2))) == (pj, 2)

@@ -3,9 +3,8 @@ import os, threading, time, base64
 from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, THEMES, MODES, parse_value
-from abhyasa import voice
-from abhyasa.jobs import track, job_said, seen_jobs
-from abhyasa.settings import GROUPS, SETTINGS, rows, val, fit, set_val, reset, reset_group
+from abhyasa import models as voice
+from abhyasa.learner import track, job_said, seen_jobs, GROUPS, SETTINGS, rows, val, fit, set_val, reset, reset_group
 from . import ui
 from .cfg import Routes
 
@@ -25,7 +24,7 @@ def connect(app, ctx):
     def count(g) -> int:
         "How many values of group `g` are not their default. For Prompts: how many prompts have your text."
         if g == 'prompts':
-            from abhyasa.prompts import saved
+            from abhyasa.learner import saved
             return len(saved())
         return sum(value_of(r) != r.dflt for r in rows(g) if r.reset)
 
@@ -160,7 +159,7 @@ def connect(app, ctx):
 
     def model(task:str, model:str=''):
         "Save the model of one task; '' uses the default. `ui.OTHER` shows a box for a model id that the list does not have."
-        from abhyasa.llm import ALL_TASKS, catalog
+        from abhyasa.models import ALL_TASKS, catalog
         if task not in ('default', *ALL_TASKS): return Response('unknown task', status_code=400)
         r = SETTINGS[f'models.{task}']
         if model == ui.OTHER: return ui.ModelRow(task, ctx.ask, [], typing=True)
@@ -171,7 +170,7 @@ def connect(app, ctx):
         "Send the test picture with the labels `FIGURE_TEST` to the model of figure labels, and say whether it read them."
         import time
         from pathlib import Path
-        from abhyasa.guide import figure_check, vision_ask, vision_why
+        from abhyasa.show import figure_check, vision_ask, vision_why
         if (why := vision_why(ctx.ask, model)): return Span(f'Failed: {why}', cls='no')
         v, t = vision_ask(ctx.ask, model, job='test:guide_vision'), time.time()
         try: r = figure_check(v, (Path(__file__).parent/'figure-test.png').read_bytes())
@@ -190,7 +189,7 @@ def connect(app, ctx):
         return Span(f"{time.time() - t:.1f} s: “{(out or '').strip()[:40]}”" if out else 'No answer.', cls='ok' if out else 'no')
 
     def catalog():
-        from abhyasa.llm import catalog as cat
+        from abhyasa.models import catalog as cat
         return ui.Models(ctx.ask, cat(), set_by())
 
     def look_(theme:str='', mode:str=''):
@@ -201,7 +200,7 @@ def connect(app, ctx):
 
     def prompt_(name:str, text:str=''):
         "Save the text of one prompt. A text that fails its check is not saved: the box keeps it, with the reason."
-        from abhyasa.prompts import set_prompt, saved
+        from abhyasa.learner import set_prompt, saved
         if (p := ui.registry().get(name)) is None: return Response('unknown prompt', status_code=400)
         try: set_prompt(name, text)
         except ValueError as e: return ui.PromptItem(p, text, err=str(e))

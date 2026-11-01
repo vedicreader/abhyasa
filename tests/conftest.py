@@ -17,10 +17,10 @@ def _local_only(self, addr):
 if not os.getenv('ABHYASA_REAL_SPEECH'): socket.socket.connect = _local_only
 import pytest
 from starlette.testclient import TestClient
-from abhyasa.store import temp_learning
-from abhyasa.llm import Fake
+from abhyasa.learner import temp_learning
+from abhyasa.models import Fake
 from abhyasa.app import mk_app
-from abhyasa.ground import passage
+from abhyasa.sources import passage
 from pathlib import Path
 from rupaka.spec import gallery
 import abhyasa.voice
@@ -37,7 +37,7 @@ def grader(p, sp):
 def demo_rule(p, sp):
     "The gallery demo, with an id from the concept in the prompt, so each concept gets its own spec."
     import re
-    from abhyasa.store import slugify
+    from abhyasa.learner import slugify
     return {**gallery()['reciprocal-rank-fusion'], 'id': slugify(re.search(r'^Concept: (.+?) \(subject', p, re.M).group(1))}
 
 @pytest.fixture
@@ -105,7 +105,7 @@ def no_agent(monkeypatch):
 @pytest.fixture(autouse=True)
 def no_disk_names(tmp_path_factory):
     "The Start box looks for named folders in an empty temp folder, not in the owner's code folders."
-    from abhyasa.settings import set_val
+    from abhyasa.learner import set_val
     set_val('sources.roots', str(tmp_path_factory.mktemp('roots')))
 
 def pytest_sessionfinish(session, exitstatus):

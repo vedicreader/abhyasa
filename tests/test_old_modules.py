@@ -26,3 +26,25 @@ def test_old_monkeypatch_reaches_the_code(monkeypatch, mod, name, user):
     m, mark = importlib.import_module(f'abhyasa.{mod}'), object()
     monkeypatch.setattr(m, name, mark)
     assert _globals(getattr(m, user))[name] is mark
+
+NEW = dict(settings='learner', prompts='learner', store='learner', model='learner', method='learner', profile='learner', jobs='learner',
+           llm='models', voice='models', ground='sources', sources='sources', detect='sources', tutor='tutor', nb='tutor', journey='path',
+           walk='path', edit='path', course='path', research='path', guide='show', demo='show', talk='show')
+VIEWS = {'profile': dict(LABELS='PROFILE_LABELS'), 'method': dict(LABELS='METHOD_LABELS'), 'detect': dict(source_of='kind_of', fold='fold_trim'),
+         'guide': dict(KINDS='GUIDE_KINDS'), 'demo': dict(KINDS='DEMO_KINDS'), 'research': dict(pick_prompt='sources.pick_prompt')}
+
+@pytest.mark.parametrize('mod', NEW)
+def test_old_module_is_its_new_module(mod):
+    "A plain old name is the new module itself. An old name with a name that means another thing in the new module is a view of it."
+    old, new = importlib.import_module(f'abhyasa.{mod}'), importlib.import_module(f'abhyasa.{NEW[mod]}')
+    if mod not in VIEWS: assert old is new
+    for k, v in VIEWS.get(mod, {}).items():
+        m, n = (importlib.import_module(f"abhyasa.{v.split('.')[0]}"), v.split('.')[1]) if '.' in v else (new, v)
+        assert getattr(old, k) is getattr(m, n)
+
+def test_a_view_writes_its_new_module(monkeypatch):
+    "A monkeypatch on a view changes the new module, so the code reads it."
+    import abhyasa.detect as d, abhyasa.sources as s
+    mark = object()
+    monkeypatch.setattr(d, 'named_sources', mark)
+    assert s.named_sources is mark

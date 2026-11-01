@@ -1,4 +1,4 @@
-"""Interactive demos from rupaka: Show. One engine (`abhyasa.demo.show`) and one card for each place: the Show slot of a walk step and of a
+"""Interactive demos from rupaka: Show. One engine (`abhyasa.show.show`) and one card for each place: the Show slot of a walk step and of a
 concept page, the thread of a session, the card under a lesson, and "show me …" to the guide. Each Show is an ask, so `/demo/asked/{aid}`
 is its one wait. The kind of each ask says why, and 3D and Leela are one click away.
 A 3D explainer is a rupaka scene. rupaka loads three.js from `Routes.three` only when a scene mounts, so a page with no scene never loads it."""
@@ -9,8 +9,8 @@ from starlette.responses import RedirectResponse
 from rupaka.render import bundle, version
 from abhyasa.core import hook, Msg
 from abhyasa.core.leela import leela_link
-from abhyasa.demo import show, queue_demo, job_state, job_age, job_stage, job_key, ROUTES, REFUSED
-from abhyasa.jobs import seen_jobs
+from abhyasa.show import show, queue_demo, job_state, job_age, job_stage, job_key, ROUTES, REFUSED
+from abhyasa.learner import seen_jobs
 from . import ui
 from .cfg import Routes
 

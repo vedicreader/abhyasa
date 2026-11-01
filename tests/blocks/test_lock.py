@@ -2,7 +2,7 @@
 import json, re, threading, time
 from walk_data import walk
 from flows import key_of
-from abhyasa.course import join_course
+from abhyasa.path import join_course
 
 FIX = 'You redo the ideas of one learning walk'
 PLAN = 'You plan a course to one learner'

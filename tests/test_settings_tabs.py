@@ -2,8 +2,8 @@
 import re, socket, threading, time
 from pathlib import Path
 import pytest
-from abhyasa import llm
-from abhyasa.settings import GROUPS, SETTINGS
+from abhyasa import models as llm
+from abhyasa.learner import GROUPS, SETTINGS
 from abhyasa.core import help_parts, row_id
 from abhyasa.blocks.settings.ui import TABS, TAB_OF, DFLT_TAB, tab_ids
 from test_board_js import _chromium

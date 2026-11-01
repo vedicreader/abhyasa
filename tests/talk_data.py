@@ -1,7 +1,7 @@
 "The shared data for the talk tests: the walk of `walk_data.py`, prepared with two short checks, a note and a demo check."
 from walk_data import *
-from abhyasa.journey import journey_from_source
-from abhyasa.llm import Fake
+from abhyasa.path import journey_from_source
+from abhyasa.models import Fake
 from rupaka.spec import gallery
 
 CHOICE = dict(q='What does softmax give for a list of scores?',

@@ -1,6 +1,6 @@
 "Make it again: a talk made from a walk takes the later changes of the walk and keeps your edits to its slides."
 from talk_data import *
-from abhyasa.talk import talk_from_walk, talk_again, walk_changes, GONE, AGAIN
+from abhyasa.show import talk_from_walk, talk_again, walk_changes, GONE, AGAIN
 from fastcore.basics import AttrDict
 
 
@@ -94,7 +94,7 @@ def test_restore_before_again(mk, lr, talk_fake):
 def test_model_call_outside_the_lock(lr, talk_fake):
     "The model writes the new slide while another thread can take the lock of the talk."
     import threading
-    from abhyasa.edit import edit_lock
+    from abhyasa.path import edit_lock
     jid = paper_walk_lr(lr); t = talk_from_walk(lr, talk_fake, jid)
     drop_and_add(lr, jid, t.slides[1]['concept'])
     free = []

@@ -5,13 +5,13 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from rupaka.spec import gallery
 from fastcore.utils import first, AttrDict
-from abhyasa.store import temp_learning
-from abhyasa.llm import Fake
+from abhyasa.learner import temp_learning
+from abhyasa.models import Fake
 from abhyasa.tutor import Tutor
-from abhyasa.settings import val, set_val
-from abhyasa.method import posterior
-from abhyasa.demo import (VERDICTS, NOTE_MAX, CONFUSES_MAX, SIMPLER_AIM, clean_note, last_feedback, feedback_line, make_demo, lesson_way, rung)
-import abhyasa.demo as demo_mod
+from abhyasa.learner import val, set_val, posterior
+from abhyasa.show import (VERDICTS, NOTE_MAX, CONFUSES_MAX, SIMPLER_AIM, clean_note, last_feedback, feedback_line, make_demo, lesson_way,
+    rung)
+import abhyasa.show as demo_mod
 
 S = 'reciprocal-rank-fusion'
 NOTE = 'why the rank goes in the bottom of the fraction'
@@ -102,7 +102,7 @@ def test_the_next_lesson_gets_the_note():
     assert feedback_line(lr, S, 'lesson') == ''                                          # that lesson used it
 
 def test_prompt_fragments_are_registered():
-    from abhyasa.prompts import PROMPTS, set_prompt
+    from abhyasa.learner import PROMPTS, set_prompt
     for n in ('demo.feedback', 'lesson.feedback'): assert n in PROMPTS and '{note}' in PROMPTS[n].dflt
     with pytest.raises(ValueError): set_prompt('demo.feedback', 'one line only')
 
@@ -143,7 +143,7 @@ def test_not_clear_brings_the_simpler_demo_in_on_the_next_miss():
 # --- the method model and the profile ------------------------------------------------------------------------------
 
 def test_not_clear_counts_mildly_against_the_way_and_just_right_a_little_for_it():
-    from abhyasa.method import FEEDBACK
+    from abhyasa.learner import FEEDBACK
     assert FEEDBACK == dict(unclear=('gap', .25), right=('solid', .1))
     lr = shelf(); d = lr.put_demo(spec('rrf-a'), S); a = wrong(lr, d)
     before = posterior(lr.stats(), 'demo')
@@ -243,7 +243,7 @@ def test_walk_not_clear_then_a_simpler_demo_right_away(mk, walk_fake, lr):
 
 def test_not_clear_makes_a_new_simpler_demo_when_an_old_one_is_there():
     "A simpler demo from before the note does not count: the next simpler demo is a new one, and its prompt holds the note."
-    from abhyasa.demo import simpler_demo
+    from abhyasa.show import simpler_demo
     lr, d, t, miss, fk = ladder()
     old = lr.put_demo(spec('rrf-old-small'), S, aim='simpler')
     lr.give_feedback('demo', 'unclear', NOTE, slug=old.slug)

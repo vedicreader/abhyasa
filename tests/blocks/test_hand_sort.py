@@ -116,7 +116,7 @@ def test_a_failed_accept_changes_nothing(mk, jy, fake, monkeypatch):
     cl = mk()
     cl.post('/concepts/sort', data=dict(every='1'))                                   # Rasis unticked
     t = settled(cl)
-    from abhyasa.store import Learning
+    from abhyasa.learner import Learning
     real = Learning.save_groups
     def boom(self, *a, **k): raise RuntimeError('the disk is full')
     monkeypatch.setattr(Learning, 'save_groups', boom)

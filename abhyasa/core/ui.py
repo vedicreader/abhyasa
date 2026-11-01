@@ -8,7 +8,7 @@ from rupaka.render import assets as rk_assets, font_css
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
-from abhyasa.model import DEPTHS
+from abhyasa.learner import DEPTHS
 from abhyasa.sources import source_of
 
 __all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
@@ -65,7 +65,7 @@ MODES = ('auto', 'light', 'dark')
 
 def look() -> tuple:
     "The theme and the mode from the settings; an unknown name gives the default."
-    from abhyasa.voice import settings
+    from abhyasa.models import settings
     s = settings().get('look') or {}
     t, m = s.get('theme'), s.get('mode')
     return t if t in THEMES else 'paper', m if m in MODES else 'auto'

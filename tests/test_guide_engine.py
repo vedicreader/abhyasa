@@ -1,6 +1,6 @@
 "The engine of the screen guide: the board language, the context, the gate, the guard and the explainer video."
 import json
-from abhyasa.guide import by_id, check_line, parse_board, norm_tex, OPS
+from abhyasa.show import by_id, check_line, parse_board, norm_tex, OPS
 
 DDPM = r'q(\mathbf{x}_t\mid\mathbf{x}_0)=\mathcal{N}(\mathbf{x}_t;\sqrt{\bar\alpha_t}\mathbf{x}_0,(1-\bar\alpha_t)\mathbf{I})'
 
@@ -32,7 +32,7 @@ def test_tex_match_ignores_braces():
     assert norm_tex(r'\sqrt{ \bar{\alpha}_{t} }') == norm_tex(r'\sqrt{\bar\alpha_t}')
 
 # --- the context and the figure labels -------------------------------------------------------------------------------
-from abhyasa.guide import clean_context, figure_labels, FigureCache
+from abhyasa.show import clean_context, figure_labels, FigureCache
 
 def test_clean_context_keeps_known_keys_and_cuts():
     raw = dict(page='/walk/x/step/1', evil='<script>', anchors=[dict(id='passage', kind='passage', text='w ' * 400, onclick='x'),
@@ -62,9 +62,9 @@ def test_figure_cache_keeps_boxes_only(tmp_path):
     assert b'PNG' not in (tmp_path/'figs.json').read_bytes()
 
 # --- the gate and the guard -------------------------------------------------------------------------------------------
-from abhyasa.guide import explain, guard, Withheld
-from abhyasa.llm import Fake
-from abhyasa.ground import passage
+from abhyasa.show import explain
+from abhyasa.models import guard, Withheld, Fake
+from abhyasa.sources import passage
 from fastcore.basics import AttrDict
 
 SECRET = 'sk-test1234567890abcdefXYZ'
@@ -134,7 +134,7 @@ def test_a_secret_in_a_figure_caption_never_reaches_the_vision_call():
 
 def test_a_raw_context_with_by_is_cleaned(monkeypatch):
     "A host sends the page context as the browser gave it, with a `by` key: explain still cleans it, so a long anchor is cut and an unknown key goes."
-    import abhyasa.guide as G
+    import abhyasa.show as G
     seen, real = [], G.board_prompt
     monkeypatch.setattr(G, 'board_prompt', lambda ctx, *a, **kw: seen.append(ctx) or real(ctx, *a, **kw))
     raw = dict(page_ctx('q' * 1000), evil='EVIL', by={'passage': dict(id='passage', text='q' * 1000)})
@@ -149,8 +149,8 @@ def test_the_routed_guide_guards_for_the_model_of_its_route(monkeypatch):
     import ramabana.guard
     from ramabana.core import ModelSpec
     from ramabana.testing import fake_agent, FakeBackend
-    from abhyasa import llm
-    from abhyasa.guide import guide_ask, vision_ask
+    from abhyasa import models as llm
+    from abhyasa.show import guide_ask, vision_ask
     monkeypatch.setattr(ramabana.guard, 'setting', lambda k, d=None: 'redact' if k == 'cli.pii' else d)
     a, _ = fake_agent()
     monkeypatch.setitem(llm._ra, 'agent', a)
@@ -165,8 +165,8 @@ def test_a_remote_route_that_drops_the_picture_is_text_only(monkeypatch):
     "rishi's remote one-shot that builds its message from dict parts only drops the image of `compose`: `vision_ask` then makes no call, and `vision_why` says why."
     from rishi.remote import RemoteChat, to_msg
     from urai import mk_msg
-    from abhyasa import llm
-    from abhyasa.guide import vision_ask, vision_why
+    from abhyasa import models as llm
+    from abhyasa.show import vision_ask, vision_why
     r = llm.Router(llm.RouteAsk('claude/sonnet'), models=lambda: {}, tokens=lambda: {})
     monkeypatch.setattr(RemoteChat, '_oneshot_args', lambda self, p, sp, n: ([to_msg({'role': 'user', 'content': p})], {}))
     assert vision_why(r, 'codex/gpt-6.1-sol') == 'GPT-6.1 Sol does not get pictures on this route.' and vision_ask(r, 'codex/gpt-6.1-sol') is None
@@ -203,7 +203,7 @@ def test_the_tier_and_the_end_line_agree():
 
 def test_a_web_search_with_no_passage_says_so_and_the_board_knows():
     "The web pages have no passage: a state line says so, and the next request tells the model that the web was searched and gave nothing."
-    from abhyasa.guide import NO_WEB, WEB_NO_PASSAGE
+    from abhyasa.show import NO_WEB, WEB_NO_PASSAGE
     evs = []
     f = Fake({NO_WEB: board(0.6), 'Tier: tutor': board(0.3, 'web'), 'Return JSON: {"passage"': dict(passage='')})
     r = explain(f, page_ctx(), "I don't get alpha bar", sources=[Vault()], web=True, on_state=evs.append,

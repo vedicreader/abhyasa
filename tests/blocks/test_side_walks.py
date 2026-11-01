@@ -30,7 +30,7 @@ def test_a_concept_only_in_a_side_walk_has_no_walk_on_its_page(mk, lr):
 
 def test_continue_in_a_side_walk_names_its_parent_walk(mk, lr):
     "The side walk is the newest place, but the top bar and the Home card continue the idea of the walk that opened it."
-    from abhyasa.journey import last_place
+    from abhyasa.path import last_place
     walks(lr); cl = mk()
     p = last_place(lr)
     assert (p.walk, p.step, p.title) == ('wk1', 1, 'Softmax walk')
@@ -42,7 +42,7 @@ def test_continue_in_a_side_walk_names_its_parent_walk(mk, lr):
 
 def test_a_side_walk_with_no_parent_step_is_no_place(mk, lr):
     "A side walk whose walk is gone, or that Leela opened, is never what Continue picks."
-    from abhyasa.journey import last_place
+    from abhyasa.path import last_place
     for parent in (dict(walk='gone', step=0), dict(leela='lesson-1')):
         walks(lr, parent)
         assert last_place(lr).walk == 'wk1', parent

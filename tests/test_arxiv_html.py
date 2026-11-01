@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 from fastcore.basics import AttrDict
 from abhyasa.sources import math_md, file_link, doc_pages
-from abhyasa.journey import journey_from_sources
+from abhyasa.path import journey_from_sources
 from talk_data import *
 
 SAMPLE = (Path(__file__).parent/'data/arxiv_html_sample.html').read_text()
@@ -62,8 +62,8 @@ def test_slide_passage_draws_maths(mk, lr, talk_fake):
 def test_a_cut_never_splits_a_formula(lr):
     "The cap on a saved page and on a step passage moves a cut back to before a formula that it would split."
     from abhyasa.sources import _clip, extract, placement
-    from abhyasa.settings import set_val, val
-    from abhyasa.llm import Fake
+    from abhyasa.learner import set_val, val
+    from abhyasa.models import Fake
     kept, most = val('links.kept'), val('walks.passage')
     try:
         set_val('links.kept', 10_000)

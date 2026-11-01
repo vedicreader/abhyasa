@@ -1,7 +1,7 @@
 "The settings table: bad and out-of-range values are clamped, and the engine reads a saved value when it uses it."
 import json, os, re, threading
 import pytest
-from abhyasa.settings import SETTINGS, GROUPS, FIXED, val, set_val, settings, cfg_dir, rows
+from abhyasa.learner import SETTINGS, GROUPS, FIXED, val, set_val, settings, cfg_dir, rows
 
 @pytest.fixture(autouse=True)
 def own_config(monkeypatch, tmp_path):
@@ -31,13 +31,13 @@ def test_fixed_items_have_no_setting():
 
 def test_hands_on_share():
     "With the default share of a third, a walk of 2, 3 and 12 ideas gets 0, 1 and 4 hands-on checks."
-    from abhyasa import journey
+    from abhyasa import path as journey
     assert [journey.hands_most(n) for n in (2, 3, 12)] == [0, 1, 4]
 
 def test_walk_of_five_steps():
-    from abhyasa.store import temp_learning
-    from abhyasa.llm import Fake
-    from abhyasa.journey import journey_from_text
+    from abhyasa.learner import temp_learning
+    from abhyasa.models import Fake
+    from abhyasa.path import journey_from_text
     text = ' '.join(f'Sentence number {k} of the long text is here.' for k in range(9))
     many = dict(concepts=[dict(name=f'Idea {k}', statement=f'Idea {k} is one idea.', quote=f'Sentence number {k} of the long text', ways=['words']) for k in range(9)])
     ask = Fake({'Return JSON: {"concepts"': many, 'Return JSON: {"pick"': dict(pick=[])})
@@ -64,7 +64,7 @@ def test_tries_read_when_used(lr, fake):
     assert t.answer(q.id, 'scores').done                      # 1 try: the first miss closes the question
 
 def test_learned_depth_and_sure_confidence():
-    from abhyasa.model import learned, outcome
+    from abhyasa.learner import learned, outcome
     assert not learned(dict(floor=3)) and outcome(True, 55) == 'fragile'
     set_val('checks.goal', 3); set_val('checks.high', 50)
     assert learned(dict(floor=3)) and outcome(True, 55) == 'solid'
@@ -73,11 +73,11 @@ def test_learned_depth_and_sure_confidence():
 
 def test_review_intervals_grow():
     "With the default review values, a solid first pass waits 1 day, a shaky one half a day, and a later solid pass grows the wait."
-    from abhyasa.model import grow
+    from abhyasa.learner import grow
     assert (grow(0, 0, 'solid'), grow(0, 0, 'fragile'), grow(2, .5, 'solid')) == (1., .5, 2 * (1 + 3 * .5 + .2))
 
 def test_review_values_read_when_used():
-    from abhyasa.model import grow
+    from abhyasa.learner import grow
     set_val('review.solid', 2); set_val('review.growth', 1)
     assert (grow(0, 0, 'solid'), grow(2, .5, 'solid')) == (2., 2 * (1 + .5 + .2))
 
@@ -101,7 +101,7 @@ def test_fetch_never_allows_private_addresses():
     assert fetch_opts() == dict(timeout=30, max_recv_speed=1_000_000, retries=1, allow_private=False)
 
 def test_link_reads_the_new_page_count():
-    from abhyasa.store import temp_learning
+    from abhyasa.learner import temp_learning
     from abhyasa.sources import file_link
     lr, calls = temp_learning(), []
     def read(how, target, **kw):
@@ -124,7 +124,7 @@ def test_mic_gets_the_pause_values(mk):
 # Models
 
 def test_default_model_and_own_rows(monkeypatch):
-    from abhyasa.llm import dflt_model, RouteAsk, Router, Fake
+    from abhyasa.models import dflt_model, RouteAsk, Router, Fake
     monkeypatch.delenv('ABHYASA_MODEL', raising=False)
     ra = RouteAsk()
     assert dflt_model() == ra.model == 'claude/sonnet'
@@ -140,7 +140,7 @@ def test_default_model_and_own_rows(monkeypatch):
 # Prompts
 
 def test_all_prompts_registered(mk):
-    from abhyasa.prompts import PROMPTS, set_prompt, prompt
+    from abhyasa.learner import PROMPTS, set_prompt, prompt
     from abhyasa.tutor import depth_ask
     t = mk().get('/settings').text
     for n in ('primer', 'profile.onboard', 'profile.observe', 'demo.order', 'demo.simpler', 'depths', 'tutor', 'hints', 'walk.pick', 'walk.plan'):
@@ -153,9 +153,9 @@ def test_all_prompts_registered(mk):
 
 def test_simpler_demo_prompt_is_editable(mk, lr):
     "The prompt for a simpler demo is on the Settings page. A saved text goes into the next simpler demo that the tutor makes."
-    from abhyasa.prompts import prompt
-    from abhyasa.demo import make_demo, SIMPLER_AIM
-    from abhyasa.llm import Fake
+    from abhyasa.learner import prompt
+    from abhyasa.show import make_demo, SIMPLER_AIM
+    from abhyasa.models import Fake
     from rupaka.spec import gallery
     cl = mk()
     assert 'pr-demo-simpler' in cl.get('/settings').text and prompt('demo.simpler') == SIMPLER_AIM
@@ -200,8 +200,7 @@ def test_page_says_when_the_file_had_a_value_out_of_range(mk):
 # Learning: stored once, in the profile, and edited on both pages
 
 def test_learning_defaults_and_choices():
-    from abhyasa.profile import PROFILE, PACES
-    from abhyasa.method import EXPLORE
+    from abhyasa.learner import PROFILE, PACES, EXPLORE
     assert (PROFILE['pace'], PROFILE['session_len'], PROFILE['explore']) == ('steady', 12, 'sometimes')
     assert tuple(PACES) == SETTINGS['learning.pace'].choices and tuple(EXPLORE) == SETTINGS['learning.explore'].choices
     assert SETTINGS['learning.session_len'].lo == 3 and SETTINGS['learning.session_len'].hi == 40

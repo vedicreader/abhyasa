@@ -2,8 +2,8 @@
 import os, time
 from pathlib import Path
 import pytest
-from abhyasa import voice
-from abhyasa.settings import set_val
+from abhyasa import models as voice
+from abhyasa.learner import set_val
 
 @pytest.fixture(autouse=True)
 def clean():
@@ -116,7 +116,7 @@ def test_own_download_listed_with_remove(mk, monkeypatch):
 
 
 # tutor models: a model for each task, saved in the settings, used at once, with a test and a catalogue
-import abhyasa.llm as llm
+import abhyasa.models as llm
 
 def test_no_test_reads_the_real_ramabana_config():
     setup = pytest.importorskip('ramabana.setup')
@@ -158,7 +158,7 @@ def test_tutor_model_test_uses_the_task_route(mk):
 
 def test_reply_cap_saved_loaded_and_checked(mk, monkeypatch):
     "The reply cap of a task is a row of the table: saved in settings.json, shown under More in Models, and a value out of range is clamped."
-    from abhyasa.llm import TOKENS, TOKENS_MAX
+    from abhyasa.models import TOKENS, TOKENS_MAX
     monkeypatch.setattr(llm, 'catalog', lambda ttl=300.: [])
     cl = mk(['settings'])
     t = cl.get('/settings/catalog').text
@@ -220,7 +220,7 @@ def test_the_guide_rows_show_and_save(mk, monkeypatch):
 
 def test_a_saved_guide_model_routes_the_guide_job(lr):
     "guide_ask goes to the job guide, on the saved model of the screen guide; the warm route starts the same model."
-    from abhyasa.guide import guide_ask
+    from abhyasa.show import guide_ask
     r = llm.Router(ViaFake(dflt='ok'), models=lambda: dict(hint='claude/haiku', guide='claude/opus'))
     ask = guide_ask(r)
     assert ask.model == 'claude/opus' and ask('hi') == 'ok' and r.dflt.jobs[-1] == ('guide', 'claude/opus')
@@ -312,7 +312,7 @@ def test_theme_contrast():
 
 
 # prompts: the instruction text of the tutor, saved in the settings, used on the next call
-from abhyasa.prompts import PROMPTS, prompt
+from abhyasa.learner import PROMPTS, prompt
 from abhyasa.tutor import TUTOR_SP, HINTS, hints
 
 def test_prompts_section(mk):
@@ -349,7 +349,7 @@ def test_prompt_list_does_not_need_the_blocks():
 
 def test_the_point_look_row_shows_each_look_and_saves(mk):
     "The Screen guide group has the Point mark row: one pill for each look, each with its own small picture. A pick saves it."
-    from abhyasa.settings import val, set_val
+    from abhyasa.learner import val, set_val
     cl = mk(['settings'])
     t = cl.get('/settings').text
     row = t[t.index('id="sr-guide-point"'):]; row = row[:row.index('</li>')]

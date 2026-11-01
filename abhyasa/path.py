@@ -2626,7 +2626,7 @@ def _read_ok(p, top) -> str|None:
 
 def explainer_video(lr:Learning, c, slug:str):
     "Find a YouTube explainer for concept `c` with fossick's `search_yt`, and file it as the video of concept `slug` (`guide.file_video`). None when none is found."
-    from abhyasa.guide import find_explainer, file_video
+    from abhyasa.show import find_explainer, file_video
     v = find_explainer(c.name, subject_label(c.get('subject') or ''))
     return v and file_video(lr, v.url, slug)
 
@@ -2838,7 +2838,7 @@ def gather_tools(lr:Learning, jid:str, stop:threading.Event, search=None, fetch=
         "Find one short YouTube video that explains the idea, and keep its transcript as the explainer of the idea. Call it at most once for an idea."
         if (h := held()): return h
         if not (slug := slug_of(idea)) or not (c := lr.concept(slug)): row('find_video', str(idea), 'refused: no such idea'); return 'Refused: no idea has this number.'
-        from abhyasa.guide import concept_video
+        from abhyasa.show import concept_video
         if (v := concept_video(c)): return f"The idea has a video: {v.get('title') or v['vid']}."
         if (h := out_ok('find_video', c.name, idea)): return h
         if not count(f'video:{slug}'): return full('find_video', c.name, idea)

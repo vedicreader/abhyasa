@@ -7,10 +7,9 @@ from abhyasa.core.leela import LOCAL_HOSTS
 from abhyasa.core import hook, run as run_hook, Primary, Secondary, Pill, asset_css, asset_js, n_of
 from fossick import is_pdf
 from abhyasa.sources import folder_why, tree_files, vault_roots
-from abhyasa.settings import val, roots
-from abhyasa.journey import keep_data
-from abhyasa.course import course_of, add_data
-from abhyasa.detect import detect, vault_title, title_index, folder_names, named_sources, on_disk, fold, _goal
+from abhyasa.learner import val, roots
+from abhyasa.path import keep_data, course_of, add_data
+from abhyasa.sources import detect, vault_title, title_index, folder_names, named_sources, on_disk, fold_trim as fold, _goal
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']

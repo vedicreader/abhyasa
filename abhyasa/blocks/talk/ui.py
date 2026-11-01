@@ -8,8 +8,8 @@ from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Inline, Cites, SourceLine, meta, n_of, asset_css, asset_js, stage_assets, edit_assets, EditList, Live, UndoBar, HistoryList
 from fastcore.basics import AttrDict
-from abhyasa.talk import talk_minutes, public_ask, share_right, needs_fill, slide_source, GONE, parked
-from abhyasa.settings import val
+from abhyasa.show import talk_minutes, public_ask, share_right, needs_fill, slide_source, GONE, parked
+from abhyasa.learner import val
 from .cfg import Routes
 
 _P = Path(__file__).parent

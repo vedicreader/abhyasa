@@ -1,4 +1,4 @@
-from abhyasa.ground import passage
+from abhyasa.sources import passage
 
 def test_voice_stt(mk):
     assert mk(['voice']).post('/voice/stt?hint=rrf', content=b'1234').json() == dict(text='4 bytes about rrf')

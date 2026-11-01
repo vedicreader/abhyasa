@@ -3,10 +3,9 @@ from urllib.parse import urlencode
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import subject_name, Cites, Md, DepthBar, when, run, asset_css, asset_js, meta, n_of, Empty, Said, Primary, Secondary, Quiet, Part
-from abhyasa.model import DEPTHS, recall
-from abhyasa.store import tree, fold
+from abhyasa.learner import DEPTHS, recall, tree, fold
 from litesearch import DEVANAGARI
-from abhyasa.demo import no_slots, SLOT
+from abhyasa.show import no_slots, SLOT
 from .cfg import Routes
 
 _P = Path(__file__).parent

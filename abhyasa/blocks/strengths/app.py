@@ -2,9 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import hook, Primary, moved_to
-from abhyasa.settings import val
-from abhyasa.model import understanding
-from abhyasa.method import EXAMPLES_TO, methods_text
+from abhyasa.learner import val, understanding, EXAMPLES_TO, methods_text
 from . import ui
 from .cfg import Routes
 

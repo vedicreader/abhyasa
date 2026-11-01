@@ -1,7 +1,7 @@
 "The model list of Settings: the app gets it after the start, and a new process shows the last list from the disk at once."
 import json, subprocess, sys
 import ramabana.core as rc
-from abhyasa import llm
+from abhyasa import models as llm
 
 ROW = dict(value='claude/sonnet', label='sonnet', provider='claude', source='login')
 
@@ -29,7 +29,7 @@ import ramabana.core as rc
 rc.PROBE_DIR = sys.argv[1]
 def slow(include_legacy=False): time.sleep(5); print('SLOW'); return []
 rc._model_rows = slow
-from abhyasa.llm import catalog
+from abhyasa.models import catalog
 t = time.time(); rows = catalog()
 print(json.dumps(dict(s=time.time() - t, names=[r['name'] for r in rows])))"""
 

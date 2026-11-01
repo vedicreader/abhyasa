@@ -2,8 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, ago, SettingRow, row_id, Primary
-from abhyasa.settings import val, SETTINGS
-from abhyasa.profile import LABELS, LIST_FIELDS, EXAMPLES, PACES, ONBOARD_QS, calibration_text
+from abhyasa.learner import val, SETTINGS, PROFILE_LABELS as LABELS, LIST_FIELDS, EXAMPLES, PACES, ONBOARD_QS, calibration_text
 from .cfg import Routes
 
 _P = Path(__file__).parent

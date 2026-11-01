@@ -205,7 +205,7 @@ class VaultNotes:
     "A source with one passage in a vault document, and one in vedicreader."
     name = 'vault'
     def search(self, q, k=4):
-        from abhyasa.ground import passage
+        from abhyasa.sources import passage
         return [passage('vault:store', 'd1#3', 'Rasi Characteristics', 'Ranking orders items by score.', url='/tmp/rasi.pdf'),
                 passage('vedicreader', 'ashtadhyayi:1', 'Ashtadhyayi 1 2 · 1.2.63', 'Ranking orders a list of verses.')]
 

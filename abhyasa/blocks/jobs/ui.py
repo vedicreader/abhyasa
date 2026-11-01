@@ -2,7 +2,7 @@
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, Quiet
-from abhyasa.jobs import chip_words
+from abhyasa.learner import chip_words
 from .cfg import Routes
 
 _P = Path(__file__).parent

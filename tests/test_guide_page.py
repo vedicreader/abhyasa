@@ -154,7 +154,7 @@ def test_reading_line_and_the_pointer_notice(page):
 
 def test_the_saved_point_look_reaches_the_board(page):
     "A look that you save on the Settings page goes from the page to play(), and the point mark draws in that look."
-    from abhyasa.settings import set_val
+    from abhyasa.learner import set_val
     try:
         assert page.evaluate("async () => (await fetch('/settings/value', {method: 'POST', body: new URLSearchParams({name: 'guide.point', value: 'ring'})})).ok")
         page.reload(); page.wait_for_function('window.abhyasaGuide && window.abhyasaBoard')

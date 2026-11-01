@@ -7,7 +7,7 @@ CASES = json.loads((Path(__file__).parents[1]/'data'/'detect_cases.json').read_t
 def test_detect_never_touches_the_network(monkeypatch):
     import socket
     monkeypatch.setattr(socket, 'getaddrinfo', lambda *a, **k: (_ for _ in ()).throw(AssertionError('network')))
-    from abhyasa.detect import detect
+    from abhyasa.sources import detect
     for t, ti, _ in CASES['cases']: detect(t, ti)
 
 def test_read_route_says_what_it_will_do(mk):
@@ -27,7 +27,7 @@ PLAN = dict(title='Attention', subject='ml', steps=[dict(name='Ranking', stateme
 
 def test_web_line_shows_once(mk, lr, walk_fake):
     "The line about the web search shows until a topic walk is made. A topic walk that fails does not count."
-    from abhyasa.settings import set_val, val
+    from abhyasa.learner import set_val, val
     set_val('research.told', False)   # the settings folder is shared by the tests
     cl = mk(); line = 'Your topic goes to the search engine.'
     assert line in cl.get('/learn/read', params=dict(q='how attention works')).text
@@ -128,7 +128,7 @@ def test_dropped_pdf_starts_from_its_id(mk, lr, walk_fake):
     assert {s['read']['doc_id'] for s in lr.journey(jid).steps} == {d}
 
 def test_title_index_is_made_again_only_when_the_vault_changes(lr):
-    from abhyasa.detect import title_index
+    from abhyasa.sources import title_index
     a = title_index(lr.vault)
     assert title_index(lr.vault) is a
     lr.vault.add('A new text.', title='New one', source='test://new')
