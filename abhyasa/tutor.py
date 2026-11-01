@@ -718,7 +718,7 @@ _st = AttrDict(tutor=None)
 
 def tutor(learning=None, ask=None) -> Tutor:
     "The tutor of the notebook, made one time: the default vault and `route_ask`, unless you give others."
-    import abhyasa.demo   # registers the demo hook of the tutor; it imports this module, so it loads here
+    import abhyasa.show   # registers the demo hook of the tutor; it imports this module, so it loads here
     if _st.tutor is None or learning is not None or ask is not None:
         _st.tutor = Tutor(learning or Learning(os.getenv('ABHYASA_VAULT') or os.getenv('VISHALAKSHI_VAULT')), ask or route_ask())
     return _st.tutor
