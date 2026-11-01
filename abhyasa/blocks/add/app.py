@@ -220,7 +220,7 @@ def connect(app, ctx):
 
     def Box(q='', file='', doc=''):
         """The Start box. The read part comes from `/learn/read` after 250 ms with no typing (start.js). The result of Start goes in `#walk-out`, under the button;
-    `hx-disinherit` keeps its pending card on its own target."""
+        `hx-disinherit` keeps its pending card on its own target."""
         return Form(Label('What do you want to learn?', fr='start-q'),
                     Textarea(q, name='q', id='start-q', rows=2, data_mic='label', aria_describedby='start-will'),
                     Input(type='hidden', name='file', value=file, id='start-file'), Say(r := reading(q, file=file, doc=doc)[0]), Doc(r, file, doc),

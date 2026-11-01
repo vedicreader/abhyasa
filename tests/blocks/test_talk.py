@@ -962,7 +962,7 @@ def test_the_foot_draws_the_maths_of_the_talk_title(mk, talk_fake, lr):
     assert f'Scaling by {MATH}' in p and f'<span>Scaling by {TEX}</span>' not in p
 
 def test_teach_tells_two_talks_of_one_walk_apart(mk, lr):
-    "Two talks with one title on Home say when each was made; on the same day, with the hour too. A talk with its own title says nothing more."
+    "Two talks with one title on Home each say the day and the hour when they were made. A talk with its own title says nothing more."
     import time
     from abhyasa.talk import talk_from_walk
     from abhyasa.llm import Fake
@@ -976,3 +976,18 @@ def test_teach_tells_two_talks_of_one_walk_apart(mk, lr):
     t = talk_from_walk(lr, Fake({}), jid, choice=False, fill=False); lr.put_talk({**t, 'title': 'Ranking for the team'})
     home = mk().get('/').text
     assert 'made 29 Oct, 10:00' in home and 'made 29 Oct, 14:30' in home and home.count('made 29 Oct') == 2
+
+def test_teach_shows_a_dated_twin_as_the_other_twins(mk, lr):
+    "An older Make it again put the date in the title: `How a Neural Network Works · 29 Oct`. On Home its title has no date, and each twin says when it was made."
+    import time
+    from abhyasa.talk import talk_from_walk
+    from abhyasa.llm import Fake
+    jid = journey_of(lr)
+    lr.merge_journey(jid, mode='walk', steps=[{**s, 'check': dict(way='words', kind='short', depth=2)} for s in lr.journey(jid).steps])
+    at = lambda d, h, m: time.mktime((2026, 10, d, h, m, 0, 0, 0, -1))
+    t = talk_from_walk(lr, Fake({}), jid, choice=False, fill=False); lr.drop_talk(t.id)
+    for k, (title, made) in enumerate((('How a Neural Network Works', at(28, 9, 5)), ('How a Neural Network Works · 29 Oct', at(29, 13, 1)))):
+        lr.put_talk({**t, 'id': f'twin-{k}', 'title': title, 'made': made})
+    home = mk().get('/').text
+    assert '· 29 Oct' not in home and home.count('>How a Neural Network Works</a>') == 2
+    assert 'made 28 Oct, 09:05' in home and 'made 29 Oct, 13:01' in home
