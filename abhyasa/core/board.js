@@ -393,6 +393,22 @@
     }
     if (p || c) room(true);
   }).observe(document.documentElement, {attributes: true, attributeFilter: ['class']});
+  // The columns of a panel: one CSS grid (--grid) for the heads and for each row that is not a chain, so each head stands over its cells.
+  // With n columns: n - 1 columns of cells, a column for the arrow, then the column of the answer. A numbered panel has a column for the number first.
+  function grid(p, n) {
+    p.classList.toggle('cols', n > 1);
+    p.dataset.cols = n > 1 ? n : '';
+    if (n < 2) return p.style.removeProperty('--grid');
+    p.style.setProperty('--grid', `${p.classList.contains('numbered') ? '24px ' : ''}repeat(${n - 1}, minmax(0, 1fr)) 40px minmax(0, 1fr)`);
+    [...p.querySelector('.board-panel-cols').children].forEach((h, k) => h.style.gridColumn = colAt(p, k, n));
+  }
+  // The grid column of thing k of a row (a head or a cell; 'arrow' or 'to' for the arrow and the answer): the last one goes in the column of the answer.
+  function colAt(p, k, n) {
+    const lead = p.classList.contains('numbered') ? 1 : 0;
+    if (k === 'arrow') return String(lead + n);
+    if (k === 'to' || k === n - 1) return String(lead + n + 1);
+    return k < n - 1 ? String(lead + k + 1) : '';
+  }
   const beatOf = m => { const k = st.marks.indexOf(m); return st.marks.slice(0, k + 1).filter(x => x.o.op === 'panel').length; };
   function placePanel(m) {
     const o = m.o, p = panelEl(), beat = String(beatOf(m)), parts = [];
@@ -402,6 +418,7 @@
         const [t, h, cs, rs] = p.children;
         t.textContent = o.title || ''; h.textContent = o.head || '';
         cs.replaceChildren(...(o.cols || []).map(c => el('span', '', c)));
+        grid(p, (o.cols || []).length);
         [...rs.children].forEach(r => { if (r.dataset.beat !== beat) r.remove(); });
       }
       parts.push({kind: 'node', el: p, at: 0, dur: 260});   // also when the board places it again (a scroll, a resize): the pop-in keeps its own clock
@@ -420,6 +437,13 @@
         if (p.classList.contains('numbered')) m.el.append(el('span', 'board-row-n', String(n)));
         o.cells.forEach((c, k) => { if (k && o.chain) m.el.append(el('span', 'board-row-arrow', '→')); m.el.append(el('span', o.chain ? 'board-word' : 'board-cell', c)); });
         if (o.to != null) m.el.append(el('span', 'board-row-arrow long', '⟶'), el('span', 'board-cell board-target', o.to));
+        const nc = +p.dataset.cols;
+        if (nc && !o.chain) {   // each cell in the column of its head
+          const cells = [...m.el.querySelectorAll('.board-cell:not(.board-target)')];
+          cells.forEach((c, k) => c.style.gridColumn = o.to != null && k >= nc - 1 ? '' : colAt(p, k, nc));   // a cell more than the heads: the grid places it
+          m.el.querySelector('.board-row-arrow.long')?.style.setProperty('grid-column', colAt(p, 'arrow', nc));
+          m.el.querySelector('.board-target')?.style.setProperty('grid-column', colAt(p, 'to', nc));
+        }
       }
       p.lastElementChild.append(m.el);
     }

@@ -231,3 +231,20 @@ def test_a_late_stroke_out_of_view_scrolls_in(page):
     page.wait_for_timeout(300)
     r = page.evaluate("(() => { const g = document.querySelector('#board-layer g[data-op=circle]').getBoundingClientRect(), s = document.getElementById('guide-strip'); return [g.top, g.bottom, s.getBoundingClientRect().top]; })()")
     assert page.evaluate('scrollY') > y0 and 0 <= r[0] and r[1] <= r[2], r
+
+def test_column_heads_stand_over_their_cells(page):
+    "With 2 and with 3 column names, the middle of each head is within 3 px of the middle of the cells of its column, in each row. A numbered panel too."
+    centres = """() => { const mid = e => { const r = e.getBoundingClientRect(); return r.left + r.width / 2; };
+        const p = document.getElementById('board-panel');
+        return {heads: [...p.querySelectorAll('.board-panel-cols span')].map(mid),
+                rows: [...p.querySelectorAll('.board-row')].filter(r => r.style.display !== 'none').map(r => [...r.querySelectorAll('.board-cell')].map(mid))}; }"""
+    for cols, rows, numbered in ((['Input', 'Target'], [(['[18]'], '47'), (['[18, 47, 56]'], '57')], False),
+                                 (['p', 't', '(p − t)²'], [(['0.9', '1'], '0.01'), (['0.25', '0.5'], '0.0625')], False),
+                                 (['p', 't', '(p − t)²'], [(['0.9', '1'], '0.01'), (['0.25', '0.5'], '0.0625')], True),
+                                 (['a', 'b', 'c'], [(['1', '2', '3'], None)], False)):
+        play(page, [dict(say='Look.', strokes=[dict(op='panel', title='t', head='h', cols=cols, numbered=numbered), *[row(c, t) for c, t in rows]])])
+        got = page.evaluate(centres)
+        assert len(got['heads']) == len(cols) and got['rows']
+        for cells in got['rows']:
+            assert len(cells) == len(cols), cells
+            for h, c in zip(got['heads'], cells): assert abs(h - c) <= 3, (cols, got)

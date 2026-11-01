@@ -123,6 +123,13 @@
 .board-row-arrow.long::after { content: ''; position: absolute; right: -1px; top: -5.5px; width: 8px; height: 8px; border: solid var(--paper-ink); border-width: 1.5px 1.5px 0 0; transform: rotate(45deg); }
 .board-row.chain { gap: 10px; }
 .board-word { font-size: 21px; }
+/* With column names (.cols), the heads and each row that is not a chain use one grid (board.js sets --grid and the column of each
+   cell), so a head stands over the middle of its cells. */
+.board-panel.cols :is(.board-panel-cols, .board-row:not(.chain)) { display: grid; grid-template-columns: var(--grid); column-gap: 8px; align-items: center; justify-items: center; }
+.board-panel.cols .board-panel-cols { text-align: center; }
+.board-panel.cols .board-row:not(.chain) { row-gap: 6px; }
+.board-panel.cols .board-row:not(.chain) > .board-cell { margin: 0; max-width: 100%; box-sizing: border-box; overflow-wrap: anywhere; }
+.board-panel.cols .board-row-arrow.long { justify-self: stretch; min-width: 0; margin: 0 6px; }
 .board-row-n { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 15px; display: inline-grid; place-items: center; }
 .board-panel-note { margin: 0; font-size: 18px; color: var(--paper-mute); }
 @media print { .board-panel { display: none; } }
