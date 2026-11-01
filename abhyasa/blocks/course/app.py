@@ -120,7 +120,7 @@ def connect(app, ctx):
         return ui.Stages(state(cid), cid)
 
     def fix(cid:str):
-        "Fix the rest: plan again each stage that is not locked, on the pool. The locked stages and their walks stay."
+        "Fix the rest: plan again each stage that you did not lock or start, on the pool. The locked stages, the stages that you started, and their walks stay."
         if not (c := lr.course(cid)): return Response(status_code=404)
         st = submit(cid, 'plan', ui.FIXING, plan_then_build, cid, True)
         return ui.Level(c, pending=ui.Pending(cid, 'plan', st.said))

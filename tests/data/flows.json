@@ -113,7 +113,7 @@
       "new": true
     },
     "course.stages[k].locked": {
-      "store": "lr.course(cid)['stages'][k]['locked'] = True: Lock on the course page. A replan and Fix the rest keep the stage and its walk as they are",
+      "store": "lr.course(cid)['stages'][k]['locked'] = True: Lock on the course page. A replan and Fix the rest keep the stage and its walk as they are. Fix the rest also keeps each stage whose walk you started (walk.started, or a step done or shaky), because a replan has no Undo",
       "new": true
     }
   },
@@ -1461,9 +1461,9 @@
         },
         {
           "page": "course",
-          "action": "Lock a stage; Fix the rest",
+          "action": "Lock a stage; Fix the rest (it shows only when a stage is not locked and not started; the confirm says how many stages it plans again)",
           "next": "course",
-          "state_change": "course.jobs.plan=running; the stages that are not locked are planned again; a locked stage and its walk stay"
+          "state_change": "course.jobs.plan=running; each stage that you did not lock or start is planned again; a locked or started stage and its walk stay"
         }
       ],
       "background": "the pending line while the tutor reads (walk), and the plan job of the course (course.jobs.plan)"

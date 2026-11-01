@@ -93,3 +93,25 @@ def test_a_locked_stage_stays_after_fix_the_rest(mk, lr, fake):
     c = lr.course(cid)
     assert [s['name'] for s in c.stages] == ['Diffusion for comics', 'Your comic data']
     assert json.dumps(c.stages[0], sort_keys=True) == was and c.stages[0]['walk'] == 'gw'
+
+def test_fix_the_rest_keeps_a_stage_that_you_started(mk, lr, fake):
+    "An unlocked stage whose walk you started stays after Fix the rest; an unlocked stage that you never started is planned again. The confirm says how many."
+    for n in ('Noise', 'Denoise'): lr.put(n, f'{n} a picture.', 'ml')
+    lr.put_journey(dict(id='gw', title='Diffusion for comics', goal='Fine-tune diffusion for comics', mode='walk', source=None, started=None, created=1.,
+                        steps=[dict(slug=s, status='todo', check=dict(way='words', kind='short', depth=2)) for s in ('noise', 'denoise')], chips=[], chip_counts={}))
+    lr.walk_step('gw', 0, done=dict(outcome='fragile', at=time.time()))   # a shaky step: you started the walk
+    cid = join_course(lr, 'gw').id
+    lr.change_course(cid, lambda c: c.stages.append(dict(key='s2', name='An old plan', makes='', ideas=['Old'], foundation=False, skip_if='', short=False, walk=None, status='planned')))
+    cl = mk()
+    page = cl.get(f'/course/{cid}').text
+    assert 'Fix the rest plans again the stages that you did not lock or start: 1 stage. Your walks stay on Home.' in page
+    was = json.dumps(lr.course(cid).stages[0], sort_keys=True)
+    fake.rules[PLAN] = dict(title='x', makes='x', stages=[dict(name='Your comic data', makes='captions.jsonl', ideas=['Captions'])])
+    r = cl.post(f'/course/{cid}/fix')
+    for _ in range(200):
+        if 'HX-Redirect' in r.headers: break
+        time.sleep(.05); r = cl.get(f'/course/{cid}/job?k=plan')
+    c = lr.course(cid)
+    assert [s['name'] for s in c.stages] == ['Diffusion for comics', 'Your comic data'] and json.dumps(c.stages[0], sort_keys=True) == was
+    cl.post(f'/course/{cid}/lock', data=dict(key=c.stages[1]['key'], on='1'))
+    assert 'data-act="fix"' not in cl.get(f'/course/{cid}').text   # nothing to plan again: no Fix the rest

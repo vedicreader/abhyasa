@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from abhyasa.core import asset_css, Primary, Secondary, Quiet, Part, Empty, n_of
-from abhyasa.course import ANSWERS, level_done
+from abhyasa.course import ANSWERS, level_done, stage_stays
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -13,8 +13,8 @@ SOURCE = dict(ready='ready', filing='filing', failed='failed')
 PLANNING = 'abhyasa plans the stages of your course. This takes about half a minute.'
 ASKING = 'The tutor writes a few short questions.'
 BUILDING = 'abhyasa plans the ideas of this stage. This takes about half a minute.'
-FIXING = 'abhyasa plans again each stage that is not locked. This takes about half a minute.'
-FIX_SAY = 'Lock each stage that is good. Fix the rest plans the other stages again. A stage that goes keeps its walk on Home.'
+FIXING = 'abhyasa plans again each stage that you did not lock or start. This takes about half a minute.'
+FIX_SAY = 'Lock each stage that is good. Fix the rest plans again each stage that you did not lock or start.'
 LOCK_SVG = NotStr('<svg viewBox="0 0 12 14" width="10" height="12" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/>'
                   '<path d="M3.5 6V4a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>')
 DATA_SAY = 'The exercises in Leela run on the files in these folders. abhyasa does not file them and does not learn from them.'
@@ -74,10 +74,11 @@ def Stage(r, cid):
               cls=f"course-stage {r.state}")
 
 def Stages(st, cid):
-    "The stages, each with its Lock toggle, then Fix the rest: it plans again each stage that is not locked."
+    "The stages, each with its Lock toggle, then Fix the rest: it plans again each stage that you did not lock or start. It does not show when there is none."
+    n = sum(not stage_stays(r, r.j, fix=True) for r in st.stages)
     fix = Div(Quiet('Fix the rest', small=True, type='button', data_act='fix', hx_post=Routes.of_(Routes.fix, cid=cid), hx_target='#course-level', hx_swap='outerHTML',
-                    hx_confirm='Plan again each stage that is not locked? A stage that goes keeps its walk on Home.'),
-              Span(FIX_SAY, cls='mute'), cls='row course-fix') if st.stages else ''
+                    hx_confirm=f"Fix the rest plans again the stages that you did not lock or start: {n_of(n, 'stage')}. Your walks stay on Home."),
+              Span(FIX_SAY, cls='mute'), cls='row course-fix') if n else ''
     return Part('Stages', Ol(*[Stage(r, cid) for r in st.stages], cls='plain course-stages'), fix, id='course-stages')
 
 def Blocking(st, cid):

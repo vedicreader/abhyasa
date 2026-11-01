@@ -8,8 +8,9 @@ Docs: https://vedicreader.github.io/abhyasa/course.html.md"""
 __all__ = ['GROW_AT', 'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST', 'ANSWERS', 'KINDS', 'LEVEL_SP', 'SAID', 'STAGES_SP', 'LEFT',
            'ASK_KINDS', 'new_course', 'is_goal_walk', 'chip_sources', 'join_course', 'course_of', 'ensure_courses',
            'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level', 'level_done', 'stages_prompt',
-           'plan_stages', 'lock_stage', 'stage_brief', 'build_stage', 'add_data', 'drop_data', 'stage_rows',
-           'due_stage', 'next_up', 'add_ask', 'blocking', 'course_state', 'set_here', 'active_course']
+           'walk_started', 'stage_stays', 'fix_count', 'plan_stages', 'lock_stage', 'stage_brief', 'build_stage',
+           'add_data', 'drop_data', 'stage_rows', 'due_stage', 'next_up', 'add_ask', 'blocking', 'course_state',
+           'set_here', 'active_course']
 
 # %% ../nbs/22_course.ipynb #cs006
 import json, re, threading, time
@@ -237,17 +238,29 @@ def _stage(x, key, q) -> dict|None:
                 foundation=base, skip_if=(q or {}).get('key', ''), short=base and ans == 'some', walk=None,
                 status='skipped' if base and ans == 'yes' else 'planned', why=f"You know it: {q['idea'] or q['q']}" if base and ans == 'yes' else '')
 
-def _stays(s, fix) -> bool: return bool(s.get('locked') or (not fix and s.get('walk')))
+def walk_started(j) -> bool:
+    "Whether you started walk `j`: it has `started`, or a step is done or shaky."
+    return bool(j and (j.get('started') or any(s.get('done') for s in j.get('steps') or ())))
+
+def stage_stays(s, j=None, fix:bool=False) -> bool:
+    "Whether stage `s` (with its walk `j`) stays when the course is planned again: a locked stage, a stage whose walk you started, and with no `fix` each stage with a walk."
+    return bool(s.get('locked') or walk_started(j) or (not fix and s.get('walk')))
+
+def _walk(lr, s): return lr.journey(s['walk']) if s.get('walk') else None
+
+def fix_count(lr:Learning, c) -> int:
+    "The count of the stages of course `c` that Fix the rest plans again: each that you did not lock or start."
+    return sum(not stage_stays(s, _walk(lr, s), True) for s in c.get('stages') or ())
 
 def plan_stages(lr:Learning, ask, cid:str, who:str='', fix:bool=False) -> AttrDict:
-    "Plan the stages of course `cid` with the planner and your answers. The locked stages and the stages with a walk stay; the others are planned again. With `fix`, only the locked stages stay."
+    "Plan the stages of course `cid` with the planner and your answers. The locked stages, the stages that you started and the stages with a walk stay; the others are planned again. With `fix`, only the locked stages and the stages that you started stay."
     c = lr.course(cid)
     if c is None: raise KeyError(f'no course {cid!r}')
-    r = ask_json(_guarded(for_task(ask, 'plan')), stages_prompt({**c, 'stages': [s for s in c.stages if _stays(s, fix)]}, who), prompt('course.stages'))
+    r = ask_json(_guarded(for_task(ask, 'plan')), stages_prompt({**c, 'stages': [s for s in c.stages if stage_stays(s, _walk(lr, s), fix)]}, who), prompt('course.stages'))
     qs = (c.get('level') or {}).get('qs') or ()
     by_key, by_idea = {q['key']: q for q in qs}, {fold(q.get('idea')): q for q in qs if q.get('idea')}
     def f(c):
-        built = [s for s in c.stages if _stays(s, fix)]
+        built = [s for s in c.stages if stage_stays(s, _walk(lr, s), fix)]
         have, front, back, ks = {fold(s['name']) for s in built}, [], [], list(c.stages if fix else built)   # Fix the rest gives no key of a stage that goes
         for x in (r.get('stages') if isinstance(r, dict) else None) or ():
             sk = str(x.get('skip_if') or '') if isinstance(x, dict) else ''

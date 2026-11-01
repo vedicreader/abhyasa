@@ -203,9 +203,10 @@ def b_walk_locked(lr, cl, mp):
     return f'/w/{jid}', {}
 
 def b_course_locked(lr, cl, mp):
-    "The course of the goal walk, with the stage of the walk locked on the course page."
+    "The course of the goal walk, with the stage of the walk locked on the course page, and one planned stage that Fix the rest plans again."
     from abhyasa.course import join_course
     goal_walk(lr); cid = join_course(lr, 'gw').id
+    lr.change_course(cid, lambda c: c.stages.append(dict(key='s9', name='An old plan', makes='', ideas=['Old'], foundation=False, skip_if='', short=False, walk=None, status='planned')))
     assert cl.post(f'/course/{cid}/lock', data=dict(key=lr.course(cid).stages[0]['key'], on='1')).status_code == 200
     return f'/course/{cid}', {}
 
