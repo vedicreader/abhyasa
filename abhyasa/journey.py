@@ -730,8 +730,10 @@ def last_place(lr:Learning, by:dict=None, most:int=10) -> AttrDict|None:
     for j in lr.journeys()[:most]:
         if j.get('mode') != 'walk' or for_talk(j) or (at := used_at(j)) <= (best.at if best else 0): continue
         if (ws := walk_state(j, by)).current is None: continue
-        pj, i = parent_step(lr, j) if j.get('parent') else (None, None)
-        if pj is not None: j, ws = pj, walk_state(pj, by)
+        if j.get('parent'):   # a side walk belongs to the idea that opened it: it counts as that step, and with no such step it is no place
+            pj, i = parent_step(lr, j)
+            if pj is None: continue
+            j, ws = pj, walk_state(pj, by)
         else:
             h = (j.get('here') or {}).get('step')
             i = h if isinstance(h, int) and 0 <= h < len(j.steps) and not j.steps[h].get('done') else ws.current

@@ -1118,9 +1118,9 @@ def connect(app, ctx):
         got = queue_new(j2, old)
         return (*view(j2, fresh=got), bar(j2, rows[0].what, rows), said_out(P(f"Applied {n_of(len(kept), 'change')}. Undo takes them back.", cls='mute')))
 
-    def walks_of(slug):
-        "`(walk, index)` for each walk that has a step on concept `slug`."
-        return [(j, i) for j, i in with_step(lr, slug) if j.get('mode') == 'walk' and not for_talk(j)]
+    def walks_of(slug, side=False):
+        "`(walk, index)` for each walk that has a step on concept `slug`. A side walk (it has a `parent`) only with `side`: it belongs to the idea that opened it."
+        return [(j, i) for j, i in with_step(lr, slug) if j.get('mode') == 'walk' and not for_talk(j) and (side or not j.get('parent'))]
 
     @hook('pane_title')
     def pane_title(url):
@@ -1145,7 +1145,7 @@ def connect(app, ctx):
     def reread(r):
         "A link back to the passage when the concept of the lesson is a step of a walk."
         s = lr.session(r.get('session') or '') if r.get('session') else None
-        rows = [(j, i) for j, i in walks_of(r.concept) if (j.steps[i].get('read') or {}).get('text')]
+        rows = [(j, i) for j, i in walks_of(r.concept, side=True) if (j.steps[i].get('read') or {}).get('text')]
         j, i = next(((j, i) for j, i in rows if s and j.id == s.get('journey')), rows[0] if rows else (None, None))
         if j is None: return None
         pg = j.steps[i]['read'].get('page')

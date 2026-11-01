@@ -118,11 +118,11 @@ def connect(app, ctx):
         return AttrDict(p, href=f'/w/{p.walk}/{p.step}', course=c, done=f"{p.done} of {n_of(p.total, 'idea')}")
 
     def here_of(p):
-        "Whether the page that is drawn now is the place `p` (its walk, or a side walk of it), Home, or a review: there, the top bar has no Continue."
+        "Whether the page that is drawn now is the place `p` (its walk), Home, or a review: there, the top bar has no Continue. In a side walk, Continue names the walk that opened it."
         path = (req := page_req()) and req.url.path or ''
         if path == '/' or path.startswith('/s/'): return True
         m = re.match(r'/w/([^/]+)', path)
-        return bool(m and p.get('walk') and (m[1] == p.walk or ((lr.journey(m[1]) or {}).get('parent') or {}).get('walk') == p.walk))
+        return bool(m and p.get('walk') and m[1] == p.walk)
 
     @hook('nav_extra')
     def continue_link():
