@@ -98,6 +98,11 @@ def repair_in_background(app, title_of=None):
         return out
     return app.state.svc['pool'].submit(run)
 
+def warm_catalog(app):
+    "After the start: get the model list on the pool of the app, so the Models tab of Settings has it at once. Return the future."
+    from abhyasa import llm
+    return app.state.svc['pool'].submit(llm.catalog)
+
 def main():
     "Serve the app on loopback."
     import uvicorn
@@ -114,6 +119,7 @@ def main():
     ask.warm()   # makes the ramabana Agent and starts the backends in the background, so the server starts at once
     app = mk_app(lr, ask)
     repair_in_background(app)
+    warm_catalog(app)
     try: write_address(f'http://{cfg.host}:{a.port}', Path(lr.vault.path).resolve()); atexit.register(drop_address)   # Leela links back to a walk
     except (OSError, ValueError) as e: log.warning('abhyasa could not write its address file: %r', e)
     uvicorn.run(app, host=cfg.host, port=a.port, log_level='warning')

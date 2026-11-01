@@ -156,7 +156,6 @@ def where_chip(name:str) -> str:
 
 # %% ../nbs/02_llm.ipynb #fd4c9605
 FALLBACK = ['claude/sonnet', 'claude/haiku', 'claude/opus']
-_cat = {}
 
 def _repos():
     "The download of each local model in the full model list, for the names."
@@ -165,17 +164,18 @@ def _repos():
         return {**lr, **MLX, **LLAMA}
     except Exception: return {}
 
-def catalog(ttl:float=300.) -> list:
-    "The models that can run here, as dicts with `value`, `name`, `label`, `provider` and `source`."
-    if _cat.get('at', 0) > time.time() - ttl: return _cat['rows']
-    try:
-        from ramabana.core import available_models
-        rows = available_models()
-    except Exception: rows = [dict(value=m, label=m, provider='claude', source='rishi') for m in FALLBACK]
+def _rows() -> list:
+    "The full model list from ramabana, each row with a `name` from `model_label`."
+    from ramabana.core import available_models
     repos = _repos()
-    rows = [dict(r, name=model_label(r['value'], r.get('provider', ''), repos.get(r['value'], ''))) for r in rows]
-    _cat.update(rows=rows, at=time.time())
-    return rows
+    return [dict(r, name=model_label(r['value'], r.get('provider', ''), repos.get(r['value'], ''))) for r in available_models()]
+
+def catalog(ttl:float=300.) -> list:
+    "The models that can run here, as dicts with `value`, `name`, `label`, `provider` and `source`. The last list comes at once; one older than `ttl` seconds refreshes in the background."
+    try:
+        from ramabana.core import probed
+        return probed('abhyasa-catalog', _rows, ttl=ttl, disk=True)
+    except Exception: return [dict(value=m, label=m, provider='claude', source='rishi', name=model_label(m, 'claude', '')) for m in FALLBACK]
 
 # %% ../nbs/02_llm.ipynb #one02
 def _rank(p:str) -> int:

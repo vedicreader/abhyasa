@@ -3,6 +3,8 @@ os.environ['VISHALAKSHI_VAULT'] = os.environ['ABHYASA_VAULT'] = os.path.join(tem
 os.environ['ABHYASA_CONFIG'] = tempfile.mkdtemp()   # nor the real settings and keys
 os.environ['RAMABANA_CONFIG'] = os.path.join(tempfile.mkdtemp(), 'config.toml')   # nor the real ramabana config
 os.environ.setdefault('LITESEARCH_CACHE', tempfile.mkdtemp(prefix='ls-'))   # nor the shared litesearch lock, which another run can hold for minutes
+import ramabana.core
+ramabana.core.PROBE_DIR = tempfile.mkdtemp(prefix='probes-')   # nor the real ramabana probe files, such as the model list
 for k in ('ABHYASA_STT', 'OPENAI_API_KEY'): os.environ.pop(k, None)
 if not os.getenv('ABHYASA_REAL_SPEECH'): os.environ['HF_HUB_CACHE'] = tempfile.mkdtemp(prefix='hf-')   # nor the real model cache: no model is "on this Mac"
 import socket
