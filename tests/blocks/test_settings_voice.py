@@ -1,5 +1,5 @@
 "The Speaking voice group of the Settings page: pick the engine and the voice, download Pocket TTS, and play a sample. No test uses the network or the real cache."
-import re, time, pytest
+import re, threading, time, pytest
 from abhyasa import voice
 from abhyasa.settings import val, reset, update_settings
 
@@ -52,15 +52,16 @@ def test_the_speed_saves_in_its_range(mk):
 
 def test_first_use_download_then_use(mk, monkeypatch):
     "Before the download, the voice part says that the browser speaks, with Download. Download gets Pocket TTS on the pool, and warms it. It is not in the speech to text table."
-    got = []
+    got, go = [], threading.Event()   # the download waits until the test has read its line: a fast machine ends it first
     monkeypatch.setattr(voice, 'model_size', lambda m: 100)
     def fetch(m):
-        got.append(m); d = voice.settings(); d['downloaded'] = [m]; voice.save_settings(d)
+        go.wait(10); got.append(m); d = voice.settings(); d['downloaded'] = [m]; voice.save_settings(d)
     monkeypatch.setattr(voice, 'fetch', fetch)
     monkeypatch.setattr(voice, 'cached', lambda m: m in got)
     cl = mk(['settings'])
     assert 'The voice is not on this Mac yet. Until you download it, the browser speaks.' in cl.get('/settings').text
     assert 'Downloading The voice (Pocket TTS)' in cl.post('/settings/voice/get', data=dict(engine='pocket')).text
+    go.set()
     for _ in range(100):
         if 'is ready and in use' in (t := cl.get('/settings/jobs').text): break
         time.sleep(.02)
