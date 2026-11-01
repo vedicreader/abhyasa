@@ -6,6 +6,8 @@ class Routes:
     job = '/course/{cid}/job'              # the state of a pool job of the course: ?k=level, plan or a stage key
     data = '/course/{cid}/data'            # POST: keep a folder as your data, which the exercises run on
     data_drop = '/course/{cid}/data/drop'  # POST: remove one data folder
+    lock = '/course/{cid}/lock'            # POST: lock a stage that is good, or unlock it (key, on)
+    fix = '/course/{cid}/fix'              # POST: Fix the rest: plan again each stage that is not locked, on the pool
     walk = '/w/{jid}'                      # the walk block: a walk
     step = '/w/{jid}/{i}'                  # the walk block: one step
     start = '/start'                       # the session block: ?focus= starts a session on one idea

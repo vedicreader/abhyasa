@@ -9,7 +9,7 @@ from abhyasa.jobs import track, seen_jobs
 from abhyasa.profile import profile_text
 from abhyasa.journey import last_place
 from abhyasa.course import (course_state, join_course, course_of, ensure_courses, ask_level, answer_level, level_done, plan_stages,
-                            build_stage, due_stage, set_here, add_ask, is_goal_walk, add_data, drop_data)
+                            build_stage, due_stage, set_here, add_ask, is_goal_walk, add_data, drop_data, lock_stage)
 from . import ui
 from .cfg import Routes
 
@@ -50,9 +50,9 @@ def connect(app, ctx):
         "Start the job that builds the stage that is due (the current one with no walk, or the next one at 60%). Never in a request."
         if c and (key := due_stage(lr, c)) and not running(c.id, key): submit(c.id, key, ui.BUILDING, build, c.id, key)
 
-    def plan_then_build(cid):
-        "On the pool: plan the stages from your answers, then build the current stage when it has no walk."
-        c = plan_stages(lr, ask, cid, who())
+    def plan_then_build(cid, fix=False):
+        "On the pool: plan the stages from your answers (with `fix`, each stage that is not locked), then build the current stage when it has no walk."
+        c = plan_stages(lr, ask, cid, who(), fix=fix)
         if (key := due_stage(lr, c)) and first(s for s in c.stages if s['key'] == key and not s.get('walk')) and lr.course(cid):
             try: build(cid, key)
             except Exception as e: log.warning('abhyasa could not build stage %s of %s: %r', key, cid, e)
@@ -111,6 +111,19 @@ def connect(app, ctx):
         if k == 'level': return ui.Level(lr.course(cid))
         if k == 'plan': return Response(headers={'HX-Redirect': ui.at(cid)})
         return Response(headers={'HX-Redirect': Routes.of_(Routes.walk, jid=st.job.result())})
+
+    def lock(cid:str, key:str='', on:str=''):
+        "Lock stage `key` (`on`), or unlock it. A replan and Fix the rest keep a locked stage as it is."
+        if not lr.course(cid): return Response(status_code=404)
+        try: lock_stage(lr, cid, key, bool(on))
+        except KeyError: return Response('This stage is not there now.', status_code=404)
+        return ui.Stages(state(cid), cid)
+
+    def fix(cid:str):
+        "Fix the rest: plan again each stage that is not locked, on the pool. The locked stages and their walks stay."
+        if not (c := lr.course(cid)): return Response(status_code=404)
+        st = submit(cid, 'plan', ui.FIXING, plan_then_build, cid, True)
+        return ui.Level(c, pending=ui.Pending(cid, 'plan', st.said))
 
     def data(cid:str, path:str='', note:str=''):
         "Keep the folder `path` as your data on the course and its walks. It is not filed."
@@ -172,6 +185,8 @@ def connect(app, ctx):
     app.get(Routes.job)(job)
     app.post(Routes.data)(data)
     app.post(Routes.data_drop)(data_drop)
+    app.post(Routes.lock)(lock)
+    app.post(Routes.fix)(fix)
     app.post(Routes.level)(level)
     app.post(Routes.answer)(answer)
     app.get(Routes.stage)(stage)

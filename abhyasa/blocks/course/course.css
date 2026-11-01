@@ -27,3 +27,7 @@
 .course-stages { list-style: none; padding-left: 0; }   /* the number is the `.k` of each stage */
 .course-block { font-size: var(--t-list); line-height: 1.55; }
 .course-block a { white-space: nowrap; }
+.course-stage .lock-mark { color: var(--mute); }
+.course-stage [data-act="lock"] { color: var(--mute); }
+.course-stage [data-act="lock"][aria-pressed="true"] { color: var(--fg); }
+.course-fix { gap: var(--s2); align-items: baseline; flex-wrap: wrap; font-size: var(--t-small); }

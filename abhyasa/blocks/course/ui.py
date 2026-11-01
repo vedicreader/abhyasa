@@ -13,6 +13,10 @@ SOURCE = dict(ready='ready', filing='filing', failed='failed')
 PLANNING = 'abhyasa plans the stages of your course. This takes about half a minute.'
 ASKING = 'The tutor writes a few short questions.'
 BUILDING = 'abhyasa plans the ideas of this stage. This takes about half a minute.'
+FIXING = 'abhyasa plans again each stage that is not locked. This takes about half a minute.'
+FIX_SAY = 'Lock each stage that is good. Fix the rest plans the other stages again. A stage that goes keeps its walk on Home.'
+LOCK_SVG = NotStr('<svg viewBox="0 0 12 14" width="10" height="12" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/>'
+                  '<path d="M3.5 6V4a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>')
 DATA_SAY = 'The exercises in Leela run on the files in these folders. abhyasa does not file them and does not learn from them.'
 
 def assets(): return (asset_css(_P/'course.css'),)
@@ -47,22 +51,34 @@ def why_once(st) -> str:
 def Next(st, cid):
     "The next thing to do, its reason in one line, and the one main button."
     nx = st.next
-    btn = '' if nx.rule == 8 else Primary('Continue', href=href(nx.go, cid), focus=True, rank=1)
+    btn = '' if nx.rule == 8 else Primary('Continue', href=href(nx.go, cid), focus=True, rank=1, data_act='continue')
     return Div(P(why_once(st), cls='course-why'), Div(btn, cls='row') if btn else '', cls='course-next')
 
+def StageLock(r, cid):
+    "The quiet Lock toggle of a stage: Keep this stage. A replan and Fix the rest do not change a locked stage."
+    on = bool(r.get('locked'))
+    return Quiet('Locked' if on else 'Lock', small=True, type='button', data_act='lock', aria_pressed='true' if on else 'false',
+                 title='Unlock this stage' if on else 'Keep this stage: a new plan does not change it', hx_post=Routes.of_(Routes.lock, cid=cid),
+                 hx_vals=json.dumps(dict(key=r['key'], on='' if on else '1')), hx_target='#course-stages', hx_swap='outerHTML')
+
 def Stage(r, cid):
-    "One stage: its name (a link to its walk), its state, its progress, what it makes."
+    "One stage: its name (a link to its walk), its lock mark, its state, its progress, what it makes, and its Lock toggle."
     name = A(r['name'], href=Routes.of_(Routes.walk, jid=r.j.id)) if r.j else Span(r['name'])
     count = f" · {r.done} of {n_of(r.total, 'idea')}" if r.state in ('ready', 'done') else f" · about {n_of(r.total, 'idea')}" if r.state == 'planned' else ''
     act = Quiet('Plan it now', href=Routes.of_(Routes.stage, cid=cid, key=r['key']), small=True) if r.state == 'planned' else ''
     why = r.get('why') if r.state in ('skipped', 'planned') else ''
-    return Li(Div(Span(f'{r.n}', cls='k'), name, Span(f" · {STATE.get(r.state, r.state)}{count}", cls='mute'), act, cls='row'),
+    mark = Span(LOCK_SVG, cls='lock-mark', role='img', aria_label='Locked', title='Locked: a new plan does not change this stage') if r.get('locked') else ''
+    return Li(Div(Span(f'{r.n}', cls='k'), name, mark, Span(f" · {STATE.get(r.state, r.state)}{count}", cls='mute'), act, StageLock(r, cid), cls='row'),
               Bar(r.done, r.total) if r.state in ('ready', 'done') else '',
               P(f"Makes: {r['makes']}", cls='mute') if r.get('makes') else '', P(why, cls='mute') if why else '',
               cls=f"course-stage {r.state}")
 
 def Stages(st, cid):
-    return Part('Stages', Ol(*[Stage(r, cid) for r in st.stages], cls='plain course-stages'))
+    "The stages, each with its Lock toggle, then Fix the rest: it plans again each stage that is not locked."
+    fix = Div(Quiet('Fix the rest', small=True, type='button', data_act='fix', hx_post=Routes.of_(Routes.fix, cid=cid), hx_target='#course-level', hx_swap='outerHTML',
+                    hx_confirm='Plan again each stage that is not locked? A stage that goes keeps its walk on Home.'),
+              Span(FIX_SAY, cls='mute'), cls='row course-fix') if st.stages else ''
+    return Part('Stages', Ol(*[Stage(r, cid) for r in st.stages], cls='plain course-stages'), fix, id='course-stages')
 
 def Blocking(st, cid):
     "What stands between you and the goal: one line and at most one action for each row."
