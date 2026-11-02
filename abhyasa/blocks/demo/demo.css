@@ -24,5 +24,7 @@
 .show-plan span + span:not(.secs)::before { content: '→'; margin-right: var(--s2); color: var(--mute); }
 .show-plan .on { color: var(--acc); font-weight: 600; }
 .show-plan .done { color: var(--fg); }
+.show-plan .on.fixing { color: var(--ink2); font-weight: 400; }   /* a try that failed the checks is a normal step, not an error */
+.show-why { flex-basis: 100%; } .show-why summary { cursor: pointer; } .show-why li { margin: 2px 0; }
 .show-while > p { margin: var(--s3) 0 0; }
 .three-slot:empty { display: none; }
