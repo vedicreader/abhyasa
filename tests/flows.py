@@ -218,6 +218,24 @@ def b_idea_reading(lr, cl, mp):
     jid = started(cl, paper(lr, cl)); lr.walk_step(jid, 1, check=dict(STEP))   # a short check: the code check goes (step 7)
     return f'/w/{jid}/1', {}
 
+def intercept_step(lr, cl, floor=0):
+    "A started paper walk whose step 1 has a check on the intercept, a concept on the shelf at depth `floor`."
+    jid = started(cl, paper(lr, cl))
+    lr.put('Intercept', 'The intercept is the point where a line crosses the y axis.', 'maths')
+    if floor: lr.update('intercept', floor=floor)
+    lr.walk_step(jid, 1, check=dict(STEP, q='Slide the line up. How does the intercept change?'))
+    return f'/w/{jid}/1', {}
+
+def b_idea_new_words(lr, cl, mp): return intercept_step(lr, cl)
+def b_idea_words_known(lr, cl, mp): return intercept_step(lr, cl, floor=4)
+
+def b_idea_last_done(lr, cl, mp):
+    "A side walk of 4 ideas from step 3 of a paper walk, all done: the last idea goes back to the main idea."
+    jid = started(cl, paper(lr, cl)); main = lr.journey(jid).steps[2]['slug']
+    lr.put_journey(dict(id='side4', title='Side walk', mode='walk', depth=1, slug='ranking', started=time.time(), parent=dict(walk=jid, step=2, idea=main),
+                        steps=[dict(slug=s, status='todo', check=dict(STEP), done=dict(outcome='solid', at=time.time())) for s in ('ranking', 'softmax', 'reciprocal-rank-fusion', 'ranking')]))
+    return '/w/side4/3', {}
+
 def b_idea_done(lr, cl, mp):
     jid = started(cl, paper(lr, cl)); lr.walk_step(jid, 1, check=dict(STEP)); done(lr, jid, 1)
     return f'/w/{jid}/1', {}
@@ -276,7 +294,7 @@ def b_course_from_rabbit(lr, cl, mp):
     jid = rabbit_step(lr, cl)
     return f"/course/{course_from(lr, 'gradients', dict(walk=jid, step=2)).id}", {}
 
-BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('idea', 'reading'): b_idea_reading, ('idea', 'done'): b_idea_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due, ('home', 'starting'): b_home_starting,
+BUILD = {('home', 'empty'): b_home_empty, ('home', 'going'): b_home_going, ('idea', 'reading'): b_idea_reading, ('idea', 'new_words'): b_idea_new_words, ('idea', 'words_known'): b_idea_words_known, ('idea', 'done'): b_idea_done, ('idea', 'last_done'): b_idea_last_done, ('home', 'course_going'): b_course_going, ('home', 'reviews_due'): b_reviews_due, ('home', 'starting'): b_home_starting,
          ('walk', 'new'): b_walk_new, ('walk', 'going'): b_walk_going, ('walk', 'researching'): b_walk_researching, ('walk', 'research_ended'): b_walk_research_ended,
          ('walk', 'finished'): b_walk_finished, ('walk', 'side_walk'): b_walk_side, ('walk', 'empty'): b_walk_empty, ('walk', 'locked'): b_walk_locked,
          ('course', 'stage_locked'): b_course_locked, ('course', 'from_rabbit'): b_course_from_rabbit, ('idea', 'own_course'): b_idea_own_course,

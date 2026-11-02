@@ -8,7 +8,7 @@ import logging, re, time
 from fasthtml.common import *
 from fastcore.utils import first
 from abhyasa.core import hook, run as run_hook, is_local
-from abhyasa.path import needs, pick_way_down, detour, back_from, look_up, name_gaps, parent_step, for_talk, course_from, courses_from, course_state
+from abhyasa.path import walk_needs, known_how, pick_way_down, detour, back_from, look_up, name_gaps, parent_step, for_talk, course_from, courses_from, course_state
 from abhyasa.learner import val
 from . import ui
 from .cfg import Routes
@@ -112,7 +112,7 @@ def connect(app, ctx):
         by = {x.slug: x for x in lr.concepts()}
         ds = j.steps[i].get('detours') or []
         met = {d['slug'] for d in ds if d.get('outcome') in GOOD and today(d.get('at'))}
-        rows = [(n, 'learned' if n.ok else 'today' if n.slug in met else 'missing') for n in (needs(lr, c.slug, by) if c and c.slug in by else ())]
+        rows = walk_needs(lr, j, i, by, met) if c and c.slug in by else ()   # the count of the walk: an idea done in this walk is done
         strip, d = None, ds[-1] if ds else None
         if d and time.time() - d.get('at', 0) < val('walks.fresh') * 60 and (sj := lr.journey(d['walk'])):
             outs = [(s.get('done') or {}).get('outcome') for s in sj.steps]
@@ -124,16 +124,19 @@ def connect(app, ctx):
     def gaps(j, i, q):
         "After a miss that names a gap: the line that offers to learn it beside the step."
         terms = list(dict.fromkeys(t.strip() for t in (q or {}).get('gaps') or () if isinstance(t, str) and t.strip()))
-        rs = [found(t) for t in terms]
-        return ui.GapLine([(r.slug, r.name) if r else (t, t) for r, t in zip(rs, terms)], new=not rs[0]) if terms else None
+        hits = [(r.slug, r.name, False) if (r := found(t)) else (t, t, True) for t in terms]
+        if not hits: return None
+        j, by = lr.journey(j.id) or j, {x.slug: x for x in lr.concepts()}   # the walk now: a side walk that ended since is on the step
+        rows = [(s, n, *known_how(j, i, s, by)) for s, n, _ in hits]
+        new = next((u for (s, _, u), (_, _, st, _) in zip(hits, rows) if st == 'missing'), False)   # the first gap to learn is not in your concepts: the click adds it
+        return ui.GapLine(rows, Routes.of(Routes.again, jid=j.id, i=i) if j.steps[i].get('done') else None, new=new)
 
     @hook('check_stuck')
     def stuck(jid, i, s, q):
         "In the stuck row of an open check, after Teach me: Learn it, for the gap that your answer shows, else the first idea that the step needs and you did not learn."
-        c = lr.concept(s.get('slug') or '')
-        by = {x.slug: x for x in lr.concepts()} if c else {}
+        c, j = lr.concept(s.get('slug') or ''), lr.journey(jid)
         gaps = [g for g in (q or {}).get('gaps') or () if isinstance(g, str) and g.strip()]
-        t = (gaps and ((r := found(gaps[0])) and r.slug or gaps[0])) or next((n.slug for n in (needs(lr, c.slug, by) if c else ()) if not n.ok), None)
+        t = (gaps and ((r := found(gaps[0])) and r.slug or gaps[0])) or next((n.slug for n in (walk_needs(lr, j, i) if c and j and i < len(j.steps) else ()) if n.state == 'missing'), None)
         return ui.Ask('Learn it', t, cls='rh-ask rh-stuck') if t else None
 
     @hook('concept_actions')

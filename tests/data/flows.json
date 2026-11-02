@@ -692,6 +692,7 @@
       ],
       "parts": [
         "outline (part:outline; its title links to the walk page)",
+        "words (part:words: Words to know, under the needs line and before the passage: each term that you do not know yet in bold, with one plain line; a term opens its concept in the side pane)",
         "passage",
         "show (part:show: the Show slot)",
         "note",
@@ -713,6 +714,44 @@
           ],
           "must_not_show": [
             "label:Looking for a source…"
+          ],
+          "actions": [
+            "send",
+            "hint",
+            "show-me",
+            "explain",
+            "learn-it (side walk)",
+            "next"
+          ]
+        },
+        "new_words": {
+          "when": "the passage, the statement or the check of steps[i] names a concept that you did not learn and that this walk did not do (words_to_know); the check question uses intercept",
+          "must_show": [
+            "part:words",
+            "label:Words to know",
+            "label:The intercept is the point where a line crosses the y axis.",
+            "act:word",
+            "part:passage",
+            "part:check"
+          ],
+          "must_not_show": [],
+          "actions": [
+            "send",
+            "hint",
+            "show-me",
+            "explain",
+            "learn-it (side walk)",
+            "next"
+          ]
+        },
+        "words_known": {
+          "when": "the same step, and you learned intercept (floor 4)",
+          "must_show": [
+            "part:passage",
+            "part:check"
+          ],
+          "must_not_show": [
+            "label:The intercept is the point where a line crosses the y axis."
           ],
           "actions": [
             "send",
@@ -760,7 +799,8 @@
           "must_show": [
             "part:check (closed card)",
             "act:next",
-            "label:Next idea"
+            "label:Next idea",
+            "act:do-again"
           ],
           "must_not_show": [
             "act:send"
@@ -768,8 +808,10 @@
           "actions": [
             "next",
             "show-me",
-            "review"
-          ]
+            "review",
+            "do-again (quiet: a fresh check on the same idea)"
+          ],
+          "shows": "what you did: the question (folded when long), your answer, the grade and the feedback, and when and where, with a link in the side pane; with no attempt (an old path), the line \"Marked done when your old path became this walk. Its answer is not kept.\""
         },
         "known_elsewhere": {
           "when": "walk_state(j, by).steps[i].elsewhere",
@@ -851,6 +893,22 @@
           "pending": true,
           "pending_why": "step 3: data-part on the idea page"
         },
+        "last_done": {
+          "when": "a side walk (walk.parent is set): steps[i] is its last idea and steps[i].done (a side walk of 4 ideas, all done)",
+          "main_action": "back",
+          "must_show": [
+            "part:check (closed card)",
+            "act:back",
+            "label:Back to the main idea:"
+          ],
+          "must_not_show": [
+            "act:next",
+            "label:Next idea"
+          ],
+          "actions": [
+            "back → idea (the main idea, the step that opened the side walk, with the strip of what you learned; in the side pane, the end note closes the pane)"
+          ]
+        },
         "own_course": {
           "when": "courses_from(lr, jid, steps[i].slug) is not empty (a rabbit hole opened its own course from this step)",
           "must_show": [
@@ -877,7 +935,8 @@
         "walk",
         "course (its own course for a big gap; the link to it on the step)",
         "concept (in the pane: a name in the needs line, What moved)",
-        "doc (in the pane: the source line of the passage, Open in your vault)"
+        "doc (in the pane: the source line of the passage, Open in your vault)",
+        "you (in the pane: the past session of a done check, as \"29 Oct, in a past session\")"
       ]
     },
     "concept": {

@@ -778,3 +778,53 @@ def test_the_link_to_the_idea_before_draws_maths_as_the_outline_does(mk, lr):
     t = mk().get('/w/wm/1').text
     back = re.search(r'<div class="next-bar">\s*<a [^>]*>(.*?)</a>', t, re.S)[1]
     assert to_xml(Inline('Why scale by $1/\\sqrt{d_k}$')).strip() in back and '← Why scale by $1/' not in t
+
+def test_note_does_not_repeat_the_tutors_words(mk, walk_fake, lr):
+    "With no passage, a note that says the statement again is dropped, so the page shows one block. A note that adds an example stays."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    j = lr.journey(jid); slug = j.steps[2]['slug']; said = lr.concept(slug).statement
+    lr.walk_step(jid, 2, read={**j.steps[2]['read'], 'text': '', 'figure': None}, note=None)
+    walk_fake.rules['You write a short note'] = said
+    assert "The tutor's note" not in cl.get(f'/w/{jid}/2/note').text and lr.journey(jid).steps[2]['note_none']
+    walk_fake.rules['You write a short note'] = 'A loud voice in a quiet room takes all the attention. Look at what a large score does.'
+    lr.walk_step(jid, 2, note=None, note_none=None)
+    n = cl.get(f'/w/{jid}/2/note').text
+    assert "The tutor's note" in n and 'A loud voice' in n
+
+def test_words_to_know_come_first(mk, walk_fake, lr):
+    "A check that uses intercept, which you do not know, shows the line for intercept before the passage. Once you learned intercept, it does not show."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.put('Intercept', 'The intercept is the point where a line crosses the y axis.', 'maths')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why='', q='Slide the line up. How does the intercept change?'))
+    page = cl.get(f'/w/{jid}/1').text
+    assert 'Words to know' in page and page.index('The intercept is the point') < page.index('id="passage"')
+    assert 'data-pane="/c/intercept' in page.split('Words to know')[1].split('id="passage"')[0]   # the term opens in the side pane
+    lr.update('intercept', floor=4)
+    assert 'The intercept is the point' not in cl.get(f'/w/{jid}/1').text
+
+def test_words_to_know_from_the_check_question(mk, walk_fake, lr):
+    "A term that only the tutor's question names comes with the check card, out of band."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.put('Intercept', 'The intercept is the point where a line crosses the y axis.', 'maths')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
+    walk_fake.dflt = dict(question='Where is the intercept of this line?', answer='At b.', rubric=['b'])
+    assert 'The intercept is the point' not in cl.get(f'/w/{jid}/1').text
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'id="words"' in card and 'hx-swap-oob="true"' in card and 'The intercept is the point' in card
+
+def test_a_done_check_shows_what_you_did(mk, walk_fake, lr):
+    "A done step with an attempt shows the question, the answer, the feedback and the date. A migrated step with none says so. Do it again opens a fresh check."
+    import time as tm
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); j = lr.journey(jid)
+    a = lr.record(j.steps[1]['slug'], 'What does a rank mean here?', 'Its place in the list.', correct=True, grade=9, feedback='Yes, the place in the list.', walk=jid, step=1)
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''), done=dict(outcome='solid', aid=a.id, at=a.at))
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'What does a rank mean here?' in card and 'Its place in the list.' in card and 'Yes, the place in the list.' in card and '9/10' in card
+    assert tm.strftime('%-d %b', tm.localtime(a.at)) in card and f'href="/w/{jid}"' in card and 'data-pane=' in card
+    assert 'Next idea' in card and 'Do it again' in card and 'data-act="do-again"' in card
+    lr.walk_step(jid, 2, check=dict(way='words', kind='short', depth=2, why=''), done=dict(outcome='solid', at=0))   # as an old path leaves it
+    old = cl.get(f'/w/{jid}/2/check').text
+    assert 'Marked done when your old path became this walk. Its answer is not kept.' in old and 'Do it again' in old
+    fresh = cl.post(f'/w/{jid}/1/again').text
+    s = lr.journey(jid).steps[1]
+    assert s['done'] is None and s['qid'] and 'id="send"' in fresh and 'Its place in the list.' not in fresh

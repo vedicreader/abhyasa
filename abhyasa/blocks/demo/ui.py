@@ -80,15 +80,17 @@ def ShowCard(a, route, body, leela, two_d=None, three_d=None):
 
 WAIT = 'job, every 30s'   # a part that waits for a job: it loads again on an event of the stream (core.js), and every 30 seconds when the stream is not there
 
-def Plan(stage:str, secs:float):
+def Plan(stage:str, secs:float, why=()):
     """The real stage of the job that makes the demo (`job_stage`), and the seconds so far: the stage changes on the event of the job, and
-    demo.js counts the seconds, so Show is never silent, and it never says a stage that is not true."""
-    return Div(Span(STAGES.get(stage, STAGES['writing']), cls='on'), Span(f'{int(secs)} s', cls='mute secs', data_secs=str(int(secs))), cls='row show-plan')
+    demo.js counts the seconds, so Show is never silent, and it never says a stage that is not true. A try that failed the checks is a calm
+    line, not an error, with a small Why fold (`why`, from `tries_said`) for the curious learner."""
+    fold = Details(Summary('Why'), Ul(*map(Li, why)), cls='show-why') if why and stage == 'fixing' else ''
+    return Div(Span(STAGES.get(stage, STAGES['writing']), cls='on fixing' if stage == 'fixing' else 'on'), Span(f'{int(secs)} s', cls='mute secs', data_secs=str(int(secs))), fold, cls='row show-plan')
 
-def AskPending(a, kind='', aim='', secs:float=0, stage:str='writing', lead:str='', job:str=''):
+def AskPending(a, kind='', aim='', secs:float=0, stage:str='writing', lead:str='', job:str='', why=()):
     """The demo of ask `a` (with `kind`, its 3D explainer or its 2D demo; with `aim`, its simpler demo) is not ready: its stage. It loads again
     on each event of its job row `job` (a new stage, the end), and every 30 seconds. `lead` is a line that goes with the wait, so it goes when the demo comes."""
     three = kind == '3d'
     what = 'a 3D explainer' if three else 'a simpler demo' if aim == 'simpler' else 'a demo'
-    return Div(P(f"The tutor makes {what} of {'what you asked' if a.said else 'this idea'}.", cls='mute making'), Plan(stage, secs), P(lead, cls='mute') if lead else '',
+    return Div(P(f"The tutor makes {what} of {'what you asked' if a.said else 'this idea'}.", cls='mute making'), Plan(stage, secs, why), P(lead, cls='mute') if lead else '',
                hx_get=Routes.of(Routes.asked, aid=a.id) + (f'?kind={kind}' if kind else ''), hx_trigger=WAIT, hx_swap='outerHTML', cls='demo-card pending', data_ask=a.id, data_job=job)

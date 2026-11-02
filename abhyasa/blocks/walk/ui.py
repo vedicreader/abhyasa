@@ -262,6 +262,14 @@ def NextBar(jid, i, st, by):
     skip = '' if done else Form(Quiet('Skip this idea', small=True, id='skip'), action=at(Routes.next, jid, i), method='post', cls='skip')
     return Div(back, skip, cls='next-bar')
 
+def Words(rows, oob=False):
+    """Words to know, before the passage: each term that you do not know yet in bold, as a link to its concept in the side pane (so the
+    place stays), and one plain line on what it means. An empty place when you know them all. `oob` swaps it in after the check came."""
+    kw = dict(hx_swap_oob='true') if oob else {}
+    if not rows: return Div(id='words', **kw)
+    items = [Li(side_link(B(Inline(r.name)), f'/c/{r.slug}', r.name, cls='pane-link term', data_act='word'), ': ', Span(Inline(r.line), cls='line')) for r in rows]
+    return Div(Span('Words to know', cls='lbl'), Ul(*items, cls='terms'), id='words', cls='words', data_part='words', **kw)
+
 def Note(text):
     "The tutor note under the passage, with its label: it is the tutor's words, not a quote."
     return TutorWords(text, note=True) if text else ''
@@ -302,9 +310,10 @@ def TalkStep(j, st, by, i, figure=True):
     return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea', data_concept=s.get('slug')), Passage(j, short, c), Figure_(j['id'], i, s, c) if figure else '',
                P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
-def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None, figure=True):
+def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None, figure=True, words=()):
     """One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title, `present` under the outline.
-    `result` is the card "From Leela": it takes the place of the check, so the page has it with no second request. `figure=False`: the file of the figure is not there, so no image."""
+    `result` is the card "From Leela": it takes the place of the check, so the page has it with no second request. `figure=False`: the file of the figure is not there, so no image.
+    `words` are the terms of Words to know, under the needs line and before the passage."""
     if in_talk(): return TalkStep(j, st, by, i, figure)
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
@@ -312,7 +321,7 @@ def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING, data_part='check') if result is None else Div(result, id='check', data_part='check')
     return Div(Rail(j, st, by, i, present),
-               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea', data_concept=s.get('slug')), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c) if figure else '',
+               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea', data_concept=s.get('slug')), *needs, Words(words), Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c) if figure else '',
                    NoteSlot(j['id'], i), slot, leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 
@@ -348,9 +357,11 @@ def Thread(q):
         out.append(Turn(t, n))
     return out
 
-def GoOn(jid, i, hidden=False):
-    "Next idea: the one main button of a step once its check is closed. A demo check holds it hidden until the first prediction."
-    return Form(Primary('Next idea', focus=True, data_act='next'), action=at(Routes.next, jid, i), method='post', cls='row go-on', hidden=hidden)
+def GoOn(jid, i, hidden=False, main=None):
+    """Next idea: the one main button of a step once its check is closed. A demo check holds it hidden until the first prediction.
+    On the last idea of a side walk, `main` is the name of the main idea, the step that opened the side walk: the button goes back to it."""
+    label, act = (f'Back to the main idea: {main}', 'back') if main else ('Next idea', 'next')
+    return Form(Primary(label, focus=True, data_act=act), action=at(Routes.next, jid, i), method='post', cls='row go-on', hidden=hidden)
 
 def CardHead(s, q=None):
     ck = s.get('check') or {}
@@ -358,12 +369,33 @@ def CardHead(s, q=None):
     way = LABELS.get(q.get('method') if q else ck.get('way'), '')
     return Div(Span(' · '.join(x for x in ('Check', way.lower(), depth) if x)), Span(ck.get('why', ''), cls='why') if ck.get('why') else '', cls='lbl')
 
+LONG_Q = 160   # a question longer than this is folded in a done check
+
+def Did(a, where=('', '')):
+    """What you did in a closed check: the question (folded when it is long), your answer, the grade and the feedback of the tutor, and
+    when and where, with a link to that walk or session in the side pane."""
+    q = str(a.get('question') or '')
+    ask = Details(Summary('The question'), Md(q), cls='did-q') if len(q) > LONG_Q else Div(Md(q), cls='did-q')
+    grade = f" · {a['grade']}/10" if isinstance(a.get('grade'), int) else ''
+    title, href = where
+    when = time.strftime('%-d %b', time.localtime(a['at'])) if a.get('at') else ''
+    return Div(ask, P(Span('You said', cls='lbl'), ' ', a.get('answer') or "I don't know", cls='did-a'),
+               P(Span(f"{'Right' if a.get('correct') else 'Not yet'}{grade}", cls='lbl'), ' ', Inline(a.get('feedback') or ''), cls='did-f') if a.get('feedback') or grade else '',
+               P(when, ', in ' if when and title else 'In ' if title else '', side_link(title, href, title) if title else '', cls='mute did-at') if when or title else '', cls='did')
+
+OLD_DONE = 'Marked done when your old path became this walk. Its answer is not kept.'
+
 def Done(jid, i, s):
-    "A check that is done, when its thread is not in memory any more."
+    """A check that is done, when its thread is not in memory any more: what you did (`Did`, from `s['did']`), or a plain line when its
+    answer is not kept, and a quiet Do it again. Next idea stays the main button."""
     o = (s.get('done') or {}).get('outcome')
     say = ('You skipped this check.' if o == 'skipped' else f"You did this check: {OUTCOME[o].lower()}." if o in OUTCOME
            else 'This check is not open. Load the page again.')
-    return Check(CardHead(s), P(say), foot=GoOn(jid, i), cls='done')
+    if (a := s.get('did')): body = (P(say), Did(a, s.get('did_where') or ('', '')))
+    elif o in OUTCOME and o != 'skipped': body = (P(say), P(OLD_DONE if not (s.get('done') or {}).get('aid') else 'Its answer is not kept.', cls='mute'))
+    else: body = (P(say),)
+    redo = Quiet('Do it again', small=True, type='button', hx_post=at(Routes.again, jid, i), hx_target='#check', hx_swap='innerHTML', data_act='do-again') if o in OUTCOME else ''
+    return Check(CardHead(s), *body, foot=(GoOn(jid, i, main=s.get('main')), redo), cls='done')
 
 def Explain():
     "Explain in the row of a check: it opens the guide (guide.js), as Caps+E does."
@@ -378,7 +410,7 @@ def Short(jid, i, s, q, after=()):
     if q is None: return Done(jid, i, s)
     shut = any(t.get('kind') == 'close' for t in q.get('turns') or ())
     tgt = dict(hx_target='#check', hx_swap='innerHTML')
-    if shut: foot = GoOn(jid, i)
+    if shut: foot = GoOn(jid, i, main=s.get('main'))
     else:
         tries = len(q.get('tries') or ())
         left = val('checks.tries') - tries
@@ -409,7 +441,7 @@ def DemoCheck(jid, i, s, d):
     shut = bool(s.get('done'))
     more = dict(hx_post=at(Routes.ladder, jid, i) + '?simpler=1', hx_target='#ladder', hx_swap='outerHTML') if k == 'demo' and val('checks.demo_ladder') else None
     return Check(CardHead(s), P(LEAD[k], cls='mute'), foot=(Demo(d.spec), *rk_assets(), Feedback('demo', slug=d.slug, simpler=more), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts'),
-                                                            Slot(jid, i, s), GoOn(jid, i, hidden=not shut)), shut=shut, cls='walk-demo', data_step=str(i), data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
+                                                            Slot(jid, i, s), GoOn(jid, i, hidden=not shut, main=s.get('main'))), shut=shut, cls='walk-demo', data_step=str(i), data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
 
 def Slot(jid, i, s):
     "The place for the help under a demo check. walk.js fills it after a wrong prediction; a reload fills it when the step has help."

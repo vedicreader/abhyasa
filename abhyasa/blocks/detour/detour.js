@@ -140,6 +140,8 @@ if (!window.abhyasaDetour) {
     const fresh = html && new DOMParser().parseFromString(html, 'text/html').querySelector('.rh-needs'), old = document.querySelector('.rh-needs');
     if (fresh && old && !old.contains(box())) box()?.remove();   // the chooser box moved under the gap line: the new needs line has its own
     if (fresh && old) { fresh.classList.add('fresh'); old.replaceWith(fresh); htmx.process(fresh); }   // the new state fades in (detour.css)
+    const card = document.getElementById('check');   // the gap line of the card says what you learned on the way
+    if (html && card && card.querySelector('.rh-gapline') && card.getAttribute('hx-get')) htmx.ajax('GET', card.getAttribute('hx-get'), {target: card, swap: 'innerHTML'});
   };
   let was = root.classList.contains('rh-open');
   if (was) note(new URLSearchParams(location.search).get('rh'));

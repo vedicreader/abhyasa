@@ -227,3 +227,29 @@ def test_an_old_jobs_document_moves_to_the_ledger(mk, lr):
     assert j['ended'][1] == dict(key='build:b8', kind='build', state='done', title='Old link', said='Ready.', why='', start=now - 90, end=now - 30, url='/w/w9', seen=False)
     assert 'Stopped: Old walk and 1 more' in chip(cl.get('/').text)
     with cl.stream('GET', '/events') as r: assert lines(r) == ['event: end']   # no job runs
+
+def test_a_demo_try_that_fails_its_checks_says_why(mk, walk_fake, lr, caplog):
+    "A try that fails the checks: the card has a calm line and a Why fold, the log has the errors at INFO, and the row keeps them. A good first try is one call."
+    import logging
+    from abhyasa.show import STAGES, queue_demo
+    from rupaka.spec import gallery
+    good = {**gallery()['reciprocal-rank-fusion'], 'id': 'ranking'}
+    gate, n = threading.Event(), []
+    def rule(p, sp):
+        n.append(1)
+        if len(n) == 1: return {'blocks': 'not a list'}
+        gate.wait(5); return good
+    walk_fake.rules['You design one interactive demo'] = rule
+    cl = mk()
+    with caplog.at_level(logging.INFO, logger='abhyasa.show'):
+        r = cl.post('/demo/ask', data=dict(concept='ranking', where='concept')).text
+        assert wait_for(lambda: lr.job('demo:ranking').said == STAGES['fixing'] or None)
+        card = cl.get(hx_get(r)).text
+        assert 'did not pass its checks. The tutor writes it again.' in card and 'class="on fixing"' in card and '<summary>Why</summary>' in card and 'Try 1 did not pass: ' in card
+        assert lr.job('demo:ranking').tries[0]['errors'] and any('demo demo:ranking: try 1 did not pass its checks' in m for m in caplog.messages)
+        gate.set(); assert wait_for(lambda: lr.job('demo:ranking').state == 'done' or None)
+    assert (len(n), lr.job('demo:ranking').said) == (2, 'The demo is ready.')   # one repair: two tries in all
+    n.clear(); walk_fake.rules['You design one interactive demo'] = lambda p, sp: (n.append(1), {**good, 'id': 'reciprocal-rank-fusion'})[1]
+    cl.post('/demo/ask', data=dict(concept='reciprocal-rank-fusion', where='concept'))
+    assert wait_for(lambda: lr.job('demo:reciprocal-rank-fusion').state == 'done' or None)
+    assert (len(n), lr.job('demo:reciprocal-rank-fusion').tries) == (1, [])   # a good first try: one call, and no tries kept

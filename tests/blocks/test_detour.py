@@ -268,3 +268,63 @@ def test_learn_this_gap_opens_the_chooser_under_the_gap_line(mk, walk_fake, lr, 
                 assert not errs, errs
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
+
+def test_needs_line_counts_the_walk(mk, walk_fake, lr):
+    "Step 1 is done in this walk and step 3 needs it: the line says done at idea 1, with no Learn it. Closed shaky, it says review it."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    j = lr.journey(jid); first, third = j.steps[0]['slug'], j.steps[2]['slug']
+    lr.update(third, prereqs=[first]); lr.update(first, floor=2)   # a check at depth 2 leaves the floor under the depth of a ready need
+    assert 'not learned yet' in cl.get(f'/w/{jid}/2').text
+    lr.walk_step(jid, 0, done=dict(outcome='solid', at=1.))
+    line = cl.get(f'/w/{jid}/2').text.split('class="rh-line"')[1].split('rh-offer')[0]
+    assert 'done at idea 1' in line and 'not learned yet' not in line and 'Learn it' not in line, line
+    lr.walk_step(jid, 0, done=dict(outcome='fragile', at=1.))
+    line = cl.get(f'/w/{jid}/2').text.split('class="rh-line"')[1].split('rh-offer')[0]
+    assert 'shaky: review it' in line and f'href="/w/{jid}/0"' in line and 'Learn it' not in line, line
+
+def side_of_four(cl, lr):
+    "A started paper walk whose step 3 opened a side walk of 4 ideas on gradients; the first 3 are done."
+    jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    for n in ('Slope', 'Rate of change', 'Partial derivative'): lr.put(n, f'{n} is one idea about change.', 'ml')
+    slugs = ['slope', 'rate-of-change', 'partial-derivative', 'gradients']
+    lr.put_journey(dict(id='side4', title='Gradients', mode='walk', depth=1, slug='gradients', started=time.time(),
+                        parent=dict(walk=jid, step=2, idea=lr.journey(jid).steps[2]['slug']),
+                        steps=[dict(slug=s, status='todo', check=dict(way='words', kind='short', depth=2, why='')) for s in slugs]))
+    for k in range(3): lr.walk_step('side4', k, done=dict(outcome='solid', at=time.time()))
+    return jid
+
+def test_last_idea_of_a_side_walk_goes_back_to_the_main_idea(mk, walk_fake, lr):
+    "After the 4th check of a 4-idea side walk, the main button is Back to the main idea, not Next idea, and it lands on the main idea with what you learned."
+    walk_fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')
+    cl = mk(); jid = side_of_four(cl, lr)
+    main = lr.concept(lr.journey(jid).steps[2]['slug']).name
+    cl.get('/w/side4/3/check')
+    card = cl.post('/w/side4/3/answer', data=dict(answer='the slope in each direction', confidence=90)).text
+    assert f'Back to the main idea: {main}' in card and 'Next idea' not in card and 'data-act="back"' in card
+    r = cl.post('/w/side4/3/next', follow_redirects=False)
+    assert r.headers['location'] == f'/w/{jid}/2'
+    page = cl.get(f'/w/{jid}/2').text
+    assert 'Back on the paper' in page and 'on the way' in page and lr.journey(jid).steps[2]['detours'][0]['outcome'] == 'solid'
+    assert 'data-rh-done' in cl.post('/w/side4/3/next', params=dict(pane=1)).text   # in the side pane: the end note, which closes the pane
+
+def test_a_gap_learned_in_a_side_walk_has_a_tick(mk, walk_fake, lr):
+    "A miss names a gap, a side walk on it ends well, then you come back: the gap line has a tick and no Learn it, and Try the check again opens a new check."
+    walk_fake.rules['You grade one answer'] = dict(correct=False, grade=2, first_error='No slope.', misconception='', feedback='Think of the slope.', gaps=['gradients'])
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    lr.walk_step(jid, 2, check=dict(way='words', kind='short', depth=2, why=''))
+    cl.get(f'/w/{jid}/2/check')
+    cl.post(f'/w/{jid}/2/answer', data=dict(answer='it is faster', confidence=70))
+    card = cl.post(f'/w/{jid}/2/giveup', data=dict(confidence=0)).text
+    assert 'Your answer shows a gap' in card and 'Try the check again' not in card
+    sid = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url'].split('/')[2]
+    walk_fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')
+    cl.get(f'/w/{sid}/0/check'); cl.post(f'/w/{sid}/0/answer', data=dict(answer='the slope', confidence=90))
+    cl.post(f'/rh/back/{sid}')
+    card = cl.get(f'/w/{jid}/2/check').text
+    assert '✓' in card and 'learned in a side walk' in card and 'Your answer shows a gap' not in card and 'Learn this gap' not in card.split('rh-gaps')[1], card
+    assert 'Next idea' in card and 'data-act="try-again"' in card and f'hx-post="/w/{jid}/2/again"' in card
+    assert '✓' in cl.get(f'/w/{jid}/2').text.split('rh-strip')[1][:300]   # the strip of the return has the same tick
+    old = lr.journey(jid).steps[2]['qid']
+    again = cl.post(f'/w/{jid}/2/again').text
+    s = lr.journey(jid).steps[2]
+    assert s['done'] is None and s['qid'] and s['qid'] != old and 'id="send"' in again   # a fresh, open check

@@ -9,7 +9,7 @@ from starlette.responses import RedirectResponse
 from rupaka.render import bundle, version
 from abhyasa.core import hook, Msg
 from abhyasa.core.leela import leela_link
-from abhyasa.show import show, queue_demo, job_state, job_age, job_stage, job_key, ROUTES, REFUSED
+from abhyasa.show import show, queue_demo, job_state, job_age, job_stage, job_key, tries_said, ROUTES, REFUSED
 from abhyasa.learner import seen_jobs
 from . import ui
 from .cfg import Routes
@@ -50,7 +50,7 @@ def connect(app, ctx):
         aim = '3d' if three else a.get('aim', '') if not kind else ''
         if job_state(tutor, a.concept, aim, a.ask) == 'running':
             wait = ui.AskPending(a, '3d' if three else kind, aim, job_age(tutor, a.concept, aim, a.ask), job_stage(tutor, a.concept, aim, a.ask),
-                                 ui.WHILE_3D if three and not kind else '', job=job_key(a.concept, aim, a.ask))
+                                 ui.WHILE_3D if three and not kind else '', job=(k := job_key(a.concept, aim, a.ask)), why=tries_said(lr.job(k)))
             if not (three and not kind): return wait
             if not lr.demo_for(a.concept, key=a.key or None) and job_state(tutor, a.concept, '', a.ask) != 'running': queue_demo(tutor, a.concept, said=a.ask, quiet=True)   # the 2D demo beside a 3D ask: the row of the 3D job is in the chip
             return ui.WhileThree(wait, shown(a, 'demo'))   # the 2D demo while the 3D explainer builds

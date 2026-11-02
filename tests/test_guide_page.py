@@ -295,7 +295,7 @@ def test_the_capture_has_the_last_graded_try(page):
     you = dict(who='you', text='Alpha bar grows with t.', confidence=50)
     nudge = dict(who='tutor', kind='nudge', text='Look at what each alpha is.', first_error='Alpha bar does not grow.')
     walk = Div(Check(Div('Check', cls='lbl'), 'Why does alpha bar fall?', Turn(you, 0), Turn(nudge, 0),
-                     foot=(GapLine([('cumulative-product', 'cumulative product'), ('noise', 'noise schedule')]), Div(Span('2 tries left', cls='mute'), cls='row conf'))), id='check')
+                     foot=(GapLine([('cumulative-product', 'cumulative product', 'missing', None), ('noise', 'noise schedule', 'missing', None)]), Div(Span('2 tries left', cls='mute'), cls='row conf'))), id='check')
     page.evaluate("h => document.querySelector('main').insertAdjacentHTML('beforeend', h)", to_xml(walk))
     t = {a['id']: a for a in page.evaluate('abhyasaGuide.capture()')['anchors']}['try']
     assert {k: t.get(k) for k in ('kind', 'answer', 'outcome', 'feedback', 'error', 'gaps', 'state', 'left')} == dict(

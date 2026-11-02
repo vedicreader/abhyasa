@@ -168,6 +168,6 @@ def test_a_long_research_job_does_not_block_a_demo_or_a_note(mk, web, lr):
         a, b = topic(cl), topic(cl)
         until(lambda: web.asked)
         assert cl.app.state.svc['pool'].submit(lambda: 'a demo').result(timeout=5) == 'a demo'
-        assert 'Softmax makes weights' in cl.get(f'/w/{a}/0/note').text
+        assert 'Look at what a large score does' in cl.get(f'/w/{a}/0/note').text   # the note came; with no passage, its sentence that says the statement again goes
     finally: web.hold.set()
     until(lambda: state(lr, a) == 'found' and state(lr, b) == 'found')

@@ -9,22 +9,22 @@ __all__ = ['GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD_RULE',
            'FILLER', 'OFF_CHECK', 'COUNTS', 'ON_TRY', 'NO_SOURCE', 'WITH_SOURCE', 'LABEL', 'VAULT_FLOOR', 'WEB_FAILED',
            'WEB_NO_PAGE', 'WEB_NO_PASSAGE', 'NO_WEB', 'SLOT', 'VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX',
            'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'ORDER_AIM', 'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS',
-           'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'STAGES', 'SHOW_ME', 'SEE_IT', 'YES', 'OFFER', 'DEMO_KINDS',
-           'THREE_D', 'HANDS_ON', 'LIBRARY', 'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES',
-           'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE', 'REFUSED', 'WHERES', 'ROUTES', 'TALK_SCHEMA', 'SLIDE_KINDS',
-           'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'BODY_MOST', 'POINT_MOST', 'GONE',
-           'TALK_CASES', 'CHOICE_SP', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'FILLED', 'AGAIN',
-           'SLIDE_PARTS', 'STATE_KEYS', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'figure_labels', 'FigureCache',
-           'keeps_images', 'vision_why', 'vision_ask', 'figure_check', 'focus_text', 'thread_text', 'try_text',
-           'page_text', 'offer_line', 'panel_note', 'board_prompt', 'find_explainer', 'file_video', 'set_video',
-           'concept_video', 'video_of', 'asked_words', 'on_check', 'source_label', 'guide_ask', 'video_source',
-           'web_sources', 'unsave', 'explain', 'demo_text', 'since_demo', 'rung', 'keep_rung', 'no_slots', 'want_demo',
-           'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key',
-           'job_key', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way',
-           'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind', 'can_explain',
-           'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says', 'leaks',
-           'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show',
-           'import_gallery', 'parked', 'on_stage', 'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask',
+           'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'log', 'STAGES', 'TRY_ERRORS', 'SHOW_ME', 'SEE_IT', 'YES', 'OFFER',
+           'DEMO_KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'PHYSICAL', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS',
+           'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE', 'REFUSED', 'WHERES', 'ROUTES',
+           'TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'BODY_MOST',
+           'POINT_MOST', 'GONE', 'TALK_CASES', 'CHOICE_SP', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'FILLED',
+           'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'figure_labels',
+           'FigureCache', 'keeps_images', 'vision_why', 'vision_ask', 'figure_check', 'focus_text', 'thread_text',
+           'try_text', 'page_text', 'offer_line', 'panel_note', 'board_prompt', 'find_explainer', 'file_video',
+           'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'source_label', 'guide_ask',
+           'video_source', 'web_sources', 'unsave', 'explain', 'demo_text', 'since_demo', 'rung', 'keep_rung',
+           'no_slots', 'want_demo', 'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note',
+           'make_demo', 'ask_key', 'job_key', 'tries_said', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed',
+           'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind',
+           'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says',
+           'leaks', 'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer',
+           'show', 'import_gallery', 'parked', 'on_stage', 'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask',
            'words_q', 'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes',
            'slide_source', 'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk',
            'walk_talk', 'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides',
@@ -36,7 +36,7 @@ __all__ = ['GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD_RULE',
            'check_line', 'parse_board', 'PageContext', 'clean_context', 'video_id', 'video_cues', 'stream_board']
 
 # %% ../nbs/05_show.ipynb #52f9ee07
-import hashlib, json, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
+import hashlib, json, logging, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
 from pathlib import Path
 from fastcore.utils import *
 from .models import Withheld, guard, safe_query, guarded, ask_json, for_task
@@ -799,8 +799,10 @@ def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, 
                              asked=dict(key=ask_key(said), said=said) if said else None)
 
 # %% ../nbs/05_show.ipynb #c035
+log = logging.getLogger(__name__)
 _POOL = ThreadPoolExecutor(1)
-STAGES = dict(queued='Waits for the demo before it', writing='Writes the demo', fixing='A try failed the checks. Writes it again')
+STAGES = dict(queued='Waits for the demo before it', writing='Writes the demo', fixing='The first demo did not pass its checks. The tutor writes it again.')
+TRY_ERRORS = 3   # the errors of each failed try that the log and the row keep
 
 def ask_key(said:str) -> str:
     "A short key for the ask `said`: the same words in another case or spacing give the same key."
@@ -813,9 +815,20 @@ def job_key(slug:str, aim:str='', said:str='') -> str:
     return f'demo:{_demo_key(slug, aim, said)}'
 
 class _Tries(list):
-    "The tries of a demo job that failed the checks (`job_stage`). Each new one also writes the stage `fixing` to the row `key`."
+    """The tries of a demo job that failed the checks (`job_stage`). Each new one writes the stage `fixing` to the row `key`, logs its first
+    `TRY_ERRORS` errors at INFO, and keeps them on the row as `tries`. A row that cannot be written never breaks the job."""
     def __init__(self, lr, key): super().__init__(); self.lr, self.key = lr, key
-    def append(self, x): super().append(x); job_said(self.lr, self.key, STAGES['fixing'])
+    def append(self, x):
+        super().append(x)
+        errs = [str(e)[:200] for e in (x.get('errors') or ())][:TRY_ERRORS]
+        log.info('demo %s: try %s did not pass its checks: %s', self.key, x.get('tries'), ' | '.join(errs))
+        try: self.lr.put_job(self.key, tries=[dict(tries=t.get('tries'), errors=[str(e)[:200] for e in (t.get('errors') or ())][:TRY_ERRORS]) for t in self])
+        except Exception as e: log.warning('abhyasa could not keep the tries of %s: %r', self.key, e)
+        job_said(self.lr, self.key, STAGES['fixing'])
+
+def tries_said(row) -> list:
+    "Each try of the demo job row `row` that did not pass its checks, in plain words, for the Why fold of the card."
+    return [f"Try {t.get('tries') or k + 1} did not pass: " + '; '.join(t.get('errors') or ['no reason kept']) + '.' for k, t in enumerate((row or {}).get('tries') or ())]
 
 def queue_demo(tutor, slug:str, first_error:str='', aim:str='', said:str='', quiet:bool=False):
     """Start a background job that makes a demo for `slug` with the aim `aim` (and the ask `said`), or a 3D explainer for the aim `3d`; the running job if there is one.
@@ -830,7 +843,7 @@ def queue_demo(tutor, slug:str, first_error:str='', aim:str='', said:str='', qui
     what = '3D explainer' if aim == '3d' else 'Simpler demo' if aim == 'simpler' else 'Demo'
     j = tutor.jobs[k] = track(lr, key, lambda: (tutor.pool or _POOL).submit(run, lr, tutor.ask, slug, first_error, aim=aim, said=said, log=log), 'demo',
                               ok=lambda d: dict(said='The demo is ready.') if d else dict(state='failed', why='The tutor could not make a demo this time.'),
-                              title=f"{what}: {c.name if c else slug}", said=STAGES['queued'], url=f'/c/{slug}', obj=key, quiet=quiet)
+                              title=f"{what}: {c.name if c else slug}", said=STAGES['queued'], url=f'/c/{slug}', obj=key, quiet=quiet, tries=[])   # a new job keeps no tries of the last one
     j.at, j.log = time.time(), log
     return j
 
@@ -983,7 +996,7 @@ Rules:
 - One idea. The spec has "mode": "learn". It has no gate, and no block has "after" or "lock".
 - One scene block at the top level, with "bind": "step" and 3 to 6 "steps". Each step is one spoken line of at most 200 characters.
 - The state has "step": 1 and "cam": "wide". The scene has one shot with "bind": "cam", and a shot with a "step" where the view must move.
-- A part that a step adds has "step": n. The first step shows the whole thing in its simplest form.
+- A part that a step adds has "step": n, where n is from 1 to the number of steps. The first step shows the whole thing in its simplest form.
 - Make the idea a physical model. Use bodies for the parts, forces for pushes and flows, and label3d chips to name the parts.
 - For an abstract idea (vectors, attention, noise), each item is a box or a sphere, a size or a height is a value, and an arrow is a flow or an effect. Label what each shape stands for.
 - At most 30 bodies, 6 forces and 8 labels. Sizes from 0.2 to 12 units. y is up.

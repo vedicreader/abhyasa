@@ -29,6 +29,7 @@ class Routes:
     keep = '/w/{jid}/{i}/keep'        # keep the demo state on the last prediction
     ladder = '/w/{jid}/{i}/ladder'    # the help under a demo check after a wrong prediction: a lesson in another way, or a simpler demo
     next = '/w/{jid}/{i}/next'        # skip or go on
+    again = '/w/{jid}/{i}/again'      # POST: Try the check again (or Do it again): a new question on a closed check; the attempts stay
     done = '/w/{jid}/{i}/done'        # the summary at the end of a section
     img = '/w/{jid}/{i}/img'          # the figure of the step, from the vault assets
     result = '/w/{jid}/{i}/result/{n}.png'   # one image of a run that Leela filed, from the vault assets under leela/<walk>/<step>/
