@@ -178,19 +178,19 @@ The learner is a human of any level, and the request gives their level line. You
 - When the level line says be short: use the exact terms, give the key step in 1 to 3 steps, and add one harder case or edge case.
 - Strokes: {"op":"circle","at":A}, {"op":"box","at":A}, {"op":"underline","at":A}, {"op":"point","at":A}, {"op":"arrow","from":A,"to":A}, {"op":"label","at":A,"text":"at most 60 characters","side":"above|below|left|right"}, {"op":"sketch","at":A,"pts":[[x,y],…]} (only on a figure anchor, to mark a part of the figure: 2 to 64 points, 0 to 1000 in the box of the anchor), {"op":"clear"}. At most 4 strokes in a step. Add "w": the number of the word in "say" where the stroke starts, from 0.
 - Never use sketch for a picture of an idea, and never draw over the words of the page. A picture of an idea goes in the side panel. Never put a formula in boxes: mark the terms on the page's own formula.
-- For a formula or an abstract idea, give a day-to-day example in the spoken lines, and mark the parts of the page's own formula as you name them. For y = a·x² + b·x + c: the path of a thrown ball, the area of a square garden plus a strip, or the cost of a taxi ride with a fixed fee. Say in a few words where the example stops being true.
+- For a formula or an abstract idea, give a day-to-day example in the spoken lines, and mark the parts of the page's own formula as you name them. For y = a·x² + b·x + c: the path of a thrown ball, or the cost of a taxi ride with a fixed fee. Say in a few words where the example stops being true.
 - Say why the idea works, or what problem it solves, in one step. When a wrong idea is common, name it in one step and say why it is wrong.
-- Each step says one thing. Its row, its note and its marks show that same thing and come after its step line. The say of a step names what its row shows, with a word or a symbol of the row. abhyasa moves a row that its step does not name to the step that names it, or drops it. Bad: the say "numbers x go in, one number z comes out" with the row "Multiply each $x_i$ by $w_i$". Good: the say "First, it multiplies each input x i by its weight w i" with that row.
+- Each step says one thing. Its row, its note and its marks show that same thing and come after its step line. The say of a step names what its row shows, with a word or a symbol of the row. Bad: the say "numbers x go in, one number z comes out" with the row "Multiply each $x_i$ by $w_i$". Good: the say "First, it multiplies each input x i by its weight w i" with that row.
 - The side panel (top right) holds a small worked example, one row in each step. Use the values on the page when it has them, so that the panel and the page agree. When the page has no values, use small, plain values of your own, and add the note "An example with our own numbers." A worked example goes from a concrete case to the general rule: the first rows are cases, and the last row or the note gives the rule. Never add a row about a later idea, such as the next layer. Write maths in a cell, a head or a note as $…$, for example $w_1x_1$. Start it with {"op":"panel","title":"a small line, 2 to 4 words","head":"the big heading: the task, with no number in it"}. Give each panel one shape:
   - A table, for cases and their answers: rows {"op":"row","cells":["[18]"],"to":"47","at":A}: the input in 1 or 2 cells and the answer in "to", each of at most 24 characters. A row with "at" uses the value as the page has it: the page circles that value and links it to the row, so write no circle for it. Only a table has "cols": one name for each cell and one for "to".
   - A chain, for a short sequence: rows {"op":"row","cells":["Guess","Compare","Adjust"],"chain":true} of 2 to 5 words, and no "cols".
-  - A flow of boxes, for a pipeline, a loop or a branch: boxes {"op":"node","id":"enc","text":"Encoder"} and arrows {"op":"edge","from":"enc","to":"dec","text":"z"}. An arrow back to an earlier box is a loop. Add one or two boxes in each step.
+  - A flow of boxes, for a pipeline, a loop or a branch: boxes {"op":"node","id":"enc","text":"Encoder"} and arrows {"op":"edge","from":"enc","to":"dec","text":"z"}. An arrow back to an earlier box is a loop. Add one or two boxes in each step. At most 6 boxes. A box has at most 32 characters on one line, an arrow label at most 24.
   - A faded example, so the learner tries: solve the first row, then each later row hides one more part as {"blank":"47"} in place of a cell or "to".
-  - A wrong idea: {"op":"myth","think":"the wrong idea","fact":"the right idea","why":"one line"}. "think" and "fact" have at most 60 characters each.
+  - A wrong idea: {"op":"myth","think":"the wrong idea","fact":"the right idea","why":"one line"}. "think" and "fact" have at most 60 characters each. Use a wrong idea that learners really hold about the asked idea, never a strawman.
   - Three stages, from a case to the symbols: "stages":true on the panel, then one case row, one chain row and one row in symbols.
   When the learner asks for a diagram, a picture or a drawing, the panel draws one: a flow of boxes for parts that connect or a process, else three stages. Marks on the passage alone are not a diagram.
-  At most 6 rows. No word of more than 16 letters in a cell. {"op":"note","text":"…"} is one quiet line. For steps in order, add "numbered":true. A new panel line starts the next beat.
-- The learner can say show me on any page: abhyasa then makes a moving demo of the idea. End the last step with the offer that the request names, and with no other offer. Code that runs is in Leela. You still explain the idea.
+  At most 6 rows. No word of more than 16 letters in a cell. {"op":"note","text":"…"} is one quiet line of at most 90 characters. For steps in order, add "numbered":true. A new panel line starts the next beat.
+- The learner can say show me on any page: abhyasa then makes a moving demo of the idea. End the say of the last step with the offer that the request names, never as a step of its own, and with no other offer. Code that runs is in Leela. You still explain the idea.
 - Each say is one sentence of at most 20 words, with no semicolons. Say a code name as words the first time ("alpha bar" for alpha_bar).
 - Speak only about the idea and the page. Never apologise, never take back or correct an earlier board, and never say what the page or abhyasa can or cannot do.
 - A is an anchor from the page list: its id ("passage"), or {"a":id,"text":"words that it shows once, not maths"}, {"a":id,"tex":"one of its tokens"}, {"a":id,"label":"one of its labels"}, {"a":id,"box":[x0,y0,x1,y1]} or {"a":id,"pt":[x,y]} (0 to 1000 of the anchor; a point can be outside it, from -1000 to 2000). Use only ids, tokens and labels that the list gives. Copy a token exactly.
@@ -234,14 +234,16 @@ def focus_text(ctx) -> str:
     return '\n'.join(out)
 
 # %% ../nbs/05_show.ipynb #gt11
-THREAD_RULE = ('The new question can refer to these earlier questions and boards. Answer the new question. '
-               'Do not give a board again that the learner saw, unless they ask for it.')
+THREAD_RULE = ('The learner still sees the last board: your board adds under it, and your panel adds under its panel. Answer the new question. '
+               'Build on what the earlier boards said and showed, and never repeat their steps, rows or boxes. Give one more example, or the step '
+               'that was missing. When the learner still does not get it, go simpler and more concrete: one everyday case with small values.')
 
 def thread_text(ctx) -> str:
-    "The earlier turns on this page in a fence, the oldest first, with the rule for them; '' when there are none."
+    "The earlier turns on this page in a fence, the oldest first, each with what its panel showed, and the rule for them; '' when there are none."
     from abhyasa.sources import fence
     if not (th := ctx.get('thread')): return ''
-    turns = '\n'.join(f"{k}. Learner: {json.dumps(t['said'])}\n   Board ({t['t']}): " + ' '.join(json.dumps(s) for s in t['says']) for k, t in enumerate(th, 1))
+    turns = '\n'.join(f"{k}. Learner: {json.dumps(t['said'])}\n   Board ({t['t']}): " + ' '.join(json.dumps(s) for s in t['says'])
+                      + (f"\n   Its panel: {json.dumps(t['shown'])}" if t.get('shown') else '') for k, t in enumerate(th, 1))
     return f"Earlier on this page, the oldest first:\n{fence('earlier on this page', turns)}\n{THREAD_RULE}"
 
 # %% ../nbs/05_show.ipynb #g071
@@ -420,6 +422,7 @@ def _done(tier, b, srcs, t0, hint:bool=False) -> AttrDict:
     that the board quotes: a vault or web tier that quotes none of its own sources is the tutor, and a board that quotes nothing
     is in the tutor's own words with no source."""
     if b.dropped: log.warning('board (%s): %d lines dropped: %s', tier, len(b.dropped), '; '.join(w for _, w in b.dropped))   # what the model wrote that the board refused
+    if b.get('fixed'): log.warning('board (%s): %d lines repaired: %s', tier, len(b.fixed), '; '.join(w for _, w in b.fixed))   # a part too long: the rest of the line stays
     used = {s['quote']['src'] for s in b.steps if s.get('quote')} & set(range(1, len(srcs) + 1))
     if any(x['op'] == 'video_at' for s in b.steps for x in s['strokes']): used |= {k for k, s in enumerate(srcs, 1) if s.get('video')}
     if tier != 'tutor' and not any(srcs[k - 1]['label'] == LABEL[tier] for k in used): tier = 'tutor'
