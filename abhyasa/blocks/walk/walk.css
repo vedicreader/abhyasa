@@ -170,38 +170,27 @@ p.hands { font-size: var(--t-small); color: var(--ink2); margin: var(--s4) 0 var
 p.hands.over { color: var(--fg); }
 p.hands a, .talk-line a, .change-walk a { color: var(--mute); }
 .change-walk { font-size: var(--t-small); margin: var(--s3) 0 0; }
-#steps > li.edit-row { grid-template-columns: 22px 28px minmax(0, 1fr) auto auto auto; }
-#steps > li.edit-row > [data-skip] { grid-column: 5; grid-row: 1; color: var(--mute); }
-#steps > li.edit-row > [data-lock] { grid-column: 6; grid-row: 1; color: var(--mute); }
+#steps > li.edit-row { grid-template-columns: 22px 28px minmax(0, 1fr) auto auto; }
+#steps > li.edit-row.open { background: none; box-shadow: none; border-radius: 0; margin: 0; padding: var(--s3) 0; border-top-color: var(--line); }   /* an open ⋯ menu does not lift the row */
+#steps > li.edit-row > [data-lock] { grid-column: 4; grid-row: 1; color: var(--mute); }
 #steps > li.edit-row > [data-lock][aria-pressed="true"] { color: var(--fg); }
+#steps .ttl a { color: inherit; text-decoration: none; } #steps .ttl a:hover { text-decoration: underline; }
 #steps .lock-mark { color: var(--mute); }
 #steps .lock-mark svg { vertical-align: -.05em; }
-.improve .fix-say { font-size: var(--t-small); margin: var(--s1) 0 0; }
 #steps > li.edit-row.skipped .line { font-style: italic; }
 #steps > li.sec { list-style: none; padding: var(--s5) 0 var(--s1); font-size: var(--t-small); color: var(--mute); }
-#steps .row-acts [data-key="X"] { color: var(--no); }
-#steps .req-err { margin: 0; }
-#steps .fields { max-width: 64ch; }
-#steps .fields label > :is(input[type=text], input[type=search], textarea, select) { display: block; width: 100%; margin-top: var(--s1); }
-#steps .fields .help { display: block; font-family: var(--serif); text-transform: none; letter-spacing: 0; font-size: var(--t-meta); margin-top: 2px; }
-#steps .fields .lbl { display: block; margin: 0 0 var(--s1); }
-#steps .idea-part p { margin: 0; font-size: var(--t-small); }
-#steps blockquote { margin: 0 0 var(--s1); padding-left: var(--s3); border-left: 2px solid var(--line); color: var(--ink2); font-size: var(--t-small); }
-#steps blockquote.also { border-left-style: dashed; }
-#steps details.pick > summary, #steps details.add-idea > summary { list-style: none; cursor: pointer; width: max-content; display: inline-flex; align-items: center; gap: var(--s1);
-                                                                  min-height: 44px; padding: 0 var(--s2); font-size: var(--t-small); color: var(--mute); }
-#steps details.pick > summary::-webkit-details-marker, #steps details.add-idea > summary::-webkit-details-marker { display: none; }
-#steps details.pick > summary:hover, #steps details.add-idea > summary:hover { color: var(--fg); }
-#steps details.pick input[type=search] { width: 100%; margin: var(--s1) 0; font-size: var(--t-small); }
-#steps ul.picks { margin: var(--s2) 0 0; padding: 0; display: grid; gap: var(--s3); max-height: 28rem; overflow: auto; }
-#steps ul.picks > li { display: grid; gap: var(--s1); justify-items: start; }
-#steps .rewrite .chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s1); }
-#steps > li.edit-add { display: block; }
-#steps .add-forms { display: grid; gap: var(--s3); max-width: 64ch; padding: var(--s2) 0 0; }
-#steps .add-forms form { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: end; }
-#steps .add-forms label { flex: 1 1 18em; margin: 0; }
-#steps .add-forms label > :is(input, select) { display: block; width: 100%; margin-top: var(--s1); font-size: var(--t-small); }
-#steps .add-forms input[type=search] { flex: 1 1 18em; font-size: var(--t-small); }
+#steps .req-err { margin: 0; grid-column: 3 / -1; }
+.row-menu { grid-column: 5; grid-row: 1; }
+.row-menu [data-act="remove"] { color: var(--no); }
+.walk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
+.walk-head h1 { margin-bottom: 0; }
+.walk-notebook { margin: var(--s2) 0 0; } .walk-notebook p { margin: var(--s1) 0 0; font-size: var(--t-small); }
+/* the box that changes the walk: one line that grows; what changed is a short list with Undo */
+.walk-change { margin-top: var(--s5); }
+.walk-change textarea { width: 100%; resize: none; min-height: 44px; }
+.walk-change .help { margin: var(--s1) 0 0; font-size: var(--t-small); }
+.walk-change .changed { margin-top: var(--s3); }
+.walk-change .changes { margin: var(--s1) 0; } .walk-change .changes li { padding: 2px 0; }
 #passage .also { margin-top: var(--s3); padding-top: var(--s3); border-top: 1px dashed var(--line); }
 /* The Undo bar of the walk path editor sits in the page under the list, not over it: it sticks to the foot of the window only while the
    end of the list is below the window, and a row that gets the focus scrolls clear of it. The page keeps room for it at the end. */
@@ -220,14 +209,6 @@ main:has(#steps) { padding-bottom: calc(44px + 2 * var(--s5)); }
 .walk-sources, .walk-plan, .walk-result { margin-top: var(--s6); }
 .walk-talks { margin-top: var(--s6); font-size: var(--t-small); }
 
-/* Improve the walk: one quiet fold, one box, small chips; the proposal is a short list with Keep or Skip on each row */
-.improve { margin-top: var(--s4); }
-.improve textarea { width: 100%; margin-top: var(--s2); }
-.improve .chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin: var(--s2) 0; }
-.proposal .changes li { padding: var(--s2) 0; border-bottom: 1px solid var(--line); }
-.proposal .change-head { display: flex; justify-content: space-between; gap: var(--s3); align-items: baseline; }
-.proposal .keep-skip { display: flex; gap: var(--s3); font-size: var(--t-small); white-space: nowrap; }
-.proposal .why { margin: var(--s1) 0 0; font-size: var(--t-small); }
 .in-journeys { margin: var(--s5) 0 0; } .in-journeys .attach { margin-top: var(--s3); } .in-journeys select { width: auto; font-size: var(--t-small); }
 .step-done { padding: 2px 0; } .step-done .lbl { color: var(--ok); } .step-done p { margin: 0; }
 .walk-data li { display: flex; align-items: baseline; gap: var(--s2); } .walk-data .x { margin-left: auto; }

@@ -106,10 +106,10 @@
     "jobs": {
       "store": "lr.jobs()[key] = {kind, state: running|done|failed|stopped|closed, title, said, start, end, url, obj, why, seen, quiet}: the job ledger of the vault file (vishalakshi Vault.ledger, through abhyasa.learner), so the rows survive a restart",
       "new": false,
-      "keys": "walk:<jid>:research, walk:<jid>:filing, walk:<jid>:nb:<slug>, build:<hash> (a link or goal walk), course:<cid>:<level|plan|stage key>, demo:<slug>[:<aim>][#<ask key>] (a demo or a 3D explainer; quiet when it starts by itself: the demo of a step, a simpler demo, the demo after a miss), lesson:<slug> (a rung of the demo ladder; quiet), improve:<jid>:<hash> (Improve the walk), talk:<jid or tid> (Present, Fill the slides, Make it again), sort:<sid> (Sort my concepts), download:<model> (a model in Settings). Each part that waits for one of them has data-job=<key> and loads again on its event, with a fallback poll of 30 s"
+      "keys": "walk:<jid>:research, walk:<jid>:filing, walk:<jid>:nb:<slug>, build:<hash> (a link or goal walk), course:<cid>:<level|plan|stage key>, demo:<slug>[:<aim>][#<ask key>] (a demo or a 3D explainer; quiet when it starts by itself: the demo of a step, a simpler demo, the demo after a miss), lesson:<slug> (a rung of the demo ladder; quiet), improve:<jid>:<hash> (the box that changes the walk), talk:<jid or tid> (Present, Fill the slides, Make it again), sort:<sid> (Sort my concepts), download:<model> (a model in Settings). Each part that waits for one of them has data-job=<key> and loads again on its event, with a fallback poll of 30 s"
     },
     "walk.steps[i].locked": {
-      "store": "lr.journey(jid).steps[i]['locked'] = True: Lock (Keep this idea) on the plan. Improve and Fix the rest never change, move or remove it; a hand edit unlocks it, and Undo locks it again",
+      "store": "lr.journey(jid).steps[i]['locked'] = True: Lock (Keep this idea) on the plan. The box (and its Fix the rest) never changes, moves or removes it; a hand edit unlocks it, and Undo locks it again",
       "new": true
     },
     "course.stages[k].locked": {
@@ -478,11 +478,13 @@
         "/w/{jid}/gather/log (page; it stays as a pane)"
       ],
       "sections": {
-        "plan": "the ideas in order, each with its check kind. Edit in place: move, skip, remove, check kind, add, split, merge, rewrite, with Undo. Each idea has a quiet Lock toggle (Keep this idea): a locked idea shows a small lock mark, and Improve and Fix the rest never change, move or remove it. An edit by hand unlocks it, with Undo. 'Earlier versions' is a fold.",
+        "plan": "the ideas in order, each with its check kind. Each idea has only a quiet Lock toggle (Keep this idea) and a ⋯ menu with Skip (or Bring back) and Remove, each with Undo. A locked idea shows a small lock mark, and the box never changes, moves or removes it. A change by hand unlocks it, with Undo. W and S move the focus, ⇧W and ⇧S move the idea, F locks, D skips, X removes. 'Earlier versions' is a fold.",
         "sources": "the research line (state of walk.jobs.research), Stop, Show what it did (pane), Find sources again, Add a source, what Start filed with Undo",
         "result": "after the end: what moved, what you made (Leela), the next review date",
         "talks": "quiet: Present, Open the talk (secondary product)",
-        "improve": "a quiet fold 'Improve the walk' (closed until you open it) with one box 'What should change?' and chips Simpler, Harder, Add an idea (and From your weak ideas on a finished walk). A link in the box is a source: abhyasa files it. The tutor proposes changes with the editor ops only (add with a source, remove, skip, move, split, an easier or a harder check), each with a one-line why; you Keep or Skip each one, then Apply the kept changes, as one change with Undo. Next to Ask the tutor: Fix the rest. The tutor redoes only the ideas that are not locked (their order, their checks, and the ideas that are missing between them), with the words in the box, in the same proposal (Keep or Skip, then Apply, with one Undo)."
+        "change": "one box at the top of the walk: 'What should change?'. Enter sends and Shift+Enter starts a new line. The tutor turns the words into the editor ops (add, with a kind of check or a link as its source; remove, skip, move, split, merge, rewrite the note and the question, the kind of a check, a source from the web, an easier or a harder check) and makes them at once as one change by the tutor. A short list says what changed, with Undo. A locked idea never changes. Words that ask to fix or redo the rest use the Fix the rest prompt: the tutor redoes only the ideas that are not locked.",
+        "menu": "the ⋯ menu of the walk, at the right of its title: Delete this walk, with one confirm in place that says what goes (the plan and its side walks) and what stays (answers, attempts, what you learned). After the delete, Home (the list of walks). The row of the walk on Home has the same menu.",
+        "notebook": "a walk made from one of your notebooks: Learn the notebook in Leela writes a learning copy (in the folder of the walk in the vault assets) with the demos of the walk as rupaka cells next to their sections, and opens Leela. Your notebook file never changes."
       },
       "states": {
         "new": {
@@ -492,9 +494,9 @@
             "act:start",
             "label:Start the walk",
             "part:sources",
-            "act:improve",
+            "act:change",
             "act:lock",
-            "act:fix"
+            "act:drop"
           ],
           "must_not_show": [
             "act:continue",
@@ -504,9 +506,8 @@
             "start",
             "edit plan",
             "add-source",
-            "improve",
-            "lock",
-            "fix"
+            "change",
+            "lock"
           ]
         },
         "researching": {
@@ -525,7 +526,7 @@
             "stop",
             "show-log",
             "start or continue",
-            "improve"
+            "change"
           ]
         },
         "research_ended": {
@@ -542,7 +543,7 @@
             "find-again",
             "add-source",
             "start or continue",
-            "improve"
+            "change"
           ]
         },
         "going": {
@@ -553,9 +554,9 @@
             "label:Continue: idea {n} of {total}",
             "part:plan",
             "part:sources",
-            "act:improve",
+            "act:change",
             "act:lock",
-            "act:fix"
+            "act:drop"
           ],
           "must_not_show": [
             "act:start",
@@ -566,9 +567,8 @@
             "edit plan",
             "find-again",
             "add-source",
-            "improve",
-            "lock",
-            "fix"
+            "change",
+            "lock"
           ]
         },
         "finished": {
@@ -577,11 +577,11 @@
             "part:result",
             "label:You finished the walk.",
             "act:review",
-            "act:improve",
+            "act:change",
             "part:plan",
             "part:sources",
             "act:lock",
-            "act:fix"
+            "act:drop"
           ],
           "must_not_show": [
             "act:start",
@@ -589,11 +589,10 @@
           ],
           "actions": [
             "review",
-            "improve",
+            "change",
             "find-again",
             "open course when walk.course",
-            "lock",
-            "fix"
+            "lock"
           ]
         },
         "side_walk": {
@@ -604,7 +603,7 @@
           ],
           "must_not_show": [
             "part:talks",
-            "act:improve"
+            "act:change"
           ],
           "actions": [
             "back",
@@ -617,9 +616,8 @@
             "part:plan",
             "act:lock",
             "label:Locked",
-            "act:fix",
-            "label:Fix the rest",
-            "act:start"
+            "act:start",
+            "act:drop"
           ],
           "must_not_show": [
             "act:continue",
@@ -628,9 +626,8 @@
           "actions": [
             "start",
             "lock",
-            "fix",
             "edit plan",
-            "improve"
+            "change"
           ]
         },
         "empty": {
@@ -1352,7 +1349,7 @@
         },
         {
           "page": "walk",
-          "action": "lock the ideas that are good; Fix the rest (in Improve the walk), Keep or Skip each change, Apply",
+          "action": "lock the ideas that are good; write 'fix the rest' in the box; Undo when you want",
           "next": "walk",
           "state_change": "walk.steps[i].locked; one change by the tutor with Undo"
         },
@@ -1462,24 +1459,24 @@
       "steps": [
         {
           "page": "walk",
-          "action": "edit the plan in place (move, skip, check kind, add, split, rewrite); Undo",
+          "action": "skip or remove an idea in its ⋯ menu, lock it, or move it with ⇧W and ⇧S; Undo",
           "next": "walk",
           "state_change": "edit history (lr.edits('walk', jid))"
         },
         {
           "page": "walk",
-          "action": "open Improve the walk; write what should change, or pick Simpler, Harder or Add an idea (a finished walk also has From your weak ideas); a link in the words is a source; Ask the tutor",
+          "action": "write what should change in the box at the top, for example 'make idea 3 simpler' or 'add a demo of the noise schedule'; a link in the words is a source; Enter sends",
           "next": "walk",
-          "state_change": "each link is filed and joins walk.chips (with its Undo in walk.filed); the job keeps the proposal: changes with the editor ops, each with a why"
+          "state_change": "each link is filed and joins walk.chips (with its Undo in walk.filed); the tutor makes the changes with the editor ops at once"
         },
         {
           "page": "walk",
-          "action": "Keep or Skip each change, then Apply the kept changes",
+          "action": "read what changed; Undo takes it all back",
           "next": "walk",
           "state_change": "one change by the tutor in lr.edits('walk', jid), with Undo and in Earlier versions; an added idea from a link has its passage from that link; progress on the other ideas stays"
         }
       ],
-      "background": "the pending line while the links file and the tutor reads (the job of the walk block, no job row yet)"
+      "background": "the pending line while the links file and the tutor works (the job row improve:<jid>:<hash>)"
     },
     "finish_walk": {
       "goal": "See what moved and what comes next.",
@@ -1580,13 +1577,13 @@
         },
         {
           "page": "walk",
-          "action": "open Improve the walk; write what should change (or nothing); Fix the rest",
+          "action": "write 'fix the rest' (and what should change) in the box; Enter",
           "next": "walk",
-          "state_change": "the job keeps the proposal: changes to the ideas that are not locked only"
+          "state_change": "the tutor redoes the ideas that are not locked only, at once"
         },
         {
           "page": "walk",
-          "action": "Keep or Skip each change, then Apply the kept changes; Undo",
+          "action": "read what changed; Undo",
           "next": "walk",
           "state_change": "one change by the tutor in lr.edits; the locked ideas stay byte for byte; Undo takes it back"
         },

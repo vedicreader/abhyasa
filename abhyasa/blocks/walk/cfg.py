@@ -14,9 +14,9 @@ class Routes:
     undo = '/w/{jid}/undo'            # POST: take back the newest change of the path
     history = '/w/{jid}/history'      # the earlier versions of the plan, for the fold on the walk page
     restore = '/w/{jid}/restore'      # POST: go back to the version before one change
-    improve = '/w/{jid}/improve'      # POST: Improve the walk, from your words: start the job; GET (?key=): the pending line, then the changes to keep or skip
-    improve_apply = '/w/{jid}/improve/apply'   # POST: apply the changes that you kept, as one change with an Undo
-    passages = '/w/{jid}/passages'    # GET: the real passages that an idea can pick (?i=&q=, or ?name=&q= for a new idea)
+    improve = '/w/{jid}/improve'      # POST: the box at the top: your words start the job that changes the walk; GET (?key=): the pending line, then what changed, with Undo
+    drop = '/w/{jid}/drop'            # POST: delete the plan of the walk and its side walks; answers, attempts and what you learned stay. Then the list of walks
+    notebook = '/w/{jid}/notebook'    # POST: write the learning copy of the notebook of a notebook walk, with its demos, then open it in Leela
     data_drop = '/w/{jid}/data/drop'  # POST: remove one data folder from the walk (and from its course and the other walks of the course)
     start = '/w/{jid}/start'          # start the walk and open a sitting
     step = '/w/{jid}/{i}'             # one idea: the passage, the figure, the note and the check

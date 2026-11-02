@@ -306,11 +306,15 @@ def test_new_concepts_are_placed_in_the_background_and_can_be_undone(mk, jy, fak
     assert 'Placed by the tutor' not in t and 'Sort ' in t and 'Bharani' in t
     cl.post('/c/ashvini/undo'); assert jy.concept('ashvini').group == ['nakshatras']      # only a placement by the tutor can be undone
 
+PROPOSE = 'You propose changes to one learning walk'
+
 def add_idea(lr, cl, fake, name, statement):
-    "Add the idea `name` to the jyotisha walk `jj` with the walk editor: a new name is a new concept."
+    "Add the idea `name` to the jyotisha walk `jj` with the box: a new name is a new concept."
+    from flows import change
     if not lr.journey('jj'): lr.put_journey(dict(id='jj', title='Stars', goal='Stars', subject='jyotisha', mode='walk', created=0, steps=[dict(slug='ashvini', status='todo', why='', check=dict(way='words', kind='short', depth=2))]))
     fake.rules['The idea: '] = dict(name=name, statement=statement)
-    return cl.post('/w/jj/edit', data=dict(act='add', name=name))
+    fake.rules[PROPOSE] = dict(changes=[dict(op='add', name=name, why='You asked for it.')])
+    return change(cl, 'jj', f'add {name}')
 
 class Now:
     "A pool that runs a job at once, so a test waits on nothing."
@@ -350,11 +354,12 @@ def test_other_ways_to_add_concepts_place_them_too(mk, jy, fake, monkeypatch):
     fake.rules[SORT] = lambda p, sp: dict(places=[dict(slug=s, group=['nakshatras']) for s in re.findall(r'^- ([a-z0-9-]+):', p, re.M)])
     jy.put_journey(dict(id='jj', title='Stars', goal='Stars', subject='jyotisha', mode='walk', created=0, steps=[dict(slug='ashvini', status='todo', why='', check=dict(way='words', kind='short', depth=2))]))
     cl = mk()
-    fake.rules['The idea: '] = dict(name='Bharani', statement='The second nakshatra.')
-    cl.post('/w/jj/edit', data=dict(act='add', name='Bharani'))
+    add_idea(jy, cl, fake, 'Bharani', 'The second nakshatra.')
     assert (jy.concept('bharani').group, jy.concept('bharani').group_by) == (['nakshatras'], 'placed')
     fake.rules['Return JSON: {"concepts"'] = dict(concepts=[dict(name='Krittika', statement='The third nakshatra.')])
-    cl.post('/w/jj/edit', data=dict(act='split', slug='ashvini'))
+    fake.rules[PROPOSE] = dict(changes=[dict(op='split', idea='ashvini', why='x')])
+    from flows import change
+    change(cl, 'jj', 'split ashvini')
     assert (jy.concept('krittika').group, jy.concept('krittika').group_by) == (['nakshatras'], 'placed')
 
 # Sort by hand (the engine)

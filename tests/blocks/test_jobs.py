@@ -151,7 +151,7 @@ def test_the_demo_of_a_step_has_a_quiet_row(mk, walk_fake, lr):
     assert 'walk-demo' in cl.get(f'/w/{jid}/2/check').text
 
 def test_improve_has_a_row_and_its_line_swaps_on_the_event(mk, walk_fake, lr):
-    "Improve the walk: the line waits on its row; the chip lists it; the end comes as an event, and the proposal shows."
+    "The box: the line waits on its row; the chip lists it; the end comes as an event, and what changed shows."
     from test_walk import held
     walk_fake.rules['You propose changes to one learning walk'] = dict(changes=[dict(op='easier', idea='softmax', why='The check asks less.')])
     gate = held(walk_fake, 'You propose changes to one learning walk', '')
@@ -159,9 +159,9 @@ def test_improve_has_a_row_and_its_line_swaps_on_the_event(mk, walk_fake, lr):
     r = cl.post(f'/w/{jid}/improve', data=dict(words='Make the walk simpler.')).text
     key = re.search(r'data-job="(improve:[^"]+)"', r)[1]
     row = lr.job(key)
-    assert (row.kind, row.state, row.url, row.quiet) == ('improve', 'running', f'/w/{jid}#improve', False) and f'Improve: {lr.journey(jid).title}' in chip(cl.get('/').text)
+    assert (row.kind, row.state, row.url, row.quiet) == ('improve', 'running', f'/w/{jid}#change', False) and f'Change the walk: {lr.journey(jid).title}' in chip(cl.get('/').text)
     assert any(e['key'] == key and e['state'] == 'done' for e in events_until(cl, gate.set))
-    assert 'Apply the kept changes' in cl.get(hx_get(r)).text
+    assert 'Made the check of “Softmax” easier.' in cl.get(hx_get(r)).text
 
 def test_a_talk_has_a_row_and_its_card_swaps_on_the_event(mk, talk_fake, lr, monkeypatch):
     "Present: the card waits on the row of the talk job; the end comes as an event, and the row links to the talk. Opening the talk is seeing it."

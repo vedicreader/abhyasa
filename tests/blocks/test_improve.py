@@ -1,40 +1,39 @@
-"Improve the walk: your words, the changes that the tutor proposes with the ops of the editor, Keep or Skip on each, and one Undo."
+"The box that changes the walk: your words, the changes that the tutor makes at once with the ops of the editor, a short list of what changed, and one Undo."
 import re, time
 from fastcore.basics import AttrDict
 from fastcore.foundation import L
 from walk_data import walk
-from flows import improve as ask, key_of
+from flows import change
 import abhyasa.blocks.walk.app as W
 
 PROPOSE = 'You propose changes to one learning walk'
 URL = 'https://example.org/attention'
 
 def depths(lr, jid): return [s['check'].get('depth', 2) for s in lr.journey(jid).steps]
+def slugs(lr, jid): return [s['slug'] for s in lr.journey(jid).steps]
 
-def test_the_fold_is_quiet_with_one_box_and_its_chips(mk, walk_fake, lr):
-    "The walk page has one fold, Improve the walk, closed, with one box and three chips. A finished walk has a fourth chip: From your weak ideas."
+def test_one_box_at_the_top_and_no_forms_on_each_idea(mk, walk_fake, lr):
+    "The walk page has one box before the plan, which Enter sends. Each idea has only Lock and the ⋯ menu with Skip and Remove: no rewrite form, no split, merge or add."
     cl = mk(); jid = walk(cl, lr)
     t = cl.get(f'/w/{jid}').text
-    head, fold = re.search(r'(<details[^>]*id="improve"[^>]*>)(.*?)</details>', t, re.S).groups()
-    assert ' open' not in head and 'What should change?' in fold and 'https://…' in fold   # closed until you open it
-    assert [c for c in ('Simpler', 'Harder', 'Add an idea', 'From your weak ideas') if f'>{c}</button>' in fold] == ['Simpler', 'Harder', 'Add an idea']
-    cl.post(f'/w/{jid}/start')
-    for i in range(3): lr.walk_step(jid, i, done=dict(outcome='fragile' if i else 'solid', at=time.time()))
-    assert '>From your weak ideas</button>' in cl.get(f'/w/{jid}').text
+    box = re.search(r'<textarea[^>]*id="change-words"[^>]*>', t)[0]
+    assert 'data-enter="1"' in box and t.index('id="change"') < t.index('id="plan"') and 'Enter sends. Shift+Enter starts a new line.' in t
+    assert t.count('data-lock="1"') == 3 and t.count('class="more-menu row-menu"') == 3 and t.count('>Skip ') == 3 and t.count('>Remove ') == 3
+    for gone in ('Rewrite with the tutor', 'Merge with next', 'Split', 'Add an idea', 'Improve the walk', 'Pick another passage', 'Apply the kept changes'): assert gone not in t, gone
 
-def test_simpler_gives_easier_checks_with_one_undo(mk, walk_fake, lr):
-    "Simpler: the tutor proposes easier checks, each with its reason. Apply makes them easier as one change; the idea that you did keeps its progress, and Undo takes all back."
+def test_simpler_makes_easier_checks_at_once_with_one_undo(mk, walk_fake, lr):
+    "Simpler: the tutor makes easier checks at once. The list says what changed; the idea that you did keeps its progress, and Undo takes all back."
     walk_fake.rules[PROPOSE] = dict(changes=[dict(op='easier', idea=s, why='The check asks less.') for s in ('softmax', 'scaling-by-the-root-of-dk')])
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
     lr.walk_step(jid, 0, done=dict(outcome='solid', at=time.time()))
     was = depths(lr, jid)
-    p = ask(cl, jid, 'Make the walk simpler.')
-    assert 'Make the check of “Softmax” easier.' in p and 'The check asks less.' in p and 'Apply the kept changes' in p
-    assert 'Make the walk simpler.' in walk_fake.calls[-1][0]
-    r = cl.post(f'/w/{jid}/improve/apply', data=dict(key=key_of(p)))
+    r = change(cl, jid, 'Make the walk simpler.')
     assert depths(lr, jid) == [was[0], max(1, was[1] - 1), max(1, was[2] - 1)] and lr.journey(jid).steps[0]['done']['outcome'] == 'solid'
-    assert 'Improved the walk: 2 changes.' in r.text and 'Applied 2 changes.' in r.text and 'id="steps"' in r.text
-    cl.post(f'/w/{jid}/undo')
+    assert 'Made the check of “Softmax” easier.' in r.text and 'What changed' in r.text and 'id="steps"' in r.text and 'hx-swap-oob' in r.text
+    assert 'Make the walk simpler.' in walk_fake.calls[-1][0]
+    eid = lr.edits('walk', jid)[0].id
+    assert f'{{"step": "{eid}"}}' in r.text.replace('&quot;', '"')   # Undo takes back this change
+    cl.post(f'/w/{jid}/undo', data=dict(step=eid))
     assert depths(lr, jid) == was and lr.journey(jid).steps[0]['done']['outcome'] == 'solid'
 
 def test_a_link_becomes_an_idea_with_that_source(mk, walk_fake, lr, monkeypatch):
@@ -46,22 +45,27 @@ def test_a_link_becomes_an_idea_with_that_source(mk, walk_fake, lr, monkeypatch)
     walk_fake.rules.update({PROPOSE: dict(changes=[dict(op='add', name='Attention', link=URL, to=2, why='You asked for it.')]),
                             'The idea: ': dict(name='Attention', statement='Attention mixes values by weights.')})
     cl = mk(); jid = walk(cl, lr)
-    p = ask(cl, jid, f'Add attention, from {URL}')
-    assert f'Add “Attention” as idea 2, from {URL}.' in p and f'The links that the learner gave: {URL}' in walk_fake.calls[-1][0]
+    r = change(cl, jid, f'Add attention, from {URL}')
+    assert f'Added “Attention” as idea 2, from {URL}.' in r.text and f'The links that the learner gave: {URL}' in walk_fake.calls[-2][0]
     assert f'link:{URL}' in lr.journey(jid).chips   # the link joins the sources of the walk
-    cl.post(f'/w/{jid}/improve/apply', data=dict(key=key_of(p), c0='keep'))
     s = lr.journey(jid).steps[1]
     assert s['slug'] == 'attention' and s['read']['url'] == URL and s['read']['text'].startswith('Attention mixes the values by weights.')
 
-def test_skip_leaves_a_change_out(mk, walk_fake, lr):
-    "Skip on a row leaves that change out; the kept one is made. When you skip each change, nothing changes."
-    walk_fake.rules[PROPOSE] = dict(changes=[dict(op='remove', idea='sequential-computation', why='You know it.'), dict(op='harder', idea='softmax', why='A real test.')])
+def test_the_box_merges_rewrites_changes_a_kind_and_asks_for_a_source(mk, walk_fake, lr):
+    "Merge, rewrite, the kind of a check and a source from the web: one change by the tutor. A source change starts research on that idea."
+    walk_fake.rules.update({PROPOSE: dict(changes=[dict(op='rewrite', idea='sequential-computation', text='simpler', why='x'), dict(op='kind', idea='softmax', kind='demo', why='x'),
+                                                   dict(op='source', idea='sequential-computation', why='x'), dict(op='merge', idea='softmax', why='x')]),
+                            'Rewrite these fields': dict(note='A short note.')})
     cl = mk(); jid = walk(cl, lr)
-    ss, was = [s['slug'] for s in lr.journey(jid).steps], depths(lr, jid)
-    p = ask(cl, jid, 'Harder, and drop what I know.')
-    assert 'Remove “Sequential computation”.' in p and 'Make the check of “Softmax” harder.' in p
-    cl.post(f'/w/{jid}/improve/apply', data=dict(key=key_of(p), c0='skip', c1='keep'))
-    assert [s['slug'] for s in lr.journey(jid).steps] == ss and depths(lr, jid)[1] == min(4, was[1] + 1)
-    p = ask(cl, jid, 'Harder again.')
-    r = cl.post(f'/w/{jid}/improve/apply', data=dict(key=key_of(p), c0='skip', c1='skip'))
-    assert 'You skipped each change. Nothing changed.' in r.text and len(lr.edits('walk', jid)) == 1
+    r = change(cl, jid, 'make idea 1 simpler, a demo for idea 2, sources for idea 1, merge idea 2 with idea 3')
+    j = lr.journey(jid)
+    assert slugs(lr, jid) == ['sequential-computation', 'softmax'] and j.steps[0]['note'] == 'A short note.' and j.steps[1]['check']['kind'] == 'demo'
+    assert 'Merged “Softmax” with the next idea.' in r.text and 'Looks for a source for “Sequential computation”.' in r.text
+
+def test_a_locked_idea_stays_and_empty_words_ask_for_words(mk, walk_fake, lr):
+    "The box never changes a locked idea. Empty words change nothing and ask for words. Nothing to change says so."
+    cl = mk(); jid = walk(cl, lr)
+    cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='lock'))
+    walk_fake.rules[PROPOSE] = dict(changes=[dict(op='remove', idea='softmax', why='x')])
+    assert 'The tutor found nothing to change.' in change(cl, jid, 'drop softmax').text and 'softmax' in slugs(lr, jid)
+    assert 'Write what should change.' in cl.post(f'/w/{jid}/improve', data=dict(words='  ')).text

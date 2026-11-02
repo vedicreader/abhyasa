@@ -7,7 +7,7 @@ from urllib.parse import urlencode, parse_qs
 
 __all__ = ['SAFE_NAMES', 'SAFE_NODES', 'safe_test', 'check_exercise', 'WALK_ID', 'PKG', 'DATA_NAME', 'DATA_MOST', 'NB_KEYS', 'RUN_MINUTES', 'RUN_SAY',
            'has_directive', 'data_path_why', 'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES',
-           'LEELA_ROUTE', 'TOPIC_MAX', 'VAULT_KEY', 'vault_key', 'Handoff', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'HANDOFF_BAD']
+           'COPY_DIR', 'notebook_copy', 'LEELA_ROUTE', 'TOPIC_MAX', 'VAULT_KEY', 'vault_key', 'Handoff', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'HANDOFF_BAD']
 
 # --- the test rule of an exercise --------------------------------------------------------------------------------------
 
@@ -256,6 +256,20 @@ class Handoff(dict):
     def __getattr__(self, k):
         try: return self[k]
         except KeyError: raise AttributeError(k) from None
+
+COPY_DIR = 'walks'   # the folder of the vault assets with one folder for each notebook walk: the learning copy of its notebook is in it
+
+def notebook_copy(j) -> Path|None:
+    """The learning copy of the notebook of walk `j` (`j['notebook']['copy']`), when it is a real notebook file in the folder of that walk
+    (`.../walks/<walk id>/<name>.ipynb`) and not a link. Else None. abhyasa writes the copy; Leela opens it as the lesson of the walk.
+    The learner's own notebook is never the copy."""
+    nb = j.get('notebook') if isinstance(j, dict) else None
+    c = nb.get('copy') if isinstance(nb, dict) else None
+    if not isinstance(c, str) or not c or '\x00' in c: return None
+    p = Path(c)
+    if not p.is_absolute() or p.suffix != '.ipynb' or p.parent.name != j.get('id') or p.parent.parent.name != COPY_DIR: return None
+    if p == Path(str(nb.get('path') or '')).expanduser() or any(x.is_symlink() for x in (p, p.parent)) or not p.is_file(): return None
+    return p
 
 def handoff(jid:str='', i:int|None=None, topic:str='', v:str='') -> str:
     "The path and query that Leela opens: a walk, a step of it, a topic, or a mix. `v` is the `vault_key` of abhyasa's vault."

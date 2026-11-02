@@ -1,7 +1,6 @@
-"Lock what is good, and fix the rest: a locked idea or stage never changes by Improve, by Fix the rest or by a replan. A hand edit unlocks it, with Undo."
+"Lock what is good, and fix the rest: a locked idea or stage never changes by the box, by Fix the rest or by a replan. A hand edit unlocks it, with Undo."
 import json, re, threading, time
 from walk_data import walk
-from flows import key_of
 from abhyasa.path import join_course
 
 FIX = 'You redo the ideas of one learning walk'
@@ -14,17 +13,17 @@ def held(go, reply):
     def f(p, sp): go.wait(10); return reply
     return f
 
-def proposal(cl, r):
-    "Ask the pending part again until the proposal comes. Gives its HTML."
+def done(cl, r):
+    "Ask the pending part of the box again until the tutor made the changes. Gives its HTML."
     for _ in range(200):
         if 'improve-wait' not in r.text: return r.text
         time.sleep(.05); r = cl.get(re.search(r'hx-get="([^"]+)"', r.text)[1].replace('&amp;', '&'))
-    raise AssertionError('no proposal came')
+    raise AssertionError('no change came')
 
 def lock(cl, jid, slug, act='lock'): return cl.post(f'/w/{jid}/edit', data=dict(slug=slug, act=act))
 
 def test_fix_the_rest_never_touches_the_locked_ideas(mk, walk_fake, lr):
-    "Lock two ideas, then Fix the rest with your words: the proposal has no change to a locked idea, the apply keeps them byte for byte, and one Undo takes it back."
+    "Lock two ideas, then write fix the rest in the box: the tutor gets the Fix the rest prompt, no change touches a locked idea, they stay byte for byte, and one Undo takes it back."
     cl = mk(); jid = walk(cl, lr)
     a, mid, b = [s['slug'] for s in lr.journey(jid).steps]
     r = lock(cl, jid, a); lock(cl, jid, b)
@@ -32,30 +31,21 @@ def test_fix_the_rest_never_touches_the_locked_ideas(mk, walk_fake, lr):
     was, steps = snap(lr, jid, {a, b}), lr.journey(jid).steps
     go = threading.Event()
     walk_fake.rules[FIX] = held(go, dict(changes=[dict(op='remove', idea=a, why='x'), dict(op='harder', idea=b, why='x'), dict(op='easier', idea=mid, why='Less to do.')]))
-    page = cl.get(f'/w/{jid}').text
-    assert 'data-act="fix"' in page and '>Fix the rest</button>' in page
-    r = cl.post(f'/w/{jid}/improve', data=dict(words='make the rest simpler, add pricing', fix='1'))
+    r = cl.post(f'/w/{jid}/improve', data=dict(words='fix the rest: make it simpler, add pricing'))
+    assert 'improve-wait' in r.text
     go.set()
-    p = proposal(cl, r)
-    assert p.count('class="change"') == 1 and 'Less to do.' in p   # only the idea that is not locked
+    p = done(cl, r)
+    assert p.count('<li>') == 1 and 'Made the check of' in p   # only the idea that is not locked
     asked = walk_fake.calls[-1][0]
-    assert 'make the rest simpler, add pricing' in asked and asked.count(' · locked') == 2
-    r = cl.post(f'/w/{jid}/improve/apply', data=dict(key=key_of(p)))
-    assert 'Fixed the rest of the walk: 1 change.' in r.text
+    assert 'add pricing' in asked and asked.count(' · locked') == 2
+    assert lr.edits('walk', jid)[0].what == 'Fixed the rest of the walk: 1 change.'
     assert snap(lr, jid, {a, b}) == was and [s['slug'] for s in lr.journey(jid).steps] == [a, mid, b]
     assert lr.journey(jid).steps[1]['check'] != steps[1]['check']
     cl.post(f'/w/{jid}/undo')
     assert lr.journey(jid).steps == steps
 
-def test_fix_the_rest_needs_no_words(mk, walk_fake, lr):
-    "Fix the rest with an empty box asks the tutor too. Ask the tutor with an empty box asks for words."
-    cl = mk(); jid = walk(cl, lr)
-    walk_fake.rules[FIX] = dict(changes=[])
-    assert 'Write what should change' in cl.post(f'/w/{jid}/improve', data=dict(words='')).text
-    assert 'The tutor found nothing to change.' in proposal(cl, cl.post(f'/w/{jid}/improve', data=dict(words='', fix='1')))
-
 def test_a_hand_edit_unlocks_the_idea_and_undo_locks_it_again(mk, walk_fake, lr):
-    "A locked idea can still change by hand: the edit unlocks it. Undo gives back the edit and the lock. A live note edit takes the lock off in place."
+    "A locked idea can still change by hand: Skip in its menu unlocks it. Undo gives back the skip and the lock. Unlock takes the lock off."
     cl = mk(); jid = walk(cl, lr)
     slug = lr.journey(jid).steps[1]['slug']
     lock(cl, jid, slug)
@@ -65,8 +55,6 @@ def test_a_hand_edit_unlocks_the_idea_and_undo_locks_it_again(mk, walk_fake, lr)
     cl.post(f'/w/{jid}/undo')
     s = lr.journey(jid).steps[1]
     assert s['status'] == 'todo' and s['locked'] is True
-    r = cl.post(f'/w/{jid}/edit', data=dict(slug=slug, act='set', note='My own note.'))
-    assert 'locked' not in lr.journey(jid).steps[1] and f'id="lock-{slug}"' in r.text and 'hx-swap-oob' in r.text
     lock(cl, jid, slug, 'unlock')
     assert 'locked' not in lr.journey(jid).steps[1]
 

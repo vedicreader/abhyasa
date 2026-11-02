@@ -336,3 +336,17 @@ a.out-link::after { content: '\2009↗'; font-size: .85em; color: var(--mute); }
 .yt-watch { display: flex; flex-direction: column; gap: var(--s3); }
 .yt-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; background: #000; }
 .yt-out { font-size: var(--t-small); color: var(--ink2); }
+
+/* A ⋯ menu (a `details` with the class `more-menu`): a quiet button, and its items open under it, at the right. The walk block uses it on an idea and on a walk. */
+.more-menu { position: relative; }
+.more-menu > summary { list-style: none; cursor: pointer; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+                       color: var(--mute); font-size: var(--t-list); border-radius: var(--r-s); }
+.more-menu > summary::-webkit-details-marker { display: none; }
+.more-menu > summary:hover, .more-menu[open] > summary { color: var(--fg); background: var(--raised); }
+.more-menu .menu-items { position: absolute; right: 0; top: 100%; z-index: 5; display: grid; gap: 2px; justify-items: stretch; min-width: 12rem; text-align: left;
+                         padding: var(--s2); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); }
+.walk-menu .menu-items { min-width: 22rem; }
+.drop-walk > summary { list-style: none; cursor: pointer; padding: var(--s1) var(--s2); color: var(--fg); }
+.drop-walk > summary::-webkit-details-marker { display: none; }
+.drop-confirm { padding: var(--s2); } .drop-confirm p { margin: 0 0 var(--s2); font-size: var(--t-small); color: var(--ink2); }
+.drop-confirm .danger { color: var(--no); }

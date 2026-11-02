@@ -8,22 +8,20 @@ from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import is_local, n_of, Page, NotFound, short_title, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
-from abhyasa.core.leela import leela_line, leela_link
+from abhyasa.core.leela import leela_line, leela_link, LEELA_INSTALL
 from abhyasa.learner import val, set_val
 from abhyasa.sources import detect, vault_title, transcript_read
 from abhyasa.learner import clean_subject, profile_text, WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
-from abhyasa.path import back_from, with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, short_check, with_step, trail, parent_step, for_talk
+from abhyasa.path import back_from, with_data, keep_data, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, short_check, with_step, trail, parent_step, for_talk
 from abhyasa.learner import walk_state, _jlock
 from abhyasa.path import tutor_note, words_to_know, done_attempt, open_short, step_meta, leela_back, leela_found, course_of, drop_data
 import abhyasa.path as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.show   # adds Learning.talks: the editor links the talks made from a walk
 from abhyasa.show import walk_changes
-from abhyasa.path import (edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, merge_steps, add_step, split_step,
-    passages as real_passages, pick_read, CTRL, rewrite as tutor_rewrite, links_in, propose, improve_walk,
-    lock_step)
-from abhyasa.path import to_research, wants_source, want_agent, research_state
+from abhyasa.path import edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, CTRL, links_in, propose, improve_walk, lock_step
+from abhyasa.path import to_research, wants_source, want_agent, research_state, learning_copy, copy_path
 from abhyasa.learner import job_start, job_end, track, Said, seen_jobs
 from abhyasa.tutor import NoLesson
 from abhyasa.show import queue_demo, job_state, job_age, job_key, rung, backed, other_way, demo_lesson, simpler_demo, said, show_ask
@@ -41,17 +39,12 @@ PNG = b'\x89PNG\r\n\x1a\n'
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
 AS_LINK = 'This is a link, so the tutor reads it from the web.'
 NO_DOC = 'No document in your vault has this name. To add a web page or a paper, paste its link.'
-NO_REWRITE = 'The tutor could not rewrite this. Nothing changed.'
-KEPT = 'Your edit was kept. The rewrite was not used.'
 FILE_WAIT = 20   # seconds that the plan of a goal waits for its sources; a slower one, such as a big clone, joins the walk when it is filed
 FILERS = 3       # the sources that file at the same time, each on its own job, off the pool of the app
-NO_ADD, NO_SPLIT = 'The tutor could not add this idea. Nothing changed.', 'The tutor could not split this idea. Nothing changed.'
-FIXING = 'The tutor looks at the ideas that are not locked'   # the pending line of Fix the rest
-NOTE_MOST, Q_MOST, WORDS_MOST = 2000, 500, 1000   # the most characters of a tutor note, of a check question that you write, and of what you ask Improve the walk to change
-EDIT_ACTS = ('move', 'skip', 'back', 'remove', 'split', 'merge', 'add', 'pick', 'note', 'check', 'q', 'rewrite', 'lock', 'unlock')
-
-class Kept(Exception):
-    "A rewrite that came after you changed each of its fields: your edits stay, and the rewrite is not used."
+FIXING = 'The tutor looks at the ideas that are not locked'   # the pending line when your words ask to fix the rest
+WORDS_MOST = 1000   # the most characters of what you ask the box to change
+EDIT_ACTS = ('move', 'skip', 'back', 'remove', 'lock', 'unlock')   # the changes by hand: the row keys, Lock and the ⋯ menu. The box makes the others
+FIX_WORDS = re.compile(r'\b(fix|redo)\b.*\b(rest|others?|walk|ideas)\b', re.I)   # words that ask the tutor to redo each idea that is not locked (the edit.fix prompt)
 
 def bad(s): return Response(s, status_code=400, media_type='text/plain')
 
@@ -63,14 +56,6 @@ def place(s, n):
     if not 0 <= k < n: raise ValueError('Give a place in the list.')
     return k
 
-def on_step(slug, fn):
-    "An editor change that runs `fn` on the step on `slug` in the steps that it gets."
-    def op(ss):
-        s = next((s for s in ss if s.get('slug') == slug), None)
-        if s is None: raise KeyError('This idea is not in the walk now.')
-        fn(s)
-        return ss
-    return op
 log = logging.getLogger(__name__)
 
 def connect(app, ctx):
@@ -525,9 +510,9 @@ def connect(app, ctx):
         k = max((k for k, x in back.items() if x.run and x.run.get('images')), default=None)   # the last step with images: what you made
         return ui.WalkEnd(j, walk_state(j, b), moved(rows), b, sides, due, run_hook('walk_end', j), made=ui.WhatYouMade(j, k, back[k]) if k is not None else '')
 
-    def one(jid:str, plan:str='', open:str='', pick:str=''):
-        """The walk page, in the state of the walk: new, going, finished, a side walk, or empty. The plan changes in place (`open` opens the row of one idea,
-        and `pick` its passage picker). `?plan=1` was the build view: it goes to the sources."""
+    def one(jid:str, plan:str=''):
+        """The walk page, in the state of the walk: new, going, finished, a side walk, or empty. The box and the plan change it in place.
+        `?plan=1` was the build view: it goes to the sources."""
         if plan: return RedirectResponse(ui.walk_url(jid, 'sources'), status_code=301)
         if not (j := walk_of(jid)): return missing()
         leela_back(lr, j)   # a step that Leela checked is done, so the walk goes on from the next one
@@ -538,10 +523,10 @@ def connect(app, ctx):
         bk = back_to(j) if ph == 'side' else None
         top = ended(j, b) if ph == 'finished' else Div(ui.SideTop(j, st, bk), *(run_hook('walk_end', j) if st.current is None else ())) if ph == 'side' else None   # a side walk that ends says what you learned on the way
         ts = talks_of(jid)
-        plan_ = ui.PlanPart(j, b, open, bool(pick), nb_now(j)) if j.steps and not for_talk(j) else ''
+        plan_ = ui.PlanPart(j, b, nb_now(j)) if j.steps and not for_talk(j) else ''
         page = ui.WalkPage(j, st, b, plan_, band(j, plan=True), top=top, more=run_hook('walk_plan_more', j), talks=ts,
                            changed={t['id'] for t in ts if any(walk_changes(lr, t).values())}, actions=run_hook('walk_actions', j, quiet=True), vault=vault,
-                           lead=ui.side_lead(j, b, bk))
+                           lead=ui.side_lead(j, b, bk), copy=str(copy_path(lr.vault.assets(), j)) if (j.get('notebook') or {}).get('path') else '')
         return Page(j.title, *page, on='Home', crumbs=up, extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def start(jid:str):
@@ -943,17 +928,7 @@ def connect(app, ctx):
         return UndoBar(said, ui.at(Routes.undo, j.id), ui.walk_url(j.id, 'history'), step=rows[0].id if rows else '', row=row,
                        hx_target='#steps', hx_swap='outerHTML')
 
-    def view(j, opened='', fresh=''): return ui.Steps(j, by(), opened=opened, fresh=fresh, nb=nb_now(j)), ui.Hands(j, oob=True)
-
-    def new_check(j, s, way):
-        "The check of step `s` for the choice `way`: a kind of the editor (short, predict, order, code, notebook) or a way of the walk. The question that you wrote stays (the change adds it)."
-        old, tool = s.get('check') or {}, bool(j.get('tool'))
-        if way == 'short': w, kind = (old.get('way') if old.get('way') in TEXT_WAYS and old.get('way') != 'code' else 'words'), 'short'
-        elif way in ui.CHOICE_OF: w, kind = ui.CHOICE_OF[way]
-        elif way in (TOOL_WAYS if tool else WALK_WAYS): w, kind = way, CHECK_KIND.get(way, 'short')
-        else: raise ValueError('Pick a check kind.')
-        floor = (lr.concept(s['slug']) or {}).get('floor') or 0
-        return {'way': w, 'kind': kind, 'depth': (2 if floor < 2 else 3) if kind == 'short' else DEPTH[kind], 'why': 'you chose it'}
+    def view(j, fresh='', oob=False): return ui.Steps(j, by(), fresh=fresh, nb=nb_now(j), oob=oob), ui.Hands(j, oob=True)
 
     def queue_new(j, old):
         "After an idea came in: look for a web source for each new step with no passage, and write the notebook of each new notebook step."
@@ -964,113 +939,29 @@ def connect(app, ctx):
         return j.steps[new[0]]['slug'] if new else ''
 
     async def edit(req, jid:str):
-        "One change to the path of walk `jid`. The step is named by `slug` (its concept), never by its place."
+        "One change by hand to the path of walk `jid`: move, skip, bring back, remove, lock or unlock. The step is named by `slug` (its concept), never by its place."
         form = await req.form()
         f = {k: CTRL.sub('', v) for k, v in {**dict(req.query_params), **{k: v for k, v in form.items() if isinstance(v, str)}}.items()}
         if not (j := walk_of(jid)) or for_talk(j): return Response('No such walk.', status_code=404)
-        act, slug, live = f.get('act', ''), f.get('slug', ''), f.get('act') == 'set'
-        if live: act = 'note' if 'note' in f else 'q' if 'q' in f else ''
+        act, slug = f.get('act', ''), f.get('slug', '')
         if act not in EDIT_ACTS: return bad(f'Unknown change: {act}.')
         slugs, b = [s['slug'] for s in j.steps], by()
-        if act != 'add' and slug not in slugs: return Response('This idea is not in the walk now.', status_code=404)
-        if act == 'rewrite': return redo(j, slug, f)
-        k = slugs.index(slug) if slug in slugs else None
+        if slug not in slugs: return Response('This idea is not in the walk now.', status_code=404)
         nm = lambda x: ui.name(b, dict(slug=x))
-        text = (f.get(act, '') if live else f.get('text', '')).strip()
-        field, opened, row, fresh = None, '', slug, ''
-        was_locked = k is not None and bool(j.steps[k].get('locked'))
         try:
             if act in ('lock', 'unlock'):
-                op, said = (lambda ss: lock_step(ss, slug, act == 'lock')), (f'Locked “{nm(slug)}”. Improve and Fix the rest do not change it.' if act == 'lock' else f'Unlocked “{nm(slug)}”.')
+                op, said = (lambda ss: lock_step(ss, slug, act == 'lock')), (f'Locked “{nm(slug)}”. The box does not change it.' if act == 'lock' else f'Unlocked “{nm(slug)}”.')
             elif act == 'move':
                 to = place(f.get('to', ''), len(slugs))
                 op, said = (lambda ss: move_step(ss, slug, to)), f'Moved “{nm(slug)}” to idea {to + 1}.'
             elif act in ('skip', 'back'):
                 op, said = (lambda ss: skip_step(ss, slug, act == 'skip')), f"{'Skipped' if act == 'skip' else 'Brought back'} “{nm(slug)}”."
-            elif act == 'remove':
-                op, said = (lambda ss: remove_step(ss, slug)), f'Removed “{nm(slug)}”.'
-            elif act == 'merge':
-                if k + 1 >= len(slugs): raise ValueError('This is the last idea. It has no next idea to merge with.')
-                op, said, opened = (lambda ss: merge_steps(ss, slug)), f'Merged “{nm(slug)}” and “{nm(slugs[k + 1])}”.', slug
-            elif act == 'note':
-                if len(text) > NOTE_MOST: raise ValueError(f'Write the note in at most {NOTE_MOST} characters.')
-                op, said, field = on_step(slug, lambda s: s.update(note=text or None)), f'Changed the note of idea {k + 1}.', f'{slug}/note'
-            elif act == 'q':
-                if (j.steps[k].get('check') or {}).get('kind', 'short') != 'short': raise ValueError('Only a short-answer check asks a question that you write.')
-                if len(text) > Q_MOST: raise ValueError(f'Write the check question in at most {Q_MOST} characters.')
-                def setq(s):
-                    ck = {x: v for x, v in (s.get('check') or {}).items() if x != 'q'}
-                    s['check'] = {**ck, **({'q': text} if text else {})}
-                op, said, field = on_step(slug, setq), f'Changed the check question of idea {k + 1}.', f'{slug}/q'
-            elif act == 'check':
-                ck = new_check(j, j.steps[k], f.get('way', ''))
-                op, said, opened = on_step(slug, lambda s: s.update(check={**ck, **({'q': s['check']['q']} if (s.get('check') or {}).get('q') else {})})), f"Changed the check of “{nm(slug)}” to {ui.SAY_KIND[ck['kind']]}.", slug
-            elif act == 'pick':
-                read = pick_read(lr, j, k, text, sources=ctx.sources)
-                op, said, opened = on_step(slug, lambda s: s.update(read=read)), f'Changed the passage of idea {k + 1}.', slug
-            if act in ('add', 'split'):
-                old = set(slugs)
-                try:
-                    if act == 'add':
-                        at = slugs.index(f['after']) + 1 if f.get('after') in slugs else len(slugs)
-                        name, concept = f.get('name', '').strip(), f.get('concept', '').strip()
-                        if len(name) > NAME_MOST: raise ValueError(f'Write the name of the idea in at most {NAME_MOST} characters.')
-                        read = pick_read(lr, j, None, text, name=name or nm(concept), sources=ctx.sources) if text else None
-                        j2 = add_step(lr, ask, jid, at, name=name, slug=concept, read=read, sources=ctx.sources)
-                    else: j2 = split_step(lr, ask, jid, slug, ctx.sources)
-                except (ValueError, KeyError): raise
-                except Exception as e:   # never the words of a library
-                    log.warning('the tutor could not %s an idea: %r', act, e)
-                    return bad(NO_ADD if act == 'add' else NO_SPLIT)
-                run_hook('concepts_added')   # the concepts block places a new concept
-                rows, got = lr.edits('walk', jid), queue_new(j2, old)
-                if act == 'add': return (*view(j2, opened=got, fresh=got), bar(j2, rows[0].what, rows, got))
-                return (*view(j2), bar(j2, rows[0].what, rows, slug))
-            j2, rows = edit_walk(lr, jid, op, said, field=field, touch=None if act in ('lock', 'unlock') else slug)   # an edit by hand unlocks the idea
+            else: op, said = (lambda ss: remove_step(ss, slug)), f'Removed “{nm(slug)}”.'
+            j2, rows = edit_walk(lr, jid, op, said, touch=None if act in ('lock', 'unlock') else slug)   # a change by hand unlocks the idea
         except KeyError as e: return Response(str(e.args[0] if e.args else 'Not found.'), status_code=404)
         except ValueError as e: return bad(str(e))
-        if rows is None: return Response(status_code=204) if live else view(j2, opened=opened)
-        if act == 'check' and j2.steps[k2 := [s['slug'] for s in j2.steps].index(slug)]['check']['kind'] == 'notebook': write_notebook(jid, k2)
-        if live:   # a live field: the text that you type stays, and only the bar changes, and the lock when the edit took it off
-            return (bar(j2, said, rows, row), ui.LockBtn(jid, slug, False, oob=True), ui.LockMark(slug, False, oob=True)) if was_locked else bar(j2, said, rows, row)
-        return (*view(j2, opened=opened), bar(j2, said, rows, row))
-
-    def redo(j, slug, f):
-        "Rewrite the note and the check question of a step with a short instruction. The model call runs outside the lock; a failed rewrite changes nothing."
-        ins = ' '.join((f.get('chip') or f.get('text') or '').split()).rstrip('.')
-        if not ins: return bad('Tell the tutor what to change.')
-        k = [s['slug'] for s in j.steps].index(slug)
-        if not j.steps[k].get('note'):   # the note that the step would show: written now (outside the lock), and kept with its own Undo
-            try: n = tutor_note(lr, ctx.ask, j, k, ctx.sources, save=False)
-            except Exception: n = ''
-            if n:
-                def first_note(t):
-                    if not t.get('note'): t['note'] = n
-                try: j = edit_walk(lr, j.id, on_step(slug, first_note), f'The tutor wrote the note of idea {k + 1}.', who='tutor')[0]
-                except (KeyError, ValueError): return bad(NO_REWRITE)
-                k = [s['slug'] for s in j.steps].index(slug)
-        s = j.steps[k]
-        short = (s.get('check') or {}).get('kind', 'short') == 'short'   # only a short-answer check asks a question that you can write
-        was = dict(note=s.get('note') or '', q=(s.get('check') or {}).get('q') or '' if short else '')
-        fields = {x: v for x, v in was.items() if v.strip()}
-        if not fields: return bad('Write a note or a check question first.')
-        try: new = tutor_rewrite(ask, fields, ins, context=(s.get('read') or {}).get('text') or '')
-        except Exception: return bad(NO_REWRITE)   # never the words of a library
-        kept = []
-        def apply(t):
-            now = dict(note=t.get('note') or '', q=(t.get('check') or {}).get('q') or '')
-            kept[:] = [x for x in fields if now[x] != was[x]]
-            if len(kept) == len(fields): raise Kept()
-            if 'note' in fields and 'note' not in kept: t['note'] = new['note']
-            if 'q' in fields and 'q' not in kept: t['check'] = {**t['check'], 'q': new['q']}
-        names = ' and the '.join(ui.FIELDS[x] for x in fields)
-        said = lambda old, now: f'Rewrote the {names} of idea {k + 1}: {ins}.' + (f' Your edit of the {ui.FIELDS[kept[0]]} was kept.' if kept else '')
-        try: j2, rows = edit_walk(lr, j.id, on_step(slug, apply), said, who='tutor', touch=slug)   # on the step as it is now: a field that you changed keeps your edit. You asked for it, so it unlocks the idea
-        except Kept: return bad(KEPT)
-        except KeyError: return Response('This idea is not in the walk now.', status_code=404)
-        except ValueError: return bad(NO_REWRITE)
-        if rows is None: return view(j2, opened=slug)
-        return (*view(j2, opened=slug), bar(j2, rows[0].what, rows, slug))
+        if rows is None: return view(j2)
+        return (*view(j2), bar(j2, said, rows, slug))
 
     def undo_(jid:str, step:str=''):
         "Take back the newest change of the path (`step` is its id, so an old bar does nothing)."
@@ -1099,72 +990,92 @@ def connect(app, ctx):
         except (KeyError, ValueError) as x: return bad(str(x))
         return Response(headers={'HX-Redirect': ui.walk_url(jid, 'plan')})
 
-    def pick_list(jid:str, i:str='', q:str='', name:str=''):
-        "The real passages that idea `i` (or a new idea `name`) can pick, with the words `q`. A GET only reads."
-        if not (j := walk_of(jid)) or for_talk(j): return Response(status_code=404)
-        k = int(i) if i.strip().isdecimal() and int(i) < len(j.steps) else None
-        name, q = ' '.join(CTRL.sub('', name).split())[:NAME_MOST], CTRL.sub('', q)[:200]
-        if k is None and not name: return P('Write the name of the idea first.', cls='mute')
-        ps = real_passages(lr, j, k, q, name=name, sources=ctx.sources)
-        return ui.PickList(jid, ps, slug=j.steps[k]['slug'] if k is not None else '', name=name)
-
-    # --- Improve the walk: your words, a proposal of changes with the ops of the editor, and the ones that you keep, with one Undo ---------
+    # --- the box: your words, the changes that the tutor makes with the ops of the editor, and one Undo ---------
 
     def improve_job(jid, words, st, fix=False):
-        "On the pool: file each link in `words` (it joins the sources of the walk, with its Undo), then ask the tutor for the changes. With `fix`, only for the ideas that are not locked."
+        """On the pool: file each link in `words` (it joins the sources of the walk, with its Undo), ask the tutor for the changes, and make them
+        as one change with an Undo. With `fix`, the tutor redoes each idea that is not locked. A locked idea never changes. Gives `(changes, id of the change)`."""
         docs = {}
         for u in links_in(words):
             st.update(said=f'Getting the pages from {u}')
             o = file_one(f'link:{u}', st)
             join(jid, f'link:{u}', o)
             if o.get('docs'): docs[u] = [dict(shelf=d.shelf, doc_id=d.doc_id) for d in o.docs]
-        st.update(said=FIXING if fix else 'The tutor reads what you asked', docs=docs)
+        st.update(said=FIXING if fix else 'The tutor reads what you asked')
         j, b = lr.journey(jid), by()
-        return propose(ask, j, {k: c.name for k, c in b.items()}, words, ui.weak_of(j), list(docs), fix=fix)
+        cs = propose(ask, j, {k: c.name for k, c in b.items()}, words, ui.weak_of(j), list(docs), fix=fix)
+        if not cs: return [], ''
+        st.update(said='The tutor changes the walk')
+        old = {s['slug'] for s in j.steps}
+        j2, rows = improve_walk(lr, ask, jid, cs, ctx.sources, docs, fix=fix)
+        run_hook('concepts_added')
+        queue_new(j2, old)
+        slugs = [s['slug'] for s in j2.steps]
+        for c in cs:   # a check that the box made a notebook gets its notebook spec
+            if c.op == 'kind' and c.kind == 'notebook' and c.slug in slugs: write_notebook(jid, slugs.index(c.slug))
+        if (ix := [slugs.index(c.slug) for c in cs if c.op == 'source' and c.slug in slugs]): look_for(jid, ix)   # "add sources for idea 2": research looks now
+        return cs, rows[0].id if rows else ''
 
-    def improve(jid:str, words:str='', fix:str=''):
-        "Improve the walk: start the job that files the links in `words` and asks the tutor for changes. Fix the rest (`fix`) needs no words. The answer is the pending line."
+    def improve(jid:str, words:str=''):
+        "The box: start the job that files the links in `words`, asks the tutor for changes and makes them. The answer is the pending line."
         if not (j := walk_of(jid)) or for_talk(j): return Response(status_code=404)
-        fix = bool(fix)
-        if not (words := ' '.join(CTRL.sub('', words).split())[:WORDS_MOST]) and not fix: return P('Write what should change, or pick a chip.', cls='req-err')
-        key = f'improve:{jid}:' + hashlib.sha1((('fix:' if fix else '') + words).encode()).hexdigest()[:12]
+        if not (words := ' '.join(CTRL.sub('', words).split())[:WORDS_MOST]): return P('Write what should change.', cls='req-err')
+        fix = bool(FIX_WORDS.search(words))
+        key = f'improve:{jid}:' + hashlib.sha1(words.encode()).hexdigest()[:12]
         if not (st := links.get(key)) or st.job.done():
-            st = links[key] = Said(lr, key, said=FIXING if fix else 'The tutor reads what you asked', fix=fix)
-            st.job = track(lr, key, lambda: ctx.pool.submit(improve_job, jid, words, st, fix), 'improve', title=f"{'Fix the rest' if fix else 'Improve'}: {j.title}", said=st.said,
-                           url=ui.walk_url(jid, 'improve'), obj=f'walk:{jid}', ok=lambda r: dict(said='The tutor proposes changes. Keep or skip each one.'),
-                           why=lambda e: 'The tutor could not propose changes.')
+            st = links[key] = Said(lr, key, said=FIXING if fix else 'The tutor reads what you asked')
+            st.job = track(lr, key, lambda: ctx.pool.submit(improve_job, jid, words, st, fix), 'improve', title=f'Change the walk: {j.title}', said=st.said,
+                           url=ui.walk_url(jid, 'change'), obj=f'walk:{jid}', ok=lambda r: dict(said='The tutor changed the walk.' if r[0] else 'The tutor found nothing to change.'),
+                           why=lambda e: 'The tutor could not change the walk.')
         return ui.ImprovePending(jid, key, st.said)
 
     def proposal(jid:str, key:str=''):
-        "The proposal as it is now: the pending line, the changes to keep or skip, or a plain line when the tutor could not make one. A GET only reads."
-        if not key.startswith(f'improve:{jid}:') or not (st := links.get(key)): return P('This proposal is gone. Ask the tutor again.', cls='mute')
+        "The box as it is now: the pending line, or what changed with Undo (and the plan, out of band), or a plain line when the tutor could not. A GET only reads."
+        if not key.startswith(f'improve:{jid}:') or not (st := links.get(key)): return P('This change is gone. Write it again.', cls='mute')
         if not st.job.done(): return ui.ImprovePending(jid, key, st.said)
         if (e := st.job.exception()):
-            log.warning('the tutor could not propose changes to %s: %r', jid, e)
-            return P('The tutor could not propose changes. Try again.', cls='req-err')
-        return ui.Proposal(jid, key, st.job.result(), by())
+            log.warning('the tutor could not change %s: %r', jid, e)
+            return P('The tutor could not change the walk. Nothing changed. Try again.', cls='req-err')
+        cs, eid = st.job.result()
+        if not (j := walk_of(jid)): return Response(status_code=404)
+        return ui.Changed(jid, cs, by(), eid), *(view(j, oob=True) if cs else ())
 
-    def said_out(*c): return Div(*c, id='improve-out', aria_live='polite', hx_swap_oob='true')
+    def drop(jid:str):
+        """Delete walk `jid`: its plan, its history of changes, and its side walks (they belong to its ideas, so they go with it).
+        Answers, attempts, demos and what you learned stay in the vault. Then the list of walks (Home)."""
+        if not (j := lr.journey(jid)) or j.get('mode') != 'walk' or for_talk(j): return missing()
+        if (ev := ctx.research.stops.get(jid)) is not None: ev.set()   # research of the walk stops at its next step
+        gone, todo = set(), [jid]
+        while todo:
+            k = todo.pop()
+            if k in gone: continue
+            gone.add(k)
+            todo += [w.id for w in lr.journeys() if (w.get('parent') or {}).get('walk') == k]
+        for k in gone:
+            lr.drop_edits('walk', k)
+            lr.drop_journey(k)
+        return RedirectResponse('/', status_code=303)
 
-    async def improve_apply(req, jid:str):
-        "Apply the changes that you kept (`c<k>` is keep or skip) as one change with an Undo. The ideas that the changes do not touch keep their progress."
-        form = await req.form()
-        key = form.get('key', '')
-        if not (j := walk_of(jid)) or for_talk(j) or not key.startswith(f'improve:{jid}:') or not (st := links.get(key)) or not st.job.done() or st.job.exception():
-            return said_out(P('This proposal is gone. Ask the tutor again.', cls='mute')), HttpHeader('HX-Reswap', 'none')
-        kept = [c for k, c in enumerate(st.job.result()) if form.get(f'c{k}', 'keep') == 'keep']
-        if not kept: return said_out(P('You skipped each change. Nothing changed.', cls='mute')), HttpHeader('HX-Reswap', 'none')
-        old = {s['slug'] for s in j.steps}
-        try: j2, rows = improve_walk(lr, ask, jid, kept, ctx.sources, st.get('docs'), fix=bool(st.get('fix')))
-        except (KeyError, ValueError) as e: return bad(str(e))
-        except Exception as e:   # never the words of a library
-            log.warning('the tutor could not improve %s: %r', jid, e)
-            return bad('The tutor could not make these changes. Nothing changed.')
-        links.pop(key, None)
-        if rows is None: return said_out(P('Nothing changed.', cls='mute')), HttpHeader('HX-Reswap', 'none')
-        run_hook('concepts_added')
-        got = queue_new(j2, old)
-        return (*view(j2, fresh=got), bar(j2, rows[0].what, rows), said_out(P(f"Applied {n_of(len(kept), 'change')}. Undo takes them back.", cls='mute')))
+    def open_notebook(jid:str):
+        """Learn the notebook in Leela: write the learning copy of the notebook of walk `jid` in the folder of the walk, with each demo of the walk
+        as a rupaka cell after its section, note its path on the walk, and go to Leela, which opens the copy. The learner's own notebook never changes.
+        A demo that is not made yet starts now, and the next press puts it in a new copy."""
+        if not (j := walk_of(jid)) or not (j.get('notebook') or {}).get('path'): return missing()
+        for i in range(len(j.steps)): ahead(j, i)
+        demos = {s['slug']: d.spec for s in j.steps if s['check']['kind'] in AIM and (d := demo(s)) and isinstance(d.get('spec'), dict)}
+        try: p = learning_copy(j, copy_path(lr.vault.assets(), j), demos)
+        except (OSError, ValueError) as e:
+            log.warning('abhyasa could not write the learning copy of %s: %r', jid, e)
+            return Page('Leela', H1(j.title), P('abhyasa could not read your notebook, so it wrote no copy. Check that the file is still there.', cls='req-err'), on='Home', crumbs=up)
+        lr.merge_journey(jid, notebook={**j.notebook, 'copy': str(p)})
+        if not (link := leela_link(j, vault=vault)):
+            return Page('Leela', H1(j.title), P(f'The learning copy is in {p}. Start Leela, then press Learn the notebook in Leela again. ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener')), on='Home', crumbs=up)
+        return RedirectResponse(link, status_code=303)
+
+    @hook('walk_actions')
+    def walk_menu(j, quiet=False, row=False):
+        "On the row of a walk in the list of walks: its ⋯ menu, with Delete this walk."
+        return ui.WalkMenu(j) if row and not for_talk(j) else None
 
     def walks_of(slug, side=False):
         "`(walk, index)` for each walk that has a step on concept `slug`. A side walk (it has a `parent`) only with `side`: it belongs to the idea that opened it."
@@ -1205,10 +1116,10 @@ def connect(app, ctx):
     app.post(Routes.undo)(undo_)
     app.get(Routes.history)(history)
     app.post(Routes.restore)(restore)
-    app.get(Routes.passages)(pick_list)
     app.post(Routes.improve)(improve)
     app.get(Routes.improve)(proposal)
-    app.post(Routes.improve_apply)(improve_apply)
+    app.post(Routes.drop)(drop)
+    app.post(Routes.notebook)(open_notebook)
     app.get(Routes.gather_log)(gather_log)
     app.post(Routes.gather_stop)(stop_gather)
     app.post(Routes.gather_again)(again)

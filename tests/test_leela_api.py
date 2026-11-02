@@ -4,7 +4,7 @@ import importlib, pytest
 NAMES = {'learner': 'Learning slugify recall understanding update METHODS TEXT_WAYS PROMPTS prompt register set_prompt',
          'sources': 'WEB source_of VaultSource', 'path': 'walk_state', 'stagekit': 'is_local room_spec',
          'contract': 'validate_nb_spec vault_key handoff read_handoff run_ok path_why RUN_IMAGES LEELA_ROUTE HANDOFF_CASES HANDOFF_BAD NB_SPEC_CASES RUN_CASES '
-                     'SAFE_NAMES SAFE_NODES safe_test check_exercise',
+                     'SAFE_NAMES SAFE_NODES safe_test check_exercise notebook_copy COPY_DIR',
          'tutor': 'HINTS TUTOR_SP', 'show': 'explain norm_tex stream_board show_reply TALK_SCHEMA TALK_CASES check_talk new_run',
          'models': 'Router route_ask', 'core.stage': 'STAGE_V STAGE_TYPES STAGE_CASES'}
 

@@ -332,48 +332,41 @@ def d_finish_walk(lr, cl, mp, fake):
     go = pg.acts['review'][0].get('href')
     assert cl.get(go, follow_redirects=False).headers['location'].startswith('/s/')
 
-def improve(cl, jid, words):
-    "Send `words` to Improve the walk, and ask again until the proposal comes. Gives its HTML."
+def change(cl, jid, words):
+    "Send `words` to the box at the top of the walk, and ask again until the tutor made the changes. Gives the last answer."
     r = cl.post(f'/w/{jid}/improve', data=dict(words=words))
     for _ in range(200):
-        if 'improve-wait' not in r.text: return r.text
+        if 'improve-wait' not in r.text: return r
         time.sleep(.05); r = cl.get(re.search(r'hx-get="([^"]+)"', r.text)[1].replace('&amp;', '&'))
-    raise AssertionError('no proposal came')
-
-def key_of(html): return re.search(r'name="key" value="([^"]+)"', html)[1]
+    raise AssertionError('the tutor made no change')
 
 def d_improve_walk(lr, cl, mp, fake):
-    "Change the plan in place with Undo; then Improve the walk: the tutor proposes, you keep, and one Undo takes it back."
+    "Change the plan in place with Undo; then the box: the tutor makes the change at once, says what changed, and one Undo takes it back."
     jid = paper(lr, cl)
     cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='skip'))
     assert lr.journey(jid).steps[1]['status'] == 'skip'
     cl.post(f'/w/{jid}/undo')
     assert lr.journey(jid).steps[1]['status'] == 'todo'
     fake.rules['You propose changes to one learning walk'] = dict(changes=[dict(op='easier', idea='softmax', why='Less to do.')])
-    assert page(cl, f'/w/{jid}').works('improve')
+    assert page(cl, f'/w/{jid}').works('change')
     d = lr.journey(jid).steps[1]['check'].get('depth', 2)
-    p = improve(cl, jid, 'Make the walk simpler.')
-    cl.post(f'/w/{jid}/improve/apply', data=dict(key=key_of(p)))
+    r = change(cl, jid, 'Make the walk simpler.')
     e = lr.edits('walk', jid)[0]
-    assert lr.journey(jid).steps[1]['check']['depth'] == max(1, d - 1) and e.who == 'tutor' and e.what == 'Improved the walk: 1 change.'
-    cl.post(f'/w/{jid}/undo')
+    assert lr.journey(jid).steps[1]['check']['depth'] == max(1, d - 1) and e.who == 'tutor' and e.what == 'Improved the walk: 1 change.' and 'What changed' in r.text
+    cl.post(f'/w/{jid}/undo', data=dict(step=e.id))
     assert lr.journey(jid).steps[1]['check'].get('depth', 2) == d
 
 def d_lock_and_fix(lr, cl, mp, fake):
-    """Lock two ideas; Fix the rest with words: the proposal leaves the locked ideas out, the apply keeps them byte for byte, and Undo takes it back.
+    """Lock two ideas; "fix the rest" in the box: the tutor leaves the locked ideas out and keeps them byte for byte, and Undo takes it back.
     A hand edit unlocks an idea, and Undo locks it again. On the course page, a locked stage and its walk stay after Fix the rest."""
     jid = paper(lr, cl); ss = [s['slug'] for s in lr.journey(jid).steps]
     lock(cl, jid, ss[0], ss[2])
     pg = page(cl, f'/w/{jid}')
-    assert pg.has('label:Locked') and pg.works('lock') and pg.works('fix')
+    assert pg.has('label:Locked') and pg.works('lock') and pg.works('change')
     was = [json.dumps(s, sort_keys=True) for s in lr.journey(jid).steps]
     fake.rules['You redo the ideas of one learning walk'] = dict(changes=[dict(op='remove', idea=ss[0], why='x'), dict(op='harder', idea=ss[1], why='A real test.')])
-    r = cl.post(f'/w/{jid}/improve', data=dict(words='make the rest harder', fix='1'))
-    for _ in range(200):
-        if 'improve-wait' not in r.text: break
-        time.sleep(.05); r = cl.get(re.search(r'hx-get="([^"]+)"', r.text)[1].replace('&amp;', '&'))
-    assert r.text.count('class="change"') == 1
-    cl.post(f'/w/{jid}/improve/apply', data=dict(key=key_of(r.text)))
+    r = change(cl, jid, 'fix the rest, and make it harder')
+    assert 'Made the check of' in r.text and 'Removed' not in r.text
     now = [json.dumps(s, sort_keys=True) for s in lr.journey(jid).steps]
     assert (now[0], now[2]) == (was[0], was[2]) and now[1] != was[1] and lr.edits('walk', jid)[0].what == 'Fixed the rest of the walk: 1 change.'
     cl.post(f'/w/{jid}/undo')

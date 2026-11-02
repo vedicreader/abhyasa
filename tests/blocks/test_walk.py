@@ -13,9 +13,6 @@ def test_plan_then_start(mk, walk_fake, lr):
     assert 'Attention Is All You Need' in page and page.index('1 Introduction') < page.index('3.2.1 Scaled Dot-Product Attention')
     assert 'Start the walk' in page and 'min' in page
     assert cl.post(f'/w/{jid}/plan', data=dict(i=0, act='drop')).status_code in (404, 405)   # the plan POST with no Undo goes: the plan changes in place
-    cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='check', way='code'))
-    assert lr.journey(jid).steps[1]['check'] == dict(way='code', kind='notebook', depth=4, why='you chose it')   # the code way is a notebook in Leela
-    assert cl.post(f'/w/{jid}/edit', data=dict(slug='softmax', act='check', way='board')).status_code == 400   # no board view yet
     cl.post(f'/w/{jid}/edit', data=dict(slug='sequential-computation', act='remove'))
     assert [s['slug'] for s in lr.journey(jid).steps][0] == 'softmax' and 'Undo' in cl.post(f'/w/{jid}/undo').text
     r = cl.post(f'/w/{jid}/start', follow_redirects=False)

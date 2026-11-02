@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, SourceLinks, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, EditList, Live, UndoBar, HistoryList
+from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, SourceLinks, TutorWords, source_of, n_of, moved_words, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, UndoBar, HistoryList
 from abhyasa.learner import DEPTHS, METHOD_LABELS as LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
 from abhyasa.learner import val
@@ -106,8 +106,7 @@ def FindSource(jid, i, s, looking=False):
     if none and s.get('gather_none'):   # the gather agent read for this idea and found nothing: what it read is in its log
         return (P(s.get('research_why') or NO_SOURCE, cls='mute no-source'), P(ShowLog(jid), ' ', go, cls='mute find-source'))
     why = P(s['research_why'], cls='mute no-source-why') if none and s.get('research_why') else ''
-    own = (' ', A('Pick a passage yourself', href=f"{at(Routes.one, jid)}?{urlencode(dict(open=s['slug'], pick=1))}#pick-{s['slug']}", cls='pick-own')) if none else ()
-    return (P(NO_SOURCE, cls='mute no-source') if none else '', why, P(go, *own, cls='mute find-source'))
+    return (P(NO_SOURCE, cls='mute no-source') if none else '', why, P(go, cls='mute find-source'))
 
 # --- the gather agent: the band, and the log of what it read and filed ------------------------------------------------
 
@@ -678,44 +677,38 @@ def WalkEnd(j, st, ms, by, sides=(), due=None, end=(), made=''):
                        P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', cls='walk-sum', style=f"--n:{min(len(outs), 5)}"),
                    made, *end, Div(go, cls='row'), id='result', data_part='result', cls='walk-result')
 
-IMPROVE_CHIPS = (('Simpler', 'Make the walk simpler.'), ('Harder', 'Make the walk harder.'), ('Add an idea', 'Add the idea '))
-WEAK_CHIP = ('From your weak ideas', 'Help me with the ideas that I got wrong or was not sure of.')
-IMPROVE_SAY = 'What should change? For example: Add attention, from https://…'
-FIX_SAY = 'Lock each idea that is good. Fix the rest asks the tutor to redo the other ideas: their order, their checks, and the ideas that are missing. Your words go with it.'
+CHANGE_SAY = 'What should change? For example: make idea 3 simpler, add a demo of the noise schedule, drop the U-Net idea.'
+CHANGE_HELP = 'Enter sends. Shift+Enter starts a new line. The tutor does not change a locked idea. A link in your words becomes a source.'
 
-def Improve(j, finished=False):
-    """Improve the walk: one quiet fold with one box, "What should change?", and chips that put words in it. A link in the words is a source.
-    The tutor proposes changes, and you keep or skip each one. A finished walk has one more chip: From your weak ideas.
-    Fix the rest, next to Ask the tutor, asks the tutor to redo only the ideas that are not locked, with the words in the box."""
-    chips = [*IMPROVE_CHIPS, *([WEAK_CHIP] if finished else [])]
-    return Details(Summary('Improve the walk', cls='quiet'),
-                   Form(Textarea(name='words', rows='2', maxlength='1000', placeholder=IMPROVE_SAY, aria_label='What should change?'),
-                        Div(*[Quiet(t, small=True, type='button', data_fill=v) for t, v in chips], cls='chips'),
-                        Div(Secondary('Ask the tutor', data_wait='Asking the tutor…'),
-                            Quiet('Fix the rest', name='fix', value='1', data_wait='Asking the tutor…', data_act='fix', title='The tutor redoes each idea that is not locked.'), cls='row'),
-                        P(FIX_SAY, cls='mute fix-say'),
-                        hx_post=at(Routes.improve, j['id']), hx_target='#improve-out', hx_swap='innerHTML', cls='improve-form'),
-                   Div(id='improve-out', aria_live='polite'), id='improve', cls='improve', data_part='improve', data_act='improve')
+def ChangeBox(j):
+    """The one box that changes the walk, at the top of the plan. Enter sends and Shift+Enter starts a new line (walk.js). The tutor turns your
+    words into the changes of the editor and makes them at once, as one change with Undo. A locked idea stays as it is."""
+    return Section(Form(Textarea(name='words', rows='1', maxlength='1000', placeholder=CHANGE_SAY, aria_label='What should change in the walk?', data_enter='1', id='change-words'),
+                        P(CHANGE_HELP, cls='mute help'),
+                        hx_post=at(Routes.improve, j['id']), hx_target='#change-out', hx_swap='innerHTML', data_wait='The tutor reads what you asked…', cls='change-form'),
+                   Div(id='change-out', aria_live='polite'), id='change', cls='walk-change', data_part='change', data_act='change')
 
 def ImprovePending(jid, key, said):
-    "Improve the walk while the tutor works: the line of what it does now. It loads again on each event of its job row `key`, and every 30 seconds."
+    "The box while the tutor works: the line of what it does now. It loads again on each event of its job row `key`, and every 30 seconds."
     return Div(P(said + '…', cls='mute'), hx_get=f"{at(Routes.improve, jid)}?{urlencode(dict(key=key))}", hx_trigger=WAIT, hx_swap='outerHTML', cls='improve-wait', data_job=key)
 
-def change_words(c, by) -> str:
-    "One proposed change in words: `Make the check of “Softmax” easier.`"
-    n = name(by, dict(slug=c.slug)) if c.slug else c.name
-    return dict(add=f"Add “{c.name}”" + (f" as idea {c.to}" if c.to else '') + (f", from {c.link}" if c.link else '') + '.',
-                remove=f"Remove “{n}”.", skip=f"Skip “{n}” in the walk. You can bring it back.", move=f"Move “{n}” to idea {c.to}.", split=f"Split “{n}” into smaller ideas.",
-                easier=f"Make the check of “{n}” easier.", harder=f"Make the check of “{n}” harder.")[c.op]
+KIND_SAYS = dict(demo='a demo', short='a short answer', order='put in order', notebook='a notebook')
 
-def Proposal(jid, key, cs, by):
-    "The changes that the tutor proposes, each with its reason and Keep or Skip, then Apply the kept changes. Progress on the other ideas stays."
+def change_words(c, by) -> str:
+    "One change in words: `Made the check of “Softmax” easier.`"
+    n = name(by, dict(slug=c.slug)) if c.get('slug') else c.get('name')
+    kind = KIND_SAYS.get(c.get('kind') or '', '')
+    return dict(add=f"Added “{c.get('name')}”" + (f" as idea {c.to}" if c.get('to') else '') + (f" with {kind}" if kind else '') + (f", from {c.link}" if c.get('link') else '') + '.',
+                remove=f"Removed “{n}”.", skip=f"Skipped “{n}”. You can bring it back.", move=f"Moved “{n}” to idea {c.get('to')}.", split=f"Split “{n}” into smaller ideas.",
+                merge=f"Merged “{n}” with the next idea.", rewrite=f"Rewrote the note and the question of “{n}”: {c.get('text')}.",
+                kind=f"Changed the check of “{n}” to {kind or 'another kind'}.", source=f"Looks for a source for “{n}”.",
+                easier=f"Made the check of “{n}” easier.", harder=f"Made the check of “{n}” harder.").get(c.op, '')
+
+def Changed(jid, cs, by, eid=''):
+    "What the box changed: one short line for each change, and Undo, which takes them all back as one change. Nothing changed: a plain line."
     if not cs: return P('The tutor found nothing to change. Say it in other words.', cls='mute')
-    pick = lambda k: Span(*[Label(Input(type='radio', name=f'c{k}', value=v, checked=v == 'keep'), f' {v.title()}') for v in ('keep', 'skip')], cls='keep-skip')
-    rows = [Li(Div(Span(change_words(c, by), cls='what'), pick(k), cls='change-head'), P(c.why, cls='mute why') if c.why else '', cls='change') for k, c in enumerate(cs)]
-    return Form(Span('The tutor proposes', cls='lbl'), Ul(*rows, cls='plain changes'), Input(type='hidden', name='key', value=key),
-                Div(Secondary('Apply the kept changes', data_wait='Applying…', data_act='apply'), cls='row'),
-                hx_post=at(Routes.improve_apply, jid), hx_target='#steps', hx_swap='outerHTML', cls='proposal')
+    undo = Quiet('Undo', ' ', Kbd('⌘Z'), small=True, type='button', hx_post=at(Routes.undo, jid), hx_vals=json.dumps(dict(step=eid)), hx_target='#steps', hx_swap='outerHTML', data_act='undo-change') if eid else ''
+    return Div(Span('What changed', cls='lbl'), Ul(*[Li(change_words(c, by)) for c in cs], cls='plain changes'), Div(undo, cls='row') if undo else '', cls='changed')
 
 def phase(j, st) -> str:
     "The state of walk `j` on its page: `empty`, `side` (a side walk), `new`, `going` or `finished`."
@@ -763,17 +756,41 @@ def side_lead(j, by, back) -> str:
     if not back or not j.get('slug'): return ''
     return f"{name(by, dict(slug=j['slug']))}: the basics, for {back.title}"
 
-def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), actions=(), vault=None, lead=''):
-    """One page for one walk. The head says what the walk is. Then the part of its state (`phase`): Start the walk, where you are,
-    the end of the walk (`top`, the `WalkEnd`), or Back to the paper. Then the plan (`plan`), the sources (`band`, `more`) and the talks."""
+DROP_SAYS = 'Delete the plan of this walk? Your answers, your attempts and what you learned stay. Its side walks go with it.'
+
+def DropWalk(jid):
+    "Delete this walk, with one confirm in place: the line says what goes and what stays. The form posts, then the list of walks opens."
+    return Details(Summary('Delete this walk', cls='small'),
+                   Form(P(DROP_SAYS), Div(Button('Delete the walk', cls='small danger', data_act='drop'), cls='row'),
+                        action=at(Routes.drop, jid), method='post', hx_boost='false', cls='drop-confirm'), cls='drop-walk')
+
+def WalkMenu(j):
+    "The ⋯ menu of a walk, on its page and on its row in the list of walks: Delete this walk."
+    return Details(Summary('⋯', title='More for this walk', aria_label='More for this walk'), Div(DropWalk(j['id']), cls='menu-items'), cls='more-menu walk-menu')
+
+def NotebookLine(j, copy=''):
+    """A walk made from one of your notebooks: Learn it in Leela opens a learning copy of the notebook, with the demos of the walk as rupaka cells
+    next to their sections. `copy` is the path of the copy. Your own notebook file never changes."""
+    nb = j.get('notebook') or {}
+    if not nb.get('path'): return ''
+    return Div(Form(Button('Learn the notebook in Leela ↗', cls='small', data_act='open-notebook'), action=at(Routes.notebook, j['id']), method='post',
+                    target='_blank', rel='noopener', hx_boost='false'),
+               P(f"Leela opens a learning copy with the demos of this walk. Your notebook {Path(nb['path']).name} does not change. The copy is in {copy}.", cls='mute'),
+               cls='walk-notebook', data_part='notebook')
+
+def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), actions=(), vault=None, lead='', copy=''):
+    """One page for one walk. The head says what the walk is, with its ⋯ menu (Delete this walk) and, for a notebook walk, Learn the notebook in Leela.
+    Then the part of its state (`phase`): Start the walk, where you are, the end of the walk (`top`, the `WalkEnd`), or Back to the paper.
+    Then the box that changes the walk, the plan (`plan`), the sources (`band`, `more`) and the talks."""
     src, ph = j.get('source') or {}, phase(j, st)
     whence = lead or (f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', ''))
     mins = sum(minutes(s) for s in j['steps'] if s.get('status') != 'skip')
-    head = (H1(j['title']), P(meta(whence, n_of(len(j['steps']), 'idea'), f'about {mins} min' if j['steps'] else ''), cls='mute'), leela_line(j, vault=vault) if j.get('tool') else '')
+    head = (Div(H1(j['title']), WalkMenu(j), cls='walk-head'), P(meta(whence, n_of(len(j['steps']), 'idea'), f'about {mins} min' if j['steps'] else ''), cls='mute'),
+            leela_line(j, vault=vault) if j.get('tool') else '', NotebookLine(j, copy))
     if ph == 'empty': return (*head, P('The tutor found no ideas in this source.', cls='mute'), Filed(j), Div(Primary('Home', href='/', data_act='home'), cls='row'))   # what Start filed keeps its Undo
     if ph == 'new': top = Div(Form(Primary('Start the walk', data_wait='Starting…', data_act='start'), action=at(Routes.start, j['id']), method='post'), cls='row walk-top')
     elif ph == 'going': top = Here(j, st, by)
-    return (*head, top, '' if ph == 'side' else Improve(j, ph == 'finished'), plan, Sources(j, band, more), '' if ph == 'side' else Talks(talks, changed, actions))
+    return (*head, top, '' if ph == 'side' else ChangeBox(j), plan, Sources(j, band, more), '' if ph == 'side' else Talks(talks, changed, actions))
 
 def InWalks(c, rows, js):
     "On a concept page: the walks that have idea `c` (`(walk, index)`), each linked to its idea, and a way to add it to another walk."
@@ -789,13 +806,6 @@ def StepDone(c, nxt):
 
 # --- the walk path editor (core/edit.py: an `EditList`; each change saves at once, with an Undo) ----------------------
 
-CHOICES = dict(predict='Predict a demo', short='Short answer', order='Put in order', notebook='Notebook in Leela')   # the check kinds that you can pick
-CHOICE_OF = dict(predict=('demo', 'demo'), order=('order', 'order'), notebook=('code', 'notebook'))   # choice -> (way, kind); `short` keeps a text way
-CHOICE = dict(demo='predict', short='short', order='order', notebook='notebook')   # kind -> choice
-SAY_KIND = dict(demo='a demo', short='a short answer', order='put in order', notebook='a notebook')
-FIELDS = dict(note='note', q='check question')   # the names of the fields of a step, for the Undo bar
-REWRITE_CHIPS = ('Simpler', 'Add an example', 'Shorter')
-REWRITE_HELP = 'Press Return to send, or pick a chip. The tutor rewrites the note and the check question. It never changes the passage.'
 SETTING = '/settings#g-walks'   # the Walks group of Settings, with the hands-on share
 
 def edit_url(jid, slug=''): return at(Routes.edit, jid) + (f'?{urlencode(dict(slug=slug))}' if slug else '')
@@ -814,56 +824,9 @@ def Hands(j, oob=False):
     return P(line, *((' ', A('Change the setting', href=SETTING)) if over else ()), id='hands', cls='hands over' if over else 'hands', aria_live='polite',
              **({'hx_swap_oob': 'true'} if oob else {}))
 
-def Field_(label, el, help=''): return Label(label, el, Small(help, cls='mute help') if help else '')
-
 def edit_act(jid, act, **kw):
     "The htmx attributes of a button that makes the change `act` and swaps the list of ideas."
     return dict(hx_post=at(Routes.edit, jid), hx_vals=json.dumps(dict(act=act, **kw)), hx_target='#steps', hx_swap='outerHTML', type='button')
-
-def pick_url(jid, **kw): return f"{at(Routes.passages, jid)}?{urlencode(kw)}"
-
-def PickList(jid, ps, slug='', name=''):
-    "The real passages to pick, word for word, each with its place. For a step: Use this passage. For a new idea: Add with this passage."
-    if not ps: return P('No passage in the sources of this walk has these words.', cls='mute')
-    go = (lambda p: edit_act(jid, 'pick', slug=slug, text=p.text)) if slug else (lambda p: edit_act(jid, 'add', name=name, text=p.text))
-    return Ul(*[Li(Blockquote(Inline(p.text)), Small(p.place, cls='mute'), Quiet('Use this passage' if slug else 'Add with this passage', small=True, data_wait='Saving…', **go(p)))
-                for p in ps], cls='plain picks')
-
-def EditPassage(j, k, s, pick=False):
-    "The passage of step `k` with its source line (and the passages that a merge kept), then Pick another passage: real passages only, with a search box."
-    r, slug = s.get('read') or {}, s['slug']
-    have = (r.get('text') or '').strip()
-    url = pick_url(j['id'], i=k)
-    return Div(Span('Passage', cls='lbl'),
-               *((Blockquote(Inline(have)), SourceLine(source_of(r, j))) if have else (P('This idea has no passage yet. Pick one, or the tutor looks for a source on the web.', cls='mute'),)),
-               *[x for a in r.get('also') or () for x in (Blockquote(Inline(a.get('text') or ''), cls='also'), SourceLine(source_of(a, j)))],
-               Details(Summary('Pick another passage' if have else 'Pick a passage yourself', cls='quiet small'),
-                       Input(type='search', name='q', placeholder='Words in the passage', aria_label='Words in the passage', maxlength='200',
-                             hx_get=url, hx_trigger='input changed delay:300ms, search', hx_target=f'#pick-{slug}-list', hx_swap='innerHTML'),
-                       Div(Span('Reading the sources…', cls='mute'), id=f'pick-{slug}-list', hx_get=url, hx_trigger='intersect once', hx_swap='innerHTML', cls='pick-list'),
-                       id=f'pick-{slug}', cls='pick', open=pick),
-               cls='passage-part')
-
-def Rewrite_(post):
-    "Rewrite the note and the check question: a short instruction (Return sends it), or one of three chips. The row button Rewrite (R) puts the focus here. The tutor never changes the passage."
-    return Form(Field_('Rewrite with the tutor', Input(type='text', name='text', maxlength='300', placeholder='Tell the tutor what to change', aria_label='What to change'), REWRITE_HELP),
-                Div(*[Quiet(c, small=True, type='submit', name='chip', value=c, data_wait='Rewriting…') for c in REWRITE_CHIPS], cls='chips'),
-                hx_post=post, hx_vals=json.dumps(dict(act='rewrite')), hx_target='#steps', hx_swap='outerHTML', cls='rewrite')
-
-def StepBody(j, k, s, by, pick=False):
-    "The fields of an open row: the idea, the passage, the tutor note, the check kind, the check question and the rewrite. Each change has an Undo."
-    c, ck, post = by.get(s['slug']) or {}, s.get('check') or {}, edit_url(j['id'], s['slug'])
-    kind, tool = ck.get('kind', 'short'), bool(j.get('tool'))
-    h, n, _ = hands_count(j['steps'])
-    kinds = Select(*[Option(t, value=v, selected=v == CHOICE.get(kind)) for v, t in CHOICES.items()], name='way',
-                   aria_label='The kind of the check', hx_post=post, hx_trigger='change', hx_vals=json.dumps(dict(act='check')), hx_target='#steps', hx_swap='outerHTML')
-    return [Div(Span('Idea', cls='lbl'), P(Inline(c.get('statement') or c.get('name') or s['slug'])), cls='idea-part'),
-            EditPassage(j, k, s, pick),
-            Field_('Tutor note', Live('note', Textarea(s.get('note') or '', rows='3', placeholder='The tutor writes the note when you open this idea.'))),
-            Field_('Check', kinds, f'Hands-on now: {h} of {n} ideas. A notebook runs in Leela.' + (' A walk on a tool runs its code in a notebook.' if tool else '')),
-            Field_('Check question', Live('q', Input(type='text', value=ck.get('q') or '', maxlength='500', placeholder='The tutor writes a question when you reach this idea.')),
-                   'The tutor asks your question as it is.') if kind == 'short' else '',
-            Rewrite_(post)]
 
 def step_line(j, s, writing=False):
     "The short line of a step row: the kind of its check, its way, and the source of its passage. A notebook step says `writing` only while its job runs."
@@ -882,59 +845,44 @@ def PlanDot(dot):
 
 LOCK_SVG = NotStr('<svg viewBox="0 0 12 14" width="10" height="12" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/>'
                   '<path d="M3.5 6V4a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>')
-LOCKED_SAYS = 'Locked: Improve and Fix the rest do not change this idea. An edit by hand unlocks it.'
+LOCKED_SAYS = 'Locked: the box does not change this idea. A change by hand unlocks it.'
 
-def LockMark(slug, on, oob=False):
-    "The small lock mark of a locked idea in the plan. An empty mark when it is not locked, so a live edit can clear it out of band."
+def LockMark(slug, on):
+    "The small lock mark of a locked idea in the plan; an empty mark when it is not locked."
     return Span(LOCK_SVG if on else '', id=f'mark-{slug}', cls='lock-mark', role='img' if on else None, aria_label='Locked' if on else None,
-                title=LOCKED_SAYS if on else None, **({'hx_swap_oob': 'true'} if oob else {}))
+                title=LOCKED_SAYS if on else None)
 
-def LockBtn(jid, slug, on, oob=False):
-    "The quiet Lock toggle of an idea: Keep this idea. It posts lock or unlock, with Undo."
-    return Quiet('Locked' if on else 'Lock', small=True, id=f'lock-{slug}', data_lock='1', data_act='lock', aria_pressed='true' if on else 'false',
-                 title='Unlock this idea' if on else 'Keep this idea: Improve and Fix the rest do not change it', **edit_act(jid, 'unlock' if on else 'lock', slug=slug),
-                 **({'hx_swap_oob': 'true'} if oob else {}))
+def LockBtn(jid, slug, on):
+    "The quiet Lock toggle of an idea: Keep this idea. It posts lock or unlock, with Undo. F presses it from the row (walk.js)."
+    return Quiet('Locked' if on else 'Lock', small=True, id=f'lock-{slug}', data_lock='1', data_act='lock', data_key='F', aria_pressed='true' if on else 'false',
+                 title='Unlock this idea' if on else 'Keep this idea: the box does not change it', **edit_act(jid, 'unlock' if on else 'lock', slug=slug))
 
-def StepRow(j, k, s, by, opened='', fresh='', pick=False, nb=(), dot='todo'):
-    "Step `s` as row `k` of the editor list: its title and short line, Skip, then the fields of the open row. `nb`: the concepts whose notebook a job writes now."
-    slug, n = s['slug'], len(j['steps'])
-    acts = [Quiet('Split', ' ', Kbd('P'), small=True, data_key='P', data_wait='Splitting…', **edit_act(j['id'], 'split', slug=slug)),
-            Quiet('Merge with next', ' ', Kbd('M'), small=True, data_key='M', disabled=k == n - 1, **edit_act(j['id'], 'merge', slug=slug)),
-            Quiet('Remove', ' ', Kbd('X'), small=True, data_key='X', **edit_act(j['id'], 'remove', slug=slug)),
-            Quiet('Rewrite', ' ', Kbd('R'), small=True, type='button', data_key='R', data_rewrite='1')]
-    return dict(id=slug, title=Span(PlanDot(dot), Inline(name(by, s)), ' ', LockMark(slug, s.get('locked'))), line=step_line(j, s, slug in nb), post=edit_url(j['id'], slug), body=StepBody(j, k, s, by, pick and slug == opened),
-                acts=acts, open=slug == opened, fresh=slug == fresh, cls='skipped' if s.get('status') == 'skip' else '')
+def RowMenu(jid, s):
+    "The ⋯ menu of an idea: Skip (or Bring back) and Remove. D and X press them from the row (core/edit.js); Undo takes each one back."
+    skip, slug = s.get('status') == 'skip', s['slug']
+    return Details(Summary('⋯', title='More for this idea', aria_label='More for this idea'),
+                   Div(Quiet('Bring back' if skip else 'Skip', ' ', Kbd('D'), small=True, data_key='D', data_skip='1', **edit_act(jid, 'back' if skip else 'skip', slug=slug)),
+                       Quiet('Remove', ' ', Kbd('X'), small=True, data_key='X', data_act='remove', **edit_act(jid, 'remove', slug=slug)), cls='menu-items'),
+                   cls='more-menu row-menu')
 
-def AddIdea(j, by):
-    "Add an idea (A): by name, from the concept tree, or with a passage from a source. It goes after the idea that had the focus last."
-    have, post = {s['slug'] for s in j['steps']}, dict(hx_post=at(Routes.edit, j['id']), hx_vals=json.dumps(dict(act='add')), hx_target='#steps', hx_swap='outerHTML', data_after='1')
-    tree = sorted((c for c in by.values() if c.slug not in have), key=lambda c: (c.get('name') or c.slug).lower())[:300]
-    return Details(Summary('Add an idea', ' ', Kbd('A'), data_key='A', cls='quiet'),
-                   Div(Form(Field_('By name', Input(type='text', name='name', maxlength='120', placeholder='The name of the idea', aria_label='The name of the idea')),
-                            Quiet('Add', small=True, data_wait='Adding…'), cls='add-name', **post),
-                       Form(Field_('From the concept tree', Select(Option('Pick an idea', value='', selected=True, disabled=True), *[Option(c.get('name') or c.slug, value=c.slug) for c in tree], name='concept')),
-                            Quiet('Add', small=True, data_wait='Adding…'), cls='add-tree', **post) if tree else '',
-                       Form(Field_('From a source', Input(type='text', name='name', maxlength='120', placeholder='The name of the idea', aria_label='The name of the idea for the passage')),
-                            Input(type='search', name='q', maxlength='200', placeholder='Words in the passage', aria_label='Words in the passage'),
-                            Quiet('Find passages', small=True, data_wait='Reading the sources…'),
-                            hx_get=at(Routes.passages, j['id']), hx_target='#add-picks', hx_swap='innerHTML', cls='add-source'),
-                       Div(id='add-picks'), cls='add-forms'),
-                   id='add-idea', cls='add-idea')
+def PlanRow(j, k, s, by, fresh='', nb=(), dot='todo'):
+    """Idea `k` of the plan: the grip, its number, its dot, its name (a link to the idea), its lock mark and short line, then Lock and the ⋯ menu.
+    The row is an `edit-row` of an `EditList`, so core/edit.js gives it its keys: W and S move the focus, ⇧W and ⇧S move the idea, and the drag by the grip."""
+    slug = s['slug']
+    return Li(Span(cls='grip', title='Drag to move', aria_hidden='true'), Span(str(k + 1), cls='no'),
+              Div(Span(PlanDot(dot), A(Inline(name(by, s)), href=at(Routes.step, j['id'], k), tabindex='-1'), ' ', LockMark(slug, s.get('locked')), cls='ttl'),
+                  Span(step_line(j, s, slug in nb), cls='line'), cls='head'),
+              LockBtn(j['id'], slug, s.get('locked')), RowMenu(j['id'], s),
+              tabindex='0', data_id=slug, data_i=str(k), data_post=edit_url(j['id'], slug), cls='edit-row' + (' skipped' if s.get('status') == 'skip' else '') + (' fresh' if slug == fresh else ''))
 
-def Steps(j, by, opened='', fresh='', pick=False, nb=()):
-    "The ideas of the walk as an editor list, with a quiet label where a section starts, and Add an idea under it. Each row has Skip and Lock. Each change swaps it whole."
+def Steps(j, by, fresh='', nb=(), oob=False):
+    "The ideas of the walk as one list, with a quiet label where a section starts. Each row has Lock and the ⋯ menu. Each change swaps the list whole."
     ss, st = j['steps'], walk_state(j, by)   # the same dots as the outline
-    rows = [StepRow(j, k, s, by, opened, fresh, pick, nb, st.steps[k].dot) for k, s in enumerate(ss)]
-    out = EditList(rows, 'walk-path', add=[AddIdea(j, by)], id='steps', aria_label='The ideas of the walk')
     kids, sec = [], None
-    for li, s in zip(out.children, ss):
-        skip = s.get('status') == 'skip'
-        li.children = (*li.children[:3], Quiet('Bring back' if skip else 'Skip', small=True, data_skip='1', **edit_act(j['id'], 'back' if skip else 'skip', slug=s['slug'])),
-                       LockBtn(j['id'], s['slug'], s.get('locked')), *li.children[3:])
+    for k, s in enumerate(ss):
         if (x := (s.get('read') or {}).get('section')) and x != sec: sec = x; kids.append(Li(Inline(x), cls='sec', role='presentation'))
-        kids.append(li)
-    out.children = (*kids, *out.children[len(rows):])
-    return out
+        kids.append(PlanRow(j, k, s, by, fresh, nb, st.steps[k].dot))
+    return Ol(*kids, cls='edit-list walk-path', data_edit='1', id='steps', aria_label='The ideas of the walk', **({'hx_swap_oob': 'true'} if oob else {}))
 
 def TalkLine(talks, changed=()):
     """The talks made from this walk, each with a link; a talk in `changed` is older than the walk now. A change here does not change a talk:
@@ -945,17 +893,17 @@ def TalkLine(talks, changed=()):
     head = '1 talk was made from this walk: ' if len(talks) == 1 else f'{len(talks)} talks were made from this walk: '
     return P(head, *links, '. A change here does not change a talk. To bring it in, open the talk and press “Make it again”.', cls='mute talk-line')
 
-def PlanPart(j, by, opened='', pick=False, nb=()):
-    "The plan of the walk, to change in place: the hands-on share, the ideas as an editor list (each change saves at once, with Undo), and the earlier versions in a fold."
+def PlanPart(j, by, nb=()):
+    "The plan of the walk: the hands-on share, the ideas (each with Lock and the ⋯ menu; each change saves at once, with Undo), and the earlier versions in a fold."
     n = len(j.get('more') or ())
     more = P(f"The source has {n} more {'idea' if n == 1 else 'ideas'}. Learn one in a side walk when you need it.", cls='mute') if n else ''
     return Section(H2('The plan'), more,
                    Details(Summary('About this'), P('An idea keeps your progress, its passage and its side walks when it moves. A removed idea keeps your answers in the vault.'), cls='about'),
-                   Hands(j), Steps(j, by, opened, pick=pick, nb=nb), UndoBar(oob=False),   # in the page under the list (walk.css)
+                   Hands(j), Steps(j, by, nb=nb), UndoBar(oob=False),   # in the page under the list (walk.css)
                    Details(Summary('Earlier versions'), Div(Span('Reading the changes…', cls='mute'), hx_get=at(Routes.history, j['id']), hx_trigger='intersect once', hx_swap='innerHTML'),
                            id='history', cls='more'),
-                   Details(Summary('Keys'), P('With the list in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('E'), ' edit · ',
-                     Kbd('A'), ' add · ', Kbd('P'), ' split · ', Kbd('M'), ' merge · ', Kbd('X'), ' remove · ', Kbd('R'), ' rewrite · ', Kbd('⌘Z'), ' undo', cls='mute keys-line'), cls='more'),
+                   Details(Summary('Keys'), P('With an idea in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('F'), ' lock · ',
+                     Kbd('E'), ' the ⋯ menu · ', Kbd('D'), ' skip · ', Kbd('X'), ' remove · ', Kbd('⌘Z'), ' undo. With no idea in focus, ', Kbd('E'), ' goes to the box', cls='mute keys-line'), cls='more'),
                    id='plan', data_part='plan', cls='walk-plan')
 
 def History(j, rows):

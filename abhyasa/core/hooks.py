@@ -11,7 +11,7 @@ The walk step: `step_needs(j, i, c)` (under the title: the ideas the step needs,
 `check_after(j, i, q)` (under a check: the gaps that an answer points at); `check_stuck(jid, i, s, q)` (the stuck row of an open short check, after Teach me: the detour block adds Learn it); `walk_end(j)` (the end of a walk: a side walk sends
 `rh:done`); `concepts_added()` (a block added concepts from a source: the concepts block places the new ones in the groups of their subjects, on the pool); `walk_made(j)` (a block made topic walk `j`: the walk block looks for web sources for its steps on the pool); `walk_actions(j, quiet=False, row=False)` (the walk page, its step page and its row on Home: the talk adds
 "Present this walk", or "Open the talk" and "Make it again", also on a walk planned from a goal; `quiet` is for a page with its own main button;
-`row` is for its row in a list, with one quiet control: "Present" or "Open the talk"); `walk_plan_more(j)` (under the plan of walk `j`: the add block puts Add a source there for a goal walk);
+`row` is for its row in a list, with one quiet control: "Present" or "Open the talk"; the walk block adds the ⋯ menu of the walk there, with Delete this walk); `walk_plan_more(j)` (under the plan of walk `j`: the add block puts Add a source there for a goal walk);
 `walk_add_sources(jid, ids)` (the walk block files the chips `ids` for walk `jid`, each on its own job, and each one joins the walk
 when it is filed: it gives the ids that it started).
 `show_me(words, at)` ("show me …" in an answer box: the demo block gives the card of a demo made from `words`; `at` is the place, `{where: 'walk', concept, walk, step}` or
