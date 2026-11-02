@@ -38,9 +38,8 @@ def test_contract_imports_only_the_standard_library():
     out = subprocess.run([sys.executable, '-I', '-c', code], capture_output=True, text=True, check=True).stdout
     assert json.loads(out) == []
 
-def test_walk_names_are_the_contract_names():
-    "The old imports from `walk` and `journey` give the same objects as `contract`."
-    import abhyasa.contract as k, abhyasa.walk as w, abhyasa.journey as j
-    assert all(getattr(w, x) is getattr(k, x) for x in ('PKG', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES'))
-    assert j.WALK_ID is k.WALK_ID
-    assert all(getattr(j, x) is getattr(k, x) for x in ('LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES'))
+def test_path_names_are_the_contract_names():
+    "The contract names that `path` imports are the same objects as in `contract`."
+    import abhyasa.contract as k, abhyasa.path as p
+    assert all(getattr(p, x) is getattr(k, x) for x in ('PKG', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES', 'WALK_ID',
+                                                         'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES'))

@@ -1,12 +1,12 @@
 "Leela imports these. Remove one only with a Leela change."
 import importlib, pytest
 
-NAMES = {'store': 'Learning slugify', 'sources': 'WEB source_of', 'journey': 'walk_state', 'stagekit': 'is_local room_spec',
-         'contract': 'validate_nb_spec vault_key handoff read_handoff run_ok RUN_IMAGES LEELA_ROUTE HANDOFF_CASES HANDOFF_BAD NB_SPEC_CASES RUN_CASES',
-         'model': 'recall understanding update', 'method': 'METHODS TEXT_WAYS', 'prompts': 'PROMPTS prompt register set_prompt',
-         'tutor': 'HINTS TUTOR_SP', 'walk': 'run_ok', 'guide': 'explain norm_tex stream_board', 'ground': 'VaultSource',
-         'llm': 'Router route_ask', 'talk': 'TALK_SCHEMA TALK_CASES check_talk new_run', 'core.stage': 'STAGE_V STAGE_TYPES STAGE_CASES',
-         'demo': '', 'settings': '', 'nb': ''}   # `nb` lost SAFE_NAMES, safe_test and validate_exercise to `contract` in 0.0.16
+NAMES = {'learner': 'Learning slugify recall understanding update METHODS TEXT_WAYS PROMPTS prompt register set_prompt',
+         'sources': 'WEB source_of VaultSource', 'path': 'walk_state', 'stagekit': 'is_local room_spec',
+         'contract': 'validate_nb_spec vault_key handoff read_handoff run_ok path_why RUN_IMAGES LEELA_ROUTE HANDOFF_CASES HANDOFF_BAD NB_SPEC_CASES RUN_CASES '
+                     'SAFE_NAMES SAFE_NODES safe_test check_exercise',
+         'tutor': 'HINTS TUTOR_SP', 'show': 'explain norm_tex stream_board show_reply TALK_SCHEMA TALK_CASES check_talk new_run',
+         'models': 'Router route_ask', 'core.stage': 'STAGE_V STAGE_TYPES STAGE_CASES'}
 
 @pytest.mark.parametrize('mod', NAMES)
 def test_leela_names_import(mod):
@@ -14,7 +14,7 @@ def test_leela_names_import(mod):
     assert not [n for n in NAMES[mod].split() if not hasattr(m, n)]
 
 def test_leela_learning_methods():
-    "`abhyasa.journey` and `abhyasa.demo` add these to `Learning`."
-    import abhyasa.journey, abhyasa.demo  # noqa: F401
-    from abhyasa.store import Learning
+    "`abhyasa.path` and `abhyasa.show` add these to `Learning`."
+    import abhyasa.path, abhyasa.show  # noqa: F401
+    from abhyasa.learner import Learning
     assert all(hasattr(Learning, n) for n in 'journey put_journey demo demos put_demo record_prediction'.split())

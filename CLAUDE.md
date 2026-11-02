@@ -6,8 +6,9 @@ nbdev 3 on hatchling. Two kinds of code live here:
   `01_models` (llm, voice), `02_sources` (ground, sources, detect, quote trust), `03_tutor` (tutor, notebook checks), `04_path` (walk, journey, course,
   edit, research of each step) and `05_show` (guide, demo, talk). The notebooks under `nbs/` are the source, and `abhyasa/*.py` is generated. Edit the
   notebook. Run `uv run nbdev-prepare` (with a hyphen). Never edit a generated file.
-- The old module names (`abhyasa.store`, `abhyasa.walk`, …) are hand-written aliases in `abhyasa/_alias.py` for one or two releases. Put new code in
-  the six modules, not in an alias. Leela imports some old names: `tests/test_leela_api.py` lists them.
+- The old module names (`abhyasa.store`, `abhyasa.walk`, …) are gone. Import and patch the six modules. A monkeypatch goes on the module
+  whose code looks up the name: `path.gather` calls `path.ramabana_lead`, so patch `abhyasa.path.ramabana_lead`. Leela imports some names:
+  `tests/test_leela_api.py` lists them.
 - The web app (`abhyasa/app.py`, `abhyasa/core/`, `abhyasa/blocks/`): plain Python written by hand, tested with `uv run pytest`.
 
 ## Blocks
