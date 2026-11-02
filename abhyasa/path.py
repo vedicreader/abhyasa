@@ -364,7 +364,7 @@ def _walk(lr:Learning, ask, jid:str, title:str, slugs, doc_id:str, source:dict|N
 def journey_from_source(lr:Learning, ask, ref:str, shelf:str='store', subject:str='', tool:bool=False) -> AttrDict:
     "Make a walk from one vault document, by doc id, source or title. A notebook of yours becomes a `notebook_walk`. `tool` marks a library or a command-line tool."
     d, subject = doc_pages(lr, ref, shelf), clean_subject(subject)
-    if (f := nb_file(lr, d.doc_id, shelf)): return notebook_walk(lr, d, *f, subject, tool)   # one of your notebooks: used as it is
+    if (f := nb_file(lr, d.doc_id, shelf)): return notebook_walk(lr, d, *f, subject, tool, ask=ask)   # one of your notebooks: used as it is
     slugs = from_vault(lr, ask, d.doc_id, subject, shelf)
     return _walk(lr, ask, _new_id(d.title), d.title, slugs, d.doc_id, dict(shelf=shelf, doc_id=d.doc_id, title=d.title), f'Read {d.title}', _fill_subject(lr, slugs, subject), tool)
 
@@ -424,10 +424,11 @@ def _first_words(cells, head) -> str:
             return re.split(r'(?<=[.!?])\s', t, maxsplit=1)[0]
     return head
 
-def notebook_walk(lr:Learning, d, shelf:str, path:str, subject:str='', tool:bool=False) -> AttrDict:
+def notebook_walk(lr:Learning, d, shelf:str, path:str, subject:str='', tool:bool=False, ask=None) -> AttrDict:
     """A walk from one of your notebooks, used as it is: one idea for each section, named by its heading. The passage of the idea is the
     words and the code of the section, word for word, with its source. The tutor adds only the check of each idea: a demo where the code
-    of the section draws a picture, else a check in the ways of the idea, with the share of hands-on checks (`cap_hands`) for these. No model call."""
+    of the section draws a picture, else a check in the ways of the idea, with the share of hands-on checks (`cap_hands`) for these. With `ask` and
+    three sections or more, the walk map keeps the sections that teach a big idea (one model call); a setup section stays in the notebook only."""
     nb = read_nb(path)
     stem, subject = slugify(Path(path).stem), clean_subject(subject)
     steps = []
@@ -442,10 +443,13 @@ def notebook_walk(lr:Learning, d, shelf:str, path:str, subject:str='', tool:bool
                           read=dict(src=f'vault:{shelf}', shelf=shelf, doc_id=d.doc_id, ref=d.doc_id, title=d.title, section=sec.head, page=None, figure=None,
                                     text=nb_text(cells), cells=[sec.first, sec.last]),
                           check=ck, **_leela(c, tool)))
+    big, more, mp = walk_map(lr, ask, steps) if ask is not None and len(steps) >= 3 else (steps, [], None)
+    if not mp: big, more = steps, []   # no map: each section stays an idea
+    steps = big
     cap_hands(lr, [s for s in steps if s['check'].get('why') != NB_WHY_DEMO], tool)   # a demo where the notebook draws stays; the share counts the other checks
     return lr.put_journey(dict(id=_new_id(d.title), title=d.title, goal=f'Read {d.title}', subject=_fill_subject(lr, [s['slug'] for s in steps], subject), steps=steps,
-                               created=time.time(), mode='walk', source=dict(shelf=shelf, doc_id=d.doc_id, title=d.title), started=None, sitting=None, tool=tool, more=[],
-                               notebook=dict(path=path)))
+                               created=time.time(), mode='walk', source=dict(shelf=shelf, doc_id=d.doc_id, title=d.title), started=None, sitting=None, tool=tool, more=more,
+                               notebook=dict(path=path), **({'map': mp} if mp else {})))
 
 
 # %% ../nbs/04_path.ipynb #nbw08
