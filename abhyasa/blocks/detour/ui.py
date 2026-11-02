@@ -47,10 +47,13 @@ def Needs(at, rows, strip=None, own=()):
     line = Div(Span('This needs', cls='lbl'), *[Need(n, st, n.slug == first) for n, st in rows], cls='rh-line') if rows else ''
     return Div(strip or '', *own, line, Div(id='rh-offer', aria_live='polite'), *assets(), cls='rh-needs', data_at=at, data_part='needs')
 
-def GapLine(gaps):
-    "After a miss that names a gap: the ideas your answer points at, and a way to learn the first one beside the step."
+def GapLine(gaps, new=False):
+    """After a miss that names a gap: the ideas your answer points at, and a way to learn the first one beside the step.
+    The chooser opens under this line. When the first gap is not in your concepts yet (`new`), the click adds it, then opens the chooser."""
     names = ', '.join(name for _, name in gaps)
-    return P('Your answer shows a gap: ', B(names), '. ', Ask('Learn it ', gaps[0][0], Kbd('⌥B'), cls='rh-ask rh-gap'), cls='rh-gapline')
+    go = Ask('Learn this gap ', gaps[0][0], Kbd('⌥B'), cls='rh-ask rh-gap', data_add='1' if new else None,
+             title='Learn this idea beside the step: a quick look, a side walk or its own course. Your place here stays.')
+    return P('Your answer shows a gap: ', B(names), '. ', go, cls='rh-gapline')
 
 WAYS = dict(primer='A quick look', walk='A side walk', course='Its own course')
 

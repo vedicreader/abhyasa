@@ -11,10 +11,15 @@ if (!window.abhyasaDetour) {
   let place = null;   // the place of the open chooser: '<walk>/<step>', or '/c/<slug>' on a concept page
   const box = () => document.getElementById('rh-offer');
   const at = () => place || document.querySelector('.rh-needs')?.dataset.at;
-  const boxFor = x => {   // the box of the chooser: the one in the needs line, else a new one under the row of the button that asked
-    if (box()) return box();
-    const row = x && (x.closest('.row') || x), b = document.createElement('div');
-    b.id = 'rh-offer'; b.setAttribute('aria-live', 'polite'); row?.after(b);
+  // The box of the chooser. A button in the check card (the gap line, the stuck row) gets it under its line, where you look;
+  // the needs line and ⌥B get it in the needs line; a page with no needs line gets it under the row of the button.
+  const boxFor = x => {
+    const near = x?.matches('.rh-ask') && !x.closest('.rh-needs, #rh-offer') ? x.closest('.rh-gapline, .row') || x : null, home = document.querySelector('.rh-needs');
+    let b = box();
+    if (!b) { b = document.createElement('div'); b.id = 'rh-offer'; b.setAttribute('aria-live', 'polite'); }
+    if (near) { if (b.previousElementSibling !== near) near.after(b); }
+    else if (home && !home.contains(b)) home.append(b);
+    else if (!b.isConnected) (x && (x.closest('.row') || x))?.after(b);
     return b;
   };
   const isOpen = () => !!box()?.querySelector('.rh-offer-card');
@@ -40,7 +45,10 @@ if (!window.abhyasaDetour) {
     const b = boxFor(x), a = at();
     if (!b || !a || !t) return false;
     hideTool(); document.querySelector('.rh-tip')?.remove();
-    htmx.ajax('GET', `/rh/term?${new URLSearchParams({t, at: a})}`, {target: b, swap: 'innerHTML'}).then(() => {
+    const add = x?.dataset.add;   // a gap that is not in your concepts yet: the POST adds it, then gives the chooser
+    if (add) b.replaceChildren(Object.assign(document.createElement('p'), {className: 'mute', textContent: `The tutor adds “${t}” to your concepts…`}));
+    (add ? htmx.ajax('POST', '/rh/term', {target: b, swap: 'innerHTML', values: {t, at: a}})
+         : htmx.ajax('GET', `/rh/term?${new URLSearchParams({t, at: a})}`, {target: b, swap: 'innerHTML'})).then(() => {
       (b.querySelector('.rh-way.pick') || b.querySelector('.rh-way, button'))?.focus({preventScroll: true});
       b.scrollIntoView({block: 'nearest', behavior: abhyasaMotion() ? 'smooth' : 'auto'});
     });
@@ -100,8 +108,8 @@ if (!window.abhyasaDetour) {
   document.addEventListener('keydown', e => {
     const t = e.target, inBox = t.matches && t.matches('textarea, input, select, [contenteditable]');
     if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === 'KeyB') {
-      const term = picked() || document.querySelector('#check .rh-gap')?.dataset.t || document.querySelector('.rh-needs .rh-ask')?.dataset.t;
-      if (offer(term)) { e.preventDefault(); e.stopPropagation(); }
+      const sel = picked(), x = sel ? null : document.querySelector('#check .rh-gap') || document.querySelector('.rh-needs .rh-ask');
+      if (offer(sel || x?.dataset.t, x)) { e.preventDefault(); e.stopPropagation(); }
       return;
     }
     if (!isOpen() || inBox || e.altKey || e.metaKey || e.ctrlKey) return;
@@ -130,6 +138,7 @@ if (!window.abhyasaDetour) {
       } catch {}
     }
     const fresh = html && new DOMParser().parseFromString(html, 'text/html').querySelector('.rh-needs'), old = document.querySelector('.rh-needs');
+    if (fresh && old && !old.contains(box())) box()?.remove();   // the chooser box moved under the gap line: the new needs line has its own
     if (fresh && old) { fresh.classList.add('fresh'); old.replaceWith(fresh); htmx.process(fresh); }   // the new state fades in (detour.css)
   };
   let was = root.classList.contains('rh-open');
