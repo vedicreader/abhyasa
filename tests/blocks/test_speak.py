@@ -39,7 +39,8 @@ def test_a_line_comes_with_its_word_times_and_then_from_the_cache(mk, voice_out)
     cl = mk(['guide'])
     d = cl.post('/guide/say', json=dict(text='Noise goes in   slowly.')).json()
     assert (d['engine'], d['model'], d['voice'], d['where'], d['cached']) == ('pocket', V.POCKET, 'caro_davy', 'on this Mac', False)
-    assert secs(d['audio']) == 1. and d['words'] == V.by_letters('Noise goes in slowly.', 1.) and d['words'] == sorted(d['words'])
+    assert round(secs(d['audio']), 3) == 1. + V.PAD.lead + V.PAD.tail   # the words, and the gap around them
+    assert d['words'] == [round(V.PAD.lead + t, 3) for t in V.by_letters('Noise goes in slowly.', 1.)] and d['words'] == sorted(d['words'])
     assert cl.post('/guide/say', json=dict(text='Noise goes in slowly.')).json()['cached'] is True
     assert cl.post('/guide/say', json=dict(text='Noise goes in slowly.', voice='mary')).json()['cached'] is False   # a new voice is a new line
     assert voice_out.loads == [1]
@@ -137,3 +138,11 @@ def test_the_settings_page_shows_why_the_voice_failed(mk, voice_out, monkeypatch
         assert cl.post('/settings/voice/sample').json()['audio']
         assert 'out-error' not in cl.get('/settings').text
     finally: V.set_openai_key('')
+
+def test_a_local_line_ends_with_a_silent_gap(mk, voice_out):
+    "Pocket TTS: the WAV ends with PAD.tail seconds of silence after a fade, and starts after PAD.lead. The board's timeout uses the WAV length, so it counts the gap."
+    voice_out('pocket')
+    d = mk(['guide']).post('/guide/say', json=dict(text='Two words.')).json()
+    with wave.open(io.BytesIO(base64.b64decode(d['audio']))) as w: r, s = w.getframerate(), np.frombuffer(w.readframes(w.getnframes()), '<i2')
+    assert len(s) / r == pytest.approx(.5 + V.PAD.lead + V.PAD.tail, abs=1e-3) and not s[-int(r * V.PAD.tail):].any() and not s[:int(r * V.PAD.lead)].any()
+    assert d['words'][0] == V.PAD.lead and d['words'][-1] < .5 + V.PAD.lead   # the words fall on the sound, not on the gap

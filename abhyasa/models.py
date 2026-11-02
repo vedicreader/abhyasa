@@ -10,14 +10,15 @@ __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 
            'LEAD_TOOLS', 'SUB_STEPS', 'DFLT_STT', 'DFLT_WHISPER', 'DFLT_PARAKEET', 'DFLT_OPENAI', 'DFLT_MODELS',
            'ALIASES', 'POCKET', 'POCKET_FILES', 'OPENAI_URL', 'http_post', 'ENGINES', 'KNOWN', 'STT_WORDS', 'NOT_STT',
            'POCKET_VOICES', 'DFLT_SPEECH', 'OUT_ENGINES', 'OPENAI_VOICES', 'TTS1_VOICES', 'VOICES_OF', 'OPENAI_SPEECH',
-           'OUT_DFLT', 'POCKET_MISSING', 'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'dflt_model', 'parse_json',
-           'ask_json', 'Fake', 'model_ask', 'model_label', 'provider_label', 'where_of', 'where_chip', 'catalog',
-           'one_each', 'Router', 'for_task', 'ramabana_agent', 'no_answer', 'ramabana_oneshot', 'ramabana_stream',
-           'RouteAsk', 'route_ask', 'ramabana_worker', 'ramabana_lead', 'Withheld', 'guard', 'safe_query', 'guarded',
-           'resolve', 'current', 'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe',
-           'wav_seconds', 'silence', 'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch',
-           'remove', 'openai_voices', 'fit_voice', 'out_resolve', 'out_current', 'out_where', 'by_letters', 'to_wav',
-           'clean_wav', 'SpeakError', 'openai_why', 'speak', 'Speaker', 'Dictation', 'Speech']
+           'OUT_DFLT', 'PAD', 'LOUD', 'POCKET_MISSING', 'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'dflt_model',
+           'parse_json', 'ask_json', 'Fake', 'model_ask', 'model_label', 'provider_label', 'where_of', 'where_chip',
+           'catalog', 'one_each', 'Router', 'for_task', 'ramabana_agent', 'no_answer', 'ramabana_oneshot',
+           'ramabana_stream', 'RouteAsk', 'route_ask', 'ramabana_worker', 'ramabana_lead', 'Withheld', 'guard',
+           'safe_query', 'guarded', 'resolve', 'current', 'unload', 'resident', 'openai_key', 'set_openai_key',
+           'masked', 'transcribe', 'wav_seconds', 'silence', 'cached', 'cache_bytes', 'is_stt', 'model_size',
+           'search_models', 'fetch', 'remove', 'openai_voices', 'fit_voice', 'out_resolve', 'out_current', 'out_where',
+           'by_letters', 'to_wav', 'clean_wav', 'pad_wav', 'SpeakError', 'openai_why', 'speak', 'Speaker', 'Dictation',
+           'Speech']
 
 # %% ../nbs/01_models.ipynb #9cfb2945
 import json, os, re, gc, time, uuid, inspect, tempfile, threading, wave
@@ -596,6 +597,21 @@ def clean_wav(audio:bytes) -> bytes:
     with wave.open(b, 'wb') as o: o.setparams(ps._replace(nframes=0)); o.writeframes(frames)
     return b.getvalue()
 
+# %% ../nbs/01_models.ipynb #vf10
+PAD = AttrDict(lead=.05, tail=.35, fade=.03)   # seconds of silence before and after a local line, and of the fade-out at its end
+LOUD = .02   # a sample above this (of full scale) is sound, not quiet
+
+def pad_wav(audio:bytes, lead:float=PAD.lead, tail:float=PAD.tail, fade:float=PAD.fade) -> tuple:
+    "`audio` with a fade-out and silence around it, and the start and end of its sound in seconds: `(wav, (start, end))`."
+    import io, numpy as np
+    with wave.open(io.BytesIO(audio)) as w: r, a = w.getframerate(), np.frombuffer(w.readframes(w.getnframes()), '<i2') / 32767
+    a = a.astype(np.float32)
+    if (n := min(len(a), int(r * fade))): a[-n:] *= np.linspace(1, 0, n, dtype=np.float32)
+    loud = np.nonzero(np.abs(a) > LOUD)[0]
+    on, off = (loud[0], loud[-1] + 1) if len(loud) else (0, len(a))
+    wav = to_wav(np.concatenate([np.zeros(int(r * lead), np.float32), a, np.zeros(int(r * tail), np.float32)]), r)
+    return wav, (round(lead + on / r, 3), round(lead + off / r, 3))
+
 # %% ../nbs/01_models.ipynb #bf328804
 POCKET_MISSING = 'Pocket TTS is not installed. Install it with: pip install "abhyasa[voice]". Until then, the browser speaks.'
 
@@ -659,7 +675,9 @@ def speak(text:str, engine:str=None, model:str=None, voice:str=None, speed:float
     e, m, v = out_resolve(engine, model or '', voice or '') if engine else out_resolve(e, model or m, voice or v)
     if e == 'browser': raise ValueError('The browser speaks with its own voice. There is no audio here.')
     wav = SAY[e](text, m, v, float(speed or s), instructions)
-    return wav, by_letters(text, wav_seconds(wav))
+    if e == 'openai': return wav, by_letters(text, wav_seconds(wav))
+    wav, (t0, t1) = pad_wav(wav)
+    return wav, [round(t0 + t, 3) for t in by_letters(text, t1 - t0)]
 
 # %% ../nbs/01_models.ipynb #40225f2f
 class Speaker:
