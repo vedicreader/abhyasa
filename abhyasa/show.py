@@ -168,15 +168,19 @@ def figure_check(vision, img:bytes, want=FIGURE_TEST) -> AttrDict:
 
 # %% ../nbs/05_show.ipynb #g069
 GUIDE_SP = register('guide.board', 'Screen guide', 'How the tutor explains a part of the page with a board drawn over it.', """You explain one thing on a learning page to a learner who said "I don't get X". You draw on the page and you speak one short line for each step.
+The learner is a human of any level, and the request gives their level line. Your aim is that they understand the idea, not that you say its definition again.
 - Reply with JSON lines only: one JSON object on each line, no other text.
 - The first line is {"op":"v","n":1,"sure":S,"need":N}. S is how sure you are that your answer is right and complete, from 0 to 1. N is "none" when the page is enough, "vault" when you need the learner's own notes, or "web" when you need a source from the web.
 - Then write the steps that the idea needs, from 1 to 6, one for each part of the idea. Never add a step to fill a count. A step is one line {"op":"step","say":"…"}, and its strokes follow it, each on its own line. "say" is one spoken sentence of at most 160 characters, in plain short words. Step 1 must be useful alone.
+- When the level line says keep it simple: step 1 says the idea in everyday words with one concrete case. Then take them through it, one part in each step. Say each new term in plain words before you use it. When it names a need that is not in place, give that need in one plain step first.
+- When the level line says be short: use the exact terms, give the key step in 1 to 3 steps, and add one harder case or edge case.
 - Strokes: {"op":"circle","at":A}, {"op":"box","at":A}, {"op":"underline","at":A}, {"op":"point","at":A}, {"op":"arrow","from":A,"to":A}, {"op":"label","at":A,"text":"at most 60 characters","side":"above|below|left|right"}, {"op":"sketch","at":A,"pts":[[x,y],…]} (only on a figure anchor, to mark a part of the figure: 2 to 64 points, 0 to 1000 in the box of the anchor), {"op":"clear"}. At most 4 strokes in a step. Add "w": the number of the word in "say" where the stroke starts, from 0.
 - Never use sketch for a picture of an idea, and never draw over the words of the page. A picture of an idea goes in the side panel. Never put a formula in boxes: mark the terms on the page's own formula.
-- For a formula or an abstract idea, give a day-to-day example in the spoken lines, and mark the parts of the page's own formula as you name them. For y = a·x² + b·x + c: the path of a thrown ball, the area of a square garden plus a strip, or the cost of a taxi ride with a fixed fee.
+- For a formula or an abstract idea, give a day-to-day example in the spoken lines, and mark the parts of the page's own formula as you name them. For y = a·x² + b·x + c: the path of a thrown ball, the area of a square garden plus a strip, or the cost of a taxi ride with a fixed fee. Say in a few words where the example stops being true.
+- Say why the idea works, or what problem it solves, in one step. When a wrong idea is common, name it in one step and say why it is wrong.
 - Each step says one thing. Its row, its note and its marks show that same thing and come after its step line. The say of a step names what its row shows, with a word or a symbol of the row. abhyasa moves a row that its step does not name to the step that names it, or drops it. Bad: the say "numbers x go in, one number z comes out" with the row "Multiply each $x_i$ by $w_i$". Good: the say "First, it multiplies each input x i by its weight w i" with that row.
-- The side panel (top right) holds a small example made only from the passage and the values on the page, one row in each step. Never add a row about a later idea, such as the next layer. Write maths in a cell, a head or a note as $…$, for example $w_1x_1$. Start it with {"op":"panel","title":"a small line, 2 to 4 words","head":"the big heading: the task, with no number in it"}. Give each panel one shape:
-  - A table, for cases and their answers: rows {"op":"row","cells":["[18]"],"to":"47","at":A}: the input in 1 or 2 cells and the answer in "to", each of at most 24 characters, copied from the page. With "at", the page circles that value and links it to the row, so write no circle for it. Only a table has "cols": one name for each cell and one for "to".
+- The side panel (top right) holds a small worked example, one row in each step. Use the values on the page when it has them, so that the panel and the page agree. When the page has no values, use small, plain values of your own, and add the note "An example with our own numbers." A worked example goes from a concrete case to the general rule: the first rows are cases, and the last row or the note gives the rule. Never add a row about a later idea, such as the next layer. Write maths in a cell, a head or a note as $…$, for example $w_1x_1$. Start it with {"op":"panel","title":"a small line, 2 to 4 words","head":"the big heading: the task, with no number in it"}. Give each panel one shape:
+  - A table, for cases and their answers: rows {"op":"row","cells":["[18]"],"to":"47","at":A}: the input in 1 or 2 cells and the answer in "to", each of at most 24 characters. A row with "at" uses the value as the page has it: the page circles that value and links it to the row, so write no circle for it. Only a table has "cols": one name for each cell and one for "to".
   - A chain, for a short sequence: rows {"op":"row","cells":["Guess","Compare","Adjust"],"chain":true} of 2 to 5 words, and no "cols".
   - A flow of boxes, for a pipeline, a loop or a branch: boxes {"op":"node","id":"enc","text":"Encoder"} and arrows {"op":"edge","from":"enc","to":"dec","text":"z"}. An arrow back to an earlier box is a loop. Add one or two boxes in each step.
   - A faded example, so the learner tries: solve the first row, then each later row hides one more part as {"blank":"47"} in place of a cell or "to".
@@ -506,7 +510,7 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     can stream, `on_step(step, k)` gets each step of a sure tutor board as soon as it is whole (`stream_board`). When the
     `threading.Event` `stop` is set, the stream closes and no next tier starts. `hint` is True when the board counts as a hint on
     the open check (`on_check`); the first state event says so."""
-    from abhyasa.learner import val
+    from abhyasa.learner import teach_sp, val
     from abhyasa.sources import ground, label, main_words, verbatim
     from ramabana.agent import mask_secrets
     t0 = time.monotonic()
@@ -519,9 +523,10 @@ def explain(ask, ctx, said:str, sources=(), search=None, fetch=None, web:bool=No
     off = 'check' in ctx.by and not hint   # an open check that this board may not touch
     if off and any(a['kind'] == 'try' for a in ctx.anchors): ctx = PageContext(by_id({**ctx, 'anchors': [a for a in ctx.anchors if a['kind'] != 'try']}))   # a board off the check gets no try
     on_try = hint and any(a['kind'] == 'try' for a in ctx.anchors)
+    level = lr.level_of(sl) if lr is not None and (sl := ctx.get('slug')) and lr.concept(sl) else ''   # how well the learner knows the idea of the page
     def board(tier, srcs, on_step=None, note=''):
-        note = '\n'.join(x for x in (OFF_CHECK if off else '', ON_TRY if on_try else '', note) if x)
-        c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier, note), prompt('guide.board')
+        note = '\n'.join(x for x in (OFF_CHECK if off else '', ON_TRY if on_try else '', level, note) if x)
+        c, p, sp = by_id({**ctx, 'sources': srcs}), board_prompt(ctx, said, srcs, tier, note), teach_sp('guide.board')
         if off: c.by.pop('check')
         return stream_board(ask.stream(p, sp), c, on_step, stop=stop, verbatim=verbatim) if on_step and hasattr(ask, 'stream') else parse_board(ask(p, sp), c, verbatim)
     page, w = _page_sources(ctx), where_of(getattr(ask, 'model', ''))
