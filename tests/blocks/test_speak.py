@@ -39,7 +39,8 @@ def test_a_line_comes_with_its_word_times_and_then_from_the_cache(mk, voice_out)
     cl = mk(['guide'])
     d = cl.post('/guide/say', json=dict(text='Noise goes in   slowly.')).json()
     assert (d['engine'], d['model'], d['voice'], d['where'], d['cached']) == ('pocket', V.POCKET, 'caro_davy', 'on this Mac', False)
-    assert secs(d['audio']) == 1. and d['words'] == V.by_letters('Noise goes in slowly.', 1.) and d['words'] == sorted(d['words'])
+    assert round(secs(d['audio']), 3) == 1. + V.PAD.lead + V.PAD.tail   # the words, and the gap around them
+    assert d['words'] == [round(V.PAD.lead + t, 3) for t in V.by_letters('Noise goes in slowly.', 1.)] and d['words'] == sorted(d['words'])
     assert cl.post('/guide/say', json=dict(text='Noise goes in slowly.')).json()['cached'] is True
     assert cl.post('/guide/say', json=dict(text='Noise goes in slowly.', voice='mary')).json()['cached'] is False   # a new voice is a new line
     assert voice_out.loads == [1]
@@ -82,9 +83,7 @@ def test_openai_gets_the_guarded_line(mk, voice_out, monkeypatch):
     assert r.status_code == 502
     V.set_openai_key('sk-test-1234')
     sent = []
-    class W:
-        content = V.to_wav([0.] * 12000, 24000)
-        def raise_for_status(self): pass
+    class W: status_code, content = 200, V.to_wav([0.] * 12000, 24000)
     monkeypatch.setattr(V, 'http_post', lambda url, **kw: sent.append(kw) or W())
     try:
         secret = 'sk-test1234567890abcdefXYZ'
@@ -101,3 +100,59 @@ def test_the_page_knows_the_voice(mk, voice_out):
     t = mk().get('/').text
     info = json.loads(html.unescape(re.search(r"data-info='([^']*)'", t).group(1)))
     assert info['out'] == dict(engine='pocket', model='Pocket TTS', voice='caro_davy', where='on this Mac', who='') and info['say'] == '/guide/say'
+
+class Bad:
+    "A fake OpenAI reply that failed: a status and the JSON `error` body of OpenAI."
+    def __init__(self, status, message, code=None): self.status_code, self.body = status, dict(error=dict(message=message, code=code))
+    def json(self): return self.body
+
+@pytest.mark.parametrize('reply,said', [
+    (Bad(400, "Invalid voice 'verse' for this model.", None), 'OpenAI: the voice Verse does not work with gpt-4o-mini-tts. Pick another voice or the model gpt-4o-mini-tts.'),
+    (Bad(401, 'Incorrect API key provided: sk-te****1234.', 'invalid_api_key'), 'OpenAI: the key does not work. Set a new key on the Settings page, under More in Speech to text.'),
+    (Bad(429, 'You exceeded your current quota.', 'insufficient_quota'), 'OpenAI: your account has no credit. Add credit at platform.openai.com, or pick another voice.'),
+    (Bad(429, 'Rate limit reached for requests.', 'rate_limit_exceeded'), 'OpenAI: too many requests. Wait one minute, then try again.')])
+def test_a_failed_openai_call_says_why_in_one_plain_line(mk, voice_out, monkeypatch, reply, said):
+    "OpenAI fails: `/guide/say` and Play a sample give one plain line from OpenAI's error, with no raw HTTP text and no link."
+    voice_out('openai', out_voice='verse')
+    V.set_openai_key('sk-test-1234')
+    monkeypatch.setattr(V, 'http_post', lambda url, **kw: reply)
+    try:
+        cl = mk(['guide', 'settings'])
+        r = cl.post('/guide/say', json=dict(text='Hello.'))
+        assert r.status_code == 502 and r.json()['error'] == said
+        s = cl.post('/settings/voice/sample').json()['error']
+        assert s == said and 'Client error' not in s and 'mozilla' not in s
+    finally: V.set_openai_key('')
+
+def test_the_settings_page_shows_why_the_voice_failed(mk, voice_out, monkeypatch):
+    "A line fails for the guide: Settings shows the reason under the choice. A sample that plays takes it away."
+    voice_out('openai'); V.set_openai_key('sk-test-1234')
+    monkeypatch.setattr(V, 'http_post', lambda url, **kw: Bad(401, 'Incorrect API key provided.', 'invalid_api_key'))
+    try:
+        cl = mk(['guide', 'settings'])
+        assert cl.post('/guide/say', json=dict(text='Hello.')).status_code == 502
+        t = cl.get('/settings').text
+        assert 'The voice failed on the last line. OpenAI: the key does not work.' in t and 'class="out-error warn"' in t
+        class W: status_code, content = 200, V.to_wav([0.] * 2400, 24000)
+        monkeypatch.setattr(V, 'http_post', lambda url, **kw: W())
+        assert cl.post('/settings/voice/sample').json()['audio']
+        assert 'out-error' not in cl.get('/settings').text
+    finally: V.set_openai_key('')
+
+def test_a_local_line_ends_with_a_silent_gap(mk, voice_out):
+    "Pocket TTS: the WAV ends with PAD.tail seconds of silence after a fade, and starts after PAD.lead. The board's timeout uses the WAV length, so it counts the gap."
+    voice_out('pocket')
+    d = mk(['guide']).post('/guide/say', json=dict(text='Two words.')).json()
+    with wave.open(io.BytesIO(base64.b64decode(d['audio']))) as w: r, s = w.getframerate(), np.frombuffer(w.readframes(w.getnframes()), '<i2')
+    assert len(s) / r == pytest.approx(.5 + V.PAD.lead + V.PAD.tail, abs=1e-3) and not s[-int(r * V.PAD.tail):].any() and not s[:int(r * V.PAD.lead)].any()
+    assert d['words'][0] == V.PAD.lead and d['words'][-1] < .5 + V.PAD.lead   # the words fall on the sound, not on the gap
+
+def test_the_voice_says_maths_as_words_and_times_the_parts_of_the_line(mk, voice_out):
+    "Pocket TTS gets the maths in words. The times are for the parts of the line as the board shows them: `$y_m$` is one part."
+    voice_out('pocket')
+    cl = mk(['guide'])
+    d = cl.post('/guide/say', json=dict(text='So $y_m$ and $ym$ stay, with rhythm.')).json()
+    pk = V._slots['tts'][0].obj[0]
+    assert pk.said[-1] == ('caro_davy', 'So y sub m and y m stay, with rhythm.')
+    assert len(d['words']) == 7 and d['words'] == sorted(d['words'])
+    assert cl.post('/guide/spoken', json=dict(text=r'Then $\alpha^2$ and $\frac{a}{b}$.')).json() == dict(say='Then alpha squared and a over b.', at=[0, 1, 1, 2, 3, 3, 3])

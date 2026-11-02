@@ -77,7 +77,7 @@ function abhyasaWav(pcm) {
 
 // Voice anywhere. A box with `data-mic` (and each box in a demo) gets a small mic of its own. ⌥D speaks into the box in focus,
 // on any page: with its own mic, or with the floating one. With no box in focus, ⌥D presses the main mic of the page.
-// A second ⌥D stops the dictation.
+// A second ⌥D stops the dictation. A held ⌥D counts as one press.
 var abhyasaBox = 'textarea, input[type=text], input[type=search], input:not([type])';
 function abhyasaMics(root) {
   const tpl = document.getElementById('mic-float');
@@ -114,7 +114,8 @@ if (!window.abhyasaVoiceOn) {
   document.addEventListener('rupaka:ready', () => abhyasaMics());
   document.addEventListener('keydown', e => {
     if (!e.altKey || e.code !== 'KeyD') return;
-    e.preventDefault();
+    e.preventDefault();   // no ∂ in the box (Option+D on a Mac)
+    if (e.repeat) return;   // a held key repeats: only the first press starts or stops, else the mic goes on and off with each repeat
     if (abhyasaDict) return abhyasaMic(abhyasaDict.btn);
     const a = document.activeElement, box = a && a.matches && a.matches(abhyasaBox) ? a : null;
     if (box) {

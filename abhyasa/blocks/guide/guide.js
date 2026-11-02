@@ -411,7 +411,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   // --- the natural voice -----------------------------------------------------------------------------------------------
   // When the setting voice.out is not `browser`, the server says each line (info.say, `/guide/say`): a WAV and the start time of
   // each word. The page plays it and lights each word at its time. Each step asks for its line as soon as it comes, so line 2 is
-  // ready when line 1 ends. When the route fails, the board speaks with the browser voice, and the strip says so one time.
+  // ready when line 1 ends. When the route fails, the board speaks with the browser voice for the rest of the page, and the strip says why one time.
   const natural = () => !!(info.say && info.out && info.out.engine && info.out.engine !== 'browser');
   const lines = new Map();   // the text of a line -> the promise of its audio, for this page load
   function line(text) {
@@ -428,14 +428,30 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     return lines.get(text);
   }
   let fellBack = false;
+  function failNote(why) {   // the line of the strip when the natural voice failed: the name of the voice and the reason from the server
+    const r = String(why || '').replace(/^OpenAI: /, '').trim();
+    if (!r) return 'The natural voice did not answer. The browser voice reads the steps now.';
+    return `${(info.out && info.out.model) || 'The natural'} voice failed: ${/[.!?]$/.test(r) ? r : r + '.'} The browser speaks now.`;
+  }
+  function speakSpoken(text, onWord, done) {   // the browser voice: it says the maths of the line in words (info.spoken), and each spoken word lights its part
+    let hush = null, stopped = false;
+    const go = (say, at) => {
+      if (stopped || !window.abhyasaBoard) return;
+      hush = abhyasaBoard.speakBrowser(say, j => onWord(at && at.length ? at[Math.min(j, at.length - 1)] : j), done);
+    };
+    if (!info.spoken) go(text, null);
+    else fetch(info.spoken, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text})})
+      .then(r => r.json()).then(d => d.say ? go(d.say, d.at) : go(text, null)).catch(() => go(text, null));
+    return () => { stopped = true; if (typeof hush === 'function') hush(); };
+  }
   function browserVoice(text, onWord, done, why) {
     if (!fellBack && window.abhyasaBoard) {
       fellBack = true;
       console.warn('guide: natural voice', why);
-      abhyasaBoard.notice({text: 'The natural voice did not answer. The browser voice reads the steps now.', href: '/settings#g-voice', link: 'Settings'});
+      abhyasaBoard.notice({text: failNote(why), href: '/settings#g-voice', link: 'Settings'});
       abhyasaBoard.voiceAt({model: 'Browser voice', where: 'on this Mac', local: true});   // the strip names the voice that speaks now
     }
-    return window.abhyasaBoard && abhyasaBoard.speakBrowser(text, onWord, done);
+    return speakSpoken(text, onWord, done);
   }
   function wavSecs(b) {   // the length of a WAV in seconds, from its header: the data bytes over the bytes per second
     const v = new DataView(b.buffer, b.byteOffset, b.byteLength), rate = b.length >= 44 ? v.getUint32(28, true) : 0;
@@ -445,6 +461,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     let audio = null, url = null, tick = 0, guard = 0, stopped = false, hush = null;
     const clean = () => { clearInterval(tick); clearTimeout(guard); if (audio) { audio.pause(); audio.removeAttribute('src'); } if (url) URL.revokeObjectURL(url); audio = url = null; };
     const fail = why => { if (stopped) return; clean(); hush = browserVoice(text, onWord, done, why); };
+    if (fellBack) { fail(); return () => { stopped = true; clean(); if (typeof hush === 'function') hush(); }; }   // the voice failed on this page: do not wait for it again on each line
     line(text).then(d => {
       if (stopped) return;
       const bytes = Uint8Array.from(atob(d.audio), c => c.charCodeAt(0)), words = d.words || [];
@@ -527,7 +544,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     close();
     const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0}, n = ++asks, page = pageKey();
     const offer = voiceOffer();
-    const opts = () => ({labels, quiet: !voiceOn(), who: asked, onVoice: setVoice, point: info.point, ...(natural() && {host: {speak: speakNatural}, voiceAt: info.out}), ...(offer && {notice: offer})}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
+    const opts = () => ({labels, quiet: !voiceOn(), who: asked, onVoice: setVoice, point: info.point, ...(natural() ? {host: {speak: speakNatural}, voiceAt: info.out} : {host: {speak: speakSpoken}}), ...(offer && {notice: offer})}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
     let labels = {}, live = null, whole = false, asked = info.model || null, saved = null;   // live: the promise of the streaming board, with each add after it
     const got = [];   // the steps that came, for a stream that ends with no board event
     if (ctl) ctl.abort();
@@ -568,7 +585,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
           if (m.error) say(m.error);
           if (m.show) { busy = 0; showDemo(m.show, said); }
           if (m.step) { const k = (m.step.n || got.length + 1) - 1; if (k < got.length) got[k] = m.step; else got.push(m.step); }   // a step comes again as it grows
-          if (natural() && voiceOn()) for (const s of m.step ? [m.step] : m.board ? m.board.steps || [] : []) if (s && s.say) line(s.say).catch(() => {});   // each line before it is needed
+          if (natural() && voiceOn() && !fellBack) for (const s of m.step ? [m.step] : m.board ? m.board.steps || [] : []) if (s && s.say) line(s.say).catch(() => {});   // each line before it is needed
           if (m.step && !live) {
             last.step_ms = Math.round(performance.now() - t0); mark(); drew = true; drawing();
             live = abhyasaBoard.play({steps: [m.step], tier: m.tier || 'tutor', sources: [], streaming: true}, opts());

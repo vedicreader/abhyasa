@@ -93,6 +93,7 @@
       const url = URL.createObjectURL(new Blob([Uint8Array.from(atob(d.audio), c => c.charCodeAt(0))], {type: 'audio/wav'})), a = new Audio(url);
       a.addEventListener('ended', () => URL.revokeObjectURL(url), {once: true});
       await a.play();
+      document.querySelectorAll('#voice-out .out-error').forEach(x => x.remove());   // the voice works now: the old failure goes
       tell(`${(d.ms / 1000).toFixed(1)} s to the audio${d.cached ? ' (said before)' : ''} · ${d.where === 'hosted' ? 'hosted · OpenAI' : 'on this Mac'}`);
     } catch (err) { tell('The voice did not answer.'); }
     finally { b.disabled = false; }

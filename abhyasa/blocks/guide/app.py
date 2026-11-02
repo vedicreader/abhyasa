@@ -11,7 +11,7 @@ from abhyasa.show import show_reply
 from abhyasa.sources import main_words
 from abhyasa.show import (FigureCache, clean_context, concept_video, explain, figure_labels, file_video, find_explainer, guide_ask,
     set_video, unsave, video_of, vision_ask, vision_why, where_of)
-from abhyasa.models import Withheld
+from abhyasa.models import Withheld, SpeakError, spoken
 from abhyasa.learner import SETTINGS, raw, val, set_val
 from abhyasa.models import cfg_dir
 from . import ui
@@ -51,8 +51,8 @@ def voice_out(here=None) -> dict:
     "Who reads the board aloud: the engine of the setting `voice.out`, its name, and where it runs. Only OpenAI is hosted. The browser speaks until the local voice is on this Mac."
     from abhyasa.models import out_current, out_where, cached
     e, m, v, _ = out_current()
-    if e == 'pocket' and not (here or cached)(m): e, m, v = 'browser', '', ''
-    name = dict(browser='The browser', pocket='Pocket TTS', openai='OpenAI')[e]
+    if e in ('pocket', 'kokoro') and not (here or cached)(m): e, m, v = 'browser', '', ''
+    name = dict(browser='The browser', pocket='Pocket TTS', kokoro='Kokoro', openai='OpenAI')[e]
     return dict(engine=e, model=name, voice=v, where=out_where(e), who='OpenAI' if e == 'openai' else '')
 
 def connect(app, ctx):
@@ -68,7 +68,7 @@ def connect(app, ctx):
             g = where_of(getattr(guide_ask(ask), 'model', ''))
             routed = hasattr(getattr(ask, 'dflt', None), 'via')
             info_[:] = time.monotonic(), dict(model=g, vision=where_of(ask.name('guide_vision') or dflt_model()) if routed else g, speech=speech()), now
-        return {**info_[1], 'voice': bool(val('guide.voice')), 'point': val('guide.point'), 'out': voice_out(speaker.here), 'say': Routes.say}
+        return {**info_[1], 'voice': bool(val('guide.voice')), 'point': val('guide.point'), 'out': voice_out(speaker.here), 'say': Routes.say, 'spoken': Routes.spoken}
     figs = FigureCache(cfg_dir()/'guide-figures.json')
     warmed, warm_lock = [-WARM_EVERY], threading.Lock()
 
@@ -95,10 +95,19 @@ def connect(app, ctx):
         try: r = await asyncio.to_thread(speaker.say, text, **kw)
         except Withheld: return JSONResponse(dict(error=WITHHELD), status_code=403)
         except ValueError as e: return JSONResponse(dict(error=str(e)), status_code=409 if 'browser' in str(e) else 400)
+        except SpeakError as e: return JSONResponse(dict(error=str(e)), status_code=502)   # one plain line: the page shows it, and the browser speaks
         except Exception as e:
             log.warning('guide: voice %r', e)
             return JSONResponse(dict(error='The natural voice could not say this line.'), status_code=502)
         return JSONResponse(dict(audio=base64.b64encode(r.pop('wav')).decode(), **r, who='OpenAI' if r['engine'] == 'openai' else ''))
+
+    async def spoken_(req):
+        "The words that the browser voice says for one line: its maths in words. JSON `{text}` in; JSON `{say, at}` out, with the part of the line that each spoken word reads."
+        try: d = json.loads(await req.body() or b'{}')
+        except ValueError: d = None
+        if not isinstance(d, dict): return JSONResponse(dict(error='Send JSON with the text.'), status_code=400)
+        say, at = spoken(' '.join(str(d.get('text') or '').split())[:SAY_CHARS])
+        return JSONResponse(dict(say=say, at=at))
 
     async def figure(req, alt:str=''):
         "The label boxes of a figure. The image is in memory for one vision call, and is not kept."
@@ -256,6 +265,7 @@ def connect(app, ctx):
     app.post(Routes.undo)(undo)
     app.post(Routes.voice)(voice)
     app.post(Routes.say)(say)
+    app.post(Routes.spoken)(spoken_)
     speaker.warm()   # the first line of the first board should not wait for the model to load
     app.post(Routes.video)(paste)
     app.post(Routes.find)(find)

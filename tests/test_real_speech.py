@@ -20,3 +20,15 @@ def test_pocket_says_a_line_and_qwen3_writes_it_down():
     got = set(words(text))
     assert sum(w in got for w in words(LINE)) >= 9, text
     voice.unload(); voice.unload('tts')
+
+@pytest.mark.skipif(not voice.kokoro_installed(), reason='the kokoro extra is not installed')
+def test_kokoro_says_a_line(monkeypatch, tmp_path):
+    "Kokoro (the kokoro extra) downloads its 107 MB one time, then gives 24 kHz audio with the gap and one time for each word."
+    monkeypatch.setenv('ABHYASA_CONFIG', str(tmp_path))
+    t = time.time(); voice.fetch(voice.KOKORO); get = time.time() - t
+    t = time.time(); wav, ts = voice.speak(LINE, 'kokoro', voice='af_heart'); say = time.time() - t
+    t = time.time(); wav2, _ = voice.speak('The guide reads each step aloud.', 'kokoro', voice='bm_george'); say2 = time.time() - t
+    print(f'\nKokoro: download {get:.1f} s; first line {say:.2f} s for {voice.wav_seconds(wav):.2f} s of audio (with the load), second line {say2:.2f} s for {voice.wav_seconds(wav2):.2f} s.')
+    assert voice.wav_seconds(wav) > 2 and len(ts) == len(LINE.split()) and ts == sorted(ts)
+    with wave.open(io.BytesIO(wav)) as w: assert w.getframerate() == 24000
+    voice.unload('tts')

@@ -8,15 +8,19 @@ Docs: https://vedicreader.github.io/abhyasa/models.html.md"""
 __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 'HERE', 'FALLBACK', 'ALL_TASKS', 'WARM',
            'MAX_TOKENS', 'HOSTED', 'WORKER_SP', 'WORKER_CALLS', 'WORKER_STEPS', 'WORKER_DOLLARS', 'WORKER_TOKENS',
            'LEAD_TOOLS', 'SUB_STEPS', 'DFLT_STT', 'DFLT_WHISPER', 'DFLT_PARAKEET', 'DFLT_OPENAI', 'DFLT_MODELS',
-           'ALIASES', 'POCKET', 'POCKET_FILES', 'OPENAI_URL', 'http_post', 'ENGINES', 'KNOWN', 'STT_WORDS', 'NOT_STT',
-           'POCKET_VOICES', 'DFLT_SPEECH', 'OUT_ENGINES', 'OPENAI_VOICES', 'OPENAI_SPEECH', 'OUT_DFLT',
-           'POCKET_MISSING', 'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'dflt_model', 'parse_json', 'ask_json', 'Fake',
+           'ALIASES', 'POCKET', 'POCKET_FILES', 'KOKORO', 'KOKORO_VOICES', 'KOKORO_FILES', 'VOICE_FILES', 'OPENAI_URL',
+           'http_post', 'ENGINES', 'KNOWN', 'STT_WORDS', 'NOT_STT', 'POCKET_VOICES', 'DFLT_SPEECH', 'OUT_ENGINES',
+           'OPENAI_VOICES', 'TTS1_VOICES', 'VOICES_OF', 'OPENAI_SPEECH', 'OUT_DFLT', 'LOCAL_VOICES', 'PAD', 'LOUD',
+           'POCKET_MISSING', 'KOKORO_MISSING', 'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'GREEK', 'TEX_SAY', 'TEX_BIG',
+           'TEX_FN', 'TEX_ACCENT', 'TEX_OPS', 'TEX_POW', 'SAY_PART', 'dflt_model', 'parse_json', 'ask_json', 'Fake',
            'model_ask', 'model_label', 'provider_label', 'where_of', 'where_chip', 'catalog', 'one_each', 'Router',
            'for_task', 'ramabana_agent', 'no_answer', 'ramabana_oneshot', 'ramabana_stream', 'RouteAsk', 'route_ask',
            'ramabana_worker', 'ramabana_lead', 'Withheld', 'guard', 'safe_query', 'guarded', 'resolve', 'current',
            'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence',
-           'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'out_resolve',
-           'out_current', 'out_where', 'by_letters', 'to_wav', 'clean_wav', 'speak', 'Speaker', 'Dictation', 'Speech']
+           'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'openai_voices',
+           'fit_voice', 'kokoro_installed', 'out_resolve', 'out_current', 'out_where', 'by_letters', 'to_wav',
+           'clean_wav', 'pad_wav', 'SpeakError', 'openai_why', 'tex_words', 'part_times', 'spoken', 'speak', 'Speaker',
+           'Dictation', 'Speech']
 
 # %% ../nbs/01_models.ipynb #9cfb2945
 import json, os, re, gc, time, uuid, inspect, tempfile, threading, wave
@@ -348,6 +352,12 @@ DFLT_MODELS = dict(mlx=DFLT_STT, openai=DFLT_OPENAI)
 ALIASES = dict(gemma=('mlx', DFLT_STT), whisper=('mlx', DFLT_WHISPER), parakeet=('mlx', DFLT_PARAKEET))
 POCKET = 'kyutai/pocket-tts-without-voice-cloning'
 POCKET_FILES = ('languages/english/model.safetensors', 'languages/english/tokenizer.json', 'languages/english/embeddings/caro_davy.safetensors')
+KOKORO = 'onnx-community/Kokoro-82M-v1.0-ONNX'   # Apache-2.0
+KOKORO_VOICES = ('af_heart', 'af_bella', 'af_nicole', 'af_sarah', 'af_sky', 'af_nova', 'af_alloy', 'af_aoede', 'af_jessica', 'af_kore', 'af_river',
+                 'am_michael', 'am_adam', 'am_echo', 'am_eric', 'am_fenrir', 'am_liam', 'am_onyx', 'am_puck',
+                 'bf_emma', 'bf_isabella', 'bf_alice', 'bf_lily', 'bm_george', 'bm_fable', 'bm_lewis', 'bm_daniel')   # a: US English, b: UK English; f/m: female/male
+KOKORO_FILES = ('onnx/model_quantized.onnx', 'config.json', *(f'voices/{v}.bin' for v in KOKORO_VOICES))
+VOICE_FILES = {POCKET: POCKET_FILES, KOKORO: KOKORO_FILES}
 
 # %% ../nbs/01_models.ipynb #v010
 from .learner import cfg_dir, DFLT_SETTINGS, settings, save_settings, update_settings, val
@@ -480,7 +490,7 @@ def cached(model:str) -> bool:
     "True when `model` is in the Hugging Face cache; for the local voice, when its English model is there."
     from huggingface_hub.constants import HF_HUB_CACHE
     d = Path(HF_HUB_CACHE)/f"models--{model.replace('/', '--')}"/'snapshots'
-    need = POCKET_FILES[0] if model == POCKET else ''
+    need = VOICE_FILES.get(model, ('',))[0]
     return d.is_dir() and any((s/need).exists() for s in d.iterdir())
 
 def cache_bytes(model:str) -> int:
@@ -502,7 +512,7 @@ def model_size(model:str, api=None) -> int:
     "The bytes that a download of `model` gets from Hugging Face."
     from huggingface_hub import HfApi
     fs = (api or HfApi()).model_info(model, files_metadata=True).siblings
-    return sum(s.size or 0 for s in fs if model != POCKET or s.rfilename in POCKET_FILES)
+    return sum(s.size or 0 for s in fs if model not in VOICE_FILES or s.rfilename in VOICE_FILES[model])
 
 def search_models(q:str='', limit:int=15, api=None) -> list:
     "mlx-community speech to text models that match `q`, most downloaded first, with their size."
@@ -518,6 +528,7 @@ def fetch(model:str):
     from huggingface_hub import snapshot_download
     new = not cached(model)
     if model == POCKET: _pocket(model, OUT_DFLT['pocket'][1])
+    elif model == KOKORO: snapshot_download(model, allow_patterns=list(KOKORO_FILES))
     else: snapshot_download(model)
     if new:
         d = settings(); d['downloaded'] = sorted({*d['downloaded'], model}); save_settings(d)
@@ -538,20 +549,37 @@ def remove(model:str):
 POCKET_VOICES = ('caro_davy', 'alba', 'anna', 'azelma', 'bill_boerst', 'charles', 'cosette', 'eponine', 'eve', 'fantine', 'george',
                  'jane', 'javert', 'jean', 'marius', 'mary', 'michael', 'paul', 'peter_yearsley', 'stuart_bell', 'vera')
 DFLT_SPEECH = 'gpt-4o-mini-tts'
-OUT_ENGINES = ('pocket', 'openai', 'browser')
+OUT_ENGINES = ('pocket', 'kokoro', 'openai', 'browser')
 OPENAI_VOICES = ('marin', 'cedar', 'coral', 'alloy', 'ash', 'ballad', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse')
-OPENAI_SPEECH = (DFLT_SPEECH, 'tts-1', 'tts-1-hd')
-OUT_DFLT = dict(pocket=(POCKET, 'caro_davy'), openai=(DFLT_SPEECH, 'marin'))
+TTS1_VOICES = ('coral', 'alloy', 'ash', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer')
+VOICES_OF = {DFLT_SPEECH: OPENAI_VOICES, 'tts-1': TTS1_VOICES, 'tts-1-hd': TTS1_VOICES}   # the voices of each OpenAI speech model
+OPENAI_SPEECH = tuple(VOICES_OF)
+OUT_DFLT = dict(pocket=(POCKET, 'caro_davy'), kokoro=(KOKORO, 'af_heart'), openai=(DFLT_SPEECH, 'marin'))
+LOCAL_VOICES = dict(pocket=POCKET_VOICES, kokoro=KOKORO_VOICES)
+
+# %% ../nbs/01_models.ipynb #vf02
+def openai_voices(model:str) -> tuple: return VOICES_OF.get(model, OPENAI_VOICES)
+
+def fit_voice(model:str, voice:str) -> str:
+    "`voice` when `model` has it, else the default voice of `model`."
+    vs = openai_voices(model)
+    return voice if voice in vs else vs[0]
 
 # %% ../nbs/01_models.ipynb #6352ed0c
+def kokoro_installed() -> bool:
+    "True when the `kokoro` extra (kokoro-onnx) is installed. It does not import it."
+    import importlib.util
+    return importlib.util.find_spec('kokoro_onnx') is not None
+
 def out_resolve(engine:str, model:str='', voice:str='') -> tuple:
     "The engine, model and voice for a name; an empty model or voice gets the default of the engine. `browser` has no model."
-    if engine in ('kokoro', 'hf'): engine = 'pocket'   # the local voices before 0.0.16
+    if engine == 'hf' or engine == 'kokoro' and not kokoro_installed(): engine = 'pocket'   # the local voices before 0.0.16
     if engine not in OUT_ENGINES: raise ValueError(f'unknown voice engine {engine!r}')
     if engine == 'browser': return 'browser', '', ''
     m, v = OUT_DFLT[engine]
-    if engine == 'pocket': return engine, m, voice if voice in POCKET_VOICES else v
-    return engine, model or m, voice or v
+    if engine in LOCAL_VOICES: return engine, m, voice if voice in LOCAL_VOICES[engine] else v
+    m = model or m
+    return engine, m, fit_voice(m, voice or v)
 
 def out_current() -> tuple:
     "The voice in use: `(engine, model, voice, speed)` from the settings."
@@ -584,6 +612,21 @@ def clean_wav(audio:bytes) -> bytes:
     with wave.open(b, 'wb') as o: o.setparams(ps._replace(nframes=0)); o.writeframes(frames)
     return b.getvalue()
 
+# %% ../nbs/01_models.ipynb #vf10
+PAD = AttrDict(lead=.05, tail=.35, fade=.03)   # seconds of silence before and after a local line, and of the fade-out at its end
+LOUD = .02   # a sample above this (of full scale) is sound, not quiet
+
+def pad_wav(audio:bytes, lead:float=PAD.lead, tail:float=PAD.tail, fade:float=PAD.fade) -> tuple:
+    "`audio` with a fade-out and silence around it, and the start and end of its sound in seconds: `(wav, (start, end))`."
+    import io, numpy as np
+    with wave.open(io.BytesIO(audio)) as w: r, a = w.getframerate(), np.frombuffer(w.readframes(w.getnframes()), '<i2') / 32767
+    a = a.astype(np.float32)
+    if (n := min(len(a), int(r * fade))): a[-n:] *= np.linspace(1, 0, n, dtype=np.float32)
+    loud = np.nonzero(np.abs(a) > LOUD)[0]
+    on, off = (loud[0], loud[-1] + 1) if len(loud) else (0, len(a))
+    wav = to_wav(np.concatenate([np.zeros(int(r * lead), np.float32), a, np.zeros(int(r * tail), np.float32)]), r)
+    return wav, (round(lead + on / r, 3), round(lead + off / r, 3))
+
 # %% ../nbs/01_models.ipynb #bf328804
 POCKET_MISSING = 'Pocket TTS is not installed. Install it with: pip install "abhyasa[voice]". Until then, the browser speaks.'
 
@@ -603,41 +646,184 @@ def _pocket_say(text, model, voice, speed, instructions=''):
     m, st = _pocket(model, voice)
     return to_wav(m.generate_audio(st, text, normalize=True), m.sample_rate)
 
+# %% ../nbs/01_models.ipynb #vf14
+KOKORO_MISSING = 'Kokoro is not installed. Install it with: pip install "abhyasa[kokoro]". Until then, the browser speaks.'
+
+def _kokoro_load():
+    "The Kokoro ONNX model from the Hugging Face cache, and a dict of its English voices."
+    try: from kokoro_onnx import Kokoro
+    except ImportError: raise RuntimeError(KOKORO_MISSING) from None
+    import numpy as np
+    from huggingface_hub import snapshot_download
+    d = Path(snapshot_download(KOKORO, allow_patterns=list(KOKORO_FILES), local_files_only=True))
+    vs = {v: np.fromfile(d/'voices'/f'{v}.bin', dtype=np.float32).reshape(-1, 1, 256) for v in KOKORO_VOICES}
+    with tempfile.TemporaryDirectory() as t:
+        np.savez(f'{t}/voices.npz', **vs)
+        m = Kokoro(str(d/KOKORO_FILES[0]), f'{t}/voices.npz')
+        m.voices = vs   # in memory, so the temporary file can go
+    return m, vs
+
+def _kokoro_say(text, model, voice, speed, instructions=''):
+    m, vs = resident(('tts', model), _kokoro_load, slot='tts')
+    a, rate = m.create(text, vs[voice], speed=float(speed), lang='en-gb' if voice.startswith('b') else 'en-us')
+    return to_wav(a, rate)
+
 # %% ../nbs/01_models.ipynb #9cf79ca9
 OPENAI_SPEECH_URL = 'https://api.openai.com/v1/audio/speech'
 OPENAI_SPEC = AttrDict(name='openai', local=False)   # the route for the guard: a model off this Mac
 
+class SpeakError(RuntimeError):
+    "A natural voice did not say a line. The text is one plain line for the learner."
+
+def openai_why(r, model:str='', voice:str='') -> str:
+    "One plain line for the failed OpenAI speech call `r`, from the `error.message` of its JSON body."
+    try: err = r.json().get('error') or {}
+    except Exception: err = {}
+    if not isinstance(err, dict): err = dict(message=str(err))
+    msg, code, s = str(err.get('message') or ''), str(err.get('code') or ''), r.status_code
+    low, v = f'{code} {msg}'.lower(), voice.lower()
+    if s == 401: return 'OpenAI: the key does not work. Set a new key on the Settings page, under More in Speech to text.'
+    if s == 429 and 'quota' in low: return 'OpenAI: your account has no credit. Add credit at platform.openai.com, or pick another voice.'
+    if s == 429: return 'OpenAI: too many requests. Wait one minute, then try again.'
+    if s >= 500: return f'OpenAI did not answer (error {s}). Try again later.'
+    if voice not in openai_voices(model) or 'voice' in low or (v and v in low):
+        return f'OpenAI: the voice {voice.title()} does not work with {model}. Pick another voice or the model {DFLT_SPEECH}.'
+    if s == 404 or 'model' in low: return f'OpenAI: the model {model} does not work for speech with your key. Pick the model {DFLT_SPEECH}.'
+    if msg: return f"OpenAI did not say the line: {msg.split('. ')[0].rstrip('.')}."
+    return f'OpenAI did not say the line (error {s}).'
+
 def _openai_say(text, model, voice, speed, instructions=''):
     key, _ = openai_key()
-    if not key: raise RuntimeError('There is no OpenAI key. Set one on the Settings page.')
+    if not key: raise SpeakError('There is no OpenAI key. Set one on the Settings page.')
     body = dict(model=model, voice=voice, input=guard(text, OPENAI_SPEC), response_format='wav', speed=speed)
     if instructions and not model.startswith('tts-1'): body['instructions'] = guard(instructions, OPENAI_SPEC)
-    r = (http_post or __import__('httpx').post)(OPENAI_SPEECH_URL, headers={'Authorization': f'Bearer {key}'}, json=body, timeout=60)
-    r.raise_for_status()
+    httpx = __import__('httpx')
+    try: r = (http_post or httpx.post)(OPENAI_SPEECH_URL, headers={'Authorization': f'Bearer {key}'}, json=body, timeout=60)
+    except (httpx.HTTPError, OSError) as e: raise SpeakError('OpenAI did not answer. Check the network, then try again.') from e
+    if r.status_code >= 400: raise SpeakError(openai_why(r, model, voice))
     return clean_wav(r.content)
 
-SAY = dict(pocket=_pocket_say, openai=_openai_say)
+SAY = dict(pocket=_pocket_say, kokoro=_kokoro_say, openai=_openai_say)
+
+# %% ../nbs/01_models.ipynb #vf18
+import bisect
+GREEK = 'alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi omicron pi varpi rho varrho sigma varsigma tau upsilon phi varphi chi psi omega'.split()
+TEX_SAY = {**{g: g.removeprefix('var') for g in GREEK}, **{g.capitalize(): 'capital ' + g for g in GREEK if not g.startswith('var')},
+           'cdot': 'times', 'times': 'times', 'div': 'divided by', 'pm': 'plus or minus', 'mp': 'minus or plus',
+           'le': 'is at most', 'leq': 'is at most', 'ge': 'is at least', 'geq': 'is at least', 'ne': 'is not equal to', 'neq': 'is not equal to',
+           'approx': 'is about', 'sim': 'is like', 'propto': 'is proportional to', 'equiv': 'is the same as', 'infty': 'infinity',
+           'partial': 'partial', 'nabla': 'nabla', 'to': 'to',
+           'rightarrow': 'to', 'mapsto': 'maps to', 'in': 'in', 'notin': 'not in', 'subset': 'in', 'forall': 'for all', 'exists': 'there is',
+           'ldots': 'and so on', 'cdots': 'and so on', 'dots': 'and so on', 'circ': 'after', 'otimes': 'times', 'odot': 'times', 'ell': 'l'}
+TEX_BIG = dict(sum='sum', prod='product', int='integral')   # with limits: 'the sum from i equals 1 to n of'
+TEX_FN = {'log', 'ln', 'exp', 'sin', 'cos', 'tan', 'max', 'min', 'arg', 'argmax', 'argmin', 'det', 'lim', 'sup', 'inf', 'softmax', 'tr', 'diag', 'var', 'mod'}   # read as words
+TEX_ACCENT = dict(bar='{} bar', hat='{} hat', tilde='{} tilde', vec='vector {}', dot='{} dot', overline='{} bar', widehat='{} hat', mathbf='{}',
+                  boldsymbol='{}', mathrm='{}', mathit='{}', mathcal='{}', mathbb='{}', text='{}', textrm='{}', operatorname='{}', mathsf='{}')
+TEX_OPS = {'+': 'plus', '-': 'minus', '=': 'equals', '<': 'is less than', '>': 'is greater than', '/': 'over', '*': 'times', '!': 'factorial',
+           "'": 'prime', '|': '', '(': '', ')': '', '[': '', ']': '', '&': '', '~': '', ':': '', ';': ''}
+TEX_POW = {'2': 'squared', '3': 'cubed', 'T': 'transpose', '-1': 'inverse', 'minus 1': 'inverse', 'top': 'transpose', 'prime': 'prime'}
+_TEX_TOK = re.compile(r'\\[A-Za-z]+|\\.|[A-Za-z]+|\d+(?:\.\d+)?|\S')
+
+def tex_words(tex:str) -> str:
+    "TeX maths as words to say: `y_m` is 'y sub m', `\\alpha^2` is 'alpha squared', `\\frac{a}{b}` is 'a over b'."
+    ts, i = _TEX_TOK.findall(tex), 0
+    def arg():
+        "The words of the next group `{...}`, or of one atom."
+        nonlocal i
+        if i >= len(ts): return []
+        if ts[i] == '{':
+            i += 1; out = []
+            while i < len(ts) and ts[i] != '}': out += item()
+            i += 1
+            return out
+        return item(scripts=False)
+    def item(scripts=True):
+        nonlocal i
+        t = ts[i]; i += 1
+        if t == '{': i -= 1; out = arg()
+        elif t in ('}', '^', '_'): out = []
+        elif t.startswith('\\'):
+            c = t[1:]
+            if c == 'frac' or c == 'dfrac' or c == 'tfrac': a = arg(); out = [*a, 'over', *arg()]
+            elif c == 'sqrt':
+                n = []
+                if i < len(ts) and ts[i] == '[':
+                    i += 1
+                    while i < len(ts) and ts[i] != ']': n += item()
+                    i += 1
+                out = ['the', *({'3': ['cube']}.get(' '.join(n), [*n, 'th'] if n else ['square'])), 'root', 'of', *arg()]
+            elif c in TEX_BIG:
+                lim = {}
+                while i < len(ts) and ts[i] in ('^', '_'): s = ts[i]; i += 1; lim[s] = arg()
+                out = ['the', TEX_BIG[c], *(['from', *lim['_']] if '_' in lim else []), *(['to', *lim['^']] if '^' in lim else []), 'of']
+            elif c in TEX_ACCENT: out = TEX_ACCENT[c].format(' '.join(arg())).split()
+            elif c in TEX_SAY: out = TEX_SAY[c].split()
+            elif c in TEX_FN: out = [c]
+            elif c in ('left', 'right', 'big', 'Big', 'bigg', 'quad', 'qquad', ',', ';', '!', ' ', 'displaystyle', 'limits'): out = []
+            elif c in ('{', '}', '|', '\\'): out = []
+            else: out = [c]
+        elif t[0].isalpha(): out = [t] if len(t) > 3 or t in TEX_FN else list(t)   # ym is 'y m'; a long run is a word
+        elif t[0].isdigit(): out = [t]
+        else: out = [TEX_OPS.get(t, t)] if TEX_OPS.get(t, t) else []
+        while scripts and i < len(ts) and ts[i] in ('^', '_'):
+            s = ts[i]; i += 1; a = arg(); j = ' '.join(a)
+            if s == '_': out += ['sub', *a]
+            elif j in TEX_POW: out.append(TEX_POW[j])
+            else: out += ['to the', *a] if len(a) == 1 else ['to the power', *a]
+        return out
+    out = []
+    while i < len(ts): out += item()
+    return ' '.join(w for w in out if w)
+
+SAY_PART = re.compile(r'\$([^$]+)\$([.,;:!?)]*)|(\S+)')   # the parts of a line as rupaka's board shows them: a `$...$` or a word
+_MATH = re.compile(r'\$\$(?P<a>.+?)\$\$|\$(?P<b>[^$]+)\$|\\\((?P<c>.+?)\\\)|\\\[(?P<d>.+?)\\\]|`(?P<e>[A-Za-z][A-Za-z0-9_^{}]{0,11})`'
+                   r'|(?<!\S)(?P<f>[A-Za-z]_(?:\{[^{}\s]{1,12}\}|[A-Za-z0-9]{1,3}))(?=[.,;:!?)]*(?:\s|$))')
+
+def part_times(times:list, at:list, n:int) -> list:
+    "The start of each of the `n` parts of a line, from the start of each spoken word and the part that it reads."
+    out, last = [], times[0] if times else 0.
+    for k in range(n):
+        last = next((t for t, a in zip(times, at) if a == k), last)   # a part with no spoken word of its own starts with the part before
+        out.append(last)
+    return out
+
+def spoken(text:str) -> tuple:
+    "The words to say for a line with maths, and for each spoken word the index of the part of the line that it reads."
+    out, src = [], []   # the spoken characters, and the place in `text` of each
+    at = 0
+    for m in _MATH.finditer(text):
+        out.append(text[at:m.start()]); src += range(at, m.start())
+        w = tex_words(next(g for g in m.groups() if g is not None))
+        out.append(w); src += [m.start()] * len(w); at = m.end()
+    out.append(text[at:]); src += range(at, len(text))
+    s = ''.join(out)
+    starts = [p.start() for p in SAY_PART.finditer(text)]
+    words = [(w.group(), max(0, bisect.bisect_right(starts, src[w.start()]) - 1)) for w in re.finditer(r'\S+', s)]
+    return ' '.join(w for w, _ in words), [k for _, k in words]
 
 # %% ../nbs/01_models.ipynb #c12dbf7c
 def speak(text:str, engine:str=None, model:str=None, voice:str=None, speed:float=None, instructions:str='') -> tuple:
-    "WAV bytes for `text`, and the start time in seconds of each of its words (split on white space)."
+    "WAV bytes for `text` with its maths in words, and the start time in seconds of each part of `text` (`SAY_PART`)."
     e, m, v, s = out_current()
     e, m, v = out_resolve(engine, model or '', voice or '') if engine else out_resolve(e, model or m, voice or v)
     if e == 'browser': raise ValueError('The browser speaks with its own voice. There is no audio here.')
-    wav = SAY[e](text, m, v, float(speed or s), instructions)
-    return wav, by_letters(text, wav_seconds(wav))
+    say, at = spoken(text)
+    wav = SAY[e](say, m, v, float(speed or s), instructions)
+    if e == 'openai': t0, t1 = 0., wav_seconds(wav)
+    else: wav, (t0, t1) = pad_wav(wav)
+    return wav, part_times([round(t0 + t, 3) for t in by_letters(say, t1 - t0)], at, len(SAY_PART.findall(text)))
 
 # %% ../nbs/01_models.ipynb #40225f2f
 class Speaker:
     "One worker thread for the speaking voice, and the lines that it said in this run."
     def __init__(self, fn=None, most:int=64, here=None):
-        self.fn, self.most, self.lines, self.status, self.warmed = fn or speak, most, {}, 'not loaded', None
+        self.fn, self.most, self.lines, self.status, self.warmed, self.error = fn or speak, most, {}, 'not loaded', None, ''
         self.here = here or (lambda m: cached(m))   # a model that is not on this Mac is not downloaded here: the Settings page gets it
         self.ex, self.lock = ThreadPoolExecutor(1, thread_name_prefix='voice'), threading.Lock()
 
     def ready(self, engine:str, model:str):
         "Raise when the model of the local voice is not on this Mac yet: the browser speaks until then."
-        if engine == 'pocket' and not self.here(model): raise ValueError('The voice model is not on this Mac yet, so the browser speaks. Download it on the Settings page.')
+        if engine in LOCAL_VOICES and not self.here(model): raise ValueError('The voice model is not on this Mac yet, so the browser speaks. Download it on the Settings page.')
 
     def key(self, text:str, engine:str=None, model:str=None, voice:str=None, speed:float=None) -> tuple:
         "The key of a line: `(engine, model, voice, speed, text)`, with the settings for what is not given."
@@ -657,9 +843,11 @@ class Speaker:
             self.lines[k] = f   # the newest at the end
             while len(self.lines) > self.most: self.lines.pop(next(iter(self.lines)))
         try: wav, words = f.result()
-        except Exception:
+        except Exception as e:
             with self.lock: self.lines.pop(k, None)   # a failed line is not kept, so the next request tries again
+            if not isinstance(e, (ValueError, Withheld)): self.error = str(e)   # the voice failed: the Settings page says why
             raise
+        self.error = ''
         return dict(wav=wav, words=words, engine=k[0], model=k[1], voice=k[2], speed=k[3], where=out_where(k[0]), cached=hit)
 
     def warm(self):
