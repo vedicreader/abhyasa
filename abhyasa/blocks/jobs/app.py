@@ -1,10 +1,10 @@
 """The background jobs, in one place: the activity chip in the top bar (`nav_extra`), the event stream that tells a page that a job
-changed, and the state of the jobs for the Mac app. The rows are in `abhyasa.learner`; the blocks that run a job write them."""
+changed, Stop and Do it again of each job, and the state of the jobs for the Mac app. The rows are in `abhyasa.learner`; the blocks that run a job write them."""
 import asyncio, json, time
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
-from abhyasa.core import hook, n_of
-from abhyasa.learner import activity, ENDED, FRESH, job_version
+from abhyasa.core import hook, run as run_hook, n_of
+from abhyasa.learner import activity, ENDED, FRESH, job_version, stop_job, can_again
 from abhyasa.path import research_state
 from . import ui
 from .cfg import Routes
@@ -37,10 +37,23 @@ def connect(app, ctx):
             if r.state in ENDED: lr.put_job(r.key, seen=True)
         return inside()
 
+    def done(): return Response(headers={'HX-Trigger': 'job'})   # the part around the button (the chip, or the part that waits) loads again
+
+    def stop(key:str=''):
+        "Stop: ask the job `key` to end at its next safe point. A block with its own way to stop, such as research, stops it too (`job_stop`)."
+        if stop_job(lr, key): run_hook('job_stop', lr.job(key))
+        return done()
+
+    def again(key:str=''):
+        "Do it again: the block of the job starts the same job with the inputs on its row (`job_again`). A row with no inputs does nothing."
+        if can_again(r := lr.job(key)): run_hook('job_again', r)
+        return done()
+
     def row(r):
         "One row for the Mac app. A research row also has the walk id and its count of ideas with a source."
         out = dict(key=r.key, kind=r.get('kind'), state=r.state, title=r.get('title') or '', said=r.get('said') or '', why=r.get('why') or '',
-                   start=r.get('start'), end=r.get('end'), url=r.get('url') or '', seen=bool(r.get('seen')))
+                   start=r.get('start'), end=r.get('end'), url=r.get('url') or '', seen=bool(r.get('seen')),
+                   halt=bool(r.get('halt')), again=can_again(r))
         if r.get('kind') == 'research' and (j := lr.journey((r.get('obj') or '')[5:])):
             s = research_state(j)
             out.update(id=j.id, have=s.have, total=s.total)
@@ -68,7 +81,7 @@ def connect(app, ctx):
         key always hears it), and one for a walk of a running job that changed (a passage came, a source was filed)."""
         out = {}
         for k, r in rows.items():
-            if last is not None and last.get(k) != (r.state, r.get('said'), r.get('end')): out[k] = dict(key=k, obj=r.get('obj') or k, state=r.state)
+            if last is not None and last.get(k) != (r.state, r.get('said'), r.get('end'), r.get('halt')): out[k] = dict(key=k, obj=r.get('obj') or k, state=r.state)
         for r in rows.values():
             if r.state != 'running' or not (o := r.get('obj') or '').startswith('walk:'): continue
             u = (lr.journey(o[5:]) or {}).get('updated')
@@ -88,13 +101,15 @@ def connect(app, ctx):
                 if last is None and v >= 0 and v != job_version(lr): out = [dict(key='*', obj='*', state='')]
                 for e in out: yield f'data: {json.dumps(e)}\n\n'
                 if not any(r.state == 'running' for r in rs.values()): break
-                last = {k: (r.state, r.get('said'), r.get('end')) for k, r in rs.items()}
+                last = {k: (r.state, r.get('said'), r.get('end'), r.get('halt')) for k, r in rs.items()}
                 await asyncio.sleep(TICK)
             yield 'event: end\ndata: {}\n\n'
         return StreamingResponse(stream(), media_type='text/event-stream', headers={'Cache-Control': 'no-store'})
 
     app.get(Routes.chip)(inside)
     app.post(Routes.seen)(seen)
+    app.post(Routes.stop)(stop)
+    app.post(Routes.again)(again)
     app.get(Routes.events)(events)
     app.get(Routes.data)(data); app.router.routes.insert(0, app.router.routes.pop())   # before the static route for `.json`
     app.get(Routes.research)(research); app.router.routes.insert(0, app.router.routes.pop())

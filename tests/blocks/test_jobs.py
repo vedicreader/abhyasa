@@ -224,7 +224,7 @@ def test_an_old_jobs_document_moves_to_the_ledger(mk, lr):
     assert lr.v.by_source(OLD) is None and lr.job('odd') is None
     j = cl.get('/jobs.json').json()
     assert j['running'] == [] and [r['key'] for r in j['ended']] == ['walk:w8:research', 'build:b8']
-    assert j['ended'][1] == dict(key='build:b8', kind='build', state='done', title='Old link', said='Ready.', why='', start=now - 90, end=now - 30, url='/w/w9', seen=False)
+    assert j['ended'][1] == dict(key='build:b8', kind='build', state='done', title='Old link', said='Ready.', why='', start=now - 90, end=now - 30, url='/w/w9', seen=False, halt=False, again=False)
     assert 'Stopped: Old walk and 1 more' in chip(cl.get('/').text)
     with cl.stream('GET', '/events') as r: assert lines(r) == ['event: end']   # no job runs
 

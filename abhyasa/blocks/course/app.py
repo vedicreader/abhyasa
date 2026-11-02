@@ -5,7 +5,7 @@ import logging, re
 from fasthtml.common import *
 from abhyasa.core import Page, NotFound, hook, run as run_hook
 from abhyasa.core.leela import leela_base
-from abhyasa.learner import track, seen_jobs, profile_text
+from abhyasa.learner import track, seen_jobs, profile_text, check_stop, JobStopped, STOPPED
 from abhyasa.path import last_place, parent_at
 from abhyasa.core import is_local
 from abhyasa.path import (course_state, join_course, course_of, ensure_courses, ask_level, answer_level, level_done, plan_stages,
@@ -24,14 +24,15 @@ def connect(app, ctx):
 
     def who(): return profile_text(lr.profile())
 
-    def submit(cid, k, said, f, *a):
-        "Start the pool job `k` of course `cid`, unless one runs, with its job row. The job."
+    def submit(cid, k, said, f, *a, again=None):
+        "Start the pool job `k` of course `cid`, unless one runs, with its job row and the inputs `again` for Do it again. The job."
         st = jobs.get((cid, k))
         if not st or st.job.done():
             c = lr.course(cid)
             what = ui.JOB_WORDS.get(k) or first(s['name'] for s in c.get('stages') or () if s['key'] == k) or 'A stage'
             stage = k not in ui.JOB_WORDS   # a stage build makes a walk: the row links to it when it is ready
-            st = jobs[cid, k] = AttrDict(said=said, job=track(lr, f'course:{cid}:{k}', ctx.pool.submit(f, *a), 'course', title=f'{c.title}: {what}', said=said,
+            st = jobs[cid, k] = AttrDict(said=said, job=track(lr, f'course:{cid}:{k}', lambda: ctx.pool.submit(f, *a), 'course', title=f'{c.title}: {what}', said=said,
+                                                            again=again or dict(cid=cid, k=k),
                                                             url=ui.at(cid), obj=f'course:{cid}', why=lambda e: 'abhyasa could not do it. Try again.',
                                                             ok=(lambda jid: dict(url=Routes.of_(Routes.walk, jid=jid), obj=f'walk:{jid}')) if stage else None))
         return st
@@ -53,6 +54,7 @@ def connect(app, ctx):
     def plan_then_build(cid, fix=False):
         "On the pool: plan the stages from your answers (with `fix`, each stage that is not locked), then build the current stage when it has no walk."
         c = plan_stages(lr, ask, cid, who(), fix=fix)
+        check_stop(lr, f'course:{cid}:plan')   # a safe point: after Stop, no stage is built
         if (key := due_stage(lr, c)) and first(s for s in c.stages if s['key'] == key and not s.get('walk')) and lr.course(cid):
             try: build(cid, key)
             except Exception as e: log.warning('abhyasa could not build stage %s of %s: %r', key, cid, e)
@@ -75,7 +77,7 @@ def connect(app, ctx):
         if not (st := state(cid)): return missing()
         seen_jobs(lr, f'course:{cid}')
         grow(st.course)
-        pend = ui.Pending(cid, 'level', jobs[cid, 'level'].said) if running(cid, 'level') else ui.Pending(cid, 'plan', ui.PLANNING) if running(cid, 'plan') else None
+        pend = ui.Pending(cid, 'level', jobs[cid, 'level'].said, lr.job(f'course:{cid}:level')) if running(cid, 'level') else ui.Pending(cid, 'plan', ui.PLANNING, lr.job(f'course:{cid}:plan')) if running(cid, 'plan') else None
         return Page(st.course.title, *ui.CoursePage(st, ui.Level(st.course, pending=pend), origin(st.course)), on='Home', crumbs=up)
 
     def origin(c):
@@ -96,7 +98,7 @@ def connect(app, ctx):
         "Write the questions of Where you start on the pool. The part asks again until they come."
         if not (c := lr.course(cid)): return Response(status_code=404)
         st = submit(cid, 'level', ui.ASKING, ask_level, lr, ask, cid, who())
-        return ui.Level(c, pending=ui.Pending(cid, 'level', st.said))
+        return ui.Level(c, pending=ui.Pending(cid, 'level', st.said, lr.job(f'course:{cid}:level')))
 
     def answer(cid:str, key:str='', answer:str=''):
         "Keep one answer. With the last answer, plan the stages on the pool."
@@ -105,7 +107,7 @@ def connect(app, ctx):
         except (KeyError, ValueError) as e: return ui.Level(c, err=str(e) if isinstance(e, ValueError) else 'This question is not there now.')
         if not level_done(c): return ui.Level(c)
         submit(cid, 'plan', ui.PLANNING, plan_then_build, cid)
-        return ui.Level(c, pending=ui.Pending(cid, 'plan', ui.PLANNING))
+        return ui.Level(c, pending=ui.Pending(cid, 'plan', ui.PLANNING, lr.job(f'course:{cid}:plan')))
 
     def open_stage(cid, key, plan):
         "Open the walk of stage `key`; a stage with no walk is built on the pool first. A GET does not build a skipped stage: it offers Plan it anyway."
@@ -115,7 +117,7 @@ def connect(app, ctx):
         if s.get('status') == 'skipped' and not plan and not running(cid, key):
             return Page(s['name'], H1(s['name']), ui.Skipped(cid, s), on='Home', crumbs=crumbs)
         st = submit(cid, key, ui.BUILDING, build, cid, key)
-        return Page(s['name'], H1(s['name']), ui.Pending(cid, key, st.said), on='Home', crumbs=crumbs)
+        return Page(s['name'], H1(s['name']), ui.Pending(cid, key, st.said, lr.job(f'course:{cid}:{key}')), on='Home', crumbs=crumbs)
 
     def stage(cid:str, key:str): return open_stage(cid, key, plan=False)
     def plan_stage(cid:str, key:str): return open_stage(cid, key, plan=True)
@@ -125,7 +127,9 @@ def connect(app, ctx):
         if not (c := lr.course(cid)): return Response(status_code=404)
         st = jobs.get((cid, k))
         if st is None: return ui.Level(c) if k in ('level', 'plan') else Response(headers={'HX-Redirect': ui.at(cid)})
-        if not st.job.done(): return ui.Pending(cid, k, st.said)
+        r = lr.job(f'course:{cid}:{k}')
+        if not st.job.done(): return ui.Pending(cid, k, st.said, r)
+        if isinstance(st.job.exception(), JobStopped) or (r is not None and r.state == 'stopped'): return ui.Ended(cid, k, STOPPED, r)
         if (e := st.job.exception()):
             log.warning('the course job %s of %s failed: %r', k, cid, e)
             if k == 'level': return ui.Level(c, err='The tutor could not write the questions. Try again.')
@@ -134,6 +138,16 @@ def connect(app, ctx):
         if k == 'level': return ui.Level(lr.course(cid))
         if k == 'plan': return Response(headers={'HX-Redirect': ui.at(cid)})
         return Response(headers={'HX-Redirect': Routes.of_(Routes.walk, jid=st.job.result())})
+
+    @hook('job_again')
+    def course_again(r):
+        "Do it again on a course job: Where you start, the stages (Fix the rest too), or the build of one stage, with the same inputs."
+        if r.get('kind') != 'course' or not isinstance(a := r.get('again'), dict) or not lr.course(cid := a.get('cid') or ''): return None
+        if (k := a.get('k')) == 'level': submit(cid, k, ui.ASKING, ask_level, lr, ask, cid, who(), again=a)
+        elif k == 'plan': submit(cid, k, ui.FIXING if a.get('fix') else ui.PLANNING, plan_then_build, cid, bool(a.get('fix')), again=a)
+        elif k: submit(cid, k, ui.BUILDING, build, cid, k, again=a)
+        else: return None
+        return True
 
     def lock(cid:str, key:str='', on:str=''):
         "Lock stage `key` (`on`), or unlock it. A replan and Fix the rest keep a locked stage as it is."
@@ -145,8 +159,8 @@ def connect(app, ctx):
     def fix(cid:str):
         "Fix the rest: plan again each stage that you did not lock or start, on the pool. The locked stages, the stages that you started, and their walks stay."
         if not (c := lr.course(cid)): return Response(status_code=404)
-        st = submit(cid, 'plan', ui.FIXING, plan_then_build, cid, True)
-        return ui.Level(c, pending=ui.Pending(cid, 'plan', st.said))
+        st = submit(cid, 'plan', ui.FIXING, plan_then_build, cid, True, again=dict(cid=cid, k='plan', fix=True))
+        return ui.Level(c, pending=ui.Pending(cid, 'plan', st.said, lr.job(f'course:{cid}:plan')))
 
     def data(cid:str, path:str='', note:str=''):
         "Keep the folder `path` as your data on the course and its walks. It is not filed."

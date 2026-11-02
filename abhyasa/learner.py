@@ -10,7 +10,7 @@ __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SET
            'DEPTHS', 'KIND_AT', 'DAY', 'METHODS', 'METHOD_LABELS', 'EXAMPLES_TO', 'TEXT_WAYS', 'WALK_WAYS', 'CREDIT',
            'FEEDBACK', 'EXPLORE', 'EMPTY', 'CHECK_KIND', 'DEPTH', 'LEARNING', 'PROFILE', 'LIST_FIELDS', 'EXAMPLES',
            'PACES', 'PROFILE_LABELS', 'ONBOARD_QS', 'ONBOARD_SP', 'OBSERVE_SP', 'HUMAN', 'LEVELS', 'FRESH', 'KEEP',
-           'OLD', 'WORD', 'STATUS', 'NO_CHECK', 'SHAKY', 'add', 'cfg_dir', 'settings', 'save_settings',
+           'OLD', 'STOPPED', 'WORD', 'STATUS', 'NO_CHECK', 'SHAKY', 'add', 'cfg_dir', 'settings', 'save_settings',
            'update_settings', 'top', 'fit', 'raw', 'val', 'dflt', 'source_root_why', 'roots', 'dropped_roots',
            'set_val', 'reset', 'rows', 'reset_group', 'changed', 'clamped', 'register', 'lines', 'need_lines', 'saved',
            'prompt', 'set_prompt', 'meta_of', 'slugify', 'idea_name', 'real_idea', 'listed', 'usable_name',
@@ -19,8 +19,9 @@ __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SET
            'next_depth', 'learned', 'ready', 'pick', 'understanding', 'weak', 'way', 'credit', 'posterior', 'mean',
            'improving', 'choose', 'check_for', 'methods_text', 'profile_text', 'clean', 'onboard_prompt', 'onboard',
            'evidence', 'observe_prompt', 'observe', 'teach_sp', 'level_line', 'plainly', 'calibration',
-           'calibration_text', 'ledger', 'job_version', 'job_start', 'job_end', 'track', 'job_said', 'Said',
-           'seen_jobs', 'close_jobs', 'activity', 'chip_words', 'current', 'keyed_lock', 'walk_state']
+           'calibration_text', 'ledger', 'job_version', 'job_start', 'job_end', 'JobStopped', 'stop_job', 'halted',
+           'check_stop', 'can_again', 'track', 'job_said', 'Said', 'seen_jobs', 'close_jobs', 'activity', 'chip_words',
+           'current', 'keyed_lock', 'walk_state']
 
 # %% ../nbs/00_learner.ipynb #6892d8ed
 import threading, weakref, os, json, time, random, uuid
@@ -1479,19 +1480,51 @@ def job_version(lr:Learning) -> int:
     return ledger(lr).version
 
 # %% ../nbs/00_learner.ipynb #jb14
-def job_start(lr:Learning, key:str, kind:str, title:str='', said:str='', url:str='', obj:str='', quiet:bool=False) -> AttrDict:
-    "Note that the job `key` of `kind` runs now, with its `title`, its `said` line, the `url` of its page and its object `obj`. Ended rows older than `KEEP` go."
-    return ledger(lr).start(key, kind, title=title, said=said, url=url, obj=obj, quiet=quiet)
+def job_start(lr:Learning, key:str, kind:str, title:str='', said:str='', url:str='', obj:str='', quiet:bool=False, again:dict=None) -> AttrDict:
+    "Note that the job `key` of `kind` runs now, with its `title`, its `said` line, the `url` of its page, its object `obj` and the inputs `again` for Do it again. Ended rows older than `KEEP` go."
+    return ledger(lr).start(key, kind, title=title, said=said, url=url, obj=obj, quiet=quiet, halt=False, again=again)
 
 def job_end(lr:Learning, key:str, state:str='done', why:str='', **kv) -> AttrDict|None:
     "Note that the job `key` ended now in `state`, with `why` for a failure. `kv` can change its `said`, `url` or `obj`. None when there is no row."
     return ledger(lr).end(key, state, why=why, **kv)
 
+# %% ../nbs/00_learner.ipynb #jbs2
+STOPPED = 'You stopped it.'
+
+class JobStopped(BaseException):
+    "Ends a job at a safe point after you pressed Stop."
+
+def stop_job(lr:Learning, key:str) -> bool:
+    "Ask the running job `key` to end at its next safe point: its row gets `halt`. Whether it runs."
+    if (r := lr.job(key)) is None or r.state != 'running': return False
+    if not r.get('halt'): lr.put_job(key, halt=True)
+    return True
+
+def halted(lr:Learning, key:str) -> bool:
+    "Whether the job `key` runs and you asked it to stop."
+    return bool((r := lr.job(key)) and r.state == 'running' and r.get('halt'))
+
+def check_stop(lr:Learning, key:str):
+    "A safe point of the job `key`: after Stop, its row ends as `stopped` and `JobStopped` ends the job."
+    if halted(lr, key):
+        job_end(lr, key, 'stopped', said=STOPPED)
+        raise JobStopped(key)
+
+# %% ../nbs/00_learner.ipynb #jbs4
+def can_again(r) -> bool:
+    "Whether the job row `r` ended and kept the inputs (`again`) that start it again."
+    return bool(r and r.state in ENDED and r.get('again'))
+
 # %% ../nbs/00_learner.ipynb #jb16
-def track(lr:Learning, key:str, fut, kind:str, ok=None, why=None, **kw):
+def track(lr:Learning, key:str, fut, kind:str, ok=None, why=None, again:dict=None, **kw):
     """Start the row `key` of the pool future `fut` (or of the future that the function `fut` gives), and end it when the future ends:
-    `ok(result)` gives more fields (and can set `state`), `why(error)` the line of a failure. A row that ended first stays. Return the future."""
-    return ledger(lr).track(kind, fut, key=key, ok=ok, why=why or (lambda e: 'It did not work.'), **kw)
+    `ok(result)` gives more fields (and can set `state`), `why(error)` the line of a failure. A row that ended first stays. After Stop, the
+    row ends `stopped`. `again` keeps the inputs for Do it again. Return the future."""
+    def sub():
+        f = fut() if callable(fut) else fut
+        f.add_done_callback(lambda _: halted(lr, key) and job_end(lr, key, 'stopped', said=STOPPED))   # before the end of the ledger, which then keeps it
+        return f
+    return ledger(lr).track(kind, sub, key=key, ok=ok, why=why or (lambda e: 'It did not work.'), halt=False, again=again, **kw)
 
 # %% ../nbs/00_learner.ipynb #jb18
 def job_said(lr:Learning, key:str, said:str) -> bool:
@@ -1504,7 +1537,7 @@ class Said(AttrDict):
     def __init__(self, lr:Learning, key:str, **kw): super().__init__(**kw); self.__dict__.update(_lr=lr, _key=key)
     def update(self, *a, **kw):
         super().update(*a, **kw)
-        if 'said' in kw: job_said(self._lr, self._key, kw['said'])
+        if 'said' in kw: check_stop(self._lr, self._key); job_said(self._lr, self._key, kw['said'])
 
 # %% ../nbs/00_learner.ipynb #jb20
 def seen_jobs(lr:Learning, obj:str) -> int:
@@ -1521,9 +1554,11 @@ def close_jobs(lr:Learning) -> int:
 # %% ../nbs/00_learner.ipynb #jb22
 def activity(lr:Learning, now:float=None) -> L:
     "The rows for the activity chip: the running jobs, newest first, then the ended jobs that are new to you."
-    return ledger(lr).activity(fresh=FRESH, now=now)
+    now, rs = now or time.time(), ledger(lr).rows().filter(lambda r: not r.quiet)
+    new = sorted((r for r in rs if r.state in ENDED and not r.seen and now - (r.end or 0) < FRESH), key=lambda r: -(r.end or 0))
+    return rs.filter(lambda r: r.state == 'running') + L(new)
 
-WORD = dict(done='Ready', failed='Failed', closed='Stopped')
+WORD = dict(done='Ready', failed='Failed', stopped='Stopped', closed='Stopped')
 
 def chip_words(rows) -> str:
     "The words of the chip: `2 running` while a job runs, else `Ready: {title}`, `Failed: {title}` or `Stopped: {title}`, with the count of the others."

@@ -15,6 +15,7 @@ class Routes:
     history = '/w/{jid}/history'      # the earlier versions of the plan, for the fold on the walk page
     restore = '/w/{jid}/restore'      # POST: go back to the version before one change
     improve = '/w/{jid}/improve'      # POST: the box at the top: your words start the job that changes the walk; GET (?key=): the pending line, then what changed, with Undo
+    replan = '/w/{jid}/replan'        # POST: Make this walk again: the job that plans it again from its source; GET (?key=): its line, then the end with Undo
     drop = '/w/{jid}/drop'            # POST: delete the plan of the walk and its side walks; answers, attempts and what you learned stay. Then the list of walks
     notebook = '/w/{jid}/notebook'    # POST: write the learning copy of the notebook of a notebook walk, with its demos, then open it in Leela
     data_drop = '/w/{jid}/data/drop'  # POST: remove one data folder from the walk (and from its course and the other walks of the course)

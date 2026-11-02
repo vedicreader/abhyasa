@@ -50,10 +50,12 @@ def connect(app, ctx):
         aim = '3d' if three else a.get('aim', '') if not kind else ''
         if job_state(tutor, a.concept, aim, a.ask) == 'running':
             wait = ui.AskPending(a, '3d' if three else kind, aim, job_age(tutor, a.concept, aim, a.ask), job_stage(tutor, a.concept, aim, a.ask),
-                                 ui.WHILE_3D if three and not kind else '', job=(k := job_key(a.concept, aim, a.ask)), why=tries_said(lr.job(k)))
+                                 ui.WHILE_3D if three and not kind else '', job=(k := job_key(a.concept, aim, a.ask)), why=tries_said(lr.job(k)), row=lr.job(k))
             if not (three and not kind): return wait
             if not lr.demo_for(a.concept, key=a.key or None) and job_state(tutor, a.concept, '', a.ask) != 'running': queue_demo(tutor, a.concept, said=a.ask, quiet=True)   # the 2D demo beside a 3D ask: the row of the 3D job is in the chip
             return ui.WhileThree(wait, shown(a, 'demo'))   # the 2D demo while the 3D explainer builds
+        if job_state(tutor, a.concept, aim, a.ask) == 'stopped' and (r := lr.job(job_key(a.concept, aim, a.ask))):
+            return ui.Stopped(a, '3d' if three else kind, r)   # you stopped it: Make it again
         if (d := lr.demo_for(a.concept, aim=aim, key=a.key or None)):
             seen_jobs(lr, job_key(a.concept, aim, a.ask))   # the demo is on the page: its row is not news in the chip
             return ui.DemoCard(d, session=a.get('session', ''), ask=a.id, lead=False)   # the kind line of the card says how it works
@@ -108,6 +110,13 @@ def connect(app, ctx):
         "\"show me …\" in an answer box or to the guide: the card of the ask. On a walk step it goes in the Show slot under the title."
         out = answer_ask(words, at)
         return Div(out, id='show-slot', hx_swap_oob='innerHTML') if at.get('where') == 'walk' else out
+
+    @hook('job_again')
+    def demo_again(r):
+        "Do it again on a demo job: make the same demo again, with the same inputs."
+        if r.get('kind') != 'demo' or not isinstance(a := r.get('again'), dict) or not lr.concept(a.get('slug') or ''): return None
+        queue_demo(tutor, a['slug'], a.get('first_error') or '', aim=a.get('aim') or '', said=a.get('said') or '', quiet=bool(r.get('quiet')))
+        return True
 
     @hook('step_needs')
     def step_show(j, i, c):

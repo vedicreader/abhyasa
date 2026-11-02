@@ -2,9 +2,9 @@
 import os, threading, time, base64
 from fasthtml.common import *
 from fastcore.basics import AttrDict
-from abhyasa.core import Page, RouteOverrides, THEMES, MODES, parse_value
+from abhyasa.core import Page, RouteOverrides, THEMES, MODES, parse_value, hook
 from abhyasa import models as voice
-from abhyasa.learner import track, job_said, seen_jobs, GROUPS, SETTINGS, rows, val, fit, set_val, reset, reset_group
+from abhyasa.learner import track, job_said, seen_jobs, check_stop, JobStopped, GROUPS, SETTINGS, rows, val, fit, set_val, reset, reset_group
 from . import ui
 from .cfg import Routes
 
@@ -38,7 +38,7 @@ def connect(app, ctx):
     def section(g):
         n = count(g)
         if g == 'look': return ui.Look(n)
-        if g == 'stt': return ui.SpeechGroup(sp, has_key(), jobs, n)
+        if g == 'stt': return ui.SpeechGroup(sp, has_key(), jobs, n, dl_rows())
         if g == 'voice': return ui.VoiceGroup(spk, has_key(), n)
         if g == 'models': return ui.ModelsGroup(n)
         if g == 'prompts': return ui.Prompts(n)
@@ -109,8 +109,8 @@ def connect(app, ctx):
 
     def fetch_job(engine, model, then, worker, part):
         "Download `model` on the pool, then `then()` (a future that loads it on `worker`). The reply is `part()` with the progress lines."
-        if (j := jobs.get(model)) and j.state in ('downloading', 'loading'): return part(), ui.Jobs(jobs, oob=True)
-        for k in [k for k, o in jobs.items() if o.state in ('done', 'failed')]: jobs.pop(k)   # show only the new line
+        if (j := jobs.get(model)) and j.state in ('downloading', 'loading'): return part(), ui.Jobs(jobs, oob=True, rows=dl_rows())
+        for k in [k for k, o in jobs.items() if o.state in ('done', 'failed', 'stopped')]: jobs.pop(k)   # show only the new line
         j = jobs[model] = AttrDict(model=model, engine=engine, total=0, state='downloading', error='', shown=False)
         key = ui.job_key(model)
         def tick():
@@ -122,22 +122,33 @@ def connect(app, ctx):
                 except Exception: j.total = 0   # the line shows bytes without a total
                 threading.Thread(target=tick, daemon=True).start()
                 voice.fetch(model)
+                check_stop(lr, key)   # a safe point: after Stop, the model is on the disk but does not load
                 j.state = 'loading'; job_said(lr, key, ui.job_line(j))
                 if (f := then()) is not None: f.result()
                 j.state = 'failed' if worker.status.startswith('failed') else 'done'
                 if j.state == 'failed': j.error = worker.status.removeprefix('failed: ')
+            except JobStopped: j.state = 'stopped'; raise
             except Exception as e: j.state, j.error = 'failed', str(e)
             return j
         track(lr, key, lambda: ctx.pool.submit(run), 'download', title=f'Download: {ui.job_name(model)}', said=ui.job_line(j),
               url='/settings#g-voice' if model == voice.POCKET else '/settings#g-stt', obj=key,
-              ok=lambda j: dict(said=ui.job_line(j)) if j.state == 'done' else dict(state='failed', why=ui.job_line(j)))
-        return part(), ui.Jobs(jobs, oob=True)
+              ok=lambda j: dict(said=ui.job_line(j)) if j.state == 'done' else dict(state='failed', why=ui.job_line(j)), again=dict(engine=engine, model=model))
+        return part(), ui.Jobs(jobs, oob=True, rows=dl_rows())
 
     def jobs_():
         "The progress lines; when a job ends, the speech section too."
-        ended = [j for j in jobs.values() if j.state in ('done', 'failed') and not j.shown]
+        ended = [j for j in jobs.values() if j.state in ('done', 'failed', 'stopped') and not j.shown]
         for j in ended: j.shown = True; seen_jobs(lr, ui.job_key(j.model))   # the line on this page is the news
-        return (ui.Jobs(jobs), speech(oob=True), out_part(oob=True)) if ended else ui.Jobs(jobs)
+        return (ui.Jobs(jobs, rows=dl_rows()), speech(oob=True), out_part(oob=True)) if ended else ui.Jobs(jobs, rows=dl_rows())
+
+    def dl_rows(): return {m: lr.job(ui.job_key(m)) for m in jobs}   # the job row of each download, for its Stop and Download it again
+
+    @hook('job_again')
+    def download_again(r):
+        "Download it again: the same model with the same engine."
+        if r.get('kind') != 'download' or not isinstance(a := r.get('again'), dict) or not a.get('model'): return None
+        get(a.get('engine') or '', a['model'])
+        return True
 
     def status(): return ui.Status(sp)
 

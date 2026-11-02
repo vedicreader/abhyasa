@@ -1,5 +1,5 @@
 "The page frame, shared pieces, and block assets served with a content hash."
-import hashlib, html, re, time, nh3
+import hashlib, html, json, re, time, nh3
 from contextvars import ContextVar
 from pathlib import Path
 from fasthtml.common import *
@@ -9,11 +9,12 @@ from rupaka.board import assets as board_assets, bundle as board_bundle, LIBS as
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link, side_link, yt_embed, YT_EMBED, WATCH
-from abhyasa.learner import DEPTHS
+from abhyasa.learner import DEPTHS, can_again
 from abhyasa.sources import source_of
 
 __all__ = ['Cites', 'nb_leela', 'SourceLine', 'SourceLinks', 'serve_watch', 'WATCH_CSP', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
-           'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo', 'moved_to', 'subject_name']
+           'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo', 'moved_to', 'subject_name',
+           'JOB_STOP', 'JOB_AGAIN', 'JobStop', 'JobAgain', 'JobTools']
 
 _here = Path(__file__).parent
 ASSETS = {}   # name -> (text, media type)
@@ -424,3 +425,25 @@ def Cites(links, label='From your sources'):
     "Links to passages in your own sources and on the web: a vault document, a session, a notebook, a verse. Each one is a `SourceLine`."
     if not links: return ''
     return Div(Span(label, cls='lbl') if label else '', Ul(*[Li(SourceLine(source_of(l))) for l in links], cls='plain cites'), cls='cites')
+
+
+# --- Stop and Do it again of a job: the jobs block has the routes; any part that waits for a job uses these ---------------------
+
+JOB_STOP, JOB_AGAIN = '/activity/stop', '/activity/again'   # POST `key`: ask the job to stop; start the same job again
+
+def _job_btn(label, route, r, act, **kw):
+    "A small quiet button that posts the key of job row `r` to `route`. The reply sends the event `job`, so the part around it loads again."
+    return Quiet(label, small=True, type='button', hx_post=route, hx_vals=json.dumps(dict(key=r.key)), hx_swap='none', data_act=act, **kw)
+
+def JobStop(r):
+    "Stop for the running job row `r`, or `Stopping…` after you pressed it; '' when it does not run."
+    if r is None or r.state != 'running': return ''
+    return Span('Stopping…', cls='mute stopping') if r.get('halt') else _job_btn('Stop', JOB_STOP, r, 'stop-job', data_wait='Stopping…')
+
+def JobAgain(r, label='Do it again'):
+    "Do it again for the job row `r` that ended and kept its inputs; '' for a row that cannot run again."
+    return _job_btn(label, JOB_AGAIN, r, 'again-job', data_wait='Starting…') if can_again(r) else ''
+
+def JobTools(r, again='Do it again'):
+    "The control of job row `r` on the part that waits for it: Stop while it runs, else Do it again (with the words `again`) when it can."
+    return JobStop(r) if r is not None and r.state == 'running' else JobAgain(r, again)

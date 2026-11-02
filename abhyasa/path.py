@@ -11,35 +11,36 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS
            'GLOSS_SP', 'HISTORY_MOST', 'HISTORY_BYTES', 'EDIT_JOIN', 'WHO', 'WHAT_MOST', 'RUN_FIELDS', 'EDIT_FIELDS',
            'CODE_GONE', 'REWRITE_SP', 'INSTRUCTION_MOST', 'REWRITE_TEXT', 'REWRITE_LIST', 'CTRL', 'check_of',
            'CHECK_KINDS', 'PASSAGES_MOST', 'IMPROVE_OPS', 'IMPROVE_MOST', 'IMPROVE_SP', 'FIX_SP', 'EASIER', 'HARDER',
-           'KIND_WAY', 'GROW_AT', 'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST', 'ANSWERS', 'KINDS', 'LEVEL_SP', 'SAID',
-           'STAGES_SP', 'LEFT', 'ASK_KINDS', 'log', 'SUBJECT_LABEL', 'MANY_SENSE', 'TOP', 'FOUND_NOTHING', 'NO_QUOTE',
-           'BIG_ROOT', 'AGENT_DOCS', 'TOOL_TEXT', 'LOG_MOST', 'FILE_BYTES', 'LEAK_WORDS', 'FLUSH_ROWS', 'FLUSH_SECS',
-           'PASSAGE_WORDS', 'STOPPED', 'TIME_UP', 'TEXTS', 'SECRET', 'GATHER_SP', 'LEAD_SP', 'LEAD_TOOLS_OWN',
-           'NO_START', 'NO_START_ANY', 'ELSE', 'START_WHY', 'NONE_FOUND', 'CRASHED', 'plan_prompt', 'near_goal',
-           'chip_docs', 'source_map', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'map_prompt', 'walk_map',
-           'hands_most', 'cap_hands', 'builds_goal', 'hands_count', 'journey_from_source', 'journey_from_text',
-           'nb_file', 'nb_sections', 'nb_text', 'notebook_walk', 'copy_path', 'learning_copy', 'journey_from_sources',
-           'data_row', 'keep_data', 'folder_list', 'with_stop', 'data_entries', 'with_data', 'walk_names', 'same_names',
-           'short_what', 'data_line', 'missing_data', 'walk_from_topic', 'minutes', 'needs', 'walk_needs', 'known_how',
-           'gap_size', 'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk',
-           'is_open', 'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up', 'topic_slug',
-           'name_gaps', 'split_parts', 'related', 'with_step', 'paper_id', 'same_share', 'fresh', 'tutor_note',
-           'step_meta', 'done_attempt', 'open_short', 'nb_prompt', 'nb_spec', 'leela_found', 'leela_back', 'term_line',
-           'words_to_know', 'edit_lock', 'restore_steps', 'undo_line', 'rewrite', 'move_step', 'skip_step',
-           'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent', 'edit_walk', 'undo_walk',
-           'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages', 'pick_read', 'links_in',
-           'propose', 'kind_check', 'improve_walk', 'new_course', 'is_goal_walk', 'chip_sources', 'join_course',
-           'course_of', 'ensure_courses', 'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level',
-           'level_done', 'stages_prompt', 'walk_started', 'stage_stays', 'fix_count', 'plan_stages', 'lock_stage',
-           'stage_brief', 'build_stage', 'add_data', 'drop_data', 'fill_data', 'name_data', 'join_names', 'stage_rows',
-           'due_stage', 'next_up', 'add_ask', 'blocking', 'course_state', 'set_here', 'active_course', 'course_from',
-           'courses_from', 'go_back', 'subject_label', 'vague', 'research_query', 'file_page', 'link_concept',
-           'wants_source', 'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending',
-           'research_walk', 'Researcher', 'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state',
-           'idea_at', 'idea_no', 'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video',
-           'gather_tools', 'gather_prompt', 'start_why', 'gather', 'research_state', 'WALK_ID', 'LEELA_ROUTE',
-           'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'PKG', 'RUN_SAY', 'validate_nb_spec',
-           'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
+           'KIND_WAY', 'KEEP_RUN', 'REPLAN_WHAT', 'GROW_AT', 'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST', 'ANSWERS', 'KINDS',
+           'LEVEL_SP', 'SAID', 'STAGES_SP', 'LEFT', 'ASK_KINDS', 'log', 'SUBJECT_LABEL', 'MANY_SENSE', 'TOP',
+           'FOUND_NOTHING', 'NO_QUOTE', 'BIG_ROOT', 'AGENT_DOCS', 'TOOL_TEXT', 'LOG_MOST', 'FILE_BYTES', 'LEAK_WORDS',
+           'FLUSH_ROWS', 'FLUSH_SECS', 'PASSAGE_WORDS', 'STOPPED', 'TIME_UP', 'TEXTS', 'SECRET', 'GATHER_SP', 'LEAD_SP',
+           'LEAD_TOOLS_OWN', 'NO_START', 'NO_START_ANY', 'ELSE', 'START_WHY', 'NONE_FOUND', 'CRASHED', 'plan_prompt',
+           'near_goal', 'chip_docs', 'source_map', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'map_prompt',
+           'walk_map', 'hands_most', 'cap_hands', 'builds_goal', 'hands_count', 'journey_from_source',
+           'journey_from_text', 'nb_file', 'nb_sections', 'nb_text', 'notebook_walk', 'copy_path', 'learning_copy',
+           'journey_from_sources', 'data_row', 'keep_data', 'folder_list', 'with_stop', 'data_entries', 'with_data',
+           'walk_names', 'same_names', 'short_what', 'data_line', 'missing_data', 'walk_from_topic', 'minutes', 'needs',
+           'walk_needs', 'known_how', 'gap_size', 'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail',
+           'back_from', 'for_talk', 'is_open', 'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read',
+           'look_up', 'topic_slug', 'name_gaps', 'split_parts', 'related', 'with_step', 'paper_id', 'same_share',
+           'fresh', 'tutor_note', 'step_meta', 'done_attempt', 'open_short', 'nb_prompt', 'nb_spec', 'leela_found',
+           'leela_back', 'term_line', 'words_to_know', 'edit_lock', 'restore_steps', 'undo_line', 'rewrite',
+           'move_step', 'skip_step', 'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent', 'edit_walk',
+           'undo_walk', 'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages', 'pick_read',
+           'links_in', 'propose', 'kind_check', 'improve_walk', 'plan_again', 'merge_plan', 'replan_walk', 'new_course',
+           'is_goal_walk', 'chip_sources', 'join_course', 'course_of', 'ensure_courses', 'level_prompt',
+           'level_questions', 'read_answer', 'ask_level', 'answer_level', 'level_done', 'stages_prompt', 'walk_started',
+           'stage_stays', 'fix_count', 'plan_stages', 'lock_stage', 'stage_brief', 'build_stage', 'add_data',
+           'drop_data', 'fill_data', 'name_data', 'join_names', 'stage_rows', 'due_stage', 'next_up', 'add_ask',
+           'blocking', 'course_state', 'set_here', 'active_course', 'course_from', 'courses_from', 'go_back',
+           'subject_label', 'vague', 'research_query', 'file_page', 'link_concept', 'wants_source', 'put_step',
+           'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending', 'research_walk', 'Researcher',
+           'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state', 'idea_at', 'idea_no',
+           'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video', 'gather_tools',
+           'gather_prompt', 'start_why', 'gather', 'research_state', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key',
+           'handoff', 'read_handoff', 'HANDOFF_CASES', 'PKG', 'RUN_SAY', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok',
+           'RUN_CASES']
 
 # %% ../nbs/04_path.ipynb #eeb72429
 import json, math, re, random, threading, time, uuid
@@ -1288,19 +1289,22 @@ def _filled(r):
     if not (isinstance(r, dict) and isinstance(r.get('tests'), list)): return r
     return {**r, 'tests': [{'say': f'Test {k}', 'shown': True, **t} if isinstance(t, dict) else t for k, t in enumerate(r['tests'], 1)]}
 
-def nb_spec(lr, ask, j, i:int) -> AttrDict|None:
-    "The notebook spec of step `i` of walk `j`: kept on the step, else written by the model and checked. None when two replies fail; then `nb_why` has the reason."
+def nb_spec(lr, ask, j, i:int, stop=None) -> AttrDict|None:
+    """The notebook spec of step `i` of walk `j`: kept on the step, else written by the model and checked. None when two replies fail; then `nb_why` has the reason.
+    `stop()` is a safe point before each reply and before the save: after Stop it raises, so nothing is kept."""
     s = (lr.journey(j.id) or j).steps[i]
     slug = s['slug']   # the spec goes on the step with this concept, also when you move steps while the model writes
     if s.get('nb'): return AttrDict(s['nb'])
     p, why = nb_prompt(lr, j, i), ''
     for _ in range(2):
+        if stop: stop()
         try:
             r = _filled(ask_json(for_task(ask, 'question'), p + (f'\n\nYour last reply was refused: {why}. Write the spec again.' if why else ''), prompt('walk.notebook')))
             if isinstance(r, dict) and isinstance(r.get('data', []), list):
                 r = same_names(r, walk_names(jj := lr.journey(j.id) or j, i))   # one name for one folder across the walk
                 r = {**r, 'data': with_data(r.get('data'), jj.get('data'))}   # only your data folders, by their names
             spec = validate_nb_spec(r)
+            if stop: stop()
             lr.walk_slug(j.id, slug, nb=spec, nb_why='')
             return AttrDict(spec)
         except ValueError as e: why = str(e)
@@ -1912,6 +1916,48 @@ def improve_walk(lr:Learning, ask, jid:str, changes:list, sources=None, docs:dic
         return ss
     n = len(changes)
     return edit_walk(lr, jid, op, f"{'Fixed the rest of the walk' if fix else 'Improved the walk'}: {n} {'change' if n == 1 else 'changes'}.", who='tutor')
+
+# %% ../nbs/04_path.ipynb #rp02
+def plan_again(lr:Learning, ask, j, sources=None, who:str='', said=None) -> AttrDict:
+    "A new plan of walk `j` from its own source, by the path that made it. The vault does not keep the new walk; its steps are in the result."
+    say, src, tool, sub = said or noop, j.get('source') or {}, bool(j.get('tool')), j.get('subject') or ''
+    say('Reading the source')
+    if src.get('doc_id'): w = journey_from_source(lr, ask, src['doc_id'], src.get('shelf') or 'store', sub, tool)
+    elif src.get('docs'): w = journey_from_sources(lr, ask, [AttrDict(d) for d in src['docs']], j['title'], sub, progress=lambda k, n: say(f'Reading page {k + 1} of {n}'), tool=tool)
+    elif (slugs := [c.slug for c in lr.concepts() if placement(c, j['id'])]):   # a pasted text: its ideas are placed in a document with the id of the walk
+        w = _walk(lr, ask, _new_id(j['title']), j['title'], slugs, j['id'], None, j.get('goal') or f"Read {j['title']}", sub, tool)
+    else: w = walk_from_topic(lr, ask, j.get('goal') or j['title'], who, sources, tool, chips=j.get('chips') or (), data=j.get('data') or ())
+    lr.drop_journey(w.id)
+    return w
+
+# %% ../nbs/04_path.ipynb #rp04
+KEEP_RUN = ('done', 'qid', 'read_at', 'note', 'ladder', 'detours', 'leela_at')   # what you did on an idea: an idea in both plans keeps it
+
+def merge_plan(old:list, new:list) -> list:
+    "The steps of the new plan `new`, with each locked step of `old` as it is, at its old place when it can. An idea in both keeps `KEEP_RUN`."
+    lock, was, out = {s['slug']: k for k, s in enumerate(old) if s.get('locked')}, {s['slug']: s for s in old}, []
+    for s in new:
+        if s['slug'] in lock: continue
+        if (o := was.get(s['slug'])):
+            keep = {k: o[k] for k in KEEP_RUN if k in o}
+            if (o.get('read') or {}).get('text') and not (s.get('read') or {}).get('text'): keep['read'] = o['read']
+            s = {**s, **keep}
+        out.append(dict(s))
+    for slug, k in sorted(lock.items(), key=lambda x: x[1]): out.insert(min(k, len(out)), deepcopy(was[slug]))
+    return out
+
+# %% ../nbs/04_path.ipynb #rp08
+REPLAN_WHAT = 'Made the plan again from its source. Locked ideas stayed.'
+
+def replan_walk(lr:Learning, ask, jid:str, sources=None, who:str='', said=None, plan=None) -> tuple:
+    "Make the plan of walk `jid` again from its source (`plan_again`), keep each locked idea (`merge_plan`), and keep it as one change with an Undo. Return `(walk, history)`."
+    if (j := lr.journey(jid)) is None: raise KeyError(f'No walk {jid!r}.')
+    w = (plan or plan_again)(lr, ask, j, sources, who, said)
+    if not w.steps: raise ValueError('The tutor found no ideas in the source this time. The plan did not change.')
+    if said: said('Saving the new plan')
+    j2, rows = edit_walk(lr, jid, lambda old: merge_plan(old, w.steps), REPLAN_WHAT, who='tutor')
+    if rows is not None: j2 = lr.merge_journey(jid, map=w.get('map'), more=w.get('more') or [])
+    return j2, rows
 
 # %% ../nbs/04_path.ipynb #cs008
 GROW_AT = .6          # the share of the current stage that is done when the next stage is built
@@ -2717,7 +2763,7 @@ def research_walk(lr:Learning, ask, j, ix=None, search=None, fetch=None, stop=No
 def _began(lr:Learning, jid:str):
     "Note on walk `jid` that a research job starts now: it has not ended and nobody stopped it. Its job row (`walk:<id>:research`) runs."
     with _jlock(jid): j = lr.merge_journey(jid, research_start=time.time(), research_beat=time.time(), research_end=None, research_stopped=None)
-    job_start(lr, f'walk:{jid}:research', 'research', title=j.get('title') or 'Walk', said='Looking for sources', url=f'/w/{jid}#sources', obj=f'walk:{jid}', quiet=for_talk(j))
+    job_start(lr, f'walk:{jid}:research', 'research', title=j.get('title') or 'Walk', said='Looking for sources', url=f'/w/{jid}#sources', obj=f'walk:{jid}', quiet=for_talk(j), again=dict(jid=jid))
 
 def _ended(lr:Learning, jid:str, stopped=None):
     """Note on walk `jid` that its research ended now (`stopped`: 'you' or 'time' when it did not end by itself), and that nothing reads now.

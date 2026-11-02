@@ -1,18 +1,18 @@
 "The activity chip in the top bar: what runs now and what ended, each with the link to its page."
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import asset_css, Quiet
-from abhyasa.learner import chip_words
+from abhyasa.core import asset_css, Quiet, JobTools
+from abhyasa.learner import chip_words, STOPPED
 from .cfg import Routes
 
 _P = Path(__file__).parent
-ENDED_WORDS = dict(done='Ready.', closed='It stopped because abhyasa closed.', failed='It did not work.')
+ENDED_WORDS = dict(done='Ready.', closed='It stopped because abhyasa closed.', failed='It did not work.', stopped=STOPPED)
 
 def Row(r):
-    "One job: its title, a link to its page, and what it does now or how it ended."
+    "One job: its title, a link to its page, what it does now or how it ended, and Stop while it runs or Do it again when it can."
     name = A(r.get('title') or 'A job', href=r.url) if r.get('url') else Span(r.get('title') or 'A job')
     line = (r.get('said') if r.state in ('running', 'done') else r.get('why') if r.state == 'failed' else '') or ENDED_WORDS.get(r.state, '')
-    return Li(name, Span(line, cls='mute') if line else '', cls=f'job {r.state}')
+    return Li(name, Span(line, cls='mute') if line else '', JobTools(r), cls=f'job {r.state}')
 
 def Inside(rows):
     "The summary (the chip itself) and the list. Nothing when no job runs and no result is new."

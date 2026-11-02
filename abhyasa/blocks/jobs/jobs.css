@@ -13,3 +13,5 @@
 .activity-list li.failed a, .activity-list li.failed > span:first-child { color: var(--no); }
 @keyframes activity-beat { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .activity > summary.running::before { animation: none; } }
+.activity-list li > button, .activity-list li > .stopping { align-self: flex-start; margin-top: 2px; }
+.activity-list li.stopped a, .activity-list li.stopped > span:first-child { color: var(--ink2); }

@@ -90,7 +90,7 @@ def test_a_load_starts_no_job(mk, lr, walk_fake, monkeypatch):
     assert wait_for(lambda: None if any(r.state == 'running' for r in lr.jobs().values()) else True)
     lr.walk_step(jid, 1, nb_why=None)   # the early job of the new walk had no spec from the fake
     calls = []
-    monkeypatch.setattr('abhyasa.path.nb_spec', lambda *a: calls.append(a))
+    monkeypatch.setattr('abhyasa.path.nb_spec', lambda *a, **kw: calls.append(a))
     for _ in range(2):
         card = cl.get(f'/w/{jid}/1/check').text
         assert 'The notebook is not written yet.' in card and 'Write the notebook' in card and f'hx-post="/w/{jid}/1/check"' in card
@@ -105,7 +105,7 @@ def test_write_the_notebook_is_the_main_action_before_a_spec(mk, lr, walk_fake, 
     cl = mk(); jid = nb_step(cl, lr, spec=None)
     assert wait_for(lambda: None if any(r.state == 'running' for r in lr.jobs().values()) else True)
     lr.walk_step(jid, 1, nb_why=None)
-    monkeypatch.setattr('abhyasa.path.nb_spec', lambda *a: None)
+    monkeypatch.setattr('abhyasa.path.nb_spec', lambda *a, **kw: None)
     main = lambda: {e.get('data-act'): bool(e.get('data-main')) for e in lxml.html.fromstring(cl.get(f'/w/{jid}/1/check').text).xpath('//*[@data-act]')}
     assert main() == {'write-notebook': True, 'open-leela': False}
     assert 'press Open in Leela again' in cl.get(f'/w/{jid}/1/check').text

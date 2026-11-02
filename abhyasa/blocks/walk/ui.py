@@ -4,7 +4,8 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, SourceLinks, TutorWords, source_of, n_of, moved_words, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, UndoBar, HistoryList
+from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, SourceLinks, TutorWords, source_of, n_of, moved_words, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, UndoBar, HistoryList, JobStop, JobAgain, JobTools
+from abhyasa.learner import STOPPED
 from abhyasa.learner import DEPTHS, METHOD_LABELS as LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
 from abhyasa.learner import val
@@ -45,12 +46,18 @@ def build_key(k) -> str:
     "The key of the job row of the walk made from the link or the goal key `k`."
     return 'build:' + hashlib.sha1(str(k).encode()).hexdigest()[:12]
 
-def LinkPending(url, said):
-    "A walk from a link or a goal that is still being made: the card loads again when its job changes (the event stream), or every 30 seconds."
+def LinkPending(url, said, row=None):
+    "A walk from a link or a goal that is still being made, with Stop for its job row `row`: the card loads again when its job changes (the event stream), or every 30 seconds."
     return Div(P(B(said if said.endswith('…') else f'{said}…')),
                P('When the walk is ready, it opens here. You can leave this page. The chip at the top tells you when it is ready. ', A('See the job', href='#activity'), cls='mute'),
+               Div(JobStop(row), cls='row acts') if row is not None else '',
                cls='walk-link pending', style='animation: none', hx_get=f"{Routes.job}?{urlencode(dict(url=url))}", hx_trigger=WAIT, hx_swap='outerHTML', data_job=build_key(url))
 
+
+def LinkEnded(url, line, row, *c):
+    "A walk from a link or a goal that ended with no walk: the line, Plan it again for its job row `row`, and `c` (what Start filed, with its Undo). Plan it again loads the card again."
+    return Div(P(line, cls='req-err'), Div(JobAgain(row, 'Plan it again'), cls='row acts') if row is not None else '', *c,
+               hx_get=f"{Routes.job}?{urlencode(dict(url=url))}", hx_trigger='job', hx_swap='outerHTML', data_job=build_key(url))
 
 def filed_words(f) -> str:
     "`11 notebooks`, `11 notebooks and 3 other files`, or `3 files`: what one filing added."
@@ -449,24 +456,29 @@ def Slot(jid, i, s):
     "The place for the help under a demo check. walk.js fills it after a wrong prediction; a reload fills it when the step has help."
     return Div(id='ladder', cls='ladder', **(dict(hx_get=at(Routes.ladder, jid, i), hx_trigger='load', hx_swap='outerHTML') if s.get('ladder') else {}))
 
-def Ladder(jid, i, ld, demo=None, show=False, pending='', failed='', retry=False, more=False, job=''):
+def Ladder(jid, i, ld, demo=None, show=False, pending='', failed='', retry=False, more=False, job='', stop='', again='Try again'):
     """The help under a demo check after a wrong prediction, as one quiet block with no main button: the lesson in another way (`ld`),
     then a simpler demo. `pending` says what the tutor makes; the block loads again on the event of its job row `job`, and every 30 seconds. `more` adds the quiet button that asks for the simpler demo.
-    `failed` is the plain line after a job failed; `retry` adds a button that POSTs to start the job again."""
+    `failed` is the plain line after a job failed or you stopped it; `retry` adds a button (with the words `again`) that POSTs to start the job again. `stop` is Stop of the job that runs."""
     url = at(Routes.ladder, jid, i)
     out = [Div(Span(f"Lesson · {LABELS[ld['way']].lower()}" if ld.get('way') in LABELS else 'Lesson', cls='lbl'), Md(ld['lesson']),
                Feedback('lesson', aid=ld.get('aid', ''), way=ld.get('way', '')), cls='lesson')] if ld.get('lesson') else []
-    if pending: out.append(P(pending, cls='mute making'))
-    elif failed: out += [P(f'{failed} Read the passage again, or go on to the next idea.', cls='mute'), *([Div(Quiet('Try again', type='button', hx_post=url, hx_target='#ladder', hx_swap='outerHTML'), cls='row acts')] if retry else [])]
+    if pending: out += [P(pending, cls='mute making'), Div(stop, cls='row acts') if stop else '']
+    elif failed: out += [P(f'{failed} Read the passage again, or go on to the next idea.', cls='mute'), *([Div(Quiet(again, type='button', hx_post=url, hx_target='#ladder', hx_swap='outerHTML'), cls='row acts')] if retry else [])]
     elif demo is not None and show: out += [Span('A simpler demo', cls='lbl'), Demo(demo.spec), Feedback('demo', slug=demo.slug)]
     elif more: out.append(Div(Quiet('Show a simpler demo', type='button', hx_post=f'{url}?simpler=1', hx_target='#ladder', hx_swap='outerHTML'), cls='row acts'))
     elif demo is not None: out.append(Div(Span('A simpler demo', cls='lbl'), Quiet('Show a simpler demo', type='button', hx_get=f'{url}?show=1', hx_target='#ladder', hx_swap='outerHTML'), cls='row acts'))
     poll = dict(hx_get=url, hx_trigger=WAIT, hx_swap='outerHTML', data_job=job) if pending else {}
     return Div(*out, id='ladder', cls='ladder' + (' pending' if pending else ''), aria_live='polite', **poll, **({'data_demo': demo.slug} if demo is not None and show else {}))
 
-def Pending(jid, i, s, job=''):
-    "The demo of the step is not ready: the card loads again on the event of its job row `job`, and every 30 seconds."
+def Pending(jid, i, s, job='', row=None):
+    """The demo of the step is not ready: Stop for its job row `row`, or Make it again after you stopped it. The card loads again on the
+    event of its job row `job`, and every 30 seconds."""
+    if row is not None and row.state == 'stopped':
+        return Check(CardHead(s), P(f'{STOPPED} The demo is not made.', cls='mute'), foot=Div(JobAgain(row, 'Make it again'), cls='row acts'),
+                     cls='pending', hx_get=at(Routes.check, jid, i), hx_trigger=WAIT, hx_target='#check', hx_swap='innerHTML', data_job=job)
     return Check(CardHead(s), P('The tutor is making the demo for this idea. This can take a minute. You can read the passage while you wait.', cls='mute'),
+                 foot=Div(JobStop(row), cls='row acts') if row is not None else '',
                  cls='pending', hx_get=at(Routes.check, jid, i), hx_trigger=WAIT, hx_target='#check', hx_swap='innerHTML', data_job=job)
 
 
@@ -496,14 +508,15 @@ def NbGo(jid, i, link=None, spec=True, opened=None):
     return Div(btn('Open in Leela', type='button', hx_get=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML', data_act='open-leela'),
                P(NO_LEELA.format('⌥S' if spec else 'Open in Leela'), ' ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='mute state'), cls='row acts nb-go')
 
-def NbPending(jid, i, link=None, opened=None):
-    "The notebook spec is not written yet: the card loads again when its job ends (the event stream). Leela can open the step now."
-    return Check(NbHead(), P(NB_WRITING, cls='mute making'), foot=NbGo(jid, i, link, spec=False, opened=opened), cls='pending nb-check', aria_live='polite',
+def NbPending(jid, i, link=None, opened=None, row=None):
+    "The notebook spec is not written yet, with Stop for its job row `row`: the card loads again when its job ends (the event stream). Leela can open the step now."
+    return Check(NbHead(), P(NB_WRITING, cls='mute making'), foot=(Div(JobStop(row), cls='row acts') if row is not None else '', NbGo(jid, i, link, spec=False, opened=opened)), cls='pending nb-check', aria_live='polite',
                  hx_get=at(Routes.check, jid, i), hx_trigger=WAIT, hx_target='#check', hx_swap='innerHTML', data_job=f'walk:{jid}')
 
-def NbNotYet(jid, i, link=None, opened=None):
-    "The notebook spec is not written and no job writes it: Write the notebook, the main button, starts the job. Open in Leela is a quiet action."
-    return Check(NbHead(), P(NB_NOT_YET, cls='mute'),
+def NbNotYet(jid, i, link=None, opened=None, stopped=False):
+    """The notebook spec is not written and no job writes it (`stopped`: you stopped the job): Write the notebook, the main button, starts the job.
+    Open in Leela is a quiet action."""
+    return Check(NbHead(), P(f'{STOPPED} {NB_NOT_YET}' if stopped else NB_NOT_YET, cls='mute'),
                  foot=(Div(Primary('Write the notebook', type='button', data_act='write-notebook', hx_post=at(Routes.check, jid, i), hx_target='#check', hx_swap='innerHTML'), cls='row acts'),
                        NbGo(jid, i, link, spec=False, opened=opened)), cls='nb-check')
 
@@ -683,17 +696,23 @@ def WalkEnd(j, st, ms, by, sides=(), due=None, end=(), made=''):
 CHANGE_SAY = 'What should change? For example: make idea 3 simpler, add a demo of the noise schedule, drop the U-Net idea.'
 CHANGE_HELP = 'Enter sends. Shift+Enter starts a new line. The tutor does not change a locked idea. A link in your words becomes a source.'
 
-def ChangeBox(j):
+def ChangeBox(j, out=''):
     """The one box that changes the walk, at the top of the plan. Enter sends and Shift+Enter starts a new line (walk.js). The tutor turns your
-    words into the changes of the editor and makes them at once, as one change with Undo. A locked idea stays as it is."""
+    words into the changes of the editor and makes them at once, as one change with Undo. A locked idea stays as it is. `out` goes under it:
+    the line of Make this walk again while its job runs."""
     return Section(Form(Textarea(name='words', rows='1', maxlength='1000', placeholder=CHANGE_SAY, aria_label='What should change in the walk?', data_enter='1', id='change-words'),
                         P(CHANGE_HELP, cls='mute help'),
                         hx_post=at(Routes.improve, j['id']), hx_target='#change-out', hx_swap='innerHTML', data_wait='The tutor reads what you asked…', cls='change-form'),
-                   Div(id='change-out', aria_live='polite'), id='change', cls='walk-change', data_part='change', data_act='change')
+                   Div(out, id='change-out', aria_live='polite'), id='change', cls='walk-change', data_part='change', data_act='change')
 
-def ImprovePending(jid, key, said):
-    "The box while the tutor works: the line of what it does now. It loads again on each event of its job row `key`, and every 30 seconds."
-    return Div(P(said + '…', cls='mute'), hx_get=f"{at(Routes.improve, jid)}?{urlencode(dict(key=key))}", hx_trigger=WAIT, hx_swap='outerHTML', cls='improve-wait', data_job=key)
+def ImprovePending(jid, key, said, row=None):
+    "The box while the tutor works: the line of what it does now, and Stop for its job row `row`. It loads again on each event of its job row `key`, and every 30 seconds."
+    return Div(P(said + '…', cls='mute'), Div(JobStop(row), cls='row acts') if row is not None else '', hx_get=f"{at(Routes.improve, jid)}?{urlencode(dict(key=key))}", hx_trigger=WAIT, hx_swap='outerHTML', cls='improve-wait', data_job=key)
+
+def ImproveEnded(jid, key, line, row):
+    "The box after the job ended with no change (you stopped it, or it failed): the line, and Do it again for its job row `row`, which loads the box again."
+    return Div(P(line, cls='mute' if row is not None and row.state == 'stopped' else 'req-err'), Div(JobAgain(row), cls='row acts') if row is not None else '',
+               hx_get=f"{at(Routes.improve, jid)}?{urlencode(dict(key=key))}", hx_trigger='job', hx_swap='outerHTML', cls='improve-wait', data_job=key)
 
 KIND_SAYS = dict(demo='a demo', short='a short answer', order='put in order', notebook='a notebook')
 
@@ -767,9 +786,30 @@ def DropWalk(jid):
                    Form(P(DROP_SAYS), Div(Button('Delete the walk', cls='small danger', data_act='drop'), cls='row'),
                         action=at(Routes.drop, jid), method='post', hx_boost='false', cls='drop-confirm'), cls='drop-walk')
 
+REPLAN_SAYS = 'Make the plan of this walk again from its source? Locked ideas stay. Your answers stay.'
+
+def MakeAgain(jid):
+    "Make this walk again, with one confirm in place. The form posts, then the walk page opens with the line of the job, which has Stop."
+    return Details(Summary('Make this walk again', cls='small'),
+                   Form(P(REPLAN_SAYS), Div(Button('Make the walk again', cls='small', data_act='replan'), cls='row'),
+                        action=at(Routes.replan, jid), method='post', hx_boost='false', cls='drop-confirm'), cls='drop-walk replan-walk')
+
+def Replanned(jid, key, r, eid=''):
+    """The line of Make this walk again, for its job row `r` (`key`): what it does now and Stop while it runs, then the end. Done: the line
+    and Undo (`eid`, the change). Stopped or failed: the line and Plan it again. It loads again on each event of its row."""
+    url = f"{at(Routes.replan, jid)}?{urlencode(dict(key=key))}"
+    if r is None: return ''
+    if r.state == 'running':
+        return Div(P((r.get('said') or 'Making the plan again') + '…', cls='mute'), Div(JobStop(r), cls='row acts'), hx_get=url, hx_trigger=WAIT, hx_swap='outerHTML', cls='improve-wait', data_job=key)
+    if r.state == 'done':
+        undo = Quiet('Undo', ' ', Kbd('⌘Z'), small=True, type='button', hx_post=at(Routes.undo, jid), hx_vals=json.dumps(dict(step=eid)), hx_target='#steps', hx_swap='outerHTML', data_act='undo-change') if eid else ''
+        return Div(P('The tutor made the plan again from its source. Locked ideas stayed.', cls='mute'), Div(undo, cls='row') if undo else '', cls='changed', data_job=key)
+    line = f'{STOPPED} The plan did not change.' if r.state == 'stopped' else r.get('why') or 'The tutor could not make the plan again. The plan did not change.'
+    return Div(P(line, cls='mute' if r.state == 'stopped' else 'req-err'), Div(JobAgain(r, 'Plan it again'), cls='row acts'), hx_get=url, hx_trigger='job', hx_swap='outerHTML', cls='improve-wait', data_job=key)
+
 def WalkMenu(j):
-    "The ⋯ menu of a walk, on its page and on its row in the list of walks: Delete this walk."
-    return Details(Summary('⋯', title='More for this walk', aria_label='More for this walk'), Div(DropWalk(j['id']), cls='menu-items'), cls='more-menu walk-menu')
+    "The ⋯ menu of a walk, on its page and on its row in the list of walks: Make this walk again, and Delete this walk."
+    return Details(Summary('⋯', title='More for this walk', aria_label='More for this walk'), Div(MakeAgain(j['id']), DropWalk(j['id']), cls='menu-items'), cls='more-menu walk-menu')
 
 def CopyGo(j, i=None):
     """Open in Leela for notebook walk `j`: one press writes the learning copy (or keeps the one you changed) and opens it in Leela at the
@@ -796,10 +836,10 @@ def Size(j, oob=False):
     mins = sum(minutes(s) for s in j['steps'] if s.get('status') != 'skip')
     return Span(meta(n_of(len(j['steps']), 'idea'), f'about {mins} min' if j['steps'] else ''), id='walk-size', **({'hx_swap_oob': 'true'} if oob else {}))
 
-def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), actions=(), vault=None, lead='', copy=''):
+def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), actions=(), vault=None, lead='', copy='', change=''):
     """One page for one walk. The head says what the walk is, with its ⋯ menu (Delete this walk) and, for a notebook walk, Learn the notebook in Leela.
     Then the part of its state (`phase`): Start the walk, where you are, the end of the walk (`top`, the `WalkEnd`), or Back to the paper.
-    Then the box that changes the walk, the plan (`plan`), the sources (`band`, `more`) and the talks."""
+    Then the box that changes the walk (with `change` under it), the plan (`plan`), the sources (`band`, `more`) and the talks."""
     src, ph = j.get('source') or {}, phase(j, st)
     whence = lead or (f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', ''))
     claim = ' '.join(str((j.get('map') or {}).get('claim') or '').split())   # the one thing that the source shows, from the walk map
@@ -809,7 +849,7 @@ def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), act
     if ph == 'empty': return (*head, P('The tutor found no ideas in this source.', cls='mute'), Filed(j), Div(Primary('Home', href='/', data_act='home'), cls='row'))   # what Start filed keeps its Undo
     if ph == 'new': top = Div(Form(Primary('Start the walk', data_wait='Starting…', data_act='start'), action=at(Routes.start, j['id']), method='post'), cls='row walk-top')
     elif ph == 'going': top = Here(j, st, by)
-    return (*head, top, '' if ph == 'side' else ChangeBox(j), plan, Sources(j, band, more), '' if ph == 'side' else Talks(talks, changed, actions))
+    return (*head, top, '' if ph == 'side' else ChangeBox(j, change), plan, Sources(j, band, more), '' if ph == 'side' else Talks(talks, changed, actions))
 
 def InWalks(c, rows, js):
     "On a concept page: the walks that have idea `c` (`(walk, index)`), each linked to its idea, and a way to add it to another walk."

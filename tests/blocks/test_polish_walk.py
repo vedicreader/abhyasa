@@ -121,6 +121,7 @@ def test_the_check_head_names_the_way_one_time():
 def test_the_walk_page_says_what_it_is_for(mk, walk_fake, lr):
     "The walk page shows the claim of the walk map as its main idea, and each idea of the plan shows the key question that it answers."
     cl = mk(); jid = walk(cl, lr)
+    wait_for(lambda: all(r.state != 'running' for r in lr.jobs().values()) or None)   # the notebook job of the walk ends first, so it does not write over this change
     j = lr.journey(jid)
     lr.put_journey({**j, 'map': dict(claim='Attention lets each word look at every other word at once.', ideas=[]),
                     'steps': [{**j.steps[0], 'question': 'Why can a model not run the positions of one example in parallel?'}, *j.steps[1:]]})

@@ -253,7 +253,7 @@ def b_idea_notebook(lr, cl, mp): return f'/w/{needs_data(lr, cl)}/1', {}
 def b_idea_notebook_no_spec(lr, cl, mp):
     "A started paper walk whose step 1 is a notebook check with no spec: no job writes it, and a load starts none."
     jid = started(cl, paper(lr, cl))
-    mp.setattr('abhyasa.path.nb_spec', lambda *a: None)
+    mp.setattr('abhyasa.path.nb_spec', lambda *a, **kw: None)
     lr.walk_step(jid, 1, check=dict(way='code', kind='notebook', depth=4, why=''), nb=None, nb_why=None)
     return f'/w/{jid}/1', {}
 

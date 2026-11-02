@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, wait as wait_all
 from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import is_local, n_of, Page, NotFound, short_title, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
+from abhyasa.core import is_local, n_of, Page, NotFound, short_title, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar, JobStop
 from abhyasa.core.leela import leela_line, leela_link, leela_open, LEELA_INSTALL, LEELA_OFF
 from abhyasa.learner import val, set_val
 from abhyasa.sources import detect, vault_title, transcript_read
@@ -20,9 +20,9 @@ from abhyasa.path import tutor_note, words_to_know, done_attempt, open_short, st
 import abhyasa.path as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.show   # adds Learning.talks: the editor links the talks made from a walk
 from abhyasa.show import walk_changes
-from abhyasa.path import edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, CTRL, links_in, propose, improve_walk, lock_step
+from abhyasa.path import edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, CTRL, links_in, propose, improve_walk, lock_step, replan_walk
 from abhyasa.path import to_research, wants_source, want_agent, research_state, learning_copy, copy_path
-from abhyasa.learner import job_start, job_end, track, Said, seen_jobs
+from abhyasa.learner import job_start, job_end, track, Said, seen_jobs, check_stop, halted as job_halted, STOPPED, JobStopped
 from abhyasa.tutor import NoLesson
 from abhyasa.show import queue_demo, job_state, job_age, job_key, rung, backed, other_way, demo_lesson, simpler_demo, said, show_ask
 from . import ui
@@ -181,6 +181,7 @@ def connect(app, ctx):
     def ahead(j, i):
         "Start the demo of step `i` when its check is a demo or an order, it has no outcome, and it has no demo yet (spec 6.5)."
         if not 0 <= i < len(j.steps) or (s := j.steps[i]).get('done') or s['check']['kind'] not in AIM or demo(s): return
+        if job_state(tutor, s['slug'], AIM[s['check']['kind']]) == 'stopped': return   # you stopped it: only Make it again starts it
         queue_demo(tutor, s['slug'], aim=AIM[s['check']['kind']], quiet=True)   # the page shows its wait; the chip does not list it
 
     def no_demo(j, i):
@@ -188,7 +189,8 @@ def connect(app, ctx):
         s = j.steps[i]
         slug, aim = s['slug'], AIM[s['check']['kind']]
         if job_state(tutor, slug, aim) == 'none': ahead(j, i)
-        if job_state(tutor, slug, aim) == 'running' and job_age(tutor, slug, aim) < val('walks.demo_wait'): return ui.Pending(j.id, i, s, job=job_key(slug, aim))
+        if job_state(tutor, slug, aim) == 'stopped' or (job_state(tutor, slug, aim) == 'running' and job_age(tutor, slug, aim) < val('walks.demo_wait')):
+            return ui.Pending(j.id, i, s, job=job_key(slug, aim), row=lr.job(job_key(slug, aim)))   # Stop while it runs; Make it again after Stop
         put(j, i, check=dict(short_check(lr, lr.concept(slug))))
 
     def no_check(j, i):
@@ -245,9 +247,10 @@ def connect(app, ctx):
         with nb_lock:
             j = walk_of(jid, i)
             if not j or nb_writing(jid, i) or j.steps[i].get('nb') or j.steps[i]['check']['kind'] != 'notebook': return
-            slug = j.steps[i]['slug']
-            nb_jobs[jid, slug] = track(lr, f'walk:{jid}:nb:{slug}', ctx.research.pool.submit(walk_engine.nb_spec, lr, ask, j, i), 'notebook',   # nb_spec writes to the step by its concept
-                                       title=f"The notebook of {(lr.concept(slug) or {}).get('name', slug)}", said=ui.NB_WRITING, url=ui.at(Routes.step, jid, i), obj=f'walk:{jid}', quiet=True)
+            slug = j.steps[i]['slug']; key = f'walk:{jid}:nb:{slug}'
+            nb_jobs[jid, slug] = track(lr, key, lambda: ctx.research.pool.submit(walk_engine.nb_spec, lr, ask, j, i, stop=lambda: check_stop(lr, key)), 'notebook',   # nb_spec writes to the step by its concept
+                                       title=f"The notebook of {(lr.concept(slug) or {}).get('name', slug)}", said=ui.NB_WRITING, url=ui.at(Routes.step, jid, i), obj=f'walk:{jid}', quiet=True,
+                                       again=dict(jid=jid, slug=slug))
 
     def with_folders(j, i):
         "Walk `j` with each of its data folders in the notebook spec of step `i`: a folder that you added after the tutor wrote the spec joins it, so Leela gets it."
@@ -261,9 +264,10 @@ def connect(app, ctx):
         j = with_folders(j, i)
         s, link = j.steps[i], leela_link(j, i, vault=vault)
         if s.get('nb'): return ui.NotebookCard(j.id, i, s, link)
-        if nb_writing(j.id, i): return ui.NbPending(j.id, i, link, s.get('leela_at'))
+        r = lr.job(f"walk:{j.id}:nb:{s['slug']}")
+        if nb_writing(j.id, i): return ui.NbPending(j.id, i, link, s.get('leela_at'), row=r)
         if s.get('nb_why'): return ui.NbFailed(j.id, i, s['nb_why'], link, s.get('leela_at'))
-        return ui.NbNotYet(j.id, i, link, s.get('leela_at'))
+        return ui.NbNotYet(j.id, i, link, s.get('leela_at'), stopped=r is not None and r.state == 'stopped')   # Write the notebook starts it again
 
     def from_leela(j, i, back=None):
         """The card "From Leela" of step `i`, or None. A done step, and a notebook step that is not done, get Next idea and the link to the lesson:
@@ -295,14 +299,20 @@ def connect(app, ctx):
     def from_link(url, pages, st, tool=False, subject=''):
         "On the pool: file the pages of `url`, then read each page and make one walk. Return the walk id. A paper is one document, read in full."
         docs = file_link(lr, url, pages)
+        st.update(said=st.said)   # a safe point: after Stop, the pages are filed but no walk is made
         said = (lambda k, n: paper_said(docs)) if is_paper(url) else (lambda k, n: f"Reading {k + 1} of {n_of(n, 'page')}…")
-        j = journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=said(k, n)), tool=tool, subject=subject)
+        j = kept(journey_from_sources(lr, ask, docs, progress=lambda k, n: st.update(said=said(k, n)), tool=tool, subject=subject), st)
         run_hook('concepts_added')   # the concepts block places the new concepts on the pool
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no ideas on these pages.')
         write_notebooks(j)
         return j.id
+
+    def kept(j, st):
+        "Walk `j` that the job of `st` made; after Stop, the walk goes and the job ends here."
+        if job_halted(lr, st._key): lr.drop_journey(j.id); check_stop(lr, st._key)
+        return j
 
     def retitle(jid):
         "On the pool: give a walk named by an arXiv id the title of its paper. A failure of the network keeps the id."
@@ -317,13 +327,13 @@ def connect(app, ctx):
         if not st or st.job.done():
             paper = is_paper(url)   # one paper: the count of pages to read does not apply
             st = links[url] = Said(lr, ui.build_key(url), said='Reading the paper…' if paper else 'Getting the pages from the link…')
-            st.job = built(url, ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() and not paper else None, st, tool, subject),
-                           f'A walk from {url}', st.said)
-        return ui.LinkPending(url, st.said)
+            st.job = built(url, lambda: ctx.pool.submit(from_link, url, int(pages) if str(pages).strip().isdigit() and not paper else None, st, tool, subject),
+                           f'A walk from {url}', st.said, again=dict(url=url, pages=str(pages or ''), tool=bool(tool), subject=subject))
+        return ui.LinkPending(url, st.said, lr.job(ui.build_key(url)))
 
-    def built(k, fut, title, said):
-        "Give the pool job `fut` that makes a walk its job row: running, then `done` with the link of the walk, or `failed` with the reason."
-        return track(lr, ui.build_key(k), fut, 'build', title=title, said=said,
+    def built(k, fut, title, said, again=None):
+        "Give the pool job `fut` that makes a walk its job row: running, then `done` with the link of the walk, or `failed` with the reason. `again` keeps its inputs."
+        return track(lr, ui.build_key(k), fut, 'build', title=title, said=said, again=again,
                      ok=lambda jid: dict(url=ui.at(Routes.one, jid), obj=f'walk:{jid}', title=(lr.journey(jid) or {}).get('title') or title, said='The walk is ready.'),
                      why=lambda e: str(e) if isinstance(e, LinkError) else NO_LINK)
 
@@ -369,7 +379,9 @@ def connect(app, ctx):
         join(jid, i, o)
 
     def join(jid, i, o):
-        "The chip `i` that `file_one` filed as `o` joins walk `jid`."
+        "The chip `i` that `file_one` filed as `o` joins walk `jid`. After Stop on the filing, it does not join; what it filed keeps its Undo."
+        key = f'walk:{jid}:filing'
+        if (lr.job(key) or {}).get('halt'): o = AttrDict(o, bad=True, notes=[])   # you stopped the filing: the chip leaves the walk
         with _jlock(jid):
             if not (j := lr.journey(jid)): return
             chips = [x for x in j.get('chips') or () if not (o.get('bad') and x == i)]
@@ -378,7 +390,8 @@ def connect(app, ctx):
                             'chip_counts': {**(j.get('chip_counts') or {}), **({i: len(o.docs)} if 'docs' in o else {})},
                             'filed': [*(j.get('filed') or ()), *([o.filed] if o.get('filed') else [])],
                             'notes': [n for n in j.get('notes') or () if n != still(i)] + o.notes})
-            if not lr.journey(jid).get('filing'): job_end(lr, f'walk:{jid}:filing', said='The sources are filed.')   # the last one is in
+            if not lr.journey(jid).get('filing') and (r := lr.job(key)) is not None and r.state == 'running':   # the last one is in
+                job_end(lr, key, 'stopped', said=STOPPED) if r.get('halt') else job_end(lr, key, said='The sources are filed.')
 
     @hook('walk_add_sources')
     def add_sources(jid, ids):
@@ -387,9 +400,9 @@ def connect(app, ctx):
             if not (j := lr.journey(jid)): return []
             new = [i for i in dict.fromkeys(ids) if i and i not in (j.get('chips') or ()) and i not in (j.get('filing') or ())]
             if new:
-                lr.put_journey({**j, 'filing': [*(j.get('filing') or ()), *new]})
-                job_start(lr, f'walk:{jid}:filing', 'filing', title=j.title, said=f"Filing {n_of(len(new) + len(j.get('filing') or ()), 'source')}",
-                          url=ui.walk_url(jid, 'sources'), obj=f'walk:{jid}', quiet=for_talk(j))
+                lr.put_journey({**j, 'filing': (now := [*(j.get('filing') or ()), *new])})
+                job_start(lr, f'walk:{jid}:filing', 'filing', title=j.title, said=f"Filing {n_of(len(now), 'source')}",
+                          url=ui.walk_url(jid, 'sources'), obj=f'walk:{jid}', quiet=for_talk(j), again=dict(jid=jid, ids=now))
         for i in new: filer.submit(file_one, i, AttrDict(said='')).add_done_callback(lambda f, i=i: joined(jid, i, f))
         return new
 
@@ -428,6 +441,7 @@ def connect(app, ctx):
         if not j.steps:
             lr.drop_journey(j.id)
             raise LinkError('The tutor found no steps for this goal.' if goal else 'The tutor found no ideas in these sources.')
+        kept(j, st)
         j = lr.merge_journey(j.id, filed=filed, notes=notes, chips=list(ids), chip_counts=counts, filing=late, **({'data': rows} if rows else {}))
         for i in late: jobs[i].add_done_callback(lambda f, i=i: joined(j.id, i, f))   # it can be done now: then it joins at once
         if goal:
@@ -443,8 +457,9 @@ def connect(app, ctx):
         st = links.get(key)
         if not st or st.job.done():
             st = links[key] = Said(lr, ui.build_key(key), said='Planning the walk')
-            st.job = built(key, ctx.pool.submit(from_goal, goal, ids, st, subject, data), goal or 'A walk through your sources', st.said)
-        return ui.LinkPending(key, st.said)
+            st.job = built(key, lambda: ctx.pool.submit(from_goal, goal, ids, st, subject, data), goal or 'A walk through your sources', st.said,
+                           again=dict(goal=goal, ids=list(ids), subject=subject, data=list(data)))
+        return ui.LinkPending(key, st.said, lr.job(ui.build_key(key)))
 
     def data_drop(jid:str, path:str=''):
         "Remove one data folder: from the course of the walk and each of its walks, else from the walk. The folder stays on the disk."
@@ -473,9 +488,11 @@ def connect(app, ctx):
     def job(url:str=''):
         "The state of the walk from `url`: the pending card, a redirect to the walk when it is ready, or a message."
         if not (st := links.get(url.strip())): return P('No walk is being made from this link. Send the form again.', cls='req-err')
-        if not st.job.done(): return ui.LinkPending(url.strip(), st.said)
-        if (e := st.job.exception()):   # never the words of a library; what Start filed keeps its Undo
-            return Div(P(str(e) if isinstance(e, LinkError) else NO_LINK, cls='req-err'), ui.Filed(dict(id='', filed=st.get('filed')), job=url.strip()))
+        r = lr.job(ui.build_key(url.strip()))
+        if not st.job.done(): return ui.LinkPending(url.strip(), st.said, r)
+        if (e := st.job.exception()) or (r is not None and r.state == 'stopped'):   # never the words of a library; what Start filed keeps its Undo
+            line = f'{STOPPED} No walk was made.' if isinstance(e, JobStopped) or (r is not None and r.state == 'stopped') else str(e) if isinstance(e, LinkError) else NO_LINK
+            return ui.LinkEnded(url.strip(), line, r, ui.Filed(dict(id='', filed=st.get('filed')), job=url.strip()))
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
     def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str='',
@@ -549,7 +566,7 @@ def connect(app, ctx):
         plan_ = ui.PlanPart(j, b, nb_now(j)) if j.steps and not for_talk(j) else ''
         page = ui.WalkPage(j, st, b, plan_, band(j, plan=True), top=top, more=run_hook('walk_plan_more', j), talks=ts,
                            changed={t['id'] for t in ts if any(walk_changes(lr, t).values())}, actions=run_hook('walk_actions', j, quiet=True), vault=vault,
-                           lead=ui.side_lead(j, b, bk), copy=str(copy_path(lr.vault.assets(), j)) if (j.get('notebook') or {}).get('path') else '')
+                           lead=ui.side_lead(j, b, bk), copy=str(copy_path(lr.vault.assets(), j)) if (j.get('notebook') or {}).get('path') else '', change=replan_part(jid))
         return Page(j.title, *page, on='Home', crumbs=up, extra=(*edit_assets(), *ui.assets()), wide=True)
 
     def start(jid:str):
@@ -738,6 +755,7 @@ def connect(app, ctx):
         a = first(x for x in lr.attempts(slug) if x.id == ld.get('aid'))
         def job():
             if not (text := demo_lesson(tutor, a, ld['way'])) or isinstance(text, NoLesson): return False   # an empty lesson or the fallback note is a failure
+            check_stop(lr, f'lesson:{slug}')   # after Stop, the lesson is not kept
             with writing[jid, slug]:   # by its concept: the step can move while the lesson is written
                 st = first(x for x in (lr.journey(jid) or {}).get('steps') or () if x['slug'] == slug)
                 if st is not None: lr.walk_slug(jid, slug, ladder={**(st.get('ladder') or {}), 'lesson': text})
@@ -745,7 +763,7 @@ def connect(app, ctx):
         c = lr.concept(slug)
         if a is not None:   # one rung of the ladder: a quiet row, so it does not crowd the chip
             tutor.jobs[k] = track(lr, f'lesson:{slug}', lambda: ctx.pool.submit(job), 'lesson', title=f"Lesson: {c.name if c else slug}", said='Writes a lesson in another way',
-                                  url=ui.at(Routes.step, jid, i), obj=f'walk:{jid}', quiet=True,
+                                  url=ui.at(Routes.step, jid, i), obj=f'walk:{jid}', quiet=True, again=dict(jid=jid, slug=slug),
                                   ok=lambda r: dict(said='The lesson is ready.') if r else dict(state='failed', why='The tutor could not write a lesson this time.'))
 
     def climb(jid, i, a):
@@ -770,14 +788,16 @@ def connect(app, ctx):
         if ld['rung'] == 1 and not ld.get('asked'):
             if ld.get('lesson') or stop: return ui.Ladder(jid, i, ld, more=not ld.get('simple'))   # after "Too simple", no link to a simpler demo
             jb = tutor.jobs.get(f'{slug}:lesson')
-            if jb is not None and not jb.done(): return ui.Ladder(jid, i, ld, pending='The tutor is writing a lesson in another way. You can read the passage while you wait.', job=f'lesson:{slug}')
+            if jb is not None and not jb.done(): return ui.Ladder(jid, i, ld, pending='The tutor is writing a lesson in another way. You can read the passage while you wait.', job=f'lesson:{slug}', stop=JobStop(lr.job(f'lesson:{slug}')))
             lost = first(x for x in lr.attempts(slug) if x.id == ld.get('aid')) is None   # no attempt: a new job cannot help
+            if (r := lr.job(f'lesson:{slug}')) is not None and r.state == 'stopped': return ui.Ladder(jid, i, ld, failed=STOPPED, retry=not lost, again='Do it again')
             return ui.Ladder(jid, i, ld, failed='The tutor could not write a lesson this time.', retry=not lost)
         # the simpler demo: after the second wrong prediction, or when you asked for it
         if (d := lr.demo_for(slug, aim='simpler')) and not said(lr, slug, 'unclear'): return ui.Ladder(jid, i, ld, demo=d, show=bool(show) or bool(ld.get('asked')))   # after "Not clear", a new one
         st = job_state(tutor, slug, 'simpler')
         if stop and st != 'failed': return ui.Ladder(jid, i, ld)
-        if st == 'running': return ui.Ladder(jid, i, ld, pending='The tutor is making a simpler demo of this idea. You can read the passage while you wait.', job=job_key(slug, 'simpler'))
+        if st == 'running': return ui.Ladder(jid, i, ld, pending='The tutor is making a simpler demo of this idea. You can read the passage while you wait.', job=job_key(slug, 'simpler'), stop=JobStop(lr.job(job_key(slug, 'simpler'))))
+        if st == 'stopped': return ui.Ladder(jid, i, ld, failed=STOPPED, retry=True, again='Make it again')
         return ui.Ladder(jid, i, ld, failed='The tutor could not make a simpler demo this time.', retry=True)
 
     def ladder(jid:str, i:int, show:str=''):
@@ -1047,21 +1067,85 @@ def connect(app, ctx):
         key = f'improve:{jid}:' + hashlib.sha1(words.encode()).hexdigest()[:12]
         if not (st := links.get(key)) or st.job.done():
             st = links[key] = Said(lr, key, said=FIXING if fix else 'The tutor reads what you asked')
-            st.job = track(lr, key, lambda: ctx.pool.submit(improve_job, jid, words, st, fix), 'improve', title=f'Change the walk: {j.title}', said=st.said,
+            st.job = track(lr, key, lambda: ctx.pool.submit(improve_job, jid, words, st, fix), 'improve', title=f'Change the walk: {j.title}', said=st.said, again=dict(jid=jid, words=words),
                            url=ui.walk_url(jid, 'change'), obj=f'walk:{jid}', ok=lambda r: dict(said='The tutor changed the walk.' if r[0] else 'The tutor found nothing to change.'),
                            why=lambda e: 'The tutor could not change the walk.')
-        return ui.ImprovePending(jid, key, st.said)
+        return ui.ImprovePending(jid, key, st.said, lr.job(key))
 
     def proposal(jid:str, key:str=''):
         "The box as it is now: the pending line, or what changed with Undo (and the plan, out of band), or a plain line when the tutor could not. A GET only reads."
         if not key.startswith(f'improve:{jid}:') or not (st := links.get(key)): return P('This change is gone. Write it again.', cls='mute')
-        if not st.job.done(): return ui.ImprovePending(jid, key, st.said)
-        if (e := st.job.exception()):
+        r = lr.job(key)
+        if not st.job.done(): return ui.ImprovePending(jid, key, st.said, r)
+        if isinstance(e := st.job.exception(), JobStopped) or (r is not None and r.state == 'stopped'): return ui.ImproveEnded(jid, key, f'{STOPPED} Nothing changed.', r)
+        if e:
             log.warning('the tutor could not change %s: %r', jid, e)
-            return P('The tutor could not change the walk. Nothing changed. Try again.', cls='req-err')
+            return ui.ImproveEnded(jid, key, 'The tutor could not change the walk. Nothing changed.', r)
         cs, eid = st.job.result()
         if not (j := walk_of(jid)): return Response(status_code=404)
         return ui.Changed(jid, cs, by(), eid), *(view(j, oob=True) if cs else ())
+
+    # --- Make this walk again: the job that plans the walk again from its source; locked ideas stay, and one Undo takes it back -----
+
+    def replan_key(jid): return f'walk:{jid}:replan'
+
+    def replan_job(jid, st):
+        "On the pool: plan walk `jid` again from its source, keep its locked ideas, and save it as one change. Then look for sources of the new ideas. The id of the change."
+        old = {s['slug'] for s in lr.journey(jid).steps}
+        j2, rows = replan_walk(lr, ask, jid, ctx.sources, profile_text(lr.profile()), said=lambda x: st.update(said=x))
+        run_hook('concepts_added')
+        queue_new(j2, old)
+        return rows[0].id if rows else ''
+
+    def replan(jid:str):
+        "Make this walk again: start the job, unless it runs, then open the walk page at the box, where its line has Stop."
+        if not (j := walk_of(jid)) or for_talk(j): return missing()
+        key = replan_key(jid)
+        if not (st := links.get(key)) or st.job.done():
+            st = links[key] = Said(lr, key, said='Making the plan again')
+            st.job = track(lr, key, lambda: ctx.pool.submit(replan_job, jid, st), 'replan', title=f'Make the walk again: {j.title}', said=st.said,
+                           url=ui.walk_url(jid, 'change'), obj=f'walk:{jid}', again=dict(jid=jid), ok=lambda eid: dict(said='The tutor made the plan again.', eid=eid),
+                           why=lambda e: str(e) if isinstance(e, ValueError) else 'The tutor could not make the plan again. The plan did not change.')
+        return RedirectResponse(ui.walk_url(jid, 'change'), status_code=303)
+
+    def replan_part(jid):
+        "The line of Make this walk again on the walk page: while its job runs, and for 10 minutes after it ended in this run of the app."
+        r = lr.job(key := replan_key(jid))
+        if r is None or (r.state != 'running' and (key not in links or time.time() - (r.get('end') or 0) > 600)): return ''
+        return ui.Replanned(jid, key, r, r.get('eid') or '')
+
+    def replan_state(jid:str, key:str=''):
+        "The line of Make this walk again as it is now; when it is done, the plan comes too, out of band. A GET only reads."
+        if not (j := walk_of(jid)) or key != replan_key(jid): return Response(status_code=404)
+        r = lr.job(key)
+        out = ui.Replanned(jid, key, r, (r or {}).get('eid') or '')
+        return (out, *view(j, oob=True)) if r is not None and r.state == 'done' else out
+
+    @hook('job_stop')
+    def stop_job_of(r):
+        "Stop in the jobs list on research: the research of the walk stops as with its own Stop. Other jobs of the walk stop at their next safe point."
+        if r.get('kind') == 'research' and (jid := (r.get('obj') or '')[5:]): ctx.research.stop(jid); return True
+        return None
+
+    @hook('job_again')
+    def again_of(r):
+        "Do it again on a job of a walk: the same job with the inputs that its row kept."
+        a, k = r.get('again'), r.get('kind')
+        if not isinstance(a, dict): return None
+        jid = a.get('jid') or ''
+        if k == 'build' and a.get('url'): link_walk(a['url'], a.get('pages') or '', bool(a.get('tool')), a.get('subject') or '')
+        elif k == 'build' and 'ids' in a: goal_walk(a.get('goal') or '', a.get('ids') or [], a.get('subject') or '', a.get('data') or ())
+        elif not walk_of(jid): return None
+        elif k == 'research': again(jid)
+        elif k == 'replan': replan(jid)
+        elif k == 'improve': improve(jid, a.get('words') or '')
+        elif k == 'filing': add_sources(jid, a.get('ids') or [])
+        elif k in ('notebook', 'lesson') and (i := next((n for n, s in enumerate(lr.journey(jid).steps) if s['slug'] == a.get('slug')), None)) is not None:
+            if k == 'notebook': nb_again(jid, i)
+            elif lr.journey(jid).steps[i].get('ladder'): lesson_job(jid, i, a['slug'])
+            else: return None
+        else: return None
+        return True
 
     def drop(jid:str):
         """Delete walk `jid`: its plan, its history of changes, and its side walks (they belong to its ideas, so they go with it).
@@ -1147,6 +1231,8 @@ def connect(app, ctx):
     app.post(Routes.restore)(restore)
     app.post(Routes.improve)(improve)
     app.get(Routes.improve)(proposal)
+    app.post(Routes.replan)(replan)
+    app.get(Routes.replan)(replan_state)
     app.post(Routes.drop)(drop)
     app.post(Routes.notebook)(open_notebook)
     app.get(Routes.gather_log)(gather_log)

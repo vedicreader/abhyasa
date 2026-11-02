@@ -3,8 +3,9 @@ import os, json
 from pathlib import Path
 from fasthtml.common import *
 from fasthtml.svg import Svg, Path as SvgPath, Circle as SvgCircle, Rect as SvgRect, Ellipse as SvgEllipse
-from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say, Choice, HelpLine
+from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say, Choice, HelpLine, JobTools
 from abhyasa import models as voice
+from abhyasa.learner import STOPPED
 from abhyasa.learner import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped, dropped_roots
 from .cfg import Routes
 
@@ -184,9 +185,9 @@ def Speech(sp, key, oob=False):
         Known(cur, s, key),
         Span(Spin('switching…'), id='use-sp'), id='speech', **(dict(hx_swap_oob='true') if oob else {}))
 
-def SpeechGroup(sp, key, jobs, n):
+def SpeechGroup(sp, key, jobs, n, rows=None):
     "Speech to text: the model in use and the model table, cut at pauses, then the pauses, the model search and the OpenAI key under More."
-    return RowGroup('stt', n, lambda r: val(r.name), extra=(Speech(sp, key), Jobs(jobs)), more_extra=(Lookup(), Key()))
+    return RowGroup('stt', n, lambda r: val(r.name), extra=(Speech(sp, key), Jobs(jobs, rows=rows)), more_extra=(Lookup(), Key()))
 
 # --- the speaking voice ----------------------------------------------------------------------------------------------
 OUT_LABEL = dict(pocket='Pocket TTS', openai='OpenAI', browser='The browser')
@@ -279,17 +280,20 @@ def job_line(j) -> str:
         return f'Downloading {n}: {size(done) or "0 MB"}' + (f' of {size(tot)} ({min(done / tot, 1):.0%})' if tot else '')
     if j.state == 'loading': return f'Loading {n} into memory…'
     if j.state == 'failed': return f'{n} failed: {j.error}'
+    if j.state == 'stopped': return f'{n}: {STOPPED}'
     return f'{n} is ready and in use.'
 
-def Job(j): return Li(job_line(j), cls='no' if j.state == 'failed' else 'ok' if j.state == 'done' else None)
+def Job(j, row=None):
+    "One progress line, with Stop for its job row `row` while it runs, or Download it again after you stopped it."
+    return Li(job_line(j), ' ', JobTools(row, 'Download it again') if row is not None else '', cls='no' if j.state == 'failed' else 'ok' if j.state == 'done' else None)
 
 def job_key(model) -> str: return f'download:{model}'
 
-def Jobs(jobs, oob=False):
-    "Progress lines. While a download runs, they load again on each event of its job row (a new line, the end), and every 30 seconds."
+def Jobs(jobs, oob=False, rows=None):
+    "Progress lines, each with the controls of its job row in `rows`. While a download runs, they load again on each event of its job row (a new line, the end), and every 30 seconds."
     run = [m for m, j in jobs.items() if j.state in ('downloading', 'loading')]
-    poll = dict(hx_get=Routes.jobs, hx_trigger='job, every 30s', hx_swap='outerHTML', data_job=' '.join(map(job_key, run))) if run else {}
-    return Div(Ul(*[Job(j) for j in jobs.values()], cls='plain jobs') if jobs else '', id='jobs', **poll, **(dict(hx_swap_oob='true') if oob else {}))
+    poll = dict(hx_get=Routes.jobs, hx_trigger='job, every 30s', hx_swap='outerHTML', data_job=' '.join(map(job_key, run))) if run else dict(hx_get=Routes.jobs, hx_trigger='job', hx_swap='outerHTML') if jobs else {}   # Download it again loads them again
+    return Div(Ul(*[Job(j, (rows or {}).get(m)) for m, j in jobs.items()], cls='plain jobs') if jobs else '', id='jobs', **poll, **(dict(hx_swap_oob='true') if oob else {}))
 
 def Found(rows, cur):
     "The models that Hugging Face gives for the search."

@@ -23,6 +23,10 @@ the walk page and the course page use it).
 `guide_board(page, board)` (the screen guide drew `board` on the page at the path `page`, which shows a check: the walk block counts it
 as one hint on the open check of that step, and gives the line for the check).
 
+The jobs: `job_stop(row)` (Stop in the jobs list on the running job `row`: a block with its own way to stop, such as research or a sort,
+stops it; every job also stops at its next safe point) and `job_again(row)` (Do it again on the ended job `row`: the block of its `kind` starts
+the same job with the inputs on the row, `row.again`, and gives True).
+
 The start: `app_start()` (once, after the app connected its blocks and closed the old job rows: a block starts its jobs of the start on the pool,
 such as the walk block, which makes the old paths walks).
 

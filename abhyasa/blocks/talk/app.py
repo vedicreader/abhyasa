@@ -19,7 +19,7 @@ from abhyasa.path import edit_lock, CTRL, rewrite as tutor_rewrite
 from abhyasa.sources import figure_path
 from abhyasa.path import needs, pick_way_down, detour, walk_from_topic, for_talk, step_read
 from abhyasa.models import for_task
-from abhyasa.learner import val, lines, track, seen_jobs
+from abhyasa.learner import val, lines, track, seen_jobs, check_stop, halted, JobStopped, STOPPED
 from abhyasa.show import (check_talk, talk_from_walk, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST,
     QUESTIONS_MIN, public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go,
     log_main, end_run, log_beside, recap, recap_html, BEATS, FILLED, clean_slide, talk_again, walk_changes, AGAIN,
@@ -234,10 +234,10 @@ def connect(app, ctx):
 
     def ask(): return for_task(ctx.ask, 'talk')   # on each call, so a change in Settings works at once
 
-    def make_job(key, f, title, said, url):
+    def make_job(key, f, title, said, url, again=None):
         """Start the pool job `f` that gives a talk id, with its row `talk:<key>`. When it ends, the row links to the talk, and opening the talk
-        is seeing it. The row is not quiet: a talk takes a minute, so the activity chip lists it."""
-        jobs[key] = track(lr, f'talk:{key}', lambda: ctx.pool.submit(f), 'talk', title=title, said=said, url=url, obj=f'talk:{key}',
+        is seeing it. The row is not quiet: a talk takes a minute, so the activity chip lists it. `again` keeps the inputs for Do it again."""
+        jobs[key] = track(lr, f'talk:{key}', lambda: ctx.pool.submit(f), 'talk', title=title, said=said, url=url, obj=f'talk:{key}', again=again,
                           ok=lambda tid: dict(said='The talk is ready.', url=Routes.of(Routes.one, tid=tid), obj=f'talk:{tid}'), why=lambda e: NO_TALK)
         return jobs[key]
     def walk_of(jid):
@@ -253,30 +253,45 @@ def connect(app, ctx):
             t = lr.talk(tid.strip()) if tid.strip() else walk_talk(lr, jid)
             if not t or (t.get('src') or {}).get('walk') != jid: return P('No such talk for this walk.', cls='req-err')
             if not (job := jobs.get(t.id)) or job.done():
-                make_job(t.id, lambda: talk_again(lr, ask(), t.id, ctx.sources).id, f'Talk: {t.title}', 'Making the talk again', Routes.of(Routes.one, tid=t.id)).again = True
-            return ui.Pending(t.id, again=True)
-        if not (job := jobs.get(jid)) or job.done(): make_job(jid, lambda: from_walk(jid), f'Talk: {walk_of(jid).title}', 'Making the talk', f'/w/{jid}')
-        return ui.Pending(jid)
+                make_job(t.id, lambda: talk_again(lr, ask(), t.id, ctx.sources).id, f'Talk: {t.title}', 'Making the talk again', Routes.of(Routes.one, tid=t.id),
+                         again=dict(jid=jid, tid=t.id)).again = True
+            return ui.Pending(t.id, again=True, row=lr.job(f'talk:{t.id}'))
+        if not (job := jobs.get(jid)) or job.done(): make_job(jid, lambda: from_walk(jid), f'Talk: {walk_of(jid).title}', 'Making the talk', f'/w/{jid}', again=dict(jid=jid))
+        return ui.Pending(jid, row=lr.job(f'talk:{jid}'))
 
     def from_walk(jid):
         "On the pool: find the passage of each step that an old path left for later (`step_read`), then make the talk. The talk id."
-        for s in (lr.journey(jid) or {}).get('steps') or (): step_read(lr, jid, s['slug'], ctx.sources)
-        return talk_from_walk(lr, ask(), jid, sources=ctx.sources).id
+        for s in (lr.journey(jid) or {}).get('steps') or (): check_stop(lr, f'talk:{jid}'); step_read(lr, jid, s['slug'], ctx.sources)   # each step is a safe point
+        check_stop(lr, f'talk:{jid}')
+        t = talk_from_walk(lr, ask(), jid, sources=ctx.sources)
+        if halted(lr, f'talk:{jid}'): lr.drop_talk(t.id); check_stop(lr, f'talk:{jid}')   # after Stop, the talk is not kept
+        return t.id
 
     def fill(tid:str):
         "Start the pool job that writes the content of the slides of talk `tid` that have none (Fill the slides). The request does not wait for the model."
         if not lr.talk(tid): return Response('No such talk.', status_code=404)
-        if not (job := jobs.get(tid)) or job.done(): make_job(tid, lambda: fill_talk(lr, ask(), tid, ctx.sources).id, f'Talk: {lr.talk(tid).title}', 'Filling the slides', Routes.of(Routes.one, tid=tid))
-        return ui.Pending(tid, fill=True)
+        if not (job := jobs.get(tid)) or job.done(): make_job(tid, lambda: fill_talk(lr, ask(), tid, ctx.sources).id, f'Talk: {lr.talk(tid).title}', 'Filling the slides', Routes.of(Routes.one, tid=tid), again=dict(fill=tid))
+        return ui.Pending(tid, fill=True, row=lr.job(f'talk:{tid}'))
 
     def job(jid:str=''):
         "The state of the talk from walk `jid`, or of Fill the slides of talk `jid`: the pending card, a redirect to the editor, or a message."
         if not (j := jobs.get(jid.strip())): return P('No talk is being made from this walk. Try again.', cls='req-err')
         again = getattr(j, 'again', False)
-        if not j.done(): return ui.Pending(jid.strip(), fill=not again and bool(lr.talk(jid.strip())), again=again)
-        if j.exception(): return P(NO_TALK, cls='req-err')   # never the words of a library
+        r = lr.job(f'talk:{jid.strip()}')
+        if not j.done(): return ui.Pending(jid.strip(), fill=not again and bool(lr.talk(jid.strip())), again=again, row=r)
+        if isinstance(j.exception(), JobStopped) or (r is not None and r.state == 'stopped'): return ui.Ended(jid.strip(), STOPPED, r)
+        if j.exception(): return ui.Ended(jid.strip(), NO_TALK, r)   # never the words of a library
         done = '?done=again' if again else '?done=fill' if j.result() == jid.strip() else ''   # Fill the slides: the job of a talk has the id of the talk
         return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=j.result()) + done})
+
+    @hook('job_again')
+    def talk_again_job(r):
+        "Do it again on a talk job: make the talk of the walk, make the talk again, or fill its slides, with the same inputs."
+        if r.get('kind') != 'talk' or not isinstance(a := r.get('again'), dict): return None
+        if a.get('fill'): fill(a['fill'])
+        elif a.get('jid'): new(a['jid'], again='1' if a.get('tid') else '', tid=a.get('tid') or '')
+        else: return None
+        return True
 
     def walk_for(t): return lr.journey((t.get('src') or {}).get('walk') or '')
 

@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Inline, Cites, SourceLine, meta, n_of, asset_css, asset_js, stage_assets, edit_assets, EditList, Live, UndoBar, HistoryList
+from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Inline, Cites, SourceLine, meta, n_of, asset_css, asset_js, stage_assets, edit_assets, EditList, Live, UndoBar, HistoryList, JobStop, JobAgain
 from fastcore.basics import AttrDict
 from abhyasa.show import talk_minutes, public_ask, share_right, needs_fill, slide_source, GONE, parked
 from abhyasa.learner import val
@@ -72,13 +72,19 @@ def RowPresent(jid, t=None):
     return Form(Input(type='hidden', name='jid', value=jid), Quiet('Present', small=True, data_wait='Making the talk…', title='Make a talk from this walk'),
                 hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
 
-def Pending(jid, fill=False, again=False):
-    "A talk that is still being made, filled (`fill`) or made again (`again`): the card loads again on the event of its job row (`talk:<jid>`), and every 30 seconds."
+def Pending(jid, fill=False, again=False, row=None):
+    """A talk that is still being made, filled (`fill`) or made again (`again`), with Stop for its job row `row`: the card loads again on the
+    event of its job row (`talk:<jid>`), and every 30 seconds."""
     said = (('Filling the slides…', 'The tutor writes the points and the speaker notes of each slide that has none. This can take a minute.') if fill else
             ('Making the talk again…', 'The tutor writes a slide for each new idea. Your edits to slides stay where the idea is the same.') if again else
             ('Making the talk…', 'The tutor writes the points and the speaker notes of each slide, and a question for the room from each check. This can take a minute.'))
-    return Div(P(said[0]), P(said[1], cls='mute'),
+    return Div(P(said[0]), P(said[1], cls='mute'), Div(JobStop(row), cls='row acts') if row is not None else '',
                cls='talk-new pending', hx_get=f"{Routes.job}?{urlencode(dict(jid=jid))}", hx_trigger='job, every 30s', hx_swap='outerHTML', data_job=f'talk:{jid}')
+
+def Ended(jid, line, row):
+    "A talk job that ended with no talk (you stopped it, or it failed): the line, and Do it again for its job row `row`, which loads the card again."
+    return Div(P(line, cls='mute' if row is not None and row.state == 'stopped' else 'req-err'), Div(JobAgain(row), cls='row acts') if row is not None else '',
+               cls='talk-new', hx_get=f"{Routes.job}?{urlencode(dict(jid=jid))}", hx_trigger='job', hx_swap='outerHTML', data_job=f'talk:{jid}')
 
 def made_on(t, hour=False) -> str:
     "When talk `t` was made: `made 31 Oct`, with the hour too when `hour`."

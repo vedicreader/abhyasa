@@ -39,7 +39,7 @@ def test_undo_gives_back_the_exact_old_steps(mk, lr, walk_fake):
 def test_notebook_kind_queues_the_spec(mk, lr, walk_fake, monkeypatch):
     "A check that the box makes a notebook gets its notebook spec job, and the plan counts it as hands-on."
     from flows import change
-    queued = []; monkeypatch.setattr('abhyasa.path.nb_spec', lambda lr, ask, j, i: queued.append(i))
+    queued = []; monkeypatch.setattr('abhyasa.path.nb_spec', lambda lr, ask, j, i, stop=None: queued.append(i))
     cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[0]
     walk_fake.rules['You propose changes to one learning walk'] = dict(changes=[dict(op='kind', idea=s, kind='notebook', why='x')])
     r = change(cl, jid, 'make idea 1 a notebook')

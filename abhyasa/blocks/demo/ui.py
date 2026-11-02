@@ -2,7 +2,8 @@ import json
 from pathlib import Path
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import asset_css, asset_js, Feedback, Quiet
+from abhyasa.core import asset_css, asset_js, Feedback, Quiet, JobStop, JobAgain
+from abhyasa.learner import STOPPED
 from abhyasa.core.leela import LEELA_INSTALL
 from abhyasa.show import DEMO_KINDS as KINDS, STAGES
 from .cfg import Routes
@@ -33,6 +34,11 @@ def DemoCard(d, session='', lead=True, ask=''):
 def Failed():
     "The line in a Show card when the model made no demo that passes the checks."
     return Div(P('No demo this time. The model did not make a demo that passes the checks. The lesson stays.', cls='mute'), cls='demo-card')
+
+def Stopped(a, kind, r):
+    "You stopped the demo job of ask `a`: the line, and Make it again, which starts the same job. The card loads again on the event of the job."
+    return Div(P(STOPPED, cls='mute'), Div(JobAgain(r, 'Make it again'), cls='row acts'), cls='demo-card', data_ask=a.id, data_job=r.key,
+               hx_get=Routes.of(Routes.asked, aid=a.id) + (f'?kind={kind}' if kind else ''), hx_trigger='job', hx_swap='outerHTML')
 
 # --- Show me: a demo from your words, on a walk step, on a concept page and in a session ---------------------------------
 
@@ -87,10 +93,11 @@ def Plan(stage:str, secs:float, why=()):
     fold = Details(Summary('Why'), Ul(*map(Li, why)), cls='show-why') if why and stage == 'fixing' else ''
     return Div(Span(STAGES.get(stage, STAGES['writing']), cls='on fixing' if stage == 'fixing' else 'on'), Span(f'{int(secs)} s', cls='mute secs', data_secs=str(int(secs))), fold, cls='row show-plan')
 
-def AskPending(a, kind='', aim='', secs:float=0, stage:str='writing', lead:str='', job:str='', why=()):
-    """The demo of ask `a` (with `kind`, its 3D explainer or its 2D demo; with `aim`, its simpler demo) is not ready: its stage. It loads again
-    on each event of its job row `job` (a new stage, the end), and every 30 seconds. `lead` is a line that goes with the wait, so it goes when the demo comes."""
+def AskPending(a, kind='', aim='', secs:float=0, stage:str='writing', lead:str='', job:str='', why=(), row=None):
+    """The demo of ask `a` (with `kind`, its 3D explainer or its 2D demo; with `aim`, its simpler demo) is not ready: its stage, and Stop for its
+    job row `row`. It loads again on each event of its job row `job` (a new stage, the end), and every 30 seconds. `lead` is a line that goes with the wait, so it goes when the demo comes."""
     three = kind == '3d'
     what = 'a 3D explainer' if three else 'a simpler demo' if aim == 'simpler' else 'a demo'
     return Div(P(f"The tutor makes {what} of {'what you asked' if a.said else 'this idea'}.", cls='mute making'), Plan(stage, secs, why), P(lead, cls='mute') if lead else '',
+               Div(JobStop(row), cls='row acts') if row is not None else '',
                hx_get=Routes.of(Routes.asked, aid=a.id) + (f'?kind={kind}' if kind else ''), hx_trigger=WAIT, hx_swap='outerHTML', cls='demo-card pending', data_ask=a.id, data_job=job)

@@ -6,7 +6,7 @@ from fastcore.basics import AttrDict, first
 from abhyasa.core import Page, NotFound, RouteOverrides, hook, moved_to
 from abhyasa.learner import val, clean_group, clean_name, under, listed, GROUP_DEPTH, GROUP_LEN
 from abhyasa.sources import propose_groups, apply_groups, place_new
-from abhyasa.learner import track, job_end, seen_jobs
+from abhyasa.learner import track, job_end, seen_jobs, STOPPED
 from . import ui
 from .cfg import Routes
 
@@ -86,7 +86,8 @@ def connect(app, ctx):
             st.update(id=sid, subject=subject, every=bool(every), free=free, drop=drop, kept=len(mark) - len(drop),
                       job=track(lr, f'sort:{sid}', lambda: ctx.pool.submit(run_sort, subject, bool(every), free), 'sort', obj=f'sort:{sid}', url=url,
                                 title=f"Sort: {ui.label(subject) if subject else 'your concepts'}", said='The tutor sorts your concepts',
-                                ok=lambda r: dict(said='The new tree is ready. Accept it or cancel.'), why=lambda e: 'The tutor could not sort your concepts.'))
+                                ok=lambda r: dict(said='The new tree is ready. Accept it or cancel.'), why=lambda e: 'The tutor could not sort your concepts.',
+                                again=dict(subject=subject, every=bool(every))))
         return view(subject)
 
     def sort_state(subject:str=''):
@@ -111,6 +112,20 @@ def connect(app, ctx):
             job_end(lr, f'sort:{st.id}', 'stopped'); seen_jobs(lr, f'sort:{st.id}')   # a sort that you cancel is not news
             st.update(id='', job=None, subject='')
         return view(subject)
+
+    @hook('job_stop')
+    def sort_stop(r):
+        "Stop in the jobs list on a sort: the same as Cancel. Nothing is saved."
+        if r.get('kind') != 'sort' or not st.get('id') or r.key != f'sort:{st.id}': return None
+        job_end(lr, r.key, 'stopped', said=STOPPED); st.update(id='', job=None, subject='')
+        return True
+
+    @hook('job_again')
+    def sort_again(r):
+        "Do it again on a sort: sort the same subject again, in the same way."
+        if r.get('kind') != 'sort' or not isinstance(a := r.get('again'), dict): return None
+        sort_start(a.get('subject') or '', int(bool(a.get('every'))))
+        return True
 
     def undo(slug:str):
         "Undo a placement by the tutor: the concept goes back to `Not sorted yet`, and the tutor leaves it there. A group that you set stays."

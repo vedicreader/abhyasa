@@ -45,7 +45,7 @@ import operator as op
 from concurrent.futures import ThreadPoolExecutor
 from rupaka.spec import upgrade, gallery, validate, SCHEMA, fmt_text, run as spec_state, plain_errors, plain_why
 from rupaka.agent import author, catalog, parse_json, repair_prompt, SHAPE
-from .learner import Learning, meta_of, slugify, _src, update, _back, way, choose, TEXT_WAYS, EXAMPLES_TO, FEEDBACK, register, prompt, lines, need_lines, val, track, job_said
+from .learner import Learning, meta_of, slugify, _src, update, _back, way, choose, TEXT_WAYS, EXAMPLES_TO, FEEDBACK, register, prompt, lines, need_lines, val, track, job_said, check_stop
 from .tutor import CLOSE_HOOKS, LESSON_HOOKS, LESSON_NOTES, grade_prompt, passed
 from copy import deepcopy
 from difflib import SequenceMatcher
@@ -822,8 +822,9 @@ def _types(bs):
     "The block types in the blocks `bs`, with the blocks inside them."
     for b in bs or []: yield b.get('type'); yield from _types(b.get('blocks'))
 
-def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, log:list=None, aim:str='', said:str='') -> AttrDict|None:
-    "A new checked demo for concept `slug` with the aim `aim`, stored on the shelf; None when the model fails. `said` is the ask of the learner: the demo shows it."
+def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, log:list=None, aim:str='', said:str='', stop=None) -> AttrDict|None:
+    """A new checked demo for concept `slug` with the aim `aim`, stored on the shelf; None when the model fails. `said` is the ask of the learner: the demo shows it.
+    `stop()` is the safe point before the save: after Stop it raises, so the demo is not kept."""
     c = learning.concept(slug)
     if c is None: return None
     if check is None:
@@ -837,6 +838,7 @@ def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, 
     ask_ = lambda p, sp='': ask(f"{p}\n\n{extra}", sp)   # the image line, the aim, what you said about the last demo, then your level
     spec = author(c, ask_, first_error, examples=ex, check=check, log=log)
     if spec is None: return None
+    if stop: stop()
     return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", checked=time.time() if check else None, aim=aim,
                              asked=dict(key=ask_key(said), said=said) if said else None)
 
@@ -861,6 +863,7 @@ class _Tries(list):
     def __init__(self, lr, key): super().__init__(); self.lr, self.key = lr, key
     def append(self, x):
         super().append(x)
+        check_stop(self.lr, self.key)   # a safe point: after Stop, no next try
         errs = [str(e)[:200] for e in (x.get('errors') or ())][:TRY_ERRORS]
         log.info('demo %s: try %s did not pass its checks: %s', self.key, x.get('tries'), ' | '.join(errs))
         try: self.lr.put_job(self.key, tries=[dict(tries=t.get('tries'), errors=[str(e)[:200] for e in (t.get('errors') or ())][:TRY_ERRORS]) for t in self])
@@ -879,20 +882,22 @@ def queue_demo(tutor, slug:str, first_error:str='', aim:str='', said:str='', qui
     if j is not None and not j.done(): return j
     lr, key = tutor.learning, job_key(slug, aim, said)
     log, make = _Tries(lr, key), make_explainer if aim == '3d' else make_demo   # each try that failed the checks: the real stage of the job
-    def run(*a, **kw): job_said(lr, key, STAGES['writing']); return make(*a, **kw)
+    def run(*a, **kw): check_stop(lr, key); job_said(lr, key, STAGES['writing']); return make(*a, stop=lambda: check_stop(lr, key), **kw)
     c = lr.concept(slug)
     what = '3D explainer' if aim == '3d' else 'Simpler demo' if aim == 'simpler' else 'Demo'
     j = tutor.jobs[k] = track(lr, key, lambda: (tutor.pool or _POOL).submit(run, lr, tutor.ask, slug, first_error, aim=aim, said=said, log=log), 'demo',
                               ok=lambda d: dict(said='The demo is ready.') if d else dict(state='failed', why='The tutor could not make a demo this time.'),
-                              title=f"{what}: {c.name if c else slug}", said=STAGES['queued'], url=f'/c/{slug}', obj=key, quiet=quiet, tries=[])   # a new job keeps no tries of the last one
+                              title=f"{what}: {c.name if c else slug}", said=STAGES['queued'], url=f'/c/{slug}', obj=key, quiet=quiet, tries=[],
+                              again=dict(slug=slug, aim=aim, said=said, first_error=first_error))   # a new job keeps no tries of the last one
     j.at, j.log = time.time(), log
     return j
 
 def job_state(tutor, slug:str, aim:str='', said:str='') -> str:
-    "'running', 'failed', 'done' or 'none' for the demo job of `slug` with the aim `aim` and the ask `said`."
+    "'running', 'failed', 'stopped', 'done' or 'none' for the demo job of `slug` with the aim `aim` and the ask `said`."
     j = tutor.jobs.get(_demo_key(slug, aim, said))
     if j is None: return 'none'
     if not j.done(): return 'running'
+    if (r := tutor.learning.job(job_key(slug, aim, said))) is not None and r.state == 'stopped': return 'stopped'
     return 'done' if not j.exception() and j.result() else 'failed'
 
 def job_age(tutor, slug:str, aim:str='', said:str='') -> float:
@@ -1189,13 +1194,14 @@ def explain_ask(ask):
     f.model = getattr(ask, 'model', 'unknown')
     return f
 
-def make_explainer(learning:Learning, ask, slug:str, first_error:str='', aim:str='3d', said:str='', log:list=None) -> AttrDict|None:
+def make_explainer(learning:Learning, ask, slug:str, first_error:str='', aim:str='3d', said:str='', log:list=None, stop=None) -> AttrDict|None:
     "The 3D explainer of concept `slug` for the ask `said`: from the shelf, else new from the model and stored with the aim `3d`; None when the model makes none."
     k = ask_key(said) if said else None
     if (d := learning.demo_for(slug, aim='3d', key=k)): return d
     if (c := learning.concept(slug)) is None: return None
     two = learning.demo_for(slug, aim='', key=k)   # the 2D demo of the same ask, under the 3D card: its predictions stay the learner's to make
     if (spec := explainer_for(c, explain_ask(ask), said, log, two.spec if two else None, learning.level_of(c))) is None: return None
+    if stop: stop()   # after Stop, the explainer is not kept
     return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", aim='3d', asked=dict(key=k, said=said) if said else None)
 
 # %% ../nbs/05_show.ipynb #sm16

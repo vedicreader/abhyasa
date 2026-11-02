@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
-from abhyasa.core import asset_css, Primary, Secondary, Quiet, Part, Empty, n_of, run as run_hook
+from abhyasa.core import asset_css, Primary, Secondary, Quiet, Part, Empty, n_of, run as run_hook, JobStop, JobAgain
 from abhyasa.path import ANSWERS, level_done, stage_stays
 from .cfg import Routes
 
@@ -121,10 +121,15 @@ def Skipped(cid, s):
 
 JOB_WORDS = dict(level='Where you start', plan='The stages')   # the job of a course, in the activity chip; another job builds a stage
 
-def Pending(cid, k, said):
-    "A pool job of the course that is still running: the part loads again when the job changes (the event stream), or every 30 seconds."
-    return Div(P(said), cls='course-pending', hx_get=f"{Routes.of_(Routes.job, cid=cid)}?{urlencode(dict(k=k))}", hx_trigger='job, every 30s', hx_swap='outerHTML',
+def Pending(cid, k, said, row=None):
+    "A pool job of the course that is still running, with Stop for its job row `row`: the part loads again when the job changes (the event stream), or every 30 seconds."
+    return Div(P(said), Div(JobStop(row), cls='row acts') if row is not None else '', cls='course-pending', hx_get=f"{Routes.of_(Routes.job, cid=cid)}?{urlencode(dict(k=k))}", hx_trigger='job, every 30s', hx_swap='outerHTML',
                data_job=f'course:{cid}')
+
+def Ended(cid, k, line, row):
+    "A pool job of the course that you stopped: the line, and Do it again for its job row `row`, which loads the part again."
+    return Div(P(line, cls='mute'), Div(JobAgain(row), cls='row acts'), cls='course-pending', hx_get=f"{Routes.of_(Routes.job, cid=cid)}?{urlencode(dict(k=k))}",
+               hx_trigger='job', hx_swap='outerHTML', data_job=f'course:{cid}')
 
 def _answer(cid, q, a):
     return Button(ANSWERS[a], type='button', cls='small', hx_post=Routes.of_(Routes.answer, cid=cid), hx_vals=json.dumps(dict(key=q['key'], answer=a)),
