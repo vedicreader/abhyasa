@@ -791,14 +791,18 @@ def NotebookLine(j, copy=''):
                  f"which does not change. The copy is in {copy}.", cls='mute'),
                cls='walk-notebook', data_part='notebook')
 
+def Size(j, oob=False):
+    "The size of walk `j` in its head, as `7 ideas · about 18 min`. A change of the plan sends it again out of band, so the head does not stay old."
+    mins = sum(minutes(s) for s in j['steps'] if s.get('status') != 'skip')
+    return Span(meta(n_of(len(j['steps']), 'idea'), f'about {mins} min' if j['steps'] else ''), id='walk-size', **({'hx_swap_oob': 'true'} if oob else {}))
+
 def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), actions=(), vault=None, lead='', copy=''):
     """One page for one walk. The head says what the walk is, with its ⋯ menu (Delete this walk) and, for a notebook walk, Learn the notebook in Leela.
     Then the part of its state (`phase`): Start the walk, where you are, the end of the walk (`top`, the `WalkEnd`), or Back to the paper.
     Then the box that changes the walk, the plan (`plan`), the sources (`band`, `more`) and the talks."""
     src, ph = j.get('source') or {}, phase(j, st)
     whence = lead or (f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', ''))
-    mins = sum(minutes(s) for s in j['steps'] if s.get('status') != 'skip')
-    head = (Div(H1(j['title']), WalkMenu(j), cls='walk-head'), P(meta(whence, n_of(len(j['steps']), 'idea'), f'about {mins} min' if j['steps'] else ''), cls='mute'),
+    head = (Div(H1(j['title']), WalkMenu(j), cls='walk-head'), P(*((whence, ' · ') if whence else ()), Size(j), cls='mute'),
             leela_line(j, vault=vault) if j.get('tool') else '', NotebookLine(j, copy))
     if ph == 'empty': return (*head, P('The tutor found no ideas in this source.', cls='mute'), Filed(j), Div(Primary('Home', href='/', data_act='home'), cls='row'))   # what Start filed keeps its Undo
     if ph == 'new': top = Div(Form(Primary('Start the walk', data_wait='Starting…', data_act='start'), action=at(Routes.start, j['id']), method='post'), cls='row walk-top')

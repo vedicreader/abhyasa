@@ -951,7 +951,7 @@ def connect(app, ctx):
         return UndoBar(said, ui.at(Routes.undo, j.id), ui.walk_url(j.id, 'history'), step=rows[0].id if rows else '', row=row,
                        hx_target='#steps', hx_swap='outerHTML')
 
-    def view(j, fresh='', oob=False): return ui.Steps(j, by(), fresh=fresh, nb=nb_now(j), oob=oob), ui.Hands(j, oob=True)
+    def view(j, fresh='', oob=False): return ui.Steps(j, by(), fresh=fresh, nb=nb_now(j), oob=oob), ui.Hands(j, oob=True), ui.Size(j, oob=True)
 
     def queue_new(j, old):
         "After an idea came in: look for a web source for each new step with no passage, and write the notebook of each new notebook step."
@@ -993,7 +993,7 @@ def connect(app, ctx):
         except ValueError as x: return bad(str(x))
         j = lr.journey(jid)
         said = f"Undone: {e.what}" + (f' {line}' if line else '') if e else 'Nothing to undo.'
-        return (*view(j), bar(j, said, lr.edits('walk', jid)))
+        return (*view(j), bar(j, said, lr.edits('walk', jid)), Div(id='change-out', aria_live='polite', hx_swap_oob='true'))   # what the box changed goes: it is undone
 
     def history(req, jid:str):
         "The earlier versions of the walk: the fold on the walk page loads them; a plain GET goes to that fold."

@@ -69,3 +69,15 @@ def test_a_locked_idea_stays_and_empty_words_ask_for_words(mk, walk_fake, lr):
     walk_fake.rules[PROPOSE] = dict(changes=[dict(op='remove', idea='softmax', why='x')])
     assert 'The tutor found nothing to change.' in change(cl, jid, 'drop softmax').text and 'softmax' in slugs(lr, jid)
     assert 'Write what should change.' in cl.post(f'/w/{jid}/improve', data=dict(words='  ')).text
+
+def test_the_head_and_the_box_follow_a_change_and_its_undo(mk, walk_fake, lr):
+    "After a box change, the head line of the walk (ideas and minutes) comes again out of band, so it is not old. Undo sends it again and clears What changed."
+    walk_fake.rules[PROPOSE] = dict(changes=[dict(op='remove', idea='softmax', why='x')])
+    cl = mk(); jid = walk(cl, lr)
+    size = lambda t: re.search(r'<span[^>]*id="walk-size"[^>]*>([^<]*)</span>', t)
+    assert size(cl.get(f'/w/{jid}').text)[1].startswith('3 ideas')
+    r = change(cl, jid, 'drop softmax')
+    got = size(r.text)
+    assert got and 'hx-swap-oob="true"' in got[0] and got[1].startswith('2 ideas')
+    u = cl.post(f'/w/{jid}/undo', data=dict(step=lr.edits('walk', jid)[0].id)).text
+    assert size(u)[1].startswith('3 ideas') and re.search(r'<div[^>]*id="change-out"[^>]*></div>', u) and 'hx-swap-oob' in re.search(r'<div[^>]*id="change-out"[^>]*>', u)[0]
