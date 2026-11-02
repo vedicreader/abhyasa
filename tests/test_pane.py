@@ -216,3 +216,28 @@ def test_grip_tip_covers_nothing(mk):
                 assert tip['y'] + tip['height'] <= fr['y'] + 1                             # over the page in the pane, not on it
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
+
+YT = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m5s'
+
+def test_side_link_embeds_youtube_and_sends_other_links_out():
+    "A YouTube link opens the watch page in the pane; a YouTube search and a web page open in a new tab with noopener; a local page keeps the pane."
+    from abhyasa.core.pane import side_link, yt_embed, watch_url
+    assert yt_embed(YT) == 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=65'
+    assert yt_embed('https://youtu.be/dQw4w9WgXcQ?t=65') == 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=65'
+    assert yt_embed('https://www.youtube.com/playlist?list=PLfYUBJiXbdtRUvTUYpLdfHHp9a58nWVXP') == 'https://www.youtube-nocookie.com/embed/videoseries?list=PLfYUBJiXbdtRUvTUYpLdfHHp9a58nWVXP'
+    yt = to_xml(side_link('Video', YT))
+    assert f'data-local="{watch_url(YT)}"' in yt and 'data-pane="/watch?u=' in yt and 'target="_blank"' in yt and 'noopener' in yt   # a narrow screen: the link itself, out
+    for u in ('https://www.youtube.com/results?search_query=softmax', 'https://example.org/page', 'https://github.com/a/b', 'https://arxiv.org/abs/1706.03762'):
+        x = to_xml(side_link('Out', u))
+        assert yt_embed(u) is None and 'data-pane' not in x and 'target="_blank"' in x and 'rel="noopener noreferrer"' in x and 'out-link' in x, u
+    assert 'data-pane="/keys?pane=1"' in to_xml(side_link('Keys', '/keys'))
+    for bad in WEB_BAD: assert yt_embed(bad) is None
+
+def test_watch_page_embeds_only_youtube(mk):
+    "The watch page frames the video at its start, with the link out and the offline line; its CSP frames only the embed host. Another link is refused."
+    from abhyasa.core.pane import watch_url
+    cl = mk(['vault'])
+    r = cl.get(watch_url(YT) + '&pane=1')
+    assert 'src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=65"' in r.text and 'Watch on YouTube ↗' in r.text and 'The video needs the internet.' in r.text
+    assert r.headers['content-security-policy'] == "frame-src https://www.youtube-nocookie.com; connect-src 'self' https://www.youtube-nocookie.com"
+    assert 'No such video' in cl.get('/watch?u=https%3A%2F%2Fexample.org%2F').text and 'nocookie' not in cl.get('/watch?u=https%3A%2F%2Fexample.org%2F').text

@@ -330,3 +330,9 @@ ul.cites .src-line { margin: 0; }
 .src-links { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s2); margin: var(--s1) 0 0; font: normal var(--t-meta)/1.5 var(--serif); color: var(--mute); }
 .src-links a { color: var(--ink2); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 2px; }
 .src-links a:hover { color: var(--fg); }
+
+/* An outside link opens in a new tab: a small mark says so. A YouTube video opens in the side pane, on the watch page. */
+a.out-link::after { content: '\2009↗'; font-size: .85em; color: var(--mute); }
+.yt-watch { display: flex; flex-direction: column; gap: var(--s3); }
+.yt-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; background: #000; }
+.yt-out { font-size: var(--t-small); color: var(--ink2); }

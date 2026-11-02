@@ -1,5 +1,5 @@
 "Lecture transcripts as sources: the kind, the tight passage, the links to the lesson, the transcript page, and the rank after a notebook."
-import re, json, time, pytest
+import os, re, json, time, pytest
 from pathlib import Path
 from fastcore.utils import AttrDict
 from fastcore.nbio import new_nb, mk_cell, write_nb
@@ -16,6 +16,7 @@ TALK = ["Hi everybody and welcome to Lesson 3 of Deep Learning for Coders. Okay 
 SUMM = ("In Lesson 3 of Deep Learning for Coders, the instructor explains how softmax turns scores into weights for attention.\n\n"
         "The instructor then shows the code of softmax with the exponent and the sum.\n\n"
         "The lesson ends with cross entropy, the loss that goes with softmax.")
+PW = os.environ.get('PLAYWRIGHT_BROWSERS_PATH') or next((str(p) for p in (Path.home()/'Library/Caches/ms-playwright', Path.home()/'.cache/ms-playwright') if p.exists()), '')   # before a test moves the home folder
 SOFTMAX = dict(name='Softmax', statement='Softmax turns scores into weights that add up to one.')
 
 def course(d, summary=True, stamps=False):
@@ -153,3 +154,39 @@ def test_the_walk_step_shows_the_tight_passage(mk, lr, home):
     assert 'So softmax turns a list of scores into weights' in page and 'Lecture transcript · Lesson 3' in page
     assert f"/v/notebooks/{ds['nbs/07_softmax'].doc_id}" in page and 'zoom in a bit' not in page
     assert lr.journey('tw').steps[0]['read']['text'] == long   # the walk keeps its passage
+
+def test_the_lesson_video_opens_embedded_in_the_pane(mk, lr, home, monkeypatch):
+    "At 1440 px the video link of a transcript passage opens the pane with the YouTube embed at the stamp. No request leaves this computer, so the pane says the video needs the internet."
+    from test_pane import _chromium
+    if PW: monkeypatch.setenv('PLAYWRIGHT_BROWSERS_PATH', PW)
+    if not _chromium(): pytest.skip("Playwright's Chromium is not installed")
+    import socket, threading, uvicorn
+    from playwright.sync_api import sync_playwright
+    ds = filed(lr, home, stamps=True)
+    t = ds['summaries/lesson03']
+    lr.vault.shelf('notebooks').set_meta(t.doc_id, url='https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+    lr.put('Softmax', SOFTMAX['statement'], 'ml')
+    lr.put_journey(dict(id='tv', title='Lesson 3', goal='Read lesson 3', mode='walk', source=None, started=time.time(), created=1.,
+                        steps=[dict(slug='softmax', status='todo', why='', check=dict(kind='short', depth=2), read=dict(shelf='notebooks', doc_id=t.doc_id, title=t.title, text=f'[01:05] {TALK[1]}'))]))
+    cl = mk()
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                cx = b.new_context(viewport=dict(width=1440, height=900))
+                cx.route(re.compile(r'^https?://(?!127\.0\.0\.1[:/])'), lambda r: r.abort())   # no network: only this app answers
+                pg = cx.new_page()
+                pg.goto(f'http://127.0.0.1:{port}/w/tv/0'); pg.wait_for_load_state()
+                pg.click('#passage a.yt-link')
+                pg.wait_for_function("() => document.querySelector('#rh-pane iframe')?.contentDocument?.getElementById('yt-frame')")
+                inner = pg.frame_locator('#rh-pane iframe')
+                assert inner.locator('#yt-frame').get_attribute('src') == 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?start=65'
+                assert inner.locator('a.yt-out').get_attribute('href').startswith('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+                inner.locator('#yt-off').wait_for(state='visible')   # offline: the line, and the link out stays
+                assert '/w/tv/0' in pg.url   # the learning page stays
+            finally: b.close()
+    finally: srv.should_exit = True; th.join(5)

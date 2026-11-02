@@ -10,6 +10,7 @@
 //   rh:done {slug, outcome}    the side walk ended; sent on as the event 'abhyasa:rh-done' for the block that opened it
 //   rh:close {level}           close the pane; with `level`, go back one level only (⌥Z)
 //   rh:link {url}              open the http or https `url` outside the pane, in a new tab with noopener (Leela sends it)
+// A YouTube link (side_link in pane.py) has `data-local`, the /watch page that embeds it: that page opens in the pane. Under 1100 px the link opens in a new tab.
 // A pane page tells its trail with `data-rh-trail` (JSON) on any element, and its pace with `data-rh-pace` and the `#rail-prog` line.
 (() => {
   const root = document.documentElement, WIDE = matchMedia('(min-width: 1100px)'), RHW = 'rh-w';
@@ -202,7 +203,8 @@
   document.addEventListener('click', e => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;   // with a modifier key, a pane link opens a new tab
     const a = e.target.closest('a[data-pane]');
-    if (a && open(a.getAttribute('href'), a.dataset.title || a.textContent.trim())) return e.preventDefault();
+    if (a && a.dataset.yt && !WIDE.matches && !inPane()) return;   // a YouTube link on a narrow screen: the link itself, in a new tab
+    if (a && open(a.dataset.local || a.getAttribute('href'), a.dataset.title || a.textContent.trim())) return e.preventDefault();   // a YouTube link: the local page that embeds it
     if (e.target.closest('#rh-pane .rh-x')) return close();
     const t = e.target.closest('#rh-pane .rh-trail a');
     if (t) { e.preventDefault(); const h = t.getAttribute('href'); h.split('?')[0] === location.pathname ? close() : open(h); }
