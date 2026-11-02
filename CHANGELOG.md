@@ -4,6 +4,49 @@
 
 ## 0.0.16
 
+Needs rupaka 0.0.12.
+
+### Learn for understanding
+
+- A walk from a paper or a book is a map of its main claim and 3 to 7 big ideas. Each idea has the understanding to get, a key question and the common wrong ideas. Details, such as sizes and scores, stay on the page to read, with no checks. A walk has at most 7 ideas.
+- Each idea keeps `core` (the idea, with no sizes or scores) and `wrong` (the wrong ideas that learners often have). Old ideas get them when you meet them.
+- A check asks you to explain, predict, compare, apply the idea to a new case, or judge a wrong idea. It does not ask you to recall a fact. Its words are plain and use the real names. An analogy shows only as "where does this analogy break?".
+- The grade passes the core idea in your own words. Extra points only add. From depth 4, a pass also needs an edge case or a new case. A slip is a slip, not a misconception. A misconception stays only when it is a known wrong idea or it shows two times. A recital of the page that does not use the case of the question fails.
+- Feedback names the gap in your understanding. A right pick with no reason asks for the reason, and "Correct." never follows "I don't know". A demo names the reason, not "The answer is X".
+- The tutor writes for your level. A line from what abhyasa knows about you goes into each teaching prompt: new, a gap, shaky, fading or solid, the needs that are not in place, and your profile. Shaky or a gap: simple, one idea at a time, the gap first. Solid: short, with an edge case. All the teaching prompts share one set of rules (`teach.human`).
+- Text that the tutor writes for you must be plain English at grade 9. A text with long sentences, a high reading grade, semicolons, vague words or nicknames is written again one time, and the new text stays only when it is better and keeps the numbers and the maths (`checks.readable`).
+- Words to know names a term by its alias only in a subject of the walk, so "numbers" in a walk on neurons does not name a grammar term.
+- `tools/eval_understanding.py` scores the chain from idea to feedback on a copy of the vault, before and after a change.
+
+### The screen guide
+
+- The board of the guide is in rupaka 0.0.12. Its side panel has one shape: a table, a list, a flow of boxes with loops and branches, a faded example, a card of a wrong idea, or three stages from a case to the symbols. When you ask for a diagram, the panel draws one.
+- A follow-up builds on the board that shows: the old marks stay, the old panel stays at the top, and the new example comes under it. The guide knows what the earlier panel showed.
+- A panel line that is too long is cut, not dropped. A panel with nothing in it does not show. Labels on the page never cover each other. The log says why a board line dropped.
+
+### Walks
+
+- Change a walk with one box at its top: write what you want, and push Return. The tutor makes the changes and shows what changed, with Undo. "Redo the rest" makes each idea that is not locked again. Locked ideas never change. Each idea has Lock and a ⋯ menu with Skip and Remove. The old Improve the walk part and the buttons of each idea are removed.
+- Delete a walk from its ⋯ menu or from its row on Home. Your answers and what you learned stay. Its side walks go with it.
+- Make this walk again, in the ⋯ menu, plans the walk again from its source. Locked ideas stay in their place, what you did on an idea stays, and Undo takes it back.
+- A walk from one of your notebooks uses the notebook as it is: one idea for each section that teaches, in its own words and code, with a check, and a demo where its code draws. A setup section, such as the imports, is not an idea.
+
+### Jobs
+
+- Each job has Stop and Do it again: a demo, a 3D explainer, a walk from a link or a goal, a change from the box, Make this walk again, a notebook, a course plan, a talk, research and a model download. Stop ends the job at its next safe point, and a result that comes after Stop does not stay. The activity chip also shows stopped jobs.
+
+### Leela
+
+- Open in Leela is on each notebook that abhyasa shows: a source line, a notebook link, the vault page of a notebook, an idea from a notebook and a notebook check. It opens the notebook at its section. When Leela is not running, the page says how to start it.
+- A notebook walk opens a learning copy in Leela, with the demos of the walk after their sections and a link back to the walk. The copy runs in the folder and the environment of your notebook. abhyasa never writes your notebook, and it keeps the changes that you make in the copy.
+
+### Code
+
+- The engine is six notebooks: `00_learner`, `01_models`, `02_sources`, `03_tutor`, `04_path` and `05_show`. The old module names are gone.
+- The voices on this Mac are Pocket TTS and the browser, and OpenAI is hosted. A Kokoro setting from before speaks with Pocket TTS.
+
+### Before this
+
 - The hand font of the paper (the board panel, the Show cards and the Mac overlay) is Patrick Hand (OFL), which rupaka 0.0.9 ships. It is easier to read than Caveat. abhyasa serves rupaka's font files and its `@font-face` rules (`font_css`) at `/assets/hand.css`, so it works offline. Caveat is removed. abhyasa needs `rupaka>=0.0.9`.
 - In the Start box, the line of what Start does and the Start button now come above the sources of the goal, so you see Start however many sources there are. With more than 6 sources, the first 5 show, and "Show all N sources" opens the others.
 - Abhyasa.app runs until you quit it, as Leela does. When you close the window, the app, its menu bar mark and the server keep running. The Dock icon and Open Abhyasa in the menu of the mark open the window again. Quit (⌘Q, or Quit Abhyasa in the menu of the mark) stops the server. Before, the app quit when you closed the window, unless research ran.
