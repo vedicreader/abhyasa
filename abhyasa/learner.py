@@ -14,13 +14,13 @@ __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SET
            'update_settings', 'top', 'fit', 'raw', 'val', 'dflt', 'source_root_why', 'roots', 'dropped_roots',
            'set_val', 'reset', 'rows', 'reset_group', 'changed', 'clamped', 'register', 'lines', 'need_lines', 'saved',
            'prompt', 'set_prompt', 'meta_of', 'slugify', 'idea_name', 'real_idea', 'listed', 'usable_name',
-           'concept_text', 'Learning', 'clean_name', 'clean_group', 'fold', 'under', 'clean_subject', 'readable_name',
-           'tree', 'attempt_text', 'temp_learning', 'outcome', 'recall', 'grow', 'update', 'next_depth', 'learned',
-           'ready', 'pick', 'understanding', 'weak', 'way', 'credit', 'posterior', 'mean', 'improving', 'choose',
-           'check_for', 'methods_text', 'profile_text', 'clean', 'onboard_prompt', 'onboard', 'evidence',
-           'observe_prompt', 'observe', 'teach_sp', 'level_line', 'plainly', 'calibration', 'calibration_text',
-           'ledger', 'job_version', 'job_start', 'job_end', 'track', 'job_said', 'Said', 'seen_jobs', 'close_jobs',
-           'activity', 'chip_words', 'current', 'keyed_lock', 'walk_state']
+           'concept_text', 'Learning', 'clean_name', 'wrong_ideas', 'clean_group', 'fold', 'under', 'clean_subject',
+           'readable_name', 'tree', 'attempt_text', 'temp_learning', 'outcome', 'recall', 'grow', 'update',
+           'next_depth', 'learned', 'ready', 'pick', 'understanding', 'weak', 'way', 'credit', 'posterior', 'mean',
+           'improving', 'choose', 'check_for', 'methods_text', 'profile_text', 'clean', 'onboard_prompt', 'onboard',
+           'evidence', 'observe_prompt', 'observe', 'teach_sp', 'level_line', 'plainly', 'calibration',
+           'calibration_text', 'ledger', 'job_version', 'job_start', 'job_end', 'track', 'job_said', 'Said',
+           'seen_jobs', 'close_jobs', 'activity', 'chip_words', 'current', 'keyed_lock', 'walk_state']
 
 # %% ../nbs/00_learner.ipynb #6892d8ed
 import threading, weakref, os, json, time, random, uuid
@@ -67,7 +67,7 @@ add('learning.explore', 'learning', 'How often to try a new way', 'How often the
     choices=('never', 'sometimes', 'often'), store='profile');
 
 # %% ../nbs/00_learner.ipynb #da3e7fb7
-add('walks.steps', 'walks', 'Ideas in a walk', 'The most ideas in one walk. The tutor keeps the other ideas in your concepts.', 12, 3, 30)
+add('walks.steps', 'walks', 'Ideas in a walk', 'The most big ideas in one walk, from 3 to 7. The other ideas stay on the steps as reading, and in your concepts.', 7, 3, 7)
 add('walks.hands', 'walks', 'Hands-on share', 'The share of checks in a walk that are a demo, an order or code. The others are short answers.', 1/3, 0., 1., pct=True)
 add('walks.chain', 'walks', 'Ideas in a side walk', 'The most ideas in a side walk beside the paper.', 4, 2, 8)
 add('walks.passage', 'walks', 'Passage length', 'The most characters of the source for each idea.', 600, 200, 2000, more=True, unit='characters')
@@ -498,6 +498,11 @@ def clean_name(s, n:int=NAME_LEN) -> str:
     "`s` as one line of at most `n` characters, with no control or format characters. The joiners of Indic scripts stay."
     return ' '.join(''.join(' ' if unicodedata.category(ch)[0] == 'C' and ch not in '\u200c\u200d' else ch for ch in str(s or '')).split())[:n].strip()
 
+def wrong_ideas(xs, n:int=3) -> list:
+    "At most `n` wrong ideas from `xs`, each as `{'think': str, 'fact': str}`. A plain string is a `think` with no `fact`; an empty one goes."
+    out = [dict(think=str(x.get('think') or '').strip(), fact=str(x.get('fact') or '').strip()) if isinstance(x, dict) else dict(think=str(x).strip(), fact='') for x in xs or ()]
+    return [x for x in out if x['think']][:n]
+
 @patch
 def put(self:Learning,
         name:str,              # the concept's name
@@ -509,6 +514,8 @@ def put(self:Learning,
         aliases=(),            # other names
         provenance=(),         # where it came from: dicts such as `{'src': 'pasted', 'at': ...}`
         questions=(),          # ready questions: `{'q':..., 'a':..., 'depth':...}`
+        core:str='',           # the understanding: what the idea does and why, in 1 or 2 sentences
+        wrong=(),              # 1 to 3 common wrong ideas: `{'think':..., 'fact':...}`
         **meta) -> AttrDict:
     "Add a concept or add to one. Keep the learner state, merge the list fields and replace the other fields. A name that you set by hand stays."
     with self._lock:   # one step: look at the old concept, then write
@@ -519,7 +526,8 @@ def put(self:Learning,
         if old.get('named_by') == 'hand' and meta.get('named_by') != 'hand': name = old['name']   # a name that you set stays: use `rename`
         if old.get('group_by') in ('hand', 'sort', 'placed', 'undone'): meta.pop('group', None); meta.pop('group_by', None)   # a group that you, a saved sort or a placement set stays: use `set_group`
         elif 'group' in meta: meta['group'] = clean_group(meta['group'], subject or old.get('subject', ''))
-        new = dict(name=name, statement=statement or old.get('statement', ''), subject=subject or old.get('subject', ''), slug=slug, **meta)
+        new = dict(name=name, statement=statement or old.get('statement', ''), subject=subject or old.get('subject', ''), slug=slug,
+                   core=' '.join(str(core or '').split()) or old.get('core', ''), wrong=wrong_ideas(wrong) or old.get('wrong') or [], **meta)
         for k, v in dict(prereqs=prereqs, related=related, aliases=aliases, provenance=provenance, questions=questions).items():
             new[k] = _union(old.get(k), v)
         new['prereqs'] = [p for p in new['prereqs'] if p != slug]
@@ -1174,7 +1182,7 @@ def choose(st, subject:str='', weak:bool=False, rng=None, explore:str='sometimes
 
 # %% ../nbs/00_learner.ipynb #wk04
 CHECK_KIND = dict(demo='demo', order='order', code='notebook')   # the code way is a notebook check: it runs in Leela
-DEPTH = dict(short=2, demo=2, order=2, notebook=4)
+DEPTH = dict(short=3, demo=2, order=2, notebook=4)
 
 def check_for(c, st, rng=None, explore:str='sometimes', prior=(), last:str='', hands:bool=True) -> AttrDict:
     "The way, kind, depth and reason for one check of concept `c`. A hands-on way of the idea comes before its text ways; `hands=False` leaves the hands-on ways out."
@@ -1184,7 +1192,7 @@ def check_for(c, st, rng=None, explore:str='sometimes', prior=(), last:str='', h
     text = [w for w in ways if w not in CHECK_KIND] or [w for w in own if w not in CHECK_KIND] or [w for w in TEXT_WAYS if w not in CHECK_KIND]
     way, note = choose(st, c.get('subject', ''), False, rng, explore, prior, allowed=hand or text)
     kind = CHECK_KIND.get(way, 'short')
-    depth = (2 if (c.get('floor') or 0) < 2 else 3) if kind == 'short' else DEPTH[kind]
+    depth = (DEPTH['short'] if (c.get('floor') or 0) < 3 else 4) if kind == 'short' else DEPTH[kind]
     return AttrDict(way=way, kind=kind, depth=depth, why=note or f"{METHOD_LABELS[way].lower()} {'fit' if way == 'words' else 'fits'} this idea")
 
 # %% ../nbs/00_learner.ipynb #e15cb74a
@@ -1383,10 +1391,10 @@ def level_line(c, by:dict=None, p=None, missing=None) -> str:
     return ' '.join(out)
 
 @patch
-def level_of(self:Learning, c, missing=None) -> str:
-    "The level line of concept `c` (a slug or a dict) for this learner, with the needs on the shelf and the profile."
+def level_of(self:Learning, c, missing=None, profile:bool=True) -> str:
+    "The level line of concept `c` (a slug or a dict) for this learner, with the needs on the shelf and, unless `profile=False`, the profile. A question takes no profile: it uses the real terms of the subject."
     by = {x.slug: x for x in self.concepts()}
-    return level_line(by.get(c) if isinstance(c, str) else c, by, self.profile(), missing)
+    return level_line(by.get(c) if isinstance(c, str) else c, by, self.profile() if profile else {}, missing)
 
 # %% ../nbs/00_learner.ipynb #c0514f44
 from rupaka.agent import plain

@@ -17,7 +17,7 @@ def help_shown(r, t):
 
 def test_bad_values():
     (cfg_dir()/'settings.json').write_text(json.dumps(dict(walks=dict(steps=99, note='long', depth=2.6), checks=dict(one_ask='yes'), mine=dict(a=1))))
-    assert (val('walks.steps'), val('walks.note'), val('walks.depth'), val('checks.one_ask')) == (30, 60, 3, True)   # clamped, default, rounded, default
+    assert (val('walks.steps'), val('walks.note'), val('walks.depth'), val('checks.one_ask')) == (7, 60, 3, True)   # clamped, default, rounded, default
     assert 'mine' not in settings()                                                                                  # an unknown key is ignored
     assert set_val('walks.chain', -3) == 2 and json.loads((cfg_dir()/'settings.json').read_text())['walks']['chain'] == 2
 
@@ -41,7 +41,7 @@ def test_walk_of_five_steps():
     text = ' '.join(f'Sentence number {k} of the long text is here.' for k in range(9))
     many = dict(concepts=[dict(name=f'Idea {k}', statement=f'Idea {k} is one idea.', quote=f'Sentence number {k} of the long text', ways=['words']) for k in range(9)])
     ask = Fake({'Return JSON: {"concepts"': many, 'Return JSON: {"pick"': dict(pick=[])})
-    assert len(journey_from_text(temp_learning(), ask, text, 'Notes').steps) == 9   # the default is 12, so all 9 ideas
+    assert len(journey_from_text(temp_learning(), ask, text, 'Notes').steps) == 7   # the default is 7 big ideas, so 7 of the 9 ideas
     set_val('walks.steps', 5)
     j = journey_from_text(temp_learning(), ask, text, 'Notes')
     assert len(j.steps) == 5 and len(j.more) == 4
@@ -50,7 +50,7 @@ def test_walk_of_five_steps():
 
 def test_values_are_capped_and_the_room_guards_are_fixed():
     "A value above its top is capped, and the bind address, join code, rate and body limits of a room are not settings."
-    assert set_val('walks.steps', 900) == 30 and {'bind', 'join_code', 'rate', 'body', 'room_headers'} <= set(FIXED)
+    assert set_val('walks.steps', 900) == 7 and {'bind', 'join_code', 'rate', 'body', 'room_headers'} <= set(FIXED)
 
 # Checks and grading
 
@@ -180,12 +180,12 @@ def test_page_lists_every_group_and_row(mk):
 def test_page_saves_clamps_and_uses_the_default(mk):
     cl = mk()
     r = cl.post('/settings/value', data=dict(name='walks.steps', value='50'))
-    assert val('walks.steps') == 30 and 'value="30"' in r.text                             # out of range: the most, and the box shows it
-    t = cl.post('/settings/value', data=dict(name='walks.steps', value='8')).text
-    assert val('walks.steps') == 8 and 'Saved' in t and 'Use the default (12)' in t and '<span hx-swap-oob="true" id="ixn-walks"><span class="n"> · 1' in t
+    assert val('walks.steps') == 7 and 'value="7"' in r.text                             # out of range: the most, and the box shows it
+    t = cl.post('/settings/value', data=dict(name='walks.steps', value='5')).text
+    assert val('walks.steps') == 5 and 'Saved' in t and 'Use the default (7)' in t and '<span hx-swap-oob="true" id="ixn-walks"><span class="n"> · 1' in t
     assert 'Use the default for 1 value in Walks?' in cl.get('/settings/group/ask', params=dict(group='walks')).text
     t = cl.post('/settings/default', data=dict(name='walks.steps')).text
-    assert val('walks.steps') == 12 and 'Use the default (' not in t
+    assert val('walks.steps') == 7 and 'Use the default (' not in t
     cl.post('/settings/value', data=dict(name='walks.hands', value='50'))                    # a share comes as a percent
     cl.post('/settings/value', data=dict(name='checks.one_ask', value='0'))
     assert (val('walks.hands'), val('checks.one_ask')) == (.5, False)
@@ -195,7 +195,7 @@ def test_page_saves_clamps_and_uses_the_default(mk):
 
 def test_page_says_when_the_file_had_a_value_out_of_range(mk):
     (cfg_dir()/'settings.json').write_text(json.dumps(dict(walks=dict(steps=50))))
-    assert 'Your file had 50. The most is 30, so abhyasa uses 30.' in mk().get('/settings').text
+    assert 'Your file had 50. The most is 7, so abhyasa uses 7.' in mk().get('/settings').text
 
 # Learning: stored once, in the profile, and edited on both pages
 

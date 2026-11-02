@@ -96,14 +96,14 @@ CONCEPTS = [dict(name='Moving average', slug='moving-average', subject='data', c
                  statement='A year is a leap year when it divides by 4, except a year that divides by 100 but not by 400.')]
 
 def run_questions(ask, n:int) -> int:
-    "Write `n` questions through the real `question_prompt`, on 2 made-up concepts at depths 1-4 in the code and words ways; check each. Return the number of failures."
+    "Write `n` questions through the real `question_prompt`, on 2 made-up concepts at depths 1-4; check each. The way to teach does not shape a question. Return the number of failures."
     bad = 0
-    for c, d, m in islice(cycle([(c, d, m) for d in (1, 2, 3, 4) for m in ('code', 'words') for c in CONCEPTS]), n):
-        r = AttrDict(ask_json(ask, question_prompt(c, d, method=m), TUTOR_SP))
+    for c, d in islice(cycle([(c, d) for d in (1, 2, 3, 4) for c in CONCEPTS]), n):
+        r = AttrDict(ask_json(ask, question_prompt(c, d), TUTOR_SP))
         cs = question_checks(r)
         ok = all(ok for _, ok in cs)
         bad += not ok
-        print(f"{'PASS' if ok else 'FAIL'}  question: {c['name']}, depth {d}, {m}: {_verdict(cs)}\n      {r.get('question', '')!r}")
+        print(f"{'PASS' if ok else 'FAIL'}  question: {c['name']}, depth {d}: {_verdict(cs)}\n      {r.get('question', '')!r}")
     if n: print(f'{n - bad} of {n} questions pass')
     return bad
 

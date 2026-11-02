@@ -38,12 +38,14 @@ def test_observe_now_and_clear(mk, lr, fake):
     cl.post('/you/clear')
     assert not lr.profile().known
 
-def test_profile_in_the_question(mk, lr, fake):
+def test_profile_not_in_the_question(mk, lr, fake):
+    "A question uses the real terms of the subject: the profile shapes the lesson, not the question."
     lr.set_profile(background='codes in Python')
     cl = mk()
     sid = cl.post('/start', follow_redirects=False).headers['location'].split('/')[-1]
     cl.get(f'/s/{sid}')
-    assert any('codes in Python' in p for p, _ in fake.calls)
+    qs = [p for p, _ in fake.calls if 'Write ONE question' in p]
+    assert qs and not any('codes in Python' in p for p in qs)
 
 def test_voice_everywhere(mk):
     cl = mk()
