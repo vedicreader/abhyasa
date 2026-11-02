@@ -8,11 +8,11 @@ from rupaka.render import assets as rk_assets, font_css
 from rupaka.board import assets as board_assets, bundle as board_bundle, LIBS as BOARD_LIBS
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
-from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link
+from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link, side_link, yt_embed, YT_EMBED, WATCH
 from abhyasa.learner import DEPTHS
 from abhyasa.sources import source_of
 
-__all__ = ['Cites', 'SourceLine', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
+__all__ = ['Cites', 'SourceLine', 'SourceLinks', 'serve_watch', 'WATCH_CSP', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo', 'moved_to', 'subject_name']
 
 _here = Path(__file__).parent
@@ -370,6 +370,25 @@ def Part(label, *c, more=None, more_label='More', **kw):
     "A section of a page: the small H2 label, the content, and an optional closed `More` part in one style."
     return Section(H2(label), *c, Details(Summary(more_label), *more, cls='more') if more else '', **kw)
 
+WATCH_CSP = f"frame-src {YT_EMBED}; connect-src 'self' {YT_EMBED}"   # the watch page frames and reaches only the YouTube embed host
+_OFFLINE = """(() => { const f = document.getElementById('yt-frame'), n = document.getElementById('yt-off');
+  const off = () => { f.hidden = true; n.hidden = false; };
+  if (!navigator.onLine) return off();
+  addEventListener('offline', off);
+  fetch('%s/favicon.ico', {mode: 'no-cors', cache: 'no-store'}).catch(off); })();""" % YT_EMBED
+
+def serve_watch(app):
+    """The page that embeds one YouTube video or playlist in the side pane (`side_link` links to it): the player on `YT_EMBED`, at its
+    start time, and a link out. With no network, it says so and keeps the link out. Its CSP lets it frame only `YT_EMBED`."""
+    @app.get(WATCH)
+    def watch(u:str=''):
+        if not (src := yt_embed(u)):
+            return NotFound('Video', H1('No such video'), P('abhyasa embeds only a YouTube video or playlist.', cls='mute'))
+        player = Iframe(src=src, id='yt-frame', title='YouTube video', allow='autoplay; encrypted-media; picture-in-picture; fullscreen',
+                        allowfullscreen=True, referrerpolicy='strict-origin-when-cross-origin', cls='yt-frame')
+        out = A('Watch on YouTube ↗', href=u, target='_blank', rel='noopener noreferrer', cls='yt-out')
+        return Page('Video', Div(player, P('The video needs the internet.', id='yt-off', cls='mute', hidden=True), out, cls='yt-watch'), Script(_OFFLINE)), HttpHeader('Content-Security-Policy', WATCH_CSP)
+
 def SourceLine(src, room=False):
     """The one line under a passage (decision 6): the label in a pill, the title, the place, and the link that opens it. A page in your vault
     opens in the side pane, and `Open in your vault` too: it supports the exercise, so the page keeps its place. A web page (`Open the page`) opens in a new tab. `src` comes from `source_of`.
@@ -379,10 +398,15 @@ def SourceLine(src, room=False):
     line = lambda *c, cls='src-line': Div(*[y for k, x in enumerate(c) if x for y in ((' ', x) if k else (x,))], cls=cls)   # a space between the parts, for a copy and a screen reader
     if room: return line(Pill(src.label), *bits(src.title, src.place), cls='src-line room')
     local, web = is_local(src.href), is_web(src.url)
-    name = pane_link(src.title, src.href, src.title) if local else A(src.title, href=src.url, target='_blank', rel='noopener noreferrer') if web else Span(src.title)
-    go = (A('Open the page', href=src.url, target='_blank', rel='noopener noreferrer', cls='src-open') if web
+    name = pane_link(src.title, src.href, src.title) if local else side_link(src.title, src.url, src.title) if web else Span(src.title)
+    go = (side_link('Open the page', src.url, src.title, cls='src-open') if web
           else pane_link('Open in your vault', src.href, src.title, cls='pane-link src-open') if local else '')
     return line(Pill(src.label), name, *([Inline(src.place)] if re.search(r'[*_$`]', src.place or '') else bits(src.place)), *bits(src.date and f'read on {src.date}'), go)   # a place can hold markdown, such as a section name
+
+def SourceLinks(links, cls='src-links'):
+    "One quiet line of links that go with a source, such as the lesson notebook and the video of a transcript: `AttrDict(text, href)` opens a vault page in the side pane, `AttrDict(text, url)` a web page in a new tab (`side_link`)."
+    xs = [side_link(l['text'], l.get('href') or l.get('url') or '', l['text']) for l in links or () if l.get('text')]
+    return Div(*[y for k, x in enumerate(xs) for y in ((Span('·', cls='sep'), x) if k else (x,))], cls=cls) if xs else ''
 
 def TutorWords(text, *c, note=False, cls='', **kw):
     """The tutor's own words, never a quote: a dashed rule at the left, the label `In the tutor's words` (or `The tutor's note`

@@ -12,18 +12,24 @@ __all__ = ['log', 'KEEP', 'STOP', 'SKIP_DIRS', 'NB', 'EXTRACT_SP', 'IMG_SUFFIXES
            'YOU', 'HINT', 'LINES', 'VIDEO', 'GITHUB', 'BARE', 'TLDS', 'DOMAIN', 'FILE_NAME', 'COMMON_DIRS', 'QUOTED',
            'PATH_WORDS', 'GOAL_WORDS', 'SKIP_KINDS', 'SOCIAL', 'FILES', 'URL_MOST', 'BOT_WALL', 'FETCH_SECS',
            'KEEP_SECS', 'BLOCKS', 'REFUSED', 'META', 'TEXT_TYPES', 'MOST', 'LEAST', 'WINDOW', 'PASSAGE_SP', 'VIEW_ROW',
-           'MARKS', 'passage', 'clip', 'link_of', 'label', 'cite', 'VaultSource', 'names', 'main_words', 'named_count',
-           'stem', 'key_terms', 'names_idea', 'relevance', 'ground', 'ground_text', 'concept_grounds', 'fence',
-           'fenced', 'find_notebooks', 'index_notebooks', 'quoted', 'group_line', 'add_group', 'extract_prompt',
-           'doc_pages', 'locate', 'figure_path', 'placement', 'math_cut', 'extract', 'from_vault', 'sort_prompt',
-           'Places', 'propose_groups', 'apply_groups', 'place_new', 'fetch_opts', 'LinkError', 'arxiv_ref',
-           'public_url', 'link_kind', 'reading_order', 'read_arxiv_html', 'save_figures', 'file_link', 'as_link',
-           'is_id_title', 'arxiv_title', 'is_paper', 'tree_ok', 'tree_rank', 'tree_files', 'folder_why', 'file_folder',
-           'vault_roots', 'root_docs', 'unfile', 'gh_name', 'gh_public', 'clone_repo', 'file_repo', 'source_of',
-           'fold_trim', 'as_url', 'kind_of', 'folder_names', 'is_path', 'named_sources', 'on_disk', 'detect',
-           'title_index', 'vault_title', 'site_of', 'usable', 'paper_link', 'candidates', 'forget_web', 'refused_site',
-           'web_search', 'web_fetch', 'drop_meta', 'page_text', 'plain_md', 'verbatim', 'idea_words', 'about_idea',
-           'passage_prompt', 'pick_passage']
+           'MARKS', 'TRANSCRIPT', 'LECTURE', 'SPOKEN', 'ME', 'SUMM_NAME', 'TX_NAME', 'LESSON', 'NOT_SPEECH',
+           'SPOKE_NAMED', 'SPOKE_ALONE', 'SENT_END', 'SPAN_SHORT', 'STAMP', 'PLAYLIST', 'NEAR_TYPES', 'NEAR_MOST',
+           'COURSE_OF', 'SEARCH', 'NB_MOST', 'GENERIC', 'TOPICS_MOST', 'TOPIC_CHARS', 'JUMP_NEAR', 'LEAD_IN', 'passage',
+           'clip', 'link_of', 'label', 'cite', 'VaultSource', 'names', 'main_words', 'named_count', 'stem', 'key_terms',
+           'names_idea', 'relevance', 'ground', 'ground_text', 'concept_grounds', 'fence', 'fenced', 'find_notebooks',
+           'index_notebooks', 'quoted', 'group_line', 'add_group', 'extract_prompt', 'doc_pages', 'locate',
+           'figure_path', 'placement', 'math_cut', 'extract', 'from_vault', 'sort_prompt', 'Places', 'propose_groups',
+           'apply_groups', 'place_new', 'fetch_opts', 'LinkError', 'arxiv_ref', 'public_url', 'link_kind',
+           'reading_order', 'read_arxiv_html', 'save_figures', 'file_link', 'as_link', 'is_id_title', 'arxiv_title',
+           'is_paper', 'tree_ok', 'tree_rank', 'tree_files', 'folder_why', 'file_folder', 'vault_roots', 'root_docs',
+           'unfile', 'gh_name', 'gh_public', 'clone_repo', 'file_repo', 'source_of', 'fold_trim', 'as_url', 'kind_of',
+           'folder_names', 'is_path', 'named_sources', 'on_disk', 'detect', 'title_index', 'vault_title', 'site_of',
+           'usable', 'paper_link', 'candidates', 'forget_web', 'refused_site', 'web_search', 'web_fetch', 'drop_meta',
+           'page_text', 'plain_md', 'verbatim', 'idea_words', 'about_idea', 'passage_prompt', 'pick_passage', 'spoken',
+           'is_transcript', 'lesson_no', 'transcript_of', 'from_transcript', 'sentences', 'tight_span', 'stamp_before',
+           'course_of', 'playlist_near', 'video_link', 'nb_names', 'named_notebooks', 'shared_notebooks',
+           'lesson_notebooks', 'summary_doc', 'course_for', 'transcript_links', 'transcript_read', 'transcripts_last',
+           'jump_places', 'topics_of', 'transcript_page']
 
 # %% ../nbs/02_sources.ipynb #119a1741
 import json, os, re, sqlite3, time, shutil, threading, hashlib, logging
@@ -1388,3 +1394,314 @@ def pick_passage(ask, c, page) -> str:
     try: r = ask_json(for_task(ask, 'extract'), passage_prompt(c, page), prompt('research.pick'))
     except ValueError: return ''
     return verbatim(r.get('passage'), page.text) if isinstance(r, dict) and isinstance(r.get('passage'), str) else ''
+
+# %% ../nbs/02_sources.ipynb #tx02i
+import math
+from urllib.parse import quote_plus
+from fossick import yt_link
+
+# %% ../nbs/02_sources.ipynb #tx02
+TRANSCRIPT, LECTURE = 'transcript', 'Lecture transcript'   # the kind of a lecture transcript, and the label of its passages
+SPOKEN = re.compile(r"\b(?:you know|okay,? so|ok,? so|so yeah|kind of|sort of|i mean|i guess|we're going to|i'm going to|gonna|um+|uh+|alright|all right)\b"
+                    r"|^\W*(?:hi|hello|hey)\b|\bwelcome (?:back )?to\b", re.I | re.M)   # fillers and greetings of speech
+ME = re.compile(r"\b(?:I|I'm|I've|I'll|I'd|we|we're|we've|we'll|you|you're|you've|you'll|let's)\b")   # first-person and second-person words
+SUMM_NAME = re.compile(r'(?:^|[\W_])(?:summ\w*|abstract|tl;?dr)(?=[\W_\d]|$)', re.I)
+TX_NAME = re.compile(r'transcri|caption|subtitle', re.I)
+LESSON = re.compile(r'\b(?:lesson|lecture|class|session|week|episode|ep)[\s_-]*0*(\d{1,3})(?!\d)', re.I)
+NOT_SPEECH = ('notebook', 'code', 'pdf', 'journey', 'session', 'memory', 'open-q', 'edits')   # kinds that are never a transcript
+SPOKE_NAMED, SPOKE_ALONE = 2., 3.   # the `spoken` score of a transcript with a lesson name, and with no name hint
+
+def spoken(text:str, most:int=6000) -> float:
+    "How much the start of `text` reads as speech: fillers, greetings and first-person words (each one a quarter) per 100 words. 0 for a text of less than 40 words."
+    t = str(text or '')[:most]
+    n = len(t.split())
+    return 0. if n < 40 else 100 * (len(SPOKEN.findall(t)) + len(ME.findall(t)) / 4) / n
+
+def _stem_of(name) -> str:
+    p = Path(str(name or ''))
+    return p.stem if p.suffix.lower() in ('.txt', '.md', '.vtt', '.srt', '.text', '') else p.name
+
+def is_transcript(name:str, text:str='', kind:str='') -> bool:
+    """Whether the document `name` (its path or title) of `kind`, with `text`, is a transcript of a talk. A name with `summ` (such as
+    `lesson17-summ0`) is a summary, and a notebook, code or a PDF is never a transcript. A `.vtt` or `.srt` file, or a name with
+    `transcript`, is one. Else the text must read as speech (`spoken`): a little for a lesson name such as `lesson17`, more with no name hint."""
+    if kind == TRANSCRIPT: return True
+    s, sfx = _stem_of(name), Path(str(name or '')).suffix.lower()
+    if kind in NOT_SPEECH or SUMM_NAME.search(s) or sfx in ('.ipynb', '.py', '.pdf'): return False
+    if sfx in ('.vtt', '.srt') or TX_NAME.search(s): return True
+    return spoken(text) >= (SPOKE_NAMED if LESSON.search(s) else SPOKE_ALONE)
+
+def lesson_no(name:str, text:str='') -> int|None:
+    "The number of the lesson of a transcript: from its name (`lesson17`, `lecture-03`), else from the first 300 characters of its text (`welcome to Lesson 17`)."
+    m = LESSON.search(_stem_of(name)) or LESSON.search(str(text or '')[:300])
+    return int(m[1]) if m else None
+
+# %% ../nbs/02_sources.ipynb #tx08
+_TX = {}   # (shelf, doc id, hash) -> the transcript facts, or None: a document is read one time
+
+def _doc_row(lr:Learning, shelf:str, doc_id:str):
+    sh = lr.doc_shelf(shelf) if shelf and doc_id else None
+    return (sh, first(sh.t.docs(where='id=?', where_args=[doc_id]))) if sh is not None else (None, None)
+
+def transcript_of(lr:Learning, shelf:str, doc_id:str) -> AttrDict|None:
+    """The document `doc_id` on `shelf` as a lecture transcript: `shelf`, `doc_id`, `title`, `path`, `root`, `lesson` and `head` (its first
+    text). None when it is not a transcript (`is_transcript` of its path, its first text and its kind, or `meta.kind` that abhyasa's filing set).
+    Nothing changes in the vault."""
+    sh, d = _doc_row(lr, shelf, doc_id)
+    if d is None: return None
+    k = (shelf, doc_id, d.get('hash'))
+    if k in _TX: return _TX[k]
+    m = meta_of(d)
+    path = str(m.get('path') or d['source'] or '')
+    head = ' '.join(c['content'] for c in sh.store(where='doc_id=?', where_args=[doc_id], select='content, rowid', order_by='rowid', limit=4))
+    kind = TRANSCRIPT if m.get('kind') == TRANSCRIPT else d['kind']
+    _TX[k] = r = (AttrDict(shelf=shelf, doc_id=doc_id, title=d['title'], path=path, root=m.get('root') or '', url=m.get('url') or '',
+                           lesson=lesson_no(path or d['title'], head), head=head[:2000])
+                  if is_transcript(path or d['title'], head, kind) else None)
+    return r
+
+def _at(r) -> tuple:
+    "The shelf and the doc id of the passage or `read` `r`."
+    r, s = r or {}, str((r or {}).get('src') or '')
+    shelf, doc = r.get('shelf'), r.get('doc_id')
+    if not (shelf and doc) and s.startswith('vault:'): shelf, doc = s[6:], str(r.get('ref') or '').split('#')[0]
+    return shelf, doc
+
+def from_transcript(lr:Learning, r) -> AttrDict|None:
+    "The transcript of the passage or `read` `r`, or None when it does not come from one."
+    try: return transcript_of(lr, *_at(r))
+    except Exception as e: _log.warning('abhyasa could not check for a transcript: %r', e); return None
+
+# %% ../nbs/02_sources.ipynb #tx10
+SENT_END = re.compile(r'[.!?]+["\'”’)\]]*(?=\s+["“(\[]?[A-Z0-9]|\s*$)')   # the end of a sentence: a stop, then a capital or the end of the text
+SPAN_SHORT = 120   # a span shorter than this takes the next sentence too
+
+def sentences(text:str) -> list:
+    "The whole sentences of `text` as `(start, end)`: each one ends with a stop before a capital or the end. A part at the end with no stop is not a sentence."
+    out, a = [], 0
+    for m in SENT_END.finditer(text):
+        while a < m.start() and text[a].isspace(): a += 1
+        out.append((a, m.end())); a = m.end()
+    return out
+
+def tight_span(text:str, c, most:int=3) -> str:
+    """1 to `most` whole sentences of `text` on the idea `c`, word for word, with white space made single spaces: the sentence that names
+    the idea best (its name or a key term, then its words: `idea_words`, then the words of its statement), and the next sentences while they
+    name a word of the idea too in 6 words or more, or while the span is shorter than `SPAN_SHORT`, up to `MOST` characters. The flat `text` when it has no whole sentence."""
+    t = _flat(text)
+    if not (ss := sentences(t)): return t
+    c = c or {}
+    name, al = c.get('name') or c.get('slug') or '', list(c.get('aliases') or ())
+    terms, ws, said = key_terms(name, al), idea_words(c), {_stem(w) for w in main_words(c.get('statement') or '')}
+    def core(k):
+        s = t[slice(*ss[k])]
+        return 2 * names(AttrDict(title='', text=s), terms) + sum(w in _stems(s) for w in ws)
+    score = lambda k: (core(k), len(said & _stems(t[slice(*ss[k])])), -k)
+    best = max(range(len(ss)), key=score)
+    a, b, k = *ss[best], best
+    while k + 1 < len(ss) and k + 1 - best < most and ss[k + 1][1] - a <= MOST and (b - a < SPAN_SHORT or (core(k + 1) > 0 and len(t[slice(*ss[k + 1])].split()) >= 6)): k += 1; b = ss[k][1]
+    return t[a:b]
+
+# %% ../nbs/02_sources.ipynb #tx14
+STAMP = re.compile(r'(?:^|[\[(])(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:[.,]\d{1,3})?(?=[\])]|\s*-->|\s)', re.M)   # a time stamp: [12:34], (1:02:03), or 00:12:34.560 --> at a line start
+PLAYLIST = re.compile(r'(?:[?&]list=|playlist_id\s*=\s*["\'])(PL[\w-]{10,64})')
+NEAR_TYPES, NEAR_MOST = ('.py', '.md', '.json', '.toml', '.yml', '.yaml', '.ipynb'), 200_000   # the files near a transcript that can name its playlist
+COURSE_OF = re.compile(r'\blesson\s+\d+\s+of\s+(?:the\s+)?([A-Z][\w\'’ -]{2,60}?)\s*(?=[.!?,;]|\s+(?:and|so|the)\b)', re.I)
+SEARCH = 'https://www.youtube.com/results?search_query='
+
+def stamp_before(text:str, at:int) -> int|None:
+    "The seconds of the last time stamp in `text` before the place `at`, or None when there is none."
+    s = None
+    for m in STAMP.finditer(text[:at]): s = int(m[1] or 0) * 3600 + int(m[2]) * 60 + int(m[3])
+    return s
+
+def course_of(*texts) -> str:
+    "The name of the course that the first of `texts` names as `Lesson 17 of <course>`, or ''."
+    return next((m[1].strip() for t in texts if (m := COURSE_OF.search(str(t or '')[:600]))), '')
+
+def playlist_near(path:str) -> str:
+    "The YouTube playlist that a small file next to the transcript at `path` names (such as the script that got it), or ''."
+    try: fs = sorted(p for p in Path(path).parent.iterdir() if p.suffix.lower() in NEAR_TYPES and p.is_file() and p.stat().st_size <= NEAR_MOST)
+    except OSError: return ''
+    for p in fs:
+        try:
+            if m := PLAYLIST.search(p.read_text(errors='replace')): return m[1]
+        except OSError: continue
+    return ''
+
+def _mm(s:int) -> str: return f'{s // 3600}:{s // 60 % 60:02d}:{s % 60:02d}' if s >= 3600 else f'{s // 60}:{s % 60:02d}'
+
+def video_link(t, secs:int|None=None, course:str='') -> AttrDict|None:
+    """The link to the video of the transcript `t`: its YouTube link (`meta.url`), at `secs` when the transcript has time stamps (fossick `yt_link`).
+    With no link, a YouTube search for the `course` and the lesson. None with no link and no lesson number."""
+    try: return AttrDict(text=f'Video at {_mm(secs)}' if secs else 'Video', url=yt_link(t.url, secs or 0))
+    except (ValueError, TypeError): pass
+    if not t.lesson: return None
+    q = ' '.join(x for x in (course, f'Lesson {t.lesson}') if x)
+    return AttrDict(text='Find the video' + (f' (at {_mm(secs)})' if secs else ''), url=SEARCH + quote_plus(q))
+
+def _name(d) -> str: return Path(str(d.title)).name
+
+NB_MOST = 2   # the most notebooks that a transcript links
+
+GENERIC = {'setup', 'training', 'train', 'imports', 'data', 'introduction', 'overview', 'notes'}   # a title that names no notebook
+
+def _heading(lr:Learning, d) -> str:
+    "The title of the vault document `d`: its first heading of level 1, folded; '' when it has none, or when it is a generic word (`GENERIC`) or not text, such as code."
+    sh = lr.doc_shelf(d.shelf)
+    r = first(sh.t.nodes(where='doc_id=? and level=1', where_args=[d.doc_id], order_by='seq', limit=1)) if sh is not None else None
+    h = fold(' '.join(str((r or {}).get('title') or '').split()))
+    h = re.sub(r'^pages \d+\W\d+:\s*#*\s*', '', h)   # a short document has one window, `Pages 1–1: # Title`, in place of its heading
+    return '' if h in GENERIC or not re.fullmatch(r"[\w][\w '&/-]*", h) else h
+
+def nb_names(d, title:str='') -> list:
+    """The names by which a lesson can name the notebook `d`, folded, for a whole-word match: its file stem when it has a number
+    (`11_initializing`), its stem with no number and the word notebook (`initializing notebook`), and its `title` (`initialization`)."""
+    stem = _name(d)
+    bare = re.sub(r'^\d+[a-z]?_', '', stem, flags=re.I).replace('_', ' ').replace('-', ' ')
+    return [fold(x) for x in dict.fromkeys((stem if re.search(r'\d', stem) else '', f'{bare} notebook', title)) if len(x) >= 4]
+
+def _first_at(text:str, names) -> int|None:
+    "The first place in the folded `text` where one of `names` is a whole phrase, or None."
+    ats = [m.start() for n in names if (m := re.search(rf'(?<!\w){re.escape(n)}(?!\w)', text))]
+    return min(ats) if ats else None
+
+def named_notebooks(lr:Learning, nbs, *texts, most:int=NB_MOST) -> L:
+    """The notebooks of `nbs` that the first of `texts` with a match names (`nb_names`), at most `most`, in the order of the text. A title
+    that two notebooks have (such as `tiny imagenet`) names neither of them."""
+    hs = [_heading(lr, d) for d in nbs]
+    names = [nb_names(d, h if hs.count(h) == 1 else '') for d, h in zip(nbs, hs)]
+    for t in texts:
+        f = ' '.join(fold(str(t or '')).split())
+        got = sorted((at, k, d) for k, d in enumerate(nbs) if (at := _first_at(f, names[k])) is not None)
+        if got: return L(d for *_, d in got[:most])
+    return L()
+
+def shared_notebooks(lr:Learning, t, nbs, most:int=NB_MOST) -> L:
+    "The notebooks of `nbs` that share the most ideas with transcript `t`: the concepts that a walk took from both. At most `most`."
+    by, n = {d.doc_id: d for d in nbs}, defaultdict(int)
+    for c in lr.concepts():
+        docs = {p.get('doc_id') for p in c.get('provenance') or ()}
+        if t.doc_id in docs:
+            for x in docs & by.keys(): n[x] += 1
+    return L(by[x] for x in sorted(n, key=lambda x: -n[x])[:most])
+
+def lesson_notebooks(lr:Learning, t, most:int=NB_MOST) -> L:
+    """The notebooks of the repo of transcript `t` that the lesson teaches, at most `most`: the ones that its summary names, else the ones that the
+    transcript names (`named_notebooks`), else the ones that share ideas with it (`shared_notebooks`). None found: no link. The number of a
+    notebook is not the number of a lesson, so abhyasa never guesses from it."""
+    if not t.root: return L()
+    nbs = [d for d in root_docs(lr, t.root, t.shelf) if str(d.url).endswith('.ipynb') and not _name(d).startswith('_')]
+    sd = summary_doc(lr, t)
+    return named_notebooks(lr, nbs, _doc_text(lr, sd) if sd else '', _doc_text(lr, AttrDict(shelf=t.shelf, doc_id=t.doc_id)), most=most) or shared_notebooks(lr, t, nbs, most)
+
+def summary_doc(lr:Learning, t) -> AttrDict|None:
+    "The summary of transcript `t` in the vault: the doc in its folder whose name is its own with `-summ…` after it (`lesson17-summ0`); None when there is none."
+    if not t.root: return None
+    stem, folder = _name(t), str(Path(str(t.title)).parent)
+    pre = re.compile(rf'{re.escape(stem)}[\W_]*summ', re.I)
+    return first(d for d in root_docs(lr, t.root, t.shelf) if str(Path(str(d.title)).parent) == folder and pre.match(_name(d)))
+
+def _href(d) -> str: return f'/v/{d.shelf}/{d.doc_id}'
+
+def _head(lr:Learning, d) -> str:
+    sh = lr.doc_shelf(d.shelf)
+    return ' '.join(c['content'] for c in sh.store(where='doc_id=?', where_args=[d.doc_id], select='content, rowid', order_by='rowid', limit=2)) if sh is not None else ''
+
+def course_for(lr:Learning, t, most:int=40) -> str:
+    "The name of the course of transcript `t` (`course_of`): from its own first text, its summary, or the first text of another document in its folder."
+    if c := course_of(t.head): return c
+    folder = str(Path(str(t.title)).parent)
+    near = [d for d in root_docs(lr, t.root, t.shelf) if str(Path(str(d.title)).parent) == folder and d.doc_id != t.doc_id][:most] if t.root else []
+    return next((c for d in near if (c := course_of(_head(lr, d)))), '')
+
+def transcript_links(lr:Learning, t, secs:int|None=None, summary:bool=False) -> list:
+    """The links of transcript `t`, each `AttrDict(text, href)` (a page in your vault) or `AttrDict(text, url)` (the web): its lesson notebooks,
+    its summary (with `summary`), its video at `secs`, and the playlist of the course when a file next to it names one."""
+    nbs, sd = lesson_notebooks(lr, t), summary_doc(lr, t)
+    out = [AttrDict(text=f'Lesson notebook · {_name(d)}' if len(nbs) == 1 else _name(d), href=_href(d)) for d in nbs]
+    if summary and sd: out.append(AttrDict(text='Summary', href=_href(sd)))
+    if v := video_link(t, secs, course_for(lr, t)): out.append(v)
+    if summary and (pl := playlist_near(t.path)): out.append(AttrDict(text='All the lesson videos', url=f'https://www.youtube.com/playlist?list={pl}'))
+    return out
+
+def _doc_text(lr:Learning, d) -> str:
+    try: return lr.doc_shelf(d.shelf).document(d.doc_id, max_chars=200_000).text
+    except Exception: return ''
+
+# %% ../nbs/02_sources.ipynb #tx18
+def transcript_read(lr:Learning, read, c=None) -> dict:
+    """The `read` of a step as the page shows it. A passage from a lecture transcript becomes a tight span (`tight_span`, word for word), with
+    `what` = `Lecture transcript · Lesson 17` and `links` to the lesson notebook and the video, at the time of the passage when the transcript
+    has time stamps. Any other `read` stays as it is. Nothing is saved."""
+    r = read or {}
+    if not (r.get('text') or '').strip() or not (t := from_transcript(lr, r)): return read
+    text = tight_span(r['text'], c)
+    secs = None
+    if STAMP.search(t.head):
+        full = _doc_text(lr, AttrDict(shelf=t.shelf, doc_id=t.doc_id))
+        if (at := _flat(full).find(text)) >= 0: secs = stamp_before(_flat(full), at)
+    what = ' · '.join(x for x in (LECTURE, t.lesson and f'Lesson {t.lesson}') if x)
+    return {**r, 'text': text, 'what': what, 'links': transcript_links(lr, t, secs)}
+
+def transcripts_last(lr:Learning, ps, good=None) -> list:
+    """The passages `ps` in their order, but a passage from a transcript goes after each other passage that is just as `good` (a key, default 0
+    for each): a notebook or a doc that says the same thing is a better source than the words of a talk."""
+    ps, good = list(ps), good or (lambda p: 0)
+    tx = [bool(from_transcript(lr, p)) for p in ps]
+    def at(i):
+        if not tx[i]: return i
+        return max([i, *(j + .5 for j, p in enumerate(ps) if not tx[j] and good(p) >= good(ps[i]))])
+    return [ps[i] for i in sorted(range(len(ps)), key=at)]
+
+# %% ../nbs/02_sources.ipynb #tx20
+TOPICS_MOST, TOPIC_CHARS, JUMP_NEAR = 8, 90, .15   # the most topics on a transcript page, the longest topic, and how near its share of the talk a topic starts
+
+def _paras(text:str) -> list: return [p.strip() for p in re.split(r'\n\s*\n', str(text or '')) if p.strip()]
+
+LEAD_IN = re.compile(r'^(?:in (?:this|the next|the last) (?:section|part)[^,]{0,40},|in lesson \d+[^,]{0,60},)\s*', re.I)   # the start of a summary part that names no topic
+
+def _first_sentence(p:str) -> str:
+    "The first sentence of the summary part `p`, without a lead-in such as `In this section of the video lesson,`, cut to `TOPIC_CHARS`."
+    t = _flat(p)
+    t = LEAD_IN.sub('', t[:ss[0][1]] if (ss := sentences(t)) else t)
+    return clip(t[:1].upper() + t[1:], TOPIC_CHARS)
+
+def jump_places(paras, topics) -> list:
+    """For each topic of `topics` (a text), the paragraph of `paras` where it starts: the one that names the most of its rare words, near its
+    share of the talk (topic 3 of 8 is near paragraph 3/8 of the way), and at or after the paragraph of the topic before it. A summary keeps the order of the talk.
+    A word that many paragraphs have counts less."""
+    if not paras: return [0] * len(topics)
+    sets, n, out, lo = [_stems(p) for p in paras], len(paras), [], 0
+    df = defaultdict(int)
+    for s in sets:
+        for w in s: df[w] += 1
+    for k, t in enumerate(topics):
+        ws, want = {_stem(w) for w in main_words(t)}, k / max(1, len(topics)) * n
+        sc = lambda i: sum(1 / df[w] for w in ws & sets[i]) * math.exp(-((i - want) / (JUMP_NEAR * n)) ** 2)
+        out.append(lo := max(range(lo, n), key=lambda i: (sc(i), -i)))
+    return out
+
+def topics_of(lr:Learning, t, paras) -> tuple:
+    """The topics of transcript `t` with the paragraph of `paras` where each one starts, as `(where, [(topic, paragraph)])`. From its summary
+    (the first sentence of each part) when the vault has one, else from the ideas that a walk took from it (their names), in the order of the talk."""
+    if (sd := summary_doc(lr, t)) and (parts := _paras(_doc_text(lr, sd))):
+        parts = parts[:TOPICS_MOST]
+        return 'summary', list(zip(map(_first_sentence, parts), jump_places(paras, parts)))
+    flat, got = [_flat(p) for p in paras], []
+    for c in lr.concepts():
+        if not (pl := placement(c, t.doc_id)): continue
+        q = _flat(pl.get('passage') or '')[:80]
+        k = first(i for i, p in enumerate(flat) if q and q in p)
+        if k is None: k = first(i for i, p in enumerate(flat) if names_idea(c.name, c.get('aliases') or (), p))
+        if k is not None: got.append((k, c.name))
+    return 'ideas', [(n, k) for k, n in sorted(got)[:TOPICS_MOST]]
+
+def transcript_page(lr:Learning, shelf:str, doc_id:str, text:str) -> AttrDict|None:
+    """What the vault page of a lecture transcript shows above its text: `title` (`Lecture transcript · Lesson 17`), `links` (`transcript_links`
+    with the summary and the playlist), `topics` with `where` they come from, and `paras`, the text in paragraphs. None for any other document."""
+    if not (t := transcript_of(lr, shelf, doc_id)): return None
+    paras = _paras(text)
+    where, topics = topics_of(lr, t, paras)
+    return AttrDict(title=' · '.join(x for x in (LECTURE, t.lesson and f'Lesson {t.lesson}') if x), links=transcript_links(lr, t, summary=True),
+                    topics=topics, where=where, paras=paras)

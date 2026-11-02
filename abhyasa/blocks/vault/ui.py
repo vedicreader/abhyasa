@@ -1,7 +1,7 @@
 import json, time
 from pathlib import Path
 from fasthtml.common import *
-from abhyasa.core import Md, asset_css, DepthBar, Primary, Quiet, doc_title
+from abhyasa.core import Md, asset_css, DepthBar, Primary, Quiet, doc_title, SourceLinks
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -61,8 +61,19 @@ def Thread(turns):
                   Div(Span('Thinking: ', cls='k'), Md(t['thinking']), cls='mute') if t.get('thinking') else '', cls=f"turn {t['who']}")
     return H2('The conversation'), Ul(*map(turn, turns), cls='plain thread-doc')
 
-def DocPage(d, meta, text, shelf, linked, imgs=()):
-    "The document page; `imgs` are the image links of the text that the page sends."
-    return (css(), Span('Your vault' if shelf == 'store' else f'Your vault · {shelf}', cls='lbl'), H1(doc_title(d['title']) or d['id']), Facts(d, meta), Actions(d, meta, shelf),
+def Transcript(tx):
+    "The head of a lecture transcript: its links (the lesson notebook, the summary, the video), then its topics, each a jump to the paragraph where it starts."
+    where = 'from the summary' if tx.where == 'summary' else 'from the ideas of your walks'
+    topics = (H2(f'Topics, {where}'), Ol(*[Li(A(t, href=f'#tp{k}')) for t, k in tx.topics], cls='topics')) if tx.topics else ()
+    return Div(SourceLinks(tx.links, cls='src-links tx-links'), *topics, cls='transcript-head')
+
+def Paras(tx, kind):
+    "The text of a transcript in its paragraphs, each with an id that a topic jumps to."
+    return Div(*[Md(p, id=f'tp{k}') for k, p in enumerate(tx.paras)], cls=f'doc {kind} transcript')
+
+def DocPage(d, meta, text, shelf, linked, imgs=(), tx=None):
+    "The document page; `imgs` are the image links of the text that the page sends. `tx` (`transcript_page`): the page of a lecture transcript, with its links, its topics and its paragraphs."
+    lbl = Span('Your vault' if shelf == 'store' else f'Your vault · {shelf}', cls='lbl')
+    return (css(), lbl, *((Span(tx.title, cls='lbl tx-title'),) if tx else ()), H1(doc_title(d['title']) or d['id']), Facts(d, meta), *((Transcript(tx),) if tx else ()), Actions(d, meta, shelf),
             Div(id='learned'), *Thread(meta.get('thread')), *((H2('Concepts linked here'), Linked(linked)) if linked else ()),
-            H2('Text'), Md(doc_title(text), cls=f"doc {d['kind']}", imgs=imgs))
+            H2('Text'), Paras(tx, d['kind']) if tx else Md(doc_title(text), cls=f"doc {d['kind']}", imgs=imgs))

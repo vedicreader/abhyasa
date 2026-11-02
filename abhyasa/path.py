@@ -47,6 +47,7 @@ from fastcore.nbio import read_nb
 from .learner import Learning, slugify, _src, meta_of, clean_subject, usable_name, idea_name, real_idea, SHELF, learned, val, register, prompt, check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND, DEPTH, STATUS, NO_CHECK, _jmeta, current, keyed_lock, _jlock, SHAKY, _dot, _elsewhere, walk_state, fold, ready, recall, understanding
 from .models import ask_json, for_task, guard
 from .sources import extract, math_cut, _index, doc_pages, root_docs, from_vault, placement, is_id_title, arxiv_ref, arxiv_title, ground, ground_text, clip, names, main_words, named_count, names_idea, fence
+from .sources import from_transcript, transcripts_last
 import abhyasa.learner
 from .contract import data_path_why, DATA_MOST, DATA_NAME
 
@@ -331,7 +332,9 @@ def journey_from_sources(lr:Learning, ask, docs:list, title:str='', subject:str=
         got[d.doc_id] = from_vault(lr, ask, d.doc_id, subject, d.shelf, chars=val('links.read'))
     told = lambda s, d: bool((placement(lr.concept(s) or {}, d.doc_id) or {}).get('passage'))
     named = lambda s: [d for d in docs if s in got[d.doc_id]]
-    home = {s: (first(d for d in named(s) if told(s, d)) or named(s)[0]).doc_id for d in docs for s in got[d.doc_id]}
+    tx = {d.doc_id: bool(from_transcript(lr, d)) for d in docs}
+    home = {s: (first(d for d in named(s) if told(s, d) and not tx[d.doc_id]) or first(d for d in named(s) if told(s, d)) or named(s)[0]).doc_id
+            for d in docs for s in got[d.doc_id]}   # a notebook or a doc that tells the idea is its home before a lecture transcript
     steps = [x for d in docs for x in _steps(lr, [s for s in got[d.doc_id] if home[s] == d.doc_id], d.doc_id, d.shelf, d.title, tool)]
     title = title or docs[0].title
     return _save_walk(lr, ask, _new_id(title), title, steps, dict(url=docs[0].url, docs=[dict(d) for d in docs]), f'Read {title}', _fill_subject(lr, [s for v in got.values() for s in v], subject), tool, **extra)
@@ -516,13 +519,14 @@ def _topic_read(c, sources, lr=None, doc='', roots=()) -> dict|None:
     """The passage of concept `c`, as a `read`, or None. With `lr` and the `doc` of the step, the paragraph of that document that names
     the most main words of the name comes first. Else the first passage in `sources` that names the name or an alias, or, from a source
     that the goal named (`roots`), a key term and half of the other main words of the name (`names_idea`). A weak match is no source: the step then has no passage, and research can look.
-    A source for other subjects (`subjects`) gives only a strong match."""
+    A source for other subjects (`subjects`) gives only a strong match. A lecture transcript comes after a passage that names the idea just as well (`transcripts_last`)."""
     name = c.get('name') or c.slug
     ws, al = main_words(name), list(c.get('aliases') or ())
     if lr is not None and doc and (r := _doc_read(lr, doc, ws)): return r
     code = lambda p: p.text.lstrip().startswith('```')   # a code block is not a passage to read
     ok = lambda p: not code(p) and (names(p, [name, *al]) or (names_idea(name, al, f'{p.title} {p.text}') and _in_roots(lr, p, roots)))
-    p = first(p for p in ground(name, sources, 3, must=[name, *ws, *al], subject=c.get('subject') or '') if ok(p)) if sources else None
+    ps = [p for p in ground(name, sources, 3, must=[name, *ws, *al], subject=c.get('subject') or '') if ok(p)] if sources else []
+    p = first(transcripts_last(lr, ps, lambda p: (names(p, [name, *al]), named_count(p.text, ws)))) if lr is not None else first(ps)
     return p and dict(src=p.src, ref=p.ref, title=p.title, url=p.url, text=math_cut(p.text, val('walks.passage')), section=p.get('section') or '', figure=None,
                    **({'what': p.what} if p.get('what') else {}))   # the kind of text, such as a summary
 
@@ -1612,7 +1616,7 @@ def passages(lr:Learning, j, i:int=None, q:str='', name:str='', sources=None) ->
     rows = [(math_cut(t, most), t, pl, s) for t, pl, s in _found(lr, j, name, sources) if all(w in t.lower() for w in ws)]
     rows = [(c, t, pl, s) for c, t, pl, s in rows if verbatim(c, t)]   # only a passage that `pick_read` takes: 40 characters or more, word for word
     key = main_words(name) if name else []
-    rows.sort(key=lambda x: -named_count(x[1], key) if key else 0)
+    rows.sort(key=lambda x: (-named_count(x[1], key) if key else 0, bool(from_transcript(lr, x[3]))))   # a transcript after a passage that names as many words
     return [AttrDict(text=c, place=pl, src=s) for c, t, pl, s in rows[:PASSAGES_MOST]]
 
 def pick_read(lr:Learning, j, i:int=None, text:str='', name:str='', sources=None) -> dict:

@@ -10,7 +10,7 @@ from fasthtml.common import *
 from abhyasa.core import is_local, n_of, Page, NotFound, short_title, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
 from abhyasa.core.leela import leela_line, leela_link
 from abhyasa.learner import val, set_val
-from abhyasa.sources import detect, vault_title
+from abhyasa.sources import detect, vault_title, transcript_read
 from abhyasa.learner import clean_subject, profile_text, WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
@@ -560,12 +560,19 @@ def connect(app, ctx):
         back = leela_back(lr, j)
         j, b = lr.journey(jid), by()
         seen(j)
+        j = shown(j, i, b)
         line = [band(j)] if researching(jid) or j.get('research_start') or j.get('gather_at') else []   # the line of research is on each step
         page = ui.StepPage(j, walk_state(j, b), b, i, needs=[*line, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault, words=words(j, i, b),
                        present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back),
                        figure=figure_file(j, i) is not None)   # a figure whose file is not there draws no broken image
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     on='Home', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
+
+    def shown(j, i, b):
+        "Walk `j` with the passage of step `i` as the page shows it (`transcript_read`): a transcript gives a tight span and its links. Nothing is saved."
+        s = j.steps[i]
+        if (r := transcript_read(lr, s.get('read'), b.get(s['slug']))) is s.get('read'): return j
+        return AttrDict({**j, 'steps': [*j.steps[:i], {**s, 'read': r}, *j.steps[i + 1:]]})
 
     def note(jid:str, i:int):
         "The tutor note of step `i`, loaded after the page; a failed note shows nothing."
@@ -574,7 +581,8 @@ def connect(app, ctx):
             with held(jid, i):
                 if (w := step_read(lr, jid, j.steps[i]['slug'], ctx.sources)):   # an old path: its passage comes now, when the idea opens
                     s = w.steps[i]
-                    return ui.Note(tutor_note(lr, ctx.ask, w, i, ctx.sources)), ui.Passage(w, s, lr.concept(s['slug']), i, looking(jid, i))(hx_swap_oob='true')
+                    v = shown(w, i, by())
+                    return ui.Note(tutor_note(lr, ctx.ask, w, i, ctx.sources)), ui.Passage(v, v.steps[i], lr.concept(s['slug']), i, looking(jid, i))(hx_swap_oob='true')
                 return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
         except Exception as e: log.warning('the tutor could not write the note of %s step %s: %r', jid, i, e); return ''
 

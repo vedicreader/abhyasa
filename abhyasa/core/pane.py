@@ -18,13 +18,16 @@ The contract for a host (abhyasa here, Leela too):
 - `rh:done {slug, outcome}`: the side walk ended. The host sends it again as the DOM event `abhyasa:rh-done` on `document`, with
   `detail = {slug, outcome}`. The detail comes from the page in the pane: the host must treat it as input that it cannot trust.
 - `rh:link {url}`: open `url` outside the pane, in a new tab with `noopener` (Leela sends it). The URL must pass `is_web`: http
-  or https only. The host refuses all other schemes, such as `javascript:`, `data:` and `file:`."""
+  or https only. The host refuses all other schemes, such as `javascript:`, `data:` and `file:`.
+
+An outside link on a learning page goes through `side_link`. A YouTube video or playlist opens embedded in the pane, on the local
+page `/watch?u=<link>` (`yt_embed`); on a narrow screen it opens in a new tab. Any other web link opens in a new tab, with `noopener`."""
 import re
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit, parse_qs, quote
 from fasthtml.common import A, Aside, B, Button, Div, Header, Iframe, Span
 from abhyasa.stagekit import is_local, _BAD
 
-__all__ = ['is_local', 'is_web', 'pane_url', 'pane_link', 'side_link', 'PaneHost']
+__all__ = ['is_local', 'is_web', 'pane_url', 'pane_link', 'side_link', 'PaneHost', 'yt_embed', 'watch_url', 'YT_EMBED', 'WATCH']
 
 _WEB = re.compile(r'https?://[^\s/?#\\]+[^\s\\]*\Z', re.I)   # http or https, a host, and no space
 
@@ -44,11 +47,45 @@ def pane_link(label, href:str, title:str='', cls:str='pane-link', **kw):
     "A real link to `href` in a new tab; `pane.js` opens it in the side pane on a wide screen, or in the same tab on a narrow one."
     return A(label, href=href, target='_blank', data_pane=pane_url(href), data_title=title or None, cls=cls, **kw)
 
+YT_EMBED, WATCH = 'https://www.youtube-nocookie.com', '/watch'   # the one host that the pane embeds, and the local page that embeds it
+_YT_HOSTS = ('youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be', 'www.youtube-nocookie.com', 'youtube-nocookie.com')
+_YT_ID, _YT_LIST = re.compile(r'[\w-]{11}'), re.compile(r'[\w-]{10,64}')
+
+def _secs(t:str) -> int:
+    "The seconds of a YouTube time: `65`, `65s`, `1m5s` or `1h2m3s`; 0 when it is not one."
+    if (t := str(t or '').strip()).isdigit(): return int(t)
+    m = re.fullmatch(r'(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?', t)
+    return int(m[1] or 0) * 3600 + int(m[2] or 0) * 60 + int(m[3] or 0) if m and t else 0
+
+def yt_embed(url) -> str|None:
+    """The embed URL on `YT_EMBED` for the YouTube link `url`: a video (`watch?v=`, `youtu.be/`, `shorts/`, `embed/`) at its start time
+    (`t=` or `start=`), or a playlist (`videoseries?list=`). None for any other link, such as a YouTube search, which cannot be embedded.
+    kosha shows no helper for this: fossick makes watch links but does not read them."""
+    if not is_web(url): return None
+    p = urlsplit(url)
+    if (p.hostname or '').lower() not in _YT_HOSTS: return None
+    q = {k: v[0] for k, v in parse_qs(p.query).items()}
+    parts = [x for x in p.path.split('/') if x]
+    vid = parts[0] if p.hostname.lower() == 'youtu.be' and parts else q.get('v') if parts == ['watch'] else parts[1] if len(parts) == 2 and parts[0] in ('shorts', 'embed', 'live') else None
+    start = _secs(q.get('t') or q.get('start'))
+    if vid and _YT_ID.fullmatch(vid) and vid != 'videoseries': return f'{YT_EMBED}/embed/{vid}' + (f'?start={start}' if start else '')
+    if (lst := q.get('list')) and _YT_LIST.fullmatch(lst) and parts in (['playlist'], ['watch'], ['embed', 'videoseries']): return f'{YT_EMBED}/embed/videoseries?list={lst}'
+    return None
+
+def watch_url(url) -> str|None:
+    "The local page that embeds the YouTube link `url` in the pane (`/watch?u=<link>`), or None when `yt_embed` cannot embed it."
+    return f"{WATCH}?u={quote(url, safe='')}" if yt_embed(url) else None
+
 def side_link(label, href:str, title:str='', **kw):
     """The one rule for a link on a learning page to a page that supports the exercise: a local page opens in the side pane
-    (`pane_link`), so the page keeps its scroll, its draft and its open check; a web page opens in a new tab; any other link is text."""
+    (`pane_link`), so the page keeps its scroll, its draft and its open check. A YouTube video or playlist opens embedded in the pane
+    (`watch_url`): the link is the YouTube link, so a narrow screen or a modifier key opens it in a new tab. Any other web page opens in a
+    new tab with `noopener`, marked ↗ (`out-link`); it never takes the place of the learning page. Any other link is text."""
     if is_local(href): return pane_link(label, href, title, **{'cls': 'pane-link', **kw})
-    if is_web(href): return A(label, href=href, target='_blank', rel='noopener noreferrer', **kw)
+    if w := watch_url(href):
+        return A(label, href=href, target='_blank', rel='noopener noreferrer', data_pane=pane_url(w), data_local=w, data_yt='1', data_title=title or None,
+                 **{**kw, 'cls': ' '.join(x for x in ('pane-link yt-link', kw.get('cls')) if x)})
+    if is_web(href): return A(label, href=href, target='_blank', rel='noopener noreferrer', **{**kw, 'cls': ' '.join(x for x in ('out-link', kw.get('cls')) if x)})
     return Span(label, **{k: v for k, v in kw.items() if k == 'cls'})
 
 def _trail(trail, title):

@@ -4,7 +4,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from starlette.middleware.base import BaseHTTPMiddleware
 from fasthtml.common import *
-from abhyasa.core import cfg, RouteOverrides, connect_all, serve_assets, serve_feedback, HDRS, look_before, hooks
+from abhyasa.core import cfg, RouteOverrides, connect_all, serve_assets, serve_feedback, serve_watch, HDRS, look_before, hooks
 from abhyasa.core.keys import write_sanketa_pack
 from abhyasa.core.leela import write_address, drop_address, LOCAL_HOSTS
 from abhyasa.blocks import blocks
@@ -79,6 +79,7 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     app.state.svc = svc
     serve_assets(app)
     serve_feedback(app, learning)   # the feedback row under a demo or a lesson, in every block
+    serve_watch(app)   # a YouTube video in the side pane
     app.add_middleware(BaseHTTPMiddleware, dispatch=_fresh)
     app.add_middleware(LocalOnly, hosts=hosts)   # added last, so it runs first
     app.get('/health')(lambda: JSONResponse(dict(status='ok')))

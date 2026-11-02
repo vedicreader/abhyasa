@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, EditList, Live, UndoBar, HistoryList
+from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, SourceLinks, TutorWords, source_of, n_of, moved_words, Secondary, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, EditList, Live, UndoBar, HistoryList
 from abhyasa.learner import DEPTHS, METHOD_LABELS as LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
 from abhyasa.learner import val
@@ -236,7 +236,7 @@ def Passage(j, s, c, i=None, looking=False, quiet=False):
         return TutorWords((c or {}).get('statement', ''), SourceReady(j['id'], i), id='passage', data_part='passage', **mv)
     if r.get('text'):
         also = [Div(Md(a.get('text') or ''), SourceLine(source_of(a, j)), cls='also') for a in r.get('also') or () if a.get('text')]   # a merge keeps both passages
-        return Blockquote(Md(r['text']), SourceLine(source_of(r, j)), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', data_part='passage', **mv)
+        return Blockquote(Md(r['text']), SourceLine(source_of(r, j)), SourceLinks(r.get('links')), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', data_part='passage', **mv)   # `links`: the lesson notebook and the video of a transcript
     wait = i is not None and s.get('research') == 'pending' and looking and val('research.on')
     poll = dict(hx_get=at(Routes.source, j['id'], i) + '?quiet=1', hx_trigger=WAIT, hx_swap='outerHTML', data_job=f"walk:{j['id']}") if wait else {}
     return TutorWords((c or {}).get('statement', ''), FindSource(j['id'], i, s, looking) if i is not None else '',
