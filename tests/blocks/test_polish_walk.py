@@ -117,3 +117,15 @@ def test_the_check_head_names_the_way_one_time():
     old = to_xml(CardHead(dict(check=dict(way='analogy', kind='short', depth=3, why='analogies fits this idea'))))
     assert 'fits this idea' not in old and 'analogies' in old
     assert 'a new way to learn this' in to_xml(CardHead(dict(check=dict(way='analogy', kind='short', depth=3, why='trying analogies: a new way to learn this'))))
+
+def test_the_walk_page_says_what_it_is_for(mk, walk_fake, lr):
+    "The walk page shows the claim of the walk map as its main idea, and each idea of the plan shows the key question that it answers."
+    cl = mk(); jid = walk(cl, lr)
+    j = lr.journey(jid)
+    lr.put_journey({**j, 'map': dict(claim='Attention lets each word look at every other word at once.', ideas=[]),
+                    'steps': [{**j.steps[0], 'question': 'Why can a model not run the positions of one example in parallel?'}, *j.steps[1:]]})
+    t = cl.get(f'/w/{jid}').text
+    claim = re.search(r'<p[^>]*class="walk-claim"[^>]*>(.*?)</p>', t, re.S)
+    assert claim and 'The main idea' in claim[1] and 'Attention lets each word look at every other word at once.' in claim[1]
+    assert t.index('walk-claim') < t.index('id="plan"')
+    assert '<span class="ask">Why can a model not run the positions of one example in parallel?</span>' in t and t.count('class="ask"') == 1

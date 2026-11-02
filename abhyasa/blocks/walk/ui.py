@@ -802,7 +802,9 @@ def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), act
     Then the box that changes the walk, the plan (`plan`), the sources (`band`, `more`) and the talks."""
     src, ph = j.get('source') or {}, phase(j, st)
     whence = lead or (f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', ''))
+    claim = ' '.join(str((j.get('map') or {}).get('claim') or '').split())   # the one thing that the source shows, from the walk map
     head = (Div(H1(j['title']), WalkMenu(j), cls='walk-head'), P(*((whence, ' · ') if whence else ()), Size(j), cls='mute'),
+            P(Span('The main idea', cls='lbl'), claim, cls='walk-claim', data_part='claim') if claim else '',
             leela_line(j, vault=vault) if j.get('tool') else '', NotebookLine(j, copy))
     if ph == 'empty': return (*head, P('The tutor found no ideas in this source.', cls='mute'), Filed(j), Div(Primary('Home', href='/', data_act='home'), cls='row'))   # what Start filed keeps its Undo
     if ph == 'new': top = Div(Form(Primary('Start the walk', data_wait='Starting…', data_act='start'), action=at(Routes.start, j['id']), method='post'), cls='row walk-top')
@@ -888,7 +890,7 @@ def PlanRow(j, k, s, by, fresh='', nb=(), dot='todo'):
     slug = s['slug']
     return Li(Span(cls='grip', title='Drag to move', aria_hidden='true'), Span(str(k + 1), cls='no'),
               Div(Span(PlanDot(dot), A(Inline(name(by, s)), href=at(Routes.step, j['id'], k), tabindex='-1'), ' ', LockMark(slug, s.get('locked')), cls='ttl'),
-                  Span(step_line(j, s, slug in nb), cls='line'), cls='head'),
+                  Span(q, cls='ask') if (q := ' '.join(str(s.get('question') or '').split())) else '', Span(step_line(j, s, slug in nb), cls='line'), cls='head'),
               LockBtn(j['id'], slug, s.get('locked')), RowMenu(j['id'], s),
               tabindex='0', data_id=slug, data_i=str(k), data_post=edit_url(j['id'], slug), cls='edit-row' + (' skipped' if s.get('status') == 'skip' else '') + (' fresh' if slug == fresh else ''))
 
