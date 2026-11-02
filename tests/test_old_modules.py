@@ -28,3 +28,15 @@ def test_a_moved_name_is_not_the_same_name():
     "The new module has the moved name, and its plain name, if any, is another thing (for example `sources.source_of` is not `kind_of`)."
     import abhyasa.sources as s, abhyasa.path as p, abhyasa.show as w
     assert s.source_of is not s.kind_of and s.fold is not s.fold_trim and p.pick_prompt is not s.passage_prompt and w.DEMO_KINDS is not w.GUIDE_KINDS
+
+ENGINE = ('learner', 'models', 'sources', 'tutor', 'path', 'show')
+
+@pytest.mark.parametrize('mod', ENGINE)
+def test_a_name_from_a_sibling_module_is_not_shadowed(mod):
+    "Each name that an engine module takes by name from a sibling module is that object at import end: a later `from fastcore.utils import *` does not take its place (fastcore has a `fenced` too)."
+    import ast
+    m = importlib.import_module(f'abhyasa.{mod}')
+    tree = ast.parse(Path(m.__file__).read_text())
+    got = [(n.module, a.name, a.asname or a.name) for n in tree.body if isinstance(n, ast.ImportFrom) and n.level == 1 and n.module in ENGINE for a in n.names]
+    of = lambda o: getattr(o, '__module__', None) or ''
+    assert not [(src, name) for src, name, as_ in got if of(getattr(importlib.import_module(f'abhyasa.{src}'), name)).startswith('abhyasa') and of(getattr(m, as_)).startswith('fastcore')]

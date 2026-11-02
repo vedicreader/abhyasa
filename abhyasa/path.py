@@ -2485,7 +2485,6 @@ import hashlib, json, logging, os, re, shutil, threading, time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse, unquote
-from fastcore.utils import *
 from .learner import Learning, _union
 from .learner import val, source_root_why
 from .models import HOSTED, ask_json, for_task, ramabana_worker, ramabana_lead
