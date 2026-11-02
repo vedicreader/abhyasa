@@ -124,8 +124,8 @@ def connect(app, ctx):
     def gaps(j, i, q):
         "After a miss that names a gap: the line that offers to learn it beside the step."
         terms = list(dict.fromkeys(t.strip() for t in (q or {}).get('gaps') or () if isinstance(t, str) and t.strip()))
-        hits = [(r.slug, r.name) if (r := found(t)) else (t, t) for t in terms]
-        return ui.GapLine(hits) if hits else None
+        rs = [found(t) for t in terms]
+        return ui.GapLine([(r.slug, r.name) if r else (t, t) for r, t in zip(rs, terms)], new=not rs[0]) if terms else None
 
     @hook('check_stuck')
     def stuck(jid, i, s, q):

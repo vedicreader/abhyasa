@@ -56,10 +56,11 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 addEventListener('resize', abhyasaRoom);
 document.addEventListener('htmx:afterSettle', abhyasaRoom);
 if (document.fonts) document.fonts.ready.then(abhyasaRoom);
-// A main button with `data-focus` takes the cursor when it comes, with no focus ring until you use a key. Never a box with your text in it.
+// A main button with `data-focus` takes the cursor when it comes, with no focus ring until you use a key. Never a box with your text in it,
+// nor a choice in an open dialog (such as the chooser of the detour block).
 function abhyasaFocus() {
   const a = document.activeElement;
-  if (a && a !== document.body && a.matches('textarea, input, select, [contenteditable]')) return;
+  if (a && a !== document.body && a.matches('textarea, input, select, [contenteditable], [role=dialog] *')) return;
   const el = [...document.querySelectorAll('[data-focus]')].find(abhyasaSeen);
   if (el && el !== a) el.focus({preventScroll: true, focusVisible: false});
 }

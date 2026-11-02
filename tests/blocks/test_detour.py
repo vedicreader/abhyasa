@@ -49,7 +49,17 @@ def test_a_miss_that_names_a_gap_offers_it(mk, walk_fake, lr):
     lr.walk_step(jid, 2, check=dict(way='words', kind='short', depth=2, why=''))
     cl.get(f'/w/{jid}/2/check')
     r = cl.post(f'/w/{jid}/2/answer', data=dict(answer='it is faster', confidence=70)).text
-    assert 'Your answer shows a gap' in r and '⌥B' in r
+    assert 'Your answer shows a gap' in r and 'Learn this gap' in r and '⌥B' in r and 'Your place here stays' in r and 'data-add' not in r
+
+def test_a_gap_that_is_not_on_the_shelf_is_added_on_the_click(mk, walk_fake, lr):
+    "When the tutor could not add the gap at the answer, the gap line names it as said, and its button adds it (data-add) before the chooser opens."
+    cl, jid = _gap_page(mk, walk_fake, lr, 'vertical movement of the line')
+    cl.get(f'/w/{jid}/2/check')
+    r = cl.post(f'/w/{jid}/2/answer', data=dict(answer='it is faster', confidence=70)).text
+    assert not lr.concept('vertical-movement-of-a-line') and 'data-t="vertical movement of the line" data-add="1"' in r
+    walk_fake.fail = False
+    t = cl.post('/rh/term', data=dict(t='vertical movement of the line', at=f'{jid}/2')).text
+    assert 'A quick look' in t and 'vertical-movement-of-a-line' in lr.concept('scaling-by-the-root-of-dk').gaps
 
 def test_term_offer_and_depth_limit(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
@@ -207,3 +217,54 @@ def test_a_side_walk_row_opens_beside_its_parent_step(mk, walk_fake, lr):
     assert f'src="/w/{sid}/0?pane=1"' in cl.get(f'/w/{jid}/2?rh=/w/{sid}/0').text
     j = lr.journey(sid); lr.put_journey({**j, 'parent': dict(walk=jid, step=99), 'depth': 1})
     assert f'href="/w/{sid}"' in cl.get('/').text                                  # the parent step is gone: its own page
+
+def _gap_page(mk, walk_fake, lr, gap):
+    "A started walk whose step 3 has a short check, and an answer that the grader marks as a miss with gap `gap`. The lesson is long, so the gap line is far below the title."
+    walk_fake.rules['You grade one answer'] = dict(correct=False, grade=2, first_error='No slope.', misconception='', feedback='Think of the slope.', gaps=[gap])
+    walk_fake.rules['Teach the smallest step'] = '\n\n'.join(['Draw the line through two points, then look at where it crosses the axes.'] * 12)
+    walk_fake.fail = True   # while it is set, the tutor cannot add the gap: the try at the answer fails, so the card names the gap as said
+    walk_fake.rules['The idea: vertical movement of the line'] = lambda p, sp: {} if walk_fake.fail else dict(
+        name='Vertical movement of a line', statement='A change of the bias moves the line up or down.', size=0)
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    lr.walk_step(jid, 2, check=dict(way='words', kind='short', depth=2, why=''))
+    return cl, jid
+
+@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
+@pytest.mark.parametrize('gap,how', [('gradients', 'click'), ('gradients', 'key'), ('vertical movement of the line', 'click')])
+def test_learn_this_gap_opens_the_chooser_under_the_gap_line(mk, walk_fake, lr, gap, how):
+    """After a miss and a lesson, Learn this gap (a click, or ⌥B after the card swapped in) opens the chooser under the gap line, in view,
+    with the tutor's pick first and in focus. A gap that is not in your concepts yet is added first (a POST), then the chooser opens."""
+    import socket, threading, time, uvicorn
+    from playwright.sync_api import sync_playwright
+    cl, jid = _gap_page(mk, walk_fake, lr, gap)
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True, args=['--mute-audio'])
+            try:
+                pg = b.new_page(viewport=dict(width=1200, height=800), reduced_motion='reduce')
+                errs, reqs = [], []
+                pg.on('pageerror', lambda e: errs.append(str(e)))
+                pg.on('request', lambda r: reqs.append((r.method, r.url.split('?')[0].split(str(port))[1])))
+                pg.goto(f'http://127.0.0.1:{port}/w/{jid}/2'); pg.wait_for_selector('#check #ans')
+                pg.fill('#check #ans', 'it is faster'); pg.locator('#check #ans').press('Control+Enter')
+                pg.wait_for_selector('#check .rh-gapline .rh-gap')
+                pg.locator('#idk').click(); pg.wait_for_selector('#check .go-on')                       # Teach me: the lesson swaps the card in again
+                g = pg.locator('#check .rh-gapline .rh-gap')
+                g.scroll_into_view_if_needed(); n = len(reqs); walk_fake.fail = False
+                if how == 'click': g.click()
+                else: pg.evaluate("document.activeElement.blur()"); pg.keyboard.press('Alt+b')
+                pg.wait_for_selector('#check .rh-gapline + #rh-offer .rh-offer-card .rh-way.pick')
+                assert reqs[n:][0] == (('POST' if ' ' in gap else 'GET'), '/rh/term'), reqs[n:]
+                assert pg.locator('.rh-needs #rh-offer').count() == 0 and pg.locator('#rh-offer').count() == 1   # one box, under the gap line
+                assert pg.evaluate("(() => { const r = document.querySelector('#rh-offer .rh-way.pick').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()")
+                pg.wait_for_function("() => document.activeElement?.matches('.rh-way.pick')")             # Next idea does not take the focus back
+                assert [w.get_attribute('data-how') for w in pg.locator('#rh-offer .rh-way').all()] == ['primer', 'walk', 'course']
+                if ' ' in gap: assert lr.concept('vertical-movement-of-a-line') and 'vertical-movement-of-a-line' in lr.concept('scaling-by-the-root-of-dk').gaps
+                pg.keyboard.press('Escape'); assert pg.locator('#rh-offer .rh-offer-card').count() == 0
+                assert not errs, errs
+            finally: b.close()
+    finally: srv.should_exit = True; th.join(5)
