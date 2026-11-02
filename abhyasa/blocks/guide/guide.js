@@ -64,7 +64,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   function markMath(root) {
     const out = [];
     root.querySelectorAll('.katex').forEach((k, n) => {
-      if (out.length >= 12 || !seen(k)) return;
+      if (out.length >= 12 || !seen(k) || k.closest('nav, .outline')) return;   // a formula in the outline of a walk names another step: never an anchor
       const host = k.closest('span.math, div.math') || k.parentElement;
       if (!host.dataset.guideId) {
         const tex = texOf(k);
@@ -308,13 +308,26 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
 
   // --- the thread of the page ------------------------------------------------------------------------------------------
   // A follow-up ("say that more simply", "why?") means the last board. So the page keeps the last 3 turns on this page, each the
-  // question, the lines that its board said and its tier, and sends them with the next question. They are in memory only: the
+  // question, the lines that its board said, what its panel showed (`shownOf`) and its tier, and sends them with the next question.
+  // While its board shows, the board of a follow-up builds on it (board.js `keep`): the marks and the panel stay, and the new ones add. They are in memory only: the
   // thread clears when the page changes, after 10 minutes with no question, or with Start fresh. Nothing goes to disk, and the
   // server keeps none of it. The bounds are the server's too (`clean_context`): a cut line or turn there is cut here first.
-  const TH = {turns: 3, said: 300, says: 6, say: 160, total: 1500, idle: 600000};
+  const TH = {turns: 3, said: 300, says: 6, say: 160, shown: 300, total: 1500, idle: 600000};
   const pageKey = () => location.pathname;
   let thread = {page: pageKey(), at: 0, turns: []};
-  const size = t => t.said.length + t.says.reduce((n, x) => n + x.length, 0);
+  const size = t => t.said.length + t.says.reduce((n, x) => n + x.length, 0) + (t.shown || '').length;
+  function shownOf(board) {   // what the side panel of a board showed, in a few words: its title and head, rows, boxes, arrows, wrong ideas and notes
+    const v = c => c && typeof c === 'object' ? c.blank : c, out = [];
+    for (const s of (board && board.steps) || []) for (const o of s.strokes || []) {
+      if (o.op === 'panel') out.push(`Panel "${[o.title, o.head].filter(Boolean).join(': ')}"`);
+      else if (o.op === 'row') out.push((o.cells || []).map(v).join(o.chain ? ' → ' : ', ') + (o.to != null ? ' → ' + v(o.to) : ''));
+      else if (o.op === 'node') out.push(`box ${o.text}`);
+      else if (o.op === 'edge') out.push(`${o.from} → ${o.to}`);
+      else if (o.op === 'myth') out.push(`wrong idea: ${o.think}; in fact: ${o.fact}`);
+      else if (o.op === 'note') out.push(`note: ${o.text}`);
+    }
+    return cut(out.join('; '), TH.shown);
+  }
   function fresh() { thread = {page: pageKey(), at: 0, turns: []}; threadLine(); }
   function turns() {   // the thread now; an old one or one of another page goes first
     if (thread.turns.length && (thread.page !== pageKey() || Date.now() - thread.at > TH.idle)) fresh();
@@ -323,7 +336,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   function keep(said, board, page) {   // the turn of a board that the learner saw, on the page where they asked
     const says = (board && board.steps || []).map(x => cut(x && x.say, TH.say)).filter(Boolean).slice(0, TH.says);
     if (!says.length || page !== pageKey()) return;
-    const ts = [...turns(), {said: cut(said, TH.said), says, t: board.tier || 'tutor'}].slice(-TH.turns);
+    const shown = shownOf(board), ts = [...turns(), {said: cut(said, TH.said), says, t: board.tier || 'tutor', ...(shown && {shown})}].slice(-TH.turns);
     while (ts.length && ts.reduce((n, t) => n + size(t), 0) > TH.total) ts.shift();
     thread = {page, at: Date.now(), turns: ts};
   }
@@ -543,13 +556,14 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     const shown = stopShow();   // what the learner showed with the pointer while they asked
     close();
     const t0 = performance.now(), last = window.abhyasaGuideLast = {said, t0}, n = ++asks, page = pageKey();
+    const onTop = !!(turns().length && window.abhyasaBoard && abhyasaBoard.state);   // a follow-up while its board shows: the new board builds on it
     const offer = voiceOffer();
-    const opts = () => ({labels, quiet: !voiceOn(), who: asked, onVoice: setVoice, point: info.point, ...(natural() ? {host: {speak: speakNatural}, voiceAt: info.out} : {host: {speak: speakSpoken}}), ...(offer && {notice: offer})}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
+    const opts = () => ({labels, quiet: !voiceOn(), who: asked, onVoice: setVoice, point: info.point, ...(natural() ? {host: {speak: speakNatural}, voiceAt: info.out} : {host: {speak: speakSpoken}}), ...(offer && {notice: offer}), keep: onTop}), mark = () => document.addEventListener('board:first', () => { last.first_ms = Math.round(performance.now() - t0); }, {once: true});
     let labels = {}, live = null, whole = false, asked = info.model || null, saved = null;   // live: the promise of the streaming board, with each add after it
     const got = [];   // the steps that came, for a stream that ends with no board event
     if (ctl) ctl.abort();
     const me_ = ctl = new AbortController(); busy = n; drew = false;
-    if (window.abhyasaBoard && abhyasaBoard.state) abhyasaBoard.stop();   // the board of the older question goes
+    if (window.abhyasaBoard && abhyasaBoard.state && !onTop) abhyasaBoard.stop();   // the board of the older question goes, unless the new one builds on it
     try {
       const ctx = await capture();
       const focus = focusFor(shown, ctx);
