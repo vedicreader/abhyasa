@@ -42,7 +42,6 @@ demo = ["rupaka[check]>=0.0.11"]
 dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "rupaka[check]>=0.0.11"]
 models = ["ramabana>=0.2.103"]   # now a core dependency; the extra stays so that old installs still resolve
 voice = ["mlx-audio>=0.6.1", "pocket-tts-mlx>=0.3"]   # the voice on this Mac: Pocket TTS (MIT code, CC-BY-4.0 weights by Kyutai)
-kokoro = ["kokoro-onnx>=0.6.1"]   # a second voice on this Mac, optional: Kokoro 82M (Apache-2.0) on onnxruntime, with no spaCy; phonemizer and espeak-ng are GPL-3.0
 
 [project.scripts]
 abhyasa = "abhyasa.app:main"
