@@ -365,3 +365,42 @@ def test_the_panel_covers_no_text_and_no_mark_at_1400(page):
     assert marks and all(r <= p[0] for _, r in marks)
     assert page.evaluate("getComputedStyle(document.querySelector('.board-panel-head')).fontFamily").startswith('"Patrick Hand"')
     assert page.evaluate("document.fonts.ready.then(() => [...document.fonts].some(f => f.family.includes('Patrick Hand') && f.status === 'loaded'))")   # rupaka's file, served here
+
+def test_maths_in_a_panel_cell_is_katex(page):
+    "On the app page, a panel cell with `$w_1x_1$`, a bare `x_i` and a head with `$z$` draw with KaTeX, as marks on the page do: no raw `_` or `$` shows."
+    page.set_viewport_size(dict(width=1440, height=900))
+    play(page, [dict(say='Multiply each input by its weight.', strokes=[dict(op='panel', head='Inside $z$', cols=['Step', 'Result']),
+                                                                       dict(op='row', cells=['Multiply each x_i by w_i'], to='$w_1x_1$')])])
+    got = page.evaluate("""() => [...document.querySelectorAll('#board-panel .board-cell, #board-panel .board-panel-head')].map(e => {
+        const seen = [...e.querySelectorAll('.katex-html')].map(k => k.textContent).join(''), c = e.cloneNode(true);
+        c.querySelectorAll('.katex-mathml').forEach(m => m.remove());
+        return {katex: e.querySelectorAll('.katex').length, text: c.textContent, seen}; })""")
+    assert [g['katex'] for g in got] == [1, 2, 1], got   # the head, the cell, the answer
+    assert all('_' not in g['text'] and '$' not in g['text'] for g in got), got
+    assert 'w1x1' in got[2]['text'].replace('​', ''), got
+
+NEURON = r"A neuron takes numbers $x_1, \dots, x_n$, multiplies each by a weight $w_i$, adds a bias $b$, and outputs $z = w_1x_1 + \cdots + w_nx_n + b$. In Python this is a loop that sums products, then adds one number."
+PARAS = """() => { const out = [], r = document.createRange(), tw = document.createTreeWalker(document.querySelector('#passage p'), NodeFilter.SHOW_TEXT,
+    {acceptNode: n => n.parentElement.closest('.katex-mathml') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT});
+  for (let n; (n = tw.nextNode());) { if (!n.data.trim()) continue; r.selectNodeContents(n); for (const q of r.getClientRects()) out.push([q.left + scrollX, q.top + scrollY, q.right + scrollX, q.bottom + scrollY]); }
+  return out; }"""
+
+def test_a_label_and_a_curve_on_a_formula_keep_off_the_passage(page):
+    """At 1440 px, on a passage with KaTeX formulas: a label on the `z` of the formula covers no line of the passage, and the curve from
+    `w_1` to its row crosses no line of the passage after its start."""
+    from fasthtml.common import to_xml
+    from abhyasa.core.ui import Md
+    page.set_viewport_size(dict(width=1440, height=900))
+    page.evaluate("""h => { const q = document.getElementById('passage'); q.innerHTML = h; render(q); }""", to_xml(Md(NEURON)))
+    page.evaluate('abhyasaGuide.capture()')   # the formulas get their anchors and parts
+    page.evaluate('document.fonts.ready')
+    play(page, [dict(say='It multiplies each input by its weight.', strokes=[dict(op='panel', head='Inside one neuron'),
+                     dict(op='row', cells=['Multiply each $x_i$ by $w_i$'], to='$w_1x_1$', at=dict(a='m4', tex='w_1'))]),
+                dict(say='The output z is one number.', strokes=[dict(op='label', at=dict(a='m4', tex='z'), text="one number out", side='below')])])
+    lines = page.evaluate(PARAS)
+    pts = page.evaluate("""() => { const p = document.querySelector('#board-layer g[data-op=link] path'), L = p.getTotalLength(), out = [];
+        for (let s = 14; s <= L; s += 3) { const q = p.getPointAtLength(s); out.push([q.x, q.y]); } return out; }""")
+    assert pts and not [p for p in pts if any(q[0] + 1 < p[0] < q[2] - 1 and q[1] + 1 < p[1] < q[3] - 1 for q in lines)]
+    page.evaluate('abhyasaBoard.next()'); page.wait_for_function('abhyasaBoard.state.i === 1 && abhyasaBoard.state.done')
+    chip = page.evaluate("(() => { const b = document.querySelector('.board-label').getBoundingClientRect(); return [b.left + scrollX, b.top + scrollY, b.right + scrollX, b.bottom + scrollY]; })()")
+    assert not any(chip[0] < q[2] and q[0] < chip[2] and chip[1] < q[3] and q[1] < chip[3] for q in lines), (chip, lines)
