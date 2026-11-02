@@ -185,7 +185,7 @@ p.hands a, .talk-line a, .change-walk a { color: var(--mute); }
 .walk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
 .walk-head h1 { margin-bottom: 0; }
 .walk-claim { max-width: 46em; margin-top: var(--s2); }   /* the claim of the walk map: what the walk is for */
-.edit-list .head .ask { display: block; color: var(--ink2); margin-top: 2px; }   /* the key question that the idea answers */
+.edit-list .head .ask { display: block; color: var(--ink2); font-size: var(--t-small); margin-top: 2px; }   /* the key question that the idea answers */
 .walk-notebook { margin: var(--s2) 0 0; } .walk-notebook p { margin: var(--s1) 0 0; font-size: var(--t-small); }
 /* the box that changes the walk: one line that grows; what changed is a short list with Undo */
 .walk-change { margin-top: var(--s5); }
