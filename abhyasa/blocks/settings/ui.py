@@ -189,8 +189,9 @@ def SpeechGroup(sp, key, jobs, n):
     return RowGroup('stt', n, lambda r: val(r.name), extra=(Speech(sp, key), Jobs(jobs)), more_extra=(Lookup(), Key()))
 
 # --- the speaking voice ----------------------------------------------------------------------------------------------
-OUT_LABEL = dict(pocket='Pocket TTS', openai='OpenAI', browser='The browser')
+OUT_LABEL = dict(pocket='Pocket TTS', kokoro='Kokoro', openai='OpenAI', browser='The browser')
 OUT_NOTE = dict(pocket='A natural voice. It runs on this Mac. You download it one time (225 MB).',
+                kokoro='A second natural voice, with US and UK voices. It runs on this Mac. You install it, then download it one time (107 MB).',
                 openai='A natural voice. Each line goes to OpenAI, after the privacy guard. It needs a key.',
                 browser='The voice of the browser, or of the Mac in the overlay. It needs no download, but it sounds like a machine.')
 SAMPLE = 'This is the voice of the guide. It reads each step aloud.'
@@ -210,13 +211,16 @@ def OutStatus(speaker):
     return Span(Span('on this Mac', cls='ok'), ' ', Span(speaker.status, cls='mute'), id='out-status', **poll)
 
 def OutEngine(engine, key):
-    "The three engines, as radio buttons. OpenAI needs a key first."
+    "The engines, as radio buttons. OpenAI needs a key first, and Kokoro its extra."
     def one(e):
-        off = e == 'openai' and not key
-        return Label(Input(type='radio', name='engine', value=e, checked=e == engine, disabled=off),
-                     Span(Strong(OUT_LABEL[e]), ' ', OutWhere(e), Br(), Small(OUT_NOTE[e] + (' Set a key first, under More in Speech to text.' if off else ''), cls='mute')))
+        why = dict(openai='' if key else ' Set a key first, under More in Speech to text.',
+                   kokoro='' if voice.kokoro_installed() else ' Install it first: pip install "abhyasa[kokoro]", then start abhyasa again.').get(e, '')
+        return Label(Input(type='radio', name='engine', value=e, checked=e == engine, disabled=bool(why)),
+                     Span(Strong(OUT_LABEL[e]), ' ', OutWhere(e), Br(), Small(OUT_NOTE[e] + why, cls='mute')))
     return Form(*map(one, voice.OUT_ENGINES), hx_post=Routes.out, hx_trigger='change', hx_target='#voice-out', hx_swap='outerHTML',
                 role='radiogroup', aria_label='Speaking engine', cls='out-engines')
+
+OUT_MB = dict(pocket='225 MB', kokoro='107 MB')
 
 def OutModel(engine, model, speaker):
     "For Pocket TTS: on this Mac, or Download; for OpenAI: a list of its speech models."
@@ -224,17 +228,23 @@ def OutModel(engine, model, speaker):
     if engine == 'openai':
         return P(Label('Model ', Select(*[Option(m, value=m, selected=m == model) for m in voice.OPENAI_SPEECH], name='model', hx_post=Routes.out,
                                         hx_vals={'engine': 'openai'}, hx_trigger='change', **post)), cls='out-line')
-    if engine != 'pocket': return ''
+    if engine not in voice.LOCAL_VOICES: return ''
     if voice.cached(model): return P(OutStatus(speaker), cls='out-line')
+    mb = OUT_MB[engine]
     return P('The voice is not on this Mac yet. Until you download it, the browser speaks. ',
-             Button('Download', hx_post=Routes.out_get, hx_vals={'engine': 'pocket'}, title='Download the voice (225 MB), then use it', **post), cls='warn first-use')
+             Button('Download', hx_post=Routes.out_get, hx_vals={'engine': engine}, title=f'Download the voice ({mb}), then use it', **post), cls='warn first-use')
 
-def voice_name(v) -> str: return v.replace('_', ' ').title()
+KOKORO_ACCENT, KOKORO_SEX = dict(a='US', b='UK'), dict(f='woman', m='man')
+
+def voice_name(v) -> str:
+    "The name of a voice for the list: `af_heart` is Heart (US woman), `caro_davy` is Caro Davy."
+    if v in voice.KOKORO_VOICES: return f'{v[3:].title()} ({KOKORO_ACCENT[v[0]]} {KOKORO_SEX[v[1]]})'
+    return v.replace('_', ' ').title()
 
 def OutVoice(engine, model, v):
     "The voice: a list of the voices of the engine. For OpenAI, only the voices of its model (`VOICES_OF`)."
     if engine == 'browser': return ''
-    vs = voice.POCKET_VOICES if engine == 'pocket' else voice.openai_voices(model)
+    vs = voice.LOCAL_VOICES.get(engine) or voice.openai_voices(model)
     return P(Label('Voice ', Select(*[Option(voice_name(x), value=x, selected=x == v) for x in vs], name='voice', hx_post=Routes.out,
                                     hx_vals={'engine': engine}, hx_trigger='change', hx_target='#voice-out', hx_swap='outerHTML')), cls='out-line')
 
@@ -264,7 +274,7 @@ def VoiceGroup(speaker, key, n):
     "Speaking voice: the engine, its voice and the speed of OpenAI. The speed row is in `VoiceOut`, and it is hidden for the other engines."
     return Group('voice', n, extra=(VoiceOut(speaker, key),))
 
-def job_name(model) -> str: return 'The voice (Pocket TTS)' if model == voice.POCKET else model
+def job_name(model) -> str: return {voice.POCKET: 'The voice (Pocket TTS)', voice.KOKORO: 'The voice (Kokoro)'}.get(model, model)
 
 def job_line(j) -> str:
     "The line of the download `j` as it is now: the bytes so far, loading, failed or ready."

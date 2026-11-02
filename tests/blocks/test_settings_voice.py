@@ -14,12 +14,12 @@ def clean(monkeypatch):
     back(); yield; back()
 
 def test_the_group_shows_the_engines_and_where_they_run(mk, monkeypatch):
-    "Three engines. Pocket TTS is the default, with its voices in a list. The speed row is only for OpenAI."
+    "Four engines. Pocket TTS is the default, with its voices in a list. The speed row is only for OpenAI."
     monkeypatch.setattr(voice, 'cached', lambda m: True)
     t = mk().get('/settings').text
     assert 'id="g-voice"' in t and '>Speaking voice<' in t and 'id="ix-voice"' in t
-    for s in ('Pocket TTS', 'The browser', 'OpenAI', 'hosted · OpenAI', 'Play a sample', '<option value="caro_davy" selected>Caro Davy</option>', '>Peter Yearsley<'): assert s in t, s
-    assert 'Set a key first' in t and 'hidden' in re.search(r'<ul[^>]*id="out-speed"[^>]*>', t)[0] and 'Kokoro' not in t and 'Hugging Face model' not in t
+    for s in ('Pocket TTS', 'Kokoro', 'The browser', 'OpenAI', 'hosted · OpenAI', 'Play a sample', '<option value="caro_davy" selected>Caro Davy</option>', '>Peter Yearsley<'): assert s in t, s
+    assert 'Set a key first' in t and 'hidden' in re.search(r'<ul[^>]*id="out-speed"[^>]*>', t)[0] and 'Hugging Face model' not in t
     assert t.count('<option value=', t.index('name="voice"')) >= len(voice.POCKET_VOICES)
 
 def test_pick_a_voice_and_the_browser(mk, monkeypatch):
@@ -69,7 +69,7 @@ def test_first_use_download_then_use(mk, monkeypatch):
     assert got == [voice.POCKET] and voice.out_current()[:3] == ('pocket', voice.POCKET, 'caro_davy')
     page = cl.get('/settings').text
     assert 'not on this Mac yet. Until' not in page and 'downloaded by this page' not in page
-    assert cl.post('/settings/voice/get', data=dict(engine='kokoro')).status_code == 400
+    assert cl.post('/settings/voice/get', data=dict(engine='espeak')).status_code == 400
 
 def test_play_a_sample(mk, monkeypatch):
     "The sample comes as base64 WAV with the time it took. The browser voice, and Pocket before its download, have no sample from the server."
@@ -132,3 +132,42 @@ def test_the_voice_saves_at_once_with_no_call_to_openai(mk, monkeypatch):
         t = time.time(); r = cl.post('/settings/voice', data=d)
         assert r.status_code == 200 and time.time() - t < .5, d
     assert calls == []
+
+def test_kokoro_says_how_to_install_it(mk, monkeypatch):
+    "Without the kokoro extra, the Kokoro choice is off, with one plain line that gives the install command. Nothing saves or downloads."
+    monkeypatch.setattr(voice, 'kokoro_installed', lambda: False)
+    cl = mk(['settings'])
+    t = cl.post('/settings/voice', data=dict(engine='kokoro')).text
+    assert val('voice.out') == 'pocket' and re.search(r'<input type="radio" name="engine" value="kokoro" disabled>', t)
+    assert 'Install it first: pip install &quot;abhyasa[kokoro]&quot;, then start abhyasa again.' in t or 'Install it first: pip install "abhyasa[kokoro]", then start abhyasa again.' in t
+    assert 'Downloading' not in cl.post('/settings/voice/get', data=dict(engine='kokoro')).text
+
+def test_kokoro_downloads_then_speaks_with_its_voices(mk, monkeypatch):
+    "With the extra: Kokoro lists its US and UK voices, says that the browser speaks until the download, and Download gets only its files."
+    got, go = [], threading.Event()
+    monkeypatch.setattr(voice, 'kokoro_installed', lambda: True)
+    monkeypatch.setattr(voice, 'model_size', lambda m: 100)
+    monkeypatch.setattr(voice, 'cached', lambda m: m in got)
+    def fetch(m): go.wait(10); got.append(m)
+    monkeypatch.setattr(voice, 'fetch', fetch)
+    monkeypatch.setattr(voice, '_kokoro_say', lambda text, *a: voice.to_wav([0.] * 2400, 24000))
+    monkeypatch.setitem(voice.SAY, 'kokoro', voice._kokoro_say)
+    cl = mk(['settings'])
+    t = cl.post('/settings/voice', data=dict(engine='kokoro', voice='bm_george')).text
+    assert voice.out_current()[:3] == ('kokoro', voice.KOKORO, 'bm_george') and '>George (UK man)<' in t and '>Heart (US woman)<' in t
+    assert 'The voice is not on this Mac yet' in t and '107 MB' in t
+    assert 'Downloading The voice (Kokoro)' in cl.post('/settings/voice/get', data=dict(engine='kokoro')).text
+    go.set()
+    for _ in range(100):
+        if 'is ready and in use' in (j := cl.get('/settings/jobs').text): break
+        time.sleep(.02)
+    assert got == [voice.KOKORO] and 'The voice (Kokoro) is ready and in use' in j
+    assert cl.post('/settings/voice/sample').json()['where'] == 'on this Mac'
+
+def test_an_old_kokoro_setting_gets_kokoro_when_it_is_installed(mk, monkeypatch):
+    "A setting from before 0.0.16 said kokoro, with an mlx model and a Kokoro voice: with the extra it is Kokoro with that voice, else Pocket TTS."
+    update_settings('voice', out='kokoro', out_model='mlx-community/Kokoro-82M-bf16', out_voice='af_bella')
+    monkeypatch.setattr(voice, 'kokoro_installed', lambda: True)
+    assert voice.out_current()[:3] == ('kokoro', voice.KOKORO, 'af_bella')
+    monkeypatch.setattr(voice, 'kokoro_installed', lambda: False)
+    assert voice.out_current()[:3] == ('pocket', voice.POCKET, 'caro_davy')

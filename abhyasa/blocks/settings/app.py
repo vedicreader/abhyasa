@@ -129,7 +129,7 @@ def connect(app, ctx):
             except Exception as e: j.state, j.error = 'failed', str(e)
             return j
         track(lr, key, lambda: ctx.pool.submit(run), 'download', title=f'Download: {ui.job_name(model)}', said=ui.job_line(j),
-              url='/settings#g-voice' if model == voice.POCKET else '/settings#g-stt', obj=key,
+              url='/settings#g-voice' if model in (voice.POCKET, voice.KOKORO) else '/settings#g-stt', obj=key,
               ok=lambda j: dict(said=ui.job_line(j)) if j.state == 'done' else dict(state='failed', why=ui.job_line(j)))
         return part(), ui.Jobs(jobs, oob=True)
 
@@ -211,7 +211,7 @@ def connect(app, ctx):
     def out(engine:str='', model:str='', voice_:str=''):
         "Save the speaking engine, its model and its voice. A new engine starts from its own defaults. The voice model warms when it is here."
         if engine not in voice.OUT_ENGINES: return Response('unknown voice engine', status_code=400)
-        if engine == 'openai' and not has_key(): return out_part()
+        if engine == 'openai' and not has_key() or engine == 'kokoro' and not voice.kokoro_installed(): return out_part()
         same = engine == val('voice.out')
         keep = lambda v, k: v.strip() or (val(k) if same else '')
         m, v = ('', '') if engine == 'browser' else (keep(model, 'voice.out_model'), keep(voice_, 'voice.out_voice'))
@@ -227,13 +227,15 @@ def connect(app, ctx):
     def out_route(engine:str='', model:str='', voice:str=''): return out(engine, model, voice)   # the form names it `voice`
 
     def out_get(engine:str='pocket'):
-        "Download the voice of Pocket TTS in the background, then use it."
-        if engine != 'pocket': return Response('unknown voice engine', status_code=400)
-        if voice.cached(voice.POCKET): return out(engine)
+        "Download the local voice of `engine` (Pocket TTS or Kokoro) in the background, then use it."
+        if engine not in voice.LOCAL_VOICES: return Response('unknown voice engine', status_code=400)
+        if engine == 'kokoro' and not voice.kokoro_installed(): return out(engine)   # the part says how to install it
+        model = voice.OUT_DFLT[engine][0]
+        if voice.cached(model): return out(engine)
         def then():
             voice.update_settings('voice', out=engine)
             return spk.warm()
-        return fetch_job(engine, voice.POCKET, then, spk, out_part)
+        return fetch_job(engine, model, then, spk, out_part)
 
     async def out_sample():
         "The sample line in the voice of the settings, with the time to the audio: JSON {audio, words, ms, where}."

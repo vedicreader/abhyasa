@@ -51,8 +51,8 @@ def voice_out(here=None) -> dict:
     "Who reads the board aloud: the engine of the setting `voice.out`, its name, and where it runs. Only OpenAI is hosted. The browser speaks until the local voice is on this Mac."
     from abhyasa.models import out_current, out_where, cached
     e, m, v, _ = out_current()
-    if e == 'pocket' and not (here or cached)(m): e, m, v = 'browser', '', ''
-    name = dict(browser='The browser', pocket='Pocket TTS', openai='OpenAI')[e]
+    if e in ('pocket', 'kokoro') and not (here or cached)(m): e, m, v = 'browser', '', ''
+    name = dict(browser='The browser', pocket='Pocket TTS', kokoro='Kokoro', openai='OpenAI')[e]
     return dict(engine=e, model=name, voice=v, where=out_where(e), who='OpenAI' if e == 'openai' else '')
 
 def connect(app, ctx):
