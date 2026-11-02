@@ -17,7 +17,7 @@ __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 
            'resolve', 'current', 'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe',
            'wav_seconds', 'silence', 'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch',
            'remove', 'openai_voices', 'fit_voice', 'out_resolve', 'out_current', 'out_where', 'by_letters', 'to_wav',
-           'clean_wav', 'speak', 'Speaker', 'Dictation', 'Speech']
+           'clean_wav', 'SpeakError', 'openai_why', 'speak', 'Speaker', 'Dictation', 'Speech']
 
 # %% ../nbs/01_models.ipynb #9cfb2945
 import json, os, re, gc, time, uuid, inspect, tempfile, threading, wave
@@ -619,13 +619,35 @@ def _pocket_say(text, model, voice, speed, instructions=''):
 OPENAI_SPEECH_URL = 'https://api.openai.com/v1/audio/speech'
 OPENAI_SPEC = AttrDict(name='openai', local=False)   # the route for the guard: a model off this Mac
 
+class SpeakError(RuntimeError):
+    "A natural voice did not say a line. The text is one plain line for the learner."
+
+def openai_why(r, model:str='', voice:str='') -> str:
+    "One plain line for the failed OpenAI speech call `r`, from the `error.message` of its JSON body."
+    try: err = r.json().get('error') or {}
+    except Exception: err = {}
+    if not isinstance(err, dict): err = dict(message=str(err))
+    msg, code, s = str(err.get('message') or ''), str(err.get('code') or ''), r.status_code
+    low, v = f'{code} {msg}'.lower(), voice.lower()
+    if s == 401: return 'OpenAI: the key does not work. Set a new key on the Settings page, under More in Speech to text.'
+    if s == 429 and 'quota' in low: return 'OpenAI: your account has no credit. Add credit at platform.openai.com, or pick another voice.'
+    if s == 429: return 'OpenAI: too many requests. Wait one minute, then try again.'
+    if s >= 500: return f'OpenAI did not answer (error {s}). Try again later.'
+    if voice not in openai_voices(model) or 'voice' in low or (v and v in low):
+        return f'OpenAI: the voice {voice.title()} does not work with {model}. Pick another voice or the model {DFLT_SPEECH}.'
+    if s == 404 or 'model' in low: return f'OpenAI: the model {model} does not work for speech with your key. Pick the model {DFLT_SPEECH}.'
+    if msg: return f"OpenAI did not say the line: {msg.split('. ')[0].rstrip('.')}."
+    return f'OpenAI did not say the line (error {s}).'
+
 def _openai_say(text, model, voice, speed, instructions=''):
     key, _ = openai_key()
-    if not key: raise RuntimeError('There is no OpenAI key. Set one on the Settings page.')
+    if not key: raise SpeakError('There is no OpenAI key. Set one on the Settings page.')
     body = dict(model=model, voice=voice, input=guard(text, OPENAI_SPEC), response_format='wav', speed=speed)
     if instructions and not model.startswith('tts-1'): body['instructions'] = guard(instructions, OPENAI_SPEC)
-    r = (http_post or __import__('httpx').post)(OPENAI_SPEECH_URL, headers={'Authorization': f'Bearer {key}'}, json=body, timeout=60)
-    r.raise_for_status()
+    httpx = __import__('httpx')
+    try: r = (http_post or httpx.post)(OPENAI_SPEECH_URL, headers={'Authorization': f'Bearer {key}'}, json=body, timeout=60)
+    except (httpx.HTTPError, OSError) as e: raise SpeakError('OpenAI did not answer. Check the network, then try again.') from e
+    if r.status_code >= 400: raise SpeakError(openai_why(r, model, voice))
     return clean_wav(r.content)
 
 SAY = dict(pocket=_pocket_say, openai=_openai_say)

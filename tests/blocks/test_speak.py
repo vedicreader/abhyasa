@@ -82,9 +82,7 @@ def test_openai_gets_the_guarded_line(mk, voice_out, monkeypatch):
     assert r.status_code == 502
     V.set_openai_key('sk-test-1234')
     sent = []
-    class W:
-        content = V.to_wav([0.] * 12000, 24000)
-        def raise_for_status(self): pass
+    class W: status_code, content = 200, V.to_wav([0.] * 12000, 24000)
     monkeypatch.setattr(V, 'http_post', lambda url, **kw: sent.append(kw) or W())
     try:
         secret = 'sk-test1234567890abcdefXYZ'
@@ -101,3 +99,26 @@ def test_the_page_knows_the_voice(mk, voice_out):
     t = mk().get('/').text
     info = json.loads(html.unescape(re.search(r"data-info='([^']*)'", t).group(1)))
     assert info['out'] == dict(engine='pocket', model='Pocket TTS', voice='caro_davy', where='on this Mac', who='') and info['say'] == '/guide/say'
+
+class Bad:
+    "A fake OpenAI reply that failed: a status and the JSON `error` body of OpenAI."
+    def __init__(self, status, message, code=None): self.status_code, self.body = status, dict(error=dict(message=message, code=code))
+    def json(self): return self.body
+
+@pytest.mark.parametrize('reply,said', [
+    (Bad(400, "Invalid voice 'verse' for this model.", None), 'OpenAI: the voice Verse does not work with gpt-4o-mini-tts. Pick another voice or the model gpt-4o-mini-tts.'),
+    (Bad(401, 'Incorrect API key provided: sk-te****1234.', 'invalid_api_key'), 'OpenAI: the key does not work. Set a new key on the Settings page, under More in Speech to text.'),
+    (Bad(429, 'You exceeded your current quota.', 'insufficient_quota'), 'OpenAI: your account has no credit. Add credit at platform.openai.com, or pick another voice.'),
+    (Bad(429, 'Rate limit reached for requests.', 'rate_limit_exceeded'), 'OpenAI: too many requests. Wait one minute, then try again.')])
+def test_a_failed_openai_call_says_why_in_one_plain_line(mk, voice_out, monkeypatch, reply, said):
+    "OpenAI fails: `/guide/say` and Play a sample give one plain line from OpenAI's error, with no raw HTTP text and no link."
+    voice_out('openai', out_voice='verse')
+    V.set_openai_key('sk-test-1234')
+    monkeypatch.setattr(V, 'http_post', lambda url, **kw: reply)
+    try:
+        cl = mk(['guide', 'settings'])
+        r = cl.post('/guide/say', json=dict(text='Hello.'))
+        assert r.status_code == 502 and r.json()['error'] == said
+        s = cl.post('/settings/voice/sample').json()['error']
+        assert s == said and 'Client error' not in s and 'mozilla' not in s
+    finally: V.set_openai_key('')

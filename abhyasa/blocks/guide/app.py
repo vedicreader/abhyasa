@@ -11,7 +11,7 @@ from abhyasa.show import show_reply
 from abhyasa.sources import main_words
 from abhyasa.show import (FigureCache, clean_context, concept_video, explain, figure_labels, file_video, find_explainer, guide_ask,
     set_video, unsave, video_of, vision_ask, vision_why, where_of)
-from abhyasa.models import Withheld
+from abhyasa.models import Withheld, SpeakError
 from abhyasa.learner import SETTINGS, raw, val, set_val
 from abhyasa.models import cfg_dir
 from . import ui
@@ -95,6 +95,7 @@ def connect(app, ctx):
         try: r = await asyncio.to_thread(speaker.say, text, **kw)
         except Withheld: return JSONResponse(dict(error=WITHHELD), status_code=403)
         except ValueError as e: return JSONResponse(dict(error=str(e)), status_code=409 if 'browser' in str(e) else 400)
+        except SpeakError as e: return JSONResponse(dict(error=str(e)), status_code=502)   # one plain line: the page shows it, and the browser speaks
         except Exception as e:
             log.warning('guide: voice %r', e)
             return JSONResponse(dict(error='The natural voice could not say this line.'), status_code=502)
