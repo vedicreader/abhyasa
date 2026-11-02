@@ -220,6 +220,7 @@ def connect(app, ctx):
             fv = voice.fit_voice(m or voice.DFLT_SPEECH, v)
             note, v = ui.refit_note(v, m or voice.DFLT_SPEECH, fv), fv
         voice.update_settings('voice', out=engine, out_model=m, out_voice=v)
+        spk.error = ''   # a new choice: the old failure is not about it
         spk.warm()
         return ui.VoiceOut(spk, has_key(), note=note)
 

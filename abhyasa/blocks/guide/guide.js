@@ -411,7 +411,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
   // --- the natural voice -----------------------------------------------------------------------------------------------
   // When the setting voice.out is not `browser`, the server says each line (info.say, `/guide/say`): a WAV and the start time of
   // each word. The page plays it and lights each word at its time. Each step asks for its line as soon as it comes, so line 2 is
-  // ready when line 1 ends. When the route fails, the board speaks with the browser voice, and the strip says so one time.
+  // ready when line 1 ends. When the route fails, the board speaks with the browser voice for the rest of the page, and the strip says why one time.
   const natural = () => !!(info.say && info.out && info.out.engine && info.out.engine !== 'browser');
   const lines = new Map();   // the text of a line -> the promise of its audio, for this page load
   function line(text) {
@@ -428,11 +428,16 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     return lines.get(text);
   }
   let fellBack = false;
+  function failNote(why) {   // the line of the strip when the natural voice failed: the name of the voice and the reason from the server
+    const r = String(why || '').replace(/^OpenAI: /, '').trim();
+    if (!r) return 'The natural voice did not answer. The browser voice reads the steps now.';
+    return `${(info.out && info.out.model) || 'The natural'} voice failed: ${/[.!?]$/.test(r) ? r : r + '.'} The browser speaks now.`;
+  }
   function browserVoice(text, onWord, done, why) {
     if (!fellBack && window.abhyasaBoard) {
       fellBack = true;
       console.warn('guide: natural voice', why);
-      abhyasaBoard.notice({text: 'The natural voice did not answer. The browser voice reads the steps now.', href: '/settings#g-voice', link: 'Settings'});
+      abhyasaBoard.notice({text: failNote(why), href: '/settings#g-voice', link: 'Settings'});
       abhyasaBoard.voiceAt({model: 'Browser voice', where: 'on this Mac', local: true});   // the strip names the voice that speaks now
     }
     return window.abhyasaBoard && abhyasaBoard.speakBrowser(text, onWord, done);
@@ -445,6 +450,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
     let audio = null, url = null, tick = 0, guard = 0, stopped = false, hush = null;
     const clean = () => { clearInterval(tick); clearTimeout(guard); if (audio) { audio.pause(); audio.removeAttribute('src'); } if (url) URL.revokeObjectURL(url); audio = url = null; };
     const fail = why => { if (stopped) return; clean(); hush = browserVoice(text, onWord, done, why); };
+    if (fellBack) { fail(); return () => { stopped = true; clean(); if (typeof hush === 'function') hush(); }; }   // the voice failed on this page: do not wait for it again on each line
     line(text).then(d => {
       if (stopped) return;
       const bytes = Uint8Array.from(atob(d.audio), c => c.charCodeAt(0)), words = d.words || [];
@@ -568,7 +574,7 @@ if (typeof window !== 'undefined' && !window.abhyasaGuide) (() => {
           if (m.error) say(m.error);
           if (m.show) { busy = 0; showDemo(m.show, said); }
           if (m.step) { const k = (m.step.n || got.length + 1) - 1; if (k < got.length) got[k] = m.step; else got.push(m.step); }   // a step comes again as it grows
-          if (natural() && voiceOn()) for (const s of m.step ? [m.step] : m.board ? m.board.steps || [] : []) if (s && s.say) line(s.say).catch(() => {});   // each line before it is needed
+          if (natural() && voiceOn() && !fellBack) for (const s of m.step ? [m.step] : m.board ? m.board.steps || [] : []) if (s && s.say) line(s.say).catch(() => {});   // each line before it is needed
           if (m.step && !live) {
             last.step_ms = Math.round(performance.now() - t0); mark(); drew = true; drawing();
             live = abhyasaBoard.play({steps: [m.step], tier: m.tier || 'tutor', sources: [], streaming: true}, opts());

@@ -665,7 +665,7 @@ def speak(text:str, engine:str=None, model:str=None, voice:str=None, speed:float
 class Speaker:
     "One worker thread for the speaking voice, and the lines that it said in this run."
     def __init__(self, fn=None, most:int=64, here=None):
-        self.fn, self.most, self.lines, self.status, self.warmed = fn or speak, most, {}, 'not loaded', None
+        self.fn, self.most, self.lines, self.status, self.warmed, self.error = fn or speak, most, {}, 'not loaded', None, ''
         self.here = here or (lambda m: cached(m))   # a model that is not on this Mac is not downloaded here: the Settings page gets it
         self.ex, self.lock = ThreadPoolExecutor(1, thread_name_prefix='voice'), threading.Lock()
 
@@ -691,9 +691,11 @@ class Speaker:
             self.lines[k] = f   # the newest at the end
             while len(self.lines) > self.most: self.lines.pop(next(iter(self.lines)))
         try: wav, words = f.result()
-        except Exception:
+        except Exception as e:
             with self.lock: self.lines.pop(k, None)   # a failed line is not kept, so the next request tries again
+            if not isinstance(e, (ValueError, Withheld)): self.error = str(e)   # the voice failed: the Settings page says why
             raise
+        self.error = ''
         return dict(wav=wav, words=words, engine=k[0], model=k[1], voice=k[2], speed=k[3], where=out_where(k[0]), cached=hit)
 
     def warm(self):

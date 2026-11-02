@@ -242,6 +242,11 @@ def refit_note(old, model, new) -> str:
     "One line when the voice `old` does not work with `model`, so `new` speaks; '' when it does."
     return f'{voice_name(old)} does not work with {model}, so the voice is {voice_name(new)} now.' if old and old != new else ''
 
+def OutError(speaker):
+    "Why the voice failed on the last line, under the choice; '' when the last line worked. settings.js takes it away when a sample plays."
+    why = speaker.error if speaker.error != out_failed(speaker) else ''   # a model that did not load says so one time, in the status line
+    return P(f'The voice failed on the last line. {why} Until it works, the browser speaks.', cls='out-error warn') if why else ''
+
 def VoiceOut(speaker, key, oob=False, note=''):
     "The speaking voice: the engine, the model, the voice, a `note` on a changed voice, the speed for OpenAI, and Play a sample."
     engine, model, v, _ = voice.out_current()
@@ -249,6 +254,7 @@ def VoiceOut(speaker, key, oob=False, note=''):
     sp = SETTINGS['voice.out_speed']
     return Div(OutEngine(engine, key), OutModel(engine, model, speaker), OutVoice(engine, model, v),
                P(note, cls='out-note mute') if note else '',
+               OutError(speaker),
                Ul(Row(sp, val(sp.name)), id='out-speed', cls='plain srows', hidden=engine != 'openai'),   # Pocket TTS and the browser have no speed here
                P(Button('Play a sample', type='button', cls='quiet', data_sample=Routes.out_sample, data_engine=engine, data_text=SAMPLE),
                  ' ', Span(cls='mute out-said', aria_live='polite'), cls='out-line out-sample'),   # hidden while the voice failed (settings.css): the status line says why

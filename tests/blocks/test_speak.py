@@ -122,3 +122,18 @@ def test_a_failed_openai_call_says_why_in_one_plain_line(mk, voice_out, monkeypa
         s = cl.post('/settings/voice/sample').json()['error']
         assert s == said and 'Client error' not in s and 'mozilla' not in s
     finally: V.set_openai_key('')
+
+def test_the_settings_page_shows_why_the_voice_failed(mk, voice_out, monkeypatch):
+    "A line fails for the guide: Settings shows the reason under the choice. A sample that plays takes it away."
+    voice_out('openai'); V.set_openai_key('sk-test-1234')
+    monkeypatch.setattr(V, 'http_post', lambda url, **kw: Bad(401, 'Incorrect API key provided.', 'invalid_api_key'))
+    try:
+        cl = mk(['guide', 'settings'])
+        assert cl.post('/guide/say', json=dict(text='Hello.')).status_code == 502
+        t = cl.get('/settings').text
+        assert 'The voice failed on the last line. OpenAI: the key does not work.' in t and 'class="out-error warn"' in t
+        class W: status_code, content = 200, V.to_wav([0.] * 2400, 24000)
+        monkeypatch.setattr(V, 'http_post', lambda url, **kw: W())
+        assert cl.post('/settings/voice/sample').json()['audio']
+        assert 'out-error' not in cl.get('/settings').text
+    finally: V.set_openai_key('')

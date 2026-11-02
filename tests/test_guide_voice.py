@@ -41,15 +41,30 @@ def test_the_page_speaks_each_line_with_the_route(page):
     assert not page.evaluate("document.querySelector('#guide-strip .board-notice')")
 
 def test_a_failed_route_falls_back_to_the_browser_voice(page):
-    "The route fails: the board speaks with the browser voice, the words still light up, and the strip says so in one quiet line."
+    "The route fails: the board speaks with the browser voice, the words still light up, and the strip says why in one quiet line."
     natural(page, lambda d: (502, dict(error='The natural voice could not say this line.')))
     page.reply = sse(dict(board=dict(tier='tutor', steps=[SAY], sources=[], end='')))
     page.evaluate("abhyasaGuide.ask('what is this')")
     page.wait_for_function("[...document.querySelectorAll('#guide-strip .board-say span')].every(s => s.classList.contains('on'))", timeout=5000)
     assert page.evaluate('played') == []
     n = page.evaluate("document.querySelector('#guide-strip .board-notice').textContent")
-    assert n.startswith('The natural voice did not answer. The browser voice reads the steps now.')
+    assert n.startswith('Pocket TTS voice failed: The natural voice could not say this line. The browser speaks now.')   # the reason from the route
     assert page.evaluate("document.querySelector('#guide-strip .board-voice-at').textContent") == 'Browser voice'   # the strip names the voice that speaks now
+
+def test_a_failed_voice_says_why_and_is_not_asked_again(page):
+    "OpenAI fails with a reason: the strip names the voice and gives the reason, with a link to Settings. The next lines of the page go to the browser voice at once."
+    why = 'OpenAI: the key does not work. Set a new key on the Settings page, under More in Speech to text.'
+    asked = natural(page, lambda d: (502, dict(error=why)))
+    page.evaluate("abhyasaGuide.info.out = {engine: 'openai', model: 'OpenAI', where: 'hosted', who: 'OpenAI'}")
+    two = dict(say='Then it goes on.', strokes=[dict(op='box', at='passage')])
+    page.reply = sse(dict(board=dict(tier='tutor', steps=[SAY, two], sources=[], end='')))
+    page.evaluate("abhyasaGuide.ask('what is this')")
+    page.wait_for_function("document.querySelector('#guide-strip .board-notice')", timeout=5000)
+    n = page.evaluate("document.querySelector('#guide-strip .board-notice').textContent")
+    assert n.startswith('OpenAI voice failed: the key does not work. Set a new key on the Settings page, under More in Speech to text. The browser speaks now.')
+    assert page.evaluate("document.querySelector('#guide-strip .board-notice a').getAttribute('href')") == '/settings#g-voice'
+    page.wait_for_function("abhyasaBoard.state && abhyasaBoard.state.i === 1 && [...document.querySelectorAll('#guide-strip .board-say span')].every(s => s.classList.contains('on'))", timeout=8000)
+    assert asked.count('Then it goes on.') == 1   # asked once before it was needed, and not again after the failure
 
 def test_stop_ends_the_natural_voice(page):
     "Stop while the line plays: the audio stops, and the board is gone."
