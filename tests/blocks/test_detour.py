@@ -220,3 +220,28 @@ def test_needs_line_counts_the_walk(mk, walk_fake, lr):
     lr.walk_step(jid, 0, done=dict(outcome='fragile', at=1.))
     line = cl.get(f'/w/{jid}/2').text.split('class="rh-line"')[1].split('rh-offer')[0]
     assert 'shaky: review it' in line and f'href="/w/{jid}/0"' in line and 'Learn it' not in line, line
+
+def side_of_four(cl, lr):
+    "A started paper walk whose step 3 opened a side walk of 4 ideas on gradients; the first 3 are done."
+    jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    for n in ('Slope', 'Rate of change', 'Partial derivative'): lr.put(n, f'{n} is one idea about change.', 'ml')
+    slugs = ['slope', 'rate-of-change', 'partial-derivative', 'gradients']
+    lr.put_journey(dict(id='side4', title='Gradients', mode='walk', depth=1, slug='gradients', started=time.time(),
+                        parent=dict(walk=jid, step=2, idea=lr.journey(jid).steps[2]['slug']),
+                        steps=[dict(slug=s, status='todo', check=dict(way='words', kind='short', depth=2, why='')) for s in slugs]))
+    for k in range(3): lr.walk_step('side4', k, done=dict(outcome='solid', at=time.time()))
+    return jid
+
+def test_last_idea_of_a_side_walk_goes_back_to_the_main_idea(mk, walk_fake, lr):
+    "After the 4th check of a 4-idea side walk, the main button is Back to the main idea, not Next idea, and it lands on the main idea with what you learned."
+    walk_fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')
+    cl = mk(); jid = side_of_four(cl, lr)
+    main = lr.concept(lr.journey(jid).steps[2]['slug']).name
+    cl.get('/w/side4/3/check')
+    card = cl.post('/w/side4/3/answer', data=dict(answer='the slope in each direction', confidence=90)).text
+    assert f'Back to the main idea: {main}' in card and 'Next idea' not in card and 'data-act="back"' in card
+    r = cl.post('/w/side4/3/next', follow_redirects=False)
+    assert r.headers['location'] == f'/w/{jid}/2'
+    page = cl.get(f'/w/{jid}/2').text
+    assert 'Back on the paper' in page and 'on the way' in page and lr.journey(jid).steps[2]['detours'][0]['outcome'] == 'solid'
+    assert 'data-rh-done' in cl.post('/w/side4/3/next', params=dict(pane=1)).text   # in the side pane: the end note, which closes the pane

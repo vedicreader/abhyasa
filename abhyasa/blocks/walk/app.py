@@ -1,6 +1,7 @@
 """The guided walk: a paper, a text, a topic or a link as one idea at a time, in reading order. The plan, the step page, its check,
 Next idea, and the summary at the end of each section. A sitting is a `Session` that the walk feeds itself."""
 import hashlib, json, logging, re, time
+from urllib.parse import urlsplit
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, wait as wait_all
 from threading import Lock
@@ -13,7 +14,7 @@ from abhyasa.sources import detect, vault_title
 from abhyasa.learner import clean_subject, profile_text, WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
-from abhyasa.path import with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, short_check, with_step, trail, parent_step, for_talk
+from abhyasa.path import back_from, with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, short_check, with_step, trail, parent_step, for_talk
 from abhyasa.learner import walk_state, _jlock
 from abhyasa.path import tutor_note, words_to_know, open_short, step_meta, leela_back, leela_found, course_of, drop_data
 import abhyasa.path as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
@@ -136,9 +137,15 @@ def connect(app, ctx):
         q, ck = question(j, i), j.steps[i].get('check') or {}
         return words_to_know(lr, ctx.ask, j, i, [x for x in (ck.get('q'), q and q.get('question')) if x], b)
 
+    def main_idea(j, i):
+        "The name of the main idea when step `i` is the last idea of side walk `j`: the step of the walk that opened it. Else None."
+        if i + 1 < len(j.steps) or not j.get('parent'): return None
+        pj, k = parent_step(lr, j)
+        return pj and ui.name(by(), pj.steps[k])
+
     def card(j, i):
-        "The check card of step `i`; a short-answer card adds what other blocks put after it (`check_after`)."
-        s = j.steps[i]
+        "The check card of step `i`; a short-answer card adds what other blocks put after it (`check_after`). The last idea of a side walk goes back to the main idea."
+        s = {**j.steps[i], 'main': main_idea(j, i)}
         k = s['check']['kind']
         if k == 'notebook': return nb_card(j, i)
         if k in AIM: return ui.CHECKS[k](j.id, i, s, demo(s))
@@ -249,7 +256,7 @@ def connect(app, ctx):
         j = lr.journey(j.id)
         s = j.steps[i]
         if not s.get('done') and s['check']['kind'] != 'notebook': return None
-        return ui.FromLeela(j, i, b, (ui.GoOn(j.id, i), leela_line(j, i, say='Open the lesson in Leela', vault=vault)))
+        return ui.FromLeela(j, i, b, (ui.GoOn(j.id, i, main=main_idea(j, i)), leela_line(j, i, say='Open the lesson in Leela', vault=vault)))
 
     def write_notebooks(j):
         "Start the job that writes the notebook spec of each notebook step of walk `j`, on the research pool."
@@ -791,8 +798,9 @@ def connect(app, ctx):
         lr.mark_attempt(a.id, keep=kept)
         return JSONResponse(dict(ok=True))
 
-    def next_(jid:str, i:int):
-        "Skip step `i` when it has no outcome yet, then go to the next step, or to the summary at the end of a section."
+    def next_(jid:str, i:int, req):
+        """Skip step `i` when it has no outcome yet, then go to the next step, or to the summary at the end of a section. After the last idea
+        of a side walk, go back to the main idea, with what you learned on the way (`back_from`); in the side pane, the walk page has the end note, which closes the pane."""
         if not (j := walk_of(jid, i)): return missing()
         st = walk_state(j)
         if not j.steps[i].get('done'):
@@ -804,6 +812,9 @@ def connect(app, ctx):
         if ends and (sid := j.get('sitting')) and (s := sessions.pop(sid, None) or Session.load(tutor, sid)) and not s.ended:
             s.end()   # the section ends here, on the POST, not on the GET of its summary
         last = i + 1 >= len(j.steps)
+        pane = 'pane=1' in f"{req.url.query}&{urlsplit(req.headers.get('hx-current-url') or req.headers.get('referer') or '').query}"
+        if last and not pane and (pj := back_from(lr, jid)) and (k := parent_step(lr, lr.journey(jid))[1]) is not None:
+            return RedirectResponse(ui.at(Routes.step, pj.id, k), status_code=303)   # the main idea, with the strip of what you learned
         # a plain 303, not HX-Redirect: htmx follows it and swaps the page in place, so the next idea comes in with a view transition
         return RedirectResponse(ui.at(Routes.one, jid) if last else ui.at(Routes.done, jid, i) if ends else ui.at(Routes.step, jid, i + 1), status_code=303)
 

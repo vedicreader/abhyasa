@@ -357,9 +357,11 @@ def Thread(q):
         out.append(Turn(t, n))
     return out
 
-def GoOn(jid, i, hidden=False):
-    "Next idea: the one main button of a step once its check is closed. A demo check holds it hidden until the first prediction."
-    return Form(Primary('Next idea', focus=True, data_act='next'), action=at(Routes.next, jid, i), method='post', cls='row go-on', hidden=hidden)
+def GoOn(jid, i, hidden=False, main=None):
+    """Next idea: the one main button of a step once its check is closed. A demo check holds it hidden until the first prediction.
+    On the last idea of a side walk, `main` is the name of the main idea, the step that opened the side walk: the button goes back to it."""
+    label, act = (f'Back to the main idea: {main}', 'back') if main else ('Next idea', 'next')
+    return Form(Primary(label, focus=True, data_act=act), action=at(Routes.next, jid, i), method='post', cls='row go-on', hidden=hidden)
 
 def CardHead(s, q=None):
     ck = s.get('check') or {}
@@ -372,7 +374,7 @@ def Done(jid, i, s):
     o = (s.get('done') or {}).get('outcome')
     say = ('You skipped this check.' if o == 'skipped' else f"You did this check: {OUTCOME[o].lower()}." if o in OUTCOME
            else 'This check is not open. Load the page again.')
-    return Check(CardHead(s), P(say), foot=GoOn(jid, i), cls='done')
+    return Check(CardHead(s), P(say), foot=GoOn(jid, i, main=s.get('main')), cls='done')
 
 def Explain():
     "Explain in the row of a check: it opens the guide (guide.js), as Caps+E does."
@@ -383,7 +385,7 @@ def Short(jid, i, s, q, after=()):
     if q is None: return Done(jid, i, s)
     shut = any(t.get('kind') == 'close' for t in q.get('turns') or ())
     tgt = dict(hx_target='#check', hx_swap='innerHTML')
-    if shut: foot = GoOn(jid, i)
+    if shut: foot = GoOn(jid, i, main=s.get('main'))
     else:
         tries = len(q.get('tries') or ())
         left = val('checks.tries') - tries
@@ -414,7 +416,7 @@ def DemoCheck(jid, i, s, d):
     shut = bool(s.get('done'))
     more = dict(hx_post=at(Routes.ladder, jid, i) + '?simpler=1', hx_target='#ladder', hx_swap='outerHTML') if k == 'demo' and val('checks.demo_ladder') else None
     return Check(CardHead(s), P(LEAD[k], cls='mute'), foot=(Demo(d.spec), *rk_assets(), Feedback('demo', slug=d.slug, simpler=more), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts'),
-                                                            Slot(jid, i, s), GoOn(jid, i, hidden=not shut)), shut=shut, cls='walk-demo', data_step=str(i), data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
+                                                            Slot(jid, i, s), GoOn(jid, i, hidden=not shut, main=s.get('main'))), shut=shut, cls='walk-demo', data_step=str(i), data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
 
 def Slot(jid, i, s):
     "The place for the help under a demo check. walk.js fills it after a wrong prediction; a reload fills it when the step has help."

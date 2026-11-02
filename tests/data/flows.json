@@ -890,6 +890,22 @@
           "pending": true,
           "pending_why": "step 3: data-part on the idea page"
         },
+        "last_done": {
+          "when": "a side walk (walk.parent is set): steps[i] is its last idea and steps[i].done (a side walk of 4 ideas, all done)",
+          "main_action": "back",
+          "must_show": [
+            "part:check (closed card)",
+            "act:back",
+            "label:Back to the main idea:"
+          ],
+          "must_not_show": [
+            "act:next",
+            "label:Next idea"
+          ],
+          "actions": [
+            "back → idea (the main idea, the step that opened the side walk, with the strip of what you learned; in the side pane, the end note closes the pane)"
+          ]
+        },
         "own_course": {
           "when": "courses_from(lr, jid, steps[i].slug) is not empty (a rabbit hole opened its own course from this step)",
           "must_show": [
