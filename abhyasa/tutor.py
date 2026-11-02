@@ -14,7 +14,7 @@ __all__ = ['HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'GRADE_SP', 'TEAC
 # %% ../nbs/03_tutor.ipynb #1e5f9956
 import functools, json, random, threading, time, uuid, weakref, html
 from fastcore.utils import *
-from .learner import Learning, meta_of, _src, log as _log, val, DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding, PACES, profile_text, observe, calibration_text, current, METHODS, TEXT_WAYS, EXAMPLES_TO, choose, methods_text, posterior, mean, way, register, prompt, lines, need_lines, keyed_lock
+from .learner import Learning, meta_of, _src, log as _log, val, DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding, PACES, profile_text, observe, calibration_text, current, METHODS, TEXT_WAYS, EXAMPLES_TO, choose, methods_text, posterior, mean, way, register, prompt, lines, need_lines, keyed_lock, teach_sp
 from .models import ask_json, for_task, route_ask
 from .sources import VaultSource, ground, ground_text, link_of
 
@@ -45,7 +45,7 @@ Rules:
 - Ask questions that need reasoning, not recitation. Prefer new cases over the textbook example.
 - Keep it short and plain. Use LaTeX between $...$ for maths. Use the learner's subject terms correctly.
 - Put code in a fenced code block that names the language, for example ```python. Never write code inside a sentence.
-- The learner is an adult expert-learner; never be patronising, never praise effort, never pad.
+- The learner is an adult, at any level: new to the idea or an expert. Never be patronising, never praise effort, never pad.
 - Sound like a kind, clear person beside the learner. Talk to them as "you". Make one point at a time.
   Never write like a report ("You assume that...", "It is important to note that...").
 - Write in ASD-STE100 Simplified Technical English at a US grade 9 reading level: short sentences (at most 20 words),
@@ -82,22 +82,22 @@ def asks_twice(q:str) -> bool:
     return (q or '').count('?') > 1 or not one_ask(q)
 
 # %% ../nbs/03_tutor.ipynb #c013
-def _concept_block(c, ctx='', who=''):
+def _concept_block(c, ctx='', who='', level=''):
     mis = '; '.join(c.get('misconceptions') or []) or 'none known'
     return (f"Concept: {c['name']} (subject: {c.get('subject') or 'general'})\nStatement: {c.get('statement') or '(none given)'}\n"
             f"Learner: floor {DEPTHS[c.get('floor', 0)]}, ceiling {DEPTHS[c['ceiling']] if c.get('ceiling', 6) < 6 else 'not found yet'}; "
-            f"misconceptions seen: {mis}" + (f"\nFrom the learner's own vault (use only if relevant):\n{ctx}" if ctx else '')
+            f"misconceptions seen: {mis}" + (f"\n{level}" if level else '') + (f"\nFrom the learner's own vault (use only if relevant):\n{ctx}" if ctx else '')
             + (f"\nAbout the learner (set the question in their world: use the kinds of example that help them):\n{who}" if who else ''))
 
 def _way(m): return f"The way to teach this time: {way(m)}\n" if m in METHODS else ''
 
-def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=(), method='', read=''):
+def question_prompt(c, depth, avoid=(), ctx='', who='', bridge=(), method='', read='', level=''):
     "The prompt that writes one question on `c` at `depth` in `method`; `bridge` names known ideas that a transfer question can connect to."
     kind = KIND_AT[depth]
     shape = ('{"question": str, "code": str, "options": [{"text": str, "misconception": str}], "correct": int, "answer": str, "rubric": [str]}'
              if kind == 'choice' else '{"question": str, "code": str, "answer": str, "rubric": [str]}')
     av = '\n'.join(f'- {q}' for q in avoid)
-    return (f"{_concept_block(c, ctx, who)}\n\nWrite ONE question that makes the learner {depth_ask(depth)}.\n"
+    return (f"{_concept_block(c, ctx, who, level)}\n\nWrite ONE question that makes the learner {depth_ask(depth)}.\n"
             f"Aim it just past what they reliably know, so they must struggle a little.\n{prompt('question')}\n"
             + (f"Target this misconception if it fits: {c['misconceptions'][-1]}\n" if c.get('misconceptions') else '')
             + (f"Ideas that the learner knows well (connect to one only if the link is real): {'; '.join(bridge)}\n" if bridge else '') + _way(method)
@@ -179,12 +179,12 @@ def hint_prompt(q, level):
     given = '\n'.join(f'- {h}' for h in q.hints)
     return (f"Concept: {q.name}\nQuestion: {q.question}\nModel answer (hidden): {q.answer}\n"
             + (f"The conversation so far:\n{thread_text(q)}\n" if q.get('turns') else f"Wrong tries so far: {json.dumps(q.tries)}\n")
-            + (f"Hints already given:\n{given}\n" if given else '')
+            + (f"Hints already given:\n{given}\n" if given else '') + (f"{q.level}\n" if q.get('level') else '')
             + f"\nGive hint level {level + 1} of 6: {hints()[level]}\n" + _way(q.get('method'))
             + "One or two short sentences, said to them as 'you'. Do not reveal the answer. Reply with the hint only.")
 
 # %% ../nbs/03_tutor.ipynb #c019
-TEACH = ("Teach the smallest step that fixes that first error, in under 120 words. Talk to them as 'you', in short plain sentences, one point at a time. Build on what they got right. "
+TEACH = ("Teach the smallest step that fixes that first error, in under 120 words. Start from one concrete case, and say why the fix works, not only what it is. Talk to them as 'you', in short plain sentences, one point at a time. Build on what they got right. "
          "Then show the model answer briefly. End with one line that starts 'Check:' and asks them to predict "
          "something new that the fixed idea implies (they will answer it next).")
 
@@ -192,7 +192,7 @@ def teach_prompt(q, first_error):
     "The prompt that teaches the smallest step after a miss. `q.fb` is what you said about the last lesson, when the tutor should use it."
     return (f"Concept: {q.name}\nStatement: {q.statement}\nQuestion: {q.question}\nModel answer: {q.answer}\n"
             + (f"The conversation:\n{thread_text(q)}\n" if q.get('turns') else f"Their tries: {json.dumps(q.tries)}\n")
-            + f"Their first error: {first_error or 'they did not know'}\n\n"
+            + f"Their first error: {first_error or 'they did not know'}\n" + (f"{q.level}\n" if q.get('level') else '') + "\n"
             + (f"Passages from their own sources; build on one and name it, if it fits:\n{q.ctx}\n\n" if q.get('ctx') else '')
             + (f"About the learner (explain in their world, with the kinds of example that help them):\n{q.who}\n\n" if q.get('who') else '')
             + _way(q.get('method')) + (f"{q.fb}\n" if q.get('fb') else '') + prompt('lesson'))
@@ -334,15 +334,15 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, 
                                   [EXAMPLES_TO[e] for e in p.examples if e in EXAMPLES_TO], allowed)
     if note: q.why = f'{why}; {note}'.lstrip('; ')
     q.who = '\n'.join(x for x in (profile_text(p), calibration_text(AttrDict(st.calib)) if st.calib else '', methods_text(st, c.get('subject', ''))) if x)
-    q.update(ctx=ground_text(ps), grounds=[link_of(p) for p in ps])
+    q.update(ctx=ground_text(ps), grounds=[link_of(p) for p in ps], level=self.learning.level_of(c))
     if (ck := self.checks.pop(c['slug'], None)):   # the check of a lesson counts for the method of the lesson
         q.update(question=ck[0], answer=ck[1], rubric=['the prediction follows from the lesson'], ready=True, method=ck[2], why=f'{why}; the check from the lesson'.lstrip('; '))
     elif (r := _ready_q(c, depth, asked)): q.update(question=r['q'], answer=r.get('a', ''), rubric=r.get('rubric') or [r.get('a', '')], ready=True)
     else:
-        qp, ask = question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else (), q.method, read), for_task(self.ask, 'question')
-        r = ask_json(ask, qp, prompt('tutor'), need=('question',))
+        qp, ask = question_prompt(c, depth, asked[:8], q.ctx, q.who, bridges(c, self.learning.concepts()) if depth == 5 else (), q.method, read, q.level), for_task(self.ask, 'question')
+        r = ask_json(ask, qp, teach_sp('tutor'), need=('question',))
         if val('checks.one_ask') and asks_twice(r.get('question')):   # one more try, with the question that asked twice
-            r = ask_json(ask, f"{qp}\n\nYour last question asked twice: {r['question']!r}. Write it again with one ask: one question word and one question mark.", prompt('tutor'), need=('question',))
+            r = ask_json(ask, f"{qp}\n\nYour last question asked twice: {r['question']!r}. Write it again with one ask: one question word and one question mark.", teach_sp('tutor'), need=('question',))
         q.update(question=with_code(r['question'], r.get('code') or ''), answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))
@@ -356,7 +356,7 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, 
 
 def public(q) -> AttrDict:
     "A question as the learner can see it: no model answer, no rubric, no correct option, no misconception tags."
-    out = AttrDict({k: v for k, v in q.items() if k not in ('answer', 'rubric', 'correct', 'options', 'statement', 'ctx', 'grounds', 'who')})
+    out = AttrDict({k: v for k, v in q.items() if k not in ('answer', 'rubric', 'correct', 'options', 'statement', 'ctx', 'grounds', 'who', 'level')})
     if q.get('options'): out.options = [o['text'] for o in q.options]
     return out
 
@@ -408,7 +408,7 @@ def hint(self:Tutor, qid:str) -> str:
     "The next hint on the ladder, from the least to the most revealing."
     q = self.open[qid]
     if len(q.hints) >= len(HINTS): return q.hints[-1]
-    h = for_task(self.ask, 'hint')(hint_prompt(q, len(q.hints)), prompt('tutor')).strip()
+    h = for_task(self.ask, 'hint')(hint_prompt(q, len(q.hints)), teach_sp('tutor')).strip()
     q.hints.append(h)
     q.setdefault('turns', []).append(dict(who='tutor', kind='hint', text=h))
     self.open.save(q)
@@ -496,7 +496,7 @@ class NoLesson(str):
 def _lesson(self:Tutor, q, first_error:str='') -> str:
     "A short lesson on `q` from its first error. When the model fails, a note with the model answer."
     fb = ' '.join(x for f in LESSON_NOTES if (x := f(self, q)))
-    try: lesson = for_task(self.ask, 'lesson')(teach_prompt(AttrDict({**q, 'fb': fb}) if fb else q, first_error), prompt('tutor')).strip()
+    try: lesson = for_task(self.ask, 'lesson')(teach_prompt(AttrDict({**q, 'fb': fb}) if fb else q, first_error), teach_sp('tutor')).strip()
     except Exception as e: return NoLesson(f"The tutor could not write the lesson ({type(e).__name__}). The model answer is: {q.answer or 'not given'}")
     if 'Check:' in lesson: self.checks[q.concept] = (lesson.rsplit('Check:', 1)[1].strip(), lesson, q.get('method', ''))
     return lesson
