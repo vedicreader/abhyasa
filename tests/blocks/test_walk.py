@@ -778,3 +778,15 @@ def test_the_link_to_the_idea_before_draws_maths_as_the_outline_does(mk, lr):
     t = mk().get('/w/wm/1').text
     back = re.search(r'<div class="next-bar">\s*<a [^>]*>(.*?)</a>', t, re.S)[1]
     assert to_xml(Inline('Why scale by $1/\\sqrt{d_k}$')).strip() in back and '← Why scale by $1/' not in t
+
+def test_note_does_not_repeat_the_tutors_words(mk, walk_fake, lr):
+    "With no passage, a note that says the statement again is dropped, so the page shows one block. A note that adds an example stays."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    j = lr.journey(jid); slug = j.steps[2]['slug']; said = lr.concept(slug).statement
+    lr.walk_step(jid, 2, read={**j.steps[2]['read'], 'text': '', 'figure': None}, note=None)
+    walk_fake.rules['You write a short note'] = said
+    assert "The tutor's note" not in cl.get(f'/w/{jid}/2/note').text and lr.journey(jid).steps[2]['note_none']
+    walk_fake.rules['You write a short note'] = 'A loud voice in a quiet room takes all the attention. Look at what a large score does.'
+    lr.walk_step(jid, 2, note=None, note_none=None)
+    n = cl.get(f'/w/{jid}/2/note').text
+    assert "The tutor's note" in n and 'A loud voice' in n
