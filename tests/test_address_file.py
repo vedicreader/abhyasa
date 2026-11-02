@@ -43,3 +43,11 @@ def test_address_file_goes_at_exit(addr):
             "write_address('http://127.0.0.1:5077', '/v.db'); atexit.register(drop_address); print(open(__import__('os').environ['ABHYASA_ADDRESS_FILE']).read())")
     out = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, check=True, env={**os.environ, 'ABHYASA_ADDRESS_FILE': str(addr)}).stdout
     assert json.loads(out)['url'] == 'http://127.0.0.1:5077' and not addr.exists()
+
+def test_open_cases_give_back_each_key():
+    "A link that opens a notebook at once gives back its walk, step, doc, shelf, cell, go and v."
+    from abhyasa.contract import OPEN_CASES, handoff
+    for kw, path in OPEN_CASES:
+        q = read_handoff(path.split('?', 1)[1])
+        assert handoff(**kw) == path and q.go and (q.walk, q.step, q.doc, q.cell, q.v) == (kw.get('jid', ''), kw.get('i'), kw.get('doc', ''), kw['cell'], kw.get('v', ''))
+        assert not kw.get('doc') or q.shelf == kw['shelf']

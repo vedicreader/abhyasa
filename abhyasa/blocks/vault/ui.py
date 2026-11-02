@@ -31,9 +31,9 @@ def Facts(d, meta):
     else: bits.append(when(d.get('added_at')))
     return P(' · '.join(b for b in bits if b), cls='mute')
 
-def Actions(d, meta, shelf):
-    "What you can do with this document: resume a session, open a file or a page, or learn from it: as a walk (the main button), or only find its ideas."
-    src, out = d['source'] or '', []
+def Actions(d, meta, shelf, leela=''):
+    "What you can do with this document: resume a session, open a file or a page, open a notebook in Leela (`leela`), or learn from it: as a walk (the main button), or only find its ideas."
+    src, out = d['source'] or '', [leela] if leela else []
     if d['kind'] == 'session' and (sid := meta.get('session')):
         cmd = f'ramabana --resume {sid}'
         out.append(Button('Copy the resume command', type='button', cls='btn', onclick=f"navigator.clipboard.writeText({json.dumps(cmd)}); this.textContent='Copied'"))
@@ -71,9 +71,10 @@ def Paras(tx, kind):
     "The text of a transcript in its paragraphs, each with an id that a topic jumps to."
     return Div(*[Md(p, id=f'tp{k}') for k, p in enumerate(tx.paras)], cls=f'doc {kind} transcript')
 
-def DocPage(d, meta, text, shelf, linked, imgs=(), tx=None):
-    "The document page; `imgs` are the image links of the text that the page sends. `tx` (`transcript_page`): the page of a lecture transcript, with its links, its topics and its paragraphs."
+def DocPage(d, meta, text, shelf, linked, imgs=(), tx=None, leela=''):
+    """The document page; `imgs` are the image links of the text that the page sends. `tx` (`transcript_page`): the page of a lecture transcript, with its links, its topics and its paragraphs.
+    `leela` is Open in Leela, for a notebook."""
     lbl = Span('Your vault' if shelf == 'store' else f'Your vault · {shelf}', cls='lbl')
-    return (css(), lbl, *((Span(tx.title, cls='lbl tx-title'),) if tx else ()), H1(doc_title(d['title']) or d['id']), Facts(d, meta), *((Transcript(tx),) if tx else ()), Actions(d, meta, shelf),
+    return (css(), lbl, *((Span(tx.title, cls='lbl tx-title'),) if tx else ()), H1(doc_title(d['title']) or d['id']), Facts(d, meta), *((Transcript(tx),) if tx else ()), Actions(d, meta, shelf, leela),
             Div(id='learned'), *Thread(meta.get('thread')), *((H2('Concepts linked here'), Linked(linked)) if linked else ()),
             H2('Text'), Paras(tx, d['kind']) if tx else Md(doc_title(text), cls=f"doc {d['kind']}", imgs=imgs))

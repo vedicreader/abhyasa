@@ -8,10 +8,11 @@ from fastcore.xtras import atomic_save
 from abhyasa.contract import handoff, vault_key
 from .cfg import cfg
 
-__all__ = ['LEELA_INSTALL', 'LOCAL_HOSTS', 'loopback', 'leela_address', 'leela_base', 'leela_link', 'leela_line', 'abhyasa_address',
+__all__ = ['LEELA_INSTALL', 'LEELA_OFF', 'LOCAL_HOSTS', 'loopback', 'leela_address', 'leela_base', 'leela_link', 'leela_line', 'leela_open', 'OpenInLeela', 'abhyasa_address',
            'write_address', 'drop_address']
 LEELA_INSTALL = 'https://github.com/vedicreader/leela#install'
 LOCAL_HOSTS = ('127.0.0.1', 'localhost', '::1')
+LEELA_OFF = 'Leela is not running. Open the Leela app to start it, then load this page again.'
 
 def leela_address() -> Path:
     "The file that a running Leela writes: `$ABHYASA_LEELA_FILE` (a test or a trial sets it), else `$XDG_CONFIG_HOME/leela/serving.json`, else `~/.config/leela/serving.json`."
@@ -46,11 +47,25 @@ def leela_base() -> str|None:
     "The address of a running Leela: from its address file when its pid is alive, else `cfg.leela`; None when neither is local."
     return _served(leela_address(), cfg.leela)
 
-def leela_link(j, i:int|None=None, topic:str='', vault=None) -> str|None:
+def leela_link(j, i:int|None=None, topic:str='', vault=None, go:bool=False) -> str|None:
     """The link that opens walk `j`, its step `i` or `topic` in Leela; None when Leela does not run. `vault` is the vault file of the app,
-    so the link has its key `v` and Leela can tell when it uses another vault. With no `vault` the link has no `v`, as in 0.0.12."""
+    so the link has its key `v` and Leela can tell when it uses another vault. With no `vault` the link has no `v`, as in 0.0.12.
+    With `go`, Leela opens the lesson at once, with no page between."""
     if not (b := leela_base()): return None
-    return b.rstrip('/') + handoff(j.id if j else '', i, topic, v=vault_key(vault) if vault else '')
+    return b.rstrip('/') + handoff(j.id if j else '', i, topic, v=vault_key(vault) if vault else '', go=go)
+
+def leela_open(j=None, i:int|None=None, doc:str='', shelf:str='', cell:int|None=None, vault=None) -> str|None:
+    """The link that opens a notebook in Leela at once, at the cell `cell`: step `i` of walk `j` (the learning copy of a notebook walk, else
+    the lesson of the step), or the notebook `doc` on vault `shelf`. Leela runs it in the folder of the learner's notebook. None when Leela does not run."""
+    if not (b := leela_base()): return None
+    return b.rstrip('/') + handoff(j.id if j else '', i, doc=doc, shelf=shelf, cell=cell, v=vault_key(vault) if vault else '', go=True)
+
+def OpenInLeela(href, say:str='Open in Leela', post:bool=False, **kw):
+    """The one way to open a notebook in Leela: a link to `href` in a new tab, or with `post` a button that posts to `href` (an abhyasa route
+    that writes the learning copy first). With no `href` (Leela does not run), one plain line that says so and how to start Leela."""
+    if not href: return Span(LEELA_OFF, cls='leela-open off mute', role='status')
+    if post: return Form(Button(f'{say} ↗', cls='small', data_act='open-leela-nb'), action=href, method='post', target='_blank', rel='noopener', hx_boost='false', cls='leela-open', **kw)
+    return A(f'{say} ↗', href=href, target='_blank', rel='noopener', cls='leela-open', data_act='open-leela-nb', **kw)
 
 def leela_line(j, i:int|None=None, topic:str='', say:str='Open in Leela for code and tools', quiet:bool=False, vault=None):
     "One muted line with the link to Leela (with the key of `vault`), or how to get Leela; nothing when `quiet` and Leela does not run."

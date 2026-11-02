@@ -1,11 +1,14 @@
 "The vault viewer: any document on any shelf, readable, with what you can do with it and the concepts that link to it."
 import json, re, time
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 from fasthtml.common import *
 from fastcore.utils import first
 from abhyasa.core import Page, NotFound, hook, run as run_hook, doc_title
 from abhyasa.sources import extract, figure_path, transcript_page
+from abhyasa.contract import DOC_ID
+from abhyasa.core.leela import leela_open, OpenInLeela
+from abhyasa.path import nb_file
 from . import ui
 from .cfg import Routes
 
@@ -51,7 +54,8 @@ def connect(app, ctx):
         if d is None: return NotFound('Not found', H1('No such document'), P(f'The {shelf} shelf has no document {doc_id}.', cls='mute'), on='Library', crumbs=[('Home', '/')])
         text, imgs = images(shelf, d, sh.document(doc_id, max_chars=200000).text)
         tx = transcript_page(lr, shelf, doc_id, text)   # a lecture transcript: its links, its topics and its paragraphs
-        return Page(doc_title(d['title']) or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id), imgs, tx), on='Library', crumbs=[('Sources', '/sources')])
+        return Page(doc_title(d['title']) or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id), imgs, tx, leela=nb_leela(Routes.of(shelf, doc_id)) or ''),
+                    on='Library', crumbs=[('Sources', '/sources')])
 
     def img(shelf:str, doc_id:str, f:str=''):
         "An image of the document, only from its own assets folder, only an image file and only under the size cap."
@@ -66,6 +70,32 @@ def connect(app, ctx):
         if not slugs: return P('No concepts found.', cls='mute')
         run_hook('concepts_added')   # the concepts block places the new concepts on the pool
         return Div(Span('Concepts from this document', cls='lbl'), Ul(*[Li(A(lr.concept(s).name, href=f'/c/{s}')) for s in slugs], cls='plain'))
+
+    def notebook(shelf, doc_id) -> bool:
+        "Whether document `doc_id` on `shelf` is a notebook file on this Mac, with a name that a Leela link can carry."
+        return bool(_SHELF.match(shelf) and DOC_ID.fullmatch(doc_id) and nb_file(lr, doc_id, shelf))
+
+    @hook('nb_leela')
+    def nb_leela(href, cell=None):
+        "Open in Leela for the vault page at `href` (`/v/<shelf>/<id>`) when it is a notebook on this Mac, at the cell `cell`; None for another page."
+        m = re.fullmatch(r'/v/([^/?#]+)/([^/?#]+)', href or '')
+        if not m or not notebook(m[1], doc := unquote(m[2])): return None
+        return OpenInLeela(leela_open(doc=doc, shelf=m[1], cell=cell, vault=lr.vault.path))
+
+    def nb_cell(doc_id, slug):
+        "The first cell of the section of idea `slug` in notebook `doc_id`, from a walk step that reads it; None when no step does."
+        return next((r['cells'][0] for j in lr.journeys() for s in j.get('steps') or () if s.get('slug') == slug and (r := s.get('read') or {}).get('doc_id') == doc_id
+                     and isinstance(r.get('cells'), list) and r['cells'] and isinstance(r['cells'][0], int)), None)
+
+    @hook('concept_more')
+    def from_notebook(c):
+        "On the page of an idea that came from one of your notebooks: the notebook, and Open in Leela at the section of the idea."
+        p = next((p for p in c.get('provenance') or () if str(p.get('src') or '').startswith('vault:') and notebook(p['src'][6:], str(p.get('doc_id') or ''))), None)
+        if p is None: return None
+        shelf, doc = p['src'][6:], p['doc_id']
+        d = _get(shelf, doc)[1]
+        return P('From your notebook ', A(doc_title(d['title']) if d else doc, href=Routes.of(shelf, doc)), '. ',
+                 OpenInLeela(leela_open(doc=doc, shelf=shelf, cell=nb_cell(doc, c.slug), vault=lr.vault.path)), cls='nb-from')
 
     @hook('pane_title')
     def pane_title(url):

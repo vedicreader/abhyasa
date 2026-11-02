@@ -39,29 +39,66 @@ def nb_walk(cl, lr):
     r = cl.post('/walk/new', data=dict(ref=doc['id'], shelf='notebooks'))
     return r.headers['hx-redirect'].split('/')[2], p
 
-def test_a_notebook_walk_uses_the_notebook_as_it_is(mk, walk_fake, lr):
+def test_a_notebook_walk_uses_the_notebook_as_it_is(mk, walk_fake, lr, monkeypatch):
     "One idea for each section, in the words and the code of the notebook, with its source; the walk page offers Learn the notebook in Leela and says where the copy is."
+    import abhyasa.blocks.walk.ui as U
+    monkeypatch.setattr(U, 'leela_base', lambda: 'http://127.0.0.1:5121')
     cl = mk(); jid, p = nb_walk(cl, lr)
     j = lr.journey(jid)
     assert [s['read']['section'] for s in j.steps] == ['Introduction', 'Noise schedule'] and 'show_images(noised)' in j.steps[1]['read']['text']
     t = cl.get(f'/w/{jid}').text
-    assert 'Learn the notebook in Leela' in t and f'action="/w/{jid}/notebook"' in t and 'Your notebook 15_DDPM.ipynb does not change.' in t
+    assert 'Learn the notebook in Leela' in t and f'action="/w/{jid}/notebook' in t and 'Your notebook 15_DDPM.ipynb' not in t and '15_DDPM.ipynb, which does not change.' in t
     assert f'walks/{jid}/15_DDPM.ipynb' in t
 
-def test_learn_in_leela_writes_a_learning_copy_with_the_demos(mk, walk_fake, lr, monkeypatch):
-    "The press writes the copy in the folder of the walk, with the demo of the step after its section, notes it on the walk, and goes to Leela. The notebook does not change."
+def test_with_no_leela_the_walk_says_how_to_start_it(mk, walk_fake, lr, monkeypatch):
+    "When Leela does not run, the walk page and the step say so in one plain line, with no button that goes to a broken page."
+    import abhyasa.blocks.walk.ui as U
+    from abhyasa.core.leela import LEELA_OFF
+    monkeypatch.setattr(U, 'leela_base', lambda: None)
+    cl = mk(); jid, p = nb_walk(cl, lr); cl.post(f'/w/{jid}/start')
+    for url in (f'/w/{jid}', f'/w/{jid}/0'):
+        t = cl.get(url).text
+        assert LEELA_OFF in t and f'action="/w/{jid}/notebook' not in t
+
+def press(cl, lr, monkeypatch, i=None):
+    "Press Open in Leela on notebook walk `jid` (at idea `i`) with Leela at port 5121; the walk, the notebook and the response."
     import abhyasa.blocks.walk.app as W
+    from abhyasa.contract import handoff
+    monkeypatch.setattr(W, 'leela_open', lambda j, i=None, cell=None, vault=None: 'http://127.0.0.1:5121' + handoff(j.id, i, cell=cell, go=True))
+    jid, p = nb_walk(cl, lr)
+    return jid, p, cl.post(f'/w/{jid}/notebook' + ('' if i is None else f'?i={i}'), follow_redirects=False)
+
+def test_learn_in_leela_writes_a_learning_copy_with_the_demos(mk, walk_fake, lr, monkeypatch):
+    "The press writes the copy in the folder of the walk, with a line back to the walk first and the demo of the step after its section, notes it on the walk, and goes to Leela at once. The notebook does not change."
     import abhyasa.show
-    monkeypatch.setattr(W, 'leela_link', lambda j, i=None, topic='', vault=None: f'http://127.0.0.1:5121/learn?walk={j.id}')
-    cl = mk(); jid, p = nb_walk(cl, lr)
-    was = p.read_bytes()
+    cl = mk()
+    orig = lr.put_demo
+    jid, p, r = press(cl, lr, monkeypatch)   # the first press: no demo yet
     slug = lr.journey(jid).steps[1]['slug']
     from rupaka.spec import gallery
     lr.put_demo({**gallery()['reciprocal-rank-fusion'], 'id': 'noise-demo'}, slug, by='test')
-    r = cl.post(f'/w/{jid}/notebook', follow_redirects=False)
-    assert r.status_code == 303 and r.headers['location'] == f'http://127.0.0.1:5121/learn?walk={jid}'
+    was = p.read_bytes()
+    r = cl.post(f'/w/{jid}/notebook?i=1', follow_redirects=False)
     j = lr.journey(jid)
     c = notebook_copy(j)
+    assert r.status_code == 303 and r.headers['location'] == f'http://127.0.0.1:5121/learn?walk={jid}&step=1&cell=4&go=1'   # the heading of Noise schedule, after the line back
     assert c and c.parent.name == jid and c.parent.parent.name == 'walks' and p.read_bytes() == was
     src = [x.source for x in read_nb(c).cells]
-    assert len(src) == 7 and src[6].startswith('**A demo: Noise schedule.**') and '```rupaka' in src[6] and '"noise-demo"' in src[6]   # after the last cell of its section
+    assert src[0].startswith('**A learning copy of 15_DDPM.ipynb**') and f'/w/{jid})' in src[0].replace('>', '') and src[4] == '## Noise schedule'
+    assert len(src) == 8 and src[7].startswith('**A demo: Noise schedule.**') and '```rupaka' in src[7] and '"noise-demo"' in src[7]   # after the last cell of its section
+    assert type(j.notebook['opened']) is float and j.notebook['wrote']
+
+def test_a_copy_that_you_changed_stays(mk, walk_fake, lr, monkeypatch):
+    "A copy that you changed in Leela is not written again: the next press opens it as it is."
+    cl = mk(); jid, p, r = press(cl, lr, monkeypatch, 0)
+    c = notebook_copy(lr.journey(jid))
+    nb = read_nb(c); nb.cells.append(mk_cell('x = 1  # my own cell')); write_nb(nb, c)
+    mine = c.read_bytes()
+    r = cl.post(f'/w/{jid}/notebook?i=0', follow_redirects=False)
+    assert r.status_code == 303 and 'cell=2' in r.headers['location'] and c.read_bytes() == mine
+
+def test_the_copy_runs_in_the_folder_of_the_notebook(mk, walk_fake, lr, monkeypatch):
+    "`copy_home` of the copy is the folder of your notebook, so Leela runs it there; a file that is not a copy has none."
+    from abhyasa.contract import copy_home
+    cl = mk(); jid, p, r = press(cl, lr, monkeypatch)
+    assert copy_home(notebook_copy(lr.journey(jid))) == p.parent and copy_home(p) is None

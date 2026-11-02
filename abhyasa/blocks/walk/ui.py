@@ -9,7 +9,7 @@ from abhyasa.learner import DEPTHS, METHOD_LABELS as LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
 from abhyasa.learner import val
 from abhyasa.models import dflt_model, where_chip
-from abhyasa.core.leela import leela_line, LEELA_INSTALL
+from abhyasa.core.leela import leela_line, leela_base, OpenInLeela, LEELA_INSTALL
 from abhyasa.path import minutes, TOOL_WAYS, hands_count, hands_most
 from abhyasa.learner import SHAKY, walk_state
 from abhyasa.path import wants_source, missing_data
@@ -235,7 +235,9 @@ def Passage(j, s, c, i=None, looking=False, quiet=False):
         return TutorWords((c or {}).get('statement', ''), SourceReady(j['id'], i), id='passage', data_part='passage', **mv)
     if r.get('text'):
         also = [Div(Md(a.get('text') or ''), SourceLine(source_of(a, j)), cls='also') for a in r.get('also') or () if a.get('text')]   # a merge keeps both passages
-        return Blockquote(Md(r['text']), SourceLine(source_of(r, j)), SourceLinks(r.get('links')), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', data_part='passage', **mv)   # `links`: the lesson notebook and the video of a transcript
+        cell = r['cells'][0] if isinstance(r.get('cells'), list) and r['cells'] and isinstance(r['cells'][0], int) else None
+        go = CopyGo(j, i) if i is not None and (j.get('notebook') or {}).get('path') else None   # a notebook walk opens its learning copy at this section
+        return Blockquote(Md(r['text']), SourceLine(source_of(r, j), cell=cell, leela=go), SourceLinks(r.get('links')), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', data_part='passage', **mv)   # `links`: the lesson notebook and the video of a transcript
     wait = i is not None and s.get('research') == 'pending' and looking and val('research.on')
     poll = dict(hx_get=at(Routes.source, j['id'], i) + '?quiet=1', hx_trigger=WAIT, hx_swap='outerHTML', data_job=f"walk:{j['id']}") if wait else {}
     return TutorWords((c or {}).get('statement', ''), FindSource(j['id'], i, s, looking) if i is not None else '',
@@ -768,14 +770,24 @@ def WalkMenu(j):
     "The ⋯ menu of a walk, on its page and on its row in the list of walks: Delete this walk."
     return Details(Summary('⋯', title='More for this walk', aria_label='More for this walk'), Div(DropWalk(j['id']), cls='menu-items'), cls='more-menu walk-menu')
 
+def CopyGo(j, i=None):
+    """Open in Leela for notebook walk `j`: one press writes the learning copy (or keeps the one you changed) and opens it in Leela at the
+    section of idea `i`. Leela runs it in the folder of your notebook. It says when you last opened it, or that Leela is not running."""
+    t = (j.get('notebook') or {}).get('opened')
+    href = at(Routes.notebook, j['id']) + ('' if i is None else f'?i={i}') if leela_base() else None
+    return Span(OpenInLeela(href, 'Open in Leela', post=True),
+                Span(f"Opened in Leela at {time.strftime('%H:%M', time.localtime(t))}.", cls='mute nb-opened') if href and type(t) in (int, float) else '', cls='nb-copy-go')
+
 def NotebookLine(j, copy=''):
     """A walk made from one of your notebooks: Learn it in Leela opens a learning copy of the notebook, with the demos of the walk as rupaka cells
     next to their sections. `copy` is the path of the copy. Your own notebook file never changes."""
     nb = j.get('notebook') or {}
     if not nb.get('path'): return ''
-    return Div(Form(Button('Learn the notebook in Leela ↗', cls='small', data_act='open-notebook'), action=at(Routes.notebook, j['id']), method='post',
-                    target='_blank', rel='noopener', hx_boost='false'),
-               P(f"Leela opens a learning copy with the demos of this walk. Your notebook {Path(nb['path']).name} does not change. The copy is in {copy}.", cls='mute'),
+    i = walk_state(j).current
+    href = at(Routes.notebook, j['id']) + ('' if i is None else f'?i={i}') if leela_base() else None
+    return Div(OpenInLeela(href, 'Learn the notebook in Leela', post=True),
+               P(f"Leela opens a learning copy with the demos of this walk, at the idea you are on. It runs in the folder of your notebook {Path(nb['path']).name}, "
+                 f"which does not change. The copy is in {copy}.", cls='mute'),
                cls='walk-notebook', data_part='notebook')
 
 def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), actions=(), vault=None, lead='', copy=''):

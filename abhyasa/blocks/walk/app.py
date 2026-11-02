@@ -8,7 +8,7 @@ from threading import Lock
 from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import is_local, n_of, Page, NotFound, short_title, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar
-from abhyasa.core.leela import leela_line, leela_link, LEELA_INSTALL
+from abhyasa.core.leela import leela_line, leela_link, leela_open, LEELA_INSTALL, LEELA_OFF
 from abhyasa.learner import val, set_val
 from abhyasa.sources import detect, vault_title, transcript_read
 from abhyasa.learner import clean_subject, profile_text, WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
@@ -57,6 +57,29 @@ def place(s, n):
     return k
 
 log = logging.getLogger(__name__)
+
+def nb_sha(p) -> str:
+    "A short hash of the file `p`: abhyasa notes it when it writes a learning copy, so it can tell when you changed the copy."
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()[:16]
+
+def nb_head(p, j, back) -> Path:
+    "The learning copy `p` of notebook walk `j` with a first cell that says what it is and links `back` to the walk."
+    from fastcore.nbio import read_nb, write_nb, mk_cell
+    nb, name = read_nb(p), Path(j['notebook']['path']).name
+    nb.cells.insert(0, mk_cell(f"**A learning copy of {name}** for the walk *{j['title']}*. It runs in the folder of your notebook. Your notebook does not change.\n\n"
+                               f"[Back to the walk ↗](<{back}>)", 'markdown'))
+    write_nb(nb, p)
+    return p
+
+def copy_cell(p, j, i) -> int|None:
+    "The place in the learning copy `p` of the first cell of the section of idea `i` of notebook walk `j`; None when it is not there."
+    from fastcore.nbio import read_nb
+    k = ((j['steps'][i].get('read') or {}).get('cells') or [None])[0] if i is not None else None
+    if not isinstance(k, int): return None
+    try: src, cells = read_nb(j['notebook']['path']).cells, read_nb(p).cells
+    except (OSError, ValueError): return None
+    if not 0 <= k < len(src): return None
+    return next((x for x, c in enumerate(cells) if c.cell_type == src[k].cell_type and c.source == src[k].source), None)
 
 def connect(app, ctx):
     lr, tutor, sessions = ctx.learning, ctx.tutor, ctx.sessions
@@ -649,7 +672,7 @@ def connect(app, ctx):
         "Open in Leela: note the time on step `i` (`leela_at`), then go to the Leela link. When Leela does not run, go back to the step."
         with _jlock(jid):   # one read of the walk: the link, the concept opened at this place and the stamp all name the same idea
             if not (j := walk_of(jid, i)): return Response(status_code=404)
-            if not (link := leela_link(j, i, vault=vault)): return RedirectResponse(ui.at(Routes.step, jid, i), status_code=303)
+            if not (link := leela_link(j, i, vault=vault, go=True)): return RedirectResponse(ui.at(Routes.step, jid, i), status_code=303)
             j = with_folders(j, i)
             slug = j.steps[i]['slug']   # an older Leela lesson files no concept, so its results match only while the step at this place has it
             lr.put_journey({**j, 'leela_opened': {**(j.get('leela_opened') or {}), str(i): slug}})
@@ -1056,20 +1079,26 @@ def connect(app, ctx):
             lr.drop_journey(k)
         return RedirectResponse('/', status_code=303)
 
-    def open_notebook(jid:str):
-        """Learn the notebook in Leela: write the learning copy of the notebook of walk `jid` in the folder of the walk, with each demo of the walk
-        as a rupaka cell after its section, note its path on the walk, and go to Leela, which opens the copy. The learner's own notebook never changes.
-        A demo that is not made yet starts now, and the next press puts it in a new copy."""
+    def open_notebook(req, jid:str, i:int=None):
+        """Learn the notebook in Leela: write the learning copy of the notebook of walk `jid` in the folder of the walk, with a line back to the walk at
+        the top and each demo of the walk as a rupaka cell after its section, note its path on the walk, and go to Leela, which opens the copy at the
+        section of idea `i` (else the idea you are on) and runs it in the folder of your notebook. The learner's own notebook never changes. A copy
+        that you changed in Leela stays as it is. A demo that is not made yet starts now, and the next press puts it in a new copy."""
         if not (j := walk_of(jid)) or not (j.get('notebook') or {}).get('path'): return missing()
-        for i in range(len(j.steps)): ahead(j, i)
+        i = i if i is not None and 0 <= i < len(j.steps) else walk_state(j).current
+        for k in range(len(j.steps)): ahead(j, k)
         demos = {s['slug']: d.spec for s in j.steps if s['check']['kind'] in AIM and (d := demo(s)) and isinstance(d.get('spec'), dict)}
-        try: p = learning_copy(j, copy_path(lr.vault.assets(), j), demos)
+        dest = copy_path(lr.vault.assets(), j)
+        kept = dest.is_file() and j.notebook.get('wrote') not in (None, nb_sha(dest))   # you changed the copy in Leela: it stays
+        try: p = dest if kept else nb_head(learning_copy(j, dest, demos), j, f"{str(req.base_url).rstrip('/')}{ui.at(Routes.one, jid)}")
         except (OSError, ValueError) as e:
             log.warning('abhyasa could not write the learning copy of %s: %r', jid, e)
             return Page('Leela', H1(j.title), P('abhyasa could not read your notebook, so it wrote no copy. Check that the file is still there.', cls='req-err'), on='Home', crumbs=up)
-        lr.merge_journey(jid, notebook={**j.notebook, 'copy': str(p)})
-        if not (link := leela_link(j, vault=vault)):
-            return Page('Leela', H1(j.title), P(f'The learning copy is in {p}. Start Leela, then press Learn the notebook in Leela again. ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener')), on='Home', crumbs=up)
+        nb = {**j.notebook, 'copy': str(p), **({} if kept else {'wrote': nb_sha(p)})}
+        if not (link := leela_open(j, i, cell=copy_cell(p, j, i), vault=vault)):
+            lr.merge_journey(jid, notebook=nb)
+            return Page('Leela', H1(j.title), P(LEELA_OFF, cls='mute'), on='Home', crumbs=up)
+        lr.merge_journey(jid, notebook={**nb, 'opened': time.time()})   # the step says when its notebook opened in Leela
         return RedirectResponse(link, status_code=303)
 
     @hook('walk_actions')

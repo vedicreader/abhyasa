@@ -45,7 +45,7 @@ def test_open_in_leela_notes_the_time(mk, lr, walk_fake, monkeypatch, tmp_path):
     monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path)); leela_file(tmp_path)
     cl = mk(); jid = nb_step(cl, lr)
     r = cl.post(f'/w/{jid}/1/leela', follow_redirects=False)
-    assert r.status_code == 303 and r.headers['location'] == f'http://127.0.0.1:5011/learn?walk={jid}&step=1&v={vault_key(lr.vault.path)}'
+    assert r.status_code == 303 and r.headers['location'] == f'http://127.0.0.1:5011/learn?walk={jid}&step=1&v={vault_key(lr.vault.path)}&go=1'
     assert lr.journey(jid).steps[1]['leela_at'] > 0
     g = cl.get(f'/w/{jid}/1/leela', follow_redirects=False)   # the Mac app sends the new-window form as a GET
     assert g.status_code == 303 and g.headers['location'] == r.headers['location']
@@ -183,7 +183,7 @@ def test_two_apps_link_their_own_vault(lr, walk_fake, monkeypatch, tmp_path):
     for cl, l in zip(cls, (lr, lr2)):
         jid = nb_step(cl, l)
         r = cl.post(f'/w/{jid}/1/leela', follow_redirects=False)
-        assert r.headers['location'].endswith(f'&v={vault_key(l.vault.path)}'), r.headers['location']
+        assert r.headers['location'].endswith(f'&v={vault_key(l.vault.path)}&go=1'), r.headers['location']
     assert vault_key(lr.vault.path) != vault_key(lr2.vault.path)
 
 def test_plan_says_writing_only_while_a_job_runs(mk, lr, walk_fake):

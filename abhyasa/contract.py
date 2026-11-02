@@ -7,7 +7,7 @@ from urllib.parse import urlencode, parse_qs
 
 __all__ = ['SAFE_NAMES', 'SAFE_NODES', 'safe_test', 'check_exercise', 'WALK_ID', 'PKG', 'DATA_NAME', 'DATA_MOST', 'NB_KEYS', 'RUN_MINUTES', 'RUN_SAY',
            'has_directive', 'data_path_why', 'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES',
-           'COPY_DIR', 'notebook_copy', 'LEELA_ROUTE', 'TOPIC_MAX', 'VAULT_KEY', 'vault_key', 'Handoff', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'HANDOFF_BAD']
+           'COPY_DIR', 'notebook_copy', 'copy_home', 'LEELA_ROUTE', 'SHELF', 'DOC_ID', 'TOPIC_MAX', 'VAULT_KEY', 'vault_key', 'Handoff', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'OPEN_CASES', 'HANDOFF_BAD']
 
 # --- the test rule of an exercise --------------------------------------------------------------------------------------
 
@@ -252,10 +252,13 @@ def vault_key(path) -> str:
     return hashlib.sha256(str(Path(path).expanduser().resolve()).encode()).hexdigest()[:8]
 
 class Handoff(dict):
-    "The result of `read_handoff`: a dict whose keys also read as attributes, as fastcore's `AttrDict`."
+    "The result of `read_handoff`: a dict whose keys also read as attributes, as fastcore's `AttrDict`. A key of `EXTRA` that the link does not give reads as its default."
+    EXTRA = dict(doc='', shelf='', cell=None, go=False)
     def __getattr__(self, k):
         try: return self[k]
-        except KeyError: raise AttributeError(k) from None
+        except KeyError:
+            if k in Handoff.EXTRA: return Handoff.EXTRA[k]
+            raise AttributeError(k) from None
 
 COPY_DIR = 'walks'   # the folder of the vault assets with one folder for each notebook walk: the learning copy of its notebook is in it
 
@@ -271,24 +274,49 @@ def notebook_copy(j) -> Path|None:
     if p == Path(str(nb.get('path') or '')).expanduser() or any(x.is_symlink() for x in (p, p.parent)) or not p.is_file(): return None
     return p
 
-def handoff(jid:str='', i:int|None=None, topic:str='', v:str='') -> str:
-    "The path and query that Leela opens: a walk, a step of it, a topic, or a mix. `v` is the `vault_key` of abhyasa's vault."
-    if not (jid or topic): raise ValueError('nothing to open')
+SHELF = re.compile(r'\A[A-Za-z_][A-Za-z0-9_]{0,63}\Z')        # the name of a vault shelf
+DOC_ID = re.compile(r'\A[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}\Z')   # the id of a vault document
+
+def copy_home(p) -> Path|None:
+    """The folder of the learner's notebook that the learning copy at `p` copies: the folder in its metadata `abhyasa.copy_of`, when `p`
+    is a notebook in a walk folder (`.../walks/<walk id>/<name>.ipynb`) and `copy_of` is a notebook file with the same name. Else None.
+    Leela runs the copy in this folder, so the imports and the data paths of the notebook work."""
+    import json
+    p = Path(p)
+    if p.suffix != '.ipynb' or p.parent.parent.name != COPY_DIR or not WALK_ID.fullmatch(p.parent.name): return None
+    try: m = json.loads(p.read_text()).get('metadata', {}).get('abhyasa') if p.is_file() and p.stat().st_size < 64 << 20 else None
+    except (OSError, ValueError, AttributeError): return None
+    src = Path(m.get('copy_of') or '') if isinstance(m, dict) and isinstance(m.get('copy_of'), str) and '\x00' not in m['copy_of'] else None
+    if not (src and src.is_absolute() and src.name == p.name and src.is_file() and src.resolve() != p.resolve()): return None
+    return src.parent
+
+def handoff(jid:str='', i:int|None=None, topic:str='', v:str='', doc:str='', shelf:str='', cell:int|None=None, go:bool=False) -> str:
+    """The path and query that Leela opens: a walk, a step of it, a topic, a notebook in the vault (`doc` on `shelf`), or a mix. `v` is the
+    `vault_key` of abhyasa's vault. `cell` is the place of the cell to show in the notebook. With `go`, Leela opens it at once, with no page between."""
+    if not (jid or topic or doc): raise ValueError('nothing to open')
     if v and not VAULT_KEY.fullmatch(v): raise ValueError('v is not a vault key: give 8 characters from 0-9 and a-f')
-    q = [(k, x) for k, x in (('walk', jid), ('step', i), ('topic', topic), ('v', v)) if x not in ('', None)]
+    if doc and not (DOC_ID.fullmatch(doc) and SHELF.fullmatch(shelf or 'store')): raise ValueError('doc is not a vault document')
+    q = [(k, x) for k, x in (('walk', jid), ('step', i), ('topic', topic), ('doc', doc), ('shelf', shelf if doc else ''), ('cell', cell), ('v', v), ('go', 1 if go else ''))
+         if x not in ('', None)]
     return f'{LEELA_ROUTE}?{urlencode(q)}'
 
 def read_handoff(query:str) -> Handoff:
-    """The `walk`, `step`, `topic` and `v` in `query`, checked. A `ValueError` names the key that is not valid. Other keys are ignored.
+    """The `walk`, `step`, `topic` and `v` in `query`, and `doc`, `shelf`, `cell` and `go` when it gives them, checked. A `ValueError` names the key that is not valid. Other keys are ignored.
     A missing `v` gives '', as a link from abhyasa 0.0.12. A `v` that is not 8 lower-case hex characters is refused."""
     q = {k: x[0] for k, x in parse_qs(query).items()}
     walk, step, topic, v = q.get('walk', ''), q.get('step'), q.get('topic', ''), q.get('v', '')
+    doc, shelf, cell = q.get('doc', ''), q.get('shelf', ''), q.get('cell')
+    whole = lambda x: x.isascii() and x.isdigit() and len(x) < 6
     if walk and not WALK_ID.fullmatch(walk): raise ValueError('walk is not a walk id')
     if step is not None and not (step.isascii() and step.isdigit()): raise ValueError('step must be a whole number from 0')
     if len(topic) > TOPIC_MAX: raise ValueError(f'topic is more than {TOPIC_MAX} characters')
     if v and not VAULT_KEY.fullmatch(v): raise ValueError('v is not a vault key: give 8 characters from 0-9 and a-f')
-    if not (walk or topic): raise ValueError('nothing to open')
-    return Handoff(walk=walk, step=None if step is None else int(step), topic=topic, v=v)
+    if doc and not DOC_ID.fullmatch(doc): raise ValueError('doc is not a vault document')
+    if shelf and not SHELF.fullmatch(shelf): raise ValueError('shelf is not a shelf name')
+    if cell is not None and not whole(cell): raise ValueError('cell must be a whole number from 0')
+    if not (walk or topic or doc): raise ValueError('nothing to open')
+    more = dict(doc=doc, shelf=shelf or ('store' if doc else ''), cell=None if cell is None else int(cell), go=q.get('go') == '1')
+    return Handoff(walk=walk, step=None if step is None else int(step), topic=topic, v=v, **{k: x for k, x in more.items() if x != Handoff.EXTRA[k]})
 
 # Both test suites run these: each `handoff(**kw)` gives the path, and `read_handoff` of its query gives the same walk, step, topic and v.
 HANDOFF_CASES = [(dict(jid='attention-ab12'), '/learn?walk=attention-ab12'),
@@ -297,5 +325,10 @@ HANDOFF_CASES = [(dict(jid='attention-ab12'), '/learn?walk=attention-ab12'),
                  (dict(jid='pydantic-ai-docs-9f0c', i=0, topic='Agents'), '/learn?walk=pydantic-ai-docs-9f0c&step=0&topic=Agents'),
                  (dict(jid='attention-ab12', i=3, v='0a1b2c3d'), '/learn?walk=attention-ab12&step=3&v=0a1b2c3d')]
 
-# Queries that `read_handoff` refuses with a `ValueError`: a bad walk or step, nothing to open, and a `v` that is not a vault key.
-HANDOFF_BAD = ['walk=../x', 'walk=a-1&step=-1', '', 'walk=a&v=xyz', 'walk=a&v=0A1B2C3D', 'walk=a&v=0a1b2c3d4', 'walk=a&v=0a1b2c3d%0A']
+# Links that open a notebook at once (`go`), at a cell: a step of a notebook walk, and a notebook in the vault. `read_handoff` gives each key back.
+OPEN_CASES = [(dict(jid='ddpm-ab12', i=2, cell=14, v='0a1b2c3d', go=True), '/learn?walk=ddpm-ab12&step=2&cell=14&v=0a1b2c3d&go=1'),
+              (dict(doc='nb-15-ddpm', shelf='notebooks', cell=6, go=True), '/learn?doc=nb-15-ddpm&shelf=notebooks&cell=6&go=1')]
+
+# Queries that `read_handoff` refuses with a `ValueError`: a bad walk, step, doc, shelf or cell, nothing to open, and a `v` that is not a vault key.
+HANDOFF_BAD = ['walk=../x', 'walk=a-1&step=-1', '', 'walk=a&v=xyz', 'walk=a&v=0A1B2C3D', 'walk=a&v=0a1b2c3d4', 'walk=a&v=0a1b2c3d%0A',
+               'doc=../x', 'doc=a&shelf=a/b', 'doc=a&cell=-1', 'walk=a&cell=x', 'shelf=store&cell=1']

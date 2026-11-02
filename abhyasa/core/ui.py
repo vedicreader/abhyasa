@@ -12,7 +12,7 @@ from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link, s
 from abhyasa.learner import DEPTHS
 from abhyasa.sources import source_of
 
-__all__ = ['Cites', 'SourceLine', 'SourceLinks', 'serve_watch', 'WATCH_CSP', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
+__all__ = ['Cites', 'nb_leela', 'SourceLine', 'SourceLinks', 'serve_watch', 'WATCH_CSP', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo', 'moved_to', 'subject_name']
 
 _here = Path(__file__).parent
@@ -389,9 +389,14 @@ def serve_watch(app):
         out = A('Watch on YouTube ↗', href=u, target='_blank', rel='noopener noreferrer', cls='yt-out')
         return Page('Video', Div(player, P('The video needs the internet.', id='yt-off', cls='mute', hidden=True), out, cls='yt-watch'), Script(_OFFLINE)), HttpHeader('Content-Security-Policy', WATCH_CSP)
 
-def SourceLine(src, room=False):
+def nb_leela(href, cell=None):
+    "Open in Leela for the vault page at the local `href` when it is a notebook (the `nb_leela` hook, at the cell `cell`); '' for another page."
+    return next(iter(run('nb_leela', href, cell)), '') if href else ''
+
+def SourceLine(src, room=False, cell=None, leela=None):
     """The one line under a passage (decision 6): the label in a pill, the title, the place, and the link that opens it. A page in your vault
     opens in the side pane, and `Open in your vault` too: it supports the exercise, so the page keeps its place. A web page (`Open the page`) opens in a new tab. `src` comes from `source_of`.
+    A notebook in your vault also has Open in Leela, at the cell `cell` (`nb_leela`); `leela` takes its place when given.
     With `room`, the line is text only, for the room: no link."""
     if not src: return ''
     bits = lambda *xs: [Span(x) for x in xs if x]
@@ -401,11 +406,12 @@ def SourceLine(src, room=False):
     name = pane_link(src.title, src.href, src.title) if local else side_link(src.title, src.url, src.title) if web else Span(src.title)
     go = (side_link('Open the page', src.url, src.title, cls='src-open') if web
           else pane_link('Open in your vault', src.href, src.title, cls='pane-link src-open') if local else '')
-    return line(Pill(src.label), name, *([Inline(src.place)] if re.search(r'[*_$`]', src.place or '') else bits(src.place)), *bits(src.date and f'read on {src.date}'), go)   # a place can hold markdown, such as a section name
+    nb = (nb_leela(src.href, cell) if local else '') if leela is None else leela
+    return line(Pill(src.label), name, *([Inline(src.place)] if re.search(r'[*_$`]', src.place or '') else bits(src.place)), *bits(src.date and f'read on {src.date}'), go, nb)   # a place can hold markdown, such as a section name
 
 def SourceLinks(links, cls='src-links'):
-    "One quiet line of links that go with a source, such as the lesson notebook and the video of a transcript: `AttrDict(text, href)` opens a vault page in the side pane, `AttrDict(text, url)` a web page in a new tab (`side_link`)."
-    xs = [side_link(l['text'], l.get('href') or l.get('url') or '', l['text']) for l in links or () if l.get('text')]
+    "One quiet line of links that go with a source, such as the lesson notebook and the video of a transcript: `AttrDict(text, href)` opens a vault page in the side pane, `AttrDict(text, url)` a web page in a new tab (`side_link`). A notebook also has Open in Leela."
+    xs = [x for l in links or () if l.get('text') for x in (side_link(l['text'], l.get('href') or l.get('url') or '', l['text']), nb_leela(l.get('href'))) if x]   # a notebook also opens in Leela
     return Div(*[y for k, x in enumerate(xs) for y in ((Span('·', cls='sep'), x) if k else (x,))], cls=cls) if xs else ''
 
 def TutorWords(text, *c, note=False, cls='', **kw):

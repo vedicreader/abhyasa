@@ -26,7 +26,10 @@ as one hint on the open check of that step, and gives the line for the check).
 The start: `app_start()` (once, after the app connected its blocks and closed the old job rows: a block starts its jobs of the start on the pool,
 such as the walk block, which makes the old paths walks).
 
-The side pane: `pane_title(url)` (the title of the page at the local path `url`, for the pane bar and the line under 1100 px)."""
+The side pane: `pane_title(url)` (the title of the page at the local path `url`, for the pane bar and the line under 1100 px).
+
+Leela: `nb_leela(href, cell=None)` (the vault block gives Open in Leela for the vault page at `href` when it is a notebook, at the cell `cell`;
+every source line and link line of a notebook shows it)."""
 from collections import defaultdict
 
 __all__ = ['HOOKS', 'hook', 'run', 'clear']
