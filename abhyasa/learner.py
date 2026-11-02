@@ -9,18 +9,18 @@ __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SET
            'SHELF', 'STATE', 'LISTS', 'NAME_LEN', 'SLUG_KEYS', 'GROUP_DEPTH', 'GROUP_LEN', 'NO_TEXT', 'NOT_FOUND',
            'DEPTHS', 'KIND_AT', 'DAY', 'METHODS', 'METHOD_LABELS', 'EXAMPLES_TO', 'TEXT_WAYS', 'WALK_WAYS', 'CREDIT',
            'FEEDBACK', 'EXPLORE', 'EMPTY', 'CHECK_KIND', 'DEPTH', 'LEARNING', 'PROFILE', 'LIST_FIELDS', 'EXAMPLES',
-           'PACES', 'PROFILE_LABELS', 'ONBOARD_QS', 'ONBOARD_SP', 'OBSERVE_SP', 'FRESH', 'KEEP', 'OLD', 'WORD',
-           'STATUS', 'NO_CHECK', 'SHAKY', 'add', 'cfg_dir', 'settings', 'save_settings', 'update_settings', 'top',
-           'fit', 'raw', 'val', 'dflt', 'source_root_why', 'roots', 'dropped_roots', 'set_val', 'reset', 'rows',
-           'reset_group', 'changed', 'clamped', 'register', 'lines', 'need_lines', 'saved', 'prompt', 'set_prompt',
-           'meta_of', 'slugify', 'idea_name', 'real_idea', 'listed', 'usable_name', 'concept_text', 'Learning',
-           'clean_name', 'clean_group', 'fold', 'under', 'clean_subject', 'readable_name', 'tree', 'attempt_text',
-           'temp_learning', 'outcome', 'recall', 'grow', 'update', 'next_depth', 'learned', 'ready', 'pick',
-           'understanding', 'weak', 'way', 'credit', 'posterior', 'mean', 'improving', 'choose', 'check_for',
-           'methods_text', 'profile_text', 'clean', 'onboard_prompt', 'onboard', 'evidence', 'observe_prompt',
-           'observe', 'calibration', 'calibration_text', 'ledger', 'job_version', 'job_start', 'job_end', 'track',
-           'job_said', 'Said', 'seen_jobs', 'close_jobs', 'activity', 'chip_words', 'current', 'keyed_lock',
-           'walk_state']
+           'PACES', 'PROFILE_LABELS', 'ONBOARD_QS', 'ONBOARD_SP', 'OBSERVE_SP', 'HUMAN', 'LEVELS', 'FRESH', 'KEEP',
+           'OLD', 'WORD', 'STATUS', 'NO_CHECK', 'SHAKY', 'add', 'cfg_dir', 'settings', 'save_settings',
+           'update_settings', 'top', 'fit', 'raw', 'val', 'dflt', 'source_root_why', 'roots', 'dropped_roots',
+           'set_val', 'reset', 'rows', 'reset_group', 'changed', 'clamped', 'register', 'lines', 'need_lines', 'saved',
+           'prompt', 'set_prompt', 'meta_of', 'slugify', 'idea_name', 'real_idea', 'listed', 'usable_name',
+           'concept_text', 'Learning', 'clean_name', 'clean_group', 'fold', 'under', 'clean_subject', 'readable_name',
+           'tree', 'attempt_text', 'temp_learning', 'outcome', 'recall', 'grow', 'update', 'next_depth', 'learned',
+           'ready', 'pick', 'understanding', 'weak', 'way', 'credit', 'posterior', 'mean', 'improving', 'choose',
+           'check_for', 'methods_text', 'profile_text', 'clean', 'onboard_prompt', 'onboard', 'evidence',
+           'observe_prompt', 'observe', 'teach_sp', 'level_line', 'calibration', 'calibration_text', 'ledger',
+           'job_version', 'job_start', 'job_end', 'track', 'job_said', 'Said', 'seen_jobs', 'close_jobs', 'activity',
+           'chip_words', 'current', 'keyed_lock', 'walk_state']
 
 # %% ../nbs/00_learner.ipynb #6892d8ed
 import threading, weakref, os, json, time, random, uuid
@@ -1342,6 +1342,48 @@ def observe(lr:Learning, ask, n:int=12) -> list:
         else: continue
         out += lr.set_profile(by='tutor', why=c.get('why', ''), **{f: new})
     return out
+
+# %% ../nbs/00_learner.ipynb #6ab2ac72
+HUMAN = register('teach.human', 'Who the words are for', 'The rules on how to teach that the tutor adds to each prompt that explains an idea. The line on your level comes after them.', """The reader is a human who wants to understand the idea, not only to read its definition. Learners differ: one is new to the idea, another knows it well. The level line in the prompt says how well this learner knows it.
+- Make the idea make sense. Say why it works, or what problem it solves. Never only say the definition again in other words.
+- Start from something that the learner knows. Then give one concrete case, with small real numbers or everyday things, before the general rule.
+- An analogy can help. When you use one, say in a few words where it stops being true.
+- When a wrong idea is common, name it and say why it is wrong.
+- Keep it simple when the level line says new, shaky or a gap, or names a need that is not in place. Teach one idea at a time. Give the concrete case first, then take the learner through it step by step. Say each new term in plain words before you use it. Give a missing need in one plain line before you build on it. In a lesson or a demo, check that they follow before you go on.
+- Be short when the level line says solid. Use the exact terms. Give the key step and a harder case or an edge case. Do not explain the steps that they know.
+- With no level line, write for a reader who is new to the idea, and still give the exact terms.
+- Plain words are not literal words. A short sentence can carry an example, a picture in words, or the reason why.
+- These rules do not change the rules on sources and facts. A quote stays word for word. Say only what is true.""")
+
+def teach_sp(name:str) -> str:
+    "The prompt `name` with the shared rules on how to teach (`teach.human`) after it."
+    return f"{prompt(name)}\n\n{prompt('teach.human')}"
+
+# %% ../nbs/00_learner.ipynb #0a627c5e
+LEVELS = dict(unseen='new to this idea', gap='a gap: they said that they did not know it', weak='shaky', fading='fading: they learned it, and recall is going down',
+              learning='learning it', strong='solid')
+
+def level_line(c, by:dict=None, p=None, missing=None) -> str:
+    "One short line on how well the learner knows concept `c` now, for a teaching prompt: the state and why, the needs that are not in place, the profile, and what to do. '' with no concept."
+    if not c: return ''
+    u = understanding(c)
+    out = [f"The learner's level on this idea: {LEVELS[u.state]}" + (f", at the {DEPTHS[u.floor]} level" if u.floor and u.state in ('learning', 'strong') else '')
+           + (f" ({'; '.join(u.reasons)})" if u.reasons else '') + '.']
+    if missing is None: missing = [by[s]['name'] for s in dict.fromkeys([*(c.get('prereqs') or ()), *(c.get('gaps') or ())]) if by and s in by and by[s].get('floor', 0) < 3]
+    if missing: out.append(f"Needs that are not in place yet: {'; '.join(missing[:3])}.")
+    p = p or {}
+    bits = [p.get('background') and f"Background: {'; '.join(p['background'][:2])}", p.get('examples') and f"Examples that help: {', '.join(p['examples'][:3])}",
+            p.get('pace', 'steady') != 'steady' and f"Pace: {p['pace']}", p.get('confuses') and f"What confuses them: {'; '.join(p['confuses'][:2])}"]
+    out += [f'{b}.' for b in bits if b]
+    simple = u.state in ('unseen', 'gap', 'weak') or bool(missing) or p.get('pace') == 'gentle'
+    out.append('So: keep it simple.' if simple else 'So: be short.' if u.state == 'strong' else 'So: the usual steps.')
+    return ' '.join(out)
+
+@patch
+def level_of(self:Learning, c, missing=None) -> str:
+    "The level line of concept `c` (a slug or a dict) for this learner, with the needs on the shelf and the profile."
+    by = {x.slug: x for x in self.concepts()}
+    return level_line(by.get(c) if isinstance(c, str) else c, by, self.profile(), missing)
 
 # %% ../nbs/00_learner.ipynb #ca02
 def calibration(lr:Learning, n:int=300) -> AttrDict:
