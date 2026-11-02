@@ -225,3 +225,34 @@ def test_start_is_in_view_with_30_sources(mk, home):
                 assert pg.locator('#start-form .chips-src > .schip:not(.web)').count() == 5   # the others wait in the fold
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
+
+def test_the_box_reads_by_post_too(mk, home):
+    "The Start box reads with a POST, so its fields go in the body. The reply is the same as for a GET, with each folder of `extra`."
+    cl, paths, hx = mk(), [str(home/'course22')], {'HX-Request': 'true'}
+    got = cl.post('/learn/read', data=dict(q='how noise works', extra=paths), headers=hx).text
+    assert got == cl.get('/learn/read', params=dict(q='how noise works', extra=paths), headers=hx).text and 'course22' in got
+
+def test_a_long_pasted_text_can_start_in_a_browser(mk):
+    "Paste a long text (a book chapter, 60,000 characters): the box reads it and Start turns on. As a GET, its URL was too long and the server refused it."
+    import socket, threading, time, uvicorn
+    from test_board_js import _chromium
+    if not _chromium(): pytest.skip("Playwright's Chromium is not installed")
+    from playwright.sync_api import sync_playwright
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(mk().app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    text = ' '.join(['The salesman who knows his goods sells more of them, because the buyer trusts what he says.'] * 650)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_page(); pg.set_default_timeout(15000)
+                reads = []; pg.on('request', lambda r: reads.append(r.url) if '/learn/read' in r.url else None)
+                pg.goto(f'http://127.0.0.1:{port}/'); pg.wait_for_selector('#start-q')
+                pg.fill('#start-q', text)
+                pg.wait_for_function("() => { const b = document.getElementById('start-go'); return b && !b.disabled; }")
+                assert reads and all(len(u) < 2000 for u in reads)   # the text is in the body: uvicorn's h11 refuses a long URL
+            finally: b.close()
+    finally:
+        srv.should_exit = True; th.join(5)

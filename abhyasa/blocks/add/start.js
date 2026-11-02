@@ -9,9 +9,8 @@ if (!window.abhyasaStart) {
   const read = () => {
     clearTimeout(timer); timer = null;
     const f = form(); if (!f) return Promise.resolve();
-    const p = new URLSearchParams();
-    for (const [k, v] of new FormData(f)) if (k !== 'pick') p.append(k, v);
-    const r = inflight = htmx.ajax('GET', f.dataset.read + '?' + p, {source: '#start-read', target: '#start-read', swap: 'innerHTML'});
+    // a POST: htmx sends the fields of the form in the body, so a long pasted text does not make a URL that the server refuses
+    const r = inflight = htmx.ajax('POST', f.dataset.read, {source: '#start-read', target: '#start-read', swap: 'innerHTML'});
     return r.finally(() => { if (inflight === r) inflight = null; });
   };
   const later = () => { clearTimeout(timer); timer = setTimeout(read, 250); };

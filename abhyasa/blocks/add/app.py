@@ -393,6 +393,7 @@ def connect(app, ctx):
 
     app.get(Routes.base)(page)
     app.get(Routes.read)(read)
+    app.post(Routes.read)(read)    # the Start box: a long text goes in the body
     app.post(Routes.file)(drop)
     app.post(Routes.files)(drops)
     app.post(Routes.pick)(pick)

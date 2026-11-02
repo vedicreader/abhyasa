@@ -1,7 +1,7 @@
 class Routes:
     base = '/add'                  # GET: to the Start box on Home
     start = '/#start'
-    read = '/learn/read'           # what the Start box will do with its text
+    read = '/learn/read'           # what the Start box will do with its text (POST from the box, so a long text fits; GET works too)
     file = '/learn/file'           # a dropped PDF, filed in the vault
     files = '/learn/files'         # POST: several dropped files, each filed in the vault; it gives their ids
     pick = '/learn/pick'           # POST: the folder chooser of this Mac; it gives the path of each folder that you pick
