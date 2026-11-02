@@ -19,21 +19,22 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD
            'try_text', 'page_text', 'offer_line', 'panel_note', 'board_prompt', 'find_explainer', 'file_video',
            'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'source_label', 'guide_ask',
            'video_source', 'web_sources', 'unsave', 'explain', 'demo_text', 'since_demo', 'rung', 'keep_rung',
-           'no_slots', 'want_demo', 'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note',
-           'make_demo', 'ask_key', 'job_key', 'tries_said', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed',
-           'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind',
-           'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says',
-           'leaks', 'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer',
-           'show', 'import_gallery', 'parked', 'on_stage', 'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask',
-           'words_q', 'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes',
-           'slide_source', 'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk',
-           'walk_talk', 'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides',
-           'put_back', 'talk_again', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run',
-           'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak',
-           'recap', 'recap_html', 'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE',
-           'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD',
-           'TIERS', 'WATCH', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'plain_say',
-           'check_line', 'parse_board', 'PageContext', 'clean_context', 'video_id', 'video_cues', 'stream_board']
+           'no_slots', 'demo_feedback', 'grade_why', 'want_demo', 'clean_note', 'quoted', 'last_feedback',
+           'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'job_key', 'tries_said', 'queue_demo',
+           'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson',
+           'on_close', 'show_ask', 'show_reply', 'demo_kind', 'can_explain', 'scene_catalog', 'scene_example',
+           'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says', 'leaks', 'scrub', 'explainer_prompt',
+           'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show', 'import_gallery', 'parked',
+           'on_stage', 'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q',
+           'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_source',
+           'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk',
+           'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides', 'put_back',
+           'talk_again', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round',
+           'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap',
+           'recap_html', 'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS',
+           'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS',
+           'WATCH', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'plain_say', 'check_line',
+           'parse_board', 'PageContext', 'clean_context', 'video_id', 'video_cues', 'stream_board']
 
 # %% ../nbs/05_show.ipynb #52f9ee07
 import hashlib, json, logging, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
@@ -45,7 +46,7 @@ from concurrent.futures import ThreadPoolExecutor
 from rupaka.spec import upgrade, gallery, validate, SCHEMA, fmt_text, run as spec_state, plain_errors, plain_why
 from rupaka.agent import author, catalog, parse_json, repair_prompt, SHAPE
 from .learner import Learning, meta_of, slugify, _src, update, _back, way, choose, TEXT_WAYS, EXAMPLES_TO, FEEDBACK, register, prompt, lines, need_lines, val, track, job_said
-from .tutor import CLOSE_HOOKS, LESSON_HOOKS, LESSON_NOTES
+from .tutor import CLOSE_HOOKS, LESSON_HOOKS, LESSON_NOTES, grade_prompt, passed
 from copy import deepcopy
 from difflib import SequenceMatcher
 from datetime import datetime
@@ -664,24 +665,41 @@ def _asked(spec, gate, context='') -> str:
 
 _OWN = {'concept', 'question', 'answer', 'thinking', 'correct', 'confidence', 'depth', 'kind', 'session', 'final', 'method', 'feedback', 'demo', 'gate', 'expected', 'outcome', 'hints', 'dont_know', 'grade', 'first_error', 'misconception', 'id', 'at'}
 
+def demo_feedback(c, ok:bool) -> str:
+    "The feedback on a demo pick that has no graded reason. It names the reason, the core of concept `c`, not only the key."
+    core = (c or {}).get('core') or ''
+    if ok: return f"Yes. Why it holds: {core}" if core else 'Yes. Now say why it holds.'
+    return f"Not this one. The idea to use: {core}" if core else 'Not this one. Look at what changed in the demo, and why.'
+
+def grade_why(ask, c, question:str, picked, ans, why:str) -> AttrDict|None:
+    "The grade of the reason `why` for the pick `picked` in a demo, from the tutor's grader against the core of concept `c`. None when there is no reason or the grader fails."
+    if not (ask and c and (why or '').strip()): return None
+    q = AttrDict(name=c.get('name', ''), depth=3, facet='explain', question=question, answer=str(ans), core=c.get('core') or c.get('statement', ''), also=[],
+                 known_wrong=c.get('wrong') or [], turns=[], rubric=[])
+    try: return passed(q, AttrDict(ask_json(for_task(ask, 'grade'), grade_prompt(q, f"I pick {picked}. {why}"), prompt('grade'))))
+    except Exception as e: log.warning('abhyasa could not grade the reason of a demo pick: %r', e); return None
+
 @patch
 def record_prediction(self:Learning, slug:str, gate:str, picked, ans, ok:bool, why:str='', context:str='', session:str='', confidence:int=None,
-                      kind:str='demo', method:str='demo', **meta) -> AttrDict:
-    "File one prediction in demo `slug` as an attempt, count it for `method`, and update the learner model of its concept. `meta` goes on the attempt."
+                      kind:str='demo', method:str='demo', ask=None, **meta) -> AttrDict:
+    """File one prediction in demo `slug` as an attempt, count it for `method`, and update the learner model of its concept. `meta` goes on the attempt.
+    With `ask`, the tutor's grader reads the reason `why` against the core of the idea: only a right pick with a reason that passes counts at depth 3. The feedback names the reason, never only the key."""
     if (bad := _OWN & meta.keys()): raise ValueError(f'meta cannot use {sorted(bad)}')
     d = self.demo(slug)
     if d is None: raise KeyError(f'no demo {slug!r}')
     st = d.get('stats') or {}
     self.v.set_meta(d.doc_id, stats={**st, 'shown': st.get('shown', 0) + 1, 'right': st.get('right', 0) + bool(ok)})   # the feedback counts stay
-    q = _asked(d.spec, gate, context)
-    depth = 3 if why.strip() else 2
-    if (c := self.concept(d.concept)) is not None:
+    q, c = _asked(d.spec, gate, context), self.concept(d.concept)
+    g = grade_why(ask, c, q, picked, ans, why)
+    depth = 3 if ok and g and g.correct else 2
+    if c is not None:
         u = update(c, depth, bool(ok), confidence)
         out = u.pop('kind'); self.update(d.concept, **u)
         self.credit_method(method, c.get('subject', ''), out)   # a demo is a way to learn
     else: out = ''
     a = self.record(d.concept, q, str(picked), why, bool(ok), confidence, depth, kind=kind, session=session, final=True, method=method,
-                    feedback=f'The answer is {ans}.', demo=slug, gate=gate, expected=str(ans), outcome=out, **meta)
+                    feedback=(g and g.get('feedback')) or demo_feedback(c, ok), demo=slug, gate=gate, expected=str(ans), outcome=out,
+                    **({'grade': g.get('grade'), 'first_error': g.get('first_error', '')} if g else {}), **meta)
     keep_rung(self, d.concept)   # the misses since the demo, for `_back` in the model
     return a
 

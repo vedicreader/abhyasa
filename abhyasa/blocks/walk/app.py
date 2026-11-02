@@ -788,7 +788,7 @@ def connect(app, ctx):
             return JSONResponse(dict(ok=True, again=True))   # one record for each gate of each demo: a second try comes after the answer showed
         st, floor0 = sitting(j), lr.concept(s['slug']).get('floor') or 0
         a = lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, st.id, confidence,
-                                 kind=s['check']['kind'], method=s['check']['way'], **step_meta(j, i))
+                                 kind=s['check']['kind'], method=s['check']['way'], ask=ask, **step_meta(j, i))
         st.noted(a, floor0)
         with held(jid, i):
             if not lr.journey(jid).steps[i].get('done'): put(j, i, done=dict(outcome=a.outcome, aid=a.id, at=time.time()))

@@ -73,7 +73,7 @@ def test_predict_writes_an_attempt(mk, lr):
     assert (a.kind, a.correct, a.answer, a.expected, a.thinking, a.session, a.demo) == ('demo', False, 'A', 'B', 'A is first in BM25', 's9', 'reciprocal-rank-fusion')
     assert lr.demo('reciprocal-rank-fusion').stats == dict(shown=1, right=0)
     c1 = lr.concept('reciprocal-rank-fusion')
-    assert (c1.misses, c1.seen, c1.ceiling) == (c0.misses + 1, c0.seen + 1, 3)   # a wrong pick with a reason counts at depth 3
+    assert (c1.misses, c1.seen, c1.ceiling) == (c0.misses + 1, c0.seen + 1, 2)   # a pick counts at depth 2: only a right pick with a graded reason counts at 3
 
 def start(cl, **data): return cl.post('/start', data=data, follow_redirects=False).headers['location'].split('/')[-1]
 

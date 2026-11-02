@@ -67,11 +67,11 @@ When you say “I don’t know X”, X becomes a concept, and it comes first the
 
 A walk takes you through one source, one idea at a time. You can make a walk from a paper in your vault, a text that you paste, a topic, or a link. Paste it into the Start box on Home. One line says what abhyasa will do with it. When two readings are likely, the box asks you to pick one.
 
-The tutor reads the source and picks the main ideas. A walk has 12 ideas by default. You can change this number in Settings, under Walks. Before you start, the plan page shows each idea and the kind of check for it. You can change the kind for an idea there.
+The tutor reads the source and finds its main claim and the big ideas that explain it. A walk has 3 to 7 big ideas: 7 at most by default. You can set a smaller number in Settings, under Walks. The other ideas of the source stay on the steps as reading and in Words to know, with no check of their own. Before you start, the plan page shows each idea and the kind of check for it. You can change the kind for an idea there.
 
 Each idea is one step. A step shows the passage from the source, word for word. It also shows a short note from the tutor and a figure from the source, if the source has one. Each step has one check:
 
-- Short answer. You write the idea in your own words, and the tutor grades it.
+- Short answer. You say the idea and why it holds in your own words, and the tutor grades it. The core idea in any words passes.
 - Demo. You predict what a demo will do, lock in your prediction, and then change the inputs.
 - Order. You put the parts of the idea in the right order.
 - Notebook. For an idea that you learn with code, the step gives a notebook task, and you do it in Leela (see “Open in Leela”). abhyasa runs no code.

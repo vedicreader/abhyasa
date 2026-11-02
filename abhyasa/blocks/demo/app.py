@@ -128,7 +128,7 @@ def connect(app, ctx):
         return ui.SessionShow(q['id'])
 
     def predict(slug:str, gate:str, picked:str, ans:str='', ok:str='', why:str='', context:str='', session:str='', confidence:int=None, ask:str=''):
-        try: lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, session, confidence, **({'asked': ask} if ask else {}))
+        try: lr.record_prediction(slug, gate, picked, ans, ok == 'true', why, context, session, confidence, ask=tutor.ask, **({'asked': ask} if ask else {}))
         except KeyError: return JSONResponse(dict(ok=False), status_code=404)
         return JSONResponse(dict(ok=True))
 

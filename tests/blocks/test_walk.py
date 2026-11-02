@@ -103,7 +103,7 @@ def test_demo_check_is_made_ahead_and_logged(mk, walk_fake, lr):
     r = cl.post(f'/w/{jid}/2/predict', data=dict(slug=d.slug, gate=g, picked='1', ans='1', ok='true', why='bigger dot products')).json()
     assert r['ok'] and r['dot'] in ('done', 'shaky') and (r['done'], r['total']) == (1, 3)   # walk.js fills the dot and moves the progress line
     a = lr.attempts('scaling-by-the-root-of-dk', limit=1)[0]
-    assert (a.kind, a.method, a.walk, a.step, a.depth) == ('demo', 'demo', jid, 2, 3)
+    assert (a.kind, a.method, a.walk, a.step, a.depth) == ('demo', 'demo', jid, 2, 2)   # the fake grader passes no reason, so the pick counts at depth 2
     assert lr.journey(jid).steps[2]['done']['outcome'] in ('solid', 'fragile')
     cl.post(f'/w/{jid}/2/keep', data=dict(state='{"dk": 256, "scale": false}'))
     assert lr.attempts('scaling-by-the-root-of-dk', limit=1)[0].keep == {'dk': 256, 'scale': False}
