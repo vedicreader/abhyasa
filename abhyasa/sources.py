@@ -1394,11 +1394,12 @@ def pick_passage(ask, c, page) -> str:
     except ValueError: return ''
     return verbatim(r.get('passage'), page.text) if isinstance(r, dict) and isinstance(r.get('passage'), str) else ''
 
-# %% ../nbs/02_sources.ipynb #tx02
+# %% ../nbs/02_sources.ipynb #tx02i
 import math
 from urllib.parse import quote_plus
 from fossick import yt_link
 
+# %% ../nbs/02_sources.ipynb #tx02
 TRANSCRIPT, LECTURE = 'transcript', 'Lecture transcript'   # the kind of a lecture transcript, and the label of its passages
 SPOKEN = re.compile(r"\b(?:you know|okay,? so|ok,? so|so yeah|kind of|sort of|i mean|i guess|we're going to|i'm going to|gonna|um+|uh+|alright|all right)\b"
                     r"|^\W*(?:hi|hello|hey)\b|\bwelcome (?:back )?to\b", re.I | re.M)   # fillers and greetings of speech

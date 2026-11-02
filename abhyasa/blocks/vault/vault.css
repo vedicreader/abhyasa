@@ -7,3 +7,11 @@
 .doc img { display: block; max-width: 100%; height: auto; margin: var(--s3) 0; }
 .doc table { border-collapse: collapse; font-size: var(--t-small); } .doc td, .doc th { padding: var(--s1) var(--s3); border-bottom: 1px solid var(--line); text-align: left; }
 .thread-doc li.you { padding-left: 18%; text-align: right; } .thread-doc li.you .md { text-align: left; display: inline-block; }
+/* A lecture transcript: its label, its links and its topics above the text. A topic jumps to its paragraph. */
+.tx-title { display: block; color: var(--acc); }
+.transcript-head { margin: var(--s3) 0 var(--s4); }
+.transcript-head .tx-links { font-size: var(--t-small); }
+ol.topics { margin: var(--s2) 0 0; padding-left: var(--s5); font-size: var(--t-small); line-height: 1.5; color: var(--ink2); }
+ol.topics a { color: var(--ink2); text-decoration: underline; text-decoration-color: var(--rule); text-underline-offset: 2px; }
+.doc.transcript > .md { scroll-margin-top: var(--s6); }
+.doc.transcript > .md:target { border-left: 2px solid var(--acc); padding-left: var(--s3); }

@@ -1,4 +1,4 @@
-"Lecture transcripts as sources: the kind, the tight passage, the links to the lesson, the walk step, and the rank after a notebook."
+"Lecture transcripts as sources: the kind, the tight passage, the links to the lesson, the transcript page, and the rank after a notebook."
 import re, json, time, pytest
 from pathlib import Path
 from fastcore.utils import AttrDict
@@ -70,6 +70,32 @@ def test_a_transcript_with_time_stamps_links_the_video_at_the_passage(lr, home):
     lr.vault.shelf('notebooks').set_meta(t.doc_id, url='https://www.youtube.com/watch?v=dQw4w9WgXcQ')   # the temp vault: a transcript that came with its link
     r = transcript_read(lr, dict(shelf='notebooks', doc_id=t.doc_id, text=f'[02:05] {TALK[2]}'), dict(name='Exponent'))
     assert dict(text='Video at 2:05', url='https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=125s') in r['links']
+
+def test_the_transcript_page_shows_its_links_and_topics(mk, lr, home):
+    "The page says Lecture transcript · Lesson 3, links the notebook, the summary and the video, lists the topics of the summary and keeps the paragraphs."
+    ds = filed(lr, home)
+    t = mk(['vault']).get(f"/v/notebooks/{ds['summaries/lesson03'].doc_id}").text
+    assert 'Lecture transcript · Lesson 3' in t
+    for x in (f"/v/notebooks/{ds['nbs/03_softmax'].doc_id}", f"/v/notebooks/{ds['summaries/lesson03-summ0'].doc_id}", 'Find the video', 'Topics, from the summary'):
+        assert x in t, x
+    tops = re.findall(r'<a href="#tp(\d+)">([^<]+)</a>', t)
+    assert [x for _, x in tops] == ['The instructor explains how softmax turns scores into weights for attention.',
+                                   'The instructor then shows the code of softmax with the exponent and the sum.',
+                                   'The lesson ends with cross entropy, the loss that goes with softmax.']
+    assert [int(k) for k, _ in tops] == sorted(int(k) for k, _ in tops) and all(f'id="tp{k}"' in t for k, _ in tops)
+    assert t.count('id="tp') >= 3 and 'cross entropy is the loss we use' in t
+    s = mk(['vault']).get(f"/v/notebooks/{ds['summaries/lesson03-summ0'].doc_id}").text
+    assert 'Lecture transcript' not in s   # a summary has the plain page
+
+def test_with_no_summary_the_topics_come_from_the_ideas(mk, lr, home):
+    "A transcript with no summary lists the ideas that a walk took from it, each one at its paragraph."
+    ds = filed(lr, home, summary=False)
+    t = ds['summaries/lesson03']
+    lr.put('Cross entropy', 'The loss that goes with softmax.', 'ml', provenance=[dict(src='vault:notebooks', doc_id=t.doc_id, passage='So cross entropy is the loss we use with softmax')])
+    page = mk(['vault']).get(f'/v/notebooks/{t.doc_id}').text
+    assert 'Topics, from the ideas of your walks' in page
+    k = re.search(r'<a href="#tp(\d+)">Cross entropy</a>', page)[1]
+    assert 'cross entropy is the loss' in re.search(rf'id="tp{k}"[^>]*>(.*?)</div>', page, re.S)[1]
 
 class Both:
     "A source with a transcript passage first and a notebook passage second; both name softmax."

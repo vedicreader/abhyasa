@@ -5,7 +5,7 @@ from urllib.parse import quote
 from fasthtml.common import *
 from fastcore.utils import first
 from abhyasa.core import Page, NotFound, hook, run as run_hook, doc_title
-from abhyasa.sources import extract, figure_path
+from abhyasa.sources import extract, figure_path, transcript_page
 from . import ui
 from .cfg import Routes
 
@@ -50,7 +50,8 @@ def connect(app, ctx):
         sh, d = _get(shelf, doc_id)
         if d is None: return NotFound('Not found', H1('No such document'), P(f'The {shelf} shelf has no document {doc_id}.', cls='mute'), on='Library', crumbs=[('Home', '/')])
         text, imgs = images(shelf, d, sh.document(doc_id, max_chars=200000).text)
-        return Page(doc_title(d['title']) or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id), imgs), on='Library', crumbs=[('Sources', '/sources')])
+        tx = transcript_page(lr, shelf, doc_id, text)   # a lecture transcript: its links, its topics and its paragraphs
+        return Page(doc_title(d['title']) or doc_id, *ui.DocPage(d, json.loads(d['meta'] or '{}'), text, shelf, linked(shelf, doc_id), imgs, tx), on='Library', crumbs=[('Sources', '/sources')])
 
     def img(shelf:str, doc_id:str, f:str=''):
         "An image of the document, only from its own assets folder, only an image file and only under the size cap."
