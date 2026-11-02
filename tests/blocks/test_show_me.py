@@ -37,6 +37,17 @@ def test_show_me_on_a_walk_step_makes_a_demo_from_the_open_check(mk, walk_fake, 
     card = cl.get(f'/demo/asked/{a.id}').text
     assert 'data-rupaka' in card and f'data-ask="{a.id}"' in card
 
+def test_the_check_row_has_one_show_me(mk, walk_fake, lr):
+    """The row of an open walk check has Show me once, in the stuck order Hint, Explain, Show me, I don't know. An older open
+    question on the shelf with no `walk` in its meta made the session Show me of the demo block come a second time, after Speak."""
+    cl = mk(); jid, slug, q = walk_at(cl, lr)
+    tut = svc(cl)['tutor']
+    old = {**q, 'meta': {k: v for k, v in q.meta.items() if k != 'walk'}}
+    tut.open[q.id] = type(q)(old)   # as the shelf gives it back
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert card.count('id="show-demo"') == 1 and card.count('Show me') == 1, card.count('Show me')
+    assert card.index('id="hint"') < card.index('data-guide-open') < card.index('id="show-demo"') < card.index('id="idk"')
+
 def test_show_me_in_a_session_is_a_tutor_message(mk, lr):
     cl = mk()
     sid = cl.post('/start', data=dict(focus='ranking'), follow_redirects=False).headers['location'].split('/')[-1]
