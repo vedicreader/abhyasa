@@ -24,7 +24,7 @@ def course(d, summary=True, stamps=False):
     paras = [f'[{k:02d}:05] {p}' for k, p in enumerate(TALK)] if stamps else TALK
     (d/'summaries/lesson03.txt').write_text('\n\n'.join(paras))
     if summary: (d/'summaries/lesson03-summ0.txt').write_text(SUMM)
-    for n, h in (('03_softmax', 'Softmax'), ('13_resnet', 'ResNet'), ('30_vae', 'VAE')):
+    for n, h in (('03_resnet', 'ResNets'), ('07_softmax', 'Softmax'), ('30_vae', 'VAE')):   # the summary names 07_softmax by its title; 03 is not lesson 3
         write_nb(new_nb([mk_cell(f'# {h}\n\nSoftmax turns scores into weights that add up to one, as {h} shows.', 'markdown')]), d/f'nbs/{n}.ipynb')
     (d/'notes.md').write_text('# Notes\n\nSoftmax turns scores into weights. The weights add up to one. Attention uses them to mix the values of the tokens.')
     return d
@@ -49,7 +49,7 @@ def test_a_transcript_is_known_and_a_summary_is_not(lr, home):
     assert rows == {t: json.dumps(lr.vault.shelf('notebooks').doc(d.doc_id), default=str) for t, d in ds.items()}   # a read-time check only
 
 def test_the_passage_is_a_tight_verbatim_span_with_lesson_links(lr, home):
-    "A long passage from the transcript shows as 1 to 3 whole sentences on the idea, word for word, labelled, with the notebook of lesson 3 and the video."
+    "A long passage from the transcript shows as 1 to 3 whole sentences on the idea, word for word, labelled, with the notebook that the lesson names and the video."
     ds = filed(lr, home)
     t = ds['summaries/lesson03']
     long = ' '.join(TALK[:3])
@@ -58,10 +58,36 @@ def test_the_passage_is_a_tight_verbatim_span_with_lesson_links(lr, home):
     assert r['text'].startswith('So softmax turns a list of scores into weights')
     assert r['what'] == 'Lecture transcript · Lesson 3'
     links = {l['text']: l.get('href') or l.get('url') for l in r['links']}
-    assert links['Lesson notebook · 03_softmax'] == f"/v/notebooks/{ds['nbs/03_softmax'].doc_id}"   # by number: not 13_resnet, not 30_vae
+    assert links['Lesson notebook · 07_softmax'] == f"/v/notebooks/{ds['nbs/07_softmax'].doc_id}"   # the notebook that the summary names, not 03_resnet by its number
+    assert not any('03_resnet' in x for x in links)
     assert links['Find the video'] == SEARCH + 'Deep+Learning+for+Coders+Lesson+3'
     note = dict(shelf='notebooks', doc_id=ds['course22/notes'].doc_id, text='Softmax turns scores into weights.')
     assert transcript_read(lr, note, SOFTMAX) is note   # any other source stays as it is
+
+def nb(path, title):
+    write_nb(new_nb([mk_cell(f'# {title}\n\nThe code of {title.lower()}.', 'markdown')]), path)
+
+def test_lesson_notebooks_are_the_ones_the_summary_names(lr, home):
+    "Lesson 17 with a summary that names 11_initializing and Accelerated SGD links those two, in that order, and not 17_DDPM_v2 by its number."
+    d = home/'part2'; (d/'summaries').mkdir(parents=True); (d/'nbs').mkdir()
+    (d/'summaries/lesson17.txt').write_text(' '.join(TALK).replace('Lesson 3', 'Lesson 17'))
+    (d/'summaries/lesson17-summ0.txt').write_text('In Lesson 17, the instructor goes back to the 11_initializing notebook to fix the init of each layer. '
+                                                 'Then the lesson shows Accelerated SGD with momentum.')
+    for n, h in (('11_initializing', 'Initialization'), ('12_accel_sgd', 'Accelerated SGD'), ('17_DDPM_v2', 'Denoising Diffusion Probabilistic Models')): nb(d/f'nbs/{n}.ipynb', h)
+    ds = {x.title: x for x in file_folder(lr, d)}
+    t = transcript_of(lr, 'notebooks', ds['summaries/lesson17'].doc_id)
+    links = transcript_read(lr, dict(shelf='notebooks', doc_id=t.doc_id, text=TALK[1]), SOFTMAX)['links']
+    nbs = [l['text'] for l in links if l.get('href', '').startswith('/v/') and l['text'] != 'Summary']
+    assert nbs == ['11_initializing', '12_accel_sgd'], links
+
+def test_a_transcript_that_names_no_notebook_links_none(lr, home):
+    "A transcript with no summary that names no notebook, and no ideas in common, links no notebook: abhyasa does not guess from the number."
+    d = home/'part3'; (d/'summaries').mkdir(parents=True); (d/'nbs').mkdir()
+    (d/'summaries/lesson05.txt').write_text(' '.join(TALK).replace('Lesson 3', 'Lesson 5'))
+    nb(d/'nbs/05_augment.ipynb', 'Augmentation')
+    ds = {x.title: x for x in file_folder(lr, d)}
+    r = transcript_read(lr, dict(shelf='notebooks', doc_id=ds['summaries/lesson05'].doc_id, text=TALK[1]), SOFTMAX)
+    assert [l['text'] for l in r['links']] == ['Find the video']
 
 def test_a_transcript_with_time_stamps_links_the_video_at_the_passage(lr, home):
     "With a YouTube link and time stamps, the video link opens at the stamp before the passage."
@@ -76,7 +102,7 @@ def test_the_transcript_page_shows_its_links_and_topics(mk, lr, home):
     ds = filed(lr, home)
     t = mk(['vault']).get(f"/v/notebooks/{ds['summaries/lesson03'].doc_id}").text
     assert 'Lecture transcript · Lesson 3' in t
-    for x in (f"/v/notebooks/{ds['nbs/03_softmax'].doc_id}", f"/v/notebooks/{ds['summaries/lesson03-summ0'].doc_id}", 'Find the video', 'Topics, from the summary'):
+    for x in (f"/v/notebooks/{ds['nbs/07_softmax'].doc_id}", f"/v/notebooks/{ds['summaries/lesson03-summ0'].doc_id}", 'Find the video', 'Topics, from the summary'):
         assert x in t, x
     tops = re.findall(r'<a href="#tp(\d+)">([^<]+)</a>', t)
     assert [x for _, x in tops] == ['The instructor explains how softmax turns scores into weights for attention.',
@@ -102,7 +128,7 @@ class Both:
     name = 'vault'
     def __init__(self, ds): self.ds = ds
     def search(self, q, k=4):
-        t, n = self.ds['summaries/lesson03'], self.ds['nbs/03_softmax']
+        t, n = self.ds['summaries/lesson03'], self.ds['nbs/07_softmax']
         return [passage('vault:notebooks', t.doc_id, t.title, TALK[1]), passage('vault:notebooks', n.doc_id, n.title, 'Softmax turns scores into weights that add up to one.')]
 
 def test_a_notebook_passage_wins_over_a_transcript_passage(lr, home):
@@ -110,7 +136,7 @@ def test_a_notebook_passage_wins_over_a_transcript_passage(lr, home):
     ds = filed(lr, home)
     c = lr.put('Softmax', SOFTMAX['statement'], 'ml')
     r = _topic_read(c, [Both(ds)], lr)
-    assert r['ref'] == ds['nbs/03_softmax'].doc_id, r
+    assert r['ref'] == ds['nbs/07_softmax'].doc_id, r
     only = _topic_read(c, [type('T', (), dict(name='vault', search=lambda self, q, k=4: Both(ds).search(q)[:1]))()], lr)
     assert only['ref'] == ds['summaries/lesson03'].doc_id   # with no other passage the transcript is still a source
 
@@ -125,5 +151,5 @@ def test_the_walk_step_shows_the_tight_passage(mk, lr, home):
                                     read=dict(shelf='notebooks', doc_id=t.doc_id, title=t.title, text=long))]))
     page = mk().get('/w/tw/0').text
     assert 'So softmax turns a list of scores into weights' in page and 'Lecture transcript · Lesson 3' in page
-    assert f"/v/notebooks/{ds['nbs/03_softmax'].doc_id}" in page and 'zoom in a bit' not in page
+    assert f"/v/notebooks/{ds['nbs/07_softmax'].doc_id}" in page and 'zoom in a bit' not in page
     assert lr.journey('tw').steps[0]['read']['text'] == long   # the walk keeps its passage

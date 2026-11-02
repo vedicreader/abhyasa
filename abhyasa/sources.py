@@ -14,9 +14,9 @@ __all__ = ['log', 'KEEP', 'STOP', 'SKIP_DIRS', 'NB', 'EXTRACT_SP', 'IMG_SUFFIXES
            'KEEP_SECS', 'BLOCKS', 'REFUSED', 'META', 'TEXT_TYPES', 'MOST', 'LEAST', 'WINDOW', 'PASSAGE_SP', 'VIEW_ROW',
            'MARKS', 'TRANSCRIPT', 'LECTURE', 'SPOKEN', 'ME', 'SUMM_NAME', 'TX_NAME', 'LESSON', 'NOT_SPEECH',
            'SPOKE_NAMED', 'SPOKE_ALONE', 'SENT_END', 'SPAN_SHORT', 'STAMP', 'PLAYLIST', 'NEAR_TYPES', 'NEAR_MOST',
-           'COURSE_OF', 'SEARCH', 'TOPICS_MOST', 'TOPIC_CHARS', 'JUMP_NEAR', 'LEAD_IN', 'passage', 'clip', 'link_of',
-           'label', 'cite', 'VaultSource', 'names', 'main_words', 'named_count', 'stem', 'key_terms', 'names_idea',
-           'relevance', 'ground', 'ground_text', 'concept_grounds', 'fence', 'fenced', 'find_notebooks',
+           'COURSE_OF', 'SEARCH', 'NB_MOST', 'GENERIC', 'TOPICS_MOST', 'TOPIC_CHARS', 'JUMP_NEAR', 'LEAD_IN', 'passage',
+           'clip', 'link_of', 'label', 'cite', 'VaultSource', 'names', 'main_words', 'named_count', 'stem', 'key_terms',
+           'names_idea', 'relevance', 'ground', 'ground_text', 'concept_grounds', 'fence', 'fenced', 'find_notebooks',
            'index_notebooks', 'quoted', 'group_line', 'add_group', 'extract_prompt', 'doc_pages', 'locate',
            'figure_path', 'placement', 'math_cut', 'extract', 'from_vault', 'sort_prompt', 'Places', 'propose_groups',
            'apply_groups', 'place_new', 'fetch_opts', 'LinkError', 'arxiv_ref', 'public_url', 'link_kind',
@@ -27,8 +27,9 @@ __all__ = ['log', 'KEEP', 'STOP', 'SKIP_DIRS', 'NB', 'EXTRACT_SP', 'IMG_SUFFIXES
            'usable', 'paper_link', 'candidates', 'forget_web', 'refused_site', 'web_search', 'web_fetch', 'drop_meta',
            'page_text', 'plain_md', 'verbatim', 'idea_words', 'about_idea', 'passage_prompt', 'pick_passage', 'spoken',
            'is_transcript', 'lesson_no', 'transcript_of', 'from_transcript', 'sentences', 'tight_span', 'stamp_before',
-           'course_of', 'playlist_near', 'video_link', 'lesson_notebooks', 'summary_doc', 'course_for',
-           'transcript_links', 'transcript_read', 'transcripts_last', 'jump_places', 'topics_of', 'transcript_page']
+           'course_of', 'playlist_near', 'video_link', 'nb_names', 'named_notebooks', 'shared_notebooks',
+           'lesson_notebooks', 'summary_doc', 'course_for', 'transcript_links', 'transcript_read', 'transcripts_last',
+           'jump_places', 'topics_of', 'transcript_page']
 
 # %% ../nbs/02_sources.ipynb #119a1741
 import json, os, re, sqlite3, time, shutil, threading, hashlib, logging
@@ -1541,11 +1542,58 @@ def video_link(t, secs:int|None=None, course:str='') -> AttrDict|None:
 
 def _name(d) -> str: return Path(str(d.title)).name
 
-def lesson_notebooks(lr:Learning, t, most:int=3) -> L:
-    "The notebooks of the repo of transcript `t` whose names start with its lesson number (`17_DDPM_v2` for lesson 17), up to `most`, as docs of `root_docs`."
-    if not (t.lesson and t.root): return L()
-    num = re.compile(rf'0*{t.lesson}(?!\d)')
-    return L(d for d in root_docs(lr, t.root, t.shelf) if str(d.url).endswith('.ipynb') and num.match(_name(d)))[:most]
+NB_MOST = 2   # the most notebooks that a transcript links
+
+GENERIC = {'setup', 'training', 'train', 'imports', 'data', 'introduction', 'overview', 'notes'}   # a title that names no notebook
+
+def _heading(lr:Learning, d) -> str:
+    "The title of the vault document `d`: its first heading of level 1, folded; '' when it has none, or when it is a generic word (`GENERIC`) or not text, such as code."
+    sh = lr.doc_shelf(d.shelf)
+    r = first(sh.t.nodes(where='doc_id=? and level=1', where_args=[d.doc_id], order_by='seq', limit=1)) if sh is not None else None
+    h = fold(' '.join(str((r or {}).get('title') or '').split()))
+    h = re.sub(r'^pages \d+\W\d+:\s*#*\s*', '', h)   # a short document has one window, `Pages 1–1: # Title`, in place of its heading
+    return '' if h in GENERIC or not re.fullmatch(r"[\w][\w '&/-]*", h) else h
+
+def nb_names(d, title:str='') -> list:
+    """The names by which a lesson can name the notebook `d`, folded, for a whole-word match: its file stem when it has a number
+    (`11_initializing`), its stem with no number and the word notebook (`initializing notebook`), and its `title` (`initialization`)."""
+    stem = _name(d)
+    bare = re.sub(r'^\d+[a-z]?_', '', stem, flags=re.I).replace('_', ' ').replace('-', ' ')
+    return [fold(x) for x in dict.fromkeys((stem if re.search(r'\d', stem) else '', f'{bare} notebook', title)) if len(x) >= 4]
+
+def _first_at(text:str, names) -> int|None:
+    "The first place in the folded `text` where one of `names` is a whole phrase, or None."
+    ats = [m.start() for n in names if (m := re.search(rf'(?<!\w){re.escape(n)}(?!\w)', text))]
+    return min(ats) if ats else None
+
+def named_notebooks(lr:Learning, nbs, *texts, most:int=NB_MOST) -> L:
+    """The notebooks of `nbs` that the first of `texts` with a match names (`nb_names`), at most `most`, in the order of the text. A title
+    that two notebooks have (such as `tiny imagenet`) names neither of them."""
+    hs = [_heading(lr, d) for d in nbs]
+    names = [nb_names(d, h if hs.count(h) == 1 else '') for d, h in zip(nbs, hs)]
+    for t in texts:
+        f = ' '.join(fold(str(t or '')).split())
+        got = sorted((at, k, d) for k, d in enumerate(nbs) if (at := _first_at(f, names[k])) is not None)
+        if got: return L(d for *_, d in got[:most])
+    return L()
+
+def shared_notebooks(lr:Learning, t, nbs, most:int=NB_MOST) -> L:
+    "The notebooks of `nbs` that share the most ideas with transcript `t`: the concepts that a walk took from both. At most `most`."
+    by, n = {d.doc_id: d for d in nbs}, defaultdict(int)
+    for c in lr.concepts():
+        docs = {p.get('doc_id') for p in c.get('provenance') or ()}
+        if t.doc_id in docs:
+            for x in docs & by.keys(): n[x] += 1
+    return L(by[x] for x in sorted(n, key=lambda x: -n[x])[:most])
+
+def lesson_notebooks(lr:Learning, t, most:int=NB_MOST) -> L:
+    """The notebooks of the repo of transcript `t` that the lesson teaches, at most `most`: the ones that its summary names, else the ones that the
+    transcript names (`named_notebooks`), else the ones that share ideas with it (`shared_notebooks`). None found: no link. The number of a
+    notebook is not the number of a lesson, so abhyasa never guesses from it."""
+    if not t.root: return L()
+    nbs = [d for d in root_docs(lr, t.root, t.shelf) if str(d.url).endswith('.ipynb') and not _name(d).startswith('_')]
+    sd = summary_doc(lr, t)
+    return named_notebooks(lr, nbs, _doc_text(lr, sd) if sd else '', _doc_text(lr, AttrDict(shelf=t.shelf, doc_id=t.doc_id)), most=most) or shared_notebooks(lr, t, nbs, most)
 
 def summary_doc(lr:Learning, t) -> AttrDict|None:
     "The summary of transcript `t` in the vault: the doc in its folder whose name is its own with `-summ…` after it (`lesson17-summ0`); None when there is none."
