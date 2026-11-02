@@ -121,3 +121,14 @@ def test_a_model_change_keeps_a_voice_that_works(mk):
     assert 'does not work' not in cl.post('/settings/voice', data=dict(engine='openai', model='tts-1')).text
     update_settings('voice', out_model='tts-1-hd', out_voice='ballad')   # an old setting from before the check
     assert 'Ballad does not work with tts-1-hd, so the voice is Coral now.' in cl.get('/settings').text
+
+def test_the_voice_saves_at_once_with_no_call_to_openai(mk, monkeypatch):
+    "Pick OpenAI, a model and a voice: each save answers at once. No save calls OpenAI: only Play a sample and the guide do."
+    calls = []
+    def slow(url, **kw): calls.append(url); time.sleep(3)
+    monkeypatch.setattr(voice, 'http_post', slow)
+    cl = mk(['settings']); voice.set_openai_key('sk-x-1111')
+    for d in (dict(engine='openai'), dict(engine='openai', model='tts-1-hd'), dict(engine='openai', voice='nova'), dict(engine='openai', model='gpt-4o-mini-tts')):
+        t = time.time(); r = cl.post('/settings/voice', data=d)
+        assert r.status_code == 200 and time.time() - t < .5, d
+    assert calls == []
