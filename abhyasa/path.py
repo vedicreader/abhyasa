@@ -1292,7 +1292,7 @@ def nb_spec(lr, ask, j, i:int) -> AttrDict|None:
     p, why = nb_prompt(lr, j, i), ''
     for _ in range(2):
         try:
-            r = _filled(ask_json(for_task(ask, 'exercise'), p + (f'\n\nYour last reply was refused: {why}. Write the spec again.' if why else ''), prompt('walk.notebook')))
+            r = _filled(ask_json(for_task(ask, 'question'), p + (f'\n\nYour last reply was refused: {why}. Write the spec again.' if why else ''), prompt('walk.notebook')))
             if isinstance(r, dict) and isinstance(r.get('data', []), list):
                 r = same_names(r, walk_names(jj := lr.journey(j.id) or j, i))   # one name for one folder across the walk
                 r = {**r, 'data': with_data(r.get('data'), jj.get('data'))}   # only your data folders, by their names
