@@ -84,7 +84,7 @@ def Plan(stage:str, secs:float, why=()):
     """The real stage of the job that makes the demo (`job_stage`), and the seconds so far: the stage changes on the event of the job, and
     demo.js counts the seconds, so Show is never silent, and it never says a stage that is not true. A try that failed the checks is a calm
     line, not an error, with a small Why fold (`why`, from `tries_said`) for the curious learner."""
-    fold = Details(Summary('Why'), Ul(*map(Li, why), cls='plain'), cls='show-why') if why and stage == 'fixing' else ''
+    fold = Details(Summary('Why'), Ul(*map(Li, why)), cls='show-why') if why and stage == 'fixing' else ''
     return Div(Span(STAGES.get(stage, STAGES['writing']), cls='on fixing' if stage == 'fixing' else 'on'), Span(f'{int(secs)} s', cls='mute secs', data_secs=str(int(secs))), fold, cls='row show-plan')
 
 def AskPending(a, kind='', aim='', secs:float=0, stage:str='writing', lead:str='', job:str='', why=()):

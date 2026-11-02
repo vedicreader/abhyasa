@@ -36,7 +36,7 @@ __all__ = ['GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD_RULE',
            'check_line', 'parse_board', 'PageContext', 'clean_context', 'video_id', 'video_cues', 'stream_board']
 
 # %% ../nbs/05_show.ipynb #52f9ee07
-import hashlib, json, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
+import hashlib, json, logging, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
 from pathlib import Path
 from fastcore.utils import *
 from .models import Withheld, guard, safe_query, guarded, ask_json, for_task
@@ -800,7 +800,6 @@ def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, 
                              asked=dict(key=ask_key(said), said=said) if said else None)
 
 # %% ../nbs/05_show.ipynb #c035
-import logging
 log = logging.getLogger(__name__)
 _POOL = ThreadPoolExecutor(1)
 STAGES = dict(queued='Waits for the demo before it', writing='Writes the demo', fixing='The first demo did not pass its checks. The tutor writes it again.')

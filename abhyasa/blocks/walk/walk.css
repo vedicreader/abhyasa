@@ -235,6 +235,7 @@ main:has(#steps) { padding-bottom: calc(44px + 2 * var(--s5)); }
 /* Words to know: before the passage, each term in bold with one plain line */
 .words { margin: 0 0 var(--s4); font-size: var(--t-small); }
 .words ul { margin: var(--s1) 0 0; }
+.words ul { list-style: none; padding: 0; }
 .words li { margin: 2px 0; }
 .words .term { color: var(--fg); }
 .words .line { color: var(--ink2); }

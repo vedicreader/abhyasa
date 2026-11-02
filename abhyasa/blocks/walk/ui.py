@@ -267,8 +267,8 @@ def Words(rows, oob=False):
     place stays), and one plain line on what it means. An empty place when you know them all. `oob` swaps it in after the check came."""
     kw = dict(hx_swap_oob='true') if oob else {}
     if not rows: return Div(id='words', **kw)
-    items = [Li(side_link(B(Inline(r.name)), f'/c/{r.slug}', r.name, cls='pane-link term', data_act='word'), ' ', Span(Inline(r.line), cls='line')) for r in rows]
-    return Div(Span('Words to know', cls='lbl'), Ul(*items, cls='plain'), id='words', cls='words', data_part='words', **kw)
+    items = [Li(side_link(B(Inline(r.name)), f'/c/{r.slug}', r.name, cls='pane-link term', data_act='word'), ': ', Span(Inline(r.line), cls='line')) for r in rows]
+    return Div(Span('Words to know', cls='lbl'), Ul(*items, cls='terms'), id='words', cls='words', data_part='words', **kw)
 
 def Note(text):
     "The tutor note under the passage, with its label: it is the tutor's words, not a quote."
