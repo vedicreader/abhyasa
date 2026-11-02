@@ -207,3 +207,16 @@ def test_a_side_walk_row_opens_beside_its_parent_step(mk, walk_fake, lr):
     assert f'src="/w/{sid}/0?pane=1"' in cl.get(f'/w/{jid}/2?rh=/w/{sid}/0').text
     j = lr.journey(sid); lr.put_journey({**j, 'parent': dict(walk=jid, step=99), 'depth': 1})
     assert f'href="/w/{sid}"' in cl.get('/').text                                  # the parent step is gone: its own page
+
+def test_needs_line_counts_the_walk(mk, walk_fake, lr):
+    "Step 1 is done in this walk and step 3 needs it: the line says done at idea 1, with no Learn it. Closed shaky, it says review it."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    j = lr.journey(jid); first, third = j.steps[0]['slug'], j.steps[2]['slug']
+    lr.update(third, prereqs=[first]); lr.update(first, floor=2)   # a check at depth 2 leaves the floor under the depth of a ready need
+    assert 'not learned yet' in cl.get(f'/w/{jid}/2').text
+    lr.walk_step(jid, 0, done=dict(outcome='solid', at=1.))
+    line = cl.get(f'/w/{jid}/2').text.split('class="rh-line"')[1].split('rh-offer')[0]
+    assert 'done at idea 1' in line and 'not learned yet' not in line and 'Learn it' not in line, line
+    lr.walk_step(jid, 0, done=dict(outcome='fragile', at=1.))
+    line = cl.get(f'/w/{jid}/2').text.split('class="rh-line"')[1].split('rh-offer')[0]
+    assert 'shaky: review it' in line and f'href="/w/{jid}/0"' in line and 'Learn it' not in line, line

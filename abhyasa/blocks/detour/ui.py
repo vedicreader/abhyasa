@@ -7,7 +7,7 @@ from abhyasa.learner import val
 from .cfg import Routes
 
 _P = Path(__file__).parent
-STATE = dict(learned='learned', today='learned on the way today', missing='not learned yet')
+STATE = dict(learned='learned', today='learned on the way today', missing='not learned yet', shaky='shaky: review it')
 
 def assets(): return asset_css(_P/'detour.css'), asset_js(_P/'detour.js')
 
@@ -18,10 +18,14 @@ def Ask(label, t, *c, cls='rh-ask', **kw):
     "A button that opens the chooser for idea or term `t` (detour.js). `data_at` names the place when the page has no needs line."
     return Button(label, *c, type='button', cls=f'quiet small {cls}', data_t=t, **kw)
 
-def Need(n, state, first):
-    "One idea that the step needs: its name, its state, and Learn it on each one that you have not learned. Only the first shows ⌥B."
-    go = '' if state != 'missing' else Ask('Learn it ', n.slug, Kbd('⌥B')) if first else Ask('Learn it', n.slug)
-    return Span(side_link(n.name, f'/c/{n.slug}', n.name, cls='pane-link n'), Span(f' · {STATE[state]}', cls=f'st {state}'), go, cls='need')
+def Need(jid, n, first):
+    """One idea that the step needs, with its state by the count of the walk (`walk_needs`): done at an idea of this walk (no link back),
+    shaky with a quiet Review of that idea, learned, or not learned yet with Learn it. Only the first Learn it shows ⌥B."""
+    st = n.state
+    word = f'done at idea {n.at + 1}' if st == 'done' else STATE[st]
+    go = (Ask('Learn it ', n.slug, Kbd('⌥B')) if first else Ask('Learn it', n.slug)) if st == 'missing' else (
+          side_link('Review', step_url(jid, n.at), n.name, cls='pane-link quiet small rh-review', data_act='review') if st == 'shaky' else '')
+    return Span(side_link(n.name, f'/c/{n.slug}', n.name, cls='pane-link n'), Span(f' · {word}', cls=f'st {st}'), go, cls='need')
 
 def Strip(name, ok, sid, outs):
     "The strip after a side walk: what you learned on the way, and how the checks went. When you left before a check, the way to finish it."
@@ -42,9 +46,9 @@ def OwnCourse(c, st):
     return P('Back from the course ', B(c['title']), f': {got}. ', link, cls='rh-own-course back')
 
 def Needs(at, rows, strip=None, own=()):
-    "The needs line, the strip when you just came back, the lines of its own courses, and the place for the chooser. `rows` is `(need, state)`."
-    first = next((n.slug for n, st in rows if st == 'missing'), None)
-    line = Div(Span('This needs', cls='lbl'), *[Need(n, st, n.slug == first) for n, st in rows], cls='rh-line') if rows else ''
+    "The needs line, the strip when you just came back, the lines of its own courses, and the place for the chooser. `rows` come from `walk_needs`."
+    first = next((n.slug for n in rows if n.state == 'missing'), None)
+    line = Div(Span('This needs', cls='lbl'), *[Need(at.rpartition('/')[0], n, n.slug == first) for n in rows], cls='rh-line') if rows else ''
     return Div(strip or '', *own, line, Div(id='rh-offer', aria_live='polite'), *assets(), cls='rh-needs', data_at=at, data_part='needs')
 
 def GapLine(gaps):

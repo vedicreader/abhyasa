@@ -5,7 +5,8 @@
 .rh-line .need { display: inline-flex; align-items: baseline; flex-wrap: wrap; column-gap: var(--s1); }
 .rh-line .n { color: var(--fg); }
 .rh-line .st { font-style: italic; font-size: var(--t-small); }
-.rh-line .st.learned, .rh-line .st.today { color: var(--ok); }
+.rh-line .st.learned, .rh-line .st.today, .rh-line .st.done { color: var(--ok); }
+.rh-line .st.shaky { color: var(--ink2); }
 .rh-line .st.missing { color: var(--mute); }   /* not learned yet is not a mistake: red is for wrong answers only */
 .rh-ask { margin-left: var(--s2); }
 

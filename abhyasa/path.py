@@ -18,7 +18,7 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS
            'chip_docs', 'source_map', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'hands_most', 'cap_hands',
            'builds_goal', 'hands_count', 'journey_from_source', 'journey_from_text', 'journey_from_sources', 'data_row',
            'keep_data', 'folder_list', 'with_stop', 'data_entries', 'with_data', 'walk_names', 'same_names',
-           'short_what', 'data_line', 'missing_data', 'walk_from_topic', 'minutes', 'needs', 'gap_size',
+           'short_what', 'data_line', 'missing_data', 'walk_from_topic', 'minutes', 'needs', 'walk_needs', 'gap_size',
            'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk', 'is_open',
            'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up', 'topic_slug', 'name_gaps',
            'split_parts', 'related', 'with_step', 'paper_id', 'tutor_note', 'step_meta', 'open_short', 'nb_prompt',
@@ -571,6 +571,22 @@ def needs(lr:Learning, slug:str, by:dict=None) -> L:
     ps = c.get('prereqs') or []
     return L(AttrDict(slug=s, name=by[s].name, floor=by[s].get('floor', 0), why=why, ok=by[s].get('floor', 0) >= READY)
              for s, why in [*((p, 'prereq') for p in ps), *((g, 'gap') for g in c.get('gaps') or () if g not in ps)] if s in by)
+
+# %% ../nbs/04_path.ipynb #wn11
+def _walk_dots(j, by, skip=None) -> dict:
+    "Slug -> `(dot, index)` of each step of walk `j` that is done, shaky or known (`walk_state`), but step `skip`. A later step on the same slug wins."
+    return {s['slug']: (s.dot, k) for k, s in enumerate(walk_state(j, by).steps) if k != skip and s.dot in ('done', 'shaky', 'known')}
+
+def walk_needs(lr:Learning, j, i:int, by:dict=None, met=()) -> L:
+    "The needs of step `i` of walk `j` (`needs`), each with `state`: done, shaky, learned, today or missing, and `at`, the index of the step that did it."
+    by = _by(lr, by); slug = j['steps'][i]['slug']
+    if slug not in by: return L()
+    dots = _walk_dots(j, by, i)
+    def state(n):
+        dot, k = dots.get(n.slug, (None, None))
+        if dot in ('done', 'shaky'): return dot, k
+        return ('learned' if n.ok or dot == 'known' else 'today' if n.slug in met else 'missing'), None
+    return L(AttrDict(n, state=st, at=k) for n in needs(lr, slug, by) for st, k in [state(n)])
 
 # %% ../nbs/04_path.ipynb #rh14
 def _chain(slug, by, seen) -> list:
