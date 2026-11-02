@@ -11,7 +11,7 @@ from abhyasa.show import show_reply
 from abhyasa.sources import main_words
 from abhyasa.show import (FigureCache, clean_context, concept_video, explain, figure_labels, file_video, find_explainer, guide_ask,
     set_video, unsave, video_of, vision_ask, vision_why, where_of)
-from abhyasa.models import Withheld, SpeakError
+from abhyasa.models import Withheld, SpeakError, spoken
 from abhyasa.learner import SETTINGS, raw, val, set_val
 from abhyasa.models import cfg_dir
 from . import ui
@@ -68,7 +68,7 @@ def connect(app, ctx):
             g = where_of(getattr(guide_ask(ask), 'model', ''))
             routed = hasattr(getattr(ask, 'dflt', None), 'via')
             info_[:] = time.monotonic(), dict(model=g, vision=where_of(ask.name('guide_vision') or dflt_model()) if routed else g, speech=speech()), now
-        return {**info_[1], 'voice': bool(val('guide.voice')), 'point': val('guide.point'), 'out': voice_out(speaker.here), 'say': Routes.say}
+        return {**info_[1], 'voice': bool(val('guide.voice')), 'point': val('guide.point'), 'out': voice_out(speaker.here), 'say': Routes.say, 'spoken': Routes.spoken}
     figs = FigureCache(cfg_dir()/'guide-figures.json')
     warmed, warm_lock = [-WARM_EVERY], threading.Lock()
 
@@ -100,6 +100,14 @@ def connect(app, ctx):
             log.warning('guide: voice %r', e)
             return JSONResponse(dict(error='The natural voice could not say this line.'), status_code=502)
         return JSONResponse(dict(audio=base64.b64encode(r.pop('wav')).decode(), **r, who='OpenAI' if r['engine'] == 'openai' else ''))
+
+    async def spoken_(req):
+        "The words that the browser voice says for one line: its maths in words. JSON `{text}` in; JSON `{say, at}` out, with the part of the line that each spoken word reads."
+        try: d = json.loads(await req.body() or b'{}')
+        except ValueError: d = None
+        if not isinstance(d, dict): return JSONResponse(dict(error='Send JSON with the text.'), status_code=400)
+        say, at = spoken(' '.join(str(d.get('text') or '').split())[:SAY_CHARS])
+        return JSONResponse(dict(say=say, at=at))
 
     async def figure(req, alt:str=''):
         "The label boxes of a figure. The image is in memory for one vision call, and is not kept."
@@ -257,6 +265,7 @@ def connect(app, ctx):
     app.post(Routes.undo)(undo)
     app.post(Routes.voice)(voice)
     app.post(Routes.say)(say)
+    app.post(Routes.spoken)(spoken_)
     speaker.warm()   # the first line of the first board should not wait for the model to load
     app.post(Routes.video)(paste)
     app.post(Routes.find)(find)

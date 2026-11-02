@@ -66,6 +66,17 @@ def test_a_failed_voice_says_why_and_is_not_asked_again(page):
     page.wait_for_function("abhyasaBoard.state && abhyasaBoard.state.i === 1 && [...document.querySelectorAll('#guide-strip .board-say span')].every(s => s.classList.contains('on'))", timeout=8000)
     assert asked.count('Then it goes on.') == 1   # asked once before it was needed, and not again after the failure
 
+def test_the_browser_voice_says_maths_as_words(page):
+    "With the browser voice, the board says the maths of a line in words, and the board text keeps the maths. Each part lights up."
+    page.evaluate("""() => { window.said = []; speechSynthesis.getVoices = () => [{name: 'test'}];
+      speechSynthesis.speak = u => { said.push(u.text); setTimeout(() => u.onend && u.onend(), 20); }; }""")
+    page.reply = sse(dict(board=dict(tier='tutor', steps=[dict(say='Here $y_m$ is not ym.', strokes=[dict(op='box', at='passage')])], sources=[], end='')))
+    page.evaluate("abhyasaGuide.ask('what is this')")
+    page.wait_for_function("window.said.length === 1", timeout=5000)
+    assert page.evaluate('said[0]') == 'Here y sub m is not ym.'
+    page.wait_for_function("[...document.querySelectorAll('#guide-strip .board-say > span')].every(s => s.classList.contains('on'))", timeout=5000)
+    assert page.evaluate("document.querySelectorAll('#guide-strip .board-say > span').length") == 5
+
 def test_stop_ends_the_natural_voice(page):
     "Stop while the line plays: the audio stops, and the board is gone."
     natural(page, lambda d: (200, dict(audio=wav(), words=[0, .05, .1, .15])))

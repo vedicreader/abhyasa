@@ -146,3 +146,13 @@ def test_a_local_line_ends_with_a_silent_gap(mk, voice_out):
     with wave.open(io.BytesIO(base64.b64decode(d['audio']))) as w: r, s = w.getframerate(), np.frombuffer(w.readframes(w.getnframes()), '<i2')
     assert len(s) / r == pytest.approx(.5 + V.PAD.lead + V.PAD.tail, abs=1e-3) and not s[-int(r * V.PAD.tail):].any() and not s[:int(r * V.PAD.lead)].any()
     assert d['words'][0] == V.PAD.lead and d['words'][-1] < .5 + V.PAD.lead   # the words fall on the sound, not on the gap
+
+def test_the_voice_says_maths_as_words_and_times_the_parts_of_the_line(mk, voice_out):
+    "Pocket TTS gets the maths in words. The times are for the parts of the line as the board shows them: `$y_m$` is one part."
+    voice_out('pocket')
+    cl = mk(['guide'])
+    d = cl.post('/guide/say', json=dict(text='So $y_m$ and $ym$ stay, with rhythm.')).json()
+    pk = V._slots['tts'][0].obj[0]
+    assert pk.said[-1] == ('caro_davy', 'So y sub m and y m stay, with rhythm.')
+    assert len(d['words']) == 7 and d['words'] == sorted(d['words'])
+    assert cl.post('/guide/spoken', json=dict(text=r'Then $\alpha^2$ and $\frac{a}{b}$.')).json() == dict(say='Then alpha squared and a over b.', at=[0, 1, 1, 2, 3, 3, 3])

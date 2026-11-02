@@ -11,15 +11,16 @@ __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 
            'ALIASES', 'POCKET', 'POCKET_FILES', 'KOKORO', 'KOKORO_VOICES', 'KOKORO_FILES', 'VOICE_FILES', 'OPENAI_URL',
            'http_post', 'ENGINES', 'KNOWN', 'STT_WORDS', 'NOT_STT', 'POCKET_VOICES', 'DFLT_SPEECH', 'OUT_ENGINES',
            'OPENAI_VOICES', 'TTS1_VOICES', 'VOICES_OF', 'OPENAI_SPEECH', 'OUT_DFLT', 'LOCAL_VOICES', 'PAD', 'LOUD',
-           'POCKET_MISSING', 'KOKORO_MISSING', 'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'dflt_model', 'parse_json',
-           'ask_json', 'Fake', 'model_ask', 'model_label', 'provider_label', 'where_of', 'where_chip', 'catalog',
-           'one_each', 'Router', 'for_task', 'ramabana_agent', 'no_answer', 'ramabana_oneshot', 'ramabana_stream',
-           'RouteAsk', 'route_ask', 'ramabana_worker', 'ramabana_lead', 'Withheld', 'guard', 'safe_query', 'guarded',
-           'resolve', 'current', 'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe',
-           'wav_seconds', 'silence', 'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch',
-           'remove', 'openai_voices', 'fit_voice', 'kokoro_installed', 'out_resolve', 'out_current', 'out_where',
-           'by_letters', 'to_wav', 'clean_wav', 'pad_wav', 'SpeakError', 'openai_why', 'speak', 'Speaker', 'Dictation',
-           'Speech']
+           'POCKET_MISSING', 'KOKORO_MISSING', 'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'GREEK', 'TEX_SAY', 'TEX_BIG',
+           'TEX_FN', 'TEX_ACCENT', 'TEX_OPS', 'TEX_POW', 'SAY_PART', 'dflt_model', 'parse_json', 'ask_json', 'Fake',
+           'model_ask', 'model_label', 'provider_label', 'where_of', 'where_chip', 'catalog', 'one_each', 'Router',
+           'for_task', 'ramabana_agent', 'no_answer', 'ramabana_oneshot', 'ramabana_stream', 'RouteAsk', 'route_ask',
+           'ramabana_worker', 'ramabana_lead', 'Withheld', 'guard', 'safe_query', 'guarded', 'resolve', 'current',
+           'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence',
+           'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'openai_voices',
+           'fit_voice', 'kokoro_installed', 'out_resolve', 'out_current', 'out_where', 'by_letters', 'to_wav',
+           'clean_wav', 'pad_wav', 'SpeakError', 'openai_why', 'tex_words', 'part_times', 'spoken', 'speak', 'Speaker',
+           'Dictation', 'Speech']
 
 # %% ../nbs/01_models.ipynb #9cfb2945
 import json, os, re, gc, time, uuid, inspect, tempfile, threading, wave
@@ -704,16 +705,113 @@ def _openai_say(text, model, voice, speed, instructions=''):
 
 SAY = dict(pocket=_pocket_say, kokoro=_kokoro_say, openai=_openai_say)
 
+# %% ../nbs/01_models.ipynb #vf18
+import bisect
+GREEK = 'alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi omicron pi varpi rho varrho sigma varsigma tau upsilon phi varphi chi psi omega'.split()
+TEX_SAY = {**{g: g.removeprefix('var') for g in GREEK}, **{g.capitalize(): 'capital ' + g for g in GREEK if not g.startswith('var')},
+           'cdot': 'times', 'times': 'times', 'div': 'divided by', 'pm': 'plus or minus', 'mp': 'minus or plus',
+           'le': 'is at most', 'leq': 'is at most', 'ge': 'is at least', 'geq': 'is at least', 'ne': 'is not equal to', 'neq': 'is not equal to',
+           'approx': 'is about', 'sim': 'is like', 'propto': 'is proportional to', 'equiv': 'is the same as', 'infty': 'infinity',
+           'partial': 'partial', 'nabla': 'nabla', 'to': 'to',
+           'rightarrow': 'to', 'mapsto': 'maps to', 'in': 'in', 'notin': 'not in', 'subset': 'in', 'forall': 'for all', 'exists': 'there is',
+           'ldots': 'and so on', 'cdots': 'and so on', 'dots': 'and so on', 'circ': 'after', 'otimes': 'times', 'odot': 'times', 'ell': 'l'}
+TEX_BIG = dict(sum='sum', prod='product', int='integral')   # with limits: 'the sum from i equals 1 to n of'
+TEX_FN = {'log', 'ln', 'exp', 'sin', 'cos', 'tan', 'max', 'min', 'arg', 'argmax', 'argmin', 'det', 'lim', 'sup', 'inf', 'softmax', 'tr', 'diag', 'var', 'mod'}   # read as words
+TEX_ACCENT = dict(bar='{} bar', hat='{} hat', tilde='{} tilde', vec='vector {}', dot='{} dot', overline='{} bar', widehat='{} hat', mathbf='{}',
+                  boldsymbol='{}', mathrm='{}', mathit='{}', mathcal='{}', mathbb='{}', text='{}', textrm='{}', operatorname='{}', mathsf='{}')
+TEX_OPS = {'+': 'plus', '-': 'minus', '=': 'equals', '<': 'is less than', '>': 'is greater than', '/': 'over', '*': 'times', '!': 'factorial',
+           "'": 'prime', '|': '', '(': '', ')': '', '[': '', ']': '', '&': '', '~': '', ':': '', ';': ''}
+TEX_POW = {'2': 'squared', '3': 'cubed', 'T': 'transpose', '-1': 'inverse', 'minus 1': 'inverse', 'top': 'transpose', 'prime': 'prime'}
+_TEX_TOK = re.compile(r'\\[A-Za-z]+|\\.|[A-Za-z]+|\d+(?:\.\d+)?|\S')
+
+def tex_words(tex:str) -> str:
+    "TeX maths as words to say: `y_m` is 'y sub m', `\\alpha^2` is 'alpha squared', `\\frac{a}{b}` is 'a over b'."
+    ts, i = _TEX_TOK.findall(tex), 0
+    def arg():
+        "The words of the next group `{...}`, or of one atom."
+        nonlocal i
+        if i >= len(ts): return []
+        if ts[i] == '{':
+            i += 1; out = []
+            while i < len(ts) and ts[i] != '}': out += item()
+            i += 1
+            return out
+        return item(scripts=False)
+    def item(scripts=True):
+        nonlocal i
+        t = ts[i]; i += 1
+        if t == '{': i -= 1; out = arg()
+        elif t in ('}', '^', '_'): out = []
+        elif t.startswith('\\'):
+            c = t[1:]
+            if c == 'frac' or c == 'dfrac' or c == 'tfrac': a = arg(); out = [*a, 'over', *arg()]
+            elif c == 'sqrt':
+                n = []
+                if i < len(ts) and ts[i] == '[':
+                    i += 1
+                    while i < len(ts) and ts[i] != ']': n += item()
+                    i += 1
+                out = ['the', *({'3': ['cube']}.get(' '.join(n), [*n, 'th'] if n else ['square'])), 'root', 'of', *arg()]
+            elif c in TEX_BIG:
+                lim = {}
+                while i < len(ts) and ts[i] in ('^', '_'): s = ts[i]; i += 1; lim[s] = arg()
+                out = ['the', TEX_BIG[c], *(['from', *lim['_']] if '_' in lim else []), *(['to', *lim['^']] if '^' in lim else []), 'of']
+            elif c in TEX_ACCENT: out = TEX_ACCENT[c].format(' '.join(arg())).split()
+            elif c in TEX_SAY: out = TEX_SAY[c].split()
+            elif c in TEX_FN: out = [c]
+            elif c in ('left', 'right', 'big', 'Big', 'bigg', 'quad', 'qquad', ',', ';', '!', ' ', 'displaystyle', 'limits'): out = []
+            elif c in ('{', '}', '|', '\\'): out = []
+            else: out = [c]
+        elif t[0].isalpha(): out = [t] if len(t) > 3 or t in TEX_FN else list(t)   # ym is 'y m'; a long run is a word
+        elif t[0].isdigit(): out = [t]
+        else: out = [TEX_OPS.get(t, t)] if TEX_OPS.get(t, t) else []
+        while scripts and i < len(ts) and ts[i] in ('^', '_'):
+            s = ts[i]; i += 1; a = arg(); j = ' '.join(a)
+            if s == '_': out += ['sub', *a]
+            elif j in TEX_POW: out.append(TEX_POW[j])
+            else: out += ['to the', *a] if len(a) == 1 else ['to the power', *a]
+        return out
+    out = []
+    while i < len(ts): out += item()
+    return ' '.join(w for w in out if w)
+
+SAY_PART = re.compile(r'\$([^$]+)\$([.,;:!?)]*)|(\S+)')   # the parts of a line as rupaka's board shows them: a `$...$` or a word
+_MATH = re.compile(r'\$\$(?P<a>.+?)\$\$|\$(?P<b>[^$]+)\$|\\\((?P<c>.+?)\\\)|\\\[(?P<d>.+?)\\\]|`(?P<e>[A-Za-z][A-Za-z0-9_^{}]{0,11})`'
+                   r'|(?<!\S)(?P<f>[A-Za-z]_(?:\{[^{}\s]{1,12}\}|[A-Za-z0-9]{1,3}))(?=[.,;:!?)]*(?:\s|$))')
+
+def part_times(times:list, at:list, n:int) -> list:
+    "The start of each of the `n` parts of a line, from the start of each spoken word and the part that it reads."
+    out, last = [], times[0] if times else 0.
+    for k in range(n):
+        last = next((t for t, a in zip(times, at) if a == k), last)   # a part with no spoken word of its own starts with the part before
+        out.append(last)
+    return out
+
+def spoken(text:str) -> tuple:
+    "The words to say for a line with maths, and for each spoken word the index of the part of the line that it reads."
+    out, src = [], []   # the spoken characters, and the place in `text` of each
+    at = 0
+    for m in _MATH.finditer(text):
+        out.append(text[at:m.start()]); src += range(at, m.start())
+        w = tex_words(next(g for g in m.groups() if g is not None))
+        out.append(w); src += [m.start()] * len(w); at = m.end()
+    out.append(text[at:]); src += range(at, len(text))
+    s = ''.join(out)
+    starts = [p.start() for p in SAY_PART.finditer(text)]
+    words = [(w.group(), max(0, bisect.bisect_right(starts, src[w.start()]) - 1)) for w in re.finditer(r'\S+', s)]
+    return ' '.join(w for w, _ in words), [k for _, k in words]
+
 # %% ../nbs/01_models.ipynb #c12dbf7c
 def speak(text:str, engine:str=None, model:str=None, voice:str=None, speed:float=None, instructions:str='') -> tuple:
-    "WAV bytes for `text`, and the start time in seconds of each of its words (split on white space)."
+    "WAV bytes for `text` with its maths in words, and the start time in seconds of each part of `text` (`SAY_PART`)."
     e, m, v, s = out_current()
     e, m, v = out_resolve(engine, model or '', voice or '') if engine else out_resolve(e, model or m, voice or v)
     if e == 'browser': raise ValueError('The browser speaks with its own voice. There is no audio here.')
-    wav = SAY[e](text, m, v, float(speed or s), instructions)
-    if e == 'openai': return wav, by_letters(text, wav_seconds(wav))
-    wav, (t0, t1) = pad_wav(wav)
-    return wav, [round(t0 + t, 3) for t in by_letters(text, t1 - t0)]
+    say, at = spoken(text)
+    wav = SAY[e](say, m, v, float(speed or s), instructions)
+    if e == 'openai': t0, t1 = 0., wav_seconds(wav)
+    else: wav, (t0, t1) = pad_wav(wav)
+    return wav, part_times([round(t0 + t, 3) for t in by_letters(say, t1 - t0)], at, len(SAY_PART.findall(text)))
 
 # %% ../nbs/01_models.ipynb #40225f2f
 class Speaker:
