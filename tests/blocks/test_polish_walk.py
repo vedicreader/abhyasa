@@ -107,3 +107,13 @@ def test_m6_words_in_the_passage_point_at_the_demo(mk, walk_fake, lr):
     page = cl.get(f'/w/{jid}/2').text
     quote = re.search(r'<blockquote [^>]*id="passage"[^>]*>', page).group(0)
     assert 'data-moves=\'["dot products", "weights"]\'' in quote
+
+# Scenario 2 November: a check head says the way one time
+
+def test_the_check_head_names_the_way_one_time():
+    "An old plan keeps the reason \"analogies fits this idea\": the head shows the way, not that line. A real reason, as a new way to try, stays."
+    from fastcore.xml import to_xml
+    from abhyasa.blocks.walk.ui import CardHead
+    old = to_xml(CardHead(dict(check=dict(way='analogy', kind='short', depth=3, why='analogies fits this idea'))))
+    assert 'fits this idea' not in old and 'analogies' in old
+    assert 'a new way to learn this' in to_xml(CardHead(dict(check=dict(way='analogy', kind='short', depth=3, why='trying analogies: a new way to learn this'))))

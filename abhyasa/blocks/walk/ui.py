@@ -368,7 +368,8 @@ def CardHead(s, q=None):
     ck = s.get('check') or {}
     depth = DEPTHS[q.depth] if q else DEPTHS[ck.get('depth', 2)]
     way = LABELS.get(q.get('method') if q else ck.get('way'), '')
-    return Div(Span(' · '.join(x for x in ('Check', way.lower(), depth) if x)), Span(ck.get('why', ''), cls='why') if ck.get('why') else '', cls='lbl')
+    why = '' if re.fullmatch(r'.* fits? this idea', ck.get('why') or '') else ck.get('why') or ''   # an old plan says only "<way> fits this idea": the label names the way already
+    return Div(Span(' · '.join(x for x in ('Check', way.lower(), depth) if x)), Span(why, cls='why') if why else '', cls='lbl')
 
 LONG_Q = 160   # a question longer than this is folded in a done check
 
