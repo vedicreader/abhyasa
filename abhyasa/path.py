@@ -1212,13 +1212,14 @@ def _at(text:str, names) -> int|None:
     return min(ms) if ms else None
 
 def words_to_know(lr:Learning, ask, j, i:int, texts=(), by:dict=None, most:int=WORDS_MOST) -> L:
-    "The terms of step `i` of walk `j` that you do not know yet, each with `slug`, `name` and `line` (`term_line`): its missing needs, then the concepts that its words name."
+    """The terms of step `i` of walk `j` that you do not know yet, each with `slug`, `name` and `line` (`term_line`): its missing needs, then
+    the concepts that its words name. An alias names a concept only in a subject of the walk, so "numbers" in a walk on neurons does not name a grammar term."""
     by = _by(lr, by); s = j['steps'][i]
     if s['slug'] not in by: return L()
-    dots = _walk_dots(j, by, i)
+    dots, subj = _walk_dots(j, by, i), {by[t['slug']].get('subject') for t in j['steps'] if t['slug'] in by}
     new = lambda k: k != s['slug'] and k not in dots and by[k].get('floor', 0) < READY
     text = ' '.join([((s.get('read') or {}).get('text') or by[s['slug']].get('statement') or ''), *[str(t or '') for t in texts]])
-    named = sorted((at, k) for k, c in by.items() if new(k) and (at := _at(text, [c.name, *(c.get('aliases') or ())])) is not None)
+    named = sorted((at, k) for k, c in by.items() if new(k) and (at := _at(text, [c.name, *(c.get('aliases') or () if c.get('subject') in subj else ())])) is not None)
     ks = list(dict.fromkeys([*(n.slug for n in walk_needs(lr, j, i, by) if n.state == 'missing'), *(k for _, k in named)]))[:most]
     return L(AttrDict(slug=k, name=by[k].name, line=line) for k in ks if (line := term_line(lr, ask, by[k])))
 
