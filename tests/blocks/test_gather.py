@@ -110,7 +110,10 @@ def test_a_start_that_is_not_signed_in_says_what_to_do(mk, lr, monkeypatch):
     class ClaudeError(Exception): pass
     def not_in(*a, **kw): raise ClaudeError('claude failed: Not logged in')
     monkeypatch.setattr(R, 'ramabana_lead', not_in)
-    monkeypatch.setattr(R, 'research_walk', lambda lr_, ask, jid, ix=None, *a: [None] * len(ix))
+    def none_found(lr_, ask, jid, ix=None, *a):
+        "Like the real search, end each step: a step left pending makes the new app look again, and the band says it runs."
+        return [lr_.walk_step(jid, i, research='none', research_at=time.time()) and None for i in ix]
+    monkeypatch.setattr(R, 'research_walk', none_found)
     R.Researcher(lr, Fake()).gather(j.id).result(10)
     cl = mk()
     b = cl.get(f'/w/{j.id}/gather', headers=HX).text
