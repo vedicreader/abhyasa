@@ -245,3 +245,25 @@ def test_last_idea_of_a_side_walk_goes_back_to_the_main_idea(mk, walk_fake, lr):
     page = cl.get(f'/w/{jid}/2').text
     assert 'Back on the paper' in page and 'on the way' in page and lr.journey(jid).steps[2]['detours'][0]['outcome'] == 'solid'
     assert 'data-rh-done' in cl.post('/w/side4/3/next', params=dict(pane=1)).text   # in the side pane: the end note, which closes the pane
+
+def test_a_gap_learned_in_a_side_walk_has_a_tick(mk, walk_fake, lr):
+    "A miss names a gap, a side walk on it ends well, then you come back: the gap line has a tick and no Learn it, and Try the check again opens a new check."
+    walk_fake.rules['You grade one answer'] = dict(correct=False, grade=2, first_error='No slope.', misconception='', feedback='Think of the slope.', gaps=['gradients'])
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); needs_gradients(lr)
+    lr.walk_step(jid, 2, check=dict(way='words', kind='short', depth=2, why=''))
+    cl.get(f'/w/{jid}/2/check')
+    cl.post(f'/w/{jid}/2/answer', data=dict(answer='it is faster', confidence=70))
+    card = cl.post(f'/w/{jid}/2/giveup', data=dict(confidence=0)).text
+    assert 'Your answer shows a gap' in card and 'Try the check again' not in card
+    sid = cl.post('/rh/open', data=dict(slug='gradients', at=f'{jid}/2', how='primer')).json()['url'].split('/')[2]
+    walk_fake.rules['You grade one answer'] = dict(correct=True, grade=9, first_error='', misconception='', feedback='Yes.')
+    cl.get(f'/w/{sid}/0/check'); cl.post(f'/w/{sid}/0/answer', data=dict(answer='the slope', confidence=90))
+    cl.post(f'/rh/back/{sid}')
+    card = cl.get(f'/w/{jid}/2/check').text
+    assert '✓' in card and 'learned in a side walk' in card and 'Your answer shows a gap' not in card and 'Learn it' not in card.split('rh-gaps')[1], card
+    assert 'Next idea' in card and 'data-act="try-again"' in card and f'hx-post="/w/{jid}/2/again"' in card
+    assert '✓' in cl.get(f'/w/{jid}/2').text.split('rh-strip')[1][:300]   # the strip of the return has the same tick
+    old = lr.journey(jid).steps[2]['qid']
+    again = cl.post(f'/w/{jid}/2/again').text
+    s = lr.journey(jid).steps[2]
+    assert s['done'] is None and s['qid'] and s['qid'] != old and 'id="send"' in again   # a fresh, open check

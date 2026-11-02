@@ -8,7 +8,7 @@ import logging, re, time
 from fasthtml.common import *
 from fastcore.utils import first
 from abhyasa.core import hook, run as run_hook, is_local
-from abhyasa.path import walk_needs, pick_way_down, detour, back_from, look_up, name_gaps, parent_step, for_talk, course_from, courses_from, course_state
+from abhyasa.path import walk_needs, known_how, pick_way_down, detour, back_from, look_up, name_gaps, parent_step, for_talk, course_from, courses_from, course_state
 from abhyasa.learner import val
 from . import ui
 from .cfg import Routes
@@ -125,7 +125,10 @@ def connect(app, ctx):
         "After a miss that names a gap: the line that offers to learn it beside the step."
         terms = list(dict.fromkeys(t.strip() for t in (q or {}).get('gaps') or () if isinstance(t, str) and t.strip()))
         hits = [(r.slug, r.name) if (r := found(t)) else (t, t) for t in terms]
-        return ui.GapLine(hits) if hits else None
+        if not hits: return None
+        j, by = lr.journey(j.id) or j, {x.slug: x for x in lr.concepts()}   # the walk now: a side walk that ended since is on the step
+        rows = [(s, n, *known_how(j, i, s, by)) for s, n in hits]
+        return ui.GapLine(rows, Routes.of(Routes.again, jid=j.id, i=i) if j.steps[i].get('done') else None)
 
     @hook('check_stuck')
     def stuck(jid, i, s, q):

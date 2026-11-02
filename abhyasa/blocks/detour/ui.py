@@ -35,7 +35,7 @@ def Strip(name, ok, sid, outs):
                    P(pane_link('Finish the side walk', url, name), cls='mute'), cls='rh-strip')
     solid, shaky = sum(o == 'solid' for o in outs), sum(o in ('fragile', 'gap', 'misconception') for o in outs)
     counts = meta(n_of(len(outs), 'idea'), ', '.join(x for x in (solid and f'{solid} solid', shaky and f'{shaky} shaky') if x))
-    return Div(P('Back on the paper. You ', 'learned ' if ok else 'looked at ', B(name), ' on the way.'),
+    return Div(P(Span('✓ ', cls='mark') if ok else '', 'Back on the paper. You ', 'learned ' if ok else 'looked at ', B(name), ' on the way.'),
                P(counts, ' · ', A('See the side walk', href=url), cls='mute'), cls='rh-strip')
 
 def OwnCourse(c, st):
@@ -51,10 +51,22 @@ def Needs(at, rows, strip=None, own=()):
     line = Div(Span('This needs', cls='lbl'), *[Need(at.rpartition('/')[0], n, n.slug == first) for n in rows], cls='rh-line') if rows else ''
     return Div(strip or '', *own, line, Div(id='rh-offer', aria_live='polite'), *assets(), cls='rh-needs', data_at=at, data_part='needs')
 
-def GapLine(gaps):
-    "After a miss that names a gap: the ideas your answer points at, and a way to learn the first one beside the step."
-    names = ', '.join(name for _, name in gaps)
-    return P('Your answer shows a gap: ', B(names), '. ', Ask('Learn it ', gaps[0][0], Kbd('⌥B'), cls='rh-ask rh-gap'), cls='rh-gapline')
+MARK = dict(side='✓', done='✓', learned='✓', shaky='◐')
+GAP_SAID = dict(side='learned in a side walk', learned='learned', shaky='shaky: review it')
+
+def GapLine(rows, again=None):
+    """After a miss that names a gap: the ideas your answer points at, and a way to learn the first one beside the step. `rows` are
+    `(slug, name, state, index)` (`known_how`). A gap that you learned since has a tick and no Learn it; a shaky one has a quiet Review.
+    With `again` (the check is closed), a gap that you know now offers a quiet Try the check again."""
+    miss = [(s, n) for s, n, st, _ in rows if st == 'missing']
+    out = [P('Your answer shows a gap: ', B(', '.join(n for _, n in miss)), '. ', Ask('Learn it ', miss[0][0], Kbd('⌥B'), cls='rh-ask rh-gap'), cls='rh-gapline')] if miss else []
+    for s, n, st, k in rows:
+        if st == 'missing': continue
+        rev = side_link('Review', f'/c/{s}', n, cls='pane-link quiet small rh-review', data_act='review') if st == 'shaky' else ''
+        out.append(P(Span(MARK[st], cls='mark'), ' ', B(n), f": {GAP_SAID.get(st) or f'done at idea {k + 1}'}", rev, cls=f'rh-gapline {st}'))
+    if again and len(miss) < len(rows):
+        out.append(Button('Try the check again', type='button', cls='quiet small rh-again', hx_post=again, hx_target='#check', hx_swap='innerHTML', data_act='try-again'))
+    return Div(*out, cls='rh-gaps')
 
 WAYS = dict(primer='A quick look', walk='A side walk', course='Its own course')
 
@@ -88,6 +100,6 @@ def NotFound(t, at):
 
 def EndNote(name, ok, back, here, slug, outcome, walk=''):
     "The end of a side walk: what you learned, and the way back. detour.js sends `rh:done` from `data-rh-done`."
-    return Div(P('You ', 'learned ' if ok else 'looked at ', B(name), ' on the way.', cls='lead-sum'),
+    return Div(P(Span('✓ ', cls='mark') if ok else '', 'You ', 'learned ' if ok else 'looked at ', B(name), ' on the way.', cls='lead-sum'),
                Primary(f"← Back to {short_title(walk) or 'the paper'}: {here}", href=back, rank=0), *assets(),
                cls='rh-end', data_rh_done=json.dumps(dict(slug=slug, outcome=outcome)))

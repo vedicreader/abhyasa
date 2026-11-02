@@ -19,11 +19,11 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS
            'cap_hands', 'builds_goal', 'hands_count', 'journey_from_source', 'journey_from_text',
            'journey_from_sources', 'data_row', 'keep_data', 'folder_list', 'with_stop', 'data_entries', 'with_data',
            'walk_names', 'same_names', 'short_what', 'data_line', 'missing_data', 'walk_from_topic', 'minutes', 'needs',
-           'walk_needs', 'gap_size', 'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from',
-           'for_talk', 'is_open', 'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up',
-           'topic_slug', 'name_gaps', 'split_parts', 'related', 'with_step', 'paper_id', 'same_share', 'fresh',
-           'tutor_note', 'step_meta', 'open_short', 'nb_prompt', 'nb_spec', 'leela_found', 'leela_back', 'term_line',
-           'words_to_know', 'edit_lock', 'restore_steps', 'undo_line', 'rewrite', 'move_step', 'skip_step',
+           'walk_needs', 'known_how', 'gap_size', 'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail',
+           'back_from', 'for_talk', 'is_open', 'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read',
+           'look_up', 'topic_slug', 'name_gaps', 'split_parts', 'related', 'with_step', 'paper_id', 'same_share',
+           'fresh', 'tutor_note', 'step_meta', 'open_short', 'nb_prompt', 'nb_spec', 'leela_found', 'leela_back',
+           'term_line', 'words_to_know', 'edit_lock', 'restore_steps', 'undo_line', 'rewrite', 'move_step', 'skip_step',
            'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent', 'edit_walk', 'undo_walk',
            'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages', 'pick_read', 'links_in',
            'propose', 'improve_walk', 'new_course', 'is_goal_walk', 'chip_sources', 'join_course', 'course_of',
@@ -588,6 +588,17 @@ def walk_needs(lr:Learning, j, i:int, by:dict=None, met=()) -> L:
         if dot in ('done', 'shaky'): return dot, k
         return ('learned' if n.ok or dot == 'known' else 'today' if n.slug in met else 'missing'), None
     return L(AttrDict(n, state=st, at=k) for n in needs(lr, slug, by) for st, k in [state(n)])
+
+# %% ../nbs/04_path.ipynb #kh02
+def known_how(j, i:int, slug:str, by:dict) -> tuple:
+    "How you know concept `slug` at step `i` of walk `j`: `(state, index)`, with state side, done, shaky, learned or missing, and the index of the step that did it."
+    outs = [d.get('outcome') for d in j['steps'][i].get('detours') or () if d.get('slug') == slug]
+    if outs and outs[-1] in ('solid', 'fragile'): return 'side', None
+    dot, k = _walk_dots(j, by, i).get(slug, (None, None))
+    if dot in ('done', 'shaky'): return dot, k
+    if outs and outs[-1] in SHAKY: return 'shaky', None
+    c = by.get(slug)
+    return ('learned' if c is not None and (dot == 'known' or c.get('floor', 0) >= READY) else 'missing'), None
 
 # %% ../nbs/04_path.ipynb #rh14
 def _chain(slug, by, seen) -> list:

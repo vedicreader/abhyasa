@@ -629,6 +629,14 @@ def connect(app, ctx):
         j = lr.journey(jid)
         return (card(j, i), ui.Words(ws, oob=True)) if (ws := words(j, i)) else card(j, i)   # the check can name a term that the page did not
 
+    def try_again(jid:str, i:int):
+        "Try the check again: open the closed check of step `i` again, with a new question. The attempts of the last one stay in your record."
+        if not (j := walk_of(jid, i)) or j.steps[i]['check']['kind'] == 'notebook': return Response(status_code=404)
+        with _jlock(jid):
+            if (qid := (j := lr.journey(jid)).steps[i].get('qid')) in tutor.open: tutor.open.pop(qid)
+            lr.walk_step(jid, i, done=None, qid=None)
+        return check(jid, i)
+
     def nb_again(jid:str, i:int):
         "Write the notebook: start the job that writes the notebook spec of step `i`, the first time or again after the tutor could not."
         if not (j := walk_of(jid, i)) or j.steps[i]['check']['kind'] != 'notebook': return Response(status_code=404)
@@ -1209,6 +1217,7 @@ def connect(app, ctx):
     app.get(Routes.ladder)(ladder)
     app.post(Routes.ladder)(ask_ladder)
     app.post(Routes.next)(next_)
+    app.post(Routes.again)(try_again)
     app.get(Routes.done)(done)
     app.get(Routes.img)(img)
     app.get(Routes.result)(result); app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's static route for `.png`
