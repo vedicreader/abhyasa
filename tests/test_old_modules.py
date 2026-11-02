@@ -31,7 +31,7 @@ NEW = dict(settings='learner', prompts='learner', store='learner', model='learne
            llm='models', voice='models', ground='sources', sources='sources', detect='sources', tutor='tutor', nb='tutor', journey='path',
            walk='path', edit='path', course='path', research='path', guide='show', demo='show', talk='show')
 VIEWS = {'profile': dict(LABELS='PROFILE_LABELS'), 'method': dict(LABELS='METHOD_LABELS'), 'detect': dict(source_of='kind_of', fold='fold_trim'),
-         'guide': dict(KINDS='GUIDE_KINDS'), 'demo': dict(KINDS='DEMO_KINDS'), 'research': dict(pick_prompt='sources.pick_prompt')}
+         'guide': dict(KINDS='GUIDE_KINDS'), 'demo': dict(KINDS='DEMO_KINDS'), 'research': dict(pick_prompt='sources.passage_prompt')}
 
 @pytest.mark.parametrize('mod', NEW)
 def test_old_module_is_its_new_module(mod):
