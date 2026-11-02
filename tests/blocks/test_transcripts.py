@@ -1,4 +1,4 @@
-"Lecture transcripts as sources: the rank after a notebook."
+"Lecture transcripts as sources: the kind, the tight passage, the links to the lesson, the walk step, and the rank after a notebook."
 import re, json, time, pytest
 from pathlib import Path
 from fastcore.utils import AttrDict
@@ -39,6 +39,38 @@ def filed(lr, home, **kw):
     "File the course folder; give its docs by title."
     return {d.title: d for d in file_folder(lr, course(home/'course22', **kw))}
 
+def test_a_transcript_is_known_and_a_summary_is_not(lr, home):
+    "The talk is a transcript with lesson 3. Its summary, the notebooks and the note are not. Nothing in the vault changes."
+    ds = filed(lr, home)
+    rows = {t: json.dumps(lr.vault.shelf('notebooks').doc(d.doc_id), default=str) for t, d in ds.items()}
+    got = {t for t, d in ds.items() if transcript_of(lr, d.shelf, d.doc_id)}
+    assert got == {'summaries/lesson03'}, got
+    assert transcript_of(lr, 'notebooks', ds['summaries/lesson03'].doc_id).lesson == 3
+    assert rows == {t: json.dumps(lr.vault.shelf('notebooks').doc(d.doc_id), default=str) for t, d in ds.items()}   # a read-time check only
+
+def test_the_passage_is_a_tight_verbatim_span_with_lesson_links(lr, home):
+    "A long passage from the transcript shows as 1 to 3 whole sentences on the idea, word for word, labelled, with the notebook of lesson 3 and the video."
+    ds = filed(lr, home)
+    t = ds['summaries/lesson03']
+    long = ' '.join(TALK[:3])
+    r = transcript_read(lr, dict(shelf='notebooks', doc_id=t.doc_id, title=t.title, text=long), SOFTMAX)
+    assert 1 <= len(sentences(r['text'])) <= 3 and r['text'] in long and len(r['text']) < len(long) / 2
+    assert r['text'].startswith('So softmax turns a list of scores into weights')
+    assert r['what'] == 'Lecture transcript · Lesson 3'
+    links = {l['text']: l.get('href') or l.get('url') for l in r['links']}
+    assert links['Lesson notebook · 03_softmax'] == f"/v/notebooks/{ds['nbs/03_softmax'].doc_id}"   # by number: not 13_resnet, not 30_vae
+    assert links['Find the video'] == SEARCH + 'Deep+Learning+for+Coders+Lesson+3'
+    note = dict(shelf='notebooks', doc_id=ds['course22/notes'].doc_id, text='Softmax turns scores into weights.')
+    assert transcript_read(lr, note, SOFTMAX) is note   # any other source stays as it is
+
+def test_a_transcript_with_time_stamps_links_the_video_at_the_passage(lr, home):
+    "With a YouTube link and time stamps, the video link opens at the stamp before the passage."
+    ds = filed(lr, home, stamps=True)
+    t = ds['summaries/lesson03']
+    lr.vault.shelf('notebooks').set_meta(t.doc_id, url='https://www.youtube.com/watch?v=dQw4w9WgXcQ')   # the temp vault: a transcript that came with its link
+    r = transcript_read(lr, dict(shelf='notebooks', doc_id=t.doc_id, text=f'[02:05] {TALK[2]}'), dict(name='Exponent'))
+    assert dict(text='Video at 2:05', url='https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=125s') in r['links']
+
 class Both:
     "A source with a transcript passage first and a notebook passage second; both name softmax."
     name = 'vault'
@@ -55,3 +87,17 @@ def test_a_notebook_passage_wins_over_a_transcript_passage(lr, home):
     assert r['ref'] == ds['nbs/03_softmax'].doc_id, r
     only = _topic_read(c, [type('T', (), dict(name='vault', search=lambda self, q, k=4: Both(ds).search(q)[:1]))()], lr)
     assert only['ref'] == ds['summaries/lesson03'].doc_id   # with no other passage the transcript is still a source
+
+def test_the_walk_step_shows_the_tight_passage(mk, lr, home):
+    "A walk step whose passage is the long transcript text shows the tight span, the label and the notebook link; the long tail is not there."
+    ds = filed(lr, home)
+    t = ds['summaries/lesson03']
+    lr.put('Softmax', SOFTMAX['statement'], 'ml')
+    long = ' '.join(TALK[:3])
+    lr.put_journey(dict(id='tw', title='Lesson 3', goal='Read lesson 3', mode='walk', source=None, started=time.time(), created=1.,
+                        steps=[dict(slug='softmax', status='todo', why='', check=dict(kind='short', depth=2),
+                                    read=dict(shelf='notebooks', doc_id=t.doc_id, title=t.title, text=long))]))
+    page = mk().get('/w/tw/0').text
+    assert 'So softmax turns a list of scores into weights' in page and 'Lecture transcript · Lesson 3' in page
+    assert f"/v/notebooks/{ds['nbs/03_softmax'].doc_id}" in page and 'zoom in a bit' not in page
+    assert lr.journey('tw').steps[0]['read']['text'] == long   # the walk keeps its passage
