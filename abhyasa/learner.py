@@ -18,9 +18,9 @@ __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SET
            'tree', 'attempt_text', 'temp_learning', 'outcome', 'recall', 'grow', 'update', 'next_depth', 'learned',
            'ready', 'pick', 'understanding', 'weak', 'way', 'credit', 'posterior', 'mean', 'improving', 'choose',
            'check_for', 'methods_text', 'profile_text', 'clean', 'onboard_prompt', 'onboard', 'evidence',
-           'observe_prompt', 'observe', 'teach_sp', 'level_line', 'calibration', 'calibration_text', 'ledger',
-           'job_version', 'job_start', 'job_end', 'track', 'job_said', 'Said', 'seen_jobs', 'close_jobs', 'activity',
-           'chip_words', 'current', 'keyed_lock', 'walk_state']
+           'observe_prompt', 'observe', 'teach_sp', 'level_line', 'plainly', 'calibration', 'calibration_text',
+           'ledger', 'job_version', 'job_start', 'job_end', 'track', 'job_said', 'Said', 'seen_jobs', 'close_jobs',
+           'activity', 'chip_words', 'current', 'keyed_lock', 'walk_state']
 
 # %% ../nbs/00_learner.ipynb #6892d8ed
 import threading, weakref, os, json, time, random, uuid
@@ -90,6 +90,7 @@ add('talks.image_mb', 'talks', 'Largest figure for the room', 'A figure larger t
 add('checks.tries', 'checks', 'Tries', 'How many answers you can give before the tutor teaches the idea.', 3, 1, 5)
 add('checks.sources', 'checks', 'Use my sources', 'The tutor makes its questions from what you read and wrote.', True)
 add('checks.one_ask', 'checks', 'One ask per question', 'When a question asks two things, the tutor writes it again with one ask.', True, more=True)
+add('checks.readable', 'checks', 'Plain English', 'When a text that the tutor writes is hard to read, the tutor writes it again in plain English, once.', True, more=True)
 add('checks.near', 'checks', 'Shaky pass', 'A grade at or above this number is solid. A pass below it is shaky, and it comes back sooner.', 7, 5, 9, more=True)
 add('checks.goal', 'checks', 'Learned level', 'The level at which an idea counts as learned. 2 is recall, 3 is explain, 4 is apply and 5 is transfer.', 4, 2, 5, more=True)
 add('checks.high', 'checks', 'Sure confidence', 'At or above this confidence, you are sure. A sure answer that is wrong counts as a misconception.', 60, 40, 90, more=True, unit='%')
@@ -1353,6 +1354,8 @@ HUMAN = register('teach.human', 'Who the words are for', 'The rules on how to te
 - Be short when the level line says solid. Use the exact terms. Give the key step and a harder case or an edge case. Do not explain the steps that they know.
 - With no level line, write for a reader who is new to the idea, and still give the exact terms.
 - Plain words are not literal words. A short sentence can carry an example, a picture in words, or the reason why.
+- Name a technical thing by its real name. Say in plain words what it is the first time. Never make up a nickname or a metaphor for it.
+- Write in ASD-STE100 Simplified Technical English at a US grade 9 reading level: sentences of at most 20 words, common words, the active voice, no semicolons.
 - These rules do not change the rules on sources and facts. A quote stays word for word. Say only what is true.""")
 
 def teach_sp(name:str) -> str:
@@ -1384,6 +1387,13 @@ def level_of(self:Learning, c, missing=None) -> str:
     "The level line of concept `c` (a slug or a dict) for this learner, with the needs on the shelf and the profile."
     by = {x.slug: x for x in self.concepts()}
     return level_line(by.get(c) if isinstance(c, str) else c, by, self.profile(), missing)
+
+# %% ../nbs/00_learner.ipynb #c0514f44
+from rupaka.agent import plain
+
+def plainly(ask, x, terms=(), keep=()):
+    "`x` (a text, or a dict of texts) through rupaka's `plain` with the model `ask`, when `checks.readable` is on; else `x`."
+    return plain(ask, x, terms, keep) if val('checks.readable') else x
 
 # %% ../nbs/00_learner.ipynb #ca02
 def calibration(lr:Learning, n:int=300) -> AttrDict:

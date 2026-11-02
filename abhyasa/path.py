@@ -44,7 +44,7 @@ import json, math, re, random, threading, time, uuid
 from fastcore.utils import *
 from pathlib import Path
 from fastcore.nbio import read_nb
-from .learner import Learning, slugify, _src, meta_of, clean_subject, usable_name, idea_name, real_idea, SHELF, learned, val, register, prompt, teach_sp, check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND, DEPTH, STATUS, NO_CHECK, _jmeta, current, keyed_lock, _jlock, SHAKY, _dot, _elsewhere, walk_state, fold, ready, recall, understanding
+from .learner import Learning, slugify, _src, meta_of, clean_subject, usable_name, idea_name, real_idea, SHELF, learned, val, register, prompt, teach_sp, plainly, check_for, EXAMPLES_TO, WALK_WAYS, TEXT_WAYS, CHECK_KIND, DEPTH, STATUS, NO_CHECK, _jmeta, current, keyed_lock, _jlock, SHAKY, _dot, _elsewhere, walk_state, fold, ready, recall, understanding
 from .models import ask_json, for_task, guard
 from .sources import extract, math_cut, _index, doc_pages, root_docs, from_vault, placement, is_id_title, arxiv_ref, arxiv_title, ground, ground_text, clip, names, main_words, named_count, names_idea, fence
 from .sources import from_transcript, transcripts_last
@@ -818,9 +818,10 @@ def topic_slug(lr:Learning, ask, j, name:str, sources=None) -> str|None:
     if not usable_name(name): return None   # a name such as `x` is not an idea
     slug = _index(lr).get(name.lower())
     if not slug:
-        r = ask_json(for_task(ask, 'extract'), f"The idea: {fence('idea', name)}\nThe path it is part of: {j.title} ({j.get('goal', '')})\n{lr.level_of(dict(name=name))}\n\n"
+        r = ask_json(ask_ := for_task(ask, 'extract'), f"The idea: {fence('idea', name)}\nThe path it is part of: {j.title} ({j.get('goal', '')})\n{lr.level_of(dict(name=name))}\n\n"
                           'Return JSON: {"name": str, "statement": str}', teach_sp('primer'))
         nm = ' '.join(CTRL_MARKS.sub('', str(r.get('name') or '')).split())[:NAME_MOST] or name
+        r['statement'] = plainly(ask_, str(r.get('statement') or ''), [nm])
         if not real_idea(nm, r.get('statement', '')): return None   # no source text: the idea needs a statement of 3 words or more
         slug = lr.put(nm, r.get('statement', ''), j.get('subject', ''), provenance=[dict(src='journey', journey=j.id)]).slug
         if sources:
@@ -835,10 +836,11 @@ def name_gaps(lr:Learning, ask, slug:str, terms, sources=None) -> L:
     for t in dict.fromkeys(str(t).strip() for t in terms or () if str(t).strip()):
         if not (g := idx.get(t.lower())):
             if not usable_name(t): continue   # a term such as `x` is not an idea
-            r = ask_json(for_task(ask, 'extract'), f"The idea: {t}\nIt comes up in: {c.name} ({c.get('subject') or 'general'})\n{lr.level_of(dict(name=t, provenance=[dict(src='gap')]))}\n\n"
+            r = ask_json(ask_ := for_task(ask, 'extract'), f"The idea: {t}\nIt comes up in: {c.name} ({c.get('subject') or 'general'})\n{lr.level_of(dict(name=t, provenance=[dict(src='gap')]))}\n\n"
                               'size: how many other ideas a beginner must learn before this one, from 0 to 20.\n'
                               'Return JSON: {"name": str, "statement": str, "size": int}', teach_sp('primer'))
             name = r.get('name') if usable_name(r.get('name')) else t
+            r['statement'] = plainly(ask_, str(r.get('statement') or ''), [name, t])
             if not real_idea(name, r.get('statement', '')): continue   # no source text: a gap needs a statement of 3 words or more
             g = lr.put(name, r.get('statement', ''), c.get('subject', ''), aliases=[t] if t.lower() != name.lower() else [],
                        provenance=[dict(src='gap', of=slug, said=t, at=time.time())], **({'size': n} if (n := gap_size(r)) else {})).slug
@@ -1034,6 +1036,7 @@ def tutor_note(lr, ask, j, i:int, sources=None, save:bool=True) -> str:
         if n0 and n != n0:   # it said the statement again: one more ask, with what it said again
             n1 = _trim(ask(f"{p}\n\nYour last note said the statement again: {json.dumps(n0)}. Write a note that adds something new.", teach_sp('walk.note_topic')))
             n = ('' if _NO_TEXT.search(n1) else fresh(n1, said)) or n
+    n = plainly(ask, n, [c.name]) if n else n
     if save: lr.walk_slug(j.id, s['slug'], note=n, note_none=True if not (n or text) else None)
     return n
 
@@ -1205,9 +1208,9 @@ def term_line(lr:Learning, ask, c) -> str:
     "The plain line of concept `c`: the first sentence of its statement, else its kept `gloss`, else one line from the tutor, kept as `gloss`. '' when the tutor fails."
     if (st := (c.get('statement') or '').strip()): return _trim(st, 1, 30)
     if c.get('gloss') or ask is None: return c.get('gloss') or ''
-    try: g = _trim(for_task(ask, 'note')(f"The term: {fence('term', c.name)}\n{lr.level_of(c)}", teach_sp('walk.gloss')), 1, 25)
+    try: g = _trim((ask_ := for_task(ask, 'note'))(f"The term: {fence('term', c.name)}\n{lr.level_of(c)}", teach_sp('walk.gloss')), 1, 25)
     except Exception as e: log.warning('the tutor could not write the line of %s: %r', c.slug, e); return ''
-    if g: lr.update(c.slug, gloss=g)
+    if g: g = plainly(ask_, g, [c.name]); lr.update(c.slug, gloss=g)
     return g
 
 # %% ../nbs/04_path.ipynb #wk06
@@ -1394,7 +1397,8 @@ def rewrite(ask, fields:dict, instruction:str, context:str='') -> dict:
         new = _texts(r.get(k))
         if new is None or isinstance(new, list) != isinstance(v, list): raise ValueError(f'The reply has no good {k!r}.')
         out[k] = new
-    return out
+    flat = plainly(ask, {f'{k} {j}': x for k, v in out.items() for j, x in enumerate(v if isinstance(v, list) else [v])})
+    return {k: [flat[f'{k} {j}'] for j in range(len(v))] if isinstance(v, list) else flat[f'{k} 0'] for k, v in out.items()}
 
 # %% ../nbs/04_path.ipynb #aee58651
 from copy import deepcopy
