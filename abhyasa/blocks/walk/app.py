@@ -15,7 +15,7 @@ from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
 from abhyasa.path import with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, short_check, with_step, trail, parent_step, for_talk
 from abhyasa.learner import walk_state, _jlock
-from abhyasa.path import tutor_note, open_short, step_meta, leela_back, leela_found, course_of, drop_data
+from abhyasa.path import tutor_note, words_to_know, open_short, step_meta, leela_back, leela_found, course_of, drop_data
 import abhyasa.path as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.show   # adds Learning.talks: the editor links the talks made from a walk
 from abhyasa.show import walk_changes
@@ -130,6 +130,11 @@ def connect(app, ctx):
         "The demo of step `s` when its check is a demo or an order, else None."
         k = s['check']['kind']
         return lr.demo_for(s['slug'], AIM[k]) if k in AIM else None
+
+    def words(j, i, b=None):
+        "The terms of Words to know of step `i`: from its passage, its statement and its check question, when the check is open or closed."
+        q, ck = question(j, i), j.steps[i].get('check') or {}
+        return words_to_know(lr, ctx.ask, j, i, [x for x in (ck.get('q'), q and q.get('question')) if x], b)
 
     def card(j, i):
         "The check card of step `i`; a short-answer card adds what other blocks put after it (`check_after`)."
@@ -541,7 +546,7 @@ def connect(app, ctx):
         j, b = lr.journey(jid), by()
         seen(j)
         line = [band(j)] if researching(jid) or j.get('research_start') or j.get('gather_at') else []   # the line of research is on each step
-        page = ui.StepPage(j, walk_state(j, b), b, i, needs=[*line, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault,
+        page = ui.StepPage(j, walk_state(j, b), b, i, needs=[*line, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault, words=words(j, i, b),
                        present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back),
                        figure=figure_file(j, i) is not None)   # a figure whose file is not there draws no broken image
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
@@ -614,7 +619,8 @@ def connect(app, ctx):
                     return Div(P('The tutor could not write the check.', cls='req-err'),
                                Button('Try again', hx_get=ui.at(Routes.check, jid, i), hx_target='closest div', hx_swap='outerHTML'))
                 s.save()
-        return card(lr.journey(jid), i)
+        j = lr.journey(jid)
+        return (card(j, i), ui.Words(ws, oob=True)) if (ws := words(j, i)) else card(j, i)   # the check can name a term that the page did not
 
     def nb_again(jid:str, i:int):
         "Write the notebook: start the job that writes the notebook spec of step `i`, the first time or again after the tutor could not."

@@ -262,6 +262,14 @@ def NextBar(jid, i, st, by):
     skip = '' if done else Form(Quiet('Skip this idea', small=True, id='skip'), action=at(Routes.next, jid, i), method='post', cls='skip')
     return Div(back, skip, cls='next-bar')
 
+def Words(rows, oob=False):
+    """Words to know, before the passage: each term that you do not know yet in bold, as a link to its concept in the side pane (so the
+    place stays), and one plain line on what it means. An empty place when you know them all. `oob` swaps it in after the check came."""
+    kw = dict(hx_swap_oob='true') if oob else {}
+    if not rows: return Div(id='words', **kw)
+    items = [Li(side_link(B(Inline(r.name)), f'/c/{r.slug}', r.name, cls='pane-link term', data_act='word'), ' ', Span(Inline(r.line), cls='line')) for r in rows]
+    return Div(Span('Words to know', cls='lbl'), Ul(*items, cls='plain'), id='words', cls='words', data_part='words', **kw)
+
 def Note(text):
     "The tutor note under the passage, with its label: it is the tutor's words, not a quote."
     return TutorWords(text, note=True) if text else ''
@@ -302,9 +310,10 @@ def TalkStep(j, st, by, i, figure=True):
     return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea', data_concept=s.get('slug')), Passage(j, short, c), Figure_(j['id'], i, s, c) if figure else '',
                P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
-def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None, figure=True):
+def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None, figure=True, words=()):
     """One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title, `present` under the outline.
-    `result` is the card "From Leela": it takes the place of the check, so the page has it with no second request. `figure=False`: the file of the figure is not there, so no image."""
+    `result` is the card "From Leela": it takes the place of the check, so the page has it with no second request. `figure=False`: the file of the figure is not there, so no image.
+    `words` are the terms of Words to know, under the needs line and before the passage."""
     if in_talk(): return TalkStep(j, st, by, i, figure)
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
@@ -312,7 +321,7 @@ def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault
     slot = Div(Div(Span(WRITING, cls='lbl'), Div(I(), I(), I(cls='short'), cls='skel'), cls='check'),
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING, data_part='check') if result is None else Div(result, id='check', data_part='check')
     return Div(Rail(j, st, by, i, present),
-               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea', data_concept=s.get('slug')), *needs, Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c) if figure else '',
+               Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea', data_concept=s.get('slug')), *needs, Words(words), Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c) if figure else '',
                    NoteSlot(j['id'], i), slot, leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 

@@ -231,3 +231,10 @@ main:has(#steps) { padding-bottom: calc(44px + 2 * var(--s5)); }
 .in-journeys { margin: var(--s5) 0 0; } .in-journeys .attach { margin-top: var(--s3); } .in-journeys select { width: auto; font-size: var(--t-small); }
 .step-done { padding: 2px 0; } .step-done .lbl { color: var(--ok); } .step-done p { margin: 0; }
 .walk-data li { display: flex; align-items: baseline; gap: var(--s2); } .walk-data .x { margin-left: auto; }
+
+/* Words to know: before the passage, each term in bold with one plain line */
+.words { margin: 0 0 var(--s4); font-size: var(--t-small); }
+.words ul { margin: var(--s1) 0 0; }
+.words li { margin: 2px 0; }
+.words .term { color: var(--fg); }
+.words .line { color: var(--ink2); }

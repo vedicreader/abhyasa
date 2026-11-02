@@ -790,3 +790,24 @@ def test_note_does_not_repeat_the_tutors_words(mk, walk_fake, lr):
     lr.walk_step(jid, 2, note=None, note_none=None)
     n = cl.get(f'/w/{jid}/2/note').text
     assert "The tutor's note" in n and 'A loud voice' in n
+
+def test_words_to_know_come_first(mk, walk_fake, lr):
+    "A check that uses intercept, which you do not know, shows the line for intercept before the passage. Once you learned intercept, it does not show."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.put('Intercept', 'The intercept is the point where a line crosses the y axis.', 'maths')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why='', q='Slide the line up. How does the intercept change?'))
+    page = cl.get(f'/w/{jid}/1').text
+    assert 'Words to know' in page and page.index('The intercept is the point') < page.index('id="passage"')
+    assert 'data-pane="/c/intercept' in page.split('Words to know')[1].split('id="passage"')[0]   # the term opens in the side pane
+    lr.update('intercept', floor=4)
+    assert 'The intercept is the point' not in cl.get(f'/w/{jid}/1').text
+
+def test_words_to_know_from_the_check_question(mk, walk_fake, lr):
+    "A term that only the tutor's question names comes with the check card, out of band."
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start')
+    lr.put('Intercept', 'The intercept is the point where a line crosses the y axis.', 'maths')
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''))
+    walk_fake.dflt = dict(question='Where is the intercept of this line?', answer='At b.', rubric=['b'])
+    assert 'The intercept is the point' not in cl.get(f'/w/{jid}/1').text
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'id="words"' in card and 'hx-swap-oob="true"' in card and 'The intercept is the point' in card
