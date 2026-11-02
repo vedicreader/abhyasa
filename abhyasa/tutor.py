@@ -164,6 +164,8 @@ together, including the think-aloud, not the wording.
 - `core_met`: true when their messages together hold the core point in substance, in ANY words: their own words, an example that
   shows it, or a correct equation. A missing term, name, size or framing never fails it. A point that the question did not ask never fails it.
   A list of the page's terms, or a definition said again, with no reason that links them, is not the core.
+  The core must meet the case of the question: a general sentence of the page that does not use the case (its numbers, its names,
+  what changes in it) is a recital, not the core.
   A right result with no reason, or from wrong reasoning, does not hold a core that has a reason in it.
 - `also_met`: how many bonus points their messages hold, 0 to 2. A bonus point only raises the grade.
 - `slip`: a slip that does not change the idea, in a few words: a typo, a wrong sum, a misread number, a loose or overstated
@@ -175,7 +177,8 @@ together, including the think-aloud, not the wording.
   Say what is true, not what they think. BAD: "You assume that the key must be a condensed version of the value."
   GOOD: "The key does not have to be a short form of the value." Empty when the core is met.
 - `feedback`: reply to their latest message. Never only "Correct.", and never only the model answer said again.
-  When the core is met: confirm the core in one line, in their terms, and add one line that ties it to a next idea or a consequence.
+  When the core is met: say in at most 8 words what they got right. Do not say the core or the model answer again.
+  Then add one line with a consequence or a next idea that the core leads to.
   Name a slip in a few words, if there is one.
   When the result is right but the reason is missing, or their think-aloud says they guess or do not know: say the result is right,
   then ask for the reason ("Why does it hold?").
@@ -184,7 +187,8 @@ together, including the think-aloud, not the wording.
   Use one question mark only. Never repeat an earlier tutor turn. Never give the answer.
 - Show code in `feedback` only when it helps the next step, and then at most 4 lines. Never repeat code that is already in the
   question or in an earlier tutor turn.
-- The way to teach shapes the lesson. It does not force code into every nudge, and it does not force equations or an analogy.
+- The way to teach shapes the lesson. It does not force code into every nudge, and it does not force equations, an analogy or a drawing task.
+  Give a drawing task or an analogy in `feedback` only when they ask for one.
 - When their latest message says they do not know a term or an idea ("I don't know what the loop means"), `feedback` first
   explains that term in one or two plain sentences, without the answer to the question. Then it asks its one question.
 - Their messages often come from speech to text. Read past transcription noise: repeated words, a wrong homophone, a garbled
@@ -211,12 +215,13 @@ def grade_prompt(q, answer, thinking='', confidence=None):
     return (f"Concept: {q.name}\nCheck: {q.get('facet') or KIND_AT.get(q.depth, '')}\nQuestion: {q.question}\nModel answer (hidden from learner): {q.answer}\n"
             f"Core point (required, in any words): {core_of(q)}\nBonus points (they only raise the grade): {json.dumps(also, ensure_ascii=False)}\n"
             + (f"At this depth the answer also needs one bonus point to pass. When the core is met and no bonus point is, `feedback` says the core is right and asks one question that leads to the bonus point.\n" if q.depth >= 4 and also else '')
+            + (f"The next idea in the walk: {q.next_idea}. When the core is met, tie it to this idea in one line.\n" if q.get('next_idea') else '')
             + f"Known wrong ideas:\n{wrong_text(q.get('known_wrong'))}\n\nThe conversation so far, in order:\n{thread_text(q) or 'Tutor (question): ' + q.question}\n\n"
             f"Their latest message follows; it may be only a follow-up to the last tutor turn.\n"
             f"Learner's answer: {answer or '(none)'}\nLearner's think-aloud: {thinking or '(none)'}\nLearner's confidence: {'not given' if confidence is None else f'{confidence}/100'}\n\n"
             + (f"Passages from the learner's own sources (judge against these too, where they apply):\n{q.ctx}\n\n" if q.get('ctx') else '')
-            + (f"{_way(q.get('method'))}In `feedback`, use this way only when it helps the next step, or when they ask for it. "
-               "Keep it short: at most 4 lines of code or equations.\n\n" if q.get('method') in METHODS else '')
+            + (f"{_way(q.get('asked'))}They asked for this way. In `feedback`, use it for the next step. "
+               "Keep it short: at most 4 lines of code or equations.\n\n" if q.get('asked') in METHODS else '')
             + 'Return JSON: {"core_met": bool, "also_met": int, "grade": int, "first_error": str, "slip": str, "misconception": str, "known": int, "feedback": str, "gaps": [str], "asks_for": str}')
 
 def passed(q, g) -> AttrDict:
@@ -395,6 +400,9 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, 
     q.who = '\n'.join(x for x in (profile_text(p), calibration_text(AttrDict(st.calib)) if st.calib else '', methods_text(st, c.get('subject', ''))) if x)
     q.update(ctx=ground_text(ps), grounds=[link_of(p) for p in ps], level=self.learning.level_of(c))
     q.known_wrong = wrong_ideas(c.get('wrong'))
+    m = q.meta
+    if isinstance(m.get('step'), int) and m.get('walk') and (j := self.learning.journey(m['walk'])) and m['step'] + 1 < len(j.steps):   # the feedback ties a pass to the next idea
+        q.next_idea = (self.learning.concept(j.steps[m['step'] + 1]['slug']) or {}).get('name', '')
     if (ck := self.checks.pop(c['slug'], None)):   # the check of a lesson counts for the method of the lesson
         q.update(question=ck[0], answer=ck[1], core=f"the prediction follows from the lesson, for this reason: {c['core']}" if c.get('core') else 'the prediction follows from the lesson', ready=True, method=ck[2], why=f'{why}; the check from the lesson'.lstrip('; '))
         q.rubric = [q.core]
@@ -434,7 +442,7 @@ def _plain_q(ask, r, name) -> dict:
 
 def public(q) -> AttrDict:
     "A question as the learner can see it: no model answer, no rubric, no correct option, no misconception tags."
-    out = AttrDict({k: v for k, v in q.items() if k not in ('answer', 'rubric', 'correct', 'options', 'statement', 'ctx', 'grounds', 'who', 'level', 'core', 'also', 'wrong', 'known_wrong')})
+    out = AttrDict({k: v for k, v in q.items() if k not in ('answer', 'rubric', 'correct', 'options', 'statement', 'ctx', 'grounds', 'who', 'level', 'core', 'also', 'wrong', 'known_wrong', 'next_idea')})
     if q.get('options'): out.options = [o['text'] for o in q.options]
     return out
 
@@ -538,7 +546,7 @@ def _heard(self:Tutor, q, g):
         else:
             try: job()
             except Exception: pass
-    if g.get('asks_for') in TEXT_WAYS: q.method = g['asks_for']
+    if g.get('asks_for') in TEXT_WAYS: q.method = q.asked = g['asks_for']   # the nudge uses a way only when you ask for it
 
 @patch
 @_held
