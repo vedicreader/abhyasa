@@ -51,7 +51,7 @@ def test_concept_source_names_the_walk(mk, lr):
 
 def test_concept_source_has_the_paper_title(mk, lr):
     "A concept from a paper that came in with its arXiv id as its title shows the title of the paper in its Source part after the repair at the start."
-    import abhyasa.talk   # adds Learning.repair_id_titles
+    import abhyasa.show   # adds Learning.repair_id_titles
     lr.put('Self-attention', 'Each token looks at each other token.', 'ml', provenance=[dict(src='vault', shelf='store', doc_id='d1', title='1706.03762')])
     lr.put_journey(dict(id='p1', title='Attention Is All You Need', mode='walk', steps=[dict(slug='self-attention', status='todo', check=CK)],
                         source=dict(shelf='store', doc_id='d1', url='https://arxiv.org/abs/1706.03762', title='Attention Is All You Need')))

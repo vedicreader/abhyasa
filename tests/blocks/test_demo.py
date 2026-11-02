@@ -1,5 +1,5 @@
 import re
-import abhyasa.demo   # patches Learning with put_demo and record_prediction
+import abhyasa.show   # patches Learning with put_demo and record_prediction
 "The demo block: rupaka served offline, the Show slot of the concept page, no demo page of its own, the prediction log, and a demo after two misses."
 import json
 from rupaka.spec import gallery

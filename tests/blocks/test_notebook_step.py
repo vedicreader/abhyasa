@@ -142,7 +142,7 @@ def test_walk_made_writes_each_notebook(mk, lr, walk_fake, monkeypatch):
     "A tool walk whose code idea is a notebook check gets its spec in the background, with no page load."
     walk_fake.rules[NB_RULE] = GOOD
     walk_fake.rules['Return JSON: {"concepts"'] = dict(concepts=[{**c, 'ways': ['code', 'maths']} if c['name'] == 'Softmax' else c for c in EXTRACT_REPLY['concepts']])
-    monkeypatch.setattr('abhyasa.journey.hands_most', lambda n: n)   # no cap, so the code idea keeps its notebook check
+    monkeypatch.setattr('abhyasa.path.hands_most', lambda n: n)   # no cap, so the code idea keeps its notebook check
     cl = mk()
     jid = cl.post('/walk/new', data=dict(ref=add_paper(lr), tool='on')).headers['hx-redirect'].split('/')[-1]
     ix = [i for i, s in enumerate(lr.journey(jid).steps) if s['check']['kind'] == 'notebook']
@@ -150,9 +150,9 @@ def test_walk_made_writes_each_notebook(mk, lr, walk_fake, monkeypatch):
     assert wait_for(lambda: all(lr.journey(jid).steps[i].get('nb') for i in ix) or None, 10)
 
 def test_path_why_is_the_old_name_of_data_path_why():
-    "Leela imports `abhyasa.contract.path_why`, so the old name stays. The folder rule of the settings has its own name."
-    from abhyasa import contract, settings
-    assert contract.path_why is contract.data_path_why and not hasattr(settings, 'path_why')
+    "Leela imports `abhyasa.contract.path_why`, so the old name stays. The folder rule of the settings in `learner` has its own name."
+    from abhyasa import contract, learner
+    assert contract.path_why is contract.data_path_why and not hasattr(learner, 'path_why')
     assert contract.data_path_why('~/a/../b') == 'the path has ..'
 
 def test_data_path_under_a_hidden_home(monkeypatch, tmp_path):

@@ -28,7 +28,7 @@ def test_search_shows_hits_by_kind(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr)
     sid = cl.post('/start', data={}, follow_redirects=False).headers['location'].split('/')[-1]; cl.get(f'/s/{sid}')   # a session with no answers
     lr.record('ranking', 'What does a rank tell you?', answer='its position', correct=True)
-    import abhyasa.method; lr.set_stats(rank=dict(words=[1, 1]))   # the method stats doc
+    import abhyasa.learner; lr.set_stats(rank=dict(words=[1, 1]))   # the method stats doc
     h = cl.get('/search?q=rank').text
     body = h[h.index('<main'):]
     for bad in ('Subject:', 'Journey:', 'Goal:', 'Steps:', 'Question:', 'Answer:', 'Also:', 'Concepts:', 'How you learn', '0 of 0 passed', 'Session '):

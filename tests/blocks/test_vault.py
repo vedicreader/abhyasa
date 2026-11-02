@@ -76,7 +76,7 @@ def test_image_syntax_in_code_stays_as_text(mk, lr):
 
 def test_viewer_refuses_the_history_of_an_editor(mk, lr):
     "A history keeps old text that you took out of a talk or a walk: the vault page never shows it, as for an open question."
-    import abhyasa.edit
+    import abhyasa.path
     lr.add_edit('talk', 't1', 'Removed “Softmax”.', 'you', [dict(id='s1', title='A secret slide')])
     d = lr.v.t.docs(where="kind='edits'")[0]['id']
     t = mk(['vault']).get(f'/v/learning/{d}').text

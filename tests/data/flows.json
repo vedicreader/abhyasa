@@ -183,7 +183,7 @@
       "cost": "One query per page: the newest 10 walks by updated, and the newest open session. No progress() over all concepts."
     },
     "activity": {
-      "rule": "abhyasa.jobs.activity(lr): the rows with state running, then the rows with state done, failed or closed that are not seen and ended less than 6 hours ago. A quiet row (a side walk of a talk, a notebook spec, the demo of a step, a rung of the demo ladder) never shows.",
+      "rule": "abhyasa.learner.activity(lr): the rows with state running, then the rows with state done, failed or closed that are not seen and ended less than 6 hours ago. A quiet row (a side walk of a talk, a notebook spec, the demo of a step, a rung of the demo ladder) never shows.",
       "show_when": "at least one such job",
       "label": "running: '{n} running'; ended: 'Ready: {what}' or 'Failed: {what}'",
       "opens": "a small list; each row links to the page of the object (the walk page, section sources; the course page). Opening the object page sets seen=true.",

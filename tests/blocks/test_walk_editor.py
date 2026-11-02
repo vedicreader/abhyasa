@@ -56,7 +56,7 @@ def test_hands_share_only_warns(mk, lr, walk_fake):
     assert '3 of 3 ideas have a hands-on check. You set about 33%.' in r.text and 'Change the setting' in r.text
 
 def test_notebook_kind_queues_the_spec(mk, lr, walk_fake, monkeypatch):
-    queued = []; monkeypatch.setattr('abhyasa.walk.nb_spec', lambda lr, ask, j, i: queued.append(i))
+    queued = []; monkeypatch.setattr('abhyasa.path.nb_spec', lambda lr, ask, j, i: queued.append(i))
     cl = mk(); jid = paper_walk(cl, lr); s = slugs(lr, jid)[0]
     r = post(cl, jid, slug=s, act='check', way='notebook')
     assert lr.journey(jid).steps[0]['check']['kind'] == 'notebook' and '2 of 3 ideas have a hands-on check' in r.text   # a notebook that you pick is hands-on

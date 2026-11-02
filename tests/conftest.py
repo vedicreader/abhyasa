@@ -23,7 +23,7 @@ from abhyasa.app import mk_app
 from abhyasa.sources import passage
 from pathlib import Path
 from rupaka.spec import gallery
-import abhyasa.voice
+import abhyasa.models
 
 class Notes:
     "A source with one passage that names Ranking."
@@ -85,10 +85,10 @@ def no_leela(monkeypatch, tmp_path_factory):
 @pytest.fixture(autouse=True)
 def no_web(monkeypatch):
     "No test searches the web or fetches a page: the default search finds nothing, and the default fetch fails. A test passes its own fakes."
-    import abhyasa.research
+    import abhyasa.path
     def fetch(url): raise AssertionError(f'a test tried to fetch {url}')
-    monkeypatch.setattr(abhyasa.research, 'web_search', lambda q, n: [])
-    monkeypatch.setattr(abhyasa.research, 'web_fetch', fetch)
+    monkeypatch.setattr(abhyasa.path, 'web_search', lambda q, n: [])
+    monkeypatch.setattr(abhyasa.path, 'web_fetch', fetch)
     import abhyasa.sources
     def gh(o, n): raise AssertionError(f'a test asked GitHub about {o}/{n}')
     monkeypatch.setattr(abhyasa.sources, 'gh_public', gh)
@@ -97,10 +97,10 @@ def no_web(monkeypatch):
 @pytest.fixture(autouse=True)
 def no_agent(monkeypatch):
     "No test starts the real gather agent: a test that wants one passes a fake. A walk falls back to the simple search."
-    import abhyasa.research
+    import abhyasa.path
     def worker(*a, **kw): raise RuntimeError('no agent in the tests')
-    monkeypatch.setattr(abhyasa.research, 'ramabana_worker', worker)
-    monkeypatch.setattr(abhyasa.research, 'ramabana_lead', worker)
+    monkeypatch.setattr(abhyasa.path, 'ramabana_worker', worker)
+    monkeypatch.setattr(abhyasa.path, 'ramabana_lead', worker)
 
 @pytest.fixture(autouse=True)
 def no_disk_names(tmp_path_factory):

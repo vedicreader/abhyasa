@@ -6,10 +6,9 @@ from abhyasa import show
 DDPM = r'q(\mathbf{x}_t\mid\mathbf{x}_0)=\mathcal{N}(\mathbf{x}_t;\sqrt{\bar\alpha_t}\mathbf{x}_0,(1-\bar\alpha_t)\mathbf{I})'
 
 def test_the_board_names_are_rupakas():
-    "`abhyasa.show` and its old name `abhyasa.guide` give rupaka's board, so a host that imports them gets the same checks."
-    from abhyasa import guide
-    for n in ('parse_board', 'stream_board', 'check_line', 'clean_context', 'norm_tex', 'PageContext', 'OPS', 'video_id'): assert getattr(show, n) is getattr(rb, n) is getattr(guide, n), n
-    assert show.GUIDE_KINDS is rb.KINDS is guide.KINDS
+    "`abhyasa.show` gives rupaka's board, so a host that imports it gets the same checks."
+    for n in ('parse_board', 'stream_board', 'check_line', 'clean_context', 'norm_tex', 'PageContext', 'OPS', 'video_id'): assert getattr(show, n) is getattr(rb, n), n
+    assert show.GUIDE_KINDS is rb.KINDS
 
 # --- the context and the figure labels -------------------------------------------------------------------------------
 from abhyasa.show import clean_context, figure_labels, FigureCache

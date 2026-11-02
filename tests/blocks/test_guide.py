@@ -304,12 +304,12 @@ def test_a_routed_model_is_named_with_where_it_runs(mk, monkeypatch):
 
 def test_a_saved_web_page_can_be_undone(mk, fake, lr, monkeypatch):
     "The web tier files a page in the vault and links it to the concept. The route says so with an Undo route, and Undo takes both away."
-    import abhyasa.research, abhyasa.settings
+    import abhyasa.path, abhyasa.show
     text = 'Home. A rank is the place of an item in a list that is sorted by score.'
-    monkeypatch.setattr(abhyasa.research, 'web_search', lambda q, n: [dict(title='Ranks', href='https://example.org/ranks')])
-    monkeypatch.setattr(abhyasa.research, 'web_fetch', lambda u: abhyasa.research.AttrDict(url=u, title='Ranks explained', text=text))
-    on = abhyasa.settings.val
-    monkeypatch.setattr(abhyasa.settings, 'val', lambda k: True if k == 'research.on' else on(k))
+    monkeypatch.setattr(abhyasa.path, 'web_search', lambda q, n: [dict(title='Ranks', href='https://example.org/ranks')])
+    monkeypatch.setattr(abhyasa.path, 'web_fetch', lambda u: abhyasa.path.AttrDict(url=u, title='Ranks explained', text=text))
+    on = abhyasa.show.val
+    monkeypatch.setattr(abhyasa.show, 'val', lambda k: True if k == 'research.on' else on(k))
     weak = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.3), dict(op='step', say='One.'), dict(op='box', at='title')])
     quoted = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.8), dict(op='step', say='One.', src=1, quote=text[6:]), dict(op='box', at='title')])
     fake.rules.update({'Tier: tutor': weak, 'Tier: vault': weak, 'Tier: web': quoted, 'Return JSON: {"passage"': dict(passage=text[6:])})

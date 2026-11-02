@@ -4,7 +4,7 @@ import pytest
 from fastcore.basics import AttrDict
 from abhyasa.learner import set_val
 from abhyasa.sources import LinkError
-import abhyasa.research
+import abhyasa.path
 
 HX = {'HX-Request': 'true'}
 PAGE = ('# Softmax\n\nHome · About\n\nThe softmax function turns a list of scores into weights. Each weight is between 0 and 1,\n'
@@ -31,8 +31,8 @@ class Web:
 def web(monkeypatch, walk_fake):
     "The fake web, and a model that quotes the page and plans a walk on Softmax, which the Notes source does not name."
     w = Web()
-    monkeypatch.setattr(abhyasa.research, 'web_search', lambda q, n: w.search(q, n))
-    monkeypatch.setattr(abhyasa.research, 'web_fetch', lambda url: w.fetch(url))
+    monkeypatch.setattr(abhyasa.path, 'web_search', lambda q, n: w.search(q, n))
+    monkeypatch.setattr(abhyasa.path, 'web_fetch', lambda url: w.fetch(url))
     walk_fake.rules.update({'You find one passage': dict(passage=QUOTE), 'You plan a learning path': PLAN})
     return w
 
@@ -103,8 +103,8 @@ def test_no_source_then_find_a_source(mk, web, lr, walk_fake):
 def test_look_again_counts_while_the_last_search_ends(mk, web, lr, walk_fake, monkeypatch):
     "Look again just after a search wrote its result, while its job still ends, starts a new search: the step is no longer looked for."
     walk_fake.rules['You find one passage'] = dict(passage='Softmax makes weights from scores, and they add up to 1 and lie between 0 and 1.')
-    go, ended = threading.Event(), abhyasa.research._ended
-    monkeypatch.setattr(abhyasa.research, '_ended', lambda *a, **kw: (go.wait(10), ended(*a, **kw)))   # the job holds after it wrote the result
+    go, ended = threading.Event(), abhyasa.path._ended
+    monkeypatch.setattr(abhyasa.path, '_ended', lambda *a, **kw: (go.wait(10), ended(*a, **kw)))   # the job holds after it wrote the result
     cl = mk(); jid = topic(cl); cl.post(f'/w/{jid}/start')
     try:
         until(lambda: state(lr, jid) == 'none')
