@@ -229,18 +229,26 @@ def OutModel(engine, model, speaker):
     return P('The voice is not on this Mac yet. Until you download it, the browser speaks. ',
              Button('Download', hx_post=Routes.out_get, hx_vals={'engine': 'pocket'}, title='Download the voice (225 MB), then use it', **post), cls='warn first-use')
 
-def OutVoice(engine, v):
-    "The voice: a list of the voices of the engine."
+def voice_name(v) -> str: return v.replace('_', ' ').title()
+
+def OutVoice(engine, model, v):
+    "The voice: a list of the voices of the engine. For OpenAI, only the voices of its model (`VOICES_OF`)."
     if engine == 'browser': return ''
-    vs = voice.POCKET_VOICES if engine == 'pocket' else voice.OPENAI_VOICES
-    return P(Label('Voice ', Select(*[Option(x.replace('_', ' ').title(), value=x, selected=x == v) for x in vs], name='voice', hx_post=Routes.out,
+    vs = voice.POCKET_VOICES if engine == 'pocket' else voice.openai_voices(model)
+    return P(Label('Voice ', Select(*[Option(voice_name(x), value=x, selected=x == v) for x in vs], name='voice', hx_post=Routes.out,
                                     hx_vals={'engine': engine}, hx_trigger='change', hx_target='#voice-out', hx_swap='outerHTML')), cls='out-line')
 
-def VoiceOut(speaker, key, oob=False):
-    "The speaking voice: the engine, the model, the voice, the speed for OpenAI, and Play a sample."
+def refit_note(old, model, new) -> str:
+    "One line when the voice `old` does not work with `model`, so `new` speaks; '' when it does."
+    return f'{voice_name(old)} does not work with {model}, so the voice is {voice_name(new)} now.' if old and old != new else ''
+
+def VoiceOut(speaker, key, oob=False, note=''):
+    "The speaking voice: the engine, the model, the voice, a `note` on a changed voice, the speed for OpenAI, and Play a sample."
     engine, model, v, _ = voice.out_current()
+    if engine == 'openai' and not note: note = refit_note(val('voice.out_voice'), model, v)   # an old setting with a voice that its model does not have
     sp = SETTINGS['voice.out_speed']
-    return Div(OutEngine(engine, key), OutModel(engine, model, speaker), OutVoice(engine, v),
+    return Div(OutEngine(engine, key), OutModel(engine, model, speaker), OutVoice(engine, model, v),
+               P(note, cls='out-note mute') if note else '',
                Ul(Row(sp, val(sp.name)), id='out-speed', cls='plain srows', hidden=engine != 'openai'),   # Pocket TTS and the browser have no speed here
                P(Button('Play a sample', type='button', cls='quiet', data_sample=Routes.out_sample, data_engine=engine, data_text=SAMPLE),
                  ' ', Span(cls='mute out-said', aria_live='polite'), cls='out-line out-sample'),   # hidden while the voice failed (settings.css): the status line says why

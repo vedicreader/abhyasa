@@ -215,9 +215,13 @@ def connect(app, ctx):
         same = engine == val('voice.out')
         keep = lambda v, k: v.strip() or (val(k) if same else '')
         m, v = ('', '') if engine == 'browser' else (keep(model, 'voice.out_model'), keep(voice_, 'voice.out_voice'))
+        note = ''
+        if engine == 'openai' and v:   # a model change can drop the voice: keep one that the model has, and say so
+            fv = voice.fit_voice(m or voice.DFLT_SPEECH, v)
+            note, v = ui.refit_note(v, m or voice.DFLT_SPEECH, fv), fv
         voice.update_settings('voice', out=engine, out_model=m, out_voice=v)
         spk.warm()
-        return out_part()
+        return ui.VoiceOut(spk, has_key(), note=note)
 
     def out_route(engine:str='', model:str='', voice:str=''): return out(engine, model, voice)   # the form names it `voice`
 

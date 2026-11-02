@@ -9,14 +9,15 @@ __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 
            'MAX_TOKENS', 'HOSTED', 'WORKER_SP', 'WORKER_CALLS', 'WORKER_STEPS', 'WORKER_DOLLARS', 'WORKER_TOKENS',
            'LEAD_TOOLS', 'SUB_STEPS', 'DFLT_STT', 'DFLT_WHISPER', 'DFLT_PARAKEET', 'DFLT_OPENAI', 'DFLT_MODELS',
            'ALIASES', 'POCKET', 'POCKET_FILES', 'OPENAI_URL', 'http_post', 'ENGINES', 'KNOWN', 'STT_WORDS', 'NOT_STT',
-           'POCKET_VOICES', 'DFLT_SPEECH', 'OUT_ENGINES', 'OPENAI_VOICES', 'OPENAI_SPEECH', 'OUT_DFLT',
-           'POCKET_MISSING', 'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'dflt_model', 'parse_json', 'ask_json', 'Fake',
-           'model_ask', 'model_label', 'provider_label', 'where_of', 'where_chip', 'catalog', 'one_each', 'Router',
-           'for_task', 'ramabana_agent', 'no_answer', 'ramabana_oneshot', 'ramabana_stream', 'RouteAsk', 'route_ask',
-           'ramabana_worker', 'ramabana_lead', 'Withheld', 'guard', 'safe_query', 'guarded', 'resolve', 'current',
-           'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence',
-           'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'out_resolve',
-           'out_current', 'out_where', 'by_letters', 'to_wav', 'clean_wav', 'speak', 'Speaker', 'Dictation', 'Speech']
+           'POCKET_VOICES', 'DFLT_SPEECH', 'OUT_ENGINES', 'OPENAI_VOICES', 'TTS1_VOICES', 'VOICES_OF', 'OPENAI_SPEECH',
+           'OUT_DFLT', 'POCKET_MISSING', 'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'dflt_model', 'parse_json',
+           'ask_json', 'Fake', 'model_ask', 'model_label', 'provider_label', 'where_of', 'where_chip', 'catalog',
+           'one_each', 'Router', 'for_task', 'ramabana_agent', 'no_answer', 'ramabana_oneshot', 'ramabana_stream',
+           'RouteAsk', 'route_ask', 'ramabana_worker', 'ramabana_lead', 'Withheld', 'guard', 'safe_query', 'guarded',
+           'resolve', 'current', 'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe',
+           'wav_seconds', 'silence', 'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch',
+           'remove', 'openai_voices', 'fit_voice', 'out_resolve', 'out_current', 'out_where', 'by_letters', 'to_wav',
+           'clean_wav', 'speak', 'Speaker', 'Dictation', 'Speech']
 
 # %% ../nbs/01_models.ipynb #9cfb2945
 import json, os, re, gc, time, uuid, inspect, tempfile, threading, wave
@@ -540,8 +541,18 @@ POCKET_VOICES = ('caro_davy', 'alba', 'anna', 'azelma', 'bill_boerst', 'charles'
 DFLT_SPEECH = 'gpt-4o-mini-tts'
 OUT_ENGINES = ('pocket', 'openai', 'browser')
 OPENAI_VOICES = ('marin', 'cedar', 'coral', 'alloy', 'ash', 'ballad', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse')
-OPENAI_SPEECH = (DFLT_SPEECH, 'tts-1', 'tts-1-hd')
+TTS1_VOICES = ('coral', 'alloy', 'ash', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer')
+VOICES_OF = {DFLT_SPEECH: OPENAI_VOICES, 'tts-1': TTS1_VOICES, 'tts-1-hd': TTS1_VOICES}   # the voices of each OpenAI speech model
+OPENAI_SPEECH = tuple(VOICES_OF)
 OUT_DFLT = dict(pocket=(POCKET, 'caro_davy'), openai=(DFLT_SPEECH, 'marin'))
+
+# %% ../nbs/01_models.ipynb #vf02
+def openai_voices(model:str) -> tuple: return VOICES_OF.get(model, OPENAI_VOICES)
+
+def fit_voice(model:str, voice:str) -> str:
+    "`voice` when `model` has it, else the default voice of `model`."
+    vs = openai_voices(model)
+    return voice if voice in vs else vs[0]
 
 # %% ../nbs/01_models.ipynb #6352ed0c
 def out_resolve(engine:str, model:str='', voice:str='') -> tuple:
@@ -551,7 +562,8 @@ def out_resolve(engine:str, model:str='', voice:str='') -> tuple:
     if engine == 'browser': return 'browser', '', ''
     m, v = OUT_DFLT[engine]
     if engine == 'pocket': return engine, m, voice if voice in POCKET_VOICES else v
-    return engine, model or m, voice or v
+    m = model or m
+    return engine, m, fit_voice(m, voice or v)
 
 def out_current() -> tuple:
     "The voice in use: `(engine, model, voice, speed)` from the settings."

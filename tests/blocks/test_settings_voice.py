@@ -97,3 +97,27 @@ def test_a_missing_voice_says_so_one_time(mk, monkeypatch):
     part = re.search(r'<div[^>]*id="voice-out".*', cl.get('/settings').text, re.S)[0]
     said = voice.POCKET_MISSING.replace('"', '&quot;')
     assert part.count(said) + part.count(voice.POCKET_MISSING) == 1 and 'failed:' not in part and 'class="out-line out-sample"' in part
+
+def voices_in(t) -> list:
+    "The values of the Voice list in a part of the page."
+    return re.findall(r'<option value="([^"]+)"', t[t.index('name="voice"'):])
+
+def test_the_voice_list_has_only_the_voices_of_the_model(mk):
+    "tts-1 lists its 9 voices, with no Ballad. gpt-4o-mini-tts lists all 13."
+    cl = mk(['settings']); voice.set_openai_key('sk-x-1111')
+    t = cl.post('/settings/voice', data=dict(engine='openai', model='tts-1')).text
+    assert voices_in(t) == list(voice.TTS1_VOICES) and 'ballad' not in voices_in(t)
+    t = cl.post('/settings/voice', data=dict(engine='openai', model='gpt-4o-mini-tts')).text
+    assert voices_in(t) == list(voice.OPENAI_VOICES) and 'ballad' in voices_in(t)
+
+def test_a_model_change_keeps_a_voice_that_works(mk):
+    "Ballad with gpt-4o-mini-tts, then tts-1-hd: the voice becomes Coral, and one line says so. A voice that works stays, with no line."
+    cl = mk(['settings']); voice.set_openai_key('sk-x-1111')
+    cl.post('/settings/voice', data=dict(engine='openai', voice='ballad'))
+    t = cl.post('/settings/voice', data=dict(engine='openai', model='tts-1-hd')).text
+    assert voice.out_current()[:3] == ('openai', 'tts-1-hd', 'coral') and val('voice.out_voice') == 'coral'
+    assert 'Ballad does not work with tts-1-hd, so the voice is Coral now.' in t and 'value="coral" selected' in t
+    cl.post('/settings/voice', data=dict(engine='openai', voice='nova'))
+    assert 'does not work' not in cl.post('/settings/voice', data=dict(engine='openai', model='tts-1')).text
+    update_settings('voice', out_model='tts-1-hd', out_voice='ballad')   # an old setting from before the check
+    assert 'Ballad does not work with tts-1-hd, so the voice is Coral now.' in cl.get('/settings').text
