@@ -799,7 +799,8 @@
           "must_show": [
             "part:check (closed card)",
             "act:next",
-            "label:Next idea"
+            "label:Next idea",
+            "act:do-again"
           ],
           "must_not_show": [
             "act:send"
@@ -807,8 +808,10 @@
           "actions": [
             "next",
             "show-me",
-            "review"
-          ]
+            "review",
+            "do-again (quiet: a fresh check on the same idea)"
+          ],
+          "shows": "what you did: the question (folded when long), your answer, the grade and the feedback, and when and where, with a link in the side pane; with no attempt (an old path), the line \"Marked done when your old path became this walk. Its answer is not kept.\""
         },
         "known_elsewhere": {
           "when": "walk_state(j, by).steps[i].elsewhere",
@@ -932,7 +935,8 @@
         "walk",
         "course (its own course for a big gap; the link to it on the step)",
         "concept (in the pane: a name in the needs line, What moved)",
-        "doc (in the pane: the source line of the passage, Open in your vault)"
+        "doc (in the pane: the source line of the passage, Open in your vault)",
+        "you (in the pane: the past session of a done check, as \"29 Oct, in a past session\")"
       ]
     },
     "concept": {

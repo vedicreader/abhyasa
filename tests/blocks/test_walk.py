@@ -811,3 +811,20 @@ def test_words_to_know_from_the_check_question(mk, walk_fake, lr):
     assert 'The intercept is the point' not in cl.get(f'/w/{jid}/1').text
     card = cl.get(f'/w/{jid}/1/check').text
     assert 'id="words"' in card and 'hx-swap-oob="true"' in card and 'The intercept is the point' in card
+
+def test_a_done_check_shows_what_you_did(mk, walk_fake, lr):
+    "A done step with an attempt shows the question, the answer, the feedback and the date. A migrated step with none says so. Do it again opens a fresh check."
+    import time as tm
+    cl = mk(); jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); j = lr.journey(jid)
+    a = lr.record(j.steps[1]['slug'], 'What does a rank mean here?', 'Its place in the list.', correct=True, grade=9, feedback='Yes, the place in the list.', walk=jid, step=1)
+    lr.walk_step(jid, 1, check=dict(way='words', kind='short', depth=2, why=''), done=dict(outcome='solid', aid=a.id, at=a.at))
+    card = cl.get(f'/w/{jid}/1/check').text
+    assert 'What does a rank mean here?' in card and 'Its place in the list.' in card and 'Yes, the place in the list.' in card and '9/10' in card
+    assert tm.strftime('%-d %b', tm.localtime(a.at)) in card and f'href="/w/{jid}"' in card and 'data-pane=' in card
+    assert 'Next idea' in card and 'Do it again' in card and 'data-act="do-again"' in card
+    lr.walk_step(jid, 2, check=dict(way='words', kind='short', depth=2, why=''), done=dict(outcome='solid', at=0))   # as an old path leaves it
+    old = cl.get(f'/w/{jid}/2/check').text
+    assert 'Marked done when your old path became this walk. Its answer is not kept.' in old and 'Do it again' in old
+    fresh = cl.post(f'/w/{jid}/1/again').text
+    s = lr.journey(jid).steps[1]
+    assert s['done'] is None and s['qid'] and 'id="send"' in fresh and 'Its place in the list.' not in fresh

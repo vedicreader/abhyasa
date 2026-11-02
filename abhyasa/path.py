@@ -22,12 +22,12 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS
            'walk_needs', 'known_how', 'gap_size', 'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail',
            'back_from', 'for_talk', 'is_open', 'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read',
            'look_up', 'topic_slug', 'name_gaps', 'split_parts', 'related', 'with_step', 'paper_id', 'same_share',
-           'fresh', 'tutor_note', 'step_meta', 'open_short', 'nb_prompt', 'nb_spec', 'leela_found', 'leela_back',
-           'term_line', 'words_to_know', 'edit_lock', 'restore_steps', 'undo_line', 'rewrite', 'move_step', 'skip_step',
-           'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent', 'edit_walk', 'undo_walk',
-           'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages', 'pick_read', 'links_in',
-           'propose', 'improve_walk', 'new_course', 'is_goal_walk', 'chip_sources', 'join_course', 'course_of',
-           'ensure_courses', 'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level',
+           'fresh', 'tutor_note', 'step_meta', 'done_attempt', 'open_short', 'nb_prompt', 'nb_spec', 'leela_found',
+           'leela_back', 'term_line', 'words_to_know', 'edit_lock', 'restore_steps', 'undo_line', 'rewrite',
+           'move_step', 'skip_step', 'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent', 'edit_walk',
+           'undo_walk', 'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages', 'pick_read',
+           'links_in', 'propose', 'improve_walk', 'new_course', 'is_goal_walk', 'chip_sources', 'join_course',
+           'course_of', 'ensure_courses', 'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level',
            'level_done', 'stages_prompt', 'walk_started', 'stage_stays', 'fix_count', 'plan_stages', 'lock_stage',
            'stage_brief', 'build_stage', 'add_data', 'drop_data', 'fill_data', 'name_data', 'join_names', 'stage_rows',
            'due_stage', 'next_up', 'add_ask', 'blocking', 'course_state', 'set_here', 'active_course', 'course_from',
@@ -1036,6 +1036,15 @@ def step_meta(j, i:int) -> dict:
     m = dict(walk=j.id, step=i, idea=j.steps[i]['slug'], section=r.get('section'), page=r.get('page'))
     if j.get('parent'): m['from'] = '/'.join(str(v) for k, v in j.parent.items() if k != 'idea')   # `<walk>/<step>`: the concept of the step is not part of it
     return m
+
+# %% ../nbs/04_path.ipynb #da02
+def done_attempt(lr, j, i:int) -> AttrDict|None:
+    "The attempt that closed step `i` of walk `j`, by `done.aid`, else the closest attempt on its concept; None for a step that is not done or skipped, or that has none."
+    s = j['steps'][i]; d = s.get('done') or {}
+    if d.get('outcome') in (None, 'skipped'): return None
+    As = lr.attempts(s['slug'], limit=50)
+    if d.get('aid') and (a := first(a for a in As if a.id == d['aid'])): return a
+    return first(a for a in As if a.get('walk') == j['id']) or first(a for a in As if not d.get('at') or a.at <= d['at'] + 60)
 
 # %% ../nbs/04_path.ipynb #i15
 def open_short(tutor:Tutor, j, i:int, session:str) -> AttrDict:

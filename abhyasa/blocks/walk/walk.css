@@ -238,3 +238,9 @@ main:has(#steps) { padding-bottom: calc(44px + 2 * var(--s5)); }
 .words li { margin: 2px 0; }
 .words .term { color: var(--fg); }
 .words .line { color: var(--ink2); }
+
+/* a done check: what you did */
+.did { margin: var(--s2) 0; }
+.did p { margin: var(--s1) 0; }
+.did .lbl { margin-right: var(--s1); }
+.did-at { font-size: var(--t-small); }

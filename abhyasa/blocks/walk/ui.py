@@ -369,12 +369,33 @@ def CardHead(s, q=None):
     way = LABELS.get(q.get('method') if q else ck.get('way'), '')
     return Div(Span(' · '.join(x for x in ('Check', way.lower(), depth) if x)), Span(ck.get('why', ''), cls='why') if ck.get('why') else '', cls='lbl')
 
+LONG_Q = 160   # a question longer than this is folded in a done check
+
+def Did(a, where=('', '')):
+    """What you did in a closed check: the question (folded when it is long), your answer, the grade and the feedback of the tutor, and
+    when and where, with a link to that walk or session in the side pane."""
+    q = str(a.get('question') or '')
+    ask = Details(Summary('The question'), Md(q), cls='did-q') if len(q) > LONG_Q else Div(Md(q), cls='did-q')
+    grade = f" · {a['grade']}/10" if isinstance(a.get('grade'), int) else ''
+    title, href = where
+    when = time.strftime('%-d %b', time.localtime(a['at'])) if a.get('at') else ''
+    return Div(ask, P(Span('You said', cls='lbl'), ' ', a.get('answer') or "I don't know", cls='did-a'),
+               P(Span(f"{'Right' if a.get('correct') else 'Not yet'}{grade}", cls='lbl'), ' ', Inline(a.get('feedback') or ''), cls='did-f') if a.get('feedback') or grade else '',
+               P(when, ', in ' if when and title else 'In ' if title else '', side_link(title, href, title) if title else '', cls='mute did-at') if when or title else '', cls='did')
+
+OLD_DONE = 'Marked done when your old path became this walk. Its answer is not kept.'
+
 def Done(jid, i, s):
-    "A check that is done, when its thread is not in memory any more."
+    """A check that is done, when its thread is not in memory any more: what you did (`Did`, from `s['did']`), or a plain line when its
+    answer is not kept, and a quiet Do it again. Next idea stays the main button."""
     o = (s.get('done') or {}).get('outcome')
     say = ('You skipped this check.' if o == 'skipped' else f"You did this check: {OUTCOME[o].lower()}." if o in OUTCOME
            else 'This check is not open. Load the page again.')
-    return Check(CardHead(s), P(say), foot=GoOn(jid, i, main=s.get('main')), cls='done')
+    if (a := s.get('did')): body = (P(say), Did(a, s.get('did_where') or ('', '')))
+    elif o in OUTCOME and o != 'skipped': body = (P(say), P(OLD_DONE if not (s.get('done') or {}).get('aid') else 'Its answer is not kept.', cls='mute'))
+    else: body = (P(say),)
+    redo = Quiet('Do it again', small=True, type='button', hx_post=at(Routes.again, jid, i), hx_target='#check', hx_swap='innerHTML', data_act='do-again') if o in OUTCOME else ''
+    return Check(CardHead(s), *body, foot=(GoOn(jid, i, main=s.get('main')), redo), cls='done')
 
 def Explain():
     "Explain in the row of a check: it opens the guide (guide.js), as Caps+E does."

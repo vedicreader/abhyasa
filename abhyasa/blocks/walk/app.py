@@ -16,7 +16,7 @@ from abhyasa.tutor import Session, HINTS, public, moved
 from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
 from abhyasa.path import back_from, with_data, keep_data, NAME_MOST, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, short_check, with_step, trail, parent_step, for_talk
 from abhyasa.learner import walk_state, _jlock
-from abhyasa.path import tutor_note, words_to_know, open_short, step_meta, leela_back, leela_found, course_of, drop_data
+from abhyasa.path import tutor_note, words_to_know, done_attempt, open_short, step_meta, leela_back, leela_found, course_of, drop_data
 import abhyasa.path as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.show   # adds Learning.talks: the editor links the talks made from a walk
 from abhyasa.show import walk_changes
@@ -143,9 +143,17 @@ def connect(app, ctx):
         pj, k = parent_step(lr, j)
         return pj and ui.name(by(), pj.steps[k])
 
+    def done_where(a):
+        "Where attempt `a` was made, for the done card: the title and the page of its walk (or the walk of its session), else its past session."
+        jid = a.get('walk') or (a.get('session') and (lr.session(a.session) or {}).get('journey'))
+        if jid and (w := lr.journey(jid)): return short_title(w.title) or w.title, ui.at(Routes.one, jid)
+        if a.get('session') and lr.session(a.session): return 'a past session', f"/you/s/{a.session}"
+        return '', ''
+
     def card(j, i):
         "The check card of step `i`; a short-answer card adds what other blocks put after it (`check_after`). The last idea of a side walk goes back to the main idea."
         s = {**j.steps[i], 'main': main_idea(j, i)}
+        if s.get('done') and not question(j, i) and (a := done_attempt(lr, j, i)): s.update(did=a, did_where=done_where(a))   # what you did, when the thread is gone
         k = s['check']['kind']
         if k == 'notebook': return nb_card(j, i)
         if k in AIM: return ui.CHECKS[k](j.id, i, s, demo(s))
