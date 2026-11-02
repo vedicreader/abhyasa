@@ -14,7 +14,7 @@ __all__ = ['HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'GRADE_SP', 'TEAC
 # %% ../nbs/03_tutor.ipynb #1e5f9956
 import functools, json, random, threading, time, uuid, weakref, html
 from fastcore.utils import *
-from .learner import Learning, meta_of, _src, log as _log, val, DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding, PACES, profile_text, observe, calibration_text, current, METHODS, TEXT_WAYS, EXAMPLES_TO, choose, methods_text, posterior, mean, way, register, prompt, lines, need_lines, keyed_lock, teach_sp
+from .learner import Learning, meta_of, _src, log as _log, val, DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding, PACES, profile_text, observe, calibration_text, current, METHODS, TEXT_WAYS, EXAMPLES_TO, choose, methods_text, posterior, mean, way, register, prompt, lines, need_lines, keyed_lock, teach_sp, plainly
 from .models import ask_json, for_task, route_ask
 from .sources import VaultSource, ground, ground_text, link_of
 
@@ -60,6 +60,8 @@ QUESTION_RULES = """Rules for the question:
 - Write `question`, `options` and `answer` in ASD-STE100 Simplified Technical English at a US grade 9 reading level:
   short sentences, active voice, common words, one instruction per sentence.
 - Write only the final question: no drafts, no corrections, no 'no: take'.
+- Name each technical thing by its real name, and say in plain words what it is. Never make up a nickname or a metaphor for a technical thing.
+- First say the setup in plain sentences: what is fixed and what changes. Then ask one thing.
 Pairs of a BAD and a GOOD question, on other subjects. Do not copy them:
 - One ask, not two. BAD: "State what f computes. Then say what s holds before return." GOOD: "What does s hold just before the return line?"
 - No second ask after a comma. BAD: "What must the arrow carry, and why does the right box need it?" GOOD: "Why does the right box need what the arrow carries?"
@@ -68,6 +70,7 @@ Pairs of a BAD and a GOOD question, on other subjects. Do not copy them:
 - One question word. BAD: "What does it print, and why?" GOOD: "Why does it print 7, not 8?"
 - A new case. BAD: "Explain the example of the apple that falls from the tree." GOOD: "A hammer and a feather fall on the Moon. Why do they land at the same time?"
 - Reasoning, not recitation. BAD: "What is the definition of the median?" GOOD: "You add one very large value to a list. Why does the median move less than the mean?"
+- Real names and a clear setup. BAD: "You ask the network to learn the noise recipe as it trains. Why does this depart from a DDPM simplifying assumption?" GOOD: "In a DDPM, the amount of noise at each step is set before training. Suppose the network learns this amount instead. Which DDPM rule does this break?"
 - Short and plain. BAD: "Considering the multifaceted implications of compounding over extended periods, elucidate why a debt grows nonlinearly." GOOD: "A debt of 100 grows by 10% each year. Why is it 121, not 120, after two years?"
 - Code goes in `code`. BAD: `question` is "What does def f(xs): return sorted(xs)[len(xs) // 2] give for [5, 1, 9]?" GOOD: `code` holds the two lines of f, and `question` is "What does f return for [5, 1, 9, 3]?\""""
 
@@ -343,6 +346,7 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, 
         r = ask_json(ask, qp, teach_sp('tutor'), need=('question',))
         if val('checks.one_ask') and asks_twice(r.get('question')):   # one more try, with the question that asked twice
             r = ask_json(ask, f"{qp}\n\nYour last question asked twice: {r['question']!r}. Write it again with one ask: one question word and one question mark.", teach_sp('tutor'), need=('question',))
+        r = _plain_q(ask, r, c['name'])
         q.update(question=with_code(r['question'], r.get('code') or ''), answer=r.get('answer', ''), rubric=r.get('rubric', []))
         if q.kind == 'choice' and r.get('options'):
             opts = list(enumerate(r['options']))
@@ -353,6 +357,13 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, 
     q.turns = [dict(who='tutor', kind='question', text=q.question)]
     self.open[q.id] = q
     return public(q)
+
+def _plain_q(ask, r, name) -> dict:
+    "The reply `r` with its question and the texts of its options in plain English, from at most one model call. A plainer question that asks twice is not kept."
+    os = [o for o in r.get('options') or () if isinstance(o, dict) and isinstance(o.get('text'), str)]
+    new = plainly(ask, {'question': r['question'], **{f'option {i + 1}': o['text'] for i, o in enumerate(os)}}, [name])
+    if asks_twice(new['question']) and not asks_twice(r['question']): new = {**new, 'question': r['question']}
+    return {**r, 'question': new['question'], **({'options': [{**o, 'text': new[f'option {i + 1}']} for i, o in enumerate(os)]} if os else {})}
 
 def public(q) -> AttrDict:
     "A question as the learner can see it: no model answer, no rubric, no correct option, no misconception tags."
@@ -408,7 +419,8 @@ def hint(self:Tutor, qid:str) -> str:
     "The next hint on the ladder, from the least to the most revealing."
     q = self.open[qid]
     if len(q.hints) >= len(HINTS): return q.hints[-1]
-    h = for_task(self.ask, 'hint')(hint_prompt(q, len(q.hints)), teach_sp('tutor')).strip()
+    ask = for_task(self.ask, 'hint')
+    h = plainly(ask, ask(hint_prompt(q, len(q.hints)), teach_sp('tutor')).strip(), [q.name])
     q.hints.append(h)
     q.setdefault('turns', []).append(dict(who='tutor', kind='hint', text=h))
     self.open.save(q)
@@ -436,7 +448,9 @@ def _grade(self:Tutor, q, answer, thinking, confidence):
         mis = '' if ok or not (0 <= i < len(q.options)) else q.options[i].get('misconception', '')
         return AttrDict(correct=ok, grade=10 if ok else 0, misconception=mis, first_error=mis and f'This option assumes: {mis}',
                         feedback='Correct.' if ok else 'Not this one either. Which option is left?' if q.tries else 'Not this one. Look again at what each option assumes.')
-    return AttrDict(ask_json(for_task(self.ask, 'grade'), grade_prompt(q, answer, thinking, confidence), prompt('grade')))
+    ask = for_task(self.ask, 'grade')
+    g = AttrDict(ask_json(ask, grade_prompt(q, answer, thinking, confidence), prompt('grade')))
+    return AttrDict({**g, **plainly(ask, {k: g[k] for k in ('feedback', 'first_error') if isinstance(g.get(k), str)}, [q.name])})
 
 # %% ../nbs/03_tutor.ipynb #c031
 @patch
@@ -496,7 +510,8 @@ class NoLesson(str):
 def _lesson(self:Tutor, q, first_error:str='') -> str:
     "A short lesson on `q` from its first error. When the model fails, a note with the model answer."
     fb = ' '.join(x for f in LESSON_NOTES if (x := f(self, q)))
-    try: lesson = for_task(self.ask, 'lesson')(teach_prompt(AttrDict({**q, 'fb': fb}) if fb else q, first_error), teach_sp('tutor')).strip()
+    ask = for_task(self.ask, 'lesson')
+    try: lesson = plainly(ask, ask(teach_prompt(AttrDict({**q, 'fb': fb}) if fb else q, first_error), teach_sp('tutor')).strip(), [q.name], ['Check:'])
     except Exception as e: return NoLesson(f"The tutor could not write the lesson ({type(e).__name__}). The model answer is: {q.answer or 'not given'}")
     if 'Check:' in lesson: self.checks[q.concept] = (lesson.rsplit('Check:', 1)[1].strip(), lesson, q.get('method', ''))
     return lesson
