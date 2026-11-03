@@ -176,7 +176,7 @@ button.quiet, .btn.quiet { border-color: transparent; color: var(--mute); } butt
 button.small, .btn.small { padding: var(--s1) var(--s2); font-size: var(--t-meta); }
 @media (max-width: 640px) { nav .nav-gap { display: none; } }
 
-/* Layers (docs/design-layers.md): the page for reading, raised for what you do, sunken for what you look up. Each surface comes
+/* Layers (docs/decisions.md): the page for reading, raised for what you do, sunken for what you look up. Each surface comes
    from the theme colours and sets --bg to itself, so a go button, a journey dot or a demo agrees with the surface under it. */
 :root, [data-theme] {
   --page: var(--bg);

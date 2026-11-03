@@ -177,3 +177,5 @@ The [reference](https://vedicreader.github.io/abhyasa/reference.html) has all th
 - how to use the tutor from Python
 
 The other pages of these docs describe the engine, one notebook for each part.
+
+To maintain or change abhyasa, read [the decisions](https://github.com/vedicreader/abhyasa/blob/main/docs/decisions.md) and [how to develop](https://github.com/vedicreader/abhyasa/blob/main/docs/develop.md).
