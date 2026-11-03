@@ -2,6 +2,7 @@ website:
   sidebar:
     contents:
       - index.ipynb
+      - reference.ipynb
       - 00_learner.ipynb
       - 01_models.ipynb
       - 02_sources.ipynb
