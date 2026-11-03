@@ -13,7 +13,7 @@ from abhyasa.models import dflt_model, where_chip
 from abhyasa.core.leela import leela_line, leela_base, OpenInLeela, LEELA_INSTALL
 from abhyasa.path import minutes, TOOL_WAYS, hands_count, hands_most
 from abhyasa.learner import SHAKY, walk_state
-from abhyasa.path import wants_source, missing_data
+from abhyasa.path import wants_source, missing_data, chip_sources, is_goal_walk
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -788,28 +788,51 @@ def DropWalk(jid):
 
 REPLAN_SAYS = 'Make the plan of this walk again from its source? Locked ideas stay. Your answers stay.'
 
-def MakeAgain(jid):
-    "Make this walk again, with one confirm in place. The form posts, then the walk page opens with the line of the job, which has Stop."
-    return Details(Summary('Make this walk again', cls='small'),
-                   Form(P(REPLAN_SAYS), Div(Button('Make the walk again', cls='small', data_act='replan'), cls='row'),
-                        action=at(Routes.replan, jid), method='post', hx_boost='false', cls='drop-confirm'), cls='drop-walk replan-walk')
+REPLAN_SRC = 'Sources: untick one to leave it out, or add another.'
+REPLAN_ADD = 'Add a folder, a file, a repo or a link'
+REPLAN_ASKS = 'For example: use only the agentic engineering notebook, and keep each idea short.'
 
-def Replanned(jid, key, r, eid=''):
-    """The line of Make this walk again, for its job row `r` (`key`): what it does now and Stop while it runs, then the end. Done: the line
-    and Undo (`eid`, the change). Stopped or failed: the line and Plan it again. It loads again on each event of its row."""
+def MakeAgain(j, said=()):
+    """Make this walk again, with one confirm in place. A walk from a goal or from its sources shows its sources: untick one, pick a folder or a file, or type another.
+    Both also have Who is it for and No code, and a goal walk has What to change. The job starts, then the walk page opens with its line, which has Stop."""
+    jid, goal = j['id'], is_goal_walk(j)
+    rows = []
+    if goal or j.get('chips'):   # a walk from a link or a paper has no chips: it is made again from its source, with one press
+        rows.append(Fieldset(Legend(REPLAN_SRC, cls='small'),
+                             *[Label(Input(type='checkbox', name='sources', value=s['id'], checked=True), ' ', B(s['root']), Span(f" · {s['kind']}", cls='mute'), cls='tick')
+                               for s in chip_sources(j)],
+                             *run_hook('source_pick'),   # Pick folders and Pick files (the add block): each picked path is a ticked row
+                             Input(type='text', name='add', placeholder=REPLAN_ADD, aria_label=REPLAN_ADD, autocomplete='off'), cls='replan-src'))
+    if goal or j.get('chips'):
+        rows += [Label('Who is it for', Input(type='text', name='audience', value=j.get('audience') or '', placeholder='optional, for example: people who do not write code', autocomplete='off')),
+                 Label(Input(type='checkbox', name='no_code', checked=bool(j.get('no_code'))), ' No code: no notebooks and no code checks', cls='tick')]
+    if goal: rows.append(Label('What to change (optional)', Textarea(name='asks', rows=2, placeholder=REPLAN_ASKS)))
+    return Details(Summary('Make this walk again', cls='small'),
+                   Form(P(REPLAN_SAYS), *rows, *[P(x, cls='req-err') for x in said], Input(type='hidden', name='form', value='1') if rows else '',
+                        Div(Button('Make the walk again', cls='small', data_act='replan'), cls='row'),
+                        action=at(Routes.replan, jid), method='post', cls='drop-confirm replan-form',
+                        **(dict(hx_post=at(Routes.replan, jid), hx_target='closest .walk-menu', hx_swap='outerHTML') if rows else dict(hx_boost='false'))),
+                   cls='drop-walk replan-walk', open=bool(said))
+
+REPLAN_WAIT = 'job, every 5s'   # the line of Make this walk again: on each event of the stream, and every 5 seconds, so the new plan shows soon after it is ready
+REPLAN_DONE = 'The tutor made the plan again from its source. Locked ideas stayed.'
+
+def Replanned(jid, key, r, eid='', said=''):
+    """The line of Make this walk again, for its job row `r` (`key`): what it does now and Stop while it runs, then the end. Done: the line,
+    what changed (`said`) and Undo (`eid`, the change). Stopped or failed: the line and Plan it again. It loads again on each event of its row."""
     url = f"{at(Routes.replan, jid)}?{urlencode(dict(key=key))}"
     if r is None: return ''
     if r.state == 'running':
-        return Div(P((r.get('said') or 'Making the plan again') + '…', cls='mute'), Div(JobStop(r), cls='row acts'), hx_get=url, hx_trigger=WAIT, hx_swap='outerHTML', cls='improve-wait', data_job=key)
+        return Div(P((r.get('said') or 'Making the plan again') + '…', cls='mute'), Div(JobStop(r), cls='row acts'), hx_get=url, hx_trigger=REPLAN_WAIT, hx_swap='outerHTML', cls='improve-wait', data_job=key)
     if r.state == 'done':
         undo = Quiet('Undo', ' ', Kbd('⌘Z'), small=True, type='button', hx_post=at(Routes.undo, jid), hx_vals=json.dumps(dict(step=eid)), hx_target='#steps', hx_swap='outerHTML', data_act='undo-change') if eid else ''
-        return Div(P('The tutor made the plan again from its source. Locked ideas stayed.', cls='mute'), Div(undo, cls='row') if undo else '', cls='changed', data_job=key)
+        return Div(P(REPLAN_DONE, cls='mute'), P(said) if said else '', Div(undo, cls='row') if undo else '', cls='changed', data_job=key)
     line = f'{STOPPED} The plan did not change.' if r.state == 'stopped' else r.get('why') or 'The tutor could not make the plan again. The plan did not change.'
     return Div(P(line, cls='mute' if r.state == 'stopped' else 'req-err'), Div(JobAgain(r, 'Plan it again'), cls='row acts'), hx_get=url, hx_trigger='job', hx_swap='outerHTML', cls='improve-wait', data_job=key)
 
-def WalkMenu(j):
-    "The ⋯ menu of a walk, on its page and on its row in the list of walks: Make this walk again, and Delete this walk."
-    return Details(Summary('⋯', title='More for this walk', aria_label='More for this walk'), Div(MakeAgain(j['id']), DropWalk(j['id']), cls='menu-items'), cls='more-menu walk-menu')
+def WalkMenu(j, said=()):
+    "The ⋯ menu of a walk, on its page and on its row in the list of walks: Make this walk again, and Delete this walk. With `said`, it is open at Make this walk again, with the lines that say why it did not start."
+    return Details(Summary('⋯', title='More for this walk', aria_label='More for this walk'), Div(MakeAgain(j, said), DropWalk(j['id']), cls='menu-items'), cls='more-menu walk-menu', open=bool(said))
 
 def CopyGo(j, i=None):
     """Open in Leela for notebook walk `j`: one press writes the learning copy (or keeps the one you changed) and opens it in Leela at the
@@ -952,13 +975,19 @@ def TalkLine(talks, changed=()):
     return Div(P(head, ' A change here does not change a talk. To bring it in, open the talk and press “Make it again”.', cls='mute'),
                Ul(*rows, cls='plain talk-rows'), cls='talk-line')
 
-def PlanPart(j, by, nb=()):
-    "The plan of the walk: the hands-on share, the ideas (each with Lock and the ⋯ menu; each change saves at once, with Undo), and the earlier versions in a fold."
+def PlanBusy(j, oob=False):
+    "The ideas of the walk while the tutor makes the plan again: a grey line for each idea, in the place of `#steps` (`oob`: out of band). The new plan takes its place when it is ready."
+    return Ol(*[Li(Div(I(), I(cls='short'), cls='skel')) for _ in range(max(len(j['steps']), 3))], cls='edit-list walk-path plan-busy', id='steps',
+              aria_busy='true', aria_label='The tutor makes the plan again', **({'hx_swap_oob': 'true'} if oob else {}))
+
+def PlanPart(j, by, nb=(), busy=False):
+    """The plan of the walk: the hands-on share, the ideas (each with Lock and the ⋯ menu; each change saves at once, with Undo), and the earlier versions in a fold.
+    `busy`: Make this walk again runs, so the ideas show as a skeleton until the new plan is ready."""
     n = len(j.get('more') or ())
     more = P(f"The source has {n} more {'idea' if n == 1 else 'ideas'}. Learn one in a side walk when you need it.", cls='mute') if n else ''
     return Section(H2('The plan'), more,
                    Details(Summary('About this'), P('An idea keeps your progress, its passage and its side walks when it moves. A removed idea keeps your answers in the vault.'), cls='about'),
-                   Hands(j), Steps(j, by, nb=nb), UndoBar(oob=False),   # in the page under the list (walk.css)
+                   Hands(j), PlanBusy(j) if busy else Steps(j, by, nb=nb), UndoBar(oob=False),   # in the page under the list (walk.css)
                    Details(Summary('Earlier versions'), Div(Span('Reading the changes…', cls='mute'), hx_get=at(Routes.history, j['id']), hx_trigger='intersect once', hx_swap='innerHTML'),
                            id='history', cls='more'),
                    Details(Summary('Keys'), P('With an idea in focus: ', Kbd('W'), ' ', Kbd('S'), ' move the focus · ', Kbd('⇧W'), ' ', Kbd('⇧S'), ' move the idea · ', Kbd('F'), ' lock · ',

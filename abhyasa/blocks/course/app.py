@@ -196,6 +196,17 @@ def connect(app, ctx):
         if row or not j.get('course') or not (c := course_of(lr, j['id'])): return None
         return A('Course', href=ui.at(c.id), cls='btn quiet', title=f'The course: {c.title}')
 
+    @hook('course_actions')
+    def course_menu(c, row=False):
+        "The ⋯ menu of a course on its row on Home: Delete this course."
+        return ui.CourseMenu(c)
+
+    def drop(cid:str):
+        "Delete course `cid`. Its walks, your answers and what you learned stay; each walk shows on Home by itself. Then Home."
+        if not lr.course(cid): return missing()
+        lr.drop_course(cid)
+        return RedirectResponse('/', status_code=303)
+
     @hook('walk_end')
     def back(j):
         "The end of a course walk: what comes next in the course."
@@ -224,6 +235,7 @@ def connect(app, ctx):
     app.post(Routes.data_drop)(data_drop)
     app.post(Routes.lock)(lock)
     app.post(Routes.fix)(fix)
+    app.post(Routes.drop)(drop)
     app.post(Routes.back)(enough)
     app.post(Routes.level)(level)
     app.post(Routes.answer)(answer)

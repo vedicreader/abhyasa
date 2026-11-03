@@ -116,6 +116,46 @@ def test_make_this_walk_again_keeps_locked_ideas_and_answers_with_one_undo(mk, w
     cl.post(f'/w/{jid}/undo', data=dict(step=lr.edits('walk', jid)[0].id))
     assert [s['slug'] for s in lr.journey(jid).steps] == [a, b]
 
+def test_a_walk_from_its_source_with_no_chips_is_made_again_with_one_press(mk, walk_fake, lr):
+    "A walk from a link or a paper has its source documents and no chips. Its form has no list of sources, and the job starts: it does not ask for a source."
+    cl = mk(); jid = walk(cl, lr)
+    j = lr.journey(jid)
+    lr.merge_journey(jid, source={**(j.get('source') or {}), 'docs': [j.steps[0].get('doc') or 'd1']})
+    t = cl.get(f'/w/{jid}').text
+    assert 'Make this walk again' in t and 'replan-src' not in t
+    r = cl.post(f'/w/{jid}/replan', data=dict(form='1'))
+    assert 'Keep one source or add one' not in r.text and r.headers.get('hx-redirect') == f'/w/{jid}#change'
+    assert lr.job(f'walk:{jid}:replan') is not None
+
+def test_make_this_walk_again_shows_a_skeleton_then_the_new_plan_and_what_changed(mk, walk_fake, lr):
+    """While the tutor makes the plan again, the plan is a skeleton and its line asks every 5 seconds. When it is ready, the new plan takes the place
+    of the skeleton, and the Undo bar under the plan says what changed. The activity list says it too."""
+    cl = mk(); jid = walk(cl, lr)
+    cl.post(f'/w/{jid}/edit', data=dict(slug=lr.journey(jid).steps[1]['slug'], act='remove'))
+    go, key = held(walk_fake, EXTRACT), f'walk:{jid}:replan'
+    cl.post(f'/w/{jid}/replan')
+    t = cl.get(f'/w/{jid}').text
+    assert 'plan-busy' in t and 'aria-busy="true"' in t and 'hx-trigger="job, every 5s"' in t
+    go.set()
+    assert ended(lr, key).state == 'done'
+    p = cl.get(f'/w/{jid}/replan', params=dict(key=key)).text
+    assert 'id="steps"' in p and 'hx-swap-oob="true"' in p and 'plan-busy' not in p
+    assert 'id="undo-bar"' in p and 'Added 1 idea: “' in p and 'Removed no ideas.' in p and 'The plan has 3 ideas now.' in p
+    assert 'Added 1 idea' in lr.job(key).said and 'plan-busy' not in cl.get(f'/w/{jid}').text
+
+def test_make_this_walk_again_on_its_page_swaps_in_place(mk, walk_fake, lr):
+    """From the walk page, the form does not redirect: a redirect to the same page with only `#change` added loads nothing. The answer closes the menu,
+    puts the line in the box and the skeleton in the place of the plan. From Home, the walk page opens."""
+    cl = mk(); jid = walk(cl, lr)
+    go, key = held(walk_fake, EXTRACT), f'walk:{jid}:replan'
+    r = cl.post(f'/w/{jid}/replan', data=dict(form='1'), headers={'HX-Request': 'true', 'HX-Current-URL': f'http://localhost:5088/w/{jid}#change'})
+    assert 'hx-redirect' not in r.headers
+    assert 'class="more-menu walk-menu"' in r.text and 'walk-menu" open' not in r.text
+    assert 'id="change-out"' in r.text and 'data-act="stop-job"' in r.text and 'plan-busy' in r.text and r.text.count('hx-swap-oob="true"') == 2
+    go.set(); assert ended(lr, key).state == 'done'
+    r = cl.post(f'/w/{jid}/replan', data=dict(form='1'), headers={'HX-Request': 'true', 'HX-Current-URL': 'http://localhost:5088/'})
+    assert r.headers['hx-redirect'] == f'/w/{jid}#change'
+
 def test_stop_on_make_this_walk_again_keeps_the_plan(mk, walk_fake, lr):
     "Stop while the tutor reads the source: the plan does not change, the line says so, and Plan it again starts the same job."
     cl = mk(); jid = walk(cl, lr)
@@ -130,5 +170,6 @@ def test_stop_on_make_this_walk_again_keeps_the_plan(mk, walk_fake, lr):
     assert ended(lr, key).state == 'stopped' and [s['slug'] for s in lr.journey(jid).steps] == was
     p = cl.get(f'/w/{jid}/replan', params=dict(key=key)).text
     assert f'{STOPPED} The plan did not change.' in p and 'Plan it again' in p
+    assert 'id="steps"' in p and 'hx-swap-oob="true"' in p and 'plan-busy' not in p   # the plan comes back in the place of its skeleton
     again(cl, key)
     assert ended(lr, key).state == 'done' and len(lr.journey(jid).steps) == 3

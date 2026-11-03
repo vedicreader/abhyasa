@@ -8,28 +8,29 @@ Docs: https://vedicreader.github.io/abhyasa/sources.html.md"""
 __all__ = ['log', 'KEEP', 'STOP', 'SKIP_DIRS', 'NB', 'EXTRACT_SP', 'IMG_SUFFIXES', 'MATH_MOST', 'CORE_SP', 'SORT_SP', 'NOT_LOCAL',
            'NOT_FOUND', 'ARXIV_HTML', 'ARXIV_FIGS', 'math_md', 'PAGE_BYTES', 'READERS', 'PLAIN', 'LOCALE', 'LANGS',
            'SHORT', 'EMPTY', 'TREE_TYPES', 'TREE_SKIP', 'TREE_FILES', 'TREE_MB', 'TREE_TOTAL_MB', 'TREE_SEEN',
-           'TREE_TOP', 'CODE_DIRS', 'DOC_DIRS', 'COURSE', 'NO_READ', 'NOT_REPOS', 'REPO_MB', 'WEB', 'YOURS', 'TUTOR',
-           'YOU', 'HINT', 'LINES', 'VIDEO', 'GITHUB', 'BARE', 'TLDS', 'DOMAIN', 'FILE_NAME', 'COMMON_DIRS', 'QUOTED',
-           'PATH_WORDS', 'GOAL_WORDS', 'SKIP_KINDS', 'SOCIAL', 'FILES', 'URL_MOST', 'BOT_WALL', 'FETCH_SECS',
-           'KEEP_SECS', 'BLOCKS', 'REFUSED', 'META', 'TEXT_TYPES', 'MOST', 'LEAST', 'WINDOW', 'PASSAGE_SP', 'VIEW_ROW',
-           'MARKS', 'TRANSCRIPT', 'LECTURE', 'SPOKEN', 'ME', 'SUMM_NAME', 'TX_NAME', 'LESSON', 'NOT_SPEECH',
-           'SPOKE_NAMED', 'SPOKE_ALONE', 'SENT_END', 'SPAN_SHORT', 'STAMP', 'PLAYLIST', 'NEAR_TYPES', 'NEAR_MOST',
-           'COURSE_OF', 'SEARCH', 'NB_MOST', 'GENERIC', 'TOPICS_MOST', 'TOPIC_CHARS', 'JUMP_NEAR', 'LEAD_IN', 'passage',
-           'clip', 'link_of', 'label', 'cite', 'VaultSource', 'names', 'main_words', 'named_count', 'stem', 'key_terms',
-           'names_idea', 'relevance', 'ground', 'ground_text', 'concept_grounds', 'fence', 'fenced', 'find_notebooks',
-           'index_notebooks', 'quoted', 'group_line', 'add_group', 'extract_prompt', 'doc_pages', 'locate',
-           'figure_path', 'placement', 'math_cut', 'extract', 'from_vault', 'understand', 'sort_prompt', 'Places',
-           'propose_groups', 'apply_groups', 'place_new', 'fetch_opts', 'LinkError', 'arxiv_ref', 'public_url',
-           'link_kind', 'reading_order', 'read_arxiv_html', 'save_figures', 'file_link', 'as_link', 'is_id_title',
-           'arxiv_title', 'is_paper', 'tree_ok', 'tree_rank', 'tree_files', 'folder_why', 'file_folder', 'vault_roots',
-           'root_docs', 'unfile', 'gh_name', 'gh_public', 'clone_repo', 'file_repo', 'source_of', 'fold_trim', 'as_url',
-           'kind_of', 'folder_names', 'is_path', 'named_sources', 'on_disk', 'detect', 'title_index', 'vault_title',
-           'site_of', 'usable', 'paper_link', 'candidates', 'forget_web', 'refused_site', 'web_search', 'web_fetch',
-           'drop_meta', 'page_text', 'plain_md', 'verbatim', 'idea_words', 'about_idea', 'passage_prompt',
-           'pick_passage', 'spoken', 'is_transcript', 'lesson_no', 'transcript_of', 'from_transcript', 'sentences',
-           'tight_span', 'stamp_before', 'course_of', 'playlist_near', 'video_link', 'nb_names', 'named_notebooks',
-           'shared_notebooks', 'lesson_notebooks', 'summary_doc', 'course_for', 'transcript_links', 'transcript_read',
-           'transcripts_last', 'jump_places', 'topics_of', 'transcript_page']
+           'TREE_TOP', 'CODE_DIRS', 'DOC_DIRS', 'COURSE', 'NO_READ', 'NO_FILE', 'FILE_HOME', 'FILE_TYPE', 'FILE_READ',
+           'NOT_REPOS', 'REPO_MB', 'WEB', 'YOURS', 'TUTOR', 'YOU', 'HINT', 'LINES', 'VIDEO', 'GITHUB', 'BARE', 'TLDS',
+           'DOMAIN', 'FILE_NAME', 'COMMON_DIRS', 'QUOTED', 'PATH_WORDS', 'GOAL_WORDS', 'SKIP_KINDS', 'SOCIAL', 'FILES',
+           'URL_MOST', 'BOT_WALL', 'FETCH_SECS', 'KEEP_SECS', 'BLOCKS', 'REFUSED', 'META', 'TEXT_TYPES', 'MOST',
+           'LEAST', 'WINDOW', 'PASSAGE_SP', 'VIEW_ROW', 'MARKS', 'TRANSCRIPT', 'LECTURE', 'SPOKEN', 'ME', 'SUMM_NAME',
+           'TX_NAME', 'LESSON', 'NOT_SPEECH', 'SPOKE_NAMED', 'SPOKE_ALONE', 'SENT_END', 'SPAN_SHORT', 'STAMP',
+           'PLAYLIST', 'NEAR_TYPES', 'NEAR_MOST', 'COURSE_OF', 'SEARCH', 'NB_MOST', 'GENERIC', 'TOPICS_MOST',
+           'TOPIC_CHARS', 'JUMP_NEAR', 'LEAD_IN', 'passage', 'clip', 'link_of', 'label', 'cite', 'VaultSource', 'names',
+           'main_words', 'named_count', 'stem', 'key_terms', 'names_idea', 'relevance', 'ground', 'ground_text',
+           'concept_grounds', 'fence', 'fenced', 'find_notebooks', 'index_notebooks', 'quoted', 'group_line',
+           'add_group', 'extract_prompt', 'doc_pages', 'locate', 'figure_path', 'placement', 'math_cut', 'extract',
+           'from_vault', 'understand', 'sort_prompt', 'Places', 'propose_groups', 'apply_groups', 'place_new',
+           'fetch_opts', 'LinkError', 'arxiv_ref', 'public_url', 'link_kind', 'reading_order', 'read_arxiv_html',
+           'save_figures', 'file_link', 'as_link', 'is_id_title', 'arxiv_title', 'is_paper', 'tree_ok', 'tree_rank',
+           'tree_files', 'folder_why', 'file_why', 'file_folder', 'file_file', 'vault_roots', 'root_docs', 'path_docs',
+           'unfile', 'gh_name', 'gh_public', 'clone_repo', 'file_repo', 'source_of', 'fold_trim', 'as_url', 'kind_of',
+           'folder_names', 'is_path', 'named_sources', 'on_disk', 'detect', 'title_index', 'vault_title', 'site_of',
+           'usable', 'paper_link', 'candidates', 'forget_web', 'refused_site', 'web_search', 'web_fetch', 'drop_meta',
+           'page_text', 'plain_md', 'verbatim', 'idea_words', 'about_idea', 'passage_prompt', 'pick_passage', 'spoken',
+           'is_transcript', 'lesson_no', 'transcript_of', 'from_transcript', 'sentences', 'tight_span', 'stamp_before',
+           'course_of', 'playlist_near', 'video_link', 'nb_names', 'named_notebooks', 'shared_notebooks',
+           'lesson_notebooks', 'summary_doc', 'course_for', 'transcript_links', 'transcript_read', 'transcripts_last',
+           'jump_places', 'topics_of', 'transcript_page']
 
 # %% ../nbs/02_sources.ipynb #119a1741
 import json, os, re, sqlite3, time, shutil, threading, hashlib, logging
@@ -864,11 +865,25 @@ def folder_why(p) -> str:
     r = Path(str(p)).expanduser().resolve()
     return NO_FOLDER if not r.is_dir() else '' if os.access(r, os.R_OK | os.X_OK) else NO_READ
 
+NO_FILE = 'abhyasa cannot find this file.'
+FILE_HOME = 'abhyasa reads only files in your home folder that are not hidden and not a link.'
+FILE_TYPE = f"abhyasa adds only these files: {', '.join(TREE_TYPES)}. Drop a PDF on the box to add it."
+FILE_READ = 'abhyasa cannot read this file. Check that you can open it in Finder.'
+
+def file_why(p) -> str:
+    "Why abhyasa does not file the one file `p`, or '' when it can: a file in your home folder that is not hidden or a link, of a type in `TREE_TYPES`, that you can read."
+    if source_root_why(p): return FILE_HOME
+    r = Path(str(p)).expanduser().resolve()
+    if not r.is_file(): return NO_FILE
+    if r.suffix.lower() not in TREE_TYPES: return FILE_TYPE
+    return '' if os.access(r, os.R_OK) and tree_ok(r, r.parent) else FILE_READ
+
 # %% ../nbs/02_sources.ipynb #b5b78218
-def _file_tree(lr:Learning, root, shelf:str, name:str, url=None, want=()) -> L:
-    "File the files of the folder `root` on `shelf`, with `meta.root=name` and `meta.url=url(path in root)`. `want`: paths in `root` to file first. The docs, and in `added` the new ones."
+def _file_tree(lr:Learning, root, shelf:str, name:str, url=None, want=(), files=None) -> L:
+    """File the files of the folder `root` on `shelf`, with `meta.root=name` and `meta.url=url(path in root)`. `want`: paths in `root` to file first.
+    `files`: only these files of `root`, in place of `tree_files`. The docs, and in `added` the new ones."""
     root, sh = Path(root).resolve(), lr.vault.shelf(shelf)
-    files = tree_files(root, want)
+    files = tree_files(root, want) if files is None else files
     key = lambda d: d['meta'].get('path') or d['source']
     had = {key(d): d for d in sh.sources()}
     if nbs := [p for p in files if p.suffix.lower() == '.ipynb']: index_notebooks(lr.vault, (), shelf, files=nbs)
@@ -880,11 +895,11 @@ def _file_tree(lr:Learning, root, shelf:str, name:str, url=None, want=()) -> L:
     for p in files:
         if not (d := by.get(str(p))): continue
         m = dict(root=name, path=str(p), mtime=p.stat().st_mtime, **({'url': url(p.relative_to(root).as_posix())} if url else {}))
-        mine = str(p) not in had or had[str(p)]['meta'].get('root') == name   # a document that was there before, filed by another tool, keeps its meta
+        mine = str(p) not in had or had[str(p)]['meta'].get('root') in (name, str(p), p.name)   # a document that was there before, filed by another tool, keeps its meta; one filed alone (root: its path, or its name before) joins its folder
         if mine and any(d['meta'].get(k) != v for k, v in m.items()): sh.set_meta(d['id'], **m)
         docs.append(x := AttrDict(shelf=shelf, doc_id=d['id'], title=d['title'], url=m.get('url', str(p)), mtime=m['mtime']))
         if str(p) not in had: added.append(x)
-    docs.added, docs.cut = added, files.cut
+    docs.added, docs.cut = added, getattr(files, 'cut', '')
     return docs
 
 def file_folder(lr:Learning, path, shelf:str='notebooks', want=()) -> L:
@@ -892,6 +907,13 @@ def file_folder(lr:Learning, path, shelf:str='notebooks', want=()) -> L:
     if why := folder_why(path): raise LinkError(why)
     r = Path(path).expanduser().resolve()
     return _file_tree(lr, r, shelf, r.name, want=want)
+
+def file_file(lr:Learning, path, shelf:str='notebooks') -> L:
+    """File only the file `path` in your home folder on `shelf`, with `meta.root` set to its whole path: two files with one name are two sources.
+    Raises `LinkError` for a file that abhyasa does not file (`file_why`)."""
+    if why := file_why(path): raise LinkError(why)
+    r = Path(path).expanduser().resolve()
+    return _file_tree(lr, r.parent, shelf, str(r), files=[r])
 
 # %% ../nbs/02_sources.ipynb #b809f261
 def vault_roots(lr:Learning, shelf:str='notebooks') -> dict:
@@ -906,6 +928,12 @@ def root_docs(lr:Learning, root:str, shelf:str='notebooks') -> L:
     rows = sh.t.docs(where="json_valid(meta) and json_extract(meta, '$.root') = ?", where_args=[root])
     ds = sorted(((meta_of(r), r) for r in rows), key=lambda x: str(x[0].get('path') or ''))
     return L(AttrDict(shelf=shelf, doc_id=r['id'], title=r['title'], url=m.get('url') or m.get('path') or r['source'], mtime=m.get('mtime')) for m, r in ds)
+
+def path_docs(lr:Learning, path, shelf:str='notebooks') -> L:
+    "The documents of the one file `path` on `shelf`, in the shape of `root_docs`, whatever folder filed it."
+    if (sh := lr.doc_shelf(shelf)) is None: return L()
+    rows = sh.t.docs(where="json_valid(meta) and json_extract(meta, '$.path') = ?", where_args=[str(Path(path).expanduser().resolve())])
+    return L(AttrDict(shelf=shelf, doc_id=r['id'], title=r['title'], url=(m := meta_of(r)).get('url') or m.get('path') or r['source'], mtime=m.get('mtime')) for r in rows)
 
 # %% ../nbs/02_sources.ipynb #b67461d7
 def unfile(lr:Learning, docs) -> int:
@@ -1005,7 +1033,8 @@ LINES = dict(
     goal_own="A goal. abhyasa plans a walk that ends at your goal. It reads the sources below. Ideas with no passage keep the tutor's words.",
     goal_alone='A goal. abhyasa plans a walk that ends at your goal. It looks for sources on the web.',
     goal_alone_own='A goal. abhyasa plans a walk that ends at your goal. The tutor uses its own knowledge.',
-    file_name='A file name. To read a file, drop it on this box.')
+    file_name='A file name. To read a file, drop it on this box.',
+    file_path='A file on this Mac. abhyasa files only this file in your vault and makes a walk through it. Write a goal to plan a walk from it.')
 
 # %% ../nbs/02_sources.ipynb #d010
 def fold_trim(s) -> str:
@@ -1105,7 +1134,7 @@ def named_sources(text:str, titles=(), names:dict=None, roots_in_vault=()) -> li
         f = fold_trim(w)
         if is_path(w):
             p = Path(w).expanduser()   # it reads $HOME
-            put(_chip('folder', p.name or str(p), p, id=f'folder:{p}'))
+            put(_chip('file', p.name, p, id=f'file:{p}') if p.is_file() else _chip('folder', p.name or str(p), p, id=f'folder:{p}'))
         elif f in have: vault(*have[f])
         elif g := gh_name(w): vault(*have[fold_trim(g)]) if fold_trim(g) in have else put(_chip('gh', g, f'github.com/{g}', id=f'gh:{g}'))
         elif (s := kind_of(w)) and s[0] in ('paper', 'site'): put(_chip('link', w, s[1], id=f'link:{s[1]}'))
@@ -1119,8 +1148,9 @@ def named_sources(text:str, titles=(), names:dict=None, roots_in_vault=()) -> li
 
 # %% ../nbs/02_sources.ipynb #06cec052
 def on_disk(chips) -> list:
-    "`chips`, with what the disk says: a folder with `.git` is a `repo`; and a folder that abhyasa does not file has `why`."
+    "`chips`, with what the disk says: a folder with `.git` is a `repo`; and a folder or a file that abhyasa does not file has `why`."
     for c in chips:
+        if c.kind == 'file' and (why := file_why(c.path)): c.why = why
         if c.kind != 'folder' or c.filed: continue
         if why := folder_why(c.path): c.why = why
         elif (Path(c.path)/'.git').exists(): c.kind, c.id = 'repo', f'repo:{c.path}'
@@ -1174,6 +1204,8 @@ def detect(text:str, titles=(), research:bool=True, pages:int=8, file:str='', fo
     parts = _words(t)   # a quoted path, or a path with spaces that is on the disk, is one part
     names = names or {}
     found = lambda x: named_sources(x, docs or {}, names, roots_in_vault)
+    if len(lines) == 1 and is_path(t) and len(cs := found(t)) == 1 and cs[0].kind == 'file':
+        return _reading('sources', LINES['file_path'], send=dict(sources=[cs[0].id]), chips=cs)
     if len(parts) > 1 and all(srcs := [kind_of(p, (*folders, *names)) for p in parts]):
         cs = found(' '.join(parts))
         return _reading('sources', LINES['sources'].format(n=len(srcs)), sources=srcs, send=dict(sources=[c.id for c in cs]), chips=cs)

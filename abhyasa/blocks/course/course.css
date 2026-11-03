@@ -31,3 +31,5 @@
 .course-stage [data-act="lock"] { color: var(--mute); }
 .course-stage [data-act="lock"][aria-pressed="true"] { color: var(--fg); }
 .course-fix { gap: var(--s2); align-items: baseline; flex-wrap: wrap; font-size: var(--t-small); }
+.course-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }   /* the title and the ⋯ menu of the course (ui.CourseMenu) */
+.course-head h1 { margin-bottom: 0; }

@@ -17,12 +17,18 @@ CAPS = ('learning', 'ask', 'pool')
 _P = Path(__file__).parent
 WEB_ONCE = 'The tutor searches the web for sources. Your topic goes to the search engine.'
 OFF = ' Turn this off in Settings.'   # only when the `from the web` chip, with its own link, does not show
-CAN = 'Paste a link, a paper or a topic. Add a folder or a repo, or drop a file.'
+CAN = 'Paste a link, a paper or a topic. Add a folder, a file or a repo, or drop a file.'
 CUE = 'Drop files to add them as sources.'
 PICK = 'Pick folders…'
 PICK_SAY = 'Pick one or more folders to learn from. Hold ⌘ to pick more than one.'
-PICK_WAIT = 600   # seconds that the folder chooser stays open
-NOT_HERE = 'abhyasa opens the folder chooser only on this Mac.'
+PICK_FILES = 'Pick files…'
+PICK_FILES_SAY = 'Pick one or more files to learn from: a notebook, or a .md, .txt or .py file. Hold ⌘ to pick more than one.'
+PICK_WAIT = 600   # seconds that the chooser stays open
+ADD = 'Add a folder, a file, a repo or a link'
+WHO = 'Who is it for'
+WHO_HINT = 'optional, for example: people who do not write code'
+NO_CODE = 'No code: no notebooks and no code checks'
+NOT_HERE = 'abhyasa opens the folder and file choosers only on this Mac.'
 DATA_PICK = 'Pick a folder'
 DATA_PASTE = 'or paste a path'
 DATA_EMPTY = 'Pick a folder, or paste its path.'
@@ -36,13 +42,13 @@ CHIP = dict(paper='paper', repo='repo', site='site', doc='vault', topic='topic',
 NOT_YET = ('video', 'local', 'file_name')   # Start stays off: the line says why
 FOUND = 'abhyasa found these by their names, on this Mac and in your vault. It has read nothing from the web yet.'
 NO_GOAL = 'Write your goal in the box. abhyasa uses the sources below.'
-MORE = 'Add a folder, a repo or a link. abhyasa files it in your vault for this walk, and the tutor looks in it too.'
+MORE = 'Add a folder, a file, a repo or a link. abhyasa files it in your vault for this walk, and the tutor looks in it too.'
 USE = (('learn', 'Learn from it'), ('data', 'My data for the exercises'))   # what a folder that you add is for
 DATA_ONLY = 'Only a folder on this Mac can be your data.'
 KEPT = 'Kept {} as your data for the exercises. abhyasa does not file it.'
 MINE = 'Your data: the exercises run on this folder, and abhyasa does not file it.'
 NAMES_FOR, DISK_FOR = 300, 60   # seconds that the folder names, and the count of files in one folder, are kept
-STATE = dict(gh='a GitHub repo · cloned when you press Start', folder='a folder on this Mac · added when you press Start',
+STATE = dict(gh='a GitHub repo · cloned when you press Start', folder='a folder on this Mac · added when you press Start', file='a file on this Mac · only this file is added when you press Start',
              repo='a repo on this Mac · added when you press Start', link='a link · read when you press Start', doc='in your vault')
 log = logging.getLogger(__name__)
 _osa, _picking = subprocess.run, threading.Lock()   # the runner of osascript (a test fakes it), and one chooser at a time
@@ -51,13 +57,17 @@ def can_pick() -> bool:
     "The folder chooser of macOS opens only when abhyasa runs on a Mac."
     return sys.platform == 'darwin'
 
-PICK_ASK = (f'set fs to choose folder with prompt "{PICK_SAY}" with multiple selections allowed', 'set out to ""',
-            'repeat with f in fs', 'set out to out & POSIX path of f & linefeed', 'end repeat', 'return out')   # one path on each line
+def pick_ask(what:str='folder', say:str=PICK_SAY) -> tuple:
+    "The AppleScript lines that open the chooser of macOS for each `what` (`folder` or `file`) with the prompt `say`, and give one path on each line."
+    return (f'''set fs to choose {what} with prompt "{say.replace('"', '')}" with multiple selections allowed''', 'set out to ""',
+            'repeat with f in fs', 'set out to out & POSIX path of f & linefeed', 'end repeat', 'return out')
 
-def choose_folder(say:str=PICK_SAY) -> list:
-    "Open the folder chooser of macOS with the prompt `say`, and give the path of each folder that you pick, or [] when you cancel or it times out."
+PICK_ASK = pick_ask()
+
+def _choose(what, say) -> list:
+    "Open the chooser of macOS for `what` with the prompt `say`, and give the path of each one that you pick, or [] when you cancel or it times out."
     if not _picking.acquire(blocking=False): return []   # a chooser is open already
-    ask = [l.replace(PICK_SAY, say.replace('"', '')) for l in PICK_ASK]
+    ask = pick_ask(what, say)
     try: r = _osa(['osascript', *[x for l in ask for x in ('-e', l)]], capture_output=True, text=True, timeout=PICK_WAIT)
     except (OSError, subprocess.SubprocessError) as e:
         log.info('abhyasa did not get a folder from the chooser: %r', e)
@@ -65,6 +75,14 @@ def choose_folder(say:str=PICK_SAY) -> list:
     finally: _picking.release()
     if r.returncode: return []   # Cancel: osascript stops with an error (-128)
     return list(dict.fromkeys(x.rstrip('/') or '/' for x in r.stdout.splitlines() if x.strip()))
+
+def choose_folder(say:str=PICK_SAY) -> list:
+    "Open the folder chooser of macOS with the prompt `say`: the path of each folder that you pick, or [] when you cancel."
+    return _choose('folder', say)
+
+def choose_files(say:str=PICK_FILES_SAY) -> list:
+    "Open the file chooser of macOS with the prompt `say`: the path of each file that you pick, or [] when you cancel."
+    return _choose('file', say)
 
 def Use():
     "One choice for what you add: learn from it (the default), or your data, which the exercises run on and abhyasa does not file."
@@ -92,7 +110,27 @@ def DataSet(entry, path, where):
                Quiet('Change', small=True, type='button', hx_get=_set_url(where, entry), hx_target='closest .data-set', hx_swap='outerHTML'),
                cls='data-set done', data_name=entry['name'])
 
-def Pick(): return Button(PICK, type='button', cls='quiet small', id='start-pick') if can_pick() else ''
+def Pick():
+    "Pick folders and Pick files: the choosers of this Mac. A picked path is added as a typed path is (start.js)."
+    if not can_pick(): return ''
+    return Button(PICK, type='button', cls='quiet small', id='start-pick'), Button(PICK_FILES, type='button', cls='quiet small', id='start-pick-files', data_files='1')
+
+def PickRow():
+    "Pick folders and Pick files for a form: htmx sends only the kind, and the chooser's paths come back as rows in the next `.src-picked`."
+    if not can_pick(): return ''
+    kw = dict(type='button', cls='quiet small', hx_post=Routes.pick, hx_params='rows,files', hx_target='next .src-picked', hx_swap='beforeend')
+    return Div(Div(Button(PICK, hx_vals='{"rows": "1"}', data_act='pick-folders', **kw),
+                   Button(PICK_FILES, hx_vals='{"rows": "1", "files": "1"}', data_act='pick-files', **kw), cls='row'), Div(cls='src-picked'), cls='pick-row')
+
+def PickedRows(paths):
+    "One ticked row for each picked path: the `add` input holds the path, and the row says if it is a file or a folder."
+    return tuple(Label(Input(type='checkbox', name='add', value=p, checked=True), ' ', B(Path(p).name or p),
+                       Span(f" · {'a file' if Path(p).is_file() else 'a folder'}", cls='mute'), cls='tick', title=p) for p in paths)
+
+def Who():
+    "Who the walk is for, and No code. The planner writes for them; with No code, no step is a notebook or a code check."
+    return Div(Label(WHO, Input(type='text', name='audience', id='start-audience', placeholder=WHO_HINT, autocomplete='off')),
+               Label(Input(type='checkbox', name='no_code', id='start-no-code'), ' ', NO_CODE, cls='tick'), cls='opts who', id='start-who')
 
 def Line(r):
     "The quiet line: a small chip with the kind, the first sentence in bold, then the rest."
@@ -132,7 +170,7 @@ def Chip(c, mine=()):
     """One source of the goal: its name, where it is, and what Start does with it. `×` removes it (start.js). A refused folder sends nothing.
     A folder on this Mac has My data: the exercises run on it, and abhyasa does not file it (`mine` has the ids that you ticked)."""
     if c.kind == 'folder' and c.filed: where, st = n_of(c.count, 'document') if c.count else '', 'in your vault'
-    else: where, st = dict(folder=_home(c.path), repo=_home(c.path), gh=c.path, link=c.path).get(c.kind, ''), STATE.get(c.kind, '')
+    else: where, st = dict(folder=_home(c.path), repo=_home(c.path), file=_home(c.path), gh=c.path, link=c.path).get(c.kind, ''), STATE.get(c.kind, '')
     bad = c.get('why')
     tick = Label(Input(type='checkbox', name='mine', value=c.id, checked=c.id in mine), ' My data', cls='tick mine', title=MINE) if c.kind == 'folder' and not c.filed and not bad else ''
     return Div(B(c.name), Span(Span(where, cls='where') if where else '', Span(bad or st, cls='st'), cls='w'), tick,
@@ -141,9 +179,9 @@ def Chip(c, mine=()):
                cls='schip' + (' bad' if bad else '' if c.filed else ' new'))
 
 def outer(cs) -> list:
-    "The chips `cs` less each folder inside another folder chip that abhyasa can file: the outer folder files it too."
+    "The chips `cs` less each folder or file inside another folder chip that abhyasa can file: the outer folder files it too."
     tops = [Path(c.path) for c in cs if c.kind in ('folder', 'repo') and not c.filed and not c.get('why')]
-    return [c for c in cs if c.kind not in ('folder', 'repo') or c.filed or not any(t in Path(c.path).parents for t in tops)]
+    return [c for c in cs if c.kind not in ('folder', 'repo', 'file') or c.filed or not any(t in Path(c.path).parents for t in tops)]
 
 CHIPS_SHOWN = 5   # the chips that show; the others are in the fold "Show all N sources", so the list never pushes the box down far
 
@@ -155,7 +193,7 @@ def Chips(cs, said=(), mine=()):
     if len(chips) > CHIPS_SHOWN + 1:   # a fold for one more chip only takes room
         chips[CHIPS_SHOWN:] = [Details(Summary(f'Show all {len(cs)} sources', cls='quiet small'), *chips[CHIPS_SHOWN:], cls='more-src')]
     return Div(Span('Sources for this goal', cls='lbl'), *chips, web, *[P(x, cls='req-err') for x in said],
-               Div(Input(type='text', id='start-add', placeholder='Add a folder, a repo or a link', aria_label='Add a folder, a repo or a link', autocomplete='off'),
+               Div(Input(type='text', id='start-add', placeholder=ADD, aria_label=ADD, autocomplete='off'),
                    Button('Add', type='button', cls='quiet small', id='start-add-go'), Pick(), cls='addf'),
                Input(type='hidden', name='chips', value='1'), cls='chips-src', aria_label='Sources for this goal')
 
@@ -231,7 +269,7 @@ def connect(app, ctx):
                 continue
             got = named_sources(e, docs, nm, rv)
             more += got
-            if not got: said.append(f'abhyasa cannot use {e[:80]} as a source. Add the path of a folder, owner/name of a GitHub repo, or a link.')
+            if not got: said.append(f'abhyasa cannot use {e[:80]} as a source. Add the path of a folder or a file, owner/name of a GitHub repo, or a link.')
         cs = {c.id: c for c in [*(r.chips if r.kind in ('goal', 'sources') else ()), *more] if c.id not in drop}
         cs = outer(on_disk(list(cs.values())))   # a folder in a repo that is a source is not a second source
         if r.kind == 'goal' or (more and r.kind == 'topic'): r = _goal(s, cs, val('research.on'))   # the line follows the chips; a topic with sources that you added is a goal
@@ -252,7 +290,7 @@ def connect(app, ctx):
                     Div(id='start-keep', hidden=True),   # the sources that you added (`extra`) and removed (`drop`): start.js keeps them over each read
                     Div(*Read(r, told=val('research.told'), q=q), id='start-read', data_quiet='1'),
                     Div(id='walk-out', aria_live='polite'),   # the result of Start, under the button: the pending card, then the walk
-                    Srcs(r), P(CUE, cls='drop-cue', aria_hidden='true'),   # the cue shows only while you drag files over the box (start.js, add.css)
+                    Srcs(r), Who(), P(CUE, cls='drop-cue', aria_hidden='true'),   # the cue shows only while you drag files over the box (start.js, add.css)
                     hx_post='/walk/new', hx_target='#walk-out', hx_disinherit='*', id='start-form', cls='start raised', data_read=Routes.read, data_drop=Routes.file, data_drops=Routes.files, data_pick=Routes.pick)
 
     def read(q:str='', pick:str='', file:str='', pages:str='', tool:str='', title:str='', subject:str='', opts:str='', doc:str='',
@@ -299,10 +337,13 @@ def connect(app, ctx):
         if len(fs) > DROP_MOST: said.append(f'abhyasa adds at most {DROP_MOST} files in one drop.')
         return JSONResponse(dict(ids=ids, said=said))
 
-    async def pick(req):
-        "Open the folder chooser of this Mac, for a click in the box. The paths go back to start.js, which adds each one as you add a typed path."
-        if not can_pick() or (req.client.host if req.client else '') not in LOCAL_HOSTS: return Response(NOT_HERE, status_code=403)
-        return JSONResponse(dict(paths=await asyncio.to_thread(choose_folder)))
+    async def pick(req, files:str='', rows:str=''):
+        """Open the folder chooser of this Mac (with `files`, the file chooser), for a click in the box. The paths go back to start.js, which adds each one as you add a typed path.
+        With `rows` (Make this walk again), each path comes back as a ticked row of the form, which you can untick."""
+        if not can_pick() or (req.client.host if req.client else '') not in LOCAL_HOSTS:
+            return P(NOT_HERE, cls='req-err') if rows else Response(NOT_HERE, status_code=403)
+        paths = await asyncio.to_thread(choose_files if files else choose_folder)
+        return PickedRows(paths) if rows else JSONResponse(dict(paths=paths))
 
     def page(): return RedirectResponse(Routes.start, status_code=303)   # the old Add page: the Start box on Home has its place
 
@@ -330,9 +371,10 @@ def connect(app, ctx):
         "Add a source, in the sources of each walk: the same parts as the Start box. abhyasa files each source on its own job."
         return Div(H3('Add a source'), P(MORE, cls='mute'),
                    Form(Input(type='hidden', name='jid', value=j.id),
-                        Input(type='text', name='q', id='walk-src-q', placeholder='Add a folder, a repo or a link', aria_label='Add a folder, a repo or a link', autocomplete='off'),
+                        Input(type='text', name='q', id='walk-src-q', placeholder=ADD, aria_label=ADD, autocomplete='off'),
                         Button('Add', cls='quiet small', id='walk-src-go'),
-                        Button(PICK, type='submit', name='pick', value='1', cls='quiet small', id='walk-src-pick') if can_pick() else '', Use(),
+                        *((Button(PICK, type='submit', name='pick', value='1', cls='quiet small', id='walk-src-pick'),
+                           Button(PICK_FILES, type='submit', name='pick', value='files', cls='quiet small', id='walk-src-pick-files')) if can_pick() else ()), Use(),
                         hx_post=Routes.walk_source, hx_target='#walk-src-out', hx_swap='outerHTML', cls='addf', id='walk-src-form', data_act='add-source'),
                    Filing(j), asset_css(_P/'add.css'), cls='walk-src')
 
@@ -343,9 +385,9 @@ def connect(app, ctx):
         said, qs = [], [q] if q.strip() else []
         if pick:
             if not can_pick() or (req.client.host if req.client else '') not in LOCAL_HOSTS: said.append(NOT_HERE)
-            else: qs += await asyncio.to_thread(choose_folder)
+            else: qs += await asyncio.to_thread(choose_files if pick == 'files' else choose_folder)
         found = [c for x in qs for c in named_sources(x, dict(title_index(lr.vault).values()), names(), vault_roots(lr))]
-        if q.strip() and not found: said.append(f'abhyasa cannot use {q.strip()[:80]} as a source. Add the path of a folder, owner/name of a GitHub repo, or a link.')
+        if q.strip() and not found: said.append(f'abhyasa cannot use {q.strip()[:80]} as a source. Add the path of a folder or a file, owner/name of a GitHub repo, or a link.')
         if use == 'data': return Filing(lr.journey(jid) or j, said, keep_mine(j, found, note, said))
         cs = outer(on_disk(found))
         said[:0] = [f'{c.name}: {c.why}' for c in cs if c.get('why')]
@@ -362,6 +404,11 @@ def connect(app, ctx):
     def data_css():
         "The style of the folder setter, once on each page: the idea, walk and course pages show it."
         return asset_css(_P/'data.css')
+
+    @hook('source_pick')
+    def source_pick():
+        "Pick folders and Pick files for the form of Make this walk again. Each path that you pick shows as a ticked row in its `.src-picked`."
+        return PickRow()
 
     @hook('data_setter')
     def data_setter(entry, where, closed=False):

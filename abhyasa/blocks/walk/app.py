@@ -13,14 +13,15 @@ from abhyasa.learner import val, set_val
 from abhyasa.sources import detect, vault_title, transcript_read
 from abhyasa.learner import clean_subject, profile_text, WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
-from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
+from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_file, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
+from abhyasa.sources import named_sources, on_disk, title_index
 from abhyasa.path import back_from, with_data, keep_data, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, short_check, with_step, trail, parent_step, for_talk
 from abhyasa.learner import walk_state, _jlock
 from abhyasa.path import tutor_note, words_to_know, done_attempt, open_short, step_meta, leela_back, leela_found, course_of, drop_data
 import abhyasa.path as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.show   # adds Learning.talks: the editor links the talks made from a walk
 from abhyasa.show import walk_changes
-from abhyasa.path import edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, CTRL, links_in, propose, improve_walk, lock_step, replan_walk
+from abhyasa.path import edit_walk, undo_walk, restore_walk, move_step, skip_step, remove_step, CTRL, links_in, propose, improve_walk, lock_step, replan_walk, is_goal_walk
 from abhyasa.path import to_research, wants_source, want_agent, research_state, learning_copy, copy_path
 from abhyasa.learner import job_start, job_end, track, Said, seen_jobs, check_stop, halted as job_halted, STOPPED, JobStopped
 from abhyasa.tutor import NoLesson
@@ -338,7 +339,7 @@ def connect(app, ctx):
                      why=lambda e: str(e) if isinstance(e, LinkError) else NO_LINK)
 
     def file_chip(i, st):
-        "On the pool: file the source of the chip id `i` (`gh:`, `folder:`, `repo:`, `link:`), or get its docs (`vault:`, `doc:`). Returns (name, docs)."
+        "On the pool: file the source of the chip id `i` (`gh:`, `folder:`, `repo:`, `file:`, `link:`), or get its docs (`vault:`, `doc:`). Returns (name, docs)."
         kind, _, v = i.partition(':')
         if kind == 'gh':
             st.update(said=f'Cloning {v}')
@@ -348,6 +349,9 @@ def connect(app, ctx):
             nb = sum(p.suffix == '.ipynb' for p in fs)
             st.update(said=f"Filing {name}: {n_of(nb, 'notebook') if nb else n_of(len(fs), 'file')}")
             return name, file_folder(lr, v)
+        if kind == 'file':
+            st.update(said=f'Filing {Path(v).name}')
+            return Path(v).name, file_file(lr, v)
         if kind == 'link':
             st.update(said='Getting the pages from the link')
             return v, file_link(lr, v)
@@ -365,10 +369,11 @@ def connect(app, ctx):
             log.warning('abhyasa could not file the source %r: %r', i, e)
             why = f' {e}' if isinstance(e, LinkError) and not str(e).startswith('abhyasa could not') else ''
             return AttrDict(notes=[(f'abhyasa could not clone {v}.' if kind == 'gh' else f'abhyasa could not file {Path(v).name or v}.') + why],
-                            bad=kind in ('folder', 'repo'))   # a refused folder never reaches the plan or the agent
+                            bad=kind in ('folder', 'repo', 'file'))   # a refused folder or file never reaches the plan or the agent
         added = getattr(ds, 'added', None)
         return AttrDict(name=name, docs=ds, notes=[f'{name}: {cut}'] if (cut := getattr(ds, 'cut', '')) else [],
-                        filed=dict(root=name, docs=[dict(x) for x in added], at=time.time(), notebooks=sum(str(x.url).endswith('.ipynb') for x in added)) if added else None)
+                        filed=dict(root=str(Path(v).expanduser().resolve()) if kind == 'file' else name, docs=[dict(x) for x in added], at=time.time(),   # the root of the docs (`file_file`)
+                                   notebooks=sum(str(x.url).endswith('.ipynb') for x in added)) if added else None)
 
     def still(i): return f"abhyasa is still filing {i.partition(':')[2].rstrip('/').split('/')[-1]}. The walk uses it when it is filed."
 
@@ -414,7 +419,7 @@ def connect(app, ctx):
             except ValueError as e: notes.append(f'{Path(p).name}: {e}')
         return rows
 
-    def from_goal(goal, ids, st, subject='', data=()):
+    def from_goal(goal, ids, st, subject='', data=(), audience='', no_code=False):
         """On the pool: file each chip that is not in the vault, each on its own job, then plan the walk to `goal` (or, with no goal, walk
         through the docs). A goal waits at most `FILE_WAIT` seconds: a source that is still filing joins the walk when it is filed. Return the walk id."""
         filed, notes, docs, names, counts = st.setdefault('filed', []), [], L(), [], {}   # `st.filed`: the Undo still works when the walk fails
@@ -431,10 +436,10 @@ def connect(app, ctx):
             if o.filed: filed.append(o.filed)
         st.update(said='Planning the walk')
         rows = mine(data, notes)
-        if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), ctx.sources, False, chips=ids, data=rows)   # the plan sees the documents of the chips and your data
+        if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), ctx.sources, False, chips=ids, data=rows, audience=audience, no_code=no_code)   # the plan sees the documents of the chips and your data
         elif docs:
             n = val('links.pages')
-            j = journey_from_sources(lr, ask, docs[:n], title=' and '.join(names), subject=subject,
+            j = journey_from_sources(lr, ask, docs[:n], title=' and '.join(names), subject=subject, audience=audience, no_code=no_code,
                                      progress=lambda k, m: st.update(said=f"Reading {k + 1} of {n_of(m, 'document')}"))
         else: raise LinkError(' '.join(notes) or 'abhyasa found no text to read in these sources.')
         run_hook('concepts_added')
@@ -451,14 +456,14 @@ def connect(app, ctx):
             if val('research.on') and not val('research.told'): set_val('research.told', True)
         return j.id
 
-    def goal_walk(goal, ids, subject='', data=()):
-        "Start the pool job that files the chips `ids` and makes the walk with your `data` folders, unless one is running. The request does not wait."
-        key = 'goal:' + hashlib.sha1(json.dumps([goal, ids, list(data)]).encode()).hexdigest()[:12]
+    def goal_walk(goal, ids, subject='', data=(), audience='', no_code=False):
+        "Start the pool job that files the chips `ids` and makes the walk with your `data` folders, for `audience` and with `no_code`, unless one is running. The request does not wait."
+        key = 'goal:' + hashlib.sha1(json.dumps([goal, ids, list(data), audience, no_code]).encode()).hexdigest()[:12]
         st = links.get(key)
         if not st or st.job.done():
             st = links[key] = Said(lr, ui.build_key(key), said='Planning the walk')
-            st.job = built(key, lambda: ctx.pool.submit(from_goal, goal, ids, st, subject, data), goal or 'A walk through your sources', st.said,
-                           again=dict(goal=goal, ids=list(ids), subject=subject, data=list(data)))
+            st.job = built(key, lambda: ctx.pool.submit(from_goal, goal, ids, st, subject, data, audience, no_code), goal or 'A walk through your sources', st.said,
+                           again=dict(goal=goal, ids=list(ids), subject=subject, data=list(data), audience=audience, no_code=no_code))
         return ui.LinkPending(key, st.said, lr.job(ui.build_key(key)))
 
     def data_drop(jid:str, path:str=''):
@@ -496,7 +501,7 @@ def connect(app, ctx):
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
     def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str='',
-            q:str='', pick:str='', file:str='', opts:str='', doc:str='', sources:list[str]=None, chips:str='', mine:list[str]=None):
+            q:str='', pick:str='', file:str='', opts:str='', doc:str='', sources:list[str]=None, chips:str='', mine:list[str]=None, audience:str='', no_code:str=''):
         if (q.strip() or chips) and not any(x.strip() for x in (ref, text, topic, url)):   # the Start box: its reading says which field it is
             t = vault_title(lr.vault, q) if not file else None
             r = detect(q, dict([t]) if t else {}, research=val('research.on'), file=file, pick=pick, doc=doc, roots_in_vault=vault_roots(lr))   # `ref` is a document id
@@ -506,7 +511,7 @@ def connect(app, ctx):
                 ours = [x for x in ids if x in (mine or ()) and x.startswith('folder:')]   # the folders that you ticked as your data: not filed
                 ids = [x for x in ids if x not in ours]
                 if not goal and not ids: return P('Add a source first.', cls='req-err')
-                return goal_walk(q.strip() if goal else '', ids, clean_subject(subject), [x.partition(':')[2] for x in ours])
+                return goal_walk(q.strip() if goal else '', ids, clean_subject(subject), [x.partition(':')[2] for x in ours], audience.strip(), bool(no_code))
             if chips and not q.strip(): return P('Write your goal first.', cls='req-err')
             if not r.send: return P(r.line if r.kind != 'ask' else 'Pick one answer first.', cls='req-err')
             ref, text, topic, url = (r.send.get(k, '') for k in ('ref', 'text', 'topic', 'url'))
@@ -521,7 +526,7 @@ def connect(app, ctx):
                 return P(NO_DOC, cls='req-err')
             if ref: j = journey_from_source(lr, ask, ref, shelf, subject, tool)
             elif text.strip(): j = journey_from_text(lr, ask, text.strip(), title.strip() or text.strip().splitlines()[0][:60], subject, tool)
-            elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool)
+            elif topic.strip(): j = walk_from_topic(lr, ask, topic.strip(), profile_text(lr.profile()), ctx.sources, tool, audience=audience.strip(), no_code=bool(no_code))
             else: return P('Name a vault document, paste a text, or write a topic.', cls='req-err')
         except Exception as e:   # the log keeps the words of the library; the page shows a plain line
             log.warning('the tutor could not make a walk: %r', e)
@@ -563,7 +568,7 @@ def connect(app, ctx):
         bk = back_to(j) if ph == 'side' else None
         top = ended(j, b) if ph == 'finished' else Div(ui.SideTop(j, st, bk), *(run_hook('walk_end', j) if st.current is None else ())) if ph == 'side' else None   # a side walk that ends says what you learned on the way
         ts = talks_of(jid)
-        plan_ = ui.PlanPart(j, b, nb_now(j)) if j.steps and not for_talk(j) else ''
+        plan_ = ui.PlanPart(j, b, nb_now(j), busy=replanning(jid)) if j.steps and not for_talk(j) else ''
         page = ui.WalkPage(j, st, b, plan_, band(j, plan=True), top=top, more=run_hook('walk_plan_more', j), talks=ts,
                            changed={t['id'] for t in ts if any(walk_changes(lr, t).values())}, actions=run_hook('walk_actions', j, quiet=True), vault=vault,
                            lead=ui.side_lead(j, b, bk), copy=str(copy_path(lr.vault.assets(), j)) if (j.get('notebook') or {}).get('path') else '', change=replan_part(jid))
@@ -1089,37 +1094,96 @@ def connect(app, ctx):
 
     def replan_key(jid): return f'walk:{jid}:replan'
 
-    def replan_job(jid, st):
-        "On the pool: plan walk `jid` again from its source, keep its locked ideas, and save it as one change. Then look for sources of the new ideas. The id of the change."
-        old = {s['slug'] for s in lr.journey(jid).steps}
-        j2, rows = replan_walk(lr, ask, jid, ctx.sources, profile_text(lr.profile()), said=lambda x: st.update(said=x))
+    def replan_job(jid, st, chips=None, asks='', audience=None, no_code=None):
+        """On the pool: plan walk `jid` again from its source, keep its locked ideas, and save it as one change. Then look for sources of the new ideas. The id of the change.
+        With `chips`, the new plan uses only these sources: a new one is filed first, and one that abhyasa cannot file stops the job. `asks`, `audience` and `no_code` go to the planner."""
+        j = lr.journey(jid)
+        old, kw = {s['slug'] for s in j.steps}, {k: v for k, v in dict(audience=audience, no_code=no_code).items() if v is not None}
+        if chips is not None:
+            counts = dict(j.get('chip_counts') or {})
+            for i in [x for x in chips if x not in (j.get('chips') or ())]:
+                o = file_one(i, st)
+                if o.get('bad') or 'docs' not in o: raise ValueError(' '.join(o.notes) or f'abhyasa could not file {i}.')
+                counts[i] = len(o.docs)
+                if o.filed: lr.merge_journey(jid, filed=[*(lr.journey(jid).get('filed') or ()), o.filed])   # its Undo
+            kw.update(chips=list(chips), chip_counts={k: n for k, n in counts.items() if k in chips})
+        j2, rows = replan_walk(lr, ask, jid, ctx.sources, profile_text(lr.profile()), said=lambda x: st.update(said=x), asks=asks, **kw)
         run_hook('concepts_added')
         queue_new(j2, old)
         return rows[0].id if rows else ''
 
-    def replan(jid:str):
-        "Make this walk again: start the job, unless it runs, then open the walk page at the box, where its line has Stop."
+    def replan_form(j, sources, add, audience, no_code, asks):
+        "The inputs of the job from the form of Make this walk again, or the lines that say why it cannot start."
+        said, kw = [], dict(asks=asks.strip())
+        add = '\n'.join(x.strip() for x in add or () if x.strip())   # the typed field and each picked path, one on each line
+        if is_goal_walk(j) or j.get('chips'):
+            ids = [x for x in sources or () if x in (j.get('chips') or ())]
+            found = on_disk(named_sources(add, dict(title_index(lr.vault).values()), {}, vault_roots(lr))) if add else []
+            if add and not found: said.append(f'abhyasa cannot use {add[:80]} as a source. Add the path of a folder or a file, owner/name of a GitHub repo, or a link.')
+            said += [f'{c.name}: {c.why}' for c in found if c.get('why')]
+            ids += [c.id for c in found if not c.get('why') and c.id not in ids]
+            if not ids and not is_goal_walk(j): said.append('Keep one source or add one. A walk through its sources needs a source.')
+            kw['chips'] = ids
+        if is_goal_walk(j) or j.get('chips'): kw.update(audience=audience.strip(), no_code=bool(no_code))
+        return said, kw
+
+    def replan(req, jid:str, form:str='', sources:list[str]=None, add:list[str]=None, audience:str='', no_code:str='', asks:str=''):
+        """Make this walk again: start the job, unless it runs, then open the walk page at the box, where its line has Stop. With `form`, the job uses
+        the sources that you kept, picked (`add`) and typed (`add`), who the walk is for, No code and what you ask; a source that abhyasa cannot use shows the form again with its line.
+        The form posts with htmx. On the walk page itself, the answer swaps in place: the menu closes, the line goes in the box and the plan shows as a skeleton.
+        A redirect to the same page with only another `#part` does not load the page again, so the browser would show nothing new."""
         if not (j := walk_of(jid)) or for_talk(j): return missing()
-        key = replan_key(jid)
+        said, kw = replan_form(j, sources, add, audience, no_code, asks) if form else ([], {})
+        if said: return ui.WalkMenu(j, said)
+        start_replan(j, kw)
+        if form and urlsplit(req.headers.get('hx-current-url', '')).path == ui.walk_url(jid):
+            j = walk_of(jid)   # a job that already ended sends its plan, since no line waits to put it in the place of a skeleton
+            return ui.WalkMenu(j), Div(replan_part(jid), id='change-out', aria_live='polite', hx_swap_oob='true'), *((ui.PlanBusy(j, oob=True),) if replanning(jid) else view(j, oob=True))
+        if form: return Response(headers={'HX-Redirect': ui.walk_url(jid, 'change')})   # from another page, such as Home: the walk page opens
+        return RedirectResponse(ui.walk_url(jid, 'change'), status_code=303)
+
+    def start_replan(j, kw):
+        "Start the job of Make this walk again for walk `j` with the inputs `kw` of `replan_job`, unless it runs. Its row keeps them for Plan it again."
+        key, jid = replan_key(j['id']), j['id']
         if not (st := links.get(key)) or st.job.done():
             st = links[key] = Said(lr, key, said='Making the plan again')
-            st.job = track(lr, key, lambda: ctx.pool.submit(replan_job, jid, st), 'replan', title=f'Make the walk again: {j.title}', said=st.said,
-                           url=ui.walk_url(jid, 'change'), obj=f'walk:{jid}', again=dict(jid=jid), ok=lambda eid: dict(said='The tutor made the plan again.', eid=eid),
+            st.job = track(lr, key, lambda: ctx.pool.submit(replan_job, jid, st, **kw), 'replan', title=f'Make the walk again: {j.title}', said=st.said,
+                           url=ui.walk_url(jid, 'change'), obj=f'walk:{jid}', again=dict(jid=jid, **kw),
+                           ok=lambda eid: dict(said=' '.join(['The tutor made the plan again.', replan_said(lr.journey(jid), eid) if eid else '']).strip(), eid=eid),
                            why=lambda e: str(e) if isinstance(e, ValueError) else 'The tutor could not make the plan again. The plan did not change.')
-        return RedirectResponse(ui.walk_url(jid, 'change'), status_code=303)
+
+    def replanning(jid):
+        "Make this walk again runs for walk `jid`: its plan shows as a skeleton."
+        return (r := lr.job(replan_key(jid))) is not None and r.state == 'running'
+
+    def replan_said(j, eid) -> str:
+        "What change `eid` of Make this walk again did to walk `j`, in one or two sentences: the ideas that it removed and the ideas that it added."
+        e = next((x for x in lr.edits('walk', j.id) if x.id == eid), None)
+        if e is None or not isinstance(e.get('before'), list): return ''
+        b, was, now = by(), {s['slug']: s for s in e.before}, {s['slug']: s for s in j.steps}
+        def names(ss): return ', '.join(f'“{ui.name(b, s)}”' for s in ss)
+        gone, new = [s for k, s in was.items() if k not in now], [s for k, s in now.items() if k not in was]
+        if not gone and not new: return f"The plan has the same {n_of(len(now), 'idea')}."
+        return ' '.join([f"Removed {n_of(len(gone), 'idea')}: {names(gone)}." if gone else 'Removed no ideas.',
+                         f"Added {n_of(len(new), 'idea')}: {names(new)}." if new else 'Added no ideas.',
+                         f"The plan has {n_of(len(now), 'idea')} now."])
 
     def replan_part(jid):
         "The line of Make this walk again on the walk page: while its job runs, and for 10 minutes after it ended in this run of the app."
         r = lr.job(key := replan_key(jid))
         if r is None or (r.state != 'running' and (key not in links or time.time() - (r.get('end') or 0) > 600)): return ''
-        return ui.Replanned(jid, key, r, r.get('eid') or '')
+        return ui.Replanned(jid, key, r, eid := r.get('eid') or '', replan_said(lr.journey(jid), eid) if r.state == 'done' and eid else '')
 
     def replan_state(jid:str, key:str=''):
-        "The line of Make this walk again as it is now; when it is done, the plan comes too, out of band. A GET only reads."
+        """The line of Make this walk again as it is now. When the job ends, the plan comes too, out of band, in the place of its skeleton.
+        Done: the Undo bar under the plan says what changed. A GET only reads."""
         if not (j := walk_of(jid)) or key != replan_key(jid): return Response(status_code=404)
         r = lr.job(key)
-        out = ui.Replanned(jid, key, r, (r or {}).get('eid') or '')
-        return (out, *view(j, oob=True)) if r is not None and r.state == 'done' else out
+        if r is None or r.state == 'running': return ui.Replanned(jid, key, r)
+        eid = r.get('eid') or '' if r.state == 'done' else ''
+        said = replan_said(j, eid) if eid else ''
+        tell = (UndoBar(f'{ui.REPLAN_DONE} {said}'.strip(), ui.at(Routes.undo, j.id), ui.walk_url(j.id, 'history'), step=eid, hx_target='#steps', hx_swap='outerHTML'),) if eid else ()
+        return ui.Replanned(jid, key, r, eid, said), *view(j, oob=True), *tell
 
     @hook('job_stop')
     def stop_job_of(r):
@@ -1134,10 +1198,10 @@ def connect(app, ctx):
         if not isinstance(a, dict): return None
         jid = a.get('jid') or ''
         if k == 'build' and a.get('url'): link_walk(a['url'], a.get('pages') or '', bool(a.get('tool')), a.get('subject') or '')
-        elif k == 'build' and 'ids' in a: goal_walk(a.get('goal') or '', a.get('ids') or [], a.get('subject') or '', a.get('data') or ())
+        elif k == 'build' and 'ids' in a: goal_walk(a.get('goal') or '', a.get('ids') or [], a.get('subject') or '', a.get('data') or (), a.get('audience') or '', bool(a.get('no_code')))
         elif not walk_of(jid): return None
         elif k == 'research': again(jid)
-        elif k == 'replan': replan(jid)
+        elif k == 'replan': start_replan(walk_of(jid), {x: a[x] for x in ('chips', 'asks', 'audience', 'no_code') if x in a})
         elif k == 'improve': improve(jid, a.get('words') or '')
         elif k == 'filing': add_sources(jid, a.get('ids') or [])
         elif k in ('notebook', 'lesson') and (i := next((n for n, s in enumerate(lr.journey(jid).steps) if s['slug'] == a.get('slug')), None)) is not None:

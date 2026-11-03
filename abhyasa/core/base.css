@@ -346,6 +346,7 @@ a.out-link::after { content: '\2009↗'; font-size: .85em; color: var(--mute); }
 .more-menu .menu-items { position: absolute; right: 0; top: 100%; z-index: 5; display: grid; gap: 2px; justify-items: stretch; min-width: 12rem; text-align: left;
                          padding: var(--s2); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--lift); }
 .walk-menu .menu-items { min-width: 22rem; }
+.walk-menu .menu-items:has(.replan-walk[open]) { width: min(30rem, calc(100vw - 2 * var(--s5))); }   /* Make this walk again open: room for its sources and fields */
 .drop-walk > summary { list-style: none; cursor: pointer; padding: var(--s1) var(--s2); color: var(--fg); }
 .drop-walk > summary::-webkit-details-marker { display: none; }
 .drop-confirm { padding: var(--s2); } .drop-confirm p { margin: 0 0 var(--s2); font-size: var(--t-small); color: var(--ink2); }

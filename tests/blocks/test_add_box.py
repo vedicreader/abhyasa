@@ -3,7 +3,7 @@ import json, os, subprocess, pytest
 from pathlib import Path
 import abhyasa.blocks.add.app as add_app
 from starlette.testclient import TestClient
-from abhyasa.sources import NO_READ
+from abhyasa.sources import NO_READ, FILE_TYPE
 from abhyasa.learner import NO_FOLDER
 
 @pytest.fixture
@@ -58,22 +58,26 @@ def test_pick_several_folders_gives_a_chip_for_each(mk, home, monkeypatch):
     for x in paths: assert f'name="sources" value="folder:{x}"' in h
 
 def test_a_picked_path_has_the_checks_of_a_typed_path(mk, home, monkeypatch):
-    "start.js adds the picked path as `extra`, as it adds a typed path. A file or a folder that you cannot read is refused with the same line."
+    "start.js adds the picked path as `extra`, as it adds a typed path. A file of a type that abhyasa does not add, or a folder that you cannot read, is refused with the same line."
     cl = local(mk())
-    (f := home/'notes.txt').write_text('x')
+    (f := home/'notes.png').write_text('x')
     (shut := home/'shut').mkdir(); shut.chmod(0)
     try:
-        for p, why in ((f, NO_FOLDER), (shut, NO_READ)):
+        for p, why in ((f, FILE_TYPE.split(':')[0]), (shut, NO_READ)):
             chooser(monkeypatch, f'{p}\n')
             got, = cl.post('/learn/pick').json()['paths']
             assert got == str(p)
             picked = cl.get('/learn/read', params=dict(q='how noise works', extra=[got])).text
             typed = cl.get('/learn/read', params=dict(q='how noise works', extra=[str(p)])).text
-            assert why in picked and picked == typed and f'name="sources" value="folder:{p}"' not in picked
+            assert why in picked and picked == typed and f'name="sources" value="folder:{p}"' not in picked and f'name="sources" value="file:{p}"' not in picked
         assert NO_READ in cl.get('/learn/read', params=dict(q=str(shut))).text   # in the main field too
     finally: shut.chmod(0o755)
-    h = cl.get('/learn/read', params=dict(q='how noise works', extra=[str(home/'course22')])).text
+    h = cl.get('/learn/read', params=dict(q='how noise works', extra=[str(home/'course22'), str(home/'course22'/'a.md')])).text
     assert f'name="sources" value="folder:{home/"course22"}"' in h   # a folder that you can read is a source
+    assert 'value="file:' not in h   # a file in it is not a second source: the folder files it
+    (t := home/'notes.txt').write_text('x')
+    h = cl.get('/learn/read', params=dict(q='how noise works', extra=[str(t)])).text
+    assert f'name="sources" value="file:{t}"' in h   # and so is a file that you can read
 
 @pytest.fixture
 def research():

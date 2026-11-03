@@ -39,6 +39,21 @@ def test_course_page_says_where_you_are_and_what_is_next(mk, lr):
     assert 'Ask me where I start' in t and 'huggingface/diffusers' in t
     assert t.count('class="btn go"') == 1   # one main button
 
+def test_delete_this_course_keeps_its_walks(mk, lr):
+    """The course page and its row on Home have Delete this course, with one confirm line. It deletes the course, then Home opens.
+    Its walk stays and shows on Home by itself, and the course does not come back."""
+    goal_walk(lr, done=1); cid = join_course(lr, 'gw').id
+    cl = mk()
+    for url in (f'/course/{cid}', '/'):
+        t = cl.get(url).text
+        assert 'Delete this course' in t and f'action="/course/{cid}/drop"' in t and 'Its walks stay' in t
+    r = cl.post(f'/course/{cid}/drop', follow_redirects=False)
+    assert r.status_code == 303 and r.headers['location'] == '/'
+    assert lr.course(cid) is None and lr.journey('gw') is not None
+    t = cl.get('/').text
+    assert f'/course/{cid}' not in t and 'href="/w/gw' in t and not lr.courses()
+    assert cl.post(f'/course/{cid}/drop').status_code == 404
+
 def test_today_shows_the_course_line(mk, lr):
     "Today's top line names the course, what comes next and why, and Continue goes to that idea. An older goal walk gets its course here."
     goal_walk(lr, done=1)

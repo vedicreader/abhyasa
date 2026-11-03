@@ -98,14 +98,14 @@ if (!window.abhyasaStart) {
     for (const v of vs) keep('extra', v);
     return read().then(() => document.getElementById('start-add')?.focus());
   };
-  const pick = async b => {   // the folder chooser opens only for your click; Cancel gives no path and changes nothing
+  const pick = async b => {   // the chooser opens only for your click; Cancel gives no path and changes nothing. Pick files has data-files.
     const f = form(); if (!f || b.disabled) return;
     b.disabled = true;
     try {
-      const r = await fetch(f.dataset.pick, {method: 'POST', headers: {'HX-Request': 'true'}});
+      const r = await fetch(f.dataset.pick + (b.dataset.files ? '?files=1' : ''), {method: 'POST', headers: {'HX-Request': 'true'}});
       if (!r.ok) { say(await r.text()); return; }
-      const {paths} = await r.json(); if (paths?.length) await addAll(paths);   // one chip for each folder
-    } catch { say('abhyasa could not open the folder chooser. Type the path of the folder.'); }
+      const {paths} = await r.json(); if (paths?.length) await addAll(paths);   // one chip for each folder or file
+    } catch { say('abhyasa could not open the chooser. Type the path of the folder or the file.'); }
     finally { b.disabled = false; }
   };
   document.addEventListener('click', e => {
@@ -119,7 +119,7 @@ if (!window.abhyasaStart) {
       return;
     }
     if (e.target.closest && e.target.closest('#start-add-go')) { e.preventDefault(); add(); return; }
-    const pb = e.target.closest && e.target.closest('#start-pick');
+    const pb = e.target.closest && e.target.closest('#start-pick, #start-pick-files');
     if (pb) { e.preventDefault(); pick(pb); return; }
     const g = e.target.closest && e.target.closest('#start-as-goal');
     if (g) {   // Use it for a goal: the folder becomes a source, and the box waits for the goal

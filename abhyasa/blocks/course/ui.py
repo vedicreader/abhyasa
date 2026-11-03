@@ -19,7 +19,16 @@ LOCK_SVG = NotStr('<svg viewBox="0 0 12 14" width="10" height="12" aria-hidden="
                   '<path d="M3.5 6V4a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>')
 DATA_SAY = 'The exercises in Leela run on the files in these folders. abhyasa does not file them and does not learn from them.'
 
+DROP_SAYS = 'Delete this course? Its walks stay, with your answers and what you learned. Each walk shows on Home by itself.'
+
 def assets(): return (asset_css(_P/'course.css'),)
+
+def CourseMenu(c):
+    "The ⋯ menu of a course, on its page and on its row on Home: Delete this course, with one confirm in place. The form posts, then Home opens."
+    drop = Details(Summary('Delete this course', cls='small'),
+                   Form(P(DROP_SAYS), Div(Button('Delete the course', cls='small danger', data_act='drop-course'), cls='row'),
+                        action=Routes.of_(Routes.drop, cid=c['id']), method='post', hx_boost='false', cls='drop-confirm'), cls='drop-walk')
+    return Details(Summary('⋯', title='More for this course', aria_label='More for this course'), Div(drop, cls='menu-items'), cls='more-menu walk-menu course-menu')
 
 def at(cid): return Routes.of_(Routes.one, cid=cid)
 
@@ -170,7 +179,7 @@ def CoursePage(st, level, back=None):
     A course with no stage puts Where you start first. A course from a rabbit hole has its origin line under the goal (`back`)."""
     c = st.course
     first = not c.get('stages')
-    return (H1(c['title']), P('Your goal: ', Q(c['goal']), *([' · ', f"You make {c['makes']}."] if c.get('makes') else []), cls='mute'),
+    return (Div(H1(c['title']), CourseMenu(c), cls='course-head'), P('Your goal: ', Q(c['goal']), *([' · ', f"You make {c['makes']}."] if c.get('makes') else []), cls='mute'),
             Origin(st, back) if back else '', level if first else '',
             Div(Span('You are here', cls='lbl'), Here(st), P(f"{st.done} of {n_of(st.total, 'idea')} done.", cls='mute'), Bar(st.done, st.total), Next(st, c['id']), cls='course-card'),
             Stages(st, c['id']), Blocking(st, c['id']), Made(st), '' if first else level, Sources(c), Data(c), *assets())

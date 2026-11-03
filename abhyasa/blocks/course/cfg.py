@@ -9,6 +9,7 @@ class Routes:
     lock = '/course/{cid}/lock'            # POST: lock a stage that is good, or unlock it (key, on)
     back = '/course/{cid}/back'            # POST: Enough: go back to the place that opened this course as a rabbit hole
     fix = '/course/{cid}/fix'              # POST: Fix the rest: plan again each stage that you did not lock or start, on the pool
+    drop = '/course/{cid}/drop'            # POST: Delete this course; its walks stay
     walk = '/w/{jid}'                      # the walk block: a walk
     step = '/w/{jid}/{i}'                  # the walk block: one step
     start = '/start'                       # the session block: ?focus= starts a session on one idea

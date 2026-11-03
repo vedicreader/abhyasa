@@ -86,7 +86,7 @@ def CourseRow(c, rows):
     head = Div(Div(A(c.title, href=f'/course/{c.id}', cls='jt'), Pill('course'), cls='jrow-l1'),
                Div(Bar(done, len(left)), Span(f"{done} of {n_of(len(left), 'stage')}", cls='mute'), cls='jrow-l2'), cls='jrow-head')
     folded = Details(Summary(n_of(len(rows), 'stage')), Ul(*map(Stage, rows), cls='plain'), cls='side-walks') if rows else ''
-    return Li(head, Div(Onward('Open the course', f'/course/{c.id}'), cls='lrow-acts'), folded, cls='jrow lrow')
+    return Li(head, Div(Onward('Open the course', f'/course/{c.id}'), *run('course_actions', c, row=True), cls='lrow-acts'), folded, cls='jrow lrow')   # the course block: its ⋯ menu
 
 def Walks(courses, walks, by):
     "Your courses and walks: `courses` is `(course, stage rows)`, `walks` is `(walk, walk_state)` for each walk that is in no course."
