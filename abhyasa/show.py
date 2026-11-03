@@ -14,7 +14,7 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD
            'STEPS', 'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE', 'REFUSED', 'WHERES', 'ROUTES',
            'TALK_SCHEMA', 'SLIDE_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'WORDS_MOST', 'BODY_MOST',
            'POINT_MOST', 'GONE', 'TALK_CASES', 'CHOICE_SP', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'FILLED',
-           'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'figure_labels',
+           'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'FRESH', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'figure_labels',
            'FigureCache', 'keeps_images', 'vision_why', 'vision_ask', 'figure_check', 'focus_text', 'thread_text',
            'try_text', 'page_text', 'offer_line', 'panel_note', 'board_prompt', 'find_explainer', 'file_video',
            'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'source_label', 'guide_ask',
@@ -27,14 +27,14 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD
            'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show', 'import_gallery', 'parked',
            'on_stage', 'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q',
            'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'slide_source',
-           'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'talk_from_walk', 'fill_talk', 'walk_talk',
-           'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides', 'put_back',
-           'talk_again', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run', 'log_round',
-           'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak', 'recap',
-           'recap_html', 'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS',
-           'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS',
-           'WATCH', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'plain_say', 'check_line',
-           'parse_board', 'PageContext', 'clean_context', 'video_id', 'video_cues', 'stream_board']
+           'slide_notes', 'needs_fill', 'fill_slide', 'fill_slides', 'walk_slides', 'talk_from_walk', 'fill_talk',
+           'walk_talk', 'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides',
+           'put_back', 'talk_again', 'talk_fresh', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go',
+           'end_run', 'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split',
+           'weak', 'recap', 'recap_html', 'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES',
+           'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN',
+           'THREAD', 'TIERS', 'WATCH', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'plain_say',
+           'check_line', 'parse_board', 'PageContext', 'clean_context', 'video_id', 'video_cues', 'stream_board']
 
 # %% ../nbs/05_show.ipynb #52f9ee07
 import hashlib, json, logging, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
@@ -1638,20 +1638,24 @@ def _talk_id(title:str) -> str:
     "A new talk id from `title`."
     return re.sub(r'[^a-z0-9-]', '', f'{slugify(title)[:34]}-talk-{uuid.uuid4().hex[:4]}')[:48]
 
-def talk_from_walk(lr:Learning, ask, jid:str, choice:bool|None=None, sources=None, fill:bool=True) -> AttrDict:
-    "Make a talk from walk `jid` and save it. `choice` (default `talks.choice`) makes a choice question from each short check. `fill` writes the content of each slide, grounded on `sources`."
-    j = lr.journey(jid)
-    if j is None: raise KeyError(f'no journey {jid!r}')
+def walk_slides(lr:Learning, ask, j:dict, choice:bool|None=None, sources=None, fill:bool=True) -> dict:
+    "The `talk_state` of a new talk from walk `j`: a slide for each step that is not skipped, the closing slides, and what the talk keeps of the walk."
     choice = val('talks.choice') if choice is None else choice
-    steps = [(i, s) for i, s in enumerate(j.steps) if s.get('status') != 'skip']
+    steps = [(i, s) for i, s in enumerate(j['steps']) if s.get('status') != 'skip']
     slides = [_idea(lr, ask, i, s, f's{k+1}', choice) for k, (i, s) in enumerate(steps)]
     if fill: slides = fill_slides(lr, ask, slides, sources)
     slides = [clean_slide(s) for s in slides]   # no control mark from a note or a model reply
     n = len(slides)
+    marks = {x['concept']: dict(step=step_mark(s), slide=slide_marks(x)) for x, (_, s) in zip(slides, steps)}
     slides += [_end(f's{n+1}', 'questions', 'Questions', QUESTIONS_MIN), _end(f's{n+2}', 'recap', 'What we covered', RECAP_MIN)]
+    return dict(slides=slides, made_from=[s['slug'] for _, s in steps], walk_at=j.get('updated'), marks=marks)
+
+def talk_from_walk(lr:Learning, ask, jid:str, choice:bool|None=None, sources=None, fill:bool=True) -> AttrDict:
+    "Make a talk from walk `jid` and save it. `choice` (default `talks.choice`) makes a choice question from each short check. `fill` writes the content of each slide, grounded on `sources`."
+    j = lr.journey(jid)
+    if j is None: raise KeyError(f'no journey {jid!r}')
     t = dict(id=_talk_id(j.title), kind='talk', schema=TALK_SCHEMA, title=j.title, src={'walk': jid}, made=time.time(),
-             minutes=0, phones=False, live=None, slides=slides, made_from=[s['slug'] for _, s in steps], walk_at=j.get('updated'),
-             marks={x['concept']: dict(step=step_mark(s), slide=slide_marks(x)) for x, (_, s) in zip(slides, steps)})
+             minutes=0, phones=False, live=None, **walk_slides(lr, ask, j, choice, sources, fill))
     t['minutes'] = 5 * math.ceil(talk_minutes(t) / 5)
     return lr.put_talk(t)
 
@@ -1696,7 +1700,15 @@ def talks(self:Learning) -> L:
 
 @patch
 def drop_talk(self:Learning, tid:str):
-    "Remove a talk. Its walk stays."
+    "Delete talk `tid` with its runs, its history of changes, and the side walks that it opened beside its slides. Its walk stays."
+    gone, todo = set(), [j.id for j in self.journeys() if ((j.get('parent') or {}).get('talk')) == tid]
+    while todo:
+        if (k := todo.pop()) in gone: continue
+        gone.add(k)
+        todo += [j.id for j in self.journeys() if (j.get('parent') or {}).get('walk') == k]
+    for k in gone: self.drop_edits('walk', k); self.drop_journey(k)
+    for r in self.runs(tid): self.v.forget(r.doc_id)
+    self.drop_edits('talk', tid)
     if (t := self.talk(tid)): self.v.forget(t.doc_id)
 
 # %% ../nbs/05_show.ipynb #sb45
@@ -1878,6 +1890,23 @@ def talk_again(lr:Learning, ask, tid:str, sources=None, choice:bool|None=None) -
         if new == talk_state(now): return now
         out = []
         lr.add_edit('talk', tid, AGAIN, 'tutor', talk_state(now), apply=lambda: out.append(lr.put_talk(with_state(now, new))))
+    return out[0]
+
+# %% ../nbs/05_show.ipynb #fr02
+FRESH = 'Made the talk again from the walk, with no edits.'
+
+def talk_fresh(lr:Learning, ask, tid:str, sources=None, choice:bool|None=None, stop=None) -> AttrDict:
+    "Make talk `tid` again from its walk, with the same id, and drop your edits to its slides. The change is one history row, so one Undo takes it back."
+    t = lr.talk(tid)
+    if t is None: raise KeyError(f'no talk {tid!r}')
+    if (j := lr.journey((t.get('src') or {}).get('walk') or '')) is None: raise KeyError(f'the walk of talk {tid!r} is gone')
+    new = walk_slides(lr, ask, j, choice, sources)   # the model calls run outside the lock
+    if stop: stop()
+    with edit_lock('talk', tid):
+        if (now := lr.talk(tid)) is None: raise KeyError(f'no talk {tid!r}')
+        if new == talk_state(now): return now
+        out = []
+        lr.add_edit('talk', tid, FRESH, 'tutor', talk_state(now), apply=lambda: out.append(lr.put_talk(with_state(now, new))))
     return out[0]
 
 # %% ../nbs/05_show.ipynb #399b1dc2

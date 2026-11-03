@@ -944,13 +944,13 @@ def Steps(j, by, fresh='', nb=(), oob=False):
     return Ol(*kids, cls='edit-list walk-path', data_edit='1', id='steps', aria_label='The ideas of the walk', **({'hx_swap_oob': 'true'} if oob else {}))
 
 def TalkLine(talks, changed=()):
-    """The talks made from this walk, each with a link; a talk in `changed` is older than the walk now. A change here does not change a talk:
-    the talk offers Make it again, which keeps your edits to its slides."""
+    """The talks made from this walk, each with a link and what the talk block adds to its row (`talk_actions`: its ⋯ menu, with Delete this talk);
+    a talk in `changed` is older than the walk now. A change here does not change a talk: the talk offers Make it again, which keeps your edits to its slides."""
     if not talks: return ''
-    links = [x for k, t in enumerate(talks) for x in ((', ' if k else ''), A(f"{t['title']}, as a talk", href=f"/t/{t['id']}"),
-                                                       ' (older than this walk)' if t['id'] in changed else '')]
-    head = '1 talk was made from this walk: ' if len(talks) == 1 else f'{len(talks)} talks were made from this walk: '
-    return P(head, *links, '. A change here does not change a talk. To bring it in, open the talk and press “Make it again”.', cls='mute talk-line')
+    head = '1 talk was made from this walk.' if len(talks) == 1 else f'{len(talks)} talks were made from this walk.'
+    rows = [Li(A(f"{t['title']}, as a talk", href=f"/t/{t['id']}"), ' (older than this walk)' if t['id'] in changed else '', *run_hook('talk_actions', t)) for t in talks]
+    return Div(P(head, ' A change here does not change a talk. To bring it in, open the talk and press “Make it again”.', cls='mute'),
+               Ul(*rows, cls='plain talk-rows'), cls='talk-line')
 
 def PlanPart(j, by, nb=()):
     "The plan of the walk: the hands-on share, the ideas (each with Lock and the ⋯ menu; each change saves at once, with Undo), and the earlier versions in a fold."

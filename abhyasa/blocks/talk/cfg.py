@@ -8,6 +8,7 @@ class Routes:
     undo = '/t/{tid}/undo'             # take back the newest change
     history = '/t/{tid}/history'       # the earlier versions of the talk
     restore = '/t/{tid}/restore'       # go back to the version before one change
+    drop = '/t/{tid}/drop'             # POST: delete the talk with its runs and its history; the walk and your answers stay. Then the walk page, or Home
     slot = '/t/{tid}/slot'             # the minutes of the slot, and room phones
     fill = '/t/{tid}/fill'             # write the points and the notes of the slides that have none, on the pool
     start = '/t/{tid}/start'           # start a run (Task 6)

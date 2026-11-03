@@ -22,7 +22,7 @@ from abhyasa.models import for_task
 from abhyasa.learner import val, lines, track, seen_jobs, check_stop, halted, JobStopped, STOPPED
 from abhyasa.show import (check_talk, talk_from_walk, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST,
     QUESTIONS_MIN, public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go,
-    log_main, end_run, log_beside, recap, recap_html, BEATS, FILLED, clean_slide, talk_again, walk_changes, AGAIN,
+    log_main, end_run, log_beside, recap, recap_html, BEATS, FILLED, clean_slide, talk_again, talk_fresh, walk_changes, AGAIN, FRESH,
     talk_state, with_state, on_stage, put_back)
 from . import ui
 from .cfg import Routes
@@ -244,25 +244,38 @@ def connect(app, ctx):
         j = lr.journey(jid)
         return j if j and j.get('mode') == 'walk' and j.steps else None
 
-    def new(jid:str='', again:str='', tid:str=''):
+    def new(jid:str='', again:str='', tid:str='', fresh:str=''):
         """Start the pool job that makes a talk from walk `jid`, unless one runs. The request does not wait for the model.
         `again` (a number that is not 0) makes talk `tid` again from the walk (`talk_again`), with the same id and your edits; with no `tid`,
-        the newest talk of the walk. The job of a talk made again has the talk id as its key."""
+        the newest talk of the walk. With `fresh` too, it makes the talk again from scratch (`talk_fresh`): new slides, with no edits.
+        The job of a talk made again has the talk id as its key."""
         if not walk_of(jid := jid.strip()): return P('No such walk.', cls='req-err')
         if (a := again.strip()).isdecimal() and int(a):
             t = lr.talk(tid.strip()) if tid.strip() else walk_talk(lr, jid)
             if not t or (t.get('src') or {}).get('walk') != jid: return P('No such talk for this walk.', cls='req-err')
+            how = 'fresh' if fresh.strip() not in ('', '0') else True
             if not (job := jobs.get(t.id)) or job.done():
-                make_job(t.id, lambda: talk_again(lr, ask(), t.id, ctx.sources).id, f'Talk: {t.title}', 'Making the talk again', Routes.of(Routes.one, tid=t.id),
-                         again=dict(jid=jid, tid=t.id)).again = True
-            return ui.Pending(t.id, again=True, row=lr.job(f'talk:{t.id}'))
+                f = (lambda: scratch(jid, t.id)) if how == 'fresh' else (lambda: talk_again(lr, ask(), t.id, ctx.sources).id)
+                make_job(t.id, f, f'Talk: {t.title}', 'Making the talk again' + (' from scratch' if how == 'fresh' else ''), Routes.of(Routes.one, tid=t.id),
+                         again=dict(jid=jid, tid=t.id, **({'fresh': True} if how == 'fresh' else {}))).again = how
+            else: how = getattr(job, 'again', True)
+            return ui.Pending(t.id, again=how, row=lr.job(f'talk:{t.id}'))
         if not (job := jobs.get(jid)) or job.done(): make_job(jid, lambda: from_walk(jid), f'Talk: {walk_of(jid).title}', 'Making the talk', f'/w/{jid}', again=dict(jid=jid))
         return ui.Pending(jid, row=lr.job(f'talk:{jid}'))
 
+    def reads(jid, key):
+        "On the pool: find the passage of each step of walk `jid` that an old path left for later (`step_read`). Each step is a safe point of the job `key`."
+        for s in (lr.journey(jid) or {}).get('steps') or (): check_stop(lr, key); step_read(lr, jid, s['slug'], ctx.sources)
+        check_stop(lr, key)
+
+    def scratch(jid, tid):
+        "On the pool: make talk `tid` again from scratch from walk `jid`. After Stop, the talk does not change. The talk id."
+        reads(jid, key := f'talk:{tid}')
+        return talk_fresh(lr, ask(), tid, ctx.sources, stop=lambda: check_stop(lr, key)).id
+
     def from_walk(jid):
         "On the pool: find the passage of each step that an old path left for later (`step_read`), then make the talk. The talk id."
-        for s in (lr.journey(jid) or {}).get('steps') or (): check_stop(lr, f'talk:{jid}'); step_read(lr, jid, s['slug'], ctx.sources)   # each step is a safe point
-        check_stop(lr, f'talk:{jid}')
+        reads(jid, f'talk:{jid}')
         t = talk_from_walk(lr, ask(), jid, sources=ctx.sources)
         if halted(lr, f'talk:{jid}'): lr.drop_talk(t.id); check_stop(lr, f'talk:{jid}')   # after Stop, the talk is not kept
         return t.id
@@ -281,7 +294,7 @@ def connect(app, ctx):
         if not j.done(): return ui.Pending(jid.strip(), fill=not again and bool(lr.talk(jid.strip())), again=again, row=r)
         if isinstance(j.exception(), JobStopped) or (r is not None and r.state == 'stopped'): return ui.Ended(jid.strip(), STOPPED, r)
         if j.exception(): return ui.Ended(jid.strip(), NO_TALK, r)   # never the words of a library
-        done = '?done=again' if again else '?done=fill' if j.result() == jid.strip() else ''   # Fill the slides: the job of a talk has the id of the talk
+        done = '?done=fresh' if again == 'fresh' else '?done=again' if again else '?done=fill' if j.result() == jid.strip() else ''   # Fill the slides: the job of a talk has the id of the talk
         return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=j.result()) + done})
 
     @hook('job_again')
@@ -289,23 +302,43 @@ def connect(app, ctx):
         "Do it again on a talk job: make the talk of the walk, make the talk again, or fill its slides, with the same inputs."
         if r.get('kind') != 'talk' or not isinstance(a := r.get('again'), dict): return None
         if a.get('fill'): fill(a['fill'])
-        elif a.get('jid'): new(a['jid'], again='1' if a.get('tid') else '', tid=a.get('tid') or '')
+        elif a.get('jid'): new(a['jid'], again='1' if a.get('tid') else '', tid=a.get('tid') or '', fresh='1' if a.get('fresh') else '')
         else: return None
         return True
 
     def walk_for(t): return lr.journey((t.get('src') or {}).get('walk') or '')
 
+    def walks_of(t):
+        "`(walk, the walk of the old path)` of talk `t`: its walk, and for a walk made for the talk from an old path, that path (else None)."
+        j = walk_for(t)
+        return j, lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
+
+    def up_of(t):
+        "The page that talk `t` came from, as `[(title, url)]`: the walk page (of the old path, for a walk made for the talk), or none."
+        j, pj = walks_of(t)
+        return [(pj.title, f'/w/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
+
+    def is_live(t):
+        "Whether talk `t` has a run open now."
+        return bool(t.get('live') and (r := lr.run(t['live'])) and not r.get('ended'))
+
+    def busy(tid):
+        "The running job row that changes talk `tid` now (Make it again, From scratch, Fill the slides), or None."
+        r = lr.job(f'talk:{tid}')
+        return r if r is not None and r.state == 'running' else None
+
+    def menu(t, *items): return ui.TalkMenu(t, *items, live=is_live(t), row=busy(t['id']))
+
     def one(req, tid:str, done:str=''):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
         seen_jobs(lr, f'talk:{tid}')   # opening the talk is seeing the job that made it
-        said = dict(fill=FILLED, again=AGAIN).get(done)
-        top = first(lr.edits('talk', tid)) if said else None   # after Fill the slides or Make it again: the bar offers Undo at once
+        said = dict(fill=FILLED, again=AGAIN, fresh=FRESH).get(done)
+        top = first(lr.edits('talk', tid)) if said else None   # after Fill the slides, Make it again or From scratch: the bar offers Undo at once
         filled = bar(t, top.what, [top]) if top and top.what == said else None
-        j = walk_for(t)
-        pj = lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
-        up = [(pj.title, f'/w/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, choices(t), filled, None if pj or not j else walk_changes(lr, t)), on='Home', crumbs=[('Home', '/'), *up],
-                    extra=ui.editor_assets(), wide=True)
+        j, pj = walks_of(t)
+        m = menu(t, *([ui.Scratch(j.id, t, target='#talk-job', swap='innerHTML')] if j else []))
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, choices(t), filled, None if pj or not j else walk_changes(lr, t), menu=m), on='Home',
+                    crumbs=[('Home', '/'), *up_of(t)], extra=ui.editor_assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys work only here
         return page
 
@@ -570,6 +603,18 @@ def connect(app, ctx):
             except ValueError: return text('This version cannot come back.')
         return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=tid)})
 
+    def drop(tid:str):
+        """Delete talk `tid` with its runs, its history and the side walks that it opened (`drop_talk`), then go to the walk it came from, or Home.
+        A talk that runs now, or that a job changes now, is not deleted: the room may be looking at it, and the job would save it again."""
+        if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+        if (why := ui.LIVE_SAYS if is_live(t) else ui.BUSY_SAYS if busy(tid) else ''):
+            return FtResponse(Page('Delete this talk', H1('Delete this talk'), P(why), P(A('Back to the talk', href=Routes.of(Routes.one, tid=tid))), on='Home',
+                                       crumbs=[('Home', '/'), (f"{t.title}, as a talk", Routes.of(Routes.one, tid=tid))]), status_code=409)
+        back = (up_of(t) or [('Home', '/')])[0][1]
+        lr.drop_talk(tid); jobs.pop(tid, None)
+        seen_jobs(lr, f'talk:{tid}')   # the activity chip does not link to the talk that is gone
+        return RedirectResponse(back, status_code=303)
+
     def slot(tid:str, minutes:str=None, phones:str=None):
         "The minutes of the slot (5 to 240), and room phones (`on` or `off`); each only when the form sends it."
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
@@ -821,7 +866,12 @@ def connect(app, ctx):
     @hook('learn_talks')
     def teach():
         "Teach, on Home after your courses and walks: your talks, and how to make one."
-        return ui.Teach(lr.talks())
+        return ui.Teach(lr.talks(), menu=menu)
+
+    @hook('talk_actions')
+    def talk_row(t):
+        "On the row of talk `t` in a list of another block (the walk page): its ⋯ menu, with Delete this talk."
+        return menu(t)
 
     app.post(Routes.new)(new)
     app.get(Routes.job)(job)
@@ -832,6 +882,7 @@ def connect(app, ctx):
     app.post(Routes.undo)(undo)
     app.get(Routes.history)(history)
     app.post(Routes.restore)(restore)
+    app.post(Routes.drop)(drop)
     app.post(Routes.slot)(slot)
     app.post(Routes.fill)(fill)
     app.post(Routes.start)(start)

@@ -41,18 +41,26 @@ def short(s, n=140):
 # --- on other pages --------------------------------------------------------------------------------------------------
 
 def PresentWalk(jid, t=None, quiet=False):
-    """Make a talk from walk `jid`: the button gives way to the pending card. When talk `t` was made from it before: open that talk, or make it again
-    from the walk (`again`), with your edits. `quiet` is for a page that has its own main button (the step page, the last page)."""
+    """Make a talk from walk `jid`: the button gives way to the pending card. When talk `t` was made from it before: open that talk, make it again
+    from the walk (`again`) with your edits, or make it again from scratch, with no edits. `quiet` is for a page that has its own main button (the step page, the last page)."""
     btn = (lambda *a, **kw: Quiet(*a, small=True, **kw)) if quiet else Secondary
     go = Form(Input(type='hidden', name='jid', value=jid), *again_input(t), btn('Make the talk again (keeps your edits)' if t else 'Present this walk', data_wait='Making the talk…'),
               hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
     if not t: return go
     second = Form(Input(type='hidden', name='jid', value=jid), Quiet('Make a second talk', small=True, data_wait='Making the talk…'),
                   hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')   # the old way: a new talk, with no edits
-    if quiet: return Div(btn('Open the talk', href=at(Routes.one, t.id)), Details(Summary('More'), go, second, cls='more talk-more'), cls='row')   # a page with its own main button shows one way to the talk; the rest is under More
-    return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, Details(Summary('More'), second, cls='more talk-more'), cls='row')
+    if quiet: return Div(btn('Open the talk', href=at(Routes.one, t.id)), Details(Summary('More'), go, Scratch(jid, t), second, cls='more talk-more'), cls='row')   # a page with its own main button shows one way to the talk; the rest is under More
+    return Div(btn('Open the talk', href=at(Routes.one, t.id)), go, Details(Summary('More'), Scratch(jid, t), second, cls='more talk-more'), cls='row')
 
 def again_input(t): return (Input(type='hidden', name='again', value='1'), Input(type='hidden', name='tid', value=t['id'])) if t else ()
+
+SCRATCH_SAYS = 'Your edits go. Undo gives them back.'
+
+def Scratch(jid, t, target='this', swap='outerHTML'):
+    "Make it again from scratch: talk `t` gets new slides from walk `jid`, with no edits, as one change with Undo. It runs as a job, as Make it again does."
+    return Form(Input(type='hidden', name='jid', value=jid), *again_input(t), Input(type='hidden', name='fresh', value='1'),
+                Quiet('Make it again from scratch', small=True, data_wait='Making the talk again…', title=SCRATCH_SAYS),
+                hx_post=Routes.new, hx_target=target, hx_swap=swap, cls='talk-new talk-scratch')
 
 def AgainLine(t, jid, ch):
     "The walk `jid` changed after talk `t` was made (`ch`, from `walk_changes`): what changed, and Make it again for this talk. Nothing when nothing changed."
@@ -64,7 +72,7 @@ def AgainLine(t, jid, ch):
     return Div(P(said, cls='mute'),
                Form(Input(type='hidden', name='jid', value=jid), *again_input(t), Secondary('Make it again', data_wait='Making the talk again…'),
                     Small(' Your edits to slides stay in the new talk where the idea is the same.', cls='mute'),
-                    hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new'), cls='talk-again')
+                    hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new'), Scratch(jid, t), cls='talk-again')
 
 def RowPresent(jid, t=None):
     """The one quiet control on the row of walk `jid` in a list: "Open the talk" when talk `t` was made from it, else "Present", which makes the talk."""
@@ -73,9 +81,10 @@ def RowPresent(jid, t=None):
                 hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
 
 def Pending(jid, fill=False, again=False, row=None):
-    """A talk that is still being made, filled (`fill`) or made again (`again`), with Stop for its job row `row`: the card loads again on the
-    event of its job row (`talk:<jid>`), and every 30 seconds."""
+    """A talk that is still being made, filled (`fill`), made again (`again`) or made again from scratch (`again='fresh'`), with Stop for its job
+    row `row`: the card loads again on the event of its job row (`talk:<jid>`), and every 30 seconds."""
     said = (('Filling the slides…', 'The tutor writes the points and the speaker notes of each slide that has none. This can take a minute.') if fill else
+            ('Making the talk again from scratch…', 'The tutor writes each slide again from the walk. Your edits go, and Undo gives them back.') if again == 'fresh' else
             ('Making the talk again…', 'The tutor writes a slide for each new idea. Your edits to slides stay where the idea is the same.') if again else
             ('Making the talk…', 'The tutor writes the points and the speaker notes of each slide, and a question for the room from each check. This can take a minute.'))
     return Div(P(said[0]), P(said[1], cls='mute'), Div(JobStop(row), cls='row acts') if row is not None else '',
@@ -96,20 +105,38 @@ def plain_title(t) -> str:
     "The title of talk `t` with no date at its end."
     return DATED.sub('', t.title) or t.title
 
-def TalkRow(t, when=''):
-    "One talk in Teach on Home: its title with no date, its slide count and its slot (and `when`, for two talks with one title), then Edit and a quiet Present that starts a run."
+def TalkRow(t, when='', menu=''):
+    """One talk in Teach on Home: its title with no date, its slide count and its slot (and `when`, for two talks with one title), then Edit,
+    a quiet Present that starts a run, and its ⋯ menu (`menu`)."""
     return Li(Div(A(plain_title(t), href=at(Routes.one, t.id), cls='jt'), Span(meta(n_of(sum(not parked(s) for s in t.slides), 'slide'), f"a {t.minutes} min slot", when), cls='mute'), cls='lrow-head'),
               Div(A('Edit', href=at(Routes.one, t.id), cls='btn small'),
-                  Form(Quiet('Present', small=True, data_wait='Starting…'), action=at(Routes.start, t.id), method='post', hx_boost='false'), cls='lrow-acts'),
+                  Form(Quiet('Present', small=True, data_wait='Starting…'), action=at(Routes.start, t.id), method='post', hx_boost='false'), menu, cls='lrow-acts'),
               cls='lrow')
+
+DROP_SAYS = 'Delete this talk? Its slides and runs go. Your walk, answers and what you learned stay.'
+LIVE_SAYS = 'This talk is being presented now. End the talk first, then delete it.'
+BUSY_SAYS = 'abhyasa is changing this talk now. Stop the job first, then delete it.'
+
+def DropTalk(t, live=False, row=None):
+    """Delete this talk, with one confirm in place: the line says what goes and what stays. The form posts, then the walk page (or Home) opens.
+    A talk that runs now (`live`) offers End the talk instead, and a talk that a job changes now (its running job row `row`) offers Stop."""
+    if live: c = (P(LIVE_SAYS), Form(Button('End the talk', cls='small', data_act='end'), action=at(Routes.end, t['id']), method='post', hx_boost='false', cls='row'))
+    elif row is not None: c = (P(BUSY_SAYS), Div(JobStop(row), cls='row'))
+    else: c = (Form(P(DROP_SAYS), Div(Button('Delete the talk', cls='small danger', data_act='drop'), cls='row'), action=at(Routes.drop, t['id']), method='post', hx_boost='false'),)
+    return Details(Summary('Delete this talk', cls='small'), Div(*c, cls='drop-confirm'), cls='drop-walk drop-talk')
+
+def TalkMenu(t, *items, live=False, row=None):
+    "The ⋯ menu of talk `t`, in the editor and on its row in a list: `items` (such as Make it again from scratch), then Delete this talk."
+    return Details(Summary('⋯', title='More for this talk', aria_label='More for this talk'), Div(*items, DropTalk(t, live, row), cls='menu-items'), cls='more-menu talk-menu')
 
 TEACH = 'To teach a walk to a group, press Present on the walk. abhyasa makes the slides, and you change them before you present.'
 
-def Teach(ts):
-    "Teach, on Home: a row for each talk, and how to make one from a walk. Two talks with one title (with no date) each say the day and the hour when they were made."
+def Teach(ts, menu=lambda t: ''):
+    """Teach, on Home: a row for each talk, with its ⋯ menu (`menu(t)`), and how to make one from a walk. Two talks with one title (with no date)
+    each say the day and the hour when they were made."""
     n = Counter(map(plain_title, ts))
     when = lambda t: made_on(t, hour=True) if n[plain_title(t)] > 1 else ''
-    return Part('Teach', Ul(*[TalkRow(t, when(t)) for t in ts], cls='plain talks') if ts else '', P(TEACH, cls='mute'), data_part='teach')
+    return Part('Teach', Ul(*[TalkRow(t, when(t), menu(t)) for t in ts], cls='plain talks') if ts else '', P(TEACH, cls='mute'), data_part='teach')
 
 # --- the editor ------------------------------------------------------------------------------------------------------
 
@@ -334,16 +361,16 @@ def Fill(t):
     return Form(Quiet('Fill the slides', small=True, data_wait='Filling the slides…'), Small(f' {n} {have} no points or no speaker note.', cls='mute'),
                 hx_post=at(Routes.fill, t['id']), hx_target='this', hx_swap='outerHTML', cls='talk-new talk-fill')
 
-def Editor(t, j, pj=None, ch=None, bar=None, again=None):
+def Editor(t, j, pj=None, ch=None, bar=None, again=None, menu=''):
     """The editor of talk `t` from walk `j` (made for the talk from the old path `pj`, if given): what it is, Present, the slot, then the slides.
     `ch` has the passages and the figures that each slide can pick. A change saves at once, and the Undo bar at the foot can take it back.
     `bar` is the Undo bar to show when the page opens (after Fill the slides or Make it again), else the empty bar.
-    `again` has what changed in walk `j` after the talk was made (`walk_changes`): the page then offers Make it again."""
+    `again` has what changed in walk `j` after the talk was made (`walk_changes`): the page then offers Make it again. `menu` is the ⋯ menu of the talk."""
     ins = [s for s in t['slides'] if s.get('kind') == 'idea' and s.get('section') != GONE]   # a slide whose idea left the walk is not counted
     ideas, secs = len(ins), len({s.get('section') for s in ins if s.get('section')})
     made = A('Made from your walk', href=f'/w/{pj.id}') if pj else A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'
     cut = P('This talk has the first steps of the walk, up to the Ideas in a walk setting (12 by default). Skipped steps are left out.', cls='mute') if pj and (j.get('more') or any(s.get('status') == 'skip' for s in pj.steps)) else ''
-    return (H1(f"{t['title']}, as a talk"),
+    return (Div(H1(f"{t['title']}, as a talk"), menu, cls='talk-head'), Div(id='talk-job'),
             P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), ' · ', A('Earlier versions', href=at(Routes.history, t['id'])), cls='mute'), cut, AgainLine(t, j.id, again) if j and again else '',
             P('A change saves at once, and Undo takes it back.', cls='lead'),
             Details(Summary('About this'), P('Each idea of the walk is one slide. The passage or the points, and the figure, show to the room. '

@@ -65,6 +65,12 @@ Each main screen has one main button. The accent colour is for primary actions o
 4.5:1 or more on each surface, in each theme. Why: the page must stay bookish, not a dashboard. 30 Oct 2026. `--raised`,
 `--sunken` and `--lift` in `abhyasa/core/base.css`.
 
+**A talk goes with all that is part of it, but not while it runs.** Delete this talk removes the talk, its runs (and so its
+recaps), its history of changes and the side walks that it opened beside its slides. The walk, the answers and the learner
+model stay. A talk that runs now, or that a job changes now, is not deleted: the room may look at it, and the job would save it
+again. Make it again from scratch is one change in the history of the talk, so Undo gives the edits back. 3 Nov 2026.
+`drop_talk` and `talk_fresh` in `nbs/05_show.ipynb`; `drop` in `abhyasa/blocks/talk/app.py`.
+
 ## Architecture
 
 **Six engine notebooks, and no old module names.** The engine is `00_learner`, `01_models`, `02_sources`, `03_tutor`,

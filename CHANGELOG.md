@@ -2,6 +2,23 @@
 
 <!-- do not remove -->
 
+## 0.0.17
+
+### Talks
+
+- Delete a talk from the ⋯ menu in its editor, from its row in Teach on Home, or from its row on the walk page. One line asks you to confirm. The talk goes with its runs, its recaps, its history of changes and the side walks that it opened beside its slides. Your walk, your answers and what you learned stay. Then the walk page opens, or Home when the walk is gone.
+- You cannot delete a talk while you present it. End the talk first. You also cannot delete a talk while a job changes it. Stop the job first.
+- Make a talk again from scratch: next to "Make it again" (which keeps your edits), "Make it again from scratch" writes the slides again from the walk and drops your edits. It is one change, so Undo gives your edits back. It runs as a job, with Stop and Do it again.
+
+### Mac app
+
+- Abhyasa.app pins abhyasa 0.0.16, and its lock file is new. `make ship` pushes the tap over HTTPS.
+
+### Docs
+
+- The README is short, with a tour in pictures. The details are on a reference page.
+- `docs/decisions.md` keeps the decisions, and `docs/develop.md` tells how to test and release. The old plans, specs and screen mockups are removed.
+
 ## 0.0.16
 
 Needs rupaka 0.0.12.

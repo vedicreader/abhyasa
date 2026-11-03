@@ -237,3 +237,10 @@ html.present #rh-pane .rh-own { display: none; }
 .talk-more { display: inline-block; }
 .talk-more > summary { cursor: pointer; color: var(--mute); font-size: .9em; }
 #deck > li.parked .parked-acts { display: inline-flex; gap: .5rem; margin-left: .5rem; }
+
+/* the head of the editor: the title and the ⋯ menu of the talk (Make it again from scratch, Delete this talk) */
+.talk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
+.talk-head h1 { margin-bottom: 0; }
+.talk-menu .menu-items { min-width: 22rem; }
+.talk-menu .talk-scratch .quiet { width: 100%; justify-content: flex-start; color: var(--fg); }
+.lrow-acts .talk-menu, .talk-line .talk-menu { display: inline-block; }
