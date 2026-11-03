@@ -52,7 +52,8 @@ git -C "$TAP" diff --cached --quiet || git -C "$TAP" commit -m "Abhyasa $V"
 git -C .. add mac/Resources README.md nbs/index.ipynb
 git -C .. diff --cached --quiet || git -C .. commit -m "Pin Abhyasa.app $V to abhyasa $V"
 committed=1
-git -C "$TAP" -c credential.helper= -c "credential.helper=!gh auth git-credential" push
+# the tap remote can be SSH, and SSH is refused here, so push over HTTPS with the keyring of gh
+git -C "$TAP" -c credential.helper= -c "credential.helper=!gh auth git-credential" push https://github.com/vedicreader/homebrew-tap.git HEAD:main
 git -C .. -c credential.helper= -c "credential.helper=!gh auth git-credential" push
 shipped=1
 echo "Abhyasa $V is shipped."
