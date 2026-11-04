@@ -784,7 +784,9 @@ def test_a_tall_demo_scrolls_and_the_room_follows(mk, talk_fake, lr):
                 pr.wait_for_selector('#aud-live:not([hidden])'); pr.bring_to_front()
                 pr.keyboard.press('g'); pr.keyboard.press('3'); au.wait_for_function("document.getElementById('stage').dataset.slide === 's3'")
                 pr.keyboard.press('d'); au.wait_for_function(f"!!{DEMO}?.rupaka"); pr.wait_for_function(f"!!{DEMO}?.rupaka")
-                for x in (pr, au): assert not x.evaluate(info)['tall']   # a demo that fits is not in a tall box
+                for x in (pr, au):   # the demo keeps type that a room can read (20 px on a 1280 px slide), whether or not it fits its box
+                    x.wait_for_function(f"!!{DEMO}.style.zoom")
+                    assert x.evaluate(f"(h => parseFloat(getComputedStyle(h).fontSize) * parseFloat(h.style.zoom) / (document.getElementById('stage').clientWidth / 1280))({DEMO})") >= 19.5
                 for x in (pr, au): x.evaluate(f"{DEMO}.firstElementChild.style.paddingBottom = '700px'")
                 for x in (pr, au):
                     x.wait_for_function(f"{DEMO}.parentElement.classList.contains('tall')", timeout=3000)
