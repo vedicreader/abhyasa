@@ -361,3 +361,38 @@ def test_one_summary_line_for_each_turn(mk, lr, agent):
     agent.script = go
     h = say(cl, lr, bid, 'hello')
     assert h.count('class="bd-said"') == 1 and 'What I did' in h and 'I keep slide 2 first.' in h.split('What I did')[1]
+
+def test_keep_on_the_talk_page_and_hand_edit_lines(mk, lr, talk_fake, agent, home):
+    "Keep on a slide of the talk editor writes keep of the brief, which the builder reads; a hand edit adds a quiet line to the conversation and a note for the next turn."
+    talk_fake.rules['You write one poll'] = POLL
+    cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    agent.script = make_talk_script(nb); say(cl, lr, bid, f'Make a talk from {nb}.')
+    tid = lr.build(bid).target[5:]; sid = lr.talk(tid).slides[1]['id']
+    h = cl.post(f'/t/{tid}/slide', data=dict(sid=sid, act='keep')).text
+    assert lr.talk(tid).brief['keep'] == [sid] and 'pill kept' in h and '>Kept <kbd>F</kbd>' in h.replace('\n', '')
+    cl.post(f'/t/{tid}/slide', data=dict(sid=lr.talk(tid).slides[2]['id'], act='edit', title='My title'))
+    c = cl.get(f'/build/{bid}/chat').text
+    assert 'You changed it by hand: You kept slide 2.' in c and 'class="bd-note"' in c and 'title of slide 3' in c
+    agent.script = lambda t, p, s: t['change_talk']('shorter', slides='2')
+    say(cl, lr, bid, 'make slide 2 shorter')
+    assert 'by hand: You kept slide 2.' in agent.prompts[-1] and 'is kept' in fold(lr.build(bid).events)[-2]['result']
+
+def test_send_from_the_page_solo_tabs_and_labels(mk, lr, talk_fake, agent, home):
+    "The change box and Change this slide open the builder with the words sent at once; a narrow window has the Builder and Result tabs; a change shows the label of each source."
+    talk_fake.rules['You write one poll'] = POLL
+    talk_fake.rules['Rewrite these fields'] = dict(body=['Short point one.', 'Short point two.'], notes='Note.')
+    cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    agent.script = make_talk_script(nb); say(cl, lr, bid, f'Make a talk from {nb}.')
+    tid = lr.build(bid).target[5:]
+    agent.script = lambda t, p, s: t['change_talk']('shorter', slides='3')
+    n = ends(lr, bid)
+    loc = cl.get(f'/build/open?talk={tid}&pane=1&say=Slide 3: shorter&send=1', follow_redirects=False).headers['location']
+    assert 'say=' not in loc
+    wait_for(lambda: True if ends(lr, bid) > n and lr.job(f'build:{bid}').state != 'running' else None, secs=20)
+    its = fold(lr.build(bid).events)
+    assert [i for i in its if i['kind'] == 'user'][-1]['text'] == 'Slide 3: shorter' and its[-2]['name'] == 'change_talk'
+    c = cl.get(f'/build/{bid}/chat').text
+    assert 'data-landed="3"' in c and ('Your source' in c or "abhyasa&#x27;s words, no source" in c or "abhyasa's words, no source" in c)
+    s = cl.get(f'/build/{bid}?solo=1').text
+    assert 'class="subtabs bd-tabs"' in s and f'href="/t/{tid}"' in s and 'id="build-say"' in s
+    assert 'bd-tabs' in cl.get(f'/t/{tid}').text and 'Change this slide' in cl.get(f'/t/{tid}').text
