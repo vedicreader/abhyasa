@@ -474,13 +474,13 @@ def test_a_kept_find_is_filed_and_read_as_a_document(mk, lr, agent, monkeypatch)
     "A kept web find is filed first and goes to the planner as a document (`doc:`), so its passages can reach the steps."
     seen = []
     monkeypatch.setattr(build_app, 'file_link', lambda l, u, max_pages=None: [AttrDict(doc_id='d1', shelf='store', title='Kept page', url=u)])
-    def spy(l, ask, chips, *a, **kw): seen.append(list(chips)); raise ValueError('stop here')
+    def spy(l, ask, chips, *a, **kw): seen.append((list(chips), kw.get('near'))); raise ValueError('stop here')
     monkeypatch.setattr(build_app, 'walk_for_talk', spy)
     cl = mk(); bid = new_build(cl)
     lr.put_build({**lr.build(bid), 'brief': {**lr.build(bid).brief, 'kind': 'walk', 'goal': 'war', 'sources': [dict(id='link:https://ex.org/a', name='A', role='extra', found=True)]}})
     agent.script = lambda t, p, s: t['make_walk']()
     say(cl, lr, bid, 'make the walk')
-    assert seen == [['doc:d1']]
+    assert seen == [(['doc:d1'], False)]   # with sources, the planner sees no other ideas of the vault
 
 def test_research_ends_a_native_turn_with_its_row_closed(mk, lr, monkeypatch):
     "With ramabana's events, the turn stops after research too, and the research row is done, with the count of the finds."

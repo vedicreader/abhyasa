@@ -195,10 +195,11 @@ def owner_says(change:str) -> str:
     c = ' '.join(_OWNER.sub('', str(change or '')).split())[:CHANGE_MOST]
     return f'\n\nThe owner of the talk asks for this change. Do it, unless it breaks the rules:\n<owner>{c}</owner>' if c else ''
 
-def plan(lr:Learning, ask, goal:str, who:str='', sources=None, srcmap=(), data=(), audience:str='', no_code:bool=False, asks:str='', owner:str='') -> AttrDict:
+def plan(lr:Learning, ask, goal:str, who:str='', sources=None, srcmap=(), data=(), audience:str='', no_code:bool=False, asks:str='', owner:str='', near:bool=True) -> AttrDict:
     """Plan a path (a walk with no source) to `goal`, make the concepts that the shelf does not have, and save it. `srcmap`, `data`,
-    `audience`, `no_code` and `asks` go to the planner. `owner` goes to it as an instruction of the owner (`owner_says`). With `no_code`, no step is a notebook and no new concept has the code way."""
-    r = ask_json(for_task(ask, 'plan'), plan_prompt(goal, who, near_goal(lr, goal), srcmap, data, audience, no_code, asks) + owner_says(owner), prompt('walk.plan'))
+    `audience`, `no_code` and `asks` go to the planner. `owner` goes to it as an instruction of the owner (`owner_says`). With `no_code`, no step is a notebook and no new concept has the code way.
+    `near=False` shows the planner no concepts of the shelf (`near_goal`), so a walk from given sources gets no idea from other content of the vault."""
+    r = ask_json(for_task(ask, 'plan'), plan_prompt(goal, who, near_goal(lr, goal) if near else [], srcmap, data, audience, no_code, asks) + owner_says(owner), prompt('walk.plan'))
     pairs = [(root, t) for root, docs in srcmap for t, _ in docs]
     idx, subject, steps, slug_of = _index(lr), (r.get('subject') or '').lower().strip(), [], {}
     for s in r.get('steps') or []:
@@ -736,7 +737,7 @@ def _topic_walk(lr:Learning, j, sources=None, tool:bool=False, refs=None, roots=
     cap_hands(lr, j.steps, tool)
     return lr.put_journey({**j, 'mode': 'walk', 'source': None, 'started': None, 'sitting': None, 'tool': tool, 'more': more, **({'no_code': True} if no_code else {}), **extra})
 
-def walk_from_topic(lr:Learning, ask, goal:str, who:str='', sources=None, tool:bool=False, chips=(), data=(), audience:str='', no_code:bool=False, asks:str='', owner:str='') -> AttrDict:
+def walk_from_topic(lr:Learning, ask, goal:str, who:str='', sources=None, tool:bool=False, chips=(), data=(), audience:str='', no_code:bool=False, asks:str='', owner:str='', near:bool=True) -> AttrDict:
     """Plan a path to `goal` and make it a walk of at most `walks.steps` steps, with a passage and a check on each step. With `chips` (the
     chip ids of the Start box), the planner sees the `source_map`. With `data` (your data folders, `{path, note}`), the planner sees
     their data entries, and the walk keeps them. `audience` (who the walk is for) and `no_code` go to the planner and stay on the walk;
@@ -745,7 +746,7 @@ def walk_from_topic(lr:Learning, ask, goal:str, who:str='', sources=None, tool:b
     refs = {}
     for root, ds in cd:
         for d in ds: refs.setdefault((root, _short(d.title)), dict(shelf=d.shelf, doc_id=d.doc_id))   # the first in path order: `02_production`, not a translation
-    j = plan(lr, ask, goal, who, sources, source_map(lr, chips), data_entries(data), audience, no_code, asks, owner)
+    j = plan(lr, ask, goal, who, sources, source_map(lr, chips), data_entries(data), audience, no_code, asks, owner, near=near)
     files = [d.doc_id for c in chips or () if str(c).startswith('file:') for d in path_docs(lr, str(c)[5:])]   # a file filed with its folder has the root of the folder
     return _topic_walk(lr, j, sources, tool, refs, [root for root, _ in cd] + files, no_code=no_code,
                        **({'data': list(data)} if data else {}), **({'audience': audience.strip()} if audience.strip() else {}))
@@ -926,7 +927,7 @@ def nb_title(path) -> str:
     w = ' '.join(re.sub(r'^\d+[_-]', '', Path(path).stem).replace('_', ' ').replace('-', ' ').split())
     return w[:1].upper() + w[1:]
 
-def walk_for_talk(lr:Learning, ask, chips, goal:str='', audience:str='', no_code:bool=False, sources=None, said=noop, owner:str='') -> AttrDict:
+def walk_for_talk(lr:Learning, ask, chips, goal:str='', audience:str='', no_code:bool=False, sources=None, said=noop, owner:str='', near:bool=True) -> AttrDict:
     """File the chips `chips`, and make and save the hidden walk of a talk from them. `said` gets each stage. The walk of one notebook takes the title of the notebook (`nb_title`).
     `owner` (what the owner asks for, such as the roles of the sources) goes to the planner (`owner_says`), and the walk keeps it as its `change`, so the slide writer gets it too."""
     ids, title = list(dict.fromkeys(chips)), ''
@@ -935,7 +936,7 @@ def walk_for_talk(lr:Learning, ask, chips, goal:str='', audience:str='', no_code
     one = len(ids) == 1 and str(ids[0]).startswith('file:') and str(ids[0]).endswith('.ipynb') and len(docs) == 1
     nb = one and not goal and nb_file(lr, docs[0].doc_id, docs[0].shelf)
     said('Reading the sections of the notebook' if nb else 'Planning the ideas')
-    if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), sources, chips=ids, audience=audience, no_code=no_code, owner=owner)
+    if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), sources, chips=ids, audience=audience, no_code=no_code, owner=owner, near=near)
     elif nb: j, title = notebook_walk(lr, docs[0], *nb), nb_title(nb[1])
     elif docs: j = journey_from_sources(lr, ask, docs[:val('links.pages')], audience=audience, no_code=no_code)
     else: raise ValueError('abhyasa found no text to read in these sources.')

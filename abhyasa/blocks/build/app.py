@@ -480,7 +480,7 @@ def connect(app, ctx):
             b = rec(); br = b.brief
             if target(b)[0] == 'talk' and thing(b) and not new: return 'A talk exists. Use change_talk to change it.'
             if not (chips := filed(brief_chips(br), bid)) and not br.get('goal'): raise ValueError('The brief has no source and no goal. Add a source, or set the goal.')
-            j = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=brief_asks(br))
+            j = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=brief_asks(br), near=not chips)   # with sources, no idea from other content of the vault
             record(j.id, chips); lr.merge_journey(j.id, change=brief_asks(br, slides=True) or None, build=bid)   # the writer of each slide gets no rule about the shape of the talk
             mins = int(minutes or br.get('minutes') or 0)
             j = lr.journey(j.id)
@@ -508,7 +508,7 @@ def connect(app, ctx):
             if target(b)[0] == 'walk' and (j := thing(b)) and not new:
                 stage('Planning the walk again')
                 # the walk again from the brief: the chips are filed (a kept find too), and the steps take the place of the old ones, as one change with an Undo
-                tmp = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=owner)
+                tmp = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=owner, near=not chips)
                 try: j2, h = edit_walk(lr, j.id, lambda ss: deepcopy(tmp.steps), 'Made the walk again from the brief.', who='tutor',
                                        fields=dict(chips=chips, source=tmp.get('source'), notebook=tmp.get('notebook')))
                 finally: lr.drop_journey(tmp.id)
@@ -517,7 +517,7 @@ def connect(app, ctx):
                 put_brief(bid, kind='walk')
                 return f"Made the walk again from the brief: {len(j2.steps)} steps. {sourced_line(j2)}", outline_of(j2)
             if not chips and not goal: raise ValueError('The brief has no source and no goal. Add a source, or set the goal.')
-            j = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=owner)
+            j = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=owner, near=not chips)
             j = lr.merge_journey(j.id, parent=None, brief={**br, 'kind': 'walk'}, build=bid)
             record(j.id, chips)
             with locks[bid]: lr.put_build({**rec(), 'target': f'walk:{j.id}', 'title': j.title})
@@ -629,7 +629,7 @@ def connect(app, ctx):
             words = instruction + (f" Change only steps {', '.join(map(str, nums(steps)))}." if nums(steps) else '')
             names = lambda w: [(lr.concept(s['slug']) or {}).get('name') or s['slug'] for s in w.steps]
             stage('The tutor reads what you asked')
-            cs = propose(ctx.ask, j, {c.slug: c.name for c in lr.concepts()}, words)
+            cs = propose(ctx.ask, j, {s_['slug']: name_of(s_['slug']) for s_ in j.steps}, words)   # only the ideas of this walk: no idea from other content of the vault
             olds = [(n, s_['slug'], name_of(s_['slug'])) for n, s_ in enumerate(j.steps, 1)]
             dup = [(c, near) for c in cs if c.op == 'add' and (near := first(o for o in olds if o[1] == (c.get('slug') or '') or same_idea(o[2], c.get('name') or '')))]
             cs = [c for c in cs if c not in [d for d, _ in dup]]   # a step that the walk has already, or nearly, is not added again
