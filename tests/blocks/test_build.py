@@ -553,3 +553,18 @@ def test_no_code_turns_the_hands_on_checks_of_a_walk_into_short_answers(mk, lr, 
     say(cl, lr, bid, 'I want a thorough understanding, not code.')
     j = lr.journey(jid)
     assert len(j.steps) == n and j.steps[0]['check']['kind'] == 'short' and j.steps[0]['check']['depth'] == 3 and 'became short answers' in lr.edits('walk', jid)[0].what
+
+def test_a_conflict_shows_both_quotes_and_the_source_that_won(mk, lr, talk_fake, agent, home):
+    "note_conflict keeps two quotes that are word for word in a main and an extra source; the Conflicts part shows both with links and the rule. A quote that is not in a source is refused."
+    main, blog = home/'main.md', home/'blog.md'
+    main.write_text('# The agent loop\n\nThe loop stops after 10 tool calls. This keeps a confused agent from running for ever.\n')
+    blog.write_text('# A blog post\n\nIn our experience the loop stops after 5 tool calls. A lower limit saves money.\n')
+    cl = mk(); bid = new_build(cl)
+    agent.script = lambda t, p, s: (t['add_source'](str(main), 'main'), t['add_source'](str(blog), 'extra'), t['set_brief'](kind='talk', rules='Where they conflict, use the main source', research='off'), t['make_talk']())[3]
+    say(cl, lr, bid, 'Make a talk from my two notes.')
+    agent.script = lambda t, p, s: (t['note_conflict']('The loop stops after 10 tool calls.', 'something it never says'),
+                                    t['note_conflict']('The loop stops after 10 tool calls.', 'In our experience the loop stops after 5 tool calls.'))[1]
+    h = say(cl, lr, bid, 'show me the conflicts')
+    last = h.split('class="bd-me"')[-1]
+    assert '<summary>Conflicts</summary>' in last and 'The loop stops after 10 tool calls.' in last and 'In our experience the loop stops after 5 tool calls.' in last
+    assert 'your rule: Where they conflict, use the main source' in last and 'href="/v/' in last and 'What did not work' in last

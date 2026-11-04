@@ -75,7 +75,7 @@ def page_title(t) -> str:
 def slot_line(t) -> str:
     "The real minutes of talk `t` against its slot, as the editor counts them."
     n, slot = talk_minutes(t), t.get('minutes') or 0
-    return f"It is about {n} minutes for a slot of {slot} minutes." + ('' if not slot or n <= slot else f" That is {n - slot} minutes over the slot.")
+    return f"It is about {n} minutes for a slot of {slot} minutes." + ('' if not slot or n <= slot else f" That is {n_of(n - slot, 'minute')} over the slot.")
 
 class Counting:
     "The model `ask`, which calls `on_slide(k)` before the k-th call of the slide writer, so a long make can say which slide it writes. kosha shows no hook for this in ramabana or abhyasa."
@@ -531,7 +531,7 @@ def connect(app, ctx):
             def find(role, q):
                 q = ' '.join(q.split())
                 for n, d in docs_by_role().get(role) or []:
-                    try: text = ' '.join(lr.vault.document(d.doc_id, max_chars=400000, disk=False).text.split())
+                    try: text = ' '.join((lr.doc_shelf(d.shelf) or lr.vault).document(d.doc_id, max_chars=400000, disk=False).text.split())   # a file is on its own shelf
                     except Exception: continue
                     if q and q in text: return dict(quote=q, title=d.title, role=f'{role} source', href=f'/v/{d.shelf}/{d.doc_id}')
             m, x = find('main', main_quote), find('extra', extra_quote)

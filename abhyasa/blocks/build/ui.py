@@ -148,7 +148,7 @@ def Turn(t, b, changers, last=False, href=''):
     calls, said = t['calls'], t['said']
     ok = lambda x: x['status'] == 'done' and not failed(x)
     shown = [x for x in calls if x['name'] in LINES and x['name'] != 'note_conflict' and not failed(x)]
-    hidden = [x for x in calls if x not in shown and x['name'] != 'note_conflict']
+    hidden = [x for x in calls if x not in shown and (x['name'] != 'note_conflict' or failed(x))]
     changed = [x for x in calls if x['name'] in changers and ok(x)]
     facts = [x['result'] for x in calls if ok(x) and x['name'] in (*changers, *BRIEF_TOOLS)]
     conflicts = [x['data'] for x in calls if x['name'] == 'note_conflict' and ok(x) and x.get('data')]
