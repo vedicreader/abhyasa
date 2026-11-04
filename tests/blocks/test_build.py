@@ -568,3 +568,19 @@ def test_a_conflict_shows_both_quotes_and_the_source_that_won(mk, lr, talk_fake,
     last = h.split('class="bd-me"')[-1]
     assert '<summary>Conflicts</summary>' in last and 'The loop stops after 10 tool calls.' in last and 'In our experience the loop stops after 5 tool calls.' in last
     assert 'your rule: Where they conflict, use the main source' in last and 'href="/v/' in last and 'What did not work' in last
+
+def test_a_link_that_cannot_be_read_is_left_out(mk, lr, agent, monkeypatch):
+    "A kept link that abhyasa cannot read is left out of the make and dropped in the brief, with a quiet line; the make goes on with the rest."
+    seen = []
+    def fc(l, c):
+        if c.endswith('/bad'): raise ValueError('abhyasa could not read this link.')
+        return [AttrDict(doc_id='d1', shelf='store', title='Good', url=c[5:])]
+    monkeypatch.setattr(build_app, 'file_chip', fc)
+    def spy(l, ask, chips, *a, **kw): seen.append(list(chips)); raise ValueError('stop here')
+    monkeypatch.setattr(build_app, 'walk_for_talk', spy)
+    cl = mk(); bid = new_build(cl)
+    srcs = [dict(id='link:https://ex.org/bad', name='Bad', role='extra', found=True), dict(id='link:https://ex.org/good', name='Good', role='extra', found=True)]
+    lr.put_build({**lr.build(bid), 'brief': {**lr.build(bid).brief, 'kind': 'talk', 'goal': 'vaccines', 'sources': srcs}})
+    agent.script = lambda t, p, s: t['make_talk']()
+    h = say(cl, lr, bid, 'make the talk')
+    assert seen == [['doc:d1']] and lr.build(bid).brief['sources'][0]['role'] == 'dropped' and 'could not read 1 link' in h

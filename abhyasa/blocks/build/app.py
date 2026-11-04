@@ -107,14 +107,20 @@ def connect(app, ctx):
         r = [s_.get('read') or {} for s_ in j.steps]
         have, web = sum(bool(x.get('text')) for x in r), sum(bool(x.get('text')) and x.get('src') == 'web' for x in r)
         return f"{have} of {n_of(len(r), 'step')} {'has' if have == 1 else 'have'} a passage from a source" + (f", {web} from the web" if web else '') + '.'
-    def filed(chips) -> list:
-        "The chips with each `link:` filed first and named by its documents (`doc:`), so the planner and the passage search read a kept web page as a source."
-        out = []
+    def filed(chips, bid=None) -> list:
+        """The chips with each `link:` filed first and named by its documents (`doc:`), so the planner and the passage search read a kept web page
+        as a source. A link that abhyasa cannot read is left out, and its source in the brief of conversation `bid` becomes dropped, so no make fails on it."""
+        out, bad = [], []
         for c in chips:
-            if str(c).startswith('link:'):
-                try: out += [f'doc:{d.doc_id}' for d in file_chip(lr, c)] or [c]
-                except Exception as e: log.warning('builder: could not file %s: %r', c, e); out.append(c)
-            else: out.append(c)
+            if not str(c).startswith('link:'): out.append(c); continue
+            try: ds = list(file_chip(lr, c))
+            except Exception as e: log.warning('builder: could not file %s: %r', c, e); ds = []
+            if ds: out += [f'doc:{d.doc_id}' for d in ds]
+            else: bad.append(c)
+        if bad and bid:
+            ss = [{**x, 'role': 'dropped'} if x['id'] in bad else x for x in lr.build(bid).brief.get('sources') or []]
+            put_brief(bid, sources=ss)
+            Emit(lambda e: emit(bid, e)).ev('CUSTOM', name='note', value=f"abhyasa could not read {n_of(len(bad), 'link')}, so it left them out: {', '.join(x[5:] for x in bad)}")
         return list(dict.fromkeys(out))
     def outline_of(j): return dict(outline=[name_of(s['slug']) for s in j.steps], labels=[src_label(s.get('read')) for s in j.steps])
 
@@ -344,7 +350,7 @@ def connect(app, ctx):
             "Make the talk from the brief: file its sources, plan its ideas, then write its slides."
             b = rec(); br = b.brief
             if target(b)[0] == 'talk' and thing(b) and not new: return 'A talk exists. Use change_talk to change it.'
-            if not (chips := filed(brief_chips(br))) and not br.get('goal'): raise ValueError('The brief has no source and no goal. Add a source, or set the goal.')
+            if not (chips := filed(brief_chips(br), bid)) and not br.get('goal'): raise ValueError('The brief has no source and no goal. Add a source, or set the goal.')
             j = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=brief_asks(br))
             mins = int(minutes or br.get('minutes') or 0)
             cut = fit_walk(lr, j.id, mins)   # the slot: fewer ideas, from the end, before the slides are written
@@ -366,7 +372,7 @@ def connect(app, ctx):
                       ) -> str:
             "Make the walk from the brief. When a walk exists, plan it again from the brief, as one change with an Undo."
             b = rec(); br = b.brief
-            chips, goal, owner = filed(brief_chips(br)), br.get('goal') or '', brief_asks(br)
+            chips, goal, owner = filed(brief_chips(br), bid), br.get('goal') or '', brief_asks(br)
             if target(b)[0] == 'walk' and (j := thing(b)) and not new:
                 stage('Planning the walk again')
                 # the walk again from the brief: the chips are filed (a kept find too), and the steps take the place of the old ones, as one change with an Undo
