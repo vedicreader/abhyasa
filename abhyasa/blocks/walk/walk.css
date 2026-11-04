@@ -231,3 +231,6 @@ main:has(#steps) { padding-bottom: calc(44px + 2 * var(--s5)); }
 .did-at { font-size: var(--t-small); }
 .talk-rows { margin: var(--s1) 0 0; }
 .talk-rows > li { display: flex; align-items: center; gap: var(--s2); }
+/* a long title, such as a path with no space, wraps inside its column and never runs into the next one */
+.walk-layout > * { min-width: 0; }
+.outline .rail-title, .outline li, .walk-head h1, .walk-layout h1, .walk-layout h2 { overflow-wrap: anywhere; }

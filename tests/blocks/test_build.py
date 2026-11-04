@@ -396,3 +396,16 @@ def test_send_from_the_page_solo_tabs_and_labels(mk, lr, talk_fake, agent, home)
     s = cl.get(f'/build/{bid}?solo=1').text
     assert 'class="subtabs bd-tabs"' in s and f'href="/t/{tid}"' in s and 'id="build-say"' in s
     assert 'bd-tabs' in cl.get(f'/t/{tid}').text and 'Change this slide' in cl.get(f'/t/{tid}').text
+
+def test_a_walk_titled_with_a_path_shows_a_readable_title():
+    "A walk whose title is a path shows the title of its notebook, else its file name in words; the path stays in a tooltip. A plain title stays."
+    from abhyasa.blocks.walk.ui import walk_title, Rail
+    assert walk_title(dict(title='panchanga/00_what_is_panchanga')) == 'What is panchanga'
+    assert walk_title(dict(title='Attention, step by step')) == 'Attention, step by step'
+    from fastcore.xml import to_xml
+    from abhyasa.path import walk_state
+    j = AttrDict(id='w1', title='panchanga/00_what_is_panchanga', steps=[])
+    h = to_xml(Rail(j, AttrDict(sections=[], steps=[], done=0, total=0), {}, 0))
+    assert '>What is panchanga<' in h and 'title="panchanga/00_what_is_panchanga"' in h
+    css = (Path(build_app.__file__).parents[1]/'walk'/'walk.css').read_text()
+    assert '.walk-layout > * { min-width: 0; }' in css and 'overflow-wrap: anywhere' in css

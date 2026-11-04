@@ -13,7 +13,7 @@ from abhyasa.models import dflt_model, where_chip
 from abhyasa.core.leela import leela_line, leela_base, OpenInLeela, LEELA_INSTALL
 from abhyasa.path import minutes, TOOL_WAYS, hands_count, hands_most
 from abhyasa.learner import SHAKY, walk_state
-from abhyasa.path import wants_source, missing_data, chip_sources, is_goal_walk
+from abhyasa.path import wants_source, missing_data, chip_sources, is_goal_walk, nb_title
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -87,6 +87,16 @@ def Filled(j, st, by, i):
     "The parts of the outline that change when the check of step `i` closes: its idea and the progress line, out of band."
     return Idea(j, by, st.steps[i], i, i, just=True), Bar(st.done, st.total, oob=True)
 
+_PATHY = re.compile(r'^[\w.~-]+(/[\w.~-]+)+$|^[\w-]+\.(ipynb|md|txt|py)$')   # a title that is a path or a file name, such as `panchanga/00_what_is_panchanga`
+
+def walk_title(j) -> str:
+    """The title of walk `j` to show: its title, or for a title that is a path, the first heading of its notebook, else its file name in words (`nb_title`).
+    The page keeps the path in a tooltip."""
+    t = j.get('title') or ''
+    if not _PATHY.match(t.strip()): return t
+    p = Path(str((j.get('notebook') or {}).get('path') or (j.get('source') or {}).get('url') or '')).expanduser()
+    return nb_title(p if p.suffix == '.ipynb' and p.is_file() else t)
+
 def Rail(j, st, by, i, present=()):
     """The outline at the left: each section, and the ideas in it with a dot for each state. Under 1040 px it folds into
     its first line, `The paper · 3 of 3` and the progress line, and a click opens it (walk.css). `present` is what other blocks add under it."""
@@ -97,7 +107,7 @@ def Rail(j, st, by, i, present=()):
         rows += [Idea(j, by, st.steps[k], k, i) for k in ix]
     src = (' · ', A('Sources', href=walk_url(j['id'], 'sources'), cls='see-build')) if has_sources_line(j) else ()
     edit = P(A('Change the walk', href=walk_url(j['id'], 'plan')), *src, cls='change-walk')   # the plan and the line of research, on the walk page
-    return Aside(P(A(Inline(j['title']), href=walk_url(j['id']), data_act='walk'), cls='rail-title'), Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows), edit), *([Div(*present, cls='rail-acts')] if present else []),
+    return Aside(P(A(Inline(walk_title(j)), href=walk_url(j['id']), data_act='walk', title=j['title'] if walk_title(j) != j['title'] else None), cls='rail-title'), Details(Summary(Span(f"{lbl} · {i + 1} of {len(st.steps)}", cls='lbl'), Bar(st.done, st.total)), Ol(*rows), edit), *([Div(*present, cls='rail-acts')] if present else []),
                  id='rail', cls='outline', aria_label='The walk', data_part='outline')
 
 def FindSource(jid, i, s, looking=False):
@@ -866,7 +876,7 @@ def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), act
     src, ph = j.get('source') or {}, phase(j, st)
     whence = lead or (f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', ''))
     claim = ' '.join(str((j.get('map') or {}).get('claim') or '').split())   # the one thing that the source shows, from the walk map
-    head = (Div(H1(j['title']), WalkMenu(j), cls='walk-head'), P(*((whence, ' · ') if whence else ()), Size(j), cls='mute'),
+    head = (Div(H1(walk_title(j), title=j['title'] if walk_title(j) != j['title'] else None), WalkMenu(j), cls='walk-head'), P(*((whence, ' · ') if whence else ()), Size(j), cls='mute'),
             P(Span('The main idea', cls='lbl'), claim, cls='walk-claim', data_part='claim') if claim else '',
             leela_line(j, vault=vault) if j.get('tool') else '', NotebookLine(j, copy))
     if ph == 'empty': return (*head, P('The tutor found no ideas in this source.', cls='mute'), Filed(j), Div(Primary('Home', href='/', data_act='home'), cls='row'))   # what Start filed keeps its Undo
