@@ -560,7 +560,7 @@ def connect(app, ctx):
                     if any(x.get('kind') == 'poll' for x in ss): ss = [{**x, 'ask': deepcopy(old_poll.get('ask'))} if x.get('kind') == 'poll' else x for x in ss]
                     else: ss = [deepcopy(old_poll), *ss]
                 if ss != t2.slides: t2 = lr.put_talk({**t2, 'slides': ss})
-            if new_who and who['audience']: retitle(t.id, who, kept)
+            if (fresh or new_who) and who['audience']: retitle(t.id, who, kept)   # set_brief copies the audience to the talk first, so a fresh remake retitles too
             with_code(t.id); fit = fit_to_slot(t.id); t2 = lr.talk(t.id)
             ch = [dict(n=n, before=slide_view(was[s['id']]), after=slide_view(s)) for n, s in enumerate(t2.slides, 1) if s['id'] in was and slide_view(was[s['id']]) != slide_view(s)]
             return (f"Made the talk again. {len(ch)} slides changed; {len(kept)} kept. {slot_line(t2)} {' '.join(fit)}".strip(),
