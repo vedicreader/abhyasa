@@ -301,3 +301,17 @@ def test_no_change_while_the_talk_runs(mk, lr, talk_fake, agent, home):
     agent.script = lambda t, p, s: t['edit_slide'](2, title='New')
     say(cl, lr, bid, 'rename slide 2')
     assert lr.talk(tid).slides == before and build_ui.RUNNING in fold(lr.build(bid).events)[-2]['result']
+
+def test_walk_from_your_sources_only(mk, lr, walk_fake, agent, home):
+    "With research off, a walk reads only your sources, and a remake of the walk is one change with an Undo on the same walk."
+    md = home/'notes.md'; md.write_text('# Attention\n\nScores become weights with softmax. The output is a weighted sum of the values.\n')
+    cl = mk(); bid = new_build(cl)
+    agent.script = lambda t, p, s: (t['add_source'](str(md), 'main'), t['set_brief'](kind='walk', goal='attention', research='off'), t['make_walk']())[2]
+    say(cl, lr, bid, f'Make me a walk on attention from {md}. Use only my notes.')
+    jid = lr.build(bid).target[5:]; j = lr.journey(jid)
+    assert j and j.steps and not j.get('parent') and lr.build(bid).brief['research'] is False
+    assert all((s.get('read') or {}).get('src', 'vault').startswith('vault') for s in j.steps)
+    agent.script = lambda t, p, s: t['make_walk']()
+    say(cl, lr, bid, 'make it again')
+    assert 'Nothing changed' in fold(lr.build(bid).events)[-2]['result'] and lr.build(bid).target == f'walk:{jid}'   # the same sources give the same steps
+    assert len([w for w in lr.journeys() if w.get('build') == bid or (w.get('parent') or {}).get('for') == 'talk']) == 1   # the plan of the remake is not left behind
