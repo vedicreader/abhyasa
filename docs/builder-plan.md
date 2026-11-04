@@ -68,6 +68,21 @@ Each tool is a thin wrapper over an engine function or a hook of the talk block.
 - The box takes voice (⌥D). ⌥S sends, ⌥X stops, ⌥W goes to the box, ⌘Z undoes, F keeps a find and X drops it. ⌥E opens or closes the builder.
 - After a change, the page at the left loads again, and the pane stays open.
 
+## The slot of a talk
+
+`make_talk(minutes)` fits the slot before it writes the slides: `fit_walk` skips steps of the hidden walk from the end until the slides and the
+closing slides fit. A slide that explains a section of a notebook counts only what it shows. A remake keeps the fit. The tool result gives
+the real minutes against the slot, and the agent says those numbers.
+
+## The pages
+
+- Keep and Kept replace Lock on the walk page, and each slide of the talk editor has Keep (F). The builder reads them as `keep`.
+- Make it again is one item in the ⋯ menu, with no form. Make it again from scratch is a second item.
+- The change box of the walk page and Change this slide send the words to the builder, in the side pane.
+- A change by hand adds a quiet line to the conversation, and a note for the next turn.
+- After a change of the builder, the page at the left takes it in place, and the rows that changed get `.landed`.
+- A narrow window has two tabs: Builder and Result.
+
 ## Events
 
 The conversation keeps events with the names and fields of AG-UI. `events.py` reads them for the pane. A ramabana with `Agent.events`
