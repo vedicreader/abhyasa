@@ -19,7 +19,7 @@ from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query
 from abhyasa.sources import named_sources, web_search, VaultSource
 from abhyasa.path import (walk_for_talk, file_chip, chip_state, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
-from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slide, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
+from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slides, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
 from .cfg import Routes
@@ -390,11 +390,14 @@ def connect(app, ctx):
                 y = deepcopy(x); prose = sh.get('passage') or r.get('text') or ''
                 y['show'] = {**sh, 'passage': piece, 'src': {k: v for k in SOURCE_KEYS if (v := src.get(k) if k != 'src' else src.get(k) or 'doc') not in (None, '')}}
                 y['beats'] = [*[b_ for b_ in y.get('beats') or [] if b_ != 'passage'], 'passage']
-                if not (y['show'].get('body')):   # the code never takes the place of the words: the writer makes points from the old passage
-                    y = fill_slide(lr, ctx.ask, {**y, '_read': prose, 'notes': y.get('notes') or ''}, ctx.sources, br.get('audience') or '', False, brief_asks(br, slides=True))
+                new[x['id']] = y if y['show'].get('body') else {**y, '_read': prose}   # the code never takes the place of the words: the writer makes points from the old passage
+            need = [y for y in new.values() if '_read' in y]
+            if need:
+                stage(f"Writing the points of {n_of(len(need), 'slide')} with code")
+                for y in fill_slides(lr, ctx.ask, need, ctx.sources, br.get('audience') or '', False, brief_asks(br, slides=True)):   # 4 at a time
                     y = {k: v for k, v in y.items() if k != '_read'}
-                    if not (y.get('show') or {}).get('body'): continue   # no points from the writer: the slide keeps its words and gets no code
-                new[x['id']] = y
+                    if (y.get('show') or {}).get('body'): new[y['id']] = y
+                    else: new.pop(y['id'], None)   # no points from the writer: the slide keeps its words and gets no code
             if not new: return 0
             with edit_lock('talk', tid):
                 t = lr.talk(tid)
