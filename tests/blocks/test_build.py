@@ -646,3 +646,18 @@ def test_pick_code_never_takes_prose_between_fences():
     "A plain fence that closes a block is not the start of a code block: the prose after it is never taken as code."
     text = 'Run it:\n\n```\nout\n```\n\nThe conventions differ by about 3 minutes here.\n\n```python\ntithi = int(angle // 12) + 1\n```\n'
     assert build_app.pick_code(text, 'The conventions') == '```python\ntithi = int(angle // 12) + 1\n```'
+
+def test_no_idea_slide_is_code_only(mk, lr, talk_fake, agent, monkeypatch):
+    "With a brief that asks for code, an idea slide gets 2 to 4 points from the slide writer first, then the code piece as a later beat; no idea slide shows only code."
+    did = lr.vault.put('# Ranking\n\nRanking orders items by score.\n\n```python\nranked = sorted(items, key=score, reverse=True)\nprint(ranked[:3])\n```\n', 'https://ex.org/rank', 'web', title='Ranking notes')['doc_id']
+    read = dict(text='Ranking orders items by score.', doc_id=did, shelf=lr.vault.name, title='Ranking notes', src=f'vault:{lr.vault.name}')
+    monkeypatch.setattr(build_app, 'walk_for_talk', lambda l, ask, chips, goal='', *a, **kw: l.put_journey(dict(id='w-rank', title='Ranking', goal=goal, mode='walk', created=0, parent={'for': 'talk'},
+                        steps=[dict(slug='ranking', status='todo', check=dict(way='words', kind='short', depth=2), read=read)])))
+    cl = mk(); bid = new_build(cl)
+    agent.script = lambda t, p, s: (t['set_brief'](kind='talk', goal='ranking', aim='become technical', research='off'), t['make_talk'](minutes=30))[1]
+    say(cl, lr, bid, 'Make a technical talk on ranking. Show code.')
+    t = lr.talk(lr.build(bid).target[5:])
+    ideas = [s for s in t.slides if s['kind'] == 'idea']
+    assert ideas and all((s['show'].get('body') or []) for s in ideas), [s['show'] for s in ideas]
+    s = ideas[0]
+    assert s['show']['passage'].startswith('```python\nranked') and s['beats'].index('body') < s['beats'].index('passage') and 2 <= len(s['show']['body']) <= 4

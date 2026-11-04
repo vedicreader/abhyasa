@@ -19,7 +19,7 @@ from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query
 from abhyasa.sources import named_sources, web_search, VaultSource
 from abhyasa.path import (walk_for_talk, file_chip, chip_state, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
-from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
+from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slide, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
 from .cfg import Routes
@@ -362,30 +362,38 @@ def connect(app, ctx):
 
         def with_code(tid) -> int:
             """For a brief that asks for code: each idea slide whose passage has no code shows a short code piece from the source document of its step,
-            as a slide of a notebook section does. The piece is word for word from the source. The count of slides that got code."""
-            if not wants_code(rec().brief): return 0
+            as a slide of a notebook section does: 2 to 4 points first, then the code piece as a later beat. A slide with no points gets them from the slide
+            writer (`fill_slide`), which reads the old passage. The piece is word for word from the source. The count of slides that got code."""
+            if not wants_code(br := rec().brief): return 0
+            t = lr.talk(tid); j = lr.journey((t.get('src') or {}).get('walk') or '') or {}
+            others = [d for _, ds in chip_docs(lr, j.get('chips') or ()) for d in ds][:40]
+            def text_of(shelf, doc_id):
+                if not doc_id: return ''
+                try: return (lr.doc_shelf(shelf) or lr.vault).document(doc_id, max_chars=400000, disk=False).text
+                except Exception: return ''
+            by = {x['slug']: x.get('read') or {} for x in j.get('steps') or ()}
+            new = {}
+            for x in t.slides:
+                sh, r = x.get('show') or {}, by.get(x.get('concept') or '') or {}
+                if x.get('kind') != 'idea' or '```' in (sh.get('passage') or ''): continue
+                piece, src = pick_code(text_of(r.get('shelf'), r.get('doc_id')), x.get('title') or '', r.get('text') or ''), r
+                for d in ([] if piece else others):   # the step's own document has no code: a document of the sources that has code on the idea
+                    if (piece := pick_code(text_of(d.shelf, d.doc_id), x.get('title') or '', strict=True)):
+                        src = dict(src='vault:' + d.shelf, shelf=d.shelf, doc_id=d.doc_id, ref=d.doc_id, title=d.title, url=d.url, text=piece); break
+                if not piece: continue
+                y = deepcopy(x); prose = sh.get('passage') or r.get('text') or ''
+                y['show'] = {**sh, 'passage': piece, 'src': {k: v for k in SOURCE_KEYS if (v := src.get(k) if k != 'src' else src.get(k) or 'doc') not in (None, '')}}
+                y['beats'] = [*[b_ for b_ in y.get('beats') or [] if b_ != 'passage'], 'passage']
+                if not (y['show'].get('body')):   # the code never takes the place of the words: the writer makes points from the old passage
+                    y = fill_slide(lr, ctx.ask, {**y, '_read': prose, 'notes': y.get('notes') or ''}, ctx.sources, br.get('audience') or '', False, brief_asks(br, slides=True))
+                    y = {k: v for k, v in y.items() if k != '_read'}
+                    if not (y.get('show') or {}).get('body'): continue   # no points from the writer: the slide keeps its words and gets no code
+                new[x['id']] = y
+            if not new: return 0
             with edit_lock('talk', tid):
-                t = lr.talk(tid); j = lr.journey((t.get('src') or {}).get('walk') or '') or {}
-                others = [d for _, ds in chip_docs(lr, j.get('chips') or ()) for d in ds][:40]
-                def text_of(shelf, doc_id):
-                    if not doc_id: return ''
-                    try: return (lr.doc_shelf(shelf) or lr.vault).document(doc_id, max_chars=400000, disk=False).text
-                    except Exception: return ''
-                by = {x['slug']: x.get('read') or {} for x in j.get('steps') or ()}
-                ss, n = deepcopy(list(t.slides)), 0
-                for x in ss:
-                    sh, r = x.get('show') or {}, by.get(x.get('concept') or '') or {}
-                    if x.get('kind') != 'idea' or '```' in (sh.get('passage') or ''): continue
-                    piece, src = pick_code(text_of(r.get('shelf'), r.get('doc_id')), x.get('title') or '', r.get('text') or ''), r
-                    for d in ([] if piece else others):   # the step's own document has no code: a document of the sources that has code on the idea
-                        if (piece := pick_code(text_of(d.shelf, d.doc_id), x.get('title') or '', strict=True)):
-                            src = dict(src='vault:' + d.shelf, shelf=d.shelf, doc_id=d.doc_id, ref=d.doc_id, title=d.title, url=d.url, text=piece); break
-                    if not piece: continue
-                    r = src
-                    x['show'] = {**sh, 'passage': piece, 'src': {k: v for k in SOURCE_KEYS if (v := r.get(k) if k != 'src' else r.get(k) or 'doc') not in (None, '')}}
-                    x['beats'] = [*[b for b in x.get('beats') or [] if b != 'passage'], 'passage']; n += 1
-                if n: lr.put_talk({**t, 'slides': ss})
-            return n
+                t = lr.talk(tid)
+                lr.put_talk({**t, 'slides': [new.get(x['id'], x) for x in t.slides]})
+            return len(new)
 
         def fit_to_slot(tid) -> list:
             """Make talk `tid` fit its slot after its slides are written (`fit_slides`): shorten each idea, then merge neighbours, then cut ideas only at the end.
