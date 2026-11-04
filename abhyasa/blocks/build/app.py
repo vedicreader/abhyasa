@@ -815,7 +815,12 @@ def connect(app, ctx):
         "On the talk editor: Change with the builder, in the side pane (⌥E)."
         if in_pane(): return None
         u = f"{Routes.open}?talk={t['id']}"
-        return ui.Tabs(u + '&solo=1', f"/t/{t['id']}", 'Result'), ui.Beside(u), asset_css(_P/'build.css'), asset_js(_P/'build.js')
+        return ui.Tabs(u + '&solo=1', f"/t/{t['id']}", 'Result'), asset_css(_P/'build.css'), asset_js(_P/'build.js')
+
+    @hook('talk_head')
+    def head_talk(t):
+        "Change with the builder, in the head of the talk editor, beside its menu (⌥E)."
+        return None if in_pane() else ui.Beside(f"{Routes.open}?talk={t['id']}")
 
     @hook('walk_actions')
     def beside_walk(j, quiet=False, row=False):

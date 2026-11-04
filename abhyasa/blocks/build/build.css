@@ -105,8 +105,8 @@ html.in-pane main:has(.bd) { padding: 0; max-width: none; }
 .bd-outline .src { font-size: var(--t-meta); }
 .bd-side .src-line { margin: var(--s1) 0 0; font-size: var(--t-meta); }
 /* the narrow window (under 1100 px): no pane; Builder and Result are two tabs */
-.bd-tabs { display: none; }
-@media (max-width: 1099px) { .bd-tabs { display: flex; margin: 0 0 var(--s4); } }
+nav.subtabs.bd-tabs { display: none; }
+@media (max-width: 1099px) { nav.subtabs.bd-tabs { display: flex; margin: 0 0 var(--s4); } }
 /* a change of the builder on the page at the left: a soft wash that fades, and a thin accent line */
 .edit-list > li.edit-row.landed { animation: landed 2.4s ease both; box-shadow: inset 2px 0 0 var(--acc); }
 @keyframes landed { from { background: color-mix(in srgb, var(--acc) 12%, transparent); } to { background: transparent; } }
@@ -115,3 +115,5 @@ html.in-pane main:has(.bd) { padding: 0; max-width: none; }
 .bd-conflict { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); padding: var(--s2) 0; border-top: 1px solid var(--line); }
 .bd-conflict blockquote { margin: 0; font-size: var(--t-small); border-left: 2px solid var(--line); padding-left: var(--s3); }
 .bd-conflict > p { grid-column: 1 / -1; margin: 0; }
+
+.talk-head .build-beside, .walk-head .build-beside { margin-left: auto; margin-right: var(--s3); }

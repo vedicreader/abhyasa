@@ -394,7 +394,7 @@ def connect(app, ctx):
         j, pj = walks_of(t)
         hid = hidden(j)
         m = menu(t, ui.HandoutLink(t), *([ui.MineWalk(t, mine_of(t))] if hid else []), *([ui.Remake(j.id, t)] if j else []))
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, choices(t), filled, None if pj or not j else walk_changes(lr, t), menu=m,
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, choices(t), filled, None if pj or not j else walk_changes(lr, t), menu=(*run_hook('talk_head', t), m),
                                                         srcs=sources_of(j) if hid else None, links=links_of(t),
                                                         goal=(j.get('goal') or '') if hid and not j.get('source') else ''), *run_hook('talk_editor', t), on='Home',
                     crumbs=[('Home', '/'), *up_of(t)], extra=ui.editor_assets(), wide=True)
