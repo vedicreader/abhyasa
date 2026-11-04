@@ -2130,8 +2130,9 @@ def is_goal_walk(j) -> bool:
 def chip_state(lr:Learning, chip:str) -> AttrDict|None:
     "What the vault has for chip id `chip`: `count` (its documents), `name` (a title or a file name) and `href` (its vault page or its link); None when it has nothing."
     kind, _, v = str(chip).partition(':')
-    if kind == 'doc' and (d := lr.vault.doc(v)): return AttrDict(count=1, name=d['title'], href=f"/v/{lr.vault.name}/{d['id']}")
-    if kind == 'link' and (d := lr.vault.by_source(v)): return AttrDict(count=1, name=d['title'] or v, href=v)
+    if kind == 'doc' and (d := lr.vault.doc(v)):
+        return AttrDict(count=1, name=d['title'], href=f"/v/{lr.vault.name}/{d['id']}", doc_id=d['id'], page=d['source'] if str(d.get('source') or '').startswith('http') else '')
+    if kind == 'link' and (d := lr.vault.by_source(v)): return AttrDict(count=1, name=d['title'] or v, href=f"/v/{lr.vault.name}/{d['id']}", doc_id=d['id'], page=v)
     ds = [d for _, x in chip_docs(lr, [chip]) for d in x]
     return AttrDict(count=len(ds), name=ds[0].title if len(ds) == 1 else v.rstrip('/').rsplit('/', 1)[-1], href=v if kind == 'link' else '') if ds else None
 
@@ -2140,9 +2141,15 @@ UNKNOWN = 'abhyasa has no record of filing it.'
 def source_rows(lr:Learning, rows) -> list:
     """The source rows `rows` (`chip_sources`) as the vault has them now: a row with no count and no real reason (a walk of the builder did not keep counts)
     is ready when its chip has documents, else it says that abhyasa has no record of it. A `doc:` row names its document. Never a bare failure."""
-    out = []
+    out, seen = [], {}
     for r in rows or ():
         r = dict(r)
+        if (s := chip_state(lr, r['id'])) and s.get('doc_id'):   # a kept web page filed as a document is one source: one row, the document, with the page link
+            if s.doc_id in seen:
+                if s.get('page'): seen[s.doc_id]['page'] = s.page
+                continue
+            r.update(status='ready', count=s.count, why='', root=s.name, href=s.href, page=s.get('page') or '', kind='a document')
+            seen[s.doc_id] = r; out.append(r); continue
         if r.get('status') != 'ready' and r.get('why') in (None, '', 'abhyasa could not file it.') and (s := chip_state(lr, r['id'])):
             r.update(status='ready', count=s.count, why='', root=s.name, href=s.href)
         elif r.get('status') != 'ready' and r.get('why') in (None, '', 'abhyasa could not file it.'): r.update(status='unknown', why=UNKNOWN)

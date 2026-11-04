@@ -105,6 +105,7 @@ def Sources(c):
     "The sources of the course, each with its state."
     name = lambda s: A(s['root'], href=s['href'], **({'target': '_blank', 'rel': 'noopener'} if str(s['href']).startswith('http') else {})) if s.get('href') else B(s['root'])
     rows = [Li(name(s), Span(f" · {s['kind']} · {SOURCE.get(s.get('status'), s.get('status'))}" + (f" · {n_of(s['count'], 'document')}" if s.get('count') else ''), cls='mute'),
+               *([Span(' · ', A('the page', href=s['page'], target='_blank', rel='noopener'), cls='mute')] if s.get('page') else []),
                P(s['why'], cls='mute') if s.get('status') in ('failed', 'unknown') and s.get('why') else '') for s in c.get('sources') or ()]
     return Part('Sources', Ul(*rows, cls='plain course-sources') if rows else Empty('This course has no sources of its own. The tutor reads your vault.'))
 

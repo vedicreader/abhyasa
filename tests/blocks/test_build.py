@@ -596,10 +596,10 @@ def test_course_sources_show_their_real_state(mk, lr):
     from abhyasa.path import join_course, ensure_courses
     did = lr.vault.put('The alliance system tied the powers of Europe together.', 'https://ex.org/alliances', 'web', title='Polarization of Europe')['doc_id']
     j = lr.put_journey(dict(id='w-old', title='Why the Great War Began', goal='the causes of the First World War', mode='walk', created=0,
-                            steps=[dict(slug='ranking', status='todo', check=dict(way='words', kind='short', depth=2))], chips=[f'doc:{did}', 'link:https://ex.org/gone']))
+                            steps=[dict(slug='ranking', status='todo', check=dict(way='words', kind='short', depth=2))], chips=[f'doc:{did}', 'link:https://ex.org/alliances', 'link:https://ex.org/gone']))
     c = join_course(lr, j)
     h = mk().get(f'/course/{c.id}').text
-    assert 'Polarization of Europe' in h and 'ready · 1 document' in h.replace('</span>', '') or 'ready' in h
+    assert h.count('>Polarization of Europe<') == 1 and 'a document · ready · 1 document' in h and 'href="https://ex.org/alliances"' in h
     assert 'abhyasa could not file it.' not in h and 'no record' in h and 'abhyasa has no record of filing it.' in h
 
 def test_a_builder_walk_keeps_counts_and_joins_no_course(mk, lr, walk_fake, agent, home):
