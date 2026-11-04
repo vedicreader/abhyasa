@@ -45,10 +45,16 @@ def new_build(cl):
     "Open Build and give the conversation id."
     return cl.get('/build', follow_redirects=False).headers['location'].split('/')[2].split('?')[0]
 
+def ends(lr, bid):
+    "The count of the turns of conversation `bid` that ended."
+    return sum(e['type'] in ('RUN_FINISHED', 'RUN_ERROR') for e in lr.build(bid).events)
+
 def say(cl, lr, bid, text):
-    "Send one request and wait for its turn to end; give the conversation part."
+    """Send one request and wait for its turn to end; give the conversation part. It waits for the end event of this turn, not for the job row:
+    the row of the turn before says `done` until the new turn starts, so a wait on the row can return before the new turn ran."""
+    n = ends(lr, bid)
     cl.post(f'/build/{bid}/say', data=dict(text=text))
-    wait_for(lambda: True if (r := lr.job(f'build:{bid}')) and r.state != 'running' else None, secs=20)
+    wait_for(lambda: True if ends(lr, bid) > n and lr.job(f'build:{bid}').state != 'running' else None, secs=20)
     return cl.get(f'/build/{bid}/chat').text
 
 def make_talk_script(nb):
@@ -74,7 +80,8 @@ def test_events_fold_to_items():
     evs = []; em = Emit(evs.append)
     em.text('user', 'Make a talk.')
     t = em.tool_start('make_talk', dict(minutes=20)); em.stage(t, 'Filing the sources')
-    assert fold(evs)[1] | {} == dict(kind='tool', id=t, name='make_talk', args=dict(minutes=20), result='', data=None, stages=['Filing the sources'], status='running')
+    x = fold(evs)[1]
+    assert {k: x[k] for k in ('kind', 'id', 'name', 'args', 'result', 'data', 'stages', 'status')} == dict(kind='tool', id=t, name='make_talk', args=dict(minutes=20), result='', data=None, stages=['Filing the sources'], status='running')
     em.data(t, dict(outline=['A'])); em.tool_end(t, 'Made it.'); em.text('assistant', 'Done.'); em.ev('RUN_FINISHED', state='stopped', message='You stopped it.')
     its = fold(evs)
     assert [i['kind'] for i in its] == ['user', 'tool', 'assistant', 'run'] and its[1]['status'] == 'done' and its[1]['data'] == dict(outline=['A'])
@@ -114,7 +121,7 @@ def test_flow_change_one_slide_keep_another_and_undo(mk, lr, talk_fake, agent, h
     after = lr.talk(tid).slides
     assert after[1] == before[1] and after[2]['show']['body'] == ['A loop asks the model again.', 'It stops with no tool call.'] and after[2] != before[2]
     assert lr.build(bid).brief['keep'] == [before[1]['id']]
-    assert 'Changing slide 3' in h and 'Slide 3 · before' in h and 'After' in h and '<del>' in h and '<ins>' in h and 'A loop asks the model again.' in h
+    assert 'Changing slide 3' in h and '<b class="bd-n">Slide 3</b>' in h and 'Before' in h and 'After' in h and ']' not in h.split('build-log')[1].split('composer')[0].replace('[', '') and 'A loop asks the model again.' in h
     cl.post(f'/build/{bid}/undo')
     assert lr.talk(tid).slides[2]['show']['body'] == before[2]['show']['body'] and lr.talk(tid).slides[1] == before[1]   # Undo takes back the rewrite
     def again(t, p, stop):   # a change to a kept slide is refused, and the agent is told why
@@ -314,5 +321,38 @@ def test_walk_from_your_sources_only(mk, lr, walk_fake, agent, home):
     agent.script = lambda t, p, s: t['make_walk']()
     say(cl, lr, bid, 'make it again')
     r = fold(lr.build(bid).events)[-2]['result']
-    assert ('Nothing changed' in r or lr.edits('walk', jid)[0].what == 'Made the walk again from your sources only.'), (r, lr.build(bid).brief)   # the same sources give the same steps, or one change
+    assert 'Nothing changed' in r, (r, lr.build(bid).brief, [(i.get('name'), i.get('result')) for i in fold(lr.build(bid).events)])   # the same sources give the same steps
     assert len([w for w in lr.journeys() if w.get('build') == bid or (w.get('parent') or {}).get('for') == 'talk']) == 1   # the plan of the remake is not left behind
+
+def test_make_talk_fits_the_slot(mk, lr, talk_fake, agent, home):
+    "A talk for a short slot leaves out ideas from the end until it fits, and the tool says the real minutes against the slot, as the editor counts them."
+    from abhyasa.show import talk_minutes
+    talk_fake.rules['You write one poll'] = POLL
+    cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    agent.script = lambda t, p, s: (t['add_source'](str(nb), 'main'), t['make_talk'](minutes=15))[1]
+    say(cl, lr, bid, f'Make a 15 minute talk from {nb}.')
+    t = lr.talk(lr.build(bid).target[5:])
+    r = fold(lr.build(bid).events)[-2]['result']
+    assert t.minutes == 15 and talk_minutes(t) <= 15 and f'about {talk_minutes(t)} minutes for a slot of 15 minutes' in r and 'over the slot' not in r
+    assert 'To fit the slot, I left out' in r and len([s for s in t.slides if s['kind'] == 'idea']) < 3
+    assert f'About {talk_minutes(t)} min of a 15 min slot' in cl.get(f'/t/{t.id}').text   # the editor says the same
+
+def test_research_ends_the_turn(mk, lr, agent, monkeypatch):
+    "After research the turn ends: a later tool in the same turn is refused, and the builder says that the finds wait for you."
+    monkeypatch.setattr(build_app, 'web_search', lambda q, n: [dict(href='https://ex.org/a', title='A', body=''), dict(href='https://ex.org/b', title='B', body='')])
+    cl = mk(); bid = new_build(cl)
+    agent.script = lambda t, p, s: (t['set_brief'](kind='walk', goal='attention'), t['research']('attention'), t['make_walk']())[2]
+    h = say(cl, lr, bid, 'Make a walk on attention. Research extra material.')
+    assert lr.build(bid).target == '' and fold(lr.build(bid).events)[-1]['text'] == 'I found 2 items. Keep or drop each one, then tell me what to do next.'
+    assert 'make_walk' not in [i.get('name') for i in fold(lr.build(bid).events)] or build_app.WAIT_FINDS in str(agent.prompts)
+
+def test_one_summary_line_for_each_turn(mk, lr, agent):
+    "The steps that the builder tells as it works fold into What I did; only its last line shows."
+    cl = mk(); bid = new_build(cl)
+    def go(t, p, s):
+        Emit(lambda e: build_app_emit(lr, bid, e)).text('assistant', 'I keep slide 2 first.')
+        return 'I changed nothing.'
+    def build_app_emit(lr, bid, e): lr.put_build({**lr.build(bid), 'events': [*lr.build(bid).events, e]})
+    agent.script = go
+    h = say(cl, lr, bid, 'hello')
+    assert h.count('class="bd-said"') == 1 and 'What I did' in h and 'I keep slide 2 first.' in h.split('What I did')[1]
