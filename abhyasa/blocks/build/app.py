@@ -4,7 +4,7 @@ Each conversation has one ramabana agent (`ramabana_lead`, with no web tools), k
 below. Each tool is a thin wrapper over an engine function or a hook of the talk block. A turn runs as a pool job (`build:<id>`), so the
 activity chip, Stop and the event stream of the jobs block work as for any job. The conversation keeps its events (`events.py`) and the brief,
 and the brief is copied to the walk or the talk that it made. When the app starts again, the next turn gets a short recap of the conversation."""
-import json, logging, re, threading
+import json, logging, re, threading, time
 from collections import defaultdict
 from copy import deepcopy
 from functools import wraps
@@ -206,7 +206,7 @@ def connect(app, ctx):
             b = lr.build(bid)
             old = b.brief; new = {**old, **kw}
             if new == old: return new
-            ev = dict(type='STATE_SNAPSHOT', snapshot=new)
+            ev = dict(type='STATE_SNAPSHOT', at=time.time(), snapshot=new)
             note = (b.get('note') or '') + (('; ' if b.get('note') else '') + said_of(old, new) if by == 'owner' else '')
             lr.put_build({**b, 'brief': new, 'note': note, 'events': [*(b.get('events') or []), ev]})
         if new.get('research') is False and old.get('research') is not False: dropped_web(b)
@@ -706,9 +706,13 @@ def connect(app, ctx):
         gen = x.a.events(p, on_registered=lambda run: st.__setitem__('run', run))
         try:
             for e in gen:
+                if e.get('timestamp') is None and e.get('at') is None: e = {**e, 'timestamp': int(time.time() * 1000)}   # each saved event keeps its time
                 t = e.get('type')
-                if t == 'TEXT_MESSAGE_CONTENT': buf[e.get('messageId')] = buf.get(e.get('messageId'), '') + (e.get('delta') or ''); continue
-                if t == 'TEXT_MESSAGE_END' and (m := e.get('messageId')) in buf: emit(bid, dict(type='TEXT_MESSAGE_CONTENT', messageId=m, delta=buf.pop(m)))
+                if t == 'TEXT_MESSAGE_CONTENT':   # one event for the whole message, with the time of its first piece
+                    m = e.get('messageId'); txt, ts = buf.get(m, ('', e.get('timestamp') or int(time.time() * 1000)))
+                    buf[m] = (txt + (e.get('delta') or ''), ts); continue
+                if t == 'TEXT_MESSAGE_END' and (m := e.get('messageId')) in buf:
+                    txt, ts = buf.pop(m); emit(bid, dict(type='TEXT_MESSAGE_CONTENT', messageId=m, delta=txt, timestamp=ts))
                 emit(bid, e)
                 if st.stop.is_set(): break
         finally: gen.close()

@@ -619,3 +619,16 @@ def test_pick_code_and_wants_code():
     text = 'Intro.\n\n```python\nimport os\n```\n\nTithi is the angle.\n\n```python\ntithi = int(angle // 12) + 1\nprint(tithi)\n```\n'
     assert build_app.pick_code(text, 'Tithi from the angle') == '```python\ntithi = int(angle // 12) + 1\nprint(tithi)\n```'
     assert build_app.pick_code('No code here.', 'x') == ''
+
+def test_each_saved_event_keeps_its_time(mk, lr, talk_fake, home, monkeypatch):
+    "Each saved event has its time: `at` from the builder, or `timestamp` from ramabana, also a brief snapshot and a message merged from many pieces."
+    talk_fake.rules['You write one poll'] = POLL
+    nb = home/'talks'/'agents.ipynb'
+    a = NativeAgent([('add_source', dict(ref=str(nb), role='main')), ('set_brief', dict(audience='managers'))])
+    monkeypatch.setattr(build_app, 'ramabana_lead', lambda roots, names, **kw: (a, AttrDict(scratch='')))
+    cl = mk(); bid = new_build(cl)
+    say(cl, lr, bid, 'set the brief')
+    cl.post(f'/build/{bid}/brief', data=dict(aim='become technical'))
+    evs = lr.build(bid).events
+    assert evs and all(e.get('at') is not None or e.get('timestamp') is not None for e in evs), [e['type'] for e in evs if e.get('at') is None and e.get('timestamp') is None]
+    assert any(e['type'] == 'STATE_SNAPSHOT' for e in evs) and any(e['type'] == 'TEXT_MESSAGE_CONTENT' and e.get('timestamp') for e in evs)
