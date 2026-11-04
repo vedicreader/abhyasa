@@ -7,10 +7,10 @@ Docs: https://vedicreader.github.io/abhyasa/models.html.md"""
 # %% auto #0
 __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 'HERE', 'FALLBACK', 'ALL_TASKS', 'WARM',
            'MAX_TOKENS', 'HOSTED', 'WORKER_SP', 'WORKER_CALLS', 'WORKER_STEPS', 'WORKER_DOLLARS', 'WORKER_TOKENS',
-           'LEAD_TOOLS', 'SUB_STEPS', 'DFLT_STT', 'DFLT_WHISPER', 'DFLT_PARAKEET', 'DFLT_OPENAI', 'DFLT_MODELS',
-           'ALIASES', 'POCKET', 'POCKET_FILES', 'VOICE_FILES', 'OPENAI_URL', 'http_post', 'ENGINES', 'KNOWN',
-           'STT_WORDS', 'NOT_STT', 'POCKET_VOICES', 'DFLT_SPEECH', 'OUT_ENGINES', 'OPENAI_VOICES', 'TTS1_VOICES',
-           'VOICES_OF', 'OPENAI_SPEECH', 'OUT_DFLT', 'LOCAL_VOICES', 'PAD', 'LOUD', 'POCKET_MISSING',
+           'LEAD_TOOLS', 'WEB_TOOLS', 'SUB_STEPS', 'DFLT_STT', 'DFLT_WHISPER', 'DFLT_PARAKEET', 'DFLT_OPENAI',
+           'DFLT_MODELS', 'ALIASES', 'POCKET', 'POCKET_FILES', 'VOICE_FILES', 'OPENAI_URL', 'http_post', 'ENGINES',
+           'KNOWN', 'STT_WORDS', 'NOT_STT', 'POCKET_VOICES', 'DFLT_SPEECH', 'OUT_ENGINES', 'OPENAI_VOICES',
+           'TTS1_VOICES', 'VOICES_OF', 'OPENAI_SPEECH', 'OUT_DFLT', 'LOCAL_VOICES', 'PAD', 'LOUD', 'POCKET_MISSING',
            'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'GREEK', 'TEX_SAY', 'TEX_BIG', 'TEX_FN', 'TEX_ACCENT', 'TEX_OPS',
            'TEX_POW', 'SAY_PART', 'dflt_model', 'parse_json', 'ask_json', 'Fake', 'model_ask', 'model_label',
            'provider_label', 'where_of', 'where_chip', 'catalog', 'one_each', 'Router', 'for_task', 'ramabana_agent',
@@ -298,22 +298,24 @@ def ramabana_worker(tools:list=(), host=None, sp:str=WORKER_SP, turn:str=None, m
                        max_cost=max_cost, max_tokens=max_tokens)
 
 LEAD_TOOLS = ('ls', 'grep', 'outline', 'view_file', 'notebook_cells', 'view_cell', 'web_search', 'read_url', 'delegate_search', 'set_plan', 'update_todo')   # ramabana's tools that only read, and its fan-out to sub-agents
+WEB_TOOLS = ('web_search', 'read_url', 'delegate_search')   # the lead tools that reach the web: a sub-agent searches the web too
 SUB_STEPS = 16   # the most model steps of one sub-agent
 
 def ramabana_lead(read_roots=(), tools:list=(), sp:str=WORKER_SP, turn:str=None, minutes:float=15, max_calls:int=WORKER_CALLS,
-                  max_steps:int=WORKER_STEPS, max_cost:float=WORKER_DOLLARS, max_tokens:int=WORKER_TOKENS) -> tuple:
+                  max_steps:int=WORKER_STEPS, max_cost:float=WORKER_DOLLARS, max_tokens:int=WORKER_TOKENS, web:bool=True) -> tuple:
     """`(agent, host)`: a new ramabana `Agent` made by ramabana's `mk_agent`, with its own read and web tools (`LEAD_TOOLS`) and its
     sub-agents (`delegate_search`, at most 4 at once in the whole tree), on the turn `dflt_model(turn)`. Its sub-agents run on ramabana's
     `subagent` route. The folders `read_roots` are open for reads only; its one folder that it may write is a new empty one. It has no
     Python (`python='off'`), no vault, and no approvals listener, so each tool that writes is refused. The model sees only `LEAD_TOOLS` and
     the tools named in `tools`, when the caller adds them. The caps: `max_calls` tool calls in the whole tree, `max_steps` model steps,
-    `max_tokens` tokens and `max_cost` dollars for a turn, and `minutes` for a sub-agent."""
+    `max_tokens` tokens and `max_cost` dollars for a turn, and `minutes` for a sub-agent. With `web=False` it has no tool that reaches the web (`WEB_TOOLS`)."""
     import tempfile
     from ramabana.agent import mk_agent
     from ramabana.core import Routing
     scratch = tempfile.mkdtemp(prefix='abhyasa-lead-')
-    a, host = mk_agent((scratch,), routing=Routing(turn=dflt_model(turn)), approve='ask', web=True, pii='redact', python='off',
-                       read_roots=tuple(str(r) for r in read_roots), cfg=None, sp=sp, only_tools=[*LEAD_TOOLS, *tools], subagents=True,
+    lead = [t for t in LEAD_TOOLS if web or t not in WEB_TOOLS]
+    a, host = mk_agent((scratch,), routing=Routing(turn=dflt_model(turn)), approve='ask', web=web, pii='redact', python='off',
+                       read_roots=tuple(str(r) for r in read_roots), cfg=None, sp=sp, only_tools=[*lead, *tools], subagents=web,
                        subagent_writes=False, subagent_steps=SUB_STEPS, subagent_timeout=minutes * 60, subagent_depth=1, extensions=False,
                        global_skills=False, learned=False, compact=False, poll_every=0, auto_turns='off',
                        max_tool_calls=max_calls, max_steps=max_steps, max_cost=max_cost, max_tokens=max_tokens)

@@ -1232,7 +1232,7 @@ def detect(text:str, titles=(), research:bool=True, pages:int=8, file:str='', fo
     return _text(t, 1) if t.endswith('.') and len(words) > 12 else _topic(t, research)
 
 # %% ../nbs/02_sources.ipynb #d036
-SKIP_KINDS = ('journey', 'talk', 'concept')
+SKIP_KINDS = ('journey', 'talk', 'concept', 'build')
 _INDEX, _ILOCK = {}, threading.Lock()   # the path of a vault -> (its version, the folded titles -> (title, id))
 
 def _where(): return f"(kind is null or kind not in ({','.join('?' * len(SKIP_KINDS))}))", list(SKIP_KINDS)
