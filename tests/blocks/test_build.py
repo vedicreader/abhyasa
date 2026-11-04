@@ -632,3 +632,12 @@ def test_each_saved_event_keeps_its_time(mk, lr, talk_fake, home, monkeypatch):
     evs = lr.build(bid).events
     assert evs and all(e.get('at') is not None or e.get('timestamp') is not None for e in evs), [e['type'] for e in evs if e.get('at') is None and e.get('timestamp') is None]
     assert any(e['type'] == 'STATE_SNAPSHOT' for e in evs) and any(e['type'] == 'TEXT_MESSAGE_CONTENT' and e.get('timestamp') for e in evs)
+
+def test_a_walk_with_no_sources_says_so_first(mk, lr, walk_fake, agent, monkeypatch):
+    "A walk with no source and research off says first that it has no sources, and how to get them."
+    agent.script = lambda t, p, s: (t['set_brief'](kind='walk', goal='how tides work', research='off'), t['make_walk']())[1]
+    monkeypatch.setattr(build_app, 'walk_for_talk', lambda l, ask, chips, goal, *a, **kw: l.put_journey(dict(id='w-tides', title='Tides', goal=goal, mode='walk', created=0, steps=[dict(slug='ranking', status='todo', check=dict(way='words', kind='short', depth=2))])))
+    cl = mk(); bid = new_build(cl)
+    h = say(cl, lr, bid, 'Make me a walk on how tides work. Do not research anything.')
+    r = fold(lr.build(bid).events)[-2]['result']
+    assert r.startswith('This walk has no sources yet') and 'research the material' in r and 'This walk has no sources yet' in h

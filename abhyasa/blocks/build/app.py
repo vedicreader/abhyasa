@@ -99,14 +99,15 @@ def wants_code(br) -> bool:
     "Whether brief `br` asks for code on the slides: its aim, rules, goal or audience says code or technical, and no code is off."
     return not br.get('no_code') and bool(_ASKS_CODE.search(' '.join(str(br.get(k) or '') for k in ('aim', 'rules', 'goal', 'audience'))))
 
-def pick_code(text, name, near='') -> str:
+def pick_code(text, name, near='', strict=False) -> str:
     """The code piece (`code_piece`) for the idea `name` from the source text `text`: the code block that names most words of the idea, else the first
-    block after the passage `near`. '' when the source has no code."""
+    block after the passage `near`. With `strict`, only a block that names the idea. '' when the source has no such code."""
     blocks = [(m.start(), m.group(1)) for m in _CODE.finditer(text or '')]
     if not blocks: return ''
     ws = [w for w in re.findall(r'[a-z]{4,}', name.lower())]
     score = lambda b: sum(w in b.lower() for w in ws)
     best = max(blocks, key=lambda x: score(x[1]))
+    if not score(best[1]) and strict: return ''
     if not score(best[1]):
         at = (text or '').find(near[:80]) if near else -1
         best = next((b for b in blocks if b[0] >= at), blocks[0]) if at >= 0 else blocks[0]
@@ -126,7 +127,7 @@ def connect(app, ctx):
         "How many steps of walk `j` have a passage, and from which sources: the real counts, for the summary of the turn."
         r = [s_.get('read') or {} for s_ in j.steps]
         have, web = sum(bool(x.get('text')) for x in r), sum(bool(x.get('text')) and x.get('src') == 'web' for x in r)
-        if not have: return ("This walk has no sources yet: each step has abhyasa's words, with no source. "
+        if not have and not j.get('chips'): return ("This walk has no sources yet: each step has abhyasa's words, with no source. "
                              "Say “research the material” to look for sources, or add a file, a folder or a link.")
         return f"{have} of {n_of(len(r), 'step')} {'has' if have == 1 else 'have'} a passage from a source" + (f", {web} from the web" if web else '') + '.'
     def filed(chips, bid=None) -> list:
@@ -365,14 +366,22 @@ def connect(app, ctx):
             if not wants_code(rec().brief): return 0
             with edit_lock('talk', tid):
                 t = lr.talk(tid); j = lr.journey((t.get('src') or {}).get('walk') or '') or {}
+                others = [d for _, ds in chip_docs(lr, j.get('chips') or ()) for d in ds][:40]
+                def text_of(shelf, doc_id):
+                    if not doc_id: return ''
+                    try: return (lr.doc_shelf(shelf) or lr.vault).document(doc_id, max_chars=400000, disk=False).text
+                    except Exception: return ''
                 by = {x['slug']: x.get('read') or {} for x in j.get('steps') or ()}
                 ss, n = deepcopy(list(t.slides)), 0
                 for x in ss:
                     sh, r = x.get('show') or {}, by.get(x.get('concept') or '') or {}
-                    if x.get('kind') != 'idea' or '```' in (sh.get('passage') or '') or not r.get('doc_id'): continue
-                    try: text = (lr.doc_shelf(r.get('shelf')) or lr.vault).document(r['doc_id'], max_chars=400000, disk=False).text
-                    except Exception: continue
-                    if not (piece := pick_code(text, x.get('title') or '', r.get('text') or '')): continue
+                    if x.get('kind') != 'idea' or '```' in (sh.get('passage') or ''): continue
+                    piece, src = pick_code(text_of(r.get('shelf'), r.get('doc_id')), x.get('title') or '', r.get('text') or ''), r
+                    for d in ([] if piece else others):   # the step's own document has no code: a document of the sources that has code on the idea
+                        if (piece := pick_code(text_of(d.shelf, d.doc_id), x.get('title') or '', strict=True)):
+                            src = dict(src='vault:' + d.shelf, shelf=d.shelf, doc_id=d.doc_id, ref=d.doc_id, title=d.title, url=d.url, text=piece); break
+                    if not piece: continue
+                    r = src
                     x['show'] = {**sh, 'passage': piece, 'src': {k: v for k in SOURCE_KEYS if (v := r.get(k) if k != 'src' else r.get(k) or 'doc') not in (None, '')}}
                     x['beats'] = [*[b for b in x.get('beats') or [] if b != 'passage'], 'passage']; n += 1
                 if n: lr.put_talk({**t, 'slides': ss})
