@@ -362,7 +362,7 @@ def d_lock_and_fix(lr, cl, mp, fake):
     jid = paper(lr, cl); ss = [s['slug'] for s in lr.journey(jid).steps]
     lock(cl, jid, ss[0], ss[2])
     pg = page(cl, f'/w/{jid}')
-    assert pg.has('label:Locked') and pg.works('lock') and pg.works('change')
+    assert pg.has('label:Kept') and pg.works('lock') and pg.works('change')
     was = [json.dumps(s, sort_keys=True) for s in lr.journey(jid).steps]
     fake.rules['You redo the ideas of one learning walk'] = dict(changes=[dict(op='remove', idea=ss[0], why='x'), dict(op='harder', idea=ss[1], why='A real test.')])
     r = change(cl, jid, 'fix the rest, and make it harder')

@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, SourceLinks, TutorWords, source_of, n_of, moved_words, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, UndoBar, HistoryList, JobStop, JobAgain, JobTools
+from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, SourceLinks, TutorWords, source_of, n_of, moved_words, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, UndoBar, HistoryList, JobStop, JobAgain, JobTools, Pill
 from abhyasa.learner import STOPPED
 from abhyasa.learner import DEPTHS, METHOD_LABELS as LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -927,17 +927,16 @@ def PlanDot(dot):
 
 LOCK_SVG = NotStr('<svg viewBox="0 0 12 14" width="10" height="12" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/>'
                   '<path d="M3.5 6V4a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>')
-LOCKED_SAYS = 'Locked: the box does not change this idea. A change by hand unlocks it.'
+LOCKED_SAYS = 'Kept: the builder and the box do not change this idea. A change by hand lets it change again.'
 
 def LockMark(slug, on):
-    "The small lock mark of a locked idea in the plan; an empty mark when it is not locked."
-    return Span(LOCK_SVG if on else '', id=f'mark-{slug}', cls='lock-mark', role='img' if on else None, aria_label='Locked' if on else None,
-                title=LOCKED_SAYS if on else None)
+    "The Kept pill of a kept idea in the plan, after its name; an empty mark when it is not kept."
+    return Span(Pill('Kept') if on else '', id=f'mark-{slug}', cls='lock-mark kept' if on else 'lock-mark', title=LOCKED_SAYS if on else None)
 
 def LockBtn(jid, slug, on):
-    "The quiet Lock toggle of an idea: Keep this idea. It posts lock or unlock, with Undo. F presses it from the row (walk.js)."
-    return Quiet('Locked' if on else 'Lock', small=True, id=f'lock-{slug}', data_lock='1', data_act='lock', data_key='F', aria_pressed='true' if on else 'false',
-                 title='Unlock this idea' if on else 'Keep this idea: the box does not change it', **edit_act(jid, 'unlock' if on else 'lock', slug=slug))
+    "The quiet Keep toggle of an idea: Keep this as it is. It posts lock or unlock, with Undo. F presses it from the row (walk.js). The builder reads it as `keep`."
+    return Quiet('Kept' if on else 'Keep', small=True, id=f'lock-{slug}', data_lock='1', data_act='lock', data_key='F', aria_pressed='true' if on else 'false',
+                 title='Let this idea change again' if on else 'Keep this as it is. The builder does not change it.', **edit_act(jid, 'unlock' if on else 'lock', slug=slug))
 
 def RowMenu(jid, s):
     "The ⋯ menu of an idea: Skip (or Bring back) and Remove. D and X press them from the row (core/edit.js); Undo takes each one back."

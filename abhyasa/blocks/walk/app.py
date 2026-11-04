@@ -992,7 +992,7 @@ def connect(app, ctx):
         nm = lambda x: ui.name(b, dict(slug=x))
         try:
             if act in ('lock', 'unlock'):
-                op, said = (lambda ss: lock_step(ss, slug, act == 'lock')), (f'Locked “{nm(slug)}”. The box does not change it.' if act == 'lock' else f'Unlocked “{nm(slug)}”.')
+                op, said = (lambda ss: lock_step(ss, slug, act == 'lock')), (f'Kept “{nm(slug)}”. The builder and the box do not change it.' if act == 'lock' else f'“{nm(slug)}” can change again.')
             elif act == 'move':
                 to = place(f.get('to', ''), len(slugs))
                 op, said = (lambda ss: move_step(ss, slug, to)), f'Moved “{nm(slug)}” to idea {to + 1}.'

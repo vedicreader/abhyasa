@@ -52,7 +52,7 @@ KEYS = [
     ('Builder', '⌘Z', 'Undo the last change of the builder'), ('Builder', 'F', 'Keep the find'), ('Builder', 'X', 'Drop the find'),
     *PLAN_KEYS,
     ('Change the walk', 'W', 'Move the focus to the idea above'), ('Change the walk', 'S', 'Move the focus to the idea below'),
-    ('Change the walk', '⇧W ⇧S', 'Move the idea up or down'), ('Change the walk', 'F', 'Lock or unlock the idea'),
+    ('Change the walk', '⇧W ⇧S', 'Move the idea up or down'), ('Change the walk', 'F', 'Keep the idea, or free it'),
     ('Change the walk', 'E', 'Open the menu of the idea, or go to the box'), ('Change the walk', 'D', 'Skip or bring back the idea'),
     ('Change the walk', 'X', 'Remove the idea. Undo gives it back'), ('Change the walk', '↩', 'Send the words in the box'), ('Change the walk', '⇧↩', 'New line in the box'),
     ('Change the walk', '⌘Z', 'Undo the last change. In a text box, ⌘Z undoes the typing'), ('Change the walk', '⌥S', 'Start, continue or review the walk'),

@@ -27,7 +27,7 @@ def test_fix_the_rest_never_touches_the_locked_ideas(mk, walk_fake, lr):
     cl = mk(); jid = walk(cl, lr)
     a, mid, b = [s['slug'] for s in lr.journey(jid).steps]
     r = lock(cl, jid, a); lock(cl, jid, b)
-    assert 'Locked “' in r.text and 'aria-pressed="true"' in r.text and 'lock-mark' in r.text
+    assert 'Kept “' in r.text and 'aria-pressed="true"' in r.text and 'lock-mark' in r.text
     was, steps = snap(lr, jid, {a, b}), lr.journey(jid).steps
     go = threading.Event()
     walk_fake.rules[FIX] = held(go, dict(changes=[dict(op='remove', idea=a, why='x'), dict(op='harder', idea=b, why='x'), dict(op='easier', idea=mid, why='Less to do.')]))
