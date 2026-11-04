@@ -706,3 +706,20 @@ def test_a_demo_never_writes_a_number_that_its_sliders_change():
     good = dict(bad, blocks=[dict(type='md', text='The Moon is {gap}° ahead of the Sun.'), dict(type='slider', bind='moon', min=0, max=360)])
     assert build_app.fixed_numbers(bad) == ['The Moon is 90° ahead of the Sun.'] and build_app.fixed_numbers(good) == []
     assert build_app.fixed_numbers(dict(blocks=[dict(type='md', text='A circle has 360°.')])) == []   # no state: nothing to disagree with
+
+def test_a_turn_that_runs_out_of_time_ends_cleanly(mk, lr, agent, monkeypatch):
+    "When a turn runs past its cap, each open call says it did not finish, the line says what is done and what is not, and the box is free again."
+    class Late(FakeAgent):
+        def ask(self, p, result=True, stop=None, deadline=None, **kw):
+            self.prompts.append(p)
+            x = Emit(lambda e: lr.put_build({**lr.build(self.bid), 'events': [*lr.build(self.bid).events, e]}))
+            x.tool_start('make_demo', dict(slide=2, what='harmonics'))   # a call that never finishes before the cap
+            return AttrDict(reply='', state='cancelled')
+    a = Late(None)
+    monkeypatch.setattr(build_app, 'ramabana_lead', lambda roots, names, **kw: (a, AttrDict(scratch='')))
+    cl = mk(); bid = new_build(cl); a.bid = bid
+    h = say(cl, lr, bid, 'Keep all, and add a demo of the harmonics on slide 2.')
+    its = fold(lr.build(bid).events)
+    demo = next(i for i in its if i.get('name') == 'make_demo')
+    assert demo['status'] == 'done' and demo['result'].startswith('Not finished') and its[-1]['kind'] == 'run'
+    assert 'Not done: Making the demo for slide 2.' in its[-1]['text'] and lr.job(f'build:{bid}').state != 'running' and 'disabled' not in h.split('class="composer"')[1]

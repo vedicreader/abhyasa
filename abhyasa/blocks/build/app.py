@@ -774,7 +774,8 @@ def connect(app, ctx):
             log.warning('builder: the turn of %s failed: %r', bid, e)
             em.ev('RUN_ERROR', state='failed', message='The builder could not finish. Try again.'); raise
         if st.waiting: return wait_end(em, st)
-        if st.stop.is_set(): em.ev('RUN_FINISHED', state='stopped', message='You stopped it.'); return
+        if r.state == 'cancelled' and not st.stop.is_set(): return late_end(bid)   # the deadline of the turn
+        if st.stop.is_set(): close_open(bid, 'You stopped it before it finished.'); em.ev('RUN_FINISHED', state='stopped', message='You stopped it.'); return
         if (reply := (r.reply or '').strip()): em.text('assistant', reply)
         em.ev('RUN_FINISHED', state='done' if r.state == 'complete' else r.state, message='' if r.state == 'complete' else f'The turn ended early ({r.state}).')
 
@@ -801,9 +802,27 @@ def connect(app, ctx):
                 emit(bid, e)
                 if st.stop.is_set(): break
         finally: gen.close()
-        if st.get('late'): Emit(lambda e: emit(bid, e)).ev('RUN_ERROR', state='failed', message='The builder took too long, so it stopped. What it finished stays, with Undo.'); return
+        if st.get('late'): return late_end(bid)
         if st.waiting: return wait_end(Emit(lambda e: emit(bid, e)), st, bid)
         if st.stop.is_set(): Emit(lambda e: emit(bid, e)).ev('RUN_FINISHED', state='stopped', message='You stopped it.')
+
+    def close_open(bid, why) -> list:
+        "Close each tool call of the last turn that did not finish, with `why`: a row never stays running after its turn. The lines of the calls that it closed."
+        items = fold(lr.build(bid).events)
+        k = max((n for n, x in enumerate(items) if x['kind'] == 'user'), default=0)
+        open_ = [x for x in items[k:] if x['kind'] == 'tool' and x['status'] == 'running']
+        em = Emit(lambda e: emit(bid, e))
+        for x in open_: em.ev('TOOL_CALL_RESULT', toolCallId=x['id'], content=f'Not finished: {why}')
+        return [ui.line(x['name'], x['args']) for x in open_]
+
+    def late_end(bid):
+        "The end of a turn that ran out of time: each open call says that it did not finish, and one line says what is done and what is not. The box is free again."
+        items = fold(lr.build(bid).events); k = max((n for n, x in enumerate(items) if x['kind'] == 'user'), default=0)
+        done = [x['result'] for x in items[k:] if x['kind'] == 'tool' and x['status'] == 'done' and x['name'] in CHANGERS and not str(x['result']).startswith('It did not work')]
+        left = close_open(bid, 'the turn ran out of time.')
+        Emit(lambda e: emit(bid, e)).ev('RUN_ERROR', state='failed', message=' '.join(x for x in (
+            f"The builder took more than {TURN_SECS // 60} minutes, so it stopped.", f"Done: {' '.join(done)}" if done else 'Nothing changed.',
+            f"Not done: {'; '.join(left)}." if left else '', 'Ask again for what is not done.') if x))
 
     def wait_end(em, st, bid=None):
         "The end of a turn after research: the result of the research call (the turn stopped before ramabana sent it), one line, then the turn ends and waits for Keep or Drop."
