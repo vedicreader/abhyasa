@@ -162,15 +162,17 @@ function drawAsk(st, m) {
 }
 
 // The result: the right answer, and the option that most hands chose. With hands there are no counts.
+// A poll is a choice with no right answer: it shows the count of each option from the phones, and marks no option right.
 function drawResult(st, m) {
   const box = roomPart(st, 'stage-ask');
   if (box.hidden) return;
-  const right = Array.isArray(m.right) ? null : m.right;
+  const right = Array.isArray(m.right) ? null : m.right, poll = m.kind === 'choice' && m.right == null;
+  const counts = poll ? m.rounds?.[m.rounds.length - 1]?.counts : null;
   box.querySelectorAll('.ask-opts li').forEach(li => {
     const k = +li.dataset.k;
     li.classList.toggle('right', k === right); li.classList.toggle('most', k === m.main);
     li.querySelector('.tag')?.remove();
-    const tags = [k === right ? 'Right answer' : '', k === m.main ? 'Most hands' : ''].filter(Boolean);
+    const tags = [k === right ? 'Right answer' : '', counts ? String(counts[k] ?? 0) : '', k === m.main ? 'Most hands' : ''].filter(Boolean);
     if (tags.length) li.querySelector('.t').append(make('span', 'tag', tags.join(' · ')));
   });
   if (Array.isArray(m.right)) {
@@ -179,7 +181,8 @@ function drawResult(st, m) {
     m.right.forEach(i => ol.append(maths('li', '', items[i] ?? '')));
     box.querySelector('.right-order')?.remove();
     box.querySelector('.hint-line').replaceWith(make('p', 'hint-line', 'The right order:'), ol);
-  } else box.querySelector('.hint-line').textContent = m.main == null ? 'The right answer is lit.' : 'The right answer and the answer of most hands are lit.';
+  } else if (poll) box.querySelector('.hint-line').textContent = counts ? 'There is no right answer. Each option shows how many people chose it.' : 'There is no right answer.';
+  else box.querySelector('.hint-line').textContent = m.main == null ? 'The right answer is lit.' : 'The right answer and the answer of most hands are lit.';
 }
 
 function drawPair(st, m) {

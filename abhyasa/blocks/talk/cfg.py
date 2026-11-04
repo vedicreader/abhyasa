@@ -8,7 +8,7 @@ class Routes:
     undo = '/t/{tid}/undo'             # take back the newest change
     history = '/t/{tid}/history'       # the earlier versions of the talk
     restore = '/t/{tid}/restore'       # go back to the version before one change
-    drop = '/t/{tid}/drop'             # POST: delete the talk with its runs and its history; the walk and your answers stay. Then the walk page, or Home
+    drop = '/t/{tid}/drop'             # POST: delete the talk with its runs, its history and its hidden walk; your own walk and your answers stay. Then the walk page, or Home
     slot = '/t/{tid}/slot'             # the minutes of the slot, and room phones
     fill = '/t/{tid}/fill'             # write the points and the notes of the slides that have none, on the pool
     start = '/t/{tid}/start'           # start a run (Task 6)
@@ -22,6 +22,11 @@ class Routes:
     after = '/t/{tid}/after'           # after the talk (Task 7)
     recap = '/t/{tid}/recap.html'      # the recap file for the room (Task 7)
     follow = '/t/{tid}/follow'         # walk the weak ideas after the talk (Task 7)
+    open = '/t/{tid}/open'             # POST: open the notebook of the talk on this Mac
+    handout = '/t/{tid}/handout.html'  # the handout to print as a PDF: the slides, the links, then the answers
+    links = '/t/{tid}/links'           # POST: the shared link of one local path of the handout, with Undo
+    mine = '/t/{tid}/walk'             # POST: make a walk of your own from the hidden walk of the talk
+    sources = '/library/sources'       # the Sources page of the Library
     def of(route, **kw):
         for k, v in kw.items(): route = route.replace('{' + k + '}', str(v))
         return route

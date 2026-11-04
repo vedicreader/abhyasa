@@ -10,20 +10,23 @@ run log on the server always has the place. The hands of the room and the result
 When the room is lost, ⌥B offers a primer on an idea that the slide needs, and the primer opens in the side pane of both windows,
 in the talk type (`pane=1&talk=1`). "End the talk" ends the run and opens "After the talk": where the room was unsure, the
 recap file for the room, a follow-up walk, and the primers to add to the talk."""
-import math, mimetypes, random, re, secrets, time
+import hashlib, json, math, mimetypes, random, re, secrets, subprocess, time
 from copy import deepcopy
+from pathlib import Path
+from urllib.parse import urlsplit
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
 from abhyasa.core import Page, UndoBar, hook, n_of, pane_url, room_spec, run as run_hook
+from abhyasa.core.leela import LOCAL_HOSTS
 from abhyasa.path import edit_lock, CTRL, rewrite as tutor_rewrite
 from abhyasa.sources import figure_path
-from abhyasa.path import needs, pick_way_down, detour, walk_from_topic, for_talk, step_read
+from abhyasa.path import needs, pick_way_down, detour, walk_from_topic, for_talk, step_read, chip_docs, walk_from_talk
 from abhyasa.models import for_task
 from abhyasa.learner import val, lines, track, seen_jobs, check_stop, halted, JobStopped, STOPPED
-from abhyasa.show import (check_talk, talk_from_walk, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST,
+from abhyasa.show import (check_talk, talk_from_walk, talk_from_sources, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST,
     QUESTIONS_MIN, public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go,
     log_main, end_run, log_beside, recap, recap_html, BEATS, FILLED, clean_slide, talk_again, talk_fresh, walk_changes, AGAIN, FRESH,
-    talk_state, with_state, on_stage, put_back)
+    talk_state, with_state, on_stage, put_back, handout_html, link_rows, clean_link)
 from . import ui
 from .cfg import Routes
 
@@ -32,7 +35,8 @@ CAPS = ('learning', 'ask', 'pool', 'sources', 'research')
 NO_TALK = 'abhyasa could not make the talk.'
 PARTS = ('passage', 'body', 'figure', 'demo')   # the parts that a slide can show, in the order of their beats
 PAUSE = 'Talk to your neighbour.'
-ASKS = ('idea', 'primer')              # the slide kinds that can ask the room
+ASKS = ('idea', 'primer', 'poll')      # the slide kinds that can ask the room
+IDEAS = ('idea', 'primer')             # the slide kinds of an idea: a passage, a figure, beats and Rewrite
 SLOT = (5, 240)                         # the most and the least minutes of a slot
 SECS = (10, 1800)                       # the time of a pause
 Q_MOST, OPT_MOST, NOTE_MOST = 500, 200, 5000   # as the `ask` message of the stage allows
@@ -41,6 +45,19 @@ HASH = re.compile(r'[0-9a-f]{64}')
 NO_ASK = 'This slide has no question for the room.'
 SIDE_HOWS = ('primer', 'walk')          # the ways that open beside a slide; its own session never opens in a talk (spec 12)
 NO_RUN = 'The talk does not run now.'
+NO_NB = 'This talk has no notebook on this Mac.'
+OPEN_WAIT = 10   # seconds that `open` can take
+_open = subprocess.run   # the runner of `open` (a test fakes it)
+
+def same_site(req) -> bool:
+    "Whether request `req` comes from a page of abhyasa: a browser sends `Sec-Fetch-Site` and `Origin`, so a page of another site cannot ask for it."
+    site, origin = req.headers.get('sec-fetch-site'), req.headers.get('origin')
+    return site in (None, 'same-origin', 'none') and (not origin or urlsplit(origin).netloc == req.url.netloc)
+
+def hidden(j) -> bool:
+    "Whether walk `j` is the hidden walk of a talk from your sources (`walk_for_talk`)."
+    p = (j or {}).get('parent') or {}
+    return p.get('for') == 'talk' and not p.get('journey')
 
 class Bad(Exception):
     "A change that cannot be made; its text goes back to the editor."
@@ -83,8 +100,8 @@ def with_part(beats, p, on):
     at = max((k + 1 for k, b in enumerate(beats) if b in PARTS[:PARTS.index(p)]), default=0)
     return [*beats[:at], p, *beats[at:]]
 
-def new_ask(old, f):
-    "The question from the ask fields in `f`, over the question `old`; None for no question."
+def new_ask(old, f, poll=False):
+    "The question from the ask fields in `f`, over the question `old`; None for no question. The choice of a `poll` has no answer."
     old = old or {}
     kind = f.get('kind', old.get('kind') or 'none')
     if kind not in ASK_KINDS: raise Bad(f'Unknown kind of question: {kind}.')
@@ -105,6 +122,7 @@ def new_ask(old, f):
         return dict(a, options=opts) if opts else a
     if kind == 'choice':
         if not 2 <= len(opts) <= 6: raise Bad('A choice needs 2 to 6 options, one on each line.')
+        if poll: return dict(a, options=opts)
         n = number(ans, 0, len(opts) - 1, 'Pick the right option.') if ans else old.get('answer') if same else None
         if n is None: raise Bad('Pick the right option.')
         return dict(a, options=opts, answer=n)
@@ -182,7 +200,7 @@ def edit(s, f):
         s['beats'] = with_part(s.get('beats') or [], p, v == 'on')
     if not {'kind', 'q', 'options', 'answer'} & set(f): return s
     if s.get('kind') not in ASKS: raise Bad('This slide has no question for the room.')
-    old, a = s.get('ask'), new_ask(s.get('ask'), f)
+    old, a = s.get('ask'), new_ask(s.get('ask'), f, s.get('kind') == 'poll')
     if a and old and all(a.get(k) == old.get(k) for k in ('kind', 'q', 'options', 'answer')) and 'src' in old: a['src'] = old['src']
     if bool(a) != bool(old and old.get('kind') != 'none'):   # a question takes its minutes, and gives them back when it goes
         s['mins'] = max(1, (s.get('mins') or 0) + (val('talks.ask_min') if a else -val('talks.ask_min')))
@@ -280,6 +298,22 @@ def connect(app, ctx):
         if halted(lr, f'talk:{jid}'): lr.drop_talk(t.id); check_stop(lr, f'talk:{jid}')   # after Stop, the talk is not kept
         return t.id
 
+    def made_from(key, ids, goal, audience, no_code):
+        "On the pool: file the chips `ids` and make a talk with its hidden walk (`talk_from_sources`). After Stop, the talk and its walk are not kept. The talk id."
+        t = talk_from_sources(lr, ask(), ids, goal, audience, no_code, ctx.sources)
+        run_hook('concepts_added')   # the concepts block places the new concepts on the pool
+        if halted(lr, f'talk:{key}'): lr.drop_talk(t.id); check_stop(lr, f'talk:{key}')
+        return t.id
+
+    @hook('talk_from_sources')
+    def from_sources(ids, goal='', audience='', no_code=False):
+        "Make a talk on Start: start the pool job that files the chips `ids` and makes the talk, unless one runs. The pending card."
+        key = 'src:' + hashlib.sha1(json.dumps([list(ids), goal, audience, no_code]).encode()).hexdigest()[:12]
+        if not (job := jobs.get(key)) or job.done():
+            make_job(key, lambda: made_from(key, ids, goal, audience, no_code), f"Talk: {goal or 'your sources'}", 'Making the talk', '/',
+                     again=dict(src=dict(ids=list(ids), goal=goal, audience=audience, no_code=no_code)))
+        return ui.Pending(key, row=lr.job(f'talk:{key}'))
+
     def fill(tid:str):
         "Start the pool job that writes the content of the slides of talk `tid` that have none (Fill the slides). The request does not wait for the model."
         if not lr.talk(tid): return Response('No such talk.', status_code=404)
@@ -303,6 +337,7 @@ def connect(app, ctx):
         if r.get('kind') != 'talk' or not isinstance(a := r.get('again'), dict): return None
         if a.get('fill'): fill(a['fill'])
         elif a.get('jid'): new(a['jid'], again='1' if a.get('tid') else '', tid=a.get('tid') or '', fresh='1' if a.get('fresh') else '')
+        elif isinstance(a.get('src'), dict): from_sources(**a['src'])
         else: return None
         return True
 
@@ -314,9 +349,13 @@ def connect(app, ctx):
         return j, lr.journey(((j or {}).get('parent') or {}).get('journey') or '') if for_talk(j) else None
 
     def up_of(t):
-        "The page that talk `t` came from, as `[(title, url)]`: the walk page (of the old path, for a walk made for the talk), or none."
+        "The page that talk `t` came from, as `[(title, url)]`: the walk page (of the old path, for a walk made for the talk), or none for a hidden walk."
         j, pj = walks_of(t)
-        return [(pj.title, f'/w/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j else []
+        return [(pj.title, f'/w/{pj.id}')] if pj else [(j.title, f'/w/{j.id}')] if j and not hidden(j) else []
+
+    def sources_of(j):
+        "The sources of the hidden walk `j` as `(name, url)`: the vault page of a source with one document, else the Sources page."
+        return [(n, f'/v/{ds[0].shelf}/{ds[0].doc_id}' if len(ds) == 1 else Routes.sources) for n, ds in chip_docs(lr, j.get('chips') or ())]
 
     def is_live(t):
         "Whether talk `t` has a run open now."
@@ -327,7 +366,13 @@ def connect(app, ctx):
         r = lr.job(f'talk:{tid}')
         return r if r is not None and r.state == 'running' else None
 
-    def menu(t, *items): return ui.TalkMenu(t, *items, live=is_live(t), row=busy(t['id']))
+    def menu(t, *items): return ui.TalkMenu(t, *items, live=is_live(t), row=busy(t['id']), hidden=hidden(walk_for(t)))
+
+    def chips_of(t):
+        "The source chips of the walk of talk `t`, for the Links panel and the handout."
+        return (walk_for(t) or {}).get('chips') or ()
+
+    def links_of(t, **kw): return ui.Links(t, link_rows(t, chips_of(t)), **kw)
 
     def one(req, tid:str, done:str=''):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
@@ -336,8 +381,9 @@ def connect(app, ctx):
         top = first(lr.edits('talk', tid)) if said else None   # after Fill the slides, Make it again or From scratch: the bar offers Undo at once
         filled = bar(t, top.what, [top]) if top and top.what == said else None
         j, pj = walks_of(t)
-        m = menu(t, *([ui.Scratch(j.id, t, target='#talk-job', swap='innerHTML')] if j else []))
-        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, choices(t), filled, None if pj or not j else walk_changes(lr, t), menu=m), on='Home',
+        m = menu(t, ui.HandoutLink(t), *([ui.MineWalk(t)] if hidden(j) else []), *([ui.Scratch(j.id, t, target='#talk-job', swap='innerHTML')] if j else []))
+        page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, choices(t), filled, None if pj or not j else walk_changes(lr, t), menu=m,
+                                                        srcs=sources_of(j) if hidden(j) else None, links=links_of(t)), on='Home',
                     crumbs=[('Home', '/'), *up_of(t)], extra=ui.editor_assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys work only here
         return page
@@ -404,7 +450,7 @@ def connect(app, ctx):
         "The passages and the figures that each slide of talk `t` can pick, by slide id."
         j = walk_for(t)
         seen = {}
-        return {s['id']: dict(passages=passages(t, s, j), figures=figures(t, s, j, seen)) for s in t['slides'] if s.get('kind') in ASKS}
+        return {s['id']: dict(passages=passages(t, s, j), figures=figures(t, s, j, seen)) for s in t['slides'] if s.get('kind') in IDEAS}
 
     def deck(t, **kw): return ui.Deck(t, choices(t), **kw), ui.Total(t, oob=True)
 
@@ -463,14 +509,14 @@ def connect(app, ctx):
                     ss.insert(i + 1, new)
                     said, row, opened, fresh = f'Copied “{title_of(new)}”.', new['id'], new['id'], new['id']
                 elif act == 'passage':
-                    if ss[i].get('kind') not in ASKS: raise Bad('This slide has no passage.')
+                    if ss[i].get('kind') not in IDEAS: raise Bad('This slide has no passage.')
                     k = f.get('k', '').strip()
                     ps = passages(t, ss[i], walk_for(t))
                     p = ps[number(k, 0, len(ps) - 1, 'Pick a passage of this idea.')] if k else None
                     ss[i] = set_passage(ss[i], p)
                     said, opened = f'Changed the passage of slide {i + 1}.', ss[i]['id']
                 elif act == 'figure':
-                    if ss[i].get('kind') not in ASKS: raise Bad('This slide has no figure.')
+                    if ss[i].get('kind') not in IDEAS: raise Bad('This slide has no figure.')
                     if (a := f.get('asset', '').strip()) and a not in [x['id'] for x in figures(t, ss[i], walk_for(t))]: raise Bad('Pick a figure of this idea.')
                     ss[i] = set_figure(ss[i], a)
                     said, opened = f'Changed the figure of slide {i + 1}.', ss[i]['id']
@@ -507,7 +553,7 @@ def connect(app, ctx):
         "Rewrite the points and the note of a slide with a short instruction. The model call runs outside the lock; a failed rewrite changes nothing."
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
         if not (s := slide_of(t, f.get('sid'))): return Response('No such slide.', status_code=404)
-        if s.get('kind') not in ASKS: return text('The tutor rewrites only a slide of an idea.')
+        if s.get('kind') not in IDEAS: return text('The tutor rewrites only a slide of an idea.')
         ins = ' '.join((f.get('chip') or f.get('text') or '').split()).rstrip('.')
         if not ins: return text('Tell the tutor what to change.')
         sh = s.get('show') or {}
@@ -546,7 +592,7 @@ def connect(app, ctx):
             if (i := next((k for k, s in enumerate(ss) if s.get('id') == f.get('sid')), None)) is None: return Response('No such slide.', status_code=404)
             bs = list(ss[i].get('beats') or [])
             try:
-                if ss[i].get('kind') not in ASKS: raise Bad('This slide has no beats.')
+                if ss[i].get('kind') not in IDEAS: raise Bad('This slide has no beats.')
                 if act in ('move', 'drop'):
                     k = number(f.get('at', ''), 0, len(bs) - 1, 'No such beat.')
                     if act == 'drop': bs.pop(k)
@@ -578,7 +624,7 @@ def connect(app, ctx):
             except ValueError: return text('Undo cannot take back this change.')
             t, hist = lr.talk(tid), lr.edits('talk', tid)
         said = f'Undone: {e.what}' if e else 'Nothing to undo.'
-        return (*deck(t), bar(t, said, hist))
+        return (*deck(t), bar(t, said, hist), *([links_of(t, opened=True, oob=True)] if e and 'links' in (e.before or {}) else []))   # Undo of a link change shows the link again
 
     def history(tid:str):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
@@ -598,7 +644,7 @@ def connect(app, ctx):
             said = f'Restored the version before “{e.what}”'
             try:
                 if isinstance(e.before, list): save(t, e.before, said)
-                else: lr.add_edit('talk', tid, said, 'you', talk_state(t), apply=lambda: lr.put_talk(with_state(t, e.before)))   # before Make it again
+                else: lr.add_edit('talk', tid, said, 'you', {k: deepcopy(t.get(k)) for k in e.before}, apply=lambda: lr.put_talk(with_state(t, e.before)))   # before Make it again, or a link change
             except Bad as x: return text(str(x))
             except ValueError: return text('This version cannot come back.')
         return Response(headers={'HX-Redirect': Routes.of(Routes.one, tid=tid)})
@@ -676,6 +722,49 @@ def connect(app, ctx):
         if not HASH.fullmatch(h) or not (t := lr.talk(tid)): return Response('No such image.', status_code=404)
         if not (got := public_deck(t, asset_resolver(lr)).images.get(h)): return Response('No such image.', status_code=404)
         return Response(got[0], media_type=got[1], headers={'Cache-Control': 'private, max-age=3600'})
+
+    def handout(tid:str, look:str=''):
+        "The handout of talk `tid` as one HTML file to print as a PDF, with the results of its newest run when it has one. No script can run in it."
+        if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+        body = handout_html(t, first(lr.runs(tid)), asset_resolver(lr), chips_of(t))
+        how = 'inline' if look != '0' else f'attachment; filename="{re.sub(r"[^a-z0-9-]", "", t.id)[:48] or "talk"}-handout.html"'
+        return Response(body, media_type='text/html; charset=utf-8',
+                        headers={'Content-Disposition': how, 'Content-Security-Policy': "default-src 'none'; img-src data:; style-src 'unsafe-inline'"})
+
+    async def links(req, tid:str):
+        "Keep the shared link of one local path of the handout (`path`, `link`) on the talk, in `t['links']`, as one change with Undo. An empty link takes it away."
+        f = await req.form()
+        with edit_lock('talk', tid):
+            if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+            p = str(f.get('path') or '')
+            if p not in dict(link_rows(t, chips_of(t))): return text('This path is not a link of the handout.')
+            try: u = clean_link(f.get('link'))
+            except ValueError as e: return text(str(e))
+            old = dict(t.get('links') or {})
+            new = {**old, p: u} if u else {k: v for k, v in old.items() if k != p}
+            if new == old: return links_of(t, opened=True)
+            said = f'Changed the shared link of {Path(p).name}.' if u else f'Took away the shared link of {Path(p).name}.'
+            hist = lr.add_edit('talk', tid, said, 'you', {'links': old}, field=f'links/{p}', apply=lambda: lr.put_talk({**t, 'links': new}))
+            t = lr.talk(tid)
+        return links_of(t, opened=True), bar(t, said, hist)
+
+    def mine(tid:str):
+        "Make a walk of your own from the hidden walk of talk `tid`, with its ideas in the order of the slides, then open the walk."
+        if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+        if not hidden(j := walk_for(t)): return text('This talk comes from a walk of your own. Open that walk.')
+        order = [s['concept'] for s in on_stage(t)['slides'] if s.get('kind') == 'idea' and s.get('concept')]
+        try: w = walk_from_talk(lr, j.id, order)
+        except ValueError as e: return text(str(e))
+        return RedirectResponse(f'/w/{w.id}', status_code=303)
+
+    def open_nb(req, tid:str):
+        "Open the notebook that talk `tid` keeps (`src.notebook`) on this Mac with `open`, for a request from this Mac. No path comes from the request."
+        if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+        if (req.client.host if req.client else '') not in LOCAL_HOSTS or not same_site(req): return Response('abhyasa opens the notebook only on this Mac.', status_code=403, media_type='text/plain')
+        if not (p := (t.get('src') or {}).get('notebook') or '') or Path(p).suffix != '.ipynb' or not Path(p).is_file(): return text(NO_NB)
+        try: _open(['open', p], check=True, timeout=OPEN_WAIT)
+        except (OSError, subprocess.SubprocessError): return text('abhyasa could not open the notebook.')
+        return Response(status_code=204)
 
     async def at(req, tid:str):
         """Move the place of the run: `slide`, `beat`, and `blank` (0 or 1), `pane` (a walk step path, or empty) and `page` (the page of the
@@ -889,6 +978,10 @@ def connect(app, ctx):
     app.get(Routes.present)(presenter)
     app.get(Routes.audience)(audience)
     app.get(Routes.img)(img)
+    app.post(Routes.open)(open_nb)
+    app.post(Routes.links)(links)
+    app.post(Routes.mine)(mine)
+    app.get(Routes.handout)(handout); app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's static route for `.html`
     app.post(Routes.at)(at)
     app.post(Routes.ask)(ask_)
     app.post(Routes.beside)(beside)

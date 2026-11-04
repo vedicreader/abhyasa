@@ -13,7 +13,7 @@ from abhyasa.learner import val, set_val
 from abhyasa.sources import detect, vault_title, transcript_read
 from abhyasa.learner import clean_subject, profile_text, WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
-from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, file_folder, file_file, file_repo, folder_why, tree_files, unfile, vault_roots, root_docs
+from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, folder_why, tree_files, unfile, vault_roots
 from abhyasa.sources import named_sources, on_disk, title_index
 from abhyasa.path import back_from, with_data, keep_data, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, short_check, with_step, trail, parent_step, for_talk
 from abhyasa.learner import walk_state, _jlock
@@ -339,25 +339,15 @@ def connect(app, ctx):
                      why=lambda e: str(e) if isinstance(e, LinkError) else NO_LINK)
 
     def file_chip(i, st):
-        "On the pool: file the source of the chip id `i` (`gh:`, `folder:`, `repo:`, `file:`, `link:`), or get its docs (`vault:`, `doc:`). Returns (name, docs)."
+        "On the pool: say in `st` what the chip id `i` files, then file it (`walk_engine.file_chip`). Returns (name, docs)."
         kind, _, v = i.partition(':')
-        if kind == 'gh':
-            st.update(said=f'Cloning {v}')
-            return v, file_repo(lr, v)
+        name = Path(v).name if kind in ('folder', 'repo', 'file') else (lr.vault.doc(v) or {}).get('title') or v if kind == 'doc' else v
         if kind in ('folder', 'repo'):
-            name, fs = Path(v).name, ([] if folder_why(v) else tree_files(v))
+            fs = [] if folder_why(v) else tree_files(v)
             nb = sum(p.suffix == '.ipynb' for p in fs)
             st.update(said=f"Filing {name}: {n_of(nb, 'notebook') if nb else n_of(len(fs), 'file')}")
-            return name, file_folder(lr, v)
-        if kind == 'file':
-            st.update(said=f'Filing {Path(v).name}')
-            return Path(v).name, file_file(lr, v)
-        if kind == 'link':
-            st.update(said='Getting the pages from the link')
-            return v, file_link(lr, v)
-        if kind == 'vault': return v, root_docs(lr, v)
-        if kind == 'doc' and (d := lr.vault.doc(v)): return d['title'], L([AttrDict(shelf='store', doc_id=d['id'], title=d['title'], url=d['source'])])
-        return v, L()   # a kind that abhyasa does not know: nothing to file
+        elif (line := dict(gh=f'Cloning {v}', file=f'Filing {name}', link='Getting the pages from the link').get(kind)): st.update(said=line)
+        return name, walk_engine.file_chip(lr, i)
 
     filer = ThreadPoolExecutor(FILERS, thread_name_prefix='abhyasa-file')
 
@@ -501,12 +491,16 @@ def connect(app, ctx):
         return Response(headers={'HX-Redirect': ui.at(Routes.one, st.job.result())})
 
     def new(ref:str='', shelf:str='store', text:str='', title:str='', topic:str='', url:str='', pages:str='', tool:str='', subject:str='',
-            q:str='', pick:str='', file:str='', opts:str='', doc:str='', sources:list[str]=None, chips:str='', mine:list[str]=None, audience:str='', no_code:str=''):
+            q:str='', pick:str='', file:str='', opts:str='', doc:str='', sources:list[str]=None, chips:str='', mine:list[str]=None, audience:str='', no_code:str='', talk:str=''):
         if (q.strip() or chips) and not any(x.strip() for x in (ref, text, topic, url)):   # the Start box: its reading says which field it is
             t = vault_title(lr.vault, q) if not file else None
             r = detect(q, dict([t]) if t else {}, research=val('research.on'), file=file, pick=pick, doc=doc, roots_in_vault=vault_roots(lr))   # `ref` is a document id
             ids = [x for x in (sources or []) if x] if chips else r.send.get('sources', [])   # the chips that the box showed, less the ones that you removed
             goal = r.kind == 'goal' or (chips and r.kind == 'topic')   # a topic with sources that you added is a goal
+            if talk:   # Make a talk: your data folders are not sources
+                ids, aim = [x for x in ids if x not in (mine or ())], q.strip() if r.kind in ('goal', 'topic') else ''
+                if not aim and not ids: return P('Add a source or write a goal first.', cls='req-err')
+                return first(run_hook('talk_from_sources', ids, aim, audience.strip(), bool(no_code))) or P('abhyasa cannot make a talk now.', cls='req-err')
             if (goal or r.kind in ('sources', 'folder')) and (r.send or chips):
                 ours = [x for x in ids if x in (mine or ()) and x.startswith('folder:')]   # the folders that you ticked as your data: not filed
                 ids = [x for x in ids if x not in ours]

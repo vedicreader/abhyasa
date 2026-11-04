@@ -4,7 +4,6 @@ from fastcore.basics import AttrDict
 from fastcore.foundation import L
 from walk_data import walk
 from flows import change
-import abhyasa.blocks.walk.app as W
 
 PROPOSE = 'You propose changes to one learning walk'
 URL = 'https://example.org/attention'
@@ -41,7 +40,7 @@ def test_a_link_becomes_an_idea_with_that_source(mk, walk_fake, lr, monkeypatch)
     def filed(lr_, u, pages=None):
         d = lr_.vault.add([(0, 'Attention mixes the values by weights. The weights come from the scores of each query against each key.')], 'Attention notes', source=u, kind='web')
         return L([AttrDict(shelf='store', doc_id=d['doc_id'], title='Attention notes', url=u)])
-    monkeypatch.setattr(W, 'file_link', filed)
+    monkeypatch.setattr('abhyasa.path.file_link', filed)
     walk_fake.rules.update({PROPOSE: dict(changes=[dict(op='add', name='Attention', link=URL, to=2, why='You asked for it.')]),
                             'The idea: ': dict(name='Attention', statement='Attention mixes values by weights.')})
     cl = mk(); jid = walk(cl, lr)

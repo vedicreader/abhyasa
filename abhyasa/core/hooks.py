@@ -18,6 +18,8 @@ when it is filed: it gives the ids that it started).
 `show_me(words, at)` ("show me …" in an answer box: the demo block gives the card of a demo made from `words`; `at` is the place, `{where: 'walk', concept, walk, step}` or
 `{where: 'session', qid}`, or `{where: 'guide', concept}` for "show me …" to the screen guide; on a walk step the card swaps into the place under the title).
 `goal_walk(j)` (the walk block made walk `j` from a goal on Start: the course block joins it to the course of its goal).
+`talk_from_sources(ids, goal='', audience='', no_code=False)` (Make a talk on Start: the talk block starts the job that files the chips `ids`
+and makes the talk, and gives its pending card, which opens the talk editor when the talk is ready).
 `data_setter(entry, where, closed=False)` (the add block gives the folder setter of data entry `entry` (`{name, what}`) of walk `where`: Pick a folder
 and a field for a path; the folder goes under Your data with that name. `closed` gives only Set it, which opens it in place. The idea page,
 the walk page and the course page use it).

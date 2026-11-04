@@ -79,7 +79,7 @@ def test_a_source_that_files_has_a_row(mk, lr, monkeypatch):
     lr.put_journey(dict(id='w2', title='Ranks', mode='walk', steps=[dict(slug='ranking', status='todo')]))
     cl = mk(); svc = cl.app.state.svc
     gate = threading.Event()
-    monkeypatch.setattr('abhyasa.blocks.walk.app.file_folder', lambda lr_, v: (gate.wait(5), L())[1])
+    monkeypatch.setattr('abhyasa.path.file_folder', lambda lr_, v: (gate.wait(5), L())[1])
     from abhyasa.core.hooks import run
     assert run('walk_add_sources', 'w2', ['folder:/tmp/notes']) == [['folder:/tmp/notes']]
     assert lr.job('walk:w2:filing').state == 'running' and '1 running' in chip(cl.get('/').text)

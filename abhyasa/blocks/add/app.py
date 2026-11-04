@@ -28,6 +28,8 @@ ADD = 'Add a folder, a file, a repo or a link'
 WHO = 'Who is it for'
 WHO_HINT = 'optional, for example: people who do not write code'
 NO_CODE = 'No code: no notebooks and no code checks'
+TALK = 'Make a talk'
+TALK_SAY = 'Make slides for a group from your goal or your sources. A notebook gives one slide for each section.'
 NOT_HERE = 'abhyasa opens the folder and file choosers only on this Mac.'
 DATA_PICK = 'Pick a folder'
 DATA_PASTE = 'or paste a path'
@@ -207,8 +209,11 @@ def Read(r, f=None, told=True, q=''):
     wait = WAIT.get(r.kind, 'Making the walk…')
     start = (Primary('Start', data_wait=wait, data_skel='#walk-out', id='start-go', rank=6, data_act='start') if go else
              Primary('Start', disabled=True, id='start-go', type='button', hidden=bool(r.ask), rank=6, data_act='start'))   # off until it can start; a question: its answers start
+    can_talk = not r.ask and (r.kind in ('goal', 'topic') or bool(ok))
+    talk = (Secondary(TALK, name='talk', value='1', data_wait='Making the talk…', data_skel='#walk-out', id='start-talk', title=TALK_SAY, data_act='make-talk') if can_talk else
+            Secondary(TALK, disabled=True, type='button', id='start-talk', hidden=bool(r.ask), title=TALK_SAY, data_act='make-talk'))
     drop = (FOUND if shown and ok else 'abhyasa gets it only when you press Start.' if go and r.kind in ('paper', 'repo', 'site') else CAN)
-    foot = Div(start, '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
+    foot = Div(start, talk, '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
     line = P(NO_GOAL, cls='will', id='start-will') if r.kind == 'empty' and cs else Line(r) if r.kind != 'ask' else P(B(r.ask.q), cls='will', id='start-will')
     return (line, P(WEB_ONCE + ('' if shown else OFF), cls='mute web-once') if r.kind in ('topic', 'goal') and val('research.on') and not told else '',
             Ask(r, cs[0].path if cs else q) if r.ask else Options(r, f), foot)

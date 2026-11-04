@@ -6,31 +6,31 @@ Docs: https://vedicreader.github.io/abhyasa/path.html.md"""
 
 # %% auto #0
 __all__ = ['PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS', 'PICK_SP', 'MAP_SP', 'NB_SECTION_MOST',
-           'NB_PICTURE', 'NB_WHY_DEMO', 'COMMON', 'STEP_MIN', 'READY', 'COURSE_AT', 'PRIMER_SP', 'NAME_MOST',
-           'CTRL_MARKS', 'NOTE_SP', 'NOTE_TOPIC_SP', 'NOTE_SAME', 'NB_SP', 'NB_SHAPE', 'PREDICTIONS', 'WORDS_MOST',
-           'GLOSS_SP', 'HISTORY_MOST', 'HISTORY_BYTES', 'EDIT_JOIN', 'WHO', 'WHAT_MOST', 'RUN_FIELDS', 'EDIT_FIELDS',
-           'CODE_GONE', 'REWRITE_SP', 'INSTRUCTION_MOST', 'REWRITE_TEXT', 'REWRITE_LIST', 'CTRL', 'check_of',
-           'CHECK_KINDS', 'PASSAGES_MOST', 'IMPROVE_OPS', 'IMPROVE_MOST', 'IMPROVE_SP', 'FIX_SP', 'EASIER', 'HARDER',
-           'KIND_WAY', 'KEEP_RUN', 'REPLAN_WHAT', 'NO_SRC_DOCS', 'GROW_AT', 'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST',
-           'ANSWERS', 'KINDS', 'LEVEL_SP', 'SAID', 'STAGES_SP', 'LEFT', 'ASK_KINDS', 'log', 'SUBJECT_LABEL',
-           'MANY_SENSE', 'TOP', 'FOUND_NOTHING', 'NO_QUOTE', 'BIG_ROOT', 'AGENT_DOCS', 'TOOL_TEXT', 'LOG_MOST',
-           'FILE_BYTES', 'LEAK_WORDS', 'FLUSH_ROWS', 'FLUSH_SECS', 'PASSAGE_WORDS', 'STOPPED', 'TIME_UP', 'TEXTS',
-           'SECRET', 'GATHER_SP', 'LEAD_SP', 'LEAD_TOOLS_OWN', 'NO_START', 'NO_START_ANY', 'ELSE', 'START_WHY',
+           'NB_PICTURE', 'NB_WHY_DEMO', 'COMMON', 'STEP_MIN', 'READY', 'COURSE_AT', 'WALK_KEEPS', 'STEP_DROPS',
+           'PRIMER_SP', 'NAME_MOST', 'CTRL_MARKS', 'NOTE_SP', 'NOTE_TOPIC_SP', 'NOTE_SAME', 'NB_SP', 'NB_SHAPE',
+           'PREDICTIONS', 'WORDS_MOST', 'GLOSS_SP', 'HISTORY_MOST', 'HISTORY_BYTES', 'EDIT_JOIN', 'WHO', 'WHAT_MOST',
+           'RUN_FIELDS', 'EDIT_FIELDS', 'CODE_GONE', 'REWRITE_SP', 'INSTRUCTION_MOST', 'REWRITE_TEXT', 'REWRITE_LIST',
+           'CTRL', 'check_of', 'CHECK_KINDS', 'PASSAGES_MOST', 'IMPROVE_OPS', 'IMPROVE_MOST', 'IMPROVE_SP', 'FIX_SP',
+           'EASIER', 'HARDER', 'KIND_WAY', 'KEEP_RUN', 'REPLAN_WHAT', 'NO_SRC_DOCS', 'GROW_AT', 'UNCLEAR', 'ASKS_MOST',
+           'LEVEL_MOST', 'ANSWERS', 'KINDS', 'LEVEL_SP', 'SAID', 'STAGES_SP', 'LEFT', 'ASK_KINDS', 'log',
+           'SUBJECT_LABEL', 'MANY_SENSE', 'TOP', 'FOUND_NOTHING', 'NO_QUOTE', 'BIG_ROOT', 'AGENT_DOCS', 'TOOL_TEXT',
+           'LOG_MOST', 'FILE_BYTES', 'LEAK_WORDS', 'FLUSH_ROWS', 'FLUSH_SECS', 'PASSAGE_WORDS', 'STOPPED', 'TIME_UP',
+           'TEXTS', 'SECRET', 'GATHER_SP', 'LEAD_SP', 'LEAD_TOOLS_OWN', 'NO_START', 'NO_START_ANY', 'ELSE', 'START_WHY',
            'NONE_FOUND', 'CRASHED', 'plan_prompt', 'near_goal', 'chip_docs', 'source_map', 'plan', 'short_check',
            'pick_prompt', 'main_steps', 'map_prompt', 'walk_map', 'hands_most', 'cap_hands', 'builds_goal',
            'hands_count', 'journey_from_source', 'journey_from_text', 'nb_file', 'nb_sections', 'nb_text',
            'notebook_walk', 'copy_path', 'learning_copy', 'journey_from_sources', 'data_row', 'keep_data',
            'folder_list', 'with_stop', 'data_entries', 'with_data', 'walk_names', 'same_names', 'short_what',
            'data_line', 'missing_data', 'walk_from_topic', 'minutes', 'needs', 'walk_needs', 'known_how', 'gap_size',
-           'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk', 'is_open',
-           'used_at', 'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up', 'topic_slug', 'name_gaps',
-           'split_parts', 'related', 'with_step', 'paper_id', 'same_share', 'fresh', 'tutor_note', 'step_meta',
-           'done_attempt', 'open_short', 'nb_prompt', 'nb_spec', 'leela_found', 'leela_back', 'term_line',
-           'words_to_know', 'edit_lock', 'restore_steps', 'undo_line', 'rewrite', 'move_step', 'skip_step',
-           'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent', 'edit_walk', 'undo_walk',
-           'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages', 'pick_read', 'links_in',
-           'propose', 'kind_check', 'improve_walk', 'plan_again', 'merge_plan', 'replan_walk', 'new_course',
-           'is_goal_walk', 'chip_sources', 'join_course', 'course_of', 'ensure_courses', 'level_prompt',
+           'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk', 'file_chip',
+           'walk_for_talk', 'walk_from_talk', 'is_open', 'used_at', 'last_place', 'walk_path', 'walk_paths',
+           'step_read', 'look_up', 'topic_slug', 'name_gaps', 'split_parts', 'related', 'with_step', 'paper_id',
+           'same_share', 'fresh', 'tutor_note', 'step_meta', 'done_attempt', 'open_short', 'nb_prompt', 'nb_spec',
+           'leela_found', 'leela_back', 'term_line', 'words_to_know', 'edit_lock', 'restore_steps', 'undo_line',
+           'rewrite', 'move_step', 'skip_step', 'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent',
+           'edit_walk', 'undo_walk', 'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages',
+           'pick_read', 'links_in', 'propose', 'kind_check', 'improve_walk', 'plan_again', 'merge_plan', 'replan_walk',
+           'new_course', 'is_goal_walk', 'chip_sources', 'join_course', 'course_of', 'ensure_courses', 'level_prompt',
            'level_questions', 'read_answer', 'ask_level', 'answer_level', 'level_done', 'stages_prompt', 'walk_started',
            'stage_stays', 'fix_count', 'plan_stages', 'lock_stage', 'stage_brief', 'build_stage', 'add_data',
            'drop_data', 'fill_data', 'name_data', 'join_names', 'stage_rows', 'due_stage', 'next_up', 'add_ask',
@@ -894,6 +894,45 @@ def for_talk(j) -> bool:
     "Whether walk `j` is for a talk: a side walk that a talk opened beside a slide, or the walk that a talk was made from, from a path."
     p = (j or {}).get('parent')
     return isinstance(p, dict) and ('talk' in p or p.get('for') == 'talk')
+
+# %% ../nbs/04_path.ipynb #fec2c46f
+from .sources import file_file, file_folder, file_repo, file_link
+from .learner import profile_text
+
+def file_chip(lr:Learning, i:str) -> L:
+    "The documents of the chip id `i`: it files a `gh:`, `folder:`, `repo:`, `file:` or `link:` source, and finds a `vault:` or `doc:` one."
+    kind, _, v = str(i).partition(':')
+    if kind == 'gh': return file_repo(lr, v)
+    if kind in ('folder', 'repo'): return file_folder(lr, v)
+    if kind == 'file': return file_file(lr, v)
+    if kind == 'link': return file_link(lr, v)
+    return first(ds for _, ds in chip_docs(lr, [i])) or L()
+
+def walk_for_talk(lr:Learning, ask, chips, goal:str='', audience:str='', no_code:bool=False, sources=None) -> AttrDict:
+    "File the chips `chips`, and make and save the hidden walk of a talk from them."
+    ids = list(dict.fromkeys(chips))
+    docs = L(d for i in ids for d in file_chip(lr, i))
+    one = len(ids) == 1 and str(ids[0]).startswith('file:') and str(ids[0]).endswith('.ipynb') and len(docs) == 1
+    if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), sources, chips=ids, audience=audience, no_code=no_code)
+    elif one and (nb := nb_file(lr, docs[0].doc_id, docs[0].shelf)): j = notebook_walk(lr, docs[0], *nb)
+    elif docs: j = journey_from_sources(lr, ask, docs[:val('links.pages')], audience=audience, no_code=no_code)
+    else: raise ValueError('abhyasa found no text to read in these sources.')
+    return lr.merge_journey(j.id, parent={'for': 'talk'}, chips=ids, **({'audience': audience.strip()} if audience.strip() else {}), **({'no_code': True} if no_code else {}))
+
+# %% ../nbs/04_path.ipynb #a93a1367
+from copy import deepcopy
+
+WALK_KEEPS = ('subject', 'source', 'notebook', 'tool', 'chips', 'audience', 'no_code')   # what a walk from a talk keeps of the hidden walk
+STEP_DROPS = ('done', 'detours', 'read_at')                                          # the progress of a step, which the copy does not keep
+
+def walk_from_talk(lr:Learning, jid:str, order) -> AttrDict:
+    "Make and save a walk of your own from the hidden walk `jid` of a talk: its steps in the order of the concept slugs `order` (the slides), with no `parent` and no progress."
+    if (j := lr.journey(jid)) is None: raise KeyError(f'no journey {jid!r}')
+    by = {s['slug']: s for s in j.steps}
+    steps = [{k: v for k, v in deepcopy(by[c]).items() if k not in STEP_DROPS} for c in dict.fromkeys(order) if c in by]
+    if not steps: raise ValueError('The talk has no idea of its walk.')
+    return lr.put_journey(dict(id=_new_id(j.title), title=j.title, goal=j.get('goal') or f'Learn {j.title}', steps=steps, created=time.time(), mode='walk',
+                               started=None, sitting=None, more=[], **{k: deepcopy(j[k]) for k in WALK_KEEPS if j.get(k) not in (None, '')}))
 
 # %% ../nbs/04_path.ipynb #lp02
 def is_open(s) -> bool:

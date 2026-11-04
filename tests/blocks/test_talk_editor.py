@@ -1,7 +1,11 @@
 "The talk editor in place: each change saves at once with an Undo, the history, add, copy, move and remove, the passage, the figure and the rewrite."
 from talk_data import *
 from abhyasa.show import check_talk
-import json
+import json, re, pytest
+from pathlib import Path
+from fastcore.nbio import new_nb, mk_cell, write_nb
+from starlette.testclient import TestClient
+import abhyasa.blocks.talk.app as talk_app
 
 def paper_walk(cl, lr): return prep_walk(lr, walk(cl, lr))
 def editor_page(cl, tid): return cl.get(f'/t/{tid}').text
@@ -113,6 +117,126 @@ def test_the_right_answer_stays_one(mk, lr, talk_fake):
     cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
     au = cl.get(f'/t/{tid}/audience?k={run["key"]}').text
     assert 'right answer' not in au and '"answer"' not in au
+
+def test_poll_question_saves_with_undo(mk, lr, talk_fake):
+    "A new poll question and its options save with no right answer, and Undo gives back the old poll. The stage draws the poll. The presenter opens the notebook through the server, and the audience sees its path as text."
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr)); t = lr.talk(tid)
+    blank = dict(section='', show=dict(passage='', figure=None, demo=None), beats=[], notes='')
+    poll = dict(blank, id='s90', kind='poll', title='A question for the room', mins=2, ask=dict(kind='choice', q='Have you used an agent?', options=['Yes', 'No']))
+    nxt = dict(blank, id='s91', kind='next', title='Now open the notebook', mins=1, ask=None, link='file:///Users/k/agents.ipynb')
+    lr.put_talk({**t, 'slides': [poll, *t.slides, nxt]}); old = lr.talk(tid).slides
+    assert 'a question about the room, with no right answer' in editor_page(cl, tid)
+    r = cl.post(f'/t/{tid}/slide', data=dict(sid='s90', act='edit', kind='choice', q='Have you used an agent that runs tools?', options=['Yes, often', 'Not yet', '', '', '', '']))
+    assert r.status_code == 200, r.text
+    assert lr.talk(tid).slides[0]['ask'] == dict(kind='choice', q='Have you used an agent that runs tools?', options=['Yes, often', 'Not yet'])
+    cl.post(f'/t/{tid}/undo')
+    assert lr.talk(tid).slides == old
+    cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
+    au = cl.get(f'/t/{tid}/audience?k={run["key"]}').text
+    assert 'Have you used an agent?' in au and 'There is no right answer.' in au and '<code>/Users/k/agents.ipynb</code>' in au and 'file://' not in au
+    assert f'hx-post="/t/{tid}/open"' in cl.get(f'/t/{tid}/present').text
+
+POLL = dict(q='Have you used an agent that runs tools?', options=['Yes, often', 'Once or twice', 'Not yet'])
+
+@pytest.fixture
+def home(tmp_path, monkeypatch):
+    "A temp home with `talks/agents.ipynb`: a title and three sections."
+    monkeypatch.setattr(Path, 'home', lambda: tmp_path); monkeypatch.setenv('HOME', str(tmp_path))
+    p = tmp_path/'talks'/'agents.ipynb'; p.parent.mkdir()
+    write_nb(new_nb([mk_cell('# Agents', 'markdown'),
+                     mk_cell('## Tool calls', 'markdown'), mk_cell('An agent asks a model what to do. The model names a tool, and the agent runs it.', 'markdown'),
+                     mk_cell('## The agent loop', 'markdown'), mk_cell('The agent runs in a loop. It stops when the model gives no more tool calls.', 'markdown'),
+                     mk_cell('## Memory between turns', 'markdown'), mk_cell('The agent keeps a list of messages. It sends the list again on each turn.', 'markdown')]), p)
+    return tmp_path
+
+def test_make_a_talk_from_a_notebook_on_start(mk, lr, talk_fake, home):
+    "Make a talk with one notebook chip opens the talk editor. Its hidden walk is not on Home, and the editor links to the source, not to a walk page. Deleting the talk deletes its hidden walk."
+    talk_fake.rules['You write one poll'] = POLL
+    cl, nb = mk(), home/'talks'/'agents.ipynb'
+    r = cl.post('/walk/new', data=dict(q='', sources=[f'file:{nb}'], chips='1', talk='1')).text
+    key = re.search(r'data-job="talk:(src:[^"]+)"', r)[1]
+    tid = wait_for(lambda: cl.get('/talk/job', params=dict(jid=key)).headers.get('hx-redirect'), secs=20).split('/')[-1]
+    t = lr.talk(tid); jid = t.src['walk']
+    assert lr.journey(jid).parent == {'for': 'talk'} and sum(s['kind'] == 'idea' for s in t.slides) == 3
+    assert f'/w/{jid}' not in cl.get('/').text
+    page = editor_page(cl, tid)
+    assert 'Made from your sources' in page and f'/w/{jid}' not in page and 'href="/v/' in page
+    cl.post(f'/t/{tid}/drop')
+    assert lr.talk(tid) is None and not [j for j in lr.journeys() if (j.get('parent') or {}).get('for') == 'talk']
+
+def test_open_runs_only_on_the_notebook_of_the_talk(mk, lr, talk_fake, monkeypatch, tmp_path):
+    "Open the notebook runs `open` on the path that the talk keeps, never on a path from the form. A talk with no notebook, or a request from another device, opens nothing."
+    calls = []; monkeypatch.setattr(talk_app, '_open', lambda args, **kw: calls.append(args))
+    cl = mk(); tid = make_talk(cl, paper_walk(cl, lr)); here = TestClient(cl.app, client=('127.0.0.1', 50000))
+    assert here.post(f'/t/{tid}/open', data=dict(path='/etc/hosts', notebook='/etc/hosts')).text == talk_app.NO_NB and not calls
+    nb = tmp_path/'agents.ipynb'; nb.write_text('{}')
+    t = lr.talk(tid); lr.put_talk({**t, 'src': {**t.src, 'notebook': str(nb)}})
+    assert cl.post(f'/t/{tid}/open').status_code == 403 and not calls   # the test client is not this Mac
+    assert here.post(f'/t/{tid}/open', data=dict(path='/etc/hosts')).status_code == 204 and calls == [['open', str(nb)]]
+    assert here.post(f'/t/{tid}/open', headers={'Origin': 'https://evil.example', 'Sec-Fetch-Site': 'cross-site'}).status_code == 403 and len(calls) == 1   # a page of another site
+    app = tmp_path/'Run.app'; app.write_text('x'); lr.put_talk({**lr.talk(tid), 'src': {**t.src, 'notebook': str(app)}})
+    assert here.post(f'/t/{tid}/open').text == talk_app.NO_NB and len(calls) == 1   # only a notebook opens
+
+def test_a_failed_talk_leaves_no_hidden_walk(lr, talk_fake, home, monkeypatch):
+    "When the talk cannot be made after its hidden walk is saved, the hidden walk goes too."
+    import abhyasa.show as show
+    def boom(*a, **kw): raise RuntimeError('the model failed')
+    monkeypatch.setattr(show, 'talk_from_walk', boom)
+    with pytest.raises(RuntimeError): show.talk_from_sources(lr, talk_fake, [f"file:{home/'talks'/'agents.ipynb'}"])
+    assert not [j for j in lr.journeys() if (j.get('parent') or {}).get('for') == 'talk']
+
+def nb_talk(cl, talk_fake, home):
+    "Make a talk from the notebook of `home` on Start, and give its id."
+    talk_fake.rules['You write one poll'] = POLL
+    r = cl.post('/walk/new', data=dict(q='', sources=[f"file:{home/'talks'/'agents.ipynb'}"], chips='1', talk='1')).text
+    key = re.search(r'data-job="talk:(src:[^"]+)"', r)[1]
+    return wait_for(lambda: cl.get('/talk/job', params=dict(jid=key)).headers.get('hx-redirect'), secs=20).split('/')[-1]
+
+def test_handout_gives_the_answers_only_at_the_end(mk, lr, talk_fake, home):
+    "The Handout item opens one HTML file with no script: one page for each slide with content, each question with no answer, the notebook link, then Answers."
+    cl = mk(); tid = nb_talk(cl, talk_fake, home)
+    assert f'href="/t/{tid}/handout.html"' in editor_page(cl, tid)
+    r = cl.get(f'/t/{tid}/handout.html')
+    assert r.status_code == 200 and "default-src 'none'" in r.headers['content-security-policy'] and '<script' not in r.text
+    body, answers = r.text.split('<h2>Answers</h2>')
+    ss = lr.talk(tid).slides
+    assert body.count('class="slide"') == sum(s['kind'] in ('idea', 'poll', 'next') for s in ss)
+    poll = next(s for s in ss if s['kind'] == 'poll')
+    assert f"Question 1. {poll['ask']['q']}" in body and 'class="right"' not in body
+    assert (home/'talks'/'agents.ipynb').resolve().as_uri() in body and 'There is no right answer.' in answers
+
+def test_links_panel_keeps_a_shared_link_with_undo(mk, lr, talk_fake, home):
+    "A folder link goes to each file in the folder, a file link wins over it, Undo gives the old link back, and a bad link or a path that is not a row is refused."
+    cl = mk(); tid = nb_talk(cl, talk_fake, home)
+    nb = (home/'talks'/'agents.ipynb').resolve()
+    page = editor_page(cl, tid)
+    assert 'Links in the handout' in page and str(nb) in page and 'Only this Mac opens this link.' in page
+    handout = lambda: cl.get(f'/t/{tid}/handout.html').text
+    r = cl.post(f'/t/{tid}/links', data=dict(path=str(nb.parent), link='https://onedrive.example/talks'))
+    assert r.status_code == 200 and 'Changed the shared link of talks.' in r.text and 'Only this Mac opens this link.' not in r.text
+    assert 'href="https://onedrive.example/talks"' in handout() and 'file://' not in handout()
+    cl.post(f'/t/{tid}/links', data=dict(path=str(nb), link='https://onedrive.example/agents'))
+    assert 'href="https://onedrive.example/agents"' in handout()
+    r = cl.post(f'/t/{tid}/undo')
+    assert lr.talk(tid)['links'] == {str(nb.parent): 'https://onedrive.example/talks'} and 'id="talk-links"' in r.text
+    assert 'href="https://onedrive.example/agents"' not in handout()
+    assert cl.post(f'/t/{tid}/links', data=dict(path=str(nb), link='javascript:alert(1)')).status_code == 400
+    assert cl.post(f'/t/{tid}/links', data=dict(path='/etc/hosts', link='https://x.org')).text == 'This path is not a link of the handout.'
+    assert lr.talk(tid)['links'] == {str(nb.parent): 'https://onedrive.example/talks'}
+
+def test_make_a_walk_from_this_talk(mk, lr, talk_fake, home):
+    "Make a walk from this talk gives a walk of your own with the ideas in slide order and no parent. A talk from your own walk does not offer it."
+    cl = mk(); tid = nb_talk(cl, talk_fake, home)
+    assert 'Make a walk from this talk' in editor_page(cl, tid)
+    ss = lr.talk(tid).slides; ideas = [k for k, s in enumerate(ss) if s['kind'] == 'idea']
+    cl.post(f'/t/{tid}/slide', data=dict(sid=ss[ideas[-1]]['id'], act='move', to=ideas[0]))   # the last idea goes first
+    order = [s['concept'] for s in lr.talk(tid).slides if s['kind'] == 'idea']
+    r = cl.post(f'/t/{tid}/walk', follow_redirects=False)
+    assert r.status_code == 303
+    w = lr.journey(r.headers['location'].split('/')[-1])
+    assert [s['slug'] for s in w.steps] == order and order[0] == ss[ideas[-1]]['concept'] and not w.get('parent')
+    own = make_talk(cl, paper_walk(cl, lr))
+    assert 'Make a walk from this talk' not in editor_page(cl, own) and cl.post(f'/t/{own}/walk').status_code == 400
 
 def test_passage_and_figure(mk, lr, talk_fake):
     "Remove the passage takes its beats out; Pick another passage takes one of the idea, word for word; the figure comes only from the idea."
