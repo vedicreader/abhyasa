@@ -156,3 +156,6 @@ checklink/cookies.txt
 _docs/
 _proc/
 nbs/_fixtures/
+
+# the builder block of the app; `build/` above is the package build output
+!abhyasa/blocks/build/
