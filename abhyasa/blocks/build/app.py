@@ -268,6 +268,12 @@ def connect(app, ctx):
                 urls = {f"link:{f['url']}" for f in kw['found']}
                 kw['sources'] = [{**s, 'role': 'dropped'} if s['id'] in urls else s for s in rec().brief.get('sources') or []]
             put_brief(bid, **kw)
+            k, i = target(rec())
+            if kw.get('no_code') and k == 'walk' and (j := lr.journey(i)) and any((x.get('check') or {}).get('kind') in ('notebook', 'code') for x in j.steps):
+                n = sum((x.get('check') or {}).get('kind') in ('notebook', 'code') for x in j.steps)   # no code now: each hands-on check of the walk is a short answer
+                edit_walk(lr, i, lambda ss: [{**x, 'check': {'way': 'words', 'kind': 'short', 'depth': (x.get('check') or {}).get('depth', 2), 'why': ''}}
+                                             if (x.get('check') or {}).get('kind') in ('notebook', 'code') else x for x in ss], f'No code: {n_of(n, "check")} became short answers.', who='tutor')
+                return f'The brief is changed. No code: {n_of(n, "check")} of the walk became short answers, and the steps stay.'
             return 'The brief is changed.' if kw else 'Nothing to change.'
 
         def keep(items:str,  # the numbers of the slides or the steps, such as "2, 4"

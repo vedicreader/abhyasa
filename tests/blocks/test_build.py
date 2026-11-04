@@ -539,3 +539,17 @@ def test_a_talk_over_its_slot_after_the_slides_is_trimmed(mk, lr, talk_fake, age
     t = lr.talk(tid)
     r = fold(lr.build(bid).events)[-2]['result']
     assert talk_minutes(t) <= t.minutes and 'To fit the slot, I left out' in r and any(s.get('section') == GONE for s in t.slides)
+
+def test_no_code_turns_the_hands_on_checks_of_a_walk_into_short_answers(mk, lr, walk_fake, agent, home):
+    "No code on a walk keeps each step and makes each notebook or code check a short answer, as one change with an Undo."
+    md = home/'notes.md'; md.write_text('# Attention\n\nScores become weights with softmax.\n')
+    cl = mk(); bid = new_build(cl)
+    agent.script = lambda t, p, s: (t['add_source'](str(md)), t['set_brief'](kind='walk', research='off'), t['make_walk']())[2]
+    say(cl, lr, bid, 'make a walk')
+    jid = lr.build(bid).target[5:]
+    lr.walk_step(jid, 0, check=dict(way='code', kind='notebook', depth=3, why=''))
+    n = len(lr.journey(jid).steps)
+    agent.script = lambda t, p, s: t['set_brief'](no_code='on', aim='a thorough understanding')
+    say(cl, lr, bid, 'I want a thorough understanding, not code.')
+    j = lr.journey(jid)
+    assert len(j.steps) == n and j.steps[0]['check']['kind'] == 'short' and j.steps[0]['check']['depth'] == 3 and 'became short answers' in lr.edits('walk', jid)[0].what
