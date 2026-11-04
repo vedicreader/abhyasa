@@ -1003,6 +1003,7 @@ def connect(app, ctx):
         except KeyError as e: return Response(str(e.args[0] if e.args else 'Not found.'), status_code=404)
         except ValueError as e: return bad(str(e))
         if rows is None: return view(j2)
+        run_hook('hand_edit', 'walk', jid, said)   # the builder says it in its conversation, as a quiet line
         return (*view(j2), bar(j2, said, rows, slug))
 
     def undo_(jid:str, step:str=''):

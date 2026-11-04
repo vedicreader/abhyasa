@@ -478,6 +478,7 @@ def connect(app, ctx):
         if (ps := check_talk({**t, 'slides': ss})): raise Bad(ps[0])
         out = []
         rows = lr.add_edit('talk', t['id'], said, who, list(t['slides']), field=field, apply=lambda: out.append(lr.put_talk({**t, 'slides': ss})))
+        if who == 'you' and said: run_hook('hand_edit', 'talk', t['id'], said)   # the builder says it in its conversation, as a quiet line
         return out[0], rows
 
     async def slide(req, tid:str):
@@ -486,6 +487,7 @@ def connect(app, ctx):
         except Bad as e: return text(str(e))
         act = f.get('act', '')
         if act == 'rewrite': return redo(tid, f)
+        if act == 'keep': return kept(tid, f.get('sid', ''))
         made = None
         if act == 'primer':   # the model writes the question first, outside the lock; the lock is only for the change
             if not (c := lr.concept(f.get('slug', ''))): return text('No such idea.')
@@ -585,6 +587,17 @@ def connect(app, ctx):
             except Bad: raise Bad(NO_REWRITE)
         return t2, said, hist
 
+    def kept(tid, sid):
+        "Keep or free slide `sid`: it goes in or out of `keep` of the brief of the talk, which the builder reads. No slide changes, so it is not in the history."
+        with edit_lock('talk', tid):
+            if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+            if not (n := next((k for k, s in enumerate(t.slides, 1) if s.get('id') == sid), None)): return Response('No such slide.', status_code=404)
+            br = dict(t.get('brief') or {}); keep = list(br.get('keep') or [])
+            on = sid not in keep
+            t2 = lr.put_talk({**t, 'brief': {**br, 'keep': [*keep, sid] if on else [k for k in keep if k != sid]}})
+        run_hook('hand_edit', 'talk', tid, f"You {'kept' if on else 'freed'} slide {n}.")
+        return deck(t2, opened=sid)
+
     def redo(tid, f):
         "Rewrite the points and the note of a slide with a short instruction (`rewrote`)."
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
@@ -604,7 +617,7 @@ def connect(app, ctx):
             return said
 
     @hook('talk_edit')
-    def talk_edit(tid, n, f, who='you'):
+    def talk_edit(tid, n, f, who='tutor'):
         "Change slide `n` (from 1) of talk `tid` with the fields `f` of the editor (`edit`). The line that says what changed; a `ValueError` says why it cannot."
         def go(s):
             names = changed(f)

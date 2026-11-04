@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import urlencode, urlsplit, unquote
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Inline, Cites, SourceLine, meta, n_of, asset_css, asset_js, stage_assets, edit_assets, EditList, Live, UndoBar, HistoryList, JobStop, JobAgain
+from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Inline, Cites, SourceLine, meta, n_of, asset_css, asset_js, stage_assets, edit_assets, EditList, Live, UndoBar, HistoryList, JobStop, JobAgain, Pill
 from fastcore.basics import AttrDict
 from abhyasa.show import talk_minutes, public_ask, share_right, needs_fill, slide_source, GONE, parked, row_link, row_name, CHANGE_MOST
 from abhyasa.learner import val
@@ -327,11 +327,15 @@ def Row(t, i, s, ch, opened='', fresh=''):
         see = Span(Quiet('Put back in the talk', small=True, **act(post, 'back')), Quiet('Remove', small=True, **act(post, 'drop')), cls='parked-acts')   # on the row, not only in the open row
         return dict(id=sid, title=Inline(title), line=(*line, ' · not in the talk ', see), post=post, body=Body(t['id'], s, post, ch.get(sid) or {}), acts=acts,
                     open=sid == opened, fresh=sid == fresh, cls=f"{s.get('kind') or ''} parked", mini=Mini(s))
-    acts = [Quiet('Duplicate', ' ', Kbd('D'), small=True, data_key='D', **act(post, 'dup')),
+    kept = sid in ((t.get('brief') or {}).get('keep') or ())
+    acts = [Quiet('Kept' if kept else 'Keep', ' ', Kbd('F'), small=True, data_key='F', aria_pressed='true' if kept else 'false', title=KEEP_SAYS, **act(post, 'keep')),
+            Quiet('Duplicate', ' ', Kbd('D'), small=True, data_key='D', **act(post, 'dup')),
             Quiet('Remove', ' ', Kbd('X'), small=True, data_key='X', **act(post, 'drop')),
-            Quiet('Rewrite', ' ', Kbd('R'), small=True, type='button', data_key='R', data_rewrite='1') if ideas else '']
-    return dict(id=sid, title=Inline(title), line=line, post=post, body=Body(t['id'], s, post, ch.get(sid) or {}), acts=[x for x in acts if x],
-                open=sid == opened, fresh=sid == fresh, cls=s.get('kind') or '', mini=Mini(s))
+            Quiet('Change', ' ', Kbd('R'), small=True, type='button', data_key='R', data_rewrite='1') if ideas else '']
+    return dict(id=sid, title=(Inline(title), ' ', Span('Kept', cls='pill kept')) if kept else Inline(title), line=line, post=post, body=Body(t['id'], s, post, ch.get(sid) or {}),
+                acts=[x for x in acts if x], open=sid == opened, fresh=sid == fresh, cls=' '.join(x for x in (s.get('kind') or '', 'kept' if kept else '') if x), mini=Mini(s))
+
+KEEP_SAYS = 'Keep this as it is. The builder does not change it.'
 
 def Total(t, oob=False):
     "The minutes of the slides against the slot."

@@ -310,7 +310,8 @@ def test_no_change_while_the_talk_runs(mk, lr, talk_fake, agent, home):
     assert lr.talk(tid).slides == before and build_ui.RUNNING in fold(lr.build(bid).events)[-2]['result']
 
 def test_walk_from_your_sources_only(mk, lr, walk_fake, agent, home):
-    "With research off, a walk reads only your sources, and a remake of the walk is one change with an Undo on the same walk."
+    """With research off, a walk reads only your sources, and a remake of the walk is one change with an Undo on the same walk.
+    The plan picks the check of each idea at random (`check_for`), so two plans of one source can differ: the remake is always one change."""
     md = home/'notes.md'; md.write_text('# Attention\n\nScores become weights with softmax. The output is a weighted sum of the values.\n')
     cl = mk(); bid = new_build(cl)
     agent.script = lambda t, p, s: (t['add_source'](str(md), 'main'), t['set_brief'](kind='walk', goal='attention', research='off'), t['make_walk']())[2]
@@ -318,12 +319,16 @@ def test_walk_from_your_sources_only(mk, lr, walk_fake, agent, home):
     jid = lr.build(bid).target[5:]; j = lr.journey(jid)
     assert j and j.steps and not j.get('parent') and lr.build(bid).brief['research'] is False
     assert all((s.get('read') or {}).get('src', 'vault').startswith('vault') for s in j.steps)
+    before = lr.journey(jid).steps
+    lr.merge_journey(jid, steps=[{**s, 'note': 'my old note'} for s in before])   # the walk now differs from a fresh walk of the notes
     agent.script = lambda t, p, s: t['make_walk']()
     say(cl, lr, bid, 'make it again')
     r = fold(lr.build(bid).events)[-2]['result']
-    assert 'Nothing changed' in r, (r, lr.build(bid).brief, [(i.get('name'), i.get('result')) for i in fold(lr.build(bid).events)])   # the same sources give the same steps
-    assert len([w for w in lr.journeys() if w.get('build') == bid or (w.get('parent') or {}).get('for') == 'talk']) == 1   # the plan of the remake is not left behind
-
+    assert r.startswith('Made the walk again from your sources only') and lr.edits('walk', jid)[0].what == 'Made the walk again from your sources only.'
+    assert lr.build(bid).target == f'walk:{jid}' and not any(s.get('note') == 'my old note' for s in lr.journey(jid).steps)
+    assert sum((w.get('parent') or {}).get('for') == 'talk' for w in lr.journeys()) == 0   # the plan of the remake is not left behind
+    cl.post(f'/build/{bid}/undo')
+    assert all(s.get('note') == 'my old note' for s in lr.journey(jid).steps)
 def test_make_talk_fits_the_slot(mk, lr, talk_fake, agent, home):
     "A talk for a short slot leaves out ideas from the end until it fits, and the tool says the real minutes against the slot, as the editor counts them."
     from abhyasa.show import talk_minutes
