@@ -474,3 +474,14 @@ def test_a_kept_find_is_filed_and_read_as_a_document(mk, lr, agent, monkeypatch)
     agent.script = lambda t, p, s: t['make_walk']()
     say(cl, lr, bid, 'make the walk')
     assert seen == [['doc:d1']]
+
+def test_research_ends_a_native_turn_with_its_row_closed(mk, lr, monkeypatch):
+    "With ramabana's events, the turn stops after research too, and the research row is done, with the count of the finds."
+    monkeypatch.setattr(build_app, 'web_search', lambda q, n: [dict(href='https://ex.org/a', title='A', body='')])
+    a = NativeAgent([('research', dict(query='x')), ('make_walk', {})])
+    monkeypatch.setattr(build_app, 'ramabana_lead', lambda roots, names, **kw: (a, AttrDict(scratch='')))
+    cl = mk(); bid = new_build(cl)
+    say(cl, lr, bid, 'research x')
+    its = fold(lr.build(bid).events)
+    r = next(i for i in its if i.get('name') == 'research')
+    assert r['status'] == 'done' and 'wait for your Keep or Drop' in r['result'] and lr.build(bid).target == ''

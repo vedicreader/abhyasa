@@ -83,6 +83,16 @@ the real minutes against the slot, and the agent says those numbers.
 - After a change of the builder, the page at the left takes it in place, and the rows that changed get `.landed`.
 - A narrow window has two tabs: Builder and Result.
 
+## Trust
+
+- The line after a turn comes from what the tools did, never from the words of the model. A reply that tells of a change that no tool made
+  gets the line "Nothing changed in the walk or the talk in this turn." The words of the model and the calls that did not work are in openable parts.
+- A walk says how many steps have a passage from a source. A kept web find is filed before a make, so its passages reach the steps.
+- When you decide the last open find, the builder starts a turn that uses the kept finds.
+- Conflicts: `passages` reads the main and the extra sources, and `note_conflict` keeps two quotes word for word, each with its link, and the source that won.
+- Undo takes back each change of the last turn in one step.
+- A rule covers the whole walk or talk. A fix for one slide is not a rule.
+
 ## Events
 
 The conversation keeps events with the names and fields of AG-UI. `events.py` reads them for the pane. A ramabana with `Agent.events`

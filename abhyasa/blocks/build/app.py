@@ -637,11 +637,13 @@ def connect(app, ctx):
                 emit(bid, e)
                 if st.stop.is_set(): break
         finally: gen.close()
-        if st.waiting: return wait_end(Emit(lambda e: emit(bid, e)), st)
+        if st.waiting: return wait_end(Emit(lambda e: emit(bid, e)), st, bid)
         if st.stop.is_set(): Emit(lambda e: emit(bid, e)).ev('RUN_FINISHED', state='stopped', message='You stopped it.')
 
-    def wait_end(em, st):
-        "The end of a turn after research: one line, then the turn ends and waits for Keep or Drop."
+    def wait_end(em, st, bid=None):
+        "The end of a turn after research: the result of the research call (the turn stopped before ramabana sent it), one line, then the turn ends and waits for Keep or Drop."
+        if bid and (open_ := [x for x in fold(lr.build(bid).events) if x['kind'] == 'tool' and x['name'] == 'research' and x['status'] == 'running']):
+            em.ev('TOOL_CALL_RESULT', toolCallId=open_[-1]['id'], content=f"Research found {n_of(st.waiting, 'item')}. They wait for your Keep or Drop.")
         em.text('assistant', f"I found {n_of(st.waiting, 'item')}. Keep or drop each one, then tell me what to do next.")
         em.ev('RUN_FINISHED', state='done')
 
