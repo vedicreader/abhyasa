@@ -34,10 +34,10 @@ def test_row_says_start_the_walk_before_it_starts(mk, lr, talk_fake):
     cl.post(f'/w/{jid}/start')
     assert first_row(cl.get('/').text).select_one('a.btn').get_text().strip() == 'Continue'
 
-def test_old_list_routes_go_home(mk):
-    "The old Learn tab and the old list of walks go to Home."
+def test_old_list_routes_go_to_all_walks(mk):
+    "The old Learn tab and the old list of walks go to the list of all walks."
     cl = mk()
     r = cl.get('/learn', follow_redirects=False)
-    assert r.status_code == 301 and r.headers['location'] == '/'
+    assert r.status_code == 301 and r.headers['location'] == '/walks'
     r = cl.get('/journeys', follow_redirects=False)
-    assert r.status_code == 301 and r.headers['location'] == '/'
+    assert r.status_code == 301 and r.headers['location'] == '/walks'
