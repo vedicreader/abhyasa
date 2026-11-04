@@ -224,3 +224,39 @@ def test_rk_ask_goes_to_the_request_box():
     "The page listens for rk-ask from a rupaka demo, and puts a message about the demo and its state in the request box."
     js = (Path(build_app.__file__).parent/'build.js').read_text()
     assert "addEventListener('rk-ask'" in js and 'About the demo' in js and "closest('[data-slide]')" in js
+
+class NativeAgent(FakeAgent):
+    "A ramabana agent that gives AG-UI events itself (`Agent.events`, `emit`), as ramabana's branch `agui-events` does."
+    def __init__(self, calls): super().__init__(None); self.calls, self.q = calls, []
+    def emit(self, name, value=None): self.q.append(dict(type='CUSTOM', name=name, value=value))
+    def events(self, p, on_registered=None, **kw):
+        self.prompts.append(p)
+        yield dict(type='RUN_STARTED', runId='r1')
+        for k, (name, args) in enumerate(self.calls):
+            yield dict(type='TOOL_CALL_START', toolCallId=f'c{k}', toolCallName=name); yield dict(type='TOOL_CALL_ARGS', toolCallId=f'c{k}', delta=json.dumps(args))
+            yield dict(type='TOOL_CALL_END', toolCallId=f'c{k}')
+            out = self.tools[name](**args)
+            yield from self.q; self.q.clear()
+            yield dict(type='TOOL_CALL_RESULT', toolCallId=f'c{k}', content=out)
+        yield dict(type='TEXT_MESSAGE_START', messageId='m1', role='assistant')
+        for w in ('Made ', 'the ', 'talk.'): yield dict(type='TEXT_MESSAGE_CONTENT', messageId='m1', delta=w)
+        yield dict(type='TEXT_MESSAGE_END', messageId='m1'); yield dict(type='RUN_FINISHED', runId='r1', result=dict(state='completed'))
+
+def test_native_events_of_ramabana(mk, lr, talk_fake, home, monkeypatch):
+    "With a ramabana that gives AG-UI events, the pane reads them as they come: the tool lines, the outline from `emit`, and one message for the reply."
+    talk_fake.rules['You write one poll'] = POLL
+    nb = home/'talks'/'agents.ipynb'
+    a = NativeAgent([('add_source', dict(ref=str(nb), role='main')), ('make_talk', dict(minutes=20))])
+    monkeypatch.setattr(build_app, 'ramabana_lead', lambda roots, names, **kw: (a, AttrDict(scratch='')))
+    cl = mk(); bid = new_build(cl)
+    h = say(cl, lr, bid, f'Make a talk from {nb}.')
+    its = fold(lr.build(bid).events)
+    assert [i['kind'] for i in its] == ['user', 'tool', 'tool', 'assistant'] and its[-1]['text'] == 'Made the talk.'
+    assert its[2]['data']['outline'] and 'Filing the sources' in its[2]['stages'] and 'Tool calls' in h
+    assert sum(e['type'] == 'TEXT_MESSAGE_CONTENT' for e in lr.build(bid).events) == 2   # the user message and one for the reply, not one for each piece
+
+def test_askable_follows_rupaka():
+    "The preview asks rupaka for the ask control only when this rupaka has `askable`."
+    from inspect import signature
+    from rupaka.render import Demo
+    assert build_ui.askable(True) == ({'askable': True} if 'askable' in signature(Demo).parameters else {})
