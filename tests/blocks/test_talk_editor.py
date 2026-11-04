@@ -133,7 +133,7 @@ def test_poll_question_saves_with_undo(mk, lr, talk_fake):
     assert lr.talk(tid).slides == old
     cl.post(f'/t/{tid}/start'); run = lr.run(lr.talk(tid).live)
     au = cl.get(f'/t/{tid}/audience?k={run["key"]}').text
-    assert 'Have you used an agent?' in au and 'There is no right answer.' in au and '<code>/Users/k/agents.ipynb</code>' in au and 'file://' not in au
+    assert 'Have you used an agent?' in au and 'There is no right answer.' in au and '<code>agents.ipynb</code>' in au and '/Users/k/' not in au and 'file://' not in au   # the room sees the file name, never the local path
     assert f'hx-post="/t/{tid}/open"' in cl.get(f'/t/{tid}/present').text
 
 POLL = dict(q='Have you used an agent that runs tools?', options=['Yes, often', 'Once or twice', 'Not yet'])
