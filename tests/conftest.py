@@ -101,6 +101,8 @@ def no_agent(monkeypatch):
     def worker(*a, **kw): raise RuntimeError('no agent in the tests')
     monkeypatch.setattr(abhyasa.path, 'ramabana_worker', worker)
     monkeypatch.setattr(abhyasa.path, 'ramabana_lead', worker)
+    import abhyasa.blocks.build.app
+    monkeypatch.setattr(abhyasa.blocks.build.app, 'ramabana_lead', worker)   # nor the builder agent: a builder test passes its own fake
 
 @pytest.fixture(autouse=True)
 def no_disk_names(tmp_path_factory):

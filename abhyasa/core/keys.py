@@ -47,7 +47,7 @@ KEYS = [
     ('Guide', 'D', 'Go to the next step'),
     ('Guide', 'esc', 'Stop the board'),
     ('Side pane', 'esc', 'Close the side pane'),
-    ('Builder', '⌥E', 'Open or close the builder'), ('Builder', '⌥S', 'Send your request'), ('Builder', '⌥D', 'Speak into the box'),
+    ('Builder', '⌥E', 'Open or close the builder'), ('Builder', '⌥S', 'Send your request'), ('Builder', '⌥D', 'Speak into the text box'),
     ('Builder', '⌥X', 'Stop the builder'), ('Builder', '⌥W', 'Go to the box'), ('Builder', '⌥A', 'Open or close the brief'),
     ('Builder', '⌘Z', 'Undo the last change of the builder'), ('Builder', 'F', 'Keep the find'), ('Builder', 'X', 'Drop the find'),
     *PLAN_KEYS,

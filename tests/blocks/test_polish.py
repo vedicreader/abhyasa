@@ -63,10 +63,12 @@ def test_each_page_has_at_most_one_filled_button(mk, walk_fake, lr):
 # F14: no ⌥ key has two meanings
 
 def test_no_alt_key_has_two_meanings():
-    "⌥W is only a hint and ⌥E only a demo: a choice question picks its options with 1 to 4, with no ⌥."
+    """⌥W is only a hint and ⌥E only a demo: a choice question picks its options with 1 to 4, with no ⌥. The builder is the one exception
+    that the owner chose: its keys work only in the builder (and ⌥E only opens it), as the design of the builder says."""
     from abhyasa.core.keys import KEYS
     alt = {}
     for g, k, a in KEYS:
+        if g == 'Builder': continue
         for x in re.findall(r'⌥[A-Z]', k): alt.setdefault(x, set()).add(a.split(',')[0].split('.')[0])
     assert {x: v for x, v in alt.items() if len(v) > 1 and x != '⌥S'} == {}
     assert ('Session', '1–4', 'Pick option 1 to 4 on a choice question') in KEYS

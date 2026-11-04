@@ -76,7 +76,7 @@ def _chromium():
 
 @pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
 def test_the_pending_line_is_in_view_after_start(mk, lr, walk_fake, held, tmp_path, monkeypatch):
-    "In a window of 1280×800 with 10 sources, Start shows the pending line in view, and Start stays off, also after a read."
+    "In a window of 1280×800 with 10 sources, Start opens the builder (the owner's choice): the page with the builder in the side pane, your words as its first message, and the 10 sources as main sources."
     import uvicorn
     from playwright.sync_api import sync_playwright
     monkeypatch.setattr(Path, 'home', lambda: tmp_path)
@@ -100,14 +100,11 @@ def test_the_pending_line_is_in_view_after_start(mk, lr, walk_fake, held, tmp_pa
                 pg.wait_for_function("() => document.querySelectorAll('#start-form input[name=sources]').length === 10")
                 pg.wait_for_selector('#start-go:not([disabled])')
                 pg.click('#start-go')
-                pg.wait_for_selector('#walk-out .walk-link.pending')
-                r = pg.eval_on_selector('#walk-out .walk-link.pending', 'e => { const r = e.getBoundingClientRect(); return [r.top, r.bottom]; }')
-                assert 0 <= r[0] and r[1] <= 800, r
-                pg.wait_for_selector('#start-go[disabled]')
-                pg.evaluate("() => { window.oldGo = document.getElementById('start-go'); }")
-                pg.fill('#start-q', 'how noise works now'); pg.dispatch_event('#start-q', 'input')   # a read draws a new Start button
-                pg.wait_for_function("() => { const b = document.getElementById('start-go'); return b !== window.oldGo && b.disabled; }")
-                assert pg.locator('#walk-out .walk-link.pending').count() == 1
+                pg.wait_for_url('**/build/**', timeout=10000)
+                bid = pg.url.split('/build/')[1].split('?')[0]
+                assert 'rh=' in pg.url and pg.locator('#rh-pane iframe').count() == 1
+                b_ = lr.build(bid)
+                assert len(b_.brief['sources']) == 10 and {x['role'] for x in b_.brief['sources']} == {'main'} and b_.events[1]['delta'] == 'how noise works'
             finally: b.close()
     finally:
         held.gate.set(); held.done.wait(20)
