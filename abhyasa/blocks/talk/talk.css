@@ -109,7 +109,7 @@ html:is(.present, .audience) main { max-width: none; margin: 0; padding: 0; anim
 #stage .say { font-size: calc(28 / 1280 * 100cqw); color: var(--ink2); margin: 1em 0 0; }
 #stage .body { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 5cqw; align-items: center; min-height: 0; margin: 3cqw 0 1.5cqw; }
 #stage .body.two { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
-#stage .passage { margin: 0; font-size: calc(28 / 1280 * 100cqw); line-height: 1.55; color: var(--fg); padding-left: 2.2cqw; border-left: 2px solid var(--rule); white-space: pre-line; max-width: none; }
+#stage .passage { margin: 0; font-size: calc(28 / 1280 * 100cqw * var(--pts, 1)); line-height: 1.55; color: var(--fg); padding-left: 2.2cqw; border-left: 2px solid var(--rule); white-space: pre-line; max-width: none; }
 #stage .points { margin: 0; padding-left: 1.2em; font-size: calc(28 / 1280 * 100cqw * var(--pts, 1)); line-height: 1.5; color: var(--fg); max-width: none; }
 #stage .points li + li { margin-top: .5em; } #stage .points li::marker { color: var(--mute); }
 #stage .fig { margin: 0; min-height: 0; } #stage .fig img { display: block; max-width: 100%; max-height: 50cqw; object-fit: contain; margin: auto; }
@@ -119,7 +119,13 @@ html:is(.present, .audience) main { max-width: none; margin: 0; padding: 0; anim
 #stage .demo { align-self: stretch; position: relative; min-height: 0; overflow: hidden; }
 #stage .demo.tall { overflow-y: auto; scrollbar-width: none; }   /* the text keeps 14 px: the demo is taller than the box, and its scroll shows in the room */
 #stage .demo > [data-rupaka] { position: absolute; top: 0; left: 0; width: 560px; }   /* the width rupaka lays out at; talk.js zooms it to fit */
-#stage .foot { margin-top: auto; display: flex; justify-content: space-between; align-items: baseline; font-size: calc(17 / 1280 * 100cqw); color: var(--mute); }
+/* a part never runs into the foot: it is clipped to its cell, after its type got smaller (talk.js `fitPoints`) */
+#stage .body > :is(.passage, .points) { align-self: stretch; min-height: 0; max-height: 100%; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+#stage .body > .points { display: block; align-self: center; }
+/* when the demo shows, it takes the space of the slide: the passage beside it goes, and the demo has the whole width */
+#stage .body.two:has(> .demo:not([hidden])) { grid-template-columns: minmax(0, 1fr); }
+#stage .body.two:has(> .demo:not([hidden])) > .passage { display: none; }
+#stage .foot { margin-top: auto; flex: none; position: relative; z-index: 1; background: var(--page); display: flex; justify-content: space-between; align-items: baseline; font-size: calc(17 / 1280 * 100cqw); color: var(--mute); }
 /* the source line of the passage, for the room: the label, the title and the place, at the left of the foot line (decision 6) */
 #stage .foot .src-line.room { margin: 0 auto 0 0; font-size: inherit; gap: 1.2cqw; flex-wrap: nowrap; min-width: 0; }
 #stage .foot .src-line.room + * { margin-right: 2cqw; }

@@ -138,10 +138,12 @@ function show(st, slide, beat) {
 // down to 22/28 of its size. Each window does this at its own size.
 const POINTS_FLOOR = 22 / 28;
 function fitPoints(sec) {
-  const p = sec.querySelector('.body > .points'), body = p?.parentElement;
-  if (!p || p.hidden) return;
-  p.style.removeProperty('--pts');
-  for (let s = 1; body.scrollHeight > body.clientHeight + 1 && s > POINTS_FLOOR + .001;) { s = Math.max(POINTS_FLOOR, s - .05); p.style.setProperty('--pts', String(s)); }
+  for (const p of sec.querySelectorAll('.body > .points, .body > .passage')) {   // the passage too: no part runs into the foot
+    if (p.hidden || !p.offsetHeight) continue;
+    p.style.removeProperty('--pts');
+    const over = () => p.scrollHeight > p.clientHeight + 1 || p.parentElement.scrollHeight > p.parentElement.clientHeight + 1;
+    for (let s = 1; over() && s > POINTS_FLOOR + .001;) { s = Math.max(POINTS_FLOOR, s - .05); p.style.setProperty('--pts', String(s)); }
+  }
 }
 addEventListener('resize', () => document.querySelectorAll('#stage > section.stage:not([hidden])').forEach(fitPoints));
 
