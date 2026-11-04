@@ -357,3 +357,9 @@ a.out-link::after { content: '\2009↗'; font-size: .85em; color: var(--mute); }
 .menu-items form:has(> .mi) { margin: 0; }
 .drop-confirm { padding: var(--s2); } .drop-confirm p { margin: 0 0 var(--s2); font-size: var(--t-small); color: var(--ink2); }
 .drop-confirm .danger { color: var(--no); }
+/* a long list: Home shows the newest few, a list page shows 20 at a time */
+.list-tools { display: flex; gap: var(--s3); align-items: center; margin: 0 0 var(--s4); }
+.list-tools input[type=search] { flex: 1; }
+.pager { display: flex; gap: var(--s4); justify-content: space-between; align-items: baseline; margin: var(--s4) 0; font-size: var(--t-small); }
+.pager .off { visibility: hidden; }
+.all-link { margin: var(--s2) 0 var(--s5); }

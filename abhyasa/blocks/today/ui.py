@@ -88,7 +88,7 @@ def CourseRow(c, rows):
     folded = Details(Summary(n_of(len(rows), 'stage')), Ul(*map(Stage, rows), cls='plain'), cls='side-walks') if rows else ''
     return Li(head, Div(Onward('Open the course', f'/course/{c.id}'), *run('course_actions', c, row=True), cls='lrow-acts'), folded, cls='jrow lrow')   # the course block: its ⋯ menu
 
-def Walks(courses, walks, by):
-    "Your courses and walks: `courses` is `(course, stage rows)`, `walks` is `(walk, walk_state)` for each walk that is in no course."
+def Walks(courses, walks, by, title='Your courses and walks'):
+    "Your courses and walks: `courses` is `(course, stage rows)`, `walks` is `(walk, walk_state)` for each walk that is in no course, in the order to show."
     rows = [*[CourseRow(*x) for x in courses], *walk_rows(walks, by)]
-    return Part('Your courses and walks', Ul(*rows, cls='plain journeys'), data_part='walks') if rows else ''
+    return Part(title, Ul(*rows, cls='plain journeys'), data_part='walks') if rows else ''

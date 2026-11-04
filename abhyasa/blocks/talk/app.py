@@ -16,13 +16,13 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
-from abhyasa.core import Page, UndoBar, hook, n_of, pane_url, room_spec, run as run_hook
+from abhyasa.core import Page, UndoBar, hook, n_of, pane_url, room_spec, run as run_hook, paged, ListTools, Pager, AllLink, HOME_ROWS
 from abhyasa.core.leela import LOCAL_HOSTS
 from abhyasa.path import edit_lock, CTRL, rewrite as tutor_rewrite
 from abhyasa.sources import figure_path
 from abhyasa.path import needs, pick_way_down, detour, walk_from_topic, for_talk, step_read, chip_docs, walk_from_talk
 from abhyasa.models import for_task
-from abhyasa.learner import val, lines, track, seen_jobs, check_stop, halted, JobStopped, STOPPED, Said
+from abhyasa.learner import fold, val, lines, track, seen_jobs, check_stop, halted, JobStopped, STOPPED, Said
 from abhyasa.show import (check_talk, talk_from_walk, talk_from_sources, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST,
     QUESTIONS_MIN, public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go,
     log_main, end_run, log_beside, recap, recap_html, BEATS, FILLED, clean_slide, talk_again, talk_fresh, walk_changes, AGAIN, FRESH,
@@ -1044,8 +1044,18 @@ def connect(app, ctx):
 
     @hook('learn_talks')
     def teach():
-        "Teach, on Home after your courses and walks: your talks, and how to make one."
-        return ui.Teach(lr.talks(), menu=menu)
+        "Teach, on Home after your courses and walks: the 5 talks that you used or made last, a link to all of them, and how to make one."
+        ts = lr.talks()
+        return ui.Teach(ts[:HOME_ROWS], menu=menu), AllLink('All talks', Routes.talks, len(ts))
+
+    def all_talks(q:str='', sort:str='used', page:int=1):
+        "All your talks, 20 on a page, the one that you used last first (or the newest first), with a filter on the title."
+        ts = [t for t in lr.talks() if fold(q.strip()) in fold(t.title)] if q.strip() else list(lr.talks())
+        if sort == 'new': ts.sort(key=lambda t: -(t.get('made') or 0))
+        part, page, pages = paged(ts, page)
+        lst = Div(ui.Teach(part, menu=menu, title=n_of(len(ts), 'talk')) if part else P('No talk has this title.', cls='mute'),
+                  Pager(Routes.talks, page, pages, q=q, sort=sort if sort != 'used' else ''), id='list')
+        return Page('All talks', H1('All talks'), ListTools(Routes.talks, q, sort), lst, on='Home', crumbs=[('Home', '/')], extra=ui.editor_assets())
 
     @hook('talk_actions')
     def talk_row(t):
@@ -1053,6 +1063,7 @@ def connect(app, ctx):
         return menu(t)
 
     app.post(Routes.new)(new)
+    app.get(Routes.talks)(all_talks)
     app.get(Routes.job)(job)
     app.get(Routes.one)(one)
     app.post(Routes.slide)(slide)

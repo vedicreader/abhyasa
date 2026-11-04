@@ -126,6 +126,8 @@ def connect(app, ctx):
         "How many steps of walk `j` have a passage, and from which sources: the real counts, for the summary of the turn."
         r = [s_.get('read') or {} for s_ in j.steps]
         have, web = sum(bool(x.get('text')) for x in r), sum(bool(x.get('text')) and x.get('src') == 'web' for x in r)
+        if not have: return ("This walk has no sources yet: each step has abhyasa's words, with no source. "
+                             "Say “research the material” to look for sources, or add a file, a folder or a link.")
         return f"{have} of {n_of(len(r), 'step')} {'has' if have == 1 else 'have'} a passage from a source" + (f", {web} from the web" if web else '') + '.'
     def filed(chips, bid=None) -> list:
         """The chips with each `link:` filed first and named by its documents (`doc:`), so the planner and the passage search read a kept web page
@@ -435,7 +437,8 @@ def connect(app, ctx):
             with locks[bid]: lr.put_build({**rec(), 'target': f'walk:{j.id}', 'title': j.title})
             put_brief(bid, kind='walk')
             run_hook('concepts_added')
-            return f"Made the walk “{j.title}”: {len(j.steps)} steps. {sourced_line(j)}", outline_of(j)
+            line = sourced_line(j)
+            return (f"{line} Made the walk “{j.title}”: {len(j.steps)} steps." if line.startswith('This walk has no sources') else f"Made the walk “{j.title}”: {len(j.steps)} steps. {line}"), outline_of(j)
 
         def change_talk(instruction:str,  # what to change, in the owner's words
                         slides:str='',    # the numbers of the slides to change, such as "3"; empty makes the whole talk again

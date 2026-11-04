@@ -12,7 +12,7 @@ from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link, s
 from abhyasa.learner import DEPTHS, can_again
 from abhyasa.sources import source_of
 
-__all__ = ['Cites', 'nb_leela', 'SourceLine', 'SourceLinks', 'serve_watch', 'WATCH_CSP', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
+__all__ = ['PAGE_ROWS', 'HOME_ROWS', 'paged', 'ListTools', 'Pager', 'AllLink', 'Cites', 'nb_leela', 'SourceLine', 'SourceLinks', 'serve_watch', 'WATCH_CSP', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo', 'moved_to', 'subject_name',
            'JOB_STOP', 'JOB_AGAIN', 'JobStop', 'JobAgain', 'JobTools']
 
@@ -447,3 +447,32 @@ def JobAgain(r, label='Do it again'):
 def JobTools(r, again='Do it again'):
     "The control of job row `r` on the part that waits for it: Stop while it runs, else Do it again (with the words `again`) when it can."
     return JobStop(r) if r is not None and r.state == 'running' else JobAgain(r, again)
+
+
+# --- the long lists: Home shows the newest few, and a list page shows the rest, a page at a time ------------------------------------
+PAGE_ROWS, HOME_ROWS = 20, 5   # the rows of one list page, and of one list on Home
+
+def paged(xs, page=1, n:int=PAGE_ROWS) -> tuple:
+    "`(rows, page, pages)`: the rows of page `page` (from 1) of `xs`, with `n` rows on a page. A page out of range gives the nearest page."
+    xs = list(xs); pages = max(1, -(-len(xs) // n))
+    try: page = min(max(1, int(page)), pages)
+    except (TypeError, ValueError): page = 1
+    return xs[(page - 1) * n:page * n], page, pages
+
+def ListTools(url:str, q:str='', sort:str='used', sorts=(('used', 'Last used'), ('new', 'Newest')), target:str='#list'):
+    "The filter box (it matches the title) and the sort of a list page. Each change loads the list again in place."
+    go = dict(hx_get=url, hx_target=target, hx_select=target, hx_swap='outerHTML', hx_include='closest form', hx_push_url='true')
+    return Form(Input(type='search', name='q', value=q, placeholder='Filter by title', aria_label='Filter by title', hx_trigger='input changed delay:300ms, search', **go),
+                Select(*[Option(label, value=k, selected=k == sort) for k, label in sorts], name='sort', aria_label='Sort', hx_trigger='change', **go),
+                method='get', action=url, cls='list-tools')
+
+def Pager(url:str, page:int, pages:int, **keep):
+    "Previous and Next of a list page, with the page number. `keep` are the other fields of the query, such as the filter."
+    from urllib.parse import urlencode
+    at = lambda k: f"{url}?{urlencode({**{a: b for a, b in keep.items() if b}, 'page': k})}"
+    return Nav(A('Previous', href=at(page - 1)) if page > 1 else Span('Previous', cls='mute off'), Span(f'Page {page} of {pages}', cls='mute'),
+               A('Next', href=at(page + 1)) if page < pages else Span('Next', cls='mute off'), cls='pager', aria_label='Pages') if pages > 1 else ''
+
+def AllLink(label:str, href:str, n:int, most:int=HOME_ROWS):
+    "The quiet link at the end of a list on Home, such as `All walks (12)`, when the list has more than `most` rows."
+    return P(A(f'{label} ({n})', href=href), cls='mute all-link') if n > most else ''

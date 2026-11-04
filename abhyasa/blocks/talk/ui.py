@@ -140,12 +140,12 @@ def TalkMenu(t, *items, live=False, row=None, hidden=False):
 
 TEACH = 'To teach a group, press Make a talk in the Start box, with a goal or your sources, or press Present on a walk. abhyasa makes the slides, and you change them before you present.'
 
-def Teach(ts, menu=lambda t: ''):
+def Teach(ts, menu=lambda t: '', title='Teach'):
     """Teach, on Home: a row for each talk, with its ⋯ menu (`menu(t)`), and how to make one from a walk. Two talks with one title (with no date)
     each say the day and the hour when they were made."""
     n = Counter(map(plain_title, ts))
     when = lambda t: made_on(t, hour=True) if n[plain_title(t)] > 1 else ''
-    return Part('Teach', Ul(*[TalkRow(t, when(t), menu(t)) for t in ts], cls='plain talks') if ts else '', P(TEACH, cls='mute'), data_part='teach')
+    return Part(title, Ul(*[TalkRow(t, when(t), menu(t)) for t in ts], cls='plain talks') if ts else '', P(TEACH, cls='mute') if title == 'Teach' else '', data_part='teach')
 
 # --- the editor ------------------------------------------------------------------------------------------------------
 
