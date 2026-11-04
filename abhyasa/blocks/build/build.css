@@ -87,7 +87,7 @@ html.in-pane main:has(.bd) { padding: 0; max-width: none; }
 .bd-lines li:has(> del) { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--no) 55%, transparent); }
 .bd-lines ins { text-decoration: none; color: var(--fg); }
 .bd-lines li:has(> ins) { box-shadow: inset 2px 0 0 var(--ok); }
-.bd-outline { padding-left: 1.4em; margin: 0; }
+.bd-outline { list-style: none; padding-left: 0; margin: 0; }
 .bd-outline > li.now { color: var(--mute); font-style: italic; list-style: none; }
 .bd-demo { background: var(--sunken, color-mix(in srgb, var(--fg) 4%, transparent)); border-radius: var(--r, 6px); padding: var(--s3); }
 .bd-demo .frame { max-width: 100%; overflow: auto; }
