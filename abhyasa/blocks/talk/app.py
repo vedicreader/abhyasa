@@ -396,7 +396,7 @@ def connect(app, ctx):
         m = menu(t, ui.HandoutLink(t), *([ui.MineWalk(t, mine_of(t))] if hid else []), *([ui.Remake(j.id, t)] if j else []))
         page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, choices(t), filled, None if pj or not j else walk_changes(lr, t), menu=m,
                                                         srcs=sources_of(j) if hid else None, links=links_of(t),
-                                                        goal=(j.get('goal') or '') if hid and not j.get('source') else ''), on='Home',
+                                                        goal=(j.get('goal') or '') if hid and not j.get('source') else ''), *run_hook('talk_editor', t), on='Home',
                     crumbs=[('Home', '/'), *up_of(t)], extra=ui.editor_assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys work only here
         return page
@@ -562,30 +562,75 @@ def connect(app, ctx):
         out = (*deck(t2, opened=opened, fresh=fresh), bar(t2, said, hist, row))
         return (*out, ui.Right(row, (slide_of(t2, row) or {}).get('ask'), oob=True)) if field and field.endswith('/ask') else out
 
-    def redo(tid, f):
-        "Rewrite the points and the note of a slide with a short instruction. The model call runs outside the lock; a failed rewrite changes nothing."
-        if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
-        if not (s := slide_of(t, f.get('sid'))): return Response('No such slide.', status_code=404)
-        if s.get('kind') not in IDEAS: return text('The tutor rewrites only a slide of an idea.')
-        ins = ' '.join((f.get('chip') or f.get('text') or '').split()).rstrip('.')
-        if not ins: return text('Tell the tutor what to change.')
+    def rewrote(tid, sid, ins, who='tutor'):
+        "Rewrite the points and the note of slide `sid` of talk `tid` as `ins` says: `(talk, said, history)`. The model call runs outside the lock; a failed rewrite raises `Bad` and changes nothing."
+        if not (t := lr.talk(tid)) or not (s := slide_of(t, sid)): raise Bad('No such slide.')
+        if s.get('kind') not in IDEAS: raise Bad('The tutor rewrites only a slide of an idea.')
+        if not (ins := ' '.join(str(ins or '').split()).rstrip('.')): raise Bad('Tell the tutor what to change.')
         sh = s.get('show') or {}
-        try: new = tutor_rewrite(ask(), dict(body=list(sh.get('body') or []), notes=s.get('notes') or ''), ins, context=sh.get('passage') or '')
-        except Exception: return text(NO_REWRITE)   # never the words of a library
         was = dict(body=list(sh.get('body') or []), notes=s.get('notes') or '')
+        try: new = tutor_rewrite(ask(), dict(was), ins, context=sh.get('passage') or '')
+        except Exception: raise Bad(NO_REWRITE)   # never the words of a library
         with edit_lock('talk', tid):   # the rewrite goes on the slide as it is now: a field that you changed during the call keeps your edit
             t = lr.talk(tid); ss = deepcopy(list(t.slides))
-            if (i := next((k for k, x in enumerate(ss) if x.get('id') == s['id']), None)) is None: return Response('No such slide.', status_code=404)
+            if (i := next((k for k, x in enumerate(ss) if x.get('id') == sid), None)) is None: raise Bad('No such slide.')
             now = dict(body=list((ss[i].get('show') or {}).get('body') or []), notes=ss[i].get('notes') or '')
             kept = [k for k in was if now[k] != was[k]]
-            if len(kept) == len(was): return text(KEPT)
+            if len(kept) == len(was): raise Bad(KEPT)
             said = f'Rewrote the points of slide {i + 1}: {ins}.' + (f' Your edit of the {ui.FIELDS[kept[0]]} was kept.' if kept else '')
             try:
                 if 'body' not in kept: points(ss[i], [p for p in new['body'] if p.strip()][:BODY_MOST])
                 if 'notes' not in kept: note(ss[i], new['notes'])
-                t2, hist = save(t, ss, said, who='tutor')
-            except Bad: return text(NO_REWRITE)
-        return (*deck(t2, opened=s['id']), bar(t2, said, hist, s['id']))
+                t2, hist = save(t, ss, said, who=who)
+            except Bad: raise Bad(NO_REWRITE)
+        return t2, said, hist
+
+    def redo(tid, f):
+        "Rewrite the points and the note of a slide with a short instruction (`rewrote`)."
+        if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
+        if not slide_of(t, f.get('sid')): return Response('No such slide.', status_code=404)
+        try: t2, said, hist = rewrote(tid, f.get('sid'), f.get('chip') or f.get('text') or '')
+        except Bad as e: return text(str(e))
+        return (*deck(t2, opened=f['sid']), bar(t2, said, hist, f['sid']))
+
+    def changed_slide(tid, n, change, who):
+        "Apply `change(slide)` to slide number `n` (from 1) of talk `tid`, save it with its history, and give the line that says what changed. `Bad` when it cannot."
+        with edit_lock('talk', tid):
+            if not (t := lr.talk(tid)): raise Bad('No such talk.')
+            ss = deepcopy(list(t.slides))
+            if not 1 <= n <= len(ss): raise Bad(f'The talk has {n_of(len(ss), "slide")}.')
+            said = change(ss[n - 1])
+            if said: save(t, ss, said, who=who)
+            return said
+
+    @hook('talk_edit')
+    def talk_edit(tid, n, f, who='you'):
+        "Change slide `n` (from 1) of talk `tid` with the fields `f` of the editor (`edit`). The line that says what changed; a `ValueError` says why it cannot."
+        def go(s):
+            names = changed(f)
+            edit(s, f)
+            return f"Changed the {' and the '.join(ui.FIELDS[k] for k in names)} of slide {n}." if names else ''
+        try: return changed_slide(tid, n, go, who)
+        except Bad as e: raise ValueError(str(e))
+
+    @hook('talk_rewrite')
+    def talk_rewrite(tid, n, ins, who='tutor'):
+        "Rewrite the points and the note of slide `n` (from 1) of talk `tid` as `ins` says (`rewrote`). The line that says what changed."
+        t = lr.talk(tid)
+        if not t or not 1 <= n <= len(t.slides): raise ValueError('No such slide.')
+        try: return rewrote(tid, t.slides[n - 1]['id'], ins, who)[1]
+        except Bad as e: raise ValueError(str(e))
+
+    @hook('talk_demo')
+    def talk_demo(tid, n, slug, who='tutor'):
+        "Show demo `slug` on slide `n` (from 1) of talk `tid`, as its demo beat. The line that says what changed."
+        def go(s):
+            if s.get('kind') not in IDEAS: raise Bad('Only a slide of an idea can show a demo.')
+            s['show'] = {**(s.get('show') or {}), 'demo': slug}
+            s['beats'] = with_part(s.get('beats') or [], 'demo', True)
+            return f'Put a live demo on slide {n}.'
+        try: return changed_slide(tid, n, go, who)
+        except Bad as e: raise ValueError(str(e))
 
     def fig(tid:str, f:str=''):
         "A figure that a slide of the talk shows or can pick, for its small picture in the editor. No other file."
