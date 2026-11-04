@@ -641,3 +641,8 @@ def test_a_walk_with_no_sources_says_so_first(mk, lr, walk_fake, agent, monkeypa
     h = say(cl, lr, bid, 'Make me a walk on how tides work. Do not research anything.')
     r = fold(lr.build(bid).events)[-2]['result']
     assert r.startswith('This walk has no sources yet') and 'research the material' in r and 'This walk has no sources yet' in h
+
+def test_pick_code_never_takes_prose_between_fences():
+    "A plain fence that closes a block is not the start of a code block: the prose after it is never taken as code."
+    text = 'Run it:\n\n```\nout\n```\n\nThe conventions differ by about 3 minutes here.\n\n```python\ntithi = int(angle // 12) + 1\n```\n'
+    assert build_app.pick_code(text, 'The conventions') == '```python\ntithi = int(angle // 12) + 1\n```'

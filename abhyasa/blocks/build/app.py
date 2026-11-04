@@ -92,7 +92,7 @@ class Counting:
         return f(p, sp, *a, **kw)
     def __getattr__(self, k): return getattr(self.ask, k)
 
-_CODE = re.compile(r'```(?:python|py)?\n(.*?)\n```', re.S)
+_CODE = re.compile(r'^```(?:python|py)\n(.*?)\n```', re.S | re.M)   # a fenced block with its language, from the start of a line, as `code_piece` reads it: never the prose between two fences
 _ASKS_CODE = re.compile(r'\b(show (the )?code|code|technical|python|programmers?|developers?|engineers?)\b', re.I)
 
 def wants_code(br) -> bool:
