@@ -485,3 +485,43 @@ def test_research_ends_a_native_turn_with_its_row_closed(mk, lr, monkeypatch):
     its = fold(lr.build(bid).events)
     r = next(i for i in its if i.get('name') == 'research')
     assert r['status'] == 'done' and 'wait for your Keep or Drop' in r['result'] and lr.build(bid).target == ''
+
+def test_the_page_at_the_left_keeps_its_style_after_a_change(mk, lr, talk_fake, agent, home, monkeypatch):
+    """In Chromium: Build with the builder open; a turn makes a talk; the page at the left becomes the talk editor with its own style (talk.css),
+    one number on each row (no list numbers), and the builder still open. A later change marks the row in place and keeps the style."""
+    import socket, threading, time, uvicorn, os, pwd
+    pytest.importorskip('playwright.sync_api')
+    from playwright.sync_api import sync_playwright
+    monkeypatch.setenv('PLAYWRIGHT_BROWSERS_PATH', os.environ.get('PLAYWRIGHT_BROWSERS_PATH') or os.path.join(pwd.getpwuid(os.getuid()).pw_dir, 'Library/Caches/ms-playwright'))   # the temp home has no browsers
+    talk_fake.rules['You write one poll'] = POLL
+    talk_fake.rules['Rewrite these fields'] = dict(body=['Short one.', 'Short two.'], notes='N.')
+    cl = mk(); nb = home/'talks'/'agents.ipynb'
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    look = """() => ({path: location.pathname, css: [...document.querySelectorAll('link[rel=stylesheet]')].some(l => l.href.includes('talk.css')),
+                     list: getComputedStyle(document.getElementById('deck')).listStyleType, rows: document.querySelectorAll('#deck > li.edit-row').length,
+                     nos: document.querySelectorAll('#deck > li.edit-row > .no').length, pane: !!document.querySelector('#rh-pane iframe'),
+                     landed: document.querySelectorAll('#deck > li.edit-row.landed').length})"""
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True, args=['--mute-audio'])
+            try:
+                pg = b.new_page(viewport=dict(width=1440, height=900))
+                pg.goto(f'http://127.0.0.1:{port}/build'); pg.wait_for_selector('#rh-pane iframe')
+                bid = pg.url.split('/build/')[1].split('?')[0]
+                agent.script = make_talk_script(nb)
+                f = next(x for x in pg.frames if 'pane=1' in x.url); f.wait_for_selector('#build-say')
+                f.fill('#build-say', f'Make a talk from {nb}.'); f.click('.composer button[type=submit]')
+                pg.wait_for_url('**/t/**', timeout=20000); pg.wait_for_selector('#deck')
+                v = pg.evaluate(look)
+                assert v['path'].startswith('/t/') and v['css'] and v['list'] == 'none' and v['rows'] == v['nos'] > 0 and v['pane'], v
+                agent.script = lambda t, p, s: t['change_talk']('shorter', slides='3')
+                f = next(x for x in pg.frames if 'pane=1' in x.url); f.wait_for_selector('#build-say')
+                f.fill('#build-say', 'make slide 3 shorter'); f.click('.composer button[type=submit]')
+                pg.wait_for_selector('#deck > li.edit-row.landed', timeout=20000)
+                v = pg.evaluate(look)
+                assert v['css'] and v['list'] == 'none' and v['rows'] == v['nos'] and v['landed'] == 1, v
+            finally: b.close()
+    finally: srv.should_exit = True; th.join(5)

@@ -589,13 +589,14 @@ def test_two_windows_in_a_browser(mk, talk_fake, lr, tmp_path):
                 assert pr.evaluate(verdict).startswith('You said It rises. It is It falls.') and au.evaluate(verdict) is None
                 assert au.evaluate("document.querySelector('section[data-sid=s3] .rk-gate').inert") is True
                 au.screenshot(path=str(tmp_path/'audience-demo.png'))
-                pr.wait_for_timeout(100)   # the demo fits its part in both windows, with no scroll, and at the same place on the slide
+                pr.wait_for_timeout(100)   # the demo fills the width of its part in both windows, with type that a room can read (20 px on a 1280 px slide), and scrolls inside its box when it is taller
                 box = "(() => { const st = document.getElementById('stage').getBoundingClientRect(), d = document.querySelector('section[data-sid=s3] .demo'), " \
-                      "s = d.querySelector('.rk-slider').getBoundingClientRect(), h = d.querySelector('[data-rupaka]').getBoundingClientRect(), b = d.getBoundingClientRect(); " \
-                      "return {fits: h.bottom <= b.bottom + 1 && h.right <= b.right + 1 && s.bottom <= innerHeight && d.scrollHeight <= d.clientHeight + 1, " \
-                      "page: document.documentElement.scrollHeight <= innerHeight, x: (s.left - st.left) / st.width, y: (s.top - st.top) / st.height}; })()"
+                      "s = d.querySelector('.rk-slider').getBoundingClientRect(), h = d.querySelector('[data-rupaka]').getBoundingClientRect(), b = d.getBoundingClientRect(), " \
+                      "t = d.querySelector('[data-rupaka] p, [data-rupaka] .rk-title, [data-rupaka] label'), z = parseFloat(d.querySelector('[data-rupaka]').style.zoom) || 1; " \
+                      "return {wide: h.width >= .95 * b.width && h.right <= b.right + 1, px: parseFloat(getComputedStyle(t).fontSize) * z / (st.width / 1280), " \
+                      "inside: d.classList.contains('tall') || (h.bottom <= b.bottom + 1 && d.scrollHeight <= d.clientHeight + 1), page: document.documentElement.scrollHeight <= innerHeight, x: (s.left - st.left) / st.width}; })()"
                 fa, fp = au.evaluate(box), pr.evaluate(box)
-                assert fa['fits'] and fa['page'] and fp['fits'] and abs(fa['x'] - fp['x']) < .01 and abs(fa['y'] - fp['y']) < .01, (fa, fp)
+                assert fa['wide'] and fa['inside'] and fa['page'] and fp['wide'] and fa['px'] >= 16 and abs(fa['x'] - fp['x']) < .01, (fa, fp)
                 pr.keyboard.press('e'); assert pr.evaluate("!!document.activeElement.closest('[data-rupaka]')")   # E goes into the demo
                 pr.keyboard.press('d'); pr.wait_for_timeout(150); assert at()['beat'] == 2   # there the demo's own keys win
                 pr.keyboard.press('Escape'); assert pr.evaluate("!document.activeElement.closest('[data-rupaka]')") and at()['slide'] == 's3'

@@ -222,32 +222,22 @@ function mounted(host, fn, left = 200) {
   if (left > 0) setTimeout(() => mounted(host, fn, left - 1), 50);
 }
 
-// The demo fits the free space of its part as one picture, with no scroll. rupaka lays it out at the width in talk.css, and `zoom`
-// scales it to min(box width / its width, box height / its height). Both windows do the same, so the laser points at the same place.
-// The zoom has a floor, as a share of a slide 1280 px wide, so the text of the demo stays readable from the room (rupaka's 18 px
-// text shows at about 10 px). When the demo is smaller than the floor beside the other parts, the slide shows the demo alone
-// (`demo-alone`: the crumb, the title, the passage and the figure go). When its text is still under 14 px alone, it keeps 14 px
-// in a taller box (`tall`) that scrolls, and the presenter's scroll shows in the room (`demoscroll`), rather than shrink further.
-const DEMO_FLOOR = .55, DEMO_TEXT = 14;
+// The demo fills the width of its part, with type that a room can read: rupaka's 18 px text shows at `DEMO_PX` (20 px on a slide 1280 px
+// wide, and in step with the width of the slide in each window, so the laser points at the same place in both). The demo is laid out at the
+// width that gives this size (`width` = the width of the part / the zoom), so it fills the part and never shrinks below readable type.
+// When it is taller than the part, the slide shows the demo alone (`demo-alone`: the crumb and the title go), and when it is still taller,
+// it scrolls inside its box (`tall`), and the presenter's scroll shows in the room (`demoscroll`).
+const DEMO_PX = 20;   // 20 px on a slide 1280 px wide: 16 px or more on any audience screen of 1024 px and up
 function fit(host) {
   const box = host.parentElement, sec = host.closest('section.stage');
-  const size = () => {
-    const bw = box.clientWidth, bh = box.clientHeight;
-    if (!bw || !bh) return 0;
-    host.style.zoom = '1';
-    // 2% less: text at a small zoom does not scale in a straight line, so the demo stays inside its box
-    return .98 * Math.min(bw / Math.max(1, host.offsetWidth), bh / Math.max(1, host.offsetHeight));
-  };
   const go = () => {
     sec?.classList.remove('demo-alone'); box.classList.remove('tall');
-    let z = size();
-    if (!z) return;   // a part that does not show yet: the observer calls again when it shows
-    const floor = DEMO_FLOOR * (sec?.parentElement?.clientWidth || 1280) / 1280;
-    if (z < floor && sec?.querySelector('.body')) {
-      sec.classList.add('demo-alone'); z = size() || z;
-      const least = Math.min(DEMO_TEXT / (parseFloat(getComputedStyle(host).fontSize) || 18), .98 * box.clientWidth / Math.max(1, host.offsetWidth));
-      if (z < least) { z = least; box.classList.add('tall'); }
-    }
+    const bw = box.clientWidth;
+    if (!bw || !box.clientHeight) return;   // a part that does not show yet: the observer calls again when it shows
+    const fs = parseFloat(getComputedStyle(host).fontSize) || 18, slide = (sec?.parentElement?.clientWidth || 1280) / 1280;
+    const z = DEMO_PX * slide / fs;
+    const lay = () => { host.style.zoom = '1'; host.style.width = Math.floor(bw / z) + 'px'; return host.offsetHeight * z <= box.clientHeight + 1; };
+    if (!lay() && sec?.querySelector('.body')) { sec.classList.add('demo-alone'); if (!lay()) box.classList.add('tall'); }
     host.style.zoom = String(Math.floor(z * 1000) / 1000);
   };
   const ro = new ResizeObserver(go);
