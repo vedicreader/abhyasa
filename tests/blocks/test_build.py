@@ -462,3 +462,15 @@ def test_page_titles_and_rules_and_tables():
     assert build_app.page_title('www.geeksforgeeks.org › nlp › self-attention-in-nlpSelf - Attention in NLP - GeeksforGeeks') == 'Self - Attention in NLP - GeeksforGeeks'
     h = to_xml(Said('| a | b |\n|---|---|\n| the Moon&#x27;s | 2 |'))
     assert '<table>' in h and "Moon's" in h and '&amp;#x27;' not in h
+
+def test_a_kept_find_is_filed_and_read_as_a_document(mk, lr, agent, monkeypatch):
+    "A kept web find is filed first and goes to the planner as a document (`doc:`), so its passages can reach the steps."
+    seen = []
+    monkeypatch.setattr(build_app, 'file_chip', lambda l, c: [AttrDict(doc_id='d1', shelf='store', title='Kept page', url=c[5:])])
+    def spy(l, ask, chips, *a, **kw): seen.append(list(chips)); raise ValueError('stop here')
+    monkeypatch.setattr(build_app, 'walk_for_talk', spy)
+    cl = mk(); bid = new_build(cl)
+    lr.put_build({**lr.build(bid), 'brief': {**lr.build(bid).brief, 'kind': 'walk', 'goal': 'war', 'sources': [dict(id='link:https://ex.org/a', name='A', role='extra', found=True)]}})
+    agent.script = lambda t, p, s: t['make_walk']()
+    say(cl, lr, bid, 'make the walk')
+    assert seen == [['doc:d1']]

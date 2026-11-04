@@ -18,7 +18,7 @@ from abhyasa.core.pane import pane_link
 from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query
 from abhyasa.sources import named_sources, web_search, VaultSource
-from abhyasa.path import (walk_for_talk, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
+from abhyasa.path import (walk_for_talk, file_chip, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
 from abhyasa.show import (fit_walk, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
@@ -107,6 +107,15 @@ def connect(app, ctx):
         r = [s_.get('read') or {} for s_ in j.steps]
         have, web = sum(bool(x.get('text')) for x in r), sum(bool(x.get('text')) and x.get('src') == 'web' for x in r)
         return f"{have} of {n_of(len(r), 'step')} {'has' if have == 1 else 'have'} a passage from a source" + (f", {web} from the web" if web else '') + '.'
+    def filed(chips) -> list:
+        "The chips with each `link:` filed first and named by its documents (`doc:`), so the planner and the passage search read a kept web page as a source."
+        out = []
+        for c in chips:
+            if str(c).startswith('link:'):
+                try: out += [f'doc:{d.doc_id}' for d in file_chip(lr, c)] or [c]
+                except Exception as e: log.warning('builder: could not file %s: %r', c, e); out.append(c)
+            else: out.append(c)
+        return list(dict.fromkeys(out))
     def outline_of(j): return dict(outline=[name_of(s['slug']) for s in j.steps], labels=[src_label(s.get('read')) for s in j.steps])
 
     # --- the conversation and the brief --------------------------------------------------------------------------
@@ -313,7 +322,7 @@ def connect(app, ctx):
             "Make the talk from the brief: file its sources, plan its ideas, then write its slides."
             b = rec(); br = b.brief
             if target(b)[0] == 'talk' and thing(b) and not new: return 'A talk exists. Use change_talk to change it.'
-            if not (chips := brief_chips(br)) and not br.get('goal'): raise ValueError('The brief has no source and no goal. Add a source, or set the goal.')
+            if not (chips := filed(brief_chips(br))) and not br.get('goal'): raise ValueError('The brief has no source and no goal. Add a source, or set the goal.')
             j = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=brief_asks(br))
             mins = int(minutes or br.get('minutes') or 0)
             cut = fit_walk(lr, j.id, mins)   # the slot: fewer ideas, from the end, before the slides are written
@@ -334,7 +343,7 @@ def connect(app, ctx):
                       ) -> str:
             "Make the walk from the brief. When a walk exists, plan it again from the brief, as one change with an Undo."
             b = rec(); br = b.brief
-            chips, goal, owner = brief_chips(br), br.get('goal') or '', brief_asks(br)
+            chips, goal, owner = filed(brief_chips(br)), br.get('goal') or '', brief_asks(br)
             if target(b)[0] == 'walk' and (j := thing(b)) and not new:
                 stage('Planning the walk again')
                 # the walk again from the brief: the chips are filed (a kept find too), and the steps take the place of the old ones, as one change with an Undo
