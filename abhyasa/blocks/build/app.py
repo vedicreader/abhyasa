@@ -18,7 +18,7 @@ from abhyasa.core.pane import pane_link
 from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query
 from abhyasa.sources import named_sources, web_search, VaultSource
-from abhyasa.path import (walk_for_talk, file_chip, file_link, chip_state, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
+from abhyasa.path import (walk_for_talk, file_chip, file_link, chip_state, move_step, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
 from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slides, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
@@ -152,6 +152,25 @@ def fixed_numbers(spec) -> list:
         elif isinstance(v, str) and _FIXED.search(re.sub(r'\{[^{}]*\}', '', v)): out.append(v)
     walk({k: v for k, v in spec.items() if k != 'state'})
     return out
+
+def _stems(t) -> set: return {w[:5] for w in re.findall(r'[a-z]{4,}', str(t).lower())} - {'which', 'their', 'about', 'there', 'these', 'thing'}
+
+def same_idea(a:str, b:str) -> bool:
+    "Whether the step names `a` and `b` are nearly the same idea: half or more of the main words of the shorter name are in the other (`alliances` and `alliance system`)."
+    x, y = _stems(a), _stems(b)
+    return bool(x and y) and len(x & y) >= max(1, (min(len(x), len(y)) + 1) // 2)
+
+def place_of(words:str, steps, slug) -> int|None:
+    "The index that `words` asks for the step on `slug`: before or after a named step, first or last; None when it names no place."
+    w = str(words).lower(); names = [(k, s['slug']) for k, s in enumerate(steps) if s['slug'] != slug]
+    if re.search(r'\b(at the start|first step|as the first|at the beginning)\b', w): return 0
+    if re.search(r'\b(at the end|last step|as the last)\b', w): return len(steps) - 1
+    if (m := re.search(r'\b(before|after)\s+(?:the\s+)?(.+?)(?:[.,;!?]|$)', w)):
+        hit = max(names, key=lambda x: len(_stems(m.group(2)) & _stems(x[1].replace('-', ' '))), default=None)
+        if hit and _stems(m.group(2)) & _stems(hit[1].replace('-', ' ')):
+            k = hit[0] - (1 if [s['slug'] for s in steps].index(slug) < hit[0] else 0)   # its index once the new step leaves its place
+            return max(0, min(len(steps) - 1, k if m.group(1) == 'before' else k + 1))
+    return None
 
 def goal_of(br) -> str:
     """The goal that goes to the planner. With sources and research off, none: the walk then reads only those sources (a notebook as it is, or the
@@ -611,14 +630,23 @@ def connect(app, ctx):
             names = lambda w: [(lr.concept(s['slug']) or {}).get('name') or s['slug'] for s in w.steps]
             stage('The tutor reads what you asked')
             cs = propose(ctx.ask, j, {c.slug: c.name for c in lr.concepts()}, words)
-            have = {s_['slug'] for s_ in j.steps} | {name_of(s_['slug']).lower() for s_ in j.steps}
-            dup = [c for c in cs if c.op == 'add' and ((c.get('slug') or '') in have or (c.get('name') or '').lower() in have)]
-            cs = [c for c in cs if c not in dup]   # a step that the walk has already is not added again
-            if not cs: return 'The tutor found nothing new to change.' + (f" The walk has {', '.join(c.get('name') or c.slug for c in dup)} already." if dup else '')
+            olds = [(n, s_['slug'], name_of(s_['slug'])) for n, s_ in enumerate(j.steps, 1)]
+            dup = [(c, near) for c in cs if c.op == 'add' and (near := first(o for o in olds if o[1] == (c.get('slug') or '') or same_idea(o[2], c.get('name') or '')))]
+            cs = [c for c in cs if c not in [d for d, _ in dup]]   # a step that the walk has already, or nearly, is not added again
+            said_dup = ' '.join(f"The walk has a step on this already: step {o[0]}, “{o[2]}”." for _, o in dup)
+            if not cs: return ('The tutor found nothing new to change. ' + said_dup).strip()
             stage('The tutor changes the walk')
             j2, _ = improve_walk(lr, ctx.ask, j.id, cs, ctx.sources, {})
             run_hook('concepts_added')
-            return f"Changed the walk: {len(cs)} changes.", dict(before=names(j), after=names(j2))
+            out = [f"Changed the walk: {n_of(len(cs), 'change')}."]
+            new = [s_['slug'] for s_ in j2.steps if s_['slug'] not in {o[1] for o in olds}]
+            if new and (want := place_of(instruction, j2.steps, new[0])) is not None:   # before, after, first or last: the new step goes there
+                j2, _ = edit_walk(lr, j.id, lambda ss: move_step(ss, new[0], want), f'Moved “{name_of(new[0])}” to step {want + 1}.', who='tutor')
+            for slug in new:   # the place that the walk has now, never the place that was asked for
+                k = [s_['slug'] for s_ in j2.steps].index(slug)
+                nb = (f", before “{name_of(j2.steps[k + 1]['slug'])}”" if k + 1 < len(j2.steps) else ', at the end')
+                out.append(f"Added “{name_of(slug)}” as step {k + 1}{nb}.")
+            return ' '.join([*out, said_dup]).strip(), dict(before=names(j), after=names(j2))
 
         def research(query:str,  # what to look for on the web
                      ) -> str:

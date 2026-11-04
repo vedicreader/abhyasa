@@ -723,3 +723,11 @@ def test_a_turn_that_runs_out_of_time_ends_cleanly(mk, lr, agent, monkeypatch):
     demo = next(i for i in its if i.get('name') == 'make_demo')
     assert demo['status'] == 'done' and demo['result'].startswith('Not finished') and its[-1]['kind'] == 'run'
     assert 'Not done: Making the demo for slide 2.' in its[-1]['text'] and lr.job(f'build:{bid}').state != 'running' and 'disabled' not in h.split('class="composer"')[1]
+
+def test_place_words_and_near_duplicates():
+    "Before, after, first and last give the place of a new step; a name with half its main words in another step is the same idea."
+    steps = [dict(slug=s) for s in ('the-chain-from-sarajevo', 'nationalism-in-the-balkans', 'the-assassination-in-sarajevo', 'the-july-crisis', 'alliance-system-before-1914')]
+    assert build_app.place_of('add a step on the alliance system before the assassination', steps, 'alliance-system-before-1914') == 2
+    assert build_app.place_of('add it after the July crisis', steps, 'alliance-system-before-1914') == 4
+    assert build_app.place_of('put it first', steps, 'alliance-system-before-1914') is None and build_app.place_of('as the first step', steps, 'alliance-system-before-1914') == 0
+    assert build_app.same_idea('Alliances turn a small quarrel into a big one', 'The alliance system') and not build_app.same_idea('Militarism', 'The alliance system')
