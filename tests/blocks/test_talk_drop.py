@@ -62,7 +62,7 @@ def test_from_scratch_is_offered(mk, talk_fake, lr):
     cl, jid, tid = new_talk(mk, lr)
     for u in (f'/w/{jid}', f'/t/{tid}'):
         page = cl.get(u).text
-        assert 'Make it again from scratch' in page and 'name="fresh" value="1"' in page, u
+        assert 'Make it again from scratch' in page and ('&quot;fresh&quot;: &quot;1&quot;' in page or '"fresh": "1"' in page or 'name="fresh" value="1"' in page), u
     assert 'Make the talk again (keeps your edits)' in cl.get(f'/w/{jid}').text
 
 def test_from_scratch_drops_edits_with_undo(mk, talk_fake, lr):

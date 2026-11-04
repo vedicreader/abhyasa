@@ -51,10 +51,10 @@ def test_the_handout_is_markdown_with_no_repeated_title(mk, lr, talk_fake, home)
     assert h.count('>Tool calls<') == 1 and '<p class="meta">Tool calls</p>' not in h
 
 def test_what_to_change_goes_to_the_writer_and_stays_with_undo(mk, lr, talk_fake, home):
-    "C: What to change goes into the slide prompt and the poll prompt as an owner marker, the talk keeps it for the next remake, and Undo gives back the talk before it."
+    "C: What to change (from the builder) goes into the slide prompt and the poll prompt as an owner marker, the talk keeps it for the next remake, and Undo gives back the talk before it. Make it again in the menu has no form."
     cl = mk(); tid = nb_talk(cl, talk_fake, home); jid = lr.talk(tid).src['walk']
     page = cl.get(f'/t/{tid}').text
-    assert 'What to change' in page and 'name="change"' in page
+    assert '>Make it again</button>' in page and 'name="change"' not in page
     n = len(talk_fake.calls)
     r = cl.post('/talk/new', data=dict(jid=jid, again='1', tid=tid, fresh='1', change='Less code. For managers.'))
     assert r.status_code == 200
@@ -63,7 +63,7 @@ def test_what_to_change_goes_to_the_writer_and_stays_with_undo(mk, lr, talk_fake
     assert any('You write one slide' in c[1] and '<owner>Less code. For managers.</owner>' in c[0] for c in talk_fake.calls[n:])
     assert any('You write one poll' in c[1] and '<owner>Less code. For managers.</owner>' in c[0] for c in talk_fake.calls[n:]) and new
     assert lr.talk(tid).change == 'Less code. For managers.'
-    assert '>Less code. For managers.</textarea>' in cl.get(f'/t/{tid}').text   # the next remake shows it again
+    assert '"tid": "' + tid + '"' in cl.get(f'/t/{tid}').text   # Make it again keeps the change: it sends none
     assert lr.job(f'talk:{tid}').again['change'] == 'Less code. For managers.'
     r = cl.post(f'/t/{tid}/undo')
     assert not lr.talk(tid).get('change') and 'id="talk-remake"' in r.text   # Undo gives back the talk with no change, and the field shows it
@@ -78,7 +78,7 @@ def test_the_menu_has_one_look_and_one_walk(mk, lr, talk_fake, home):
     "D: each item of the ⋯ menu has the class `mi`, and a second press of Make a walk from this talk opens the walk of the first press."
     cl = mk(); tid = nb_talk(cl, talk_fake, home)
     menu = re.search(r'<details class="more-menu talk-menu">.*?</details>\s*</div>\s*</details>', cl.get(f'/t/{tid}').text, re.S)[0]
-    for item in ('>Handout</a>', '>Make a walk from this talk</button>', '>Make it again</summary>', '>Delete this talk</summary>'):
+    for item in ('>Handout</a>', '>Make a walk from this talk</button>', '>Make it again</button>', '>Delete this talk</summary>'):
         assert re.search(r'class="mi"[^>]*' + re.escape(item), menu), item
     a = cl.post(f'/t/{tid}/walk', follow_redirects=False).headers['location']
     b = cl.post(f'/t/{tid}/walk', follow_redirects=False).headers['location']

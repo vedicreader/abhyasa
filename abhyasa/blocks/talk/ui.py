@@ -286,9 +286,9 @@ def BeatsPart(tid, s):
                cls='beats-part')
 
 def Rewrite(post):
-    "Rewrite this slide: a short instruction, or one of three chips. The tutor changes the points and the note, never the passage."
+    "Change this slide: a short instruction, or one of three chips. With the builder on the page, it goes to the builder with this slide as its scope (build.js); else the tutor changes the points and the note, never the passage."
     go = dict(hx_post=post, hx_vals=json.dumps(dict(act='rewrite')), hx_target='#deck', hx_swap='outerHTML')
-    return Form(Field('Rewrite this slide', Input(type='text', name='text', maxlength='300', placeholder='Tell the tutor what to change', aria_label='What to change'), REWRITE_HELP),
+    return Form(Field('Change this slide', Input(type='text', name='text', maxlength='300', placeholder='Tell the tutor what to change', aria_label='What to change'), REWRITE_HELP),
                 Div(*[Quiet(c, small=True, type='submit', name='chip', value=c, data_wait='Rewriting…') for c in CHIPS],
                     Quiet('Rewrite', small=True, type='submit', data_wait='Rewriting…'), cls='chips'), cls='rewrite', **go)
 
@@ -401,15 +401,14 @@ def MineWalk(t, w=None):
                 action=at(Routes.mine, t['id']), method='post', hx_boost='false', cls='talk-mine')
 
 def Remake(jid, t, oob=False):
-    """Make it again, in the ⋯ menu of talk `t` from walk `jid`: What to change (the talk keeps it, so the next remake shows it again), From scratch,
-    and the button. It runs as a job, and its pending card goes under the head of the editor."""
-    return Details(Summary('Make it again', cls='mi'),
-                   Form(P(REMAKE_SAYS), Input(type='hidden', name='jid', value=jid), *again_input(t),
-                        Label('What to change', Textarea(t.get('change') or '', name='change', rows='2', maxlength=str(CHANGE_MOST), placeholder=CHANGE_HINT)),
-                        Label(Input(type='checkbox', name='fresh', value='1'), ' Make it again from scratch: my edits to slides go', cls='tick'),
-                        Div(Button('Make the talk again', cls='small', data_act='remake', data_wait='Making the talk again…'), cls='row'),
-                        hx_post=Routes.new, hx_target='#talk-job', hx_swap='innerHTML', cls='drop-confirm talk-remake-form'),
-                   id='talk-remake', cls='drop-walk talk-remake', **({'hx_swap_oob': 'true'} if oob else {}))
+    """Make it again, in the ⋯ menu of talk `t` from walk `jid`: one item with no form, which uses the brief of the talk and what the owner asked for before,
+    and one item that makes it again from scratch. To say what to change, use the builder. It runs as a job, and its pending card goes under the head of the editor."""
+    hx = dict(hx_post=Routes.new, hx_target='#talk-job', hx_swap='innerHTML', type='button', cls='mi')
+    vals = lambda **kw: json.dumps(dict(jid=jid, again='1', tid=t['id'], **kw))
+    return Div(Button('Make it again', hx_vals=vals(), data_act='remake', data_wait='Making the talk again…', title=REMAKE_SAYS, **hx),
+               Button('Make it again from scratch', hx_vals=vals(fresh='1'), data_act='remake-fresh', data_wait='Making the talk again…',
+                      title='New slides from the walk. Your edits to slides go, and Undo gives them back.', **hx),
+               id='talk-remake', cls='talk-remake', **({'hx_swap_oob': 'true'} if oob else {}))
 
 def Links(t, rows, opened=False, oob=False, names=None):
     """The Links panel of talk `t`: for each row `(key, kind)` of `link_rows`, its path or link and a field for its shared link (`names` gives the name of a vault page).
