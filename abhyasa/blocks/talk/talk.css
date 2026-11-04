@@ -257,4 +257,4 @@ html.present #rh-pane .rh-own { display: none; }
 #stage .passage table { border-collapse: collapse; font-size: .82em; } #stage .passage :is(td, th) { padding: .2em .6em; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
 /* a slide with points and a code piece: the points come first, as their beat does, and a long line of code wraps in its column */
 #stage .body.two > .points { order: -1; }
-#stage .passage pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+#stage .passage pre { white-space: pre; overflow-x: auto; font-size: .8em; }   /* a line of code never wraps mid-statement: it scrolls, at a smaller size */

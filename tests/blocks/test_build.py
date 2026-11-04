@@ -473,7 +473,7 @@ def test_page_titles_and_rules_and_tables():
 def test_a_kept_find_is_filed_and_read_as_a_document(mk, lr, agent, monkeypatch):
     "A kept web find is filed first and goes to the planner as a document (`doc:`), so its passages can reach the steps."
     seen = []
-    monkeypatch.setattr(build_app, 'file_chip', lambda l, c: [AttrDict(doc_id='d1', shelf='store', title='Kept page', url=c[5:])])
+    monkeypatch.setattr(build_app, 'file_link', lambda l, u, max_pages=None: [AttrDict(doc_id='d1', shelf='store', title='Kept page', url=u)])
     def spy(l, ask, chips, *a, **kw): seen.append(list(chips)); raise ValueError('stop here')
     monkeypatch.setattr(build_app, 'walk_for_talk', spy)
     cl = mk(); bid = new_build(cl)
@@ -578,10 +578,10 @@ def test_a_conflict_shows_both_quotes_and_the_source_that_won(mk, lr, talk_fake,
 def test_a_link_that_cannot_be_read_is_left_out(mk, lr, agent, monkeypatch):
     "A kept link that abhyasa cannot read is left out of the make and dropped in the brief, with a quiet line; the make goes on with the rest."
     seen = []
-    def fc(l, c):
-        if c.endswith('/bad'): raise ValueError('abhyasa could not read this link.')
-        return [AttrDict(doc_id='d1', shelf='store', title='Good', url=c[5:])]
-    monkeypatch.setattr(build_app, 'file_chip', fc)
+    def fc(l, u, max_pages=None):
+        if u.endswith('/bad'): raise ValueError('abhyasa could not read this link.')
+        return [AttrDict(doc_id='d1', shelf='store', title='Good', url=u)]
+    monkeypatch.setattr(build_app, 'file_link', fc)
     def spy(l, ask, chips, *a, **kw): seen.append(list(chips)); raise ValueError('stop here')
     monkeypatch.setattr(build_app, 'walk_for_talk', spy)
     cl = mk(); bid = new_build(cl)
@@ -661,3 +661,41 @@ def test_no_idea_slide_is_code_only(mk, lr, talk_fake, agent, monkeypatch):
     assert ideas and all((s['show'].get('body') or []) for s in ideas), [s['show'] for s in ideas]
     s = ideas[0]
     assert s['show']['passage'].startswith('```python\nranked') and s['beats'].index('body') < s['beats'].index('passage') and 2 <= len(s['show']['body']) <= 4
+
+
+def test_a_kept_link_files_a_few_pages_on_its_topic(mk, lr, agent, monkeypatch):
+    "A kept web find files its page and at most two pages beside it, and a page beside it that is off the topic goes."
+    asked = []
+    def fl(l, u, max_pages=None):
+        asked.append(max_pages)
+        return [AttrDict(doc_id='p1', shelf='store', title='Fourier series and square waves', url=u), AttrDict(doc_id='p2', shelf='store', title='Solar Panel deals', url=u + '/x'),
+                AttrDict(doc_id='p3', shelf='store', title='The Fourier transform', url=u + '/y')]
+    monkeypatch.setattr(build_app, 'file_link', fl)
+    seen = []
+    def spy(l, ask, chips, *a, **kw): seen.append(list(chips)); raise ValueError('stop here')
+    monkeypatch.setattr(build_app, 'walk_for_talk', spy)
+    cl = mk(); bid = new_build(cl)
+    lr.put_build({**lr.build(bid), 'brief': {**lr.build(bid).brief, 'kind': 'talk', 'goal': 'Fourier series', 'sources': [dict(id='link:https://ex.org/f', name='Fourier notes', role='extra', found=True)]}})
+    agent.script = lambda t, p, s: t['make_talk']()
+    say(cl, lr, bid, 'make the talk')
+    assert asked == [build_app.LINK_PAGES] and seen == [['doc:p1', 'doc:p3']]
+
+def test_code_pieces_teach_and_parse():
+    "A shim, a file head with only comments and imports, and code that does not parse are never code pieces; the step's own section comes first."
+    shim = '```python\n# vr/muhurtha/panchanga.py\nimport sys\nsys.modules[__name__] = __import__("muhurtha.panchanga")\n```'
+    head = '```python\n# path/file.py\nimport os\nfrom math import pi\n```'
+    broken = '```python\ndef f(:\n    pass\n```'
+    good = '```python\ntithi = int(angle // 12) + 1\nprint(tithi)\n```'
+    other = '```python\nyoga = int(total // 13.33) + 1\n```'
+    text = f'# Lesson\n\nIntro.\n\n{shim}\n\n{head}\n\n{broken}\n\n## Tithi\n\nTithi is the angle.\n\n{good}\n\n## Yoga\n\n{other}\n'
+    assert build_app.pick_code(text, 'Yoga sums', near='Tithi is the angle.') == good
+    assert build_app.pick_code(f'{shim}\n\n{head}\n\n{broken}', 'Tithi') == ''
+    assert build_app.junk_path('/x/panchanga/_leela_agent_sessions/s.ipynb') and not build_app.junk_path('/x/panchanga/03_tithi.ipynb')
+
+def test_folder_filing_skips_hidden_and_underscore_folders(tmp_path):
+    "Filing a folder skips `_` folders such as `_leela_agent_sessions`, hidden folders and `.ipynb_checkpoints`."
+    from abhyasa.sources import tree_files
+    for d in ('lessons', '_leela_agent_sessions', '.ipynb_checkpoints', '_build'): (tmp_path/d).mkdir()
+    for d in ('lessons', '_leela_agent_sessions', '.ipynb_checkpoints', '_build'): (tmp_path/d/'a.md').write_text('# A\n\nText.\n')
+    names = {str(x) for x in tree_files(tmp_path)}
+    assert any('lessons' in n for n in names) and not any(k in n for n in names for k in ('_leela', 'checkpoints', '_build'))

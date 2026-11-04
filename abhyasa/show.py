@@ -26,19 +26,20 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD
            'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind',
            'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says',
            'leaks', 'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer',
-           'show', 'import_gallery', 'parked', 'on_stage', 'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask',
-           'words_q', 'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes',
-           'print_cell', 'code_piece', 'slide_source', 'hands_on', 'shown_step', 'slide_notes', 'needs_fill',
-           'fill_slide', 'fill_slides', 'poll_slide', 'walk_slides', 'talk_from_walk', 'talk_from_sources', 'fill_talk',
-           'walk_talk', 'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides',
-           'put_back', 'talk_again', 'talk_fresh', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go',
-           'end_run', 'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split',
-           'weak', 'recap', 'recap_html', 'shared_link', 'clean_link', 'link_rows', 'row_link', 'row_name', 'md_part',
-           'handout_html', 'new_brief', 'brief_chips', 'brief_asks', 'step_slide_minutes', 'end_minutes', 'fit_walk',
-           'fit_slides', 'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS',
-           'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS',
-           'WATCH', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'plain_say', 'check_line',
-           'parse_board', 'PageContext', 'clean_context', 'video_id', 'video_cues', 'stream_board']
+           'show', 'import_gallery', 'parked', 'on_stage', 'md_clean', 'clean_slide', 'check_talk', 'ask_from_gate',
+           'public_ask', 'words_q', 'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes',
+           'talk_minutes', 'print_cell', 'code_piece', 'slide_source', 'hands_on', 'shown_step', 'slide_notes',
+           'needs_fill', 'fill_slide', 'fill_slides', 'poll_slide', 'walk_slides', 'talk_from_walk',
+           'talk_from_sources', 'fill_talk', 'walk_talk', 'slide_marks', 'step_mark', 'walk_changes', 'talk_state',
+           'with_state', 'again_slides', 'put_back', 'talk_again', 'talk_fresh', 'image_type', 'asset_resolver',
+           'public_deck', 'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_output', 'log_question',
+           'log_beside', 'share_right', 'is_split', 'weak', 'recap', 'recap_html', 'shared_link', 'clean_link',
+           'link_rows', 'row_link', 'row_name', 'md_part', 'handout_html', 'new_brief', 'brief_chips', 'brief_asks',
+           'step_slide_minutes', 'end_minutes', 'fit_walk', 'fit_slides', 'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS',
+           'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST',
+           'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'WATCH', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at',
+           'cue_quote', 'plain_say', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'video_id',
+           'video_cues', 'stream_board']
 
 # %% ../nbs/05_show.ipynb #52f9ee07
 import hashlib, json, logging, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
@@ -1355,12 +1356,24 @@ def _ctrl_problems(sid, s:dict) -> list:
     "The fields of slide `s` with a control or direction mark."
     return [f'{sid}: the {k} has a control mark' for k in dict.fromkeys(k for k, v in _texts_of(s) if isinstance(v, str) and CTRL.search(v))]
 
+_RULE = re.compile(r'^\s*(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$', re.M)   # a markdown rule line: `* * *`, `---`, `___`
+_EMPTY_EM = re.compile(r'\*{4,}|_{4,}')                                         # empty bold or italic: `****`
+
+def md_clean(t:str) -> str:
+    """Text `t` for a slide, with no markdown that would show as marks: no rule lines, no empty bold, and no `**` with no pair. The bold of a pair
+    stays, so it shows as bold. The text of the source does not change otherwise."""
+    if not isinstance(t, str): return t
+    t = _EMPTY_EM.sub('', _RULE.sub('', t))
+    if t.count('**') % 2: t = t.replace('**', '')
+    return re.sub(r'\n{3,}', '\n\n', t).strip()
+
 def clean_slide(s:dict) -> dict:
     "A copy of slide `s` with no control or direction mark in the fields that a person or the tutor writes."
     s, c = deepcopy(s), lambda v: CTRL.sub('', v) if isinstance(v, str) else v
     for k in _TEXT_KEYS:
         if k in s: s[k] = c(s[k])
-    if isinstance(sh := s.get('show'), dict) and isinstance(sh.get('body'), list): sh['body'] = [c(x) for x in sh['body']]
+    if isinstance(sh := s.get('show'), dict) and isinstance(sh.get('body'), list): sh['body'] = [y for x in sh['body'] if (y := md_clean(c(x)))]
+    if isinstance(sh, dict) and isinstance(sh.get('passage'), str) and '```' not in sh['passage']: sh['passage'] = md_clean(sh['passage'])
     if isinstance(a := s.get('ask'), dict):
         if 'q' in a: a['q'] = c(a['q'])
         if isinstance(a.get('options'), list): a['options'] = [c(x) for x in a['options']]

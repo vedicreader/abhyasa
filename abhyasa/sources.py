@@ -206,7 +206,7 @@ def find_notebooks(roots):
     "Every `.ipynb` under `roots`."
     for root in map(Path, roots):
         for dp, dns, fns in os.walk(root):
-            dns[:] = [x for x in dns if x not in SKIP_DIRS]
+            dns[:] = [x for x in dns if x not in SKIP_DIRS and not x.startswith(('.', '_'))]   # no hidden folder, and no `_` folder: build output or agent sessions
             yield from (Path(dp)/f for f in fns if f.endswith('.ipynb'))
 
 #: the litesearch reader of a notebook: its markdown, its code in fences and its text outputs. It is used only by name.
@@ -824,7 +824,7 @@ def tree_files(root, want=()) -> L:
     in `root` to file first. `cut` says why it stopped early, or is ''."""
     root, got, seen, nbs, n = Path(root).resolve(), [], 0, 0, 0
     for dp, dns, fns in os.walk(root):   # `os.walk` does not go into a link to a folder
-        dns[:] = sorted(d for d in dns if d not in TREE_SKIP and not d.startswith('.'))
+        dns[:] = sorted(d for d in dns if d not in TREE_SKIP and not d.startswith(('.', '_')))   # a `_` folder is build output or agent sessions, such as `_leela_agent_sessions`
         for f in sorted(fns):
             seen += 1
             p = Path(dp)/f

@@ -4,7 +4,7 @@ Each conversation has one ramabana agent (`ramabana_lead`, with no web tools), k
 below. Each tool is a thin wrapper over an engine function or a hook of the talk block. A turn runs as a pool job (`build:<id>`), so the
 activity chip, Stop and the event stream of the jobs block work as for any job. The conversation keeps its events (`events.py`) and the brief,
 and the brief is copied to the walk or the talk that it made. When the app starts again, the next turn gets a short recap of the conversation."""
-import json, logging, re, threading, time
+import ast, json, logging, re, threading, time
 from collections import defaultdict
 from copy import deepcopy
 from functools import wraps
@@ -18,7 +18,7 @@ from abhyasa.core.pane import pane_link
 from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query
 from abhyasa.sources import named_sources, web_search, VaultSource
-from abhyasa.path import (walk_for_talk, file_chip, chip_state, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
+from abhyasa.path import (walk_for_talk, file_chip, file_link, chip_state, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
 from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slides, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
@@ -101,19 +101,42 @@ def wants_code(br) -> bool:
     "Whether brief `br` asks for code on the slides: its aim, rules, goal or audience says code or technical, and no code is off."
     return not br.get('no_code') and bool(_ASKS_CODE.search(' '.join(str(br.get(k) or '') for k in ('aim', 'rules', 'goal', 'audience'))))
 
+def good_code(code:str) -> bool:
+    "Whether `code` teaches: it parses (`ast.parse`), it is not a shim (`sys.modules`, `__import__`), and it is more than imports, comments and a doc string."
+    if 'sys.modules' in code or '__import__' in code: return False
+    try: tree = ast.parse(code)
+    except SyntaxError: return False
+    return any(not isinstance(n, (ast.Import, ast.ImportFrom)) and not (isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant)) for n in tree.body)
+
+def junk_path(u) -> bool:
+    "Whether the path or link `u` is in a hidden or `_` folder, such as `_leela_agent_sessions` or `.ipynb_checkpoints`: never a source of code."
+    return any(x.startswith(('.', '_')) and x not in ('.', '..') for x in str(u or '').split('/')[:-1])
+
 def pick_code(text, name, near='', strict=False) -> str:
-    """The code piece (`code_piece`) for the idea `name` from the source text `text`: the code block that names most words of the idea, else the first
-    block after the passage `near`. With `strict`, only a block that names the idea. '' when the source has no such code."""
-    blocks = [(m.start(), m.group(1)) for m in _CODE.finditer(text or '')]
+    """The code piece (`code_piece`) for the idea `name` from the source text `text`. Only a block that teaches (`good_code`), whose piece parses too.
+    First a block in the section of the passage `near`; else the block that names most words of the idea. With `strict`, only a block that names the idea."""
+    blocks = [(m.start(), m.group(1)) for m in _CODE.finditer(text or '') if good_code(m.group(1))]
     if not blocks: return ''
+    piece = lambda code: (p if good_code(p.removeprefix('```python\n').removesuffix('\n```')) else '') if (p := code_piece(f'```python\n{code}\n```')) else ''
+    at = (text or '').find(near[:80]) if near else -1
+    if at >= 0:   # the step's own section: from its passage to the next heading
+        end = m.start() if (m := re.compile(r'^#{1,3} ', re.M).search(text, at + len(near[:80]))) else len(text)
+        for k, code in blocks:
+            if at <= k < end and (p := piece(code)): return p
     ws = [w for w in re.findall(r'[a-z]{4,}', name.lower())]
     score = lambda b: sum(w in b.lower() for w in ws)
-    best = max(blocks, key=lambda x: score(x[1]))
-    if not score(best[1]) and strict: return ''
-    if not score(best[1]):
-        at = (text or '').find(near[:80]) if near else -1
-        best = next((b for b in blocks if b[0] >= at), blocks[0]) if at >= 0 else blocks[0]
-    return code_piece(f'```python\n{best[1]}\n```')
+    for k, code in sorted(blocks, key=lambda x: -score(x[1])):
+        if strict and not score(code): break
+        if (p := piece(code)): return p
+    return ''
+
+LINK_PAGES = 3   # the pages that a kept web find files: the page itself, and at most two pages beside it on the same topic
+
+def on_topic(d, topic:str) -> bool:
+    "Whether the filed page `d` is on `topic`: its title or the start of its text names a main word of the topic (5 letters or more)."
+    ws = {w for w in re.findall(r'[a-z]{5,}', topic.lower())}
+    if not ws: return True
+    return any(w in f"{d.title} {getattr(d, 'text', '') or ''}"[:3000].lower() for w in ws)
 
 def goal_of(br) -> str:
     """The goal that goes to the planner. With sources and research off, none: the walk then reads only those sources (a notebook as it is, or the
@@ -137,10 +160,13 @@ def connect(app, ctx):
         as a source. A link that abhyasa cannot read is left out, and its source in the brief of conversation `bid` becomes dropped, so no make fails on it.
         `filed.why` keeps the real reason of each link that failed, for the record of the walk (`record`)."""
         out, bad = [], {}
+        br = lr.build(bid).brief if bid else {}
         for c in chips:
             if not str(c).startswith('link:'): out.append(c); continue
-            try: ds = list(file_chip(lr, c))
+            try: ds = list(file_link(lr, c[5:], max_pages=LINK_PAGES))   # the page and at most a few pages beside it, never the whole site
             except Exception as e: log.warning('builder: could not file %s: %r', c, e); ds, bad[c] = [], f'abhyasa could not file {c[5:]}. {e}'.strip()
+            name = next((x.get('name') or '' for x in br.get('sources') or [] if x['id'] == c), '')
+            ds = [d for k, d in enumerate(ds) if k == 0 or on_topic(d, ' '.join((br.get('goal') or '', name)))]   # a page beside it that is off the topic goes
             if ds: out += [f'doc:{d.doc_id}' for d in ds]
             else: bad.setdefault(c, f'abhyasa could not file {c[5:]}: it has no text to read.')
         filed.why = bad
@@ -368,7 +394,7 @@ def connect(app, ctx):
             writer (`fill_slide`), which reads the old passage. The piece is word for word from the source. The count of slides that got code."""
             if not wants_code(br := rec().brief): return 0
             t = lr.talk(tid); j = lr.journey((t.get('src') or {}).get('walk') or '') or {}
-            others = [d for _, ds in chip_docs(lr, j.get('chips') or ()) for d in ds][:CODE_DOCS]
+            others = [d for _, ds in chip_docs(lr, j.get('chips') or ()) for d in ds if not junk_path(d.url)][:CODE_DOCS]
             texts, end = {}, time.monotonic() + CODE_SECS
             def text_of(shelf, doc_id):
                 "The text of a document, read one time for the whole talk; '' after the time for the search of code is over."
@@ -382,7 +408,7 @@ def connect(app, ctx):
             for x in t.slides:
                 sh, r = x.get('show') or {}, by.get(x.get('concept') or '') or {}
                 if x.get('kind') != 'idea' or '```' in (sh.get('passage') or ''): continue
-                piece, src = pick_code(text_of(r.get('shelf'), r.get('doc_id')), x.get('title') or '', r.get('text') or ''), r
+                piece, src = ('' if junk_path(r.get('url')) else pick_code(text_of(r.get('shelf'), r.get('doc_id')), x.get('title') or '', r.get('text') or '')), r
                 for d in ([] if piece else others):   # the step's own document has no code: a document of the sources that has code on the idea
                     if (piece := pick_code(text_of(d.shelf, d.doc_id), x.get('title') or '', strict=True)):
                         src = dict(src='vault:' + d.shelf, shelf=d.shelf, doc_id=d.doc_id, ref=d.doc_id, title=d.title, url=d.url, text=piece); break

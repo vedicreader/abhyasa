@@ -9,7 +9,7 @@ from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Inline, Cites, SourceLine, meta, n_of, asset_css, asset_js, stage_assets, edit_assets, EditList, Live, UndoBar, HistoryList, JobStop, JobAgain, Pill
 from fastcore.basics import AttrDict
-from abhyasa.show import talk_minutes, public_ask, share_right, needs_fill, slide_source, GONE, parked, row_link, row_name, CHANGE_MOST
+from abhyasa.show import md_clean, talk_minutes, public_ask, share_right, needs_fill, slide_source, GONE, parked, row_link, row_name, CHANGE_MOST
 from abhyasa.learner import val
 from .cfg import Routes
 
@@ -478,7 +478,7 @@ _TABLE = re.compile(r'^\s*\|?\s*:?-{3,}', re.M)   # the rule line under the head
 def Said(passage):
     """The paragraphs of a passage, each with its maths drawn, with the blank lines between them kept (the passage keeps its line breaks). A passage with code
     or a table is markdown, so the code keeps its lines and the table is a real table. An entity that a source left in its text (`&#x27;`) shows as its sign."""
-    passage = html.unescape(passage)
+    passage = md_clean(html.unescape(passage)) if '```' not in passage else html.unescape(passage)
     if '```' in passage or _TABLE.search(passage): return [Md(passage)]
     return [x for k, p in enumerate(re.split(r'\n\s*\n', passage.strip())) for x in (['\n\n'] if k else []) + [Inline(p)]]
 
@@ -490,7 +490,7 @@ def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):
     parts = []
     if kind in ('idea', 'primer'):
         if ps['passage'] and (k := part_at(beats, 'passage')): parts.append(Blockquote(*Said(ps['passage']), cls='passage', data_at=k, hidden=hide(k)))
-        if ps['body'] and (k := part_at(beats, 'body')): parts.append(Ul(*[Li(Inline(html.unescape(b))) for b in ps['body']], cls='points', data_at=k, hidden=hide(k)))
+        if ps['body'] and (k := part_at(beats, 'body')): parts.append(Ul(*[Li(Inline(x)) for b in ps['body'] if (x := md_clean(html.unescape(b)))], cls='points', data_at=k, hidden=hide(k)))
         if ps['figure'] and (k := part_at(beats, 'figure')):
             parts.append(Figure(Img(src=at_img(tid, ps['figure']), alt=f"The figure of {ps['title']}"), cls='fig', data_at=k, hidden=hide(k)))
         if demo and (k := part_at(beats, 'demo')): parts.append(Div(Demo(demo[1], data_demo=demo[0], **({'askable': False} if 'askable' in signature(Demo).parameters else {})), cls='demo', data_at=k, hidden=hide(k)))   # no ask control in the stage windows: no tutor listens there
@@ -504,7 +504,7 @@ def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):
     elif kind == 'next':   # a browser does not open a file:// link from an http page, so the presenter asks the server to open it
         crumb, head, say, p = '', ps['title'], '', unquote(urlsplit(ps['link']).path)
         parts.append(P(Button(f'Open {Path(p).name}', type='button', cls='btn small', hx_post=Routes.of(Routes.open, tid=tid), hx_swap='none', data_act='open-notebook')
-                       if presenter else Code(p), cls='next-link'))
+                       if presenter else Code(Path(p).name), cls='next-link'))   # the room sees the file name, never the local path
     else: crumb, head, say = '', ps['title'], 'This slide kind shows in a later version.'
     extra = dict(data_beats=json.dumps(beats), data_n=str(max(1, len(beats)))) if presenter else {}
     return Section(P(Inline(crumb), cls='crumb') if crumb else '', H1(Inline(head)), P(say, cls='say') if say else '',
