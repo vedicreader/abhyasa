@@ -642,7 +642,7 @@ def connect(app, ctx):
             s = ss[n - 1]
             if s.get('kind') not in IDEAS: raise Bad('Only a slide of an idea can show a demo.')
             if (s.get('show') or {}).get('demo') and s['show']['demo'] != slug and not replace:
-                new = {**deepcopy(s), 'id': new_id(ss), 'title': f"{s.get('title') or ''}: a second demo", 'show': {**(s.get('show') or {}), 'passage': '', 'body': [], 'demo': slug},
+                new = {**deepcopy(s), 'id': new_id(ss), 'own': True, 'title': f"{s.get('title') or ''}: a second demo", 'show': {**(s.get('show') or {}), 'passage': '', 'body': [], 'demo': slug},
                        'beats': ['demo'], 'notes': '', 'ask': None, 'mins': 2}
                 new['show'].pop('src', None)
                 ss.insert(n, new)

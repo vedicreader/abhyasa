@@ -525,3 +525,17 @@ def test_the_page_at_the_left_keeps_its_style_after_a_change(mk, lr, talk_fake, 
                 assert v['css'] and v['list'] == 'none' and v['rows'] == v['nos'] and v['landed'] == 1, v
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
+
+def test_a_talk_over_its_slot_after_the_slides_is_trimmed(mk, lr, talk_fake, agent, home):
+    "When the written slides are longer than the slot, the last ideas that are not kept are left out by their real minutes, and the result says so."
+    from abhyasa.show import talk_minutes, GONE
+    talk_fake.rules['You write one poll'] = POLL
+    cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    agent.script = make_talk_script(nb); say(cl, lr, bid, f'Make a talk from {nb}.')
+    tid = lr.build(bid).target[5:]
+    t = lr.talk(tid); lr.put_talk({**t, 'minutes': talk_minutes(t) - 1})   # one minute too long now
+    agent.script = lambda t_, p, s: t_['change_talk']('a little shorter')
+    say(cl, lr, bid, 'make it again')
+    t = lr.talk(tid)
+    r = fold(lr.build(bid).events)[-2]['result']
+    assert talk_minutes(t) <= t.minutes and 'To fit the slot, I left out' in r and any(s.get('section') == GONE for s in t.slides)

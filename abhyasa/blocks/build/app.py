@@ -19,7 +19,7 @@ from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query
 from abhyasa.sources import named_sources, web_search, VaultSource
 from abhyasa.path import (walk_for_talk, file_chip, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
-from abhyasa.show import (fit_walk, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
+from abhyasa.show import (GONE, fit_walk, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
 from .cfg import Routes
@@ -316,6 +316,22 @@ def connect(app, ctx):
             src = lambda s: ('from the web' if (s.get('read') or {}).get('src') == 'web' else f"from {(s.get('read') or {}).get('title') or 'your source'}") if (s.get('read') or {}).get('text') else 'no passage'
             return f"The walk “{x.title}”:\n" + '\n'.join(f"{n}. {name(s)} · {src(s)}" + (' · KEPT' if s.get('locked') or s['slug'] in kept else '') for n, s in enumerate(x.steps, 1))
 
+        def trim(tid) -> list:
+            """After a make or a remake: when the slides are still longer than the slot (the plan counts each slide before it is written), leave out
+            the last ideas that are not kept, by their real minutes, as `talk_again` parks them. No model call. The names that it left out."""
+            t = lr.talk(tid); slot = t.get('minutes') or 0
+            if not slot or (over := talk_minutes(t) - slot) <= 0: return []
+            j = lr.journey((t.get('src') or {}).get('walk') or '')
+            kept = set(rec().brief.get('keep') or [])
+            ideas = [s_ for s_ in t.slides if s_.get('kind') == 'idea' and s_.get('concept') and not s_.get('own') and s_.get('section') != GONE and s_['id'] not in kept]
+            out = []
+            while over > 0 and len(ideas) > 1:
+                s_ = ideas.pop(); out.append(s_['concept']); over -= s_.get('mins') or 0
+            if not out or not j: return []
+            lr.merge_journey(j.id, steps=[{**x, 'status': 'skip'} if x['slug'] in out else x for x in j.steps])
+            talk_again(lr, ctx.ask, tid, ctx.sources)
+            return [name_of(c) for c in out]
+
         def make_talk(minutes:int=0,  # the minutes of the slot; 0 keeps the brief
                       new:bool=False,  # true makes a new talk when one exists
                       ) -> str:
@@ -333,10 +349,11 @@ def connect(app, ctx):
             try: t = talk_from_walk(lr, Counting(ctx.ask, lambda k: stage(f'Writing slide {k} of {len(outline)}')), j.id, sources=ctx.sources)
             except BaseException: lr.drop_journey(j.id); raise
             t = lr.put_talk({**t, **({'minutes': mins} if mins else {}), 'brief': {**br, 'kind': 'talk', 'minutes': mins or t.minutes}, 'build': bid})
+            cut += [c for c in trim(t.id)]; t = lr.talk(t.id)
             with locks[bid]: lr.put_build({**rec(), 'target': f'talk:{t.id}', 'title': t.title})
             put_brief(bid, kind='talk', minutes=t.minutes)
             run_hook('concepts_added')
-            return (f"Made the talk “{t.title}”: {n_of(len(t.slides), 'slide')}. {slot_line(t)}" + (f" To fit the slot, I left out {', '.join(name_of(c) for c in cut)}." if cut else ''),
+            return (f"Made the talk “{t.title}”: {n_of(len([x for x in t.slides if x.get('section') != GONE]), 'slide')}. {slot_line(t)}" + (f" To fit the slot, I left out {', '.join(name_of(c) for c in cut)}." if cut else ''),
                     dict(outline=outline, cut=[name_of(c) for c in cut], slides=[s.get('title') for s in t.slides]))
 
         def make_walk(new:bool=False,  # true makes a new walk when one exists
@@ -382,7 +399,8 @@ def connect(app, ctx):
             who = dict(audience=br.get('audience') or '', no_code=bool(br.get('no_code')))
             if lr.journey(wid): lr.merge_journey(wid, **who, **({'goal': br['goal']} if br.get('goal') else {}))
             with edit_lock('talk', t.id): lr.put_talk({**lr.talk(t.id), **who})   # the remake writes for the audience of the brief
-            cut = fit_walk(lr, (t.get('src') or {}).get('walk') or '', int(br.get('minutes') or t.get('minutes') or 0))   # the slot still holds
+            own = sum(x.get('mins') or 0 for x in t.slides if x.get('own'))   # your own slides, such as a second demo, take part of the slot
+            cut = [name_of(c) for c in fit_walk(lr, wid, max(1, int(br.get('minutes') or t.get('minutes') or 0) - own))] if (br.get('minutes') or t.get('minutes')) else []
             was = {s['id']: deepcopy(s) for s in t.slides}
             (talk_fresh if fresh else talk_again)(lr, ctx.ask, t.id, ctx.sources, change=' '.join(x for x in (brief_asks(br), instruction) if x))
             with edit_lock('talk', t.id):   # the kept slides stay word for word: the change of the remake keeps them, and one Undo takes all of it back
@@ -393,8 +411,9 @@ def connect(app, ctx):
                     if any(x.get('kind') == 'poll' for x in ss): ss = [{**x, 'ask': deepcopy(old_poll.get('ask'))} if x.get('kind') == 'poll' else x for x in ss]
                     else: ss = [deepcopy(old_poll), *ss]
                 if ss != t2.slides: t2 = lr.put_talk({**t2, 'slides': ss})
+            cut += trim(t.id); t2 = lr.talk(t.id)
             ch = [dict(n=n, before=slide_view(was[s['id']]), after=slide_view(s)) for n, s in enumerate(t2.slides, 1) if s['id'] in was and slide_view(was[s['id']]) != slide_view(s)]
-            return (f"Made the talk again. {len(ch)} slides changed; {len(kept)} kept. {slot_line(t2)}" + (f" To fit the slot, I left out {', '.join(name_of(c) for c in cut)}." if cut else ''),
+            return (f"Made the talk again. {len(ch)} slides changed; {len(kept)} kept. {slot_line(t2)}" + (f" To fit the slot, I left out {', '.join(cut)}." if cut else ''),
                     dict(changed=ch))
 
         def edit_slide(slide:int,        # the number of the slide

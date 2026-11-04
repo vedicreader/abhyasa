@@ -28,12 +28,12 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD
            'leaks', 'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer',
            'show', 'import_gallery', 'parked', 'on_stage', 'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask',
            'words_q', 'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes',
-           'print_cell', 'code_piece', 'slide_source', 'shown_step', 'slide_notes', 'needs_fill', 'fill_slide',
-           'fill_slides', 'poll_slide', 'walk_slides', 'talk_from_walk', 'talk_from_sources', 'fill_talk', 'walk_talk',
-           'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides', 'put_back',
-           'talk_again', 'talk_fresh', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go', 'end_run',
-           'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split', 'weak',
-           'recap', 'recap_html', 'shared_link', 'clean_link', 'link_rows', 'row_link', 'row_name', 'md_part',
+           'print_cell', 'code_piece', 'slide_source', 'hands_on', 'shown_step', 'slide_notes', 'needs_fill',
+           'fill_slide', 'fill_slides', 'poll_slide', 'walk_slides', 'talk_from_walk', 'talk_from_sources', 'fill_talk',
+           'walk_talk', 'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state', 'again_slides',
+           'put_back', 'talk_again', 'talk_fresh', 'image_type', 'asset_resolver', 'public_deck', 'new_run', 'log_go',
+           'end_run', 'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split',
+           'weak', 'recap', 'recap_html', 'shared_link', 'clean_link', 'link_rows', 'row_link', 'row_name', 'md_part',
            'handout_html', 'new_brief', 'brief_chips', 'brief_asks', 'step_slide_minutes', 'end_minutes', 'fit_walk',
            'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS', 'VERSION',
            'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'WATCH',
@@ -1577,7 +1577,11 @@ def _idea(lr:Learning, ask, i:int, s:dict, sid:str, choice:bool, no_code:bool=Fa
     beats = [b for b in ('passage', 'figure', 'demo') if show[b]]
     c = lr.concept(s['slug']) or {}
     return dict(id=sid, kind='idea', step=i, concept=s['slug'], title=c.get('name') or s['slug'], section=r.get('section') or '',
-                show=show, beats=beats, notes=s.get('note') or '', ask=a, mins=slide_minutes(shown_step(s, passage) if read else s, a), **({'_read': read} if read else {}))
+                show=show, beats=beats, notes=s.get('note') or '', ask=a, mins=slide_minutes(shown_step(s, passage) if read or hands_on(s) else s, a), **({'_read': read} if read else {}))
+
+def hands_on(s:dict) -> bool:
+    "Whether the check of walk step `s` is hands-on work (a notebook or code), which a room does not do during a talk: its slide asks a question in its place."
+    return (s.get('check') or {}).get('kind') in ('notebook', 'code')
 
 def shown_step(s:dict, passage:str) -> dict:
     "Step `s` as its slide shows it, for its minutes: a slide that explains a section of a notebook shows only `passage` and has a question, not the hands-on check of the walk."
@@ -2530,7 +2534,7 @@ def step_slide_minutes(j:dict, s:dict) -> int:
     "The minutes of the slide of step `s` of walk `j`, as `_idea` counts them, with a question."
     r = s.get('read') or {}
     nb = bool(r.get('cells')) and bool((r.get('text') or '').strip())
-    return slide_minutes(shown_step(s, code_piece(r.get('text') or '')) if nb else s, dict(kind='words'))
+    return slide_minutes(shown_step(s, code_piece(r.get('text') or '')) if nb else shown_step(s, r.get('text') or '') if hands_on(s) else s, dict(kind='words'))
 
 def end_minutes(j:dict) -> int:
     "The minutes of the slides of a talk from walk `j` that are not ideas: the questions, and the recap, or the poll and the link to the notebook."
