@@ -43,7 +43,7 @@ def home(tmp_path, monkeypatch):
 
 def new_build(cl):
     "Open Build and give the conversation id."
-    return cl.get('/build', follow_redirects=False).headers['location'].split('/')[-1]
+    return cl.get('/build', follow_redirects=False).headers['location'].split('/')[2].split('?')[0]
 
 def say(cl, lr, bid, text):
     "Send one request and wait for its turn to end; give the conversation part."
@@ -58,11 +58,16 @@ def make_talk_script(nb):
     return go
 
 def test_build_page_and_start_link(mk, lr, agent):
-    "Home links to Build; the page shows the brief, the request box with a mic, and the empty place for the result."
+    "Home links to Build. Build is the empty page at the left with the builder open in the side pane; in the pane, the brief, the first message and the box with a mic."
     cl = mk()
     assert 'Make a walk or a talk by talking' in cl.get('/').text
-    h = cl.get(f'/build/{new_build(cl)}').text
-    assert 'The brief' in h and 'id="build-say"' in h and 'data-mic="label"' in h and 'The walk or the talk shows here' in h
+    loc = cl.get('/build', follow_redirects=False).headers['location']
+    bid = new_build(cl)
+    assert loc.startswith('/build/') and '?rh=%2Fbuild%2F' in loc
+    h = cl.get(loc).text
+    assert 'The walk or the talk that you make shows here.' in h and 'id="rh-pane"' in h and 'class="rh-open"' in h
+    p = cl.get(f'/build/{bid}?pane=1').text
+    assert 'Your brief' in p and 'id="build-say"' in p and 'data-mic="label"' in p and build_ui.FIRST in p and 'No sources yet. abhyasa uses the web.' in p
 
 def test_events_fold_to_items():
     "The adapter folds AG-UI events into the items of the pane: messages, a tool call with its stage, data and result, and a stopped run."
@@ -85,10 +90,11 @@ def test_flow_make_a_talk(mk, lr, talk_fake, agent, home):
     assert (b.brief['audience'], b.brief['minutes'], b.brief['kind']) == ('managers', 20, 'talk') and b.target.startswith('talk:')
     t = lr.talk(b.target[5:])
     assert t.minutes == 20 and t.brief['audience'] == 'managers' and t.build == bid
-    assert 'Making the talk' in h and 'I made the talk for managers' in h and 'research off' in h and 'agents.ipynb' in h
-    assert 'Tool calls' in h   # the outline of the talk shows under the tool line
-    r = cl.get(f'/build/{bid}/result').text
-    assert 'Tool calls' in r and 'a slot of 20 minutes' in r and 'Undo the last change' in r and 'tools = [' in r
+    assert 'Making the talk' in h and 'I made the talk for managers' in h and 'your material only' in h and 'agents.ipynb' in h
+    assert 'Tool calls' in h and 'What I read' in h and 'What changed' in h and 'agents.ipynb (main)' in h   # the outline, and the lines after the turn
+    assert cl.get(f'/build/{bid}', follow_redirects=False).headers['location'].startswith(f'/t/{t.id}?rh=')   # Build is the talk now, with the builder open
+    e = cl.get(f'/t/{t.id}').text
+    assert 'Tool calls' in e and 'Change with the builder' in e
     assert agent.kw['web'] is False and 'make_talk' in agent.names and 'research' in agent.names
     p = agent.prompts[0]
     assert 'The owner says:' in p and 'Use only this notebook' in p
@@ -108,7 +114,7 @@ def test_flow_change_one_slide_keep_another_and_undo(mk, lr, talk_fake, agent, h
     after = lr.talk(tid).slides
     assert after[1] == before[1] and after[2]['show']['body'] == ['A loop asks the model again.', 'It stops with no tool call.'] and after[2] != before[2]
     assert lr.build(bid).brief['keep'] == [before[1]['id']]
-    assert 'Changing slide 3' in h and 'Before' in h and 'After' in h and 'A loop asks the model again.' in h
+    assert 'Changing slide 3' in h and 'Slide 3 · before' in h and 'After' in h and '<del>' in h and '<ins>' in h and 'A loop asks the model again.' in h
     cl.post(f'/build/{bid}/undo')
     assert lr.talk(tid).slides[2]['show']['body'] == before[2]['show']['body'] and lr.talk(tid).slides[1] == before[1]   # Undo takes back the rewrite
     def again(t, p, stop):   # a change to a kept slide is refused, and the agent is told why
@@ -170,11 +176,11 @@ def test_change_with_the_builder_beside_a_talk(mk, lr, talk_fake, agent, home):
     bid = loc.split('/')[2].split('?')[0]
     assert lr.talk(tid).build == bid and lr.build(bid).brief['sources'][0]['id'] == f'file:{nb}'
     p = cl.get(loc).text
-    assert 'id="build-say"' in p and 'build-result' not in p   # in the pane: only the conversation; the editor is beside it
+    assert 'id="build-say"' in p and 'Your brief' in p and '<nav' not in p   # in the pane: only the builder; the editor is beside it
     agent.script = lambda t, p, s: t['edit_slide'](2, title='How the loop works')
     say(cl, lr, bid, 'call slide 2 How the loop works')
     assert lr.talk(tid).slides[1]['title'] == 'How the loop works' and 'Talk: ' not in agent.prompts[-1][:5]
-    assert cl.get(f'/build/open?talk={tid}', follow_redirects=False).headers['location'] == f'/build/{bid}'   # the same conversation again
+    assert cl.get(f'/build/open?talk={tid}', follow_redirects=False).headers['location'].startswith(f'/t/{tid}?rh=%2Fbuild%2F{bid}')   # the same conversation again
 
 def test_make_demo_puts_a_live_demo_on_the_slide(mk, lr, talk_fake, agent, home, monkeypatch):
     "Flow 5: make_demo wraps the demo maker, and the slide shows the demo live in the preview."
@@ -191,8 +197,8 @@ def test_make_demo_puts_a_live_demo_on_the_slide(mk, lr, talk_fake, agent, home,
     say(cl, lr, bid, 'add an interactive demo on slide 2 where people move the temperature')
     s = lr.talk(tid).slides[1]
     assert s['show']['demo'] and 'demo' in s['beats'] and asked[0][1].startswith('move the temperature')
-    r = cl.get(f'/build/{bid}/result').text
-    assert 'class="demo"' in r and 'data-demo=' in r
+    h = cl.get(f'/build/{bid}/chat').text
+    assert 'class="bd-demo"' in h and 'data-demo=' in h and 'On slide 2' in h
     cl.post(f'/t/{tid}/start')
     assert 'data-demo=' in cl.get(f'/t/{tid}/present').text
 
@@ -260,3 +266,38 @@ def test_askable_follows_rupaka():
     from inspect import signature
     from rupaka.render import Demo
     assert build_ui.askable(True) == ({'askable': True} if 'askable' in signature(Demo).parameters else {})
+
+def test_keep_all_and_drop_all(mk, lr, agent, monkeypatch):
+    "Keep all keeps each open find; a find that you dropped first stays dropped."
+    monkeypatch.setattr(build_app, 'web_search', lambda q, n: [dict(href=f'https://ex.org/{k}', title=f'T{k}', body='') for k in range(3)])
+    cl = mk(); bid = new_build(cl)
+    agent.script = lambda t, p, s: t['research']('x')
+    h = say(cl, lr, bid, 'research x')
+    assert '3 of 3 are open. The builder adds only what you keep.' in h and 'bd-call done ask' in h
+    cl.post(f'/build/{bid}/item', data=dict(url='https://ex.org/0', role='dropped'))
+    h = cl.post(f'/build/{bid}/item', data=dict(url='*', role='extra', urls='https://ex.org/0 https://ex.org/1 https://ex.org/2')).text
+    roles = {f['url']: f['role'] for f in lr.build(bid).brief['found']}
+    assert roles == {'https://ex.org/0': 'dropped', 'https://ex.org/1': 'extra', 'https://ex.org/2': 'extra'} and 'You decided each find.' in h
+    assert [s['id'] for s in lr.build(bid).brief['sources']] == ['link:https://ex.org/1', 'link:https://ex.org/2']
+
+def test_start_opens_the_builder(mk, lr, agent, home):
+    "Start in the Start box opens the page with the builder open: the text is the first message, the chips are main sources, and the turn runs."
+    cl = mk(); nb = home/'talks'/'agents.ipynb'
+    agent.script = lambda t, p, s: 'Fine.'
+    r = cl.post('/build/start', data=dict(q='for managers', sources=[f'file:{nb}'], talk='1')).json()
+    bid = r['url'].split('/')[2].split('?')[0]
+    wait_for(lambda: True if (j := lr.job(f'build:{bid}')) and j.state != 'running' else None, secs=10)
+    b = lr.build(bid)
+    assert b.brief['kind'] == 'talk' and b.brief['sources'][0] == dict(id=f'file:{nb}', name='agents.ipynb', role='main')
+    assert fold(b.events)[0] == dict(kind='user', text='for managers') and 'The owner says:\nfor managers' in agent.prompts[0]
+    assert cl.post('/build/start', data=dict(q='')).status_code == 422   # an empty box: the Start box does its own work
+
+def test_no_change_while_the_talk_runs(mk, lr, talk_fake, agent, home):
+    "During a run of the talk the builder changes nothing, and says why."
+    talk_fake.rules['You write one poll'] = POLL
+    cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    agent.script = make_talk_script(nb); say(cl, lr, bid, f'Make a talk from {nb}.')
+    tid = lr.build(bid).target[5:]; cl.post(f'/t/{tid}/start'); before = lr.talk(tid).slides
+    agent.script = lambda t, p, s: t['edit_slide'](2, title='New')
+    say(cl, lr, bid, 'rename slide 2')
+    assert lr.talk(tid).slides == before and build_ui.RUNNING in fold(lr.build(bid).events)[-2]['result']

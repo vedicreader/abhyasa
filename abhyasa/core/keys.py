@@ -47,6 +47,9 @@ KEYS = [
     ('Guide', 'D', 'Go to the next step'),
     ('Guide', 'esc', 'Stop the board'),
     ('Side pane', 'esc', 'Close the side pane'),
+    ('Builder', '⌥E', 'Open or close the builder'), ('Builder', '⌥S', 'Send your request'), ('Builder', '⌥D', 'Speak into the box'),
+    ('Builder', '⌥X', 'Stop the builder'), ('Builder', '⌥W', 'Go to the box'), ('Builder', '⌥A', 'Open or close the brief'),
+    ('Builder', '⌘Z', 'Undo the last change of the builder'), ('Builder', 'F', 'Keep the find'), ('Builder', 'X', 'Drop the find'),
     *PLAN_KEYS,
     ('Change the walk', 'W', 'Move the focus to the idea above'), ('Change the walk', 'S', 'Move the focus to the idea below'),
     ('Change the walk', '⇧W ⇧S', 'Move the idea up or down'), ('Change the walk', 'F', 'Lock or unlock the idea'),
@@ -92,6 +95,7 @@ SHORT = {
     'Learn a missing idea in a side walk, next to the slide': 'Side walk for a missing idea',
     'Back to the paper: close the side pane, and the slide grows back': 'Close the side pane',
     'Close the open question, the demo focus or the side pane. It never ends the talk': 'Close the question, demo or pane',
+    'Undo the last change of the builder': 'Undo the builder',
 }
 
 def short(a:str) -> str:
@@ -112,12 +116,13 @@ FLOAT = {'Everywhere': [('Everywhere', '⌥S'), ('Everywhere', '⌥C')],
          'Walk': [('Walk', '⌥S'), ('Walk', '⌥W'), ('Walk', '⌥B')],
          'Concept': [('Concept', '⌥E'), ('Everywhere', '⌥C')],
          'Graph': [('Graph', 'S'), ('Graph', 'F'), ('Graph', 'R')],
-         'Change the walk': [('Change the walk', '⌥S')], 'Talk plan': [('Talk plan', '⌥S')]}
+         'Change the walk': [('Change the walk', '⌥S'), ('Builder', '⌥E')], 'Talk plan': [('Talk plan', '⌥S'), ('Builder', '⌥E')],
+         'Builder': [('Builder', '⌥S'), ('Builder', '⌥X'), ('Builder', '⌥W'), ('Builder', '⌥A'), ('Builder', '⌘Z')]}
 FLOAT_MAX = 7
 
 def page_group(path:str) -> str:
     "The group of keys for the page at `path`; `Everywhere` for a page with no keys of its own."
-    for pre, g in (('/s/', 'Session'), ('/c/', 'Concept'), ('/library/graph', 'Graph'), ('/settings', 'Settings'), ('/library', 'Concepts')):
+    for pre, g in (('/build', 'Builder'), ('/s/', 'Session'), ('/c/', 'Concept'), ('/library/graph', 'Graph'), ('/settings', 'Settings'), ('/library', 'Concepts')):
         if path.startswith(pre): return g
     if re.fullmatch(r'/w/[^/]+(/edit)?/?', path): return 'Change the walk'   # the walk page has the plan to change in place
     if path.startswith('/w/'): return 'Walk'
