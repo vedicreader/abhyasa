@@ -324,7 +324,7 @@ def test_walk_from_your_sources_only(mk, lr, walk_fake, agent, home):
     agent.script = lambda t, p, s: t['make_walk']()
     say(cl, lr, bid, 'make it again')
     r = fold(lr.build(bid).events)[-2]['result']
-    assert r.startswith('Made the walk again from your sources only') and lr.edits('walk', jid)[0].what == 'Made the walk again from your sources only.'
+    assert r.startswith('Made the walk again from the brief') and lr.edits('walk', jid)[0].what == 'Made the walk again from the brief.' and 'have a passage' in r
     assert lr.build(bid).target == f'walk:{jid}' and not any(s.get('note') == 'my old note' for s in lr.journey(jid).steps)
     assert sum((w.get('parent') or {}).get('for') == 'talk' for w in lr.journeys()) == 0   # the plan of the remake is not left behind
     cl.post(f'/build/{bid}/undo')
@@ -409,3 +409,56 @@ def test_a_walk_titled_with_a_path_shows_a_readable_title():
     assert '>What is panchanga<' in h and 'title="panchanga/00_what_is_panchanga"' in h
     css = (Path(build_app.__file__).parents[1]/'walk'/'walk.css').read_text()
     assert '.walk-layout > * { min-width: 0; }' in css and 'overflow-wrap: anywhere' in css
+
+def test_the_line_of_a_turn_comes_from_the_tools(mk, lr, talk_fake, agent, home):
+    "The line of a turn says what the tools did; a reply that claims a change that no tool made is flagged; a call that did not work goes into What did not work."
+    talk_fake.rules['You write one poll'] = POLL
+    cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    agent.script = make_talk_script(nb); say(cl, lr, bid, f'Make a talk from {nb}.')
+    agent.script = lambda t, p, s: (t['edit_slide'](99, title='x'), 'I added the rule of 72 to slide 3.')[1]
+    h = say(cl, lr, bid, 'add the rule of 72')
+    last = h.split('class="bd-me"')[-1]
+    assert 'Nothing changed in the walk or the talk in this turn.' in last and 'What did not work' in last and 'Changing slide 99' not in last.split('What did not work')[0]
+    agent.script = lambda t, p, s: (t['edit_slide'](2, title='New title'), 'I renamed it and also added a demo.')[1]
+    h = say(cl, lr, bid, 'rename slide 2')
+    last = h.split('class="bd-me"')[-1]
+    assert 'Changed the title of slide 2.' in last.split('What the builder said')[0] and 'also added a demo' in last.split('What the builder said')[1]
+
+def test_undo_takes_back_a_whole_turn(mk, lr, talk_fake, agent, home):
+    "A turn that changed three slides comes back whole with one Undo."
+    talk_fake.rules['You write one poll'] = POLL
+    cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    agent.script = make_talk_script(nb); say(cl, lr, bid, f'Make a talk from {nb}.')
+    tid = lr.build(bid).target[5:]; before = lr.talk(tid).slides
+    agent.script = lambda t, p, s: [t['edit_slide'](n, title=f'T{n}') for n in (2, 3, 4)][-1]
+    say(cl, lr, bid, 'rename slides 2 to 4')
+    assert [s['title'] for s in lr.talk(tid).slides[1:4]] == ['T2', 'T3', 'T4']
+    cl.post(f'/build/{bid}/undo')
+    assert [s['title'] for s in lr.talk(tid).slides] == [s['title'] for s in before]
+
+def test_a_second_demo_goes_on_a_new_slide_and_a_walk_gets_demos(mk, lr, talk_fake, agent, home, monkeypatch):
+    "A slide with a demo keeps it, and a second demo goes on a new slide after it; a walk step can get a demo too."
+    from rupaka.spec import gallery
+    talk_fake.rules['You write one poll'] = POLL
+    monkeypatch.setattr(build_app, 'demo_maker', lambda l, ask, slug, said='': l.put_demo({**gallery()['softmax-temperature'], 'id': 'demo-' + said.split()[1]}, slug))
+    cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    agent.script = make_talk_script(nb); say(cl, lr, bid, f'Make a talk from {nb}.')
+    tid = lr.build(bid).target[5:]; n = len(lr.talk(tid).slides)
+    agent.script = lambda t, p, s: (t['make_demo'](2, 'a first demo'), t['make_demo'](2, 'a second demo'))[1]
+    say(cl, lr, bid, 'two demos on slide 2')
+    ss = lr.talk(tid).slides
+    assert len(ss) == n + 1 and ss[1]['show']['demo'] and ss[2]['show']['demo'] and ss[2]['title'].endswith('a second demo') and ss[2]['beats'] == ['demo']
+    md = home/'n.md'; md.write_text('# Attention\n\nScores become weights with softmax.\n')
+    bid2 = new_build(cl)
+    agent.script = lambda t, p, s: (t['add_source'](str(md)), t['set_brief'](kind='walk', research='off'), t['make_walk'](), t['make_demo'](1, 'move the scores'))[3]
+    say(cl, lr, bid2, 'a walk with a demo on step 1')
+    j = lr.journey(lr.build(bid2).target[5:])
+    assert j.steps[0]['check']['kind'] == 'demo' and lr.demo_for(j.steps[0]['slug'])
+
+def test_page_titles_and_rules_and_tables():
+    "A search result loses its breadcrumb; a slide fix is not a rule; a table in a passage is a real table, and an entity shows as its sign."
+    from fastcore.xml import to_xml
+    from abhyasa.blocks.talk.ui import Said
+    assert build_app.page_title('www.geeksforgeeks.org › nlp › self-attention-in-nlpSelf - Attention in NLP - GeeksforGeeks') == 'Self - Attention in NLP - GeeksforGeeks'
+    h = to_xml(Said('| a | b |\n|---|---|\n| the Moon&#x27;s | 2 |'))
+    assert '<table>' in h and "Moon's" in h and '&amp;#x27;' not in h

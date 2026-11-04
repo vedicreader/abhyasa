@@ -112,3 +112,6 @@ html.in-pane main:has(.bd) { padding: 0; max-width: none; }
 @keyframes landed { from { background: color-mix(in srgb, var(--acc) 12%, transparent); } to { background: transparent; } }
 .edit-list .ttl .pill.kept { margin-left: var(--s2, .5rem); }
 @media (prefers-reduced-motion: reduce) { .edit-list > li.edit-row.landed { animation: none; } }
+.bd-conflict { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); padding: var(--s2) 0; border-top: 1px solid var(--line); }
+.bd-conflict blockquote { margin: 0; font-size: var(--t-small); border-left: 2px solid var(--line); padding-left: var(--s3); }
+.bd-conflict > p { grid-column: 1 / -1; margin: 0; }

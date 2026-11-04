@@ -118,7 +118,8 @@ html:is(.present, .audience) main { max-width: none; margin: 0; padding: 0; anim
 #stage section.demo-alone .body > :not(.demo), #stage section.demo-alone > :is(.crumb, h1, .say) { display: none; }
 #stage .demo { align-self: stretch; position: relative; min-height: 0; overflow: hidden; }
 #stage .demo.tall { overflow-y: auto; scrollbar-width: none; }   /* the text keeps 14 px: the demo is taller than the box, and its scroll shows in the room */
-#stage .demo > [data-rupaka] { position: absolute; top: 0; left: 0; width: 560px; }   /* the width rupaka lays out at; talk.js zooms it to fit */
+#stage .demo > [data-rupaka] { position: absolute; top: 0; left: 0; width: 560px; }   /* the width rupaka lays out at; talk.js zooms it to fill its column, as far as the height lets it */
+#stage .demo .rk { max-width: none; }   /* rupaka's own cap of 640 px is for a page, not for a slide */
 /* a part never runs into the foot: it is clipped to its cell, after its type got smaller (talk.js `fitPoints`) */
 #stage .body > :is(.passage, .points) { align-self: stretch; min-height: 0; max-height: 100%; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
 #stage .body > .points { display: block; align-self: center; }
@@ -251,3 +252,6 @@ html.present #rh-pane .rh-own { display: none; }
 .talk-menu .talk-remake-form textarea { width: 100%; box-sizing: border-box; }
 .mini code { font-size: inherit; }   /* a name in code in the small picture of a slide stays small */
 .lrow-acts .talk-menu, .talk-line .talk-menu { display: inline-block; }
+
+/* a table in a passage: a real table, in the type of the slide */
+#stage .passage table { border-collapse: collapse; font-size: .82em; } #stage .passage :is(td, th) { padding: .2em .6em; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }

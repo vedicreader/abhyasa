@@ -635,15 +635,29 @@ def connect(app, ctx):
         except Bad as e: raise ValueError(str(e))
 
     @hook('talk_demo')
-    def talk_demo(tid, n, slug, who='tutor'):
-        "Show demo `slug` on slide `n` (from 1) of talk `tid`, as its demo beat. The line that says what changed."
-        def go(s):
+    def talk_demo(tid, n, slug, who='tutor', replace=False):
+        """Show demo `slug` on slide `n` (from 1) of talk `tid`, as its demo beat. A slide that shows another demo keeps it, and the new demo goes on a new
+        slide after it, on the same idea; with `replace`, the new demo takes its place. The line that says what changed."""
+        def go(ss):
+            s = ss[n - 1]
             if s.get('kind') not in IDEAS: raise Bad('Only a slide of an idea can show a demo.')
+            if (s.get('show') or {}).get('demo') and s['show']['demo'] != slug and not replace:
+                new = {**deepcopy(s), 'id': new_id(ss), 'title': f"{s.get('title') or ''}: a second demo", 'show': {**(s.get('show') or {}), 'passage': '', 'body': [], 'demo': slug},
+                       'beats': ['demo'], 'notes': '', 'ask': None, 'mins': 2}
+                new['show'].pop('src', None)
+                ss.insert(n, new)
+                return f'Put a second live demo on a new slide {n + 1}, after slide {n}.'
             s['show'] = {**(s.get('show') or {}), 'demo': slug}
             s['beats'] = with_part(s.get('beats') or [], 'demo', True)
             return f'Put a live demo on slide {n}.'
-        try: return changed_slide(tid, n, go, who)
-        except Bad as e: raise ValueError(str(e))
+        with edit_lock('talk', tid):
+            if not (t := lr.talk(tid)): raise ValueError('No such talk.')
+            ss = deepcopy(list(t.slides))
+            if not 1 <= n <= len(ss): raise ValueError(f'The talk has {n_of(len(ss), "slide")}.')
+            try:
+                said = go(ss); save(t, ss, said, who=who)
+            except Bad as e: raise ValueError(str(e))
+        return said
 
     def fig(tid:str, f:str=''):
         "A figure that a slide of the talk shows or can pick, for its small picture in the editor. No other file."

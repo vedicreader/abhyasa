@@ -1,5 +1,5 @@
 "The talk on the page: the editor with one row for each slide (an `EditList`: each field saves at once, with an Undo), and the parts on other pages."
-import json, math, re
+import html, json, math, re
 from inspect import signature
 from collections import Counter
 from datetime import datetime
@@ -473,9 +473,13 @@ def lits(beats, passage):
     "Each `lit:` beat as [beat, text]: words of the passage, or `#id` for a part of the figure or the demo."
     return [[k + 1, b[4:]] for k, b in enumerate(beats) if b.startswith('lit:') and (b[4:].startswith('#') or b[4:] in passage)]
 
+_TABLE = re.compile(r'^\s*\|?\s*:?-{3,}', re.M)   # the rule line under the head of a markdown table
+
 def Said(passage):
-    "The paragraphs of a passage, each with its maths drawn, with the blank lines between them kept (the passage keeps its line breaks). A passage with code is markdown, so the code keeps its lines."
-    if '```' in passage: return [Md(passage)]
+    """The paragraphs of a passage, each with its maths drawn, with the blank lines between them kept (the passage keeps its line breaks). A passage with code
+    or a table is markdown, so the code keeps its lines and the table is a real table. An entity that a source left in its text (`&#x27;`) shows as its sign."""
+    passage = html.unescape(passage)
+    if '```' in passage or _TABLE.search(passage): return [Md(passage)]
     return [x for k, p in enumerate(re.split(r'\n\s*\n', passage.strip())) for x in (['\n\n'] if k else []) + [Inline(p)]]
 
 def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):
@@ -486,7 +490,7 @@ def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):
     parts = []
     if kind in ('idea', 'primer'):
         if ps['passage'] and (k := part_at(beats, 'passage')): parts.append(Blockquote(*Said(ps['passage']), cls='passage', data_at=k, hidden=hide(k)))
-        if ps['body'] and (k := part_at(beats, 'body')): parts.append(Ul(*[Li(Inline(b)) for b in ps['body']], cls='points', data_at=k, hidden=hide(k)))
+        if ps['body'] and (k := part_at(beats, 'body')): parts.append(Ul(*[Li(Inline(html.unescape(b))) for b in ps['body']], cls='points', data_at=k, hidden=hide(k)))
         if ps['figure'] and (k := part_at(beats, 'figure')):
             parts.append(Figure(Img(src=at_img(tid, ps['figure']), alt=f"The figure of {ps['title']}"), cls='fig', data_at=k, hidden=hide(k)))
         if demo and (k := part_at(beats, 'demo')): parts.append(Div(Demo(demo[1], data_demo=demo[0], **({'askable': False} if 'askable' in signature(Demo).parameters else {})), cls='demo', data_at=k, hidden=hide(k)))   # no ask control in the stage windows: no tutor listens there

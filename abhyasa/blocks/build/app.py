@@ -17,8 +17,8 @@ from abhyasa.core import hook, run as run_hook, asset_css, asset_js, Page, n_of,
 from abhyasa.core.pane import pane_link
 from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query
-from abhyasa.sources import named_sources, web_search
-from abhyasa.path import (walk_for_talk, replan_walk, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
+from abhyasa.sources import named_sources, web_search, VaultSource
+from abhyasa.path import (walk_for_talk, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
 from abhyasa.show import (fit_walk, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
@@ -65,6 +65,13 @@ def slide_view(s) -> dict:
     label = (f"Research · {src.get('site') or src.get('title')}" if src.get('src') == 'web' else f"Your source · {src.get('title') or 'your file'}") if shown and sh.get('passage') else NO_SOURCE
     return dict(title=s.get('title') or '', body=list(sh.get('body') or []), notes=s.get('notes') or '', passage=sh.get('passage') or '' if shown else '', demo=sh.get('demo'), src=label)
 
+def page_title(t) -> str:
+    "The title of a web page from a search result, with no breadcrumb: `www.x.org › nlp › self-attention-in-nlpSelf - Attention in NLP` gives `Self - Attention in NLP`."
+    t = ' '.join(str(t or '').split())
+    if '›' in t: t = t.split('›')[-1].strip()
+    t = re.sub(r'^[a-z0-9]+(?:-[a-z0-9]+)+(?=[A-Z])', '', t)   # the slug of the last crumb, glued to the title
+    return t[:120]
+
 def slot_line(t) -> str:
     "The real minutes of talk `t` against its slot, as the editor counts them."
     n, slot = talk_minutes(t), t.get('minutes') or 0
@@ -95,6 +102,11 @@ def connect(app, ctx):
     locks, agents, jobs = defaultdict(threading.RLock), {}, {}
     key = lambda bid: f'build:{bid}'
     name_of = lambda slug: (lr.concept(slug) or {}).get('name') or slug
+    def sourced_line(j) -> str:
+        "How many steps of walk `j` have a passage, and from which sources: the real counts, for the summary of the turn."
+        r = [s_.get('read') or {} for s_ in j.steps]
+        have, web = sum(bool(x.get('text')) for x in r), sum(bool(x.get('text')) and x.get('src') == 'web' for x in r)
+        return f"{have} of {n_of(len(r), 'step')} {'has' if have == 1 else 'have'} a passage from a source" + (f", {web} from the web" if web else '') + '.'
     def outline_of(j): return dict(outline=[name_of(s['slug']) for s in j.steps], labels=[src_label(s.get('read')) for s in j.steps])
 
     # --- the conversation and the brief --------------------------------------------------------------------------
@@ -237,6 +249,7 @@ def connect(app, ctx):
                       ) -> str:
             "Change the brief. An empty field stays as it is."
             kw = {k: ' '.join(v.split()) for k, v in dict(kind=kind, goal=goal, aim=aim, audience=audience, rules=rules).items() if v.strip()}
+            if re.search(r'\b(slide|step|idea)s? \d', kw.get('rules', ''), re.I): raise ValueError('A rule covers the whole walk or talk. For one slide or step, use change_talk or change_walk with its number.')
             if kw.get('kind') not in (None, 'walk', 'talk'): raise ValueError('The kind is walk or talk.')
             if minutes: kw['minutes'] = int(minutes)
             for k, v in dict(research=research, no_code=no_code).items():
@@ -324,24 +337,21 @@ def connect(app, ctx):
             chips, goal, owner = brief_chips(br), br.get('goal') or '', brief_asks(br)
             if target(b)[0] == 'walk' and (j := thing(b)) and not new:
                 stage('Planning the walk again')
-                if chips and not goal_of(br):   # your sources only: the steps come from those sources alone, as one change with an Undo, on the same walk
-                    tmp = walk_for_talk(lr, ctx.ask, chips, '', br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=owner)
-                    try: j2, h = edit_walk(lr, j.id, lambda ss: deepcopy(tmp.steps), 'Made the walk again from your sources only.', who='tutor',
-                                           fields=dict(chips=chips, source=tmp.get('source'), notebook=tmp.get('notebook')))
-                    finally: lr.drop_journey(tmp.id)
-                    if h is None: return 'The walk from your sources only is the same as the walk now. Nothing changed.'
-                    put_brief(bid, kind='walk')
-                    return f"Made the walk again from your sources only: {len(j2.steps)} steps. Undo gives back the walk before it.", outline_of(j2)
-                else: j2, _ = replan_walk(lr, ctx.ask, j.id, ctx.sources, profile_text(lr.profile()), asks=owner, chips=chips, audience=br.get('audience') or '', no_code=bool(br.get('no_code')))
+                # the walk again from the brief: the chips are filed (a kept find too), and the steps take the place of the old ones, as one change with an Undo
+                tmp = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=owner)
+                try: j2, h = edit_walk(lr, j.id, lambda ss: deepcopy(tmp.steps), 'Made the walk again from the brief.', who='tutor',
+                                       fields=dict(chips=chips, source=tmp.get('source'), notebook=tmp.get('notebook')))
+                finally: lr.drop_journey(tmp.id)
+                if h is None: return 'The walk from the brief is the same as the walk now. Nothing changed.'
                 put_brief(bid, kind='walk')
-                return f"Planned the walk again: {len(j2.steps)} steps.", outline_of(j2)
+                return f"Made the walk again from the brief: {len(j2.steps)} steps. {sourced_line(j2)}", outline_of(j2)
             if not chips and not goal: raise ValueError('The brief has no source and no goal. Add a source, or set the goal.')
             j = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=owner)
             j = lr.merge_journey(j.id, parent=None, brief={**br, 'kind': 'walk'}, build=bid)
             with locks[bid]: lr.put_build({**rec(), 'target': f'walk:{j.id}', 'title': j.title})
             put_brief(bid, kind='walk')
             run_hook('concepts_added')
-            return f"Made the walk “{j.title}”: {len(j.steps)} steps.", outline_of(j)
+            return f"Made the walk “{j.title}”: {len(j.steps)} steps. {sourced_line(j)}", outline_of(j)
 
         def change_talk(instruction:str,  # what to change, in the owner's words
                         slides:str='',    # the numbers of the slides to change, such as "3"; empty makes the whole talk again
@@ -359,12 +369,20 @@ def connect(app, ctx):
                 t2 = lr.talk(t.id)
                 return ' '.join(out), dict(changed=[dict(n=n, before=v, after=slide_view(t2.slides[n - 1])) for n, v in before.items()])
             stage('Writing the talk again')
+            wid = (t.get('src') or {}).get('walk') or ''
+            who = dict(audience=br.get('audience') or '', no_code=bool(br.get('no_code')))
+            if lr.journey(wid): lr.merge_journey(wid, **who, **({'goal': br['goal']} if br.get('goal') else {}))
+            with edit_lock('talk', t.id): lr.put_talk({**lr.talk(t.id), **who})   # the remake writes for the audience of the brief
             cut = fit_walk(lr, (t.get('src') or {}).get('walk') or '', int(br.get('minutes') or t.get('minutes') or 0))   # the slot still holds
             was = {s['id']: deepcopy(s) for s in t.slides}
             (talk_fresh if fresh else talk_again)(lr, ctx.ask, t.id, ctx.sources, change=' '.join(x for x in (brief_asks(br), instruction) if x))
             with edit_lock('talk', t.id):   # the kept slides stay word for word: the change of the remake keeps them, and one Undo takes all of it back
                 t2 = lr.talk(t.id)
                 ss = [deepcopy(was[s['id']]) if s['id'] in kept and s['id'] in was else s for s in t2.slides]
+                old_poll = next((x for x in was.values() if x.get('kind') == 'poll'), None)
+                if old_poll and 'poll' not in instruction.lower():   # your poll stays, unless you asked to change it
+                    if any(x.get('kind') == 'poll' for x in ss): ss = [{**x, 'ask': deepcopy(old_poll.get('ask'))} if x.get('kind') == 'poll' else x for x in ss]
+                    else: ss = [deepcopy(old_poll), *ss]
                 if ss != t2.slides: t2 = lr.put_talk({**t2, 'slides': ss})
             ch = [dict(n=n, before=slide_view(was[s['id']]), after=slide_view(s)) for n, s in enumerate(t2.slides, 1) if s['id'] in was and slide_view(was[s['id']]) != slide_view(s)]
             return (f"Made the talk again. {len(ch)} slides changed; {len(kept)} kept. {slot_line(t2)}" + (f" To fit the slot, I left out {', '.join(name_of(c) for c in cut)}." if cut else ''),
@@ -396,16 +414,31 @@ def connect(app, ctx):
             if not (n := next((k for k, s in enumerate(t.slides, 1) if s.get('kind') == 'poll'), None)): raise ValueError('This talk has no poll.')
             return first(run_hook('talk_edit', t.id, n, dict(kind='choice', q=q, options='\n'.join(parts(options))))) or 'Nothing changed.'
 
-        def make_demo(slide:int,  # the number of the slide
-                      what:str,   # what the demo shows, in the owner's words, such as "move the temperature and see the probabilities change"
+        def make_demo(slide:int,          # the number of the slide, or of the step of a walk
+                      what:str,           # what the demo shows, in the owner's words, such as "move the temperature and see the probabilities change"
+                      replace:bool=False, # true changes the demo that the slide shows; false puts a second demo on a new slide after it
                       ) -> str:
-            "Make an interactive demo for a slide from the owner's words, and show it on the slide. To change a demo, call it again with the new words."
+            "Make an interactive demo from the owner's words, for a slide of the talk or a step of the walk, and show it there."
+            b = rec(); k, _ = target(b); x = thing(b)
+            if not x: raise ValueError('There is no walk or talk yet. Make one first.')
+            if k == 'walk':
+                if not 1 <= slide <= len(x.steps): raise ValueError(f'The walk has {n_of(len(x.steps), "step")}.')
+                slug = x.steps[slide - 1]['slug']
+                stage(f'Writing the demo for step {slide}')
+                d = demo_maker(lr, ctx.ask, slug, said=' '.join(what.split())[:300])
+                if d is None: raise ValueError('abhyasa could not make a demo that passed its checks. Try other words.')
+                d = lr.put_demo(d.spec, slug)   # the plain demo of the idea, so the step shows it
+                edit_walk(lr, x.id, lambda ss: [{**s_, 'check': {**(s_.get('check') or {}), 'kind': 'demo', 'way': 'demo'}} if s_['slug'] == slug else s_ for s_ in ss],
+                          f'Put a live demo on step {slide}.', who='tutor')
+                return f'Put a live demo on step {slide}.', dict(slide=slide, demo=d.slug, spec=d.spec, step=True)
             t = need('talk')
             if not 1 <= slide <= len(t.slides) or not (slug := t.slides[slide - 1].get('concept')): raise ValueError(f'Slide {slide} has no idea, so it cannot show a demo.')
             stage(f'Writing the demo for slide {slide}')
             d = demo_maker(lr, ctx.ask, slug, said=' '.join(what.split())[:300])
             if d is None: raise ValueError('abhyasa could not make a demo that passed its checks. Try other words.')
-            return first(run_hook('talk_demo', t.id, slide, d.slug)), dict(slide=slide, demo=d.slug, spec=d.spec)
+            said = first(run_hook('talk_demo', t.id, slide, d.slug, replace=replace))
+            at = slide + 1 if 'new slide' in said else slide
+            return said, dict(slide=at, demo=d.slug, spec=d.spec)
 
         def change_walk(instruction:str,  # what to change, in the owner's words
                         steps:str='',     # the numbers of the steps to change; empty lets the tutor pick
@@ -416,7 +449,10 @@ def connect(app, ctx):
             names = lambda w: [(lr.concept(s['slug']) or {}).get('name') or s['slug'] for s in w.steps]
             stage('The tutor reads what you asked')
             cs = propose(ctx.ask, j, {c.slug: c.name for c in lr.concepts()}, words)
-            if not cs: return 'The tutor found nothing to change.'
+            have = {s_['slug'] for s_ in j.steps} | {name_of(s_['slug']).lower() for s_ in j.steps}
+            dup = [c for c in cs if c.op == 'add' and ((c.get('slug') or '') in have or (c.get('name') or '').lower() in have)]
+            cs = [c for c in cs if c not in dup]   # a step that the walk has already is not added again
+            if not cs: return 'The tutor found nothing new to change.' + (f" The walk has {', '.join(c.get('name') or c.slug for c in dup)} already." if dup else '')
             stage('The tutor changes the walk')
             j2, _ = improve_walk(lr, ctx.ask, j.id, cs, ctx.sources, {})
             run_hook('concepts_added')
@@ -429,31 +465,76 @@ def connect(app, ctx):
             if not br.get('research', True): raise ValueError('Research is off in the brief. Use only the owner\'s sources.')
             rs = web_search(safe_query(query), FOUND_MOST)
             have = {f.get('url') for f in br.get('found') or []}
-            items = [dict(url=r.get('href'), title=' '.join(str(r.get('title') or r.get('href')).split())[:120], body=' '.join(str(r.get('body') or '').split())[:240], role='')
+            items = [dict(url=r.get('href'), title=page_title(r.get('title') or r.get('href')), body=' '.join(str(r.get('body') or '').split())[:240], role='')
                      for r in rs if r.get('href') and r.get('href') not in have][:FOUND_MOST]
             put_brief(bid, found=[*(br.get('found') or []), *items])
             if not items: return 'Research found nothing new.'
             return (f"Research found {len(items)} items. The owner keeps or drops each one in the pane. End your turn now, and ask the owner to keep or drop them.",
                     dict(items=[i['url'] for i in items]))
 
+        def docs_by_role():
+            "The filed documents of the sources of the brief, by role: `{role: [(source name, doc)]}`."
+            out = {}
+            for src in rec().brief.get('sources') or []:
+                if src.get('role') in ('main', 'extra'):
+                    for _, ds in chip_docs(lr, [src['id']]): out.setdefault(src['role'], []).extend((src.get('name') or src['id'], d) for d in ds)
+            return out
+
+        def passages(query:str,  # what to look for in the sources of the brief
+                     ) -> str:
+            "Passages, word for word, from the main and the extra sources of the brief, so that you can compare what they say."
+            out = []
+            for role, ds in docs_by_role().items():
+                for p in VaultSource(lr).search(query, 8):
+                    hit = next(((n, d) for n, d in ds if p.get('title') == d.title), None)
+                    if hit: out.append(f"[{role}] {hit[0]} · {hit[1].title}:\n{p.text[:700]}")
+            return '\n\n'.join(out[:6]) or 'No passage of your sources names this.'
+
+        def note_conflict(main_quote:str,  # the words of the main source, copied word for word
+                          extra_quote:str, # the words of the extra source that say something else, word for word
+                          ) -> str:
+            "Note a conflict: a main source and an extra source say different things. The main source wins. The owner sees both quotes."
+            def find(role, q):
+                q = ' '.join(q.split())
+                for n, d in docs_by_role().get(role) or []:
+                    try: text = ' '.join(lr.vault.document(d.doc_id, max_chars=400000, disk=False).text.split())
+                    except Exception: continue
+                    if q and q in text: return dict(quote=q, title=d.title, role=f'{role} source', href=f'/v/{d.shelf}/{d.doc_id}')
+            m, x = find('main', main_quote), find('extra', extra_quote)
+            if not m or not x: raise ValueError('Both quotes must be word for word from a main and an extra source. Use passages to copy them.')
+            rule = rec().brief.get('rules') or ''
+            won = f"I used the main source{' (your rule: ' + rule + ')' if rule else ''}."
+            return f"Conflict noted: {m['title']} against {x['title']}. {won}", dict(main=m, extra=x, won=won)
+
         def undo() -> str:
             "Take back the last change of the walk or the talk."
-            return undo_of(rec())
+            return undo_of(rec(), 1)
 
-        return [add_source, set_source, set_brief, keep, free, show, make_talk, make_walk, change_talk, edit_slide, set_poll, make_demo, change_walk, research, undo]
+        return [add_source, set_source, set_brief, keep, free, show, make_talk, make_walk, change_talk, edit_slide, set_poll, make_demo, change_walk, research, passages, note_conflict, undo]
 
-    def undo_of(b) -> str:
-        "Take back the newest change of the walk or the talk of conversation `b`, as the Undo of its editor does."
+    def edits_of(b) -> int:
+        "The count of the changes in the history of the walk or the talk of conversation `b`."
         k, i = target(b)
-        if k == 'talk':
-            with edit_lock('talk', i):
-                if not lr.talk(i): raise ValueError('There is no talk.')
-                e = lr.pop_edit('talk', i, None, apply=lambda e: lr.put_talk(with_state(lr.talk(i), e.before)))
-            return f'Undone: {e.what}' if e else 'Nothing to undo.'
-        if k == 'walk':
-            e, _ = undo_walk(lr, i)
-            return f'Undone: {e.what}' if e else 'Nothing to undo.'
-        return 'There is nothing to undo.'
+        return len(lr.edits(k, i)) if k in ('talk', 'walk') and i else 0
+
+    def undo_of(b, n=None) -> str:
+        """Take back the changes of the walk or the talk of conversation `b`, as the Undo of its editor does: with no `n`, each change of the last turn,
+        in one step (a turn that changed many slides comes back whole); else the `n` newest changes."""
+        k, i = target(b)
+        lt = b.get('last_turn') or {}
+        n = n or (lt.get('n') if lt.get('target') == b.get('target') and lt.get('n') else 1)
+        whats = []
+        for _ in range(n):
+            if k == 'talk':
+                with edit_lock('talk', i):
+                    if not lr.talk(i): raise ValueError('There is no talk.')
+                    e = lr.pop_edit('talk', i, None, apply=lambda e: lr.put_talk(with_state(lr.talk(i), e.before)))
+            elif k == 'walk': e, _ = undo_walk(lr, i)
+            else: return 'There is nothing to undo.'
+            if not e: break
+            whats.append(e.what)
+        with locks[b['id']]: lr.put_build({**lr.build(b['id']), 'last_turn': {}})
+        return f"Undone: {'; '.join(whats)}" if whats else 'Nothing to undo.'
 
     def tooled(bid, st, f):
         "Tool `f` of conversation `bid`, with its events: a start with its arguments, its stages, its data and its result. An error goes back to the model as text."
@@ -515,6 +596,15 @@ def connect(app, ctx):
             b = lr.build(bid); p = ask_of(b, text, st.fresh)
             lr.put_build({**b, 'note': ''})
         st.fresh = False
+        n0 = edits_of(b)
+        try: return turn_body(bid, x, st, em, p)
+        finally:   # the changes of this turn, so one Undo takes back all of them
+            with locks[bid]:
+                b2 = lr.build(bid)
+                lr.put_build({**b2, 'last_turn': dict(target=b2.get('target'), n=edits_of(b2) - (n0 if b2.get('target') == b.get('target') else 0))})
+
+    def turn_body(bid, x, st, em, p):
+        "The body of a turn: the events of a ramabana that gives them, or the ask of an older ramabana."
         if st.native: return native(bid, x, p)
         em.ev('RUN_STARTED', runId=new_id())
         try: r = x.a.ask(p, result=True, stop=st.stop)
@@ -653,6 +743,9 @@ def connect(app, ctx):
         ss = [s for s in b.brief.get('sources') or [] if s['id'][5:] not in pick or not s.get('found')]
         ss += [dict(id=f'link:{u}', name=now[u].get('title') or u, role='extra', found=True) for u in now if u in pick and now[u].get('role') == 'extra']
         put_brief(bid, by='owner', found=found, sources=ss)
+        if not any(not x.get('role') for x in found) and (k := sum(x.get('role') == 'extra' for x in found if x.get('url') in now)):   # each find is decided: the builder uses the kept ones now
+            d = sum(x.get('role') == 'dropped' for x in found)
+            start_turn(bid, f"I kept {n_of(k, 'find')} and dropped {d}. Use the kept finds now: make the {lr.build(bid).brief.get('kind') or 'walk'} again with them.")
         return live(bid)
 
     def undo(bid:str):

@@ -1,7 +1,7 @@
 """The pieces of the builder, as the design says: the brief fold, the thread of turns (your message, one row for each tool call with its view
 from `RENDER`, then one line and the openable What I read and What changed), and the box. The builder is a page in the side pane at the right;
 the walk or the talk is the page at the left. Each piece is small, with the `.bd-*` classes of build.css."""
-import json
+import json, re
 from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import Primary, Secondary, Quiet, Md, JobStop, Pill, Empty, n_of
@@ -38,7 +38,8 @@ LINES = dict(add_source=lambda a: f"Adding {_name(a.get('ref'))}", set_source=la
              change_talk=lambda a: f"Changing slide {a['slides']}" if a.get('slides') else 'Making the talk again',
              edit_slide=lambda a: f"Changing slide {a.get('slide')}", set_poll=lambda a: 'Changing the poll',
              make_demo=lambda a: f"Making the demo for slide {a.get('slide')}", change_walk=lambda a: 'Changing the walk',
-             research=lambda a: f"Looking on the web for {a.get('query')}", undo=lambda a: 'Taking back the last change')
+             research=lambda a: f"Looking on the web for {a.get('query')}", undo=lambda a: 'Taking back the last change',
+             passages=lambda a: f"Reading your sources on {a.get('query')}", note_conflict=lambda a: 'Noting a conflict between your sources')
 
 def line(name, args) -> str:
     "The short line of the call of tool `name` with `args`."
@@ -133,22 +134,43 @@ def turns(items) -> list:
         elif x['kind'] == 'run': cur['run'] = x
     return out
 
+BRIEF_TOOLS = ('add_source', 'set_source', 'set_brief', 'keep', 'free')
+CLAIM = re.compile(r"\b(changed|made|rewrote|added|removed|dropped|put|moved|shortened|simplified|hid)\b", re.I)
+
+def Conflict(d):
+    "One conflict that the builder found: both quotes word for word, each with its source, and the source that won."
+    q = lambda x: Div(Blockquote(x.get('quote') or ''), P(Span(x.get('role') or '', cls='pill'), ' ', A(x.get('title') or '', href=x.get('href')) if x.get('href') else x.get('title') or '', cls='src-line mute'))
+    return Li(q(d.get('main') or {}), q(d.get('extra') or {}), P(d.get('won') or '', cls='mute'), cls='bd-conflict')
+
 def Turn(t, b, changers, last=False, href=''):
-    "One turn: your message, the tool calls, then the line of the builder with Undo on the newest change, and What I read and What changed."
+    """One turn: your message, the tool calls, then one line built from what the tools did (never from the words of the model), with Undo,
+    and the openable parts: What I read, Conflicts, What changed, What the builder said, and the log of the calls that did not work."""
     calls, said = t['calls'], t['said']
-    changed = [x for x in calls if x['name'] in changers and x['status'] == 'done' and not failed(x)]
+    ok = lambda x: x['status'] == 'done' and not failed(x)
+    shown = [x for x in calls if x['name'] in LINES and x['name'] != 'note_conflict' and not failed(x)]
+    hidden = [x for x in calls if x not in shown and x['name'] != 'note_conflict']
+    changed = [x for x in calls if x['name'] in changers and ok(x)]
+    facts = [x['result'] for x in calls if ok(x) and x['name'] in (*changers, *BRIEF_TOOLS)]
+    conflicts = [x['data'] for x in calls if x['name'] == 'note_conflict' and ok(x) and x.get('data')]
     undo = Quiet('Undo', ' ', Kbd('⌘Z'), type='button', small=True, hx_post=at(Routes.undo, b.id), hx_target='#build-live', hx_swap='outerHTML', data_undo='1') if last and changed else ''
+    reply = said[-1] if said else ''
+    if facts: line = Div(P(' '.join(facts)), undo, cls='bd-said')
+    elif reply: line = Div(Md(reply), *([P('Nothing changed in the walk or the talk in this turn.', cls='mute')] if CLAIM.search(reply) and not t.get('run') else []), cls='bd-said')
+    else: line = ''
     read = [Li(f"{s.get('name') or s['id']} ({s.get('role')})") for s in b.brief.get('sources') or [] if s.get('role') != 'dropped']
-    more = (Details(Summary('What I read'), Ul(*read) if read else P(NO_SOURCES, cls='mute'), cls='bd-more'),
-            Details(Summary('What changed'), Ul(*[Li(x['result'], ' ', A('See it', href=href) if href else '') for x in changed]), cls='bd-more')) if changed else ()
+    more = (*((Details(Summary('What I read'), Ul(*read) if read else P(NO_SOURCES, cls='mute'), cls='bd-more'),) if changed else ()),
+            *((Details(Summary('Conflicts'), Ul(*map(Conflict, conflicts), cls='plain'), cls='bd-more', open=True),) if conflicts else ()),
+            *((Details(Summary('What changed'), Ul(*[Li(x['result'], ' ', A('See it', href=href) if href else '') for x in changed]), cls='bd-more'),) if changed else ()),
+            *((Details(Summary('What the builder said'), *[Md(x) for x in said], cls='bd-more'),) if said and facts else ()),
+            *((Details(Summary('What did not work'), Ul(*[Li(line_(x), ': ', x['result']) for x in hidden]), cls='bd-more'),) if hidden else ()))
     run = t.get('run')
     end = (P(Span('Not done: ', cls='k'), run['text'], cls='bd-said no') if run['state'] != 'stopped' else P(run['text'], cls='bd-said mute')) if run else ''
-    reply = said[-1] if said else ''
-    steps = Details(Summary('What I did'), Ul(*[Li(s) for s in said[:-1]]), cls='bd-more') if len(said) > 1 else ''
-    body = (Ol(*[RENDER.get(x['name'], Plain)(x, b) for x in calls], cls='bd-calls') if calls else '',
-            Div(Md(reply), undo, cls='bd-said') if reply else Div(undo, cls='bd-said') if undo else '', end, steps, *more)
+    steps = Details(Summary('What I did'), Ul(*[Li(x) for x in said[:-1]]), cls='bd-more') if len(said) > 1 and not facts else ''
+    body = (Ol(*[RENDER.get(x['name'], Plain)(x, b) for x in shown], cls='bd-calls') if shown else '', line, end, steps, *more)
     return (Li(P(t['me']['text']), cls='bd-me') if t['me'] else '', *[Li(n, cls='bd-note') for n in t['notes']],
             Li(*body, cls='bd-turn') if calls or said or run else '')
+
+def line_(x): return line(x['name'], x['args'])
 
 # --- the brief ------------------------------------------------------------------------------------------------------
 
