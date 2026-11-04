@@ -45,3 +45,11 @@ def test_talks_page_2_and_home_teach(mk, lr):
     assert len(re.findall(r'href="/t/t\d+" class="jt"', p2)) == 5 and 'Page 2 of 2' in p2
     f = cl.get('/talks', params=dict(q='Talk 03')).text
     assert len(re.findall(r'href="/t/t\d+" class="jt"', f)) == 1
+
+def test_newest_sorts_by_the_made_time_and_last_used_by_use(mk, lr):
+    "Newest puts the walk or talk made last first; Last used puts the one used last first. An old walk that you read now, or an old talk that you changed now, differs."
+    walks(lr, 3); lr.merge_journey('w0', started=time.time())   # the oldest walk, used now
+    talks(lr, 3); lr.put_talk({**lr.talk('t0'), 'minutes': 12})   # the oldest talk, changed now
+    cl = mk(); order = lambda h, k: re.findall(rf'href="/{k}/({k}\d+)" class="jt"', h)
+    assert order(cl.get('/walks').text, 'w')[0] == 'w0' and order(cl.get('/walks', params=dict(sort='new')).text, 'w')[0] == 'w2'
+    assert order(cl.get('/talks').text, 't')[0] == 't0' and order(cl.get('/talks', params=dict(sort='new')).text, 't')[0] == 't2'
