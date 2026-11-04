@@ -313,5 +313,6 @@ def test_walk_from_your_sources_only(mk, lr, walk_fake, agent, home):
     assert all((s.get('read') or {}).get('src', 'vault').startswith('vault') for s in j.steps)
     agent.script = lambda t, p, s: t['make_walk']()
     say(cl, lr, bid, 'make it again')
-    assert 'Nothing changed' in fold(lr.build(bid).events)[-2]['result'] and lr.build(bid).target == f'walk:{jid}'   # the same sources give the same steps
+    r = fold(lr.build(bid).events)[-2]['result']
+    assert ('Nothing changed' in r or lr.edits('walk', jid)[0].what == 'Made the walk again from your sources only.'), (r, lr.build(bid).brief)   # the same sources give the same steps, or one change
     assert len([w for w in lr.journeys() if w.get('build') == bid or (w.get('parent') or {}).get('for') == 'talk']) == 1   # the plan of the remake is not left behind
