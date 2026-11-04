@@ -9,7 +9,7 @@ from .cfg import Routes
 
 _P = Path(__file__).parent
 STATE = dict(done='done', ready='ready', planned='planned', building='abhyasa plans it now', skipped='skipped', known='known (learned elsewhere)')
-SOURCE = dict(ready='ready', filing='filing', failed='failed')
+SOURCE = dict(ready='ready', filing='filing', failed='failed', unknown='no record')
 PLANNING = 'abhyasa plans the stages of your course. This takes about half a minute.'
 ASKING = 'The tutor writes a few short questions.'
 BUILDING = 'abhyasa plans the ideas of this stage. This takes about half a minute.'
@@ -103,8 +103,9 @@ def Blocking(st, cid):
 
 def Sources(c):
     "The sources of the course, each with its state."
-    rows = [Li(B(s['root']), Span(f" · {s['kind']} · {SOURCE.get(s.get('status'), s.get('status'))}" + (f" · {n_of(s['count'], 'document')}" if s.get('count') else ''), cls='mute'),
-               P(s['why'], cls='mute') if s.get('status') == 'failed' and s.get('why') else '') for s in c.get('sources') or ()]
+    name = lambda s: A(s['root'], href=s['href'], **({'target': '_blank', 'rel': 'noopener'} if str(s['href']).startswith('http') else {})) if s.get('href') else B(s['root'])
+    rows = [Li(name(s), Span(f" · {s['kind']} · {SOURCE.get(s.get('status'), s.get('status'))}" + (f" · {n_of(s['count'], 'document')}" if s.get('count') else ''), cls='mute'),
+               P(s['why'], cls='mute') if s.get('status') in ('failed', 'unknown') and s.get('why') else '') for s in c.get('sources') or ()]
     return Part('Sources', Ul(*rows, cls='plain course-sources') if rows else Empty('This course has no sources of its own. The tutor reads your vault.'))
 
 def Data(c, err=''):

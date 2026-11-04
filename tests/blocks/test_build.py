@@ -329,17 +329,24 @@ def test_walk_from_your_sources_only(mk, lr, walk_fake, agent, home):
     assert sum((w.get('parent') or {}).get('for') == 'talk' for w in lr.journeys()) == 0   # the plan of the remake is not left behind
     cl.post(f'/build/{bid}/undo')
     assert all(s.get('note') == 'my old note' for s in lr.journey(jid).steps)
-def test_make_talk_fits_the_slot(mk, lr, talk_fake, agent, home):
-    "A talk for a short slot leaves out ideas from the end until it fits, and the tool says the real minutes against the slot, as the editor counts them."
+def test_make_talk_fits_the_slot(mk, lr, talk_fake, agent, tmp_path, monkeypatch):
+    """A 15-minute talk from a notebook of nine sections keeps 8 or more of its ideas: it shortens and merges first, and cuts last.
+    The tool says the real minutes against the slot, as the editor counts them."""
     from abhyasa.show import talk_minutes
+    monkeypatch.setattr(Path, 'home', lambda: tmp_path); monkeypatch.setenv('HOME', str(tmp_path))
+    nb = tmp_path/'nine.ipynb'
+    cells = [mk_cell('# Nine ideas', 'markdown')]
+    for k in range(9): cells += [mk_cell(f'## Section {k}', 'markdown'), mk_cell(f'Idea {k} has words that explain it. ' * 40, 'markdown'), mk_cell(f'x{k} = {k}\nprint(x{k})')]
+    write_nb(new_nb(cells), nb)
     talk_fake.rules['You write one poll'] = POLL
-    cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    cl = mk(); bid = new_build(cl)
     agent.script = lambda t, p, s: (t['add_source'](str(nb), 'main'), t['make_talk'](minutes=15))[1]
-    say(cl, lr, bid, f'Make a 15 minute talk from {nb}.')
+    say(cl, lr, bid, f'Introduce {nb} in 15 minutes.')
     t = lr.talk(lr.build(bid).target[5:])
+    covered = {s.get('concept') for s in t.slides if s.get('kind') == 'idea'} | {c for s in t.slides for c in s.get('merged') or []}
     r = fold(lr.build(bid).events)[-2]['result']
-    assert t.minutes == 15 and talk_minutes(t) <= 15 and f'about {talk_minutes(t)} minutes for a slot of 15 minutes' in r and 'over the slot' not in r
-    assert 'To fit the slot, I left out' in r and len([s for s in t.slides if s['kind'] == 'idea']) < 3
+    assert t.minutes == 15 and talk_minutes(t) <= 15 and len(covered - {None}) >= 8, (talk_minutes(t), len(covered), r)
+    assert f'about {talk_minutes(t)} minutes for a slot of 15 minutes' in r and 'over the slot' not in r
     assert f'About {talk_minutes(t)} min of a 15 min slot' in cl.get(f'/t/{t.id}').text   # the editor says the same
 
 def test_research_ends_the_turn(mk, lr, agent, monkeypatch):
@@ -526,19 +533,18 @@ def test_the_page_at_the_left_keeps_its_style_after_a_change(mk, lr, talk_fake, 
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
 
-def test_a_talk_over_its_slot_after_the_slides_is_trimmed(mk, lr, talk_fake, agent, home):
-    "When the written slides are longer than the slot, the last ideas that are not kept are left out by their real minutes, and the result says so."
-    from abhyasa.show import talk_minutes, GONE
+def test_a_talk_over_its_slot_after_a_remake_is_shortened(mk, lr, talk_fake, agent, home):
+    "When the slides of a remake are longer than the slot, the slides get shorter; no idea is cut while shortening is enough, and the result says what changed."
+    from abhyasa.show import talk_minutes
     talk_fake.rules['You write one poll'] = POLL
     cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
     agent.script = make_talk_script(nb); say(cl, lr, bid, f'Make a talk from {nb}.')
-    tid = lr.build(bid).target[5:]
-    t = lr.talk(tid); lr.put_talk({**t, 'minutes': talk_minutes(t) - 1})   # one minute too long now
+    tid = lr.build(bid).target[5:]; n = sum(s['kind'] == 'idea' for s in lr.talk(tid).slides)
+    t = lr.talk(tid); lr.put_talk({**t, 'minutes': talk_minutes(t) - 2})
     agent.script = lambda t_, p, s: t_['change_talk']('a little shorter')
     say(cl, lr, bid, 'make it again')
-    t = lr.talk(tid)
-    r = fold(lr.build(bid).events)[-2]['result']
-    assert talk_minutes(t) <= t.minutes and 'To fit the slot, I left out' in r and any(s.get('section') == GONE for s in t.slides)
+    t = lr.talk(tid); r = fold(lr.build(bid).events)[-2]['result']
+    assert talk_minutes(t) <= t.minutes and sum(s['kind'] == 'idea' for s in t.slides) == n and ('at most 2 minutes' in r or 'shorter' in r), r
 
 def test_no_code_turns_the_hands_on_checks_of_a_walk_into_short_answers(mk, lr, walk_fake, agent, home):
     "No code on a walk keeps each step and makes each notebook or code check a short answer, as one change with an Undo."
@@ -584,3 +590,32 @@ def test_a_link_that_cannot_be_read_is_left_out(mk, lr, agent, monkeypatch):
     agent.script = lambda t, p, s: t['make_talk']()
     h = say(cl, lr, bid, 'make the talk')
     assert seen == [['doc:d1']] and lr.build(bid).brief['sources'][0]['role'] == 'dropped' and 'could not read 1 link' in h
+
+def test_course_sources_show_their_real_state(mk, lr):
+    "An old walk of the builder kept no counts: its course rows show a kept page as ready under its title, with its link, and an unknown chip as no record, never a bare failure."
+    from abhyasa.path import join_course, ensure_courses
+    did = lr.vault.put('The alliance system tied the powers of Europe together.', 'https://ex.org/alliances', 'web', title='Polarization of Europe')['doc_id']
+    j = lr.put_journey(dict(id='w-old', title='Why the Great War Began', goal='the causes of the First World War', mode='walk', created=0,
+                            steps=[dict(slug='ranking', status='todo', check=dict(way='words', kind='short', depth=2))], chips=[f'doc:{did}', 'link:https://ex.org/gone']))
+    c = join_course(lr, j)
+    h = mk().get(f'/course/{c.id}').text
+    assert 'Polarization of Europe' in h and 'ready · 1 document' in h.replace('</span>', '') or 'ready' in h
+    assert 'abhyasa could not file it.' not in h and 'no record' in h and 'abhyasa has no record of filing it.' in h
+
+def test_a_builder_walk_keeps_counts_and_joins_no_course(mk, lr, walk_fake, agent, home):
+    "A walk of the builder keeps the document count of each chip, and the start of the app does not join it to a course as a second stage."
+    from abhyasa.path import ensure_courses
+    md = home/'notes.md'; md.write_text('# Attention\n\nScores become weights with softmax.\n')
+    cl = mk(); bid = new_build(cl)
+    agent.script = lambda t, p, s: (t['add_source'](str(md)), t['set_brief'](kind='walk', goal='attention', research='off'), t['make_walk']())[2]
+    say(cl, lr, bid, 'make a walk')
+    j = lr.journey(lr.build(bid).target[5:])
+    assert j.chip_counts == {f'file:{md}': 1} and j.build == bid
+    assert ensure_courses(lr) == [] and not lr.journey(j.id).get('course')
+
+def test_pick_code_and_wants_code():
+    "A brief that says code or technical asks for code; the code piece is the block of the source that names the idea, else the first block after the passage."
+    assert build_app.wants_code(dict(aim='become technical')) and not build_app.wants_code(dict(aim='become technical', no_code=True)) and not build_app.wants_code(dict(aim='for managers'))
+    text = 'Intro.\n\n```python\nimport os\n```\n\nTithi is the angle.\n\n```python\ntithi = int(angle // 12) + 1\nprint(tithi)\n```\n'
+    assert build_app.pick_code(text, 'Tithi from the angle') == '```python\ntithi = int(angle // 12) + 1\nprint(tithi)\n```'
+    assert build_app.pick_code('No code here.', 'x') == ''

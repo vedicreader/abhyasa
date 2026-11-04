@@ -35,10 +35,10 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD
            'end_run', 'log_round', 'log_main', 'log_output', 'log_question', 'log_beside', 'share_right', 'is_split',
            'weak', 'recap', 'recap_html', 'shared_link', 'clean_link', 'link_rows', 'row_link', 'row_name', 'md_part',
            'handout_html', 'new_brief', 'brief_chips', 'brief_asks', 'step_slide_minutes', 'end_minutes', 'fit_walk',
-           'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS', 'VERSION',
-           'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'WATCH',
-           'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'plain_say', 'check_line', 'parse_board',
-           'PageContext', 'clean_context', 'video_id', 'video_cues', 'stream_board']
+           'fit_slides', 'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS',
+           'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS',
+           'WATCH', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at', 'cue_quote', 'plain_say', 'check_line',
+           'parse_board', 'PageContext', 'clean_context', 'video_id', 'video_cues', 'stream_board']
 
 # %% ../nbs/05_show.ipynb #52f9ee07
 import hashlib, json, logging, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
@@ -2518,13 +2518,19 @@ def brief_chips(b:dict) -> list:
     return [s['id'] for r in ROLES[:2] for s in ss if s.get('role') == r]
 
 # %% ../nbs/05_show.ipynb #1d8d4ce8
-def brief_asks(b:dict) -> str:
-    "What brief `b` asks of the planner and the slide writer: the roles of the sources, the rules, the aim and research off. '' when it asks nothing."
+_SHAPE = re.compile(r'\b(poll|slides?|start (with|by)|end (with|by)|open the notebook|into the notebook|minutes?|order|first|last)\b', re.I)   # a rule about the shape of the talk
+
+def brief_asks(b:dict, slides:bool=False) -> str:
+    """What brief `b` asks of the planner and the slide writer: the roles of the sources, the rules, the aim and research off. '' when it asks nothing.
+    With `slides`, for the writer of one slide: a rule about the shape of the whole talk (a poll, the first or last slide, the minutes) is left out,
+    so it does not turn into a point on each slide."""
     ss = b.get('sources') or []
     names = lambda r: ', '.join(s.get('name') or s['id'] for s in ss if s.get('role') == r)
     out = []
     if (m := names('main')) and (x := names('extra')): out.append(f'The main source is {m}. The extra sources ({x}) only add to it. Where they conflict, use the main source.')
-    if (r := ' '.join(str(b.get('rules') or '').split())): out.append(r if r.endswith('.') else r + '.')
+    if (r := ' '.join(str(b.get('rules') or '').split())):
+        if slides: r = ' '.join(x for x in re.split(r'(?<=[.!?])\s+', r) if x and not _SHAPE.search(x))
+        if r: out.append(r if r.endswith('.') else r + '.')
     if (a := ' '.join(str(b.get('aim') or '').split())): out.append(f'The aim: {a}' + ('' if a.endswith('.') else '.'))
     if ss and not b.get('research', True): out.append('Use only these sources.')
     return ' '.join(out)
@@ -2553,6 +2559,44 @@ def fit_walk(lr:Learning, jid:str, minutes:int) -> list:
         total -= step_slide_minutes(j, steps[k]); steps[k]['status'] = 'skip'; out.append(steps[k]['slug'])
     if out: lr.merge_journey(jid, steps=steps)
     return out
+
+# %% ../nbs/05_show.ipynb #283859df
+def _merge(a:dict, b:dict) -> dict:
+    "One slide from the neighbouring idea slides `a` and `b`: both titles, two points of each, both notes."
+    sh = {**(a.get('show') or {}), 'body': [*((a.get('show') or {}).get('body') or [])[:2], *((b.get('show') or {}).get('body') or [])[:2]] or [b.get('title') or '']}
+    return {**a, 'title': f"{a.get('title') or ''} · {b.get('title') or ''}"[:200], 'show': sh, 'beats': ['body'], 'ask': None, 'mins': 1,
+            'notes': '\n\n'.join(x for x in (a.get('notes'), b.get('notes')) if x), 'merged': [*(a.get('merged') or []), b.get('concept')]}
+
+def fit_slides(ss:list, slot:int, keep=()) -> tuple:
+    "`(slides, lines)`: slides `ss` made to fit `slot` minutes by shortening, then merging, then cutting ideas from the end; `keep` are slide ids that never change."
+    ss, said = deepcopy(list(ss)), []
+    if not slot: return ss, said
+    total = lambda: sum(s.get('mins') or 0 for s in ss if not parked(s))
+    ideas = lambda: [s for s in ss if s.get('kind') == 'idea' and s['id'] not in keep and not parked(s)]
+    if total() > slot:
+        for s in ideas():
+            if (s.get('mins') or 0) > 2:
+                s['mins'] = 2
+                if (s.get('show') or {}).get('body'): s['beats'] = [b for b in s.get('beats') or [] if b in ('body', 'passage', 'demo')]
+        said.append('Each idea slide takes at most 2 minutes.')
+    if total() > slot:
+        for s in ss:
+            if s['id'] not in keep and s.get('kind') in ('questions', 'recap', 'poll'): s['mins'] = {'questions': 3}.get(s['kind'], 1)
+        said.append('The closing slides are shorter.')
+    if total() > slot:
+        for s in ideas():
+            if (s.get('show') or {}).get('body'): s.update(mins=1, ask=None, beats=['body'] + [b for b in s.get('beats') or [] if b == 'demo'])
+        said.append('Each idea slide shows its points for 1 minute, with no question for the room.')
+    while total() > slot and len(ix := ideas()) >= 2:
+        k = max(range(len(ix) - 1), key=lambda k: -abs(len(ix[k].get('merged') or []) + len(ix[k + 1].get('merged') or [])))   # the pair with the fewest merges yet
+        a, b = ix[k], ix[k + 1]
+        ss[ss.index(a)] = _merge(a, b); ss.remove(b)
+        said.append(f'Slides “{a.get("title")}” and “{b.get("title")}” are one slide now.')
+    cut = []
+    while total() > slot and len(ix := ideas()) > 1:
+        cut.append(ix[-1].get('title') or ''); ss.remove(ix[-1])
+    if cut: said.append(f"To fit the slot, I left out: {', '.join(cut)}.")
+    return ss, said
 
 # %% ../nbs/05_show.ipynb #120572ea
 @patch

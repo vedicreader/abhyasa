@@ -12,7 +12,7 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'CHANGE_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WH
            'WHAT_MOST', 'RUN_FIELDS', 'EDIT_FIELDS', 'CODE_GONE', 'REWRITE_SP', 'INSTRUCTION_MOST', 'REWRITE_TEXT',
            'REWRITE_LIST', 'CTRL', 'check_of', 'CHECK_KINDS', 'PASSAGES_MOST', 'IMPROVE_OPS', 'IMPROVE_MOST',
            'IMPROVE_SP', 'FIX_SP', 'EASIER', 'HARDER', 'KIND_WAY', 'KEEP_RUN', 'REPLAN_WHAT', 'NO_SRC_DOCS', 'GROW_AT',
-           'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST', 'ANSWERS', 'KINDS', 'LEVEL_SP', 'SAID', 'STAGES_SP', 'LEFT',
+           'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST', 'ANSWERS', 'KINDS', 'UNKNOWN', 'LEVEL_SP', 'SAID', 'STAGES_SP', 'LEFT',
            'ASK_KINDS', 'log', 'SUBJECT_LABEL', 'MANY_SENSE', 'TOP', 'FOUND_NOTHING', 'NO_QUOTE', 'BIG_ROOT',
            'AGENT_DOCS', 'TOOL_TEXT', 'LOG_MOST', 'FILE_BYTES', 'LEAK_WORDS', 'FLUSH_ROWS', 'FLUSH_SECS',
            'PASSAGE_WORDS', 'STOPPED', 'TIME_UP', 'TEXTS', 'SECRET', 'GATHER_SP', 'LEAD_SP', 'LEAD_TOOLS_OWN',
@@ -30,18 +30,19 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'CHANGE_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WH
            'restore_steps', 'undo_line', 'rewrite', 'move_step', 'skip_step', 'remove_step', 'merge_steps',
            'check_steps', 'clean_step', 'reparent', 'edit_walk', 'undo_walk', 'restore_walk', 'lock_step',
            'locked_slugs', 'add_step', 'split_step', 'passages', 'pick_read', 'links_in', 'propose', 'kind_check',
-           'improve_walk', 'plan_again', 'merge_plan', 'replan_walk', 'new_course', 'is_goal_walk', 'chip_sources',
-           'join_course', 'course_of', 'ensure_courses', 'level_prompt', 'level_questions', 'read_answer', 'ask_level',
-           'answer_level', 'level_done', 'stages_prompt', 'walk_started', 'stage_stays', 'fix_count', 'plan_stages',
-           'lock_stage', 'stage_brief', 'build_stage', 'add_data', 'drop_data', 'fill_data', 'name_data', 'join_names',
-           'stage_rows', 'due_stage', 'next_up', 'add_ask', 'blocking', 'course_state', 'set_here', 'active_course',
-           'course_from', 'courses_from', 'go_back', 'subject_label', 'vague', 'research_query', 'file_page',
-           'link_concept', 'wants_source', 'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research',
-           'mark_pending', 'research_walk', 'Researcher', 'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows',
-           'gather_state', 'idea_at', 'idea_no', 'put_passage', 'put_notebook', 'secret_path', 'clone_dir',
-           'explainer_video', 'gather_tools', 'gather_prompt', 'start_why', 'gather', 'research_state', 'WALK_ID',
-           'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'PKG', 'RUN_SAY',
-           'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
+           'improve_walk', 'plan_again', 'merge_plan', 'replan_walk', 'new_course', 'is_goal_walk', 'chip_state',
+           'source_rows', 'chip_sources', 'join_course', 'course_of', 'ensure_courses', 'level_prompt',
+           'level_questions', 'read_answer', 'ask_level', 'answer_level', 'level_done', 'stages_prompt', 'walk_started',
+           'stage_stays', 'fix_count', 'plan_stages', 'lock_stage', 'stage_brief', 'build_stage', 'add_data',
+           'drop_data', 'fill_data', 'name_data', 'join_names', 'stage_rows', 'due_stage', 'next_up', 'add_ask',
+           'blocking', 'course_state', 'set_here', 'active_course', 'course_from', 'courses_from', 'go_back',
+           'subject_label', 'vague', 'research_query', 'file_page', 'link_concept', 'wants_source', 'put_step',
+           'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending', 'research_walk', 'Researcher',
+           'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state', 'idea_at', 'idea_no',
+           'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video', 'gather_tools',
+           'gather_prompt', 'start_why', 'gather', 'research_state', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key',
+           'handoff', 'read_handoff', 'HANDOFF_CASES', 'PKG', 'RUN_SAY', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok',
+           'RUN_CASES']
 
 # %% ../nbs/04_path.ipynb #eeb72429
 import json, math, re, random, threading, time, uuid
@@ -2126,6 +2127,29 @@ def is_goal_walk(j) -> bool:
     "Whether `j` is a walk planned from a goal: a walk with a goal, no source document and no parent, not for a talk."
     return bool(j) and j.get('mode') == 'walk' and bool(str(j.get('goal') or '').strip()) and not j.get('source') and not j.get('parent') and not for_talk(j)
 
+def chip_state(lr:Learning, chip:str) -> AttrDict|None:
+    "What the vault has for chip id `chip`: `count` (its documents), `name` (a title or a file name) and `href` (its vault page or its link); None when it has nothing."
+    kind, _, v = str(chip).partition(':')
+    if kind == 'doc' and (d := lr.vault.doc(v)): return AttrDict(count=1, name=d['title'], href=f"/v/{lr.vault.name}/{d['id']}")
+    if kind == 'link' and (d := lr.vault.by_source(v)): return AttrDict(count=1, name=d['title'] or v, href=v)
+    ds = [d for _, x in chip_docs(lr, [chip]) for d in x]
+    return AttrDict(count=len(ds), name=ds[0].title if len(ds) == 1 else v.rstrip('/').rsplit('/', 1)[-1], href=v if kind == 'link' else '') if ds else None
+
+UNKNOWN = 'abhyasa has no record of filing it.'
+
+def source_rows(lr:Learning, rows) -> list:
+    """The source rows `rows` (`chip_sources`) as the vault has them now: a row with no count and no real reason (a walk of the builder did not keep counts)
+    is ready when its chip has documents, else it says that abhyasa has no record of it. A `doc:` row names its document. Never a bare failure."""
+    out = []
+    for r in rows or ():
+        r = dict(r)
+        if r.get('status') != 'ready' and r.get('why') in (None, '', 'abhyasa could not file it.') and (s := chip_state(lr, r['id'])):
+            r.update(status='ready', count=s.count, why='', root=s.name, href=s.href)
+        elif r.get('status') != 'ready' and r.get('why') in (None, '', 'abhyasa could not file it.'): r.update(status='unknown', why=UNKNOWN)
+        elif str(r['id']).startswith('doc:') and (s := chip_state(lr, r['id'])): r.update(root=s.name, href=s.href)
+        out.append(r)
+    return out
+
 def chip_sources(j) -> list:
     "A source row `{id, kind, root, count, status, why}` for each chip of walk `j`. A chip with no count did not file."
     counts, notes, out = j.get('chip_counts') or {}, j.get('notes') or [], []
@@ -2175,7 +2199,7 @@ def course_of(lr:Learning, jid:str) -> AttrDict|None:
 
 def ensure_courses(lr:Learning) -> list:
     "Give a course to each goal walk from the Start box (a walk with `chips`) that has none. Return the ids of the courses that changed."
-    return [c.id for j in lr.journeys() if is_goal_walk(j) and 'chips' in j and not j.get('course') and (c := join_course(lr, j))]
+    return [c.id for j in lr.journeys() if is_goal_walk(j) and 'chips' in j and not j.get('course') and not j.get('build') and (c := join_course(lr, j))]   # a walk of the builder is not from the Start box
 
 # %% ../nbs/04_path.ipynb #cs027
 LEVEL_SP = register('course.level', 'Where you start', 'How the tutor asks what you know before it plans the stages of a course.', """You find out what one learner knows before you plan a course to their goal.
@@ -2578,6 +2602,7 @@ def blocking(lr:Learning, c, rows=None, by:dict=None, leela:bool=None, now:float
 def course_state(lr:Learning, cid:str, leela:bool=None, now:float=None) -> AttrDict|None:
     "Where you are in course `cid`, what comes next and why, and what stands between you and the goal. It writes nothing. None for an unknown course."
     if (c := lr.course(cid)) is None: return None
+    c = AttrDict({**c, 'sources': source_rows(lr, c.get('sources'))})   # each source as the vault has it now: no false failure
     now, by = now or time.time(), {x.slug: x for x in lr.concepts()}
     rows = stage_rows(lr, c, by)
     nx = next_up(lr, c, rows, by, now)

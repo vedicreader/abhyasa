@@ -18,8 +18,8 @@ from abhyasa.core.pane import pane_link
 from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query
 from abhyasa.sources import named_sources, web_search, VaultSource
-from abhyasa.path import (walk_for_talk, file_chip, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
-from abhyasa.show import (GONE, fit_walk, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
+from abhyasa.path import (walk_for_talk, file_chip, chip_state, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
+from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
 from .cfg import Routes
@@ -92,6 +92,26 @@ class Counting:
         return f(p, sp, *a, **kw)
     def __getattr__(self, k): return getattr(self.ask, k)
 
+_CODE = re.compile(r'```(?:python|py)?\n(.*?)\n```', re.S)
+_ASKS_CODE = re.compile(r'\b(show (the )?code|code|technical|python|programmers?|developers?|engineers?)\b', re.I)
+
+def wants_code(br) -> bool:
+    "Whether brief `br` asks for code on the slides: its aim, rules, goal or audience says code or technical, and no code is off."
+    return not br.get('no_code') and bool(_ASKS_CODE.search(' '.join(str(br.get(k) or '') for k in ('aim', 'rules', 'goal', 'audience'))))
+
+def pick_code(text, name, near='') -> str:
+    """The code piece (`code_piece`) for the idea `name` from the source text `text`: the code block that names most words of the idea, else the first
+    block after the passage `near`. '' when the source has no code."""
+    blocks = [(m.start(), m.group(1)) for m in _CODE.finditer(text or '')]
+    if not blocks: return ''
+    ws = [w for w in re.findall(r'[a-z]{4,}', name.lower())]
+    score = lambda b: sum(w in b.lower() for w in ws)
+    best = max(blocks, key=lambda x: score(x[1]))
+    if not score(best[1]):
+        at = (text or '').find(near[:80]) if near else -1
+        best = next((b for b in blocks if b[0] >= at), blocks[0]) if at >= 0 else blocks[0]
+    return code_piece(f'```python\n{best[1]}\n```')
+
 def goal_of(br) -> str:
     """The goal that goes to the planner. With sources and research off, none: the walk then reads only those sources (a notebook as it is, or the
     documents in their order), and does not look for passages in the rest of the vault. The goal still goes to the writers in `brief_asks`."""
@@ -109,19 +129,28 @@ def connect(app, ctx):
         return f"{have} of {n_of(len(r), 'step')} {'has' if have == 1 else 'have'} a passage from a source" + (f", {web} from the web" if web else '') + '.'
     def filed(chips, bid=None) -> list:
         """The chips with each `link:` filed first and named by its documents (`doc:`), so the planner and the passage search read a kept web page
-        as a source. A link that abhyasa cannot read is left out, and its source in the brief of conversation `bid` becomes dropped, so no make fails on it."""
-        out, bad = [], []
+        as a source. A link that abhyasa cannot read is left out, and its source in the brief of conversation `bid` becomes dropped, so no make fails on it.
+        `filed.why` keeps the real reason of each link that failed, for the record of the walk (`record`)."""
+        out, bad = [], {}
         for c in chips:
             if not str(c).startswith('link:'): out.append(c); continue
             try: ds = list(file_chip(lr, c))
-            except Exception as e: log.warning('builder: could not file %s: %r', c, e); ds = []
+            except Exception as e: log.warning('builder: could not file %s: %r', c, e); ds, bad[c] = [], f'abhyasa could not file {c[5:]}. {e}'.strip()
             if ds: out += [f'doc:{d.doc_id}' for d in ds]
-            else: bad.append(c)
+            else: bad.setdefault(c, f'abhyasa could not file {c[5:]}: it has no text to read.')
+        filed.why = bad
         if bad and bid:
             ss = [{**x, 'role': 'dropped'} if x['id'] in bad else x for x in lr.build(bid).brief.get('sources') or []]
             put_brief(bid, sources=ss)
             Emit(lambda e: emit(bid, e)).ev('CUSTOM', name='note', value=f"abhyasa could not read {n_of(len(bad), 'link')}, so it left them out: {', '.join(x[5:] for x in bad)}")
         return list(dict.fromkeys(out))
+    filed.why = {}
+
+    def record(jid, chips):
+        "Keep on walk `jid` the count of documents of each chip and the real reason of each link that failed, as the Start job does, so its Sources rows are true."
+        counts = {c: s.count for c in chips if (s := chip_state(lr, c))}
+        lr.merge_journey(jid, chip_counts=counts, notes=[*filed.why.values()])
+
     def outline_of(j): return dict(outline=[name_of(s['slug']) for s in j.steps], labels=[src_label(s.get('read')) for s in j.steps])
 
     # --- the conversation and the brief --------------------------------------------------------------------------
@@ -328,21 +357,33 @@ def connect(app, ctx):
             src = lambda s: ('from the web' if (s.get('read') or {}).get('src') == 'web' else f"from {(s.get('read') or {}).get('title') or 'your source'}") if (s.get('read') or {}).get('text') else 'no passage'
             return f"The walk “{x.title}”:\n" + '\n'.join(f"{n}. {name(s)} · {src(s)}" + (' · KEPT' if s.get('locked') or s['slug'] in kept else '') for n, s in enumerate(x.steps, 1))
 
-        def trim(tid) -> list:
-            """After a make or a remake: when the slides are still longer than the slot (the plan counts each slide before it is written), leave out
-            the last ideas that are not kept, by their real minutes, as `talk_again` parks them. No model call. The names that it left out."""
-            t = lr.talk(tid); slot = t.get('minutes') or 0
-            if not slot or (over := talk_minutes(t) - slot) <= 0: return []
-            j = lr.journey((t.get('src') or {}).get('walk') or '')
-            kept = set(rec().brief.get('keep') or [])
-            ideas = [s_ for s_ in t.slides if s_.get('kind') == 'idea' and s_.get('concept') and not s_.get('own') and s_.get('section') != GONE and s_['id'] not in kept]
-            out = []
-            while over > 0 and len(ideas) > 1:
-                s_ = ideas.pop(); out.append(s_['concept']); over -= s_.get('mins') or 0
-            if not out or not j: return []
-            lr.merge_journey(j.id, steps=[{**x, 'status': 'skip'} if x['slug'] in out else x for x in j.steps])
-            talk_again(lr, ctx.ask, tid, ctx.sources)
-            return [name_of(c) for c in out]
+        def with_code(tid) -> int:
+            """For a brief that asks for code: each idea slide whose passage has no code shows a short code piece from the source document of its step,
+            as a slide of a notebook section does. The piece is word for word from the source. The count of slides that got code."""
+            if not wants_code(rec().brief): return 0
+            with edit_lock('talk', tid):
+                t = lr.talk(tid); j = lr.journey((t.get('src') or {}).get('walk') or '') or {}
+                by = {x['slug']: x.get('read') or {} for x in j.get('steps') or ()}
+                ss, n = deepcopy(list(t.slides)), 0
+                for x in ss:
+                    sh, r = x.get('show') or {}, by.get(x.get('concept') or '') or {}
+                    if x.get('kind') != 'idea' or '```' in (sh.get('passage') or '') or not r.get('doc_id'): continue
+                    try: text = (lr.doc_shelf(r.get('shelf')) or lr.vault).document(r['doc_id'], max_chars=400000, disk=False).text
+                    except Exception: continue
+                    if not (piece := pick_code(text, x.get('title') or '', r.get('text') or '')): continue
+                    x['show'] = {**sh, 'passage': piece, 'src': {k: v for k in SOURCE_KEYS if (v := r.get(k) if k != 'src' else r.get(k) or 'doc') not in (None, '')}}
+                    x['beats'] = [*[b for b in x.get('beats') or [] if b != 'passage'], 'passage']; n += 1
+                if n: lr.put_talk({**t, 'slides': ss})
+            return n
+
+        def fit_to_slot(tid) -> list:
+            """Make talk `tid` fit its slot after its slides are written (`fit_slides`): shorten each idea, then merge neighbours, then cut ideas only at the end.
+            A kept slide never changes. It is part of the make or the remake, so its Undo takes it back too. The lines that say what it did."""
+            with edit_lock('talk', tid):
+                t = lr.talk(tid)
+                ss, said = fit_slides(t.slides, t.get('minutes') or 0, set(rec().brief.get('keep') or []))
+                if ss != list(t.slides): lr.put_talk({**t, 'slides': ss})
+            return said
 
         def make_talk(minutes:int=0,  # the minutes of the slot; 0 keeps the brief
                       new:bool=False,  # true makes a new talk when one exists
@@ -352,21 +393,24 @@ def connect(app, ctx):
             if target(b)[0] == 'talk' and thing(b) and not new: return 'A talk exists. Use change_talk to change it.'
             if not (chips := filed(brief_chips(br), bid)) and not br.get('goal'): raise ValueError('The brief has no source and no goal. Add a source, or set the goal.')
             j = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=brief_asks(br))
+            record(j.id, chips); lr.merge_journey(j.id, change=brief_asks(br, slides=True) or None, build=bid)   # the writer of each slide gets no rule about the shape of the talk
             mins = int(minutes or br.get('minutes') or 0)
-            cut = fit_walk(lr, j.id, mins)   # the slot: fewer ideas, from the end, before the slides are written
             j = lr.journey(j.id)
             outline = [name_of(s['slug']) for s in j.steps if s.get('status') != 'skip']
-            st.em.data(st.cur, dict(outline=outline, cut=[name_of(c) for c in cut]))
+            st.em.data(st.cur, dict(outline=outline))
             stage(f'Writing {n_of(len(outline), "slide")}')
             try: t = talk_from_walk(lr, Counting(ctx.ask, lambda k: stage(f'Writing slide {k} of {len(outline)}')), j.id, sources=ctx.sources)
             except BaseException: lr.drop_journey(j.id); raise
             t = lr.put_talk({**t, **({'minutes': mins} if mins else {}), 'brief': {**br, 'kind': 'talk', 'minutes': mins or t.minutes}, 'build': bid})
-            cut += [c for c in trim(t.id)]; t = lr.talk(t.id)
+            coded = with_code(t.id)
+            fit = fit_to_slot(t.id)
+            t = lr.talk(t.id)
             with locks[bid]: lr.put_build({**rec(), 'target': f'talk:{t.id}', 'title': t.title})
             put_brief(bid, kind='talk', minutes=t.minutes)
             run_hook('concepts_added')
-            return (f"Made the talk “{t.title}”: {n_of(len([x for x in t.slides if x.get('section') != GONE]), 'slide')}. {slot_line(t)}" + (f" To fit the slot, I left out {', '.join(name_of(c) for c in cut)}." if cut else ''),
-                    dict(outline=outline, cut=[name_of(c) for c in cut], slides=[s.get('title') for s in t.slides]))
+            return (f"Made the talk “{t.title}”: {n_of(len([x for x in t.slides if x.get('section') != GONE]), 'slide')}. {slot_line(t)} {' '.join(fit)}".strip()
+                    + (f" {n_of(coded, 'slide')} show a code piece from the source." if coded else ''),
+                    dict(outline=outline, fit=fit, slides=[s.get('title') for s in t.slides]))
 
         def make_walk(new:bool=False,  # true makes a new walk when one exists
                       ) -> str:
@@ -380,12 +424,14 @@ def connect(app, ctx):
                 try: j2, h = edit_walk(lr, j.id, lambda ss: deepcopy(tmp.steps), 'Made the walk again from the brief.', who='tutor',
                                        fields=dict(chips=chips, source=tmp.get('source'), notebook=tmp.get('notebook')))
                 finally: lr.drop_journey(tmp.id)
+                record(j.id, chips)
                 if h is None: return 'The walk from the brief is the same as the walk now. Nothing changed.'
                 put_brief(bid, kind='walk')
                 return f"Made the walk again from the brief: {len(j2.steps)} steps. {sourced_line(j2)}", outline_of(j2)
             if not chips and not goal: raise ValueError('The brief has no source and no goal. Add a source, or set the goal.')
             j = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=owner)
             j = lr.merge_journey(j.id, parent=None, brief={**br, 'kind': 'walk'}, build=bid)
+            record(j.id, chips)
             with locks[bid]: lr.put_build({**rec(), 'target': f'walk:{j.id}', 'title': j.title})
             put_brief(bid, kind='walk')
             run_hook('concepts_added')
@@ -411,10 +457,8 @@ def connect(app, ctx):
             who = dict(audience=br.get('audience') or '', no_code=bool(br.get('no_code')))
             if lr.journey(wid): lr.merge_journey(wid, **who, **({'goal': br['goal']} if br.get('goal') else {}))
             with edit_lock('talk', t.id): lr.put_talk({**lr.talk(t.id), **who})   # the remake writes for the audience of the brief
-            own = sum(x.get('mins') or 0 for x in t.slides if x.get('own'))   # your own slides, such as a second demo, take part of the slot
-            cut = [name_of(c) for c in fit_walk(lr, wid, max(1, int(br.get('minutes') or t.get('minutes') or 0) - own))] if (br.get('minutes') or t.get('minutes')) else []
             was = {s['id']: deepcopy(s) for s in t.slides}
-            (talk_fresh if fresh else talk_again)(lr, ctx.ask, t.id, ctx.sources, change=' '.join(x for x in (brief_asks(br), instruction) if x))
+            (talk_fresh if fresh else talk_again)(lr, ctx.ask, t.id, ctx.sources, change=' '.join(x for x in (brief_asks(br, slides=True), instruction) if x))
             with edit_lock('talk', t.id):   # the kept slides stay word for word: the change of the remake keeps them, and one Undo takes all of it back
                 t2 = lr.talk(t.id)
                 ss = [deepcopy(was[s['id']]) if s['id'] in kept and s['id'] in was else s for s in t2.slides]
@@ -423,9 +467,9 @@ def connect(app, ctx):
                     if any(x.get('kind') == 'poll' for x in ss): ss = [{**x, 'ask': deepcopy(old_poll.get('ask'))} if x.get('kind') == 'poll' else x for x in ss]
                     else: ss = [deepcopy(old_poll), *ss]
                 if ss != t2.slides: t2 = lr.put_talk({**t2, 'slides': ss})
-            cut += trim(t.id); t2 = lr.talk(t.id)
+            with_code(t.id); fit = fit_to_slot(t.id); t2 = lr.talk(t.id)
             ch = [dict(n=n, before=slide_view(was[s['id']]), after=slide_view(s)) for n, s in enumerate(t2.slides, 1) if s['id'] in was and slide_view(was[s['id']]) != slide_view(s)]
-            return (f"Made the talk again. {len(ch)} slides changed; {len(kept)} kept. {slot_line(t2)}" + (f" To fit the slot, I left out {', '.join(cut)}." if cut else ''),
+            return (f"Made the talk again. {len(ch)} slides changed; {len(kept)} kept. {slot_line(t2)} {' '.join(fit)}".strip(),
                     dict(changed=ch))
 
         def edit_slide(slide:int,        # the number of the slide
