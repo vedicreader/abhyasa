@@ -16,10 +16,10 @@ from starlette.responses import RedirectResponse
 from abhyasa.core import hook, run as run_hook, asset_css, asset_js, Page, n_of, page_req
 from abhyasa.core.pane import pane_link
 from abhyasa.learner import track, job_said, prompt, profile_text
-from abhyasa.models import ramabana_lead, safe_query
+from abhyasa.models import ramabana_lead, safe_query, ask_json
 from abhyasa.sources import named_sources, web_search, VaultSource
 from abhyasa.path import (walk_for_talk, file_chip, file_link, chip_state, move_step, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
-from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slides, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
+from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slides, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, shape_free, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
 from .cfg import Routes
@@ -171,6 +171,9 @@ def place_of(words:str, steps, slug) -> int|None:
             k = hit[0] - (1 if [s['slug'] for s in steps].index(slug) < hit[0] else 0)   # its index once the new step leaves its place
             return max(0, min(len(steps) - 1, k if m.group(1) == 'before' else k + 1))
     return None
+
+RETITLE_SP = ('You give the slide titles of a talk words for its audience. Keep each idea, the order and the count. Use plain words that the audience uses, '
+              'at most 7 words, and no code names when there is no code. Write in ASD-STE100 Simplified Technical English. Return JSON: {"titles": ["..."]}')
 
 def goal_of(br) -> str:
     """The goal that goes to the planner. With sources and research off, none: the walk then reads only those sources (a notebook as it is, or the
@@ -544,22 +547,38 @@ def connect(app, ctx):
             stage('Writing the talk again')
             wid = (t.get('src') or {}).get('walk') or ''
             who = dict(audience=br.get('audience') or '', no_code=bool(br.get('no_code')))
+            new_who = (t.get('audience') or '') != who['audience'] or bool(t.get('no_code')) != who['no_code']
             if lr.journey(wid): lr.merge_journey(wid, **who, **({'goal': br['goal']} if br.get('goal') else {}))
             with edit_lock('talk', t.id): lr.put_talk({**lr.talk(t.id), **who})   # the remake writes for the audience of the brief
             was = {s['id']: deepcopy(s) for s in t.slides}
-            (talk_fresh if fresh else talk_again)(lr, ctx.ask, t.id, ctx.sources, change=' '.join(x for x in (brief_asks(br, slides=True), instruction) if x))
+            (talk_fresh if fresh else talk_again)(lr, ctx.ask, t.id, ctx.sources, change=' '.join(x for x in (brief_asks(br, slides=True), shape_free(instruction)) if x))   # no rule on the poll or the last slide goes to each slide
             with edit_lock('talk', t.id):   # the kept slides stay word for word: the change of the remake keeps them, and one Undo takes all of it back
                 t2 = lr.talk(t.id)
                 ss = [deepcopy(was[s['id']]) if s['id'] in kept and s['id'] in was else s for s in t2.slides]
                 old_poll = next((x for x in was.values() if x.get('kind') == 'poll'), None)
-                if old_poll and 'poll' not in instruction.lower():   # your poll stays, unless you asked to change it
+                if old_poll and 'poll' not in (st.get('said') or instruction).lower():   # your poll stays, unless your words of this turn ask to change it
                     if any(x.get('kind') == 'poll' for x in ss): ss = [{**x, 'ask': deepcopy(old_poll.get('ask'))} if x.get('kind') == 'poll' else x for x in ss]
                     else: ss = [deepcopy(old_poll), *ss]
                 if ss != t2.slides: t2 = lr.put_talk({**t2, 'slides': ss})
+            if new_who and who['audience']: retitle(t.id, who, kept)
             with_code(t.id); fit = fit_to_slot(t.id); t2 = lr.talk(t.id)
             ch = [dict(n=n, before=slide_view(was[s['id']]), after=slide_view(s)) for n, s in enumerate(t2.slides, 1) if s['id'] in was and slide_view(was[s['id']]) != slide_view(s)]
             return (f"Made the talk again. {len(ch)} slides changed; {len(kept)} kept. {slot_line(t2)} {' '.join(fit)}".strip(),
                     dict(changed=ch))
+
+        def retitle(tid, who, kept=()):
+            "Give the idea slides of talk `tid` titles for the audience of `who` (one model call). The ideas, their order and the kept slides stay."
+            t = lr.talk(tid); ss = [x for x in t.slides if x.get('kind') == 'idea' and x['id'] not in kept]
+            if not ss: return
+            ask = f"The audience: {who['audience']}" + (' (no code)' if who.get('no_code') else '') + '\n\nThe titles, in order:\n' + '\n'.join(f"{k}. {x['title']}" for k, x in enumerate(ss, 1))
+            try: r = ask_json(ctx.ask, ask, RETITLE_SP)
+            except Exception: return
+            ts = [' '.join(str(x).split()) for x in (r.get('titles') if isinstance(r, dict) else None) or []]
+            if len(ts) != len(ss) or not all(ts): return   # a wrong count keeps the titles
+            by = {x['id']: re.sub(r'^\s*\d+\.\s*', '', tt)[:80] for x, tt in zip(ss, ts)}
+            with edit_lock('talk', tid):
+                now = lr.talk(tid)
+                lr.put_talk({**now, 'slides': [{**x, 'title': (re.match(r'^\s*\d+\.\s*', x['title']) or [''])[0] + by[x['id']]} if x['id'] in by else x for x in now.slides]})
 
         def edit_slide(slide:int,        # the number of the slide
                        title:str='',     # a new title
@@ -781,7 +800,7 @@ def connect(app, ctx):
     def turn(bid, text):
         "One turn of the agent of conversation `bid` on the request `text`, on the pool."
         x = agent_of(bid); st = x.st
-        st.stop.clear(); st.run = None; st.waiting = 0; st.late = False; st.em = em = Emit(lambda e: emit(bid, e), x.a if st.native else None)
+        st.said = text; st.stop.clear(); st.run = None; st.waiting = 0; st.late = False; st.em = em = Emit(lambda e: emit(bid, e), x.a if st.native else None)
         with locks[bid]:
             b = lr.build(bid); p = ask_of(b, text, st.fresh)
             lr.put_build({**b, 'note': ''})

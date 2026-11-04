@@ -731,3 +731,21 @@ def test_place_words_and_near_duplicates():
     assert build_app.place_of('add it after the July crisis', steps, 'alliance-system-before-1914') == 4
     assert build_app.place_of('put it first', steps, 'alliance-system-before-1914') is None and build_app.place_of('as the first step', steps, 'alliance-system-before-1914') == 0
     assert build_app.same_idea('Alliances turn a small quarrel into a big one', 'The alliance system') and not build_app.same_idea('Militarism', 'The alliance system')
+
+def test_a_remake_for_managers_retitles_keeps_the_poll_and_drops_shape_rules(mk, lr, talk_fake, agent, home):
+    "A fresh remake for a new audience gives the idea slides titles for that audience, keeps the poll that the owner set, and no slide writer gets the poll rule."
+    talk_fake.rules['You write one poll'] = POLL
+    cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    agent.script = lambda t, p, s: (t['add_source'](str(nb), 'main'), t['set_brief'](kind='talk', audience='engineers', minutes=20, research='off'), t['make_talk'](minutes=20))[2]
+    say(cl, lr, bid, f'Make a talk from {nb} for engineers.')
+    tid = lr.build(bid).target[5:]
+    agent.script = lambda t, p, s: t['set_poll']('Have you built an agent?', 'In production; As a test; Not yet')
+    say(cl, lr, bid, 'Make the poll about whether they have built an agent.')
+    n = sum(s['kind'] == 'idea' for s in lr.talk(tid).slides)
+    talk_fake.rules['You give the slide titles of a talk words'] = dict(titles=[f'Plain title {k}' for k in range(1, n + 1)])
+    agent.script = lambda t, p, s: (t['set_brief'](audience='managers', no_code='on'), t['change_talk']('For managers, no code. Start with a poll.', fresh=True))[1]
+    say(cl, lr, bid, 'Make it again from scratch for managers. No code.')
+    t = lr.talk(tid)
+    assert [s['title'] for s in t.slides if s['kind'] == 'idea'] == [f'Plain title {k}' for k in range(1, n + 1)]
+    assert next(s for s in t.slides if s['kind'] == 'poll')['ask']['q'] == 'Have you built an agent?'
+    assert 'poll' not in (t.change or '').lower() and 'managers' in t.change
