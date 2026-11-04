@@ -668,14 +668,14 @@ def test_a_kept_link_files_a_few_pages_on_its_topic(mk, lr, agent, monkeypatch):
     asked = []
     def fl(l, u, max_pages=None):
         asked.append(max_pages)
-        return [AttrDict(doc_id='p1', shelf='store', title='Fourier series and square waves', url=u), AttrDict(doc_id='p2', shelf='store', title='Solar Panel deals', url=u + '/x'),
+        return [AttrDict(doc_id='p1', shelf='store', title='Fourier series and square waves', url=u), AttrDict(doc_id='p2', shelf='store', title='Frequency Calculator', url=u + '/x'),
                 AttrDict(doc_id='p3', shelf='store', title='The Fourier transform', url=u + '/y')]
     monkeypatch.setattr(build_app, 'file_link', fl)
     seen = []
     def spy(l, ask, chips, *a, **kw): seen.append(list(chips)); raise ValueError('stop here')
     monkeypatch.setattr(build_app, 'walk_for_talk', spy)
     cl = mk(); bid = new_build(cl)
-    lr.put_build({**lr.build(bid), 'brief': {**lr.build(bid).brief, 'kind': 'talk', 'goal': 'Fourier series', 'sources': [dict(id='link:https://ex.org/f', name='Fourier notes', role='extra', found=True)]}})
+    lr.put_build({**lr.build(bid), 'brief': {**lr.build(bid).brief, 'kind': 'talk', 'goal': 'Fourier series', 'sources': [dict(id='link:https://ex.org/f', name='Fourier Series Calculator', role='extra', found=True)]}})
     agent.script = lambda t, p, s: t['make_talk']()
     say(cl, lr, bid, 'make the talk')
     assert asked == [build_app.LINK_PAGES] and seen == [['doc:p1', 'doc:p3']]

@@ -133,10 +133,10 @@ def pick_code(text, name, near='', strict=False) -> str:
 LINK_PAGES = 3   # the pages that a kept web find files: the page itself, and at most two pages beside it on the same topic
 
 def on_topic(d, topic:str) -> bool:
-    "Whether the filed page `d` is on `topic`: its title or the start of its text names a main word of the topic (5 letters or more)."
+    """Whether the filed page `d` is on `topic`: its title names a main word of the topic (5 letters or more). Only the title counts: the start of
+    a page is often the menu of the site, which names each tool of the site ("Frequency Calculator" beside "Fourier Series Calculator")."""
     ws = {w for w in re.findall(r'[a-z]{5,}', topic.lower())}
-    if not ws: return True
-    return any(w in f"{d.title} {getattr(d, 'text', '') or ''}"[:3000].lower() for w in ws)
+    return not ws or any(w in str(d.title or '').lower() for w in ws)
 
 _FIXED = re.compile(r'(?<![{\w.])(\d+(?:\.\d+)?)\s*(?:°|%|degrees?\b)')   # a number with a unit in static text: it can disagree with the sliders
 _NOT_TEXT = {'id', 'bind', 'expr', 'fn', 'type', 'kind', 'src', 'fmt', 'show', 'valuetext', 'min', 'max', 'step', 'x', 'y'}
@@ -222,7 +222,7 @@ def connect(app, ctx):
             try: ds = list(file_link(lr, c[5:], max_pages=LINK_PAGES))   # the page and at most a few pages beside it, never the whole site
             except Exception as e: log.warning('builder: could not file %s: %r', c, e); ds, bad[c] = [], f'abhyasa could not file {c[5:]}. {e}'.strip()
             name = next((x.get('name') or '' for x in br.get('sources') or [] if x['id'] == c), '')
-            ds = [d for k, d in enumerate(ds) if k == 0 or on_topic(d, ' '.join((br.get('goal') or '', name)))]   # a page beside it that is off the topic goes
+            ds = [d for k, d in enumerate(ds) if k == 0 or on_topic(d, br.get('goal') or name)]   # the goal, not the name of the site page, which names the site too   # a page beside it that is off the topic goes
             if ds: out += [f'doc:{d.doc_id}' for d in ds]
             else: bad.setdefault(c, f'abhyasa could not file {c[5:]}: it has no text to read.')
         filed.why = bad
