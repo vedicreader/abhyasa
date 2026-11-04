@@ -699,3 +699,10 @@ def test_folder_filing_skips_hidden_and_underscore_folders(tmp_path):
     for d in ('lessons', '_leela_agent_sessions', '.ipynb_checkpoints', '_build'): (tmp_path/d/'a.md').write_text('# A\n\nText.\n')
     names = {str(x) for x in tree_files(tmp_path)}
     assert any('lessons' in n for n in names) and not any(k in n for n in names for k in ('_leela', 'checkpoints', '_build'))
+
+def test_a_demo_never_writes_a_number_that_its_sliders_change():
+    "A demo with state whose static text writes a number with a unit (90°) outside a {slot} is caught; the same text with a slot passes."
+    bad = dict(state=dict(moon=100, sun=30), blocks=[dict(type='md', text='The Moon is 90° ahead of the Sun.'), dict(type='slider', bind='moon', min=0, max=360)])
+    good = dict(bad, blocks=[dict(type='md', text='The Moon is {gap}° ahead of the Sun.'), dict(type='slider', bind='moon', min=0, max=360)])
+    assert build_app.fixed_numbers(bad) == ['The Moon is 90° ahead of the Sun.'] and build_app.fixed_numbers(good) == []
+    assert build_app.fixed_numbers(dict(blocks=[dict(type='md', text='A circle has 360°.')])) == []   # no state: nothing to disagree with

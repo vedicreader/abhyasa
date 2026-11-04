@@ -227,7 +227,7 @@ function mounted(host, fn, left = 200) {
 // width that gives this size (`width` = the width of the part / the zoom), so it fills the part and never shrinks below readable type.
 // When it is taller than the part, the slide shows the demo alone (`demo-alone`: the crumb and the title go), and when it is still taller,
 // it scrolls inside its box (`tall`), and the presenter's scroll shows in the room (`demoscroll`).
-const DEMO_PX = 20;   // 20 px on a slide 1280 px wide: 16 px or more on any audience screen of 1024 px and up
+const DEMO_PX = 20, DEMO_LEAST = 16;   // the type of a demo on a slide 1280 px wide: 20 px when it fits, and never under 16 px
 function fit(host) {
   const box = host.parentElement, sec = host.closest('section.stage');
   const go = () => {
@@ -235,9 +235,12 @@ function fit(host) {
     const bw = box.clientWidth;
     if (!bw || !box.clientHeight) return;   // a part that does not show yet: the observer calls again when it shows
     const fs = parseFloat(getComputedStyle(host).fontSize) || 18, slide = (sec?.parentElement?.clientWidth || 1280) / 1280;
-    const z = DEMO_PX * slide / fs;
+    // the type goes from 20 px down to 16 px (on a 1280 px slide) until the whole demo fits; under that it scrolls with the presenter (`demoscroll`)
+    const most = DEMO_PX * slide / fs, least = DEMO_LEAST * slide / fs;
+    let z = most;
     const lay = () => { host.style.zoom = '1'; host.style.width = Math.floor(bw / z) + 'px'; return host.offsetHeight * z <= box.clientHeight + 1; };
-    if (!lay() && sec?.querySelector('.body')) { sec.classList.add('demo-alone'); if (!lay()) box.classList.add('tall'); }
+    const fits = () => { for (z = most; z >= least - 1e-9; z -= (most - least) / 4) if (lay()) return true; z = least; lay(); return false; };
+    if (!fits() && sec?.querySelector('.body')) { sec.classList.add('demo-alone'); if (!fits()) box.classList.add('tall'); }
     host.style.zoom = String(Math.floor(z * 1000) / 1000);
   };
   const ro = new ResizeObserver(go);

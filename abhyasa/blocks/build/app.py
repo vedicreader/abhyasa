@@ -138,6 +138,21 @@ def on_topic(d, topic:str) -> bool:
     if not ws: return True
     return any(w in f"{d.title} {getattr(d, 'text', '') or ''}"[:3000].lower() for w in ws)
 
+_FIXED = re.compile(r'(?<![{\w.])\d+(?:\.\d+)?\s*(?:°|%|degrees?\b)')   # a number with a unit in static text: it can disagree with the sliders
+_NOT_TEXT = {'id', 'bind', 'expr', 'fn', 'type', 'kind', 'src', 'fmt', 'show', 'valuetext', 'min', 'max', 'step', 'x', 'y'}
+
+def fixed_numbers(spec) -> list:
+    """The static texts of rupaka demo `spec` that write a number with a unit (°, %) outside a `{slot}`, when the demo has state that a reader changes.
+    Such a number can disagree with the sliders ("the Moon is 90° ahead" at 160°). rupaka fills `{name}` from the state, so the text must use a slot."""
+    if not (spec or {}).get('state'): return []
+    out = []
+    def walk(v, k=''):
+        if isinstance(v, dict): [walk(x, kk) for kk, x in v.items() if kk not in _NOT_TEXT]
+        elif isinstance(v, list): [walk(x, k) for x in v]
+        elif isinstance(v, str) and _FIXED.search(re.sub(r'\{[^{}]*\}', '', v)): out.append(v)
+    walk({k: v for k, v in spec.items() if k != 'state'})
+    return out
+
 def goal_of(br) -> str:
     """The goal that goes to the planner. With sources and research off, none: the walk then reads only those sources (a notebook as it is, or the
     documents in their order), and does not look for passages in the rest of the vault. The goal still goes to the writers in `brief_asks`."""
@@ -553,6 +568,16 @@ def connect(app, ctx):
             if not (n := next((k for k, s in enumerate(t.slides, 1) if s.get('kind') == 'poll'), None)): raise ValueError('This talk has no poll.')
             return first(run_hook('talk_edit', t.id, n, dict(kind='choice', q=q, options='\n'.join(parts(options))))) or 'Nothing changed.'
 
+        def make_checked(slug, what):
+            """A demo from the demo maker that passed its checks, and whose static text has no number that the sliders change (`fixed_numbers`).
+            One more try with the rule said plainly; then a `ValueError` that names the text."""
+            said = ' '.join(what.split())[:300]
+            for k in range(2):
+                d = demo_maker(lr, ctx.ask, slug, said=said if not k else f'{said} Write no fixed number in the text: put each value that the reader changes in a {{name}} slot of the state.')
+                if d is None: raise ValueError('abhyasa could not make a demo that passed its checks. Try other words.')
+                if not (bad := fixed_numbers(d.spec)): return d
+            raise ValueError(f'The demo writes a fixed number that the sliders change: “{bad[0][:80]}”. abhyasa did not use it.')
+
         def make_demo(slide:int,          # the number of the slide, or of the step of a walk
                       what:str,           # what the demo shows, in the owner's words, such as "move the temperature and see the probabilities change"
                       replace:bool=False, # true changes the demo that the slide shows; false puts a second demo on a new slide after it
@@ -564,8 +589,7 @@ def connect(app, ctx):
                 if not 1 <= slide <= len(x.steps): raise ValueError(f'The walk has {n_of(len(x.steps), "step")}.')
                 slug = x.steps[slide - 1]['slug']
                 stage(f'Writing the demo for step {slide}')
-                d = demo_maker(lr, ctx.ask, slug, said=' '.join(what.split())[:300])
-                if d is None: raise ValueError('abhyasa could not make a demo that passed its checks. Try other words.')
+                d = make_checked(slug, what)
                 d = lr.put_demo(d.spec, slug)   # the plain demo of the idea, so the step shows it
                 edit_walk(lr, x.id, lambda ss: [{**s_, 'check': {**(s_.get('check') or {}), 'kind': 'demo', 'way': 'demo'}} if s_['slug'] == slug else s_ for s_ in ss],
                           f'Put a live demo on step {slide}.', who='tutor')
@@ -573,8 +597,7 @@ def connect(app, ctx):
             t = need('talk')
             if not 1 <= slide <= len(t.slides) or not (slug := t.slides[slide - 1].get('concept')): raise ValueError(f'Slide {slide} has no idea, so it cannot show a demo.')
             stage(f'Writing the demo for slide {slide}')
-            d = demo_maker(lr, ctx.ask, slug, said=' '.join(what.split())[:300])
-            if d is None: raise ValueError('abhyasa could not make a demo that passed its checks. Try other words.')
+            d = make_checked(slug, what)
             said = first(run_hook('talk_demo', t.id, slide, d.slug, replace=replace))
             at = slide + 1 if 'new slide' in said else slide
             return said, dict(slide=at, demo=d.slug, spec=d.spec)
