@@ -731,6 +731,9 @@ def test_place_words_and_near_duplicates():
     assert build_app.place_of('add it after the July crisis', steps, 'alliance-system-before-1914') == 4
     assert build_app.place_of('put it first', steps, 'alliance-system-before-1914') is None and build_app.place_of('as the first step', steps, 'alliance-system-before-1914') == 0
     assert build_app.same_idea('Alliances turn a small quarrel into a big one', 'The alliance system') and not build_app.same_idea('Militarism', 'The alliance system')
+    assert build_app.topic_of('Add a step on the alliance system before the assassination.') == 'alliance system' and build_app.anchor_of('Add a step on the alliance system before the assassination.') == 'assassination'
+    assert build_app.same_idea('Alliances and the chain reaction', build_app.topic_of('add a step on the alliance system'))
+    assert build_ui.clean_said('</invoke>\nWait, I must use the correct format.\nI added step 3.') == 'I added step 3.' 
 
 def test_a_remake_for_managers_retitles_keeps_the_poll_and_drops_shape_rules(mk, lr, talk_fake, agent, home):
     "A fresh remake for a new audience gives the idea slides titles for that audience, keeps the poll that the owner set, and no slide writer gets the poll rule."

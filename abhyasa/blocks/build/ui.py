@@ -142,10 +142,16 @@ def Conflict(d):
     q = lambda x: Div(Blockquote(x.get('quote') or ''), P(Span(x.get('role') or '', cls='pill'), ' ', A(x.get('title') or '', href=x.get('href')) if x.get('href') else x.get('title') or '', cls='src-line mute'))
     return Li(q(d.get('main') or {}), q(d.get('extra') or {}), P(d.get('won') or '', cls='mute'), cls='bd-conflict')
 
+_JUNK = re.compile(r'^\s*(</?[a-z_:]+[^>]*>|(wait, )?i must use the correct format\.?|record the brief first\.?|keep slides? [\d, and]+ first\.?)\s*$', re.I | re.M)
+
+def clean_said(x:str) -> str:
+    "The words of the model with no stray tool tags (`</invoke>`) and no notes to itself, such as \"Record the brief first.\""
+    return re.sub(r'\n{3,}', '\n\n', _JUNK.sub('', str(x or ''))).strip()
+
 def Turn(t, b, changers, last=False, href=''):
     """One turn: your message, the tool calls, then one line built from what the tools did (never from the words of the model), with Undo,
     and the openable parts: What I read, Conflicts, What changed, What the builder said, and the log of the calls that did not work."""
-    calls, said = t['calls'], t['said']
+    calls, said = t['calls'], [x for x in map(clean_said, t['said']) if x]
     ok = lambda x: x['status'] == 'done' and not failed(x)
     shown = [x for x in calls if x['name'] in LINES and x['name'] != 'note_conflict' and not failed(x)]
     hidden = [x for x in calls if x not in shown and (x['name'] != 'note_conflict' or failed(x))]

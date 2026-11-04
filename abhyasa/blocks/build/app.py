@@ -160,6 +160,16 @@ def same_idea(a:str, b:str) -> bool:
     x, y = _stems(a), _stems(b)
     return bool(x and y) and len(x & y) >= max(1, (min(len(x), len(y)) + 1) // 2)
 
+def topic_of(words:str) -> str:
+    "What a step that `words` asks for is about: `add a step on the alliance system before ...` gives `alliance system`; '' when it names none."
+    m = re.search(r'\b(?:step|idea)s?\s+(?:on|about|for|that covers)\s+(?:the\s+)?(.+?)(?=\s+(?:before|after|at|as)\b|[.,;!?]|$)', str(words), re.I)
+    return m.group(1).strip() if m else ''
+
+def anchor_of(words:str) -> str:
+    "The step that `words` names with before or after: `... before the assassination` gives `assassination`."
+    m = re.search(r'\b(?:before|after)\s+(?:the\s+)?(.+?)(?:[.,;!?]|$)', str(words), re.I)
+    return m.group(1).strip() if m else ''
+
 def place_of(words:str, steps, slug) -> int|None:
     "The index that `words` asks for the step on `slug`: before or after a named step, first or last; None when it names no place."
     w = str(words).lower(); names = [(k, s['slug']) for k, s in enumerate(steps) if s['slug'] != slug]
@@ -645,11 +655,13 @@ def connect(app, ctx):
                         ) -> str:
             "Change the walk as the owner asks. A kept step never changes."
             j = need('walk')
+            olds = [(n, s_['slug'], name_of(s_['slug'])) for n, s_ in enumerate(j.steps, 1)]
+            if re.search(r'\b(add|insert|include|new)\b', instruction, re.I) and (tp := topic_of(instruction)) and not re.search(r'\b(anyway|second|another|also)\b', instruction, re.I) and (o := first(o for o in olds if same_idea(o[2], tp))):
+                return f"The walk has a step on this already: step {o[0]}, “{o[2]}”. Nothing changed. Say “add it anyway” for a second step."
             words = instruction + (f" Change only steps {', '.join(map(str, nums(steps)))}." if nums(steps) else '')
             names = lambda w: [(lr.concept(s['slug']) or {}).get('name') or s['slug'] for s in w.steps]
             stage('The tutor reads what you asked')
             cs = propose(ctx.ask, j, {s_['slug']: name_of(s_['slug']) for s_ in j.steps}, words)   # only the ideas of this walk: no idea from other content of the vault
-            olds = [(n, s_['slug'], name_of(s_['slug'])) for n, s_ in enumerate(j.steps, 1)]
             dup = [(c, near) for c in cs if c.op == 'add' and (near := first(o for o in olds if o[1] == (c.get('slug') or '') or same_idea(o[2], c.get('name') or '')))]
             cs = [c for c in cs if c not in [d for d, _ in dup]]   # a step that the walk has already, or nearly, is not added again
             said_dup = ' '.join(f"The walk has a step on this already: step {o[0]}, “{o[2]}”." for _, o in dup)
@@ -665,6 +677,8 @@ def connect(app, ctx):
                 k = [s_['slug'] for s_ in j2.steps].index(slug)
                 nb = (f", before “{name_of(j2.steps[k + 1]['slug'])}”" if k + 1 < len(j2.steps) else ', at the end')
                 out.append(f"Added “{name_of(slug)}” as step {k + 1}{nb}.")
+            if new and (an := anchor_of(instruction)) and place_of(instruction, j2.steps, new[0]) is None:
+                out.append(f"No step names “{an}”, so the new step stays where it is.")
             return ' '.join([*out, said_dup]).strip(), dict(before=names(j), after=names(j2))
 
         def research(query:str,  # what to look for on the web
