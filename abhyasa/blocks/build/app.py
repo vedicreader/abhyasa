@@ -138,18 +138,27 @@ def on_topic(d, topic:str) -> bool:
     if not ws: return True
     return any(w in f"{d.title} {getattr(d, 'text', '') or ''}"[:3000].lower() for w in ws)
 
-_FIXED = re.compile(r'(?<![{\w.])\d+(?:\.\d+)?\s*(?:°|%|degrees?\b)')   # a number with a unit in static text: it can disagree with the sliders
+_FIXED = re.compile(r'(?<![{\w.])(\d+(?:\.\d+)?)\s*(?:°|%|degrees?\b)')   # a number with a unit in static text: it can disagree with the sliders
 _NOT_TEXT = {'id', 'bind', 'expr', 'fn', 'type', 'kind', 'src', 'fmt', 'show', 'valuetext', 'min', 'max', 'step', 'x', 'y'}
 
+def _state_nums(st) -> set:
+    "The numbers that the state of a demo starts with, and the sum and the gap of each two (a gap of 90° from 130° and 40°): the values that a static text can copy."
+    vs = [float(v) for v in ((x.get('value', x.get('init')) if isinstance(x, dict) else x) for x in (st or {}).values()) if isinstance(v, (int, float)) and not isinstance(v, bool)]
+    out = set(vs)
+    for a in vs:
+        for b in vs: out |= {abs(a - b), a + b, (a - b) % 360}
+    return out - ({0.0, 360.0} - set(vs))   # a full circle or zero is a fact, unless the state starts there
+
 def fixed_numbers(spec) -> list:
-    """The static texts of rupaka demo `spec` that write a number with a unit (°, %) outside a `{slot}`, when the demo has state that a reader changes.
-    Such a number can disagree with the sliders ("the Moon is 90° ahead" at 160°). rupaka fills `{name}` from the state, so the text must use a slot."""
+    """The static texts of rupaka demo `spec` that write, outside a `{slot}`, a number with a unit (°, %) that the state starts with or makes (`_state_nums`).
+    Such a number disagrees with the sliders once they move ("the Moon is 90° ahead" at 160°). rupaka fills `{name}` from the state, so the text must use a slot.
+    A fact such as "a circle has 360°" or "slices of 12°" stays."""
     if not (spec or {}).get('state'): return []
-    out = []
+    nums, out = _state_nums(spec['state']), []
     def walk(v, k=''):
         if isinstance(v, dict): [walk(x, kk) for kk, x in v.items() if kk not in _NOT_TEXT]
         elif isinstance(v, list): [walk(x, k) for x in v]
-        elif isinstance(v, str) and _FIXED.search(re.sub(r'\{[^{}]*\}', '', v)): out.append(v)
+        elif isinstance(v, str) and any(float(m.group(1)) in nums for m in _FIXED.finditer(re.sub(r'\{[^{}]*\}', '', v))): out.append(v)
     walk({k: v for k, v in spec.items() if k != 'state'})
     return out
 
