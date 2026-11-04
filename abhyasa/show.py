@@ -2548,7 +2548,8 @@ def brief_asks(b:dict, slides:bool=False) -> str:
     if (r := ' '.join(str(b.get('rules') or '').split())):
         if slides: r = shape_free(r)
         if r: out.append(r if r.endswith('.') else r + '.')
-    if (a := ' '.join(str(b.get('aim') or '').split())): out.append(f'The aim: {a}' + ('' if a.endswith('.') else '.'))
+    if (a := ' '.join(str(b.get('aim') or '').split())) and slides: a = shape_free(a)   # a shape rule in the aim stays out of each slide too
+    if a: out.append(f'The aim: {a}' + ('' if a.endswith('.') else '.'))
     if ss and not b.get('research', True): out.append('Use only these sources.')
     return ' '.join(out)
 
