@@ -1,87 +1,94 @@
 # Plan: the builder
 
-Status: approved to build, 4 Nov 2026. Version 1.
+Status: version 1, 4 Nov 2026. This plan joins the first plan, the product plan and the design plan, with the decisions of the owner.
 
 ## Why
 
-Today you make a walk or a talk with a form: the Start box, its chips, "Who is it for", "No code", Start and Make a talk. Then you change it with buttons: Make it better, Make it again, lock and unlock. The owner says this feels like a black box. You press a button, you wait, and you get a result that you cannot steer. You cannot say what you want in your own words.
+Today you make a walk or a talk with a form, and you change it with buttons. The owner says that this is a black box. The builder is a
+conversation: you say what you want, you see the walk or the talk change on the same page, and you fix it with your own words.
 
-The builder is a conversation. You tell abhyasa what you want, you see the walk or the talk change on the same page, and you fix it by saying what is wrong. It works as a ramabana or Leela session does.
+## The decisions of the owner
 
-## What you can say
+1. Research waits for Keep. Each find has Keep and Drop, and there are Keep all and Drop all. A find that you did not decide stays out.
+2. The builder is in the side pane at the right, with its grip and its widths. The walk or the talk is the page at the left. Build and
+   "Change with the builder" are one layout and one code path.
+3. Start and Make a talk in the Start box open the page with the builder open. Your text is the first message, the chips are `main`
+   sources, and the job starts at once.
+4. While a talk runs, the builder changes nothing. The room never sees the conversation or the ask control of a demo. The presenter and
+   audience windows show demos with `askable=False`.
 
-These are the owner's examples. The builder must handle each one.
+## The rule
 
-- "Make me a walk on attention in transformers." You can add folders, files and links, or "use these links".
-- "I have some material. Research more material and add it." Then: "I do not like the extra material. Use only the material that I attached."
-- "The agentic_engineering notebook is the main source. Use the others to add to it. Where they conflict, use the notebook."
-- "I want the people to become technical." Or: "I want them to leave with a thorough understanding of the material."
-- "Make a talk from this for managers, 20 minutes." Then: "slide 3 has too much code", "leave slides 4 and 5 as they are", "make it again with less code".
+Each way to make or change a walk or a talk ends in one conversation, on one brief.
 
-## The parts
+## The brief
 
-### 1. The brief
+The brief is one record. It is kept on the conversation and on the walk or the talk. The tools of the agent and the brief box write it
+through one function. After each change the conversation keeps a snapshot. When you change the brief by hand, the next turn of the agent
+starts with a short note, such as "The owner changed: research off; aim = become technical".
 
-The builder keeps a brief on the walk or the talk. The brief is what you told it, in a form that the builders can use:
+- `sources`: each a chip id with a role: `main`, `extra` or `dropped`. The main sources win a conflict.
+- `rules`, `aim`, `audience`, `no_code`, `minutes`, `goal` and `kind`.
+- `research`: on or off. Off means that abhyasa uses only your sources: no web search, and no passage from the rest of the vault.
+- `keep`: the slides or steps that do not change.
+- `found`: the finds of research, each with the role that you gave it.
 
-- The sources, each with a role: `main`, `extra` (adds to the main sources) or `dropped`. A source is a chip id as the Start box makes it (`file:`, `folder:`, `repo:`, `gh:`, `link:`, `doc:`, `vault:`).
-- `rules`: your own words about the sources, for example "where they conflict, use the notebook". They go to the planner and the slide writer as an instruction from the owner (`owner_says`), never as a `<source>`.
-- `research`: on or off. Off means "use only my material".
-- `aim`: the tone or the goal, in your words, for example "become technical".
-- `audience` and `no_code`, as today.
-- `keep`: the slides or steps that you told it to leave as they are. This replaces lock and unlock.
+`brief_asks` puts the brief in plain words. The planner and the slide writer get it as an instruction from the owner (`owner_says`), never
+as a `<source>`.
 
-The pane shows the brief in a short box above the conversation. You can change a field there too, but you do not have to.
+## The agent
 
-### 2. The conversation pane
+One ramabana agent for each conversation, made by `ramabana_lead` with no web tools (`web=False`). Research goes only through the
+`research` tool. Its system prompt is `build.agent`, which you can change in Settings. A turn runs as a pool job, so the activity chip
+and Stop work. When the app starts again, the first turn gets a recap of the conversation.
 
-- A new page, "Build", opens from Home ("Make a walk or a talk by talking"). Also, "Change with the builder" opens the same pane beside a walk page or a talk editor, in the side pane that abhyasa already has.
-- The page has the conversation on the left and the walk or the talk on the right. The right side updates after each change. You do not refresh.
-- The conversation has text input. Use voice as the Start box does (data-mic), so that you can speak.
-- The pane shows each tool call as one short line while it runs, for example "Filing agentic_engineering.ipynb" or "Writing slide 3". Long jobs show their stage, as the talk job does now. Stop works.
-- The conversation of a walk or a talk is kept. When you open the pane again, it continues.
+## The tools
 
-### 3. The agent
+Each tool is a thin wrapper over an engine function or a hook of the talk block.
 
-- It is one ramabana agent for each conversation. It stands on `ramabana_lead` (`abhyasa/models.py`): ramabana's own read and web tools, no Python, no write to your files, and caps for each turn. Add the builder tools below.
-- It runs as a pool job. Use the job rows, Stop and the pending card that exist now.
-- Its system prompt says what abhyasa is and what the brief means. It tells the agent to keep the brief true after each request, and to say in one line what it changed. The prompt is ASD-STE100 and registered with `register` as the other prompts are, so the owner can edit it in Settings.
+| Tool | Stands on |
+|---|---|
+| `add_source`, `set_source`, `set_brief`, `keep`, `free` | the brief |
+| `show` | the walk or the talk now |
+| `make_talk` | `walk_for_talk`, `talk_from_walk` |
+| `make_walk` | `walk_for_talk`; a remake: `replan_walk`, or with research off a walk from your sources only, as one change |
+| `change_talk` | the slide rewrite (`talk_rewrite` hook), or `talk_again` / `talk_fresh`; kept slides stay word for word |
+| `edit_slide`, `set_poll` | the `edit` of the talk editor (`talk_edit` hook) |
+| `make_demo` | `make_demo` of the engine, then the `talk_demo` hook |
+| `change_walk` | `propose`, `improve_walk` |
+| `research` | `web_search`; the finds wait for Keep |
+| `undo` | the history and Undo of the walk or the talk |
 
-### 4. The builder tools
+## The pane
 
-Each tool is a thin wrapper over an engine function that exists. Do not write a second planner, a second slide writer or a second research step.
+- Your brief: a fold with one line. ⌥A opens it.
+- The thread: your message, one row for each tool call, then one line from the builder with Undo, and What I read and What changed.
+- The view of a tool comes from a dict that maps a tool name to its renderer: research shows the finds, a change shows before and after,
+  a make shows the outline, and a demo shows the demo live, with "Ask about this".
+- The box takes voice (⌥D). ⌥S sends, ⌥X stops, ⌥W goes to the box, ⌘Z undoes, F keeps a find and X drops it. ⌥E opens or closes the builder.
+- After a change, the page at the left loads again, and the pane stays open.
 
-| Tool | What it does | Stands on |
-|---|---|---|
-| `add_source(ref, role)` | File a folder, a file, a repo or a link, and give it a role | `file_chip`, `detect` |
-| `set_source(ref, role)` | Change a role, or drop a source | the brief |
-| `set_brief(aim, audience, no_code, rules, research)` | Change the brief | the brief |
-| `research(query)` | Find extra material. It gives a list that the pane shows. You keep or drop each item | the research step of a walk |
-| `make_walk()` | Make the walk from the brief | `walk_from_topic`, `journey_from_sources`, `notebook_walk` |
-| `make_talk(minutes)` | Make the talk from the brief | `talk_from_sources` |
-| `change_walk(instruction, steps)` | Change the walk, or only some steps | `improve_walk`, `edit_walk`, `rewrite` |
-| `change_talk(instruction, slides, fresh)` | Change the talk, or only some slides, and keep the `keep` slides | `talk_again`, `talk_fresh`, the slide rewrite |
-| `set_poll(q, options)` | Change the poll | the talk editor's `edit` |
-| `keep(ids)` / `free(ids)` | Leave steps or slides as they are, or let them change | the brief |
-| `show()` | Give the agent a short outline of the walk or the talk now | `walk_slides`, `talk_state` |
-| `undo()` | Take back the last change | the history and Undo that exist now |
+## Events
 
-Each change goes into the history of the walk or the talk, with Undo, as the edits of today do.
+The conversation keeps events with the names and fields of AG-UI. `events.py` reads them for the pane. A ramabana with `Agent.events`
+gives them itself; with an older ramabana, the builder makes them from the tool calls. They go to the page through the job event stream.
 
-### 5. The brief in the builders
+## Demos
 
-- `main` sources are read first. `extra` sources and research add passages, and lose when they conflict with a `main` source. Use the passage search and the grounding that exist, and give the `rules` to the prompt.
-- `research` off: no web search, and the walk uses only your sources.
-- `aim` goes to the planner (how deep, how technical) and to the slide writer.
+`make_demo(slide, what)` makes a rupaka demo from your words and puts it on the slide. A question from the demo (`rk-ask`) puts a message
+in the box, such as "About the demo on slide 4 (temperature = 2): …".
 
 ## Not in version 1
 
-- A builder for courses.
-- Two or more people in one conversation.
-- Removing the Start box. It stays as a quick way in. "Make a talk" and "Make it again" stay too.
+- A builder for courses, and two or more people in one conversation.
+- Removing the Start box.
 
-## Tests and checks
+## Proof
 
-- Unit tests for each tool, with the fake model, and a check of what the page shows.
-- A real browser check of each owner example above, against a copy of the vault, with screenshots.
-- Never the owner's real vault, and never the server on port 5088.
+The browser flows run against a copy of the vault, never the real vault and never the server on port 5088:
+
+1. A talk from a notebook, for managers, 20 minutes, from the notebook only.
+2. Slide 3 changes, slide 2 stays word for word, and Undo works.
+3. A walk on attention, with research that waits for Keep, then "use only my sources".
+4. "Change with the builder" beside a talk, and one change.
+5. A demo on a slide of a talk, live in the builder and in the presenter window.

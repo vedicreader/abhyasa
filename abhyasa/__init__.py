@@ -2,6 +2,8 @@
 
 Modules:
 
+- `abhyasa.blocks.build.app`: The builder: make a walk or a talk by talking, and see it change beside the conversation (docs/builder-plan.md).
+- `abhyasa.blocks.build.events`: The events of a builder conversation, with the names and the fields of AG-UI: `TEXT_MESSAGE_START/CONTENT/END`, `TOOL_CALL_START/ARGS/END/RESULT`, `RUN_STARTED/FINISHED/ERROR`, `STATE_SNAPSHOT` and `CUSTOM`. The conversation keeps the events, and the pane reads them only through `fold`. A ramabana that has `Agent.events` gives the events of a turn itself; then `Emit` only sends the stages and the data of a tool through `agent.emit`. With an older ramabana, `Emit` makes all the events from the tool calls and the reply of a turn.
 - `abhyasa.blocks.demo.app`: Interactive demos from rupaka: Show. One engine (`abhyasa.show.show`) and one card for each place: the Show slot of a walk step and of a concept page, the thread of a session, the card under a lesson, and "show me …" to the guide. Each Show is an ask, so `/demo/asked/{aid}` is its one wait. The kind of each ask says why, and 3D and Leela are one click away. A 3D explainer is a rupaka scene. rupaka loads three.js from `Routes.three` only when a scene mounts, so a page with no scene never loads it.
 - `abhyasa.blocks.detour.app`: Rabbit holes: "I don't get X", at three depths, then back to the same place (spec 6.10, design flows/rabbit.md).
 - `abhyasa.blocks.guide.app`: The screen guide: Hyper+E or Explain on any page, and the tutor answers with a board drawn over the page.
