@@ -22,7 +22,7 @@ from abhyasa.path import edit_lock, CTRL, rewrite as tutor_rewrite
 from abhyasa.sources import figure_path
 from abhyasa.path import needs, pick_way_down, detour, walk_from_topic, for_talk, step_read, chip_docs, walk_from_talk
 from abhyasa.models import for_task
-from abhyasa.learner import val, lines, track, seen_jobs, check_stop, halted, JobStopped, STOPPED
+from abhyasa.learner import val, lines, track, seen_jobs, check_stop, halted, JobStopped, STOPPED, Said
 from abhyasa.show import (check_talk, talk_from_walk, talk_from_sources, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST,
     QUESTIONS_MIN, public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go,
     log_main, end_run, log_beside, recap, recap_html, BEATS, FILLED, clean_slide, talk_again, talk_fresh, walk_changes, AGAIN, FRESH,
@@ -262,10 +262,11 @@ def connect(app, ctx):
         j = lr.journey(jid)
         return j if j and j.get('mode') == 'walk' and j.steps else None
 
-    def new(jid:str='', again:str='', tid:str='', fresh:str=''):
+    def new(jid:str='', again:str='', tid:str='', fresh:str='', change:str=None):
         """Start the pool job that makes a talk from walk `jid`, unless one runs. The request does not wait for the model.
         `again` (a number that is not 0) makes talk `tid` again from the walk (`talk_again`), with the same id and your edits; with no `tid`,
         the newest talk of the walk. With `fresh` too, it makes the talk again from scratch (`talk_fresh`): new slides, with no edits.
+        `change` is what the owner asks for (What to change); the talk keeps it. With no `change`, the talk keeps the one that it has.
         The job of a talk made again has the talk id as its key."""
         if not walk_of(jid := jid.strip()): return P('No such walk.', cls='req-err')
         if (a := again.strip()).isdecimal() and int(a):
@@ -273,9 +274,9 @@ def connect(app, ctx):
             if not t or (t.get('src') or {}).get('walk') != jid: return P('No such talk for this walk.', cls='req-err')
             how = 'fresh' if fresh.strip() not in ('', '0') else True
             if not (job := jobs.get(t.id)) or job.done():
-                f = (lambda: scratch(jid, t.id)) if how == 'fresh' else (lambda: talk_again(lr, ask(), t.id, ctx.sources).id)
+                f = (lambda: scratch(jid, t.id, change)) if how == 'fresh' else (lambda: talk_again(lr, ask(), t.id, ctx.sources, change=change).id)
                 make_job(t.id, f, f'Talk: {t.title}', 'Making the talk again' + (' from scratch' if how == 'fresh' else ''), Routes.of(Routes.one, tid=t.id),
-                         again=dict(jid=jid, tid=t.id, **({'fresh': True} if how == 'fresh' else {}))).again = how
+                         again=dict(jid=jid, tid=t.id, **({'fresh': True} if how == 'fresh' else {}), **({'change': change} if change is not None else {}))).again = how
             else: how = getattr(job, 'again', True)
             return ui.Pending(t.id, again=how, row=lr.job(f'talk:{t.id}'))
         if not (job := jobs.get(jid)) or job.done(): make_job(jid, lambda: from_walk(jid), f'Talk: {walk_of(jid).title}', 'Making the talk', f'/w/{jid}', again=dict(jid=jid))
@@ -286,10 +287,10 @@ def connect(app, ctx):
         for s in (lr.journey(jid) or {}).get('steps') or (): check_stop(lr, key); step_read(lr, jid, s['slug'], ctx.sources)
         check_stop(lr, key)
 
-    def scratch(jid, tid):
-        "On the pool: make talk `tid` again from scratch from walk `jid`. After Stop, the talk does not change. The talk id."
+    def scratch(jid, tid, change=None):
+        "On the pool: make talk `tid` again from scratch from walk `jid`, with the `change` that the owner asks for. After Stop, the talk does not change. The talk id."
         reads(jid, key := f'talk:{tid}')
-        return talk_fresh(lr, ask(), tid, ctx.sources, stop=lambda: check_stop(lr, key)).id
+        return talk_fresh(lr, ask(), tid, ctx.sources, stop=lambda: check_stop(lr, key), change=change).id
 
     def from_walk(jid):
         "On the pool: find the passage of each step that an old path left for later (`step_read`), then make the talk. The talk id."
@@ -299,8 +300,10 @@ def connect(app, ctx):
         return t.id
 
     def made_from(key, ids, goal, audience, no_code):
-        "On the pool: file the chips `ids` and make a talk with its hidden walk (`talk_from_sources`). After Stop, the talk and its walk are not kept. The talk id."
-        t = talk_from_sources(lr, ask(), ids, goal, audience, no_code, ctx.sources)
+        """On the pool: file the chips `ids` and make a talk with its hidden walk (`talk_from_sources`). Its row says each stage, and each stage is a safe point for Stop.
+        After Stop, the talk and its walk are not kept. The talk id."""
+        st = Said(lr, f'talk:{key}')
+        t = talk_from_sources(lr, ask(), ids, goal, audience, no_code, ctx.sources, said=lambda x: st.update(said=x))
         run_hook('concepts_added')   # the concepts block places the new concepts on the pool
         if halted(lr, f'talk:{key}'): lr.drop_talk(t.id); check_stop(lr, f'talk:{key}')
         return t.id
@@ -336,7 +339,7 @@ def connect(app, ctx):
         "Do it again on a talk job: make the talk of the walk, make the talk again, or fill its slides, with the same inputs."
         if r.get('kind') != 'talk' or not isinstance(a := r.get('again'), dict): return None
         if a.get('fill'): fill(a['fill'])
-        elif a.get('jid'): new(a['jid'], again='1' if a.get('tid') else '', tid=a.get('tid') or '', fresh='1' if a.get('fresh') else '')
+        elif a.get('jid'): new(a['jid'], again='1' if a.get('tid') else '', tid=a.get('tid') or '', fresh='1' if a.get('fresh') else '', change=a.get('change'))
         elif isinstance(a.get('src'), dict): from_sources(**a['src'])
         else: return None
         return True
@@ -372,7 +375,15 @@ def connect(app, ctx):
         "The source chips of the walk of talk `t`, for the Links panel and the handout."
         return (walk_for(t) or {}).get('chips') or ()
 
-    def links_of(t, **kw): return ui.Links(t, link_rows(t, chips_of(t)), **kw)
+    def names_of(t):
+        "The title of each `doc:` chip of talk `t`, for the Links panel and the handout."
+        return {c: d['title'] for c in chips_of(t) if str(c).startswith('doc:') and (d := lr.vault.doc(c[4:]))}
+
+    def links_of(t, **kw): return ui.Links(t, link_rows(t, chips_of(t)), names=names_of(t), **kw)
+
+    def mine_of(t):
+        "The walk of your own that Make a walk from this talk made from talk `t`, or None."
+        return first(w for w in lr.journeys() if w.get('from_talk') == t['id'])
 
     def one(req, tid:str, done:str=''):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
@@ -381,9 +392,11 @@ def connect(app, ctx):
         top = first(lr.edits('talk', tid)) if said else None   # after Fill the slides, Make it again or From scratch: the bar offers Undo at once
         filled = bar(t, top.what, [top]) if top and top.what == said else None
         j, pj = walks_of(t)
-        m = menu(t, ui.HandoutLink(t), *([ui.MineWalk(t)] if hidden(j) else []), *([ui.Scratch(j.id, t, target='#talk-job', swap='innerHTML')] if j else []))
+        hid = hidden(j)
+        m = menu(t, ui.HandoutLink(t), *([ui.MineWalk(t, mine_of(t))] if hid else []), *([ui.Remake(j.id, t)] if j else []))
         page = Page(f'{t.title}, as a talk', *ui.Editor(t, j, pj, choices(t), filled, None if pj or not j else walk_changes(lr, t), menu=m,
-                                                        srcs=sources_of(j) if hidden(j) else None, links=links_of(t)), on='Home',
+                                                        srcs=sources_of(j) if hid else None, links=links_of(t),
+                                                        goal=(j.get('goal') or '') if hid and not j.get('source') else ''), on='Home',
                     crumbs=[('Home', '/'), *up_of(t)], extra=ui.editor_assets(), wide=True)
         req.htmlkw['class'] = ' '.join(x for x in (req.htmlkw.get('class'), 'talk') if x)   # the editor keys work only here
         return page
@@ -624,7 +637,9 @@ def connect(app, ctx):
             except ValueError: return text('Undo cannot take back this change.')
             t, hist = lr.talk(tid), lr.edits('talk', tid)
         said = f'Undone: {e.what}' if e else 'Nothing to undo.'
-        return (*deck(t), bar(t, said, hist), *([links_of(t, opened=True, oob=True)] if e and 'links' in (e.before or {}) else []))   # Undo of a link change shows the link again
+        back = e.before if e and isinstance(e.before, dict) else {}
+        return (*deck(t), bar(t, said, hist), *([links_of(t, opened=True, oob=True)] if 'links' in back else []),   # Undo of a link change shows the link again
+                *([ui.Remake(j.id, t, oob=True)] if 'change' in back and (j := walk_for(t)) else []))   # Undo of a remake shows the old What to change
 
     def history(tid:str):
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
@@ -726,7 +741,7 @@ def connect(app, ctx):
     def handout(tid:str, look:str=''):
         "The handout of talk `tid` as one HTML file to print as a PDF, with the results of its newest run when it has one. No script can run in it."
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
-        body = handout_html(t, first(lr.runs(tid)), asset_resolver(lr), chips_of(t))
+        body = handout_html(t, first(lr.runs(tid)), asset_resolver(lr), chips_of(t), names_of(t))
         how = 'inline' if look != '0' else f'attachment; filename="{re.sub(r"[^a-z0-9-]", "", t.id)[:48] or "talk"}-handout.html"'
         return Response(body, media_type='text/html; charset=utf-8',
                         headers={'Content-Disposition': how, 'Content-Security-Policy': "default-src 'none'; img-src data:; style-src 'unsafe-inline'"})
@@ -749,13 +764,16 @@ def connect(app, ctx):
         return links_of(t, opened=True), bar(t, said, hist)
 
     def mine(tid:str):
-        "Make a walk of your own from the hidden walk of talk `tid`, with its ideas in the order of the slides, then open the walk."
+        """Make a walk of your own from the hidden walk of talk `tid`, with its ideas in the order of the slides, then open the walk.
+        The walk keeps the talk id (`from_talk`), so a second press, from this tab or another, opens the same walk."""
         if not (t := lr.talk(tid)): return Response('No such talk.', status_code=404)
         if not hidden(j := walk_for(t)): return text('This talk comes from a walk of your own. Open that walk.')
-        order = [s['concept'] for s in on_stage(t)['slides'] if s.get('kind') == 'idea' and s.get('concept')]
-        try: w = walk_from_talk(lr, j.id, order)
-        except ValueError as e: return text(str(e))
-        return RedirectResponse(f'/w/{w.id}', status_code=303)
+        with edit_lock('talk', tid):
+            if not (w := mine_of(t)):
+                order = [s['concept'] for s in on_stage(t)['slides'] if s.get('kind') == 'idea' and s.get('concept')]
+                try: w = lr.merge_journey(walk_from_talk(lr, j.id, order).id, from_talk=tid)
+                except ValueError as e: return text(str(e))
+        return RedirectResponse(f"/w/{w['id']}", status_code=303)
 
     def open_nb(req, tid:str):
         "Open the notebook that talk `tid` keeps (`src.notebook`) on this Mac with `open`, for a request from this Mac. No path comes from the request."

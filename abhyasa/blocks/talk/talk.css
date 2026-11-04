@@ -242,5 +242,6 @@ html.present #rh-pane .rh-own { display: none; }
 .talk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s3); }
 .talk-head h1 { margin-bottom: 0; }
 .talk-menu .menu-items { min-width: 22rem; }
-.talk-menu .talk-scratch .quiet { width: 100%; justify-content: flex-start; color: var(--fg); }
+.talk-menu .talk-remake-form textarea { width: 100%; box-sizing: border-box; }
+.mini code { font-size: inherit; }   /* a name in code in the small picture of a slide stays small */
 .lrow-acts .talk-menu, .talk-line .talk-menu { display: inline-block; }

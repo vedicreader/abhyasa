@@ -1,6 +1,6 @@
 # Plan: talks from sources
 
-Status: built, 4 Nov 2026. Steps 1 to 8 and 7a are built. The owner decided the open questions on 4 Nov 2026; the decisions are at the end.
+Status: built, 4 Nov 2026. Steps 1 to 8 and 7a are built. The owner decided the open questions on 4 Nov 2026; the decisions are at the end. A review on 4 Nov 2026 found problems in the first build; "Fixes after the review" says what changed. Not built: "only sections 1 to 4" in What to change does not remove slides, because the slide writer writes one slide at a time.
 
 Today a talk comes only from a walk. "Present this walk" calls `talk_from_walk` (`nbs/05_show.ipynb`). It makes one `idea` slide for each step that is not skipped, then the `questions` and `recap` slides. The talk keeps the walk id in `t['src']['walk']`. "Make it again", "From scratch" and `walk_changes` read that walk again.
 
@@ -77,6 +77,21 @@ Each step has its own test and can ship alone. Engine steps change the notebooks
 | 8 | "Make a walk from this talk": copy the hidden walk's steps in slide order into a walk of your own. | `nbs/04_path.ipynb`, talk menu | The new walk has the slides' ideas in deck order, and no `parent`. |
 
 Steps 1 to 3, 5, 7 and 7a give Use 2 for the workshop. Step 4 makes its questions better. Use 1 works after step 5. Step 8 is for Use 1.
+
+## Fixes after the review
+
+These are built, uncommitted, on 4 Nov 2026.
+
+| Problem | Fix |
+|---|---|
+| A notebook slide showed the whole section, with headings and tables. | The section goes to the slide writer in `_read`. The slide shows 2 to 4 points, at most one short code piece (`code_piece`, none with No code) and the question. |
+| The handout showed raw markdown and the title three times. | The handout draws markdown (`md_part`, with `mdhtml` and `nh3`). A section line or a first heading that is the title does not show. |
+| Make it again took no instruction. | "Make it again" in the ⋯ menu has What to change. It goes to the slide prompt and the poll prompt in an `<owner>` marker. The talk keeps it in `change`, and Undo gives back the old one. |
+| The ⋯ menu items had different looks. A second press made a second walk. | Each item has the class `mi`. The walk keeps `from_talk`, so a second press opens the same walk. |
+| A notebook talk had a path as its title. | `nb_title`: the first `#` heading, else the file name in words. |
+| Some words were not true. | "Made from your goal", the Start line for a file, no web chip for one notebook, Teach names Make a talk, and the pending card shows the stage of the job. |
+| A disabled Make a talk gave no reason. | It says "To make a talk, write a goal or add a source." Only a busy or held button has the progress cursor. |
+| Web and vault sources had no link. Undo of Make this walk again kept the new sources. | A GitHub repo, a link and a vault page get a row and a handout line. `edit_walk` keeps the old fields, so Undo gives them back. |
 
 ## Decisions
 

@@ -8,7 +8,7 @@ from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import Primary, Secondary, Quiet, Part, Md, Inline, Cites, SourceLine, meta, n_of, asset_css, asset_js, stage_assets, edit_assets, EditList, Live, UndoBar, HistoryList, JobStop, JobAgain
 from fastcore.basics import AttrDict
-from abhyasa.show import talk_minutes, public_ask, share_right, needs_fill, slide_source, GONE, parked, shared_link
+from abhyasa.show import talk_minutes, public_ask, share_right, needs_fill, slide_source, GONE, parked, row_link, row_name, CHANGE_MOST
 from abhyasa.learner import val
 from .cfg import Routes
 
@@ -80,10 +80,17 @@ def RowPresent(jid, t=None):
     return Form(Input(type='hidden', name='jid', value=jid), Quiet('Present', small=True, data_wait='Making the talk…', title='Make a talk from this walk'),
                 hx_post=Routes.new, hx_target='this', hx_swap='outerHTML', cls='talk-new')
 
+STAGES = {'Filing the sources': 'abhyasa files your sources in your vault. Then it plans the slides.',
+          'Reading the sections of the notebook': 'abhyasa reads each section of the notebook. Each section becomes one slide.',
+          'Planning the ideas': 'The tutor plans the ideas of the talk and finds a passage for each idea.',
+          'Writing the slides': 'The tutor writes the points and the speaker notes of each slide, and a question for the room. This can take a minute.'}   # the stages of `talk_from_sources`
+
 def Pending(jid, fill=False, again=False, row=None):
     """A talk that is still being made, filled (`fill`), made again (`again`) or made again from scratch (`again='fresh'`), with Stop for its job
-    row `row`: the card loads again on the event of its job row (`talk:<jid>`), and every 30 seconds."""
-    said = (('Filling the slides…', 'The tutor writes the points and the speaker notes of each slide that has none. This can take a minute.') if fill else
+    row `row`: the card loads again on the event of its job row (`talk:<jid>`), and every 30 seconds. A talk made on Start shows the stage of its job (`STAGES`)."""
+    now = (row.get('said') or '') if row is not None and row.state == 'running' else ''
+    said = (('Making the talk…', f'{now}. {STAGES[now]}') if not fill and not again and now in STAGES else
+            ('Filling the slides…', 'The tutor writes the points and the speaker notes of each slide that has none. This can take a minute.') if fill else
             ('Making the talk again from scratch…', 'The tutor writes each slide again from the walk. Your edits go, and Undo gives them back.') if again == 'fresh' else
             ('Making the talk again…', 'The tutor writes a slide for each new idea. Your edits to slides stay where the idea is the same.') if again else
             ('Making the talk…', 'The tutor writes the points and the speaker notes of each slide, and a question for the room from each check. This can take a minute.'))
@@ -124,13 +131,13 @@ def DropTalk(t, live=False, row=None, hidden=False):
     if live: c = (P(LIVE_SAYS), Form(Button('End the talk', cls='small', data_act='end'), action=at(Routes.end, t['id']), method='post', hx_boost='false', cls='row'))
     elif row is not None: c = (P(BUSY_SAYS), Div(JobStop(row), cls='row'))
     else: c = (Form(P(DROP_HIDDEN if hidden else DROP_SAYS), Div(Button('Delete the talk', cls='small danger', data_act='drop'), cls='row'), action=at(Routes.drop, t['id']), method='post', hx_boost='false'),)
-    return Details(Summary('Delete this talk', cls='small'), Div(*c, cls='drop-confirm'), cls='drop-walk drop-talk')
+    return Details(Summary('Delete this talk', cls='mi'), Div(*c, cls='drop-confirm'), cls='drop-walk drop-talk')
 
 def TalkMenu(t, *items, live=False, row=None, hidden=False):
     "The ⋯ menu of talk `t`, in the editor and on its row in a list: `items` (such as Make it again from scratch), then Delete this talk."
     return Details(Summary('⋯', title='More for this talk', aria_label='More for this talk'), Div(*items, DropTalk(t, live, row, hidden), cls='menu-items'), cls='more-menu talk-menu')
 
-TEACH = 'To teach a walk to a group, press Present on the walk. abhyasa makes the slides, and you change them before you present.'
+TEACH = 'To teach a group, press Make a talk in the Start box, with a goal or your sources, or press Present on a walk. abhyasa makes the slides, and you change them before you present.'
 
 def Teach(ts, menu=lambda t: ''):
     """Teach, on Home: a row for each talk, with its ⋯ menu (`menu(t)`), and how to make one from a walk. Two talks with one title (with no date)
@@ -158,9 +165,9 @@ def shows(s):
     return meta(*parts, n_of(lit, 'lit line') if lit else '', n_of(len(beats), 'beat') if len(beats) > 1 else '') or 'the title only'
 
 def Mini(s):
-    "A small picture of the slide: its section, its title and the start of its passage."
+    "A small picture of the slide: its section, its title and the start of its points, else of its passage."
     sh = s.get('show') or {}
-    return Div(Small(Inline(s.get('section') or '')), B(Inline(s.get('title') or '')), P(Inline(short(sh.get('passage') or ' '.join(sh.get('body') or []) or s.get('prompt') or '', 120))),
+    return Div(Small(Inline(s.get('section') or '')), B(Inline(s.get('title') or '')), P(Inline(short(' '.join(sh.get('body') or []) or sh.get('passage') or s.get('prompt') or '', 120))),
                I(cls='fig') if sh.get('figure') else '', cls='mini', aria_hidden='true')
 
 def Field(label, el, help=''):
@@ -208,7 +215,7 @@ def Passage(s, post, ps):
                                                 *[Option(short(p['text'], 90), value=str(n), selected=n == k) for n, p in enumerate(ps)],
                                                 name='k', hx_post=post, hx_trigger='change', hx_vals=json.dumps(dict(act='passage')), hx_target='#deck', hx_swap='outerHTML')) if ps and (len(ps) > 1 or k < 0) else ''
     return Div(Span('Passage', cls='lbl'),
-               *((Blockquote(Inline(have), cls='passage', data_pick='1'), SourceLine(slide_source(s))) if have else (P('This slide shows no passage.', cls='mute'),)),
+               *((Blockquote(*Said(have), cls='passage', data_pick='1'), SourceLine(slide_source(s))) if have else (P('This slide shows no passage.', cls='mute'),)),
                Div(pick, Quiet('Remove the passage', small=True, **act(post, 'passage', k='')) if have else '', cls='pick-row'), cls='passage-part')
 
 def fig_url(tid, f): return f"{at(Routes.fig, tid)}?{urlencode(dict(f=f))}"
@@ -363,50 +370,71 @@ def Fill(t):
     return Form(Quiet('Fill the slides', small=True, data_wait='Filling the slides…'), Small(f' {n} {have} no points or no speaker note.', cls='mute'),
                 hx_post=at(Routes.fill, t['id']), hx_target='this', hx_swap='outerHTML', cls='talk-new talk-fill')
 
-def MadeFrom(j, pj, srcs):
-    "Where the talk came from: the walk page of `pj` or `j`, or with `srcs` (`(name, url)` for each source of a hidden walk) its sources."
+def MadeFrom(j, pj, srcs, goal=''):
+    "Where the talk came from: the walk page of `pj` or `j`, or with `srcs` (`(name, url)` for each source of a hidden walk) its sources, after the `goal` that you typed."
     if srcs is not None:
+        names = [x for k, (n, u) in enumerate(srcs) for x in ((', ' if k else ''), A(n, href=u))]
+        if goal: return Span(f'Made from your goal: {short(goal, 100)}', *((' · your sources: ', *names) if names else ()))
         if not srcs: return A('Made from your sources', href=Routes.sources)
-        return Span('Made from your sources: ', *[x for k, (n, u) in enumerate(srcs) for x in ((', ' if k else ''), A(n, href=u))])
+        return Span('Made from your sources: ', *names)
     return A('Made from your walk', href=f'/w/{pj.id}') if pj else A('Made from your walk', href=f'/w/{j.id}') if j else 'Made from a walk that is gone'
 
 HANDOUT_SAYS = 'One page for each slide, then the links, then the answers. Save it as a PDF with Print.'
 MINE_SAYS = 'A walk of your own with the ideas of this talk, in the order of the slides.'
 LOCAL_SAYS = 'Only this Mac opens this link. The PDF shows the path, with your user name.'
 LINKS_SAYS = 'Give a shared link for each file, or one link for a folder. A file link wins over its folder link. The handout uses these links.'
-ROW_KINDS = dict(notebook='Notebook', file='File', folder='Folder', parent='Folder')
+VAULT_SAYS = 'This page is in your vault. The handout gives only its name, unless you give a shared link.'
+ROW_KINDS = dict(notebook='Notebook', file='File', folder='Folder', parent='Folder', web='Link', vault='Vault page')
+REMAKE_SAYS = 'The tutor writes the slides again from the same sources. Your edits to slides stay where the idea is the same. Undo takes it back.'
+CHANGE_HINT = 'optional, for example: less code, for managers'
 
 def HandoutLink(t):
     "The Handout item of the menu of talk `t`: it opens the handout file in a new tab."
-    return A('Handout', href=at(Routes.handout, t['id']), target='_blank', rel='noopener', cls='small', title=HANDOUT_SAYS, data_act='handout')
+    return A('Handout', href=at(Routes.handout, t['id']), target='_blank', rel='noopener', cls='mi', title=HANDOUT_SAYS, data_act='handout')
 
-def MineWalk(t):
-    "Make a walk from this talk: a walk of your own from the hidden walk of talk `t`. The form posts, then the walk opens."
-    return Form(Quiet('Make a walk from this talk', small=True, title=MINE_SAYS), action=at(Routes.mine, t['id']), method='post', hx_boost='false', cls='talk-new talk-mine')
+def MineWalk(t, w=None):
+    """Make a walk from this talk: a walk of your own from the hidden walk of talk `t`. The form posts, then the walk opens.
+    When the walk `w` was made from the talk before, the item opens it, so a second press makes no second walk."""
+    if w: return A('Open the walk from this talk', href=f"/w/{w['id']}", cls='mi', data_act='mine')
+    return Form(Button('Make a walk from this talk', cls='mi', title=MINE_SAYS, data_act='mine', data_wait='Making the walk…'),
+                action=at(Routes.mine, t['id']), method='post', hx_boost='false', cls='talk-mine')
 
-def Links(t, rows, opened=False, oob=False):
-    """The Links panel of talk `t`: for each row `(path, kind)` of `link_rows`, its local path and a field for its shared link.
-    A source with no shared link, and no link of a folder above it, is marked as local. The folder of a file (`parent`) is not a source, so it has no mark."""
+def Remake(jid, t, oob=False):
+    """Make it again, in the ⋯ menu of talk `t` from walk `jid`: What to change (the talk keeps it, so the next remake shows it again), From scratch,
+    and the button. It runs as a job, and its pending card goes under the head of the editor."""
+    return Details(Summary('Make it again', cls='mi'),
+                   Form(P(REMAKE_SAYS), Input(type='hidden', name='jid', value=jid), *again_input(t),
+                        Label('What to change', Textarea(t.get('change') or '', name='change', rows='2', maxlength=str(CHANGE_MOST), placeholder=CHANGE_HINT)),
+                        Label(Input(type='checkbox', name='fresh', value='1'), ' Make it again from scratch: my edits to slides go', cls='tick'),
+                        Div(Button('Make the talk again', cls='small', data_act='remake', data_wait='Making the talk again…'), cls='row'),
+                        hx_post=Routes.new, hx_target='#talk-job', hx_swap='innerHTML', cls='drop-confirm talk-remake-form'),
+                   id='talk-remake', cls='drop-walk talk-remake', **({'hx_swap_oob': 'true'} if oob else {}))
+
+def Links(t, rows, opened=False, oob=False, names=None):
+    """The Links panel of talk `t`: for each row `(key, kind)` of `link_rows`, its path or link and a field for its shared link (`names` gives the name of a vault page).
+    A local source with no shared link, and no link of a folder above it, is marked as local; a vault page with no shared link says that the handout gives only its name.
+    The folder of a file (`parent`) is not a source, so it has no mark."""
     links = t.get('links') or {}
     def row(p, k):
-        local = k != 'parent' and shared_link(links, p).startswith('file:')
-        return Form(P(B(ROW_KINDS[k]), ' ', Code(p), cls='link-path'), Input(type='hidden', name='path', value=p),
-                    Div(Input(type='url', name='link', value=links.get(p, ''), placeholder='https://… a shared link, for example from OneDrive', aria_label=f'Shared link for {Path(p).name}'),
+        u, n = row_link(links, p, k), row_name(p, k, names)
+        say = LOCAL_SAYS if k in ('notebook', 'file', 'folder') and u.startswith('file:') else VAULT_SAYS if k == 'vault' and not u else ''
+        return Form(P(B(ROW_KINDS[k]), ' ', Code(n if k == 'vault' else p), cls='link-path'), Input(type='hidden', name='path', value=p),
+                    Div(Input(type='url', name='link', value=links.get(p, ''), placeholder='https://… a shared link, for example from OneDrive', aria_label=f'Shared link for {n}'),
                         Button('Save', cls='small', data_act='save-link'), cls='row'),
-                    P(LOCAL_SAYS, cls='mute local') if local else '',
+                    P(say, cls='mute local') if say else '',
                     hx_post=at(Routes.links, t['id']), hx_target='#talk-links', hx_swap='outerHTML', cls='link-row')
-    body = (P(LINKS_SAYS, cls='mute'), *[row(p, k) for p, k in rows]) if rows else (P('This talk has no notebook and no source on this Mac.', cls='mute'),)
+    body = (P(LINKS_SAYS, cls='mute'), *[row(p, k) for p, k in rows]) if rows else (P('This talk has no notebook and no sources.', cls='mute'),)
     return Details(Summary('Links in the handout'), *body, id='talk-links', cls='more talk-links', open=opened, **({'hx_swap_oob': 'true'} if oob else {}))
 
-def Editor(t, j, pj=None, ch=None, bar=None, again=None, menu='', srcs=None, links=''):
+def Editor(t, j, pj=None, ch=None, bar=None, again=None, menu='', srcs=None, links='', goal=''):
     """The editor of talk `t` from walk `j` (made for the talk from the old path `pj`, if given): what it is, Present, the slot, then the slides.
     `ch` has the passages and the figures that each slide can pick. A change saves at once, and the Undo bar at the foot can take it back.
     `bar` is the Undo bar to show when the page opens (after Fill the slides or Make it again), else the empty bar.
     `again` has what changed in walk `j` after the talk was made (`walk_changes`): the page then offers Make it again. `menu` is the ⋯ menu of the talk.
-    `srcs` has the sources of a hidden walk (`MadeFrom`). `links` is the Links panel of the handout."""
+    `srcs` has the sources of a hidden walk, and `goal` the goal that you typed for it (`MadeFrom`). `links` is the Links panel of the handout."""
     ins = [s for s in t['slides'] if s.get('kind') == 'idea' and s.get('section') != GONE]   # a slide whose idea left the walk is not counted
     ideas, secs = len(ins), len({s.get('section') for s in ins if s.get('section')})
-    made = MadeFrom(j, pj, srcs)
+    made = MadeFrom(j, pj, srcs, goal)
     cut = P('This talk has the first steps of the walk, up to the Ideas in a walk setting (12 by default). Skipped steps are left out.', cls='mute') if pj and (j.get('more') or any(s.get('status') == 'skip' for s in pj.steps)) else ''
     return (Div(H1(f"{t['title']}, as a talk"), menu, cls='talk-head'), Div(id='talk-job'),
             P(made, ' · ' + meta(n_of(ideas, 'idea'), n_of(secs, 'section') if secs else ''), ' · ', A('Earlier versions', href=at(Routes.history, t['id'])), cls='mute'), cut, AgainLine(t, j.id, again) if j and again else '',
@@ -442,7 +470,8 @@ def lits(beats, passage):
     return [[k + 1, b[4:]] for k, b in enumerate(beats) if b.startswith('lit:') and (b[4:].startswith('#') or b[4:] in passage)]
 
 def Said(passage):
-    "The paragraphs of a passage, each with its maths drawn, with the blank lines between them kept (the passage keeps its line breaks)."
+    "The paragraphs of a passage, each with its maths drawn, with the blank lines between them kept (the passage keeps its line breaks). A passage with code is markdown, so the code keeps its lines."
+    if '```' in passage: return [Md(passage)]
     return [x for k, p in enumerate(re.split(r'\n\s*\n', passage.strip())) for x in (['\n\n'] if k else []) + [Inline(p)]]
 
 def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):

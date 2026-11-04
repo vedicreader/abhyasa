@@ -116,7 +116,8 @@ pre, code { font-family: var(--mono); font-size: var(--t-small); }
 #pbar { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 1000; background: var(--acc); transform-origin: 0 50%;
         transform: scaleX(0); opacity: 0; transition: transform .25s ease-out, opacity .3s ease; pointer-events: none; }
 #pbar.on { opacity: 1; }
-button:disabled { cursor: progress; }
+button:disabled { cursor: not-allowed; }
+button.busy, button[data-held] { cursor: progress; }   /* only a button that waits for a job that runs */
 button.busy { opacity: .78; font-style: italic; }
 button.busy .secs, .pending .secs, .skeleton .secs { font: var(--t-lbl)/1 var(--mono); font-style: normal; letter-spacing: .04em; color: inherit; opacity: .8; }
 button.busy .secs:empty, .secs:empty { display: none; }
@@ -349,5 +350,10 @@ a.out-link::after { content: '\2009↗'; font-size: .85em; color: var(--mute); }
 .walk-menu .menu-items:has(.replan-walk[open]) { width: min(30rem, calc(100vw - 2 * var(--s5))); }   /* Make this walk again open: room for its sources and fields */
 .drop-walk > summary { list-style: none; cursor: pointer; padding: var(--s1) var(--s2); color: var(--fg); }
 .drop-walk > summary::-webkit-details-marker { display: none; }
+/* one look for each item of a ⋯ menu (`.mi`): a link, a button in a form, and the summary of an item that opens */
+.menu-items .mi { display: block; width: 100%; box-sizing: border-box; margin: 0; padding: var(--s1) var(--s2); font: var(--t-small)/1.4 var(--serif); color: var(--fg);
+                  text-align: left; text-decoration: none; background: none; border: 0; border-radius: var(--r-s); cursor: pointer; list-style: none; }
+.menu-items .mi:hover, .menu-items .mi:focus-visible, .menu-items details[open] > .mi { background: var(--raised); color: var(--fg); }
+.menu-items form:has(> .mi) { margin: 0; }
 .drop-confirm { padding: var(--s2); } .drop-confirm p { margin: 0 0 var(--s2); font-size: var(--t-small); color: var(--ink2); }
 .drop-confirm .danger { color: var(--no); }

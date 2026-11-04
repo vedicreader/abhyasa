@@ -50,8 +50,9 @@ DATA_ONLY = 'Only a folder on this Mac can be your data.'
 KEPT = 'Kept {} as your data for the exercises. abhyasa does not file it.'
 MINE = 'Your data: the exercises run on this folder, and abhyasa does not file it.'
 NAMES_FOR, DISK_FOR = 300, 60   # seconds that the folder names, and the count of files in one folder, are kept
-STATE = dict(gh='a GitHub repo · cloned when you press Start', folder='a folder on this Mac · added when you press Start', file='a file on this Mac · only this file is added when you press Start',
+STATE = dict(gh='a GitHub repo · cloned when you press Start', folder='a folder on this Mac · added when you press Start', file='a file on this Mac · only this file is added when you press Start or Make a talk',
              repo='a repo on this Mac · added when you press Start', link='a link · read when you press Start', doc='in your vault')
+TALK_OFF = 'To make a talk, write a goal or add a source.'
 log = logging.getLogger(__name__)
 _osa, _picking = subprocess.run, threading.Lock()   # the runner of osascript (a test fakes it), and one chooser at a time
 
@@ -187,10 +188,15 @@ def outer(cs) -> list:
 
 CHIPS_SHOWN = 5   # the chips that show; the others are in the fold "Show all N sources", so the list never pushes the box down far
 
-def Chips(cs, said=(), mine=()):
-    "The sources for this goal (the first `CHIPS_SHOWN`, then a fold with all of them), the web when research is on, and the field that adds a source."
+def lone_notebook(r) -> bool:
+    "Whether the box has no goal and one source, a notebook: its walk or its talk follows the notebook and does not look on the web."
+    ok = [c for c in r.get('chips') or [] if not c.get('why')]
+    return r.kind != 'goal' and len(ok) == 1 and ok[0].kind == 'file' and str(ok[0].path).endswith('.ipynb')
+
+def Chips(cs, said=(), mine=(), web=True):
+    "The sources for this goal (the first `CHIPS_SHOWN`, then a fold with all of them), the web when research is on and `web`, and the field that adds a source."
     web = (Div(B('from the web'), Span('for what your sources do not have'), A('Turn this off in Settings', href='/settings#g-research', cls='st'), cls='schip web')
-           if val('research.on') else '')
+           if web and val('research.on') else '')
     chips = [Chip(c, mine) for c in cs]
     if len(chips) > CHIPS_SHOWN + 1:   # a fold for one more chip only takes room
         chips[CHIPS_SHOWN:] = [Details(Summary(f'Show all {len(cs)} sources', cls='quiet small'), *chips[CHIPS_SHOWN:], cls='more-src')]
@@ -211,16 +217,17 @@ def Read(r, f=None, told=True, q=''):
              Primary('Start', disabled=True, id='start-go', type='button', hidden=bool(r.ask), rank=6, data_act='start'))   # off until it can start; a question: its answers start
     can_talk = not r.ask and (r.kind in ('goal', 'topic') or bool(ok))
     talk = (Secondary(TALK, name='talk', value='1', data_wait='Making the talk…', data_skel='#walk-out', id='start-talk', title=TALK_SAY, data_act='make-talk') if can_talk else
-            Secondary(TALK, disabled=True, type='button', id='start-talk', hidden=bool(r.ask), title=TALK_SAY, data_act='make-talk'))
+            Secondary(TALK, disabled=True, type='button', id='start-talk', hidden=bool(r.ask), title=TALK_OFF, aria_describedby='start-talk-off', data_act='make-talk'))
+    off = '' if can_talk or r.ask else Span(TALK_OFF, id='start-talk-off', cls='start-drop talk-off')   # a button that is off says why
     drop = (FOUND if shown and ok else 'abhyasa gets it only when you press Start.' if go and r.kind in ('paper', 'repo', 'site') else CAN)
-    foot = Div(start, talk, '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
+    foot = Div(start, talk, off, '' if shown else Pick(), Span(drop, cls='start-drop'), cls='foot')   # the chooser is beside the field when the field shows
     line = P(NO_GOAL, cls='will', id='start-will') if r.kind == 'empty' and cs else Line(r) if r.kind != 'ask' else P(B(r.ask.q), cls='will', id='start-will')
     return (line, P(WEB_ONCE + ('' if shown else OFF), cls='mute web-once') if r.kind in ('topic', 'goal') and val('research.on') and not told else '',
             Ask(r, cs[0].path if cs else q) if r.ask else Options(r, f), foot)
 
 def Srcs(r, said=(), mine=(), oob=False):
     "The sources of a goal, under the slot of the result. A read changes them out of band, so the slot keeps the pending card."
-    return Div(Chips(r.get('chips') or [], said, mine) if has_srcs(r) else '', id='start-chips', **({'hx_swap_oob': 'true'} if oob else {}))
+    return Div(Chips(r.get('chips') or [], said, mine, web=not lone_notebook(r)) if has_srcs(r) else '', id='start-chips', **({'hx_swap_oob': 'true'} if oob else {}))
 
 def connect(app, ctx):
     lr = ctx.learning

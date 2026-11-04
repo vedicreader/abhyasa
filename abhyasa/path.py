@@ -23,7 +23,7 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS
            'folder_list', 'with_stop', 'data_entries', 'with_data', 'walk_names', 'same_names', 'short_what',
            'data_line', 'missing_data', 'walk_from_topic', 'minutes', 'needs', 'walk_needs', 'known_how', 'gap_size',
            'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk', 'file_chip',
-           'walk_for_talk', 'walk_from_talk', 'is_open', 'used_at', 'last_place', 'walk_path', 'walk_paths',
+           'nb_title', 'walk_for_talk', 'walk_from_talk', 'is_open', 'used_at', 'last_place', 'walk_path', 'walk_paths',
            'step_read', 'look_up', 'topic_slug', 'name_gaps', 'split_parts', 'related', 'with_step', 'paper_id',
            'same_share', 'fresh', 'tutor_note', 'step_meta', 'done_attempt', 'open_short', 'nb_prompt', 'nb_spec',
            'leela_found', 'leela_back', 'term_line', 'words_to_know', 'edit_lock', 'restore_steps', 'undo_line',
@@ -908,16 +908,28 @@ def file_chip(lr:Learning, i:str) -> L:
     if kind == 'link': return file_link(lr, v)
     return first(ds for _, ds in chip_docs(lr, [i])) or L()
 
-def walk_for_talk(lr:Learning, ask, chips, goal:str='', audience:str='', no_code:bool=False, sources=None) -> AttrDict:
-    "File the chips `chips`, and make and save the hidden walk of a talk from them."
-    ids = list(dict.fromkeys(chips))
+def nb_title(path) -> str:
+    "The title of the notebook at `path`: its first `#` heading, else its file name in words (`02_agentic_engineering.ipynb` gives `Agentic engineering`)."
+    try: cs = read_nb(path).cells
+    except Exception: cs = []
+    if (h := first(t for c in cs if c.cell_type == 'markdown' for lv, t in [_head(c.source)] if lv == 1)): return clip(h, 80)
+    w = ' '.join(re.sub(r'^\d+[_-]', '', Path(path).stem).replace('_', ' ').replace('-', ' ').split())
+    return w[:1].upper() + w[1:]
+
+def walk_for_talk(lr:Learning, ask, chips, goal:str='', audience:str='', no_code:bool=False, sources=None, said=noop) -> AttrDict:
+    """File the chips `chips`, and make and save the hidden walk of a talk from them. `said` gets each stage. The walk of one notebook takes the title of the notebook (`nb_title`)."""
+    ids, title = list(dict.fromkeys(chips)), ''
+    if ids: said('Filing the sources')
     docs = L(d for i in ids for d in file_chip(lr, i))
     one = len(ids) == 1 and str(ids[0]).startswith('file:') and str(ids[0]).endswith('.ipynb') and len(docs) == 1
+    nb = one and not goal and nb_file(lr, docs[0].doc_id, docs[0].shelf)
+    said('Reading the sections of the notebook' if nb else 'Planning the ideas')
     if goal: j = walk_from_topic(lr, ask, goal, profile_text(lr.profile()), sources, chips=ids, audience=audience, no_code=no_code)
-    elif one and (nb := nb_file(lr, docs[0].doc_id, docs[0].shelf)): j = notebook_walk(lr, docs[0], *nb)
+    elif nb: j, title = notebook_walk(lr, docs[0], *nb), nb_title(nb[1])
     elif docs: j = journey_from_sources(lr, ask, docs[:val('links.pages')], audience=audience, no_code=no_code)
     else: raise ValueError('abhyasa found no text to read in these sources.')
-    return lr.merge_journey(j.id, parent={'for': 'talk'}, chips=ids, **({'audience': audience.strip()} if audience.strip() else {}), **({'no_code': True} if no_code else {}))
+    return lr.merge_journey(j.id, parent={'for': 'talk'}, chips=ids, **({'title': title} if title else {}),
+                            **({'audience': audience.strip()} if audience.strip() else {}), **({'no_code': True} if no_code else {}))
 
 # %% ../nbs/04_path.ipynb #a93a1367
 from copy import deepcopy
@@ -1505,11 +1517,11 @@ def _put_edits(self:Learning, kind, doc, rows):
 
 # %% ../nbs/04_path.ipynb #e012
 @patch
-def add_edit(self:Learning, kind:str, doc:str, what:str, who:str, before:list, field:str=None, apply=None) -> list:
+def add_edit(self:Learning, kind:str, doc:str, what:str, who:str, before:list, field:str=None, apply=None, was:dict=None) -> list:
     """Keep the change `what` by `who` to the document `doc` of `kind`, with the state `before` it. Return the history, newest first.
     `field` (such as `s5/notes`) lets the saves of one field join: the same field and writer, less than `EDIT_JOIN` seconds after
     the first save of the newest change. A join keeps the first `before` and the first time, so the clock does not reset.
-    With `apply`, call it first under `edit_lock`; when it raises, nothing is kept."""
+    With `apply`, call it first under `edit_lock`; when it raises, nothing is kept. `was` keeps the old values of the other fields that the change sets, for its Undo."""
     _check_name(kind, doc)
     if who not in WHO: raise ValueError(f'who must be one of {WHO}, not {who!r}.')
     what = ' '.join(str(what or '').split())[:WHAT_MOST]
@@ -1521,7 +1533,7 @@ def add_edit(self:Learning, kind:str, doc:str, what:str, who:str, before:list, f
         rows, now = self._edit_rows(kind, doc), time.time()
         top = rows[0] if rows else {}
         if field and top.get('field') == field and top.get('who') == who and now - top.get('at', 0) < EDIT_JOIN: top['what'] = what
-        else: rows.insert(0, dict(id=uuid.uuid4().hex[:8], at=now, what=what, who=who, field=field, before=before))
+        else: rows.insert(0, dict(id=uuid.uuid4().hex[:8], at=now, what=what, who=who, field=field, before=before, **({'was': json.loads(json.dumps(was))} if was else {})))
         rows = _cap(rows)
         self._put_edits(kind, doc, rows)
     return L(rows).map(AttrDict)
@@ -1728,22 +1740,24 @@ def reparent(lr:Learning, jid:str, before:list, after:list) -> list:
     return out
 
 # %% ../nbs/04_path.ipynb #9768cabd
-def edit_walk(lr:Learning, jid:str, op, what, who:str='you', field:str=None, touch:str=None) -> tuple:
-    "Apply `op` (old steps -> new steps) to walk `jid` and keep the change in its history. A hand edit of the step on `touch` unlocks it. Return `(walk, history)`; the history is None when nothing changed."
+def edit_walk(lr:Learning, jid:str, op, what, who:str='you', field:str=None, touch:str=None, fields:dict=None) -> tuple:
+    """Apply `op` (old steps -> new steps) to walk `jid` and keep the change in its history. A hand edit of the step on `touch` unlocks it.
+    `fields` are other fields of the walk that the change sets, such as its `chips`: the change keeps their old values (`was`), so Undo gives them back.
+    Return `(walk, history)`; the history is None when nothing changed."""
     with edit_lock('walk', jid), _jlock(jid):
         j = lr.journey(jid)
         if j is None: raise KeyError(f'No walk {jid!r}.')
         old = list(j.steps)
         new = [clean_step(s) for s in op(deepcopy(old))]
         if touch: new = [{k: v for k, v in s.items() if k != 'locked'} if s.get('slug') == touch else s for s in new]
-        said = what(old, new) if callable(what) else what
-        if new == old or not said: return j, None
+        said, fields = what(old, new) if callable(what) else what, {k: v for k, v in (fields or {}).items() if j.get(k) != v}
+        if (new == old and not fields) or not said: return j, None
         if (ps := check_steps(new, old)): raise ValueError(ps[0])
         out = []
         def put():
-            out.append(lr.put_journey({**j, 'steps': new}))
+            out.append(lr.put_journey({**j, 'steps': new, **fields}))
             reparent(lr, jid, old, new)
-        rows = lr.add_edit('walk', jid, said, who, old, field=field, apply=put)
+        rows = lr.add_edit('walk', jid, said, who, old, field=field, apply=put, was={k: j.get(k) for k in fields})
     return out[0], rows
 
 # %% ../nbs/04_path.ipynb #79cb30e1
@@ -1757,8 +1771,8 @@ def undo_walk(lr:Learning, jid:str, eid:str=None) -> tuple:
         now = list(j.steps)
         def put(e):
             nonlocal line
-            back = restore_steps(e.before, now)
-            lr.put_journey({**j, 'steps': back}); reparent(lr, jid, now, back)
+            back, was = restore_steps(e.before, now), e.get('was') or {}
+            lr.put_journey({k: v for k, v in {**j, 'steps': back, **was}.items() if not (k in was and v is None)}); reparent(lr, jid, now, back)
             line = undo_line(e.before, now)
         e = lr.pop_edit('walk', jid, eid, apply=put)
     return e, line
@@ -1768,7 +1782,7 @@ def restore_walk(lr:Learning, jid:str, eid:str) -> tuple:
     e = lr.edit('walk', jid, eid)
     if e is None: raise KeyError('No such change.')
     if e.before is None: raise ValueError('This change was too large to keep. It cannot come back.')
-    return edit_walk(lr, jid, lambda now: restore_steps(e.before, now), f'Restored the version before “{e.what}”')
+    return edit_walk(lr, jid, lambda now: restore_steps(e.before, now), f'Restored the version before “{e.what}”', fields=e.get('was'))
 
 # %% ../nbs/04_path.ipynb #lk02
 def lock_step(steps:list, slug:str, on:bool=True) -> list:
@@ -2017,6 +2031,7 @@ NO_SRC_DOCS = 'These sources have no documents in your vault yet. The plan did n
 def replan_walk(lr:Learning, ask, jid:str, sources=None, who:str='', said=None, plan=None, asks:str='', **kw) -> tuple:
     """Make the plan of walk `jid` again from its source (`plan_again`), keep each locked idea (`merge_plan`), and keep it as one change with an Undo. Return `(walk, history)`.
     `kw` are new fields of the walk, such as `chips`, `audience` or `no_code`: the new plan uses them, and the walk keeps them also when the new plan has the same steps.
+    They are part of the change, so Undo gives back their old values.
     New `chips` also give a walk through its sources new documents, and an old passage does not stay. `asks` goes to the planner."""
     if (j := lr.journey(jid)) is None: raise KeyError(f'No walk {jid!r}.')
     new = 'chips' in kw and list(kw['chips']) != list(j.get('chips') or ())
@@ -2026,9 +2041,9 @@ def replan_walk(lr:Learning, ask, jid:str, sources=None, who:str='', said=None, 
     w = (plan or plan_again)(lr, ask, AttrDict({**j, **kw}), sources, who, said, asks)
     if not w.steps: raise ValueError('The tutor found no ideas in the source this time. The plan did not change.')
     if said: said('Saving the new plan')
-    j2, rows = edit_walk(lr, jid, lambda old: merge_plan(old, w.steps, not new), REPLAN_WHAT, who='tutor')
-    if rows is not None: kw.update(map=w.get('map'), more=w.get('more') or [])   # these belong to a new plan
-    if kw: j2 = lr.merge_journey(jid, **kw)
+    plan_new = dict(map=w.get('map'), more=w.get('more') or [])   # these belong to a new plan
+    j2, rows = edit_walk(lr, jid, lambda old: merge_plan(old, w.steps, not new), REPLAN_WHAT, who='tutor', fields=kw)   # Undo gives back the old sources and who it is for
+    if rows is not None and j2.steps != j.steps: j2 = lr.merge_journey(jid, **plan_new)
     return j2, rows
 
 # %% ../nbs/04_path.ipynb #cs008

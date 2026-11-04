@@ -1034,7 +1034,7 @@ LINES = dict(
     goal_alone='A goal. abhyasa plans a walk that ends at your goal. It looks for sources on the web.',
     goal_alone_own='A goal. abhyasa plans a walk that ends at your goal. The tutor uses its own knowledge.',
     file_name='A file name. To read a file, drop it on this box.',
-    file_path='A file on this Mac. abhyasa files only this file in your vault and makes a walk through it. Write a goal to plan a walk from it.')
+    file_path='A file on this Mac. abhyasa files only this file in your vault. Start makes a walk through it, and Make a talk makes slides from it. Write a goal to plan a walk from it.')
 
 # %% ../nbs/02_sources.ipynb #d010
 def fold_trim(s) -> str:
