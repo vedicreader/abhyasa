@@ -10,7 +10,7 @@ from copy import deepcopy
 from functools import wraps
 from inspect import signature
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, unquote
 from fasthtml.common import *
 from starlette.responses import RedirectResponse
 from abhyasa.core import hook, run as run_hook, asset_css, asset_js, Page, n_of, page_req
@@ -67,12 +67,26 @@ def slide_view(s) -> dict:
     label = (f"Research · {src.get('site') or src.get('title')}" if src.get('src') == 'web' else f"Your source · {src.get('title') or 'your file'}") if shown and sh.get('passage') else NO_SOURCE
     return dict(title=s.get('title') or '', body=list(sh.get('body') or []), notes=s.get('notes') or '', passage=sh.get('passage') or '' if shown else '', demo=sh.get('demo'), src=label)
 
-def page_title(t) -> str:
-    "The title of a web page from a search result, with no breadcrumb: `www.x.org › nlp › self-attention-in-nlpSelf - Attention in NLP` gives `Self - Attention in NLP`."
+_NO_TITLE = re.compile(r'^(untitled(\s+(document|page))?|no title|home|index|page|document)$', re.I)
+_MARKS = r'[\s_*#>`~|:\-–—]+'   # markdown and junk around a title: `__What is…__`, `## Title`
+
+def url_name(u) -> str:
+    "A name from the link `u`: its last path part in words (`causes-of-war.html` gives `Causes of war`), else its site."
+    p = urlsplit(str(u or ''))
+    w = re.sub(r'\.(html?|php|aspx?)$', '', unquote(p.path.rstrip('/').rsplit('/', 1)[-1]))
+    w = ' '.join(re.split(r'[-_+\s]+', w)).strip()
+    return (w[:1].upper() + w[1:]) if re.search(r'[A-Za-z]{3}', w) else p.netloc.removeprefix('www.') or str(u or '')
+
+def page_title(t, url='') -> str:
+    """The title of a web page from a search result, with no breadcrumb (`www.x.org › nlp › self-attention-in-nlpSelf - Attention in NLP` gives
+    `Self - Attention in NLP`), no markup or junk at its ends (`__What is…`), and no word of the link glued to its start (`articlesCauses of…`).
+    A page with no real title ("untitled") gets a name from its link (`url_name`)."""
     t = ' '.join(str(t or '').split())
     if '›' in t: t = t.split('›')[-1].strip()
-    t = re.sub(r'^[a-z0-9]+(?:-[a-z0-9]+)+(?=[A-Z])', '', t)   # the slug of the last crumb, glued to the title
-    return t[:120]
+    t = re.sub(f'^{_MARKS}|{_MARKS}$', '', t)
+    t = re.sub(r'^[a-z0-9]+(?:-[a-z0-9]+)+(?=[A-Z])|^[a-z]{3,}(?=[A-Z][a-z])', '', t)   # the slug of the last crumb, or one word of the link, glued to the title
+    t = re.sub(f'^{_MARKS}', '', t)
+    return (url_name(url) if url and (not t or _NO_TITLE.match(t)) else t)[:120]
 
 def slot_line(t) -> str:
     "The real minutes of talk `t` against its slot, as the editor counts them."
@@ -233,7 +247,7 @@ def connect(app, ctx):
         """The chips with each `link:` filed first and named by its documents (`doc:`), so the planner and the passage search read a kept web page
         as a source. A link that abhyasa cannot read is left out, and its source in the brief of conversation `bid` becomes dropped, so no make fails on it.
         `filed.why` keeps the real reason of each link that failed, for the record of the walk (`record`)."""
-        out, bad = [], {}
+        out, bad, named = [], {}, {}
         br = lr.build(bid).brief if bid else {}
         for c in chips:
             if not str(c).startswith('link:'): out.append(c); continue
@@ -243,10 +257,12 @@ def connect(app, ctx):
             ds = [d for k, d in enumerate(ds) if k == 0 or on_topic(d, br.get('goal') or name)]   # the goal, not the name of the site page, which names the site too   # a page beside it that is off the topic goes
             if ds: out += [f'doc:{d.doc_id}' for d in ds]
             else: bad.setdefault(c, f'abhyasa could not file {c[5:]}: it has no text to read.')
+            if ds and (t := page_title(ds[0].title)) and not _NO_TITLE.match(t): named[c] = t   # the source takes the title of its page
         filed.why = bad
+        ss = lr.build(bid).brief.get('sources') or [] if bid else []
+        new = [{**x, 'role': 'dropped'} if x['id'] in bad else {**x, 'name': named[x['id']]} if x['id'] in named else x for x in ss]
+        if new != ss: put_brief(bid, sources=new)
         if bad and bid:
-            ss = [{**x, 'role': 'dropped'} if x['id'] in bad else x for x in lr.build(bid).brief.get('sources') or []]
-            put_brief(bid, sources=ss)
             Emit(lambda e: emit(bid, e)).ev('CUSTOM', name='note', value=f"abhyasa could not read {n_of(len(bad), 'link')}, so it left them out: {', '.join(x[5:] for x in bad)}")
         return list(dict.fromkeys(out))
     filed.why = {}
@@ -718,7 +734,7 @@ def connect(app, ctx):
             if not br.get('research', True): raise ValueError('Research is off in the brief. Use only the owner\'s sources.')
             rs = web_search(safe_query(query), FOUND_MOST)
             have = {f.get('url') for f in br.get('found') or []}
-            items = [dict(url=r.get('href'), title=page_title(r.get('title') or r.get('href')), body=' '.join(str(r.get('body') or '').split())[:240], role='')
+            items = [dict(url=r.get('href'), title=page_title(r.get('title'), r.get('href')), body=' '.join(str(r.get('body') or '').split())[:240], role='')
                      for r in rs if r.get('href') and r.get('href') not in have][:FOUND_MOST]
             put_brief(bid, found=[*(br.get('found') or []), *items])
             if not items: return 'Research found nothing new.'
