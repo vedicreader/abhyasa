@@ -27,7 +27,7 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'CHANGE_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WH
            'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up', 'topic_slug', 'name_gaps', 'split_parts',
            'related', 'with_step', 'paper_id', 'same_share', 'fresh', 'tutor_note', 'step_meta', 'done_attempt',
            'open_short', 'nb_prompt', 'nb_spec', 'leela_found', 'leela_back', 'term_line', 'words_to_know', 'edit_lock',
-           'restore_steps', 'undo_line', 'rewrite', 'move_step', 'skip_step', 'remove_step', 'merge_steps',
+           'restore_steps', 'undo_line', 'NoRewrite', 'rewrite', 'move_step', 'skip_step', 'remove_step', 'merge_steps',
            'check_steps', 'clean_step', 'reparent', 'edit_walk', 'undo_walk', 'restore_walk', 'lock_step',
            'locked_slugs', 'add_step', 'split_step', 'passages', 'pick_read', 'links_in', 'propose', 'kind_check',
            'improve_walk', 'plan_again', 'merge_plan', 'replan_walk', 'new_course', 'is_goal_walk', 'chip_state',
@@ -1638,23 +1638,28 @@ def _texts(v):
         out = [' '.join(_clean(x).split()) for x in v[:REWRITE_LIST]]
         return out if all(out) else None
 
+class NoRewrite(ValueError):
+    "A rewrite that the tutor could not give. Its words say why, in plain words, so an editor can show them."
+
 def rewrite(ask, fields:dict, instruction:str, context:str='') -> dict:
-    "The text fields of `fields` rewritten by the tutor as `instruction` says. Never a passage. A bad reply raises `ValueError`."
+    "The text fields of `fields` rewritten by the tutor as `instruction` says. Never a passage. A bad reply raises `NoRewrite`, a `ValueError`."
     fields = {k: v for k, v in fields.items() if k != 'passage'}
     ins = ' '.join(str(instruction or '').split())[:INSTRUCTION_MOST]
-    if not ins: raise ValueError('Tell the tutor what to change.')
+    if not ins: raise NoRewrite('Tell the tutor what to change.')
     if not fields or not all(isinstance(v, str) or (isinstance(v, list) and all(isinstance(x, str) for x in v)) for v in fields.values()):
-        raise ValueError('The tutor rewrites only texts and lists of texts.')
+        raise NoRewrite('The tutor rewrites only texts and lists of texts.')
     p = (f"Rewrite these fields.\n\nThe instruction:\n{fence('instruction', ins)}\n\nThe fields, as JSON:\n{fence('fields', json.dumps(fields, ensure_ascii=False))}"
          + (f"\n\nThe source:\n{fence('source', context)}" if context.strip() else ''))
-    r = ask_json(ask, p, teach_sp('edit.rewrite'))
-    if not isinstance(r, dict): raise ValueError('The reply is not a JSON object.')
+    try: r = ask_json(ask, p, teach_sp('edit.rewrite'))
+    except ValueError: raise NoRewrite('The model gave no reply in JSON.')
+    if not isinstance(r, dict): raise NoRewrite('The reply of the model is not a JSON object.')
     out = {}
     for k, v in fields.items():
-        new = _texts(r.get(k))
-        if new is None or isinstance(new, list) != isinstance(v, list): raise ValueError(f'The reply has no good {k!r}.')
+        new = [] if v == [] and r.get(k) == [] else _texts(r.get(k))   # a list that was empty, such as the points of a slide that shows only a passage, can stay empty
+        if new is None or isinstance(new, list) != isinstance(v, list): raise NoRewrite(f'The reply of the model has no good {k!r}.')
         out[k] = new
-    flat = plainly(ask, {f'{k} {j}': x for k, v in out.items() for j, x in enumerate(v if isinstance(v, list) else [v])})
+    flat = {f'{k} {j}': x for k, v in out.items() for j, x in enumerate(v if isinstance(v, list) else [v])}
+    flat = plainly(ask, flat) if flat else flat
     return {k: [flat[f'{k} {j}'] for j in range(len(v))] if isinstance(v, list) else flat[f'{k} 0'] for k, v in out.items()}
 
 # %% ../nbs/04_path.ipynb #aee58651
