@@ -138,13 +138,13 @@ function show(st, slide, beat) {
 // down to 22/28 of its size. Each window does this at its own size.
 const POINTS_FLOOR = 22 / 28;
 function fitPoints(sec) {
+  for (const pre of sec.querySelectorAll('.passage pre')) fitCode(pre);   // first the width of the code, which can stack the body
   for (const p of sec.querySelectorAll('.body > .points, .body > .passage')) {   // the passage too: no part runs into the foot
     if (p.hidden || !p.offsetHeight) continue;
     p.style.removeProperty('--pts');
     const over = () => p.scrollHeight > p.clientHeight + 1 || p.parentElement.scrollHeight > p.parentElement.clientHeight + 1;
     for (let s = 1; over() && s > POINTS_FLOOR + .001;) { s = Math.max(POINTS_FLOOR, s - .05); p.style.setProperty('--pts', String(s)); }
   }
-  for (const pre of sec.querySelectorAll('.passage pre')) fitCode(pre);
 }
 
 // A line of code never wraps, and the room cannot scroll: the code gets smaller until its longest line fits, down to `CODE_LEAST` em.

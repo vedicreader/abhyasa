@@ -259,4 +259,5 @@ html.present #rh-pane .rh-own { display: none; }
 #stage .body.two > .points { order: -1; }
 #stage .passage pre { white-space: pre; overflow-x: auto; font-size: .8em; }
 #stage .passage pre code { font-size: inherit; }
-#stage .body.two.code-wide { grid-template-columns: minmax(0, 1fr); }   /* code too wide for its column at the least size: the points go above it, at full width */   /* the code follows the size of its box, which fitCode makes smaller */   /* a line of code never wraps mid-statement: it scrolls, at a smaller size */
+#stage .body.two.code-wide { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+#stage .body.two.code-wide > .passage { justify-content: flex-start; }   /* the first line of code never goes off the top */   /* code too wide for its column at the least size: the points go above it, at full width */   /* the code follows the size of its box, which fitCode makes smaller */   /* a line of code never wraps mid-statement: it scrolls, at a smaller size */
