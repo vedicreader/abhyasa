@@ -134,7 +134,9 @@ def turns(items) -> list:
         if x['kind'] == 'user' or cur is None:
             cur = dict(me=x if x['kind'] == 'user' else None, calls=[], said=[], notes=[], run=None); out.append(cur)
             if x['kind'] == 'user': continue
-        if x['kind'] == 'tool': cur['calls'].append(x)
+        if x['kind'] == 'tool':
+            cur['calls'].append(x)
+            if x['name'] == 'undo': cur['undo_at'] = len(cur['said'])   # the words of the builder so far are from before this Undo
         elif x['kind'] == 'assistant' and x['text'].strip(): cur['said'].append(x['text'].strip())
         elif x['kind'] == 'note': cur['notes'].append(x['text'])
         elif x['kind'] == 'run': cur['run'] = x
@@ -166,6 +168,9 @@ def Turn(t, b, changers, last=False, href=''):
     conflicts = [x['data'] for x in calls if x['name'] == 'note_conflict' and ok(x) and x.get('data')]
     undo = Quiet('Undo', ' ', Kbd('⌘Z'), type='button', small=True, hx_post=at(Routes.undo, b.id), hx_target='#build-live', hx_swap='outerHTML', data_undo='1') if last and changed else ''
     reply = said[-1] if said else ''
+    # only the last words of the turn show, as the earlier ones can say the opposite; words from before an Undo that worked say so
+    undone = any(x['name'] == 'undo' and ok(x) and not refused(x) for x in calls) and t.get('undo_at') is not None
+    before_undo = undone and bool(said) and len([x for x in map(clean_said, t['said'][:t['undo_at']]) if x]) == len(said)
     if facts: line = Div(P(' '.join(facts)), undo, cls='bd-said')
     elif reply: line = Div(Md(reply), *([P('Nothing changed in the walk or the talk in this turn.', cls='mute')] if CLAIM.search(reply) and not t.get('run') else []), cls='bd-said')
     else: line = ''
@@ -173,7 +178,7 @@ def Turn(t, b, changers, last=False, href=''):
     more = (*((Details(Summary('What I read'), Ul(*read) if read else P(NO_SOURCES, cls='mute'), cls='bd-more'),) if changed else ()),
             *((Details(Summary('Conflicts'), Ul(*map(Conflict, conflicts), cls='plain'), cls='bd-more', open=True),) if conflicts else ()),
             *((Details(Summary('What changed'), Ul(*[Li(x['result'], ' ', A('See it', href=href) if href else '') for x in changed]), cls='bd-more'),) if changed else ()),
-            *((Details(Summary('What the builder said'), *[Md(x) for x in said], cls='bd-more'),) if said and facts else ()),
+            *((Details(Summary('What the builder said'), *([P('Before the Undo:', cls='mute')] if before_undo else []), Md(said[-1]), cls='bd-more'),) if said and facts else ()),
             *((Details(Summary('What did not work'), Ul(*[Li(line_(x), ': ', x['result']) for x in hidden]), cls='bd-more'),) if hidden else ()))
     run = t.get('run')
     end = (P(Span('Not done: ', cls='k'), run['text'], cls='bd-said no') if run['state'] != 'stopped' else P(run['text'], cls='bd-said mute')) if run else ''
