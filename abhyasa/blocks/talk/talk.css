@@ -257,7 +257,8 @@ html.present #rh-pane .rh-own { display: none; }
 
 /* a table in a passage: a real table, in the type of the slide */
 #stage .passage table { border-collapse: collapse; font-size: .82em; } #stage .passage :is(td, th) { padding: .2em .6em; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-/* a slide with points and a code piece: the points come first, as their beat does, and a long line of code wraps in its column */
+/* a slide with points and a code piece: the points come first, as their beat does. A line of code never wraps: talk.js makes the code smaller
+   until its longest line fits, and a code piece has short lines (`code_piece` in the engine), so it fits at the least size */
 #stage .body.two > .points { order: -1; }
-#stage .passage pre { white-space: pre; overflow-x: auto; font-size: .8em; }
-#stage .passage pre code { font-size: inherit; }   /* code too wide for its column at the least size: the points go above it, at full width */   /* the code follows the size of its box, which fitCode makes smaller */   /* a line of code never wraps mid-statement: it scrolls, at a smaller size */
+#stage .passage pre { white-space: pre; overflow: hidden; font-size: .8em; }
+#stage .passage pre code { font-size: inherit; }

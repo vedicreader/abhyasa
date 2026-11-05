@@ -14,32 +14,33 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD
            'STEPS', 'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE', 'REFUSED', 'WHERES', 'ROUTES',
            'TALK_SCHEMA', 'SLIDE_KINDS', 'END_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN', 'RECAP_MIN', 'POLL_MIN',
            'NEXT_MIN', 'WORDS_MOST', 'BODY_MOST', 'POINT_MOST', 'GONE', 'TALK_CASES', 'CHOICE_SP', 'RUN_MOST',
-           'CODE_LINES', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'NO_CODE', 'POLL_SP', 'POLL_Q', 'FILLED',
-           'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'FRESH', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'HANDOUT_CSS',
-           'HANDOUT_KINDS', 'LINK_MOST', 'ROLES', 'BUILD_SP', 'figure_labels', 'FigureCache', 'keeps_images',
-           'vision_why', 'vision_ask', 'figure_check', 'focus_text', 'thread_text', 'try_text', 'page_text',
-           'offer_line', 'panel_note', 'board_prompt', 'find_explainer', 'file_video', 'set_video', 'concept_video',
-           'video_of', 'asked_words', 'on_check', 'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave',
-           'explain', 'demo_text', 'since_demo', 'rung', 'keep_rung', 'no_slots', 'demo_feedback', 'grade_why',
-           'want_demo', 'clean_note', 'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo',
-           'ask_key', 'job_key', 'tries_said', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way',
-           'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind',
-           'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says',
-           'leaks', 'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer',
-           'show', 'import_gallery', 'parked', 'on_stage', 'md_clean', 'clean_slide', 'check_talk', 'ask_from_gate',
-           'public_ask', 'words_q', 'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes',
-           'talk_minutes', 'print_cell', 'code_piece', 'slide_source', 'hands_on', 'shown_step', 'slide_notes',
-           'needs_fill', 'fill_slide', 'fill_slides', 'poll_slide', 'walk_slides', 'talk_from_walk',
-           'talk_from_sources', 'fill_talk', 'walk_talk', 'slide_marks', 'step_mark', 'walk_changes', 'talk_state',
-           'with_state', 'again_slides', 'put_back', 'talk_again', 'talk_fresh', 'image_type', 'asset_resolver',
-           'public_deck', 'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_output', 'log_question',
-           'log_beside', 'share_right', 'is_split', 'weak', 'recap', 'recap_html', 'shared_link', 'clean_link',
-           'link_rows', 'row_link', 'row_name', 'md_part', 'handout_html', 'new_brief', 'brief_chips', 'shape_free',
-           'brief_asks', 'step_slide_minutes', 'end_minutes', 'fit_walk', 'fit_slides', 'OPS', 'FIELDS', 'LIMITS',
-           'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS',
-           'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'WATCH', 'norm_tex', 'flat', 'anchor_why',
-           'by_id', 'cue_at', 'cue_quote', 'plain_say', 'check_line', 'parse_board', 'PageContext', 'clean_context',
-           'video_id', 'video_cues', 'stream_board']
+           'CODE_LINES', 'CODE_COLS', 'CODE_COLS_ALONE', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'NO_CODE',
+           'POLL_SP', 'POLL_Q', 'FILLED', 'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'FRESH', 'IMAGE_TYPES',
+           'IMAGE_SUFFIXES', 'RECAP_CSS', 'HANDOUT_CSS', 'HANDOUT_KINDS', 'LINK_MOST', 'ROLES', 'BUILD_SP',
+           'figure_labels', 'FigureCache', 'keeps_images', 'vision_why', 'vision_ask', 'figure_check', 'focus_text',
+           'thread_text', 'try_text', 'page_text', 'offer_line', 'panel_note', 'board_prompt', 'find_explainer',
+           'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check', 'source_label',
+           'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'demo_text', 'since_demo', 'rung',
+           'keep_rung', 'no_slots', 'demo_feedback', 'grade_why', 'want_demo', 'clean_note', 'quoted', 'last_feedback',
+           'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'job_key', 'tries_said', 'queue_demo',
+           'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way', 'simpler_demo', 'demo_lesson',
+           'on_close', 'show_ask', 'show_reply', 'demo_kind', 'can_explain', 'scene_catalog', 'scene_example',
+           'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says', 'leaks', 'scrub', 'explainer_prompt',
+           'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show', 'import_gallery', 'parked',
+           'on_stage', 'md_clean', 'clean_slide', 'check_talk', 'ask_from_gate', 'public_ask', 'words_q', 'old_words_q',
+           'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes', 'talk_minutes', 'print_cell',
+           'code_piece', 'slide_source', 'hands_on', 'shown_step', 'slide_notes', 'needs_fill', 'fill_slide',
+           'fill_slides', 'poll_slide', 'walk_slides', 'talk_from_walk', 'talk_from_sources', 'code_cols', 'code_wide',
+           'fill_talk', 'walk_talk', 'slide_marks', 'step_mark', 'walk_changes', 'talk_state', 'with_state',
+           'again_slides', 'put_back', 'talk_again', 'talk_fresh', 'image_type', 'asset_resolver', 'public_deck',
+           'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_output', 'log_question', 'log_beside',
+           'share_right', 'is_split', 'weak', 'recap', 'recap_html', 'shared_link', 'clean_link', 'link_rows',
+           'row_link', 'row_name', 'md_part', 'handout_html', 'new_brief', 'brief_chips', 'shape_free', 'brief_asks',
+           'step_slide_minutes', 'end_minutes', 'fit_walk', 'fit_slides', 'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS',
+           'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST',
+           'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'WATCH', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at',
+           'cue_quote', 'plain_say', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'video_id',
+           'video_cues', 'stream_board']
 
 # %% ../nbs/05_show.ipynb #52f9ee07
 import hashlib, json, logging, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
@@ -1539,13 +1540,14 @@ def print_cell(text:str) -> str|None:
         if 'print(' in code or isinstance(body[-1], ast.Expr): return '; '.join(ls)
 
 # %% ../nbs/05_show.ipynb #cp02
-CODE_LINES = 6   # the most lines of the code piece of a notebook slide
+CODE_LINES = 6                         # the most lines of the code piece of a notebook slide
+CODE_COLS, CODE_COLS_ALONE = 50, 100   # its longest line beside another part of the slide, and alone on the slide
 
-def code_piece(text:str) -> str:
-    "The first small code cell in the markdown `text` (at most `CODE_LINES` lines, not imports only, no picture), as a ```python block, or ''."
+def code_piece(text:str, cols:int=CODE_COLS) -> str:
+    "The first small code cell in the markdown `text` (at most `CODE_LINES` lines of at most `cols` characters, not imports only, no picture), as a ```python block, or ''."
     for code in _PY.findall(text or ''):
         ls = [l for l in code.strip().splitlines() if l.strip() and not l.startswith('#|')]
-        if not 0 < len(ls) <= CODE_LINES or NB_PICTURE.search(code) or all(l.startswith(('import ', 'from ')) for l in ls): continue
+        if not 0 < len(ls) <= CODE_LINES or max(map(len, ls)) > cols or NB_PICTURE.search(code) or all(l.startswith(('import ', 'from ')) for l in ls): continue
         return '```python\n' + '\n'.join(ls) + '\n```'
     return ''
 
@@ -1808,11 +1810,34 @@ def _old_sources(lr:Learning, t:AttrDict) -> AttrDict:
         sh['src'] = _source(r)['src'] if r.get('text') else dict(src='doc', title=w.get('title') or t.get('title') or 'your text')
     return t
 
+def code_cols(s:dict) -> int:
+    "The longest line of code that slide `s` has room for: `CODE_COLS` beside its points, a figure or a demo, else `CODE_COLS_ALONE`."
+    sh = s.get('show') or {}
+    return CODE_COLS if sh.get('body') or sh.get('figure') or sh.get('demo') else CODE_COLS_ALONE
+
+def code_wide(passage, cols:int) -> bool:
+    "Whether a code fence in `passage` has a line longer than `cols` characters."
+    return any(len(l) > cols for code in re.findall(r'```[\w-]*\n(.*?)\n```', passage or '', re.S) for l in code.splitlines())
+
+def _fit_code(lr:Learning, t:AttrDict) -> AttrDict:
+    """Talk `t` with no code that is too wide for its slide (`code_wide`): a talk made before 0.0.19 can keep long lines. Such a slide shows a
+    shorter code piece from the section of its walk step (`code_piece`); with none, it shows its points with no code. Nothing is saved here."""
+    w = None
+    for s in t.get('slides') or []:
+        sh = s.get('show') or {}
+        if s.get('kind') != 'idea' or not code_wide(sh.get('passage'), cols := code_cols(s)): continue
+        if w is None: w = lr.journey((t.get('src') or {}).get('walk') or '') or {}
+        ss, k = w.get('steps') or [], s.get('step')
+        r = (ss[k].get('read') or {}) if isinstance(k, int) and 0 <= k < len(ss) and ss[k].get('slug') == s.get('concept') else {}
+        if (p := code_piece(r.get('text') or '', cols)): sh['passage'] = p
+        elif sh.get('body'): sh['passage'] = ''; s['beats'] = [b for b in s.get('beats') or [] if b != 'passage']
+    return t
+
 @patch
 def talk(self:Learning, tid:str) -> AttrDict|None:
-    "One talk by id. A slide of an old talk gets the source of its passage (`_old_sources`)."
+    "One talk by id. A slide of an old talk gets the source of its passage (`_old_sources`), and code that fits the slide (`_fit_code`)."
     r = self.v.by_source(_src('talk', tid))
-    return _old_sources(self, _tmeta(r)) if r else None
+    return _fit_code(self, _old_sources(self, _tmeta(r))) if r else None
 
 @patch
 def talks(self:Learning) -> L:

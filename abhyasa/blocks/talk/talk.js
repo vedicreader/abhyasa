@@ -148,7 +148,7 @@ function fitPoints(sec) {
 }
 
 // A line of code never wraps, and the room cannot scroll: the code gets smaller until its longest line fits, down to `CODE_LEAST` em.
-// Only a line longer than that scrolls.
+// The engine gives a slide only code whose lines fit at that size (`code_piece`, `_fit_code`), also for a slide that was made earlier.
 const CODE_MOST = .8, CODE_LEAST = .5;
 function fitCode(pre) {
   if (!pre.offsetWidth) return;
