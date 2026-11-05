@@ -757,3 +757,8 @@ def test_a_remake_for_managers_retitles_keeps_the_poll_and_drops_shape_rules(mk,
     assert [s['title'] for s in t.slides if s['kind'] == 'idea'] == [f'Plain title {k}' for k in range(1, n + 1)]
     assert next(s for s in t.slides if s['kind'] == 'poll')['ask']['q'] == 'Have you built an agent?'
     assert 'poll' not in (t.change or '').lower() and 'managers' in t.change
+
+def test_a_code_piece_loses_its_tail_comments():
+    "A comment at the end of a line of code goes, so the line fits the slide; a comment line and a # in a string stay."
+    code = "# the sky\nrise = sunrise(day)[0]   # the first\nprint(f'# {rise}')  # show it"
+    assert build_app.no_tail_comments(code) == "# the sky\nrise = sunrise(day)[0]\nprint(f'# {rise}')"

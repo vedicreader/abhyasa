@@ -112,12 +112,23 @@ def junk_path(u) -> bool:
     "Whether the path or link `u` is in a hidden or `_` folder, such as `_leela_agent_sessions` or `.ipynb_checkpoints`: never a source of code."
     return any(x.startswith(('.', '_')) and x not in ('.', '..') for x in str(u or '').split('/')[:-1])
 
+def no_tail_comments(code:str) -> str:
+    "`code` with no comment at the end of a line of code (`x = 1   # why`), so a slide line is shorter. A comment on its own line stays. Code that does not tokenize stays as it is."
+    import io, tokenize
+    try: toks = list(tokenize.generate_tokens(io.StringIO(code).readline))
+    except (tokenize.TokenError, SyntaxError, IndentationError): return code
+    ls = code.split('\n')
+    for t in reversed(toks):
+        r, c = t.start
+        if t.type == tokenize.COMMENT and ls[r - 1][:c].strip(): ls[r - 1] = ls[r - 1][:c].rstrip()
+    return '\n'.join(ls)
+
 def pick_code(text, name, near='', strict=False) -> str:
     """The code piece (`code_piece`) for the idea `name` from the source text `text`. Only a block that teaches (`good_code`), whose piece parses too.
     First a block in the section of the passage `near`; else the block that names most words of the idea. With `strict`, only a block that names the idea."""
     blocks = [(m.start(), m.group(1)) for m in _CODE.finditer(text or '') if good_code(m.group(1))]
     if not blocks: return ''
-    piece = lambda code: (p if good_code(p.removeprefix('```python\n').removesuffix('\n```')) else '') if (p := code_piece(f'```python\n{code}\n```')) else ''
+    piece = lambda code: (p if good_code(p.removeprefix('```python\n').removesuffix('\n```')) else '') if (p := code_piece(f'```python\n{no_tail_comments(code)}\n```')) else ''
     at = (text or '').find(near[:80]) if near else -1
     if at >= 0:   # the step's own section: from its passage to the next heading
         end = m.start() if (m := re.compile(r'^#{1,3} ', re.M).search(text, at + len(near[:80]))) else len(text)
