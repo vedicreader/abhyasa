@@ -1,0 +1,14 @@
+/* The model chip (ui.Chip): the model of one task and where it runs. It opens the model list of Settings.
+   It is a ⋯ menu of base.css, which can load after this file: so `.mchip.more-menu`. */
+.mchip { display: inline-block; vertical-align: middle; }
+.mchip.more-menu > summary { min-height: 0; min-width: 0; gap: var(--s1); padding: 2px var(--s2); font-size: var(--t-meta); color: var(--mute);
+                   border: 1px solid var(--line); border-radius: var(--r-s); white-space: nowrap; }
+.mchip .mchip-task::after { content: ':'; }
+.mchip .mchip-name { color: var(--fg); }
+.mchip .where { color: var(--mute); }
+.mchip .where.hosted { border: 1px solid var(--acc); border-radius: var(--r-s); padding: 0 var(--s1); }
+.mchip .mchip-lock { color: var(--no); }
+.mchip.more-menu .menu-items { left: 0; right: auto; min-width: 20rem; font-size: var(--t-small); }
+.mchip .menu-items select, .mchip .menu-items input[type=text] { width: 100%; }
+.mchip .menu-items p { margin: var(--s1) 0 0; font-size: var(--t-meta); }
+.mchips { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; margin: var(--s2) 0; font-size: var(--t-meta); color: var(--mute); }

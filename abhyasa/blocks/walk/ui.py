@@ -328,10 +328,10 @@ def TalkStep(j, st, by, i, figure=True):
     return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea', data_concept=s.get('slug')), Passage(j, short, c), Figure_(j['id'], i, s, c) if figure else '',
                P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
-def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None, figure=True, words=()):
+def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None, figure=True, words=(), chips=()):
     """One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title, `present` under the outline.
     `result` is the card "From Leela": it takes the place of the check, so the page has it with no second request. `figure=False`: the file of the figure is not there, so no image.
-    `words` are the terms of Words to know, under the needs line and before the passage."""
+    `words` are the terms of Words to know, under the needs line and before the passage. `chips` name the models of the check, under it."""
     if in_talk(): return TalkStep(j, st, by, i, figure)
     s, c = st.steps[i], by.get(st.steps[i]['slug'])
     r = s.get('read') or {}
@@ -340,7 +340,7 @@ def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING, data_part='check') if result is None else Div(result, id='check', data_part='check')
     return Div(Rail(j, st, by, i, present),
                Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea', data_concept=s.get('slug')), *needs, Words(words), Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c) if figure else '',
-                   NoteSlot(j['id'], i), slot, leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
+                   NoteSlot(j['id'], i), slot, Div(*chips, cls='mchips') if chips else '', leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 
 # --- the short-answer check ------------------------------------------------------------------------------------------

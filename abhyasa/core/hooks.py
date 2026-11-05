@@ -33,6 +33,9 @@ the same job with the inputs on the row, `row.again`, and gives True).
 The start: `app_start()` (once, after the app connected its blocks and closed the old job rows: a block starts its jobs of the start on the pool,
 such as the walk block, which makes the old paths walks).
 
+The models: `model_chip(task)` (the settings block gives the chip of the model of `task`: the model in use and where it runs; a click
+opens the model list of Settings, and a pick saves the setting of Settings. The builder, the talk editor, the walk step and the guide show it).
+
 The side pane: `pane_title(url)` (the title of the page at the local path `url`, for the pane bar and the line under 1100 px).
 
 Leela: `nb_leela(href, cell=None)` (the vault block gives Open in Leela for the vault page at `href` when it is a notebook, at the cell `cell`;

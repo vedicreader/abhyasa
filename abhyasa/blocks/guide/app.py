@@ -257,7 +257,7 @@ def connect(app, ctx):
     def go(): return ui.Go()   # in the top bar, so it never covers the page
 
     @hook('page_extra')
-    def parts(): return ui.Parts(info())
+    def parts(): return ui.Parts(info(), [y for t in ('guide', 'guide_vision') for y in run_hook('model_chip', t)])
 
     app.post(Routes.ask)(ask_)
     app.post(Routes.warm)(warm)

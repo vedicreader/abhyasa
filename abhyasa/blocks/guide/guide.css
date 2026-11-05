@@ -12,6 +12,10 @@ nav .guide-go:hover, nav .guide-go.on { border-color: var(--acc); }
 /* where the mic shows while you talk: the key that talks, until the mic is on */
 .guide-form .guide-talk { font-size: var(--t-meta); white-space: nowrap; }
 .guide-form:has(#guide-mic:not([hidden])) .guide-talk { display: none; }
+/* the model chips of the guide (the settings block): on their own row under the box; the list opens up, since the box is at the foot */
+.guide-form:has(> .mchips) { flex-wrap: wrap; }
+.guide-form > .mchips { flex-basis: 100%; margin: 0; }
+.guide-form .mchip .menu-items { top: auto; bottom: 100%; }
 @media print { .guide-go, .guide-form, .guide-strip { display: none; } }
 
 /* The explainer video: the embed at 16:9, a quiet source line, and a transcript that stays closed until you open it. */

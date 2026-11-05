@@ -16,7 +16,7 @@ from starlette.responses import RedirectResponse
 from abhyasa.core import hook, run as run_hook, asset_css, asset_js, Page, n_of, page_req
 from abhyasa.core.pane import pane_link
 from abhyasa.learner import track, job_said, prompt, profile_text
-from abhyasa.models import ramabana_lead, safe_query, ask_json
+from abhyasa.models import ramabana_lead, safe_query, ask_json, dflt_model
 from abhyasa.sources import named_sources, web_search, main_words, named_count
 from abhyasa.path import (walk_for_talk, file_chip, file_link, chip_state, move_step, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs,
                           passages as doc_passages)
@@ -852,13 +852,19 @@ def connect(app, ctx):
         "The agent of conversation `bid`: one for each conversation, made at its first turn."
         if (x := agents.get(bid)): return x
         st = AttrDict(stop=threading.Event(), em=None, cur=None, fresh=True, run=None)
-        fs = tools(bid, st)
-        a, host = ramabana_lead((), [f.__name__ for f in fs], sp=prompt('build.agent'), minutes=TURN['minutes'], max_calls=TURN['max_calls'],
+        fs, m = tools(bid, st), ctx.ask.uses('build')
+        a, host = ramabana_lead((), [f.__name__ for f in fs], sp=prompt('build.agent'), turn=m, minutes=TURN['minutes'], max_calls=TURN['max_calls'],
                                 max_steps=TURN['max_steps'], max_cost=TURN['max_cost'], web=False)
         for f in fs: a.add_tool(tooled(bid, st, f))
         st.native = hasattr(a, 'events')   # a ramabana that gives AG-UI events itself
-        agents[bid] = x = AttrDict(a=a, host=host, st=st)
+        agents[bid] = x = AttrDict(a=a, host=host, st=st, model=m)
         return x
+
+    def on_model(x):
+        "Move the agent `x` to the model of the `build` task when a chip or Settings changed it. Only between two turns: a turn that runs keeps its model."
+        if (m := ctx.ask.uses('build')) == x.model: return
+        x.a.set_model(dflt_model(m))   # ramabana keeps the conversation
+        x.model = m
 
     # --- a turn --------------------------------------------------------------------------------------------------
 
@@ -880,6 +886,7 @@ def connect(app, ctx):
     def turn(bid, text):
         "One turn of the agent of conversation `bid` on the request `text`, on the pool."
         x = agent_of(bid); st = x.st
+        on_model(x)
         st.said = text; st.stop.clear(); st.run = None; st.waiting = 0; st.late = False; st.searched = False; st.em = em = Emit(lambda e: emit(bid, e), x.a if st.native else None)
         with locks[bid]:
             b = lr.build(bid); p = ask_of(b, text, st.fresh)
@@ -981,6 +988,8 @@ def connect(app, ctx):
         pane = Routes.of(Routes.one, bid=bid) + (f'?{urlencode(dict(say=say))}' if say else '')
         return (href_of(lr.build(bid)) or Routes.of(Routes.one, bid=bid)) + '?' + urlencode(dict(rh=pane))
 
+    def chips(): return Div(*run_hook('model_chip', 'build'), cls='mchips')   # outside the column, so the reload of a turn does not close it
+
     def live(bid:str):
         "The builder column as it is now."
         b = load(bid)
@@ -991,12 +1000,12 @@ def connect(app, ctx):
         if not (b := lr.build(bid)): return Response('No such conversation.', status_code=404)
         q = req.query_params
         if q.get('solo') == '1':   # a narrow window: the builder as one page, with the tabs Builder and Result
-            return Page('Builder', ui.Tabs(Routes.of(Routes.one, bid=bid) + '?solo=1', href_of(b) or host_url(bid), 'Builder'), live(bid), on='Home', crumbs=[('Home', '/')],
+            return Page('Builder', ui.Tabs(Routes.of(Routes.one, bid=bid) + '?solo=1', href_of(b) or host_url(bid), 'Builder'), chips(), live(bid), on='Home', crumbs=[('Home', '/')],
                         extra=(asset_css(_P/'build.css'), asset_js(_P/'build.js'), *ui.rupaka_assets()))
         if q.get('pane') == '1':
             c = live(bid)
             if say: c = ui.Column(b, fold(b.get('events')), lr.job(key(bid)) if busy(bid) else None, CHANGERS, href_of(b), say)
-            return Page('Builder', c, extra=(asset_css(_P/'build.css'), asset_js(_P/'build.js'), *ui.rupaka_assets()))
+            return Page('Builder', chips(), c, extra=(asset_css(_P/'build.css'), asset_js(_P/'build.js'), *ui.rupaka_assets()))
         if href_of(b) or not q.get('rh'): return RedirectResponse(host_url(bid, say), status_code=303)
         return Page('Build', ui.Tabs(Routes.of(Routes.one, bid=bid) + '?solo=1', host_url(bid), 'Result'), *ui.Host('Build a walk or a talk'), on='Home', crumbs=[('Home', '/')],
                     extra=(asset_css(_P/'build.css'), asset_js(_P/'build.js')))

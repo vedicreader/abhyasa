@@ -588,7 +588,7 @@ def connect(app, ctx):
         line = [band(j)] if researching(jid) or j.get('research_start') or j.get('gather_at') else []   # the line of research is on each step
         page = ui.StepPage(j, walk_state(j, b), b, i, needs=[*line, *run_hook('step_needs', j, i, b.get(j.steps[i]['slug']))], back=back_to(j), vault=vault, words=words(j, i, b),
                        present=run_hook('walk_actions', j, quiet=True), looking=looking(jid, i), result=None if for_talk(j) else from_leela(j, i, back),
-                       figure=figure_file(j, i) is not None)   # a figure whose file is not there draws no broken image
+                       figure=figure_file(j, i) is not None, chips=[] if for_talk(j) else [y for t in ('question', 'hint') for y in run_hook('model_chip', t)])   # a figure whose file is not there draws no broken image
         return Page(ui.name(b, j.steps[i]), page, wide=True, extra=ui.assets(),
                     on='Home', crumbs=[*up, (j.title, ui.at(Routes.one, jid))])
 

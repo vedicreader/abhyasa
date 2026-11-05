@@ -151,11 +151,12 @@ TASK_HELP = dict(question='Writes each question and its hidden answer.', grade='
                  profile='Learns about you from your answers.',
                  talk='Writes a choice question for a talk from a short check.',
                  guide='Explains a part of the page when you ask the screen guide.',
-                 guide_vision='Reads the labels of a figure for the screen guide. Pick a model that can see pictures.')
+                 guide_vision='Reads the labels of a figure for the screen guide. Pick a model that can see pictures.',
+                 build='Talks with you in the builder and changes the walk or the talk.')
 BORROWS = dict(plan='extract', pick='extract', note='hint', profile='extract', talk='question', guide='hint', guide_vision='hint')
 TASK_LABEL = dict(question='Questions', grade='Grades', hint='Hints', lesson='Lessons', extract='Ideas in a text', plan='Plans',
                   pick='Main ideas', note='Walk notes', profile='Your profile', talk='Talk questions',
-                  guide='Screen guide', guide_vision='Figure labels')
+                  guide='Screen guide', guide_vision='Figure labels', build='Builder chat')
 
 add('models.default', 'models', 'Default model', 'The model for each task that has no model of its own. '
     '"abhyasa --model" and $ABHYASA_MODEL come first when they are set.', '', ui=False)

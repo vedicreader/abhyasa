@@ -329,9 +329,10 @@ def Key(err=''):
 
 OTHER = '__other__'   # the list item that shows a text box for a model id
 
-def Pick(task, name, dflt_label, rows):
-    "The model list for one task: the default, then one item for each model, grouped by provider, then 'Type another model id'. The title names the other routes to a model."
+def Pick(task, name, dflt_label, rows, i=None, post=Routes.model):
+    "The model list for one task: the default, then one item for each model, grouped by provider, then 'Type another model id'. The title names the other routes to a model. A pick posts to `post` and swaps `#i` (default: the Settings row)."
     from abhyasa.models import model_label, provider_label, one_each
+    i = i or row_id(SETTINGS['models.' + task])
     rows = one_each(rows, keep=name)
     groups, ids = {}, {r['value'] for r in rows}
     for r in rows: groups.setdefault(r.get('provider', ''), []).append(r)
@@ -342,24 +343,22 @@ def Pick(task, name, dflt_label, rows):
                   *[Optgroup(*[opt(r['value'], r.get('name') or model_label(r['value'], p)) for r in rs], label=provider_label(p, [r['value'] for r in rs]))
                     for p, rs in groups.items()],
                   Option('Type another model id…', value=OTHER),
-                  name='model', id=f'{row_id(SETTINGS["models." + task])}-c', aria_label=f'The model for {TASK_LABEL.get(task, "the default").lower()}',
-                  hx_post=Routes.model, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#{row_id(SETTINGS["models." + task])}', hx_swap='outerHTML')
+                  name='model', id=f'{i}-c', aria_label=f'The model for {TASK_LABEL.get(task, "the default").lower()}',
+                  hx_post=post, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#{i}', hx_swap='outerHTML')
 
-def Typed(task, name):
+def Typed(task, name, i=None, post=Routes.model):
     "A text box for a model id that the list does not have."
-    i = row_id(SETTINGS['models.' + task])
+    i = i or row_id(SETTINGS['models.' + task])
     return Span(Input(type='text', name='model', value=name, placeholder='a model id, such as claude/sonnet', autofocus=True, id=f'{i}-c',
-                      hx_post=Routes.model, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#{i}', hx_swap='outerHTML',
+                      hx_post=post, hx_vals={'task': task}, hx_trigger='change', hx_target=f'#{i}', hx_swap='outerHTML',
                       autocomplete='off', spellcheck='false', aria_label=f'The model id for {task}'),
-                Button('Back to the list', type='button', hx_post=Routes.model, hx_vals={'task': task, 'model': name},
+                Button('Back to the list', type='button', hx_post=post, hx_vals={'task': task, 'model': name},
                        hx_target=f'#{i}', hx_swap='outerHTML'), cls='acts')
 
 def in_use(task, router, name='') -> str:
     "The model that `task` uses: `name`, else the model it borrows, else the default model."
     from abhyasa.models import DFLT_MODEL
-    if name: return name
-    if task == 'default': return router.model or DFLT_MODEL
-    return (router.name(BORROWS[task]) if task in BORROWS else '') or router.model or DFLT_MODEL
+    return name or (router.model if task == 'default' else router.uses(task)) or DFLT_MODEL
 
 def fallback(task, router) -> str:
     "What an empty model means for `task`: the model it borrows, else the default model."
@@ -392,11 +391,38 @@ def ModelRow(task, router, rows, typing=False, set_by=''):
 def Models(router, cat, set_by=''):
     "The model rows: the default, the four main tasks and the screen guide, then the other tasks and the reply caps under More."
     main = ('default', 'question', 'grade', 'hint', 'lesson', 'guide', 'guide_vision')
-    other = ('extract', *(t for t in BORROWS if t not in main))
+    other = ('extract', *(t for t in BORROWS if t not in main), 'build')
     caps = [r for r in rows('models') if r.name.startswith('tokens.')]
     return Div(Ul(*[ModelRow(t, router, cat, set_by=set_by if t == 'default' else '') for t in main], cls='plain srows'),
                More('models', Ul(*[ModelRow(t, router, cat) for t in other], cls='plain srows'), Ul(*[Row(r, val(r.name)) for r in caps], cls='plain srows'),
                     names=[TASK_LABEL[t] for t in other] + ['reply caps']), id='models')
+
+def chip_id(task) -> str: return f'mchip-{task}'
+
+def overridden(task, router, set_by) -> bool:
+    "Whether `set_by` ($ABHYASA_MODEL or --model) gives the model of `task` now: it sets the default, and the task has no model of its own and borrows none."
+    return bool(set_by) and not router.name(task)
+
+def ChipPanel(task, router, rows, set_by='', typing=False):
+    "The open chip: the model list of Settings, Use the default when the task has its own model, and why an override sets the model."
+    name, i = val(f'models.{task}') or '', chip_id(task)
+    lock = P(f'{set_by} sets the default model now. This task uses it. A model that you pick here comes first.', cls='no') if overridden(task, router, set_by) else ''
+    use = A('Use the default', href='#', cls='mi', hx_post=Routes.chip, hx_vals={'task': task, 'model': ''}, hx_target=f'#{i}', hx_swap='outerHTML') if name else ''
+    return (Typed(task, name, i, Routes.chip) if typing else Pick(task, name, fallback(task, router), rows, i, Routes.chip)), use, lock, \
+           A('All models in Settings', href='/settings?tab=models#g-models', cls='mi mute')
+
+def Chip(task, router, set_by='', panel=None):
+    "A small chip with the model of `task` and where it runs. Click opens the model list of Settings (`panel`, else it loads); a pick saves the same setting."
+    from abhyasa.models import model_label
+    m, i, lock = in_use(task, router, val(f'models.{task}') or ''), chip_id(task), overridden(task, router, set_by)
+    why = f'{set_by} sets this model.' if lock else 'Click to change the model.'
+    return Details(Summary(Span(TASK_LABEL[task], cls='mchip-task'), Span(model_label(m), cls='mchip-name'), Where_(m), Span(set_by, cls='mchip-lock') if lock else '',
+                           title=f'{TASK_LABEL[task]}: {TASK_HELP[task]} {why}', aria_label=f'The model for {TASK_LABEL[task].lower()}: {model_label(m)}'),
+                   Div(*(panel or (Spin('getting the list of models…'),)), id=f'{i}-p', cls='menu-items'),
+                   id=i, cls='mchip more-menu', open=panel is not None,
+                   **({} if panel else dict(hx_get=Routes.chip, hx_vals={'task': task}, hx_trigger='toggle once', hx_target=f'#{i}-p', hx_swap='innerHTML')))
+
+def chip_assets(): return asset_css(_P/'chip.css')
 
 def ModelsGroup(n):
     "The Models group. The model lists load after the page, because the list of models can take a moment."

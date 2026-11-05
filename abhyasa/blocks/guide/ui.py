@@ -14,23 +14,24 @@ def Go():
     return Button('Explain', type='button', id='guide-go', cls='guide-go', aria_keyshortcuts='Control+Alt+Shift+Meta+E',
                   title=f'Ask the tutor about this page. Caps+E ({KEY}): hold the keys to talk, or tap them to type.')
 
-def Box():
-    "The one-line box. A tap of Hyper+E opens it; held, the key fills it with what you say. Under it: the last question that the next one follows up on."
+def Box(chips=()):
+    "The one-line box. A tap of Hyper+E opens it; held, the key fills it with what you say. Under it: the last question that the next one follows up on, and the `chips` of the models of the guide."
     return Form(Input(type='text', name='said', id='guide-box', aria_label=ASK, placeholder='Ask about what you see', autocomplete='off', maxlength='300'),
                 Button('Explain', type='submit', cls='small'), Span('Hold Caps+E to talk', cls='guide-talk mute', title=f'Caps+E ({KEY}): hold the keys to talk, or tap them to type.'),
                 Span(cls='guide-heard mute', aria_live='polite'),
                 P(cls='guide-follow mute', hidden=True),
                 P(Span(cls='guide-thread-said'), Button('×', type='button', cls='guide-fresh', title='Start fresh', aria_label='Start fresh'),
                   cls='guide-thread mute', hidden=True),   # the last question on this page, while the next one follows up on it
+                Div(*chips, cls='mchips') if chips else '',
                 id='guide-form', cls='guide-form', hidden=True, hx_boost='false')
 
 def Strip():
     "The strip under the board: the tier, the step and its line, the sources, and the keys. board.js fills it, with text only."
     return Div(id='guide-strip', cls='guide-strip', hidden=True, aria_live='polite', role='status')
 
-def Parts(info=None):
-    "The box, the strip and the script. `info` names the models and the speech engine, so the page can say who gets what before it sends."
-    return (Box(), Strip(), asset_css(_P/'guide.css'),
+def Parts(info=None, chips=()):
+    "The box with the model `chips`, the strip and the script. `info` names the models and the speech engine, so the page can say who gets what before it sends."
+    return (Box(chips), Strip(), asset_css(_P/'guide.css'),
             asset_js(_P/'guide.js', data_ask=Routes.ask, data_figure=Routes.figure, data_warm=Routes.warm, data_voice=Routes.voice,
                      data_info=json.dumps(info or {})))
 

@@ -12,6 +12,7 @@ class Routes:
     remove = '/settings/remove'      # delete a model that this page downloaded
     key = '/settings/key'            # set or clear the OpenAI key
     model = '/settings/model'        # the model for one tutor task
+    chip = '/settings/chip'          # the model chip of one task on another page: its list, and a pick
     test = '/settings/model/test'    # time one short call to a model
     catalog = '/settings/catalog'    # the models that can run here, for the pickers
     look = '/settings/look'          # the theme and the mode: light, dark or auto

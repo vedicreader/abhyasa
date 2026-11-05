@@ -170,12 +170,31 @@ def connect(app, ctx):
 
     def model(task:str, model:str=''):
         "Save the model of one task; '' uses the default. `ui.OTHER` shows a box for a model id that the list does not have."
-        from abhyasa.models import ALL_TASKS, catalog
-        if task not in ('default', *ALL_TASKS): return Response('unknown task', status_code=400)
+        if task not in ('default', *voice.ALL_TASKS): return Response('unknown task', status_code=400)
         r = SETTINGS[f'models.{task}']
         if model == ui.OTHER: return ui.ModelRow(task, ctx.ask, [], typing=True)
         set_val(r.name, model.strip())
-        return ui.ModelRow(task, ctx.ask, catalog(), set_by=set_by() if task == 'default' else ''), *after(r)[1:]
+        return ui.ModelRow(task, ctx.ask, voice.catalog(), set_by=set_by() if task == 'default' else ''), *after(r)[1:]
+
+    def chip_list(task:str):
+        "The open chip of `task`: the model list of Settings."
+        if task not in voice.ALL_TASKS: return Response('unknown task', status_code=400)
+        return ui.ChipPanel(task, ctx.ask, voice.catalog(), set_by())
+
+    def chip(task:str, model:str=''):
+        "Save the model of `task` from its chip, in the setting that its Settings row saves; '' uses the default. The reply is the chip. `ui.OTHER` opens it with a box for a model id."
+        if task not in voice.ALL_TASKS: return Response('unknown task', status_code=400)
+        if model == ui.OTHER: return ui.Chip(task, ctx.ask, set_by(), panel=ui.ChipPanel(task, ctx.ask, [], set_by(), typing=True))
+        set_val(f'models.{task}', model.strip())
+        return ui.Chip(task, ctx.ask, set_by())
+
+    @hook('model_chip')
+    def model_chip(task):
+        "The chip of the model of `task`, for the page of another block."
+        return ui.Chip(task, ctx.ask, set_by()) if task in voice.ALL_TASKS else None
+
+    @hook('page_extra')
+    def chip_css(): return ui.chip_assets()
 
     def figure_test(model:str):
         "Send the test picture with the labels `FIGURE_TEST` to the model of figure labels, and say whether it read them."
@@ -272,6 +291,8 @@ def connect(app, ctx):
     app.post(Routes.remove)(remove)
     app.post(Routes.key)(key)
     app.post(Routes.model)(model)
+    app.get(Routes.chip)(chip_list)
+    app.post(Routes.chip)(chip)
     app.post(Routes.test)(test)
     app.get(Routes.catalog)(catalog)
     app.post(Routes.look)(look_)
