@@ -2,6 +2,20 @@
 
 <!-- do not remove -->
 
+## 0.0.19
+
+The fixes for the known issues of 0.0.18. Needs rupaka 0.0.15.
+
+- A 3D scene in a demo draws again when you come back to it, for example after a tab switch (rupaka 0.0.15).
+- Code on a slide never runs past the right edge. abhyasa takes only code whose lines fit at the room's smallest size. It checks the code of an older slide when the talk opens, and drops code that is too wide but keeps the slide's words.
+- The Lock in button, Try another and the reason box of a demo are hidden in the audience window. The presenter keeps them.
+- Maths in a passage or a point is drawn with KaTeX, also when the source wrote it with no dollar signs, for example `c_n·e^{i2πnt/T}`.
+- A research find has its clean page title, not "untitled" or a title with words joined to it. A kept link takes the title of the page that abhyasa filed.
+- A step that the builder refuses is not shown under "What changed", and has no See it and no Undo.
+- After an Undo, the builder shows only its last words for that turn, marked "Before the Undo:".
+- A rule about the shape of the talk, such as "Start with a poll", goes into the rules, not the aim.
+- When you ask for research, the walk is made one time, after the kept pages are filed.
+
 ## 0.0.18
 
 Needs ramabana 0.2.108, rupaka 0.0.14 and rishi 0.1.67.
