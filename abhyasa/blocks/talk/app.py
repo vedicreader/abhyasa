@@ -10,7 +10,7 @@ run log on the server always has the place. The hands of the room and the result
 When the room is lost, ⌥B offers a primer on an idea that the slide needs, and the primer opens in the side pane of both windows,
 in the talk type (`pane=1&talk=1`). "End the talk" ends the run and opens "After the talk": where the room was unsure, the
 recap file for the room, a follow-up walk, and the primers to add to the talk."""
-import hashlib, json, math, mimetypes, random, re, secrets, subprocess, time
+import hashlib, json, logging, math, mimetypes, random, re, secrets, subprocess, time
 from copy import deepcopy
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -18,7 +18,8 @@ from fasthtml.common import *
 from starlette.responses import JSONResponse, RedirectResponse
 from abhyasa.core import Page, UndoBar, hook, n_of, pane_url, room_spec, run as run_hook, paged, ListTools, Pager, AllLink, HOME_ROWS
 from abhyasa.core.leela import LOCAL_HOSTS
-from abhyasa.path import edit_lock, CTRL, rewrite as tutor_rewrite
+from abhyasa.path import edit_lock, CTRL, rewrite as tutor_rewrite, NoRewrite, passages as walk_passages
+from abhyasa.sources import main_words, named_count
 from abhyasa.sources import figure_path
 from abhyasa.path import needs, pick_way_down, detour, walk_from_topic, for_talk, step_read, chip_docs, walk_from_talk
 from abhyasa.models import for_task
@@ -31,6 +32,7 @@ from . import ui
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
+log = logging.getLogger(__name__)
 CAPS = ('learning', 'ask', 'pool', 'sources', 'research')
 NO_TALK = 'abhyasa could not make the talk.'
 PARTS = ('passage', 'body', 'figure', 'demo')   # the parts that a slide can show, in the order of their beats
@@ -155,7 +157,8 @@ def rows(f, opts):
     return f
 
 TITLE_MOST = 200
-NO_REWRITE = 'The tutor could not rewrite this. Nothing changed.'
+NO_REWRITE = 'The tutor could not rewrite slide {n}: {why}. Nothing changed.'
+NO_ANSWER = 'the model did not answer'   # the reason of a failed model call: never the words of a library
 KEPT = 'Your edit was kept. The rewrite was not used.'
 IMG_LINK = re.compile(r'!\[([^\]]*)\]\(([^)\s]+)\)')   # a markdown image: its caption and its link
 FIGS_MOST = 24   # the most figures of one document that a slide offers
@@ -225,6 +228,11 @@ def set_figure(s, f):
     s['show'] = {**(s.get('show') or {}), 'figure': f or None}
     s['beats'] = with_part(s.get('beats') or [], 'figure', bool(f))
     return s
+
+def why_of(e) -> str:
+    "The words of `e` as a reason after a colon: one line, a small first letter, no full stop at the end."
+    w = ' '.join(str(e).split()).rstrip('.')
+    return w[:1].lower() + w[1:]
 
 def title_of(s): return s.get('prompt') or 'Pause' if s.get('kind') == 'pause' else s.get('title') or 'Untitled'
 
@@ -564,15 +572,43 @@ def connect(app, ctx):
         out = (*deck(t2, opened=opened, fresh=fresh), bar(t2, said, hist, row))
         return (*out, ui.Right(row, (slide_of(t2, row) or {}).get('ask'), oob=True)) if field and field.endswith('/ask') else out
 
+    def other_passage(t, s):
+        """A passage for idea slide `s` of talk `t` when another slide, or another step of its walk, shows the same passage: the passage of the sources of
+        its walk that names the most words of the idea (in its text and its section) and that no other slide and no other step shows, as
+        `dict(text, src)`. None when the passage is its own, or when no other passage names the idea."""
+        p = ((s.get('show') or {}).get('passage') or '').strip()
+        if not p or not (j := walk_for(t)): return None
+        i = next((k for k, st in enumerate(j.steps) if st.get('slug') == s.get('concept')), None)
+        others = ({((x.get('show') or {}).get('passage') or '').strip() for x in t['slides'] if x.get('id') != s.get('id')}
+                  | {((st.get('read') or {}).get('text') or '').strip() for k, st in enumerate(j.steps) if k != i})
+        if p not in others: return None
+        others.add(p)
+        ws = main_words(s.get('title') or '')
+        rank = lambda c: named_count(f"{c.src.get('section') or ''} {c.text}", ws)
+        for c in sorted(walk_passages(lr, j, i), key=rank, reverse=True):
+            if rank(c) and c.text.strip() not in others:
+                return dict(text=c.text, src={k: v for k in SOURCE_KEYS if (v := c.src.get(k) if k != 'src' else c.src.get(k) or 'doc') not in (None, '')})
+
+    def failed(tid, n, e, why):
+        "Log the whole traceback of a failed rewrite on the server, and give the `Bad` that says why in short."
+        log.warning('The tutor could not rewrite slide %s of the talk %s.', n, tid, exc_info=e)
+        return Bad(NO_REWRITE.format(n=n, why=why))
+
     def rewrote(tid, sid, ins, who='tutor'):
-        "Rewrite the points and the note of slide `sid` of talk `tid` as `ins` says: `(talk, said, history)`. The model call runs outside the lock; a failed rewrite raises `Bad` and changes nothing."
+        """Rewrite the points and the note of slide `sid` of talk `tid` as `ins` says: `(talk, said, history)`. The model call runs outside the lock; a failed
+        rewrite raises `Bad` with its reason and changes nothing. A slide that shows the same passage as another slide gets another passage of its idea first."""
         if not (t := lr.talk(tid)) or not (s := slide_of(t, sid)): raise Bad('No such slide.')
         if s.get('kind') not in IDEAS: raise Bad('The tutor rewrites only a slide of an idea.')
         if not (ins := ' '.join(str(ins or '').split()).rstrip('.')): raise Bad('Tell the tutor what to change.')
+        n = next(k for k, x in enumerate(t.slides, 1) if x.get('id') == sid)
         sh = s.get('show') or {}
         was = dict(body=list(sh.get('body') or []), notes=s.get('notes') or '')
-        try: new = tutor_rewrite(ask(), dict(was), ins, context=sh.get('passage') or '')
-        except Exception: raise Bad(NO_REWRITE)   # never the words of a library
+        moved = other_passage(t, s)
+        p, sec = (moved['text'], moved['src'].get('section') or '') if moved else (sh.get('passage') or '', (sh.get('src') or {}).get('section') or s.get('section') or '')
+        context = f"From the section “{sec}”:\n{p}" if p and sec else p
+        try: new = tutor_rewrite(ask(), dict(was), ins, context=context)
+        except NoRewrite as e: raise failed(tid, n, e, why_of(e))
+        except Exception as e: raise failed(tid, n, e, NO_ANSWER)   # never the words of a library
         with edit_lock('talk', tid):   # the rewrite goes on the slide as it is now: a field that you changed during the call keeps your edit
             t = lr.talk(tid); ss = deepcopy(list(t.slides))
             if (i := next((k for k, x in enumerate(ss) if x.get('id') == sid), None)) is None: raise Bad('No such slide.')
@@ -580,11 +616,15 @@ def connect(app, ctx):
             kept = [k for k in was if now[k] != was[k]]
             if len(kept) == len(was): raise Bad(KEPT)
             said = f'Rewrote the points of slide {i + 1}: {ins}.' + (f' Your edit of the {ui.FIELDS[kept[0]]} was kept.' if kept else '')
+            if moved and (ss[i].get('show') or {}).get('passage') == sh.get('passage'):   # the passage that you did not change in the meantime
+                ss[i] = set_passage(ss[i], moved)
+                if sec: ss[i]['section'] = sec
+                said += f' It shows another passage now{f", from “{sec}”" if sec else ""}, so no other slide shows the same passage.'
             try:
                 if 'body' not in kept: points(ss[i], [p for p in new['body'] if p.strip()][:BODY_MOST])
                 if 'notes' not in kept: note(ss[i], new['notes'])
                 t2, hist = save(t, ss, said, who=who)
-            except Bad: raise Bad(NO_REWRITE)
+            except Bad as e: raise failed(tid, i + 1, e, why_of(e))
         return t2, said, hist
 
     def kept(tid, sid):

@@ -73,7 +73,7 @@ def test_failed_rewrite_changes_nothing(mk, lr, talk_fake):
     talk_fake.rules['Rewrite'] = 'not json'
     cl = mk(); tid = make_talk(cl, paper_walk(cl, lr)); before = lr.talk(tid).slides
     r = cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='rewrite', text='simpler'))
-    assert r.status_code == 400 and 'The tutor could not rewrite this. Nothing changed.' in r.text and lr.talk(tid).slides == before
+    assert r.status_code == 400 and 'The tutor could not rewrite slide 1: the model gave no reply in JSON. Nothing changed.' in r.text and lr.talk(tid).slides == before
     assert not lr.edits('talk', tid)
     assert cl.post(f'/t/{tid}/slide', data=dict(sid='s1', act='rewrite', text=' ')).text == 'Tell the tutor what to change.'
 
