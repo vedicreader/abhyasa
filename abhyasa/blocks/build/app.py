@@ -141,25 +141,32 @@ def on_topic(d, topic:str) -> bool:
 _FIXED = re.compile(r'(?<![{\w.])(\d+(?:\.\d+)?)\s*(?:°|%|degrees?\b)')   # a number with a unit in static text: it can disagree with the sliders
 _NOT_TEXT = {'id', 'bind', 'expr', 'fn', 'type', 'kind', 'src', 'fmt', 'show', 'valuetext', 'min', 'max', 'step', 'x', 'y'}
 
-def _state_nums(st) -> set:
-    "The numbers that the state of a demo starts with, and the sum and the gap of each two (a gap of 90° from 130° and 40°): the values that a static text can copy."
-    vs = [float(v) for v in ((x.get('value', x.get('init')) if isinstance(x, dict) else x) for x in (st or {}).values()) if isinstance(v, (int, float)) and not isinstance(v, bool)]
+def _binds(v) -> set:
+    "The state names that the controls of a demo spec bind (`bind`): the values that a reader changes."
+    if isinstance(v, dict): return set().union(*(_binds(x) for x in v.values()), {v['bind']} if isinstance(v.get('bind'), str) else set())
+    return set().union(*(_binds(x) for x in v)) if isinstance(v, list) else set()
+
+def _state_nums(st, bound=None) -> set:
+    """The numbers that the state of a demo starts with in the names that a control changes (`bound`; all names when None), and the sum and the gap
+    of each two of them (a gap of 90° from 130° and 40°): the values that a static text can copy. A state value that no control changes is a fact."""
+    val = lambda x: x.get('value', x.get('init')) if isinstance(x, dict) else x
+    vs = [float(v) for k, x in (st or {}).items() if (bound is None or k in bound) and isinstance(v := val(x), (int, float)) and not isinstance(v, bool)]
     out = set(vs)
-    for a in vs:
-        for b in vs: out |= {abs(a - b), a + b, (a - b) % 360}
-    return out - ({0.0, 360.0} - set(vs))   # a full circle or zero is a fact, unless the state starts there
+    for a, b in __import__('itertools').combinations(vs, 2): out |= {abs(a - b), a + b, (a - b) % 360, (b - a) % 360}
+    return out - ({0.0, 360.0} - set(vs))   # a full circle or zero is a fact, unless a control starts there
 
 def fixed_numbers(spec) -> list:
     """The static texts of rupaka demo `spec` that write, outside a `{slot}`, a number with a unit (°, %) that the state starts with or makes (`_state_nums`).
     Such a number disagrees with the sliders once they move ("the Moon is 90° ahead" at 160°). rupaka fills `{name}` from the state, so the text must use a slot.
     A fact such as "a circle has 360°" or "slices of 12°" stays."""
     if not (spec or {}).get('state'): return []
-    nums, out = _state_nums(spec['state']), []
+    rest = {k: v for k, v in spec.items() if k != 'state'}
+    nums, out = _state_nums(spec['state'], _binds(rest) or None), []
     def walk(v, k=''):
         if isinstance(v, dict): [walk(x, kk) for kk, x in v.items() if kk not in _NOT_TEXT]
         elif isinstance(v, list): [walk(x, k) for x in v]
         elif isinstance(v, str) and any(float(m.group(1)) in nums for m in _FIXED.finditer(re.sub(r'\{[^{}]*\}', '', v))): out.append(v)
-    walk({k: v for k, v in spec.items() if k != 'state'})
+    walk(rest)
     return out
 
 def _stems(t) -> set: return {w[:5] for w in re.findall(r'[a-z]{4,}', str(t).lower())} - {'which', 'their', 'about', 'there', 'these', 'thing'}

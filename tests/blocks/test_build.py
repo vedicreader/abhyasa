@@ -702,13 +702,15 @@ def test_folder_filing_skips_hidden_and_underscore_folders(tmp_path):
 
 def test_a_demo_never_writes_a_number_that_its_sliders_change():
     "A demo with state whose static text writes a number with a unit (90°) outside a {slot} is caught; the same text with a slot passes."
-    bad = dict(state=dict(moon=130, sun=40), blocks=[dict(type='md', text='The Moon is 90° ahead of the Sun.'), dict(type='slider', bind='moon', min=0, max=360)])
+    bad = dict(state=dict(moon=130, sun=40), blocks=[dict(type='md', text='The Moon is 90° ahead of the Sun.'), dict(type='slider', bind='moon', min=0, max=360), dict(type='slider', bind='sun', min=0, max=360)])
     good = dict(bad, blocks=[dict(type='md', text='The Moon is {gap}° ahead of the Sun.'), dict(type='slider', bind='moon', min=0, max=360)])
     assert build_app.fixed_numbers(bad) == ['The Moon is 90° ahead of the Sun.'] and build_app.fixed_numbers(good) == []
     assert build_app.fixed_numbers(dict(blocks=[dict(type='md', text='A circle has 360°.')])) == []   # no state: nothing to disagree with
     facts = dict(state=dict(moon=130, sun=40), blocks=[dict(type='md', text='Sky circle, cut open at 0°. Each tithi is a 12° slice of 360°.')])
     assert build_app.fixed_numbers(facts) == []   # a fact that no slider changes stays
     assert build_app.fixed_numbers(dict(facts, blocks=[dict(type='md', text='The Sun is at 40°.')])) == ['The Sun is at 40°.']
+    nak = dict(state=dict(moon=180, full=360, size=13.33), blocks=[dict(type='md', text='A circle of 360 degrees, cut into 27 slices of 13.33°.'), dict(type='slider', bind='moon', min=0, max=360)])
+    assert build_app.fixed_numbers(nak) == []   # 360 and 13.33 are in the state, but no control changes them
 
 def test_a_turn_that_runs_out_of_time_ends_cleanly(mk, lr, agent, monkeypatch):
     "When a turn runs past its cap, each open call says it did not finish, the line says what is done and what is not, and the box is free again."
