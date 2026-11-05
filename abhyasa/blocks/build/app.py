@@ -17,8 +17,9 @@ from abhyasa.core import hook, run as run_hook, asset_css, asset_js, Page, n_of,
 from abhyasa.core.pane import pane_link
 from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query, ask_json
-from abhyasa.sources import named_sources, web_search, VaultSource
-from abhyasa.path import (walk_for_talk, file_chip, file_link, chip_state, move_step, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
+from abhyasa.sources import named_sources, web_search, main_words, named_count
+from abhyasa.path import (walk_for_talk, file_chip, file_link, chip_state, move_step, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs,
+                          passages as doc_passages)
 from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slides, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, shape_free, shape_split, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
@@ -34,6 +35,7 @@ FOUND_MOST = 6       # the most items of one research
 RECAP = 12           # the most earlier messages in the recap of a conversation that the app opens again
 CODE_DOCS, CODE_CHARS, CODE_SECS = 40, 120_000, 60   # the documents, the characters of each and the seconds that the search for code pieces may take
 TURN_SECS = 15 * 60   # the most seconds of one turn: then it stops, and what it finished stays
+AGAIN_MOST = 2   # the most times that the agent makes one call that fails, with the same arguments: the first try and one more
 WAIT_FINDS = 'The owner keeps or drops the finds of research first. Do not call more tools; end the turn.'
 ASKS_RESEARCH = re.compile(r'\b(research|search the web|look on the web|find (extra|more|other) (material|sources))\b', re.I)   # the owner's words ask for research
 RESEARCH_FIRST = ('Nothing changed. The owner asked for research: call research first. Make the {} after the owner keeps the finds, '
@@ -603,12 +605,14 @@ def connect(app, ctx):
             if (ns := nums(slides)):
                 if (bad := [n for n in ns if 1 <= n <= len(t.slides) and t.slides[n - 1]['id'] in kept]): raise ValueError(f"Slide {', '.join(map(str, bad))} is kept. Use free first.")
                 before = {n: slide_view(t.slides[n - 1]) for n in ns if 1 <= n <= len(t.slides)}
-                out = []
-                for n in before:
+                out, bad = [], []
+                for n in before:   # a slide that fails says why, and the other slides still change
                     stage(f'Writing slide {n}')
-                    out.append(first(run_hook('talk_rewrite', t.id, n, instruction)))
+                    try: out.append(first(run_hook('talk_rewrite', t.id, n, instruction)))
+                    except ValueError as e: bad.append(str(e))
+                if bad and not out: raise ValueError(' '.join(bad))
                 t2 = lr.talk(t.id)
-                return ' '.join(out), dict(changed=[dict(n=n, before=v, after=slide_view(t2.slides[n - 1])) for n, v in before.items()])
+                return ' '.join(out + bad), dict(changed=[dict(n=n, before=v, after=a) for n, v in before.items() if (a := slide_view(t2.slides[n - 1])) != v])
             stage('Writing the talk again')
             wid = (t.get('src') or {}).get('walk') or ''
             who = dict(audience=br.get('audience') or '', no_code=bool(br.get('no_code')))
@@ -762,11 +766,12 @@ def connect(app, ctx):
         def passages(query:str,  # what to look for in the sources of the brief
                      ) -> str:
             "Passages, word for word, from the main and the extra sources of the brief, so that you can compare what they say."
-            out = []
-            for role, ds in docs_by_role().items():
-                for p in VaultSource(lr).search(query, 8):
-                    hit = next(((n, d) for n, d in ds if p.get('title') == d.title), None)
-                    if hit: out.append(f"[{role}] {hit[0]} · {hit[1].title}:\n{p.text[:700]}")
+            out, ws = [], main_words(query)
+            rank = lambda c: named_count(f"{c.src.get('section') or ''} {c.text}", ws)
+            for role, ds in docs_by_role().items():   # the paragraphs of the documents of the brief, not a search of the whole vault
+                names = {d.doc_id: n for n, d in ds}
+                cs = doc_passages(lr, dict(steps=[], source=dict(docs=[dict(shelf=d.shelf, doc_id=d.doc_id) for _, d in ds])), name=query)
+                out += [f"[{role}] {names.get(c.src.get('doc_id'), '')} · {c.place}:\n{c.text[:700]}" for c in sorted(cs, key=rank, reverse=True) if rank(c)][:6]
             return '\n\n'.join(out[:6]) or 'No passage of your sources names this.'
 
         def note_conflict(main_quote:str,  # the words of the main source, copied word for word
@@ -823,14 +828,19 @@ def connect(app, ctx):
             args = {**dict(zip(names, a)), **kw}
             if st.get('waiting'): return WAIT_FINDS
             if st.stop.is_set(): return 'The owner pressed Stop. Do not call more tools.'
+            fails, k = st.setdefault('fails', {}), (f.__name__, json.dumps(args, sort_keys=True, default=str))
+            if k in fails and fails[k][0] >= AGAIN_MOST:   # the same call failed two times: a third try gives the same answer, so it does not run
+                return f'It did not work: you called {f.__name__} two times with the same arguments, and it failed each time. The reason: {fails[k][1]} Do not call it again with the same arguments. Change the cause, or tell the owner the reason.'
             st.cur = st.em.tool_start(f.__name__, args)
             job_said(lr, key(bid), ui.line(f.__name__, args))
             try: r = f(*a, **kw)
             except (ValueError, KeyError) as e: r = f'It did not work: {e}'
             except Exception as e:
-                log.warning('builder: the tool %s failed: %r', f.__name__, e)
+                log.warning('builder: the tool %s failed: %r', f.__name__, e, exc_info=True)
                 r = 'It did not work. abhyasa had an error.'
             text, data = r if isinstance(r, tuple) else (r, None)
+            if str(text).startswith('It did not work'): fails[k] = (fails.get(k, (0,))[0] + 1, str(text).removeprefix('It did not work: '))
+            elif f.__name__ in CHANGERS: fails.clear()   # the walk or the talk changed, so a call that failed can work now
             if data is not None: st.em.data(st.cur, data)
             st.em.tool_end(st.cur, str(text))
             if f.__name__ == 'research' and (data or {}).get('items'): st.waiting = len(data['items']); st.stop.set()   # the turn ends: the owner keeps or drops each find first
