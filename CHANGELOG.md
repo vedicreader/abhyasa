@@ -2,6 +2,15 @@
 
 <!-- do not remove -->
 
+## 0.0.20
+
+- A slide that shows only a passage can be rewritten. Before, its list of points was empty, the model kept it empty, and abhyasa took the empty list as a bad reply, so every rewrite of such a slide failed.
+- A failed rewrite says why: "The tutor could not rewrite slide 3: <reason>. Nothing changed." The full error goes to the server log. Before, every failure gave the same message with no reason.
+- A slide whose passage is also on another slide, or on another step of its walk, gets the best other passage of its idea from your source, with that section's heading.
+- The builder's search for passages reads only the documents of the brief. Before, it searched the whole vault, kept the top hits of each shelf, and then filtered them by title, so a notebook on a full shelf could give no passage.
+- The builder gets the reason of each failed change, and the other slides still change. It does not run the same failing call a third time.
+- The line of a rewrite quotes a short form of the instruction.
+
 ## 0.0.19
 
 The fixes for the known issues of 0.0.18. Needs rupaka 0.0.15.
