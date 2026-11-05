@@ -19,7 +19,7 @@ from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query, ask_json
 from abhyasa.sources import named_sources, web_search, VaultSource
 from abhyasa.path import (walk_for_talk, file_chip, file_link, chip_state, move_step, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs)
-from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slides, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, shape_free, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
+from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slides, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, shape_free, shape_split, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
 from .cfg import Routes
@@ -310,6 +310,9 @@ def connect(app, ctx):
         with locks[bid]:
             b = lr.build(bid)
             old = b.brief; new = {**old, **kw}
+            if 'aim' in kw and (aim := shape_split(kw['aim']))[1]:   # a rule about the shape of the talk is a rule, not the aim, so it goes where the rules go
+                rules = new.get('rules') or ''
+                new.update(aim=aim[0], rules=rules if aim[1] in rules else ' '.join(x for x in (rules, aim[1]) if x))
             if new == old: return new
             ev = dict(type='STATE_SNAPSHOT', at=time.time(), snapshot=new)
             note = (b.get('note') or '') + (('; ' if b.get('note') else '') + said_of(old, new) if by == 'owner' else '')

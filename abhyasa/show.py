@@ -35,12 +35,12 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD
            'again_slides', 'put_back', 'talk_again', 'talk_fresh', 'image_type', 'asset_resolver', 'public_deck',
            'new_run', 'log_go', 'end_run', 'log_round', 'log_main', 'log_output', 'log_question', 'log_beside',
            'share_right', 'is_split', 'weak', 'recap', 'recap_html', 'shared_link', 'clean_link', 'link_rows',
-           'row_link', 'row_name', 'md_part', 'handout_html', 'new_brief', 'brief_chips', 'shape_free', 'brief_asks',
-           'step_slide_minutes', 'end_minutes', 'fit_walk', 'fit_slides', 'OPS', 'FIELDS', 'LIMITS', 'PANEL', 'MARKS',
-           'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS', 'ANCHOR_ID', 'MOST',
-           'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'WATCH', 'norm_tex', 'flat', 'anchor_why', 'by_id', 'cue_at',
-           'cue_quote', 'plain_say', 'check_line', 'parse_board', 'PageContext', 'clean_context', 'video_id',
-           'video_cues', 'stream_board']
+           'row_link', 'row_name', 'md_part', 'handout_html', 'new_brief', 'brief_chips', 'shape_split', 'shape_free',
+           'brief_asks', 'step_slide_minutes', 'end_minutes', 'fit_walk', 'fit_slides', 'OPS', 'FIELDS', 'LIMITS',
+           'PANEL', 'MARKS', 'META', 'META_WHY', 'SIDES', 'SURE', 'NEEDS', 'VERSION', 'FORMS', 'UNSAFE', 'NUMBERS',
+           'ANCHOR_ID', 'MOST', 'TRY', 'FOCUS', 'SHOWN', 'THREAD', 'TIERS', 'WATCH', 'norm_tex', 'flat', 'anchor_why',
+           'by_id', 'cue_at', 'cue_quote', 'plain_say', 'check_line', 'parse_board', 'PageContext', 'clean_context',
+           'video_id', 'video_cues', 'stream_board']
 
 # %% ../nbs/05_show.ipynb #52f9ee07
 import hashlib, json, logging, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
@@ -2558,9 +2558,14 @@ def brief_chips(b:dict) -> list:
 # %% ../nbs/05_show.ipynb #1d8d4ce8
 _SHAPE = re.compile(r'\b(poll|slides?|start (with|by)|end (with|by)|open the notebook|into the notebook|minutes?|order|first|last)\b', re.I)   # a rule about the shape of the talk
 
+def shape_split(t:str) -> tuple:
+    "The sentences of `t` as two texts: the ones that are not about the shape of the whole talk (a poll, the first or last slide, the minutes), and the ones that are."
+    ss = [x for x in re.split(r'(?<=[.!?])\s+', ' '.join(str(t or '').split())) if x]
+    return ' '.join(x for x in ss if not _SHAPE.search(x)), ' '.join(x for x in ss if _SHAPE.search(x))
+
 def shape_free(t:str) -> str:
-    "The sentences of `t` that are not about the shape of the whole talk (a poll, the first or last slide, the minutes): what the writer of one slide gets."
-    return ' '.join(x for x in re.split(r'(?<=[.!?])\s+', ' '.join(str(t or '').split())) if x and not _SHAPE.search(x))
+    "The sentences of `t` that are not about the shape of the whole talk: what the writer of one slide gets."
+    return shape_split(t)[0]
 
 def brief_asks(b:dict, slides:bool=False) -> str:
     """What brief `b` asks of the planner and the slide writer: the roles of the sources, the rules, the aim and research off. '' when it asks nothing.
