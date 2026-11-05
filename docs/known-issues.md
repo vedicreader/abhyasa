@@ -4,7 +4,6 @@ These issues are known in the release that adds the builder. None of them gives 
 
 ## Talks
 - A code piece with very long lines can run past the right edge of a slide. Newer code pieces have shorter lines, but a slide that was made earlier keeps its long lines. The room cannot scroll a slide.
-- The Lock in button of a demo can be cut off at the bottom of the audience window. The presenter locks in, so the room does not need the button.
 - Maths in a passage or a point shows as plain text, for example `c_n·e^{i2πnt/T}`. It is not rendered with KaTeX.
 
 ## The builder

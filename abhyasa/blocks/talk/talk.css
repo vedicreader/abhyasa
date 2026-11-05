@@ -150,6 +150,8 @@ html:is(.present, .audience) main { max-width: none; margin: 0; padding: 0; anim
 /* the audience window: the slide only, full screen */
 html.audience body { overflow: hidden; display: grid; place-items: center; height: 100vh; }
 html.audience #stage { width: min(100vw, calc(100vh * 16 / 9)); }
+/* the presenter locks in a gate, so the room copy has no Lock in, no Try another and no box for the reason: the demo needs less height */
+html.audience #stage .rk-gate :is(.acts, textarea) { display: none; }
 #keys-note { position: fixed; bottom: var(--s4); left: 50%; transform: translateX(-50%); margin: 0; padding: var(--s2) var(--s4); border-radius: var(--r);
   background: var(--raised); box-shadow: var(--lift); color: var(--ink2); font-size: var(--t-small); z-index: 9; }
 
