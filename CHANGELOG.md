@@ -2,6 +2,22 @@
 
 <!-- do not remove -->
 
+## 0.0.18
+
+Needs ramabana 0.2.108, rupaka 0.0.14 and rishi 0.1.67.
+
+- **The builder.** Make and change a walk or a talk by talking to it, in a pane beside the walk or the talk. Start and Make a talk open it. Tell it your sources and their roles ("the notebook is the main source; where they conflict, use it"), whether to research, the aim, the audience and what to keep. The page changes as it works, one line for each step. After each turn, "What I read", "Conflicts" and "What changed" show what it did, with Undo for the whole turn.
+- Research waits for you. Keep or Drop each find, or Keep all. A kept page is filed and read before the walk or the talk is made again.
+- A talk fits its slot. Slides get shorter first, then neighbouring slides join. An idea is left out only at the end, and the reply names it.
+- A talk from a notebook shows points from each section and one short code piece that parses, not the pasted section. Code lines never wrap; the code gets smaller to fit.
+- Demos on slides: a second demo goes on a new slide. A walk step can have a demo. A demo fills the slide in the audience window. Its text follows its sliders. "Ask about this" puts a question with the demo's values in the builder. The room never sees it.
+- Remake a talk for a new audience: new titles, the same poll, and no code when you say no code. The last slide names the notebook file, not its path on your Mac.
+- The handout renders markdown, shows each title one time, and gives the answers at the end.
+- Home shows your 5 newest walks and talks. "All walks" and "All talks" have 20 on a page, with a filter and a sort.
+- A source row names its source and says "ready" or the real reason. Filing skips hidden and `_` folders.
+- Lock is now Keep. Make it again is one item in the ⋯ menu.
+- Known issues are in `docs/known-issues.md`.
+
 ## 0.0.17
 
 ### Talks
