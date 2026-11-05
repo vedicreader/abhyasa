@@ -12,7 +12,7 @@ from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link, s
 from abhyasa.learner import DEPTHS, can_again
 from abhyasa.sources import source_of
 
-__all__ = ['PAGE_ROWS', 'HOME_ROWS', 'paged', 'ListTools', 'Pager', 'AllLink', 'Cites', 'nb_leela', 'SourceLine', 'SourceLinks', 'serve_watch', 'WATCH_CSP', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
+__all__ = ['PAGE_ROWS', 'HOME_ROWS', 'paged', 'ListTools', 'Pager', 'AllLink', 'Cites', 'nb_leela', 'SourceLine', 'SourceLinks', 'serve_watch', 'WATCH_CSP', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'tex_dollars', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
            'meta', 'n_of', 'moved_words', 'one_main', 'Primary', 'Secondary', 'Quiet', 'OUTCOMES', 'Tag', 'Msg', 'FirstError', 'Confidence', 'Check', 'Empty', 'Part', 'Onward', 'Pill', 'UNDO_FOR', 'can_undo', 'moved_to', 'subject_name',
            'JOB_STOP', 'JOB_AGAIN', 'JobStop', 'JobAgain', 'JobTools']
 
@@ -218,6 +218,29 @@ def Inline(s, cls=''):
     h = md_html(s).strip()
     m = re.fullmatch(r'<p>(.*)</p>', h, re.S)
     return Span(NotStr(m.group(1)) if m and '<p>' not in m.group(1) else html.escape(str(s or '')), cls=cls)
+
+# Text from a source can have maths with no dollars: `\(…\)` and `\[…\]` (d2l, arXiv HTML), or a bare TeX word such as `c_n·e^{i2πnt/T}`.
+_TEX_DELIM = re.compile(r'\\{1,2}\((.+?)\\{1,2}\)|\\{1,2}\[(.+?)\\{1,2}\]', re.S)
+_TEX_KEEP = re.compile(r'\$\$.+?\$\$|\$[^$\n]+\$|```.*?```|`[^`\n]*`|https?://\S+|\[\^?\w+\]', re.S)   # parts that stay as they are written
+_TEX_WORD = re.compile(r'(?:\{(?:[^{}$`\n]|\{[^{}$`\n]*\})*\}|[^\s{}$`])+')   # a word, with the spaces inside its braces
+_TEX_SIGN = re.compile(r'[\\^_=+<>]')                                         # a sign of maths between the brackets
+_TEXISH = re.compile(r'[\w)}\]]\^|_\{|\\[A-Za-z]{2,}')                       # a power, a subscript in braces or a TeX command
+
+def tex_dollars(s) -> str:
+    "Text `s` with its maths in dollars, so `md_html` draws it: `\\(…\\)`, `\\[…\\]`, and a bare TeX word such as `x^2` or `c_n·e^{i2πnt/T}`."
+    def delim(m):   # a markdown escape such as `\[1\]` has no maths sign in it, and stays
+        x = (m[1] if m[1] is not None else m[2]).strip()
+        return m[0] if not _TEX_SIGN.search(x) else f'${x}$' if m[1] is not None else f'$${x}$$'
+    s = _TEX_DELIM.sub(delim, str(s or ''))
+    def word(m):   # an open or a close bracket with no pair, and the stop marks after the word, stay out of the maths
+        w = m.group(0); lead = '(' if w.startswith('(') and w.count('(') > w.count(')') else ''
+        core = w[len(lead):].rstrip('.,;:!?')
+        while core.endswith(')') and core.count(')') > core.count('('): core = core[:-1].rstrip('.,;:!?')
+        return f'{lead}${core}${w[len(lead) + len(core):]}' if core and _TEXISH.search(core) else w
+    out, at = [], 0
+    for k in _TEX_KEEP.finditer(s):
+        out += [_TEX_WORD.sub(word, s[at:k.start()]), k.group(0)]; at = k.end()
+    return ''.join(out + [_TEX_WORD.sub(word, s[at:])])
 
 def DepthBar(floor, asked=None):
     "Five marks: filled to the floor, the asked depth marked."
