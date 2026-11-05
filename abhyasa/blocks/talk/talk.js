@@ -152,10 +152,8 @@ function fitPoints(sec) {
 const CODE_MOST = .8, CODE_LEAST = .5;
 function fitCode(pre) {
   if (!pre.offsetWidth) return;
-  const body = pre.closest('.body.two'), wide = () => pre.scrollWidth > pre.clientWidth + 1;
-  const shrink = () => { pre.style.fontSize = CODE_MOST + 'em'; for (let s = CODE_MOST; wide() && s > CODE_LEAST + .001;) { s = Math.max(CODE_LEAST, s - .05); pre.style.fontSize = s + 'em'; } };
-  body?.classList.remove('code-wide'); shrink();
-  if (wide() && body) { body.classList.add('code-wide'); shrink(); }   // still too wide in its column: the code takes the full width
+  pre.style.fontSize = CODE_MOST + 'em';
+  for (let s = CODE_MOST; pre.scrollWidth > pre.clientWidth + 1 && s > CODE_LEAST + .001;) { s = Math.max(CODE_LEAST, s - .05); pre.style.fontSize = s + 'em'; }
 }
 addEventListener('resize', () => document.querySelectorAll('#stage > section.stage:not([hidden])').forEach(fitPoints));
 
