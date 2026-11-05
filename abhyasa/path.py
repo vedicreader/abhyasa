@@ -1641,10 +1641,10 @@ def _texts(v):
 class NoRewrite(ValueError):
     "A rewrite that the tutor could not give. Its words say why, in plain words, so an editor can show them."
 
-def rewrite(ask, fields:dict, instruction:str, context:str='') -> dict:
-    "The text fields of `fields` rewritten by the tutor as `instruction` says. Never a passage. A bad reply raises `NoRewrite`, a `ValueError`."
+def rewrite(ask, fields:dict, instruction:str, context:str='', most:int=INSTRUCTION_MOST) -> dict:
+    "The text fields of `fields` rewritten by the tutor as `instruction` (at most `most` characters) says. Never a passage. A bad reply raises `NoRewrite`, a `ValueError`."
     fields = {k: v for k, v in fields.items() if k != 'passage'}
-    ins = ' '.join(str(instruction or '').split())[:INSTRUCTION_MOST]
+    ins = ' '.join(str(instruction or '').split())[:most]
     if not ins: raise NoRewrite('Tell the tutor what to change.')
     if not fields or not all(isinstance(v, str) or (isinstance(v, list) and all(isinstance(x, str) for x in v)) for v in fields.values()):
         raise NoRewrite('The tutor rewrites only texts and lists of texts.')

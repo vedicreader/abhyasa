@@ -36,6 +36,7 @@ LINES = dict(add_source=lambda a: f"Adding {_name(a.get('ref'))}", set_source=la
              set_brief=lambda a: 'Changing the brief', keep=lambda a: f"Keeping {a.get('items')} as they are", free=lambda a: f"Letting {a.get('items')} change",
              show=lambda a: 'Reading the walk or the talk', make_talk=lambda a: 'Making the talk', make_walk=lambda a: 'Making the walk',
              change_talk=lambda a: f"Changing slide {a['slides']}" if a.get('slides') else 'Making the talk again',
+             restyle_talk=lambda a: f"Changing the words of slide {a['slides']}" if a.get('slides') else 'Changing the words of the talk',
              edit_slide=lambda a: f"Changing slide {a.get('slide')}", set_poll=lambda a: 'Changing the poll',
              make_demo=lambda a: f"Making the demo for slide {a.get('slide')}", change_walk=lambda a: 'Changing the walk',
              research=lambda a: f"Looking on the web for {a.get('query')}", undo=lambda a: 'Taking back the last change',
@@ -89,9 +90,10 @@ def Found(x, b):
     return Call(x, (Ul(*map(item, urls), cls='bd-finds'), foot), cls='ask' if left else '', open_=bool(left))
 
 def Side(v, label):
-    "One side of a change: the title, the points and the code or passage of a slide, in words that you can read."
+    "One side of a change: the title, the points, the question, the notes and the code or passage of a slide, in words that you can read."
     code = (v.get('passage') or '').strip()
     return Div(Span(label, cls='lbl'), B(v.get('title') or ''), Ul(*[Li(p) for p in v.get('body') or []]) if v.get('body') else '',
+               P(v['ask'], cls='bd-ask') if v.get('ask') else '', P(v['notes'], cls='bd-notes mute') if v.get('notes') else '',
                Md(code, cls='bd-code') if code else '', P(Span(v['src'].split(' · ')[0], cls='pill'), ' ', ' · '.join(v['src'].split(' · ')[1:]), cls='src-line mute') if v.get('src') else '',
                cls='bd-side')
 
@@ -123,7 +125,7 @@ def ADemo(x, b):
     return Call(x, Div(Div(Demo(d['spec'], data_demo=d.get('demo'), **askable(True)), cls='frame'), P(f"On slide {d.get('slide')}", cls='mute'),
                        cls='bd-demo', data_slide=str(d.get('slide') or '')), open_=True)
 
-RENDER = dict(research=Found, change_talk=Changed, change_walk=Changed, edit_slide=Changed, make_talk=Outline, make_walk=Outline, make_demo=ADemo)   # tool name -> its view
+RENDER = dict(research=Found, change_talk=Changed, restyle_talk=Changed, change_walk=Changed, edit_slide=Changed, make_talk=Outline, make_walk=Outline, make_demo=ADemo)   # tool name -> its view
 
 # --- turns ----------------------------------------------------------------------------------------------------------
 

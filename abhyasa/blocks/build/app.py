@@ -35,13 +35,15 @@ FOUND_MOST = 6       # the most items of one research
 RECAP = 12           # the most earlier messages in the recap of a conversation that the app opens again
 CODE_DOCS, CODE_CHARS, CODE_SECS = 40, 120_000, 60   # the documents, the characters of each and the seconds that the search for code pieces may take
 TURN_SECS = 15 * 60   # the most seconds of one turn: then it stops, and what it finished stays
+SHOW_NOTES = 160   # the most characters of the notes of one slide that show gives
 AGAIN_MOST = 2   # the most times that the agent makes one call that fails, with the same arguments: the first try and one more
 WAIT_FINDS = 'The owner keeps or drops the finds of research first. Do not call more tools; end the turn.'
+STYLE_ONLY = re.compile(r'\b(only (change )?the (language|words|wording)|change only the (language|words|wording)|just (change|modify) the (language|words|wording)|ASD-?STE ?-?100|simplified technical english|grade \d+ english|keep the content)\b', re.I)   # a change of the words only
 ASKS_RESEARCH = re.compile(r'\b(research|search the web|look on the web|find (extra|more|other) (material|sources))\b', re.I)   # the owner's words ask for research
 RESEARCH_FIRST = ('Nothing changed. The owner asked for research: call research first. Make the {} after the owner keeps the finds, '
                   'so that it is made one time, with the kept pages.')
 FIELDS = ('kind', 'goal', 'rules', 'aim', 'audience', 'minutes')   # the text fields of the brief that a tool or the pane can set
-CHANGERS = ('make_talk', 'make_walk', 'change_talk', 'change_walk', 'edit_slide', 'set_poll', 'make_demo', 'undo')   # the tools that change the walk or the talk
+CHANGERS = ('make_talk', 'make_walk', 'change_talk', 'restyle_talk', 'change_walk', 'edit_slide', 'set_poll', 'make_demo', 'undo')   # the tools that change the walk or the talk
 
 def nums(s) -> list:
     "The whole numbers in `s`, in order, each once."
@@ -70,7 +72,16 @@ def slide_view(s) -> dict:
     shown = 'passage' in (s.get('beats') or [])
     src = sh.get('src') or {}
     label = (f"Research · {src.get('site') or src.get('title')}" if src.get('src') == 'web' else f"Your source · {src.get('title') or 'your file'}") if shown and sh.get('passage') else NO_SOURCE
-    return dict(title=s.get('title') or '', body=list(sh.get('body') or []), notes=s.get('notes') or '', passage=sh.get('passage') or '' if shown else '', demo=sh.get('demo'), src=label)
+    a = s.get('ask') or {}
+    q = (a.get('q') or '') + (f" ({'; '.join(a.get('options') or [])})" if a.get('options') else '')
+    return dict(title=s.get('title') or '', body=list(sh.get('body') or []), ask=q, notes=s.get('notes') or '', passage=sh.get('passage') or '' if shown else '', demo=sh.get('demo'), src=label)
+
+VIEW_NAMES = dict(title='title', body='points', ask='question', notes='notes', passage='passage', demo='demo')   # the fields of `slide_view`, as the summary of a change names them
+
+def change_lines(ch) -> str:
+    "One short line for each changed slide of `ch` (`[{n, before, after}]`): its number and the fields that changed, so the agent can check a change before it reports."
+    out = [f"Slide {c['n']}: {', '.join(v for k, v in VIEW_NAMES.items() if (c.get('before') or {}).get(k) != (c.get('after') or {}).get(k))}." for c in ch]
+    return ('Changed: ' + ' '.join(out)) if out else 'No slide changed.'
 
 _NO_TITLE = re.compile(r'^(untitled(\s+(document|page))?|no title|home|index|page|document)$', re.I)
 _MARKS = r'[\s_*#>`~|:\-–—]+'   # markdown and junk around a title: `__What is…__`, `## Title`
@@ -114,11 +125,15 @@ class Counting:
     def __getattr__(self, k): return getattr(self.ask, k)
 
 _CODE = re.compile(r'^```(?:python|py)\n(.*?)\n```', re.S | re.M)   # a fenced block with its language, from the start of a line, as `code_piece` reads it: never the prose between two fences
-_ASKS_CODE = re.compile(r'\b(show (the )?code|code|technical|python|programmers?|developers?|engineers?)\b', re.I)
+_ASKS_CODE = re.compile(r'\b(show(s|ing)? (the |more |some )?code|with code|more code|code (pieces?|examples?|on the slides)|python)\b', re.I)
+_TECH = re.compile(r'\b(technical|programmers?|developers?|engineers?|coders?)\b', re.I)
+_STYLE_GUIDE = re.compile(r'\b(ASD-?STE ?-?100|simplified technical english|STE)\b', re.I)   # a style guide for the words: never an ask for code
 
 def wants_code(br) -> bool:
-    "Whether brief `br` asks for code on the slides: its aim, rules, goal or audience says code or technical, and no code is off."
-    return not br.get('no_code') and bool(_ASKS_CODE.search(' '.join(str(br.get(k) or '') for k in ('aim', 'rules', 'goal', 'audience'))))
+    """Whether brief `br` asks for code on the slides: its aim, rules, goal or audience asks for code, or its aim or audience says technical, and no code
+    is off. A rule is not the audience: "Simplified Technical English" in the rules is a style guide for the words, and never asks for code."""
+    txt = lambda ks: _STYLE_GUIDE.sub('', ' '.join(str(br.get(k) or '') for k in ks))
+    return not br.get('no_code') and bool(_ASKS_CODE.search(txt(('aim', 'rules', 'goal', 'audience'))) or _TECH.search(txt(('aim', 'audience'))))
 
 def good_code(code:str) -> bool:
     "Whether `code` teaches: it parses (`ast.parse`), it is not a shim (`sys.modules`, `__import__`), and it is more than imports, comments and a doc string."
@@ -142,12 +157,13 @@ def no_tail_comments(code:str) -> str:
         if t.type == tokenize.COMMENT and ls[r - 1][:c].strip(): ls[r - 1] = ls[r - 1][:c].rstrip()
     return '\n'.join(ls)
 
-def pick_code(text, name, near='', strict=False) -> str:
-    """The code piece (`code_piece`) for the idea `name` from the source text `text`. Only a block that teaches (`good_code`), whose piece parses too.
-    First a block in the section of the passage `near`; else the block that names most words of the idea. With `strict`, only a block that names the idea."""
+def pick_code(text, name, near='', strict=False, skip=()) -> str:
+    """The code piece (`code_piece`) for the idea `name` from the source text `text`. Only a block that teaches (`good_code`), whose piece parses too,
+    and never a piece in `skip` (the pieces that other slides show). First a block in the section of the passage `near`; else the block that names most
+    words of the idea. With `strict`, only a block that names the idea."""
     blocks = [(m.start(), m.group(1)) for m in _CODE.finditer(text or '') if good_code(m.group(1))]
     if not blocks: return ''
-    piece = lambda code: (p if good_code(p.removeprefix('```python\n').removesuffix('\n```')) else '') if (p := code_piece(f'```python\n{no_tail_comments(code)}\n```')) else ''
+    piece = lambda code: (p if good_code(p.removeprefix('```python\n').removesuffix('\n```')) and p.strip() not in skip else '') if (p := code_piece(f'```python\n{no_tail_comments(code)}\n```')) else ''
     at = (text or '').find(near[:80]) if near else -1
     if at >= 0:   # the step's own section: from its passage to the next heading
         end = m.start() if (m := re.compile(r'^#{1,3} ', re.M).search(text, at + len(near[:80]))) else len(text)
@@ -471,14 +487,23 @@ def connect(app, ctx):
             if not x: return 'There is no walk or talk yet.'
             kept = set(b.brief.get('keep') or [])
             if k == 'talk':
+                shown = lambda s: ((s.get('show') or {}).get('passage') or '').strip() if 'passage' in (s.get('beats') or []) else ''
+                by = defaultdict(list)
+                for n, s in enumerate(x.slides, 1):
+                    if (p := shown(s)): by[p].append(n)
                 def line(n, s):
-                    sh = s.get('show') or {}
+                    sh, p = s.get('show') or {}, shown(s)
                     bits = [f"{n}. [{s.get('kind')}] {s.get('title')}"]
                     if (s.get('ask') or {}).get('q'): bits.append(f"question: {s['ask']['q']}" + (f" ({'; '.join(s['ask'].get('options') or [])})" if s['ask'].get('options') else ''))
                     if sh.get('body'): bits.append('points: ' + ' | '.join(sh['body']))
-                    if '```' in (sh.get('passage') or '') and 'passage' in (s.get('beats') or []): bits.append(f"shows {len(sh['passage'].splitlines()) - 2} lines of code")
-                    elif sh.get('passage') and 'passage' in (s.get('beats') or []): bits.append('shows a passage')
+                    sec = (sh.get('src') or {}).get('section') or s.get('section') or ''
+                    if p:
+                        ls = [l for l in p.splitlines() if l.strip() and not l.startswith('```')]
+                        what = f"shows {len(ls)} lines of code" if '```' in p else 'shows a passage'
+                        bits.append(what + (f" from “{sec}”" if sec else '') + (f", first line: {ls[0].strip()[:80]}" if ls else ''))
+                        if len(by[p]) > 1: bits.append(f"SAME {'CODE' if '```' in p else 'PASSAGE'} AS SLIDE {', '.join(str(m) for m in by[p] if m != n)}")
                     if sh.get('demo'): bits.append('has a live demo')
+                    if (nt := ' '.join((s.get('notes') or '').split())): bits.append(f"notes: {nt[:SHOW_NOTES]}" + ('…' if len(nt) > SHOW_NOTES else ''))
                     if s['id'] in kept: bits.append('KEPT')
                     return ' · '.join(bits)
                 return f"The talk “{x.title}”, a slot of {x.get('minutes')} minutes:\n" + '\n'.join(line(n, s) for n, s in enumerate(x.slides, 1))
@@ -502,15 +527,16 @@ def connect(app, ctx):
                     except Exception: texts[doc_id] = ''
                 return texts[doc_id]
             by = {x['slug']: x.get('read') or {} for x in j.get('steps') or ()}
-            new = {}
+            new, used = {}, {((x.get('show') or {}).get('passage') or '').strip() for x in t.slides} - {''}   # a piece that a slide shows goes to no other slide
             for x in t.slides:
                 sh, r = x.get('show') or {}, by.get(x.get('concept') or '') or {}
                 if x.get('kind') != 'idea' or '```' in (sh.get('passage') or ''): continue
-                piece, src = ('' if junk_path(r.get('url')) else pick_code(text_of(r.get('shelf'), r.get('doc_id')), x.get('title') or '', r.get('text') or '')), r
+                piece, src = ('' if junk_path(r.get('url')) else pick_code(text_of(r.get('shelf'), r.get('doc_id')), x.get('title') or '', r.get('text') or '', skip=used)), r
                 for d in ([] if piece else others):   # the step's own document has no code: a document of the sources that has code on the idea
-                    if (piece := pick_code(text_of(d.shelf, d.doc_id), x.get('title') or '', strict=True)):
+                    if (piece := pick_code(text_of(d.shelf, d.doc_id), x.get('title') or '', strict=True, skip=used)):
                         src = dict(src='vault:' + d.shelf, shelf=d.shelf, doc_id=d.doc_id, ref=d.doc_id, title=d.title, url=d.url, text=piece); break
                 if not piece: continue
+                used.add(piece.strip())
                 y = deepcopy(x); prose = sh.get('passage') or r.get('text') or ''
                 y['show'] = {**sh, 'passage': piece, 'src': {k: v for k in SOURCE_KEYS if (v := src.get(k) if k != 'src' else src.get(k) or 'doc') not in (None, '')}}
                 y['beats'] = [*[b_ for b_ in y.get('beats') or [] if b_ != 'passage'], 'passage']
@@ -600,8 +626,12 @@ def connect(app, ctx):
                         slides:str='',    # the numbers of the slides to change, such as "3"; empty makes the whole talk again
                         fresh:bool=False, # true makes the talk again from scratch, with no edits
                         ) -> str:
-            "Change the talk: only the slides named, or the whole talk again. The slides in keep never change."
+            """Change the talk: only the slides named, or the whole talk again from the walk, with new words, passages and examples. The slides in keep never
+            change. For a change of the language or the style only, use restyle_talk."""
             t = need('talk'); br = rec().brief; kept = set(br.get('keep') or [])
+            if not nums(slides) and not fresh and STYLE_ONLY.search(instruction):   # the words only: never a remake
+                said, data = restyle_talk(instruction)
+                return f'This asks for a change of the words only, so abhyasa changed the words and kept the content. {said}', data
             if (ns := nums(slides)):
                 if (bad := [n for n in ns if 1 <= n <= len(t.slides) and t.slides[n - 1]['id'] in kept]): raise ValueError(f"Slide {', '.join(map(str, bad))} is kept. Use free first.")
                 before = {n: slide_view(t.slides[n - 1]) for n in ns if 1 <= n <= len(t.slides)}
@@ -612,7 +642,8 @@ def connect(app, ctx):
                     except ValueError as e: bad.append(str(e))
                 if bad and not out: raise ValueError(' '.join(bad))
                 t2 = lr.talk(t.id)
-                return ' '.join(out + bad), dict(changed=[dict(n=n, before=v, after=a) for n, v in before.items() if (a := slide_view(t2.slides[n - 1])) != v])
+                ch = [dict(n=n, before=v, after=a) for n, v in before.items() if (a := slide_view(t2.slides[n - 1])) != v]
+                return ' '.join(out + bad + [change_lines(ch)]), dict(changed=ch)
             stage('Writing the talk again')
             wid = (t.get('src') or {}).get('walk') or ''
             who = dict(audience=br.get('audience') or '', no_code=bool(br.get('no_code')))
@@ -630,10 +661,27 @@ def connect(app, ctx):
                     else: ss = [deepcopy(old_poll), *ss]
                 if ss != t2.slides: t2 = lr.put_talk({**t2, 'slides': ss})
             if (fresh or new_who) and who['audience']: retitle(t.id, who, kept)   # set_brief copies the audience to the talk first, so a fresh remake retitles too
-            with_code(t.id); fit = fit_to_slot(t.id); t2 = lr.talk(t.id)
+            coded = with_code(t.id); fit = fit_to_slot(t.id); t2 = lr.talk(t.id)
             ch = [dict(n=n, before=slide_view(was[s['id']]), after=slide_view(s)) for n, s in enumerate(t2.slides, 1) if s['id'] in was and slide_view(was[s['id']]) != slide_view(s)]
-            return (f"Made the talk again. {len(ch)} slides changed; {len(kept)} kept. {slot_line(t2)} {' '.join(fit)}".strip(),
+            return (' '.join(x for x in (f"Made the talk again: this was a full remake from the walk, with new words and passages. {len(ch)} slides changed; {len(kept)} kept.",
+                                         f"Code mode is on (the brief asks for code): it added code to {n_of(coded, 'slide')}." if coded else '',
+                                         slot_line(t2), *fit, change_lines(ch)) if x),
                     dict(changed=ch))
+
+        def restyle_talk(instruction:str,  # the language or the style, in the owner's words, such as "ASD-STE100 English at grade 9"
+                         slides:str='',    # the numbers of the slides to change, such as "2, 3"; empty changes each slide that is not kept
+                         ) -> str:
+            """Change only the words of the talk: the titles, the points, the notes and the questions, from the slide text as it is now. The content, the
+            passages, the code and the demos stay. Use it for a change of the language, the style, the grade or the tone. One Undo takes it all back."""
+            t = need('talk'); kept = set(rec().brief.get('keep') or [])
+            was = {n: slide_view(s) for n, s in enumerate(t.slides, 1)}
+            stage(f"Changing the words of {n_of(len(nums(slides)) or len(t.slides), 'slide')}")
+            said, done, bad = first(run_hook('talk_restyle', t.id, instruction, nums(slides), kept))
+            t2 = lr.talk(t.id)
+            ch = [dict(n=n, before=was[n], after=a) for n in done if n in was and (a := slide_view(t2.slides[n - 1])) != was[n]]
+            if not done: raise ValueError('The tutor could not change the words of any slide. ' + ' '.join(f'Slide {n}: {r}.' for n, r in bad.items()) + ' Nothing changed.')
+            return (' '.join(x for x in (said, 'The passages, the code and the demos did not change.', change_lines(ch),
+                                         ' '.join(f'Slide {n} kept its words: {r}.' for n, r in sorted(bad.items()))) if x), dict(changed=ch))
 
         def retitle(tid, who, kept=()):
             "Give the idea slides of talk `tid` titles for the audience of `who` (one model call). The ideas, their order and the kept slides stay."
@@ -665,7 +713,9 @@ def connect(app, ctx):
             if not f: return 'Nothing to change.'
             before = slide_view(t.slides[slide - 1]) if 1 <= slide <= len(t.slides) else None
             said = first(run_hook('talk_edit', t.id, slide, f)) or 'Nothing changed.'
-            return said, dict(changed=[dict(n=slide, before=before, after=slide_view(lr.talk(t.id).slides[slide - 1]))]) if before else None
+            if not before: return said
+            ch = [dict(n=slide, before=before, after=slide_view(lr.talk(t.id).slides[slide - 1]))]
+            return f'{said} {change_lines(ch)}', dict(changed=ch)
 
         def set_poll(q:str,        # the question for the room
                      options:str,  # 2 to 5 options, split by semicolons
@@ -791,10 +841,11 @@ def connect(app, ctx):
             return f"Conflict noted: {m['title']} against {x['title']}. {won}", dict(main=m, extra=x, won=won)
 
         def undo() -> str:
-            "Take back the last change of the walk or the talk."
+            """Take back the newest change of the walk or the talk: one change, and the result names it. A change that the owner undid by hand is gone
+            already, so undo never takes it back again: it takes back the change before it."""
             return undo_of(rec(), 1)
 
-        return [add_source, set_source, set_brief, keep, free, show, make_talk, make_walk, change_talk, edit_slide, set_poll, make_demo, change_walk, research, passages, note_conflict, undo]
+        return [add_source, set_source, set_brief, keep, free, show, make_talk, make_walk, change_talk, restyle_talk, edit_slide, set_poll, make_demo, change_walk, research, passages, note_conflict, undo]
 
     def edits_of(b) -> int:
         "The count of the changes in the history of the walk or the talk of conversation `b`."
@@ -848,16 +899,28 @@ def connect(app, ctx):
             return str(text)
         return g
 
+    def roots_of(bid) -> tuple:
+        "The folders of the file and folder sources of the brief of conversation `bid` that are not dropped: the agent may read them, and write nothing there."
+        out = []
+        for c in brief_chips(lr.build(bid).brief):
+            k, _, v = str(c).partition(':')
+            if k in ('file', 'folder') and (q := Path(v).expanduser()).exists(): out.append(str(q if q.is_dir() else q.parent))
+        return tuple(dict.fromkeys(out))
+
     def agent_of(bid):
-        "The agent of conversation `bid`: one for each conversation, made at its first turn."
-        if (x := agents.get(bid)): return x
+        "The agent of conversation `bid`: one for each conversation, made at its first turn, and made again when the folders of its sources change."
+        roots = roots_of(bid)
+        if (x := agents.get(bid)) and x.roots == roots: return x
         st = AttrDict(stop=threading.Event(), em=None, cur=None, fresh=True, run=None)
         fs, m = tools(bid, st), ctx.ask.uses('build')
-        a, host = ramabana_lead((), [f.__name__ for f in fs], sp=prompt('build.agent'), turn=m, minutes=TURN['minutes'], max_calls=TURN['max_calls'],
+        a, host = ramabana_lead(roots, [f.__name__ for f in fs], sp=prompt('build.agent'), turn=m, minutes=TURN['minutes'], max_calls=TURN['max_calls'],
                                 max_steps=TURN['max_steps'], max_cost=TURN['max_cost'], web=False)
         for f in fs: a.add_tool(tooled(bid, st, f))
         st.native = hasattr(a, 'events')   # a ramabana that gives AG-UI events itself
-        agents[bid] = x = AttrDict(a=a, host=host, st=st, model=m)
+        if x:
+            try: x.a.close()
+            except Exception: pass
+        agents[bid] = x = AttrDict(a=a, host=host, st=st, model=m, roots=roots)
         return x
 
     def on_model(x):
@@ -1087,6 +1150,9 @@ def connect(app, ctx):
         try: said = undo_of(b)
         except (ValueError, KeyError) as e: said = f'It did not work: {e}'
         em.tool_end(t, said)
+        if said.startswith('Undone: '):   # the agent reads it at its next turn, as a change by hand: it must not take the same change back again
+            with locks[bid]:
+                b = lr.build(bid); lr.put_build({**b, 'note': '; '.join(x for x in (b.get('note'), f'by hand: the owner pressed Undo, and it took back “{said[8:]}”. That change is gone already: do not undo it again') if x)})
         return live(bid)
 
     @hook('hand_edit')

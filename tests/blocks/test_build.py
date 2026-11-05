@@ -25,7 +25,7 @@ def agent(monkeypatch):
     "The fake agent of the builder, with the names that the builder asked for and the caps it set. `agent.script` is set by each test."
     a = FakeAgent(lambda t, p, s: 'Nothing.')
     def lead(roots, names, **kw):
-        a.names, a.kw = names, kw
+        a.roots, a.names, a.kw = tuple(roots), names, kw
         return a, AttrDict(scratch='')
     monkeypatch.setattr(build_app, 'ramabana_lead', lead)
     return a
@@ -764,3 +764,110 @@ def test_a_code_piece_loses_its_tail_comments():
     "A comment at the end of a line of code goes, so the line fits the slide; a comment line and a # in a string stay."
     code = "# the sky\nrise = sunrise(day)[0]   # the first\nprint(f'# {rise}')  # show it"
     assert build_app.no_tail_comments(code) == "# the sky\nrise = sunrise(day)[0]\nprint(f'# {rise}')"
+
+# --- the owner's builder chat of 6 Nov: a change of the words only, the Undo by hand, and the code that repeats ------------------------------
+
+def plain_words(p, sp):
+    "The tutor of a restyle: each text of the fields with 'In plain words: ' first, and each list as long as it was."
+    f = json.loads(re.search(r'<source title="fields">(.*?)</source>', p, re.S).group(1))
+    return {k: [f'In plain words: {x}' for x in v] if isinstance(v, list) else f'In plain words: {v}' for k, v in f.items()}
+
+STE = 'change the text to ASD-STE100 grade 9 English, both slide text and notes, keep the content'
+
+def test_a_style_guide_never_asks_for_code():
+    "Simplified Technical English in the rules is a style guide, not code: code mode stays off. Technical in the aim or the audience still asks for code."
+    owner = dict(rules='Write all slide text and speaker notes in ASD-STE100 Simplified Technical English, at US grade 9.', aim='Keep the content.', audience='tech audience with varied coding experience')
+    assert not build_app.wants_code(owner) and not build_app.wants_code(dict(aim='Use STE.')) and not build_app.wants_code(dict(rules='Make it technical.'))
+    assert build_app.wants_code(dict(audience='developers')) and build_app.wants_code(dict(aim='show code')) and build_app.wants_code(dict(rules='Show code on each slide.'))
+
+def test_pick_code_skips_a_piece_that_another_slide_shows():
+    "A code piece that one slide shows never goes to a second slide: the next block that teaches comes instead, or none."
+    a, b = '```python\nspec = mk_toolspec(invoices)\nprint(spec)\n```', '```python\nr = run(agent, "hi")\nprint(r)\n```'
+    text = f'# Tools\n\n{a}\n\n# Loop\n\n{b}\n'
+    assert build_app.pick_code(text, 'tools spec') == a
+    assert build_app.pick_code(text, 'tools spec', skip={a}) == b and build_app.pick_code(text, 'tools spec', strict=True, skip={a, b}) == ''
+
+def ste_talk(cl, lr, talk_fake, agent, home):
+    "A made talk with notes on each idea slide, and its conversation."
+    talk_fake.rules['You write one poll'] = POLL
+    bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
+    agent.script = make_talk_script(nb); say(cl, lr, bid, f'Make a talk from {nb}.')
+    tid = lr.build(bid).target[5:]
+    lr.put_talk({**lr.talk(tid), 'slides': [{**s, 'notes': f"Say why {s['title']} matters."} if s.get('kind') == 'idea' else s for s in lr.talk(tid).slides]})
+    return bid, tid
+
+def test_a_change_of_the_words_only_keeps_the_content(mk, lr, talk_fake, agent, home):
+    """The owner's request: a change of the words only. A change_talk with no slide numbers goes to restyle: each slide gets new words from its text as it is
+    now, the passages and the code stay, no slide writer runs, code mode stays off, and the result names the fields that changed on each slide. One Undo takes it back."""
+    cl = mk(); bid, tid = ste_talk(cl, lr, talk_fake, agent, home); before = lr.talk(tid).slides
+    talk_fake.rules['Rewrite these fields'] = plain_words
+    writes = len([c for c in talk_fake.calls if 'You write one slide of a talk' in str(c[1])])
+    agent.script = lambda t, p, s: (t['set_brief'](rules='Write all slide text and speaker notes in ASD-STE100 Simplified Technical English, at US grade 9.'),
+                                    t['change_talk']('Rewrite only the words of every slide. Use ASD-STE100 at US grade 9. Keep the same ideas, the same order, the same passages and the same code.'))[1]
+    say(cl, lr, bid, STE)
+    after = lr.talk(tid).slides
+    assert len(after) == len(before) and [s['id'] for s in after] == [s['id'] for s in before]
+    assert all((a.get('show') or {}).get('passage') == (b.get('show') or {}).get('passage') and a.get('beats') == b.get('beats') for a, b in zip(after, before))
+    ideas = [(b, a) for b, a in zip(before, after) if b['kind'] == 'idea']
+    assert ideas and all(a['notes'] == f"In plain words: {b['notes']}" and a['show']['body'] == [f'In plain words: {x}' for x in b['show']['body']] for b, a in ideas)
+    assert len([c for c in talk_fake.calls if 'You write one slide of a talk' in str(c[1])]) == writes   # no slide writer: nothing new was written
+    r = fold(lr.build(bid).events)[-2]['result']
+    assert 'words only' in r and 'The passages, the code and the demos did not change.' in r and re.search(r'Slide \d+: title, points, question, notes\.', r), r
+    cl.post(f'/build/{bid}/undo')
+    assert lr.talk(tid).slides == before   # one Undo takes back all of it
+
+def test_restyle_talk_refuses_new_code_or_a_new_count(mk, lr, talk_fake, agent, home):
+    "A rewrite that adds a code name or changes the count of points is not used: that slide keeps its words, and the result says why."
+    cl = mk(); bid, tid = ste_talk(cl, lr, talk_fake, agent, home); before = lr.talk(tid).slides
+    n = next(k for k, s in enumerate(before, 1) if s['kind'] == 'idea')
+    def tutor(p, sp):
+        r = plain_words(p, sp)
+        if before[n - 1]['title'] in p: r['notes'] += ' Call mk_toolspec(invoices) first.'
+        return r
+    talk_fake.rules['Rewrite these fields'] = tutor
+    agent.script = lambda t, p, s: t['restyle_talk']('Use ASD-STE100 English.')
+    say(cl, lr, bid, STE)
+    after = lr.talk(tid).slides
+    assert after[n - 1] == before[n - 1] and any(a != b for a, b in zip(after, before))
+    assert f'Slide {n} kept its words: it added mk_toolspec' in fold(lr.build(bid).events)[-2]['result']
+
+def test_the_owners_undo_goes_to_the_next_turn(mk, lr, talk_fake, agent, home):
+    "Undo by hand leaves a note: the next turn reads what the owner took back, so the agent does not undo it again. The undo tool names what it takes back."
+    cl = mk(); bid, tid = ste_talk(cl, lr, talk_fake, agent, home)
+    talk_fake.rules['Rewrite these fields'] = plain_words
+    agent.script = lambda t, p, s: t['restyle_talk']('Use ASD-STE100 English.')
+    say(cl, lr, bid, STE)
+    cl.post(f'/build/{bid}/undo')
+    agent.script = lambda t, p, s: 'I did not undo again.'
+    say(cl, lr, bid, 'just modify the language')
+    assert 'the owner pressed Undo, and it took back “Changed the words of' in agent.prompts[-1] and 'do not undo it again' in agent.prompts[-1]
+    assert 'the result names it' in agent.tools['undo'].__doc__
+
+def test_show_flags_slides_that_share_code(mk, lr, talk_fake, agent, home):
+    "show gives each slide's notes, the section and first line of its passage or code, and flags each slide that shows the same code as another."
+    cl = mk(); bid, tid = ste_talk(cl, lr, talk_fake, agent, home)
+    code = '```python\nspec = mk_toolspec(invoices)\nprint(spec)\n```'
+    t = lr.talk(tid); ns = [k for k, s in enumerate(t.slides) if s['kind'] == 'idea'][:2]
+    lr.put_talk({**t, 'slides': [{**s, 'show': {**s['show'], 'passage': code}, 'beats': [*[b for b in s['beats'] if b != 'passage'], 'passage']} if k in ns else s for k, s in enumerate(t.slides)]})
+    agent.script = lambda t_, p, s: t_['show']()
+    say(cl, lr, bid, 'which slides show the same code?')
+    r = fold(lr.build(bid).events)[-2]['result']
+    a, b = ns[0] + 1, ns[1] + 1
+    assert f'SAME CODE AS SLIDE {b}' in r and f'SAME CODE AS SLIDE {a}' in r and 'first line: spec = mk_toolspec(invoices)' in r and 'notes: Say why' in r
+
+def test_a_remake_says_it_is_a_remake(mk, lr, talk_fake, agent, home):
+    "A change_talk of the whole talk says that it was a full remake from the walk, and names the fields that changed on each slide."
+    cl = mk(); bid, tid = ste_talk(cl, lr, talk_fake, agent, home)
+    talk_fake.rules['You write one slide of a talk'] = dict(SLIDE, points=['Other words.', 'More other words.'])
+    agent.script = lambda t, p, s: t['change_talk']('for engineers', fresh=True)
+    say(cl, lr, bid, 'make it again for engineers')
+    r = fold(lr.build(bid).events)[-2]['result']
+    assert 'this was a full remake from the walk' in r and 'Changed: Slide' in r, r
+
+def test_the_agent_can_read_the_folders_of_its_sources(mk, lr, talk_fake, agent, home):
+    "The agent may read the folder of each file source of the brief, and it is made again when the sources change."
+    cl = mk(); bid, tid = ste_talk(cl, lr, talk_fake, agent, home)
+    assert agent.roots == ()   # the first turn starts before the brief has a source
+    agent.script = lambda t, p, s: 'I read the notebook.'
+    say(cl, lr, bid, 'read the notebook')
+    assert agent.roots == (str(home/'talks'),)

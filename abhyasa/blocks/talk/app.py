@@ -27,7 +27,8 @@ from abhyasa.learner import fold, val, lines, track, seen_jobs, check_stop, halt
 from abhyasa.show import (check_talk, talk_from_walk, talk_from_sources, fill_talk, walk_talk, ask_for_concept, slide_minutes, ASK_KINDS, WORDS_MOST,
     QUESTIONS_MIN, public_deck, public_ask, asset_resolver, BODY_MOST, POINT_MOST, SOURCE_KEYS, new_run, log_go,
     log_main, end_run, log_beside, recap, recap_html, BEATS, FILLED, clean_slide, talk_again, talk_fresh, walk_changes, AGAIN, FRESH,
-    talk_state, with_state, on_stage, put_back, handout_html, link_rows, clean_link)
+    talk_state, with_state, on_stage, put_back, handout_html, link_rows, clean_link, GONE)
+from fastcore.parallel import parallel
 from . import ui
 from .cfg import Routes
 
@@ -159,6 +160,10 @@ def rows(f, opts):
 TITLE_MOST = 200
 ASKED_MOST = 40   # the most characters of an instruction that the line of a rewrite repeats
 NO_REWRITE = 'The tutor could not rewrite slide {n}: {why}. Nothing changed.'
+RESTYLE = ('Change only the words. Keep each fact, example, name, number and code name, the count of points and options, and the meaning. '
+           'Add nothing and drop nothing. The owner asks: ')   # the start of the instruction of a restyle: the words change, the content stays
+RESTYLE_MOST = 1500   # the most characters of the owner's words in a restyle
+_NEW_TOKEN = re.compile(r'`[^`]+`|\b\w+_\w+\b|\b\w+\(|\b\d+(?:[.,]\d+)*\b')   # a code name, a call or a number: a restyle must not add one
 NO_ANSWER = 'the model did not answer'   # the reason of a failed model call: never the words of a library
 KEPT = 'Your edit was kept. The rewrite was not used.'
 IMG_LINK = re.compile(r'!\[([^\]]*)\]\(([^)\s]+)\)')   # a markdown image: its caption and its link
@@ -675,6 +680,59 @@ def connect(app, ctx):
         if not t or not 1 <= n <= len(t.slides): raise ValueError('No such slide.')
         try: return rewrote(tid, t.slides[n - 1]['id'], ins, who)[1]
         except Bad as e: raise ValueError(str(e))
+
+    def style_fields(s) -> dict:
+        "The text fields of slide `s` that a restyle rewrites: the title, the points, the notes, and the question with its options. Never the passage or the code."
+        a, sh = s.get('ask') or {}, s.get('show') or {}
+        f = dict(title=s.get('title') or '', body=list(sh.get('body') or []), notes=s.get('notes') or '', q=a.get('q') or '', options=list(a.get('options') or []))
+        return {k: v for k, v in f.items() if v}
+
+    def added(old:dict, new:dict) -> list:
+        "The code names, calls and numbers in `new` that no field of `old` has: a restyle that adds one added content."
+        have = json.dumps(old, ensure_ascii=False)
+        return [m.group(0) for m in _NEW_TOKEN.finditer(json.dumps(new, ensure_ascii=False)) if m.group(0) not in have]
+
+    def restyled(s, ins):
+        "The new text fields of slide `s` for the restyle `ins`, or a reason (a text) when the tutor failed or changed the content."
+        was = style_fields(s)
+        if not was: return 'it has no text'
+        try: new = tutor_rewrite(ask(), was, RESTYLE + ins, most=len(RESTYLE) + RESTYLE_MOST)
+        except NoRewrite as e: return why_of(e)
+        except Exception as e:
+            log.warning('The tutor could not restyle a slide.', exc_info=e); return NO_ANSWER
+        if (bad := [k for k, v in was.items() if isinstance(v, list) and len(new[k]) != len(v)]): return f"it changed the count of the {' and the '.join(bad)}"
+        if (bad := added({**was, 'passage': (s.get('show') or {}).get('passage') or ''}, new)): return f"it added {', '.join(dict.fromkeys(bad[:3]))}"
+        return new
+
+    @hook('talk_restyle')
+    def talk_restyle(tid, ins, ns=(), skip=(), who='tutor'):
+        """Change only the words of talk `tid` as `ins` says (a language, a style, a grade): the title, the points, the notes and the question of each slide,
+        or of the slide numbers `ns`, rewritten from the slide text as it is now. Never a passage, a demo or code, and no other passage. The slides with an id in
+        `skip` (the kept slides) stay. A slide whose rewrite adds a number or a code name, or changes the count of points, keeps its words. All of it is one change,
+        so one Undo takes it back. `(said, done, failed)`: the line, the numbers of the changed slides and `{n: reason}` of the slides that kept their words."""
+        if not (ins := ' '.join(str(ins or '').split())[:RESTYLE_MOST]): raise ValueError('Tell the tutor what to change.')
+        if not (t := lr.talk(tid)): raise ValueError('No such talk.')
+        want = [(n, s) for n, s in enumerate(t.slides, 1) if (not ns or n in ns) and s.get('id') not in set(skip) and s.get('section') != GONE and style_fields(s)]
+        if not want: raise ValueError('No slide has words to change.')
+        got = dict(zip([n for n, _ in want], parallel(lambda x: restyled(x[1], ins), want, threadpool=True, n_workers=4, progress=False)))
+        bad = {n: r for n, r in got.items() if isinstance(r, str)}
+        was = {s['id']: style_fields(s) for _, s in want}
+        with edit_lock('talk', tid):   # the new words go on each slide as it is now: a slide that you changed during the calls keeps your edit
+            t = lr.talk(tid); ss = deepcopy(list(t.slides)); done = []
+            for n, s in enumerate(ss, 1):
+                if not isinstance(new := got.get(n), dict): continue
+                if s.get('id') not in was or style_fields(s) != was[s['id']]: bad[n] = 'you changed it during the rewrite'; continue
+                if 'title' in new: s['title'] = new['title'][:TITLE_MOST]
+                if 'body' in new: points(s, new['body'])
+                if 'notes' in new: note(s, new['notes'])
+                if 'q' in new or 'options' in new: s['ask'] = {**s['ask'], **{k: new[k] for k in ('q', 'options') if k in new}}
+                done.append(n)
+            q = ins if len(ins) <= ASKED_MOST else ins[:ASKED_MOST - 1].rstrip() + '…'
+            said = f"Changed the words of {n_of(len(done), 'slide')} (asked: \"{q}\")."
+            if done:
+                try: save(t, ss, said, who=who)
+                except Bad as e: raise ValueError(f'The tutor could not change the words: {why_of(e)}. Nothing changed.')
+        return said, done, bad
 
     @hook('talk_demo')
     def talk_demo(tid, n, slug, who='tutor', replace=False):
