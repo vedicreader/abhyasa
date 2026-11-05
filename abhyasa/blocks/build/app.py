@@ -1041,8 +1041,8 @@ def connect(app, ctx):
         for k in ('research', 'no_code'):
             if k in f: kw[k] = onoff(f[k]) is True
         if f.get('src') and f.get('role') in ROLES: kw['sources'] = [{**s, 'role': f['role']} if s['id'] == f['src'] else s for s in b.brief.get('sources') or []]
-        if (said := said_of(b.brief, {**b.brief, **kw})): Emit(lambda e: emit(bid, e)).ev('CUSTOM', name='note', value=f'You changed the brief: {said}.')
-        put_brief(bid, by='owner', **kw)
+        new = put_brief(bid, by='owner', **kw)   # the note says the brief as it is kept: a shape rule in the aim is a rule there
+        if (said := said_of(b.brief, new)): Emit(lambda e: emit(bid, e)).ev('CUSTOM', name='note', value=f'You changed the brief: {said}.')
         return live(bid)
 
     def item(bid:str, url:str='', role:str='', urls:str=''):
