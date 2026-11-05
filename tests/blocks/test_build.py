@@ -500,6 +500,8 @@ def test_the_page_at_the_left_keeps_its_style_after_a_change(mk, lr, talk_fake, 
     pytest.importorskip('playwright.sync_api')
     from playwright.sync_api import sync_playwright
     monkeypatch.setenv('PLAYWRIGHT_BROWSERS_PATH', os.environ.get('PLAYWRIGHT_BROWSERS_PATH') or os.path.join(pwd.getpwuid(os.getuid()).pw_dir, 'Library/Caches/ms-playwright'))   # the temp home has no browsers
+    from test_pane import _chromium
+    if not _chromium(): pytest.skip("Playwright's Chromium is not installed")
     talk_fake.rules['You write one poll'] = POLL
     talk_fake.rules['Rewrite these fields'] = dict(body=['Short one.', 'Short two.'], notes='N.')
     cl = mk(); nb = home/'talks'/'agents.ipynb'
