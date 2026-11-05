@@ -1815,13 +1815,16 @@ def code_cols(s:dict) -> int:
     sh = s.get('show') or {}
     return CODE_COLS if sh.get('body') or sh.get('figure') or sh.get('demo') else CODE_COLS_ALONE
 
+_FENCE = re.compile(r'```[\w-]*\n(.*?)\n```', re.S)
+
 def code_wide(passage, cols:int) -> bool:
     "Whether a code fence in `passage` has a line longer than `cols` characters."
-    return any(len(l) > cols for code in re.findall(r'```[\w-]*\n(.*?)\n```', passage or '', re.S) for l in code.splitlines())
+    return any(len(l) > cols for code in _FENCE.findall(passage or '') for l in code.splitlines())
 
 def _fit_code(lr:Learning, t:AttrDict) -> AttrDict:
-    """Talk `t` with no code that is too wide for its slide (`code_wide`): a talk made before 0.0.19 can keep long lines. Such a slide shows a
-    shorter code piece from the section of its walk step (`code_piece`); with none, it shows its points with no code. Nothing is saved here."""
+    """Talk `t` with no code that is too wide for its slide (`code_wide`): a talk made before 0.0.19 can keep long lines. Each code fence that is too
+    wide gives its place to a shorter code piece from the section of the walk step (`code_piece`), or goes. A slide with only that code then shows
+    its points; a slide with no points keeps its code. Nothing is saved here."""
     w = None
     for s in t.get('slides') or []:
         sh = s.get('show') or {}
@@ -1829,7 +1832,9 @@ def _fit_code(lr:Learning, t:AttrDict) -> AttrDict:
         if w is None: w = lr.journey((t.get('src') or {}).get('walk') or '') or {}
         ss, k = w.get('steps') or [], s.get('step')
         r = (ss[k].get('read') or {}) if isinstance(k, int) and 0 <= k < len(ss) and ss[k].get('slug') == s.get('concept') else {}
-        if (p := code_piece(r.get('text') or '', cols)): sh['passage'] = p
+        piece = [code_piece(r.get('text') or '', cols)]   # the shorter piece takes the place of the first wide fence only
+        p = re.sub(r'\n{3,}', '\n\n', _FENCE.sub(lambda m: (piece.pop() if piece else '') if code_wide(m[0], cols) else m[0], sh['passage'])).strip()
+        if p: sh['passage'] = p
         elif sh.get('body'): sh['passage'] = ''; s['beats'] = [b for b in s.get('beats') or [] if b != 'passage']
     return t
 
