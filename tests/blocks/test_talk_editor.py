@@ -62,7 +62,7 @@ def test_rewrite_changes_points_not_passage(mk, lr, talk_fake):
     r = cl.post(f'/t/{tid}/slide', data=dict(sid=s['id'], act='rewrite', text='simpler'))
     n = lr.talk(tid).slides[0]
     assert n['show']['body'] == ['Short.'] and n['show']['passage'] == s['show']['passage'] and lr.edits('talk', tid)[0].who == 'tutor'
-    assert n['notes'] == 'New note.' and 'Rewrote the points of slide 1: simpler.' in r.text
+    assert n['notes'] == 'New note.' and 'Rewrote the points of slide 1 (asked: "simpler").' in r.text
     p = next(c[0] for c in talk_fake.calls if c[0].startswith('Rewrite these fields'))
     assert 'NOT THIS' not in p and '"passage"' not in p   # the passage goes in as the source only, never as a field
     cl.post(f'/t/{tid}/slide', data=dict(sid=s['id'], act='rewrite', chip='Add an example', text=''))
@@ -330,7 +330,7 @@ def test_no_control_marks_in_a_field(mk, lr, talk_fake):
     cl.post(f'/t/{tid}/beat?sid=s2', data=dict(act='add', words='softmax\u200b function'))
     assert lr.talk(tid).slides[1]['beats'][-1] == 'lit:softmax function'
     post(act='rewrite', text='simpler\u202e')
-    assert lr.edits('talk', tid)[0].what == 'Rewrote the points of slide 1: simpler.'
+    assert lr.edits('talk', tid)[0].what == 'Rewrote the points of slide 1 (asked: "simpler").'
     assert not check_talk(lr.talk(tid)) and check_talk({**lr.talk(tid), 'slides': [{**lr.talk(tid).slides[0], 'title': 'A\u202eB'}]}) == ['s1: the title has a control mark']
 
 def test_an_old_mark_is_cleaned_on_the_next_change(mk, lr, talk_fake):

@@ -157,6 +157,7 @@ def rows(f, opts):
     return f
 
 TITLE_MOST = 200
+ASKED_MOST = 40   # the most characters of an instruction that the line of a rewrite repeats
 NO_REWRITE = 'The tutor could not rewrite slide {n}: {why}. Nothing changed.'
 NO_ANSWER = 'the model did not answer'   # the reason of a failed model call: never the words of a library
 KEPT = 'Your edit was kept. The rewrite was not used.'
@@ -615,7 +616,8 @@ def connect(app, ctx):
             now = dict(body=list((ss[i].get('show') or {}).get('body') or []), notes=ss[i].get('notes') or '')
             kept = [k for k in was if now[k] != was[k]]
             if len(kept) == len(was): raise Bad(KEPT)
-            said = f'Rewrote the points of slide {i + 1}: {ins}.' + (f' Your edit of the {ui.FIELDS[kept[0]]} was kept.' if kept else '')
+            q = ins if len(ins) <= ASKED_MOST else ins[:ASKED_MOST - 1].rstrip() + '…'   # the instruction, short and in quotes, so no reader takes it for the new points
+            said = f'Rewrote the points of slide {i + 1} (asked: "{q}").' + (f' Your edit of the {ui.FIELDS[kept[0]]} was kept.' if kept else '')
             if moved and (ss[i].get('show') or {}).get('passage') == sh.get('passage'):   # the passage that you did not change in the meantime
                 ss[i] = set_passage(ss[i], moved)
                 if sec: ss[i]['section'] = sec
