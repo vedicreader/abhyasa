@@ -142,8 +142,8 @@ _FIXED = re.compile(r'(?<![{\w.])(\d+(?:\.\d+)?)\s*(?:°|%|degrees?\b)')   # a n
 _NOT_TEXT = {'id', 'bind', 'expr', 'fn', 'type', 'kind', 'src', 'fmt', 'show', 'valuetext', 'min', 'max', 'step', 'x', 'y'}
 
 def _binds(v) -> set:
-    "The state names that the controls of a demo spec bind (`bind`): the values that a reader changes."
-    if isinstance(v, dict): return set().union(*(_binds(x) for x in v.values()), {v['bind']} if isinstance(v.get('bind'), str) else set())
+    "The names that the controls of a demo spec bind (`bind`, or `angle`, `x` and `y` of a point that the reader drags, as rupaka's lock check reads them)."
+    if isinstance(v, dict): return set().union(*(_binds(x) for x in v.values()), {v[k] for k in ('bind', 'angle', 'x', 'y') if isinstance(v.get(k), str)})
     return set().union(*(_binds(x) for x in v)) if isinstance(v, list) else set()
 
 def _state_nums(st, bound=None) -> set:
@@ -161,7 +161,7 @@ def fixed_numbers(spec) -> list:
     A fact such as "a circle has 360°" or "slices of 12°" stays."""
     if not (spec or {}).get('state'): return []
     rest = {k: v for k, v in spec.items() if k != 'state'}
-    nums, out = _state_nums(spec['state'], _binds(rest) or None), []
+    nums, out = _state_nums(spec['state'], (_binds(rest) & set(spec['state'])) or None), []
     def walk(v, k=''):
         if isinstance(v, dict): [walk(x, kk) for kk, x in v.items() if kk not in _NOT_TEXT]
         elif isinstance(v, list): [walk(x, k) for x in v]
