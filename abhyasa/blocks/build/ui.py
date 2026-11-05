@@ -48,6 +48,12 @@ def line(name, args) -> str:
 
 def failed(x) -> bool: return x['status'] == 'done' and str(x['result']).startswith('It did not work')
 
+_NO_CHANGE = re.compile(r"\bnothing (changed|to change|new to change|to undo)\b|^(A talk exists|The walk has a step on this already|There is no walk or talk yet)", re.I)
+
+def refused(x) -> bool:
+    "Whether a done call of a tool that changes the walk or the talk changed nothing: it refused (the walk has that step already), or it had nothing to do."
+    return x['status'] == 'done' and bool(_NO_CHANGE.search(str(x['result'])))
+
 def Call(x, view='', cls='', open_=False):
     "One tool call: a quiet line that opens, with its state as a dot and as words, and its view."
     now = x['stages'][-1] if x['status'] == 'running' and x['stages'] else ''
@@ -155,7 +161,7 @@ def Turn(t, b, changers, last=False, href=''):
     ok = lambda x: x['status'] == 'done' and not failed(x)
     shown = [x for x in calls if x['name'] in LINES and x['name'] != 'note_conflict' and not failed(x)]
     hidden = [x for x in calls if x not in shown and (x['name'] != 'note_conflict' or failed(x))]
-    changed = [x for x in calls if x['name'] in changers and ok(x)]
+    changed = [x for x in calls if x['name'] in changers and ok(x) and not refused(x)]   # a refused step is not a change: it has no Undo and no See it
     facts = [x['result'] for x in calls if ok(x) and x['name'] in (*changers, *BRIEF_TOOLS)]
     conflicts = [x['data'] for x in calls if x['name'] == 'note_conflict' and ok(x) and x.get('data')]
     undo = Quiet('Undo', ' ', Kbd('⌘Z'), type='button', small=True, hx_post=at(Routes.undo, b.id), hx_target='#build-live', hx_swap='outerHTML', data_undo='1') if last and changed else ''
@@ -219,7 +225,7 @@ def Brief(b, open_=None):
 
 def changes(items, changers) -> int:
     "The count of the tool calls that changed the walk or the talk and are done: the page at the left loads again when it goes up."
-    return sum(1 for x in items if x['kind'] == 'tool' and x['status'] == 'done' and x['name'] in changers)
+    return sum(1 for x in items if x['kind'] == 'tool' and x['status'] == 'done' and x['name'] in changers and not refused(x))
 
 def Composer(bid, row, text='', after=False):
     "The box: voice as the Start box (⌥D), Send (⌥S), and Stop (⌥X) while a turn runs. The text stays when the column loads again."
