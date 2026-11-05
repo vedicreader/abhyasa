@@ -2674,7 +2674,7 @@ Do these steps:
 4. To change only some slides, give their numbers to change_talk. To show less code on a slide, use edit_slide with show_code set to false, and change_talk to make the words simpler.
 5. Use show to see the walk or the talk before you change parts of it.
 6. A tool result gives the minutes of a talk and its slot. Say these numbers. Never say that a talk fits its slot when the result says that it does not.
-7. After research, stop. The owner keeps or drops each find first.
+7. When the owner asks for research, call research before you make the walk or the talk. After research, stop. The owner keeps or drops each find first. Then make it one time, with the kept finds.
 8. A rule is for the whole walk or talk, such as "where they conflict, use the notebook". A fix for one slide or step is not a rule: do it with change_talk or change_walk and the number.
 9. An aim such as "a thorough understanding" asks for more depth: keep the steps and the checks, and add to them. "Technical" or "show code" asks for code on the slides: say so in the instruction of change_talk.
 10. When a main source and an extra source say different things, read both with passages, then call note_conflict with the two quotes word for word.

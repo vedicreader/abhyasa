@@ -35,6 +35,9 @@ RECAP = 12           # the most earlier messages in the recap of a conversation 
 CODE_DOCS, CODE_CHARS, CODE_SECS = 40, 120_000, 60   # the documents, the characters of each and the seconds that the search for code pieces may take
 TURN_SECS = 15 * 60   # the most seconds of one turn: then it stops, and what it finished stays
 WAIT_FINDS = 'The owner keeps or drops the finds of research first. Do not call more tools; end the turn.'
+ASKS_RESEARCH = re.compile(r'\b(research|search the web|look on the web|find (extra|more|other) (material|sources))\b', re.I)   # the owner's words ask for research
+RESEARCH_FIRST = ('Nothing changed. The owner asked for research: call research first. Make the {} after the owner keeps the finds, '
+                  'so that it is made one time, with the kept pages.')
 FIELDS = ('kind', 'goal', 'rules', 'aim', 'audience', 'minutes')   # the text fields of the brief that a tool or the pane can set
 CHANGERS = ('make_talk', 'make_walk', 'change_talk', 'change_walk', 'edit_slide', 'set_poll', 'make_demo', 'undo')   # the tools that change the walk or the talk
 
@@ -532,11 +535,16 @@ def connect(app, ctx):
                 if ss != list(t.slides): lr.put_talk({**t, 'slides': ss})
             return said
 
+        def research_first(br) -> bool:
+            "Whether the owner's words of this turn ask for research that has not run yet: the walk or the talk waits for the kept finds, so it is made one time."
+            return br.get('research', True) is not False and not st.get('searched') and bool(ASKS_RESEARCH.search(st.get('said') or ''))
+
         def make_talk(minutes:int=0,  # the minutes of the slot; 0 keeps the brief
                       new:bool=False,  # true makes a new talk when one exists
                       ) -> str:
             "Make the talk from the brief: file its sources, plan its ideas, then write its slides."
             b = rec(); br = b.brief
+            if research_first(br): return RESEARCH_FIRST.format('talk')
             if target(b)[0] == 'talk' and thing(b) and not new: return 'A talk exists. Use change_talk to change it.'
             if not (chips := filed(brief_chips(br), bid)) and not br.get('goal'): raise ValueError('The brief has no source and no goal. Add a source, or set the goal.')
             j = walk_for_talk(lr, ctx.ask, chips, goal_of(br), br.get('audience') or '', bool(br.get('no_code')), ctx.sources, said=stage, owner=brief_asks(br), near=not chips)   # with sources, no idea from other content of the vault
@@ -563,6 +571,7 @@ def connect(app, ctx):
                       ) -> str:
             "Make the walk from the brief. When a walk exists, plan it again from the brief, as one change with an Undo."
             b = rec(); br = b.brief
+            if research_first(br): return RESEARCH_FIRST.format('walk')
             chips, goal, owner = filed(brief_chips(br), bid), br.get('goal') or '', brief_asks(br)
             if target(b)[0] == 'walk' and (j := thing(b)) and not new:
                 stage('Planning the walk again')
@@ -732,6 +741,7 @@ def connect(app, ctx):
             "Find extra material on the web. The owner keeps or drops each item in the pane; nothing is kept until the owner keeps it."
             br = rec().brief
             if not br.get('research', True): raise ValueError('Research is off in the brief. Use only the owner\'s sources.')
+            st.searched = True
             rs = web_search(safe_query(query), FOUND_MOST)
             have = {f.get('url') for f in br.get('found') or []}
             items = [dict(url=r.get('href'), title=page_title(r.get('title'), r.get('href')), body=' '.join(str(r.get('body') or '').split())[:240], role='')
@@ -860,7 +870,7 @@ def connect(app, ctx):
     def turn(bid, text):
         "One turn of the agent of conversation `bid` on the request `text`, on the pool."
         x = agent_of(bid); st = x.st
-        st.said = text; st.stop.clear(); st.run = None; st.waiting = 0; st.late = False; st.em = em = Emit(lambda e: emit(bid, e), x.a if st.native else None)
+        st.said = text; st.stop.clear(); st.run = None; st.waiting = 0; st.late = False; st.searched = False; st.em = em = Emit(lambda e: emit(bid, e), x.a if st.native else None)
         with locks[bid]:
             b = lr.build(bid); p = ask_of(b, text, st.fresh)
             lr.put_build({**b, 'note': ''})
