@@ -144,6 +144,16 @@ function fitPoints(sec) {
     const over = () => p.scrollHeight > p.clientHeight + 1 || p.parentElement.scrollHeight > p.parentElement.clientHeight + 1;
     for (let s = 1; over() && s > POINTS_FLOOR + .001;) { s = Math.max(POINTS_FLOOR, s - .05); p.style.setProperty('--pts', String(s)); }
   }
+  for (const pre of sec.querySelectorAll('.passage pre')) fitCode(pre);
+}
+
+// A line of code never wraps, and the room cannot scroll: the code gets smaller until its longest line fits, down to `CODE_LEAST` em.
+// Only a line longer than that scrolls.
+const CODE_MOST = .8, CODE_LEAST = .5;
+function fitCode(pre) {
+  if (!pre.offsetWidth) return;
+  pre.style.fontSize = CODE_MOST + 'em';
+  for (let s = CODE_MOST; pre.scrollWidth > pre.clientWidth + 1 && s > CODE_LEAST + .001;) { s = Math.max(CODE_LEAST, s - .05); pre.style.fontSize = s + 'em'; }
 }
 addEventListener('resize', () => document.querySelectorAll('#stage > section.stage:not([hidden])').forEach(fitPoints));
 
