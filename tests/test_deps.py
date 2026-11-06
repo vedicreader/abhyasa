@@ -29,11 +29,11 @@ def test_rupaka_floor():
     assert Version(version('rupaka')) >= Version('0.0.15')
 
 def test_ramabana_is_a_core_dependency():
-    "The guide and research guard text with `ramabana.guard`, and routing uses ramabana. 0.2.108 gives `Agent.events`, the typed events of the builder, and `emit`/`emit_state`. 0.2.103 gives `available_models(ttl=)`, `model_label`, `oneshot(wait=, strict=)`, `ask(deadline=, stop=)`, `model_agent` and `read_key`. The `models` extra stays, so old installs still resolve."
+    "The guide and research guard text with `ramabana.guard`, and routing uses ramabana. 0.2.109 gives `ready_local`, and falls back to a local model only when its weights are here. 0.2.108 gives `Agent.events`, the typed events of the builder, and `emit`/`emit_state`. 0.2.103 gives `available_models(ttl=)`, `model_label`, `oneshot(wait=, strict=)`, `ask(deadline=, stop=)`, `model_agent` and `read_key`. The `models` extra stays, so old installs still resolve."
     pp = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']
-    assert any(d.startswith('ramabana>=0.2.108') for d in pp['dependencies'])
+    assert any(d.startswith('ramabana>=0.2.109') for d in pp['dependencies'])
     assert 'models' in pp['optional-dependencies']
-    assert Version(version('ramabana')) >= Version('0.2.108')
+    assert Version(version('ramabana')) >= Version('0.2.109')
 
 def test_shalya_gheasy_floors():
     "shalya 0.1.29 gives `Registry.each`, which ramabana 0.2.108 calls on each turn; 0.1.28 gives `LocalHost(url_ok=, on_read=)` and `read_page`. gheasy 0.0.20 gives `gh_repo_info`. abhyasa imports both, so a plain install must have them."
