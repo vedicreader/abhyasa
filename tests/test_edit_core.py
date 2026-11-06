@@ -44,3 +44,14 @@ def test_history_has_no_restore_for_a_short_form():
     h = to_xml(HistoryList([dict(id='e1', at=1e9, what='Changed all slides.', who='you', before=None)], '/r'))
     assert 'Restore this version' not in h and 'Too large to restore' in h
 
+
+def test_an_open_row_says_done_and_a_live_field_says_saved():
+    "The summary of a row says Edit when it is shut and Done when it is open (edit.css shows one), and edit.js puts Saved beside a live field after each save."
+    from pathlib import Path
+    from abhyasa.core.edit import EditRow
+    h = to_xml(EditRow(0, dict(id='s1', title='A slide', open=True), 1))
+    assert '<span class="when-shut">Edit</span>' in h and '<span class="when-open">Done</span>' in h and 'data-key="E"' in h
+    core = Path(__file__).parent.parent/'abhyasa'/'core'
+    css, js = (core/'edit.css').read_text(), (core/'edit.js').read_text()
+    assert '.edit-open[open] > summary .when-shut' in css and '.edit-open:not([open]) > summary .when-open' in css and '.live-saved' in css
+    assert "textContent: 'Saved'" in js and 'el.dataset.live' in js.replace('el?.dataset?.live', 'el.dataset.live')

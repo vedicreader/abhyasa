@@ -55,12 +55,13 @@ def HistoryList(rows, restore:str):
 def EditRow(i:int, r, n:int):
     """Row `i` of `n` in an editor list. `r` has `id`, `title`, and can have `line` (the short line), `post` (the route of the row:
     live fields and moves post to it), `body` (the fields of the open row), `acts` (its buttons, each with `data_key` for its key),
-    `open`, `fresh` (a new row: its first field gets the focus) and `cls`. Move up and Move down are the touch way to move."""
+    `open`, `fresh` (a new row: its first field gets the focus) and `cls`. Move up and Move down are the touch way to move. The summary says Edit on a
+    shut row and Done on the open row (edit.css), so you know that a press shuts it: each field saves as you type."""
     r = AttrDict(r)
     moves = (Quiet('Move up', type='button', data_move=str(i - 1), disabled=i == 0), Quiet('Move down', type='button', data_move=str(i + 1), disabled=i == n - 1))
     return Li(Span(cls='grip', title='Drag to move', aria_hidden='true'), Span(str(i + 1), cls='no'),
               Div(Span(r.title, cls='ttl'), Span(r.line, cls='line') if r.get('line') else '', cls='head'),
-              Details(Summary('Edit', ' ', Kbd('E'), data_key='E'), Div(*r.get('body', ()), Div(*r.get('acts', ()), *moves, cls='row-acts'), cls='fields'),
+              Details(Summary(Span('Edit', cls='when-shut'), Span('Done', cls='when-open'), ' ', Kbd('E'), data_key='E'), Div(*r.get('body', ()), Div(*r.get('acts', ()), *moves, cls='row-acts'), cls='fields'),
                       open=bool(r.get('open')), cls='edit-open'),
               tabindex='0', data_id=r.id, data_i=str(i), cls=f"edit-row {r.get('cls', '')}".strip(),
               **({'data_post': r.post} if r.get('post') else {}), **({'data_fresh': '1'} if r.get('fresh') else {}))

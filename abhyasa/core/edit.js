@@ -1,4 +1,4 @@
-// The shared editor list (core/edit.py): keys, the drag by the grip, one open row at a time, live fields, ⌘Z and the Undo bar.
+// The shared editor list (core/edit.py): keys, the drag by the grip, one open row at a time, live fields with a Saved mark, ⌘Z and the Undo bar.
 // With the list in focus, and not a text box: W and S move the focus, ⇧W and ⇧S move the row, E opens it, Esc closes it, and a
 // letter (A, Q, D, X, R, P, M) presses the button with that `data-key` in the row (A and Q: in the list). Each move posts `act=move&to=<index>`
 // to the `data-post` of the row. Only the grip drags. A drop outside the list does nothing. A list in a line (flex) drops by the across place.
@@ -81,6 +81,18 @@
       const li = rowOf(el);
       if (li?.dataset.post) e.detail.path = li.dataset.post; else e.preventDefault();
     }
+  });
+
+  // A live field that saved says Saved beside it for 2 seconds. A failed save shows its reason (core.js) and no Saved.
+  document.addEventListener('htmx:afterRequest', e => {
+    const el = e.detail.elt;
+    if (!el?.dataset?.live) return;
+    el.parentElement?.querySelectorAll(':scope > .live-saved').forEach(x => x.remove());
+    if (!e.detail.successful) return;
+    const m = Object.assign(document.createElement('span'), {className: 'live-saved', textContent: 'Saved'});
+    m.setAttribute('role', 'status');
+    el.after(m);
+    setTimeout(() => m.remove(), 2000);
   });
 
   // Drag by the grip: a line shows where the row goes. A drop outside the list, or in the same place, posts nothing.

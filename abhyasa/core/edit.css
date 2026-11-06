@@ -17,6 +17,9 @@
                                   min-height: 44px; display: flex; align-items: center; gap: var(--s1); padding: 0 var(--s2); border-radius: var(--r-s); }
 .edit-list .edit-open > summary::-webkit-details-marker { display: none; }
 .edit-list .edit-open > summary:hover { color: var(--fg); }
+.edit-list .edit-open[open] > summary .when-shut, .edit-list .edit-open:not([open]) > summary .when-open { display: none; }
+.edit-list .live-saved { color: var(--mute); font-size: var(--t-small); text-transform: none; letter-spacing: normal; margin-left: var(--s2); animation: fade-out 2s var(--ease) forwards; }   /* a live field saved */
+@media (prefers-reduced-motion: reduce) { .edit-list .live-saved { animation: none; } }
 .edit-list .edit-open::details-content { grid-column: 3 / -1; }   /* a browser with this box: it holds .fields */
 .edit-list .fields { grid-column: 3 / -1; display: grid; gap: var(--s3); margin-top: var(--s2); }
 .edit-list .fields label { margin: 0 0 var(--s1); }
