@@ -1178,17 +1178,26 @@ def connect(app, ctx):
         u = f"{Routes.open}?talk={t['id']}"
         return ui.Tabs(u + '&solo=1', f"/t/{t['id']}", 'Result'), asset_css(_P/'build.css'), asset_js(_P/'build.js')
 
+    def watch(bid:str):
+        "The count of the changes of the builder of conversation `bid`, for the page of its walk or talk (`ui.Watch`)."
+        if not (b := lr.build(bid)): return Response('No such conversation.', status_code=404)
+        return ui.Watch(bid, fold(b.get('events')), CHANGERS, busy(bid))
+
+    def watched(x):
+        "The `ui.Watch` mark of the conversation of the walk or the talk `x`, or ''."
+        return watch(bid) if (bid := x.get('build')) and lr.build(bid) else ''
+
     @hook('talk_head')
     def head_talk(t):
-        "Change with the builder, in the head of the talk editor, beside its menu (⌥E)."
-        return None if in_pane() else ui.Beside(f"{Routes.open}?talk={t['id']}")
+        "Change with the builder, in the head of the talk editor, beside its menu (⌥E), and the mark that takes a change of the builder at once."
+        return None if in_pane() else (ui.Beside(f"{Routes.open}?talk={t['id']}"), watched(t))
 
     @hook('walk_actions')
     def beside_walk(j, quiet=False, row=False):
         "On the walk page: Change with the builder, in the side pane (⌥E). Not on a row in a list, and not on a hidden walk of a talk."
         if row or (j.get('parent') or {}).get('for') == 'talk' or j.get('mode') != 'walk' or in_pane(): return None
         u = f"{Routes.open}?walk={j['id']}"
-        return ui.Tabs(u + '&solo=1', f"/w/{j['id']}", 'Result'), ui.Beside(u), asset_css(_P/'build.css'), asset_js(_P/'build.js')
+        return ui.Tabs(u + '&solo=1', f"/w/{j['id']}", 'Result'), ui.Beside(u), watched(j), asset_css(_P/'build.css'), asset_js(_P/'build.js')
 
     @hook('pane_title')
     def title(url):
@@ -1203,3 +1212,4 @@ def connect(app, ctx):
     app.post(Routes.brief)(brief)
     app.post(Routes.item)(item)
     app.post(Routes.undo)(undo)
+    app.get(Routes.watch)(watch)

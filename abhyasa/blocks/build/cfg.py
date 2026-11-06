@@ -8,6 +8,7 @@ class Routes:
     brief = '/build/{bid}/brief'       # POST: a change to the brief by hand
     item = '/build/{bid}/item'         # POST (url, role): Keep or Drop of one item that research found
     undo = '/build/{bid}/undo'         # POST: take back the last change of the walk or the talk
+    watch = '/build/{bid}/watch'       # GET: the count of the changes of the builder, for the page of its walk or talk
     def of(route, **kw):
         for k, v in kw.items(): route = route.replace('{' + k + '}', str(v))
         return route

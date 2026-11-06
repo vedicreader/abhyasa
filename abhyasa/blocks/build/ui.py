@@ -252,9 +252,15 @@ def Column(b, items, row, changers, href='', say=''):
     early = [Li(Details(Summary(n_of(len(old), 'earlier request')), Ol(*[y for t in old for y in Turn(t, b, changers, href=href)], cls='bd-thread')), cls='bd-earlier')] if old else []
     thread = Ol(*early, *hello, *[y for k, t in enumerate(new) for y in Turn(t, b, changers, last=k == len(new) - 1, href=href)],
                 cls='bd-thread', id='build-log', aria_label='The conversation')
-    return Div(Brief(b), thread, Composer(b.id, row, say, after=bool(b.get('target'))), id='build-live', cls='bd', data_build=b.id, data_job=f'build:{b.id}',
+    return Div(Brief(b), thread, Composer(b.id, row, say, after=bool(b.get('target'))), id='build-live', cls='bd', data_build=b.id, data_job=f'build:{b.id}', data_href=href or None,
                data_changes=str(changes(items, changers)), data_landed=landed(items) or None, data_busy='1' if run else None,
                hx_get=at(Routes.chat, b.id), hx_trigger='job, every 3s' if run else 'job', hx_swap='outerHTML')
+
+def Watch(bid, items, changers, run=False):
+    """A hidden mark on the page of the walk or the talk: the count of the changes of its builder. It loads again on each event of the builder job, and
+    while a turn runs every 4 seconds (else every 15), so the page takes a change also when the builder is not open beside it (build.js)."""
+    return Span(id='build-watch', hidden=True, data_job=f'build:{bid}', data_changes=str(changes(items, changers)), data_landed=landed(items) or None,
+                hx_get=at(Routes.watch, bid), hx_trigger='job, every 4s' if run else 'job, every 15s', hx_swap='outerHTML')
 
 def landed(items) -> str:
     "The numbers of the slides that the last change of the builder touched, for the `.landed` mark on the page at the left."

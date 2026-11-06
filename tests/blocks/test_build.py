@@ -823,11 +823,14 @@ def test_restyle_talk_refuses_new_code_or_a_new_count(mk, lr, talk_fake, agent, 
     def tutor(p, sp):
         r = plain_words(p, sp)
         if before[n - 1]['title'] in p: r['notes'] += ' Call mk_toolspec(invoices) first.'
+        if '"Questions"' in p: r = json.loads(re.search(r'<source title="fields">(.*?)</source>', p, re.S).group(1))   # the same words come back
         return r
     talk_fake.rules['Rewrite these fields'] = tutor
     agent.script = lambda t, p, s: t['restyle_talk']('Use ASD-STE100 English.')
     say(cl, lr, bid, STE)
     after = lr.talk(tid).slides
+    n_changed = sum(a != b for a, b in zip(after, before))
+    assert f"Changed the words of {n_changed} slides" in fold(lr.build(bid).events)[-2]['result']   # a slide whose words came back the same is not counted
     assert after[n - 1] == before[n - 1] and any(a != b for a, b in zip(after, before))
     assert f'Slide {n} kept its words: it added mk_toolspec' in fold(lr.build(bid).events)[-2]['result']
 
@@ -871,3 +874,16 @@ def test_the_agent_can_read_the_folders_of_its_sources(mk, lr, talk_fake, agent,
     agent.script = lambda t, p, s: 'I read the notebook.'
     say(cl, lr, bid, 'read the notebook')
     assert agent.roots == (str(home/'talks'),)
+
+def test_the_talk_page_watches_its_builder(mk, lr, talk_fake, agent, home):
+    "The talk editor has a hidden mark with the change count of its builder: a change by the builder raises it, so the page takes the change with no pane open."
+    cl = mk(); bid, tid = ste_talk(cl, lr, talk_fake, agent, home)
+    h = cl.get(f'/t/{tid}').text
+    n0 = int(re.search(r'<span hidden data-job="build:\w+" data-changes="(\d+)"[^>]*id="build-watch"', h).group(1))
+    assert f'data-job="build:{bid}"' in h and f'hx-get="/build/{bid}/watch"' in h
+    talk_fake.rules['Rewrite these fields'] = plain_words
+    agent.script = lambda t, p, s: t['restyle_talk']('Use ASD-STE100 English.')
+    say(cl, lr, bid, STE)
+    w = cl.get(f'/build/{bid}/watch').text
+    assert f'data-changes="{n0 + 1}"' in w and 'data-landed="' in w
+    assert f'data-href="/t/{tid}"' in cl.get(f'/build/{bid}/chat').text   # a builder in its own tab names the page that it changes

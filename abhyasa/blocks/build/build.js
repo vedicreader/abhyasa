@@ -1,5 +1,6 @@
 // The builder. It is a page in the side pane; the walk or the talk is the page at the left.
-// - When a change of the builder is done, the page at the left loads again (`abhyasa:built`); the pane stays open.
+// - When a change of the builder is done, the page at the left loads again (`abhyasa:built`); the pane stays open. A builder in another tab or
+//   window tells the page of its walk or talk by a BroadcastChannel, and the hidden `#build-watch` mark of that page sees a change too.
 // - Keys: ⌥E opens or closes the builder; in the builder ⌥X stops, ⌥W goes to the box, ⌥A opens or closes the brief, ⌘Z undoes,
 //   and on a find of research F keeps and X drops. ⌥S sends (the main button) and ⌥D speaks, as on each page.
 // - A question from a demo (`rk-ask` of rupaka: {demo, text, state, step}) becomes a message in the box, ready to send.
@@ -9,18 +10,30 @@
   window.abhyasaBuild = true;
   const inPane = window.parent !== window;
   const col = () => document.getElementById('build-live');
-  let last = null;
+  const seen = () => { const w = document.getElementById('build-watch'); return w ? +w.dataset.changes : null; };
+  const chan = window.BroadcastChannel ? new BroadcastChannel('abhyasa-built') : null;
+  const built = landed => document.dispatchEvent(new CustomEvent('abhyasa:built', {detail: {landed}}));
+  let last = null, shown = null;   // the change count of the builder column, and the one that this page shows
   const toEnd = () => { const t = document.getElementById('build-log'); if (t) t.scrollTop = t.scrollHeight; };
   document.addEventListener('htmx:afterSettle', e => {
+    const w = document.getElementById('build-watch');
+    if (w && (e.target === w || e.target.contains?.(w))) {
+      const n = +w.dataset.changes;
+      if (shown !== null && n > shown) built((w.dataset.landed || '').split(',').filter(Boolean).map(Number));
+      shown = Math.max(shown ?? n, n);
+      return;
+    }
     const live = col();
     if (!live || (e.target !== live && !live.contains(e.target))) return;
     toEnd();
     const n = +live.dataset.changes;
     const ns = (live.dataset.landed || '').split(',').filter(Boolean).map(Number);
     if (last !== null && n > last && inPane) { try { window.parent.document.dispatchEvent(new CustomEvent('abhyasa:built', {detail: {landed: ns}})); } catch (_) {} }
+    else if (last !== null && n > last && chan && live.dataset.href) chan.postMessage({path: live.dataset.href, landed: ns});   // a builder in its own tab or window
     last = n;
   });
-  const ready = () => { const l = col(); if (l) { last = +l.dataset.changes; toEnd(); } };
+  if (chan) chan.onmessage = e => { if (e.data && e.data.path === location.pathname && !col()) built(e.data.landed || []); };
+  const ready = () => { const l = col(); if (l) { last = +l.dataset.changes; toEnd(); } shown = seen(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
   // The page at the left takes the change in place: its main part comes again from the server, and each row that the builder changed
   // gets `.landed` (a soft wash that fades). The side pane, the scroll and the focus stay. A page that cannot do this loads again.
@@ -33,6 +46,7 @@
       if (!r.ok || !main || !fresh) throw new Error('no main');
       const y = scrollY;
       main.innerHTML = fresh.innerHTML; window.htmx && htmx.process(main); scrollTo(0, y);
+      shown = seen() ?? shown;
       const ns = (e.detail && e.detail.landed) || [];
       const rows = [...main.querySelectorAll('.edit-list > li.edit-row')];
       for (const n of ns) { const row = rows.find(li => +li.dataset.i === n - 1); if (row) { row.classList.add('landed'); const b = row.getBoundingClientRect(); if (b.top < 0 || b.bottom > innerHeight) row.scrollIntoView({block: 'center'}); } }

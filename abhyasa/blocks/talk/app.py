@@ -722,6 +722,7 @@ def connect(app, ctx):
             for n, s in enumerate(ss, 1):
                 if not isinstance(new := got.get(n), dict): continue
                 if s.get('id') not in was or style_fields(s) != was[s['id']]: bad[n] = 'you changed it during the rewrite'; continue
+                if all(new.get(k) == v for k, v in was[s['id']].items()): continue   # the same words: not a change
                 if 'title' in new: s['title'] = new['title'][:TITLE_MOST]
                 if 'body' in new: points(s, new['body'])
                 if 'notes' in new: note(s, new['notes'])
