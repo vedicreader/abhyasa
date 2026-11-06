@@ -80,3 +80,14 @@ def test_builder_turn_uses_the_build_model(mk, lr, monkeypatch):
     cl.post('/settings/chip', data=dict(task='build', model='claude/opus'))
     turn('Again')
     assert made == ['claude/haiku'] and a.models == ['claude/opus']
+
+def test_the_builder_runs_on_claude_opus_until_you_pick(mk, monkeypatch):
+    "The builder chat is an agent: with no model of its own it runs on Claude Opus, the model of a ramabana chat, and its chip and its Settings row say so."
+    monkeypatch.delenv('ABHYASA_MODEL', raising=False)
+    cl = mk(['settings'])
+    assert cl.app.state.svc['ask'].uses('build') == 'claude-opus-5-5'
+    assert 'Claude Opus' in cl.get('/settings/chip?task=build').text
+    from abhyasa.blocks.settings.ui import fallback
+    assert fallback('build', cl.app.state.svc['ask']).startswith('Default: Claude Opus')   # the empty choice of its Settings row
+    cl.post('/settings/chip', data=dict(task='build', model='claude/haiku'))
+    assert cl.app.state.svc['ask'].uses('build') == 'claude/haiku'   # a pick still wins
