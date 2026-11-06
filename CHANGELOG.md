@@ -2,6 +2,24 @@
 
 <!-- do not remove -->
 
+## 0.0.21
+
+- A model chip shows which model runs, on the builder, the talk editor, the walk step and the guide. Click it to pick another model. The pick saves the same setting as Settings, so the two always agree.
+- The builder runs on Claude Opus until you pick its model. `--model` and `$ABHYASA_MODEL` also set it.
+- A new builder tool, restyle, changes only the words of a talk: titles, points, notes and questions. It keeps every passage, code piece and demo. A request to change the language or the style goes to restyle and never makes the talk again.
+- A style rule such as "Simplified Technical English" no longer turns on code mode, and a sentence about language or style is no longer dropped as a rule about the shape of the talk.
+- The builder knows when you press Undo, and it does not undo the same change again. Its own Undo says what it takes back.
+- The builder sees more of each slide: the passage or code, the start of the notes, and which slides share the same passage or code. Each change says which parts of which slides changed.
+- No two slides get the same code piece.
+- The talk and walk pages take a builder change when the builder pane is closed or runs in another tab.
+- An open editor row says Done, and a quiet Saved shows after each change.
+
+Known issues:
+
+- A restyled slide whose new words add a number keeps its old words. The result says which slide.
+- The builder does not save a style request as a rule of the brief, so a later full remake does not keep the style.
+- The refresh of a page from a builder in another tab is tested in Chromium only, not in the Mac app's window.
+
 ## 0.0.20
 
 - A slide that shows only a passage can be rewritten. Before, its list of points was empty, the model kept it empty, and abhyasa took the empty list as a bad reply, so every rewrite of such a slide failed.
