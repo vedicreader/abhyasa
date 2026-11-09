@@ -426,7 +426,7 @@
     })
     .on('end', e => {
       const n = e.subject.n; sim.alphaTarget(0);
-      if (moved < 4) { n.fx = n.fy = null; return e.sourceEvent.shiftKey ? (picked = picked === n ? null : n, showFocus(), dirty()) : (location = '/c/' + encodeURIComponent(n.id)); }
+      if (moved < 4) { n.fx = n.fy = null; return e.sourceEvent.shiftKey ? (picked = picked === n ? null : n, showFocus(), dirty()) : (window.abhyasaGo || (u => location = u))('/c/' + encodeURIComponent(n.id)); }
       const pins = store.pins[S.mode] ||= []; if (!pins.includes(n.id)) pins.push(n.id);
       (store.pos[S.mode] ||= {})[n.id] = [n.x, n.y];
       if (STATIC.has(S.mode)) { n.fx = n.fy = null; save(); } else if (S.frozen) keep(); else save();
@@ -547,12 +547,13 @@
 
   // ---- start ------------------------------------------------------------------------------------------------------
   // The tools panel: its edge is a grip (core grip.js). The canvas takes the rest of the width, and the observer below fits the graph again.
-  abhyasaGrip(root.querySelector('.grip'), {box: panel, key: 'abhyasa.graph.w', bounds: () => [220, innerWidth * .45],
+  abhyasaGrip(root.querySelector('.grip'), {box: panel, key: 'abhyasa.graph.w', bounds: () => [220, root.clientWidth * .45],
                                             apply: w => w == null ? root.style.removeProperty('--gw') : root.style.setProperty('--gw', w + 'px')}).restore();
   // The canvas box can change (the window, the pane, the panel): the nodes fit in it again, with no glide for reduced motion.
   let ready = false;
   new ResizeObserver(() => { resize(); if (ready) fit(motion ? 250 : 0); }).observe(stage); resize();
-  document.addEventListener('abhyasa:theme', () => { themed(); legend(); dirty(); });   // core.js sends it for a new theme or mode
+  const onTheme = () => { if (!root.isConnected) return document.removeEventListener('abhyasa:theme', onTheme); themed(); legend(); dirty(); };   // core.js sends it for a new theme or mode; a host that swaps pages leaves this one behind
+  document.addEventListener('abhyasa:theme', onTheme);
   show(); layout();
   const cam = store.cam[S.mode];
   if (cam && !picked && Math.abs((cam.w || W) - W) < 40) sel.call(zoom.transform, d3.zoomIdentity.translate(cam.x, cam.y).scale(cam.k));
