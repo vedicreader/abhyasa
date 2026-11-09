@@ -24,3 +24,8 @@ def test_loopback_hosts_pass(mk):
     for host in ('127.0.0.1:5077', 'localhost:5077', '[::1]:5077'):
         from abhyasa.app import LocalOnly
         assert LocalOnly(None).refuse(dict(method='GET', headers=[(b'host', host.encode())])) == '', host
+
+def test_a_dotted_host_is_a_suffix_rule():
+    from abhyasa.app import LocalOnly
+    ok = lambda h: LocalOnly(None, ('localhost', '.localhost')).refuse(dict(method='GET', headers=[(b'host', h.encode())])) == ''
+    assert ok('alpha.localhost:5001') and ok('localhost') and not ok('evil.example') and not ok('evillocalhost') and not ok('localhost.evil.example')

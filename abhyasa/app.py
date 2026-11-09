@@ -48,7 +48,7 @@ class LocalOnly:
         h = {k.decode('latin-1').lower(): v.decode('latin-1') for k, v in scope.get('headers', [])}
         host = h.get('host', '')
         name = urlsplit(f'//{host}').hostname or ''
-        if name not in self.hosts: return f'abhyasa answers only on this Mac, not for the host {host!r}.'
+        if name not in self.hosts and not any(h.startswith('.') and name.endswith(h) for h in self.hosts): return f'abhyasa answers only on this Mac, not for the host {host!r}.'
         if h.get('sec-fetch-site') == 'cross-site': return 'abhyasa does not answer requests from other web sites.'
         if scope['method'] not in SAFE_METHODS and (o := h.get('origin')) and o != 'null':
             if urlsplit(o).netloc != host: return 'abhyasa does not take changes from other web sites.'
