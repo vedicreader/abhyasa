@@ -564,9 +564,10 @@ function presenterView(st, root = html, signal) {
   const clock = $('clock'), started = +clock.dataset.started;
   const tick = () => {
     const secs = Math.max(0, Math.floor(Date.now() / 1000 - started));
-    clock.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    const put = (el, t) => { if (el.textContent !== t) el.textContent = t; };   // the header keeps its nodes: only a changed text is written
+    put(clock, `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`);
     const left = [...$('rail').children].slice(idx()).reduce((a, r) => a + +r.dataset.mins, 0);
-    $('left').textContent = `About ${left} min of slides left`;
+    put($('left'), `About ${left} min of slides left`);
     paint();
   };
   tick(); const ticker = setInterval(() => root.isConnected ? tick() : stop(), 1000);
