@@ -61,6 +61,7 @@ def serve_assets(app):
     app.router.routes.insert(0, app.router.routes.pop())
     def lib(f): return lambda req: FileResponse(f, media_type='text/javascript')
     for name in BOARD_LIBS: app.router.routes.insert(0, Route(f'/vendor/{name}', lib(board_assets().libs/name)))   # rupaka's pen libraries of the board, at the URLs that it loads by default: before the mount
+    _serve_nav(app)
 
 def HDRS():
     "Headers for every page: the base theme, KaTeX, the core script, and the board of the screen guide."
@@ -400,6 +401,13 @@ _OFFLINE = """(() => { const f = document.getElementById('yt-frame'), n = docume
   if (!navigator.onLine) return off();
   addEventListener('offline', off);
   fetch('%s/favicon.ico', {mode: 'no-cors', cache: 'no-store'}).catch(off); })();""" % YT_EMBED
+
+def _serve_nav(app):
+    "GET /nav/extra?path=: the `nav_extra` parts of the top bar (Continue, the activity chip) for the page at `path`, for a host that keeps only the page body."
+    @app.get('/nav/extra')
+    def nav_extra(req, path:str='/'):
+        _req.set(Request({**req.scope, 'path': path.split('?')[0] or '/', 'query_string': b''}))
+        return HTMLResponse(to_xml(Div(*run('nav_extra'))))
 
 def serve_watch(app):
     """The page that embeds one YouTube video or playlist in the side pane (`side_link` links to it): the player on `YT_EMBED`, at its

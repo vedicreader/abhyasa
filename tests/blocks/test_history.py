@@ -74,6 +74,14 @@ def test_continue_on_today_and_top_bar(mk):
     assert 'Continue where you stopped' in today and f'href="/s/{sid}"' in today and 'id="continue"' not in today   # Home has the card, so the top bar has none
     assert f'href="/s/{sid}"' in top(cl.get('/concepts').text)
 
+def test_nav_extra_route_gives_the_top_bar_chips_of_a_page(mk):
+    "A host that keeps only the page body asks `/nav/extra?path=` for Continue: the place's own page has none, another page has it."
+    cl = mk()
+    sid = start(cl)
+    cl.get(f'/s/{sid}')
+    assert 'id="continue"' not in cl.get('/nav/extra', params=dict(path=f'/s/{sid}')).text
+    assert f'href="/s/{sid}"' in cl.get('/nav/extra', params=dict(path='/concepts')).text
+
 def test_old_summary_still_shows(mk, lr):
     lr.log_session('old1', '2 of 3 passed. Concepts: ranking.', start=1e9, end=1e9 + 60, concepts=['ranking'], passed=2, asked=3)
     page = mk().get('/you').text
