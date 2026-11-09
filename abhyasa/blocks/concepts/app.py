@@ -170,7 +170,7 @@ def connect(app, ctx):
             if go: linking.add(slug)
         if go: ctx.pool.submit(relink, slug)
         c = AttrDict(c, seen_in=live)
-        return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=val('lists.attempts')), lr.groups(c.subject)),
+        return Page(c.name, *ui.ConceptPage(c, {x.slug: x for x in lr.concepts()}, lr.attempts(slug, limit=val('lists.attempts')), lr.groups(c.subject), ladder=lr.demo_for(slug), code=lr.code_for(slug)),
                     on='Library', crumbs=[('Home', '/'), ('Library', Routes.base)])
 
     # Undo: the smallest Undo for the changes by hand, in one place, until the shared editor core (Task 7) takes it over.

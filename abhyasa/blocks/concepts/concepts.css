@@ -62,3 +62,9 @@ form.sort-again { display: flex; flex-direction: column; align-items: flex-start
 form.sort-again label.keep { display: flex; align-items: center; gap: var(--s2); margin: 0; font: inherit; font-size: var(--t-small); letter-spacing: normal; text-transform: none; color: var(--fg); }
 /* in the proposed tree: where a moved concept comes from */
 .proposal ul.concepts li .moved { font-size: var(--t-small); order: 1; }
+
+/* the idea in four ways: each rung under its label */
+.ladder-rungs { margin: var(--s6) 0; display: flex; flex-direction: column; gap: var(--s4); }
+.ladder-rungs .rung > .lbl { display: block; margin-bottom: var(--s1); }
+.live-numbers { border-collapse: collapse; font-size: var(--t-small); }
+.live-numbers td, .live-numbers th { padding: 0 var(--s3) 0 0; text-align: left; }

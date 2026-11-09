@@ -20,8 +20,8 @@ Docs: https://vedicreader.github.io/abhyasa/agent_tools.html.md"""
 # %% auto #0
 __all__ = ['ERRORS', 'STATUSES', 'FIELDS', 'TOOLS', 'READS', 'BEAT', 'WORDS_MOST', 'CHIPS', 'EXPLAIN_RULES', 'RULE', 'result',
            'failed', 'ModelRefused', 'vault_failure', 'plain', 'create_walk', 'walk_state', 'record_attempt',
-           'note_confusion', 'keep_idea', 'drop_idea', 'move_idea', 'change_walk', 'add_source', 'list_versions',
-           'restore_version', 'explain_here', 'page_of', 'learner_context']
+           'note_confusion', 'record_code_attempt', 'keep_idea', 'drop_idea', 'move_idea', 'change_walk', 'add_source',
+           'list_versions', 'restore_version', 'explain_here', 'page_of', 'learner_context']
 
 # %% ../nbs/06_agent_tools.ipynb #d7c67706
 import re, time
@@ -263,6 +263,31 @@ def note_confusion(
         kept = bool(line) and bool(show._confuses(lr, (lr.concept(slug) or {}).get('name') or slug, line))
         return result('ok', walk=jid, step=i, vault=_vault(lr), revision=j.get('updated'), data=dict(concept=slug, recorded=kept, confuses=list(lr.profile().confuses)))
     return _run(go, walk=jid, step=i)
+
+# %% ../nbs/06_agent_tools.ipynb #lc22
+def record_code_attempt(
+    lr:Learning,     # the learner's store
+    jid:str,         # the walk id
+    i:int,           # the place of the step in the walk
+    ok:bool,         # whether the run met the `expect` of the step
+    attempt_id:str,  # the key of this run, made once by the caller
+    note:str=''      # what the learner ran, one line
+) -> dict:
+    "File one graded run of the code of step `i` as an attempt, once for each `attempt_id`, with no model."
+    def go():
+        j = lr.journey(jid)
+        if j is None or j.get('mode') != 'walk' or not 0 <= i < len(j.steps): return failed('not_found', f'no step {i} in walk {jid!r}', walk=jid, step=i)
+        s = j.steps[i]; slug = s['slug']
+        if not (s.get('code') or {}).get('expect'): return failed('not_found', 'this step has no code to check', walk=jid, step=i)
+        if (a := _attempt(lr, slug, jid, i, attempt_id)): return _answered(lr, jid, i, slug, a)
+        c, out = lr.concept(slug), ''
+        if c is not None:
+            u = learner.update(c, 3 if ok else 2, bool(ok)); out = u.pop('kind'); lr.update(slug, **u)
+            lr.credit_method('code', c.get('subject', ''), out)
+        lr.record(slug, 'Run the code and check it', answer=str(note)[:200], correct=bool(ok), depth=3 if ok else 2, kind='code', final=False, method='code',
+                  feedback='The code met the check.' if ok else 'The code did not meet the check yet.', outcome=out, attempt_id=attempt_id, **path.step_meta(j, i))
+        return _answered(lr, jid, i, slug, _attempt(lr, slug, jid, i, attempt_id))
+    with learner.keyed_lock('code-attempt', (jid, i)): return _run(go, walk=jid, step=i)
 
 # %% ../nbs/06_agent_tools.ipynb #8d8ccd5b
 def _stale(lr:Learning, jid:str, j, i:int=None) -> dict:

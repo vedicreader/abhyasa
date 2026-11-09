@@ -27,6 +27,7 @@ class Routes:
     hint = '/w/{jid}/{i}/hint'
     giveup = '/w/{jid}/{i}/giveup'
     predict = '/w/{jid}/{i}/predict'  # a demo or order prediction
+    code = '/w/{jid}/{i}/code'        # POST: grade one run of the code of the step (`out`, `watch`) and file it as an attempt, with no model
     keep = '/w/{jid}/{i}/keep'        # keep the demo state on the last prediction
     ladder = '/w/{jid}/{i}/ladder'    # the help under a demo check after a wrong prediction: a lesson in another way, or a simpler demo
     next = '/w/{jid}/{i}/next'        # skip or go on

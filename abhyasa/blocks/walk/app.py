@@ -17,7 +17,7 @@ from abhyasa.sources import file_link, link_kind, LinkError, as_link, is_paper, 
 from abhyasa.sources import named_sources, on_disk, title_index
 from abhyasa.path import back_from, with_data, keep_data, journey_from_source, journey_from_text, journey_from_sources, walk_from_topic, walk_path, walk_paths, step_read, TOOL_WAYS, short_check, with_step, trail, parent_step, for_talk
 from abhyasa.learner import walk_state, _jlock
-from abhyasa.path import tutor_note, words_to_know, done_attempt, open_short, step_meta, leela_back, leela_found, course_of, drop_data
+from abhyasa.path import write_code, grade_code, tutor_note, words_to_know, done_attempt, open_short, step_meta, leela_back, leela_found, course_of, drop_data
 import abhyasa.path as walk_engine   # `walk_engine.nb_spec` is read on each call, so a test can put a fake in its place
 import abhyasa.show   # adds Learning.talks: the editor links the talks made from a walk
 from abhyasa.show import walk_changes
@@ -610,7 +610,8 @@ def connect(app, ctx):
                     s = w.steps[i]
                     v = shown(w, i, by())
                     return ui.Note(tutor_note(lr, ctx.ask, w, i, ctx.sources)), ui.Passage(v, v.steps[i], lr.concept(s['slug']), i, looking(jid, i))(hx_swap_oob='true')
-                return ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
+                n = ui.Note(tutor_note(lr, ctx.ask, j, i, ctx.sources))
+                return (n, ui.Code_(jid, i, {'code': c})) if not j.steps[i].get('code') and (c := write_code(lr, ctx.ask, j, i)) else n
         except Exception as e: log.warning('the tutor could not write the note of %s step %s: %r', jid, i, e); return ''
 
     def source(jid:str, i:int, quiet:str=''):
@@ -842,6 +843,18 @@ def connect(app, ctx):
         ws, help_ = walk_state(lr.journey(jid), by()), climb(jid, i, a)
         # walk.js fills the dot, moves the progress line, and loads the help under the card when there is a `ladder`
         return JSONResponse(dict(ok=True, dot=ws.steps[i].dot, done=ws.done, total=ws.total, **({'ladder': help_} if help_ else {})))
+
+    def code_check(jid:str, i:int, aid:str='', out:str='', watch:str=''):
+        "Grade one run of the code of step `i` with no model: `out` is what it printed, `watch` the `repr` of each watched name. File it once for each `aid`."
+        from abhyasa.agent_tools import record_code_attempt
+        if not (j := walk_of(jid, i)) or not ((c := j.steps[i].get('code')) or {}).get('expect'): return JSONResponse(dict(ok=False), status_code=404)
+        try: w = json.loads(watch) if len(watch) <= 4000 else {}
+        except ValueError: w = {}
+        w = {str(k): str(v)[:200] for k, v in w.items()} if isinstance(w, dict) else {}
+        ok = grade_code(c['expect'], out[:4000], w)
+        r = record_code_attempt(lr, jid, i, ok, re.sub(r'[^\w.-]', '', aid)[:64] or f'code-{time.time_ns()}', ' '.join(f'{k} = {v}' for k, v in w.items())[:200])
+        if r['status'] != 'ok': return JSONResponse(dict(ok=False, error=r['error']), status_code=409)
+        return JSONResponse(dict(ok=True, correct=bool(r['data']['correct']), gauge=r['data']['gauge'], say='That meets the check.' if r['data']['correct'] else 'Not yet. Change the code and run it again.'))
 
     def keep(jid:str, i:int, state:str=''):
         "Keep the state of the demo on the newest prediction of step `i`."
@@ -1319,6 +1332,7 @@ def connect(app, ctx):
     app.post(Routes.hint)(hint)
     app.post(Routes.giveup)(giveup)
     app.post(Routes.predict)(predict)
+    app.post(Routes.code)(code_check)
     app.post(Routes.keep)(keep)
     app.get(Routes.ladder)(ladder)
     app.post(Routes.ladder)(ask_ladder)

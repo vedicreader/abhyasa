@@ -14,6 +14,7 @@ from abhyasa.core.leela import leela_line, leela_base, OpenInLeela, LEELA_INSTAL
 from abhyasa.path import minutes, TOOL_WAYS, hands_count, hands_most
 from abhyasa.learner import SHAKY, walk_state
 from abhyasa.path import wants_source, missing_data, chip_sources, is_goal_walk, nb_title
+from abhyasa.core.livecode import LiveCell
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -328,6 +329,10 @@ def TalkStep(j, st, by, i, figure=True):
     return Div(Div(Span(f'Beside the slide · {said}'), cls='sec-lbl'), H1(name(by, s), cls='idea', data_concept=s.get('slug')), Passage(j, short, c), Figure_(j['id'], i, s, c) if figure else '',
                P('Back to the slide: ', Kbd('⌥Z'), Span(cls='talk-page', hidden=True), cls='talk-back'), cls='walk-main talk-step')
 
+def Code_(jid, i, s):
+    "The code of step `i`, when it keeps some."
+    return LiveCell(s['code'], f'{jid}-{i}', jid, i, at(Routes.code, jid, i)) if s.get('code') else ''
+
 def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault=None, result=None, figure=True, words=(), chips=()):
     """One idea: the outline, the passage, the figure, the note and the check. `needs` is what other blocks add under the title, `present` under the outline.
     `result` is the card "From Leela": it takes the place of the check, so the page has it with no second request. `figure=False`: the file of the figure is not there, so no image.
@@ -340,7 +345,7 @@ def StepPage(j, st, by, i, needs=(), back=None, present=(), looking=False, vault
                id='check', hx_get=at(Routes.check, j['id'], i), hx_trigger='load', hx_swap='innerHTML', data_wait=WRITING, data_part='check') if result is None else Div(result, id='check', data_part='check')
     return Div(Rail(j, st, by, i, present),
                Div(BackFoot(back, f"Side walk · {i + 1} of {len(st.steps)}") if back else '', head, H1(name(by, s), cls='idea', data_concept=s.get('slug')), *needs, Words(words), Passage(j, s, c, i, looking), Figure_(j['id'], i, s, c) if figure else '',
-                   NoteSlot(j['id'], i), slot, Div(*chips, cls='mchips') if chips else '', leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
+                   Code_(j['id'], i, s), NoteSlot(j['id'], i), slot, Div(*chips, cls='mchips') if chips else '', leela_line(j, i, vault=vault) if s.get('leela') and (s.get('check') or {}).get('kind') != 'notebook' else '', NextBar(j['id'], i, st, by), cls='walk-main'),
                cls='walk-layout')
 
 # --- the short-answer check ------------------------------------------------------------------------------------------

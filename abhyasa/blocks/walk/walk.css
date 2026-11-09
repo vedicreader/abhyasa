@@ -234,3 +234,6 @@ main:has(#steps) { padding-bottom: calc(44px + 2 * var(--s5)); }
 /* a long title, such as a path with no space, wraps inside its column and never runs into the next one */
 .walk-layout > * { min-width: 0; }
 .outline .rail-title, .outline li, .walk-head h1, .walk-layout h1, .walk-layout h2 { overflow-wrap: anywhere; }
+/* the code of a step: a listing, which a host turns into a cell that runs */
+.live-code, .lee-livecell { margin: var(--s4) 0; }
+.live-src { margin: 0; overflow-x: auto; font-size: var(--t-small); }

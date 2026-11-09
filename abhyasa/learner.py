@@ -103,6 +103,9 @@ add('checks.retest', 'checks', 'Retest a miss after', 'The tutor asks a missed i
 add('checks.feedback_row', 'checks', 'Feedback under a demo or a lesson', 'A short row under each demo and lesson: Too simple, Just right or Not clear. The tutor uses your choice for the next demo or lesson.', True)
 add('checks.open_days', 'checks', 'Keep an open check for', 'An open check with no answer for this many days closes. It gets no grade.', 7, 1, 60, more=True, unit='days');
 
+# %% ../nbs/00_learner.ipynb #lc01
+add('checks.live_code', 'checks', 'Code to run in a step', 'A walk step can carry a small piece of code that you run and change in Leela. It does nothing in this app alone.', False)
+
 # %% ../nbs/00_learner.ipynb #63876a2f
 add('review.solid', 'review', 'First review after a solid answer', 'When a new idea comes back after your first solid answer.', 1., .25, 7., unit='days')
 add('review.per_day', 'review', 'Most reviews a day', 'The tutor stops review after this many questions in a day. 0 means no limit.', 0, 0, 200)
