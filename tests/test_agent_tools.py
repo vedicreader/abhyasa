@@ -283,30 +283,24 @@ def test_add_source_files_a_document_and_grounds_the_ideas_that_have_none(lr):
     assert at.add_source(lr, 'nope', f'doc:{d}')['error'] == 'not_found' and at.add_source(lr, jid, f'doc:{d}', revision='old')['error'] == 'stale_state'
     assert at._chip('https://a.b/c.') == 'link:https://a.b/c.' and at._chip('gh:a/b') == 'gh:a/b' and at._chip('Notes') == 'vault:Notes'
 
-def test_explain_here_teaches_the_step_with_its_quote_and_keeps_the_confusion(lr):
-    jid, asked = mk_walk(lr), []
-    ask = lambda p, sp='': asked.append((p, sp)) or '1. A rank is a place in a list.'
-    r = at.explain_here(lr, ask, jid, 0, 'why does\nrank start at 1')
+def test_explain_here_gives_the_data_to_teach_and_calls_no_model(lr):
+    jid = mk_walk(lr)
+    r = at.explain_here(lr, jid, 0, 'why does\nrank start at 1')
     d = r['data']
-    assert (r['status'], r['step'], d['recorded'], d['ungrounded'], d['quote']['url']) == ('ok', 0, True, False, 'https://example.org/notes') and json.loads(json.dumps(r)) == r
-    p, sp = asked[0]
-    assert QUOTE in p and 'why does rank start at 1' in p and 'answered anything wrong' in p and 'Their' not in p and sp, 'the quote and the words go in; no answer is made up'
-    assert d['simpler'] and 'numbered steps' in p and d['explanation'].startswith('1.') and d['confuses'] == ['Ranking: why does rank start at 1']
-    u = at.explain_here(lr, ask, jid, 1, 'what is k')
-    assert u['data']['ungrounded'] and 'no source passage' in asked[-1][0] and QUOTE not in asked[-1][0]
-    lr.update('ranking', floor=4, strength=1.)
-    assert at.explain_here(lr, ask, jid, 0, 'again')['status'] == 'ok'
+    assert (r['status'], r['step'], d['recorded'], d['ungrounded'], d['quote']['url'], d['quote']['text']) == ('ok', 0, True, False, 'https://example.org/notes', QUOTE) and json.loads(json.dumps(r)) == r
+    assert d['confusion'] == 'why does rank start at 1' and d['confuses'] == ['Ranking: why does rank start at 1'] and d['level'] and d['simpler'] and d['statement']
+    assert 'numbered steps' in d['rules'] and 'answered anything wrong' in d['rules'] and 'explanation' not in d
+    u = at.explain_here(lr, jid, 1, 'what is k')
+    assert u['data']['ungrounded'] and u['data']['quote'] is None
+    import inspect
+    assert 'ask' not in inspect.signature(at.explain_here).parameters
+    assert 'explain_here' in dict(at.TOOLS) and list(dict(at.TOOLS)['explain_here']) == ['note'] and 'explain_here' not in at.READS
 
 def test_explain_here_failures_keep_nothing(lr):
     jid = mk_walk(lr)
-    ok = lambda p, sp='': 'x'
-    assert [at.explain_here(lr, ok, 'nope', 0, 'q')['error'], at.explain_here(lr, ok, jid, 9, 'q')['error']] == ['not_found'] * 2
-    assert at.explain_here(lr, ok, jid, 0, 'q', revision='old')['error'] == 'stale_state'
-    assert at.explain_here(lr, withheld, jid, 0, 'jane.doe@example.com')['error'] == 'privacy_refused'
-    assert at.explain_here(lr, raiser(at.ModelRefused('no')), jid, 0, 'q')['error'] == 'model_refused' and at.explain_here(lr, lambda p, sp='': ' ', jid, 0, 'q')['error'] == 'model_refused'
-    assert at.explain_here(lr, ok, jid, 0, ' ')['error'] == 'model_refused'
-    s = at.explain_here(lr, ok, jid, 0, 'q', stopping=lambda: True)
-    assert (s['status'], s['error']) == ('stopped', 'stopped') and not lr.profile().confuses
+    assert [at.explain_here(lr, 'nope', 0, 'q')['error'], at.explain_here(lr, jid, 9, 'q')['error']] == ['not_found'] * 2
+    assert at.explain_here(lr, jid, 0, 'q', revision='old')['error'] == 'stale_state'
+    assert at.explain_here(lr, jid, 0, ' ')['error'] == 'model_refused' and not lr.profile().confuses
 
 def test_the_page_gives_the_walk_and_step_on_screen(lr):
     jid = mk_walk(lr)
