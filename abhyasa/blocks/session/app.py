@@ -14,6 +14,7 @@ from . import ui
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
+EMPTY = 'Type an answer first.'
 CAPS = ('learning', 'tutor', 'pool', 'sessions')
 log = logging.getLogger(__name__)
 
@@ -138,6 +139,7 @@ def connect(app, ctx):
         if not q: return Response(status_code=204)
         if (words := show_ask(answer)) is not None:   # "show me …" opens a demo in the thread (the demo block); it uses no try
             return keep(q, ui.You(answer), *[Msg('', x, cls='tutor extra') for x in run_hook('show_me', words, dict(where='session', qid=q.id))])
+        if not str(answer).strip(): return Response(EMPTY, status_code=400, media_type='text/plain')   # no try is spent
         try: r = s.answer(answer, thinking, confidence)
         except KeyError as e:
             if q.id in tutor.open: return failed('grade your answer', sid, e)   # a real error, not a closed question

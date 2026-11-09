@@ -4,6 +4,7 @@ from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import asset_css, asset_js
 from abhyasa.core.keys import short, page_group, float_rows
+from abhyasa.learner import is_hosted
 
 _P = Path(__file__).parent
 WHERE = {'Everywhere': 'On every page.', 'Session': 'While you answer a question.', 'Concept': 'On a concept page.',
@@ -46,7 +47,7 @@ def Float(path:str, base:str, set_url:str):
                Div(P('Keys on this page' if g == 'Everywhere' else f'Keys: {g.lower()}', cls='kf-head'),
                    Ul(*[Row(*r) for r in float_rows(path)], cls='kf-rows'),
                    P(GUIDE_LINE, cls='kf-line'), P(TALK_LINE, cls='kf-line mute'),
-                   A(MAC_GUIDE, href=GUIDE_LINK, id='kf-mac', cls='kf-mac', hidden=True),
+                   '' if is_hosted() else A(MAC_GUIDE, href=GUIDE_LINK, id='kf-mac', cls='kf-mac', hidden=True),
                    Div(A('All keys ', Kbd('?'), href=base, cls='kf-all'), Button('Hide this', type='button', id='kf-hide', cls='kf-quiet', data_url=set_url),
                        Button('Close', type='button', id='kf-close', cls='kf-quiet', title='Esc'), cls='kf-foot'),
                    id='kf-panel', cls='kf-panel', role='region', aria_label='Keys on this page', hidden=True),

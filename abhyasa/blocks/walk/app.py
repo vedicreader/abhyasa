@@ -41,6 +41,7 @@ PNG = b'\x89PNG\r\n\x1a\n'
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
 AS_LINK = 'This is a link, so the tutor reads it from the web.'
 NO_DOC = 'No document in your vault has this name. To add a web page or a paper, paste its link.'
+EMPTY = 'Type an answer first.'
 WITHHELD = 'The tutor did not send this. It holds personal data, and your privacy setting blocks it. You can change the setting in Settings.'
 FILE_WAIT = 20   # seconds that the plan of a goal waits for its sources; a slower one, such as a big clone, joins the walk when it is filed
 FILERS = 3       # the sources that file at the same time, each on its own job, off the pool of the app
@@ -708,6 +709,7 @@ def connect(app, ctx):
         if not s: return no_check(j, i)
         if (words := show_ask(answer)) is not None:   # "show me …" opens a demo under the title (the demo block); it uses no try
             return card(j, i), *run_hook('show_me', words, dict(where='walk', concept=j.steps[i]['slug'], walk=jid, step=i))
+        if not str(answer).strip(): return Response(EMPTY, status_code=400, media_type='text/plain')   # no try is spent
         try: r = s.answer(answer, thinking, confidence)
         except KeyError as e:
             if s.q.id in tutor.open: return failed('grade your answer', jid, i, e)

@@ -9,7 +9,7 @@ from rupaka.board import assets as board_assets, bundle as board_bundle, LIBS as
 from abhyasa.core.cfg import RouteOverrides
 from abhyasa.core.hooks import run
 from abhyasa.core.pane import PaneHost, is_local, is_web, pane_url, pane_link, side_link, yt_embed, YT_EMBED, WATCH
-from abhyasa.learner import DEPTHS, can_again
+from abhyasa.learner import DEPTHS, can_again, is_hosted
 from abhyasa.sources import source_of
 
 __all__ = ['PAGE_ROWS', 'HOME_ROWS', 'paged', 'ListTools', 'Pager', 'AllLink', 'Cites', 'nb_leela', 'SourceLine', 'SourceLinks', 'serve_watch', 'WATCH_CSP', 'TutorWords', 'source_of', 'ASSETS', 'asset_js', 'asset_css', 'serve_assets', 'HDRS', 'THEMES', 'MODES', 'look', 'look_attrs', 'look_before', 'Page', 'NotFound', 'short_title', 'SubTabs', 'in_talk', 'page_req', 'Crumbs', 'clean_html', 'md_html', 'Md', 'Inline', 'tex_dollars', 'DepthBar', 'Spin', 'when', 'ago', 'doc_title',
@@ -163,6 +163,10 @@ def short_title(t, most:int=40) -> str:
 
 def NotFound(title, *c, **kw):
     "The friendly page of a walk, an idea, a concept, a course or a document that is not there, with the status 404."
+    req = _req.get()
+    if req is not None and is_hosted() and req.headers.get('hx-request') == 'true':   # a host page swaps in a reply of status 200 only
+        noun = title.lower() if title in ('Walk', 'Course', 'Concept', 'Video') else 'page'
+        return FtResponse(Page(title, Div(P(f'This {noun} is not here. ', A('Go Home', href='/'), '.'), cls='not-here'), pane=True), status_code=200)
     return FtResponse(Page(title, *c, **kw), status_code=404)
 
 def moved_to(new, part=''):

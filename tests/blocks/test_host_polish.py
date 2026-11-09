@@ -1,0 +1,40 @@
+"A hosted app: no empty try, no desktop link, and a short box for a missing page."
+import pytest
+from starlette.testclient import TestClient
+from abhyasa.agent_tools import plain
+from abhyasa.app import mk_app, stop_app
+from test_hosted import HostAsk, HOSTED
+from walk_data import walk
+
+@pytest.fixture
+def host(lr, walk_fake, tmp_path):
+    "A hosted app: it has the folder of its host (`config`)."
+    h = HostAsk(walk_fake)
+    app = mk_app(lr, h, names=HOSTED, hosts=('testserver',), warm_speech=False, config=tmp_path/'host')
+    yield h, app
+    stop_app(app, 1)
+
+HX = {'HX-Request': 'true'}
+
+def test_an_empty_answer_is_refused_and_spends_no_try(host, lr, walk_fake):
+    h, app = host; cl = TestClient(app)
+    jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); cl.get(f'/w/{jid}/0/check')
+    for a in ('', '  \n '):
+        r = cl.post(f'/w/{jid}/0/answer', data=dict(answer=a))
+        assert (r.status_code, r.text) == (400, 'Type an answer first.')
+    assert not lr.attempts()
+    assert cl.post(f'/w/{jid}/0/answer', data=dict(answer='the rank', confidence=70)).status_code == 200 and lr.attempts()
+
+def test_a_hosted_keys_panel_has_no_desktop_link(host):
+    h, app = host; cl = TestClient(app)
+    assert 'abhyasa://' not in cl.get('/keys/panel?path=/').text
+
+def test_a_missing_walk_in_a_host_is_a_short_box_not_a_page(host):
+    h, app = host; cl = TestClient(app)
+    r = cl.get('/w/nope/0', headers=HX)
+    assert r.status_code == 200 and 'This walk is not here.' in r.text and 'Go Home' in r.text and 'canonical' not in r.text and '<html' not in r.text
+    assert cl.get('/w/nope/0').status_code == 404
+
+def test_a_host_note_block_never_reaches_a_walk_goal():
+    assert plain('learn ranking\n<beat>\nabhyasa-index: no callback registered\n</beat>') == 'learn ranking'
+    assert plain('learn <BEAT> never closed') == 'learn'
