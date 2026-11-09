@@ -61,7 +61,7 @@ if (!window.abhyasaDetour) {
       .then(r => {
         shut();
         if (r.how !== 'course') window.abhyasaPane.open(r.url, r.title);
-        else (inPane() ? window.top : window).location.assign(r.url);   // its own course leaves the exercise: the top page goes there
+        else (window.abhyasaGo || (u => (inPane() ? window.top : window).location.assign(u)))(r.url);   // its own course leaves the exercise: the top page goes there
       })
       .catch(() => { box().querySelectorAll('.rh-way').forEach(x => x.disabled = false); say(w.dataset.how === 'course' ? 'abhyasa could not make the course. Try again.' : 'The tutor could not make the side walk. Try again.'); });
   };
@@ -81,8 +81,9 @@ if (!window.abhyasaDetour) {
       tool = document.createElement('button');
       tool.type = 'button'; tool.id = 'rh-sel'; tool.className = 'quiet'; tool.dataset.t = t;
       tool.append('Learn it ', Object.assign(document.createElement('kbd'), {textContent: '⌥B'}));
-      tool.style.left = `${scrollX + Math.max(8, r.right - 150)}px`; tool.style.top = `${scrollY + r.bottom + 6}px`;
-      document.body.append(tool);
+      const home = document.querySelector('.abh'), o = home ? home.getBoundingClientRect() : {left: -scrollX, top: -scrollY}, at0 = home ? [home.scrollLeft, home.scrollTop] : [0, 0];
+      tool.style.left = `${Math.max(8, r.right - 150 - o.left + at0[0])}px`; tool.style.top = `${r.bottom + 6 - o.top + at0[1]}px`;
+      (home || document.body).append(tool);
     });
   });
 
@@ -105,7 +106,7 @@ if (!window.abhyasaDetour) {
     p.append(k); b.replaceChildren(p);
   });
   // Before core.js and pane.js (capture), so Esc closes the offer first, and a number in the offer does not reach the page.
-  document.addEventListener('keydown', e => {
+  const onKey = window.abhyasaDetourKey = e => {
     const t = e.target, inBox = t.matches && t.matches('textarea, input, select, [contenteditable]');
     if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === 'KeyB') {
       const sel = picked(), x = sel ? null : document.querySelector('#check .rh-gap') || document.querySelector('.rh-needs .rh-ask');
@@ -116,7 +117,8 @@ if (!window.abhyasaDetour) {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); shut(); return; }
     const w = /^[1-3]$/.test(e.key) && box().querySelectorAll('.rh-way')[+e.key - 1];
     if (w && !w.disabled) { e.preventDefault(); choose(w); }
-  }, true);
+  };
+  document.addEventListener('keydown', onKey, true);   // a host that routes keys itself calls abhyasaDetourKey(e)
 
   // The way back. The side walks that the pane showed come from its `rh:at` messages, only from this origin and the pane's frame.
   const seen = new Set();
