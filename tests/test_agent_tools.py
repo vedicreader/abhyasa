@@ -31,25 +31,28 @@ def test_create_walk_ok_and_every_failure(monkeypatch):
     assert (r['status'], r['error'], r['data']['steps'], r['data']['redacted']) == ('ok', None, 2, False) and r['walk'] == lr.journeys()[0].id
     assert list(dict.fromkeys(seen)) == ['planning', 'sources', 'steps'] and json.loads(json.dumps(r)) == r
 
-    def fails(ask, stopping=lambda: False, progress=lambda s, f: None, goal='learn ranking'):
+    def fails(ask, stopping=lambda: False, progress=lambda s, f: None, goal='learn ranking', guard=None):
         lr = temp_learning()
-        r = at.create_walk(lr, ask, goal, stopping, progress)
+        r = at.create_walk(lr, ask, goal, stopping, progress, guard=guard)
         assert not lr.journeys(), 'a failed walk leaves no journey'
         return r['status'], r['error']
     assert fails(raiser(at.ModelRefused('no'))) == ('error', 'model_refused')
     assert fails(lambda p, sp='': 'not json') == ('error', 'model_refused')
-    assert fails(lambda p, sp='': json.dumps(dict(title='x', subject='ml', steps=[]))) == ('error', 'no_source')
+    assert fails(lambda p, sp='': json.dumps(dict(title='x', subject='ml', steps=[]))) == ('error', 'source_missing')
     for e, want in ((apsw.ReadOnlyError('x'), 'read_only'), (apsw.BusyError('x'), 'vault_locked')):
         lw = temp_learning(); monkeypatch.setattr(lw, 'put_journey', raiser(e))
         assert at.create_walk(lw, plan_ask, 'learn ranking')['error'] == want
 
     asked = []
-    monkeypatch.setattr(at, 'guard', lambda s: guard(s, mode='refuse'))
-    assert fails(lambda p, sp='': asked.append(p) or PLAN, goal=MAIL) == ('error', 'withheld') and not asked
-    monkeypatch.setattr(at, 'guard', lambda s: guard(s, mode='redact'))
+    refuse = lambda s: guard(s, mode='refuse')
+    assert fails(lambda p, sp='': asked.append(p) or PLAN, goal=MAIL, guard=refuse) == ('error', 'privacy_refused') and not asked, 'a guard that raises Withheld sends nothing'
+    redact = lambda s: guard(s, mode='redact')
     lr = temp_learning()
-    r = at.create_walk(lr, lambda p, sp='': asked.append(p) or PLAN, MAIL)
-    assert r['data']['redacted'] and 'jane.doe@example.com' not in ' '.join(asked) and lr.journey(r['walk']).title == MAIL
+    r = at.create_walk(lr, lambda p, sp='': asked.append(p) or PLAN, MAIL, guard=redact)
+    assert r['data']['redacted'] and 'jane.doe@example.com' not in ' '.join(asked) and lr.journey(r['walk']).title == MAIL, 'the redacted text goes out, the title stays the learner\'s goal'
+    asked.clear()
+    r = at.create_walk(temp_learning(), lambda p, sp='': asked.append(p) or PLAN, MAIL)
+    assert not r['data']['redacted'] and 'jane.doe@example.com' in ' '.join(asked), 'guard=None sends the goal unchanged'
 
 BIG = json.dumps(dict(title='Ranking', subject='ml', steps=[
     dict(name=n, statement=f'{n} is one idea of ranking.', ways=['words']) for n in ('Scores', 'Ranks', 'Fusion', 'Recall', 'Precision', 'Lists')]))
@@ -128,8 +131,8 @@ def test_record_attempt_is_graded_once_per_attempt_id(lr, walk_fake):
     calls = len(walk_fake.calls)
     assert at.record_attempt(lr, jid, 0, 'it ranks by position', 'a1', walk_fake) == a and len(walk_fake.calls) == calls and n() == 1, 'a repeat gives the stored result'
     c = at.record_attempt(lr, jid, 0, 'something else', 'a1', walk_fake)
-    assert (c['status'], c['error']) == ('error', 'conflict') and n() == 1 and len(walk_fake.calls) == calls
-    assert at.record_attempt(lr, jid, 0, 'it ranks', 'a2', walk_fake)['error'] == 'conflict', 'a step that is answered takes no new attempt'
+    assert (c['status'], c['error']) == ('error', 'attempt_conflict') and n() == 1 and len(walk_fake.calls) == calls
+    assert at.record_attempt(lr, jid, 0, 'it ranks', 'a2', walk_fake)['error'] == 'attempt_conflict', 'a step that is answered takes no new attempt'
 
     w = at.record_attempt(lr, jid, 1, 'no idea at all', 'b1', walk_fake)
     assert (w['status'], w['data']['done'], w['data']['correct']) == ('ok', False, False) and lr.journey(jid).steps[1].get('done') is None
@@ -137,11 +140,33 @@ def test_record_attempt_is_graded_once_per_attempt_id(lr, walk_fake):
     assert at.record_attempt(lr, jid, 1, 'a rank is a position', 'b2', walk_fake)['data']['done'] is True and lr.journey(jid).steps[1]['done']['outcome']
     assert len(lr.attempts('reciprocal-rank-fusion', limit=None)) == 2
 
+def test_record_attempt_refuses_a_stale_revision(lr, walk_fake):
+    jid = mk_walk(lr)
+    rev = lr.journey(jid).get('updated')
+    calls = len(walk_fake.calls)
+    s = at.record_attempt(lr, jid, 0, 'it ranks by position', 'a1', walk_fake, revision='old')
+    assert (s['status'], s['error']) == ('error', 'stale_state') and s['data']['revision'] == rev and s['revision'] == rev, 'the refusal carries the current revision'
+    assert not lr.attempts('ranking', limit=None) and len(walk_fake.calls) == calls, 'a stale call saves and asks nothing'
+    ok = at.record_attempt(lr, jid, 0, 'it ranks by position', 'a1', walk_fake, revision=rev)
+    assert ok['status'] == 'ok' and ok['revision'] != rev, 'the current revision is accepted, and the answer moves the revision'
+    calls = len(walk_fake.calls)
+    assert at.record_attempt(lr, jid, 0, 'it ranks by position', 'a1', walk_fake, revision=rev) == ok and len(walk_fake.calls) == calls, 'a retry after a lost reply gets the stored grade, though its revision is now old'
+    assert at.record_attempt(lr, jid, 1, 'no idea', 'b1', walk_fake, revision=rev)['error'] == 'stale_state', 'the old revision is now stale'
+    assert at.record_attempt(lr, jid, 1, 'no idea', 'b1', walk_fake)['status'] == 'ok', 'no revision, no check'
+
+def test_a_host_extends_the_error_names():
+    assert 'thread_busy' not in at.ERRORS
+    assert at.failed('thread_busy', 'x', extra=('thread_busy',))['error'] == 'thread_busy' and at.result('error', error='mode_off', extra=('mode_off',))['error'] == 'mode_off'
+    for bad in ('thread_busy', 'conflict', 'withheld', 'no_source'):
+        try: at.failed(bad); raise AssertionError(bad)
+        except ValueError: pass
+    assert {'stale_state', 'attempt_conflict', 'privacy_refused', 'source_missing'} <= set(at.ERRORS)
+
 def test_record_attempt_failures(lr, walk_fake):
     jid = mk_walk(lr, 'w1')
     nb = mk_walk(lr, 'w2', check=dict(way='code', kind='notebook', depth=6))
     assert [at.record_attempt(lr, j, i, 'x', 'k', walk_fake)['error'] for j, i in (('nope', 0), (jid, 9), (nb, 0))] == ['not_found'] * 3
-    for e, want in ((Withheld('x'), 'withheld'), (at.ModelRefused('x'), 'model_refused')):
+    for e, want in ((Withheld('x'), 'privacy_refused'), (at.ModelRefused('x'), 'model_refused')):
         r = at.record_attempt(lr, jid, 2, 'rank', 'k', raiser(e))
         assert (r['status'], r['error']) == ('error', want)
     assert not lr.attempts('scores', limit=None)

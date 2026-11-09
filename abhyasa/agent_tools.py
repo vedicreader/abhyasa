@@ -5,7 +5,8 @@ A host agent, such as Leela, makes a walk, reads its state, grades an answer and
 **The contract of every operation**
 
 - An operation returns one dict with these fields: `status` (`'ok'`, `'error'` or `'stopped'`), `operation_id`, `vault`, `walk`, `step`, `revision`, `data` (a dict) and `error`. `result` builds it.
-- `error` is `None`, or one of `ERRORS`: `'vault_locked'`, `'read_only'`, `'no_source'`, `'model_refused'`, `'withheld'`, `'stopped'`, `'not_found'`, `'conflict'`.
+- `error` is `None`, or one of `ERRORS`: `'vault_locked'`, `'read_only'`, `'source_missing'`, `'model_refused'`, `'privacy_refused'`, `'stopped'`, `'not_found'`, `'attempt_conflict'`, `'stale_state'`. A host adds its own names for one call with `extra`: `failed('thread_busy', extra=('thread_busy',))`.
+- The host owns privacy. `create_walk` takes `guard(text) -> text` from the host and runs no engine guard of its own. `record_attempt` takes the `revision` that the caller last saw and refuses an old one with `'stale_state'`.
 - An expected failure never raises. It has `status` `'error'` and an `error`, and `data['message']` says why. A stop has `status` `'stopped'` and `error` `'stopped'`.
 - The values are JSON values only. The caller owns `operation_id`: the engine leaves it `None`. `vault` is the file name of the vault. `revision` is the `updated` time of the walk.
 - Stop is a `stopping()` callback that returns true after a stop. The operation checks it before each model call and after each one, so before it saves anything. A stop leaves no partial walk.
@@ -24,32 +25,34 @@ import re, time
 from fastcore.utils import *
 from . import learner, path, show
 from .learner import Learning
-from .models import Withheld, guard
+from .models import Withheld
 from .sources import VaultSource, clip
 from .tutor import Tutor
 
 # %% ../nbs/06_agent_tools.ipynb #673a44b1
-ERRORS = ('vault_locked', 'read_only', 'no_source', 'model_refused', 'withheld', 'stopped', 'not_found', 'conflict')
+ERRORS = ('vault_locked', 'read_only', 'source_missing', 'model_refused', 'privacy_refused', 'stopped', 'not_found', 'attempt_conflict', 'stale_state')
 STATUSES = ('ok', 'error', 'stopped')
 FIELDS = ('operation_id', 'vault', 'walk', 'step', 'revision', 'data', 'error')
 
 def result(
     status:str,   # one of `STATUSES`
+    extra:tuple=(),   # error names that the host adds to `ERRORS`, for this call only
     **kw          # a value for any field of `FIELDS`
 ) -> dict:
     "The one result shape: `status` and each field of `FIELDS`, empty unless `kw` gives it."
     if status not in STATUSES: raise ValueError(f'no status {status!r}')
     if (bad := set(kw) - set(FIELDS)): raise TypeError(f'no result field {sorted(bad)}')
-    if kw.get('error') not in (None, *ERRORS): raise ValueError(f"no error {kw['error']!r}")
+    if kw.get('error') not in (None, *ERRORS, *extra): raise ValueError(f"no error {kw['error']!r}")
     return dict(status=status, operation_id=None, vault=None, walk=None, step=None, revision=None, data={}, error=None) | kw
 
 def failed(
     error:str,       # one of `ERRORS`
     message:str='',  # why, in plain words; it goes in `data['message']`
+    extra:tuple=(),  # error names that the host adds to `ERRORS`, for this call only
     **kw             # a value for `walk`, `step` or another field
 ) -> dict:
     "An expected failure as a result."
-    return result('stopped' if error == 'stopped' else 'error', error=error, data=dict(message=message), **kw)
+    return result('stopped' if error == 'stopped' else 'error', extra, error=error, data=dict(message=message), **kw)
 
 # %% ../nbs/06_agent_tools.ipynb #b2110cf8
 TOOLS = (
@@ -75,7 +78,7 @@ def _run(f, **at) -> dict:
     "The result of `f()`; `at` (`walk`, `step`) goes on a failure."
     try: return f()
     except _Stopped: return failed('stopped', 'stopped before anything was saved', **at)
-    except Withheld as e: return failed('withheld', str(e), **at)
+    except Withheld as e: return failed('privacy_refused', str(e), **at)
     except (ModelRefused, ValueError) as e: return failed('model_refused', str(e), **at)
     except Exception as e:
         if (k := vault_failure(e)): return failed(k, str(e), **at)
@@ -111,10 +114,11 @@ def create_walk(
     stopping=lambda: False,              # true after a stop
     progress=lambda stage, frac: None,   # told the stage ('planning', 'sources', 'steps') and the part done
     settings:dict|None=None,             # the host's values of the settings rows (row name to value), for this call only; None reads the settings file
+    guard=None,                          # the host's privacy check, `guard(text) -> text`; it may raise `Withheld`; None sends the goal as it is
 ) -> dict:
-    "Plan a walk to `goal` with the host model, find a passage for each step, and save it."
+    "Plan a walk to `goal` with the host model and save it, with a passage from the vault (`VaultSource`) for each step; web and paper sources are a later tool."
     def make():
-        sent = guard(goal)
+        sent = guard(goal) if guard else goal
         before = {j.id for j in lr.journeys()}
         progress('planning', 0.)
         try: w = path.walk_from_topic(lr, _stoppable(ask, stopping), sent, sources=[_Reporting(lr, progress, stopping)])
@@ -124,7 +128,7 @@ def create_walk(
             raise
         if not w.steps:
             lr.drop_journey(w.id)
-            return failed('no_source', 'the plan had no step to build a walk on')
+            return failed('source_missing', 'the plan had no step to build a walk on')
         progress('steps', 1.)
         if (redacted := sent != goal): w = lr.merge_journey(w.id, title=goal)
         return result('ok', walk=w.id, vault=_vault(lr), revision=w.get('updated'), data=dict(title=w.title, steps=len(w.steps), redacted=redacted))
@@ -193,18 +197,21 @@ def record_attempt(
     attempt_id:str,  # the key of this answer, made once by the caller
     ask,             # the host model call, `ask(prompt, sp='')`
     settings:dict|None=None,   # the host's values of the settings rows, for this call only; None reads the settings file
+    revision=None,   # the `revision` of the walk that the caller last saw; another value gives `stale_state`; None skips the check
 ) -> dict:
-    "Grade the answer to the short check of step `i` and save the attempt, once for each `attempt_id`."
+    "Grade the answer to the short check of step `i` and save the attempt, once for each `attempt_id`; it cannot be stopped and reports no progress, because the grade is short."
     def go():
         j = lr.journey(jid)
         if j is None or j.get('mode') != 'walk' or not 0 <= i < len(j.steps): return failed('not_found', f'no step {i} in walk {jid!r}', walk=jid, step=i)
         s = j.steps[i]; slug = s['slug']
-        if (a := _attempt(lr, slug, jid, i, attempt_id)):
-            if a.answer != answer: return failed('conflict', 'this attempt_id has another answer', walk=jid, step=i)
+        if (a := _attempt(lr, slug, jid, i, attempt_id)):   # a retry of a saved answer gets its grade, whatever revision it carries
+            if a.answer != answer: return failed('attempt_conflict', 'this attempt_id has another answer', walk=jid, step=i)
             _settle(lr, jid, slug, a)
             return _answered(lr, jid, i, slug, a)
+        if revision is not None and revision != (cur := j.get('updated')):
+            return result('error', error='stale_state', walk=jid, step=i, vault=_vault(lr), revision=cur, data=dict(message='the walk changed since this revision', revision=cur))
         if s['check'].get('kind', 'short') != 'short': return failed('not_found', 'this step has no short check to answer', walk=jid, step=i)
-        if s.get('done'): return failed('conflict', 'this step is already answered', walk=jid, step=i)
+        if s.get('done'): return failed('attempt_conflict', 'this step is already answered', walk=jid, step=i)
         tutor = Tutor(lr, ask)
         if (qid := s.get('qid')) not in tutor.open: qid = path.open_short(tutor, j, i, f'agent:{jid}').id
         tutor.open[qid]['meta']['attempt_id'] = attempt_id
