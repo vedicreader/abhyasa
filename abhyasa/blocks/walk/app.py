@@ -25,6 +25,7 @@ from abhyasa.path import edit_walk, undo_walk, restore_walk, move_step, skip_ste
 from abhyasa.path import to_research, wants_source, want_agent, research_state, learning_copy, copy_path
 from abhyasa.learner import job_start, job_end, track, Said, seen_jobs, check_stop, halted as job_halted, STOPPED, JobStopped
 from abhyasa.tutor import NoLesson
+from abhyasa.models import Withheld
 from abhyasa.show import queue_demo, job_state, job_age, job_key, rung, backed, other_way, demo_lesson, simpler_demo, said, show_ask
 from . import ui
 from .cfg import Routes
@@ -40,6 +41,7 @@ PNG = b'\x89PNG\r\n\x1a\n'
 NO_LINK = 'abhyasa could not make a walk from this link. Try again later, or try another link.'
 AS_LINK = 'This is a link, so the tutor reads it from the web.'
 NO_DOC = 'No document in your vault has this name. To add a web page or a paper, paste its link.'
+WITHHELD = 'The tutor did not send this. It holds personal data, and your privacy setting blocks it. You can change the setting in Settings.'
 FILE_WAIT = 20   # seconds that the plan of a goal waits for its sources; a slower one, such as a big clone, joins the walk when it is filed
 FILERS = 3       # the sources that file at the same time, each on its own job, off the pool of the app
 FIXING = 'The tutor looks at the ideas that are not locked'   # the pending line when your words ask to fix the rest
@@ -697,6 +699,7 @@ def connect(app, ctx):
 
     def failed(what, jid, i, e):
         "A call to the model that failed: the log gets the error, and the page a plain line. A 503 keeps the answer in its box."
+        if isinstance(e, Withheld): return Response(WITHHELD, status_code=403, media_type='text/plain')
         log.warning('the tutor could not %s on %s step %s: %r', what, jid, i, e)
         return Response(f'The tutor could not {what}. Try again.', status_code=503, media_type='text/plain')
 

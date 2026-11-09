@@ -38,6 +38,14 @@ def test_a_hosted_app_asks_only_the_host(host, lr):
     assert lr.attempts(), 'the answer was not kept'
     assert h.tasks and 'grade' in h.tasks and all(t for t in h.tasks), h.tasks
 
+def test_a_withheld_grade_says_why_and_is_not_a_failure(host, lr):
+    h, app = host; cl = TestClient(app)
+    jid = walk(cl, lr); cl.post(f'/w/{jid}/start'); cl.get(f'/w/{jid}/0/check')
+    def refuse(prompt, sp=''): raise models.Withheld('personal data')
+    h.fake = refuse
+    r = cl.post(f'/w/{jid}/0/answer', data=dict(answer='me@example.com', confidence=70))
+    assert r.status_code == 403 and 'privacy setting blocks it' in r.text, (r.status_code, r.text)
+
 def test_a_hosted_app_keeps_its_own_cookie_and_loads_no_speech(host):
     h, app = host
     assert [m.kwargs['session_cookie'] for m in app.user_middleware if m.cls.__name__ == 'SessionMiddleware'] == [SESSION_COOKIE]
