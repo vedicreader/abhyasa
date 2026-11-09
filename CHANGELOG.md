@@ -12,6 +12,8 @@
 - A host can take the keys and Esc of the talk stage and the detour page, open a course page itself, and open a concept from a click in the graph. The talk stage can run in an element of a host page. The page of the keys, the top bar chips (`/nav/extra`) and the graph theme listener go with their page.
 - The privacy setting no longer shows as "the tutor failed" when it withholds a walk check. The page says so.
 - Search takes a document only when it matches a word of your query. Labels are no concepts. Option+D types an answer without a microphone.
+- A walk step can hold code that a learner runs. `abhyasa.core.livecode` gives a placeholder that a host such as Leela turns into a cell that runs, and a plain listing everywhere else. The step has a local check, and an idea has a four-way view.
+- In a host, a page says Learn where the standalone app says Abhyasa, hides the link to the Mac app, and shows a short box for a missing page. A walk goal loses the wrappers of a request.
 
 ## 0.0.21
 
