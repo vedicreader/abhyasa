@@ -3570,6 +3570,8 @@ def gather(lr:Learning, jid:str, stop:threading.Event, ask=None, search=None, fe
         try: out = research_walk(lr, ask, jid, ix, search, fetch, stop)
         finally: lr.merge_journey(jid, gather_end=time.time(), gather_now=None); _ended(lr, jid, 'you' if stop.is_set() else None)
         return AttrDict(passages=sum(r is not None for r in out), read=0, why=why)
+    from abhyasa.models import hosted
+    if hosted(ask): return plain(RuntimeError('the host app runs no second agent'))
     try:
         a, host = ramabana_lead(_chip_roots(j).values(), LEAD_TOOLS_OWN, sp=prompt('research.lead'), minutes=val('research.agent_minutes'))
         for t in gather_tools(lr, jid, stop, search, fetch, paper, end, st, host=host):

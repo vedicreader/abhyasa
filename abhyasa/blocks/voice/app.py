@@ -69,7 +69,7 @@ def connect(app, ctx):
         "On each page: a mic for each box with `data-mic`, and ⌥D into the box in focus. The floating mic shows while it listens."
         return MicButton('', id='mic-float', cls='mic mic-float')
 
-    sp.warm()   # the first segment should not wait for the model to load
+    if app.state.warm_speech: sp.warm()   # the first segment should not wait for the model to load
     app.post(Routes.stt)(stt)
     app.post(Routes.start)(start)
     app.post(Routes.seg)(seg)

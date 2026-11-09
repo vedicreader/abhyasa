@@ -144,7 +144,8 @@ def keeps_images(spec) -> bool:
 def vision_why(ask, name:str='') -> str:
     "Why the routed model of figure labels (`name`, else the model of `guide_vision`) gets no picture, or '' when it gets one. A test model with no routing gets one."
     if not hasattr(getattr(ask, 'dflt', None), 'via'): return ''
-    from abhyasa.models import dflt_model, where_of
+    from abhyasa.models import dflt_model, where_of, hosted
+    if hosted(ask): return 'The host app sends no pictures to the model.'
     from ramabana.core import accepts, resolve
     n = name or ask.name('guide_vision') or dflt_model()
     m = where_of(n).get('model') or n

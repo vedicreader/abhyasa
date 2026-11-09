@@ -1,5 +1,5 @@
 "The web app: `fast_app`, the services, and `connect_all` over the blocks in `NAMES` order. Loopback only."
-import argparse, atexit, logging
+import argparse, atexit, logging, threading, time
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,7 +17,9 @@ from abhyasa.learner import close_jobs
 
 log = logging.getLogger(__name__)
 
-__all__ = ['mk_app', 'main']
+__all__ = ['mk_app', 'stop_app', 'SESSION_COOKIE', 'main']
+
+SESSION_COOKIE = 'abhyasa_session'   # cookies ignore the port: a host app on the same name keeps its own `session_`
 
 FAVICON = (Path(__file__).parent/'core'/'favicon.svg').read_text()   # design/logo/abhyasa-icon.svg
 
@@ -52,8 +54,8 @@ class LocalOnly:
             if urlsplit(o).netloc != host: return 'abhyasa does not take changes from other web sites.'
         return ''
 
-def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=None, hosts=LOCAL_HOSTS):
-    "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect, `hosts` the Host names it answers."
+def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=None, hosts=LOCAL_HOSTS, warm_speech=True):
+    "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect, `hosts` the Host names it answers, `warm_speech` loads the speech model at start."
     from abhyasa.models import Speech, Speaker
     if transcribe is None: from abhyasa.models import transcribe
     ask = ask if isinstance(ask, Router) else Router(ask or route_ask())   # a model for each task, from the settings
@@ -63,12 +65,14 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     from abhyasa.models import cfg_dir
     cfg_dir().mkdir(parents=True, exist_ok=True)
     app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False, bodykw=dict(hx_boost='true'), before=look_before,
-                       key_fname=str(cfg_dir()/'.sesskey'))   # not the working folder: an app may start in /, which is read only   # htmx and fasthtml.js come from core/vendor; links load in place
+                       key_fname=str(cfg_dir()/'.sesskey'), session_cookie=SESSION_COOKIE)   # not the working folder: an app may start in /, which is read only   # htmx and fasthtml.js come from core/vendor; links load in place
     pool = ThreadPoolExecutor(2)
     if sources is None: sources = [VaultSource(learning)]
     svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources, pool=pool), ask=ask, transcribe=transcribe,
                speech=Speech(transcribe), speaker=Speaker(), pool=pool, sessions={}, sources=sources,
                research=Researcher(learning, ask))   # research has its own pool of one worker, so a long search never holds a demo or a note
+    app.state.warm_speech, app.state.stop_lock = warm_speech, threading.Lock()
+    app.state.pools = [pool, svc['research'].pool, svc['research'].agents, svc['speech'].ex, svc['speaker'].ex]
     app.state.blocks = connect_all(app, blocks(*([names] if names else [])), **svc)
     try: close_jobs(learning)   # no job lives across a restart: a row that says `running` is `closed` now
     except Exception as e: logging.getLogger(__name__).warning('abhyasa could not close the old job rows: %r', e)
@@ -86,6 +90,21 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     app.get('/favicon.ico')(lambda: Response(FAVICON, media_type='image/svg+xml'))
     app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's static route, which answers 404 for it
     return app
+
+def stop_app(app, timeout=5.0):
+    "Stop the research of each walk and the worker pools of `app`; wait at most `timeout` seconds in all, and log the pools that still run."
+    if (svc := getattr(app.state, 'svc', None)) is None: return
+    with app.state.stop_lock:
+        if getattr(app.state, 'stopped', False): return
+        app.state.stopped = True
+    for ev in list(svc['research'].stops.values()): ev.set()
+    for p in app.state.pools: p.shutdown(wait=False, cancel_futures=True)
+    waits = [threading.Thread(target=p.shutdown, kwargs=dict(wait=True), daemon=True) for p in app.state.pools]
+    for w in waits: w.start()
+    end = time.monotonic() + timeout
+    for w in waits: w.join(max(0, end - time.monotonic()))
+    if left := [getattr(p, '_thread_name_prefix', '') for p, w in zip(app.state.pools, waits) if w.is_alive()]:
+        log.warning('abhyasa stopped with worker pools still running: %s', left)
 
 def repair_in_background(app, title_of=None):
     "After the start: give the old papers with an arXiv id for a title their real title, then their steps and talks, on the pool of the app. Return the future; nothing waits for it."
@@ -122,4 +141,5 @@ def main():
     warm_catalog(app)
     try: write_address(f'http://{cfg.host}:{a.port}', Path(lr.vault.path).resolve()); atexit.register(drop_address)   # Leela links back to a walk
     except (OSError, ValueError) as e: log.warning('abhyasa could not write its address file: %r', e)
-    uvicorn.run(app, host=cfg.host, port=a.port, log_level='warning')
+    try: uvicorn.run(app, host=cfg.host, port=a.port, log_level='warning')
+    finally: stop_app(app)

@@ -13,13 +13,13 @@ __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 
            'TTS1_VOICES', 'VOICES_OF', 'OPENAI_SPEECH', 'OUT_DFLT', 'LOCAL_VOICES', 'PAD', 'LOUD', 'POCKET_MISSING',
            'OPENAI_SPEECH_URL', 'OPENAI_SPEC', 'SAY', 'GREEK', 'TEX_SAY', 'TEX_BIG', 'TEX_FN', 'TEX_ACCENT', 'TEX_OPS',
            'TEX_POW', 'SAY_PART', 'dflt_model', 'parse_json', 'ask_json', 'Fake', 'model_ask', 'model_label',
-           'provider_label', 'where_of', 'where_chip', 'catalog', 'one_each', 'Router', 'for_task', 'ramabana_agent',
-           'no_answer', 'ramabana_oneshot', 'ramabana_stream', 'RouteAsk', 'route_ask', 'ramabana_worker',
-           'ramabana_lead', 'Withheld', 'guard', 'safe_query', 'guarded', 'resolve', 'current', 'unload', 'resident',
-           'openai_key', 'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence', 'cached', 'cache_bytes',
-           'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'openai_voices', 'fit_voice', 'out_resolve',
-           'out_current', 'out_where', 'by_letters', 'to_wav', 'clean_wav', 'pad_wav', 'SpeakError', 'openai_why',
-           'tex_words', 'part_times', 'spoken', 'speak', 'Speaker', 'Dictation', 'Speech']
+           'provider_label', 'where_of', 'where_chip', 'catalog', 'one_each', 'Router', 'for_task', 'hosted',
+           'ramabana_agent', 'no_answer', 'ramabana_oneshot', 'ramabana_stream', 'RouteAsk', 'route_ask',
+           'ramabana_worker', 'ramabana_lead', 'Withheld', 'guard', 'safe_query', 'guarded', 'resolve', 'current',
+           'unload', 'resident', 'openai_key', 'set_openai_key', 'masked', 'transcribe', 'wav_seconds', 'silence',
+           'cached', 'cache_bytes', 'is_stt', 'model_size', 'search_models', 'fetch', 'remove', 'openai_voices',
+           'fit_voice', 'out_resolve', 'out_current', 'out_where', 'by_letters', 'to_wav', 'clean_wav', 'pad_wav',
+           'SpeakError', 'openai_why', 'tex_words', 'part_times', 'spoken', 'speak', 'Speaker', 'Dictation', 'Speech']
 
 # %% ../nbs/01_models.ipynb #9cfb2945
 import json, os, re, gc, time, uuid, inspect, tempfile, threading, wave
@@ -218,6 +218,10 @@ class Router:
 def for_task(ask, task:str):
     "The `ask` for `task` when `ask` routes by task, else `ask` itself."
     return ask.for_(task) if hasattr(ask, 'for_') else ask
+
+def hosted(ask) -> bool:
+    "Whether a host app owns the model of `ask` (its default `ask` sets `hosted`): then abhyasa makes no ramabana agent of its own."
+    return bool(getattr(getattr(ask, 'dflt', ask), 'hosted', False))
 
 # %% ../nbs/01_models.ipynb #6868c771
 import warnings
