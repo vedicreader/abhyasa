@@ -462,6 +462,7 @@ function presenterView(st) {
     if (at.ask) return act(() => ask('close'));
     if (document.activeElement?.closest('[data-rupaka]')) { document.activeElement.blur(); return; }
     if (at.pane) return closePane();
+    window.abhyasaTalkLeave?.();
   };
 
   // G, then one or two digits in 1 s: go to a slide by its number.
@@ -503,7 +504,7 @@ function presenterView(st) {
     const r = await fetch(base + 'end', {method: 'POST'}).catch(() => null);
     if (!r || !r.ok) return say(r ? await r.text() : 'abhyasa did not answer. Try again.');
     send({t: 'end'}, false);
-    location.assign(r.url);
+    window.abhyasaTalkEnded ? abhyasaTalkEnded(new URL(r.url).pathname) : location.assign(r.url);
   });
   $('end-form').addEventListener('submit', e => { e.preventDefault(); endTalk(); });
   $('pair-go').addEventListener('click', () => act(() => ask('pair', {on: pair?.on ? 0 : 1})));
