@@ -59,6 +59,16 @@ def test_the_guide_box_says_how_to_talk(mk):
     "The guide box shows the talk key where the mic shows while you talk."
     assert 'Hold Caps+E to talk' in mk().get('/').text
 
+def test_the_panel_route_gives_the_pill_of_a_page_for_a_host(mk):
+    "A host that keeps only the page body asks `/keys/panel?path=` for the pill and panel of its page, and gets nothing while the setting is off."
+    cl = mk()
+    try:
+        t = cl.get('/keys/panel', params=dict(path='/c/ranking')).text
+        assert 'id="kf"' in t and 'Keys: concept' in t and '<html' not in t
+        cl.post('/keys/float', data=dict(on='0'))
+        assert 'id="kf"' not in cl.get('/keys/panel').text
+    finally: reset('look.keys_float')
+
 def test_hide_this_turns_the_setting_off_and_the_keys_page_brings_it_back(mk):
     "Hide this posts on=0: the setting goes off, no page has the pill, and the keys page offers to show it again."
     cl = mk()

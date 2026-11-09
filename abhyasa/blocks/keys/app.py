@@ -42,5 +42,10 @@ if (!window.abhyasaHelp) { window.abhyasaHelp = true; document.addEventListener(
         if not val('look.keys_float') or not has_float(path) or (req is not None and req.query_params.get('pane') == '1'): return None
         return ui.Float(path, Routes.base, Routes.float)
 
+    def panel(path:str='/'):
+        "The Keys pill and panel of the page at `path` as a fragment, or nothing while `look.keys_float` is off."
+        return HTMLResponse(to_xml(ui.Float(path, Routes.base, Routes.float)) if val('look.keys_float') and has_float(path) else '')
+
     app.get(Routes.base)(page)
+    app.get(Routes.panel)(panel)
     app.post(Routes.float)(float_)
