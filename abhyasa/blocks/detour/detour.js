@@ -69,7 +69,9 @@ if (!window.abhyasaDetour) {
   // The selected term in the passage, at most 80 characters, or ''.
   const picked = () => {
     const s = getSelection(), t = s ? String(s).trim() : '', p = document.getElementById('passage');
-    return t && t.length <= 80 && s.rangeCount && p && p.contains(s.getRangeAt(0).commonAncestorContainer) ? t : '';
+    if (!t || t.length > 80 || !s.rangeCount || !p) return '';
+    const r = s.getRangeAt(0);   // a label (`.lbl`) is chrome, not content: a selection that touches one is no term
+    return p.contains(r.commonAncestorContainer) && ![...p.querySelectorAll('.lbl')].some(l => r.intersectsNode(l)) ? t : '';
   };
   document.addEventListener('mouseup', e => {
     if (e.target.closest && e.target.closest('#rh-sel')) return;

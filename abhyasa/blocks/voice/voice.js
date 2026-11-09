@@ -114,10 +114,12 @@ if (!window.abhyasaVoiceOn) {
   document.addEventListener('rupaka:ready', () => abhyasaMics());
   document.addEventListener('keydown', e => {
     if (!e.altKey || e.code !== 'KeyD') return;
+    const a = document.activeElement, box = a && a.matches && a.matches(abhyasaBox) ? a : null;
+    const m = document.querySelector('#mic') || document.querySelector('.mic.mini');
+    if (!abhyasaDict && !box && !m) return;   // nothing to dictate into: the key types ∂ as usual
     e.preventDefault();   // no ∂ in the box (Option+D on a Mac)
     if (e.repeat) return;   // a held key repeats: only the first press starts or stops, else the mic goes on and off with each repeat
     if (abhyasaDict) return abhyasaMic(abhyasaDict.btn);
-    const a = document.activeElement, box = a && a.matches && a.matches(abhyasaBox) ? a : null;
     if (box) {
       const own = box.id && document.querySelector(`.mic[data-into="${box.id}"]`);
       if (own) return abhyasaMic(own);
@@ -127,7 +129,6 @@ if (!window.abhyasaVoiceOn) {
       f.dataset.into = box.id;
       return abhyasaMic(f);
     }
-    const m = document.querySelector('#mic') || document.querySelector('.mic.mini');
     if (m) abhyasaMic(m);
   });
 }

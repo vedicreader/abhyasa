@@ -5,7 +5,7 @@ from fasthtml.common import *
 from fasthtml.svg import Svg, Path as SvgPath, Circle as SvgCircle, Rect as SvgRect, Ellipse as SvgEllipse
 from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say, Choice, HelpLine, JobTools
 from abhyasa import models as voice
-from abhyasa.learner import STOPPED
+from abhyasa.learner import STOPPED, is_hosted
 from abhyasa.learner import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped, dropped_roots
 from .cfg import Routes
 
@@ -314,6 +314,7 @@ def Lookup():
 
 def Key(err=''):
     "The OpenAI key: where it is from and its last 4 characters. The key itself is never on the page."
+    if is_hosted(): return Div(H3('OpenAI key', cls='sub'), P("Leela owns this setting: change it in Leela's settings.", cls='mute'), id='key')
     k, src = voice.openai_key()
     own = src == str(voice.cfg_dir()/'keys.env')
     have = (P('In use: ', Code(voice.masked(k)), ' from ', Span('the environment (OPENAI_API_KEY)' if src == 'environment' else src),

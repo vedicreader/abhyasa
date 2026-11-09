@@ -3,6 +3,7 @@ import re, time
 from fasthtml.common import *
 from abhyasa.core import Page, Md, Empty, meta, n_of, ago, doc_title
 from abhyasa.learner import val
+from abhyasa.sources import main_words, named_count
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
@@ -13,6 +14,11 @@ def short(s, n=None):
     "The first `n` characters of `s`, cut at a word."
     s, n = ' '.join(str(s or '').split()), n or val('lists.snippet')
     return s if len(s) <= n else s[:n].rsplit(' ', 1)[0] + '…'
+
+def names_query(h, words) -> bool:
+    "Does the hit say one of the main `words` of the query? The hybrid search ranks every document, so a query with no match still lists them all."
+    text = ' '.join([str(h.get('title') or ''), str(h.get('snippet') or ''), *map(str, (h.get('meta') or {}).values())])
+    return not words or named_count(text, words) > 0
 
 def Hit(h, by):
     "One hit of what you learned, shown by its kind: a plain title as the link, a short line, and a quiet meta line."
@@ -57,11 +63,12 @@ def connect(app, ctx):
         q = ' '.join(q.split())[:Q_MOST]
         if not q: return Page('Search', H1('Search'), P('Type in the box at the top.', cls='mute'), crumbs=[('Home', '/')])
         by = {c.slug: c for c in lr.concepts()}
-        mine = [x for h in lr.search(q, limit=val('lists.search')) if (x := Hit(h, by)) is not None]
+        words = main_words(q)
+        mine = [x for h in lr.search(q, limit=val('lists.search')) if names_query(h, words) and (x := Hit(h, by)) is not None]
         try: other = lr.v.elsewhere(q, limit=val('lists.elsewhere'), max_read=val('lists.snippet'))
         except Exception: other = []
         return Page('Search', H1(f'“{q}”', cls='query'),
-                    H2('In what you learned'), Ul(*mine, cls='plain hits') if mine else Empty('Nothing found.'),
+                    H2('In what you learned'), Ul(*mine, cls='plain hits') if mine else Empty(f'Nothing that you learned names “{q}”.'),
                     H2('In your vault'), Elsewhere(other), crumbs=[('Home', '/')])
 
     app.get(Routes.base)(search)

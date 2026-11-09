@@ -1,14 +1,21 @@
 "Settings: every value that you can change, in groups, in a few tabs. Each value saves when it changes. The rarely changed values are under a closed `More`."
-import os, threading, time, base64, contextvars
+import os, threading, time, base64, contextvars, functools
 from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, THEMES, MODES, parse_value, hook
 from abhyasa import models as voice
-from abhyasa.learner import track, job_said, seen_jobs, check_stop, JobStopped, GROUPS, SETTINGS, rows, val, fit, set_val, reset, reset_group
+from abhyasa.learner import is_hosted, track, job_said, seen_jobs, check_stop, JobStopped, GROUPS, SETTINGS, rows, val, fit, set_val, reset, reset_group
 from . import ui
 from .cfg import Routes
 
-__all__ = ['CAPS', 'connect']
+__all__ = ['CAPS', 'connect', 'OWNED']
+OWNED = "Leela owns this setting: change it in Leela's settings."
+
+def owned(f):
+    "A route that writes the settings file or a key: when a host runs abhyasa, it only says that the host owns the setting."
+    @functools.wraps(f)
+    def g(*a, **kw): return Response(OWNED, status_code=403, media_type='text/plain') if is_hosted() else f(*a, **kw)
+    return g
 CAPS = ('speech', 'speaker', 'ask', 'pool', 'learning')
 
 def connect(app, ctx):
@@ -279,26 +286,26 @@ def connect(app, ctx):
 
     RouteOverrides.gear = Routes.base
     app.get(Routes.base)(page)
-    app.post(Routes.value)(value)
-    app.post(Routes.default)(default)
+    app.post(Routes.value)(owned(value))
+    app.post(Routes.default)(owned(default))
     app.get(Routes.group_ask)(group_ask)
-    app.post(Routes.group_default)(group_default)
-    app.post(Routes.use)(use)
-    app.post(Routes.get)(get)
+    app.post(Routes.group_default)(owned(group_default))
+    app.post(Routes.use)(owned(use))
+    app.post(Routes.get)(owned(get))
     app.get(Routes.jobs)(jobs_)
     app.get(Routes.status)(status)
     app.get(Routes.search)(search)
-    app.post(Routes.remove)(remove)
-    app.post(Routes.key)(key)
-    app.post(Routes.model)(model)
+    app.post(Routes.remove)(owned(remove))
+    app.post(Routes.key)(owned(key))
+    app.post(Routes.model)(owned(model))
     app.get(Routes.chip)(chip_list)
-    app.post(Routes.chip)(chip)
+    app.post(Routes.chip)(owned(chip))
     app.post(Routes.test)(test)
     app.get(Routes.catalog)(catalog)
-    app.post(Routes.look)(look_)
-    app.post(Routes.prompt)(prompt_)
-    app.post(Routes.prompt_default)(prompt_default)
-    app.post(Routes.out)(out_route)
-    app.post(Routes.out_get)(out_get)
+    app.post(Routes.look)(owned(look_))
+    app.post(Routes.prompt)(owned(prompt_))
+    app.post(Routes.prompt_default)(owned(prompt_default))
+    app.post(Routes.out)(owned(out_route))
+    app.post(Routes.out_get)(owned(out_get))
     app.post(Routes.out_sample)(out_sample)
     app.get(Routes.out_status)(out_status)
