@@ -55,7 +55,7 @@ def test_hosted_gather_makes_no_agent(host, lr):
     h, app = host; cl = TestClient(app)
     jid = walk(cl, lr)
     out = path.gather(lr, jid, threading.Event(), app.state.svc['ask'])
-    assert 'second agent' in (lr.journey(jid).get('gather') or [{}])[0].get('outcome', '') and out.read == 0
+    assert 'NoHostAgent' in (lr.journey(jid).get('gather') or [{}])[0].get('outcome', '') and out.read == 0 and out.why == path.HOSTED_WHY
 
 def test_stop_app_keeps_its_deadline(host):
     h, app = host
