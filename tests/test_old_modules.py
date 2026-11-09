@@ -33,10 +33,10 @@ ENGINE = ('learner', 'models', 'sources', 'tutor', 'path', 'show')
 
 @pytest.mark.parametrize('mod', ENGINE)
 def test_a_name_from_a_sibling_module_is_not_shadowed(mod):
-    "Each name that an engine module takes by name from a sibling module is that object at import end: a later `from fastcore.utils import *` does not take its place (fastcore has a `fenced` too)."
+    "Each name that an engine module takes by name from a sibling module is that object at import end: a later `from fastcore.utils import *` does not take its place (fastcore has a `fenced` too). A name that the loaded module lacks is not shadowed, so a file that changed after the import (a regenerated module in a long run) makes no false failure."
     import ast
     m = importlib.import_module(f'abhyasa.{mod}')
     tree = ast.parse(Path(m.__file__).read_text())
     got = [(n.module, a.name, a.asname or a.name) for n in tree.body if isinstance(n, ast.ImportFrom) and n.level == 1 and n.module in ENGINE for a in n.names]
     of = lambda o: getattr(o, '__module__', None) or ''
-    assert not [(src, name) for src, name, as_ in got if of(getattr(importlib.import_module(f'abhyasa.{src}'), name)).startswith('abhyasa') and of(getattr(m, as_)).startswith('fastcore')]
+    assert not [(src, name) for src, name, as_ in got if of(getattr(importlib.import_module(f'abhyasa.{src}'), name, None)).startswith('abhyasa') and of(getattr(m, as_, None)).startswith('fastcore')]

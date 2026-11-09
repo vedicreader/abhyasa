@@ -2,6 +2,17 @@
 
 <!-- do not remove -->
 
+## Unreleased
+
+- A host app, such as Leela, can run abhyasa in its own process. The host gives the session cookie, the settings, the privacy guard and the folder for the files. A hosted abhyasa reads no key or settings file of its own and makes no agent of its own. `HOST_API` (`abhyasa.core.hostapi`) is the contract number, now 1. A host can check it before it starts.
+- New module `abhyasa.agent_tools`: the learning operations of a host agent, as tools with one result contract. The agent can make a walk, change a walk, add a source, restore a version and explain the step on screen. `explain_here` makes no model call: it gives the agent the data and the rules.
+- A host passes the settings rows for one call. A write to the settings is refused while it does. The host owns its settings.
+- Background jobs run in the context of the call that submitted them.
+- A walk goal takes web sources through the hook of the host, when the research setting allows it. A host can run the research as its own job.
+- A host can take the keys and Esc of the talk stage and the detour page, open a course page itself, and open a concept from a click in the graph. The talk stage can run in an element of a host page. The page of the keys, the top bar chips (`/nav/extra`) and the graph theme listener go with their page.
+- The privacy setting no longer shows as "the tutor failed" when it withholds a walk check. The page says so.
+- Search takes a document only when it matches a word of your query. Labels are no concepts. Option+D types an answer without a microphone.
+
 ## 0.0.21
 
 - A model chip shows which model runs, on the builder, the talk editor, the walk step and the guide. Click it to pick another model. The pick saves the same setting as Settings, so the two always agree.
