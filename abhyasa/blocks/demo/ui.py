@@ -3,7 +3,7 @@ from pathlib import Path
 from fasthtml.common import *
 from rupaka.render import Demo, version
 from abhyasa.core import asset_css, asset_js, Feedback, Quiet, JobStop, JobAgain
-from abhyasa.learner import STOPPED
+from abhyasa.learner import STOPPED, is_hosted
 from abhyasa.core.leela import LEELA_INSTALL
 from abhyasa.show import DEMO_KINDS as KINDS, STAGES
 from .cfg import Routes
@@ -62,7 +62,8 @@ def ThreeD(attrs):
     return Quiet('Show it in 3D', type='button', data_wait='Making a 3D explainer…', **attrs)
 
 def TryLeela(href):
-    "Try it in Leela: the link when Leela runs; else a quiet note and how to get Leela."
+    "Try it in Leela: the link when Leela runs; else a quiet note and how to get Leela. Nothing in a host: the page is in Leela."
+    if is_hosted(): return ''
     if href: return A('Try it in Leela ↗', href=href, target='_blank', rel='noopener', cls='btn quiet try-leela')
     return Span('Try it in Leela: Leela is not running. ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='try-leela not-ready')
 

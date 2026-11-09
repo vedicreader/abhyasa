@@ -69,7 +69,7 @@ add('learning.explore', 'learning', 'How often to try a new way', 'How often the
     choices=('never', 'sometimes', 'often'), store='profile');
 
 # %% ../nbs/00_learner.ipynb #da3e7fb7
-add('walks.steps', 'walks', 'Ideas in a walk', 'The most big ideas in one walk, from 3 to 7. The other ideas stay on the steps as reading, and in your concepts.', 7, 3, 7)
+add('walks.steps', 'walks', 'Ideas in a walk', 'The most ideas in one walk, from 3 to 7. The other ideas stay on the steps as reading, and in your concepts.', 7, 3, 7)
 add('walks.hands', 'walks', 'Hands-on share', 'The share of checks in a walk that are a demo, an order or code. The others are short answers.', 1/3, 0., 1., pct=True)
 add('walks.chain', 'walks', 'Ideas in a side walk', 'The most ideas in a side walk beside the paper.', 4, 2, 8)
 add('walks.passage', 'walks', 'Passage length', 'The most characters of the source for each idea.', 600, 200, 2000, more=True, unit='characters')

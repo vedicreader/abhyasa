@@ -29,3 +29,8 @@ def test_concept_line_and_graph_state(mk, lr):
     st = {n['id']: n['state'] for n in g['nodes']}
     assert st['reciprocal-rank-fusion'] == 'weak' and st['ranking'] == 'unseen'
 
+
+def test_no_subject_and_general_are_one_row(mk, lr):
+    lr.update('ranking', seen=1, subject=''); lr.update('reciprocal-rank-fusion', seen=1, subject='general')
+    t = mk().get('/you').text
+    assert t[t.index('By subject'):t.index('Weak spots')].count('>General<') == 1

@@ -69,6 +69,8 @@ def OpenInLeela(href, say:str='Open in Leela', post:bool=False, **kw):
 
 def leela_line(j, i:int|None=None, topic:str='', say:str='Open in Leela for code and tools', quiet:bool=False, vault=None):
     "One muted line with the link to Leela (with the key of `vault`), or how to get Leela; nothing when `quiet` and Leela does not run."
+    from abhyasa.learner import is_hosted
+    if is_hosted(): return ''
     if href := leela_link(j, i, topic, vault): return P(A(f'{say} ↗', href=href, target='_blank', rel='noopener'), cls='leela-line')
     return '' if quiet else P('Open this in Leela for code and tools. ', A('Get Leela', href=LEELA_INSTALL, target='_blank', rel='noopener'), cls='leela-line muted')
 

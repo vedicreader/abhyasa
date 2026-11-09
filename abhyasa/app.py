@@ -1,5 +1,5 @@
 "The web app: `fast_app`, the services, and `connect_all` over the blocks in `NAMES` order. Loopback only."
-import argparse, atexit, logging, threading, time
+import argparse, atexit, logging, re, threading, time
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -13,7 +13,7 @@ from abhyasa.tutor import Tutor
 from abhyasa.models import route_ask, Router
 from abhyasa.sources import VaultSource
 from abhyasa.path import Researcher
-from abhyasa.learner import close_jobs, CtxPool, use_config
+from abhyasa.learner import close_jobs, CtxPool, use_config, is_hosted
 
 log = logging.getLogger(__name__)
 
@@ -23,10 +23,24 @@ SESSION_COOKIE = 'abhyasa_session'   # cookies ignore the port: a host app on th
 
 FAVICON = (Path(__file__).parent/'core'/'favicon.svg').read_text()   # design/logo/abhyasa-icon.svg
 
+NAME = re.compile(r'(?<![\w/.-])abhyasa(?!://|[\w-])', re.I)
+CHUNKS = re.compile(r'(<script\b.*?</script>|<style\b.*?</style>|<[^>]*>)', re.S | re.I)
+
+def hosted_words(html:str) -> str:
+    "`html` with its text saying Learn where it says abhyasa: inside a host the engine has no name of its own. Tags, scripts and styles stay as they are."
+    return ''.join(c if c.startswith('<') else NAME.sub('Learn', c) for c in CHUNKS.split(html))
+
 async def _fresh(req, call_next):
-    "Pages are never cached, so Back and Forward show the session as it is now; assets keep their long cache."
+    "Pages are never cached, so Back and Forward show the session as it is now; assets keep their long cache. In a host, the text says Learn, not abhyasa."
     r = await call_next(req)
-    if r.headers.get('content-type', '').startswith('text/html'): r.headers['Cache-Control'] = 'no-store'
+    kind = r.headers.get('content-type', '')
+    if kind.startswith('text/html'): r.headers['Cache-Control'] = 'no-store'
+    if is_hosted() and kind.startswith('text/html'):
+        body = ''.join([c.decode() if isinstance(c, bytes) else c async for c in r.body_iterator])
+        out = Response(hosted_words(body), status_code=r.status_code, media_type='text/html')
+        for k, v in r.raw_headers:
+            if k.lower() not in (b'content-length', b'content-type'): out.raw_headers.append((k, v))
+        return out
     return r
 
 

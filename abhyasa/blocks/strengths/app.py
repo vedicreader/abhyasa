@@ -24,7 +24,7 @@ def connect(app, ctx):
             return Section(head, P('Your strengths show here after your first answers.', cls='mute'), id='strengths', cls='strengths', data_part='strengths')
         prior = [EXAMPLES_TO[e] for e in p.examples if e in EXAMPLES_TO]
         subs = {}
-        for c, u in (rs if not subject else rows()): subs.setdefault(c.get('subject') or '', []).append((c, u))
+        for c, u in (rs if not subject else rows()): subs.setdefault(c.get('subject') or 'general', []).append((c, u))
         weak = sorted((x for x in rs if x[1].weak), key=lambda x: x[1].score)[:val('lists.strengths')]
         strong = sorted((x for x in rs if x[1].strong), key=lambda x: -x[1].score)[:val('lists.strengths')]
         q = f'&subject={subject}' if subject else ''
