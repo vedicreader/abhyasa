@@ -1,5 +1,5 @@
 "Settings: every value that you can change, in groups, in a few tabs. Each value saves when it changes. The rarely changed values are under a closed `More`."
-import os, threading, time, base64
+import os, threading, time, base64, contextvars
 from fasthtml.common import *
 from fastcore.basics import AttrDict
 from abhyasa.core import Page, RouteOverrides, THEMES, MODES, parse_value, hook
@@ -120,7 +120,7 @@ def connect(app, ctx):
             try:
                 try: j.total = voice.model_size(model)
                 except Exception: j.total = 0   # the line shows bytes without a total
-                threading.Thread(target=tick, daemon=True).start()
+                threading.Thread(target=contextvars.copy_context().run, args=(tick,), daemon=True).start()
                 voice.fetch(model)
                 check_stop(lr, key)   # a safe point: after Stop, the model is on the disk but does not load
                 j.state = 'loading'; job_said(lr, key, ui.job_line(j))

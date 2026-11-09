@@ -45,7 +45,7 @@ __all__ = ['PLAN_SP', 'SRC_MOST', 'CHANGE_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WH
            'RUN_SAY', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
 
 # %% ../nbs/04_path.ipynb #eeb72429
-import json, math, re, random, threading, time, uuid
+import json, math, re, random, threading, time, uuid, contextvars
 from fastcore.utils import *
 from pathlib import Path
 from fastcore.nbio import read_nb
@@ -3593,7 +3593,7 @@ def gather(lr:Learning, jid:str, stop:threading.Event, ask=None, search=None, fe
         while not done.wait(.5):
             try: flush_rows(lr, jid, st, FLUSH_SECS)
             except Exception as e: log.warning('research: could not write the log of the gather agent: %r', e)
-    threading.Thread(target=rows, name=f'gather-rows-{jid}', daemon=True).start()
+    threading.Thread(target=contextvars.copy_context().run, args=(rows,), name=f'gather-rows-{jid}', daemon=True).start()
     try:
         r = a.ask(gather_prompt(lr, _journey(lr, jid)), result=True, deadline=max(end - time.monotonic(), 1.), stop=stop)   # ramabana halts the turn and its sub-agents
         if time.monotonic() > end and not stop.is_set(): st.stopped = st.stopped or 'time'

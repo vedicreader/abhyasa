@@ -13,7 +13,7 @@ from abhyasa.tutor import Tutor
 from abhyasa.models import route_ask, Router
 from abhyasa.sources import VaultSource
 from abhyasa.path import Researcher
-from abhyasa.learner import close_jobs, CtxPool
+from abhyasa.learner import close_jobs, CtxPool, use_config
 
 log = logging.getLogger(__name__)
 
@@ -54,8 +54,17 @@ class LocalOnly:
             if urlsplit(o).netloc != host: return 'abhyasa does not take changes from other web sites.'
         return ''
 
-def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=None, hosts=LOCAL_HOSTS, warm_speech=True):
-    "The app over `learning`; `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect, `hosts` the Host names it answers, `warm_speech` loads the speech model at start."
+class UseConfig:
+    "ASGI middleware: each request, and each job it starts, keeps abhyasa's files in the folder `path`."
+    def __init__(self, app, path): self.app, self.path = app, path
+    async def __call__(self, scope, receive, send):
+        with use_config(self.path): return await self.app(scope, receive, send)
+
+def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=None, hosts=LOCAL_HOSTS, warm_speech=True, config=None):
+    "The app over `learning`; `config` is the folder of a host for the session key and every other file (the settings file and key files of abhyasa are never read); `ask` is the model, `transcribe` the speech to text, `sources` ground the tutor, `names` the blocks to connect, `hosts` the Host names it answers, `warm_speech` loads the speech model at start."
+    with use_config(config): return _mk_app(learning, ask, transcribe, names, sources, hosts, warm_speech, config)
+
+def _mk_app(learning, ask, transcribe, names, sources, hosts, warm_speech, config):
     from abhyasa.models import Speech, Speaker
     if transcribe is None: from abhyasa.models import transcribe
     ask = ask if isinstance(ask, Router) else Router(ask or route_ask())   # a model for each task, from the settings
@@ -85,6 +94,7 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     serve_feedback(app, learning)   # the feedback row under a demo or a lesson, in every block
     serve_watch(app)   # a YouTube video in the side pane
     app.add_middleware(BaseHTTPMiddleware, dispatch=_fresh)
+    if config is not None: app.add_middleware(UseConfig, path=config)
     app.add_middleware(LocalOnly, hosts=hosts)   # added last, so it runs first
     app.get('/health')(lambda: JSONResponse(dict(status='ok')))
     app.get('/favicon.ico')(lambda: Response(FAVICON, media_type='image/svg+xml'))

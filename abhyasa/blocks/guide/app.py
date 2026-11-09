@@ -2,7 +2,7 @@
 
 A concept can have one explainer video. The concept page shows it with its tools (find, paste, remove); the walk step shows it
 through the `step_needs` hook. The ask route adds the cues of the video on the page from the vault."""
-import asyncio, base64, json, logging, queue, secrets, threading, time
+import asyncio, base64, contextvars, json, logging, queue, secrets, threading, time
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook, run as run_hook
@@ -186,7 +186,7 @@ def connect(app, ctx):
                 q.put(dict(board=b, point=look))
             except Withheld: q.put(dict(error=WITHHELD))
             except Exception as e: log.warning('guide: %r', e); q.put(dict(error='The tutor could not answer. Try again.'))
-        threading.Thread(target=run, daemon=True).start()
+        threading.Thread(target=contextvars.copy_context().run, args=(run,), daemon=True).start()
         async def gen():
             try:
                 while True:

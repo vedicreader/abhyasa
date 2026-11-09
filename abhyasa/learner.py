@@ -10,18 +10,18 @@ __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SET
            'DEPTHS', 'KIND_AT', 'DAY', 'METHODS', 'METHOD_LABELS', 'EXAMPLES_TO', 'TEXT_WAYS', 'WALK_WAYS', 'CREDIT',
            'FEEDBACK', 'EXPLORE', 'EMPTY', 'CHECK_KIND', 'DEPTH', 'LEARNING', 'PROFILE', 'LIST_FIELDS', 'EXAMPLES',
            'PACES', 'PROFILE_LABELS', 'ONBOARD_QS', 'ONBOARD_SP', 'OBSERVE_SP', 'HUMAN', 'LEVELS', 'FRESH', 'KEEP',
-           'OLD', 'STOPPED', 'WORD', 'STATUS', 'NO_CHECK', 'SHAKY', 'add', 'cfg_dir', 'CtxPool', 'settings',
-           'save_settings', 'update_settings', 'top', 'fit', 'raw', 'val', 'dflt', 'use_settings', 'source_root_why',
-           'roots', 'dropped_roots', 'set_val', 'reset', 'rows', 'reset_group', 'changed', 'clamped', 'register',
-           'lines', 'need_lines', 'saved', 'prompt', 'set_prompt', 'meta_of', 'slugify', 'idea_name', 'real_idea',
-           'listed', 'usable_name', 'concept_text', 'Learning', 'clean_name', 'wrong_ideas', 'clean_group', 'fold',
-           'under', 'clean_subject', 'readable_name', 'tree', 'attempt_text', 'temp_learning', 'outcome', 'recall',
-           'grow', 'update', 'next_depth', 'learned', 'ready', 'pick', 'understanding', 'weak', 'way', 'credit',
-           'posterior', 'mean', 'improving', 'choose', 'check_for', 'methods_text', 'profile_text', 'clean',
-           'onboard_prompt', 'onboard', 'evidence', 'observe_prompt', 'observe', 'teach_sp', 'level_line', 'plainly',
-           'calibration', 'calibration_text', 'ledger', 'job_version', 'job_start', 'job_end', 'JobStopped', 'stop_job',
-           'halted', 'check_stop', 'can_again', 'track', 'job_said', 'Said', 'seen_jobs', 'close_jobs', 'activity',
-           'chip_words', 'current', 'keyed_lock', 'walk_state']
+           'OLD', 'STOPPED', 'WORD', 'STATUS', 'NO_CHECK', 'SHAKY', 'add', 'cfg_dir', 'use_config', 'is_hosted',
+           'CtxPool', 'settings', 'save_settings', 'update_settings', 'top', 'fit', 'raw', 'val', 'dflt',
+           'use_settings', 'source_root_why', 'roots', 'dropped_roots', 'set_val', 'reset', 'rows', 'reset_group',
+           'changed', 'clamped', 'register', 'lines', 'need_lines', 'saved', 'prompt', 'set_prompt', 'meta_of',
+           'slugify', 'idea_name', 'real_idea', 'listed', 'usable_name', 'concept_text', 'Learning', 'clean_name',
+           'wrong_ideas', 'clean_group', 'fold', 'under', 'clean_subject', 'readable_name', 'tree', 'attempt_text',
+           'temp_learning', 'outcome', 'recall', 'grow', 'update', 'next_depth', 'learned', 'ready', 'pick',
+           'understanding', 'weak', 'way', 'credit', 'posterior', 'mean', 'improving', 'choose', 'check_for',
+           'methods_text', 'profile_text', 'clean', 'onboard_prompt', 'onboard', 'evidence', 'observe_prompt',
+           'observe', 'teach_sp', 'level_line', 'plainly', 'calibration', 'calibration_text', 'ledger', 'job_version',
+           'job_start', 'job_end', 'JobStopped', 'stop_job', 'halted', 'check_stop', 'can_again', 'track', 'job_said',
+           'Said', 'seen_jobs', 'close_jobs', 'activity', 'chip_words', 'current', 'keyed_lock', 'walk_state']
 
 # %% ../nbs/00_learner.ipynb #6892d8ed
 import threading, weakref, os, json, time, random, uuid, contextvars
@@ -179,9 +179,21 @@ add('lists.changes', 'lists', 'Changes on the Profile page', 'How many changes t
 add('lists.sort_batch', 'lists', 'Concepts in one sort', 'How many concepts the tutor sorts into groups in one request. With fewer, each request is shorter.', 40, 10, 100, more=True);
 
 # %% ../nbs/00_learner.ipynb #3adc33c5
+_home = contextvars.ContextVar('abhyasa_home', default=None)   # the folder a host gives for one call; None means the environment
+
 def cfg_dir() -> Path:
-    "The folder for abhyasa's settings and keys: `$ABHYASA_CONFIG`, else `~/.config/abhyasa`."
-    return Path(os.getenv('ABHYASA_CONFIG') or '~/.config/abhyasa').expanduser()
+    "The folder for abhyasa's settings and keys: the one of `use_config`, else `$ABHYASA_CONFIG`, else `~/.config/abhyasa`."
+    return _home.get() or Path(os.getenv('ABHYASA_CONFIG') or '~/.config/abhyasa').expanduser()
+
+@contextmanager
+def use_config(path):
+    "Keep abhyasa's files in the folder `path` for this call and the jobs it starts, and read no key file; `None` changes nothing."
+    if path is None: yield; return
+    tok = _home.set(Path(path))
+    try: yield
+    finally: _home.reset(tok)
+
+def is_hosted() -> bool: return _home.get() is not None
 
 DFLT_SETTINGS = dict(prompts={}, downloaded=[])   # your text for a prompt, by name; the models that the Settings page downloaded
 for _r in SETTINGS.values():

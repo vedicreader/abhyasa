@@ -22,9 +22,9 @@ __all__ = ['DFLT_MODEL', 'TASKS', 'TOKENS', 'TOKENS_MAX', 'PROVIDERS', 'LOCAL', 
            'SpeakError', 'openai_why', 'tex_words', 'part_times', 'spoken', 'speak', 'Speaker', 'Dictation', 'Speech']
 
 # %% ../nbs/01_models.ipynb #9cfb2945
-import json, os, re, gc, time, uuid, inspect, tempfile, threading, wave
+import json, os, re, gc, time, uuid, inspect, tempfile, threading, wave, contextvars
 from fastcore.utils import *
-from .learner import val, dflt, fit, settings, SETTINGS, BORROWS
+from .learner import val, dflt, fit, settings, SETTINGS, BORROWS, CtxPool
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
@@ -211,7 +211,7 @@ class Router:
         "Start the backend of each job in `jobs` (default: each task, and each job of `WARM`) in a background thread, with no model call. Returns the thread, or None."
         if not hasattr(self.dflt, 'warm'): return None
         names = {j: self.name(j) for j in (TASKS + WARM if jobs is None else jobs)}
-        t = threading.Thread(target=lambda: self.dflt.warm(names), daemon=True)
+        t = threading.Thread(target=contextvars.copy_context().run, args=(self.dflt.warm, names), daemon=True)
         t.start()
         return t
 
@@ -369,7 +369,7 @@ POCKET_FILES = ('languages/english/model.safetensors', 'languages/english/tokeni
 VOICE_FILES = {POCKET: POCKET_FILES}
 
 # %% ../nbs/01_models.ipynb #v010
-from .learner import cfg_dir, DFLT_SETTINGS, settings, save_settings, update_settings, val
+from .learner import cfg_dir, is_hosted, DFLT_SETTINGS, settings, save_settings, update_settings, val
 
 # %% ../nbs/01_models.ipynb #v014
 def resolve(engine:str, model:str='') -> tuple:
@@ -445,6 +445,7 @@ ENGINES = dict(mlx=_mlx, openai=_openai)
 def openai_key() -> tuple:
     "The OpenAI key and where it is from; `('', '')` when there is none."
     if (k := os.getenv('OPENAI_API_KEY')): return k, 'environment'
+    if is_hosted(): return '', ''   # a host owns the key: it comes from its environment, never from a file
     from ramabana.setup import keys_path, read_key
     for p in (cfg_dir()/'keys.env', keys_path()):
         if (k := read_key('OPENAI_API_KEY', p)): return k, str(p)
@@ -800,7 +801,7 @@ class Speaker:
     def __init__(self, fn=None, most:int=64, here=None):
         self.fn, self.most, self.lines, self.status, self.warmed, self.error = fn or speak, most, {}, 'not loaded', None, ''
         self.here = here or (lambda m: cached(m))   # a model that is not on this Mac is not downloaded here: the Settings page gets it
-        self.ex, self.lock = ThreadPoolExecutor(1, thread_name_prefix='voice'), threading.Lock()
+        self.ex, self.lock = CtxPool(1, thread_name_prefix='voice'), threading.Lock()
 
     def ready(self, engine:str, model:str):
         "Raise when the model of the local voice is not on this Mac yet: the browser speaks until then."
@@ -883,7 +884,7 @@ class Speech:
     "One worker thread for every speech model call, and the open dictations."
     def __init__(self, fn=None):
         self.fn, self.runs, self.status = fn or transcribe, {}, 'not loaded'
-        self.ex = ThreadPoolExecutor(1, thread_name_prefix='speech')
+        self.ex = CtxPool(1, thread_name_prefix='speech')
 
     def submit(self, f, *a, **kw): return self.ex.submit(f, *a, **kw)
 
