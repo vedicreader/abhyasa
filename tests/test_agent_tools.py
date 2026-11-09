@@ -187,3 +187,138 @@ def test_note_confusion_is_no_answer(lr):
     keep, lr.set_profile = lr.set_profile, raiser(apsw.ReadOnlyError('x'))
     try: assert at.note_confusion(lr, jid, 1, 'what is k')['error'] == 'read_only'
     finally: lr.set_profile = keep
+
+def say(*changes): return lambda p, sp='': json.dumps(dict(changes=list(changes)))
+def steps(lr, jid): return [(s['slug'], s.get('status'), bool(s.get('locked'))) for s in lr.journey(jid).steps]
+def withheld(p, sp=''): raise Withheld('no')
+
+def test_every_tool_is_an_operation_and_reads_are_listed():
+    names = [n for n, _ in at.TOOLS]
+    assert len(names) == len(set(names)) and all(callable(getattr(at, n)) for n in names)
+    assert set(at.READS) <= set(names) and {'change_walk', 'keep_idea', 'drop_idea', 'move_idea', 'add_source', 'list_versions', 'restore_version', 'explain_here'} <= set(names)
+
+def test_change_walk_changes_the_plan_as_one_change_with_an_undo(lr):
+    jid = mk_walk(lr)
+    r = at.change_walk(lr, say(dict(op='skip', idea='scores', why='you asked')), jid, 'skip the scores idea')
+    assert (r['status'], r['data']['changed'], r['data']['changes'][0]['op']) == ('ok', True, 'skip') and json.loads(json.dumps(r)) == r
+    assert steps(lr, jid)[2][1] == 'skip' and len(lr.edits('walk', jid)) == 1 and r['revision'] == lr.journey(jid).get('updated')
+    from abhyasa.path import undo_walk
+    undo_walk(lr, jid)
+    assert steps(lr, jid)[2][1] == 'todo', 'one Undo takes the whole change back'
+    n = at.change_walk(lr, say(), jid, 'something odd')
+    assert (n['status'], n['data']['changed'], n['data']['changes']) == ('ok', False, [])
+    w = at.change_walk(lr, say(dict(op='source', idea='ranking', why='no source')), jid, 'add sources for idea 1')
+    assert w['data']['sources_wanted'] == ['ranking'] and not w['data']['changed']
+
+def test_change_walk_never_changes_a_kept_idea(lr):
+    jid = mk_walk(lr)
+    assert at.keep_idea(lr, jid, '2')['data']['changed']
+    at.change_walk(lr, say(dict(op='skip', idea='reciprocal-rank-fusion', why='x'), dict(op='skip', idea='scores', why='x')), jid, 'skip both')
+    assert steps(lr, jid) == [('ranking', 'todo', False), ('reciprocal-rank-fusion', 'todo', True), ('scores', 'skip', False)]
+
+def test_change_walk_failures_leave_the_walk_as_it_was(lr):
+    jid = mk_walk(lr)
+    before, asked = lr.journey(jid), []
+    skip = say(dict(op='skip', idea='scores', why='x'))
+    assert [at.change_walk(lr, skip, j, 'x')['error'] for j in ('nope',)] == ['not_found']
+    r = at.change_walk(lr, skip, jid, 'x', revision='old')
+    assert (r['status'], r['error'], r['data']['revision']) == ('error', 'stale_state', before.get('updated'))
+    assert at.change_walk(lr, withheld, jid, 'mail jane.doe@example.com')['error'] == 'privacy_refused'
+    assert at.change_walk(lr, raiser(at.ModelRefused('no')), jid, 'x')['error'] == 'model_refused' and at.change_walk(lr, skip, jid, '  ')['error'] == 'model_refused'
+    s = at.change_walk(lr, lambda p, sp='': asked.append(p) or '{}', jid, 'x', stopping=lambda: True)
+    assert (s['status'], s['error']) == ('stopped', 'stopped') and not asked, 'a stop before the call sends nothing'
+    flag = []
+    s = at.change_walk(lr, lambda p, sp='': flag.append(1) or skip(p), jid, 'x', stopping=lambda: bool(flag))
+    assert s['status'] == 'stopped' and len(flag) == 1, 'a stop inside the call is seen before the walk is saved'
+    def moves(p, sp=''): at.keep_idea(lr, jid, '1'); return skip(p)
+    before = lr.journey(jid)
+    r = at.change_walk(lr, moves, jid, 'skip scores')
+    assert r['error'] == 'stale_state' and steps(lr, jid)[2][1] == 'todo', 'a walk that changed during the model call is not overwritten'
+    assert len(lr.edits('walk', jid)) == 1
+
+def test_change_walk_new_idea_that_the_stop_cuts_leaves_no_change(lr):
+    jid = mk_walk(lr)
+    calls = []
+    add = say(dict(op='add', name='Rank metrics', to=1, why='x'))
+    def ask(p, sp=''): calls.append(p); return add(p) if len(calls) == 1 else json.dumps(dict(name='Rank metrics', statement='Rank metrics score how good a list of ranks is.', core='', wrong=[]))
+    r = at.change_walk(lr, ask, jid, 'add rank metrics', stopping=lambda: len(calls) > 1)
+    assert r['status'] == 'stopped' and [s[0] for s in steps(lr, jid)] == ['ranking', 'reciprocal-rank-fusion', 'scores'] and not lr.edits('walk', jid)
+
+def test_hand_changes_use_the_slug_or_the_number_and_keep_an_undo(lr):
+    jid = mk_walk(lr)
+    k = at.keep_idea(lr, jid, 'ranking')
+    assert (k['status'], k['data']['changed']) == ('ok', True) and steps(lr, jid)[0][2]
+    assert not at.keep_idea(lr, jid, '1')['data']['changed'], 'a second keep changes nothing'
+    m = at.move_idea(lr, jid, '3', 1)
+    assert m['data']['ideas'] == ['scores', 'ranking', 'reciprocal-rank-fusion'] and len(lr.edits('walk', jid)) == 2
+    d = at.drop_idea(lr, jid, 'ranking', revision=m['revision'])
+    assert d['data']['ideas'] == ['scores', 'reciprocal-rank-fusion']
+    assert [at.drop_idea(lr, jid, 'zzz')['error'], at.drop_idea(lr, jid, '9')['error'], at.keep_idea(lr, 'nope', '1')['error'], at.move_idea(lr, 'nope', '1', 1)['error']] == ['not_found'] * 4
+    assert at.keep_idea(lr, jid, '1', revision='old')['error'] == 'stale_state' and at.drop_idea(lr, jid, '1', revision=m['revision'])['error'] == 'stale_state'
+    assert at.move_idea(lr, jid, '1', 7)['error'] == 'model_refused' and at.move_idea(lr, jid, '1', 'x')['error'] == 'model_refused'
+
+def test_versions_list_and_restore(lr):
+    jid = mk_walk(lr)
+    at.drop_idea(lr, jid, '3'); at.move_idea(lr, jid, '2', 1)
+    v = at.list_versions(lr, jid)
+    assert v['status'] == 'ok' and [x['version'] for x in v['data']['versions']] == [1, 2] and all(x['restorable'] for x in v['data']['versions']) and json.loads(json.dumps(v)) == v
+    r = at.restore_version(lr, jid, 2)
+    assert r['status'] == 'ok' and r['data']['ideas'] == ['ranking', 'reciprocal-rank-fusion', 'scores'] and len(at.list_versions(lr, jid)['data']['versions']) == 3
+    assert at.restore_version(lr, jid, 9)['error'] == at.restore_version(lr, jid, 0)['error'] == at.list_versions(lr, 'nope')['error'] == 'not_found'
+    assert at.restore_version(lr, jid, 1, revision='old')['error'] == 'stale_state' and at.restore_version(lr, 'nope', 1)['error'] == 'not_found'
+
+def test_add_source_files_a_document_and_grounds_the_ideas_that_have_none(lr):
+    jid = mk_walk(lr)
+    d = lr.vault.add([(0, 'Ranking\n\nA reciprocal rank fusion adds one over rank plus k for each list that ranks the item. It joins ranked lists into one.' * 2)], 'Fusion notes', source='https://example.org/fusion', kind='web')['doc_id']
+    r = at.add_source(lr, jid, f'doc:{d}')
+    j = lr.journey(jid)
+    assert (r['status'], r['data']['changed'], r['data']['documents']) == ('ok', True, 1) and j['chips'] == [f'doc:{d}'] and j['chip_counts'] == {f'doc:{d}': 1}
+    assert j.steps[1]['read']['text'].strip() and j.steps[1]['read']['url'] == 'https://example.org/fusion', 'the idea with no passage gets a verbatim one'
+    assert j.steps[0]['read']['text'] == QUOTE, 'a passage that a step has stays'
+    assert not at.add_source(lr, jid, f'doc:{d}')['data']['changed'] and len(lr.edits('walk', jid)) == 1
+    from abhyasa.path import undo_walk
+    undo_walk(lr, jid)
+    assert not lr.journey(jid).get('chips') and not lr.journey(jid).steps[1].get('read'), 'one Undo takes the source and its passages back'
+    assert [at.add_source(lr, jid, 'doc:nope')['error'], at.add_source(lr, jid, ' ')['error'], at.add_source(lr, jid, '/nowhere/x.md')['error']] == ['source_missing'] * 3
+    assert at.add_source(lr, 'nope', f'doc:{d}')['error'] == 'not_found' and at.add_source(lr, jid, f'doc:{d}', revision='old')['error'] == 'stale_state'
+    assert at._chip('https://a.b/c.') == 'link:https://a.b/c.' and at._chip('gh:a/b') == 'gh:a/b' and at._chip('Notes') == 'vault:Notes'
+
+def test_explain_here_teaches_the_step_with_its_quote_and_keeps_the_confusion(lr):
+    jid, asked = mk_walk(lr), []
+    ask = lambda p, sp='': asked.append((p, sp)) or '1. A rank is a place in a list.'
+    r = at.explain_here(lr, ask, jid, 0, 'why does\nrank start at 1')
+    d = r['data']
+    assert (r['status'], r['step'], d['recorded'], d['ungrounded'], d['quote']['url']) == ('ok', 0, True, False, 'https://example.org/notes') and json.loads(json.dumps(r)) == r
+    p, sp = asked[0]
+    assert QUOTE in p and 'why does rank start at 1' in p and 'answered anything wrong' in p and 'Their' not in p and sp, 'the quote and the words go in; no answer is made up'
+    assert d['simpler'] and 'numbered steps' in p and d['explanation'].startswith('1.') and d['confuses'] == ['Ranking: why does rank start at 1']
+    u = at.explain_here(lr, ask, jid, 1, 'what is k')
+    assert u['data']['ungrounded'] and 'no source passage' in asked[-1][0] and QUOTE not in asked[-1][0]
+    lr.update('ranking', floor=4, strength=1.)
+    assert at.explain_here(lr, ask, jid, 0, 'again')['status'] == 'ok'
+
+def test_explain_here_failures_keep_nothing(lr):
+    jid = mk_walk(lr)
+    ok = lambda p, sp='': 'x'
+    assert [at.explain_here(lr, ok, 'nope', 0, 'q')['error'], at.explain_here(lr, ok, jid, 9, 'q')['error']] == ['not_found'] * 2
+    assert at.explain_here(lr, ok, jid, 0, 'q', revision='old')['error'] == 'stale_state'
+    assert at.explain_here(lr, withheld, jid, 0, 'jane.doe@example.com')['error'] == 'privacy_refused'
+    assert at.explain_here(lr, raiser(at.ModelRefused('no')), jid, 0, 'q')['error'] == 'model_refused' and at.explain_here(lr, lambda p, sp='': ' ', jid, 0, 'q')['error'] == 'model_refused'
+    assert at.explain_here(lr, ok, jid, 0, ' ')['error'] == 'model_refused'
+    s = at.explain_here(lr, ok, jid, 0, 'q', stopping=lambda: True)
+    assert (s['status'], s['error']) == ('stopped', 'stopped') and not lr.profile().confuses
+
+def test_the_page_gives_the_walk_and_step_on_screen(lr):
+    jid = mk_walk(lr)
+    kinds = [at.page_of(p)['kind'] for p in ('/w/a/2?pane=1', '/w/a', '/w/a/gather', '/c/x', '/you', '/you/strengths', '/graph', '/library/graph', '/library', '/concepts', '/t/9', '/talk/new', '/talks', '/', '', '/zzz')]
+    assert kinds == ['step', 'walk', 'walk', 'concept', 'you', 'you', 'graph', 'graph', 'library', 'library', 'talk', 'talk', 'talk', 'today', '', 'other']
+    assert at.page_of('/learn/abh/w/a%20b/2') == dict(kind='step', jid='a b', i=2, slug=None)
+    c1 = at.learner_context(lr, None, page=f'/w/{jid}/1?x=1')
+    assert 'Step 2 of 3' in c1 and 'This step is ungrounded' in c1 and 'explain_here' in c1 and at.RULE in c1 and len(c1) <= 1200
+    c0 = at.learner_context(lr, jid, 2, page=f'/w/{jid}/0')
+    assert QUOTE in c0 and 'Step 1 of 3' in c0, 'the page wins over the step that the host passes'
+    assert 'this walk' in at.learner_context(lr, page=f'/w/{jid}') and 'Step 1 of 3' in at.learner_context(lr, page=f'/w/{jid}')
+    assert 'the graph page' in at.learner_context(lr, page='/graph') and at.RULE in at.learner_context(lr, page='/graph')
+    assert 'the concept Ranking' in at.learner_context(lr, page='/c/ranking') or 'the concept page' in at.learner_context(lr, page='/c/ranking')
+    assert at.learner_context(lr, page='/w/zz/0').endswith(at.RULE) and at.learner_context(lr) == at.learner_context(lr, page='')
+    assert len(at.learner_context(lr, jid, page=f'/w/{jid}/0', n=300)) <= 301
