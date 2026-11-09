@@ -16,7 +16,7 @@ def _pick(name, opts, val):
     return Select(*[Option(t, value=v, selected=v == val) for v, t in opts], name=name)
 
 def _slide(name, title, lo=0, hi=100, val=50, step=1):
-    return Label(Span(title), Input(type='range', name=name, min=lo, max=hi, value=val, step=step), cls='slide')
+    return Label(Span(title), Input(type='range', name=name, min=lo, max=hi, value=val, step=step, aria_label=title), cls='slide')
 
 def _tick(name, title, on=False): return Label(Input(type='checkbox', name=name, checked=on), title, cls='tick')
 
@@ -26,7 +26,7 @@ def Levers(subjects):
                   for v, t, k, why in MODES], cls='modes')
     floors = [(str(i), d) for i, d in enumerate(DEPTHS)]
     return Aside(
-        _sec('Find', Input(type='search', name='q', placeholder='A concept', autocomplete='off'), keys='S'),
+        _sec('Find', Input(type='search', name='q', placeholder='A concept', aria_label='Find a concept in the graph', autocomplete='off'), keys='S'),
         P('Point at a concept and press E, or find a concept.', cls='hint', id='focus-name'),   # it changes on E, so it stays out of the fold
         _sec('Layout', modes, keys='1–4'),
         _sec('Colours', Div(cls='legend')),
