@@ -163,17 +163,20 @@ var abhyasaStage = globalThis.abhyasaStage || (() => {
   }
 
   // The presenter window: the talk keys, and the laser from the pointer over `el`.
-  // A key works only when `html` has the class `talk`, the focus is not in a text box, and the focus is not in the demo
+  // A key works only when `el` has an ancestor with the class `talk` (`html` in a window of its own, or the element of a host, where the
+  // focus must also be inside it), the focus is not in a text box, and the focus is not in the demo
   // (`[data-rupaka]`), where the demo's own keys win; Esc still comes here, so it can leave the demo. ⌥, ⌘ and Ctrl keys go on
   // to core.js. The name of a key is its `e.code`, with `Shift+` before it when Shift is down; a digit is its `e.key`.
   // The listener is on `document` in the capture phase, so the talk's Esc comes before the Esc of core.js. A function that
   // gives false lets the key go on.
   function presenter(el, ch, {keys = {}} = {}) {
-    const root = document.documentElement, box = 'textarea, input, select, [contenteditable]:not([contenteditable="false"])';
+    const box = 'textarea, input, select, [contenteditable]:not([contenteditable="false"])';
     let laser = false, frame = 0, at = null;
     const onKey = e => {
-      if (!root.classList.contains('talk') || e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;   // a held key does not skip beats
+      const root = el.closest('.talk');
+      if (!root || e.repeat || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;   // a held key does not skip beats
       const a = document.activeElement;
+      if (root !== document.documentElement && !root.contains(a)) return;
       if (a && (a.matches(box) || a.isContentEditable)) return;
       if (e.key !== 'Escape' && a?.closest('[data-rupaka]')) return;
       const name = /^[0-9]$/.test(e.key) ? e.key : (e.shiftKey ? 'Shift+' : '') + e.code, fn = Object.hasOwn(keys, name) && keys[name];

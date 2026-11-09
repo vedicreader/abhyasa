@@ -78,17 +78,12 @@ if (!window.abhyasaTalk) {
 // Both windows draw every slide of the talk, and show only the slide of the place. The presenter posts each move to the server
 // first, and sends the stage messages from the reply, so the run log always has the place and a reload of either window finds it.
 // In a talk window, ⌥T, ⌥C, ⌥G, ⌥D and / do nothing, so a stray key never leaves a live talk, and Esc never ends the talk.
+// A host that has no window of its own for the talk gives `abhyasaTalkWindow` an element with the classes `talk present` that holds
+// the presenter page: the keys then work only with the focus inside it, and the call gives back a function that stops them.
 (() => {
 if (window.abhyasaTalkWindows) return;
 window.abhyasaTalkWindows = true;
-const root = document.documentElement;
-if (!root.classList.contains('present') && !root.classList.contains('audience')) return;
-addEventListener('keydown', e => {
-  const typing = e.target?.matches?.('textarea, input, select, [contenteditable]:not([contenteditable="false"])');
-  if ((e.altKey && ['KeyT', 'KeyQ', 'KeyR', 'KeyG', 'KeyC', 'KeyD', 'Digit1', 'Digit2', 'Digit3'].includes(e.code)) || (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey)) {
-    e.preventDefault(); e.stopImmediatePropagation();
-  }
-}, true);
+const html = document.documentElement;
 
 const LETTERS = 'ABCDEF';
 const PANE = /^\/w\/[a-z0-9-]{1,48}\/[0-9]{1,3}$/;   // the only page that the side pane of a talk opens: a walk step (spec 9.2)
@@ -211,7 +206,10 @@ function drawEnd(st) {
 
 // The audience window tells how many pages its primer has (`pages`), so a presenter window with no pane (a narrow one) stops at the real last page.
 // The presenter tells how far the demo box scrolls (`demoscroll`, 0 to 1), when the demo is in a taller box.
+let typed = false;   // a host can open a window more than once
 const stageTypes = () => {
+  if (typed) return;
+  typed = true;
   abhyasaStage.add('pages', {n: v => Number.isInteger(v) && v >= 1 && v <= 20}, ['n']);
   abhyasaStage.add('demoscroll', {y: v => typeof v === 'number' && v >= 0 && v <= 1}, ['y']);
 };
@@ -260,8 +258,9 @@ function fit(host) {
 }
 
 // --- the presenter window ----------------------------------------------------------------------------------------------
-function presenterView(st) {
+function presenterView(st, root = html, signal) {
   stageTypes();
+  const mine = e => root === html || root.contains(e.target), opt = {capture: true, signal};
   const box = document.getElementById('talk'), base = `/t/${box.dataset.tid}/`, ch = abhyasaStage.channel(box.dataset.channel);
   const $ = id => document.getElementById(id), sayLine = $('say');
   // the result and the pair prompt that show now come from the run log, so a reload of this window can give them to a hello again
@@ -355,7 +354,8 @@ function presenterView(st) {
   }
   const openPane = () => {
     if (!side) return;
-    if (wide.matches) { abhyasaPane.open(side.url + '?pane=1&talk=1', side.title); framePage(paneFrame(), side.page || 0); }
+    if (root !== html) say('The primer shows beside the slide in the audience window.');
+    else if (wide.matches) { abhyasaPane.open(side.url + '?pane=1&talk=1', side.title); framePage(paneFrame(), side.page || 0); }
     else say('The primer shows beside the slide in the audience window. Make this window wider to see it here too.');
   };
   const choose = w => act(async () => {
@@ -386,8 +386,8 @@ function presenterView(st) {
   });
   const closePane = () => abhyasaPane.isOpen() ? abhyasaPane.close() : closeSide();
   let paneWas = root.classList.contains('rh-open');
-  new MutationObserver(() => { const now = root.classList.contains('rh-open'); if (paneWas && !now) closeSide(); paneWas = now; })
-    .observe(root, {attributes: true, attributeFilter: ['class']});
+  const paneSeen = new MutationObserver(() => { const now = root.classList.contains('rh-open'); if (paneWas && !now) closeSide(); paneWas = now; });
+  paneSeen.observe(root, {attributes: true, attributeFilter: ['class']});
 
   // --- the question for the room
   const block = () => side?.open ? $('ask-side') : document.querySelector(`#ask-card .ask-q[data-sid="${CSS.escape(at.slide)}"]`);
@@ -495,10 +495,10 @@ function presenterView(st) {
   $('ask-go').addEventListener('click', main);
   // ⌥B and ⌥Z keep their app meanings (spec 11): learn beside, and back to the slide. pane.js takes ⌥Z while its pane shows.
   addEventListener('keydown', e => {
-    if (!e.altKey || e.metaKey || e.ctrlKey || e.repeat || !root.classList.contains('talk')) return;
+    if (!mine(e) || !e.altKey || e.metaKey || e.ctrlKey || e.repeat || !root.classList.contains('talk')) return;
     if (e.code === 'KeyB') { e.preventDefault(); e.stopImmediatePropagation(); act(() => offer()); }
     else if (e.code === 'KeyZ' && !abhyasaPane.isOpen() && (side || at.pane)) { e.preventDefault(); e.stopImmediatePropagation(); closeSide(); }
-  }, true);
+  }, opt);
   // End the talk: the run ends on the server, the audience window shows the end, and this window opens After the talk.
   const endTalk = () => act(async () => {
     const r = await fetch(base + 'end', {method: 'POST'}).catch(() => null);
@@ -507,6 +507,7 @@ function presenterView(st) {
     window.abhyasaTalkEnded ? abhyasaTalkEnded(new URL(r.url).pathname) : location.assign(r.url);
   });
   $('end-form').addEventListener('submit', e => { e.preventDefault(); endTalk(); });
+  $('end-form').addEventListener('click', e => { if (e.target.closest('button')) { e.preventDefault(); endTalk(); } });   // a host that takes every form below it never sees the submit
   $('pair-go').addEventListener('click', () => act(() => ask('pair', {on: pair?.on ? 0 : 1})));
   document.querySelectorAll('#ask-card [data-hand]').forEach(b => b.addEventListener('click', () => hand(+b.dataset.hand + 1)));
 
@@ -530,8 +531,9 @@ function presenterView(st) {
     const w = window.open(box.dataset.audience, box.dataset.window, 'popup,width=1280,height=720');
     if (!w) say('The browser did not open the audience window. Use the link at the top.');
   }
-  addEventListener('keydown', openAudience, true);
-  addEventListener('pointerdown', openAudience, true);
+  const first = e => { if (mine(e)) openAudience(); };
+  addEventListener('keydown', first, opt);
+  addEventListener('pointerdown', first, opt);
 
   // --- paint: the parts of the presenter view that follow the place
   function paint() {
@@ -567,7 +569,7 @@ function presenterView(st) {
     $('left').textContent = `About ${left} min of slides left`;
     paint();
   };
-  tick(); setInterval(tick, 1000);
+  tick(); const ticker = setInterval(() => root.isConnected ? tick() : stop(), 1000);
   if (side && !(side.open && at.ask === at.slide)) side.open = false;
   drawSide();
   if (side && at.pane) openPane();   // a reload: the primer is still beside the slide
@@ -576,6 +578,8 @@ function presenterView(st) {
   if (pair) drawPair(st, pair);
   show(st, at.slide, at.beat);
   paint();
+  function stop() { clearInterval(ticker); p.stop(); ch.close(); paneSeen.disconnect(); }
+  return stop;
 }
 
 // --- the audience window -----------------------------------------------------------------------------------------------
@@ -618,6 +622,17 @@ function audienceView(st) {
     note.hidden = false; clearTimeout(t); t = setTimeout(() => { note.hidden = true; }, 3000);
   });
 }
-const start = () => (root.classList.contains('present') ? presenterView : audienceView)(document.getElementById('stage'));
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+window.abhyasaTalkWindow = root => {
+  const ac = new AbortController(), stop = (root.classList.contains('present') ? presenterView : audienceView)(root.querySelector('#stage'), root, ac.signal);
+  addEventListener('keydown', e => {
+    if (root !== html && !root.contains(e.target)) return;
+    const typing = e.target?.matches?.('textarea, input, select, [contenteditable]:not([contenteditable="false"])');
+    if ((e.altKey && ['KeyT', 'KeyQ', 'KeyR', 'KeyG', 'KeyC', 'KeyD', 'Digit1', 'Digit2', 'Digit3'].includes(e.code)) || (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !e.altKey)) {
+      e.preventDefault(); e.stopImmediatePropagation();
+    }
+  }, {capture: true, signal: ac.signal});
+  return () => { ac.abort(); stop?.(); };
+};
+const start = () => abhyasaTalkWindow(html);
+if (html.classList.contains('present') || html.classList.contains('audience')) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start(); }
 })();
