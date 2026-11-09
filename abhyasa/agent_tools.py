@@ -110,6 +110,7 @@ def create_walk(
     goal:str,                            # what the learner wants to learn
     stopping=lambda: False,              # true after a stop
     progress=lambda stage, frac: None,   # told the stage ('planning', 'sources', 'steps') and the part done
+    settings:dict|None=None,             # the host's values of the settings rows (row name to value), for this call only; None reads the settings file
 ) -> dict:
     "Plan a walk to `goal` with the host model, find a passage for each step, and save it."
     def make():
@@ -127,7 +128,7 @@ def create_walk(
         progress('steps', 1.)
         if (redacted := sent != goal): w = lr.merge_journey(w.id, title=goal)
         return result('ok', walk=w.id, vault=_vault(lr), revision=w.get('updated'), data=dict(title=w.title, steps=len(w.steps), redacted=redacted))
-    return _run(make)
+    with learner.use_settings(settings): return _run(make)
 
 # %% ../nbs/06_agent_tools.ipynb #0276426e
 def _gauge(c) -> dict:
@@ -154,7 +155,8 @@ def _step(lr:Learning, i:int, s, c) -> dict:
 
 def walk_state(
     lr:Learning,  # the learner's store
-    jid:str       # the walk id
+    jid:str,      # the walk id
+    settings:dict|None=None   # the host's values of the settings rows, for this call only; None reads the settings file
 ) -> dict:
     "The walk as plain data: its steps with their quote or `ungrounded` and their checks, and the gauge of each concept."
     def get():
@@ -165,7 +167,7 @@ def walk_state(
         steps = [_step(lr, i, s, by.get(s['slug'])) for i, s in enumerate(ws.steps)]
         return result('ok', walk=jid, vault=_vault(lr), revision=j.get('updated'),
                       data=dict(id=jid, title=j.title, steps=steps, current=ws.current, gauge={s['slug']: _gauge(by[s['slug']]) for s in steps if s['slug'] in by}))
-    return _run(get, walk=jid)
+    with learner.use_settings(settings): return _run(get, walk=jid)
 
 # %% ../nbs/06_agent_tools.ipynb #af45b703
 def _attempt(lr:Learning, slug:str, jid:str, i:int, attempt_id:str):
@@ -190,6 +192,7 @@ def record_attempt(
     answer:str,      # the learner's answer
     attempt_id:str,  # the key of this answer, made once by the caller
     ask,             # the host model call, `ask(prompt, sp='')`
+    settings:dict|None=None,   # the host's values of the settings rows, for this call only; None reads the settings file
 ) -> dict:
     "Grade the answer to the short check of step `i` and save the attempt, once for each `attempt_id`."
     def go():
@@ -209,7 +212,7 @@ def record_attempt(
         a = _attempt(lr, slug, jid, i, attempt_id)
         _settle(lr, jid, slug, a)
         return _answered(lr, jid, i, slug, a)
-    with learner.keyed_lock('agent-answer', (jid, i)): return _run(go, walk=jid, step=i)
+    with learner.keyed_lock('agent-answer', (jid, i)), learner.use_settings(settings): return _run(go, walk=jid, step=i)
 
 # %% ../nbs/06_agent_tools.ipynb #0e4cda40
 def note_confusion(

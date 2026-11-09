@@ -1,6 +1,6 @@
-import json, time
+import json, threading, time
 import apsw
-from abhyasa import agent_tools as at
+from abhyasa import agent_tools as at, learner
 from abhyasa.learner import NO_CHECK, temp_learning
 from abhyasa.models import Withheld, guard
 
@@ -50,6 +50,39 @@ def test_create_walk_ok_and_every_failure(monkeypatch):
     lr = temp_learning()
     r = at.create_walk(lr, lambda p, sp='': asked.append(p) or PLAN, MAIL)
     assert r['data']['redacted'] and 'jane.doe@example.com' not in ' '.join(asked) and lr.journey(r['walk']).title == MAIL
+
+BIG = json.dumps(dict(title='Ranking', subject='ml', steps=[
+    dict(name=n, statement=f'{n} is one idea of ranking.', ways=['words']) for n in ('Scores', 'Ranks', 'Fusion', 'Recall', 'Precision', 'Lists')]))
+
+def n_steps(settings=None, ask=lambda p, sp='': BIG):
+    r = at.create_walk(temp_learning(), ask, 'learn ranking', settings=settings)
+    assert r['status'] == 'ok', r
+    return r['data']['steps']
+
+def test_create_walk_takes_the_hosts_settings(monkeypatch, tmp_path):
+    monkeypatch.setenv('ABHYASA_CONFIG', str(tmp_path))
+    learner.update_settings('walks', steps=4)
+    assert n_steps() == 4, 'no settings: the settings file counts, as before'
+    assert n_steps({}) == 6 and n_steps({'walks.steps': 3}) == 3 and n_steps({'walks.steps': 5}) == 5, 'given settings replace the file, and the others stay default'
+    assert n_steps({'walks.steps': 'x', 'nope.key': 1, 'prompts.x': 2}) == 6, 'a bad value gets the default, an unknown name is ignored'
+    assert n_steps() == 4 and json.loads((tmp_path/'settings.json').read_text())['walks']['steps'] == 4, 'nothing leaks to the file or to the next call'
+
+    gate, got = threading.Barrier(2, timeout=30), {}
+    def run(name, steps):
+        def ask(p, sp=''): gate.wait(); return BIG   # both calls are inside their settings when the model answers
+        got[name] = n_steps({'walks.steps': steps}, ask)
+    ts = [threading.Thread(target=run, args=a) for a in (('a', 3), ('b', 5))]
+    [t.start() for t in ts]; [t.join() for t in ts]
+    assert got == dict(a=3, b=5)
+
+def test_given_settings_refuse_a_write(monkeypatch, tmp_path):
+    monkeypatch.setenv('ABHYASA_CONFIG', str(tmp_path))
+    learner.update_settings('walks', steps=4)
+    before = (tmp_path/'settings.json').read_text()
+    with learner.use_settings({'walks.steps': 3}):
+        try: learner.update_settings('talks', slides=9); wrote = True
+        except RuntimeError: wrote = False
+    assert not wrote and (tmp_path/'settings.json').read_text() == before, 'a write inside given settings would drop the rows the host did not pass'
 
 def test_stop_leaves_no_partial_walk():
     asked, flag = [], []

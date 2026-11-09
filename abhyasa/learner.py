@@ -11,20 +11,21 @@ __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SET
            'FEEDBACK', 'EXPLORE', 'EMPTY', 'CHECK_KIND', 'DEPTH', 'LEARNING', 'PROFILE', 'LIST_FIELDS', 'EXAMPLES',
            'PACES', 'PROFILE_LABELS', 'ONBOARD_QS', 'ONBOARD_SP', 'OBSERVE_SP', 'HUMAN', 'LEVELS', 'FRESH', 'KEEP',
            'OLD', 'STOPPED', 'WORD', 'STATUS', 'NO_CHECK', 'SHAKY', 'add', 'cfg_dir', 'settings', 'save_settings',
-           'update_settings', 'top', 'fit', 'raw', 'val', 'dflt', 'source_root_why', 'roots', 'dropped_roots',
-           'set_val', 'reset', 'rows', 'reset_group', 'changed', 'clamped', 'register', 'lines', 'need_lines', 'saved',
-           'prompt', 'set_prompt', 'meta_of', 'slugify', 'idea_name', 'real_idea', 'listed', 'usable_name',
-           'concept_text', 'Learning', 'clean_name', 'wrong_ideas', 'clean_group', 'fold', 'under', 'clean_subject',
-           'readable_name', 'tree', 'attempt_text', 'temp_learning', 'outcome', 'recall', 'grow', 'update',
-           'next_depth', 'learned', 'ready', 'pick', 'understanding', 'weak', 'way', 'credit', 'posterior', 'mean',
-           'improving', 'choose', 'check_for', 'methods_text', 'profile_text', 'clean', 'onboard_prompt', 'onboard',
-           'evidence', 'observe_prompt', 'observe', 'teach_sp', 'level_line', 'plainly', 'calibration',
+           'update_settings', 'top', 'fit', 'raw', 'val', 'dflt', 'use_settings', 'source_root_why', 'roots',
+           'dropped_roots', 'set_val', 'reset', 'rows', 'reset_group', 'changed', 'clamped', 'register', 'lines',
+           'need_lines', 'saved', 'prompt', 'set_prompt', 'meta_of', 'slugify', 'idea_name', 'real_idea', 'listed',
+           'usable_name', 'concept_text', 'Learning', 'clean_name', 'wrong_ideas', 'clean_group', 'fold', 'under',
+           'clean_subject', 'readable_name', 'tree', 'attempt_text', 'temp_learning', 'outcome', 'recall', 'grow',
+           'update', 'next_depth', 'learned', 'ready', 'pick', 'understanding', 'weak', 'way', 'credit', 'posterior',
+           'mean', 'improving', 'choose', 'check_for', 'methods_text', 'profile_text', 'clean', 'onboard_prompt',
+           'onboard', 'evidence', 'observe_prompt', 'observe', 'teach_sp', 'level_line', 'plainly', 'calibration',
            'calibration_text', 'ledger', 'job_version', 'job_start', 'job_end', 'JobStopped', 'stop_job', 'halted',
            'check_stop', 'can_again', 'track', 'job_said', 'Said', 'seen_jobs', 'close_jobs', 'activity', 'chip_words',
            'current', 'keyed_lock', 'walk_state']
 
 # %% ../nbs/00_learner.ipynb #6892d8ed
-import threading, weakref, os, json, time, random, uuid
+import threading, weakref, os, json, time, random, uuid, contextvars
+from contextlib import contextmanager
 from fastcore.utils import *
 from pathlib import Path
 
@@ -188,11 +189,13 @@ for _r in SETTINGS.values():
 
 # %% ../nbs/00_learner.ipynb #49ae3583
 _cache = {}
+_given = contextvars.ContextVar('given_settings', default=None)   # the rows a host passes for one call; None means read the file
 
 def _path() -> Path: return cfg_dir()/'settings.json'
 
 def _saved() -> dict:
-    "The saved file as a dict; empty when it is missing or bad. It is read again only when it changed."
+    "The saved file as a dict; empty when it is missing or bad. It is read again only when it changed. In `use_settings` it is the given rows, and the file is not read."
+    if (g := _given.get()) is not None: return g
     p = _path()
     try: st = p.stat()
     except OSError: return {}
@@ -216,7 +219,8 @@ def settings() -> dict:
 _lock = threading.RLock()   # the web app saves from many threads: one read-change-write at a time
 
 def save_settings(d:dict) -> dict:
-    "Write all the settings."
+    "Write all the settings. In `use_settings` the host owns the values, so a write is refused."
+    if _given.get() is not None: raise RuntimeError('settings are given by the host for this call; abhyasa does not write its settings file')
     with _lock: return _write(d)
 
 def _write(d:dict) -> dict:
@@ -269,6 +273,18 @@ def val(name:str):
     return r.dflt if v is None else fit(r, v)
 
 def dflt(name:str): return SETTINGS[name].dflt
+
+# %% ../nbs/00_learner.ipynb #e38b7a24
+@contextmanager
+def use_settings(rows:dict|None):
+    "Read `rows` (row name to value) instead of the settings file, for this call only; `None` keeps what is in use."
+    if rows is None: yield; return
+    given = {}
+    for n, v in rows.items():
+        if (r := SETTINGS.get(n)) and r.store == 'file': given.setdefault(r.section, {})[r.key] = v
+    tok = _given.set(given)
+    try: yield
+    finally: _given.reset(tok)
 
 # %% ../nbs/00_learner.ipynb #a1685b9e
 NO_FOLDER = 'abhyasa cannot find this folder.'
