@@ -49,6 +49,7 @@ from fastcore.utils import *
 from .models import Withheld, guard, safe_query, guarded, ask_json, for_task
 import operator as op
 from concurrent.futures import ThreadPoolExecutor
+from .learner import CtxPool
 from rupaka.spec import upgrade, gallery, validate, SCHEMA, fmt_text, run as spec_state, plain_errors, plain_why
 from rupaka.agent import author, catalog, parse_json, repair_prompt, SHAPE
 from .learner import Learning, meta_of, slugify, _src, update, _back, way, choose, TEXT_WAYS, EXAMPLES_TO, FEEDBACK, register, prompt, lines, need_lines, val, track, job_said, check_stop
@@ -850,7 +851,7 @@ def make_demo(learning:Learning, ask, slug:str, first_error:str='', check=None, 
                              asked=dict(key=ask_key(said), said=said) if said else None)
 
 # %% ../nbs/05_show.ipynb #c035
-_POOL = ThreadPoolExecutor(1)
+_POOL = CtxPool(1)
 STAGES = dict(queued='Waits for the demo before it', writing='Writes the demo', fixing='The first demo did not pass its checks. The tutor writes it again.')
 TRY_ERRORS = 3   # the errors of each failed try that the log and the row keep
 
@@ -1702,7 +1703,7 @@ def fill_slide(lr:Learning, ask, s:dict, sources=None, audience:str='', no_code:
 
 def fill_slides(lr:Learning, ask, slides:list, sources=None, audience:str='', no_code:bool=False, change:str='') -> list:
     "`slides` with each slide that `needs_fill` filled."
-    with ThreadPoolExecutor(4) as ex: return list(ex.map(lambda s: fill_slide(lr, ask, s, sources, audience, no_code, change), slides))
+    with CtxPool(4) as ex: return list(ex.map(lambda s: fill_slide(lr, ask, s, sources, audience, no_code, change), slides))
 
 # %% ../nbs/05_show.ipynb #6dab3ff1
 POLL_SP = register('talk.poll', 'Talk poll', 'How the tutor writes the poll at the start of a talk from a notebook.', """You write one poll for the start of a workshop. A presenter asks the room the poll before the talk.

@@ -2674,6 +2674,7 @@ def go_back(lr:Learning, cid:str) -> AttrDict:
 import hashlib, json, logging, os, re, shutil, threading, time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from .learner import CtxPool
 from urllib.parse import urlparse, unquote
 from .learner import Learning, _union
 from .learner import val, source_root_why
@@ -2916,8 +2917,8 @@ class Researcher:
     "Research on its own pool of one worker, so a long search never holds a demo, a note or a lesson. It keeps the jobs of each walk."
     def __init__(self, lr:Learning, ask, workers:int=1, search=None, fetch=None):
         self.lr, self.ask, self.search, self.fetch, self.born = lr, ask, search, fetch, time.time()
-        self.pool, self.jobs, self.lock = ThreadPoolExecutor(workers, thread_name_prefix='research'), defaultdict(list), threading.Lock()
-        self.agents, self.stops = ThreadPoolExecutor(1, thread_name_prefix='gather'), {}   # the gather agent has its own pool, so it never holds a search
+        self.pool, self.jobs, self.lock = CtxPool(workers, thread_name_prefix='research'), defaultdict(list), threading.Lock()
+        self.agents, self.stops = CtxPool(1, thread_name_prefix='gather'), {}   # the gather agent has its own pool, so it never holds a search
 
     def resume(self):
         "At start: on the research pool, look again for each step that was pending before this run began. A restart stopped its search. Return the job of the scan, whose result is the list of research jobs."

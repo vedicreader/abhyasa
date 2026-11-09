@@ -13,7 +13,7 @@ from abhyasa.tutor import Tutor
 from abhyasa.models import route_ask, Router
 from abhyasa.sources import VaultSource
 from abhyasa.path import Researcher
-from abhyasa.learner import close_jobs
+from abhyasa.learner import close_jobs, CtxPool
 
 log = logging.getLogger(__name__)
 
@@ -66,7 +66,7 @@ def mk_app(learning:Learning, ask=None, transcribe=None, names=None, sources=Non
     cfg_dir().mkdir(parents=True, exist_ok=True)
     app, rt = fast_app(hdrs=HDRS(), pico=False, default_hdrs=False, bodykw=dict(hx_boost='true'), before=look_before,
                        key_fname=str(cfg_dir()/'.sesskey'), session_cookie=SESSION_COOKIE)   # not the working folder: an app may start in /, which is read only   # htmx and fasthtml.js come from core/vendor; links load in place
-    pool = ThreadPoolExecutor(2)
+    pool = CtxPool(2)
     if sources is None: sources = [VaultSource(learning)]
     svc = dict(learning=learning, tutor=Tutor(learning, ask, sources=sources, pool=pool), ask=ask, transcribe=transcribe,
                speech=Speech(transcribe), speaker=Speaker(), pool=pool, sessions={}, sources=sources,

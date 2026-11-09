@@ -13,7 +13,7 @@ __all__ = ['HINTS', 'DEPTH_ASK', 'TUTOR_SP', 'QUESTION_RULES', 'FACETS', 'PLAIN_
            'retests', 'moved', 'tutor', 'Card', 'fb_html', 'learn', 'demo_view']
 
 # %% ../nbs/03_tutor.ipynb #1e5f9956
-import functools, json, random, threading, time, uuid, weakref, html
+import contextvars, functools, json, random, threading, time, uuid, weakref, html
 from fastcore.utils import *
 from .learner import Learning, meta_of, _src, log as _log, val, DEPTHS, KIND_AT, update, pick, recall, outcome, next_depth, learned, weak, understanding, PACES, profile_text, observe, calibration_text, current, METHODS, TEXT_WAYS, EXAMPLES_TO, choose, methods_text, posterior, mean, way, register, prompt, lines, need_lines, keyed_lock, teach_sp, plainly, wrong_ideas
 from .models import ask_json, for_task, route_ask
@@ -542,7 +542,7 @@ def _heard(self:Tutor, q, g):
         q.gaps = [*q.get('gaps', []), *gs]
         from abhyasa.path import name_gaps   # here: the planner imports this module
         job = lambda: name_gaps(self.learning, for_task(self.ask, 'extract'), q.concept, gs, self.sources)
-        if self.pool: self.pool.submit(job)
+        if self.pool: self.pool.submit(contextvars.copy_context().run, job)
         else:
             try: job()
             except Exception: pass
@@ -632,7 +632,7 @@ def _close(self:Tutor, q, correct, confidence, g, teach=False, answer='', thinki
     self.shut[q.id] = q
     if len(self.shut) > 20: del self.shut[next(iter(self.shut))]
     self.closed += 1
-    if self.observe_every and self.pool and self.closed % self.observe_every == 0: self.pool.submit(self._observe)
+    if self.observe_every and self.pool and self.closed % self.observe_every == 0: self.pool.submit(contextvars.copy_context().run, self._observe)
     r = AttrDict(done=True, correct=correct, outcome=kind, feedback=g.get('feedback', ''), first_error=g.get('first_error', ''),
                  lesson=lesson, lesson_way=lw, aid=q.aid, answer=q.answer if not correct else '', misconception=g.get('misconception', ''), floor=u.floor, ceiling=u.ceiling,
                  due=u.due, depth=q.depth, grounds=q.get('grounds', []), concept=q.concept, session=q.session)

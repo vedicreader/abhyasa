@@ -9,7 +9,7 @@ from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import is_local, n_of, Page, NotFound, short_title, hook, run as run_hook, SourceLine, source_of, Md, edit_assets, UndoBar, JobStop
 from abhyasa.core.leela import leela_line, leela_link, leela_open, LEELA_INSTALL, LEELA_OFF
-from abhyasa.learner import val, set_val
+from abhyasa.learner import val, set_val, CtxPool
 from abhyasa.sources import detect, vault_title, transcript_read
 from abhyasa.learner import clean_subject, profile_text, WALK_WAYS, CHECK_KIND, DEPTH, TEXT_WAYS
 from abhyasa.tutor import Session, HINTS, public, moved
@@ -351,7 +351,7 @@ def connect(app, ctx):
         elif (line := dict(gh=f'Cloning {v}', file=f'Filing {name}', link='Getting the pages from the link').get(kind)): st.update(said=line)
         return name, walk_engine.file_chip(lr, i)
 
-    filer = ThreadPoolExecutor(FILERS, thread_name_prefix='abhyasa-file')
+    filer = CtxPool(FILERS, thread_name_prefix='abhyasa-file')
 
     def file_one(i, st):
         "On the filer: file the chip `i`. What it gave: `name`, `docs`, `notes`, `filed` (the Undo row, or None), and `bad` for a folder that is refused."
