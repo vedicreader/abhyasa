@@ -60,7 +60,7 @@ def failed(
 
 # %% ../nbs/06_agent_tools.ipynb #b2110cf8
 TOOLS = (
-    ('create_walk', dict(goal='str: what the learner wants to learn')),
+    ('create_walk', dict(goal='str: what the learner wants to learn', research='str: "yes" to look for a web source for each idea after the walk is made, "no" to skip it; the default is yes when the app can do it')),
     ('walk_state', dict(jid='str: the walk id')),
     ('record_attempt', dict(jid='str: the walk id', i='int: the place of the step in the walk', answer="str: the learner's answer",
                             attempt_id='str: a key that the caller makes once for this answer; the same key with the same answer gives the same result')),
@@ -128,8 +128,10 @@ def create_walk(
     progress=lambda stage, frac: None,   # told the stage ('planning', 'sources', 'steps') and the part done
     settings:dict|None=None,             # the host's values of the settings rows (row name to value), for this call only; None reads the settings file
     guard=None,                          # the host's privacy check, `guard(text) -> text`; it may raise `Withheld`; None sends the goal as it is
+    research=None,                       # whether to look for web sources after the walk is saved: True, False, 'yes' or 'no'; None means yes when `gather` is given
+    gather=None,                         # the host's `gather(jid)`, which returns an object with `why`; the only way that `create_walk` looks at the web
 ) -> dict:
-    "Plan a walk to `goal` with the host model and save it, with a passage from the vault (`VaultSource`) for each step; web and paper sources are a later tool."
+    "Plan a walk to `goal` with the host model and save it, with a passage from the vault (`VaultSource`) for each step; web sources come from the host `gather` hook, after the walk is saved, when `research` allows it."
     def make():
         sent = guard(goal) if guard else goal
         before = {j.id for j in lr.journeys()}
@@ -144,7 +146,11 @@ def create_walk(
             return failed('source_missing', 'the plan had no step to build a walk on')
         progress('steps', 1.)
         if (redacted := sent != goal): w = lr.merge_journey(w.id, title=goal)
-        return result('ok', walk=w.id, vault=_vault(lr), revision=w.get('updated'), data=dict(title=w.title, steps=len(w.steps), redacted=redacted))
+        data = dict(title=w.title, steps=len(w.steps), redacted=redacted)
+        if gather is not None and str(True if research is None else research).lower() not in ('false', 'no', '0', ''):
+            try: data['research'] = gather(w.id).why
+            except Exception as e: data['research'] = f'Research stopped: {str(e)[:120]}.'
+        return result('ok', walk=w.id, vault=_vault(lr), revision=w.get('updated'), data=data)
     with learner.use_settings(settings): return _run(make)
 
 # %% ../nbs/06_agent_tools.ipynb #0276426e
