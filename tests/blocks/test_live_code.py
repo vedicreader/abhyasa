@@ -66,3 +66,16 @@ def test_the_ladder_shows_four_rungs_only_with_a_demo_and_code(mk, lr, walk_fake
     assert 'As numbers' not in page and 'live-numbers' not in page                       # standalone: nothing runs, so no numbers
     other = lr.journey(jid).steps[1]['slug']
     assert 'The idea in four ways' not in cl.get(f'/c/{other}').text
+
+def test_the_picture_rung_keeps_its_gate_until_you_pass_it_and_a_shaky_idea_shows_no_memory_percent(mk, lr, walk_fake):
+    from rupaka.spec import gallery
+    cl = mk(); jid = with_code(cl, lr); slug = lr.journey(jid).steps[0]['slug']
+    g = gallery(); spec = next(s for s in (g.values() if isinstance(g, dict) else g) if '"gate"' in json.dumps(s))
+    lr.put_demo(spec, slug)
+    first = cl.get(f'/c/{slug}').text
+    assert '&quot;gate&quot;' in first or '"type": "gate"' in first or '"type":"gate"' in first
+    assert cl.post(f'/w/{jid}/0/code', data=dict(aid='p1', out='8\n', watch=json.dumps(dict(x='4')))).json()['correct']
+    page = cl.get(f'/c/{slug}').text
+    assert 'ladder-rungs' in page and 'type&quot;: &quot;gate' not in page and '"type": "gate"' not in page and '"type":"gate"' not in page and '&quot;type&quot;:&quot;gate' not in page
+    cl.post(f'/w/{jid}/0/code', data=dict(aid='p2', out='6\n', watch=json.dumps(dict(x='3'))))
+    assert 'memory ' not in cl.get(f'/c/{slug}').text and 'shaky' in cl.get(f'/c/{slug}').text

@@ -225,15 +225,25 @@ def Attempts(attempts):
     return Ul(*[Li(Md(asked(a.question)), *said(a), Details(Summary(n_of(len(more), 'earlier answer')), Ul(*[Li(*said(x)) for x in more], cls='plain'), cls='more') if more else '')
                 for a, *more in rows.values()], cls='plain attempts')
 
-def Ladder(c, demo=None, code=None):
+SHAKY = dict(fragile='right, but shaky', gap='a gap', misconception='a misconception')
+
+def open_spec(spec):
+    "A copy of demo `spec` with no gate, and no `after` or `lock` that names one: a demo that you passed once is a picture to play with, not a second check."
+    from copy import deepcopy
+    def walk(bs): return [{k: v for k, v in dict(b, **({'blocks': walk(b['blocks'])} if isinstance(b.get('blocks'), list) else {})).items() if k not in ('after', 'lock')}
+                          for b in bs if b.get('type') != 'gate']
+    return {**deepcopy(spec), 'blocks': walk(spec.get('blocks') or [])}
+
+def Ladder(c, demo=None, code=None, passed=False):
     """One idea in four rungs, only for an idea that has both a demo and code: In words (the statement), As a picture (the demo), As code (the code of its step, which a
-    host turns into a cell that runs) and As numbers (a table that the host fills from the values of the last run). A rung with nothing in it is not drawn."""
+    host turns into a cell that runs) and As numbers (a table that the host fills from the values of the last run). A rung with nothing in it is not drawn.
+    With `passed` (you answered its gate right before), the picture has no gate and no lock."""
     from abhyasa.core.livecode import LiveCell
     from abhyasa.learner import is_hosted
     from rupaka.render import Demo, version
     if not (demo and code): return ''
     v, rung = version(), lambda t, *x: Div(Span(t, cls='lbl'), *x, cls='rung')
-    rungs = [rung('In words', Md(c.statement)) if c.statement else '', rung('As a picture', Demo(demo.spec), Link(rel='stylesheet', href=f'/rupaka/rupaka.css?v={v}'), Script(src=f'/rupaka/rupaka.js?v={v}')),
+    rungs = [rung('In words', Md(c.statement)) if c.statement else '', rung('As a picture', Demo(open_spec(demo.spec) if passed else demo.spec), Link(rel='stylesheet', href=f'/rupaka/rupaka.css?v={v}'), Script(src=f'/rupaka/rupaka.js?v={v}')),
              rung('As code', LiveCell(code, f'c-{c.slug}', hosted=None)),
              rung('As numbers', Table(Tbody(), cls='live-numbers', data_for=f'c-{c.slug}'), P('Run the code to fill this table.', cls='mute')) if is_hosted() and code.get('watch') else '']
     return Div(H2('The idea in four ways'), *rungs, cls='ladder-rungs', id='ladder-rungs')
@@ -241,8 +251,10 @@ def Ladder(c, demo=None, code=None):
 def ConceptPage(c, by, attempts, groups=(), ladder=None, code=None):
     "The concept, its actions, Rename or move (closed), then the reference sections in one quiet group (`.refs`)."
     level = f'level: {DEPTHS[c.floor]}' if c.floor else 'not learned yet'   # the words of the needs line in a walk
-    head = P(meta(c.subject, level), DepthBar(c.floor), *((' · ', meta(f"memory {recall(c):.0%}", when(c.due))) if c.seen else ()), cls='mute')
-    refs = (Ladder(c, ladder, code), *run('concept_more', c),
+    last = attempts[0].get('outcome') if attempts else None   # the newest answer first
+    memory = meta(f"shaky: your last check was {SHAKY[last]}", 'review it') if last in SHAKY else meta(f"memory {recall(c):.0%}", when(c.due))   # 100% right after an answer says nothing about a shaky one
+    head = P(meta(c.subject, level), DepthBar(c.floor), *((' · ', memory) if c.seen else ()), cls='mute')
+    refs = (Ladder(c, ladder, code, passed=any(a.correct for a in attempts)), *run('concept_more', c),
             *([H2('Misconceptions seen'), Ul(*[Li(Md(m)) for m in c.misconceptions])] if c.misconceptions else []),
             Div(Div(H2('Needs first'), Refs(c.prereqs, by)), Div(H2('Related'), Refs(c.related, by)), cls='pair')
             if any(s in by for s in (*c.prereqs, *c.related)) else '',
