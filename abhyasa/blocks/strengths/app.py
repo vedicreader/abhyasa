@@ -32,9 +32,9 @@ def connect(app, ctx):
                        P('This comes from your answers: how deep you know each concept, how well you recall it now, and what went wrong.', cls='mute'),
                        H3('By subject'), Ul(*[ui.Subject(k, v) for k, v in sorted(subs.items(), key=lambda kv: -len(kv[1]))], cls='plain subjects'),
                        H3('Weak spots'),
-                       Div(Ul(*[ui.Concept(*x) for x in weak], cls='plain concepts'), Primary('Practice my weak spots', href=f'/start?drill=1{q}'), cls='weak') if weak
+                       Div(Ul(*[ui.Concept(*x) for x in weak], cls='plain st-concepts'), Primary('Practice my weak spots', href=f'/start?drill=1{q}'), cls='weak') if weak
                        else P('No weak spots now.', cls='mute'),
-                       H3('Strong'), Ul(*[ui.Concept(*x) for x in strong], cls='plain concepts') if strong else P('Nothing is strong yet: that takes depth 3 and good recall.', cls='mute'),
+                       H3('Strong'), Ul(*[ui.Concept(*x) for x in strong], cls='plain st-concepts') if strong else P('Nothing is strong yet: that takes depth 3 and good recall.', cls='mute'),
                        Details(Summary('The ways you learn' + (f' {subject}' if subject else '')), ui.Ways(st, subject, prior),
                                H3('How often to try a new way'),
                                P('The tutor teaches a weak concept in your best way. For a concept that is not weak, it sometimes uses a different way. This makes you better at that way too.', cls='mute'),
