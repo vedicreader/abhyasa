@@ -9,3 +9,4 @@ website:
       - 03_tutor.ipynb
       - 04_path.ipynb
       - 05_show.ipynb
+      - 06_agent_tools.ipynb
