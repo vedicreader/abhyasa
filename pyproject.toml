@@ -19,29 +19,29 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
 ]
 dependencies = [
-    "fastcore>=1.8",
+    "fastcore>=2.2.41",
     "vishalakshi>=0.1.38",
-    "litesearch>=0.1.62",   # `fold_text` and the notebook outputs in `ipynb_parse`
-    "rishi>=0.1.67",
-    "python-fasthtml>=0.14",
-    "ipywidgets>=8.1",
+    "litesearch>=0.1.64",   # `fold_text` and the notebook outputs in `ipynb_parse`
+    "rishi>=0.1.68",
+    "python-fasthtml>=0.14.22",
+    "ipywidgets>=8.1.9",
     "rupaka>=0.0.16",
     "vidyut>=0.4",
-    "mdhtml>=0.1.38",
+    "mdhtml>=0.1.45",
     "nh3>=0.3.7",
-    "fossick>=0.1.25",
-    "ramabana>=0.2.109",   # model routing, the guard (`ramabana.guard`), `Agent.oneshot_stream`, `model_label` and `read_key`
-    "shalya>=0.1.29",   # `LocalHost(url_ok=, on_read=)` and `read_page`
-    "gheasy>=0.0.20",   # `gh_repo_info`
+    "fossick>=0.1.28",
+    "ramabana>=0.2.114",   # model routing, the guard (`ramabana.guard`), `Agent.oneshot_stream`, `model_label` and `read_key`
+    "shalya>=0.1.33",   # `LocalHost(url_ok=, on_read=)` and `read_page`
+    "gheasy>=0.0.21",   # `gh_repo_info`
 ]
 
 [project.optional-dependencies]
-whisper = ["mlx-audio>=0.6.1"]   # speech to text on this Mac: Qwen3-ASR, Whisper and the other mlx-community models
+whisper = ["mlx-audio>=0.6.5"]   # speech to text on this Mac: Qwen3-ASR, Whisper and the other mlx-community models
 tick = []   # empty: abhyasa no longer indexes on a ramabana tick; the extra stays so that old pins still resolve
 demo = ["rupaka[check]>=0.0.16"]
-dev = ["ipykernel>=7.3.0", "nbdev>=3.3.25", "notebook>=7.6.3", "pytest>=8", "rupaka[check]>=0.0.16"]
-models = ["ramabana>=0.2.109"]   # now a core dependency; the extra stays so that old installs still resolve
-voice = ["mlx-audio>=0.6.1", "pocket-tts-mlx>=0.3"]   # the voice on this Mac: Pocket TTS (MIT code, CC-BY-4.0 weights by Kyutai)
+dev = ["ipykernel>=7.3.0", "nbdev>=3.3.28", "notebook>=7.6.5", "pytest>=9.2", "rupaka[check]>=0.0.16"]
+models = ["ramabana>=0.2.114"]   # now a core dependency; the extra stays so that old installs still resolve
+voice = ["mlx-audio>=0.6.5", "pocket-tts-mlx>=0.3"]   # the voice on this Mac: Pocket TTS (MIT code, CC-BY-4.0 weights by Kyutai)
 
 [project.scripts]
 abhyasa = "abhyasa.app:main"

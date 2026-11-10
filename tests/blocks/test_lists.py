@@ -53,3 +53,11 @@ def test_newest_sorts_by_the_made_time_and_last_used_by_use(mk, lr):
     cl = mk(); order = lambda h, k: re.findall(rf'href="/{k}/({k}\d+)" class="jt"', h)
     assert order(cl.get('/walks').text, 'w')[0] == 'w0' and order(cl.get('/walks', params=dict(sort='new')).text, 'w')[0] == 'w2'
     assert order(cl.get('/talks').text, 't')[0] == 't0' and order(cl.get('/talks', params=dict(sort='new')).text, 't')[0] == 't2'
+
+def test_home_links_all_walks_and_talks_at_any_row_count(mk, lr):
+    "With 1 walk and 1 talk, Home still links /walks and /talks; with none it shows no link."
+    cl = mk(); h0 = cl.get('/').text
+    assert 'All walks' not in h0 and 'All talks' not in h0
+    walks(lr, 1); talks(lr, 1)
+    h = mk().get('/').text
+    assert 'All walks (1)' in h and 'href="/walks"' in h and 'All talks (1)' in h and 'href="/talks"' in h

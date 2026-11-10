@@ -508,6 +508,6 @@ def Pager(url:str, page:int, pages:int, **keep):
     return Nav(A('Previous', href=at(page - 1)) if page > 1 else Span('Previous', cls='mute off'), Span(f'Page {page} of {pages}', cls='mute'),
                A('Next', href=at(page + 1)) if page < pages else Span('Next', cls='mute off'), cls='pager', aria_label='Pages') if pages > 1 else ''
 
-def AllLink(label:str, href:str, n:int, most:int=HOME_ROWS):
-    "The quiet link at the end of a list on Home, such as `All walks (12)`, when the list has more than `most` rows."
-    return P(A(f'{label} ({n})', href=href), cls='mute all-link') if n > most else ''
+def AllLink(label:str, href:str, n:int):
+    "The quiet link at the end of a list on Home, such as `All walks (12)`, when the list has any row."
+    return P(A(f'{label} ({n})', href=href), cls='mute all-link') if n > 0 else ''

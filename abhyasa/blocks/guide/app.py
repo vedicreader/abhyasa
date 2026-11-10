@@ -2,7 +2,7 @@
 
 A concept can have one explainer video. The concept page shows it with its tools (find, paste, remove); the walk step shows it
 through the `step_needs` hook. The ask route adds the cues of the video on the page from the vault."""
-import asyncio, base64, contextvars, json, logging, queue, secrets, threading, time
+import asyncio, base64, contextvars, json, logging, queue, re, secrets, threading, time
 from fasthtml.common import *
 from starlette.responses import StreamingResponse
 from abhyasa.core import hook, run as run_hook
@@ -14,6 +14,7 @@ from abhyasa.show import (FigureCache, clean_context, concept_video, explain, fi
 from abhyasa.models import Withheld, SpeakError, spoken
 from abhyasa.learner import SETTINGS, raw, val, set_val
 from abhyasa.models import cfg_dir
+from abhyasa.agent_tools import ModelRefused
 from . import ui
 from .cfg import Routes
 
@@ -29,7 +30,21 @@ SAVES = 50        # the most pages that the guide saved and that Undo can take b
 WARM_EVERY = 30.   # the least seconds between two warm calls of the guide backend
 WITHHELD = 'The guide did not send this. It holds personal data, and your privacy setting blocks it. You can change the setting in Settings.'   # the guard refused: personal data and `cli.pii` refuse
 NO_QUERY = 'The tutor did not search. The name of this idea holds a key or personal data. Paste a link.'   # `safe_query` refused the web query
+NO_KEY = 'The guide has no key for its model. Add the key, or pick another model in Settings.'   # ramabana says `needs OPENAI_API_KEY; set it in the environment`
+REFUSED = 'The model refused to answer. Try other words, or pick another model in Settings.'   # a host `ask` raised `ModelRefused`
+TIMED_OUT = 'The model took too long to answer. Try again.'
+FAILED = 'The tutor could not answer. Try again.'
 log = logging.getLogger(__name__)
+
+def ask_error(e:BaseException) -> str:
+    "The one plain line for the error `e` of an ask: the privacy guard, no key, a refused call, a timeout, else `FAILED`. It looks at the whole chain of causes."
+    chain = []
+    while e is not None and e not in chain: chain.append(e); e = e.__cause__ or e.__context__
+    if any(isinstance(x, Withheld) for x in chain): return WITHHELD
+    if any(re.search(r'needs [\w ]+; (set it|run `codex)|api[ _]key', str(x), re.I) for x in chain): return NO_KEY
+    if any(isinstance(x, ModelRefused) for x in chain): return REFUSED
+    if any(isinstance(x, TimeoutError) for x in chain): return TIMED_OUT
+    return FAILED
 
 def why(e) -> str:
     "The words for the learner when a video could not be filed."
@@ -184,8 +199,9 @@ def connect(app, ctx):
                 if h: b['hint'] = h   # the board was about the open check (`on_check`): the line that the check shows
                 else: b.pop('hint', None)
                 q.put(dict(board=b, point=look))
-            except Withheld: q.put(dict(error=WITHHELD))
-            except Exception as e: log.warning('guide: %r', e); q.put(dict(error='The tutor could not answer. Try again.'))
+            except Exception as e:
+                if not isinstance(e, Withheld): log.warning('guide: %r', e)
+                q.put(dict(error=ask_error(e)))
         threading.Thread(target=contextvars.copy_context().run, args=(run,), daemon=True).start()
         async def gen():
             try:

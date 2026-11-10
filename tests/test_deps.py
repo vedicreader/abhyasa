@@ -6,15 +6,15 @@ from pathlib import Path
 from packaging.version import Version
 
 def test_fossick_floor():
-    "fossick 0.1.23 checks each redirect, verifies TLS with the macOS keychain, and clones over HTTPS only. 0.1.24 gives the timed cues of a video (`read_yt(cues=True)`) and `yt_link`. 0.1.25 keeps the web memory (`fetch(cache=, per_host=, remember_blocks=)`), reads arXiv HTML and gives `arxiv_id`, `local_host`, `gh_repo` and `is_pdf`. So abhyasa must ask for it, and the venv must have it."
+    "fossick 0.1.23 checks each redirect, verifies TLS with the macOS keychain, and clones over HTTPS only. 0.1.24 gives the timed cues of a video (`read_yt(cues=True)`) and `yt_link`. 0.1.28 keeps the 0.1.25 web memory (`fetch(cache=, per_host=, remember_blocks=)`), reads arXiv HTML and gives `arxiv_id`, `local_host`, `gh_repo` and `is_pdf`. So abhyasa must ask for it, and the venv must have it."
     deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
-    assert 'fossick>=0.1.25' in deps
-    assert Version(version('fossick')) >= Version('0.1.25')
+    assert 'fossick>=0.1.28' in deps
+    assert Version(version('fossick')) >= Version('0.1.28')
 
 def test_store_floors():
     "litesearch 0.1.62 gives `fold_text` and the notebook outputs. vishalakshi 0.1.38 gives `slug`, `put`, `by_source`, `add_tree`, `crawl(scope=)` and the job `Ledger`."
     deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
-    for p, v in (('litesearch', '0.1.62'), ('vishalakshi', '0.1.38')):
+    for p, v in (('litesearch', '0.1.64'), ('vishalakshi', '0.1.38')):
         assert any(d.startswith(f'{p}>={v}') for d in deps), p
         assert Version(version(p)) >= Version(v), p
 
@@ -31,13 +31,13 @@ def test_rupaka_floor():
 def test_ramabana_is_a_core_dependency():
     "The guide and research guard text with `ramabana.guard`, and routing uses ramabana. 0.2.109 gives `ready_local`, and falls back to a local model only when its weights are here. 0.2.108 gives `Agent.events`, the typed events of the builder, and `emit`/`emit_state`. 0.2.103 gives `available_models(ttl=)`, `model_label`, `oneshot(wait=, strict=)`, `ask(deadline=, stop=)`, `model_agent` and `read_key`. The `models` extra stays, so old installs still resolve."
     pp = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']
-    assert any(d.startswith('ramabana>=0.2.109') for d in pp['dependencies'])
+    assert any(d.startswith('ramabana>=0.2.114') for d in pp['dependencies'])
     assert 'models' in pp['optional-dependencies']
-    assert Version(version('ramabana')) >= Version('0.2.109')
+    assert Version(version('ramabana')) >= Version('0.2.114')
 
 def test_shalya_gheasy_floors():
     "shalya 0.1.29 gives `Registry.each`, which ramabana 0.2.108 calls on each turn; 0.1.28 gives `LocalHost(url_ok=, on_read=)` and `read_page`. gheasy 0.0.20 gives `gh_repo_info`. abhyasa imports both, so a plain install must have them."
     deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
-    for p, v in (('shalya', '0.1.29'), ('gheasy', '0.0.20')):
+    for p, v in (('shalya', '0.1.33'), ('gheasy', '0.0.21')):
         assert any(d.startswith(f'{p}>={v}') for d in deps), p
         assert Version(version(p)) >= Version(v), p

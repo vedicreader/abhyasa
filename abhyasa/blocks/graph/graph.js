@@ -53,9 +53,11 @@
   let C = {};
   const probe = root.appendChild(document.createElement('i'));
   const v = name => { probe.style.color = `var(${name})`; return getComputedStyle(probe).color; };
+  const UNSEEN = .3;   // how far an unseen node goes from the page colour to the text colour: the raised colour is too close to the page in the dark themes
   const themed = () => {
     C = {bg: v('--bg'), fg: v('--fg'), ink2: v('--ink2'), mute: v('--mute'), raised: v('--raised'), rule: v('--rule'), line: v('--line'), acc: v('--acc'), no: v('--no'), ok: v('--ok'),
          subs: [1, 2, 3, 4, 5, 6].map(i => v(`--g${i}`)), serif: getComputedStyle(root).getPropertyValue('--serif')};
+    C.unseen = d3.interpolateRgb(C.bg, C.fg)(UNSEEN);
     C.dark = d3.hsl(C.bg).l < .5;   // the theme and the mode are on <html>, so the page bg says which
     C.floor = d3.interpolateRgb(d3.interpolateRgb(C.bg, C.acc)(.4), C.acc);
     C.due = d3.interpolateRgb(C.no, C.ok);
@@ -66,9 +68,9 @@
   // A cluster is a subject, or with Group by group a subject and the first level of its group (for example `jyotisha › nakshatras`).
   const ckey = n => S.groupBy === 'group' ? n.gkey : n.subject, clusters = () => [...new Set(nodes.map(ckey))];
   const fill = n => S.colorBy === 'subject' ? subCol(n.subject)
-    : S.colorBy === 'understanding' ? (C.state[n.state] || C.raised)
-    : S.colorBy === 'due' ? (n.days === null ? C.raised : C.due(Math.min(1, Math.max(0, n.days / 14))))
-    : n.floor ? C.floor((n.floor - 1) / 4) : C.raised;
+    : S.colorBy === 'understanding' ? (C.state[n.state] || C.unseen)
+    : S.colorBy === 'due' ? (n.days === null ? C.unseen : C.due(Math.min(1, Math.max(0, n.days / 14))))
+    : n.floor ? C.floor((n.floor - 1) / 4) : C.unseen;
   const hollow = n => S.colorBy === 'subject' ? false : S.colorBy === 'understanding' ? !C.state[n.state] : S.colorBy === 'due' ? n.days === null : !n.floor;
   const rad = n => sz() * (4.5 + (S.sizeBy === 'seen' ? 1.6 * Math.sqrt(Math.min(n.seen, 16))
     : S.sizeBy === 'due' ? 6 * dueness(n) : S.sizeBy === 'depth' ? 1.6 * Math.min(n.depth || 0, 6) : 1));
@@ -308,13 +310,13 @@
       ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 2 * Math.PI); ctx.fillStyle = fill(n); ctx.fill();
       const due = isDue(n) && S.colorBy !== 'due';
       ctx.lineWidth = (due ? 2.2 : n === picked ? 2.4 : 1) / k;
-      ctx.strokeStyle = n === picked ? C.fg : due ? C.no : hollow(n) ? C.rule : C.bg; ctx.stroke();
+      ctx.strokeStyle = n === picked ? C.fg : due ? C.no : hollow(n) ? C.mute : C.bg; ctx.stroke();
       if (n === picked) { ctx.beginPath(); ctx.arc(n.x, n.y, r + 4 / k, 0, 2 * Math.PI); ctx.strokeStyle = C.acc; ctx.lineWidth = 1.5 / k; ctx.stroke(); }
-      if (pins.has(n.id)) { ctx.beginPath(); ctx.arc(n.x, n.y, Math.min(r * .35, 2.2 / k + r * .1), 0, 2 * Math.PI); ctx.fillStyle = hollow(n) ? C.rule : C.bg; ctx.fill(); }
+      if (pins.has(n.id)) { ctx.beginPath(); ctx.arc(n.x, n.y, Math.min(r * .35, 2.2 / k + r * .1), 0, 2 * Math.PI); ctx.fillStyle = hollow(n) ? C.mute : C.bg; ctx.fill(); }
       if (pulse && pulse.ring.has(n) && age < PULSE) {   // one soft ring that grows out and fades
         const p = age / PULSE, e = d3.easeCubicOut(p);
         ctx.beginPath(); ctx.arc(n.x, n.y, r + (2 + 10 * e) / k, 0, 2 * Math.PI);
-        ctx.globalAlpha = .7 * (1 - p); ctx.strokeStyle = hollow(n) ? C.rule : fill(n); ctx.lineWidth = 2 / k; ctx.stroke();
+        ctx.globalAlpha = .7 * (1 - p); ctx.strokeStyle = hollow(n) ? C.mute : fill(n); ctx.lineWidth = 2 / k; ctx.stroke();
       }
     }
     ctx.globalAlpha = 1; ctx.restore();
@@ -449,9 +451,9 @@
     const el = panel.querySelector('.legend'), sw = (c, t, ring, w = 1) => { const s = document.createElement('span'), i = document.createElement('i');
       i.style.background = c; if (ring) i.style.boxShadow = `inset 0 0 0 ${w}px ${ring}`; s.append(i, t); return s; };
     el.replaceChildren(...(S.colorBy === 'subject' ? subjects.map(s => sw(subCol(s), s))
-      : S.colorBy === 'understanding' ? [['strong', 'strong'], ['learning', 'learning'], ['fading', 'fading'], ['weak', 'weak'], ['gap', 'a gap you named']].map(([k, t]) => sw(C.state[k], t)).concat([sw(C.raised, 'unseen', C.rule)])
-      : S.colorBy === 'due' ? [sw(C.no, 'due now'), sw(C.due(.5), 'in a week'), sw(C.ok, 'later'), sw(C.raised, 'new', C.rule)]
-      : [sw(C.raised, 'unseen', C.rule), ...[1, 3, 5].map(f => sw(C.floor((f - 1) / 4), DEPTHS[f]))]),
+      : S.colorBy === 'understanding' ? [['strong', 'strong'], ['learning', 'learning'], ['fading', 'fading'], ['weak', 'weak'], ['gap', 'a gap you named']].map(([k, t]) => sw(C.state[k], t)).concat([sw(C.unseen, 'unseen', C.mute)])
+      : S.colorBy === 'due' ? [sw(C.no, 'due now'), sw(C.due(.5), 'in a week'), sw(C.ok, 'later'), sw(C.unseen, 'new', C.mute)]
+      : [sw(C.unseen, 'unseen', C.mute), ...[1, 3, 5].map(f => sw(C.floor((f - 1) / 4), DEPTHS[f]))]),
       ...(S.colorBy !== 'due' ? [sw(C.bg, 'due', C.no, 2)] : []));
   };
   const showFocus = () => {

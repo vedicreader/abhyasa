@@ -425,3 +425,27 @@ def test_the_kind_line_echoes_a_whole_ask_or_nothing():
     from fasthtml.common import to_xml
     from abhyasa.blocks.demo.ui import Kind
     assert 'You asked' not in to_xml(Kind('demo', 'You predict first.', 'it move')) and 'You asked' in to_xml(Kind('demo', 'You predict first.', 'how the noise grows'))
+
+ERRORS = [('no key', lambda: RuntimeError('The guide task got no answer from gpt through ramabana: gpt needs OPENAI_API_KEY; set it in the environment'),
+           'The guide has no key for its model. Add the key, or pick another model in Settings.'),
+          ('no codex login', lambda: RuntimeError('no answer: codex needs Codex login; run `codex login`'),
+           'The guide has no key for its model. Add the key, or pick another model in Settings.'),
+          ('refused', lambda: __import__('abhyasa.agent_tools', fromlist=['x']).ModelRefused('No model set'),
+           'The model refused to answer. Try other words, or pick another model in Settings.'),
+          ('timeout', lambda: TimeoutError('slow'), 'The model took too long to answer. Try again.'),
+          ('wrapped timeout', lambda: _wrap(TimeoutError('gpt did not answer in 60 seconds.')), 'The model took too long to answer. Try again.'),
+          ('privacy', lambda: __import__('abhyasa.models', fromlist=['x']).Withheld('PII'), WITHHELD),
+          ('other', lambda: KeyError('boom'), 'The tutor could not answer. Try again.')]
+
+def _wrap(cause):
+    "A `RuntimeError` raised from `cause`, as `no_answer` does."
+    try: raise RuntimeError('The guide task got no answer through ramabana: x') from cause
+    except RuntimeError as e: return e
+
+@pytest.mark.parametrize('name,make,line', ERRORS, ids=[e[0] for e in ERRORS])
+def test_each_ask_error_has_its_own_plain_line(mk, monkeypatch, name, make, line):
+    "No key, a refused call, a timeout, the privacy guard and any other error each send their own exact line, and never a stack."
+    def boom(*a, **kw): raise make()
+    monkeypatch.setattr('abhyasa.blocks.guide.app.explain', boom)
+    r = mk().post('/guide/ask', json=dict(said='What is this?', ctx={}))
+    assert r.status_code == 200 and json.loads(r.text.strip().split('data: ')[-1]) == dict(error=line)

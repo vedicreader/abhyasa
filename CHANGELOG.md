@@ -2,6 +2,13 @@
 
 <!-- do not remove -->
 
+## 0.0.23
+
+- An unseen dot in the graph now shows in the dark and the light themes. Its fill is a mix of the page and text colours, and its ring is the quiet text colour. The legend uses the same colours.
+- Home links to All walks and All talks when the list has any row. Before, the link came only with more than five rows.
+- The guide gives each ask error its own line: no key for the model, a model that refuses, a model that takes too long, and any other error. The privacy line stays as it was.
+- New floors: fastcore 2.2.41, ramabana 0.2.114, shalya 0.1.33, mdhtml 0.1.45, fossick 0.1.28, litesearch 0.1.64, python-fasthtml 0.14.22, rishi 0.1.68, gheasy 0.0.21 and ipywidgets 8.1.9. The extras and the dev tools move up too.
+
 ## 0.0.22
 
 - A host app, such as Leela, can run abhyasa in its own process. The host gives the session cookie, the settings, the privacy guard and the folder for the files. A hosted abhyasa reads no key or settings file of its own and makes no agent of its own. `HOST_API` (`abhyasa.core.hostapi`) is the contract number, now 1. A host can check it before it starts.
