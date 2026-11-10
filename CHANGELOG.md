@@ -2,7 +2,7 @@
 
 <!-- do not remove -->
 
-## Unreleased
+## 0.0.22
 
 - A host app, such as Leela, can run abhyasa in its own process. The host gives the session cookie, the settings, the privacy guard and the folder for the files. A hosted abhyasa reads no key or settings file of its own and makes no agent of its own. `HOST_API` (`abhyasa.core.hostapi`) is the contract number, now 1. A host can check it before it starts.
 - New module `abhyasa.agent_tools`: the learning operations of a host agent, as tools with one result contract. The agent can make a walk, change a walk, add a source, restore a version and explain the step on screen. `explain_here` makes no model call: it gives the agent the data and the rules.
