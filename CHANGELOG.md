@@ -8,6 +8,7 @@
 - Home links to All walks and All talks when the list has any row. Before, the link came only with more than five rows.
 - The guide gives each ask error its own line: no key for the model, a model that refuses, a model that takes too long, and any other error. The privacy line stays as it was.
 - New floors: fastcore 2.2.41, ramabana 0.2.114, shalya 0.1.33, mdhtml 0.1.45, fossick 0.1.28, litesearch 0.1.64, python-fasthtml 0.14.22, rishi 0.1.68, gheasy 0.0.21 and ipywidgets 8.1.9. The extras and the dev tools move up too.
+- The floor of rupaka is now 0.0.17.
 
 ## 0.0.22
 

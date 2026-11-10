@@ -41,5 +41,4 @@ The web app is made from blocks, as in lego, leela and vedicreader. A block is a
 - Notebooks read as documents: an intro, short sections, a one-line lead before each code cell, small cells, tests in small
   steps with a line on what each checks.
 - Commit messages are one plain line, with no AI credit.
-- Release: write the CHANGELOG entry, `nbdev-prepare`, push, check that CI passes, then `nbdev-release-git` and `nbdev-pypi`.
-  Never `nbdev-release-gh`.
+- Release: write the CHANGELOG entry, `nbdev-prepare`, push, check that CI passes, then `nbdev-release-gh --no-changelog --no-editor --yes` and `nbdev-pypi`.
