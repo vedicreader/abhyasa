@@ -2,6 +2,10 @@
 
 <!-- do not remove -->
 
+## 0.0.24
+
+- Abhyasa now needs `rishi[claude]>=0.1.70` and ramabana 0.2.115. rishi 0.1.70 moved the Claude SDK into the `claude` extra. Without it, the default `claude/sonnet` model cannot run.
+
 ## 0.0.23
 
 - An unseen dot in the graph now shows in the dark and the light themes. Its fill is a mix of the page and text colours, and its ring is the quiet text colour. The legend uses the same colours.
