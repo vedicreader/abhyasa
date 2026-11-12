@@ -1022,17 +1022,18 @@ wheels = [
 
 [[package]]
 name = "llmsurgery"
-version = "0.0.17"
+version = "0.0.19"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aidialog" },
+    { name = "aihist" },
     { name = "fastclaude" },
     { name = "fastcore" },
     { name = "python-fastllm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/02/ad/c555bd4798d10401d3d9ffc4de5e82062a663bc8d0f461887e18f48228d1/llmsurgery-0.0.17.tar.gz", hash = "sha256:5053e1b7585174eb837d5b7815ad5c4b02cec09e4a5413086920460e694bbb6a", size = 59989, upload-time = "2026-09-24T19:39:33.07Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/07/c3/61cdef7daeaa3a34a288d88631c8648b0af98c2932b6dc2eeaaf1e01b71a/llmsurgery-0.0.19.tar.gz", hash = "sha256:eb201348fb292e9642a6fdd006be86fae2138b866b028eb59a50e200ddbf4ba0", size = 37141, upload-time = "2026-11-02T00:51:31.12Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2c/ce/a8175773ae5f548519f50083ba64fc905af7f64f39c6270ab49e2a056190/llmsurgery-0.0.17-py3-none-any.whl", hash = "sha256:1913a5e7ef10131e038a1ff6dbb144d2a527122f92f3edaa8b55e09beafd50ef", size = 63483, upload-time = "2026-09-24T19:39:31.775Z" },
+    { url = "https://files.pythonhosted.org/packages/47/66/402ff8092bc3dc6c55b6a8cb8f4a5e27f5123f892794dd82be4821e8e496/llmsurgery-0.0.19-py3-none-any.whl", hash = "sha256:402239ace5de101ec9d4841c77ffdcd7ac201375d2fc82f5bc94d4581f3acf86", size = 39898, upload-time = "2026-11-02T00:51:29.809Z" },
 ]
 
 [[package]]
@@ -1655,7 +1656,7 @@ wheels = [
 
 [[package]]
 name = "python-fastllm"
-version = "0.0.65"
+version = "0.0.70"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aidialog" },
@@ -1663,9 +1664,9 @@ dependencies = [
     { name = "fasttransport" },
     { name = "pillow" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/72/de/489d476db0a3c3ed77413d166bf17d0df4817d8a321316ff22b4db96a0b4/python_fastllm-0.0.65.tar.gz", hash = "sha256:e2abbd4b3444a3fe75986e80f1c628ece4dce9a765cb3376762df3eb9d4041c3", size = 205150, upload-time = "2026-10-08T00:25:01.375Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/64/82/abdf39b47a5274a94f1fc93d382069c66077efd854ad8d57eb289a57c0e2/python_fastllm-0.0.70.tar.gz", hash = "sha256:3b1e98ca7b7fc3e56b670a4e4b0229058a9b80e918f1f26bec38e6cf6ff84891", size = 221165, upload-time = "2026-11-04T05:52:17.319Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/01/dd/2ee90ca947f34fa94f4775316788bdf9d76113495932cee72c900fb6c963/python_fastllm-0.0.65-py3-none-any.whl", hash = "sha256:5a0967ea98bd540038cc412a8df7abdec56783e46e57a5792553b3479dcd346f", size = 216481, upload-time = "2026-10-08T00:24:59.76Z" },
+    { url = "https://files.pythonhosted.org/packages/09/52/80fd24826cdd6f4e174e731faa198a5a0978ada25859153ce78e4caea1c4/python_fastllm-0.0.70-py3-none-any.whl", hash = "sha256:10f1a49e2dd84abc9e6284caab2d2bcf71a270b620d0f3270df29492ab7c14dc", size = 233072, upload-time = "2026-11-04T05:52:15.443Z" },
 ]
 
 [[package]]

@@ -12,9 +12,9 @@ def test_fossick_floor():
     assert Version(version('fossick')) >= Version('0.1.28')
 
 def test_store_floors():
-    "litesearch 0.1.62 gives `fold_text` and the notebook outputs. vishalakshi 0.1.38 gives `slug`, `put`, `by_source`, `add_tree`, `crawl(scope=)` and the job `Ledger`."
+    "litesearch 0.1.62 gives `fold_text` and the notebook outputs. vishalakshi 0.1.40 needs rishi 0.1.71. vishalakshi 0.1.38 gives `slug`, `put`, `by_source`, `add_tree`, `crawl(scope=)` and the job `Ledger`."
     deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
-    for p, v in (('litesearch', '0.1.64'), ('vishalakshi', '0.1.38')):
+    for p, v in (('litesearch', '0.1.64'), ('vishalakshi', '0.1.40')):
         assert any(d.startswith(f'{p}>={v}') for d in deps), p
         assert Version(version(p)) >= Version(v), p
 
@@ -36,10 +36,19 @@ def test_ramabana_is_a_core_dependency():
     assert Version(version('ramabana')) >= Version('0.2.115')
 
 def test_rishi_claude_extra():
-    "The default model is `claude/sonnet`. rishi 0.1.70 moved the Claude SDK into the `claude` extra, so abhyasa asks for that extra, and the venv has the SDK."
+    "The default model is `claude/sonnet`. rishi 0.1.70 moved the Claude SDK into the `claude` extra, so abhyasa asks for that extra, and the venv has the SDK. rishi 0.1.71 needs aidialog 0.0.42 with the fastllm and llmsurgery that match it."
     deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
-    assert any(d.startswith('rishi[claude]>=0.1.70') for d in deps)
+    assert any(d.startswith('rishi[claude]>=0.1.71') for d in deps)
     assert Version(version('claude-agent-sdk'))
+
+def test_locks_match_aidialog():
+    "aidialog 0.0.42 moved `usage_info` and `aidialog.hist` into aihist. With it, fastllm before 0.0.70 and llmsurgery before 0.0.19 fail every model call on import. Neither the dev lock nor the Mac app's pinned lock may pair them."
+    root = Path(__file__).parents[1]
+    for f in (root/'uv.lock', root/'mac'/'Resources'/'Pin'/'uv.lock'):
+        vs = {p['name']: Version(p['version']) for p in tomllib.loads(f.read_text())['package'] if 'version' in p}
+        if vs['aidialog'] < Version('0.0.42'): continue
+        assert vs['python-fastllm'] >= Version('0.0.70'), f
+        assert vs.get('llmsurgery', Version('0.0.19')) >= Version('0.0.19'), f
 
 def test_shalya_gheasy_floors():
     "shalya 0.1.29 gives `Registry.each`, which ramabana 0.2.108 calls on each turn; 0.1.28 gives `LocalHost(url_ok=, on_read=)` and `read_page`. gheasy 0.0.20 gives `gh_repo_info`. abhyasa imports both, so a plain install must have them."

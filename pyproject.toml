@@ -20,9 +20,9 @@ classifiers = [
 ]
 dependencies = [
     "fastcore>=2.2.41",
-    "vishalakshi>=0.1.38",
+    "vishalakshi>=0.1.40",
     "litesearch>=0.1.64",   # `fold_text` and the notebook outputs in `ipynb_parse`
-    "rishi[claude]>=0.1.70",   # the default claude/sonnet model; 0.1.70 moved the Claude SDK into the claude extra
+    "rishi[claude]>=0.1.71",   # the default claude/sonnet model; 0.1.71 needs aidialog 0.0.42 with the fastllm and llmsurgery that match it; 0.1.70 moved the Claude SDK into the claude extra
     "python-fasthtml>=0.14.22",
     "ipywidgets>=8.1.9",
     "rupaka>=0.0.17",

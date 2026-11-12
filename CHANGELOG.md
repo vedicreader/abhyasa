@@ -2,6 +2,12 @@
 
 <!-- do not remove -->
 
+## 0.0.26
+
+- abhyasa now needs `rishi[claude]>=0.1.71` and `vishalakshi>=0.1.40`. These need `aidialog>=0.0.42`, `python-fastllm>=0.0.70` and `llmsurgery>=0.0.19`.
+- The Mac app's pinned lock had aidialog 0.0.42 with python-fastllm 0.0.65 and llmsurgery 0.0.17. Every model call failed with `ImportError: cannot import name 'usage_info' from 'aidialog.msg_parts'`, and the tutor showed "The tutor could not write the next question." The lock now has python-fastllm 0.0.70 and llmsurgery 0.0.19.
+- `tests/test_deps.py` checks that neither the dev lock nor the Mac app's lock pairs aidialog 0.0.42 with an older fastllm or llmsurgery.
+
 ## 0.0.25
 
 skills
