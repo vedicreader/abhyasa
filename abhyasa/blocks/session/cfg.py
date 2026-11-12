@@ -5,6 +5,7 @@ class Routes:
     giveup = '/s/{sid}/giveup'
     hint = '/s/{sid}/hint'
     teach = '/s/{sid}/teach'
+    code = '/s/{sid}/code'      # POST: write a lesson with code as a notebook and open it on this Mac
     next = '/s/{sid}/next'
     card = '/s/{sid}/card'
     ready = '/s/{sid}/ready'

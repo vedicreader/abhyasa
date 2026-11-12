@@ -265,3 +265,38 @@ def test_other_key_errors_are_not_hidden(mk, fake, caplog):
     cl = mk(); sid = start(cl); cl.get(f'/s/{sid}')
     with caplog.at_level('WARNING'): r = cl.post(f'/s/{sid}/answer', data=dict(answer='x'))   # only a closed question gives 204
     assert r.status_code == 503 and 'a bug in the grader' in caplog.text   # the page says that it failed, and the log has the error
+
+def test_lesson_cells_keep_the_order_and_only_python_code():
+    "Each Python fence is a code cell, in order, with the text between the fences. Another fence stays in the text. A fence can be indented up to 3 spaces, and CRLF text works."
+    from abhyasa.blocks.session.ui import lesson_cells
+    t = 'Read this.\n\n```python\na = 1\n```\n\nThen:\n\n```bash\nls\n```\n\n~~~\nb = 2\n~~~\nCheck: why?'
+    assert lesson_cells(t) == [('markdown', 'Read this.'), ('code', 'a = 1'), ('markdown', 'Then:\n\n```bash\nls\n```'), ('code', 'b = 2'), ('markdown', 'Check: why?')]
+    assert lesson_cells(t.replace('\n', '\r\n'))[1] == ('code', 'a = 1')
+    assert lesson_cells('1. Do this:\n   ```python\n   x = 1\n   ```')[1] == ('code', 'x = 1')
+    assert lesson_cells('No end.\n```python\nx = 1') == [('markdown', 'No end.\n```python\nx = 1')]
+
+def test_lesson_code_opens_as_a_notebook(mk, fake, monkeypatch):
+    "A lesson with Python code offers Open the code. The press writes the lesson as a notebook once, from the lesson that the tutor kept, and opens it with `open`, only for this Mac."
+    import json
+    from fastcore.nbio import read_nb
+    from starlette.testclient import TestClient
+    import abhyasa.blocks.session.app as S
+    fake.rules['Teach the smallest step'] = 'One word gives all three.\n\n```python\nq = x @ W_Q\nprint(q)\n```\n\nCheck: what if k = 0?'
+    calls = []; monkeypatch.setattr(S.subprocess, 'run', lambda args, **kw: calls.append(args))
+    cl = mk(); sid = start(cl); cl.get(f'/s/{sid}')
+    here = TestClient(cl.app, client=('127.0.0.1', 50000))
+    r = cl.post(f'/s/{sid}/giveup', data=dict(dont_know=1)).text
+    assert 'Open the code' in r
+    vals = json.loads(re.search(r'hx-vals=\'([^\']+"h"[^\']+)\'', r)[1])
+    assert cl.post(f'/s/{sid}/code', data=vals).status_code == 403 and not calls   # the test client is not this Mac
+    assert here.post(f'/s/{sid}/code', data={**vals, 'h': 'nope'}).status_code == 404 and not calls
+    assert here.post(f'/s/{sid}/code', data=vals).status_code == 200 and len(calls) == 1 and calls[0][0] == 'open'
+    nb = read_nb(p := calls[0][1])
+    assert [(c.cell_type, c.source) for c in nb.cells if c.cell_type == 'code'] == [('code', 'q = x @ W_Q\nprint(q)')]
+    assert 'One word gives all three.' in nb.cells[0].source
+    nb.cells[0].source = 'my notes'; from fastcore.nbio import write_nb; write_nb(nb, p)
+    here.post(f'/s/{sid}/code', data=vals)
+    assert calls[1] == calls[0] and read_nb(p).cells[0].source == 'my notes'   # a second press opens the same notebook and keeps your edits
+    fake.rules['Teach the smallest step'] = 'Positions are shared. Check: what if k = 0?'
+    sid = start(cl); cl.get(f'/s/{sid}')
+    assert 'Open the code' not in cl.post(f'/s/{sid}/giveup', data=dict(dont_know=1)).text   # no code, no press

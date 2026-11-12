@@ -2,6 +2,12 @@
 
 <!-- do not remove -->
 
+## 0.0.27
+
+- A lesson in a session that has Python code now has an "Open the code" button. The button writes the lesson as a notebook in the vault assets, under `lessons/`. The text becomes markdown cells, and each Python fence becomes a code cell. Then macOS opens the notebook in its app for notebooks: Leela, or your editor.
+- abhyasa writes the notebook one time. A second press opens the same notebook, with your edits.
+- The code comes from the lesson that the tutor kept, not from the page. The button works only on this Mac, and not in a hosted app.
+
 ## 0.0.26
 
 - abhyasa now needs `rishi[claude]>=0.1.71` and `vishalakshi>=0.1.40`. These need `aidialog>=0.0.42`, `python-fastllm>=0.0.70` and `llmsurgery>=0.0.19`.

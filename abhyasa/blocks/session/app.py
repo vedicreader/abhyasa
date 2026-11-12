@@ -1,9 +1,13 @@
 """One sitting with the tutor: ask, struggle, grade, teach. The next question is fetched while you read the feedback.
 Each session is saved on the shelf as it goes; a URL of a session that is not in memory loads it from the shelf."""
-import logging, time
+import logging, subprocess, time
 from concurrent.futures import wait
+from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
+from fastcore.nbio import mk_cell, new_nb, write_nb
+from abhyasa.core.leela import LOCAL_HOSTS
+from abhyasa.learner import is_hosted
 from abhyasa.core import Page, hook, run as run_hook, Primary, Secondary, n_of, Feedback, Msg
 from abhyasa.learner import DEPTHS, pick
 from abhyasa.tutor import Session, HINTS, moved
@@ -17,6 +21,11 @@ __all__ = ['CAPS', 'connect']
 EMPTY = 'Type an answer first.'
 CAPS = ('learning', 'tutor', 'pool', 'sessions')
 log = logging.getLogger(__name__)
+NOT_HERE = 'abhyasa opens code only on this Mac.'
+
+def lessons(q) -> list:
+    "The lessons of question `q`, from its thread: the lesson of its close and each lesson that you asked for."
+    return [x for t in q.get('turns') or () if (x := t.get('lesson') if t.get('kind') == 'close' else t.get('text') if t.get('kind') == 'lesson' else '')]
 
 WHY = {'its prereqs are in place': 'You know the ideas that it needs.', 'you started it': 'You started it.',
        'it is next to the concept you chose': 'It is next to the idea you chose.'}
@@ -41,7 +50,7 @@ def connect(app, ctx):
                                floor=r.get('floor0', 0), turns=r.get('turns') or []) for r in s.log if r.get('qid')]
         outcomes.update({r['qid']: r['outcome'] for r in s.log if r.get('qid')})
         if s.q: shown[sid].append(s.q)
-        for q in shown[sid]: tl[q.id] = list(ui.Turns((tutor.open.get(q.id) or q).get('turns') or []))
+        for q in shown[sid]: tl[q.id] = list(ui.Turns((tutor.open.get(q.id) or q).get('turns') or [], sid, q.id))
         return s
 
     def nxt(sid):
@@ -185,9 +194,24 @@ def connect(app, ctx):
         try: lesson = s.teach(qid, bool(another))
         except Exception as e: return failed('teach this idea', sid, e)
         sq = tutor.shut[qid]
-        out = ui.Lesson(lesson, sq.get('method', '') if another else ''), Feedback('lesson', aid=sq.get('aid', ''), way=sq.get('method', '')), ui.AnotherWay(sid, qid)
+        out = ui.Lesson(lesson, sq.get('method', '') if another else '', sid, qid), Feedback('lesson', aid=sq.get('aid', ''), way=sq.get('method', '')), ui.AnotherWay(sid, qid)
         if (q := next((x for x in shown.get(sid, ()) if x.id == qid), None)): redraw_close(q, out)
         return out
+
+    def code(req, sid:str, qid:str='', h:str=''):
+        """Write lesson `h` of question `qid` as a notebook in the vault assets, once, and open it with `open`, for a request from this Mac.
+        The code comes from the lesson that the tutor kept, never from the request. A second press opens the same notebook, with your edits."""
+        if is_hosted() or (req.client.host if req.client else '') not in LOCAL_HOSTS: return Response(NOT_HERE, status_code=403, media_type='text/plain')
+        q = get(sid) and (tutor.shut.get(qid) or next((x for x in shown.get(sid, ()) if x.id == qid), None))
+        if not (text := next((t for t in lessons(q) if ui.lesson_key(t) == h), '') if q else ''): return Response('No such lesson.', status_code=404, media_type='text/plain')
+        p = Path(lr.vault.assets('lessons'))/f'{q.concept}-{h}.ipynb'
+        try:
+            if not p.exists():
+                p.parent.mkdir(parents=True, exist_ok=True)
+                write_nb(new_nb([mk_cell(s, k) for k, s in ui.lesson_cells(text)], meta={'abhyasa': dict(concept=q.concept, session=sid)}), p)
+            subprocess.run(['open', str(p)], check=True, timeout=10)
+        except (OSError, subprocess.SubprocessError): return Span('abhyasa could not open the code.', cls='mute')
+        return Span(f'Opened {p.name}', cls='mute', title=str(p))
 
     def ready(sid:str):
         f = pre.get(sid)
@@ -251,5 +275,6 @@ def connect(app, ctx):
     app.post(Routes.giveup)(giveup)
     app.post(Routes.hint)(hint)
     app.post(Routes.teach)(teach)
+    app.post(Routes.code)(code)
     app.post(Routes.next)(next_)
     app.get(Routes.end)(end)

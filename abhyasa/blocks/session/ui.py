@@ -1,9 +1,10 @@
 "The session page as a conversation: each question is a short thread in one scroll, and the composer stays at the bottom."
+import hashlib, re
 from pathlib import Path
 from fasthtml.common import *
 from fastcore.utils import AttrDict
 from abhyasa.core import side_link, n_of, moved_words, Cites, Md, DepthBar, when, run, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence as Sure, Primary, Feedback
-from abhyasa.learner import DEPTHS, val, METHOD_LABELS as WAYS
+from abhyasa.learner import DEPTHS, val, METHOD_LABELS as WAYS, is_hosted
 from .cfg import Routes
 
 _P = Path(__file__).parent
@@ -72,9 +73,33 @@ def Hint(n, text):
     "A hint, at the time you asked for it."
     return Msg(f'Hint {n}', Md(text), cls='tutor hint')
 
-def Lesson(text, way=''):
+CODE_LANGS = ('', 'python', 'py', 'python3', 'ipython')   # the fences that become code cells; another fence stays in the text
+_FENCE = re.compile(r'^( {0,3})(`{3,}|~{3,})[ \t]*([\w+-]*)[^\n]*\n(.*?)^ {0,3}\2[ \t]*$', re.M | re.S)   # markdown lets a fence in by up to 3 spaces
+
+def lesson_cells(text) -> list:
+    "Lesson `text` as notebook cells in order, `(kind, source)`: each Python fence a code cell, the text between the fences a markdown cell."
+    text, out, at = str(text or '').replace('\r\n', '\n'), [], 0
+    def prose(s):
+        if s.strip(): out.append(('markdown', s.strip()))
+    for m in _FENCE.finditer(text):
+        if m[3].lower() not in CODE_LANGS: continue
+        code = re.sub(rf'(?m)^ {{0,{len(m[1])}}}', '', m[4].rstrip('\n'))
+        prose(text[at:m.start()]); out.append(('code', code)); at = m.end()
+    prose(text[at:])
+    return out
+
+def lesson_key(text) -> str: return hashlib.sha256(str(text).encode()).hexdigest()[:12]
+
+def OpenCode(sid, qid, text):
+    """Under a lesson with Python code: one press writes the lesson as a notebook and opens it in the app of this Mac for notebooks,
+    Leela or your editor. The press names the lesson by its key, so no code goes from the page to the app."""
+    if not (sid and qid) or is_hosted() or not any(k == 'code' for k, _ in lesson_cells(text)): return ''
+    return Button('Open the code ↗', type='button', cls='small quiet', data_act='open-code', hx_post=Routes.at(Routes.code, sid),
+                  hx_vals={'qid': qid, 'h': lesson_key(text)}, hx_target='this', hx_swap='outerHTML')
+
+def Lesson(text, way='', sid=None, qid=None):
     "A lesson under the outcome; `way` names the method of a lesson in another way: one that you asked for, or one after a miss on a demo."
-    return Div(Span('Lesson' + (f' · {WAYS[way].lower()}' if way in WAYS else ''), cls='lbl'), Md(text), cls='lesson')
+    return Div(Span('Lesson' + (f' · {WAYS[way].lower()}' if way in WAYS else ''), cls='lbl'), Md(text), OpenCode(sid, qid, text), cls='lesson')
 
 def Now(r):
     "Your level on the concept now, and the next review, in plain words."
@@ -94,25 +119,25 @@ def Close(r, said='', sid=None, qid=None):
     "The last message on a question: the outcome, the lesson and the next review. A shaky pass can ask for a lesson."
     fb = r.feedback if r.correct or not r.lesson else ''   # after a miss the lesson speaks; the last nudge would ask a question nobody answers
     return Msg(Tag(r.outcome, said), Md(fb) if fb else '',
-              Lesson(r.lesson, r.get('lesson_way', '')) if r.lesson else '',
+              Lesson(r.lesson, r.get('lesson_way', ''), sid, qid) if r.lesson else '',
               Feedback('lesson', aid=r.get('aid', ''), way=r.get('lesson_way', '')) if sid and r.lesson else '',
               AnotherWay(sid, qid) if sid and r.lesson else '',
               TeachMe(sid, qid) if sid and r.outcome == 'fragile' and not r.lesson else '',
                Cites(r.get('grounds')), Now(r),
                cls=f"tutor fb close {'ok' if r.correct else 'no'}")
 
-def Turns(turns):
-    "The messages of a question drawn again from its thread: after a restart, or for a question of an earlier run."
+def Turns(turns, sid=None, qid=None):
+    "The messages of question `qid` drawn again from its thread: after a restart, or for a question of an earlier run."
     out, n = [], 0
     for t in turns:
         if t['who'] == 'you': out.append(You(t.get('text', ''), t.get('thinking', ''), t.get('confidence')))
         elif t.get('kind') == 'nudge': out.append(Nudge(AttrDict(feedback=t.get('text', ''), first_error=t.get('first_error', ''))))
         elif t.get('kind') == 'hint': n += 1; out.append(Hint(n, t.get('text', '')))
-        elif t.get('kind') == 'lesson': out.append(Msg(Lesson(t.get('text', '')), cls='tutor fb close ok'))
+        elif t.get('kind') == 'lesson': out.append(Msg(Lesson(t.get('text', ''), sid=sid, qid=qid), cls='tutor fb close ok'))
         elif t.get('kind') == 'close':
             ok = t.get('outcome') in ('solid', 'fragile')
             out.append(Msg(Tag(t.get('outcome')), Md(t['text']) if t.get('text') and (ok or not t.get('lesson')) else '',
-                           Lesson(t['lesson'], t.get('way', '')) if t.get('lesson') else '', cls=f"tutor fb close {'ok' if ok else 'no'}"))
+                           Lesson(t['lesson'], t.get('way', ''), sid, qid) if t.get('lesson') else '', cls=f"tutor fb close {'ok' if ok else 'no'}"))
     return out
 
 def Extras(r):
