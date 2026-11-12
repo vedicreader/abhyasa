@@ -12,6 +12,7 @@ Modules:
 - `abhyasa.core.edit`: The shared parts of the two editors, the talk editor and the walk path editor: the Undo bar, the history list, the list of rows and a live field.
 - `abhyasa.core.hooks`: Blocks add to each other's pages without importing each other (vedicreader's `vr/core/hooks.py`).
 - `abhyasa.core.pane`: The side pane: a page of this app beside the page, after vedicreader's `vr/core/pane.py`.
-- `abhyasa.core.stage`: The stage bundle: the presenter window and the audience window of a talk, in step over a checked `BroadcastChannel`."""
+- `abhyasa.core.stage`: The stage bundle: the presenter window and the audience window of a talk, in step over a checked `BroadcastChannel`.
+- `abhyasa.skill`: Work with abhyasa, the tutor that asks you questions. Write exercises and notebook steps that abhyasa and Leela accept, link a walk step to Leela, drive the learning operations from a host agent, or run the tutor from Python. Use this skill when you write a lesson exercise, the notebook spec of a walk step, an Open in Leela link, or a tool that wraps abhyasa."""
 
-__version__ = "0.0.24"
+__version__ = "0.0.25"

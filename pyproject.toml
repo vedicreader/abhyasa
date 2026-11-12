@@ -53,6 +53,9 @@ Documentation = "https://vedicreader.github.io/abhyasa/"
 [project.entry-points.nbdev]
 abhyasa = "abhyasa._modidx:d"
 
+[project.entry-points.pyskills]
+abhyasa = "abhyasa.skill"
+
 [tool.nbdev]
 tst_flags = "slow"
 

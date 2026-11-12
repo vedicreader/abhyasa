@@ -10,3 +10,4 @@ website:
       - 04_path.ipynb
       - 05_show.ipynb
       - 06_agent_tools.ipynb
+      - 07_skill.ipynb
