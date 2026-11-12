@@ -10,7 +10,7 @@ supported-markers = [
 
 [[package]]
 name = "abhyasa"
-version = "0.0.24"
+version = "0.0.26"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
@@ -28,9 +28,9 @@ dependencies = [
     { name = "vidyut" },
     { name = "vishalakshi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/32/9d/fb190247950fd69f6cb3e656c8f21af0f634fafa565704de293998f7cb5e/abhyasa-0.0.24.tar.gz", hash = "sha256:0e3679cca444e554e11685529f5c6da635113e8da3c23de0491550705156c122", size = 1647363, upload-time = "2026-11-11T02:05:26.381Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/44/51/375c883d31f7f208ecc9103dda3993306e40d56bbfac0421b2b5d3c7167e/abhyasa-0.0.26.tar.gz", hash = "sha256:85e088f3970914c4c5b30f9fad46d462b8e1929cc6f48d1e7001d08b36e3eb53", size = 1652637, upload-time = "2026-11-12T04:13:42.737Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/55/09/b5430ac7c11ed8d9b08f0812400ad5c06162703d4a8db54c2a903be55861/abhyasa-0.0.24-py3-none-any.whl", hash = "sha256:183dc3c3f75b51d5c1cb96bcdd1eb455b9f2957a7c68c6d72bff11110e54ea76", size = 1715197, upload-time = "2026-11-11T02:05:24.533Z" },
+    { url = "https://files.pythonhosted.org/packages/70/00/6bf7fbc9f51377ac7ccf67fa506e76cb9af538b3afcd0ee88865cdb08243/abhyasa-0.0.26-py3-none-any.whl", hash = "sha256:464be1b75c7509f89ccb434a8bc8663dea3b5d31e0ba49e8b23f6ebc8c53cee1", size = 1719944, upload-time = "2026-11-12T04:13:40.666Z" },
 ]
 
 [package.optional-dependencies]
@@ -54,7 +54,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models", "voice"], specifier = "==0.0.24" }]
+requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models", "voice"], specifier = "==0.0.26" }]
 
 [[package]]
 name = "adhara"
@@ -999,6 +999,14 @@ wheels = [
 ]
 
 [[package]]
+name = "litert-lm-api"
+version = "0.19.1"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/d2/acc6121a9cc702bff85cf0c9a77c7d27d142d06fb55b887ae2793168a0a1/litert_lm_api-0.19.1-py3-none-macosx_12_0_arm64.whl", hash = "sha256:8b9aa8d37212268342d63eeb3ab3c84e6361ee4ee36b0046aae5ae261e4b2882", size = 17232322, upload-time = "2026-11-05T19:09:08.659Z" },
+]
+
+[[package]]
 name = "litesearch"
 version = "0.1.64"
 source = { registry = "https://pypi.org/simple" }
@@ -1825,7 +1833,7 @@ wheels = [
 
 [[package]]
 name = "rishi"
-version = "0.1.70"
+version = "0.1.71"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aidialog" },
@@ -1836,15 +1844,19 @@ dependencies = [
     { name = "safepyrun" },
     { name = "uraiyadal" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/17/3b/66a8d4c5c6d65d0e1e3d3aa54ddb4dc8b3d0dcc6188a8e73f086570416c1/rishi-0.1.70.tar.gz", hash = "sha256:95e4c55ab82319bd4dab2c3d5816473a57eae9bc7cdce2b9d7c855e0e99290fb", size = 98383, upload-time = "2026-11-11T00:45:48.009Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/2a/845db30487f4b1650eb50d90cbdbcb6363bb39430ff25ebb05cd1a4bb866/rishi-0.1.71.tar.gz", hash = "sha256:5bdab3c04d57d00fd1c0598c0b29034b00586668f2b842c279731b3ed0f9c29e", size = 98441, upload-time = "2026-11-12T04:03:06.578Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/40/1597fdd47cd36637eaba90efc350a5565b5f712ed536d81efdfc6fab73fd/rishi-0.1.70-py3-none-any.whl", hash = "sha256:5021ed070907405cc7f075eae42e790eaca794203e0523d4f9e4e09a32d6101c", size = 107114, upload-time = "2026-11-11T00:45:46.371Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/c6/2a3bc6c76f7fb74517f9e114ff80d878e56d4080b085b4c6a3662b7de9e1/rishi-0.1.71-py3-none-any.whl", hash = "sha256:dbd89ebcab798a67963c6f08f33da53b61707d24e2ce533eac3cff8a7eeadf6b", size = 107117, upload-time = "2026-11-12T04:03:04.728Z" },
 ]
 
 [package.optional-dependencies]
 claude = [
     { name = "claude-agent-sdk" },
     { name = "llmsurgery" },
+]
+litert = [
+    { name = "huggingface-hub" },
+    { name = "litert-lm-api" },
 ]
 
 [[package]]
@@ -2331,7 +2343,7 @@ wheels = [
 
 [[package]]
 name = "vishalakshi"
-version = "0.1.38"
+version = "0.1.40"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
@@ -2346,14 +2358,14 @@ dependencies = [
     { name = "pyskills" },
     { name = "rahasya" },
     { name = "rgapi" },
-    { name = "rishi" },
+    { name = "rishi", extra = ["litert"] },
     { name = "uraiyadal" },
     { name = "varga" },
     { name = "vruksha" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/64/74/219d78b25eb127ab1987505b3c6d983bb58e506b4402ea4dadaa1c0cca80/vishalakshi-0.1.38.tar.gz", hash = "sha256:a46f81d25f0502134e604c628d6f10b0d75129a7a91b46ed24398bd537744c0a", size = 123632, upload-time = "2026-11-01T09:14:21.949Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3f/4b/40907ace0a42d3761cc92f3a4afed59152a3851b9c9dbb265c656f4065ac/vishalakshi-0.1.40.tar.gz", hash = "sha256:39d91606c6f74f684dff8995f23dd45de41c8725407d80f71b8ff958df2aa8dd", size = 123717, upload-time = "2026-11-12T04:06:35.216Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2d/77/10979fa7093f974cad04437521f860385ee35dec476a03173ef349ada4dd/vishalakshi-0.1.38-py3-none-any.whl", hash = "sha256:7a3c420abd7a1dcf125cd84c401a122076fda0b74c006dce822ebb4be4792042", size = 123795, upload-time = "2026-11-01T09:14:20.658Z" },
+    { url = "https://files.pythonhosted.org/packages/88/ba/dac64882837d1699f19ed01acbfab7ec7a76ab62a9e6a365cbc48b0062b8/vishalakshi-0.1.40-py3-none-any.whl", hash = "sha256:63eaec44987a81396cae288ec3cabbb123caafcdb822cdaca5195b7838e67c5d", size = 123799, upload-time = "2026-11-12T04:06:33.873Z" },
 ]
 
 [[package]]
