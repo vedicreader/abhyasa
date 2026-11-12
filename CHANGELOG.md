@@ -2,6 +2,10 @@
 
 <!-- do not remove -->
 
+## 0.0.25
+
+skills
+
 ## 0.0.24
 
 - Abhyasa now needs `rishi[claude]>=0.1.70` and ramabana 0.2.115. rishi 0.1.70 moved the Claude SDK into the `claude` extra. Without it, the default `claude/sonnet` model cannot run.
