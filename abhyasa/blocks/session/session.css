@@ -38,9 +38,10 @@ main:has(#chat) { padding-bottom: calc(var(--composer-h, 190px) + 40px); }   /* 
 #ans { font-size: var(--t-body); min-height: calc(2lh + 10px); max-height: 32vh; }
 #think { font-size: var(--t-small); color: var(--ink2); min-height: calc(1lh + 10px); max-height: 20vh; margin-top: var(--s2); }
 .composer .bar { margin-top: var(--s3); gap: var(--s2); }
-/* one row, as in the walk card: Speak, Sure?, the space, then Teach me, Hint and Send (last) */
-@media (min-width: 641px) { .composer .bar { flex-wrap: nowrap; gap: var(--s1); } .composer .bar > * { flex: none; } .composer .bar > .grow { flex: 1; }
-  .composer .bar > .left { flex: 0 1 auto; min-width: 0; line-height: 1.2; } }
+/* one row, as in the walk card: Speak, Sure?, the space, then Teach me, Hint and Send (last). The tries that are left sit on a line
+   of their own above it, because the row has no room for them. */
+@media (min-width: 641px) { .composer .bar { gap: var(--s1); } .composer .bar > * { flex: none; } .composer .bar > .grow { flex: 1; } }
+.composer .bar > .left { order: -1; flex: 0 0 100%; }
 .composer .bar button.quiet { padding-inline: var(--s2); }
 .composer .bar .mic.quiet { padding-left: 0; }
 .composer button, .composer .btn { padding: var(--s2) var(--s3); font-size: var(--t-small); }

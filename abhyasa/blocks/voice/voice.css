@@ -18,7 +18,7 @@
 .mic-float.on, .mic-float.busy { display: inline-flex; }
 /* a small mic at the bottom right of a box that asks for one */
 .micbox { position: relative; display: block; }
-.micbox > textarea, .micbox > input { padding-right: 76px; }
+.micbox > textarea, .micbox > input { display: block; padding-right: 76px; }
 .mic.mini { background: transparent; box-shadow: none; position: absolute; right: 0; bottom: 6px; padding: 3px var(--s2); font-size: var(--t-meta); border-color: transparent; color: var(--mute); }
 .mic.mini:hover { color: var(--fg); border-color: var(--rule); background: transparent; box-shadow: none; }
 .mic.mini.on, .mic.mini.busy { border-color: var(--acc); color: var(--fg); }
