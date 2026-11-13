@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A tutor that asks you questions. You do the thinking. It keeps a record of what you know in your vault.">
+
+<title>abhyasa</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./favicon.svg" rel="icon" type="image/svg+xml">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-69961562f744cce4bc22a2c84bdc0b21.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="abhyasa">
+<meta property="og:description" content="A tutor that asks you questions. You do the thinking. It keeps a record of what you know in your vault.">
+<meta property="og:site_name" content="abhyasa">
+<meta name="twitter:title" content="abhyasa">
+<meta name="twitter:description" content="A tutor that asks you questions. You do the thinking. It keeps a record of what you know in your vault.">
+<meta name="twitter:card" content="summary">
+</head>
+
+<body class="nav-sidebar floating nav-fixed quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark" aria-label="Site">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">abhyasa</span>
+    </a>
+  </div>
+        <div class="quarto-navbar-tools tools-end">
+</div>
+          <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./index.html">abhyasa</a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto" aria-label="Section">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">abhyasa</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./learner.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">learner</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">models</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./sources.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">sources</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./tutor.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">tutor</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./path.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">path</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./show.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">show</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./agent_tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">agent_tools</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./skill.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">skill</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Reference</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#install" id="toc-install" class="nav-link active" data-scroll-target="#install">Install</a>
+  <ul class="collapse">
+  <li><a href="#the-mac-app" id="toc-the-mac-app" class="nav-link" data-scroll-target="#the-mac-app">The Mac app</a></li>
+  <li><a href="#from-pypi" id="toc-from-pypi" class="nav-link" data-scroll-target="#from-pypi">From PyPI</a></li>
+  </ul></li>
+  <li><a href="#your-first-walk" id="toc-your-first-walk" class="nav-link" data-scroll-target="#your-first-walk">Your first walk</a>
+  <ul class="collapse">
+  <li><a href="#start-a-walk" id="toc-start-a-walk" class="nav-link" data-scroll-target="#start-a-walk">1. Start a walk</a></li>
+  <li><a href="#look-at-the-walk" id="toc-look-at-the-walk" class="nav-link" data-scroll-target="#look-at-the-walk">2. Look at the walk</a></li>
+  <li><a href="#read-an-idea" id="toc-read-an-idea" class="nav-link" data-scroll-target="#read-an-idea">3. Read an idea</a></li>
+  <li><a href="#answer-the-check" id="toc-answer-the-check" class="nav-link" data-scroll-target="#answer-the-check">4. Answer the check</a></li>
+  <li><a href="#ask-the-screen-guide" id="toc-ask-the-screen-guide" class="nav-link" data-scroll-target="#ask-the-screen-guide">5. Ask the screen guide</a></li>
+  <li><a href="#try-a-demo" id="toc-try-a-demo" class="nav-link" data-scroll-target="#try-a-demo">6. Try a demo</a></li>
+  <li><a href="#open-the-code-in-leela" id="toc-open-the-code-in-leela" class="nav-link" data-scroll-target="#open-the-code-in-leela">7. Open the code in Leela</a></li>
+  </ul></li>
+  <li><a href="#your-level" id="toc-your-level" class="nav-link" data-scroll-target="#your-level">Your level</a></li>
+  <li><a href="#sources-and-trust" id="toc-sources-and-trust" class="nav-link" data-scroll-target="#sources-and-trust">Sources and trust</a></li>
+  <li><a href="#keys" id="toc-keys" class="nav-link" data-scroll-target="#keys">Keys</a></li>
+  <li><a href="#settings" id="toc-settings" class="nav-link" data-scroll-target="#settings">Settings</a></li>
+  <li><a href="#privacy" id="toc-privacy" class="nav-link" data-scroll-target="#privacy">Privacy</a></li>
+  <li><a href="#more" id="toc-more" class="nav-link" data-scroll-target="#more">More</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/vedicreader/abhyasa/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="index.html.md"><i class="bi bi-file-code"></i>Markdown</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">abhyasa</h1>
+</div>
+
+<div>
+  <div class="description">
+    A tutor that asks you questions. You do the thinking. It keeps a record of what you know in your vault.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<!-- WARNING: THIS FILE WAS AUTOGENERATED! DO NOT EDIT! -->
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/design/logo/abhyasa-icon.png" width="128" alt="abhyasa logo"></p>
+<p><a href="https://github.com/vedicreader/abhyasa/releases/download/mac-v0.0.28/Abhyasa.zip"><img src="https://img.shields.io/badge/Download_for_macOS-Abhyasa.zip-2F2722?style=for-the-badge&amp;logo=apple&amp;logoColor=white" class="img-fluid" alt="Download for macOS"></a> <a href="https://github.com/vedicreader/abhyasa/releases">All releases</a></p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="https://github.com/vedicreader/abhyasa/actions/workflows/test.yaml"><img src="https://github.com/vedicreader/abhyasa/actions/workflows/test.yaml/badge.svg" class="img-fluid figure-img"></a></p>
+<figcaption>CI</figcaption>
+</figure>
+</div>
+<p>abhyasa (अभ्यास) is Sanskrit for “steady practice”. It is an app that helps you learn a hard subject well. You give it a goal or a source, such as a paper, a book or your notebooks. It makes a walk through the big ideas, explains each idea at your level, and asks checks that test your understanding. It grades the idea in your own words.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/docs/media/make-a-walk.gif" class="img-fluid figure-img"></p>
+<figcaption>Paste an arXiv link, press Start, and get a walk of the big ideas of the paper</figcaption>
+</figure>
+</div>
+<p>When you do not get a part of a page, the screen guide explains it and draws on the page. When an idea is easier to learn with code, Leela opens it as a notebook. The app needs macOS 26 on Apple Silicon. The tutor uses a language model that you pick, such as Claude, GPT or a local model.</p>
+<section id="install" class="level2">
+<h2 class="anchored" data-anchor-id="install">Install</h2>
+<section id="the-mac-app" class="level3">
+<h3 class="anchored" data-anchor-id="the-mac-app">The Mac app</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode sh code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">brew</span> install <span class="at">--cask</span> vedicreader/tap/abhyasa</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The cask also installs uv. On the first start, the app uses uv to get Python and the abhyasa package. This step takes some minutes. To get a new version, run <code>brew upgrade --cask abhyasa</code>. To remove the app, its settings and its Python environment, run <code>brew uninstall --zap --cask abhyasa</code>. The zap keeps your vault, because other tools use it too.</p>
+<p>You can also use the Download for macOS button at the top. Unzip <code>Abhyasa.zip</code>, move <code>Abhyasa.app</code> to Applications and open it. The app needs uv: if you do not have it, run <code>brew install uv</code>. Each release has a Developer ID signature, and Apple notarized it.</p>
+</section>
+<section id="from-pypi" class="level3">
+<h3 class="anchored" data-anchor-id="from-pypi">From PyPI</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode sh code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> tool install abhyasa</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">abhyasa</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Then open <a href="http://127.0.0.1:5077" class="uri">http://127.0.0.1:5077</a>. For the natural voice and for speech to text on your Mac, install the extras: <code>uv tool install 'abhyasa[voice,whisper]'</code>. To run from a clone, see <a href="./reference.html#run-from-source">Run from source</a>.</p>
+</section>
+</section>
+<section id="your-first-walk" class="level2">
+<h2 class="anchored" data-anchor-id="your-first-walk">Your first walk</h2>
+<p>This tour takes about 3 minutes. The pictures come from a new vault with one public paper, <a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>.</p>
+<section id="start-a-walk" class="level3">
+<h3 class="anchored" data-anchor-id="start-a-walk">1. Start a walk</h3>
+<p>On Home, put a link, a paper, a topic or a goal in the Start box. One line tells you what abhyasa will do with it. Press Start (⌥S). abhyasa gets the source only when you press Start.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/docs/media/start.png" class="img-fluid figure-img"></p>
+<figcaption>The Start box with an arXiv link. The line under it says: An arXiv paper. abhyasa reads it in full and makes a walk.</figcaption>
+</figure>
+</div>
+</section>
+<section id="look-at-the-walk" class="level3">
+<h3 class="anchored" data-anchor-id="look-at-the-walk">2. Look at the walk</h3>
+<p>The walk page shows the main claim of the source and its big ideas: 3 to 7 of them. Each idea shows its key question and its kind of check. To change the walk, write what you want in the box, for example “make idea 3 simpler”, and push Return. The tutor makes the change and shows Undo. Press Lock on an idea, and the box does not change it.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/docs/media/walk.png" class="img-fluid figure-img"></p>
+<figcaption>The walk page: the main idea, the box that changes the walk, and four ideas, the first one locked</figcaption>
+</figure>
+</div>
+</section>
+<section id="read-an-idea" class="level3">
+<h3 class="anchored" data-anchor-id="read-an-idea">3. Read an idea</h3>
+<p>Each idea shows a passage from the source, word for word, with a link to its page. Words to know explains the terms. The tutor’s note explains the idea at your level.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/docs/media/idea.png" class="img-fluid figure-img"></p>
+<figcaption>An idea: Words to know, the passage from the paper and the link to the source</figcaption>
+</figure>
+</div>
+</section>
+<section id="answer-the-check" class="level3">
+<h3 class="anchored" data-anchor-id="answer-the-check">4. Answer the check</h3>
+<p>The check asks you to explain, predict, compare or apply the idea. It does not ask you to recall a fact. Say how sure you are, then press Send. The core idea in any words passes. When your answer has a gap, the feedback names the gap and asks a question that points to the fix. While you have tries left, it does not give the answer.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/docs/media/check.gif" class="img-fluid figure-img"></p>
+<figcaption>An answer to a check, and the feedback that names the gap in it</figcaption>
+</figure>
+</div>
+</section>
+<section id="ask-the-screen-guide" class="level3">
+<h3 class="anchored" data-anchor-id="ask-the-screen-guide">5. Ask the screen guide</h3>
+<p>Press Caps+E (⌃⌥⇧⌘E) or Explain in the top bar. Then say or type what you do not get. The tutor answers on the page, as a teacher does at a whiteboard. It circles words, speaks one short line for each step, and draws a diagram in the side panel. D goes to the next step, S goes back, A says the step again, and Esc stops.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/docs/media/screen-guide.gif" class="img-fluid figure-img"></p>
+<figcaption>The screen guide circles a formula and draws a diagram of how a query picks its values</figcaption>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/docs/media/screen-guide.png" class="img-fluid figure-img"></p>
+<figcaption>The board of the screen guide: a diagram in the side panel and the last step in the strip</figcaption>
+</figure>
+</div>
+</section>
+<section id="try-a-demo" class="level3">
+<h3 class="anchored" data-anchor-id="try-a-demo">6. Try a demo</h3>
+<p>Press Show me (⌥E) on an idea. A demo asks you to predict first. Lock in your prediction (⌘↩︎). Then the demo shows the result, and you can change the inputs.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/docs/media/demo.gif" class="img-fluid figure-img"></p>
+<figcaption>A demo: pick the item that gets the most weight, lock in, then see the weights</figcaption>
+</figure>
+</div>
+</section>
+<section id="open-the-code-in-leela" class="level3">
+<h3 class="anchored" data-anchor-id="open-the-code-in-leela">7. Open the code in Leela</h3>
+<p>An idea that you learn best with code has a notebook check. Open in Leela opens the notebook in <a href="https://github.com/vedicreader/leela">Leela</a>, on the same walk and idea. abhyasa runs no code. What you do in Leela comes back to the idea. When Leela is not running, the page tells you how to start it.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/docs/media/leela.png" class="img-fluid figure-img"></p>
+<figcaption>A notebook check with its tests and the Open in Leela button</figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="your-level" class="level2">
+<h2 class="anchored" data-anchor-id="your-level">Your level</h2>
+<p>abhyasa keeps a record for each idea: how deep you know it, how well you recall it now, and when to review it. The tutor uses this record each time it teaches you. When an idea is new or shaky, the tutor writes simply, one step at a time, and starts with your gap. When an idea is solid, the tutor is short and adds an edge case. The text that the tutor writes for you is plain English at grade 9.</p>
+<p>“Tell abhyasa about you”, on Home, adds your background, your goals and the examples that help you. Under You, you can see and change all that abhyasa knows about you, and your strong and weak ideas.</p>
+</section>
+<section id="sources-and-trust" class="level2">
+<h2 class="anchored" data-anchor-id="sources-and-trust">Sources and trust</h2>
+<p>A walk can come from a link (a web page, a documentation site, a PDF, an arXiv paper or a GitHub repo), a file that you drop, a text that you paste, a folder of notebooks on your Mac, or a goal that names its sources. The passage on each idea is word for word from its source, with a link. abhyasa keeps a passage only when its words are in the document. When a text is the tutor’s own words, the page says so.</p>
+<p>A walk from one of your notebooks follows the notebook: one idea for each section that teaches. abhyasa never writes your notebook.</p>
+</section>
+<section id="keys" class="level2">
+<h2 class="anchored" data-anchor-id="keys">Keys</h2>
+<p>All keys are for the left hand. ⌥ is the Option key.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>key</th>
+<th>what it does</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>⌥S</td>
+<td>press the main button: Start, Send or Next idea</td>
+</tr>
+<tr class="even">
+<td>⌥W</td>
+<td>ask for a hint</td>
+</tr>
+<tr class="odd">
+<td>⌥E</td>
+<td>Show me a demo</td>
+</tr>
+<tr class="even">
+<td>⌥B</td>
+<td>learn a missing idea in a side walk</td>
+</tr>
+<tr class="odd">
+<td>⌥D</td>
+<td>speak into the text box</td>
+</tr>
+<tr class="even">
+<td>Caps+E (⌃⌥⇧⌘E)</td>
+<td>ask the screen guide: hold to talk, tap to type</td>
+</tr>
+<tr class="odd">
+<td>⌥T, ⌥R, ⌥G</td>
+<td>go to Home, Library or You</td>
+</tr>
+<tr class="even">
+<td>⌥F or ?</td>
+<td>show all the keys</td>
+</tr>
+</tbody>
+</table>
+<p>Each page also has a small Keys button at the bottom left. It shows the main keys of the page.</p>
+</section>
+<section id="settings" class="level2">
+<h2 class="anchored" data-anchor-id="settings">Settings</h2>
+<p>The gear at the top right opens Settings. It has seven tabs: Models, Voice, Screen guide, Learning, Walks and talks, Sources and Look. The defaults work well. Each number shows its range and its default.</p>
+<ul>
+<li>Models: the default model, and a different model for each task if you want one, such as questions, grades and hints. The default is Claude Sonnet. The list has hosted models and models that run on your Mac.</li>
+<li>Voice: the screen guide reads its steps aloud with Pocket TTS on your Mac (one download of 225 MB), with OpenAI (hosted, with your key) or with the browser. Speech to text runs on your Mac with Qwen3-ASR by default.</li>
+</ul>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://raw.githubusercontent.com/vedicreader/abhyasa/main/docs/media/settings-voice.png" class="img-fluid figure-img"></p>
+<figcaption>The Voice tab of Settings: Pocket TTS, OpenAI or the browser</figcaption>
+</figure>
+</div>
+</section>
+<section id="privacy" class="level2">
+<h2 class="anchored" data-anchor-id="privacy">Privacy</h2>
+<p>abhyasa runs on your Mac, and it answers only requests from your Mac. Your ideas, answers and walks are documents on the <code>learning</code> shelf of your vault (<code>~/.vishalakshi/vault.db</code>), so your other tools can search them.</p>
+<p>The question, your answer and the parts of the page that the tutor needs go to the model that you pick. A local model keeps them on your Mac. To read a figure, the screen guide can send a picture of it to the model. abhyasa does not keep the picture. All text to a model goes through ramabana’s guard, which always masks secrets. Speech to text runs on your Mac by default. OpenAI speech sends your audio or text off your Mac, and it needs your key.</p>
+</section>
+<section id="more" class="level2">
+<h2 class="anchored" data-anchor-id="more">More</h2>
+<p>The <a href="./reference.html">reference</a> has all the details:</p>
+<ul>
+<li>how one question works, from the pick of the idea to the lesson after a miss</li>
+<li>walks from a link, from a goal, from your folders and repos, with your data, and as a course</li>
+<li>how to change a walk, rabbit holes and side walks</li>
+<li>the screen guide in full, demos, and Open in Leela</li>
+<li>how to teach a topic to a group, as a talk</li>
+<li>all settings, all keys, how to run from source, and the speech models with their licences</li>
+<li>how to use the tutor from Python</li>
+</ul>
+<p>The other pages of these docs describe the engine, one notebook for each part.</p>
+<p>To maintain or change abhyasa, read <a href="https://github.com/vedicreader/abhyasa/blob/main/docs/decisions.md">the decisions</a> and <a href="https://github.com/vedicreader/abhyasa/blob/main/docs/develop.md">how to develop</a>.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/vedicreader\.github\.io\/abhyasa");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/vedicreader/abhyasa/issues/new" class="toc-action"><i class="bi bi-github"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
