@@ -2,6 +2,15 @@
 
 <!-- do not remove -->
 
+## 0.0.28
+
+- The composer shows the tries left on their own line. The Speak button no longer touches the bottom rule of a box.
+- The prompts that say how to teach are now one prompt, named "Ways to teach". `research.gather` is gone. A tutor nudge now builds on the right part of an answer.
+- The Settings page groups the prompts by activity. Each prompt says which screen uses it and when.
+- The Settings page has a Try it button for a prompt.
+- abhyasa now needs `shalya>=0.1.34`. Its grep searches nested folders named build or dist.
+- abhyasa now needs `ramabana>=0.2.116`, also in the `models` extra. Ramabana 0.2.116 needs `rishi[claude]>=0.1.71` and `shalya>=0.1.34`.
+
 ## 0.0.27
 
 - A lesson in a session that has Python code now has an "Open the code" button. The button writes the lesson as a notebook in the vault assets, under `lessons/`. The text becomes markdown cells, and each Python fence becomes a code cell. Then macOS opens the notebook in its app for notebooks: Leela, or your editor.

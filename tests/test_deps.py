@@ -29,11 +29,11 @@ def test_rupaka_floor():
     assert Version(version('rupaka')) >= Version('0.0.17')
 
 def test_ramabana_is_a_core_dependency():
-    "The guide and research guard text with `ramabana.guard`, and routing uses ramabana. 0.2.115 needs `rishi[claude]`. 0.2.109 gives `ready_local`, and falls back to a local model only when its weights are here. 0.2.108 gives `Agent.events`, the typed events of the builder, and `emit`/`emit_state`. 0.2.103 gives `available_models(ttl=)`, `model_label`, `oneshot(wait=, strict=)`, `ask(deadline=, stop=)`, `model_agent` and `read_key`. The `models` extra stays, so old installs still resolve."
+    "The guide and research guard text with `ramabana.guard`, and routing uses ramabana. 0.2.116 needs `rishi[claude]>=0.1.71` and `shalya>=0.1.34`. 0.2.115 needs `rishi[claude]`. 0.2.109 gives `ready_local`, and falls back to a local model only when its weights are here. 0.2.108 gives `Agent.events`, the typed events of the builder, and `emit`/`emit_state`. 0.2.103 gives `available_models(ttl=)`, `model_label`, `oneshot(wait=, strict=)`, `ask(deadline=, stop=)`, `model_agent` and `read_key`. The `models` extra stays, so old installs still resolve."
     pp = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']
-    assert any(d.startswith('ramabana>=0.2.115') for d in pp['dependencies'])
-    assert 'models' in pp['optional-dependencies']
-    assert Version(version('ramabana')) >= Version('0.2.115')
+    assert any(d.startswith('ramabana>=0.2.116') for d in pp['dependencies'])
+    assert pp['optional-dependencies']['models'] == ['ramabana>=0.2.116']
+    assert Version(version('ramabana')) >= Version('0.2.116')
 
 def test_rishi_claude_extra():
     "The default model is `claude/sonnet`. rishi 0.1.70 moved the Claude SDK into the `claude` extra, so abhyasa asks for that extra, and the venv has the SDK. rishi 0.1.71 needs aidialog 0.0.42 with the fastllm and llmsurgery that match it."
