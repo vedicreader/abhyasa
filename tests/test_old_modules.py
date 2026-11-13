@@ -9,6 +9,7 @@ NEW = dict(settings='learner', prompts='learner', store='learner', model='learne
 MOVED = {('profile', 'LABELS'): 'learner.PROFILE_LABELS', ('method', 'LABELS'): 'learner.METHOD_LABELS', ('detect', 'source_of'): 'sources.kind_of',
          ('detect', 'fold'): 'sources.fold_trim', ('research', 'pick_prompt'): 'sources.passage_prompt', ('research', 'PICK_SP'): 'sources.PASSAGE_SP',
          ('guide', 'KINDS'): 'show.GUIDE_KINDS', ('demo', 'KINDS'): 'show.DEMO_KINDS'}   # a name that means another thing in the new module
+GONE = {('research', 'GATHER_SP')}   # a name that went on purpose: nothing read its prompt, `research.gather` (the agent runs `research.lead`)
 
 def home(mod, name) -> tuple:
     "The new module and the new name of the old `abhyasa.<mod>.<name>`."
@@ -22,7 +23,7 @@ def test_old_module_is_gone(mod):
 @pytest.mark.parametrize('mod', OLD)
 def test_each_old_name_is_in_its_new_module(mod):
     "Each name in the `__all__` of an old module is in its new module, with its new name when `MOVED` gives one."
-    assert not [n for n in OLD[mod].split() if not hasattr(importlib.import_module(f'abhyasa.{home(mod, n)[0]}'), home(mod, n)[1])]
+    assert not [n for n in OLD[mod].split() if (mod, n) not in GONE and not hasattr(importlib.import_module(f'abhyasa.{home(mod, n)[0]}'), home(mod, n)[1])]
 
 def test_a_moved_name_is_not_the_same_name():
     "The new module has the moved name, and its plain name, if any, is another thing (for example `sources.source_of` is not `kind_of`)."

@@ -452,7 +452,7 @@ def PromptItem(p, text=None, err='', said=''):
 
 def Prompts(n):
     "The instruction text of the tutor: one closed item for each prompt, the ways last."
-    ps = sorted(registry().values(), key=lambda p: p.name.startswith('way.'))
+    ps = sorted(registry().values(), key=lambda p: p.name == 'ways')
     return Group('prompts', 0, more=(P('A change works on the next question. To go back to the text that comes with abhyasa, click "Use the default", or save an empty box. '
                                        'The concept, the conversation and the reply format stay in code.', cls='mute'),
                                      Div(*map(PromptItem, ps), cls='prompts')), summary=f'Show the {len(ps)} prompts')

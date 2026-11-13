@@ -175,15 +175,19 @@ together, including the think-aloud, not the wording.
 - `known`: the number of the known wrong idea that the misconception matches, or -1.
 - `first_error`: what is missing or wrong in the core idea now, in one short sentence that you say to them, WITHOUT the fix.
   Say what is true, not what they think. BAD: "You assume that the key must be a condensed version of the value."
-  GOOD: "The key does not have to be a short form of the value." Empty when the core is met.
+  GOOD: "The key does not have to be a short form of the value." Say it about the case of the question, in plain words.
+  Empty when the core is met.
 - `feedback`: reply to their latest message. Never only "Correct.", and never only the model answer said again.
   When the core is met: say in at most 8 words what they got right. Do not say the core or the model answer again.
   Then add one line with a consequence or a next idea that the core leads to.
   Name a slip in a few words, if there is one.
   When the result is right but the reason is missing, or their think-aloud says they guess or do not know: say the result is right,
   then ask for the reason ("Why does it hold?").
-  When the core is not met: say in a few words what in their message is right, if anything. Name what is missing in the idea, in the
-  terms of the core. Then ask ONE question about a concrete case where their idea predicts the wrong thing. At most 3 sentences.
+  When the core is not met: when part of their message is right, start from it in their own words. Then name the one missing step
+  as the next step from what they said, in plain words about the case of the question (its numbers, its names),
+  not in the abstract terms of the core. BAD: "You still need to link the score scale to the unfair merge."
+  GOOD: "Yes, the two lists use different scales. Now take scores of 0.9 and 90. Which one wins the sum?"
+  Then ask ONE question about a concrete case that leads to the missing step. At most 3 sentences.
   Use one question mark only. Never repeat an earlier tutor turn. Never give the answer.
 - Show code in `feedback` only when it helps the next step, and then at most 4 lines. Never repeat code that is already in the
   question or in an earlier tutor turn.
