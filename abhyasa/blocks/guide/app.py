@@ -25,6 +25,7 @@ FIGURE_BYTES = 8_000_000
 ASK_BYTES = 200_000
 SAY_CHARS = 600   # the most characters of one spoken line: a step says one short line
 POLL = .25        # the seconds between two looks at whether the page still reads the board
+ASK_WAIT = 300    # the most seconds of one question, from its post to its board: then the page gets `TIMED_OUT`
 INFO_EVERY = 30.  # the seconds that the names of the models on each page stay, while no model setting changes
 SAVES = 50        # the most pages that the guide saved and that Undo can take back in this run
 WARM_EVERY = 30.   # the least seconds between two warm calls of the guide backend
@@ -172,7 +173,14 @@ def connect(app, ctx):
         page context is never stored. When the page stops reading, the model stream closes. `point` is the setting `guide.point`, for
         the Mac overlay, which has no page of the app. `thread` (in the body, or in `ctx`) is the last 3 turns of the page,
         `[{said, says, t}]`: `clean_context` keeps a good one, and the server keeps none of it after the question. A question that starts
-        with "show me" gets one event `{"show": {"html": card, "href": link, "title": name}}` (`show_of`), and no board."""
+        with "show me" gets one event `{"show": {"html": card, "href": link, "title": name}}` (`show_of`), and no board. A question that has
+        no board or show after `ASK_WAIT` seconds gets `{"error": TIMED_OUT}`, and the stream ends. Then the route sets `stop`: a model stream
+        closes at its next chunk, no next tier starts, and a model call that does not stream runs on its thread until it returns."""
+        end = time.monotonic() + ASK_WAIT
+        def events(ms): return StreamingResponse(ms, media_type='text/event-stream', headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+        def late(e):
+            log.warning('guide: %r, %.0f seconds after the question', e, time.monotonic() - end + ASK_WAIT)
+            return f'data: {json.dumps(dict(error=ask_error(e)))}\n\n'
         body = await req.body()
         try: d = json.loads(body) if len(body) <= ASK_BYTES else None
         except ValueError: d = None
@@ -180,11 +188,13 @@ def connect(app, ctx):
         if not said: return Response('Say or type your question.', status_code=400, media_type='text/plain')
         raw_ = d.get('ctx') if isinstance(d.get('ctx'), dict) else {}
         ctx_ = clean_context({**raw_, 'thread': d.get('thread', raw_.get('thread'))})   # the thread of the page: in the body, or in the ctx (the Mac)
-        if (words := show_reply(said, ctx_.get('thread'))) is not None and (s := await asyncio.to_thread(show_of, words, ctx_)):   # "show me …", or "yes" after the offer: Show, never a board
-            return StreamingResponse(iter([f'data: {json.dumps(dict(show=s))}\n\n']), media_type='text/event-stream', headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
-        if ctx_.get('video'):   # the cues come from the vault, never from the page
-            if (v := await asyncio.to_thread(video_of, lr, ctx_.video['id'])): ctx_.video = v
-            else: ctx_.pop('video')
+        try:
+            if (words := show_reply(said, ctx_.get('thread'))) is not None and (s := await asyncio.wait_for(asyncio.to_thread(show_of, words, ctx_), end - time.monotonic())):   # "show me …", or "yes" after the offer: Show, never a board
+                return events(iter([f'data: {json.dumps(dict(show=s))}\n\n']))
+            if ctx_.get('video'):   # the cues come from the vault, never from the page
+                if (v := await asyncio.wait_for(asyncio.to_thread(video_of, lr, ctx_.video['id']), end - time.monotonic())): ctx_.video = v
+                else: ctx_.pop('video')
+        except TimeoutError as e: return events(iter([late(e)]))
         q, stop, look = queue.Queue(), threading.Event(), val('guide.point')   # `stop`: the page stopped reading, so the model stream closes and lets go of its backend
         def tell(e):
             if 'saved' not in e: return q.put(e)
@@ -205,15 +215,16 @@ def connect(app, ctx):
         threading.Thread(target=contextvars.copy_context().run, args=(run,), daemon=True).start()
         async def gen():
             try:
-                while True:
+                while time.monotonic() < end:
                     try: m = await asyncio.to_thread(q.get, True, POLL)
                     except queue.Empty:
                         if await req.is_disconnected(): return   # a newer question, Stop, or a closed tab
                         continue
                     yield f'data: {json.dumps(m)}\n\n'
-                    if 'board' in m or 'error' in m: break
+                    if 'board' in m or 'error' in m: return
+                yield late(TimeoutError(f'no board in {ASK_WAIT} seconds'))
             finally: stop.set()
-        return StreamingResponse(gen(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+        return events(gen())
 
     def undo(key:str):
         "Take away the web page that the guide saved, and its link to the concept."

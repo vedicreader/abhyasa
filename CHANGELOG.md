@@ -9,6 +9,8 @@
 - The Settings page groups the prompts by activity. Each prompt says which screen uses it and when.
 - The Settings page has a Try it button for a prompt.
 - `GET /build/<id>/chat` for a conversation that does not exist now answers 404. Before, it answered 500.
+- A guide question now ends within 300 seconds (`ASK_WAIT`). After that, the page shows "The model took too long to answer. Try again." and the stream closes. The limit counts from the post, and includes the "show me" card and the read of the video cues. Before, a model that never answered held the question open with no error, past 1000 seconds in one test on a copy of real data.
+- At the limit, the guide sets its stop signal. A streaming model call stops at its next chunk, and no next tier starts. A model call that does not stream keeps its thread until the call returns. Python cannot stop that thread.
 - abhyasa now needs `shalya>=0.1.34`. Its grep searches nested folders named build or dist.
 - abhyasa now needs `ramabana>=0.2.116`, also in the `models` extra. Ramabana 0.2.116 needs `rishi[claude]>=0.1.71` and `shalya>=0.1.34`.
 

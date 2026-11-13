@@ -285,6 +285,34 @@ def test_a_newer_question_does_not_wait_for_the_older_stream(mk, fake):
     assert first and 'board' in evs[-1] and len(evs[-1]['board']['steps']) == 6
     assert took < 3 and shut and shut[0] - t0 < 2, (took, shut)   # the first stream closed soon after the page stopped reading
 
+def test_a_stalled_model_ends_the_ask_with_the_timeout_line(mk, fake, monkeypatch):
+    """A model that never answers holds no question open. After `ASK_WAIT` seconds the page gets the timeout line, the stream ends, and
+    the route sets `stop`: the thread of the model call ends when the call returns. A video that the vault does not read in time ends the
+    same way. A fast board still comes whole."""
+    import threading, time, httpx
+    from abhyasa.blocks.guide import app as G
+    monkeypatch.setattr(G, 'ASK_WAIT', 1)
+    held, stops, explain = threading.Event(), [], G.explain
+    def spy(*a, stop, **kw): stops.append(stop); return explain(*a, stop=stop, **kw)
+    monkeypatch.setattr(G, 'explain', spy)
+    board = '\n'.join(json.dumps(o) for o in [dict(op='v', n=1, sure=0.9), dict(op='step', say='One.'), dict(op='box', at='passage')])
+    fake.rules['Tier: tutor'] = lambda p, sp: held.wait(30) and board
+    monkeypatch.setattr(G, 'video_of', lambda lr, vid: held.wait(30) and None)
+    base, end = serve(mk().app)
+    def ask(**ctx):
+        t0 = time.monotonic()
+        with httpx.Client(base_url=base, timeout=10) as cl: r = cl.post('/guide/ask', json=dict(said='what', ctx=dict(anchors=[dict(id='passage', kind='passage', text='x')], **ctx)))
+        return [json.loads(l[6:]) for l in r.text.splitlines() if l.startswith('data: ')], time.monotonic() - t0
+    try:
+        stalled, took = ask()
+        video, vtook = ask(video=dict(id='zzz123def45'))
+        held.set()
+        whole, _ = ask()
+    finally: held.set(); end()
+    assert stalled[-1] == dict(error=G.TIMED_OUT) and took < 3 and stops[0].is_set(), (stalled, took)
+    assert video == [dict(error=G.TIMED_OUT)] and vtook < 3, (video, vtook)
+    assert whole[-1]['board']['steps'][0]['strokes'] == [dict(op='box', at='passage')]
+
 # --- never caught unaware ---------------------------------------------------------------------------------------------------
 def test_the_first_event_says_who_gets_the_question(mk, fake):
     "Before the model call, the route says what the guide does and where the text goes. A test model has no name: it is the tutor, hosted."
