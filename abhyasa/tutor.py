@@ -275,11 +275,11 @@ register('tutor', 'Tutor rules', 'The system prompt for each question, hint and 
 register('question', 'Question rules', 'The rules and the bad and good examples for each new question.', QUESTION_RULES,
     activity='Answering questions', used_by='New questions', when='Each time the tutor writes a new question.')
 register('grade', 'Grading rules', 'How the tutor grades each answer, and the nudge after a wrong try.', GRADE_SP,
-    activity='Answering questions', used_by='Grading your answers', when='After each answer you give, to grade it and write the nudge.')
+    activity='Answering questions', used_by='Answer box and prediction cards', when='When you send an answer, and when you pick an option and say why on a demo or an order check.')
 register('hints', 'Hint ladder', 'The 6 hints, one on each line, from the least to the most revealing.', '\n'.join(HINTS), need_lines(6, 'The hint ladder'),
-    activity='Hints and lessons', used_by='Hints', when='When you ask for a hint, one line for each level.')
+    activity='Hints and lessons', used_by='Hint button', when='When you press Hint, one line for each level.')
 register('lesson', 'Lesson instruction', "How the tutor teaches the smallest step after a miss. The lesson ends with a 'Check:' line.", TEACH, _has_check,
-    activity='Hints and lessons', used_by='Lessons', when='After a miss, to teach the smallest step.')
+    activity='Hints and lessons', used_by='Teach me and Another way buttons', when='When you press Teach me or Another way, and after a miss on a demo or an order check.')
 
 def hints() -> tuple:
     "The hint ladder in use: your 6 saved lines, else `HINTS`."

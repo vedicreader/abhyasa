@@ -13,16 +13,16 @@ __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SET
            'OBSERVE_SP', 'HUMAN', 'LEVELS', 'FRESH', 'KEEP', 'OLD', 'STOPPED', 'WORD', 'STATUS', 'NO_CHECK', 'SHAKY',
            'add', 'cfg_dir', 'use_config', 'is_hosted', 'CtxPool', 'settings', 'save_settings', 'update_settings',
            'top', 'fit', 'raw', 'val', 'dflt', 'use_settings', 'source_root_why', 'roots', 'dropped_roots', 'set_val',
-           'reset', 'rows', 'reset_group', 'changed', 'clamped', 'register', 'lines', 'need_lines', 'saved', 'prompt',
-           'set_prompt', 'meta_of', 'slugify', 'idea_name', 'real_idea', 'listed', 'usable_name', 'concept_text',
-           'Learning', 'clean_name', 'wrong_ideas', 'clean_group', 'fold', 'under', 'clean_subject', 'readable_name',
-           'tree', 'attempt_text', 'temp_learning', 'outcome', 'recall', 'grow', 'update', 'next_depth', 'learned',
-           'ready', 'pick', 'understanding', 'weak', 'join_ways', 'ways_of', 'need_ways', 'way', 'credit', 'posterior',
-           'mean', 'improving', 'choose', 'check_for', 'methods_text', 'profile_text', 'clean', 'onboard_prompt',
-           'onboard', 'evidence', 'observe_prompt', 'observe', 'teach_sp', 'level_line', 'plainly', 'calibration',
-           'calibration_text', 'ledger', 'job_version', 'job_start', 'job_end', 'JobStopped', 'stop_job', 'halted',
-           'check_stop', 'can_again', 'track', 'job_said', 'Said', 'seen_jobs', 'close_jobs', 'activity', 'chip_words',
-           'current', 'keyed_lock', 'walk_state']
+           'reset', 'rows', 'reset_group', 'changed', 'clamped', 'register', 'lines', 'need_lines', 'saved',
+           'use_prompts', 'prompt', 'set_prompt', 'meta_of', 'slugify', 'idea_name', 'real_idea', 'listed',
+           'usable_name', 'concept_text', 'Learning', 'clean_name', 'wrong_ideas', 'clean_group', 'fold', 'under',
+           'clean_subject', 'readable_name', 'tree', 'attempt_text', 'temp_learning', 'outcome', 'recall', 'grow',
+           'update', 'next_depth', 'learned', 'ready', 'pick', 'understanding', 'weak', 'join_ways', 'ways_of',
+           'need_ways', 'way', 'credit', 'posterior', 'mean', 'improving', 'choose', 'check_for', 'methods_text',
+           'profile_text', 'clean', 'onboard_prompt', 'onboard', 'evidence', 'observe_prompt', 'observe', 'teach_sp',
+           'level_line', 'plainly', 'calibration', 'calibration_text', 'ledger', 'job_version', 'job_start', 'job_end',
+           'JobStopped', 'stop_job', 'halted', 'check_stop', 'can_again', 'track', 'job_said', 'Said', 'seen_jobs',
+           'close_jobs', 'activity', 'chip_words', 'current', 'keyed_lock', 'walk_state']
 
 # %% ../nbs/00_learner.ipynb #6892d8ed
 import threading, weakref, os, json, time, random, uuid, contextvars
@@ -418,9 +418,20 @@ def saved() -> dict:
     "The saved prompt texts: name -> text."
     return _carried(settings().get('prompts') or {})
 
+_drafts = contextvars.ContextVar('draft_prompts', default=None)   # the draft texts a host gives for one call: name -> text; None means read what is saved
+
+@contextmanager
+def use_prompts(drafts:dict|None):
+    "Read the texts `drafts` (name to text) in place of the saved ones, for this call only; a blank text means the default. `None` keeps what is in use."
+    if drafts is None: yield; return
+    tok = _drafts.set({**(_drafts.get() or {}), **drafts})
+    try: yield
+    finally: _drafts.reset(tok)
+
 def prompt(name:str) -> str:
-    "The text of the prompt `name` now: the saved text, else the default."
-    t = saved().get(name)
+    "The text of the prompt `name` now: a draft given by `use_prompts`, else the saved text, else the default."
+    d = _drafts.get() or {}
+    t = d[name] if name in d else saved().get(name)
     return t if isinstance(t, str) and t.strip() else PROMPTS[name].dflt
 
 def set_prompt(name:str, text:str='') -> str:
@@ -1182,7 +1193,7 @@ def need_ways(text:str):
     if why: raise ValueError(f'The ways text needs one section for each way, and each section starts with a line such as [code] on its own. {"; ".join(why)}.')
 
 WAYS = register('ways', 'Ways to teach', 'How the tutor uses each way in a question, a nudge, a hint and a lesson. Each way has a section that starts with a line such as [code] on its own.', join_ways(METHODS), need_ways,
-    activity='Hints and lessons', used_by='Questions, hints and lessons', when='Each time a way to teach is named in a question, a nudge, a hint or a lesson.')
+    activity='Hints and lessons', used_by='Nudges, hints, lessons and order-check demos', when='Each time a way to teach is named in a nudge, a hint, a lesson or an order-check demo.')
 
 def way(m:str) -> str:
     "The text of method `m` now: its section of your saved text, else the line in `METHODS`; '' for an unknown method."
@@ -1385,7 +1396,7 @@ ONBOARD_QS = (('who', 'What do you do, and what do you know well already?', 'For
 
 ONBOARD_SP = register('profile.onboard', 'Profile from your first answers', 'How the tutor makes your profile from your answers to the four first questions.', """You make a short learner profile from what a learner says about themselves.
 Use only what they say; leave a field empty when they say nothing about it. Keep each item under 12 words, in their words where you can.""",
-    activity='Your profile', used_by='Your profile', when='After your first four answers.')
+    activity='Your profile', used_by='About you page: Done', when='When you press Done after the four first questions.')
 
 def onboard_prompt(answers:dict) -> str:
     "The prompt that turns the onboarding answers into profile fields."
@@ -1406,7 +1417,7 @@ Propose at most 3 changes, and none when the evidence is weak. Good changes: a t
 a kind of example that works (they explain well with code or analogies), a pace that fits (many hints and misses: gentle;
 quick solid passes: fast), background that their answers show. Each `why` names the evidence in one short sentence, to the
 learner as "you", in ASD-STE100 Simplified Technical English.""",
-    activity='Your profile', used_by='Your profile', when='After your recent answers, to change the profile.')
+    activity='Your profile', used_by='Profile page: Look at my recent answers', when='When you press Look at my recent answers, to change the profile.')
 
 def evidence(lr:Learning, n:int=12) -> str:
     "The last `n` final answers as short lines for a prompt: the outcome, the method, the first error, gaps you named, lessons you asked for, and what you said."

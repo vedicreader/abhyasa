@@ -245,6 +245,16 @@ def connect(app, ctx):
 
     def prompt_default(name:str): return prompt_(name, '')
 
+    def prompt_try(name:str, text:str=''):
+        "Run the text in the box and the default text of one prompt on a small sample. It saves nothing, and a draft that fails the check of the prompt is refused as in a save."
+        from .tryit import RUNNERS, try_it
+        if name not in RUNNERS: return Response('unknown prompt', status_code=400)
+        p = ui.registry()[name]
+        text = text.replace('\r\n', '\n').strip()
+        try: text and p.check and p.check(text)
+        except ValueError as e: return P(str(e), cls='no', role='alert')
+        return ui.TryOut(try_it(name, text, ctx.ask, lr))
+
     def out(engine:str='', model:str='', voice_:str=''):
         "Save the speaking engine, its model and its voice. A new engine starts from its own defaults. The voice model warms when it is here."
         if engine not in voice.OUT_ENGINES: return Response('unknown voice engine', status_code=400)
@@ -305,6 +315,7 @@ def connect(app, ctx):
     app.post(Routes.look)(owned(look_))
     app.post(Routes.prompt)(owned(prompt_))
     app.post(Routes.prompt_default)(owned(prompt_default))
+    app.post(Routes.prompt_try)(prompt_try)
     app.post(Routes.out)(owned(out_route))
     app.post(Routes.out_get)(owned(out_get))
     app.post(Routes.out_sample)(out_sample)

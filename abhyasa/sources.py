@@ -476,7 +476,7 @@ SORT_SP = register('concepts.sort', 'Concept sorter', 'How the tutor sorts your 
 - When no group fits a concept, use the group "Other". Use "Other" only as the last resort, for a few concepts.
 - When the request says "Sort all these concepts again", the list has only the groups that the learner made. Keep these groups, with the same names. Make new groups for the other concepts.
 - A concept can have no subject. Then also give `subject`: one name from the list of subjects when one fits, or a short new name of one to three words. Give the group of the concept under that subject.""",
-    activity='Your concepts', used_by='Concepts page', when='When you sort your concepts into groups.')
+    activity='Your concepts', used_by='Concepts page: Sort new concepts, Sort everything again', when='When you press a Sort button, and when new concepts join a subject that already has groups.')
 
 def sort_prompt(subject:str, cs, groups=(), subjects=(), again:bool=False, closed:bool=False, every:bool=False) -> str:
     "The request for one batch: the subject (or the subjects that exist, for concepts with no subject), the groups so far, and one line for each concept. `again` asks for the concepts that got no place. `closed` allows only a group from the list: any other answer is []. `every` says that the sort starts again, and that the groups in the list are the groups that the learner made."
@@ -1386,7 +1386,7 @@ PASSAGE_SP = register('research.pick', 'Source finder', 'How the tutor quotes a 
 - Copy one passage of at most 600 characters, word for word from the page text. Do not change, add, join or remove words.
 - Pick text that says what the idea is or how it works. Do not pick a menu, an advertisement, a heading or a list of links.
 - When no passage in the page explains the idea, give "".""",
-    activity='Researching sources', used_by='Research for a walk', when='When a step has no source, to quote a passage from a web page.')
+    activity='Researching sources', used_by='Find sources, and the screen guide', when='When a web page is read for a step with no source or for the guide, to quote one passage from it.')
 
 VIEW_ROW = re.compile(r'(?m)^[ \t]*\d+\|[^|\s]{1,8}\|')   # the `lineno|hash|` that ramabana's view_file puts before each line
 MARKS = re.compile(r'\[([^\]\n]*)\]\([^)\s]*\)|[*`]+|(?<!\w)_+|_+(?!\w)')   # a markdown link (its text stays), and the marks of bold, italic and code

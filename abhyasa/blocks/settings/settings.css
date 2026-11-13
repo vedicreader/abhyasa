@@ -31,6 +31,11 @@ p.warn { font-size: var(--t-small); margin: 0 0 var(--s3); }
 .prompts form.raised { margin-top: var(--s1); }
 .prompts textarea { font: var(--t-small)/1.55 var(--mono); min-height: calc(10lh + 12px); max-height: 70vh; white-space: pre-wrap; tab-size: 4; }
 .prompts .acts { margin-top: var(--s3); align-items: baseline; }
+.prompts .try { margin-top: var(--s3); }
+.prompts .trycols { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--s4); }
+.prompts .trycols h4 { margin: 0 0 var(--s1); font: var(--t-small)/1.4 var(--serif); }
+.prompts .trycols .out { white-space: pre-wrap; font: var(--t-small)/1.55 var(--serif); }
+.prompts .trycols .meta { font-size: var(--t-meta); margin: var(--s1) 0 0; }
 /* The tabs (design review, section 2): one quiet row as the sub-tabs of Library, with the box that finds a setting at its end. The row stays
    at the top when you scroll. A tab in force has the raised surface, never a bolder font, so no tab changes its width. */
 .lead-page { margin-bottom: var(--s4); }

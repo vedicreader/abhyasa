@@ -436,10 +436,23 @@ def registry() -> dict:
     from abhyasa.learner import PROMPTS
     return PROMPTS
 
+def TryOut(r):
+    "The two outputs of Try it side by side, each with its time. `r` is the result of `tryit.try_it`."
+    def col(title, o): return Div(H4(title), P(o.err, cls='no', role='alert') if o.get('err') else Div(o.text, cls='out'),
+                                  P(f"{o.secs} s" + (' · kept from an earlier run' if o.get('cached') else ''), cls='mute meta') if 'secs' in o else '')
+    return Div(col('Your draft', r.draft), col('The default', r.default), cls='trycols')
+
+def TryLine(text):
+    "One line in the place of the Try it result: a refusal or a pointer."
+    return P(text, cls='mute')
+
 def PromptItem(p, text=None, err='', said=''):
     "One prompt: its label, who uses it and when, a note on what it changes, and a raised editor with the text in use. `err` says why a text was refused."
     from abhyasa.learner import saved, prompt
+    from .tryit import RUNNERS, SCREENS
     mine, pid = p.name in saved(), 'pr-' + p.name.replace('.', '-')
+    tryit = (Button('Try it', type='button', cls='quiet', hx_post=Routes.prompt_try, hx_vals={'name': p.name}, hx_target=f'#try-{pid}', hx_swap='innerHTML',
+                    hx_indicator=f'#wait-{pid}', hx_disabled_elt='this') if p.name in RUNNERS else '')
     return Details(Summary(Span(cls='dot' + (' on' if mine else '')), Span(p.label, cls='nm'), Span('Your text' if mine else 'The default', cls='mute state'),
                            Span(' · '.join(filter(None, (p.used_by, p.when))), cls='mute uses') if p.used_by or p.when else ''),
                    P(p.note, cls='mute note'),
@@ -447,9 +460,11 @@ def PromptItem(p, text=None, err='', said=''):
                                  aria_label=f'The text of {p.label}'),
                         P(err, cls='no', role='alert') if err else '',
                         Div(Button('Save'), Button('Use the default', type='button', hx_post=Routes.prompt_default, hx_vals={'name': p.name},
-                                                   hx_target=f'#{pid}', hx_swap='outerHTML'),
+                                                   hx_target=f'#{pid}', hx_swap='outerHTML'), tryit,
+                            Span('Running your draft and the default…', cls='htmx-indicator mute', id=f'wait-{pid}') if tryit else '',
                             Span(said, cls='ok') if said else '', cls='acts'),
                         hx_post=Routes.prompt, hx_vals={'name': p.name}, hx_target=f'#{pid}', hx_swap='outerHTML', cls='raised'),
+                   Div(id=f'try-{pid}', cls='try', aria_live='polite') if p.name in RUNNERS else TryLine(f'No Try it here. See it work on the screen that uses it: {p.used_by}.') if p.name in SCREENS else '',
                    id=pid, cls='prompt', open=bool(err or said), data_find=f'{p.label} {p.note}'.lower())
 
 def Prompts(n):

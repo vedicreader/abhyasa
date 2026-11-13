@@ -18,6 +18,7 @@ class Routes:
     look = '/settings/look'          # the theme and the mode: light, dark or auto
     prompt = '/settings/prompt'      # save the text of one tutor prompt; empty: the default
     prompt_default = '/settings/prompt/default'   # use the default text of one tutor prompt
+    prompt_try = '/settings/prompt/try'   # run the text in the box and the default text of one tutor prompt on a small sample; saves nothing
     out = '/settings/voice'              # the speaking voice: the engine, the model and the voice
     out_get = '/settings/voice/get'      # download the voice of Pocket TTS in the background, then use it
     out_sample = '/settings/voice/sample'   # say one sample line in the voice of the settings: JSON with base64 WAV
