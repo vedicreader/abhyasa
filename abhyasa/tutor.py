@@ -33,7 +33,8 @@ DEPTH_ASK = register('depths', 'What each depth asks', 'What a question at each 
 say it: say the idea and why it holds, in their own words
 explain it: say why it is true or why it works, in their own words
 apply it: solve a concrete problem that needs it; not a restatement
-transfer it: use it in a new situation, or connect it to a different idea or subject""", need_lines(5, 'What each depth asks'))
+transfer it: use it in a new situation, or connect it to a different idea or subject""", need_lines(5, 'What each depth asks'),
+    activity='Answering questions', used_by='New questions', when='Each time a question is written, to say what it asks at its depth.')
 
 def depth_ask(depth:int) -> str:
     "What a question at `depth` (1 to 5) must make the learner do, from the prompt `depths`."
@@ -269,11 +270,16 @@ def teach_prompt(q, first_error):
 def _has_check(text):
     if 'Check:' not in text: raise ValueError("The lesson instruction must ask for a last line that starts with 'Check:'. The next question comes from that line.")
 
-register('tutor', 'Tutor rules', 'The system prompt for each question, hint and lesson.', TUTOR_SP)
-register('question', 'Question rules', 'The rules and the bad and good examples for each new question.', QUESTION_RULES)
-register('grade', 'Grading rules', 'How the tutor grades each answer, and the nudge after a wrong try.', GRADE_SP)
-register('hints', 'Hint ladder', 'The 6 hints, one on each line, from the least to the most revealing.', '\n'.join(HINTS), need_lines(6, 'The hint ladder'))
-register('lesson', 'Lesson instruction', "How the tutor teaches the smallest step after a miss. The lesson ends with a 'Check:' line.", TEACH, _has_check)
+register('tutor', 'Tutor rules', 'The system prompt for each question, hint and lesson.', TUTOR_SP,
+    activity='Answering questions', used_by='Questions, hints and lessons', when='Each time the tutor writes a question, a hint or a lesson.')
+register('question', 'Question rules', 'The rules and the bad and good examples for each new question.', QUESTION_RULES,
+    activity='Answering questions', used_by='New questions', when='Each time the tutor writes a new question.')
+register('grade', 'Grading rules', 'How the tutor grades each answer, and the nudge after a wrong try.', GRADE_SP,
+    activity='Answering questions', used_by='Grading your answers', when='After each answer you give, to grade it and write the nudge.')
+register('hints', 'Hint ladder', 'The 6 hints, one on each line, from the least to the most revealing.', '\n'.join(HINTS), need_lines(6, 'The hint ladder'),
+    activity='Hints and lessons', used_by='Hints', when='When you ask for a hint, one line for each level.')
+register('lesson', 'Lesson instruction', "How the tutor teaches the smallest step after a miss. The lesson ends with a 'Check:' line.", TEACH, _has_check,
+    activity='Hints and lessons', used_by='Lessons', when='After a miss, to teach the smallest step.')
 
 def hints() -> tuple:
     "The hint ladder in use: your 6 saved lines, else `HINTS`."

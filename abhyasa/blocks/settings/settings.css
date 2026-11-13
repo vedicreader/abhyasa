@@ -21,7 +21,10 @@ p.warn { font-size: var(--t-small); margin: 0 0 var(--s3); }
 #key input[type=password] { flex: 1; min-width: 200px; font: var(--t-list)/1.6 var(--mono); background: transparent; border: 0; border-bottom: 1px solid var(--rule); color: var(--fg); padding: var(--s2) 2px; }
 /* The prompts: each one opens to a raised editor. The box is monospace, so code-like text keeps its shape. */
 .prompts details.prompt { border-top: 1px solid var(--line); padding: var(--s3) 0; }
-.prompts details.prompt:first-child { border-top: 0; }
+.prompts details.prompt:first-child, .prompts h3.act + details.prompt { border-top: 0; }
+.prompts h3.act { font: var(--t-meta)/1.4 var(--serif); letter-spacing: .06em; text-transform: uppercase; margin: var(--s3) 0 0; padding-top: var(--s3); border-top: 1px solid var(--line); }
+.prompts h3.act:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.prompts summary .uses { display: block; font-size: var(--t-small); margin-top: var(--s1); }
 .prompts summary { cursor: pointer; font: var(--t-body)/1.5 var(--serif); }
 .prompts summary .state { font-size: var(--t-meta); margin-left: var(--s3); }
 .prompts p.note { font-size: var(--t-small); margin: var(--s1) 0 var(--s2); }

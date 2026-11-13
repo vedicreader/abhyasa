@@ -6,20 +6,20 @@ Docs: https://vedicreader.github.io/abhyasa/learner.html.md"""
 
 # %% auto #0
 __all__ = ['GROUPS', 'SETTINGS', 'TASK_HELP', 'BORROWS', 'TASK_LABEL', 'DFLT_SETTINGS', 'NO_FOLDER', 'FIXED', 'PROMPTS',
-           'RETIRED', 'CARRY', 'log', 'SHELF', 'STATE', 'LISTS', 'NAME_LEN', 'SLUG_KEYS', 'GROUP_DEPTH', 'GROUP_LEN',
-           'NO_TEXT', 'NOT_FOUND', 'DEPTHS', 'KIND_AT', 'DAY', 'METHODS', 'METHOD_LABELS', 'EXAMPLES_TO', 'TEXT_WAYS',
-           'WALK_WAYS', 'CREDIT', 'FEEDBACK', 'EXPLORE', 'WAYS', 'EMPTY', 'CHECK_KIND', 'DEPTH', 'LEARNING', 'PROFILE',
-           'LIST_FIELDS', 'EXAMPLES', 'PACES', 'PROFILE_LABELS', 'ONBOARD_QS', 'ONBOARD_SP', 'OBSERVE_SP', 'HUMAN',
-           'LEVELS', 'FRESH', 'KEEP', 'OLD', 'STOPPED', 'WORD', 'STATUS', 'NO_CHECK', 'SHAKY', 'add', 'cfg_dir',
-           'use_config', 'is_hosted', 'CtxPool', 'settings', 'save_settings', 'update_settings', 'top', 'fit', 'raw',
-           'val', 'dflt', 'use_settings', 'source_root_why', 'roots', 'dropped_roots', 'set_val', 'reset', 'rows',
-           'reset_group', 'changed', 'clamped', 'register', 'lines', 'need_lines', 'saved', 'prompt', 'set_prompt',
-           'meta_of', 'slugify', 'idea_name', 'real_idea', 'listed', 'usable_name', 'concept_text', 'Learning',
-           'clean_name', 'wrong_ideas', 'clean_group', 'fold', 'under', 'clean_subject', 'readable_name', 'tree',
-           'attempt_text', 'temp_learning', 'outcome', 'recall', 'grow', 'update', 'next_depth', 'learned', 'ready',
-           'pick', 'understanding', 'weak', 'join_ways', 'ways_of', 'need_ways', 'way', 'credit', 'posterior', 'mean',
-           'improving', 'choose', 'check_for', 'methods_text', 'profile_text', 'clean', 'onboard_prompt', 'onboard',
-           'evidence', 'observe_prompt', 'observe', 'teach_sp', 'level_line', 'plainly', 'calibration',
+           'ACTIVITIES', 'RETIRED', 'CARRY', 'log', 'SHELF', 'STATE', 'LISTS', 'NAME_LEN', 'SLUG_KEYS', 'GROUP_DEPTH',
+           'GROUP_LEN', 'NO_TEXT', 'NOT_FOUND', 'DEPTHS', 'KIND_AT', 'DAY', 'METHODS', 'METHOD_LABELS', 'EXAMPLES_TO',
+           'TEXT_WAYS', 'WALK_WAYS', 'CREDIT', 'FEEDBACK', 'EXPLORE', 'WAYS', 'EMPTY', 'CHECK_KIND', 'DEPTH',
+           'LEARNING', 'PROFILE', 'LIST_FIELDS', 'EXAMPLES', 'PACES', 'PROFILE_LABELS', 'ONBOARD_QS', 'ONBOARD_SP',
+           'OBSERVE_SP', 'HUMAN', 'LEVELS', 'FRESH', 'KEEP', 'OLD', 'STOPPED', 'WORD', 'STATUS', 'NO_CHECK', 'SHAKY',
+           'add', 'cfg_dir', 'use_config', 'is_hosted', 'CtxPool', 'settings', 'save_settings', 'update_settings',
+           'top', 'fit', 'raw', 'val', 'dflt', 'use_settings', 'source_root_why', 'roots', 'dropped_roots', 'set_val',
+           'reset', 'rows', 'reset_group', 'changed', 'clamped', 'register', 'lines', 'need_lines', 'saved', 'prompt',
+           'set_prompt', 'meta_of', 'slugify', 'idea_name', 'real_idea', 'listed', 'usable_name', 'concept_text',
+           'Learning', 'clean_name', 'wrong_ideas', 'clean_group', 'fold', 'under', 'clean_subject', 'readable_name',
+           'tree', 'attempt_text', 'temp_learning', 'outcome', 'recall', 'grow', 'update', 'next_depth', 'learned',
+           'ready', 'pick', 'understanding', 'weak', 'join_ways', 'ways_of', 'need_ways', 'way', 'credit', 'posterior',
+           'mean', 'improving', 'choose', 'check_for', 'methods_text', 'profile_text', 'clean', 'onboard_prompt',
+           'onboard', 'evidence', 'observe_prompt', 'observe', 'teach_sp', 'level_line', 'plainly', 'calibration',
            'calibration_text', 'ledger', 'job_version', 'job_start', 'job_end', 'JobStopped', 'stop_job', 'halted',
            'check_stop', 'can_again', 'track', 'job_said', 'Said', 'seen_jobs', 'close_jobs', 'activity', 'chip_words',
            'current', 'keyed_lock', 'walk_state']
@@ -376,9 +376,21 @@ FIXED = ('network', 'sandbox', 'audit', 'isolate', 'local', 'plain', 'link_kind'
 # %% ../nbs/00_learner.ipynb #p007
 PROMPTS = {}   # name -> the prompt: name, label, note, default text and check
 
-def register(name:str, label:str, note:str, dflt:str, check=None) -> str:
+ACTIVITIES = ('Answering questions', 'Hints and lessons', 'Building a walk', 'Researching sources', 'Screen guide', 'Demos', 'Talks', 'Your profile',
+              'Your concepts', 'Every teaching prompt')   # the headings of the prompts on the Settings page, in order
+
+def register(
+    name:str, # the key that the code reads the prompt by
+    label:str, # a plain title
+    note:str, # what the prompt changes
+    dflt:str, # the text that comes with abhyasa
+    check=None, # refuses a text that is not fit to save
+    activity:str='', # the heading on the Settings page: one of `ACTIVITIES`
+    used_by:str='', # the screen or feature that uses it, in a few words
+    when:str='' # when it runs, in one short sentence
+) -> str:
     "Add the prompt `name` with a plain `label`, a `note` on what it changes, its `dflt` text and an optional `check`. Return `dflt`."
-    PROMPTS[name] = AttrDict(name=name, label=label, note=note, dflt=dflt, check=check)
+    PROMPTS[name] = AttrDict(name=name, label=label, note=note, dflt=dflt, check=check, activity=activity, used_by=used_by, when=when)
     return dflt
 
 # %% ../nbs/00_learner.ipynb #p009
@@ -1169,7 +1181,8 @@ def need_ways(text:str):
            *(['there are words before the first section'] if p[0].strip() else [])]
     if why: raise ValueError(f'The ways text needs one section for each way, and each section starts with a line such as [code] on its own. {"; ".join(why)}.')
 
-WAYS = register('ways', 'Ways to teach', 'How the tutor uses each way in a question, a nudge, a hint and a lesson. Each way has a section that starts with a line such as [code] on its own.', join_ways(METHODS), need_ways)
+WAYS = register('ways', 'Ways to teach', 'How the tutor uses each way in a question, a nudge, a hint and a lesson. Each way has a section that starts with a line such as [code] on its own.', join_ways(METHODS), need_ways,
+    activity='Hints and lessons', used_by='Questions, hints and lessons', when='Each time a way to teach is named in a question, a nudge, a hint or a lesson.')
 
 def way(m:str) -> str:
     "The text of method `m` now: its section of your saved text, else the line in `METHODS`; '' for an unknown method."
@@ -1371,7 +1384,8 @@ ONBOARD_QS = (('who', 'What do you do, and what do you know well already?', 'For
               ('time', 'How long do you like to study at one time? Small steps or big ones?', 'For example: twenty minutes, small steps.'))
 
 ONBOARD_SP = register('profile.onboard', 'Profile from your first answers', 'How the tutor makes your profile from your answers to the four first questions.', """You make a short learner profile from what a learner says about themselves.
-Use only what they say; leave a field empty when they say nothing about it. Keep each item under 12 words, in their words where you can.""")
+Use only what they say; leave a field empty when they say nothing about it. Keep each item under 12 words, in their words where you can.""",
+    activity='Your profile', used_by='Your profile', when='After your first four answers.')
 
 def onboard_prompt(answers:dict) -> str:
     "The prompt that turns the onboarding answers into profile fields."
@@ -1391,7 +1405,8 @@ OBSERVE_SP = register('profile.observe', 'Profile from your answers', 'How the t
 Propose at most 3 changes, and none when the evidence is weak. Good changes: a topic that confuses them again and again,
 a kind of example that works (they explain well with code or analogies), a pace that fits (many hints and misses: gentle;
 quick solid passes: fast), background that their answers show. Each `why` names the evidence in one short sentence, to the
-learner as "you", in ASD-STE100 Simplified Technical English.""")
+learner as "you", in ASD-STE100 Simplified Technical English.""",
+    activity='Your profile', used_by='Your profile', when='After your recent answers, to change the profile.')
 
 def evidence(lr:Learning, n:int=12) -> str:
     "The last `n` final answers as short lines for a prompt: the outcome, the method, the first error, gaps you named, lessons you asked for, and what you said."
@@ -1444,7 +1459,8 @@ HUMAN = register('teach.human', 'Who the words are for', 'The rules on how to te
 - Plain words are not literal words. A short sentence can carry an example, a picture in words, or the reason why.
 - Name a technical thing by its real name. Say in plain words what it is the first time. Never make up a nickname or a metaphor for it.
 - Write in ASD-STE100 Simplified Technical English at a US grade 9 reading level: sentences of at most 20 words, common words, the active voice, no semicolons.
-- These rules do not change the rules on sources and facts. A quote stays word for word. Say only what is true.""")
+- These rules do not change the rules on sources and facts. A quote stays word for word. Say only what is true.""",
+    activity='Every teaching prompt', used_by='Every prompt that explains an idea', when='On each prompt that explains an idea, after its own rules.')
 
 def teach_sp(name:str) -> str:
     "The prompt `name` with the shared rules on how to teach (`teach.human`) after it."

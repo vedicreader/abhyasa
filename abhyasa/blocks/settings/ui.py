@@ -1,11 +1,12 @@
 "The Settings page: a short row of tabs, and under it the groups of one tab on quiet hairline rows, with the rarely changed values under a closed `More`."
 import os, json
 from pathlib import Path
+from fastcore.basics import groupby
 from fasthtml.common import *
 from fasthtml.svg import Svg, Path as SvgPath, Circle as SvgCircle, Rect as SvgRect, Ellipse as SvgEllipse
 from abhyasa.core import n_of, Spin, asset_css, asset_js, THEMES, MODES, look, SettingRow, RangeLine, row_id, say, Choice, HelpLine, JobTools
 from abhyasa import models as voice
-from abhyasa.learner import STOPPED, is_hosted
+from abhyasa.learner import STOPPED, is_hosted, ACTIVITIES
 from abhyasa.learner import GROUPS, SETTINGS, TASK_HELP, TASK_LABEL, BORROWS, rows, val, raw, clamped, dropped_roots
 from .cfg import Routes
 
@@ -436,10 +437,11 @@ def registry() -> dict:
     return PROMPTS
 
 def PromptItem(p, text=None, err='', said=''):
-    "One prompt: its label, a note on what it changes, and a raised editor with the text in use. `err` says why a text was refused."
+    "One prompt: its label, who uses it and when, a note on what it changes, and a raised editor with the text in use. `err` says why a text was refused."
     from abhyasa.learner import saved, prompt
     mine, pid = p.name in saved(), 'pr-' + p.name.replace('.', '-')
-    return Details(Summary(Span(cls='dot' + (' on' if mine else '')), Span(p.label, cls='nm'), Span('Your text' if mine else 'The default', cls='mute state')),
+    return Details(Summary(Span(cls='dot' + (' on' if mine else '')), Span(p.label, cls='nm'), Span('Your text' if mine else 'The default', cls='mute state'),
+                           Span(' · '.join(filter(None, (p.used_by, p.when))), cls='mute uses') if p.used_by or p.when else ''),
                    P(p.note, cls='mute note'),
                    Form(Textarea(prompt(p.name) if text is None else text, name='text', spellcheck='false', autocomplete='off',
                                  aria_label=f'The text of {p.label}'),
@@ -451,8 +453,10 @@ def PromptItem(p, text=None, err='', said=''):
                    id=pid, cls='prompt', open=bool(err or said), data_find=f'{p.label} {p.note}'.lower())
 
 def Prompts(n):
-    "The instruction text of the tutor: one closed item for each prompt, the ways last."
+    "The instruction text of the tutor: one closed item for each prompt, under the heading of its activity, the ways last in each."
     ps = sorted(registry().values(), key=lambda p: p.name == 'ways')
+    by = groupby(ps, lambda p: p.activity or 'Other')
+    items = [x for a in sorted(by, key=lambda a: ACTIVITIES.index(a) if a in ACTIVITIES else len(ACTIVITIES)) for x in (H3(a, cls='act'), *map(PromptItem, by[a]))]
     return Group('prompts', 0, more=(P('A change works on the next question. To go back to the text that comes with abhyasa, click "Use the default", or save an empty box. '
                                        'The concept, the conversation and the reply format stay in code.', cls='mute'),
-                                     Div(*map(PromptItem, ps), cls='prompts')), summary=f'Show the {len(ps)} prompts')
+                                     Div(*items, cls='prompts')), summary=f'Show the {len(ps)} prompts')

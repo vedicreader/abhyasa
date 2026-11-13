@@ -166,6 +166,27 @@ def test_simpler_demo_prompt_is_editable(mk, lr):
     d = make_demo(lr, ask, 'reciprocal-rank-fusion', check=False, aim='simpler')
     assert d.aim == 'simpler' and 'Use one slider only.' in ask.calls[0][0] and SIMPLER_AIM not in ask.calls[0][0]
 
+ACTIVITIES = ('Answering questions', 'Hints and lessons', 'Building a walk', 'Researching sources', 'Screen guide', 'Demos', 'Talks', 'Your profile',
+              'Your concepts', 'Every teaching prompt')
+
+def test_every_prompt_has_an_activity():
+    from abhyasa.blocks.settings.ui import registry
+    ps = registry()
+    assert not [n for n, p in ps.items() if p.get('activity') not in ACTIVITIES], 'a prompt has no activity from the list'
+    assert not [n for n, p in ps.items() if not (p.get('used_by') and p.get('when'))], 'a prompt does not say who uses it and when'
+
+def test_settings_page_groups_prompts_by_activity(mk):
+    from abhyasa.blocks.settings.ui import registry
+    ps = registry()
+    t = mk().get('/settings').text
+    heads = [(m.start(), m.group(1)) for m in re.finditer(r'<h3 class="act">([^<]+)</h3>', t)]
+    assert [h for _, h in heads] == [a for a in ACTIVITIES if any(p.activity == a for p in ps.values())]   # in the order of the list, none empty
+    items = [(m.start(), m.group(1)) for m in re.finditer(r'\bid="pr-([^"]+)"', t)]
+    for (s, act), e in zip(heads, [s for s, _ in heads[1:]] + [len(t)]):
+        under = sorted(k for pos, k in items if s < pos < e)
+        assert under == sorted(n.replace('.', '-') for n, p in ps.items() if p.activity == act), act
+    assert all(p.used_by in t and p.when in t for p in ps.values())
+
 # The Settings page
 
 def test_page_lists_every_group_and_row(mk):
