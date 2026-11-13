@@ -74,6 +74,7 @@ def test_build_page_and_start_link(mk, lr, agent):
     assert 'The walk or the talk that you make shows here.' in h and 'id="rh-pane"' in h and 'class="rh-open"' in h
     p = cl.get(f'/build/{bid}?pane=1').text
     assert 'Your brief' in p and 'id="build-say"' in p and 'data-mic="label"' in p and build_ui.FIRST in p and 'No sources yet. abhyasa uses the web.' in p
+    assert [cl.get(f'/build/nope{u}').status_code for u in ('', '/chat', '/watch')] == [404] * 3
 
 def test_events_fold_to_items():
     "The adapter folds AG-UI events into the items of the pane: messages, a tool call with its stage, data and result, and a stopped run."

@@ -1055,7 +1055,7 @@ def connect(app, ctx):
 
     def live(bid:str):
         "The builder column as it is now."
-        b = load(bid)
+        if not (b := load(bid)): return Response('No such conversation.', status_code=404)
         return ui.Column(b, fold(b.get('events')), lr.job(key(bid)) if busy(bid) else None, CHANGERS, href_of(b))
 
     def one(req, bid:str, say:str=''):

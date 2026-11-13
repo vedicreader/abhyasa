@@ -8,6 +8,7 @@
 - The prompts that say how to teach are now one prompt, named "Ways to teach". `research.gather` is gone. A tutor nudge now builds on the right part of an answer.
 - The Settings page groups the prompts by activity. Each prompt says which screen uses it and when.
 - The Settings page has a Try it button for a prompt.
+- `GET /build/<id>/chat` for a conversation that does not exist now answers 404. Before, it answered 500.
 - abhyasa now needs `shalya>=0.1.34`. Its grep searches nested folders named build or dist.
 - abhyasa now needs `ramabana>=0.2.116`, also in the `models` extra. Ramabana 0.2.116 needs `rishi[claude]>=0.1.71` and `shalya>=0.1.34`.
 
