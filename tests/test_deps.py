@@ -53,6 +53,6 @@ def test_locks_match_aidialog():
 def test_shalya_gheasy_floors():
     "shalya 0.1.29 gives `Registry.each`, which ramabana 0.2.108 calls on each turn; 0.1.28 gives `LocalHost(url_ok=, on_read=)` and `read_page`. gheasy 0.0.20 gives `gh_repo_info`. abhyasa imports both, so a plain install must have them."
     deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
-    for p, v in (('shalya', '0.1.33'), ('gheasy', '0.0.21')):
+    for p, v in (('shalya', '0.1.34'), ('gheasy', '0.0.21')):
         assert any(d.startswith(f'{p}>={v}') for d in deps), p
         assert Version(version(p)) >= Version(v), p

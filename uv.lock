@@ -78,7 +78,7 @@ requires-dist = [
     { name = "rupaka", specifier = ">=0.0.17" },
     { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.17" },
     { name = "rupaka", extras = ["check"], marker = "extra == 'dev'", specifier = ">=0.0.17" },
-    { name = "shalya", specifier = ">=0.1.33" },
+    { name = "shalya", specifier = ">=0.1.34" },
     { name = "vidyut", specifier = ">=0.4" },
     { name = "vishalakshi", specifier = ">=0.1.40" },
 ]
@@ -4859,7 +4859,7 @@ wheels = [
 
 [[package]]
 name = "shalya"
-version = "0.1.33"
+version = "0.1.34"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dhrishti" },
@@ -4873,9 +4873,9 @@ dependencies = [
     { name = "litesearch" },
     { name = "vishalakshi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/37/9b/5539c8fbf2259ccd2cb2b97dd2ac4649fde92ed654c8dc21e23fe4cf9cbb/shalya-0.1.33.tar.gz", hash = "sha256:b9981c7a0c284254c6de17be193bec4b31570fd869a316287b6ccc4a896b61ca", size = 73287, upload-time = "2026-11-10T04:03:57.83Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a8/db/b5ea01a1ed84336b995cc8b2b0c1ecb4cb4ed0562fbc23f76359753cf475/shalya-0.1.34.tar.gz", hash = "sha256:36d64da2f98f649859c6f9ea0c7bb51db283dbcb6eda4f361dc8b0fc5a1d7ba4", size = 73460, upload-time = "2026-11-13T01:15:16.197Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/09/0de08cf81bd4dca9ff778a2cb6133f137202f13054d158e76b72b5f8eff4/shalya-0.1.33-py3-none-any.whl", hash = "sha256:d9ad4e12bafaa9c5dca876ba49fc153f1ea35fdd5d62ca819042e671ba54b9cd", size = 76665, upload-time = "2026-11-10T04:03:56.389Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/a7/cf8a509e9eefedfc9cd97f5d9c376548697dfdf15f49c415e8e67c2f572b/shalya-0.1.34-py3-none-any.whl", hash = "sha256:20aa55e88035592a81a62aa5cba7af42f434fa429db2973f3c88a0aa2ef4ca40", size = 76835, upload-time = "2026-11-13T01:15:14.674Z" },
 ]
 
 [[package]]

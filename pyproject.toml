@@ -31,7 +31,7 @@ dependencies = [
     "nh3>=0.3.7",
     "fossick>=0.1.28",
     "ramabana>=0.2.115",   # 0.2.115 needs rishi[claude]; model routing, the guard (`ramabana.guard`), `Agent.oneshot_stream`, `model_label` and `read_key`
-    "shalya>=0.1.33",   # `LocalHost(url_ok=, on_read=)` and `read_page`
+    "shalya>=0.1.34",   # 0.1.34 grep searches a nested build or dist folder and gives a file path_filter its own path; `LocalHost(url_ok=, on_read=)` and `read_page`
     "gheasy>=0.0.21",   # `gh_repo_info`
 ]
 
