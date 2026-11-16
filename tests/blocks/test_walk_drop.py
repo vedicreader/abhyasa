@@ -28,6 +28,13 @@ def test_delete_removes_the_plan_and_its_side_walks_and_keeps_the_answers(mk, wa
     assert n and len(lr.attempts(slug)) == n and lr.concept(slug)
     assert cl.post('/w/nope/drop').status_code == 404
 
+def test_a_walk_for_a_talk_has_no_delete(mk, walk_fake, lr):
+    "A walk that a talk was made from goes with its talk, so the server refuses to delete it alone. Its page offers no Delete this walk."
+    cl = mk(); jid = walk(cl, lr)
+    lr.merge_journey(jid, parent={'journey': 'other', 'for': 'talk'})
+    r = cl.get(f'/w/{jid}')
+    assert r.status_code == 200 and 'Delete this walk' not in r.text and cl.post(f'/w/{jid}/drop').status_code == 404
+
 def nb_walk(cl, lr):
     "A walk from one of your notebooks: a title and two sections, the second with code that draws."
     d = Path(tempfile.mkdtemp())/'nbs'; d.mkdir()

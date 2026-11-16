@@ -11,7 +11,7 @@ from abhyasa.tutor import HINTS
 from abhyasa.learner import val
 from abhyasa.models import dflt_model, where_chip
 from abhyasa.core.leela import leela_line, leela_base, OpenInLeela, LEELA_INSTALL
-from abhyasa.path import minutes, TOOL_WAYS, hands_count, hands_most
+from abhyasa.path import minutes, TOOL_WAYS, hands_count, hands_most, for_talk
 from abhyasa.learner import SHAKY, walk_state
 from abhyasa.path import wants_source, missing_data, chip_sources, is_goal_walk, nb_title
 from abhyasa.core.livecode import LiveCell
@@ -881,7 +881,7 @@ def WalkPage(j, st, by, plan, band, top=None, more=(), talks=(), changed=(), act
     src, ph = j.get('source') or {}, phase(j, st)
     whence = lead or (f"From your vault: {src['title']}" if src.get('title') else f"From the link: {src['url']}" if src.get('docs') else j.get('goal', ''))
     claim = ' '.join(str((j.get('map') or {}).get('claim') or '').split())   # the one thing that the source shows, from the walk map
-    head = (Div(H1(walk_title(j), title=j['title'] if walk_title(j) != j['title'] else None), WalkMenu(j), cls='walk-head'), P(*((whence, ' · ') if whence else ()), Size(j), cls='mute'),
+    head = (Div(H1(walk_title(j), title=j['title'] if walk_title(j) != j['title'] else None), '' if for_talk(j) else WalkMenu(j), cls='walk-head'), P(*((whence, ' · ') if whence else ()), Size(j), cls='mute'),   # a walk for a talk goes with its talk: no Delete
             P(Span('The main idea', cls='lbl'), claim, cls='walk-claim', data_part='claim') if claim else '',
             leela_line(j, vault=vault) if j.get('tool') else '', NotebookLine(j, copy))
     if ph == 'empty': return (*head, P('The tutor found no ideas in this source.', cls='mute'), Filed(j), Div(Primary('Home', href='/', data_act='home'), cls='row'))   # what Start filed keeps its Undo

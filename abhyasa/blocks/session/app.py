@@ -60,7 +60,9 @@ def connect(app, ctx):
         if q: shown.setdefault(sid, []).append(q)
         return q
 
-    def ahead(sid): pre[sid] = ctx.pool.submit(sessions[sid].next)
+    def ahead(sid):
+        pre[sid] = f = ctx.pool.submit(sessions[sid].next)
+        return f
 
     def failed(what, sid, e):
         "A call to the model that failed: the log gets the error, and the page a plain line. A 503 keeps the answer in its box."
@@ -124,9 +126,10 @@ def connect(app, ctx):
         if q and (old := next((x for x in shown.get(sid, ()) if x.id == q and x is not cur), None)):
             return layout(s, ui.Chat(sid, viewing=(old, entries(old))), Div(id='composer'), cur, viewing=q)
         if not cur or sid in pre:   # the question fetched ahead is not on the page yet
-            if sid not in pre: ahead(sid)
-            wait([pre[sid]], timeout=.5)
-            if not pre[sid].done(): return layout(s, ui.Chat(sid, waiting=True), ui.Composer(sid))
+            f = pre.get(sid) or ahead(sid)
+            wait([f], timeout=.5)
+            if not f.done(): return layout(s, ui.Chat(sid, waiting=True), ui.Composer(sid))
+            if pre.get(sid) is not f: return Redirect(at(Routes.page, sid))   # another request (the card) took the question: the page shows it
             cur, e = try_nxt(sid)
             if e: return layout(s, ui.Chat(sid), NoQuestion(sid))
             if not cur: return Redirect(at(Routes.end, sid))

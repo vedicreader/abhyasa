@@ -2699,9 +2699,10 @@ def fit_slides(ss:list, slot:int, keep=()) -> tuple:
 # %% ../nbs/05_show.ipynb #120572ea
 @patch
 def put_build(self:Learning, b:dict) -> AttrDict:
-    "Save the builder conversation `b`, and replace an earlier one with the same id."
+    """Save the builder conversation `b`, and replace an earlier one with the same id.
+    The text has the id: the vault files one document for one text, so two walks with one title would share one builder."""
     b = {**{k: v for k, v in dict(b).items() if k != 'doc_id'}, 'updated': time.time()}
-    self.v.put(f"Builder: {b.get('title') or b['id']}", title=f"Builder: {b.get('title') or b['id']}", source=_src('build', b['id']), kind='build', meta=b)
+    self.v.put(f"Builder: {b.get('title') or b['id']} ({b['id']})", title=f"Builder: {b.get('title') or b['id']}", source=_src('build', b['id']), kind='build', meta=b)
     return self.build(b['id'])
 
 @patch

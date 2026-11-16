@@ -97,3 +97,12 @@ def test_research_comes_before_the_walk(mk, lr, agent, monkeypatch):
     cl.post(f'/build/{bid}/item', data=dict(url='https://ex.org/a', role='extra'))   # each find is decided: the turn with the kept finds starts
     wait_for(lambda: True if made else None, secs=20)
     assert made == [['doc:d1']]
+
+def test_two_walks_with_one_title_each_open_their_own_builder(mk, lr, walk_fake):
+    "Two walks can share a title. Change with the builder opens a conversation for each, and the first one keeps its own."
+    from walk_data import walk
+    cl = mk(); j1, j2 = walk(cl, lr), walk(cl, lr)
+    lr.merge_journey(j2, title=lr.journey(j1).title)
+    for jid in (j1, j2): assert cl.get(f'/build/open?walk={jid}').status_code == 200
+    b1, b2 = lr.journey(j1).build, lr.journey(j2).build
+    assert b1 != b2 and lr.build(b1).target == f'walk:{j1}' and lr.build(b2).target == f'walk:{j2}'

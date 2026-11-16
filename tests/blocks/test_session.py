@@ -300,3 +300,17 @@ def test_lesson_code_opens_as_a_notebook(mk, fake, monkeypatch):
     fake.rules['Teach the smallest step'] = 'Positions are shared. Check: what if k = 0?'
     sid = start(cl); cl.get(f'/s/{sid}')
     assert 'Open the code' not in cl.post(f'/s/{sid}/giveup', data=dict(dont_know=1)).text   # no code, no press
+
+def test_the_page_and_the_card_wait_for_one_question(mk, fake):
+    "The page waits for the question that is fetched ahead, and the card takes it meanwhile. The page then shows that question, with no error."
+    import threading, time
+    q = dict(question='What does a rank tell you?', answer='Its position.', rubric=['position'])
+    def slow(p, sp): time.sleep(.3); return q
+    fake.rules['Write ONE question'] = slow
+    cl = mk(); sid = start(cl); out = {}
+    a = threading.Thread(target=lambda: out.update(page=cl.get(f'/s/{sid}')))
+    a.start(); time.sleep(.1)
+    out['card'] = cl.get(f'/s/{sid}/card')
+    a.join()
+    assert 'page' in out, 'the page request raised'
+    assert out['page'].status_code == 200 and 'What does a rank tell you?' in out['page'].text and 'What does a rank tell you?' in out['card'].text

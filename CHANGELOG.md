@@ -9,6 +9,9 @@
 - When a flat view shows the whole idea, the model can reply PLANE, and the card gives the 2D demo. The card now says: "Here is the 2D demo. A 3D view does not add to this idea, or abhyasa could not make a clear one."
 - A 3D explainer must pass the headless check of rupaka before abhyasa keeps it. A failed check gets the repair, as a failed validation does.
 - abhyasa now needs `rupaka>=0.0.20`, also in the `demo` extra. Rupaka 0.0.20 has 2D arrows, a side view for a lever, a sky look for a scene with a lamp, and a model prompt that draws a thing before the prediction.
+- Two walks with the same title now each have their own builder. Before, the second walk took over the builder of the first, and its own builder was lost. Then the change box answered 500, and "Change with the builder" opened a page that said "No such conversation." A walk that lost its builder gets a new one when you open it.
+- A session page no longer answers 500 when the card takes the next question first. The page then shows that question.
+- A walk that a talk was made from has no Delete this walk on its page. That walk goes with its talk, and the server refused to delete it alone.
 
 ## 0.0.28
 
