@@ -10,7 +10,7 @@ supported-markers = [
 
 [[package]]
 name = "abhyasa"
-version = "0.0.28"
+version = "0.0.29"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
@@ -28,9 +28,9 @@ dependencies = [
     { name = "vidyut" },
     { name = "vishalakshi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/aa/a9/1c407ca5f9a19e895563b1a2e1795c6c4a2ee2759cee84abef09697fe375/abhyasa-0.0.28.tar.gz", hash = "sha256:11c67010efcc00557f80c15b694d1765b395ba8056b05d8c4f8bfaef1e4fa539", size = 1660020, upload-time = "2026-11-13T07:24:11.843Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ee/b3/f77752fec822c56e27531a6cc2297da6b3bcc2b4250e5e6852a9be615604/abhyasa-0.0.29.tar.gz", hash = "sha256:42addb5a3cd77560a7d934537d93cfcc3dea82b66fdff3df222a5bdd45a8963e", size = 1660333, upload-time = "2026-11-16T05:59:51.782Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f5/9c/16a1d51dd1f9cc7507ba5f7eeedb5322aa27e963defc4126e98eb608804e/abhyasa-0.0.28-py3-none-any.whl", hash = "sha256:312e7c14a12b66555ba98727d0a928c1b1f118d50e8ee3388ef16b45976901d8", size = 1728062, upload-time = "2026-11-13T07:24:09.983Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/68/d87b0a2a110b3851889edf29fef28f76accb15b921c2bbc2e2dba63c03df/abhyasa-0.0.29-py3-none-any.whl", hash = "sha256:ac32b0710527f6389900dd21c14deaac94469e085293744b659ca85e1a7be35d", size = 1728768, upload-time = "2026-11-16T05:59:50.007Z" },
 ]
 
 [package.optional-dependencies]
@@ -54,7 +54,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models", "voice"], specifier = "==0.0.28" }]
+requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models", "voice"], specifier = "==0.0.29" }]
 
 [[package]]
 name = "adhara"
@@ -1880,14 +1880,14 @@ wheels = [
 
 [[package]]
 name = "rupaka"
-version = "0.0.17"
+version = "0.0.20"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0f/b8/a7080f51d9e3e25d6ba80b8b4c30c896415078760d08d18d04c878be78db/rupaka-0.0.17.tar.gz", hash = "sha256:45fad405ee2a1c85772f8161a67603735a6be9d081fb3c033e7c2e921810163a", size = 676716, upload-time = "2026-11-10T09:17:05.017Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/be/88/9f027b2ef746bba039ea3a2a8169cf2cb382eae6674316027d1fc59901df/rupaka-0.0.20.tar.gz", hash = "sha256:9271647122b87f0442b15c84404f71bf141c14c1ef963c9bd702e0832ce5089b", size = 819319, upload-time = "2026-11-16T04:18:49.404Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/86/e4/f9ce037f8a8a88702f3ac851e561c9bd230d0f0fb5ebc65b8232d86c0e78/rupaka-0.0.17-py3-none-any.whl", hash = "sha256:0948053fe09d217a38f6997b620fab72a2b77330b5b546a17a70b64371a71b56", size = 723113, upload-time = "2026-11-10T09:17:03.36Z" },
+    { url = "https://files.pythonhosted.org/packages/40/99/e4afdb496645ba561f8f4064af4c6bd10800feb1966de865f77ed5cb0799/rupaka-0.0.20-py3-none-any.whl", hash = "sha256:6d5d8a936877c028d0f4ea2d01c69beab7382a2d4436685a45ee77b705eb5354", size = 875497, upload-time = "2026-11-16T04:18:47.647Z" },
 ]
 
 [[package]]
