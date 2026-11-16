@@ -7,6 +7,11 @@ from test_show_me import svc, aid_of
 SCENE = {**scene_example(), 'id': 'ranking-3d'}
 BAD = {**SCENE, 'blocks': [{**SCENE['blocks'][0], 'steps': ['One line.']}]}
 
+@pytest.fixture(autouse=True)
+def no_check(monkeypatch):
+    "No explainer job starts a browser for rupaka's check: the fake specs are checked by `validate` and `scene_errors` only."
+    monkeypatch.setattr('rupaka.check.can_check', lambda: False)
+
 def wait_3d(cl, slug):
     "Wait for each 3D explainer job on `slug`; their keys."
     ks = [k for k in svc(cl)['tutor'].jobs if k.startswith(f'{slug}:3d')]

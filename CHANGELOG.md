@@ -2,6 +2,14 @@
 
 <!-- do not remove -->
 
+## 0.0.29
+
+- Show me picks a 3D explainer only for an idea that needs depth, such as a globe, the seasons, an orbit or a molecule shape. An idea in one plane, such as a lever, a throw or a sum of vectors, gets a 2D demo. Before, a word such as "lever" or "projectile" always gave a 3D explainer.
+- The 3D explainer can use the scene parts `path`, `points`, `links` and `drift`. Its rules ask for a scene that fills the view, parts big enough to see, a path for a trajectory, and the cases of a comparison in one step.
+- When a flat view shows the whole idea, the model can reply PLANE, and the card gives the 2D demo. The card now says: "Here is the 2D demo. A 3D view does not add to this idea, or abhyasa could not make a clear one."
+- A 3D explainer must pass the headless check of rupaka before abhyasa keeps it. A failed check gets the repair, as a failed validation does.
+- abhyasa now needs `rupaka>=0.0.20`, also in the `demo` extra. Rupaka 0.0.20 has 2D arrows, a side view for a lever, a sky look for a scene with a lamp, and a model prompt that draws a thing before the prediction.
+
 ## 0.0.28
 
 - The composer shows the tries left on their own line. The Speak button no longer touches the bottom rule of a box.

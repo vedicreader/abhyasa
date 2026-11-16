@@ -9,7 +9,7 @@ NEW = dict(settings='learner', prompts='learner', store='learner', model='learne
 MOVED = {('profile', 'LABELS'): 'learner.PROFILE_LABELS', ('method', 'LABELS'): 'learner.METHOD_LABELS', ('detect', 'source_of'): 'sources.kind_of',
          ('detect', 'fold'): 'sources.fold_trim', ('research', 'pick_prompt'): 'sources.passage_prompt', ('research', 'PICK_SP'): 'sources.PASSAGE_SP',
          ('guide', 'KINDS'): 'show.GUIDE_KINDS', ('demo', 'KINDS'): 'show.DEMO_KINDS'}   # a name that means another thing in the new module
-GONE = {('research', 'GATHER_SP')}   # a name that went on purpose: nothing read its prompt, `research.gather` (the agent runs `research.lead`)
+GONE = {('research', 'GATHER_SP'), ('demo', 'PHYSICAL')}   # names that went on purpose: nothing read the prompt of `research.gather` (the agent runs `research.lead`); `show.DEPTH` took the place of `PHYSICAL`, since a planar thing gets a 2D demo
 
 def home(mod, name) -> tuple:
     "The new module and the new name of the old `abhyasa.<mod>.<name>`."

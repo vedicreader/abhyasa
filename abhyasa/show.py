@@ -10,23 +10,23 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'NO_HOST_PICTURES', 'FIGURE_TEST',
            'LABEL', 'VAULT_FLOOR', 'WEB_FAILED', 'WEB_NO_PAGE', 'WEB_NO_PASSAGE', 'NO_WEB', 'SLOT', 'VERDICTS',
            'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'ORDER_AIM',
            'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'STAGES', 'TRY_ERRORS',
-           'SHOW_ME', 'SEE_IT', 'YES', 'OFFER', 'DEMO_KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'PHYSICAL',
-           'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE',
-           'REFUSED', 'WHERES', 'ROUTES', 'TALK_SCHEMA', 'SLIDE_KINDS', 'END_KINDS', 'ASK_KINDS', 'BEATS',
-           'QUESTIONS_MIN', 'RECAP_MIN', 'POLL_MIN', 'NEXT_MIN', 'WORDS_MOST', 'BODY_MOST', 'POINT_MOST', 'GONE',
-           'TALK_CASES', 'CHOICE_SP', 'RUN_MOST', 'CODE_LINES', 'CODE_COLS', 'CODE_COLS_ALONE', 'SOURCE_KEYS',
-           'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'NO_CODE', 'POLL_SP', 'POLL_Q', 'FILLED', 'AGAIN', 'SLIDE_PARTS',
-           'STATE_KEYS', 'FRESH', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'HANDOUT_CSS', 'HANDOUT_KINDS',
-           'LINK_MOST', 'ROLES', 'BUILD_SP', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why', 'vision_ask',
-           'figure_check', 'focus_text', 'thread_text', 'try_text', 'page_text', 'offer_line', 'panel_note',
-           'board_prompt', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words',
-           'on_check', 'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'demo_text',
-           'since_demo', 'rung', 'keep_rung', 'no_slots', 'demo_feedback', 'grade_why', 'want_demo', 'clean_note',
-           'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'job_key',
-           'tries_said', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way',
-           'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind', 'can_explain',
-           'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says', 'leaks',
-           'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show',
+           'SHOW_ME', 'SEE_IT', 'YES', 'OFFER', 'DEMO_KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'DEPTH', 'SCENE_BLOCKS',
+           'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE', 'REFUSED',
+           'WHERES', 'ROUTES', 'TALK_SCHEMA', 'SLIDE_KINDS', 'END_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN',
+           'RECAP_MIN', 'POLL_MIN', 'NEXT_MIN', 'WORDS_MOST', 'BODY_MOST', 'POINT_MOST', 'GONE', 'TALK_CASES',
+           'CHOICE_SP', 'RUN_MOST', 'CODE_LINES', 'CODE_COLS', 'CODE_COLS_ALONE', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST',
+           'ASK_MOST', 'NO_CODE', 'POLL_SP', 'POLL_Q', 'FILLED', 'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'FRESH',
+           'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'HANDOUT_CSS', 'HANDOUT_KINDS', 'LINK_MOST', 'ROLES',
+           'BUILD_SP', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why', 'vision_ask', 'figure_check',
+           'focus_text', 'thread_text', 'try_text', 'page_text', 'offer_line', 'panel_note', 'board_prompt',
+           'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check',
+           'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'demo_text', 'since_demo',
+           'rung', 'keep_rung', 'no_slots', 'demo_feedback', 'grade_why', 'want_demo', 'clean_note', 'quoted',
+           'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'job_key', 'tries_said',
+           'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way', 'simpler_demo',
+           'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind', 'can_explain', 'scene_catalog',
+           'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says', 'leaks', 'scrub',
+           'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show',
            'import_gallery', 'parked', 'on_stage', 'md_clean', 'clean_slide', 'check_talk', 'ask_from_gate',
            'public_ask', 'words_q', 'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes',
            'talk_minutes', 'print_cell', 'code_piece', 'slide_source', 'hands_on', 'shown_step', 'slide_notes',
@@ -1023,7 +1023,9 @@ DEMO_KINDS = dict(demo='2D demo', explainer='3D explainer', notebook='Leela note
 THREE_D = re.compile(r'\b(?:3\s*-?\s*d|three[\s-]*d(?:imensional)?)\b', re.I)
 HANDS_ON = re.compile(r'\b(?:try|code|coding|notebook|leela)\b', re.I)
 LIBRARY = re.compile(r'\b(?:library|package|api|pip|pytorch|torch|numpy|pandas|diffusers|transformers|sklearn|tensorflow|jax|keras)\b', re.I)
-PHYSICAL = re.compile(r'\b(?:pendulum|spring|orbit|planet|gear|lever|pulley|projectile|magnet|lens|prism|molecule|atom|torque|gyroscope|engine)s?\b', re.I)
+DEPTH = re.compile(r"\b(?:globes?|earth'?s? (?:rotation|spin|tilt)|(?:rotation|spin|tilt) of the earth|time ?zones?|seasons?|axial tilt|day and night|latitudes?|longitudes?"
+                   r"|orbits?|planets?|solar system|eclipses?|(?:phases?|faces?) of the moon|(?:moon|lunar) phases?|gyroscopes?|precession"
+                   r"|molecul(?:e|ar) (?:shapes?|geometry)|crystals?|lattices?|double helix|3d structures?|magnetic field lines?|field lines)\b", re.I)   # ideas whose point is in three dimensions; a planar idea (lever, projectile, pendulum, vector sum) is not here
 
 def demo_kind(said:str='', c=None) -> AttrDict:
     "The kind of demo for the ask `said` on concept `c` (`demo`, `explainer` or `notebook`), and why, in one line. A plain ask gets a 2D demo."
@@ -1031,7 +1033,7 @@ def demo_kind(said:str='', c=None) -> AttrDict:
     if THREE_D.search(s): return AttrDict(kind='explainer', why='You asked for 3D, so a 3D explainer shows it.')
     if HANDS_ON.search(s): return AttrDict(kind='notebook', why='You asked to try it in code, so it opens in Leela.')
     if LIBRARY.search(s): return AttrDict(kind='notebook', why='This idea uses a library, so you try it in code in Leela.')
-    if PHYSICAL.search(f"{s} {(c or {}).get('name', '')}"): return AttrDict(kind='explainer', why='This is a physical thing, so a 3D explainer shows it best.')
+    if DEPTH.search(f"{s} {(c or {}).get('name', '')}"): return AttrDict(kind='explainer', why='This idea needs depth, so a 3D explainer shows it.')
     return AttrDict(kind='demo', why='You predict first. Then the demo shows the rest.')
 
 # %% ../nbs/05_show.ipynb #sm12
@@ -1041,7 +1043,7 @@ def can_explain() -> bool:
     return 'mode' in TOP and 'scene' in manifests()
 
 # %% ../nbs/05_show.ipynb #ex02
-SCENE_BLOCKS, SCENE_FNS, STEPS = ('scene', 'body', 'force', 'label3d', 'shot', 'caption'), ('expr',), (3, 6)
+SCENE_BLOCKS, SCENE_FNS, STEPS = ('scene', 'body', 'force', 'label3d', 'shot', 'path', 'points', 'links', 'drift', 'caption'), ('expr',), (3, 6)
 
 def _only(part, names): return [x for x in re.split(r'\n(?=- )', part) if (m := re.match(r'- (\w+):', x)) and m[1] in names]
 
@@ -1069,6 +1071,13 @@ Rules:
 - Make the idea a physical model. Use bodies for the parts, forces for pushes and flows, and label3d chips to name the parts.
 - For an abstract idea (vectors, attention, noise), each item is a box or a sphere, a size or a height is a value, and an arrow is a flow or an effect. Label what each shape stands for.
 - At most 30 bodies, 6 forces and 8 labels. Sizes from 0.2 to 12 units. y is up.
+- The scene fills the view. Make each part that matters big enough to see.
+- Use a path for a trajectory, an orbit or a route, not a row of small spheres.
+- A force arrow starts at the body that it acts on.
+- When the idea compares cases, show the cases together in one step.
+- Each step adds at most one new thing.
+- Never tell the learner to use a 2D demo or any other card.
+- If a flat 2D view shows the whole idea, reply with the single word PLANE instead of JSON.
 - Text uses {path} for state values. No HTML. Write text in ASD-STE100 Simplified Technical English, US grade 9: short sentences, active voice, simple words.
 - Facts must be correct. Use only facts that you are sure of. A shape that is only a sketch says so in the scene label.""",
     activity='Demos', used_by='Show it in 3D button', when='When a 3D explainer is made.')
@@ -1077,7 +1086,7 @@ def explainer_sp() -> str:
     "The system prompt of a 3D explainer: the rules, the shape of a spec, the scene blocks and one example."
     from abhyasa.learner import teach_sp
     return (f"{teach_sp('demo.explainer')}\nThe shape of a spec:\n{SHAPE}\nUse only these blocks and fns:\n{scene_catalog()}\n\n"
-            f"An example of a good explainer:\n{json.dumps(scene_example(), ensure_ascii=False)}\n\nReturn JSON only.")
+            f"An example of a good explainer:\n{json.dumps(scene_example(), ensure_ascii=False)}\n\nReturn JSON only, or the single word PLANE.")
 
 GATES_LINE = register('demo.gates', 'Open predictions', 'What the tutor adds to a 3D explainer when a 2D demo of the same ask asks the learner to predict. The questions come after it.',
                       'The learner predicts these in a 2D demo of the same idea now. Never say their answers, and never show or say a result that gives them away:',
@@ -1177,13 +1186,17 @@ def scene_errors(spec) -> list:
     return errs
 
 # %% ../nbs/05_show.ipynb #ex18
-REFUSED = 'abhyasa could not make a 3D explainer for this idea. Here is the 2D demo.'
+REFUSED = 'Here is the 2D demo. A 3D view does not add to this idea, or abhyasa could not make a clear one.'
 
-def explainer_for(concept, ask, said:str='', log:list=None, two=None, level:str='') -> dict|None:
-    """A valid 3D explainer spec (`mode` learn) of `concept` for the ask `said`, from the model `ask`, with one repair; None when it cannot make one.
+def explainer_for(concept, ask, said:str='', log:list=None, two=None, level:str='', check=None) -> dict|None:
+    """A valid 3D explainer spec (`mode` learn) of `concept` for the ask `said`, from the model `ask`, with one repair; None when it cannot make one, or when the model replies PLANE because a flat view shows the idea.
     `two` is the spec of the 2D demo of the same ask: the prompt names its predictions, and a spec that says one of their answers gets one
     more try. When that try says it too, the sentences that say it go. A good spec whose texts are not plain (`plain_errors`) uses the repair
-    for them; the plainer good spec stays, also when the repair fails."""
+    for them; the plainer good spec stays, also when the repair fails. `check` is rupaka's headless check: None runs it when `can_check()`, False never."""
+    if check is None:
+        from rupaka.check import can_check
+        check = can_check()
+    if check is True: from rupaka.check import check
     c = concept if isinstance(concept, dict) else dict(name=str(concept))
     slug, log, answers, gave = c.get('slug') or slugify(c['name']), [] if log is None else log, gate_answers(two), False
     p0 = p = explainer_prompt(c, said, gates_of(two), level)
@@ -1191,12 +1204,15 @@ def explainer_for(concept, ask, said:str='', log:list=None, two=None, level:str=
     while i < 2:
         try: reply = ask(p, sp)
         except Exception as e: log.append(dict(tries=i + 1, errors=[f'model: {e}'])); return best
+        if reply.strip().upper() == 'PLANE': return None
         try: spec = parse_json(reply)
         except ValueError as e: spec, errs = None, [f'reply: {e}']
         else:
             if isinstance(spec, dict):
                 spec = {**spec, 'rupaka': SCHEMA, 'mode': 'learn', 'id': spec.get('id') or f'{slug}-3d', 'concept': slug}
-                if not (errs := scene_errors(spec) + list(validate(spec))):
+                errs = scene_errors(spec) + list(validate(spec))
+                if not errs and check: errs = list(check(spec).errors)
+                if not errs:
                     if not (bad := leaks(spec, answers)):
                         if best is not None: return spec if n(spec) < n(best) else best   # the plain repair is done
                         if not (errs := list(plain_errors(spec, [c['name']]))): return spec
@@ -1220,13 +1236,13 @@ def explain_ask(ask):
     f.model = getattr(ask, 'model', 'unknown')
     return f
 
-def make_explainer(learning:Learning, ask, slug:str, first_error:str='', aim:str='3d', said:str='', log:list=None, stop=None) -> AttrDict|None:
+def make_explainer(learning:Learning, ask, slug:str, first_error:str='', aim:str='3d', said:str='', log:list=None, stop=None, check=None) -> AttrDict|None:
     "The 3D explainer of concept `slug` for the ask `said`: from the shelf, else new from the model and stored with the aim `3d`; None when the model makes none."
     k = ask_key(said) if said else None
     if (d := learning.demo_for(slug, aim='3d', key=k)): return d
     if (c := learning.concept(slug)) is None: return None
     two = learning.demo_for(slug, aim='', key=k)   # the 2D demo of the same ask, under the 3D card: its predictions stay the learner's to make
-    if (spec := explainer_for(c, explain_ask(ask), said, log, two.spec if two else None, learning.level_of(c))) is None: return None
+    if (spec := explainer_for(c, explain_ask(ask), said, log, two.spec if two else None, learning.level_of(c), check)) is None: return None
     if stop: stop()   # after Stop, the explainer is not kept
     return learning.put_demo(spec, slug, by=f"model:{getattr(ask, 'model', 'unknown')}", aim='3d', asked=dict(key=k, said=said) if said else None)
 
