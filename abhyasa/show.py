@@ -22,12 +22,12 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'NO_HOST_PICTURES', 'FIGURE_TEST',
            'board_prompt', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words',
            'on_check', 'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'demo_text',
            'since_demo', 'rung', 'keep_rung', 'no_slots', 'demo_feedback', 'grade_why', 'want_demo', 'clean_note',
-           'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'job_key',
-           'tries_said', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way',
-           'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind', 'can_explain',
-           'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says', 'leaks',
-           'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show',
-           'import_gallery', 'parked', 'on_stage', 'md_clean', 'clean_slide', 'check_talk', 'ask_from_gate',
+           'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'transfer_progress', 'make_demo',
+           'ask_key', 'job_key', 'tries_said', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way',
+           'lesson_way', 'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind',
+           'can_explain', 'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says',
+           'leaks', 'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer',
+           'show', 'import_gallery', 'parked', 'on_stage', 'md_clean', 'clean_slide', 'check_talk', 'ask_from_gate',
            'public_ask', 'words_q', 'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes',
            'talk_minutes', 'print_cell', 'code_piece', 'slide_source', 'hands_on', 'shown_step', 'slide_notes',
            'needs_fill', 'fill_slide', 'fill_slides', 'poll_slide', 'walk_slides', 'talk_from_walk',
@@ -887,20 +887,39 @@ def grade_explanation(self:Learning, aid:str, ask) -> AttrDict:
 # %% ../nbs/05_show.ipynb #9cf0912e
 _FREE = {'confidence', 'session', 'feedback', 'hints', 'dont_know', 'grade', 'first_error', 'misconception'}   # keys of an attempt that a transfer try can set through `meta`
 
+def transfer_progress(records) -> AttrDict:
+    """Derive transfer credit and learner text from one concept's attempts. No state changes.
+    Case identity is `case_id`, or the question text for older records. Missing answer format is treated as choice.
+    `message` describes the newest transfer attempt; `needed` describes the remaining evidence."""
+    rule = 'To reach transfer: answer two new cases on your own, or one new case in your own words or numbers.'
+    more = 'One more new case, on your own, to reach transfer.'
+    rows = sorted((r for r in records if r.get('kind') == 'transfer'), key=lambda r: r.get('at', 0))
+    good = [r for r in rows if r.get('correct') and not r.get('aided') and not r.get('hints') and not r.get('assistance')]
+    cases = {r.get('case_id') or r.get('question', '') for r in good} - {''}
+    reached = len(cases) >= 2 or any(r.get('multiple_choice') is False and (r.get('case_id') or r.get('question')) for r in good)
+    depth = 5 if reached else 4 if good else 0
+    needed = '' if reached else more if good else rule
+    counted = bool(rows) and rows[-1] in good
+    message = ('Transfer reached.' if reached else 'Counted as apply. ' + more) if counted else 'Saved. It does not count toward transfer.' if rows else rule
+    return AttrDict(depth=depth, cases=len(cases), rule=rule, needed=needed, message=message)
+
 @patch
-def record_transfer(self:Learning, concept:str, question:str, answer:str, expected:str, correct:bool, aided:bool=False, evidence_id:str='', **meta) -> AttrDict:
-    """File one transfer try on `concept` as an attempt with `kind='transfer'`, at the transfer depth. Only a correct try with no help (`aided` false) goes into the learner model, with the depth rule of `update`.
-    A try with help, or a wrong try, is on the record only, and a try with help is not final. With an `evidence_id`, a replay gives the attempt that is filed already. `meta` goes on the attempt."""
+def record_transfer(self:Learning, concept:str, question:str, answer:str, expected:str, correct:bool, aided:bool=False, evidence_id:str='', case_id:str='', multiple_choice:bool=True, **meta) -> AttrDict:
+    """File a transfer try. A choice earns apply until two distinct cases pass unaided.
+    One unaided free answer earns transfer. Replays return the filed attempt. Wrong and aided tries earn no depth."""
     if (bad := ((_OWN - _FREE) | EXPLAIN_OWN) & meta.keys()): raise ValueError(f'meta cannot use {sorted(bad)}')
-    with self._lock:   # look for the replay, then file: one step
+    with self._lock:
         if evidence_id and (old := _filed(self, 'transfer', 'evidence_id', evidence_id, concept)) is not None: return old
-        c, depth, out = self.concept(concept), DEPTHS.index('transfer'), ''
+        c, out = self.concept(concept), ''
+        aided = bool(aided or meta.get('hints') or meta.get('assistance'))
+        row = dict(kind='transfer', question=question, correct=bool(correct), aided=aided, case_id=case_id or question, multiple_choice=multiple_choice, at=time.time())
+        progress = transfer_progress([*self.attempts(concept, limit=None), row])
         earned = bool(correct) and not aided and c is not None
         if earned:
-            u = update(c, depth, True, meta.get('confidence'), meta.get('hints', 0))
+            u = update(c, progress.depth, True)
             out = u.pop('kind'); self.update(concept, **u)
-        return self.record(concept, question, answer, '', bool(correct), depth=depth, kind='transfer', final=not aided, expected=expected, outcome=out,
-                           aided=bool(aided), evidence_id=evidence_id, credited=earned, **meta)
+        return self.record(concept, question, answer, '', bool(correct), depth=progress.depth if earned else 5, kind='transfer', final=not aided, expected=expected, outcome=out,
+                           aided=aided, evidence_id=evidence_id, case_id=case_id or question, multiple_choice=bool(multiple_choice), credited=earned, **meta)
 
 # %% ../nbs/05_show.ipynb #c029
 ORDER_AIM = register('demo.order', 'Order check', 'What the tutor adds to a demo to make it an order check.',
