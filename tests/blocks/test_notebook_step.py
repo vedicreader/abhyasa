@@ -122,7 +122,9 @@ def test_nb_spec_writes_the_step(mk, lr, walk_fake):
     first = cl.post(f'/w/{jid}/1/check').text
     assert 'Writing the notebook…' in first or 'Open in Leela' in first
     assert f"walk:{jid}:nb:{lr.journey(jid).steps[1]['slug']}" in lr.jobs()
-    assert wait_for(lambda: lr.journey(jid).steps[1].get('nb'), 10) == validate_nb_spec({**GOOD, 'data': [{**d, 'path': '', 'need': True} for d in GOOD['data']]})
+    spec = wait_for(lambda: lr.journey(jid).steps[1].get('nb'), 10)
+    assert spec == validate_nb_spec({**GOOD, 'data': [{**d, 'path': '', 'need': True} for d in GOOD['data']], 'demo': spec['demo']})
+    assert lr.demo(spec['demo']).concept == lr.journey(jid).steps[1]['slug']
     assert 'Open in Leela' in cl.get(f'/w/{jid}/1/check').text
     assert lr.journey(jid).steps[1]['nb']['run']['say'] == 'Write the run here: Run it on all episodes. Write one line to captions.jsonl for each.'   # the run cell has no code: the learner writes it
 

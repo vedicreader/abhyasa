@@ -1427,8 +1427,9 @@ NB_SP = register('walk.notebook', 'Notebook step', 'How the tutor writes the not
     "Never add a download of images. When the learner gives data folders, the task and the run work on the files in them, by their names. Give `run.minutes` as an estimate for this Mac.",
     activity='Building a walk', used_by='Notebook step: Write the notebook, Try again', when='After a walk is made, and when you press Write the notebook or Try again on a step that runs in Leela.')
 
-NB_SHAPE = """Return JSON: {"task": str, "fname": str, "stub": str, "tests": [{"test": str, "say": str, "shown": bool}], "requires": [str],
-"data": [{"name": str, "path": str, "what": str, "need": bool}], "run": {"say": str, "makes": str, "minutes": number, "predict": str}, "demo": ""}
+NB_SHAPE = r"""Return JSON: {"task": str, "fname": str, "stub": str, "tests": [{"test": str, "say": str, "shown": bool}], "requires": [str],
+"data": [{"name": str, "path": str, "what": str, "need": bool}], "run": {"say": str, "makes": str, "minutes": number, "predict": str}}
+- Do not write a demo here. Abhyasa authors and checks its Rupaka spec separately.
 - Each test is one `assert` line. It uses only the function name and literal values: no other name, no `import`, no data path.
 - `say` is a short label for the test. `shown` is false only for a test that the learner must not see.
 - `requires` has at most 5 package names, with no version, as torch or diffusers. Give [] when the standard library is enough.
@@ -1465,7 +1466,7 @@ def nb_spec(lr, ask, j, i:int, stop=None) -> AttrDict|None:
     s = (lr.journey(j.id) or j).steps[i]
     slug = s['slug']   # the spec goes on the step with this concept, also when you move steps while the model writes
     if s.get('nb'): return AttrDict(s['nb'])
-    p, why = nb_prompt(lr, j, i), ''
+    p, why, spec = nb_prompt(lr, j, i), '', None
     for _ in range(2):
         if stop: stop()
         try:
@@ -1473,14 +1474,32 @@ def nb_spec(lr, ask, j, i:int, stop=None) -> AttrDict|None:
             if isinstance(r, dict) and isinstance(r.get('data', []), list):
                 r = same_names(r, walk_names(jj := lr.journey(j.id) or j, i))   # one name for one folder across the walk
                 r = {**r, 'data': with_data(r.get('data'), jj.get('data'))}   # only your data folders, by their names
-            spec = validate_nb_spec(r)
-            if stop: stop()
-            lr.walk_slug(j.id, slug, nb=spec, nb_why='')
-            return AttrDict(spec)
+            spec = validate_nb_spec({**r, 'demo': ''} if isinstance(r, dict) else r)
+            break
         except ValueError as e: why = str(e)
         except Exception as e: why = f'the model did not answer ({type(e).__name__})'; break
-    lr.walk_slug(j.id, slug, nb_why=why)
-    return None
+    if spec is None:
+        lr.walk_slug(j.id, slug, nb_why=why)
+        return None
+    from abhyasa.show import make_demo, want_demo, gates_of
+    from rupaka.spec import validate
+    c, d = lr.concept(slug), None
+    def demo_ask(p, sp=''):
+        if stop: stop()
+        return demo_model(p, sp)
+    if stop: stop()
+    if want_demo(c) or c and 'demo' in c.get('ways', []):
+        demo_model = for_task(ask, 'question')
+        try:
+            d = lr.demo_for(slug, aim='')
+            if d and (list(validate(d.spec)) or not gates_of(d.spec)): d = None
+            d = d or make_demo(lr, demo_ask, slug, stop=stop)
+            if d and (not gates_of(d.spec) or len(d.slug) > 100): d = None
+        except Exception: d = None
+    spec['demo'] = d.slug if d else ''
+    if stop: stop()
+    lr.walk_slug(j.id, slug, nb=spec, nb_why='')
+    return AttrDict(spec)
 
 # %% ../nbs/04_path.ipynb #lb03
 from .learner import _jlock
