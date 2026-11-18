@@ -35,6 +35,7 @@ CAPS = ('learning', 'tutor', 'ask', 'pool', 'sessions', 'sources', 'research')
 FIGURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 RUN = dict(read_at=None, done=None, qid=None, note=None)   # the run fields of a step (spec 6.3), empty until the step is used
 AIM = dict(demo='', order='order')   # check kind -> the aim of its demo
+NB_KINDS = ('notebook', 'demo')   # the check kinds whose step gets a notebook spec in the background: a demo step opens in Leela with its own demo, and keeps its demo check here
 MAX_STATE = 20_000                   # the most chars of a kept demo state
 MAX_RESULT = 2 << 20                 # the most bytes of one image of a run from Leela
 PNG = b'\x89PNG\r\n\x1a\n'
@@ -250,7 +251,7 @@ def connect(app, ctx):
         "Start the job that writes the notebook spec of step `i` on the research pool, unless it runs or the step has a spec."
         with nb_lock:
             j = walk_of(jid, i)
-            if not j or nb_writing(jid, i) or j.steps[i].get('nb') or j.steps[i]['check']['kind'] != 'notebook': return
+            if not j or nb_writing(jid, i) or j.steps[i].get('nb') or j.steps[i]['check']['kind'] not in NB_KINDS: return
             slug = j.steps[i]['slug']; key = f'walk:{jid}:nb:{slug}'
             nb_jobs[jid, slug] = track(lr, key, lambda: ctx.research.pool.submit(walk_engine.nb_spec, lr, ask, j, i, stop=lambda: check_stop(lr, key)), 'notebook',   # nb_spec writes to the step by its concept
                                        title=f"The notebook of {(lr.concept(slug) or {}).get('name', slug)}", said=ui.NB_WRITING, url=ui.at(Routes.step, jid, i), obj=f'walk:{jid}', quiet=True,
@@ -285,7 +286,7 @@ def connect(app, ctx):
     def write_notebooks(j):
         "Start the job that writes the notebook spec of each notebook step of walk `j`, on the research pool."
         for i, s in enumerate(j.steps):
-            if s['check']['kind'] == 'notebook': write_notebook(j.id, i)
+            if s['check']['kind'] in NB_KINDS: write_notebook(j.id, i)
 
     @hook('walk_made')
     def research_new(j):
@@ -995,7 +996,7 @@ def connect(app, ctx):
         new = [i for i, s in enumerate(j.steps) if s['slug'] not in old]
         if val('research.on') and (ix := [i for i in new if wants_source(j.steps[i])]): look_for(j.id, ix)
         for i in new:
-            if j.steps[i]['check']['kind'] == 'notebook': write_notebook(j.id, i)
+            if j.steps[i]['check']['kind'] in NB_KINDS: write_notebook(j.id, i)
         return j.steps[new[0]]['slug'] if new else ''
 
     async def edit(req, jid:str):
@@ -1073,7 +1074,7 @@ def connect(app, ctx):
         queue_new(j2, old)
         slugs = [s['slug'] for s in j2.steps]
         for c in cs:   # a check that the box made a notebook gets its notebook spec
-            if c.op == 'kind' and c.kind == 'notebook' and c.slug in slugs: write_notebook(jid, slugs.index(c.slug))
+            if c.op == 'kind' and c.kind in NB_KINDS and c.slug in slugs: write_notebook(jid, slugs.index(c.slug))
         if (ix := [slugs.index(c.slug) for c in cs if c.op == 'source' and c.slug in slugs]): look_for(jid, ix)   # "add sources for idea 2": research looks now
         return cs, rows[0].id if rows else ''
 

@@ -4,7 +4,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 from fasthtml.common import *
 from rupaka.render import Demo, version
-from abhyasa.core import run as run_hook, pane_link, side_link, SourceLine, SourceLinks, TutorWords, source_of, n_of, moved_words, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, UndoBar, HistoryList, JobStop, JobAgain, JobTools, Pill
+from abhyasa.core import tex_dollars, run as run_hook, pane_link, side_link, SourceLine, SourceLinks, TutorWords, source_of, n_of, moved_words, Md, DepthBar, asset_css, asset_js, Check, Msg, Tag, FirstError, OUTCOMES, Confidence, Primary, Quiet, Feedback, in_talk, Inline, can_undo, meta, UndoBar, HistoryList, JobStop, JobAgain, JobTools, Pill
 from abhyasa.learner import STOPPED
 from abhyasa.learner import DEPTHS, METHOD_LABELS as LABELS, WALK_WAYS
 from abhyasa.tutor import HINTS
@@ -252,10 +252,10 @@ def Passage(j, s, c, i=None, looking=False, quiet=False):
     if r.get('text') and quiet and i is not None:   # the source came while the learner reads: say so, and change nothing
         return TutorWords((c or {}).get('statement', ''), SourceReady(j['id'], i), id='passage', data_part='passage', **mv)
     if r.get('text'):
-        also = [Div(Md(a.get('text') or ''), SourceLine(source_of(a, j)), cls='also') for a in r.get('also') or () if a.get('text')]   # a merge keeps both passages
+        also = [Div(Md(tex_dollars(a.get('text') or '')), SourceLine(source_of(a, j)), cls='also') for a in r.get('also') or () if a.get('text')]   # a merge keeps both passages
         cell = r['cells'][0] if isinstance(r.get('cells'), list) and r['cells'] and isinstance(r['cells'][0], int) else None
         go = CopyGo(j, i) if i is not None and (j.get('notebook') or {}).get('path') else None   # a notebook walk opens its learning copy at this section
-        return Blockquote(Md(r['text']), SourceLine(source_of(r, j), cell=cell, leela=go), SourceLinks(r.get('links')), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', data_part='passage', **mv)   # `links`: the lesson notebook and the video of a transcript
+        return Blockquote(Md(tex_dollars(r['text'])), SourceLine(source_of(r, j), cell=cell, leela=go), SourceLinks(r.get('links')), *also, id='passage', cls='quote web' if r.get('src') == 'web' else 'quote', data_part='passage', **mv)   # `links`: the lesson notebook and the video of a transcript
     wait = i is not None and s.get('research') == 'pending' and looking and val('research.on')
     poll = dict(hx_get=at(Routes.source, j['id'], i) + '?quiet=1', hx_trigger=WAIT, hx_swap='outerHTML', data_job=f"walk:{j['id']}") if wait else {}
     return TutorWords((c or {}).get('statement', ''), FindSource(j['id'], i, s, looking) if i is not None else '',
@@ -708,7 +708,7 @@ def WalkEnd(j, st, ms, by, sides=(), due=None, end=(), made=''):
                        P(f"The first review is {when_review(due)}.", cls='next-step') if due else '', cls='walk-sum', style=f"--n:{min(len(outs), 5)}"),
                    made, *end, Div(go, cls='row'), id='result', data_part='result', cls='walk-result')
 
-CHANGE_SAY = 'What should change? For example: make idea 3 simpler, add a demo of the noise schedule, drop the U-Net idea.'
+CHANGE_SAY = 'What should change? For example: make idea 3 simpler, add a demo to idea 2, drop idea 4.'   # no topic of its own: the box shows on every walk
 CHANGE_HELP = 'Enter sends. Shift+Enter starts a new line. The tutor does not change a locked idea. A link in your words becomes a source.'
 
 def ChangeBox(j, out=''):

@@ -225,7 +225,7 @@ def Inline(s, cls=''):
     return Span(NotStr(m.group(1)) if m and '<p>' not in m.group(1) else html.escape(str(s or '')), cls=cls)
 
 # Text from a source can have maths with no dollars: `\(…\)` and `\[…\]` (d2l, arXiv HTML), or a bare TeX word such as `c_n·e^{i2πnt/T}`.
-_TEX_DELIM = re.compile(r'\\{1,2}\((.+?)\\{1,2}\)|\\{1,2}\[(.+?)\\{1,2}\]', re.S)
+_TEX_DELIM = re.compile(r'\\{1,2}\((.+?)\\{1,2}\)|\\{1,2}\[(.+?)\\{1,2}\]|\(\((\\[A-Za-z]{2,}[^()\n]*)\)\)', re.S)   # the last: `((\Delta U))`, where a page cleaner left `(` for `\(` and `)` for `\)`
 _TEX_KEEP = re.compile(r'\$\$.+?\$\$|\$[^$\n]+\$|```.*?```|`[^`\n]*`|https?://\S+|\[\^?\w+\]', re.S)   # parts that stay as they are written
 _TEX_WORD = re.compile(r'(?:\{(?:[^{}$`\n]|\{[^{}$`\n]*\})*\}|[^\s{}$`])+')   # a word, with the spaces inside its braces
 _TEX_SIGN = re.compile(r'[\\^_=+<>]')                                         # a sign of maths between the brackets
@@ -234,8 +234,8 @@ _TEXISH = re.compile(r'[\w)}\]]\^|_\{|\\[A-Za-z]{2,}')                       # a
 def tex_dollars(s) -> str:
     "Text `s` with its maths in dollars, so `md_html` draws it: `\\(…\\)`, `\\[…\\]`, and a bare TeX word such as `x^2` or `c_n·e^{i2πnt/T}`."
     def delim(m):   # a markdown escape such as `\[1\]` has no maths sign in it, and stays
-        x = (m[1] if m[1] is not None else m[2]).strip()
-        return m[0] if not _TEX_SIGN.search(x) else f'${x}$' if m[1] is not None else f'$${x}$$'
+        x = next(g for g in m.groups() if g is not None).strip()
+        return m[0] if not _TEX_SIGN.search(x) else f'$${x}$$' if m[2] is not None else f'${x}$'
     s = _TEX_DELIM.sub(delim, str(s or ''))
     def word(m):   # an open or a close bracket with no pair, and the stop marks after the word, stay out of the maths
         w = m.group(0); lead = '(' if w.startswith('(') and w.count('(') > w.count(')') else ''
@@ -443,7 +443,7 @@ def SourceLine(src, room=False, cell=None, leela=None):
     go = (side_link('Open the page', src.url, src.title, cls='src-open') if web
           else pane_link('Open in your vault', src.href, src.title, cls='pane-link src-open') if local else '')
     nb = (nb_leela(src.href, cell) if local else '') if leela is None else leela
-    return line(Pill(src.label), name, *([Inline(src.place)] if re.search(r'[*_$`]', src.place or '') else bits(src.place)), *bits(src.date and f'read on {src.date}'), go, nb)   # a place can hold markdown, such as a section name
+    return line(Pill(src.label), name, *([Inline(src.place)] if re.search(r'[*_$`]', src.place or '') else bits(src.place)), *bits(src.date), go, nb)   # a place can hold markdown, such as a section name
 
 def SourceLinks(links, cls='src-links'):
     "One quiet line of links that go with a source, such as the lesson notebook and the video of a transcript: `AttrDict(text, href)` opens a vault page in the side pane, `AttrDict(text, url)` a web page in a new tab (`side_link`). A notebook also has Open in Leela."

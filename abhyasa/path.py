@@ -8,42 +8,42 @@ Docs: https://vedicreader.github.io/abhyasa/path.html.md"""
 __all__ = ['PLAN_SP', 'SRC_MOST', 'CHANGE_MOST', 'TOOL_WAYS', 'NB_WHY', 'GOAL_WHY', 'SHORT_WAYS', 'PICK_SP', 'MAP_SP',
            'NB_SECTION_MOST', 'NB_PICTURE', 'NB_WHY_DEMO', 'COMMON', 'READ_SP', 'STEP_MIN', 'READY', 'COURSE_AT',
            'WALK_KEEPS', 'STEP_DROPS', 'PRIMER_SP', 'NAME_MOST', 'CTRL_MARKS', 'NOTE_SP', 'NOTE_TOPIC_SP', 'NOTE_SAME',
-           'SAFE_IMPORTS', 'CODE_BANNED', 'CODE_LINES', 'CODE_CHARS', 'CODE_WATCH', 'CODE_SP', 'NB_SP', 'NB_SHAPE',
-           'PREDICTIONS', 'WORDS_MOST', 'GLOSS_SP', 'HISTORY_MOST', 'HISTORY_BYTES', 'EDIT_JOIN', 'WHO', 'WHAT_MOST',
-           'RUN_FIELDS', 'EDIT_FIELDS', 'CODE_GONE', 'REWRITE_SP', 'INSTRUCTION_MOST', 'REWRITE_TEXT', 'REWRITE_LIST',
-           'CTRL', 'check_of', 'CHECK_KINDS', 'PASSAGES_MOST', 'IMPROVE_OPS', 'IMPROVE_MOST', 'IMPROVE_SP', 'FIX_SP',
-           'EASIER', 'HARDER', 'KIND_WAY', 'KEEP_RUN', 'REPLAN_WHAT', 'NO_SRC_DOCS', 'GROW_AT', 'UNCLEAR', 'ASKS_MOST',
-           'LEVEL_MOST', 'ANSWERS', 'KINDS', 'UNKNOWN', 'LEVEL_SP', 'SAID', 'STAGES_SP', 'LEFT', 'ASK_KINDS', 'log',
-           'SUBJECT_LABEL', 'MANY_SENSE', 'TOP', 'FOUND_NOTHING', 'NO_QUOTE', 'BIG_ROOT', 'AGENT_DOCS', 'TOOL_TEXT',
-           'LOG_MOST', 'FILE_BYTES', 'LEAK_WORDS', 'FLUSH_ROWS', 'FLUSH_SECS', 'PASSAGE_WORDS', 'STOPPED', 'TIME_UP',
-           'TEXTS', 'SECRET', 'LEAD_SP', 'LEAD_TOOLS_OWN', 'NO_START', 'NO_START_ANY', 'ELSE', 'START_WHY',
-           'NONE_FOUND', 'CRASHED', 'HOSTED_WHY', 'MORE_SP', 'plan_prompt', 'near_goal', 'chip_docs', 'source_map',
-           'owner_says', 'plan', 'short_check', 'pick_prompt', 'main_steps', 'map_prompt', 'walk_map', 'hands_most',
-           'cap_hands', 'builds_goal', 'hands_count', 'journey_from_source', 'journey_from_text', 'nb_file',
-           'nb_sections', 'nb_text', 'notebook_walk', 'copy_path', 'learning_copy', 'journey_from_sources', 'data_row',
-           'keep_data', 'folder_list', 'with_stop', 'data_entries', 'with_data', 'walk_names', 'same_names',
-           'short_what', 'data_line', 'missing_data', 'walk_from_topic', 'minutes', 'needs', 'walk_needs', 'known_how',
-           'gap_size', 'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail', 'back_from', 'for_talk',
-           'file_chip', 'nb_title', 'walk_for_talk', 'walk_from_talk', 'is_open', 'used_at', 'last_place', 'walk_path',
-           'walk_paths', 'step_read', 'look_up', 'topic_slug', 'name_gaps', 'split_parts', 'related', 'with_step',
-           'paper_id', 'same_share', 'fresh', 'tutor_note', 'code_why', 'check_code', 'grade_code', 'write_code',
-           'step_meta', 'done_attempt', 'open_short', 'nb_prompt', 'nb_spec', 'leela_found', 'leela_back', 'term_line',
-           'words_to_know', 'edit_lock', 'restore_steps', 'undo_line', 'NoRewrite', 'rewrite', 'move_step', 'skip_step',
-           'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent', 'edit_walk', 'undo_walk',
-           'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages', 'pick_read', 'links_in',
-           'propose', 'kind_check', 'improve_walk', 'plan_again', 'merge_plan', 'replan_walk', 'new_course',
-           'is_goal_walk', 'chip_state', 'source_rows', 'chip_sources', 'join_course', 'course_of', 'ensure_courses',
-           'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level', 'level_done', 'stages_prompt',
-           'walk_started', 'stage_stays', 'fix_count', 'plan_stages', 'lock_stage', 'stage_brief', 'build_stage',
-           'add_data', 'drop_data', 'fill_data', 'name_data', 'join_names', 'stage_rows', 'due_stage', 'next_up',
-           'add_ask', 'blocking', 'course_state', 'set_here', 'active_course', 'course_from', 'courses_from', 'go_back',
-           'subject_label', 'vague', 'research_query', 'file_page', 'link_concept', 'wants_source', 'put_step',
-           'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending', 'research_walk', 'Researcher',
-           'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state', 'idea_at', 'idea_no',
-           'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video', 'gather_tools',
-           'gather_prompt', 'NoHostAgent', 'start_why', 'gather', 'GatherStopped', 'gather_loop', 'research_state',
-           'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'PKG',
-           'RUN_SAY', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
+           'NO_NOTE', 'SAFE_IMPORTS', 'CODE_BANNED', 'CODE_LINES', 'CODE_CHARS', 'CODE_WATCH', 'CODE_SP', 'NB_SP',
+           'NB_SHAPE', 'PREDICTIONS', 'WORDS_MOST', 'GLOSS_SP', 'HISTORY_MOST', 'HISTORY_BYTES', 'EDIT_JOIN', 'WHO',
+           'WHAT_MOST', 'RUN_FIELDS', 'EDIT_FIELDS', 'CODE_GONE', 'REWRITE_SP', 'INSTRUCTION_MOST', 'REWRITE_TEXT',
+           'REWRITE_LIST', 'CTRL', 'check_of', 'CHECK_KINDS', 'PASSAGES_MOST', 'IMPROVE_OPS', 'IMPROVE_MOST',
+           'IMPROVE_SP', 'FIX_SP', 'EASIER', 'HARDER', 'KIND_WAY', 'KEEP_RUN', 'REPLAN_WHAT', 'NO_SRC_DOCS', 'GROW_AT',
+           'UNCLEAR', 'ASKS_MOST', 'LEVEL_MOST', 'ANSWERS', 'KINDS', 'UNKNOWN', 'LEVEL_SP', 'SAID', 'STAGES_SP', 'LEFT',
+           'ASK_KINDS', 'log', 'SUBJECT_LABEL', 'MANY_SENSE', 'TOP', 'FOUND_NOTHING', 'SEARCH_FAILED', 'NO_QUOTE',
+           'BIG_ROOT', 'AGENT_DOCS', 'TOOL_TEXT', 'LOG_MOST', 'FILE_BYTES', 'LEAK_WORDS', 'FLUSH_ROWS', 'FLUSH_SECS',
+           'PASSAGE_WORDS', 'STOPPED', 'TIME_UP', 'TEXTS', 'SECRET', 'LEAD_SP', 'LEAD_TOOLS_OWN', 'NO_START',
+           'NO_START_ANY', 'ELSE', 'START_WHY', 'NONE_FOUND', 'CRASHED', 'HOSTED_WHY', 'MORE_SP', 'plan_prompt',
+           'near_goal', 'chip_docs', 'source_map', 'owner_says', 'plan', 'short_check', 'pick_prompt', 'main_steps',
+           'map_prompt', 'walk_map', 'hands_most', 'cap_hands', 'builds_goal', 'hands_count', 'journey_from_source',
+           'journey_from_text', 'nb_file', 'nb_sections', 'nb_text', 'notebook_walk', 'copy_path', 'learning_copy',
+           'journey_from_sources', 'data_row', 'keep_data', 'folder_list', 'with_stop', 'data_entries', 'with_data',
+           'walk_names', 'same_names', 'short_what', 'data_line', 'missing_data', 'walk_from_topic', 'minutes', 'needs',
+           'walk_needs', 'known_how', 'gap_size', 'pick_way_down', 'detour', 'parent_at', 'parent_step', 'trail',
+           'back_from', 'for_talk', 'file_chip', 'nb_title', 'walk_for_talk', 'walk_from_talk', 'is_open', 'used_at',
+           'last_place', 'walk_path', 'walk_paths', 'step_read', 'look_up', 'topic_slug', 'name_gaps', 'split_parts',
+           'related', 'with_step', 'paper_id', 'same_share', 'fresh', 'tutor_note', 'code_why', 'check_code',
+           'grade_code', 'write_code', 'step_meta', 'done_attempt', 'open_short', 'nb_prompt', 'nb_spec', 'leela_found',
+           'leela_back', 'term_line', 'words_to_know', 'edit_lock', 'restore_steps', 'undo_line', 'NoRewrite',
+           'rewrite', 'move_step', 'skip_step', 'remove_step', 'merge_steps', 'check_steps', 'clean_step', 'reparent',
+           'edit_walk', 'undo_walk', 'restore_walk', 'lock_step', 'locked_slugs', 'add_step', 'split_step', 'passages',
+           'pick_read', 'links_in', 'propose', 'kind_check', 'improve_walk', 'plan_again', 'merge_plan', 'replan_walk',
+           'new_course', 'is_goal_walk', 'chip_state', 'source_rows', 'chip_sources', 'join_course', 'course_of',
+           'ensure_courses', 'level_prompt', 'level_questions', 'read_answer', 'ask_level', 'answer_level',
+           'level_done', 'stages_prompt', 'walk_started', 'stage_stays', 'fix_count', 'plan_stages', 'lock_stage',
+           'stage_brief', 'build_stage', 'add_data', 'drop_data', 'fill_data', 'name_data', 'join_names', 'stage_rows',
+           'due_stage', 'next_up', 'add_ask', 'blocking', 'course_state', 'set_here', 'active_course', 'course_from',
+           'courses_from', 'go_back', 'subject_label', 'vague', 'research_query', 'file_page', 'link_concept',
+           'wants_source', 'put_step', 'why_unread', 'read_paper', 'research_step', 'to_research', 'mark_pending',
+           'research_walk', 'Researcher', 'want_agent', 'pii_gate', 'leak', 'gather_row', 'flush_rows', 'gather_state',
+           'idea_at', 'idea_no', 'put_passage', 'put_notebook', 'secret_path', 'clone_dir', 'explainer_video',
+           'gather_tools', 'gather_prompt', 'NoHostAgent', 'start_why', 'gather', 'GatherStopped', 'gather_loop',
+           'research_state', 'WALK_ID', 'LEELA_ROUTE', 'TOPIC_MAX', 'vault_key', 'handoff', 'read_handoff',
+           'HANDOFF_CASES', 'PKG', 'RUN_SAY', 'validate_nb_spec', 'NB_SPEC_CASES', 'run_ok', 'RUN_CASES']
 
 # %% ../nbs/04_path.ipynb #eeb72429
 import json, math, re, random, threading, time, uuid, contextvars
@@ -1362,6 +1362,10 @@ def fresh(note:str, said:str) -> str:
 
 # %% ../nbs/04_path.ipynb #i11
 _NO_TEXT = re.compile(r'no passage|was not provided', re.I)   # a failed note: it talks about a missing text
+_JSONISH = re.compile(r'\A\s*(?:\{.*\}|\[.*\])\s*\Z', re.S)   # a failed note that is JSON such as `{}`, not prose; a note that opens with a link is prose
+NO_NOTE = 'The tutor could not write a note for this idea. You can ask again later.'
+
+def _no_note(n) -> bool: return bool(_NO_TEXT.search(n or '') or _JSONISH.match(n or ''))
 
 def tutor_note(lr, ask, j, i:int, sources=None, save:bool=True) -> str:
     """The note for step `i` of walk `j`: kept on the step, else written from the idea and the passage, or from the idea and `sources` when the step has no passage.
@@ -1378,21 +1382,22 @@ def tutor_note(lr, ask, j, i:int, sources=None, save:bool=True) -> str:
     end = f"{lvl}\n\n{end}"
     if text:
         n = _trim(ask(f"Idea: {c.name}\n{said}{core}\n\nThe passage:\n{text}\n\n{end}", teach_sp('walk.note')))
-        if _NO_TEXT.search(n): n = _trim(said)
+        if _no_note(n): n = _trim(said)
     else:
         ps, goal = concept_grounds(c, sources), j.get('goal') or j.get('title') or ''
         p = (f"Idea: {json.dumps(c.name)}\nThe learner already sees this, in the tutor's words: {json.dumps(said)}{core}"
              + (f"\nThe goal of the walk: {json.dumps(goal)}" if goal else '')
              + (f"\n\nPassages from the sources:\n{fenced(ps)}" if ps else '') + f"\n\n{end}")
         n0 = _trim(ask(p, teach_sp('walk.note_topic')))
-        n = '' if _NO_TEXT.search(n0) else fresh(n0, said)
+        n = '' if _no_note(n0) else fresh(n0, said)
         if n0 and n != n0:   # it said the statement again: one more ask, with what it said again
             n1 = _trim(ask(f"{p}\n\nYour last note said the statement again: {json.dumps(n0)}. Write a note that adds something new.", teach_sp('walk.note_topic')))
-            n = ('' if _NO_TEXT.search(n1) else fresh(n1, said)) or n
+            n = ('' if _no_note(n1) else fresh(n1, said)) or n
     n = plainly(ask, n, [c.name]) if n else n
+    broke = not n and not text and bool(_JSONISH.match(n0 or ''))   # the tutor's reply was JSON, not a note: say so, and save nothing, so a later visit asks again
     if n and (eq := ' '.join(str(s.get('question') or '').split())): n = f"{n} Keep this in mind: {eq}"   # the essential question of the walk map
-    if save: lr.walk_slug(j.id, s['slug'], note=n, note_none=True if not (n or text) else None)
-    return n
+    if save: lr.walk_slug(j.id, s['slug'], note=n, note_none=True if not (n or text or broke) else None)
+    return NO_NOTE if broke else n
 
 # %% ../nbs/04_path.ipynb #lc12
 import ast
@@ -1562,6 +1567,7 @@ def nb_spec(lr, ask, j, i:int, stop=None) -> AttrDict|None:
     s = (lr.journey(j.id) or j).steps[i]
     slug = s['slug']   # the spec goes on the step with this concept, also when you move steps while the model writes
     if s.get('nb'): return AttrDict(s['nb'])
+    shows = (s.get('check') or {}).get('kind') == 'demo'   # a demo step: its notebook is for Leela's demo, so it needs no folder of the learner
     p, why, spec = nb_prompt(lr, j, i), '', None
     for _ in range(2):
         if stop: stop()
@@ -1569,7 +1575,7 @@ def nb_spec(lr, ask, j, i:int, stop=None) -> AttrDict|None:
             r = _filled(ask_json(for_task(ask, 'question'), p + (f'\n\nYour last reply was refused: {why}. Write the spec again.' if why else ''), prompt('walk.notebook')))
             if isinstance(r, dict) and isinstance(r.get('data', []), list):
                 r = same_names(r, walk_names(jj := lr.journey(j.id) or j, i))   # one name for one folder across the walk
-                r = {**r, 'data': with_data(r.get('data'), jj.get('data'))}   # only your data folders, by their names
+                r = {**r, 'data': with_data([] if shows else r.get('data'), jj.get('data'))}   # only your data folders, by their names
             spec = validate_nb_spec({**r, 'demo': ''} if isinstance(r, dict) else r)
             break
         except ValueError as e: why = str(e)
@@ -1584,7 +1590,7 @@ def nb_spec(lr, ask, j, i:int, stop=None) -> AttrDict|None:
         if stop: stop()
         return demo_model(p, sp)
     if stop: stop()
-    if want_demo(c) or c and 'demo' in c.get('ways', []):
+    if shows or want_demo(c) or c and 'demo' in c.get('ways', []):   # a demo step always gets its demo: Leela shows it
         demo_model = for_task(ask, 'question')
         try:
             d = lr.demo_for(slug, aim='')
@@ -2974,7 +2980,7 @@ def wants_source(s) -> bool:
 def _read(page, kept, passage, now) -> dict:
     "The `read` of a step from the web page `page`, filed as `kept`."
     return dict(src='web', ref=kept.doc_id, shelf=kept.shelf, doc_id=kept.doc_id, title=page.title or site_of(page.url), site=site_of(page.url),
-                url=page.url, text=passage, section='', page=None, span=None, figure=None, researched=True, at=now)
+                url=page.url, date=page.get('date'), text=passage, section='', page=None, span=None, figure=None, researched=True, at=now)
 
 def _step_at(lr:Learning, jid:str, slug:str, i:int):
     "The index of the step on `slug` in walk `jid` now, near `i`: a step that moved keeps its source. None when the step is gone."
@@ -2990,7 +2996,8 @@ def put_step(lr:Learning, jid:str, slug:str, i:int, **kv):
         lr.walk_step(jid, k, **kv)
         return k
 
-FOUND_NOTHING, NO_QUOTE = 'The search found nothing.', 'No page had a good quote.'
+FOUND_NOTHING = 'Web search returned no results; search engines may have blocked it. This step can be grounded later.'   # fossick gives [] for a search that failed in every engine, so an empty answer is not proof of an empty web
+SEARCH_FAILED, NO_QUOTE = 'The web search was blocked or unavailable. This step can be grounded later.', 'No page had a good quote.'
 
 def why_unread(e) -> str:
     "The line that says why research could not read a page, with a short reason from the error `e`."
@@ -3020,10 +3027,14 @@ def _unfile(lr:Learning, page):
         try: _shelf(lr, page.kept.shelf).forget(page.kept.doc_id)
         except Exception as e: log.warning('research: could not forget %s: %r', page.kept.doc_id, e)
 
+def _try_search(search, q:str, n:int) -> tuple:
+    "The candidates of the search for `q` and whether the search raised: no candidates, and True, when it failed."
+    try: return candidates(search(q, n), n), False
+    except Exception as e: log.warning('research: the search failed: %r', e); return L(), True
+
 def _search(search, q:str, n:int) -> L:
     "The candidates of the search for `q`; none when the search fails."
-    try: return candidates(search(q, n), n)
-    except Exception as e: log.warning('research: the search failed: %r', e); return L()
+    return _try_search(search, q, n)[0]
 
 def _doing(lr:Learning, jid:str, what:str, idea:str, link:str=''):
     "Say what research does now on walk `jid` (`j.gather_now`, as the gather agent says it): `what` (a page title or a search), for the idea `idea` (a slug)."
@@ -3038,11 +3049,11 @@ def research_step(lr:Learning, ask, j, i:int, search=None, fetch=None, renote:bo
     if not wants_source(s): return None
     search, fetch, c = search or web_search, fetch or web_fetch, lr.concept(s['slug']) or AttrDict(name=s['slug'])
     paper, n, al = paper or partial(read_paper, lr), val('research.results'), list(c.get('aliases') or ())
-    seen, hit, read, unread = set(), False, False, ''   # the links read, whether a search found any, whether a page was read, and why the first page that failed was not
+    seen, hit, read, unread, failed = set(), False, False, '', False   # the links read, whether a search found any, whether a page was read, why the first page that failed was not, whether a search raised
     for q in dict.fromkeys(queries or [research_query(lr, j, i), research_query(lr, j, i, wide=True)]):   # the idea first; then with the subject and the walk title
         _doing(lr, j.id, f'a web search: {q}', s['slug'])
-        hs = [h for h in _search(search, q, n) if h.url not in seen][:TOP]
-        hit = hit or bool(hs)
+        hs, bad = _try_search(search, q, n); hs = [h for h in hs if h.url not in seen][:TOP]
+        hit, failed = hit or bool(hs), failed or bad
         for h in hs:
             seen.add(h.url)
             _doing(lr, j.id, h.title or site_of(h.url), s['slug'], h.url)
@@ -3051,7 +3062,7 @@ def research_step(lr:Learning, ask, j, i:int, search=None, fetch=None, renote:bo
             if not h.get('paper') and not usable(page.url):   # a redirect to a host that research does not read
                 unread = unread or 'The page could not be read: it moved to a site that abhyasa does not read.'; continue
             read = True
-            page = AttrDict(url=page.url, title=_flat(page.get('title') or h.title)[:200], text=str(page.get('text') or ''), kept=page.get('kept'), new=page.get('new'))
+            page = AttrDict(url=page.url, title=_flat(page.get('title') or h.title)[:200], text=str(page.get('text') or ''), date=page.get('date'), kept=page.get('kept'), new=page.get('new'))
             if not (passage := pick_passage(ask, c, page)) or about_idea(AttrDict(c, slug=s['slug']), f'{page.title} {passage}', j.get('goal') or ''):
                 _unfile(lr, page); continue
             now = time.time()
@@ -3063,7 +3074,7 @@ def research_step(lr:Learning, ask, j, i:int, search=None, fetch=None, renote:bo
                 try: tutor_note(lr, ask, lr.journey(j.id), k)
                 except Exception as e: log.warning('research: no new note: %r', e)
             return AttrDict(r)
-    why = FOUND_NOTHING if not hit else unread if unread and not read else NO_QUOTE
+    why = (SEARCH_FAILED if failed else FOUND_NOTHING) if not hit else unread if unread and not read else NO_QUOTE
     put_step(lr, j.id, s['slug'], i, research='none', research_why=why, research_at=time.time())
     return None
 

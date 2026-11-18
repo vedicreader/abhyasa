@@ -997,22 +997,29 @@ def _day(t) -> str:
     except (TypeError, ValueError, OverflowError, OSError): return ''
     return f'{d.day} {d:%b %Y}'
 
+def _iso_day(s) -> str:
+    "The `YYYY-MM-DD` day `s` as a day, such as `5 Mar 2024`; '' when `s` is not one."
+    try: d = datetime.strptime(str(s)[:10], '%Y-%m-%d')
+    except ValueError: return ''
+    return f'{d.day} {d:%b %Y}'
+
 def _txt1(x) -> str: return ' '.join(x.split())[:80] if isinstance(x, str) else ''
 
 def source_of(read:dict, j:dict|None=None) -> AttrDict:
     """The source line of the passage `read` (a step `read`, a slide source or a cite) in walk `j`: its `label`, its `title`,
     `href` (its document in the vault), `place` (the section and the page, or the site of a web page), `url` (a web page) and `date`. The place starts with `what`, the kind of text,
     when the passage has one (such as `Summary`), so a summary never reads as a quote."""
+    from html import unescape
     r, s = read or {}, str((read or {}).get('src') or '')
     shelf, doc = r.get('shelf'), r.get('doc_id')
     if not (shelf and doc) and s.startswith('vault:'): shelf, doc = s[6:], str(r.get('ref') or '').split('#')[0]
     url = r.get('url') if str(r.get('url') or '').startswith(('http://', 'https://')) else ''
     web = s == 'web'
     label = WEB if web else YOURS if r.get('text') or s else TUTOR   # a cite names where it is from, so it is a source too
-    title = r.get('title') or ((j or {}).get('source') or {}).get('title') or r.get('site') or 'your text'
+    title = unescape(str(r.get('title') or ((j or {}).get('source') or {}).get('title') or r.get('site') or 'your text'))   # a title stored with entities shows once-unescaped
     other = '' if web or s.startswith('vault:') or s in ('text', 'doc') else s   # a source that is not in the vault, such as `notes`
     return AttrDict(label=label, title=str(title), href=f'/v/{shelf}/{doc}' if shelf and doc else '', place=' · '.join(x for x in (_txt1(r.get('what')), _place(r)) if x) or (r.get('site') or '' if web else other),
-                    url=url, date=_day(r.get('at')) if web else '')
+                    url=url, date=(_iso_day(r.get('date')) or (f"read on {d}" if (d := _day(r.get('at'))) else '')) if web else '')
 
 # %% ../nbs/02_sources.ipynb #d008
 HINT = 'Not sure what to paste? Try a topic, such as how attention works.'
@@ -1370,13 +1377,14 @@ def page_text(r, url:str='') -> AttrDict:
     url = str(getattr(r, 'url', '') or url)
     if ct == 'text/plain':
         b = getattr(r, 'body', b'') or b''
-        return AttrDict(url=url, title='', text=_clip(drop_meta(b.decode('utf-8', 'replace') if isinstance(b, bytes) else str(b))))
-    from fossick import to_md, html_title
+        return AttrDict(url=url, title='', date=None, text=_clip(drop_meta(b.decode('utf-8', 'replace') if isinstance(b, bytes) else str(b))))
+    from fossick import to_md, html_title, page_date
     md = to_md(r).strip()
     if len(md) < SHORT: md = to_md(r, readability=False).strip()
-    try: title = html_title(str(r.html))
+    from html import unescape
+    try: title = unescape(html_title(str(r.html)))   # the markup of the title holds entities, once
     except Exception: title = ''
-    return AttrDict(url=url, title=title, text=_clip(drop_meta(md)))
+    return AttrDict(url=url, title=title, date=page_date(r), text=_clip(drop_meta(md)))
 
 # %% ../nbs/02_sources.ipynb #r018
 MOST, LEAST, WINDOW = 600, 40, 12_000   # the longest and the shortest passage, and the characters of a page that the model reads
