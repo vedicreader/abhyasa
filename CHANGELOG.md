@@ -2,6 +2,15 @@
 
 <!-- do not remove -->
 
+## 0.0.30
+
+- The concept graph has a Tree layout. It shows subjects and prerequisites as branches, with a status word on each idea. You can close a branch, move with the arrow keys, and switch to a list view.
+- `record_explanation` files a learner's reason as its own explanation attempt. The model grades it outside the learner lock.
+- `record_transfer` files a transfer attempt on a new case. An aided or wrong answer is saved and earns no depth.
+- `transfer_progress` works out transfer credit from the stored transfer attempts. A case is identified by its question. An unaided correct answer counts as apply (depth 4). Transfer (depth 5) needs two unaided correct answers on different cases, or one unaided correct answer that is not multiple choice.
+- The learner sees the transfer rule beside the question, and after each answer the text says what is still needed. Examples: "Counted as apply. One more new case, on your own, to reach transfer." and "Transfer reached."
+- A notebook step whose idea suits a demo now gets a Rupaka demo with a prediction gate. Abhyasa writes it with `make_demo` when it writes the notebook spec, and stores its name in the spec's `demo` field. A demo that fails its checks after two repairs gives no demo, and the notebook stays. A new step makes at most 7 model calls. A saved step makes none.
+
 ## 0.0.29
 
 - Show me picks a 3D explainer only for an idea that needs depth, such as a globe, the seasons, an orbit or a molecule shape. An idea in one plane, such as a lever, a throw or a sum of vectors, gets a 2D demo. Before, a word such as "lever" or "projectile" always gave a 3D explainer.
