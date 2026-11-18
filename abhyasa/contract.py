@@ -7,7 +7,8 @@ from urllib.parse import urlencode, parse_qs
 
 __all__ = ['SAFE_NAMES', 'SAFE_NODES', 'safe_test', 'check_exercise', 'WALK_ID', 'PKG', 'DATA_NAME', 'DATA_MOST', 'NB_KEYS', 'RUN_MINUTES', 'RUN_SAY',
            'has_directive', 'data_path_why', 'path_why', 'validate_nb_spec', 'NB_SPEC_CASES', 'RUN_METRICS', 'RUN_IMAGES', 'RUN_IMAGE', 'run_ok', 'RUN_CASES',
-           'COPY_DIR', 'notebook_copy', 'copy_home', 'LEELA_ROUTE', 'SHELF', 'DOC_ID', 'TOPIC_MAX', 'VAULT_KEY', 'vault_key', 'Handoff', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'OPEN_CASES', 'HANDOFF_BAD']
+           'COPY_DIR', 'notebook_copy', 'copy_home', 'LEELA_ROUTE', 'SHELF', 'DOC_ID', 'TOPIC_MAX', 'VAULT_KEY', 'vault_key', 'Handoff', 'handoff', 'read_handoff', 'HANDOFF_CASES', 'OPEN_CASES', 'HANDOFF_BAD',
+           'tex_dollars']
 
 # --- the test rule of an exercise --------------------------------------------------------------------------------------
 
@@ -332,3 +333,27 @@ OPEN_CASES = [(dict(jid='ddpm-ab12', i=2, cell=14, v='0a1b2c3d', go=True), '/lea
 # Queries that `read_handoff` refuses with a `ValueError`: a bad walk, step, doc, shelf or cell, nothing to open, and a `v` that is not a vault key.
 HANDOFF_BAD = ['walk=../x', 'walk=a-1&step=-1', '', 'walk=a&v=xyz', 'walk=a&v=0A1B2C3D', 'walk=a&v=0a1b2c3d4', 'walk=a&v=0a1b2c3d%0A',
                'doc=../x', 'doc=a&shelf=a/b', 'doc=a&cell=-1', 'walk=a&cell=x', 'shelf=store&cell=1']
+
+# --- maths in a passage ---------------------------------------------------------------------------------------------
+# Text from a source can have maths with no dollars: `\(…\)` and `\[…\]` (d2l, arXiv HTML), or a bare TeX word such as `c_n·e^{i2πnt/T}`.
+_TEX_DELIM = re.compile(r'\\{1,2}\((.+?)\\{1,2}\)|\\{1,2}\[(.+?)\\{1,2}\]|\(\((\\[A-Za-z]{2,}[^()\n]*)\)\)', re.S)   # the last: `((\Delta U))`, where a page cleaner left `(` for `\(` and `)` for `\)`
+_TEX_KEEP = re.compile(r'\$\$.+?\$\$|\$[^$\n]+\$|```.*?```|`[^`\n]*`|https?://\S+|\[\^?\w+\]', re.S)   # parts that stay as they are written
+_TEX_WORD = re.compile(r'(?:\{(?:[^{}$`\n]|\{[^{}$`\n]*\})*\}|[^\s{}$`])+')   # a word, with the spaces inside its braces
+_TEX_SIGN = re.compile(r'[\\^_=+<>]')                                         # a sign of maths between the brackets
+_TEXISH = re.compile(r'[\w)}\]]\^|_\{|\\[A-Za-z]{2,}')                       # a power, a subscript in braces or a TeX command
+
+def tex_dollars(s) -> str:
+    "Text `s` with its maths in dollars, so `md_html` draws it: `\\(…\\)`, `\\[…\\]`, and a bare TeX word such as `x^2` or `c_n·e^{i2πnt/T}`."
+    def delim(m):   # a markdown escape such as `\[1\]` has no maths sign in it, and stays
+        x = next(g for g in m.groups() if g is not None).strip()
+        return m[0] if not _TEX_SIGN.search(x) else f'$${x}$$' if m[2] is not None else f'${x}$'
+    s = _TEX_DELIM.sub(delim, str(s or ''))
+    def word(m):   # an open or a close bracket with no pair, and the stop marks after the word, stay out of the maths
+        w = m.group(0); lead = '(' if w.startswith('(') and w.count('(') > w.count(')') else ''
+        core = w[len(lead):].rstrip('.,;:!?')
+        while core.endswith(')') and core.count(')') > core.count('('): core = core[:-1].rstrip('.,;:!?')
+        return f'{lead}${core}${w[len(lead) + len(core):]}' if core and _TEXISH.search(core) else w
+    out, at = [], 0
+    for k in _TEX_KEEP.finditer(s):
+        out += [_TEX_WORD.sub(word, s[at:k.start()]), k.group(0)]; at = k.end()
+    return ''.join(out + [_TEX_WORD.sub(word, s[at:])])
