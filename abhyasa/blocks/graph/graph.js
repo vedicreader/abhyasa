@@ -7,16 +7,16 @@
   const cv = root.querySelector('canvas'), ctx = cv.getContext('2d'), tip = root.querySelector('.tip');
   const panel = root.querySelector('#levers'), note = root.querySelector('.note'), stage = root.querySelector('.stage');
   const KEY = 'abhyasa.graph.v1', DEPTHS = ['unseen', 'recognise', 'recall', 'explain', 'apply', 'transfer'];
-  const STATIC = new Set(['path', 'rings']), DAY = 86400;
+  const STATIC = new Set(['path', 'rings', 'tree']), DAY = 86400, TT = window.abhyasaTree;   // TT: graphtree.js, the pure part of the Tree
   const g = await (await fetch(root.dataset.url)).json();
   note.remove();
   if (!g.nodes.length) { stage.append(Object.assign(document.createElement('p'), {className: 'hint note', textContent: 'Each idea that you learn shows here. Start with a walk.'})); return; }
 
   // ---- the levers and what is saved -------------------------------------------------------------------------------
   const DEF = {mode: 'force', spacing: 50, link: 50, push: 50, size: 50, sizeBy: 'seen', colorBy: 'floor', labels: 'all', groupBy: 'subject',
-               floorLo: 0, floorHi: 5, dueOnly: false, hideUnseen: false, related: true, steps: 1, frozen: false, subs: {}};
+               floorLo: 0, floorHi: 5, dueOnly: false, hideUnseen: false, related: true, steps: 1, frozen: false, asList: false, subs: {}};
   let store; try { store = JSON.parse(localStorage.getItem(KEY)) || {}; } catch { store = {}; }
-  store.pos ||= {}; store.pins ||= {}; store.cam ||= {};
+  store.pos ||= {}; store.pins ||= {}; store.cam ||= {}; store.collapsed ||= [];   // collapsed: the closed branches of the Tree
   const S = {...DEF, ...store.set, subs: {...(store.set || {}).subs}};
   let saveT; const save = () => { clearTimeout(saveT); saveT = setTimeout(() => {
     store.set = S; try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {} }, 300); };
@@ -33,6 +33,10 @@
   const isDue = n => n.days !== null && n.days <= 0, learned = n => n.floor > 0 || n.seen > 0;
   const dueness = n => n.days === null ? 0 : n.days <= 0 ? 1 : Math.max(0, 1 - n.days / 14);
   if (root.dataset.subject && subjects.includes(root.dataset.subject)) subjects.forEach(s => S.subs[s] = s === root.dataset.subject);
+  const READY = g.ready ?? 3;   // the depth at which a concept is ready (abhyasa.path.READY): the Tree calls it mastered
+  const openC = n => (window.abhyasaGo || (u => location = u))('/c/' + encodeURIComponent(n.id));   // a click on a concept opens it, in each layout
+  const review = n => n.days === null ? 'no review yet' : n.days <= 0 ? 'review due now'
+    : n.days < 1 ? `next review in ${Math.max(1, Math.round(n.days * 24))} h` : `next review in ${Math.round(n.days)} ${Math.round(n.days) === 1 ? 'day' : 'days'}`;
 
   // ---- what went up since your last visit ---------------------------------------------------------------------------
   // The floors of the last visit stay in localStorage. Each idea whose floor went up gets one soft ring pulse in its new colour,
@@ -62,22 +66,25 @@
     C.floor = d3.interpolateRgb(d3.interpolateRgb(C.bg, C.acc)(.4), C.acc);
     C.due = d3.interpolateRgb(C.no, C.ok);
     C.state = {strong: C.ok, learning: C.floor(.3), fading: C.due(.5), weak: C.no, gap: C.acc};
+    C.status = {unseen: C.unseen, learning: C.floor(.3), mastered: C.ok, due: C.no};   // the four words of the Tree
   };
   themed();
   const subCol = s => C.subs[subjects.indexOf(s) % C.subs.length];
   // A cluster is a subject, or with Group by group a subject and the first level of its group (for example `jyotisha › nakshatras`).
   const ckey = n => S.groupBy === 'group' ? n.gkey : n.subject, clusters = () => [...new Set(nodes.map(ckey))];
-  const fill = n => S.colorBy === 'subject' ? subCol(n.subject)
+  const fill = n => S.mode === 'tree' ? C.status[n.tstatus] || C.unseen : S.colorBy === 'subject' ? subCol(n.subject)
     : S.colorBy === 'understanding' ? (C.state[n.state] || C.unseen)
     : S.colorBy === 'due' ? (n.days === null ? C.unseen : C.due(Math.min(1, Math.max(0, n.days / 14))))
     : n.floor ? C.floor((n.floor - 1) / 4) : C.unseen;
-  const hollow = n => S.colorBy === 'subject' ? false : S.colorBy === 'understanding' ? !C.state[n.state] : S.colorBy === 'due' ? n.days === null : !n.floor;
+  const hollow = n => S.mode === 'tree' ? n.tstatus === 'unseen' : S.colorBy === 'subject' ? false : S.colorBy === 'understanding' ? !C.state[n.state] : S.colorBy === 'due' ? n.days === null : !n.floor;
   const rad = n => sz() * (4.5 + (S.sizeBy === 'seen' ? 1.6 * Math.sqrt(Math.min(n.seen, 16))
     : S.sizeBy === 'due' ? 6 * dueness(n) : S.sizeBy === 'depth' ? 1.6 * Math.min(n.depth || 0, 6) : 1));
 
   // ---- what shows -------------------------------------------------------------------------------------------------
   let focus = null, picked = root.dataset.focus && byId.get(root.dataset.focus) || null, hover = null, hits = null;
   let vis = [], visLinks = [], visSet = new Set();
+  let tree = null, cur = null, tpos = new Map(), toggles = [], capHits = [], lastLabels = [];   // the Tree: its items, the key of the arrow keys, root places, hit boxes
+  const collapsed = new Set(store.collapsed);
   const passes = n => S.subs[n.subject] !== false && n.floor >= S.floorLo && n.floor <= S.floorHi &&
                       (!S.dueOnly || isDue(n)) && (!S.hideUnseen || n.seen > 0);
   const near = () => {   // the focus concept and the concepts within `steps` links of it
@@ -93,6 +100,16 @@
     visSet = new Set(vis);
     visLinks = links.filter(l => visSet.has(l.s) && visSet.has(l.t) && (S.related || l.kind === 'prereq'));
     depths();
+    if (S.mode === 'tree') buildTree();
+  };
+  const buildTree = () => {   // the tree of what the levers show; a closed branch then hides the concepts under it
+    const pl = links.filter(l => l.kind === 'prereq' && visSet.has(l.s) && visSet.has(l.t)).map(l => ({source: l.s.id, target: l.t.id, kind: 'prereq'}));
+    tree = TT.build(vis, pl, {ready: READY, now});
+    tree.byKey.forEach(it => { if (it.kind === 'concept') byId.get(it.id).tstatus = it.status; });
+    const shown = new Set(TT.rows(tree, collapsed).map(r => r.item.key));
+    vis = vis.filter(n => shown.has(n.id)); visSet = new Set(vis); visLinks = visLinks.filter(l => visSet.has(l.s) && visSet.has(l.t));
+    if (!cur && picked && shown.has(picked.id)) cur = picked.id;
+    if (cur && !shown.has(cur)) cur = tree.byKey.has(cur) ? TT.above(tree, cur).find(k => shown.has(k)) || null : null;
   };
   const depths = () => {   // the longest chain of prereqs before each concept; a cycle does not loop
     const pre = new Map(vis.map(n => [n, []])), indeg = new Map(vis.map(n => [n, 0]));
@@ -192,12 +209,36 @@
     for (const o of subs) { const am = o.a0 + o.wedge / 2, r = maxR + gap * 2.2; captions.push([r * Math.cos(am), r * Math.sin(am), o.s, 'ring']); }
     return T;
   };
+  // The Tree, left to right: d3's tidy tree (Reingold-Tilford) gives each row, so no two branches cover each other; each
+  // column is as wide as its widest name, so a name does not run into the next column. The subjects are the roots.
+  const treeTargets = () => {
+    const T = new Map(), k = sp(); tpos = new Map(); captions = [];
+    if (!tree) return T;
+    const row = Math.max(30 * k, 2 * (d3.max(vis, rad) || 5) + 10), gap = 44 * k;
+    const top = d3.hierarchy({key: '', kind: 'top', children: tree.roots}, d => d.kind === 'top' || !collapsed.has(d.key) ? d.children : null);
+    const sub = d => d.ancestors().at(-2);   // the subject of a row
+    d3.tree().nodeSize([row, 1]).separation((a, b) => sub(a) !== sub(b) ? 2.2 : a.parent === b.parent ? 1 : 1.25)(top);
+    const wide = []; top.each(d => { if (d.depth) wide[d.depth] = Math.max(wide[d.depth] || 0, itemW(d.data)); });
+    const col = [0, 0]; for (let i = 2; i < wide.length; i++) col[i] = col[i - 1] + wide[i - 1] + gap;
+    top.each(d => { if (!d.depth) return; const p = [col[d.depth], d.x]; tpos.set(d.data.key, p); if (d.data.kind === 'concept') T.set(byId.get(d.data.id), p); });
+    return T;
+  };
+  const tw = new Map(), textW = (s, font = '13px ' + C.serif) => {   // the width of a text at a fixed screen size, measured once
+    const key = font + '|' + s; if (!tw.has(key)) { ctx.save(); ctx.font = font; tw.set(key, ctx.measureText(s).width); ctx.restore(); } return tw.get(key);
+  };
+  const suffix = it => !it.children.length ? '' : collapsed.has(it.key) ? `  ▸ ${it.size}` : '  ▾';   // a closed branch says how many it hides
+  const capText = r => `${r.name} · ${r.size}${collapsed.has(r.key) ? '  ▸' : ''}`;
+  const capW = r => { const s = capText(r).toUpperCase(); return textW(s, '600 12px ' + C.serif) + 1.5 * s.length; };
+  const rootR = () => 5 * sz();
+  const itemW = it => it.kind === 'subject' ? rootR() + 6 + capW(it) : rad(byId.get(it.id)) + 4 + textW(it.name) + (suffix(it) ? textW(suffix(it)) : 0);
+  const itemOf = n => tree?.byKey.get(n.id);
 
   // Move the nodes to `T` (node -> [x, y]) in a short glide; the nodes that you dragged stay where you put them.
   let tween = null;
   const glide = (T, ms = 650) => {
     const pins = pinned(), P = store.pos[S.mode] || {};
     vis.forEach(n => { if (pins.has(n.id) && P[n.id]) T.set(n, P[n.id]); if (!T.has(n)) T.set(n, [n.x ?? 0, n.y ?? 0]); if (STATIC.has(S.mode)) n.fx = n.fy = null; });
+    if (ms <= 0) { T.forEach(([x, y], n) => { n.x = x; n.y = y; }); tween = null; return dirty(); }   // reduced motion: the nodes go to their places at once
     tween = {t0: performance.now(), ms, from: new Map(vis.map(n => [n, [n.x ?? T.get(n)[0], n.y ?? T.get(n)[1]]])), to: T};
     dirty();
   };
@@ -209,7 +250,7 @@
   };
   const layout = ({fresh = false, fit: f = false} = {}) => {   // put the visible nodes in place for the current mode
     sim.stop(); filter();
-    if (STATIC.has(S.mode)) { glide(S.mode === 'path' ? pathTargets() : ringTargets()); }
+    if (STATIC.has(S.mode)) { glide(S.mode === 'path' ? pathTargets() : S.mode === 'tree' ? treeTargets() : ringTargets(), S.mode === 'tree' && !motion ? 0 : 650); }
     else {
       captions = [];
       const P = store.pos[S.mode], cold = fresh || vis.some(n => n.x === undefined);
@@ -223,7 +264,7 @@
     }
     panel.querySelector('[name=freeze]').disabled = STATIC.has(S.mode);
     if (f && !tween && sim.alpha() > .1 && !S.frozen) fitLater = true;   // fit when the nodes stop moving
-    else if (f) setTimeout(fit, tween ? tween.ms * .4 : 0);
+    else if (f) setTimeout(() => fit(S.mode === 'tree' && !motion ? 0 : 450), tween ? tween.ms * .4 : 0);
     dirty();
   };
   const seed = n => {   // a new node starts next to a neighbour that has a place, or at a random place near the middle
@@ -245,8 +286,9 @@
   const sel = d3.select(cv);
   const box = () => {
     const T = tween ? [...tween.to.values()] : vis.map(n => [n.x, n.y]);
+    if (S.mode === 'tree' && tree) tpos.forEach((p, key) => T.push(p, [p[0] + itemW(tree.byKey.get(key)) + 12, p[1]]));   // the names and the roots must show too
     if (!T.length) return [[-1, -1], [1, 1]];
-    if (STATIC.has(S.mode)) captions.forEach(c => T.push([c[0], c[1]]));   // the subject names must show too
+    if (STATIC.has(S.mode) && S.mode !== 'tree') captions.forEach(c => T.push([c[0], c[1]]));   // the subject names must show too
     return [[d3.min(T, p => p[0]), d3.min(T, p => p[1])], [d3.max(T, p => p[0]), d3.max(T, p => p[1])]];
   };
   function fit(ms = 450) {
@@ -275,14 +317,44 @@
     if (hover) return new Set([hover, ...[...hover.nb].filter(m => visSet.has(m))]);
     return hits;
   };
+  function treeLinks(L, k) {   // the branches from the end of a name to the child, the other prereqs as thin dashes, and the roots
+    const at = it => it.kind === 'subject' ? tpos.get(it.key) : [byId.get(it.id).x, byId.get(it.id).y];
+    const from = it => it.kind === 'subject' ? rootR() + (6 + capW(it) + 8) / k : rad(byId.get(it.id)) + (4 + textW(it.name) + (suffix(it) ? textW(suffix(it)) : 0) + 6) / k;
+    ctx.beginPath();
+    for (const l of tree.cross) {   // as a branch: from the end of the name of the prereq to the left edge of the concept, so it does not cross a name
+      const a = byId.get(l.source), b = byId.get(l.target); if (!visSet.has(a) || !visSet.has(b)) continue;
+      const x0 = b.x > a.x ? Math.max(a.x, Math.min(a.x + from(tree.byKey.get(a.id)), b.x - 14 / k)) : a.x, x1 = b.x - rad(b), mx = (x0 + x1) / 2;
+      ctx.moveTo(x0, a.y); ctx.bezierCurveTo(mx, a.y, mx, b.y, x1, b.y);
+    }
+    ctx.setLineDash([2 / k, 3 / k]); ctx.strokeStyle = C.mute; ctx.globalAlpha = L ? .12 : .5; ctx.lineWidth = .8 / k; ctx.stroke(); ctx.setLineDash([]);
+    for (const on of [false, true]) {
+      ctx.beginPath();
+      for (const it of tree.byKey.values()) {
+        if (it.kind !== 'concept') continue;
+        const n = byId.get(it.id), par = tree.byKey.get(it.parent), p = par && at(par); if (!visSet.has(n) || !p) continue;
+        if ((!!L && L.has(n) && (par.kind === 'subject' || L.has(byId.get(par.id)))) !== on) continue;
+        const x0 = Math.max(p[0], Math.min(p[0] + from(par), n.x - 14 / k)), x1 = n.x - rad(n), mx = (x0 + x1) / 2;
+        ctx.moveTo(x0, p[1]); ctx.bezierCurveTo(mx, p[1], mx, n.y, x1, n.y);
+      }
+      ctx.strokeStyle = on ? C.acc : C.mute; ctx.globalAlpha = on ? 1 : L ? .2 : .8; ctx.lineWidth = (on ? 1.8 : 1.2) / k; ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    for (const r of tree.roots) {   // a root: a small square in the colour of its subject
+      const p = tpos.get(r.key), s = rootR(); if (!p) continue;
+      ctx.fillStyle = subCol(r.subject); ctx.fillRect(p[0] - s, p[1] - s, 2 * s, 2 * s);
+      if (cur === r.key) { ctx.strokeStyle = C.acc; ctx.lineWidth = 1.5 / k; ctx.strokeRect(p[0] - s - 4 / k, p[1] - s - 4 / k, 2 * s + 8 / k, 2 * s + 8 / k); }
+    }
+  }
   function draw() {
     const t0 = performance.now(), L = lit(), k = t.k;
+    if (S.mode === 'tree' && tree) captions = tree.roots.filter(r => tpos.has(r.key)).map(r => { const p = tpos.get(r.key); return [p[0] + rootR() + 6 / k, p[1], capText(r), 'band', r.key]; });
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
     regions();
     ctx.save(); ctx.translate(t.x, t.y); ctx.scale(k, k);
     // the links: prereqs are lines with an arrow, related links are dashes
     const curve = S.mode === 'path';
-    for (const [kind, on] of [['related', false], ['prereq', false], ['related', true], ['prereq', true]]) {
+    if (S.mode === 'tree' && tree) treeLinks(L, k);
+    else for (const [kind, on] of [['related', false], ['prereq', false], ['related', true], ['prereq', true]]) {
       const ls = visLinks.filter(l => l.kind === kind && (!!L && L.has(l.s) && L.has(l.t) && (!hover || l.s === hover || l.t === hover)) === on);
       if (!ls.length) continue;
       ctx.beginPath();
@@ -308,7 +380,7 @@
       const r = rad(n), dim = L && !L.has(n), age = pulse ? performance.now() - pulse.t0 : PULSE;
       ctx.globalAlpha = (dim ? .2 : 1) * (pulse && pulse.fade.has(n) ? Math.min(1, age / FADE) : 1);
       ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 2 * Math.PI); ctx.fillStyle = fill(n); ctx.fill();
-      const due = isDue(n) && S.colorBy !== 'due';
+      const due = isDue(n) && S.colorBy !== 'due' && S.mode !== 'tree';   // in the Tree, the fill says review due
       ctx.lineWidth = (due ? 2.2 : n === picked ? 2.4 : 1) / k;
       ctx.strokeStyle = n === picked ? C.fg : due ? C.no : hollow(n) ? C.mute : C.bg; ctx.stroke();
       if (n === picked) { ctx.beginPath(); ctx.arc(n.x, n.y, r + 4 / k, 0, 2 * Math.PI); ctx.strokeStyle = C.acc; ctx.lineWidth = 1.5 / k; ctx.stroke(); }
@@ -347,7 +419,8 @@
     if (S.mode !== 'path') captions = groups.map(([s, ns]) => [d3.mean(ns, n => n.x), d3.min(ns, n => n.y) - R * .9, s, 'group']);   // the label sits above its region
   }
   function labels(L) {   // labels at a fixed screen size; a label that would cover another one is left out
-    const want = S.labels, k = t.k, cell = 40, grid = new Map(), placed = [];
+    const tr = S.mode === 'tree' && !!tree, want = tr ? 'all' : S.labels, k = t.k, cell = 40, grid = new Map(), placed = [];   // the Tree shows each name
+    toggles = []; capHits = []; lastLabels = [];
     ctx.font = '13px ' + C.serif; ctx.textBaseline = 'middle';
     const rank = n => (S.mode === 'path' && n.linked ? 1e4 : 0) + (n === picked ? 1e6 : 0) + (n === hover ? 2e6 : 0) + (hits?.has(n) ? 5e5 : 0) + (L?.has(n) ? 1e5 : 0) + n.floor * 100 + Math.min(n.seen, 50) + n.nb.size * 3;
     const cand = vis.filter(n => n === picked || n === hover || (L ? L.has(n) : want === 'all' || (want === 'learned' && learned(n)) || n === focus))
@@ -364,12 +437,12 @@
     vis.forEach(n => { const x = t.applyX(n.x), y = t.applyY(n.y), r = rad(n) * k; add([x - r, y - r, x + r, y + r]); });   // labels do not cover nodes
     ctx.font = '13px ' + C.serif;
     for (const n of cand) {
-      const x = t.applyX(n.x), y = t.applyY(n.y), r = rad(n) * k, w = width(n), must = n === hover || n === picked;
+      const x = t.applyX(n.x), y = t.applyY(n.y), r = rad(n) * k, w = width(n) + (tr && suffix(itemOf(n)) ? textW(suffix(itemOf(n))) : 0), must = n === hover || n === picked;
       if (x < -200 || y < -20 || x > W + 20 || y > H + 20) continue;
       const right = [x + r + 4, y - 9, x + r + 4 + w, y + 9], left = [x - r - 4 - w, y - 9, x - r - 4, y + 9];
-      let b = inside(right) || !inside(left) ? right : left;   // at the right edge, the label goes at the left of its node
-      if (!must && hit(...b)) { if (b === left || S.mode === 'path' || !inside(left) || hit(...left)) continue; b = left; }   // in Path, a label on the left reads as the column before
-      b = into(b); add(b); placed.push([n, b]);
+      let b = tr || inside(right) || !inside(left) ? right : left;   // at the right edge, the label goes at the left of its node; in the Tree, always at the right, where its branch starts
+      if (!must && hit(...b)) { if (b === left || tr || S.mode === 'path' || !inside(left) || hit(...left)) continue; b = left; }   // in Path, a label on the left reads as the column before
+      b = into(b); add(b); placed.push([n, b]); lastLabels.push(n.id);
     }
     ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = C.bg;
     for (const [n, b] of placed) {
@@ -377,6 +450,12 @@
       ctx.font = (strong ? '600 13px ' : '13px ') + C.serif;
       ctx.fillStyle = strong || L?.has(n) ? C.fg : C.ink2;
       ctx.strokeText(n.name, b[0], (b[1] + b[3]) / 2); ctx.fillText(n.name, b[0], (b[1] + b[3]) / 2);
+      const it = tr && itemOf(n), suf = it && suffix(it);
+      if (suf) {   // the open or closed mark of a branch, quiet; a click on it closes or opens the branch
+        const x0 = b[0] + ctx.measureText(n.name).width, y = (b[1] + b[3]) / 2;
+        ctx.font = '13px ' + C.serif; ctx.fillStyle = C.mute; ctx.strokeText(suf, x0, y); ctx.fillText(suf, x0, y);
+        toggles.push([it.key, [x0, b[1], x0 + textW(suf) + 4, b[3]]]);
+      }
     }
     heads();
   }
@@ -386,7 +465,7 @@
     for (const c of [...captions].sort((a, b) => big(b) - big(a))) {
       ctx.font = font(c); const txt = c[2].toUpperCase(), w = ctx.measureText(txt).width, X = t.applyX(c[0]), Y = t.applyY(c[1]);
       const b = into([(big(c) && c[3] !== 'band' ? X - w / 2 : X) - 2, Y - 8, (big(c) && c[3] !== 'band' ? X + w / 2 : X + w) + 2, Y + 8]);   // a head at an edge moves into the view
-      if (hit(...b)) continue; add(b); keep.push([c, txt, b[0] + 2, Y]);
+      if (hit(...b)) continue; add(b); keep.push([c, txt, b[0] + 2, Y]); if (c[4]) capHits.push([c[4], b]);   // c[4]: the key of a root of the Tree
     }
     if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
     return () => {
@@ -407,17 +486,67 @@
   const showTip = (n, px, py) => {
     const due = n.days === null ? 'new' : n.days <= 0 ? 'due now' : n.days < 1 ? `due in ${Math.round(n.days * 24)} h` : `due in ${Math.round(n.days)} d`;
     tip.textContent = ''; tip.append(Object.assign(document.createElement('b'), {textContent: n.name}),
-      Object.assign(document.createElement('span'), {textContent: `${n.subject} · ${DEPTHS[n.floor]} · ${due} · ${n.nb.size} links`}),
+      Object.assign(document.createElement('span'), {textContent: S.mode === 'tree' ? `${TT.WORDS[n.tstatus]} · depth ${DEPTHS[n.floor]} · ${review(n)}` : `${n.subject} · ${DEPTHS[n.floor]} · ${due} · ${n.nb.size} links`}),
       ...(n.reasons || []).slice(0, 3).map(r => Object.assign(document.createElement('span'), {textContent: r, className: 'why'})));
     tip.hidden = false; tip.style.left = Math.min(px + 14, W - tip.offsetWidth - 4) + 'px'; tip.style.top = Math.max(4, py - tip.offsetHeight - 10) + 'px';
   };
+  // The Tree: a root, its name, or the mark after a name closes or opens a branch. Clicking a concept opens it, as in each layout.
+  const counted = r => `${r.size} ${r.size === 1 ? 'concept' : 'concepts'}` + (r.size ? ': ' + TT.ORDER.filter(s => r.counts[s]).map(s => `${r.counts[s]} ${TT.WORDS[s]}`).join(', ') : '');
+  const rootTip = (r, px, py) => {
+    tip.textContent = ''; tip.append(Object.assign(document.createElement('b'), {textContent: r.name}), Object.assign(document.createElement('span'), {textContent: counted(r)}));
+    tip.hidden = false; tip.style.left = Math.min(px + 14, W - tip.offsetWidth - 4) + 'px'; tip.style.top = Math.max(4, py - tip.offsetHeight - 10) + 'px';
+  };
+  const treeHit = (px, py) => {
+    if (S.mode !== 'tree' || !tree) return null;
+    const inb = b => px >= b[0] && px <= b[2] && py >= b[1] && py <= b[3];
+    for (const [key, b] of [...toggles, ...capHits]) if (inb(b)) return key;
+    for (const r of tree.roots) { const p = tpos.get(r.key); if (p && Math.hypot(t.applyX(p[0]) - px, t.applyY(p[1]) - py) < rootR() * t.k + 6) return r.key; }
+    return null;
+  };
+  const say = it => {   // the words for the item of the arrow keys: the live line beside the graph reads them out
+    if (it.kind === 'subject') return `${it.name}: ${counted(it)}.${collapsed.has(it.key) ? ' Closed.' : ''}`;
+    const n = byId.get(it.id), kids = it.children.length ? ` ${collapsed.has(it.key) ? 'Closed' : 'Open'} branch of ${it.size}.` : '';
+    return `${it.name}: ${TT.WORDS[it.status]}, depth ${DEPTHS[it.floor]}, ${review(n)}.${kids}`;
+  };
+  const itemTip = it => {
+    const p = it.kind === 'subject' ? tpos.get(it.key) : [byId.get(it.id).x, byId.get(it.id).y]; if (!p) return;
+    const x = t.applyX(p[0]), y = t.applyY(p[1]);
+    it.kind === 'subject' ? rootTip(it, x, y) : showTip(byId.get(it.id), x, y);
+  };
+  const setCur = key => {   // move the arrow-key item; the view follows it when it goes out of sight, at once with reduced motion
+    const it = key && tree?.byKey.get(key); if (!it) return;
+    cur = key; picked = it.kind === 'concept' ? byId.get(it.id) : null;
+    const p = it.kind === 'subject' ? tpos.get(key) : [picked.x, picked.y], x = t.applyX(p[0]), y = t.applyY(p[1]);
+    panel.querySelector('#focus-name').textContent = say(it);
+    if (x < 8 || x > W - 160 || y < 12 || y > H - 12) {   // out of sight: the fit leaves 30 px at the left and room for the names at the right
+      const to = d3.zoomIdentity.translate(W / 2 - 110, H / 2).scale(t.k).translate(-p[0], -p[1]);
+      if (motion) { sel.transition().duration(400).call(zoom.transform, to); setTimeout(() => itemTip(it), 430); } else { sel.call(zoom.transform, to); itemTip(it); }
+    } else itemTip(it);
+    dirty();
+  };
+  const toggle = key => {   // close or open a branch; the closed branches stay in localStorage
+    if (!tree?.byKey.get(key)?.children.length) return;
+    collapsed.has(key) ? collapsed.delete(key) : collapsed.add(key); store.collapsed = [...collapsed]; save();
+    if (cur && TT.above(tree, cur).includes(key)) cur = key;
+    hideTip(); layout(); renderList();
+    if (cur) panel.querySelector('#focus-name').textContent = say(tree.byKey.get(cur));
+  };
+  const treeKey = code => {   // ← the parent, → the first child (it opens a closed branch first), ↑ ↓ the siblings, ⏎ opens, ␣ closes or opens
+    const it = cur && tree.byKey.get(cur);
+    if (!it) return setCur(TT.move(tree, null, 'next'));
+    if (code === 'Enter' || code === 'NumpadEnter') return it.kind === 'concept' ? openC(byId.get(it.id)) : toggle(it.key);
+    if (code === 'Space') return toggle(it.key);
+    if (code === 'ArrowRight' && collapsed.has(it.key)) return toggle(it.key);
+    setCur(TT.move(tree, cur, {ArrowLeft: 'parent', ArrowRight: 'child', ArrowUp: 'prev', ArrowDown: 'next'}[code], collapsed));
+  };
   cv.addEventListener('pointermove', e => {
     if (e.buttons) return;
-    const n = pick(e.offsetX, e.offsetY); cv.style.cursor = n ? 'pointer' : 'grab';
+    const n = pick(e.offsetX, e.offsetY), tk = !n && treeHit(e.offsetX, e.offsetY); cv.style.cursor = n || tk ? 'pointer' : 'grab';
     if (n !== hover) { hover = n; dirty(); }
-    n ? showTip(n, e.offsetX, e.offsetY) : hideTip();
+    n ? showTip(n, e.offsetX, e.offsetY) : tk && tree.byKey.get(tk).kind === 'subject' ? rootTip(tree.byKey.get(tk), e.offsetX, e.offsetY) : hideTip();
   });
   cv.addEventListener('pointerleave', () => { hover = null; hideTip(); dirty(); });
+  cv.addEventListener('click', e => { if (pick(e.offsetX, e.offsetY)) return; const k = treeHit(e.offsetX, e.offsetY); if (k) { cur = k; toggle(k); } });
   cv.addEventListener('pointerdown', () => root.focus({preventScroll: true}));
   let moved = 0;
   const drag = d3.drag().subject(e => { const n = pick(e.x, e.y); return n && {n, x: t.applyX(n.x), y: t.applyY(n.y)}; })
@@ -428,7 +557,7 @@
     })
     .on('end', e => {
       const n = e.subject.n; sim.alphaTarget(0);
-      if (moved < 4) { n.fx = n.fy = null; return e.sourceEvent.shiftKey ? (picked = picked === n ? null : n, showFocus(), dirty()) : (window.abhyasaGo || (u => location = u))('/c/' + encodeURIComponent(n.id)); }
+      if (moved < 4) { n.fx = n.fy = null; return e.sourceEvent.shiftKey ? (picked = picked === n ? null : n, showFocus(), dirty()) : openC(n); }
       const pins = store.pins[S.mode] ||= []; if (!pins.includes(n.id)) pins.push(n.id);
       (store.pos[S.mode] ||= {})[n.id] = [n.x, n.y];
       if (STATIC.has(S.mode)) { n.fx = n.fy = null; save(); } else if (S.frozen) keep(); else save();
@@ -441,7 +570,8 @@
   const show = () => {   // the levers show the saved settings
     panel.querySelectorAll('[name=mode]').forEach(r => r.checked = r.value === S.mode);
     for (const k of ['spacing', 'link', 'push', 'size', 'steps', 'sizeBy', 'colorBy', 'labels', 'groupBy', 'floorLo', 'floorHi']) $(k).value = S[k];
-    for (const k of ['dueOnly', 'hideUnseen', 'related']) $(k).checked = S[k];
+    for (const k of ['dueOnly', 'hideUnseen', 'related', 'asList']) $(k).checked = S[k];
+    panel.querySelector('.tree-only').hidden = S.mode !== 'tree'; $('colorBy').disabled = S.mode === 'tree';   // the Tree colours by its four words
     subjects.forEach(s => { const b = $('sub:' + s); if (b) b.checked = S.subs[s] !== false; });
     $('freeze').firstChild.textContent = S.frozen ? 'Let it move' : 'Freeze';
     const motion = !STATIC.has(S.mode); $('link').disabled = $('push').disabled = !motion;
@@ -450,11 +580,12 @@
   const legend = () => {
     const el = panel.querySelector('.legend'), sw = (c, t, ring, w = 1) => { const s = document.createElement('span'), i = document.createElement('i');
       i.style.background = c; if (ring) i.style.boxShadow = `inset 0 0 0 ${w}px ${ring}`; s.append(i, t); return s; };
-    el.replaceChildren(...(S.colorBy === 'subject' ? subjects.map(s => sw(subCol(s), s))
+    el.replaceChildren(...(S.mode === 'tree' ? TT.ORDER.map(s => sw(C.status[s], TT.WORDS[s], s === 'unseen' ? C.mute : null))
+      : S.colorBy === 'subject' ? subjects.map(s => sw(subCol(s), s))
       : S.colorBy === 'understanding' ? [['strong', 'strong'], ['learning', 'learning'], ['fading', 'fading'], ['weak', 'weak'], ['gap', 'a gap you named']].map(([k, t]) => sw(C.state[k], t)).concat([sw(C.unseen, 'unseen', C.mute)])
       : S.colorBy === 'due' ? [sw(C.no, 'due now'), sw(C.due(.5), 'in a week'), sw(C.ok, 'later'), sw(C.unseen, 'new', C.mute)]
       : [sw(C.unseen, 'unseen', C.mute), ...[1, 3, 5].map(f => sw(C.floor((f - 1) / 4), DEPTHS[f]))]),
-      ...(S.colorBy !== 'due' ? [sw(C.bg, 'due', C.no, 2)] : []));
+      ...(S.colorBy !== 'due' && S.mode !== 'tree' ? [sw(C.bg, 'due', C.no, 2)] : []));
   };
   const showFocus = () => {
     const el = panel.querySelector('#focus-name');
@@ -471,6 +602,7 @@
     if (k === 'floorLo' && S.floorLo > S.floorHi) S.floorHi = S.floorLo;
     if (k === 'floorHi' && S.floorHi < S.floorLo) S.floorLo = S.floorHi;
     save(); show();
+    if (k === 'asList') return renderList();
     if (k === 'link' || k === 'push' || k === 'size') { if (STATIC.has(S.mode)) return dirty(); forces(); if (!S.frozen) sim.alpha(.4).restart(); return dirty(); }
     if (k === 'groupBy') {   // the layouts that cluster forget their saved places, so the nodes gather in the new clusters
       delete store.pos.groups; delete store.pins.groups; delete store.cam.groups; save();
@@ -483,9 +615,9 @@
   });
   const setMode = m => {
     if (m === S.mode) return;
-    S.mode = m; save(); show(); hover = null;
-    const cam = store.cam[m]; layout({fit: !cam});
-    if (cam) sel.transition().duration(450).call(zoom.transform, d3.zoomIdentity.translate(cam.x, cam.y).scale(cam.k));
+    S.mode = m; save(); show(); hover = null; hideTip();
+    const cam = store.cam[m]; layout({fit: !cam}); renderList();
+    if (cam) sel.transition().duration(m === 'tree' && !motion ? 0 : 450).call(zoom.transform, d3.zoomIdentity.translate(cam.x, cam.y).scale(cam.k));
   };
   const freeze = () => {
     if (STATIC.has(S.mode)) return;
@@ -524,17 +656,47 @@
     if (!visSet.has(n)) { focus = null; S.subs[n.subject] = true; S.floorLo = 0; S.floorHi = 5; S.dueOnly = S.hideUnseen = false; save(); show(); layout(); }
     showFocus(); setTimeout(() => centre(n), tween ? 300 : 0); dirty();
   };
-  q.addEventListener('input', found);
+  // ---- the Tree as a list: the same tree as text, with the status words, for a screen reader and for the find -------
+  const outline = root.querySelector('.outline');
+  const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+  const renderList = () => {
+    const on = S.mode === 'tree' && S.asList && !!tree;
+    outline.hidden = !on; cv.style.visibility = on ? 'hidden' : '';
+    if (!on) return outline.replaceChildren();
+    hideTip();
+    const s = q.value.trim().toLowerCase(), keep = new Set();   // with a find: the concepts that match, and the branches above them
+    if (s) tree.byKey.forEach(it => { if (it.kind === 'concept' && (it.name.toLowerCase().includes(s) || it.id.includes(s))) [it.key, ...TT.above(tree, it.key)].forEach(k => keep.add(k)); });
+    const line = it => it.kind === 'subject' ? [el('b', {textContent: it.name}), el('small', {textContent: ` ${counted(it)}`})]
+      : [el('i', {className: 'dot', style: `background:${C.status[it.status]}${it.status === 'unseen' ? `;box-shadow:inset 0 0 0 1px ${C.mute}` : ''}`, ariaHidden: 'true'}),
+         el('a', {href: '/c/' + encodeURIComponent(it.id), textContent: it.name, onclick: ev => { ev.preventDefault(); openC(byId.get(it.id)); }}),
+         el('span', {className: 'st st-' + it.status, textContent: ` ${TT.WORDS[it.status]}`}),
+         el('small', {textContent: ` · ${DEPTHS[it.floor]} · ${review(byId.get(it.id))}`})];
+    const item = it => {
+      const kids = it.children.filter(c => !s || keep.has(c.key));
+      if (!kids.length) return el('li', {}, ...line(it));
+      const d = el('details', {open: !!s || !collapsed.has(it.key)}, el('summary', {}, ...line(it)), el('ul', {}, ...kids.map(item)));
+      d.addEventListener('toggle', () => {   // a branch that you close here is closed on the canvas too; a find opens branches but does not save that
+        if (q.value.trim() || !d.open === collapsed.has(it.key)) return;
+        d.open ? collapsed.delete(it.key) : collapsed.add(it.key); store.collapsed = [...collapsed]; save(); layout();
+      });
+      return el('li', {}, d);
+    };
+    const roots = tree.roots.filter(r => !s || keep.has(r.key));
+    outline.replaceChildren(el('h2', {textContent: 'The tree as a list'}),
+      roots.length ? el('ul', {className: 'tree-list'}, ...roots.map(item)) : el('p', {className: 'hint', textContent: 'No concept has this name.'}));
+  };
+  q.addEventListener('input', () => { found(); renderList(); });
   q.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); const n = [...(hits || [])][0] || null; const first = list.querySelector('a'); n ? go(n) : first?.click(); }
-    if (e.key === 'Escape') { q.value = ''; found(); root.focus(); }
+    if (e.key === 'Escape') { q.value = ''; found(); renderList(); root.focus(); }
   });
 
   // ---- keys, only while the graph has focus -----------------------------------------------------------------------
   root.addEventListener('keydown', e => {
     if (e.metaKey || e.ctrlKey || e.altKey || e.target === q || e.target.closest('.grip')) return;
     const k = e.code, own = e.target === root;
-    if (/^Digit[1-4]$/.test(k)) setMode(['force', 'path', 'rings', 'groups'][+k[5] - 1]);
+    if (S.mode === 'tree' && tree && !S.asList && own && /^(Arrow(Up|Down|Left|Right)|Enter|NumpadEnter|Space)$/.test(k)) { treeKey(k); return e.preventDefault(); }
+    if (/^Digit[1-5]$/.test(k)) setMode(['force', 'path', 'rings', 'groups', 'tree'][+k[5] - 1]);
     else if (k === 'KeyF') fit();
     else if (k === 'KeyR') reset();
     else if (k === 'Space' && own) freeze();
@@ -556,12 +718,13 @@
   new ResizeObserver(() => { resize(); if (ready) fit(motion ? 250 : 0); }).observe(stage); resize();
   const onTheme = () => { if (!root.isConnected) return document.removeEventListener('abhyasa:theme', onTheme); themed(); legend(); dirty(); };   // core.js sends it for a new theme or mode; a host that swaps pages leaves this one behind
   document.addEventListener('abhyasa:theme', onTheme);
-  show(); layout();
+  show(); layout(); renderList();
   const cam = store.cam[S.mode];
   if (cam && !picked && Math.abs((cam.w || W) - W) < 40) sel.call(zoom.transform, d3.zoomIdentity.translate(cam.x, cam.y).scale(cam.k));
   else setTimeout(() => { fit(0); if (picked) setTimeout(() => centre(picked), 50); }, tween ? tween.ms : 0);
   ready = true;
   root.focus({preventScroll: true});
   if (motion && (rose.length || fresh.length)) setTimeout(() => { pulse = {t0: performance.now(), ring: new Set(rose), fade: new Set(fresh)}; dirty(); }, tween ? tween.ms : 150);
-  window.abhyasaGraph = {nodes, get regions() { return regionList.map(r => ({...r, label: !!captions.find(c => c[2] === r.key)})); }, get captions() { return captions.map(c => c[2]); }, stats, rose: rose.map(n => n.id), fresh: fresh.map(n => n.id), get pulsing() { return !!pulse; }, get t() { return t; }, get mode() { return S.mode; }, get vis() { return vis; }, get moving() { return !!tween || sim.alpha() > sim.alphaMin(); }};
+  window.abhyasaGraph = {nodes, get regions() { return regionList.map(r => ({...r, label: !!captions.find(c => c[2] === r.key)})); }, get captions() { return captions.map(c => c[2]); }, stats, rose: rose.map(n => n.id), fresh: fresh.map(n => n.id), get pulsing() { return !!pulse; }, get t() { return t; }, get mode() { return S.mode; }, get vis() { return vis; },
+    get tree() { return tree && {roots: tree.roots.map(r => r.key), cross: tree.cross.length, cursor: cur, collapsed: [...collapsed], rows: TT.rows(tree, collapsed).map(r => r.item.key), labels: lastLabels, toggles: toggles.map(([k, b]) => [k, b]), caps: capHits.map(([k, b]) => [k, b])}; }, get moving() { return !!tween || (!STATIC.has(S.mode) && sim.alpha() > sim.alphaMin()); }};   // a layout with fixed places stops the force simulation part-way, so its alpha says nothing there
 })();

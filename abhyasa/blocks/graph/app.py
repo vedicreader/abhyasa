@@ -3,6 +3,7 @@ from pathlib import Path
 from fasthtml.common import *
 from abhyasa.core import Page, RouteOverrides, hook, asset_js, asset_css, Quiet, moved_to
 from abhyasa.learner import understanding
+from abhyasa.path import READY
 from .cfg import Routes
 from .ui import Stage, Empty_
 
@@ -17,15 +18,15 @@ def connect(app, ctx):
         subs = [r['subject'] for r in lr.subjects() if r['subject']]
         if not lr.concepts(): return Page('Graph', Empty_(), on='Library', sub='Graph', wide=True, extra=(asset_css(_P/'graph.css'),))
         return Page('Graph', Stage(Routes.data, subs, subject, focus),
-                    Script(src='/vendor/d3.min.js'), asset_js(_P/'graph.js', defer=True),
+                    Script(src='/vendor/d3.min.js'), asset_js(_P/'graphtree.js', defer=True), asset_js(_P/'graph.js', defer=True),
                     on='Library', sub='Graph', wide=True, extra=(asset_css(_P/'graph.css'),))
 
     def data(subject:str=''):
-        "The graph, with how well you know each concept: its state and the reasons."
+        "The graph, with how well you know each concept: its state and the reasons; `ready` is the depth at which a prereq is ready (the Tree calls it mastered)."
         g, by = lr.graph(subject or None), {c.slug: c for c in lr.concepts(subject or None)}
         for n in g['nodes']:
             u = understanding(by[n['id']]); n.update(state=u.state, reasons=u.reasons)
-        return JSONResponse(g)
+        return JSONResponse({**g, 'ready': READY})
 
     @hook('concept_actions')
     def see(c): return Quiet('See in the graph', href=f'{Routes.base}?subject={c.subject}&focus={c.slug}')

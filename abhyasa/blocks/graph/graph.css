@@ -55,6 +55,20 @@ main.wide:has(#graph) { max-width: none; padding-top: var(--s5); padding-bottom:
 #levers details.adjust { border-top: 1px solid var(--line); padding-top: var(--s2); }
 #levers details.adjust > summary { cursor: pointer; color: var(--mute); padding: var(--s1) 0 var(--s2); list-style-position: inside; }
 #levers details.adjust > summary:hover, #levers details.adjust[open] > summary { color: var(--fg); }
+/* the Tree as a list (graph.js renderList): an outline in place of the canvas, with a status word on each line */
+#graph .outline { position: absolute; inset: 0; overflow: auto; padding: var(--s3) var(--s4) var(--s6); background: var(--bg); font-size: var(--t-small); line-height: 1.6; }
+#graph .outline h2 { font-size: var(--t-meta); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); margin: 0 0 var(--s3); }
+#graph .outline ul { list-style: none; margin: 0; padding-left: var(--s5); border-left: 1px solid var(--line); }
+#graph .outline ul.tree-list { padding-left: 0; border-left: 0; }
+#graph .outline ul.tree-list > li { margin-bottom: var(--s3); }
+#graph .outline summary { cursor: pointer; }
+#graph .outline summary:focus-visible, #graph .outline a:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+#graph .outline .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: var(--s2); }
+#graph .outline .st { color: var(--ink2); }
+#graph .outline .st-due { color: var(--no); font-weight: 600; }
+#graph .outline small { color: var(--mute); font-size: var(--t-meta); }
+#levers .tree-only { margin-top: var(--s2); }
+#levers select:disabled { opacity: .45; }
 /* no concepts: one line in the middle of the page */
 main.wide:has(.graph-empty) { display: grid; place-items: center; min-height: calc(100vh - 160px); }
 p.graph-empty { text-align: center; max-width: 36em; margin: 0; }

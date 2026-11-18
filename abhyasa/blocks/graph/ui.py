@@ -8,7 +8,8 @@ __all__ = ['Levers', 'Stage', 'Empty_']
 MODES = (('force', 'Free', '1', 'The links pull and the nodes push apart'),
          ('path', 'Path', '2', 'Left to right: a concept comes after the concepts it needs'),
          ('rings', 'Rings', '3', 'One slice for each subject, one ring for each step of prereqs'),
-         ('groups', 'Groups', '4', 'One group for each subject'))
+         ('groups', 'Groups', '4', 'One group for each subject'),
+         ('tree', 'Tree', '5', 'Each subject branches out: a concept sits under the deepest concept that it needs'))
 
 def _sec(title, *c, keys=''): return Div(Span(title, Kbd(keys) if keys else '', cls='lbl'), *c, cls='sec')
 
@@ -27,8 +28,9 @@ def Levers(subjects):
     floors = [(str(i), d) for i, d in enumerate(DEPTHS)]
     return Aside(
         _sec('Find', Input(type='search', name='q', placeholder='A concept', aria_label='Find a concept in the graph', autocomplete='off'), keys='S'),
-        P('Point at a concept and press E, or find a concept.', cls='hint', id='focus-name'),   # it changes on E, so it stays out of the fold
-        _sec('Layout', modes, keys='1–4'),
+        P('Point at a concept and press E, or find a concept.', cls='hint', id='focus-name', aria_live='polite'),   # it changes on E and on the arrow keys of the Tree, so it stays out of the fold
+        _sec('Layout', modes, Div(_tick('asList', 'Show the tree as a list'),
+                                  P('Arrow keys move along the branches. ⏎ opens. ␣ closes or opens a branch.', cls='hint'), cls='tree-only', hidden=True), keys='1–5'),
         _sec('Colours', Div(cls='legend')),
         Details(Summary('Adjust the view'),
             Div(Button('Freeze', Kbd('␣'), type='button', name='freeze'), Button('Fit', Kbd('F'), type='button', name='fit'),
@@ -56,7 +58,8 @@ def Empty_():
 
 def Stage(url, subjects, subject='', focus=''):
     "The canvas and its panel. The wrapper takes keyboard focus, so the keys work only here."
-    return Div(Div(Canvas(), Div(cls='tip', hidden=True), P('Loading the graph…', cls='hint note'), cls='stage'),
+    return Div(Div(Canvas(), Div(cls='tip', hidden=True), P('Loading the graph…', cls='hint note'),
+                   Section(cls='outline', hidden=True, aria_label='The tree as a list'), cls='stage'),
                Div(cls='grip', role='separator', aria_orientation='vertical', aria_label='Resize the tools', tabindex='0', title='Drag to resize. Double-click to reset.'),
                Levers(subjects),
                id='graph', tabindex='0', data_url=url, data_subject=subject, data_focus=focus)
