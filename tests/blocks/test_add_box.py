@@ -135,11 +135,22 @@ def test_drag_cue_drops_and_pick_in_a_browser(mk, home):
                 assert pg.evaluate("getComputedStyle(document.getElementById('start-form')).outlineStyle") == 'dashed'
                 pg.evaluate(DRAG, ['dragleave', 'file'])
                 assert not cue.is_visible()
-                pg.evaluate(DRAG, ['drop', 'file'])                                      # a text file goes into the box, as before
+                reads = []
+                pg.route('**/learn/read', lambda r: reads.append(r))
+                with pg.expect_request('**/learn/read'):
+                    pg.evaluate(DRAG, ['drop', 'file'])                                  # a text file goes into the box, as before
                 pg.wait_for_function("() => document.getElementById('start-q').value.startsWith('Softmax')")
                 assert pg.input_value('#start-file') == 'notes.txt' and not cue.is_visible()
                 pg.evaluate(DRAG, ['drop', 'dir'])                                       # a folder has no path in a browser
-                pg.wait_for_function("() => document.getElementById('start-say').textContent === 'To add a folder, use Pick folders.'")
+                assert pg.locator('#start-say').text_content() == 'To add a folder, use Pick folders.'
+                pg.evaluate("() => document.addEventListener('htmx:afterSettle', e => { if (e.detail.target.id === 'start-read') window.readDone = true; })")
+                assert len(reads) == 1
+                reads[0].continue_()                                                    # the earlier read must not erase the newer drop line
+                pg.wait_for_function('() => window.readDone === true')
+                assert pg.locator('#start-say').text_content() == 'To add a folder, use Pick folders.'
+                assert pg.locator('#start-will').text_content() == 'To add a folder, use Pick folders.'
+                assert pg.locator('#start-will').evaluate("e => e.classList.contains('req-err')")
+                pg.unroute('**/learn/read')
                 pg.fill('#start-q', ''); pg.dispatch_event('#start-q', 'input')
                 pg.wait_for_function("() => document.getElementById('start-will')?.textContent && !document.getElementById('start-will').classList.contains('req-err')")
                 pg.click('#start-pick')                                                  # the route is faked: no chooser opens

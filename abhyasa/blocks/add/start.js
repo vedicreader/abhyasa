@@ -4,14 +4,19 @@
 // goal. Pick folders opens the folder chooser of this Mac (/learn/pick), where you can pick more than one. Bound one time, on the document, so it works after an hx-boost page change too.
 if (!window.abhyasaStart) {
   window.abhyasaStart = true;
-  let timer = null, inflight = null;
+  let timer = null, inflight = null, dropLine = null;
   const form = () => document.getElementById('start-form');
   const read = () => {
     clearTimeout(timer); timer = null;
     const f = form(); if (!f) return Promise.resolve();
+    dropLine = null;
     // a POST: htmx sends the fields of the form in the body, so a long pasted text does not make a URL that the server refuses
-    const r = inflight = htmx.ajax('POST', f.dataset.read, {source: '#start-read', target: '#start-read', swap: 'innerHTML'});
-    return r.finally(() => { if (inflight === r) inflight = null; });
+    const r = inflight = htmx.ajax('POST', f.dataset.read, {source: '#start-read', target: '#start-read', swap: 'innerHTML settle:0ms'});
+    return r.finally(() => {
+      if (inflight === r) inflight = null;
+      // The reply redraws both lines; a drop after this read started takes precedence.
+      if (dropLine && form() === f) say(dropLine);
+    });
   };
   const later = () => { clearTimeout(timer); timer = setTimeout(read, 250); };
   document.addEventListener('input', e => {
@@ -30,6 +35,7 @@ if (!window.abhyasaStart) {
     if (go) go.click();
   }, true);
   const say = text => {   // a drop line: in the quiet line, and in the live region for a screen reader
+    dropLine = text;
     const w = document.getElementById('start-will'), s = document.getElementById('start-say');
     if (w) { w.textContent = text; w.classList.add('req-err'); }
     if (s) s.textContent = text;

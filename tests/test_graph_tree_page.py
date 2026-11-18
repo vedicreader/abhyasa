@@ -80,6 +80,7 @@ class _CFT:
 
 def _wait(d, js, timeout=10):
     "Wait until the function `js` gives a true value in the page; give that value."
+    if isinstance(d, _PW): return d.pg.wait_for_function(js, timeout=timeout * 1000).json_value()
     end = time.time() + timeout
     while True:
         v = d.ev(js)
