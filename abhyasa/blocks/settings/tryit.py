@@ -62,7 +62,7 @@ RUNNERS = dict(hints=(hints_sample, hints_run), ways=(ways_sample, hints_run), d
                tutor=(own_sample, lesson_run), lesson=(own_sample, lesson_run), **{'teach.human': (own_sample, lesson_run)}, grade=(own_sample, grade_run))   # prompt name -> (the sample, from the learner's data and the draft; one call on it)
 
 AGENT_OR_PAGE = frozenset(('guide.figure', 'guide.board', 'walk.notebook', 'demo.explainer', 'research.lead', 'build.agent'))   # they run an agent loop or need a whole page
-LATER = frozenset(('profile.onboard', 'profile.observe', 'core', 'extract', 'concepts.sort', 'research.pick', 'research.more', 'walk.plan', 'walk.pick', 'walk.map', 'primer',
+LATER = frozenset(('profile.onboard', 'profile.observe', 'core', 'extract', 'concepts.sort', 'research.pick', 'research.more', 'walk.plan', 'walk.pick', 'walk.map', 'walk.read', 'primer',
                    'walk.note', 'walk.note_topic', 'walk.code', 'walk.gloss', 'edit.rewrite', 'edit.improve', 'edit.fix', 'course.level', 'course.stages',
                    'demo.feedback', 'lesson.feedback', 'demo.order', 'demo.simpler', 'demo.images', 'demo.asked', 'demo.values', 'demo.gates', 'demo.gave',
                    'talk.choice', 'talk.slide', 'talk.poll'))   # single calls with no runner yet: each reader needs a walk, a talk or a saved concept that it would change

@@ -21,6 +21,7 @@ READERS = {
     'concepts.sort': ['abhyasa.sources.propose_groups'],
     'research.pick': ['abhyasa.sources.pick_passage'],
     'walk.plan': ['abhyasa.path.plan'],
+    'walk.read': ['abhyasa.path._walk_reads'],
     'walk.pick': ['abhyasa.path.main_steps'],
     'walk.map': ['abhyasa.path.walk_map'],
     'primer': ['abhyasa.path.topic_slug', 'abhyasa.path.name_gaps'],
