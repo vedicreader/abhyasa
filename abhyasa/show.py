@@ -8,25 +8,25 @@ Docs: https://vedicreader.github.io/abhyasa/show.html.md"""
 __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'NO_HOST_PICTURES', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD_RULE', 'HARD_SAY', 'NUMS',
            'VALUE_ASK', 'CHECK_ASK', 'TRY_ASK', 'FILLER', 'OFF_CHECK', 'COUNTS', 'ON_TRY', 'NO_SOURCE', 'WITH_SOURCE',
            'LABEL', 'VAULT_FLOOR', 'WEB_FAILED', 'WEB_NO_PAGE', 'WEB_NO_PASSAGE', 'NO_WEB', 'SLOT', 'VERDICTS',
-           'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'ORDER_AIM',
-           'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'STAGES', 'TRY_ERRORS',
-           'SHOW_ME', 'SEE_IT', 'YES', 'OFFER', 'DEMO_KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'DEPTH', 'SCENE_BLOCKS',
-           'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE', 'REFUSED',
-           'WHERES', 'ROUTES', 'TALK_SCHEMA', 'SLIDE_KINDS', 'END_KINDS', 'ASK_KINDS', 'BEATS', 'QUESTIONS_MIN',
-           'RECAP_MIN', 'POLL_MIN', 'NEXT_MIN', 'WORDS_MOST', 'BODY_MOST', 'POINT_MOST', 'GONE', 'TALK_CASES',
-           'CHOICE_SP', 'RUN_MOST', 'CODE_LINES', 'CODE_COLS', 'CODE_COLS_ALONE', 'SOURCE_KEYS', 'SLIDE_SP', 'SAY_MOST',
-           'ASK_MOST', 'NO_CODE', 'POLL_SP', 'POLL_Q', 'FILLED', 'AGAIN', 'SLIDE_PARTS', 'STATE_KEYS', 'FRESH',
-           'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'HANDOUT_CSS', 'HANDOUT_KINDS', 'LINK_MOST', 'ROLES',
-           'BUILD_SP', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why', 'vision_ask', 'figure_check',
-           'focus_text', 'thread_text', 'try_text', 'page_text', 'offer_line', 'panel_note', 'board_prompt',
-           'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words', 'on_check',
-           'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'demo_text', 'since_demo',
-           'rung', 'keep_rung', 'no_slots', 'demo_feedback', 'grade_why', 'want_demo', 'clean_note', 'quoted',
-           'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'job_key', 'tries_said',
-           'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way', 'simpler_demo',
-           'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind', 'can_explain', 'scene_catalog',
-           'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says', 'leaks', 'scrub',
-           'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show',
+           'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'EXPLAIN_OWN',
+           'ORDER_AIM', 'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'STAGES',
+           'TRY_ERRORS', 'SHOW_ME', 'SEE_IT', 'YES', 'OFFER', 'DEMO_KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'DEPTH',
+           'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE',
+           'REFUSED', 'WHERES', 'ROUTES', 'TALK_SCHEMA', 'SLIDE_KINDS', 'END_KINDS', 'ASK_KINDS', 'BEATS',
+           'QUESTIONS_MIN', 'RECAP_MIN', 'POLL_MIN', 'NEXT_MIN', 'WORDS_MOST', 'BODY_MOST', 'POINT_MOST', 'GONE',
+           'TALK_CASES', 'CHOICE_SP', 'RUN_MOST', 'CODE_LINES', 'CODE_COLS', 'CODE_COLS_ALONE', 'SOURCE_KEYS',
+           'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'NO_CODE', 'POLL_SP', 'POLL_Q', 'FILLED', 'AGAIN', 'SLIDE_PARTS',
+           'STATE_KEYS', 'FRESH', 'IMAGE_TYPES', 'IMAGE_SUFFIXES', 'RECAP_CSS', 'HANDOUT_CSS', 'HANDOUT_KINDS',
+           'LINK_MOST', 'ROLES', 'BUILD_SP', 'figure_labels', 'FigureCache', 'keeps_images', 'vision_why', 'vision_ask',
+           'figure_check', 'focus_text', 'thread_text', 'try_text', 'page_text', 'offer_line', 'panel_note',
+           'board_prompt', 'find_explainer', 'file_video', 'set_video', 'concept_video', 'video_of', 'asked_words',
+           'on_check', 'source_label', 'guide_ask', 'video_source', 'web_sources', 'unsave', 'explain', 'demo_text',
+           'since_demo', 'rung', 'keep_rung', 'no_slots', 'demo_feedback', 'grade_why', 'want_demo', 'clean_note',
+           'quoted', 'last_feedback', 'feedback_line', 'said', 'lesson_note', 'make_demo', 'ask_key', 'job_key',
+           'tries_said', 'queue_demo', 'job_state', 'job_age', 'job_stage', 'backed', 'other_way', 'lesson_way',
+           'simpler_demo', 'demo_lesson', 'on_close', 'show_ask', 'show_reply', 'demo_kind', 'can_explain',
+           'scene_catalog', 'scene_example', 'explainer_sp', 'gates_of', 'calc', 'gate_answers', 'says', 'leaks',
+           'scrub', 'explainer_prompt', 'scene_errors', 'explainer_for', 'explain_ask', 'make_explainer', 'show',
            'import_gallery', 'parked', 'on_stage', 'md_clean', 'clean_slide', 'check_talk', 'ask_from_gate',
            'public_ask', 'words_q', 'old_words_q', 'words_ask', 'ask_from_check', 'ask_for_concept', 'slide_minutes',
            'talk_minutes', 'print_cell', 'code_piece', 'slide_source', 'hands_on', 'shown_step', 'slide_notes',
@@ -52,7 +52,7 @@ from concurrent.futures import ThreadPoolExecutor
 from .learner import CtxPool
 from rupaka.spec import upgrade, gallery, validate, SCHEMA, fmt_text, run as spec_state, plain_errors, plain_why
 from rupaka.agent import author, catalog, parse_json, repair_prompt, SHAPE
-from .learner import Learning, meta_of, slugify, _src, update, _back, way, choose, TEXT_WAYS, EXAMPLES_TO, FEEDBACK, register, prompt, lines, need_lines, val, track, job_said, check_stop
+from .learner import Learning, DEPTHS, meta_of, slugify, _src, update, _back, way, choose, TEXT_WAYS, EXAMPLES_TO, FEEDBACK, register, prompt, lines, need_lines, val, track, job_said, check_stop
 from .tutor import CLOSE_HOOKS, LESSON_HOOKS, LESSON_NOTES, grade_prompt, passed
 from copy import deepcopy
 from difflib import SequenceMatcher
@@ -821,6 +821,86 @@ def lesson_note(tutor, q) -> str:
     return feedback_line(tutor.learning, q.concept, 'lesson')
 
 LESSON_NOTES[:] = [f for f in LESSON_NOTES if getattr(f, '__name__', '') != 'lesson_note'] + [lesson_note]
+
+# %% ../nbs/05_show.ipynb #9cbc618f
+EXPLAIN_OWN = {'of', 'grade_status', 'aided', 'evidence_id', 'credited'}   # keys that the reason and the transfer attempts keep for themselves
+
+def _filed(learning, kind:str, key:str, val, concept:str=None) -> AttrDict|None:
+    "The first attempt of `kind` whose meta `key` is `val` (on `concept`, when given); None when there is none."
+    w, args = f"json_extract(meta, '$.kind')=? and json_extract(meta, '$.{key}')=?", [kind, val]
+    if concept: w, args = w + " and json_extract(meta, '$.concept')=?", [*args, concept]
+    return first(sorted((AttrDict(meta_of(r)) for r in learning._docs('attempt', w, args)), key=lambda m: m.get('at', 0)))
+
+@patch
+def record_explanation(self:Learning, prediction_id:str, why:str, **meta) -> AttrDict:
+    """File the reason `why` for prediction `prediction_id` as its own attempt: `kind='explanation'`, linked by `of`, ungraded (`grade_status='pending'`, depth 3), and with no credit for the learner.
+    There is one reason for each prediction: a second call gives the attempt that is filed already. Grade it with `grade_explanation`, or with `explanation_context` and `apply_explanation_grade`."""
+    if (bad := (_OWN | EXPLAIN_OWN) & meta.keys()): raise ValueError(f'meta cannot use {sorted(bad)}')
+    if not (why or '').strip(): raise ValueError('give the reason: it is empty')
+    with self._lock:   # look for the first reason, then file: one step
+        p = _attempt(self, prediction_id)
+        if p is None: raise KeyError(f'no attempt {prediction_id!r}')
+        if p.get('kind') in ('explanation', 'transfer'): raise ValueError(f'attempt {prediction_id!r} is not a prediction')
+        if (old := _filed(self, 'explanation', 'of', prediction_id)) is not None: return old
+        return self.record(p.concept, p.question, p.answer, why.strip(), False, None, 3, kind='explanation', session=p.get('session', ''), final=False,
+                           feedback='', expected=p.get('expected', ''), of=prediction_id, grade_status='pending', **meta)
+
+# %% ../nbs/05_show.ipynb #2ba4d158
+def _explanation(learning, aid:str) -> AttrDict:
+    "The explanation attempt `aid`. A `KeyError` when there is no such attempt, and a `ValueError` when it is not an explanation."
+    a = _attempt(learning, aid)
+    if a is None: raise KeyError(f'no attempt {aid!r}')
+    if a.get('kind') != 'explanation': raise ValueError(f'attempt {aid!r} is not an explanation')
+    return a
+
+@patch
+def explanation_context(self:Learning, aid:str) -> AttrDict:
+    """What a grader needs for explanation `aid`, frozen from its attempts: `question`, `picked`, `ans` (the right answer) and `why`, with the idea (`concept`, `slug`), whether the pick was right (`ok`) and the `status`.
+    It takes no lock and calls no model: grade it with `grade_why` outside any lock, then call `apply_explanation_grade`."""
+    a = _explanation(self, aid); p = _attempt(self, a.of)
+    return AttrDict(aid=a.id, prediction_id=a.of, slug=a.concept, concept=self.concept(a.concept), question=a.question, picked=a.answer, ans=a.get('expected', ''),
+                    why=a.thinking, ok=bool(p and p.get('correct')), status=a.get('grade_status', 'pending'))
+
+@patch
+def apply_explanation_grade(self:Learning, aid:str, g) -> AttrDict:
+    """Apply the grade `g` (from `grade_why`) to explanation `aid`, one time, under the lock of the shelf. A `g` of None, from a grader that failed, leaves it pending.
+    A graded explanation never changes. Only a right pick with a reason that passes lifts the idea to depth 3: the floor, ceiling and shaky mark change, and the count of tries does not."""
+    with self._lock:
+        a = _explanation(self, aid)
+        if a.get('grade_status', 'pending') != 'pending' or g is None: return a
+        p, c = _attempt(self, a.of), self.concept(a.concept)
+        earned = bool(p and p.get('correct') and g.get('correct'))
+        if earned and c is not None:
+            u = update(c, 3, True, p.get('confidence'))   # the pick was counted at depth 2: take only the depth from this
+            self.update(a.concept, **{k: u[k] for k in ('floor', 'ceiling', 'shaky')})
+        self.mark_attempt(aid, grade_status='graded', correct=earned, grade=g.get('grade'), first_error=g.get('first_error', ''), feedback=g.get('feedback', ''), credited=earned)
+        return _attempt(self, aid)
+
+@patch
+def grade_explanation(self:Learning, aid:str, ask) -> AttrDict:
+    """Grade explanation `aid` with the grader `ask`, then apply the grade. The grader runs with no lock held. A grader that fails leaves it pending, so a later call can try again.
+    A graded explanation is not graded again: the grader is not called."""
+    x = self.explanation_context(aid)
+    if x.status != 'pending': return _attempt(self, aid)
+    return self.apply_explanation_grade(aid, grade_why(ask, x.concept, x.question, x.picked, x.ans, x.why))
+
+# %% ../nbs/05_show.ipynb #9cf0912e
+_FREE = {'confidence', 'session', 'feedback', 'hints', 'dont_know', 'grade', 'first_error', 'misconception'}   # keys of an attempt that a transfer try can set through `meta`
+
+@patch
+def record_transfer(self:Learning, concept:str, question:str, answer:str, expected:str, correct:bool, aided:bool=False, evidence_id:str='', **meta) -> AttrDict:
+    """File one transfer try on `concept` as an attempt with `kind='transfer'`, at the transfer depth. Only a correct try with no help (`aided` false) goes into the learner model, with the depth rule of `update`.
+    A try with help, or a wrong try, is on the record only, and a try with help is not final. With an `evidence_id`, a replay gives the attempt that is filed already. `meta` goes on the attempt."""
+    if (bad := ((_OWN - _FREE) | EXPLAIN_OWN) & meta.keys()): raise ValueError(f'meta cannot use {sorted(bad)}')
+    with self._lock:   # look for the replay, then file: one step
+        if evidence_id and (old := _filed(self, 'transfer', 'evidence_id', evidence_id, concept)) is not None: return old
+        c, depth, out = self.concept(concept), DEPTHS.index('transfer'), ''
+        earned = bool(correct) and not aided and c is not None
+        if earned:
+            u = update(c, depth, True, meta.get('confidence'), meta.get('hints', 0))
+            out = u.pop('kind'); self.update(concept, **u)
+        return self.record(concept, question, answer, '', bool(correct), depth=depth, kind='transfer', final=not aided, expected=expected, outcome=out,
+                           aided=bool(aided), evidence_id=evidence_id, credited=earned, **meta)
 
 # %% ../nbs/05_show.ipynb #c029
 ORDER_AIM = register('demo.order', 'Order check', 'What the tutor adds to a demo to make it an order check.',
