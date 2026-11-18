@@ -320,10 +320,14 @@
   function treeLinks(L, k) {   // the branches from the end of a name to the child, the other prereqs as thin dashes, and the roots
     const at = it => it.kind === 'subject' ? tpos.get(it.key) : [byId.get(it.id).x, byId.get(it.id).y];
     const from = it => it.kind === 'subject' ? rootR() + (6 + capW(it) + 8) / k : rad(byId.get(it.id)) + (4 + textW(it.name) + (suffix(it) ? textW(suffix(it)) : 0) + 6) / k;
+    const start = (it, x, to) => {   // after the name; at the rim when the name does not fit before the child, as it is then wrapped below its node
+      const f = x + from(it), end = to - 14 / k;
+      return f <= end || it.kind === 'subject' ? Math.max(x, Math.min(f, end)) : x + rad(byId.get(it.id));
+    };
     ctx.beginPath();
     for (const l of tree.cross) {   // as a branch: from the end of the name of the prereq to the left edge of the concept, so it does not cross a name
       const a = byId.get(l.source), b = byId.get(l.target); if (!visSet.has(a) || !visSet.has(b)) continue;
-      const x0 = b.x > a.x ? Math.max(a.x, Math.min(a.x + from(tree.byKey.get(a.id)), b.x - 14 / k)) : a.x, x1 = b.x - rad(b), mx = (x0 + x1) / 2;
+      const x0 = b.x > a.x ? start(tree.byKey.get(a.id), a.x, b.x) : a.x, x1 = b.x - rad(b), mx = (x0 + x1) / 2;
       ctx.moveTo(x0, a.y); ctx.bezierCurveTo(mx, a.y, mx, b.y, x1, b.y);
     }
     ctx.setLineDash([2 / k, 3 / k]); ctx.strokeStyle = C.mute; ctx.globalAlpha = L ? .12 : .5; ctx.lineWidth = .8 / k; ctx.stroke(); ctx.setLineDash([]);
@@ -333,7 +337,7 @@
         if (it.kind !== 'concept') continue;
         const n = byId.get(it.id), par = tree.byKey.get(it.parent), p = par && at(par); if (!visSet.has(n) || !p) continue;
         if ((!!L && L.has(n) && (par.kind === 'subject' || L.has(byId.get(par.id)))) !== on) continue;
-        const x0 = Math.max(p[0], Math.min(p[0] + from(par), n.x - 14 / k)), x1 = n.x - rad(n), mx = (x0 + x1) / 2;
+        const x0 = start(par, p[0], n.x), x1 = n.x - rad(n), mx = (x0 + x1) / 2;
         ctx.moveTo(x0, p[1]); ctx.bezierCurveTo(mx, p[1], mx, n.y, x1, n.y);
       }
       ctx.strokeStyle = on ? C.acc : C.mute; ctx.globalAlpha = on ? 1 : L ? .2 : .8; ctx.lineWidth = (on ? 1.8 : 1.2) / k; ctx.stroke();
@@ -441,20 +445,33 @@
       if (x < -200 || y < -20 || x > W + 20 || y > H + 20) continue;
       const right = [x + r + 4, y - 9, x + r + 4 + w, y + 9], left = [x - r - 4 - w, y - 9, x - r - 4, y + 9];
       let b = tr || inside(right) || !inside(left) ? right : left;   // at the right edge, the label goes at the left of its node; in the Tree, always at the right, where its branch starts
+      let lines = [n.name];
+      if (tr && hit(...b)) {
+        const next = d3.min(vis.filter(m => m.x > n.x + 1), m => t.applyX(m.x)), room = Math.max(40, (next ?? W - 4) - x - 12);
+        lines = [''];
+        for (const word of n.name.split(/\s+/)) {
+          const i = lines.length - 1, s = lines[i] ? lines[i] + ' ' + word : word;
+          if (textW(s) > room && lines[i]) lines.push(word); else lines[i] = s;
+        }
+        const suf = suffix(itemOf(n));
+        if (suf && textW(lines.at(-1) + suf) > room) lines.push('');
+        const bw = d3.max(lines, (s, i) => textW(s) + (i === lines.length - 1 ? textW(suf) : 0));
+        b = [x, y + r + 12, x + bw, y + r + 12 + lines.length * 18];
+      }
       if (!must && hit(...b)) { if (b === left || tr || S.mode === 'path' || !inside(left) || hit(...left)) continue; b = left; }   // in Path, a label on the left reads as the column before
-      b = into(b); add(b); placed.push([n, b]); lastLabels.push(n.id);
+      b = into(b); add(b); placed.push([n, b, lines]); lastLabels.push(n.id);
     }
     ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = C.bg;
-    for (const [n, b] of placed) {
+    for (const [n, b, lines] of placed) {
       const strong = n === picked || n === hover || n === focus || hits?.has(n);
       ctx.font = (strong ? '600 13px ' : '13px ') + C.serif;
       ctx.fillStyle = strong || L?.has(n) ? C.fg : C.ink2;
-      ctx.strokeText(n.name, b[0], (b[1] + b[3]) / 2); ctx.fillText(n.name, b[0], (b[1] + b[3]) / 2);
+      lines.forEach((s, i) => { const y = b[1] + 9 + i * 18; ctx.strokeText(s, b[0], y); ctx.fillText(s, b[0], y); });
       const it = tr && itemOf(n), suf = it && suffix(it);
       if (suf) {   // the open or closed mark of a branch, quiet; a click on it closes or opens the branch
-        const x0 = b[0] + ctx.measureText(n.name).width, y = (b[1] + b[3]) / 2;
+        const x0 = b[0] + ctx.measureText(lines.at(-1)).width, y = b[3] - 9;
         ctx.font = '13px ' + C.serif; ctx.fillStyle = C.mute; ctx.strokeText(suf, x0, y); ctx.fillText(suf, x0, y);
-        toggles.push([it.key, [x0, b[1], x0 + textW(suf) + 4, b[3]]]);
+        toggles.push([it.key, [x0, y - 9, x0 + textW(suf) + 4, y + 9]]);
       }
     }
     heads();

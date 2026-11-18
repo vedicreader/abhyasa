@@ -26,15 +26,21 @@ DEMO = [('Temperature', 'thermodynamics', [], 5, 6, 10), ('Heat', 'thermodynamic
         ('Rasi', 'jyotisha', [], 5, 5, 20), ('Graha', 'jyotisha', [], 4, 3, -1), ('Bhava', 'jyotisha', ['Rasi', 'Graha'], 3, 2, 4),
         ('Nakshatra', 'jyotisha', ['Rasi'], 2, 1, 5), ('Varga', 'jyotisha', ['Bhava'], 1, 1, 1), ('Navamsa', 'jyotisha', ['Varga', 'Nakshatra'], 0, 0, None),
         ('Dasha', 'jyotisha', ['Nakshatra', 'Graha'], 0, 0, None)]
+CHAIN = [('The structure of a birth chart', 'jyotisha', [], 0, 0, None),
+         ('The signs and their elements', 'jyotisha', ['The structure of a birth chart'], 0, 0, None),
+         ('The planets and their roles', 'jyotisha', ['The signs and their elements'], 0, 0, None),
+         ('The houses and their meanings', 'jyotisha', ['The planets and their roles'], 0, 0, None),
+         ('Divisional charts and their uses', 'jyotisha', ['The houses and their meanings'], 0, 0, None),
+         ('Reading the ninth division', 'jyotisha', ['Divisional charts and their uses'], 0, 0, None)]
 W, HT = 1440, 860
 
 @pytest.fixture
-def lr():
+def lr(request):
     "The demo vault, in a temporary folder."
     from abhyasa.learner import temp_learning, set_val
     set_val('look.keys_float', False)   # the floating Keys panel stays shut, so it does not cover the roots (the tests have their own settings folder)
     l, slug, now = temp_learning(), {}, time.time()
-    for name, subject, pre, floor, seen, due in DEMO:
+    for name, subject, pre, floor, seen, due in request.param if hasattr(request, 'param') else DEMO:
         slug[name] = l.put(name, f'The idea of {name.lower()}.', subject, prereqs=[slug[p] for p in pre]).slug
         if seen: l.update(slug[name], floor=floor, seen=seen, last=now - 86400, stability=3., due=now + due * 86400)
     return l
@@ -183,6 +189,67 @@ def _scenario(d, base, tmp_path):
     d.press('Enter'); _wait(d, "() => location.pathname === '/c/temperature'")
 
 DEMO_IDS = [(n.lower().replace(' ', '-'),) for n, *_ in DEMO]
+
+LABEL_GEOMETRY = r"""() => {
+    const ctx = document.querySelector('#graph canvas').getContext('2d');
+    window.__names = []; window.__circles = []; window.__starts = [];
+    const fill = ctx.fillText, arc = ctx.arc, clear = ctx.clearRect, move = ctx.moveTo;
+    ctx.clearRect = function(...args) { __names = []; __circles = []; __starts = []; return clear.apply(this, args); };
+    ctx.moveTo = function(x, y, ...rest) {
+        const p = this.getTransform().transformPoint({x, y}); __starts.push([p.x, p.y]); return move.call(this, x, y, ...rest);
+    };
+    ctx.fillText = function(s, x, y, ...rest) {
+        const m = this.measureText(s), t = this.getTransform(), p = t.transformPoint({x, y});
+        __names.push({text: s, box: [p.x - m.actualBoundingBoxLeft, p.y - m.actualBoundingBoxAscent,
+                                   p.x + m.actualBoundingBoxRight, p.y + m.actualBoundingBoxDescent]});
+        return fill.call(this, s, x, y, ...rest);
+    };
+    ctx.arc = function(x, y, r, ...rest) {
+        const t = this.getTransform(), p = t.transformPoint({x, y});
+        __circles.push([p.x, p.y, r * t.a]); return arc.call(this, x, y, r, ...rest);
+    };
+    document.querySelector('#graph').dispatchEvent(new Event('mouseleave'));
+    window.dispatchEvent(new Event('resize'));
+    return true;
+}"""
+
+@pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
+@pytest.mark.parametrize('lr', [CHAIN, DEMO], indirect=True, ids=['chain', 'branching'])
+def test_every_tree_name_is_visible_without_overlaps(mk, lr, request, tmp_path):
+    "A six-idea chain and a branching tree keep every name clear of names and node circles."
+    from playwright.sync_api import sync_playwright
+    s = _Served(mk().app)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_context(viewport=dict(width=W, height=HT), reduced_motion='reduce').new_page()
+                d = _PW(pg); d.goto(s.base + '/library/graph')
+                _wait(d, '() => !!window.abhyasaGraph')
+                d.ev(click('label.mode:has(input[value=tree])')); _wait(d, SETTLED); time.sleep(.3)
+                d.ev(LABEL_GEOMETRY)
+                d.ev(click('[name=fit]')); time.sleep(.6)
+                data = d.ev("() => ({names: __names, circles: __circles, starts: __starts, ids: abhyasaGraph.tree.labels, size: [document.querySelector('#graph canvas').width, document.querySelector('#graph canvas').height]})")
+                expected = [n[0] for n in (CHAIN if request.node.callspec.id == 'chain' else DEMO)]
+                names = data['names']
+                rendered = ' '.join(n['text'] for n in names)
+                assert len(data['ids']) == len(expected) and all(n in rendered for n in expected), (rendered, expected, data['ids'])
+                boxes = [n['box'] for n in names if n['text'].strip() and n['text'] != n['text'].upper()]
+                assert all(0 <= a < c <= data['size'][0] and 0 <= b < e <= data['size'][1] for a, b, c, e in boxes)
+                for i, (a, b0, c, e) in enumerate(boxes):
+                    assert not any(a < z and c > x and b0 < w and e > y for x, y, z, w in boxes[i + 1:]), names
+                    assert not any((x - min(max(x, a), c)) ** 2 + (y - min(max(y, b0), e)) ** 2 < r ** 2 for x, y, r in data['circles']), names
+                # a branch starts at the rim of its parent, unless the parent's name fills that row first
+                for sx, sy in data['starts']:
+                    par = [(x, r) for x, y, r in data['circles'] if abs(y - sy) < 1 and x < sx]
+                    if not par: continue   # from a subject's heading
+                    rim = max(x + r for x, r in par)
+                    row = sorted(n['box'] for n in names if n['text'].strip() and n['box'][1] <= sy <= n['box'][3] and n['box'][2] > rim and n['box'][0] < sx)   # a name and its open or closed mark
+                    named = bool(row) and row[0][0] <= rim + 6 and all(q[0] - p[2] <= 8 for p, q in zip(row, row[1:])) and max(b[2] for b in row) >= sx - 10
+                    assert named or sx - rim <= 3, ('gap before branch', sx - rim, sy)
+                _shot(d, tmp_path, 'tree-' + request.node.callspec.id + '-labels.png')
+            finally: b.close()
+    finally: s.stop()
 
 @pytest.mark.skipif(not _chromium(), reason="Playwright's Chromium is not installed")
 def test_the_tree_in_playwright_chromium(mk, tmp_path):
