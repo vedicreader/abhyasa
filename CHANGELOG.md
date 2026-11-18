@@ -10,6 +10,18 @@
 - `transfer_progress` works out transfer credit from the stored transfer attempts. A case is identified by its question. An unaided correct answer counts as apply (depth 4). Transfer (depth 5) needs two unaided correct answers on different cases, or one unaided correct answer that is not multiple choice.
 - The learner sees the transfer rule beside the question, and after each answer the text says what is still needed. Examples: "Counted as apply. One more new case, on your own, to reach transfer." and "Transfer reached."
 - A notebook step whose idea suits a demo now gets a Rupaka demo with a prediction gate. Abhyasa writes it with `make_demo` when it writes the notebook spec, and stores its name in the spec's `demo` field. A demo that fails its checks after two repairs gives no demo, and the notebook stays. A new step makes at most 7 model calls. A saved step makes none.
+- A step of kind `demo` now also gets a notebook spec in the background, with its checked Rupaka demo. Its Leela lesson then shows the demo. Each demo step costs 2 more model calls: the spec and the demo design.
+- A walk puts each idea after the ideas it needs. A cycle in `needs` keeps the planner's order.
+- Abhyasa chooses each idea's passage by meaning. The vault's hybrid search finds up to 4 candidates per idea, also in every document of a named folder. One model call per walk, with the new prompt `walk.read`, picks a candidate or none for each idea. The quote is the vault text of the chosen candidate. If the search or the call fails, the walk uses word matching as before. A new walk makes one more model call. A reopened walk makes none.
+- A passage no longer comes from a match on a document title alone.
+- In the Tree layout, a name that runs into the next node wraps below its own node. Before, a chain of six ideas showed only the last name. A branch starts at its parent's edge when the parent's name is wrapped.
+- A web source shows the page's own date, or "read on" and the day research read it.
+- A search that fails says the web search was blocked or unavailable. A search that finds nothing says the engines may have blocked it. Both say the step can get a source later.
+- A tutor reply that is only JSON, such as `{}`, is not shown as a note. Without a passage, the step says the tutor could not write a note and saves nothing. A later visit asks the tutor again.
+- Passages show `\(\Delta U\)` as maths. A source title shows `&` once, also when it was saved escaped.
+- The change box suggests a change that suits any walk.
+- A folder dropped while a file read is pending keeps its message.
+- `abhyasa.contract` exports `tex_dollars`. `abhyasa.core.tex_dollars` still works. Leela imports it from the contract.
 
 ## 0.0.29
 
