@@ -63,6 +63,35 @@ def test_two_demos_with_one_id_at_the_same_time_get_two_slugs(lr, monkeypatch):
     assert out['ranking'].slug != out['reciprocal-rank-fusion'].slug
     assert {c: lr.demo(d.slug).concept for c, d in out.items()} == {c: c for c in out}
 
+def test_demo_media_comes_from_the_vault_store(mk, lr, tmp_path):
+    "A profile asset of a demo comes from the store in the vault, by its `<sha256>.<ext>` name only, with its media type, nosniff, a CSP and ranges. Any other name is 404."
+    from rupaka.media import import_asset
+    from rupaka.spec import MEDIA_EXTS
+    from abhyasa.blocks.demo.app import TYPES
+    assert set(TYPES) == {x for xs in MEDIA_EXTS.values() for x in xs}   # each file type of rupaka has its media type
+    store = lr.vault.assets('demo-media')
+    (tmp_path/'tha.wav').write_bytes(b'RIFF tha sound')
+    name = import_asset(tmp_path/'tha.wav', store)[6:]
+    cl = mk()
+    r = cl.get(f'/rupaka/media/{name}')
+    assert (r.status_code, r.content, r.headers['content-type']) == (200, b'RIFF tha sound', 'audio/wav')
+    assert (r.headers['x-content-type-options'], r.headers['content-security-policy']) == ('nosniff', "default-src 'none'")
+    part = cl.get(f'/rupaka/media/{name}', headers={'Range': 'bytes=0-3'})
+    assert (part.status_code, part.content) == (206, b'RIFF')   # audio and video can seek
+    (lr.vault.assets()/name).write_bytes(b'not in the store')
+    out = 'd' * 64 + '.wav'
+    (store/out).symlink_to(lr.vault.assets()/name)   # a name that passes, for a file outside the store
+    for f in ('tha.wav', name[:-4] + '.exe'): (store/f).write_bytes(b'RIFF')   # files in the store with names that do not pass
+    for bad in (name.upper(), name[:-4] + '.exe', 'tha.wav', out, f'..%2F{name}', f'%2E%2E%2F{name}', 'c' * 64 + '.wav'):
+        assert cl.get(f'/rupaka/media/{bad}').status_code == 404, bad
+
+def test_a_demo_card_names_the_media_route(lr):
+    "The host of a demo card carries the base URL of the media route, so rupaka.js loads its assets from the store."
+    from fasthtml.common import to_xml
+    from abhyasa.blocks.demo import ui
+    d = lr.put_demo(gallery()['reciprocal-rank-fusion'], 'reciprocal-rank-fusion')
+    assert 'data-rk-media="/rupaka/media/"' in to_xml(ui.DemoCard(d))
+
 def test_predict_writes_an_attempt(mk, lr):
     lr.put_demo(gallery()['reciprocal-rank-fusion'], 'reciprocal-rank-fusion')
     c0 = lr.concept('reciprocal-rank-fusion')

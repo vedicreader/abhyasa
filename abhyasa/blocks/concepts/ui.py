@@ -243,7 +243,7 @@ def Ladder(c, demo=None, code=None, passed=False):
     from rupaka.render import Demo, version
     if not (demo and code): return ''
     v, rung = version(), lambda t, *x: Div(Span(t, cls='lbl'), *x, cls='rung')
-    rungs = [rung('In words', Md(c.statement)) if c.statement else '', rung('As a picture', Demo(open_spec(demo.spec) if passed else demo.spec), Link(rel='stylesheet', href=f'/rupaka/rupaka.css?v={v}'), Script(src=f'/rupaka/rupaka.js?v={v}')),
+    rungs = [rung('In words', Md(c.statement)) if c.statement else '', rung('As a picture', Demo(open_spec(demo.spec) if passed else demo.spec, media='/rupaka/media/'), Link(rel='stylesheet', href=f'/rupaka/rupaka.css?v={v}'), Script(src=f'/rupaka/rupaka.js?v={v}')),
              rung('As code', LiveCell(code, f'c-{c.slug}', hosted=None)),
              rung('As numbers', Table(Tbody(), cls='live-numbers', data_for=f'c-{c.slug}'), P('Run the code to fill this table.', cls='mute')) if is_hosted() and code.get('watch') else '']
     return Div(H2('The idea in four ways'), *rungs, cls='ladder-rungs', id='ladder-rungs')

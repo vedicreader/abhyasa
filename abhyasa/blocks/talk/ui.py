@@ -494,7 +494,7 @@ def Slide(tid, s, ps, n, total, title, demo, at, presenter=False):
         if ps['body'] and (k := part_at(beats, 'body')): parts.append(Ul(*[Li(Inline(tex_dollars(x))) for b in ps['body'] if (x := md_clean(html.unescape(b)))], cls='points', data_at=k, hidden=hide(k)))
         if ps['figure'] and (k := part_at(beats, 'figure')):
             parts.append(Figure(Img(src=at_img(tid, ps['figure']), alt=f"The figure of {ps['title']}"), cls='fig', data_at=k, hidden=hide(k)))
-        if demo and (k := part_at(beats, 'demo')): parts.append(Div(Demo(demo[1], data_demo=demo[0], **({'askable': False} if 'askable' in signature(Demo).parameters else {})), cls='demo', data_at=k, hidden=hide(k)))   # no ask control in the stage windows: no tutor listens there
+        if demo and (k := part_at(beats, 'demo')): parts.append(Div(Demo(demo[1], media='/rupaka/media/', data_demo=demo[0], **({'askable': False} if 'askable' in signature(Demo).parameters else {})), cls='demo', data_at=k, hidden=hide(k)))   # no ask control in the stage windows: no tutor listens there
         crumb, head, say = ps['section'], ps['title'], ''
     elif kind == 'pause': crumb, head, say = f"Pause · {n_of(math.ceil((s.get('secs') or 120) / 60), 'min', 'min')}", s.get('prompt') or 'Talk to your neighbour.', ''
     elif kind in SAY: crumb, head, say = '', ps['title'], SAY[kind]

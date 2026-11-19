@@ -5,17 +5,20 @@ A 3D explainer is a rupaka scene. rupaka loads three.js from `Routes.three` only
 import json, re
 from fasthtml.common import *
 from fastcore.utils import AttrDict
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, FileResponse
 from rupaka.render import bundle, version
+from rupaka.spec import MEDIA_EXTS
 from abhyasa.core import hook, Msg
 from abhyasa.core.leela import leela_link
-from abhyasa.show import show, queue_demo, job_state, job_age, job_stage, job_key, tries_said, ROUTES, REFUSED
+from abhyasa.show import show, queue_demo, job_state, job_age, job_stage, job_key, tries_said, ROUTES, REFUSED, DEMO_MEDIA
 from abhyasa.learner import seen_jobs
 from . import ui
 from .cfg import Routes
 
 __all__ = ['CAPS', 'connect']
 CAPS = ('learning', 'tutor')
+TYPES = dict(mp3='audio/mpeg', m4a='audio/mp4', ogg='audio/ogg', wav='audio/wav', webm='video/webm', mp4='video/mp4', jpg='image/jpeg', jpeg='image/jpeg', png='image/png', webp='image/webp')   # the media type of each file type in MEDIA_EXTS
+MEDIA_NAME = re.compile(r'[0-9a-f]{64}\.(%s)' % '|'.join(sorted({x for xs in MEDIA_EXTS.values() for x in xs})))
 
 def connect(app, ctx):
     lr, tutor = ctx.learning, ctx.tutor
@@ -27,6 +30,13 @@ def connect(app, ctx):
     def rk_three(): return Response(three(), media_type='text/javascript', headers=cache)
     three = lambda: _three.setdefault('js', bundle('three'))   # built on first use, from the copy in rupaka: no network
     _three = {}
+
+    def media(name:str):
+        "A profile asset of a demo, by its name `<sha256>.<ext>`, from the store in the vault; 404 for any other name."
+        store = lr.vault.assets(DEMO_MEDIA).resolve()
+        m, p = MEDIA_NAME.fullmatch(name), (store/name).resolve()
+        if not (m and p.parent == store and p.is_file()): return Response('', status_code=404)
+        return FileResponse(p, media_type=TYPES.get(m[1], 'application/octet-stream'), headers={'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'"})
 
     def spec(slug:str):
         d = lr.demo(slug)
@@ -155,7 +165,7 @@ def connect(app, ctx):
             c = lr.concept(r.concept)
             return ui.ShowCard(a, AttrDict(kind='demo', why='You missed it again. Predict first. Then the demo shows the rest.'), shown(a), leela_link(None, topic=c.name if c else r.concept, vault=lr.vault.path))   # the one card of Show
 
-    for r, f in ((Routes.js, rk_js), (Routes.css, rk_css), (Routes.three, rk_three), (Routes.spec, spec)):
+    for r, f in ((Routes.js, rk_js), (Routes.css, rk_css), (Routes.three, rk_three), (Routes.media, media), (Routes.spec, spec)):
         app.get(r)(f)
         app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's own `/{fname}.{ext:static}` route
     app.get(Routes.page)(page)

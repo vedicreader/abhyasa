@@ -452,6 +452,8 @@ def Short(jid, i, s, q, after=()):
 
 # --- the demo and order checks ---------------------------------------------------------------------------------------
 
+RK_MEDIA = '/rupaka/media/'   # the base URL of the profile assets of a demo, which the demo block serves
+
 def rk_assets():
     "The rupaka runtime, which the demo block serves."
     v = version()
@@ -464,7 +466,7 @@ def DemoCheck(jid, i, s, d):
     keep = Button('Keep this state ', Kbd('⌥V'), type='button', id='keep', cls='small quiet', title='Save the inputs of the demo with your last prediction')
     shut = bool(s.get('done'))
     more = dict(hx_post=at(Routes.ladder, jid, i) + '?simpler=1', hx_target='#ladder', hx_swap='outerHTML') if k == 'demo' and val('checks.demo_ladder') else None
-    return Check(CardHead(s), P(LEAD[k], cls='mute'), foot=(Demo(d.spec), *rk_assets(), Feedback('demo', slug=d.slug, simpler=more), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts'),
+    return Check(CardHead(s), P(LEAD[k], cls='mute'), foot=(Demo(d.spec, media=RK_MEDIA), *rk_assets(), Feedback('demo', slug=d.slug, simpler=more), Div(keep, Span(cls='mute said', aria_live='polite'), cls='row acts'),
                                                             Slot(jid, i, s), GoOn(jid, i, hidden=not shut, main=s.get('main'))), shut=shut, cls='walk-demo', data_step=str(i), data_demo=d.slug, data_kind=k, data_url=at(Routes.predict, jid, i), data_keep=at(Routes.keep, jid, i))
 
 def Slot(jid, i, s):
@@ -480,7 +482,7 @@ def Ladder(jid, i, ld, demo=None, show=False, pending='', failed='', retry=False
                Feedback('lesson', aid=ld.get('aid', ''), way=ld.get('way', '')), cls='lesson')] if ld.get('lesson') else []
     if pending: out += [P(pending, cls='mute making'), Div(stop, cls='row acts') if stop else '']
     elif failed: out += [P(f'{failed} Read the passage again, or go on to the next idea.', cls='mute'), *([Div(Quiet(again, type='button', hx_post=url, hx_target='#ladder', hx_swap='outerHTML'), cls='row acts')] if retry else [])]
-    elif demo is not None and show: out += [Span('A simpler demo', cls='lbl'), Demo(demo.spec), Feedback('demo', slug=demo.slug)]
+    elif demo is not None and show: out += [Span('A simpler demo', cls='lbl'), Demo(demo.spec, media=RK_MEDIA), Feedback('demo', slug=demo.slug)]
     elif more: out.append(Div(Quiet('Show a simpler demo', type='button', hx_post=f'{url}?simpler=1', hx_target='#ladder', hx_swap='outerHTML'), cls='row acts'))
     elif demo is not None: out.append(Div(Span('A simpler demo', cls='lbl'), Quiet('Show a simpler demo', type='button', hx_get=f'{url}?show=1', hx_target='#ladder', hx_swap='outerHTML'), cls='row acts'))
     poll = dict(hx_get=url, hx_trigger=WAIT, hx_swap='outerHTML', data_job=job) if pending else {}

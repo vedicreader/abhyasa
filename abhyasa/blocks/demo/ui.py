@@ -28,7 +28,7 @@ def DemoCard(d, session='', lead=True, ask=''):
     more = None if d.get('aim') in ('simpler', '3d') else dict(hx_post=Routes.ask, hx_vals=json.dumps(dict(concept=d.concept, aim='simpler', kind='demo', where='session' if session else 'concept', session=session)),
                                                         hx_target='closest .demo-card', hx_swap='afterend')
     return Div(*([Span(LABELS.get(d.get('aim', ''), '2D demo'), cls='lbl'), P(THREE_LEAD if three else 'Predict first. Then the demo shows the rest.', cls='mute lead')] if lead else []),
-               Demo(d.spec), *assets(), Feedback('demo', slug=d.slug, simpler=more),
+               Demo(d.spec, media=Routes.of(Routes.media, name='')), *assets(), Feedback('demo', slug=d.slug, simpler=more),
                cls='demo-card', data_demo=d.slug, data_session=session, data_url=Routes.of(Routes.predict, slug=d.slug), data_ask=ask or None, id=f'demo-{d.slug}')
 
 def Failed():

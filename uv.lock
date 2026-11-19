@@ -58,7 +58,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastcore", specifier = ">=2.2.41" },
-    { name = "fossick", specifier = ">=0.1.28" },
+    { name = "fossick", specifier = ">=0.1.30" },
     { name = "gheasy", specifier = ">=0.0.21" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=7.3.0" },
     { name = "ipywidgets", specifier = ">=8.1.9" },
@@ -75,9 +75,9 @@ requires-dist = [
     { name = "ramabana", specifier = ">=0.2.116" },
     { name = "ramabana", marker = "extra == 'models'", specifier = ">=0.2.116" },
     { name = "rishi", extras = ["claude"], specifier = ">=0.1.71" },
-    { name = "rupaka", specifier = ">=0.0.20" },
-    { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.20" },
-    { name = "rupaka", extras = ["check"], marker = "extra == 'dev'", specifier = ">=0.0.20" },
+    { name = "rupaka", specifier = ">=0.0.21" },
+    { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.21" },
+    { name = "rupaka", extras = ["check"], marker = "extra == 'dev'", specifier = ">=0.0.21" },
     { name = "shalya", specifier = ">=0.1.34" },
     { name = "vidyut", specifier = ">=0.4" },
     { name = "vishalakshi", specifier = ">=0.1.41" },
@@ -1389,7 +1389,7 @@ wheels = [
 
 [[package]]
 name = "fossick"
-version = "0.1.28"
+version = "0.1.30"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -1405,9 +1405,9 @@ dependencies = [
     { name = "scrapling", extra = ["fetchers"] },
     { name = "yt-dlp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/55/af/5a540f93413bfedaf30bf0a95a0a4a783de075bd5c2f0a21114c17be04a9/fossick-0.1.28.tar.gz", hash = "sha256:2e19a7a0d17222d9610414ad9916defd06975974ed0c70a2d2cd48d4aae80496", size = 109313, upload-time = "2026-11-09T23:51:51.353Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/a5/59455e520a7174c066743b6679f79844c54e837193d1e923058c366de8b8/fossick-0.1.30.tar.gz", hash = "sha256:054cb0b52845f6ac84b4e80b16568b206b79891934cc9128c01dae47662fa0f7", size = 110646, upload-time = "2026-11-18T05:03:27.58Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b4/27/0814881841cef84f0fcc42ad0ddade7ee3ed5a317d96f91d69d024e94573/fossick-0.1.28-py3-none-any.whl", hash = "sha256:41992535da417e17caddc3146a5ead59d26c8f764fce664017179a0d0313257b", size = 109468, upload-time = "2026-11-09T23:51:49.66Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/b2/74375f34614c48bdeacd7f38c0f5bfa4246faf6c5b6e258be9028b492d0a/fossick-0.1.30-py3-none-any.whl", hash = "sha256:17486cc21736a4bddcedc0d3928ff24788cbd6ea861e9130d148fef1a30d323f", size = 110740, upload-time = "2026-11-18T05:03:25.903Z" },
 ]
 
 [[package]]
@@ -4645,14 +4645,14 @@ wheels = [
 
 [[package]]
 name = "rupaka"
-version = "0.0.20"
+version = "0.0.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/be/88/9f027b2ef746bba039ea3a2a8169cf2cb382eae6674316027d1fc59901df/rupaka-0.0.20.tar.gz", hash = "sha256:9271647122b87f0442b15c84404f71bf141c14c1ef963c9bd702e0832ce5089b", size = 819319, upload-time = "2026-11-16T04:18:49.404Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/d6/d0749ea2b867c665cf73ad5d820286e289ec9f718ce8a7e5bcb723ccd02b/rupaka-0.0.21.tar.gz", hash = "sha256:8bbbc7c6dceaa4ef54ade7e6ade23d370777407ca552b32f6276df78e96787d0", size = 839386, upload-time = "2026-11-19T20:46:49.727Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/40/99/e4afdb496645ba561f8f4064af4c6bd10800feb1966de865f77ed5cb0799/rupaka-0.0.20-py3-none-any.whl", hash = "sha256:6d5d8a936877c028d0f4ea2d01c69beab7382a2d4436685a45ee77b705eb5354", size = 875497, upload-time = "2026-11-16T04:18:47.647Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/3a/976c32c77b19ba075caa12a102800de4593f3473b113a755d2e5b24de210/rupaka-0.0.21-py3-none-any.whl", hash = "sha256:c0ceb46579d456b9d852f124036813122e7f984df10c781d35efe56681711415", size = 897944, upload-time = "2026-11-19T20:46:47.353Z" },
 ]
 
 [package.optional-dependencies]

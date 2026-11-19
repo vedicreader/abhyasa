@@ -122,7 +122,7 @@ def ADemo(x, b):
     "make_demo: the demo, live, in a sunken well, as the room sees it on the slide. Ask about this demo puts a message in the box."
     d = x.get('data') or {}
     if x['status'] != 'done' or not d.get('spec'): return Call(x)
-    return Call(x, Div(Div(Demo(d['spec'], data_demo=d.get('demo'), **askable(True)), cls='frame'), P(f"On slide {d.get('slide')}", cls='mute'),
+    return Call(x, Div(Div(Demo(d['spec'], media='/rupaka/media/', data_demo=d.get('demo'), **askable(True)), cls='frame'), P(f"On slide {d.get('slide')}", cls='mute'),
                        cls='bd-demo', data_slide=str(d.get('slide') or '')), open_=True)
 
 RENDER = dict(research=Found, change_talk=Changed, restyle_talk=Changed, change_walk=Changed, edit_slide=Changed, make_talk=Outline, make_walk=Outline, make_demo=ADemo)   # tool name -> its view

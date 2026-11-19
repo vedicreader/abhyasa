@@ -7,12 +7,12 @@ Docs: https://vedicreader.github.io/abhyasa/show.html.md"""
 # %% auto #0
 __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'NO_HOST_PICTURES', 'FIGURE_TEST', 'GUIDE_SP', 'THREAD_RULE', 'HARD_SAY', 'NUMS',
            'VALUE_ASK', 'CHECK_ASK', 'TRY_ASK', 'FILLER', 'OFF_CHECK', 'COUNTS', 'ON_TRY', 'NO_SOURCE', 'WITH_SOURCE',
-           'LABEL', 'VAULT_FLOOR', 'WEB_FAILED', 'WEB_NO_PAGE', 'WEB_NO_PASSAGE', 'NO_WEB', 'SLOT', 'VERDICTS',
-           'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK', 'EXPLAIN_OWN',
-           'ORDER_AIM', 'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'VALUES', 'VALUES_LINE', 'STAGES',
-           'TRY_ERRORS', 'SHOW_ME', 'SEE_IT', 'YES', 'OFFER', 'DEMO_KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY', 'DEPTH',
-           'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER', 'GAVE_LINE',
-           'REFUSED', 'WHERES', 'ROUTES', 'TALK_SCHEMA', 'SLIDE_KINDS', 'END_KINDS', 'ASK_KINDS', 'BEATS',
+           'LABEL', 'VAULT_FLOOR', 'WEB_FAILED', 'WEB_NO_PAGE', 'WEB_NO_PASSAGE', 'NO_WEB', 'DEMO_MEDIA', 'SLOT',
+           'VERDICTS', 'FEEDBACK_ON', 'NOTE_MAX', 'CONFUSES_MAX', 'FEEDBACK_BY', 'DEMO_FEEDBACK', 'LESSON_FEEDBACK',
+           'EXPLAIN_OWN', 'ORDER_AIM', 'SIMPLER_AIM', 'IMAGES_LINE', 'AIMS', 'ASKED_LINE', 'VALUES', 'VALUES_LINE',
+           'STAGES', 'TRY_ERRORS', 'SHOW_ME', 'SEE_IT', 'YES', 'OFFER', 'DEMO_KINDS', 'THREE_D', 'HANDS_ON', 'LIBRARY',
+           'DEPTH', 'SCENE_BLOCKS', 'SCENE_FNS', 'STEPS', 'EXPLAINER_RULES', 'GATES_LINE', 'NOT_TEXT', 'NUMBER',
+           'GAVE_LINE', 'REFUSED', 'WHERES', 'ROUTES', 'TALK_SCHEMA', 'SLIDE_KINDS', 'END_KINDS', 'ASK_KINDS', 'BEATS',
            'QUESTIONS_MIN', 'RECAP_MIN', 'POLL_MIN', 'NEXT_MIN', 'WORDS_MOST', 'BODY_MOST', 'POINT_MOST', 'GONE',
            'TALK_CASES', 'CHOICE_SP', 'RUN_MOST', 'CODE_LINES', 'CODE_COLS', 'CODE_COLS_ALONE', 'SOURCE_KEYS',
            'SLIDE_SP', 'SAY_MOST', 'ASK_MOST', 'NO_CODE', 'POLL_SP', 'POLL_Q', 'FILLED', 'AGAIN', 'SLIDE_PARTS',
@@ -43,7 +43,7 @@ __all__ = ['log', 'GUIDE_KINDS', 'FIGURE_SP', 'NO_HOST_PICTURES', 'FIGURE_TEST',
            'check_line', 'parse_board', 'PageContext', 'clean_context', 'video_id', 'video_cues', 'stream_board']
 
 # %% ../nbs/05_show.ipynb #52f9ee07
-import hashlib, json, logging, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html
+import hashlib, json, logging, math, re, threading, time, ast, uuid, rupaka, secrets, base64, html, tempfile
 from pathlib import Path
 from fastcore.utils import *
 from .models import Withheld, guard, safe_query, guarded, ask_json, for_task
@@ -61,6 +61,8 @@ from typing import Callable
 from .path import edit_lock, CTRL, minutes, _arxiv_of, for_talk, NB_PICTURE, walk_for_talk, owner_says, CHANGE_MOST
 from .sources import concept_grounds, fence, fenced, link_of, figure_path, source_of, is_id_title, arxiv_ref
 from rupaka import poll
+from rupaka.render import media_files
+from rupaka.media import import_asset
 from rupaka.board import (OPS, FIELDS, LIMITS, PANEL, MARKS, META, META_WHY, SIDES, SURE, NEEDS, VERSION, FORMS, UNSAFE, NUMBERS, KINDS, ANCHOR_ID,
                           MOST, TRY, FOCUS, SHOWN, THREAD, TIERS, WATCH, norm_tex, flat, anchor_why, by_id, cue_at, cue_quote, plain_say,
                           check_line, parse_board, PageContext, clean_context, video_id, video_cues, stream_board, _box, _num, _s, _VID)
@@ -601,11 +603,18 @@ def demo_text(spec) -> str:
 
 # %% ../nbs/05_show.ipynb #c009
 _DEMO_LOCK = threading.Lock()
+DEMO_MEDIA = 'demo-media'   # the store of demo media, in the asset folder of the vault
 
 @patch
-def put_demo(self:Learning, spec:dict, concept:str, by:str='hand', checked:float=None, aim:str='', asked:dict=None) -> AttrDict:
-    "Store `spec` as a demo of `concept` with the aim `aim`. `asked` is the ask that the demo answers: `{key, said}`."
+def put_demo(self:Learning, spec:dict, concept:str, by:str='hand', checked:float=None, aim:str='', asked:dict=None, media=None) -> AttrDict:
+    "Store `spec` as a demo of `concept` with the aim `aim`. `asked` is the ask that the demo answers: `{key, said}`. `media` is a folder with the asset files of the spec."
     spec = upgrade(spec)
+    if media:
+        names = media_files(spec)
+        if gone := [n for n in names if not (Path(media)/n).is_file()]: raise FileNotFoundError(f'these demo media are not in {media}: {", ".join(gone)}')
+        with tempfile.TemporaryDirectory() as t:
+            if bad := [n for n in names if import_asset(Path(media)/n, t) != f'asset:{n}']: raise ValueError(f'the content of these demo media does not match their names: {", ".join(bad)}')
+        for n in names: import_asset(Path(media)/n, self.vault.assets(DEMO_MEDIA))
     slug = slugify(spec['id'])
     with _DEMO_LOCK:   # two demo jobs at once: the second sees the demo of the first
         old = self.demo(slug) or {}

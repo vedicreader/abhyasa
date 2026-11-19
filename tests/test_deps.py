@@ -6,10 +6,10 @@ from pathlib import Path
 from packaging.version import Version
 
 def test_fossick_floor():
-    "fossick 0.1.23 checks each redirect, verifies TLS with the macOS keychain, and clones over HTTPS only. 0.1.24 gives the timed cues of a video (`read_yt(cues=True)`) and `yt_link`. 0.1.28 keeps the 0.1.25 web memory (`fetch(cache=, per_host=, remember_blocks=)`), reads arXiv HTML and gives `arxiv_id`, `local_host`, `gh_repo` and `is_pdf`. So abhyasa must ask for it, and the venv must have it."
+    "fossick 0.1.23 checks each redirect, verifies TLS with the macOS keychain, and clones over HTTPS only. 0.1.24 gives the timed cues of a video (`read_yt(cues=True)`) and `yt_link`. 0.1.28 keeps the 0.1.25 web memory (`fetch(cache=, per_host=, remember_blocks=)`), reads arXiv HTML and gives `arxiv_id`, `local_host`, `gh_repo` and `is_pdf`. 0.1.30 asks ddgs only for engines it has (0.1.28 asks for `google`, which ddgs 9.16 does not have) and names each engine that refuses a search. So abhyasa must ask for it, and the venv must have it."
     deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
-    assert 'fossick>=0.1.28' in deps
-    assert Version(version('fossick')) >= Version('0.1.28')
+    assert 'fossick>=0.1.30' in deps
+    assert Version(version('fossick')) >= Version('0.1.30')
 
 def test_store_floors():
     "litesearch 0.1.65 defaults to the blink encoder. vishalakshi 0.1.41 opens a shelf with its recorded encoder."
@@ -19,14 +19,14 @@ def test_store_floors():
         assert Version(version(p)) >= Version(v), p
 
 def test_rupaka_floor():
-    "rupaka 0.0.20 has the 2D `arrow` block that the lever and vector demos draw with, the side view (`yaxis` false), the sky look for a scene with a lamp, and the `check` that 3D explainers pass, with the scene parts `path`, `points`, `links` and `drift`; 0.0.17 has the drag and tag fixes and the stage; 0.0.16 is the release that the hosted Learn needs for its trace and circuit demos; 0.0.15 draws a 3D scene again when its view comes back; 0.0.14 has the `rk-ask` event, the Ask about this control and `askable`, flow rows that fit their words and axis labels that never meet; 0.0.12 has plain_why, plain and the panel shapes of the board, 0.0.11 moves each row of the board's panel to the step that names it, 0.0.10 has the board of the screen guide (`rupaka.board`), 0.0.9 ships the hand font Patrick Hand (`font_css`), 0.0.8 has the 3D scene blocks and the top-level key `mode` (`can_explain`), 0.0.7 has the `field` fn and the `pixels` block, and 0.0.6 has `Rupaka.state`, `set`, `settle` with an answer, `options`, `open` and `rupaka.poll`, so each extra must ask for it, and the lock must have it."
+    "rupaka 0.0.21 has the sound block, sourced instrument profiles and demo media (`media_files`, `rupaka.media`, `MEDIA_EXTS`), which the media route of the demo block needs; 0.0.20 has the 2D `arrow` block that the lever and vector demos draw with, the side view (`yaxis` false), the sky look for a scene with a lamp, and the `check` that 3D explainers pass, with the scene parts `path`, `points`, `links` and `drift`; 0.0.17 has the drag and tag fixes and the stage; 0.0.16 is the release that the hosted Learn needs for its trace and circuit demos; 0.0.15 draws a 3D scene again when its view comes back; 0.0.14 has the `rk-ask` event, the Ask about this control and `askable`, flow rows that fit their words and axis labels that never meet; 0.0.12 has plain_why, plain and the panel shapes of the board, 0.0.11 moves each row of the board's panel to the step that names it, 0.0.10 has the board of the screen guide (`rupaka.board`), 0.0.9 ships the hand font Patrick Hand (`font_css`), 0.0.8 has the 3D scene blocks and the top-level key `mode` (`can_explain`), 0.0.7 has the `field` fn and the `pixels` block, and 0.0.6 has `Rupaka.state`, `set`, `settle` with an answer, `options`, `open` and `rupaka.poll`, so each extra must ask for it, and the lock must have it."
     pp = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']
     deps = pp['dependencies'] + [d for ds in pp['optional-dependencies'].values() for d in ds]
     rs = [d for d in deps if d.startswith('rupaka')]
-    assert rs and all(d.endswith('>=0.0.20') for d in rs), rs
+    assert rs and all(d.endswith('>=0.0.21') for d in rs), rs
     lock = tomllib.loads((Path(__file__).parents[1]/'uv.lock').read_text())
-    assert Version(next(p['version'] for p in lock['package'] if p['name'] == 'rupaka')) >= Version('0.0.20')
-    assert Version(version('rupaka')) >= Version('0.0.20')
+    assert Version(next(p['version'] for p in lock['package'] if p['name'] == 'rupaka')) >= Version('0.0.21')
+    assert Version(version('rupaka')) >= Version('0.0.21')
 
 def test_ramabana_is_a_core_dependency():
     "The guide and research guard text with `ramabana.guard`, and routing uses ramabana. 0.2.116 needs `rishi[claude]>=0.1.71` and `shalya>=0.1.34`. 0.2.115 needs `rishi[claude]`. 0.2.109 gives `ready_local`, and falls back to a local model only when its weights are here. 0.2.108 gives `Agent.events`, the typed events of the builder, and `emit`/`emit_state`. 0.2.103 gives `available_models(ttl=)`, `model_label`, `oneshot(wait=, strict=)`, `ask(deadline=, stop=)`, `model_agent` and `read_key`. The `models` extra stays, so old installs still resolve."
