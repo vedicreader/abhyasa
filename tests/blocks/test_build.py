@@ -536,6 +536,45 @@ def test_the_page_at_the_left_keeps_its_style_after_a_change(mk, lr, talk_fake, 
             finally: b.close()
     finally: srv.should_exit = True; th.join(5)
 
+def test_the_end_of_a_turn_opens_few_streams(mk, lr, agent):
+    "The builder stops opening streams after a turn ends and receives later job updates after a stream failure."
+    import socket, threading, time, uvicorn
+    pytest.importorskip('playwright.sync_api')
+    from playwright.sync_api import sync_playwright
+    from test_pane import _chromium
+    if not _chromium(): pytest.skip("Playwright's Chromium is not installed")
+    cl = mk(); bid = new_build(cl); go = threading.Event()
+    agent.script = lambda t, p, s: (go.wait(10), 'Done.')[1]
+    with socket.socket() as s: s.bind(('127.0.0.1', 0)); port = s.getsockname()[1]
+    srv = uvicorn.Server(uvicorn.Config(cl.app, host='127.0.0.1', port=port, log_level='error'))
+    th = threading.Thread(target=srv.run, daemon=True); th.start()
+    while not srv.started: time.sleep(.05)
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            try:
+                pg = b.new_page(viewport=dict(width=1400, height=900)); opened = []
+                pg.on('request', lambda r: '/events' in r.url and opened.append(r.url))
+                pg.goto(f'http://127.0.0.1:{port}/build/{bid}?solo=1'); pg.wait_for_selector('#build-say')
+                def turn(text, failing=False):
+                    "Send `text`; let the turn end when the chip says that it runs; give the count of streams opened in the 3 s after the end."
+                    go.clear(); pg.fill('#build-say', text); pg.click('.composer button[type=submit]')
+                    if failing:
+                        deadline = time.monotonic() + 15
+                        while len(opened) <= n0 and time.monotonic() < deadline: pg.wait_for_timeout(100)
+                        assert len(opened) > n0, opened
+                        pg.wait_for_timeout(500); pg.unroute('**/events*')
+                    pg.wait_for_selector('#activity summary.running', timeout=15000)   # the chip heard the start
+                    n = len(opened); go.set()
+                    pg.wait_for_selector('#activity summary.done', timeout=15000)      # and the end
+                    pg.wait_for_timeout(3000); return len(opened) - n
+                assert turn('hi') <= 3, opened
+                assert turn('and again') <= 3, opened                                  # a later job: the stream opens again
+                pg.route('**/events*', lambda r: r.abort()); n0 = len(opened)
+                assert turn('once more', failing=True) <= 3, opened                    # after a stream that failed, a later swap opens one that works
+            finally: b.close()
+    finally: srv.should_exit = True; go.set(); th.join(5)
+
 def test_a_talk_over_its_slot_after_a_remake_is_shortened(mk, lr, talk_fake, agent, home):
     "When the slides of a remake are longer than the slot, the slides get shorter; no idea is cut while shortening is enough, and the result says what changed."
     from abhyasa.show import talk_minutes

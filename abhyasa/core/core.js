@@ -252,7 +252,8 @@ document.addEventListener('htmx:afterSettle', abhyasaQ);
 // The event stream of the background jobs (the jobs block). It is open only while a part waits for a job: the activity chip with a
 // running job ([data-stream]), or a part with `data-job` that is not the chip. Each event names a job (`key`) and its object (`obj`);
 // each part whose `data-job` has that object, that key, or `*` loads again (its hx-trigger has `job`). The server sends `end` when no
-// job runs, and the stream shuts. A part that waits also asks every 30 s, so a page with no stream still moves on.
+// job runs, and the stream shuts. The id of `end` is the count of changes that the stream read; the chip keeps it as `data-v`, which the
+// next stream sends. A part that waits also asks every 30 s, so a page with no stream still moves on.
 let abhyasaStream = null;
 function abhyasaJobs() {
   if (abhyasaStream || !window.EventSource || !document.querySelector('[data-stream], [data-job]:not(#activity)')) return;
@@ -266,7 +267,7 @@ function abhyasaJobs() {
       if (d.obj === '*' || ks.includes('*') || ks.includes(d.obj) || ks.includes(d.key)) htmx.trigger(el, 'job');
     }
   };
-  es.addEventListener('end', shut);
+  es.addEventListener('end', e => { const a = document.getElementById('activity'); if (a && e.lastEventId) a.dataset.v = e.lastEventId; shut(); });
   es.onerror = shut;   // the parts ask every 30 s; the next swap opens a new stream
 }
 document.addEventListener('DOMContentLoaded', abhyasaJobs);

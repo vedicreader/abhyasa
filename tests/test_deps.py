@@ -12,9 +12,9 @@ def test_fossick_floor():
     assert Version(version('fossick')) >= Version('0.1.28')
 
 def test_store_floors():
-    "litesearch 0.1.62 gives `fold_text` and the notebook outputs. vishalakshi 0.1.40 needs rishi 0.1.71. vishalakshi 0.1.38 gives `slug`, `put`, `by_source`, `add_tree`, `crawl(scope=)` and the job `Ledger`."
+    "litesearch 0.1.65 defaults to the blink encoder. vishalakshi 0.1.41 opens a shelf with its recorded encoder."
     deps = tomllib.loads((Path(__file__).parents[1]/'pyproject.toml').read_text())['project']['dependencies']
-    for p, v in (('litesearch', '0.1.64'), ('vishalakshi', '0.1.40')):
+    for p, v in (('litesearch', '0.1.65'), ('vishalakshi', '0.1.41')):
         assert any(d.startswith(f'{p}>={v}') for d in deps), p
         assert Version(version(p)) >= Version(v), p
 

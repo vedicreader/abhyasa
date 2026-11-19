@@ -83,6 +83,7 @@ def test_learn_in_leela_writes_a_learning_copy_with_the_demos(mk, walk_fake, lr,
     jid, p, r = press(cl, lr, monkeypatch)   # the first press: no demo yet
     slug = lr.journey(jid).steps[1]['slug']
     from rupaka.spec import gallery
+    cl.app.state.svc['tutor'].jobs[slug].result(timeout=120)   # the press started the demo job of the step; it ends first, so the demo below is the newest
     lr.put_demo({**gallery()['reciprocal-rank-fusion'], 'id': 'noise-demo'}, slug, by='test')
     was = p.read_bytes()
     r = cl.post(f'/w/{jid}/notebook?i=1', follow_redirects=False)

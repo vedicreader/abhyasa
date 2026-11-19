@@ -24,6 +24,7 @@ def Inside(rows):
 
 def Chip(rows, v:int=0):
     """The activity chip: a small fold in the top bar while a job runs or a result is new. An event of the stream (`job`) loads its
-    inside again, so it opens and changes in place. `data-v` is `v`, the count of changes when the page was drawn."""
+    inside again, so it opens and changes in place. `data-v` is `v`, the count of changes when the page was drawn, and then the count that
+    the last stream read (core.js)."""
     return asset_css(_P/'jobs.css'), Details(*Inside(rows), id='activity', cls='activity', data_job='*', data_v=str(v),
                    hx_get=Routes.chip, hx_trigger='job', hx_swap='innerHTML')

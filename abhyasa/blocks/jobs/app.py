@@ -92,10 +92,12 @@ def connect(app, ctx):
     async def events(req, v:int=-1):
         """One event stream while a job runs. Each event is `{key, obj, state}`; the parts of the page that wait for that object load
         again. When no job runs, it sends `end` and closes, so a page with nothing to wait for keeps no connection. `v` is the count of
-        changes when the page was drawn: a change after it sends one event for every part."""
+        changes when the page was drawn: a change after it sends one event for every part. The `id` of `end` is the count of changes that
+        the stream read last, which the page sends as `v` for its next stream."""
         async def stream():
-            last, ups, t0 = None, {}, time.monotonic()
+            last, ups, t0, n = None, {}, time.monotonic(), v
             while time.monotonic() - t0 < MOST and not await req.is_disconnected():
+                n = await asyncio.to_thread(job_version, lr)   # before the rows: a change after this read is news to the next stream
                 rs = await asyncio.to_thread(lr.jobs)
                 out = await asyncio.to_thread(changes, rs, last, ups)
                 if last is None and v >= 0 and v != job_version(lr): out = [dict(key='*', obj='*', state='')]
@@ -103,7 +105,7 @@ def connect(app, ctx):
                 if not any(r.state == 'running' for r in rs.values()): break
                 last = {k: (r.state, r.get('said'), r.get('end'), r.get('halt')) for k, r in rs.items()}
                 await asyncio.sleep(TICK)
-            yield 'event: end\ndata: {}\n\n'
+            yield f'id: {n}\nevent: end\ndata: {{}}\n\n'
         return StreamingResponse(stream(), media_type='text/event-stream', headers={'Cache-Control': 'no-store'})
 
     app.get(Routes.chip)(inside)

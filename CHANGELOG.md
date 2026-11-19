@@ -21,7 +21,9 @@
 - Passages show `\(\Delta U\)` as maths. A source title shows `&` once, also when it was saved escaped.
 - The change box suggests a change that suits any walk.
 - A folder dropped while a file read is pending keeps its message.
+- The job event stream saves its last version when it ends. A completed builder turn no longer causes repeated event-stream requests. Later jobs and stream failures still refresh the page.
 - `abhyasa.contract` exports `tex_dollars`. `abhyasa.core.tex_dollars` still works. Leela imports it from the contract.
+- Abhyasa requires `litesearch>=0.1.65` and `vishalakshi>=0.1.41`. New indexes use the blink encoder. Existing shelves use their recorded encoder.
 
 ## 0.0.29
 
