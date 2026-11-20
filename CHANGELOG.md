@@ -2,6 +2,11 @@
 
 <!-- do not remove -->
 
+## 0.0.32
+
+- `/rupaka/listen-worklet.js` serves the AudioWorklet of Rupaka's `listen` block, beside `/rupaka/rupaka.js`. A demo with a `rhythm` round and a `listen` block times the learner's playing on the learner's device.
+- Abhyasa needs `rupaka>=0.0.23`. Rupaka 0.0.23 has the `rhythm` and `listen` blocks and `ctx.buffer`, which plays a recording from `/rupaka/media/` on the audio clock.
+
 ## 0.0.31
 
 - `put_demo(..., media=folder)` copies the media files of a demo into the vault, at `vault.assets()/demo-media/<sha256>.<ext>`.

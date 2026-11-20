@@ -14,6 +14,14 @@ def test_rupaka_served_offline(mk):
     assert js.status_code == 200 and "Rupaka.block('gate'" in js.text and 'immutable' in js.headers['cache-control']
     assert css.status_code == 200 and '--rk-fg' in css.text
 
+def test_listen_worklet_is_served_beside_rupaka_js(mk):
+    "The listen block loads its AudioWorklet from the folder of rupaka.js, so `/rupaka/listen-worklet.js` is the file in the rupaka package."
+    from importlib.resources import files
+    cl = mk()
+    r = cl.get('/rupaka/listen-worklet.js')
+    assert r.status_code == 200 and r.headers['content-type'].startswith('text/javascript')
+    assert r.text == (files('rupaka')/'static'/'listen-worklet.js').read_text() and "registerProcessor('rupaka-listen'" in r.text
+
 def aid_of(html): return re.search(r'data-ask="([0-9a-f]{12})"', html)[1]
 
 def test_the_concept_page_show_slot_makes_then_shows_the_demo(mk, lr):

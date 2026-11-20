@@ -3,6 +3,7 @@ concept page, the thread of a session, the card under a lesson, and "show me …
 is its one wait. The kind of each ask says why, and 3D and Leela are one click away.
 A 3D explainer is a rupaka scene. rupaka loads three.js from `Routes.three` only when a scene mounts, so a page with no scene never loads it."""
 import json, re
+from importlib.resources import files
 from fasthtml.common import *
 from fastcore.utils import AttrDict
 from starlette.responses import RedirectResponse, FileResponse
@@ -23,11 +24,13 @@ MEDIA_NAME = re.compile(r'[0-9a-f]{64}\.(%s)' % '|'.join(sorted({x for xs in MED
 def connect(app, ctx):
     lr, tutor = ctx.learning, ctx.tutor
     js, css, v = bundle('js'), bundle('css'), version()
+    worklet = (files('rupaka')/'static'/'listen-worklet.js').read_text()   # Rupaka.base + 'listen-worklet.js': the folder of rupaka.js
     cache = {'Cache-Control': 'public, max-age=31536000, immutable'}
 
     def rk_js(): return Response(js, media_type='text/javascript', headers=cache)
     def rk_css(): return Response(css, media_type='text/css', headers=cache)
     def rk_three(): return Response(three(), media_type='text/javascript', headers=cache)
+    def rk_listen(): return Response(worklet, media_type='text/javascript', headers=cache)
     three = lambda: _three.setdefault('js', bundle('three'))   # built on first use, from the copy in rupaka: no network
     _three = {}
 
@@ -165,7 +168,7 @@ def connect(app, ctx):
             c = lr.concept(r.concept)
             return ui.ShowCard(a, AttrDict(kind='demo', why='You missed it again. Predict first. Then the demo shows the rest.'), shown(a), leela_link(None, topic=c.name if c else r.concept, vault=lr.vault.path))   # the one card of Show
 
-    for r, f in ((Routes.js, rk_js), (Routes.css, rk_css), (Routes.three, rk_three), (Routes.media, media), (Routes.spec, spec)):
+    for r, f in ((Routes.js, rk_js), (Routes.css, rk_css), (Routes.three, rk_three), (Routes.listen, rk_listen), (Routes.media, media), (Routes.spec, spec)):
         app.get(r)(f)
         app.router.routes.insert(0, app.router.routes.pop())   # before fast_app's own `/{fname}.{ext:static}` route
     app.get(Routes.page)(page)
