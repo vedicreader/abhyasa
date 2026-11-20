@@ -10,7 +10,7 @@ supported-markers = [
 
 [[package]]
 name = "abhyasa"
-version = "0.0.30"
+version = "0.0.31"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
@@ -28,9 +28,9 @@ dependencies = [
     { name = "vidyut" },
     { name = "vishalakshi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/bc/4a35e29365f89fc609d583f4391e94198771e305edb1893ddc4781358574/abhyasa-0.0.30.tar.gz", hash = "sha256:b4d7fc15e52c3f93f976aafca96636f756152d3e35142d55fd82c7c64750a1de", size = 1672959, upload-time = "2026-11-19T03:49:49.114Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/65/51/2a1f8e651e9d6417857f3da258669f808ad65edcbc01f14915390872c59f/abhyasa-0.0.31.tar.gz", hash = "sha256:e7bf92d8b36c029ee93a7f1e6d93629a557e7e8417c128d692e764c155a38434", size = 1673904, upload-time = "2026-11-20T00:23:02.455Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/db/9845821aef850d4545ae45381681b75289ba3e4799077c3551c0873107cf/abhyasa-0.0.30-py3-none-any.whl", hash = "sha256:4507a0ee08dc7d3c898efa59e862f617da6eba932bdc4fe3edd51b7aed448448", size = 1742622, upload-time = "2026-11-19T03:49:47.053Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/36/11acd0e2c2457ec876e08505c9cdbd3bbfbce2af1b3efd40ee51873349b9/abhyasa-0.0.31-py3-none-any.whl", hash = "sha256:cd37cb328e15070882369c391dc69a93b0289b6f09b11809c3a82c7bb67b9a92", size = 1743534, upload-time = "2026-11-20T00:23:00.646Z" },
 ]
 
 [package.optional-dependencies]
@@ -54,7 +54,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models", "voice"], specifier = "==0.0.30" }]
+requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models", "voice"], specifier = "==0.0.31" }]
 
 [[package]]
 name = "adhara"
@@ -585,7 +585,7 @@ wheels = [
 
 [[package]]
 name = "fossick"
-version = "0.1.28"
+version = "0.1.30"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -601,9 +601,9 @@ dependencies = [
     { name = "scrapling", extra = ["fetchers"] },
     { name = "yt-dlp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/55/af/5a540f93413bfedaf30bf0a95a0a4a783de075bd5c2f0a21114c17be04a9/fossick-0.1.28.tar.gz", hash = "sha256:2e19a7a0d17222d9610414ad9916defd06975974ed0c70a2d2cd48d4aae80496", size = 109313, upload-time = "2026-11-09T23:51:51.353Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/03/a5/59455e520a7174c066743b6679f79844c54e837193d1e923058c366de8b8/fossick-0.1.30.tar.gz", hash = "sha256:054cb0b52845f6ac84b4e80b16568b206b79891934cc9128c01dae47662fa0f7", size = 110646, upload-time = "2026-11-18T05:03:27.58Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b4/27/0814881841cef84f0fcc42ad0ddade7ee3ed5a317d96f91d69d024e94573/fossick-0.1.28-py3-none-any.whl", hash = "sha256:41992535da417e17caddc3146a5ead59d26c8f764fce664017179a0d0313257b", size = 109468, upload-time = "2026-11-09T23:51:49.66Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/b2/74375f34614c48bdeacd7f38c0f5bfa4246faf6c5b6e258be9028b492d0a/fossick-0.1.30-py3-none-any.whl", hash = "sha256:17486cc21736a4bddcedc0d3928ff24788cbd6ea861e9130d148fef1a30d323f", size = 110740, upload-time = "2026-11-18T05:03:25.903Z" },
 ]
 
 [[package]]
@@ -1880,14 +1880,14 @@ wheels = [
 
 [[package]]
 name = "rupaka"
-version = "0.0.20"
+version = "0.0.22"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/be/88/9f027b2ef746bba039ea3a2a8169cf2cb382eae6674316027d1fc59901df/rupaka-0.0.20.tar.gz", hash = "sha256:9271647122b87f0442b15c84404f71bf141c14c1ef963c9bd702e0832ce5089b", size = 819319, upload-time = "2026-11-16T04:18:49.404Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/62/1d/dab41a0c2dc45a842590ed72e777f33a641b6c2649b0bdde1c4185c02f5d/rupaka-0.0.22.tar.gz", hash = "sha256:1e8110cee147bdf29dafc450ebe24192c37f2de9e43c0af949e5e150f68cc7ec", size = 839810, upload-time = "2026-11-20T00:20:59.911Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/40/99/e4afdb496645ba561f8f4064af4c6bd10800feb1966de865f77ed5cb0799/rupaka-0.0.20-py3-none-any.whl", hash = "sha256:6d5d8a936877c028d0f4ea2d01c69beab7382a2d4436685a45ee77b705eb5354", size = 875497, upload-time = "2026-11-16T04:18:47.647Z" },
+    { url = "https://files.pythonhosted.org/packages/33/75/0a86270a091fffab1b82f4af62d9de49d66caa50c5fc0db71e93219fad12/rupaka-0.0.22-py3-none-any.whl", hash = "sha256:0b731f4ed20257b39bc5b712fe03c93e716d1ac818ae3a9f74a992fcef19c972", size = 898539, upload-time = "2026-11-20T00:20:58.236Z" },
 ]
 
 [[package]]
@@ -1930,7 +1930,7 @@ wheels = [
 
 [[package]]
 name = "scrapling"
-version = "0.5"
+version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cssselect" },
@@ -1940,9 +1940,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "w3lib" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/af/96/2cf27c5c17cced99c18371c492cea4e1670159e1a8730af8735da0e4662a/scrapling-0.5.tar.gz", hash = "sha256:da9dfa45662996a9a62f20a8385314df93309aad330b8bb8b6372c9324938456", size = 187578, upload-time = "2026-10-17T21:44:26.901Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/eb/db/d961321c017e6a185a08816830c27941602b0da43ef797cfd2906d0ef17b/scrapling-0.5.1.tar.gz", hash = "sha256:210e2b96cf2a67b0bb77e3671b2767bbad4ba41444b9a12adea7fd735b8cabaa", size = 190871, upload-time = "2026-11-04T20:29:39.68Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2e/cb/ef02a29c69329b624ce7627b9d494e1348bb28c7e5b57bea657d1e1319e4/scrapling-0.5-py3-none-any.whl", hash = "sha256:366f0ec9f1e7e998900e6c5e3a4063ea34062326394ced64e5c389b690572726", size = 186730, upload-time = "2026-10-17T21:44:24.997Z" },
+    { url = "https://files.pythonhosted.org/packages/df/85/c1f45d4945606328ca3a2322c349618cfe39d0d99e3261ede8632314a09e/scrapling-0.5.1-py3-none-any.whl", hash = "sha256:c9eb0ef22a05e00e19827a179544fea2bc91b663585f637d428453d3b00ceb17", size = 189762, upload-time = "2026-11-04T20:29:38.19Z" },
 ]
 
 [package.optional-dependencies]
