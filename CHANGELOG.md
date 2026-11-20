@@ -2,6 +2,13 @@
 
 <!-- do not remove -->
 
+## 0.0.31
+
+- `put_demo(..., media=folder)` copies the media files of a demo into the vault, at `vault.assets()/demo-media/<sha256>.<ext>`.
+- `/rupaka/media/<name>` serves those files. A name must be a 64-character hash and one of Rupaka's media extensions. The file must be directly in the `demo-media` folder. The response sends `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'`.
+- Each demo card on a concept, walk, build or talk page plays its recordings from `/rupaka/media/`.
+- Abhyasa needs `rupaka>=0.0.21` and `fossick>=0.1.30`. fossick 0.1.28 asks ddgs for a `google` engine that ddgs 9.16.1 does not have.
+
 ## 0.0.30
 
 - The concept graph has a Tree layout. It shows subjects and prerequisites as branches, with a status word on each idea. You can close a branch, move with the arrow keys, and switch to a list view.
