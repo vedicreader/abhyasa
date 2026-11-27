@@ -17,9 +17,9 @@ from abhyasa.core import hook, run as run_hook, asset_css, asset_js, Page, n_of,
 from abhyasa.core.pane import pane_link
 from abhyasa.learner import track, job_said, prompt, profile_text
 from abhyasa.models import ramabana_lead, safe_query, ask_json, dflt_model
-from abhyasa.sources import named_sources, web_search, main_words, named_count
+from abhyasa.sources import named_sources, web_search
 from abhyasa.path import (walk_for_talk, file_chip, file_link, chip_state, move_step, edit_lock, edit_walk, undo_walk, lock_step, propose, improve_walk, chip_docs,
-                          passages as doc_passages)
+                          source_toc, source_read, source_search)
 from abhyasa.show import (GONE, fit_slides, code_piece, SOURCE_KEYS, fill_slides, talk_minutes, talk_from_walk, talk_again, talk_fresh, with_state, new_brief, shape_free, shape_split, brief_chips, brief_asks, make_demo as demo_maker, ROLES)
 from .events import Emit, fold, new_id
 from . import ui
@@ -37,6 +37,7 @@ CODE_DOCS, CODE_CHARS, CODE_SECS = 40, 120_000, 60   # the documents, the charac
 TURN_SECS = 15 * 60   # the most seconds of one turn: then it stops, and what it finished stays
 SHOW_NOTES = 160   # the most characters of the notes of one slide that show gives
 AGAIN_MOST = 2   # the most times that the agent makes one call that fails, with the same arguments: the first try and one more
+OUTLINE_DOCS = 8   # above this many documents, outline_sources gives only the top headings of each
 WAIT_FINDS = 'The owner keeps or drops the finds of research first. Do not call more tools; end the turn.'
 STYLE_ONLY = re.compile(r'\b(only (change )?the (language|words|wording)|change only the (language|words|wording)|just (change|modify) the (language|words|wording)|ASD-?STE ?-?100|simplified technical english|grade \d+ english|keep the content)\b', re.I)   # a change of the words only
 ASKS_RESEARCH = re.compile(r'\b(research|search the web|look on the web|find (extra|more|other) (material|sources))\b', re.I)   # the owner's words ask for research
@@ -813,16 +814,38 @@ def connect(app, ctx):
                     for _, ds in chip_docs(lr, [src['id']]): out.setdefault(src['role'], []).extend((src.get('name') or src['id'], d) for d in ds)
             return out
 
-        def passages(query:str,  # what to look for in the sources of the brief
-                     ) -> str:
-            "Passages, word for word, from the main and the extra sources of the brief, so that you can compare what they say."
-            out, ws = [], main_words(query)
-            rank = lambda c: named_count(f"{c.src.get('section') or ''} {c.text}", ws)
-            for role, ds in docs_by_role().items():   # the paragraphs of the documents of the brief, not a search of the whole vault
-                names = {d.doc_id: n for n, d in ds}
-                cs = doc_passages(lr, dict(steps=[], source=dict(docs=[dict(shelf=d.shelf, doc_id=d.doc_id) for _, d in ds])), name=query)
-                out += [f"[{role}] {names.get(c.src.get('doc_id'), '')} · {c.place}:\n{c.text[:700]}" for c in sorted(cs, key=rank, reverse=True) if rank(c)][:6]
-            return '\n\n'.join(out[:6]) or 'No passage of your sources names this.'
+        read_docs = {}   # the documents of each source that the reading tools filed, by chip id, for this conversation
+        def brief_docs(source:str='') -> list:
+            """The documents of the main and the extra sources of the brief, or of each one whose name holds `source`. A source is filed the first
+            time that it is read, and a link as a make files it; reading never changes the brief."""
+            ss = [s for s in rec().brief.get('sources') or [] if s.get('role') in ('main', 'extra') and source.lower() in (s.get('name') or s['id']).lower()]
+            if not ss: raise ValueError(f'No main or extra source of the brief is named {source}.' if source else 'The brief has no source. Add one with add_source.')
+            for s in ss:
+                if s['id'] in read_docs: continue
+                chips = [s['id']]
+                if s['id'].startswith('link:'): chips = filed(chips)   # a few pages of the site at most
+                elif not chip_docs(lr, chips): file_chip(lr, s['id'])
+                read_docs[s['id']] = [d for _, ds in chip_docs(lr, chips) for d in ds]
+            return [d for s in ss for d in read_docs[s['id']]]
+
+        def outline_sources(source:str='',    # the name of one source of the brief; empty gives each main and extra source
+                            document:str='',  # part of the title of one document of the source, to see only its sections
+                            ) -> str:
+            "The sections of the sources of the brief, each with its id. Read a long source part by part: the outline first, then read_section on the parts that you need."
+            ds = [d for d in brief_docs(source) if document.lower() in d.title.lower()]
+            if not ds: return f'No document of the sources has {document} in its title.' if document else 'The sources of the brief have no text that abhyasa could read.'
+            return source_toc(lr, ds, depth=3 if len(ds) <= OUTLINE_DOCS else 1) or 'The sources of the brief have no text that abhyasa could read.'
+
+        def read_section(node_id:str,  # the id of a section, from outline_sources or search_sources
+                         start:int=0,  # the first character to read; a long section says where to read on
+                         ) -> str:
+            "One section of a source of the brief, word for word, with its subsections."
+            return source_read(lr, brief_docs(), node_id, start)
+
+        def search_sources(query:str,  # a question, or the words to look for
+                           ) -> str:
+            "The sections of the sources of the brief that best match the query, best first, each with its id for read_section."
+            return source_search(lr, brief_docs(), query) or 'No section of the sources of the brief matches.'
 
         def note_conflict(main_quote:str,  # the words of the main source, copied word for word
                           extra_quote:str, # the words of the extra source that say something else, word for word
@@ -835,7 +858,7 @@ def connect(app, ctx):
                     except Exception: continue
                     if q and q in text: return dict(quote=q, title=d.title, role=f'{role} source', href=f'/v/{d.shelf}/{d.doc_id}')
             m, x = find('main', main_quote), find('extra', extra_quote)
-            if not m or not x: raise ValueError('Both quotes must be word for word from a main and an extra source. Use passages to copy them.')
+            if not m or not x: raise ValueError('Both quotes must be word for word from a main and an extra source. Use search_sources and read_section to copy them.')
             rule = rec().brief.get('rules') or ''
             won = f"I used the main source{' (your rule: ' + rule + ')' if rule else ''}."
             return f"Conflict noted: {m['title']} against {x['title']}. {won}", dict(main=m, extra=x, won=won)
@@ -845,7 +868,7 @@ def connect(app, ctx):
             already, so undo never takes it back again: it takes back the change before it."""
             return undo_of(rec(), 1)
 
-        return [add_source, set_source, set_brief, keep, free, show, make_talk, make_walk, change_talk, restyle_talk, edit_slide, set_poll, make_demo, change_walk, research, passages, note_conflict, undo]
+        return [add_source, set_source, set_brief, keep, free, show, make_talk, make_walk, change_talk, restyle_talk, edit_slide, set_poll, make_demo, change_walk, research, outline_sources, read_section, search_sources, note_conflict, undo]
 
     def edits_of(b) -> int:
         "The count of the changes in the history of the walk or the talk of conversation `b`."

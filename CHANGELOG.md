@@ -2,6 +2,14 @@
 
 <!-- do not remove -->
 
+## 0.0.33
+
+- The setting "Most ideas in a walk" (`walks.steps`) is a ceiling, not a fixed count. The planner and the walk map give as many steps as the goal or the source needs, from 3 up to the ceiling. The default ceiling is 12, and you can set it up to 20. Before, a walk had at most 7 steps.
+- A walk can now have more steps than before, so it can cost more model calls: each step gets a passage, a note and a check. Web research still looks for a source for at most 12 steps (`research.per_walk`).
+- `source_toc`, `source_read` and `source_search` read a long source part by part: the headings first, then one section by its id, then the next part of a long section. Each one reads only the documents that you give it.
+- The builder agent has three new tools on these functions: `outline_sources`, `read_section` and `search_sources`. They read only the main and the extra sources of the brief. A source that is not in the vault yet is filed the first time that the agent reads it, and reading never changes the brief.
+- The builder agent no longer has the `passages` tool. `search_sources` and `read_section` do its work: they find the words of a main and an extra source for `note_conflict`.
+
 ## 0.0.32
 
 - A walk to a goal that builds, makes or uses something opens with a `whole` step. The step runs a complete working version of the goal with a ready library or tool. The later steps open its parts, one layer at a time. A goal that is only to understand an idea gets no `whole` step.

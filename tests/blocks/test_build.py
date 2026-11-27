@@ -927,3 +927,30 @@ def test_the_talk_page_watches_its_builder(mk, lr, talk_fake, agent, home):
     w = cl.get(f'/build/{bid}/watch').text
     assert f'data-changes="{n0 + 1}"' in w and 'data-landed="' in w
     assert f'data-href="/t/{tid}"' in cl.get(f'/build/{bid}/chat').text   # a builder in its own tab names the page that it changes
+
+def test_the_builder_reads_a_long_source_part_by_part(mk, lr, agent, home):
+    "outline_sources files a source of the brief that is not filed yet and gives its sections with their ids; read_section gives one section and says where to read on; search_sources finds a section by meaning. A file outside the brief stays out, and a section that is not in the brief is refused."
+    from abhyasa.path import file_chip
+    book, other = home/'book.md', home/'pasta.md'
+    book.write_text('# Diffusion\n\nAn image model learns to undo noise.\n\n## Denoise\n\n' + ' '.join(f'At step {k}, a U-Net predicts the noise, and we take it away.' for k in range(200))
+                    + '\n\n## Sampling\n\nDDIM takes fewer steps than DDPM.\n')
+    other.write_text('# Pasta\n\nBoil the pasta in salted water.\n')
+    file_chip(lr, f'file:{other}')
+    cl = mk(); bid = new_build(cl)
+    agent.script = lambda t, p, s: t['add_source'](str(book), 'main')
+    say(cl, lr, bid, 'Use my book.')
+    got = []
+    def script(t, p, s):
+        got.append(t['outline_sources']())
+        nid = re.search(r'(\S+#\d+) Denoise', got[0]).group(1)
+        got.extend([t['read_section'](nid), t['read_section'](nid, start=6000), t['search_sources']('how does the model take away the noise'),
+                    t['read_section']('0000#1'), nid])
+        return 'Done.'
+    agent.script = script
+    say(cl, lr, bid, 'read my book')
+    toc, first, rest, hits, bad, nid = got
+    assert 'Denoise' in toc and 'Sampling' in toc and 'Pasta' not in toc
+    assert 'Denoise' in first and 'U-Net' in first and 'start=6000' in first and 'DDIM' not in first
+    assert 'U-Net' in rest and 'start=6000' not in rest
+    assert hits.startswith(nid) and 'Pasta' not in hits
+    assert bad.startswith('It did not work') and 'not a section' in bad

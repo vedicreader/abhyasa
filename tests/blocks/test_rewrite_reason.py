@@ -77,8 +77,8 @@ def test_the_reason_reaches_the_builder_and_it_does_not_retry_blindly(mk, lr, ta
     assert len([c for c in calls]) == 2   # the third and the fourth call did not run the model
     assert out[4].startswith('It did not work: Write at most') and 'characters' in out[4]
 
-def test_the_builder_passages_search_the_files_of_the_brief(mk, lr, talk_fake, agent, home):
-    "passages reads the documents of the brief, so a notebook that is one of many on its shelf still gives its passage."
+def test_the_builder_search_reads_the_files_of_the_brief(mk, lr, talk_fake, agent, home):
+    "search_sources reads the documents of the brief, so a notebook that is one of many on its shelf still gives its section."
     talk_fake.rules['You write one poll'] = POLL
     cl = mk(); bid = new_build(cl); nb = home/'talks'/'agents.ipynb'
     agent.script = make_talk_script(nb); say(cl, lr, bid, f'Make a talk from {nb}.')
@@ -87,6 +87,6 @@ def test_the_builder_passages_search_the_files_of_the_brief(mk, lr, talk_fake, a
         write_nb(new_nb([mk_cell(f'# Loop note {k}', 'markdown'), mk_cell(f'The agent loop. The agent loop runs. The agent loop, note {k}: the agent loop again and the agent loop once more.', 'markdown')]), p)
         file_chip(lr, f'file:{p}')
     got = []
-    agent.script = lambda t, p, s: got.append(t['passages']('the agent loop')) or 'Done.'
+    agent.script = lambda t, p, s: got.append(t['search_sources']('the agent loop')) or 'Done.'
     say(cl, lr, bid, 'what does it say about the loop?')
-    assert got[0].startswith('[main] agents.ipynb') and 'runs in a loop' in got[0]
+    assert 'runs in a loop' in got[0] and 'Loop note' not in got[0]
