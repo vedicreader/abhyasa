@@ -4,6 +4,10 @@
 
 ## 0.0.32
 
+- A walk to a goal that builds, makes or uses something opens with a `whole` step. The step runs a complete working version of the goal with a ready library or tool. The later steps open its parts, one layer at a time. A goal that is only to understand an idea gets no `whole` step.
+- `_plan_order` keeps the first `whole` step first, whatever it needs. It orders the other steps by their needs, as before. Only one step of a planned walk is `whole`.
+- After a pass on a later step, the feedback says which part of the working version of the `whole` step the idea explains. This line takes the place of the line on the next idea. Only step 0 counts: a `whole` step that you moved down or skipped gives no such line.
+- A course plan can open with a `whole` stage, before the foundation stages. A course has at most one. When the first stage that stays is a `whole` stage, or its walk opens with a `whole` step that you did not skip, that stage goes first and the planner adds no new `whole` stage.
 - `/rupaka/listen-worklet.js` serves the AudioWorklet of Rupaka's `listen` block, beside `/rupaka/rupaka.js`. A demo with a `rhythm` round and a `listen` block times the learner's playing on the learner's device.
 - Abhyasa needs `rupaka>=0.0.23`. Rupaka 0.0.23 has the `rhythm` and `listen` blocks and `ctx.buffer`, which plays a recording from `/rupaka/media/` on the audio clock.
 

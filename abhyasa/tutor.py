@@ -220,7 +220,8 @@ def grade_prompt(q, answer, thinking='', confidence=None):
     return (f"Concept: {q.name}\nCheck: {q.get('facet') or KIND_AT.get(q.depth, '')}\nQuestion: {q.question}\nModel answer (hidden from learner): {q.answer}\n"
             f"Core point (required, in any words): {core_of(q)}\nBonus points (they only raise the grade): {json.dumps(also, ensure_ascii=False)}\n"
             + (f"At this depth the answer also needs one bonus point to pass. When the core is met and no bonus point is, `feedback` says the core is right and asks one question that leads to the bonus point.\n" if q.depth >= 4 and also else '')
-            + (f"The next idea in the walk: {q.next_idea}. When the core is met, tie it to this idea in one line.\n" if q.get('next_idea') else '')
+            + (f"The walk opened with a working version: {q.whole}. When the core is met, say in one line which part of that working version this idea explains.\n" if q.get('whole')
+               else f"The next idea in the walk: {q.next_idea}. When the core is met, tie it to this idea in one line.\n" if q.get('next_idea') else '')
             + f"Known wrong ideas:\n{wrong_text(q.get('known_wrong'))}\n\nThe conversation so far, in order:\n{thread_text(q) or 'Tutor (question): ' + q.question}\n\n"
             f"Their latest message follows; it may be only a follow-up to the last tutor turn.\n"
             f"Learner's answer: {answer or '(none)'}\nLearner's think-aloud: {thinking or '(none)'}\nLearner's confidence: {'not given' if confidence is None else f'{confidence}/100'}\n\n"
@@ -411,8 +412,10 @@ def ask_on(self:Tutor, c, depth:int, why:str='', session:str='', mode:str=None, 
     q.update(ctx=ground_text(ps), grounds=[link_of(p) for p in ps], level=self.learning.level_of(c))
     q.known_wrong = wrong_ideas(c.get('wrong'))
     m = q.meta
-    if isinstance(m.get('step'), int) and m.get('walk') and (j := self.learning.journey(m['walk'])) and m['step'] + 1 < len(j.steps):   # the feedback ties a pass to the next idea
-        q.next_idea = (self.learning.concept(j.steps[m['step'] + 1]['slug']) or {}).get('name', '')
+    if isinstance(m.get('step'), int) and m.get('walk') and (j := self.learning.journey(m['walk'])):   # the feedback ties a pass to the working version that the walk opened with, else to the next idea
+        if m['step'] + 1 < len(j.steps): q.next_idea = (self.learning.concept(j.steps[m['step'] + 1]['slug']) or {}).get('name', '')
+        if m['step'] > 0 and (w := j.steps[0]).get('whole') and w.get('status') != 'skip':   # only a step 0 that you did not skip plays the whole game
+            q.whole = (self.learning.concept(w['slug']) or {}).get('name', w['slug']) + (f" ({w['makes']})" if w.get('makes') else '')
     if (ck := self.checks.pop(c['slug'], None)):   # the check of a lesson counts for the method of the lesson
         q.update(question=ck[0], answer=ck[1], core=f"the prediction follows from the lesson, for this reason: {c['core']}" if c.get('core') else 'the prediction follows from the lesson', ready=True, method=ck[2], why=f'{why}; the check from the lesson'.lstrip('; '))
         q.rubric = [q.core]
@@ -452,7 +455,7 @@ def _plain_q(ask, r, name) -> dict:
 
 def public(q) -> AttrDict:
     "A question as the learner can see it: no model answer, no rubric, no correct option, no misconception tags."
-    out = AttrDict({k: v for k, v in q.items() if k not in ('answer', 'rubric', 'correct', 'options', 'statement', 'ctx', 'grounds', 'who', 'level', 'core', 'also', 'wrong', 'known_wrong', 'next_idea')})
+    out = AttrDict({k: v for k, v in q.items() if k not in ('answer', 'rubric', 'correct', 'options', 'statement', 'ctx', 'grounds', 'who', 'level', 'core', 'also', 'wrong', 'known_wrong', 'next_idea', 'whole')})
     if q.get('options'): out.options = [o['text'] for o in q.options]
     return out
 

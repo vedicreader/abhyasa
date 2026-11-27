@@ -23,6 +23,20 @@ def test_capstone_follows_its_prerequisites(lr):
     assert [s['name'] for s in _plan_order(loop)] == ['A', 'B', 'C']
 
 
+def test_whole_game_step_opens_the_walk(lr):
+    steps = [dict(name='Latent diffusion', statement='A U-Net removes noise from VAE latents.', needs=['Noise prediction']),
+             dict(name='Noise prediction', statement='A network learns to predict the noise in an image.'),
+             dict(name='Run Stable Diffusion', statement='A diffusers pipeline turns a text prompt into an image.', whole=True,
+                  needs=['Latent diffusion', 'Noise prediction'], hands='notebook', makes='four images from a prompt')]
+    assert [s['name'] for s in _plan_order(steps)] == ['Run Stable Diffusion', 'Noise prediction', 'Latent diffusion']
+    assert [(s['name'], s['whole']) for s in _plan_order([dict(name='B', needs=['A'], whole=True), dict(name='A', whole=True)])] == [('B', True), ('A', False)]
+    fake = Fake({'You plan a learning path': dict(title='Diffusion', steps=steps), 'You choose passages': dict(choices=[None, None, None])})
+    saved = lr.journey(walk_from_topic(lr, fake, 'Make images with diffusion', near=False).id)
+    assert [s.get('whole', False) for s in saved.steps] == [True, False, False]
+    assert saved.steps[0]['check']['kind'] == 'notebook'
+    assert lr.concept(saved.steps[0]['slug']).prereqs == []
+
+
 def test_folder_passage_teaches_the_idea(lr, tmp_path):
     folder = tmp_path/'navamsa'
     folder.mkdir()
