@@ -72,8 +72,8 @@ requires-dist = [
     { name = "pocket-tts-mlx", marker = "extra == 'voice'", specifier = ">=0.3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.2" },
     { name = "python-fasthtml", specifier = ">=0.14.22" },
-    { name = "ramabana", specifier = ">=0.2.116" },
-    { name = "ramabana", marker = "extra == 'models'", specifier = ">=0.2.116" },
+    { name = "ramabana", specifier = ">=0.2.121" },
+    { name = "ramabana", marker = "extra == 'models'", specifier = ">=0.2.121" },
     { name = "rishi", extras = ["claude"], specifier = ">=0.1.71" },
     { name = "rupaka", specifier = ">=0.0.23" },
     { name = "rupaka", extras = ["check"], marker = "extra == 'demo'", specifier = ">=0.0.23" },
@@ -4256,7 +4256,7 @@ wheels = [
 
 [[package]]
 name = "ramabana"
-version = "0.2.116"
+version = "0.2.121"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "exhash" },
@@ -4270,9 +4270,9 @@ dependencies = [
     { name = "shalya" },
     { name = "uraiyadal" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ba/f2/96fe8d178347c4aebd2c22b69d07b38194eb4352535804ff0d83cbb9b84d/ramabana-0.2.116.tar.gz", hash = "sha256:3e33c90db08e0f8984969fa388b1990351de246f5535a4efff497fff21cf7c01", size = 421864, upload-time = "2026-11-13T02:51:20.96Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/2f/9e4b2a32831e181085e98f6dc07eedd6707194c3b9c8f1f55ce4be53ea6b/ramabana-0.2.121.tar.gz", hash = "sha256:16266fe22a9a7b15eacffb98be002214d295cad2e508bc06a490627df2f9dadc", size = 423828, upload-time = "2026-11-27T04:17:14.587Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/f6/98949e3b7ed37709185caaee1fdebbe944d2f092bbfd9efccfd42876ed46/ramabana-0.2.116-py3-none-any.whl", hash = "sha256:38f87af7643c5be8481b495f87bcb8b4f0b872822cf35a16440bb1b33d8b8ebe", size = 423730, upload-time = "2026-11-13T02:51:19.313Z" },
+    { url = "https://files.pythonhosted.org/packages/69/ee/8cde68d1950fb4a979e2c9a5dfd9f522b28b879d8592a9805c01ce927bc6/ramabana-0.2.121-py3-none-any.whl", hash = "sha256:24cfc908f649565bef6e04978d4c8ae25a61ae076e7973970df068d0f5533081", size = 425686, upload-time = "2026-11-27T04:17:13.181Z" },
 ]
 
 [[package]]

@@ -2,6 +2,10 @@
 
 <!-- do not remove -->
 
+## 0.0.35
+
+- The builder and the other agents that abhyasa makes no longer get the notes of your Ramabana beat. Before, a note such as "abhyasa-index: no callback registered" reached the builder, and it reported that note as the cause of a failed make. abhyasa needs `ramabana>=0.2.121`, which adds `Agent(beat=False)`.
+
 ## 0.0.34
 
 - The builder can now make a walk or a talk from an arXiv link or a PDF link. abhyasa files such a paper on the `papers` shelf, and the builder names it by the id of its document. Before, abhyasa looked for that id only on the main shelf, so it said that the source had no text to read. `Learning.find_doc` finds a document by its id on any shelf. `chip_docs`, `chip_state`, the Links panel of a talk, the walk page and the Add form use it.

@@ -319,7 +319,7 @@ def ramabana_lead(read_roots=(), tools:list=(), sp:str=WORKER_SP, turn:str=None,
     """`(agent, host)`: a new ramabana `Agent` made by ramabana's `mk_agent`, with its own read and web tools (`LEAD_TOOLS`) and its
     sub-agents (`delegate_search`, at most 4 at once in the whole tree), on the turn `dflt_model(turn)`. Its sub-agents run on ramabana's
     `subagent` route. The folders `read_roots` are open for reads only; its one folder that it may write is a new empty one. It has no
-    Python (`python='off'`), no vault, and no approvals listener, so each tool that writes is refused. The model sees only `LEAD_TOOLS` and
+    Python (`python='off'`), no vault, no beat notes, and no approvals listener, so each tool that writes is refused. The model sees only `LEAD_TOOLS` and
     the tools named in `tools`, when the caller adds them. The caps: `max_calls` tool calls in the whole tree, `max_steps` model steps,
     `max_tokens` tokens and `max_cost` dollars for a turn, and `minutes` for a sub-agent. With `web=False` it has no tool that reaches the web (`WEB_TOOLS`)."""
     import tempfile
@@ -330,7 +330,7 @@ def ramabana_lead(read_roots=(), tools:list=(), sp:str=WORKER_SP, turn:str=None,
     a, host = mk_agent((scratch,), routing=Routing(turn=dflt_model(turn)), approve='ask', web=web, pii='redact', python='off',
                        read_roots=tuple(str(r) for r in read_roots), cfg=None, sp=sp, only_tools=[*lead, *tools], subagents=web,
                        subagent_writes=False, subagent_steps=SUB_STEPS, subagent_timeout=minutes * 60, subagent_depth=1, extensions=False,
-                       global_skills=False, learned=False, compact=False, poll_every=0, auto_turns='off',
+                       global_skills=False, learned=False, beat=False, compact=False, poll_every=0, auto_turns='off',
                        max_tool_calls=max_calls, max_steps=max_steps, max_cost=max_cost, max_tokens=max_tokens)
     host.scratch = scratch
     return a, host
