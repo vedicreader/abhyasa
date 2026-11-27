@@ -10,7 +10,7 @@ supported-markers = [
 
 [[package]]
 name = "abhyasa"
-version = "0.0.34"
+version = "0.0.35"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fastcore" },
@@ -28,9 +28,9 @@ dependencies = [
     { name = "vidyut" },
     { name = "vishalakshi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2f/78/9cd74cc9e178488703091942aeffaaf242a92f78bcf820b544388d971bfb/abhyasa-0.0.34.tar.gz", hash = "sha256:15cd0255525b9717b1e6fc8fc4bd87eec8c4126d6048235a918be20b1a41bb77", size = 1677799, upload-time = "2026-11-27T04:02:30.834Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5d/e6/03d66355cc999468346ada666b1171b9e7ca830a4f7f8e852092b4d20e0e/abhyasa-0.0.35.tar.gz", hash = "sha256:4878d8812c06e86be736f6561365a3d71cd4cfeeef9b2934811d6c39ab135021", size = 1677864, upload-time = "2026-11-27T04:34:48.363Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b8/2f/536ccdb2122ee7ed70d728d8b5d1c89b9363e59031a2dfe83da3951696e1/abhyasa-0.0.34-py3-none-any.whl", hash = "sha256:89cb416016b415fd51d5472c2f12bdc13141c2520059efd62f960a671a820dc3", size = 1746766, upload-time = "2026-11-27T04:02:28.834Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/30/f5caa6f5942a2fedc9cedb1ce3e32737c8d8d6f2b713b45e65cd45e65c4b/abhyasa-0.0.35-py3-none-any.whl", hash = "sha256:f5c640ad74555f4a26a7a9643eea2fb58877e4a25e2a8dc6fc68894693d4e778", size = 1746782, upload-time = "2026-11-27T04:34:46.626Z" },
 ]
 
 [package.optional-dependencies]
@@ -54,7 +54,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models", "voice"], specifier = "==0.0.34" }]
+requires-dist = [{ name = "abhyasa", extras = ["whisper", "tick", "models", "voice"], specifier = "==0.0.35" }]
 
 [[package]]
 name = "adhara"
@@ -1721,7 +1721,7 @@ wheels = [
 
 [[package]]
 name = "ramabana"
-version = "0.2.116"
+version = "0.2.121"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "exhash" },
@@ -1735,9 +1735,9 @@ dependencies = [
     { name = "shalya" },
     { name = "uraiyadal" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ba/f2/96fe8d178347c4aebd2c22b69d07b38194eb4352535804ff0d83cbb9b84d/ramabana-0.2.116.tar.gz", hash = "sha256:3e33c90db08e0f8984969fa388b1990351de246f5535a4efff497fff21cf7c01", size = 421864, upload-time = "2026-11-13T02:51:20.96Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/2f/9e4b2a32831e181085e98f6dc07eedd6707194c3b9c8f1f55ce4be53ea6b/ramabana-0.2.121.tar.gz", hash = "sha256:16266fe22a9a7b15eacffb98be002214d295cad2e508bc06a490627df2f9dadc", size = 423828, upload-time = "2026-11-27T04:17:14.587Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/26/f6/98949e3b7ed37709185caaee1fdebbe944d2f092bbfd9efccfd42876ed46/ramabana-0.2.116-py3-none-any.whl", hash = "sha256:38f87af7643c5be8481b495f87bcb8b4f0b872822cf35a16440bb1b33d8b8ebe", size = 423730, upload-time = "2026-11-13T02:51:19.313Z" },
+    { url = "https://files.pythonhosted.org/packages/69/ee/8cde68d1950fb4a979e2c9a5dfd9f522b28b879d8592a9805c01ce927bc6/ramabana-0.2.121-py3-none-any.whl", hash = "sha256:24cfc908f649565bef6e04978d4c8ae25a61ae076e7973970df068d0f5533081", size = 425686, upload-time = "2026-11-27T04:17:13.181Z" },
 ]
 
 [[package]]
