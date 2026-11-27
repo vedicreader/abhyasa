@@ -391,7 +391,7 @@ def connect(app, ctx):
 
     def names_of(t):
         "The title of each `doc:` chip of talk `t`, for the Links panel and the handout."
-        return {c: d['title'] for c in chips_of(t) if str(c).startswith('doc:') and (d := lr.vault.doc(c[4:]))}
+        return {c: d['title'] for c in chips_of(t) if str(c).startswith('doc:') and (d := lr.find_doc(c[4:])[1])}
 
     def links_of(t, **kw): return ui.Links(t, link_rows(t, chips_of(t)), names=names_of(t), **kw)
 
@@ -443,13 +443,14 @@ def connect(app, ctx):
     def doc_figures(doc_id, seen):
         "The figures in the text of document `doc_id`, as (image id, caption), in the order of the text. `seen` keeps each document looked up once for each render."
         if doc_id in seen: return seen[doc_id]
-        try: row = lr.vault.doc(doc_id) or {}
-        except Exception: row = {}
+        try: sh, row = lr.find_doc(doc_id)
+        except Exception: sh, row = None, None
+        row = row or {}
         key = (doc_id, row.get('added_at'), row.get('hash'))
         if key not in figs:
             out = []
             try:
-                d = lr.vault.document(doc_id, max_chars=400000, disk=False)
+                d = lr.doc_shelf(sh or lr.vault.name).document(doc_id, max_chars=400000, disk=False)   # a paper is on the papers shelf
                 for alt, link in IMG_LINK.findall(d.text or ''):
                     if (f := figure_path(lr, d.source or '', link)): out.append((f'asset:{f}', ' '.join(no_marks(alt).split())))
             except Exception: pass

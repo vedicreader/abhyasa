@@ -345,7 +345,7 @@ def connect(app, ctx):
     def file_chip(i, st):
         "On the pool: say in `st` what the chip id `i` files, then file it (`walk_engine.file_chip`). Returns (name, docs)."
         kind, _, v = i.partition(':')
-        name = Path(v).name if kind in ('folder', 'repo', 'file') else (lr.vault.doc(v) or {}).get('title') or v if kind == 'doc' else v
+        name = Path(v).name if kind in ('folder', 'repo', 'file') else (lr.find_doc(v)[1] or {}).get('title') or v if kind == 'doc' else v
         if kind in ('folder', 'repo'):
             fs = [] if folder_why(v) else tree_files(v)
             nb = sum(p.suffix == '.ipynb' for p in fs)

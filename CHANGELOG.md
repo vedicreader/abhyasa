@@ -2,6 +2,11 @@
 
 <!-- do not remove -->
 
+## 0.0.34
+
+- The builder can now make a walk or a talk from an arXiv link or a PDF link. abhyasa files such a paper on the `papers` shelf, and the builder names it by the id of its document. Before, abhyasa looked for that id only on the main shelf, so it said that the source had no text to read. `Learning.find_doc` finds a document by its id on any shelf. `chip_docs`, `chip_state`, the Links panel of a talk, the walk page and the Add form use it.
+- A talk from an arXiv paper now shows the figures of the paper. Before, abhyasa looked for the paper only on the main shelf and found no figures.
+
 ## 0.0.33
 
 - The setting "Most ideas in a walk" (`walks.steps`) is a ceiling, not a fixed count. The planner and the walk map give as many steps as the goal or the source needs, from 3 up to the ceiling. The default ceiling is 12, and you can set it up to 20. Before, a walk had at most 7 steps.

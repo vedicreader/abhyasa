@@ -142,7 +142,8 @@ def chip_docs(lr:Learning, chips) -> list:
     for i in chips or ():
         kind, _, v = str(i).partition(':')
         if kind == 'doc':
-            if (d := lr.vault.doc(v)): out.append((d['title'], L([AttrDict(shelf='store', doc_id=d['id'], title=d['title'], url=d['source'])])))
+            sh, d = lr.find_doc(v)
+            if d: out.append((d['title'], L([AttrDict(shelf=sh, doc_id=d['id'], title=d['title'], url=d['source'])])))
             continue
         if kind == 'file':
             if (ds := path_docs(lr, v)): out.append((Path(v).name, ds))
@@ -2404,8 +2405,9 @@ def is_goal_walk(j) -> bool:
 def chip_state(lr:Learning, chip:str) -> AttrDict|None:
     "What the vault has for chip id `chip`: `count` (its documents), `name` (a title or a file name) and `href` (its vault page or its link); None when it has nothing."
     kind, _, v = str(chip).partition(':')
-    if kind == 'doc' and (d := lr.vault.doc(v)):
-        return AttrDict(count=1, name=d['title'], href=f"/v/{lr.vault.name}/{d['id']}", doc_id=d['id'], page=d['source'] if str(d.get('source') or '').startswith('http') else '')
+    sh, d = lr.find_doc(v) if kind == 'doc' else (None, None)
+    if d:
+        return AttrDict(count=1, name=d['title'], href=f"/v/{sh}/{d['id']}", doc_id=d['id'], page=d['source'] if str(d.get('source') or '').startswith('http') else '')
     if kind == 'link' and (d := lr.vault.by_source(v)): return AttrDict(count=1, name=d['title'] or v, href=f"/v/{lr.vault.name}/{d['id']}", doc_id=d['id'], page=v)
     ds = [d for _, x in chip_docs(lr, [chip]) for d in x]
     return AttrDict(count=len(ds), name=ds[0].title if len(ds) == 1 else v.rstrip('/').rsplit('/', 1)[-1], href=v if kind == 'link' else '') if ds else None

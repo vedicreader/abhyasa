@@ -277,7 +277,7 @@ def connect(app, ctx):
         said, more = [], []
         for e in (x.strip() for x in extra if x.strip()):
             if e.startswith('doc:'):   # a dropped file, filed in the vault
-                if d := lr.vault.doc(e[4:]): more.append(AttrDict(kind='doc', name=d['title'], path='', count=None, filed=True, id=e))
+                if d := lr.find_doc(e[4:])[1]: more.append(AttrDict(kind='doc', name=d['title'], path='', count=None, filed=True, id=e))
                 continue
             got = named_sources(e, docs, nm, rv)
             more += got

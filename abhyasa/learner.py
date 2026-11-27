@@ -539,6 +539,14 @@ def doc_shelf(self:Learning, name:str):
     if name in (self.vault.name, self.v.name): return self.vault if name == self.vault.name else self.v
     return self.vault.shelf(name, create=False) if name else None
 
+@patch
+def find_doc(self:Learning, ref:str) -> tuple:
+    "`(shelf name, row)` of document `ref`: on the main shelf as `Vault.doc` finds it, else the document with the id `ref` on another shelf. `(None, None)` when no shelf has it."
+    if (d := self.vault.doc(ref)): return self.vault.name, d
+    for n in self.vault.shelf_names():
+        if n != self.vault.name and (sh := self.doc_shelf(n)) is not None and first(sh.t.docs(where='id=?', where_args=[ref])): return n, sh.doc(ref)   # by id only: a title match on another shelf is a guess
+    return None, None
+
 # %% ../nbs/00_learner.ipynb #c015
 @patch
 def concept(self:Learning, slug:str) -> AttrDict|None:
